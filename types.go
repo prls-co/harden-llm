@@ -74,20 +74,42 @@ const (
 
 // ObservabilityContext carries trace-only correlation dimensions. It is never
 // part of cache identity.
-type ObservabilityContext map[string]string
+type ObservabilityContext struct {
+	TaskID         string
+	TaskSlug       string
+	ItemID         string
+	RunID          string
+	OrganizationID string
+	QuerySetID     string
+	Environment    string
+	Release        string
+	PromptLabels   []string
+	Tags           map[string]string
+	Metadata       map[string]string
+}
 
 // RetryPolicy controls the total provider-attempt budget.
 type RetryPolicy struct {
-	MaxAttempts       int
-	InitialBackoff    time.Duration
-	MaximumBackoff    time.Duration
-	BackoffMultiplier float64
-	JitterFraction    float64
-	RetryNetwork      bool
-	RetryRateLimit    bool
-	RetryServerError  bool
-	RetryEmpty        bool
-	RetryParse        bool
+	MaxAttempts      int
+	InitialBackoff   time.Duration
+	MaximumBackoff   time.Duration
+	RetryNetwork     *bool
+	RetryRateLimit   *bool
+	RetryServerError *bool
+	RetryEmpty       *bool
+	RetryParse       *bool
+	StructuredRepair StructuredRepairPolicy
+}
+
+type StructuredRepairPolicy struct {
+	Enabled    bool
+	Escalation *RepairEscalation
+}
+
+type RepairEscalation struct {
+	Attempt         int
+	ModelID         string
+	ReasoningEffort ReasoningEffort
 }
 
 // Attempt is safe, normalized metadata for one provider invocation.

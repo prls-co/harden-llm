@@ -287,6 +287,33 @@
       "sourceSHA256": "9f76b6ddd24fba61f13dba8e6ea690a4891185fd4c465a1e726d58b9d6b7544d"
     }
   ],
+  "intentionalDifferences": [
+    {
+      "adr": "ADR-HLLM-001",
+      "fixtures": [
+        "source/examples/basic-text-golden.json",
+        "source/examples/structured-golden.json"
+      ],
+      "id": "detailed-go-result",
+      "mode": "intentional-difference",
+      "note": "Source direct output is compared to Result.Output; Go metadata derives from the same normalized call record.",
+      "tests": [
+        "TEST-006"
+      ]
+    },
+    {
+      "adr": "ADR-HLLM-002",
+      "fixtures": [
+        "generated/source-contract.json"
+      ],
+      "id": "typed-root-surface",
+      "mode": "intentional-difference",
+      "note": "The target exposes one typed Call path instead of the JavaScript export inventory.",
+      "tests": [
+        "TEST-002"
+      ]
+    }
+  ],
   "manifestSchemaVersion": 1,
   "source": {
     "gitSHA": "9d0492b070f1f45a6ea63eeecd7942a8aef8ae71",

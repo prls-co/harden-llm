@@ -231,6 +231,24 @@ const manifest = {
     canonicalJSON: true,
     liveCredentialsUsed: false,
   },
+  intentionalDifferences: [
+    {
+      id: "detailed-go-result",
+      mode: "intentional-difference",
+      tests: ["TEST-006"],
+      fixtures: ["source/examples/basic-text-golden.json", "source/examples/structured-golden.json"],
+      adr: "ADR-HLLM-001",
+      note: "Source direct output is compared to Result.Output; Go metadata derives from the same normalized call record.",
+    },
+    {
+      id: "typed-root-surface",
+      mode: "intentional-difference",
+      tests: ["TEST-002"],
+      fixtures: ["generated/source-contract.json"],
+      adr: "ADR-HLLM-002",
+      note: "The target exposes one typed Call path instead of the JavaScript export inventory.",
+    },
+  ],
   fixtures: captured,
 };
 await writeFile(path.join(outputRoot, "manifest.json"), canonicalJSON(manifest), { mode: 0o644 });

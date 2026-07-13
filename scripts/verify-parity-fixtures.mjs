@@ -57,6 +57,11 @@ if (!/^[0-9a-f]{40}$/.test(manifest.source?.gitSHA ?? "")) {
 if (!Array.isArray(manifest.fixtures) || manifest.fixtures.length === 0) {
   fail("manifest must contain at least one fixture");
 }
+for (const difference of manifest.intentionalDifferences ?? []) {
+  if (difference.mode !== "intentional-difference" || !/^ADR-HLLM-\d{3}$/.test(difference.adr ?? "") || !String(difference.note ?? "").trim()) {
+    fail(`intentional difference ${String(difference.id)} must name its mode, ADR, and note`);
+  }
+}
 
 const manifestPaths = new Set();
 const classes = new Map();

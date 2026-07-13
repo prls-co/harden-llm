@@ -3,7 +3,8 @@
   "plan": "PLAN-HARDEN-LLM-SELF-HOSTED-001",
   "testSpecification": "SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001",
   "completedPhases": [
-    "P00"
+    "P00",
+    "P01"
   ],
   "phases": {
     "P00": {
@@ -12,7 +13,12 @@
       "requirements": ["REQ-001", "REQ-018", "REQ-019"],
       "tests": ["TEST-001", "TEST-002", "TEST-003", "TEST-004", "TEST-005"]
     },
-    "P01": { "status": "pending" },
+    "P01": {
+      "status": "complete",
+      "completedAt": "2026-07-13T09:01:27Z",
+      "requirements": ["REQ-002", "REQ-003", "REQ-006", "REQ-007", "REQ-019"],
+      "tests": ["TEST-006", "TEST-007", "TEST-008", "TEST-009", "TEST-010", "TEST-011"]
+    },
     "P02": { "status": "pending" },
     "P03": { "status": "pending" },
     "P04": { "status": "pending" },
@@ -40,5 +46,15 @@
     "npm": "9.2.0",
     "docker": "29.1.3",
     "compose": "2.40.3"
-  }
+  },
+  "acceptedDeviations": [
+    {
+      "adr": "ADR-HLLM-001",
+      "summary": "Security and persistence projections replace source infrastructure details while portable semantics remain parity-gated."
+    },
+    {
+      "adr": "ADR-HLLM-002",
+      "summary": "One typed Go Client.Call surface replaces the broad JavaScript export inventory."
+    }
+  ]
 }
