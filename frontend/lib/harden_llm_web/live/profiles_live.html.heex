@@ -1,0 +1,301 @@
+<Layouts.app flash={@flash} current_scope={@current_scope} current_identity={@current_identity}>
+  <main id="profiles-page" class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">
+          Configuration
+        </p>
+        <h1 class="mt-1 text-3xl font-semibold tracking-tight text-slate-950">Profiles</h1>
+        <p class="mt-2 max-w-2xl text-sm text-slate-600">
+          Endpoints, model interfaces, pricing status, and write-only credentials remain backend-owned.
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a
+          id="export-bundle"
+          href={~p"/profiles/bundle"}
+          class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-600"
+        >
+          <.icon name="hero-arrow-down-tray" class="size-4" /> Export bundle
+        </a>
+        <button
+          id="new-profile"
+          type="button"
+          phx-click="new"
+          class="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600"
+        >
+          <.icon name="hero-plus" class="size-4" /> New profile
+        </button>
+      </div>
+    </div>
+
+    <div
+      :if={@operation_error}
+      id="profiles-error"
+      role="alert"
+      class="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900"
+    >
+      {@operation_error}
+    </div>
+
+    <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="font-semibold text-slate-950">Import encrypted bundle</h2>
+          <p class="mt-1 text-xs text-slate-500">
+            JSON only, at most 2 MiB. The file is sent once and never persisted here.
+          </p>
+        </div>
+        <form
+          id="bundle-import-form"
+          phx-submit="import-bundle"
+          phx-change="validate-bundle"
+          class="flex flex-wrap items-center gap-2"
+        >
+          <label for={@uploads.bundle.ref} class="sr-only">Encrypted profile bundle JSON</label>
+          <.live_file_input
+            upload={@uploads.bundle}
+            class="max-w-64 text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-semibold"
+          />
+          <button
+            id="bundle-import-submit"
+            type="submit"
+            class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold hover:bg-slate-50"
+          >Import</button>
+        </form>
+      </div>
+      <p :for={error <- upload_errors(@uploads.bundle)} class="mt-2 text-xs text-rose-700">
+        {Phoenix.Naming.humanize(error)}
+      </p>
+    </section>
+
+    <section class="min-w-0 max-w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div :if={@loading?} id="profiles-loading" role="status" class="p-8 text-sm text-slate-500">
+        Loading profiles…
+      </div>
+      <div class="w-full max-w-full overflow-x-auto overscroll-x-contain">
+        <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+          <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th scope="col" class="px-5 py-3">Profile</th>
+              <th scope="col" class="hidden px-5 py-3 sm:table-cell">Interface</th>
+              <th scope="col" class="hidden px-5 py-3 sm:table-cell">Endpoint</th>
+              <th scope="col" class="hidden px-5 py-3 sm:table-cell">Credential</th>
+              <th scope="col" class="hidden px-5 py-3 sm:table-cell">Models</th>
+              <th scope="col" class="px-5 py-3"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="profiles" phx-update="stream" class="divide-y divide-slate-100">
+            <tr id="profiles-empty" class="hidden only:table-row">
+              <td colspan="6" class="px-5 py-10 text-center text-slate-500">
+                No profiles configured.
+              </td>
+            </tr>
+            <tr
+              :for={{dom_id, profile_state} <- @streams.profiles}
+              id={dom_id}
+              class="align-top hover:bg-slate-50/70"
+            >
+              <td class="max-w-56 px-5 py-4">
+                <p
+                  class="break-words font-semibold text-slate-950"
+                  title={profile_state["profile"]["llmProfile"]}
+                >
+                  {profile_state["profile"]["llmProfile"]}
+                </p>
+                <p class="mt-1 text-xs text-slate-500">{profile_state["profile"]["provider"]}</p>
+              </td>
+              <td
+                class="hidden max-w-48 break-words px-5 py-4 text-xs text-slate-600 sm:table-cell"
+                title={profile_state["profile"]["apiInferenceType"]}
+              >
+                {profile_state["profile"]["apiInferenceType"]}
+              </td>
+              <td
+                class="hidden max-w-56 break-words px-5 py-4 text-xs text-slate-600 sm:table-cell"
+                title={profile_host(profile_state)}
+              >
+                {profile_host(profile_state)}
+              </td>
+              <td class="hidden px-5 py-4 text-xs text-slate-600 sm:table-cell">
+                {if profile_state["credential"]["configured"],
+                  do: "Configured",
+                  else: "Not configured"}
+              </td>
+              <td class="hidden px-5 py-4 text-xs text-slate-600 sm:table-cell">
+                {models_count(profile_state)}
+              </td>
+              <td class="whitespace-nowrap px-3 py-4 sm:px-5">
+                <div class="flex justify-end gap-1">
+                  <button
+                    type="button"
+                    phx-click="refresh"
+                    phx-value-id={profile_state["profile"]["llmProfile"]}
+                    title="Refresh models"
+                    aria-label="Refresh models"
+                    class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600"
+                  ><.icon name="hero-arrow-path" class="size-4" /></button>
+                  <button
+                    type="button"
+                    phx-click="edit"
+                    phx-value-id={profile_state["profile"]["llmProfile"]}
+                    title="Edit profile"
+                    aria-label="Edit profile"
+                    class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-teal-600"
+                  ><.icon name="hero-pencil-square" class="size-4" /></button>
+                  <button
+                    type="button"
+                    phx-click="confirm-delete"
+                    phx-value-id={profile_state["profile"]["llmProfile"]}
+                    title="Delete profile"
+                    aria-label="Delete profile"
+                    class="rounded-lg p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-600"
+                  ><.icon name="hero-trash" class="size-4" /></button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div
+      :if={@editing?}
+      id="profile-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="profile-dialog-title"
+      class="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 p-4 backdrop-blur-sm"
+    >
+      <section class="my-6 w-full max-w-3xl rounded-2xl bg-white p-6 shadow-2xl">
+        <div class="mb-5 flex items-center justify-between gap-4">
+          <h2 id="profile-dialog-title" class="text-xl font-semibold text-slate-950">
+            Profile configuration
+          </h2>
+          <button
+            id="profile-dialog-close"
+            type="button"
+            phx-click="cancel-edit"
+            aria-label="Close profile editor"
+            autofocus
+            class="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+          ><.icon name="hero-x-mark" class="size-5" /></button>
+        </div>
+        <.form for={@form} id="profile-form" phx-submit="save" class="space-y-4">
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+              <.input field={@form[:profileId]} label="Profile name" required /><.field_error message={
+                field_error(@field_errors, "llmProfile")
+              } />
+            </div>
+            <div>
+              <.input field={@form[:provider]} label="Provider family" required /><.field_error message={
+                field_error(@field_errors, "provider")
+              } />
+            </div>
+            <div>
+              <.input
+                field={@form[:apiInferenceType]}
+                type="select"
+                label="API interface"
+                options={[
+                  {"OpenAI Responses", "responses"},
+                  {"OpenAI chat completions", "chat-completions"},
+                  {"Gemini generate content", "gemini-generate-content"},
+                  {"Anthropic messages", "anthropic-messages"}
+                ]}
+              /><.field_error message={field_error(@field_errors, "apiInferenceType")} />
+            </div>
+            <div>
+              <.input field={@form[:modelId]} label="Default model" required /><.field_error message={
+                field_error(@field_errors, "modelId")
+              } />
+            </div>
+          </div>
+          <div>
+            <.input field={@form[:baseUrl]} type="url" label="HTTPS base URL" required /><.field_error message={
+              field_error(@field_errors, "baseUrl")
+            } />
+          </div>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+              <.input field={@form[:credentialId]} label="Credential ID" required /><.field_error message={
+                field_error(@field_errors, "credentialId")
+              } />
+            </div>
+            <div>
+              <.input
+                field={@form[:apiKey]}
+                type="password"
+                label="Replacement credential (leave blank to keep current)"
+                autocomplete="new-password"
+              /><.field_error message={field_error(@field_errors, "credential.apiKey")} />
+            </div>
+          </div>
+          <.input field={@form[:backupProfiles]} label="Backup profiles (comma separated)" />
+          <div class="flex flex-wrap gap-5">
+            <.input
+              field={@form[:supportsTemperature]}
+              type="checkbox"
+              label="Supports temperature"
+            />
+            <.input
+              field={@form[:supportsContractedStructuredOutput]}
+              type="checkbox"
+              label="Supports structured output"
+            />
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              phx-click="cancel-edit"
+              class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700"
+            >Cancel</button>
+            <button
+              id="profile-save"
+              type="submit"
+              disabled={not is_nil(@pending)}
+              class="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
+            >Save and probe</button>
+          </div>
+        </.form>
+      </section>
+    </div>
+
+    <div
+      :if={@delete_id}
+      id="profile-delete-dialog"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="profile-delete-title"
+      aria-describedby="profile-delete-description"
+      class="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4"
+    >
+      <section class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <h2 id="profile-delete-title" class="text-lg font-semibold text-slate-950">
+          Delete profile?
+        </h2>
+        <p id="profile-delete-description" class="mt-2 break-words text-sm text-slate-600">
+          The backend will reject deletion if another profile still references
+          <strong>{@delete_id}</strong>
+          as a backup.
+        </p>
+        <div class="mt-6 flex justify-end gap-2">
+          <button
+            id="profile-delete-cancel"
+            type="button"
+            phx-click="cancel-delete"
+            autofocus
+            class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold"
+          >Cancel</button>
+          <button
+            id="profile-delete-confirm"
+            type="button"
+            phx-click="delete"
+            class="rounded-xl bg-rose-700 px-4 py-2 text-sm font-semibold text-white"
+          >Delete</button>
+        </div>
+      </section>
+    </div>
+  </main>
+</Layouts.app>

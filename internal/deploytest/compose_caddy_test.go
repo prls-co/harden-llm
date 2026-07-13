@@ -270,6 +270,9 @@ func assertCaddyContract(t *testing.T, path, extensionDir string) {
 	if count := strings.Count(text, "import /etc/caddy/conf.d/*.caddy"); count != 1 {
 		t.Errorf("trusted conf.d import count = %d, want 1", count)
 	}
+	if count := strings.Count(text, "import /etc/caddy/overlays/*.frontend"); count != 1 {
+		t.Errorf("trusted frontend overlay import count = %d, want 1", count)
+	}
 	for _, forbidden := range []string{"file_server", "root *", "php_fastcgi", "garage:3901", "garage:3903"} {
 		if strings.Contains(strings.ToLower(text), forbidden) {
 			t.Errorf("Caddyfile contains forbidden route/directive %q", forbidden)

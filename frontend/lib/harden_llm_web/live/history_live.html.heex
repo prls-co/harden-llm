@@ -1,0 +1,242 @@
+<Layouts.app flash={@flash} current_scope={@current_scope} current_identity={@current_identity}>
+  <main id="history-page" class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">Audit trail</p>
+        <h1 class="mt-1 text-3xl font-semibold tracking-tight text-slate-950">
+          History and traces
+        </h1>
+        <p class="mt-2 max-w-2xl text-sm text-slate-600">
+          Restore safe request fields, inspect redacted observations, and authorize short-lived artifact downloads.
+        </p>
+      </div>
+      <button
+        id="clear-history"
+        type="button"
+        phx-click="confirm-clear"
+        class="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-600"
+      >
+        <.icon name="hero-trash" class="size-4" /> Clear history
+      </button>
+    </div>
+
+    <div
+      :if={@operation_error}
+      id="history-error"
+      role="alert"
+      class="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900"
+    >
+      {@operation_error}
+    </div>
+
+    <section class="min-w-0 max-w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div :if={@loading?} id="history-loading" role="status" class="p-8 text-sm text-slate-500">
+        Loading history…
+      </div>
+      <div class="w-full max-w-full overflow-x-auto overscroll-x-contain">
+        <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+          <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th scope="col" class="px-5 py-3">Run</th>
+              <th scope="col" class="hidden px-5 py-3 sm:table-cell">Profile</th>
+              <th scope="col" class="hidden px-5 py-3 sm:table-cell">Status</th>
+              <th scope="col" class="hidden px-5 py-3 sm:table-cell">Completed</th>
+              <th scope="col" class="px-5 py-3"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="history" phx-update="stream" class="divide-y divide-slate-100">
+            <tr id="history-empty" class="hidden only:table-row">
+              <td colspan="5" class="px-5 py-10 text-center text-slate-500">No history yet.</td>
+            </tr>
+            <tr :for={{dom_id, item} <- @streams.history} id={dom_id} class="hover:bg-slate-50/70">
+              <td class="max-w-64 px-5 py-4">
+                <p
+                  class="truncate font-mono text-xs font-medium text-slate-800"
+                  title={item["runId"]}
+                >
+                  {item["runId"]}
+                </p><p
+                  class="mt-1 truncate font-mono text-[11px] text-slate-400"
+                  title={item["traceId"]}
+                >
+                  {item["traceId"]}
+                </p>
+                <span class="mt-2 inline-flex rounded-full border border-slate-200 px-2 py-0.5 text-[11px] font-medium sm:hidden">
+                  {item["status"]}
+                </span>
+              </td>
+              <td class="hidden max-w-48 px-5 py-4 sm:table-cell">
+                <span class="block truncate" title={item["profileId"]}>{item["profileId"]}</span>
+              </td>
+              <td class="hidden px-5 py-4 sm:table-cell">
+                <span class="rounded-full border border-slate-200 px-2.5 py-1 text-xs font-medium">{item[
+                  "status"
+                ]}</span>
+              </td>
+              <td class="hidden whitespace-nowrap px-5 py-4 text-xs text-slate-500 sm:table-cell">
+                {item["completedAt"]}
+              </td>
+              <td class="whitespace-nowrap px-3 py-4 sm:px-5">
+                <div class="flex justify-end gap-1">
+                  <button
+                    type="button"
+                    phx-click="restore"
+                    phx-value-run-id={item["runId"]}
+                    title="Restore to workspace"
+                    aria-label="Restore to workspace"
+                    class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600"
+                  ><.icon name="hero-arrow-uturn-left" class="size-4" /></button>
+                  <button
+                    type="button"
+                    phx-click="open-trace"
+                    phx-value-trace-id={item["traceId"]}
+                    title="Open trace"
+                    aria-label="Open trace"
+                    class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-teal-600"
+                  ><.icon name="hero-eye" class="size-4" /></button>
+                  <button
+                    type="button"
+                    phx-click="delete"
+                    phx-value-run-id={item["runId"]}
+                    title="Delete history item"
+                    aria-label="Delete history item"
+                    class="rounded-lg p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-600"
+                  ><.icon name="hero-x-mark" class="size-4" /></button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div :if={@next_cursor} class="border-t border-slate-200 p-4 text-center">
+        <button
+          id="history-load-more"
+          type="button"
+          phx-click="load-more"
+          disabled={not is_nil(@pending)}
+          class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50"
+        >Load more</button>
+      </div>
+    </section>
+
+    <div
+      :if={@selected_trace_id}
+      id="trace-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="trace-title"
+      class="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-4 backdrop-blur-sm"
+    >
+      <section class="mx-auto my-6 w-full max-w-5xl rounded-2xl bg-white p-6 shadow-2xl">
+        <div class="mb-5 flex items-start justify-between gap-4">
+          <div class="min-w-0">
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+              Domain trace
+            </p>
+            <h2
+              id="trace-title"
+              class="mt-1 truncate font-mono text-lg font-semibold text-slate-950"
+              title={@selected_trace_id}
+            >
+              {@selected_trace_id}
+            </h2>
+          </div>
+          <button
+            id="trace-dialog-close"
+            type="button"
+            phx-click="close-trace"
+            aria-label="Close trace"
+            autofocus
+            class="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+          ><.icon name="hero-x-mark" class="size-5" /></button>
+        </div>
+        <div
+          :if={@trace_state == :loading}
+          id="trace-loading"
+          role="status"
+          class="rounded-xl bg-slate-50 p-6 text-sm text-slate-500"
+        >
+          Loading trace…
+        </div>
+        <div
+          :if={@trace_state == :error}
+          id="trace-error"
+          role="alert"
+          class="rounded-xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-900"
+        >
+          This trace is temporarily unavailable. Close this dialog and try again.
+        </div>
+        <div :if={@trace_state == :ready && @trace} class="space-y-6">
+          <section>
+            <h3 class="mb-3 text-sm font-semibold text-slate-950">Observations</h3>
+            <ol id="trace-observations" class="space-y-3">
+              <li
+                :for={observation <- @trace["observations"] || []}
+                id={"observation-#{observation["sequence"]}"}
+                class="grid gap-3 rounded-xl border border-slate-200 p-4 sm:grid-cols-[7rem_minmax(0,1fr)]"
+              >
+                <div>
+                  <p class="text-xs font-semibold text-slate-800">#{observation["sequence"]}</p><p class="mt-1 break-words text-xs text-slate-500">
+                    {observation["type"]}
+                  </p>
+                </div>
+                <pre class="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-slate-950 p-3 text-xs text-slate-100"><%= observation_data(observation) %></pre>
+              </li>
+            </ol>
+          </section>
+          <section>
+            <h3 class="mb-3 text-sm font-semibold text-slate-950">Artifacts</h3>
+            <div id="trace-artifacts" class="grid gap-3 sm:grid-cols-2">
+              <a
+                :for={artifact <- @trace["artifacts"] || []}
+                id={"artifact-#{artifact["artifactId"]}"}
+                href={~p"/traces/#{@selected_trace_id}/artifacts/#{artifact["artifactId"]}"}
+                class="group rounded-xl border border-slate-200 p-4 transition hover:border-teal-300 hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-600"
+              >
+                <span class="flex items-center gap-2 font-medium text-slate-900"><.icon
+                  name="hero-document-arrow-down"
+                  class="size-4 text-teal-700"
+                /> {artifact["kind"]}</span>
+                <span class="mt-2 block text-xs text-slate-500">{artifact["sizeBytes"]} bytes · SHA-256 verified</span>
+              </a>
+            </div>
+          </section>
+        </div>
+      </section>
+    </div>
+
+    <div
+      :if={@clear_confirm?}
+      id="clear-history-dialog"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="clear-history-title"
+      aria-describedby="clear-history-description"
+      class="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4"
+    >
+      <section class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <h2 id="clear-history-title" class="text-lg font-semibold text-slate-950">
+          Clear all history?
+        </h2>
+        <p id="clear-history-description" class="mt-2 text-sm text-slate-600">
+          This also removes dependent domain trace metadata. The action cannot be undone.
+        </p>
+        <div class="mt-6 flex justify-end gap-2">
+          <button
+            id="clear-history-cancel"
+            type="button"
+            phx-click="cancel-clear"
+            autofocus
+            class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold"
+          >Cancel</button>
+          <button
+            id="clear-history-confirm"
+            type="button"
+            phx-click="clear"
+            class="rounded-xl bg-rose-700 px-4 py-2 text-sm font-semibold text-white"
+          >Clear all</button>
+        </div>
+      </section>
+    </div>
+  </main>
+</Layouts.app>

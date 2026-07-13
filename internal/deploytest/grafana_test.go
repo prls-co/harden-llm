@@ -45,15 +45,28 @@ func TestGrafanaArtifacts(t *testing.T) {
 
 	providerConfig := readYAMLObject(t, filepath.Join(root, "provisioning", "dashboards", "dashboards.yaml"))
 	providers := sliceField(t, providerConfig, "providers")
-	if len(providers) != 1 {
-		t.Fatalf("dashboard provider count = %d, want 1", len(providers))
+	if len(providers) != 2 {
+		t.Fatalf("dashboard provider count = %d, want 2", len(providers))
 	}
-	provider := asObject(t, providers[0], "dashboard provider")
-	if stringField(t, provider, "type") != "file" || boolField(t, provider, "editable") || !boolField(t, provider, "disableDeletion") {
-		t.Fatalf("dashboard provider is not immutable: %#v", provider)
+	wantProviderPaths := map[string]bool{
+		"/var/lib/grafana/dashboards":          false,
+		"/var/lib/grafana/frontend-dashboards": false,
 	}
-	if stringField(t, objectField(t, provider, "options"), "path") != "/var/lib/grafana/dashboards" {
-		t.Fatalf("dashboard provider path = %#v", provider)
+	for _, raw := range providers {
+		provider := asObject(t, raw, "dashboard provider")
+		if stringField(t, provider, "type") != "file" || boolField(t, provider, "editable") || !boolField(t, provider, "disableDeletion") {
+			t.Fatalf("dashboard provider is not immutable: %#v", provider)
+		}
+		path := stringField(t, objectField(t, provider, "options"), "path")
+		if _, ok := wantProviderPaths[path]; !ok {
+			t.Fatalf("unexpected dashboard provider path = %#v", provider)
+		}
+		wantProviderPaths[path] = true
+	}
+	for path, found := range wantProviderPaths {
+		if !found {
+			t.Errorf("dashboard provider path %q is missing", path)
+		}
 	}
 
 	dashboardPath := filepath.Join(root, "dashboards", "harden-llm-overview.json")

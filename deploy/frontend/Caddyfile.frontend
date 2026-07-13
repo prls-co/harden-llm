@@ -1,0 +1,13 @@
+{$HARDEN_LLM_WEB_HOST} {
+	tls {$HARDEN_LLM_TLS_MODE}
+	import security_headers
+
+	@private_metrics path /metrics
+	respond @private_metrics 404
+
+	request_body {
+		max_size 3MB
+	}
+
+	reverse_proxy harden-llm-web:4000
+}

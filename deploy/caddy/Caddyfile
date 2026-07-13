@@ -58,3 +58,4 @@
 }
 
 import /etc/caddy/conf.d/*.caddy
+import /etc/caddy/overlays/*.frontend

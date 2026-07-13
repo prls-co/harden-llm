@@ -1,0 +1,87 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "harden-prometheus"},
+      "description": "Phoenix request rate by bounded route and outcome.",
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [{"expr": "sum(rate(harden_llm_web_http_requests[5m])) by (route, outcome)", "legendFormat": "{{route}} {{outcome}}", "refId": "A"}],
+      "title": "Web Request Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "harden-prometheus"},
+      "description": "Phoenix p95 request latency by bounded route.",
+      "fieldConfig": {"defaults": {"unit": "ms"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(harden_llm_web_http_request_duration_milliseconds_bucket[5m])) by (le, route))", "legendFormat": "p95 {{route}}", "refId": "A"}],
+      "title": "Web Request Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "harden-prometheus"},
+      "description": "Phoenix-to-gateway REST operations and failures.",
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "id": 3,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [{"expr": "sum(rate(harden_llm_web_api_requests[5m])) by (operation, status_class, outcome)", "legendFormat": "{{operation}} {{status_class}} {{outcome}}", "refId": "A"}],
+      "title": "Backend REST Operations",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "harden-prometheus"},
+      "description": "LiveView callback latency without event-name cardinality.",
+      "fieldConfig": {"defaults": {"unit": "ms"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "id": 4,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(harden_llm_web_live_view_event_duration_milliseconds_bucket[5m])) by (le, live_view))", "legendFormat": "p95 {{live_view}}", "refId": "A"}],
+      "title": "LiveView Event Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "harden-loki"},
+      "description": "Correlated, redacted frontend JSON logs.",
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "id": 5,
+      "options": {"dedupStrategy": "none", "enableLogDetails": true, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true},
+      "targets": [{"expr": "{service_name=\"harden-llm-web\"} | json", "refId": "A"}],
+      "title": "Web Correlated Logs",
+      "type": "logs"
+    },
+    {
+      "datasource": {"type": "tempo", "uid": "harden-tempo"},
+      "description": "Recent Phoenix and LiveView traces.",
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "id": 6,
+      "options": {},
+      "targets": [{"expr": "{ resource.service.name = \"harden-llm-web\" }", "queryType": "traceql", "refId": "A"}],
+      "title": "Recent Web Traces",
+      "type": "traces"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["harden-llm", "frontend", "provisioned"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Harden LLM Web",
+  "uid": "harden-llm-web",
+  "version": 1,
+  "weekStart": ""
+}

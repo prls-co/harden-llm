@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/prls-co/harden-llm/internal/gateway"
 	"github.com/prls-co/harden-llm/internal/gateway/auth"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 const (
@@ -53,6 +54,7 @@ type API struct {
 	maxRunDuration   time.Duration
 	operationTimeout time.Duration
 	telemetry        *gateway.Telemetry
+	propagator       propagation.TextMapPropagator
 	logger           *slog.Logger
 	handler          http.Handler
 }
@@ -106,7 +108,9 @@ func New(config Config) (*API, error) {
 		auth: config.Auth, readiness: append([]ReadinessCheck(nil), config.Readiness...),
 		resources: config.Resources, runs: config.Runs, maxRunDuration: config.MaxRunDuration,
 		operationTimeout: config.OperationTimeout,
-		telemetry:        config.Telemetry, logger: config.Logger,
+		telemetry:        config.Telemetry,
+		propagator:       propagation.TraceContext{},
+		logger:           config.Logger,
 	}
 	api.handler = api.router()
 	return api, nil
@@ -146,7 +150,11 @@ func (api *API) router() http.Handler {
 
 func (api *API) observeHTTP(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		ctx, endRequest := api.telemetry.StartHTTP(request.Context(), request.Method)
+		parentContext := api.propagator.Extract(
+			request.Context(),
+			propagation.HeaderCarrier(request.Header),
+		)
+		ctx, endRequest := api.telemetry.StartHTTP(parentContext, request.Method)
 		statusWriter := &responseStatusWriter{ResponseWriter: writer, status: http.StatusOK}
 		next.ServeHTTP(statusWriter, request.WithContext(ctx))
 		route := chi.RouteContext(request.Context()).RoutePattern()

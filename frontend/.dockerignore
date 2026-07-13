@@ -1,0 +1,8 @@
+_build
+deps
+test
+tmp
+.git
+.gitignore
+AGENTS.md
+README.md

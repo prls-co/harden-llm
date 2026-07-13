@@ -11,6 +11,7 @@ migration path.
 | [ADR-HLLM-001](ADR-HLLM-001-intentional-portability-differences.md) | Accepted | Define the intentional JS-to-Go security and persistence projections. |
 | [ADR-HLLM-002](ADR-HLLM-002-root-public-api.md) | Accepted | Replace the JavaScript export inventory with one typed Go call surface. |
 | [ADR-HLLM-008](ADR-HLLM-008-rest-process-contract.md) | Accepted | Complete the redacted profile-read, historical-run, and process-bind contracts. |
+| [ADR-HLLM-009](ADR-HLLM-009-liveview-security-patch.md) | Accepted | Replace the planned LiveView 1.2.6 pin with the upstream 1.2.7 security release. |
 
 The remaining planned deviation triggers are ADR-HLLM-003 through ADR-HLLM-007
 in the canonical implementation plan. Create one of those records only when its

@@ -78,7 +78,7 @@ func TestCollectorPipelines(t *testing.T) {
 			receivers: []string{"otlp"}, processors: []string{"memory_limiter", "attributes/redact", "batch/tempo"}, exporters: []string{"otlp/tempo"},
 		},
 		"traces/langfuse": {
-			receivers: []string{"otlp"}, processors: []string{"memory_limiter", "attributes/redact", "tail_sampling/langfuse", "batch/langfuse"}, exporters: []string{"otlphttp/langfuse"},
+			receivers: []string{"otlp"}, processors: []string{"memory_limiter", "attributes/redact", "filter/langfuse", "tail_sampling/langfuse", "batch/langfuse"}, exporters: []string{"otlphttp/langfuse"},
 		},
 		"metrics": {
 			receivers: []string{"otlp"}, processors: []string{"memory_limiter", "attributes/redact", "batch/metrics"}, exporters: []string{"prometheus"},

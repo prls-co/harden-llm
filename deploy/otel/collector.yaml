@@ -41,6 +41,11 @@ processors:
         action: delete
       - key: server.address
         action: delete
+  filter/langfuse:
+    error_mode: ignore
+    traces:
+      span:
+        - 'resource.attributes["service.name"] != "harden-llm-gateway"'
   tail_sampling/langfuse:
     decision_wait: 75s
     num_traces: 20000
@@ -157,6 +162,7 @@ service:
       processors:
         - memory_limiter
         - attributes/redact
+        - filter/langfuse
         - tail_sampling/langfuse
         - batch/langfuse
       exporters:

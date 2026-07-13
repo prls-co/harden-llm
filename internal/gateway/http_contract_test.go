@@ -13,8 +13,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prls-co/harden-llm/internal/gateway"
 	"github.com/prls-co/harden-llm/internal/gateway/auth"
 	"github.com/prls-co/harden-llm/internal/gateway/httpapi"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
 func TestHTTPContract(t *testing.T) {
@@ -117,6 +120,43 @@ func TestHTTPContract(t *testing.T) {
 	panicBody := unreadBody(t, panicRecorder.Body.Bytes())
 	if panicRecorder.Code != http.StatusInternalServerError || panicBody["error"].(map[string]any)["code"] != "internal_error" || strings.Contains(panicRecorder.Body.String(), "panic-secret") {
 		t.Fatalf("panic response = %d %s", panicRecorder.Code, panicRecorder.Body.String())
+	}
+}
+
+func TestHTTPTraceContextPropagation(t *testing.T) {
+	exporter := tracetest.NewInMemoryExporter()
+	tracerProvider := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+	t.Cleanup(func() { _ = tracerProvider.Shutdown(context.Background()) })
+	telemetry, err := gateway.NewTelemetry(tracerProvider, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	api, err := httpapi.New(httpapi.Config{Auth: &fakeHTTPAuth{}, Telemetry: telemetry})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	request.Header.Set(
+		"traceparent",
+		"00-0123456789abcdef0123456789abcdef-0123456789abcdef-01",
+	)
+	recorder := httptest.NewRecorder()
+	api.Handler().ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("health response status = %d", recorder.Code)
+	}
+
+	spans := exporter.GetSpans()
+	if len(spans) != 1 {
+		t.Fatalf("gateway HTTP span count = %d, want 1", len(spans))
+	}
+	span := spans[0]
+	if got := span.SpanContext.TraceID().String(); got != "0123456789abcdef0123456789abcdef" {
+		t.Fatalf("gateway trace ID = %s", got)
+	}
+	if got := span.Parent.SpanID().String(); got != "0123456789abcdef" || !span.Parent.IsRemote() {
+		t.Fatalf("gateway parent = %s remote=%t", got, span.Parent.IsRemote())
 	}
 }
 
