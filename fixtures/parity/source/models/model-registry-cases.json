@@ -1,0 +1,170 @@
+{
+  "deprecatedModels": [
+    "gemini-1.5-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-3.1-flash-lite-preview",
+    "gemini-3.1-flash-lite-preview-min",
+    "gemini-3.1-flash-lite-preview-L",
+    "gemini-3.1-flash-lite-preview-M",
+    "gemini-3.1-flash-lite-preview-H",
+    "gemini-3-flash-preview-min",
+    "gemini-3-flash-preview-L",
+    "gemini-3-flash-preview-M",
+    "gemini-3-flash-preview-H",
+    "gpt-5-nano-2025-08-07-reasoning-low",
+    "gpt-5-nano-2025-08-07-reasoning-medium",
+    "gpt-5-nano-2025-08-07-reasoning-high",
+    "gpt-5-mini-2025-08-07-reasoning-low",
+    "gpt-5-mini-2025-08-07-reasoning-medium",
+    "gpt-5-mini-2025-08-07-reasoning-high",
+    "gpt-5-2025-08-07-reasoning-low",
+    "gpt-5-2025-08-07-reasoning-medium",
+    "gpt-5-2025-08-07-reasoning-high",
+    "openai/gpt-oss-120b-reasoning-low",
+    "openai/gpt-oss-120b-reasoning-medium",
+    "openai/gpt-oss-120b-reasoning-high",
+    "openai/gpt-oss-20b-reasoning-low",
+    "openai/gpt-oss-20b-reasoning-medium",
+    "openai/gpt-oss-20b-reasoning-high"
+  ],
+  "expectedSecrets": [
+    "OPENAI_API_KEY",
+    "GEMINI_API_KEY",
+    "SAMBANOVA_API_KEY",
+    "LAMBDA_API_KEY",
+    "PERPLEXITY_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GROQ_API_KEY",
+    "OPENROUTER_API_KEY",
+    "CEREBRAS_API_KEY",
+    "DEEPINFRA_API_KEY",
+    "NOVITA_API_KEY",
+    "SHAMAN_LITELLM_API_KEY",
+    "SHAMAN_LITELLM_CF_ACCESS_CLIENT_ID",
+    "SHAMAN_LITELLM_CF_ACCESS_CLIENT_SECRET"
+  ],
+  "pricing": {
+    "modelId": "gpt-4.1-nano",
+    "priceDataKey": "gpt-4.1"
+  },
+  "requiredModels": [
+    {
+      "modelId": "gpt-4.1-nano",
+      "provider": "openai"
+    },
+    {
+      "modelId": "gemini-3.1-pro-preview",
+      "provider": "google"
+    },
+    {
+      "modelId": "gemini-3-flash-preview",
+      "provider": "google"
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "provider": "google"
+    },
+    {
+      "modelId": "gemini-3.1-flash-lite",
+      "provider": "google"
+    },
+    {
+      "modelId": "gemini-2.5-flash",
+      "provider": "google"
+    },
+    {
+      "modelId": "gemini-2.5-flash-lite",
+      "provider": "google"
+    },
+    {
+      "modelId": "gemini-2.5-pro",
+      "provider": "google"
+    },
+    {
+      "modelId": "test-model",
+      "provider": "google"
+    },
+    {
+      "modelId": "openrouter-deepseek-v4-flash",
+      "provider": "openrouter"
+    },
+    {
+      "modelId": "openrouter-deepseek-v4-pro",
+      "provider": "openrouter"
+    },
+    {
+      "modelId": "openrouter-gpt-oss-120b",
+      "provider": "openrouter"
+    },
+    {
+      "modelId": "openrouter-gpt-oss-20b",
+      "provider": "openrouter"
+    },
+    {
+      "modelId": "claude-opus-4-7",
+      "provider": "anthropic"
+    },
+    {
+      "modelId": "claude-sonnet-4-6",
+      "provider": "anthropic"
+    },
+    {
+      "modelId": "claude-haiku-4-5-20251001",
+      "provider": "anthropic"
+    },
+    {
+      "modelId": "sonar-pro",
+      "provider": "perplexity"
+    },
+    {
+      "modelId": "sonar-reasoning-pro",
+      "provider": "perplexity"
+    },
+    {
+      "modelId": "sonar-deep-research",
+      "provider": "perplexity"
+    },
+    {
+      "modelId": "deepseek/deepseek-v4-flash",
+      "provider": "novita"
+    },
+    {
+      "modelId": "deepseek/deepseek-v4-pro",
+      "provider": "novita"
+    },
+    {
+      "modelId": "gpt-5.4",
+      "provider": "shaman-litellm"
+    },
+    {
+      "modelId": "gpt-5.4-mini",
+      "provider": "shaman-litellm"
+    },
+    {
+      "modelId": "gpt-5.5",
+      "provider": "shaman-litellm"
+    },
+    {
+      "modelId": "openai-gpt-5.4-mini",
+      "provider": "openai"
+    },
+    {
+      "modelId": "openai-gpt-5.4",
+      "provider": "openai"
+    },
+    {
+      "modelId": "openai-gpt-5.5",
+      "provider": "openai"
+    }
+  ],
+  "requiredProviders": [
+    "openai",
+    "google",
+    "openrouter",
+    "anthropic",
+    "cerebras",
+    "deepinfra",
+    "novita",
+    "shaman-litellm"
+  ]
+}

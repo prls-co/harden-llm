@@ -1,0 +1,21 @@
+{
+  "apiInferenceTypes": [
+    "chat-completions",
+    "responses",
+    "gemini-generate-content",
+    "anthropic-messages"
+  ],
+  "defaultDiscoveryTimeoutMs": 10000,
+  "defaultOperationCacheVersion": "operation-v2",
+  "defaultRunTimeoutMs": 60000,
+  "endpointCredentialScopes": [
+    "global",
+    "user"
+  ],
+  "operationCacheRecordSchemaVersion": "utility-llm.operation-cache-record.v2",
+  "operationSchemaVersion": "utility-llm.operation.v1",
+  "packageName": "@prls-co/utility-llm",
+  "packageVersion": "0.12.18",
+  "profileSchemaVersion": 1,
+  "sourceGitSHA": "9d0492b070f1f45a6ea63eeecd7942a8aef8ae71"
+}

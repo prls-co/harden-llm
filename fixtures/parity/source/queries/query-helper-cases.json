@@ -1,0 +1,119 @@
+{
+  "failure": {
+    "args": {
+      "runId": "run-1",
+      "suiteId": "suite-1"
+    },
+    "expected": {
+      "filters": [
+        {
+          "field": "testRunId",
+          "op": "==",
+          "value": "run-1"
+        },
+        {
+          "field": "lastErrorCategory",
+          "op": "!=",
+          "value": null
+        },
+        {
+          "field": "testRunSuite",
+          "op": "==",
+          "value": "suite-1"
+        }
+      ],
+      "limit": 50,
+      "orderBy": [
+        {
+          "direction": "asc",
+          "field": "lastErrorCategory"
+        },
+        {
+          "direction": "desc",
+          "field": "createdAt"
+        }
+      ],
+      "runId": "run-1",
+      "suiteId": "suite-1"
+    }
+  },
+  "payloadPathCases": [
+    {
+      "expected": "payload.json",
+      "input": {
+        "payloadPath": "payload.json"
+      },
+      "name": "payloadPath wins"
+    },
+    {
+      "expected": "raw.json",
+      "input": {
+        "rawResponsePath": "raw.json"
+      },
+      "name": "rawResponsePath fallback"
+    },
+    {
+      "expected": "latest.json",
+      "input": {
+        "attemptMeta": [
+          {
+            "rawResponsePath": "older.json"
+          },
+          {
+            "rawResponsePath": "latest.json"
+          }
+        ]
+      },
+      "name": "attemptMeta newest raw path wins"
+    },
+    {
+      "expected": "legacy.json",
+      "input": {
+        "attemptsMeta": [
+          {
+            "rawResponsePath": "legacy.json"
+          }
+        ]
+      },
+      "name": "legacy attemptsMeta fallback"
+    },
+    {
+      "expected": null,
+      "input": {},
+      "name": "missing payload returns undefined"
+    }
+  ],
+  "trace": {
+    "args": {
+      "runId": "run-2",
+      "suiteId": "step11"
+    },
+    "expected": {
+      "filters": [
+        {
+          "field": "testRunId",
+          "op": "==",
+          "value": "run-2"
+        },
+        {
+          "field": "testRunSuite",
+          "op": "==",
+          "value": "step11"
+        }
+      ],
+      "limit": 150,
+      "orderBy": [
+        {
+          "direction": "asc",
+          "field": "lastErrorCategory"
+        },
+        {
+          "direction": "desc",
+          "field": "createdAt"
+        }
+      ],
+      "runId": "run-2",
+      "suiteId": "step11"
+    }
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "input": {
+    "context": {
+      "parentCollection": "orgCompanyProduct",
+      "parentId": "product-parity",
+      "runId": "product-parity",
+      "taskId": "task-success-existing-current",
+      "traceId": "trace-success-existing-current"
+    },
+    "currentStats": {
+      "cachedCost": 0,
+      "cachedCount": 0,
+      "failureCount": 1,
+      "maxCallDurationMs": 20,
+      "maxOverBudgetMs": 5,
+      "overBudgetCount": 1,
+      "successCount": 2,
+      "timeoutCount": 1,
+      "totalCallDurationMs": 100,
+      "totalCost": 0.5,
+      "totalCount": 4,
+      "totalOutputTokens": 6,
+      "totalPromptTokens": 40
+    },
+    "traceData": {
+      "lastErrorCategory": null,
+      "overBudgetMs": 42,
+      "totalCallDurationMs": 1234,
+      "usage": {
+        "items": {
+          "cacheCreationInput": {
+            "ratePerToken": 0.00000125,
+            "tokens": 2
+          },
+          "cacheReadInput": {
+            "ratePerToken": 2e-7,
+            "tokens": 3
+          },
+          "input": {
+            "ratePerToken": 0.000001,
+            "tokens": 10
+          },
+          "output": {
+            "ratePerToken": 0.000002,
+            "tokens": 7
+          },
+          "reasoningOutput": {
+            "ratePerToken": 0.000003,
+            "tokens": 5
+          }
+        }
+      }
+    }
+  },
+  "name": "success-existing-current",
+  "output": {
+    "cachedCost": 0,
+    "cachedCount": 0,
+    "failureCount": 1,
+    "maxCallDurationMs": 1234,
+    "maxOverBudgetMs": 42,
+    "overBudgetCount": 2,
+    "successCount": 3,
+    "timeoutCount": 1,
+    "totalCallDurationMs": 1334,
+    "totalCost": 0.5000421,
+    "totalCount": 5,
+    "totalOutputTokens": 18,
+    "totalPromptTokens": 55
+  }
+}

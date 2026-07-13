@@ -1,0 +1,51 @@
+{
+  "description": "Exact utility-llm call and derived Shaman LiteLLM Responses API request for eval smoke checks.",
+  "expected": {
+    "httpStatus": 200,
+    "outputText": "shaman-litellm-ok"
+  },
+  "id": "shaman-gpt-5.4-mini-responses-smoke",
+  "providerRequest": {
+    "apiInferenceType": "responses",
+    "authorization": {
+      "env": "SHAMAN_LITELLM_API_KEY",
+      "type": "bearer"
+    },
+    "baseUrl": "https://litellm.prls.co/v1",
+    "body": {
+      "input": [
+        {
+          "content": [
+            {
+              "text": "Reply with exactly: shaman-litellm-ok",
+              "type": "input_text"
+            }
+          ],
+          "role": "user"
+        }
+      ],
+      "max_output_tokens": 16000,
+      "model": "gpt-5.4-mini",
+      "stream": true
+    },
+    "forbiddenBodyKeys": [
+      "max_tokens",
+      "temperature"
+    ],
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "method": "POST",
+    "path": "/responses",
+    "provider": "shaman-litellm",
+    "url": "https://litellm.prls.co/v1/responses"
+  },
+  "utilityCall": {
+    "arguments": {
+      "modelId": "gpt-5.4-mini",
+      "systemPrompt": "",
+      "userPrompt": "Reply with exactly: shaman-litellm-ok"
+    },
+    "function": "utilityLLMCall"
+  }
+}

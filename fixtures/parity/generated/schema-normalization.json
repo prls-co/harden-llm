@@ -1,0 +1,80 @@
+{
+  "cases": [
+    {
+      "input": {
+        "answer": "string",
+        "confidence": "number"
+      },
+      "isJSONSchema": false,
+      "name": "shorthand",
+      "normalized": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "answer",
+          "confidence"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "input": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "answer"
+        ],
+        "type": "object"
+      },
+      "isJSONSchema": true,
+      "name": "json-schema",
+      "normalized": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "answer"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "input": {
+        "values": [
+          "integer"
+        ]
+      },
+      "isJSONSchema": false,
+      "name": "array-shorthand",
+      "normalized": {
+        "additionalProperties": false,
+        "properties": {
+          "values": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "values"
+        ],
+        "type": "object"
+      }
+    }
+  ]
+}

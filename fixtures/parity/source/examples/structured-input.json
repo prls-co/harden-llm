@@ -1,0 +1,25 @@
+{
+  "mockResponse": {
+    "result": {
+      "items": [
+        "apples",
+        "bananas"
+      ]
+    }
+  },
+  "request": {
+    "loggingContext": {
+      "taskId": "example-structured-output"
+    },
+    "modelId": "gemini-2.5-flash-lite",
+    "structuredRepairRetry": {
+      "enabled": true,
+      "escalation": {
+        "attempt": 3,
+        "modelId": "gemini-2.5-flash-lite"
+      }
+    },
+    "systemPrompt": "Return structured output",
+    "userPrompt": "List two fruits as JSON"
+  }
+}

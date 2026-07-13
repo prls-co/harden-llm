@@ -1,0 +1,176 @@
+{
+  "cases": [
+    {
+      "name": "zero",
+      "normalized": {
+        "items": {
+          "cacheCreationInput": {
+            "ratePerToken": null,
+            "tokens": 0
+          },
+          "cacheReadInput": {
+            "ratePerToken": null,
+            "tokens": 0
+          },
+          "input": {
+            "ratePerToken": null,
+            "tokens": 0
+          },
+          "output": {
+            "ratePerToken": null,
+            "tokens": 0
+          },
+          "reasoningOutput": {
+            "ratePerToken": null,
+            "tokens": 0
+          }
+        }
+      },
+      "summary": {
+        "costKnown": true,
+        "groups": {
+          "cache": {
+            "cost": 0,
+            "costKnown": true,
+            "tokens": 0
+          },
+          "input": {
+            "cost": 0,
+            "costKnown": true,
+            "tokens": 0
+          },
+          "output": {
+            "cost": 0,
+            "costKnown": true,
+            "tokens": 0
+          }
+        },
+        "items": {
+          "cacheCreationInput": {
+            "cost": 0,
+            "costKnown": true,
+            "displayGroup": "cache",
+            "ratePerToken": null,
+            "tokens": 0
+          },
+          "cacheReadInput": {
+            "cost": 0,
+            "costKnown": true,
+            "displayGroup": "cache",
+            "ratePerToken": null,
+            "tokens": 0
+          },
+          "input": {
+            "cost": 0,
+            "costKnown": true,
+            "displayGroup": "input",
+            "ratePerToken": null,
+            "tokens": 0
+          },
+          "output": {
+            "cost": 0,
+            "costKnown": true,
+            "displayGroup": "output",
+            "ratePerToken": null,
+            "tokens": 0
+          },
+          "reasoningOutput": {
+            "cost": 0,
+            "costKnown": true,
+            "displayGroup": "output",
+            "ratePerToken": null,
+            "tokens": 0
+          }
+        },
+        "totalCost": 0,
+        "totalTokens": 0
+      }
+    },
+    {
+      "name": "priced",
+      "normalized": {
+        "items": {
+          "cacheCreationInput": {
+            "ratePerToken": 0.00000125,
+            "tokens": 10
+          },
+          "cacheReadInput": {
+            "ratePerToken": 1e-7,
+            "tokens": 25
+          },
+          "input": {
+            "ratePerToken": 0.000001,
+            "tokens": 100
+          },
+          "output": {
+            "ratePerToken": 0.000002,
+            "tokens": 20
+          },
+          "reasoningOutput": {
+            "ratePerToken": 0.000003,
+            "tokens": 5
+          }
+        }
+      },
+      "summary": {
+        "costKnown": true,
+        "groups": {
+          "cache": {
+            "cost": 0.000015,
+            "costKnown": true,
+            "tokens": 35
+          },
+          "input": {
+            "cost": 0.0001,
+            "costKnown": true,
+            "tokens": 100
+          },
+          "output": {
+            "cost": 0.000055,
+            "costKnown": true,
+            "tokens": 25
+          }
+        },
+        "items": {
+          "cacheCreationInput": {
+            "cost": 0.0000125,
+            "costKnown": true,
+            "displayGroup": "cache",
+            "ratePerToken": 0.00000125,
+            "tokens": 10
+          },
+          "cacheReadInput": {
+            "cost": 0.0000025,
+            "costKnown": true,
+            "displayGroup": "cache",
+            "ratePerToken": 1e-7,
+            "tokens": 25
+          },
+          "input": {
+            "cost": 0.0001,
+            "costKnown": true,
+            "displayGroup": "input",
+            "ratePerToken": 0.000001,
+            "tokens": 100
+          },
+          "output": {
+            "cost": 0.00004,
+            "costKnown": true,
+            "displayGroup": "output",
+            "ratePerToken": 0.000002,
+            "tokens": 20
+          },
+          "reasoningOutput": {
+            "cost": 0.000015,
+            "costKnown": true,
+            "displayGroup": "output",
+            "ratePerToken": 0.000003,
+            "tokens": 5
+          }
+        },
+        "totalCost": 0.00017,
+        "totalTokens": 160
+      }
+    }
+  ]
+}

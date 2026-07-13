@@ -1,0 +1,9 @@
+{
+  "providerCallCount": 1,
+  "response": {
+    "items": [
+      "apples",
+      "bananas"
+    ]
+  }
+}

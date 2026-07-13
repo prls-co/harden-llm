@@ -1,0 +1,141 @@
+{
+  "failureCase": {
+    "attemptMeta": {
+      "attempt": 1,
+      "category": "parse_error",
+      "durationMs": 10,
+      "rawResponseLength": 42,
+      "rawResponsePath": "llm-traces/parent-2/task-2/call-2-attempt-1-raw.json",
+      "rawResponseSha256": "abc123"
+    },
+    "errorMessage": "boom",
+    "expected": {
+      "payloadPath": "llm-traces/parent-2/task-2/call-2-attempt-1-raw.json",
+      "rawResponseLength": 42,
+      "rawResponsePath": "llm-traces/parent-2/task-2/call-2-attempt-1-raw.json",
+      "rawResponseSha256": "abc123"
+    },
+    "lastErrorCategory": "parse_error",
+    "lastErrorStatus": 400,
+    "loggingContext": {
+      "callId": "call-2",
+      "orgCompanyProductId": "parent-2",
+      "runId": "run-456",
+      "taskId": "task-2",
+      "taskSlug": "generate_questions"
+    },
+    "totalCallDurationMs": 10,
+    "totalWaitMs": 0
+  },
+  "failureLogInput": {
+    "bucket": "demo-bucket",
+    "callId": "call-1",
+    "payloadPath": "llm-traces/parent/task/call-raw.json",
+    "projectId": "demo-project",
+    "runId": "run-1",
+    "suite": "suite-1",
+    "taskId": "task-1",
+    "taskSlug": "generate_questions",
+    "tracePath": "llm-traces/parent/task/call.json"
+  },
+  "successCase": {
+    "expected": {
+      "result": {
+        "ok": true
+      },
+      "testRunId": "run-789",
+      "testRunSuite": "suite-789"
+    },
+    "loggingContext": {
+      "callId": "call-3",
+      "modelId": "model-3",
+      "orgCompanyProductId": "parent-3",
+      "taskId": "task-3",
+      "taskSlug": "generate_questions"
+    },
+    "result": {
+      "attemptsMeta": [
+        {
+          "attempt": 1,
+          "durationMs": 10,
+          "inputs": {
+            "requestPayload": {
+              "input": "Return ok.",
+              "model": "model-3"
+            }
+          },
+          "outputs": {
+            "parsedResult": {
+              "ok": true
+            },
+            "responsePayload": {
+              "id": "response-3",
+              "output_text": "{\"ok\":true}"
+            },
+            "responseText": "{\"ok\":true}"
+          },
+          "usage": {
+            "items": {
+              "cacheCreationInput": {
+                "ratePerToken": null,
+                "tokens": 0
+              },
+              "cacheReadInput": {
+                "ratePerToken": null,
+                "tokens": 0
+              },
+              "input": {
+                "ratePerToken": 0,
+                "tokens": 1
+              },
+              "output": {
+                "ratePerToken": 0,
+                "tokens": 1
+              },
+              "reasoningOutput": {
+                "ratePerToken": null,
+                "tokens": 0
+              }
+            }
+          }
+        }
+      ],
+      "lastErrorCategory": null,
+      "lastErrorStatus": null,
+      "result": {
+        "ok": true
+      },
+      "totalCallDurationMs": 10,
+      "totalWaitMs": 0,
+      "usage": {
+        "items": {
+          "cacheCreationInput": {
+            "ratePerToken": null,
+            "tokens": 0
+          },
+          "cacheReadInput": {
+            "ratePerToken": null,
+            "tokens": 0
+          },
+          "input": {
+            "ratePerToken": 0,
+            "tokens": 1
+          },
+          "output": {
+            "ratePerToken": 0,
+            "tokens": 1
+          },
+          "reasoningOutput": {
+            "ratePerToken": null,
+            "tokens": 0
+          }
+        }
+      },
+      "usedRepairFlag": false
+    }
+  },
+  "taskDocMetadata": {
+    "testRunId": "run-789",
+    "testRunSuite": "suite-789"
+  }
+}

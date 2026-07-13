@@ -1,0 +1,172 @@
+{
+  "input": {
+    "Backup": {
+      "apiInferenceType": "responses",
+      "backupProfiles": [],
+      "baseUrl": "https://api.openai.com/v1",
+      "defaultOptions": {
+        "max_tokens": 512,
+        "temperature": 0
+      },
+      "endpointCredentialScope": "global",
+      "llmProfile": "Backup",
+      "modelId": "gpt-backup",
+      "pricing": {
+        "cache_creation_input_token_cost": null,
+        "cache_read_input_token_cost": 0,
+        "input_cost_per_token": 0.000001,
+        "output_cost_per_reasoning_token": null,
+        "output_cost_per_token": 0.000002
+      },
+      "provider": "openai",
+      "responsesTokensParam": "max_output_tokens",
+      "schemaVersion": 1,
+      "supportsContractedStructuredOutput": true,
+      "supportsTemperature": false,
+      "tokensParam": null
+    },
+    "Primary": {
+      "apiInferenceType": "responses",
+      "backupProfiles": [
+        "Backup"
+      ],
+      "baseUrl": "https://api.openai.com/v1",
+      "defaultOptions": {
+        "max_tokens": 512,
+        "temperature": 0
+      },
+      "endpointCredentialScope": "global",
+      "llmProfile": "Primary",
+      "modelId": "gpt-primary",
+      "pricing": {
+        "cache_creation_input_token_cost": null,
+        "cache_read_input_token_cost": 0,
+        "input_cost_per_token": 0.000001,
+        "output_cost_per_reasoning_token": null,
+        "output_cost_per_token": 0.000002
+      },
+      "provider": "openai",
+      "responsesTokensParam": "max_output_tokens",
+      "schemaVersion": 1,
+      "supportsContractedStructuredOutput": true,
+      "supportsTemperature": false,
+      "tokensParam": null
+    }
+  },
+  "normalized": [
+    {
+      "apiInferenceType": "responses",
+      "backupProfiles": [],
+      "baseUrl": "https://api.openai.com/v1",
+      "createdAt": "2026-05-13T05:00:00.000Z",
+      "defaultOptions": {
+        "max_tokens": 512,
+        "temperature": 0
+      },
+      "endpointCredentialScope": "global",
+      "lastModelRefreshAt": null,
+      "llmProfile": "Backup",
+      "modelId": "gpt-backup",
+      "models": [],
+      "pricing": {
+        "cache_creation_input_token_cost": null,
+        "cache_read_input_token_cost": 0,
+        "input_cost_per_token": 0.000001,
+        "output_cost_per_reasoning_token": null,
+        "output_cost_per_token": 0.000002
+      },
+      "provider": "openai",
+      "responsesTokensParam": "max_output_tokens",
+      "schemaVersion": 1,
+      "supportsContractedStructuredOutput": true,
+      "supportsTemperature": false,
+      "tokensParam": null,
+      "updatedAt": "2026-05-13T05:00:00.000Z"
+    },
+    {
+      "apiInferenceType": "responses",
+      "backupProfiles": [
+        "Backup"
+      ],
+      "baseUrl": "https://api.openai.com/v1",
+      "createdAt": "2026-05-13T05:00:00.000Z",
+      "defaultOptions": {
+        "max_tokens": 512,
+        "temperature": 0
+      },
+      "endpointCredentialScope": "global",
+      "lastModelRefreshAt": null,
+      "llmProfile": "Primary",
+      "modelId": "gpt-primary",
+      "models": [],
+      "pricing": {
+        "cache_creation_input_token_cost": null,
+        "cache_read_input_token_cost": 0,
+        "input_cost_per_token": 0.000001,
+        "output_cost_per_reasoning_token": null,
+        "output_cost_per_token": 0.000002
+      },
+      "provider": "openai",
+      "responsesTokensParam": "max_output_tokens",
+      "schemaVersion": 1,
+      "supportsContractedStructuredOutput": true,
+      "supportsTemperature": false,
+      "tokensParam": null,
+      "updatedAt": "2026-05-13T05:00:00.000Z"
+    }
+  ],
+  "serialized": {
+    "Backup": {
+      "apiInferenceType": "responses",
+      "backupProfiles": [],
+      "baseUrl": "https://api.openai.com/v1",
+      "defaultOptions": {
+        "max_tokens": 512,
+        "temperature": 0
+      },
+      "endpointCredentialScope": "global",
+      "llmProfile": "Backup",
+      "modelId": "gpt-backup",
+      "pricing": {
+        "cache_creation_input_token_cost": null,
+        "cache_read_input_token_cost": 0,
+        "input_cost_per_token": 0.000001,
+        "output_cost_per_reasoning_token": null,
+        "output_cost_per_token": 0.000002
+      },
+      "provider": "openai",
+      "responsesTokensParam": "max_output_tokens",
+      "schemaVersion": 1,
+      "supportsContractedStructuredOutput": true,
+      "supportsTemperature": false,
+      "tokensParam": null
+    },
+    "Primary": {
+      "apiInferenceType": "responses",
+      "backupProfiles": [
+        "Backup"
+      ],
+      "baseUrl": "https://api.openai.com/v1",
+      "defaultOptions": {
+        "max_tokens": 512,
+        "temperature": 0
+      },
+      "endpointCredentialScope": "global",
+      "llmProfile": "Primary",
+      "modelId": "gpt-primary",
+      "pricing": {
+        "cache_creation_input_token_cost": null,
+        "cache_read_input_token_cost": 0,
+        "input_cost_per_token": 0.000001,
+        "output_cost_per_reasoning_token": null,
+        "output_cost_per_token": 0.000002
+      },
+      "provider": "openai",
+      "responsesTokensParam": "max_output_tokens",
+      "schemaVersion": 1,
+      "supportsContractedStructuredOutput": true,
+      "supportsTemperature": false,
+      "tokensParam": null
+    }
+  }
+}

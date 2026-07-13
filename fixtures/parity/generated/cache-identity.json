@@ -1,0 +1,50 @@
+{
+  "cacheVersion": "operation-v2",
+  "modes": [
+    {
+      "input": null,
+      "output": "off"
+    },
+    {
+      "input": "off",
+      "output": "off"
+    },
+    {
+      "input": "cache",
+      "output": "cache"
+    },
+    {
+      "input": "refresh",
+      "output": "refresh"
+    }
+  ],
+  "operation": {
+    "endpoint": {
+      "identity": "https://api.openai.com:443",
+      "method": "POST",
+      "path": "/v1/responses"
+    },
+    "model": "gpt-test",
+    "payload": {
+      "input": [
+        {
+          "content": "deterministic fixture",
+          "role": "user"
+        }
+      ],
+      "model": "gpt-test"
+    },
+    "protocol": "openai.responses",
+    "responseProjection": {
+      "kind": "responses",
+      "provider": "openai",
+      "version": "v1"
+    },
+    "schemaVersion": "utility-llm.operation.v1",
+    "semanticHeaders": {
+      "openai-beta": "responses=v1"
+    }
+  },
+  "operationHash": "8c5cda30250c65e09540f3d50d4b8167e7313ad9ab8a69ce19577fce1306f187",
+  "stablePayload": "{\"cacheVersion\":\"operation-v2\",\"operation\":{\"endpoint\":{\"identity\":\"https://api.openai.com:443\",\"method\":\"POST\",\"path\":\"/v1/responses\"},\"model\":\"gpt-test\",\"payload\":{\"input\":[{\"content\":\"deterministic fixture\",\"role\":\"user\"}],\"model\":\"gpt-test\"},\"protocol\":\"openai.responses\",\"responseProjection\":{\"kind\":\"responses\",\"provider\":\"openai\",\"version\":\"v1\"},\"schemaVersion\":\"utility-llm.operation.v1\",\"semanticHeaders\":{\"openai-beta\":\"responses=v1\"}}}"
+}

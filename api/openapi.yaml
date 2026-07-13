@@ -1,0 +1,40 @@
+openapi: 3.1.0
+info:
+  title: Harden LLM API
+  version: 0.1.0
+  description: Provider-neutral self-hosted LLM runtime API.
+paths:
+  /healthz:
+    get:
+      operationId: getHealth
+      responses:
+        "200":
+          description: Process is live.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /readyz:
+    get:
+      operationId: getReadiness
+      responses:
+        "200":
+          description: Required application dependencies are ready.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]

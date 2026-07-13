@@ -1,0 +1,75 @@
+{
+  "cache": {
+    "cacheModes": [
+      "cache",
+      "cache"
+    ],
+    "first": "cached example response",
+    "providerCallCount": 1,
+    "second": "cached example response"
+  },
+  "diagnostics": {
+    "bundleAttachmentCount": 1,
+    "failureQuerySpec": {
+      "filters": [
+        {
+          "field": "testRunId",
+          "op": "==",
+          "value": "run-1"
+        },
+        {
+          "field": "lastErrorCategory",
+          "op": "!=",
+          "value": null
+        },
+        {
+          "field": "testRunSuite",
+          "op": "==",
+          "value": "suite-1"
+        }
+      ],
+      "limit": 50,
+      "orderBy": [
+        {
+          "direction": "asc",
+          "field": "lastErrorCategory"
+        },
+        {
+          "direction": "desc",
+          "field": "createdAt"
+        }
+      ],
+      "runId": "run-1",
+      "suiteId": "suite-1"
+    },
+    "markdown": "## Diagnostics\n[DIAGNOSTICS]\nrunId=run-123\nsuiteId=suite-1\nstatus=failed\ntarget=dev\nprojectId=demo-project\nheadSha=head-123\neventCount=2\ncaptureFailures=0\ntruncated=false\n\ntypes=llm.failure:1, ui.saveState:1\noutcomes=error:1, success:1\n\n## LLM failures\n- callId=call-1 task=generate_questions category=timeout trace=llm-traces/run-123/tasks/abc.json payload=llm-traces/run-123/tasks/abc-raw.json\n  - gcloud storage cat gs://demo-bucket/llm-traces/run-123/tasks/abc-raw.json\n  - gcloud logging read 'resource.type=\"cloud_run_revision\" AND textPayload:\"call-1\"' --project demo-project --limit 50\n\n## Recent events\n- 2026-01-30T00:04:00.000Z llm.failure outcome=error\n- 2026-01-30T00:05:00.000Z ui.saveState outcome=success",
+    "payloadPath": "latest.json",
+    "traceQuerySpec": {
+      "filters": [
+        {
+          "field": "testRunId",
+          "op": "==",
+          "value": "run-2"
+        },
+        {
+          "field": "testRunSuite",
+          "op": "==",
+          "value": "step11"
+        }
+      ],
+      "limit": 150,
+      "orderBy": [
+        {
+          "direction": "asc",
+          "field": "lastErrorCategory"
+        },
+        {
+          "direction": "desc",
+          "field": "createdAt"
+        }
+      ],
+      "runId": "run-2",
+      "suiteId": "step11"
+    }
+  }
+}
