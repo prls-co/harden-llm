@@ -111,7 +111,7 @@ Fixture rules:
 
 - Target: `internal/testkit/static_dependencies_test.go`
 - Command: `go test ./internal/testkit/... -run TestForbiddenDependencies -count=1`
-- Setup: target files, `go.mod`, web package manifests, Compose config.
+- Setup: backend-owned source and test paths, `go.mod`, backend build manifests, base Compose config, and base Caddy config. `frontend/` and `deploy/frontend/` are owned by the separate frontend specification and are excluded from content scans.
 - Assertions:
   - Backend production/test/deploy code contains no Firebase, Firestore, Firebase Auth, Functions, Hosting, or Storage dependency.
   - Backend code contains no Phoenix, LiveView, React, Vite, HTML-template, browser-session, or frontend-asset implementation.
@@ -437,6 +437,7 @@ Fixture rules:
   - Domain run/trace/history records use the normalized `Result` metadata.
   - Successful artifact references create available owner-scoped Postgres metadata; failed artifact persistence leaves no available row and does not change the provider result.
   - Invalid request or unsafe endpoint fails before provider invocation.
+  - The gateway enforces the 60-second contract maximum, rejects a configured or requested increase, permits a shorter deployment/request deadline, returns the documented 504 `run_timeout`, cancels the root call, and never retries the HTTP operation.
   - Handler files contain no provider payload, retry, schema, pricing, or cache-key logic.
 - Pass criteria: success/failure/cache tables pass and boundary scan remains green.
 - Expected runtime: 60 seconds.
@@ -457,15 +458,16 @@ Fixture rules:
 - Pass criteria: OpenAPI parsing, route parity, security, and request/response fixture tables pass.
 - Expected runtime: 20 seconds.
 
-### TEST-027: backend contains no Firebase or frontend implementation
+### TEST-027: backend-owned paths contain no Firebase or frontend implementation
 
 - Target: `internal/testkit/firebase_frontend_absence_test.go`
 - Command: `go test ./internal/testkit/... -run TestFirebaseFrontendAbsent -count=1`
-- Setup: backend source, test, build, dependency, and deployment manifests; planning documents excluded from literal-name scans.
+- Setup: root Go files, `cmd/`, `internal/`, `api/`, backend fixture/scripts, `go.mod`, the backend `Makefile` gates, base deployment files, and base Compose/Caddy manifests. Planning documents, `frontend/`, and `deploy/frontend/` are excluded from literal-name scans.
 - Assertions:
   - No backend dependency, import, environment name, configuration, deploy script, server, emulator, or production code calls Firebase Auth, Firestore, Functions, Hosting, or Storage.
   - No backend package contains Phoenix, LiveView, React, Vite, JSX, HEEx, HTML-template, frontend asset, browser-cookie, or browser-CSRF implementation code.
   - Backend tests and release commands do not build or test any frontend application.
+  - The base fifteen-service Compose topology and base Caddy configuration do not depend on or route a frontend service; the optional frontend overlay is tested under the frontend specification.
   - Fixture provenance may name the source repository but cannot create a runtime dependency.
 - Pass criteria: the scoped backend dependency/AST/filesystem scan exits zero.
 - Expected runtime: 10 seconds.
@@ -554,6 +556,7 @@ Fixture rules:
   - Garage uses the pinned v2.3 single-node/default-bucket startup path with persistent metadata/data volumes and maps one bucket-scoped credential into Garage and gateway environment names without a custom bootstrap service.
   - Only Caddy publishes externally reachable host ports in the effective production topology.
   - Caddy routes API, Grafana, and Langfuse hostnames and applies TLS, body limits, and security headers without serving frontend assets.
+  - The base Caddyfile has one trusted `conf.d` import extension point, no frontend fragment, and no duplicated backend route definitions.
   - Caddy routes the Garage S3 API on the configured artifact hostname while Garage administration/RPC routes remain private.
   - No Phoenix/LiveView or other frontend service is part of the fifteen-service backend topology.
   - Langfuse headless user/organization/project/key initialization supplies the Collector ingestion credentials without a setup step.
@@ -597,7 +600,7 @@ Fixture rules:
 
 ### TEST-036: full deterministic certification
 
-- Target: entire target repository
+- Target: all backend-owned paths and the base fifteen-service deployment; `frontend/` and `deploy/frontend/` are excluded
 - Command: `make verify`
 - Setup: Go and Node dependencies installed, isolated Harden-LLM Postgres and Garage, pinned Harden-LLM images, and recorded upstream Langfuse fragment/images.
 - Assertions:
@@ -637,6 +640,7 @@ Fixture rules:
 - Setup: target diff, timeout baseline manifest, `ker/` and evidence metadata.
 - Assertions:
   - A timeout increase requires an RCA recording exact phase, start proof, failed timings, comparable successes, p95/max, configured timeout, headroom, root cause, and rationale.
+  - The unchanged baseline records the 60-second gateway maximum run duration and the frontend-independent backend gate does not infer or pad a client timeout.
   - The initial 300-second Compose readiness budget records its Langfuse startup basis and is not treated as a later increase.
 - Pass criteria: unchanged/reduced timeouts pass; unsupported increases fail.
 - Expected runtime: 10 seconds.
@@ -671,4 +675,4 @@ Each phase records under ignored `plans/evidence/harden-llm/<run-id>/`:
 
 ## 16. Completion criteria
 
-The backend v1 test program is complete when TEST-001 through TEST-036, TEST-039, and TEST-040 pass, TEST-037 and TEST-038 pass when explicit live certification is required, all target test files use the single `TEST-###` namespace, OpenAPI and router behavior conform, the backend has no Firebase or frontend implementation surface, Collector fanout is the only Langfuse export path, Garage is the only Harden-LLM artifact store, Langfuse retains its pinned upstream MinIO dependency, and the full fifteen-service Compose smoke proves correlated API, artifact, Tempo, Loki, Prometheus, Grafana, and Langfuse diagnostics.
+The backend v1 test program is complete when TEST-001 through TEST-036, TEST-039, and TEST-040 pass, TEST-037 and TEST-038 pass when explicit live certification is required, all backend target test files use the single `TEST-###` namespace, OpenAPI and router behavior conform, backend-owned paths have no Firebase or frontend implementation surface, backend gates do not invoke `frontend/`, Collector fanout is the only Langfuse export path, Garage is the only Harden-LLM artifact store, Langfuse retains its pinned upstream MinIO dependency, and the full fifteen-service Compose smoke proves correlated API, artifact, Tempo, Loki, Prometheus, Grafana, and Langfuse diagnostics.

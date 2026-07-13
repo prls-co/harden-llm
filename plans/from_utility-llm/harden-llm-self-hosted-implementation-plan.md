@@ -1,15 +1,15 @@
-# Harden-LLM Self-Hosted Implementation Plan
+# Harden-LLM Backend and REST API Implementation Plan
 
 ## 1. Title and metadata
 
 - Project name: `harden-llm`
 - Target repository: `/home/kirill/p/harden-llm`
 - Contract source repository: `/home/kirill/p/utility-llm`
-- Version: `1.2.0-plan`
+- Version: `1.3.0-backend-plan`
 - Owners: package maintainers and self-hosted runtime implementers
 - Date: 2026-07-12
 - Document ID: `PLAN-HARDEN-LLM-SELF-HOSTED-001`
-- Summary: This plan defines the verification-first implementation of `harden-llm` in its existing empty target repository. The product is one root Go library package, one thin REST gateway, one Firebase-free React Trace Studio, Harden-LLM Postgres records, Garage-backed trace artifacts and diagnostic attachments, Caddy, OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana, and a pinned upstream Langfuse OSS Compose fragment. Langfuse retains its own default Postgres, Redis, ClickHouse, and MinIO services; Harden-LLM does not substitute Garage into Langfuse and never uses Langfuse's MinIO. Current `utility-llm` behavior, including Firebase Storage artifact semantics, is captured as deterministic fixtures and proved slice by slice before later phases depend on it.
+- Summary: This plan defines the verification-first implementation of the `harden-llm` backend in its initially empty target repository. The product is one root Go library package, one versioned REST/OpenAPI gateway, Harden-LLM Postgres records, Garage-backed trace artifacts and diagnostic attachments, Caddy, OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana, and a pinned upstream Langfuse OSS Compose fragment. It contains no frontend implementation, browser session, Phoenix/LiveView, React/Vite, HTML, or asset work. The separately specified Phoenix LiveView frontend consumes only the REST/OpenAPI contract. Langfuse retains its own default Postgres, Redis, ClickHouse, and MinIO services; Harden-LLM does not substitute Garage into Langfuse and never uses Langfuse's MinIO.
 
 ## 2. Design consensus and trade-offs
 
@@ -20,12 +20,14 @@
 | Use one root public package | DECISION | `hardenllm` exposes one stable client API, profile/catalog types, credential/cache interfaces, and endpoint policy while built-in provider, retry, schema, cache-key, trace, pricing, and redaction implementations remain internal. |
 | Use one `Client.Call` result contract | DECISION | One detailed `Result` serves Go users and the gateway. JS direct-output parity maps to `Result.Output`; there is no second expanded-result path. |
 | Use a thin REST gateway | DECISION | HTTP handlers own transport, auth, authorization, and persistence orchestration and call the root library once for runtime behavior. |
+| Publish OpenAPI 3.1 | DECISION | `api/openapi.yaml` is the only backend/frontend contract. Router and fixture conformance tests prevent undocumented routes or frontend-specific server behavior. |
 | Use Postgres for application records | DECISION | Application state needs concurrent writes, transactions, JSONB, indexes, and migrations. SQLite is not a Harden-LLM application database. Garage's upstream-supported internal SQLite metadata engine does not create a second application persistence contract. |
 | Keep upstream Langfuse defaults | DECISION | LLM-specific diagnostics are required, but Harden-LLM does not own Langfuse dependency migration. The pinned official Compose fragment retains its own Postgres, Redis, ClickHouse, and MinIO services until Langfuse upstream changes them. |
 | Use Garage for Harden-LLM artifacts | DECISION | Current Firebase Storage behavior writes linked JSON trace artifacts and diagnostic attachments. Garage replaces only that application-owned surface. Langfuse continues using its upstream MinIO and receives no Garage endpoint or credential. |
 | Use one telemetry export path | DECISION | The Go process sends OTel to the Collector; the Collector sends traces to Tempo and complete `harden-llm` traces once to Langfuse over OTLP/HTTP. |
 | Use `slog` JSON for logs | DECISION | Application code has one stable logging API. A composed handler writes JSON stdout and mirrors the same record through a pinned OTel slog bridge; Collector sends those OTel logs to Loki. |
-| Remove Firebase from the target | DECISION | Trace Studio uses same-origin gateway auth/API. No Firebase code, package, environment variable, server, emulator, or deploy script enters `harden-llm`. |
+| Keep frontend implementation separate | DECISION | The backend exposes bearer-authenticated REST only. Phoenix LiveView owns HTML, browser sessions, CSRF, and UI state transitions under `phoenix-liveview-frontend-spec.md`; no frontend runtime enters this plan. |
+| Remove Firebase from the backend | DECISION | Current Firebase server/storage behavior informs parity fixtures, but no Firebase code, package, environment variable, server, emulator, or deploy script enters the backend implementation. |
 | Add provider endpoint safety | FOR | User-configured provider endpoints require one shared SSRF, DNS, redirect, TLS, header, and credential-origin policy. |
 | Keep request idempotency out of v1 | AGAINST | A distributed idempotency ledger and async run state are not required for the initial synchronous gateway. Client retry behavior is documented instead. |
 | Keep scheduled retention and backup automation out of v1 | AGAINST | Schema timestamps preserve future options, but schedulers, backup orchestration, and restore automation do not block the first self-hosted release. |
@@ -33,11 +35,11 @@
 
 ## 3. PRD / stakeholder and system needs
 
-- Problem: `utility-llm` currently combines a Node package with Firebase-backed Trace Studio deployment surfaces. Operators need a free, self-hosted service and Go library with equivalent runtime behavior and substantially better diagnostics.
+- Problem: `utility-llm` currently combines a Node package with Firebase-backed service surfaces. Operators and independent clients need a free, self-hosted Go library and REST backend with equivalent runtime behavior and substantially better diagnostics.
 - Users:
   - Go applications importing `hardenllm`.
   - Non-Go clients calling the REST gateway.
-  - Trace Studio users managing profiles and investigating calls.
+  - Phoenix LiveView and other REST client implementers.
   - Operators diagnosing provider, retry, cache, schema, database, and telemetry failures.
 - Value:
   - One self-hosted deployment with no Firebase or managed application dependency.
@@ -53,15 +55,15 @@
   - 100% required OTel signal coverage and zero secret leaks in adversarial fixtures.
   - 100% fixture manifest integrity and annotated intentional parity differences only.
   - All fifteen Compose services ready within 300 seconds on the reference host.
-  - Zero Firebase or direct Langfuse exporter paths in the target.
+  - Zero Firebase, frontend implementation, or direct Langfuse exporter paths in backend-owned code, builds, and the base deployment.
 - Scope:
-  - Root Go library, built-in providers, retry/repair/backup behavior, cache, schema, usage/pricing, profiles, traces/stats, diagnostics, Harden-LLM Postgres, Garage artifacts, local auth, REST gateway, React Trace Studio, OTel/Grafana/Langfuse stack, Caddy, and Compose.
+  - Root Go library, built-in providers, retry/repair/backup behavior, cache, schema, usage/pricing, profiles, traces/stats, diagnostics, Harden-LLM Postgres, Garage artifacts, local bearer auth, REST/OpenAPI gateway, OTel/Grafana/Langfuse stack, Caddy, and Compose.
 - Non-goals:
-  - Application SQLite, Sentry, Temporal, Kubernetes, OIDC, public registration, async run queues, distributed idempotency, scheduled retention, automated backup/restore, multi-node Garage, and local substitution of any Langfuse-owned dependency.
+  - Frontend implementation, Phoenix/LiveView runtime, browser auth/session/CSRF, application SQLite, Sentry, Temporal, Kubernetes, OIDC, public registration, async run queues, distributed idempotency, scheduled retention, automated backup/restore, multi-node Garage, and local substitution of any Langfuse-owned dependency.
 - Dependencies:
   - Source repository at the recorded fixture-capture SHA.
   - Go toolchain selected in P00.
-  - Node 20+ for fixture scripts and Trace Studio.
+  - Node 20+ only for fixture capture/verification scripts inherited from the source migration.
   - Docker Engine and Compose for Harden-LLM Postgres, Garage, and full-stack tests.
   - Pinned Harden-LLM images for Postgres, Garage, Caddy, Collector Contrib, Prometheus, Loki, Tempo, and Grafana.
   - One official Langfuse release/commit and byte-for-byte Compose SHA-256; its Postgres, Redis, ClickHouse, MinIO, web, and worker service choices remain upstream-owned.
@@ -73,7 +75,8 @@
   - Full-stack resource pressure and slow readiness.
   - Upstream Langfuse Compose drift or a local override that accidentally substitutes an owned dependency.
   - Single-node Garage has no host-failure tolerance and must not be represented as HA.
-  - Firebase code copied with the React UI.
+  - Undocumented REST drift forces frontend clients to infer gateway behavior.
+  - Firebase or frontend implementation enters backend-owned paths or the backend build/release graph.
 - Assumptions:
   - The source deterministic tests pass before fixture capture.
   - The target repository remains the production and release home.
@@ -93,9 +96,9 @@
 | REQ-007 | data | Usage, pricing, profiles, domain traces, observations, stats, and diagnostics shall preserve canonical semantic fields. | Canonicalized Go projections match source fixtures or carry an ADR annotation. |
 | REQ-008 | security | Endpoint credentials shall use versioned AES-256-GCM records with key ID, nonce, and owner/credential/origin AAD. | Tamper, wrong-key, wrong-owner, and wrong-origin tests fail; API state is redacted. |
 | REQ-009 | data | Dedicated Harden-LLM Postgres shall own application records and Garage artifact indexes without sharing credentials, databases, or migrations with Langfuse's upstream Postgres service. | Migrations, constraints, indexes, advisory locking, repository round trips, artifact references, and cross-service configuration isolation pass. |
-| REQ-010 | security | The gateway shall own bootstrap local users, Argon2id verification, opaque server-side sessions, secure cookies, CSRF, and owner isolation. | Auth lifecycle and two-user isolation pass for every user-owned resource. |
-| REQ-011 | int | The gateway shall expose the versioned `/api/v1` resource routes defined by the stack specification. | Health, state, profile, bundle, model, history, run, trace, and owner-authorized artifact routes use stable envelopes and root library calls. |
-| REQ-012 | int | Trace Studio shall use same-origin gateway auth/API and contain no Firebase surface. | React workflows pass with cookie/CSRF clients; static scans find no Firebase target dependency. |
+| REQ-010 | security | The gateway shall own bootstrap local users, Argon2id verification, opaque hashed bearer sessions, and owner isolation without browser-cookie or CSRF behavior. | Login returns the token once, protected routes require one valid bearer credential, only token digests persist, and two-user isolation passes for every user-owned resource. |
+| REQ-011 | int | The gateway shall expose the versioned `/api/v1` resource routes defined by the stack specification. | Health, auth, state, profile, bundle, model, history, run, trace, and owner-authorized artifact routes use stable envelopes and root library calls. |
+| REQ-012 | int | The backend shall publish a frontend-independent OpenAPI 3.1 contract and contain no Firebase or frontend implementation surface. | OpenAPI/router/request/response conformance passes; scoped static scans find no Firebase, Phoenix/LiveView, React/Vite, HTML-template, browser-session, or asset implementation. |
 | REQ-013 | nfr | The application shall emit OTel traces/metrics and correlated `slog` JSON with bounded, redacted attributes. | Required signal coverage is complete, metric labels are bounded, and secret scans pass. |
 | REQ-014 | reliability | Telemetry backend failures shall not alter provider results and process shutdown shall be bounded. | Collector outage tests preserve results, bound queues, report safely, and finish shutdown within the configured budget. |
 | REQ-015 | int | Collector shall be the single telemetry router to Prometheus, Loki, Tempo, and Langfuse. | Collector tests prove one Langfuse OTLP/HTTP path, complete root/child traces, no loop, and required processors. |
@@ -120,7 +123,7 @@
 ```mermaid
 flowchart LR
   GoApp[Go application] --> Lib[hardenllm root package]
-  Browser[Trace Studio] --> Caddy[Caddy]
+  Phoenix[External Phoenix LiveView frontend] --> Caddy[Caddy]
   Client[REST client] --> Caddy
   Caddy --> Gateway[Go gateway]
   Caddy --> Grafana[Grafana]
@@ -156,10 +159,10 @@ System: harden-llm
       runtime, providers, endpoint policy, retry, schema, cache key,
       profiles, pricing, traces, stats, diagnostics, artifacts, redaction
     Gateway:
-      HTTP transport, local auth, authorization, Postgres orchestration,
-      process telemetry setup
-    Web:
-      React/Vite Trace Studio using same-origin /api/v1
+      HTTP transport, bearer auth, authorization, OpenAPI contract,
+      Postgres orchestration, process telemetry setup
+    External client contract:
+      OpenAPI 3.1 over /api/v1; no frontend implementation in backend
 
   Deployment: Docker Compose
     Edge: Caddy
@@ -183,7 +186,7 @@ System: harden-llm
 - P01 ports root runtime, retry, repair/backup, schema, and cache with parity in the same phase.
 - P02 ports providers, endpoint security, usage/pricing, traces/stats, profiles, credentials, and diagnostics with parity in the same phase.
 - P03 adds Harden-LLM Postgres, Garage artifact persistence, cache concurrency, local auth, owner isolation, and profile-save orchestration.
-- P04 adds `/api/v1` routes and migrates Trace Studio without Firebase.
+- P04 adds `/api/v1`, OpenAPI/router conformance, and the Firebase/frontend absence boundary.
 - P05 adds OTel traces/metrics, `slog` JSON, Collector routing, failure isolation, and Grafana artifacts.
 - P06 adds the complete Compose/Caddy deployment, the byte-for-byte pinned upstream Langfuse fragment, and end-to-end diagnostic/artifact smoke.
 - P07 runs aggregate parity, full deterministic certification, timeout policy, optional live tests, and migration closure.
@@ -200,7 +203,8 @@ System: harden-llm
 | Langfuse resource pressure | Full stack misses readiness budget | Reference hardware, pinned images, per-service readiness timing, and 300-second gate. |
 | Langfuse dependency drift | Local Compose edits replace, share, or tune upstream Postgres, Redis, ClickHouse, or MinIO | Pin the upstream fragment by release, commit, and SHA-256; restrict the integration overlay and compare it statically. |
 | Garage data loss on one host | Garage volume, process, disk, or host fails | Label v1 as non-HA, use persistent metadata/data volumes with consistent mode, expose storage failures, and keep multi-node/backup automation out until separately designed. |
-| Firebase enters target | Source UI copied with auth/server/config files | Firebase absence tests precede and follow UI migration. |
+| REST/OpenAPI drift | Router, envelope, auth, or examples change independently | TEST-026 compares both directions and validates request/response fixtures. |
+| Firebase or frontend enters backend | Source server/UI code is copied instead of porting contracts | TEST-027 scopes backend dependency, AST, command, and filesystem scans. |
 | Secret leakage | Fake secret appears in logs, spans, bundles, API, or evidence | Shared redaction tests and adversarial evaluation block phase exit. |
 
 ### Suspension and resumption criteria
@@ -210,7 +214,7 @@ System: harden-llm
 - Suspend when endpoint safety requires a second HTTP implementation.
 - Suspend when a target phase requires live provider credentials for deterministic acceptance.
 - Resume from the last passing phase after recording target/source SHAs, failed command, changed files, and blocker.
-- Stop when acceptance requires Firebase, an application SQLite database, a direct Langfuse exporter, a local Langfuse dependency substitution, or another provider/retry implementation path.
+- Stop when acceptance requires Firebase, frontend rendering/session code, an application SQLite database, a direct Langfuse exporter, a local Langfuse dependency substitution, or another provider/retry implementation path.
 
 ### Standards tailoring note
 
@@ -224,7 +228,7 @@ Phase goal: the empty target becomes a valid Go module with one root public pack
 
 Scope and objectives, including impacted REQ-###: REQ-001, REQ-018, REQ-019.
 
-Impacted surfaces: target `go.mod`, root package shell, `Makefile`, `internal/testkit/`, `scripts/`, `fixtures/parity/`, `web/trace-studio/package.json`, and source deterministic tests.
+Impacted surfaces: target `go.mod`, root package shell, `api/openapi.yaml`, `Makefile`, `internal/testkit/`, `scripts/`, `fixtures/parity/`, and source deterministic tests.
 
 Lifecycle evidence:
 
@@ -250,9 +254,9 @@ Plan-and-Solve subtasks:
   - Stop/escalate condition: Stop if the module path does not resolve to the target repository.
   - Unlocks: P00.S02.
 - `P00.S02 Build the target layout and capture source fixtures`
-  - Action: Run current source contract/core/behavior/React/server tests, create the bounded target layout, adopt the governing documents in `plans/from_utility-llm/` as the single plan/spec home, initialize `plans/implementation-status.json` with P00 complete, capture deterministic fixtures with source SHA and hashes, initialize the minimal Vite/Vitest web harness, and complete canonical Make targets.
+  - Action: Run current source contract/core/behavior and relevant server-contract tests, create the bounded backend layout and initial `api/openapi.yaml` shell, adopt the governing documents in `plans/from_utility-llm/` as the single plan/spec home, initialize `plans/implementation-status.json` with P00 complete, capture deterministic fixtures with source SHA and hashes, and complete canonical Make targets.
   - Why now: Runtime work requires trusted source inputs and stable commands.
-  - Files/surfaces: root files, `cmd/`, needed `internal/` roots, `web/trace-studio/`, `scripts/capture-utility-llm-fixtures.mjs`, `fixtures/parity/manifest.json`.
+  - Files/surfaces: root files, `cmd/`, `api/openapi.yaml`, needed `internal/` roots, `scripts/capture-utility-llm-fixtures.mjs`, `fixtures/parity/manifest.json`.
   - Requirement link: REQ-001, REQ-018, REQ-019.
   - Verification link: TEST-001, TEST-002, TEST-003, TEST-004, TEST-005.
   - Verification mode: GREEN
@@ -284,7 +288,7 @@ Phase metrics with estimated value and one-sentence rationale:
 
 - Confidence %: 88, because module identity and fixture provenance are directly executable.
 - Long-term robustness %: 86, because public boundaries and source SHA are fixed before behavior.
-- Internal interactions: 6, across root module, scripts, fixtures, tests, web harness, and commands.
+- Internal interactions: 6, across root module, API contract shell, scripts, fixtures, tests, and commands.
 - External interactions: 1, the local source repository.
 - Complexity %: 35, because no runtime behavior exists yet.
 - Feature creep %: 5, because speculative packages are removed.
@@ -595,10 +599,10 @@ Plan-and-Solve subtasks:
   - Command/procedure: `go test ./internal/artifacts/... -tags=integration -run TestGarageArtifactStore -count=1`.
   - Expected result: Command passes against pinned Garage with no MinIO or Langfuse application setting.
   - Evidence produced: artifact interface/adapter, deployment config, and passing transcript.
-  - Stop/escalate condition: Escalate if Garage cannot satisfy canonical write, immediate read, presign, or CORS behavior required by the artifact contract.
+  - Stop/escalate condition: Escalate if Garage cannot satisfy canonical write, immediate read, or presign behavior required by the artifact contract.
   - Unlocks: P03.S05.
 - `P03.S05 Add failing auth and profile-save coverage`
-  - Action: Add TEST-022 for Argon2id, opaque sessions, cookie/CSRF, two-user isolation, endpoint-safe probe, and no-write-on-probe-failure behavior.
+  - Action: Add TEST-022 for Argon2id, one-time opaque bearer issuance, digest-only session persistence, strict authorization-header parsing, expiry/revocation, two-user isolation, endpoint-safe probe, and no-write-on-probe-failure behavior.
   - Why now: Stateful gateway routes must build on tested auth and transaction services.
   - Files/surfaces: `internal/gateway/auth_profile_test.go`.
   - Requirement link: REQ-008, REQ-010, REQ-005.
@@ -610,7 +614,7 @@ Plan-and-Solve subtasks:
   - Stop/escalate condition: Stop if profile probes hold database transactions open across network calls.
   - Unlocks: P03.S06.
 - `P03.S06 Implement local auth and profile-save orchestration`
-  - Action: Implement bootstrap user command support, Argon2id verification, opaque hashed sessions, cookie/CSRF/origin checks, owner authorization, safe profile probe, and atomic profile/credential commit.
+  - Action: Implement bootstrap user command support, Argon2id verification, opaque bearer-token generation, SHA-256 session-digest persistence, strict authorization-header parsing, expiry/revocation, owner authorization, safe profile probe, and atomic profile/credential commit. Do not add browser cookies, CSRF, or CORS behavior.
   - Why now: P04 HTTP handlers will compose these services.
   - Files/surfaces: `internal/gateway/auth/`, `internal/gateway/profile_service.go`, `internal/postgres/`, gateway command bootstrap surface.
   - Requirement link: REQ-008, REQ-010, REQ-005.
@@ -654,27 +658,27 @@ Phase metrics with estimated value and one-sentence rationale:
 - Local/non-local scope: Non-local state and artifact integration.
 - Architectural changes count: 5, application database, migrations, artifact store, auth, profile service.
 
-### Phase P04: Versioned gateway and Firebase-free Trace Studio pass
+### Phase P04: Versioned REST and OpenAPI contract pass
 
-Phase goal: all `/api/v1` routes execute through root services and the migrated React UI uses same-origin cookie/CSRF auth with no Firebase target surface.
+Phase goal: every `/api/v1` route executes through root services, conforms to OpenAPI 3.1, uses opaque bearer authentication, and leaves no Firebase or frontend implementation in the backend.
 
 Scope and objectives, including impacted REQ-###: REQ-005, REQ-009, REQ-010, REQ-011, REQ-012, REQ-018, REQ-019, REQ-020.
 
-Impacted surfaces: `cmd/harden-llm-gateway/`, `internal/gateway/httpapi/`, `web/trace-studio/`, Postgres services, and the Garage artifact service.
+Impacted surfaces: `cmd/harden-llm-gateway/`, `internal/gateway/httpapi/`, `api/openapi.yaml`, Postgres services, Garage artifact service, and backend static tests.
 
 Lifecycle evidence:
 
-- Requirements evidence: endpoint, auth, UI migration, and boundary requirements.
-- Design/code surface evidence: router/middleware/handlers and browser clients.
+- Requirements evidence: endpoint, bearer-auth, OpenAPI, migration, and backend-boundary requirements.
+- Design/code surface evidence: router/middleware/handlers, OpenAPI schemas/examples, and static dependency boundaries.
 - Verification method: TEST-023 through TEST-027.
-- Validation purpose: prove non-Go and browser workflows over the self-hosted path.
-- Configuration checkpoint: same-origin test host, fake provider, isolated Harden-LLM Postgres, and Garage artifact bucket.
-- Risks and assumptions: existing UI behavior can be preserved without Firebase client semantics.
+- Validation purpose: prove a complete frontend-independent REST contract for Phoenix and other clients.
+- Configuration checkpoint: fake provider, isolated Harden-LLM Postgres, Garage artifact bucket, and deterministic API examples.
+- Risks and assumptions: current product workflows can be represented without browser-specific server behavior.
 
 Plan-and-Solve subtasks:
 
 - `P04.S01 Add failing HTTP shell coverage`
-  - Action: Add TEST-023 for liveness/readiness including Postgres and Garage, envelopes, strict JSON, errors, and request limits.
+  - Action: Add TEST-023 for liveness/readiness including Postgres and Garage, envelopes, strict JSON, errors, request limits, and authorization-header handling.
   - Why now: Shared transport behavior must precede feature routes.
   - Files/surfaces: `internal/gateway/http_contract_test.go`.
   - Requirement link: REQ-011, REQ-010.
@@ -683,19 +687,19 @@ Plan-and-Solve subtasks:
   - Command/procedure: `go test ./internal/gateway/... -run TestHTTPContract -count=1`.
   - Expected result: Command fails because router and middleware are absent.
   - Evidence produced: failing HTTP transcript.
-  - Stop/escalate condition: Escalate if envelope behavior conflicts with captured UI state fixtures.
+  - Stop/escalate condition: Escalate if stable envelope behavior cannot represent a source server contract.
   - Unlocks: P04.S02.
 - `P04.S02 Implement the gateway shell`
-  - Action: Implement config loading, chi router, liveness/readiness, strict decoder, envelope/error writer, request limits, auth/CSRF hooks, safe forwarded-header handling, and bounded server shutdown.
+  - Action: Implement config loading, chi router, liveness/readiness, strict decoder, envelope/error writer, request limits, opaque bearer middleware, safe forwarded-header handling, CORS-disabled defaults, and bounded server shutdown.
   - Why now: Resource routes require one transport shell.
   - Files/surfaces: `cmd/harden-llm-gateway/main.go`, `internal/gateway/httpapi/`, middleware/config.
   - Requirement link: REQ-011, REQ-010.
   - Verification link: TEST-023.
   - Verification mode: GREEN
   - Command/procedure: `go test ./internal/gateway/... -run TestHTTPContract -count=1`.
-  - Expected result: Command passes for all HTTP tables.
+  - Expected result: Command passes for all HTTP tables without issuing cookies or adding CSRF behavior.
   - Evidence produced: gateway shell and passing transcript.
-  - Stop/escalate condition: Stop if handlers initialize provider/runtime logic directly.
+  - Stop/escalate condition: Stop if handlers initialize provider/runtime logic directly or add a browser-specific auth path.
   - Unlocks: P04.S03.
 - `P04.S03 Add failing resource and run-route coverage`
   - Action: Add TEST-024 and TEST-025 for state, profiles, bundles, models, history, traces, owner-authorized short-lived artifact access, and run execution through root `Client.Call`.
@@ -710,8 +714,8 @@ Plan-and-Solve subtasks:
   - Stop/escalate condition: Stop if tests require live providers or public trace tokens.
   - Unlocks: P04.S04.
 - `P04.S04 Implement resource routes over root services`
-  - Action: Implement all stack-spec `/api/v1` handlers by composing auth, Postgres repositories, profile service, the Garage-backed artifact store, and one root Client call; authorize artifact metadata before returning a short-lived presigned redirect and preserve stable state/result/error envelopes.
-  - Why now: This is the complete REST adapter contract.
+  - Action: Implement all stack-spec `/api/v1` handlers by composing bearer auth, Postgres repositories, profile service, the Garage-backed artifact store, and one root Client call; enforce the 60-second maximum run deadline without HTTP retries, authorize artifact metadata before returning a short-lived presigned redirect, and preserve stable state/result/error envelopes.
+  - Why now: This is the complete REST adapter behavior.
   - Files/surfaces: `internal/gateway/httpapi/`, service composition, gateway main wiring.
   - Requirement link: REQ-005, REQ-009, REQ-010, REQ-011, REQ-020.
   - Verification link: TEST-024, TEST-025.
@@ -719,64 +723,64 @@ Plan-and-Solve subtasks:
   - Command/procedure: `go test ./internal/gateway/... -tags=integration -run 'TestResourceRoutes|TestRunRoute' -count=1`.
   - Expected result: Command passes and root client invocation count is exact.
   - Evidence produced: route implementation and passing transcript.
-  - Stop/escalate condition: Stop if provider, retry, schema, pricing, cache-key, or trace projection logic appears in a handler.
+  - Stop/escalate condition: Stop if provider, retry, schema, pricing, cache-key, trace projection, or frontend state-transition logic appears in a handler.
   - Unlocks: P04.S05.
-- `P04.S05 Add failing Trace Studio migration coverage`
-  - Action: Add TEST-026 and TEST-027 before copying current React behavior, covering cookie/CSRF clients, `/api/v1`, authenticated artifact viewing, user workflows, and total Firebase absence.
-  - Why now: UI migration must reject copied Firebase dependencies before implementation.
-  - Files/surfaces: `web/trace-studio/src/**/*test*`, `internal/testkit/firebase_absence_test.go`.
-  - Requirement link: REQ-012, REQ-018.
+- `P04.S05 Add failing REST contract and backend-boundary coverage`
+  - Action: Add TEST-026 and TEST-027 for bidirectional OpenAPI/router parity, bearer security, request/response fixtures, and absence of Firebase and frontend implementation surfaces.
+  - Why now: The backend must publish a complete client contract before an independent Phoenix implementation can rely on it.
+  - Files/surfaces: `api/openapi.yaml`, `internal/gateway/openapi_contract_test.go`, `internal/testkit/firebase_frontend_absence_test.go`.
+  - Requirement link: REQ-010, REQ-011, REQ-012, REQ-018.
   - Verification link: TEST-026, TEST-027.
   - Verification mode: RED
-  - Command/procedure: `npm --prefix web/trace-studio test -- --run src/api/client.test.jsx src/auth/client.test.jsx src/App.test.jsx src/firebase_absence.test.jsx && go test ./internal/testkit/... -run TestFirebaseAbsent -count=1`.
-  - Expected result: Command fails because the self-hosted clients and app are incomplete.
-  - Evidence produced: failing React/static transcript.
-  - Stop/escalate condition: Escalate if a current UI workflow cannot be represented by the versioned gateway.
+  - Command/procedure: `go test ./internal/gateway/... -run TestOpenAPIContract -count=1 && go test ./internal/testkit/... -run TestFirebaseFrontendAbsent -count=1`.
+  - Expected result: Command fails because the OpenAPI document is incomplete and the backend boundary has not been certified.
+  - Evidence produced: failing OpenAPI/static transcript.
+  - Stop/escalate condition: Escalate if a required client workflow cannot be represented by the versioned REST contract.
   - Unlocks: P04.S06.
-- `P04.S06 Migrate Trace Studio without Firebase`
-  - Action: Port React/Vite UI behavior and assets, replace Firebase auth/API/storage clients with same-origin cookie/CSRF and authenticated artifact clients, update all routes to `/api/v1`, and omit every Firebase source/config/deploy file.
-  - Why now: The gateway contract is stable and can back the browser.
-  - Files/surfaces: `web/trace-studio/`.
-  - Requirement link: REQ-012, REQ-018.
+- `P04.S06 Publish OpenAPI and enforce the backend boundary`
+  - Action: Complete `api/openapi.yaml` with stable operation IDs, bearer security, request/response schemas, limits, envelopes, errors, and examples; implement bidirectional router conformance and scoped static scans. Do not add frontend code or generate a frontend client in the backend.
+  - Why now: Route behavior is stable enough to become the independent client contract.
+  - Files/surfaces: `api/openapi.yaml`, `internal/gateway/openapi_contract_test.go`, `internal/testkit/firebase_frontend_absence_test.go`.
+  - Requirement link: REQ-010, REQ-011, REQ-012, REQ-018.
   - Verification link: TEST-026, TEST-027.
   - Verification mode: GREEN
-  - Command/procedure: `npm --prefix web/trace-studio test -- --run src/api/client.test.jsx src/auth/client.test.jsx src/App.test.jsx src/firebase_absence.test.jsx && go test ./internal/testkit/... -run TestFirebaseAbsent -count=1`.
-  - Expected result: Command passes with no Firebase package or mock.
-  - Evidence produced: migrated UI, package lock, passing React/static transcript.
-  - Stop/escalate condition: Stop if target build/test needs source Firebase server code.
+  - Command/procedure: `go test ./internal/gateway/... -run TestOpenAPIContract -count=1 && go test ./internal/testkit/... -run TestFirebaseFrontendAbsent -count=1`.
+  - Expected result: Command passes with complete route/schema parity and no Firebase or frontend implementation in the backend scope.
+  - Evidence produced: OpenAPI document, conformance/static tests, and passing transcript.
+  - Stop/escalate condition: Stop if conformance requires duplicated route definitions or if backend build/test invokes a frontend toolchain.
   - Unlocks: P04.S07.
-- `P04.S07 Review gateway and browser boundaries`
-  - Action: Mark P04 complete in `plans/implementation-status.json`, then run static boundaries and Firebase absence after full route/UI implementation.
-  - Why now: HTTP and UI breadth can introduce alternate validation or runtime paths.
-  - Files/surfaces: gateway, root library, web target, static tests.
-  - Requirement link: REQ-012, REQ-018, REQ-019.
-  - Verification link: TEST-002, TEST-003, TEST-005, TEST-027.
+- `P04.S07 Review gateway and REST boundaries`
+  - Action: Mark P04 complete in `plans/implementation-status.json`, then run implementation, dependency, OpenAPI, Firebase/frontend absence, and traceability boundaries after full route implementation.
+  - Why now: HTTP breadth can introduce alternate validation, undocumented routes, or presentation behavior.
+  - Files/surfaces: gateway, root library, `api/openapi.yaml`, static tests.
+  - Requirement link: REQ-011, REQ-012, REQ-018, REQ-019.
+  - Verification link: TEST-002, TEST-003, TEST-005, TEST-026, TEST-027.
   - Verification mode: VERIFY
-  - Command/procedure: `go test ./internal/testkit/... -run 'TestImplementationBoundaries|TestForbiddenDependencies|TestFirebaseAbsent|TestTraceability' -count=1`.
-  - Expected result: Command passes. No refactor is needed when browser owns presentation, gateway owns transport/state orchestration, and root library owns runtime behavior.
-  - Evidence produced: boundary scan and phase review note.
-  - Stop/escalate condition: Refactor before exit on any copied validator, provider logic, or Firebase path.
+  - Command/procedure: `go test ./internal/gateway/... -run TestOpenAPIContract -count=1 && go test ./internal/testkit/... -run 'TestImplementationBoundaries|TestForbiddenDependencies|TestFirebaseFrontendAbsent|TestTraceability' -count=1`.
+  - Expected result: Command passes. No refactor is needed when the root library owns runtime behavior, gateway owns REST transport/orchestration, and OpenAPI is the only client contract.
+  - Evidence produced: boundary/conformance transcript and phase review note.
+  - Stop/escalate condition: Refactor before exit on any copied validator, provider logic, undocumented route, presentation logic, Firebase path, or frontend build command.
   - Unlocks: P04 exit.
 
 Exit gates:
 
 - Proceed: TEST-023 through TEST-027, TEST-002, and TEST-003 pass.
-- Escalate: a current Trace Studio workflow lacks a gateway contract.
-- Stop: target UI requires Firebase or browser-side provider execution.
+- Escalate: a required client workflow lacks a stable REST/OpenAPI representation.
+- Stop: acceptance requires Firebase, HTML rendering, browser sessions, CSRF, or frontend runtime code in the backend.
 
 Phase metrics with estimated value and one-sentence rationale:
 
-- Confidence %: 83, because API and UI workflows run against fake providers, real Postgres, and real Garage artifact behavior.
-- Long-term robustness %: 88, because versioning and Firebase absence are executable gates.
-- Internal interactions: 22, across HTTP, auth, repositories, artifact authorization, root client, and React state.
+- Confidence %: 87, because REST behavior and the machine-readable contract run against fake providers, real Postgres, and real Garage artifact behavior.
+- Long-term robustness %: 92, because bidirectional OpenAPI parity and frontend independence are executable gates.
+- Internal interactions: 18, across HTTP, bearer auth, repositories, artifact authorization, root client, OpenAPI, and static boundaries.
 - External interactions: 2, local Harden-LLM Postgres and Garage.
-- Complexity %: 76, because full UI workflow migration spans several contracts.
-- Feature creep %: 10, because routes are limited to current product workflows.
-- Technical debt %: 15, because route/browser ownership is reviewed before exit.
-- YAGNI score: 88, because no generic proxy or admin UI is added.
+- Complexity %: 70, because transport, persistence, security, and schema contracts interact without UI migration work.
+- Feature creep %: 6, because routes remain limited to current product workflows and one client-neutral contract.
+- Technical debt %: 10, because undocumented route drift and frontend coupling are blocked before release.
+- YAGNI score: 93, because no frontend, generated client, generic proxy, or admin UI is added.
 - MoSCoW: Must.
-- Local/non-local scope: Non-local user workflow.
-- Architectural changes count: 4, gateway shell, resource API, auth client, API client.
+- Local/non-local scope: Non-local REST contract validated locally.
+- Architectural changes count: 3, gateway shell, resource API, and OpenAPI boundary.
 
 ### Phase P05: One correlated diagnostic pipeline passes
 
@@ -934,7 +938,7 @@ Lifecycle evidence:
 Plan-and-Solve subtasks:
 
 - `P06.S01 Add failing Compose and Caddy coverage`
-  - Action: Add TEST-033 for all fifteen services, byte-for-byte upstream Langfuse Compose provenance, the unchanged Langfuse Postgres/Redis/ClickHouse/MinIO graph, separate Harden-LLM Postgres/Garage ownership, headless Langfuse project/key initialization, image controls, named volumes, health checks, Caddy app/Grafana/Langfuse/artifact hosts, TLS/security headers, and effective public-port restrictions.
+  - Action: Add TEST-033 for all fifteen services, byte-for-byte upstream Langfuse Compose provenance, the unchanged Langfuse Postgres/Redis/ClickHouse/MinIO graph, separate Harden-LLM Postgres/Garage ownership, headless Langfuse project/key initialization, image controls, named volumes, health checks, Caddy API/Grafana/Langfuse/artifact hosts, one trusted empty `conf.d` extension point, absence of frontend services/assets in the base deployment, TLS/security headers, and effective public-port restrictions.
   - Why now: Deployment topology must fail before Compose artifacts are assembled.
   - Files/surfaces: `internal/deploytest/compose_caddy_test.go`.
   - Requirement link: REQ-009, REQ-017, REQ-019, REQ-020.
@@ -946,7 +950,7 @@ Plan-and-Solve subtasks:
   - Stop/escalate condition: Escalate if the pinned upstream Langfuse fragment cannot run without a local dependency substitution or source patch.
   - Unlocks: P06.S02.
 - `P06.S02 Implement the complete deployment topology`
-  - Action: Add the nine pinned Harden-LLM/observability services including dedicated application Postgres and Garage, configure Garage v2.3 with persistent metadata/data volumes and its supported `--single-node --default-bucket` startup path using the same bucket-scoped values supplied to the gateway, vendor the official six-service Langfuse Compose fragment byte for byte from one released commit, record provenance/SHA-256, add a narrow private-network/secrets/public-URL/port-exposure overlay without dependency substitution, configure supported headless Langfuse initialization, Caddy app/Grafana/Langfuse/Garage artifact routing, exact Trace Studio-origin Garage CORS, health checks, and safe `.env.example` names. Do not add a custom Garage bootstrap service or change a Langfuse-owned service.
+  - Action: Add the nine pinned Harden-LLM/observability services including dedicated application Postgres and Garage, configure Garage v2.3 with persistent metadata/data volumes and its supported `--single-node --default-bucket` startup path using the same bucket-scoped values supplied to the gateway, vendor the official six-service Langfuse Compose fragment byte for byte from one released commit, record provenance/SHA-256, add a narrow private-network/secrets/public-URL/port-exposure overlay without dependency substitution, configure supported headless Langfuse initialization, Caddy API/Grafana/Langfuse/Garage artifact routing plus one trusted empty `conf.d` import, health checks, and safe `.env.example` names. Do not add a custom Garage bootstrap service, frontend service, frontend asset route, or change to a Langfuse-owned service.
   - Why now: Full smoke requires executable deployment artifacts.
   - Files/surfaces: `docker-compose.yml`, `deploy/`, `.env.example`.
   - Requirement link: REQ-009, REQ-017, REQ-019, REQ-020.
@@ -958,7 +962,7 @@ Plan-and-Solve subtasks:
   - Stop/escalate condition: Stop if the effective topology exposes a non-Caddy service, if Harden-LLM points to MinIO, if Langfuse points to Garage, or if the upstream fragment is locally edited.
   - Unlocks: P06.S03.
 - `P06.S03 Add failing full-stack smoke coverage`
-  - Action: Add TEST-034 and `deploy/test/compose.smoke.yml` for a private test-only fake provider, fifteen-service readiness, Caddy routing, Harden-LLM Postgres state, Garage artifact integrity/presigning, Tempo/Langfuse trace, Prometheus metric, Loki log, Grafana datasource correlation, and strict MinIO/Garage ownership.
+  - Action: Add TEST-034 and `deploy/test/compose.smoke.yml` for a private test-only fake provider, fifteen-service readiness, Caddy API routing, opaque bearer login/lifecycle, Harden-LLM Postgres state, Garage artifact integrity/presigning, Tempo/Langfuse trace, Prometheus metric, Loki log, Grafana datasource correlation, and strict MinIO/Garage ownership.
   - Why now: Parseable config does not prove integrated diagnostics.
   - Files/surfaces: `internal/smoke/compose_smoke_test.go`.
   - Requirement link: REQ-015, REQ-016, REQ-017, REQ-020.
@@ -1032,7 +1036,7 @@ Phase goal: aggregate parity, full deterministic quality gates, timeout policy, 
 
 Scope and objectives, including impacted REQ-###: REQ-001 through REQ-020.
 
-Impacted surfaces: entire target repository, parity manifest, `README.md`, operational docs, `ker/`, evidence, and release configuration.
+Impacted surfaces: all backend-owned repository paths, parity manifest, `README.md`, operational docs, `ker/`, evidence, and backend release configuration. `frontend/` and `deploy/frontend/` remain outside this phase.
 
 Lifecycle evidence:
 
@@ -1082,9 +1086,9 @@ Plan-and-Solve subtasks:
   - Stop/escalate condition: Escalate on any unannotated difference.
   - Unlocks: P07.S04.
 - `P07.S04 Run full deterministic certification`
-  - Action: Run formatting, build, static, unit, parity, integration, web, observability, Compose artifact, unit/integration race, vet, and vulnerability gates.
+  - Action: Run formatting, build, static, unit, parity, integration, API/OpenAPI, observability, Compose artifact, unit/integration race, vet, and vulnerability gates.
   - Why now: All deterministic requirements need one release command.
-  - Files/surfaces: entire target repository.
+  - Files/surfaces: all backend-owned paths; exclude `frontend/` and `deploy/frontend/`.
   - Requirement link: REQ-001 through REQ-020.
   - Verification link: TEST-036.
   - Verification mode: VERIFY
@@ -1130,14 +1134,14 @@ Plan-and-Solve subtasks:
   - Stop/escalate condition: Stop if cleanup fails or diagnostics leak secrets.
   - Unlocks: P07.S08.
 - `P07.S08 Close target migration and documentation`
-  - Action: Mark P07 complete in `plans/implementation-status.json`, update README, self-hosting/operator docs, environment reference, source and upstream Langfuse provenance, storage-ownership boundaries, API/library examples, RTM, execution log, and ADR index, then run final Firebase/dependency scans.
+  - Action: Mark P07 complete in `plans/implementation-status.json`, update README, self-hosting/operator docs, environment reference, OpenAPI usage, source and upstream Langfuse provenance, storage-ownership boundaries, API/library examples, backend/frontend ownership reference, RTM, execution log, and ADR index, then run final Firebase/frontend/dependency scans.
   - Why now: Release is incomplete until the target is self-contained and its contracts are documented.
   - Files/surfaces: target docs, examples, plan evidence, static tests.
   - Requirement link: REQ-001, REQ-012, REQ-018, REQ-019, REQ-020.
   - Verification link: TEST-001, TEST-002, TEST-003, TEST-004, TEST-005, TEST-027.
   - Verification mode: VERIFY
-  - Command/procedure: `go test ./internal/testkit/... -count=1 && node scripts/verify-parity-fixtures.mjs && npm --prefix web/trace-studio test -- --run src/firebase_absence.test.jsx`.
-  - Expected result: Target is self-contained, traceable, and contains no Firebase or alternate implementation path.
+  - Command/procedure: `go test ./internal/testkit/... -count=1 && go test ./internal/gateway/... -run TestOpenAPIContract -count=1 && node scripts/verify-parity-fixtures.mjs`.
+  - Expected result: Backend is self-contained, traceable, OpenAPI-conformant, and contains no Firebase, frontend implementation, or alternate runtime path.
   - Evidence produced: final docs, RTM, execution log, scans, and target dependency graph.
   - Stop/escalate condition: Stop if any target command requires the source repository after fixture capture.
   - Unlocks: P07 exit.
@@ -1221,13 +1225,11 @@ evals:
 Source repository runners used only during P00 fixture capture:
 
 - Plain Node `assert` tests under `/home/kirill/p/utility-llm/tests/`.
-- Vitest for `/home/kirill/p/utility-llm/examples/react-trace-studio/`.
-- Existing source commands: `npm run test:contract`, `npm run test:core`, `npm run test:behavior`, `npm run test:react-example`, and `npm run test:react-example:server`.
+- Existing source commands: `npm run test:contract`, `npm run test:core`, and `npm run test:behavior`.
 
 Target runners created in P00:
 
 - Go `testing` for root/internal unit, integration, static, eval, and smoke tests.
-- Vitest/jsdom under `web/trace-studio/`.
 - Node fixture capture and integrity scripts under `scripts/`.
 - Docker Compose for Harden-LLM Postgres, Garage, and full-stack integration, plus the pinned upstream Langfuse fragment.
 - `go test -race`, `go vet`, and pinned `govulncheck` tool execution through `make verify`.
@@ -1241,18 +1243,18 @@ Target locations:
 - Deployment tests: `internal/deploytest/*_test.go`.
 - Smoke tests: `internal/smoke/*_test.go`.
 - Evaluations: `internal/eval/*_test.go`.
-- Web tests: `web/trace-studio/src/**/*.test.*`.
+- REST/OpenAPI tests: `internal/gateway/*_test.go` and `api/openapi.yaml`.
 - Fixtures: `fixtures/**`.
 
 ### 7.2 Test suites overview
 
 | name | purpose | runner | command | runtime budget | when it runs |
 | --- | --- | --- | --- | --- | --- |
-| Static | Module, API, dependencies, Firebase absence, traceability | Go/Node | `make test-static` | 30s | pre-commit and CI |
+| Static | Module, API, dependencies, Firebase/frontend absence, traceability | Go/Node | `make test-static` | 30s | pre-commit and CI |
 | Unit | Root and internal deterministic behavior | Go | `make test-unit` | 120s | pre-commit and CI |
 | Data Drift | Source-SHA fixture integrity and per-slice parity | Go/Node | `make test-parity` | 120s | CI |
 | Integration | Harden-LLM Postgres, Garage artifacts, auth, and gateway | Go + Docker | `make test-integration` | 240s | CI |
-| Web | Trace Studio workflow and Firebase absence | Vitest | `make test-web` | 120s | CI |
+| API | OpenAPI validation, router parity, auth, envelopes, and backend boundary | Go | `make test-api` | 120s | CI |
 | Observability | Signals, logs, Collector, dashboards, failure isolation | Go | `make test-observability` | 120s | CI |
 | E2E | Full fifteen-service correlation and artifact smoke | Go + Compose | `go test ./internal/smoke/... -tags=compose -run TestComposeSmoke -count=1` | 360s | release |
 | Race | Unit and integration race detection | Go | `make test-race` | 360s | CI |
@@ -1263,9 +1265,9 @@ Target locations:
 
 | id | name | type | verifies | location | command | fixtures/mocks/data | deterministic controls | pass_criteria | expected_runtime |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| TEST-001 | Target layout | static | REQ-001 | `internal/testkit/static_layout_test.go` | `go test ./internal/testkit/... -run TestTargetLayout -count=1` | target filesystem | no network | Module, root package, binary, web, deploy, fixture, and migration paths match spec | 5s |
+| TEST-001 | Target layout | static | REQ-001 | `internal/testkit/static_layout_test.go` | `go test ./internal/testkit/... -run TestTargetLayout -count=1` | target filesystem | no network | Module, root package, binary, OpenAPI, deploy, fixture, and migration paths match spec | 5s |
 | TEST-002 | Public API and boundaries | static | REQ-001, REQ-002, REQ-019, REQ-020 | `internal/testkit/static_boundaries_test.go` | `go test ./internal/testkit/... -run TestImplementationBoundaries -count=1` | Go AST/dependency graph | no network | Root API is minimal, providers/Garage stay private, and gateway cannot bypass it | 10s |
-| TEST-003 | Forbidden dependencies | static | REQ-012, REQ-015, REQ-019, REQ-020 | `internal/testkit/static_dependencies_test.go` | `go test ./internal/testkit/... -run TestForbiddenDependencies -count=1` | source/config manifests | no network | No Firebase/application SQLite/Temporal/Sentry/direct Langfuse path; object-store ownership is exact | 10s |
+| TEST-003 | Forbidden dependencies | static | REQ-012, REQ-015, REQ-019, REQ-020 | `internal/testkit/static_dependencies_test.go` | `go test ./internal/testkit/... -run TestForbiddenDependencies -count=1` | source/config manifests | no network | No Firebase/frontend/application SQLite/Temporal/Sentry/direct Langfuse path; object-store ownership is exact | 10s |
 | TEST-004 | Fixture provenance | static | REQ-018 | `scripts/verify-parity-fixtures.mjs` | `node scripts/verify-parity-fixtures.mjs` | parity manifest/files | SHA-256, no network | Source SHA, hashes, schema versions, and secret scan pass | 10s |
 | TEST-005 | Traceability | static | REQ-018, REQ-019 | `internal/testkit/static_traceability_test.go` | `go test ./internal/testkit/... -run TestTraceability -count=1` | specs/plan/tests | no network | One TEST namespace with no duplicates | 5s |
 | TEST-006 | Root call result | unit | REQ-002, REQ-007 | `client_test.go` | `go test . -run TestClientCallResult -count=1` | fake provider/cache, parity output | fixed clock/IDs | One Result and normalized record pass all cases | 10s |
@@ -1284,21 +1286,21 @@ Target locations:
 | TEST-019 | Diagnostics bundle | unit | REQ-007, REQ-013, REQ-020 | `internal/diagnostics/bundle_test.go` | `go test ./internal/diagnostics/... -run TestDiagnosticsBundle -count=1` | adversarial secrets and artifact failures | fixed identity | Bundle/artifact references validate with zero leaks and non-fatal storage failure | 10s |
 | TEST-020 | Postgres repositories | integration | REQ-009, REQ-020 | `internal/postgres/repository_test.go` | `go test ./internal/postgres/... -tags=integration -run TestRepositoryContract -count=1` | isolated Harden-LLM Postgres | concurrent runners | Migrations, schema, artifact indexes, and round trips pass without Langfuse access | 90s |
 | TEST-021 | Cache concurrency | integration | REQ-009 | `internal/postgres/cache_test.go` | `go test ./internal/postgres/... -tags=integration -run TestCacheConcurrency -count=1` | isolated Postgres | concurrent table | One canonical row and owner/version isolation pass | 30s |
-| TEST-022 | Auth and profile save | integration | REQ-005, REQ-008, REQ-010 | `internal/gateway/auth_profile_test.go` | `go test ./internal/gateway/... -tags=integration -run TestAuthProfileContract -count=1` | two users, fake endpoint | fixed session clock | Auth, CSRF, isolation, and no-partial-write behavior pass | 60s |
+| TEST-022 | Auth and profile save | integration | REQ-005, REQ-008, REQ-010 | `internal/gateway/auth_profile_test.go` | `go test ./internal/gateway/... -tags=integration -run TestAuthProfileContract -count=1` | two users, fake endpoint | fixed session clock | Bearer issuance/digest/revocation, isolation, and no-partial-write behavior pass | 60s |
 | TEST-023 | HTTP contract | unit | REQ-010, REQ-011 | `internal/gateway/http_contract_test.go` | `go test ./internal/gateway/... -run TestHTTPContract -count=1` | httptest/limits | fixed checks | Health, envelope, decoding, and limits pass | 15s |
 | TEST-024 | Resource routes | integration | REQ-010, REQ-011, REQ-020 | `internal/gateway/resource_routes_test.go` | `go test ./internal/gateway/... -tags=integration -run TestResourceRoutes -count=1` | Postgres/Garage/fake provider | fixed IDs/time | Owner-scoped `/api/v1` resources and short-lived artifact access pass | 90s |
-| TEST-025 | Run route | integration | REQ-005, REQ-011, REQ-020 | `internal/gateway/run_test.go` | `go test ./internal/gateway/... -tags=integration -run TestRunRoute -count=1` | Postgres/fake root client/artifact store | fixed IDs/time | Root Client called once and record/artifact outcomes pass | 60s |
-| TEST-026 | Trace Studio clients/workflows | unit | REQ-011, REQ-012 | `web/trace-studio/src/**/*test*` | `npm --prefix web/trace-studio test -- --run src/api/client.test.jsx src/auth/client.test.jsx src/App.test.jsx` | jsdom/API fixtures | mocked fetch | Cookie/CSRF `/api/v1` workflows pass | 60s |
-| TEST-027 | Firebase absence | static | REQ-012, REQ-018 | `web/trace-studio/src/firebase_absence.test.jsx`, `internal/testkit/firebase_absence_test.go` | `go test ./internal/testkit/... -run TestFirebaseAbsent -count=1 && npm --prefix web/trace-studio test -- --run src/firebase_absence.test.jsx` | target tree/manifests | no network | No Firebase target surface or command remains | 15s |
+| TEST-025 | Run route | integration | REQ-005, REQ-011, REQ-020 | `internal/gateway/run_test.go` | `go test ./internal/gateway/... -tags=integration -run TestRunRoute -count=1` | Postgres/fake root client/artifact store | fixed IDs/time | Root Client is called once; run deadline, no-retry, record, and artifact outcomes pass | 60s |
+| TEST-026 | OpenAPI/router conformance | static | REQ-010, REQ-011, REQ-012 | `api/openapi.yaml`, `internal/gateway/openapi_contract_test.go` | `go test ./internal/gateway/... -run TestOpenAPIContract -count=1` | router/request/response fixtures | no network | OpenAPI 3.1, route parity, bearer security, schemas, envelopes, and examples pass | 20s |
+| TEST-027 | Firebase/frontend absence | static | REQ-012, REQ-018 | `internal/testkit/firebase_frontend_absence_test.go` | `go test ./internal/testkit/... -run TestFirebaseFrontendAbsent -count=1` | backend-owned paths/base manifests | no network | No Firebase or frontend implementation enters backend code/builds/base deployment; separate frontend paths are excluded | 10s |
 | TEST-028 | OTel contract | unit | REQ-013 | `internal/runtime/telemetry_test.go`, `internal/gateway/telemetry_test.go` | `go test ./internal/runtime/... ./internal/gateway/... -run TestOTelContract -count=1` | in-memory exporters | fixed trace IDs | Required signals and bounded attributes pass | 20s |
 | TEST-029 | Structured logging | unit | REQ-013, REQ-019 | `internal/gateway/logging_test.go` | `go test ./internal/gateway/... -run TestStructuredLogging -count=1` | buffer JSON logger | fixed trace IDs | JSON correlation with zero leaks/duplicates | 10s |
 | TEST-030 | Collector pipelines | integration | REQ-015 | `internal/deploytest/collector_test.go` | `go test ./internal/deploytest/... -run TestCollectorPipelines -count=1` | config/fake OTLP | fixed signal set | Tempo/Loki/Prometheus/one Langfuse path pass | 20s |
 | TEST-031 | Telemetry failure isolation | unit | REQ-014 | `internal/gateway/telemetry_failure_test.go` | `go test ./internal/gateway/... -run TestTelemetryFailureIsolation -count=1` | failing exporter | fixed 2s budget | Result unchanged and bounded shutdown pass | 10s |
 | TEST-032 | Grafana artifacts | static | REQ-016 | `internal/deploytest/grafana_test.go` | `go test ./internal/deploytest/... -run TestGrafanaArtifacts -count=1` | YAML/dashboard JSON | stable UIDs | Datasources/panels/queries/correlation pass | 10s |
-| TEST-033 | Compose and Caddy | static | REQ-009, REQ-017, REQ-019, REQ-020 | `internal/deploytest/compose_caddy_test.go` | `go test ./internal/deploytest/... -tags=compose -run TestComposeCaddyContract -count=1` | Compose/Caddy/upstream provenance/images | no live network | Fifteen services, unchanged upstream Langfuse graph, storage ownership, hosts, volumes, and ports pass | 20s |
+| TEST-033 | Compose and Caddy | static | REQ-009, REQ-017, REQ-019, REQ-020 | `internal/deploytest/compose_caddy_test.go` | `go test ./internal/deploytest/... -tags=compose -run TestComposeCaddyContract -count=1` | Compose/Caddy/upstream provenance/images | no live network | Fifteen backend services, no frontend service/assets, unchanged Langfuse graph, storage ownership, hosts, volumes, and ports pass | 20s |
 | TEST-034 | Full Compose smoke | e2e | REQ-015, REQ-016, REQ-017, REQ-020 | `internal/smoke/compose_smoke_test.go` | `go test ./internal/smoke/... -tags=compose -run TestComposeSmoke -count=1` | full stack/fake provider | pinned/recorded images | Health, artifact integrity, ownership, and backend correlation pass | 360s |
 | TEST-035 | Aggregate parity | unit | REQ-018 | parity-bearing tests and fixture verifier | `make test-parity` | all parity fixtures | manifest hashes | All parity passes or has ADR annotation | 120s |
-| TEST-036 | Full deterministic certification | integration | REQ-001 through REQ-020 | entire target | `make verify` | all deterministic fixtures/services | no live credentials | All deterministic quality gates pass | 900s |
+| TEST-036 | Full deterministic certification | integration | REQ-001 through REQ-020 | all backend-owned paths and base deployment | `make verify` | all deterministic fixtures/services | no live credentials | All backend deterministic quality gates pass without invoking the frontend | 900s |
 | TEST-037 | Live providers | e2e | REQ-004, REQ-005 | `internal/providers/live_test.go` | `go test ./internal/providers/... -tags=live -run TestLiveProviders -count=1` | explicit credentials | live opt-in | Configured providers pass safely | 240s |
 | TEST-038 | Live gateway lifecycle | e2e | REQ-005, REQ-010, REQ-011, REQ-012, REQ-015, REQ-020 | `internal/smoke/live_gateway_test.go` | `go test ./internal/smoke/... -tags=live -run TestLiveGatewayLifecycle -count=1` | running stack/credential | live opt-in | User lifecycle, Garage artifacts, diagnostics, and cleanup pass | 360s |
 | TEST-039 | Timeout policy | static | REQ-003, REQ-014, REQ-017 | `internal/testkit/timeout_policy_test.go` | `go test ./internal/testkit/... -run TestTimeoutPolicy -count=1` | diff/baseline/RCA docs | no network | Unsupported increases fail; baseline passes | 10s |
@@ -1317,7 +1319,7 @@ Schema snapshot:
 - `user_sessions`: token hash, owner, expiry, revocation, timestamps.
 - `llm_profiles`: owner, profile identity, API interface, normalized endpoint, model data, options, pricing, backup references, credential reference, timestamps.
 - `llm_endpoint_credentials`: owner, credential ID, key ID, nonce, ciphertext, normalized origin, metadata, timestamps.
-- `trace_studio_state`: owner and strict UI-state JSONB.
+- `llm_client_state`: owner and strict client-state JSONB.
 - `llm_runs`: owner, run/profile/trace IDs, request/result summary, status, timestamps.
 - `llm_traces`: owner, normalized domain call record, timestamps.
 - `llm_trace_observations`: owner/trace, sequence, type, redacted data, timestamps.
@@ -1362,9 +1364,9 @@ Privacy and data-quality constraints:
   - 24 GiB RAM.
   - 100 GiB available persistent disk.
 - Timed Compose readiness starts after pinned images are present locally.
-- Toolchain versions are pinned in `go.mod`, `go.sum`, web lockfile, tool declarations, and image manifest.
+- Toolchain versions are pinned in `go.mod`, `go.sum`, tool declarations, the upstream Langfuse provenance record, and the image manifest.
 - Relevant application variables:
-  - `HARDEN_LLM_APP_HOST`
+  - `HARDEN_LLM_API_HOST`
   - `HARDEN_LLM_GRAFANA_HOST`
   - `HARDEN_LLM_LANGFUSE_HOST`
   - `HARDEN_LLM_ARTIFACT_HOST`
@@ -1382,6 +1384,7 @@ Privacy and data-quality constraints:
   - `HARDEN_LLM_ENVIRONMENT`
   - `HARDEN_LLM_RELEASE`
   - `HARDEN_LLM_SESSION_TTL`
+  - `HARDEN_LLM_MAX_RUN_DURATION_MS`
   - `HARDEN_LLM_PROVIDER_ALLOWED_HOSTS`
   - `HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST`
 - Deployment secrets also cover Harden-LLM Postgres, Garage RPC/admin/bucket access, upstream Langfuse Postgres, Langfuse auth/encryption, ClickHouse, Redis, MinIO, and Grafana. Evidence records names only.
@@ -1418,8 +1421,8 @@ Privacy and data-quality constraints:
 | P04 | REQ-011 | TEST-024 | `internal/gateway/resource_routes_test.go` | `go test ./internal/gateway/... -tags=integration -run TestResourceRoutes -count=1` |
 | P04 | REQ-020 | TEST-024 | `internal/gateway/resource_routes_test.go` | `go test ./internal/gateway/... -tags=integration -run TestResourceRoutes -count=1` |
 | P04 | REQ-011 | TEST-025 | `internal/gateway/run_test.go` | `go test ./internal/gateway/... -tags=integration -run TestRunRoute -count=1` |
-| P04 | REQ-012 | TEST-026 | `web/trace-studio/src/**/*test*` | `npm --prefix web/trace-studio test -- --run src/api/client.test.jsx src/auth/client.test.jsx src/App.test.jsx` |
-| P04 | REQ-012 | TEST-027 | `web/trace-studio/src/firebase_absence.test.jsx`, `internal/testkit/firebase_absence_test.go` | `go test ./internal/testkit/... -run TestFirebaseAbsent -count=1 && npm --prefix web/trace-studio test -- --run src/firebase_absence.test.jsx` |
+| P04 | REQ-012 | TEST-026 | `api/openapi.yaml`, `internal/gateway/openapi_contract_test.go` | `go test ./internal/gateway/... -run TestOpenAPIContract -count=1` |
+| P04 | REQ-012 | TEST-027 | `internal/testkit/firebase_frontend_absence_test.go` | `go test ./internal/testkit/... -run TestFirebaseFrontendAbsent -count=1` |
 | P05 | REQ-013 | TEST-028 | `internal/runtime/telemetry_test.go`, `internal/gateway/telemetry_test.go` | `go test ./internal/runtime/... ./internal/gateway/... -run TestOTelContract -count=1` |
 | P05 | REQ-013 | TEST-029 | `internal/gateway/logging_test.go` | `go test ./internal/gateway/... -run TestStructuredLogging -count=1` |
 | P05 | REQ-014 | TEST-031 | `internal/gateway/telemetry_failure_test.go` | `go test ./internal/gateway/... -run TestTelemetryFailureIsolation -count=1` |
@@ -1429,7 +1432,7 @@ Privacy and data-quality constraints:
 | P06 | REQ-017 | TEST-034 | `internal/smoke/compose_smoke_test.go` | `go test ./internal/smoke/... -tags=compose -run TestComposeSmoke -count=1` |
 | P06 | REQ-020 | TEST-034 | `internal/smoke/compose_smoke_test.go` | `go test ./internal/smoke/... -tags=compose -run TestComposeSmoke -count=1` |
 | P07 | REQ-018 | TEST-035 | parity-bearing tests and fixture verifier | `make test-parity` |
-| P07 | REQ-019 | TEST-036 | entire target | `make verify` |
+| P07 | REQ-019 | TEST-036 | all backend-owned paths and base deployment | `make verify` |
 | P07 | REQ-004 | TEST-037 | `internal/providers/live_test.go` | `go test ./internal/providers/... -tags=live -run TestLiveProviders -count=1` |
 | P07 | REQ-015 | TEST-038 | `internal/smoke/live_gateway_test.go` | `go test ./internal/smoke/... -tags=live -run TestLiveGatewayLifecycle -count=1` |
 | P07 | REQ-014 | TEST-039 | `internal/testkit/timeout_policy_test.go` | `go test ./internal/testkit/... -run TestTimeoutPolicy -count=1` |

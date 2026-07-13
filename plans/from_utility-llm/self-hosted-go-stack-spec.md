@@ -22,7 +22,7 @@
 | HTTP routing | Go `net/http` with `chi` | API routes, auth, request decoding, limits, and middleware. |
 | REST contract | OpenAPI 3.1 in `api/openapi.yaml` | Canonical machine-readable paths, schemas, bearer authentication, envelopes, errors, and examples for every non-health endpoint. |
 | Public edge | Caddy | TLS, security headers, request-body limits, and reverse proxy for the API, Grafana, Langfuse, and Harden-LLM artifact hostnames. |
-| Application database | Postgres | Users, sessions, profiles, encrypted credentials, UI state, runs, domain trace records, observations, cache records, stats, and migrations. |
+| Application database | Postgres | Users, sessions, profiles, encrypted credentials, client state, runs, domain trace records, observations, cache records, stats, and migrations. |
 | Application object storage | Garage | Private Harden-LLM JSON trace artifacts and diagnostic attachments migrated from Firebase Storage. Garage is not a Langfuse dependency. |
 | Langfuse relational database | Upstream default dedicated Postgres service | Langfuse transactional state, credentials, migrations, and lifecycle remain owned by the upstream Langfuse Compose topology. |
 | Langfuse analytics | ClickHouse | Langfuse traces, observations, scores, and analytical queries. |
@@ -85,7 +85,9 @@
 - OIDC, SAML, public user registration, password-email workflows, and an admin UI.
 - Browser UI, HTML rendering, Phoenix, LiveView, React, frontend sessions, frontend CSRF, and frontend assets. These are owned by `phoenix-liveview-frontend-spec.md`.
 
-## 5. Target repository structure
+## 5. Backend-owned repository structure
+
+The following tree is the backend-owned build and release scope. The separately specified `frontend/` application and `deploy/frontend/` overlay may coexist in the repository, but the Go module, backend `Makefile` gates, base Compose file, and backend release image do not import, build, or package them.
 
 ```text
 /home/kirill/p/harden-llm/
@@ -305,6 +307,8 @@ Authentication contract:
 - Logout revokes the current token. Expired, revoked, malformed, duplicated-header, or unknown tokens return the same stable unauthenticated envelope.
 - The REST API does not issue browser cookies and does not implement CSRF. Browser session and CSRF controls belong to the separately specified Phoenix frontend, which calls the REST API server to server.
 - CORS is disabled by default. A future direct-browser client requires an explicit origin allowlist and ADR; wildcard origins are forbidden.
+- The gateway's default and contract maximum synchronous `/api/v1/run` duration is 60 seconds, preserving the source default. Deployment may lower the cap, and a request or saved profile may select a shorter duration, but neither may exceed 60 seconds.
+- When that deadline expires, the gateway cancels the root call and returns the documented `run_timeout` error with HTTP 504. The gateway never retries an ambiguous run request.
 
 Gateway responsibilities:
 
@@ -358,6 +362,7 @@ Caddy must:
 
 - Terminate TLS and persist certificate state in named volumes.
 - Reverse proxy the API hostname to `harden-llm-gateway:8080` without serving HTML or frontend assets.
+- Import trusted route fragments from `/etc/caddy/conf.d/*.caddy`. The base image/configuration supplies no frontend fragment; the separately tested frontend overlay may mount one without replacing backend routes.
 - Reverse proxy Grafana, Langfuse, and the Garage S3 artifact hostname without exposing their container ports on the host.
 - Never expose Garage administration or RPC routes. The backend artifact endpoint remains the authorization boundary for presigned reads.
 - Do not route Harden-LLM artifact requests to MinIO. Langfuse's MinIO service and S3 configuration remain owned by the pinned upstream Langfuse Compose fragment.
@@ -567,6 +572,7 @@ Application variables:
 | `HARDEN_LLM_ENVIRONMENT` | Deployment environment. |
 | `HARDEN_LLM_RELEASE` | Release identifier. |
 | `HARDEN_LLM_SESSION_TTL` | Session lifetime. |
+| `HARDEN_LLM_MAX_RUN_DURATION_MS` | Effective synchronous `/api/v1/run` cap in milliseconds; default `60000`, required range `1..60000`. Requests may lower but not raise it. |
 | `HARDEN_LLM_PROVIDER_ALLOWED_HOSTS` | Optional restriction for public provider hosts. |
 | `HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST` | Exact private hosts/CIDRs allowed by the administrator. |
 
