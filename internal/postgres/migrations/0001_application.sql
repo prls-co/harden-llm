@@ -59,8 +59,7 @@ CREATE TABLE llm_runs (
     result jsonb NOT NULL CHECK (jsonb_typeof(result) = 'object'),
     started_at timestamptz NOT NULL,
     completed_at timestamptz NOT NULL CHECK (completed_at >= started_at),
-    PRIMARY KEY (owner_id, run_id),
-    FOREIGN KEY (owner_id, profile_id) REFERENCES llm_profiles(owner_id, profile_id) ON DELETE RESTRICT
+    PRIMARY KEY (owner_id, run_id)
 );
 CREATE UNIQUE INDEX llm_runs_owner_trace_idx ON llm_runs (owner_id, trace_id);
 CREATE INDEX llm_runs_owner_history_idx ON llm_runs (owner_id, started_at DESC, run_id DESC);

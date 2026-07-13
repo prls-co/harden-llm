@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
@@ -121,6 +122,27 @@ func (store *Store) RevokeSession(ctx context.Context, ownerID string, digest []
 	return nil
 }
 
+// RevokeSessionByID revokes one owner-scoped session without retaining its
+// bearer token in HTTP request context.
+func (store *Store) RevokeSessionByID(ctx context.Context, ownerID, sessionID string, revokedAt time.Time) error {
+	if err := validateIdentifier("owner ID", ownerID); err != nil {
+		return ErrNotFound
+	}
+	if err := validateIdentifier("session ID", sessionID); err != nil || revokedAt.IsZero() {
+		return ErrNotFound
+	}
+	result, err := store.pool.Exec(ctx, `
+		UPDATE user_sessions SET revoked_at = COALESCE(revoked_at, $3)
+		WHERE owner_id = $1 AND id = $2 AND revoked_at IS NULL AND expires_at > $3`, ownerID, sessionID, revokedAt)
+	if err != nil {
+		return fmt.Errorf("postgres: revoke session by ID: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (store *Store) SaveProfile(ctx context.Context, profile ProfileRecord, credential *CredentialRecord) error {
 	if err := validateProfile(profile); err != nil {
 		return err
@@ -143,7 +165,28 @@ func (store *Store) SaveProfile(ctx context.Context, profile ProfileRecord, cred
 		return fmt.Errorf("postgres: begin profile save: %w", err)
 	}
 	defer func() { _ = transaction.Rollback(ctx) }()
+	if _, err := transaction.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 1212968013))`, profile.OwnerID); err != nil {
+		return fmt.Errorf("postgres: lock profile owner: %w", err)
+	}
 	if credential != nil {
+		var existingOrigin, existingScope string
+		bindingErr := transaction.QueryRow(ctx, `
+			SELECT c.normalized_origin, c.metadata->>'scope'
+			FROM llm_endpoint_credentials c
+			WHERE c.owner_id=$1 AND c.credential_id=$2
+			AND EXISTS (
+				SELECT 1 FROM llm_profiles p
+				WHERE p.owner_id=c.owner_id AND p.credential_id=c.credential_id AND p.profile_id<>$3
+			)`, credential.OwnerID, credential.ID, profile.ID).Scan(&existingOrigin, &existingScope)
+		if bindingErr != nil && !errors.Is(bindingErr, pgx.ErrNoRows) {
+			return fmt.Errorf("postgres: inspect shared credential binding: %w", bindingErr)
+		}
+		var metadata struct {
+			Scope string `json:"scope"`
+		}
+		if bindingErr == nil && (json.Unmarshal(credential.Metadata, &metadata) != nil || existingOrigin != credential.Origin || existingScope != metadata.Scope) {
+			return errors.New("postgres: shared credential origin and scope cannot change")
+		}
 		_, err = transaction.Exec(ctx, `
 			INSERT INTO llm_endpoint_credentials
 				(owner_id, credential_id, key_id, nonce, ciphertext, normalized_origin, metadata, created_at, updated_at)
@@ -177,6 +220,27 @@ func (store *Store) SaveProfile(ctx context.Context, profile ProfileRecord, cred
 	)
 	if err != nil {
 		return fmt.Errorf("postgres: save profile: %w", err)
+	}
+	if _, err := transaction.Exec(ctx, `
+		UPDATE llm_endpoint_credentials c SET metadata = jsonb_set(
+			c.metadata, '{apiInferenceTypes}',
+			COALESCE((
+				SELECT jsonb_agg(value ORDER BY value) FROM (
+					SELECT DISTINCT p.document->>'apiInferenceType' AS value
+					FROM llm_profiles p
+					WHERE p.owner_id=c.owner_id AND p.credential_id=c.credential_id
+				) inference_types WHERE value IS NOT NULL AND value <> ''
+			), '[]'::jsonb), true
+		)
+		WHERE c.owner_id=$1`, profile.OwnerID); err != nil {
+		return fmt.Errorf("postgres: reconcile credential inference types: %w", err)
+	}
+	if _, err := transaction.Exec(ctx, `
+		DELETE FROM llm_endpoint_credentials c WHERE c.owner_id=$1
+		AND NOT EXISTS (
+			SELECT 1 FROM llm_profiles p WHERE p.owner_id=c.owner_id AND p.credential_id=c.credential_id
+		)`, profile.OwnerID); err != nil {
+		return fmt.Errorf("postgres: delete orphan credentials: %w", err)
 	}
 	if err := transaction.Commit(ctx); err != nil {
 		return fmt.Errorf("postgres: commit profile save: %w", err)
@@ -503,7 +567,7 @@ func validateIdentifier(name, value string) error {
 }
 
 func validateProfileIdentifier(value string) error {
-	if strings.TrimSpace(value) == "" || strings.TrimSpace(value) != value || len(value) > 1500 || !utf8.ValidString(value) {
+	if strings.TrimSpace(value) == "" || strings.TrimSpace(value) != value || len(value) > 1500 || !utf8.ValidString(value) || strings.IndexFunc(value, unicode.IsControl) >= 0 {
 		return errors.New("postgres: valid profile ID is required")
 	}
 	return nil

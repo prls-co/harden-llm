@@ -7,8 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-
-	hardenllm "github.com/prls-co/harden-llm"
 )
 
 func main() {
@@ -22,8 +20,10 @@ func main() {
 
 func run(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer, getenv func(string) string) error {
 	if len(args) == 0 {
-		_, err := hardenllm.New(hardenllm.Options{})
-		return err
+		return runGatewayServer(ctx, stdout, getenv)
+	}
+	if args[0] == "serve" && len(args) == 1 {
+		return runGatewayServer(ctx, stdout, getenv)
 	}
 	if args[0] == "bootstrap-user" {
 		return runBootstrapUser(ctx, args[1:], stdin, stdout, getenv)

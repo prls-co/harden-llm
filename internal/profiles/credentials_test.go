@@ -78,6 +78,17 @@ func TestCredentialBundleEncryptionAndAAD(t *testing.T) {
 			t.Fatalf("non-origin credential binding was accepted: %q", origin)
 		}
 	}
+	for _, invalidPayload := range []CredentialPayload{
+		{APIKey: " leading-space"},
+		{APIKey: "key\r\ninjected"},
+		{APIKey: "key", Headers: map[string]string{"Bad Header": "value"}},
+		{APIKey: "key", Headers: map[string]string{"X-Test": "value", "x-test": "other"}},
+		{APIKey: "key", Headers: map[string]string{"X-Test": "value\r\ninjected"}},
+	} {
+		if _, err := vault.Seal(invalidPayload, binding); err == nil {
+			t.Fatalf("invalid credential payload was accepted: %#v", invalidPayload)
+		}
+	}
 }
 
 func TestCredentialBundleCanonicalRoundTripAndPublicState(t *testing.T) {

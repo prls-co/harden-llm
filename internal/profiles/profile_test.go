@@ -53,10 +53,17 @@ func TestProfileParityRejectsInvalidShapeAndGraphs(t *testing.T) {
 	}{
 		{"key mismatch", Catalog{"Primary": withProfile(base, func(profile *Profile) { profile.LLMProfile = "Other" })}, "Primary.llmProfile"},
 		{"invalid name", Catalog{"Bad/Profile": fixtureProfile("Bad/Profile")}, "llmProfile"},
+		{"control character in name", Catalog{"Bad\nProfile": fixtureProfile("Bad\nProfile")}, "llmProfile"},
 		{"insecure endpoint", Catalog{"Primary": withProfile(base, func(profile *Profile) { profile.BaseURL = "http://provider.example/v1" })}, "Primary.baseUrl"},
 		{"secret default", Catalog{"Primary": withProfile(base, func(profile *Profile) {
 			profile.DefaultOptions = map[string]any{"nested": map[string]any{"apiKey": "secret"}}
 		})}, "Primary.defaultOptions.nested.apiKey"},
+		{"oversized model", Catalog{"Primary": withProfile(base, func(profile *Profile) {
+			profile.Models = []Model{{ID: strings.Repeat("x", MaxModelIDBytes+1), Label: "x"}}
+		})}, "Primary.models[0].id"},
+		{"duplicate model", Catalog{"Primary": withProfile(base, func(profile *Profile) {
+			profile.Models = []Model{{ID: "same", Label: "Same"}, {ID: "same", Label: "Same"}}
+		})}, "Primary.models[1].id"},
 		{"duplicate", Catalog{"Primary": withProfile(base, func(profile *Profile) { profile.BackupProfiles = []string{"Backup", "Backup"} }), "Backup": fixtureProfile("Backup")}, "Primary.backupProfiles[1]"},
 		{"missing", Catalog{"Primary": withProfile(base, func(profile *Profile) { profile.BackupProfiles = []string{"Missing"} })}, "Primary.backupProfiles[0]"},
 		{"cycle", Catalog{"Primary": withProfile(base, func(profile *Profile) { profile.BackupProfiles = []string{"Backup"} }), "Backup": withProfile(fixtureProfile("Backup"), func(profile *Profile) { profile.BackupProfiles = []string{"Primary"} })}, "Primary.backupProfiles[0]"},

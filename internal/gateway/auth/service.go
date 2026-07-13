@@ -19,6 +19,9 @@ const (
 	sessionIDBytes    = 16
 	minimumSessionTTL = time.Minute
 	maximumSessionTTL = 30 * 24 * time.Hour
+	// Each Argon2id verification uses 64 MiB. Bounding concurrent logins keeps
+	// unauthenticated traffic from creating unbounded memory pressure.
+	maximumConcurrentLogins = 4
 )
 
 // ErrUnauthenticated deliberately does not distinguish invalid auth states.
@@ -36,6 +39,7 @@ type Service struct {
 	sessionTTL time.Duration
 	clock      func() time.Time
 	random     io.Reader
+	loginSlots chan struct{}
 }
 
 type Principal struct {
@@ -64,7 +68,10 @@ func NewService(config Config) (*Service, error) {
 	if config.Random == nil {
 		config.Random = rand.Reader
 	}
-	return &Service{store: config.Store, sessionTTL: config.SessionTTL, clock: config.Clock, random: config.Random}, nil
+	return &Service{
+		store: config.Store, sessionTTL: config.SessionTTL, clock: config.Clock, random: config.Random,
+		loginSlots: make(chan struct{}, maximumConcurrentLogins),
+	}, nil
 }
 
 func (service *Service) BootstrapUser(ctx context.Context, ownerID, email, password string) (postgres.User, error) {
@@ -87,6 +94,12 @@ func (service *Service) BootstrapUser(ctx context.Context, ownerID, email, passw
 func (service *Service) Login(ctx context.Context, email, password string) (LoginResult, error) {
 	if service == nil {
 		return LoginResult{}, ErrUnauthenticated
+	}
+	select {
+	case service.loginSlots <- struct{}{}:
+		defer func() { <-service.loginSlots }()
+	case <-ctx.Done():
+		return LoginResult{}, fmt.Errorf("auth: wait for password verifier: %w", ctx.Err())
 	}
 	user, err := service.store.UserByEmail(ctx, email)
 	if err != nil {
@@ -179,6 +192,25 @@ func (service *Service) Logout(ctx context.Context, token string) error {
 			return ErrUnauthenticated
 		}
 		return fmt.Errorf("auth: revoke session: %w", err)
+	}
+	return nil
+}
+
+// LogoutPrincipal revokes an authenticated session by its safe owner/session
+// identity, allowing middleware to discard the bearer token before handlers.
+func (service *Service) LogoutPrincipal(ctx context.Context, principal Principal) error {
+	if service == nil || principal.OwnerID == "" || principal.SessionID == "" {
+		return ErrUnauthenticated
+	}
+	now := service.clock().UTC()
+	if !now.Before(principal.ExpiresAt) {
+		return ErrUnauthenticated
+	}
+	if err := service.store.RevokeSessionByID(ctx, principal.OwnerID, principal.SessionID, now); err != nil {
+		if errors.Is(err, postgres.ErrNotFound) {
+			return ErrUnauthenticated
+		}
+		return fmt.Errorf("auth: revoke principal session: %w", err)
 	}
 	return nil
 }

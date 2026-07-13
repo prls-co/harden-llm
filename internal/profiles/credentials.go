@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 const (
@@ -113,8 +114,8 @@ func (vault *CredentialVault) Seal(payload CredentialPayload, binding Credential
 	if err != nil {
 		return EncryptedCredential{}, err
 	}
-	if strings.TrimSpace(payload.APIKey) == "" {
-		return EncryptedCredential{}, errors.New("profiles: credential API key is required")
+	if err := validateCredentialPayload(payload); err != nil {
+		return EncryptedCredential{}, err
 	}
 	plaintext, err := json.Marshal(CredentialPayload{APIKey: payload.APIKey, Headers: cloneHeaderMap(payload.Headers)})
 	if err != nil {
@@ -188,7 +189,7 @@ func (vault *CredentialVault) Open(encrypted EncryptedCredential, binding Creden
 	decoder := json.NewDecoder(strings.NewReader(string(plaintext)))
 	decoder.DisallowUnknownFields()
 	var payload CredentialPayload
-	if err = decoder.Decode(&payload); err != nil || strings.TrimSpace(payload.APIKey) == "" {
+	if err = decoder.Decode(&payload); err != nil || validateCredentialPayload(payload) != nil {
 		return CredentialPayload{}, errors.New("profiles: decrypted credential payload is invalid")
 	}
 	if err = requireJSONEOF(decoder); err != nil {
@@ -240,13 +241,22 @@ func (vault *CredentialVault) ImportBundle(input []byte, expectedOwnerID string)
 	if err := requireJSONEOF(decoder); err != nil || bundle.SchemaVersion != credentialBundleVersion || bundle.BundleID == "" || bundle.CreatedAt.IsZero() {
 		return nil, errors.New("profiles: credential bundle is invalid")
 	}
+	return vault.ValidateRecords(bundle.Credentials, expectedOwnerID)
+}
+
+// ValidateRecords authenticates, normalizes, and owner-binds encrypted
+// credential records for atomic application bundle import.
+func (vault *CredentialVault) ValidateRecords(records []CredentialRecord, expectedOwnerID string) ([]CredentialRecord, error) {
+	if vault == nil {
+		return nil, errors.New("profiles: credential vault is required")
+	}
 	ownerID := strings.TrimSpace(expectedOwnerID)
 	if ownerID == "" {
 		return nil, errors.New("profiles: expected bundle owner is required")
 	}
-	result := make([]CredentialRecord, len(bundle.Credentials))
+	result := make([]CredentialRecord, len(records))
 	seen := make(map[string]struct{}, len(result))
-	for index, record := range bundle.Credentials {
+	for index, record := range records {
 		if record.Binding.OwnerID != ownerID {
 			return nil, errors.New("profiles: credential bundle owner mismatch")
 		}
@@ -381,6 +391,55 @@ func normalizeInferenceTypes(values []string) ([]string, error) {
 	}
 	slices.Sort(result)
 	return result, nil
+}
+
+func validateCredentialPayload(payload CredentialPayload) error {
+	if strings.TrimSpace(payload.APIKey) == "" || strings.TrimSpace(payload.APIKey) != payload.APIKey || !utf8.ValidString(payload.APIKey) ||
+		len(payload.APIKey) > 16<<10 || strings.ContainsAny(payload.APIKey, "\r\n\x00") {
+		return errors.New("profiles: credential API key is invalid")
+	}
+	if len(payload.Headers) > 64 {
+		return errors.New("profiles: credential has too many headers")
+	}
+	seen := make(map[string]struct{}, len(payload.Headers))
+	for name, value := range payload.Headers {
+		lower := strings.ToLower(name)
+		if !validCredentialHeaderName(name) || !validCredentialHeaderValue(value) {
+			return errors.New("profiles: credential header is invalid")
+		}
+		if _, duplicate := seen[lower]; duplicate {
+			return errors.New("profiles: credential header names are ambiguous")
+		}
+		seen[lower] = struct{}{}
+	}
+	return nil
+}
+
+func validCredentialHeaderName(value string) bool {
+	if value == "" || len(value) > 128 {
+		return false
+	}
+	for _, character := range []byte(value) {
+		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') || strings.ContainsRune("!#$%&'*+-.^_`|~", rune(character)) {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func validCredentialHeaderValue(value string) bool {
+	if len(value) > 8192 || !utf8.ValidString(value) {
+		return false
+	}
+	for _, character := range value {
+		if character == '\t' || character >= 0x20 && character != 0x7f {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func cloneHeaderMap(input map[string]string) map[string]string {

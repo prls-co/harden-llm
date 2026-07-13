@@ -65,6 +65,31 @@ func (store *Store) Ping(ctx context.Context) error {
 	return store.pool.Ping(ctx)
 }
 
+// Ready verifies reachability and an exact match with this binary's embedded
+// migration set. A database that is behind or ahead is not safe to serve.
+func (store *Store) Ready(ctx context.Context) error {
+	if err := store.Ping(ctx); err != nil {
+		return err
+	}
+	expected, err := migrationEntries()
+	if err != nil {
+		return err
+	}
+	applied, err := store.AppliedMigrations(ctx)
+	if err != nil {
+		return err
+	}
+	if len(applied) != len(expected) {
+		return errors.New("postgres: migration state is not current")
+	}
+	for index := range expected {
+		if applied[index] != expected[index].version {
+			return errors.New("postgres: migration state is not current")
+		}
+	}
+	return nil
+}
+
 // Migrate applies embedded migrations once under a session-scoped advisory lock.
 func (store *Store) Migrate(ctx context.Context) error {
 	if store == nil || store.pool == nil {

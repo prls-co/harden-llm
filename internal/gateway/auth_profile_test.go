@@ -165,6 +165,78 @@ func TestAuthProfileContract(t *testing.T) {
 		t.Fatal("failed probe partially modified profile state")
 	}
 
+	probe.err = nil
+	probe.during = nil
+	chatTokensParam := "max_completion_tokens"
+	sharedProfile := profile
+	sharedProfile.LLMProfile = "SharedChat"
+	sharedProfile.APIInferenceType = "chat-completions"
+	sharedProfile.ModelID = "gpt-chat"
+	sharedProfile.TokensParam = &chatTokensParam
+	sharedProfile.ResponsesTokensParam = nil
+	sharedProfile.BackupProfiles = nil
+	if _, err := profileService.Save(ctx, SaveProfileRequest{
+		OwnerID: "owner-a", ProfileID: sharedProfile.LLMProfile, Profile: sharedProfile, CredentialID: "credential-a",
+	}); err != nil {
+		t.Fatalf("save profile sharing a credential: %v", err)
+	}
+	runtimeCatalog, runtimeCredentials, err := profileService.RuntimeProfiles(ctx, "owner-a")
+	if err != nil || len(runtimeCatalog) != 2 {
+		t.Fatalf("load profiles sharing a credential: profiles=%d error=%v", len(runtimeCatalog), err)
+	}
+	runtimeCredential, err := runtimeCredentials.ResolveCredential(ctx, hardenllm.CredentialRequest{
+		OwnerID: "owner-a", BaseURL: sharedProfile.BaseURL, Scope: sharedProfile.EndpointCredentialScope,
+		APIInferenceType: sharedProfile.APIInferenceType,
+	})
+	if err != nil || runtimeCredential.APIKey != "fixture-provider-secret" {
+		t.Fatalf("resolve shared runtime credential: %#v %v", runtimeCredential, err)
+	}
+	assertCredentialInferenceTypes(t, ctx, store, "credential-a", "chat-completions", "responses")
+
+	beforeOriginChangeProfile, err := store.Profile(ctx, "owner-a", profile.LLMProfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeOriginChangeCredential, err := store.Credential(ctx, "owner-a", "credential-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	changedOrigin := profile
+	changedOrigin.BaseURL = "https://example.test/v1"
+	if _, err := profileService.Save(ctx, SaveProfileRequest{
+		OwnerID: "owner-a", ProfileID: changedOrigin.LLMProfile, Profile: changedOrigin, CredentialID: "credential-a",
+	}); err == nil {
+		t.Fatal("shared credential origin change was accepted")
+	}
+	afterOriginChangeProfile, _ := store.Profile(ctx, "owner-a", profile.LLMProfile)
+	afterOriginChangeCredential, _ := store.Credential(ctx, "owner-a", "credential-a")
+	if !jsonBytesEqual(beforeOriginChangeProfile.Document, afterOriginChangeProfile.Document) ||
+		!bytes.Equal(beforeOriginChangeCredential.Ciphertext, afterOriginChangeCredential.Ciphertext) ||
+		!jsonBytesEqual(beforeOriginChangeCredential.Metadata, afterOriginChangeCredential.Metadata) {
+		t.Fatal("rejected shared credential origin change modified persisted state")
+	}
+
+	if _, err := profileService.Save(ctx, SaveProfileRequest{
+		OwnerID: "owner-a", ProfileID: sharedProfile.LLMProfile, Profile: sharedProfile, CredentialID: "credential-b",
+		Credential: &profiles.CredentialPayload{APIKey: "second-fixture-provider-secret"},
+	}); err != nil {
+		t.Fatalf("move profile to a new credential: %v", err)
+	}
+	assertCredentialInferenceTypes(t, ctx, store, "credential-a", "responses")
+	assertCredentialInferenceTypes(t, ctx, store, "credential-b", "chat-completions")
+	if err := profileService.Delete(ctx, "owner-a", profile.LLMProfile); err != nil {
+		t.Fatalf("delete final profile for first credential: %v", err)
+	}
+	if _, err := store.Credential(ctx, "owner-a", "credential-a"); !errors.Is(err, postgres.ErrNotFound) {
+		t.Fatalf("orphaned first credential remained after delete: %v", err)
+	}
+	if err := profileService.Delete(ctx, "owner-a", sharedProfile.LLMProfile); err != nil {
+		t.Fatalf("delete final profile for second credential: %v", err)
+	}
+	if _, err := store.Credential(ctx, "owner-a", "credential-b"); !errors.Is(err, postgres.ErrNotFound) {
+		t.Fatalf("orphaned second credential remained after delete: %v", err)
+	}
+
 	privateProfile := profile
 	privateProfile.LLMProfile = "Private"
 	privateProfile.BaseURL = "https://127.0.0.1/v1"
@@ -187,6 +259,21 @@ func TestAuthProfileContract(t *testing.T) {
 	}
 	if _, err := store.Profile(ctx, "owner-b", "Private"); !errors.Is(err, postgres.ErrNotFound) {
 		t.Fatalf("unsafe profile was persisted: %v", err)
+	}
+}
+
+func assertCredentialInferenceTypes(t *testing.T, ctx context.Context, store *postgres.Store, credentialID string, want ...string) {
+	t.Helper()
+	record, err := store.Credential(ctx, "owner-a", credentialID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var metadata credentialMetadata
+	if err := json.Unmarshal(record.Metadata, &metadata); err != nil {
+		t.Fatalf("decode credential metadata: %v", err)
+	}
+	if strings.Join(metadata.APIInferenceTypes, ",") != strings.Join(want, ",") {
+		t.Fatalf("credential %s inference types = %v, want %v", credentialID, metadata.APIInferenceTypes, want)
 	}
 }
 

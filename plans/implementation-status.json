@@ -6,7 +6,8 @@
     "P00",
     "P01",
     "P02",
-    "P03"
+    "P03",
+    "P04"
   ],
   "phases": {
     "P00": {
@@ -34,7 +35,12 @@
       "requirements": ["REQ-005", "REQ-008", "REQ-009", "REQ-010", "REQ-019", "REQ-020"],
       "tests": ["TEST-002", "TEST-005", "TEST-020", "TEST-021", "TEST-022", "TEST-040"]
     },
-    "P04": { "status": "pending" },
+    "P04": {
+      "status": "complete",
+      "completedAt": "2026-07-13T13:23:17Z",
+      "requirements": ["REQ-005", "REQ-007", "REQ-009", "REQ-010", "REQ-011", "REQ-012", "REQ-018", "REQ-019", "REQ-020"],
+      "tests": ["TEST-002", "TEST-003", "TEST-005", "TEST-023", "TEST-024", "TEST-025", "TEST-026", "TEST-027"]
+    },
     "P05": { "status": "pending" },
     "P06": { "status": "pending" },
     "P07": { "status": "pending" }
@@ -68,6 +74,10 @@
     {
       "adr": "ADR-HLLM-002",
       "summary": "One typed Go Client.Call surface replaces the broad JavaScript export inventory."
+    },
+    {
+      "adr": "ADR-HLLM-008",
+      "summary": "A redacted profile collection read, historical run profile snapshots, and an explicit process bind address complete the client and runtime contracts."
     }
   ]
 }

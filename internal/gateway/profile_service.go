@@ -1,15 +1,14 @@
 package gateway
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"io"
 	"net"
 	"net/netip"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -84,9 +83,51 @@ func (service *ProfileService) Save(ctx context.Context, request SaveProfileRequ
 	if request.OwnerID == "" || request.ProfileID == "" || request.CredentialID == "" || request.ProfileID != request.Profile.LLMProfile {
 		return ProfileState{}, errors.New("gateway: owner, profile, and credential binding are required")
 	}
-	if err := profiles.ValidateCatalog(profiles.Catalog{request.ProfileID: request.Profile}); err != nil {
+	existingProfileRecord, existingProfileErr := service.store.Profile(ctx, request.OwnerID, request.ProfileID)
+	if existingProfileErr != nil && !errors.Is(existingProfileErr, postgres.ErrNotFound) {
+		return ProfileState{}, existingProfileErr
+	}
+	if existingProfileErr == nil && request.Profile.Models == nil {
+		existingProfile, decodeErr := decodeProfileDocument(existingProfileRecord.Document)
+		if decodeErr != nil {
+			return ProfileState{}, decodeErr
+		}
+		request.Profile.Models = append([]profiles.Model(nil), existingProfile.Models...)
+		request.Profile.LastModelRefreshAt = existingProfile.LastModelRefreshAt
+	}
+	catalog, err := service.catalog(ctx, request.OwnerID)
+	if err != nil {
 		return ProfileState{}, err
 	}
+	catalog[request.ProfileID] = request.Profile
+	if err := profiles.ValidateCatalog(catalog); err != nil {
+		return ProfileState{}, err
+	}
+	origin, err := profileOrigin(request.Profile.BaseURL)
+	if err != nil {
+		return ProfileState{}, err
+	}
+	inferenceTypes := []string{request.Profile.APIInferenceType}
+	profileRecords, err := service.store.Profiles(ctx, request.OwnerID)
+	if err != nil {
+		return ProfileState{}, err
+	}
+	for _, record := range profileRecords {
+		if record.ID == request.ProfileID || record.CredentialID != request.CredentialID {
+			continue
+		}
+		boundProfile := catalog[record.ID]
+		boundOrigin, originErr := profileOrigin(boundProfile.BaseURL)
+		if originErr != nil || boundOrigin != origin || boundProfile.EndpointCredentialScope != request.Profile.EndpointCredentialScope {
+			return ProfileState{}, &profiles.ValidationError{Code: "invalid_profile", FieldErrors: []profiles.FieldError{{
+				Field: "credentialId", Message: "A shared credential must retain one endpoint origin and scope.",
+			}}}
+		}
+		if !slices.Contains(inferenceTypes, boundProfile.APIInferenceType) {
+			inferenceTypes = append(inferenceTypes, boundProfile.APIInferenceType)
+		}
+	}
+	slices.Sort(inferenceTypes)
 	credential := request.Credential
 	if credential == nil {
 		existing, err := service.Credential(ctx, request.OwnerID, request.CredentialID)
@@ -100,16 +141,12 @@ func (service *ProfileService) Save(ctx context.Context, request SaveProfileRequ
 	}
 	credentialCopy := profiles.CredentialPayload{APIKey: credential.APIKey, Headers: cloneStringMap(credential.Headers)}
 	probeContext, cancel := context.WithTimeout(ctx, service.probeTimeout)
-	err := service.prober.Probe(probeContext, request.Profile, credentialCopy)
+	err = service.prober.Probe(probeContext, request.Profile, credentialCopy)
 	cancel()
 	if err != nil {
 		return ProfileState{}, errors.New("gateway: profile probe failed")
 	}
 
-	origin, err := profileOrigin(request.Profile.BaseURL)
-	if err != nil {
-		return ProfileState{}, err
-	}
 	binding := profiles.CredentialBinding{OwnerID: request.OwnerID, CredentialID: request.CredentialID, Origin: origin}
 	encrypted, err := service.vault.Seal(credentialCopy, binding)
 	if err != nil {
@@ -125,8 +162,8 @@ func (service *ProfileService) Save(ctx context.Context, request SaveProfileRequ
 	}
 	now := service.clock().UTC()
 	profileCreatedAt, credentialCreatedAt := now, now
-	if existing, existingErr := service.store.Profile(ctx, request.OwnerID, request.ProfileID); existingErr == nil {
-		profileCreatedAt = existing.CreatedAt
+	if existingProfileErr == nil {
+		profileCreatedAt = existingProfileRecord.CreatedAt
 	}
 	if existing, existingErr := service.store.Credential(ctx, request.OwnerID, request.CredentialID); existingErr == nil {
 		credentialCreatedAt = existing.CreatedAt
@@ -137,7 +174,7 @@ func (service *ProfileService) Save(ctx context.Context, request SaveProfileRequ
 	}
 	metadata := credentialMetadata{
 		SchemaVersion: encrypted.SchemaVersion, Algorithm: encrypted.Algorithm,
-		Scope: request.Profile.EndpointCredentialScope, APIInferenceTypes: []string{request.Profile.APIInferenceType},
+		Scope: request.Profile.EndpointCredentialScope, APIInferenceTypes: inferenceTypes,
 	}
 	metadataDocument, err := json.Marshal(metadata)
 	if err != nil {
@@ -169,14 +206,13 @@ func (service *ProfileService) Credential(ctx context.Context, ownerID, credenti
 	if err != nil {
 		return profiles.CredentialPayload{}, err
 	}
-	var metadata credentialMetadata
-	decoder := json.NewDecoder(bytes.NewReader(record.Metadata))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&metadata); err != nil || metadata.SchemaVersion != 1 || metadata.Algorithm != "AES-256-GCM" {
-		return profiles.CredentialPayload{}, errors.New("gateway: stored credential metadata is invalid")
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return profiles.CredentialPayload{}, errors.New("gateway: stored credential metadata is invalid")
+	return service.openCredentialRecord(record)
+}
+
+func (service *ProfileService) openCredentialRecord(record postgres.CredentialRecord) (profiles.CredentialPayload, error) {
+	metadata, err := decodeCredentialMetadata(record.Metadata)
+	if err != nil {
+		return profiles.CredentialPayload{}, err
 	}
 	encrypted := profiles.EncryptedCredential{
 		SchemaVersion: metadata.SchemaVersion, Algorithm: metadata.Algorithm, KeyID: record.KeyID,
@@ -199,7 +235,7 @@ type RootProfileProber struct {
 }
 
 func (prober RootProfileProber) Probe(ctx context.Context, profile profiles.Profile, credential profiles.CredentialPayload) error {
-	rootProfile := rootProfile(profile)
+	rootProfile := probeRootProfile(profile)
 	client, err := hardenllm.New(hardenllm.Options{
 		Credentials:    staticCredentialResolver{credential: hardenllm.Credential{APIKey: credential.APIKey, Headers: cloneStringMap(credential.Headers)}},
 		EndpointPolicy: prober.EndpointPolicy,
@@ -213,6 +249,55 @@ func (prober RootProfileProber) Probe(ctx context.Context, profile profiles.Prof
 		RetryPolicy: hardenllm.RetryPolicy{MaxAttempts: 1},
 	})
 	return err
+}
+
+type probeCredentialContextKey struct{}
+
+type sharedRootProfileProber struct{ client *hardenllm.Client }
+
+// NewSharedRootProfileProber reuses one hardened provider transport pool for
+// profile probes while binding each write-only credential to one call context.
+func NewSharedRootProfileProber(options hardenllm.Options) (ProfileProber, error) {
+	if options.Credentials != nil || options.Cache != nil || options.Artifacts != nil {
+		return nil, errors.New("gateway: shared profile prober owns its credential adapter")
+	}
+	options.Credentials = probeCredentialResolver{}
+	client, err := hardenllm.New(options)
+	if err != nil {
+		return nil, err
+	}
+	return &sharedRootProfileProber{client: client}, nil
+}
+
+func (prober *sharedRootProfileProber) Probe(ctx context.Context, profile profiles.Profile, credential profiles.CredentialPayload) error {
+	if prober == nil || prober.client == nil || ctx == nil {
+		return errors.New("gateway: shared profile prober is not initialized")
+	}
+	rootProfile := probeRootProfile(profile)
+	_, err := prober.client.Call(context.WithValue(ctx, probeCredentialContextKey{}, profiles.CredentialPayload{
+		APIKey: credential.APIKey, Headers: cloneStringMap(credential.Headers),
+	}), hardenllm.Request{
+		ProfileID: rootProfile.LLMProfile, Profiles: hardenllm.ProfileCatalog{rootProfile.LLMProfile: rootProfile},
+		UserPrompt: "Reply with OK.", CallType: hardenllm.CallTypeText,
+		RetryPolicy: hardenllm.RetryPolicy{MaxAttempts: 1},
+	})
+	return err
+}
+
+type probeCredentialResolver struct{}
+
+func (probeCredentialResolver) ResolveCredential(ctx context.Context, _ hardenllm.CredentialRequest) (hardenllm.Credential, error) {
+	payload, ok := ctx.Value(probeCredentialContextKey{}).(profiles.CredentialPayload)
+	if !ok || payload.APIKey == "" {
+		return hardenllm.Credential{}, errors.New("gateway: profile probe credential is unavailable")
+	}
+	return hardenllm.Credential{APIKey: payload.APIKey, Headers: cloneStringMap(payload.Headers)}, nil
+}
+
+func probeRootProfile(profile profiles.Profile) hardenllm.Profile {
+	result := rootProfile(profile)
+	result.BackupProfiles = nil
+	return result
 }
 
 type staticCredentialResolver struct{ credential hardenllm.Credential }

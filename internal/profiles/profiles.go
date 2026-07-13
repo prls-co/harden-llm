@@ -12,6 +12,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -19,6 +21,10 @@ const (
 	SchemaVersion         = 1
 	MaxBackupProfileDepth = 5
 	MaxProfileNameBytes   = 1500
+	MaxBackupProfiles     = 100
+	MaxModels             = 5000
+	MaxModelIDBytes       = 512
+	MaxModelLabelBytes    = 1024
 )
 
 var (
@@ -49,7 +55,8 @@ type Profile struct {
 	DefaultOptions                     map[string]any            `json:"defaultOptions"`
 	ReasoningEffortMap                 map[string]map[string]any `json:"reasoningEffortMap,omitempty"`
 	BackupProfiles                     []string                  `json:"backupProfiles"`
-	Models                             []Model                   `json:"-"`
+	Models                             []Model                   `json:"models,omitempty"`
+	LastModelRefreshAt                 *time.Time                `json:"lastModelRefreshAt,omitempty"`
 }
 
 type Pricing struct {
@@ -165,7 +172,7 @@ func validateProfile(profile Profile, prefix string) error {
 	if err := validateProfileName(profile.LLMProfile); err != nil {
 		return validationFailure("llmProfile", err.Error())
 	}
-	if strings.TrimSpace(profile.Provider) == "" {
+	if strings.TrimSpace(profile.Provider) == "" || !utf8.ValidString(profile.Provider) || len(profile.Provider) > 128 {
 		return validationFailure(prefix+".provider", "Provider is required.")
 	}
 	if _, ok := apiInferenceTypes[profile.APIInferenceType]; !ok {
@@ -174,11 +181,19 @@ func validateProfile(profile Profile, prefix string) error {
 	if _, ok := credentialScopes[profile.EndpointCredentialScope]; !ok {
 		return validationFailure(prefix+".endpointCredentialScope", "Endpoint credential scope must be global or user.")
 	}
+	if !utf8.ValidString(profile.BaseURL) || len(profile.BaseURL) > 2048 {
+		return validationFailure(prefix+".baseUrl", "Base URL must contain 2,048 UTF-8 bytes or fewer.")
+	}
 	if err := validateBaseURL(profile.BaseURL); err != nil {
 		return validationFailure(prefix+".baseUrl", err.Error())
 	}
-	if strings.TrimSpace(profile.ModelID) == "" {
+	if strings.TrimSpace(profile.ModelID) == "" || !utf8.ValidString(profile.ModelID) || len(profile.ModelID) > 512 {
 		return validationFailure(prefix+".modelId", "Model ID is required.")
+	}
+	for name, value := range map[string]*string{"tokensParam": profile.TokensParam, "responsesTokensParam": profile.ResponsesTokensParam} {
+		if value != nil && (!utf8.ValidString(*value) || len(*value) > 128) {
+			return validationFailure(prefix+"."+name, name+" must contain 128 UTF-8 bytes or fewer.")
+		}
 	}
 	if profile.Pricing != nil {
 		if err := validatePricing(*profile.Pricing); err != nil {
@@ -205,6 +220,29 @@ func validateProfile(profile Profile, prefix string) error {
 			return validationFailure(prefix+".reasoningEffortMap."+level, "reasoning effort options must contain JSON values only.")
 		}
 	}
+	if len(profile.BackupProfiles) > MaxBackupProfiles {
+		return validationFailure(prefix+".backupProfiles", fmt.Sprintf("A profile may reference at most %d backup profiles.", MaxBackupProfiles))
+	}
+	if len(profile.Models) > MaxModels {
+		return validationFailure(prefix+".models", fmt.Sprintf("A profile may contain at most %d models.", MaxModels))
+	}
+	modelIDs := make(map[string]struct{}, len(profile.Models))
+	for index, model := range profile.Models {
+		field := fmt.Sprintf("%s.models[%d]", prefix, index)
+		if strings.TrimSpace(model.ID) == "" || strings.TrimSpace(model.ID) != model.ID || !utf8.ValidString(model.ID) || len(model.ID) > MaxModelIDBytes {
+			return validationFailure(field+".id", "Model ID must contain 1 to 512 UTF-8 bytes.")
+		}
+		if strings.TrimSpace(model.Label) == "" || strings.TrimSpace(model.Label) != model.Label || !utf8.ValidString(model.Label) || len(model.Label) > MaxModelLabelBytes {
+			return validationFailure(field+".label", "Model label must contain 1 to 1,024 UTF-8 bytes.")
+		}
+		if _, duplicate := modelIDs[model.ID]; duplicate {
+			return validationFailure(field+".id", "Model IDs must be unique.")
+		}
+		modelIDs[model.ID] = struct{}{}
+	}
+	if profile.LastModelRefreshAt != nil && profile.LastModelRefreshAt.IsZero() {
+		return validationFailure(prefix+".lastModelRefreshAt", "Model refresh time must be a valid timestamp.")
+	}
 	return nil
 }
 
@@ -221,8 +259,8 @@ func validateProfileName(value string) error {
 	if reservedProfileName.MatchString(value) {
 		return errors.New("LLM Profile cannot match __.*__")
 	}
-	if !utf8.ValidString(value) || len([]byte(value)) > MaxProfileNameBytes {
-		return errors.New("LLM Profile must be valid UTF-8 and 1,500 UTF-8 bytes or fewer")
+	if !utf8.ValidString(value) || len([]byte(value)) > MaxProfileNameBytes || strings.IndexFunc(value, unicode.IsControl) >= 0 {
+		return errors.New("LLM Profile must be valid UTF-8 without control characters and 1,500 UTF-8 bytes or fewer")
 	}
 	return nil
 }

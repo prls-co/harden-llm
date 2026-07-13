@@ -26,6 +26,8 @@ type Service struct {
 	service       string
 }
 
+const composeOperationTimeout = 2 * time.Minute
+
 // StartPostgres starts the dedicated application database used by integration tests.
 func StartPostgres(t testing.TB) (*Service, string) {
 	t.Helper()
@@ -70,8 +72,10 @@ func start(t testing.TB, serviceName string, containerPort int) *Service {
 	composeFile := filepath.Join(root, "deploy", "test", "compose.integration.yml")
 	project := "harden-llm-" + strings.ReplaceAll(serviceName, "_", "-") + "-" + randomSuffix(t)
 	service := &Service{composeFile: composeFile, containerPort: containerPort, project: project, service: serviceName}
-	service.run(t, "pull", serviceName)
-	service.run(t, "up", "-d", "--wait", serviceName)
+	// Prefer the pinned local image and only contact the registry when it is
+	// missing. An unconditional pull makes otherwise-hermetic integration tests
+	// depend on registry availability and can hang before the test starts.
+	service.run(t, "up", "-d", "--wait", "--pull", "missing", serviceName)
 	service.refreshEndpoint(t)
 	waitTCP(t, service.Endpoint, 45*time.Second)
 	t.Cleanup(func() {
@@ -85,7 +89,9 @@ func start(t testing.TB, serviceName string, containerPort int) *Service {
 
 func (service *Service) refreshEndpoint(t testing.TB) {
 	t.Helper()
-	command := service.command("port", service.service, fmt.Sprintf("%d", service.containerPort))
+	ctx, cancel := context.WithTimeout(context.Background(), composeOperationTimeout)
+	defer cancel()
+	command := service.commandContext(ctx, "port", service.service, fmt.Sprintf("%d", service.containerPort))
 	output, err := command.CombinedOutput()
 	if err != nil {
 		service.fail(t, "resolve published port", err, output)
@@ -102,7 +108,9 @@ func (service *Service) refreshEndpoint(t testing.TB) {
 
 func (service *Service) run(t testing.TB, arguments ...string) {
 	t.Helper()
-	command := service.command(arguments...)
+	ctx, cancel := context.WithTimeout(context.Background(), composeOperationTimeout)
+	defer cancel()
+	command := service.commandContext(ctx, arguments...)
 	output, err := command.CombinedOutput()
 	if err != nil {
 		service.fail(t, strings.Join(arguments, " "), err, output)
@@ -114,9 +122,16 @@ func (service *Service) command(arguments ...string) *exec.Cmd {
 	return exec.Command("docker", append(base, arguments...)...)
 }
 
+func (service *Service) commandContext(ctx context.Context, arguments ...string) *exec.Cmd {
+	base := []string{"compose", "-f", service.composeFile, "-p", service.project}
+	return exec.CommandContext(ctx, "docker", append(base, arguments...)...)
+}
+
 func (service *Service) fail(t testing.TB, operation string, err error, output []byte) {
 	t.Helper()
-	logs, _ := service.command("logs", "--no-color", service.service).CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	logs, _ := service.commandContext(ctx, "logs", "--no-color", service.service).CombinedOutput()
 	t.Fatalf("compose %s: %v\n%s\n%s", operation, err, output, logs)
 }
 

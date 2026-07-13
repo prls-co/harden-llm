@@ -54,6 +54,18 @@ func TestRepositoryContract(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(versions, []int64{1}) {
 		t.Fatalf("migration versions = %v, %v", versions, err)
 	}
+	if err := store.Ready(ctx); err != nil {
+		t.Fatalf("migrated store is not ready: %v", err)
+	}
+	if _, err := store.pool.Exec(ctx, `INSERT INTO schema_migrations (version) VALUES (999)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Ready(ctx); err == nil {
+		t.Fatal("store with an unknown migration reported ready")
+	}
+	if _, err := store.pool.Exec(ctx, `DELETE FROM schema_migrations WHERE version = 999`); err != nil {
+		t.Fatal(err)
+	}
 	assertSchema(t, ctx, store)
 
 	now := time.Date(2026, 7, 13, 10, 0, 0, 0, time.UTC)

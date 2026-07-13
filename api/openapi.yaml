@@ -1,40 +1,1392 @@
 openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Harden LLM API
-  version: 0.1.0
-  description: Provider-neutral self-hosted LLM runtime API.
+  version: 1.0.0
+  description: >-
+    Provider-neutral self-hosted LLM runtime API. All application responses use
+    a stable state/result/error envelope, except health probes and successful
+    artifact redirects. Clients must not automatically retry an ambiguous run.
+servers:
+  - url: /
+    description: Same-origin production gateway.
+security:
+  - bearerAuth: []
+tags:
+  - name: Health
+    description: Process and dependency health.
+  - name: Authentication
+    description: Opaque local bearer-session lifecycle.
+  - name: State
+    description: Owner-scoped client workspace state.
+  - name: Profiles
+    description: Validated profiles and encrypted credential bundles.
+  - name: Runs
+    description: Synchronous provider-neutral execution and history.
+  - name: Traces
+    description: Redacted domain traces and authorized artifacts.
 paths:
   /healthz:
     get:
       operationId: getHealth
+      tags: [Health]
+      summary: Check process liveness
+      description: Returns success without contacting downstream dependencies.
+      security: []
       responses:
         "200":
-          description: Process is live.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Health"
+          $ref: "#/components/responses/HealthOK"
   /readyz:
     get:
       operationId: getReadiness
+      tags: [Health]
+      summary: Check dependency readiness
+      description: Checks the application database migration state and artifact bucket.
+      security: []
       responses:
         "200":
-          description: Required application dependencies are ready.
-          content:
-            application/json:
+          $ref: "#/components/responses/HealthOK"
+        "503":
+          $ref: "#/components/responses/HealthUnavailable"
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      tags: [Authentication]
+      summary: Create a bearer session
+      description: Verifies local credentials and returns the opaque token exactly once.
+      security: []
+      requestBody:
+        $ref: "#/components/requestBodies/Login"
+      responses:
+        "200":
+          $ref: "#/components/responses/LoginSuccess"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      tags: [Authentication]
+      summary: Revoke the active session
+      description: Revokes the bearer session used to authorize this request.
+      responses:
+        "200":
+          $ref: "#/components/responses/LogoutSuccess"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/auth/session:
+    get:
+      operationId: getSession
+      tags: [Authentication]
+      summary: Read the active session
+      description: Returns redacted owner and expiry metadata without the bearer token.
+      responses:
+        "200":
+          $ref: "#/components/responses/SessionSuccess"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/state:
+    get:
+      operationId: getState
+      tags: [State]
+      summary: Read workspace state
+      description: Returns the authenticated owner's persisted client-owned fields.
+      responses:
+        "200":
+          $ref: "#/components/responses/StateSuccess"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: saveState
+      tags: [State]
+      summary: Save workspace state
+      description: Strictly validates and replaces the authenticated owner's state document.
+      requestBody:
+        $ref: "#/components/requestBodies/ClientState"
+      responses:
+        "200":
+          $ref: "#/components/responses/StateSuccess"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/profiles:
+    get:
+      operationId: listProfiles
+      tags: [Profiles]
+      summary: List redacted profiles
+      description: Returns safe profile configuration and write-only credential status.
+      responses:
+        "200":
+          $ref: "#/components/responses/ProfilesSuccess"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/history:
+    get:
+      operationId: listHistory
+      tags: [Runs]
+      summary: List run history
+      description: Returns a stable owner-scoped page ordered by start time and run ID.
+      parameters:
+        - $ref: "#/components/parameters/HistoryCursor"
+        - $ref: "#/components/parameters/HistoryLimit"
+      responses:
+        "200":
+          $ref: "#/components/responses/HistorySuccess"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: clearHistory
+      tags: [Runs]
+      summary: Clear run history
+      description: Deletes all run history and dependent trace metadata for the owner.
+      responses:
+        "200":
+          $ref: "#/components/responses/ClearHistorySuccess"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/history/{historyID}:
+    parameters:
+      - $ref: "#/components/parameters/HistoryID"
+    delete:
+      operationId: deleteHistory
+      tags: [Runs]
+      summary: Delete one history item
+      description: Deletes an owned run and its dependent domain trace metadata.
+      responses:
+        "200":
+          $ref: "#/components/responses/DeleteHistorySuccess"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/profiles/bundle:
+    get:
+      operationId: exportProfileBundle
+      tags: [Profiles]
+      summary: Export the profile bundle
+      description: Returns profiles and opaque authenticated encrypted credentials.
+      responses:
+        "200":
+          $ref: "#/components/responses/BundleSuccess"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: importProfileBundle
+      tags: [Profiles]
+      summary: Replace the profile bundle
+      description: Authenticates, probes, and atomically replaces the complete owner bundle.
+      requestBody:
+        $ref: "#/components/requestBodies/ProfileBundle"
+      responses:
+        "200":
+          $ref: "#/components/responses/ProfilesSuccess"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/profiles/{profileID}:
+    parameters:
+      - $ref: "#/components/parameters/ProfileID"
+    put:
+      operationId: saveProfile
+      tags: [Profiles]
+      summary: Save a profile
+      description: Validates and probes a profile before atomically persisting its credential.
+      requestBody:
+        $ref: "#/components/requestBodies/ProfileSave"
+      responses:
+        "200":
+          $ref: "#/components/responses/ProfileSuccess"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteProfile
+      tags: [Profiles]
+      summary: Delete a profile
+      description: Deletes an owned profile unless the remaining backup graph references it.
+      responses:
+        "200":
+          $ref: "#/components/responses/DeleteProfileSuccess"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/profiles/{profileID}/models:refresh:
+    parameters:
+      - $ref: "#/components/parameters/ProfileID"
+    post:
+      operationId: refreshProfileModels
+      tags: [Profiles]
+      summary: Refresh profile models
+      description: Discovers and normalizes models without replacing prior state on failure.
+      responses:
+        "200":
+          $ref: "#/components/responses/ProfileSuccess"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/run:
+    post:
+      operationId: run
+      tags: [Runs]
+      summary: Execute one LLM call
+      description: >-
+        Executes exactly one root runtime call. The effective deadline cannot exceed
+        60000 milliseconds, and this HTTP operation is never retried by the gateway.
+      requestBody:
+        $ref: "#/components/requestBodies/Run"
+      responses:
+        "200":
+          $ref: "#/components/responses/RunSuccess"
+        "504":
+          $ref: "#/components/responses/RunTimeout"
+        default:
+          $ref: "#/components/responses/RunError"
+  /api/v1/traces/{traceID}:
+    parameters:
+      - $ref: "#/components/parameters/TraceID"
+    get:
+      operationId: getTrace
+      tags: [Traces]
+      summary: Read a domain trace
+      description: Returns one redacted trace with ordered observations and safe artifact metadata.
+      responses:
+        "200":
+          $ref: "#/components/responses/TraceSuccess"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/traces/{traceID}/artifacts/{artifactID}:
+    parameters:
+      - $ref: "#/components/parameters/TraceID"
+      - $ref: "#/components/parameters/ArtifactID"
+    get:
+      operationId: getArtifact
+      tags: [Traces]
+      summary: Authorize an artifact download
+      description: Authorizes owner metadata before issuing a short-lived presigned redirect.
+      responses:
+        "303":
+          description: A short-lived URL for the authorized artifact.
+          headers:
+            Location:
+              required: true
+              description: Presigned artifact URL. Treat the complete value as sensitive.
               schema:
-                $ref: "#/components/schemas/Health"
+                type: string
+                format: uri
+              example: https://artifacts.example.test/harden-llm/example.json?X-Amz-Expires=60
+        default:
+          $ref: "#/components/responses/Error"
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
+      bearerFormat: opaque
+      description: A random opaque session token returned once by login.
+  parameters:
+    HistoryCursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque stable pagination cursor returned by the prior page.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 512
+    HistoryLimit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of history items to return.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    HistoryID:
+      name: historyID
+      in: path
+      required: true
+      description: Stable run identifier.
+      schema:
+        $ref: "#/components/schemas/Identifier"
+    ProfileID:
+      name: profileID
+      in: path
+      required: true
+      description: UTF-8 profile identifier; the encoded path segment must not contain a slash.
+      schema:
+        $ref: "#/components/schemas/ProfileID"
+    TraceID:
+      name: traceID
+      in: path
+      required: true
+      description: Stable trace identifier.
+      schema:
+        $ref: "#/components/schemas/Identifier"
+    ArtifactID:
+      name: artifactID
+      in: path
+      required: true
+      description: Stable artifact identifier.
+      schema:
+        $ref: "#/components/schemas/Identifier"
+  requestBodies:
+    Login:
+      required: true
+      description: Local user credentials. Maximum encoded body size is 65536 bytes.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/LoginRequest"
+          examples:
+            valid:
+              value:
+                email: operator@example.test
+                password: correct horse battery staple
+    ClientState:
+      required: true
+      description: Complete client-owned state. Maximum encoded body size is 65536 bytes.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ClientState"
+          examples:
+            workspace:
+              value:
+                schemaVersion: 1
+                selectedProfileId: Primary
+                modelId: gpt-example
+                userPrompt: Summarize the incident.
+                callType: text
+                structuredRepair: false
+                cacheMode: "off"
+    ProfileSave:
+      required: true
+      description: Profile and write-only credential. Maximum encoded body size is 262144 bytes.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProfileSaveRequest"
+          examples:
+            create:
+              value:
+                profile:
+                  schemaVersion: 1
+                  llmProfile: Primary
+                  provider: openai
+                  apiInferenceType: responses
+                  endpointCredentialScope: user
+                  baseUrl: https://api.openai.com/v1
+                  modelId: gpt-example
+                  pricing: null
+                  supportsTemperature: true
+                  supportsContractedStructuredOutput: true
+                  tokensParam: max_output_tokens
+                  responsesTokensParam: max_output_tokens
+                  defaultOptions: {}
+                  backupProfiles: []
+                credentialId: primary-openai
+                credential:
+                  apiKey: example-write-only-key
+    ProfileBundle:
+      required: true
+      description: Complete encrypted bundle. Maximum encoded body size is 2097152 bytes.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProfileBundle"
+          examples:
+            replace:
+              value:
+                schemaVersion: 1
+                bundleId: bundle-example
+                createdAt: "2026-07-13T12:00:00Z"
+                profiles:
+                  Primary:
+                    schemaVersion: 1
+                    llmProfile: Primary
+                    provider: openai
+                    apiInferenceType: responses
+                    endpointCredentialScope: user
+                    baseUrl: https://api.openai.com/v1
+                    modelId: gpt-example
+                    pricing: null
+                    supportsTemperature: true
+                    supportsContractedStructuredOutput: true
+                    tokensParam: max_output_tokens
+                    responsesTokensParam: max_output_tokens
+                    defaultOptions: {}
+                    backupProfiles: []
+                credentialIds:
+                  Primary: primary-openai
+                credentials:
+                  - schemaVersion: 1
+                    binding:
+                      ownerId: owner-example
+                      credentialId: primary-openai
+                      origin: https://api.openai.com
+                    scope: user
+                    apiInferenceTypes: [responses]
+                    encrypted:
+                      schemaVersion: 1
+                      algorithm: AES-256-GCM
+                      keyId: key-2026
+                      nonce: AAAAAAAAAAAAAAAA
+                      ciphertext: AAAAAAAAAAAAAAAAAAAAAA
+                    createdAt: "2026-07-13T12:00:00Z"
+                    updatedAt: "2026-07-13T12:00:00Z"
+    Run:
+      required: true
+      description: One synchronous run. Maximum encoded body size is 262144 bytes.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RunRequest"
+          examples:
+            text:
+              value:
+                profileId: Primary
+                userPrompt: Reply with OK.
+                callType: text
+                cacheMode: "off"
+                maxAttempts: 1
+                timeoutMs: 60000
+  responses:
+    HealthOK:
+      description: The process or all required dependencies are ready.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Health"
+          examples:
+            ok:
+              value: {status: ok}
+    HealthUnavailable:
+      description: At least one required dependency is unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Health"
+          examples:
+            unavailable:
+              value: {status: unavailable}
+    Error:
+      description: Stable error envelope. Status is selected by the operation failure.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            invalidRequest:
+              value:
+                state: {}
+                result: null
+                error:
+                  code: invalid_request
+                  message: The request is invalid.
+    LoginSuccess:
+      description: Session token and redacted identity. The access token is returned only here.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/LoginEnvelope"
+          examples:
+            authenticated:
+              value:
+                state: {}
+                result:
+                  accessToken: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                  expiresAt: "2026-07-13T13:00:00Z"
+                  principal:
+                    ownerId: owner-example
+                    email: operator@example.test
+                    sessionId: session-example
+                    expiresAt: "2026-07-13T13:00:00Z"
+                error: null
+    LogoutSuccess:
+      description: The active bearer session was revoked.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/LogoutEnvelope"
+          examples:
+            revoked:
+              value:
+                state: {}
+                result: {revoked: true}
+                error: null
+    SessionSuccess:
+      description: Redacted current session metadata.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/SessionEnvelope"
+          examples:
+            current:
+              value:
+                state: {}
+                result:
+                  ownerId: owner-example
+                  email: operator@example.test
+                  sessionId: session-example
+                  expiresAt: "2026-07-13T13:00:00Z"
+                error: null
+    StateSuccess:
+      description: The canonical current client state is carried in the state field.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StateEnvelope"
+          examples:
+            workspace:
+              value:
+                state:
+                  schemaVersion: 1
+                  selectedProfileId: Primary
+                  modelId: gpt-example
+                  userPrompt: Summarize the incident.
+                  callType: text
+                  structuredRepair: false
+                  cacheMode: "off"
+                result: null
+                error: null
+    ProfilesSuccess:
+      description: Redacted profile states without encrypted or plaintext credential material.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProfilesEnvelope"
+          examples:
+            list:
+              value:
+                state: {}
+                result:
+                  profiles:
+                    - profile:
+                        schemaVersion: 1
+                        llmProfile: Primary
+                        provider: openai
+                        apiInferenceType: responses
+                        endpointCredentialScope: user
+                        baseUrl: https://api.openai.com/v1
+                        modelId: gpt-example
+                        pricing: null
+                        supportsTemperature: true
+                        supportsContractedStructuredOutput: true
+                        tokensParam: max_output_tokens
+                        responsesTokensParam: max_output_tokens
+                        defaultOptions: {}
+                        backupProfiles: []
+                      credential:
+                        schemaVersion: 1
+                        credentialId: primary-openai
+                        scope: user
+                        origin: https://api.openai.com
+                        apiInferenceTypes: [responses]
+                        configured: true
+                        createdAt: "2026-07-13T12:00:00Z"
+                        updatedAt: "2026-07-13T12:00:00Z"
+                error: null
+    ProfileSuccess:
+      description: One redacted profile and its write-only credential status.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProfileEnvelope"
+          examples:
+            saved:
+              value:
+                state: {}
+                result:
+                  profile:
+                    schemaVersion: 1
+                    llmProfile: Primary
+                    provider: openai
+                    apiInferenceType: responses
+                    endpointCredentialScope: user
+                    baseUrl: https://api.openai.com/v1
+                    modelId: gpt-example
+                    pricing: null
+                    supportsTemperature: true
+                    supportsContractedStructuredOutput: true
+                    tokensParam: max_output_tokens
+                    responsesTokensParam: max_output_tokens
+                    defaultOptions: {}
+                    backupProfiles: []
+                  credential:
+                    schemaVersion: 1
+                    credentialId: primary-openai
+                    scope: user
+                    origin: https://api.openai.com
+                    apiInferenceTypes: [responses]
+                    configured: true
+                    createdAt: "2026-07-13T12:00:00Z"
+                    updatedAt: "2026-07-13T12:00:00Z"
+                error: null
+    BundleSuccess:
+      description: Complete profile catalog with authenticated encrypted credentials.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/BundleEnvelope"
+          examples:
+            export:
+              value:
+                state: {}
+                result:
+                  schemaVersion: 1
+                  bundleId: bundle-example
+                  createdAt: "2026-07-13T12:00:00Z"
+                  profiles:
+                    Primary:
+                      schemaVersion: 1
+                      llmProfile: Primary
+                      provider: openai
+                      apiInferenceType: responses
+                      endpointCredentialScope: user
+                      baseUrl: https://api.openai.com/v1
+                      modelId: gpt-example
+                      pricing: null
+                      supportsTemperature: true
+                      supportsContractedStructuredOutput: true
+                      tokensParam: max_output_tokens
+                      responsesTokensParam: max_output_tokens
+                      defaultOptions: {}
+                      backupProfiles: []
+                  credentialIds: {Primary: primary-openai}
+                  credentials:
+                    - schemaVersion: 1
+                      binding:
+                        ownerId: owner-example
+                        credentialId: primary-openai
+                        origin: https://api.openai.com
+                      scope: user
+                      apiInferenceTypes: [responses]
+                      encrypted:
+                        schemaVersion: 1
+                        algorithm: AES-256-GCM
+                        keyId: key-2026
+                        nonce: AAAAAAAAAAAAAAAA
+                        ciphertext: AAAAAAAAAAAAAAAAAAAAAA
+                      createdAt: "2026-07-13T12:00:00Z"
+                      updatedAt: "2026-07-13T12:00:00Z"
+                error: null
+    HistorySuccess:
+      description: Stable cursor page of owned run history.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/HistoryEnvelope"
+          examples:
+            page:
+              value:
+                state: {}
+                result:
+                  items:
+                    - runId: run-example
+                      profileId: Primary
+                      traceId: trace-example
+                      status: succeeded
+                      request: {profileId: Primary, userPrompt: Reply with OK., callType: text}
+                      result: {output: OK}
+                      startedAt: "2026-07-13T12:00:00Z"
+                      completedAt: "2026-07-13T12:00:01Z"
+                  nextCursor: eyJzdGFydGVkQXQiOiIyMDI2LTA3LTEzVDEyOjAwOjAwWiIsImlkIjoicnVuLWV4YW1wbGUifQ
+                error: null
+    DeleteHistorySuccess:
+      description: Confirmation that one run was deleted.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DeleteHistoryEnvelope"
+          examples:
+            deleted:
+              value:
+                state: {}
+                result: {deleted: true, runId: run-example}
+                error: null
+    ClearHistorySuccess:
+      description: Count of deleted run records.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ClearHistoryEnvelope"
+          examples:
+            cleared:
+              value:
+                state: {}
+                result: {deletedCount: 3}
+                error: null
+    DeleteProfileSuccess:
+      description: Confirmation that one profile was deleted.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DeleteProfileEnvelope"
+          examples:
+            deleted:
+              value:
+                state: {}
+                result: {deleted: true, profileId: Primary}
+                error: null
+    RunSuccess:
+      description: Normalized root runtime result and safe persistence correlation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RunEnvelope"
+          examples:
+            text:
+              value:
+                state: {lastRunId: run-example, lastTraceId: trace-example}
+                result:
+                  runId: run-example
+                  output: OK
+                  callId: call-example
+                  traceId: trace-example
+                  usage:
+                    inputTokens: 8
+                    cacheReadTokens: 0
+                    cacheCreationTokens: 0
+                    outputTokens: 1
+                    reasoningTokens: 0
+                    totalTokens: 9
+                  cost: {totalUsd: 0.00001, known: true, source: profile}
+                  attempts:
+                    - number: 1
+                      profileId: Primary
+                      retryable: false
+                      wait: 0
+                      duration: 120000000
+                      repair: false
+                      backupIndex: 0
+                      providerUsed: true
+                  cache: {mode: "off", status: disabled, served: false, written: false}
+                  artifacts:
+                    - artifactId: call-example-trace
+                      kind: trace
+                      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                      sizeBytes: 512
+                      contentType: application/json
+                error: null
+    RunTimeout:
+      description: The effective synchronous deadline expired and the root call was canceled.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RunErrorEnvelope"
+          examples:
+            timeout:
+              value:
+                state: {lastRunId: run-example, lastTraceId: trace-example}
+                result: null
+                error: {code: run_timeout, message: The run exceeded its deadline.}
+    RunError:
+      description: The run failed before or during provider execution.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RunErrorEnvelope"
+          examples:
+            failed:
+              value:
+                state: {}
+                result: null
+                error: {code: run_failed, message: The provider run failed.}
+    TraceSuccess:
+      description: Redacted domain trace, ordered observations, and safe artifact metadata.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/TraceEnvelope"
+          examples:
+            trace:
+              value:
+                state: {}
+                result:
+                  traceId: trace-example
+                  record: {schemaVersion: 1, status: succeeded, profileId: Primary}
+                  observations:
+                    - sequence: 0
+                      type: provider.attempt
+                      data: {number: 1, profileId: Primary}
+                      createdAt: "2026-07-13T12:00:01Z"
+                  artifacts:
+                    - artifactId: call-example-trace
+                      kind: trace
+                      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                      sizeBytes: 512
+                      contentType: application/json
+                      createdAt: "2026-07-13T12:00:01Z"
+                error: null
   schemas:
+    Identifier:
+      type: string
+      minLength: 1
+      maxLength: 128
+      pattern: "^[A-Za-z0-9_-][A-Za-z0-9._-]{0,127}$"
+    ProfileID:
+      type: string
+      minLength: 1
+      maxLength: 1500
+      pattern: '^[^/\u0000-\u001F\u007F-\u009F]+$'
+      description: Limited by the server to 1500 valid UTF-8 bytes without control characters.
+    EmptyState:
+      type: object
+      additionalProperties: false
+      maxProperties: 0
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        message:
+          type: string
+          minLength: 1
+          maxLength: 512
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: string
+            minLength: 1
+            maxLength: 512
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [state, result, error]
+      properties:
+        state: {$ref: "#/components/schemas/EmptyState"}
+        result: {type: "null"}
+        error: {$ref: "#/components/schemas/Error"}
+    Principal:
+      type: object
+      additionalProperties: false
+      required: [ownerId, email, sessionId, expiresAt]
+      properties:
+        ownerId: {$ref: "#/components/schemas/Identifier"}
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        sessionId: {$ref: "#/components/schemas/Identifier"}
+        expiresAt: {type: string, format: date-time}
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: {type: string, format: email, minLength: 1, maxLength: 320}
+        password: {type: string, minLength: 12, maxLength: 1024, writeOnly: true}
+    LoginResult:
+      type: object
+      additionalProperties: false
+      required: [accessToken, expiresAt, principal]
+      properties:
+        accessToken:
+          type: string
+          minLength: 43
+          maxLength: 43
+          pattern: "^[A-Za-z0-9_-]{43}$"
+          description: Sensitive one-time response value; never returned by later operations.
+        expiresAt: {type: string, format: date-time}
+        principal: {$ref: "#/components/schemas/Principal"}
+    LoginEnvelope:
+      type: object
+      additionalProperties: false
+      required: [state, result, error]
+      properties:
+        state: {$ref: "#/components/schemas/EmptyState"}
+        result: {$ref: "#/components/schemas/LoginResult"}
+        error: {type: "null"}
+    LogoutEnvelope:
+      type: object
+      additionalProperties: false
+      required: [state, result, error]
+      properties:
+        state: {$ref: "#/components/schemas/EmptyState"}
+        result:
+          type: object
+          additionalProperties: false
+          required: [revoked]
+          properties:
+            revoked: {type: boolean, const: true}
+        error: {type: "null"}
+    SessionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [state, result, error]
+      properties:
+        state: {$ref: "#/components/schemas/EmptyState"}
+        result: {$ref: "#/components/schemas/Principal"}
+        error: {type: "null"}
+    ClientState:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, callType, structuredRepair, cacheMode]
+      properties:
+        schemaVersion: {type: integer, const: 1}
+        selectedProfileId: {$ref: "#/components/schemas/ProfileID"}
+        modelId: {type: string, maxLength: 512}
+        systemPrompt: {type: string, maxLength: 32768}
+        userPrompt: {type: string, maxLength: 65536}
+        callType: {type: string, enum: [text, structured]}
+        schema:
+          oneOf:
+            - {type: object}
+            - {type: "null"}
+        reasoningEffort: {type: string, enum: [lowest, middle, highest]}
+        structuredRepair: {type: boolean}
+        cacheMode: {type: string, enum: ["off", cache, refresh]}
+        providerOptions: {type: object}
+    StateEnvelope:
+      type: object
+      additionalProperties: false
+      required: [state, result, error]
+      properties:
+        state: {$ref: "#/components/schemas/ClientState"}
+        result: {type: "null"}
+        error: {type: "null"}
+    Pricing:
+      type: object
+      additionalProperties: false
+      properties:
+        input_cost_per_token: {$ref: "#/components/schemas/NullableRate"}
+        cache_read_input_token_cost: {$ref: "#/components/schemas/NullableRate"}
+        cache_creation_input_token_cost: {$ref: "#/components/schemas/NullableRate"}
+        output_cost_per_token: {$ref: "#/components/schemas/NullableRate"}
+        output_cost_per_reasoning_token: {$ref: "#/components/schemas/NullableRate"}
+    NullableRate:
+      oneOf:
+        - {type: number, minimum: 0}
+        - {type: "null"}
+    Model:
+      type: object
+      additionalProperties: false
+      required: [id, label]
+      properties:
+        id: {type: string, minLength: 1, maxLength: 512}
+        label: {type: string, minLength: 1, maxLength: 1024}
+    Profile:
+      type: object
+      additionalProperties: false
+      required:
+        - schemaVersion
+        - llmProfile
+        - provider
+        - apiInferenceType
+        - endpointCredentialScope
+        - baseUrl
+        - modelId
+        - pricing
+        - supportsTemperature
+        - supportsContractedStructuredOutput
+        - tokensParam
+        - responsesTokensParam
+        - defaultOptions
+        - backupProfiles
+      properties:
+        schemaVersion: {type: integer, const: 1}
+        llmProfile: {$ref: "#/components/schemas/ProfileID"}
+        provider: {type: string, minLength: 1, maxLength: 128}
+        apiInferenceType:
+          type: string
+          enum: [chat-completions, responses, gemini-generate-content, anthropic-messages]
+        endpointCredentialScope: {type: string, enum: [global, user]}
+        baseUrl: {type: string, format: uri, pattern: "^https://", maxLength: 2048}
+        modelId: {type: string, minLength: 1, maxLength: 512}
+        pricing:
+          oneOf:
+            - {$ref: "#/components/schemas/Pricing"}
+            - {type: "null"}
+        supportsTemperature:
+          oneOf:
+            - {type: boolean}
+            - {type: "null"}
+        supportsContractedStructuredOutput: {type: boolean}
+        tokensParam:
+          oneOf:
+            - {type: string, maxLength: 128}
+            - {type: "null"}
+        responsesTokensParam:
+          oneOf:
+            - {type: string, maxLength: 128}
+            - {type: "null"}
+        defaultOptions: {type: object}
+        reasoningEffortMap:
+          type: object
+          additionalProperties: false
+          properties:
+            lowest: {type: object}
+            middle: {type: object}
+            highest: {type: object}
+        backupProfiles:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items: {$ref: "#/components/schemas/ProfileID"}
+        models:
+          type: array
+          maxItems: 5000
+          items: {$ref: "#/components/schemas/Model"}
+        lastModelRefreshAt: {type: string, format: date-time}
+    CredentialPayload:
+      type: object
+      additionalProperties: false
+      required: [apiKey]
+      properties:
+        apiKey: {type: string, minLength: 1, maxLength: 16384, writeOnly: true}
+        headers:
+          type: object
+          maxProperties: 64
+          additionalProperties: {type: string, maxLength: 8192}
+          writeOnly: true
+    CredentialState:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, credentialId, scope, origin, apiInferenceTypes, configured, createdAt]
+      properties:
+        schemaVersion: {type: integer, const: 1}
+        credentialId: {$ref: "#/components/schemas/Identifier"}
+        scope: {type: string, enum: [global, user]}
+        origin: {type: string, format: uri, pattern: "^https://", maxLength: 2048}
+        apiInferenceTypes:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            enum: [chat-completions, responses, gemini-generate-content, anthropic-messages]
+        configured: {type: boolean}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    ProfileState:
+      type: object
+      additionalProperties: false
+      required: [profile, credential]
+      properties:
+        profile: {$ref: "#/components/schemas/Profile"}
+        credential: {$ref: "#/components/schemas/CredentialState"}
+    ProfileSaveRequest:
+      type: object
+      additionalProperties: false
+      required: [profile, credentialId]
+      properties:
+        profile: {$ref: "#/components/schemas/Profile"}
+        credentialId: {$ref: "#/components/schemas/Identifier"}
+        credential: {$ref: "#/components/schemas/CredentialPayload"}
+    ProfilesEnvelope:
+      type: object
+      additionalProperties: false
+      required: [state, result, error]
+      properties:
+        state: {$ref: "#/components/schemas/EmptyState"}
+        result:
+          type: object
+          additionalProperties: false
+          required: [profiles]
+          properties:
+            profiles:
+              type: array
+              items: {$ref: "#/components/schemas/ProfileState"}
+        error: {type: "null"}
+    ProfileEnvelope:
+      type: object
+      additionalProperties: false
+      required: [state, result, error]
+      properties:
+        state: {$ref: "#/components/schemas/EmptyState"}
+        result: {$ref: "#/components/schemas/ProfileState"}
+        error: {type: "null"}
+    CredentialBinding:
+      type: object
+      additionalProperties: false
+      required: [ownerId, credentialId, origin]
+      properties:
+        ownerId: {$ref: "#/components/schemas/Identifier"}
+        credentialId: {$ref: "#/components/schemas/Identifier"}
+        origin: {type: string, format: uri, pattern: "^https://", maxLength: 2048}
+    EncryptedCredential:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, algorithm, keyId, nonce, ciphertext]
+      properties:
+        schemaVersion: {type: integer, const: 1}
+        algorithm: {type: string, const: AES-256-GCM}
+        keyId: {type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"}
+        nonce: {type: string, minLength: 16, maxLength: 16, pattern: "^[A-Za-z0-9_-]+$"}
+        ciphertext: {type: string, minLength: 22, pattern: "^[A-Za-z0-9_-]+$"}
+    CredentialRecord:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, binding, scope, apiInferenceTypes, encrypted, createdAt]
+      properties:
+        schemaVersion: {type: integer, const: 1}
+        binding: {$ref: "#/components/schemas/CredentialBinding"}
+        scope: {type: string, enum: [global, user]}
+        apiInferenceTypes:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            enum: [chat-completions, responses, gemini-generate-content, anthropic-messages]
+        encrypted: {$ref: "#/components/schemas/EncryptedCredential"}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    ProfileBundle:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, bundleId, createdAt, profiles, credentialIds, credentials]
+      properties:
+        schemaVersion: {type: integer, const: 1}
+        bundleId: {$ref: "#/components/schemas/Identifier"}
+        createdAt: {type: string, format: date-time}
+        profiles:
+          type: object
+          additionalProperties: {$ref: "#/components/schemas/Profile"}
+        credentialIds:
+          type: object
+          additionalProperties: {$ref: "#/components/schemas/Identifier"}
+        credentials:
+          type: array
+          items: {$ref: "#/components/schemas/CredentialRecord"}
+    BundleEnvelope:
+      type: object
+      additionalProperties: false
+      required: [state, result, error]
+      properties:
+        state: {$ref: "#/components/schemas/EmptyState"}
+        result: {$ref: "#/components/schemas/ProfileBundle"}
+        error: {type: "null"}
+    HistoryItem:
+      type: object
+      additionalProperties: false
+      required: [runId, profileId, traceId, status, request, result, startedAt, completedAt]
+      properties:
+        runId: {$ref: "#/components/schemas/Identifier"}
+        profileId: {$ref: "#/components/schemas/ProfileID"}
+        traceId: {$ref: "#/components/schemas/Identifier"}
+        status: {type: string, enum: [succeeded, failed, timeout]}
+        request: {type: object}
+        result: {type: object}
+        startedAt: {type: string, format: date-time}
+        completedAt: {type: string, format: date-time}
+    HistoryEnvelope:
+      type: object
+      additionalProperties: false
+      required: [state, result, error]
+      properties:
+        state: {$ref: "#/components/schemas/EmptyState"}
+        result:
+          type: object
+          additionalProperties: false
+          required: [items]
+          properties:
+            items:
+              type: array
+              maxItems: 100
+              items: {$ref: "#/components/schemas/HistoryItem"}
+            nextCursor: {type: string, minLength: 1, maxLength: 512}
+        error: {type: "null"}
+    DeleteHistoryEnvelope:
+      type: object
+      additionalProperties: false
+      required: [state, result, error]
+      properties:
+        state: {$ref: "#/components/schemas/EmptyState"}
+        result:
+          type: object
+          additionalProperties: false
+          required: [deleted, runId]
+          properties:
+            deleted: {type: boolean, const: true}
+            runId: {$ref: "#/components/schemas/Identifier"}
+        error: {type: "null"}
+    ClearHistoryEnvelope:
+      type: object
+      additionalProperties: false
+      required: [state, result, error]
+      properties:
+        state: {$ref: "#/components/schemas/EmptyState"}
+        result:
+          type: object
+          additionalProperties: false
+          required: [deletedCount]
+          properties:
+            deletedCount: {type: integer, minimum: 0}
+        error: {type: "null"}
+    DeleteProfileEnvelope:
+      type: object
+      additionalProperties: false
+      required: [state, result, error]
+      properties:
+        state: {$ref: "#/components/schemas/EmptyState"}
+        result:
+          type: object
+          additionalProperties: false
+          required: [deleted, profileId]
+          properties:
+            deleted: {type: boolean, const: true}
+            profileId: {$ref: "#/components/schemas/ProfileID"}
+        error: {type: "null"}
+    RunRequest:
+      type: object
+      additionalProperties: false
+      required: [profileId, userPrompt, callType]
+      properties:
+        profileId: {$ref: "#/components/schemas/ProfileID"}
+        systemPrompt: {type: string, maxLength: 32768}
+        userPrompt: {type: string, minLength: 1, maxLength: 65536}
+        callType: {type: string, enum: [text, structured]}
+        schema: {type: object}
+        reasoningEffort: {type: string, enum: [lowest, middle, highest]}
+        providerOptions: {type: object}
+        cacheMode: {type: string, enum: ["off", cache, refresh]}
+        cacheVersion: {type: string, maxLength: 64}
+        maxAttempts: {type: integer, minimum: 0, maximum: 10}
+        structuredRepair: {type: boolean}
+        timeoutMs:
+          type: integer
+          minimum: 0
+          maximum: 60000
+          description: Zero or omission selects the deployment maximum; a positive value may only lower it.
+    Usage:
+      type: object
+      additionalProperties: false
+      required: [inputTokens, cacheReadTokens, cacheCreationTokens, outputTokens, reasoningTokens, totalTokens]
+      properties:
+        inputTokens: {type: integer, minimum: 0}
+        cacheReadTokens: {type: integer, minimum: 0}
+        cacheCreationTokens: {type: integer, minimum: 0}
+        outputTokens: {type: integer, minimum: 0}
+        reasoningTokens: {type: integer, minimum: 0}
+        totalTokens: {type: integer, minimum: 0}
+    Cost:
+      type: object
+      additionalProperties: false
+      required: [totalUsd, known, source]
+      properties:
+        totalUsd: {type: number, minimum: 0}
+        known: {type: boolean}
+        source: {type: string, maxLength: 64}
+    Attempt:
+      type: object
+      additionalProperties: false
+      required: [number, profileId, retryable, wait, duration, repair, backupIndex, providerUsed]
+      properties:
+        number: {type: integer, minimum: 1, maximum: 10}
+        profileId: {$ref: "#/components/schemas/ProfileID"}
+        category: {type: string, maxLength: 64}
+        httpStatus: {type: integer, minimum: 100, maximum: 599}
+        retryable: {type: boolean}
+        wait: {type: integer, minimum: 0, description: Nanoseconds.}
+        duration: {type: integer, minimum: 0, description: Nanoseconds.}
+        repair: {type: boolean}
+        backupIndex: {type: integer, minimum: 0}
+        providerUsed: {type: boolean}
+    CacheResult:
+      type: object
+      additionalProperties: false
+      required: [mode, status, served, written]
+      properties:
+        mode: {type: string, enum: ["off", cache, refresh]}
+        status: {type: string, minLength: 1, maxLength: 64}
+        operationHash: {type: string, maxLength: 128}
+        version: {type: string, maxLength: 64}
+        served: {type: boolean}
+        written: {type: boolean}
+    RunArtifact:
+      type: object
+      additionalProperties: false
+      required: [artifactId, kind, sha256, sizeBytes, contentType]
+      properties:
+        artifactId: {$ref: "#/components/schemas/Identifier"}
+        kind: {type: string, enum: [trace, parse-failure-response, diagnostic-event]}
+        sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
+        sizeBytes: {type: integer, minimum: 1}
+        contentType: {type: string, const: application/json}
+    RunResult:
+      type: object
+      additionalProperties: false
+      required: [runId, output, callId, traceId, usage, cost, attempts, cache, artifacts]
+      properties:
+        runId: {$ref: "#/components/schemas/Identifier"}
+        output: {}
+        callId: {$ref: "#/components/schemas/Identifier"}
+        traceId: {$ref: "#/components/schemas/Identifier"}
+        usage: {$ref: "#/components/schemas/Usage"}
+        cost: {$ref: "#/components/schemas/Cost"}
+        attempts:
+          type: array
+          maxItems: 10
+          items: {$ref: "#/components/schemas/Attempt"}
+        cache: {$ref: "#/components/schemas/CacheResult"}
+        artifacts:
+          type: array
+          items: {$ref: "#/components/schemas/RunArtifact"}
+    RunState:
+      type: object
+      additionalProperties: false
+      properties:
+        lastRunId: {$ref: "#/components/schemas/Identifier"}
+        lastTraceId: {$ref: "#/components/schemas/Identifier"}
+    RunEnvelope:
+      type: object
+      additionalProperties: false
+      required: [state, result, error]
+      properties:
+        state: {$ref: "#/components/schemas/RunState"}
+        result: {$ref: "#/components/schemas/RunResult"}
+        error: {type: "null"}
+    RunErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [state, result, error]
+      properties:
+        state: {$ref: "#/components/schemas/RunState"}
+        result: {type: "null"}
+        error: {$ref: "#/components/schemas/Error"}
+    TraceObservation:
+      type: object
+      additionalProperties: false
+      required: [sequence, type, data, createdAt]
+      properties:
+        sequence: {type: integer, minimum: 0}
+        type: {type: string, minLength: 1, maxLength: 64}
+        data: {type: object}
+        createdAt: {type: string, format: date-time}
+    TraceArtifact:
+      type: object
+      additionalProperties: false
+      required: [artifactId, kind, sha256, sizeBytes, contentType, createdAt]
+      properties:
+        artifactId: {$ref: "#/components/schemas/Identifier"}
+        kind: {type: string, enum: [trace, parse-failure-response, diagnostic-event]}
+        sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
+        sizeBytes: {type: integer, minimum: 1}
+        contentType: {type: string, const: application/json}
+        createdAt: {type: string, format: date-time}
+    TraceView:
+      type: object
+      additionalProperties: false
+      required: [traceId, record, observations, artifacts]
+      properties:
+        traceId: {$ref: "#/components/schemas/Identifier"}
+        record: {type: object}
+        observations:
+          type: array
+          items: {$ref: "#/components/schemas/TraceObservation"}
+        artifacts:
+          type: array
+          items: {$ref: "#/components/schemas/TraceArtifact"}
+    TraceEnvelope:
+      type: object
+      additionalProperties: false
+      required: [state, result, error]
+      properties:
+        state: {$ref: "#/components/schemas/EmptyState"}
+        result: {$ref: "#/components/schemas/TraceView"}
+        error: {type: "null"}
     Health:
       type: object
       additionalProperties: false
       required: [status]
       properties:
-        status:
-          type: string
-          enum: [ok]
+        status: {type: string, enum: [ok, unavailable]}

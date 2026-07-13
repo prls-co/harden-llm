@@ -1,0 +1,384 @@
+package gateway
+
+import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"strings"
+	"time"
+	"unicode/utf8"
+
+	hardenllm "github.com/prls-co/harden-llm"
+	"github.com/prls-co/harden-llm/internal/postgres"
+)
+
+const (
+	clientStateSchemaVersion = 1
+	defaultHistoryLimit      = 20
+	maximumHistoryLimit      = 100
+	defaultArtifactTTL       = time.Minute
+	maximumArtifactTTL       = 5 * time.Minute
+)
+
+var (
+	ErrInvalidRequest = errors.New("gateway: invalid request")
+	ErrInvalidCursor  = errors.New("gateway: invalid cursor")
+)
+
+type ClientState struct {
+	SchemaVersion     int             `json:"schemaVersion"`
+	SelectedProfileID string          `json:"selectedProfileId,omitempty"`
+	ModelID           string          `json:"modelId,omitempty"`
+	SystemPrompt      string          `json:"systemPrompt,omitempty"`
+	UserPrompt        string          `json:"userPrompt,omitempty"`
+	CallType          string          `json:"callType"`
+	Schema            json.RawMessage `json:"schema,omitempty"`
+	ReasoningEffort   string          `json:"reasoningEffort,omitempty"`
+	StructuredRepair  bool            `json:"structuredRepair"`
+	CacheMode         string          `json:"cacheMode"`
+	ProviderOptions   map[string]any  `json:"providerOptions,omitempty"`
+}
+
+type HistoryItem struct {
+	RunID       string          `json:"runId"`
+	ProfileID   string          `json:"profileId"`
+	TraceID     string          `json:"traceId"`
+	Status      string          `json:"status"`
+	Request     json.RawMessage `json:"request"`
+	Result      json.RawMessage `json:"result"`
+	StartedAt   time.Time       `json:"startedAt"`
+	CompletedAt time.Time       `json:"completedAt"`
+}
+
+type HistoryPage struct {
+	Items      []HistoryItem `json:"items"`
+	NextCursor string        `json:"nextCursor,omitempty"`
+}
+
+type TraceArtifact struct {
+	ArtifactID  string    `json:"artifactId"`
+	Kind        string    `json:"kind"`
+	SHA256      string    `json:"sha256"`
+	SizeBytes   int64     `json:"sizeBytes"`
+	ContentType string    `json:"contentType"`
+	CreatedAt   time.Time `json:"createdAt"`
+}
+
+type TraceObservation struct {
+	Sequence  int             `json:"sequence"`
+	Type      string          `json:"type"`
+	Data      json.RawMessage `json:"data"`
+	CreatedAt time.Time       `json:"createdAt"`
+}
+
+type TraceView struct {
+	TraceID      string             `json:"traceId"`
+	Record       json.RawMessage    `json:"record"`
+	Observations []TraceObservation `json:"observations"`
+	Artifacts    []TraceArtifact    `json:"artifacts"`
+}
+
+type ArtifactPresigner interface {
+	PresignGet(context.Context, string, time.Duration) (string, error)
+}
+
+type ArtifactScope func(ownerID string) (ArtifactPresigner, error)
+
+type ResourceServiceConfig struct {
+	Store          *postgres.Store
+	Profiles       *ProfileService
+	ModelRefresher ModelRefresher
+	ArtifactScope  ArtifactScope
+	ArtifactTTL    time.Duration
+	Clock          func() time.Time
+	NewID          func() (string, error)
+}
+
+type ResourceService struct {
+	store          *postgres.Store
+	profiles       *ProfileService
+	modelRefresher ModelRefresher
+	artifactScope  ArtifactScope
+	artifactTTL    time.Duration
+	clock          func() time.Time
+	newID          func() (string, error)
+}
+
+func NewResourceService(config ResourceServiceConfig) (*ResourceService, error) {
+	if config.Store == nil || config.Profiles == nil {
+		return nil, errors.New("gateway: resource store and profile service are required")
+	}
+	if config.Clock == nil {
+		config.Clock = time.Now
+	}
+	if config.NewID == nil {
+		config.NewID = newGatewayID
+	}
+	if config.ArtifactTTL == 0 {
+		config.ArtifactTTL = defaultArtifactTTL
+	}
+	if config.ArtifactTTL < time.Second || config.ArtifactTTL > maximumArtifactTTL {
+		return nil, errors.New("gateway: artifact URL TTL is outside the supported range")
+	}
+	return &ResourceService{
+		store: config.Store, profiles: config.Profiles, modelRefresher: config.ModelRefresher,
+		artifactScope: config.ArtifactScope, artifactTTL: config.ArtifactTTL,
+		clock: config.Clock, newID: config.NewID,
+	}, nil
+}
+
+func (service *ResourceService) State(ctx context.Context, ownerID string) (ClientState, error) {
+	record, err := service.store.ClientState(ctx, ownerID)
+	if errors.Is(err, postgres.ErrNotFound) {
+		return defaultClientState(), nil
+	}
+	if err != nil {
+		return ClientState{}, err
+	}
+	var state ClientState
+	if err := decodeStrictJSON(record.Document, &state); err != nil || validateClientState(state) != nil {
+		return ClientState{}, errors.New("gateway: stored client state is invalid")
+	}
+	return state, nil
+}
+
+func (service *ResourceService) SaveState(ctx context.Context, ownerID string, state ClientState) (ClientState, error) {
+	if err := validateClientState(state); err != nil {
+		return ClientState{}, err
+	}
+	document, err := json.Marshal(state)
+	if err != nil {
+		return ClientState{}, fmt.Errorf("gateway: encode client state: %w", err)
+	}
+	if err := service.store.SaveClientState(ctx, postgres.ClientState{OwnerID: ownerID, Document: document, UpdatedAt: service.clock().UTC()}); err != nil {
+		return ClientState{}, err
+	}
+	return state, nil
+}
+
+func (service *ResourceService) Profiles(ctx context.Context, ownerID string) ([]ProfileState, error) {
+	return service.profiles.Profiles(ctx, ownerID)
+}
+
+func (service *ResourceService) SaveProfile(ctx context.Context, request SaveProfileRequest) (ProfileState, error) {
+	return service.profiles.Save(ctx, request)
+}
+
+func (service *ResourceService) DeleteProfile(ctx context.Context, ownerID, profileID string) error {
+	return service.profiles.Delete(ctx, ownerID, profileID)
+}
+
+func (service *ResourceService) RefreshModels(ctx context.Context, ownerID, profileID string) (ProfileState, error) {
+	if service.modelRefresher == nil {
+		return ProfileState{}, errors.New("gateway: model refresh is not configured")
+	}
+	return service.profiles.RefreshModels(ctx, ownerID, profileID, service.modelRefresher)
+}
+
+func (service *ResourceService) ExportBundle(ctx context.Context, ownerID string) (ProfileBundle, error) {
+	bundleID, err := service.newID()
+	if err != nil {
+		return ProfileBundle{}, errors.New("gateway: generate bundle ID")
+	}
+	return service.profiles.ExportBundle(ctx, ownerID, bundleID)
+}
+
+func (service *ResourceService) ReplaceBundle(ctx context.Context, ownerID string, bundle ProfileBundle) ([]ProfileState, error) {
+	return service.profiles.ReplaceBundle(ctx, ownerID, bundle)
+}
+
+func (service *ResourceService) History(ctx context.Context, ownerID, encodedCursor string, limit int) (HistoryPage, error) {
+	if limit == 0 {
+		limit = defaultHistoryLimit
+	}
+	if limit < 1 || limit > maximumHistoryLimit {
+		return HistoryPage{}, fmt.Errorf("%w: history limit", ErrInvalidRequest)
+	}
+	var cursor *postgres.RunCursor
+	if encodedCursor != "" {
+		decoded, err := decodeHistoryCursor(encodedCursor)
+		if err != nil {
+			return HistoryPage{}, err
+		}
+		cursor = &decoded
+	}
+	records, err := service.store.Runs(ctx, ownerID, limit+1, cursor)
+	if err != nil {
+		return HistoryPage{}, err
+	}
+	hasMore := len(records) > limit
+	if hasMore {
+		records = records[:limit]
+	}
+	items := make([]HistoryItem, 0, len(records))
+	for _, record := range records {
+		items = append(items, HistoryItem{
+			RunID: record.ID, ProfileID: record.ProfileID, TraceID: record.TraceID, Status: record.Status,
+			Request: append(json.RawMessage(nil), record.Request...), Result: append(json.RawMessage(nil), record.Result...),
+			StartedAt: record.StartedAt, CompletedAt: record.CompletedAt,
+		})
+	}
+	page := HistoryPage{Items: items}
+	if hasMore && len(records) > 0 {
+		page.NextCursor, err = encodeHistoryCursor(postgres.RunCursor{StartedAt: records[len(records)-1].StartedAt, ID: records[len(records)-1].ID})
+		if err != nil {
+			return HistoryPage{}, err
+		}
+	}
+	return page, nil
+}
+
+func (service *ResourceService) DeleteHistory(ctx context.Context, ownerID, runID string) error {
+	return service.store.DeleteRun(ctx, ownerID, runID)
+}
+
+func (service *ResourceService) ClearHistory(ctx context.Context, ownerID string) (int64, error) {
+	return service.store.ClearRuns(ctx, ownerID)
+}
+
+func (service *ResourceService) Trace(ctx context.Context, ownerID, traceID string) (TraceView, error) {
+	record, observations, err := service.store.Trace(ctx, ownerID, traceID)
+	if err != nil {
+		return TraceView{}, err
+	}
+	artifacts, err := service.store.Artifacts(ctx, ownerID, traceID)
+	if err != nil {
+		return TraceView{}, err
+	}
+	publicArtifacts := make([]TraceArtifact, 0, len(artifacts))
+	for _, artifact := range artifacts {
+		publicArtifacts = append(publicArtifacts, TraceArtifact{
+			ArtifactID: artifact.ID, Kind: artifact.Kind, SHA256: artifact.SHA256,
+			SizeBytes: artifact.SizeBytes, ContentType: artifact.ContentType, CreatedAt: artifact.CreatedAt,
+		})
+	}
+	publicObservations := make([]TraceObservation, 0, len(observations))
+	for _, observation := range observations {
+		publicObservations = append(publicObservations, TraceObservation{
+			Sequence: observation.Sequence, Type: observation.Type,
+			Data: append(json.RawMessage(nil), observation.Data...), CreatedAt: observation.CreatedAt,
+		})
+	}
+	return TraceView{
+		TraceID: traceID, Record: append(json.RawMessage(nil), record.Record...),
+		Observations: publicObservations, Artifacts: publicArtifacts,
+	}, nil
+}
+
+func (service *ResourceService) PresignArtifact(ctx context.Context, ownerID, traceID, artifactID string) (string, error) {
+	if service.artifactScope == nil {
+		return "", errors.New("gateway: artifact access is not configured")
+	}
+	artifact, err := service.store.Artifact(ctx, ownerID, traceID, artifactID)
+	if err != nil {
+		return "", err
+	}
+	store, err := service.artifactScope(ownerID)
+	if err != nil {
+		return "", errors.New("gateway: artifact access is unavailable")
+	}
+	return store.PresignGet(ctx, artifact.ObjectKey, service.artifactTTL)
+}
+
+func defaultClientState() ClientState {
+	return ClientState{SchemaVersion: clientStateSchemaVersion, CallType: string(hardenllm.CallTypeText), CacheMode: string(hardenllm.CacheModeOff)}
+}
+
+func validateClientState(state ClientState) error {
+	if state.SchemaVersion != clientStateSchemaVersion || !utf8.ValidString(state.SystemPrompt) || !utf8.ValidString(state.UserPrompt) ||
+		len(state.SelectedProfileID) > 1500 || len(state.ModelID) > 512 || len(state.SystemPrompt) > 32<<10 || len(state.UserPrompt) > 64<<10 {
+		return fmt.Errorf("%w: client state fields", ErrInvalidRequest)
+	}
+	if state.CallType != string(hardenllm.CallTypeText) && state.CallType != string(hardenllm.CallTypeStructured) {
+		return fmt.Errorf("%w: call type", ErrInvalidRequest)
+	}
+	if state.ReasoningEffort != "" && state.ReasoningEffort != string(hardenllm.ReasoningEffortLowest) && state.ReasoningEffort != string(hardenllm.ReasoningEffortMiddle) && state.ReasoningEffort != string(hardenllm.ReasoningEffortHighest) {
+		return fmt.Errorf("%w: reasoning effort", ErrInvalidRequest)
+	}
+	if state.CacheMode != string(hardenllm.CacheModeOff) && state.CacheMode != string(hardenllm.CacheModeCache) && state.CacheMode != string(hardenllm.CacheModeRefresh) {
+		return fmt.Errorf("%w: cache mode", ErrInvalidRequest)
+	}
+	if len(state.Schema) > 64<<10 {
+		return fmt.Errorf("%w: schema", ErrInvalidRequest)
+	}
+	if len(state.Schema) > 0 && string(state.Schema) != "null" {
+		var schema map[string]any
+		if json.Unmarshal(state.Schema, &schema) != nil || schema == nil {
+			return fmt.Errorf("%w: schema", ErrInvalidRequest)
+		}
+	}
+	if encoded, err := json.Marshal(state.ProviderOptions); err != nil || len(encoded) > 32<<10 || containsSecretKey(state.ProviderOptions) {
+		return fmt.Errorf("%w: provider options", ErrInvalidRequest)
+	}
+	return nil
+}
+
+func containsSecretKey(value any) bool {
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, nested := range typed {
+			normalized := strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(key, "-", ""), "_", ""))
+			for _, forbidden := range []string{"authorization", "apikey", "credential", "password", "secret", "token"} {
+				if strings.Contains(normalized, forbidden) {
+					return true
+				}
+			}
+			if containsSecretKey(nested) {
+				return true
+			}
+		}
+	case []any:
+		for _, nested := range typed {
+			if containsSecretKey(nested) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func encodeHistoryCursor(cursor postgres.RunCursor) (string, error) {
+	encoded, err := json.Marshal(struct {
+		StartedAt time.Time `json:"startedAt"`
+		ID        string    `json:"id"`
+	}{StartedAt: cursor.StartedAt.UTC(), ID: cursor.ID})
+	if err != nil {
+		return "", fmt.Errorf("gateway: encode history cursor: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(encoded), nil
+}
+
+func decodeHistoryCursor(value string) (postgres.RunCursor, error) {
+	if len(value) > 512 {
+		return postgres.RunCursor{}, ErrInvalidCursor
+	}
+	decoded, err := base64.RawURLEncoding.Strict().DecodeString(value)
+	if err != nil || base64.RawURLEncoding.EncodeToString(decoded) != value {
+		return postgres.RunCursor{}, ErrInvalidCursor
+	}
+	var cursor struct {
+		StartedAt time.Time `json:"startedAt"`
+		ID        string    `json:"id"`
+	}
+	if err := decodeStrictJSON(decoded, &cursor); err != nil || cursor.StartedAt.IsZero() || cursor.ID == "" {
+		return postgres.RunCursor{}, ErrInvalidCursor
+	}
+	return postgres.RunCursor{StartedAt: cursor.StartedAt.UTC(), ID: cursor.ID}, nil
+}
+
+func decodeStrictJSON(document []byte, destination any) error {
+	decoder := json.NewDecoder(bytes.NewReader(document))
+	decoder.DisallowUnknownFields()
+	decoder.UseNumber()
+	if err := decoder.Decode(destination); err != nil {
+		return err
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return errors.New("gateway: unexpected trailing JSON")
+	}
+	return nil
+}
