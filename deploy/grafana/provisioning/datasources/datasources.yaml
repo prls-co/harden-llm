@@ -1,0 +1,82 @@
+apiVersion: 1
+
+deleteDatasources:
+  - name: Prometheus
+    orgId: 1
+  - name: Loki
+    orgId: 1
+  - name: Tempo
+    orgId: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: harden-prometheus
+    orgId: 1
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      httpMethod: POST
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: harden-tempo
+  - name: Loki
+    type: loki
+    uid: harden-loki
+    orgId: 1
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - name: TraceID
+          matcherRegex: '"?trace_id"?[=:]\s*"?([0-9a-f]{32})"?'
+          datasourceUid: harden-tempo
+          url: '$${__value.raw}'
+          urlDisplayLabel: View trace
+  - name: Tempo
+    type: tempo
+    uid: harden-tempo
+    orgId: 1
+    access: proxy
+    url: http://tempo:3200
+    editable: false
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: harden-loki
+        spanStartTimeShift: -5m
+        spanEndTimeShift: 5m
+        tags:
+          - key: service.name
+            value: service_name
+        filterByTraceID: true
+        filterBySpanID: true
+        customQuery: false
+      tracesToMetrics:
+        datasourceUid: harden-prometheus
+        spanStartTimeShift: -5m
+        spanEndTimeShift: 5m
+        tags:
+          - key: gen_ai.provider.name
+            value: provider
+          - key: gen_ai.operation.name
+            value: call_type
+        queries:
+          - name: Provider request rate
+            query: 'sum(rate(harden_llm_provider_attempts{$$__tags}[5m]))'
+      serviceMap:
+        datasourceUid: harden-prometheus
+      nodeGraph:
+        enabled: true
+      search:
+        hide: false
+      traceQuery:
+        timeShiftEnabled: true
+        spanStartTimeShift: -5m
+        spanEndTimeShift: 5m
+      streamingEnabled:
+        search: true
+        metrics: true

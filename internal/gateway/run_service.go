@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"path"
 	"strings"
 	"time"
@@ -83,6 +84,8 @@ type RunServiceConfig struct {
 	ArtifactScope RuntimeArtifactScope
 	Clock         func() time.Time
 	NewID         func() (string, error)
+	Telemetry     *Telemetry
+	Logger        *slog.Logger
 }
 
 type RunService struct {
@@ -92,6 +95,8 @@ type RunService struct {
 	artifactScope RuntimeArtifactScope
 	clock         func() time.Time
 	newID         func() (string, error)
+	telemetry     *Telemetry
+	logger        *slog.Logger
 }
 
 func NewRunService(config RunServiceConfig) (*RunService, error) {
@@ -104,13 +109,20 @@ func NewRunService(config RunServiceConfig) (*RunService, error) {
 	if config.NewID == nil {
 		config.NewID = newGatewayID
 	}
+	if config.Telemetry == nil {
+		config.Telemetry = newNoopTelemetry()
+	}
+	if config.Logger == nil {
+		config.Logger = slog.New(slog.DiscardHandler)
+	}
 	return &RunService{
 		store: config.Store, profiles: config.Profiles, callerFactory: config.CallerFactory,
 		artifactScope: config.ArtifactScope, clock: config.Clock, newID: config.NewID,
+		telemetry: config.Telemetry, logger: config.Logger,
 	}, nil
 }
 
-func (service *RunService) Run(ctx context.Context, ownerID string, input RunInput) (RunOutput, RunState, error) {
+func (service *RunService) Run(ctx context.Context, ownerID string, input RunInput) (output RunOutput, state RunState, err error) {
 	if err := validateRunInput(input); err != nil {
 		return RunOutput{}, RunState{}, err
 	}
@@ -131,6 +143,18 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 	if _, ok := catalog[input.ProfileID]; !ok {
 		return RunOutput{}, RunState{}, postgres.ErrNotFound
 	}
+	profile := catalog[input.ProfileID]
+	runStartedAt := time.Now()
+	ctx, endRun := service.telemetry.StartOperation(ctx, OperationRun)
+	defer func() {
+		outcome, category := gatewayOutcome(err)
+		service.logger.InfoContext(ctx, "run completed",
+			"run_id", runID, "call_id", output.CallID, "trace_id", state.LastTraceID,
+			"profile", input.ProfileID, "model", profile.ModelID, "provider", profile.Provider,
+			"outcome", outcome, "category", category, "duration_ms", time.Since(runStartedAt).Milliseconds(),
+		)
+		endRun(err)
+	}()
 	var artifactStore hardenllm.ArtifactStore
 	if service.artifactScope != nil {
 		artifactStore, err = service.artifactScope(ownerID)
@@ -165,7 +189,7 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 		}
 	}
 	artifacts, artifactRecords := runArtifacts(ownerID, runID, traceID, result.Artifacts, completedAt)
-	output := RunOutput{
+	output = RunOutput{
 		RunID: runID, Output: result.Output, CallID: result.CallID, TraceID: traceID,
 		Usage: result.Usage, Cost: result.Cost, Attempts: append([]hardenllm.Attempt(nil), result.Attempts...),
 		Cache: result.Cache, Artifacts: artifacts,
@@ -182,14 +206,19 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 	observations := runObservations(ownerID, traceID, result.Attempts, completedAt)
 	persistContext, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), persistenceTimeout)
 	defer persistCancel()
+	persistContext, endPersistence := service.telemetry.StartPersistence(persistContext, "postgres", OperationTracePersistence)
 	persistErr := service.store.SaveExecution(persistContext, postgres.RunRecord{
 		OwnerID: ownerID, ID: runID, ProfileID: input.ProfileID, TraceID: traceID, Status: status,
 		Request: requestDocument, Result: resultDocument, StartedAt: startedAt, CompletedAt: completedAt,
 	}, postgres.TraceRecord{OwnerID: ownerID, TraceID: traceID, Record: traceDocument, CreatedAt: startedAt, UpdatedAt: completedAt}, observations)
 	if persistErr == nil {
 		for _, artifact := range artifactRecords {
-			if saveErr := service.store.SaveArtifact(persistContext, artifact); saveErr != nil {
+			artifactContext, endArtifactIndex := service.telemetry.StartPersistence(persistContext, "postgres", "artifact.index")
+			if saveErr := service.store.SaveArtifact(artifactContext, artifact); saveErr != nil {
 				output.Artifacts = removeRunArtifact(output.Artifacts, artifact.ID)
+				endArtifactIndex(saveErr)
+			} else {
+				endArtifactIndex(nil)
 			}
 		}
 		updatedResult, marshalErr := json.Marshal(output)
@@ -199,7 +228,8 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 			persistErr = updateErr
 		}
 	}
-	state := RunState{LastRunID: runID, LastTraceID: traceID}
+	endPersistence(persistErr)
+	state = RunState{LastRunID: runID, LastTraceID: traceID}
 	if callErr != nil {
 		return RunOutput{}, state, callErr
 	}

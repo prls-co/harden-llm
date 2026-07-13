@@ -27,4 +27,25 @@ func TestSharedRedactorHandlesEmbeddedAndMalformedInputs(t *testing.T) {
 	if err != nil || !json.Valid(redacted) || strings.Contains(string(redacted), "hidden") || strings.Contains(string(redacted), "trailing-secret") {
 		t.Fatalf("malformed JSON redaction mismatch: %s %v", redacted, err)
 	}
+
+	content, err := New().JSON([]byte(`{
+		"systemPrompt":"do not expose", "response":"private output",
+		"rawProviderEnvelope":{"safe":false}, "baseURL":"https://example.test/private",
+		"responseStatusCode":200, "safe":"visible"
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var contentValue map[string]any
+	if err := json.Unmarshal(content, &contentValue); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"systemPrompt", "response", "rawProviderEnvelope", "baseURL"} {
+		if contentValue[key] != Replacement {
+			t.Errorf("content field %s = %#v, want redacted", key, contentValue[key])
+		}
+	}
+	if contentValue["responseStatusCode"] != float64(200) || contentValue["safe"] != "visible" {
+		t.Errorf("safe fields changed: %#v", contentValue)
+	}
 }

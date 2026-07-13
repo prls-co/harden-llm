@@ -18,11 +18,11 @@ func TestBootstrapCommandInput(t *testing.T) {
 		t.Fatal("oversized password input was accepted")
 	}
 	var output bytes.Buffer
-	err = run(context.Background(), []string{"bootstrap-user", "--owner-id", "owner-a", "--email", "a@example.test"}, strings.NewReader("do-not-echo-this-password\n"), &output, func(string) string { return "" })
+	err = run(context.Background(), []string{"bootstrap-user", "--owner-id", "owner-a", "--email", "a@example.test"}, strings.NewReader("do-not-echo-this-password\n"), &output, &output, func(string) string { return "" })
 	if err == nil || !strings.Contains(err.Error(), databaseURLEnvironment) || strings.Contains(err.Error(), "do-not-echo") || output.Len() != 0 {
 		t.Fatalf("missing database configuration = %v, output=%q", err, output.String())
 	}
-	if err := run(context.Background(), []string{"unknown"}, strings.NewReader(""), &output, func(string) string { return "" }); err == nil {
+	if err := run(context.Background(), []string{"unknown"}, strings.NewReader(""), &output, &output, func(string) string { return "" }); err == nil {
 		t.Fatal("unknown command was accepted")
 	}
 }

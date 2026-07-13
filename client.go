@@ -24,6 +24,7 @@ var errRuntimeUnavailable = errors.New("hardenllm: runtime is not initialized")
 type Client struct {
 	options       Options
 	executor      coreruntime.Executor
+	telemetry     *coreruntime.Telemetry
 	newID         func() (string, error)
 	observeRecord func(coreruntime.CallRecord)
 }
@@ -46,11 +47,15 @@ func New(options Options) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Client{options: options, executor: executor, newID: newRuntimeID}, nil
+	telemetry, err := coreruntime.NewTelemetry(options.TracerProvider, options.MeterProvider)
+	if err != nil {
+		return nil, fmt.Errorf("hardenllm: initialize telemetry: %w", err)
+	}
+	return &Client{options: options, executor: executor, telemetry: telemetry, newID: newRuntimeID}, nil
 }
 
 // Call executes one provider-neutral LLM request.
-func (client *Client) Call(ctx context.Context, request Request) (Result, error) {
+func (client *Client) Call(ctx context.Context, request Request) (result Result, err error) {
 	if ctx == nil {
 		return Result{}, errors.New("hardenllm: context is required")
 	}
@@ -73,6 +78,12 @@ func (client *Client) Call(ctx context.Context, request Request) (Result, error)
 	if request.CallType != CallTypeText && request.CallType != CallTypeStructured {
 		return Result{}, fmt.Errorf("hardenllm: call type must be %q or %q", CallTypeText, CallTypeStructured)
 	}
+	profile := profiles[request.ProfileID]
+	ctx, endCall := client.telemetry.StartCall(ctx, coreruntime.CallObservation{
+		ProfileID: profile.ID, Provider: profile.Provider, ModelID: profile.ModelID, CallType: string(request.CallType),
+	})
+	var record coreruntime.CallRecord
+	defer func() { endCall(record, err) }()
 	startedAt := time.Now().UTC()
 
 	cacheMode, err := cachekey.ResolveMode(string(request.CacheMode))
@@ -95,6 +106,7 @@ func (client *Client) Call(ctx context.Context, request Request) (Result, error)
 		Schema: append([]byte(nil), request.Schema...), ReasoningEffort: string(request.ReasoningEffort),
 		ProviderOptions: cloneAnyMap(request.ProviderOptions), Context: runtimeContext(request.Context),
 		StructuredRepair: repairPolicy,
+		Telemetry:        client.telemetry,
 	}
 	if request.CallType == CallTypeStructured {
 		if len(request.Schema) == 0 {
@@ -124,7 +136,7 @@ func (client *Client) Call(ctx context.Context, request Request) (Result, error)
 	if request.UserPrompt != "" {
 		callSecrets = append(callSecrets, request.UserPrompt)
 	}
-	record, err := coreruntime.Execute(
+	record, err = coreruntime.Execute(
 		ctx,
 		client.executor,
 		func(ctx context.Context, profile coreruntime.Profile) (coreruntime.Credential, error) {
@@ -160,7 +172,7 @@ func (client *Client) Call(ctx context.Context, request Request) (Result, error)
 	if err != nil {
 		return Result{}, err
 	}
-	result := resultFromRecord(record)
+	result = resultFromRecord(record)
 	result.Artifacts = artifactRefs
 	return result, nil
 }

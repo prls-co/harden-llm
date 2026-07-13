@@ -14,6 +14,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const migrationAdvisoryLock int64 = 0x484c4c4d
@@ -29,8 +31,25 @@ type Store struct {
 	pool *pgxpool.Pool
 }
 
+type openConfig struct {
+	tracerProvider trace.TracerProvider
+	meterProvider  metric.MeterProvider
+}
+
+type OpenOption func(*openConfig) error
+
+// WithTelemetry records bounded query spans and persistence metrics through
+// caller-owned providers without initializing global exporters.
+func WithTelemetry(tracerProvider trace.TracerProvider, meterProvider metric.MeterProvider) OpenOption {
+	return func(config *openConfig) error {
+		config.tracerProvider = tracerProvider
+		config.meterProvider = meterProvider
+		return nil
+	}
+}
+
 // Open validates a connection pool and returns an application Store.
-func Open(ctx context.Context, databaseURL string) (*Store, error) {
+func Open(ctx context.Context, databaseURL string, options ...OpenOption) (*Store, error) {
 	if strings.TrimSpace(databaseURL) == "" {
 		return nil, errors.New("postgres: database URL is required")
 	}
@@ -38,6 +57,20 @@ func Open(ctx context.Context, databaseURL string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("postgres: parse database URL: %w", err)
 	}
+	var openOptions openConfig
+	for _, option := range options {
+		if option == nil {
+			return nil, errors.New("postgres: open option is nil")
+		}
+		if err := option(&openOptions); err != nil {
+			return nil, err
+		}
+	}
+	queryTelemetry, err := NewQueryTelemetry(openOptions.tracerProvider, openOptions.meterProvider)
+	if err != nil {
+		return nil, fmt.Errorf("postgres: initialize telemetry: %w", err)
+	}
+	config.ConnConfig.Tracer = queryTelemetry
 	config.ConnConfig.RuntimeParams["application_name"] = "harden-llm-gateway"
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {

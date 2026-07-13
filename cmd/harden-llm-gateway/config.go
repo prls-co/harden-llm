@@ -33,7 +33,10 @@ const (
 	privateAllowlistEnvironment      = "HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST"
 	environmentEnvironment           = "HARDEN_LLM_ENVIRONMENT"
 	releaseEnvironment               = "HARDEN_LLM_RELEASE"
+	otelEndpointEnvironment          = "HARDEN_LLM_OTEL_EXPORTER_OTLP_ENDPOINT"
+	serviceNameEnvironment           = "HARDEN_LLM_SERVICE_NAME"
 	defaultListenAddress             = ":8080"
+	defaultServiceName               = "harden-llm-gateway"
 	defaultSessionTTL                = 24 * time.Hour
 	defaultArtifactPresignTTL        = time.Minute
 	defaultMaximumRunDuration        = 60 * time.Second
@@ -58,6 +61,8 @@ type serverConfig struct {
 	privateAllowlist    []netip.Prefix
 	environment         string
 	release             string
+	otelEndpoint        string
+	serviceName         string
 }
 
 func loadServerConfig(getenv func(string) string) (serverConfig, error) {
@@ -75,9 +80,14 @@ func loadServerConfig(getenv func(string) string) (serverConfig, error) {
 		artifactSecretKey:   requiredEnvironment(getenv, artifactSecretKeyEnvironment),
 		environment:         requiredEnvironment(getenv, environmentEnvironment),
 		release:             strings.TrimSpace(getenv(releaseEnvironment)),
+		otelEndpoint:        strings.TrimSpace(getenv(otelEndpointEnvironment)),
+		serviceName:         strings.TrimSpace(getenv(serviceNameEnvironment)),
 	}
 	if config.listenAddress == "" {
 		config.listenAddress = defaultListenAddress
+	}
+	if config.serviceName == "" {
+		config.serviceName = defaultServiceName
 	}
 	if err := validateListenAddress(config.listenAddress); err != nil {
 		return serverConfig{}, err
@@ -129,7 +139,17 @@ func loadServerConfig(getenv func(string) string) (serverConfig, error) {
 	if err := validateRuntimeIdentity(config); err != nil {
 		return serverConfig{}, err
 	}
+	if config.otelEndpoint != "" {
+		parsed, parseErr := url.Parse(config.otelEndpoint)
+		if parseErr != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil ||
+			parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
+			return serverConfig{}, fmt.Errorf("configuration: %s must be an HTTP or HTTPS origin", otelEndpointEnvironment)
+		}
+	}
 	if isProduction(config.environment) {
+		if config.otelEndpoint == "" {
+			return serverConfig{}, fmt.Errorf("configuration: %s is required outside development and test", otelEndpointEnvironment)
+		}
 		if err := validateProductionSecrets(config); err != nil {
 			return serverConfig{}, err
 		}
@@ -286,6 +306,9 @@ func validateRuntimeIdentity(config serverConfig) error {
 	}
 	if config.release != "" && !validRuntimeLabel(config.release, 128) {
 		return fmt.Errorf("configuration: %s is invalid", releaseEnvironment)
+	}
+	if !validRuntimeLabel(config.serviceName, 128) {
+		return fmt.Errorf("configuration: %s is invalid", serviceNameEnvironment)
 	}
 	if isProduction(config.environment) && config.release == "" {
 		return fmt.Errorf("configuration: %s is required outside development and test", releaseEnvironment)

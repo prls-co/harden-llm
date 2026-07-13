@@ -49,6 +49,12 @@ func TestServerConfiguration(t *testing.T) {
 		t.Fatal("non-development environment bypassed production secret checks")
 	}
 	environment = validServerEnvironment()
+	environment[environmentEnvironment] = "production"
+	delete(environment, otelEndpointEnvironment)
+	if _, err := loadServerConfig(mapEnvironment(environment)); err == nil || !strings.Contains(err.Error(), otelEndpointEnvironment) {
+		t.Fatalf("missing production telemetry endpoint = %v", err)
+	}
+	environment = validServerEnvironment()
 	environment[releaseEnvironment] = "release\nforged"
 	if _, err := loadServerConfig(mapEnvironment(environment)); err == nil || !strings.Contains(err.Error(), releaseEnvironment) {
 		t.Fatalf("invalid release label = %v", err)
@@ -73,6 +79,7 @@ func validServerEnvironment() map[string]string {
 		artifactSecretKeyEnvironment:   "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ01",
 		environmentEnvironment:         "development",
 		releaseEnvironment:             "v0.1.0-test",
+		otelEndpointEnvironment:        "http://otel-collector:4317",
 		privateAllowlistEnvironment:    "provider.internal,10.0.0.0/8,fd00::/8",
 	}
 }

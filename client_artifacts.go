@@ -70,8 +70,10 @@ func (client *Client) persistCallArtifacts(
 	return secondary
 }
 
-func (client *Client) putArtifact(ctx context.Context, projection traces.ArtifactProjection) (ArtifactRef, error) {
-	reference, err := client.options.Artifacts.Put(ctx, projection.Key, projection.Content, projection.ContentType)
+func (client *Client) putArtifact(ctx context.Context, projection traces.ArtifactProjection) (reference ArtifactRef, err error) {
+	ctx, endArtifact := client.telemetry.StartArtifact(ctx, projection.Kind)
+	defer func() { endArtifact(err) }()
+	reference, err = client.options.Artifacts.Put(ctx, projection.Key, projection.Content, projection.ContentType)
 	if err != nil {
 		return ArtifactRef{}, err
 	}

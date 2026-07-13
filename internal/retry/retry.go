@@ -136,6 +136,14 @@ type Config struct {
 	Policy      Policy
 	Random      func() float64
 	Wait        func(context.Context, time.Duration) error
+	Hooks       Hooks
+}
+
+// Hooks instrument retry execution without changing classification, budgets,
+// or wait behavior. A hook must invoke the supplied function exactly once.
+type Hooks struct {
+	Attempt func(context.Context, int, func(context.Context) error) error
+	Wait    func(context.Context, Classification, time.Duration, func(context.Context, time.Duration) error) error
 }
 
 type Attempt struct {
@@ -164,7 +172,14 @@ func Do(ctx context.Context, config Config, work func(context.Context, int) erro
 			return attempts, err
 		}
 		started := time.Now()
-		err := work(ctx, number)
+		var err error
+		if config.Hooks.Attempt == nil {
+			err = work(ctx, number)
+		} else {
+			err = config.Hooks.Attempt(ctx, number, func(attemptContext context.Context) error {
+				return work(attemptContext, number)
+			})
+		}
 		duration := time.Since(started)
 		if contextErr := ctx.Err(); contextErr != nil {
 			classification := Classify(contextErr, config.Policy)
@@ -190,7 +205,12 @@ func Do(ctx context.Context, config Config, work func(context.Context, int) erro
 
 		delay := retryDelay(number, classification.RetryAfter, config.BaseDelay, config.MaxDelay, config.Random)
 		attempts[len(attempts)-1].Delay = delay
-		if err := config.Wait(ctx, delay); err != nil {
+		if config.Hooks.Wait != nil {
+			err = config.Hooks.Wait(ctx, classification, delay, config.Wait)
+		} else {
+			err = config.Wait(ctx, delay)
+		}
+		if err != nil {
 			return attempts, err
 		}
 	}

@@ -22,12 +22,23 @@ func Execute(
 	cacheVersion string,
 	callID string,
 	traceID string,
-) (CallRecord, error) {
+) (record CallRecord, err error) {
 	if executor == nil {
 		return CallRecord{}, errors.New("runtime executor is required")
 	}
 	if credentials == nil {
 		return CallRecord{}, errors.New("credential lookup is required")
+	}
+	if call.Telemetry != nil {
+		observation := CallObservation{CallType: call.CallType}
+		if profile, ok := profiles[primary]; ok {
+			observation.ProfileID = profile.ID
+			observation.Provider = profile.Provider
+			observation.ModelID = profile.ModelID
+		}
+		var endRuntime func(error)
+		ctx, endRuntime = call.Telemetry.StartRuntime(ctx, observation)
+		defer func() { endRuntime(err) }()
 	}
 	nodes := make(map[string]ProfileNode, len(profiles))
 	for id, profile := range profiles {
@@ -41,7 +52,7 @@ func Execute(
 	if cacheVersion == "" {
 		cacheVersion = cachekey.DefaultVersion
 	}
-	record := CallRecord{
+	record = CallRecord{
 		CallID: callID, TraceID: traceID,
 		Cache: CacheFacts{Mode: cacheMode, Status: "skipped", Version: cacheVersion},
 	}
@@ -73,11 +84,18 @@ func Execute(
 			}
 			record.Cache.OperationHash = operationHash
 			if cacheMode == cachekey.ModeCache {
-				cached, found, cacheErr := cache.Get(ctx, operationHash, cacheVersion)
+				cacheContext := ctx
+				endCache := func(string, error) {}
+				if call.Telemetry != nil {
+					cacheContext, endCache = call.Telemetry.StartCache(ctx, "lookup")
+				}
+				cached, found, cacheErr := cache.Get(cacheContext, operationHash, cacheVersion)
 				if cacheErr != nil {
+					endCache("unknown", cacheErr)
 					return record, cacheErr
 				}
 				if found {
+					endCache("hit", nil)
 					record.Output = cached.Output
 					record.Usage = cached.Usage
 					record.Cost = cached.Cost
@@ -86,6 +104,7 @@ func Execute(
 					record.Cache.Served = true
 					return record, nil
 				}
+				endCache("miss", nil)
 				record.Cache.Status = "miss"
 			} else {
 				record.Cache.Status = "refresh"
@@ -97,7 +116,14 @@ func Execute(
 		var lastClassification retry.Classification
 		previousOutput := ""
 		repairAttempts := make(map[int]bool)
-		attempts, runErr := retry.Do(ctx, retryConfig, func(attemptContext context.Context, _ int) error {
+		providerContext := ctx
+		endProvider := func(error) {}
+		activeRetryConfig := retryConfig
+		if call.Telemetry != nil {
+			providerContext, endProvider = call.Telemetry.StartProvider(ctx, profile, call.CallType)
+			activeRetryConfig.Hooks = call.Telemetry.RetryHooks(profile, call.CallType, retryConfig.Policy)
+		}
+		attempts, runErr := retry.Do(providerContext, activeRetryConfig, func(attemptContext context.Context, _ int) error {
 			attemptNumber := len(repairAttempts) + 1
 			repairActive := false
 			if call.StructuredRepair.Enabled && RepairEligible(attemptNumber-1, retryConfig.MaxAttempts, lastClassification, len(call.Schema) > 0) {
@@ -138,7 +164,12 @@ func Execute(
 							if err := json.Unmarshal(raw, &value); err != nil {
 								return err
 							}
-							return call.ValidateStructured(value)
+							if call.Telemetry == nil {
+								return call.ValidateStructured(value)
+							}
+							return call.Telemetry.ValidateSchema(attemptContext, profile, true, func(context.Context) error {
+								return call.ValidateStructured(value)
+							})
 						})
 						if repairErr != nil {
 							executeErr = &retry.ProviderError{Err: repairErr, Parse: true}
@@ -146,8 +177,18 @@ func Execute(
 							executeErr = &retry.ProviderError{Err: err, Parse: true}
 						}
 					}
-				} else if validationErr := call.ValidateStructured(result.Output); validationErr != nil {
-					executeErr = &retry.ProviderError{Err: validationErr, Parse: true}
+				} else {
+					var validationErr error
+					if call.Telemetry == nil {
+						validationErr = call.ValidateStructured(result.Output)
+					} else {
+						validationErr = call.Telemetry.ValidateSchema(attemptContext, profile, false, func(context.Context) error {
+							return call.ValidateStructured(result.Output)
+						})
+					}
+					if validationErr != nil {
+						executeErr = &retry.ProviderError{Err: validationErr, Parse: true}
+					}
 				}
 				if executeErr != nil {
 					encoded, _ := json.Marshal(result.Output)
@@ -167,6 +208,7 @@ func Execute(
 			lastClassification = retry.Classification{Category: retry.CategorySuccess}
 			return nil
 		})
+		endProvider(runErr)
 		for index := range attempts {
 			attempts[index].ProfileID = profileID
 			attempts[index].BackupIndex = backupIndex
@@ -183,9 +225,16 @@ func Execute(
 			record.Cost = providerResult.Cost
 			record.RawProviderEnvelope = append(record.RawProviderEnvelope[:0], providerResult.RawProviderEnvelope...)
 			if cacheMode != cachekey.ModeOff {
-				if cacheErr := cache.Set(ctx, record.Cache.OperationHash, cacheVersion, prepared.Operation, providerResult); cacheErr != nil {
+				cacheContext := ctx
+				endCache := func(string, error) {}
+				if call.Telemetry != nil {
+					cacheContext, endCache = call.Telemetry.StartCache(ctx, "write")
+				}
+				if cacheErr := cache.Set(cacheContext, record.Cache.OperationHash, cacheVersion, prepared.Operation, providerResult); cacheErr != nil {
+					endCache("unknown", cacheErr)
 					return record, cacheErr
 				}
+				endCache(record.Cache.Status, nil)
 				record.Cache.Written = true
 			}
 			return record, nil

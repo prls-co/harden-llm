@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -32,6 +31,7 @@ const (
 	httpIdleTimeout       = 60 * time.Second
 	httpShutdownMargin    = 5 * time.Second
 	httpMaxHeaderBytes    = 32 << 10
+	telemetryShutdownTime = 2 * time.Second
 )
 
 type providerModelRefresher struct{ discovery *providers.ModelDiscovery }
@@ -54,7 +54,7 @@ func (refresher providerModelRefresher) RefreshModels(ctx context.Context, profi
 	return models, nil
 }
 
-func runGatewayServer(ctx context.Context, stdout io.Writer, getenv func(string) string) error {
+func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func(string) string) (returnErr error) {
 	config, err := loadServerConfig(getenv)
 	if err != nil {
 		return err
@@ -62,12 +62,35 @@ func runGatewayServer(ctx context.Context, stdout io.Writer, getenv func(string)
 	if stdout == nil {
 		stdout = io.Discard
 	}
-	logger := slog.New(slog.NewJSONHandler(stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	if stderr == nil {
+		stderr = io.Discard
+	}
 	redactor := configurationRedactor(config)
 	startupContext, cancelStartup := context.WithTimeout(ctx, startupTimeout)
 	defer cancelStartup()
+	telemetryRuntime, err := gateway.NewTelemetryRuntime(startupContext, gateway.TelemetryRuntimeConfig{
+		Endpoint: config.otelEndpoint, ServiceName: config.serviceName, Environment: config.environment,
+		Release: config.release, Stdout: stdout, Stderr: stderr, Redactor: redactor,
+	})
+	if err != nil {
+		return safeStartupError(redactor, "configure telemetry", err)
+	}
+	defer func() {
+		shutdownContext, cancel := context.WithTimeout(context.Background(), telemetryShutdownTime)
+		defer cancel()
+		if shutdownErr := telemetryRuntime.Shutdown(shutdownContext); shutdownErr != nil && returnErr == nil {
+			returnErr = safeStartupError(redactor, "shut down telemetry", shutdownErr)
+		}
+	}()
+	logger := telemetryRuntime.Logger()
+	gatewayTelemetry, err := gateway.NewTelemetry(telemetryRuntime.TracerProvider(), telemetryRuntime.MeterProvider())
+	if err != nil {
+		return safeStartupError(redactor, "configure gateway telemetry", err)
+	}
 
-	store, err := postgres.Open(startupContext, config.databaseURL)
+	store, err := postgres.Open(startupContext, config.databaseURL, postgres.WithTelemetry(
+		telemetryRuntime.TracerProvider(), telemetryRuntime.MeterProvider(),
+	))
 	if err != nil {
 		return safeStartupError(redactor, "open application database", err)
 	}
@@ -79,6 +102,7 @@ func runGatewayServer(ctx context.Context, stdout io.Writer, getenv func(string)
 		Endpoint: config.artifactEndpoint, ExternalEndpoint: config.artifactExternal,
 		Bucket: config.artifactBucket, Region: "garage", AccessKeyID: config.artifactAccessKey,
 		SecretAccessKey: config.artifactSecretKey, MaxPresignTTL: config.artifactPresignTTL,
+		TracerProvider: telemetryRuntime.TracerProvider(), MeterProvider: telemetryRuntime.MeterProvider(),
 	})
 	if err != nil {
 		return safeStartupError(redactor, "configure artifact store", err)
@@ -99,7 +123,11 @@ func runGatewayServer(ctx context.Context, stdout io.Writer, getenv func(string)
 	if err != nil {
 		return safeStartupError(redactor, "configure model discovery", err)
 	}
-	profileProber, err := gateway.NewSharedRootProfileProber(hardenllm.Options{EndpointPolicy: rootPolicy, Logger: logger})
+	rootOptions := hardenllm.Options{
+		EndpointPolicy: rootPolicy, Logger: logger,
+		TracerProvider: telemetryRuntime.TracerProvider(), MeterProvider: telemetryRuntime.MeterProvider(),
+	}
+	profileProber, err := gateway.NewSharedRootProfileProber(rootOptions)
 	if err != nil {
 		return safeStartupError(redactor, "configure profile probe", err)
 	}
@@ -113,6 +141,7 @@ func runGatewayServer(ctx context.Context, stdout io.Writer, getenv func(string)
 	resourceService, err := gateway.NewResourceService(gateway.ResourceServiceConfig{
 		Store: store, Profiles: profileService, ModelRefresher: providerModelRefresher{discovery: modelDiscovery},
 		ArtifactTTL: config.artifactPresignTTL,
+		Telemetry:   gatewayTelemetry,
 		ArtifactScope: func(ownerID string) (gateway.ArtifactPresigner, error) {
 			return garageStore.Scoped(artifactPrefix(ownerID))
 		},
@@ -120,7 +149,7 @@ func runGatewayServer(ctx context.Context, stdout io.Writer, getenv func(string)
 	if err != nil {
 		return safeStartupError(redactor, "configure resource service", err)
 	}
-	callerFactory, err := gateway.NewSharedRuntimeCallerFactory(hardenllm.Options{EndpointPolicy: rootPolicy, Logger: logger})
+	callerFactory, err := gateway.NewSharedRuntimeCallerFactory(rootOptions)
 	if err != nil {
 		return safeStartupError(redactor, "configure runtime", err)
 	}
@@ -129,6 +158,7 @@ func runGatewayServer(ctx context.Context, stdout io.Writer, getenv func(string)
 		ArtifactScope: func(ownerID string) (hardenllm.ArtifactStore, error) {
 			return garageStore.Scoped(artifactPrefix(ownerID))
 		},
+		Telemetry: gatewayTelemetry, Logger: logger,
 	})
 	if err != nil {
 		return safeStartupError(redactor, "configure run service", err)
@@ -141,6 +171,7 @@ func runGatewayServer(ctx context.Context, stdout io.Writer, getenv func(string)
 	accepting.Store(true)
 	api, err := httpapi.New(httpapi.Config{
 		Auth: identity, Resources: resourceService, Runs: runService, MaxRunDuration: config.maxRunDuration,
+		Telemetry: gatewayTelemetry, Logger: logger,
 		Readiness: []httpapi.ReadinessCheck{
 			func(context.Context) error {
 				if !accepting.Load() {

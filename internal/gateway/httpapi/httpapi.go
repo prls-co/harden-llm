@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"mime"
 	"net/http"
 	"net/url"
@@ -40,6 +41,8 @@ type Config struct {
 	Runs             *gateway.RunService
 	MaxRunDuration   time.Duration
 	OperationTimeout time.Duration
+	Telemetry        *gateway.Telemetry
+	Logger           *slog.Logger
 }
 
 type API struct {
@@ -49,6 +52,8 @@ type API struct {
 	runs             *gateway.RunService
 	maxRunDuration   time.Duration
 	operationTimeout time.Duration
+	telemetry        *gateway.Telemetry
+	logger           *slog.Logger
 	handler          http.Handler
 }
 
@@ -87,10 +92,21 @@ func New(config Config) (*API, error) {
 	if config.OperationTimeout < time.Millisecond || config.OperationTimeout > maximumOperationTimeout {
 		return nil, errors.New("httpapi: operation timeout is outside the supported range")
 	}
+	if config.Telemetry == nil {
+		var err error
+		config.Telemetry, err = gateway.NewTelemetry(nil, nil)
+		if err != nil {
+			return nil, errors.New("httpapi: initialize telemetry")
+		}
+	}
+	if config.Logger == nil {
+		config.Logger = slog.New(slog.DiscardHandler)
+	}
 	api := &API{
 		auth: config.Auth, readiness: append([]ReadinessCheck(nil), config.Readiness...),
 		resources: config.Resources, runs: config.Runs, maxRunDuration: config.MaxRunDuration,
 		operationTimeout: config.OperationTimeout,
+		telemetry:        config.Telemetry, logger: config.Logger,
 	}
 	api.handler = api.router()
 	return api, nil
@@ -107,7 +123,7 @@ func (api *API) Handler() http.Handler {
 
 func (api *API) router() http.Handler {
 	router := chi.NewRouter()
-	router.Use(api.recoverPanic, api.responsePolicy)
+	router.Use(api.observeHTTP, api.recoverPanic, api.responsePolicy)
 	router.NotFound(func(writer http.ResponseWriter, request *http.Request) {
 		writeError(writer, http.StatusNotFound, "not_found", "The requested resource was not found.")
 	})
@@ -127,6 +143,45 @@ func (api *API) router() http.Handler {
 	}
 	return router
 }
+
+func (api *API) observeHTTP(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		ctx, endRequest := api.telemetry.StartHTTP(request.Context(), request.Method)
+		statusWriter := &responseStatusWriter{ResponseWriter: writer, status: http.StatusOK}
+		next.ServeHTTP(statusWriter, request.WithContext(ctx))
+		route := chi.RouteContext(request.Context()).RoutePattern()
+		outcome, category := gateway.HTTPOutcome(statusWriter.status)
+		api.logger.InfoContext(ctx, "http request completed",
+			"method", request.Method, "route", route, "status", statusWriter.status,
+			"outcome", outcome, "category", category,
+		)
+		endRequest(route, statusWriter.status)
+	})
+}
+
+type responseStatusWriter struct {
+	http.ResponseWriter
+	status      int
+	wroteHeader bool
+}
+
+func (writer *responseStatusWriter) WriteHeader(status int) {
+	if writer.wroteHeader {
+		return
+	}
+	writer.status = status
+	writer.wroteHeader = true
+	writer.ResponseWriter.WriteHeader(status)
+}
+
+func (writer *responseStatusWriter) Write(content []byte) (int, error) {
+	if !writer.wroteHeader {
+		writer.WriteHeader(http.StatusOK)
+	}
+	return writer.ResponseWriter.Write(content)
+}
+
+func (writer *responseStatusWriter) Unwrap() http.ResponseWriter { return writer.ResponseWriter }
 
 func (api *API) operationHandler(operationID string) http.HandlerFunc {
 	switch operationID {
@@ -234,7 +289,9 @@ func (api *API) validateRequestShape(route Route, next http.Handler) http.Handle
 
 func (api *API) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		principal, err := api.auth.AuthenticateHeader(request.Context(), request.Header.Values("Authorization"))
+		authContext, endAuth := api.telemetry.StartOperation(request.Context(), gateway.OperationAuthAuthenticate)
+		principal, err := api.auth.AuthenticateHeader(authContext, request.Header.Values("Authorization"))
+		endAuth(err)
 		if err != nil {
 			if errors.Is(err, auth.ErrUnauthenticated) {
 				writeError(writer, http.StatusUnauthorized, "unauthenticated", "Authentication is required.")
@@ -285,7 +342,9 @@ func (api *API) login(writer http.ResponseWriter, request *http.Request) {
 		writeError(writer, http.StatusBadRequest, "invalid_request", "Email and password are required.")
 		return
 	}
-	result, err := api.auth.Login(request.Context(), input.Email, input.Password)
+	authContext, endAuth := api.telemetry.StartOperation(request.Context(), gateway.OperationAuthLogin)
+	result, err := api.auth.Login(authContext, input.Email, input.Password)
+	endAuth(err)
 	if err != nil {
 		if errors.Is(err, auth.ErrUnauthenticated) {
 			writeError(writer, http.StatusUnauthorized, "unauthenticated", "Authentication failed.")
@@ -299,7 +358,15 @@ func (api *API) login(writer http.ResponseWriter, request *http.Request) {
 
 func (api *API) logout(writer http.ResponseWriter, request *http.Request) {
 	principal, ok := principalFrom(request.Context())
-	if !ok || api.auth.LogoutPrincipal(request.Context(), principal) != nil {
+	authContext, endAuth := api.telemetry.StartOperation(request.Context(), gateway.OperationAuthLogout)
+	var logoutErr error
+	if ok {
+		logoutErr = api.auth.LogoutPrincipal(authContext, principal)
+	} else {
+		logoutErr = auth.ErrUnauthenticated
+	}
+	endAuth(logoutErr)
+	if logoutErr != nil {
 		writeError(writer, http.StatusUnauthorized, "unauthenticated", "Authentication is required.")
 		return
 	}

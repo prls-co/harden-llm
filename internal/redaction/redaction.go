@@ -93,6 +93,18 @@ func (redactor *Redactor) Value(value any) any {
 	}
 }
 
+// Attribute applies the same key-aware redaction used for JSON objects to one
+// structured log or telemetry attribute.
+func (redactor *Redactor) Attribute(key string, value any) any {
+	if redactor == nil {
+		redactor = New()
+	}
+	if isSecretKey(key, value) {
+		return Replacement
+	}
+	return redactor.Value(value)
+}
+
 func Text(value string) string {
 	return New().Text(value)
 }
@@ -135,7 +147,13 @@ func redactParsedURL(parsed *url.URL) string {
 
 func isSecretKey(key string, value any) bool {
 	if !secretKeyPattern.MatchString(strings.TrimSpace(key)) {
-		return false
+		compact := strings.NewReplacer("-", "", "_", "", ".", "").Replace(strings.ToLower(strings.TrimSpace(key)))
+		sensitiveContent := compact == "response" || compact == "completion" || compact == "rawresponse" ||
+			strings.HasSuffix(compact, "prompt") || strings.HasSuffix(compact, "responsebody") ||
+			strings.HasSuffix(compact, "providerenvelope") || strings.HasSuffix(compact, "url")
+		if !sensitiveContent {
+			return false
+		}
 	}
 	// Canonical usage counters are operational measurements, not credentials.
 	lower := strings.ToLower(strings.TrimSpace(key))

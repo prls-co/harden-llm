@@ -112,4 +112,55 @@ func TestRetryContract(t *testing.T) {
 			t.Fatalf("err/calls = %v/%d", err, calls)
 		}
 	})
+
+	t.Run("instrumentation hooks preserve execution exactly once", func(t *testing.T) {
+		type contextKey string
+		const key contextKey = "hook"
+		attemptHookCalls := 0
+		waitHookCalls := 0
+		workCalls := 0
+		waitCalls := 0
+		attempts, err := Do(context.Background(), Config{
+			MaxAttempts: 2,
+			BaseDelay:   time.Millisecond,
+			MaxDelay:    time.Millisecond,
+			Policy:      DefaultPolicy(),
+			Random:      func() float64 { return 0.5 },
+			Wait: func(ctx context.Context, duration time.Duration) error {
+				waitCalls++
+				if ctx.Value(key) != "wait" || duration != time.Millisecond {
+					t.Fatalf("wait context/duration = %v/%v", ctx.Value(key), duration)
+				}
+				return nil
+			},
+			Hooks: Hooks{
+				Attempt: func(ctx context.Context, number int, work func(context.Context) error) error {
+					attemptHookCalls++
+					return work(context.WithValue(ctx, key, number))
+				},
+				Wait: func(ctx context.Context, classification Classification, delay time.Duration, wait func(context.Context, time.Duration) error) error {
+					waitHookCalls++
+					if classification.Category != CategoryServer || delay != time.Millisecond {
+						t.Fatalf("classification/delay = %#v/%v", classification, delay)
+					}
+					return wait(context.WithValue(ctx, key, "wait"), delay)
+				},
+			},
+		}, func(ctx context.Context, number int) error {
+			workCalls++
+			if ctx.Value(key) != number {
+				t.Fatalf("work context = %v, want %d", ctx.Value(key), number)
+			}
+			if number == 1 {
+				return &ProviderError{Status: 503}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(attempts) != 2 || workCalls != 2 || attemptHookCalls != 2 || waitCalls != 1 || waitHookCalls != 1 {
+			t.Fatalf("attempts/work/attempt hooks/waits/wait hooks = %d/%d/%d/%d/%d", len(attempts), workCalls, attemptHookCalls, waitCalls, waitHookCalls)
+		}
+	})
 }

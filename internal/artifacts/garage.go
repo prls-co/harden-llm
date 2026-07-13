@@ -25,6 +25,8 @@ import (
 	"github.com/aws/smithy-go"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	hardenllm "github.com/prls-co/harden-llm"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -86,6 +88,8 @@ type Config struct {
 	OperationTimeout time.Duration
 	MaxPresignTTL    time.Duration
 	HTTPClient       aws.HTTPClient
+	TracerProvider   trace.TracerProvider
+	MeterProvider    metric.MeterProvider
 }
 
 // GarageStore is the sole S3-compatible artifact adapter.
@@ -95,6 +99,7 @@ type GarageStore struct {
 	maxPresignTTL    time.Duration
 	client           *s3.Client
 	presigner        *s3.PresignClient
+	telemetry        *storeTelemetry
 	keyLocks         [64]sync.Mutex
 }
 
@@ -138,6 +143,10 @@ func NewGarage(config Config) (*GarageStore, error) {
 	if maxPresignTTL < time.Second || maxPresignTTL > maximumPresignTTL {
 		return nil, &Error{Operation: "configure", Kind: KindInvalid, err: errors.New("invalid presign TTL")}
 	}
+	telemetry, err := newStoreTelemetry(config.TracerProvider, config.MeterProvider)
+	if err != nil {
+		return nil, &Error{Operation: "configure", Kind: KindInvalid, err: err}
+	}
 	httpClient := config.HTTPClient
 	if httpClient == nil {
 		httpClient = safeHTTPClient(operationTimeout)
@@ -155,7 +164,7 @@ func NewGarage(config Config) (*GarageStore, error) {
 	externalClient := newClient(baseConfig, externalEndpoint.String())
 	return &GarageStore{
 		bucket: config.Bucket, operationTimeout: operationTimeout, maxPresignTTL: maxPresignTTL,
-		client: client, presigner: s3.NewPresignClient(externalClient),
+		client: client, presigner: s3.NewPresignClient(externalClient), telemetry: telemetry,
 	}, nil
 }
 
@@ -192,7 +201,7 @@ func (store *GarageStore) Put(ctx context.Context, key string, content []byte, c
 	return store.put(ctx, key, content, contentType, "")
 }
 
-func (store *GarageStore) put(ctx context.Context, key string, content []byte, contentType, prefix string) (hardenllm.ArtifactRef, error) {
+func (store *GarageStore) put(ctx context.Context, key string, content []byte, contentType, prefix string) (reference hardenllm.ArtifactRef, err error) {
 	if store == nil || store.client == nil {
 		return hardenllm.ArtifactRef{}, &Error{Operation: "put", Kind: KindInvalid, err: errors.New("store is not initialized")}
 	}
@@ -202,6 +211,8 @@ func (store *GarageStore) put(ctx context.Context, key string, content []byte, c
 	if contentType != "application/json" || len(content) == 0 || len(content) > maximumArtifactBytes || !json.Valid(content) {
 		return hardenllm.ArtifactRef{}, &Error{Operation: "put", Kind: KindInvalid, err: errors.New("artifact must be bounded valid JSON")}
 	}
+	ctx, endOperation := store.telemetry.Start(ctx, "put")
+	defer func() { endOperation(err) }()
 	digest := sha256.Sum256(content)
 	digestText := hex.EncodeToString(digest[:])
 	keyDigest := sha256.Sum256([]byte(key))
@@ -217,7 +228,7 @@ func (store *GarageStore) put(ctx context.Context, key string, content []byte, c
 	if classified := classify("put", requestContext, headErr); !IsKind(classified, KindNotFound) {
 		return hardenllm.ArtifactRef{}, classified
 	}
-	_, err := store.client.PutObject(requestContext, &s3.PutObjectInput{
+	_, err = store.client.PutObject(requestContext, &s3.PutObjectInput{
 		Bucket: aws.String(store.bucket), Key: aws.String(key), Body: bytes.NewReader(content),
 		ContentLength: aws.Int64(int64(len(content))), ContentType: aws.String(contentType),
 		IfNoneMatch: aws.String("*"), Metadata: map[string]string{"sha256": digestText},
@@ -241,13 +252,15 @@ func (store *GarageStore) Get(ctx context.Context, key string) ([]byte, hardenll
 	return store.get(ctx, key, "")
 }
 
-func (store *GarageStore) get(ctx context.Context, key, prefix string) ([]byte, hardenllm.ArtifactRef, error) {
+func (store *GarageStore) get(ctx context.Context, key, prefix string) (content []byte, reference hardenllm.ArtifactRef, err error) {
 	if store == nil || store.client == nil {
 		return nil, hardenllm.ArtifactRef{}, &Error{Operation: "get", Kind: KindInvalid, err: errors.New("store is not initialized")}
 	}
 	if err := validateKey(key, prefix); err != nil {
 		return nil, hardenllm.ArtifactRef{}, &Error{Operation: "get", Kind: KindInvalid, err: err}
 	}
+	ctx, endOperation := store.telemetry.Start(ctx, "get")
+	defer func() { endOperation(err) }()
 	requestContext, cancel := store.operationContext(ctx)
 	defer cancel()
 	output, err := store.client.GetObject(requestContext, &s3.GetObjectInput{Bucket: aws.String(store.bucket), Key: aws.String(key)})
@@ -255,7 +268,7 @@ func (store *GarageStore) get(ctx context.Context, key, prefix string) ([]byte, 
 		return nil, hardenllm.ArtifactRef{}, classify("get", requestContext, err)
 	}
 	defer output.Body.Close()
-	content, err := io.ReadAll(io.LimitReader(output.Body, maximumArtifactBytes+1))
+	content, err = io.ReadAll(io.LimitReader(output.Body, maximumArtifactBytes+1))
 	if err != nil {
 		return nil, hardenllm.ArtifactRef{}, classify("get", requestContext, err)
 	}
@@ -291,7 +304,7 @@ func (store *GarageStore) PresignGet(ctx context.Context, key string, ttl time.D
 	return store.presignGet(ctx, key, ttl, "")
 }
 
-func (store *GarageStore) presignGet(ctx context.Context, key string, ttl time.Duration, prefix string) (string, error) {
+func (store *GarageStore) presignGet(ctx context.Context, key string, ttl time.Duration, prefix string) (location string, err error) {
 	if store == nil || store.presigner == nil {
 		return "", &Error{Operation: "presign", Kind: KindInvalid, err: errors.New("store is not initialized")}
 	}
@@ -301,6 +314,8 @@ func (store *GarageStore) presignGet(ctx context.Context, key string, ttl time.D
 	if ttl < time.Second || ttl > store.maxPresignTTL || ttl > maximumPresignTTL {
 		return "", &Error{Operation: "presign", Kind: KindInvalid, err: errors.New("presign TTL is outside the supported range")}
 	}
+	ctx, endOperation := store.telemetry.Start(ctx, "presign")
+	defer func() { endOperation(err) }()
 	requestContext, cancel := store.operationContext(ctx)
 	defer cancel()
 	request, err := store.presigner.PresignGetObject(requestContext, &s3.GetObjectInput{
@@ -313,13 +328,15 @@ func (store *GarageStore) presignGet(ctx context.Context, key string, ttl time.D
 }
 
 // Ready verifies access to the configured private bucket.
-func (store *GarageStore) Ready(ctx context.Context) error {
+func (store *GarageStore) Ready(ctx context.Context) (err error) {
 	if store == nil || store.client == nil {
 		return &Error{Operation: "ready", Kind: KindInvalid, err: errors.New("store is not initialized")}
 	}
+	ctx, endOperation := store.telemetry.Start(ctx, "ready")
+	defer func() { endOperation(err) }()
 	requestContext, cancel := store.operationContext(ctx)
 	defer cancel()
-	_, err := store.client.HeadBucket(requestContext, &s3.HeadBucketInput{Bucket: aws.String(store.bucket)})
+	_, err = store.client.HeadBucket(requestContext, &s3.HeadBucketInput{Bucket: aws.String(store.bucket)})
 	if err != nil {
 		return classify("ready", requestContext, err)
 	}

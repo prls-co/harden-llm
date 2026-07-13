@@ -96,6 +96,7 @@ type ResourceServiceConfig struct {
 	ArtifactTTL    time.Duration
 	Clock          func() time.Time
 	NewID          func() (string, error)
+	Telemetry      *Telemetry
 }
 
 type ResourceService struct {
@@ -106,6 +107,7 @@ type ResourceService struct {
 	artifactTTL    time.Duration
 	clock          func() time.Time
 	newID          func() (string, error)
+	telemetry      *Telemetry
 }
 
 func NewResourceService(config ResourceServiceConfig) (*ResourceService, error) {
@@ -124,10 +126,13 @@ func NewResourceService(config ResourceServiceConfig) (*ResourceService, error) 
 	if config.ArtifactTTL < time.Second || config.ArtifactTTL > maximumArtifactTTL {
 		return nil, errors.New("gateway: artifact URL TTL is outside the supported range")
 	}
+	if config.Telemetry == nil {
+		config.Telemetry = newNoopTelemetry()
+	}
 	return &ResourceService{
 		store: config.Store, profiles: config.Profiles, modelRefresher: config.ModelRefresher,
 		artifactScope: config.ArtifactScope, artifactTTL: config.ArtifactTTL,
-		clock: config.Clock, newID: config.NewID,
+		clock: config.Clock, newID: config.NewID, telemetry: config.Telemetry,
 	}, nil
 }
 
@@ -165,7 +170,10 @@ func (service *ResourceService) Profiles(ctx context.Context, ownerID string) ([
 }
 
 func (service *ResourceService) SaveProfile(ctx context.Context, request SaveProfileRequest) (ProfileState, error) {
-	return service.profiles.Save(ctx, request)
+	operationContext, endOperation := service.telemetry.StartOperation(ctx, OperationProfileSave)
+	state, err := service.profiles.Save(operationContext, request)
+	endOperation(err)
+	return state, err
 }
 
 func (service *ResourceService) DeleteProfile(ctx context.Context, ownerID, profileID string) error {
@@ -176,7 +184,10 @@ func (service *ResourceService) RefreshModels(ctx context.Context, ownerID, prof
 	if service.modelRefresher == nil {
 		return ProfileState{}, errors.New("gateway: model refresh is not configured")
 	}
-	return service.profiles.RefreshModels(ctx, ownerID, profileID, service.modelRefresher)
+	operationContext, endOperation := service.telemetry.StartOperation(ctx, OperationModelRefresh)
+	state, err := service.profiles.RefreshModels(operationContext, ownerID, profileID, service.modelRefresher)
+	endOperation(err)
+	return state, err
 }
 
 func (service *ResourceService) ExportBundle(ctx context.Context, ownerID string) (ProfileBundle, error) {

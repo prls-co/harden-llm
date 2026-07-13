@@ -1,0 +1,181 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  basicauth/langfuse:
+    client_auth:
+      username: ${env:LANGFUSE_PUBLIC_KEY}
+      password: ${env:LANGFUSE_SECRET_KEY}
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 2s
+    limit_mib: 1024
+    spike_limit_mib: 256
+  attributes/redact:
+    actions:
+      - key: http.request.header.authorization
+        action: delete
+      - key: http.request.header.proxy_authorization
+        action: delete
+      - key: http.request.header.cookie
+        action: delete
+      - key: gen_ai.prompt
+        action: delete
+      - key: gen_ai.completion
+        action: delete
+      - key: gen_ai.request.messages
+        action: delete
+      - key: gen_ai.response.text
+        action: delete
+      - key: db.statement
+        action: delete
+      - key: url.full
+        action: delete
+      - key: server.address
+        action: delete
+  tail_sampling/langfuse:
+    decision_wait: 75s
+    num_traces: 20000
+    expected_new_traces_per_sec: 200
+    policies:
+      - name: harden-llm-gateway-complete-traces
+        type: string_attribute
+        string_attribute:
+          key: service.name
+          values:
+            - harden-llm-gateway
+          enabled_regex_matching: false
+  batch/tempo:
+    timeout: 2s
+    send_batch_size: 512
+    send_batch_max_size: 1024
+  batch/langfuse:
+    timeout: 2s
+    send_batch_size: 512
+    send_batch_max_size: 1024
+  batch/metrics:
+    timeout: 2s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+  batch/logs:
+    timeout: 2s
+    send_batch_size: 512
+    send_batch_max_size: 1024
+
+exporters:
+  otlp/tempo:
+    endpoint: tempo:4317
+    compression: gzip
+    timeout: 5s
+    tls:
+      insecure: true
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+      queue_size: 4096
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 5s
+      max_elapsed_time: 30s
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+    compression: gzip
+    timeout: 5s
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+      queue_size: 4096
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 5s
+      max_elapsed_time: 30s
+  otlphttp/langfuse:
+    endpoint: http://langfuse-web:3000/api/public/otel
+    auth:
+      authenticator: basicauth/langfuse
+    headers:
+      x-langfuse-ingestion-version: "4"
+    compression: gzip
+    timeout: 5s
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+      queue_size: 4096
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 5s
+      max_elapsed_time: 30s
+  prometheus:
+    endpoint: 0.0.0.0:9464
+    enable_open_metrics: true
+    without_scope_info: true
+    translation_strategy: UnderscoreEscapingWithoutSuffixes
+    metric_expiration: 5m
+
+service:
+  extensions:
+    - health_check
+    - basicauth/langfuse
+  telemetry:
+    logs:
+      level: info
+      encoding: json
+    metrics:
+      level: normal
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+                without_type_suffix: true
+                without_units: true
+  pipelines:
+    traces/tempo:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - attributes/redact
+        - batch/tempo
+      exporters:
+        - otlp/tempo
+    traces/langfuse:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - attributes/redact
+        - tail_sampling/langfuse
+        - batch/langfuse
+      exporters:
+        - otlphttp/langfuse
+    metrics:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - attributes/redact
+        - batch/metrics
+      exporters:
+        - prometheus
+    logs:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - attributes/redact
+        - batch/logs
+      exporters:
+        - otlphttp/loki

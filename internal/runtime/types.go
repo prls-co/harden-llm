@@ -49,6 +49,7 @@ type Call struct {
 	StructuredRepair   StructuredRepair
 	ValidateStructured func(any) error
 	Repair             *RepairRequest
+	Telemetry          *Telemetry
 }
 
 type StructuredRepair struct {
