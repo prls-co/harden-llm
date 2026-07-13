@@ -28,6 +28,10 @@ Accept only these explicit projections:
   schema version, algorithm, key ID, owner, credential, and normalized origin
   as AAD while preserving AES-256-GCM round-trip and tamper behavior;
 - replace Firebase/GCS attachment locations with owner-scoped Garage references;
+  generated unique artifact IDs and Postgres object-key uniqueness are the
+  cross-replica immutability boundary, while the Garage adapter additionally
+  preflights writes and serializes same-key writes within one process because
+  Garage v2.3 does not enforce S3 `If-None-Match` on `PutObject`;
 - omit unredacted raw provider payloads from persisted trace and diagnostic
   projections.
 
@@ -41,4 +45,6 @@ profiles using HTTP, URL credentials, or query/fragment configuration must be
 normalized before import. Migration must decrypt through an authorized source
 process and re-encrypt/write through the target adapters. TEST-006, TEST-014,
 TEST-018, TEST-019, and TEST-040 verify the allowed differences and their
-security properties.
+security properties. The in-process Garage key lock is not a distributed lock;
+callers must continue to generate single-use artifact IDs and commit the unique
+object key only after upload.
