@@ -8,7 +8,8 @@
     "P02",
     "P03",
     "P04",
-    "P05"
+    "P05",
+    "P06"
   ],
   "phases": {
     "P00": {
@@ -49,7 +50,13 @@
       "tests": ["TEST-002", "TEST-003", "TEST-005", "TEST-028", "TEST-029", "TEST-030", "TEST-031", "TEST-032"],
       "evaluations": ["EVAL-003"]
     },
-    "P06": { "status": "pending" },
+    "P06": {
+      "status": "complete",
+      "completedAt": "2026-07-13T15:41:09Z",
+      "requirements": ["REQ-009", "REQ-015", "REQ-016", "REQ-017", "REQ-019", "REQ-020"],
+      "tests": ["TEST-003", "TEST-005", "TEST-030", "TEST-033", "TEST-034"],
+      "evaluations": ["EVAL-004"]
+    },
     "P07": { "status": "pending" }
   },
   "source": {

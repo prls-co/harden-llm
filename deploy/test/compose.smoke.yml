@@ -1,0 +1,36 @@
+services:
+  harden-llm-gateway:
+    environment:
+      HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST: fake-provider
+      SSL_CERT_FILE: /run/smoke/provider-ca.crt
+    volumes:
+      - ${SMOKE_CA_CERT:?set the generated smoke CA path}:/run/smoke/provider-ca.crt:ro
+    depends_on:
+      fake-provider:
+        condition: service_healthy
+
+  fake-provider:
+    image: harden-llm-fake-provider:0.1.0
+    build:
+      context: .
+      dockerfile: deploy/test/fake-provider.Dockerfile
+    command: ["serve", "--cert", "/run/smoke/provider.crt", "--key", "/run/smoke/provider.key"]
+    restart: unless-stopped
+    networks:
+      - harden-private
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${SMOKE_PROVIDER_CERT:?set the generated provider certificate path}:/run/smoke/provider.crt:ro
+      - ${SMOKE_PROVIDER_KEY:?set the generated provider key path}:/run/smoke/provider.key:ro
+    healthcheck:
+      test: ["CMD", "/fake-provider", "healthcheck"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 2s
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "2"

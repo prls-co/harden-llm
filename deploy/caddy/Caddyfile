@@ -1,0 +1,60 @@
+{
+	admin off
+	servers {
+		trusted_proxies static private_ranges
+		client_ip_headers X-Forwarded-For X-Real-IP
+		strict_sni_host insecure_off
+	}
+}
+
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+}
+
+{$HARDEN_LLM_API_HOST} {
+	tls {$HARDEN_LLM_TLS_MODE}
+	import security_headers
+	header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+	header X-Frame-Options "DENY"
+	request_body {
+		max_size 8MB
+	}
+	reverse_proxy harden-llm-gateway:8080
+}
+
+{$HARDEN_LLM_GRAFANA_HOST} {
+	tls {$HARDEN_LLM_TLS_MODE}
+	import security_headers
+	request_body {
+		max_size 8MB
+	}
+	reverse_proxy grafana:3000
+}
+
+{$HARDEN_LLM_LANGFUSE_HOST} {
+	tls {$HARDEN_LLM_TLS_MODE}
+	import security_headers
+	request_body {
+		max_size 16MB
+	}
+	reverse_proxy langfuse-web:3000
+}
+
+{$HARDEN_LLM_ARTIFACT_HOST} {
+	tls {$HARDEN_LLM_TLS_MODE}
+	import security_headers
+	header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; sandbox"
+	header X-Frame-Options "DENY"
+	request_body {
+		max_size 64MB
+	}
+	reverse_proxy garage:3900
+}
+
+import /etc/caddy/conf.d/*.caddy

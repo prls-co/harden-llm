@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "resolvedAt": "2026-07-13T14:30:00Z",
+  "images": {
+    "caddy": "caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+    "harden-llm-gateway": "harden-llm-gateway:0.1.0",
+    "harden-postgres": "postgres:17.9-alpine@sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609",
+    "garage": "dxflrs/garage:v2.3.0@sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690",
+    "otel-collector": "otel/opentelemetry-collector-contrib:0.156.0@sha256:125bdbeb7590cc1952c5b3430ecf14063568980c2c93d5b38676cc0446ed8108",
+    "prometheus": "prom/prometheus:v3.12.0@sha256:69f5241418838263316593f7274a304b095c40bcf22e57272865da91bd60a8ac",
+    "loki": "grafana/loki:3.7.2@sha256:191d4fdfb7264f16989f0a57f320872620a5a7c2ceeec6229212c4190ec49b86",
+    "tempo": "grafana/tempo:2.10.5@sha256:ee21727732c7a7199cb71c3eee9153bbf23f9b0b87619f0555a0cf21a67f1a33",
+    "grafana": "grafana/grafana:13.0.2@sha256:5dad0df181cb644a14e13617b913b261a54f7d4fd4510721dba420929f35bea2",
+    "langfuse-web": "docker.io/langfuse/langfuse:3@sha256:35461119756177199bf4412ceed03e0f637ca5c4a6b8b85d9e31c35e515e670d",
+    "langfuse-worker": "docker.io/langfuse/langfuse-worker:3@sha256:080377807b6d1fca2117662840161e60a0ab6842b2578ef39ea17df80ba42bfd",
+    "postgres": "docker.io/postgres:17@sha256:0af65001d05296a2ead57ac4a6412433d8913d1bb5d0c88435a7d1e1ee5cb04b",
+    "clickhouse": "docker.io/clickhouse/clickhouse-server@sha256:1d1f6508eba2dccce2cee9913907c5f7766327debc57a6b1991f2c9e3176c163",
+    "redis": "docker.io/redis:7@sha256:b2b95679e3b46fb51864949ed25ea976fc3a6bcc00a40a1bc00d568cb2822e50",
+    "minio": "cgr.dev/chainguard/minio@sha256:8230f06574280781ea6ad45e27962db60175b18e4a43dd54c19012feb5438174"
+  }
+}
