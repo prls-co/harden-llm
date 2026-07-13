@@ -87,6 +87,30 @@ func TestStructuredRepair(t *testing.T) {
 			t.Fatalf("repair usage was not accumulated: %#v", record.Usage)
 		}
 	})
+
+	t.Run("terminal parse failure preserves billable accounting", func(t *testing.T) {
+		executor := partialFailureExecutor{}
+		record, err := Execute(
+			context.Background(), executor,
+			func(context.Context, Profile) (Credential, error) { return Credential{}, nil },
+			"primary", map[string]Profile{"primary": {ID: "primary"}},
+			Call{CallType: "structured", Schema: json.RawMessage(`{"type":"object"}`)},
+			retry.Config{MaxAttempts: 1, Policy: retry.Policy{ParseError: true}},
+			nil, cachekey.ModeOff, "operation-v2", "call", "trace",
+		)
+		if err == nil {
+			t.Fatal("terminal provider parse failure was accepted")
+		}
+		if record.Usage != (Usage{InputTokens: 7, OutputTokens: 3, TotalTokens: 10}) {
+			t.Fatalf("partial usage was lost: %#v", record.Usage)
+		}
+		if record.Cost != (Cost{TotalUSD: 0.25, Known: true, Source: "reported"}) {
+			t.Fatalf("partial cost was lost: %#v", record.Cost)
+		}
+		if !strings.Contains(string(record.ParseFailureResponse), `"rawResponse":"not-json"`) {
+			t.Fatalf("parse failure evidence was lost: %s", record.ParseFailureResponse)
+		}
+	})
 }
 
 type repairSequenceExecutor struct {
@@ -122,6 +146,27 @@ func (executor *repairSequenceExecutor) Execute(_ context.Context, operation Pre
 		Output: map[string]any{"answer": float64(42)},
 		Usage:  Usage{InputTokens: 8, OutputTokens: 2, TotalTokens: 10},
 	}, nil
+}
+
+type partialFailureExecutor struct{}
+
+func (partialFailureExecutor) Prepare(context.Context, Profile, Credential, Call) (PreparedOperation, error) {
+	return PreparedOperation{Operation: cachekey.Operation{
+		SchemaVersion:      cachekey.OperationSchemaVersion,
+		Protocol:           "fixture",
+		Endpoint:           cachekey.Endpoint{Identity: "https://example.com:443", Method: "POST", Path: "/run"},
+		Model:              "fixture",
+		Payload:            map[string]any{},
+		SemanticHeaders:    map[string]any{},
+		ResponseProjection: cachekey.ResponseProjection{Provider: "fixture", Kind: "fixture", Version: "v1"},
+	}}, nil
+}
+
+func (partialFailureExecutor) Execute(context.Context, PreparedOperation) (ProviderResult, error) {
+	return ProviderResult{
+		Usage: Usage{InputTokens: 7, OutputTokens: 3, TotalTokens: 10},
+		Cost:  Cost{TotalUSD: 0.25, Known: true, Source: "reported"},
+	}, &retry.ProviderError{Err: errors.New("invalid structured output"), Parse: true, RawResponse: "not-json"}
 }
 
 func TestBackupProfiles(t *testing.T) {

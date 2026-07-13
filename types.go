@@ -64,12 +64,9 @@ const (
 type ReasoningEffort string
 
 const (
-	ReasoningEffortNone    ReasoningEffort = "none"
-	ReasoningEffortMinimal ReasoningEffort = "minimal"
-	ReasoningEffortLow     ReasoningEffort = "low"
-	ReasoningEffortMedium  ReasoningEffort = "medium"
-	ReasoningEffortHigh    ReasoningEffort = "high"
-	ReasoningEffortXHigh   ReasoningEffort = "xhigh"
+	ReasoningEffortLowest  ReasoningEffort = "lowest"
+	ReasoningEffortMiddle  ReasoningEffort = "middle"
+	ReasoningEffortHighest ReasoningEffort = "highest"
 )
 
 // ObservabilityContext carries trace-only correlation dimensions. It is never
@@ -145,12 +142,15 @@ type Cost struct {
 
 // EndpointPolicy is the single outbound endpoint-security configuration.
 type EndpointPolicy struct {
-	AllowedHosts     []string
-	PrivateAllowlist []netip.Prefix
-	Resolver         EndpointResolver
-	DialContext      func(context.Context, string, string) (net.Conn, error)
-	TLSConfig        *tls.Config
-	ConnectTimeout   time.Duration
+	AllowedHosts          []string
+	PrivateAllowedHosts   []string
+	PrivateAllowlist      []netip.Prefix
+	Resolver              EndpointResolver
+	DialContext           func(context.Context, string, string) (net.Conn, error)
+	TLSConfig             *tls.Config
+	ConnectTimeout        time.Duration
+	TLSHandshakeTimeout   time.Duration
+	ResponseHeaderTimeout time.Duration
 }
 
 // EndpointResolver resolves both IPv4 and IPv6 addresses for policy checks.

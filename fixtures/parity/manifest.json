@@ -4,7 +4,7 @@
     "liveCredentialsUsed": false,
     "nodeVersion": "v22.22.1",
     "script": "scripts/capture-utility-llm-fixtures.mjs",
-    "scriptVersion": 1
+    "scriptVersion": 2
   },
   "fixtures": [
     {
@@ -24,6 +24,29 @@
       "sourcePaths": [
         "src/model-profiles.js",
         "tests/model-profiles.behavior.test.js"
+      ]
+    },
+    {
+      "class": "providers",
+      "path": "generated/provider-cases.json",
+      "schemaVersion": 1,
+      "sha256": "c0bbe31a5c666768c3bde98690844de05e34b492dc1916b02bb31f5d4850db9e",
+      "sourcePaths": [
+        "src/providers/openai.js",
+        "src/providers/generic.js",
+        "src/providers/google.js",
+        "src/providers/anthropic.js",
+        "tests/provider-operation-cache.behavior.test.js",
+        "tests/provider-runtime.behavior.test.js"
+      ]
+    },
+    {
+      "class": "providers",
+      "path": "generated/reasoning-effort-cases.json",
+      "schemaVersion": 1,
+      "sha256": "26bf3881801076ad2a2ff862d7c66c3fef0f458e1ff33ee3543ef3e995b9e015",
+      "sourcePaths": [
+        "src/reasoning-effort.js"
       ]
     },
     {
@@ -54,6 +77,16 @@
         "package.json",
         "src/model-profiles.js",
         "src/operation-cache/index.js"
+      ]
+    },
+    {
+      "class": "schema",
+      "path": "generated/structured-parser-cases.json",
+      "schemaVersion": 1,
+      "sha256": "c0374008f91fe657b90d1b143f5bcd91a9a8925aeddfc9a98462ba3e67880179",
+      "sourcePaths": [
+        "src/response-parser.js",
+        "node_modules/jsonrepair/package.json"
       ]
     },
     {
@@ -311,6 +344,47 @@
       "note": "The target exposes one typed Call path instead of the JavaScript export inventory.",
       "tests": [
         "TEST-002"
+      ]
+    },
+    {
+      "adr": "ADR-HLLM-001",
+      "fixtures": [
+        "generated/profile-catalog.json",
+        "generated/provider-cases.json"
+      ],
+      "id": "secure-provider-egress",
+      "mode": "intentional-difference",
+      "note": "Portable provider payloads remain exact while HTTPS, DNS pinning, redirect denial, header-only credentials, and exact private endpoint exceptions harden transport.",
+      "tests": [
+        "TEST-012",
+        "TEST-014",
+        "TEST-017"
+      ]
+    },
+    {
+      "adr": "ADR-HLLM-001",
+      "fixtures": [],
+      "id": "authenticated-credential-envelope",
+      "mode": "intentional-difference",
+      "note": "Go credential ciphertext authenticates its version, algorithm, key ID, owner, credential ID, and normalized origin and is not byte-compatible with the source envelope.",
+      "tests": [
+        "TEST-018"
+      ]
+    },
+    {
+      "adr": "ADR-HLLM-001",
+      "fixtures": [
+        "source/diagnostics/bundle-input.json",
+        "source/traces/raw-response-input.json",
+        "source/traces/trace-doc-input.json"
+      ],
+      "id": "garage-artifact-projection",
+      "mode": "intentional-difference",
+      "note": "Canonical redacted artifact content is preserved while Firebase locations become owner-scoped Garage identities.",
+      "tests": [
+        "TEST-016",
+        "TEST-019",
+        "TEST-040"
       ]
     }
   ],

@@ -4,7 +4,8 @@
   "testSpecification": "SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001",
   "completedPhases": [
     "P00",
-    "P01"
+    "P01",
+    "P02"
   ],
   "phases": {
     "P00": {
@@ -19,7 +20,13 @@
       "requirements": ["REQ-002", "REQ-003", "REQ-006", "REQ-007", "REQ-019"],
       "tests": ["TEST-006", "TEST-007", "TEST-008", "TEST-009", "TEST-010", "TEST-011"]
     },
-    "P02": { "status": "pending" },
+    "P02": {
+      "status": "complete",
+      "completedAt": "2026-07-13T10:30:13Z",
+      "requirements": ["REQ-004", "REQ-005", "REQ-007", "REQ-008", "REQ-015", "REQ-018", "REQ-019", "REQ-020"],
+      "tests": ["TEST-012", "TEST-013", "TEST-014", "TEST-015", "TEST-016", "TEST-017", "TEST-018", "TEST-019"],
+      "evaluations": ["EVAL-001", "EVAL-002"]
+    },
     "P03": { "status": "pending" },
     "P04": { "status": "pending" },
     "P05": { "status": "pending" },

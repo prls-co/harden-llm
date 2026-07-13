@@ -19,6 +19,18 @@ type Profile struct {
 	ReasoningEffortMap       map[string]map[string]any
 	Backups                  []string
 	SupportsStructuredOutput bool
+	SupportsTemperature      bool
+	TokensParam              string
+	ResponsesTokensParam     string
+	Pricing                  Pricing
+}
+
+type Pricing struct {
+	Input         *float64
+	CacheRead     *float64
+	CacheCreation *float64
+	Output        *float64
+	Reasoning     *float64
 }
 
 type Credential struct {
@@ -95,22 +107,23 @@ type Executor interface {
 type CredentialLookup func(context.Context, Profile) (Credential, error)
 
 type CallRecord struct {
-	CallID              string
-	TraceID             string
-	Output              any
-	Usage               Usage
-	Cost                Cost
-	Attempts            []retry.Attempt
-	RawProviderEnvelope json.RawMessage
-	PreparedOperation   PreparedOperation
-	Cache               CacheFacts
+	CallID               string
+	TraceID              string
+	Output               any
+	Usage                Usage
+	Cost                 Cost
+	Attempts             []retry.Attempt
+	RawProviderEnvelope  json.RawMessage
+	ParseFailureResponse json.RawMessage
+	PreparedOperation    PreparedOperation
+	Cache                CacheFacts
 }
 
 type CacheFacts struct {
-	Mode          cachekey.Mode
-	Status        string
-	OperationHash string
-	Version       string
-	Served        bool
-	Written       bool
+	Mode          cachekey.Mode `json:"mode"`
+	Status        string        `json:"status"`
+	OperationHash string        `json:"operationHash,omitempty"`
+	Version       string        `json:"version,omitempty"`
+	Served        bool          `json:"served"`
+	Written       bool          `json:"written"`
 }

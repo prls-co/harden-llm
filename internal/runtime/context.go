@@ -1,17 +1,17 @@
 package runtime
 
 type ObservabilityContext struct {
-	TaskID         string
-	TaskSlug       string
-	ItemID         string
-	RunID          string
-	OrganizationID string
-	QuerySetID     string
-	Environment    string
-	Release        string
-	PromptLabels   []string
-	Tags           map[string]string
-	Metadata       map[string]string
+	TaskID         string            `json:"taskId,omitempty"`
+	TaskSlug       string            `json:"taskSlug,omitempty"`
+	ItemID         string            `json:"itemId,omitempty"`
+	RunID          string            `json:"runId,omitempty"`
+	OrganizationID string            `json:"organizationId,omitempty"`
+	QuerySetID     string            `json:"querySetId,omitempty"`
+	Environment    string            `json:"environment,omitempty"`
+	Release        string            `json:"release,omitempty"`
+	PromptLabels   []string          `json:"promptLabels,omitempty"`
+	Tags           map[string]string `json:"tags,omitempty"`
+	Metadata       map[string]string `json:"metadata,omitempty"`
 }
 
 func MergeObservabilityContext(defaults, request ObservabilityContext) ObservabilityContext {

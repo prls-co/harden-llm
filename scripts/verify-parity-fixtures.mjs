@@ -58,8 +58,11 @@ if (!Array.isArray(manifest.fixtures) || manifest.fixtures.length === 0) {
   fail("manifest must contain at least one fixture");
 }
 for (const difference of manifest.intentionalDifferences ?? []) {
-  if (difference.mode !== "intentional-difference" || !/^ADR-HLLM-\d{3}$/.test(difference.adr ?? "") || !String(difference.note ?? "").trim()) {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(difference.id ?? "") || difference.mode !== "intentional-difference" || !/^ADR-HLLM-\d{3}$/.test(difference.adr ?? "") || !String(difference.note ?? "").trim()) {
     fail(`intentional difference ${String(difference.id)} must name its mode, ADR, and note`);
+  }
+  if (!Array.isArray(difference.fixtures) || !Array.isArray(difference.tests) || difference.tests.length === 0 || difference.tests.some((id) => !/^TEST-\d{3}$/.test(id))) {
+    fail(`intentional difference ${String(difference.id)} must list fixtures and canonical tests`);
   }
 }
 
@@ -95,6 +98,11 @@ for (const actualPath of await listFiles(fixtureRoot)) {
 }
 for (const manifestFixture of manifestPaths) {
   if (!(await listFiles(fixtureRoot)).includes(manifestFixture)) fail(`missing fixture ${manifestFixture}`);
+}
+for (const difference of manifest.intentionalDifferences ?? []) {
+  for (const fixture of difference.fixtures ?? []) {
+    if (!manifestPaths.has(fixture)) fail(`intentional difference ${difference.id} references unknown fixture ${fixture}`);
+  }
 }
 
 if (!process.exitCode) {

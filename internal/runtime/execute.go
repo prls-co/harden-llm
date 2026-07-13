@@ -46,6 +46,9 @@ func Execute(
 		Cache: CacheFacts{Mode: cacheMode, Status: "skipped", Version: cacheVersion},
 	}
 	var lastErr error
+	var aggregateUsage Usage
+	var aggregateCost Cost
+	costObserved := false
 	for backupIndex, profileID := range plan {
 		if err := ctx.Err(); err != nil {
 			return record, err
@@ -89,9 +92,6 @@ func Execute(
 			}
 		}
 		var providerResult ProviderResult
-		var aggregateUsage Usage
-		var aggregateCost Cost
-		costObserved := false
 		activePrepared := prepared
 		var lastFailure error
 		var lastClassification retry.Classification
@@ -114,13 +114,16 @@ func Execute(
 			}
 			repairAttempts[attemptNumber] = repairActive
 			result, executeErr := executor.Execute(attemptContext, activePrepared)
+			if hasProviderAccounting(result) {
+				aggregateUsage = addUsage(aggregateUsage, result.Usage)
+				aggregateCost, costObserved = addCost(aggregateCost, costObserved, result.Cost)
+			}
 			if executeErr != nil {
+				captureProviderParseFailure(&record, executeErr, &previousOutput)
 				lastFailure = executeErr
 				lastClassification = retry.Classify(executeErr, retryConfig.Policy)
 				return executeErr
 			}
-			aggregateUsage = addUsage(aggregateUsage, result.Usage)
-			aggregateCost, costObserved = addCost(aggregateCost, costObserved, result.Cost)
 			if call.CallType == "structured" {
 				if call.ValidateStructured == nil {
 					return errors.New("structured call validator is required")
@@ -149,6 +152,7 @@ func Execute(
 				if executeErr != nil {
 					encoded, _ := json.Marshal(result.Output)
 					previousOutput = string(encoded)
+					captureParseFailureResponse(&record, previousOutput)
 					lastFailure = executeErr
 					lastClassification = retry.Classify(executeErr, retryConfig.Policy)
 					return executeErr
@@ -169,6 +173,10 @@ func Execute(
 			attempts[index].Repair = repairAttempts[attempts[index].Number]
 		}
 		record.Attempts = append(record.Attempts, attempts...)
+		record.Usage = aggregateUsage
+		if costObserved {
+			record.Cost = aggregateCost
+		}
 		if runErr == nil {
 			record.Output = providerResult.Output
 			record.Usage = providerResult.Usage
@@ -189,6 +197,32 @@ func Execute(
 		}
 	}
 	return record, lastErr
+}
+
+func hasProviderAccounting(result ProviderResult) bool {
+	return result.Usage != (Usage{}) || result.Cost.Known || result.Cost.Source != ""
+}
+
+func captureProviderParseFailure(record *CallRecord, err error, previousOutput *string) {
+	var providerError *retry.ProviderError
+	if !errors.As(err, &providerError) || !providerError.Parse || providerError.RawResponse == "" {
+		return
+	}
+	*previousOutput = providerError.RawResponse
+	captureParseFailureResponse(record, providerError.RawResponse)
+}
+
+func captureParseFailureResponse(record *CallRecord, raw string) {
+	if record == nil || len(record.ParseFailureResponse) > 0 || raw == "" {
+		return
+	}
+	encoded, err := json.Marshal(map[string]any{
+		"schemaVersion": "harden-llm.parse-failure.v1",
+		"rawResponse":   raw,
+	})
+	if err == nil {
+		record.ParseFailureResponse = encoded
+	}
 }
 
 func buildRepairRequest(attempt, maxAttempts int, previousOutput string, call Call) *RepairRequest {

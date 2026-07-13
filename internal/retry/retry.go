@@ -52,14 +52,15 @@ type Classification struct {
 }
 
 type ProviderError struct {
-	Err        error
-	Code       string
-	Status     int
-	RetryAfter time.Duration
-	Parse      bool
-	Refusal    bool
-	Empty      bool
-	Timeout    bool
+	Err         error
+	Code        string
+	RawResponse string
+	Status      int
+	RetryAfter  time.Duration
+	Parse       bool
+	Refusal     bool
+	Empty       bool
+	Timeout     bool
 }
 
 func (providerError *ProviderError) Error() string {
@@ -252,7 +253,7 @@ func clampRandom(value float64) float64 {
 
 func isNetworkCode(code string) bool {
 	switch strings.ToUpper(strings.TrimSpace(code)) {
-	case "ETIMEDOUT", "ECONNRESET", "ENOTFOUND", "EAI_AGAIN", "EPIPE", "ECONNABORTED":
+	case "ETIMEDOUT", "ECONNRESET", "ENOTFOUND", "EAI_AGAIN", "EPIPE", "ECONNABORTED", "NETWORK_ERROR":
 		return true
 	default:
 		return false

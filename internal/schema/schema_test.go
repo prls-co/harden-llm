@@ -99,6 +99,63 @@ func TestSchemaContract(t *testing.T) {
 	}
 }
 
+func TestStructuredParserParityCapturedSource(t *testing.T) {
+	t.Parallel()
+	_, file, _, _ := runtime.Caller(0)
+	contents, err := os.ReadFile(filepath.Join(filepath.Dir(file), "..", "..", "fixtures", "parity", "generated", "structured-parser-cases.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		RepairCases []struct {
+			Name   string `json:"name"`
+			Raw    string `json:"raw"`
+			Parsed any    `json:"parsed"`
+		} `json:"repairCases"`
+		GeminiCases []struct {
+			Name   string `json:"name"`
+			Raw    string `json:"raw"`
+			Parsed any    `json:"parsed"`
+		} `json:"geminiCases"`
+		RepairFailure struct {
+			Succeeded   bool `json:"succeeded"`
+			Diagnostics struct {
+				RawResponse string `json:"rawResponseTail"`
+			} `json:"diagnostics"`
+		} `json:"repairFailure"`
+	}
+	if err = json.Unmarshal(contents, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	for _, testCase := range fixture.RepairCases {
+		testCase := testCase
+		t.Run("repair/"+testCase.Name, func(t *testing.T) {
+			t.Parallel()
+			parsed, diagnostic, parseErr := ParseProviderOutput(testCase.Raw, "openai.responses")
+			if parseErr != nil || diagnostic != nil || !reflect.DeepEqual(normalizeParsedNumbers(parsed), normalizeParsedNumbers(testCase.Parsed)) {
+				t.Fatalf("parser mismatch: got=%#v diagnostic=%#v error=%v want=%#v", parsed, diagnostic, parseErr, testCase.Parsed)
+			}
+		})
+	}
+	for _, testCase := range fixture.GeminiCases {
+		testCase := testCase
+		t.Run("gemini/"+testCase.Name, func(t *testing.T) {
+			t.Parallel()
+			parsed, diagnostic, parseErr := ParseProviderOutput(testCase.Raw, "google.gemini.generateContent")
+			if parseErr != nil || diagnostic != nil || !reflect.DeepEqual(normalizeParsedNumbers(parsed), normalizeParsedNumbers(testCase.Parsed)) {
+				t.Fatalf("Gemini parser mismatch: got=%#v diagnostic=%#v error=%v want=%#v", parsed, diagnostic, parseErr, testCase.Parsed)
+			}
+		})
+	}
+	if fixture.RepairFailure.Succeeded {
+		t.Fatal("captured source unexpectedly accepted invalid Unicode")
+	}
+	_, diagnostic, err := ParseProviderOutput(fixture.RepairFailure.Diagnostics.RawResponse, "openai.responses")
+	if err == nil || diagnostic == nil || diagnostic.Stage != "json_repair" {
+		t.Fatalf("repair failure classification mismatch: %#v %v", diagnostic, err)
+	}
+}
+
 type schemaFixture struct {
 	Cases []struct {
 		Name       string         `json:"name"`

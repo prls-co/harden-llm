@@ -106,10 +106,10 @@ func fixtureProviderResult() coreruntime.ProviderResult {
 	}
 }
 
-func sequenceIDs() func() string {
+func sequenceIDs() func() (string, error) {
 	next := 0
-	return func() string {
+	return func() (string, error) {
 		next++
-		return string(rune('a' + next))
+		return string(rune('a' + next)), nil
 	}
 }

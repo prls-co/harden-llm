@@ -9,12 +9,22 @@ import (
 	"io"
 	"math"
 	"reflect"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/kaptinlin/jsonrepair"
 )
 
 var ErrValueInvalid = errors.New("structured output value is invalid")
+
+var (
+	markdownFenceStart = regexp.MustCompile(`(?i)^\s*\x60\x60\x60(?:json)?\s*`)
+	markdownFenceEnd   = regexp.MustCompile(`(?i)\s*\x60\x60\x60\s*$`)
+	numericString      = regexp.MustCompile(`^-?\d+(?:\.\d+)?$`)
+)
 
 var schemaKeywords = map[string]struct{}{
 	"$schema": {}, "$defs": {}, "additionalProperties": {}, "allOf": {}, "anyOf": {}, "const": {},
@@ -246,15 +256,8 @@ func ParseAndValidate(raw string, contract json.RawMessage) (any, *Diagnostic, e
 	if err := ValidateContract(contract); err != nil {
 		return nil, nil, err
 	}
-	decoder := json.NewDecoder(strings.NewReader(raw))
-	decoder.UseNumber()
-	var value any
-	if err := decoder.Decode(&value); err != nil {
-		diagnostic := newDiagnostic("json_parse", raw, err)
-		return nil, diagnostic, fmt.Errorf("structured output parse: %w", err)
-	}
-	if err := requireEOF(decoder); err != nil {
-		diagnostic := newDiagnostic("json_parse", raw, err)
+	value, diagnostic, err := ParseProviderOutput(raw, "")
+	if err != nil {
 		return nil, diagnostic, err
 	}
 	if err := ValidateValue(contract, value); err != nil {
@@ -262,6 +265,139 @@ func ParseAndValidate(raw string, contract json.RawMessage) (any, *Diagnostic, e
 		return nil, diagnostic, err
 	}
 	return normalizeParsedNumbers(value), nil, nil
+}
+
+// ParseProviderOutput reproduces the source parser boundary. Contracted
+// structured output is repaired locally for every provider except Gemini,
+// whose source adapter only strips fences/prose and escapes literal controls.
+func ParseProviderOutput(raw, protocol string) (any, *Diagnostic, error) {
+	if protocol == "google.gemini.generateContent" {
+		value, err := parseGeminiJSON(raw)
+		if err != nil {
+			diagnostic := newDiagnostic("gemini_json_parse", raw, err)
+			return nil, diagnostic, fmt.Errorf("structured Gemini output parse: %w", err)
+		}
+		return NormalizeNumericStringsDeep(value), nil, nil
+	}
+
+	value, err := decodeOneJSON(raw)
+	if err == nil {
+		return NormalizeNumericStringsDeep(value), nil, nil
+	}
+	initialErr := err
+	repaired, repairErr := jsonrepair.Repair(raw)
+	if repairErr != nil {
+		diagnostic := newDiagnostic("json_repair", raw, repairErr)
+		return nil, diagnostic, fmt.Errorf("structured output repair: %w", repairErr)
+	}
+	value, err = decodeOneJSON(repaired)
+	if err != nil {
+		diagnostic := newDiagnostic("repaired_json_parse", raw, err)
+		return nil, diagnostic, fmt.Errorf("structured repaired output parse: %w (initial parse: %v)", err, initialErr)
+	}
+	return NormalizeNumericStringsDeep(value), nil, nil
+}
+
+// NormalizeNumericStringsDeep matches the source schema-validation projection.
+func NormalizeNumericStringsDeep(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		result := make(map[string]any, len(typed))
+		for key, child := range typed {
+			result[key] = NormalizeNumericStringsDeep(child)
+		}
+		return result
+	case []any:
+		result := make([]any, len(typed))
+		for index, child := range typed {
+			result[index] = NormalizeNumericStringsDeep(child)
+		}
+		return result
+	case string:
+		trimmed := strings.TrimSpace(typed)
+		if numericString.MatchString(trimmed) {
+			if number, err := strconv.ParseFloat(trimmed, 64); err == nil {
+				return number
+			}
+		}
+	}
+	return value
+}
+
+func decodeOneJSON(raw string) (any, error) {
+	decoder := json.NewDecoder(strings.NewReader(raw))
+	decoder.UseNumber()
+	var value any
+	if err := decoder.Decode(&value); err != nil {
+		return nil, err
+	}
+	if err := requireEOF(decoder); err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
+func parseGeminiJSON(raw string) (any, error) {
+	trimmed := strings.TrimSpace(markdownFenceEnd.ReplaceAllString(markdownFenceStart.ReplaceAllString(raw, ""), ""))
+	trimmed = extractTopLevelJSON(trimmed)
+	value, err := decodeOneJSON(trimmed)
+	if err == nil {
+		return value, nil
+	}
+	return decodeOneJSON(escapeControlsInsideStrings(trimmed))
+}
+
+func extractTopLevelJSON(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[") {
+		return trimmed
+	}
+	if first, last := strings.Index(trimmed, "{"), strings.LastIndex(trimmed, "}"); first >= 0 && last > first {
+		return trimmed[first : last+1]
+	}
+	if first, last := strings.Index(trimmed, "["), strings.LastIndex(trimmed, "]"); first >= 0 && last > first {
+		return trimmed[first : last+1]
+	}
+	return trimmed
+}
+
+func escapeControlsInsideStrings(value string) string {
+	var output strings.Builder
+	output.Grow(len(value))
+	inString := false
+	escaped := false
+	for _, character := range value {
+		if escaped {
+			output.WriteRune(character)
+			escaped = false
+			continue
+		}
+		if character == '\\' {
+			output.WriteRune(character)
+			escaped = true
+			continue
+		}
+		if character == '"' {
+			inString = !inString
+			output.WriteRune(character)
+			continue
+		}
+		if inString {
+			switch character {
+			case '\n':
+				output.WriteString(`\n`)
+				continue
+			case '\r':
+				output.WriteString(`\r`)
+				continue
+			case '\t':
+				output.WriteString(`\t`)
+				continue
+			}
+		}
+		output.WriteRune(character)
+	}
+	return output.String()
 }
 
 func ValidateValue(contract json.RawMessage, value any) error {

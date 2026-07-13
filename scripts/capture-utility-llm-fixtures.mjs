@@ -7,7 +7,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-const SCRIPT_VERSION = 1;
+const SCRIPT_VERSION = 2;
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outputRoot = path.join(repositoryRoot, "fixtures", "parity");
 
@@ -27,8 +27,16 @@ const packageJSON = requireFromSource(path.join(sourceRoot, "package.json"));
 const usage = requireFromSource(path.join(sourceRoot, "src", "usage.js"));
 const retry = requireFromSource(path.join(sourceRoot, "src", "retry-classifier.js"));
 const schema = requireFromSource(path.join(sourceRoot, "src", "schema-normalizer.js"));
+const responseParser = requireFromSource(path.join(sourceRoot, "src", "response-parser.js"));
+const reasoning = requireFromSource(path.join(sourceRoot, "src", "reasoning-effort.js"));
 const cache = requireFromSource(path.join(sourceRoot, "src", "operation-cache", "index.js"));
 const profiles = requireFromSource(path.join(sourceRoot, "src", "model-profiles.js"));
+const openaiProvider = requireFromSource(path.join(sourceRoot, "src", "providers", "openai.js"));
+const genericProvider = requireFromSource(path.join(sourceRoot, "src", "providers", "generic.js"));
+const googleProvider = requireFromSource(path.join(sourceRoot, "src", "providers", "google.js"));
+const anthropicProvider = requireFromSource(path.join(sourceRoot, "src", "providers", "anthropic.js"));
+const { buildRawProviderEnvelope } = requireFromSource(path.join(sourceRoot, "src", "providers", "operation-helpers.js"));
+const { z } = requireFromSource("zod");
 
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
@@ -151,6 +159,69 @@ await captureJSON("generated/schema-normalization.json", "schema", {
   })),
 }, ["src/schema-normalizer.js"]);
 
+const acceptingSchema = {
+  safeParse(value) {
+    return { success: true, data: value };
+  },
+};
+const repairCases = [
+  { name: "numeric-string-normalization", raw: `{"answer":"ok","count":"42"}` },
+  { name: "unquoted-keys-single-quotes-trailing-comma", raw: `{answer:'ok',count:2,}` },
+  { name: "missing-comma", raw: `{"answer":"ok" "count":2}` },
+  { name: "markdown-fence", raw: "```json\n{answer: 'ok'}\n```" },
+  { name: "truncated-object", raw: `{"answer":"ok","items":[1,2` },
+];
+let repairFailure;
+try {
+  responseParser.parseWithRepair(`{"answer":"\\uZZZZ"}`, acceptingSchema);
+  repairFailure = { succeeded: true };
+} catch (error) {
+  repairFailure = {
+    succeeded: false,
+    name: error.name,
+    message: error.message,
+    diagnostics: error.parseDiagnostics,
+  };
+}
+await captureJSON("generated/structured-parser-cases.json", "schema", {
+  repairCases: repairCases.map(({ name, raw }) => ({
+    name,
+    raw,
+    parsed: responseParser.parseWithRepair(raw, acceptingSchema),
+  })),
+  repairFailure,
+  geminiCases: [
+    { name: "markdown-fence", raw: "```json\n{\"answer\":\"ok\"}\n```" },
+    { name: "prose-extraction", raw: "Result follows: {\"answer\":\"ok\"} done." },
+    { name: "literal-newline", raw: "{\"answer\":\"first\nsecond\"}" },
+  ].map(({ name, raw }) => ({ name, raw, parsed: responseParser.tryParseGeminiJson(raw) })),
+}, ["src/response-parser.js", "node_modules/jsonrepair/package.json"]);
+
+function captureReasoningFailure(reasoningEffort, providerOptions) {
+  try {
+    reasoning.resolveReasoningEffortOptions({
+      modelConfig: { reasoningEffortMap: { highest: { reasoning: { effort: "high" } } } },
+      modelId: "fixture-model",
+      reasoningEffort,
+      providerOptions,
+    });
+    return { succeeded: true };
+  } catch (error) {
+    return { succeeded: false, name: error.name, code: error.code, message: error.message };
+  }
+}
+await captureJSON("generated/reasoning-effort-cases.json", "providers", {
+  contractedEfforts: reasoning.CONTRACTED_REASONING_EFFORTS,
+  mapped: reasoning.resolveReasoningEffortOptions({
+    modelConfig: { reasoningEffortMap: { highest: { reasoning: { effort: "high" }, budget: 9 } } },
+    modelId: "fixture-model",
+    reasoningEffort: "highest",
+    providerOptions: { budget: 1, providerOption: true },
+  }),
+  nativeWithoutPortableEffort: captureReasoningFailure("", { thinking_budget: 10 }),
+  unsupportedAlias: captureReasoningFailure("high", {}),
+}, ["src/reasoning-effort.js"]);
+
 const operation = {
   schemaVersion: cache.OPERATION_SCHEMA_VERSION,
   protocol: "openai.responses",
@@ -199,6 +270,131 @@ await captureJSON("generated/profile-catalog.json", "profiles", {
   normalized: normalizedProfiles,
   serialized: profiles.serializeProfileCatalogJson(normalizedProfiles),
 }, ["src/model-profiles.js", "tests/model-profiles.behavior.test.js"]);
+
+const providerRequest = {
+  systemPrompt: "Be exact.",
+  userPrompt: "Answer the deterministic fixture.",
+  additionalOptions: { max_tokens: 42, timeout: 5000, maxRetries: 9 },
+  modelId: "fixture-model",
+};
+const structuredSchemaJSON = {
+  type: "object",
+  properties: {
+    answer: { type: "string" },
+    count: { type: "number" },
+  },
+  required: ["answer", "count"],
+  additionalProperties: false,
+};
+const structuredSchema = z.object({ answer: z.string(), count: z.number() });
+const structuredProviderRequest = {
+  ...providerRequest,
+  schema: structuredSchema,
+  schemaJson: structuredSchemaJSON,
+  enableRepair: true,
+};
+const providerCases = [
+  {
+    name: "openai-responses",
+    provider: "openai",
+    plan: openaiProvider.prepareTextOperation(
+      { baseURL: "https://api.openai.com/v1", responses: { create: async () => ({}) } },
+      { apiModelName: "gpt-5.4", provider: "openai", supportsTemperature: false, responsesTokensParam: "max_output_tokens", defaultOptions: { reasoning: { effort: "high" } } },
+      providerRequest,
+    ),
+    structuredPlan: openaiProvider.prepareStructuredOperation(
+      { baseURL: "https://api.openai.com/v1", responses: { create: async () => ({}) } },
+      { apiModelName: "gpt-5.4", provider: "openai", supportsTemperature: false, responsesTokensParam: "max_output_tokens", defaultOptions: { reasoning: { effort: "high" } } },
+      structuredProviderRequest,
+    ),
+    response: { output_text: "responses-ok", usage: { input_tokens: 10, output_tokens: 4, output_tokens_details: { reasoning_tokens: 1 } } },
+    structuredResponse: { output_text: `{"answer":"ok","count":2}`, usage: { input_tokens: 10, output_tokens: 4 } },
+  },
+  {
+    name: "openai-chat",
+    provider: "openai",
+    plan: openaiProvider.prepareTextOperation(
+      { baseURL: "https://api.openai.com/v1", chat: { completions: { create: async () => ({}) } } },
+      { apiModelName: "gpt-4.1", provider: "openai", supportsTemperature: true, tokensParam: "max_completion_tokens", defaultOptions: {} },
+      { ...providerRequest, additionalOptions: { ...providerRequest.additionalOptions, useResponsesApi: false } },
+    ),
+    structuredPlan: openaiProvider.prepareStructuredOperation(
+      { baseURL: "https://api.openai.com/v1", chat: { completions: { create: async () => ({}) } } },
+      { apiModelName: "gpt-4.1", provider: "openai", supportsTemperature: true, tokensParam: "max_completion_tokens", defaultOptions: {} },
+      { ...structuredProviderRequest, additionalOptions: { ...structuredProviderRequest.additionalOptions, useResponsesApi: false } },
+    ),
+    response: { choices: [{ finish_reason: "stop", message: { content: "chat-ok" } }], usage: { prompt_tokens: 3, completion_tokens: 2 } },
+    structuredResponse: { choices: [{ finish_reason: "stop", message: { content: `{"answer":"ok","count":2}` } }], usage: { prompt_tokens: 3, completion_tokens: 2 } },
+  },
+  {
+    name: "generic-openai-compatible",
+    provider: "vendor",
+    plan: genericProvider.prepareTextOperation(
+      { baseURL: "https://api.vendor.example/v1", chat: { completions: { create: async () => ({}) } } },
+      { apiModelName: "vendor/model", provider: "vendor", supportsTemperature: false, defaultOptions: { provider: { only: ["fast"] } } },
+      { ...providerRequest, routingOptions: {} },
+    ),
+    structuredPlan: genericProvider.prepareStructuredOperation(
+      { baseURL: "https://api.vendor.example/v1", chat: { completions: { create: async () => ({}) } } },
+      { apiModelName: "vendor/model", provider: "vendor", supportsTemperature: false, defaultOptions: { provider: { only: ["fast"] } } },
+      { ...structuredProviderRequest, routingOptions: {} },
+    ),
+    response: { choices: [{ finish_reason: "stop", message: { content: "vendor-ok" } }], usage: { prompt_tokens: 5, completion_tokens: 2 } },
+    structuredResponse: { choices: [{ finish_reason: "stop", message: { content: `{"answer":"ok","count":2}` } }], usage: { prompt_tokens: 5, completion_tokens: 2 } },
+  },
+  {
+    name: "gemini-generate-content",
+    provider: "google",
+    plan: googleProvider.prepareTextOperation(
+      { baseURL: "https://generativelanguage.googleapis.com", chat: { completions: { create: async () => ({}) } } },
+      { apiModelName: "models/gemini-2.5-flash", provider: "google", supportsTemperature: true, defaultOptions: {} },
+      providerRequest,
+    ),
+    structuredPlan: googleProvider.prepareStructuredOperation(
+      { baseURL: "https://generativelanguage.googleapis.com", chat: { completions: { create: async () => ({}) } } },
+      { apiModelName: "models/gemini-2.5-flash", provider: "google", supportsTemperature: true, defaultOptions: {} },
+      structuredProviderRequest,
+    ),
+    response: { candidates: [{ finishReason: "STOP", content: { parts: [{ text: "gemini-ok" }] } }], usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 2, thoughtsTokenCount: 1 } },
+    structuredResponse: { candidates: [{ finishReason: "STOP", content: { parts: [{ text: `{"answer":"ok","count":2}` }] } }], usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 2 } },
+  },
+  {
+    name: "anthropic-messages",
+    provider: "anthropic",
+    plan: anthropicProvider.prepareTextOperation(
+      { baseURL: "https://api.anthropic.com/v1", anthropicVersion: anthropicProvider.DEFAULT_ANTHROPIC_VERSION },
+      { apiModelName: "claude-sonnet-4-5", provider: "anthropic", supportsTemperature: true, defaultOptions: {} },
+      providerRequest,
+    ),
+    structuredPlan: anthropicProvider.prepareStructuredOperation(
+      { baseURL: "https://api.anthropic.com/v1", anthropicVersion: anthropicProvider.DEFAULT_ANTHROPIC_VERSION },
+      { apiModelName: "claude-sonnet-4-5", provider: "anthropic", supportsTemperature: true, defaultOptions: {} },
+      structuredProviderRequest,
+    ),
+    response: { content: [{ type: "text", text: "anthropic-ok" }], stop_reason: "end_turn", usage: { input_tokens: 5, output_tokens: 2 } },
+    structuredResponse: { content: [{ type: "text", text: `{"answer":"ok","count":2}` }], stop_reason: "end_turn", usage: { input_tokens: 5, output_tokens: 2 } },
+  },
+];
+await captureJSON("generated/provider-cases.json", "providers", {
+  cases: providerCases.map(({ name, provider, plan, structuredPlan, response, structuredResponse }) => ({
+    name,
+    operation: plan.operation,
+    normalized: plan.normalize(buildRawProviderEnvelope({ provider, protocol: plan.operation.protocol, response })),
+    structuredOperation: structuredPlan.operation,
+    structuredNormalized: structuredPlan.normalize(buildRawProviderEnvelope({
+      provider,
+      protocol: structuredPlan.operation.protocol,
+      response: structuredResponse,
+    })),
+  })),
+}, [
+  "src/providers/openai.js",
+  "src/providers/generic.js",
+  "src/providers/google.js",
+  "src/providers/anthropic.js",
+  "tests/provider-operation-cache.behavior.test.js",
+  "tests/provider-runtime.behavior.test.js",
+]);
 
 const copiedDirectories = [
   "fixtures/diagnostics",
