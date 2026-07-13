@@ -1,4 +1,4 @@
-# Harden-LLM Self-Hosted Go Stack Specification
+# Harden-LLM Backend and REST API Stack Specification
 
 ## 1. Title and metadata
 
@@ -6,11 +6,11 @@
 - Target repository: `/home/kirill/p/harden-llm`
 - Go module: `github.com/prls-co/harden-llm`
 - Contract source repository: `/home/kirill/p/utility-llm`
-- Version: `1.2.0-spec`
+- Version: `1.3.0-backend-spec`
 - Owners: package maintainers and self-hosted runtime implementers
 - Date: 2026-07-12
 - Document ID: `SPEC-HARDEN-LLM-SELF-HOSTED-GO-001`
-- Summary: This specification defines one self-hosted, free, Go-based implementation of the current `utility-llm` behavior. The target product is a small public Go library at the module root, one REST gateway executable, and a React Trace Studio served by Caddy. Application records live in Harden-LLM Postgres, while Harden-LLM-owned trace artifacts and diagnostic attachments replace Firebase Storage in Garage. OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana, and self-hosted Langfuse provide diagnostics. Langfuse retains its upstream default dependency graph, including its own Postgres, Redis, ClickHouse, and MinIO services; Harden-LLM neither substitutes Garage into Langfuse nor uses Langfuse's MinIO. Firebase is not copied into the target repository and is not a runtime, deployment, authentication, storage, or test dependency of `harden-llm`.
+- Summary: This specification defines the self-hosted, free, Go backend for `harden-llm`: one importable root library and one versioned REST API gateway. Application records live in Harden-LLM Postgres, while Harden-LLM-owned trace artifacts and diagnostic attachments replace Firebase Storage in Garage. OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana, and self-hosted Langfuse provide diagnostics. Langfuse retains its upstream default dependency graph, including its own Postgres, Redis, ClickHouse, and MinIO services; Harden-LLM neither substitutes Garage into Langfuse nor uses Langfuse's MinIO. This backend contains no browser UI, Phoenix, LiveView, React, or frontend asset pipeline. The separately specified Phoenix LiveView application consumes only the published REST/OpenAPI contract.
 
 ## 2. Canonical stack
 
@@ -18,9 +18,10 @@
 | --- | --- | --- |
 | Core language | Go | Runtime behavior, provider integrations, retry policy, cache identity, schema handling, pricing, trace projection, redaction, and public library API. |
 | Public library | Root package `github.com/prls-co/harden-llm`, package name `hardenllm` | The only public implementation API. Internal behavior packages are not public compatibility surfaces. |
-| REST gateway | `cmd/harden-llm-gateway` | Thin HTTP application over the root library for Trace Studio and non-Go clients. |
+| REST gateway | `cmd/harden-llm-gateway` | Thin HTTP application over the root library for Phoenix LiveView and other non-Go clients. |
 | HTTP routing | Go `net/http` with `chi` | API routes, auth, request decoding, limits, and middleware. |
-| Public edge | Caddy | TLS, security headers, request-body limits, static Trace Studio files, and reverse proxy for the app, Grafana, Langfuse, and Harden-LLM artifact hostnames. |
+| REST contract | OpenAPI 3.1 in `api/openapi.yaml` | Canonical machine-readable paths, schemas, bearer authentication, envelopes, errors, and examples for every non-health endpoint. |
+| Public edge | Caddy | TLS, security headers, request-body limits, and reverse proxy for the API, Grafana, Langfuse, and Harden-LLM artifact hostnames. |
 | Application database | Postgres | Users, sessions, profiles, encrypted credentials, UI state, runs, domain trace records, observations, cache records, stats, and migrations. |
 | Application object storage | Garage | Private Harden-LLM JSON trace artifacts and diagnostic attachments migrated from Firebase Storage. Garage is not a Langfuse dependency. |
 | Langfuse relational database | Upstream default dedicated Postgres service | Langfuse transactional state, credentials, migrations, and lifecycle remain owned by the upstream Langfuse Compose topology. |
@@ -49,9 +50,10 @@
 | Use Garage only for Harden-LLM artifacts | DECISION | Firebase Storage currently owns linked JSON traces and diagnostic attachments. Garage replaces that application-owned surface. MinIO remains opaque to Harden-LLM and is used only by Langfuse. |
 | Use one OTel export path | DECISION | The application emits OTel once to the Collector. The Collector exports operational traces to Tempo and complete `harden-llm` traces to Langfuse over OTLP/HTTP. The library and gateway do not contain a direct Langfuse SDK/exporter. |
 | Use `slog` JSON as the logging API | DECISION | OTel Go logs remain less mature than traces and metrics. Application code logs once through `slog`; one composed handler writes JSON to stdout and mirrors the same record through a pinned OTel slog bridge to the Collector. |
-| Keep Postgres domain traces distinct from OTel traces | DECISION | Postgres stores the redacted domain record needed by Trace Studio and API responses. Tempo stores operational spans. Langfuse stores a derived LLM diagnostic view. Their ownership and schemas do not overlap. |
-| Use Caddy | DECISION | One edge process provides automatic TLS, static UI serving, security headers, and private upstream routing for the application and diagnostic UIs. |
-| Use local auth | DECISION | The gateway owns bootstrap-created email/password users, Argon2id hashes, opaque server-side sessions, secure cookies, and CSRF checks. No external identity provider is required. |
+| Keep Postgres domain traces distinct from OTel traces | DECISION | Postgres stores the redacted domain record needed by REST clients. Tempo stores operational spans. Langfuse stores a derived LLM diagnostic view. Their ownership and schemas do not overlap. |
+| Publish one frontend-independent REST contract | DECISION | `api/openapi.yaml` and conformance tests are the only backend/frontend contract. The backend does not render HTML, own LiveView state, or import frontend code. |
+| Use Caddy | DECISION | One edge process provides automatic TLS, security headers, and private upstream routing for the API and diagnostic UIs. |
+| Use local bearer auth | DECISION | The gateway owns bootstrap-created email/password users, Argon2id hashes, and opaque hashed server-side sessions. Login returns the opaque token once for `Authorization: Bearer`; the backend does not issue browser cookies or implement browser CSRF. |
 | Enforce outbound endpoint safety | DECISION | Profiles can contain provider base URLs. The gateway must prevent SSRF, metadata-service access, unsafe redirects, DNS rebinding, and credential forwarding to unintended hosts. |
 | Do not add request idempotency infrastructure in v1 | DECISION | The initial gateway executes synchronous calls without a distributed idempotency ledger or run queue. The API documents that clients must not automatically retry an ambiguous `/api/v1/run` response. |
 | Do not add scheduled retention or backup automation in v1 | DECISION | Retention schedulers, backup orchestration, restore drills, and Temporal workflows are deferred. The v1 schema includes timestamps needed for future policies. |
@@ -62,8 +64,8 @@
 
 - Port current provider routing, retries, schema validation/repair, cache identity, usage, pricing, profiles, traces, stats, diagnostics, and redaction behavior into Go.
 - Produce one importable root Go package and one REST gateway.
-- Migrate the React Trace Studio into `harden-llm` without Firebase code or configuration.
-- Replace Firebase Auth, Firestore, Functions, Hosting, and Storage with local auth, Harden-LLM Postgres, Garage, Go HTTP handlers, Caddy, and self-hosted diagnostics.
+- Publish and enforce an OpenAPI 3.1 contract for every REST route, envelope, authentication requirement, and error shape.
+- Replace Firebase Auth, Firestore, Functions, and Storage backend responsibilities with local bearer auth, Harden-LLM Postgres, Garage, and Go HTTP handlers.
 - Store redacted linked JSON trace artifacts and diagnostic attachments in a private Garage bucket and their owner-scoped indexes in Harden-LLM Postgres.
 - Run the pinned upstream Langfuse OSS Compose topology with its own Postgres, Redis, ClickHouse, and MinIO services without dependency substitution.
 - Emit OTel traces and metrics and correlated `slog` JSON logs.
@@ -81,7 +83,7 @@
 - Distributed request idempotency, asynchronous run queues, and global scheduling.
 - Automated retention, backup, restore, or disaster-recovery workflows.
 - OIDC, SAML, public user registration, password-email workflows, and an admin UI.
-- Rewriting Trace Studio outside React/Vite.
+- Browser UI, HTML rendering, Phoenix, LiveView, React, frontend sessions, frontend CSRF, and frontend assets. These are owned by `phoenix-liveview-frontend-spec.md`.
 
 ## 5. Target repository structure
 
@@ -98,6 +100,8 @@
 ├── cmd/
 │   └── harden-llm-gateway/
 │       └── main.go
+├── api/
+│   └── openapi.yaml
 ├── internal/
 │   ├── runtime/
 │   ├── providers/
@@ -118,8 +122,6 @@
 │   ├── deploytest/
 │   ├── smoke/
 │   └── testkit/
-├── web/
-│   └── trace-studio/
 ├── fixtures/
 │   ├── parity/
 │   ├── providers/
@@ -133,7 +135,8 @@
 │   ├── from_utility-llm/
 │   │   ├── self-hosted-go-stack-spec.md
 │   │   ├── harden-llm-self-hosted-implementation-plan.md
-│   │   └── harden-llm-self-hosted-test-spec.md
+│   │   ├── harden-llm-self-hosted-test-spec.md
+│   │   └── phoenix-liveview-frontend-spec.md
 │   └── implementation-status.json
 ├── deploy/
 │   ├── caddy/
@@ -161,7 +164,8 @@ Rules:
 - Internal provider, retry, schema, cache-key, pricing, trace, stats, diagnostics, and redaction packages are imported only inside the module.
 - The gateway imports the root package. It does not import internal runtime packages to bypass the public contract.
 - Public extension points are limited to `CredentialResolver`, `CacheStore`, `ArtifactStore`, endpoint-policy configuration, and telemetry options. Built-in provider and Garage implementations are private.
-- `web/trace-studio` contains no Firebase imports, environment variables, server files, deployment files, or compatibility client.
+- The backend repository surfaces defined by this specification contain no HTML templates, LiveView modules, React/Vite code, frontend assets, or frontend session implementation.
+- `api/openapi.yaml` is checked against the live router and response schemas. Phoenix consumes that contract but is not imported, generated, or tested by the backend plan.
 - Fixture capture records the exact source `utility-llm` Git SHA and produces committed deterministic JSON; the target has no runtime dependency on the source repository.
 
 ## 6. Go library contract
@@ -251,11 +255,11 @@ All application routes are versioned under `/api/v1`.
 | --- | --- | --- |
 | `GET` | `/healthz` | Process liveness without downstream dependencies. |
 | `GET` | `/readyz` | Postgres migration state and Garage artifact-bucket connectivity readiness. |
-| `POST` | `/api/v1/auth/login` | Create an opaque server-side session. |
+| `POST` | `/api/v1/auth/login` | Verify local credentials and return a new opaque bearer session token once. |
 | `POST` | `/api/v1/auth/logout` | Revoke the active session. |
 | `GET` | `/api/v1/auth/session` | Return redacted current-user/session state. |
-| `GET` | `/api/v1/state` | Return the Trace Studio state envelope. |
-| `POST` | `/api/v1/state` | Persist UI-owned state fields. |
+| `GET` | `/api/v1/state` | Return owner-scoped client preference and prompt-draft state. |
+| `POST` | `/api/v1/state` | Persist validated client-owned state fields. |
 | `GET` | `/api/v1/history` | Return owner-scoped paginated run history. |
 | `DELETE` | `/api/v1/history/{historyID}` | Delete one owned history record. |
 | `DELETE` | `/api/v1/history` | Clear the authenticated user's history. |
@@ -290,10 +294,22 @@ Errors use:
 }
 ```
 
+`api/openapi.yaml` is the canonical REST contract. It uses OpenAPI 3.1, defines the bearer security scheme and every request/response schema, includes stable operation IDs and examples, and contains no frontend-specific types. Router conformance tests fail when a documented operation is missing from the gateway, an implemented route is absent from OpenAPI, or an envelope/schema diverges.
+
+Authentication contract:
+
+- `POST /api/v1/auth/login` is the only unauthenticated non-health operation. A successful response returns the opaque session token once as `result.accessToken`, plus its expiry and redacted user/session data.
+- The gateway stores only a SHA-256 token digest with owner, creation, expiry, and revocation metadata.
+- Every other `/api/v1` operation requires `Authorization: Bearer <opaque-token>`.
+- Tokens never appear in URLs, response state after login, logs, traces, metrics, diagnostics, or error messages.
+- Logout revokes the current token. Expired, revoked, malformed, duplicated-header, or unknown tokens return the same stable unauthenticated envelope.
+- The REST API does not issue browser cookies and does not implement CSRF. Browser session and CSRF controls belong to the separately specified Phoenix frontend, which calls the REST API server to server.
+- CORS is disabled by default. A future direct-browser client requires an explicit origin allowlist and ADR; wildcard origins are forbidden.
+
 Gateway responsibilities:
 
 - Authenticate and authorize owner-scoped state.
-- Apply CSRF protection to cookie-authenticated mutations.
+- Enforce the canonical opaque bearer-session policy on protected routes.
 - Apply strict JSON decoding, body limits, and field limits.
 - Apply the endpoint-security policy before every profile probe, model refresh, and provider call.
 - Call the root Go library for all runtime behavior.
@@ -308,6 +324,7 @@ Gateway non-responsibilities:
 - Retry, repair, backup-profile, cache-key, pricing, trace-projection, or redaction logic.
 - Direct Langfuse API or SDK calls.
 - Retrying ambiguous client requests to `/api/v1/run`.
+- Rendering HTML, maintaining LiveView state, serving frontend assets, or implementing browser sessions/CSRF.
 
 ## 8. Provider endpoint-security contract
 
@@ -332,7 +349,7 @@ Caddy is the only service publishing host ports by default.
 
 Canonical hostnames:
 
-- `HARDEN_LLM_APP_HOST`: Trace Studio and `/api/v1`, `/healthz`, `/readyz`.
+- `HARDEN_LLM_API_HOST`: `/api/v1`, `/healthz`, and `/readyz`.
 - `HARDEN_LLM_GRAFANA_HOST`: Grafana UI.
 - `HARDEN_LLM_LANGFUSE_HOST`: Langfuse UI and internal browser-facing API.
 - `HARDEN_LLM_ARTIFACT_HOST`: TLS endpoint for short-lived presigned Garage artifact reads; Garage administration endpoints are not routed.
@@ -340,10 +357,9 @@ Canonical hostnames:
 Caddy must:
 
 - Terminate TLS and persist certificate state in named volumes.
-- Serve built Trace Studio assets with SPA fallback.
-- Reverse proxy application routes to `harden-llm-gateway:8080`.
+- Reverse proxy the API hostname to `harden-llm-gateway:8080` without serving HTML or frontend assets.
 - Reverse proxy Grafana, Langfuse, and the Garage S3 artifact hostname without exposing their container ports on the host.
-- Apply Garage bucket CORS for the exact Trace Studio origin and never expose Garage administration or RPC routes.
+- Never expose Garage administration or RPC routes. The backend artifact endpoint remains the authorization boundary for presigned reads.
 - Do not route Harden-LLM artifact requests to MinIO. Langfuse's MinIO service and S3 configuration remain owned by the pinned upstream Langfuse Compose fragment.
 - Apply request-body limits before the gateway.
 - Set CSP, HSTS, `X-Content-Type-Options`, `Referrer-Policy`, and frame restrictions appropriate to each hostname.
@@ -360,7 +376,7 @@ The `harden_llm` database is the source of truth for application state.
 | `user_sessions` | Hashed opaque session tokens, expiry, and revocation. |
 | `llm_profiles` | Redacted profile configuration and backup references. |
 | `llm_endpoint_credentials` | Versioned AES-GCM credential ciphertext and metadata. |
-| `trace_studio_state` | Per-user UI state. |
+| `llm_client_state` | Per-user client preferences and prompt drafts exposed by `/api/v1/state`. |
 | `llm_runs` | Run history and result summary. |
 | `llm_traces` | Redacted domain trace and normalized call metadata. |
 | `llm_trace_observations` | Domain observations for cache, attempt, retry, and persistence events. |
@@ -398,7 +414,7 @@ Rules:
 
 | Data | Source of truth | Purpose |
 | --- | --- | --- |
-| Run/profile/history state | Postgres | Product behavior and Trace Studio API. |
+| Run/profile/history state | Postgres | Product behavior and REST API responses. |
 | Linked trace artifacts and diagnostic attachments | Garage plus Postgres index | Private redacted JSON payload inspection and Firebase Storage parity. |
 | Operational traces | Tempo | HTTP, database, provider, retry, cache, and shutdown diagnostics. |
 | Structured logs | Loki | Correlated events and failure context. |
@@ -443,9 +459,9 @@ Rules:
 - Public traffic reaches only Caddy over HTTPS.
 - Internal service ports have no host bindings by default.
 - Passwords use fixed documented Argon2id parameters.
-- Session cookies are `Secure`, `HttpOnly`, and `SameSite=Lax` or stricter.
-- Session values are opaque random tokens; only token hashes are stored.
-- Mutating browser requests require CSRF tokens and same-origin validation.
+- Session values are opaque random bearer tokens returned only at login; only SHA-256 token digests are stored.
+- Protected routes reject missing, malformed, expired, revoked, unknown, or ambiguous bearer credentials with one non-enumerating response shape.
+- The backend sets no browser session cookie and has no CSRF bypass or CORS wildcard. Browser protections belong to the Phoenix frontend.
 - Provider credentials use AES-256-GCM with a random nonce, key identifier, and AAD containing owner ID, credential ID, and normalized endpoint origin.
 - The active encryption key is supplied by a mounted secret or environment variable and never stored in Postgres.
 - Logs, OTel signals, Langfuse spans, diagnostics bundles, API responses, and test evidence use the same internal redaction package.
@@ -461,7 +477,7 @@ internet
   |
   v
 caddy :80/:443
-  |-- app host      -> static Trace Studio + harden-llm-gateway:8080
+  |-- api host      -> harden-llm-gateway:8080
   |-- grafana host  -> grafana:3000
   |-- langfuse host -> langfuse-web:3000
   `-- artifact host -> garage:3900 S3 API only
@@ -533,12 +549,12 @@ Application variables:
 
 | Variable | Purpose |
 | --- | --- |
-| `HARDEN_LLM_APP_HOST` | Public application hostname. |
+| `HARDEN_LLM_API_HOST` | Public REST API hostname. |
 | `HARDEN_LLM_GRAFANA_HOST` | Public Grafana hostname. |
 | `HARDEN_LLM_LANGFUSE_HOST` | Public Langfuse hostname. |
 | `HARDEN_LLM_ARTIFACT_HOST` | Public TLS hostname used by short-lived Garage presigned artifact URLs. |
 | `HARDEN_LLM_ARTIFACT_ENDPOINT` | Private Garage S3 endpoint used by the gateway. |
-| `HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT` | Caddy Garage S3 endpoint used when generating browser-reachable presigned URLs. |
+| `HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT` | Caddy Garage S3 endpoint used when generating client-reachable presigned URLs. |
 | `HARDEN_LLM_ARTIFACT_BUCKET` | Private Garage bucket for Harden-LLM trace artifacts and diagnostic attachments. |
 | `HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID` | Garage key ID scoped to the Harden-LLM artifact bucket. |
 | `HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY` | Garage secret supplied only to the gateway. |
@@ -569,8 +585,8 @@ A future Temporal design may schedule profile smoke, model refresh, stats recomp
 - P00 records the source Git SHA and captures deterministic provider payloads, cache hashes, trace/stats projections, profile bundles, schema cases, and diagnostics fixtures.
 - Fixture capture includes current Firebase Storage trace-artifact keys, canonical JSON payloads, diagnostic attachment paths, hashes, and failure behavior. The target implements those application-owned semantics through Garage without copying Firebase APIs.
 - Every behavior slice adds and passes its JS-to-Go parity tests before persistence, HTTP, or deployment work depends on it.
-- The target Trace Studio starts from the current React UI behavior but replaces Firebase auth and API clients with same-origin gateway clients.
-- No Firebase package, import, environment variable, source file, emulator, deploy script, hosting config, or credential is copied into the target.
+- Current Firebase server/API behavior informs backend fixtures only. No React component, browser client, Firebase package, import, environment variable, source file, emulator, deploy script, hosting config, or credential is copied into the backend implementation.
+- The OpenAPI document replaces implicit coupling to the old React/Firebase client. The Phoenix frontend is validated independently against this published contract.
 - The final target scan rejects `firebase`, `firestore`, `gcloud`, Firebase environment names, and old unversioned API routes outside fixture provenance documents.
 - The target has no runtime, build, test, or release dependency on the source repository after parity fixtures are committed.
 - Intentional Go contract differences are recorded in ADRs and fixture manifests; they are not hidden behind compatibility wrappers.
@@ -585,7 +601,8 @@ Minimum v1 verification:
 - Endpoint-security tests for SSRF, DNS rebinding, redirects, TLS, origin-bound credentials, and header filtering.
 - Postgres migration, repository, auth, cache, and owner-isolation integration tests.
 - Gateway tests for all `/api/v1` endpoints and strict envelopes.
-- Trace Studio tests with no Firebase imports or runtime configuration.
+- OpenAPI 3.1 validation and router/request/response conformance tests.
+- Static backend scans proving there is no Firebase, React/Vite, Phoenix/LiveView, HTML-template, or frontend-asset implementation path.
 - OTel trace/metric, `slog` correlation, Collector fanout, telemetry-outage, and bounded-shutdown tests.
 - Garage integration tests for canonical redacted bytes, object metadata, short-lived presigning, owner-scoped Postgres references, and non-fatal storage failure behavior.
 - Compose artifact and smoke tests for all fifteen required services and the strict MinIO/Langfuse versus Garage/Harden-LLM ownership boundary.
@@ -609,7 +626,8 @@ Minimum v1 verification:
 - Langfuse bootstrap: headless initial user/organization/project/API keys; no browser setup is required before Collector export.
 - Langfuse export: Collector OTLP/HTTP fanout only.
 - Logging: `slog` JSON collected by OTel Collector Contrib and stored in Loki.
-- Auth: bootstrap-created local users with cookie sessions and CSRF.
+- Auth: bootstrap-created local users with opaque bearer sessions; only token digests are persisted.
+- Frontend boundary: OpenAPI 3.1 REST only. Phoenix LiveView is specified separately and is not part of the backend plan or Compose service count.
 - Provider endpoint policy: public HTTPS by default; private access only by exact administrator allowlist.
 - Firebase: absent from the target repository and deployment.
 - Temporal, application SQLite, Sentry, request idempotency infrastructure, scheduled retention, backup automation, multi-node Garage, and local Langfuse dependency migration: out of v1 scope.
@@ -630,3 +648,4 @@ Minimum v1 verification:
 - Prometheus: https://prometheus.io/docs/introduction/overview/
 - Caddy: https://caddyserver.com/docs/
 - OWASP SSRF prevention: https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html
+- Phoenix LiveView frontend specification: `plans/from_utility-llm/phoenix-liveview-frontend-spec.md`

@@ -1,22 +1,22 @@
-# Harden-LLM Self-Hosted Test Specification
+# Harden-LLM Backend and REST API Test Specification
 
 ## 1. Title and metadata
 
 - Project name: `harden-llm`
 - Target repository: `/home/kirill/p/harden-llm`
 - Contract source repository: `/home/kirill/p/utility-llm`
-- Version: `1.2.0-test-spec`
+- Version: `1.3.0-backend-test-spec`
 - Owners: package maintainers and self-hosted runtime implementers
 - Date: 2026-07-12
 - Document ID: `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001`
 - Related stack specification: `plans/from_utility-llm/self-hosted-go-stack-spec.md`
-- Summary: This document is the canonical test catalog for building `harden-llm`. It defines one `TEST-###` namespace shared with the implementation plan. Tests guide the Go library, REST gateway, Firebase-free Trace Studio, Harden-LLM Postgres records, Garage-backed trace artifacts and diagnostic attachments, provider endpoint security, OpenTelemetry/Grafana/Langfuse diagnostics, and full Docker Compose deployment. Langfuse retains its pinned upstream default Postgres, Redis, ClickHouse, and MinIO services; tests reject any local Garage substitution into Langfuse.
+- Summary: This document is the canonical backend test catalog for building `harden-llm`. It defines one `TEST-###` namespace shared with the backend implementation plan. Tests guide the Go library, versioned REST/OpenAPI gateway, Harden-LLM Postgres records, Garage-backed trace artifacts and diagnostic attachments, provider endpoint security, OpenTelemetry/Grafana/Langfuse diagnostics, and full Docker Compose deployment. It contains no frontend, Phoenix, LiveView, React, browser-session, or asset tests. Langfuse retains its pinned upstream default Postgres, Redis, ClickHouse, and MinIO services; tests reject any local Garage substitution into Langfuse.
 
 ## 2. Test strategy
 
 - Test execution occurs in `/home/kirill/p/harden-llm` unless a command explicitly names the source repository.
 - `/home/kirill/p/utility-llm` is read only during fixture capture and JS contract verification.
-- P00 creates `go.mod`, the test harness, fixture verification scripts, the web package, and canonical `Makefile` targets before later phases use those commands.
+- P00 creates `go.mod`, the test harness, fixture verification scripts, `api/openapi.yaml`, and canonical `Makefile` targets before later phases use those commands.
 - Every behavior slice starts with failing target-repository coverage and ends with the same command passing.
 - JS-to-Go parity is tested in the phase that ports each behavior. Final parity is an aggregate gate, not the first parity check.
 - Provider tests use local `httptest` servers. Public internet and provider credentials are allowed only under the `live` build tag.
@@ -36,14 +36,14 @@ make test-static
 make test-unit
 make test-parity
 make test-integration
-make test-web
+make test-api
 make test-observability
 make test-compose
 make test-race
 make verify
 ```
 
-Direct commands remain the smallest RED/GREEN controls in the definitions below. `make verify` aggregates formatting, build, static, unit, parity, integration, web, observability, Compose artifact, race, vet, and vulnerability gates. Live tests are never included in `make verify`.
+Direct commands remain the smallest RED/GREEN controls in the definitions below. `make verify` aggregates formatting, build, static, unit, parity, integration, API/OpenAPI, observability, Compose artifact, race, vet, and vulnerability gates. Live tests are never included in `make verify`.
 
 ## 4. Fixtures and deterministic controls
 
@@ -88,7 +88,7 @@ Fixture rules:
 - Assertions:
   - `go.mod` declares `github.com/prls-co/harden-llm`.
   - Root package files declare `package hardenllm`.
-  - P00 foundation paths exist: `cmd/harden-llm-gateway/main.go`, `internal/testkit`, `internal/artifacts`, `web/trace-studio`, `scripts`, `fixtures/parity`, and `plans/implementation-status.json`.
+  - P00 foundation paths exist: `cmd/harden-llm-gateway/main.go`, `api/openapi.yaml`, `internal/testkit`, `internal/artifacts`, `scripts`, `fixtures/parity`, and `plans/implementation-status.json`.
   - The root package is importable without importing `internal` packages.
 - Pass criteria: command exits zero and reports one canonical target layout.
 - Expected runtime: 5 seconds.
@@ -113,7 +113,8 @@ Fixture rules:
 - Command: `go test ./internal/testkit/... -run TestForbiddenDependencies -count=1`
 - Setup: target files, `go.mod`, web package manifests, Compose config.
 - Assertions:
-  - Target production and web code contain no Firebase, Firestore, Firebase Auth, Functions, Hosting, or Storage dependency.
+  - Backend production/test/deploy code contains no Firebase, Firestore, Firebase Auth, Functions, Hosting, or Storage dependency.
+  - Backend code contains no Phoenix, LiveView, React, Vite, HTML-template, browser-session, or frontend-asset implementation.
   - Go production dependencies contain no application SQLite, Temporal, Sentry, MinIO-specific client, or Langfuse SDK/client.
   - Collector configuration contains exactly one Langfuse OTLP/HTTP exporter.
   - Application code has no direct Langfuse host/key configuration or ingestion request.
@@ -386,8 +387,11 @@ Fixture rules:
 - Command: `go test ./internal/gateway/... -tags=integration -run TestAuthProfileContract -count=1`
 - Setup: two bootstrap users, isolated Postgres, fake safe provider endpoint, fixed session clock.
 - Assertions:
-  - Argon2id login creates a secure HttpOnly SameSite cookie and hashed opaque session record.
-  - Logout, expiry, revocation, missing CSRF, and wrong origin fail.
+  - Argon2id login returns one opaque bearer token once and stores only its SHA-256 digest with expiry and owner metadata.
+  - Protected routes require exactly one valid `Authorization: Bearer` credential.
+  - Logout, expiry, revocation, malformed schemes, duplicated authorization headers, and unknown tokens fail with one non-enumerating envelope.
+  - Login/session responses, logs, traces, and database rows do not disclose the token after initial login.
+  - The backend sets no session cookie and has no CSRF or CORS wildcard path.
   - Users cannot read or mutate each other's profiles, history, traces, state, cache, or bundles.
   - Profile probe runs before the short database commit and failed probe leaves prior state unchanged.
   - Probe and model refresh use TEST-014 endpoint policy.
@@ -437,34 +441,34 @@ Fixture rules:
 - Pass criteria: success/failure/cache tables pass and boundary scan remains green.
 - Expected runtime: 60 seconds.
 
-## 10. Trace Studio migration tests
+## 10. REST and migration-boundary tests
 
-### TEST-026: Trace Studio same-origin auth and `/api/v1` client
+### TEST-026: OpenAPI and router conformance
 
-- Target: `web/trace-studio/src/api/client.test.jsx`, `web/trace-studio/src/auth/client.test.jsx`, `web/trace-studio/src/App.test.jsx`
-- Command: `npm --prefix web/trace-studio test -- --run src/api/client.test.jsx src/auth/client.test.jsx src/App.test.jsx`
-- Setup: jsdom, mocked same-origin fetch, CSRF fixture, gateway state fixtures.
+- Target: `api/openapi.yaml`, `internal/gateway/openapi_contract_test.go`
+- Command: `go test ./internal/gateway/... -run TestOpenAPIContract -count=1`
+- Setup: parsed OpenAPI 3.1 document, live chi router metadata, request/response fixtures, and deterministic examples.
 - Assertions:
-  - Login/logout/session use gateway cookie auth and no bearer token.
-  - Mutations send the CSRF header.
-  - All application requests use `/api/v1` routes.
-  - Existing profile, history, run, state, trace, pricing, cache, and backup-profile workflows remain functional.
-  - Trace-artifact viewing follows the authenticated gateway route and then the short-lived Garage URL; the UI never receives Garage credentials.
-- Pass criteria: targeted Vitest files pass with no Firebase mock.
-- Expected runtime: 60 seconds.
+  - The document is valid OpenAPI 3.1 and defines stable operation IDs, request schemas, success/error envelopes, examples, limits, and the opaque bearer security scheme.
+  - Every implemented non-health route exists once in OpenAPI and every OpenAPI operation maps to one router operation.
+  - Login is the only unauthenticated `/api/v1` operation; all other application operations require bearer auth.
+  - Contract fixtures for state, profile, bundle, model refresh, history, run, trace, artifact redirect, auth, pagination, and errors validate against the document.
+  - No schema, operation, description, or extension depends on Phoenix, LiveView, React, browser cookies, or frontend implementation types.
+- Pass criteria: OpenAPI parsing, route parity, security, and request/response fixture tables pass.
+- Expected runtime: 20 seconds.
 
-### TEST-027: target contains no Firebase surface
+### TEST-027: backend contains no Firebase or frontend implementation
 
-- Target: `web/trace-studio/src/firebase_absence.test.jsx`, `internal/testkit/firebase_absence_test.go`
-- Command: `go test ./internal/testkit/... -run TestFirebaseAbsent -count=1 && npm --prefix web/trace-studio test -- --run src/firebase_absence.test.jsx`
-- Setup: target source tree and package manifests.
+- Target: `internal/testkit/firebase_frontend_absence_test.go`
+- Command: `go test ./internal/testkit/... -run TestFirebaseFrontendAbsent -count=1`
+- Setup: backend source, test, build, dependency, and deployment manifests; planning documents excluded from literal-name scans.
 - Assertions:
-  - No Firebase package/import/env name/config/deploy script/server/emulator exists.
-  - No source file calls Firebase Auth, Firestore, Functions, Hosting, or Storage.
-  - Target tests and release commands do not invoke the source Firebase server suite.
+  - No backend dependency, import, environment name, configuration, deploy script, server, emulator, or production code calls Firebase Auth, Firestore, Functions, Hosting, or Storage.
+  - No backend package contains Phoenix, LiveView, React, Vite, JSX, HEEx, HTML-template, frontend asset, browser-cookie, or browser-CSRF implementation code.
+  - Backend tests and release commands do not build or test any frontend application.
   - Fixture provenance may name the source repository but cannot create a runtime dependency.
-- Pass criteria: both scans exit zero.
-- Expected runtime: 15 seconds.
+- Pass criteria: the scoped backend dependency/AST/filesystem scan exits zero.
+- Expected runtime: 10 seconds.
 
 ## 11. Observability and diagnostics tests
 
@@ -549,8 +553,9 @@ Fixture rules:
   - Named volumes and health checks exist; Harden-LLM-owned image tags/digests are pinned and upstream Langfuse image choices match the pinned fragment.
   - Garage uses the pinned v2.3 single-node/default-bucket startup path with persistent metadata/data volumes and maps one bucket-scoped credential into Garage and gateway environment names without a custom bootstrap service.
   - Only Caddy publishes externally reachable host ports in the effective production topology.
-  - Caddy routes app, Grafana, and Langfuse hostnames and applies TLS, body limits, and security headers.
-  - Caddy routes the Garage S3 API on the configured artifact hostname with exact Trace Studio-origin CORS while Garage administration/RPC routes remain private.
+  - Caddy routes API, Grafana, and Langfuse hostnames and applies TLS, body limits, and security headers without serving frontend assets.
+  - Caddy routes the Garage S3 API on the configured artifact hostname while Garage administration/RPC routes remain private.
+  - No Phoenix/LiveView or other frontend service is part of the fifteen-service backend topology.
   - Langfuse headless user/organization/project/key initialization supplies the Collector ingestion credentials without a setup step.
   - Harden-LLM uses only Garage for artifacts; Langfuse uses only its upstream MinIO. Their endpoints, buckets, and credentials do not cross.
   - No Firebase, application SQLite, Sentry, Temporal, or locally substituted Langfuse dependency exists.
@@ -565,7 +570,8 @@ Fixture rules:
 - Assertions:
   - All fifteen services become healthy within 300 seconds.
   - The test-only private `fake-provider` service is reachable only by the gateway and publishes no host port.
-  - App routes through Caddy and gateway readiness reaches Harden-LLM Postgres and Garage.
+  - API routes through Caddy and gateway readiness reaches Harden-LLM Postgres and Garage.
+  - Login returns an opaque bearer token that authenticates the smoke lifecycle without a browser cookie or CSRF path.
   - One fake-provider run creates application state and an available artifact index in Harden-LLM Postgres.
   - The linked canonical redacted trace artifact is fetched from Garage through an authenticated gateway route and short-lived Caddy artifact-host URL; its SHA-256 and byte length match Postgres.
   - Its trace reaches Tempo and Langfuse exactly once, metric reaches Prometheus, and correlated log reaches Loki.
@@ -595,7 +601,7 @@ Fixture rules:
 - Command: `make verify`
 - Setup: Go and Node dependencies installed, isolated Harden-LLM Postgres and Garage, pinned Harden-LLM images, and recorded upstream Langfuse fragment/images.
 - Assertions:
-  - Formatting, build, static, unit, parity, integration, web, observability, Compose artifact, race, vet, and `govulncheck` gates pass.
+  - Formatting, build, static, unit, parity, integration, API/OpenAPI, observability, Compose artifact, race, vet, and `govulncheck` gates pass.
   - Integration packages also run under `-race`.
   - No live provider credential is required.
 - Pass criteria: `make verify` exits zero.
@@ -665,4 +671,4 @@ Each phase records under ignored `plans/evidence/harden-llm/<run-id>/`:
 
 ## 16. Completion criteria
 
-The v1 test program is complete when TEST-001 through TEST-036, TEST-039, and TEST-040 pass, TEST-037 and TEST-038 pass when explicit live certification is required, all target test files use the single `TEST-###` namespace, the target has no Firebase surface, Collector fanout is the only Langfuse export path, Garage is the only Harden-LLM artifact store, Langfuse retains its pinned upstream MinIO dependency, and the full fifteen-service Compose smoke proves correlated application, artifact, Tempo, Loki, Prometheus, Grafana, and Langfuse diagnostics.
+The backend v1 test program is complete when TEST-001 through TEST-036, TEST-039, and TEST-040 pass, TEST-037 and TEST-038 pass when explicit live certification is required, all target test files use the single `TEST-###` namespace, OpenAPI and router behavior conform, the backend has no Firebase or frontend implementation surface, Collector fanout is the only Langfuse export path, Garage is the only Harden-LLM artifact store, Langfuse retains its pinned upstream MinIO dependency, and the full fifteen-service Compose smoke proves correlated API, artifact, Tempo, Loki, Prometheus, Grafana, and Langfuse diagnostics.
