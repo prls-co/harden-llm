@@ -9,6 +9,8 @@ import (
 	"syscall"
 )
 
+var version = "dev"
+
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -30,6 +32,10 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 	}
 	if args[0] == "healthcheck" {
 		return runHealthcheck(ctx, args[1:], stdout)
+	}
+	if args[0] == "version" && len(args) == 1 {
+		_, err := fmt.Fprintln(stdout, version)
+		return err
 	}
 	return fmt.Errorf("unknown command %q", args[0])
 }

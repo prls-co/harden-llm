@@ -1,10 +1,12 @@
 GO ?= go
+GOFMT ?= gofmt
 NODE ?= node
 
-.PHONY: format lint build test-static test-unit test-parity test-integration test-api test-observability test-compose test-race verify
+.PHONY: format lint build test-static test-unit test-parity test-integration test-integration-race test-api test-observability test-compose test-race test-vulnerability verify
 
 format:
-	$(GO) fmt ./...
+	@unformatted="$$($(GOFMT) -l $$(find . -type f -name '*.go' -not -path './.git/*' -not -path './.codex/*'))"; \
+	test -z "$$unformatted" || { echo "Unformatted Go files:"; echo "$$unformatted"; exit 1; }
 
 lint:
 	$(GO) vet ./...
@@ -26,11 +28,14 @@ test-parity:
 test-integration:
 	$(GO) test ./... -tags=integration -count=1
 
+test-integration-race:
+	$(GO) test -race ./... -tags=integration -count=1
+
 test-api:
 	$(GO) test ./internal/gateway/... -count=1
 
 test-observability:
-	$(GO) test ./internal/observability/... ./internal/deploytest/... -count=1
+	$(GO) test ./internal/runtime/... ./internal/gateway/... ./internal/artifacts/... ./internal/deploytest/... ./internal/eval/... -count=1
 
 test-compose:
 	$(GO) test ./internal/smoke/... -tags=compose -run TestComposeSmoke -count=1
@@ -38,4 +43,7 @@ test-compose:
 test-race:
 	$(GO) test -race ./... -count=1
 
-verify: format lint build test-static test-unit test-parity test-integration test-api test-observability test-race
+test-vulnerability:
+	$(GO) tool govulncheck ./...
+
+verify: format lint build test-static test-unit test-parity test-integration test-integration-race test-api test-observability test-race test-vulnerability

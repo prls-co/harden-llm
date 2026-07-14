@@ -77,19 +77,26 @@ if config_env() == :prod do
   host = System.fetch_env!("HARDEN_LLM_WEB_HOST")
   signing_salt = System.fetch_env!("HARDEN_LLM_WEB_SESSION_SIGNING_SALT")
   encryption_salt = System.fetch_env!("HARDEN_LLM_WEB_SESSION_ENCRYPTION_SALT")
-  release = System.fetch_env!("HARDEN_LLM_RELEASE")
-  environment = System.get_env("HARDEN_LLM_ENVIRONMENT", "production")
+  release = System.get_env("HARDEN_LLM_WEB_RELEASE") || System.fetch_env!("HARDEN_LLM_RELEASE")
+
+  environment =
+    System.get_env("HARDEN_LLM_WEB_ENVIRONMENT") ||
+      System.get_env("HARDEN_LLM_ENVIRONMENT", "production")
 
   instance_id =
     System.get_env("HARDEN_LLM_WEB_INSTANCE_ID", System.get_env("HOSTNAME", "unknown"))
 
-  otlp_endpoint = System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4317")
+  otlp_endpoint =
+    System.get_env("HARDEN_LLM_WEB_OTEL_EXPORTER_OTLP_ENDPOINT") ||
+      System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4317")
+
+  service_name = System.get_env("HARDEN_LLM_WEB_SERVICE_NAME", "harden-llm-web")
 
   config :opentelemetry,
     span_processor: :batch,
     traces_exporter: :otlp,
     resource: [
-      service: [name: "harden-llm-web", version: release, instance: [id: instance_id]],
+      service: [name: service_name, version: release, instance: [id: instance_id]],
       deployment: [environment: [name: environment]]
     ]
 

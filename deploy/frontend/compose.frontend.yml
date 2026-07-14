@@ -40,6 +40,10 @@ services:
       HARDEN_LLM_WEB_LOG_PATH: /var/log/harden-llm-web/app.jsonl
       HARDEN_LLM_WEB_LOG_MAX_BYTES: ${HARDEN_LLM_WEB_LOG_MAX_BYTES:-10485760}
       HARDEN_LLM_WEB_LOG_MAX_FILES: ${HARDEN_LLM_WEB_LOG_MAX_FILES:-5}
+      HARDEN_LLM_WEB_OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      HARDEN_LLM_WEB_SERVICE_NAME: harden-llm-web
+      HARDEN_LLM_WEB_ENVIRONMENT: ${HARDEN_LLM_ENVIRONMENT:-production}
+      HARDEN_LLM_WEB_RELEASE: ${HARDEN_LLM_RELEASE:?set an immutable release identifier}
       HARDEN_LLM_ENVIRONMENT: ${HARDEN_LLM_ENVIRONMENT:-production}
       HARDEN_LLM_RELEASE: ${HARDEN_LLM_RELEASE:?set an immutable release identifier}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317

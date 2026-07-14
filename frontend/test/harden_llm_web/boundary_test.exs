@@ -55,6 +55,21 @@ defmodule HardenLlmWeb.BoundaryTest do
     assert req_users == ["lib/harden_llm_web/harden_api.ex"]
   end
 
+  test "production runtime consumes the specified frontend environment contract" do
+    runtime = File.read!("config/runtime.exs")
+    compose = File.read!("../deploy/frontend/compose.frontend.yml")
+
+    for name <- ~w(
+      HARDEN_LLM_WEB_OTEL_EXPORTER_OTLP_ENDPOINT
+      HARDEN_LLM_WEB_SERVICE_NAME
+      HARDEN_LLM_WEB_ENVIRONMENT
+      HARDEN_LLM_WEB_RELEASE
+    ) do
+      assert runtime =~ name
+      assert compose =~ name
+    end
+  end
+
   defp source_files do
     Path.wildcard("{lib,assets}/**/*")
     |> Enum.filter(&File.regular?/1)

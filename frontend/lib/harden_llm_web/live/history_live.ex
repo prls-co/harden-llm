@@ -1,7 +1,7 @@
 defmodule HardenLlmWeb.HistoryLive do
   use HardenLlmWeb, :live_view
 
-  alias HardenLlmWeb.{APIError, HardenAPI, Observability}
+  alias HardenLlmWeb.{APIError, Auth, HardenAPI, Observability}
 
   @impl true
   def mount(_params, _session, socket) do
@@ -35,6 +35,10 @@ defmodule HardenLlmWeb.HistoryLive do
   end
 
   @impl true
+  def handle_async(_operation, {:ok, {:error, %APIError{status: 401}}}, socket) do
+    {:noreply, Auth.expire_live(socket)}
+  end
+
   def handle_async(:load_history, {:ok, {:ok, page, _state}}, socket) do
     {:noreply, put_page(socket, page, true)}
   end
@@ -52,6 +56,25 @@ defmodule HardenLlmWeb.HistoryLive do
         %{assigns: %{pending: reference}} = socket
       ) do
     {:noreply, socket |> assign(:pending, nil) |> put_page(page, false)}
+  end
+
+  def handle_async(
+        {:load_more, reference},
+        {:ok, {:error, %APIError{} = error}},
+        %{assigns: %{pending: reference}} = socket
+      ) do
+    {:noreply, socket |> assign(:pending, nil) |> assign(:operation_error, error.message)}
+  end
+
+  def handle_async(
+        {:load_more, reference},
+        _result,
+        %{assigns: %{pending: reference}} = socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:pending, nil)
+     |> assign(:operation_error, "More history could not be loaded.")}
   end
 
   def handle_async(
@@ -124,6 +147,28 @@ defmodule HardenLlmWeb.HistoryLive do
         %{assigns: %{pending: reference}} = socket
       ) do
     {:noreply, socket |> assign(:pending, nil) |> assign(:operation_error, error.message)}
+  end
+
+  def handle_async(
+        {_operation, reference, _id},
+        _result,
+        %{assigns: %{pending: reference}} = socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:pending, nil)
+     |> assign(:operation_error, "The history operation could not be completed.")}
+  end
+
+  def handle_async(
+        {:clear, reference},
+        _result,
+        %{assigns: %{pending: reference}} = socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:pending, nil)
+     |> assign(:operation_error, "History could not be cleared.")}
   end
 
   def handle_async(_operation, _result, socket), do: {:noreply, socket}
@@ -219,6 +264,9 @@ defmodule HardenLlmWeb.HistoryLive do
          {:ok, _result, _state} <- HardenAPI.save_state(socket.assigns.session_handle, state) do
       {:noreply, push_navigate(socket, to: ~p"/workspace")}
     else
+      {:error, %APIError{status: 401}} ->
+        {:noreply, Auth.expire_live(socket)}
+
       _ ->
         {:noreply, assign(socket, :operation_error, "This history item could not be restored.")}
     end

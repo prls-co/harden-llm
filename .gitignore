@@ -1,0 +1,12 @@
+.env
+plans/evidence/
+tmp/
+coverage.out
+*.test
+frontend/priv/static/assets/
+frontend/priv/static/cache_manifest.json
+frontend/priv/static/*.gz
+frontend/priv/static/*-*.ico
+frontend/priv/static/*-*.txt
+frontend/priv/static/images/*.gz
+frontend/priv/static/images/*-*.svg

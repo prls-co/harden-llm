@@ -1,7 +1,7 @@
 defmodule HardenLlmWeb.ProfilesLive do
   use HardenLlmWeb, :live_view
 
-  alias HardenLlmWeb.{APIError, HardenAPI, Observability}
+  alias HardenLlmWeb.{APIError, Auth, HardenAPI, Observability}
 
   @empty_form %{
     "profileId" => "",
@@ -52,6 +52,10 @@ defmodule HardenLlmWeb.ProfilesLive do
   end
 
   @impl true
+  def handle_async(_operation, {:ok, {:error, %APIError{status: 401}}}, socket) do
+    {:noreply, Auth.expire_live(socket)}
+  end
+
   def handle_async(:load_profiles, {:ok, {:ok, %{"profiles" => profiles}, _state}}, socket) do
     {:noreply, put_profiles(socket, profiles)}
   end
@@ -134,6 +138,29 @@ defmodule HardenLlmWeb.ProfilesLive do
      |> assign(:pending, nil)
      |> assign(:delete_id, nil)
      |> assign(:operation_error, error.message)}
+  end
+
+  def handle_async(
+        {:save, reference},
+        _result,
+        %{assigns: %{pending: reference}} = socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:pending, nil)
+     |> assign(:operation_error, "The profile could not be saved.")}
+  end
+
+  def handle_async(
+        {_operation, reference, _id},
+        _result,
+        %{assigns: %{pending: reference}} = socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:pending, nil)
+     |> assign(:delete_id, nil)
+     |> assign(:operation_error, "The profile operation could not be completed.")}
   end
 
   def handle_async(_operation, _result, socket), do: {:noreply, socket}
@@ -238,6 +265,7 @@ defmodule HardenLlmWeb.ProfilesLive do
       {:noreply,
        socket |> put_profiles(profiles) |> put_flash(:info, "Profile bundle imported atomically.")}
     else
+      {:error, %APIError{status: 401}} -> {:noreply, Auth.expire_live(socket)}
       _ -> {:noreply, assign(socket, :operation_error, "The selected bundle was rejected.")}
     end
   end

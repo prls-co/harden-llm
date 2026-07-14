@@ -185,6 +185,26 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     assert has_element?(view, "#profile-Primary")
   end
 
+  test "an active profile operation 401 redirects through session revocation", %{conn: conn} do
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/profiles"} ->
+          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+
+        {"POST", "/api/v1/profiles/Primary/models:refresh"} ->
+          {status, envelope} = APIFixtures.error(401, "session_expired")
+          conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/profiles")
+    render_async(view, 1_000)
+
+    view |> element(~s(button[phx-click="refresh"][phx-value-id="Primary"])) |> render_click()
+
+    assert_redirect(view, ~p"/session/expired", 1_000)
+  end
+
   defp install_stub(handler) do
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do

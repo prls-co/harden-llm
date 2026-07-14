@@ -19,6 +19,8 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
+const telemetryFailureRecordingBudget = 2 * time.Second
+
 func TestTelemetryFailureIsolation(t *testing.T) {
 	const exporterSecret = "collector-export-secret"
 	traceState := newBlockingExportState(exporterSecret)
@@ -78,8 +80,10 @@ func TestTelemetryFailureIsolation(t *testing.T) {
 		logger.Info("queued-log", "sequence_bucket", index%4)
 		counter.Add(context.Background(), 1, metric.WithAttributes())
 	}
-	if elapsed := time.Since(floodStarted); elapsed > time.Second {
+	if elapsed := time.Since(floodStarted); elapsed > telemetryFailureRecordingBudget {
 		t.Fatalf("telemetry recording blocked application work for %v", elapsed)
+	} else {
+		t.Logf("telemetry failure-isolation flood completed in %v", elapsed)
 	}
 
 	shutdownStarted := time.Now()

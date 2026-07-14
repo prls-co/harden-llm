@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "certifiedAt": "2026-07-13",
+  "increaseEvidenceDirectory": "ker/timeouts/rca",
+  "clientTimeoutPolicy": "The frontend-independent backend gate does not infer or pad a client timeout; clients own any transport margin outside the 60-second gateway contract maximum.",
+  "requiredRCAFields": [
+    "policyId",
+    "phase",
+    "startProof",
+    "failedTimingsMilliseconds",
+    "comparableSuccessesMilliseconds",
+    "p95Milliseconds",
+    "maximumMilliseconds",
+    "previousTimeoutMilliseconds",
+    "configuredTimeoutMilliseconds",
+    "headroomMilliseconds",
+    "rootCause",
+    "rationale"
+  ],
+  "policies": [
+    {
+      "id": "gateway.maximum-run-duration",
+      "path": "cmd/harden-llm-gateway/config.go",
+      "pattern": "defaultMaximumRunDuration\\s*=\\s*(\\d+)\\s*\\*\\s*time\\.Second",
+      "unitMultiplierMilliseconds": 1000,
+      "baselineMilliseconds": 60000,
+      "initialBaseline": true,
+      "basis": "Published synchronous run contract maximum; the gateway rejects larger configuration and request values."
+    },
+    {
+      "id": "gateway.maximum-operation-timeout",
+      "path": "internal/gateway/httpapi/httpapi.go",
+      "pattern": "maximumOperationTimeout\\s*=\\s*(\\d+)\\s*\\*\\s*time\\.Second",
+      "unitMultiplierMilliseconds": 1000,
+      "baselineMilliseconds": 30000,
+      "initialBaseline": true,
+      "basis": "Upper bound for non-run REST operations."
+    },
+    {
+      "id": "gateway.maximum-profile-probe-timeout",
+      "path": "internal/gateway/profile_service.go",
+      "pattern": "maximumProbeTimeout\\s*=\\s*(\\d+)\\s*\\*\\s*time\\.Second",
+      "unitMultiplierMilliseconds": 1000,
+      "baselineMilliseconds": 30000,
+      "initialBaseline": true,
+      "basis": "Upper bound for credential and endpoint validation before profile persistence."
+    },
+    {
+      "id": "provider.connect-timeout",
+      "path": "internal/providers/endpoint.go",
+      "pattern": "defaultConnectTimeout\\s*=\\s*(\\d+)\\s*\\*\\s*time\\.Second",
+      "unitMultiplierMilliseconds": 1000,
+      "baselineMilliseconds": 10000,
+      "initialBaseline": true,
+      "basis": "Default outbound provider TCP connection bound."
+    },
+    {
+      "id": "provider.tls-handshake-timeout",
+      "path": "internal/providers/endpoint.go",
+      "pattern": "defaultTLSHandshakeTimeout\\s*=\\s*(\\d+)\\s*\\*\\s*time\\.Second",
+      "unitMultiplierMilliseconds": 1000,
+      "baselineMilliseconds": 10000,
+      "initialBaseline": true,
+      "basis": "Default outbound provider TLS handshake bound."
+    },
+    {
+      "id": "provider.response-header-timeout",
+      "path": "internal/providers/endpoint.go",
+      "pattern": "defaultResponseHeaderTimeout\\s*=\\s*(\\d+)\\s*\\*\\s*time\\.Second",
+      "unitMultiplierMilliseconds": 1000,
+      "baselineMilliseconds": 30000,
+      "initialBaseline": true,
+      "basis": "Default outbound provider response-header bound; the caller deadline still caps the complete call."
+    },
+    {
+      "id": "artifact.maximum-operation-timeout",
+      "path": "internal/artifacts/garage.go",
+      "pattern": "maximumOperationTimeout\\s*=\\s*(\\d+)\\s*\\*\\s*time\\.Second",
+      "unitMultiplierMilliseconds": 1000,
+      "baselineMilliseconds": 30000,
+      "initialBaseline": true,
+      "basis": "Upper bound for Garage operations so artifact persistence cannot hang a completed provider call."
+    },
+    {
+      "id": "telemetry.langfuse-export-timeout",
+      "path": "deploy/otel/collector.yaml",
+      "pattern": "(?s)otlphttp/langfuse:.*?timeout:\\s*(\\d+)s",
+      "unitMultiplierMilliseconds": 1000,
+      "baselineMilliseconds": 5000,
+      "initialBaseline": true,
+      "basis": "Bounded Collector export attempt; queue and retry policy absorb transient Langfuse delay."
+    },
+    {
+      "id": "telemetry.tail-sampling-decision-wait",
+      "path": "deploy/otel/collector.yaml",
+      "pattern": "(?s)tail_sampling/langfuse:.*?decision_wait:\\s*(\\d+)s",
+      "unitMultiplierMilliseconds": 1000,
+      "baselineMilliseconds": 75000,
+      "initialBaseline": true,
+      "basis": "Waits beyond the 60-second gateway cap so complete gateway traces reach Langfuse."
+    },
+    {
+      "id": "telemetry.prometheus-scrape-timeout",
+      "path": "deploy/prometheus/prometheus.yaml",
+      "pattern": "scrape_timeout:\\s*(\\d+)s",
+      "unitMultiplierMilliseconds": 1000,
+      "baselineMilliseconds": 10000,
+      "initialBaseline": true,
+      "basis": "Prometheus scrape bound remains below the 15-second scrape interval."
+    },
+    {
+      "id": "test.telemetry-failure-recording-budget",
+      "path": "internal/gateway/telemetry_failure_test.go",
+      "pattern": "telemetryFailureRecordingBudget\\s*=\\s*(\\d+)\\s*\\*\\s*time\\.Second",
+      "unitMultiplierMilliseconds": 1000,
+      "baselineMilliseconds": 1000,
+      "initialBaseline": true,
+      "basis": "Established non-race TEST-031 recording budget before TEST-036 activated the required integration race gate."
+    },
+    {
+      "id": "compose.readiness-budget",
+      "path": "internal/smoke/harness_compose.go",
+      "pattern": "readinessBudget\\s*=\\s*(\\d+)\\s*\\*\\s*time\\.Second",
+      "unitMultiplierMilliseconds": 1000,
+      "baselineMilliseconds": 300000,
+      "initialBaseline": true,
+      "basis": "Initial 300-second budget based on Langfuse's documented two-to-three-minute startup plus health-check margin; this is not a later increase."
+    }
+  ]
+}

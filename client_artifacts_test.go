@@ -73,19 +73,29 @@ func TestClientArtifactPersistenceIsRedactedAndNonFatal(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		client.executor = &fixedExecutor{err: &retry.ProviderError{
-			Err: errors.New("structured parse failed"), Parse: true,
-			RawResponse: `{"answer":"fixture-only-key","unfinished":`,
-		}}
+		client.executor = &fixedExecutor{
+			result: coreruntime.ProviderResult{
+				Usage: coreruntime.Usage{InputTokens: 4, OutputTokens: 2, TotalTokens: 6},
+				Cost:  coreruntime.Cost{TotalUSD: 0.000006, Known: true, Source: "profile"},
+			},
+			err: &retry.ProviderError{
+				Err: errors.New("structured parse failed"), Parse: true,
+				RawResponse: `{"answer":"fixture-only-key","unfinished":`,
+			},
+		}
 		ids := []string{"call-parse", "trace-parse"}
 		client.newID = func() (string, error) { id := ids[0]; ids = ids[1:]; return id, nil }
-		_, err = client.Call(context.Background(), Request{
+		result, err := client.Call(context.Background(), Request{
 			ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "fixture", CallType: CallTypeText,
 			Context:     ObservabilityContext{OrganizationID: "org-1", TaskID: "task-1"},
 			RetryPolicy: RetryPolicy{MaxAttempts: 1},
 		})
-		if err == nil || len(store.contents) != 2 {
-			t.Fatalf("parse failure artifacts = %d, error = %v", len(store.contents), err)
+		if err == nil || len(store.contents) != 2 || len(result.Artifacts) != 2 {
+			t.Fatalf("parse failure artifacts = %d/%d, error = %v", len(store.contents), len(result.Artifacts), err)
+		}
+		if result.CallID != "call-parse" || result.TraceID != "trace-parse" || len(result.Attempts) != 1 ||
+			result.Usage.TotalTokens != 6 || !result.Cost.Known {
+			t.Fatalf("parse failure result lost diagnostic context: %#v", result)
 		}
 		for key, content := range store.contents {
 			if !json.Valid(content) || strings.Contains(string(content), "fixture-only-key") {

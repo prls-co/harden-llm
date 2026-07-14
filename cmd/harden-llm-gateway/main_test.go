@@ -26,3 +26,16 @@ func TestBootstrapCommandInput(t *testing.T) {
 		t.Fatal("unknown command was accepted")
 	}
 }
+
+func TestVersionCommand(t *testing.T) {
+	var output bytes.Buffer
+	if err := run(context.Background(), []string{"version"}, strings.NewReader(""), &output, &output, func(string) string { return "" }); err != nil {
+		t.Fatal(err)
+	}
+	if output.String() != version+"\n" {
+		t.Fatalf("version output = %q", output.String())
+	}
+	if err := run(context.Background(), []string{"version", "unexpected"}, strings.NewReader(""), &output, &output, func(string) string { return "" }); err == nil {
+		t.Fatal("version command accepted arguments")
+	}
+}

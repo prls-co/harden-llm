@@ -57,7 +57,14 @@ func TestTraceability(t *testing.T) {
 			return nil
 		}
 		text := string(contents)
-		if !strings.Contains(text, "SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001") {
+		if hasCommentMarker(text, "SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001") {
+			if !strings.Contains(text, "WEB-TEST-") {
+				rel, _ := filepath.Rel(root, path)
+				t.Errorf("frontend support test %s lacks a WEB-TEST ID", filepath.ToSlash(rel))
+			}
+			return nil
+		}
+		if !hasCommentMarker(text, "SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001") {
 			rel, _ := filepath.Rel(root, path)
 			t.Errorf("target test file %s lacks the canonical specification ID", filepath.ToSlash(rel))
 		}
@@ -84,6 +91,15 @@ func TestTraceability(t *testing.T) {
 			}
 		}
 	}
+}
+
+func hasCommentMarker(text, marker string) bool {
+	for _, line := range strings.Split(text, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "// "+marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func uniqueIDs(ids []string) []string {

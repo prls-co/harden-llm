@@ -166,6 +166,25 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert Agent.get(counter, & &1) == 1
   end
 
+  test "an active run 401 redirects through session revocation", %{conn: conn} do
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/run"} ->
+          {status, envelope} = APIFixtures.error(401, "session_expired")
+          conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    submit_run(view, %{"userPrompt" => "expired session"})
+
+    assert_redirect(view, ~p"/session/expired", 1_000)
+  end
+
   defp submit_run(view, overrides) do
     params =
       Map.merge(

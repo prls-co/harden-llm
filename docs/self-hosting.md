@@ -1,0 +1,110 @@
+# Self-Hosting and Operations
+
+The certified deployment is one Linux Docker host. The backend has fifteen
+services; the optional Phoenix overlay adds the sixteenth. Run commands from
+the repository root with Docker 29+ and Compose 2.40+.
+
+## Prepare the host
+
+Allocate persistent storage for Docker volumes, working DNS for the five public
+hostnames, and inbound TCP 80/443. Copy `.env.example` to `.env`, set mode 0600,
+and replace every placeholder. Generate every secret independently; do not
+reuse application, Garage, Grafana, or Langfuse credentials.
+
+Use a public ACME account email as `HARDEN_LLM_TLS_MODE` in production. `internal`
+uses Caddy's private CA and is appropriate only when clients explicitly trust it.
+Keep `.env` outside backups that leave the encrypted backup boundary.
+
+For the full product, define the exact project once in Bash:
+
+```bash
+COMPOSE=(docker compose
+  -f docker-compose.yml
+  -f deploy/langfuse/docker-compose.upstream.yml
+  -f deploy/langfuse/compose.private.yml
+  -f deploy/frontend/compose.frontend.yml)
+"${COMPOSE[@]}" config --quiet
+"${COMPOSE[@]}" pull --ignore-buildable
+"${COMPOSE[@]}" up -d --build --wait --wait-timeout 300
+"${COMPOSE[@]}" ps
+```
+
+Omit the last file for the frontend-independent backend. Do not edit the pinned
+upstream Langfuse fragment; follow its [update procedure](../deploy/langfuse/UPSTREAM.md).
+
+## Bootstrap an operator
+
+There is no public registration. Use a stable, non-email owner ID and provide
+the password through standard input so it never appears in process arguments:
+
+```bash
+read -rsp 'Initial password: ' BOOTSTRAP_PASSWORD; echo
+printf '%s\n' "$BOOTSTRAP_PASSWORD" | "${COMPOSE[@]}" run --rm -T \
+  harden-llm-gateway bootstrap-user \
+  --owner-id operator-01 --email operator@example.net --password-file -
+unset BOOTSTRAP_PASSWORD
+```
+
+The command is create-only and fails for an existing owner or email; it is not
+a password-reset path. Restrict Docker access: it is equivalent to root and can
+read service configuration.
+
+## Health and diagnostics
+
+- `https://<api-host>/healthz` checks process liveness.
+- `https://<api-host>/readyz` checks migrations and the Garage bucket.
+- `https://<web-host>/healthz` checks Phoenix startup.
+- Grafana is the operational entry point for Prometheus, Loki, and Tempo.
+- Langfuse receives complete Go gateway traces only through the Collector.
+
+Use `"${COMPOSE[@]}" logs --since 15m <service>` sparingly. Logs are redacted by
+contract, but still treat them as operational data. The API never exposes
+Prometheus, Collector, Postgres, Garage administration, or provider endpoints.
+
+If readiness fails, inspect the first unhealthy dependency instead of extending
+the 300-second budget. Timeout increases require the RCA in
+[`ker/timeouts/`](../ker/timeouts/README.md).
+
+## Back up and restore
+
+Back up these failure domains independently:
+
+1. Application Postgres: logical dump plus roles, or a tested cold volume snapshot.
+2. Garage: `garage-metadata` and `garage-data` in one quiesced snapshot.
+3. Langfuse: upstream Postgres, ClickHouse, Redis, and MinIO according to the
+   pinned Langfuse release's procedures.
+4. Prometheus, Loki, Tempo, and Grafana volumes when diagnostic retention matters.
+5. `.env` and Caddy data through a separate encrypted secrets/PKI backup.
+
+For a portable cold backup, run `"${COMPOSE[@]}" down` without `--volumes`,
+snapshot all named volumes at the Docker volume-driver layer, then restart and
+verify `/readyz`. Restore only while the project is down. Preserve the active
+and historical `HARDEN_LLM_ENCRYPTION_KEYS`; losing an old key makes credentials
+written with that key undecryptable. Never restore Garage data without its
+matching metadata, or mix Harden LLM Garage volumes with Langfuse MinIO.
+
+Test restoration on another host before treating a backup as valid.
+
+## Upgrade, rotate, and roll back
+
+Before an upgrade, take a tested backup, review ADRs and image-lock changes, run
+`make verify` and `make test-compose`, then deploy only immutable release IDs and
+digests. Validate the effective Compose project before `up -d`.
+
+To rotate credential encryption, add a new key ID to
+`HARDEN_LLM_ENCRYPTION_KEYS`, keep old keys present, and switch
+`HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID`. New writes use the active key; existing
+records remain readable. Remove an old key only after a deliberate re-encryption
+migration proves no row references it.
+
+Rollback the stateless gateway/frontend images only to a version compatible
+with the deployed schema. Database migrations are forward-only; if compatibility
+is uncertain, stop writes and restore the pre-upgrade failure-domain backups.
+After any recovery, verify login, profile probe, one deterministic run, artifact
+download, and correlated Tempo/Loki/Prometheus/Langfuse diagnostics.
+
+## Shutdown
+
+`"${COMPOSE[@]}" down` preserves named volumes. Adding `--volumes` permanently
+deletes application, artifact, telemetry, and Langfuse data and is reserved for
+disposable test projects.

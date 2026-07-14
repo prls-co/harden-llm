@@ -45,17 +45,16 @@ defmodule HardenLlmWeb.Auth do
        |> Phoenix.Component.assign(:current_identity, safe_identity(identity, principal))
        |> Phoenix.Component.assign(:current_scope, %{authenticated: true})}
     else
-      {:error, %APIError{}} -> expired(socket)
-      :error -> expired(socket)
-      _ -> expired(socket)
+      {:error, %APIError{}} -> {:halt, expire_live(socket)}
+      :error -> {:halt, expire_live(socket)}
+      _ -> {:halt, expire_live(socket)}
     end
   end
 
-  defp expired(socket) do
-    {:halt,
-     socket
-     |> Phoenix.LiveView.put_flash(:error, "Your session has expired. Please sign in again.")
-     |> Phoenix.LiveView.redirect(to: "/session/expired")}
+  def expire_live(socket) do
+    socket
+    |> Phoenix.LiveView.put_flash(:error, "Your session has expired. Please sign in again.")
+    |> Phoenix.LiveView.redirect(to: "/session/expired")
   end
 
   defp session_shape(%{

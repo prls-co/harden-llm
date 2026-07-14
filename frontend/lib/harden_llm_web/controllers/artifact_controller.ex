@@ -14,7 +14,7 @@ defmodule HardenLlmWeb.ArtifactController do
       |> send_resp(303, "")
     else
       {:error, %APIError{status: 401}} ->
-        conn |> configure_session(drop: true) |> redirect(to: ~p"/login")
+        redirect(conn, to: ~p"/session/expired")
 
       _ ->
         conn |> put_status(:bad_gateway) |> text("Artifact download is temporarily unavailable.")

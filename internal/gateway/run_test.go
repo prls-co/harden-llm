@@ -7,6 +7,7 @@ package gateway_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -105,6 +106,40 @@ func TestRunRoute(t *testing.T) {
 	}
 	if bytes.Contains(response.Body, []byte("llm-traces/")) {
 		t.Fatalf("run response exposed artifact object key: %s", response.Body)
+	}
+
+	failureService, err := gateway.NewRunService(gateway.RunServiceConfig{
+		Store: store, Profiles: profileService, Clock: func() time.Time { return now },
+		NewID:         func() (string, error) { return "failure-run", nil },
+		CallerFactory: func(gateway.RuntimeClientConfig) (gateway.RuntimeCaller, error) { return failureRuntimeCaller{}, nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	failureOutput, failureState, callErr := failureService.Run(ctx, "owner-a", gateway.RunInput{
+		ProfileID: "Backup", UserPrompt: "fail safely", CallType: hardenllm.CallTypeText, MaxAttempts: 1,
+	})
+	if callErr == nil || failureState.LastRunID != "failure-run" || failureState.LastTraceID != "trace-failure" {
+		t.Fatalf("failure state lost runtime identity: %#v %v", failureState, callErr)
+	}
+	if failureOutput.CallID != "call-failure" || failureOutput.TraceID != "trace-failure" || len(failureOutput.Attempts) != 1 ||
+		failureOutput.Usage.TotalTokens != 6 || len(failureOutput.Artifacts) != 2 {
+		t.Fatalf("failure output lost runtime diagnostics: %#v", failureOutput)
+	}
+	failedRun, err := store.Run(ctx, "owner-a", "failure-run")
+	if err != nil || failedRun.Status != "failed" || failedRun.TraceID != "trace-failure" {
+		t.Fatalf("failed run was not persisted with runtime identity: %#v %v", failedRun, err)
+	}
+	var failedResult gateway.RunOutput
+	if err := json.Unmarshal(failedRun.Result, &failedResult); err != nil || failedResult.CallID != "call-failure" ||
+		failedResult.TraceID != "trace-failure" || len(failedResult.Attempts) != 1 || failedResult.Usage.TotalTokens != 6 ||
+		len(failedResult.Artifacts) != 2 {
+		t.Fatalf("failed run lost diagnostic result: %#v %v", failedResult, err)
+	}
+	for _, artifactID := range []string{"call-failure-trace", "call-failure-raw"} {
+		if _, err := store.Artifact(ctx, "owner-a", "trace-failure", artifactID); err != nil {
+			t.Fatalf("failed-run artifact %q was not indexed: %v", artifactID, err)
+		}
 	}
 
 	structuredBody := []byte(`{"profileId":"Backup","userPrompt":"return JSON","callType":"structured","schema":{"type":"object","required":["ok"],"properties":{"ok":{"type":"boolean"}}},"structuredRepair":true,"maxAttempts":2}`)
@@ -239,6 +274,23 @@ func (caller *recordingRuntimeCaller) Call(_ context.Context, request hardenllm.
 type blockingRuntimeCaller struct {
 	calls    int
 	canceled chan struct{}
+}
+
+type failureRuntimeCaller struct{}
+
+func (failureRuntimeCaller) Call(_ context.Context, request hardenllm.Request) (hardenllm.Result, error) {
+	digest := strings.Repeat("b", 64)
+	prefix := fmt.Sprintf("llm-traces/%s/%s/trace-failure/call-failure", request.Context.OrganizationID, request.Context.TaskID)
+	return hardenllm.Result{
+		CallID: "call-failure", TraceID: "trace-failure",
+		Usage:    hardenllm.Usage{InputTokens: 4, OutputTokens: 2, TotalTokens: 6},
+		Cost:     hardenllm.Cost{TotalUSD: 0.000006, Known: true, Source: "profile"},
+		Attempts: []hardenllm.Attempt{{Number: 1, ProfileID: request.ProfileID, Category: "parse", ProviderUsed: true}},
+		Artifacts: []hardenllm.ArtifactRef{
+			{Key: prefix + "-trace.json", SHA256: digest, SizeBytes: 64, ContentType: "application/json"},
+			{Key: prefix + "-raw.json", SHA256: digest, SizeBytes: 32, ContentType: "application/json"},
+		},
+	}, errors.New("fixture provider failure")
 }
 
 func (caller *blockingRuntimeCaller) Call(ctx context.Context, _ hardenllm.Request) (hardenllm.Result, error) {

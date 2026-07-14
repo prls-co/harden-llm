@@ -1,7 +1,7 @@
 defmodule HardenLlmWeb.WorkspaceLive do
   use HardenLlmWeb, :live_view
 
-  alias HardenLlmWeb.{APIError, HardenAPI, Observability}
+  alias HardenLlmWeb.{APIError, Auth, HardenAPI, Observability}
 
   @default_state %{
     "schemaVersion" => 1,
@@ -37,6 +37,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   @impl true
+  def handle_async(_operation, {:ok, {:error, %APIError{status: 401}}}, socket) do
+    {:noreply, Auth.expire_live(socket)}
+  end
+
   def handle_async(:hydrate, {:ok, {:ok, hydration}}, socket) do
     state = Map.merge(@default_state, hydration.state)
 
@@ -81,6 +85,17 @@ defmodule HardenLlmWeb.WorkspaceLive do
       end
 
     {:noreply, socket |> assign(:run_ref, nil) |> assign(:run_error, message)}
+  end
+
+  def handle_async(
+        {:run, reference},
+        _result,
+        %{assigns: %{run_ref: reference}} = socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:run_ref, nil)
+     |> assign(:run_error, "The run could not be completed. Try again or check History.")}
   end
 
   def handle_async({:run, _stale_reference}, _result, socket), do: {:noreply, socket}

@@ -1,0 +1,14 @@
+{
+  "policyId": "test.telemetry-failure-recording-budget",
+  "phase": "P07 / TEST-036 integration-race",
+  "startProof": "plans/evidence/harden-llm/2026-07-13-p07/make-verify-attempt-1.txt",
+  "failedTimingsMilliseconds": [1283.928557, 1193.194098, 1160.200841, 1269.570164, 1245.404303, 1339.901201, 1450.057174, 1209.539362, 1192.702944, 1171.486479, 1312.574437],
+  "comparableSuccessesMilliseconds": [91.039537, 81.750301, 104.036685, 107.906727, 101.707739],
+  "p95Milliseconds": 1450.057174,
+  "maximumMilliseconds": 1450.057174,
+  "previousTimeoutMilliseconds": 1000,
+  "configuredTimeoutMilliseconds": 2000,
+  "headroomMilliseconds": 550,
+  "rootCause": "The Go race detector instruments the OpenTelemetry SDK span and log recording paths inside the 6144-iteration queue flood, producing a repeatable 11x to 16x test-only slowdown while exporters remain asynchronous and bounded.",
+  "rationale": "A two-second assertion preserves the greater-than-two-queue flood, remains far below synchronous exporter blocking, and adds measured race-detector headroom without changing any production timeout or queue setting."
+}

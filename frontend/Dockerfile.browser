@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM golang:1.26.0-alpine3.23@sha256:d4c4845f5d60c6a974c6000ce58ae079328d03ab7f721a0734277e69905473e5 AS go
+FROM golang:1.26.5-alpine3.23@sha256:622e56dbc11a8cfe87cafa2331e9a201877271cbff918af53d3be315f3da88cc AS go
 
 FROM hexpm/elixir:1.20.2-erlang-28.4.3-alpine-3.23.5@sha256:47cf4ef1fe9aeeec729da32eaa58b3d9ddbbe138c956f1f69d3794d536629105
 

@@ -1,14 +1,14 @@
 defmodule HardenLlmWeb.ArtifactControllerTest do
   use HardenLlmWeb.ConnCase, async: false
 
-  alias HardenLlmWeb.{APIFixtures, ArtifactController, HardenAPI}
+  alias HardenLlmWeb.{APIFixtures, ArtifactController, HardenAPI, SessionVault}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-008
 
   setup %{conn: conn} do
     Req.Test.set_req_test_to_private()
     handle = APIFixtures.insert_session()
-    {:ok, conn: init_test_session(conn, APIFixtures.session_map(handle))}
+    {:ok, conn: init_test_session(conn, APIFixtures.session_map(handle)), handle: handle}
   end
 
   test "accepts only an exact configured origin and emits a no-store 303", %{conn: conn} do
@@ -48,5 +48,40 @@ defmodule HardenLlmWeb.ArtifactControllerTest do
     conn = get(conn, ~p"/traces/trace-test/artifacts/artifact-test")
     assert text_response(conn, 502) == "Artifact download is temporarily unavailable."
     refute conn.resp_body =~ "evil.example.test"
+  end
+
+  test "artifact 401 redirects through the session-revocation endpoint", %{
+    conn: conn,
+    handle: handle
+  } do
+    stub_unauthorized()
+
+    response = get(conn, ~p"/traces/trace-test/artifacts/artifact-test")
+    assert redirected_to(response) == ~p"/session/expired"
+
+    expired = get(conn, ~p"/session/expired")
+    assert redirected_to(expired) == ~p"/login"
+    assert SessionVault.lookup(handle) == :error
+  end
+
+  test "bundle 401 redirects through the session-revocation endpoint", %{
+    conn: conn,
+    handle: handle
+  } do
+    stub_unauthorized()
+
+    response = get(conn, ~p"/profiles/bundle")
+    assert redirected_to(response) == ~p"/session/expired"
+
+    expired = get(conn, ~p"/session/expired")
+    assert redirected_to(expired) == ~p"/login"
+    assert SessionVault.lookup(handle) == :error
+  end
+
+  defp stub_unauthorized do
+    Req.Test.stub(HardenAPI, fn conn ->
+      {status, envelope} = APIFixtures.error(401, "session_expired")
+      conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
+    end)
   end
 end

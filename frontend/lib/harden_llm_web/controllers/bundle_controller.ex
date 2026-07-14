@@ -13,7 +13,7 @@ defmodule HardenLlmWeb.BundleController do
         )
 
       {:error, %APIError{status: 401}} ->
-        conn |> configure_session(drop: true) |> redirect(to: ~p"/login")
+        redirect(conn, to: ~p"/session/expired")
 
       {:error, %APIError{}} ->
         conn |> put_status(:bad_gateway) |> text("Profile bundle is temporarily unavailable.")

@@ -2,6 +2,8 @@
 
 package smoke
 
+// SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-012
+
 import (
 	"context"
 	"crypto/rand"

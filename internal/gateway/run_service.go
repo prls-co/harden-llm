@@ -231,7 +231,7 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 	endPersistence(persistErr)
 	state = RunState{LastRunID: runID, LastTraceID: traceID}
 	if callErr != nil {
-		return RunOutput{}, state, callErr
+		return output, state, callErr
 	}
 	if persistErr != nil {
 		return RunOutput{}, state, errors.New("gateway: persist completed run")

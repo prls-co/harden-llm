@@ -54,7 +54,9 @@ func New(options Options) (*Client, error) {
 	return &Client{options: options, executor: executor, telemetry: telemetry, newID: newRuntimeID}, nil
 }
 
-// Call executes one provider-neutral LLM request.
+// Call executes one provider-neutral LLM request. When provider execution
+// fails, the returned Result retains generated IDs and available diagnostics;
+// callers must still treat a non-nil error as a failed call.
 func (client *Client) Call(ctx context.Context, request Request) (result Result, err error) {
 	if ctx == nil {
 		return Result{}, errors.New("hardenllm: context is required")
@@ -169,11 +171,11 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 	if client.observeRecord != nil {
 		client.observeRecord(record)
 	}
-	if err != nil {
-		return Result{}, err
-	}
 	result = resultFromRecord(record)
 	result.Artifacts = artifactRefs
+	if err != nil {
+		return result, err
+	}
 	return result, nil
 }
 

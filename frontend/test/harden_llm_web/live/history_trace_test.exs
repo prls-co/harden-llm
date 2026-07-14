@@ -137,6 +137,55 @@ defmodule HardenLlmWeb.HistoryTraceTest do
     refute has_element?(view, "#history-run-test")
   end
 
+  test "an active trace 401 redirects through session revocation", %{conn: conn} do
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/history"} ->
+          Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
+
+        {"GET", "/api/v1/traces/trace-test"} ->
+          {status, envelope} = APIFixtures.error(401, "session_expired")
+          conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/history")
+    render_async(view, 1_000)
+
+    view
+    |> element(~s(button[phx-click="open-trace"][phx-value-trace-id="trace-test"]))
+    |> render_click()
+
+    assert_redirect(view, ~p"/session/expired", 1_000)
+  end
+
+  test "load-more errors clear the pending state", %{conn: conn} do
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path, conn.query_string} do
+        {"GET", "/api/v1/history", "limit=20"} ->
+          Req.Test.json(
+            conn,
+            APIFixtures.success(%{
+              "items" => [APIFixtures.history_item()],
+              "nextCursor" => "cursor-2"
+            })
+          )
+
+        {"GET", "/api/v1/history", _query} ->
+          {status, envelope} = APIFixtures.error(503, "temporarily_unavailable")
+          conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/history")
+    render_async(view, 1_000)
+    view |> element("#history-load-more") |> render_click()
+    render_async(view, 1_000)
+
+    assert has_element?(view, "#history-error")
+    assert has_element?(view, "#history-load-more:not([disabled])")
+  end
+
   defp install_stub(handler) do
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do
