@@ -1,0 +1,249 @@
+{
+  "modelId": "retry-decision-v1",
+  "parameters": {
+    "maxAttempts": [
+      1,
+      2,
+      4
+    ],
+    "outcome": [
+      "network",
+      "rate_limit",
+      "server_error",
+      "empty_response",
+      "parse_error",
+      "refusal"
+    ],
+    "policy": [
+      "enabled",
+      "disabled"
+    ]
+  },
+  "requiredInteractions": [
+    [
+      "outcome",
+      "policy",
+      "maxAttempts"
+    ]
+  ],
+  "rows": [
+    {
+      "id": "retry-001",
+      "maxAttempts": 1,
+      "outcome": "network",
+      "policy": "enabled"
+    },
+    {
+      "id": "retry-002",
+      "maxAttempts": 2,
+      "outcome": "network",
+      "policy": "enabled"
+    },
+    {
+      "id": "retry-003",
+      "maxAttempts": 4,
+      "outcome": "network",
+      "policy": "enabled"
+    },
+    {
+      "id": "retry-004",
+      "maxAttempts": 1,
+      "outcome": "network",
+      "policy": "disabled"
+    },
+    {
+      "id": "retry-005",
+      "maxAttempts": 2,
+      "outcome": "network",
+      "policy": "disabled"
+    },
+    {
+      "id": "retry-006",
+      "maxAttempts": 4,
+      "outcome": "network",
+      "policy": "disabled"
+    },
+    {
+      "id": "retry-007",
+      "maxAttempts": 1,
+      "outcome": "rate_limit",
+      "policy": "enabled"
+    },
+    {
+      "id": "retry-008",
+      "maxAttempts": 2,
+      "outcome": "rate_limit",
+      "policy": "enabled"
+    },
+    {
+      "id": "retry-009",
+      "maxAttempts": 4,
+      "outcome": "rate_limit",
+      "policy": "enabled"
+    },
+    {
+      "id": "retry-010",
+      "maxAttempts": 1,
+      "outcome": "rate_limit",
+      "policy": "disabled"
+    },
+    {
+      "id": "retry-011",
+      "maxAttempts": 2,
+      "outcome": "rate_limit",
+      "policy": "disabled"
+    },
+    {
+      "id": "retry-012",
+      "maxAttempts": 4,
+      "outcome": "rate_limit",
+      "policy": "disabled"
+    },
+    {
+      "id": "retry-013",
+      "maxAttempts": 1,
+      "outcome": "server_error",
+      "policy": "enabled"
+    },
+    {
+      "id": "retry-014",
+      "maxAttempts": 2,
+      "outcome": "server_error",
+      "policy": "enabled"
+    },
+    {
+      "id": "retry-015",
+      "maxAttempts": 4,
+      "outcome": "server_error",
+      "policy": "enabled"
+    },
+    {
+      "id": "retry-016",
+      "maxAttempts": 1,
+      "outcome": "server_error",
+      "policy": "disabled"
+    },
+    {
+      "id": "retry-017",
+      "maxAttempts": 2,
+      "outcome": "server_error",
+      "policy": "disabled"
+    },
+    {
+      "id": "retry-018",
+      "maxAttempts": 4,
+      "outcome": "server_error",
+      "policy": "disabled"
+    },
+    {
+      "id": "retry-019",
+      "maxAttempts": 1,
+      "outcome": "empty_response",
+      "policy": "enabled"
+    },
+    {
+      "id": "retry-020",
+      "maxAttempts": 2,
+      "outcome": "empty_response",
+      "policy": "enabled"
+    },
+    {
+      "id": "retry-021",
+      "maxAttempts": 4,
+      "outcome": "empty_response",
+      "policy": "enabled"
+    },
+    {
+      "id": "retry-022",
+      "maxAttempts": 1,
+      "outcome": "empty_response",
+      "policy": "disabled"
+    },
+    {
+      "id": "retry-023",
+      "maxAttempts": 2,
+      "outcome": "empty_response",
+      "policy": "disabled"
+    },
+    {
+      "id": "retry-024",
+      "maxAttempts": 4,
+      "outcome": "empty_response",
+      "policy": "disabled"
+    },
+    {
+      "id": "retry-025",
+      "maxAttempts": 1,
+      "outcome": "parse_error",
+      "policy": "enabled"
+    },
+    {
+      "id": "retry-026",
+      "maxAttempts": 2,
+      "outcome": "parse_error",
+      "policy": "enabled"
+    },
+    {
+      "id": "retry-027",
+      "maxAttempts": 4,
+      "outcome": "parse_error",
+      "policy": "enabled"
+    },
+    {
+      "id": "retry-028",
+      "maxAttempts": 1,
+      "outcome": "parse_error",
+      "policy": "disabled"
+    },
+    {
+      "id": "retry-029",
+      "maxAttempts": 2,
+      "outcome": "parse_error",
+      "policy": "disabled"
+    },
+    {
+      "id": "retry-030",
+      "maxAttempts": 4,
+      "outcome": "parse_error",
+      "policy": "disabled"
+    },
+    {
+      "id": "retry-031",
+      "maxAttempts": 1,
+      "outcome": "refusal",
+      "policy": "enabled"
+    },
+    {
+      "id": "retry-032",
+      "maxAttempts": 2,
+      "outcome": "refusal",
+      "policy": "enabled"
+    },
+    {
+      "id": "retry-033",
+      "maxAttempts": 4,
+      "outcome": "refusal",
+      "policy": "enabled"
+    },
+    {
+      "id": "retry-034",
+      "maxAttempts": 1,
+      "outcome": "refusal",
+      "policy": "disabled"
+    },
+    {
+      "id": "retry-035",
+      "maxAttempts": 2,
+      "outcome": "refusal",
+      "policy": "disabled"
+    },
+    {
+      "id": "retry-036",
+      "maxAttempts": 4,
+      "outcome": "refusal",
+      "policy": "disabled"
+    }
+  ],
+  "schemaVersion": 1,
+  "strength": 2
+}

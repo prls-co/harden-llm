@@ -3,8 +3,8 @@
 ## 1. Title and metadata
 
 - Project name: `harden-llm`
-- Target repository: `/home/kirill/p/harden-llm`
-- Contract source repository: `/home/kirill/p/utility-llm`
+- Target repository: `/home/kirill/harden-llm`
+- Contract source repository: `/home/kirill/utility-llm`
 - Version: `1.3.0-backend-test-spec`
 - Owners: package maintainers and self-hosted runtime implementers
 - Date: 2026-07-12
@@ -14,8 +14,8 @@
 
 ## 2. Test strategy
 
-- Test execution occurs in `/home/kirill/p/harden-llm` unless a command explicitly names the source repository.
-- `/home/kirill/p/utility-llm` is read only during fixture capture and JS contract verification.
+- Test execution occurs in `/home/kirill/harden-llm` unless a command explicitly names the source repository.
+- `/home/kirill/utility-llm` is read only during fixture capture and JS contract verification.
 - P00 creates `go.mod`, the test harness, fixture verification scripts, `api/openapi.yaml`, and canonical `Makefile` targets before later phases use those commands.
 - Every behavior slice starts with failing target-repository coverage and ends with the same command passing.
 - JS-to-Go parity is tested in the phase that ports each behavior. Final parity is an aggregate gate, not the first parity check.
@@ -134,7 +134,9 @@ Fixture rules:
   - No untracked fixture exists outside the manifest.
   - Fixture schema versions are supported.
   - Secret scan passes.
-- Pass criteria: script exits zero with counts for every parity fixture class.
+  - Every fixture names at least one executable semantic test consumer or an ADR-backed intentional difference.
+  - Every semantic consumer target exists, carries the canonical specification and `TEST-###` markers, and contains direct fixture-read evidence.
+- Pass criteria: script exits zero with counts for every parity fixture class and no unclassified source fixture.
 - Expected runtime: 10 seconds.
 
 ### TEST-005: canonical test traceability
@@ -183,10 +185,11 @@ Fixture rules:
 
 - Target: `internal/retry/retry_test.go`
 - Command: `go test ./internal/retry/... -run TestRetryContract -count=1`
-- Setup: table of rate-limit, server, network, parse, schema, refusal, invalid-request, auth, cancellation, and timeout errors; fake timer; jitter seed `12001`.
+- Setup: the current source retry-decision matrix plus rate-limit, server, network, parse, schema, refusal, invalid-request, auth, cancellation, timeout, empty-response, and OpenAI Responses provider-directive errors; fake timer; jitter seed `12001`.
 - Assertions:
   - `maxAttempts` is total attempts.
-  - Retry categories match source fixtures.
+  - Retry categories match source fixtures; `empty_response` requires the coded error identity rather than message wording.
+  - A statusless/code-less OpenAI Responses retry directive with a bounded request ID becomes `provider_retry`, retries the same candidate independently of the server-error toggle, and never enters profile fallback.
   - `Retry-After` and exponential backoff are capped.
   - Cancellation before an attempt or during wait stops immediately.
   - Attempt and wait metadata are exact.
@@ -215,6 +218,7 @@ Fixture rules:
   - Supported keywords normalize consistently.
   - Unsupported shapes fail closed.
   - Parse diagnostics and schema errors use stable categories and safe excerpts.
+  - Raw response length matches the source JavaScript UTF-16 code-unit contract, including non-BMP input, while excerpts remain bounded and redacted.
   - Repair data extraction returns only validated `data`.
 - Pass criteria: Go output matches schema and parser parity fixtures.
 - Expected runtime: 10 seconds.

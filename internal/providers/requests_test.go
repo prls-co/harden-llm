@@ -258,6 +258,72 @@ func TestProviderRequestParityCapturedSource(t *testing.T) {
 	}
 }
 
+func TestCPAResponsesEvalRequestParityCapturedSource(t *testing.T) {
+	data, err := os.ReadFile("../../fixtures/parity/source/evals/cpa-gpt-5.4-mini-responses-call.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		ProviderRequest struct {
+			APIInferenceType  string         `json:"apiInferenceType"`
+			BaseURL           string         `json:"baseUrl"`
+			Body              map[string]any `json:"body"`
+			ForbiddenBodyKeys []string       `json:"forbiddenBodyKeys"`
+			Method            string         `json:"method"`
+			Path              string         `json:"path"`
+			Provider          string         `json:"provider"`
+			URL               string         `json:"url"`
+		} `json:"providerRequest"`
+		UtilityCall struct {
+			Arguments struct {
+				ModelID      string `json:"modelId"`
+				SystemPrompt string `json:"systemPrompt"`
+				UserPrompt   string `json:"userPrompt"`
+			} `json:"arguments"`
+		} `json:"utilityCall"`
+	}
+	if err := json.Unmarshal(data, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	router, err := NewRouter(Config{EndpointPolicy: EndpointPolicy{Resolver: staticResolver{
+		"cpa.prls.co": {netip.MustParseAddr("93.184.216.34")},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile := runtime.Profile{
+		ID: "cpa-eval", Provider: fixture.ProviderRequest.Provider,
+		APIInferenceType: fixture.ProviderRequest.APIInferenceType,
+		BaseURL:          fixture.ProviderRequest.BaseURL, ModelID: fixture.UtilityCall.Arguments.ModelID,
+		SupportsTemperature: false, ResponsesTokensParam: "max_output_tokens",
+		DefaultOptions: map[string]any{"max_output_tokens": float64(16000), "stream": true},
+	}
+	prepared, err := router.Prepare(context.Background(), profile, runtime.Credential{APIKey: "fixture-secret"}, runtime.Call{
+		CallType: "text", SystemPrompt: fixture.UtilityCall.Arguments.SystemPrompt, UserPrompt: fixture.UtilityCall.Arguments.UserPrompt,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := prepared.Opaque.(preparedRequest)
+	if prepared.Operation.Endpoint.Method != fixture.ProviderRequest.Method || prepared.Operation.Endpoint.Path != fixture.ProviderRequest.Path ||
+		prepared.Operation.ResponseProjection.Provider != fixture.ProviderRequest.Provider || request.url.String() != fixture.ProviderRequest.URL {
+		t.Fatalf("CPA request routing mismatch: operation=%#v url=%s", prepared.Operation, request.url)
+	}
+	if !jsonEquivalent(prepared.Operation.Payload, fixture.ProviderRequest.Body) {
+		got, _ := json.MarshalIndent(prepared.Operation.Payload, "", "  ")
+		want, _ := json.MarshalIndent(fixture.ProviderRequest.Body, "", "  ")
+		t.Fatalf("CPA request body mismatch:\n got %s\nwant %s", got, want)
+	}
+	for _, key := range fixture.ProviderRequest.ForbiddenBodyKeys {
+		if _, present := prepared.Operation.Payload.(map[string]any)[key]; present {
+			t.Errorf("forbidden CPA request key %q is present", key)
+		}
+	}
+	if request.headers.Get("Content-Type") != "application/json" || request.headers.Get("Authorization") != "Bearer fixture-secret" {
+		t.Fatalf("CPA request headers mismatch: %#v", request.headers)
+	}
+}
+
 func TestReasoningEffortParityCapturedSource(t *testing.T) {
 	t.Parallel()
 	data, err := os.ReadFile("../../fixtures/parity/generated/reasoning-effort-cases.json")

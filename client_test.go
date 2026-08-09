@@ -24,6 +24,7 @@ type fixedExecutor struct {
 	executed int
 	result   coreruntime.ProviderResult
 	err      error
+	sequence []error
 }
 
 func (executor *fixedExecutor) Prepare(_ context.Context, profile coreruntime.Profile, _ coreruntime.Credential, call coreruntime.Call) (coreruntime.PreparedOperation, error) {
@@ -50,6 +51,11 @@ func (executor *fixedExecutor) Prepare(_ context.Context, profile coreruntime.Pr
 
 func (executor *fixedExecutor) Execute(context.Context, coreruntime.PreparedOperation) (coreruntime.ProviderResult, error) {
 	executor.executed++
+	if len(executor.sequence) > 0 {
+		err := executor.sequence[0]
+		executor.sequence = executor.sequence[1:]
+		return executor.result, err
+	}
 	return executor.result, executor.err
 }
 

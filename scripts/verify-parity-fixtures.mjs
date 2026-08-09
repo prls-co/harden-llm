@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fixtureRoot = path.join(repositoryRoot, "fixtures", "parity");
 const manifestPath = path.join(fixtureRoot, "manifest.json");
-const supportedManifestVersions = new Set([1]);
+const supportedManifestVersions = new Set([2]);
 const supportedFixtureVersions = new Set([1]);
 const secretPatterns = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
@@ -48,6 +48,10 @@ try {
   process.exit();
 }
 
+const testSpecification = await readFile(path.join(repositoryRoot, "plans", "from_utility-llm", "harden-llm-self-hosted-test-spec.md"), "utf8");
+const canonicalTestIDs = new Set([...testSpecification.matchAll(/^### (TEST-\d{3}):/gm)].map((match) => match[1]));
+const adrFiles = await readdir(path.join(repositoryRoot, "docs", "adr"));
+
 if (!supportedManifestVersions.has(manifest.manifestSchemaVersion)) {
   fail(`unsupported manifest schema version ${manifest.manifestSchemaVersion}`);
 }
@@ -63,6 +67,12 @@ for (const difference of manifest.intentionalDifferences ?? []) {
   }
   if (!Array.isArray(difference.fixtures) || !Array.isArray(difference.tests) || difference.tests.length === 0 || difference.tests.some((id) => !/^TEST-\d{3}$/.test(id))) {
     fail(`intentional difference ${String(difference.id)} must list fixtures and canonical tests`);
+  }
+  for (const testID of difference.tests ?? []) {
+    if (!canonicalTestIDs.has(testID)) fail(`intentional difference ${String(difference.id)} references undefined test ${testID}`);
+  }
+  if (!adrFiles.some((file) => file.startsWith(`${difference.adr}-`) && file.endsWith(".md"))) {
+    fail(`intentional difference ${String(difference.id)} references missing ${String(difference.adr)}`);
   }
 }
 
@@ -93,15 +103,81 @@ for (const fixture of manifest.fixtures ?? []) {
   }
 }
 
-for (const actualPath of await listFiles(fixtureRoot)) {
+const actualPaths = await listFiles(fixtureRoot);
+const actualPathSet = new Set(actualPaths);
+for (const actualPath of actualPaths) {
   if (!manifestPaths.has(actualPath)) fail(`untracked fixture ${actualPath}`);
 }
 for (const manifestFixture of manifestPaths) {
-  if (!(await listFiles(fixtureRoot)).includes(manifestFixture)) fail(`missing fixture ${manifestFixture}`);
+  if (!actualPathSet.has(manifestFixture)) fail(`missing fixture ${manifestFixture}`);
 }
+const classifiedFixtures = new Set();
 for (const difference of manifest.intentionalDifferences ?? []) {
   for (const fixture of difference.fixtures ?? []) {
     if (!manifestPaths.has(fixture)) fail(`intentional difference ${difference.id} references unknown fixture ${fixture}`);
+    classifiedFixtures.add(fixture);
+  }
+}
+
+if (!manifest.fixtureConsumers || typeof manifest.fixtureConsumers !== "object" || Array.isArray(manifest.fixtureConsumers)) {
+  fail("manifest must contain a fixtureConsumers object");
+}
+for (const [fixture, consumers] of Object.entries(manifest.fixtureConsumers ?? {})) {
+  if (!manifestPaths.has(fixture)) {
+    fail(`fixture consumer references unknown fixture ${fixture}`);
+    continue;
+  }
+  classifiedFixtures.add(fixture);
+  if (!Array.isArray(consumers) || consumers.length === 0) {
+    fail(`fixture ${fixture} must name at least one semantic test consumer`);
+    continue;
+  }
+  for (const consumer of consumers) {
+    const target = String(consumer.target ?? "");
+    const testFunction = String(consumer.testFunction ?? "");
+    const tests = consumer.tests;
+    const evidence = String(consumer.evidence ?? "");
+    if (!target || path.isAbsolute(target) || target.split("/").includes("..") || !/_test\.(?:go|exs)$/.test(target)) {
+      fail(`fixture ${fixture} has unsafe semantic consumer target ${target}`);
+      continue;
+    }
+    if (!Array.isArray(tests) || tests.length === 0 || tests.some((id) => !/^TEST-\d{3}$/.test(id))) {
+      fail(`fixture ${fixture} consumer ${target} must list canonical tests`);
+      continue;
+    }
+    if (!/^Test[A-Za-z0-9_]+$/.test(testFunction) || !/(?:Parity|Contract|Identity|Replay)/.test(testFunction)) {
+      fail(`fixture ${fixture} consumer ${target} must name a test selected by make test-parity`);
+      continue;
+    }
+    for (const testID of tests) {
+      if (!canonicalTestIDs.has(testID)) fail(`fixture ${fixture} consumer ${target} references undefined test ${testID}`);
+    }
+    if (!evidence.trim()) {
+      fail(`fixture ${fixture} consumer ${target} must name fixture-read evidence`);
+      continue;
+    }
+    try {
+      const targetText = await readFile(path.join(repositoryRoot, target), "utf8");
+      if (!targetText.includes("SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001")) {
+        fail(`fixture ${fixture} consumer ${target} lacks the canonical test specification marker`);
+      }
+      if (!targetText.includes(`func ${testFunction}(`)) {
+        fail(`fixture ${fixture} consumer ${target} lacks ${testFunction}`);
+      }
+      for (const testID of tests) {
+        if (!targetText.includes(testID)) fail(`fixture ${fixture} consumer ${target} lacks ${testID}`);
+      }
+      if (!targetText.includes(evidence)) {
+        fail(`fixture ${fixture} consumer ${target} lacks fixture-read evidence ${JSON.stringify(evidence)}`);
+      }
+    } catch (error) {
+      fail(`cannot verify fixture ${fixture} consumer ${target}: ${error.message}`);
+    }
+  }
+}
+for (const fixture of manifestPaths) {
+  if (!classifiedFixtures.has(fixture)) {
+    fail(`fixture ${fixture} has neither a semantic test consumer nor an intentional-difference classification`);
   }
 }
 

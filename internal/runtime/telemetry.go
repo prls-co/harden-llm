@@ -366,7 +366,7 @@ func boundedCacheOperation(value string) string {
 
 func boundedCategory(value string) string {
 	switch value {
-	case "success", "network", "rate_limit", "server_error", "empty_response", "parse_error", "refusal", "timeout", "canceled", "other":
+	case "success", "network", "rate_limit", "server_error", "empty_response", "provider_retry", "parse_error", "refusal", "timeout", "canceled", "other":
 		return value
 	default:
 		return "other"

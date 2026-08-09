@@ -311,6 +311,7 @@ func resultFromRecord(record coreruntime.CallRecord) Result {
 	for _, item := range record.Attempts {
 		attempts = append(attempts, Attempt{
 			Number: item.Number, ProfileID: item.ProfileID, Category: string(item.Category), HTTPStatus: item.Status,
+			Code: item.Code, Type: item.Type, ProviderRequestID: item.ProviderRequestID,
 			Retryable: item.Retryable, Wait: item.Delay, Duration: item.Duration,
 			Repair: item.Repair, BackupIndex: item.BackupIndex, ProviderUsed: true,
 		})

@@ -3,9 +3,9 @@
 ## 1. Title and metadata
 
 - Project name: `harden-llm`
-- Target repository: `/home/kirill/p/harden-llm`
+- Target repository: `/home/kirill/harden-llm`
 - Go module: `github.com/prls-co/harden-llm`
-- Contract source repository: `/home/kirill/p/utility-llm`
+- Contract source repository: `/home/kirill/utility-llm`
 - Version: `1.3.0-backend-spec`
 - Owners: package maintainers and self-hosted runtime implementers
 - Date: 2026-07-12
@@ -90,7 +90,7 @@
 The following tree is the backend-owned build and release scope. The separately specified `frontend/` application and `deploy/frontend/` overlay may coexist in the repository, but the Go module, backend `Makefile` gates, base Compose file, and backend release image do not import, build, or package them.
 
 ```text
-/home/kirill/p/harden-llm/
+/home/kirill/harden-llm/
 ├── go.mod
 ├── client.go
 ├── types.go
@@ -586,8 +586,8 @@ A future Temporal design may schedule profile smoke, model refresh, stats recomp
 
 ## 16. Migration contract
 
-- `/home/kirill/p/utility-llm` is the behavior and fixture source during the port.
-- `/home/kirill/p/harden-llm` is the only target implementation and deployment repository.
+- `/home/kirill/utility-llm` is the behavior and fixture source during the port.
+- `/home/kirill/harden-llm` is the only target implementation and deployment repository.
 - P00 records the source Git SHA and captures deterministic provider payloads, cache hashes, trace/stats projections, profile bundles, schema cases, and diagnostics fixtures.
 - Fixture capture includes current Firebase Storage trace-artifact keys, canonical JSON payloads, diagnostic attachment paths, hashes, and failure behavior. The target implements those application-owned semantics through Garage without copying Firebase APIs.
 - Every behavior slice adds and passes its JS-to-Go parity tests before persistence, HTTP, or deployment work depends on it.
@@ -619,8 +619,8 @@ Minimum v1 verification:
 
 ## 18. Fixed v1 answers
 
-- Implementation repository: `/home/kirill/p/harden-llm`.
-- Source contract repository: `/home/kirill/p/utility-llm`.
+- Implementation repository: `/home/kirill/harden-llm`.
+- Source contract repository: `/home/kirill/utility-llm`.
 - Public package: module root `hardenllm` only.
 - Execution API: one `Client.Call` method returning one detailed `Result`.
 - Application database: dedicated Harden-LLM Postgres only; Garage's internal SQLite metadata engine is not an application database contract.

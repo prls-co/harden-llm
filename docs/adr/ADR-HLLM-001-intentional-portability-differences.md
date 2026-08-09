@@ -33,7 +33,18 @@ Accept only these explicit projections:
   preflights writes and serializes same-key writes within one process because
   Garage v2.3 does not enforce S3 `If-None-Match` on `PutObject`;
 - omit unredacted raw provider payloads from persisted trace and diagnostic
-  projections.
+  projections;
+- replace the package-global source model registry and pricing overrides with
+  owner-managed profiles, model discovery, and profile pricing snapshots;
+- replace Firebase query helpers with owner-scoped PostgreSQL repositories and
+  the versioned REST/OpenAPI resource contract;
+- replace Firebase/process-log telemetry documents with one OpenTelemetry
+  pipeline plus redacted domain traces, preserving portable usage, attempt,
+  cache, status, and correlation semantics;
+- preserve the source retry identity for coded `empty_response` failures and
+  the proven OpenAI Responses `provider_retry` directive, exposing only bounded
+  code/type/request-ID metadata in Go attempts and traces; raw stream events
+  remain omitted.
 
 Every affected fixture uses projection or intentional-difference parity and
 names this ADR. No other mismatch is permitted by this decision.
@@ -45,6 +56,8 @@ profiles using HTTP, URL credentials, or query/fragment configuration must be
 normalized before import. Migration must decrypt through an authorized source
 process and re-encrypt/write through the target adapters. TEST-006, TEST-014,
 TEST-018, TEST-019, and TEST-040 verify the allowed differences and their
-security properties. The in-process Garage key lock is not a distributed lock;
-callers must continue to generate single-use artifact IDs and commit the unique
-object key only after upload.
+security properties. TEST-015, TEST-016, TEST-017, TEST-020, TEST-024,
+TEST-028, and TEST-031 verify the profile, pricing, query, and telemetry
+projections. The in-process Garage key lock is not a distributed lock; callers
+must continue to generate single-use artifact IDs and commit the unique object
+key only after upload.

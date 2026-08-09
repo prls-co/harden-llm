@@ -2,9 +2,217 @@
   "capture": {
     "canonicalJSON": true,
     "liveCredentialsUsed": false,
-    "nodeVersion": "v22.22.1",
+    "nodeVersion": "v22.22.0",
     "script": "scripts/capture-utility-llm-fixtures.mjs",
-    "scriptVersion": 2
+    "scriptVersion": 7
+  },
+  "fixtureConsumers": {
+    "generated/cache-identity.json": [
+      {
+        "evidence": "cache-identity.json",
+        "target": "internal/cachekey/cache_test.go",
+        "testFunction": "TestCacheIdentity",
+        "tests": [
+          "TEST-011"
+        ]
+      }
+    ],
+    "generated/profile-catalog.json": [
+      {
+        "evidence": "profile-catalog.json",
+        "target": "internal/profiles/profile_test.go",
+        "testFunction": "TestProfileParityRoundTripAndValidation",
+        "tests": [
+          "TEST-017"
+        ]
+      }
+    ],
+    "generated/provider-cases.json": [
+      {
+        "evidence": "provider-cases.json",
+        "target": "internal/providers/requests_test.go",
+        "testFunction": "TestProviderRequestParityCapturedSource",
+        "tests": [
+          "TEST-012"
+        ]
+      },
+      {
+        "evidence": "provider-cases.json",
+        "target": "internal/providers/normalization_test.go",
+        "testFunction": "TestProviderNormalizationParityCapturedSource",
+        "tests": [
+          "TEST-013"
+        ]
+      }
+    ],
+    "generated/reasoning-effort-cases.json": [
+      {
+        "evidence": "reasoning-effort-cases.json",
+        "target": "internal/providers/requests_test.go",
+        "testFunction": "TestReasoningEffortParityCapturedSource",
+        "tests": [
+          "TEST-012"
+        ]
+      }
+    ],
+    "generated/retry-classification.json": [
+      {
+        "evidence": "retry-classification.json",
+        "target": "internal/retry/retry_test.go",
+        "testFunction": "TestRetryClassificationParityCapturedSource",
+        "tests": [
+          "TEST-008"
+        ]
+      },
+      {
+        "evidence": "retry-classification.json",
+        "target": "internal/runtime/repair_backup_test.go",
+        "testFunction": "TestBackupEligibilityParityCapturedSource",
+        "tests": [
+          "TEST-009"
+        ]
+      }
+    ],
+    "generated/schema-normalization.json": [
+      {
+        "evidence": "schema-normalization.json",
+        "target": "internal/schema/schema_test.go",
+        "testFunction": "TestSchemaContract",
+        "tests": [
+          "TEST-010"
+        ]
+      }
+    ],
+    "generated/structured-parser-cases.json": [
+      {
+        "evidence": "structured-parser-cases.json",
+        "target": "internal/schema/schema_test.go",
+        "testFunction": "TestStructuredParserParityCapturedSource",
+        "tests": [
+          "TEST-010"
+        ]
+      }
+    ],
+    "generated/usage-cases.json": [
+      {
+        "evidence": "usage-cases.json",
+        "target": "internal/pricing/usage_cost_test.go",
+        "testFunction": "TestUsageCostParity",
+        "tests": [
+          "TEST-015"
+        ]
+      }
+    ],
+    "source/combinatorial/retry-decision-matrix.json": [
+      {
+        "evidence": "retry-decision-matrix.json",
+        "target": "internal/retry/retry_test.go",
+        "testFunction": "TestCurrentSourceRetryDecisionMatrixParity",
+        "tests": [
+          "TEST-008"
+        ]
+      }
+    ],
+    "source/evals/cpa-gpt-5.4-mini-responses-call.json": [
+      {
+        "evidence": "cpa-gpt-5.4-mini-responses-call.json",
+        "target": "internal/providers/requests_test.go",
+        "testFunction": "TestCPAResponsesEvalRequestParityCapturedSource",
+        "tests": [
+          "TEST-012"
+        ]
+      }
+    ],
+    "source/evals/jsonrepair-object-key-expected-incident.json": [
+      {
+        "evidence": "jsonrepair-object-key-expected-incident.json",
+        "target": "internal/schema/schema_test.go",
+        "testFunction": "TestJSONRepairIncidentParityCapturedSource",
+        "tests": [
+          "TEST-010"
+        ]
+      }
+    ],
+    "source/llm-stats-totals/parity/failure-rate-limit.json": [
+      {
+        "evidence": "llm-stats-totals/parity/*.json",
+        "target": "internal/stats/parity_test.go",
+        "testFunction": "TestParityStatsTotals",
+        "tests": [
+          "TEST-016"
+        ]
+      }
+    ],
+    "source/llm-stats-totals/parity/missing-usage-items-error.json": [
+      {
+        "evidence": "llm-stats-totals/parity/*.json",
+        "target": "internal/stats/parity_test.go",
+        "testFunction": "TestParityStatsTotals",
+        "tests": [
+          "TEST-016"
+        ]
+      }
+    ],
+    "source/llm-stats-totals/parity/success-empty-current.json": [
+      {
+        "evidence": "llm-stats-totals/parity/*.json",
+        "target": "internal/stats/parity_test.go",
+        "testFunction": "TestParityStatsTotals",
+        "tests": [
+          "TEST-016"
+        ]
+      }
+    ],
+    "source/llm-stats-totals/parity/success-existing-current.json": [
+      {
+        "evidence": "llm-stats-totals/parity/*.json",
+        "target": "internal/stats/parity_test.go",
+        "testFunction": "TestParityStatsTotals",
+        "tests": [
+          "TEST-016"
+        ]
+      }
+    ],
+    "source/llm-stats-totals/parity/success-operation-cache-hit.json": [
+      {
+        "evidence": "llm-stats-totals/parity/*.json",
+        "target": "internal/stats/parity_test.go",
+        "testFunction": "TestParityStatsTotals",
+        "tests": [
+          "TEST-016"
+        ]
+      }
+    ],
+    "source/llm-stats-totals/parity/timeout-total-wait-fallback.json": [
+      {
+        "evidence": "llm-stats-totals/parity/*.json",
+        "target": "internal/stats/parity_test.go",
+        "testFunction": "TestParityStatsTotals",
+        "tests": [
+          "TEST-016"
+        ]
+      }
+    ],
+    "source/llm-stats-totals/parity/unknown-cost-error.json": [
+      {
+        "evidence": "llm-stats-totals/parity/*.json",
+        "target": "internal/stats/parity_test.go",
+        "testFunction": "TestParityStatsTotals",
+        "tests": [
+          "TEST-016"
+        ]
+      }
+    ],
+    "source/providers/openai-responses-stream-retry-error.json": [
+      {
+        "evidence": "openai-responses-stream-retry-error.json",
+        "target": "internal/providers/normalization_test.go",
+        "testFunction": "TestProviderNormalizationParityClassifiesResponsesProviderRetryDirective",
+        "tests": [
+          "TEST-013"
+        ]
+      }
+    ]
   },
   "fixtures": [
     {
@@ -72,7 +280,7 @@
       "class": "contract",
       "path": "generated/source-contract.json",
       "schemaVersion": 1,
-      "sha256": "80c0fe753b375a19f27537db55527a34089d17d035de3ce3a54b43d7f26b7863",
+      "sha256": "e9b091ff777ffc3d36209ec35f68aa93387ef7e2164722269a91271a6b988b5f",
       "sourcePaths": [
         "package.json",
         "src/model-profiles.js",
@@ -100,6 +308,16 @@
       ]
     },
     {
+      "class": "combinatorial",
+      "path": "source/combinatorial/retry-decision-matrix.json",
+      "schemaVersion": 1,
+      "sha256": "9d1208963bd1c07f3ef98960f4a6f2e43f49da3b1c07d51b1f364948d32d2fe3",
+      "sourcePaths": [
+        "fixtures/combinatorial/retry-decision-matrix.json"
+      ],
+      "sourceSHA256": "67408e638875850e3c3862f17aad550c0cb916192c20133f257f629cbbf93986"
+    },
+    {
       "class": "diagnostics",
       "path": "source/diagnostics/bundle-input.json",
       "schemaVersion": 1,
@@ -121,23 +339,23 @@
     },
     {
       "class": "evals",
-      "path": "source/evals/jsonrepair-object-key-expected-incident.json",
+      "path": "source/evals/cpa-gpt-5.4-mini-responses-call.json",
       "schemaVersion": 1,
-      "sha256": "72811273996fde61457a9dfa496deb7992f4a992f99383232bf2ec45d42ffc99",
+      "sha256": "b9ef95c59d781fb6d037d3962279931ca562f8da4d101f31364cb58731bd3767",
       "sourcePaths": [
-        "fixtures/evals/jsonrepair-object-key-expected-incident.json"
+        "fixtures/evals/cpa-gpt-5.4-mini-responses-call.json"
       ],
-      "sourceSHA256": "fb47de2907987f08eedc986847bea275aa98ee6c2204338125bb80228e5b714d"
+      "sourceSHA256": "15da88b9c767bbeb3fb18070c4d1701526c014bb6976963d5b562ca549ded9a8"
     },
     {
       "class": "evals",
-      "path": "source/evals/shaman-gpt-5.4-mini-responses-call.json",
+      "path": "source/evals/jsonrepair-object-key-expected-incident.json",
       "schemaVersion": 1,
-      "sha256": "fec845eba6cb82076e24958d5b67fb2b2da6fc88166750ab4b511cfaaff96e1f",
+      "sha256": "f23b314094f0a3a6ba85e2563e07fc8d7ffcc2778ef3e680f6b42e5e47474b6d",
       "sourcePaths": [
-        "fixtures/evals/shaman-gpt-5.4-mini-responses-call.json"
+        "fixtures/evals/jsonrepair-object-key-expected-incident.json"
       ],
-      "sourceSHA256": "054840b4805e65b1cd0159ff2c3a6f3b82b057d01d4994f55741ec6cd6fd5fdd"
+      "sourceSHA256": "8f1397a8953781e663cbe7ff0156614becfe041ebbb3796246d6eae57058277c"
     },
     {
       "class": "examples",
@@ -263,11 +481,11 @@
       "class": "models",
       "path": "source/models/model-registry-cases.json",
       "schemaVersion": 1,
-      "sha256": "0a502f12f3cee8b1b6ea1b459f024a3395d15286daf0bb4b2c05e066553f942e",
+      "sha256": "ed7b3d7e181d63cf5d1e6de3decb52645c896b79b0b7bb1fc42108db82c3d391",
       "sourcePaths": [
         "fixtures/models/model-registry-cases.json"
       ],
-      "sourceSHA256": "36420f5197bbf5a4fac370f42fcae564467d1d8e1c765d5c9e54cdc1b860feda"
+      "sourceSHA256": "04d20e65bc55033458f7eab6a8d00d61d600ec8594612952b75dfcd87ed1b786"
     },
     {
       "class": "models",
@@ -278,6 +496,16 @@
         "fixtures/models/pricing-overrides.json"
       ],
       "sourceSHA256": "39d78b139f0bf447f7dc0cb0fba52fc1da9ef6948057f1ba3b46a0e07c5bd84d"
+    },
+    {
+      "class": "providers",
+      "path": "source/providers/openai-responses-stream-retry-error.json",
+      "schemaVersion": 1,
+      "sha256": "8b0c565396b9d6f07bc32d219aba7b7538894a6b288204b40d2c9706b00e3c1e",
+      "sourcePaths": [
+        "fixtures/providers/openai-responses-stream-retry-error.json"
+      ],
+      "sourceSHA256": "5194c67e4023fdf3b179103de2d6b25e59d037fc3bcc4f59e9fad21f4e12e16f"
     },
     {
       "class": "queries",
@@ -325,7 +553,9 @@
       "adr": "ADR-HLLM-001",
       "fixtures": [
         "source/examples/basic-text-golden.json",
-        "source/examples/structured-golden.json"
+        "source/examples/basic-text-input.json",
+        "source/examples/structured-golden.json",
+        "source/examples/structured-input.json"
       ],
       "id": "detailed-go-result",
       "mode": "intentional-difference",
@@ -354,7 +584,7 @@
       ],
       "id": "secure-provider-egress",
       "mode": "intentional-difference",
-      "note": "Portable provider payloads remain exact while HTTPS, DNS pinning, redirect denial, header-only credentials, and exact private endpoint exceptions harden transport.",
+      "note": "The Go deployment keeps provider normalization semantics while enforcing server-side egress policy and configured provider ownership.",
       "tests": [
         "TEST-012",
         "TEST-014",
@@ -366,7 +596,7 @@
       "fixtures": [],
       "id": "authenticated-credential-envelope",
       "mode": "intentional-difference",
-      "note": "Go credential ciphertext authenticates its version, algorithm, key ID, owner, credential ID, and normalized origin and is not byte-compatible with the source envelope.",
+      "note": "The Go service uses an authenticated versioned credential envelope instead of the source runtime's credential storage boundary.",
       "tests": [
         "TEST-018"
       ]
@@ -375,23 +605,81 @@
       "adr": "ADR-HLLM-001",
       "fixtures": [
         "source/diagnostics/bundle-input.json",
+        "source/diagnostics/summary-input.json",
+        "source/examples/cache-golden.json",
         "source/traces/raw-response-input.json",
         "source/traces/trace-doc-input.json"
       ],
       "id": "garage-artifact-projection",
       "mode": "intentional-difference",
-      "note": "Canonical redacted artifact content is preserved while Firebase locations become owner-scoped Garage identities.",
+      "note": "The self-hosted service projects diagnostic and trace artifacts into Garage/Postgres storage while preserving the source diagnostic fields.",
       "tests": [
         "TEST-016",
         "TEST-019",
         "TEST-040"
       ]
+    },
+    {
+      "adr": "ADR-HLLM-001",
+      "fixtures": [
+        "source/providers/openai-responses-stream-retry-error.json"
+      ],
+      "id": "provider-retry-directive",
+      "mode": "intentional-difference",
+      "note": "The Go transport maps the source provider-retry directive into its typed retry error while retaining the self-hosted provider boundary.",
+      "tests": [
+        "TEST-008",
+        "TEST-012",
+        "TEST-013"
+      ]
+    },
+    {
+      "adr": "ADR-HLLM-001",
+      "fixtures": [
+        "source/models/model-registry-cases.json",
+        "source/models/pricing-overrides.json"
+      ],
+      "id": "profile-owned-model-catalog",
+      "mode": "intentional-difference",
+      "note": "The self-hosted service stores model discovery and pricing in owner-managed profiles instead of a package-global registry.",
+      "tests": [
+        "TEST-015",
+        "TEST-017",
+        "TEST-024"
+      ]
+    },
+    {
+      "adr": "ADR-HLLM-001",
+      "fixtures": [
+        "source/queries/query-helper-cases.json"
+      ],
+      "id": "postgres-resource-queries",
+      "mode": "intentional-difference",
+      "note": "The self-hosted resource API implements owner-scoped PostgreSQL queries instead of source-specific query helpers.",
+      "tests": [
+        "TEST-020",
+        "TEST-024"
+      ]
+    },
+    {
+      "adr": "ADR-HLLM-001",
+      "fixtures": [
+        "source/telemetry/telemetry-cases.json"
+      ],
+      "id": "otel-telemetry-projection",
+      "mode": "intentional-difference",
+      "note": "The self-hosted runtime projects source telemetry semantics through OpenTelemetry and domain traces instead of source-specific process telemetry.",
+      "tests": [
+        "TEST-016",
+        "TEST-028",
+        "TEST-031"
+      ]
     }
   ],
-  "manifestSchemaVersion": 1,
+  "manifestSchemaVersion": 2,
   "source": {
-    "gitSHA": "9d0492b070f1f45a6ea63eeecd7942a8aef8ae71",
-    "packageVersion": "0.12.18",
+    "gitSHA": "09769424ca34b9d759e273a7e9dccf4fd00a5f6c",
+    "packageVersion": "0.14.6",
     "repository": "prls-co/utility-llm"
   }
 }

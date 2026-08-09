@@ -25,6 +25,7 @@ const (
 	CategoryRateLimit Category = "rate_limit"
 	CategoryServer    Category = "server_error"
 	CategoryEmpty     Category = "empty_response"
+	CategoryProvider  Category = "provider_retry"
 	CategoryParse     Category = "parse_error"
 	CategoryRefusal   Category = "refusal"
 	CategoryTimeout   Category = "timeout"
@@ -45,22 +46,27 @@ func DefaultPolicy() Policy {
 }
 
 type Classification struct {
-	Retryable  bool
-	Category   Category
-	Status     int
-	RetryAfter time.Duration
+	Retryable         bool
+	Category          Category
+	Status            int
+	RetryAfter        time.Duration
+	Code              string
+	Type              string
+	ProviderRequestID string
 }
 
 type ProviderError struct {
-	Err         error
-	Code        string
-	RawResponse string
-	Status      int
-	RetryAfter  time.Duration
-	Parse       bool
-	Refusal     bool
-	Empty       bool
-	Timeout     bool
+	Err               error
+	Code              string
+	Type              string
+	ProviderRequestID string
+	RawResponse       string
+	Status            int
+	RetryAfter        time.Duration
+	Parse             bool
+	Refusal           bool
+	Empty             bool
+	Timeout           bool
 }
 
 func (providerError *ProviderError) Error() string {
@@ -96,31 +102,39 @@ func Classify(err error, policy Policy) Classification {
 
 	var providerError *ProviderError
 	if errors.As(err, &providerError) {
-		if providerError.Refusal || containsRefusal(providerError.Error()) {
-			return Classification{Category: CategoryRefusal, Status: providerError.Status}
-		}
-		if providerError.Parse {
-			return Classification{Retryable: policy.ParseError, Category: CategoryParse}
-		}
-		if providerError.Timeout {
-			return Classification{Category: CategoryTimeout}
-		}
-		if isNetworkCode(providerError.Code) || containsNetworkFailure(providerError.Error()) {
-			return Classification{Retryable: policy.Network, Category: CategoryNetwork}
-		}
-		if providerError.Status == 429 {
+		metadata := func(category Category, retryable bool) Classification {
 			return Classification{
-				Retryable: policy.RateLimit, Category: CategoryRateLimit, Status: providerError.Status,
-				RetryAfter: nonnegativeDuration(providerError.RetryAfter),
+				Retryable: retryable, Category: category, Status: providerError.Status,
+				Code: providerError.Code, Type: providerError.Type, ProviderRequestID: providerError.ProviderRequestID,
 			}
 		}
+		if providerError.Refusal || containsRefusal(providerError.Error()) {
+			return metadata(CategoryRefusal, false)
+		}
+		if providerError.Parse {
+			return metadata(CategoryParse, policy.ParseError)
+		}
+		if providerError.Timeout {
+			return metadata(CategoryTimeout, false)
+		}
+		if isNetworkCode(providerError.Code) || containsNetworkFailure(providerError.Error()) {
+			return metadata(CategoryNetwork, policy.Network)
+		}
+		if providerError.Status == 429 {
+			classification := metadata(CategoryRateLimit, policy.RateLimit)
+			classification.RetryAfter = nonnegativeDuration(providerError.RetryAfter)
+			return classification
+		}
 		if (providerError.Status >= 500 && providerError.Status <= 599) || isProviderServerError(providerError) {
-			return Classification{Retryable: policy.ServerError, Category: CategoryServer, Status: providerError.Status}
+			return metadata(CategoryServer, policy.ServerError)
 		}
-		if providerError.Empty || strings.Contains(strings.ToLower(providerError.Error()), "empty or null response") {
-			return Classification{Retryable: policy.EmptyResponse, Category: CategoryEmpty, Status: providerError.Status}
+		if providerError.Empty || strings.EqualFold(strings.TrimSpace(providerError.Code), "empty_response") {
+			return metadata(CategoryEmpty, policy.EmptyResponse)
 		}
-		return Classification{Category: CategoryOther, Status: providerError.Status}
+		if strings.EqualFold(strings.TrimSpace(providerError.Code), "provider_retry") {
+			return metadata(CategoryProvider, true)
+		}
+		return metadata(CategoryOther, false)
 	}
 
 	if containsRefusal(errorMessage(err)) {
@@ -147,15 +161,18 @@ type Hooks struct {
 }
 
 type Attempt struct {
-	Number      int
-	ProfileID   string
-	BackupIndex int
-	Category    Category
-	Status      int
-	Retryable   bool
-	Delay       time.Duration
-	Duration    time.Duration
-	Repair      bool
+	Number            int
+	ProfileID         string
+	BackupIndex       int
+	Category          Category
+	Status            int
+	Retryable         bool
+	Delay             time.Duration
+	Duration          time.Duration
+	Repair            bool
+	Code              string
+	Type              string
+	ProviderRequestID string
 }
 
 func Do(ctx context.Context, config Config, work func(context.Context, int) error) ([]Attempt, error) {
@@ -197,6 +214,7 @@ func Do(ctx context.Context, config Config, work func(context.Context, int) erro
 		attempt := Attempt{
 			Number: number, Category: classification.Category, Status: classification.Status,
 			Retryable: classification.Retryable, Duration: duration,
+			Code: classification.Code, Type: classification.Type, ProviderRequestID: classification.ProviderRequestID,
 		}
 		attempts = append(attempts, attempt)
 		if number >= config.MaxAttempts || !classification.Retryable {
@@ -291,7 +309,7 @@ func containsRefusal(message string) bool {
 }
 
 func isProviderServerError(providerError *ProviderError) bool {
-	value := strings.ToLower(strings.Join([]string{providerError.Code, providerError.Error()}, " "))
+	value := strings.ToLower(strings.Join([]string{providerError.Code, providerError.Type, providerError.Error()}, " "))
 	return strings.Contains(value, "server_is_overloaded") || strings.Contains(value, "service_unavailable") || strings.Contains(value, "server is currently overloaded") || strings.Contains(value, "servers are currently overloaded") || strings.Contains(value, "service unavailable")
 }
 

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/prls-co/harden-llm/internal/retry"
 	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
 )
 
@@ -153,6 +154,55 @@ func TestStructuredParserParityCapturedSource(t *testing.T) {
 	_, diagnostic, err := ParseProviderOutput(fixture.RepairFailure.Diagnostics.RawResponse, "openai.responses")
 	if err == nil || diagnostic == nil || diagnostic.Stage != "json_repair" {
 		t.Fatalf("repair failure classification mismatch: %#v %v", diagnostic, err)
+	}
+}
+
+func TestJSONRepairIncidentParityCapturedSource(t *testing.T) {
+	contents, err := os.ReadFile("../../fixtures/parity/source/evals/jsonrepair-object-key-expected-incident.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Attempts []struct {
+			Error struct {
+				RawResponse string `json:"rawResponse"`
+			} `json:"error"`
+		} `json:"attempts"`
+		Expected struct {
+			AttemptCount  int    `json:"attemptCountForRegression"`
+			ParseStage    string `json:"parseStage"`
+			ParserLibrary string `json:"parserLibrary"`
+			RawLength     int    `json:"rawResponseLength"`
+			RawTail       string `json:"rawResponseTail"`
+			RawTailLimit  int    `json:"rawResponseTailLimit"`
+			RetryCategory string `json:"retryCategory"`
+			Retryable     bool   `json:"retryableBeforeBudgetExhaustion"`
+		} `json:"expected"`
+	}
+	if err := json.Unmarshal(contents, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	if len(fixture.Attempts) != fixture.Expected.AttemptCount || len(fixture.Attempts) == 0 {
+		t.Fatalf("captured attempt count = %d, want %d", len(fixture.Attempts), fixture.Expected.AttemptCount)
+	}
+	raw := fixture.Attempts[len(fixture.Attempts)-1].Error.RawResponse
+	if utf16Length(raw) != fixture.Expected.RawLength || fixture.Expected.RawTailLimit != 512 || !strings.HasSuffix(raw, fixture.Expected.RawTail) {
+		t.Fatalf("captured raw-response evidence changed: utf16Length=%d tailLimit=%d", utf16Length(raw), fixture.Expected.RawTailLimit)
+	}
+	if fixture.Expected.ParseStage != "repair" || fixture.Expected.ParserLibrary != "jsonrepair" || fixture.Expected.RetryCategory != string(retry.CategoryParse) || !fixture.Expected.Retryable {
+		t.Fatalf("captured incident expectation changed: %#v", fixture.Expected)
+	}
+	_, diagnostic, parseErr := ParseProviderOutput(raw, "openai.responses")
+	if parseErr == nil || diagnostic == nil || diagnostic.Stage != "json_repair" || diagnostic.Category != string(retry.CategoryParse) || diagnostic.RawLength != fixture.Expected.RawLength {
+		t.Fatalf("target incident classification mismatch: diagnostic=%#v error=%v", diagnostic, parseErr)
+	}
+	wantTail := safeTail(raw, 128)
+	if diagnostic.RawTail != wantTail {
+		t.Fatalf("bounded raw tail mismatch: got %q want %q", diagnostic.RawTail, wantTail)
+	}
+	classification := retry.Classify(&retry.ProviderError{Err: parseErr, Parse: true}, retry.Policy{ParseError: true})
+	if classification.Category != retry.CategoryParse || !classification.Retryable {
+		t.Fatalf("target incident retry classification mismatch: %#v", classification)
 	}
 }
 

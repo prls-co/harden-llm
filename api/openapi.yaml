@@ -1275,6 +1275,9 @@ components:
         profileId: {$ref: "#/components/schemas/ProfileID"}
         category: {type: string, maxLength: 64}
         httpStatus: {type: integer, minimum: 100, maximum: 599}
+        code: {type: string, maxLength: 80}
+        type: {type: string, maxLength: 80}
+        providerRequestId: {type: string, maxLength: 128, pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{7,127}$'}
         retryable: {type: boolean}
         wait: {type: integer, minimum: 0, description: Nanoseconds.}
         duration: {type: integer, minimum: 0, description: Nanoseconds.}

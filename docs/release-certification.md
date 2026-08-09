@@ -1,6 +1,7 @@
 # Release Certification
 
-This document is the durable release summary for the 2026-07-13 v1 candidate.
+This document is the durable release summary for the 2026-07-13 v1 candidate
+and its 2026-08-09 utility-llm parity refresh.
 Detailed command output belongs under ignored
 `plans/evidence/harden-llm/<run-id>/`; secrets and live provider output never do.
 
@@ -10,23 +11,28 @@ Detailed command output belongs under ignored
 | --- | --- |
 | Target implementation baseline | `a9fcb88104495479e6a7e63f66a5451573ea3bcd` plus the P07 closure commit |
 | Source repository | `github.com/prls-co/utility-llm` |
-| Captured source SHA | `9d0492b070f1f45a6ea63eeecd7942a8aef8ae71` |
-| Source package | `@prls-co/utility-llm` `0.12.18` |
-| Parity manifest SHA-256 | `6f66ba283eb730710db307a32b472645f2a5b6412856df9dcef0e415ed84300e` |
+| Captured source SHA | `09769424ca34b9d759e273a7e9dccf4fd00a5f6c` |
+| Source package | `@prls-co/utility-llm` `0.14.6` |
+| Parity manifest SHA-256 | `973f138211910fbe58deca867d1569adf2b9660b53e1441a3607570e1f2c98a6` |
 | Langfuse release / commit | `v3.212.0` / `3a572984276dd2dc2f8f77f1b2aadb799aa17fdf` |
 | Upstream Compose SHA-256 | `f4502f5240857cf9189113fe6c32837ec28f46699415f7efb4b59a6f16423741` |
 
-The source worktree was dirty during capture; `README.md` and `specs/` were
-explicitly excluded. Fixtures were produced from `git archive` of the recorded
-SHA, used no live credentials, and are self-contained in this repository.
+The source worktree was clean during capture, and the capture script verified
+that its checkout HEAD matched the recorded SHA. `README.md` and `specs/` were
+explicitly excluded from the fixture slices. Fixtures used no live credentials
+and are self-contained in this repository. The source contract gate passed;
+the full source core manifest remains blocked by the unavailable local
+`typescript/bin/tsc` dev dependency.
 Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 
 ## Toolchain checkpoint
 
-- Go `1.26.5`; Node `22.22.1`; npm `9.2.0`.
-- Docker `29.1.3`; Compose `2.40.3` on the certification host.
+- Go `1.26.5`; Node `22.22.0` for the parity capture; npm `9.2.0`.
+- Docker `29.1.3`; Compose `2.40.3` on the original certification host.
+- Current WSL refresh: Docker client/server `29.6.2`; Compose `v5.3.1`.
 - `govulncheck` `1.6.0` with the official Go vulnerability database.
 - Frontend builder: Elixir `1.20.2`, Erlang/OTP `28.4.3`, Phoenix `1.8.9`.
+- Frontend browser image: Docker CLI `29.5.2`, Compose `2.40.3`, Chromium/ChromeDriver `149.0.7827.53`.
 - Phoenix LiveView `1.2.7` is the required security patch recorded by ADR-HLLM-009.
 
 ## Phase execution log
@@ -48,22 +54,24 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | Gate | Disposition |
 | --- | --- |
 | TEST-039 timeout policy | pass |
-| TEST-035 `make test-parity` | pass: 31 source-derived parity fixtures |
-| TEST-036 `make verify` | pass: format, vet, build, static, unit, parity, integration/race, API, observability, and vulnerability gates |
-| TEST-034 `make test-compose` | pass: fifteen services and clean teardown in 147.512s |
-| TEST-037 live providers | not run: credentials absent |
-| TEST-038 live gateway lifecycle | not run: credentials absent |
-| Frontend format/compile/unit/audits | pass: 68 tests, 3 excluded; warnings-as-errors, dependency, and Hex audits clean |
-| WEB-TEST-011 browser | pass: two desktop/mobile workflows in 54.0s |
-| WEB-TEST-012 Compose browser | pass: sixteen services and cross-runtime diagnostics in 153.1s |
+| TEST-035 `make test-parity` | pass: 33 source-derived parity fixtures; every fixture has an executable semantic consumer or ADR-backed intentional-difference classification |
+| TEST-036 `make verify` | pass: format, vet, build, static, unit, parity, Docker integration/integration-race, API, observability, unit race, and vulnerability gates |
+| TEST-034 `make test-compose` | pass: fifteen production services plus the test-only provider, full correlation, and clean teardown in 598.138s |
+| TEST-037 live providers | pass: OpenAI Responses text and contracted structured calls in 4.301s; no credential or live output persisted |
+| TEST-038 live gateway lifecycle | not run: `HARDEN_LLM_LIVE_GATEWAY_CONFIG` and dedicated deployed user/Grafana/Langfuse access are absent |
+| Frontend format/compile/unit/audits | pass in the exact Elixir `1.20.2` / OTP `28.4.3` container: 68 tests, 3 excluded; format, warnings-as-errors, dependency, and Hex audits clean |
+| WEB-TEST-011 browser | pass: two desktop/mobile Chromium workflows in 58.0s |
+| WEB-TEST-012 Compose browser | pass: sixteen services, browser/recovery checks, runtime-image contract, and cross-runtime diagnostics in 169.0s |
 | Production gateway image | pass: 9,524,841-byte non-root scratch image at `sha256:675aef5f8fe2efe6b2ced76c03023588bed6f6572cdb0367a6d1e95371568c8e`; embedded/OCI version `0.1.0` |
-| Production frontend image | pass: 18,147,722-byte non-root OTP release at `sha256:5c3feb38d29ca0a9edd7a44ef4897513f722a44522474c2d9ef9e43ac02d29e3` |
+| Production frontend image | pass: Docker-reported 47,460,842-byte OTP release at `sha256:9977297f87b0f225c78d574f2fb47965642a47952b83ce44ea99ec20784e3711`; runtime UID `10001` and no Mix/Hex/Rebar/Node/npm/Go toolchain |
 
-`govulncheck` reports no vulnerabilities called by the code. Its verbose module
-inventory retains GO-2026-5932 for `golang.org/x/crypto/openpgp`, which this
-project does not import; the used Argon2 surface is unaffected. Optional live
-tests are release evidence only and remain explicitly skipped when their named
-credentials are absent.
+The 2026-08-09 refresh upgraded `google.golang.org/grpc` to `v1.83.0`, Bandit to
+`1.12.4`, and Mint to `1.9.3`. `govulncheck` reports zero vulnerabilities in
+called symbols or imported packages; its module inventory still contains one
+uncalled vulnerability. The frontend dependency and Hex audits report no known
+advisories or retired packages. TEST-038 remains optional release evidence and
+must not be replaced by fabricated deployment credentials or the local fake
+provider smoke.
 
 ## Certified invariants
 

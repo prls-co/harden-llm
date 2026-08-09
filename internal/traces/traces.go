@@ -40,6 +40,7 @@ type Trace struct {
 	TotalCallDurationMs int64                        `json:"totalCallDurationMs"`
 	TotalWaitMs         int64                        `json:"totalWaitMs"`
 	LastErrorCategory   string                       `json:"lastErrorCategory,omitempty"`
+	LastErrorStatus     *int                         `json:"lastErrorStatus"`
 	Usage               runtime.Usage                `json:"usage"`
 	Cost                runtime.Cost                 `json:"cost"`
 	Attempts            []Attempt                    `json:"attempts"`
@@ -51,15 +52,18 @@ type Trace struct {
 }
 
 type Attempt struct {
-	Number      int            `json:"number"`
-	ProfileID   string         `json:"profileId"`
-	BackupIndex int            `json:"backupIndex"`
-	Category    retry.Category `json:"category"`
-	Status      int            `json:"status,omitempty"`
-	Retryable   bool           `json:"retryable"`
-	DelayMs     int64          `json:"delayMs"`
-	DurationMs  int64          `json:"durationMs"`
-	Repair      bool           `json:"repair"`
+	Number            int            `json:"number"`
+	ProfileID         string         `json:"profileId"`
+	BackupIndex       int            `json:"backupIndex"`
+	Category          retry.Category `json:"category"`
+	Status            int            `json:"status,omitempty"`
+	Code              string         `json:"code,omitempty"`
+	Type              string         `json:"type,omitempty"`
+	ProviderRequestID string         `json:"providerRequestId,omitempty"`
+	Retryable         bool           `json:"retryable"`
+	DelayMs           int64          `json:"delayMs"`
+	DurationMs        int64          `json:"durationMs"`
+	Repair            bool           `json:"repair"`
 }
 
 type Observation struct {
@@ -96,11 +100,13 @@ func Project(record runtime.CallRecord, callContext runtime.ObservabilityContext
 		attempt := Attempt{
 			Number: source.Number, ProfileID: source.ProfileID, BackupIndex: source.BackupIndex,
 			Category: source.Category, Status: source.Status, Retryable: source.Retryable,
+			Code: source.Code, Type: source.Type, ProviderRequestID: source.ProviderRequestID,
 			DelayMs: source.Delay.Milliseconds(), DurationMs: source.Duration.Milliseconds(), Repair: source.Repair,
 		}
 		trace.Attempts = append(trace.Attempts, attempt)
 		trace.appendObservation("provider.attempt", string(source.Category), map[string]any{
 			"attempt": source.Number, "profileId": source.ProfileID, "status": source.Status,
+			"code": source.Code, "type": source.Type, "providerRequestId": source.ProviderRequestID,
 		})
 		if source.Delay > 0 {
 			trace.TotalWaitMs += source.Delay.Milliseconds()
@@ -117,6 +123,9 @@ func Project(record runtime.CallRecord, callContext runtime.ObservabilityContext
 	if terminalErr != nil {
 		if len(record.Attempts) > 0 {
 			trace.LastErrorCategory = string(record.Attempts[len(record.Attempts)-1].Category)
+			if status := record.Attempts[len(record.Attempts)-1].Status; status > 0 {
+				trace.LastErrorStatus = &status
+			}
 		}
 		if trace.Status == StatusTimeout {
 			trace.LastErrorCategory = string(retry.CategoryTimeout)

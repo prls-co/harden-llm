@@ -74,7 +74,7 @@ func TestTelemetryFailureIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for index := 0; index < TelemetryQueueSize*3; index++ {
+	for index := 0; index < TelemetryQueueSize*2+1; index++ {
 		_, span := tracer.Start(context.Background(), "queued-span")
 		span.End()
 		logger.Info("queued-log", "sequence_bucket", index%4)

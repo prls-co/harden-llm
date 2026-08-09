@@ -1,6 +1,6 @@
 package hardenllm
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-011
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-008 TEST-011
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/prls-co/harden-llm/internal/retry"
 	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
 )
 
@@ -94,6 +95,36 @@ func TestCacheReplay(t *testing.T) {
 	}
 	if executor.executed != 3 || cache.gets != 2 || cache.sets != 2 {
 		t.Fatalf("off behavior executed/gets/sets = %d/%d/%d", executor.executed, cache.gets, cache.sets)
+	}
+}
+
+func TestEmptyProviderResponseRetriesSameOperationBeforeCaching(t *testing.T) {
+	cache := &memoryCache{records: make(map[string]CacheRecord)}
+	executor := &fixedExecutor{
+		result: fixtureProviderResult(),
+		sequence: []error{
+			&retry.ProviderError{Code: "empty_response", Empty: true, RawResponse: `{"output_text":""}`},
+			nil,
+		},
+	}
+	client, err := New(Options{Credentials: fixedCredentialResolver{}, Cache: cache})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.executor = executor
+	client.newID = sequenceIDs()
+	result, err := client.Call(context.Background(), Request{
+		ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "retry empty output",
+		CallType: CallTypeText, CacheMode: CacheModeCache, RetryPolicy: RetryPolicy{MaxAttempts: 2},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Output != "Apples, bananas" || executor.executed != 2 || cache.gets != 1 || cache.sets != 1 || len(result.Attempts) != 2 {
+		t.Fatalf("empty response retry = result=%#v executed=%d gets=%d sets=%d", result, executor.executed, cache.gets, cache.sets)
+	}
+	if result.Attempts[0].Category != "empty_response" || !result.Attempts[0].Retryable || result.Attempts[0].Code != "empty_response" {
+		t.Fatalf("first attempt metadata = %#v", result.Attempts[0])
 	}
 }
 

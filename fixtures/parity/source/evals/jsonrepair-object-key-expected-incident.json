@@ -258,7 +258,7 @@
     "modelId": "gpt-5.4-mini",
     "package": "@prls-co/utility-llm@0.5.1",
     "productId": "shGr7EYfQJpcbbO0i2lJ",
-    "provider": "shaman-litellm",
+    "provider": "cpa",
     "responseFormat": "json_schema",
     "stream": true,
     "strict": true,

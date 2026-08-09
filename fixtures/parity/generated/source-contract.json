@@ -15,7 +15,7 @@
   "operationCacheRecordSchemaVersion": "utility-llm.operation-cache-record.v2",
   "operationSchemaVersion": "utility-llm.operation.v1",
   "packageName": "@prls-co/utility-llm",
-  "packageVersion": "0.12.18",
+  "packageVersion": "0.14.6",
   "profileSchemaVersion": 1,
-  "sourceGitSHA": "9d0492b070f1f45a6ea63eeecd7942a8aef8ae71"
+  "sourceGitSHA": "09769424ca34b9d759e273a7e9dccf4fd00a5f6c"
 }

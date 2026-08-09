@@ -71,22 +71,22 @@
     }
   },
   "source": {
-    "repository": "/home/kirill/p/utility-llm",
-    "gitSHA": "9d0492b070f1f45a6ea63eeecd7942a8aef8ae71",
-    "packageVersion": "0.12.18",
-    "workingTreeDirty": true,
+    "repository": "/home/kirill/utility-llm",
+    "gitSHA": "09769424ca34b9d759e273a7e9dccf4fd00a5f6c",
+    "packageVersion": "0.14.6",
+    "workingTreeDirty": false,
     "dirtyPathsExcludedFromCapture": ["README.md", "specs/"]
   },
   "sourceVerification": {
-    "snapshot": "git archive 9d0492b070f1f45a6ea63eeecd7942a8aef8ae71",
+    "snapshot": "git archive 09769424ca34b9d759e273a7e9dccf4fd00a5f6c",
     "install": "npm ci --omit=dev --ignore-scripts --no-audit --no-fund",
     "commands": ["npm run test:contract", "npm run test:core", "npm run test:behavior"],
-    "result": "pass",
-    "note": "The full npm ci path requires private GitHub Package credentials through an unused development dependency; all required deterministic source gates pass with production dependencies only."
+    "result": "partial: contract pass; focused retry/provider behavior pass; full core gate blocked",
+    "note": "The source checkout was clean at capture and the capture script verified that its HEAD matched the recorded SHA. The full core manifest currently requires the unavailable dev dependency typescript/bin/tsc; no source files were modified."
   },
   "toolchain": {
     "go": "go1.26.5",
-    "node": "v22.22.1",
+    "node": "v22.22.0",
     "npm": "9.2.0",
     "docker": "29.1.3",
     "compose": "2.40.3"

@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -29,6 +30,11 @@ const (
 	defaultAnthropicVersion = "2023-06-01"
 	defaultTemperature      = 0.3
 	rawEnvelopeVersion      = "utility-llm.raw-provider-envelope.v1"
+)
+
+var (
+	responsesRetryDirectivePattern = regexp.MustCompile(`^An error occurred while processing your request\.\s+You can retry your request\b`)
+	responsesRequestIDPattern      = regexp.MustCompile(`\brequest ID\s+([A-Za-z0-9][A-Za-z0-9_-]{7,127})\b`)
 )
 
 // Config configures a provider router.
@@ -172,6 +178,11 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 	defer response.Body.Close()
 	body, err := readBounded(response.Body, router.maxResponseBytes)
 	if err != nil {
+		if prepared.protocol == "openai.responses" {
+			if streamErr := normalizeResponsesStreamReadError(err); streamErr != nil {
+				return runtime.ProviderResult{}, streamErr
+			}
+		}
 		return runtime.ProviderResult{}, &retry.ProviderError{Err: err, Code: "PROVIDER_RESPONSE_READ"}
 	}
 	if response.StatusCode < 200 || response.StatusCode > 299 {
@@ -254,7 +265,7 @@ func collectResponsesEventStream(body []byte) ([]byte, error) {
 				final = response
 			}
 		case "response.failed", "error":
-			return nil, &retry.ProviderError{Err: errors.New("provider response stream failed"), Code: "STREAM_FAILED"}
+			return nil, normalizeResponsesStreamError(event)
 		}
 	}
 	text := strings.Join(done, "")
@@ -265,7 +276,10 @@ func collectResponsesEventStream(body []byte) ([]byte, error) {
 		text = stringValue(final["output_text"])
 	}
 	if text == "" && len(final) == 0 {
-		return nil, &retry.ProviderError{Err: errors.New("provider returned an empty or null response"), Code: "EMPTY_RESPONSE", Empty: true}
+		return nil, &retry.ProviderError{
+			Err: errors.New("provider returned an empty or null response"), Code: "empty_response",
+			RawResponse: string(body), Empty: true,
+		}
 	}
 	if text != "" {
 		final["output_text"] = text
@@ -275,6 +289,83 @@ func collectResponsesEventStream(body []byte) ([]byte, error) {
 		return nil, &retry.ProviderError{Err: errors.New("provider response stream normalization failed"), Code: "STREAM_NORMALIZATION", Parse: true}
 	}
 	return encoded, nil
+}
+
+func normalizeResponsesStreamError(event map[string]any) error {
+	source := objectValue(event["error"])
+	if len(source) == 0 {
+		if response := objectValue(event["response"]); len(response) > 0 {
+			source = objectValue(response["error"])
+		}
+	}
+	if len(source) == 0 {
+		source = event
+	}
+	message := strings.TrimSpace(firstString(source, event, "message"))
+	if message == "" {
+		message = strings.TrimSpace(stringValue(source["code"]))
+	}
+	if message == "" {
+		message = strings.TrimSpace(stringValue(source["type"]))
+	}
+	if message == "" {
+		message = "OpenAI Responses API stream failed."
+	}
+	status := firstStatus(source, event)
+	code := boundedCode(stringValue(source["code"]))
+	typeName := boundedCode(stringValue(source["type"]))
+	requestID := ""
+	requestIDMatch := responsesRequestIDPattern.FindStringSubmatch(message)
+	hasStructuredEvidence := status != 0 || code != "" || typeName != ""
+	if !hasStructuredEvidence && responsesRetryDirectivePattern.MatchString(message) && len(requestIDMatch) == 2 {
+		code = "provider_retry"
+		requestID = requestIDMatch[1]
+	}
+	return &retry.ProviderError{
+		Err: errors.New(message), Code: code, Type: typeName, ProviderRequestID: requestID, Status: status,
+	}
+}
+
+func normalizeResponsesStreamReadError(err error) error {
+	for current := err; current != nil; current = errors.Unwrap(current) {
+		message := strings.TrimSpace(current.Error())
+		if responsesRetryDirectivePattern.MatchString(message) && responsesRequestIDPattern.MatchString(message) {
+			return normalizeResponsesStreamError(map[string]any{"message": message})
+		}
+	}
+	return nil
+}
+
+func firstString(primary, fallback map[string]any, key string) string {
+	if value := stringValue(primary[key]); value != "" {
+		return value
+	}
+	return stringValue(fallback[key])
+}
+
+func firstStatus(primary, fallback map[string]any) int {
+	for _, object := range []map[string]any{primary, fallback} {
+		value := object["status"]
+		switch typed := value.(type) {
+		case json.Number:
+			if parsed, err := strconv.Atoi(typed.String()); err == nil && parsed > 0 {
+				return parsed
+			}
+		case float64:
+			if typed > 0 && typed == math.Trunc(typed) {
+				return int(typed)
+			}
+		case int:
+			if typed > 0 {
+				return typed
+			}
+		case string:
+			if parsed, err := strconv.Atoi(strings.TrimSpace(typed)); err == nil && parsed > 0 {
+				return parsed
+			}
+		}
+	}
+	return 0
 }
 
 func splitSSEBlocks(value string) []string {
@@ -381,7 +472,7 @@ func readBounded(reader io.Reader, maximum int64) ([]byte, error) {
 	limited := io.LimitReader(reader, maximum+1)
 	body, err := io.ReadAll(limited)
 	if err != nil {
-		return nil, errors.New("provider response could not be read")
+		return body, providerResponseReadError{err: err}
 	}
 	if int64(len(body)) > maximum {
 		return nil, errors.New("provider response exceeded the size limit")
@@ -389,36 +480,51 @@ func readBounded(reader io.Reader, maximum int64) ([]byte, error) {
 	return body, nil
 }
 
+type providerResponseReadError struct {
+	err error
+}
+
+func (err providerResponseReadError) Error() string {
+	return "provider response could not be read"
+}
+
+func (err providerResponseReadError) Unwrap() error {
+	return err.err
+}
+
 func providerHTTPError(response *http.Response, body []byte) error {
-	code := providerErrorCode(body)
+	code, typeName := providerErrorFields(body)
 	message := fmt.Sprintf("provider returned HTTP %d", response.StatusCode)
 	if code != "" {
 		message += " (" + code + ")"
+	} else if typeName != "" {
+		message += " (" + typeName + ")"
 	}
 	return &retry.ProviderError{
-		Err: errors.New(message), Code: code, Status: response.StatusCode,
+		Err: errors.New(message), Code: code, Type: typeName, Status: response.StatusCode,
 		RetryAfter: parseRetryAfter(response.Header.Get("Retry-After"), time.Now()),
 	}
 }
 
-func providerErrorCode(body []byte) string {
+func providerErrorFields(body []byte) (string, string) {
 	var payload map[string]any
 	if json.Unmarshal(body, &payload) != nil {
-		return ""
+		return "", ""
 	}
 	if nested, ok := payload["error"].(map[string]any); ok {
-		for _, key := range []string{"type", "code", "status"} {
-			if value, ok := nested[key].(string); ok {
-				return boundedCode(value)
-			}
+		code := boundedCode(stringValue(nested["code"]))
+		typeName := boundedCode(stringValue(nested["type"]))
+		if code == "" {
+			code = boundedCode(stringValue(nested["status"]))
 		}
+		return code, typeName
 	}
-	for _, key := range []string{"code", "type", "status"} {
-		if value, ok := payload[key].(string); ok {
-			return boundedCode(value)
-		}
+	code := boundedCode(stringValue(payload["code"]))
+	typeName := boundedCode(stringValue(payload["type"]))
+	if code == "" {
+		code = boundedCode(stringValue(payload["status"]))
 	}
-	return ""
+	return code, typeName
 }
 
 func boundedCode(value string) string {

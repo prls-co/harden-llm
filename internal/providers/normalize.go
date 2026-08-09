@@ -24,7 +24,10 @@ func normalizeResponse(prepared preparedRequest, body []byte) (runtime.ProviderR
 		return runtime.ProviderResult{}, &retry.ProviderError{Err: errors.New("provider refusal or content filter"), Code: "PROVIDER_REFUSAL", Refusal: true}
 	}
 	if empty {
-		return runtime.ProviderResult{}, &retry.ProviderError{Err: errors.New("provider returned an empty or null response"), Code: "EMPTY_RESPONSE", Empty: true}
+		return runtime.ProviderResult{}, &retry.ProviderError{
+			Err: errors.New("provider returned an empty or null response"), Code: "empty_response",
+			RawResponse: string(body), Empty: true,
+		}
 	}
 	usage := normalizeUsage(prepared.protocol, response)
 	cost := normalizeCost(response, usage, prepared.pricing)

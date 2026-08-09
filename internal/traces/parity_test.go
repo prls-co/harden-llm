@@ -67,6 +67,21 @@ func TestParityTraceFailureAndCacheHit(t *testing.T) {
 	if providerTimeout.Status != StatusTimeout || providerTimeout.LastErrorCategory != string(retry.CategoryTimeout) {
 		t.Fatalf("provider timeout trace mismatch: %#v", providerTimeout)
 	}
+	providerRetry := Project(runtime.CallRecord{
+		CallID: "failed-provider-retry", TraceID: "trace-provider-retry",
+		Attempts: []retry.Attempt{{Number: 1, Category: retry.CategoryProvider, Code: "provider_retry", ProviderRequestID: "req_fixture_0001"}},
+	}, runtime.ObservabilityContext{}, started, started.Add(time.Second), &retry.ProviderError{Code: "provider_retry", ProviderRequestID: "req_fixture_0001"})
+	if providerRetry.LastErrorCategory != string(retry.CategoryProvider) || providerRetry.LastErrorStatus != nil ||
+		providerRetry.Attempts[0].ProviderRequestID != "req_fixture_0001" {
+		t.Fatalf("provider retry trace mismatch: %#v", providerRetry)
+	}
+	serverFailure := Project(runtime.CallRecord{
+		CallID: "failed-server", TraceID: "trace-server",
+		Attempts: []retry.Attempt{{Number: 1, Category: retry.CategoryServer, Status: 503}},
+	}, runtime.ObservabilityContext{}, started, started.Add(time.Second), &retry.ProviderError{Status: 503})
+	if serverFailure.LastErrorStatus == nil || *serverFailure.LastErrorStatus != 503 {
+		t.Fatalf("server status trace mismatch: %#v", serverFailure)
+	}
 	cacheHit := Project(runtime.CallRecord{CallID: "cached", TraceID: "trace-cached", Cache: runtime.CacheFacts{Mode: cachekey.ModeCache, Status: "hit", Served: true}}, runtime.ObservabilityContext{}, started, started, nil)
 	if cacheHit.Status != StatusSuccess || !cacheHit.Cache.Served || cacheHit.ProviderInvoked {
 		t.Fatalf("unexpected cache-hit trace: %#v", cacheHit)

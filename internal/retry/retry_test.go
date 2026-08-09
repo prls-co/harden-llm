@@ -4,12 +4,155 @@ package retry
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"math/rand"
+	"os"
 	"reflect"
 	"testing"
 	"time"
 )
+
+// TEST-008 consumes the source-owned combinatorial retry decision model
+// captured from utility-llm's current main commit.
+func TestCurrentSourceRetryDecisionMatrixParity(t *testing.T) {
+	data, err := os.ReadFile("../../fixtures/parity/source/combinatorial/retry-decision-matrix.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Rows []struct {
+			ID          string `json:"id"`
+			Outcome     string `json:"outcome"`
+			Policy      string `json:"policy"`
+			MaxAttempts int    `json:"maxAttempts"`
+		} `json:"rows"`
+	}
+	if err := json.Unmarshal(data, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range fixture.Rows {
+		row := row
+		t.Run(row.ID, func(t *testing.T) {
+			policy := DefaultPolicy()
+			enabled := row.Policy == "enabled"
+			switch row.Outcome {
+			case "network":
+				policy.Network = enabled
+			case "rate_limit":
+				policy.RateLimit = enabled
+			case "server_error":
+				policy.ServerError = enabled
+			case "empty_response":
+				policy.EmptyResponse = enabled
+			case "parse_error":
+				policy.ParseError = enabled
+			}
+			failure := sourceMatrixError(row.Outcome)
+			calls := 0
+			_, runErr := Do(context.Background(), Config{
+				MaxAttempts: row.MaxAttempts, Policy: policy,
+				Wait: func(context.Context, time.Duration) error { return nil },
+			}, func(context.Context, int) error {
+				calls++
+				if calls == 1 {
+					return failure
+				}
+				return nil
+			})
+			canRetry := row.Outcome != "refusal" && enabled && row.MaxAttempts > 1
+			if (runErr == nil) != canRetry || calls != map[bool]int{true: 2, false: 1}[canRetry] {
+				t.Fatalf("run result=%v calls=%d canRetry=%t", runErr, calls, canRetry)
+			}
+			if runErr != nil && Classify(runErr, policy).Category != Category(row.Outcome) {
+				t.Fatalf("terminal category=%q want %q", Classify(runErr, policy).Category, row.Outcome)
+			}
+		})
+	}
+}
+
+func sourceMatrixError(outcome string) error {
+	switch outcome {
+	case "network":
+		return &ProviderError{Code: "ECONNRESET"}
+	case "rate_limit":
+		return &ProviderError{Status: 429}
+	case "server_error":
+		return &ProviderError{Status: 503}
+	case "empty_response":
+		return &ProviderError{Code: "empty_response"}
+	case "parse_error":
+		return &ProviderError{Parse: true}
+	case "refusal":
+		return &ProviderError{Refusal: true}
+	default:
+		return &ProviderError{Err: errors.New("unknown source matrix outcome")}
+	}
+}
+
+func TestRetryClassificationParityCapturedSource(t *testing.T) {
+	data, err := os.ReadFile("../../fixtures/parity/generated/retry-classification.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Cases []struct {
+			Name   string `json:"name"`
+			Policy struct {
+				ParseError bool `json:"parseError"`
+			} `json:"policy"`
+			Classification struct {
+				Category     Category `json:"category"`
+				Retryable    bool     `json:"retryable"`
+				Status       *int     `json:"status"`
+				RetryAfterMS *int64   `json:"retryAfterMs"`
+			} `json:"classification"`
+		} `json:"cases"`
+	}
+	if err := json.Unmarshal(data, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	for _, testCase := range fixture.Cases {
+		testCase := testCase
+		t.Run(testCase.Name, func(t *testing.T) {
+			policy := DefaultPolicy()
+			policy.ParseError = testCase.Policy.ParseError
+			classification := Classify(capturedClassificationError(testCase.Name), policy)
+			wantStatus := 0
+			if testCase.Classification.Status != nil {
+				wantStatus = *testCase.Classification.Status
+			}
+			wantRetryAfter := time.Duration(0)
+			if testCase.Classification.RetryAfterMS != nil {
+				wantRetryAfter = time.Duration(*testCase.Classification.RetryAfterMS) * time.Millisecond
+			}
+			if classification.Category != testCase.Classification.Category ||
+				classification.Retryable != testCase.Classification.Retryable ||
+				classification.Status != wantStatus || classification.RetryAfter != wantRetryAfter {
+				t.Fatalf("classification = %#v, want category=%q retryable=%t status=%d retryAfter=%v", classification, testCase.Classification.Category, testCase.Classification.Retryable, wantStatus, wantRetryAfter)
+			}
+		})
+	}
+}
+
+func capturedClassificationError(name string) error {
+	switch name {
+	case "network":
+		return &ProviderError{Err: errors.New("socket hang up"), Code: "ECONNRESET"}
+	case "rate-limit":
+		return &ProviderError{Err: errors.New("rate limited"), Status: 429, RetryAfter: 2 * time.Second}
+	case "server":
+		return &ProviderError{Err: errors.New("unavailable"), Status: 503}
+	case "refusal":
+		return &ProviderError{Err: errors.New("content_filter refusal"), Status: 503}
+	case "timeout":
+		return context.DeadlineExceeded
+	case "parse-disabled", "parse-enabled":
+		return &ProviderError{Err: errors.New("invalid JSON"), Parse: true}
+	default:
+		return &ProviderError{Err: errors.New("unknown captured classification")}
+	}
+}
 
 func TestRetryContract(t *testing.T) {
 	t.Run("classification", func(t *testing.T) {
@@ -19,9 +162,11 @@ func TestRetryContract(t *testing.T) {
 			policy Policy
 			want   Classification
 		}{
-			{name: "network", err: &ProviderError{Code: "ECONNRESET"}, policy: DefaultPolicy(), want: Classification{Retryable: true, Category: CategoryNetwork}},
+			{name: "network", err: &ProviderError{Code: "ECONNRESET"}, policy: DefaultPolicy(), want: Classification{Retryable: true, Category: CategoryNetwork, Code: "ECONNRESET"}},
 			{name: "rate limit", err: &ProviderError{Status: 429, RetryAfter: 2 * time.Second}, policy: DefaultPolicy(), want: Classification{Retryable: true, Category: CategoryRateLimit, Status: 429, RetryAfter: 2 * time.Second}},
 			{name: "server", err: &ProviderError{Status: 503}, policy: DefaultPolicy(), want: Classification{Retryable: true, Category: CategoryServer, Status: 503}},
+			{name: "provider retry", err: &ProviderError{Err: errors.New("retry this provider request"), Code: "provider_retry", ProviderRequestID: "req_fixture_0001"}, policy: Policy{ServerError: false}, want: Classification{Retryable: true, Category: CategoryProvider, Code: "provider_retry", ProviderRequestID: "req_fixture_0001"}},
+			{name: "empty wording without code", err: &ProviderError{Err: errors.New("provider returned an empty or null response")}, policy: DefaultPolicy(), want: Classification{Category: CategoryOther}},
 			{name: "parse disabled", err: &ProviderError{Parse: true}, policy: DefaultPolicy(), want: Classification{Category: CategoryParse}},
 			{name: "parse enabled", err: &ProviderError{Parse: true}, policy: Policy{Network: true, RateLimit: true, ServerError: true, EmptyResponse: true, ParseError: true}, want: Classification{Retryable: true, Category: CategoryParse}},
 			{name: "refusal", err: &ProviderError{Status: 503, Refusal: true}, policy: DefaultPolicy(), want: Classification{Category: CategoryRefusal, Status: 503}},

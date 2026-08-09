@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"math"
 	"net/http"
 	"net/url"
@@ -94,7 +95,7 @@ func TestProviderNormalization(t *testing.T) {
 	}
 }
 
-func TestProviderNormalizationCapturedSource(t *testing.T) {
+func TestProviderNormalizationParityCapturedSource(t *testing.T) {
 	t.Parallel()
 	data, err := os.ReadFile("../../fixtures/parity/generated/provider-cases.json")
 	if err != nil {
@@ -186,6 +187,12 @@ func TestProviderNormalizationClassifiesSafeFailures(t *testing.T) {
 			}
 			if got := retry.Classify(err, policy).Category; got != test.wantCategory {
 				t.Fatalf("category mismatch: got %q want %q (%v)", got, test.wantCategory, err)
+			}
+			if test.wantCategory == retry.CategoryEmpty {
+				providerErr, ok := err.(*retry.ProviderError)
+				if !ok || providerErr.RawResponse != test.body {
+					t.Fatalf("empty response evidence = %#v, want %q", err, test.body)
+				}
 			}
 		})
 	}
@@ -288,11 +295,112 @@ func TestProviderNormalizationCollectsResponsesEventStream(t *testing.T) {
 	}
 }
 
+func TestProviderNormalizationParityClassifiesResponsesProviderRetryDirective(t *testing.T) {
+	t.Parallel()
+	fixtureBytes, err := os.ReadFile("../../fixtures/parity/source/providers/openai-responses-stream-retry-error.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		PositiveCase struct {
+			Message  string `json:"message"`
+			Expected struct {
+				Code              string `json:"code"`
+				ProviderRequestID string `json:"providerRequestId"`
+			} `json:"expected"`
+		} `json:"positiveCase"`
+	}
+	if err := json.Unmarshal(fixtureBytes, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	positive := fixture.PositiveCase.Message
+	_, err = collectResponsesEventStream([]byte(
+		`data: {"type":"response.output_text.delta","delta":"{\"stale\":"}` + "\n\n" +
+			`data: {"type":"response.failed","error":{"message":"` + positive + `"}}` + "\n\n" +
+			"data: [DONE]\n\n",
+	))
+	if err == nil {
+		t.Fatal("expected provider retry directive to fail the stream")
+	}
+	providerErr, ok := err.(*retry.ProviderError)
+	if !ok {
+		t.Fatalf("error type = %T, want *retry.ProviderError", err)
+	}
+	classification := retry.Classify(err, retry.Policy{ServerError: false})
+	if classification.Category != retry.CategoryProvider || !classification.Retryable || providerErr.Code != fixture.PositiveCase.Expected.Code ||
+		providerErr.ProviderRequestID != fixture.PositiveCase.Expected.ProviderRequestID || providerErr.Status != 0 || providerErr.Type != "" {
+		t.Fatalf("provider retry normalization = %#v / %#v", providerErr, classification)
+	}
+
+	structured := `data: {"type":"response.failed","error":{"message":"` + positive + `","status":503,"code":"server_error","type":"server_error"}}` + "\n\n"
+	_, err = collectResponsesEventStream([]byte(structured))
+	if err == nil {
+		t.Fatal("expected structured provider failure")
+	}
+	providerErr, ok = err.(*retry.ProviderError)
+	if !ok || providerErr.Code != "server_error" || providerErr.Type != "server_error" || providerErr.ProviderRequestID != "" || providerErr.Status != 503 ||
+		retry.Classify(err, retry.DefaultPolicy()).Category != retry.CategoryServer {
+		t.Fatalf("structured provider failure = %#v / %#v", providerErr, retry.Classify(err, retry.DefaultPolicy()))
+	}
+}
+
+func TestProviderNormalizationClassifiesResponsesIteratorReadDirective(t *testing.T) {
+	t.Parallel()
+	message := "An error occurred while processing your request. You can retry your request. Please include the request ID req_fixture_0002 in your message."
+	operation := cachekey.Operation{
+		Protocol: "openai.responses",
+		Endpoint: cachekey.Endpoint{Identity: "https://api.example", Method: http.MethodPost, Path: "/v1/responses"},
+	}
+	parsedURL, err := url.Parse("https://api.example/v1/responses")
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := &Router{
+		client: &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": {"text/event-stream"}},
+				Body:       &errorReadCloser{reader: strings.NewReader(`data: {"type":"response.output_text.delta","delta":"{"}`), err: errors.New(message)},
+			}, nil
+		})},
+		maxResponseBytes: defaultMaxResponseBytes,
+	}
+	_, err = router.Execute(context.Background(), runtime.PreparedOperation{
+		Operation: operation,
+		Opaque:    preparedRequest{url: parsedURL, headers: http.Header{}, body: []byte(`{}`), protocol: operation.Protocol, operation: operation},
+	})
+	if err == nil || retry.Classify(err, retry.DefaultPolicy()).Category != retry.CategoryProvider {
+		t.Fatalf("iterator read error = %v / %#v", err, retry.Classify(err, retry.DefaultPolicy()))
+	}
+	providerErr, ok := err.(*retry.ProviderError)
+	if !ok || providerErr.Code != "provider_retry" || providerErr.ProviderRequestID != "req_fixture_0002" {
+		t.Fatalf("iterator read provider error = %#v", err)
+	}
+}
+
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (function roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
 	return function(request)
 }
+
+type errorReadCloser struct {
+	reader *strings.Reader
+	err    error
+}
+
+func (reader *errorReadCloser) Read(buffer []byte) (int, error) {
+	count, err := reader.reader.Read(buffer)
+	if count > 0 {
+		return count, nil
+	}
+	if err == io.EOF {
+		return 0, reader.err
+	}
+	return count, err
+}
+
+func (reader *errorReadCloser) Close() error { return nil }
 
 func deepEqualJSON(left, right any) bool {
 	leftJSON, _ := jsonMarshal(left)

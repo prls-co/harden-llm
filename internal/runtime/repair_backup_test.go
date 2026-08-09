@@ -1,11 +1,12 @@
 package runtime
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-009
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-008 TEST-009
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -227,5 +228,32 @@ func TestBackupProfiles(t *testing.T) {
 	}
 	if BackupEligible(retry.Classification{Category: retry.CategoryParse}) {
 		t.Fatal("parse error should not be backup eligible")
+	}
+	if BackupEligible(retry.Classification{Category: retry.CategoryProvider}) {
+		t.Fatal("provider retry directive should stay on the current profile")
+	}
+}
+
+func TestBackupEligibilityParityCapturedSource(t *testing.T) {
+	data, err := os.ReadFile("../../fixtures/parity/generated/retry-classification.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Cases []struct {
+			Name             string `json:"name"`
+			FallbackEligible bool   `json:"fallbackEligible"`
+			Classification   struct {
+				Category retry.Category `json:"category"`
+			} `json:"classification"`
+		} `json:"cases"`
+	}
+	if err := json.Unmarshal(data, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	for _, testCase := range fixture.Cases {
+		if got := BackupEligible(retry.Classification{Category: testCase.Classification.Category}); got != testCase.FallbackEligible {
+			t.Errorf("%s backup eligibility = %t, want %t", testCase.Name, got, testCase.FallbackEligible)
+		}
 	}
 }

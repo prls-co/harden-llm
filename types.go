@@ -111,16 +111,19 @@ type RepairEscalation struct {
 
 // Attempt is safe, normalized metadata for one provider invocation.
 type Attempt struct {
-	Number       int           `json:"number"`
-	ProfileID    string        `json:"profileId"`
-	Category     string        `json:"category,omitempty"`
-	HTTPStatus   int           `json:"httpStatus,omitempty"`
-	Retryable    bool          `json:"retryable"`
-	Wait         time.Duration `json:"wait"`
-	Duration     time.Duration `json:"duration"`
-	Repair       bool          `json:"repair"`
-	BackupIndex  int           `json:"backupIndex"`
-	ProviderUsed bool          `json:"providerUsed"`
+	Number            int           `json:"number"`
+	ProfileID         string        `json:"profileId"`
+	Category          string        `json:"category,omitempty"`
+	HTTPStatus        int           `json:"httpStatus,omitempty"`
+	Code              string        `json:"code,omitempty"`
+	Type              string        `json:"type,omitempty"`
+	ProviderRequestID string        `json:"providerRequestId,omitempty"`
+	Retryable         bool          `json:"retryable"`
+	Wait              time.Duration `json:"wait"`
+	Duration          time.Duration `json:"duration"`
+	Repair            bool          `json:"repair"`
+	BackupIndex       int           `json:"backupIndex"`
+	ProviderUsed      bool          `json:"providerUsed"`
 }
 
 // Usage preserves canonical token groups without provider-native payloads.

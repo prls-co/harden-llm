@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
+import { execFile as execFileCallback } from "node:child_process";
 import { createRequire } from "node:module";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
-const SCRIPT_VERSION = 2;
+const SCRIPT_VERSION = 7;
+const execFile = promisify(execFileCallback);
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outputRoot = path.join(repositoryRoot, "fixtures", "parity");
 
@@ -16,10 +19,14 @@ function option(name, fallback = "") {
   return index >= 0 ? process.argv[index + 1] : fallback;
 }
 
-const sourceRoot = path.resolve(option("source", "/home/kirill/p/utility-llm"));
+const sourceRoot = path.resolve(option("source", "/home/kirill/utility-llm"));
 const sourceSHA = option("source-sha");
 if (!/^[0-9a-f]{40}$/.test(sourceSHA)) {
   throw new Error("--source-sha must be a full lowercase Git commit");
+}
+const { stdout: sourceHead } = await execFile("git", ["-C", sourceRoot, "rev-parse", "HEAD"]);
+if (sourceHead.trim() !== sourceSHA) {
+  throw new Error(`source checkout HEAD ${sourceHead.trim()} does not match --source-sha ${sourceSHA}`);
 }
 
 const requireFromSource = createRequire(path.join(sourceRoot, "package.json"));
@@ -397,11 +404,13 @@ await captureJSON("generated/provider-cases.json", "providers", {
 ]);
 
 const copiedDirectories = [
+  "fixtures/combinatorial",
   "fixtures/diagnostics",
   "fixtures/evals",
   "fixtures/examples",
   "fixtures/llm-stats-totals",
   "fixtures/models",
+  "fixtures/providers",
   "fixtures/queries",
   "fixtures/telemetry",
   "fixtures/traces",
@@ -413,8 +422,55 @@ for (const directory of copiedDirectories) {
 }
 
 captured.sort((left, right) => left.path.localeCompare(right.path));
+const fixtureConsumers = {
+  "generated/cache-identity.json": [
+    { target: "internal/cachekey/cache_test.go", testFunction: "TestCacheIdentity", tests: ["TEST-011"], evidence: "cache-identity.json" },
+  ],
+  "generated/profile-catalog.json": [
+    { target: "internal/profiles/profile_test.go", testFunction: "TestProfileParityRoundTripAndValidation", tests: ["TEST-017"], evidence: "profile-catalog.json" },
+  ],
+  "generated/provider-cases.json": [
+    { target: "internal/providers/requests_test.go", testFunction: "TestProviderRequestParityCapturedSource", tests: ["TEST-012"], evidence: "provider-cases.json" },
+    { target: "internal/providers/normalization_test.go", testFunction: "TestProviderNormalizationParityCapturedSource", tests: ["TEST-013"], evidence: "provider-cases.json" },
+  ],
+  "generated/reasoning-effort-cases.json": [
+    { target: "internal/providers/requests_test.go", testFunction: "TestReasoningEffortParityCapturedSource", tests: ["TEST-012"], evidence: "reasoning-effort-cases.json" },
+  ],
+  "generated/retry-classification.json": [
+    { target: "internal/retry/retry_test.go", testFunction: "TestRetryClassificationParityCapturedSource", tests: ["TEST-008"], evidence: "retry-classification.json" },
+    { target: "internal/runtime/repair_backup_test.go", testFunction: "TestBackupEligibilityParityCapturedSource", tests: ["TEST-009"], evidence: "retry-classification.json" },
+  ],
+  "generated/schema-normalization.json": [
+    { target: "internal/schema/schema_test.go", testFunction: "TestSchemaContract", tests: ["TEST-010"], evidence: "schema-normalization.json" },
+  ],
+  "generated/structured-parser-cases.json": [
+    { target: "internal/schema/schema_test.go", testFunction: "TestStructuredParserParityCapturedSource", tests: ["TEST-010"], evidence: "structured-parser-cases.json" },
+  ],
+  "generated/usage-cases.json": [
+    { target: "internal/pricing/usage_cost_test.go", testFunction: "TestUsageCostParity", tests: ["TEST-015"], evidence: "usage-cases.json" },
+  ],
+  "source/combinatorial/retry-decision-matrix.json": [
+    { target: "internal/retry/retry_test.go", testFunction: "TestCurrentSourceRetryDecisionMatrixParity", tests: ["TEST-008"], evidence: "retry-decision-matrix.json" },
+  ],
+  "source/evals/cpa-gpt-5.4-mini-responses-call.json": [
+    { target: "internal/providers/requests_test.go", testFunction: "TestCPAResponsesEvalRequestParityCapturedSource", tests: ["TEST-012"], evidence: "cpa-gpt-5.4-mini-responses-call.json" },
+  ],
+  "source/evals/jsonrepair-object-key-expected-incident.json": [
+    { target: "internal/schema/schema_test.go", testFunction: "TestJSONRepairIncidentParityCapturedSource", tests: ["TEST-010"], evidence: "jsonrepair-object-key-expected-incident.json" },
+  ],
+  "source/providers/openai-responses-stream-retry-error.json": [
+    { target: "internal/providers/normalization_test.go", testFunction: "TestProviderNormalizationParityClassifiesResponsesProviderRetryDirective", tests: ["TEST-013"], evidence: "openai-responses-stream-retry-error.json" },
+  ],
+};
+for (const fixture of captured) {
+  if (fixture.path.startsWith("source/llm-stats-totals/parity/")) {
+    fixtureConsumers[fixture.path] = [
+      { target: "internal/stats/parity_test.go", testFunction: "TestParityStatsTotals", tests: ["TEST-016"], evidence: "llm-stats-totals/parity/*.json" },
+    ];
+  }
+}
 const manifest = {
-  manifestSchemaVersion: 1,
+  manifestSchemaVersion: 2,
   source: {
     repository: "prls-co/utility-llm",
     gitSHA: sourceSHA,
@@ -427,12 +483,18 @@ const manifest = {
     canonicalJSON: true,
     liveCredentialsUsed: false,
   },
+  fixtureConsumers,
   intentionalDifferences: [
     {
       id: "detailed-go-result",
       mode: "intentional-difference",
       tests: ["TEST-006"],
-      fixtures: ["source/examples/basic-text-golden.json", "source/examples/structured-golden.json"],
+      fixtures: [
+        "source/examples/basic-text-golden.json",
+        "source/examples/basic-text-input.json",
+        "source/examples/structured-golden.json",
+        "source/examples/structured-input.json",
+      ],
       adr: "ADR-HLLM-001",
       note: "Source direct output is compared to Result.Output; Go metadata derives from the same normalized call record.",
     },
@@ -443,6 +505,68 @@ const manifest = {
       fixtures: ["generated/source-contract.json"],
       adr: "ADR-HLLM-002",
       note: "The target exposes one typed Call path instead of the JavaScript export inventory.",
+    },
+    {
+      id: "secure-provider-egress",
+      mode: "intentional-difference",
+      tests: ["TEST-012", "TEST-014", "TEST-017"],
+      fixtures: ["generated/profile-catalog.json", "generated/provider-cases.json"],
+      adr: "ADR-HLLM-001",
+      note: "The Go deployment keeps provider normalization semantics while enforcing server-side egress policy and configured provider ownership.",
+    },
+    {
+      id: "authenticated-credential-envelope",
+      mode: "intentional-difference",
+      tests: ["TEST-018"],
+      fixtures: [],
+      adr: "ADR-HLLM-001",
+      note: "The Go service uses an authenticated versioned credential envelope instead of the source runtime's credential storage boundary.",
+    },
+    {
+      id: "garage-artifact-projection",
+      mode: "intentional-difference",
+      tests: ["TEST-016", "TEST-019", "TEST-040"],
+      fixtures: [
+        "source/diagnostics/bundle-input.json",
+        "source/diagnostics/summary-input.json",
+        "source/examples/cache-golden.json",
+        "source/traces/raw-response-input.json",
+        "source/traces/trace-doc-input.json",
+      ],
+      adr: "ADR-HLLM-001",
+      note: "The self-hosted service projects diagnostic and trace artifacts into Garage/Postgres storage while preserving the source diagnostic fields.",
+    },
+    {
+      id: "provider-retry-directive",
+      mode: "intentional-difference",
+      tests: ["TEST-008", "TEST-012", "TEST-013"],
+      fixtures: ["source/providers/openai-responses-stream-retry-error.json"],
+      adr: "ADR-HLLM-001",
+      note: "The Go transport maps the source provider-retry directive into its typed retry error while retaining the self-hosted provider boundary.",
+    },
+    {
+      id: "profile-owned-model-catalog",
+      mode: "intentional-difference",
+      tests: ["TEST-015", "TEST-017", "TEST-024"],
+      fixtures: ["source/models/model-registry-cases.json", "source/models/pricing-overrides.json"],
+      adr: "ADR-HLLM-001",
+      note: "The self-hosted service stores model discovery and pricing in owner-managed profiles instead of a package-global registry.",
+    },
+    {
+      id: "postgres-resource-queries",
+      mode: "intentional-difference",
+      tests: ["TEST-020", "TEST-024"],
+      fixtures: ["source/queries/query-helper-cases.json"],
+      adr: "ADR-HLLM-001",
+      note: "The self-hosted resource API implements owner-scoped PostgreSQL queries instead of source-specific query helpers.",
+    },
+    {
+      id: "otel-telemetry-projection",
+      mode: "intentional-difference",
+      tests: ["TEST-016", "TEST-028", "TEST-031"],
+      fixtures: ["source/telemetry/telemetry-cases.json"],
+      adr: "ADR-HLLM-001",
+      note: "The self-hosted runtime projects source telemetry semantics through OpenTelemetry and domain traces instead of source-specific process telemetry.",
     },
   ],
   fixtures: captured,

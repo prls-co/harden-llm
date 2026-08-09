@@ -512,11 +512,14 @@ func newDiagnostic(stage, raw string, err error) *Diagnostic {
 	}
 	return &Diagnostic{
 		Category: "parse_error", Stage: stage, Message: message,
-		RawLength: len(raw), RawTail: safeTail(raw, 128),
+		RawLength: utf16Length(raw), RawTail: safeTail(raw, 128),
 	}
 }
 
 func safeTail(raw string, limit int) string {
+	if limit <= 0 {
+		return ""
+	}
 	redacted := strings.Map(func(r rune) rune {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {
 			return '*'
@@ -526,10 +529,34 @@ func safeTail(raw string, limit int) string {
 		}
 		return r
 	}, raw)
-	if len(redacted) <= limit {
-		return redacted
+	runes := []rune(redacted)
+	units := 0
+	start := len(runes)
+	for start > 0 {
+		width := 1
+		if runes[start-1] > 0xffff {
+			width = 2
+		}
+		if units+width > limit {
+			break
+		}
+		units += width
+		start--
 	}
-	return redacted[len(redacted)-limit:]
+	return string(runes[start:])
+}
+
+// utf16Length matches JavaScript String.length, which is part of the source
+// parse-diagnostic contract captured from utility-llm.
+func utf16Length(value string) int {
+	length := 0
+	for _, character := range value {
+		length++
+		if character > 0xffff {
+			length++
+		}
+	}
+	return length
 }
 
 func normalizeParsedNumbers(value any) any {

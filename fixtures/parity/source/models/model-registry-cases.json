@@ -39,9 +39,9 @@
     "CEREBRAS_API_KEY",
     "DEEPINFRA_API_KEY",
     "NOVITA_API_KEY",
-    "SHAMAN_LITELLM_API_KEY",
-    "SHAMAN_LITELLM_CF_ACCESS_CLIENT_ID",
-    "SHAMAN_LITELLM_CF_ACCESS_CLIENT_SECRET"
+    "CPA_API_KEY",
+    "CPA_CF_ACCESS_CLIENT_ID",
+    "CPA_CF_ACCESS_CLIENT_SECRET"
   ],
   "pricing": {
     "modelId": "gpt-4.1-nano",
@@ -134,15 +134,15 @@
     },
     {
       "modelId": "gpt-5.4",
-      "provider": "shaman-litellm"
+      "provider": "cpa"
     },
     {
       "modelId": "gpt-5.4-mini",
-      "provider": "shaman-litellm"
+      "provider": "cpa"
     },
     {
       "modelId": "gpt-5.5",
-      "provider": "shaman-litellm"
+      "provider": "cpa"
     },
     {
       "modelId": "openai-gpt-5.4-mini",
@@ -165,6 +165,6 @@
     "cerebras",
     "deepinfra",
     "novita",
-    "shaman-litellm"
+    "cpa"
   ]
 }

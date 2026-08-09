@@ -1,0 +1,52 @@
+{
+  "negativeCases": [
+    {
+      "expectedCategory": "other",
+      "id": "directive-without-request-id",
+      "message": "An error occurred while processing your request. You can retry your request."
+    },
+    {
+      "expectedCategory": "other",
+      "id": "request-id-without-directive",
+      "message": "Please include the request ID req_issue30_sanitized_0002 in your message."
+    },
+    {
+      "expectedCategory": "refusal",
+      "id": "refusal",
+      "message": "Content filter refusal. You can retry your request. Please include the request ID req_issue30_sanitized_0003 in your message."
+    },
+    {
+      "code": "server_error",
+      "expectedCategory": "server_error",
+      "id": "structured-server-error",
+      "message": "You can retry your request. Request ID req_issue30_sanitized_0004.",
+      "status": 503,
+      "type": "server_error"
+    }
+  ],
+  "positiveCase": {
+    "code": null,
+    "expected": {
+      "category": "provider_retry",
+      "code": "provider_retry",
+      "providerRequestId": "req_issue30_sanitized_0001",
+      "status": null
+    },
+    "message": "An error occurred while processing your request. You can retry your request, or contact support if the error persists. Please include the request ID req_issue30_sanitized_0001 in your message.",
+    "partialDelta": "{\"stale\":",
+    "requestId": null,
+    "status": null,
+    "type": null
+  },
+  "protocol": "responses",
+  "provider": "openai",
+  "schemaVersion": 1,
+  "successResponse": {
+    "output_text": "{\"answer\":\"ok\"}",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 5,
+      "output_tokens": 3
+    }
+  }
+}
