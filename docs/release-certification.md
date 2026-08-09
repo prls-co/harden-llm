@@ -1,7 +1,8 @@
 # Release Certification
 
-This document is the durable release summary for the 2026-07-13 v1 candidate
-and its 2026-08-09 utility-llm parity refresh.
+This document is the durable release summary for the 2026-07-13 v1 candidate,
+its 2026-08-09 utility-llm parity refresh, and the 2026-08-09 production
+deployment.
 Detailed command output belongs under ignored
 `plans/evidence/harden-llm/<run-id>/`; secrets and live provider output never do.
 
@@ -47,7 +48,8 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | P05 observability | `6437d18` | complete |
 | P06 production stack | `a516ffd` | complete |
 | Frontend WEB-TEST-001..012 | `a9fcb88` | complete |
-| P07 release closure | this closure commit | complete |
+| P07 release closure | `2e6b026` | complete |
+| utility-llm `0.14.6` parity refresh | `25e81a8` | complete |
 
 ## Final gate record
 
@@ -58,20 +60,50 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | TEST-036 `make verify` | pass: format, vet, build, static, unit, parity, Docker integration/integration-race, API, observability, unit race, and vulnerability gates |
 | TEST-034 `make test-compose` | pass: fifteen production services plus the test-only provider, full correlation, and clean teardown in 598.138s |
 | TEST-037 live providers | pass: OpenAI Responses text and contracted structured calls in 4.301s; no credential or live output persisted |
-| TEST-038 live gateway lifecycle | not run: `HARDEN_LLM_LIVE_GATEWAY_CONFIG` and dedicated deployed user/Grafana/Langfuse access are absent |
+| TEST-038 live gateway lifecycle | pass in 82.838s against the public production origins: login, profile/model refresh, OpenAI Responses run, signed Garage artifact integrity/redaction, bundle export, Tempo/Prometheus/Loki/Langfuse correlation, and cleanup |
 | Frontend format/compile/unit/audits | pass in the exact Elixir `1.20.2` / OTP `28.4.3` container: 68 tests, 3 excluded; format, warnings-as-errors, dependency, and Hex audits clean |
 | WEB-TEST-011 browser | pass: two desktop/mobile Chromium workflows in 58.0s |
 | WEB-TEST-012 Compose browser | pass: sixteen services, browser/recovery checks, runtime-image contract, and cross-runtime diagnostics in 169.0s |
-| Production gateway image | pass: 9,524,841-byte non-root scratch image at `sha256:675aef5f8fe2efe6b2ced76c03023588bed6f6572cdb0367a6d1e95371568c8e`; embedded/OCI version `0.1.0` |
-| Production frontend image | pass: Docker-reported 47,460,842-byte OTP release at `sha256:9977297f87b0f225c78d574f2fb47965642a47952b83ce44ea99ec20784e3711`; runtime UID `10001` and no Mix/Hex/Rebar/Node/npm/Go toolchain |
+| Production gateway image | pass: Docker-reported 28,319,041-byte image at `sha256:0bb639bb2dcc586a9c5f83e9121d24a6f982365de3f396f242d9b150ffa947cd`; embedded/OCI release `25e81a8` |
+| Production frontend image | pass: Docker-reported 47,460,842-byte OTP release at `sha256:cb5b99b0166a5b2e8f9dab8a694cc172793c03cf042104a4ebe8f0cfd4a441c7`; OCI release `25e81a8`, runtime UID `10001`, and no Mix/Hex/Rebar/Node/npm/Go toolchain |
+| Public frontend browser acceptance | pass: Chromium reached `/login`, rendered the operator form, and produced zero console errors after the hostname-scoped Cloudflare edge rule disabled Zaraz and RUM injection |
 
 The 2026-08-09 refresh upgraded `google.golang.org/grpc` to `v1.83.0`, Bandit to
 `1.12.4`, and Mint to `1.9.3`. `govulncheck` reports zero vulnerabilities in
 called symbols or imported packages; its module inventory still contains one
 uncalled vulnerability. The frontend dependency and Hex audits report no known
-advisories or retired packages. TEST-038 remains optional release evidence and
-must not be replaced by fabricated deployment credentials or the local fake
-provider smoke.
+advisories or retired packages. TEST-038 used the deployed operator plus real
+provider, Grafana, and Langfuse credentials; credential values and live provider
+output were not persisted in this document or committed fixtures.
+
+## Production deployment
+
+| Surface | Production value |
+| --- | --- |
+| Release | `25e81a8` |
+| Frontend | `https://harden-llm.prls.co` |
+| API gateway | `https://harden-llm-api.prls.co` |
+| Artifact endpoint | `https://harden-llm-artifacts.prls.co` |
+| Grafana | `https://harden-llm-grafana.prls.co` |
+| Langfuse | `https://harden-llm-langfuse.prls.co` |
+| Cloudflare Tunnel | `koldun-harden-llm` / `b9686ab5-270b-4bd6-9aa7-a271c5a02f9d` |
+| Tunnel image | `cloudflare/cloudflared@sha256:e39ee8da81ad5e05d77f38d2f51c60ca51bf2a8450ac3abab50c17fdb91d91bf` (`2026.7.3`) |
+| Origin | `koldun`, Docker `29.6.2`, Compose `v5.3.1` |
+
+The sixteen application services and the dedicated tunnel connector use
+restart policies and were running after deployment. Caddy remains the only
+application ingress owner and binds host ports only on `127.0.0.1`; the tunnel
+uses four outbound QUIC connections and validates Caddy's private CA. Exact
+proxied CNAMEs route the five production hostnames to this tunnel. A
+hostname-scoped Cloudflare Configuration Rule disables Zaraz and RUM only for
+the frontend so Cloudflare does not inject scripts that conflict with the
+application's strict Content Security Policy.
+
+This is a single-origin deployment, not a high-availability topology. The
+intended `shaman` origin was unreachable during deployment, so availability is
+currently tied to `koldun`, WSL, and Docker Desktop remaining online. Persistent
+Postgres, Garage, Langfuse, and observability data live in named Docker volumes
+on that origin.
 
 ## Certified invariants
 
