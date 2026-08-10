@@ -21,6 +21,6 @@ COPY --from=go /usr/local/go /usr/local/go
 
 ENV CHROME_BIN=/usr/bin/chromium-browser \
     CHROMEDRIVER_BIN=/usr/bin/chromedriver \
-    PATH=/usr/local/go/bin:$PATH
+    PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 WORKDIR /workspace/frontend

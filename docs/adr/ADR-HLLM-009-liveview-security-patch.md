@@ -30,3 +30,12 @@ must pass against that release, and both Hex audit gates must remain clean.
 Rolling back to 1.2.6 is prohibited while the advisory applies. A future
 upgrade follows the same exact-pin, audit, and full-certification process; it
 does not require an application data migration or REST contract change.
+
+## Current patch
+
+On 2026-08-10, the exact pin was advanced from 1.2.7 to 1.2.9 after the Hex
+advisory feed reported EEF-CVE-2026-64941 against 1.2.7. Version 1.2.9 is the
+current upstream release at certification time. The package remains an exact
+pin, and the same regression, dependency-audit, and full frontend certification
+gates apply. This amendment supersedes the 1.2.7 package version in the
+implementation lock while preserving the original 1.2.7 decision provenance.

@@ -11,7 +11,7 @@ migration path.
 | [ADR-HLLM-001](ADR-HLLM-001-intentional-portability-differences.md) | Accepted | Define the intentional JS-to-Go security and persistence projections. |
 | [ADR-HLLM-002](ADR-HLLM-002-root-public-api.md) | Accepted | Replace the JavaScript export inventory with one typed Go call surface. |
 | [ADR-HLLM-008](ADR-HLLM-008-rest-process-contract.md) | Accepted | Complete the redacted profile-read, historical-run, and process-bind contracts. |
-| [ADR-HLLM-009](ADR-HLLM-009-liveview-security-patch.md) | Accepted | Replace the planned LiveView 1.2.6 pin with the upstream 1.2.7 security release. |
+| [ADR-HLLM-009](ADR-HLLM-009-liveview-security-patch.md) | Accepted | Replace the planned LiveView 1.2.6 pin with the patched upstream release; the current exact pin is 1.2.9. |
 | [ADR-HLLM-010](ADR-HLLM-010-overlay-mount-points.md) | Accepted | Use independent read-only mount points for frontend Caddy and Grafana overlays. |
 | [ADR-HLLM-011](ADR-HLLM-011-go-security-patch.md) | Accepted | Replace the vulnerable Go 1.26.0 pin with the 1.26.5 security patch. |
 

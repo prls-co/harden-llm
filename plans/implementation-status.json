@@ -106,7 +106,7 @@
     },
     {
       "adr": "ADR-HLLM-009",
-      "summary": "Phoenix LiveView 1.2.7 replaces 1.2.6 to include the upstream security fix without changing the frontend contract."
+      "summary": "Phoenix LiveView 1.2.9 replaces the earlier 1.2.7 pin after the advisory-driven patch refresh; the frontend contract is unchanged."
     },
     {
       "adr": "ADR-HLLM-010",

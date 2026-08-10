@@ -1,6 +1,11 @@
 GO ?= go
 GOFMT ?= gofmt
 NODE ?= node
+# Testcontainers and race-instrumented package binaries compete heavily for WSL
+# CPU, memory, and Docker networking; serial package scheduling keeps the
+# integration and wall-clock isolation gates meaningful.
+INTEGRATION_PACKAGE_PARALLELISM ?= 1
+RACE_PACKAGE_PARALLELISM ?= 1
 
 .PHONY: format lint build test-static test-unit test-parity test-integration test-integration-race test-api test-observability test-compose test-race test-vulnerability verify
 
@@ -26,10 +31,10 @@ test-parity:
 	$(GO) test ./... -run 'Parity|Contract|Identity|Replay' -count=1
 
 test-integration:
-	$(GO) test ./... -tags=integration -count=1
+	$(GO) test -p=$(INTEGRATION_PACKAGE_PARALLELISM) ./... -tags=integration -count=1
 
 test-integration-race:
-	$(GO) test -race ./... -tags=integration -count=1
+	$(GO) test -race -p=$(RACE_PACKAGE_PARALLELISM) ./... -tags=integration -count=1
 
 test-api:
 	$(GO) test ./internal/gateway/... -count=1
@@ -41,7 +46,7 @@ test-compose:
 	$(GO) test ./internal/smoke/... -tags=compose -run TestComposeSmoke -count=1
 
 test-race:
-	$(GO) test -race ./... -count=1
+	$(GO) test -race -p=$(RACE_PACKAGE_PARALLELISM) ./... -count=1
 
 test-vulnerability:
 	$(GO) tool govulncheck ./...

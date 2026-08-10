@@ -1,8 +1,8 @@
 # Release Certification
 
 This document is the durable release summary for the 2026-07-13 v1 candidate,
-its 2026-08-09 utility-llm parity refresh, and the 2026-08-09 production
-deployment.
+its 2026-08-09 utility-llm parity refresh, and the 2026-08-10 production
+validation refresh.
 Detailed command output belongs under ignored
 `plans/evidence/harden-llm/<run-id>/`; secrets and live provider output never do.
 
@@ -34,7 +34,7 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 - `govulncheck` `1.6.0` with the official Go vulnerability database.
 - Frontend builder: Elixir `1.20.2`, Erlang/OTP `28.4.3`, Phoenix `1.8.9`.
 - Frontend browser image: Docker CLI `29.5.2`, Compose `2.40.3`, Chromium/ChromeDriver `149.0.7827.53`.
-- Phoenix LiveView `1.2.7` is the required security patch recorded by ADR-HLLM-009.
+- Phoenix LiveView `1.2.9` is the current exact security pin; ADR-HLLM-009 records the original `1.2.7` patch and this subsequent advisory-driven update.
 
 ## Phase execution log
 
@@ -61,9 +61,9 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | TEST-034 `make test-compose` | pass: fifteen production services plus the test-only provider, full correlation, and clean teardown in 598.138s |
 | TEST-037 live providers | pass: OpenAI Responses text and contracted structured calls in 4.301s; no credential or live output persisted |
 | TEST-038 live gateway lifecycle | pass in 82.838s against the public production origins: login, profile/model refresh, OpenAI Responses run, signed Garage artifact integrity/redaction, bundle export, Tempo/Prometheus/Loki/Langfuse correlation, and cleanup |
-| Frontend format/compile/unit/audits | pass in the exact Elixir `1.20.2` / OTP `28.4.3` container: 68 tests, 3 excluded; format, warnings-as-errors, dependency, and Hex audits clean |
-| WEB-TEST-011 browser | pass: two desktop/mobile Chromium workflows in 58.0s |
-| WEB-TEST-012 Compose browser | pass: sixteen services, browser/recovery checks, runtime-image contract, and cross-runtime diagnostics in 169.0s |
+| Frontend format/compile/unit/audits | pass in the exact Elixir `1.20.2` / OTP `28.4.3` container with LiveView `1.2.9`: 68 tests, 3 excluded; format, warnings-as-errors, dependency, and Hex audits clean |
+| WEB-TEST-011 browser | pass: two desktop/mobile Chromium workflows in 64.0s |
+| WEB-TEST-012 Compose browser | pass: sixteen services, browser/recovery checks, runtime-image contract, and cross-runtime diagnostics in 285.3s |
 | Production gateway image | pass: Docker-reported 28,319,041-byte image at `sha256:0bb639bb2dcc586a9c5f83e9121d24a6f982365de3f396f242d9b150ffa947cd`; embedded/OCI release `25e81a8` |
 | Production frontend image | pass: Docker-reported 47,460,842-byte OTP release at `sha256:cb5b99b0166a5b2e8f9dab8a694cc172793c03cf042104a4ebe8f0cfd4a441c7`; OCI release `25e81a8`, runtime UID `10001`, and no Mix/Hex/Rebar/Node/npm/Go toolchain |
 | Public frontend browser acceptance | pass: Chromium reached `/login`, rendered the operator form, and produced zero console errors after the hostname-scoped Cloudflare edge rule disabled Zaraz and RUM injection |
@@ -98,6 +98,14 @@ proxied CNAMEs route the five production hostnames to this tunnel. A
 hostname-scoped Cloudflare Configuration Rule disables Zaraz and RUM only for
 the frontend so Cloudflare does not inject scripts that conflict with the
 application's strict Content Security Policy.
+
+On 2026-08-10, the production `CurlStructured` profile was switched from
+OpenAI `gpt-4o` to the canonical CPA Responses gateway at
+`https://cpa.prls.co/v1` with model `gpt-5.4-mini`. CPA v7.2.80 was restored on
+the active host, its Codex OAuth state was reauthenticated, and the public CPA
+model catalog exposed the required model. A real Harden structured request
+then passed with HTTP 200 and a strict JSON-schema result; live output and
+credential values were not persisted here.
 
 This is a single-origin deployment, not a high-availability topology. The
 intended `shaman` origin was unreachable during deployment, so availability is
