@@ -15,6 +15,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // Service is one isolated Compose service and its dynamically published port.
@@ -33,6 +35,7 @@ func StartPostgres(t testing.TB) (*Service, string) {
 	t.Helper()
 	service := start(t, "harden-postgres", 5432)
 	dsn := fmt.Sprintf("postgres://harden_test:harden_test_password@%s/harden_llm_test?sslmode=disable", service.Endpoint)
+	waitPostgres(t, service.Endpoint, dsn)
 	return service, dsn
 }
 
@@ -149,6 +152,27 @@ func waitTCP(t testing.TB, endpoint string, timeout time.Duration) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	t.Fatalf("service %s did not accept TCP connections: %v", endpoint, lastErr)
+}
+
+func waitPostgres(t testing.TB, endpoint, dsn string) {
+	t.Helper()
+	deadline := time.Now().Add(45 * time.Second)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		connection, err := pgx.Connect(ctx, dsn)
+		if err == nil {
+			err = connection.Ping(ctx)
+			_ = connection.Close(ctx)
+		}
+		cancel()
+		if err == nil {
+			return
+		}
+		lastErr = err
+		time.Sleep(250 * time.Millisecond)
+	}
+	t.Fatalf("postgres service %s did not complete a protocol readiness check: %v", endpoint, lastErr)
 }
 
 func repositoryRoot(t testing.TB) string {
