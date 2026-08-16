@@ -72,8 +72,22 @@ environment variables.
 ## REST gateway
 
 Health probes are the only unenveloped non-auth responses. Login returns an
-opaque token once; store it only in process memory. The following keeps the
-password off the curl argument list:
+opaque token once; store it only in process memory. For a machine-only CLI,
+configure `HARDEN_LLM_STATIC_TOKEN` and its
+`HARDEN_LLM_STATIC_TOKEN_OWNER_ID`, then use the token directly:
+
+```bash
+API=https://api.example.net
+curl "$API/api/v1/run" \
+  -H "Authorization: Bearer $HARDEN_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"profileId":"CurlStructured","userPrompt":"Tell me a joke about yourself.","callType":"text"}' | jq
+```
+
+The static token is not revocable through `/api/v1/auth/logout`; rotate or
+remove it in deployment configuration. Without a static token, login returns
+an opaque session token. The following keeps the password off the curl
+argument list:
 
 ```bash
 API=https://api.example.net
@@ -117,6 +131,16 @@ curl --fail-with-body --silent --show-error \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' --data-binary @- \
   "$API/api/v1/run" | jq
+```
+
+For the deployed structured smoke call, `scripts/harden-structured-call.sh`
+uses `HARDEN_LLM_STATIC_TOKEN` from the local ignored `.env` when configured;
+otherwise it reads `HARDEN_LLM_LIVE_USER_EMAIL` and
+`HARDEN_LLM_LIVE_USER_PASSWORD`, logs in, submits the `CurlStructured` request,
+prints the JSON response, and logs out:
+
+```bash
+make live-structured-call
 ```
 
 Artifact authorization returns HTTP 303 with a short-lived, owner-authorized

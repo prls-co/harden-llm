@@ -163,7 +163,10 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 	if err != nil {
 		return safeStartupError(redactor, "configure run service", err)
 	}
-	identity, err := auth.NewService(auth.Config{Store: store, SessionTTL: config.sessionTTL})
+	identity, err := auth.NewService(auth.Config{
+		Store: store, SessionTTL: config.sessionTTL,
+		StaticToken: config.staticToken, StaticTokenOwnerID: config.staticTokenOwnerID,
+	})
 	if err != nil {
 		return safeStartupError(redactor, "configure identity service", err)
 	}
@@ -233,7 +236,7 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 }
 
 func configurationRedactor(config serverConfig) *redaction.Redactor {
-	secrets := []string{config.databaseURL, config.artifactAccessKey, config.artifactSecretKey}
+	secrets := []string{config.databaseURL, config.artifactAccessKey, config.artifactSecretKey, config.staticToken}
 	if parsed, err := url.Parse(config.databaseURL); err == nil && parsed.User != nil {
 		if password, ok := parsed.User.Password(); ok {
 			secrets = append(secrets, password)

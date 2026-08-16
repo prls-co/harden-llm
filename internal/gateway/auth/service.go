@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -22,31 +23,52 @@ const (
 	// Each Argon2id verification uses 64 MiB. Bounding concurrent logins keeps
 	// unauthenticated traffic from creating unbounded memory pressure.
 	maximumConcurrentLogins = 4
+	staticTokenSessionID    = "static-token"
 )
+
+var staticTokenExpiresAt = time.Date(9999, time.December, 31, 23, 59, 59, 0, time.UTC)
 
 // ErrUnauthenticated deliberately does not distinguish invalid auth states.
 var ErrUnauthenticated = errors.New("auth: unauthenticated")
 
 type Config struct {
-	Store      *postgres.Store
-	SessionTTL time.Duration
-	Clock      func() time.Time
-	Random     io.Reader
+	Store              SessionStore
+	SessionTTL         time.Duration
+	Clock              func() time.Time
+	Random             io.Reader
+	StaticToken        string
+	StaticTokenOwnerID string
+}
+
+// SessionStore is the persistence boundary needed by local and static-token
+// authentication. Keeping it narrow makes authentication behavior testable
+// without requiring a database container.
+type SessionStore interface {
+	CreateUser(context.Context, postgres.User) error
+	UserByEmail(context.Context, string) (postgres.User, error)
+	UserByID(context.Context, string) (postgres.User, error)
+	CreateSession(context.Context, postgres.Session) error
+	SessionByDigest(context.Context, []byte) (postgres.Session, error)
+	RevokeSession(context.Context, string, []byte, time.Time) error
+	RevokeSessionByID(context.Context, string, string, time.Time) error
 }
 
 type Service struct {
-	store      *postgres.Store
-	sessionTTL time.Duration
-	clock      func() time.Time
-	random     io.Reader
-	loginSlots chan struct{}
+	store              SessionStore
+	sessionTTL         time.Duration
+	clock              func() time.Time
+	random             io.Reader
+	loginSlots         chan struct{}
+	staticTokenDigest  []byte
+	staticTokenOwnerID string
 }
 
 type Principal struct {
-	OwnerID   string    `json:"ownerId"`
-	Email     string    `json:"email"`
-	SessionID string    `json:"sessionId"`
-	ExpiresAt time.Time `json:"expiresAt"`
+	OwnerID     string    `json:"ownerId"`
+	Email       string    `json:"email"`
+	SessionID   string    `json:"sessionId"`
+	ExpiresAt   time.Time `json:"expiresAt"`
+	staticToken bool
 }
 
 type LoginResult struct {
@@ -68,9 +90,23 @@ func NewService(config Config) (*Service, error) {
 	if config.Random == nil {
 		config.Random = rand.Reader
 	}
+	staticToken := config.StaticToken
+	staticTokenOwnerID := config.StaticTokenOwnerID
+	if (staticToken == "") != (staticTokenOwnerID == "") {
+		return nil, errors.New("auth: static token and static token owner are required together")
+	}
+	var staticTokenDigest []byte
+	if staticToken != "" {
+		if !validStaticToken(staticToken) {
+			return nil, errors.New("auth: static token must contain 32 to 512 non-whitespace bytes")
+		}
+		digest := sha256.Sum256([]byte(staticToken))
+		staticTokenDigest = append([]byte(nil), digest[:]...)
+	}
 	return &Service{
 		store: config.Store, sessionTTL: config.SessionTTL, clock: config.Clock, random: config.Random,
-		loginSlots: make(chan struct{}, maximumConcurrentLogins),
+		loginSlots: make(chan struct{}, maximumConcurrentLogins), staticTokenDigest: staticTokenDigest,
+		staticTokenOwnerID: staticTokenOwnerID,
 	}, nil
 }
 
@@ -146,7 +182,13 @@ func (service *Service) AuthenticateHeader(ctx context.Context, authorizationVal
 }
 
 func (service *Service) AuthenticateToken(ctx context.Context, token string) (Principal, error) {
-	if service == nil || !validToken(token) {
+	if service == nil || strings.TrimSpace(token) != token || token == "" {
+		return Principal{}, ErrUnauthenticated
+	}
+	if service.staticTokenMatches(token) {
+		return service.staticTokenPrincipal(ctx)
+	}
+	if !validToken(token) {
 		return Principal{}, ErrUnauthenticated
 	}
 	digest := sha256.Sum256([]byte(token))
@@ -202,6 +244,11 @@ func (service *Service) LogoutPrincipal(ctx context.Context, principal Principal
 	if service == nil || principal.OwnerID == "" || principal.SessionID == "" {
 		return ErrUnauthenticated
 	}
+	if principal.staticToken {
+		// A configured static token has no server-side session row to revoke.
+		// Disable or rotate it in deployment configuration instead.
+		return ErrUnauthenticated
+	}
 	now := service.clock().UTC()
 	if !now.Before(principal.ExpiresAt) {
 		return ErrUnauthenticated
@@ -215,10 +262,44 @@ func (service *Service) LogoutPrincipal(ctx context.Context, principal Principal
 	return nil
 }
 
+func (service *Service) staticTokenMatches(token string) bool {
+	if service == nil || len(service.staticTokenDigest) != sha256.Size || !validStaticToken(token) {
+		return false
+	}
+	digest := sha256.Sum256([]byte(token))
+	return subtle.ConstantTimeCompare(service.staticTokenDigest, digest[:]) == 1
+}
+
+func (service *Service) staticTokenPrincipal(ctx context.Context) (Principal, error) {
+	user, err := service.store.UserByID(ctx, service.staticTokenOwnerID)
+	if err != nil {
+		if errors.Is(err, postgres.ErrNotFound) {
+			return Principal{}, ErrUnauthenticated
+		}
+		return Principal{}, fmt.Errorf("auth: load static token owner: %w", err)
+	}
+	return Principal{
+		OwnerID: user.ID, Email: user.Email, SessionID: staticTokenSessionID,
+		ExpiresAt: staticTokenExpiresAt, staticToken: true,
+	}, nil
+}
+
 func validToken(token string) bool {
 	if len(token) != base64.RawURLEncoding.EncodedLen(sessionTokenBytes) || strings.TrimSpace(token) != token {
 		return false
 	}
 	decoded, err := base64.RawURLEncoding.Strict().DecodeString(token)
 	return err == nil && len(decoded) == sessionTokenBytes && base64.RawURLEncoding.EncodeToString(decoded) == token
+}
+
+func validStaticToken(token string) bool {
+	if len(token) < 32 || len(token) > 512 || strings.TrimSpace(token) != token {
+		return false
+	}
+	for _, character := range token {
+		if character < 0x21 || character == 0x7f || character > 0x7e {
+			return false
+		}
+	}
+	return true
 }

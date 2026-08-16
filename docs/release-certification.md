@@ -108,6 +108,11 @@ model catalog exposed the required model. A real Harden structured request
 then passed with HTTP 200 and a strict JSON-schema result; live output and
 credential values were not persisted here.
 
+On 2026-08-15, the production `CurlStructured` default was updated to
+`gpt-5.6-luna` through the same CPA endpoint. CPA's public model catalog
+advertised the model, and a new real structured request completed successfully
+in one attempt.
+
 The frontend and gateway security/provider refresh was deployed as release
 `df69d93`. The resulting public frontend and API health/readiness probes all
 returned HTTP 200, and a post-restart structured request through the public

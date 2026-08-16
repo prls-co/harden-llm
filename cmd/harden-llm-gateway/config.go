@@ -28,6 +28,8 @@ const (
 	artifactSecretKeyEnvironment     = "HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY"
 	artifactPresignTTLEnvironment    = "HARDEN_LLM_ARTIFACT_PRESIGN_TTL"
 	sessionTTLEnvironment            = "HARDEN_LLM_SESSION_TTL"
+	staticTokenEnvironment           = "HARDEN_LLM_STATIC_TOKEN"
+	staticTokenOwnerEnvironment      = "HARDEN_LLM_STATIC_TOKEN_OWNER_ID"
 	maxRunDurationEnvironment        = "HARDEN_LLM_MAX_RUN_DURATION_MS"
 	allowedHostsEnvironment          = "HARDEN_LLM_PROVIDER_ALLOWED_HOSTS"
 	privateAllowlistEnvironment      = "HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST"
@@ -55,6 +57,8 @@ type serverConfig struct {
 	artifactSecretKey   string
 	artifactPresignTTL  time.Duration
 	sessionTTL          time.Duration
+	staticToken         string
+	staticTokenOwnerID  string
 	maxRunDuration      time.Duration
 	allowedHosts        []string
 	privateAllowedHosts []string
@@ -82,6 +86,8 @@ func loadServerConfig(getenv func(string) string) (serverConfig, error) {
 		release:             strings.TrimSpace(getenv(releaseEnvironment)),
 		otelEndpoint:        strings.TrimSpace(getenv(otelEndpointEnvironment)),
 		serviceName:         strings.TrimSpace(getenv(serviceNameEnvironment)),
+		staticToken:         strings.TrimSpace(getenv(staticTokenEnvironment)),
+		staticTokenOwnerID:  strings.TrimSpace(getenv(staticTokenOwnerEnvironment)),
 	}
 	if config.listenAddress == "" {
 		config.listenAddress = defaultListenAddress
@@ -116,6 +122,15 @@ func loadServerConfig(getenv func(string) string) (serverConfig, error) {
 	}
 	if config.sessionTTL < time.Minute || config.sessionTTL > 30*24*time.Hour {
 		return serverConfig{}, fmt.Errorf("configuration: %s is outside the supported range", sessionTTLEnvironment)
+	}
+	if (config.staticToken == "") != (config.staticTokenOwnerID == "") {
+		return serverConfig{}, fmt.Errorf("configuration: %s and %s are required together", staticTokenEnvironment, staticTokenOwnerEnvironment)
+	}
+	if config.staticToken != "" && !validStaticTokenConfiguration(config.staticToken) {
+		return serverConfig{}, fmt.Errorf("configuration: %s must contain 32 to 512 printable non-whitespace bytes", staticTokenEnvironment)
+	}
+	if config.staticTokenOwnerID != "" && !validOwnerIDConfiguration(config.staticTokenOwnerID) {
+		return serverConfig{}, fmt.Errorf("configuration: %s is invalid", staticTokenOwnerEnvironment)
 	}
 	config.artifactPresignTTL, err = parseDurationEnvironment(getenv(artifactPresignTTLEnvironment), artifactPresignTTLEnvironment, defaultArtifactPresignTTL)
 	if err != nil {
@@ -325,6 +340,9 @@ func validateProductionSecrets(config serverConfig) error {
 	if insecureSecret(config.artifactAccessKey) || insecureSecret(config.artifactSecretKey) || allZero(config.artifactAccessKey) || allZero(config.artifactSecretKey) {
 		return errors.New("configuration: documented default artifact credentials are forbidden in production")
 	}
+	if config.staticToken != "" && insecureSecret(config.staticToken) {
+		return errors.New("configuration: documented default static token is forbidden in production")
+	}
 	for _, key := range config.encryptionKeys {
 		if allZeroBytes(key) {
 			return errors.New("configuration: zero encryption keys are forbidden in production")
@@ -360,4 +378,30 @@ func allZero(value string) bool {
 
 func allZeroBytes(value []byte) bool {
 	return len(value) > 0 && bytes.Equal(value, make([]byte, len(value)))
+}
+
+func validStaticTokenConfiguration(value string) bool {
+	if len(value) < 32 || len(value) > 512 || strings.TrimSpace(value) != value {
+		return false
+	}
+	for _, character := range value {
+		if character < 0x21 || character == 0x7f || character > 0x7e {
+			return false
+		}
+	}
+	return true
+}
+
+func validOwnerIDConfiguration(value string) bool {
+	if value == "" || len(value) > 128 || strings.TrimSpace(value) != value {
+		return false
+	}
+	for index, character := range value {
+		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') || character == '_' || character == '-' || (index > 0 && character == '.') {
+			continue
+		}
+		return false
+	}
+	return true
 }

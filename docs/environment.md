@@ -32,6 +32,7 @@ independently and stored in a secrets manager or encrypted host backup.
 | `HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID` / `HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY` | secret, required | Bucket-scoped S3 credentials supplied only to Garage and the gateway. |
 | `HARDEN_LLM_ARTIFACT_PRESIGN_TTL` | `1m`, max `5m` | Lifetime of an authorized artifact redirect. |
 | `HARDEN_LLM_SESSION_TTL` | `24h` | Opaque bearer-session lifetime. |
+| `HARDEN_LLM_STATIC_TOKEN` / `HARDEN_LLM_STATIC_TOKEN_OWNER_ID` | optional pair | Direct CLI bearer token and the existing owner ID it may access. The token is never persisted or returned; remove or rotate it to disable access. Static-token logout is not a revocation path. |
 | `HARDEN_LLM_MAX_RUN_DURATION_MS` | `60000`, range `1..60000` | Deployment and request ceiling for synchronous runs. Requests may lower it. |
 | `HARDEN_LLM_PROVIDER_ALLOWED_HOSTS` | empty | Optional comma-separated restriction for public provider hostnames. |
 | `HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST` | empty | Explicit comma-separated private hostnames/CIDRs; never use broad ranges casually. |

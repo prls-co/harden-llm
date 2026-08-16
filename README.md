@@ -21,7 +21,7 @@ See [architecture and ownership](docs/architecture.md) for the runtime boundarie
 
 ## Development and certification
 
-Go 1.26.5, Node 22, Docker, and Compose are required.
+Go 1.26.6, Node 22, Docker, and Compose are required.
 
 ```bash
 make build                 # compile every Go package
@@ -64,6 +64,45 @@ Only Caddy publishes host ports. The Go API, Phoenix app, data stores, and
 telemetry services remain on the private Compose network. Review the
 [environment reference](docs/environment.md) and back up every owned volume
 before upgrades.
+
+## Structured CLI smoke test
+
+The current production `CurlStructured` profile routes through CPA at
+`https://cpa.prls.co/v1` with model `gpt-5.6-luna`. In fish, load the static
+token from the ignored `.env` file and construct the JSON body separately so
+line breaks cannot corrupt the request:
+
+```fish
+set API https://harden-llm-api.prls.co
+set HARDEN_TOKEN (sed -n 's/^HARDEN_LLM_STATIC_TOKEN=//p' .env)
+
+set REQUEST_BODY (jq -nc '
+  {
+    profileId: "CurlStructured",
+    userPrompt: "Joke about yourself.",
+    callType: "structured",
+    schema: {
+      type: "object",
+      properties: {
+        setup: {type: "string"},
+        punchline: {type: "string"}
+      },
+      required: ["setup", "punchline"],
+      additionalProperties: false
+    }
+  }
+')
+
+curl --fail-with-body -sS "$API/api/v1/run" \
+  -H "Authorization: Bearer $HARDEN_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d "$REQUEST_BODY" \
+  | jq -c '.result.output'
+```
+
+Replace `API` when testing another deployment. The static token is not
+revoked by logout; rotate or remove `HARDEN_LLM_STATIC_TOKEN` in deployment
+configuration to disable it.
 
 ## Contracts and provenance
 

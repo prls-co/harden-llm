@@ -7,7 +7,7 @@ NODE ?= node
 INTEGRATION_PACKAGE_PARALLELISM ?= 1
 RACE_PACKAGE_PARALLELISM ?= 1
 
-.PHONY: format lint build test-static test-unit test-parity test-integration test-integration-race test-api test-observability test-compose test-race test-vulnerability verify
+.PHONY: format lint build test-static test-unit test-parity test-integration test-integration-race test-api test-observability test-compose test-race test-vulnerability live-structured-call verify
 
 format:
 	@unformatted="$$($(GOFMT) -l $$(find . -type f -name '*.go' -not -path './.git/*' -not -path './.codex/*'))"; \
@@ -50,5 +50,8 @@ test-race:
 
 test-vulnerability:
 	$(GO) tool govulncheck ./...
+
+live-structured-call:
+	./scripts/harden-structured-call.sh
 
 verify: format lint build test-static test-unit test-parity test-integration test-integration-race test-api test-observability test-race test-vulnerability

@@ -21,6 +21,36 @@ func TestServerConfiguration(t *testing.T) {
 		t.Fatalf("configuration = %#v", config)
 	}
 
+	environment[staticTokenEnvironment] = strings.Repeat("s", 43)
+	environment[staticTokenOwnerEnvironment] = "operator-01"
+	config, err = loadServerConfig(mapEnvironment(environment))
+	if err != nil || config.staticToken != strings.Repeat("s", 43) || config.staticTokenOwnerID != "operator-01" {
+		t.Fatalf("static token configuration = %#v, %v", config, err)
+	}
+
+	for name, values := range map[string]string{
+		"missing owner": staticTokenEnvironment,
+		"missing token": staticTokenOwnerEnvironment,
+	} {
+		environment = validServerEnvironment()
+		if name == "missing owner" {
+			environment[staticTokenEnvironment] = strings.Repeat("s", 43)
+		} else {
+			environment[staticTokenOwnerEnvironment] = "operator-01"
+		}
+		if _, err := loadServerConfig(mapEnvironment(environment)); err == nil || !strings.Contains(err.Error(), values) {
+			t.Fatalf("%s configuration error = %v", name, err)
+		}
+	}
+
+	environment = validServerEnvironment()
+	environment[staticTokenEnvironment] = strings.Repeat("s", 31)
+	environment[staticTokenOwnerEnvironment] = "operator-01"
+	if _, err := loadServerConfig(mapEnvironment(environment)); err == nil || !strings.Contains(err.Error(), staticTokenEnvironment) {
+		t.Fatalf("short static token configuration error = %v", err)
+	}
+
+	environment = validServerEnvironment()
 	environment[maxRunDurationEnvironment] = "60001"
 	if _, err := loadServerConfig(mapEnvironment(environment)); err == nil || !strings.Contains(err.Error(), maxRunDurationEnvironment) {
 		t.Fatalf("invalid maximum run duration = %v", err)

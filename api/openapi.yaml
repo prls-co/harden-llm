@@ -16,7 +16,7 @@ tags:
   - name: Health
     description: Process and dependency health.
   - name: Authentication
-    description: Opaque local bearer-session lifecycle.
+    description: Opaque local bearer sessions and optional static CLI bearer authentication.
   - name: State
     description: Owner-scoped client workspace state.
   - name: Profiles
@@ -67,7 +67,7 @@ paths:
       operationId: logout
       tags: [Authentication]
       summary: Revoke the active session
-      description: Revokes the bearer session used to authorize this request.
+      description: Revokes the bearer session used to authorize this request. A configured static CLI token is not revocable here; rotate or remove it in deployment configuration.
       responses:
         "200":
           $ref: "#/components/responses/LogoutSuccess"
@@ -274,7 +274,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: opaque
-      description: A random opaque session token returned once by login.
+      description: A random opaque session token returned once by login, or the configured static CLI token.
   parameters:
     HistoryCursor:
       name: cursor

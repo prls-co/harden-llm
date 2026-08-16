@@ -80,7 +80,7 @@ func TestTelemetryFailureIsolation(t *testing.T) {
 		logger.Info("queued-log", "sequence_bucket", index%4)
 		counter.Add(context.Background(), 1, metric.WithAttributes())
 	}
-	if elapsed := time.Since(floodStarted); elapsed > telemetryFailureRecordingBudget {
+	if elapsed := time.Since(floodStarted); elapsed > telemetryFailureRecordingBudgetForTest() {
 		t.Fatalf("telemetry recording blocked application work for %v", elapsed)
 	} else {
 		t.Logf("telemetry failure-isolation flood completed in %v", elapsed)
