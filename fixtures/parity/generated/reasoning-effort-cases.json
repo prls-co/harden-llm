@@ -1,0 +1,26 @@
+{
+  "contractedEfforts": [
+    "lowest",
+    "middle",
+    "highest"
+  ],
+  "mapped": {
+    "budget": 9,
+    "providerOption": true,
+    "reasoning": {
+      "effort": "high"
+    }
+  },
+  "nativeWithoutPortableEffort": {
+    "code": "conflicting_reasoning_options",
+    "message": "Contracted reasoning for model 'fixture-model' conflicts with native reasoning option(s): thinking_budget.",
+    "name": "ConflictingReasoningOptionsError",
+    "succeeded": false
+  },
+  "unsupportedAlias": {
+    "code": "unsupported_reasoning_effort",
+    "message": "Model 'fixture-model' does not support contracted reasoningEffort 'high'.",
+    "name": "UnsupportedReasoningEffortError",
+    "succeeded": false
+  }
+}

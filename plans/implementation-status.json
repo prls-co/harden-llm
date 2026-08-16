@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "plan": "PLAN-HARDEN-LLM-SELF-HOSTED-001",
+  "testSpecification": "SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001",
+  "completedPhases": [
+    "P00",
+    "P01",
+    "P02",
+    "P03",
+    "P04",
+    "P05",
+    "P06",
+    "P07"
+  ],
+  "phases": {
+    "P00": {
+      "status": "complete",
+      "completedAt": "2026-07-13T08:15:03Z",
+      "requirements": ["REQ-001", "REQ-018", "REQ-019"],
+      "tests": ["TEST-001", "TEST-002", "TEST-003", "TEST-004", "TEST-005"]
+    },
+    "P01": {
+      "status": "complete",
+      "completedAt": "2026-07-13T09:01:27Z",
+      "requirements": ["REQ-002", "REQ-003", "REQ-006", "REQ-007", "REQ-019"],
+      "tests": ["TEST-006", "TEST-007", "TEST-008", "TEST-009", "TEST-010", "TEST-011"]
+    },
+    "P02": {
+      "status": "complete",
+      "completedAt": "2026-07-13T10:30:13Z",
+      "requirements": ["REQ-004", "REQ-005", "REQ-007", "REQ-008", "REQ-015", "REQ-018", "REQ-019", "REQ-020"],
+      "tests": ["TEST-012", "TEST-013", "TEST-014", "TEST-015", "TEST-016", "TEST-017", "TEST-018", "TEST-019"],
+      "evaluations": ["EVAL-001", "EVAL-002"]
+    },
+    "P03": {
+      "status": "complete",
+      "completedAt": "2026-07-13T11:29:38Z",
+      "requirements": ["REQ-005", "REQ-008", "REQ-009", "REQ-010", "REQ-019", "REQ-020"],
+      "tests": ["TEST-002", "TEST-005", "TEST-020", "TEST-021", "TEST-022", "TEST-040"]
+    },
+    "P04": {
+      "status": "complete",
+      "completedAt": "2026-07-13T13:23:17Z",
+      "requirements": ["REQ-005", "REQ-007", "REQ-009", "REQ-010", "REQ-011", "REQ-012", "REQ-018", "REQ-019", "REQ-020"],
+      "tests": ["TEST-002", "TEST-003", "TEST-005", "TEST-023", "TEST-024", "TEST-025", "TEST-026", "TEST-027"]
+    },
+    "P05": {
+      "status": "complete",
+      "completedAt": "2026-07-13T14:13:39Z",
+      "requirements": ["REQ-013", "REQ-014", "REQ-015", "REQ-016", "REQ-019", "REQ-020"],
+      "tests": ["TEST-002", "TEST-003", "TEST-005", "TEST-028", "TEST-029", "TEST-030", "TEST-031", "TEST-032"],
+      "evaluations": ["EVAL-003"]
+    },
+    "P06": {
+      "status": "complete",
+      "completedAt": "2026-07-13T15:41:09Z",
+      "requirements": ["REQ-009", "REQ-015", "REQ-016", "REQ-017", "REQ-019", "REQ-020"],
+      "tests": ["TEST-003", "TEST-005", "TEST-030", "TEST-033", "TEST-034"],
+      "evaluations": ["EVAL-004"]
+    },
+    "P07": {
+      "status": "complete",
+      "completedAt": "2026-07-13T23:57:47Z",
+      "requirements": [
+        "REQ-001", "REQ-002", "REQ-003", "REQ-004", "REQ-005",
+        "REQ-006", "REQ-007", "REQ-008", "REQ-009", "REQ-010",
+        "REQ-011", "REQ-012", "REQ-013", "REQ-014", "REQ-015",
+        "REQ-016", "REQ-017", "REQ-018", "REQ-019", "REQ-020"
+      ],
+      "tests": ["TEST-035", "TEST-036", "TEST-037", "TEST-038", "TEST-039", "TEST-040"]
+    }
+  },
+  "source": {
+    "repository": "/home/kirill/utility-llm",
+    "gitSHA": "09769424ca34b9d759e273a7e9dccf4fd00a5f6c",
+    "packageVersion": "0.14.6",
+    "workingTreeDirty": false,
+    "dirtyPathsExcludedFromCapture": ["README.md", "specs/"]
+  },
+  "sourceVerification": {
+    "snapshot": "git archive 09769424ca34b9d759e273a7e9dccf4fd00a5f6c",
+    "install": "npm ci --omit=dev --ignore-scripts --no-audit --no-fund",
+    "commands": ["npm run test:contract", "npm run test:core", "npm run test:behavior"],
+    "result": "partial: contract pass; focused retry/provider behavior pass; full core gate blocked",
+    "note": "The source checkout was clean at capture and the capture script verified that its HEAD matched the recorded SHA. The full core manifest currently requires the unavailable dev dependency typescript/bin/tsc; no source files were modified."
+  },
+  "toolchain": {
+    "go": "go1.26.5",
+    "node": "v22.22.0",
+    "npm": "9.2.0",
+    "docker": "29.1.3",
+    "compose": "2.40.3"
+  },
+  "acceptedDeviations": [
+    {
+      "adr": "ADR-HLLM-001",
+      "summary": "Security and persistence projections replace source infrastructure details while portable semantics remain parity-gated."
+    },
+    {
+      "adr": "ADR-HLLM-002",
+      "summary": "One typed Go Client.Call surface replaces the broad JavaScript export inventory."
+    },
+    {
+      "adr": "ADR-HLLM-008",
+      "summary": "A redacted profile collection read, historical run profile snapshots, and an explicit process bind address complete the client and runtime contracts."
+    },
+    {
+      "adr": "ADR-HLLM-009",
+      "summary": "Phoenix LiveView 1.2.9 replaces the earlier 1.2.7 pin after the advisory-driven patch refresh; the frontend contract is unchanged."
+    },
+    {
+      "adr": "ADR-HLLM-010",
+      "summary": "Independent read-only Caddy and Grafana overlay mount points replace non-portable nested mounts."
+    },
+    {
+      "adr": "ADR-HLLM-011",
+      "summary": "Go 1.26.5 replaces 1.26.0 to remove reachable standard-library vulnerabilities without changing the language baseline."
+    }
+  ],
+  "frontend": {
+    "specification": "SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001",
+    "status": "complete",
+    "completedAt": "2026-07-13T23:57:47Z",
+    "tests": [
+      "WEB-TEST-001", "WEB-TEST-002", "WEB-TEST-003", "WEB-TEST-004",
+      "WEB-TEST-005", "WEB-TEST-006", "WEB-TEST-007", "WEB-TEST-008",
+      "WEB-TEST-009", "WEB-TEST-010", "WEB-TEST-011", "WEB-TEST-012"
+    ]
+  }
+}

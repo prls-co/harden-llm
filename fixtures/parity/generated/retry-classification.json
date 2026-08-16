@@ -1,0 +1,83 @@
+{
+  "cases": [
+    {
+      "classification": {
+        "category": "network",
+        "retryAfterMs": null,
+        "retryable": true,
+        "status": null
+      },
+      "fallbackEligible": true,
+      "name": "network",
+      "policy": {}
+    },
+    {
+      "classification": {
+        "category": "rate_limit",
+        "retryAfterMs": 2000,
+        "retryable": true,
+        "status": 429
+      },
+      "fallbackEligible": true,
+      "name": "rate-limit",
+      "policy": {}
+    },
+    {
+      "classification": {
+        "category": "server_error",
+        "retryAfterMs": null,
+        "retryable": true,
+        "status": 503
+      },
+      "fallbackEligible": true,
+      "name": "server",
+      "policy": {}
+    },
+    {
+      "classification": {
+        "category": "refusal",
+        "retryAfterMs": null,
+        "retryable": false,
+        "status": 503
+      },
+      "fallbackEligible": false,
+      "name": "refusal",
+      "policy": {}
+    },
+    {
+      "classification": {
+        "category": "timeout",
+        "retryAfterMs": null,
+        "retryable": false,
+        "status": null
+      },
+      "fallbackEligible": false,
+      "name": "timeout",
+      "policy": {}
+    },
+    {
+      "classification": {
+        "category": "parse_error",
+        "retryAfterMs": null,
+        "retryable": false,
+        "status": null
+      },
+      "fallbackEligible": false,
+      "name": "parse-disabled",
+      "policy": {}
+    },
+    {
+      "classification": {
+        "category": "parse_error",
+        "retryAfterMs": null,
+        "retryable": true,
+        "status": null
+      },
+      "fallbackEligible": false,
+      "name": "parse-enabled",
+      "policy": {
+        "parseError": true
+      }
+    }
+  ]
+}

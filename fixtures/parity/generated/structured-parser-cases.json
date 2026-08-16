@@ -1,0 +1,99 @@
+{
+  "geminiCases": [
+    {
+      "name": "markdown-fence",
+      "parsed": {
+        "answer": "ok"
+      },
+      "raw": "```json\n{\"answer\":\"ok\"}\n```"
+    },
+    {
+      "name": "prose-extraction",
+      "parsed": {
+        "answer": "ok"
+      },
+      "raw": "Result follows: {\"answer\":\"ok\"} done."
+    },
+    {
+      "name": "literal-newline",
+      "parsed": {
+        "answer": "first\nsecond"
+      },
+      "raw": "{\"answer\":\"first\nsecond\"}"
+    }
+  ],
+  "repairCases": [
+    {
+      "name": "numeric-string-normalization",
+      "parsed": {
+        "answer": "ok",
+        "count": 42
+      },
+      "raw": "{\"answer\":\"ok\",\"count\":\"42\"}"
+    },
+    {
+      "name": "unquoted-keys-single-quotes-trailing-comma",
+      "parsed": {
+        "answer": "ok",
+        "count": 2
+      },
+      "raw": "{answer:'ok',count:2,}"
+    },
+    {
+      "name": "missing-comma",
+      "parsed": {
+        "answer": "ok",
+        "count": 2
+      },
+      "raw": "{\"answer\":\"ok\" \"count\":2}"
+    },
+    {
+      "name": "markdown-fence",
+      "parsed": {
+        "answer": "ok"
+      },
+      "raw": "```json\n{answer: 'ok'}\n```"
+    },
+    {
+      "name": "truncated-object",
+      "parsed": {
+        "answer": "ok",
+        "items": [
+          1,
+          2
+        ]
+      },
+      "raw": "{\"answer\":\"ok\",\"items\":[1,2"
+    }
+  ],
+  "repairFailure": {
+    "diagnostics": {
+      "category": "parse_error",
+      "initialParseError": {
+        "message": "Bad Unicode escape in JSON at position 13 (line 1 column 14)",
+        "name": "SyntaxError",
+        "position": 13
+      },
+      "jsonShape": {
+        "closeBraces": 1,
+        "closeBrackets": 0,
+        "endedInsideString": false,
+        "openBraces": 1,
+        "openBrackets": 0
+      },
+      "likelyTruncated": false,
+      "parseStage": "repair",
+      "parserErrorMessage": "Invalid unicode character \"\\uZZZZ\" at position 11",
+      "parserErrorName": "JSONRepairError",
+      "parserErrorPosition": 11,
+      "parserLibrary": "jsonrepair",
+      "rawResponseLength": 19,
+      "rawResponseTail": "{\"answer\":\"\\uZZZZ\"}",
+      "repairAttempted": true,
+      "repairSucceeded": false
+    },
+    "message": "Invalid unicode character \"\\uZZZZ\" at position 11",
+    "name": "Error",
+    "succeeded": false
+  }
+}

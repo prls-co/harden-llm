@@ -3,8 +3,8 @@
 ## 1. Title and metadata
 
 - Project name: `harden-llm`
-- Target repository: `/home/kirill/p/harden-llm`
-- Contract source repository: `/home/kirill/p/utility-llm`
+- Target repository: `/home/kirill/harden-llm`
+- Contract source repository: `/home/kirill/utility-llm`
 - Version: `1.3.0-backend-plan`
 - Owners: package maintainers and self-hosted runtime implementers
 - Date: 2026-07-12
@@ -15,7 +15,7 @@
 
 | Topic | Verdict | Rationale grounded in repository and deployment constraints |
 | --- | --- | --- |
-| Implement in `/home/kirill/p/harden-llm` | DECISION | The repository already maps to `github.com/prls-co/harden-llm`; the module path and source location match without a repository rename. |
+| Implement in `/home/kirill/harden-llm` | DECISION | The repository already maps to `github.com/prls-co/harden-llm`; the module path and source location match without a repository rename. |
 | Use Go | FOR | The workload is provider-bound HTTP/JSON orchestration with retries, persistence, and diagnostics. Go provides a small deployment unit and direct control over concurrency and cancellation. |
 | Use one root public package | DECISION | `hardenllm` exposes one stable client API, profile/catalog types, credential/cache interfaces, and endpoint policy while built-in provider, retry, schema, cache-key, trace, pricing, and redaction implementations remain internal. |
 | Use one `Client.Call` result contract | DECISION | One detailed `Result` serves Go users and the gateway. JS direct-output parity maps to `Result.Output`; there is no second expanded-result path. |
@@ -151,7 +151,7 @@ flowchart LR
 ```text
 System: harden-llm
 
-  Repository: /home/kirill/p/harden-llm
+  Repository: /home/kirill/harden-llm
     Public component: root package hardenllm
       New, Client.Call, Request, Result, Profile, ProfileCatalog,
       CredentialResolver, EndpointPolicy, CacheStore, ArtifactStore
@@ -1224,7 +1224,7 @@ evals:
 
 Source repository runners used only during P00 fixture capture:
 
-- Plain Node `assert` tests under `/home/kirill/p/utility-llm/tests/`.
+- Plain Node `assert` tests under `/home/kirill/utility-llm/tests/`.
 - Existing source commands: `npm run test:contract`, `npm run test:core`, and `npm run test:behavior`.
 
 Target runners created in P00:

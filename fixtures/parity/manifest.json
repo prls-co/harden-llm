@@ -1,0 +1,685 @@
+{
+  "capture": {
+    "canonicalJSON": true,
+    "liveCredentialsUsed": false,
+    "nodeVersion": "v22.22.0",
+    "script": "scripts/capture-utility-llm-fixtures.mjs",
+    "scriptVersion": 7
+  },
+  "fixtureConsumers": {
+    "generated/cache-identity.json": [
+      {
+        "evidence": "cache-identity.json",
+        "target": "internal/cachekey/cache_test.go",
+        "testFunction": "TestCacheIdentity",
+        "tests": [
+          "TEST-011"
+        ]
+      }
+    ],
+    "generated/profile-catalog.json": [
+      {
+        "evidence": "profile-catalog.json",
+        "target": "internal/profiles/profile_test.go",
+        "testFunction": "TestProfileParityRoundTripAndValidation",
+        "tests": [
+          "TEST-017"
+        ]
+      }
+    ],
+    "generated/provider-cases.json": [
+      {
+        "evidence": "provider-cases.json",
+        "target": "internal/providers/requests_test.go",
+        "testFunction": "TestProviderRequestParityCapturedSource",
+        "tests": [
+          "TEST-012"
+        ]
+      },
+      {
+        "evidence": "provider-cases.json",
+        "target": "internal/providers/normalization_test.go",
+        "testFunction": "TestProviderNormalizationParityCapturedSource",
+        "tests": [
+          "TEST-013"
+        ]
+      }
+    ],
+    "generated/reasoning-effort-cases.json": [
+      {
+        "evidence": "reasoning-effort-cases.json",
+        "target": "internal/providers/requests_test.go",
+        "testFunction": "TestReasoningEffortParityCapturedSource",
+        "tests": [
+          "TEST-012"
+        ]
+      }
+    ],
+    "generated/retry-classification.json": [
+      {
+        "evidence": "retry-classification.json",
+        "target": "internal/retry/retry_test.go",
+        "testFunction": "TestRetryClassificationParityCapturedSource",
+        "tests": [
+          "TEST-008"
+        ]
+      },
+      {
+        "evidence": "retry-classification.json",
+        "target": "internal/runtime/repair_backup_test.go",
+        "testFunction": "TestBackupEligibilityParityCapturedSource",
+        "tests": [
+          "TEST-009"
+        ]
+      }
+    ],
+    "generated/schema-normalization.json": [
+      {
+        "evidence": "schema-normalization.json",
+        "target": "internal/schema/schema_test.go",
+        "testFunction": "TestSchemaContract",
+        "tests": [
+          "TEST-010"
+        ]
+      }
+    ],
+    "generated/structured-parser-cases.json": [
+      {
+        "evidence": "structured-parser-cases.json",
+        "target": "internal/schema/schema_test.go",
+        "testFunction": "TestStructuredParserParityCapturedSource",
+        "tests": [
+          "TEST-010"
+        ]
+      }
+    ],
+    "generated/usage-cases.json": [
+      {
+        "evidence": "usage-cases.json",
+        "target": "internal/pricing/usage_cost_test.go",
+        "testFunction": "TestUsageCostParity",
+        "tests": [
+          "TEST-015"
+        ]
+      }
+    ],
+    "source/combinatorial/retry-decision-matrix.json": [
+      {
+        "evidence": "retry-decision-matrix.json",
+        "target": "internal/retry/retry_test.go",
+        "testFunction": "TestCurrentSourceRetryDecisionMatrixParity",
+        "tests": [
+          "TEST-008"
+        ]
+      }
+    ],
+    "source/evals/cpa-gpt-5.4-mini-responses-call.json": [
+      {
+        "evidence": "cpa-gpt-5.4-mini-responses-call.json",
+        "target": "internal/providers/requests_test.go",
+        "testFunction": "TestCPAResponsesEvalRequestParityCapturedSource",
+        "tests": [
+          "TEST-012"
+        ]
+      }
+    ],
+    "source/evals/jsonrepair-object-key-expected-incident.json": [
+      {
+        "evidence": "jsonrepair-object-key-expected-incident.json",
+        "target": "internal/schema/schema_test.go",
+        "testFunction": "TestJSONRepairIncidentParityCapturedSource",
+        "tests": [
+          "TEST-010"
+        ]
+      }
+    ],
+    "source/llm-stats-totals/parity/failure-rate-limit.json": [
+      {
+        "evidence": "llm-stats-totals/parity/*.json",
+        "target": "internal/stats/parity_test.go",
+        "testFunction": "TestParityStatsTotals",
+        "tests": [
+          "TEST-016"
+        ]
+      }
+    ],
+    "source/llm-stats-totals/parity/missing-usage-items-error.json": [
+      {
+        "evidence": "llm-stats-totals/parity/*.json",
+        "target": "internal/stats/parity_test.go",
+        "testFunction": "TestParityStatsTotals",
+        "tests": [
+          "TEST-016"
+        ]
+      }
+    ],
+    "source/llm-stats-totals/parity/success-empty-current.json": [
+      {
+        "evidence": "llm-stats-totals/parity/*.json",
+        "target": "internal/stats/parity_test.go",
+        "testFunction": "TestParityStatsTotals",
+        "tests": [
+          "TEST-016"
+        ]
+      }
+    ],
+    "source/llm-stats-totals/parity/success-existing-current.json": [
+      {
+        "evidence": "llm-stats-totals/parity/*.json",
+        "target": "internal/stats/parity_test.go",
+        "testFunction": "TestParityStatsTotals",
+        "tests": [
+          "TEST-016"
+        ]
+      }
+    ],
+    "source/llm-stats-totals/parity/success-operation-cache-hit.json": [
+      {
+        "evidence": "llm-stats-totals/parity/*.json",
+        "target": "internal/stats/parity_test.go",
+        "testFunction": "TestParityStatsTotals",
+        "tests": [
+          "TEST-016"
+        ]
+      }
+    ],
+    "source/llm-stats-totals/parity/timeout-total-wait-fallback.json": [
+      {
+        "evidence": "llm-stats-totals/parity/*.json",
+        "target": "internal/stats/parity_test.go",
+        "testFunction": "TestParityStatsTotals",
+        "tests": [
+          "TEST-016"
+        ]
+      }
+    ],
+    "source/llm-stats-totals/parity/unknown-cost-error.json": [
+      {
+        "evidence": "llm-stats-totals/parity/*.json",
+        "target": "internal/stats/parity_test.go",
+        "testFunction": "TestParityStatsTotals",
+        "tests": [
+          "TEST-016"
+        ]
+      }
+    ],
+    "source/providers/openai-responses-stream-retry-error.json": [
+      {
+        "evidence": "openai-responses-stream-retry-error.json",
+        "target": "internal/providers/normalization_test.go",
+        "testFunction": "TestProviderNormalizationParityClassifiesResponsesProviderRetryDirective",
+        "tests": [
+          "TEST-013"
+        ]
+      }
+    ]
+  },
+  "fixtures": [
+    {
+      "class": "cache",
+      "path": "generated/cache-identity.json",
+      "schemaVersion": 1,
+      "sha256": "d7ba8d24ad3469e6e1f978f87c0907c953408ecb1ceed68ba53e3d6a332657c9",
+      "sourcePaths": [
+        "src/operation-cache/index.js"
+      ]
+    },
+    {
+      "class": "profiles",
+      "path": "generated/profile-catalog.json",
+      "schemaVersion": 1,
+      "sha256": "1ca43dce10fd8a94108b98acbb7de4f59fe4deb68e50bebe37e349edb632805e",
+      "sourcePaths": [
+        "src/model-profiles.js",
+        "tests/model-profiles.behavior.test.js"
+      ]
+    },
+    {
+      "class": "providers",
+      "path": "generated/provider-cases.json",
+      "schemaVersion": 1,
+      "sha256": "c0bbe31a5c666768c3bde98690844de05e34b492dc1916b02bb31f5d4850db9e",
+      "sourcePaths": [
+        "src/providers/openai.js",
+        "src/providers/generic.js",
+        "src/providers/google.js",
+        "src/providers/anthropic.js",
+        "tests/provider-operation-cache.behavior.test.js",
+        "tests/provider-runtime.behavior.test.js"
+      ]
+    },
+    {
+      "class": "providers",
+      "path": "generated/reasoning-effort-cases.json",
+      "schemaVersion": 1,
+      "sha256": "26bf3881801076ad2a2ff862d7c66c3fef0f458e1ff33ee3543ef3e995b9e015",
+      "sourcePaths": [
+        "src/reasoning-effort.js"
+      ]
+    },
+    {
+      "class": "retry",
+      "path": "generated/retry-classification.json",
+      "schemaVersion": 1,
+      "sha256": "553c28a622abc2e3d2ea51e1ff8822ca3a9f8b5872728d2c3c9941f93a6c34fc",
+      "sourcePaths": [
+        "src/retry-classifier.js",
+        "src/response-parser.js"
+      ]
+    },
+    {
+      "class": "schema",
+      "path": "generated/schema-normalization.json",
+      "schemaVersion": 1,
+      "sha256": "1cb0d06a44dad176083928891bf0cf39ebb0cfd14d8930daa8b603660527fff7",
+      "sourcePaths": [
+        "src/schema-normalizer.js"
+      ]
+    },
+    {
+      "class": "contract",
+      "path": "generated/source-contract.json",
+      "schemaVersion": 1,
+      "sha256": "e9b091ff777ffc3d36209ec35f68aa93387ef7e2164722269a91271a6b988b5f",
+      "sourcePaths": [
+        "package.json",
+        "src/model-profiles.js",
+        "src/operation-cache/index.js"
+      ]
+    },
+    {
+      "class": "schema",
+      "path": "generated/structured-parser-cases.json",
+      "schemaVersion": 1,
+      "sha256": "c0374008f91fe657b90d1b143f5bcd91a9a8925aeddfc9a98462ba3e67880179",
+      "sourcePaths": [
+        "src/response-parser.js",
+        "node_modules/jsonrepair/package.json"
+      ]
+    },
+    {
+      "class": "usage",
+      "path": "generated/usage-cases.json",
+      "schemaVersion": 1,
+      "sha256": "a0bf44d7a320e9d291e0e4e5232c8b04b5db7ffbf2de1c5a2414f7cc2552276d",
+      "sourcePaths": [
+        "src/usage.js",
+        "src/pricing-fields.js"
+      ]
+    },
+    {
+      "class": "combinatorial",
+      "path": "source/combinatorial/retry-decision-matrix.json",
+      "schemaVersion": 1,
+      "sha256": "9d1208963bd1c07f3ef98960f4a6f2e43f49da3b1c07d51b1f364948d32d2fe3",
+      "sourcePaths": [
+        "fixtures/combinatorial/retry-decision-matrix.json"
+      ],
+      "sourceSHA256": "67408e638875850e3c3862f17aad550c0cb916192c20133f257f629cbbf93986"
+    },
+    {
+      "class": "diagnostics",
+      "path": "source/diagnostics/bundle-input.json",
+      "schemaVersion": 1,
+      "sha256": "5278869824cb934faded980f8eebc10d4b4c803f8ff0ef608c665b770c8b200e",
+      "sourcePaths": [
+        "fixtures/diagnostics/bundle-input.json"
+      ],
+      "sourceSHA256": "ab2382d1bed10ad2163a5e70da38336808ec651ff22f90962ba41dcacb131d80"
+    },
+    {
+      "class": "diagnostics",
+      "path": "source/diagnostics/summary-input.json",
+      "schemaVersion": 1,
+      "sha256": "6083a6ffd871b00b6630aa9a4d92ee55f87ffd284b1227e3f40c39bb2394e857",
+      "sourcePaths": [
+        "fixtures/diagnostics/summary-input.json"
+      ],
+      "sourceSHA256": "2c25add99e7e3b5ced56057f16cf61aee7d6102a0f425c76ce1460f08c0f4f7d"
+    },
+    {
+      "class": "evals",
+      "path": "source/evals/cpa-gpt-5.4-mini-responses-call.json",
+      "schemaVersion": 1,
+      "sha256": "b9ef95c59d781fb6d037d3962279931ca562f8da4d101f31364cb58731bd3767",
+      "sourcePaths": [
+        "fixtures/evals/cpa-gpt-5.4-mini-responses-call.json"
+      ],
+      "sourceSHA256": "15da88b9c767bbeb3fb18070c4d1701526c014bb6976963d5b562ca549ded9a8"
+    },
+    {
+      "class": "evals",
+      "path": "source/evals/jsonrepair-object-key-expected-incident.json",
+      "schemaVersion": 1,
+      "sha256": "f23b314094f0a3a6ba85e2563e07fc8d7ffcc2778ef3e680f6b42e5e47474b6d",
+      "sourcePaths": [
+        "fixtures/evals/jsonrepair-object-key-expected-incident.json"
+      ],
+      "sourceSHA256": "8f1397a8953781e663cbe7ff0156614becfe041ebbb3796246d6eae57058277c"
+    },
+    {
+      "class": "examples",
+      "path": "source/examples/basic-text-golden.json",
+      "schemaVersion": 1,
+      "sha256": "819f731cc496a4cc1fff48227e5f86747419888ce85e41756766fb58121f1ac4",
+      "sourcePaths": [
+        "fixtures/examples/basic-text-golden.json"
+      ],
+      "sourceSHA256": "13b8fabfa3bacea78ebfedbd3579e37e09a8987434b011d269b5eb8eb92bda19"
+    },
+    {
+      "class": "examples",
+      "path": "source/examples/basic-text-input.json",
+      "schemaVersion": 1,
+      "sha256": "4a400eda17d5f8b2dbf1ee76c50a8c532ab363315c73b805e516a44171238ab6",
+      "sourcePaths": [
+        "fixtures/examples/basic-text-input.json"
+      ],
+      "sourceSHA256": "f4fa3a117c37605eb15ab635b15404ebc78ac81c941bad6568e03e0f6454192a"
+    },
+    {
+      "class": "examples",
+      "path": "source/examples/cache-golden.json",
+      "schemaVersion": 1,
+      "sha256": "50996adb1f487931ddf380216bd0b6ebf65799bcc99ac8c4219424b8b608d6f5",
+      "sourcePaths": [
+        "fixtures/examples/cache-golden.json"
+      ],
+      "sourceSHA256": "21e70a0c27763f0b117efbc5c07bed7aac5d4773f2b8e40b3806ce0810c245e2"
+    },
+    {
+      "class": "examples",
+      "path": "source/examples/structured-golden.json",
+      "schemaVersion": 1,
+      "sha256": "90eead0e6f671263c3f42489c055f463b33b6e31978dc088df17ab9d7a757040",
+      "sourcePaths": [
+        "fixtures/examples/structured-golden.json"
+      ],
+      "sourceSHA256": "9ebbca8afa4135fe37fc037319dba6733446675d7ee2203c8fe445c0b563d054"
+    },
+    {
+      "class": "examples",
+      "path": "source/examples/structured-input.json",
+      "schemaVersion": 1,
+      "sha256": "6fd18ca9803f141fca627b30fc65922cafee62cebdfe4c09cef9fdd1e4a40a97",
+      "sourcePaths": [
+        "fixtures/examples/structured-input.json"
+      ],
+      "sourceSHA256": "92d5a2c15e6e9d0073a1d4f8803725b4e4750e80281f01be874c9063b1f671ad"
+    },
+    {
+      "class": "llm-stats-totals",
+      "path": "source/llm-stats-totals/parity/failure-rate-limit.json",
+      "schemaVersion": 1,
+      "sha256": "4045906702cefffd40f13a4ed8f6a8d9a5e599ecb1850865c405e94d5a244a51",
+      "sourcePaths": [
+        "fixtures/llm-stats-totals/parity/failure-rate-limit.json"
+      ],
+      "sourceSHA256": "e4ee3baf51415cc6969c6e77737749f2d832702c2aefbc6d1318b4b27145468a"
+    },
+    {
+      "class": "llm-stats-totals",
+      "path": "source/llm-stats-totals/parity/missing-usage-items-error.json",
+      "schemaVersion": 1,
+      "sha256": "6d28f88b3323476f1ce24e89456f0df22758c8915b3fd3fe482b2310474027bf",
+      "sourcePaths": [
+        "fixtures/llm-stats-totals/parity/missing-usage-items-error.json"
+      ],
+      "sourceSHA256": "b54d6f536fbe6540d75edf96c75dcba6c0ec4526543cec2a07092ec451b621ef"
+    },
+    {
+      "class": "llm-stats-totals",
+      "path": "source/llm-stats-totals/parity/success-empty-current.json",
+      "schemaVersion": 1,
+      "sha256": "1bfb20f1e5399b95bbec137c96e06c60ea86ceb903338496f3846b4e88f51930",
+      "sourcePaths": [
+        "fixtures/llm-stats-totals/parity/success-empty-current.json"
+      ],
+      "sourceSHA256": "6a97e838ba332d41af5b5731c794ddf83ab5a2398d620f1783d2d9ffe9c39e76"
+    },
+    {
+      "class": "llm-stats-totals",
+      "path": "source/llm-stats-totals/parity/success-existing-current.json",
+      "schemaVersion": 1,
+      "sha256": "32c2d066ecf6a7fa84bdca248b9084daa42c0acaaa8cbea400ae50e2d615c525",
+      "sourcePaths": [
+        "fixtures/llm-stats-totals/parity/success-existing-current.json"
+      ],
+      "sourceSHA256": "2445592b00f459efa42afbc1ca40dc47723d31baa34a80a0a0cb8ef3cba88630"
+    },
+    {
+      "class": "llm-stats-totals",
+      "path": "source/llm-stats-totals/parity/success-operation-cache-hit.json",
+      "schemaVersion": 1,
+      "sha256": "33adadde2273c0f29cdfdb659659786214eeac2541e21332e92e30ced3562f05",
+      "sourcePaths": [
+        "fixtures/llm-stats-totals/parity/success-operation-cache-hit.json"
+      ],
+      "sourceSHA256": "e524f3636001e4079b40d3bbc49cee64468d7842ca60ca4b5fb8aa1b1fa04728"
+    },
+    {
+      "class": "llm-stats-totals",
+      "path": "source/llm-stats-totals/parity/timeout-total-wait-fallback.json",
+      "schemaVersion": 1,
+      "sha256": "b9e36b16b1e22a00f92f6d0e16d6a03045c894936f49e610d291d5dd9f53c7c7",
+      "sourcePaths": [
+        "fixtures/llm-stats-totals/parity/timeout-total-wait-fallback.json"
+      ],
+      "sourceSHA256": "4ebe302ea8cce71eca67bbdcf61cf2ba656dbf0343c01eaacf1781caed616b61"
+    },
+    {
+      "class": "llm-stats-totals",
+      "path": "source/llm-stats-totals/parity/unknown-cost-error.json",
+      "schemaVersion": 1,
+      "sha256": "5c1f2da0b4904dbbd8387db7ebcb1a87cf8747b8a0bc436907d0f862ac9ffe49",
+      "sourcePaths": [
+        "fixtures/llm-stats-totals/parity/unknown-cost-error.json"
+      ],
+      "sourceSHA256": "1438b4d3462e5d0a8d77855b247a117c46298a2a058d2692c404f9d07878e457"
+    },
+    {
+      "class": "models",
+      "path": "source/models/model-registry-cases.json",
+      "schemaVersion": 1,
+      "sha256": "ed7b3d7e181d63cf5d1e6de3decb52645c896b79b0b7bb1fc42108db82c3d391",
+      "sourcePaths": [
+        "fixtures/models/model-registry-cases.json"
+      ],
+      "sourceSHA256": "04d20e65bc55033458f7eab6a8d00d61d600ec8594612952b75dfcd87ed1b786"
+    },
+    {
+      "class": "models",
+      "path": "source/models/pricing-overrides.json",
+      "schemaVersion": 1,
+      "sha256": "64ab76fdd49d58c61f160069bfdf1bcb2a33e1273607423beef33afa08f7ceab",
+      "sourcePaths": [
+        "fixtures/models/pricing-overrides.json"
+      ],
+      "sourceSHA256": "39d78b139f0bf447f7dc0cb0fba52fc1da9ef6948057f1ba3b46a0e07c5bd84d"
+    },
+    {
+      "class": "providers",
+      "path": "source/providers/openai-responses-stream-retry-error.json",
+      "schemaVersion": 1,
+      "sha256": "8b0c565396b9d6f07bc32d219aba7b7538894a6b288204b40d2c9706b00e3c1e",
+      "sourcePaths": [
+        "fixtures/providers/openai-responses-stream-retry-error.json"
+      ],
+      "sourceSHA256": "5194c67e4023fdf3b179103de2d6b25e59d037fc3bcc4f59e9fad21f4e12e16f"
+    },
+    {
+      "class": "queries",
+      "path": "source/queries/query-helper-cases.json",
+      "schemaVersion": 1,
+      "sha256": "dbf4035c30894d07c7024c708e4dfcb4eda8a92d10a0dafc203a94035b1d9bac",
+      "sourcePaths": [
+        "fixtures/queries/query-helper-cases.json"
+      ],
+      "sourceSHA256": "524c5a262e495c26cf77ba7277d24f120a66cbcb1bde164d05ef187af626480c"
+    },
+    {
+      "class": "telemetry",
+      "path": "source/telemetry/telemetry-cases.json",
+      "schemaVersion": 1,
+      "sha256": "9d1b7766b8f1ed7490ddb1f265c8c590cfa43a27de9e3b1f87df5947a122b7d1",
+      "sourcePaths": [
+        "fixtures/telemetry/telemetry-cases.json"
+      ],
+      "sourceSHA256": "a08062678795966b5b47745acab40577939342cd6d5d62eb3900c67f84d21989"
+    },
+    {
+      "class": "traces",
+      "path": "source/traces/raw-response-input.json",
+      "schemaVersion": 1,
+      "sha256": "425fddc9361e08e351e12cc4099018101dbd2ecbeea4a437a0f41118780b2cf8",
+      "sourcePaths": [
+        "fixtures/traces/raw-response-input.json"
+      ],
+      "sourceSHA256": "ac67f85a934b9ea5ad2bad4cf68c75bd33a97adcdf74ca4c2563e4f4405aac73"
+    },
+    {
+      "class": "traces",
+      "path": "source/traces/trace-doc-input.json",
+      "schemaVersion": 1,
+      "sha256": "f2d5e4eced080a3ada74d876af184e2944560d96fd83870cee76dbd27dd99048",
+      "sourcePaths": [
+        "fixtures/traces/trace-doc-input.json"
+      ],
+      "sourceSHA256": "9f76b6ddd24fba61f13dba8e6ea690a4891185fd4c465a1e726d58b9d6b7544d"
+    }
+  ],
+  "intentionalDifferences": [
+    {
+      "adr": "ADR-HLLM-001",
+      "fixtures": [
+        "source/examples/basic-text-golden.json",
+        "source/examples/basic-text-input.json",
+        "source/examples/structured-golden.json",
+        "source/examples/structured-input.json"
+      ],
+      "id": "detailed-go-result",
+      "mode": "intentional-difference",
+      "note": "Source direct output is compared to Result.Output; Go metadata derives from the same normalized call record.",
+      "tests": [
+        "TEST-006"
+      ]
+    },
+    {
+      "adr": "ADR-HLLM-002",
+      "fixtures": [
+        "generated/source-contract.json"
+      ],
+      "id": "typed-root-surface",
+      "mode": "intentional-difference",
+      "note": "The target exposes one typed Call path instead of the JavaScript export inventory.",
+      "tests": [
+        "TEST-002"
+      ]
+    },
+    {
+      "adr": "ADR-HLLM-001",
+      "fixtures": [
+        "generated/profile-catalog.json",
+        "generated/provider-cases.json"
+      ],
+      "id": "secure-provider-egress",
+      "mode": "intentional-difference",
+      "note": "The Go deployment keeps provider normalization semantics while enforcing server-side egress policy and configured provider ownership.",
+      "tests": [
+        "TEST-012",
+        "TEST-014",
+        "TEST-017"
+      ]
+    },
+    {
+      "adr": "ADR-HLLM-001",
+      "fixtures": [],
+      "id": "authenticated-credential-envelope",
+      "mode": "intentional-difference",
+      "note": "The Go service uses an authenticated versioned credential envelope instead of the source runtime's credential storage boundary.",
+      "tests": [
+        "TEST-018"
+      ]
+    },
+    {
+      "adr": "ADR-HLLM-001",
+      "fixtures": [
+        "source/diagnostics/bundle-input.json",
+        "source/diagnostics/summary-input.json",
+        "source/examples/cache-golden.json",
+        "source/traces/raw-response-input.json",
+        "source/traces/trace-doc-input.json"
+      ],
+      "id": "garage-artifact-projection",
+      "mode": "intentional-difference",
+      "note": "The self-hosted service projects diagnostic and trace artifacts into Garage/Postgres storage while preserving the source diagnostic fields.",
+      "tests": [
+        "TEST-016",
+        "TEST-019",
+        "TEST-040"
+      ]
+    },
+    {
+      "adr": "ADR-HLLM-001",
+      "fixtures": [
+        "source/providers/openai-responses-stream-retry-error.json"
+      ],
+      "id": "provider-retry-directive",
+      "mode": "intentional-difference",
+      "note": "The Go transport maps the source provider-retry directive into its typed retry error while retaining the self-hosted provider boundary.",
+      "tests": [
+        "TEST-008",
+        "TEST-012",
+        "TEST-013"
+      ]
+    },
+    {
+      "adr": "ADR-HLLM-001",
+      "fixtures": [
+        "source/models/model-registry-cases.json",
+        "source/models/pricing-overrides.json"
+      ],
+      "id": "profile-owned-model-catalog",
+      "mode": "intentional-difference",
+      "note": "The self-hosted service stores model discovery and pricing in owner-managed profiles instead of a package-global registry.",
+      "tests": [
+        "TEST-015",
+        "TEST-017",
+        "TEST-024"
+      ]
+    },
+    {
+      "adr": "ADR-HLLM-001",
+      "fixtures": [
+        "source/queries/query-helper-cases.json"
+      ],
+      "id": "postgres-resource-queries",
+      "mode": "intentional-difference",
+      "note": "The self-hosted resource API implements owner-scoped PostgreSQL queries instead of source-specific query helpers.",
+      "tests": [
+        "TEST-020",
+        "TEST-024"
+      ]
+    },
+    {
+      "adr": "ADR-HLLM-001",
+      "fixtures": [
+        "source/telemetry/telemetry-cases.json"
+      ],
+      "id": "otel-telemetry-projection",
+      "mode": "intentional-difference",
+      "note": "The self-hosted runtime projects source telemetry semantics through OpenTelemetry and domain traces instead of source-specific process telemetry.",
+      "tests": [
+        "TEST-016",
+        "TEST-028",
+        "TEST-031"
+      ]
+    }
+  ],
+  "manifestSchemaVersion": 2,
+  "source": {
+    "gitSHA": "09769424ca34b9d759e273a7e9dccf4fd00a5f6c",
+    "packageVersion": "0.14.6",
+    "repository": "prls-co/utility-llm"
+  }
+}

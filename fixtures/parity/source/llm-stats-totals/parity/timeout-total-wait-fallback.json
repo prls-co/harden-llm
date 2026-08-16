@@ -1,0 +1,71 @@
+{
+  "input": {
+    "context": {
+      "parentCollection": "orgCompanyProduct",
+      "parentId": "product-parity",
+      "runId": "product-parity",
+      "taskId": "task-timeout-total-wait-fallback",
+      "traceId": "trace-timeout-total-wait-fallback"
+    },
+    "currentStats": {
+      "cachedCost": 0,
+      "cachedCount": 0,
+      "failureCount": 0,
+      "maxCallDurationMs": 0,
+      "maxOverBudgetMs": 0,
+      "overBudgetCount": 0,
+      "successCount": 0,
+      "timeoutCount": 0,
+      "totalCallDurationMs": 0,
+      "totalCost": 0,
+      "totalCount": 0,
+      "totalOutputTokens": 0,
+      "totalPromptTokens": 0
+    },
+    "traceData": {
+      "lastErrorCategory": "timeout",
+      "overBudgetMs": 0,
+      "totalWaitMs": 9876,
+      "usage": {
+        "items": {
+          "cacheCreationInput": {
+            "ratePerToken": 0.00000125,
+            "tokens": 0
+          },
+          "cacheReadInput": {
+            "ratePerToken": 2e-7,
+            "tokens": 0
+          },
+          "input": {
+            "ratePerToken": 0.000001,
+            "tokens": 3
+          },
+          "output": {
+            "ratePerToken": 0.000002,
+            "tokens": 0
+          },
+          "reasoningOutput": {
+            "ratePerToken": 0.000003,
+            "tokens": 0
+          }
+        }
+      }
+    }
+  },
+  "name": "timeout-total-wait-fallback",
+  "output": {
+    "cachedCost": 0,
+    "cachedCount": 0,
+    "failureCount": 0,
+    "maxCallDurationMs": 9876,
+    "maxOverBudgetMs": 0,
+    "overBudgetCount": 0,
+    "successCount": 0,
+    "timeoutCount": 1,
+    "totalCallDurationMs": 9876,
+    "totalCost": 0.000003,
+    "totalCount": 1,
+    "totalOutputTokens": 0,
+    "totalPromptTokens": 3
+  }
+}

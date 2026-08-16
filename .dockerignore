@@ -1,0 +1,10 @@
+.codex
+.env
+.git
+.github
+frontend
+plans
+tmp
+**/*_test.go
+deploy/langfuse
+deploy/test

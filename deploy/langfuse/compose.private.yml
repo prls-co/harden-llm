@@ -1,0 +1,71 @@
+services:
+  langfuse-worker:
+    ports: !reset []
+    networks:
+      - harden-private
+    environment: &harden-langfuse-environment
+      NEXTAUTH_URL: https://${HARDEN_LLM_LANGFUSE_HOST:?set the Langfuse hostname}
+      DATABASE_URL: postgresql://postgres:${LANGFUSE_POSTGRES_PASSWORD:?set the Langfuse database password}@postgres:5432/postgres
+      SALT: ${LANGFUSE_SALT:?set the Langfuse salt}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:?set a 64-character hex Langfuse encryption key}
+      TELEMETRY_ENABLED: "false"
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set the ClickHouse password}
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?set the Langfuse MinIO user}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?set the Langfuse MinIO password}
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?set the Langfuse MinIO user}
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?set the Langfuse MinIO password}
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_BATCH_EXPORT_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?set the Langfuse MinIO user}
+      LANGFUSE_S3_BATCH_EXPORT_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?set the Langfuse MinIO password}
+      LANGFUSE_S3_BATCH_EXPORT_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_BATCH_EXPORT_EXTERNAL_ENDPOINT: http://minio:9000
+      REDIS_AUTH: ${REDIS_AUTH:?set the Redis password}
+
+  langfuse-web:
+    ports: !reset []
+    networks:
+      - harden-private
+    environment:
+      <<: *harden-langfuse-environment
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:?set the Langfuse auth secret}
+      LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-harden-llm}
+      LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME:-Harden LLM}
+      LANGFUSE_INIT_PROJECT_ID: ${LANGFUSE_INIT_PROJECT_ID:-harden-llm}
+      LANGFUSE_INIT_PROJECT_NAME: ${LANGFUSE_INIT_PROJECT_NAME:-Harden LLM}
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_INIT_PROJECT_PUBLIC_KEY:?set the Langfuse project public key}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_INIT_PROJECT_SECRET_KEY:?set the Langfuse project secret key}
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL:-admin@localhost.invalid}
+      LANGFUSE_INIT_USER_NAME: ${LANGFUSE_INIT_USER_NAME:-Harden LLM Administrator}
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:?set the initial Langfuse user password}
+
+  clickhouse:
+    ports: !reset []
+    networks:
+      - harden-private
+    environment:
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set the ClickHouse password}
+
+  minio:
+    ports: !reset []
+    networks:
+      - harden-private
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set the Langfuse MinIO user}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set the Langfuse MinIO password}
+
+  redis:
+    ports: !reset []
+    networks:
+      - harden-private
+    environment:
+      REDIS_AUTH: ${REDIS_AUTH:?set the Redis password}
+
+  postgres:
+    ports: !reset []
+    networks:
+      - harden-private
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${LANGFUSE_POSTGRES_PASSWORD:?set the Langfuse database password}
+      POSTGRES_DB: postgres

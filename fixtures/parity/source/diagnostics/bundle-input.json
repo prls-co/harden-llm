@@ -1,0 +1,155 @@
+{
+  "diagnosticEvents": [
+    {
+      "outcome": "error",
+      "payload": {
+        "attempts": 2,
+        "callId": "call-1",
+        "lastErrorCategory": "timeout",
+        "payloadPath": "llm-traces/run-123/tasks/abc-raw.json",
+        "taskSlug": "generate_questions",
+        "tracePath": "llm-traces/run-123/tasks/abc.json"
+      },
+      "target": "dev",
+      "timestamp": "2026-01-30T00:04:00.000Z",
+      "type": "llm.failure"
+    },
+    {
+      "outcome": "success",
+      "payload": {
+        "state": "saved"
+      },
+      "target": "dev",
+      "timestamp": "2026-01-30T00:05:00.000Z",
+      "type": "ui.saveState"
+    },
+    {
+      "outcome": "capture_failed",
+      "payload": {
+        "message": "Attachment truncated"
+      },
+      "target": "dev",
+      "timestamp": "2026-01-30T00:06:00.000Z",
+      "type": "capture.failure"
+    }
+  ],
+  "expected": {
+    "attachments": [
+      {
+        "data": [
+          {
+            "outcome": "error",
+            "payload": {
+              "attempts": 2,
+              "callId": "call-1",
+              "lastErrorCategory": "timeout",
+              "payloadPath": "llm-traces/run-123/tasks/abc-raw.json",
+              "taskSlug": "generate_questions",
+              "tracePath": "llm-traces/run-123/tasks/abc.json"
+            },
+            "runId": "run-123",
+            "schemaVersion": "1.0",
+            "suiteId": "suite-1",
+            "target": "dev",
+            "timestamp": "2026-01-30T00:04:00.000Z",
+            "type": "llm.failure"
+          },
+          {
+            "outcome": "success",
+            "payload": {
+              "state": "saved"
+            },
+            "runId": "run-123",
+            "schemaVersion": "1.0",
+            "suiteId": "suite-1",
+            "target": "dev",
+            "timestamp": "2026-01-30T00:05:00.000Z",
+            "type": "ui.saveState"
+          },
+          {
+            "outcome": "capture_failed",
+            "payload": {
+              "message": "Attachment truncated"
+            },
+            "runId": "run-123",
+            "schemaVersion": "1.0",
+            "suiteId": "suite-1",
+            "target": "dev",
+            "timestamp": "2026-01-30T00:06:00.000Z",
+            "type": "capture.failure"
+          }
+        ],
+        "name": "diagnosticEvents",
+        "path": "test-artifacts/run-123/suite-1/diagnostics/diagnostic-events.json",
+        "recordCount": 3
+      }
+    ],
+    "coreBundle": {
+      "diagnosticsAttachments": [
+        {
+          "name": "diagnosticEvents",
+          "path": "test-artifacts/run-123/suite-1/diagnostics/diagnostic-events.json",
+          "recordCount": 3
+        }
+      ],
+      "runId": "run-123",
+      "runtimeIdentity": {
+        "baseSha": "base-123",
+        "browserVersion": "chromium 123.0",
+        "capturedAt": "2026-01-30T00:10:00.000Z",
+        "headSha": "head-123",
+        "projectId": "demo-project",
+        "runnerImage": "us-central1-docker.pkg.dev/demo-project/gcf-artifacts/test-suite-worker:sha-demo",
+        "runnerLocation": "us-central1",
+        "runnerType": "cloudrun",
+        "target": "dev"
+      },
+      "schemaVersion": "2.0",
+      "status": "completed",
+      "suiteId": "suite-1",
+      "suiteName": "step11",
+      "summary": {
+        "captureFailures": 1,
+        "countsByOutcome": {
+          "capture_failed": 1,
+          "error": 1,
+          "success": 1
+        },
+        "countsByType": {
+          "capture.failure": 1,
+          "llm.failure": 1,
+          "ui.saveState": 1
+        },
+        "eventCount": 3,
+        "truncated": true
+      },
+      "timings": {
+        "completedAt": "2026-01-30T00:10:00.000Z",
+        "durationMs": 600000,
+        "startedAt": "2026-01-30T00:00:00.000Z"
+      }
+    }
+  },
+  "runId": "run-123",
+  "runtimeIdentity": {
+    "baseSha": "base-123",
+    "browserVersion": "chromium 123.0",
+    "capturedAt": "2026-01-30T00:10:00.000Z",
+    "headSha": "head-123",
+    "projectId": "demo-project",
+    "runnerImage": "us-central1-docker.pkg.dev/demo-project/gcf-artifacts/test-suite-worker:sha-demo",
+    "runnerLocation": "us-central1",
+    "runnerType": "cloudrun",
+    "target": "dev"
+  },
+  "status": "completed",
+  "storagePrefix": "test-artifacts/run-123/suite-1",
+  "suiteId": "suite-1",
+  "suiteName": "step11",
+  "timings": {
+    "completedAt": "2026-01-30T00:10:00.000Z",
+    "durationMs": 600000,
+    "startedAt": "2026-01-30T00:00:00.000Z"
+  },
+  "truncated": true
+}

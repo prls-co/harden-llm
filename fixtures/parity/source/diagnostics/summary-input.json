@@ -1,0 +1,35 @@
+{
+  "bucket": "demo-bucket",
+  "diagnosticEvents": [
+    {
+      "outcome": "error",
+      "payload": {
+        "attempts": 2,
+        "callId": "call-1",
+        "lastErrorCategory": "timeout",
+        "payloadPath": "llm-traces/run-123/tasks/abc-raw.json",
+        "taskSlug": "generate_questions",
+        "tracePath": "llm-traces/run-123/tasks/abc.json"
+      },
+      "timestamp": "2026-01-30T00:04:00.000Z",
+      "type": "llm.failure"
+    },
+    {
+      "outcome": "success",
+      "payload": {
+        "state": "saved"
+      },
+      "timestamp": "2026-01-30T00:05:00.000Z",
+      "type": "ui.saveState"
+    }
+  ],
+  "projectId": "demo-project",
+  "runId": "run-123",
+  "runtimeIdentity": {
+    "headSha": "head-123",
+    "projectId": "demo-project",
+    "target": "dev"
+  },
+  "status": "failed",
+  "suiteId": "suite-1"
+}

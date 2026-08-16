@@ -1,0 +1,187 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "harden-prometheus"},
+      "description": "Request rate by bounded route, method, and outcome.",
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [{"expr": "sum(rate(harden_llm_http_requests[5m])) by (route, method, outcome)", "legendFormat": "{{method}} {{route}} {{outcome}}", "refId": "A"}],
+      "title": "Gateway Requests",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "harden-prometheus"},
+      "description": "Gateway p95 latency and error rate.",
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum(rate(harden_llm_http_request_duration_bucket[5m])) by (le, route))", "legendFormat": "p95 {{route}}", "refId": "A"},
+        {"expr": "sum(rate(harden_llm_http_requests{outcome!=\"success\"}[5m])) by (route, category)", "legendFormat": "errors {{route}} {{category}}", "refId": "B"}
+      ],
+      "title": "Gateway Health and Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "harden-prometheus"},
+      "description": "Provider attempt latency and failures without model identifiers.",
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "id": 3,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum(rate(harden_llm_provider_duration_bucket{scope=\"attempt\"}[5m])) by (le, provider, call_type))", "legendFormat": "p95 {{provider}} {{call_type}}", "refId": "A"},
+        {"expr": "sum(rate(harden_llm_provider_attempts{outcome!=\"success\"}[5m])) by (provider, category)", "legendFormat": "{{provider}} {{category}}", "refId": "B"}
+      ],
+      "title": "Provider Latency and Errors",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "harden-prometheus"},
+      "description": "Retries by provider family and normalized category.",
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "id": 4,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [{"expr": "sum(rate(harden_llm_retries[5m])) by (provider, category, call_type)", "legendFormat": "{{provider}} {{category}}", "refId": "A"}],
+      "title": "Retry Categories",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "harden-prometheus"},
+      "description": "Cache lookup and write outcomes.",
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "id": 5,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [{"expr": "sum(rate(harden_llm_cache_operations[5m])) by (operation, cache_outcome, outcome)", "legendFormat": "{{operation}} {{cache_outcome}}", "refId": "A"}],
+      "title": "Cache Outcomes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "harden-prometheus"},
+      "description": "Normalized token and USD accounting trends.",
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "id": 6,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [
+        {"expr": "sum(rate(harden_llm_tokens[5m])) by (provider, call_type, token_type)", "legendFormat": "tokens {{provider}} {{token_type}}", "refId": "A"},
+        {"expr": "sum(rate(harden_llm_cost_usd[5m])) by (provider, call_type, source)", "legendFormat": "cost {{provider}} {{source}}", "refId": "B"}
+      ],
+      "title": "Usage / Cost Trends",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "harden-prometheus"},
+      "description": "Structured validation and repair outcomes.",
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+      "id": 7,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [{"expr": "sum(rate(harden_llm_schema_operations[5m])) by (repair, outcome)", "legendFormat": "repair={{repair}} {{outcome}}", "refId": "A"}],
+      "title": "Schema / Repair Outcomes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "harden-prometheus"},
+      "description": "Postgres operation latency and errors by SQL operation class.",
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+      "id": 8,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum(rate(harden_llm_postgres_duration_bucket[5m])) by (le, operation))", "legendFormat": "p95 {{operation}}", "refId": "A"},
+        {"expr": "sum(rate(harden_llm_postgres_operations{outcome!=\"success\"}[5m])) by (operation, category)", "legendFormat": "{{operation}} {{category}}", "refId": "B"}
+      ],
+      "title": "Postgres Latency and Errors",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "harden-prometheus"},
+      "description": "Garage artifact operations, latency, and failures.",
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32},
+      "id": 9,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [
+        {"expr": "sum(rate(harden_llm_garage_operations[5m])) by (operation, outcome, category)", "legendFormat": "{{operation}} {{outcome}}", "refId": "A"},
+        {"expr": "histogram_quantile(0.95, sum(rate(harden_llm_garage_duration_bucket[5m])) by (le, operation))", "legendFormat": "p95 {{operation}}", "refId": "B"}
+      ],
+      "title": "Garage Artifacts",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "harden-prometheus"},
+      "description": "Collector accepted/refused traffic, queue depth, and failed delivery.",
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32},
+      "id": 10,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [
+        {"expr": "sum(rate(otelcol_receiver_accepted_spans[5m]))", "legendFormat": "accepted spans", "refId": "A"},
+        {"expr": "sum(rate(otelcol_receiver_refused_spans[5m]))", "legendFormat": "refused spans", "refId": "B"},
+        {"expr": "sum(otelcol_exporter_queue_size)", "legendFormat": "queued batches", "refId": "C"},
+        {"expr": "sum(rate(otelcol_exporter_send_failed_spans[5m]))", "legendFormat": "failed spans", "refId": "D"}
+      ],
+      "title": "Collector Health",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "harden-prometheus"},
+      "description": "Failures writing domain traces, artifact indexes, and artifacts.",
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 40},
+      "id": 11,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [{"expr": "sum(rate(harden_llm_persistence_failures[5m])) by (store, operation)", "legendFormat": "{{store}} {{operation}}", "refId": "A"}],
+      "title": "Persistence Failures",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "harden-loki"},
+      "description": "Correlated structured gateway logs with trace links.",
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 40},
+      "id": 12,
+      "options": {"dedupStrategy": "none", "enableLogDetails": true, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true},
+      "targets": [{"expr": "{service_name=\"harden-llm-gateway\"} | json | trace_id != \"\"", "refId": "A"}],
+      "title": "Correlated Logs",
+      "type": "logs"
+    },
+    {
+      "datasource": {"type": "tempo", "uid": "harden-tempo"},
+      "description": "Recent gateway traces for operational drill-down.",
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 40},
+      "id": 13,
+      "options": {},
+      "targets": [{"expr": "{ resource.service.name = \"harden-llm-gateway\" }", "queryType": "traceql", "refId": "A"}],
+      "title": "Recent Traces",
+      "type": "traces"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["harden-llm", "provisioned"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Harden LLM Overview",
+  "uid": "harden-llm-overview",
+  "version": 1,
+  "weekStart": ""
+}

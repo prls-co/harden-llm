@@ -1,0 +1,76 @@
+receivers:
+  filelog/harden_llm_web:
+    include:
+      - /var/log/harden-llm-web/app.jsonl*
+    start_at: beginning
+    max_log_size: 256KiB
+    include_file_name: false
+    include_file_path: false
+    resource:
+      service.name: harden-llm-web
+      service.version: ${env:HARDEN_LLM_RELEASE}
+      service.instance.id: ${env:HARDEN_LLM_WEB_INSTANCE_ID}
+      deployment.environment.name: ${env:HARDEN_LLM_ENVIRONMENT}
+    operators:
+      - type: json_parser
+        timestamp:
+          parse_from: attributes.time
+          layout_type: gotime
+          layout: "2006-01-02T15:04:05.999Z07:00"
+        severity:
+          parse_from: attributes.severity
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 5s
+      max_elapsed_time: 30s
+
+  prometheus/harden_llm_web:
+    config:
+      scrape_configs:
+        - job_name: harden-llm-web
+          scrape_interval: 15s
+          scrape_timeout: 5s
+          metrics_path: /metrics
+          static_configs:
+            - targets:
+                - harden-llm-web:4000
+
+processors:
+  resource/harden_llm_web:
+    attributes:
+      - key: service.name
+        value: harden-llm-web
+        action: upsert
+      - key: service.version
+        value: ${env:HARDEN_LLM_RELEASE}
+        action: upsert
+      - key: service.instance.id
+        value: ${env:HARDEN_LLM_WEB_INSTANCE_ID}
+        action: upsert
+      - key: deployment.environment.name
+        value: ${env:HARDEN_LLM_ENVIRONMENT}
+        action: upsert
+
+service:
+  pipelines:
+    logs/frontend:
+      receivers:
+        - filelog/harden_llm_web
+      processors:
+        - memory_limiter
+        - resource/harden_llm_web
+        - attributes/redact
+        - batch/logs
+      exporters:
+        - otlphttp/loki
+    metrics/frontend:
+      receivers:
+        - prometheus/harden_llm_web
+      processors:
+        - memory_limiter
+        - resource/harden_llm_web
+        - attributes/redact
+        - batch/metrics
+      exporters:
+        - prometheus

@@ -1,0 +1,1220 @@
+{
+  "cases": [
+    {
+      "name": "openai-responses",
+      "normalized": {
+        "requestPayload": {
+          "input": [
+            {
+              "content": [
+                {
+                  "text": "Be exact.",
+                  "type": "input_text"
+                }
+              ],
+              "role": "system"
+            },
+            {
+              "content": [
+                {
+                  "text": "Answer the deterministic fixture.",
+                  "type": "input_text"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "max_output_tokens": 42,
+          "model": "gpt-5.4",
+          "reasoning": {
+            "effort": "high"
+          }
+        },
+        "responsePayload": {
+          "output_text": "responses-ok",
+          "usage": {
+            "input_tokens": 10,
+            "output_tokens": 4,
+            "output_tokens_details": {
+              "reasoning_tokens": 1
+            }
+          }
+        },
+        "responseText": "responses-ok",
+        "result": "responses-ok",
+        "usage": {
+          "items": {
+            "cacheCreationInput": {
+              "ratePerToken": 0,
+              "tokens": 0
+            },
+            "cacheReadInput": {
+              "ratePerToken": 2.5e-7,
+              "tokens": 0
+            },
+            "input": {
+              "ratePerToken": 0.0000025,
+              "tokens": 10
+            },
+            "output": {
+              "ratePerToken": 0.000015,
+              "tokens": 3
+            },
+            "reasoningOutput": {
+              "ratePerToken": 0,
+              "tokens": 1
+            }
+          }
+        }
+      },
+      "operation": {
+        "endpoint": {
+          "identity": "https://api.openai.com/v1",
+          "method": "POST",
+          "path": "/responses"
+        },
+        "model": "gpt-5.4",
+        "payload": {
+          "input": [
+            {
+              "content": [
+                {
+                  "text": "Be exact.",
+                  "type": "input_text"
+                }
+              ],
+              "role": "system"
+            },
+            {
+              "content": [
+                {
+                  "text": "Answer the deterministic fixture.",
+                  "type": "input_text"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "max_output_tokens": 42,
+          "model": "gpt-5.4",
+          "reasoning": {
+            "effort": "high"
+          }
+        },
+        "protocol": "openai.responses",
+        "responseProjection": {
+          "kind": "text",
+          "provider": "openai",
+          "version": "v1"
+        },
+        "schemaVersion": "utility-llm.operation.v1",
+        "semanticHeaders": {}
+      },
+      "structuredNormalized": {
+        "requestPayload": {
+          "input": [
+            {
+              "content": [
+                {
+                  "text": "Be exact.",
+                  "type": "input_text"
+                }
+              ],
+              "role": "system"
+            },
+            {
+              "content": [
+                {
+                  "text": "Answer the deterministic fixture.",
+                  "type": "input_text"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "max_output_tokens": 42,
+          "model": "gpt-5.4",
+          "reasoning": {
+            "effort": "high"
+          },
+          "text": {
+            "format": {
+              "name": "structured_output_schema",
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "answer": {
+                    "type": "string"
+                  },
+                  "count": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "answer",
+                  "count"
+                ],
+                "type": "object"
+              },
+              "strict": true,
+              "type": "json_schema"
+            },
+            "verbosity": "medium"
+          }
+        },
+        "responsePayload": {
+          "output_text": "{\"answer\":\"ok\",\"count\":2}",
+          "usage": {
+            "input_tokens": 10,
+            "output_tokens": 4
+          }
+        },
+        "responseText": "{\"answer\":\"ok\",\"count\":2}",
+        "result": {
+          "answer": "ok",
+          "count": 2
+        },
+        "usage": {
+          "items": {
+            "cacheCreationInput": {
+              "ratePerToken": 0,
+              "tokens": 0
+            },
+            "cacheReadInput": {
+              "ratePerToken": 2.5e-7,
+              "tokens": 0
+            },
+            "input": {
+              "ratePerToken": 0.0000025,
+              "tokens": 10
+            },
+            "output": {
+              "ratePerToken": 0.000015,
+              "tokens": 4
+            },
+            "reasoningOutput": {
+              "ratePerToken": 0,
+              "tokens": 0
+            }
+          }
+        }
+      },
+      "structuredOperation": {
+        "endpoint": {
+          "identity": "https://api.openai.com/v1",
+          "method": "POST",
+          "path": "/responses"
+        },
+        "model": "gpt-5.4",
+        "payload": {
+          "input": [
+            {
+              "content": [
+                {
+                  "text": "Be exact.",
+                  "type": "input_text"
+                }
+              ],
+              "role": "system"
+            },
+            {
+              "content": [
+                {
+                  "text": "Answer the deterministic fixture.",
+                  "type": "input_text"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "max_output_tokens": 42,
+          "model": "gpt-5.4",
+          "reasoning": {
+            "effort": "high"
+          },
+          "text": {
+            "format": {
+              "name": "structured_output_schema",
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "answer": {
+                    "type": "string"
+                  },
+                  "count": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "answer",
+                  "count"
+                ],
+                "type": "object"
+              },
+              "strict": true,
+              "type": "json_schema"
+            },
+            "verbosity": "medium"
+          }
+        },
+        "protocol": "openai.responses",
+        "responseProjection": {
+          "kind": "structured-output",
+          "provider": "openai",
+          "version": "v1"
+        },
+        "schemaVersion": "utility-llm.operation.v1",
+        "semanticHeaders": {}
+      }
+    },
+    {
+      "name": "openai-chat",
+      "normalized": {
+        "requestPayload": {
+          "max_completion_tokens": 42,
+          "messages": [
+            {
+              "content": "Be exact.",
+              "role": "system"
+            },
+            {
+              "content": "Answer the deterministic fixture.",
+              "role": "user"
+            }
+          ],
+          "model": "gpt-4.1",
+          "temperature": 0.3
+        },
+        "responsePayload": {
+          "choices": [
+            {
+              "finish_reason": "stop",
+              "message": {
+                "content": "chat-ok"
+              }
+            }
+          ],
+          "usage": {
+            "completion_tokens": 2,
+            "prompt_tokens": 3
+          }
+        },
+        "responseText": "chat-ok",
+        "result": "chat-ok",
+        "usage": {
+          "items": {
+            "cacheCreationInput": {
+              "ratePerToken": 0,
+              "tokens": 0
+            },
+            "cacheReadInput": {
+              "ratePerToken": 5e-7,
+              "tokens": 0
+            },
+            "input": {
+              "ratePerToken": 0.000002,
+              "tokens": 3
+            },
+            "output": {
+              "ratePerToken": 0.000008,
+              "tokens": 2
+            },
+            "reasoningOutput": {
+              "ratePerToken": 0,
+              "tokens": 0
+            }
+          }
+        }
+      },
+      "operation": {
+        "endpoint": {
+          "identity": "https://api.openai.com/v1",
+          "method": "POST",
+          "path": "/chat/completions"
+        },
+        "model": "gpt-4.1",
+        "payload": {
+          "max_completion_tokens": 42,
+          "messages": [
+            {
+              "content": "Be exact.",
+              "role": "system"
+            },
+            {
+              "content": "Answer the deterministic fixture.",
+              "role": "user"
+            }
+          ],
+          "model": "gpt-4.1",
+          "temperature": 0.3
+        },
+        "protocol": "openai.chat.completions",
+        "responseProjection": {
+          "kind": "text",
+          "provider": "openai",
+          "version": "v1"
+        },
+        "schemaVersion": "utility-llm.operation.v1",
+        "semanticHeaders": {}
+      },
+      "structuredNormalized": {
+        "requestPayload": {
+          "max_completion_tokens": 42,
+          "messages": [
+            {
+              "content": "Be exact.",
+              "role": "system"
+            },
+            {
+              "content": "Answer the deterministic fixture.",
+              "role": "user"
+            }
+          ],
+          "model": "gpt-4.1",
+          "response_format": {
+            "json_schema": {
+              "name": "structured_output_schema",
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "answer": {
+                    "type": "string"
+                  },
+                  "count": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "answer",
+                  "count"
+                ],
+                "type": "object"
+              },
+              "strict": true
+            },
+            "type": "json_schema"
+          },
+          "temperature": 0.3
+        },
+        "responsePayload": {
+          "choices": [
+            {
+              "finish_reason": "stop",
+              "message": {
+                "content": "{\"answer\":\"ok\",\"count\":2}"
+              }
+            }
+          ],
+          "usage": {
+            "completion_tokens": 2,
+            "prompt_tokens": 3
+          }
+        },
+        "responseText": "{\"answer\":\"ok\",\"count\":2}",
+        "result": {
+          "answer": "ok",
+          "count": 2
+        },
+        "usage": {
+          "items": {
+            "cacheCreationInput": {
+              "ratePerToken": 0,
+              "tokens": 0
+            },
+            "cacheReadInput": {
+              "ratePerToken": 5e-7,
+              "tokens": 0
+            },
+            "input": {
+              "ratePerToken": 0.000002,
+              "tokens": 3
+            },
+            "output": {
+              "ratePerToken": 0.000008,
+              "tokens": 2
+            },
+            "reasoningOutput": {
+              "ratePerToken": 0,
+              "tokens": 0
+            }
+          }
+        }
+      },
+      "structuredOperation": {
+        "endpoint": {
+          "identity": "https://api.openai.com/v1",
+          "method": "POST",
+          "path": "/chat/completions"
+        },
+        "model": "gpt-4.1",
+        "payload": {
+          "max_completion_tokens": 42,
+          "messages": [
+            {
+              "content": "Be exact.",
+              "role": "system"
+            },
+            {
+              "content": "Answer the deterministic fixture.",
+              "role": "user"
+            }
+          ],
+          "model": "gpt-4.1",
+          "response_format": {
+            "json_schema": {
+              "name": "structured_output_schema",
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "answer": {
+                    "type": "string"
+                  },
+                  "count": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "answer",
+                  "count"
+                ],
+                "type": "object"
+              },
+              "strict": true
+            },
+            "type": "json_schema"
+          },
+          "temperature": 0.3
+        },
+        "protocol": "openai.chat.completions",
+        "responseProjection": {
+          "kind": "structured-output",
+          "provider": "openai",
+          "version": "v1"
+        },
+        "schemaVersion": "utility-llm.operation.v1",
+        "semanticHeaders": {}
+      }
+    },
+    {
+      "name": "generic-openai-compatible",
+      "normalized": {
+        "requestPayload": {
+          "max_tokens": 42,
+          "messages": [
+            {
+              "content": "Be exact.",
+              "role": "system"
+            },
+            {
+              "content": "Answer the deterministic fixture.",
+              "role": "user"
+            }
+          ],
+          "model": "vendor/model",
+          "provider": {
+            "only": [
+              "fast"
+            ]
+          }
+        },
+        "responsePayload": {
+          "choices": [
+            {
+              "finish_reason": "stop",
+              "message": {
+                "content": "vendor-ok"
+              }
+            }
+          ],
+          "usage": {
+            "completion_tokens": 2,
+            "prompt_tokens": 5
+          }
+        },
+        "responseText": "vendor-ok",
+        "result": "vendor-ok",
+        "usage": {
+          "items": {
+            "cacheCreationInput": {
+              "ratePerToken": 0,
+              "tokens": 0
+            },
+            "cacheReadInput": {
+              "ratePerToken": 0,
+              "tokens": 0
+            },
+            "input": {
+              "ratePerToken": 0,
+              "tokens": 5
+            },
+            "output": {
+              "ratePerToken": 0,
+              "tokens": 2
+            },
+            "reasoningOutput": {
+              "ratePerToken": 0,
+              "tokens": 0
+            }
+          }
+        }
+      },
+      "operation": {
+        "endpoint": {
+          "identity": "https://api.vendor.example/v1",
+          "method": "POST",
+          "path": "/chat/completions"
+        },
+        "model": "vendor/model",
+        "payload": {
+          "max_tokens": 42,
+          "messages": [
+            {
+              "content": "Be exact.",
+              "role": "system"
+            },
+            {
+              "content": "Answer the deterministic fixture.",
+              "role": "user"
+            }
+          ],
+          "model": "vendor/model",
+          "provider": {
+            "only": [
+              "fast"
+            ]
+          }
+        },
+        "protocol": "openai-compatible.chat.completions",
+        "responseProjection": {
+          "kind": "text",
+          "provider": "vendor",
+          "version": "v1"
+        },
+        "schemaVersion": "utility-llm.operation.v1",
+        "semanticHeaders": {}
+      },
+      "structuredNormalized": {
+        "requestPayload": {
+          "max_tokens": 42,
+          "messages": [
+            {
+              "content": "Be exact.",
+              "role": "system"
+            },
+            {
+              "content": "Answer the deterministic fixture.",
+              "role": "user"
+            }
+          ],
+          "model": "vendor/model",
+          "provider": {
+            "only": [
+              "fast"
+            ]
+          },
+          "response_format": {
+            "json_schema": {
+              "name": "structured_output_schema",
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "answer": {
+                    "type": "string"
+                  },
+                  "count": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "answer",
+                  "count"
+                ],
+                "type": "object"
+              },
+              "strict": true
+            },
+            "type": "json_schema"
+          }
+        },
+        "responsePayload": {
+          "choices": [
+            {
+              "finish_reason": "stop",
+              "message": {
+                "content": "{\"answer\":\"ok\",\"count\":2}"
+              }
+            }
+          ],
+          "usage": {
+            "completion_tokens": 2,
+            "prompt_tokens": 5
+          }
+        },
+        "responseText": "{\"answer\":\"ok\",\"count\":2}",
+        "result": {
+          "answer": "ok",
+          "count": 2
+        },
+        "usage": {
+          "items": {
+            "cacheCreationInput": {
+              "ratePerToken": 0,
+              "tokens": 0
+            },
+            "cacheReadInput": {
+              "ratePerToken": 0,
+              "tokens": 0
+            },
+            "input": {
+              "ratePerToken": 0,
+              "tokens": 5
+            },
+            "output": {
+              "ratePerToken": 0,
+              "tokens": 2
+            },
+            "reasoningOutput": {
+              "ratePerToken": 0,
+              "tokens": 0
+            }
+          }
+        }
+      },
+      "structuredOperation": {
+        "endpoint": {
+          "identity": "https://api.vendor.example/v1",
+          "method": "POST",
+          "path": "/chat/completions"
+        },
+        "model": "vendor/model",
+        "payload": {
+          "max_tokens": 42,
+          "messages": [
+            {
+              "content": "Be exact.",
+              "role": "system"
+            },
+            {
+              "content": "Answer the deterministic fixture.",
+              "role": "user"
+            }
+          ],
+          "model": "vendor/model",
+          "provider": {
+            "only": [
+              "fast"
+            ]
+          },
+          "response_format": {
+            "json_schema": {
+              "name": "structured_output_schema",
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "answer": {
+                    "type": "string"
+                  },
+                  "count": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "answer",
+                  "count"
+                ],
+                "type": "object"
+              },
+              "strict": true
+            },
+            "type": "json_schema"
+          }
+        },
+        "protocol": "openai-compatible.chat.completions",
+        "responseProjection": {
+          "kind": "structured-output",
+          "provider": "vendor",
+          "version": "v1"
+        },
+        "schemaVersion": "utility-llm.operation.v1",
+        "semanticHeaders": {}
+      }
+    },
+    {
+      "name": "gemini-generate-content",
+      "normalized": {
+        "requestPayload": {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Answer the deterministic fixture."
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "generationConfig": {
+            "maxOutputTokens": 42,
+            "temperature": 0.3
+          },
+          "system_instruction": {
+            "parts": [
+              {
+                "text": "Be exact."
+              }
+            ]
+          }
+        },
+        "responsePayload": {
+          "candidates": [
+            {
+              "content": {
+                "parts": [
+                  {
+                    "text": "gemini-ok"
+                  }
+                ]
+              },
+              "finishReason": "STOP"
+            }
+          ],
+          "usageMetadata": {
+            "candidatesTokenCount": 2,
+            "promptTokenCount": 5,
+            "thoughtsTokenCount": 1
+          }
+        },
+        "responseText": "gemini-ok",
+        "result": "gemini-ok",
+        "usage": {
+          "items": {
+            "cacheCreationInput": {
+              "ratePerToken": 0,
+              "tokens": 0
+            },
+            "cacheReadInput": {
+              "ratePerToken": 3e-8,
+              "tokens": 0
+            },
+            "input": {
+              "ratePerToken": 3e-7,
+              "tokens": 5
+            },
+            "output": {
+              "ratePerToken": 0.0000025,
+              "tokens": 2
+            },
+            "reasoningOutput": {
+              "ratePerToken": 0,
+              "tokens": 1
+            }
+          }
+        }
+      },
+      "operation": {
+        "endpoint": {
+          "identity": "https://generativelanguage.googleapis.com",
+          "method": "POST",
+          "path": "/v1beta/models/gemini-2.5-flash:generateContent"
+        },
+        "model": "models/gemini-2.5-flash",
+        "payload": {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Answer the deterministic fixture."
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "generationConfig": {
+            "maxOutputTokens": 42,
+            "temperature": 0.3
+          },
+          "system_instruction": {
+            "parts": [
+              {
+                "text": "Be exact."
+              }
+            ]
+          }
+        },
+        "protocol": "google.gemini.generateContent",
+        "responseProjection": {
+          "kind": "text",
+          "provider": "google",
+          "version": "v1"
+        },
+        "schemaVersion": "utility-llm.operation.v1",
+        "semanticHeaders": {}
+      },
+      "structuredNormalized": {
+        "requestPayload": {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Answer the deterministic fixture."
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "generationConfig": {
+            "maxOutputTokens": 42,
+            "response_mime_type": "application/json",
+            "response_schema": {
+              "properties": {
+                "answer": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "answer",
+                "count"
+              ],
+              "type": "object"
+            },
+            "temperature": 0.3
+          },
+          "system_instruction": {
+            "parts": [
+              {
+                "text": "Be exact."
+              },
+              {
+                "text": "Return ONLY a valid JSON value that strictly conforms to response_schema. Do not include markdown code fences, explanations, or any text before or after the JSON."
+              }
+            ]
+          }
+        },
+        "responsePayload": {
+          "candidates": [
+            {
+              "content": {
+                "parts": [
+                  {
+                    "text": "{\"answer\":\"ok\",\"count\":2}"
+                  }
+                ]
+              },
+              "finishReason": "STOP"
+            }
+          ],
+          "usageMetadata": {
+            "candidatesTokenCount": 2,
+            "promptTokenCount": 5
+          }
+        },
+        "responseText": "{\"answer\":\"ok\",\"count\":2}",
+        "result": {
+          "answer": "ok",
+          "count": 2
+        },
+        "usage": {
+          "items": {
+            "cacheCreationInput": {
+              "ratePerToken": 0,
+              "tokens": 0
+            },
+            "cacheReadInput": {
+              "ratePerToken": 3e-8,
+              "tokens": 0
+            },
+            "input": {
+              "ratePerToken": 3e-7,
+              "tokens": 5
+            },
+            "output": {
+              "ratePerToken": 0.0000025,
+              "tokens": 2
+            },
+            "reasoningOutput": {
+              "ratePerToken": 0,
+              "tokens": 0
+            }
+          }
+        }
+      },
+      "structuredOperation": {
+        "endpoint": {
+          "identity": "https://generativelanguage.googleapis.com",
+          "method": "POST",
+          "path": "/v1beta/models/gemini-2.5-flash:generateContent"
+        },
+        "model": "models/gemini-2.5-flash",
+        "payload": {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Answer the deterministic fixture."
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "generationConfig": {
+            "maxOutputTokens": 42,
+            "response_mime_type": "application/json",
+            "response_schema": {
+              "properties": {
+                "answer": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "answer",
+                "count"
+              ],
+              "type": "object"
+            },
+            "temperature": 0.3
+          },
+          "system_instruction": {
+            "parts": [
+              {
+                "text": "Be exact."
+              },
+              {
+                "text": "Return ONLY a valid JSON value that strictly conforms to response_schema. Do not include markdown code fences, explanations, or any text before or after the JSON."
+              }
+            ]
+          }
+        },
+        "protocol": "google.gemini.generateContent",
+        "responseProjection": {
+          "kind": "structured-output",
+          "provider": "google",
+          "version": "v1"
+        },
+        "schemaVersion": "utility-llm.operation.v1",
+        "semanticHeaders": {}
+      }
+    },
+    {
+      "name": "anthropic-messages",
+      "normalized": {
+        "requestPayload": {
+          "max_tokens": 42,
+          "messages": [
+            {
+              "content": "Answer the deterministic fixture.",
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-4-5",
+          "system": "Be exact.",
+          "temperature": 0.3
+        },
+        "responsePayload": {
+          "content": [
+            {
+              "text": "anthropic-ok",
+              "type": "text"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "usage": {
+            "input_tokens": 5,
+            "output_tokens": 2
+          }
+        },
+        "responseText": "anthropic-ok",
+        "result": "anthropic-ok",
+        "usage": {
+          "items": {
+            "cacheCreationInput": {
+              "ratePerToken": 0.00000375,
+              "tokens": 0
+            },
+            "cacheReadInput": {
+              "ratePerToken": 3e-7,
+              "tokens": 0
+            },
+            "input": {
+              "ratePerToken": 0.000003,
+              "tokens": 5
+            },
+            "output": {
+              "ratePerToken": 0.000015,
+              "tokens": 2
+            },
+            "reasoningOutput": {
+              "ratePerToken": 0,
+              "tokens": 0
+            }
+          }
+        }
+      },
+      "operation": {
+        "endpoint": {
+          "identity": "https://api.anthropic.com/v1",
+          "method": "POST",
+          "path": "/messages"
+        },
+        "model": "claude-sonnet-4-5",
+        "payload": {
+          "max_tokens": 42,
+          "messages": [
+            {
+              "content": "Answer the deterministic fixture.",
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-4-5",
+          "system": "Be exact.",
+          "temperature": 0.3
+        },
+        "protocol": "anthropic.messages",
+        "responseProjection": {
+          "kind": "text",
+          "provider": "anthropic",
+          "version": "v1"
+        },
+        "schemaVersion": "utility-llm.operation.v1",
+        "semanticHeaders": {
+          "anthropic-version": "2023-06-01"
+        }
+      },
+      "structuredNormalized": {
+        "requestPayload": {
+          "max_tokens": 42,
+          "messages": [
+            {
+              "content": "Answer the deterministic fixture.",
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-4-5",
+          "output_config": {
+            "format": {
+              "schema": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "additionalProperties": false,
+                "properties": {
+                  "answer": {
+                    "type": "string"
+                  },
+                  "count": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "answer",
+                  "count"
+                ],
+                "type": "object"
+              },
+              "type": "json_schema"
+            }
+          },
+          "system": "Be exact.",
+          "temperature": 0.3
+        },
+        "responsePayload": {
+          "content": [
+            {
+              "text": "{\"answer\":\"ok\",\"count\":2}",
+              "type": "text"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "usage": {
+            "input_tokens": 5,
+            "output_tokens": 2
+          }
+        },
+        "responseText": "{\"answer\":\"ok\",\"count\":2}",
+        "result": {
+          "answer": "ok",
+          "count": 2
+        },
+        "usage": {
+          "items": {
+            "cacheCreationInput": {
+              "ratePerToken": 0.00000375,
+              "tokens": 0
+            },
+            "cacheReadInput": {
+              "ratePerToken": 3e-7,
+              "tokens": 0
+            },
+            "input": {
+              "ratePerToken": 0.000003,
+              "tokens": 5
+            },
+            "output": {
+              "ratePerToken": 0.000015,
+              "tokens": 2
+            },
+            "reasoningOutput": {
+              "ratePerToken": 0,
+              "tokens": 0
+            }
+          }
+        }
+      },
+      "structuredOperation": {
+        "endpoint": {
+          "identity": "https://api.anthropic.com/v1",
+          "method": "POST",
+          "path": "/messages"
+        },
+        "model": "claude-sonnet-4-5",
+        "payload": {
+          "max_tokens": 42,
+          "messages": [
+            {
+              "content": "Answer the deterministic fixture.",
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-4-5",
+          "output_config": {
+            "format": {
+              "schema": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "additionalProperties": false,
+                "properties": {
+                  "answer": {
+                    "type": "string"
+                  },
+                  "count": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "answer",
+                  "count"
+                ],
+                "type": "object"
+              },
+              "type": "json_schema"
+            }
+          },
+          "system": "Be exact.",
+          "temperature": 0.3
+        },
+        "protocol": "anthropic.messages",
+        "responseProjection": {
+          "kind": "structured-output",
+          "provider": "anthropic",
+          "version": "v1"
+        },
+        "schemaVersion": "utility-llm.operation.v1",
+        "semanticHeaders": {
+          "anthropic-version": "2023-06-01"
+        }
+      }
+    }
+  ]
+}

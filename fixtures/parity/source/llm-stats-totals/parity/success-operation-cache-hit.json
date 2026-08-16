@@ -1,0 +1,128 @@
+{
+  "input": {
+    "context": {
+      "parentCollection": "orgCompanyProduct",
+      "parentId": "product-parity",
+      "runId": "product-parity",
+      "taskId": "task-success-operation-cache-hit",
+      "traceId": "trace-success-operation-cache-hit"
+    },
+    "currentStats": {
+      "cachedCost": 0,
+      "cachedCount": 0,
+      "failureCount": 0,
+      "maxCallDurationMs": 0,
+      "maxOverBudgetMs": 0,
+      "overBudgetCount": 0,
+      "successCount": 0,
+      "timeoutCount": 0,
+      "totalCallDurationMs": 0,
+      "totalCost": 0,
+      "totalCount": 0,
+      "totalOutputTokens": 0,
+      "totalPromptTokens": 0
+    },
+    "traceData": {
+      "cost": {
+        "cached": 0.000018,
+        "cachedKnown": true,
+        "known": true,
+        "source": "calculated",
+        "total": 0.000018
+      },
+      "freshUsage": {
+        "items": {
+          "cacheCreationInput": {
+            "ratePerToken": 0.00000125,
+            "tokens": 0
+          },
+          "cacheReadInput": {
+            "ratePerToken": 2e-7,
+            "tokens": 0
+          },
+          "input": {
+            "ratePerToken": 0.000001,
+            "tokens": 0
+          },
+          "output": {
+            "ratePerToken": 0.000002,
+            "tokens": 0
+          },
+          "reasoningOutput": {
+            "ratePerToken": 0.000003,
+            "tokens": 0
+          }
+        }
+      },
+      "lastErrorCategory": null,
+      "overBudgetMs": 0,
+      "providerInvoked": false,
+      "savedUsage": {
+        "items": {
+          "cacheCreationInput": {
+            "ratePerToken": 0.00000125,
+            "tokens": 0
+          },
+          "cacheReadInput": {
+            "ratePerToken": 2e-7,
+            "tokens": 0
+          },
+          "input": {
+            "ratePerToken": 0.000001,
+            "tokens": 10
+          },
+          "output": {
+            "ratePerToken": 0.000002,
+            "tokens": 4
+          },
+          "reasoningOutput": {
+            "ratePerToken": 0.000003,
+            "tokens": 0
+          }
+        }
+      },
+      "servedFromCache": true,
+      "totalCallDurationMs": 12,
+      "usage": {
+        "items": {
+          "cacheCreationInput": {
+            "ratePerToken": 0.00000125,
+            "tokens": 0
+          },
+          "cacheReadInput": {
+            "ratePerToken": 2e-7,
+            "tokens": 0
+          },
+          "input": {
+            "ratePerToken": 0.000001,
+            "tokens": 0
+          },
+          "output": {
+            "ratePerToken": 0.000002,
+            "tokens": 0
+          },
+          "reasoningOutput": {
+            "ratePerToken": 0.000003,
+            "tokens": 0
+          }
+        }
+      }
+    }
+  },
+  "name": "success-operation-cache-hit",
+  "output": {
+    "cachedCost": 0.000018,
+    "cachedCount": 1,
+    "failureCount": 0,
+    "maxCallDurationMs": 12,
+    "maxOverBudgetMs": 0,
+    "overBudgetCount": 0,
+    "successCount": 1,
+    "timeoutCount": 0,
+    "totalCallDurationMs": 12,
+    "totalCost": 0.000018,
+    "totalCount": 1,
+    "totalOutputTokens": 4,
+    "totalPromptTokens": 10
+  }
+}

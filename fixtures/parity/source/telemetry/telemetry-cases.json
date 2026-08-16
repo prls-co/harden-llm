@@ -1,0 +1,183 @@
+{
+  "bestEffortCase": {
+    "expected": {
+      "result": {
+        "ok": true
+      }
+    },
+    "loggingContext": {
+      "budgetMs": 1,
+      "orgCompanyProductId": "parent-2",
+      "taskId": "task-2",
+      "taskSlug": "telemetry_rel"
+    },
+    "result": {
+      "attemptsMeta": [
+        {
+          "attempt": 1,
+          "durationMs": 5,
+          "usage": {
+            "items": {
+              "cacheCreationInput": {
+                "ratePerToken": null,
+                "tokens": 0
+              },
+              "cacheReadInput": {
+                "ratePerToken": null,
+                "tokens": 0
+              },
+              "input": {
+                "ratePerToken": null,
+                "tokens": 0
+              },
+              "output": {
+                "ratePerToken": null,
+                "tokens": 0
+              },
+              "reasoningOutput": {
+                "ratePerToken": null,
+                "tokens": 0
+              }
+            }
+          }
+        }
+      ],
+      "lastErrorCategory": null,
+      "lastErrorStatus": null,
+      "result": {
+        "ok": true
+      },
+      "totalCallDurationMs": 5,
+      "totalWaitMs": 0,
+      "usage": {
+        "items": {
+          "cacheCreationInput": {
+            "ratePerToken": null,
+            "tokens": 0
+          },
+          "cacheReadInput": {
+            "ratePerToken": null,
+            "tokens": 0
+          },
+          "input": {
+            "ratePerToken": null,
+            "tokens": 0
+          },
+          "output": {
+            "ratePerToken": null,
+            "tokens": 0
+          },
+          "reasoningOutput": {
+            "ratePerToken": null,
+            "tokens": 0
+          }
+        }
+      },
+      "usedRepairFlag": false
+    }
+  },
+  "overBudgetCase": {
+    "expected": {
+      "budgetMs": 100,
+      "overBudgetMs": 50,
+      "result": {
+        "ok": true
+      }
+    },
+    "loggingContext": {
+      "budgetMs": 100,
+      "modelId": "test-model",
+      "orgCompanyProductId": "parent-1",
+      "runId": "run-123",
+      "taskId": "task-1",
+      "taskSlug": "generate_questions"
+    },
+    "result": {
+      "attemptsMeta": [
+        {
+          "attempt": 1,
+          "durationMs": 150,
+          "usage": {
+            "items": {
+              "cacheCreationInput": {
+                "ratePerToken": null,
+                "tokens": 0
+              },
+              "cacheReadInput": {
+                "ratePerToken": null,
+                "tokens": 0
+              },
+              "input": {
+                "ratePerToken": 0.1,
+                "tokens": 1
+              },
+              "output": {
+                "ratePerToken": 0.2,
+                "tokens": 2
+              },
+              "reasoningOutput": {
+                "ratePerToken": null,
+                "tokens": 0
+              }
+            }
+          }
+        }
+      ],
+      "lastErrorCategory": null,
+      "lastErrorStatus": null,
+      "result": {
+        "ok": true
+      },
+      "totalCallDurationMs": 150,
+      "totalWaitMs": 10,
+      "usage": {
+        "items": {
+          "cacheCreationInput": {
+            "ratePerToken": null,
+            "tokens": 0
+          },
+          "cacheReadInput": {
+            "ratePerToken": null,
+            "tokens": 0
+          },
+          "input": {
+            "ratePerToken": 0.1,
+            "tokens": 1
+          },
+          "output": {
+            "ratePerToken": 0.2,
+            "tokens": 2
+          },
+          "reasoningOutput": {
+            "ratePerToken": null,
+            "tokens": 0
+          }
+        }
+      },
+      "usedRepairFlag": false
+    }
+  },
+  "perfCase": {
+    "iterations": 20,
+    "loggingContext": {
+      "orgCompanyProductId": "parent",
+      "runId": "run-perf",
+      "taskId": "task",
+      "taskSlug": "telemetry_perf"
+    },
+    "maxOverheadRatio": 0.05,
+    "workloadMs": 120
+  },
+  "startCase": {
+    "loggingContext": {
+      "orgCompanyProductId": "parent-1",
+      "taskId": "task-1"
+    },
+    "telemetryContext": {
+      "budgetMs": 123,
+      "runId": "run-1",
+      "taskSlug": "generate_questions"
+    },
+    "userPrompt": "hi"
+  }
+}

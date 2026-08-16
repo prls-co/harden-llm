@@ -4,10 +4,10 @@
 
 - Project name: `harden-llm-web`
 - OTP application: `:harden_llm`
-- Target repository: `/home/kirill/p/harden-llm`
-- Target application directory: `/home/kirill/p/harden-llm/frontend`
-- Backend contract: `/home/kirill/p/harden-llm/api/openapi.yaml`
-- Source UX reference: `/home/kirill/p/utility-llm/examples/react-trace-studio`
+- Target repository: `/home/kirill/harden-llm`
+- Target application directory: `/home/kirill/harden-llm/frontend`
+- Backend contract: `/home/kirill/harden-llm/api/openapi.yaml`
+- Source UX reference: `/home/kirill/utility-llm/examples/react-trace-studio`
 - Version: `1.0.0-frontend-spec`
 - Owners: frontend and self-hosted runtime maintainers
 - Date: 2026-07-12
@@ -111,7 +111,7 @@ Boundary rules:
 ## 6. Target structure
 
 ```text
-/home/kirill/p/harden-llm/
+/home/kirill/harden-llm/
 ├── api/
 │   └── openapi.yaml
 ├── frontend/

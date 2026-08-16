@@ -1,0 +1,26 @@
+# syntax=docker/dockerfile:1.7
+
+FROM golang:1.26.6-alpine3.23@sha256:5978cc992ad5ef96a7469713c8af849c1433824761ce3be2c56381403cd8d9a3 AS go
+
+FROM hexpm/elixir:1.20.2-erlang-28.4.3-alpine-3.23.5@sha256:47cf4ef1fe9aeeec729da32eaa58b3d9ddbbe138c956f1f69d3794d536629105
+
+RUN apk add --no-cache \
+      bash=5.3.3-r1 \
+      build-base=0.5-r3 \
+      chromium=149.0.7827.53-r0 \
+      chromium-chromedriver=149.0.7827.53-r0 \
+      git=2.52.0-r0 \
+      su-exec=0.3-r0
+
+RUN apk add --no-cache \
+      curl=8.20.0-r0 \
+      docker-cli=29.5.2-r0 \
+      docker-cli-compose=2.40.3-r6
+
+COPY --from=go /usr/local/go /usr/local/go
+
+ENV CHROME_BIN=/usr/bin/chromium-browser \
+    CHROMEDRIVER_BIN=/usr/bin/chromedriver \
+    PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+WORKDIR /workspace/frontend
