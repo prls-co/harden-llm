@@ -1,8 +1,8 @@
 # Release Certification
 
 This document is the durable release summary for the 2026-07-13 v1 candidate,
-its 2026-08-09 utility-llm parity refresh, and the 2026-08-10 production
-validation refresh.
+its 2026-08-09 utility-llm parity refresh, the 2026-08-10 production
+validation refresh, and the 2026-08-16 merged production handoff.
 Detailed command output belongs under ignored
 `plans/evidence/harden-llm/<run-id>/`; secrets and live provider output never do.
 
@@ -28,7 +28,7 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 
 ## Toolchain checkpoint
 
-- Go `1.26.5`; Node `22.22.0` for the parity capture; npm `9.2.0`.
+- Go `1.26.6`; Node `22.22.0` for the parity capture; npm `9.2.0`.
 - Docker `29.1.3`; Compose `2.40.3` on the original certification host.
 - Current WSL refresh: Docker client/server `29.6.2`; Compose `v5.3.1`.
 - `govulncheck` `1.6.0` with the official Go vulnerability database.
@@ -51,6 +51,7 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | P07 release closure | `2e6b026` | complete |
 | utility-llm `0.14.6` parity refresh | `25e81a8` | complete |
 | production CPA/LiveView refresh | `df69d93` | complete |
+| merged production handoff/static CLI auth | `738d530` | complete |
 
 ## Final gate record
 
@@ -68,6 +69,7 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | Production gateway image | pass: Docker-reported 28,319,041-byte image at `sha256:a3045cfb779751db762a79251118e4fe5e7f8eed4920a228b58d9d7a56b8338e`; embedded/OCI release `df69d93` |
 | Production frontend image | pass: Docker-reported 47,625,486-byte OTP release at `sha256:4773e3eb086dea97c1f3e1fbfce46f9e09780e477cc7099b3c744501d8c1311c`; OCI release `df69d93`, runtime UID `10001`, and no Mix/Hex/Rebar/Node/npm/Go toolchain |
 | Public frontend browser acceptance | pass: Chromium reached `/login`, rendered the operator form, and produced zero console errors after the hostname-scoped Cloudflare edge rule disabled Zaraz and RUM injection |
+| Current production images | pass: gateway `28,331,329` bytes at `sha256:78dd6afd26b1f5151267e82acad507cc8ed3991da316061580109941a7152218`, frontend `47,625,486` bytes at `sha256:1f0d4ed9ea629688177b7ce92126a168d6675b776885192a301ebfd398ace4ed`; both OCI release `738d530`, frontend runtime UID `10001` |
 
 The 2026-08-09 refresh upgraded `google.golang.org/grpc` to `v1.83.0`, Bandit to
 `1.12.4`, and Mint to `1.9.3`. `govulncheck` reports zero vulnerabilities in
@@ -81,13 +83,14 @@ output were not persisted in this document or committed fixtures.
 
 | Surface | Production value |
 | --- | --- |
-| Release | `df69d93` |
+| Release | `738d530` |
 | Frontend | `https://harden-llm.prls.co` |
 | API gateway | `https://harden-llm-api.prls.co` |
 | Artifact endpoint | `https://harden-llm-artifacts.prls.co` |
 | Grafana | `https://harden-llm-grafana.prls.co` |
 | Langfuse | `https://harden-llm-langfuse.prls.co` |
 | Cloudflare Tunnel | `koldun-harden-llm` / `b9686ab5-270b-4bd6-9aa7-a271c5a02f9d` |
+| CPA upstream Tunnel | `shaman-cpa-current` / `a201ae9b-9b34-4544-8ffa-1a91b4b3b2e9` |
 | Tunnel image | `cloudflare/cloudflared@sha256:e39ee8da81ad5e05d77f38d2f51c60ca51bf2a8450ac3abab50c17fdb91d91bf` (`2026.7.3`) |
 | Origin | `koldun`, Docker `29.6.2`, Compose `v5.3.1` |
 
@@ -117,6 +120,15 @@ The frontend and gateway security/provider refresh was deployed as release
 `df69d93`. The resulting public frontend and API health/readiness probes all
 returned HTTP 200, and a post-restart structured request through the public
 gateway completed in one attempt through `CurlStructured`.
+
+On 2026-08-16, merged release `738d530` was promoted with immutable release
+labels on both application images. The gateway and frontend containers, their
+dependent services, and the observability stack all reported healthy. Public
+`/healthz` and `/readyz` returned HTTP 200, the frontend redirected to `/login`,
+and a real structured request completed in one attempt through CPA using
+`gpt-5.6-luna`. The static bearer-token CLI path was used for that request.
+The obsolete CPA `cloudflared` connector container was removed; the active
+`shaman-cpa-current` tunnel has only its four current connectors.
 
 This is a single-origin deployment, not a high-availability topology. The
 intended `shaman` origin was unreachable during deployment, so availability is
