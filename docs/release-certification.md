@@ -121,20 +121,21 @@ The frontend and gateway security/provider refresh was deployed as release
 returned HTTP 200, and a post-restart structured request through the public
 gateway completed in one attempt through `CurlStructured`.
 
-On 2026-08-16, merged release `738d530` was promoted with immutable release
-labels on both application images. The gateway and frontend containers, their
-dependent services, and the observability stack all reported healthy. Public
-`/healthz` and `/readyz` returned HTTP 200, the frontend redirected to `/login`,
-and a real structured request completed in one attempt through CPA using
+On 2026-08-17, merged release `738d530` was promoted to the shaman origin from
+clean worktree commit `5624397`, with immutable release labels on both
+application images. The gateway and frontend containers, their dependent
+services, and the observability stack all reported healthy. Public `/healthz`
+and `/readyz` returned HTTP 200, the frontend redirected to `/login`, and a
+real structured request completed in one attempt through CPA using
 `gpt-5.6-luna`. The static bearer-token CLI path was used for that request.
-The obsolete CPA `cloudflared` connector container was removed; the active
-`shaman-cpa-current` tunnel has only its four current connectors.
+The active `shaman-cpa` and `koldun-harden-llm` tunnels each have four current
+connectors on shaman; local Harden containers and the obsolete local tunnel
+container were stopped without deleting the fifteen retained named volumes.
 
-This is a single-origin deployment, not a high-availability topology. The
-intended `shaman` origin was unreachable during deployment, so availability is
-currently tied to `koldun`, WSL, and Docker Desktop remaining online. Persistent
-Postgres, Garage, Langfuse, and observability data live in named Docker volumes
-on that origin.
+This is a single-origin deployment, not a high-availability topology. Current
+availability is tied to the shaman Docker host, its network, and the active
+Cloudflare connectors. Persistent Postgres, Garage, Langfuse, and observability
+data live in named Docker volumes on shaman.
 
 ## Certified invariants
 
