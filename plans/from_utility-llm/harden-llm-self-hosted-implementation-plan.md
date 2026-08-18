@@ -1484,7 +1484,7 @@ Privacy and data-quality constraints:
 | Metric | Result | Threshold | Disposition |
 | --- | --- | --- | --- |
 | `make verify` | Pass; `govulncheck` reported zero called vulnerabilities | exit 0 | Accepted |
-| `make test-compose` | Pass in 176.997s after trace-ID parser fix | full correlation | Accepted |
+| `make test-compose` | Pass in 183.924s after the trace-ID parser fix and kin-openapi upgrade; earlier parity run was 176.997s | full correlation | Accepted |
 | Phoenix suite | 77 passed, 3 excluded | formatter, warnings-as-errors, unit suite | Accepted |
 | Browser workflow | 2 passed | desktop and mobile | Accepted |
 
