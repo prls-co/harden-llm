@@ -336,5 +336,7 @@ Final audit evidence for 2026-08-18:
 - PR `#4` merged as `2c1a34f9737dd50b6af387c449f63d9299b166d1`; the gateway and
   Phoenix images carrying that release are healthy, and public `/healthz`,
   `/readyz`, and `/login` probes returned HTTP 200.
-- The direct `kin-openapi` dependency is pinned to `v0.144.0`, closing the two
-  GitHub security alerts discovered during publication.
+- The direct `kin-openapi` dependency is pinned to `v0.144.0`, the first patched
+  release for the two GitHub security alerts discovered during publication;
+  GitHub's alert records remained open at final readback pending Dependabot's
+  next dependency-graph refresh.

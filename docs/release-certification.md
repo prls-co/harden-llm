@@ -78,7 +78,7 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | Current production images | pass: gateway `28,331,329` bytes at `sha256:78dd6afd26b1f5151267e82acad507cc8ed3991da316061580109941a7152218`, frontend `47,625,486` bytes at `sha256:1f0d4ed9ea629688177b7ce92126a168d6675b776885192a301ebfd398ace4ed`; both OCI release `738d530`, frontend runtime UID `10001` |
 | P07.S09 frontend parity gates | pass: Phoenix 77 passed/3 excluded, browser 2 passed, `make verify`, and `make test-compose` 176.997s |
 | Tempo trace-ID normalization | pass: 31/32-character external IDs covered by regression tests; no timeout budget changed |
-| kin-openapi security alerts | pass: `v0.144.0` is the first patched release for both GitHub alerts; CodeQL Go and JavaScript/TypeScript checks passed |
+| kin-openapi security alerts | code fix pass: `v0.144.0` is the first patched release for both alerts and CodeQL Go/JavaScript checks passed; GitHub alert records remained open at final readback pending Dependabot rescan |
 
 The 2026-08-09 refresh upgraded `google.golang.org/grpc` to `v1.83.0`, Bandit to
 `1.12.4`, and Mint to `1.9.3`. `govulncheck` reports zero vulnerabilities in
@@ -94,6 +94,11 @@ medium validation-panic advisories. `govulncheck` reports zero called
 vulnerabilities; its only remaining module-level result is the unmaintained
 `golang.org/x/crypto/openpgp` package, which is not called and has no patched
 version.
+
+The patched dependency is present in merged `main` and both deployed
+application images. GitHub's Dependabot API still reported the two historical
+alert records as open at the final readback; this is scanner state awaiting its
+next dependency-graph refresh, not an unpatched dependency in the release.
 
 ## Production deployment
 

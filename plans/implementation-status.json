@@ -146,6 +146,7 @@
       "gatewayImage": "sha256:cd9d44a8b4dc0a939bffc3239271fadb2bb1c5534640b2c3fb43701421ff6f76",
       "frontendImage": "sha256:965b30420dcbe8f754bbac3682f9534090f3cb2164dbf37e1d698e76eda5d5fd",
       "deployedAt": "2026-08-18T19:35:04Z",
+      "dependabotAlertStatus": "patched in main and deployed; GitHub records pending rescan",
       "probes": {
         "apiHealthz": 200,
         "apiReadyz": 200,
