@@ -81,6 +81,9 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 	}
 	_ = runner.run(context.Background(), nil, "down", "--volumes", "--remove-orphans", "--timeout", "10")
 	t.Cleanup(func() {
+		if t.Failed() {
+			t.Logf("Compose diagnostics before cleanup:\n%s", runner.diagnostics())
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 		if err := runner.run(ctx, nil, "down", "--volumes", "--remove-orphans", "--timeout", "20"); err != nil {
@@ -267,7 +270,8 @@ func (runner composeRunner) diagnostics() string {
 		states, _ = command.CombinedOutput()
 	}
 	logs, _ := runner.output(ctx, "logs", "--no-color", "--tail", "20")
-	return runner.redact("COMPOSE PS\n" + string(ps) + "\nCONTAINER STATES\n" + string(states) + "\nRECENT LOGS\n" + string(logs))
+	serviceLogs, _ := runner.output(ctx, "logs", "--no-color", "--tail", "200", "harden-llm-gateway", "fake-provider")
+	return runner.redact("COMPOSE PS\n" + string(ps) + "\nCONTAINER STATES\n" + string(states) + "\nRECENT LOGS\n" + string(logs) + "\nGATEWAY AND PROVIDER LOGS\n" + string(serviceLogs))
 }
 
 func repositoryRoot(t *testing.T) string {
@@ -739,14 +743,7 @@ func tempoTraceID(body []byte) string {
 	if json.Unmarshal(body, &response) != nil || len(response.Traces) != 1 {
 		return ""
 	}
-	traceID := strings.ToLower(strings.TrimSpace(response.Traces[0].TraceID))
-	if len(traceID) != 32 {
-		return ""
-	}
-	if _, err := hex.DecodeString(traceID); err != nil {
-		return ""
-	}
-	return traceID
+	return normalizeTempoTraceID(response.Traces[0].TraceID)
 }
 
 func boundedProbeDetail(body []byte, err error) string {

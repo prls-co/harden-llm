@@ -1,6 +1,7 @@
 services:
   harden-llm-gateway:
     environment:
+      HARDEN_LLM_PROVIDER_ALLOWED_HOSTS: ""
       HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST: fake-provider
       SSL_CERT_FILE: /run/smoke/provider-ca.crt
     volumes:

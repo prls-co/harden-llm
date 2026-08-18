@@ -374,14 +374,7 @@ func liveTempoTraceID(body []byte) string {
 	if json.Unmarshal(body, &response) != nil || len(response.Traces) == 0 {
 		return ""
 	}
-	value := strings.ToLower(strings.TrimSpace(response.Traces[0].TraceID))
-	if len(value) != 32 {
-		return ""
-	}
-	if _, err := hex.DecodeString(value); err != nil {
-		return ""
-	}
-	return value
+	return normalizeTempoTraceID(response.Traces[0].TraceID)
 }
 
 func livePrometheusSample(body []byte) bool {

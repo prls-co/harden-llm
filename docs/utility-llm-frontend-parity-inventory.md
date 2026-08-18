@@ -1,0 +1,335 @@
+# Utility LLM Frontend Parity Inventory
+
+## 1. Audit scope and source revisions
+
+This inventory records the frontend behavior that must be represented by the
+self-hosted Phoenix/Go application, subject to the self-hosted boundaries in
+this repository. It is based on the read-only `utility-llm` checkout at
+`5c0309e` (`chore(release): publish utility-llm 0.15.0`) and the current
+`harden-llm` checkout at `d3783a3`.
+
+The parity target is behavior, not React or Firebase implementation. Firebase
+email/password auth, Firebase ID tokens, Firestore state, and signed Firebase
+trace URLs are replaced by the existing Phoenix session, Go REST, Postgres,
+and same-origin artifact boundaries. Provider execution, credential material,
+cache records, trace records, and profile validation remain backend-owned.
+
+## 2. Utility LLM frontend file inventory
+
+| Source | Surface | Functionality |
+| --- | --- | --- |
+| `src/react/index.js` | Package widgets | Shared profile configuration, prompt input, output, history, trace, and stats widgets. It is the authoritative UI behavior source for the reusable controls. |
+| `src/react/editable-combobox.js` | Editable combobox | Downshift-backed searchable single-value input. Focus selects the current value, typing updates the controlled value, arrows highlight options, Enter selects, blur closes the menu, and custom values remain valid. |
+| `src/react/styles.css` | Widget presentation | Warm panel, field, fold, combobox, credential, result, history, trace, stats, error, focus, disabled, and responsive styles. `harden-llm` may use different CSS but must preserve the states and accessible names. |
+| `src/react/index.d.ts` | Public widget contract | Controlled props and callbacks for every profile, prompt, output, history, trace, and stats control. The callback list is a coverage checklist. |
+| `examples/react-trace-studio/src/App.jsx` | Reference application | Session gate, state hydration, controlled form state, persisted UI state, profile actions, run actions, history actions, schema generation/checking, output copy, and widget composition. |
+| `examples/react-trace-studio/src/api/client.js` | Browser API boundary | Authenticated state, history, profile, bundle, model-refresh, and run requests. |
+| `examples/react-trace-studio/src/auth/client.js` | Firebase auth boundary | Session subscription, email/password sign-in, sign-out, and ID-token lookup. Replaced by Phoenix `SessionVault` and `/api/v1/auth/*`. |
+| `examples/react-trace-studio/src/download-json.js` | Browser download boundary | Pretty-prints a profile bundle, creates a JSON Blob, downloads through a temporary anchor, and always cleans up the URL/anchor. |
+| `examples/react-trace-studio/src/app.css` | Reference application presentation | Warm responsive shell, login, status/error, widget stack, controls, folds, trace/resource, history, and stats states. The Phoenix app may use Tailwind classes but preserves the same visible states and accessible controls. |
+| `examples/react-trace-studio/src/testUsage.js` | Deterministic UI fixture helper | Builds normalized usage/cost fixtures for output and LLM-stat tests without contacting a provider. |
+| `examples/react-trace-studio/src/main.jsx` | Browser composition | Mounts the application and imports the package widget stylesheet. |
+| `examples/react-trace-studio/index.html` | Document shell | Sets viewport, title, favicon, root mount, and module entrypoint. |
+| `examples/react-trace-studio/src/App.test.jsx` | Application workflow tests | State hydration, fold persistence, profiles, cache, retry/repair, pricing, schema, output, history, import/export, and canonical action payloads. |
+| `examples/react-trace-studio/src/react-widgets.test.jsx` | Widget tests | Every reusable widget control, combobox behavior, fallback ordering, pricing, options, trace resources, and stats rendering. |
+| `examples/react-trace-studio/src/llm-stats-summary-widget.test.jsx` | Stats summary tests | Aggregate counts, token/cost/duration display, full-view link, controlled expansion, and cache-cost markers. |
+| `examples/react-trace-studio/src/theme-layout.static.test.jsx` | Shell/static tests | Warm theme, vertical widget stack, package CSS ownership, and no stale split-column/dark layout. |
+| `examples/react-trace-studio/server/firebase-api.test.mjs` | Reference backend tests | Auth, profile validation/probing, bundles, model discovery, run/cache/retry/repair/reasoning, pricing, traces, and paginated history. Translated behavior belongs in Go and Phoenix tests. |
+
+## 3. Visible and interactive element inventory
+
+### 3.1 Authentication and application shell
+
+| Location | Element/text | Behavior |
+| --- | --- | --- |
+| Session pending | `Trace Studio`; `Checking session...` | Holds the page at a named loading state until auth resolves. |
+| Login | `Email` email input | Controlled email value, browser email autocomplete, submitted with the login form. |
+| Login | `Password` password input | Controlled password value, current-password autocomplete, submitted with the login form. |
+| Login | `Sign in` submit button | Calls auth, disables while pending, changes label to `Signing in...`, and renders the returned error in an alert. Enter submits the same form. |
+| Authenticated header | `Utility LLM Trace Studio` | Application identity and page heading. |
+| Authenticated header | Authenticated email pill | Displays the redacted/session identity supplied by the auth layer; it is not an action. |
+| Authenticated header | `Sign out` button | Revokes the Phoenix session, disables during the request, and reports failure without exposing a token. |
+| Application | `Loading saved profiles...` status | Visible until the canonical backend state is hydrated. Widgets do not render against an unhydrated state. |
+| Application | Request error alert | Shows safe message, stage/code/profile/provider/model details, and bounded field errors. Raw provider errors and credentials never render. |
+
+### 3.2 Compact model/profile row
+
+The `ModelConfigWidget` renders one compact row per model category. The
+current Trace Studio passes the category name `LLM`; the escalation editor
+reuses the same controls with category name `Escalation Model`.
+
+| Element/text | Type | Behavior and state |
+| --- | --- | --- |
+| Category name (`LLM`, `Escalation Model`) | Text | Labels the model slot; a blank category is a programming error. |
+| `LLM Profile` / visible `🤖` | Searchable editable combobox | Searches by profile name, model, endpoint, interface, and discovered models. Existing profile selection loads the profile and prompt draft through the backend state mutation. A typed custom value remains visible and can produce a field error. The escalation version writes `structuredRepairRetry.escalation.llmProfile`. |
+| `Reasoning` / visible `🧠` | Select with `L`, `M`, `H` | Controls `lowest`, `middle`, or `highest`. Main profile reasoning is persisted as per-profile UI/run state; escalation reasoning is written into escalation options. |
+| `💾` | Pressed cache-mode button | `Use cache` means normal cache lookup; `Overwrite cache on next run` means refresh. `aria-pressed`, title, and label reflect the state. Self-hosted `off` remains available where the current stack requires an explicit disabled mode. |
+| `⚙` / `Profile config` | Disclosure button | Opens/closes the complete profile editor. Fold state is controlled and persisted. It is disabled while a UI-state save is pending so stale responses cannot overwrite the newest fold state. |
+
+### 3.3 Profile configuration fields and actions
+
+These controls are inside the profile disclosure. The escalation profile
+editor reuses the same field set but excludes nested retry/repair controls.
+
+| Element/text | Type | Behavior and state |
+| --- | --- | --- |
+| `API Inference Type` | Searchable select | Selects `Chat Completions`, `OpenAI Responses`, `Gemini Generate Content`, or `Anthropic Messages`. The backend validates and owns provider capability semantics. |
+| `Base URL` | Editable searchable combobox | Offers existing profile origins, strips trailing slashes, allows a custom HTTPS endpoint, and preserves a typed value after validation failure. |
+| `Endpoint credential` status | Status text and indicator | Shows `No credential stored`, `Stored key available`, or `New key staged for save`. Only write-only status and rotation metadata are displayed. |
+| `Set key`, `Replace key`, `Hide key` | Disclosure button | Opens/closes the replacement credential drawer without reading a stored secret. |
+| `Replacement API Key` | Text input | Local draft only until staged; autocomplete and spell correction are disabled. |
+| `Clear staged key` | Danger button | Removes a newly staged unsaved key, not the stored backend credential. |
+| `Cancel` | Button | Clears the local replacement draft and closes the credential drawer. |
+| `Stage key` | Primary button | Copies a non-empty local draft into the write-only profile payload and closes the drawer. |
+| `Refresh Models` | Button beside the first model slot | Discovers models from the draft/saved endpoint, preserves old models on failure, and updates suggestions without changing the profile identity. |
+| `Model ID` | Editable searchable combobox | Single selected model value. Suggestions merge discovered profile models, global model options, and the current typed value; custom model IDs are allowed. |
+| `Fallback LLMs` | Group | Ordered backup profile references. The current profile is excluded from its own options; custom references remain possible so the backend can return graph validation errors. |
+| `Add Fallback LLM` | Button | Appends an empty ordered fallback slot. |
+| `Fallback LLM N` | Editable searchable combobox | Edits the ordered profile reference at index N. |
+| `Up` / `Down` | Buttons | Move one fallback reference without changing the other entries; first/last boundary buttons are disabled. |
+| `Remove` | Danger button | Removes one fallback reference. |
+| `Options` | Disclosure button | Opens common request options while preserving the raw JSON source of truth. |
+| `Max Output Tokens` | Number input | Updates `defaultOptions.max_tokens`; empty removes the key. |
+| `Temperature` | Number input | Updates `defaultOptions.temperature`; empty removes the key. |
+| `Top P` | Number input | Updates `defaultOptions.top_p`, removes legacy `topP`, and accepts empty/unset. |
+| `Top K` | Number input | Updates `defaultOptions.top_k`, removes legacy `topK`, and accepts empty/unset. |
+| `Stop Sequences` | Multiline textarea | One stop sequence per line; blank lines are removed and the normalized array is stored in `defaultOptions.stop`. |
+| `Default Options JSON` | Monospace multiline textarea | Directly edits the complete options object. Invalid JSON disables save/run as appropriate and shows a field hint/error. |
+| `Retries & Repair` | Disclosure button | Opens all retry and structured-repair controls. It is present only on the primary profile editor. |
+| `Structured Repair` | Checkbox | Enables semantic structured-output repair and creates normalized escalation defaults; disabling stores `structuredRepairRetry: false`. |
+| `Rate Limits` | Checkbox | Controls retry on HTTP 429. Enabled is represented by omission/default true; disabled stores false. |
+| `Server Errors` | Checkbox | Controls retry on HTTP 5xx. |
+| `Network Errors` | Checkbox | Controls retry on transient network failures. |
+| `Parse / Schema Errors` | Checkbox | Controls parse/schema retry when structured repair is disabled; it is checked and disabled when repair requires it. |
+| `Max Attempts` | Number input | Total attempt budget, including initial, ordinary retry, repair, and escalation attempts. |
+| `Base Delay Ms` | Number input | Initial retry backoff. |
+| `Max Delay Ms` | Number input | Upper retry backoff bound. |
+| `Starting Attempt` | Number input | First attempt using the escalation profile; disabled when structured repair is off. |
+| Escalation `LLM Profile` | Reused searchable editable combobox | Selects the stronger profile for repair. It can create a new profile draft and has its own profile editor. |
+| Escalation `Reasoning` / cache / `Profile config` | Reused controls | Same semantics as the primary row, with retries excluded from the nested editor. |
+| `Pricing` | Disclosure button | Opens profile-level pricing metadata, kept outside `defaultOptions`. |
+| `Input $/1M tokens` | Number input | Converts UI dollars-per-million value to stored per-token input pricing. |
+| `Output $/1M tokens` | Number input | Converts output pricing. |
+| `Cache read $/1M tokens` | Number input | Optional cache-read pricing. |
+| `Cache write $/1M tokens` | Number input | Optional cache-creation pricing. |
+| `Reasoning output $/1M tokens` | Number input | Optional separately reported reasoning-token pricing. |
+| `+ New` | Button | Clears selected profile identity through the backend state path and starts a new profile draft. |
+| `Import Bundle` | Button plus hidden JSON file input | Opens an `application/json` picker, parses one profile bundle, sends it to atomic backend import, and resets the input value. |
+| `Export Bundle` | Button | Requests the encrypted profile bundle and downloads it as pretty JSON using one browser download boundary. |
+| `Save Profile` / `Save Escalation Profile` | Primary button | Submits the complete profile, pricing, options, ordered backups, and optional replacement credential. Save is disabled for invalid JSON or missing required identity. Backend probing/validation is atomic. |
+| `Delete Profile` / `Delete Escalation Profile` | Danger button | Deletes the selected profile after backend dependency validation. |
+
+The profile row and every nested editor must preserve safe field errors next to
+the corresponding control. A credential value is never repopulated from a
+successful read or included in rendered state.
+
+### 3.4 Prompt and structured-output input
+
+| Element/text | Type | Behavior |
+| --- | --- | --- |
+| `Input` | Section heading | Labels the prompt widget. |
+| `Prompt` | Multiline textarea | Main user prompt. `Ctrl+Enter` or `Cmd+Enter` invokes the same run action as the button. |
+| `Advanced input` | Disclosure button | Shows/hides system and structured-output controls; state is persisted. |
+| `System Prompt` | Multiline textarea | Optional system instruction. |
+| `Schema shorthand` | Monospace multiline textarea | Compact object-like schema description, for example `{"answer":"string"}`. |
+| `Generate JSON Schema` | Button | Converts shorthand to editable strict JSON Schema; invalid shorthand stays in place and reports a safe validation message. |
+| `Structured Output Schema` | Monospace multiline textarea | Full JSON Schema object. It is checked explicitly and after five seconds of inactivity; invalid, pending, or failed checks block a structured run. |
+| `Check Schema` | Button | Immediately validates the current schema and updates the inline status. |
+| `Clear Schema` | Button | Clears shorthand and full schema only, persists that non-structured draft, and resets validation state. |
+| `Clear Prompt Fields` | Button | Clears prompt, system prompt, shorthand, and schema while preserving selected profile. |
+| `Run Prompt` | Primary button | Runs the selected profile with the current prompts, schema, reasoning, cache mode, default options, and retry/repair policy. Disabled without a profile, while running, or while schema validation blocks execution. |
+
+### 3.5 Output, trace, and row-local resource controls
+
+| Element/text | Type | Behavior |
+| --- | --- | --- |
+| `Output` | Section heading | Labels the latest output widget. |
+| `Latest output` | Output header | Shows the latest result and interface/endpoint metadata. |
+| Result body | Monospace preformatted text | Pretty-prints JSON/object results; displays an empty-state message before the first run. |
+| `Copy` | Button | Copies the formatted latest result, changes to `Copied` or `Failed` briefly, and does not expose trace credentials. |
+| Trace summary | Clickable summary row | Expands/collapses measured LLM stats. The `Details` button performs the same action with an accessible label. |
+| Trace summary metrics | Text | Success/failure status, trace ID, model, retry count, duration, input/cache/output tokens, and known cost. Zero-token placeholders are not treated as measured stats. |
+| `Trace ID`, `Status`, `Used Repair`, `Attempts` | Expanded trace text/list | Shows normalized retry categories, status codes, delays, and repair metadata. |
+| `View JSON Trace` | Link or disabled button | Opens an available trace JSON resource in a new tab. If unavailable, the control remains visible but disabled. Self-hosted maps to authenticated same-origin trace/artifact access. |
+| `Copy cURL` | Button | Copies the safe trace request command when the backend supplied one. Disabled if unavailable. |
+| `Show Request` / `Hide Request` | Button | Lazily fetches trace JSON once, then displays the request payload if present. Loading/errors are inline. |
+| `Show Response` / `Hide Response` | Button | Same lazy fetch path for the response payload. |
+| Request/response blocks | Monospace preformatted text | Show exact available trace payloads or an explicit unavailable message; absent properties are not represented as fake empty values. |
+
+### 3.6 History and pagination
+
+| Element/text | Type | Behavior |
+| --- | --- | --- |
+| `History (N)` | Section heading | Shows the total history count returned by the backend. |
+| `Delete all` | Danger button | Clears all history through the backend and resets the page/result expansion. The button is disabled for an empty history or in-flight clear. |
+| `Show history` / `Hide history` | Disclosure button | Persists visibility. The workspace hydrates a bounded recent page with its state request and keeps the history panel hidden by default; the dedicated History view loads pages over the cursor contract. |
+| History item header | Expand/collapse button | Shows model and prompt preview; opening displays result and trace stats/resources. |
+| `Restore prompt` | Button | Restores user/system/schema fields and selected profile from one history entry, then persists the draft. |
+| `Delete` | Danger button | Deletes one history entry, refreshes the current page, and closes its expansion. |
+| History pagination | Pagination controls | Utility uses page/page-size callbacks and a quick-jump input. The self-hosted implementation provides bounded page-size selection and cursor-based `Load more`; arbitrary page jumps are intentionally not reproduced because the current Go contract has no offset/page-number operation. |
+| `Loading history...` | Status text | Shown during lazy/page loads. |
+| `No runs yet in this session.` | Empty text | Shown for an empty history. |
+
+### 3.7 Exported standalone stats widgets
+
+These widgets are exported by `src/react/index.js` even though the reference
+Trace Studio composes trace details inside output/history.
+
+| Widget | Elements and behavior |
+| --- | --- |
+| `LlmStatsWidget` | `LLM stats` heading; all supplied trace rows; status/category/status-code, attempts, duration, token groups, cache marker, cost, and row-local request/response/cURL/JSON trace resources. It does not own pagination. |
+| `LlmStatsSummaryWidget` | Aggregate `LLM Stats:` line with success, failure, optional timeout, prompt/output token totals, cache-aware cost, average duration, optional full-view link `⛶`, and controlled `Expand`/`Collapse` button with detail slot. It omits empty totals and zero timeout. |
+
+## 4. Utility action/API contract
+
+The reference browser client exposes these actions:
+
+| Browser action | Utility route | Self-hosted owner |
+| --- | --- | --- |
+| Hydrate state | `GET /api/state` | `GET /api/v1/state`, Phoenix `WorkspaceLive`, Go state store |
+| Persist state/UI/draft | `POST /api/state/save` | `POST /api/v1/state`, strict state schema extension |
+| List history | `GET /api/history?page&pageSize` | `GET /api/v1/history`, pagination/cursor adaptation |
+| Delete/clear history | `POST /api/history/delete`, `POST /api/history/clear` | `DELETE /api/v1/history/{historyID}`, `DELETE /api/v1/history` |
+| Save/delete profile | `POST /api/profile/save`, `POST /api/profile/delete` | `PUT/DELETE /api/v1/profiles/{profileID}` |
+| Export/import bundle | `GET/POST /api/profile/bundle/*` | `GET/PUT /api/v1/profiles/bundle` |
+| Refresh models | `POST /api/models/refresh` | `POST /api/v1/profiles/{profileID}/models:refresh` |
+| Run prompt | `POST /api/run` | `POST /api/v1/run` |
+| Trace JSON/resources | Signed `/api/trace-json` fetch | `GET /api/v1/traces/{traceID}` and same-origin artifact controller |
+
+The self-hosted stack must keep the existing session-handle/token boundary,
+Go provider ownership, Postgres persistence, artifact authorization, strict
+OpenAPI envelopes, and redaction rules. It must not reintroduce Firebase,
+Firestore, browser provider calls, plaintext credential state, or a second
+runtime implementation.
+
+## 5. Test translation inventory
+
+### 5.1 Utility React application tests
+
+The 26 named `App.test.jsx` cases cover:
+
+- vertical model/input/output composition and attached trace stats;
+- row-local resource controls;
+- persisted profile/options/pricing/retry/repair/input/history/cache fold state;
+- ordered fallback profile editing and escalation-profile reuse;
+- startup gating until state hydration;
+- new/selected profile persistence before form replacement;
+- complete profile pricing save, bundle import/export, and canonical save/refresh/run/delete payloads;
+- latest-output stats and zero-token suppression;
+- schema shorthand generation, schema edit checking, schema-only clear, and run blocking;
+- invalid typed profiles and redacted save-probe progress/details;
+- history delete, clear, restore, and pagination refresh.
+
+### 5.2 Utility reusable-widget tests
+
+The 24 named `react-widgets.test.jsx` cases cover:
+
+- compact row labels and write-only credential state;
+- category validation, ordered fallback controls, and cache toggle direction;
+- escalation reuse and folded configuration;
+- custom Base URL/Model ID values and keyboard combobox selection;
+- dollars-per-million pricing fields outside default options;
+- invalid profile retention and field errors;
+- common option controls as the JSON source of truth;
+- controlled input/output widgets;
+- hidden history, pagination callbacks, trace resources, unavailable-resource states;
+- all-record stats, status/category/status-code, aggregate attempt metadata, run-level totals, cache-aware cost, and zero-token behavior.
+
+### 5.3 Utility server/reference tests requiring self-hosted translation
+
+The 41 named `firebase-api.test.mjs` cases cover the backend contracts that the Go
+gateway must expose to the Phoenix UI: auth/envelopes, profile probing and
+atomic writes, backup graph validation, credential redaction, strict bundle
+import/export, model discovery, cache modes, retries/repair/escalation,
+reasoning, selected-state persistence, custom endpoints, trace metadata,
+pricing certainty, schema validation, and unlimited/paginated history.
+
+The self-hosted translation covers the relevant behavior through the Go contract
+tests, Phoenix LiveView tests, and browser workflow. Firebase emulator/auth
+internals, Firestore-specific persistence, and signed-URL implementation tests
+are represented by the self-hosted session, Postgres, and same-origin artifact
+boundaries rather than copied literally.
+
+The read-only utility checkout’s complete deterministic `npm test` passed: its
+contract, boundary, core, behavior, example, React, and package gates all
+passed, including 16 React/server test files and 147 Vitest tests.
+
+## 6. Current harden-llm gap map
+
+| Area | Current harden behavior | Required parity work |
+| --- | --- | --- |
+| Auth/shell | Phoenix session login/logout and protected LiveViews exist. | Preserve behavior while matching utility shell status/error semantics. |
+| Profiles | Dedicated Phoenix editor with provider/interface/endpoint/model, write-only credential staging, ordered backups, options, retry/repair/escalation, pricing, refresh, CRUD, bundle actions, and deep-link editing. | The utility’s compact inline row is represented by the workspace’s native editable datalist plus profile links into the canonical editor; Firebase-specific inline placement and a second profile-editor owner are intentionally not duplicated. |
+| Workspace | Advanced prompt/schema controls, hidden-by-default lazy history, persisted UI folds, custom profile values, actionable history rows, output copy/request/response/cURL, token/cache/cost stats, and canonical run payloads. | Keep the single Phoenix/Go path; no browser provider calls or second widget runtime. |
+| History | Cursor-based expandable records, restore, trace observations/artifacts, row stats, request/response/cURL copy, delete, clear confirmation, page-size selection, and load more; workspace history has the same row-local actions. | Arbitrary page-number/quick-jump behavior would require an offset contract; retain cursor semantics as the self-hosted adaptation. |
+| Backend state | Go/OpenAPI state carries prompt draft, selected profile, schema shorthand, reasoning map, cache mode, retry/repair controls, and fold visibility with strict validation. | Continue adding only behavior required by the inventory and keep credentials write-only. |
+| Profile schema | Go `Profile` already has pricing, default options, backups, models, reasoning map, and credential state. | Expose and test the existing fields through Phoenix; add only fields needed by utility behavior, not Firebase-specific copies. |
+| History API | Go contract is cursor/limit based and the LiveView preserves that boundary. | Keep cursor navigation deterministic; do not add an offset compatibility path solely for the utility quick-jump control. |
+| Trace API | Go returns trace observations/artifacts and Phoenix authorizes artifact redirects. | Normalized LLM stats, availability, request/response, and cURL behavior are now exposed without raw provider credentials. |
+| Tests | Phoenix unit/live/browser and Go tests cover the translated self-hosted behavior. | Keep the utility test inventory as the regression checklist and add any newly discovered behavior to canonical `WEB-TEST-###`/`TEST-###` cases. |
+
+## 7. Implementation order
+
+1. Extend the Go/OpenAPI state/profile/run/history projections and fixtures so
+   the Phoenix UI has one canonical self-hosted contract.
+2. Expand `ProfilesLive` with the compact row, full profile editor, ordered
+   backup controls, credentials, options, retry/repair/escalation, pricing,
+   model refresh, bundle actions, and safe field errors.
+3. Expand `WorkspaceLive` with advanced prompt/schema controls, shorthand
+   generation/checking, persisted UI state, reasoning/cache controls, clear
+   actions, and canonical run payloads.
+4. Replace the minimal result/history presentation with reusable LiveView
+   components for result copy, measured stats, expandable rows, pagination,
+   trace resource controls, restore, delete, and clear.
+5. Translate the utility React and reference-server cases into deterministic
+   Phoenix/Go tests, then run focused tests, `make verify`, Phoenix tests, and
+   browser tests. Fix failures until the requirement matrix is green.
+
+This inventory is the audit baseline; each behavior must have a current
+harden-llm element, backend contract, or an explicit self-hosted boundary note.
+
+## 8. Implemented parity slices
+
+The parity implementation is present in the self-hosted checkout:
+
+- `WorkspaceLive` persists prompt drafts, schema shorthand, generated contracted schemas, reasoning, cache mode, retry controls, repair escalation model settings, and UI fold state through the Go state endpoint.
+- The workspace exposes advanced input, schema generation/check/clear actions, output copy, attempt/usage/cost/cache facts, a local LLM statistics summary, and a richer recent-history view. History is loaded lazily, supports restore/delete/clear, and preserves typed custom profile values.
+- `ProfilesLive` exposes write-only credential staging, ordered backup editing, common provider options plus source JSON, retry/repair controls, escalation metadata, all five pricing rates, model refresh, bundle import/export, and the existing CRUD actions.
+- Workspace model and escalation controls deep-link to that canonical profile editor; new-profile credential fields open automatically while existing-profile edits keep stored credentials behind a closed write-only drawer.
+- `HistoryLive` exposes expandable request/result records, result and credential-free cURL copy, page-size controls over the cursor API, trace observations, artifact links, restore, delete, and clear.
+- The Go state and run contracts now carry the prompt draft, persisted UI flags, model override, explicit bounded retry controls, repair escalation, and run timeout. OpenAPI and backend validation were updated together.
+- The prompt shortcut, five-second schema debounce, model/base-URL datalists, write-only staged-key controls, output request/response folds, and per-record token/cache/cost summaries are covered by `WEB-TEST-034` through `WEB-TEST-036` and the corresponding rendering assertions.
+- Workspace history rows now expose row-local restore/delete/inspect/copy/resource controls, and all history loading and mutation failures remain inline and credential-free.
+- The Compose smoke harness now prints gateway/provider diagnostics on failure, and the smoke override clears inherited provider-host policy before exercising its fake provider; the deterministic Compose gate passes without weakening production endpoint policy.
+
+The self-hosted runtime now carries an optional escalation profile ID and resolves that profile's credential and provider protocol for the repair attempt. The operation remains bounded by the same retry budget and records the effective profile on the attempt, preserving the self-hosted trace and cache ownership boundaries.
+
+## 9. Completion audit
+
+The remaining differences are explicit self-hosted adaptations rather than
+unimplemented frontend behavior:
+
+- The full profile editor has one owner at `/profiles`; workspace model rows
+  use an editable native datalist and deep links instead of duplicating the
+  nested editor in every fold.
+- The workspace and dedicated History views use the Go cursor/limit contract;
+  utility offset/page-number quick-jump controls are not reproduced because
+  the self-hosted API has no offset operation.
+- Utility Firebase auth, Firestore persistence, browser provider calls, signed
+  URLs, and Blob-download implementation are replaced by Phoenix sessions,
+  Go/Postgres state, backend execution, same-origin artifact authorization,
+  and the existing profile bundle route.
+
+The implementation is complete only when the checked-in Go gates, Phoenix
+LiveView suite, browser workflow, formatter/static checks, and
+`git diff --check` all pass on the final checkout.
+
+Final audit evidence for 2026-08-18:
+
+- `make verify` passed, including regular and race-enabled Go tests and
+  `govulncheck` with no called vulnerabilities.
+- `make test-compose` passed after the Tempo trace-ID normalization fix.
+- The pinned Phoenix suite passed with 77 tests and 3 exclusions; the desktop
+  and mobile browser workflow passed with 2 tests.
+- `git diff --check`, JavaScript syntax checking, and Elixir formatting checks
+  passed. `main` remains aligned with `origin/main`.

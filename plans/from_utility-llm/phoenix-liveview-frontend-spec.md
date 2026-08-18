@@ -8,11 +8,11 @@
 - Target application directory: `/home/kirill/harden-llm/frontend`
 - Backend contract: `/home/kirill/harden-llm/api/openapi.yaml`
 - Source UX reference: `/home/kirill/utility-llm/examples/react-trace-studio`
-- Version: `1.0.0-frontend-spec`
+- Version: `1.0.1-frontend-parity-amendment`
 - Owners: frontend and self-hosted runtime maintainers
-- Date: 2026-07-12
+- Date: 2026-08-18
 - Document ID: `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`
-- Summary: This specification defines the separate Elixir/Phoenix LiveView frontend for Harden-LLM. Phoenix renders HTML, owns the browser session and CSRF boundary, and calls the Go gateway server to server through its published REST/OpenAPI contract. The frontend owns no application database, provider integration, retry policy, object storage, pricing, schema validation, cache identity, or domain persistence.
+- Summary: This specification defines the separate Elixir/Phoenix LiveView frontend for Harden-LLM. Phoenix renders HTML, owns the browser session and CSRF boundary, and calls the Go gateway server to server through its published REST/OpenAPI contract. The frontend owns no application database, provider integration, retry policy, object storage, pricing, schema validation, cache identity, or domain persistence. The 2026-08-18 parity amendment incorporates the source-derived controls and explicit self-hosted adaptations recorded in `docs/utility-llm-frontend-parity-inventory.md` and ADR-HLLM-012.
 
 ## 2. Canonical stack
 
@@ -20,7 +20,7 @@
 | --- | --- | --- |
 | Language/runtime | Elixir 1.20.2 on Erlang/OTP 28.4 | Supervised web runtime and server-side concurrency. |
 | Web framework | Phoenix 1.8.9 | Endpoint, router, controllers, secure browser sessions, CSRF, assets, and releases. |
-| Interactive UI | Phoenix LiveView 1.2.6 | Authenticated workspace, profile editing, runs, history, traces, and live state updates. |
+| Interactive UI | Phoenix LiveView 1.2.9 | Authenticated workspace, profile editing, runs, history, traces, and live state updates. |
 | HTTP client | Req 0.6.1 | The only Phoenix-to-Go REST client. |
 | API contract | Backend OpenAPI 3.1 document at `api/openapi.yaml` | Canonical operations, bearer security, request/response schemas, errors, and examples. |
 | Components | Phoenix function components and generated core components | Shared forms, tables, dialogs, status displays, and icons. |
@@ -385,6 +385,23 @@ All tests are free, self-hosted, deterministic, and isolated from live LLM provi
 | WEB-TEST-010 | Responsive component rendering | `test/harden_llm_web/live/rendering_test.exs` | `mix test test/harden_llm_web/live/rendering_test.exs` | Every loading/empty/success/error state renders valid landmarks, labels, focus targets, stable action controls, and bounded long values. | 15s |
 | WEB-TEST-011 | Real-browser workflow | `test/browser/full_workflow_test.exs` | `mix test --only browser test/browser/full_workflow_test.exs` | Headless Chromium completes login, profile save, model refresh, run, history restore, trace view, artifact redirect, logout, and reconnect at desktop/mobile sizes. | 120s |
 | WEB-TEST-012 | Frontend Compose smoke | `test/browser/compose_smoke_test.exs` | `mix test --only compose test/browser/compose_smoke_test.exs` | Caddy HTTPS, LiveView WebSocket, private REST routing, backend-unavailable recovery, cross-service Tempo trace, correlated Loki log, Prometheus series, Grafana query, and secret absence pass in the 16-service topology. | 180s |
+
+### Source-derived frontend parity extension
+
+The following tests were added after the original WEB-TEST-001 through
+WEB-TEST-012 baseline. They are the executable cases for the current
+`utility-llm` frontend inventory at source revision `5c0309e` and use the same
+Phoenix/Go/OpenAPI boundary. Their intentional cursor-pagination and
+single-editor adaptations are recorded in ADR-HLLM-012.
+
+| ID | Test | Target | Command | Pass criteria |
+| --- | --- | --- | --- | --- |
+| WEB-TEST-031 | Workspace schema/fold/retry parity | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | Shorthand schema generation, persisted folds, retry/repair controls, custom typed profiles, lazy history, restore, and deletion use the canonical state/run/history operations. |
+| WEB-TEST-032 | Full profile-editor parity | `test/harden_llm_web/live/profiles_live_test.exs` | `mix test test/harden_llm_web/live/profiles_live_test.exs` | Provider/interface/endpoint, options, ordered fallbacks, retry/repair/escalation, pricing, deep-link editing, and save payloads remain functional. |
+| WEB-TEST-033 | History trace/resource parity | `test/harden_llm_web/live/history_trace_test.exs` | `mix test test/harden_llm_web/live/history_trace_test.exs` | Expanded redacted records expose request/result stats, copy controls, trace links, and artifact resources without credentials. |
+| WEB-TEST-034 | Workspace control rendering parity | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | Prompt shortcut, schema debounce, output request/response folds, trace summary, copy actions, and unavailable states render safely. |
+| WEB-TEST-035 | Profile combobox/credential parity | `test/harden_llm_web/live/profiles_live_test.exs` | `mix test test/harden_llm_web/live/profiles_live_test.exs` | Searchable endpoint/model suggestions and write-only staged-key behavior remain local and never render stored or staged secrets after close. |
+| WEB-TEST-036 | Cursor pagination parity | `test/harden_llm_web/live/history_trace_test.exs` | `mix test test/harden_llm_web/live/history_trace_test.exs` | Page-size changes restart the cursor query from page one; arbitrary offset/page-number quick-jump is not added to the cursor-only REST contract. |
 
 Detailed fixtures and isolation:
 

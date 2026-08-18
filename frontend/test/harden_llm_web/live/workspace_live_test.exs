@@ -13,8 +13,17 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     {:ok, conn: init_test_session(conn, APIFixtures.session_map(handle))}
   end
 
-  test "hydrates canonical state, profiles, and history", %{conn: conn} do
-    install_stub(fn conn -> unexpected(conn) end)
+  test "hydrates canonical state and profiles, then loads history when opened", %{conn: conn} do
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
     {:ok, view, html} = live(conn, ~p"/workspace")
     assert html =~ "Loading the canonical workspace"
     render_async(view, 1_000)
@@ -23,9 +32,10 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     assert has_element?(
              view,
-             ~s(#run-form select[name="run[selectedProfileId]"] option[selected][value="Primary"])
+             ~s(#run-form input[name="run[selectedProfileId]"][value="Primary"])
            )
 
+    view |> element("#history-fold-toggle") |> render_click()
     assert has_element?(view, "#workspace-history-run-test")
   end
 
@@ -62,6 +72,105 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     render_async(view, 1_000)
     assert_received {:saved_state, %{"schemaVersion" => 1, "userPrompt" => "updated safe prompt"}}
+  end
+
+  test "profile input preserves a custom typed value and persists it", %{conn: conn} do
+    test_pid = self()
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          send(test_pid, {:custom_profile_state, Jason.decode!(body)})
+          Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+
+    view
+    |> form("#run-form", %{
+      "run" => %{
+        "selectedProfileId" => "typed-custom-profile",
+        "userPrompt" => "custom profile draft",
+        "callType" => "text",
+        "cacheMode" => "off"
+      }
+    })
+    |> render_change()
+
+    render_async(view, 1_000)
+
+    assert has_element?(
+             view,
+             ~s(#run-form input[name="run[selectedProfileId]"][value="typed-custom-profile"])
+           )
+
+    assert_received {:custom_profile_state, %{"selectedProfileId" => "typed-custom-profile"}}
+  end
+
+  test "workspace history restores and deletes records through the self-hosted API", %{conn: conn} do
+    test_pid = self()
+    {:ok, history_calls} = Agent.start_link(fn -> 0 end)
+
+    install_stub(
+      fn conn ->
+        case {conn.method, conn.request_path} do
+          {"POST", "/api/v1/state"} ->
+            {:ok, body, conn} = Plug.Conn.read_body(conn)
+            send(test_pid, {:workspace_state, Jason.decode!(body)})
+            Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+
+          {"DELETE", "/api/v1/history/run-test"} ->
+            send(test_pid, :workspace_deleted)
+            Req.Test.json(conn, APIFixtures.success(%{"deleted" => true}))
+
+          _ ->
+            unexpected(conn)
+        end
+      end,
+      history: fn conn ->
+        call = Agent.get_and_update(history_calls, fn value -> {value, value + 1} end)
+        page = if call == 0, do: [APIFixtures.history_item()], else: []
+        Req.Test.json(conn, APIFixtures.success(%{"items" => page}))
+      end
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    view |> element("#history-fold-toggle") |> render_click()
+    render_async(view, 1_000)
+
+    view
+    |> element(~s(button[phx-click="restore-history"][phx-value-run-id="run-test"]))
+    |> render_click()
+
+    render_async(view, 1_000)
+    assert_received {:workspace_state, %{"userPrompt" => "safe restored prompt"}}
+
+    assert has_element?(
+             view,
+             ~s(#run-form textarea[name="run[userPrompt]"]),
+             "safe restored prompt"
+           )
+
+    assert has_element?(
+             view,
+             ~s|button[phx-click="delete-history"][phx-value-run-id="run-test"]:not([disabled])|
+           )
+
+    view
+    |> element(~s(button[phx-click="delete-history"][phx-value-run-id="run-test"]))
+    |> render_click()
+
+    render_async(view, 1_000)
+    assert_received :workspace_deleted
+    assert Agent.get(history_calls, & &1) == 2
+    refute has_element?(view, "#workspace-history-run-test")
   end
 
   test "one async run renders normalized result fields", %{conn: conn} do
@@ -110,6 +219,42 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     submit_run(view, %{"callType" => "structured", "schema" => "{invalid"})
     assert has_element?(view, "#run-error", "valid JSON object schema")
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-034
+  test "translated prompt shortcut, schema debounce, and output request/response controls render",
+       %{
+         conn: conn
+       } do
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+
+        {"POST", "/api/v1/run"} ->
+          Req.Test.json(conn, APIFixtures.success(APIFixtures.run_result()))
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+
+    assert render(view) =~ ~s(phx-hook="PromptShortcut")
+    assert has_element?(view, ~s(#run_schema[phx-debounce="5000"]))
+
+    submit_run(view, %{"userPrompt" => "resource controls"})
+    render_async(view, 1_000)
+    view |> element("#output-details-toggle") |> render_click()
+    assert has_element?(view, "#show-run-request")
+    assert has_element?(view, "#show-run-response")
+
+    view |> element("#show-run-request") |> render_click()
+    assert has_element?(view, "#run-request", "profileId")
+    view |> element("#show-run-response") |> render_click()
+    assert has_element?(view, "#run-response", "fixture output")
   end
 
   test "duplicate active submits are ignored and the run button alone is disabled", %{conn: conn} do
@@ -185,6 +330,85 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert_redirect(view, ~p"/session/expired", 1_000)
   end
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-031
+  test "translates shorthand schemas, persists folds, and sends bounded retry controls", %{
+    conn: conn
+  } do
+    test_pid = self()
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          send(test_pid, {:saved_parity_state, Jason.decode!(body)})
+          Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+
+        {"POST", "/api/v1/run"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          send(test_pid, {:parity_run, Jason.decode!(body)})
+          Req.Test.json(conn, APIFixtures.success(APIFixtures.run_result()))
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+
+    view
+    |> form("#run-form", %{
+      "run" => %{
+        "selectedProfileId" => "Primary",
+        "modelId" => "model-override",
+        "userPrompt" => "schema parity",
+        "callType" => "structured",
+        "schemaShorthand" => ~s({"answer":"string"}),
+        "schema" => "",
+        "reasoningEffort" => "highest",
+        "cacheMode" => "cache",
+        "structuredRepair" => "true",
+        "maxAttempts" => "4",
+        "initialBackoffMs" => "500",
+        "maximumBackoffMs" => "8000",
+        "retryNetwork" => "true",
+        "retryRateLimit" => "true",
+        "retryServerError" => "false",
+        "retryEmpty" => "true",
+        "retryParse" => "true",
+        "repairEscalationProfileId" => "Backup",
+        "repairEscalationModelId" => "repair-model",
+        "repairEscalationAttempt" => "3",
+        "repairEscalationReasoning" => "highest"
+      }
+    })
+    |> render_change()
+
+    view |> element("#input-advanced-toggle") |> render_click()
+    view |> element("#generate-schema") |> render_click()
+    render_async(view, 1_000)
+
+    assert has_element?(view, "#schema-status", "Schema generated.")
+    assert_received {:saved_parity_state, %{"schemaShorthand" => ~s({"answer":"string"})}}
+
+    view |> form("#run-form") |> render_submit()
+    render_async(view, 1_000)
+
+    assert_received {:parity_run,
+                     %{
+                       "profileId" => "Primary",
+                       "modelId" => "model-override",
+                       "reasoningEffort" => "highest",
+                       "cacheMode" => "cache",
+                       "maxAttempts" => 4,
+                       "initialBackoffMs" => 500,
+                       "repairEscalation" => %{
+                         "profileId" => "Backup",
+                         "modelId" => "repair-model"
+                       }
+                     }}
+  end
+
   defp submit_run(view, overrides) do
     params =
       Map.merge(
@@ -204,7 +428,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     view |> form("#run-form", %{"run" => params}) |> render_submit()
   end
 
-  defp install_stub(handler) do
+  defp install_stub(handler, options \\ []) do
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/auth/session"} ->
@@ -217,7 +441,13 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
 
         {"GET", "/api/v1/history"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
+          case Keyword.get(options, :history) do
+            history when is_function(history, 1) ->
+              history.(conn)
+
+            _ ->
+              Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
+          end
 
         _ ->
           handler.(conn)

@@ -34,7 +34,8 @@ defmodule HardenLlmWeb.RenderingTest do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/state"} ->
-          Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+          state = Map.put(APIFixtures.state(), "ui", %{"historyOpen" => true})
+          Req.Test.json(conn, APIFixtures.success(nil, state))
 
         {"GET", "/api/v1/profiles"} ->
           Req.Test.json(conn, APIFixtures.success(%{"profiles" => []}))
@@ -57,7 +58,7 @@ defmodule HardenLlmWeb.RenderingTest do
     assert has_element?(workspace, ~s(label[for="run_selectedProfileId"]), "Profile")
     assert has_element?(workspace, ~s(label[for="run_userPrompt"]), "Prompt")
     assert has_element?(workspace, "#run-submit")
-    assert has_element?(workspace, "#workspace-history", "No runs yet.")
+    assert has_element?(workspace, "#workspace-history", "No runs yet in this session.")
     assert has_element?(workspace, ".sm\\:grid-cols-2")
 
     assert has_element?(
@@ -121,7 +122,11 @@ defmodule HardenLlmWeb.RenderingTest do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/state"} ->
-          state = Map.put(APIFixtures.state(), "selectedProfileId", long_profile)
+          state =
+            APIFixtures.state()
+            |> Map.put("selectedProfileId", long_profile)
+            |> Map.put("ui", %{"historyOpen" => true})
+
           Req.Test.json(conn, APIFixtures.success(nil, state))
 
         {"GET", "/api/v1/profiles"} ->

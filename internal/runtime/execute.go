@@ -116,6 +116,7 @@ func Execute(
 		var lastClassification retry.Classification
 		previousOutput := ""
 		repairAttempts := make(map[int]bool)
+		attemptProfiles := make(map[int]string)
 		providerContext := ctx
 		endProvider := func(error) {}
 		activeRetryConfig := retryConfig
@@ -129,8 +130,27 @@ func Execute(
 			if call.StructuredRepair.Enabled && RepairEligible(attemptNumber-1, retryConfig.MaxAttempts, lastClassification, len(call.Schema) > 0) {
 				repairCall := call
 				repairCall.Repair = buildRepairRequest(attemptNumber, retryConfig.MaxAttempts, previousOutput, call)
+				repairProfile := profile
+				repairCredential := credential
+				if repairCall.Repair.ProfileID != "" {
+					candidate, ok := profiles[repairCall.Repair.ProfileID]
+					if !ok {
+						lastFailure = errors.New("runtime: structured repair profile was not found")
+						lastClassification = retry.Classify(lastFailure, retryConfig.Policy)
+						return lastFailure
+					}
+					repairProfile = candidate
+					var credentialErr error
+					repairCredential, credentialErr = credentials(attemptContext, repairProfile)
+					if credentialErr != nil {
+						lastFailure = credentialErr
+						lastClassification = retry.Classify(lastFailure, retryConfig.Policy)
+						return lastFailure
+					}
+				}
+				attemptProfiles[attemptNumber] = repairProfile.ID
 				var prepareErr error
-				activePrepared, prepareErr = executor.Prepare(attemptContext, profile, credential, repairCall)
+				activePrepared, prepareErr = executor.Prepare(attemptContext, repairProfile, repairCredential, repairCall)
 				if prepareErr != nil {
 					lastFailure = prepareErr
 					lastClassification = retry.Classify(prepareErr, retryConfig.Policy)
@@ -211,6 +231,9 @@ func Execute(
 		endProvider(runErr)
 		for index := range attempts {
 			attempts[index].ProfileID = profileID
+			if repairProfileID := attemptProfiles[attempts[index].Number]; repairProfileID != "" {
+				attempts[index].ProfileID = repairProfileID
+			}
 			attempts[index].BackupIndex = backupIndex
 			attempts[index].Repair = repairAttempts[attempts[index].Number]
 		}
@@ -281,6 +304,7 @@ func buildRepairRequest(attempt, maxAttempts int, previousOutput string, call Ca
 	}
 	if escalation := call.StructuredRepair.Escalation; escalation != nil && attempt >= escalation.Attempt {
 		request.Escalated = true
+		request.ProfileID = escalation.ProfileID
 		request.ModelID = escalation.ModelID
 		request.ReasoningEffort = escalation.ReasoningEffort
 	}

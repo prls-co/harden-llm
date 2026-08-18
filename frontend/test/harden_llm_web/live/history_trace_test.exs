@@ -186,6 +186,52 @@ defmodule HardenLlmWeb.HistoryTraceTest do
     assert has_element?(view, "#history-load-more:not([disabled])")
   end
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-036
+  test "translated page-size control reloads the cursor history from page one", %{conn: conn} do
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path, conn.query_string} do
+        {"GET", "/api/v1/history", "limit=20"} ->
+          Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
+
+        {"GET", "/api/v1/history", "limit=50"} ->
+          item = Map.put(APIFixtures.history_item(), "runId", "run-page-size")
+          Req.Test.json(conn, APIFixtures.success(%{"items" => [item]}))
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/history")
+    render_async(view, 1_000)
+    view |> form("#history-pagination", %{"pageSize" => "50"}) |> render_change()
+    render_async(view, 1_000)
+
+    assert has_element?(view, "#history-run-page-size")
+    assert has_element?(view, "#history-pagination", "Page 1")
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-033
+  test "history expands redacted request/result records and exposes copy controls", %{conn: conn} do
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/history"} ->
+          Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/history")
+    render_async(view, 1_000)
+
+    view
+    |> element(~s(button[phx-click="toggle-history"][phx-value-run-id="run-test"]))
+    |> render_click()
+
+    assert has_element?(view, "#history-expanded", "Request")
+    assert has_element?(view, "#history-expanded", "safe restored prompt")
+    assert has_element?(view, "#history-run-stats", "Prompt tokens")
+    assert has_element?(view, "#copy-history-output")
+    assert has_element?(view, "#copy-history-curl")
+    refute render(view) =~ APIFixtures.token()
+  end
+
   defp install_stub(handler) do
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do

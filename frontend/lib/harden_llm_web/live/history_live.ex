@@ -11,6 +11,9 @@ defmodule HardenLlmWeb.HistoryLive do
       |> assign(:loading?, true)
       |> assign(:history_by_id, %{})
       |> assign(:next_cursor, nil)
+      |> assign(:page_size, 20)
+      |> assign(:page_number, 1)
+      |> assign(:expanded_history_id, nil)
       |> assign(:selected_trace_id, nil)
       |> assign(:trace, nil)
       |> assign(:trace_state, :idle)
@@ -35,12 +38,32 @@ defmodule HardenLlmWeb.HistoryLive do
   end
 
   @impl true
+  def handle_params(%{"trace_id" => trace_id}, _uri, socket)
+      when is_binary(trace_id) and trace_id != "" do
+    reference = System.unique_integer([:positive, :monotonic])
+    handle = socket.assigns.session_handle
+
+    {:noreply,
+     socket
+     |> assign(:pending, reference)
+     |> assign(:selected_trace_id, trace_id)
+     |> assign(:trace, nil)
+     |> assign(:trace_state, :loading)
+     |> start_async(
+       {:trace, reference, trace_id},
+       Observability.propagate(fn -> HardenAPI.get_trace(handle, trace_id) end)
+     )}
+  end
+
+  def handle_params(_params, _uri, socket), do: {:noreply, socket}
+
+  @impl true
   def handle_async(_operation, {:ok, {:error, %APIError{status: 401}}}, socket) do
     {:noreply, Auth.expire_live(socket)}
   end
 
   def handle_async(:load_history, {:ok, {:ok, page, _state}}, socket) do
-    {:noreply, put_page(socket, page, true)}
+    {:noreply, put_page(socket, page, true, 1)}
   end
 
   def handle_async(:load_history, _result, socket) do
@@ -55,7 +78,40 @@ defmodule HardenLlmWeb.HistoryLive do
         {:ok, {:ok, page, _state}},
         %{assigns: %{pending: reference}} = socket
       ) do
-    {:noreply, socket |> assign(:pending, nil) |> put_page(page, false)}
+    {:noreply,
+     socket
+     |> assign(:pending, nil)
+     |> put_page(page, false, socket.assigns.page_number + 1)}
+  end
+
+  def handle_async(
+        {:page_size, reference},
+        {:ok, {:ok, page, _state}},
+        %{assigns: %{pending: reference}} = socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:pending, nil)
+     |> put_page(page, true, 1)}
+  end
+
+  def handle_async(
+        {:page_size, reference},
+        {:ok, {:error, %APIError{} = error}},
+        %{assigns: %{pending: reference}} = socket
+      ) do
+    {:noreply, socket |> assign(:pending, nil) |> assign(:operation_error, error.message)}
+  end
+
+  def handle_async(
+        {:page_size, reference},
+        _result,
+        %{assigns: %{pending: reference}} = socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:pending, nil)
+     |> assign(:operation_error, "History page could not be loaded.")}
   end
 
   def handle_async(
@@ -114,6 +170,7 @@ defmodule HardenLlmWeb.HistoryLive do
      socket
      |> assign(:pending, nil)
      |> assign(:history_by_id, Map.delete(socket.assigns.history_by_id, run_id))
+     |> assign(:expanded_history_id, nil)
      |> stream_delete(:history, item)
      |> put_flash(:info, "History item deleted.")}
   end
@@ -129,6 +186,8 @@ defmodule HardenLlmWeb.HistoryLive do
      |> assign(:clear_confirm?, false)
      |> assign(:history_by_id, %{})
      |> assign(:next_cursor, nil)
+     |> assign(:page_number, 1)
+     |> assign(:expanded_history_id, nil)
      |> stream(:history, [], reset: true)
      |> put_flash(:info, "History cleared.")}
   end
@@ -189,12 +248,41 @@ defmodule HardenLlmWeb.HistoryLive do
      |> start_async(
        {:load_more, reference},
        Observability.propagate(fn ->
-         HardenAPI.list_history(handle, cursor: cursor, limit: 20)
+         HardenAPI.list_history(handle, cursor: cursor, limit: socket.assigns.page_size)
        end)
      )}
   end
 
   def handle_event("load-more", _params, socket), do: {:noreply, socket}
+
+  def handle_event(
+        "change-page-size",
+        %{"pageSize" => value},
+        %{assigns: %{pending: nil}} = socket
+      ) do
+    case Integer.parse(to_string(value)) do
+      {page_size, ""} when page_size in [10, 20, 50, 100] ->
+        reference = System.unique_integer([:positive, :monotonic])
+        handle = socket.assigns.session_handle
+
+        {:noreply,
+         socket
+         |> assign(:pending, reference)
+         |> assign(:page_size, page_size)
+         |> start_async(
+           {:page_size, reference},
+           Observability.propagate(fn -> HardenAPI.list_history(handle, limit: page_size) end)
+         )}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle-history", %{"run-id" => run_id}, socket) do
+    expanded = if socket.assigns.expanded_history_id == run_id, do: nil, else: run_id
+    {:noreply, assign(socket, :expanded_history_id, expanded)}
+  end
 
   def handle_event("open-trace", %{"trace-id" => trace_id}, socket) do
     reference = System.unique_integer([:positive, :monotonic])
@@ -273,8 +361,87 @@ defmodule HardenLlmWeb.HistoryLive do
   end
 
   def observation_data(observation), do: Jason.encode!(observation["data"] || %{}, pretty: true)
+  def history_json(value), do: Jason.encode!(value || %{}, pretty: true)
 
-  defp put_page(socket, page, reset?) do
+  def history_prompt_preview(item) do
+    case get_in(item, ["request", "userPrompt"]) do
+      prompt when is_binary(prompt) and prompt != "" -> String.slice(String.trim(prompt), 0, 140)
+      _ -> "No prompt preview"
+    end
+  end
+
+  def history_curl(item) do
+    request = item["request"] || %{}
+    body = Jason.encode!(request)
+    "curl -X POST /api/v1/run -H 'content-type: application/json' --data-raw '#{body}'"
+  end
+
+  def history_stats(item) do
+    usage = get_in(item, ["result", "usage"]) || %{}
+    cost = get_in(item, ["result", "cost"]) || %{}
+    attempts = get_in(item, ["result", "attempts"]) || []
+
+    %{
+      status: item["status"] || "unknown",
+      profile: item["profileId"] || "",
+      duration: duration_ms(item),
+      input_tokens: usage["inputTokens"] || 0,
+      cache_read_tokens: usage["cacheReadTokens"] || 0,
+      cache_creation_tokens: usage["cacheCreationTokens"] || 0,
+      output_tokens: usage["outputTokens"] || 0,
+      reasoning_tokens: usage["reasoningTokens"] || 0,
+      total_tokens: usage["totalTokens"] || 0,
+      known_cost: if(cost["known"] == false, do: nil, else: cost["totalUsd"]),
+      attempts: length(attempts)
+    }
+  end
+
+  def stats_summary(history_by_id) do
+    items = Map.values(history_by_id)
+    durations = items |> Enum.map(&duration_ms/1) |> Enum.reject(&is_nil/1)
+
+    %{
+      success: Enum.count(items, &(&1["status"] == "succeeded")),
+      failed: Enum.count(items, &(&1["status"] == "failed")),
+      timeout: Enum.count(items, &(&1["status"] == "timeout")),
+      prompt_tokens:
+        Enum.sum(Enum.map(items, &(get_in(&1, ["result", "usage", "inputTokens"]) || 0))),
+      cache_read_tokens:
+        Enum.sum(Enum.map(items, &(get_in(&1, ["result", "usage", "cacheReadTokens"]) || 0))),
+      cache_creation_tokens:
+        Enum.sum(Enum.map(items, &(get_in(&1, ["result", "usage", "cacheCreationTokens"]) || 0))),
+      output_tokens:
+        Enum.sum(Enum.map(items, &(get_in(&1, ["result", "usage", "outputTokens"]) || 0))),
+      reasoning_tokens:
+        Enum.sum(Enum.map(items, &(get_in(&1, ["result", "usage", "reasoningTokens"]) || 0))),
+      total_tokens:
+        Enum.sum(Enum.map(items, &(get_in(&1, ["result", "usage", "totalTokens"]) || 0))),
+      known_cost:
+        Enum.sum(
+          Enum.map(items, fn item ->
+            if get_in(item, ["result", "cost", "known"]) == false,
+              do: 0,
+              else: get_in(item, ["result", "cost", "totalUsd"]) || 0
+          end)
+        ),
+      average_duration:
+        if(durations == [], do: nil, else: div(Enum.sum(durations), length(durations)))
+    }
+  end
+
+  def expanded_history(history_by_id, run_id) when is_binary(run_id), do: history_by_id[run_id]
+  def expanded_history(_history_by_id, _run_id), do: nil
+
+  defp duration_ms(item) do
+    with {:ok, started, _} <- DateTime.from_iso8601(item["startedAt"] || ""),
+         {:ok, completed, _} <- DateTime.from_iso8601(item["completedAt"] || "") do
+      DateTime.diff(completed, started, :millisecond)
+    else
+      _ -> nil
+    end
+  end
+
+  defp put_page(socket, page, reset?, page_number) do
     items = page["items"] || []
     merged = Enum.reduce(items, socket.assigns.history_by_id, &Map.put(&2, &1["runId"], &1))
 
@@ -282,6 +449,7 @@ defmodule HardenLlmWeb.HistoryLive do
     |> assign(:loading?, false)
     |> assign(:history_by_id, merged)
     |> assign(:next_cursor, page["nextCursor"])
+    |> assign(:page_number, page_number)
     |> stream(:history, items, reset: reset?)
   end
 
@@ -294,8 +462,19 @@ defmodule HardenLlmWeb.HistoryLive do
       "userPrompt" => request["userPrompt"] || "",
       "callType" => request["callType"] || "text",
       "schema" => request["schema"],
+      "schemaShorthand" => request["schemaShorthand"] || "",
+      "reasoningEffort" => request["reasoningEffort"] || "lowest",
       "structuredRepair" => request["structuredRepair"] || false,
-      "cacheMode" => request["cacheMode"] || "off"
+      "cacheMode" => request["cacheMode"] || "off",
+      "maxAttempts" => request["maxAttempts"] || 0,
+      "initialBackoffMs" => request["initialBackoffMs"] || 0,
+      "maximumBackoffMs" => request["maximumBackoffMs"] || 0,
+      "retryNetwork" => request["retryNetwork"],
+      "retryRateLimit" => request["retryRateLimit"],
+      "retryServerError" => request["retryServerError"],
+      "retryEmpty" => request["retryEmpty"],
+      "retryParse" => request["retryParse"],
+      "repairEscalation" => request["repairEscalation"]
     }
   end
 

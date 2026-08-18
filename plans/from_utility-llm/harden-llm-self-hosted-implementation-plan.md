@@ -190,6 +190,7 @@ System: harden-llm
 - P05 adds OTel traces/metrics, `slog` JSON, Collector routing, failure isolation, and Grafana artifacts.
 - P06 adds the complete Compose/Caddy deployment, the byte-for-byte pinned upstream Langfuse fragment, and end-to-end diagnostic/artifact smoke.
 - P07 runs aggregate parity, full deterministic certification, timeout policy, optional live tests, and migration closure.
+- The P07 closeout received a post-certification frontend parity amendment on 2026-08-18 after the current `utility-llm` frontend inventory found missing Phoenix behavior. The amendment preserves the P07 backend phase and records its frontend scope, tests, and intentional adaptations in ADR-HLLM-012.
 
 ### Risk register
 
@@ -1036,7 +1037,7 @@ Phase goal: aggregate parity, full deterministic quality gates, timeout policy, 
 
 Scope and objectives, including impacted REQ-###: REQ-001 through REQ-020.
 
-Impacted surfaces: all backend-owned repository paths, parity manifest, `README.md`, operational docs, `ker/`, evidence, and backend release configuration. `frontend/` and `deploy/frontend/` remain outside this phase.
+Impacted surfaces: all backend-owned repository paths, parity manifest, `README.md`, operational docs, `ker/`, evidence, and backend release configuration. The original P07 backend closure kept `frontend/` and `deploy/frontend/` outside the backend gate; the post-certification frontend parity amendment below adds only the separate Phoenix/Go contract surfaces and does not make backend gates invoke the frontend.
 
 Lifecycle evidence:
 
@@ -1144,11 +1145,25 @@ Plan-and-Solve subtasks:
   - Expected result: Backend is self-contained, traceable, OpenAPI-conformant, and contains no Firebase, frontend implementation, or alternate runtime path.
   - Evidence produced: final docs, RTM, execution log, scans, and target dependency graph.
   - Stop/escalate condition: Stop if any target command requires the source repository after fixture capture.
+  - Unlocks: P07.S09.
+- `P07.S09 Reconcile the current utility-llm frontend parity inventory`
+  - Action: Implement the missing Workspace, Profiles, History, trace/resource, schema, retry, pricing, credential, and persisted-fold behavior through the existing Phoenix/Go/OpenAPI path; add the source-derived WEB-TEST-031 through WEB-TEST-036 cases; update the frontend specification, parity inventory, RTM, implementation status, ADR index, and release documentation.
+  - Why now: The original P07 closure certified the initial frontend baseline, but the current utility-llm frontend revision exposed functional controls that were not yet represented in the Phoenix console.
+  - Files/surfaces: `frontend/`, `api/openapi.yaml`, Go gateway/runtime projections, `docs/utility-llm-frontend-parity-inventory.md`, frontend specification, RTM, `plans/implementation-status.json`, and ADR-HLLM-012. No Firebase, GCP, browser provider, second persistence, or alternate runtime path is added.
+  - Requirement link: REQ-007, REQ-011, REQ-012, REQ-018, REQ-019 and `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`.
+  - Verification link: WEB-TEST-031 through WEB-TEST-036, `make verify`, `make test-compose`, the pinned Phoenix suite, and the desktop/mobile browser workflow.
+  - Verification mode: VERIFY
+  - Command/procedure: `mix format --check-formatted && mix compile --warnings-as-errors && mix test`; `mix test --only browser test/browser/full_workflow_test.exs`; `make verify`; `make test-compose`; `git diff --check`.
+  - Expected result: All translated controls are functional, secrets remain write-only/redacted, the backend contract remains one-way and self-hosted, and the final deterministic/browser/Compose gates pass.
+  - Evidence produced: parity inventory, ADR-HLLM-012, supplemental frontend test catalog, final gate results, and the release/deployment record.
+  - Deviation: native editable datalist and deep-link profile editor replace duplicated Downshift/inline editor ownership; cursor/limit pagination replaces offset/page-number quick-jump; the rationale is recorded in ADR-HLLM-012.
+  - KER impact: none; no production or test timeout changed.
   - Unlocks: P07 exit.
 
 Exit gates:
 
 - Proceed: TEST-001 through TEST-036, TEST-039, and TEST-040 pass; TEST-037/TEST-038 pass when configured or are explicitly recorded as not run.
+- Frontend closeout additionally requires WEB-TEST-001 through WEB-TEST-012 and WEB-TEST-031 through WEB-TEST-036, the exact Phoenix formatting/compile/unit gates, the browser workflow, and `make test-compose` when deployment validation is requested.
 - Escalate: unannotated parity difference, provider uncertainty, or target dependency remains.
 - Stop: release requires Firebase, duplicate telemetry, another implementation path, or substitution of a Langfuse-owned dependency.
 
@@ -1437,58 +1452,87 @@ Privacy and data-quality constraints:
 | P07 | REQ-015 | TEST-038 | `internal/smoke/live_gateway_test.go` | `go test ./internal/smoke/... -tags=live -run TestLiveGatewayLifecycle -count=1` |
 | P07 | REQ-014 | TEST-039 | `internal/testkit/timeout_policy_test.go` | `go test ./internal/testkit/... -run TestTimeoutPolicy -count=1` |
 
-## 11. Execution log template
+### Frontend parity closeout amendment
+
+| Amendment | Surface | Tests | Verification |
+| --- | --- | --- | --- |
+| P07.S09 | `frontend/lib/harden_llm_web/live/workspace_live.ex`, `profiles_live.ex`, `history_live.ex`, `api/openapi.yaml`, Go state/run projections | WEB-TEST-031 through WEB-TEST-036 | pinned Phoenix suite, browser workflow, `make verify`, `make test-compose` |
+
+## 11. Execution log
 
 ### Phase Status
 
-- Phase: Pxx
-- Status: Pending
-- Target SHA:
-- Source fixture SHA:
-- Evidence run ID:
+- Phase: P07 plus P07.S09 frontend parity closeout amendment
+- Status: Complete after final publication and deployment verification
+- Target SHA: recorded in the merged pull request and release certification
+- Backend source fixture SHA: `09769424ca34b9d759e273a7e9dccf4fd00a5f6c`
+- Frontend source revision: `utility-llm` `5c0309e` / `0.15.0`
+- Evidence: `make verify`, `make test-compose`, pinned Phoenix suite, browser workflow, and final deployed health/readback checks
 
 ### Completed Steps
 
 | Step | Result | Evidence path |
 | --- | --- | --- |
+| P07 deterministic closure | Pass | `make verify` |
+| P07 full Compose correlation | Pass after harness normalization | `make test-compose`; `internal/smoke/tempo_trace_id.go` |
+| P07.S09 utility frontend parity audit | Implemented and tested | `docs/utility-llm-frontend-parity-inventory.md`; WEB-TEST-031..036 |
+| Final frontend validation | Pass: Phoenix 77 passed/3 excluded; browser 2 passed | `frontend/` test suites |
 
 ### Quantitative Results
 
-| Metric | Mean | Std dev | 95% CI | Threshold | Result |
-| --- | --- | --- | --- | --- | --- |
+| Metric | Result | Threshold | Disposition |
+| --- | --- | --- | --- |
+| `make verify` | Pass; `govulncheck` reported zero called vulnerabilities | exit 0 | Accepted |
+| `make test-compose` | Pass in 175.231s after trace-ID parser fix | full correlation | Accepted |
+| Phoenix suite | 77 passed, 3 excluded | formatter, warnings-as-errors, unit suite | Accepted |
+| Browser workflow | 2 passed | desktop and mobile | Accepted |
 
 ### Issues/Resolutions
 
 | Issue | Root cause | Resolution | Verification |
 | --- | --- | --- | --- |
+| Compose correlation initially failed | Tempo returned a 31-character trace ID with one leading zero nibble omitted; the smoke parser required exactly 32 characters | Shared normalization restores the omitted nibble; unit coverage added for Compose/live helpers | `go test ./internal/smoke/...`; `make test-compose` |
+| Frontend parity was incomplete after original P07 closure | The original phase certified the initial Phoenix baseline while the current utility frontend had additional controls and behavior | Added P07.S09, source-derived WEB-TEST-031..036, parity inventory, and ADR-HLLM-012 | Phoenix/browser gates and inventory audit |
 
 ### Failed Attempts
 
 | Attempt | Command | Failure | Learning |
 | --- | --- | --- | --- |
+| First final Compose run | `make test-compose` | Tempo correlation remained 3/5 because the parser rejected the omitted leading zero | Normalize external trace-ID serialization; do not increase a timeout to mask a parser defect |
 
 ### Deviations
 
 | Planned | Actual | Reason | ADR |
 | --- | --- | --- | --- |
+| Initial frontend P07 baseline only | Added a post-P07 parity amendment covering the current utility frontend | The source-derived inventory found missing functional controls after the original frontend certification | ADR-HLLM-012 |
+| Utility Downshift inline/editor and offset quick-jump behavior | Native editable datalist/deep-link profile ownership and cursor/limit history | Preserve one Phoenix/Go owner and the authoritative cursor REST contract | ADR-HLLM-012 |
+| Timeout RCA record | No new KER | The Tempo correction changed parsing only; no timeout or budget changed | None |
 
 ### Lessons Learned
 
-- Entry:
+- The frontend source inventory is a living audit input. Keep source revision,
+  self-hosted adaptations, executable WEB tests, and the release record aligned
+  when the utility frontend changes.
 
 ### ADR Updates
 
 | ADR | Status | Decision |
 | --- | --- | --- |
+| ADR-HLLM-012 | Accepted | Complete the utility frontend behavior through one self-hosted Phoenix/Go path with explicit editor, pagination, and infrastructure adaptations. |
 
 ## 12. Appendix: ADR index
 
 | ADR | Status | Decision trigger |
 | --- | --- | --- |
-| ADR-HLLM-001 | Planned | Intentional JS-to-Go contract difference is accepted instead of fixed. |
-| ADR-HLLM-002 | Planned | Public root API gains or removes an execution surface. |
+| ADR-HLLM-001 | Accepted | Intentional JS-to-Go security, persistence, and telemetry projections are accepted instead of copied literally. |
+| ADR-HLLM-002 | Accepted | The public root API uses one typed Go call surface. |
 | ADR-HLLM-003 | Planned | Endpoint policy permits a new unsafe class or alternate transport. |
 | ADR-HLLM-004 | Planned | Metric/evaluation threshold changes. |
 | ADR-HLLM-005 | Planned | Timeout increases after the recorded baseline. |
 | ADR-HLLM-006 | Planned | A Harden-LLM storage owner changes, a second application database/object store is proposed, or a Langfuse-owned dependency is locally substituted. |
 | ADR-HLLM-007 | Planned | Temporal, Sentry, OIDC, idempotency infrastructure, retention automation, or backup automation enters scope. |
+| ADR-HLLM-008 | Accepted | Complete the redacted profile collection, historical-run, and process-bind REST contracts. |
+| ADR-HLLM-009 | Accepted | Keep the patched Phoenix LiveView 1.2.9 security pin. |
+| ADR-HLLM-010 | Accepted | Use independent read-only frontend Caddy and Grafana mount points. |
+| ADR-HLLM-011 | Accepted | Keep the Go 1.26.5 security-patched toolchain. |
+| ADR-HLLM-012 | Accepted | Complete utility frontend behavior through one self-hosted Phoenix/Go path with explicit editor, pagination, and infrastructure adaptations. |

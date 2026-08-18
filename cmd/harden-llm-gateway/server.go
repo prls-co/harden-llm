@@ -131,7 +131,7 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 	if err != nil {
 		return safeStartupError(redactor, "configure profile probe", err)
 	}
-	profileService, err := gateway.NewProfileService(gateway.ProfileServiceConfig{Store: store, Vault: vault, Prober: profileProber})
+	profileService, err := gateway.NewProfileService(gateway.ProfileServiceConfig{Store: store, Vault: vault, Prober: profileProber, Logger: logger})
 	if err != nil {
 		return safeStartupError(redactor, "configure profile service", err)
 	}

@@ -25,6 +25,7 @@ const (
 
 type RunInput struct {
 	ProfileID        string              `json:"profileId"`
+	ModelID          string              `json:"modelId,omitempty"`
 	SystemPrompt     string              `json:"systemPrompt,omitempty"`
 	UserPrompt       string              `json:"userPrompt"`
 	CallType         hardenllm.CallType  `json:"callType"`
@@ -36,6 +37,21 @@ type RunInput struct {
 	MaxAttempts      int                 `json:"maxAttempts,omitempty"`
 	StructuredRepair bool                `json:"structuredRepair,omitempty"`
 	TimeoutMS        int                 `json:"timeoutMs,omitempty"`
+	InitialBackoffMS int                 `json:"initialBackoffMs,omitempty"`
+	MaximumBackoffMS int                 `json:"maximumBackoffMs,omitempty"`
+	RetryNetwork     *bool               `json:"retryNetwork,omitempty"`
+	RetryRateLimit   *bool               `json:"retryRateLimit,omitempty"`
+	RetryServerError *bool               `json:"retryServerError,omitempty"`
+	RetryEmpty       *bool               `json:"retryEmpty,omitempty"`
+	RetryParse       *bool               `json:"retryParse,omitempty"`
+	RepairEscalation *RepairEscalation   `json:"repairEscalation,omitempty"`
+}
+
+type RepairEscalation struct {
+	Attempt         int    `json:"attempt"`
+	ProfileID       string `json:"profileId,omitempty"`
+	ModelID         string `json:"modelId"`
+	ReasoningEffort string `json:"reasoningEffort,omitempty"`
 }
 
 type RunArtifact struct {
@@ -144,7 +160,11 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 		return RunOutput{}, RunState{}, postgres.ErrNotFound
 	}
 	profile := catalog[input.ProfileID]
-	runStartedAt := time.Now()
+	if input.ModelID != "" {
+		profile.ModelID = strings.TrimSpace(input.ModelID)
+		catalog[input.ProfileID] = profile
+	}
+	runStartedAt := service.clock()
 	ctx, endRun := service.telemetry.StartOperation(ctx, OperationRun)
 	defer func() {
 		outcome, category := gatewayOutcome(err)
@@ -168,13 +188,25 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 		return RunOutput{}, RunState{}, errors.New("gateway: initialize runtime caller")
 	}
 	startedAt := service.clock().UTC()
-	result, callErr := caller.Call(ctx, hardenllm.Request{
+	callContext := ctx
+	var cancelCall context.CancelFunc
+	if input.TimeoutMS > 0 {
+		callContext, cancelCall = context.WithTimeout(ctx, time.Duration(input.TimeoutMS)*time.Millisecond)
+		defer cancelCall()
+	}
+	result, callErr := caller.Call(callContext, hardenllm.Request{
 		ProfileID: input.ProfileID, Profiles: catalog, SystemPrompt: input.SystemPrompt, UserPrompt: input.UserPrompt,
 		CallType: input.CallType, Schema: append(json.RawMessage(nil), input.Schema...),
 		ReasoningEffort: hardenllm.ReasoningEffort(input.ReasoningEffort), ProviderOptions: cloneAnyMap(input.ProviderOptions),
 		Context:   hardenllm.ObservabilityContext{TaskID: runID, RunID: runID, OrganizationID: ownerID},
 		CacheMode: input.CacheMode, CacheVersion: input.CacheVersion,
-		RetryPolicy: hardenllm.RetryPolicy{MaxAttempts: input.MaxAttempts, StructuredRepair: hardenllm.StructuredRepairPolicy{Enabled: input.StructuredRepair}},
+		RetryPolicy: hardenllm.RetryPolicy{
+			MaxAttempts: input.MaxAttempts, InitialBackoff: time.Duration(input.InitialBackoffMS) * time.Millisecond,
+			MaximumBackoff: time.Duration(input.MaximumBackoffMS) * time.Millisecond,
+			RetryNetwork:   input.RetryNetwork, RetryRateLimit: input.RetryRateLimit, RetryServerError: input.RetryServerError,
+			RetryEmpty: input.RetryEmpty, RetryParse: input.RetryParse,
+			StructuredRepair: hardenllm.StructuredRepairPolicy{Enabled: input.StructuredRepair, Escalation: repairEscalation(input.RepairEscalation)},
+		},
 	})
 	completedAt := service.clock().UTC()
 	traceID := result.TraceID
@@ -240,7 +272,7 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 }
 
 func validateRunInput(input RunInput) error {
-	if strings.TrimSpace(input.ProfileID) == "" || len(input.ProfileID) > 1500 || !utf8.ValidString(input.SystemPrompt) || !utf8.ValidString(input.UserPrompt) ||
+	if strings.TrimSpace(input.ProfileID) == "" || len(input.ProfileID) > 1500 || !utf8.ValidString(input.ModelID) || len(input.ModelID) > 512 || !utf8.ValidString(input.SystemPrompt) || !utf8.ValidString(input.UserPrompt) ||
 		len(input.SystemPrompt) > 32<<10 || len(input.UserPrompt) == 0 || len(input.UserPrompt) > 64<<10 {
 		return fmt.Errorf("%w: run fields", ErrInvalidRequest)
 	}
@@ -261,13 +293,31 @@ func validateRunInput(input RunInput) error {
 	if input.CacheMode != "" && input.CacheMode != hardenllm.CacheModeOff && input.CacheMode != hardenllm.CacheModeCache && input.CacheMode != hardenllm.CacheModeRefresh {
 		return fmt.Errorf("%w: cache mode", ErrInvalidRequest)
 	}
-	if len(input.CacheVersion) > 64 || (input.MaxAttempts < 0 || input.MaxAttempts > maximumRunAttempts) || input.TimeoutMS < 0 || input.TimeoutMS > 60000 {
+	if len(input.CacheVersion) > 64 || (input.MaxAttempts < 0 || input.MaxAttempts > maximumRunAttempts) || input.TimeoutMS < 0 || input.TimeoutMS > 60000 || input.InitialBackoffMS < 0 || input.InitialBackoffMS > 60000 || input.MaximumBackoffMS < 0 || input.MaximumBackoffMS > 600000 {
 		return fmt.Errorf("%w: run controls", ErrInvalidRequest)
+	}
+	if input.RepairEscalation != nil {
+		escalation := input.RepairEscalation
+		if escalation.Attempt < 2 || escalation.Attempt > maximumRunAttempts ||
+			(strings.TrimSpace(escalation.ProfileID) != "" && (!utf8.ValidString(escalation.ProfileID) || len(escalation.ProfileID) > 1500)) ||
+			!utf8.ValidString(escalation.ModelID) || strings.TrimSpace(escalation.ModelID) == "" || len(escalation.ModelID) > 512 ||
+			(escalation.ReasoningEffort != "" && escalation.ReasoningEffort != string(hardenllm.ReasoningEffortLowest) && escalation.ReasoningEffort != string(hardenllm.ReasoningEffortMiddle) && escalation.ReasoningEffort != string(hardenllm.ReasoningEffortHighest)) {
+			return fmt.Errorf("%w: repair escalation", ErrInvalidRequest)
+		}
 	}
 	if encoded, err := json.Marshal(input.ProviderOptions); err != nil || len(encoded) > 32<<10 || containsSecretKey(input.ProviderOptions) {
 		return fmt.Errorf("%w: provider options", ErrInvalidRequest)
 	}
 	return nil
+}
+
+func repairEscalation(input *RepairEscalation) *hardenllm.RepairEscalation {
+	if input == nil {
+		return nil
+	}
+	return &hardenllm.RepairEscalation{
+		Attempt: input.Attempt, ProfileID: strings.TrimSpace(input.ProfileID), ModelID: strings.TrimSpace(input.ModelID), ReasoningEffort: hardenllm.ReasoningEffort(strings.TrimSpace(input.ReasoningEffort)),
+	}
 }
 
 type ownerCacheStore struct {
