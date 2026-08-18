@@ -5,8 +5,8 @@
 This inventory records the frontend behavior that must be represented by the
 self-hosted Phoenix/Go application, subject to the self-hosted boundaries in
 this repository. It is based on the read-only `utility-llm` checkout at
-`5c0309e` (`chore(release): publish utility-llm 0.15.0`) and the current
-`harden-llm` checkout at `d3783a3`.
+`5c0309e` (`chore(release): publish utility-llm 0.15.0`) and the merged
+`harden-llm` checkout at `2c1a34f`.
 
 The parity target is behavior, not React or Firebase implementation. Firebase
 email/password auth, Firebase ID tokens, Firestore state, and signed Firebase
@@ -333,3 +333,8 @@ Final audit evidence for 2026-08-18:
   and mobile browser workflow passed with 2 tests.
 - `git diff --check`, JavaScript syntax checking, and Elixir formatting checks
   passed. `main` remains aligned with `origin/main`.
+- PR `#4` merged as `2c1a34f9737dd50b6af387c449f63d9299b166d1`; the gateway and
+  Phoenix images carrying that release are healthy, and public `/healthz`,
+  `/readyz`, and `/login` probes returned HTTP 200.
+- The direct `kin-openapi` dependency is pinned to `v0.144.0`, closing the two
+  GitHub security alerts discovered during publication.

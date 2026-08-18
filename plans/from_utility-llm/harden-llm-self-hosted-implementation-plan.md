@@ -1464,7 +1464,7 @@ Privacy and data-quality constraints:
 
 - Phase: P07 plus P07.S09 frontend parity closeout amendment
 - Status: Complete after final publication and deployment verification
-- Target SHA: recorded in the merged pull request and release certification
+- Target SHA: `2c1a34f9737dd50b6af387c449f63d9299b166d1` (PR `#4`)
 - Backend source fixture SHA: `09769424ca34b9d759e273a7e9dccf4fd00a5f6c`
 - Frontend source revision: `utility-llm` `5c0309e` / `0.15.0`
 - Evidence: `make verify`, `make test-compose`, pinned Phoenix suite, browser workflow, and final deployed health/readback checks
@@ -1477,13 +1477,14 @@ Privacy and data-quality constraints:
 | P07 full Compose correlation | Pass after harness normalization | `make test-compose`; `internal/smoke/tempo_trace_id.go` |
 | P07.S09 utility frontend parity audit | Implemented and tested | `docs/utility-llm-frontend-parity-inventory.md`; WEB-TEST-031..036 |
 | Final frontend validation | Pass: Phoenix 77 passed/3 excluded; browser 2 passed | `frontend/` test suites |
+| Publication and deployment | Pass: PR `#4` merged as `2c1a34f`; gateway/frontend images healthy; public API and frontend probes HTTP 200 | `docs/release-certification.md` |
 
 ### Quantitative Results
 
 | Metric | Result | Threshold | Disposition |
 | --- | --- | --- | --- |
 | `make verify` | Pass; `govulncheck` reported zero called vulnerabilities | exit 0 | Accepted |
-| `make test-compose` | Pass in 175.231s after trace-ID parser fix | full correlation | Accepted |
+| `make test-compose` | Pass in 176.997s after trace-ID parser fix | full correlation | Accepted |
 | Phoenix suite | 77 passed, 3 excluded | formatter, warnings-as-errors, unit suite | Accepted |
 | Browser workflow | 2 passed | desktop and mobile | Accepted |
 
@@ -1507,6 +1508,7 @@ Privacy and data-quality constraints:
 | Initial frontend P07 baseline only | Added a post-P07 parity amendment covering the current utility frontend | The source-derived inventory found missing functional controls after the original frontend certification | ADR-HLLM-012 |
 | Utility Downshift inline/editor and offset quick-jump behavior | Native editable datalist/deep-link profile ownership and cursor/limit history | Preserve one Phoenix/Go owner and the authoritative cursor REST contract | ADR-HLLM-012 |
 | Timeout RCA record | No new KER | The Tempo correction changed parsing only; no timeout or budget changed | None |
+| Production routing values | Public `*.prls.co` hostnames with tunnel-trusted private-PKI `internal` TLS | The first deployment inherited development `*.harden.localhost` values and returned 502; the corrected effective Compose config passed health/readiness probes | Release certification |
 
 ### Lessons Learned
 
@@ -1534,5 +1536,5 @@ Privacy and data-quality constraints:
 | ADR-HLLM-008 | Accepted | Complete the redacted profile collection, historical-run, and process-bind REST contracts. |
 | ADR-HLLM-009 | Accepted | Keep the patched Phoenix LiveView 1.2.9 security pin. |
 | ADR-HLLM-010 | Accepted | Use independent read-only frontend Caddy and Grafana mount points. |
-| ADR-HLLM-011 | Accepted | Keep the Go 1.26.5 security-patched toolchain. |
+| ADR-HLLM-011 | Accepted | Keep the current Go 1.26.6 security-patched toolchain after the original 1.26.5 decision. |
 | ADR-HLLM-012 | Accepted | Complete utility frontend behavior through one self-hosted Phoenix/Go path with explicit editor, pagination, and infrastructure adaptations. |

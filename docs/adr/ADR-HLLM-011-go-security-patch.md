@@ -9,15 +9,17 @@
 
 The implementation specifications selected Go 1.26.0. During P07,
 `govulncheck` found reachable standard-library vulnerabilities in TLS, X.509,
-HTTP, URL, and MIME-header paths. The newest finding, GO-2026-5856, requires Go
-1.26.5. These paths are relevant to the public gateway and provider egress
+HTTP, URL, and MIME-header paths. The newest finding, GO-2026-5856, required Go
+1.26.5. The certified build subsequently advanced to the 1.26.6 patch release
+with the same language and application contracts. These paths are relevant to
+the public gateway and provider egress
 boundary; suppressing the findings would not be a production-safe option.
 
 ## Decision
 
-Require Go 1.26.5 in `go.mod`, local certification, the gateway and fake-provider
+Require Go 1.26.6 in local certification, the gateway and fake-provider
 builders, and the frontend browser-test image. Pin the official
-`golang:1.26.5-alpine3.23` image by manifest digest. Keep the language/runtime
+`golang:1.26.6-alpine3.23` image by manifest digest. Keep the language/runtime
 minor version and every application contract unchanged.
 
 ## Consequences

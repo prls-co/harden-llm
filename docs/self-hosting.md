@@ -15,6 +15,13 @@ Use a public ACME account email as `HARDEN_LLM_TLS_MODE` in production. `interna
 uses Caddy's private CA and is appropriate only when clients explicitly trust it.
 Keep `.env` outside backups that leave the encrypted backup boundary.
 
+Do not reuse development routing values such as `*.harden.localhost` for a
+Cloudflare-tunneled production origin. Set the five `HARDEN_LLM_*_HOST` values
+to the public names configured by the tunnel. If the tunnel validates Caddy's
+private CA, keep `HARDEN_LLM_TLS_MODE=internal`; otherwise use the documented
+public ACME email value and validate the resulting certificate path before
+starting the stack.
+
 For the full product, define the exact project once in Bash:
 
 ```bash

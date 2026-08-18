@@ -2,7 +2,8 @@
 
 This document is the durable release summary for the 2026-07-13 v1 candidate,
 its 2026-08-09 utility-llm parity refresh, the 2026-08-10 production
-validation refresh, and the 2026-08-16 merged production handoff.
+validation refresh, the 2026-08-16 merged production handoff, and the
+2026-08-18 P07.S09 parity/security deployment.
 Detailed command output belongs under ignored
 `plans/evidence/harden-llm/<run-id>/`; secrets and live provider output never do.
 
@@ -14,6 +15,9 @@ Detailed command output belongs under ignored
 | Source repository | `github.com/prls-co/utility-llm` |
 | Captured source SHA | `09769424ca34b9d759e273a7e9dccf4fd00a5f6c` |
 | Source package | `@prls-co/utility-llm` `0.14.6` |
+| Current frontend parity source | `utility-llm` `5c0309e` / `0.15.0` |
+| Current merged release | PR `#4` / `2c1a34f9737dd50b6af387c449f63d9299b166d1` |
+| Security dependency remediation | `github.com/getkin/kin-openapi` `v0.144.0` |
 | Parity manifest SHA-256 | `973f138211910fbe58deca867d1569adf2b9660b53e1441a3607570e1f2c98a6` |
 | Langfuse release / commit | `v3.212.0` / `3a572984276dd2dc2f8f77f1b2aadb799aa17fdf` |
 | Upstream Compose SHA-256 | `f4502f5240857cf9189113fe6c32837ec28f46699415f7efb4b59a6f16423741` |
@@ -52,6 +56,8 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | utility-llm `0.14.6` parity refresh | `25e81a8` | complete |
 | production CPA/LiveView refresh | `df69d93` | complete |
 | merged production handoff/static CLI auth | `738d530` | complete |
+| P07.S09 utility-llm frontend parity and Tempo parser correction | `2c1a34f` | complete; PR `#4` merged |
+| kin-openapi security remediation | `2c1a34f` | complete; patched release `v0.144.0` |
 
 ## Final gate record
 
@@ -70,6 +76,9 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | Production frontend image | pass: Docker-reported 47,625,486-byte OTP release at `sha256:4773e3eb086dea97c1f3e1fbfce46f9e09780e477cc7099b3c744501d8c1311c`; OCI release `df69d93`, runtime UID `10001`, and no Mix/Hex/Rebar/Node/npm/Go toolchain |
 | Public frontend browser acceptance | pass: Chromium reached `/login`, rendered the operator form, and produced zero console errors after the hostname-scoped Cloudflare edge rule disabled Zaraz and RUM injection |
 | Current production images | pass: gateway `28,331,329` bytes at `sha256:78dd6afd26b1f5151267e82acad507cc8ed3991da316061580109941a7152218`, frontend `47,625,486` bytes at `sha256:1f0d4ed9ea629688177b7ce92126a168d6675b776885192a301ebfd398ace4ed`; both OCI release `738d530`, frontend runtime UID `10001` |
+| P07.S09 frontend parity gates | pass: Phoenix 77 passed/3 excluded, browser 2 passed, `make verify`, and `make test-compose` 176.997s |
+| Tempo trace-ID normalization | pass: 31/32-character external IDs covered by regression tests; no timeout budget changed |
+| kin-openapi security alerts | pass: `v0.144.0` is the first patched release for both GitHub alerts; CodeQL Go and JavaScript/TypeScript checks passed |
 
 The 2026-08-09 refresh upgraded `google.golang.org/grpc` to `v1.83.0`, Bandit to
 `1.12.4`, and Mint to `1.9.3`. `govulncheck` reports zero vulnerabilities in
@@ -78,6 +87,13 @@ uncalled vulnerability. The frontend dependency and Hex audits report no known
 advisories or retired packages. TEST-038 used the deployed operator plus real
 provider, Grafana, and Langfuse credentials; credential values and live provider
 output were not persisted in this document or committed fixtures.
+
+The 2026-08-18 closeout upgraded `github.com/getkin/kin-openapi` from
+`v0.142.0` to `v0.144.0` to remediate the critical authentication-bypass and
+medium validation-panic advisories. `govulncheck` reports zero called
+vulnerabilities; its only remaining module-level result is the unmaintained
+`golang.org/x/crypto/openpgp` package, which is not called and has no patched
+version.
 
 ## Production deployment
 
@@ -132,6 +148,25 @@ The active `shaman-cpa` and `koldun-harden-llm` tunnels each have four current
 connectors on shaman; local Harden containers and the obsolete local tunnel
 container were stopped without deleting the fifteen retained named volumes.
 
+On 2026-08-18, merged release
+`2c1a34f9737dd50b6af387c449f63d9299b166d1` was deployed from clean local
+`main` using the full Compose stack and the existing retained volumes. The
+gateway image was `sha256:cd9d44a8b4dc0a939bffc3239271fadb2bb1c5534640b2c3fb43701421ff6f76`
+and the frontend image was
+`sha256:965b30420dcbe8f754bbac3682f9534090f3cb2164dbf37e1d698e76eda5d5fd`;
+both carry the immutable release label
+`2c1a34f9737dd50b6af387c449f63d9299b166d1`. Gateway, frontend, Caddy,
+Collector, storage, databases, and observability services reported healthy.
+Public API `/healthz` and `/readyz`, frontend `/healthz`, and `/login` all
+returned HTTP 200.
+
+The first deployment invocation inherited the checkout's development
+`*.harden.localhost` hostnames, so Cloudflared returned HTTP 502 with an
+origin TLS error. No code or data was lost. The deployment was corrected by
+keeping the tunnel's private-PKI `internal` TLS mode while supplying the five
+production `*.prls.co` hostnames; the subsequent Compose wait and public probes
+passed.
+
 This is a single-origin deployment, not a high-availability topology. Current
 availability is tied to the shaman Docker host, its network, and the active
 Cloudflare connectors. Persistent Postgres, Garage, Langfuse, and observability
@@ -150,5 +185,5 @@ data live in named Docker volumes on shaman.
 - Phoenix stores bearer tokens only in its ephemeral ETS vault and never retries runs.
 
 Accepted deviations are ADR-HLLM-001, ADR-HLLM-002, ADR-HLLM-008,
-ADR-HLLM-009, ADR-HLLM-010, and ADR-HLLM-011. No other implementation drift is
+ADR-HLLM-009, ADR-HLLM-010, ADR-HLLM-011, and ADR-HLLM-012. No other implementation drift is
 accepted.
