@@ -85,7 +85,7 @@
     "note": "The source checkout was clean at capture and the capture script verified that its HEAD matched the recorded SHA. The full core manifest currently requires the unavailable dev dependency typescript/bin/tsc; no source files were modified."
   },
   "toolchain": {
-    "go": "go1.26.5",
+    "go": "go1.26.6",
     "node": "v22.22.0",
     "npm": "9.2.0",
     "docker": "29.1.3",
@@ -114,7 +114,11 @@
     },
     {
       "adr": "ADR-HLLM-011",
-      "summary": "Go 1.26.5 replaces 1.26.0 to remove reachable standard-library vulnerabilities without changing the language baseline."
+      "summary": "Go 1.26.6 is the current security-patched point release after the original 1.26.5 decision; language and application contracts remain unchanged."
+    },
+    {
+      "adr": "ADR-HLLM-012",
+      "summary": "The current utility-llm frontend behavior is completed through one self-hosted Phoenix/Go path with explicit editor, pagination, and infrastructure adaptations."
     }
   ],
   "frontend": {
@@ -134,8 +138,21 @@
       "gitSHA": "5c0309e",
       "packageVersion": "0.15.0"
     },
-    "parityCompletedAt": "2026-08-18T00:00:00Z",
+    "parityCompletedAt": "2026-08-18T19:35:04Z",
     "parityAdaptationADR": "ADR-HLLM-012",
+    "parityRelease": {
+      "pullRequest": 4,
+      "commit": "2c1a34f9737dd50b6af387c449f63d9299b166d1",
+      "gatewayImage": "sha256:cd9d44a8b4dc0a939bffc3239271fadb2bb1c5534640b2c3fb43701421ff6f76",
+      "frontendImage": "sha256:965b30420dcbe8f754bbac3682f9534090f3cb2164dbf37e1d698e76eda5d5fd",
+      "deployedAt": "2026-08-18T19:35:04Z",
+      "probes": {
+        "apiHealthz": 200,
+        "apiReadyz": 200,
+        "frontendHealthz": 200,
+        "frontendLogin": 200
+      }
+    },
     "parityVerification": {
       "phoenix": "77 passed, 3 excluded",
       "browser": "2 passed",
