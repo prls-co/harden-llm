@@ -25,11 +25,73 @@ import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/harden_llm"
 import topbar from "../vendor/topbar"
 
+const Clipboard = {
+  mounted() {
+    this.copy = async () => {
+      const value = this.el.dataset.copyValue || ""
+      const label = this.el.textContent
+      try {
+        await navigator.clipboard.writeText(value)
+        this.el.textContent = "Copied"
+        window.setTimeout(() => {
+          if (this.el.isConnected) this.el.textContent = label
+        }, 1200)
+      } catch (_error) {
+        this.el.textContent = "Copy failed"
+        window.setTimeout(() => {
+          if (this.el.isConnected) this.el.textContent = label
+        }, 1200)
+      }
+    }
+    this.el.addEventListener("click", this.copy)
+  },
+  destroyed() {
+    this.el.removeEventListener("click", this.copy)
+  },
+}
+
+const PromptShortcut = {
+  mounted() {
+    this.submit = event => {
+      if (event.key !== "Enter" || (!event.ctrlKey && !event.metaKey) || event.altKey || event.shiftKey) return
+      const form = document.getElementById(this.el.dataset.formId || "run-form")
+      if (!form || form.querySelector("button[type='submit']")?.disabled) return
+      event.preventDefault()
+      form.requestSubmit()
+    }
+    this.el.addEventListener("keydown", this.submit)
+  },
+  destroyed() {
+    this.el.removeEventListener("keydown", this.submit)
+  },
+}
+
+const SchemaPending = {
+  mounted() {
+    this.markPending = () => {
+      const status = document.getElementById(this.el.dataset.statusId || "schema-status")
+      if (!status) return
+      if (this.el.value.trim() === "") {
+        status.textContent = ""
+        status.removeAttribute("role")
+      } else {
+        status.textContent = "Schema check pending."
+        status.className = "text-xs text-slate-500"
+        status.removeAttribute("role")
+      }
+    }
+    this.el.addEventListener("input", this.markPending)
+  },
+  destroyed() {
+    this.el.removeEventListener("input", this.markPending)
+  },
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks},
+  hooks: {...colocatedHooks, Clipboard, PromptShortcut, SchemaPending},
 })
 
 // Show progress bar on live navigation and form submits

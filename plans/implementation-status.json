@@ -124,7 +124,23 @@
     "tests": [
       "WEB-TEST-001", "WEB-TEST-002", "WEB-TEST-003", "WEB-TEST-004",
       "WEB-TEST-005", "WEB-TEST-006", "WEB-TEST-007", "WEB-TEST-008",
-      "WEB-TEST-009", "WEB-TEST-010", "WEB-TEST-011", "WEB-TEST-012"
-    ]
+      "WEB-TEST-009", "WEB-TEST-010", "WEB-TEST-011", "WEB-TEST-012",
+      "WEB-TEST-031", "WEB-TEST-032", "WEB-TEST-033", "WEB-TEST-034",
+      "WEB-TEST-035", "WEB-TEST-036"
+    ],
+    "parityInventory": "docs/utility-llm-frontend-parity-inventory.md",
+    "paritySource": {
+      "repository": "/home/kirill/utility-llm",
+      "gitSHA": "5c0309e",
+      "packageVersion": "0.15.0"
+    },
+    "parityCompletedAt": "2026-08-18T00:00:00Z",
+    "parityAdaptationADR": "ADR-HLLM-012",
+    "parityVerification": {
+      "phoenix": "77 passed, 3 excluded",
+      "browser": "2 passed",
+      "backend": "make verify passed",
+      "compose": "make test-compose passed"
+    }
   }
 }

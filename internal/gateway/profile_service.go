@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net"
 	"net/netip"
 	"net/url"
@@ -34,6 +35,7 @@ type ProfileServiceConfig struct {
 	Prober       ProfileProber
 	Clock        func() time.Time
 	ProbeTimeout time.Duration
+	Logger       *slog.Logger
 }
 
 type ProfileService struct {
@@ -42,6 +44,7 @@ type ProfileService struct {
 	prober       ProfileProber
 	clock        func() time.Time
 	probeTimeout time.Duration
+	logger       *slog.Logger
 }
 
 type SaveProfileRequest struct {
@@ -70,7 +73,10 @@ func NewProfileService(config ProfileServiceConfig) (*ProfileService, error) {
 	if config.ProbeTimeout < time.Millisecond || config.ProbeTimeout > maximumProbeTimeout {
 		return nil, errors.New("gateway: profile probe timeout is outside the supported range")
 	}
-	return &ProfileService{store: config.Store, vault: config.Vault, prober: config.Prober, clock: config.Clock, probeTimeout: config.ProbeTimeout}, nil
+	if config.Logger == nil {
+		config.Logger = slog.New(slog.DiscardHandler)
+	}
+	return &ProfileService{store: config.Store, vault: config.Vault, prober: config.Prober, clock: config.Clock, probeTimeout: config.ProbeTimeout, logger: config.Logger}, nil
 }
 
 func (service *ProfileService) Save(ctx context.Context, request SaveProfileRequest) (ProfileState, error) {
@@ -144,6 +150,7 @@ func (service *ProfileService) Save(ctx context.Context, request SaveProfileRequ
 	err = service.prober.Probe(probeContext, request.Profile, credentialCopy)
 	cancel()
 	if err != nil {
+		service.logger.ErrorContext(ctx, "profile probe failed", "profile", request.ProfileID, "error", err)
 		return ProfileState{}, errors.New("gateway: profile probe failed")
 	}
 

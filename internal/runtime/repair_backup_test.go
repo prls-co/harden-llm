@@ -89,6 +89,46 @@ func TestStructuredRepair(t *testing.T) {
 		}
 	})
 
+	t.Run("repair escalation switches profile and credential", func(t *testing.T) {
+		executor := &repairSequenceExecutor{}
+		_, err := Execute(
+			context.Background(), executor,
+			func(_ context.Context, profile Profile) (Credential, error) {
+				return Credential{APIKey: profile.ID + "-credential"}, nil
+			},
+			"primary", map[string]Profile{
+				"primary": {ID: "primary", ModelID: "primary-model"},
+				"backup":  {ID: "backup", ModelID: "backup-model"},
+			},
+			Call{
+				CallType: "structured", Schema: json.RawMessage(`{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"],"additionalProperties":false}`),
+				StructuredRepair: StructuredRepair{Enabled: true, Escalation: &RepairEscalation{Attempt: 2, ProfileID: "backup", ModelID: "repair-model"}},
+				ValidateStructured: func(value any) error {
+					object, ok := value.(map[string]any)
+					if !ok || object["answer"] != "ok" {
+						return errors.New("answer must be ok string")
+					}
+					return nil
+				},
+			},
+			retry.Config{
+				MaxAttempts: 2,
+				Policy:      retry.Policy{ParseError: true},
+				Wait:        func(context.Context, time.Duration) error { return nil },
+			},
+			nil, cachekey.ModeOff, "operation-v2", "call", "trace",
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(executor.profiles, []string{"primary", "backup"}) {
+			t.Fatalf("prepared profiles = %#v", executor.profiles)
+		}
+		if !reflect.DeepEqual(executor.credentials, []string{"primary-credential", "backup-credential"}) {
+			t.Fatalf("prepared credentials = %#v", executor.credentials)
+		}
+	})
+
 	t.Run("terminal parse failure preserves billable accounting", func(t *testing.T) {
 		executor := partialFailureExecutor{}
 		record, err := Execute(
@@ -115,12 +155,16 @@ func TestStructuredRepair(t *testing.T) {
 }
 
 type repairSequenceExecutor struct {
-	prepares int
-	executes int
+	prepares    int
+	executes    int
+	profiles    []string
+	credentials []string
 }
 
-func (executor *repairSequenceExecutor) Prepare(_ context.Context, _ Profile, _ Credential, call Call) (PreparedOperation, error) {
+func (executor *repairSequenceExecutor) Prepare(_ context.Context, profile Profile, credential Credential, call Call) (PreparedOperation, error) {
 	executor.prepares++
+	executor.profiles = append(executor.profiles, profile.ID)
+	executor.credentials = append(executor.credentials, credential.APIKey)
 	return PreparedOperation{
 		Operation: cachekey.Operation{
 			SchemaVersion: cachekey.OperationSchemaVersion,

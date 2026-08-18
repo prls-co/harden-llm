@@ -109,6 +109,7 @@ configuration to disable it.
 - [API and library examples](docs/api-and-library.md)
 - [Requirements traceability](docs/requirements-traceability.md)
 - [Release certification](docs/release-certification.md)
+- [utility-llm frontend parity inventory](docs/utility-llm-frontend-parity-inventory.md)
 - [Langfuse upstream provenance](deploy/langfuse/UPSTREAM.md)
 - [Architecture decisions](docs/adr/README.md)
 

@@ -14,6 +14,7 @@
         id="clear-history"
         type="button"
         phx-click="confirm-clear"
+        disabled={map_size(@history_by_id) == 0 or not is_nil(@pending)}
         class="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-600"
       >
         <.icon name="hero-trash" class="size-4" /> Clear history
@@ -64,6 +65,12 @@
                 <span class="mt-2 inline-flex rounded-full border border-slate-200 px-2 py-0.5 text-[11px] font-medium sm:hidden">
                   {item["status"]}
                 </span>
+                <p
+                  class="mt-2 max-w-56 truncate text-xs text-slate-600"
+                  title={history_prompt_preview(item)}
+                >
+                  {history_prompt_preview(item)}
+                </p>
               </td>
               <td class="hidden max-w-48 px-5 py-4 sm:table-cell">
                 <span class="block truncate" title={item["profileId"]}>{item["profileId"]}</span>
@@ -78,6 +85,14 @@
               </td>
               <td class="whitespace-nowrap px-3 py-4 sm:px-5">
                 <div class="flex justify-end gap-1">
+                  <button
+                    type="button"
+                    phx-click="toggle-history"
+                    phx-value-run-id={item["runId"]}
+                    title="Show request and result"
+                    aria-label="Show request and result"
+                    class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600"
+                  ><.icon name="hero-chevron-down" class="size-4" /></button>
                   <button
                     type="button"
                     phx-click="restore"
@@ -108,15 +123,176 @@
           </tbody>
         </table>
       </div>
-      <div :if={@next_cursor} class="border-t border-slate-200 p-4 text-center">
+      <div
+        :if={expanded_history(@history_by_id, @expanded_history_id)}
+        id="history-expanded"
+        class="border-t border-slate-200 bg-slate-50 p-5"
+      >
+        <% item = expanded_history(@history_by_id, @expanded_history_id) %>
+        <% run_stats = history_stats(item) %>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="font-semibold text-slate-950">Run {@expanded_history_id}</h2>
+            <p class="mt-1 text-xs text-slate-500">
+              Request, result, and a credential-free replay command.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button
+              id="copy-history-output"
+              type="button"
+              phx-hook="Clipboard"
+              data-copy-value={history_json(item["result"] || %{})}
+              class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold"
+            >Copy result</button>
+            <button
+              id="copy-history-curl"
+              type="button"
+              phx-hook="Clipboard"
+              data-copy-value={history_curl(item)}
+              class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold"
+            >Copy cURL</button>
+          </div>
+        </div>
+        <div class="mt-4 grid gap-4 lg:grid-cols-2">
+          <div>
+            <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Request
+            </h3><pre class="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-white p-4 text-xs text-slate-700"><%= history_json(item["request"]) %></pre>
+          </div>
+          <div>
+            <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Result
+            </h3><pre class="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-white p-4 text-xs text-slate-700"><%= history_json(item["result"]) %></pre>
+          </div>
+        </div>
+        <dl
+          id="history-run-stats"
+          class="mt-4 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4 lg:grid-cols-7"
+        >
+          <div class="rounded-lg bg-white p-3">
+            <dt class="text-slate-500">Status</dt><dd class="mt-1 font-semibold">
+              {run_stats.status}
+            </dd>
+          </div>
+          <div class="rounded-lg bg-white p-3">
+            <dt class="text-slate-500">Duration ms</dt><dd class="mt-1 font-mono font-semibold">
+              {run_stats.duration || "—"}
+            </dd>
+          </div>
+          <div class="rounded-lg bg-white p-3">
+            <dt class="text-slate-500">Prompt tokens</dt><dd class="mt-1 font-mono font-semibold">
+              {run_stats.input_tokens}
+            </dd>
+          </div>
+          <div class="rounded-lg bg-white p-3">
+            <dt class="text-slate-500">Cache read</dt><dd class="mt-1 font-mono font-semibold">
+              {run_stats.cache_read_tokens}
+            </dd>
+          </div>
+          <div class="rounded-lg bg-white p-3">
+            <dt class="text-slate-500">Output tokens</dt><dd class="mt-1 font-mono font-semibold">
+              {run_stats.output_tokens}
+            </dd>
+          </div>
+          <div class="rounded-lg bg-white p-3">
+            <dt class="text-slate-500">Total tokens</dt><dd class="mt-1 font-mono font-semibold">
+              {run_stats.total_tokens}
+            </dd>
+          </div>
+          <div class="rounded-lg bg-white p-3">
+            <dt class="text-slate-500">Known cost</dt><dd class="mt-1 font-mono font-semibold">
+              {run_stats.known_cost || "—"}
+            </dd>
+          </div>
+        </dl>
+      </div>
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 p-4">
+        <form
+          id="history-pagination"
+          phx-change="change-page-size"
+          class="flex items-center gap-2 text-xs text-slate-600"
+        >
+          <label for="history-page-size">Rows per page</label>
+          <select
+            id="history-page-size"
+            name="pageSize"
+            class="rounded-lg border border-slate-200 bg-white px-2 py-1.5"
+          >
+            <option value="10" selected={@page_size == 10}>10</option>
+            <option value="20" selected={@page_size == 20}>20</option>
+            <option value="50" selected={@page_size == 50}>50</option>
+            <option value="100" selected={@page_size == 100}>100</option>
+          </select>
+          <span>Page {@page_number}</span>
+        </form>
         <button
+          :if={@next_cursor}
           id="history-load-more"
           type="button"
           phx-click="load-more"
           disabled={not is_nil(@pending)}
           class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50"
-        >Load more</button>
+        >Next page</button>
       </div>
+    </section>
+
+    <% stats = stats_summary(@history_by_id) %>
+    <section
+      id="history-stats-summary"
+      class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+    >
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="font-semibold text-slate-950">LLM stats summary</h2>
+        <span class="text-xs text-slate-500">Loaded records only</span>
+      </div>
+      <dl class="mt-4 grid grid-cols-2 gap-3 text-xs sm:grid-cols-3 lg:grid-cols-6">
+        <div class="rounded-lg bg-slate-50 p-3">
+          <dt class="text-slate-500">Success</dt><dd class="mt-1 font-mono font-semibold">
+            {stats.success}
+          </dd>
+        </div>
+        <div class="rounded-lg bg-slate-50 p-3">
+          <dt class="text-slate-500">Failed</dt><dd class="mt-1 font-mono font-semibold">
+            {stats.failed}
+          </dd>
+        </div>
+        <div class="rounded-lg bg-slate-50 p-3">
+          <dt class="text-slate-500">Timeout</dt><dd class="mt-1 font-mono font-semibold">
+            {stats.timeout}
+          </dd>
+        </div>
+        <div class="rounded-lg bg-slate-50 p-3">
+          <dt class="text-slate-500">Prompt tokens</dt><dd class="mt-1 font-mono font-semibold">
+            {stats.prompt_tokens}
+          </dd>
+        </div>
+        <div class="rounded-lg bg-slate-50 p-3">
+          <dt class="text-slate-500">Cache read</dt><dd class="mt-1 font-mono font-semibold">
+            {stats.cache_read_tokens}
+          </dd>
+        </div>
+        <div class="rounded-lg bg-slate-50 p-3">
+          <dt class="text-slate-500">Output tokens</dt><dd class="mt-1 font-mono font-semibold">
+            {stats.output_tokens}
+          </dd>
+        </div>
+        <div class="rounded-lg bg-slate-50 p-3">
+          <dt class="text-slate-500">Tokens</dt><dd class="mt-1 font-mono font-semibold">
+            {stats.total_tokens}
+          </dd>
+        </div>
+        <div class="rounded-lg bg-slate-50 p-3">
+          <dt class="text-slate-500">Known cost</dt><dd class="mt-1 font-mono font-semibold">
+            {stats.known_cost}
+          </dd>
+        </div>
+        <div class="rounded-lg bg-slate-50 p-3">
+          <dt class="text-slate-500">Avg ms</dt><dd class="mt-1 font-mono font-semibold">
+            {stats.average_duration || "—"}
+          </dd>
+        </div>
+      </dl>
     </section>
 
     <div
@@ -169,6 +345,20 @@
         <div :if={@trace_state == :ready && @trace} class="space-y-6">
           <section>
             <h3 class="mb-3 text-sm font-semibold text-slate-950">Observations</h3>
+            <div class="mb-4 flex items-center justify-between gap-3">
+              <span class="text-xs text-slate-500">Redacted trace record</span>
+              <button
+                id="copy-trace-json"
+                type="button"
+                phx-hook="Clipboard"
+                data-copy-value={history_json(@trace["record"])}
+                class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold"
+              >Copy JSON trace</button>
+            </div>
+            <pre
+              id="trace-record"
+              class="mb-4 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-slate-950 p-4 text-xs text-slate-100"
+            ><%= history_json(@trace["record"]) %></pre>
             <ol id="trace-observations" class="space-y-3">
               <li
                 :for={observation <- @trace["observations"] || []}

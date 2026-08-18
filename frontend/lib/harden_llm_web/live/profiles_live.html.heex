@@ -6,8 +6,8 @@
           Configuration
         </p>
         <h1 class="mt-1 text-3xl font-semibold tracking-tight text-slate-950">Profiles</h1>
-        <p class="mt-2 max-w-2xl text-sm text-slate-600">
-          Endpoints, model interfaces, pricing status, and write-only credentials remain backend-owned.
+        <p class="mt-2 max-w-3xl text-sm text-slate-600">
+          Endpoints, model interfaces, fallbacks, provider options, retry policy, pricing, and write-only credentials remain backend-owned.
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
@@ -82,12 +82,13 @@
               <th scope="col" class="hidden px-5 py-3 sm:table-cell">Endpoint</th>
               <th scope="col" class="hidden px-5 py-3 sm:table-cell">Credential</th>
               <th scope="col" class="hidden px-5 py-3 sm:table-cell">Models</th>
+              <th scope="col" class="hidden px-5 py-3 lg:table-cell">Controls</th>
               <th scope="col" class="px-5 py-3"><span class="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody id="profiles" phx-update="stream" class="divide-y divide-slate-100">
             <tr id="profiles-empty" class="hidden only:table-row">
-              <td colspan="6" class="px-5 py-10 text-center text-slate-500">
+              <td colspan="7" class="px-5 py-10 text-center text-slate-500">
                 No profiles configured.
               </td>
             </tr>
@@ -124,6 +125,22 @@
               </td>
               <td class="hidden px-5 py-4 text-xs text-slate-600 sm:table-cell">
                 {models_count(profile_state)}
+              </td>
+              <td class="hidden px-5 py-4 text-xs text-slate-600 lg:table-cell">
+                <div class="flex flex-wrap gap-1">
+                  <span
+                    :if={backup_names(profile_state) != []}
+                    class="rounded-full bg-slate-100 px-2 py-1"
+                  >{length(backup_names(profile_state))} fallbacks</span>
+                  <span
+                    :if={option_present?(profile_state)}
+                    class="rounded-full bg-slate-100 px-2 py-1"
+                  >options</span>
+                  <span
+                    :if={pricing_present?(profile_state)}
+                    class="rounded-full bg-slate-100 px-2 py-1"
+                  >pricing</span>
+                </div>
               </td>
               <td class="whitespace-nowrap px-3 py-4 sm:px-5">
                 <div class="flex justify-end gap-1">
@@ -167,11 +184,16 @@
       aria-labelledby="profile-dialog-title"
       class="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 p-4 backdrop-blur-sm"
     >
-      <section class="my-6 w-full max-w-3xl rounded-2xl bg-white p-6 shadow-2xl">
+      <section class="my-6 w-full max-w-4xl rounded-2xl bg-white p-6 shadow-2xl">
         <div class="mb-5 flex items-center justify-between gap-4">
-          <h2 id="profile-dialog-title" class="text-xl font-semibold text-slate-950">
-            Profile configuration
-          </h2>
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+              LLM profile
+            </p>
+            <h2 id="profile-dialog-title" class="mt-1 text-xl font-semibold text-slate-950">
+              Profile configuration
+            </h2>
+          </div>
           <button
             id="profile-dialog-close"
             type="button"
@@ -181,7 +203,13 @@
             class="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
           ><.icon name="hero-x-mark" class="size-5" /></button>
         </div>
-        <.form for={@form} id="profile-form" phx-submit="save" class="space-y-4">
+        <.form
+          for={@form}
+          id="profile-form"
+          phx-change="draft-change"
+          phx-submit="save"
+          class="space-y-4"
+        >
           <div class="grid gap-4 sm:grid-cols-2">
             <div>
               <.input field={@form[:profileId]} label="Profile name" required /><.field_error message={
@@ -197,42 +225,193 @@
               <.input
                 field={@form[:apiInferenceType]}
                 type="select"
-                label="API interface"
+                label="API inference type"
                 options={[
                   {"OpenAI Responses", "responses"},
-                  {"OpenAI chat completions", "chat-completions"},
-                  {"Gemini generate content", "gemini-generate-content"},
-                  {"Anthropic messages", "anthropic-messages"}
+                  {"OpenAI Chat Completions", "chat-completions"},
+                  {"Gemini Generate Content", "gemini-generate-content"},
+                  {"Anthropic Messages", "anthropic-messages"}
                 ]}
-              /><.field_error message={field_error(@field_errors, "apiInferenceType")} />
-            </div>
-            <div>
-              <.input field={@form[:modelId]} label="Default model" required /><.field_error message={
-                field_error(@field_errors, "modelId")
-              } />
-            </div>
-          </div>
-          <div>
-            <.input field={@form[:baseUrl]} type="url" label="HTTPS base URL" required /><.field_error message={
-              field_error(@field_errors, "baseUrl")
-            } />
-          </div>
-          <div class="grid gap-4 sm:grid-cols-2">
-            <div>
-              <.input field={@form[:credentialId]} label="Credential ID" required /><.field_error message={
-                field_error(@field_errors, "credentialId")
-              } />
+              />
+              <.field_error message={field_error(@field_errors, "apiInferenceType")} />
             </div>
             <div>
               <.input
-                field={@form[:apiKey]}
-                type="password"
-                label="Replacement credential (leave blank to keep current)"
-                autocomplete="new-password"
-              /><.field_error message={field_error(@field_errors, "credential.apiKey")} />
+                field={@form[:modelId]}
+                label="Default model ID"
+                required
+                list="profile-model-options"
+                autocomplete="off"
+              />
+              <datalist id="profile-model-options">
+                <option
+                  :for={model <- model_options(@profiles_by_id, @form[:profileId].value)}
+                  value={model["id"]}
+                >
+                  {model["label"]}
+                </option>
+              </datalist>
+              <.field_error message={field_error(@field_errors, "modelId")} />
             </div>
           </div>
-          <.input field={@form[:backupProfiles]} label="Backup profiles (comma separated)" />
+          <div>
+            <.input
+              field={@form[:baseUrl]}
+              type="url"
+              label="HTTPS base URL"
+              required
+              list="profile-base-url-options"
+              autocomplete="off"
+            />
+            <datalist id="profile-base-url-options">
+              <option :for={base_url <- known_base_urls(@profiles_by_id)} value={base_url} />
+            </datalist>
+            <.field_error message={field_error(@field_errors, "baseUrl")} />
+          </div>
+
+          <section class="rounded-xl border border-slate-200 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 class="text-sm font-semibold text-slate-950">Endpoint credential</h3>
+                <p class="mt-1 text-xs text-slate-500">
+                  Stored credentials are never repopulated. Replacement keys are write-only.
+                </p>
+                <div id="credential-status" class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <span class="rounded-full border border-slate-200 px-2 py-1 text-slate-600">
+                    {if @form[:credentialConfigured].value in [true, "true"],
+                      do: "Stored key available",
+                      else: "No credential stored"}
+                  </span>
+                  <span
+                    :if={@credential_staged?}
+                    class="rounded-full border border-teal-200 bg-teal-50 px-2 py-1 text-teal-800"
+                  >New key staged for save</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                phx-click="toggle-section"
+                phx-value-section="credential_open"
+                aria-expanded={to_string(@credential_open)}
+                class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold"
+              >{if @credential_open, do: "Hide credential", else: "Set / replace key"}</button>
+            </div>
+            <div
+              :if={@credential_open}
+              id="credential-drawer"
+              class="mt-4 grid gap-4 sm:grid-cols-2"
+            >
+              <div>
+                <.input field={@form[:credentialId]} label="Credential ID" required /><.field_error message={
+                  field_error(@field_errors, "credentialId")
+                } />
+              </div>
+              <.input
+                field={@form[:endpointCredentialScope]}
+                type="select"
+                label="Credential scope"
+                options={[{"User", "user"}, {"Global", "global"}]}
+              />
+              <div>
+                <.input
+                  field={@form[:apiKey]}
+                  type="password"
+                  label="Replacement API key"
+                  autocomplete="new-password"
+                /><.field_error message={field_error(@field_errors, "credential.apiKey")} />
+              </div>
+              <div class="flex flex-wrap items-center gap-2 sm:col-span-2">
+                <span class="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-600">Stored key: {if @form[
+                                                                                                                      :credentialConfigured
+                                                                                                                    ].value in [
+                                                                                                                      true,
+                                                                                                                      "true"
+                                                                                                                    ],
+                                                                                                                    do:
+                                                                                                                      "configured",
+                                                                                                                    else:
+                                                                                                                      "not configured"}</span>
+                <span class="text-xs text-slate-500">The stored value itself is never returned.</span>
+                <button
+                  type="button"
+                  phx-click="stage-key"
+                  disabled={String.trim(@form[:apiKey].value || "") == ""}
+                  class="rounded-lg bg-teal-700 px-3 py-2 text-xs font-semibold text-white"
+                >Stage key</button>
+                <button
+                  type="button"
+                  phx-click="clear-staged-key"
+                  class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold"
+                >Clear staged key</button>
+                <button
+                  type="button"
+                  phx-click="cancel-key"
+                  class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold"
+                >Cancel</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="rounded-xl border border-slate-200 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 class="text-sm font-semibold text-slate-950">Backup profiles</h3><p class="mt-1 text-xs text-slate-500">
+                  Fallback order is explicit and is validated as a graph by the backend.
+                </p>
+              </div>
+              <select
+                id="backup-profile-picker"
+                name="profile[backupProfile]"
+                phx-change="add-backup"
+                class="rounded-lg border border-slate-200 px-3 py-2 text-xs"
+              >
+                <option value="">Add fallback profile…</option>
+                <option
+                  :for={id <- available_backup_profiles(@profiles_by_id, @form[:profileId].value)}
+                  value={id}
+                >
+                  {id}
+                </option>
+              </select>
+            </div>
+            <.input field={@form[:backupProfiles]} label="Fallback profile IDs (comma separated)" />
+            <ol id="backup-profile-list" class="mt-3 space-y-2">
+              <li
+                :for={
+                  {backup, index} <- Enum.with_index(backup_list(@form[:backupProfiles].value))
+                }
+                class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs"
+              >
+                <span><span class="mr-2 font-mono text-slate-400">{index + 1}.</span>{backup}</span>
+                <span class="flex gap-1">
+                  <button
+                    type="button"
+                    phx-click="move-backup"
+                    phx-value-index={index}
+                    phx-value-direction="up"
+                    aria-label={"Move #{backup} up"}
+                    class="rounded border border-slate-200 px-2 py-1"
+                  >↑</button>
+                  <button
+                    type="button"
+                    phx-click="move-backup"
+                    phx-value-index={index}
+                    phx-value-direction="down"
+                    aria-label={"Move #{backup} down"}
+                    class="rounded border border-slate-200 px-2 py-1"
+                  >↓</button>
+                  <button
+                    type="button"
+                    phx-click="remove-backup"
+                    phx-value-index={index}
+                    aria-label={"Remove #{backup}"}
+                    class="rounded border border-rose-200 px-2 py-1 text-rose-700"
+                  >Remove</button>
+                </span>
+              </li>
+            </ol>
+          </section>
+
           <div class="flex flex-wrap gap-5">
             <.input
               field={@form[:supportsTemperature]}
@@ -242,9 +421,188 @@
             <.input
               field={@form[:supportsContractedStructuredOutput]}
               type="checkbox"
-              label="Supports structured output"
+              label="Supports contracted structured output"
             />
           </div>
+
+          <section class="rounded-xl border border-slate-200 p-4">
+            <button
+              type="button"
+              phx-click="toggle-section"
+              phx-value-section="options_open"
+              aria-expanded={to_string(@options_open)}
+              class="flex w-full items-center justify-between text-left text-sm font-semibold text-slate-950"
+            >
+              <span>Options</span><span class="text-xs text-slate-500">{if @options_open,
+                do: "Hide",
+                else: "Show"}</span>
+            </button>
+            <div :if={@options_open} id="profile-options" class="mt-4 space-y-4">
+              <div class="grid gap-4 sm:grid-cols-4">
+                <.input field={@form[:maxTokens]} type="number" label="Max Output Tokens" min="0" />
+                <.input
+                  field={@form[:temperature]}
+                  type="number"
+                  label="Temperature"
+                  min="0"
+                  step="any"
+                />
+                <.input field={@form[:topP]} type="number" label="Top P" min="0" step="any" />
+                <.input field={@form[:topK]} type="number" label="Top K" min="0" />
+              </div>
+              <.input
+                field={@form[:stopSequences]}
+                type="textarea"
+                label="Stop Sequences (one per line)"
+                rows="3"
+              />
+              <.input
+                field={@form[:defaultOptionsJson]}
+                type="textarea"
+                label="Default Options JSON"
+                rows="7"
+              />
+            </div>
+          </section>
+
+          <section class="rounded-xl border border-slate-200 p-4">
+            <button
+              type="button"
+              phx-click="toggle-section"
+              phx-value-section="retry_open"
+              aria-expanded={to_string(@retry_open)}
+              class="flex w-full items-center justify-between text-left text-sm font-semibold text-slate-950"
+            >
+              <span>Retries &amp; Repair</span><span class="text-xs text-slate-500">{if @retry_open,
+                do: "Hide",
+                else: "Show"}</span>
+            </button>
+            <div :if={@retry_open} id="profile-retry-repair" class="mt-4 space-y-4">
+              <div class="grid gap-3 sm:grid-cols-5">
+                <.input
+                  field={@form[:structuredRepairRetryEnabled]}
+                  type="checkbox"
+                  label="Structured Repair"
+                />
+                <.input field={@form[:enableRetryOn429]} type="checkbox" label="Rate Limits" />
+                <.input field={@form[:enableRetryOn5xx]} type="checkbox" label="Server Errors" />
+                <.input
+                  field={@form[:enableRetryOnNetworkError]}
+                  type="checkbox"
+                  label="Network Errors"
+                />
+                <.input
+                  field={@form[:enableRetryOnParseError]}
+                  type="checkbox"
+                  label="Parse / Schema Errors"
+                />
+              </div>
+              <div class="grid gap-4 sm:grid-cols-3">
+                <.input
+                  field={@form[:retryMaxAttempts]}
+                  type="number"
+                  label="Max Attempts"
+                  min="1"
+                  max="10"
+                />
+                <.input
+                  field={@form[:retryBaseDelayMs]}
+                  type="number"
+                  label="Base Delay Ms"
+                  min="0"
+                />
+                <.input
+                  field={@form[:retryMaxDelayMs]}
+                  type="number"
+                  label="Max Delay Ms"
+                  min="0"
+                />
+              </div>
+              <div class="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <.input
+                    field={@form[:escalationProfile]}
+                    type="text"
+                    label="Escalation LLM Profile"
+                    placeholder="Use primary profile"
+                    list="profile-escalation-options"
+                  />
+                  <datalist id="profile-escalation-options">
+                    <option :for={{id, _state} <- @profiles_by_id} value={id} />
+                  </datalist>
+                </div>
+                <.input
+                  field={@form[:escalationAttempt]}
+                  type="number"
+                  label="Starting Attempt"
+                  min="2"
+                  max="10"
+                />
+                <.input
+                  field={@form[:escalationReasoning]}
+                  type="select"
+                  label="Escalation Reasoning"
+                  options={[{"Lowest", "lowest"}, {"Middle", "middle"}, {"Highest", "highest"}]}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section class="rounded-xl border border-slate-200 p-4">
+            <button
+              type="button"
+              phx-click="toggle-section"
+              phx-value-section="pricing_open"
+              aria-expanded={to_string(@pricing_open)}
+              class="flex w-full items-center justify-between text-left text-sm font-semibold text-slate-950"
+            >
+              <span>Pricing</span><span class="text-xs text-slate-500">{if @pricing_open,
+                do: "Hide",
+                else: "Show"}</span>
+            </button>
+            <div
+              :if={@pricing_open}
+              id="profile-pricing"
+              class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5"
+            >
+              <.input
+                field={@form[:pricingInput]}
+                type="number"
+                label="Input $/1M tokens"
+                min="0"
+                step="any"
+              />
+              <.input
+                field={@form[:pricingOutput]}
+                type="number"
+                label="Output $/1M tokens"
+                min="0"
+                step="any"
+              />
+              <.input
+                field={@form[:pricingCacheRead]}
+                type="number"
+                label="Cache read $/1M tokens"
+                min="0"
+                step="any"
+              />
+              <.input
+                field={@form[:pricingCacheWrite]}
+                type="number"
+                label="Cache write $/1M tokens"
+                min="0"
+                step="any"
+              />
+              <.input
+                field={@form[:pricingReasoning]}
+                type="number"
+                label="Reasoning output $/1M tokens"
+                min="0"
+                step="any"
+              />
+            </div>
+          </section>
+
           <div class="flex justify-end gap-2 pt-2">
             <button
               type="button"
@@ -254,7 +612,10 @@
             <button
               id="profile-save"
               type="submit"
-              disabled={not is_nil(@pending)}
+              disabled={
+                not is_nil(@pending) or @form[:profileId].value in [nil, ""] or
+                  not options_valid?(@form[:defaultOptionsJson].value)
+              }
               class="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
             >Save and probe</button>
           </div>

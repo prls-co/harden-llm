@@ -926,15 +926,39 @@ components:
         modelId: {type: string, maxLength: 512}
         systemPrompt: {type: string, maxLength: 32768}
         userPrompt: {type: string, maxLength: 65536}
+        schemaShorthand: {type: string, maxLength: 65536}
         callType: {type: string, enum: [text, structured]}
         schema:
           oneOf:
             - {type: object}
             - {type: "null"}
         reasoningEffort: {type: string, enum: [lowest, middle, highest]}
+        reasoningByProfile:
+          type: object
+          additionalProperties: {type: string, enum: [lowest, middle, highest]}
         structuredRepair: {type: boolean}
         cacheMode: {type: string, enum: ["off", cache, refresh]}
         providerOptions: {type: object}
+        maxAttempts: {type: integer, minimum: 0, maximum: 10}
+        initialBackoffMs: {type: integer, minimum: 0, maximum: 60000}
+        maximumBackoffMs: {type: integer, minimum: 0, maximum: 600000}
+        retryNetwork: {type: boolean}
+        retryRateLimit: {type: boolean}
+        retryServerError: {type: boolean}
+        retryEmpty: {type: boolean}
+        retryParse: {type: boolean}
+        repairEscalation:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [attempt, modelId]
+              properties:
+                attempt: {type: integer, minimum: 2, maximum: 10}
+                profileId: {$ref: "#/components/schemas/ProfileID"}
+                modelId: {type: string, minLength: 1, maxLength: 512}
+                reasoningEffort: {type: string, enum: [lowest, middle, highest]}
+            - {type: "null"}
+        ui: {type: object}
     StateEnvelope:
       type: object
       additionalProperties: false
@@ -1232,6 +1256,7 @@ components:
       required: [profileId, userPrompt, callType]
       properties:
         profileId: {$ref: "#/components/schemas/ProfileID"}
+        modelId: {type: string, maxLength: 512}
         systemPrompt: {type: string, maxLength: 32768}
         userPrompt: {type: string, minLength: 1, maxLength: 65536}
         callType: {type: string, enum: [text, structured]}
@@ -1242,6 +1267,24 @@ components:
         cacheVersion: {type: string, maxLength: 64}
         maxAttempts: {type: integer, minimum: 0, maximum: 10}
         structuredRepair: {type: boolean}
+        initialBackoffMs: {type: integer, minimum: 0, maximum: 60000}
+        maximumBackoffMs: {type: integer, minimum: 0, maximum: 600000}
+        retryNetwork: {type: boolean}
+        retryRateLimit: {type: boolean}
+        retryServerError: {type: boolean}
+        retryEmpty: {type: boolean}
+        retryParse: {type: boolean}
+        repairEscalation:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [attempt, modelId]
+              properties:
+                attempt: {type: integer, minimum: 2, maximum: 10}
+                profileId: {$ref: "#/components/schemas/ProfileID"}
+                modelId: {type: string, minLength: 1, maxLength: 512}
+                reasoningEffort: {type: string, enum: [lowest, middle, highest]}
+            - {type: "null"}
         timeoutMs:
           type: integer
           minimum: 0

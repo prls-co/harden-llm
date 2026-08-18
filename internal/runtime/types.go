@@ -59,6 +59,7 @@ type StructuredRepair struct {
 
 type RepairEscalation struct {
 	Attempt         int
+	ProfileID       string
 	ModelID         string
 	ReasoningEffort string
 }
@@ -69,6 +70,7 @@ type RepairRequest struct {
 	PreviousOutput  string
 	TargetSchema    json.RawMessage
 	Escalated       bool
+	ProfileID       string
 	ModelID         string
 	ReasoningEffort string
 }

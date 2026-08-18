@@ -33,10 +33,11 @@ MIX_ENV=prod mix assets.deploy
 MIX_ENV=prod mix release
 ```
 
-`mix test` runs WEB-TEST-001 through WEB-TEST-010 and excludes browser/Compose
-tags. The browser test requires Chromium and ChromeDriver. WEB-TEST-012 is the
-release-only sixteen-service test and additionally requires Go, Docker, and
-Compose:
+`mix test` runs WEB-TEST-001 through WEB-TEST-010 plus the source-derived
+WEB-TEST-031 through WEB-TEST-036 parity extensions, and excludes browser and
+Compose tags. The browser test requires Chromium and ChromeDriver.
+WEB-TEST-012 is the release-only sixteen-service test and additionally requires
+Go, Docker, and Compose:
 
 ```bash
 mix test --only compose test/browser/compose_smoke_test.exs

@@ -39,6 +39,28 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     assert_received :refreshed
   end
 
+  test "profile deep links open the canonical editor after hydration", %{conn: conn} do
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/profiles"} ->
+          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/profiles?edit=Primary")
+    render_async(view, 1_000)
+
+    assert has_element?(view, "#profile-form")
+
+    assert has_element?(
+             view,
+             "#profile-form input[name=\"profile[profileId]\"][value=\"Primary\"]"
+           )
+
+    assert has_element?(view, "#credential-status", "Stored key available")
+    refute has_element?(view, "#credential-drawer")
+  end
+
   test "create and edit use one mutation and never repopulate credential", %{conn: conn} do
     test_pid = self()
 
@@ -58,6 +80,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     {:ok, view, _html} = live(conn, ~p"/profiles")
     render_async(view, 1_000)
     view |> element(~s(button[phx-click="edit"][phx-value-id="Primary"])) |> render_click()
+    open_credential_drawer(view)
 
     assert has_element?(view, "#profile-form")
     refute element(view, "#profile-form") |> render() =~ APIFixtures.token()
@@ -122,6 +145,43 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
 
     render_async(view, 1_000)
     assert has_element?(view, "#profile-form", "Use an approved HTTPS origin.")
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-035
+  test "translated profile combobox suggestions and write-only key staging stay local", %{
+    conn: conn
+  } do
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/profiles"} ->
+          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+
+        _ ->
+          flunk("unexpected API call: #{conn.method} #{conn.request_path}")
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/profiles")
+    render_async(view, 1_000)
+    view |> element(~s(button[phx-click="edit"][phx-value-id="Primary"])) |> render_click()
+    open_credential_drawer(view)
+
+    assert has_element?(view, "#profile-base-url-options")
+    assert has_element?(view, "#profile-model-options")
+    refute render(view) =~ APIFixtures.token()
+
+    view
+    |> form("#profile-form", %{"profile" => %{"apiKey" => "replacement-local-secret"}})
+    |> render_change()
+
+    view |> element(~s(button[phx-click="stage-key"])) |> render_click()
+    refute has_element?(view, "#credential-drawer")
+    assert has_element?(view, "#credential-status", "New key staged for save")
+
+    open_credential_drawer(view)
+    view |> element(~s(button[phx-click="cancel-key"])) |> render_click()
+    refute has_element?(view, "#credential-drawer")
+    refute render(view) =~ "replacement-local-secret"
   end
 
   test "delete confirmation preserves backend dependency errors", %{conn: conn} do
@@ -205,6 +265,90 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     assert_redirect(view, ~p"/session/expired", 1_000)
   end
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-032
+  test "profile editor translates options, ordered fallbacks, retry repair, and pricing", %{
+    conn: conn
+  } do
+    test_pid = self()
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/profiles"} ->
+          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+
+        {"PUT", "/api/v1/profiles/Primary"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          send(test_pid, {:profile_parity, Jason.decode!(body)})
+          Req.Test.json(conn, APIFixtures.success(APIFixtures.profile_state()))
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/profiles")
+    render_async(view, 1_000)
+    view |> element(~s(button[phx-click="edit"][phx-value-id="Primary"])) |> render_click()
+    open_credential_drawer(view)
+
+    view
+    |> element(~s(button[phx-click="toggle-section"][phx-value-section="options_open"]))
+    |> render_click()
+
+    view
+    |> element(~s(button[phx-click="toggle-section"][phx-value-section="retry_open"]))
+    |> render_click()
+
+    view
+    |> element(~s(button[phx-click="toggle-section"][phx-value-section="pricing_open"]))
+    |> render_click()
+
+    view
+    |> form("#profile-form", %{
+      "profile" => %{
+        "profileId" => "Primary",
+        "provider" => "openai",
+        "apiInferenceType" => "responses",
+        "baseUrl" => "https://provider.example.test/v1",
+        "modelId" => "model-test",
+        "credentialId" => "credential-test",
+        "backupProfiles" => "Backup, Fallback",
+        "maxTokens" => "2048",
+        "temperature" => "0.2",
+        "topP" => "0.9",
+        "topK" => "40",
+        "stopSequences" => "END\nDONE",
+        "defaultOptionsJson" => "{}",
+        "structuredRepairRetryEnabled" => "true",
+        "retryMaxAttempts" => "4",
+        "retryBaseDelayMs" => "500",
+        "retryMaxDelayMs" => "8000",
+        "escalationAttempt" => "3",
+        "escalationProfile" => "Backup",
+        "escalationReasoning" => "highest",
+        "pricingInput" => "1.5",
+        "pricingOutput" => "3",
+        "pricingCacheRead" => "0.2",
+        "pricingCacheWrite" => "0.4",
+        "pricingReasoning" => "5"
+      }
+    })
+    |> render_submit()
+
+    render_async(view, 1_000)
+    assert_received {:profile_parity, payload}
+    assert get_in(payload, ["profile", "backupProfiles"]) == ["Backup", "Fallback"]
+    assert get_in(payload, ["profile", "defaultOptions", "max_tokens"]) == 2048
+    assert get_in(payload, ["profile", "defaultOptions", "stop"]) == ["END", "DONE"]
+
+    assert get_in(payload, [
+             "profile",
+             "defaultOptions",
+             "structuredRepairRetry",
+             "escalation",
+             "llmProfile"
+           ]) == "Backup"
+
+    assert get_in(payload, ["profile", "pricing", "input_cost_per_token"]) == 0.0000015
+  end
+
   defp install_stub(handler) do
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do
@@ -215,5 +359,11 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
           handler.(conn)
       end
     end)
+  end
+
+  defp open_credential_drawer(view) do
+    view
+    |> element(~s(button[phx-click="toggle-section"][phx-value-section="credential_open"]))
+    |> render_click()
   end
 end

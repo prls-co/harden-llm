@@ -97,8 +97,9 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 		runtimeCache = &cacheAdapter{store: client.options.Cache}
 	}
 	resolvedRetry := retryConfig(request.RetryPolicy, request.CallType == CallTypeStructured)
-	repairPolicy, err := runtimeRepairPolicy(
+	repairPolicy, err := runtimeRepairPolicyWithProfiles(
 		request.RetryPolicy.StructuredRepair, resolvedRetry.MaxAttempts, request.CallType == CallTypeStructured,
+		profiles,
 	)
 	if err != nil {
 		return Result{}, err
@@ -180,6 +181,10 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 }
 
 func runtimeRepairPolicy(policy StructuredRepairPolicy, maxAttempts int, structured bool) (coreruntime.StructuredRepair, error) {
+	return runtimeRepairPolicyWithProfiles(policy, maxAttempts, structured, nil)
+}
+
+func runtimeRepairPolicyWithProfiles(policy StructuredRepairPolicy, maxAttempts int, structured bool, profiles map[string]coreruntime.Profile) (coreruntime.StructuredRepair, error) {
 	result := coreruntime.StructuredRepair{Enabled: policy.Enabled}
 	if !policy.Enabled {
 		if policy.Escalation != nil {
@@ -202,11 +207,17 @@ func runtimeRepairPolicy(policy StructuredRepairPolicy, maxAttempts int, structu
 	if modelID == "" {
 		return coreruntime.StructuredRepair{}, errors.New("hardenllm: structured repair escalation model ID is required")
 	}
+	profileID := strings.TrimSpace(escalation.ProfileID)
+	if profileID != "" && profiles != nil {
+		if _, ok := profiles[profileID]; !ok {
+			return coreruntime.StructuredRepair{}, errors.New("hardenllm: structured repair escalation profile was not found")
+		}
+	}
 	if effort != "" && effort != ReasoningEffortLowest && effort != ReasoningEffortMiddle && effort != ReasoningEffortHighest {
 		return coreruntime.StructuredRepair{}, errors.New("hardenllm: structured repair escalation reasoning effort must be lowest, middle, or highest")
 	}
 	result.Escalation = &coreruntime.RepairEscalation{
-		Attempt: escalation.Attempt, ModelID: modelID, ReasoningEffort: string(effort),
+		Attempt: escalation.Attempt, ProfileID: profileID, ModelID: modelID, ReasoningEffort: string(effort),
 	}
 	return result, nil
 }

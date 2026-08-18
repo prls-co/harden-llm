@@ -105,6 +105,7 @@ type StructuredRepairPolicy struct {
 
 type RepairEscalation struct {
 	Attempt         int
+	ProfileID       string
 	ModelID         string
 	ReasoningEffort ReasoningEffort
 }
