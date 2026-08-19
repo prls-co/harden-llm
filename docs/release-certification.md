@@ -5,7 +5,7 @@ its 2026-08-09 utility-llm parity refresh, the 2026-08-10 production
 validation refresh, the 2026-08-16 merged production handoff, the
 2026-08-18 P07.S09 parity/security deployment, the 2026-08-18 P07.S10
 profile-catalog backfill deployment, and the 2026-08-19 P07.S10 runtime
-credential correction.
+credential correction and final application deployment.
 Detailed command output belongs under ignored
 `plans/evidence/harden-llm/<run-id>/`; secrets and live provider output never do.
 
@@ -19,7 +19,7 @@ Detailed command output belongs under ignored
 | Source package | `@prls-co/utility-llm` `0.14.6` |
 | Current frontend parity source | `utility-llm` `5c0309e` / `0.15.0` |
 | Current profile catalog source | `examples/react-trace-studio/llm-profile-catalog.json` at `utility-llm` `5c0309e2508dc5b7a87d0880c8d794123353c5b0`; SHA-256 `864552eb5e8bf63de590704ef65c2e45ad228e7cc15d4af048609e680348b2f9` |
-| Current merged release | PR `#11` / `ab461d3e8cf2f77e8d1e9cc1bcc0e4bd8daa1492` |
+| Current merged release | PR `#12` / `8f69e2b3062dad0cf48a7e75e072575946fc07b4` |
 | Security dependency remediation | `github.com/getkin/kin-openapi` `v0.144.0` |
 | Parity manifest SHA-256 | `973f138211910fbe58deca867d1569adf2b9660b53e1441a3607570e1f2c98a6` |
 | Langfuse release / commit | `v3.212.0` / `3a572984276dd2dc2f8f77f1b2aadb799aa17fdf` |
@@ -62,6 +62,7 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | P07.S09 utility-llm frontend parity and Tempo parser correction | `2c1a34f` | complete; PR `#4` merged |
 | P07.S10 utility-llm profile catalog and all-profile test parity | `527f86c` | complete; PR `#9` merged and deployed |
 | P07.S10 runtime credential handling and UI error classification | `ab461d3` | complete; PR `#11` merged and deployed |
+| P07.S10 final frontend/API contract deployment | `8f69e2b` | complete; PR `#12` merged and deployed |
 | kin-openapi security remediation | `2c1a34f` | complete; patched release `v0.144.0` |
 
 ## Final gate record
@@ -85,6 +86,7 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | P07.S10 production gateway image | pass: container image `sha256:0a0a3acb2a75f3ca002596da68049ffd0dca052ffe01c657d86ab3cf77dfb91c`, OCI release `527f86c`, and container health `healthy` |
 | P07.S10 production profile catalog | pass: authenticated `GET /api/v1/profiles` returned 30 rows: 28 unconfigured current presets and 2 existing configured profiles; existing rows were preserved |
 | P07.S10 runtime correction | pass: merged PR `#11` deployed as OCI release `ab461d3`; gateway healthy, API `/healthz` and `/readyz` returned 200, fresh History read returned 6 prior records with no `CPA GPT-5.6 Luna` run, and no retry was issued |
+| P07.S10 final application images | pass: gateway `sha256:1dc2f2037176633ec338b47d99254bcdc5f15bd773d65d9683eb2b76bc5e757b` and frontend `sha256:6d7df59edd51fa27267298ac62f4452b7704b89714feaa5fab3e54ad2b628235`; both OCI release `8f69e2b`, both healthy, public API/UI probes 200, and frontend OTLP exporter initialized after startup |
 | P07.S09 frontend parity gates | pass: Phoenix 77 passed/3 excluded, browser 2 passed, `make verify`, and final post-upgrade `make test-compose` 183.924s (earlier parity run: 176.997s) |
 | Tempo trace-ID normalization | pass: 31/32-character external IDs covered by regression tests; no timeout budget changed |
 | kin-openapi security alerts | code fix pass: `v0.144.0` is the first patched release for both alerts and CodeQL Go/JavaScript checks passed; GitHub alert records remained open at final readback pending Dependabot rescan |
@@ -113,7 +115,7 @@ next dependency-graph refresh, not an unpatched dependency in the release.
 
 | Surface | Production value |
 | --- | --- |
-| Release | `ab461d3` |
+| Release | `8f69e2b` |
 | Frontend | `https://harden-llm.prls.co` |
 | API gateway | `https://harden-llm-api.prls.co` |
 | Artifact endpoint | `https://harden-llm-artifacts.prls.co` |
@@ -204,6 +206,17 @@ outcome was ambiguous. The runtime correction and frontend classification are
 covered by TEST-017 plus the translated Phoenix API/workspace tests; the
 unconfigured Luna profile still requires an endpoint credential before any
 provider execution is attempted.
+
+On 2026-08-19, merged release
+`8f69e2b3062dad0cf48a7e75e072575946fc07b4` (PR `#12`) deployed the final
+OpenAPI/Phoenix contract correction. The gateway image ID was
+`sha256:1dc2f2037176633ec338b47d99254bcdc5f15bd773d65d9683eb2b76bc5e757b`
+and the frontend image ID was
+`sha256:6d7df59edd51fa27267298ac62f4452b7704b89714feaa5fab3e54ad2b628235`;
+both carried the immutable `8f69e2b` release label and reported healthy.
+Three sustained public samples returned API `/readyz`, frontend `/healthz`,
+and `/login` HTTP 200. The frontend exporter logged successful initialization
+after the collector startup window, with no subsequent exporter errors.
 
 This is a single-origin deployment, not a high-availability topology. Current
 availability is tied to the shaman Docker host, its network, and the active
