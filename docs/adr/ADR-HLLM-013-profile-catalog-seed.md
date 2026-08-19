@@ -36,6 +36,10 @@ must not reintroduce Firebase/Firestore persistence or a second provider path.
   endpoint binding ID with `configured:false`; saving a credential may use that
   binding, while runtime execution still fails closed until a credential is
   actually stored.
+- Credential-free rows remain in the assembled runtime catalog so one missing
+  credential cannot invalidate configured profiles. Selecting an unconfigured
+  row returns HTTP `422` with stable code `credential_required`, persists the
+  failed history item, and does not contact the provider.
 - Translate the source all-profile smoke setup into a deterministic provider
   preparation matrix for every seeded profile, covering text and structured
   operations, endpoint/protocol selection, reasoning defaults, pricing, and
@@ -50,6 +54,12 @@ operation without losing their custom rows or credentials. The source catalog
 is auditable by its path, revision, and embedded-file hash recorded in the
 implementation status document. Catalog updates are explicit code/data
 changes and require this parity test and review again.
+
+The runtime catalog therefore remains usable for configured profiles even when
+other seeded rows are not configured. The frontend can distinguish the stable
+`credential_required` validation response from an ambiguous transport failure,
+so an operator is told to configure the endpoint before retrying rather than
+being asked to refresh history for a run that never reached a provider.
 
 The live source smoke's provider execution and temporary custom-profile cleanup
 are not run in deterministic CI; the translated preparation and seed tests

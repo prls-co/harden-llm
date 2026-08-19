@@ -311,6 +311,29 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert Agent.get(counter, & &1) == 1
   end
 
+  test "missing endpoint credential gives actionable guidance without refresh-history warning", %{
+    conn: conn
+  } do
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/run"} ->
+          {status, envelope} = APIFixtures.error(422, "credential_required")
+          conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    submit_run(view, %{"userPrompt" => "missing credential run"})
+    render_async(view, 1_000)
+
+    assert has_element?(view, "#run-error", "no configured endpoint credential")
+    refute has_element?(view, "#run-error", "Refresh History")
+  end
+
   test "an active run 401 redirects through session revocation", %{conn: conn} do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do

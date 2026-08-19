@@ -279,7 +279,7 @@ defmodule HardenLlmWeb.HardenAPI do
         category: status_category(status),
         status: status,
         code: safe_code(code),
-        message: safe_status_message(status),
+        message: safe_status_message(status, code),
         field_errors: safe_field_errors(error["fieldErrors"]),
         trace_id: safe_trace_id(state),
         ambiguous?: operation.id == "run" and status >= 500
@@ -393,17 +393,20 @@ defmodule HardenLlmWeb.HardenAPI do
   defp status_category(status) when status >= 500, do: :backend
   defp status_category(_status), do: :request
 
-  defp safe_status_message(401), do: "Your session has expired."
-  defp safe_status_message(403), do: "You are not authorized to perform that action."
-  defp safe_status_message(409), do: "The request conflicts with current backend state."
-  defp safe_status_message(422), do: "Please correct the highlighted fields."
-  defp safe_status_message(429), do: "The service is busy. Try again later."
-  defp safe_status_message(503), do: "The backend is temporarily unavailable."
+  defp safe_status_message(422, "credential_required"),
+    do: "The selected profile has no configured endpoint credential."
 
-  defp safe_status_message(status) when status >= 500,
+  defp safe_status_message(401, _code), do: "Your session has expired."
+  defp safe_status_message(403, _code), do: "You are not authorized to perform that action."
+  defp safe_status_message(409, _code), do: "The request conflicts with current backend state."
+  defp safe_status_message(422, _code), do: "Please correct the highlighted fields."
+  defp safe_status_message(429, _code), do: "The service is busy. Try again later."
+  defp safe_status_message(503, _code), do: "The backend is temporarily unavailable."
+
+  defp safe_status_message(status, _code) when status >= 500,
     do: "The backend could not complete the request."
 
-  defp safe_status_message(_status), do: "The request was rejected."
+  defp safe_status_message(_status, _code), do: "The request was rejected."
 
   defp safe_code(code), do: String.slice(code, 0, 64)
 

@@ -229,6 +229,8 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/RunSuccess"
+        "422":
+          $ref: "#/components/responses/RunCredentialRequired"
         "504":
           $ref: "#/components/responses/RunTimeout"
         default:
@@ -774,6 +776,20 @@ components:
                 state: {lastRunId: run-example, lastTraceId: trace-example}
                 result: null
                 error: {code: run_timeout, message: The run exceeded its deadline.}
+    RunCredentialRequired:
+      description: The selected profile has no configured endpoint credential; the failed run is persisted without contacting a provider.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RunErrorEnvelope"
+          examples:
+            credentialRequired:
+              value:
+                state: {}
+                result: null
+                error:
+                  code: credential_required
+                  message: The selected profile has no configured endpoint credential.
     RunError:
       description: The run failed before or during provider execution.
       content:

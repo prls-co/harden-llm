@@ -111,6 +111,29 @@ defmodule HardenLlmWeb.HardenAPITest do
     assert Agent.get(counter, & &1) == 1
   end
 
+  test "missing endpoint credential is a non-ambiguous validation error" do
+    handle = APIFixtures.insert_session()
+
+    Req.Test.stub(HardenAPI, fn conn ->
+      {status, envelope} = APIFixtures.error(422, "credential_required")
+      conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
+    end)
+
+    assert {:error,
+            %APIError{
+              category: :validation,
+              status: 422,
+              code: "credential_required",
+              message: "The selected profile has no configured endpoint credential.",
+              ambiguous?: false
+            }} =
+             HardenAPI.run(handle, %{
+               "profileId" => "CPA GPT-5.6 Luna",
+               "userPrompt" => "fixture",
+               "callType" => "text"
+             })
+  end
+
   test "malformed envelopes, JSON, and content types become redacted protocol errors" do
     handle = APIFixtures.insert_session()
 
