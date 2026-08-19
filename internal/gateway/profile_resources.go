@@ -35,6 +35,9 @@ type ProfileBundle struct {
 
 func (service *ProfileService) Profiles(ctx context.Context, ownerID string) ([]ProfileState, error) {
 	ownerID = strings.TrimSpace(ownerID)
+	if err := service.ensureSeeded(ctx, ownerID); err != nil {
+		return nil, err
+	}
 	records, err := service.store.Profiles(ctx, ownerID)
 	if err != nil {
 		return nil, err
@@ -72,6 +75,17 @@ func (service *ProfileService) Profiles(ctx context.Context, ownerID string) ([]
 				return nil, errors.New("gateway: stored profile credential is missing")
 			}
 			state.Credential = profiles.PublicCredentialState(credential)
+		} else {
+			origin, err := profileOrigin(state.Profile.BaseURL)
+			if err != nil {
+				return nil, errors.New("gateway: stored profile origin is invalid")
+			}
+			credentialID := credentialIDForProfile(state.Profile)
+			state.Credential = profiles.CredentialState{
+				SchemaVersion: 1, CredentialID: credentialID, Scope: state.Profile.EndpointCredentialScope,
+				Origin: origin, APIInferenceTypes: []string{state.Profile.APIInferenceType}, Configured: false,
+				CreatedAt: record.CreatedAt.UTC(), UpdatedAt: record.UpdatedAt.UTC(),
+			}
 		}
 		result = append(result, state)
 	}
@@ -109,6 +123,9 @@ func (service *ProfileService) Delete(ctx context.Context, ownerID, profileID st
 func (service *ProfileService) RefreshModels(ctx context.Context, ownerID, profileID string, refresher ModelRefresher) (ProfileState, error) {
 	if refresher == nil {
 		return ProfileState{}, errors.New("gateway: model refresher is required")
+	}
+	if err := service.ensureSeeded(ctx, ownerID); err != nil {
+		return ProfileState{}, err
 	}
 	record, err := service.store.Profile(ctx, ownerID, profileID)
 	if err != nil {
@@ -156,6 +173,9 @@ func (service *ProfileService) ExportBundle(ctx context.Context, ownerID, bundle
 	bundleID = strings.TrimSpace(bundleID)
 	if bundleID == "" {
 		return ProfileBundle{}, errors.New("gateway: bundle ID is required")
+	}
+	if err := service.ensureSeeded(ctx, ownerID); err != nil {
+		return ProfileBundle{}, err
 	}
 	profileRecords, err := service.store.Profiles(ctx, ownerID)
 	if err != nil {
@@ -277,6 +297,9 @@ func (service *ProfileService) ReplaceBundle(ctx context.Context, ownerID string
 }
 
 func (service *ProfileService) catalog(ctx context.Context, ownerID string) (profiles.Catalog, error) {
+	if err := service.ensureSeeded(ctx, ownerID); err != nil {
+		return nil, err
+	}
 	records, err := service.store.Profiles(ctx, ownerID)
 	if err != nil {
 		return nil, err

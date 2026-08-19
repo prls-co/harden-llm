@@ -1,0 +1,974 @@
+{
+  "Claude Haiku 4.5": {
+    "schemaVersion": 1,
+    "llmProfile": "Claude Haiku 4.5",
+    "provider": "anthropic",
+    "apiInferenceType": "anthropic-messages",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.anthropic.com/v1",
+    "modelId": "claude-haiku-4-5-20251001",
+    "pricing": {
+      "input_cost_per_token": 0.000001,
+      "output_cost_per_token": 0.000005,
+      "cache_read_input_token_cost": 1e-7,
+      "cache_creation_input_token_cost": 0.00000125,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": null,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": null,
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": []
+  },
+  "Claude Opus 4.7": {
+    "schemaVersion": 1,
+    "llmProfile": "Claude Opus 4.7",
+    "provider": "anthropic",
+    "apiInferenceType": "anthropic-messages",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.anthropic.com/v1",
+    "modelId": "claude-opus-4-7",
+    "pricing": {
+      "input_cost_per_token": 0.000005,
+      "output_cost_per_token": 0.000025,
+      "cache_read_input_token_cost": 5e-7,
+      "cache_creation_input_token_cost": 0.00000625,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": null,
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": []
+  },
+  "Claude Opus 5": {
+    "schemaVersion": 1,
+    "llmProfile": "Claude Opus 5",
+    "provider": "anthropic",
+    "apiInferenceType": "anthropic-messages",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.anthropic.com/v1",
+    "modelId": "claude-opus-5",
+    "pricing": {
+      "input_cost_per_token": 0.000005,
+      "output_cost_per_token": 0.000025,
+      "cache_read_input_token_cost": 5e-7,
+      "cache_creation_input_token_cost": 0.00000625,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": null,
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": []
+  },
+  "Claude Sonnet 4.6": {
+    "schemaVersion": 1,
+    "llmProfile": "Claude Sonnet 4.6",
+    "provider": "anthropic",
+    "apiInferenceType": "anthropic-messages",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.anthropic.com/v1",
+    "modelId": "claude-sonnet-4-6",
+    "pricing": {
+      "input_cost_per_token": 0.000003,
+      "output_cost_per_token": 0.000015,
+      "cache_read_input_token_cost": 3e-7,
+      "cache_creation_input_token_cost": 0.00000375,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": null,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": null,
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": []
+  },
+  "Claude Sonnet 5": {
+    "schemaVersion": 1,
+    "llmProfile": "Claude Sonnet 5",
+    "provider": "anthropic",
+    "apiInferenceType": "anthropic-messages",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.anthropic.com/v1",
+    "modelId": "claude-sonnet-5",
+    "pricing": {
+      "input_cost_per_token": 0.000002,
+      "output_cost_per_token": 0.00001,
+      "cache_read_input_token_cost": 2e-7,
+      "cache_creation_input_token_cost": 0.0000025,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": null,
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": []
+  },
+  "CPA GPT-5.4": {
+    "schemaVersion": 1,
+    "llmProfile": "CPA GPT-5.4",
+    "provider": "cpa",
+    "apiInferenceType": "responses",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://cpa.prls.co/v1",
+    "modelId": "gpt-5.4",
+    "pricing": {
+      "input_cost_per_token": 0.0000025,
+      "output_cost_per_token": 0.000015,
+      "cache_read_input_token_cost": 2.5e-7,
+      "cache_creation_input_token_cost": 0,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": "max_output_tokens",
+    "defaultOptions": {
+      "max_tokens": 16000,
+      "stream": true
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "reasoning": {
+          "effort": "none"
+        }
+      },
+      "middle": {
+        "reasoning": {
+          "effort": "low"
+        }
+      },
+      "highest": {
+        "reasoning": {
+          "effort": "xhigh"
+        }
+      }
+    }
+  },
+  "CPA GPT-5.4 Mini": {
+    "schemaVersion": 1,
+    "llmProfile": "CPA GPT-5.4 Mini",
+    "provider": "cpa",
+    "apiInferenceType": "responses",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://cpa.prls.co/v1",
+    "modelId": "gpt-5.4-mini",
+    "pricing": {
+      "input_cost_per_token": 7.5e-7,
+      "output_cost_per_token": 0.0000045,
+      "cache_read_input_token_cost": 7.5e-8,
+      "cache_creation_input_token_cost": 0,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": "max_output_tokens",
+    "defaultOptions": {
+      "max_tokens": 16000,
+      "stream": true
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "reasoning": {
+          "effort": "none"
+        }
+      },
+      "middle": {
+        "reasoning": {
+          "effort": "medium"
+        }
+      },
+      "highest": {
+        "reasoning": {
+          "effort": "xhigh"
+        }
+      }
+    }
+  },
+  "CPA GPT-5.6 Luna": {
+    "schemaVersion": 1,
+    "llmProfile": "CPA GPT-5.6 Luna",
+    "provider": "cpa",
+    "apiInferenceType": "responses",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://cpa.prls.co/v1",
+    "modelId": "gpt-5.6-luna",
+    "pricing": {
+      "input_cost_per_token": 2e-7,
+      "output_cost_per_token": 0.0000012,
+      "cache_read_input_token_cost": 2e-8,
+      "cache_creation_input_token_cost": 2.5e-7,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": "max_output_tokens",
+    "defaultOptions": {
+      "max_tokens": 16000,
+      "stream": true
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "reasoning": {
+          "effort": "low"
+        }
+      },
+      "middle": {
+        "reasoning": {
+          "effort": "medium"
+        }
+      },
+      "highest": {
+        "reasoning": {
+          "effort": "xhigh"
+        }
+      }
+    }
+  },
+  "CPA GPT-5.6 Sol": {
+    "schemaVersion": 1,
+    "llmProfile": "CPA GPT-5.6 Sol",
+    "provider": "cpa",
+    "apiInferenceType": "responses",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://cpa.prls.co/v1",
+    "modelId": "gpt-5.6-sol",
+    "pricing": {
+      "input_cost_per_token": 0.000005,
+      "output_cost_per_token": 0.00003,
+      "cache_read_input_token_cost": 5e-7,
+      "cache_creation_input_token_cost": 0.00000625,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": "max_output_tokens",
+    "defaultOptions": {
+      "max_tokens": 16000,
+      "stream": true
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "reasoning": {
+          "effort": "low"
+        }
+      },
+      "middle": {
+        "reasoning": {
+          "effort": "medium"
+        }
+      },
+      "highest": {
+        "reasoning": {
+          "effort": "xhigh"
+        }
+      }
+    }
+  },
+  "Gemini 3.1 Flash Lite": {
+    "schemaVersion": 1,
+    "llmProfile": "Gemini 3.1 Flash Lite",
+    "provider": "google",
+    "apiInferenceType": "gemini-generate-content",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://generativelanguage.googleapis.com",
+    "modelId": "gemini-3.1-flash-lite",
+    "pricing": {
+      "input_cost_per_token": 2.5e-7,
+      "output_cost_per_token": 0.0000015,
+      "cache_read_input_token_cost": 2.5e-8,
+      "cache_creation_input_token_cost": 0,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": null,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": null,
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "thinkingConfig": {
+          "thinkingLevel": "MINIMAL"
+        }
+      },
+      "middle": {
+        "thinkingConfig": {
+          "thinkingLevel": "LOW"
+        }
+      },
+      "highest": {
+        "thinkingConfig": {
+          "thinkingLevel": "HIGH"
+        }
+      }
+    }
+  },
+  "Gemini 3.1 Pro Preview": {
+    "schemaVersion": 1,
+    "llmProfile": "Gemini 3.1 Pro Preview",
+    "provider": "google",
+    "apiInferenceType": "gemini-generate-content",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://generativelanguage.googleapis.com",
+    "modelId": "gemini-3.1-pro-preview",
+    "pricing": {
+      "input_cost_per_token": 0.000002,
+      "output_cost_per_token": 0.000012,
+      "cache_read_input_token_cost": 2e-7,
+      "cache_creation_input_token_cost": 0,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": null,
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "thinkingConfig": {
+          "thinkingLevel": "LOW"
+        }
+      },
+      "middle": {
+        "thinkingConfig": {
+          "thinkingLevel": "MEDIUM"
+        }
+      },
+      "highest": {
+        "thinkingConfig": {
+          "thinkingLevel": "HIGH"
+        }
+      }
+    }
+  },
+  "Gemini 3.5 Flash": {
+    "schemaVersion": 1,
+    "llmProfile": "Gemini 3.5 Flash",
+    "provider": "google",
+    "apiInferenceType": "gemini-generate-content",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://generativelanguage.googleapis.com",
+    "modelId": "gemini-3.5-flash",
+    "pricing": {
+      "input_cost_per_token": 0.0000015,
+      "output_cost_per_token": 0.000009,
+      "cache_read_input_token_cost": 1.5e-7,
+      "cache_creation_input_token_cost": 0,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": null,
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "thinkingConfig": {
+          "thinkingLevel": "MINIMAL"
+        }
+      },
+      "middle": {
+        "thinkingConfig": {
+          "thinkingLevel": "LOW"
+        }
+      },
+      "highest": {
+        "thinkingConfig": {
+          "thinkingLevel": "HIGH"
+        }
+      }
+    }
+  },
+  "Gemini 3.5 Flash Lite": {
+    "schemaVersion": 1,
+    "llmProfile": "Gemini 3.5 Flash Lite",
+    "provider": "google",
+    "apiInferenceType": "gemini-generate-content",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://generativelanguage.googleapis.com",
+    "modelId": "gemini-3.5-flash-lite",
+    "pricing": {
+      "input_cost_per_token": 3e-7,
+      "output_cost_per_token": 0.0000025,
+      "cache_read_input_token_cost": 3e-8,
+      "cache_creation_input_token_cost": 0,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": null,
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "thinkingConfig": {
+          "thinkingLevel": "MINIMAL"
+        }
+      },
+      "middle": {
+        "thinkingConfig": {
+          "thinkingLevel": "LOW"
+        }
+      },
+      "highest": {
+        "thinkingConfig": {
+          "thinkingLevel": "HIGH"
+        }
+      }
+    }
+  },
+  "Gemini 3.7 Flash": {
+    "schemaVersion": 1,
+    "llmProfile": "Gemini 3.7 Flash",
+    "provider": "google",
+    "apiInferenceType": "gemini-generate-content",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://generativelanguage.googleapis.com",
+    "modelId": "gemini-3.7-flash",
+    "pricing": {
+      "input_cost_per_token": 7.5e-7,
+      "output_cost_per_token": 0.00000375,
+      "cache_read_input_token_cost": 7.5e-8,
+      "cache_creation_input_token_cost": 0,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": null,
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "thinkingConfig": {
+          "thinkingLevel": "LOW"
+        }
+      },
+      "middle": {
+        "thinkingConfig": {
+          "thinkingLevel": "MEDIUM"
+        }
+      },
+      "highest": {
+        "thinkingConfig": {
+          "thinkingLevel": "HIGH"
+        }
+      }
+    }
+  },
+  "Novita DeepSeek V4 Flash": {
+    "schemaVersion": 1,
+    "llmProfile": "Novita DeepSeek V4 Flash",
+    "provider": "novita",
+    "apiInferenceType": "chat-completions",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.novita.ai/openai/v1",
+    "modelId": "deepseek/deepseek-v4-flash",
+    "pricing": {
+      "input_cost_per_token": 1.4e-7,
+      "output_cost_per_token": 2.8e-7,
+      "cache_read_input_token_cost": 2.8e-8,
+      "cache_creation_input_token_cost": 0,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": null,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": null,
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "thinking": {
+          "type": "disabled"
+        }
+      },
+      "middle": {
+        "thinking": {
+          "type": "enabled"
+        },
+        "reasoning_effort": "high"
+      },
+      "highest": {
+        "thinking": {
+          "type": "enabled"
+        },
+        "reasoning_effort": "max"
+      }
+    }
+  },
+  "Novita DeepSeek V4 Pro": {
+    "schemaVersion": 1,
+    "llmProfile": "Novita DeepSeek V4 Pro",
+    "provider": "novita",
+    "apiInferenceType": "chat-completions",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.novita.ai/openai/v1",
+    "modelId": "deepseek/deepseek-v4-pro",
+    "pricing": {
+      "input_cost_per_token": 0.00000164,
+      "output_cost_per_token": 0.00000338,
+      "cache_read_input_token_cost": 1.35e-7,
+      "cache_creation_input_token_cost": 0,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": null,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": null,
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "thinking": {
+          "type": "disabled"
+        }
+      },
+      "middle": {
+        "thinking": {
+          "type": "enabled"
+        },
+        "reasoning_effort": "high"
+      },
+      "highest": {
+        "thinking": {
+          "type": "enabled"
+        },
+        "reasoning_effort": "max"
+      }
+    }
+  },
+  "OpenAI GPT-5.4": {
+    "schemaVersion": 1,
+    "llmProfile": "OpenAI GPT-5.4",
+    "provider": "openai",
+    "apiInferenceType": "responses",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.openai.com/v1",
+    "modelId": "gpt-5.4",
+    "pricing": {
+      "input_cost_per_token": 0.0000025,
+      "output_cost_per_token": 0.000015,
+      "cache_read_input_token_cost": 2.5e-7,
+      "cache_creation_input_token_cost": 0,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": "max_output_tokens",
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "reasoning": {
+          "effort": "none"
+        }
+      },
+      "middle": {
+        "reasoning": {
+          "effort": "medium"
+        }
+      },
+      "highest": {
+        "reasoning": {
+          "effort": "xhigh"
+        }
+      }
+    }
+  },
+  "OpenAI GPT-5.4 Mini": {
+    "schemaVersion": 1,
+    "llmProfile": "OpenAI GPT-5.4 Mini",
+    "provider": "openai",
+    "apiInferenceType": "responses",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.openai.com/v1",
+    "modelId": "gpt-5.4-mini",
+    "pricing": {
+      "input_cost_per_token": 7.5e-7,
+      "output_cost_per_token": 0.0000045,
+      "cache_read_input_token_cost": 7.5e-8,
+      "cache_creation_input_token_cost": 0,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": "max_output_tokens",
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "reasoning": {
+          "effort": "none"
+        }
+      },
+      "middle": {
+        "reasoning": {
+          "effort": "medium"
+        }
+      },
+      "highest": {
+        "reasoning": {
+          "effort": "xhigh"
+        }
+      }
+    }
+  },
+  "OpenAI GPT-5.5": {
+    "schemaVersion": 1,
+    "llmProfile": "OpenAI GPT-5.5",
+    "provider": "openai",
+    "apiInferenceType": "responses",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.openai.com/v1",
+    "modelId": "gpt-5.5",
+    "pricing": {
+      "input_cost_per_token": 0.000005,
+      "output_cost_per_token": 0.00003,
+      "cache_read_input_token_cost": 5e-7,
+      "cache_creation_input_token_cost": 0,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": "max_output_tokens",
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "reasoning": {
+          "effort": "none"
+        }
+      },
+      "middle": {
+        "reasoning": {
+          "effort": "medium"
+        }
+      },
+      "highest": {
+        "reasoning": {
+          "effort": "xhigh"
+        }
+      }
+    }
+  },
+  "OpenAI GPT-5.6 Luna": {
+    "schemaVersion": 1,
+    "llmProfile": "OpenAI GPT-5.6 Luna",
+    "provider": "openai",
+    "apiInferenceType": "responses",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.openai.com/v1",
+    "modelId": "gpt-5.6-luna",
+    "pricing": {
+      "input_cost_per_token": 2e-7,
+      "output_cost_per_token": 0.0000012,
+      "cache_read_input_token_cost": 2e-8,
+      "cache_creation_input_token_cost": 2.5e-7,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": "max_output_tokens",
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "reasoning": {
+          "effort": "low"
+        }
+      },
+      "middle": {
+        "reasoning": {
+          "effort": "medium"
+        }
+      },
+      "highest": {
+        "reasoning": {
+          "effort": "xhigh"
+        }
+      }
+    }
+  },
+  "OpenAI GPT-5.6 Sol": {
+    "schemaVersion": 1,
+    "llmProfile": "OpenAI GPT-5.6 Sol",
+    "provider": "openai",
+    "apiInferenceType": "responses",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.openai.com/v1",
+    "modelId": "gpt-5.6-sol",
+    "pricing": {
+      "input_cost_per_token": 0.000005,
+      "output_cost_per_token": 0.00003,
+      "cache_read_input_token_cost": 5e-7,
+      "cache_creation_input_token_cost": 0.00000625,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": "max_output_tokens",
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "reasoning": {
+          "effort": "low"
+        }
+      },
+      "middle": {
+        "reasoning": {
+          "effort": "medium"
+        }
+      },
+      "highest": {
+        "reasoning": {
+          "effort": "xhigh"
+        }
+      }
+    }
+  },
+  "OpenRouter DeepSeek V4 Flash": {
+    "schemaVersion": 1,
+    "llmProfile": "OpenRouter DeepSeek V4 Flash",
+    "provider": "openrouter",
+    "apiInferenceType": "chat-completions",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://openrouter.ai/api/v1",
+    "modelId": "deepseek/deepseek-v4-flash",
+    "pricing": null,
+    "supportsTemperature": null,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": null,
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "reasoning_effort": "low"
+      },
+      "middle": {
+        "reasoning_effort": "high"
+      },
+      "highest": {
+        "reasoning_effort": "xhigh"
+      }
+    }
+  },
+  "OpenRouter DeepSeek V4 Pro": {
+    "schemaVersion": 1,
+    "llmProfile": "OpenRouter DeepSeek V4 Pro",
+    "provider": "openrouter",
+    "apiInferenceType": "chat-completions",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://openrouter.ai/api/v1",
+    "modelId": "deepseek/deepseek-v4-pro",
+    "pricing": null,
+    "supportsTemperature": null,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": null,
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "reasoning_effort": "low"
+      },
+      "middle": {
+        "reasoning_effort": "high"
+      },
+      "highest": {
+        "reasoning_effort": "xhigh"
+      }
+    }
+  },
+  "OpenRouter GPT-OSS 120B": {
+    "schemaVersion": 1,
+    "llmProfile": "OpenRouter GPT-OSS 120B",
+    "provider": "openrouter",
+    "apiInferenceType": "chat-completions",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://openrouter.ai/api/v1",
+    "modelId": "openai/gpt-oss-120b",
+    "pricing": null,
+    "supportsTemperature": null,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": null,
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "reasoning_effort": "low"
+      },
+      "middle": {
+        "reasoning_effort": "medium"
+      },
+      "highest": {
+        "reasoning_effort": "high"
+      }
+    }
+  },
+  "OpenRouter GPT-OSS 20B": {
+    "schemaVersion": 1,
+    "llmProfile": "OpenRouter GPT-OSS 20B",
+    "provider": "openrouter",
+    "apiInferenceType": "chat-completions",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://openrouter.ai/api/v1",
+    "modelId": "openai/gpt-oss-20b",
+    "pricing": null,
+    "supportsTemperature": null,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": null,
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": [],
+    "reasoningEffortMap": {
+      "lowest": {
+        "reasoning_effort": "low"
+      },
+      "middle": {
+        "reasoning_effort": "medium"
+      },
+      "highest": {
+        "reasoning_effort": "high"
+      }
+    }
+  },
+  "Perplexity Sonar": {
+    "schemaVersion": 1,
+    "llmProfile": "Perplexity Sonar",
+    "provider": "perplexity",
+    "apiInferenceType": "chat-completions",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.perplexity.ai",
+    "modelId": "sonar",
+    "pricing": {
+      "input_cost_per_token": 0.000001,
+      "output_cost_per_token": 0.000001,
+      "cache_read_input_token_cost": 0,
+      "cache_creation_input_token_cost": 0,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": null,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": null,
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": []
+  },
+  "Perplexity Sonar Pro": {
+    "schemaVersion": 1,
+    "llmProfile": "Perplexity Sonar Pro",
+    "provider": "perplexity",
+    "apiInferenceType": "chat-completions",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.perplexity.ai",
+    "modelId": "sonar-pro",
+    "pricing": {
+      "input_cost_per_token": 0.000003,
+      "output_cost_per_token": 0.000015,
+      "cache_read_input_token_cost": 0,
+      "cache_creation_input_token_cost": 0,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": null,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": null,
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": []
+  },
+  "Perplexity Sonar Reasoning Pro": {
+    "schemaVersion": 1,
+    "llmProfile": "Perplexity Sonar Reasoning Pro",
+    "provider": "perplexity",
+    "apiInferenceType": "chat-completions",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.perplexity.ai",
+    "modelId": "sonar-reasoning-pro",
+    "pricing": {
+      "input_cost_per_token": 0.000002,
+      "output_cost_per_token": 0.000008,
+      "cache_read_input_token_cost": 0,
+      "cache_creation_input_token_cost": 0,
+      "output_cost_per_reasoning_token": 0
+    },
+    "supportsTemperature": null,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": null,
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "backupProfiles": []
+  }
+}

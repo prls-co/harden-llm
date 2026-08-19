@@ -11,6 +11,7 @@ Garage services.
 - Root `*.go`: public `hardenllm` library and its single `Client.Call` path.
 - `cmd/harden-llm-gateway/`: production process, healthcheck, and user bootstrap.
 - `internal/`: providers, runtime, persistence, gateway, telemetry, and tests.
+- `internal/profiles/default-profile-catalog.json`: current 28-profile utility-llm preset seed; credentials are never included.
 - `api/openapi.yaml`: authoritative OpenAPI 3.1 REST contract.
 - `frontend/`: independent Phoenix/LiveView REST client; no database or provider SDK.
 - `deploy/` and `docker-compose.yml`: pinned single-host deployment artifacts.

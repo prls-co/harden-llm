@@ -445,7 +445,7 @@ Plan-and-Solve subtasks:
 - `P02.S03 Add failing domain-projection parity coverage`
   - Action: Add TEST-015 through TEST-017 for usage/pricing, traces/stats including canonical artifact projections, and profile catalog parity.
   - Why now: Persistence schemas must not be designed before domain projections are fixed.
-  - Files/surfaces: `internal/pricing/*_test.go`, `internal/traces/*_test.go`, `internal/stats/*_test.go`, `internal/profiles/profile_test.go`.
+  - Files/surfaces: `internal/pricing/*_test.go`, `internal/traces/*_test.go`, `internal/stats/*_test.go`, `internal/profiles/profile_test.go`, and the source-derived profile catalog tests.
   - Requirement link: REQ-007, REQ-018, REQ-020.
   - Verification link: TEST-015, TEST-016, TEST-017.
   - Verification mode: RED
@@ -1158,6 +1158,21 @@ Plan-and-Solve subtasks:
   - Evidence produced: parity inventory, ADR-HLLM-012, supplemental frontend test catalog, final gate results, and the release/deployment record.
   - Deviation: native editable datalist and deep-link profile editor replace duplicated Downshift/inline editor ownership; cursor/limit pagination replaces offset/page-number quick-jump; the rationale is recorded in ADR-HLLM-012.
   - KER impact: none; no production or test timeout changed.
+  - Unlocks: P07.S10.
+
+- `P07.S10 Reconcile the current utility-llm profile catalog and all-profile tests`
+  - Action: Embed the exact 28-profile catalog from `/home/kirill/p/utility-llm` revision `5c0309e` (`0.15.0`), seed it once for owners with an empty Postgres profile catalog, and translate the source catalog, pricing, reasoning, credential-redaction, and all-profile smoke preparation cases.
+  - Why now: The original backend parity fixture was an older two-profile synthetic catalog, while the current utility-llm source exposes 28 curated presets and tests the complete preset list.
+  - Files/surfaces: `internal/profiles/default-profile-catalog.json`, `internal/profiles/default_catalog.go`, `internal/profiles/default_catalog_test.go`, `internal/providers/default_profile_catalog_test.go`, `internal/gateway/profile_seed_test.go`, `internal/gateway/profile_service.go`, `internal/gateway/profile_resources.go`, `internal/gateway/runtime_profiles.go`, `internal/postgres/repository.go`, `cmd/harden-llm-gateway/server.go`, `docs/adr/ADR-HLLM-013-profile-catalog-seed.md`, and the profile/API/RTM documentation.
+  - Requirement link: REQ-004, REQ-007, REQ-008, REQ-009, REQ-010, REQ-011, REQ-018, REQ-019.
+  - Verification link: TEST-017, the deterministic Go suite, and the tagged Postgres seed test.
+  - Verification mode: VERIFY
+  - Command/procedure: `go test ./... -count=1`; `go test ./internal/gateway/... -tags=integration -run TestDefaultProfileSeedParity -count=1`.
+  - Expected result: All 28 source profiles parse and prepare through the shared provider path; empty-owner first use inserts exactly one credential-free catalog without overwriting operator rows.
+  - Evidence produced: source revision/path/hash, exact-name parity test, all-profile provider matrix, owner-seed concurrency test, ADR-HLLM-013, and updated status/traceability records.
+  - Stop/escalate condition: Stop if a seed contains credential-shaped material, a profile is missing or transport-mapped differently, an existing owner catalog is overwritten, or a live-provider requirement would enter the deterministic gate.
+  - Deviation: The source paid all-profile execution is translated to deterministic request preparation plus an opt-in live boundary; Firebase/Firestore first-use persistence is translated to owner-locked Postgres seeding because the target is self-hosted.
+  - KER impact: none; no production or test timeout changed.
   - Unlocks: P07 exit.
 
 Exit gates:
@@ -1296,7 +1311,7 @@ Target locations:
 | TEST-014 | Endpoint policy | unit | REQ-005 | `internal/providers/endpoint_policy_test.go` | `go test ./internal/providers/... -run TestEndpointPolicy -count=1` | DNS/IP/TLS/header fixtures | injected resolver/dialer | Adversarial cases cause zero unintended dials | 15s |
 | TEST-015 | Usage and pricing | unit | REQ-007, REQ-018 | `internal/pricing/usage_cost_test.go` | `go test ./internal/pricing/... -run TestUsageCostParity -count=1` | usage/pricing goldens | fixed catalog | Usage/cost parity passes | 10s |
 | TEST-016 | Trace and stats | unit | REQ-007, REQ-018, REQ-020 | `internal/traces/parity_test.go`, `internal/stats/parity_test.go` | `go test ./internal/traces/... ./internal/stats/... -run TestParity -count=1` | trace/stats/artifact goldens | fixed time/IDs | Domain and artifact projections match source semantics | 10s |
-| TEST-017 | Profiles | unit | REQ-003, REQ-007, REQ-018 | `internal/profiles/profile_test.go` | `go test ./internal/profiles/... -run TestProfileParity -count=1` | catalog/graph fixtures | fixed time | Profile/catalog/graph parity passes | 10s |
+| TEST-017 | Profiles and current catalog seed | unit/integration | REQ-003, REQ-004, REQ-007, REQ-008, REQ-009, REQ-010, REQ-018, REQ-019 | `internal/profiles/default_catalog_test.go`, `internal/profiles/profile_test.go`, `internal/providers/default_profile_catalog_test.go`, `internal/gateway/profile_seed_test.go` | `go test ./internal/profiles/... ./internal/providers/... -run 'Test(DefaultCatalogParity\|ProfileParity\|DefaultProfileCatalogParity)' -count=1`; tagged Postgres seed command | current 28-profile source catalog, graph fixtures, fixed endpoint resolver, isolated Postgres | no credentials/network for unit; owner advisory lock for seed | Current source catalog, every-profile preparation, credential non-disclosure, graph rules, and concurrent first-use seed pass | 10s unit; 90s integration |
 | TEST-018 | Credential bundle | unit | REQ-008, REQ-018 | `internal/profiles/credentials_test.go` | `go test ./internal/profiles/... -run TestCredentialBundle -count=1` | test keys/bundles | injected random reader | Encryption, tamper, AAD, and bundle cases pass | 10s |
 | TEST-019 | Diagnostics bundle | unit | REQ-007, REQ-013, REQ-020 | `internal/diagnostics/bundle_test.go` | `go test ./internal/diagnostics/... -run TestDiagnosticsBundle -count=1` | adversarial secrets and artifact failures | fixed identity | Bundle/artifact references validate with zero leaks and non-fatal storage failure | 10s |
 | TEST-020 | Postgres repositories | integration | REQ-009, REQ-020 | `internal/postgres/repository_test.go` | `go test ./internal/postgres/... -tags=integration -run TestRepositoryContract -count=1` | isolated Harden-LLM Postgres | concurrent runners | Migrations, schema, artifact indexes, and round trips pass without Langfuse access | 90s |
@@ -1425,7 +1440,7 @@ Privacy and data-quality constraints:
 | P02 | REQ-005 | TEST-014 | `internal/providers/endpoint_policy_test.go` | `go test ./internal/providers/... -run TestEndpointPolicy -count=1` |
 | P02 | REQ-007 | TEST-015 | `internal/pricing/usage_cost_test.go` | `go test ./internal/pricing/... -run TestUsageCostParity -count=1` |
 | P02 | REQ-007 | TEST-016 | `internal/traces/parity_test.go`, `internal/stats/parity_test.go` | `go test ./internal/traces/... ./internal/stats/... -run TestParity -count=1` |
-| P02 | REQ-007 | TEST-017 | `internal/profiles/profile_test.go` | `go test ./internal/profiles/... -run TestProfileParity -count=1` |
+| P02/P07.S10 | REQ-004, REQ-007, REQ-008, REQ-009, REQ-010, REQ-018, REQ-019 | TEST-017 | `internal/profiles/default_catalog_test.go`, `internal/profiles/profile_test.go`, `internal/providers/default_profile_catalog_test.go`, `internal/gateway/profile_seed_test.go` | `go test ./internal/profiles/... ./internal/providers/... -run 'Test(DefaultCatalogParity\|ProfileParity\|DefaultProfileCatalogParity)' -count=1`; tagged Postgres seed command |
 | P02 | REQ-008 | TEST-018 | `internal/profiles/credentials_test.go` | `go test ./internal/profiles/... -run TestCredentialBundle -count=1` |
 | P02 | REQ-013 | TEST-019 | `internal/diagnostics/bundle_test.go` | `go test ./internal/diagnostics/... -run TestDiagnosticsBundle -count=1` |
 | P03 | REQ-009 | TEST-020 | `internal/postgres/repository_test.go` | `go test ./internal/postgres/... -tags=integration -run TestRepositoryContract -count=1` |
@@ -1457,6 +1472,7 @@ Privacy and data-quality constraints:
 | Amendment | Surface | Tests | Verification |
 | --- | --- | --- | --- |
 | P07.S09 | `frontend/lib/harden_llm_web/live/workspace_live.ex`, `profiles_live.ex`, `history_live.ex`, `api/openapi.yaml`, Go state/run projections | WEB-TEST-031 through WEB-TEST-036 | pinned Phoenix suite, browser workflow, `make verify`, `make test-compose` |
+| P07.S10 | `internal/profiles/default-profile-catalog.json`, gateway profile resources, Postgres seed, provider preparation | TEST-017 | `go test ./... -count=1`; tagged Postgres seed test |
 
 ## 11. Execution log
 
@@ -1521,6 +1537,20 @@ Privacy and data-quality constraints:
 | ADR | Status | Decision |
 | --- | --- | --- |
 | ADR-HLLM-012 | Accepted | Complete the utility frontend behavior through one self-hosted Phoenix/Go path with explicit editor, pagination, and infrastructure adaptations. |
+| ADR-HLLM-013 | Accepted | Embed the current 28-profile utility-llm catalog and seed it once per empty owner catalog without credentials or overwrite. |
+
+### Post-certification profile catalog amendment
+
+- Amendment: `P07.S10 Reconcile the current utility-llm profile catalog and all-profile tests`
+- Status: Complete in the current worktree; deterministic verification and the tagged Postgres seed verification passed.
+- Source: `/home/kirill/p/utility-llm` revision `5c0309e2508dc5b7a87d0880c8d794123353c5b0` (`0.15.0`), `examples/react-trace-studio/llm-profile-catalog.json`.
+- Seed: 28 credential-free profiles embedded at `internal/profiles/default-profile-catalog.json`; SHA-256 `864552eb5e8bf63de590704ef65c2e45ad228e7cc15d4af048609e680348b2f9`.
+- Implementation: first-use empty-owner seeding is transactionally owner-locked in Postgres; existing catalogs are never replaced; unconfigured rows expose only non-secret credential metadata.
+- Test translation: `TEST-017` now covers exact catalog parity, profile graph validation, every-profile text/structured provider preparation, pricing/reasoning, credential non-disclosure, and concurrent seed behavior.
+- Verification: `go test ./... -count=1` passed; `go test ./internal/gateway/... -tags=integration -run TestDefaultProfileSeedParity -count=1` passed in 3.84s; `make verify` passed and `govulncheck` found no called vulnerabilities.
+- Deviation: source live execution is not part of deterministic acceptance; its all-profile setup is exercised without network/credentials, with real provider execution remaining opt-in under TEST-037/TEST-038. Firebase/Firestore seed persistence is intentionally replaced by the target's owner-scoped Postgres.
+- KER impact: none; no timeout, retry budget, or operational budget changed.
+- Related issue: no issue ID was supplied or created; this amendment is tracked by ADR-HLLM-013, TEST-017, and the implementation-status record.
 
 ## 12. Appendix: ADR index
 
@@ -1538,3 +1568,4 @@ Privacy and data-quality constraints:
 | ADR-HLLM-010 | Accepted | Use independent read-only frontend Caddy and Grafana mount points. |
 | ADR-HLLM-011 | Accepted | Keep the current Go 1.26.6 security-patched toolchain after the original 1.26.5 decision. |
 | ADR-HLLM-012 | Accepted | Complete utility frontend behavior through one self-hosted Phoenix/Go path with explicit editor, pagination, and infrastructure adaptations. |
+| ADR-HLLM-013 | Accepted | Embed the current utility-llm 28-profile catalog and seed empty owner catalogs once without credentials or overwrite. |
