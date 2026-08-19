@@ -106,16 +106,22 @@
       "runtimeCredentialHandling": "Unconfigured seed rows remain in the runtime catalog; credential_required is persisted to history without provider dialing",
       "aggregate": "make verify passed; govulncheck found no called vulnerabilities",
       "production": {
-        "pullRequest": 11,
-        "mergedCommit": "ab461d3e8cf2f77e8d1e9cc1bcc0e4bd8daa1492",
-        "ociRelease": "ab461d3",
-        "gatewayImage": "sha256:9107662665a3b76f6e412ff3cf48f9aca25e95f724fb2db981b71ed94c6cedd1",
+        "pullRequest": 12,
+        "mergedCommit": "8f69e2b3062dad0cf48a7e75e072575946fc07b4",
+        "ociRelease": "8f69e2b",
+        "runtimeCorrectionPullRequest": 11,
+        "runtimeCorrectionCommit": "ab461d3e8cf2f77e8d1e9cc1bcc0e4bd8daa1492",
+        "gatewayImage": "sha256:1dc2f2037176633ec338b47d99254bcdc5f15bd773d65d9683eb2b76bc5e757b",
+        "frontendImage": "sha256:6d7df59edd51fa27267298ac62f4452b7704b89714feaa5fab3e54ad2b628235",
         "healthz": 200,
         "readyz": 200,
+        "webHealthz": 200,
+        "login": 200,
         "profileCount": 30,
         "configuredProfiles": 2,
         "unconfiguredPresets": 28,
-        "historyAfterDeploy": "6 records; no CPA GPT-5.6 Luna run; no retry issued"
+        "historyAfterDeploy": "6 records; no CPA GPT-5.6 Luna run; no retry issued",
+        "frontendOtlp": "initialized after collector startup window; no subsequent exporter errors"
       }
     }
   },
