@@ -38,8 +38,25 @@ func TestDefaultProfileSeedParity(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	if err := store.CreateUser(ctx, postgres.User{
+		ID: "existing-owner", Email: "existing@example.test", PasswordHash: "$argon2id$v=19$fixture",
+		CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
 	seed, err := profiles.DefaultCatalog()
 	if err != nil {
+		t.Fatal(err)
+	}
+	custom := seed["CPA GPT-5.6 Luna"]
+	custom.LLMProfile = "Operator Profile"
+	document, err := json.Marshal(custom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveProfile(ctx, postgres.ProfileRecord{
+		OwnerID: "existing-owner", ID: custom.LLMProfile, Document: document, CreatedAt: now, UpdatedAt: now,
+	}, nil); err != nil {
 		t.Fatal(err)
 	}
 	vault, err := profiles.NewCredentialVault("seed-key", map[string][]byte{"seed-key": bytes.Repeat([]byte{0x77}, 32)}, nil)
@@ -62,7 +79,7 @@ func TestDefaultProfileSeedParity(t *testing.T) {
 		wait.Add(1)
 		go func() {
 			defer wait.Done()
-			got, err := service.Profiles(ctx, "seed-owner")
+			got, err := service.Profiles(ctx, "existing-owner")
 			if err != nil {
 				errorsByReader <- err
 				return
@@ -82,33 +99,29 @@ func TestDefaultProfileSeedParity(t *testing.T) {
 	}
 	slices.Sort(wantNames)
 	for got := range states {
-		if len(got) != len(wantNames) {
-			t.Fatalf("seeded profile count = %d, want %d", len(got), len(wantNames))
+		if len(got) != len(wantNames)+1 {
+			t.Fatalf("merged profile count = %d, want %d", len(got), len(wantNames)+1)
 		}
-		for index, state := range got {
-			if state.Profile.LLMProfile != wantNames[index] || state.Credential.Configured {
-				t.Fatalf("seeded state[%d] = %#v, want unconfigured %s", index, state, wantNames[index])
+		for _, name := range wantNames {
+			if !slices.ContainsFunc(got, func(state ProfileState) bool {
+				return state.Profile.LLMProfile == name && !state.Credential.Configured
+			}) {
+				t.Fatalf("missing unconfigured seeded profile %q", name)
 			}
+		}
+		if !slices.ContainsFunc(got, func(state ProfileState) bool {
+			return state.Profile.LLMProfile == custom.LLMProfile
+		}) {
+			t.Fatalf("existing operator profile was not preserved: %v", got)
 		}
 	}
 
-	custom := seed["CPA GPT-5.6 Luna"]
-	custom.LLMProfile = "Operator Profile"
-	document, err := json.Marshal(custom)
+	emptyOwner, err := service.Profiles(ctx, "seed-owner")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveProfile(ctx, postgres.ProfileRecord{
-		OwnerID: "seed-owner", ID: custom.LLMProfile, Document: document, CreatedAt: now, UpdatedAt: now,
-	}, nil); err != nil {
-		t.Fatal(err)
-	}
-	final, err := service.Profiles(ctx, "seed-owner")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(final) != len(seed)+1 || !slices.ContainsFunc(final, func(state ProfileState) bool { return state.Profile.LLMProfile == custom.LLMProfile }) {
-		t.Fatalf("seed overwrote or lost operator profile: %v", final)
+	if len(emptyOwner) != len(seed) {
+		t.Fatalf("empty owner profile count = %d, want %d", len(emptyOwner), len(seed))
 	}
 
 	first := seed["CPA GPT-5.6 Luna"]

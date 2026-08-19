@@ -1,4 +1,4 @@
-# ADR-HLLM-013: Current Utility-LLM Profile Catalog and First-Use Seeding
+# ADR-HLLM-013: Current Utility-LLM Profile Catalog and Incremental Seeding
 
 - Status: Accepted
 - Date: 2026-08-18
@@ -26,11 +26,11 @@ must not reintroduce Firebase/Firestore persistence or a second provider path.
   immutable seed at `internal/profiles/default-profile-catalog.json`. The Go
   process validates it with the normal profile parser at startup and never
   reads the source checkout at runtime.
-- On the first profile/catalog/runtime operation for an owner whose
-  `llm_profiles` table is empty, insert the complete seed through Postgres
-  `SeedProfiles`. An owner advisory transaction lock makes concurrent first-use
-  requests converge on one insert. A non-empty owner catalog, including custom
-  or operator-edited rows, is never overwritten.
+- On the first and subsequent profile/catalog/runtime operations, insert every
+  missing seed row through Postgres `SeedProfiles`. An owner advisory
+  transaction lock makes concurrent first-use requests converge on one
+  complete catalog. A row already present for that profile ID, including a
+  custom or operator-edited row, is never overwritten.
 - Seed rows contain no credential reference, runtime model-discovery state, or
   secret-shaped field. Profile reads expose a deterministic, non-secret
   endpoint binding ID with `configured:false`; saving a credential may use that
@@ -45,9 +45,10 @@ must not reintroduce Firebase/Firestore persistence or a second provider path.
 ## Consequences
 
 New owners see the same current 28 presets as utility-llm without manual JSON
-import. Existing owners keep their exact catalog and credentials. The source
-catalog is auditable by its path, revision, and embedded-file hash recorded in
-the implementation status document. Catalog updates are explicit code/data
+import, and existing owners receive any missing presets on their next profile
+operation without losing their custom rows or credentials. The source catalog
+is auditable by its path, revision, and embedded-file hash recorded in the
+implementation status document. Catalog updates are explicit code/data
 changes and require this parity test and review again.
 
 The live source smoke's provider execution and temporary custom-profile cleanup
@@ -55,6 +56,6 @@ are not run in deterministic CI; the translated preparation and seed tests
 cover the portable contract without network or secrets. This is a documented
 self-hosted verification adaptation, not a compatibility or fallback path.
 
-Rollback is stateless: removing the seed wiring prevents future empty owners
-from receiving presets but does not delete existing rows. No production or test
-timeout changed, so no new KER timeout record is required.
+Rollback is stateless: removing the seed wiring prevents future preset
+backfills but does not delete existing rows. No production or test timeout
+changed, so no new KER timeout record is required.

@@ -46,7 +46,7 @@
 | Return one detailed result type | DECISION | `Client.Call` returns output plus normalized usage, cost, cache, attempt, and trace metadata. There is no simple/detailed mode split and no expanded-result option. JS direct output parity is asserted against `Result.Output`. |
 | Keep the gateway thin | DECISION | HTTP handlers own transport, auth, authorization, and persistence orchestration. They call the root library and do not construct provider payloads or reimplement retries, schema behavior, pricing, cache identity, or redaction. |
 | Use Postgres for application records | DECISION | Concurrent profile, session, trace, artifact-index, history, stats, and cache writes require transactions, indexes, JSONB, and migrations. SQLite is not an application database in v1. Garage may use its upstream-supported SQLite metadata engine internally without creating a Harden-LLM application persistence contract. |
-| Seed the current profile catalog on first use | DECISION | Embed the credential-free 28-profile utility-llm catalog and insert it once under an owner advisory lock when an owner has no profile rows; preserve any existing/custom catalog and never seed credentials. |
+| Seed the current profile catalog on first use | DECISION | Embed the credential-free 28-profile utility-llm catalog and insert missing entries under an owner advisory lock; preserve any existing/custom row and never seed credentials. |
 | Keep the upstream Langfuse dependency graph | DECISION | The first release runs the pinned official Langfuse Compose topology instead of replacing or tuning its owned dependencies. Langfuse retains its own Postgres, Redis, ClickHouse, and MinIO services. Dependency migration is accepted only after upstream Langfuse makes and supports that migration. |
 | Use Garage only for Harden-LLM artifacts | DECISION | Firebase Storage currently owns linked JSON traces and diagnostic attachments. Garage replaces that application-owned surface. MinIO remains opaque to Harden-LLM and is used only by Langfuse. |
 | Use one OTel export path | DECISION | The application emits OTel once to the Collector. The Collector exports operational traces to Tempo and complete `harden-llm` traces to Langfuse over OTLP/HTTP. The library and gateway do not contain a direct Langfuse SDK/exporter. |
@@ -237,7 +237,7 @@ Contract requirements:
 - `Call` is the only execution method.
 - Built-in provider selection comes from `Profile.APIInferenceType`; callers never construct internal provider adapters.
 - Direct Go callers supply a one-or-more-entry `ProfileCatalog` and a `CredentialResolver`. The gateway supplies owner-scoped saved profiles and an in-memory resolver backed by encrypted Postgres records.
-- A new gateway owner receives the current 28-profile source-derived preset catalog on the first profile/catalog/runtime operation when its profile table is empty. Seeding is one owner-locked Postgres transaction, credential-free, and never overwrites an existing row.
+- An owner receives any missing current 28-profile source-derived presets on the first profile/catalog/runtime operation. Seeding is one owner-locked Postgres transaction, credential-free, and never overwrites an existing row.
 - `Result.Output` matches the current JS direct return for equivalent deterministic inputs.
 - Result metadata and emitted telemetry derive from the same internal normalized call record.
 - Cache identity excludes observability context, retry controls, timeout/deadline, cancellation state, and UI context.
@@ -320,7 +320,7 @@ Gateway responsibilities:
 - Apply the endpoint-security policy before every profile probe, model refresh, and provider call.
 - Call the root Go library for all runtime behavior.
 - Persist application records in Postgres.
-- Load the embedded profile seed and perform owner-scoped first-use catalog seeding without importing credentials or runtime discovery state.
+- Load the embedded profile seed and perform owner-scoped catalog backfill without importing credentials or runtime discovery state.
 - Persist Harden-LLM trace artifacts and diagnostic attachments through the injected Garage-backed artifact store, then persist their owner-scoped references in Postgres.
 - Configure OTel SDK/exporters and the process `slog` logger.
 - Shut down HTTP and telemetry providers within a bounded grace period.
@@ -382,7 +382,7 @@ The `harden_llm` database is the source of truth for application state.
 | --- | --- |
 | `users` | Local identities and Argon2id password metadata. |
 | `user_sessions` | Hashed opaque session tokens, expiry, and revocation. |
-| `llm_profiles` | Redacted profile configuration, backup references, and credential-free first-use preset rows. |
+| `llm_profiles` | Redacted profile configuration, backup references, and credential-free preset rows inserted by catalog backfill. |
 | `llm_endpoint_credentials` | Versioned AES-GCM credential ciphertext and metadata. |
 | `llm_client_state` | Per-user client preferences and prompt drafts exposed by `/api/v1/state`. |
 | `llm_runs` | Run history and result summary. |

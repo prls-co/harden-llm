@@ -324,9 +324,10 @@ Fixture rules:
     pricing remains provider-reported, and catalog serialization round-trips.
   - Every seeded profile prepares both text and structured operations through
     the shared endpoint policy without serializing the fixture credential.
-  - Concurrent first use inserts one complete catalog for an empty owner,
-    exposes every row as unconfigured, and never overwrites an existing
-    operator profile.
+  - Concurrent first use inserts every missing preset for an owner with an
+    existing custom row, exposes seeded rows as unconfigured, and never
+    overwrites the existing operator profile; an empty owner receives exactly
+    the 28 presets.
   - Profile shape, API inference types, pricing, model list, defaults, and
     backup references match source behavior.
   - Graph validation preserves duplicate, cycle, missing-reference, and maximum-depth rules.

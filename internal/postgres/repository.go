@@ -248,9 +248,9 @@ func (store *Store) SaveProfile(ctx context.Context, profile ProfileRecord, cred
 	return nil
 }
 
-// SeedProfiles inserts a credential-free profile catalog only when the owner
-// has no profiles. The advisory lock makes concurrent first-use requests
-// converge on one immutable seed without overwriting operator edits.
+// SeedProfiles inserts missing credential-free profile presets. The advisory
+// lock makes concurrent first-use requests converge on one immutable seed;
+// ON CONFLICT preserves existing operator and custom rows.
 func (store *Store) SeedProfiles(ctx context.Context, ownerID string, profileRecords []ProfileRecord) error {
 	if err := validateIdentifier("owner ID", ownerID); err != nil {
 		return err
@@ -278,20 +278,11 @@ func (store *Store) SeedProfiles(ctx context.Context, ownerID string, profileRec
 	if _, err := transaction.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 1212968013))`, ownerID); err != nil {
 		return fmt.Errorf("postgres: lock profile seed owner: %w", err)
 	}
-	var hasProfiles bool
-	if err := transaction.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM llm_profiles WHERE owner_id = $1)`, ownerID).Scan(&hasProfiles); err != nil {
-		return fmt.Errorf("postgres: inspect profile seed: %w", err)
-	}
-	if hasProfiles {
-		if err := transaction.Commit(ctx); err != nil {
-			return fmt.Errorf("postgres: commit skipped profile seed: %w", err)
-		}
-		return nil
-	}
 	for _, record := range profileRecords {
 		if _, err := transaction.Exec(ctx, `
 			INSERT INTO llm_profiles (owner_id, profile_id, credential_id, document, created_at, updated_at)
-			VALUES ($1,$2,NULL,$3,$4,$5)`,
+			VALUES ($1,$2,NULL,$3,$4,$5)
+			ON CONFLICT (owner_id, profile_id) DO NOTHING`,
 			record.OwnerID, record.ID, record.Document, record.CreatedAt, record.UpdatedAt); err != nil {
 			return fmt.Errorf("postgres: seed profile %q: %w", record.ID, err)
 		}
