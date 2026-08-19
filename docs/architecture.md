@@ -17,7 +17,7 @@ browser -> Caddy -> Phoenix LiveView -> Go REST gateway -> hardenllm.Client.Call
 | Component | Owns | Must not own |
 | --- | --- | --- |
 | Root Go library | provider payloads, retries, repair, schema, cache identity, usage/cost, domain projections | environment loading, exporters, auth, SQL, HTTP routes |
-| Go gateway | bearer auth, owner isolation, REST envelopes, first-use profile catalog seeding, local profiles, persistence adapters, process telemetry | browser cookies, CSRF, HTML, duplicate provider logic |
+| Go gateway | bearer auth, owner isolation, REST envelopes, profile catalog backfill, local profiles, persistence adapters, process telemetry | browser cookies, CSRF, HTML, duplicate provider logic |
 | Phoenix frontend | encrypted browser session, ephemeral token vault, CSRF, presentation, REST calls | database, durable jobs, provider SDKs, pricing, retries, storage |
 | Caddy | TLS, public host routing, security headers, request-size limits | application authorization |
 | Collector | the single telemetry fanout and redaction pipeline | application or provider results |
@@ -49,12 +49,12 @@ source-derived preset catalog. It is embedded in the gateway binary and
 validated through the normal profile parser; the gateway has no runtime
 dependency on `/home/kirill/p/utility-llm`.
 
-When an owner first uses a profile/catalog operation and has no
-`llm_profiles` rows, the gateway inserts all 28 presets through one
-owner-locked Postgres transaction. The operation is a no-op for an owner with
-any existing row, so custom profiles and operator edits are preserved. Seeded
-rows expose `configured:false` and a non-secret endpoint binding identifier;
-provider execution remains unavailable until the owner stores a credential.
+When an owner first uses a profile/catalog operation, the gateway inserts any
+missing entries from the 28-profile seed through one owner-locked Postgres
+transaction. Existing rows, including custom profiles and operator edits, are
+preserved. Seeded rows expose `configured:false` and a non-secret endpoint
+binding identifier; provider execution remains unavailable until the owner
+stores a credential.
 
 ## Deployment scope
 

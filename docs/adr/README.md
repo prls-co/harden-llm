@@ -15,7 +15,7 @@ migration path.
 | [ADR-HLLM-010](ADR-HLLM-010-overlay-mount-points.md) | Accepted | Use independent read-only mount points for frontend Caddy and Grafana overlays. |
 | [ADR-HLLM-011](ADR-HLLM-011-go-security-patch.md) | Accepted | Replace the vulnerable Go 1.26.0 pin with the current 1.26.6 security-patched toolchain. |
 | [ADR-HLLM-012](ADR-HLLM-012-frontend-parity-adaptations.md) | Accepted | Record the self-hosted adaptations required to complete the utility-llm frontend behavior without Firebase, browser provider calls, or a second UI/backend path. |
-| [ADR-HLLM-013](ADR-HLLM-013-profile-catalog-seed.md) | Accepted | Embed the current 28-profile utility-llm catalog and seed it once per empty owner catalog without credentials or overwrite. |
+| [ADR-HLLM-013](ADR-HLLM-013-profile-catalog-seed.md) | Accepted | Embed the current 28-profile utility-llm catalog and insert missing presets per owner without credentials or overwrite. |
 
 The remaining planned deviation triggers are ADR-HLLM-003 through ADR-HLLM-007
 in the canonical implementation plan. Create one of those records only when its

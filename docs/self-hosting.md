@@ -58,12 +58,12 @@ read service configuration.
 
 ## Profile presets
 
-The first profile/catalog operation for a new owner seeds the current
-utility-llm preset catalog: 28 credential-free profiles. Seeding is protected
-by an owner-scoped Postgres transaction and is skipped as soon as that owner
-has any profile row, so imported, custom, and operator-edited catalogs are not
-replaced. Each preset must be configured with the owner's provider credential
-before it can run; the API never returns the stored secret.
+The first profile/catalog operation for an owner backfills the current
+utility-llm preset catalog: 28 credential-free profiles, while retaining any
+existing custom or operator-edited rows. Seeding is protected by an
+owner-scoped Postgres transaction and inserts only missing preset IDs. Each
+preset must be configured with the owner's provider credential before it can
+run; the API never returns the stored secret.
 
 ## Health and diagnostics
 

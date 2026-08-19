@@ -97,7 +97,7 @@
     "seedPath": "internal/profiles/default-profile-catalog.json",
     "seedSHA256": "864552eb5e8bf63de590704ef65c2e45ad228e7cc15d4af048609e680348b2f9",
     "profileCount": 28,
-    "seedPolicy": "First profile/catalog/runtime use for an owner with an empty catalog; credential-free; owner-locked; never overwrites existing rows.",
+    "seedPolicy": "First profile/catalog/runtime use backfills every missing preset for the owner; credential-free; owner-locked; never overwrites existing rows.",
     "tests": ["TEST-017"],
     "adr": "ADR-HLLM-013",
     "verification": {
@@ -144,7 +144,7 @@
     },
     {
       "adr": "ADR-HLLM-013",
-      "summary": "The current 28-profile utility-llm catalog is embedded and seeded once for empty owner catalogs without credentials or overwrite; paid all-profile execution remains opt-in."
+      "summary": "The current 28-profile utility-llm catalog is embedded and missing presets are backfilled without credentials or overwrite; paid all-profile execution remains opt-in."
     }
   ],
   "frontend": {

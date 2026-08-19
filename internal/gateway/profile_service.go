@@ -107,13 +107,6 @@ func (service *ProfileService) ensureSeeded(ctx context.Context, ownerID string)
 		return nil
 	}
 	ownerID = strings.TrimSpace(ownerID)
-	existing, err := service.store.Profiles(ctx, ownerID)
-	if err != nil {
-		return err
-	}
-	if len(existing) > 0 {
-		return nil
-	}
 
 	names := make([]string, 0, len(service.seedCatalog))
 	for name := range service.seedCatalog {

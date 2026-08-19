@@ -100,12 +100,13 @@ TOKEN="$(printf '%s' "$PASSWORD" | \
 unset PASSWORD
 ```
 
-On a new owner's first `GET /api/v1/profiles`, the gateway returns the current
-28 utility-llm preset profiles. They are credential-free and report
-`credential.configured:false`; use the returned non-secret `credentialId` when
-storing a key for a preset. Credential fields are write-only; subsequent reads
-return configured status, not plaintext. An unconfigured preset cannot run
-until its credential is stored:
+On an owner's first `GET /api/v1/profiles`, the gateway inserts any missing
+entries and returns the current 28 utility-llm preset profiles alongside the
+owner's existing custom profiles. New preset rows are credential-free and
+report `credential.configured:false`; use the returned non-secret
+`credentialId` when storing a key for a preset. Credential fields are
+write-only; subsequent reads return configured status, not plaintext. An
+unconfigured preset cannot run until its credential is stored:
 
 ```bash
 printf '%s' "$OPENAI_API_KEY" | jq -Rs '{
