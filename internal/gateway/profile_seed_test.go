@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	hardenllm "github.com/prls-co/harden-llm"
 	"github.com/prls-co/harden-llm/internal/integrationtest"
 	"github.com/prls-co/harden-llm/internal/postgres"
 	"github.com/prls-co/harden-llm/internal/profiles"
@@ -123,8 +124,21 @@ func TestDefaultProfileSeedParity(t *testing.T) {
 	if len(emptyOwner) != len(seed) {
 		t.Fatalf("empty owner profile count = %d, want %d", len(emptyOwner), len(seed))
 	}
-
 	first := seed["CPA GPT-5.6 Luna"]
+	runtimeCatalog, runtimeCredentials, err := service.RuntimeProfiles(ctx, "seed-owner")
+	if err != nil {
+		t.Fatalf("unconfigured seed rows blocked runtime catalog: %v", err)
+	}
+	if len(runtimeCatalog) != len(seed) || runtimeCredentials == nil {
+		t.Fatalf("runtime catalog = %d credentials-nil=%t, want %d profiles and a resolver", len(runtimeCatalog), runtimeCredentials == nil, len(seed))
+	}
+	if _, err := runtimeCredentials.ResolveCredential(ctx, hardenllm.CredentialRequest{
+		OwnerID: "seed-owner", BaseURL: first.BaseURL, Scope: first.EndpointCredentialScope,
+		APIInferenceType: first.APIInferenceType,
+	}); !errors.Is(err, ErrCredentialNotConfigured) {
+		t.Fatalf("unconfigured seed credential error = %v, want ErrCredentialNotConfigured", err)
+	}
+
 	second := first
 	second.EndpointCredentialScope = "user"
 	if got := credentialIDForProfile(first); got == "" || got != credentialIDForProfile(first) || got == credentialIDForProfile(second) {

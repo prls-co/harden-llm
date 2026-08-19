@@ -106,7 +106,9 @@ owner's existing custom profiles. New preset rows are credential-free and
 report `credential.configured:false`; use the returned non-secret
 `credentialId` when storing a key for a preset. Credential fields are
 write-only; subsequent reads return configured status, not plaintext. An
-unconfigured preset cannot run until its credential is stored:
+unconfigured preset cannot run until its credential is stored; the run API
+returns `422 credential_required` and records the failed attempt in history
+without contacting a provider:
 
 ```bash
 printf '%s' "$OPENAI_API_KEY" | jq -Rs '{

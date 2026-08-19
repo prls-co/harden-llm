@@ -22,6 +22,8 @@ type runtimeCredentialResolver struct {
 	credentials map[runtimeCredentialKey]profiles.CredentialPayload
 }
 
+var ErrCredentialNotConfigured = errors.New("gateway: endpoint credential is not configured")
+
 func (service *ProfileService) RuntimeProfiles(ctx context.Context, ownerID string) (hardenllm.ProfileCatalog, hardenllm.CredentialResolver, error) {
 	ownerID = strings.TrimSpace(ownerID)
 	if err := service.ensureSeeded(ctx, ownerID); err != nil {
@@ -45,11 +47,14 @@ func (service *ProfileService) RuntimeProfiles(ctx context.Context, ownerID stri
 	resolver := &runtimeCredentialResolver{ownerID: ownerID, credentials: make(map[runtimeCredentialKey]profiles.CredentialPayload, len(records))}
 	for _, record := range records {
 		profile, err := decodeProfileDocument(record.Document)
-		if err != nil || profile.LLMProfile != record.ID || record.CredentialID == "" {
+		if err != nil || profile.LLMProfile != record.ID {
 			return nil, nil, errors.New("gateway: stored runtime profile is invalid")
 		}
 		catalog[record.ID] = profile
 		rootCatalog[record.ID] = rootProfile(profile)
+		if record.CredentialID == "" {
+			continue
+		}
 		credentialRecord, ok := credentialsByID[record.CredentialID]
 		if !ok {
 			return nil, nil, errors.New("gateway: stored runtime credential is missing")
@@ -92,7 +97,7 @@ func (resolver *runtimeCredentialResolver) ResolveCredential(_ context.Context, 
 	}
 	payload, ok := resolver.credentials[runtimeCredentialKey{Origin: origin, Scope: request.Scope, APIInferenceType: request.APIInferenceType}]
 	if !ok {
-		return hardenllm.Credential{}, errors.New("gateway: endpoint credential was not found")
+		return hardenllm.Credential{}, ErrCredentialNotConfigured
 	}
 	return hardenllm.Credential{APIKey: payload.APIKey, Headers: cloneStringMap(payload.Headers)}, nil
 }

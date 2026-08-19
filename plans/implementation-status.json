@@ -103,6 +103,7 @@
     "verification": {
       "deterministicGo": "go test ./... -count=1 passed",
       "integrationSeed": "go test ./internal/gateway/... -tags=integration -run TestDefaultProfileSeedParity -count=1 passed",
+      "runtimeCredentialHandling": "Unconfigured seed rows remain in the runtime catalog; credential_required is persisted to history without provider dialing",
       "aggregate": "make verify passed; govulncheck found no called vulnerabilities",
       "production": {
         "pullRequest": 9,

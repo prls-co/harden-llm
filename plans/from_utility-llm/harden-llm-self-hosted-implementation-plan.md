@@ -1546,7 +1546,8 @@ Privacy and data-quality constraints:
 - Source: `/home/kirill/p/utility-llm` revision `5c0309e2508dc5b7a87d0880c8d794123353c5b0` (`0.15.0`), `examples/react-trace-studio/llm-profile-catalog.json`.
 - Seed: 28 credential-free profiles embedded at `internal/profiles/default-profile-catalog.json`; SHA-256 `864552eb5e8bf63de590704ef65c2e45ad228e7cc15d4af048609e680348b2f9`.
 - Implementation: first-use catalog backfill is transactionally owner-locked in Postgres; only missing preset rows are inserted, existing catalogs are never replaced, and unconfigured rows expose only non-secret credential metadata.
-- Test translation: `TEST-017` now covers exact catalog parity, profile graph validation, every-profile text/structured provider preparation, pricing/reasoning, credential non-disclosure, and concurrent seed behavior.
+- Runtime correction: credential-free seed rows remain in the runtime catalog so configured profiles can execute; selecting an unconfigured profile returns a non-ambiguous `credential_required` response, persists failed history, and never reaches the provider.
+- Test translation: `TEST-017` now covers exact catalog parity, profile graph validation, every-profile text/structured provider preparation, pricing/reasoning, credential non-disclosure, concurrent seed behavior, and unconfigured-runtime handling.
 - Verification: `go test ./... -count=1` passed; `go test ./internal/gateway/... -tags=integration -run TestDefaultProfileSeedParity -count=1` passed in 4.51s; `make verify` passed and `govulncheck` found no called vulnerabilities.
 - Deviation: source live execution is not part of deterministic acceptance; its all-profile setup is exercised without network/credentials, with real provider execution remaining opt-in under TEST-037/TEST-038. Firebase/Firestore registry-profile backfill is intentionally replaced by the target's owner-scoped Postgres.
 - KER impact: none; no timeout, retry budget, or operational budget changed.
