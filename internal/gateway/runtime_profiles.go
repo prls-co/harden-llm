@@ -24,6 +24,9 @@ type runtimeCredentialResolver struct {
 
 func (service *ProfileService) RuntimeProfiles(ctx context.Context, ownerID string) (hardenllm.ProfileCatalog, hardenllm.CredentialResolver, error) {
 	ownerID = strings.TrimSpace(ownerID)
+	if err := service.ensureSeeded(ctx, ownerID); err != nil {
+		return nil, nil, err
+	}
 	records, err := service.store.Profiles(ctx, ownerID)
 	if err != nil {
 		return nil, nil, err

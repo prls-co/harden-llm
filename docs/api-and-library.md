@@ -100,8 +100,12 @@ TOKEN="$(printf '%s' "$PASSWORD" | \
 unset PASSWORD
 ```
 
-Create a profile before running. Credential fields are write-only; subsequent
-reads return configured status, not plaintext:
+On a new owner's first `GET /api/v1/profiles`, the gateway returns the current
+28 utility-llm preset profiles. They are credential-free and report
+`credential.configured:false`; use the returned non-secret `credentialId` when
+storing a key for a preset. Credential fields are write-only; subsequent reads
+return configured status, not plaintext. An unconfigured preset cannot run
+until its credential is stored:
 
 ```bash
 printf '%s' "$OPENAI_API_KEY" | jq -Rs '{

@@ -56,6 +56,15 @@ The command is create-only and fails for an existing owner or email; it is not
 a password-reset path. Restrict Docker access: it is equivalent to root and can
 read service configuration.
 
+## Profile presets
+
+The first profile/catalog operation for a new owner seeds the current
+utility-llm preset catalog: 28 credential-free profiles. Seeding is protected
+by an owner-scoped Postgres transaction and is skipped as soon as that owner
+has any profile row, so imported, custom, and operator-edited catalogs are not
+replaced. Each preset must be configured with the owner's provider credential
+before it can run; the API never returns the stored secret.
+
 ## Health and diagnostics
 
 - `https://<api-host>/healthz` checks process liveness.

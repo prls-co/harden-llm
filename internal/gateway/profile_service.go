@@ -2,9 +2,12 @@ package gateway
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/netip"
@@ -33,6 +36,7 @@ type ProfileServiceConfig struct {
 	Store        *postgres.Store
 	Vault        *profiles.CredentialVault
 	Prober       ProfileProber
+	SeedCatalog  profiles.Catalog
 	Clock        func() time.Time
 	ProbeTimeout time.Duration
 	Logger       *slog.Logger
@@ -42,6 +46,7 @@ type ProfileService struct {
 	store        *postgres.Store
 	vault        *profiles.CredentialVault
 	prober       ProfileProber
+	seedCatalog  profiles.Catalog
 	clock        func() time.Time
 	probeTimeout time.Duration
 	logger       *slog.Logger
@@ -76,7 +81,57 @@ func NewProfileService(config ProfileServiceConfig) (*ProfileService, error) {
 	if config.Logger == nil {
 		config.Logger = slog.New(slog.DiscardHandler)
 	}
-	return &ProfileService{store: config.Store, vault: config.Vault, prober: config.Prober, clock: config.Clock, probeTimeout: config.ProbeTimeout, logger: config.Logger}, nil
+	seedCatalog, err := cloneCatalog(config.SeedCatalog)
+	if err != nil {
+		return nil, fmt.Errorf("gateway: validate profile seed: %w", err)
+	}
+	return &ProfileService{
+		store: config.Store, vault: config.Vault, prober: config.Prober, seedCatalog: seedCatalog,
+		clock: config.Clock, probeTimeout: config.ProbeTimeout, logger: config.Logger,
+	}, nil
+}
+
+func cloneCatalog(catalog profiles.Catalog) (profiles.Catalog, error) {
+	if catalog == nil {
+		return nil, nil
+	}
+	encoded, err := profiles.MarshalCatalog(catalog)
+	if err != nil {
+		return nil, err
+	}
+	return profiles.ParseCatalog(encoded)
+}
+
+func (service *ProfileService) ensureSeeded(ctx context.Context, ownerID string) error {
+	if len(service.seedCatalog) == 0 {
+		return nil
+	}
+	ownerID = strings.TrimSpace(ownerID)
+	existing, err := service.store.Profiles(ctx, ownerID)
+	if err != nil {
+		return err
+	}
+	if len(existing) > 0 {
+		return nil
+	}
+
+	names := make([]string, 0, len(service.seedCatalog))
+	for name := range service.seedCatalog {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	now := service.clock().UTC()
+	records := make([]postgres.ProfileRecord, 0, len(names))
+	for _, name := range names {
+		document, err := json.Marshal(service.seedCatalog[name])
+		if err != nil {
+			return fmt.Errorf("gateway: encode profile seed %q: %w", name, err)
+		}
+		records = append(records, postgres.ProfileRecord{
+			OwnerID: ownerID, ID: name, Document: document, CreatedAt: now, UpdatedAt: now,
+		})
+	}
+	return service.store.SeedProfiles(ctx, ownerID, records)
 }
 
 func (service *ProfileService) Save(ctx context.Context, request SaveProfileRequest) (ProfileState, error) {
@@ -86,8 +141,8 @@ func (service *ProfileService) Save(ctx context.Context, request SaveProfileRequ
 	request.OwnerID = strings.TrimSpace(request.OwnerID)
 	request.ProfileID = strings.TrimSpace(request.ProfileID)
 	request.CredentialID = strings.TrimSpace(request.CredentialID)
-	if request.OwnerID == "" || request.ProfileID == "" || request.CredentialID == "" || request.ProfileID != request.Profile.LLMProfile {
-		return ProfileState{}, errors.New("gateway: owner, profile, and credential binding are required")
+	if request.OwnerID == "" || request.ProfileID == "" || request.ProfileID != request.Profile.LLMProfile {
+		return ProfileState{}, errors.New("gateway: owner and profile identity are required")
 	}
 	existingProfileRecord, existingProfileErr := service.store.Profile(ctx, request.OwnerID, request.ProfileID)
 	if existingProfileErr != nil && !errors.Is(existingProfileErr, postgres.ErrNotFound) {
@@ -100,6 +155,15 @@ func (service *ProfileService) Save(ctx context.Context, request SaveProfileRequ
 		}
 		request.Profile.Models = append([]profiles.Model(nil), existingProfile.Models...)
 		request.Profile.LastModelRefreshAt = existingProfile.LastModelRefreshAt
+		if request.CredentialID == "" {
+			request.CredentialID = existingProfileRecord.CredentialID
+		}
+	}
+	if request.CredentialID == "" && request.Credential != nil {
+		request.CredentialID = credentialIDForProfile(request.Profile)
+	}
+	if request.CredentialID == "" {
+		return ProfileState{}, errors.New("gateway: credential binding is required")
 	}
 	catalog, err := service.catalog(ctx, request.OwnerID)
 	if err != nil {
@@ -226,6 +290,19 @@ func (service *ProfileService) openCredentialRecord(record postgres.CredentialRe
 		Nonce: base64.RawURLEncoding.EncodeToString(record.Nonce), Ciphertext: base64.RawURLEncoding.EncodeToString(record.Ciphertext),
 	}
 	return service.vault.Open(encrypted, profiles.CredentialBinding{OwnerID: record.OwnerID, CredentialID: record.ID, Origin: record.Origin})
+}
+
+func credentialIDForProfile(profile profiles.Profile) string {
+	origin, err := profileOrigin(profile.BaseURL)
+	if err != nil {
+		return ""
+	}
+	// The ID is deterministic for the endpoint origin and credential scope; the
+	// credential row remains owner-scoped in Postgres. It contains no credential
+	// material and lets a seeded profile be configured without requiring the
+	// operator to invent an opaque database identifier.
+	digest := sha256.Sum256([]byte(profile.EndpointCredentialScope + "\x00" + origin))
+	return "endpoint-" + hex.EncodeToString(digest[:])[:32]
 }
 
 type credentialMetadata struct {

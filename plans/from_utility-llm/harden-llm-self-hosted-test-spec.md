@@ -5,9 +5,9 @@
 - Project name: `harden-llm`
 - Target repository: `/home/kirill/harden-llm`
 - Contract source repository: `/home/kirill/utility-llm`
-- Version: `1.3.0-backend-test-spec`
+- Version: `1.3.1-backend-test-spec`
 - Owners: package maintainers and self-hosted runtime implementers
-- Date: 2026-07-12
+- Date: 2026-08-18
 - Document ID: `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001`
 - Related stack specification: `plans/from_utility-llm/self-hosted-go-stack-spec.md`
 - Summary: This document is the canonical backend test catalog for building `harden-llm`. It defines one `TEST-###` namespace shared with the backend implementation plan. Tests guide the Go library, versioned REST/OpenAPI gateway, Harden-LLM Postgres records, Garage-backed trace artifacts and diagnostic attachments, provider endpoint security, OpenTelemetry/Grafana/Langfuse diagnostics, and full Docker Compose deployment. It contains no frontend, Phoenix, LiveView, React, browser-session, or asset tests. Langfuse retains its pinned upstream default Postgres, Redis, ClickHouse, and MinIO services; tests reject any local Garage substitution into Langfuse.
@@ -306,15 +306,35 @@ Fixture rules:
 
 ### TEST-017: profile catalog validation and parity
 
-- Target: `internal/profiles/profile_test.go`
-- Command: `go test ./internal/profiles/... -run TestProfileParity -count=1`
-- Setup: current profile catalog fixtures, invalid names/endpoints/defaults, and backup graphs.
+- Target: `internal/profiles/default_catalog_test.go`,
+  `internal/profiles/profile_test.go`,
+  `internal/providers/default_profile_catalog_test.go`, and the tagged
+  `internal/gateway/profile_seed_test.go`
+- Commands:
+  - `go test ./internal/profiles/... ./internal/providers/... -run 'Test(DefaultCatalogParity|ProfileParity|DefaultProfileCatalogParity)' -count=1`
+  - `go test ./internal/gateway/... -tags=integration -run TestDefaultProfileSeedParity -count=1`
+- Setup: current source catalog at utility-llm revision `5c0309e` / `0.15.0`,
+  the 28 credential-free preset entries, invalid names/endpoints/defaults,
+  backup graphs, fixed endpoint resolver, and isolated owner-scoped Postgres.
 - Assertions:
-  - Profile shape, API inference types, pricing, model list, defaults, and backup references match source behavior.
+  - The embedded seed contains exactly the current 28 profile names and
+    matches provider, API inference type, base URL, model ID, pricing,
+    reasoning, defaults, and structured-output capability.
+  - Seed rows contain no credentials or runtime discovery state, OpenRouter
+    pricing remains provider-reported, and catalog serialization round-trips.
+  - Every seeded profile prepares both text and structured operations through
+    the shared endpoint policy without serializing the fixture credential.
+  - Concurrent first use inserts one complete catalog for an empty owner,
+    exposes every row as unconfigured, and never overwrites an existing
+    operator profile.
+  - Profile shape, API inference types, pricing, model list, defaults, and
+    backup references match source behavior.
   - Graph validation preserves duplicate, cycle, missing-reference, and maximum-depth rules.
   - No nested backup object or alternate compatibility shape is accepted.
-- Pass criteria: source catalog goldens round-trip and invalid fixtures fail with stable fields.
-- Expected runtime: 10 seconds.
+- Pass criteria: the current 28-profile seed and all-profile deterministic
+  preparation matrix pass; invalid fixtures fail with stable fields; the
+  tagged seed test passes with isolated Postgres.
+- Expected runtime: 10 seconds unit; 90 seconds integration.
 
 ### TEST-018: credential encryption and bundle contract
 
