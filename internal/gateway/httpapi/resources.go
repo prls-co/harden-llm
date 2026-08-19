@@ -250,6 +250,10 @@ func (api *API) run(writer http.ResponseWriter, request *http.Request) {
 			writeError(writer, http.StatusUnprocessableEntity, "invalid_request", "The run request is invalid.")
 			return
 		}
+		if errors.Is(err, gateway.ErrCredentialNotConfigured) {
+			writeErrorState(writer, http.StatusUnprocessableEntity, "credential_required", "The selected profile has no configured endpoint credential.", state)
+			return
+		}
 		if errors.Is(err, postgres.ErrNotFound) {
 			writeError(writer, http.StatusNotFound, "not_found", "The selected profile was not found.")
 			return
