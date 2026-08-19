@@ -103,7 +103,18 @@
     "verification": {
       "deterministicGo": "go test ./... -count=1 passed",
       "integrationSeed": "go test ./internal/gateway/... -tags=integration -run TestDefaultProfileSeedParity -count=1 passed",
-      "aggregate": "make verify passed; govulncheck found no called vulnerabilities"
+      "aggregate": "make verify passed; govulncheck found no called vulnerabilities",
+      "production": {
+        "pullRequest": 9,
+        "mergedCommit": "527f86c6a0def2b01d18d9d3c9b7ecd9a17c1fad",
+        "ociRelease": "527f86c",
+        "gatewayImage": "sha256:0a0a3acb2a75f3ca002596da68049ffd0dca052ffe01c657d86ab3cf77dfb91c",
+        "healthz": 200,
+        "readyz": 200,
+        "profileCount": 30,
+        "configuredProfiles": 2,
+        "unconfiguredPresets": 28
+      }
     }
   },
   "toolchain": {

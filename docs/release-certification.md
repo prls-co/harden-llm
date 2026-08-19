@@ -2,8 +2,9 @@
 
 This document is the durable release summary for the 2026-07-13 v1 candidate,
 its 2026-08-09 utility-llm parity refresh, the 2026-08-10 production
-validation refresh, the 2026-08-16 merged production handoff, and the
-2026-08-18 P07.S09 parity/security deployment.
+validation refresh, the 2026-08-16 merged production handoff, the
+2026-08-18 P07.S09 parity/security deployment, and the 2026-08-18 P07.S10
+profile-catalog backfill deployment.
 Detailed command output belongs under ignored
 `plans/evidence/harden-llm/<run-id>/`; secrets and live provider output never do.
 
@@ -16,7 +17,8 @@ Detailed command output belongs under ignored
 | Captured source SHA | `09769424ca34b9d759e273a7e9dccf4fd00a5f6c` |
 | Source package | `@prls-co/utility-llm` `0.14.6` |
 | Current frontend parity source | `utility-llm` `5c0309e` / `0.15.0` |
-| Current merged release | PR `#4` / `2c1a34f9737dd50b6af387c449f63d9299b166d1` |
+| Current profile catalog source | `examples/react-trace-studio/llm-profile-catalog.json` at `utility-llm` `5c0309e2508dc5b7a87d0880c8d794123353c5b0`; SHA-256 `864552eb5e8bf63de590704ef65c2e45ad228e7cc15d4af048609e680348b2f9` |
+| Current merged release | PR `#9` / `527f86c6a0def2b01d18d9d3c9b7ecd9a17c1fad` |
 | Security dependency remediation | `github.com/getkin/kin-openapi` `v0.144.0` |
 | Parity manifest SHA-256 | `973f138211910fbe58deca867d1569adf2b9660b53e1441a3607570e1f2c98a6` |
 | Langfuse release / commit | `v3.212.0` / `3a572984276dd2dc2f8f77f1b2aadb799aa17fdf` |
@@ -57,6 +59,7 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | production CPA/LiveView refresh | `df69d93` | complete |
 | merged production handoff/static CLI auth | `738d530` | complete |
 | P07.S09 utility-llm frontend parity and Tempo parser correction | `2c1a34f` | complete; PR `#4` merged |
+| P07.S10 utility-llm profile catalog and all-profile test parity | `527f86c` | complete; PR `#9` merged and deployed |
 | kin-openapi security remediation | `2c1a34f` | complete; patched release `v0.144.0` |
 
 ## Final gate record
@@ -64,6 +67,7 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | Gate | Disposition |
 | --- | --- |
 | TEST-039 timeout policy | pass |
+| TEST-017 current profile catalog parity | pass: exact 28-profile catalog, profile graph rules, pricing/reasoning, credential non-disclosure, every-profile text/structured preparation, and concurrent missing-row backfill/custom-row preservation |
 | TEST-035 `make test-parity` | pass: 33 source-derived parity fixtures; every fixture has an executable semantic consumer or ADR-backed intentional-difference classification |
 | TEST-036 `make verify` | pass: format, vet, build, static, unit, parity, Docker integration/integration-race, API, observability, unit race, and vulnerability gates |
 | TEST-034 `make test-compose` | pass: fifteen production services plus the test-only provider, full correlation, and clean teardown in 598.138s |
@@ -76,6 +80,8 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | Production frontend image | pass: Docker-reported 47,625,486-byte OTP release at `sha256:4773e3eb086dea97c1f3e1fbfce46f9e09780e477cc7099b3c744501d8c1311c`; OCI release `df69d93`, runtime UID `10001`, and no Mix/Hex/Rebar/Node/npm/Go toolchain |
 | Public frontend browser acceptance | pass: Chromium reached `/login`, rendered the operator form, and produced zero console errors after the hostname-scoped Cloudflare edge rule disabled Zaraz and RUM injection |
 | Current production images | pass: gateway `28,331,329` bytes at `sha256:78dd6afd26b1f5151267e82acad507cc8ed3991da316061580109941a7152218`, frontend `47,625,486` bytes at `sha256:1f0d4ed9ea629688177b7ce92126a168d6675b776885192a301ebfd398ace4ed`; both OCI release `738d530`, frontend runtime UID `10001` |
+| P07.S10 production gateway image | pass: container image `sha256:0a0a3acb2a75f3ca002596da68049ffd0dca052ffe01c657d86ab3cf77dfb91c`, OCI release `527f86c`, and container health `healthy` |
+| P07.S10 production profile catalog | pass: authenticated `GET /api/v1/profiles` returned 30 rows: 28 unconfigured current presets and 2 existing configured profiles; existing rows were preserved |
 | P07.S09 frontend parity gates | pass: Phoenix 77 passed/3 excluded, browser 2 passed, `make verify`, and final post-upgrade `make test-compose` 183.924s (earlier parity run: 176.997s) |
 | Tempo trace-ID normalization | pass: 31/32-character external IDs covered by regression tests; no timeout budget changed |
 | kin-openapi security alerts | code fix pass: `v0.144.0` is the first patched release for both alerts and CodeQL Go/JavaScript checks passed; GitHub alert records remained open at final readback pending Dependabot rescan |
@@ -104,7 +110,7 @@ next dependency-graph refresh, not an unpatched dependency in the release.
 
 | Surface | Production value |
 | --- | --- |
-| Release | `738d530` |
+| Release | `527f86c` |
 | Frontend | `https://harden-llm.prls.co` |
 | API gateway | `https://harden-llm-api.prls.co` |
 | Artifact endpoint | `https://harden-llm-artifacts.prls.co` |
@@ -172,6 +178,16 @@ keeping the tunnel's private-PKI `internal` TLS mode while supplying the five
 production `*.prls.co` hostnames; the subsequent Compose wait and public probes
 passed.
 
+On 2026-08-18, merged release `527f86c6a0def2b01d18d9d3c9b7ecd9a17c1fad`
+(PR `#9`) was deployed from clean local `main` with the retained production
+token owner. The gateway image digest was
+`sha256:0a0a3acb2a75f3ca002596da68049ffd0dca052ffe01c657d86ab3cf77dfb91c`
+and its OCI release label was `527f86c`. The gateway container and dependent
+services reported healthy; public `/healthz` and `/readyz` both returned HTTP
+200. The authenticated profile-list verification triggered the intended
+owner-scoped backfill and returned 30 profiles: the exact 28 current
+utility-llm presets as unconfigured plus the 2 existing configured profiles.
+
 This is a single-origin deployment, not a high-availability topology. Current
 availability is tied to the shaman Docker host, its network, and the active
 Cloudflare connectors. Persistent Postgres, Garage, Langfuse, and observability
@@ -190,5 +206,5 @@ data live in named Docker volumes on shaman.
 - Phoenix stores bearer tokens only in its ephemeral ETS vault and never retries runs.
 
 Accepted deviations are ADR-HLLM-001, ADR-HLLM-002, ADR-HLLM-008,
-ADR-HLLM-009, ADR-HLLM-010, ADR-HLLM-011, and ADR-HLLM-012. No other implementation drift is
+ADR-HLLM-009, ADR-HLLM-010, ADR-HLLM-011, ADR-HLLM-012, and ADR-HLLM-013. No other implementation drift is
 accepted.
