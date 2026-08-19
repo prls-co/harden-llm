@@ -106,15 +106,16 @@
       "runtimeCredentialHandling": "Unconfigured seed rows remain in the runtime catalog; credential_required is persisted to history without provider dialing",
       "aggregate": "make verify passed; govulncheck found no called vulnerabilities",
       "production": {
-        "pullRequest": 9,
-        "mergedCommit": "527f86c6a0def2b01d18d9d3c9b7ecd9a17c1fad",
-        "ociRelease": "527f86c",
-        "gatewayImage": "sha256:0a0a3acb2a75f3ca002596da68049ffd0dca052ffe01c657d86ab3cf77dfb91c",
+        "pullRequest": 11,
+        "mergedCommit": "ab461d3e8cf2f77e8d1e9cc1bcc0e4bd8daa1492",
+        "ociRelease": "ab461d3",
+        "gatewayImage": "sha256:9107662665a3b76f6e412ff3cf48f9aca25e95f724fb2db981b71ed94c6cedd1",
         "healthz": 200,
         "readyz": 200,
         "profileCount": 30,
         "configuredProfiles": 2,
-        "unconfiguredPresets": 28
+        "unconfiguredPresets": 28,
+        "historyAfterDeploy": "6 records; no CPA GPT-5.6 Luna run; no retry issued"
       }
     }
   },

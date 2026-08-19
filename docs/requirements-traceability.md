@@ -17,7 +17,7 @@ routes each requirement to its implementation home and release gate.
 | REQ-008 encrypted credentials | `internal/profiles/credentials.go`, seeded credential state | TEST-017, TEST-018, TEST-022, TEST-038 |
 | REQ-009 isolated persistence | `internal/postgres/`, `deploy/garage/`, first-use profile seed | TEST-017, TEST-020, TEST-021, TEST-033, TEST-034, TEST-040 |
 | REQ-010 local auth/owners | `internal/gateway/auth/`, bearer middleware, owner-locked profile seed | TEST-017, TEST-022, TEST-023, TEST-024, TEST-038 |
-| REQ-011 REST resources | `internal/gateway/httpapi/`, `api/openapi.yaml` | TEST-023 through TEST-026, TEST-038 |
+| REQ-011 REST resources | `internal/gateway/httpapi/`, `api/openapi.yaml` | TEST-017, TEST-023 through TEST-026, TEST-038 |
 | REQ-012 frontend-independent contract | `api/openapi.yaml`, backend static boundaries | TEST-026, TEST-027 |
 | REQ-013 bounded diagnostics | gateway/runtime telemetry and logging | TEST-028, TEST-029, TEST-034 |
 | REQ-014 failure isolation | telemetry queues/shutdown, timeout policy | TEST-031, TEST-039 |
