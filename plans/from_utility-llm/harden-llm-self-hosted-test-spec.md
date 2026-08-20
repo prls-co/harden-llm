@@ -329,9 +329,10 @@ Fixture rules:
     overwrites the existing operator profile; an empty owner receives exactly
     the 28 presets.
   - Runtime catalog assembly accepts credential-free seed rows without
-    blocking configured profiles; an attempted run without the matching
-    endpoint credential returns `credential_required`, persists a failed
-    history item, and never dials the provider.
+    blocking configured profiles; every seeded profile's missing-credential
+    boundary returns `ErrCredentialNotConfigured`, while an attempted run
+    without the matching endpoint credential returns `credential_required`,
+    persists a failed history item, and never dials the provider.
   - Profile shape, API inference types, pricing, model list, defaults, and
     backup references match source behavior.
   - Graph validation preserves duplicate, cycle, missing-reference, and maximum-depth rules.

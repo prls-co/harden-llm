@@ -1169,7 +1169,7 @@ Plan-and-Solve subtasks:
   - Verification mode: VERIFY
   - Command/procedure: `go test ./... -count=1`; `go test ./internal/gateway/... -tags=integration -run TestDefaultProfileSeedParity -count=1`.
   - Expected result: All 28 source profiles parse and prepare through the shared provider path; first use inserts every missing credential-free preset without overwriting operator rows or custom profiles.
-  - Evidence produced: source revision/path/hash, exact-name parity test, all-profile provider matrix, owner-seed concurrency test, ADR-HLLM-013, and updated status/traceability records.
+  - Evidence produced: source revision/path/hash, exact-name parity test, all-profile provider matrix, all-profile missing-credential boundary test, owner-seed concurrency test, ADR-HLLM-013, and updated status/traceability records.
   - Stop/escalate condition: Stop if a seed contains credential-shaped material, a profile is missing or transport-mapped differently, an existing owner catalog is overwritten, or a live-provider requirement would enter the deterministic gate.
   - Deviation: The source paid all-profile execution is translated to deterministic request preparation plus an opt-in live boundary; Firebase/Firestore registry-profile backfill is translated to owner-locked Postgres missing-row insertion because the target is self-hosted.
   - KER impact: none; no production or test timeout changed.
