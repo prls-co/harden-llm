@@ -124,7 +124,6 @@ func TestDefaultProfileSeedParity(t *testing.T) {
 	if len(emptyOwner) != len(seed) {
 		t.Fatalf("empty owner profile count = %d, want %d", len(emptyOwner), len(seed))
 	}
-	first := seed["CPA GPT-5.6 Luna"]
 	runtimeCatalog, runtimeCredentials, err := service.RuntimeProfiles(ctx, "seed-owner")
 	if err != nil {
 		t.Fatalf("unconfigured seed rows blocked runtime catalog: %v", err)
@@ -132,13 +131,17 @@ func TestDefaultProfileSeedParity(t *testing.T) {
 	if len(runtimeCatalog) != len(seed) || runtimeCredentials == nil {
 		t.Fatalf("runtime catalog = %d credentials-nil=%t, want %d profiles and a resolver", len(runtimeCatalog), runtimeCredentials == nil, len(seed))
 	}
-	if _, err := runtimeCredentials.ResolveCredential(ctx, hardenllm.CredentialRequest{
-		OwnerID: "seed-owner", BaseURL: first.BaseURL, Scope: first.EndpointCredentialScope,
-		APIInferenceType: first.APIInferenceType,
-	}); !errors.Is(err, ErrCredentialNotConfigured) {
-		t.Fatalf("unconfigured seed credential error = %v, want ErrCredentialNotConfigured", err)
+	for _, name := range wantNames {
+		profile := seed[name]
+		if _, err := runtimeCredentials.ResolveCredential(ctx, hardenllm.CredentialRequest{
+			OwnerID: "seed-owner", BaseURL: profile.BaseURL, Scope: profile.EndpointCredentialScope,
+			APIInferenceType: profile.APIInferenceType,
+		}); !errors.Is(err, ErrCredentialNotConfigured) {
+			t.Fatalf("unconfigured seed credential for %q = %v, want ErrCredentialNotConfigured", name, err)
+		}
 	}
 
+	first := seed["CPA GPT-5.6 Luna"]
 	second := first
 	second.EndpointCredentialScope = "user"
 	if got := credentialIDForProfile(first); got == "" || got != credentialIDForProfile(first) || got == credentialIDForProfile(second) {
