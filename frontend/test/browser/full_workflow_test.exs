@@ -56,6 +56,17 @@ defmodule HardenLlmWeb.FullWorkflowTest do
       |> assert_no_horizontal_overflow()
       |> click(Query.css("#model-config-toggle"))
       |> assert_has(Query.css("#model-options"))
+      |> assert_has(Query.css("#profile-config-fields"))
+      |> click(Query.css("#profile-options-toggle"))
+      |> assert_has(Query.css("#profile-options"))
+      |> click(Query.css("#profile-retry-toggle"))
+      |> assert_has(Query.css("#profile-retry-repair"))
+      |> click(Query.css("#profile-pricing-toggle"))
+      |> assert_has(Query.css("#profile-pricing"))
+      |> click(Query.css("#profile-escalation-config-toggle"))
+      |> assert_has(Query.css("#profile-escalation-config"))
+      |> click(Query.css("#escalation-options-toggle"))
+      |> assert_has(Query.css("#escalation-options"))
       |> click(Query.css("#input-advanced-toggle"))
       |> assert_has(Query.css("#advanced-input"))
       |> click(Query.css("#retry-repair-toggle"))
@@ -67,7 +78,7 @@ defmodule HardenLlmWeb.FullWorkflowTest do
 
     session =
       session
-      |> click(Query.css("#nav-profiles"))
+      |> visit("/profiles")
       |> assert_has(Query.css("#profiles-page"))
       |> assert_has(Query.css("#profiles-empty", visible: :any))
       |> assert_no_horizontal_overflow()
@@ -104,7 +115,7 @@ defmodule HardenLlmWeb.FullWorkflowTest do
 
     session =
       session
-      |> click(Query.css("#nav-workspace"))
+      |> visit("/workspace")
       |> assert_has(Query.css("#backend-status", text: "Backend ready"))
       |> choose_option("#run_selectedProfileId", "BrowserProfile")
       |> fill_in(Query.css("#run_userPrompt"), with: "run the deterministic browser fixture")
@@ -121,12 +132,12 @@ defmodule HardenLlmWeb.FullWorkflowTest do
       |> click(Query.css("#show-run-response"))
       |> assert_has(Query.css("#run-response"))
       |> assert_no_horizontal_overflow()
-      |> click(Query.css("#nav-history"))
+      |> visit("/history")
       |> assert_has(Query.css("#history-run-browser"))
       |> click(Query.css("#history-run-browser button[aria-label='Restore to workspace']"))
       |> assert_has(Query.css("#workspace-page"))
       |> assert_field_value("#run_userPrompt", "run the deterministic browser fixture")
-      |> click(Query.css("#nav-history"))
+      |> visit("/history")
       |> assert_has(Query.css("#history-run-browser"))
       |> click(Query.css("#history-run-browser button[aria-label='Open trace']"))
       |> assert_has(Query.css("#trace-dialog"))

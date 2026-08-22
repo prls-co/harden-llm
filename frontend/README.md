@@ -34,8 +34,11 @@ MIX_ENV=prod mix release
 ```
 
 `mix test` runs WEB-TEST-001 through WEB-TEST-010 plus the source-derived
-WEB-TEST-031 through WEB-TEST-036 parity extensions, and excludes browser and
-Compose tags. The browser test requires Chromium and ChromeDriver.
+WEB-TEST-031 through WEB-TEST-039 parity extensions, and excludes browser and
+Compose tags. The embedded `ProfileWidgetComponent` coverage includes the
+compact no-tabs row, nested profile folds, fallback/options interactions, and
+canonical profile mutations. The browser test requires Chromium and
+ChromeDriver.
 WEB-TEST-012 is the release-only sixteen-service test and additionally requires
 Go, Docker, and Compose:
 

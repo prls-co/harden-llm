@@ -66,12 +66,41 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:reasoning_by_profile, %{})
       |> assign(:ui, @default_ui)
       |> assign(:form, to_form(stringify_form(@default_state), as: :run))
+      |> allow_upload(:profile_bundle,
+        accept: ~w(.json application/json),
+        max_entries: 1,
+        max_file_size: Application.get_env(:harden_llm, :max_bundle_bytes, 2_097_152)
+      )
 
     if connected?(socket) do
       handle = socket.assigns.session_handle
       {:ok, start_async(socket, :hydrate, Observability.propagate(fn -> hydrate(handle) end))}
     else
       {:ok, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:profile_widget_ui, name, open}, socket) when name in @ui_keys do
+    toggle_ui(socket, name, to_string(open))
+  end
+
+  def handle_info({:profile_widget_selection, profile_id}, socket) do
+    update_workspace_form(socket, "selectedProfileId", profile_id)
+  end
+
+  def handle_info({:profile_widget_control, key, value}, socket)
+      when key in ["reasoningEffort", "cacheMode", "modelId"] do
+    update_workspace_form(socket, key, value)
+  end
+
+  def handle_info({:profile_widget_profiles, profiles, selected_profile_id}, socket) do
+    socket = assign(socket, :profiles, profiles)
+
+    if selected_profile_id == (socket.assigns.form.params || %{})["selectedProfileId"] do
+      {:noreply, socket}
+    else
+      update_workspace_form(socket, "selectedProfileId", selected_profile_id)
     end
   end
 
@@ -338,6 +367,32 @@ defmodule HardenLlmWeb.WorkspaceLive do
        :save_draft,
        Observability.propagate(fn -> HardenAPI.save_state(handle, state) end)
      )}
+  end
+
+  def handle_event("validate-bundle", _params, socket), do: {:noreply, socket}
+
+  def handle_event("import-bundle", _params, socket) do
+    results =
+      consume_uploaded_entries(socket, :profile_bundle, fn %{path: path}, _entry ->
+        case File.read(path) do
+          {:ok, bytes} -> {:ok, bytes}
+          {:error, _reason} -> {:postpone, :read_failed}
+        end
+      end)
+
+    with [bytes] <- results,
+         {:ok, bundle} <- Jason.decode(bytes),
+         true <- is_map(bundle),
+         {:ok, %{"profiles" => profiles}, _state} <-
+           HardenAPI.import_profile_bundle(socket.assigns.session_handle, bundle) do
+      {:noreply,
+       socket
+       |> assign(:profiles, profiles)
+       |> put_flash(:info, "Profile bundle imported atomically.")}
+    else
+      {:error, %APIError{status: 401}} -> {:noreply, Auth.expire_live(socket)}
+      _ -> {:noreply, assign(socket, :ui_error, "The selected bundle was rejected.")}
+    end
   end
 
   def handle_event("toggle-ui", %{"name" => name, "open" => value}, socket)
@@ -757,6 +812,17 @@ defmodule HardenLlmWeb.WorkspaceLive do
       :save_draft,
       Observability.propagate(fn -> HardenAPI.save_state(handle, state) end)
     )
+  end
+
+  defp update_workspace_form(socket, key, value) do
+    params = Map.put(socket.assigns.form.params || %{}, key, value)
+    state = state_from_params(params, socket.assigns.ui, socket.assigns.reasoning_by_profile)
+
+    {:noreply,
+     socket
+     |> assign(:form, to_form(params, as: :run))
+     |> assign(:reasoning_by_profile, state["reasoningByProfile"])
+     |> persist_form_state(params)}
   end
 
   defp event_form_params(%{"run" => params}, socket) when is_map(params) do

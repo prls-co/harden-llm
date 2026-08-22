@@ -268,6 +268,293 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, "#history-fold-toggle")
   end
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-038
+  test "embedded profile widget exposes utility-llm controls through nested folds", %{conn: conn} do
+    primary = widget_profile("CPA GPT-5.6 Luna", "gpt-5.6-luna")
+    backup = widget_profile("Backup LLM", "backup-model")
+
+    state =
+      APIFixtures.state()
+      |> Map.put("selectedProfileId", "CPA GPT-5.6 Luna")
+      |> Map.put("modelId", "gpt-5.6-luna")
+
+    Req.Test.stub(HardenAPI, fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/auth/session"} ->
+          Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
+
+        {"GET", "/api/v1/state"} ->
+          Req.Test.json(conn, APIFixtures.success(nil, state))
+
+        {"GET", "/api/v1/profiles"} ->
+          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [primary, backup]}))
+
+        {"GET", "/api/v1/history"} ->
+          Req.Test.json(conn, APIFixtures.success(%{"items" => []}))
+
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          Req.Test.json(conn, APIFixtures.success(nil, Jason.decode!(body)))
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+
+    refute has_element?(view, "nav")
+    refute has_element?(view, ~s([role="tab"]))
+    assert has_element?(view, "#workspace-llm-widget .ullm-profile-category", "LLM")
+    assert has_element?(view, ~s(#run_selectedProfileId[value="CPA GPT-5.6 Luna"]))
+    assert has_element?(view, "#workspace-reasoning")
+    assert has_element?(view, "#workspace-cache-toggle")
+    assert has_element?(view, "#model-config-toggle")
+
+    view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
+
+    for selector <- [
+          "#model-options",
+          "#profile-config-fields",
+          "#profile_apiInferenceType",
+          "#profile_baseUrl",
+          "#profile-credential-toggle",
+          "#profile-refresh-models",
+          "#profile_modelId",
+          "#profile-fallback-toggle",
+          "#profile-fallback-list",
+          "#profile-identity-toggle",
+          "#profile-options-toggle",
+          "#profile-retry-toggle",
+          "#profile-pricing-toggle",
+          "#profile-new",
+          "#profile-bundle-file",
+          "#profile-export-bundle",
+          "#profile-save",
+          "#profile-delete"
+        ] do
+      assert has_element?(view, selector), "missing profile widget control #{selector}"
+    end
+
+    view |> element("#profile-credential-toggle") |> render_click()
+    assert has_element?(view, "#profile-credential-drawer")
+    view |> element("#profile-credential-toggle") |> render_click()
+    refute has_element?(view, "#profile-credential-drawer")
+
+    view |> element("#profile-fallback-toggle") |> render_click()
+    assert has_element?(view, "#profile-fallback-options")
+
+    view
+    |> element("#profile-fallback-picker")
+    |> render_change(%{"fallbackProfile" => "Backup LLM"})
+
+    assert has_element?(view, "#profile-fallback-list", "Backup LLM")
+
+    view
+    |> element(~s(button[phx-click="add-backup"][phx-value-id="Backup LLM"]))
+    |> render_click()
+
+    assert has_element?(view, "#profile-fallback-list", "Backup LLM")
+
+    view |> element("#profile-identity-toggle") |> render_click()
+    assert has_element?(view, "#profile-identity")
+
+    view |> element("#profile-options-toggle") |> render_click()
+
+    for selector <- [
+          "#profile-options",
+          "#profile_maxTokens",
+          "#profile_temperature",
+          "#profile_topP",
+          "#profile_topK",
+          "#profile_stopSequences",
+          "#profile_defaultOptionsJson"
+        ] do
+      assert has_element?(view, selector), "missing options control #{selector}"
+    end
+
+    view
+    |> element("#profile_maxTokens")
+    |> render_change(%{"profile" => %{"maxTokens" => "12000"}})
+
+    assert has_element?(view, "#profile_defaultOptionsJson", ~s("max_tokens": 12000))
+
+    view |> element("#profile-retry-toggle") |> render_click()
+
+    for selector <- [
+          "#profile-retry-repair",
+          "#profile_structuredRepairRetryEnabled",
+          "#profile_enableRetryOn429",
+          "#profile_enableRetryOn5xx",
+          "#profile_enableRetryOnNetworkError",
+          "#profile_enableRetryOnParseError",
+          "#profile_retryMaxAttempts",
+          "#profile_retryBaseDelayMs",
+          "#profile_retryMaxDelayMs",
+          "#profile_escalationAttempt",
+          "#profile-escalation-profile",
+          "#profile-escalation-config-toggle"
+        ] do
+      assert has_element?(view, selector), "missing retry control #{selector}"
+    end
+
+    view |> element("#profile-pricing-toggle") |> render_click()
+    html = render(view)
+
+    for selector <- [
+          "#profile-pricing",
+          "#profile_pricingInput",
+          "#profile_pricingOutput",
+          "#profile_pricingCacheRead",
+          "#profile_pricingCacheWrite",
+          "#profile_pricingReasoning"
+        ] do
+      id = String.trim_leading(selector, "#")
+      assert html =~ ~s(id="#{id}"), "missing pricing control #{selector}"
+    end
+
+    view |> element("#profile-escalation-config-toggle") |> render_click()
+    html = render(view)
+    assert html =~ ~s(id="profile-escalation-config")
+
+    for selector <- [
+          "#escalation-config-fields",
+          "#escalation_apiInferenceType",
+          "#escalation_baseUrl",
+          "#escalation-credential-toggle",
+          "#escalation-refresh-models",
+          "#escalation_modelId",
+          "#escalation-fallback-toggle",
+          "#escalation-identity-toggle",
+          "#escalation-options-toggle",
+          "#escalation-pricing-toggle",
+          "#escalation-save",
+          "#escalation-delete"
+        ] do
+      id = String.trim_leading(selector, "#")
+      assert html =~ ~s(id="#{id}"), "missing nested profile control #{selector}"
+    end
+
+    view
+    |> with_target("#workspace-llm-widget")
+    |> render_click("toggle-fold", %{"kind" => "escalation", "fold" => "options"})
+
+    html = render(view)
+    assert html =~ ~s(id="escalation-options")
+
+    view
+    |> with_target("#workspace-llm-widget")
+    |> render_click("toggle-fold", %{"kind" => "escalation", "fold" => "pricing"})
+
+    html = render(view)
+
+    for selector <- [
+          "#escalation-pricing"
+        ] do
+      id = String.trim_leading(selector, "#")
+      assert html =~ ~s(id="#{id}"), "missing pricing control #{selector}"
+    end
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-039
+  test "embedded profile widget stages credentials and delegates profile mutations", %{conn: conn} do
+    test_pid = self()
+    primary = widget_profile("CPA GPT-5.6 Luna", "gpt-5.6-luna")
+    backup = widget_profile("Backup LLM", "backup-model")
+    refreshed = put_in(primary, ["profile", "models"], [%{"id" => "refreshed-model"}])
+
+    state =
+      APIFixtures.state()
+      |> Map.put("selectedProfileId", "CPA GPT-5.6 Luna")
+      |> Map.put("modelId", "gpt-5.6-luna")
+
+    Req.Test.stub(HardenAPI, fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/auth/session"} ->
+          Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
+
+        {"GET", "/api/v1/state"} ->
+          Req.Test.json(conn, APIFixtures.success(nil, state))
+
+        {"GET", "/api/v1/profiles"} ->
+          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [primary, backup]}))
+
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          Req.Test.json(conn, APIFixtures.success(nil, Jason.decode!(body)))
+
+        {"POST", "/api/v1/profiles/CPA%20GPT-5.6%20Luna/models:refresh"} ->
+          send(test_pid, :widget_refreshed)
+          Req.Test.json(conn, APIFixtures.success(refreshed))
+
+        {"PUT", "/api/v1/profiles/CPA%20GPT-5.6%20Luna"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          send(test_pid, {:widget_saved, Jason.decode!(body)})
+          Req.Test.json(conn, APIFixtures.success(primary))
+
+        {"DELETE", "/api/v1/profiles/CPA%20GPT-5.6%20Luna"} ->
+          send(test_pid, :widget_deleted)
+          Req.Test.json(conn, APIFixtures.success(%{"deleted" => true}))
+
+        {"PUT", "/api/v1/profiles/bundle"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          send(test_pid, {:widget_imported, Jason.decode!(body)})
+          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [primary, backup]}))
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+
+    view |> element("#profile-credential-toggle") |> render_click()
+
+    view
+    |> element("#profile_apiKey")
+    |> render_change(%{"profile" => %{"apiKey" => "widget-secret"}})
+
+    view |> element("#profile-stage-key") |> render_click()
+    assert has_element?(view, "#profile-credential-toggle", "Replace key")
+    refute render(view) =~ "widget-secret"
+
+    view |> element("#profile-save") |> render_click()
+    render_async(view, 1_000)
+    assert_received {:widget_saved, payload}
+    assert get_in(payload, ["credential", "apiKey"]) == "widget-secret"
+    refute render(view) =~ "widget-secret"
+
+    view |> element("#profile-refresh-models") |> render_click()
+    render_async(view, 1_000)
+    assert_received :widget_refreshed
+    assert has_element?(view, "#profile-model-options", "refreshed-model")
+
+    view |> element("#profile-delete") |> render_click()
+    assert has_element?(view, "#profile-delete-confirmation")
+    view |> element("#profile-delete-confirm") |> render_click()
+    render_async(view, 1_000)
+    assert_received :widget_deleted
+    refute has_element?(view, "#profile-delete")
+
+    upload =
+      file_input(view, "#run-form", :profile_bundle, [
+        %{
+          name: "profiles.json",
+          content: Jason.encode!(%{"schemaVersion" => 1}),
+          type: "application/json"
+        }
+      ])
+
+    render_upload(upload, "profiles.json")
+    view |> element("#profile-import-bundle") |> render_click()
+    assert_received {:widget_imported, %{"schemaVersion" => 1}}
+    assert has_element?(view, ~s(#workspace-profile-options option[value="CPA GPT-5.6 Luna"]))
+  end
+
   test "workspace history restores and deletes records through the self-hosted API", %{conn: conn} do
     test_pid = self()
     {:ok, history_calls} = Agent.start_link(fn -> 0 end)
@@ -615,6 +902,51 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
                          "modelId" => "repair-model"
                        }
                      }}
+  end
+
+  defp widget_profile(profile_id, model_id) do
+    options = %{
+      "max_tokens" => 16_000,
+      "temperature" => 0.2,
+      "top_p" => 0.95,
+      "top_k" => 40,
+      "stop" => ["DONE"],
+      "structuredRepairRetry" => %{
+        "enabled" => true,
+        "enableRetryOn429" => true,
+        "enableRetryOn5xx" => true,
+        "enableRetryOnNetworkError" => true,
+        "enableRetryOnParseError" => true,
+        "maxAttempts" => 4,
+        "baseDelayMs" => 500,
+        "maxDelayMs" => 8_000,
+        "escalation" => %{
+          "attempt" => 3,
+          "llmProfile" => profile_id,
+          "reasoningEffort" => "highest"
+        }
+      }
+    }
+
+    APIFixtures.profile_state()
+    |> put_in(["profile", "llmProfile"], profile_id)
+    |> put_in(["profile", "modelId"], model_id)
+    |> put_in(
+      ["profile", "models"],
+      [%{"id" => model_id, "label" => "Primary model"}, %{"id" => "alternate-model"}]
+    )
+    |> put_in(["profile", "defaultOptions"], options)
+    |> put_in(
+      ["profile", "pricing"],
+      %{
+        "input_cost_per_token" => 0.0000002,
+        "output_cost_per_token" => 0.0000012,
+        "cache_read_input_token_cost" => 0.00000002,
+        "cache_creation_input_token_cost" => 0.00000025,
+        "output_cost_per_reasoning_token" => 0
+      }
+    )
+    |> put_in(["credential", "credentialId"], "credential-#{profile_id}")
   end
 
   defp submit_run(view, overrides) do

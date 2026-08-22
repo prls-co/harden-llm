@@ -298,8 +298,9 @@ The parity implementation is present in the self-hosted checkout:
 - The 2026-08-22 UI pass replaces profile and delete overlays with in-flow `#profile-editor` / `#profile-delete-panel` folds, replaces the wide profile table with responsive compact cards, and applies the utility warm-card/emoji control language to both Profiles and the single-column Workspace stack.
 - The 2026-08-22 fold-event correction uses `phx-value-open` rather than the reserved `phx-value-value` key, and the real browser workflow verifies that model, advanced-input, retry, history, and output folds open through the LiveView socket.
 - The 2026-08-22 workspace draft correction merges field-local `phx-change` events from the Reasoning and Cache selects into the current draft, preserving the selected profile before submit.
-- The studio surfaces are intentionally component-oriented for embedding: `#workspace-page` and `#profiles-page` are single vertical stacks with stable `studio-page` / `studio-stack` / `studio-card` / `studio-fold` roots, no tabs or side rail, no fixed overlay, and in-flow folds. `Layouts.app` remains a route adapter; direct functional LiveComponent extraction is outside this parity slice.
-- Workspace model and escalation controls deep-link to that canonical profile editor; new-profile credential fields open automatically while existing-profile edits keep stored credentials behind a closed write-only drawer.
+- The studio surfaces are intentionally component-oriented for embedding: `#workspace-page` and `#profiles-page` are single vertical stacks with stable `studio-page` / `studio-stack` / `studio-card` / `studio-fold` roots, no tabs or side rail, no fixed overlay, and in-flow folds. The canonical Workspace profile surface is the reusable `HardenLlmWeb.ProfileWidgetComponent` at `#workspace-llm-widget`; `Layouts.app` is only a route adapter.
+- `ProfileWidgetComponent` provides the utility-like compact LLM row, profile/API/credential/model/fallback controls, Options, Retries & Repair, nested Escalation Model configuration, Pricing, bundle actions, and in-flow delete confirmation. Its optional `id_prefix` namespaces controls when a host embeds more than one instance; the host owns routing/session orchestration through the existing message and OpenAPI boundaries.
+- Workspace model and escalation controls can still deep-link to the canonical `/profiles` editor; new-profile credential fields open automatically while existing-profile edits keep stored credentials behind a closed write-only drawer.
 - `HistoryLive` exposes expandable request/result records, result and credential-free cURL copy, page-size controls over the cursor API, trace observations, artifact links, restore, delete, and clear.
 - The Go state and run contracts now carry the prompt draft, persisted UI flags, model override, explicit bounded retry controls, repair escalation, and run timeout. OpenAPI and backend validation were updated together.
 - The prompt shortcut, five-second schema debounce, model/base-URL datalists, write-only staged-key controls, output request/response folds, and per-record token/cache/cost summaries are covered by `WEB-TEST-034` through `WEB-TEST-036` and the corresponding rendering assertions.
@@ -328,10 +329,11 @@ unimplemented frontend behavior:
 - Browser serialization is part of the parity contract: deterministic
   `render_click` coverage is paired with real desktop/mobile browser clicks so
   native HTML control properties cannot silently replace LiveView payloads.
-- Embedding is part of the visual contract: host applications can place either
-  stable studio surface under their own shell without adopting tab state or a
-  page-level side rail. Any future direct LiveComponent/package boundary must
-  preserve these roots and remain backed by the same OpenAPI contract.
+- Embedding is part of the visual contract: host applications can place the
+  stable widget under their own shell without adopting tab state or a page-level
+  side rail. `ProfileWidgetComponent` keeps all disclosure in flow, accepts an
+  optional ID namespace, and communicates host-owned selection/UI changes through
+  explicit messages while profile mutations remain on the same OpenAPI contract.
 
 The implementation is complete only when the checked-in Go gates, Phoenix
 LiveView suite, browser workflow, formatter/static checks, and
@@ -370,3 +372,19 @@ Final audit evidence for 2026-08-22:
   horizontal overflow, fixed overlays, or page errors.
 - No KER or related issue was created for P07.S11-P07.S13: these changes did
   not alter timeout, retry-budget, provider-policy, or API ownership semantics.
+
+Final audit evidence for the reusable no-tabs widget amendment:
+
+- `WEB-TEST-038` covers the compact row and every main/nested profile fold and
+  action; `WEB-TEST-039` covers staged credentials, save, refresh, delete, and
+  bundle import delegation. The focused widget suite passed 17 tests and the
+  full deterministic frontend suite passed 85 tests with 3 excluded.
+- The pinned Chromium desktop/mobile workflow passed 2 tests in 102.4 seconds.
+  It opened the main Options, Retries & Repair, Pricing, Escalation Model, and
+  nested Options folds through the real LiveView socket without tabs, overlays,
+  horizontal overflow, or page errors.
+- The fallback chooser, option-to-JSON synchronization, nested cache control,
+  and optional widget ID namespace are covered by the checked-in component and
+  tests. No KER or related issue was created: this is a presentation/component
+  topology change with no provider, timeout, retry-budget, or API ownership
+  change.

@@ -4,7 +4,7 @@
 - Date: 2026-08-18
 - Last amended: 2026-08-22
 - Requirements: REQ-007, REQ-011, REQ-012, REQ-018, REQ-019 and `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`
-- Verification: WEB-TEST-031 through WEB-TEST-037, `make verify`, `make test-compose`, pinned Phoenix/browser gates, and hosted Playwright acceptance
+- Verification: WEB-TEST-031 through WEB-TEST-039, `make verify`, `make test-compose`, pinned Phoenix/browser gates, and hosted Playwright acceptance
 
 ## Context
 
@@ -19,9 +19,11 @@ self-hosted architecture.
 
 ## Decision
 
-- Keep `ProfilesLive` as the single owner of the full profile editor. Workspace
-  model rows use a native editable datalist and deep links rather than copying
-  a second nested editor into every workspace fold.
+- Keep `ProfilesLive` as the owner of profile form translation and payload
+  validation. Mount `HardenLlmWeb.ProfileWidgetComponent` as the canonical
+  reusable in-flow profile surface in Workspace; `/profiles` remains a route
+  adapter around the same form/payload functions rather than a second backend
+  ownership path.
 - Keep profile editing and profile-delete confirmation in the normal document
   flow. `New profile` expands an inline editor while the profile cards remain
   visible; credential, options, retry/repair, and pricing controls are nested
@@ -34,9 +36,9 @@ self-hosted architecture.
   self-contained vertical component with stable root classes (`studio-page`,
   `studio-stack`, `studio-card`, and `studio-fold`), in-flow disclosure, and no
   tabs, side rail, modal overlay, or required page-level navigation state. The
-  Phoenix route/layout is an adapter shell around the visual surface; direct
-  cross-application `LiveComponent` extraction remains a follow-up boundary,
-  not a second UI topology.
+  profile widget has the stable `#workspace-llm-widget` root, an optional
+  `id_prefix` for multiple host instances, and explicit parent messages for
+  selection/UI changes; the Phoenix route/layout is only an adapter shell.
 - Use a non-reserved LiveView payload key such as `phx-value-open` for browser
   fold state. `phx-value-value` collides with a button's native empty `value`
   property in the LiveView browser serializer, so server-rendered event tests
@@ -67,7 +69,9 @@ Garage ownership. The visual structure is not byte-identical to React, and the
 utility quick-jump interaction is intentionally absent. The 2026-08-22
 presentation amendment brings the layout topology closer to utility-llm:
 information-dense controls stay in one page and expand in flow instead of
-covering the surrounding content. The parity inventory is the
+covering the surrounding content. The reusable widget now carries the full
+profile fold tree, including nested escalation configuration, while the host
+application supplies routing and session context. The parity inventory is the
 requirement-level record: `docs/utility-llm-frontend-parity-inventory.md`.
 
 The Tempo smoke harness also normalizes a one-nibble leading-zero omission in
@@ -84,3 +88,10 @@ select-specific change path. The deployed Playwright check verifies that
 changing Reasoning and Cache preserves `CPA GPT-5.6 Luna` and permits a real
 run; the same-page, no-tabs topology is also checked at desktop and mobile
 sizes for embedding safety.
+
+The reusable-widget amendment adds WEB-TEST-038 and WEB-TEST-039 for the
+compact profile row, nested fold tree, option JSON synchronization, fallback
+chooser, write-only credential staging, model refresh, profile CRUD, bundle
+import, and optional ID namespacing. It introduces no KER, timeout budget,
+provider policy, retry budget, or related issue because the backend contract and
+ownership boundaries are unchanged.

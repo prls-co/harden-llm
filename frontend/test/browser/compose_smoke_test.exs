@@ -73,7 +73,7 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
 
     session =
       session
-      |> click(Query.css("#nav-profiles"))
+      |> visit(fixture["web_url"] <> "/profiles")
       |> assert_has(Query.css("#profiles-page"))
       |> click(Query.css("#new-profile"))
       |> fill_in(Query.text_field("Profile name"), with: "Smoke")
@@ -84,8 +84,14 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
       |> fill_in(Query.css("#profile_apiKey"), with: provider_secret)
       |> click(Query.css("#profile-save"))
       |> assert_has(Query.css("#profile-Smoke", text: "Smoke"))
-      |> click(Query.css("#nav-workspace"))
+      |> visit(fixture["web_url"] <> "/workspace")
       |> assert_has(Query.css("#backend-status", text: "Backend ready"))
+      |> click(Query.css("#model-config-toggle"))
+      |> assert_has(Query.css("#model-options"))
+      |> click(Query.css("#profile-retry-toggle"))
+      |> assert_has(Query.css("#profile-retry-repair"))
+      |> click(Query.css("#profile-escalation-config-toggle"))
+      |> assert_has(Query.css("#profile-escalation-config"))
       |> choose_option("#run_selectedProfileId", "Smoke")
       |> fill_in(Query.css("#run_userPrompt"), with: "return the compose smoke response")
       |> click(Query.css("#run-submit"))
