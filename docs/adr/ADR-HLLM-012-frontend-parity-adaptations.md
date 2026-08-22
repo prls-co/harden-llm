@@ -2,8 +2,9 @@
 
 - Status: Accepted
 - Date: 2026-08-18
+- Last amended: 2026-08-22
 - Requirements: REQ-007, REQ-011, REQ-012, REQ-018, REQ-019 and `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`
-- Verification: WEB-TEST-031 through WEB-TEST-037, `make verify`, `make test-compose`, and the pinned Phoenix/browser gates
+- Verification: WEB-TEST-031 through WEB-TEST-037, `make verify`, `make test-compose`, pinned Phoenix/browser gates, and hosted Playwright acceptance
 
 ## Context
 
@@ -29,10 +30,21 @@ self-hosted architecture.
   profile table or a workspace side rail. Emoji labels are presentation
   affordances only; every action retains an accessible name and stable test
   selector.
+- Treat Workspace and Profiles as reusable visual surfaces: each is one
+  self-contained vertical component with stable root classes (`studio-page`,
+  `studio-stack`, `studio-card`, and `studio-fold`), in-flow disclosure, and no
+  tabs, side rail, modal overlay, or required page-level navigation state. The
+  Phoenix route/layout is an adapter shell around the visual surface; direct
+  cross-application `LiveComponent` extraction remains a follow-up boundary,
+  not a second UI topology.
 - Use a non-reserved LiveView payload key such as `phx-value-open` for browser
   fold state. `phx-value-value` collides with a button's native empty `value`
   property in the LiveView browser serializer, so server-rendered event tests
   alone are not sufficient for this interaction contract.
+- Merge partial browser `phx-change` payloads into the current workspace
+  draft. The reasoning and cache selects emit field-local events, and replacing
+  the full draft with those partial maps would erase the selected profile
+  before submit.
 - Keep profile defaults, retry policy, repair escalation, pricing, credentials,
   and provider execution backend-owned. The browser never sends a raw stored
   credential or creates a second provider execution path.
@@ -66,3 +78,9 @@ The 2026-08-22 fold-event correction adds a real browser assertion to the
 parity gate. The deterministic LiveView test remains useful for server
 behavior, while the browser workflow verifies that the serialized event
 actually carries the requested open/closed state.
+
+The 2026-08-22 workspace-draft correction adds browser coverage for the
+select-specific change path. The deployed Playwright check verifies that
+changing Reasoning and Cache preserves `CPA GPT-5.6 Luna` and permits a real
+run; the same-page, no-tabs topology is also checked at desktop and mobile
+sizes for embedding safety.

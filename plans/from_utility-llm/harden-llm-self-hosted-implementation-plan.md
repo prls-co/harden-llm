@@ -1475,17 +1475,18 @@ Privacy and data-quality constraints:
 | P07.S10 | `internal/profiles/default-profile-catalog.json`, gateway profile resources, Postgres seed, provider preparation | TEST-017 | `go test ./... -count=1`; tagged Postgres seed test |
 | P07.S11 | `frontend/assets/css/app.css`, `frontend/lib/harden_llm_web/live/profiles_live.html.heex`, `workspace_live.html.heex`, profile/workspace/rendering/browser tests, parity docs | WEB-TEST-037 plus WEB-TEST-006, WEB-TEST-007, WEB-TEST-010, WEB-TEST-011 | pinned Phoenix format/compile/live tests, desktop/mobile browser workflow, deployed Playwright audit |
 | P07.S12 | Workspace fold event payloads and browser regression coverage | WEB-TEST-037 plus deployed Playwright fold checks | pinned Phoenix suite and real browser event serialization; redeploy and public smoke |
+| P07.S13 | Workspace draft preservation for field-local browser change events | WEB-TEST-037 plus Wallaby select changes and deployed CPA run | merge partial `phx-change` maps, rerun deterministic/browser gates, and verify a real profile run |
 
 ## 11. Execution log
 
 ### Phase Status
 
-- Phase: P07 plus P07.S09-P07.S12 frontend parity closeout amendments
+- Phase: P07 plus P07.S09-P07.S13 frontend parity closeout amendments
 - Status: Complete after final publication and deployment verification
-- Target SHA: `2c1a34f9737dd50b6af387c449f63d9299b166d1` (PR `#4`)
+- Target SHA: `7c55266b878fb894b78c4731ffc3a1d6bcedc04e` (PR `#17`)
 - Backend source fixture SHA: `09769424ca34b9d759e273a7e9dccf4fd00a5f6c`
 - Frontend source revision: `utility-llm` `5c0309e` / `0.15.0`
-- Evidence: `make verify`, `make test-compose`, pinned Phoenix suite, browser workflow, and final deployed health/readback checks
+- Evidence: `make verify`, pinned Phoenix suite, Wallaby desktop/mobile workflow, deployed Playwright desktop/mobile acceptance, CPA Luna run, and final deployed health/readback checks
 
 ### Completed Steps
 
@@ -1496,8 +1497,9 @@ Privacy and data-quality constraints:
 | P07.S09 utility frontend parity audit | Implemented and tested | `docs/utility-llm-frontend-parity-inventory.md`; WEB-TEST-031..036 |
 | P07.S11 utility layout topology and interaction coverage | Implemented and tested: inline profile/delete folds, compact profile cards, single-column studio stack, and control matrix | `docs/utility-llm-frontend-parity-inventory.md`; WEB-TEST-037; pinned Phoenix/browser gates; deployed Playwright audit |
 | P07.S12 workspace fold event serialization correction | Implemented: renamed the browser fold-state payload from reserved `phx-value-value` to `phx-value-open` and added browser assertions for model, advanced input, retry, and history folds | `frontend/lib/harden_llm_web/live/workspace_live.html.heex`; WEB-TEST-037; browser workflow |
-| Final frontend validation | Pass: Phoenix 77 passed/3 excluded; browser 2 passed | `frontend/` test suites |
-| Publication and deployment | Pass: PR `#4` merged as `2c1a34f`; gateway/frontend images healthy; public API and frontend probes HTTP 200 | `docs/release-certification.md` |
+| P07.S13 workspace draft preservation | Implemented: merged field-local browser `phx-change` payloads so Reasoning and Cache changes preserve the selected profile; added regression coverage and real hosted run verification | `frontend/lib/harden_llm_web/live/workspace_live.ex`; WEB-TEST-037; Wallaby; deployed Playwright |
+| Final frontend validation | Pass: focused Phoenix/rendering 20 passed; full deterministic frontend 83 passed/3 excluded; browser 2 passed in 99.3s; hosted Playwright passed | `frontend/` test suites; deployed Playwright record |
+| Publication and deployment | Pass: PR `#16` merged as `31d3106`, PR `#17` merged as `7c55266`; gateway remained healthy at `8f69e2b`, frontend image `sha256:3a8eb2bdc9096210a1c768c87d69c365fbe09b2f1b07d37c6c3d80b64263528d`; public API/frontend probes HTTP 200 | `docs/release-certification.md` |
 
 ### Quantitative Results
 
@@ -1505,8 +1507,9 @@ Privacy and data-quality constraints:
 | --- | --- | --- | --- |
 | `make verify` | Pass; `govulncheck` reported zero called vulnerabilities | exit 0 | Accepted |
 | `make test-compose` | Pass in 183.924s after the trace-ID parser fix and kin-openapi upgrade; earlier parity run was 176.997s | full correlation | Accepted |
-| Phoenix suite | Baseline was 77 passed, 3 excluded; P07.S11 focused suite 29 passed | formatter, warnings-as-errors, unit suite | Accepted |
-| Browser workflow | 2 passed in 92.7s after P07.S11 UI changes | desktop and mobile | Accepted |
+| Phoenix suite | Focused workspace/rendering suite 20 passed; full deterministic frontend suite 83 passed, 3 excluded | formatter, warnings-as-errors, unit suite | Accepted |
+| Browser workflow | 2 passed in 99.3s after P07.S13 draft preservation | desktop and mobile | Accepted |
+| Hosted Playwright | Passed on release `7c55266`: workspace/profile folds and actions, 29 profile cards, CPA Luna run, mobile bounds, no overlays, and zero page errors | deployed desktop/mobile UI | Accepted |
 
 ### Issues/Resolutions
 
@@ -1515,6 +1518,7 @@ Privacy and data-quality constraints:
 | Compose correlation initially failed | Tempo returned a 31-character trace ID with one leading zero nibble omitted; the smoke parser required exactly 32 characters | Shared normalization restores the omitted nibble; unit coverage added for Compose/live helpers | `go test ./internal/smoke/...`; `make test-compose` |
 | Frontend parity was incomplete after original P07 closure | The original phase certified the initial Phoenix baseline while the current utility frontend had additional controls and behavior | Added P07.S09, source-derived WEB-TEST-031..036, parity inventory, and ADR-HLLM-012 | Phoenix/browser gates and inventory audit |
 | Workspace folds stayed closed in a real browser | Phoenix LiveView's browser serializer overwrote `phx-value-value` with the button's native empty `value`; server-side `render_click` did not reproduce that browser serialization | Renamed the payload key to `phx-value-open` and added real Wallaby fold assertions | focused Phoenix suite; desktop/mobile browser workflow; deployed Playwright |
+| Selected profile disappeared after changing Reasoning or Cache in a real browser | Those controls emit field-local `phx-change` maps, while the handler treated each map as the complete workspace form | Merge incoming event fields over the server's current draft and cover the sequence in LiveView, Wallaby, and hosted Playwright tests | focused suite 20 passed; browser 2 passed; hosted CPA Luna run returned output |
 
 ### Failed Attempts
 
@@ -1529,6 +1533,7 @@ Privacy and data-quality constraints:
 | Initial frontend P07 baseline only | Added a post-P07 parity amendment covering the current utility frontend | The source-derived inventory found missing functional controls after the original frontend certification | ADR-HLLM-012 |
 | Utility Downshift inline/editor and offset quick-jump behavior | Native editable datalist/deep-link profile ownership and cursor/limit history | Preserve one Phoenix/Go owner and the authoritative cursor REST contract | ADR-HLLM-012 |
 | Profile modal/editor and wide table/side-rail topology | In-flow profile/delete folds, compact profile cards, and one vertical Workspace stack | The requested utility-llm information density keeps surrounding facts visible and avoids overlay-hidden controls | ADR-HLLM-012 |
+| Standalone tabbed/page-shell embedding | Stable single-column studio surfaces with no tabs, side rail, or fixed overlay; route layout remains an adapter shell | The UI is intended to be placed inside host applications as a visual component; direct functional LiveComponent extraction is a follow-up beyond this parity plan | ADR-HLLM-012 |
 | Timeout RCA record | No new KER | The Tempo correction changed parsing only; no timeout or budget changed | None |
 | Production routing values | Public `*.prls.co` hostnames with tunnel-trusted private-PKI `internal` TLS | The first deployment inherited development `*.harden.localhost` values and returned 502; the corrected effective Compose config passed health/readiness probes | Release certification |
 
@@ -1543,6 +1548,14 @@ Privacy and data-quality constraints:
 - P07.S12 introduced no KER, timeout-budget, or provider-policy change and no
   related issue was created; it corrected a browser event serialization detail
   and is tracked by ADR-HLLM-012, WEB-TEST-037, and the release certification.
+- P07.S13 introduced no KER, timeout-budget, or provider-policy change and no
+  related issue was created; it corrected partial form-event state loss and is
+  tracked by ADR-HLLM-012, WEB-TEST-037, and the release certification.
+- The visual embedding constraint is deliberate: preserve stable studio roots,
+  in-flow folds, and one vertical surface when a host application supplies its
+  own shell. A direct reusable LiveComponent/package boundary is the next
+  concrete step if another application needs functional mounting rather than
+  visual composition.
 
 ### ADR Updates
 

@@ -6,7 +6,7 @@ This inventory records the frontend behavior that must be represented by the
 self-hosted Phoenix/Go application, subject to the self-hosted boundaries in
 this repository. It is based on the read-only `utility-llm` checkout at
 `5c0309e` (`chore(release): publish utility-llm 0.15.0`) and the merged
-`harden-llm` checkout at `2c1a34f`.
+`harden-llm` checkout at `7c55266`.
 
 The parity target is behavior, not React or Firebase implementation. Firebase
 email/password auth, Firebase ID tokens, Firestore state, and signed Firebase
@@ -297,6 +297,8 @@ The parity implementation is present in the self-hosted checkout:
 - `ProfilesLive` exposes write-only credential staging, ordered backup editing, common provider options plus source JSON, retry/repair controls, escalation metadata, all five pricing rates, model refresh, bundle import/export, and the existing CRUD actions.
 - The 2026-08-22 UI pass replaces profile and delete overlays with in-flow `#profile-editor` / `#profile-delete-panel` folds, replaces the wide profile table with responsive compact cards, and applies the utility warm-card/emoji control language to both Profiles and the single-column Workspace stack.
 - The 2026-08-22 fold-event correction uses `phx-value-open` rather than the reserved `phx-value-value` key, and the real browser workflow verifies that model, advanced-input, retry, history, and output folds open through the LiveView socket.
+- The 2026-08-22 workspace draft correction merges field-local `phx-change` events from the Reasoning and Cache selects into the current draft, preserving the selected profile before submit.
+- The studio surfaces are intentionally component-oriented for embedding: `#workspace-page` and `#profiles-page` are single vertical stacks with stable `studio-page` / `studio-stack` / `studio-card` / `studio-fold` roots, no tabs or side rail, no fixed overlay, and in-flow folds. `Layouts.app` remains a route adapter; direct functional LiveComponent extraction is outside this parity slice.
 - Workspace model and escalation controls deep-link to that canonical profile editor; new-profile credential fields open automatically while existing-profile edits keep stored credentials behind a closed write-only drawer.
 - `HistoryLive` exposes expandable request/result records, result and credential-free cURL copy, page-size controls over the cursor API, trace observations, artifact links, restore, delete, and clear.
 - The Go state and run contracts now carry the prompt draft, persisted UI flags, model override, explicit bounded retry controls, repair escalation, and run timeout. OpenAPI and backend validation were updated together.
@@ -326,6 +328,10 @@ unimplemented frontend behavior:
 - Browser serialization is part of the parity contract: deterministic
   `render_click` coverage is paired with real desktop/mobile browser clicks so
   native HTML control properties cannot silently replace LiveView payloads.
+- Embedding is part of the visual contract: host applications can place either
+  stable studio surface under their own shell without adopting tab state or a
+  page-level side rail. Any future direct LiveComponent/package boundary must
+  preserve these roots and remain backed by the same OpenAPI contract.
 
 The implementation is complete only when the checked-in Go gates, Phoenix
 LiveView suite, browser workflow, formatter/static checks, and
@@ -347,3 +353,20 @@ Final audit evidence for 2026-08-18:
   release for the two GitHub security alerts discovered during publication;
   GitHub's alert records remained open at final readback pending Dependabot's
   next dependency-graph refresh.
+
+Final audit evidence for 2026-08-22:
+
+- PR `#16` merged as `31d3106` and PR `#17` merged as `7c55266`; the frontend
+  production image was `sha256:3a8eb2bdc9096210a1c768c87d69c365fbe09b2f1b07d37c6c3d80b64263528d`,
+  the gateway remained at healthy release `8f69e2b`, and all public health/login
+  probes returned HTTP 200.
+- Focused workspace/rendering coverage passed 20 tests; the full deterministic
+  frontend suite passed 83 tests with 3 excluded; the desktop/mobile Wallaby
+  workflow passed 2 tests in 99.3 seconds.
+- Hosted Playwright passed on release `7c55266`: all workspace folds opened,
+  Reasoning and Cache changes preserved the selected `CPA GPT-5.6 Luna` profile,
+  the real prompt returned output and request/response details, all 29 profile
+  cards exposed actions and metadata, and desktop/mobile surfaces had no tabs,
+  horizontal overflow, fixed overlays, or page errors.
+- No KER or related issue was created for P07.S11-P07.S13: these changes did
+  not alter timeout, retry-budget, provider-policy, or API ownership semantics.

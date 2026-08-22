@@ -5,7 +5,9 @@ its 2026-08-09 utility-llm parity refresh, the 2026-08-10 production
 validation refresh, the 2026-08-16 merged production handoff, the
 2026-08-18 P07.S09 parity/security deployment, the 2026-08-18 P07.S10
 profile-catalog backfill deployment, and the 2026-08-19 P07.S10 runtime
-credential correction and final application deployment.
+credential correction and final application deployment. It also records the
+2026-08-22 P07.S11-P07.S13 visual-topology, browser-fold, and workspace-draft
+corrections.
 Detailed command output belongs under ignored
 `plans/evidence/harden-llm/<run-id>/`; secrets and live provider output never do.
 
@@ -19,7 +21,7 @@ Detailed command output belongs under ignored
 | Source package | `@prls-co/utility-llm` `0.14.6` |
 | Current frontend parity source | `utility-llm` `5c0309e` / `0.15.0` |
 | Current profile catalog source | `examples/react-trace-studio/llm-profile-catalog.json` at `utility-llm` `5c0309e2508dc5b7a87d0880c8d794123353c5b0`; SHA-256 `864552eb5e8bf63de590704ef65c2e45ad228e7cc15d4af048609e680348b2f9` |
-| Current merged release | PR `#12` / `8f69e2b3062dad0cf48a7e75e072575946fc07b4` |
+| Current merged release | PR `#17` / `7c55266b878fb894b78c4731ffc3a1d6bcedc04e` |
 | Security dependency remediation | `github.com/getkin/kin-openapi` `v0.144.0` |
 | Parity manifest SHA-256 | `973f138211910fbe58deca867d1569adf2b9660b53e1441a3607570e1f2c98a6` |
 | Langfuse release / commit | `v3.212.0` / `3a572984276dd2dc2f8f77f1b2aadb799aa17fdf` |
@@ -63,6 +65,9 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | P07.S10 utility-llm profile catalog and all-profile test parity | `527f86c` | complete; PR `#9` merged and deployed |
 | P07.S10 runtime credential handling and UI error classification | `ab461d3` | complete; PR `#11` merged and deployed |
 | P07.S10 final frontend/API contract deployment | `8f69e2b` | complete; PR `#12` merged and deployed |
+| P07.S11 utility-aligned visual topology | `9f3741e` | complete; PR `#15` merged and deployed |
+| P07.S12 browser fold event serialization correction | `31d3106` | complete; PR `#16` merged and deployed |
+| P07.S13 workspace draft preservation for select events | `7c55266` | complete; PR `#17` merged and deployed |
 | kin-openapi security remediation | `2c1a34f` | complete; patched release `v0.144.0` |
 
 ## Final gate record
@@ -88,6 +93,10 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | P07.S10 runtime correction | pass: merged PR `#11` deployed as OCI release `ab461d3`; gateway healthy, API `/healthz` and `/readyz` returned 200, fresh History read returned 6 prior records with no `CPA GPT-5.6 Luna` run, and no retry was issued |
 | P07.S10 final application images | pass: gateway `sha256:1dc2f2037176633ec338b47d99254bcdc5f15bd773d65d9683eb2b76bc5e757b` and frontend `sha256:6d7df59edd51fa27267298ac62f4452b7704b89714feaa5fab3e54ad2b628235`; both OCI release `8f69e2b`, both healthy, public API/UI probes 200, and frontend OTLP exporter initialized after startup |
 | P07.S09 frontend parity gates | pass: Phoenix 77 passed/3 excluded, browser 2 passed, `make verify`, and final post-upgrade `make test-compose` 183.924s (earlier parity run: 176.997s) |
+| P07.S11-P07.S13 frontend closeout | pass: focused workspace/rendering suite 20 passed; full deterministic frontend suite 83 passed/3 excluded; Wallaby desktop/mobile workflow 2 passed in 99.3s; CodeQL and Go/JavaScript analyses passed on PR `#17` |
+| P07.S12/P07.S13 real browser regressions | pass: deployed Playwright opened model, advanced-input, retry, history, output, request, and response folds; changing Reasoning and Cache preserved the selected profile; CPA GPT-5.6 Luna returned output; 29 profile cards exposed refresh/edit/delete and metadata; zero page errors |
+| Current frontend production image | pass: image `sha256:3a8eb2bdc9096210a1c768c87d69c365fbe09b2f1b07d37c6c3d80b64263528d`, OCI release `7c55266`, container healthy; gateway remained healthy at release `8f69e2b` / `sha256:1dc2f2037176633ec338b47d99254bcdc5f15bd773d65d9683eb2b76bc5e757b` |
+| Current public probes | pass: frontend `/healthz` and `/login`, API `/healthz` and `/readyz` all returned HTTP 200 after the final deployment |
 | Tempo trace-ID normalization | pass: 31/32-character external IDs covered by regression tests; no timeout budget changed |
 | kin-openapi security alerts | code fix pass: `v0.144.0` is the first patched release for both alerts and CodeQL Go/JavaScript checks passed; GitHub alert records remained open at final readback pending Dependabot rescan |
 
@@ -218,6 +227,27 @@ Three sustained public samples returned API `/readyz`, frontend `/healthz`,
 and `/login` HTTP 200. The frontend exporter logged successful initialization
 after the collector startup window, with no subsequent exporter errors.
 
+On 2026-08-22, PR `#15` (`9f3741e`) aligned the visual topology with the
+utility studio: compact cards, a single vertical Workspace stack, and in-flow
+folds. PR `#16` (`31d3106`) corrected LiveView fold payload serialization by
+using `phx-value-open`; PR `#17` (`7c55266`) merged field-local select events
+into the current workspace draft so Reasoning and Cache changes no longer erase
+the selected profile. Only the frontend was rebuilt: it deployed as
+`sha256:3a8eb2bdc9096210a1c768c87d69c365fbe09b2f1b07d37c6c3d80b64263528d`
+with label `7c55266`; the gateway remained at its healthy `8f69e2b` image.
+The Compose wait passed, all four public probes returned HTTP 200, and the
+authenticated hosted Playwright acceptance passed at desktop and mobile sizes.
+It verified all 29 profile cards and their actions/metadata, inline editor and
+delete cancellation, every workspace disclosure fold, no tabs/overflow/fixed
+overlays, zero page errors, and one real `CPA GPT-5.6 Luna` prompt whose output
+and request/response details rendered successfully.
+
+Deployment-method divergence: direct SSH authentication to `shaman.prls.co`
+was denied by the host's public-key policy, so the exact production Compose
+deployment was executed through the already-authorized local Docker control
+path on that host. No routing, image ownership, volume, or application-stack
+boundary was changed by this access-path choice.
+
 This is a single-origin deployment, not a high-availability topology. Current
 availability is tied to the shaman Docker host, its network, and the active
 Cloudflare connectors. Persistent Postgres, Garage, Langfuse, and observability
@@ -238,3 +268,10 @@ data live in named Docker volumes on shaman.
 Accepted deviations are ADR-HLLM-001, ADR-HLLM-002, ADR-HLLM-008,
 ADR-HLLM-009, ADR-HLLM-010, ADR-HLLM-011, ADR-HLLM-012, and ADR-HLLM-013. No other implementation drift is
 accepted.
+
+The visual embedding boundary is intentional: Workspace and Profiles are
+single-column, stable-root visual surfaces that can sit inside a host shell
+without adopting tabs, a side rail, or an overlay. The route layout is still an
+adapter around the LiveView behavior; extracting a directly mountable
+functional LiveComponent/package is the next step if another application needs
+behavioral embedding rather than visual composition.
