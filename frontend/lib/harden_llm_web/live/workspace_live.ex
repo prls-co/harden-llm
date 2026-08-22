@@ -759,7 +759,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
     )
   end
 
-  defp event_form_params(%{"run" => params}, _socket) when is_map(params), do: params
+  defp event_form_params(%{"run" => params}, socket) when is_map(params) do
+    Map.merge(socket.assigns.form.params || %{}, params)
+  end
+
   defp event_form_params(_event_params, socket), do: socket.assigns.form.params || %{}
 
   defp run_payload(params) do
