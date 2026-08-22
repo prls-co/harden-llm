@@ -8,11 +8,11 @@
 - Target application directory: `/home/kirill/harden-llm/frontend`
 - Backend contract: `/home/kirill/harden-llm/api/openapi.yaml`
 - Source UX reference: `/home/kirill/utility-llm/examples/react-trace-studio`
-- Version: `1.0.1-frontend-parity-amendment`
+- Version: `1.0.2-frontend-embedding-amendment`
 - Owners: frontend and self-hosted runtime maintainers
-- Date: 2026-08-18
+- Date: 2026-08-22
 - Document ID: `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`
-- Summary: This specification defines the separate Elixir/Phoenix LiveView frontend for Harden-LLM. Phoenix renders HTML, owns the browser session and CSRF boundary, and calls the Go gateway server to server through its published REST/OpenAPI contract. The frontend owns no application database, provider integration, retry policy, object storage, pricing, schema validation, cache identity, or domain persistence. The 2026-08-18 parity amendment incorporates the source-derived controls and explicit self-hosted adaptations recorded in `docs/utility-llm-frontend-parity-inventory.md` and ADR-HLLM-012.
+- Summary: This specification defines the separate Elixir/Phoenix LiveView frontend for Harden-LLM. Phoenix renders HTML, owns the browser session and CSRF boundary, and calls the Go gateway server to server through its published REST/OpenAPI contract. The frontend owns no application database, provider integration, retry policy, object storage, pricing, schema validation, cache identity, or domain persistence. The 2026-08-18 parity amendment incorporates the source-derived controls and explicit self-hosted adaptations recorded in `docs/utility-llm-frontend-parity-inventory.md` and ADR-HLLM-012; the 2026-08-22 embedding amendment makes the Workspace and Profiles visual surfaces single-column, stable-root components that can sit inside a host shell.
 
 ## 2. Canonical stack
 
@@ -228,6 +228,9 @@ Contract synchronization:
 - The workspace loads client state, profiles, and the first history page through REST.
 - Inputs include profile, model, prompt, optional system prompt, optional JSON Schema, repair mode, and supported call options defined by OpenAPI.
 - Draft state saves through a debounced server-side LiveView event to `/api/v1/state`; only accepted backend state replaces the local persisted version.
+- Field-local browser `phx-change` events merge into the current draft before
+  persistence, so changing Reasoning or Cache cannot erase the selected profile
+  or other form fields.
 - JSON syntax feedback is local presentation validation. Backend schema constraints and run errors remain authoritative.
 - Run submission uses `start_async/3` so the LiveView process remains responsive.
 - The Run command is disabled only while that submission is active. Duplicate browser events for the same active submit are ignored locally.
@@ -267,6 +270,12 @@ Contract synchronization:
 - Use a quiet operational layout with a compact top bar and persistent navigation for Workspace, Profiles, and History.
 - Use a narrow vertical widget stack for Workspace and Profiles. Profile cards keep endpoint, credential, model, and capability facts visible without a horizontal table or a hidden side rail.
 - Use in-flow disclosure folds for profile editing, credentials, options, retry/repair, pricing, advanced input, output details, and history. Opening `New profile` expands `#profile-editor` while the profile list remains in the same document flow.
+- Treat `#workspace-page` and `#profiles-page` as reusable visual surfaces with
+  stable `studio-page`, `studio-stack`, `studio-card`, and `studio-fold` roots.
+  They must not require tabs, a side rail, a fixed overlay, or page-level
+  navigation state from the host application; `Layouts.app` is only the current
+  route adapter. Direct functional LiveComponent/package extraction is a later
+  boundary and must keep the same roots and OpenAPI contract.
 - Use focused views only where the content is genuinely a separate trace inspection; profile editing and destructive profile confirmation must not use viewport overlays that hide the surrounding workspace.
 - Use the generated Phoenix icon component for structural icons and compact emoji labels for high-frequency controls (`🤖`, `🧠`, `💾`, `⚙`, `🔁`, `💰`), with accessible text or labels retained.
 - Every form control has a visible label, error association, keyboard focus state, and disabled/submitting state.
@@ -404,7 +413,7 @@ single-editor adaptations are recorded in ADR-HLLM-012.
 | WEB-TEST-034 | Workspace control rendering parity | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | Prompt shortcut, schema debounce, output request/response folds, trace summary, copy actions, and unavailable states render safely. |
 | WEB-TEST-035 | Profile combobox/credential parity | `test/harden_llm_web/live/profiles_live_test.exs` | `mix test test/harden_llm_web/live/profiles_live_test.exs` | Searchable endpoint/model suggestions and write-only staged-key behavior remain local and never render stored or staged secrets after close. |
 | WEB-TEST-036 | Cursor pagination parity | `test/harden_llm_web/live/history_trace_test.exs` | `mix test test/harden_llm_web/live/history_trace_test.exs` | Page-size changes restart the cursor query from page one; arbitrary offset/page-number quick-jump is not added to the cursor-only REST contract. |
-| WEB-TEST-037 | Inline studio control coverage | `test/harden_llm_web/live/profiles_live_test.exs`, `test/harden_llm_web/live/workspace_live_test.exs`, `test/browser/full_workflow_test.exs` | `mix test test/harden_llm_web/live/profiles_live_test.exs test/harden_llm_web/live/workspace_live_test.exs && mix test --only browser test/browser/full_workflow_test.exs` | Every profile/workspace button and input has a stable rendered control, each fold opens/closes in flow, local actions update the draft, and desktop/mobile browser workflows complete without an overlay or horizontal overflow. |
+| WEB-TEST-037 | Inline studio control coverage | `test/harden_llm_web/live/profiles_live_test.exs`, `test/harden_llm_web/live/workspace_live_test.exs`, `test/browser/full_workflow_test.exs` | `mix test test/harden_llm_web/live/profiles_live_test.exs test/harden_llm_web/live/workspace_live_test.exs && mix test --only browser test/browser/full_workflow_test.exs` | Every profile/workspace button and input has a stable rendered control, each fold opens/closes in flow, field-local select events preserve the draft, and desktop/mobile browser workflows complete without tabs, an overlay, or horizontal overflow. |
 
 Detailed fixtures and isolation:
 

@@ -183,14 +183,14 @@
       "gitSHA": "5c0309e",
       "packageVersion": "0.15.0"
     },
-    "parityCompletedAt": "2026-08-22T00:00:00Z",
+    "parityCompletedAt": "2026-08-22T13:23:06Z",
     "parityAdaptationADR": "ADR-HLLM-012",
     "parityRelease": {
-      "pullRequest": 4,
-      "commit": "2c1a34f9737dd50b6af387c449f63d9299b166d1",
-      "gatewayImage": "sha256:cd9d44a8b4dc0a939bffc3239271fadb2bb1c5534640b2c3fb43701421ff6f76",
-      "frontendImage": "sha256:965b30420dcbe8f754bbac3682f9534090f3cb2164dbf37e1d698e76eda5d5fd",
-      "deployedAt": "2026-08-18T19:35:04Z",
+      "pullRequest": 17,
+      "commit": "7c55266b878fb894b78c4731ffc3a1d6bcedc04e",
+      "gatewayImage": "sha256:1dc2f2037176633ec338b47d99254bcdc5f15bd773d65d9683eb2b76bc5e757b",
+      "frontendImage": "sha256:3a8eb2bdc9096210a1c768c87d69c365fbe09b2f1b07d37c6c3d80b64263528d",
+      "deployedAt": "2026-08-22T13:16:30Z",
       "dependabotAlertStatus": "patched in main and deployed; GitHub records pending rescan",
       "probes": {
         "apiHealthz": 200,
@@ -200,11 +200,22 @@
       }
     },
     "parityVerification": {
-      "phoenix": "P07.S11 focused suite 29 passed; baseline full suite remains certified at 77 passed, 3 excluded",
-      "browser": "2 passed at desktop and mobile after inline-fold/card redesign",
+      "phoenix": "Focused workspace/rendering suite 20 passed; full deterministic frontend suite 83 passed, 3 excluded",
+      "browser": "Wallaby 2 passed at desktop and mobile in 99.3s; deployed Playwright passed desktop/mobile fold, profile, responsive, and no-error checks",
       "backend": "make verify passed",
       "compose": "make test-compose passed",
-      "uiControlCoverage": "WEB-TEST-037 covers all profile/workspace inputs and buttons; deployed Playwright audit pending final release"
+      "uiControlCoverage": "WEB-TEST-037 covers all profile/workspace inputs, buttons, fold payloads, and select-driven draft preservation; hosted Playwright verified all 29 profile cards, inline editor actions, workspace folds, and CPA GPT-5.6 Luna run output",
+      "embedding": {
+        "status": "visual-component-oriented",
+        "contract": "Single vertical studio surfaces with stable roots and in-flow folds; no tabs, side rail, fixed overlay, or required page-level navigation state",
+        "stableRoots": [
+          "studio-page",
+          "studio-stack",
+          "studio-card",
+          "studio-fold"
+        ],
+        "routeShell": "Layouts.app remains an adapter shell; direct functional LiveComponent extraction is outside this parity slice"
+      }
     }
   }
 }
