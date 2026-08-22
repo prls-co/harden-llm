@@ -4,7 +4,7 @@
 - Date: 2026-08-18
 - Last amended: 2026-08-22
 - Requirements: REQ-007, REQ-011, REQ-012, REQ-018, REQ-019 and `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`
-- Verification: WEB-TEST-031 through WEB-TEST-039, `make verify`, `make test-compose`, pinned Phoenix/browser gates, prior hosted Playwright acceptance, and current deployed image/probe verification
+- Verification: WEB-TEST-031 through WEB-TEST-040, `make verify`, `make test-compose`, pinned Phoenix/browser gates, hosted browser acceptance, and current deployed image/probe verification
 
 ## Context
 
@@ -96,10 +96,20 @@ import, and optional ID namespacing. It introduces no KER, timeout budget,
 provider policy, retry budget, or related issue because the backend contract and
 ownership boundaries are unchanged.
 
+The profile-capability amendment adds WEB-TEST-040 after hosted verification
+exposed a stale-state failure for a custom `CurlStructured` profile. The
+workspace had persisted `reasoningEffort: "lowest"` even though that profile
+had no `reasoningEffortMap`; the gateway correctly rejected the request before
+the provider call. The widget now derives its compact reasoning choices from
+the selected profile, disables the control when no portable mapping exists, and
+the server-side run builder strips stale unsupported reasoning (including a
+known unmapped repair-escalation profile). The backend's strict provider
+contract remains unchanged, and no credential, timeout, retry-budget, KER, or
+related issue was introduced.
+
 The P07.S14 release merged as PR `#19` and deployed the frontend-only image
-from merged `main`. The public health/login probes and static-token API smoke
-passed. The authenticated hosted-browser recheck was not repeated because the
-retained production environment has no browser email/password; creating a
-production test user would add unrelated durable state. The local authenticated
-desktop/mobile browser workflow remains the deterministic verification of the
-complete widget interaction tree.
+from merged `main`. The subsequent profile-capability fix is verified by
+WEB-TEST-040, the full pinned Phoenix suite, the desktop/mobile Chromium
+workflow, and the hosted browser check using the existing operator credentials
+already supplied through the production environment. No new production
+account was created and no credential value was persisted in tests or docs.

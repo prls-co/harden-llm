@@ -176,7 +176,7 @@
       "WEB-TEST-009", "WEB-TEST-010", "WEB-TEST-011", "WEB-TEST-012",
       "WEB-TEST-031", "WEB-TEST-032", "WEB-TEST-033", "WEB-TEST-034",
       "WEB-TEST-035", "WEB-TEST-036", "WEB-TEST-037", "WEB-TEST-038",
-      "WEB-TEST-039"
+      "WEB-TEST-039", "WEB-TEST-040"
     ],
     "parityInventory": "docs/utility-llm-frontend-parity-inventory.md",
     "paritySource": {
@@ -201,12 +201,12 @@
       }
     },
     "parityVerification": {
-      "phoenix": "Focused widget/workspace suite 17 passed; full deterministic frontend suite 85 passed, 3 excluded",
-      "browser": "Wallaby 2 passed at desktop and mobile in 102.4s; current hosted authenticated recheck was not run because production has no browser email/password",
+      "phoenix": "Focused workspace/widget suite 18 passed; full deterministic frontend suite 86 passed, 3 excluded",
+      "browser": "Pinned Chromium 2 passed at desktop and mobile; P07.S15 hosted authenticated prompt verification is pending deployment of the profile-aware reasoning guard",
       "backend": "make verify passed",
       "compose": "make test-compose passed",
-      "uiControlCoverage": "WEB-TEST-037 through WEB-TEST-039 cover profile/workspace inputs, buttons, no-tabs fold payloads, fallback/options interactions, write-only credential staging, profile mutations, and select-driven draft preservation; the deployed image, public probes, and static-token API smoke pass, while authenticated hosted widget verification remains credential-bound",
-      "hostedAuthenticatedBrowser": "not run: production environment contains an API static token but no browser email/password; no production user was created implicitly",
+      "uiControlCoverage": "WEB-TEST-037 through WEB-TEST-040 cover profile/workspace inputs, buttons, no-tabs fold payloads, fallback/options interactions, write-only credential staging, profile mutations, select-driven draft preservation, and profile-aware reasoning capability guards; the pre-fix deployed image, public probes, and static-token API smoke pass",
+      "hostedAuthenticatedBrowser": "pending: existing operator credentials are available in the production environment; rerun the compact/nested-fold flow and a real prompt after the profile-aware reasoning fix is deployed",
       "embedding": {
         "status": "reusable-live-component",
         "contract": "ProfileWidgetComponent provides a compact utility-style LLM row plus nested in-flow profile/escalation folds; no tabs, side rail, fixed overlay, or required page-level navigation state; host owns routing/session messages",

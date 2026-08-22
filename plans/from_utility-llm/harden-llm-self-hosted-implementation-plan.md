@@ -1476,18 +1476,19 @@ Privacy and data-quality constraints:
 | P07.S11 | `frontend/assets/css/app.css`, `frontend/lib/harden_llm_web/live/profiles_live.html.heex`, `workspace_live.html.heex`, profile/workspace/rendering/browser tests, parity docs | WEB-TEST-037 plus WEB-TEST-006, WEB-TEST-007, WEB-TEST-010, WEB-TEST-011 | pinned Phoenix format/compile/live tests, desktop/mobile browser workflow, deployed Playwright audit |
 | P07.S12 | Workspace fold event payloads and browser regression coverage | WEB-TEST-037 plus deployed Playwright fold checks | pinned Phoenix suite and real browser event serialization; redeploy and public smoke |
 | P07.S13 | Workspace draft preservation for field-local browser change events | WEB-TEST-037 plus Wallaby select changes and deployed CPA run | merge partial `phx-change` maps, rerun deterministic/browser gates, and verify a real profile run |
-| P07.S14 | `ProfileWidgetComponent`, no-primary-navigation layout, nested profile folds, widget CSS, parity/ADR/status docs | WEB-TEST-038 and WEB-TEST-039 plus browser workflow | pinned Phoenix suite, desktop/mobile Chromium, publication, deployment, and public probe/API smoke; authenticated hosted compact/nested-fold smoke requires an authorized browser credential |
+| P07.S14 | `ProfileWidgetComponent`, no-primary-navigation layout, nested profile folds, widget CSS, parity/ADR/status docs | WEB-TEST-038 and WEB-TEST-039 plus browser workflow | pinned Phoenix suite, desktop/mobile Chromium, publication, deployment, and public probe/API smoke |
+| P07.S15 | Profile-aware reasoning capability handling in `ProfileWidgetComponent`, `WorkspaceLive`, and translated tests/docs | WEB-TEST-040 plus hosted browser workflow | pinned Phoenix suite, desktop/mobile Chromium, `make verify`, publication, deployment, and an authenticated hosted prompt using the existing operator credential |
 
 ## 11. Execution log
 
 ### Phase Status
 
-- Phase: P07 plus P07.S09-P07.S14 frontend parity closeout amendments
-- Status: Implementation complete and deployed; authenticated hosted-browser recheck remains credential-bound
+- Phase: P07 plus P07.S09-P07.S15 frontend parity closeout amendments
+- Status: Implementation complete; P07.S15 is locally verified and awaits publication/deployment verification
 - Target SHA: `9a57dcdeb48373cb7d8a8c46aa4670fa5e0095c2` (PR `#19`)
 - Backend source fixture SHA: `09769424ca34b9d759e273a7e9dccf4fd00a5f6c`
 - Frontend source revision: `utility-llm` `5c0309e` / `0.15.0`
-- Evidence: `make verify`, pinned Phoenix suite, Wallaby desktop/mobile workflow, deployed health/readback checks, and the real static-token API smoke; authenticated hosted-browser recheck was not run because the retained production environment has no browser login credentials
+- Evidence: `make verify`, pinned Phoenix suite, Wallaby desktop/mobile workflow, profile-capability regression coverage, and the pre-fix hosted diagnostic; final deployment and authenticated hosted prompt evidence will be appended after publication
 
 ### Completed Steps
 
@@ -1500,7 +1501,8 @@ Privacy and data-quality constraints:
 | P07.S12 workspace fold event serialization correction | Implemented: renamed the browser fold-state payload from reserved `phx-value-value` to `phx-value-open` and added browser assertions for model, advanced input, retry, and history folds | `frontend/lib/harden_llm_web/live/workspace_live.html.heex`; WEB-TEST-037; browser workflow |
 | P07.S13 workspace draft preservation | Implemented: merged field-local browser `phx-change` payloads so Reasoning and Cache changes preserve the selected profile; added regression coverage and real hosted run verification | `frontend/lib/harden_llm_web/live/workspace_live.ex`; WEB-TEST-037; Wallaby; deployed Playwright |
 | P07.S14 reusable embedded widget and no-tabs topology | Implemented: `ProfileWidgetComponent` owns the compact utility-style row, nested main/escalation folds, fallback/options interactions, optional ID namespace, and host message boundary; persistent primary nav removed | `frontend/lib/harden_llm_web/live/profile_widget_component.ex`; WEB-TEST-038/039; ADR-HLLM-012 |
-| Final frontend validation | Pass: focused widget/workspace suite 17 passed; full deterministic frontend 85 passed/3 excluded; browser 2 passed in 102.4s; public static-token API smoke passed; authenticated hosted smoke was not run without browser credentials | `frontend/` test suites; release certification |
+| P07.S15 profile-aware reasoning capability guard | Implemented: supported profiles retain L/M/H, profiles without a reasoning map disable the compact selector, stale persisted reasoning is omitted from run payloads, and known unmapped repair profiles cannot inherit an incompatible primary setting | `frontend/lib/harden_llm_web/live/profile_widget_component.ex`; `frontend/lib/harden_llm_web/live/workspace_live.ex`; WEB-TEST-040; ADR-HLLM-012 |
+| Final frontend validation | Pre-publication pass: focused workspace suite 18 passed; full deterministic frontend 86 passed/3 excluded; desktop/mobile Chromium 2 passed; `make verify` passed. Hosted prompt and final image/probe evidence pending P07.S15 deployment | `frontend/` test suites; release certification |
 | Publication and deployment | Pass: PR `#19` merged as `9a57dcd`; gateway remained healthy at `8f69e2b`, frontend image `sha256:f40cc5bf549f4fac3cdca15946004d80b9aba1fdec46a4629592770bb9b63fb5`; three samples of public API/frontend probes returned HTTP 200 | `docs/release-certification.md` |
 
 ### Quantitative Results
@@ -1511,7 +1513,7 @@ Privacy and data-quality constraints:
 | `make test-compose` | Pass in 183.924s after the trace-ID parser fix and kin-openapi upgrade; earlier parity run was 176.997s | full correlation | Accepted |
 | Phoenix suite | Focused widget/workspace suite 17 passed; full deterministic frontend suite 85 passed, 3 excluded | formatter, warnings-as-errors, unit suite | Accepted |
 | Browser workflow | 2 passed in 102.4s after P07.S14 nested widget/no-tabs changes | desktop and mobile | Accepted |
-| Hosted Playwright | Prior release `7c55266` passed the authenticated desktop/mobile acceptance. Current `9a57dcd` recheck was not run because production retains only an API static token and no browser email/password; no test user was created implicitly | local authenticated desktop/mobile Chromium plus public probes and API smoke | Credential-bound follow-up |
+| Hosted browser | Prior release `7c55266` passed the authenticated desktop/mobile acceptance; P07.S15 will rerun the compact/no-tabs/nested-fold flow and a real prompt with the existing operator credentials from the production environment | deployed frontend, existing operator credential, public probes, and gateway history/log evidence | Required before P07.S15 closeout |
 
 ### Issues/Resolutions
 
@@ -1521,7 +1523,7 @@ Privacy and data-quality constraints:
 | Frontend parity was incomplete after original P07 closure | The original phase certified the initial Phoenix baseline while the current utility frontend had additional controls and behavior | Added P07.S09, source-derived WEB-TEST-031..036, parity inventory, and ADR-HLLM-012 | Phoenix/browser gates and inventory audit |
 | Workspace folds stayed closed in a real browser | Phoenix LiveView's browser serializer overwrote `phx-value-value` with the button's native empty `value`; server-side `render_click` did not reproduce that browser serialization | Renamed the payload key to `phx-value-open` and added real Wallaby fold assertions | focused Phoenix suite; desktop/mobile browser workflow; deployed Playwright |
 | Selected profile disappeared after changing Reasoning or Cache in a real browser | Those controls emit field-local `phx-change` maps, while the handler treated each map as the complete workspace form | Merge incoming event fields over the server's current draft and cover the sequence in LiveView, Wallaby, and hosted Playwright tests | focused suite 20 passed; browser 2 passed; hosted CPA Luna run returned output |
-| Current hosted browser recheck lacks an authenticated credential | The retained production environment exposes only the API static token, while Phoenix login requires an email/password; creating a production test user would leave unrelated durable state | Keep the production state unchanged; verify the deployed image, health/readiness/login routes, static-token API smoke, and the complete authenticated widget workflow locally | production probes and API smoke pass; hosted authenticated recheck remains the only plan item requiring an authorized browser credential |
+| Hosted custom profile run failed before provider dispatch | The browser sent the generic `reasoningEffort: "lowest"` state value for `CurlStructured`, whose stored custom profile has no `reasoningEffortMap`; the gateway correctly rejected the incompatible portable option before CPA | Derive reasoning choices from the selected profile and revalidate the run payload server-side; preserve strict backend/provider validation | WEB-TEST-040, pinned Phoenix/browser gates, and final hosted prompt after deployment |
 
 ### Failed Attempts
 
@@ -1559,6 +1561,11 @@ Privacy and data-quality constraints:
   completed the reusable widget boundary, and fixed fallback/select and option
   synchronization behavior. It is tracked by ADR-HLLM-012, WEB-TEST-038/039,
   and the release certification.
+- P07.S15 introduced no KER, timeout-budget, provider-policy, or API ownership
+  change and no related issue was created. It fixed a frontend capability
+  mismatch discovered by the hosted browser check while preserving the
+  backend's strict unsupported-reasoning rejection. It is tracked by
+  ADR-HLLM-012, WEB-TEST-040, and the release certification.
 - The visual embedding constraint is deliberate: preserve stable studio roots,
   in-flow folds, and one vertical surface when a host application supplies its
   own shell. The concrete next step beyond this plan is downstream adoption of

@@ -5,6 +5,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   @schema_keywords ~w($schema $defs additionalProperties allOf anyOf const default definitions description enum examples exclusiveMaximum exclusiveMinimum format items maxItems maxLength maximum minItems minLength minimum multipleOf not oneOf pattern prefixItems properties propertyOrdering required title type uniqueItems)
   @schema_types ~w(object array string number integer boolean)
+  @reasoning_options [{"Lowest", "lowest"}, {"Middle", "middle"}, {"Highest", "highest"}]
   @ui_keys ~w(llmProfileConfigOpen modelOptionsOpen pricingOpen retryRepairOpen inputAdvancedOpen historyOpen outputDetailsOpen)
 
   @default_ui %{
@@ -523,7 +524,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   def handle_event("run", %{"run" => params}, %{assigns: %{run_ref: nil}} = socket) do
-    case run_payload(params) do
+    case run_payload(params, socket.assigns.profiles) do
       {:ok, payload} ->
         reference = System.unique_integer([:positive, :monotonic])
         handle = socket.assigns.session_handle
@@ -616,6 +617,32 @@ defmodule HardenLlmWeb.WorkspaceLive do
     end
   end
 
+  def reasoning_options(profiles, profile_id) do
+    profile_id = String.trim(to_string(profile_id || ""))
+
+    cond do
+      profile_id == "" ->
+        @reasoning_options
+
+      true ->
+        case selected_profile(profiles, profile_id) do
+          %{} = profile_state ->
+            case get_in(profile_state, ["profile", "reasoningEffortMap"]) do
+              map when is_map(map) ->
+                Enum.filter(@reasoning_options, fn {_label, value} ->
+                  Map.has_key?(map, value)
+                end)
+
+              _ ->
+                []
+            end
+
+          _ ->
+            []
+        end
+    end
+  end
+
   def history_prompt_preview(item) do
     item
     |> get_in(["request", "userPrompt"])
@@ -671,16 +698,20 @@ defmodule HardenLlmWeb.WorkspaceLive do
     }
   end
 
-  def run_request_json(params), do: safe_output(run_request(params))
+  def run_request_json(params), do: run_request_json(params, nil)
 
-  def run_curl(params) do
-    body = Jason.encode!(run_request(params))
+  def run_request_json(params, profiles), do: safe_output(run_request(params, profiles))
+
+  def run_curl(params), do: run_curl(params, nil)
+
+  def run_curl(params, profiles) do
+    body = Jason.encode!(run_request(params, profiles))
 
     "curl -X POST /api/v1/run -H 'content-type: application/json' --data-raw '#{body}'"
   end
 
-  defp run_request(params) do
-    case run_payload(params || %{}) do
+  defp run_request(params, profiles) do
+    case run_payload(params || %{}, profiles) do
       {:ok, payload} -> payload
       {:error, _message} -> %{}
     end
@@ -831,7 +862,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp event_form_params(_event_params, socket), do: socket.assigns.form.params || %{}
 
-  defp run_payload(params) do
+  defp run_payload(params, profiles) do
     prompt = String.trim(params["userPrompt"] || "")
     profile_id = String.trim(params["selectedProfileId"] || "")
     call_type = params["callType"] || "text"
@@ -847,13 +878,13 @@ defmodule HardenLlmWeb.WorkspaceLive do
         with {:ok, schema} <- parse_schema(params["schema"], call_type),
              {:ok, retry} <- retry_payload(params),
              {:ok, payload} <-
-               base_run_payload(params, profile_id, prompt, call_type, schema, retry) do
+               base_run_payload(params, profile_id, prompt, call_type, schema, retry, profiles) do
           {:ok, payload}
         end
     end
   end
 
-  defp base_run_payload(params, profile_id, prompt, call_type, schema, retry) do
+  defp base_run_payload(params, profile_id, prompt, call_type, schema, retry, profiles) do
     payload = %{
       "profileId" => profile_id,
       "userPrompt" => prompt,
@@ -864,13 +895,16 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
     payload = put_optional(payload, "modelId", params["modelId"])
     payload = put_optional(payload, "systemPrompt", params["systemPrompt"])
-    payload = put_optional(payload, "reasoningEffort", params["reasoningEffort"])
+    payload = put_reasoning_effort(payload, params["reasoningEffort"], profiles, profile_id)
     payload = if schema, do: Map.put(payload, "schema", schema), else: payload
 
     retry =
       if truthy?(params["structuredRepair"]),
         do: retry,
         else: Map.delete(retry, "repairEscalation")
+
+    {payload, retry} =
+      normalize_repair_reasoning(payload, retry, params, profiles, profile_id)
 
     {:ok, Map.merge(payload, retry)}
   end
@@ -1286,6 +1320,72 @@ defmodule HardenLlmWeb.WorkspaceLive do
   defp boolean_value(value, _default) when value in [true, "true", "on", "1"], do: true
   defp boolean_value(value, _default) when value in [false, "false", "0"], do: false
   defp boolean_value(_value, default), do: default
+
+  defp put_reasoning_effort(payload, value, nil, _profile_id),
+    do: put_optional(payload, "reasoningEffort", value)
+
+  defp put_reasoning_effort(payload, value, profiles, profile_id) do
+    if reasoning_supported?(profiles, profile_id, value) do
+      put_optional(payload, "reasoningEffort", value)
+    else
+      payload
+    end
+  end
+
+  defp normalize_repair_reasoning(payload, retry, _params, nil, _profile_id),
+    do: {payload, retry}
+
+  defp normalize_repair_reasoning(payload, retry, params, profiles, profile_id) do
+    case retry["repairEscalation"] do
+      escalation when is_map(escalation) ->
+        escalation_profile_id =
+          String.trim(to_string(escalation["profileId"] || profile_id || ""))
+
+        escalation_reasoning = String.trim(to_string(escalation["reasoningEffort"] || ""))
+        main_reasoning = String.trim(to_string(params["reasoningEffort"] || ""))
+        escalation_profile_known? = profile_known?(profiles, escalation_profile_id)
+
+        escalation_reasoning_supported? =
+          not escalation_profile_known? or
+            escalation_reasoning == "" or
+            reasoning_supported?(profiles, escalation_profile_id, escalation_reasoning)
+
+        escalation =
+          if escalation_reasoning_supported?,
+            do: escalation,
+            else: Map.delete(escalation, "reasoningEffort")
+
+        payload =
+          if not escalation_profile_known? or
+               (escalation_reasoning_supported? and escalation_reasoning != "") do
+            payload
+          else
+            main_reasoning_supported? =
+              main_reasoning == "" or
+                reasoning_supported?(profiles, escalation_profile_id, main_reasoning)
+
+            if main_reasoning_supported?,
+              do: payload,
+              else: Map.delete(payload, "reasoningEffort")
+          end
+
+        {payload, Map.put(retry, "repairEscalation", escalation)}
+
+      _ ->
+        {payload, retry}
+    end
+  end
+
+  defp reasoning_supported?(profiles, profile_id, effort)
+       when is_list(profiles) and is_binary(effort) do
+    effort = String.trim(effort)
+
+    effort != "" and
+      effort in ["lowest", "middle", "highest"] and
+      Enum.any?(reasoning_options(profiles, profile_id), fn {_label, value} -> value == effort end)
+  end
+
+  defp reasoning_supported?(_profiles, _profile_id, _effort), do: false
 
   defp put_optional(map, _key, value) when value in [nil, ""], do: map
   defp put_optional(map, key, value), do: Map.put(map, key, String.trim(value))
