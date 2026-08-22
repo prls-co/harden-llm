@@ -23,7 +23,7 @@
 | Interactive UI | Phoenix LiveView 1.2.9 | Authenticated workspace, profile editing, runs, history, traces, and live state updates. |
 | HTTP client | Req 0.6.1 | The only Phoenix-to-Go REST client. |
 | API contract | Backend OpenAPI 3.1 document at `api/openapi.yaml` | Canonical operations, bearer security, request/response schemas, errors, and examples. |
-| Components | Phoenix function components and generated core components | Shared forms, tables, dialogs, status displays, and icons. |
+| Components | Phoenix function components and generated core components | Shared forms, compact profile cards, in-flow folds, focused trace views, status displays, and icons. |
 | Assets | Phoenix-generated esbuild and Tailwind wrappers | Compile static assets; no Node.js runtime service is deployed. |
 | Browser auth | Encrypted and signed Phoenix cookie plus supervised ETS token vault | The cookie carries a random frontend session handle; only the server-memory vault holds the Go bearer token. |
 | Frontend persistence | None | The token vault is ephemeral. Durable user, profile, state, run, trace, and artifact data remain in the Go REST service. |
@@ -241,7 +241,7 @@ Contract synchronization:
 - Credential fields are write-only. Existing secrets render as configured/not configured and are never repopulated.
 - Saving displays backend field errors and probe failures without persisting an invalid local shadow profile.
 - Model refresh is an explicit command and does not run on every render or edit.
-- Delete requires confirmation and handles backend dependency errors, such as a profile still referenced as a backup.
+- Delete requires an inline confirmation fold and handles backend dependency errors, such as a profile still referenced as a backup.
 - Bundle export is a Phoenix controller download that streams the backend payload without logging or persisting it.
 - Bundle import validates file size/content type, sends the bytes once to the backend, and replaces UI state only after the atomic backend response succeeds.
 
@@ -265,13 +265,14 @@ Contract synchronization:
 ## 10. UI contract
 
 - Use a quiet operational layout with a compact top bar and persistent navigation for Workspace, Profiles, and History.
-- Use tables for profiles/history, tabs for result/trace views, toggles or checkboxes for binary options, selects for finite choices, and icon buttons with tooltips for familiar row actions.
-- Use the generated Phoenix icon component consistently; do not introduce a second icon system for v1.
-- Use modals only for destructive confirmation, bundle import, and focused profile editing where a full page would break the current workflow.
+- Use a narrow vertical widget stack for Workspace and Profiles. Profile cards keep endpoint, credential, model, and capability facts visible without a horizontal table or a hidden side rail.
+- Use in-flow disclosure folds for profile editing, credentials, options, retry/repair, pricing, advanced input, output details, and history. Opening `New profile` expands `#profile-editor` while the profile list remains in the same document flow.
+- Use focused views only where the content is genuinely a separate trace inspection; profile editing and destructive profile confirmation must not use viewport overlays that hide the surrounding workspace.
+- Use the generated Phoenix icon component for structural icons and compact emoji labels for high-frequency controls (`🤖`, `🧠`, `💾`, `⚙`, `🔁`, `💰`), with accessible text or labels retained.
 - Every form control has a visible label, error association, keyboard focus state, and disabled/submitting state.
 - Status must not rely on color alone. Loading, empty, success, ambiguous, unauthorized, and backend-unavailable states are distinct.
 - Long IDs and model names wrap or truncate with an accessible full-value affordance; they cannot resize table controls or overlap neighboring content.
-- Desktop and mobile layouts preserve all commands without horizontal page overflow. Dense tables may use an explicitly scrollable region.
+- Desktop and mobile layouts preserve all commands without horizontal page overflow. Profile cards and folds reflow in place rather than relying on an overlay or an independently scrolling table.
 - Do not embed Grafana or Langfuse. Provide configured external diagnostic links only when a safe URL is supplied by deployment configuration.
 
 ## 11. Failure and concurrency behavior
@@ -383,7 +384,7 @@ All tests are free, self-hosted, deterministic, and isolated from live LLM provi
 | WEB-TEST-007 | Workspace/run workflows | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | State hydration/save, validation, one run submit, async state, result fields, non-ambiguous missing-credential guidance, ambiguous failure, no automatic retry, and stale-response rejection pass. | 25s |
 | WEB-TEST-008 | History/trace/artifacts | `test/harden_llm_web/live/history_trace_test.exs`, `test/harden_llm_web/controllers/artifact_controller_test.exs` | `mix test test/harden_llm_web/live/history_trace_test.exs test/harden_llm_web/controllers/artifact_controller_test.exs` | Pagination/stream updates, restore/delete/clear, trace rendering, artifact authorization, exact-origin redirect validation, and no-store headers pass. | 20s |
 | WEB-TEST-009 | Security and diagnostics | `test/harden_llm_web/security_observability_test.exs` | `mix test test/harden_llm_web/security_observability_test.exs` | CSRF/CSP/origin rules, secret scans, async trace propagation, safe attributes, bounded PromEx series, private scrape config, JSON Logger correlation/rotation, merged Collector validation with separate frontend pipelines, failure isolation, and no Langfuse frontend export pass. | 20s |
-| WEB-TEST-010 | Responsive component rendering | `test/harden_llm_web/live/rendering_test.exs` | `mix test test/harden_llm_web/live/rendering_test.exs` | Every loading/empty/success/error state renders valid landmarks, labels, focus targets, stable action controls, and bounded long values. | 15s |
+| WEB-TEST-010 | Responsive component rendering | `test/harden_llm_web/live/rendering_test.exs` | `mix test test/harden_llm_web/live/rendering_test.exs` | Every loading/empty/success/error state renders valid landmarks, labels, focus targets, stable action controls, compact profile cards, and bounded long values. | 15s |
 | WEB-TEST-011 | Real-browser workflow | `test/browser/full_workflow_test.exs` | `mix test --only browser test/browser/full_workflow_test.exs` | Headless Chromium completes login, profile save, model refresh, run, history restore, trace view, artifact redirect, logout, and reconnect at desktop/mobile sizes. | 120s |
 | WEB-TEST-012 | Frontend Compose smoke | `test/browser/compose_smoke_test.exs` | `mix test --only compose test/browser/compose_smoke_test.exs` | Caddy HTTPS, LiveView WebSocket, private REST routing, backend-unavailable recovery, cross-service Tempo trace, correlated Loki log, Prometheus series, Grafana query, and secret absence pass in the 16-service topology. | 180s |
 
@@ -403,6 +404,7 @@ single-editor adaptations are recorded in ADR-HLLM-012.
 | WEB-TEST-034 | Workspace control rendering parity | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | Prompt shortcut, schema debounce, output request/response folds, trace summary, copy actions, and unavailable states render safely. |
 | WEB-TEST-035 | Profile combobox/credential parity | `test/harden_llm_web/live/profiles_live_test.exs` | `mix test test/harden_llm_web/live/profiles_live_test.exs` | Searchable endpoint/model suggestions and write-only staged-key behavior remain local and never render stored or staged secrets after close. |
 | WEB-TEST-036 | Cursor pagination parity | `test/harden_llm_web/live/history_trace_test.exs` | `mix test test/harden_llm_web/live/history_trace_test.exs` | Page-size changes restart the cursor query from page one; arbitrary offset/page-number quick-jump is not added to the cursor-only REST contract. |
+| WEB-TEST-037 | Inline studio control coverage | `test/harden_llm_web/live/profiles_live_test.exs`, `test/harden_llm_web/live/workspace_live_test.exs`, `test/browser/full_workflow_test.exs` | `mix test test/harden_llm_web/live/profiles_live_test.exs test/harden_llm_web/live/workspace_live_test.exs && mix test --only browser test/browser/full_workflow_test.exs` | Every profile/workspace button and input has a stable rendered control, each fold opens/closes in flow, local actions update the draft, and desktop/mobile browser workflows complete without an overlay or horizontal overflow. |
 
 Detailed fixtures and isolation:
 

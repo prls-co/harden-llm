@@ -24,3 +24,47 @@
 html { min-width: 320px; }
 body { overflow-x: hidden; }
 button, a, input, select, textarea { touch-action: manipulation; }
+
+/* The Trace Studio follows utility-llm's compact, in-flow widget language. */
+.studio-page {
+  width: min(64rem, 100%);
+  margin-inline: auto;
+  min-height: calc(100vh - 5rem);
+  background: #f5f0e4;
+  color: #17211d;
+}
+
+.studio-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.studio-card {
+  border: 1px solid #d7d2c5;
+  border-radius: 0.75rem;
+  background: #fffaf0;
+  box-shadow: 0 0.2rem 0.8rem rgb(23 33 29 / 7%);
+}
+
+.studio-fold {
+  overflow: hidden;
+  border: 1px solid #d7d2c5;
+  border-radius: 0.65rem;
+  background: rgb(255 250 240 / 72%);
+}
+
+.studio-fold-summary {
+  min-height: 2.75rem;
+  padding: 0.7rem 0.85rem;
+}
+
+.studio-fold-body {
+  border-top: 1px solid #e5dfd2;
+  padding: 0.85rem;
+}
+
+.studio-emoji-control {
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+}

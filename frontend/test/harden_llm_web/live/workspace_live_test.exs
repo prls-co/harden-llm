@@ -113,6 +113,100 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert_received {:custom_profile_state, %{"selectedProfileId" => "typed-custom-profile"}}
   end
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-037
+  test "workspace buttons, folds, and every run input are wired", %{conn: conn} do
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          Req.Test.json(conn, APIFixtures.success(nil, Jason.decode!(body)))
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+
+    view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
+    assert has_element?(view, "#model-options")
+
+    view |> element("#input-advanced-toggle") |> render_click()
+    render_async(view, 1_000)
+    view |> element("#retry-repair-toggle") |> render_click()
+    render_async(view, 1_000)
+
+    for selector <- [
+          "#workspace-reasoning",
+          "#workspace-cache",
+          "#run_selectedProfileId",
+          "#run_modelId",
+          "#run_userPrompt",
+          "#run_systemPrompt",
+          "#run_schemaShorthand",
+          "#run_schema",
+          "#run_callType",
+          "#run_structuredRepair",
+          "#run_maxAttempts",
+          "#run_initialBackoffMs",
+          "#run_maximumBackoffMs",
+          "#run_retryRateLimit",
+          "#run_retryServerError",
+          "#run_retryNetwork",
+          "#run_retryEmpty",
+          "#run_retryParse",
+          "#run_repairEscalationProfileId",
+          "#run_repairEscalationModelId",
+          "#run_repairEscalationAttempt",
+          "#run_repairEscalationReasoning"
+        ] do
+      assert has_element?(view, selector), "missing workspace control #{selector}"
+    end
+
+    view
+    |> form("#run-form", %{
+      "run" => %{
+        "selectedProfileId" => "Primary",
+        "modelId" => "model-control",
+        "userPrompt" => "control coverage prompt",
+        "systemPrompt" => "control coverage system",
+        "schemaShorthand" => ~s({"answer":"string"}),
+        "schema" => "",
+        "callType" => "structured",
+        "structuredRepair" => "true",
+        "reasoningEffort" => "highest",
+        "cacheMode" => "cache",
+        "maxAttempts" => "4",
+        "initialBackoffMs" => "250",
+        "maximumBackoffMs" => "5000",
+        "retryRateLimit" => "true",
+        "retryServerError" => "true",
+        "retryNetwork" => "true",
+        "retryEmpty" => "true",
+        "retryParse" => "true",
+        "repairEscalationProfileId" => "Primary",
+        "repairEscalationModelId" => "repair-control",
+        "repairEscalationAttempt" => "2",
+        "repairEscalationReasoning" => "lowest"
+      }
+    })
+    |> render_change()
+
+    view |> element("#generate-schema") |> render_click()
+    assert has_element?(view, "#schema-status", "Schema generated.")
+    view |> element("#check-schema") |> render_click()
+    assert has_element?(view, "#schema-status", "Schema valid.")
+    view |> element("#clear-schema") |> render_click()
+    view |> element("#clear-prompt-fields") |> render_click()
+    render_async(view, 1_000)
+
+    assert has_element?(view, "#run-submit")
+    assert has_element?(view, "#output-details-toggle") == false
+    assert has_element?(view, "#history-fold-toggle")
+  end
+
   test "workspace history restores and deletes records through the self-hosted API", %{conn: conn} do
     test_pid = self()
     {:ok, history_calls} = Agent.start_link(fn -> 0 end)
@@ -170,6 +264,36 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     render_async(view, 1_000)
     assert_received :workspace_deleted
     assert Agent.get(history_calls, & &1) == 2
+    refute has_element?(view, "#workspace-history-run-test")
+  end
+
+  test "workspace clear-history control deletes the loaded page", %{conn: conn} do
+    test_pid = self()
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+
+        {"DELETE", "/api/v1/history"} ->
+          send(test_pid, :workspace_cleared)
+          Req.Test.json(conn, APIFixtures.success(%{"deleted" => 1}))
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    view |> element("#history-fold-toggle") |> render_click()
+    render_async(view, 1_000)
+
+    assert has_element?(view, "#workspace-clear-history")
+    view |> element("#workspace-clear-history") |> render_click()
+    render_async(view, 1_000)
+
+    assert_received :workspace_cleared
     refute has_element?(view, "#workspace-history-run-test")
   end
 

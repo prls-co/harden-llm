@@ -50,6 +50,8 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     {:ok, view, _html} = live(conn, ~p"/profiles?edit=Primary")
     render_async(view, 1_000)
 
+    assert has_element?(view, "#profile-editor")
+    refute has_element?(view, "#profile-dialog")
     assert has_element?(view, "#profile-form")
 
     assert has_element?(
@@ -203,7 +205,8 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     |> element(~s(button[phx-click="confirm-delete"][phx-value-id="Primary"]))
     |> render_click()
 
-    assert has_element?(view, "#profile-delete-dialog")
+    assert has_element?(view, "#profile-delete-panel")
+    refute has_element?(view, "#profile-delete-dialog")
     view |> element("#profile-delete-confirm") |> render_click()
     render_async(view, 1_000)
 
@@ -243,6 +246,148 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
 
     assert_received {:bundle, %{"schemaVersion" => 1}}
     assert has_element?(view, "#profile-Primary")
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-037
+  test "every profile fold, field, and local action stays in the inline editor", %{conn: conn} do
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/profiles"} ->
+          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+
+        _ ->
+          flunk("unexpected API call: #{conn.method} #{conn.request_path}")
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/profiles")
+    render_async(view, 1_000)
+
+    view |> element("#new-profile") |> render_click()
+    assert has_element?(view, "#profiles")
+    assert has_element?(view, "#profile-editor")
+    refute render(view) =~ "fixed inset-0"
+
+    assert has_element?(view, "#profile_profileId")
+    assert has_element?(view, "#profile_provider")
+    assert has_element?(view, "#profile_apiInferenceType")
+    assert has_element?(view, "#profile_modelId")
+    assert has_element?(view, "#profile_baseUrl")
+    assert has_element?(view, "#credential-fold-toggle")
+    assert has_element?(view, "#backup-profile-picker")
+    assert has_element?(view, "#profile_backupProfiles")
+    assert has_element?(view, "#profile_supportsTemperature")
+    assert has_element?(view, "#profile_supportsContractedStructuredOutput")
+    assert has_element?(view, "#options-fold-toggle")
+    assert has_element?(view, "#retry-fold-toggle")
+    assert has_element?(view, "#pricing-fold-toggle")
+    assert has_element?(view, "#profile-cancel")
+    assert has_element?(view, "#profile-save")
+
+    view |> element("#options-fold-toggle") |> render_click()
+    view |> element("#retry-fold-toggle") |> render_click()
+    view |> element("#pricing-fold-toggle") |> render_click()
+
+    assert has_element?(view, "#profile-options")
+    assert has_element?(view, "#profile-retry-repair")
+    assert has_element?(view, "#profile-pricing")
+
+    assert has_element?(view, "#profile_maxTokens")
+    assert has_element?(view, "#profile_temperature")
+    assert has_element?(view, "#profile_topP")
+    assert has_element?(view, "#profile_topK")
+    assert has_element?(view, "#profile_stopSequences")
+    assert has_element?(view, "#profile_defaultOptionsJson")
+    assert has_element?(view, "#profile_structuredRepairRetryEnabled")
+    assert has_element?(view, "#profile_enableRetryOn429")
+    assert has_element?(view, "#profile_enableRetryOn5xx")
+    assert has_element?(view, "#profile_enableRetryOnNetworkError")
+    assert has_element?(view, "#profile_enableRetryOnParseError")
+    assert has_element?(view, "#profile_retryMaxAttempts")
+    assert has_element?(view, "#profile_retryBaseDelayMs")
+    assert has_element?(view, "#profile_retryMaxDelayMs")
+    assert has_element?(view, "#profile_escalationProfile")
+    assert has_element?(view, "#profile_escalationAttempt")
+    assert has_element?(view, "#profile_escalationReasoning")
+    assert has_element?(view, "#profile_pricingInput")
+    assert has_element?(view, "#profile_pricingOutput")
+    assert has_element?(view, "#profile_pricingCacheRead")
+    assert has_element?(view, "#profile_pricingCacheWrite")
+    assert has_element?(view, "#profile_pricingReasoning")
+
+    view
+    |> form("#profile-form", %{
+      "profile" => %{
+        "profileId" => "InlineProfile",
+        "provider" => "openai",
+        "apiInferenceType" => "responses",
+        "baseUrl" => "https://provider.example.test/v1",
+        "modelId" => "model-inline",
+        "credentialId" => "credential-inline",
+        "endpointCredentialScope" => "user",
+        "apiKey" => "inline-secret",
+        "backupProfiles" => "Primary",
+        "supportsTemperature" => "true",
+        "supportsContractedStructuredOutput" => "true",
+        "maxTokens" => "128",
+        "temperature" => "0.2",
+        "topP" => "0.9",
+        "topK" => "40",
+        "stopSequences" => "END",
+        "defaultOptionsJson" => "{}",
+        "structuredRepairRetryEnabled" => "true",
+        "enableRetryOn429" => "true",
+        "enableRetryOn5xx" => "true",
+        "enableRetryOnNetworkError" => "true",
+        "enableRetryOnParseError" => "true",
+        "retryMaxAttempts" => "3",
+        "retryBaseDelayMs" => "100",
+        "retryMaxDelayMs" => "1000",
+        "escalationProfile" => "Primary",
+        "escalationAttempt" => "2",
+        "escalationReasoning" => "lowest",
+        "pricingInput" => "1",
+        "pricingOutput" => "2",
+        "pricingCacheRead" => "0.1",
+        "pricingCacheWrite" => "0.2",
+        "pricingReasoning" => "3"
+      }
+    })
+    |> render_change()
+
+    assert has_element?(view, "#backup-profile-list", "Primary")
+
+    view
+    |> element("#backup-profile-picker")
+    |> render_change(%{"profile" => %{"backupProfile" => "Primary"}})
+
+    assert has_element?(view, "#backup-profile-list", "Primary")
+
+    view
+    |> element(~s(button[phx-click="move-backup"][phx-value-direction="down"]))
+    |> render_click()
+
+    view
+    |> element(~s(button[phx-click="move-backup"][phx-value-direction="up"]))
+    |> render_click()
+
+    view |> element(~s(button[phx-click="remove-backup"])) |> render_click()
+    assert has_element?(view, "#backup-profile-list")
+
+    assert has_element?(view, "#credential-drawer")
+    view |> element("#credential-fold-toggle") |> render_click()
+    refute has_element?(view, "#credential-drawer")
+    view |> element("#credential-fold-toggle") |> render_click()
+    assert has_element?(view, "#credential-drawer")
+    assert has_element?(view, "#profile_credentialId")
+    assert has_element?(view, "#profile_endpointCredentialScope")
+    assert has_element?(view, "#profile_apiKey")
+    view |> element(~s(button[phx-click="clear-staged-key"])) |> render_click()
+    view |> element(~s(button[phx-click="cancel-key"])) |> render_click()
+    refute has_element?(view, "#credential-drawer")
+
+    view |> element("#profile-cancel") |> render_click()
+    refute has_element?(view, "#profile-editor")
   end
 
   test "an active profile operation 401 redirects through session revocation", %{conn: conn} do
@@ -363,7 +508,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
 
   defp open_credential_drawer(view) do
     view
-    |> element(~s(button[phx-click="toggle-section"][phx-value-section="credential_open"]))
+    |> element("#credential-fold-toggle")
     |> render_click()
   end
 end

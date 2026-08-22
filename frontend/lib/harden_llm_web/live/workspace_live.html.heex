@@ -1,8 +1,10 @@
 <Layouts.app flash={@flash} current_scope={@current_scope} current_identity={@current_identity}>
-  <main id="workspace-page" class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+  <main id="workspace-page" class="studio-page mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
     <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">Trace Studio</p>
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">
+          🧪 Trace Studio
+        </p>
         <h1 class="mt-1 text-3xl font-semibold tracking-tight text-slate-950">
           Shape one reliable call
         </h1>
@@ -46,17 +48,19 @@
     >
       <div
         :if={@backend_state == :ready}
-        class="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]"
+        class="studio-stack"
       >
-        <section class="space-y-6">
+        <section class="studio-stack">
           <section
             id="model-config"
             aria-label="LLM model config"
-            class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+            class="studio-card p-4 sm:p-5"
           >
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">LLM</p>
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+                  🤖 LLM
+                </p>
                 <h2 class="mt-1 text-lg font-semibold text-slate-950">Model profile</h2>
               </div>
               <div class="flex flex-wrap items-center gap-2">
@@ -72,13 +76,13 @@
                     value="lowest"
                     selected={@form[:reasoningEffort].value in ["lowest", nil]}
                   >
-                    Lowest reasoning
+                    🧠 Lowest reasoning
                   </option>
                   <option value="middle" selected={@form[:reasoningEffort].value == "middle"}>
-                    Middle reasoning
+                    🧠 Middle reasoning
                   </option>
                   <option value="highest" selected={@form[:reasoningEffort].value == "highest"}>
-                    Highest reasoning
+                    🧠 Highest reasoning
                   </option>
                 </select>
                 <label class="sr-only" for="workspace-cache">Cache mode</label>
@@ -90,13 +94,13 @@
                   class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
                 >
                   <option value="off" selected={@form[:cacheMode].value in ["off", nil]}>
-                    Cache off
+                    💾 Cache off
                   </option>
                   <option value="cache" selected={@form[:cacheMode].value == "cache"}>
-                    Use cache
+                    💾 Use cache
                   </option>
                   <option value="refresh" selected={@form[:cacheMode].value == "refresh"}>
-                    Refresh cache
+                    💾 Refresh cache
                   </option>
                 </select>
                 <button
@@ -109,18 +113,18 @@
                   disabled={@ui_save_pending?}
                   class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 >
-                  {if @ui["modelOptionsOpen"], do: "Hide model options", else: "Model options"}
+                  {if @ui["modelOptionsOpen"], do: "⌃ Hide model options", else: "⚙ Model options"}
                 </button>
                 <.link
                   id="configure-profiles"
                   navigate={~p"/profiles"}
                   class="rounded-lg bg-slate-950 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800"
-                >Configure profiles</.link>
+                >⚙ Configure profiles</.link>
                 <.link
                   id="new-profile-from-workspace"
                   navigate={~p"/profiles?new=1"}
                   class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                >+ New profile</.link>
+                >➕ New profile</.link>
               </div>
             </div>
             <div class="mt-4 grid gap-4 sm:grid-cols-2">
@@ -213,11 +217,11 @@
 
           <section
             aria-label="Input"
-            class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+            class="studio-card p-4 sm:p-5"
           >
             <div class="space-y-5">
               <div class="flex items-center justify-between gap-3">
-                <h2 class="text-lg font-semibold text-slate-950">Input</h2>
+                <h2 class="text-lg font-semibold text-slate-950">✍️ Input</h2>
                 <button
                   id="input-advanced-toggle"
                   type="button"
@@ -228,7 +232,9 @@
                   disabled={@ui_save_pending?}
                   class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 >
-                  {if @ui["inputAdvancedOpen"], do: "Hide advanced input", else: "Advanced input"}
+                  {if @ui["inputAdvancedOpen"],
+                    do: "⌃ Hide advanced input",
+                    else: "⌄ Advanced input"}
                 </button>
               </div>
               <.input
@@ -315,10 +321,10 @@
                 />
               </div>
 
-              <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div class="studio-fold bg-slate-50/60 p-3 sm:p-4">
                 <div class="flex items-center justify-between gap-3">
                   <div>
-                    <h3 class="text-sm font-semibold text-slate-900">Retries &amp; Repair</h3>
+                    <h3 class="text-sm font-semibold text-slate-900">🔁 Retries &amp; Repair</h3>
                     <p class="mt-1 text-xs text-slate-500">
                       One bounded attempt budget covers provider retries and structured repair.
                     </p>
@@ -334,8 +340,8 @@
                     class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                   >
                     {if @ui["retryRepairOpen"],
-                      do: "Hide retry controls",
-                      else: "Show retry controls"}
+                      do: "⌃ Hide retry controls",
+                      else: "⌄ Show retry controls"}
                   </button>
                 </div>
                 <div
@@ -448,7 +454,7 @@
                   type="button"
                   phx-click="clear-prompt"
                   class="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                >Clear Prompt Fields</button>
+                >🧹 Clear Prompt Fields</button>
                 <button
                   id="run-submit"
                   type="submit"
@@ -457,22 +463,22 @@
                   class="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2 disabled:cursor-wait disabled:opacity-50"
                 >
                   <.icon name="hero-play" class="size-4" />
-                  <span>{if @run_ref, do: "Running…", else: "Run Prompt"}</span>
+                  <span>{if @run_ref, do: "⏳ Running…", else: "▶ Run Prompt"}</span>
                 </button>
               </div>
             </div>
           </section>
         </section>
 
-        <aside class="space-y-6">
+        <aside class="studio-stack">
           <section
             id="run-result-panel"
             aria-label="Output"
-            class="min-h-64 rounded-2xl border border-slate-200 bg-slate-950 p-5 text-slate-100 shadow-sm"
+            class="min-h-64 rounded-xl border border-slate-200 bg-slate-950 p-4 text-slate-100 shadow-sm sm:p-5"
           >
             <div class="flex items-center justify-between gap-3">
               <h2 class="text-sm font-semibold uppercase tracking-[0.16em] text-teal-300">
-                Output
+                📤 Output
               </h2>
               <button
                 :if={@run_result}
@@ -481,7 +487,7 @@
                 phx-hook="Clipboard"
                 data-copy-value={safe_output(@run_result["output"])}
                 class="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800"
-              >Copy</button>
+              >📋 Copy</button>
               <button
                 :if={@run_result}
                 id="copy-run-curl"
@@ -489,7 +495,7 @@
                 phx-hook="Clipboard"
                 data-copy-value={run_curl(@form.params)}
                 class="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800"
-              >Copy cURL</button>
+              >📋 Copy cURL</button>
             </div>
             <div :if={is_nil(@run_result)} class="mt-8 text-sm leading-6 text-slate-400">
               A successful run will show its redacted output, usage, cost, attempts, cache facts, and correlation IDs here.
@@ -539,7 +545,7 @@
                 aria-expanded={to_string(@ui["outputDetailsOpen"])}
                 disabled={@ui_save_pending?}
                 class="text-xs font-semibold text-teal-300 hover:text-teal-200"
-              >{if @ui["outputDetailsOpen"], do: "Hide details", else: "Details"}</button>
+              >{if @ui["outputDetailsOpen"], do: "⌃ Hide details", else: "⌄ Details"}</button>
               <div :if={@ui["outputDetailsOpen"]} id="output-details" class="space-y-3 text-xs">
                 <div class="flex flex-wrap gap-2">
                   <button
@@ -621,11 +627,11 @@
           <section
             id="workspace-history-panel"
             aria-label="History"
-            class="rounded-2xl border border-slate-200 bg-white p-5"
+            class="studio-card p-4 sm:p-5"
           >
             <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 class="font-semibold text-slate-950">History ({length(@history)})</h2>
+                <h2 class="font-semibold text-slate-950">🕘 History ({length(@history)})</h2>
                 <p class="mt-1 text-xs text-slate-500">
                   Restore a prompt or inspect its redacted result.
                 </p>
@@ -639,7 +645,7 @@
                   phx-confirm="Delete all history for this session? This cannot be undone."
                   disabled={not is_nil(@history_pending)}
                   class="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
-                >{if @history_pending, do: "Deleting…", else: "Delete all"}</button>
+                >{if @history_pending, do: "⏳ Deleting…", else: "🗑 Delete all"}</button>
                 <button
                   id="history-fold-toggle"
                   type="button"
@@ -649,7 +655,7 @@
                   aria-expanded={to_string(@ui["historyOpen"])}
                   disabled={@ui_save_pending?}
                   class="text-xs font-semibold text-teal-700 hover:text-teal-900"
-                >{if @ui["historyOpen"], do: "Hide", else: "Show"}</button>
+                >{if @ui["historyOpen"], do: "⌃ Hide", else: "⌄ Show"}</button>
                 <.link
                   navigate={~p"/history"}
                   class="text-sm font-medium text-teal-700 hover:text-teal-900"
@@ -756,10 +762,10 @@
           <section
             id="llm-stats-summary"
             aria-label="LLM stats"
-            class="rounded-2xl border border-slate-200 bg-white p-5"
+            class="studio-card p-4 sm:p-5"
           >
             <div class="flex items-center justify-between gap-3">
-              <h2 class="font-semibold text-slate-950">LLM stats</h2>
+              <h2 class="font-semibold text-slate-950">📊 LLM stats</h2>
               <.link navigate={~p"/history"} class="text-xs font-semibold text-teal-700">Full view</.link>
             </div>
             <dl class="mt-4 grid grid-cols-2 gap-3 text-xs sm:grid-cols-3">

@@ -61,7 +61,9 @@ defmodule HardenLlmWeb.RenderingTest do
     assert has_element?(workspace, "#workspace-history", "No runs yet in this session.")
     assert has_element?(workspace, ".sm\\:grid-cols-2")
 
-    assert has_element?(
+    assert has_element?(workspace, ".studio-stack")
+
+    refute has_element?(
              workspace,
              ".lg\\:grid-cols-\\[minmax\\(0\\,1\\.35fr\\)_minmax\\(20rem\\,0\\.65fr\\)\\]"
            )
@@ -76,7 +78,8 @@ defmodule HardenLlmWeb.RenderingTest do
     assert has_element?(profiles, "#bundle-import-form label", "Encrypted profile bundle JSON")
     assert has_element?(profiles, "#bundle-import-submit")
     assert has_element?(profiles, "#profiles-empty", "No profiles configured.")
-    assert has_element?(profiles, ".overflow-x-auto table")
+    assert has_element?(profiles, "#profiles")
+    refute has_element?(profiles, ".overflow-x-auto table")
 
     {:ok, history, history_html} = live(conn, ~p"/history")
     assert history_html =~ ~s(id="history-loading")
@@ -183,7 +186,7 @@ defmodule HardenLlmWeb.RenderingTest do
     {:ok, profiles, _html} = live(conn, ~p"/profiles")
     render_async(profiles, 1_000)
     assert has_element?(profiles, ~s(#profiles .break-words[title="#{long_profile}"]))
-    assert has_element?(profiles, "#profiles .max-w-56.break-words")
+    assert has_element?(profiles, "#profiles article")
     assert has_element?(profiles, ~s(button[aria-label="Refresh models"]))
     assert has_element?(profiles, ~s(button[aria-label="Edit profile"]))
     assert has_element?(profiles, ~s(button[aria-label="Delete profile"]))
@@ -264,7 +267,7 @@ defmodule HardenLlmWeb.RenderingTest do
     assert has_element?(trace_view, "#trace-dialog-close[autofocus]")
   end
 
-  test "dialogs are named and expose stable keyboard-focusable actions", %{conn: conn} do
+  test "profile editing is an inline fold and focused dialogs remain accessible", %{conn: conn} do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/profiles"} ->
@@ -285,9 +288,10 @@ defmodule HardenLlmWeb.RenderingTest do
     render_async(profiles, 1_000)
     profiles |> element("#new-profile") |> render_click()
 
-    assert has_element?(profiles, ~s(#profile-dialog[role="dialog"][aria-modal="true"]))
-    assert has_element?(profiles, ~s(#profile-dialog[aria-labelledby="profile-dialog-title"]))
-    assert has_element?(profiles, "#profile-dialog-close[autofocus]")
+    assert has_element?(profiles, ~s(#profile-editor[aria-labelledby="profile-editor-title"]))
+    refute has_element?(profiles, "#profile-dialog")
+    refute render(profiles) =~ "fixed inset-0"
+    assert has_element?(profiles, "#profile-editor-close")
     assert has_element?(profiles, "#profile-save")
 
     assert has_element?(
@@ -295,7 +299,7 @@ defmodule HardenLlmWeb.RenderingTest do
              ~s(#profile-form input[type="password"][autocomplete="new-password"])
            )
 
-    profiles |> element("#profile-dialog-close") |> render_click()
+    profiles |> element("#profile-editor-close") |> render_click()
 
     profiles
     |> element(~s(button[phx-click="confirm-delete"][phx-value-id="Primary"]))
@@ -303,15 +307,15 @@ defmodule HardenLlmWeb.RenderingTest do
 
     assert has_element?(
              profiles,
-             ~s(#profile-delete-dialog[role="alertdialog"][aria-labelledby="profile-delete-title"])
+             ~s(#profile-delete-panel[role="alert"][aria-labelledby="profile-delete-title"])
            )
 
     assert has_element?(
              profiles,
-             ~s(#profile-delete-dialog[aria-describedby="profile-delete-description"])
+             ~s(#profile-delete-panel[aria-describedby="profile-delete-description"])
            )
 
-    assert has_element?(profiles, "#profile-delete-cancel[autofocus]")
+    assert has_element?(profiles, "#profile-delete-cancel")
     assert has_element?(profiles, "#profile-delete-confirm")
 
     {:ok, history, _html} = live(conn, ~p"/history")

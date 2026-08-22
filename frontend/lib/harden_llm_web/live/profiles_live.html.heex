@@ -1,9 +1,9 @@
 <Layouts.app flash={@flash} current_scope={@current_scope} current_identity={@current_identity}>
-  <main id="profiles-page" class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+  <main id="profiles-page" class="studio-page mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
     <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">
-          Configuration
+          ⚙ Configuration
         </p>
         <h1 class="mt-1 text-3xl font-semibold tracking-tight text-slate-950">Profiles</h1>
         <p class="mt-2 max-w-3xl text-sm text-slate-600">
@@ -16,15 +16,17 @@
           href={~p"/profiles/bundle"}
           class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-600"
         >
-          <.icon name="hero-arrow-down-tray" class="size-4" /> Export bundle
+          📤 Export bundle
         </a>
         <button
           id="new-profile"
           type="button"
           phx-click="new"
+          aria-controls="profile-editor"
+          aria-expanded={to_string(@editing?)}
           class="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600"
         >
-          <.icon name="hero-plus" class="size-4" /> New profile
+          ➕ New profile
         </button>
       </div>
     </div>
@@ -38,10 +40,10 @@
       {@operation_error}
     </div>
 
-    <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <section class="studio-card mb-6 p-4 sm:p-5">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 class="font-semibold text-slate-950">Import encrypted bundle</h2>
+          <h2 class="font-semibold text-slate-950">📥 Import encrypted bundle</h2>
           <p class="mt-1 text-xs text-slate-500">
             JSON only, at most 2 MiB. The file is sent once and never persisted here.
           </p>
@@ -55,6 +57,7 @@
           <label for={@uploads.bundle.ref} class="sr-only">Encrypted profile bundle JSON</label>
           <.live_file_input
             upload={@uploads.bundle}
+            id="bundle-import-file"
             class="max-w-64 text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-semibold"
           />
           <button
@@ -69,594 +72,594 @@
       </p>
     </section>
 
-    <section class="min-w-0 max-w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <section
+      aria-label="Configured profiles"
+      class="studio-card min-w-0 max-w-full overflow-hidden p-3 sm:p-4"
+    >
       <div :if={@loading?} id="profiles-loading" role="status" class="p-8 text-sm text-slate-500">
         Loading profiles…
       </div>
-      <div class="w-full max-w-full overflow-x-auto overscroll-x-contain">
-        <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
-          <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-            <tr>
-              <th scope="col" class="px-5 py-3">Profile</th>
-              <th scope="col" class="hidden px-5 py-3 sm:table-cell">Interface</th>
-              <th scope="col" class="hidden px-5 py-3 sm:table-cell">Endpoint</th>
-              <th scope="col" class="hidden px-5 py-3 sm:table-cell">Credential</th>
-              <th scope="col" class="hidden px-5 py-3 sm:table-cell">Models</th>
-              <th scope="col" class="hidden px-5 py-3 lg:table-cell">Controls</th>
-              <th scope="col" class="px-5 py-3"><span class="sr-only">Actions</span></th>
-            </tr>
-          </thead>
-          <tbody id="profiles" phx-update="stream" class="divide-y divide-slate-100">
-            <tr id="profiles-empty" class="hidden only:table-row">
-              <td colspan="7" class="px-5 py-10 text-center text-slate-500">
-                No profiles configured.
-              </td>
-            </tr>
-            <tr
-              :for={{dom_id, profile_state} <- @streams.profiles}
-              id={dom_id}
-              class="align-top hover:bg-slate-50/70"
-            >
-              <td class="max-w-56 px-5 py-4">
-                <p
-                  class="break-words font-semibold text-slate-950"
-                  title={profile_state["profile"]["llmProfile"]}
-                >
-                  {profile_state["profile"]["llmProfile"]}
-                </p>
-                <p class="mt-1 text-xs text-slate-500">{profile_state["profile"]["provider"]}</p>
-              </td>
-              <td
-                class="hidden max-w-48 break-words px-5 py-4 text-xs text-slate-600 sm:table-cell"
-                title={profile_state["profile"]["apiInferenceType"]}
+      <div id="profiles" phx-update="stream" class="divide-y divide-slate-200">
+        <div
+          id="profiles-empty"
+          class="hidden only:block py-10 text-center text-sm text-slate-500"
+        >
+          No profiles configured.
+        </div>
+        <article
+          :for={{dom_id, profile_state} <- @streams.profiles}
+          id={dom_id}
+          class="py-3 first:pt-0 last:pb-0"
+        >
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h2
+                class="break-words font-semibold text-slate-950"
+                title={profile_state["profile"]["llmProfile"]}
               >
-                {profile_state["profile"]["apiInferenceType"]}
-              </td>
-              <td
-                class="hidden max-w-56 break-words px-5 py-4 text-xs text-slate-600 sm:table-cell"
-                title={profile_host(profile_state)}
-              >
+                🤖 {profile_state["profile"]["llmProfile"]}
+              </h2>
+              <p class="mt-1 text-xs text-slate-500">
+                {profile_state["profile"]["provider"]} · {profile_state["profile"][
+                  "apiInferenceType"
+                ]}
+              </p>
+            </div>
+            <div class="flex shrink-0 gap-1">
+              <button
+                id={"refresh-profile-#{profile_state["profile"]["llmProfile"]}"}
+                type="button"
+                phx-click="refresh"
+                phx-value-id={profile_state["profile"]["llmProfile"]}
+                title="Refresh models"
+                aria-label="Refresh models"
+                class="studio-emoji-control rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600"
+              >🔄</button>
+              <button
+                id={"edit-profile-#{profile_state["profile"]["llmProfile"]}"}
+                type="button"
+                phx-click="edit"
+                phx-value-id={profile_state["profile"]["llmProfile"]}
+                title="Edit profile"
+                aria-label="Edit profile"
+                class="studio-emoji-control rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-teal-600"
+              >⚙</button>
+              <button
+                id={"delete-profile-#{profile_state["profile"]["llmProfile"]}"}
+                type="button"
+                phx-click="confirm-delete"
+                phx-value-id={profile_state["profile"]["llmProfile"]}
+                title="Delete profile"
+                aria-label="Delete profile"
+                class="studio-emoji-control rounded-lg p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-600"
+              >🗑</button>
+            </div>
+          </div>
+          <dl class="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="min-w-0">
+              <dt class="text-slate-400">Endpoint</dt>
+              <dd class="mt-0.5 truncate font-mono" title={profile_host(profile_state)}>
                 {profile_host(profile_state)}
-              </td>
-              <td class="hidden px-5 py-4 text-xs text-slate-600 sm:table-cell">
+              </dd>
+            </div>
+            <div>
+              <dt class="text-slate-400">Credential</dt>
+              <dd class="mt-0.5">
                 {if profile_state["credential"]["configured"],
-                  do: "Configured",
-                  else: "Not configured"}
-              </td>
-              <td class="hidden px-5 py-4 text-xs text-slate-600 sm:table-cell">
-                {models_count(profile_state)}
-              </td>
-              <td class="hidden px-5 py-4 text-xs text-slate-600 lg:table-cell">
-                <div class="flex flex-wrap gap-1">
-                  <span
-                    :if={backup_names(profile_state) != []}
-                    class="rounded-full bg-slate-100 px-2 py-1"
-                  >{length(backup_names(profile_state))} fallbacks</span>
-                  <span
-                    :if={option_present?(profile_state)}
-                    class="rounded-full bg-slate-100 px-2 py-1"
-                  >options</span>
-                  <span
-                    :if={pricing_present?(profile_state)}
-                    class="rounded-full bg-slate-100 px-2 py-1"
-                  >pricing</span>
-                </div>
-              </td>
-              <td class="whitespace-nowrap px-3 py-4 sm:px-5">
-                <div class="flex justify-end gap-1">
-                  <button
-                    type="button"
-                    phx-click="refresh"
-                    phx-value-id={profile_state["profile"]["llmProfile"]}
-                    title="Refresh models"
-                    aria-label="Refresh models"
-                    class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600"
-                  ><.icon name="hero-arrow-path" class="size-4" /></button>
-                  <button
-                    type="button"
-                    phx-click="edit"
-                    phx-value-id={profile_state["profile"]["llmProfile"]}
-                    title="Edit profile"
-                    aria-label="Edit profile"
-                    class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-teal-600"
-                  ><.icon name="hero-pencil-square" class="size-4" /></button>
-                  <button
-                    type="button"
-                    phx-click="confirm-delete"
-                    phx-value-id={profile_state["profile"]["llmProfile"]}
-                    title="Delete profile"
-                    aria-label="Delete profile"
-                    class="rounded-lg p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-600"
-                  ><.icon name="hero-trash" class="size-4" /></button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                  do: "🔐 Configured",
+                  else: "⚠ Not configured"}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-slate-400">Models</dt>
+              <dd class="mt-0.5">{models_count(profile_state)} available</dd>
+            </div>
+            <div class="flex flex-wrap items-end gap-1">
+              <span
+                :if={backup_names(profile_state) != []}
+                class="rounded-full bg-slate-100 px-2 py-1"
+              >
+                {length(backup_names(profile_state))} fallbacks
+              </span>
+              <span
+                :if={option_present?(profile_state)}
+                class="rounded-full bg-slate-100 px-2 py-1"
+              >
+                ⚙ options
+              </span>
+              <span
+                :if={pricing_present?(profile_state)}
+                class="rounded-full bg-slate-100 px-2 py-1"
+              >
+                💰 pricing
+              </span>
+            </div>
+          </dl>
+        </article>
       </div>
     </section>
 
-    <div
+    <section
       :if={@editing?}
-      id="profile-dialog"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="profile-dialog-title"
-      class="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 p-4 backdrop-blur-sm"
+      id="profile-editor"
+      aria-labelledby="profile-editor-title"
+      class="studio-card mt-6 p-4 sm:p-6"
     >
-      <section class="my-6 w-full max-w-4xl rounded-2xl bg-white p-6 shadow-2xl">
-        <div class="mb-5 flex items-center justify-between gap-4">
-          <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
-              LLM profile
-            </p>
-            <h2 id="profile-dialog-title" class="mt-1 text-xl font-semibold text-slate-950">
-              Profile configuration
-            </h2>
-          </div>
-          <button
-            id="profile-dialog-close"
-            type="button"
-            phx-click="cancel-edit"
-            aria-label="Close profile editor"
-            autofocus
-            class="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-          ><.icon name="hero-x-mark" class="size-5" /></button>
+      <div class="mb-5 flex items-center justify-between gap-4">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+            🧩 LLM profile
+          </p>
+          <h2 id="profile-editor-title" class="mt-1 text-xl font-semibold text-slate-950">
+            Profile configuration
+          </h2>
+          <p class="mt-1 text-xs text-slate-500">
+            This editor unfolds in the page so the profile list and configuration stay visible together.
+          </p>
         </div>
-        <.form
-          for={@form}
-          id="profile-form"
-          phx-change="draft-change"
-          phx-submit="save"
-          class="space-y-4"
-        >
-          <div class="grid gap-4 sm:grid-cols-2">
-            <div>
-              <.input field={@form[:profileId]} label="Profile name" required /><.field_error message={
-                field_error(@field_errors, "llmProfile")
-              } />
-            </div>
-            <div>
-              <.input field={@form[:provider]} label="Provider family" required /><.field_error message={
-                field_error(@field_errors, "provider")
-              } />
-            </div>
-            <div>
-              <.input
-                field={@form[:apiInferenceType]}
-                type="select"
-                label="API inference type"
-                options={[
-                  {"OpenAI Responses", "responses"},
-                  {"OpenAI Chat Completions", "chat-completions"},
-                  {"Gemini Generate Content", "gemini-generate-content"},
-                  {"Anthropic Messages", "anthropic-messages"}
-                ]}
-              />
-              <.field_error message={field_error(@field_errors, "apiInferenceType")} />
-            </div>
-            <div>
-              <.input
-                field={@form[:modelId]}
-                label="Default model ID"
-                required
-                list="profile-model-options"
-                autocomplete="off"
-              />
-              <datalist id="profile-model-options">
-                <option
-                  :for={model <- model_options(@profiles_by_id, @form[:profileId].value)}
-                  value={model["id"]}
-                >
-                  {model["label"]}
-                </option>
-              </datalist>
-              <.field_error message={field_error(@field_errors, "modelId")} />
-            </div>
+        <button
+          id="profile-editor-close"
+          type="button"
+          phx-click="cancel-edit"
+          aria-label="Close profile editor"
+          class="studio-emoji-control rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+        >✕</button>
+      </div>
+      <.form
+        for={@form}
+        id="profile-form"
+        phx-change="draft-change"
+        phx-submit="save"
+        class="studio-stack"
+      >
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <.input field={@form[:profileId]} label="Profile name" required /><.field_error message={
+              field_error(@field_errors, "llmProfile")
+            } />
+          </div>
+          <div>
+            <.input field={@form[:provider]} label="Provider family" required /><.field_error message={
+              field_error(@field_errors, "provider")
+            } />
           </div>
           <div>
             <.input
-              field={@form[:baseUrl]}
-              type="url"
-              label="HTTPS base URL"
+              field={@form[:apiInferenceType]}
+              type="select"
+              label="API inference type"
+              options={[
+                {"OpenAI Responses", "responses"},
+                {"OpenAI Chat Completions", "chat-completions"},
+                {"Gemini Generate Content", "gemini-generate-content"},
+                {"Anthropic Messages", "anthropic-messages"}
+              ]}
+            />
+            <.field_error message={field_error(@field_errors, "apiInferenceType")} />
+          </div>
+          <div>
+            <.input
+              field={@form[:modelId]}
+              label="Default model ID"
               required
-              list="profile-base-url-options"
+              list="profile-model-options"
               autocomplete="off"
             />
-            <datalist id="profile-base-url-options">
-              <option :for={base_url <- known_base_urls(@profiles_by_id)} value={base_url} />
+            <datalist id="profile-model-options">
+              <option
+                :for={model <- model_options(@profiles_by_id, @form[:profileId].value)}
+                value={model["id"]}
+              >
+                {model["label"]}
+              </option>
             </datalist>
-            <.field_error message={field_error(@field_errors, "baseUrl")} />
+            <.field_error message={field_error(@field_errors, "modelId")} />
           </div>
+        </div>
+        <div>
+          <.input
+            field={@form[:baseUrl]}
+            type="url"
+            label="HTTPS base URL"
+            required
+            list="profile-base-url-options"
+            autocomplete="off"
+          />
+          <datalist id="profile-base-url-options">
+            <option :for={base_url <- known_base_urls(@profiles_by_id)} value={base_url} />
+          </datalist>
+          <.field_error message={field_error(@field_errors, "baseUrl")} />
+        </div>
 
-          <section class="rounded-xl border border-slate-200 p-4">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 class="text-sm font-semibold text-slate-950">Endpoint credential</h3>
-                <p class="mt-1 text-xs text-slate-500">
-                  Stored credentials are never repopulated. Replacement keys are write-only.
-                </p>
-                <div id="credential-status" class="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                  <span class="rounded-full border border-slate-200 px-2 py-1 text-slate-600">
-                    {if @form[:credentialConfigured].value in [true, "true"],
-                      do: "Stored key available",
-                      else: "No credential stored"}
-                  </span>
-                  <span
-                    :if={@credential_staged?}
-                    class="rounded-full border border-teal-200 bg-teal-50 px-2 py-1 text-teal-800"
-                  >New key staged for save</span>
-                </div>
-              </div>
-              <button
-                type="button"
-                phx-click="toggle-section"
-                phx-value-section="credential_open"
-                aria-expanded={to_string(@credential_open)}
-                class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold"
-              >{if @credential_open, do: "Hide credential", else: "Set / replace key"}</button>
-            </div>
-            <div
-              :if={@credential_open}
-              id="credential-drawer"
-              class="mt-4 grid gap-4 sm:grid-cols-2"
-            >
-              <div>
-                <.input field={@form[:credentialId]} label="Credential ID" required /><.field_error message={
-                  field_error(@field_errors, "credentialId")
-                } />
-              </div>
-              <.input
-                field={@form[:endpointCredentialScope]}
-                type="select"
-                label="Credential scope"
-                options={[{"User", "user"}, {"Global", "global"}]}
-              />
-              <div>
-                <.input
-                  field={@form[:apiKey]}
-                  type="password"
-                  label="Replacement API key"
-                  autocomplete="new-password"
-                /><.field_error message={field_error(@field_errors, "credential.apiKey")} />
-              </div>
-              <div class="flex flex-wrap items-center gap-2 sm:col-span-2">
-                <span class="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-600">Stored key: {if @form[
-                                                                                                                      :credentialConfigured
-                                                                                                                    ].value in [
-                                                                                                                      true,
-                                                                                                                      "true"
-                                                                                                                    ],
-                                                                                                                    do:
-                                                                                                                      "configured",
-                                                                                                                    else:
-                                                                                                                      "not configured"}</span>
-                <span class="text-xs text-slate-500">The stored value itself is never returned.</span>
-                <button
-                  type="button"
-                  phx-click="stage-key"
-                  disabled={String.trim(@form[:apiKey].value || "") == ""}
-                  class="rounded-lg bg-teal-700 px-3 py-2 text-xs font-semibold text-white"
-                >Stage key</button>
-                <button
-                  type="button"
-                  phx-click="clear-staged-key"
-                  class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold"
-                >Clear staged key</button>
-                <button
-                  type="button"
-                  phx-click="cancel-key"
-                  class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold"
-                >Cancel</button>
-              </div>
-            </div>
-          </section>
-
-          <section class="rounded-xl border border-slate-200 p-4">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 class="text-sm font-semibold text-slate-950">Backup profiles</h3><p class="mt-1 text-xs text-slate-500">
-                  Fallback order is explicit and is validated as a graph by the backend.
-                </p>
-              </div>
-              <select
-                id="backup-profile-picker"
-                name="profile[backupProfile]"
-                phx-change="add-backup"
-                class="rounded-lg border border-slate-200 px-3 py-2 text-xs"
-              >
-                <option value="">Add fallback profile…</option>
-                <option
-                  :for={id <- available_backup_profiles(@profiles_by_id, @form[:profileId].value)}
-                  value={id}
-                >
-                  {id}
-                </option>
-              </select>
-            </div>
-            <.input field={@form[:backupProfiles]} label="Fallback profile IDs (comma separated)" />
-            <ol id="backup-profile-list" class="mt-3 space-y-2">
-              <li
-                :for={
-                  {backup, index} <- Enum.with_index(backup_list(@form[:backupProfiles].value))
-                }
-                class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs"
-              >
-                <span><span class="mr-2 font-mono text-slate-400">{index + 1}.</span>{backup}</span>
-                <span class="flex gap-1">
-                  <button
-                    type="button"
-                    phx-click="move-backup"
-                    phx-value-index={index}
-                    phx-value-direction="up"
-                    aria-label={"Move #{backup} up"}
-                    class="rounded border border-slate-200 px-2 py-1"
-                  >↑</button>
-                  <button
-                    type="button"
-                    phx-click="move-backup"
-                    phx-value-index={index}
-                    phx-value-direction="down"
-                    aria-label={"Move #{backup} down"}
-                    class="rounded border border-slate-200 px-2 py-1"
-                  >↓</button>
-                  <button
-                    type="button"
-                    phx-click="remove-backup"
-                    phx-value-index={index}
-                    aria-label={"Remove #{backup}"}
-                    class="rounded border border-rose-200 px-2 py-1 text-rose-700"
-                  >Remove</button>
+        <section class="studio-fold p-3 sm:p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 class="text-sm font-semibold text-slate-950">🔐 Endpoint credential</h3>
+              <p class="mt-1 text-xs text-slate-500">
+                Stored credentials are never repopulated. Replacement keys are write-only.
+              </p>
+              <div id="credential-status" class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <span class="rounded-full border border-slate-200 px-2 py-1 text-slate-600">
+                  {if @form[:credentialConfigured].value in [true, "true"],
+                    do: "Stored key available",
+                    else: "No credential stored"}
                 </span>
-              </li>
-            </ol>
-          </section>
-
-          <div class="flex flex-wrap gap-5">
+                <span
+                  :if={@credential_staged?}
+                  class="rounded-full border border-teal-200 bg-teal-50 px-2 py-1 text-teal-800"
+                >New key staged for save</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              phx-click="toggle-section"
+              phx-value-section="credential_open"
+              id="credential-fold-toggle"
+              aria-expanded={to_string(@credential_open)}
+              class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold"
+            >{if @credential_open, do: "Hide credential", else: "Set / replace key"}</button>
+          </div>
+          <div
+            :if={@credential_open}
+            id="credential-drawer"
+            class="studio-fold-body grid gap-4 sm:grid-cols-2"
+          >
+            <div>
+              <.input field={@form[:credentialId]} label="Credential ID" required /><.field_error message={
+                field_error(@field_errors, "credentialId")
+              } />
+            </div>
             <.input
-              field={@form[:supportsTemperature]}
-              type="checkbox"
-              label="Supports temperature"
+              field={@form[:endpointCredentialScope]}
+              type="select"
+              label="Credential scope"
+              options={[{"User", "user"}, {"Global", "global"}]}
+            />
+            <div>
+              <.input
+                field={@form[:apiKey]}
+                type="password"
+                label="Replacement API key"
+                autocomplete="new-password"
+              /><.field_error message={field_error(@field_errors, "credential.apiKey")} />
+            </div>
+            <div class="flex flex-wrap items-center gap-2 sm:col-span-2">
+              <span class="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-600">Stored key: {if @form[
+                                                                                                                    :credentialConfigured
+                                                                                                                  ].value in [
+                                                                                                                    true,
+                                                                                                                    "true"
+                                                                                                                  ],
+                                                                                                                  do:
+                                                                                                                    "configured",
+                                                                                                                  else:
+                                                                                                                    "not configured"}</span>
+              <span class="text-xs text-slate-500">The stored value itself is never returned.</span>
+              <button
+                id="stage-profile-key"
+                type="button"
+                phx-click="stage-key"
+                disabled={String.trim(@form[:apiKey].value || "") == ""}
+                class="rounded-lg bg-teal-700 px-3 py-2 text-xs font-semibold text-white"
+              >🔐 Stage key</button>
+              <button
+                id="clear-profile-key"
+                type="button"
+                phx-click="clear-staged-key"
+                class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold"
+              >🧹 Clear staged key</button>
+              <button
+                id="cancel-profile-key"
+                type="button"
+                phx-click="cancel-key"
+                class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold"
+              >✕ Cancel</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="studio-fold p-3 sm:p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 class="text-sm font-semibold text-slate-950">🧭 Backup profiles</h3><p class="mt-1 text-xs text-slate-500">
+                Fallback order is explicit and is validated as a graph by the backend.
+              </p>
+            </div>
+            <select
+              id="backup-profile-picker"
+              name="profile[backupProfile]"
+              phx-change="add-backup"
+              class="rounded-lg border border-slate-200 px-3 py-2 text-xs"
+            >
+              <option value="">➕ Add fallback profile…</option>
+              <option
+                :for={id <- available_backup_profiles(@profiles_by_id, @form[:profileId].value)}
+                value={id}
+              >
+                {id}
+              </option>
+            </select>
+          </div>
+          <.input field={@form[:backupProfiles]} label="Fallback profile IDs (comma separated)" />
+          <ol id="backup-profile-list" class="mt-3 space-y-2">
+            <li
+              :for={{backup, index} <- Enum.with_index(backup_list(@form[:backupProfiles].value))}
+              class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs"
+            >
+              <span><span class="mr-2 font-mono text-slate-400">{index + 1}.</span>{backup}</span>
+              <span class="flex gap-1">
+                <button
+                  type="button"
+                  phx-click="move-backup"
+                  phx-value-index={index}
+                  phx-value-direction="up"
+                  aria-label={"Move #{backup} up"}
+                  class="rounded border border-slate-200 px-2 py-1"
+                >↑</button>
+                <button
+                  type="button"
+                  phx-click="move-backup"
+                  phx-value-index={index}
+                  phx-value-direction="down"
+                  aria-label={"Move #{backup} down"}
+                  class="rounded border border-slate-200 px-2 py-1"
+                >↓</button>
+                <button
+                  type="button"
+                  phx-click="remove-backup"
+                  phx-value-index={index}
+                  aria-label={"Remove #{backup}"}
+                  class="rounded border border-rose-200 px-2 py-1 text-rose-700"
+                >Remove</button>
+              </span>
+            </li>
+          </ol>
+        </section>
+
+        <div class="flex flex-wrap gap-5">
+          <.input
+            field={@form[:supportsTemperature]}
+            type="checkbox"
+            label="Supports temperature"
+          />
+          <.input
+            field={@form[:supportsContractedStructuredOutput]}
+            type="checkbox"
+            label="Supports contracted structured output"
+          />
+        </div>
+
+        <section class="studio-fold">
+          <button
+            type="button"
+            phx-click="toggle-section"
+            phx-value-section="options_open"
+            id="options-fold-toggle"
+            aria-expanded={to_string(@options_open)}
+            class="studio-fold-summary flex w-full items-center justify-between text-left text-sm font-semibold text-slate-950"
+          >
+            <span>⚙ Options</span><span class="text-xs text-slate-500">{if @options_open,
+              do: "⌃ Hide",
+              else: "⌄ Show"}</span>
+          </button>
+          <div :if={@options_open} id="profile-options" class="studio-fold-body space-y-4">
+            <div class="grid gap-4 sm:grid-cols-4">
+              <.input field={@form[:maxTokens]} type="number" label="Max Output Tokens" min="0" />
+              <.input
+                field={@form[:temperature]}
+                type="number"
+                label="Temperature"
+                min="0"
+                step="any"
+              />
+              <.input field={@form[:topP]} type="number" label="Top P" min="0" step="any" />
+              <.input field={@form[:topK]} type="number" label="Top K" min="0" />
+            </div>
+            <.input
+              field={@form[:stopSequences]}
+              type="textarea"
+              label="Stop Sequences (one per line)"
+              rows="3"
             />
             <.input
-              field={@form[:supportsContractedStructuredOutput]}
-              type="checkbox"
-              label="Supports contracted structured output"
+              field={@form[:defaultOptionsJson]}
+              type="textarea"
+              label="Default Options JSON"
+              rows="7"
             />
           </div>
+        </section>
 
-          <section class="rounded-xl border border-slate-200 p-4">
-            <button
-              type="button"
-              phx-click="toggle-section"
-              phx-value-section="options_open"
-              aria-expanded={to_string(@options_open)}
-              class="flex w-full items-center justify-between text-left text-sm font-semibold text-slate-950"
-            >
-              <span>Options</span><span class="text-xs text-slate-500">{if @options_open,
-                do: "Hide",
-                else: "Show"}</span>
-            </button>
-            <div :if={@options_open} id="profile-options" class="mt-4 space-y-4">
-              <div class="grid gap-4 sm:grid-cols-4">
-                <.input field={@form[:maxTokens]} type="number" label="Max Output Tokens" min="0" />
-                <.input
-                  field={@form[:temperature]}
-                  type="number"
-                  label="Temperature"
-                  min="0"
-                  step="any"
-                />
-                <.input field={@form[:topP]} type="number" label="Top P" min="0" step="any" />
-                <.input field={@form[:topK]} type="number" label="Top K" min="0" />
-              </div>
+        <section class="studio-fold">
+          <button
+            type="button"
+            phx-click="toggle-section"
+            phx-value-section="retry_open"
+            id="retry-fold-toggle"
+            aria-expanded={to_string(@retry_open)}
+            class="studio-fold-summary flex w-full items-center justify-between text-left text-sm font-semibold text-slate-950"
+          >
+            <span>🔁 Retries &amp; Repair</span><span class="text-xs text-slate-500">{if @retry_open,
+              do: "⌃ Hide",
+              else: "⌄ Show"}</span>
+          </button>
+          <div :if={@retry_open} id="profile-retry-repair" class="studio-fold-body space-y-4">
+            <div class="grid gap-3 sm:grid-cols-5">
               <.input
-                field={@form[:stopSequences]}
-                type="textarea"
-                label="Stop Sequences (one per line)"
-                rows="3"
+                field={@form[:structuredRepairRetryEnabled]}
+                type="checkbox"
+                label="Structured Repair"
+              />
+              <.input field={@form[:enableRetryOn429]} type="checkbox" label="Rate Limits" />
+              <.input field={@form[:enableRetryOn5xx]} type="checkbox" label="Server Errors" />
+              <.input
+                field={@form[:enableRetryOnNetworkError]}
+                type="checkbox"
+                label="Network Errors"
               />
               <.input
-                field={@form[:defaultOptionsJson]}
-                type="textarea"
-                label="Default Options JSON"
-                rows="7"
+                field={@form[:enableRetryOnParseError]}
+                type="checkbox"
+                label="Parse / Schema Errors"
               />
             </div>
-          </section>
-
-          <section class="rounded-xl border border-slate-200 p-4">
-            <button
-              type="button"
-              phx-click="toggle-section"
-              phx-value-section="retry_open"
-              aria-expanded={to_string(@retry_open)}
-              class="flex w-full items-center justify-between text-left text-sm font-semibold text-slate-950"
-            >
-              <span>Retries &amp; Repair</span><span class="text-xs text-slate-500">{if @retry_open,
-                do: "Hide",
-                else: "Show"}</span>
-            </button>
-            <div :if={@retry_open} id="profile-retry-repair" class="mt-4 space-y-4">
-              <div class="grid gap-3 sm:grid-cols-5">
-                <.input
-                  field={@form[:structuredRepairRetryEnabled]}
-                  type="checkbox"
-                  label="Structured Repair"
-                />
-                <.input field={@form[:enableRetryOn429]} type="checkbox" label="Rate Limits" />
-                <.input field={@form[:enableRetryOn5xx]} type="checkbox" label="Server Errors" />
-                <.input
-                  field={@form[:enableRetryOnNetworkError]}
-                  type="checkbox"
-                  label="Network Errors"
-                />
-                <.input
-                  field={@form[:enableRetryOnParseError]}
-                  type="checkbox"
-                  label="Parse / Schema Errors"
-                />
-              </div>
-              <div class="grid gap-4 sm:grid-cols-3">
-                <.input
-                  field={@form[:retryMaxAttempts]}
-                  type="number"
-                  label="Max Attempts"
-                  min="1"
-                  max="10"
-                />
-                <.input
-                  field={@form[:retryBaseDelayMs]}
-                  type="number"
-                  label="Base Delay Ms"
-                  min="0"
-                />
-                <.input
-                  field={@form[:retryMaxDelayMs]}
-                  type="number"
-                  label="Max Delay Ms"
-                  min="0"
-                />
-              </div>
-              <div class="grid gap-4 sm:grid-cols-3">
-                <div>
-                  <.input
-                    field={@form[:escalationProfile]}
-                    type="text"
-                    label="Escalation LLM Profile"
-                    placeholder="Use primary profile"
-                    list="profile-escalation-options"
-                  />
-                  <datalist id="profile-escalation-options">
-                    <option :for={{id, _state} <- @profiles_by_id} value={id} />
-                  </datalist>
-                </div>
-                <.input
-                  field={@form[:escalationAttempt]}
-                  type="number"
-                  label="Starting Attempt"
-                  min="2"
-                  max="10"
-                />
-                <.input
-                  field={@form[:escalationReasoning]}
-                  type="select"
-                  label="Escalation Reasoning"
-                  options={[{"Lowest", "lowest"}, {"Middle", "middle"}, {"Highest", "highest"}]}
-                />
-              </div>
-            </div>
-          </section>
-
-          <section class="rounded-xl border border-slate-200 p-4">
-            <button
-              type="button"
-              phx-click="toggle-section"
-              phx-value-section="pricing_open"
-              aria-expanded={to_string(@pricing_open)}
-              class="flex w-full items-center justify-between text-left text-sm font-semibold text-slate-950"
-            >
-              <span>Pricing</span><span class="text-xs text-slate-500">{if @pricing_open,
-                do: "Hide",
-                else: "Show"}</span>
-            </button>
-            <div
-              :if={@pricing_open}
-              id="profile-pricing"
-              class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5"
-            >
+            <div class="grid gap-4 sm:grid-cols-3">
               <.input
-                field={@form[:pricingInput]}
+                field={@form[:retryMaxAttempts]}
                 type="number"
-                label="Input $/1M tokens"
-                min="0"
-                step="any"
+                label="Max Attempts"
+                min="1"
+                max="10"
               />
               <.input
-                field={@form[:pricingOutput]}
+                field={@form[:retryBaseDelayMs]}
                 type="number"
-                label="Output $/1M tokens"
+                label="Base Delay Ms"
                 min="0"
-                step="any"
               />
               <.input
-                field={@form[:pricingCacheRead]}
+                field={@form[:retryMaxDelayMs]}
                 type="number"
-                label="Cache read $/1M tokens"
+                label="Max Delay Ms"
                 min="0"
-                step="any"
-              />
-              <.input
-                field={@form[:pricingCacheWrite]}
-                type="number"
-                label="Cache write $/1M tokens"
-                min="0"
-                step="any"
-              />
-              <.input
-                field={@form[:pricingReasoning]}
-                type="number"
-                label="Reasoning output $/1M tokens"
-                min="0"
-                step="any"
               />
             </div>
-          </section>
-
-          <div class="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              phx-click="cancel-edit"
-              class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700"
-            >Cancel</button>
-            <button
-              id="profile-save"
-              type="submit"
-              disabled={
-                not is_nil(@pending) or @form[:profileId].value in [nil, ""] or
-                  not options_valid?(@form[:defaultOptionsJson].value)
-              }
-              class="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
-            >Save and probe</button>
+            <div class="grid gap-4 sm:grid-cols-3">
+              <div>
+                <.input
+                  field={@form[:escalationProfile]}
+                  type="text"
+                  label="Escalation LLM Profile"
+                  placeholder="Use primary profile"
+                  list="profile-escalation-options"
+                />
+                <datalist id="profile-escalation-options">
+                  <option :for={{id, _state} <- @profiles_by_id} value={id} />
+                </datalist>
+              </div>
+              <.input
+                field={@form[:escalationAttempt]}
+                type="number"
+                label="Starting Attempt"
+                min="2"
+                max="10"
+              />
+              <.input
+                field={@form[:escalationReasoning]}
+                type="select"
+                label="Escalation Reasoning"
+                options={[{"Lowest", "lowest"}, {"Middle", "middle"}, {"Highest", "highest"}]}
+              />
+            </div>
           </div>
-        </.form>
-      </section>
-    </div>
+        </section>
 
-    <div
+        <section class="studio-fold">
+          <button
+            type="button"
+            phx-click="toggle-section"
+            phx-value-section="pricing_open"
+            id="pricing-fold-toggle"
+            aria-expanded={to_string(@pricing_open)}
+            class="studio-fold-summary flex w-full items-center justify-between text-left text-sm font-semibold text-slate-950"
+          >
+            <span>💰 Pricing</span><span class="text-xs text-slate-500">{if @pricing_open,
+              do: "⌃ Hide",
+              else: "⌄ Show"}</span>
+          </button>
+          <div
+            :if={@pricing_open}
+            id="profile-pricing"
+            class="studio-fold-body grid gap-4 sm:grid-cols-2 lg:grid-cols-5"
+          >
+            <.input
+              field={@form[:pricingInput]}
+              type="number"
+              label="Input $/1M tokens"
+              min="0"
+              step="any"
+            />
+            <.input
+              field={@form[:pricingOutput]}
+              type="number"
+              label="Output $/1M tokens"
+              min="0"
+              step="any"
+            />
+            <.input
+              field={@form[:pricingCacheRead]}
+              type="number"
+              label="Cache read $/1M tokens"
+              min="0"
+              step="any"
+            />
+            <.input
+              field={@form[:pricingCacheWrite]}
+              type="number"
+              label="Cache write $/1M tokens"
+              min="0"
+              step="any"
+            />
+            <.input
+              field={@form[:pricingReasoning]}
+              type="number"
+              label="Reasoning output $/1M tokens"
+              min="0"
+              step="any"
+            />
+          </div>
+        </section>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button
+            type="button"
+            phx-click="cancel-edit"
+            id="profile-cancel"
+            class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700"
+          >✕ Cancel</button>
+          <button
+            id="profile-save"
+            type="submit"
+            disabled={
+              not is_nil(@pending) or @form[:profileId].value in [nil, ""] or
+                not options_valid?(@form[:defaultOptionsJson].value)
+            }
+            class="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
+          >💾 Save and probe</button>
+        </div>
+      </.form>
+    </section>
+
+    <section
       :if={@delete_id}
-      id="profile-delete-dialog"
-      role="alertdialog"
-      aria-modal="true"
+      id="profile-delete-panel"
+      role="alert"
       aria-labelledby="profile-delete-title"
       aria-describedby="profile-delete-description"
-      class="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4"
+      class="studio-card mt-6 border-rose-200 bg-rose-50 p-4 sm:p-5"
     >
-      <section class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-        <h2 id="profile-delete-title" class="text-lg font-semibold text-slate-950">
-          Delete profile?
-        </h2>
-        <p id="profile-delete-description" class="mt-2 break-words text-sm text-slate-600">
-          The backend will reject deletion if another profile still references
-          <strong>{@delete_id}</strong>
-          as a backup.
-        </p>
-        <div class="mt-6 flex justify-end gap-2">
-          <button
-            id="profile-delete-cancel"
-            type="button"
-            phx-click="cancel-delete"
-            autofocus
-            class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold"
-          >Cancel</button>
-          <button
-            id="profile-delete-confirm"
-            type="button"
-            phx-click="delete"
-            class="rounded-xl bg-rose-700 px-4 py-2 text-sm font-semibold text-white"
-          >Delete</button>
-        </div>
-      </section>
-    </div>
+      <h2 id="profile-delete-title" class="text-lg font-semibold text-slate-950">
+        🗑 Delete profile?
+      </h2>
+      <p id="profile-delete-description" class="mt-2 break-words text-sm text-slate-600">
+        The backend will reject deletion if another profile still references
+        <strong>{@delete_id}</strong>
+        as a backup.
+      </p>
+      <div class="mt-5 flex flex-wrap justify-end gap-2">
+        <button
+          id="profile-delete-cancel"
+          type="button"
+          phx-click="cancel-delete"
+          class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold"
+        >✕ Cancel</button>
+        <button
+          id="profile-delete-confirm"
+          type="button"
+          phx-click="delete"
+          class="rounded-xl bg-rose-700 px-4 py-2 text-sm font-semibold text-white"
+        >🗑 Delete</button>
+      </div>
+    </section>
   </main>
 </Layouts.app>

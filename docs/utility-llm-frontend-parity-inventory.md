@@ -259,8 +259,8 @@ passed, including 16 React/server test files and 147 Vitest tests.
 | Area | Current harden behavior | Required parity work |
 | --- | --- | --- |
 | Auth/shell | Phoenix session login/logout and protected LiveViews exist. | Preserve behavior while matching utility shell status/error semantics. |
-| Profiles | Dedicated Phoenix editor with provider/interface/endpoint/model, write-only credential staging, ordered backups, options, retry/repair/escalation, pricing, refresh, CRUD, bundle actions, and deep-link editing. | The utility’s compact inline row is represented by the workspace’s native editable datalist plus profile links into the canonical editor; Firebase-specific inline placement and a second profile-editor owner are intentionally not duplicated. |
-| Workspace | Advanced prompt/schema controls, hidden-by-default lazy history, persisted UI folds, custom profile values, actionable history rows, output copy/request/response/cURL, token/cache/cost stats, and canonical run payloads. | Keep the single Phoenix/Go path; no browser provider calls or second widget runtime. |
+| Profiles | Dedicated Phoenix studio with compact profile cards, provider/interface/endpoint/model, write-only credential staging, ordered backups, options, retry/repair/escalation, pricing, refresh, CRUD, bundle actions, and deep-link editing. The full editor unfolds inline below the cards. | The utility’s compact row/fold language is preserved without creating a second profile-editor owner; Firebase-specific persistence and browser provider calls remain excluded. |
+| Workspace | One narrow vertical studio stack containing model, input, output, history, and stats widgets; advanced prompt/schema controls, persisted UI folds, custom profile values, actionable history rows, output copy/request/response/cURL, token/cache/cost stats, and canonical run payloads. | Keep the single Phoenix/Go path; no browser provider calls or second widget runtime. |
 | History | Cursor-based expandable records, restore, trace observations/artifacts, row stats, request/response/cURL copy, delete, clear confirmation, page-size selection, and load more; workspace history has the same row-local actions. | Arbitrary page-number/quick-jump behavior would require an offset contract; retain cursor semantics as the self-hosted adaptation. |
 | Backend state | Go/OpenAPI state carries prompt draft, selected profile, schema shorthand, reasoning map, cache mode, retry/repair controls, and fold visibility with strict validation. | Continue adding only behavior required by the inventory and keep credentials write-only. |
 | Profile schema | Go `Profile` already has pricing, default options, backups, models, reasoning map, and credential state. | Expose and test the existing fields through Phoenix; add only fields needed by utility behavior, not Firebase-specific copies. |
@@ -295,6 +295,7 @@ The parity implementation is present in the self-hosted checkout:
 - `WorkspaceLive` persists prompt drafts, schema shorthand, generated contracted schemas, reasoning, cache mode, retry controls, repair escalation model settings, and UI fold state through the Go state endpoint.
 - The workspace exposes advanced input, schema generation/check/clear actions, output copy, attempt/usage/cost/cache facts, a local LLM statistics summary, and a richer recent-history view. History is loaded lazily, supports restore/delete/clear, and preserves typed custom profile values.
 - `ProfilesLive` exposes write-only credential staging, ordered backup editing, common provider options plus source JSON, retry/repair controls, escalation metadata, all five pricing rates, model refresh, bundle import/export, and the existing CRUD actions.
+- The 2026-08-22 UI pass replaces profile and delete overlays with in-flow `#profile-editor` / `#profile-delete-panel` folds, replaces the wide profile table with responsive compact cards, and applies the utility warm-card/emoji control language to both Profiles and the single-column Workspace stack.
 - Workspace model and escalation controls deep-link to that canonical profile editor; new-profile credential fields open automatically while existing-profile edits keep stored credentials behind a closed write-only drawer.
 - `HistoryLive` exposes expandable request/result records, result and credential-free cURL copy, page-size controls over the cursor API, trace observations, artifact links, restore, delete, and clear.
 - The Go state and run contracts now carry the prompt draft, persisted UI flags, model override, explicit bounded retry controls, repair escalation, and run timeout. OpenAPI and backend validation were updated together.
@@ -311,7 +312,9 @@ unimplemented frontend behavior:
 
 - The full profile editor has one owner at `/profiles`; workspace model rows
   use an editable native datalist and deep links instead of duplicating the
-  nested editor in every fold.
+  nested editor in every fold. Its editor and delete confirmation are in-flow
+  folds, and the profile list remains visible beside the expanded configuration
+  in the same document.
 - The workspace and dedicated History views use the Go cursor/limit contract;
   utility offset/page-number quick-jump controls are not reproduced because
   the self-hosted API has no offset operation.
