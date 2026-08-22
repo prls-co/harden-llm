@@ -7,7 +7,7 @@ validation refresh, the 2026-08-16 merged production handoff, the
 profile-catalog backfill deployment, and the 2026-08-19 P07.S10 runtime
 credential correction and final application deployment. It also records the
 2026-08-22 P07.S11-P07.S13 visual-topology, browser-fold, and workspace-draft
-corrections.
+corrections, and the P07.S14 reusable no-tabs widget deployment.
 Detailed command output belongs under ignored
 `plans/evidence/harden-llm/<run-id>/`; secrets and live provider output never do.
 
@@ -21,7 +21,7 @@ Detailed command output belongs under ignored
 | Source package | `@prls-co/utility-llm` `0.14.6` |
 | Current frontend parity source | `utility-llm` `5c0309e` / `0.15.0` |
 | Current profile catalog source | `examples/react-trace-studio/llm-profile-catalog.json` at `utility-llm` `5c0309e2508dc5b7a87d0880c8d794123353c5b0`; SHA-256 `864552eb5e8bf63de590704ef65c2e45ad228e7cc15d4af048609e680348b2f9` |
-| Current merged release | PR `#17` / `7c55266b878fb894b78c4731ffc3a1d6bcedc04e` |
+| Current merged release | PR `#19` / `9a57dcdeb48373cb7d8a8c46aa4670fa5e0095c2` |
 | Security dependency remediation | `github.com/getkin/kin-openapi` `v0.144.0` |
 | Parity manifest SHA-256 | `973f138211910fbe58deca867d1569adf2b9660b53e1441a3607570e1f2c98a6` |
 | Langfuse release / commit | `v3.212.0` / `3a572984276dd2dc2f8f77f1b2aadb799aa17fdf` |
@@ -68,6 +68,7 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | P07.S11 utility-aligned visual topology | `9f3741e` | complete; PR `#15` merged and deployed |
 | P07.S12 browser fold event serialization correction | `31d3106` | complete; PR `#16` merged and deployed |
 | P07.S13 workspace draft preservation for select events | `7c55266` | complete; PR `#17` merged and deployed |
+| P07.S14 reusable no-tabs embedded profile widget | `9a57dcd` | implementation complete; PR `#19` merged and deployed |
 | kin-openapi security remediation | `2c1a34f` | complete; patched release `v0.144.0` |
 
 ## Final gate record
@@ -95,8 +96,10 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | P07.S09 frontend parity gates | pass: Phoenix 77 passed/3 excluded, browser 2 passed, `make verify`, and final post-upgrade `make test-compose` 183.924s (earlier parity run: 176.997s) |
 | P07.S11-P07.S13 frontend closeout | pass: focused workspace/rendering suite 20 passed; full deterministic frontend suite 83 passed/3 excluded; Wallaby desktop/mobile workflow 2 passed in 99.3s; CodeQL and Go/JavaScript analyses passed on PR `#17` |
 | P07.S12/P07.S13 real browser regressions | pass: deployed Playwright opened model, advanced-input, retry, history, output, request, and response folds; changing Reasoning and Cache preserved the selected profile; CPA GPT-5.6 Luna returned output; 29 profile cards exposed refresh/edit/delete and metadata; zero page errors |
-| Current frontend production image | pass: image `sha256:3a8eb2bdc9096210a1c768c87d69c365fbe09b2f1b07d37c6c3d80b64263528d`, OCI release `7c55266`, container healthy; gateway remained healthy at release `8f69e2b` / `sha256:1dc2f2037176633ec338b47d99254bcdc5f15bd773d65d9683eb2b76bc5e757b` |
-| Current public probes | pass: frontend `/healthz` and `/login`, API `/healthz` and `/readyz` all returned HTTP 200 after the final deployment |
+| P07.S14 embedded widget gate | pass: PR `#19` merged as `9a57dcd`; pinned Phoenix suite 85 passed/3 excluded; desktop/mobile Chromium 2 passed in 102.4s; `make verify` passed; no tabs, nested profile folds, fallback/options behavior, credential staging, CRUD, and bundle delegation are covered |
+| P07.S14 production frontend image | pass: image `sha256:f40cc5bf549f4fac3cdca15946004d80b9aba1fdec46a4629592770bb9b63fb5`, OCI release `9a57dcd`, container healthy; gateway remained healthy at release `8f69e2b` / `sha256:1dc2f2037176633ec338b47d99254bcdc5f15bd773d65d9683eb2b76bc5e757b` |
+| P07.S14 public probes and API smoke | pass: three consecutive samples returned HTTP 200 for frontend `/healthz` and `/login`, API `/healthz` and `/readyz`; the real static-token structured API smoke also passed |
+| P07.S14 authenticated hosted browser recheck | not run: the production environment has an API static token but no browser email/password; no production user was created implicitly. The pinned authenticated desktop/mobile Chromium workflow remains green locally |
 | Tempo trace-ID normalization | pass: 31/32-character external IDs covered by regression tests; no timeout budget changed |
 | kin-openapi security alerts | code fix pass: `v0.144.0` is the first patched release for both alerts and CodeQL Go/JavaScript checks passed; GitHub alert records remained open at final readback pending Dependabot rescan |
 
@@ -124,7 +127,7 @@ next dependency-graph refresh, not an unpatched dependency in the release.
 
 | Surface | Production value |
 | --- | --- |
-| Release | `8f69e2b` |
+| Release | frontend `9a57dcd`; gateway `8f69e2b` |
 | Frontend | `https://harden-llm.prls.co` |
 | API gateway | `https://harden-llm-api.prls.co` |
 | Artifact endpoint | `https://harden-llm-artifacts.prls.co` |
@@ -253,6 +256,17 @@ availability is tied to the shaman Docker host, its network, and the active
 Cloudflare connectors. Persistent Postgres, Garage, Langfuse, and observability
 data live in named Docker volumes on shaman.
 
+On 2026-08-22, merged PR `#19` (`9a57dcdeb48373cb7d8a8c46aa4670fa5e0095c2`)
+was built from clean local `main` and deployed as the frontend-only release
+`9a57dcd`. The frontend image is
+`sha256:f40cc5bf549f4fac3cdca15946004d80b9aba1fdec46a4629592770bb9b63fb5`;
+the gateway stayed at healthy release `8f69e2b`. The new frontend container
+reported healthy, three public probe samples returned HTTP 200 for both
+frontend endpoints and both API endpoints, and the static-token structured API
+smoke passed. The full authenticated hosted browser recheck was not run because
+the retained production environment has no browser login credentials; no new
+production account was created for this verification.
+
 ## Certified invariants
 
 - The target runs without Firebase or the source repository.
@@ -271,7 +285,9 @@ accepted.
 
 The visual embedding boundary is intentional: Workspace and Profiles are
 single-column, stable-root visual surfaces that can sit inside a host shell
-without adopting tabs, a side rail, or an overlay. The route layout is still an
-adapter around the LiveView behavior; extracting a directly mountable
-functional LiveComponent/package is the next step if another application needs
-behavioral embedding rather than visual composition.
+without adopting tabs, a side rail, or an overlay. `ProfileWidgetComponent` is
+the current functional reusable in-flow widget with optional `id_prefix`
+namespacing and explicit host messages; the route layout remains only an
+adapter around the LiveView behavior. The only remaining release verification
+item is an authenticated hosted-browser recheck once a permitted browser test
+credential is supplied.

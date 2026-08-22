@@ -388,3 +388,9 @@ Final audit evidence for the reusable no-tabs widget amendment:
   tests. No KER or related issue was created: this is a presentation/component
   topology change with no provider, timeout, retry-budget, or API ownership
   change.
+- PR `#19` merged as `9a57dcdeb48373cb7d8a8c46aa4670fa5e0095c2` and deployed
+  frontend image `sha256:f40cc5bf549f4fac3cdca15946004d80b9aba1fdec46a4629592770bb9b63fb5`;
+  the container is healthy, three public probe samples returned HTTP 200, and
+  the static-token structured API smoke passed. An authenticated hosted widget
+  recheck was not run because the retained production environment has no browser
+  email/password; no production user was created implicitly.

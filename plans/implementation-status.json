@@ -184,14 +184,14 @@
       "gitSHA": "5c0309e",
       "packageVersion": "0.15.0"
     },
-    "parityCompletedAt": "2026-08-22T13:23:06Z",
+    "parityCompletedAt": "2026-08-22T15:05:34Z",
     "parityAdaptationADR": "ADR-HLLM-012",
     "parityRelease": {
-      "pullRequest": 17,
-      "commit": "7c55266b878fb894b78c4731ffc3a1d6bcedc04e",
+      "pullRequest": 19,
+      "commit": "9a57dcdeb48373cb7d8a8c46aa4670fa5e0095c2",
       "gatewayImage": "sha256:1dc2f2037176633ec338b47d99254bcdc5f15bd773d65d9683eb2b76bc5e757b",
-      "frontendImage": "sha256:3a8eb2bdc9096210a1c768c87d69c365fbe09b2f1b07d37c6c3d80b64263528d",
-      "deployedAt": "2026-08-22T13:16:30Z",
+      "frontendImage": "sha256:f40cc5bf549f4fac3cdca15946004d80b9aba1fdec46a4629592770bb9b63fb5",
+      "deployedAt": "2026-08-22T15:03:24Z",
       "dependabotAlertStatus": "patched in main and deployed; GitHub records pending rescan",
       "probes": {
         "apiHealthz": 200,
@@ -202,10 +202,11 @@
     },
     "parityVerification": {
       "phoenix": "Focused widget/workspace suite 17 passed; full deterministic frontend suite 85 passed, 3 excluded",
-      "browser": "Wallaby 2 passed at desktop and mobile in 102.4s; hosted compact/nested-fold smoke is required for the new release",
+      "browser": "Wallaby 2 passed at desktop and mobile in 102.4s; current hosted authenticated recheck was not run because production has no browser email/password",
       "backend": "make verify passed",
       "compose": "make test-compose passed",
-      "uiControlCoverage": "WEB-TEST-037 through WEB-TEST-039 cover profile/workspace inputs, buttons, no-tabs fold payloads, fallback/options interactions, write-only credential staging, profile mutations, and select-driven draft preservation; hosted smoke verifies the deployed widget and CPA GPT-5.6 Luna run output",
+      "uiControlCoverage": "WEB-TEST-037 through WEB-TEST-039 cover profile/workspace inputs, buttons, no-tabs fold payloads, fallback/options interactions, write-only credential staging, profile mutations, and select-driven draft preservation; the deployed image, public probes, and static-token API smoke pass, while authenticated hosted widget verification remains credential-bound",
+      "hostedAuthenticatedBrowser": "not run: production environment contains an API static token but no browser email/password; no production user was created implicitly",
       "embedding": {
         "status": "reusable-live-component",
         "contract": "ProfileWidgetComponent provides a compact utility-style LLM row plus nested in-flow profile/escalation folds; no tabs, side rail, fixed overlay, or required page-level navigation state; host owns routing/session messages",

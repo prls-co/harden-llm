@@ -4,7 +4,7 @@
 - Date: 2026-08-18
 - Last amended: 2026-08-22
 - Requirements: REQ-007, REQ-011, REQ-012, REQ-018, REQ-019 and `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`
-- Verification: WEB-TEST-031 through WEB-TEST-039, `make verify`, `make test-compose`, pinned Phoenix/browser gates, and hosted Playwright acceptance
+- Verification: WEB-TEST-031 through WEB-TEST-039, `make verify`, `make test-compose`, pinned Phoenix/browser gates, prior hosted Playwright acceptance, and current deployed image/probe verification
 
 ## Context
 
@@ -95,3 +95,11 @@ chooser, write-only credential staging, model refresh, profile CRUD, bundle
 import, and optional ID namespacing. It introduces no KER, timeout budget,
 provider policy, retry budget, or related issue because the backend contract and
 ownership boundaries are unchanged.
+
+The P07.S14 release merged as PR `#19` and deployed the frontend-only image
+from merged `main`. The public health/login probes and static-token API smoke
+passed. The authenticated hosted-browser recheck was not repeated because the
+retained production environment has no browser email/password; creating a
+production test user would add unrelated durable state. The local authenticated
+desktop/mobile browser workflow remains the deterministic verification of the
+complete widget interaction tree.
