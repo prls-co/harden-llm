@@ -103,13 +103,17 @@ had no `reasoningEffortMap`; the gateway correctly rejected the request before
 the provider call. The widget now derives its compact reasoning choices from
 the selected profile, disables the control when no portable mapping exists, and
 the server-side run builder strips stale unsupported reasoning (including a
-known unmapped repair-escalation profile). The backend's strict provider
-contract remains unchanged, and no credential, timeout, retry-budget, KER, or
-related issue was introduced.
+known unmapped repair-escalation profile). The first deployed guard also
+exposed an adjacent persistence edge: the parent state handler attempted to
+store an empty `reasoningByProfile` value for an unmapped profile. PR `#22`
+normalizes that map by omitting unsupported entries before the gateway state
+validation boundary. The backend's strict provider contract remains unchanged,
+and no credential, timeout, retry-budget, KER, or related issue was introduced.
 
-The P07.S14 release merged as PR `#19` and deployed the frontend-only image
-from merged `main`. The subsequent profile-capability fix is verified by
-WEB-TEST-040, the full pinned Phoenix suite, the desktop/mobile Chromium
-workflow, and the hosted browser check using the existing operator credentials
-already supplied through the production environment. No new production
-account was created and no credential value was persisted in tests or docs.
+PR `#19` delivered the reusable widget, PR `#21` delivered the capability guard,
+and PR `#22` delivered the persistence correction. The final merged release
+`d02bee8` is verified by WEB-TEST-040, the full pinned Phoenix suite, the
+desktop/mobile Chromium workflow, `make verify`, and the hosted browser check
+using the existing operator credentials already supplied through the production
+environment. No new production account was created and no credential value was
+persisted in tests or docs.

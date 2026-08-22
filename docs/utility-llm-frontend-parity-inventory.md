@@ -393,9 +393,17 @@ Final audit evidence for the reusable no-tabs widget amendment:
   tests. No KER or related issue was created: this is a presentation/component
   topology change with no provider, timeout, retry-budget, or API ownership
   change.
-- PR `#19` merged as `9a57dcdeb48373cb7d8a8c46aa4670fa5e0095c2` and deployed
-  frontend image `sha256:f40cc5bf549f4fac3cdca15946004d80b9aba1fdec46a4629592770bb9b63fb5`;
-  the container is healthy, three public probe samples returned HTTP 200, and
-  the static-token structured API smoke passed. An authenticated hosted widget
-  recheck was not run because the retained production environment has no browser
-  email/password; no production user was created implicitly.
+- PR `#21` merged the profile-aware reasoning guard as `93b7362`; its hosted
+  replay found that selecting a no-map profile could still persist an empty
+  `reasoningByProfile` value. PR `#22` merged as `d02bee8` and removes that
+  unsupported entry before state validation. WEB-TEST-040 covers both the
+  disabled UI control and the persisted/run-payload boundary.
+- The final frontend image is
+  `sha256:a208f39bf3f61d706fdf1ad3bd17e2598795438bce92e7f2d3ab6953d7d0671f`;
+  the container is healthy and frontend/API health, readiness, and login
+  probes returned HTTP 200. The authenticated hosted browser check used the
+  existing production credentials, ran `CurlStructured` with CPA
+  `gpt-5.6-luna`, opened all eight nested folds, returned real output, omitted
+  unsupported `reasoningEffort`, and reported no horizontal overflow at desktop
+  or mobile widths. No KER or related issue was created because the backend
+  contract, provider policy, retry budget, and timeout semantics are unchanged.

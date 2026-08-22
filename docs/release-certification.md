@@ -22,7 +22,7 @@ Detailed command output belongs under ignored
 | Source package | `@prls-co/utility-llm` `0.14.6` |
 | Current frontend parity source | `utility-llm` `5c0309e` / `0.15.0` |
 | Current profile catalog source | `examples/react-trace-studio/llm-profile-catalog.json` at `utility-llm` `5c0309e2508dc5b7a87d0880c8d794123353c5b0`; SHA-256 `864552eb5e8bf63de590704ef65c2e45ad228e7cc15d4af048609e680348b2f9` |
-| Current merged release | PR `#19` / `9a57dcdeb48373cb7d8a8c46aa4670fa5e0095c2` |
+| Current merged release | PR `#22` / `d02bee8` (follow-up to profile-aware PR `#21` / `93b7362`) |
 | Security dependency remediation | `github.com/getkin/kin-openapi` `v0.144.0` |
 | Parity manifest SHA-256 | `973f138211910fbe58deca867d1569adf2b9660b53e1441a3607570e1f2c98a6` |
 | Langfuse release / commit | `v3.212.0` / `3a572984276dd2dc2f8f77f1b2aadb799aa17fdf` |
@@ -70,7 +70,7 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | P07.S12 browser fold event serialization correction | `31d3106` | complete; PR `#16` merged and deployed |
 | P07.S13 workspace draft preservation for select events | `7c55266` | complete; PR `#17` merged and deployed |
 | P07.S14 reusable no-tabs embedded profile widget | `9a57dcd` | implementation complete; PR `#19` merged and deployed |
-| P07.S15 profile-aware reasoning capability guard | pending publication | local implementation and hosted pre-fix diagnosis complete; final deployment verification pending |
+| P07.S15 profile-aware reasoning capability guard | `d02bee8` | complete; PR `#22` merged, deployed, and verified by authenticated hosted browser |
 | kin-openapi security remediation | `2c1a34f` | complete; patched release `v0.144.0` |
 
 ## Final gate record
@@ -102,7 +102,7 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | P07.S14 production frontend image | pass: image `sha256:f40cc5bf549f4fac3cdca15946004d80b9aba1fdec46a4629592770bb9b63fb5`, OCI release `9a57dcd`, container healthy; gateway remained healthy at release `8f69e2b` / `sha256:1dc2f2037176633ec338b47d99254bcdc5f15bd773d65d9683eb2b76bc5e757b` |
 | P07.S14 public probes and API smoke | pass: three consecutive samples returned HTTP 200 for frontend `/healthz` and `/login`, API `/healthz` and `/readyz`; the real static-token structured API smoke also passed |
 | P07.S15 profile-capability regression | pass locally: WEB-TEST-040, focused workspace/widget 18 passed, full Phoenix 86 passed/3 excluded, pinned desktop/mobile Chromium 2 passed, and the browser failure was reproduced as an unsupported reasoning option before the outbound CPA call |
-| P07.S15 authenticated hosted browser recheck | pending deployment of the profile-aware frontend fix; the existing operator credentials are available in the production environment and no new account is required |
+| P07.S15 authenticated hosted browser recheck | pass: existing operator credentials, `CurlStructured`/CPA `gpt-5.6-luna`, all eight nested folds, no desktop/mobile overflow, successful real output, and request JSON without unsupported `reasoningEffort` |
 | Tempo trace-ID normalization | pass: 31/32-character external IDs covered by regression tests; no timeout budget changed |
 | kin-openapi security alerts | code fix pass: `v0.144.0` is the first patched release for both alerts and CodeQL Go/JavaScript checks passed; GitHub alert records remained open at final readback pending Dependabot rescan |
 
@@ -130,7 +130,7 @@ next dependency-graph refresh, not an unpatched dependency in the release.
 
 | Surface | Production value |
 | --- | --- |
-| Release | frontend `9a57dcd`; gateway `8f69e2b` |
+| Release | frontend `d02bee8`; gateway `8f69e2b` |
 | Frontend | `https://harden-llm.prls.co` |
 | API gateway | `https://harden-llm-api.prls.co` |
 | Artifact endpoint | `https://harden-llm-artifacts.prls.co` |
@@ -284,6 +284,36 @@ Pre-publication P07.S15 evidence:
   unsupported values at the server-side run boundary. No KER, timeout budget,
   provider policy, or related issue was created.
 
+Final P07.S15 deployment evidence:
+
+- PR `#21` merged the profile-aware capability guard as `93b7362`; the hosted
+  replay then exposed one additional frontend-only edge: selecting a profile
+  without a reasoning map attempted to persist an empty
+  `reasoningByProfile` value. The gateway correctly rejected that invalid state
+  with HTTP 400. PR `#22` merged as `d02bee8` and removes unsupported entries
+  before state persistence; WEB-TEST-040 now covers this exact boundary.
+- The correct production Compose project was rebuilt and updated at `d02bee8`.
+  The frontend image is
+  `sha256:a208f39bf3f61d706fdf1ad3bd17e2598795438bce92e7f2d3ab6953d7d0671f`;
+  the gateway remains healthy at `8f69e2b` / image
+  `sha256:1dc2f2037176633ec338b47d99254bcdc5f15bd773d65d9683eb2b76bc5e757b`.
+  The web container is healthy and `/healthz`, `/login`, API `/healthz`, and
+  API `/readyz` each returned HTTP 200.
+- The authenticated hosted browser check used the existing production
+  environment credentials, selected `CurlStructured` at CPA
+  `https://cpa.prls.co/v1` with model `gpt-5.6-luna`, opened all eight main and
+  nested folds, and completed a real prompt. Desktop width 1425 and mobile
+  width 375 both reported zero horizontal overflow; the rendered request
+  omitted `reasoningEffort`. No secret or live output was persisted.
+- Deployment-method divergence: an initial build without the explicit
+  `-p harden-llm` project flag created an isolated duplicate web project. It was
+  removed immediately, along with only its newly-created temporary web-log
+  volume; the retained production `harden-llm_harden-llm-web-logs` volume and
+  all application data were left intact. The final build and update used the
+  existing `harden-llm` project.
+- P07.S15 is closed. It introduced no KER, timeout-budget, provider-policy, or
+  API-ownership change, so no KER or related issue was created.
+
 ## Certified invariants
 
 - The target runs without Firebase or the source repository.
@@ -306,5 +336,5 @@ without adopting tabs, a side rail, or an overlay. `ProfileWidgetComponent` is
 the current functional reusable in-flow widget with optional `id_prefix`
 namespacing and explicit host messages; the route layout remains only an
 adapter around the LiveView behavior. P07.S15 adds a profile-capability guard
-without changing the backend contract; its final hosted prompt verification is
-the remaining release step before this amendment is closed.
+without changing the backend contract, and its authenticated hosted prompt
+verification is complete at deployed release `d02bee8`.
