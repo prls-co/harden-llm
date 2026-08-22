@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-08-18
 - Requirements: REQ-007, REQ-011, REQ-012, REQ-018, REQ-019 and `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`
-- Verification: WEB-TEST-031 through WEB-TEST-036, `make verify`, `make test-compose`, and the pinned Phoenix/browser gates
+- Verification: WEB-TEST-031 through WEB-TEST-037, `make verify`, `make test-compose`, and the pinned Phoenix/browser gates
 
 ## Context
 
@@ -21,6 +21,14 @@ self-hosted architecture.
 - Keep `ProfilesLive` as the single owner of the full profile editor. Workspace
   model rows use a native editable datalist and deep links rather than copying
   a second nested editor into every workspace fold.
+- Keep profile editing and profile-delete confirmation in the normal document
+  flow. `New profile` expands an inline editor while the profile cards remain
+  visible; credential, options, retry/repair, and pricing controls are nested
+  folds. A viewport overlay is not used for these information-dense actions.
+- Use a compact vertical studio stack and profile cards rather than a wide
+  profile table or a workspace side rail. Emoji labels are presentation
+  affordances only; every action retains an accessible name and stable test
+  selector.
 - Keep profile defaults, retry policy, repair escalation, pricing, credentials,
   and provider execution backend-owned. The browser never sends a raw stored
   credential or creates a second provider execution path.
@@ -40,8 +48,11 @@ self-hosted architecture.
 The translated controls are functional through one Phoenix/Go/OpenAPI path and
 retain write-only credentials, redaction, owner authorization, and Postgres /
 Garage ownership. The visual structure is not byte-identical to React, and the
-utility quick-jump interaction is intentionally absent. The parity inventory is
-the requirement-level record: `docs/utility-llm-frontend-parity-inventory.md`.
+utility quick-jump interaction is intentionally absent. The 2026-08-22
+presentation amendment brings the layout topology closer to utility-llm:
+information-dense controls stay in one page and expand in flow instead of
+covering the surrounding content. The parity inventory is the
+requirement-level record: `docs/utility-llm-frontend-parity-inventory.md`.
 
 The Tempo smoke harness also normalizes a one-nibble leading-zero omission in
 Tempo's returned trace ID. This is a test-observation normalization only; it

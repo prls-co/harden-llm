@@ -1473,12 +1473,13 @@ Privacy and data-quality constraints:
 | --- | --- | --- | --- |
 | P07.S09 | `frontend/lib/harden_llm_web/live/workspace_live.ex`, `profiles_live.ex`, `history_live.ex`, `api/openapi.yaml`, Go state/run projections | WEB-TEST-031 through WEB-TEST-036 | pinned Phoenix suite, browser workflow, `make verify`, `make test-compose` |
 | P07.S10 | `internal/profiles/default-profile-catalog.json`, gateway profile resources, Postgres seed, provider preparation | TEST-017 | `go test ./... -count=1`; tagged Postgres seed test |
+| P07.S11 | `frontend/assets/css/app.css`, `frontend/lib/harden_llm_web/live/profiles_live.html.heex`, `workspace_live.html.heex`, profile/workspace/rendering/browser tests, parity docs | WEB-TEST-037 plus WEB-TEST-006, WEB-TEST-007, WEB-TEST-010, WEB-TEST-011 | pinned Phoenix format/compile/live tests, desktop/mobile browser workflow, deployed Playwright audit |
 
 ## 11. Execution log
 
 ### Phase Status
 
-- Phase: P07 plus P07.S09 frontend parity closeout amendment
+- Phase: P07 plus P07.S09-P07.S11 frontend parity closeout amendments
 - Status: Complete after final publication and deployment verification
 - Target SHA: `2c1a34f9737dd50b6af387c449f63d9299b166d1` (PR `#4`)
 - Backend source fixture SHA: `09769424ca34b9d759e273a7e9dccf4fd00a5f6c`
@@ -1492,6 +1493,7 @@ Privacy and data-quality constraints:
 | P07 deterministic closure | Pass | `make verify` |
 | P07 full Compose correlation | Pass after harness normalization | `make test-compose`; `internal/smoke/tempo_trace_id.go` |
 | P07.S09 utility frontend parity audit | Implemented and tested | `docs/utility-llm-frontend-parity-inventory.md`; WEB-TEST-031..036 |
+| P07.S11 utility layout topology and interaction coverage | Implemented and tested: inline profile/delete folds, compact profile cards, single-column studio stack, and control matrix | `docs/utility-llm-frontend-parity-inventory.md`; WEB-TEST-037; pinned Phoenix/browser gates; deployed Playwright audit |
 | Final frontend validation | Pass: Phoenix 77 passed/3 excluded; browser 2 passed | `frontend/` test suites |
 | Publication and deployment | Pass: PR `#4` merged as `2c1a34f`; gateway/frontend images healthy; public API and frontend probes HTTP 200 | `docs/release-certification.md` |
 
@@ -1501,8 +1503,8 @@ Privacy and data-quality constraints:
 | --- | --- | --- | --- |
 | `make verify` | Pass; `govulncheck` reported zero called vulnerabilities | exit 0 | Accepted |
 | `make test-compose` | Pass in 183.924s after the trace-ID parser fix and kin-openapi upgrade; earlier parity run was 176.997s | full correlation | Accepted |
-| Phoenix suite | 77 passed, 3 excluded | formatter, warnings-as-errors, unit suite | Accepted |
-| Browser workflow | 2 passed | desktop and mobile | Accepted |
+| Phoenix suite | Baseline was 77 passed, 3 excluded; P07.S11 focused suite 29 passed | formatter, warnings-as-errors, unit suite | Accepted |
+| Browser workflow | 2 passed in 92.7s after P07.S11 UI changes | desktop and mobile | Accepted |
 
 ### Issues/Resolutions
 
@@ -1523,6 +1525,7 @@ Privacy and data-quality constraints:
 | --- | --- | --- | --- |
 | Initial frontend P07 baseline only | Added a post-P07 parity amendment covering the current utility frontend | The source-derived inventory found missing functional controls after the original frontend certification | ADR-HLLM-012 |
 | Utility Downshift inline/editor and offset quick-jump behavior | Native editable datalist/deep-link profile ownership and cursor/limit history | Preserve one Phoenix/Go owner and the authoritative cursor REST contract | ADR-HLLM-012 |
+| Profile modal/editor and wide table/side-rail topology | In-flow profile/delete folds, compact profile cards, and one vertical Workspace stack | The requested utility-llm information density keeps surrounding facts visible and avoids overlay-hidden controls | ADR-HLLM-012 |
 | Timeout RCA record | No new KER | The Tempo correction changed parsing only; no timeout or budget changed | None |
 | Production routing values | Public `*.prls.co` hostnames with tunnel-trusted private-PKI `internal` TLS | The first deployment inherited development `*.harden.localhost` values and returned 502; the corrected effective Compose config passed health/readiness probes | Release certification |
 
@@ -1531,12 +1534,15 @@ Privacy and data-quality constraints:
 - The frontend source inventory is a living audit input. Keep source revision,
   self-hosted adaptations, executable WEB tests, and the release record aligned
   when the utility frontend changes.
+- P07.S11 introduced no KER or timeout-budget change and no related issue was
+  created; the layout decision and interaction evidence are tracked by
+  ADR-HLLM-012, WEB-TEST-037, and the release certification.
 
 ### ADR Updates
 
 | ADR | Status | Decision |
 | --- | --- | --- |
-| ADR-HLLM-012 | Accepted | Complete the utility frontend behavior through one self-hosted Phoenix/Go path with explicit editor, pagination, and infrastructure adaptations. |
+| ADR-HLLM-012 | Accepted | Complete the utility frontend behavior through one self-hosted Phoenix/Go path with explicit editor, pagination, infrastructure, and in-flow layout adaptations. |
 | ADR-HLLM-013 | Accepted | Embed the current 28-profile utility-llm catalog and backfill missing owner presets without credentials or overwrite. |
 
 ### Post-certification profile catalog amendment
