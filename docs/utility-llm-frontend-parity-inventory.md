@@ -296,6 +296,7 @@ The parity implementation is present in the self-hosted checkout:
 - The workspace exposes advanced input, schema generation/check/clear actions, output copy, attempt/usage/cost/cache facts, a local LLM statistics summary, and a richer recent-history view. History is loaded lazily, supports restore/delete/clear, and preserves typed custom profile values.
 - `ProfilesLive` exposes write-only credential staging, ordered backup editing, common provider options plus source JSON, retry/repair controls, escalation metadata, all five pricing rates, model refresh, bundle import/export, and the existing CRUD actions.
 - The 2026-08-22 UI pass replaces profile and delete overlays with in-flow `#profile-editor` / `#profile-delete-panel` folds, replaces the wide profile table with responsive compact cards, and applies the utility warm-card/emoji control language to both Profiles and the single-column Workspace stack.
+- The 2026-08-22 fold-event correction uses `phx-value-open` rather than the reserved `phx-value-value` key, and the real browser workflow verifies that model, advanced-input, retry, history, and output folds open through the LiveView socket.
 - Workspace model and escalation controls deep-link to that canonical profile editor; new-profile credential fields open automatically while existing-profile edits keep stored credentials behind a closed write-only drawer.
 - `HistoryLive` exposes expandable request/result records, result and credential-free cURL copy, page-size controls over the cursor API, trace observations, artifact links, restore, delete, and clear.
 - The Go state and run contracts now carry the prompt draft, persisted UI flags, model override, explicit bounded retry controls, repair escalation, and run timeout. OpenAPI and backend validation were updated together.
@@ -322,6 +323,9 @@ unimplemented frontend behavior:
   URLs, and Blob-download implementation are replaced by Phoenix sessions,
   Go/Postgres state, backend execution, same-origin artifact authorization,
   and the existing profile bundle route.
+- Browser serialization is part of the parity contract: deterministic
+  `render_click` coverage is paired with real desktop/mobile browser clicks so
+  native HTML control properties cannot silently replace LiveView payloads.
 
 The implementation is complete only when the checked-in Go gates, Phoenix
 LiveView suite, browser workflow, formatter/static checks, and

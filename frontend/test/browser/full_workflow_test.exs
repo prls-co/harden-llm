@@ -54,6 +54,14 @@ defmodule HardenLlmWeb.FullWorkflowTest do
       |> assert_has(Query.css("#backend-status", text: "Backend ready"))
       |> assert_live_socket_connected()
       |> assert_no_horizontal_overflow()
+      |> click(Query.css("#model-config-toggle"))
+      |> assert_has(Query.css("#model-options"))
+      |> click(Query.css("#input-advanced-toggle"))
+      |> assert_has(Query.css("#advanced-input"))
+      |> click(Query.css("#retry-repair-toggle"))
+      |> assert_has(Query.css("#retry-repair-controls"))
+      |> click(Query.css("#history-fold-toggle"))
+      |> assert_has(Query.css("#workspace-history"))
 
     refute page_source(session) =~ "browser-fixture-token-that-never-leaves-the-server"
 
@@ -103,6 +111,12 @@ defmodule HardenLlmWeb.FullWorkflowTest do
       |> click(Query.css("#run-submit"))
       |> assert_has(Query.css("#run-output", text: "deterministic browser output"))
       |> assert_has(Query.css("#run-result-panel", text: "trace-browser"))
+      |> click(Query.css("#output-details-toggle"))
+      |> assert_has(Query.css("#output-details"))
+      |> click(Query.css("#show-run-request"))
+      |> assert_has(Query.css("#run-request"))
+      |> click(Query.css("#show-run-response"))
+      |> assert_has(Query.css("#run-response"))
       |> assert_no_horizontal_overflow()
       |> click(Query.css("#nav-history"))
       |> assert_has(Query.css("#history-run-browser"))

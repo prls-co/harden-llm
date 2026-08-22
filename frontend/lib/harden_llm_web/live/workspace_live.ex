@@ -340,7 +340,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
      )}
   end
 
-  def handle_event("toggle-ui", %{"name" => name, "value" => value}, socket)
+  def handle_event("toggle-ui", %{"name" => name, "open" => value}, socket)
       when name in @ui_keys do
     if socket.assigns.ui_save_pending? do
       {:noreply, socket}
