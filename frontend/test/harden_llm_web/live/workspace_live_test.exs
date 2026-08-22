@@ -555,6 +555,59 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, ~s(#workspace-profile-options option[value="CPA GPT-5.6 Luna"]))
   end
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-040
+  test "omits portable reasoning for a profile without a reasoning map", %{conn: conn} do
+    test_pid = self()
+    custom = widget_profile_without_reasoning("Custom LLM", "custom-model")
+
+    state =
+      APIFixtures.state()
+      |> Map.put("selectedProfileId", "Custom LLM")
+      |> Map.put("modelId", "custom-model")
+
+    Req.Test.stub(HardenAPI, fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/auth/session"} ->
+          Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
+
+        {"GET", "/api/v1/state"} ->
+          Req.Test.json(conn, APIFixtures.success(nil, state))
+
+        {"GET", "/api/v1/profiles"} ->
+          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [custom]}))
+
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          Req.Test.json(conn, APIFixtures.success(nil, Jason.decode!(body)))
+
+        {"POST", "/api/v1/run"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          send(test_pid, {:unmapped_run_payload, Jason.decode!(body)})
+          Req.Test.json(conn, APIFixtures.success(APIFixtures.run_result()))
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+
+    assert has_element?(view, ~s(#workspace-reasoning[disabled]))
+    assert has_element?(view, ~s(#workspace-reasoning option[value=""][selected]))
+
+    submit_run(view, %{
+      "selectedProfileId" => "Custom LLM",
+      "modelId" => "custom-model"
+    })
+
+    render_async(view, 1_000)
+
+    assert_received {:unmapped_run_payload, payload}
+    refute Map.has_key?(payload, "reasoningEffort")
+    assert has_element?(view, "#run-output", "fixture output")
+  end
+
   test "workspace history restores and deletes records through the self-hosted API", %{conn: conn} do
     test_pid = self()
     {:ok, history_calls} = Agent.start_link(fn -> 0 end)
@@ -937,6 +990,14 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     )
     |> put_in(["profile", "defaultOptions"], options)
     |> put_in(
+      ["profile", "reasoningEffortMap"],
+      %{
+        "lowest" => %{"reasoning" => %{"effort" => "low"}},
+        "middle" => %{"reasoning" => %{"effort" => "medium"}},
+        "highest" => %{"reasoning" => %{"effort" => "high"}}
+      }
+    )
+    |> put_in(
       ["profile", "pricing"],
       %{
         "input_cost_per_token" => 0.0000002,
@@ -947,6 +1008,11 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       }
     )
     |> put_in(["credential", "credentialId"], "credential-#{profile_id}")
+  end
+
+  defp widget_profile_without_reasoning(profile_id, model_id) do
+    widget_profile(profile_id, model_id)
+    |> update_in(["profile"], &Map.delete(&1, "reasoningEffortMap"))
   end
 
   defp submit_run(view, overrides) do

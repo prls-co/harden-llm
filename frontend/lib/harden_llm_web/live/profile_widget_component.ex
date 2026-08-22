@@ -19,6 +19,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     {"Anthropic Messages", "anthropic-messages"}
   ]
 
+  @reasoning_options [{"lowest", "L"}, {"middle", "M"}, {"highest", "H"}]
+
   @fold_keys ~w(
     main_identity_open main_credential_open main_fallback_open main_options_open
     main_retry_open main_pricing_open escalation_identity_open escalation_credential_open
@@ -94,7 +96,14 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
     {:ok,
      socket
-     |> assign(:reasoning_effort, Map.get(assigns, :reasoning_effort, "lowest"))
+     |> assign(
+       :reasoning_effort,
+       normalize_reasoning_effort(
+         profiles,
+         selected_profile_id,
+         Map.get(assigns, :reasoning_effort, "lowest")
+       )
+     )
      |> assign(:cache_mode, Map.get(assigns, :cache_mode, "off"))}
   end
 
@@ -114,11 +123,20 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     socket = reset_profile_forms(socket, socket.assigns.profiles, selected_profile_id)
     model_id = socket.assigns.main_form.params["modelId"] || ""
 
+    reasoning_effort =
+      normalize_reasoning_effort(
+        socket.assigns.profiles,
+        selected_profile_id,
+        socket.assigns.reasoning_effort
+      )
+
     socket
     |> assign(:loaded_profile_id, selected_profile_id)
     |> assign(:main_dirty?, false)
+    |> assign(:reasoning_effort, reasoning_effort)
     |> notify_parent({:profile_widget_selection, selected_profile_id})
     |> notify_parent({:profile_widget_control, "modelId", model_id})
+    |> notify_parent({:profile_widget_control, "reasoningEffort", reasoning_effort})
     |> noreply()
   end
 
@@ -570,10 +588,22 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             class="ullm-input ullm-compact-select"
             phx-change="workspace-control"
             phx-target={@myself}
+            disabled={reasoning_options(@profiles, @selected_profile_id) == []}
           >
-            <option value="lowest" selected={@reasoning_effort in [nil, "lowest"]}>L</option>
-            <option value="middle" selected={@reasoning_effort == "middle"}>M</option>
-            <option value="highest" selected={@reasoning_effort == "highest"}>H</option>
+            <option
+              :if={reasoning_options(@profiles, @selected_profile_id) == []}
+              value=""
+              selected
+            >
+              —
+            </option>
+            <option
+              :for={{value, label} <- reasoning_options(@profiles, @selected_profile_id)}
+              value={value}
+              selected={@reasoning_effort == value}
+            >
+              {label}
+            </option>
           </select>
         </div>
         <button
@@ -1164,18 +1194,21 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
                   aria-label="Reasoning"
                   phx-change="profile-draft-change"
                   phx-target={@target}
+                  disabled={escalation_reasoning_options(@profiles, @form) == []}
                 >
-                  <option value="lowest" selected={@form[:escalationReasoning].value == "lowest"}>
-                    L
-                  </option>
-                  <option value="middle" selected={@form[:escalationReasoning].value == "middle"}>
-                    M
+                  <option
+                    :if={escalation_reasoning_options(@profiles, @form) == []}
+                    value=""
+                    selected
+                  >
+                    —
                   </option>
                   <option
-                    value="highest"
-                    selected={@form[:escalationReasoning].value in [nil, "highest"]}
+                    :for={{value, label} <- escalation_reasoning_options(@profiles, @form)}
+                    value={value}
+                    selected={@form[:escalationReasoning].value == value}
                   >
-                    H
+                    {label}
                   </option>
                 </select>
               </div>
@@ -1706,6 +1739,47 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     |> Enum.find(%{}, &(profile_id_from_state(&1) == id))
     |> get_in(["profile", "models"])
     |> Kernel.||([])
+  end
+
+  defp reasoning_options(profiles, selected_profile_id) do
+    selected_profile_id = String.trim(to_string(selected_profile_id || ""))
+
+    cond do
+      selected_profile_id == "" ->
+        @reasoning_options
+
+      true ->
+        case Enum.find(profiles, &(profile_id_from_state(&1) == selected_profile_id)) do
+          %{} = profile_state ->
+            case get_in(profile_state, ["profile", "reasoningEffortMap"]) do
+              map when is_map(map) ->
+                Enum.filter(@reasoning_options, fn {value, _label} ->
+                  Map.has_key?(map, value)
+                end)
+
+              _ ->
+                []
+            end
+
+          _ ->
+            []
+        end
+    end
+  end
+
+  defp normalize_reasoning_effort(profiles, selected_profile_id, current) do
+    case reasoning_options(profiles, selected_profile_id) do
+      [] ->
+        ""
+
+      options ->
+        values = Enum.map(options, &elem(&1, 0))
+        if current in values, do: current, else: hd(values)
+    end
+  end
+
+  defp escalation_reasoning_options(profiles, form) do
+    reasoning_options(profiles, form[:escalationProfile].value)
   end
 
   defp available_backup_profiles(profiles, id),

@@ -300,6 +300,7 @@ The parity implementation is present in the self-hosted checkout:
 - The 2026-08-22 workspace draft correction merges field-local `phx-change` events from the Reasoning and Cache selects into the current draft, preserving the selected profile before submit.
 - The studio surfaces are intentionally component-oriented for embedding: `#workspace-page` and `#profiles-page` are single vertical stacks with stable `studio-page` / `studio-stack` / `studio-card` / `studio-fold` roots, no tabs or side rail, no fixed overlay, and in-flow folds. The canonical Workspace profile surface is the reusable `HardenLlmWeb.ProfileWidgetComponent` at `#workspace-llm-widget`; `Layouts.app` is only a route adapter.
 - `ProfileWidgetComponent` provides the utility-like compact LLM row, profile/API/credential/model/fallback controls, Options, Retries & Repair, nested Escalation Model configuration, Pricing, bundle actions, and in-flow delete confirmation. Its optional `id_prefix` namespaces controls when a host embeds more than one instance; the host owns routing/session orchestration through the existing message and OpenAPI boundaries.
+- The reasoning selector is capability-aware: seeded profiles expose only the levels in their `reasoningEffortMap`, while a custom profile without a map shows a disabled placeholder. `WorkspaceLive` repeats that check when building the run request so stale persisted reasoning cannot produce a provider-preparation failure before the request reaches the provider. WEB-TEST-040 covers the unmapped-profile boundary.
 - Workspace model and escalation controls can still deep-link to the canonical `/profiles` editor; new-profile credential fields open automatically while existing-profile edits keep stored credentials behind a closed write-only drawer.
 - `HistoryLive` exposes expandable request/result records, result and credential-free cURL copy, page-size controls over the cursor API, trace observations, artifact links, restore, delete, and clear.
 - The Go state and run contracts now carry the prompt draft, persisted UI flags, model override, explicit bounded retry controls, repair escalation, and run timeout. OpenAPI and backend validation were updated together.
@@ -379,6 +380,10 @@ Final audit evidence for the reusable no-tabs widget amendment:
   action; `WEB-TEST-039` covers staged credentials, save, refresh, delete, and
   bundle import delegation. The focused widget suite passed 17 tests and the
   full deterministic frontend suite passed 85 tests with 3 excluded.
+- `WEB-TEST-040` covers profile-aware reasoning choices and the stale-state
+  guard for custom profiles without a reasoning map. The focused workspace
+  suite passed 18 tests and the full deterministic frontend suite passed 86
+  tests with 3 excluded.
 - The pinned Chromium desktop/mobile workflow passed 2 tests in 102.4 seconds.
   It opened the main Options, Retries & Repair, Pricing, Escalation Model, and
   nested Options folds through the real LiveView socket without tabs, overlays,

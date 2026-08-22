@@ -239,6 +239,12 @@
                       label="Parse / Schema Errors"
                     />
                   </div>
+                  <% escalation_profile_id =
+                    String.trim(
+                      @form[:repairEscalationProfileId].value || @form[:selectedProfileId].value || ""
+                    ) %>
+                  <% escalation_reasoning_options =
+                    reasoning_options(@profiles, escalation_profile_id) %>
                   <div class="grid gap-4 sm:grid-cols-4">
                     <div>
                       <.input
@@ -269,11 +275,12 @@
                       field={@form[:repairEscalationReasoning]}
                       type="select"
                       label="Escalation reasoning"
-                      options={[
-                        {"Lowest", "lowest"},
-                        {"Middle", "middle"},
-                        {"Highest", "highest"}
-                      ]}
+                      options={
+                        if escalation_reasoning_options == [],
+                          do: [{"Unavailable for this profile", ""}],
+                          else: escalation_reasoning_options
+                      }
+                      disabled={escalation_reasoning_options == []}
                     />
                   </div>
                   <div class="flex flex-wrap gap-2">
@@ -344,7 +351,7 @@
                 id="copy-run-curl"
                 type="button"
                 phx-hook="Clipboard"
-                data-copy-value={run_curl(@form.params)}
+                data-copy-value={run_curl(@form.params, @profiles)}
                 class="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800"
               >📋 Copy cURL</button>
             </div>
@@ -421,7 +428,7 @@
                   <pre
                     id="run-request"
                     class="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-slate-900 p-3"
-                  ><%= run_request_json(@form.params) %></pre>
+                  ><%= run_request_json(@form.params, @profiles) %></pre>
                 </div>
                 <div :if={@output_response_open?} id="run-response-section" class="space-y-1">
                   <h3 class="font-semibold text-slate-200">Response</h3>

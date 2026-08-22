@@ -63,6 +63,11 @@ defmodule HardenLlmWeb.APIFixtures do
         "tokensParam" => nil,
         "responsesTokensParam" => "max_output_tokens",
         "defaultOptions" => %{},
+        "reasoningEffortMap" => %{
+          "lowest" => %{"reasoning" => %{"effort" => "low"}},
+          "middle" => %{"reasoning" => %{"effort" => "medium"}},
+          "highest" => %{"reasoning" => %{"effort" => "high"}}
+        },
         "backupProfiles" => [],
         "models" => [%{"id" => "model-test", "label" => "Model Test"}]
       },

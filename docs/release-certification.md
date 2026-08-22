@@ -7,7 +7,8 @@ validation refresh, the 2026-08-16 merged production handoff, the
 profile-catalog backfill deployment, and the 2026-08-19 P07.S10 runtime
 credential correction and final application deployment. It also records the
 2026-08-22 P07.S11-P07.S13 visual-topology, browser-fold, and workspace-draft
-corrections, and the P07.S14 reusable no-tabs widget deployment.
+corrections, the P07.S14 reusable no-tabs widget deployment, and the P07.S15
+profile-aware reasoning correction.
 Detailed command output belongs under ignored
 `plans/evidence/harden-llm/<run-id>/`; secrets and live provider output never do.
 
@@ -69,6 +70,7 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | P07.S12 browser fold event serialization correction | `31d3106` | complete; PR `#16` merged and deployed |
 | P07.S13 workspace draft preservation for select events | `7c55266` | complete; PR `#17` merged and deployed |
 | P07.S14 reusable no-tabs embedded profile widget | `9a57dcd` | implementation complete; PR `#19` merged and deployed |
+| P07.S15 profile-aware reasoning capability guard | pending publication | local implementation and hosted pre-fix diagnosis complete; final deployment verification pending |
 | kin-openapi security remediation | `2c1a34f` | complete; patched release `v0.144.0` |
 
 ## Final gate record
@@ -99,7 +101,8 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | P07.S14 embedded widget gate | pass: PR `#19` merged as `9a57dcd`; pinned Phoenix suite 85 passed/3 excluded; desktop/mobile Chromium 2 passed in 102.4s; `make verify` passed; no tabs, nested profile folds, fallback/options behavior, credential staging, CRUD, and bundle delegation are covered |
 | P07.S14 production frontend image | pass: image `sha256:f40cc5bf549f4fac3cdca15946004d80b9aba1fdec46a4629592770bb9b63fb5`, OCI release `9a57dcd`, container healthy; gateway remained healthy at release `8f69e2b` / `sha256:1dc2f2037176633ec338b47d99254bcdc5f15bd773d65d9683eb2b76bc5e757b` |
 | P07.S14 public probes and API smoke | pass: three consecutive samples returned HTTP 200 for frontend `/healthz` and `/login`, API `/healthz` and `/readyz`; the real static-token structured API smoke also passed |
-| P07.S14 authenticated hosted browser recheck | not run: the production environment has an API static token but no browser email/password; no production user was created implicitly. The pinned authenticated desktop/mobile Chromium workflow remains green locally |
+| P07.S15 profile-capability regression | pass locally: WEB-TEST-040, focused workspace/widget 18 passed, full Phoenix 86 passed/3 excluded, pinned desktop/mobile Chromium 2 passed, and the browser failure was reproduced as an unsupported reasoning option before the outbound CPA call |
+| P07.S15 authenticated hosted browser recheck | pending deployment of the profile-aware frontend fix; the existing operator credentials are available in the production environment and no new account is required |
 | Tempo trace-ID normalization | pass: 31/32-character external IDs covered by regression tests; no timeout budget changed |
 | kin-openapi security alerts | code fix pass: `v0.144.0` is the first patched release for both alerts and CodeQL Go/JavaScript checks passed; GitHub alert records remained open at final readback pending Dependabot rescan |
 
@@ -263,9 +266,23 @@ was built from clean local `main` and deployed as the frontend-only release
 the gateway stayed at healthy release `8f69e2b`. The new frontend container
 reported healthy, three public probe samples returned HTTP 200 for both
 frontend endpoints and both API endpoints, and the static-token structured API
-smoke passed. The full authenticated hosted browser recheck was not run because
-the retained production environment has no browser login credentials; no new
-production account was created for this verification.
+smoke passed. The pre-fix browser run exposed a profile capability mismatch. The
+retained production environment already contains the operator email/password
+needed for the follow-up; no new production account was created. P07.S15 carries
+the profile-aware fix and final hosted verification.
+
+Pre-publication P07.S15 evidence:
+
+- WEB-TEST-040 passed. The focused workspace/widget suite passed 18 tests; the
+  full deterministic Phoenix suite passed 86 tests with 3 excluded.
+- The pinned Chromium desktop/mobile workflow passed 2 tests. The hosted
+  diagnostic logged a 502 before any CPA request because `CurlStructured` had
+  no reasoning map while the browser sent `reasoningEffort: "lowest"`; direct
+  CPA and gateway requests without that unsupported field returned 200.
+- The fix keeps the backend's strict unsupported-reasoning validation, derives
+  the compact selector from profile capability metadata, and strips stale
+  unsupported values at the server-side run boundary. No KER, timeout budget,
+  provider policy, or related issue was created.
 
 ## Certified invariants
 
@@ -288,6 +305,6 @@ single-column, stable-root visual surfaces that can sit inside a host shell
 without adopting tabs, a side rail, or an overlay. `ProfileWidgetComponent` is
 the current functional reusable in-flow widget with optional `id_prefix`
 namespacing and explicit host messages; the route layout remains only an
-adapter around the LiveView behavior. The only remaining release verification
-item is an authenticated hosted-browser recheck once a permitted browser test
-credential is supplied.
+adapter around the LiveView behavior. P07.S15 adds a profile-capability guard
+without changing the backend contract; its final hosted prompt verification is
+the remaining release step before this amendment is closed.
