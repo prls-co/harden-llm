@@ -964,9 +964,16 @@ defmodule HardenLlmWeb.WorkspaceLive do
     reasoning_effort = params["reasoningEffort"] || "lowest"
 
     reasoning_by_profile =
-      if profile_id == "",
-        do: existing_reasoning_by_profile,
-        else: Map.put(existing_reasoning_by_profile, profile_id, reasoning_effort)
+      cond do
+        profile_id == "" ->
+          existing_reasoning_by_profile
+
+        reasoning_effort in ["lowest", "middle", "highest"] ->
+          Map.put(existing_reasoning_by_profile, profile_id, reasoning_effort)
+
+        true ->
+          Map.delete(existing_reasoning_by_profile, profile_id)
+      end
 
     %{
       "schemaVersion" => 1,
