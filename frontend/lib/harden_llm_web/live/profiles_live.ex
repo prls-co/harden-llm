@@ -41,6 +41,9 @@ defmodule HardenLlmWeb.ProfilesLive do
     "pricingReasoning" => ""
   }
 
+  @doc "Returns the blank profile editor shape used by reusable profile controls."
+  def empty_form, do: @empty_form
+
   @impl true
   def mount(_params, _session, socket) do
     socket =
@@ -485,7 +488,8 @@ defmodule HardenLlmWeb.ProfilesLive do
     |> reset_sections()
   end
 
-  defp profile_form(profile_state) do
+  @doc "Converts a backend profile state into the editable profile form shape."
+  def profile_form(profile_state) do
     profile = profile_state["profile"] || %{}
     credential = profile_state["credential"] || %{}
     options = profile["defaultOptions"] || %{}
@@ -532,7 +536,8 @@ defmodule HardenLlmWeb.ProfilesLive do
     })
   end
 
-  defp profile_payload(params) do
+  @doc "Builds the backend profile payload while preserving credential safety."
+  def profile_payload(params) do
     with {:ok, options} <- options_payload(params),
          {:ok, pricing} <- pricing_payload(params) do
       credential = String.trim(params["apiKey"] || "")

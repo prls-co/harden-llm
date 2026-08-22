@@ -175,7 +175,8 @@
       "WEB-TEST-005", "WEB-TEST-006", "WEB-TEST-007", "WEB-TEST-008",
       "WEB-TEST-009", "WEB-TEST-010", "WEB-TEST-011", "WEB-TEST-012",
       "WEB-TEST-031", "WEB-TEST-032", "WEB-TEST-033", "WEB-TEST-034",
-      "WEB-TEST-035", "WEB-TEST-036", "WEB-TEST-037"
+      "WEB-TEST-035", "WEB-TEST-036", "WEB-TEST-037", "WEB-TEST-038",
+      "WEB-TEST-039"
     ],
     "parityInventory": "docs/utility-llm-frontend-parity-inventory.md",
     "paritySource": {
@@ -200,21 +201,21 @@
       }
     },
     "parityVerification": {
-      "phoenix": "Focused workspace/rendering suite 20 passed; full deterministic frontend suite 83 passed, 3 excluded",
-      "browser": "Wallaby 2 passed at desktop and mobile in 99.3s; deployed Playwright passed desktop/mobile fold, profile, responsive, and no-error checks",
+      "phoenix": "Focused widget/workspace suite 17 passed; full deterministic frontend suite 85 passed, 3 excluded",
+      "browser": "Wallaby 2 passed at desktop and mobile in 102.4s; hosted compact/nested-fold smoke is required for the new release",
       "backend": "make verify passed",
       "compose": "make test-compose passed",
-      "uiControlCoverage": "WEB-TEST-037 covers all profile/workspace inputs, buttons, fold payloads, and select-driven draft preservation; hosted Playwright verified all 29 profile cards, inline editor actions, workspace folds, and CPA GPT-5.6 Luna run output",
+      "uiControlCoverage": "WEB-TEST-037 through WEB-TEST-039 cover profile/workspace inputs, buttons, no-tabs fold payloads, fallback/options interactions, write-only credential staging, profile mutations, and select-driven draft preservation; hosted smoke verifies the deployed widget and CPA GPT-5.6 Luna run output",
       "embedding": {
-        "status": "visual-component-oriented",
-        "contract": "Single vertical studio surfaces with stable roots and in-flow folds; no tabs, side rail, fixed overlay, or required page-level navigation state",
+        "status": "reusable-live-component",
+        "contract": "ProfileWidgetComponent provides a compact utility-style LLM row plus nested in-flow profile/escalation folds; no tabs, side rail, fixed overlay, or required page-level navigation state; host owns routing/session messages",
         "stableRoots": [
           "studio-page",
           "studio-stack",
           "studio-card",
           "studio-fold"
         ],
-        "routeShell": "Layouts.app remains an adapter shell; direct functional LiveComponent extraction is outside this parity slice"
+        "routeShell": "ProfileWidgetComponent is the current reusable in-flow widget; Layouts.app remains an adapter shell and optional id_prefix namespaces multiple host instances"
       }
     }
   }

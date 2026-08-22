@@ -1476,12 +1476,13 @@ Privacy and data-quality constraints:
 | P07.S11 | `frontend/assets/css/app.css`, `frontend/lib/harden_llm_web/live/profiles_live.html.heex`, `workspace_live.html.heex`, profile/workspace/rendering/browser tests, parity docs | WEB-TEST-037 plus WEB-TEST-006, WEB-TEST-007, WEB-TEST-010, WEB-TEST-011 | pinned Phoenix format/compile/live tests, desktop/mobile browser workflow, deployed Playwright audit |
 | P07.S12 | Workspace fold event payloads and browser regression coverage | WEB-TEST-037 plus deployed Playwright fold checks | pinned Phoenix suite and real browser event serialization; redeploy and public smoke |
 | P07.S13 | Workspace draft preservation for field-local browser change events | WEB-TEST-037 plus Wallaby select changes and deployed CPA run | merge partial `phx-change` maps, rerun deterministic/browser gates, and verify a real profile run |
+| P07.S14 | `ProfileWidgetComponent`, no-primary-navigation layout, nested profile folds, widget CSS, parity/ADR/status docs | WEB-TEST-038 and WEB-TEST-039 plus browser workflow | pinned Phoenix suite, desktop/mobile Chromium, publication, deployment, and hosted compact/nested-fold smoke |
 
 ## 11. Execution log
 
 ### Phase Status
 
-- Phase: P07 plus P07.S09-P07.S13 frontend parity closeout amendments
+- Phase: P07 plus P07.S09-P07.S14 frontend parity closeout amendments
 - Status: Complete after final publication and deployment verification
 - Target SHA: `7c55266b878fb894b78c4731ffc3a1d6bcedc04e` (PR `#17`)
 - Backend source fixture SHA: `09769424ca34b9d759e273a7e9dccf4fd00a5f6c`
@@ -1498,7 +1499,8 @@ Privacy and data-quality constraints:
 | P07.S11 utility layout topology and interaction coverage | Implemented and tested: inline profile/delete folds, compact profile cards, single-column studio stack, and control matrix | `docs/utility-llm-frontend-parity-inventory.md`; WEB-TEST-037; pinned Phoenix/browser gates; deployed Playwright audit |
 | P07.S12 workspace fold event serialization correction | Implemented: renamed the browser fold-state payload from reserved `phx-value-value` to `phx-value-open` and added browser assertions for model, advanced input, retry, and history folds | `frontend/lib/harden_llm_web/live/workspace_live.html.heex`; WEB-TEST-037; browser workflow |
 | P07.S13 workspace draft preservation | Implemented: merged field-local browser `phx-change` payloads so Reasoning and Cache changes preserve the selected profile; added regression coverage and real hosted run verification | `frontend/lib/harden_llm_web/live/workspace_live.ex`; WEB-TEST-037; Wallaby; deployed Playwright |
-| Final frontend validation | Pass: focused Phoenix/rendering 20 passed; full deterministic frontend 83 passed/3 excluded; browser 2 passed in 99.3s; hosted Playwright passed | `frontend/` test suites; deployed Playwright record |
+| P07.S14 reusable embedded widget and no-tabs topology | Implemented: `ProfileWidgetComponent` owns the compact utility-style row, nested main/escalation folds, fallback/options interactions, optional ID namespace, and host message boundary; persistent primary nav removed | `frontend/lib/harden_llm_web/live/profile_widget_component.ex`; WEB-TEST-038/039; ADR-HLLM-012 |
+| Final frontend validation | Pass: focused widget/workspace suite 17 passed; full deterministic frontend 85 passed/3 excluded; browser 2 passed in 102.4s; hosted smoke rerun after deployment | `frontend/` test suites; release certification |
 | Publication and deployment | Pass: PR `#16` merged as `31d3106`, PR `#17` merged as `7c55266`; gateway remained healthy at `8f69e2b`, frontend image `sha256:3a8eb2bdc9096210a1c768c87d69c365fbe09b2f1b07d37c6c3d80b64263528d`; public API/frontend probes HTTP 200 | `docs/release-certification.md` |
 
 ### Quantitative Results
@@ -1507,8 +1509,8 @@ Privacy and data-quality constraints:
 | --- | --- | --- | --- |
 | `make verify` | Pass; `govulncheck` reported zero called vulnerabilities | exit 0 | Accepted |
 | `make test-compose` | Pass in 183.924s after the trace-ID parser fix and kin-openapi upgrade; earlier parity run was 176.997s | full correlation | Accepted |
-| Phoenix suite | Focused workspace/rendering suite 20 passed; full deterministic frontend suite 83 passed, 3 excluded | formatter, warnings-as-errors, unit suite | Accepted |
-| Browser workflow | 2 passed in 99.3s after P07.S13 draft preservation | desktop and mobile | Accepted |
+| Phoenix suite | Focused widget/workspace suite 17 passed; full deterministic frontend suite 85 passed, 3 excluded | formatter, warnings-as-errors, unit suite | Accepted |
+| Browser workflow | 2 passed in 102.4s after P07.S14 nested widget/no-tabs changes | desktop and mobile | Accepted |
 | Hosted Playwright | Passed on release `7c55266`: workspace/profile folds and actions, 29 profile cards, CPA Luna run, mobile bounds, no overlays, and zero page errors | deployed desktop/mobile UI | Accepted |
 
 ### Issues/Resolutions
@@ -1533,7 +1535,7 @@ Privacy and data-quality constraints:
 | Initial frontend P07 baseline only | Added a post-P07 parity amendment covering the current utility frontend | The source-derived inventory found missing functional controls after the original frontend certification | ADR-HLLM-012 |
 | Utility Downshift inline/editor and offset quick-jump behavior | Native editable datalist/deep-link profile ownership and cursor/limit history | Preserve one Phoenix/Go owner and the authoritative cursor REST contract | ADR-HLLM-012 |
 | Profile modal/editor and wide table/side-rail topology | In-flow profile/delete folds, compact profile cards, and one vertical Workspace stack | The requested utility-llm information density keeps surrounding facts visible and avoids overlay-hidden controls | ADR-HLLM-012 |
-| Standalone tabbed/page-shell embedding | Stable single-column studio surfaces with no tabs, side rail, or fixed overlay; route layout remains an adapter shell | The UI is intended to be placed inside host applications as a visual component; direct functional LiveComponent extraction is a follow-up beyond this parity plan | ADR-HLLM-012 |
+| Standalone tabbed/page-shell embedding | Stable single-column studio surfaces with no tabs, side rail, or fixed overlay; `ProfileWidgetComponent` is the reusable in-flow widget and route layout remains an adapter shell | The UI is intended to be placed inside host applications as a visual component; the widget now carries the full nested profile fold tree and optional ID namespace while host messages own routing/session state | ADR-HLLM-012 |
 | Timeout RCA record | No new KER | The Tempo correction changed parsing only; no timeout or budget changed | None |
 | Production routing values | Public `*.prls.co` hostnames with tunnel-trusted private-PKI `internal` TLS | The first deployment inherited development `*.harden.localhost` values and returned 502; the corrected effective Compose config passed health/readiness probes | Release certification |
 
@@ -1551,11 +1553,16 @@ Privacy and data-quality constraints:
 - P07.S13 introduced no KER, timeout-budget, or provider-policy change and no
   related issue was created; it corrected partial form-event state loss and is
   tracked by ADR-HLLM-012, WEB-TEST-037, and the release certification.
+- P07.S14 introduced no KER, timeout-budget, provider-policy, or API ownership
+  change and no related issue was created; it removed persistent navigation,
+  completed the reusable widget boundary, and fixed fallback/select and option
+  synchronization behavior. It is tracked by ADR-HLLM-012, WEB-TEST-038/039,
+  and the release certification.
 - The visual embedding constraint is deliberate: preserve stable studio roots,
   in-flow folds, and one vertical surface when a host application supplies its
-  own shell. A direct reusable LiveComponent/package boundary is the next
-  concrete step if another application needs functional mounting rather than
-  visual composition.
+  own shell. The concrete next step beyond this plan is downstream adoption of
+  `ProfileWidgetComponent` by another host, if needed; no second UI topology is
+  planned here.
 
 ### ADR Updates
 

@@ -54,18 +54,6 @@ defmodule HardenLlmWeb.Layouts do
             <span class="block text-[11px] uppercase tracking-[0.12em] text-slate-500">Operator console</span>
           </span>
         </.link>
-        <nav
-          aria-label="Primary"
-          class="order-3 flex w-full items-center gap-1 sm:order-none sm:w-auto"
-        >
-          <.nav_link id="nav-workspace" href={~p"/workspace"} icon="hero-command-line">
-            Workspace
-          </.nav_link>
-          <.nav_link id="nav-profiles" href={~p"/profiles"} icon="hero-adjustments-horizontal">
-            Profiles
-          </.nav_link>
-          <.nav_link id="nav-history" href={~p"/history"} icon="hero-clock">History</.nav_link>
-        </nav>
         <div class="flex items-center gap-3">
           <span
             class="hidden max-w-48 truncate text-xs text-slate-500 md:block"
@@ -90,24 +78,6 @@ defmodule HardenLlmWeb.Layouts do
     {render_slot(@inner_block)}
 
     <.flash_group flash={@flash} />
-    """
-  end
-
-  attr :href, :string, required: true
-  attr :icon, :string, required: true
-  attr :id, :string, required: true
-  slot :inner_block, required: true
-
-  defp nav_link(assigns) do
-    ~H"""
-    <.link
-      id={@id}
-      navigate={@href}
-      class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-teal-600"
-    >
-      <.icon name={@icon} class="size-4" />
-      {render_slot(@inner_block)}
-    </.link>
     """
   end
 

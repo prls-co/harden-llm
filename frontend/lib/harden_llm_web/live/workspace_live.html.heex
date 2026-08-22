@@ -51,168 +51,19 @@
         class="studio-stack"
       >
         <section class="studio-stack">
-          <section
-            id="model-config"
-            aria-label="LLM model config"
-            class="studio-card p-4 sm:p-5"
-          >
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
-                  🤖 LLM
-                </p>
-                <h2 class="mt-1 text-lg font-semibold text-slate-950">Model profile</h2>
-              </div>
-              <div class="flex flex-wrap items-center gap-2">
-                <label class="sr-only" for="workspace-reasoning">Reasoning</label>
-                <select
-                  id="workspace-reasoning"
-                  name="run[reasoningEffort]"
-                  form="run-form"
-                  phx-change="save-draft"
-                  class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-                >
-                  <option
-                    value="lowest"
-                    selected={@form[:reasoningEffort].value in ["lowest", nil]}
-                  >
-                    🧠 Lowest reasoning
-                  </option>
-                  <option value="middle" selected={@form[:reasoningEffort].value == "middle"}>
-                    🧠 Middle reasoning
-                  </option>
-                  <option value="highest" selected={@form[:reasoningEffort].value == "highest"}>
-                    🧠 Highest reasoning
-                  </option>
-                </select>
-                <label class="sr-only" for="workspace-cache">Cache mode</label>
-                <select
-                  id="workspace-cache"
-                  name="run[cacheMode]"
-                  form="run-form"
-                  phx-change="save-draft"
-                  class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-                >
-                  <option value="off" selected={@form[:cacheMode].value in ["off", nil]}>
-                    💾 Cache off
-                  </option>
-                  <option value="cache" selected={@form[:cacheMode].value == "cache"}>
-                    💾 Use cache
-                  </option>
-                  <option value="refresh" selected={@form[:cacheMode].value == "refresh"}>
-                    💾 Refresh cache
-                  </option>
-                </select>
-                <button
-                  id="model-config-toggle"
-                  type="button"
-                  phx-click="toggle-ui"
-                  phx-value-name="modelOptionsOpen"
-                  phx-value-open={if @ui["modelOptionsOpen"], do: "false", else: "true"}
-                  aria-expanded={to_string(@ui["modelOptionsOpen"])}
-                  disabled={@ui_save_pending?}
-                  class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  {if @ui["modelOptionsOpen"], do: "⌃ Hide model options", else: "⚙ Model options"}
-                </button>
-                <.link
-                  id="configure-profiles"
-                  navigate={~p"/profiles"}
-                  class="rounded-lg bg-slate-950 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800"
-                >⚙ Configure profiles</.link>
-                <.link
-                  id="new-profile-from-workspace"
-                  navigate={~p"/profiles?new=1"}
-                  class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                >➕ New profile</.link>
-              </div>
-            </div>
-            <div class="mt-4 grid gap-4 sm:grid-cols-2">
-              <div>
-                <.input
-                  field={@form[:selectedProfileId]}
-                  type="text"
-                  label="Profile"
-                  placeholder="Choose or type a profile"
-                  list="workspace-profile-options"
-                  autocomplete="off"
-                  required
-                />
-                <datalist id="workspace-profile-options">
-                  <option :for={{id, _label} <- profile_options(@profiles)} value={id} />
-                </datalist>
-                <p class="mt-1 text-xs text-slate-500">
-                  Search configured profiles or keep a custom value for backend validation.
-                </p>
-              </div>
-              <div>
-                <.input
-                  field={@form[:modelId]}
-                  type="text"
-                  label="Model ID override"
-                  placeholder="Use profile default"
-                  list="workspace-model-options"
-                />
-                <datalist id="workspace-model-options">
-                  <option
-                    :for={
-                      model <- selected_profile_models(@profiles, @form[:selectedProfileId].value)
-                    }
-                    value={model["id"]}
-                  >
-                    {model["label"]}
-                  </option>
-                </datalist>
-              </div>
-            </div>
-            <div
-              :if={@ui["modelOptionsOpen"]}
-              id="model-options"
-              class="mt-4 space-y-4 border-t border-slate-100 pt-4"
-            >
-              <p class="text-xs text-slate-500">
-                Provider options, pricing, credentials, fallbacks, and model discovery remain in the canonical Profiles editor. The selected profile and all run controls are persisted here.
-              </p>
-              <div class="flex flex-wrap gap-2">
-                <.link
-                  :if={profile_known?(@profiles, @form[:selectedProfileId].value)}
-                  id="edit-selected-profile"
-                  navigate={~p"/profiles?edit=#{@form[:selectedProfileId].value}"}
-                  class="rounded-lg bg-slate-950 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800"
-                >Edit selected profile</.link>
-                <.link
-                  navigate={~p"/profiles"}
-                  class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-teal-700 hover:bg-slate-50"
-                >Open Profiles editor</.link>
-              </div>
-              <div
-                :if={profile_known?(@profiles, @form[:selectedProfileId].value)}
-                class="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 text-xs sm:grid-cols-3"
-              >
-                <% selected = selected_profile(@profiles, @form[:selectedProfileId].value) %>
-                <div>
-                  <dt class="text-slate-500">Provider</dt>
-                  <dd class="mt-1 font-medium text-slate-800">
-                    {get_in(selected, ["profile", "provider"])}
-                  </dd>
-                </div>
-                <div>
-                  <dt class="text-slate-500">Interface</dt>
-                  <dd class="mt-1 font-medium text-slate-800">
-                    {get_in(selected, ["profile", "apiInferenceType"])}
-                  </dd>
-                </div>
-                <div class="min-w-0">
-                  <dt class="text-slate-500">Endpoint</dt>
-                  <dd
-                    class="mt-1 truncate font-mono text-slate-800"
-                    title={get_in(selected, ["profile", "baseUrl"])}
-                  >
-                    {get_in(selected, ["profile", "baseUrl"])}
-                  </dd>
-                </div>
-              </div>
-            </div>
+          <section id="model-config" aria-label="LLM model config" class="studio-card p-0">
+            <.live_component
+              module={HardenLlmWeb.ProfileWidgetComponent}
+              id="workspace-llm-widget"
+              profiles={@profiles}
+              selected_profile_id={@form[:selectedProfileId].value || ""}
+              reasoning_effort={@form[:reasoningEffort].value || "lowest"}
+              cache_mode={@form[:cacheMode].value || "off"}
+              model_id={@form[:modelId].value || ""}
+              config_open={@ui["llmProfileConfigOpen"]}
+              session_handle={@session_handle}
+              bundle_upload={@uploads.profile_bundle}
+            />
           </section>
 
           <section

@@ -54,7 +54,8 @@ defmodule HardenLlmWeb.RenderingTest do
     render_async(workspace, 1_000)
 
     assert has_element?(workspace, "main#workspace-page h1")
-    assert has_element?(workspace, ~s(nav[aria-label="Primary"]))
+    refute has_element?(workspace, "nav")
+    refute has_element?(workspace, ~s([role="tab"]))
     assert has_element?(workspace, ~s(label[for="run_selectedProfileId"]), "Profile")
     assert has_element?(workspace, ~s(label[for="run_userPrompt"]), "Prompt")
     assert has_element?(workspace, "#run-submit")
@@ -90,9 +91,8 @@ defmodule HardenLlmWeb.RenderingTest do
     assert has_element?(history, "#history-empty", "No history yet.")
     assert has_element?(history, ~s(#history-page th[scope="col"]))
     assert has_element?(history, ".overflow-x-auto table")
-    assert has_element?(history, "#nav-workspace")
-    assert has_element?(history, "#nav-profiles")
-    assert has_element?(history, "#nav-history")
+    refute has_element?(history, "nav")
+    refute has_element?(history, ~s([role="tab"]))
     assert has_element?(history, "#logout-button")
   end
 

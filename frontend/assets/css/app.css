@@ -68,3 +68,429 @@ button, a, input, select, textarea { touch-action: manipulation; }
   min-width: 2.5rem;
   min-height: 2.5rem;
 }
+
+/* Utility-LLM profile widget contract. Keep this surface in-flow so it can
+   be embedded beside another application's prompt or result component. */
+:root {
+  --ullm-panel: #fffaf0;
+  --ullm-panel-muted: #eef2ea;
+  --ullm-text: #17211d;
+  --ullm-text-muted: #5b665c;
+  --ullm-text-dim: #74796f;
+  --ullm-border: rgb(23 33 29 / 16%);
+  --ullm-border-strong: rgb(23 33 29 / 28%);
+  --ullm-accent: #17211d;
+  --ullm-accent-muted: #6b5a25;
+  --ullm-danger: #8a231f;
+  --ullm-danger-bg: #fff2ed;
+  --ullm-success: #496f4a;
+  --ullm-focus: rgb(68 110 94 / 24%);
+  --ullm-focus-border: var(--ullm-accent);
+  --ullm-profile-control-height: 2.5rem;
+  --ullm-mono-font: "SFMono-Regular", "Menlo", "Consolas", monospace;
+}
+
+.ullm-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ullm-widget {
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+  padding: 1rem;
+  border: 1px solid var(--ullm-border);
+  border-radius: 8px;
+  background: rgb(255 250 240 / 90%);
+  box-shadow: 0 .8rem 2.2rem rgb(23 33 29 / 7%);
+}
+
+.ullm-profile-row {
+  display: grid;
+  grid-template-columns: minmax(4rem, auto) minmax(0, 1fr) minmax(4.75rem, 5.5rem) var(--ullm-profile-control-height) var(--ullm-profile-control-height);
+  align-items: center;
+  gap: .65rem;
+}
+
+.ullm-profile-category {
+  min-width: 0;
+  max-width: 8rem;
+  overflow: hidden;
+  color: var(--ullm-accent-muted);
+  font-size: .76rem;
+  font-weight: 800;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ullm-profile-picker {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: .45rem;
+}
+
+.ullm-profile-row .ullm-input {
+  height: var(--ullm-profile-control-height);
+  min-height: var(--ullm-profile-control-height);
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.ullm-profile-label {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--ullm-profile-control-height);
+  color: var(--ullm-text-muted);
+  font-size: 1rem;
+}
+
+.ullm-input {
+  width: 100%;
+  border: 1px solid var(--ullm-border);
+  border-radius: 8px;
+  padding: .72rem .8rem;
+  color: var(--ullm-text);
+  background: rgb(255 255 255 / 72%);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.ullm-input:hover:not(:disabled) {
+  border-color: var(--ullm-border-strong);
+}
+
+.ullm-input:focus,
+.ullm-input:focus-visible {
+  outline: none !important;
+  border-color: var(--ullm-focus-border) !important;
+  box-shadow: none !important;
+  background: #fff;
+}
+
+.ullm-input:disabled {
+  cursor: not-allowed;
+  opacity: .58;
+}
+
+.ullm-input-mono {
+  font-family: var(--ullm-mono-font);
+  font-size: .84rem;
+}
+
+.ullm-compact-select {
+  height: var(--ullm-profile-control-height);
+  min-height: var(--ullm-profile-control-height);
+  padding: 0 .45rem;
+}
+
+.ullm-profile-cache-toggle,
+.ullm-profile-config-toggle {
+  width: var(--ullm-profile-control-height);
+  min-width: var(--ullm-profile-control-height);
+  height: var(--ullm-profile-control-height);
+  min-height: var(--ullm-profile-control-height);
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.ullm-profile-config-body {
+  border: 1px solid var(--ullm-border);
+  border-radius: 8px;
+  padding: .8rem;
+  background: rgb(255 255 255 / 44%);
+}
+
+.ullm-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+.ullm-options-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+}
+
+.ullm-model-slot-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  gap: .65rem;
+}
+
+.ullm-model-slot-field {
+  min-width: 0;
+}
+
+.ullm-model-refresh-button {
+  align-self: end;
+  min-height: var(--ullm-profile-control-height);
+  white-space: nowrap;
+}
+
+.ullm-backup-profiles,
+.ullm-credential-block,
+.ullm-options-fold {
+  border: 1px solid var(--ullm-border);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 44%);
+}
+
+.ullm-backup-profiles,
+.ullm-credential-block {
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+  padding: .8rem;
+}
+
+.ullm-backup-profiles-header,
+.ullm-credential-row,
+.ullm-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .65rem;
+}
+
+.ullm-backup-profiles-title,
+.ullm-credential-label,
+.ullm-section-header h3 {
+  color: var(--ullm-text-muted);
+  font-size: .76rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.ullm-credential-status {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: .55rem;
+}
+
+.ullm-credential-copy,
+.ullm-field-help {
+  color: var(--ullm-text-muted);
+  font-size: .74rem;
+  line-height: 1.35;
+}
+
+.ullm-key-dot {
+  width: .55rem;
+  height: .55rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--ullm-border-strong);
+}
+
+.ullm-key-dot-on {
+  background: var(--ullm-success);
+}
+
+.ullm-credential-drawer,
+.ullm-options-body {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  border-top: 1px solid var(--ullm-border);
+  padding: .8rem 0 0;
+}
+
+.ullm-options-summary {
+  width: 100%;
+  min-height: auto;
+  justify-content: flex-start;
+  border-color: transparent;
+  padding: .72rem .8rem;
+  color: var(--ullm-text-muted);
+  background: transparent;
+  text-align: left;
+  font-size: .76rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.ullm-options-summary:hover:not(:disabled) {
+  border-color: transparent;
+  background: rgb(255 255 255 / 36%);
+}
+
+.ullm-options-body {
+  padding: .8rem;
+}
+
+.ullm-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: .55rem;
+}
+
+.ullm-checkbox-grid .mb-2 {
+  margin: 0;
+}
+
+.ullm-button-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .65rem;
+}
+
+.ullm-button-row-end {
+  justify-content: flex-end;
+}
+
+.ullm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
+  min-height: 2.25rem;
+  border: 1px solid var(--ullm-border-strong);
+  border-radius: 8px;
+  padding: .54rem .85rem;
+  color: var(--ullm-text);
+  background: #fff;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.ullm-btn:hover:not(:disabled) {
+  border-color: var(--ullm-accent);
+  background: #fff;
+}
+
+.ullm-btn:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.ullm-btn-tiny {
+  min-height: 1.8rem;
+  padding: .28rem .55rem;
+  font-size: .78rem;
+}
+
+.ullm-btn-primary {
+  border-color: var(--ullm-accent);
+  color: #fff;
+  background: var(--ullm-accent);
+}
+
+.ullm-btn-danger {
+  border-color: rgb(138 35 31 / 38%);
+  color: var(--ullm-danger);
+  background: var(--ullm-danger-bg);
+}
+
+.ullm-backup-profile-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: .65rem;
+}
+
+.ullm-backup-profile-actions,
+.ullm-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: .35rem;
+}
+
+.ullm-backup-profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ullm-backup-profile-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .65rem;
+  border-radius: 6px;
+  padding: .35rem .5rem;
+  background: var(--ullm-panel-muted);
+  font-size: .8rem;
+}
+
+.ullm-backup-index {
+  margin-right: .4rem;
+  color: var(--ullm-text-dim);
+  font-family: var(--ullm-mono-font);
+}
+
+.ullm-escalation-profile-editor {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  border-top: 1px solid var(--ullm-border);
+  padding-top: .75rem;
+}
+
+.ullm-escalation-profile-row {
+  grid-template-columns: minmax(4rem, auto) minmax(0, 1fr) minmax(4.75rem, 5.5rem) var(--ullm-profile-control-height) var(--ullm-profile-control-height);
+}
+
+.ullm-delete-confirm,
+.ullm-widget-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .65rem;
+  border-radius: 8px;
+  padding: .75rem;
+  color: var(--ullm-danger);
+  background: var(--ullm-danger-bg);
+  font-size: .82rem;
+}
+
+.ullm-file-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.ullm-file-button input[type="file"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  cursor: pointer;
+  opacity: 0;
+}
+
+@media (max-width: 720px) {
+  .ullm-widget { padding: .85rem; }
+  .ullm-profile-row { grid-template-columns: minmax(0, 1fr) var(--ullm-profile-control-height) var(--ullm-profile-control-height); }
+  .ullm-profile-category { grid-column: 1 / -1; max-width: none; }
+  .ullm-profile-picker { grid-column: 1 / -1; }
+  .ullm-reasoning-field { min-width: 0; }
+  .ullm-options-grid,
+  .ullm-checkbox-grid,
+  .ullm-model-slot-row,
+  .ullm-backup-profile-row { grid-template-columns: 1fr; }
+  .ullm-model-refresh-button { justify-self: start; }
+  .ullm-escalation-profile-row { grid-template-columns: minmax(0, 1fr) var(--ullm-profile-control-height) var(--ullm-profile-control-height); }
+  .ullm-escalation-profile-row .ullm-profile-category { display: none; }
+  .ullm-escalation-profile-row .ullm-profile-picker { grid-column: 1 / -1; }
+}

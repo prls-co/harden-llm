@@ -267,15 +267,18 @@ Contract synchronization:
 
 ## 10. UI contract
 
-- Use a quiet operational layout with a compact top bar and persistent navigation for Workspace, Profiles, and History.
+- Use a quiet operational layout with a compact host-neutral top bar. Do not
+  render persistent primary navigation, tabs, or a side rail inside the
+  reusable surface; the host application owns route selection.
 - Use a narrow vertical widget stack for Workspace and Profiles. Profile cards keep endpoint, credential, model, and capability facts visible without a horizontal table or a hidden side rail.
 - Use in-flow disclosure folds for profile editing, credentials, options, retry/repair, pricing, advanced input, output details, and history. Opening `New profile` expands `#profile-editor` while the profile list remains in the same document flow.
 - Treat `#workspace-page` and `#profiles-page` as reusable visual surfaces with
   stable `studio-page`, `studio-stack`, `studio-card`, and `studio-fold` roots.
   They must not require tabs, a side rail, a fixed overlay, or page-level
-  navigation state from the host application; `Layouts.app` is only the current
-  route adapter. Direct functional LiveComponent/package extraction is a later
-  boundary and must keep the same roots and OpenAPI contract.
+  navigation state from the host application. `ProfileWidgetComponent` is the
+  current reusable in-flow profile widget at `#workspace-llm-widget`; pass an
+  `id_prefix` when mounting multiple instances. `Layouts.app` remains the
+  current route adapter and host messages keep selection/UI state explicit.
 - Use focused views only where the content is genuinely a separate trace inspection; profile editing and destructive profile confirmation must not use viewport overlays that hide the surrounding workspace.
 - Use the generated Phoenix icon component for structural icons and compact emoji labels for high-frequency controls (`🤖`, `🧠`, `💾`, `⚙`, `🔁`, `💰`), with accessible text or labels retained.
 - Every form control has a visible label, error association, keyboard focus state, and disabled/submitting state.
@@ -414,6 +417,8 @@ single-editor adaptations are recorded in ADR-HLLM-012.
 | WEB-TEST-035 | Profile combobox/credential parity | `test/harden_llm_web/live/profiles_live_test.exs` | `mix test test/harden_llm_web/live/profiles_live_test.exs` | Searchable endpoint/model suggestions and write-only staged-key behavior remain local and never render stored or staged secrets after close. |
 | WEB-TEST-036 | Cursor pagination parity | `test/harden_llm_web/live/history_trace_test.exs` | `mix test test/harden_llm_web/live/history_trace_test.exs` | Page-size changes restart the cursor query from page one; arbitrary offset/page-number quick-jump is not added to the cursor-only REST contract. |
 | WEB-TEST-037 | Inline studio control coverage | `test/harden_llm_web/live/profiles_live_test.exs`, `test/harden_llm_web/live/workspace_live_test.exs`, `test/browser/full_workflow_test.exs` | `mix test test/harden_llm_web/live/profiles_live_test.exs test/harden_llm_web/live/workspace_live_test.exs && mix test --only browser test/browser/full_workflow_test.exs` | Every profile/workspace button and input has a stable rendered control, each fold opens/closes in flow, field-local select events preserve the draft, and desktop/mobile browser workflows complete without tabs, an overlay, or horizontal overflow. |
+| WEB-TEST-038 | Embedded utility-style profile widget topology | `test/harden_llm_web/live/workspace_live_test.exs`, `test/browser/full_workflow_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs && mix test --only browser test/browser/full_workflow_test.exs` | The no-tabs compact row exposes every main and nested profile fold/action; fallback selection and option-to-JSON synchronization remain functional through the embedded component. |
+| WEB-TEST-039 | Embedded profile mutation delegation | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | Staged credentials stay write-only while save, model refresh, delete confirmation, and bundle import delegate to the canonical profile REST operations. |
 
 Detailed fixtures and isolation:
 
