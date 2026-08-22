@@ -29,6 +29,10 @@ self-hosted architecture.
   profile table or a workspace side rail. Emoji labels are presentation
   affordances only; every action retains an accessible name and stable test
   selector.
+- Use a non-reserved LiveView payload key such as `phx-value-open` for browser
+  fold state. `phx-value-value` collides with a button's native empty `value`
+  property in the LiveView browser serializer, so server-rendered event tests
+  alone are not sufficient for this interaction contract.
 - Keep profile defaults, retry policy, repair escalation, pricing, credentials,
   and provider execution backend-owned. The browser never sends a raw stored
   credential or creates a second provider execution path.
@@ -57,3 +61,8 @@ requirement-level record: `docs/utility-llm-frontend-parity-inventory.md`.
 The Tempo smoke harness also normalizes a one-nibble leading-zero omission in
 Tempo's returned trace ID. This is a test-observation normalization only; it
 does not change production trace IDs, timeouts, or telemetry routing.
+
+The 2026-08-22 fold-event correction adds a real browser assertion to the
+parity gate. The deterministic LiveView test remains useful for server
+behavior, while the browser workflow verifies that the serialized event
+actually carries the requested open/closed state.

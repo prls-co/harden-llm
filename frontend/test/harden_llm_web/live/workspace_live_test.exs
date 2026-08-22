@@ -132,6 +132,8 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     view |> element("#model-config-toggle") |> render_click()
     render_async(view, 1_000)
     assert has_element?(view, "#model-options")
+    assert has_element?(view, ~s(#input-advanced-toggle[phx-value-open="true"]))
+    refute has_element?(view, ~s(#input-advanced-toggle[phx-value-value]))
 
     view |> element("#input-advanced-toggle") |> render_click()
     render_async(view, 1_000)

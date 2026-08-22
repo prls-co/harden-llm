@@ -108,7 +108,7 @@
                   type="button"
                   phx-click="toggle-ui"
                   phx-value-name="modelOptionsOpen"
-                  phx-value-value={if @ui["modelOptionsOpen"], do: "false", else: "true"}
+                  phx-value-open={if @ui["modelOptionsOpen"], do: "false", else: "true"}
                   aria-expanded={to_string(@ui["modelOptionsOpen"])}
                   disabled={@ui_save_pending?}
                   class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
@@ -227,7 +227,7 @@
                   type="button"
                   phx-click="toggle-ui"
                   phx-value-name="inputAdvancedOpen"
-                  phx-value-value={if @ui["inputAdvancedOpen"], do: "false", else: "true"}
+                  phx-value-open={if @ui["inputAdvancedOpen"], do: "false", else: "true"}
                   aria-expanded={to_string(@ui["inputAdvancedOpen"])}
                   disabled={@ui_save_pending?}
                   class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
@@ -334,7 +334,7 @@
                     type="button"
                     phx-click="toggle-ui"
                     phx-value-name="retryRepairOpen"
-                    phx-value-value={if @ui["retryRepairOpen"], do: "false", else: "true"}
+                    phx-value-open={if @ui["retryRepairOpen"], do: "false", else: "true"}
                     aria-expanded={to_string(@ui["retryRepairOpen"])}
                     disabled={@ui_save_pending?}
                     class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
@@ -541,7 +541,7 @@
                 type="button"
                 phx-click="toggle-ui"
                 phx-value-name="outputDetailsOpen"
-                phx-value-value={if @ui["outputDetailsOpen"], do: "false", else: "true"}
+                phx-value-open={if @ui["outputDetailsOpen"], do: "false", else: "true"}
                 aria-expanded={to_string(@ui["outputDetailsOpen"])}
                 disabled={@ui_save_pending?}
                 class="text-xs font-semibold text-teal-300 hover:text-teal-200"
@@ -651,7 +651,7 @@
                   type="button"
                   phx-click="toggle-ui"
                   phx-value-name="historyOpen"
-                  phx-value-value={if @ui["historyOpen"], do: "false", else: "true"}
+                  phx-value-open={if @ui["historyOpen"], do: "false", else: "true"}
                   aria-expanded={to_string(@ui["historyOpen"])}
                   disabled={@ui_save_pending?}
                   class="text-xs font-semibold text-teal-700 hover:text-teal-900"

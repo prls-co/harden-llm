@@ -1474,12 +1474,13 @@ Privacy and data-quality constraints:
 | P07.S09 | `frontend/lib/harden_llm_web/live/workspace_live.ex`, `profiles_live.ex`, `history_live.ex`, `api/openapi.yaml`, Go state/run projections | WEB-TEST-031 through WEB-TEST-036 | pinned Phoenix suite, browser workflow, `make verify`, `make test-compose` |
 | P07.S10 | `internal/profiles/default-profile-catalog.json`, gateway profile resources, Postgres seed, provider preparation | TEST-017 | `go test ./... -count=1`; tagged Postgres seed test |
 | P07.S11 | `frontend/assets/css/app.css`, `frontend/lib/harden_llm_web/live/profiles_live.html.heex`, `workspace_live.html.heex`, profile/workspace/rendering/browser tests, parity docs | WEB-TEST-037 plus WEB-TEST-006, WEB-TEST-007, WEB-TEST-010, WEB-TEST-011 | pinned Phoenix format/compile/live tests, desktop/mobile browser workflow, deployed Playwright audit |
+| P07.S12 | Workspace fold event payloads and browser regression coverage | WEB-TEST-037 plus deployed Playwright fold checks | pinned Phoenix suite and real browser event serialization; redeploy and public smoke |
 
 ## 11. Execution log
 
 ### Phase Status
 
-- Phase: P07 plus P07.S09-P07.S11 frontend parity closeout amendments
+- Phase: P07 plus P07.S09-P07.S12 frontend parity closeout amendments
 - Status: Complete after final publication and deployment verification
 - Target SHA: `2c1a34f9737dd50b6af387c449f63d9299b166d1` (PR `#4`)
 - Backend source fixture SHA: `09769424ca34b9d759e273a7e9dccf4fd00a5f6c`
@@ -1494,6 +1495,7 @@ Privacy and data-quality constraints:
 | P07 full Compose correlation | Pass after harness normalization | `make test-compose`; `internal/smoke/tempo_trace_id.go` |
 | P07.S09 utility frontend parity audit | Implemented and tested | `docs/utility-llm-frontend-parity-inventory.md`; WEB-TEST-031..036 |
 | P07.S11 utility layout topology and interaction coverage | Implemented and tested: inline profile/delete folds, compact profile cards, single-column studio stack, and control matrix | `docs/utility-llm-frontend-parity-inventory.md`; WEB-TEST-037; pinned Phoenix/browser gates; deployed Playwright audit |
+| P07.S12 workspace fold event serialization correction | Implemented: renamed the browser fold-state payload from reserved `phx-value-value` to `phx-value-open` and added browser assertions for model, advanced input, retry, and history folds | `frontend/lib/harden_llm_web/live/workspace_live.html.heex`; WEB-TEST-037; browser workflow |
 | Final frontend validation | Pass: Phoenix 77 passed/3 excluded; browser 2 passed | `frontend/` test suites |
 | Publication and deployment | Pass: PR `#4` merged as `2c1a34f`; gateway/frontend images healthy; public API and frontend probes HTTP 200 | `docs/release-certification.md` |
 
@@ -1512,6 +1514,7 @@ Privacy and data-quality constraints:
 | --- | --- | --- | --- |
 | Compose correlation initially failed | Tempo returned a 31-character trace ID with one leading zero nibble omitted; the smoke parser required exactly 32 characters | Shared normalization restores the omitted nibble; unit coverage added for Compose/live helpers | `go test ./internal/smoke/...`; `make test-compose` |
 | Frontend parity was incomplete after original P07 closure | The original phase certified the initial Phoenix baseline while the current utility frontend had additional controls and behavior | Added P07.S09, source-derived WEB-TEST-031..036, parity inventory, and ADR-HLLM-012 | Phoenix/browser gates and inventory audit |
+| Workspace folds stayed closed in a real browser | Phoenix LiveView's browser serializer overwrote `phx-value-value` with the button's native empty `value`; server-side `render_click` did not reproduce that browser serialization | Renamed the payload key to `phx-value-open` and added real Wallaby fold assertions | focused Phoenix suite; desktop/mobile browser workflow; deployed Playwright |
 
 ### Failed Attempts
 
@@ -1537,6 +1540,9 @@ Privacy and data-quality constraints:
 - P07.S11 introduced no KER or timeout-budget change and no related issue was
   created; the layout decision and interaction evidence are tracked by
   ADR-HLLM-012, WEB-TEST-037, and the release certification.
+- P07.S12 introduced no KER, timeout-budget, or provider-policy change and no
+  related issue was created; it corrected a browser event serialization detail
+  and is tracked by ADR-HLLM-012, WEB-TEST-037, and the release certification.
 
 ### ADR Updates
 
