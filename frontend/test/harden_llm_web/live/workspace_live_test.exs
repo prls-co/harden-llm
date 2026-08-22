@@ -578,7 +578,9 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
         {"POST", "/api/v1/state"} ->
           {:ok, body, conn} = Plug.Conn.read_body(conn)
-          Req.Test.json(conn, APIFixtures.success(nil, Jason.decode!(body)))
+          saved_state = Jason.decode!(body)
+          send(test_pid, {:unmapped_profile_state, saved_state})
+          Req.Test.json(conn, APIFixtures.success(nil, saved_state))
 
         {"POST", "/api/v1/run"} ->
           {:ok, body, conn} = Plug.Conn.read_body(conn)
@@ -595,6 +597,15 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     assert has_element?(view, ~s(#workspace-reasoning[disabled]))
     assert has_element?(view, ~s(#workspace-reasoning option[value=""][selected]))
+
+    view
+    |> with_target("#workspace-llm-widget")
+    |> render_change("select-profile", %{"run" => %{"selectedProfileId" => "Custom LLM"}})
+
+    render_async(view, 1_000)
+
+    assert_received {:unmapped_profile_state, saved_state}
+    refute get_in(saved_state, ["reasoningByProfile", "Custom LLM"]) == ""
 
     submit_run(view, %{
       "selectedProfileId" => "Custom LLM",
