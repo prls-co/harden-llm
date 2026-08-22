@@ -184,14 +184,14 @@
       "gitSHA": "5c0309e",
       "packageVersion": "0.15.0"
     },
-    "parityCompletedAt": "2026-08-22T15:05:34Z",
+    "parityCompletedAt": "2026-08-22T20:36:37Z",
     "parityAdaptationADR": "ADR-HLLM-012",
     "parityRelease": {
-      "pullRequest": 19,
-      "commit": "9a57dcdeb48373cb7d8a8c46aa4670fa5e0095c2",
+      "pullRequest": 22,
+      "commit": "d02bee8",
       "gatewayImage": "sha256:1dc2f2037176633ec338b47d99254bcdc5f15bd773d65d9683eb2b76bc5e757b",
-      "frontendImage": "sha256:f40cc5bf549f4fac3cdca15946004d80b9aba1fdec46a4629592770bb9b63fb5",
-      "deployedAt": "2026-08-22T15:03:24Z",
+      "frontendImage": "sha256:a208f39bf3f61d706fdf1ad3bd17e2598795438bce92e7f2d3ab6953d7d0671f",
+      "deployedAt": "2026-08-22T20:27:08Z",
       "dependabotAlertStatus": "patched in main and deployed; GitHub records pending rescan",
       "probes": {
         "apiHealthz": 200,
@@ -202,11 +202,11 @@
     },
     "parityVerification": {
       "phoenix": "Focused workspace/widget suite 18 passed; full deterministic frontend suite 86 passed, 3 excluded",
-      "browser": "Pinned Chromium 2 passed at desktop and mobile; P07.S15 hosted authenticated prompt verification is pending deployment of the profile-aware reasoning guard",
+      "browser": "Pinned Chromium 2 passed at desktop and mobile; hosted authenticated browser passed at d02bee8 with all eight folds open and no horizontal overflow",
       "backend": "make verify passed",
       "compose": "make test-compose passed",
-      "uiControlCoverage": "WEB-TEST-037 through WEB-TEST-040 cover profile/workspace inputs, buttons, no-tabs fold payloads, fallback/options interactions, write-only credential staging, profile mutations, select-driven draft preservation, and profile-aware reasoning capability guards; the pre-fix deployed image, public probes, and static-token API smoke pass",
-      "hostedAuthenticatedBrowser": "pending: existing operator credentials are available in the production environment; rerun the compact/nested-fold flow and a real prompt after the profile-aware reasoning fix is deployed",
+      "uiControlCoverage": "WEB-TEST-037 through WEB-TEST-040 cover profile/workspace inputs, buttons, no-tabs fold payloads, fallback/options interactions, write-only credential staging, profile mutations, select-driven draft preservation, profile-aware reasoning capability guards, and omission of invalid empty reasoning state; the deployed image, public probes, and hosted run pass",
+      "hostedAuthenticatedBrowser": "pass: existing production credentials; CurlStructured via CPA with gpt-5.6-luna; eight folds opened; real output returned; request omitted reasoningEffort; desktop/mobile overflow absent; no new account or secret persisted",
       "embedding": {
         "status": "reusable-live-component",
         "contract": "ProfileWidgetComponent provides a compact utility-style LLM row plus nested in-flow profile/escalation folds; no tabs, side rail, fixed overlay, or required page-level navigation state; host owns routing/session messages",

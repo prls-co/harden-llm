@@ -1484,11 +1484,11 @@ Privacy and data-quality constraints:
 ### Phase Status
 
 - Phase: P07 plus P07.S09-P07.S15 frontend parity closeout amendments
-- Status: Implementation complete; P07.S15 is locally verified and awaits publication/deployment verification
-- Target SHA: `9a57dcdeb48373cb7d8a8c46aa4670fa5e0095c2` (PR `#19`)
+- Status: Implementation and production verification complete; P07.S15 is closed
+- Target SHA: `d02bee8` (PR `#22`, following PR `#21`)
 - Backend source fixture SHA: `09769424ca34b9d759e273a7e9dccf4fd00a5f6c`
 - Frontend source revision: `utility-llm` `5c0309e` / `0.15.0`
-- Evidence: `make verify`, pinned Phoenix suite, Wallaby desktop/mobile workflow, profile-capability regression coverage, and the pre-fix hosted diagnostic; final deployment and authenticated hosted prompt evidence will be appended after publication
+- Evidence: `make verify`, pinned Phoenix suite, Wallaby desktop/mobile workflow, WEB-TEST-040, public probes, healthy deployed containers, and authenticated hosted prompt at `d02bee8`
 
 ### Completed Steps
 
@@ -1502,8 +1502,8 @@ Privacy and data-quality constraints:
 | P07.S13 workspace draft preservation | Implemented: merged field-local browser `phx-change` payloads so Reasoning and Cache changes preserve the selected profile; added regression coverage and real hosted run verification | `frontend/lib/harden_llm_web/live/workspace_live.ex`; WEB-TEST-037; Wallaby; deployed Playwright |
 | P07.S14 reusable embedded widget and no-tabs topology | Implemented: `ProfileWidgetComponent` owns the compact utility-style row, nested main/escalation folds, fallback/options interactions, optional ID namespace, and host message boundary; persistent primary nav removed | `frontend/lib/harden_llm_web/live/profile_widget_component.ex`; WEB-TEST-038/039; ADR-HLLM-012 |
 | P07.S15 profile-aware reasoning capability guard | Implemented: supported profiles retain L/M/H, profiles without a reasoning map disable the compact selector, stale persisted reasoning is omitted from run payloads, and known unmapped repair profiles cannot inherit an incompatible primary setting | `frontend/lib/harden_llm_web/live/profile_widget_component.ex`; `frontend/lib/harden_llm_web/live/workspace_live.ex`; WEB-TEST-040; ADR-HLLM-012 |
-| Final frontend validation | Pre-publication pass: focused workspace suite 18 passed; full deterministic frontend 86 passed/3 excluded; desktop/mobile Chromium 2 passed; `make verify` passed. Hosted prompt and final image/probe evidence pending P07.S15 deployment | `frontend/` test suites; release certification |
-| Publication and deployment | Pass: PR `#19` merged as `9a57dcd`; gateway remained healthy at `8f69e2b`, frontend image `sha256:f40cc5bf549f4fac3cdca15946004d80b9aba1fdec46a4629592770bb9b63fb5`; three samples of public API/frontend probes returned HTTP 200 | `docs/release-certification.md` |
+| Final frontend validation | Pass: focused workspace suite 18 passed; full deterministic frontend 86 passed/3 excluded; desktop/mobile Chromium 2 passed; `make verify` passed; authenticated hosted prompt passed with no overflow and no unsupported reasoning field | `frontend/` test suites; release certification |
+| Publication and deployment | Pass: PR `#22` merged as `d02bee8`; gateway remained healthy at `8f69e2b`, frontend image `sha256:a208f39bf3f61d706fdf1ad3bd17e2598795438bce92e7f2d3ab6953d7d0671f`; frontend/API health, readiness, and login probes returned HTTP 200 | `docs/release-certification.md` |
 
 ### Quantitative Results
 
@@ -1511,9 +1511,9 @@ Privacy and data-quality constraints:
 | --- | --- | --- | --- |
 | `make verify` | Pass; `govulncheck` reported zero called vulnerabilities | exit 0 | Accepted |
 | `make test-compose` | Pass in 183.924s after the trace-ID parser fix and kin-openapi upgrade; earlier parity run was 176.997s | full correlation | Accepted |
-| Phoenix suite | Focused widget/workspace suite 17 passed; full deterministic frontend suite 85 passed, 3 excluded | formatter, warnings-as-errors, unit suite | Accepted |
-| Browser workflow | 2 passed in 102.4s after P07.S14 nested widget/no-tabs changes | desktop and mobile | Accepted |
-| Hosted browser | Prior release `7c55266` passed the authenticated desktop/mobile acceptance; P07.S15 will rerun the compact/no-tabs/nested-fold flow and a real prompt with the existing operator credentials from the production environment | deployed frontend, existing operator credential, public probes, and gateway history/log evidence | Required before P07.S15 closeout |
+| Phoenix suite | Focused widget/workspace suite 18 passed; full deterministic frontend suite 86 passed, 3 excluded | formatter, warnings-as-errors, unit suite | Accepted |
+| Browser workflow | 2 passed after P07.S15 reasoning-state changes | desktop and mobile | Accepted |
+| Hosted browser | `CurlStructured` at CPA `gpt-5.6-luna` completed a real prompt with the existing operator credentials; all eight folds opened, request JSON omitted unsupported `reasoningEffort`, and desktop/mobile overflow checks passed | deployed frontend, existing operator credential, public probes, and gateway run evidence | Accepted |
 
 ### Issues/Resolutions
 
@@ -1524,12 +1524,16 @@ Privacy and data-quality constraints:
 | Workspace folds stayed closed in a real browser | Phoenix LiveView's browser serializer overwrote `phx-value-value` with the button's native empty `value`; server-side `render_click` did not reproduce that browser serialization | Renamed the payload key to `phx-value-open` and added real Wallaby fold assertions | focused Phoenix suite; desktop/mobile browser workflow; deployed Playwright |
 | Selected profile disappeared after changing Reasoning or Cache in a real browser | Those controls emit field-local `phx-change` maps, while the handler treated each map as the complete workspace form | Merge incoming event fields over the server's current draft and cover the sequence in LiveView, Wallaby, and hosted Playwright tests | focused suite 20 passed; browser 2 passed; hosted CPA Luna run returned output |
 | Hosted custom profile run failed before provider dispatch | The browser sent the generic `reasoningEffort: "lowest"` state value for `CurlStructured`, whose stored custom profile has no `reasoningEffortMap`; the gateway correctly rejected the incompatible portable option before CPA | Derive reasoning choices from the selected profile and revalidate the run payload server-side; preserve strict backend/provider validation | WEB-TEST-040, pinned Phoenix/browser gates, and final hosted prompt after deployment |
+| Hosted replay persisted invalid empty reasoning state | After the capability guard disabled the no-map selector, the parent state handler still wrote an empty `reasoningByProfile` value; the gateway correctly rejected that invalid state with HTTP 400 | Omit unsupported reasoning entries during state normalization; add a WEB-TEST-040 assertion before the real run | PR `#22`; focused suite 18 passed; hosted run passed |
 
 ### Failed Attempts
 
 | Attempt | Command | Failure | Learning |
 | --- | --- | --- | --- |
 | First final Compose run | `make test-compose` | Tempo correlation remained 3/5 because the parser rejected the omitted leading zero | Normalize external trace-ID serialization; do not increase a timeout to mask a parser defect |
+| First hosted WebDriver invocation | Raw WebDriver click commands without an empty `{}` JSON body | ChromeDriver returned HTTP 400 before any application request | The browser harness must send an explicit empty command object for bodyless WebDriver commands |
+| First hosted profile-selection replay | Sent a tab key to the editable profile input while trying to select `CurlStructured` | The input value became truncated and the harness timed out before submitting a run | Use the real editable-input `input`/`change` events without synthetic tab completion |
+| First P07.S15 Compose promotion | Compose build/update without the explicit `-p harden-llm` project flag | A healthy isolated duplicate web project was created instead of updating the public stack | Remove only the duplicate artifact and repeat the deployment against the named production project |
 
 ### Deviations
 
@@ -1541,6 +1545,7 @@ Privacy and data-quality constraints:
 | Standalone tabbed/page-shell embedding | Stable single-column studio surfaces with no tabs, side rail, or fixed overlay; `ProfileWidgetComponent` is the reusable in-flow widget and route layout remains an adapter shell | The UI is intended to be placed inside host applications as a visual component; the widget now carries the full nested profile fold tree and optional ID namespace while host messages own routing/session state | ADR-HLLM-012 |
 | Timeout RCA record | No new KER | The Tempo correction changed parsing only; no timeout or budget changed | None |
 | Production routing values | Public `*.prls.co` hostnames with tunnel-trusted private-PKI `internal` TLS | The first deployment inherited development `*.harden.localhost` values and returned 502; the corrected effective Compose config passed health/readiness probes | Release certification |
+| Compose project selection during P07.S15 promotion | The first update command omitted `-p harden-llm` and created an isolated duplicate web project | Removed only the duplicate project and its newly-created temporary log volume, retained the production volume/data, and redeployed the merged SHA through the existing `harden-llm` project | Release certification |
 
 ### Lessons Learned
 

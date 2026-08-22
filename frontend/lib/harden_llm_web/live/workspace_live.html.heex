@@ -241,7 +241,8 @@
                   </div>
                   <% escalation_profile_id =
                     String.trim(
-                      @form[:repairEscalationProfileId].value || @form[:selectedProfileId].value || ""
+                      @form[:repairEscalationProfileId].value || @form[:selectedProfileId].value ||
+                        ""
                     ) %>
                   <% escalation_reasoning_options =
                     reasoning_options(@profiles, escalation_profile_id) %>
