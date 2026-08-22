@@ -74,6 +74,65 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert_received {:saved_state, %{"schemaVersion" => 1, "userPrompt" => "updated safe prompt"}}
   end
 
+  test "individual select changes preserve the rest of the workspace draft", %{conn: conn} do
+    test_pid = self()
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          send(test_pid, {:select_saved_state, Jason.decode!(body)})
+          Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+
+        {"POST", "/api/v1/run"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          send(test_pid, {:select_run_payload, Jason.decode!(body)})
+          Req.Test.json(conn, APIFixtures.success(APIFixtures.run_result()))
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+
+    view
+    |> form("#run-form", %{
+      "run" => %{
+        "selectedProfileId" => "Primary",
+        "userPrompt" => "select preservation prompt",
+        "reasoningEffort" => "lowest",
+        "cacheMode" => "off"
+      }
+    })
+    |> render_change()
+
+    view
+    |> element("#workspace-reasoning")
+    |> render_change(%{"run" => %{"reasoningEffort" => "highest"}})
+
+    view
+    |> element("#workspace-cache")
+    |> render_change(%{"run" => %{"cacheMode" => "cache"}})
+
+    assert has_element?(view, ~s(#run_selectedProfileId[value="Primary"]))
+    assert has_element?(view, "#run_userPrompt", "select preservation prompt")
+    assert has_element?(view, ~s(#workspace-reasoning option[value="highest"][selected]))
+    assert has_element?(view, ~s(#workspace-cache option[value="cache"][selected]))
+
+    view |> form("#run-form") |> render_submit()
+    render_async(view, 1_000)
+
+    assert_received {:select_run_payload,
+                     %{
+                       "profileId" => "Primary",
+                       "userPrompt" => "select preservation prompt",
+                       "reasoningEffort" => "highest",
+                       "cacheMode" => "cache"
+                     }}
+  end
+
   test "profile input preserves a custom typed value and persists it", %{conn: conn} do
     test_pid = self()
 
