@@ -5,7 +5,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   This is deliberately a LiveComponent rather than a page-level editor. The
   compact row and every configuration fold can therefore be embedded beside a
   caller's prompt, output, or other controls without introducing navigation or
-  a modal surface.
+  a modal surface. Hosts that mount more than one instance pass a distinct
+  `id_prefix`; it namespaces generated form/control IDs and parent messages,
+  while the host supplies matching main/escalation upload configurations.
   """
 
   use HardenLlmWeb, :live_component
@@ -718,7 +720,12 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         >⚙</button>
       </div>
 
-      <div :if={@operation_error} id="profile-widget-error" role="alert" class="ullm-widget-error">
+      <div
+        :if={@operation_error}
+        id={scope_id(@id_prefix, "widget-error")}
+        role="alert"
+        class="ullm-widget-error"
+      >
         {@operation_error}
       </div>
 
@@ -751,6 +758,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           include_retry={true}
           bundle_upload={@bundle_upload}
           escalation_bundle_upload={@escalation_bundle_upload}
+          widget_id={@id_prefix}
           pending={@pending}
           delete_kind={@delete_kind}
           escalation_form={@escalation_form}
@@ -855,6 +863,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr :include_retry, :boolean, default: true
   attr :bundle_upload, :any, default: nil
   attr :escalation_bundle_upload, :any, default: nil
+  attr :widget_id, :string, default: ""
   attr :pending, :any, default: nil
   attr :delete_kind, :any, default: nil
   attr :escalation_form, :any, default: nil
@@ -872,9 +881,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     <div id={"#{@id_prefix}-config-fields"} class="ullm-form-grid">
       <div class="ullm-options-grid">
         <div class="ullm-field">
-          <label for={@form[:apiInferenceType].id}>API Inference Type</label>
+          <label for={field_id(@id_prefix, @form[:apiInferenceType].id)}>API Inference Type</label>
           <.searchable_input
-            id={@form[:apiInferenceType].id}
+            id={field_id(@id_prefix, @form[:apiInferenceType].id)}
             name={@form[:apiInferenceType].name}
             value={@form[:apiInferenceType].value}
             options={api_inference_combobox_options(@api_inference_types)}
@@ -885,9 +894,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           />
         </div>
         <div class="ullm-field">
-          <label for={@form[:baseUrl].id}>Base URL</label>
+          <label for={field_id(@id_prefix, @form[:baseUrl].id)}>Base URL</label>
           <.searchable_input
-            id={@form[:baseUrl].id}
+            id={field_id(@id_prefix, @form[:baseUrl].id)}
             name={@form[:baseUrl].name}
             value={@form[:baseUrl].value}
             options={base_url_combobox_options(@profiles, @form[:baseUrl].value)}
@@ -933,6 +942,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         >
           <.input
             field={@form[:credentialId]}
+            id={field_id(@id_prefix, @form[:credentialId].id)}
             label="Credential ID"
             class="ullm-input"
             phx-change="profile-draft-change"
@@ -940,6 +950,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           />
           <.input
             field={@form[:endpointCredentialScope]}
+            id={field_id(@id_prefix, @form[:endpointCredentialScope].id)}
             type="select"
             label="Credential scope"
             options={[{"User", "user"}, {"Global", "global"}]}
@@ -949,6 +960,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           />
           <.input
             field={@form[:apiKey]}
+            id={field_id(@id_prefix, @form[:apiKey].id)}
             type="password"
             label="Replacement API Key"
             autocomplete="new-password"
@@ -997,9 +1009,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           disabled={@pending != nil or profile_id(@form) == ""}
         >Refresh Models</button>
         <div class="ullm-model-slot-field">
-          <label for={@form[:modelId].id}>Model ID</label>
+          <label for={field_id(@id_prefix, @form[:modelId].id)}>Model ID</label>
           <.searchable_input
-            id={@form[:modelId].id}
+            id={field_id(@id_prefix, @form[:modelId].id)}
             name={@form[:modelId].name}
             value={@form[:modelId].value}
             options={model_combobox_options(models_for(@profiles, profile_id(@form), @model_options))}
@@ -1105,6 +1117,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         >
           <.input
             field={@form[:profileId]}
+            id={field_id(@id_prefix, @form[:profileId].id)}
             label="Profile"
             required
             class="ullm-input"
@@ -1113,6 +1126,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           />
           <.input
             field={@form[:provider]}
+            id={field_id(@id_prefix, @form[:provider].id)}
             label="Provider family"
             required
             class="ullm-input"
@@ -1121,6 +1135,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           />
           <.input
             field={@form[:supportsTemperature]}
+            id={field_id(@id_prefix, @form[:supportsTemperature].id)}
             type="checkbox"
             label="Supports temperature"
             phx-change="profile-draft-change"
@@ -1128,6 +1143,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           />
           <.input
             field={@form[:supportsContractedStructuredOutput]}
+            id={field_id(@id_prefix, @form[:supportsContractedStructuredOutput].id)}
             type="checkbox"
             label="Supports contracted structured output"
             phx-change="profile-draft-change"
@@ -1152,6 +1168,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           <div class="ullm-options-grid">
             <.input
               field={@form[:maxTokens]}
+              id={field_id(@id_prefix, @form[:maxTokens].id)}
               type="number"
               label="Max Output Tokens"
               min="0"
@@ -1161,6 +1178,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             />
             <.input
               field={@form[:temperature]}
+              id={field_id(@id_prefix, @form[:temperature].id)}
               type="number"
               label="Temperature"
               min="0"
@@ -1171,6 +1189,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             />
             <.input
               field={@form[:topP]}
+              id={field_id(@id_prefix, @form[:topP].id)}
               type="number"
               label="Top P"
               min="0"
@@ -1181,6 +1200,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             />
             <.input
               field={@form[:topK]}
+              id={field_id(@id_prefix, @form[:topK].id)}
               type="number"
               label="Top K"
               min="0"
@@ -1191,6 +1211,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           </div>
           <.input
             field={@form[:stopSequences]}
+            id={field_id(@id_prefix, @form[:stopSequences].id)}
             type="textarea"
             label="Stop Sequences"
             placeholder="one sequence per line"
@@ -1201,6 +1222,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           />
           <.input
             field={@form[:defaultOptionsJson]}
+            id={field_id(@id_prefix, @form[:defaultOptionsJson].id)}
             type="textarea"
             label="Default Options JSON"
             rows="5"
@@ -1228,6 +1250,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           <div class="ullm-checkbox-grid">
             <.input
               field={@form[:structuredRepairRetryEnabled]}
+              id={field_id(@id_prefix, @form[:structuredRepairRetryEnabled].id)}
               type="checkbox"
               label="Structured Repair"
               phx-change="profile-draft-change"
@@ -1235,6 +1258,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             />
             <.input
               field={@form[:enableRetryOn429]}
+              id={field_id(@id_prefix, @form[:enableRetryOn429].id)}
               type="checkbox"
               label="Rate Limits"
               phx-change="profile-draft-change"
@@ -1242,6 +1266,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             />
             <.input
               field={@form[:enableRetryOn5xx]}
+              id={field_id(@id_prefix, @form[:enableRetryOn5xx].id)}
               type="checkbox"
               label="Server Errors"
               phx-change="profile-draft-change"
@@ -1249,6 +1274,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             />
             <.input
               field={@form[:enableRetryOnNetworkError]}
+              id={field_id(@id_prefix, @form[:enableRetryOnNetworkError].id)}
               type="checkbox"
               label="Network Errors"
               phx-change="profile-draft-change"
@@ -1256,6 +1282,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             />
             <.input
               field={@form[:enableRetryOnParseError]}
+              id={field_id(@id_prefix, @form[:enableRetryOnParseError].id)}
               type="checkbox"
               label="Parse / Schema Errors"
               disabled={truthy?(@form[:structuredRepairRetryEnabled].value)}
@@ -1266,6 +1293,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           <div class="ullm-options-grid">
             <.input
               field={@form[:retryMaxAttempts]}
+              id={field_id(@id_prefix, @form[:retryMaxAttempts].id)}
               type="number"
               label="Max Attempts"
               min="1"
@@ -1276,6 +1304,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             />
             <.input
               field={@form[:retryBaseDelayMs]}
+              id={field_id(@id_prefix, @form[:retryBaseDelayMs].id)}
               type="number"
               label="Base Delay Ms"
               min="0"
@@ -1285,6 +1314,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             />
             <.input
               field={@form[:retryMaxDelayMs]}
+              id={field_id(@id_prefix, @form[:retryMaxDelayMs].id)}
               type="number"
               label="Max Delay Ms"
               min="0"
@@ -1294,6 +1324,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             />
             <.input
               field={@form[:escalationAttempt]}
+              id={field_id(@id_prefix, @form[:escalationAttempt].id)}
               type="number"
               label="Starting Attempt"
               min="2"
@@ -1392,6 +1423,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
                 config_open={false}
                 include_retry={false}
                 bundle_upload={@escalation_bundle_upload}
+                widget_id={@id_prefix}
                 pending={@pending}
                 delete_kind={@delete_kind}
               />
@@ -1419,6 +1451,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         >
           <.input
             field={@form[:pricingInput]}
+            id={field_id(@id_prefix, @form[:pricingInput].id)}
             type="number"
             label="Input $/1M tokens"
             min="0"
@@ -1429,6 +1462,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           />
           <.input
             field={@form[:pricingOutput]}
+            id={field_id(@id_prefix, @form[:pricingOutput].id)}
             type="number"
             label="Output $/1M tokens"
             min="0"
@@ -1439,6 +1473,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           />
           <.input
             field={@form[:pricingCacheRead]}
+            id={field_id(@id_prefix, @form[:pricingCacheRead].id)}
             type="number"
             label="Cache read $/1M tokens"
             min="0"
@@ -1449,6 +1484,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           />
           <.input
             field={@form[:pricingCacheWrite]}
+            id={field_id(@id_prefix, @form[:pricingCacheWrite].id)}
             type="number"
             label="Cache write $/1M tokens"
             min="0"
@@ -1459,6 +1495,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           />
           <.input
             field={@form[:pricingReasoning]}
+            id={field_id(@id_prefix, @form[:pricingReasoning].id)}
             type="number"
             label="Reasoning output $/1M tokens"
             min="0"
@@ -1488,6 +1525,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           class="ullm-btn"
           phx-click="import-bundle"
           phx-value-kind={@kind}
+          phx-value-widget={@widget_id}
         >Import</button>
         <a id={scope_id(@id_prefix, "export-bundle")} href={~p"/profiles/bundle"} class="ullm-btn">Export Bundle</a>
         <button
@@ -1531,6 +1569,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           class="ullm-btn"
           phx-click="import-bundle"
           phx-value-kind={@kind}
+          phx-value-widget={@widget_id}
         >Import</button>
         <a id={scope_id(@id_prefix, "export-bundle")} href={~p"/profiles/bundle"} class="ullm-btn">Export Bundle</a>
         <button
@@ -1951,6 +1990,27 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   defp scope_id(nil, suffix), do: suffix
   defp scope_id(prefix, suffix), do: "#{prefix}-#{suffix}"
 
+  defp field_id(prefix, id) do
+    id = to_string(id)
+
+    case String.split(id, "_", parts: 2) do
+      [base, _rest] ->
+        cond do
+          prefix == base ->
+            id
+
+          is_binary(prefix) and String.ends_with?(prefix, "-#{base}") ->
+            String.replace_prefix(id, base, prefix)
+
+          true ->
+            scope_id(prefix, id)
+        end
+
+      _ ->
+        scope_id(prefix, id)
+    end
+  end
+
   defp assign_fold_state(socket, assigns) do
     socket
     |> assign(:main_config_open, Map.get(assigns, :config_open, socket.assigns.main_config_open))
@@ -2281,7 +2341,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   defp next_cache_mode(_), do: "refresh"
 
   defp notify_parent(socket, message) do
-    send(self(), message)
+    send(self(), {:profile_widget, socket.assigns.id_prefix, message})
     socket
   end
 

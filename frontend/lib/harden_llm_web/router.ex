@@ -66,6 +66,7 @@ defmodule HardenLlmWeb.Router do
     live_session :authenticated,
       on_mount: [{HardenLlmWeb.Auth, :require_authenticated}] do
       live "/workspace", WorkspaceLive
+      live "/embed/llm", EmbeddingLive
       live "/profiles", ProfilesLive
       live "/history", HistoryLive
     end

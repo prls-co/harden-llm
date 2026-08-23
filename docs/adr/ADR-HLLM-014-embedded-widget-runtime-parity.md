@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-08-23 (amended after hosted-run verification)
 - Requirements: REQ-003, REQ-006, REQ-007, REQ-011, REQ-012, REQ-018, REQ-019 and `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`
-- Verification: WEB-TEST-010 and WEB-TEST-038 through WEB-TEST-042, TEST-012, focused Phoenix/profile tests, full frontend tests, browser workflow, `make verify`, and deployed probes/browser verification
+- Verification: WEB-TEST-010 and WEB-TEST-038 through WEB-TEST-043, TEST-012, focused Phoenix/profile tests, full frontend tests, browser workflow, `make verify`, and deployed probes/browser verification
 
 ## Context
 
@@ -57,9 +57,15 @@ credential.
   stage/save event and is never included in ordinary form changes or rendered
   state.
 - Give main and nested escalation profile bundle uploads separate LiveView
-  upload names and namespaced input IDs. Both editors retain the same Import,
-  Export, Save, Delete, and Refresh action semantics without colliding in a
-  host page.
+  upload names and namespaced input IDs. When `id_prefix` is supplied, every
+  generated form/control ID and parent message carries that namespace, and
+  the host registers matching upload channels. Both editors retain the same
+  Import, Export, Save, Delete, and Refresh action semantics without colliding
+  in a host page.
+- Provide an authenticated `/embed/llm` host fixture that mounts two instances
+  with distinct prefixes. It is a verification surface and integration
+  example, not a replacement page shell: the widget remains an in-flow
+  component and the host owns session, routing, and persistence orchestration.
 - Keep reasoning capability filtering as an intentional backend-bound
   adaptation: the compact selector exposes only the selected profile's
   portable map, and the server removes stale unsupported reasoning before
@@ -82,6 +88,12 @@ matter to an embedder: the compact row is recognizable, every disclosure is
 in flow, nested actions have independent identity, search/custom values work
 consistently, cache and retry payloads are predictable, and an unsaved endpoint
 or credential cannot create a run against a different saved profile.
+
+The multi-instance contract is now operational rather than only nominal:
+generated nested field IDs cannot collide, child messages identify their
+prefix, and main/escalation bundle uploads are independently addressable. The
+checked-in host fixture demonstrates two instances without adding tabs or a
+second navigation model.
 
 The Go gateway remains the owner of provider policy, credential storage,
 profile validation, retry execution, cache identity, and persistence. The
@@ -117,6 +129,8 @@ The executable parity cases are:
 - WEB-TEST-040: profile-aware reasoning capability and stale-state omission.
 - WEB-TEST-041: two-state cache behavior and legacy `off` migration.
 - WEB-TEST-042: explicit profile save required for endpoint changes before run.
+- WEB-TEST-043: two-instance host routing, complete ID/upload namespaces,
+  independent folds/cache/profile selection, and no-overflow embedding.
 - TEST-012: provider request-boundary admission accepts utility token-limit
   option names and rejects credential-shaped option names.
 - WEB-TEST-010 plus the authenticated hosted browser workflow: the primary Run
@@ -133,3 +147,14 @@ compact widget and every nested fold, passed desktop/mobile overflow checks,
 and completed a real CPA `gpt-5.6-luna` Run Prompt. No KER or related issue was
 created because timeout, retry-budget, provider endpoint, and ownership
 semantics did not change.
+
+## Amendment evidence: multi-instance embedding
+
+The implementation found that the earlier optional `id_prefix` only covered
+some control IDs. Phoenix-generated nested form IDs remained global, and child
+messages/upload events were not attributable to a host instance. The fix adds
+complete field-ID scoping, tagged parent messages, per-instance upload names,
+and the authenticated `/embed/llm` two-instance fixture. WEB-TEST-043 covers
+the deterministic and Chromium paths. No KER or related issue was created:
+this changes only component integration boundaries, not provider policy,
+timeouts, retry budgets, API ownership, or credential handling.

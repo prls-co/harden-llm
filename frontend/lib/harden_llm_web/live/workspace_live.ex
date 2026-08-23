@@ -89,28 +89,37 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   @impl true
-  def handle_info({:profile_widget_ui, name, open}, socket) when name in @ui_keys do
+  def handle_info({:profile_widget, _prefix, {:profile_widget_ui, name, open}}, socket)
+      when name in @ui_keys do
     toggle_ui(socket, name, to_string(open))
   end
 
-  def handle_info({:profile_widget_selection, profile_id}, socket) do
+  def handle_info({:profile_widget, _prefix, {:profile_widget_selection, profile_id}}, socket) do
     update_workspace_form(socket, "selectedProfileId", profile_id)
   end
 
-  def handle_info({:profile_widget_control, key, value}, socket)
+  def handle_info({:profile_widget, _prefix, {:profile_widget_control, key, value}}, socket)
       when key in ["reasoningEffort", "cacheMode", "modelId"] do
     update_workspace_form(socket, key, value)
   end
 
-  def handle_info({:profile_widget_provider_options, options}, socket) when is_map(options) do
+  def handle_info(
+        {:profile_widget, _prefix, {:profile_widget_provider_options, options}},
+        socket
+      )
+      when is_map(options) do
     {:noreply, assign(socket, :profile_provider_options, options)}
   end
 
-  def handle_info({:profile_widget_profile_dirty, requires_save?}, socket) do
+  def handle_info(
+        {:profile_widget, _prefix, {:profile_widget_profile_dirty, requires_save?}},
+        socket
+      ) do
     {:noreply, assign(socket, :profile_requires_save?, requires_save?)}
   end
 
-  def handle_info({:profile_widget_retry, retry}, socket) when is_map(retry) do
+  def handle_info({:profile_widget, _prefix, {:profile_widget_retry, retry}}, socket)
+      when is_map(retry) do
     params = Map.merge(socket.assigns.form.params || %{}, Map.delete(retry, "repairEscalation"))
 
     params =
@@ -137,7 +146,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> persist_form_state(params)}
   end
 
-  def handle_info({:profile_widget_profiles, profiles, selected_profile_id}, socket) do
+  def handle_info(
+        {:profile_widget, _prefix, {:profile_widget_profiles, profiles, selected_profile_id}},
+        socket
+      ) do
     socket = assign(socket, :profiles, profiles)
 
     if selected_profile_id == (socket.assigns.form.params || %{})["selectedProfileId"] do
@@ -416,8 +428,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
   def handle_event("validate-bundle", _params, socket), do: {:noreply, socket}
 
   def handle_event("import-bundle", params, socket) do
-    upload =
-      if params["kind"] == "escalation", do: :escalation_profile_bundle, else: :profile_bundle
+    upload = workspace_upload_name(params["kind"], params["widget"])
 
     results =
       consume_uploaded_entries(socket, upload, fn %{path: path}, _entry ->
@@ -1481,4 +1492,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp put_optional(map, _key, value) when value in [nil, ""], do: map
   defp put_optional(map, key, value), do: Map.put(map, key, String.trim(value))
+
+  defp workspace_upload_name("escalation", _widget), do: :escalation_profile_bundle
+  defp workspace_upload_name(_kind, _widget), do: :profile_bundle
 end
