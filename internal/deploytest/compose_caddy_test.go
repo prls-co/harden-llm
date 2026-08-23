@@ -176,10 +176,23 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 	t.Helper()
 	services := objectField(t, config, "services")
 	sort.Strings(productionServices)
-	if got := sortedKeys(services); !equalStrings(got, productionServices) {
+	actualServices := make(map[string]any, len(services))
+	for name, service := range services {
+		if name != "otel-collector-state-init" {
+			actualServices[name] = service
+		}
+	}
+	if got := sortedKeys(actualServices); !equalStrings(got, productionServices) {
 		t.Fatalf("effective services = %v, want %v", got, productionServices)
 	}
+	stateInit := asObject(t, services["otel-collector-state-init"], "otel-collector-state-init")
+	if stringField(t, stateInit, "network_mode") != "none" {
+		t.Errorf("otel-collector-state-init network mode = %q, want none", stateInit["network_mode"])
+	}
 	for name, raw := range services {
+		if name == "otel-collector-state-init" {
+			continue
+		}
 		service := asObject(t, raw, "effective service "+name)
 		ports, _ := service["ports"].([]any)
 		if name == "caddy" {
@@ -282,7 +295,7 @@ func assertCaddyContract(t *testing.T, path, extensionDir string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantEntries := map[string]bool{".gitkeep": false, "prls-tests.caddy": false}
+	wantEntries := map[string]bool{".gitkeep": false, "prls-agents.caddy": false, "prls-tests.caddy": false}
 	for _, entry := range entries {
 		if _, ok := wantEntries[entry.Name()]; !ok {
 			t.Errorf("trusted conf.d contains unreviewed entry %s", entry.Name())

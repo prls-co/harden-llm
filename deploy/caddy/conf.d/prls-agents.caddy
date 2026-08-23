@@ -1,0 +1,37 @@
+platform.prod.agents.prls.co {
+	tls {$HARDEN_LLM_TLS_MODE}
+	import security_headers
+	header Content-Security-Policy "default-src 'self'; frame-ancestors 'none'; base-uri 'self'"
+	header X-Frame-Options "DENY"
+	request_body {
+		max_size 8MB
+	}
+	reverse_proxy platform-web:4000
+}
+
+masked-recall-api.prod.agents.prls.co {
+	tls {$HARDEN_LLM_TLS_MODE}
+	import security_headers
+	request_body {
+		max_size 8MB
+	}
+	reverse_proxy masked-recall-api:8080
+}
+
+product-opportunity-api.prod.agents.prls.co {
+	tls {$HARDEN_LLM_TLS_MODE}
+	import security_headers
+	request_body {
+		max_size 8MB
+	}
+	reverse_proxy product-opportunity-api:8080
+}
+
+synthetic-product-dataset-api.prod.agents.prls.co {
+	tls {$HARDEN_LLM_TLS_MODE}
+	import security_headers
+	request_body {
+		max_size 8MB
+	}
+	reverse_proxy synthetic-product-dataset-api:8080
+}

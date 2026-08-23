@@ -453,6 +453,27 @@ func TestPRLSGrafanaPrometheusAndCaddy(t *testing.T) {
 	if strings.Count(caddyText, "basic_auth") != 1 || strings.Count(caddyText, "handle {") != 1 {
 		t.Error("PRLS Caddy include must retain one Basic-authenticated UI/history fallback")
 	}
+
+	agentCaddyPath := filepath.Join(root, "deploy", "caddy", "conf.d", "prls-agents.caddy")
+	agentCaddy, err := os.ReadFile(agentCaddyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agentCaddyText := string(agentCaddy)
+	for _, required := range []string{
+		"platform.prod.agents.prls.co", "reverse_proxy platform-web:4000",
+		"masked-recall-api.prod.agents.prls.co", "reverse_proxy masked-recall-api:8080",
+		"product-opportunity-api.prod.agents.prls.co", "reverse_proxy product-opportunity-api:8080",
+		"synthetic-product-dataset-api.prod.agents.prls.co", "reverse_proxy synthetic-product-dataset-api:8080",
+		"import security_headers", "tls {$HARDEN_LLM_TLS_MODE}",
+	} {
+		if !strings.Contains(agentCaddyText, required) {
+			t.Errorf("agent Caddy include omits %q", required)
+		}
+	}
+	if strings.Contains(agentCaddyText, "basic_auth") || strings.Contains(agentCaddyText, "file_server") {
+		t.Error("agent Caddy include must only proxy the authenticated upstreams")
+	}
 }
 
 func prlsEnvironmentMap(t *testing.T, service map[string]any) map[string]string {
