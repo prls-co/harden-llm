@@ -59,6 +59,7 @@ defmodule HardenLlmWeb.RenderingTest do
     assert has_element?(workspace, ~s(label[for="run_selectedProfileId"]), "Profile")
     assert has_element?(workspace, ~s(label[for="run_userPrompt"]), "Prompt")
     assert has_element?(workspace, "#run-submit")
+    assert has_element?(workspace, "#run-submit[formnovalidate]")
     assert has_element?(workspace, "#workspace-history", "No runs yet in this session.")
     assert has_element?(workspace, ".sm\\:grid-cols-2")
 
