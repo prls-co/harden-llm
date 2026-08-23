@@ -8,6 +8,9 @@ This checkout contains the self-hosted implementation and its canonical specific
 - `self-hosted-go-stack-spec.md` defines the Go, REST, storage, and deployment architecture.
 - `harden-llm-self-hosted-test-spec.md` is the canonical backend test catalog.
 - `phoenix-liveview-frontend-spec.md` defines the separate `frontend/` application.
+- `harden-llm-parallel-test-feedback-plan.md` defines the approved but not yet
+  implemented hierarchy for cheap parallel feedback and targeted expensive
+  certification.
 
 The public Go package is at the repository root, internal packages are under `internal/`, the gateway is under `cmd/harden-llm-gateway/`, and the shared REST contract is `api/openapi.yaml`. Phoenix code belongs only in `frontend/`. Keep backend and frontend coupled through OpenAPI, never through internal types.
 
