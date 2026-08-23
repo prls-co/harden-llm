@@ -2,7 +2,7 @@ receivers:
   filelog/harden_llm_web:
     include:
       - /var/log/harden-llm-web/app.jsonl*
-    start_at: beginning
+    start_at: end
     max_log_size: 256KiB
     include_file_name: false
     include_file_path: false

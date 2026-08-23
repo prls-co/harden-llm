@@ -103,6 +103,14 @@ func TestPRLSCollectorIsolation(t *testing.T) {
 	if !prlsContains(stringSliceField(t, service, "extensions"), "file_storage/harden_llm_web") {
 		t.Error("collector service does not enable durable file-log offset storage")
 	}
+	frontendConfig := readYAMLObject(t, filepath.Join("..", "..", "deploy", "frontend", "otel.frontend.yaml"))
+	frontendFilelog := objectField(t, objectField(t, frontendConfig, "receivers"), "filelog/harden_llm_web")
+	if got := stringField(t, frontendFilelog, "start_at"); got != "end" {
+		t.Errorf("frontend file-log initial position = %q, want end", got)
+	}
+	if got := stringField(t, frontendFilelog, "storage"); got != "file_storage/harden_llm_web" {
+		t.Errorf("frontend file-log storage = %q", got)
+	}
 	receivers := objectField(t, config, "receivers")
 	for index, tenant := range prlsTenants {
 		name := "otlp/prls_" + tenant
