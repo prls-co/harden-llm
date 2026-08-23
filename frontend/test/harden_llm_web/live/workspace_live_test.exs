@@ -65,7 +65,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         "modelId" => "model-test",
         "userPrompt" => "updated safe prompt",
         "callType" => "text",
-        "cacheMode" => "off"
+        "cacheMode" => "cache"
       }
     })
     |> render_change()
@@ -103,7 +103,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         "selectedProfileId" => "Primary",
         "userPrompt" => "select preservation prompt",
         "reasoningEffort" => "lowest",
-        "cacheMode" => "off"
+        "cacheMode" => "cache"
       }
     })
     |> render_change()
@@ -115,6 +115,20 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     view
     |> element("#workspace-cache")
     |> render_change(%{"run" => %{"cacheMode" => "cache"}})
+
+    view
+    |> with_target("#workspace-llm-widget")
+    |> render_change("workspace-control", %{
+      "_target" => ["run", "reasoningEffort"],
+      "reasoningEffort" => "highest"
+    })
+
+    view
+    |> with_target("#workspace-llm-widget")
+    |> render_change("workspace-control", %{
+      "_target" => ["run", "cacheMode"],
+      "cacheMode" => "cache"
+    })
 
     assert has_element?(view, ~s(#run_selectedProfileId[value="Primary"]))
     assert has_element?(view, "#run_userPrompt", "select preservation prompt")
@@ -157,7 +171,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         "selectedProfileId" => "typed-custom-profile",
         "userPrompt" => "custom profile draft",
         "callType" => "text",
-        "cacheMode" => "off"
+        "cacheMode" => "cache"
       }
     })
     |> render_change()
@@ -195,8 +209,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     refute has_element?(view, ~s(#input-advanced-toggle[phx-value-value]))
 
     view |> element("#input-advanced-toggle") |> render_click()
-    render_async(view, 1_000)
-    view |> element("#retry-repair-toggle") |> render_click()
+    view |> element("#profile-retry-toggle") |> render_click()
     render_async(view, 1_000)
 
     for selector <- [
@@ -210,18 +223,17 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           "#run_schema",
           "#run_callType",
           "#run_structuredRepair",
-          "#run_maxAttempts",
-          "#run_initialBackoffMs",
-          "#run_maximumBackoffMs",
-          "#run_retryRateLimit",
-          "#run_retryServerError",
-          "#run_retryNetwork",
-          "#run_retryEmpty",
-          "#run_retryParse",
-          "#run_repairEscalationProfileId",
-          "#run_repairEscalationModelId",
-          "#run_repairEscalationAttempt",
-          "#run_repairEscalationReasoning"
+          "#profile-retry-repair",
+          "#profile_structuredRepairRetryEnabled",
+          "#profile_enableRetryOn429",
+          "#profile_enableRetryOn5xx",
+          "#profile_enableRetryOnNetworkError",
+          "#profile_enableRetryOnParseError",
+          "#profile_retryMaxAttempts",
+          "#profile_retryBaseDelayMs",
+          "#profile_retryMaxDelayMs",
+          "#profile_escalationAttempt",
+          "#profile-escalation-profile"
         ] do
       assert has_element?(view, selector), "missing workspace control #{selector}"
     end
@@ -238,19 +250,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         "callType" => "structured",
         "structuredRepair" => "true",
         "reasoningEffort" => "highest",
-        "cacheMode" => "cache",
-        "maxAttempts" => "4",
-        "initialBackoffMs" => "250",
-        "maximumBackoffMs" => "5000",
-        "retryRateLimit" => "true",
-        "retryServerError" => "true",
-        "retryNetwork" => "true",
-        "retryEmpty" => "true",
-        "retryParse" => "true",
-        "repairEscalationProfileId" => "Primary",
-        "repairEscalationModelId" => "repair-control",
-        "repairEscalationAttempt" => "2",
-        "repairEscalationReasoning" => "lowest"
+        "cacheMode" => "cache"
       }
     })
     |> render_change()
@@ -311,6 +311,8 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, "#workspace-reasoning")
     assert has_element?(view, "#workspace-cache-toggle")
     assert has_element?(view, "#model-config-toggle")
+    assert has_element?(view, ~s(#run_selectedProfileId[role="combobox"]))
+    assert has_element?(view, ~s(#run_selectedProfileId-options[role="listbox"]))
 
     view |> element("#model-config-toggle") |> render_click()
     render_async(view, 1_000)
@@ -325,7 +327,6 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           "#profile_modelId",
           "#profile-fallback-toggle",
           "#profile-fallback-list",
-          "#profile-identity-toggle",
           "#profile-options-toggle",
           "#profile-retry-toggle",
           "#profile-pricing-toggle",
@@ -338,6 +339,11 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       assert has_element?(view, selector), "missing profile widget control #{selector}"
     end
 
+    assert has_element?(view, ~s(#profile_apiInferenceType[role="combobox"]))
+    assert has_element?(view, ~s(#profile_baseUrl[role="combobox"]))
+    assert has_element?(view, ~s(#profile_modelId[role="combobox"]))
+    refute has_element?(view, ~s([role="tab"]))
+
     view |> element("#profile-credential-toggle") |> render_click()
     assert has_element?(view, "#profile-credential-drawer")
     view |> element("#profile-credential-toggle") |> render_click()
@@ -347,19 +353,10 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, "#profile-fallback-options")
 
     view
-    |> element("#profile-fallback-picker")
-    |> render_change(%{"fallbackProfile" => "Backup LLM"})
+    |> element("#profile-fallback-0")
+    |> render_change(%{"profile" => %{"backupProfiles" => "Backup LLM"}, "index" => "0"})
 
     assert has_element?(view, "#profile-fallback-list", "Backup LLM")
-
-    view
-    |> element(~s(button[phx-click="add-backup"][phx-value-id="Backup LLM"]))
-    |> render_click()
-
-    assert has_element?(view, "#profile-fallback-list", "Backup LLM")
-
-    view |> element("#profile-identity-toggle") |> render_click()
-    assert has_element?(view, "#profile-identity")
 
     view |> element("#profile-options-toggle") |> render_click()
 
@@ -430,12 +427,19 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           "#escalation-identity-toggle",
           "#escalation-options-toggle",
           "#escalation-pricing-toggle",
+          "#escalation-bundle-file",
+          "#escalation-export-bundle",
           "#escalation-save",
           "#escalation-delete"
         ] do
       id = String.trim_leading(selector, "#")
       assert html =~ ~s(id="#{id}"), "missing nested profile control #{selector}"
     end
+
+    assert has_element?(
+             view,
+             ~s(input[type="file"][name="escalation_profile_bundle"])
+           )
 
     view
     |> with_target("#workspace-llm-widget")
@@ -515,10 +519,9 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     view |> element("#profile-credential-toggle") |> render_click()
 
     view
-    |> element("#profile_apiKey")
-    |> render_change(%{"profile" => %{"apiKey" => "widget-secret"}})
+    |> with_target("#workspace-llm-widget")
+    |> render_click("stage-key", %{"kind" => "main", "apiKey" => "widget-secret"})
 
-    view |> element("#profile-stage-key") |> render_click()
     assert has_element?(view, "#profile-credential-toggle", "Replace key")
     refute render(view) =~ "widget-secret"
 
@@ -531,7 +534,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     view |> element("#profile-refresh-models") |> render_click()
     render_async(view, 1_000)
     assert_received :widget_refreshed
-    assert has_element?(view, "#profile-model-options", "refreshed-model")
+    assert has_element?(view, ~s(#profile_modelId-options [data-value="refreshed-model"]))
 
     view |> element("#profile-delete") |> render_click()
     assert has_element?(view, "#profile-delete-confirmation")
@@ -552,7 +555,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     render_upload(upload, "profiles.json")
     view |> element("#profile-import-bundle") |> render_click()
     assert_received {:widget_imported, %{"schemaVersion" => 1}}
-    assert has_element?(view, ~s(#workspace-profile-options option[value="CPA GPT-5.6 Luna"]))
+    assert has_element?(view, ~s(#run_selectedProfileId-options [data-value="CPA GPT-5.6 Luna"]))
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-040
@@ -894,23 +897,27 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     conn: conn
   } do
     test_pid = self()
+    backup = widget_profile("Backup", "repair-model")
 
-    install_stub(fn conn ->
-      case {conn.method, conn.request_path} do
-        {"POST", "/api/v1/state"} ->
-          {:ok, body, conn} = Plug.Conn.read_body(conn)
-          send(test_pid, {:saved_parity_state, Jason.decode!(body)})
-          Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+    install_stub(
+      fn conn ->
+        case {conn.method, conn.request_path} do
+          {"POST", "/api/v1/state"} ->
+            {:ok, body, conn} = Plug.Conn.read_body(conn)
+            send(test_pid, {:saved_parity_state, Jason.decode!(body)})
+            Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
 
-        {"POST", "/api/v1/run"} ->
-          {:ok, body, conn} = Plug.Conn.read_body(conn)
-          send(test_pid, {:parity_run, Jason.decode!(body)})
-          Req.Test.json(conn, APIFixtures.success(APIFixtures.run_result()))
+          {"POST", "/api/v1/run"} ->
+            {:ok, body, conn} = Plug.Conn.read_body(conn)
+            send(test_pid, {:parity_run, Jason.decode!(body)})
+            Req.Test.json(conn, APIFixtures.success(APIFixtures.run_result()))
 
-        _ ->
-          unexpected(conn)
-      end
-    end)
+          _ ->
+            unexpected(conn)
+        end
+      end,
+      profiles: [APIFixtures.profile_state(), backup]
+    )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
     render_async(view, 1_000)
@@ -926,22 +933,37 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         "schema" => "",
         "reasoningEffort" => "highest",
         "cacheMode" => "cache",
-        "structuredRepair" => "true",
-        "maxAttempts" => "4",
-        "initialBackoffMs" => "500",
-        "maximumBackoffMs" => "8000",
-        "retryNetwork" => "true",
-        "retryRateLimit" => "true",
-        "retryServerError" => "false",
-        "retryEmpty" => "true",
-        "retryParse" => "true",
-        "repairEscalationProfileId" => "Backup",
-        "repairEscalationModelId" => "repair-model",
-        "repairEscalationAttempt" => "3",
-        "repairEscalationReasoning" => "highest"
+        "structuredRepair" => "true"
       }
     })
     |> render_change()
+
+    view |> element("#model-config-toggle") |> render_click()
+    view |> element("#profile-options-toggle") |> render_click()
+    view |> element("#profile-retry-toggle") |> render_click()
+    view |> element("#profile-pricing-toggle") |> render_click()
+
+    view
+    |> with_target("#workspace-llm-widget")
+    |> render_change("profile-draft-change", %{
+      "profile" => %{
+        "structuredRepairRetryEnabled" => "true",
+        "enableRetryOn429" => "true",
+        "enableRetryOn5xx" => "false",
+        "enableRetryOnNetworkError" => "true",
+        "enableRetryOnParseError" => "true",
+        "retryMaxAttempts" => "4",
+        "retryBaseDelayMs" => "500",
+        "retryMaxDelayMs" => "8000",
+        "escalationProfile" => "Backup",
+        "escalationAttempt" => "3",
+        "escalationReasoning" => "highest"
+      }
+    })
+
+    view
+    |> with_target("#workspace-llm-widget")
+    |> render_change("profile-draft-change", %{"escalation" => %{"modelId" => "repair-model"}})
 
     view |> element("#input-advanced-toggle") |> render_click()
     view |> element("#generate-schema") |> render_click()
@@ -950,22 +972,106 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, "#schema-status", "Schema generated.")
     assert_received {:saved_parity_state, %{"schemaShorthand" => ~s({"answer":"string"})}}
 
+    assert_received {:saved_parity_state,
+                     %{
+                       "ui" => %{
+                         "modelOptionsOpen" => true,
+                         "pricingOpen" => true,
+                         "retryRepairOpen" => true
+                       }
+                     }}
+
     view |> form("#run-form") |> render_submit()
     render_async(view, 1_000)
 
-    assert_received {:parity_run,
-                     %{
-                       "profileId" => "Primary",
-                       "modelId" => "model-override",
-                       "reasoningEffort" => "highest",
-                       "cacheMode" => "cache",
-                       "maxAttempts" => 4,
-                       "initialBackoffMs" => 500,
-                       "repairEscalation" => %{
-                         "profileId" => "Backup",
-                         "modelId" => "repair-model"
-                       }
-                     }}
+    assert_received {:parity_run, payload}
+    assert payload["profileId"] == "Primary"
+    assert payload["modelId"] == "model-override"
+    assert payload["reasoningEffort"] == "highest"
+    assert payload["cacheMode"] == "cache"
+    assert payload["maxAttempts"] == 4
+    assert payload["initialBackoffMs"] == 500
+
+    assert payload["repairEscalation"] == %{
+             "attempt" => 3,
+             "profileId" => "Backup",
+             "modelId" => "repair-model",
+             "reasoningEffort" => "highest"
+           }
+
+    assert payload["providerOptions"]["max_tokens"] == 16_000
+    refute Map.has_key?(payload["providerOptions"], "structuredRepairRetry")
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-041
+  test "utility cache control is two-state and migrates legacy off drafts", %{conn: conn} do
+    test_pid = self()
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/state"} ->
+          legacy_state = Map.put(APIFixtures.state(), "cacheMode", "off")
+          Req.Test.json(conn, APIFixtures.success(nil, legacy_state))
+
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          state = Jason.decode!(body)
+          send(test_pid, {:cache_state, state})
+          Req.Test.json(conn, APIFixtures.success(nil, state))
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+
+    assert has_element?(view, ~s(#workspace-cache option[value="cache"][selected]))
+    refute has_element?(view, ~s(#workspace-cache option[value="off"]))
+
+    view |> element("#workspace-cache-toggle") |> render_click()
+    assert has_element?(view, ~s(#workspace-cache option[value="refresh"][selected]))
+    render_async(view, 1_000)
+    assert_received {:cache_state, %{"cacheMode" => "refresh"}}
+
+    view |> element("#workspace-cache-toggle") |> render_click()
+    assert has_element?(view, ~s(#workspace-cache option[value="cache"][selected]))
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-042
+  test "endpoint edits require an explicit profile save before running", %{conn: conn} do
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          state = Jason.decode!(body)
+          Req.Test.json(conn, APIFixtures.success(nil, state))
+
+        {"POST", "/api/v1/run"} ->
+          flunk("an unsaved endpoint edit must not reach the run endpoint")
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+
+    view
+    |> element("#profile_baseUrl")
+    |> render_change(%{"profile" => %{"baseUrl" => "https://changed.example.test/v1"}})
+
+    render_async(view, 1_000)
+    submit_run(view, %{"userPrompt" => "should be blocked"})
+
+    assert has_element?(
+             view,
+             "#run-error",
+             "Save the LLM profile before running endpoint, credential, fallback, or identity changes."
+           )
   end
 
   defp widget_profile(profile_id, model_id) do
@@ -975,15 +1081,15 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       "top_p" => 0.95,
       "top_k" => 40,
       "stop" => ["DONE"],
+      "maxAttempts" => 4,
+      "baseDelayMs" => 500,
+      "maxDelayMs" => 8_000,
+      "enableRetryOn429" => true,
+      "enableRetryOn5xx" => true,
+      "enableRetryOnNetworkError" => true,
+      "enableRetryOnParseError" => true,
       "structuredRepairRetry" => %{
         "enabled" => true,
-        "enableRetryOn429" => true,
-        "enableRetryOn5xx" => true,
-        "enableRetryOnNetworkError" => true,
-        "enableRetryOnParseError" => true,
-        "maxAttempts" => 4,
-        "baseDelayMs" => 500,
-        "maxDelayMs" => 8_000,
         "escalation" => %{
           "attempt" => 3,
           "llmProfile" => profile_id,
@@ -1035,7 +1141,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           "systemPrompt" => "",
           "userPrompt" => "fixture prompt",
           "callType" => "text",
-          "cacheMode" => "off",
+          "cacheMode" => "cache",
           "structuredRepair" => "false",
           "schema" => ""
         },
@@ -1055,7 +1161,8 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
 
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+          profiles = Keyword.get(options, :profiles, [APIFixtures.profile_state()])
+          Req.Test.json(conn, APIFixtures.success(%{"profiles" => profiles}))
 
         {"GET", "/api/v1/history"} ->
           case Keyword.get(options, :history) do

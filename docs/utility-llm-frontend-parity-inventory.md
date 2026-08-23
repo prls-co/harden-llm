@@ -6,7 +6,8 @@ This inventory records the frontend behavior that must be represented by the
 self-hosted Phoenix/Go application, subject to the self-hosted boundaries in
 this repository. It is based on the read-only `utility-llm` checkout at
 `5c0309e` (`chore(release): publish utility-llm 0.15.0`) and the merged
-`harden-llm` checkout at `7c55266`.
+the current `harden-llm` working checkout (the previously certified baseline was
+`d02bee8`).
 
 The parity target is behavior, not React or Firebase implementation. Firebase
 email/password auth, Firebase ID tokens, Firestore state, and signed Firebase
@@ -63,7 +64,7 @@ reuses the same controls with category name `Escalation Model`.
 | Category name (`LLM`, `Escalation Model`) | Text | Labels the model slot; a blank category is a programming error. |
 | `LLM Profile` / visible `🤖` | Searchable editable combobox | Searches by profile name, model, endpoint, interface, and discovered models. Existing profile selection loads the profile and prompt draft through the backend state mutation. A typed custom value remains visible and can produce a field error. The escalation version writes `structuredRepairRetry.escalation.llmProfile`. |
 | `Reasoning` / visible `🧠` | Select with `L`, `M`, `H` | Controls `lowest`, `middle`, or `highest`. Main profile reasoning is persisted as per-profile UI/run state; escalation reasoning is written into escalation options. |
-| `💾` | Pressed cache-mode button | `Use cache` means normal cache lookup; `Overwrite cache on next run` means refresh. `aria-pressed`, title, and label reflect the state. Self-hosted `off` remains available where the current stack requires an explicit disabled mode. |
+| `💾` | Pressed cache-mode button | `Use cache` means normal cache lookup; `Overwrite cache on next run` means refresh. `aria-pressed`, title, and label reflect the state. Harden exposes the same two states and migrates legacy persisted `off` to `cache`; it does not expose a third disabled state in this widget. |
 | `⚙` / `Profile config` | Disclosure button | Opens/closes the complete profile editor. Fold state is controlled and persisted. It is disabled while a UI-state save is pending so stale responses cannot overwrite the newest fold state. |
 
 ### 3.3 Profile configuration fields and actions
@@ -259,8 +260,8 @@ passed, including 16 React/server test files and 147 Vitest tests.
 | Area | Current harden behavior | Required parity work |
 | --- | --- | --- |
 | Auth/shell | Phoenix session login/logout and protected LiveViews exist. | Preserve behavior while matching utility shell status/error semantics. |
-| Profiles | Dedicated Phoenix studio with compact profile cards, provider/interface/endpoint/model, write-only credential staging, ordered backups, options, retry/repair/escalation, pricing, refresh, CRUD, bundle actions, and deep-link editing. The full editor unfolds inline below the cards. | The utility’s compact row/fold language is preserved without creating a second profile-editor owner; Firebase-specific persistence and browser provider calls remain excluded. |
-| Workspace | One narrow vertical studio stack containing model, input, output, history, and stats widgets; advanced prompt/schema controls, persisted UI folds, custom profile values, actionable history rows, output copy/request/response/cURL, token/cache/cost stats, and canonical run payloads. | Keep the single Phoenix/Go path; no browser provider calls or second widget runtime. |
+| Profiles | Dedicated Phoenix studio with compact profile cards, provider/interface/endpoint/model, write-only credential staging, ordered backups, options, retry/repair/escalation, pricing, refresh, CRUD, bundle actions, and deep-link editing. The full editor unfolds inline below the cards. | The utility’s compact row/fold language is preserved without creating a second profile-editor owner; Firebase-specific persistence and browser provider calls remain excluded. The embedded widget now uses the same searchable/custom-value interaction for profile, API type, base URL, model, and fallbacks, and namespaces the nested bundle upload. |
+| Workspace | One narrow vertical studio stack containing model, input, output, history, and stats widgets; advanced prompt/schema controls, persisted UI folds, custom profile values, actionable history rows, output copy/request/response/cURL, token/cache/cost stats, and canonical run payloads. | Keep the single Phoenix/Go path; no browser provider calls or second widget runtime. Cache is utility-compatible (`cache`/`refresh`), retry policy is projected into the gateway request boundary, and endpoint/credential/fallback identity edits require profile save before a run. |
 | History | Cursor-based expandable records, restore, trace observations/artifacts, row stats, request/response/cURL copy, delete, clear confirmation, page-size selection, and load more; workspace history has the same row-local actions. | Arbitrary page-number/quick-jump behavior would require an offset contract; retain cursor semantics as the self-hosted adaptation. |
 | Backend state | Go/OpenAPI state carries prompt draft, selected profile, schema shorthand, reasoning map, cache mode, retry/repair controls, and fold visibility with strict validation. | Continue adding only behavior required by the inventory and keep credentials write-only. |
 | Profile schema | Go `Profile` already has pricing, default options, backups, models, reasoning map, and credential state. | Expose and test the existing fields through Phoenix; add only fields needed by utility behavior, not Firebase-specific copies. |
@@ -300,6 +301,8 @@ The parity implementation is present in the self-hosted checkout:
 - The 2026-08-22 workspace draft correction merges field-local `phx-change` events from the Reasoning and Cache selects into the current draft, preserving the selected profile before submit.
 - The studio surfaces are intentionally component-oriented for embedding: `#workspace-page` and `#profiles-page` are single vertical stacks with stable `studio-page` / `studio-stack` / `studio-card` / `studio-fold` roots, no tabs or side rail, no fixed overlay, and in-flow folds. The canonical Workspace profile surface is the reusable `HardenLlmWeb.ProfileWidgetComponent` at `#workspace-llm-widget`; `Layouts.app` is only a route adapter.
 - `ProfileWidgetComponent` provides the utility-like compact LLM row, profile/API/credential/model/fallback controls, Options, Retries & Repair, nested Escalation Model configuration, Pricing, bundle actions, and in-flow delete confirmation. Its optional `id_prefix` namespaces controls when a host embeds more than one instance; the host owns routing/session orchestration through the existing message and OpenAPI boundaries.
+- The second widget parity pass aligns the practical control behavior with utility: profile/API/base/model/fallback values use searchable custom-value comboboxes, the cache control is the two-state `cache`/`refresh` model with legacy `off` migration, retry/repair fields are stored in utility-shaped profile defaults but projected to the gateway's top-level run policy, and a staged endpoint/credential/fallback identity cannot run until the profile is saved. WEB-TEST-041 and WEB-TEST-042 cover the cache and save boundaries.
+- Main and nested escalation bundle inputs use separate LiveView upload names and DOM namespaces, so both unfolded editors can import/export independently when the component is embedded more than once. The retry/editor fold tree remains in flow; no duplicate workspace retry panel or tab shell is reintroduced.
 - The reasoning selector is capability-aware: seeded profiles expose only the levels in their `reasoningEffortMap`, while a custom profile without a map shows a disabled placeholder. `WorkspaceLive` repeats that check when building the run request so stale persisted reasoning cannot produce a provider-preparation failure before the request reaches the provider. WEB-TEST-040 covers the unmapped-profile boundary.
 - Workspace model and escalation controls can still deep-link to the canonical `/profiles` editor; new-profile credential fields open automatically while existing-profile edits keep stored credentials behind a closed write-only drawer.
 - `HistoryLive` exposes expandable request/result records, result and credential-free cURL copy, page-size controls over the cursor API, trace observations, artifact links, restore, delete, and clear.
@@ -335,6 +338,11 @@ unimplemented frontend behavior:
   side rail. `ProfileWidgetComponent` keeps all disclosure in flow, accepts an
   optional ID namespace, and communicates host-owned selection/UI changes through
   explicit messages while profile mutations remain on the same OpenAPI contract.
+- The runtime parity follow-up is recorded in ADR-HLLM-014. The remaining
+  differences are deliberate self-hosted projections: Firebase/Firestore and
+  browser-provider ownership, cursor history instead of utility offset
+  quick-jump, and the gateway's top-level retry request shape. The widget
+  behavior itself is covered through WEB-TEST-038 through WEB-TEST-042.
 
 The implementation is complete only when the checked-in Go gates, Phoenix
 LiveView suite, browser workflow, formatter/static checks, and

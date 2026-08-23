@@ -1178,7 +1178,7 @@ Plan-and-Solve subtasks:
 Exit gates:
 
 - Proceed: TEST-001 through TEST-036, TEST-039, and TEST-040 pass; TEST-037/TEST-038 pass when configured or are explicitly recorded as not run.
-- Frontend closeout additionally requires WEB-TEST-001 through WEB-TEST-012 and WEB-TEST-031 through WEB-TEST-036, the exact Phoenix formatting/compile/unit gates, the browser workflow, and `make test-compose` when deployment validation is requested.
+- Frontend closeout additionally requires WEB-TEST-001 through WEB-TEST-012 and the current WEB-TEST-031 through WEB-TEST-042 parity set, the exact Phoenix formatting/compile/unit gates, the browser workflow, and `make test-compose` when deployment validation is requested.
 - Escalate: unannotated parity difference, provider uncertainty, or target dependency remains.
 - Stop: release requires Firebase, duplicate telemetry, another implementation path, or substitution of a Langfuse-owned dependency.
 
@@ -1478,17 +1478,18 @@ Privacy and data-quality constraints:
 | P07.S13 | Workspace draft preservation for field-local browser change events | WEB-TEST-037 plus Wallaby select changes and deployed CPA run | merge partial `phx-change` maps, rerun deterministic/browser gates, and verify a real profile run |
 | P07.S14 | `ProfileWidgetComponent`, no-primary-navigation layout, nested profile folds, widget CSS, parity/ADR/status docs | WEB-TEST-038 and WEB-TEST-039 plus browser workflow | pinned Phoenix suite, desktop/mobile Chromium, publication, deployment, and public probe/API smoke |
 | P07.S15 | Profile-aware reasoning capability handling in `ProfileWidgetComponent`, `WorkspaceLive`, and translated tests/docs | WEB-TEST-040 plus hosted browser workflow | pinned Phoenix suite, desktop/mobile Chromium, `make verify`, publication, deployment, and an authenticated hosted prompt using the existing operator credential |
+| P07.S16 | Utility widget runtime parity follow-up: searchable custom-value controls, two-state cache migration, retry request projection, nested bundle-upload namespacing, and explicit profile-save gating | WEB-TEST-041 and WEB-TEST-042 plus WEB-TEST-038/039 regression coverage | pinned Phoenix suite, full frontend suite, desktop/mobile browser workflow, `make verify`, publication, deployment, public probes, and authenticated hosted prompt |
 
 ## 11. Execution log
 
 ### Phase Status
 
-- Phase: P07 plus P07.S09-P07.S15 frontend parity closeout amendments
-- Status: Implementation and production verification complete; P07.S15 is closed
+- Phase: P07 plus P07.S09-P07.S16 frontend parity closeout amendments
+- Status: P07.S16 implementation complete; deterministic verification is in progress before publication and deployment
 - Target SHA: `d02bee8` (PR `#22`, following PR `#21`)
 - Backend source fixture SHA: `09769424ca34b9d759e273a7e9dccf4fd00a5f6c`
 - Frontend source revision: `utility-llm` `5c0309e` / `0.15.0`
-- Evidence: `make verify`, pinned Phoenix suite, Wallaby desktop/mobile workflow, WEB-TEST-040, public probes, healthy deployed containers, and authenticated hosted prompt at `d02bee8`
+- Evidence baseline: `make verify`, pinned Phoenix suite, Wallaby desktop/mobile workflow, WEB-TEST-040, public probes, healthy deployed containers, and authenticated hosted prompt at `d02bee8`; P07.S16 adds WEB-TEST-041/042 and requires a new release record
 
 ### Completed Steps
 
@@ -1502,6 +1503,7 @@ Privacy and data-quality constraints:
 | P07.S13 workspace draft preservation | Implemented: merged field-local browser `phx-change` payloads so Reasoning and Cache changes preserve the selected profile; added regression coverage and real hosted run verification | `frontend/lib/harden_llm_web/live/workspace_live.ex`; WEB-TEST-037; Wallaby; deployed Playwright |
 | P07.S14 reusable embedded widget and no-tabs topology | Implemented: `ProfileWidgetComponent` owns the compact utility-style row, nested main/escalation folds, fallback/options interactions, optional ID namespace, and host message boundary; persistent primary nav removed | `frontend/lib/harden_llm_web/live/profile_widget_component.ex`; WEB-TEST-038/039; ADR-HLLM-012 |
 | P07.S15 profile-aware reasoning capability guard | Implemented: supported profiles retain L/M/H, profiles without a reasoning map disable the compact selector, stale persisted reasoning is omitted from run payloads, and known unmapped repair profiles cannot inherit an incompatible primary setting | `frontend/lib/harden_llm_web/live/profile_widget_component.ex`; `frontend/lib/harden_llm_web/live/workspace_live.ex`; WEB-TEST-040; ADR-HLLM-012 |
+| P07.S16 utility widget runtime parity follow-up | Implemented: utility-style searchable comboboxes preserve custom values; cache is `cache`/`refresh` with legacy `off` migration; saved profile defaults are projected into gateway retry/repair request fields; main and nested bundle uploads are namespaced; endpoint/credential/fallback identity edits block runs until explicit save | `frontend/lib/harden_llm_web/live/profile_widget_component.ex`; `frontend/lib/harden_llm_web/live/workspace_live.ex`; WEB-TEST-038..042; ADR-HLLM-014 | Deterministic and browser/release gates pending |
 | Final frontend validation | Pass: focused workspace suite 18 passed; full deterministic frontend 86 passed/3 excluded; desktop/mobile Chromium 2 passed; `make verify` passed; authenticated hosted prompt passed with no overflow and no unsupported reasoning field | `frontend/` test suites; release certification |
 | Publication and deployment | Pass: PR `#22` merged as `d02bee8`; gateway remained healthy at `8f69e2b`, frontend image `sha256:a208f39bf3f61d706fdf1ad3bd17e2598795438bce92e7f2d3ab6953d7d0671f`; frontend/API health, readiness, and login probes returned HTTP 200 | `docs/release-certification.md` |
 
@@ -1543,6 +1545,7 @@ Privacy and data-quality constraints:
 | Utility Downshift inline/editor and offset quick-jump behavior | Native editable datalist/deep-link profile ownership and cursor/limit history | Preserve one Phoenix/Go owner and the authoritative cursor REST contract | ADR-HLLM-012 |
 | Profile modal/editor and wide table/side-rail topology | In-flow profile/delete folds, compact profile cards, and one vertical Workspace stack | The requested utility-llm information density keeps surrounding facts visible and avoids overlay-hidden controls | ADR-HLLM-012 |
 | Standalone tabbed/page-shell embedding | Stable single-column studio surfaces with no tabs, side rail, or fixed overlay; `ProfileWidgetComponent` is the reusable in-flow widget and route layout remains an adapter shell | The UI is intended to be placed inside host applications as a visual component; the widget now carries the full nested profile fold tree and optional ID namespace while host messages own routing/session state | ADR-HLLM-012 |
+| Utility's direct browser state/request ownership | Phoenix keeps the utility-shaped profile defaults but projects retry/repair to the gateway's top-level run policy, migrates legacy cache `off` to `cache`, and blocks endpoint/credential/fallback identity changes until explicit profile save | The Go REST contract owns provider execution and saved profile snapshots; sending utility retry keys inside `providerOptions` or running against an unsaved endpoint would make practical behavior diverge and could target the wrong provider | ADR-HLLM-014 |
 | Timeout RCA record | No new KER | The Tempo correction changed parsing only; no timeout or budget changed | None |
 | Production routing values | Public `*.prls.co` hostnames with tunnel-trusted private-PKI `internal` TLS | The first deployment inherited development `*.harden.localhost` values and returned 502; the corrected effective Compose config passed health/readiness probes | Release certification |
 | Compose project selection during P07.S15 promotion | The first update command omitted `-p harden-llm` and created an isolated duplicate web project | Removed only the duplicate project and its newly-created temporary log volume, retained the production volume/data, and redeployed the merged SHA through the existing `harden-llm` project | Release certification |
@@ -1571,6 +1574,12 @@ Privacy and data-quality constraints:
   mismatch discovered by the hosted browser check while preserving the
   backend's strict unsupported-reasoning rejection. It is tracked by
   ADR-HLLM-012, WEB-TEST-040, and the release certification.
+- P07.S16 introduced no KER, timeout-budget, provider-policy, or API ownership
+  change and no related issue was created. It corrected practical widget
+  parity at the browser/request boundary: searchable custom values, cache
+  migration, retry projection, nested upload identity, and explicit profile
+  save gating. It is tracked by ADR-HLLM-014 and WEB-TEST-038..042; its release
+  evidence is added to the certification record after deployment.
 - The visual embedding constraint is deliberate: preserve stable studio roots,
   in-flow folds, and one vertical surface when a host application supplies its
   own shell. The concrete next step beyond this plan is downstream adoption of
@@ -1583,6 +1592,7 @@ Privacy and data-quality constraints:
 | --- | --- | --- |
 | ADR-HLLM-012 | Accepted | Complete the utility frontend behavior through one self-hosted Phoenix/Go path with explicit editor, pagination, infrastructure, and in-flow layout adaptations. |
 | ADR-HLLM-013 | Accepted | Embed the current 28-profile utility-llm catalog and backfill missing owner presets without credentials or overwrite. |
+| ADR-HLLM-014 | Accepted | Align the reusable embedded widget's practical combobox, cache, retry, nested upload, and saved-profile runtime behavior with utility-llm while preserving the Go ownership boundary. |
 
 ### Post-certification profile catalog amendment
 

@@ -164,6 +164,10 @@
     {
       "adr": "ADR-HLLM-013",
       "summary": "The current 28-profile utility-llm catalog is embedded and missing presets are backfilled without credentials or overwrite; paid all-profile execution remains opt-in."
+    },
+    {
+      "adr": "ADR-HLLM-014",
+      "summary": "The reusable no-tabs widget aligns utility combobox, cache, retry projection, nested upload, and explicit profile-save behavior with the self-hosted gateway contract."
     }
   ],
   "frontend": {
@@ -176,7 +180,7 @@
       "WEB-TEST-009", "WEB-TEST-010", "WEB-TEST-011", "WEB-TEST-012",
       "WEB-TEST-031", "WEB-TEST-032", "WEB-TEST-033", "WEB-TEST-034",
       "WEB-TEST-035", "WEB-TEST-036", "WEB-TEST-037", "WEB-TEST-038",
-      "WEB-TEST-039", "WEB-TEST-040"
+      "WEB-TEST-039", "WEB-TEST-040", "WEB-TEST-041", "WEB-TEST-042"
     ],
     "parityInventory": "docs/utility-llm-frontend-parity-inventory.md",
     "paritySource": {
@@ -186,6 +190,7 @@
     },
     "parityCompletedAt": "2026-08-22T20:36:37Z",
     "parityAdaptationADR": "ADR-HLLM-012",
+    "parityRuntimeADR": "ADR-HLLM-014",
     "parityRelease": {
       "pullRequest": 22,
       "commit": "d02bee8",
@@ -205,7 +210,7 @@
       "browser": "Pinned Chromium 2 passed at desktop and mobile; hosted authenticated browser passed at d02bee8 with all eight folds open and no horizontal overflow",
       "backend": "make verify passed",
       "compose": "make test-compose passed",
-      "uiControlCoverage": "WEB-TEST-037 through WEB-TEST-040 cover profile/workspace inputs, buttons, no-tabs fold payloads, fallback/options interactions, write-only credential staging, profile mutations, select-driven draft preservation, profile-aware reasoning capability guards, and omission of invalid empty reasoning state; the deployed image, public probes, and hosted run pass",
+      "uiControlCoverage": "WEB-TEST-037 through WEB-TEST-042 cover profile/workspace inputs, buttons, no-tabs fold payloads, searchable custom-value controls, fallback/options interactions, write-only credential staging, namespaced nested bundle actions, select-driven draft preservation, utility cache migration, profile-aware reasoning capability guards, retry projection, and explicit saved-profile gating; the deployed image, public probes, and hosted run pass for the previously certified release, with the ADR-014 follow-up pending its release evidence",
       "hostedAuthenticatedBrowser": "pass: existing production credentials; CurlStructured via CPA with gpt-5.6-luna; eight folds opened; real output returned; request omitted reasoningEffort; desktop/mobile overflow absent; no new account or secret persisted",
       "embedding": {
         "status": "reusable-live-component",

@@ -58,11 +58,16 @@
               profiles={@profiles}
               selected_profile_id={@form[:selectedProfileId].value || ""}
               reasoning_effort={@form[:reasoningEffort].value || "lowest"}
-              cache_mode={@form[:cacheMode].value || "off"}
+              cache_mode={@form[:cacheMode].value || "cache"}
               model_id={@form[:modelId].value || ""}
               config_open={@ui["llmProfileConfigOpen"]}
+              options_open={@ui["modelOptionsOpen"]}
+              retry_open={@ui["retryRepairOpen"]}
+              pricing_open={@ui["pricingOpen"]}
+              fold_disabled={@ui_save_pending?}
               session_handle={@session_handle}
               bundle_upload={@uploads.profile_bundle}
+              escalation_bundle_upload={@uploads.escalation_profile_bundle}
             />
           </section>
 
@@ -170,133 +175,6 @@
                   type="checkbox"
                   label="Structured repair"
                 />
-              </div>
-
-              <div class="studio-fold bg-slate-50/60 p-3 sm:p-4">
-                <div class="flex items-center justify-between gap-3">
-                  <div>
-                    <h3 class="text-sm font-semibold text-slate-900">🔁 Retries &amp; Repair</h3>
-                    <p class="mt-1 text-xs text-slate-500">
-                      One bounded attempt budget covers provider retries and structured repair.
-                    </p>
-                  </div>
-                  <button
-                    id="retry-repair-toggle"
-                    type="button"
-                    phx-click="toggle-ui"
-                    phx-value-name="retryRepairOpen"
-                    phx-value-open={if @ui["retryRepairOpen"], do: "false", else: "true"}
-                    aria-expanded={to_string(@ui["retryRepairOpen"])}
-                    disabled={@ui_save_pending?}
-                    class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    {if @ui["retryRepairOpen"],
-                      do: "⌃ Hide retry controls",
-                      else: "⌄ Show retry controls"}
-                  </button>
-                </div>
-                <div
-                  id="retry-repair-controls"
-                  class={
-                    if @ui["retryRepairOpen"], do: "mt-4 space-y-4", else: "hidden mt-4 space-y-4"
-                  }
-                >
-                  <div class="grid gap-4 sm:grid-cols-3">
-                    <.input
-                      field={@form[:maxAttempts]}
-                      type="number"
-                      label="Max Attempts"
-                      min="0"
-                      max="10"
-                    />
-                    <.input
-                      field={@form[:initialBackoffMs]}
-                      type="number"
-                      label="Base Delay Ms"
-                      min="0"
-                      max="60000"
-                    />
-                    <.input
-                      field={@form[:maximumBackoffMs]}
-                      type="number"
-                      label="Max Delay Ms"
-                      min="0"
-                      max="600000"
-                    />
-                  </div>
-                  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                    <.input field={@form[:retryRateLimit]} type="checkbox" label="Rate Limits" />
-                    <.input
-                      field={@form[:retryServerError]}
-                      type="checkbox"
-                      label="Server Errors"
-                    />
-                    <.input field={@form[:retryNetwork]} type="checkbox" label="Network Errors" />
-                    <.input field={@form[:retryEmpty]} type="checkbox" label="Empty Responses" />
-                    <.input
-                      field={@form[:retryParse]}
-                      type="checkbox"
-                      label="Parse / Schema Errors"
-                    />
-                  </div>
-                  <% escalation_profile_id =
-                    String.trim(
-                      @form[:repairEscalationProfileId].value || @form[:selectedProfileId].value ||
-                        ""
-                    ) %>
-                  <% escalation_reasoning_options =
-                    reasoning_options(@profiles, escalation_profile_id) %>
-                  <div class="grid gap-4 sm:grid-cols-4">
-                    <div>
-                      <.input
-                        field={@form[:repairEscalationProfileId]}
-                        type="text"
-                        label="Escalation LLM profile"
-                        placeholder="Use primary profile"
-                        list="workspace-escalation-profiles"
-                      />
-                      <datalist id="workspace-escalation-profiles">
-                        <option :for={{id, _model} <- profile_options(@profiles)} value={id} />
-                      </datalist>
-                    </div>
-                    <.input
-                      field={@form[:repairEscalationModelId]}
-                      type="text"
-                      label="Escalation model ID"
-                      placeholder="Optional"
-                    />
-                    <.input
-                      field={@form[:repairEscalationAttempt]}
-                      type="number"
-                      label="Starting Attempt"
-                      min="2"
-                      max="10"
-                    />
-                    <.input
-                      field={@form[:repairEscalationReasoning]}
-                      type="select"
-                      label="Escalation reasoning"
-                      options={
-                        if escalation_reasoning_options == [],
-                          do: [{"Unavailable for this profile", ""}],
-                          else: escalation_reasoning_options
-                      }
-                      disabled={escalation_reasoning_options == []}
-                    />
-                  </div>
-                  <div class="flex flex-wrap gap-2">
-                    <.link
-                      :if={profile_known?(@profiles, @form[:repairEscalationProfileId].value)}
-                      id="edit-escalation-profile"
-                      navigate={~p"/profiles?edit=#{@form[:repairEscalationProfileId].value}"}
-                      class="text-sm font-semibold text-teal-700 hover:text-teal-900"
-                    >Edit escalation profile options and credentials →</.link>
-                    <.link
-                      navigate={~p"/profiles?new=1"}
-                      class="text-sm font-semibold text-slate-600 hover:text-slate-900"
-                    >Create escalation profile →</.link>
-                  </div>
-                </div>
               </div>
 
               <div

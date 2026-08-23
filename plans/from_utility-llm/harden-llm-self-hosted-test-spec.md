@@ -26,6 +26,10 @@
 - Garage is required only for Harden-LLM-owned trace artifacts and diagnostic attachments migrated from Firebase Storage. Harden-LLM never uses Langfuse's MinIO.
 - Application code emits no direct Langfuse request. Collector fanout is the only Langfuse ingestion path.
 - Every created test file contains `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001` and one or more canonical `TEST-###` comments.
+- Phoenix/browser cases use the separate `WEB-TEST-###` namespace from
+  `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`. Backend traceability scans exclude
+  that prefix so `WEB-TEST-041` is not misclassified as a missing backend
+  `TEST-041` definition.
 
 ## 3. Canonical commands
 

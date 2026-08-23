@@ -44,7 +44,7 @@ The separate `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001` contract maps as follows:
 | profiles, workspace, history, traces, artifacts | LiveViews and narrow controllers | WEB-TEST-006 through WEB-TEST-008 |
 | security, telemetry, responsive UI | endpoint/config, observability, components | WEB-TEST-009, WEB-TEST-010 |
 | real user and deployment workflows | Wallaby browser tests | WEB-TEST-011, WEB-TEST-012 |
-| utility-llm frontend parity extension | `WorkspaceLive`, `ProfilesLive`, `HistoryLive`, `ProfileWidgetComponent`, `HardenAPI`, and `api/openapi.yaml` | WEB-TEST-031 through WEB-TEST-040; ADR-HLLM-012 |
+| utility-llm frontend parity extension | `WorkspaceLive`, `ProfilesLive`, `HistoryLive`, `ProfileWidgetComponent`, `HardenAPI`, and `api/openapi.yaml` | WEB-TEST-031 through WEB-TEST-042; ADR-HLLM-012, ADR-HLLM-014 |
 
 The base backend gates never invoke `frontend/`. The frontend imports no Go
 implementation and synchronizes only through `api/openapi.yaml`.
@@ -59,9 +59,10 @@ failure, not an implicit compatibility decision.
 The source-derived frontend extension is based on `utility-llm` revision
 `5c0309e` (`0.15.0`) and is tracked separately from the backend fixture source
 snapshot. Its self-hosted adaptations are one canonical profile editor,
-cursor/limit history, server-owned profile defaults and credentials, and
-same-origin trace/artifact access; no Firebase, GCP, browser provider call, or
-second persistence/runtime path is introduced.
+cursor/limit history, server-owned profile defaults and credentials, a
+utility-shaped cache/retry projection, an explicit saved-profile boundary for
+endpoint identity changes, and same-origin trace/artifact access; no Firebase,
+GCP, browser provider call, or second persistence/runtime path is introduced.
 
 The current backend profile seed is also sourced from that revision's
 `examples/react-trace-studio/llm-profile-catalog.json`. `TEST-017` verifies all

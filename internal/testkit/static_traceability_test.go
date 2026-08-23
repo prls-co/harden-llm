@@ -14,17 +14,18 @@ import (
 )
 
 var testIDPattern = regexp.MustCompile(`\bTEST-\d{3}\b`)
+var webTestIDPattern = regexp.MustCompile(`\bWEB-TEST-\d{3}\b`)
 
 func TestTraceability(t *testing.T) {
 	root := repositoryRoot(t)
 	planPath := filepath.Join(root, "plans", "from_utility-llm", "harden-llm-self-hosted-implementation-plan.md")
 	specPath := filepath.Join(root, "plans", "from_utility-llm", "harden-llm-self-hosted-test-spec.md")
-	planIDs := uniqueIDs(testIDPattern.FindAllString(string(readFile(t, planPath)), -1))
+	planIDs := uniqueIDs(backendTestIDs(string(readFile(t, planPath))))
 	specText := string(readFile(t, specPath))
 	defined := make(map[string]int)
 	for _, line := range strings.Split(specText, "\n") {
 		if strings.HasPrefix(line, "### TEST-") {
-			for _, id := range testIDPattern.FindAllString(line, -1) {
+			for _, id := range backendTestIDs(line) {
 				defined[id]++
 			}
 		}
@@ -68,7 +69,7 @@ func TestTraceability(t *testing.T) {
 			rel, _ := filepath.Rel(root, path)
 			t.Errorf("target test file %s lacks the canonical specification ID", filepath.ToSlash(rel))
 		}
-		for _, id := range testIDPattern.FindAllString(text, -1) {
+		for _, id := range backendTestIDs(text) {
 			targetIDs[id] = true
 		}
 		return nil
@@ -91,6 +92,10 @@ func TestTraceability(t *testing.T) {
 			}
 		}
 	}
+}
+
+func backendTestIDs(text string) []string {
+	return testIDPattern.FindAllString(webTestIDPattern.ReplaceAllString(text, ""), -1)
 }
 
 func hasCommentMarker(text, marker string) bool {

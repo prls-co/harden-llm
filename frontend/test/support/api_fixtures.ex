@@ -43,7 +43,7 @@ defmodule HardenLlmWeb.APIFixtures do
       "userPrompt" => "safe fixture prompt",
       "callType" => "text",
       "structuredRepair" => false,
-      "cacheMode" => "off"
+      "cacheMode" => "cache"
     }
   end
 

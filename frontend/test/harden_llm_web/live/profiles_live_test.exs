@@ -491,6 +491,18 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
              "llmProfile"
            ]) == "Backup"
 
+    options = get_in(payload, ["profile", "defaultOptions"])
+    assert options["maxAttempts"] == 4
+    assert options["baseDelayMs"] == 500
+    assert options["maxDelayMs"] == 8000
+    assert options["enableRetryOn429"] == true
+    assert options["enableRetryOn5xx"] == true
+    assert options["enableRetryOnNetworkError"] == true
+    assert options["enableRetryOnParseError"] == true
+    assert get_in(options, ["structuredRepairRetry", "enabled"]) == true
+    refute Map.has_key?(options["structuredRepairRetry"], "maxAttempts")
+    refute Map.has_key?(options["structuredRepairRetry"], "enableRetryOn429")
+
     assert get_in(payload, ["profile", "pricing", "input_cost_per_token"]) == 0.0000015
   end
 

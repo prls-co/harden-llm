@@ -87,11 +87,167 @@ const SchemaPending = {
   },
 }
 
+const SearchableCombobox = {
+  mounted() {
+    this.bindCombobox()
+  },
+  updated() {
+    this.unbindCombobox()
+    this.bindCombobox()
+  },
+  destroyed() {
+    this.unbindCombobox()
+  },
+  bindCombobox() {
+    this.input = this.el.querySelector("input[role='combobox']")
+    this.menu = this.el.querySelector("[role='listbox']")
+    this.options = [...this.el.querySelectorAll("[role='option']")]
+    this.empty = this.el.querySelector(".ullm-combobox-empty")
+    if (!this.input || !this.menu) return
+
+    this.allowCustom = this.el.dataset.allowCustom === "true"
+    this.committed = this.input.value
+    this.highlighted = -1
+    this.open = false
+    this.onInput = () => {
+      this.filterOptions()
+      this.openMenu()
+    }
+    this.onFocus = () => {
+      this.filterOptions()
+      this.openMenu()
+    }
+    this.onKeydown = event => {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault()
+        this.moveHighlight(event.key === "ArrowDown" ? 1 : -1)
+      } else if (event.key === "Enter") {
+        if (this.highlighted >= 0) {
+          event.preventDefault()
+          this.selectOption(this.visibleOptions()[this.highlighted])
+        } else if (this.allowCustom && this.input.value !== this.committed) {
+          event.preventDefault()
+          this.commitCustomValue()
+        }
+      } else if (event.key === "Escape") {
+        event.preventDefault()
+        this.input.value = this.committed
+        this.closeMenu()
+      }
+    }
+    this.onBlur = () => {
+      window.setTimeout(() => {
+        if (!this.el.contains(document.activeElement)) {
+          if (this.allowCustom && this.input.value !== this.committed) this.commitCustomValue()
+          else if (!this.allowCustom && !this.isKnownValue(this.input.value)) this.input.value = this.committed
+          this.closeMenu()
+        }
+      }, 0)
+    }
+    this.onOptionClick = event => {
+      const option = event.target.closest("[role='option']")
+      if (option) this.selectOption(option)
+    }
+    this.onMenuMouseDown = event => event.preventDefault()
+
+    this.input.addEventListener("input", this.onInput)
+    this.input.addEventListener("focus", this.onFocus)
+    this.input.addEventListener("keydown", this.onKeydown)
+    this.input.addEventListener("blur", this.onBlur)
+    this.menu.addEventListener("mousedown", this.onMenuMouseDown)
+    this.menu.addEventListener("click", this.onOptionClick)
+    this.filterOptions()
+  },
+  unbindCombobox() {
+    if (!this.input || !this.menu) return
+    this.input.removeEventListener("input", this.onInput)
+    this.input.removeEventListener("focus", this.onFocus)
+    this.input.removeEventListener("keydown", this.onKeydown)
+    this.input.removeEventListener("blur", this.onBlur)
+    this.menu.removeEventListener("mousedown", this.onMenuMouseDown)
+    this.menu.removeEventListener("click", this.onOptionClick)
+    this.input = null
+    this.menu = null
+  },
+  visibleOptions() {
+    return this.options.filter(option => !option.hidden)
+  },
+  filterOptions() {
+    const query = this.input.value.trim().toLowerCase()
+    let visible = 0
+    this.options.forEach(option => {
+      const search = (option.dataset.search || option.dataset.value || "").toLowerCase()
+      option.hidden = query !== "" && !search.includes(query)
+      option.classList.remove("is-highlighted")
+      if (!option.hidden) visible += 1
+    })
+    this.empty.hidden = visible !== 0
+    this.highlighted = -1
+  },
+  openMenu() {
+    this.menu.hidden = false
+    this.input.setAttribute("aria-expanded", "true")
+    this.open = true
+  },
+  closeMenu() {
+    this.menu.hidden = true
+    this.input.setAttribute("aria-expanded", "false")
+    this.open = false
+    this.highlighted = -1
+    this.options.forEach(option => option.classList.remove("is-highlighted"))
+  },
+  moveHighlight(direction) {
+    const visible = this.visibleOptions()
+    if (!visible.length) return
+    this.highlighted = (this.highlighted + direction + visible.length) % visible.length
+    this.options.forEach(option => option.classList.remove("is-highlighted"))
+    visible[this.highlighted].classList.add("is-highlighted")
+    visible[this.highlighted].scrollIntoView({block: "nearest"})
+  },
+  isKnownValue(value) {
+    return this.options.some(option => option.dataset.value === value)
+  },
+  commitCustomValue() {
+    this.committed = this.input.value
+    this.dispatchChange()
+    this.closeMenu()
+  },
+  selectOption(option) {
+    if (!option) return
+    this.input.value = option.dataset.value || ""
+    this.committed = this.input.value
+    this.dispatchChange()
+    this.closeMenu()
+  },
+  dispatchChange() {
+    this.input.dispatchEvent(new Event("change", {bubbles: true}))
+  },
+}
+
+const SecretStager = {
+  mounted() {
+    this.stage = event => {
+      const button = event.target.closest("[data-stage-key]")
+      if (!button || !this.el.contains(button)) return
+      const input = this.el.querySelector("[data-secret-input]")
+      if (!input) return
+      button.setAttribute("phx-value-api-key", input.value)
+      window.setTimeout(() => {
+        if (button.isConnected) button.removeAttribute("phx-value-api-key")
+      }, 0)
+    }
+    this.el.addEventListener("click", this.stage, true)
+  },
+  destroyed() {
+    this.el.removeEventListener("click", this.stage, true)
+  },
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, Clipboard, PromptShortcut, SchemaPending},
+  hooks: {...colocatedHooks, Clipboard, PromptShortcut, SchemaPending, SearchableCombobox, SecretStager},
 })
 
 // Show progress bar on live navigation and form submits
