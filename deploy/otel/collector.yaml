@@ -31,6 +31,13 @@ receivers:
         endpoint: 0.0.0.0:34317
       http:
         endpoint: 0.0.0.0:34318
+  http_check/allure:
+    collection_interval: 15s
+    initial_delay: 1s
+    targets:
+      - endpoint: http://allure:3000/api/ping
+        method: GET
+        timeout: 5s
 
 processors:
   memory_limiter:
@@ -406,6 +413,14 @@ service:
         - memory_limiter
         - attributes/prls_credentials
         - resource/prls_test
+        - batch/prls_metrics
+      exporters:
+        - prometheus
+    metrics/allure_health:
+      receivers:
+        - http_check/allure
+      processors:
+        - memory_limiter
         - batch/prls_metrics
       exporters:
         - prometheus

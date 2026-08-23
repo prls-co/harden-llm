@@ -97,6 +97,21 @@ func TestPRLSCollectorIsolation(t *testing.T) {
 			t.Errorf("%s HTTP endpoint = %q, want %q", name, got, wantHTTP)
 		}
 	}
+	allureCheck := objectField(t, receivers, "http_check/allure")
+	if durationField(t, allureCheck, "collection_interval") > 30*time.Second {
+		t.Errorf("Allure HTTP check interval is not bounded: %#v", allureCheck)
+	}
+	checkTargets := sliceField(t, allureCheck, "targets")
+	if len(checkTargets) != 1 {
+		t.Fatalf("Allure HTTP check targets = %#v, want one", checkTargets)
+	}
+	checkTarget := asObject(t, checkTargets[0], "Allure HTTP check target")
+	if got := stringField(t, checkTarget, "endpoint"); got != "http://allure:3000/api/ping" {
+		t.Errorf("Allure HTTP check endpoint = %q", got)
+	}
+	if got := stringField(t, checkTarget, "method"); got != "GET" {
+		t.Errorf("Allure HTTP check method = %q", got)
+	}
 
 	processors := objectField(t, config, "processors")
 	credentials := objectField(t, processors, "attributes/prls_credentials")
@@ -193,8 +208,8 @@ func TestPRLSCollectorIsolation(t *testing.T) {
 			receivers: receiver, processors: append(append([]string{}, common...), "batch/prls_metrics"), exporters: []string{"prometheus"},
 		}
 	}
-	if len(pipelines) != 13 {
-		t.Errorf("Collector pipeline count = %d, want 4 protected + 9 PRLS", len(pipelines))
+	if len(pipelines) != 14 {
+		t.Errorf("Collector pipeline count = %d, want 4 protected + 9 PRLS + 1 Allure health", len(pipelines))
 	}
 	for name, want := range wantPRLSPipelines {
 		pipeline := objectField(t, pipelines, name)
@@ -207,6 +222,10 @@ func TestPRLSCollectorIsolation(t *testing.T) {
 			t.Errorf("protected harden-LLM pipeline %s is missing", protected)
 		}
 	}
+	allurePipeline := objectField(t, pipelines, "metrics/allure_health")
+	assertStringSliceEqual(t, "Allure health receivers", stringSliceField(t, allurePipeline, "receivers"), []string{"http_check/allure"})
+	assertStringSliceEqual(t, "Allure health processors", stringSliceField(t, allurePipeline, "processors"), []string{"memory_limiter", "batch/prls_metrics"})
+	assertStringSliceEqual(t, "Allure health exporters", stringSliceField(t, allurePipeline, "exporters"), []string{"prometheus"})
 }
 
 func TestPRLSLokiTenancyAndStorage(t *testing.T) {
@@ -343,15 +362,18 @@ func TestPRLSGrafanaPrometheusAndCaddy(t *testing.T) {
 	if len(groups) != 1 {
 		t.Fatalf("PRLS Prometheus rule groups = %d, want 1", len(groups))
 	}
-	alerts := map[string]bool{}
+	alerts := map[string]string{}
 	for _, raw := range sliceField(t, asObject(t, groups[0], "PRLS alert group"), "rules") {
 		rule := asObject(t, raw, "PRLS alert")
-		alerts[stringField(t, rule, "alert")] = strings.TrimSpace(stringField(t, rule, "expr")) != ""
+		alerts[stringField(t, rule, "alert")] = strings.TrimSpace(stringField(t, rule, "expr"))
 	}
-	for _, name := range []string{"PRLSCollectorExportFailures", "PRLSCollectorQueueNearCapacity", "PRLSCollectorRefusedTelemetry", "PRLSLokiDiscardedLogs"} {
-		if !alerts[name] {
+	for _, name := range []string{"PRLSCollectorExportFailures", "PRLSCollectorQueueNearCapacity", "PRLSCollectorRefusedTelemetry", "PRLSLokiDiscardedLogs", "PRLSAllureStorageUnavailable"} {
+		if alerts[name] == "" {
 			t.Errorf("Prometheus omits non-empty alert %s", name)
 		}
+	}
+	if expression := alerts["PRLSAllureStorageUnavailable"]; !strings.Contains(expression, "httpcheck_status") || !strings.Contains(expression, `http_status_class="2xx"`) {
+		t.Errorf("Allure availability alert does not use the Collector HTTP check: %q", expression)
 	}
 
 	caddyPath := filepath.Join(root, "deploy", "caddy", "conf.d", "prls-tests.caddy")

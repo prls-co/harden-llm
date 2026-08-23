@@ -47,3 +47,14 @@ groups:
         annotations:
           summary: Loki is discarding log records
           description: The shared Loki service has discarded log samples during the last five minutes.
+      - alert: PRLSAllureStorageUnavailable
+        expr: |
+          absent(httpcheck_status{http_url="http://allure:3000/api/ping", http_status_class="2xx"})
+          or httpcheck_status{http_url="http://allure:3000/api/ping", http_status_class="2xx"} != 1
+        for: 5m
+        labels:
+          severity: critical
+          service: allure
+        annotations:
+          summary: Allure Storage is unavailable
+          description: The existing Collector cannot obtain a 2xx response from Allure /api/ping on the shared network.
