@@ -71,7 +71,7 @@ func TestCollectorPipelines(t *testing.T) {
 	}
 
 	service := objectField(t, config, "service")
-	assertStringSliceEqual(t, "service extensions", stringSliceField(t, service, "extensions"), []string{"health_check", "basicauth/langfuse"})
+	assertStringSliceEqual(t, "service extensions", stringSliceField(t, service, "extensions"), []string{"health_check", "basicauth/langfuse", "file_storage/harden_llm_web"})
 	pipelines := objectField(t, service, "pipelines")
 	wantPipelines := map[string]pipelineContract{
 		"traces/tempo": {

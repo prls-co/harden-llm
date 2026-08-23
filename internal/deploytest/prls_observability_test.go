@@ -1,6 +1,7 @@
 package deploytest
 
-// TEST-005: PRLS physical shared-topology contract.
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-030
+// PRLS TEST-005: physical shared-topology contract.
 
 import (
 	"encoding/json"
@@ -19,6 +20,8 @@ const prlsSharedNetwork = "prls-observability"
 var prlsTenants = []string{"prod", "nonprod", "test"}
 
 func TestPRLSComposeSharedOwner(t *testing.T) {
+	// TEST-009: live collector restarts must resume file-log ingestion from a
+	// durable offset instead of replaying historical files into Loki.
 	root := filepath.Clean(filepath.Join("..", ".."))
 	config := readYAMLObject(t, filepath.Join(root, "docker-compose.yml"))
 
@@ -67,6 +70,10 @@ func TestPRLSComposeSharedOwner(t *testing.T) {
 	if strings.TrimSpace(collectorEnv["PRLS_LAMINAR_PROJECT_API_KEY"]) == "" {
 		t.Error("Collector environment omits PRLS_LAMINAR_PROJECT_API_KEY")
 	}
+	collector := asObject(t, services["otel-collector"], "otel-collector")
+	if !prlsValueContains(collector["volumes"], "otel-collector-state:/var/lib/otelcol") {
+		t.Error("Collector does not persist file-log offsets in a named volume")
+	}
 	loki := asObject(t, services["loki"], "loki")
 	lokiEnv := prlsEnvironmentMap(t, loki)
 	for _, key := range []string{"PRLS_LOKI_S3_ACCESS_KEY", "PRLS_LOKI_S3_SECRET_KEY"} {
@@ -84,6 +91,18 @@ func TestPRLSComposeSharedOwner(t *testing.T) {
 
 func TestPRLSCollectorIsolation(t *testing.T) {
 	config := readYAMLObject(t, filepath.Join("..", "..", "deploy", "otel", "collector.yaml"))
+	extensions := objectField(t, config, "extensions")
+	fileStorage := objectField(t, extensions, "file_storage/harden_llm_web")
+	if got := stringField(t, fileStorage, "directory"); got != "/var/lib/otelcol" {
+		t.Errorf("collector file storage directory = %q, want /var/lib/otelcol", got)
+	}
+	if !boolField(t, fileStorage, "create_directory") {
+		t.Error("collector file storage does not create its named-volume directory")
+	}
+	service := objectField(t, config, "service")
+	if !prlsContains(stringSliceField(t, service, "extensions"), "file_storage/harden_llm_web") {
+		t.Error("collector service does not enable durable file-log offset storage")
+	}
 	receivers := objectField(t, config, "receivers")
 	for index, tenant := range prlsTenants {
 		name := "otlp/prls_" + tenant
@@ -292,6 +311,13 @@ func TestPRLSLokiTenancyAndStorage(t *testing.T) {
 
 func TestPRLSGrafanaPrometheusAndCaddy(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
+	for _, name := range []string{"alerting", "plugins"} {
+		path := filepath.Join(root, "deploy", "grafana", "provisioning", name)
+		info, err := os.Stat(path)
+		if err != nil || !info.IsDir() {
+			t.Errorf("Grafana provisioning directory %s is absent: %v", name, err)
+		}
+	}
 	datasourceConfig := readYAMLObject(t, filepath.Join(root, "deploy", "grafana", "provisioning", "datasources", "datasources.yaml"))
 	datasources := sliceField(t, datasourceConfig, "datasources")
 	if len(datasources) != 6 {

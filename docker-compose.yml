@@ -154,6 +154,7 @@ services:
       PRLS_LAMINAR_PROJECT_API_KEY: ${PRLS_LAMINAR_PROJECT_API_KEY:?set the Laminar PRLS project API key}
     volumes:
       - ./deploy/otel/collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+      - otel-collector-state:/var/lib/otelcol
     networks:
       - harden-private
       - prls-observability
@@ -285,3 +286,4 @@ volumes:
   loki-data:
   tempo-data:
   grafana-data:
+  otel-collector-state:

@@ -6,6 +6,7 @@ receivers:
     max_log_size: 256KiB
     include_file_name: false
     include_file_path: false
+    storage: file_storage/harden_llm_web
     resource:
       service.name: harden-llm-web
       service.version: ${env:HARDEN_LLM_RELEASE}

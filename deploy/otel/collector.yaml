@@ -5,6 +5,9 @@ extensions:
     client_auth:
       username: ${env:LANGFUSE_PUBLIC_KEY}
       password: ${env:LANGFUSE_SECRET_KEY}
+  file_storage/harden_llm_web:
+    directory: /var/lib/otelcol
+    create_directory: true
 
 receivers:
   otlp:
@@ -273,6 +276,7 @@ service:
   extensions:
     - health_check
     - basicauth/langfuse
+    - file_storage/harden_llm_web
   telemetry:
     logs:
       level: info
