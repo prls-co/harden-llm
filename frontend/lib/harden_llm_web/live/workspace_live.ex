@@ -27,7 +27,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     "schemaShorthand" => "",
     "callType" => "text",
     "structuredRepair" => false,
-    "cacheMode" => "off",
+    "cacheMode" => "cache",
     "reasoningEffort" => "lowest",
     "reasoningByProfile" => %{},
     "maxAttempts" => 4,
@@ -64,10 +64,17 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:output_request_open?, false)
       |> assign(:output_response_open?, false)
       |> assign(:schema_check, %{status: :idle, message: ""})
+      |> assign(:profile_provider_options, %{})
+      |> assign(:profile_requires_save?, false)
       |> assign(:reasoning_by_profile, %{})
       |> assign(:ui, @default_ui)
       |> assign(:form, to_form(stringify_form(@default_state), as: :run))
       |> allow_upload(:profile_bundle,
+        accept: ~w(.json application/json),
+        max_entries: 1,
+        max_file_size: Application.get_env(:harden_llm, :max_bundle_bytes, 2_097_152)
+      )
+      |> allow_upload(:escalation_profile_bundle,
         accept: ~w(.json application/json),
         max_entries: 1,
         max_file_size: Application.get_env(:harden_llm, :max_bundle_bytes, 2_097_152)
@@ -95,6 +102,41 @@ defmodule HardenLlmWeb.WorkspaceLive do
     update_workspace_form(socket, key, value)
   end
 
+  def handle_info({:profile_widget_provider_options, options}, socket) when is_map(options) do
+    {:noreply, assign(socket, :profile_provider_options, options)}
+  end
+
+  def handle_info({:profile_widget_profile_dirty, requires_save?}, socket) do
+    {:noreply, assign(socket, :profile_requires_save?, requires_save?)}
+  end
+
+  def handle_info({:profile_widget_retry, retry}, socket) when is_map(retry) do
+    params = Map.merge(socket.assigns.form.params || %{}, Map.delete(retry, "repairEscalation"))
+
+    params =
+      case retry["repairEscalation"] do
+        escalation when is_map(escalation) ->
+          params
+          |> Map.put("repairEscalationProfileId", escalation["profileId"] || "")
+          |> Map.put("repairEscalationModelId", escalation["modelId"] || "")
+          |> Map.put("repairEscalationAttempt", to_string(escalation["attempt"] || 3))
+          |> Map.put("repairEscalationReasoning", escalation["reasoningEffort"] || "highest")
+
+        _ ->
+          params
+          |> Map.put("repairEscalationProfileId", "")
+          |> Map.put("repairEscalationModelId", "")
+      end
+
+    state = state_from_params(params, socket.assigns.ui, socket.assigns.reasoning_by_profile)
+
+    {:noreply,
+     socket
+     |> assign(:form, to_form(params, as: :run))
+     |> assign(:reasoning_by_profile, state["reasoningByProfile"])
+     |> persist_form_state(params)}
+  end
+
   def handle_info({:profile_widget_profiles, profiles, selected_profile_id}, socket) do
     socket = assign(socket, :profiles, profiles)
 
@@ -114,6 +156,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     state =
       @default_state
       |> Map.merge(hydration.state || %{})
+      |> Map.update("cacheMode", "cache", &normalize_cache_mode/1)
       |> Map.put("ui", normalize_ui((hydration.state || %{})["ui"]))
 
     reasoning_by_profile = state["reasoningByProfile"] || %{}
@@ -372,9 +415,12 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   def handle_event("validate-bundle", _params, socket), do: {:noreply, socket}
 
-  def handle_event("import-bundle", _params, socket) do
+  def handle_event("import-bundle", params, socket) do
+    upload =
+      if params["kind"] == "escalation", do: :escalation_profile_bundle, else: :profile_bundle
+
     results =
-      consume_uploaded_entries(socket, :profile_bundle, fn %{path: path}, _entry ->
+      consume_uploaded_entries(socket, upload, fn %{path: path}, _entry ->
         case File.read(path) do
           {:ok, bytes} -> {:ok, bytes}
           {:error, _reason} -> {:postpone, :read_failed}
@@ -524,26 +570,39 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   def handle_event("run", %{"run" => params}, %{assigns: %{run_ref: nil}} = socket) do
-    case run_payload(params, socket.assigns.profiles) do
-      {:ok, payload} ->
-        reference = System.unique_integer([:positive, :monotonic])
-        handle = socket.assigns.session_handle
+    params = event_form_params(%{"run" => params}, socket)
 
+    cond do
+      socket.assigns.profile_requires_save? ->
         {:noreply,
-         socket
-         |> assign(:form, to_form(params, as: :run))
-         |> assign(:run_ref, reference)
-         |> assign(:run_result, nil)
-         |> assign(:run_error, nil)
-         |> assign(:output_request_open?, false)
-         |> assign(:output_response_open?, false)
-         |> start_async(
-           {:run, reference},
-           Observability.propagate(fn -> HardenAPI.run(handle, payload) end)
+         assign(
+           socket,
+           :run_error,
+           "Save the LLM profile before running endpoint, credential, fallback, or identity changes."
          )}
 
-      {:error, message} ->
-        {:noreply, assign(socket, :run_error, message)}
+      true ->
+        case run_payload(params, socket.assigns.profiles, socket.assigns.profile_provider_options) do
+          {:ok, payload} ->
+            reference = System.unique_integer([:positive, :monotonic])
+            handle = socket.assigns.session_handle
+
+            {:noreply,
+             socket
+             |> assign(:form, to_form(params, as: :run))
+             |> assign(:run_ref, reference)
+             |> assign(:run_result, nil)
+             |> assign(:run_error, nil)
+             |> assign(:output_request_open?, false)
+             |> assign(:output_response_open?, false)
+             |> start_async(
+               {:run, reference},
+               Observability.propagate(fn -> HardenAPI.run(handle, payload) end)
+             )}
+
+          {:error, message} ->
+            {:noreply, assign(socket, :run_error, message)}
+        end
     end
   end
 
@@ -820,7 +879,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       "reasoningByProfile" =>
         if(selected_profile_id == "", do: %{}, else: %{selected_profile_id => reasoning}),
       "structuredRepair" => request["structuredRepair"] || false,
-      "cacheMode" => request["cacheMode"] || "off",
+      "cacheMode" => normalize_cache_mode(request["cacheMode"]),
       "maxAttempts" => request["maxAttempts"] || 0,
       "initialBackoffMs" => request["initialBackoffMs"] || 0,
       "maximumBackoffMs" => request["maximumBackoffMs"] || 0,
@@ -862,7 +921,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp event_form_params(_event_params, socket), do: socket.assigns.form.params || %{}
 
-  defp run_payload(params, profiles) do
+  defp run_payload(params, profiles, profile_provider_options \\ %{}) do
     prompt = String.trim(params["userPrompt"] || "")
     profile_id = String.trim(params["selectedProfileId"] || "")
     call_type = params["callType"] || "text"
@@ -878,18 +937,36 @@ defmodule HardenLlmWeb.WorkspaceLive do
         with {:ok, schema} <- parse_schema(params["schema"], call_type),
              {:ok, retry} <- retry_payload(params),
              {:ok, payload} <-
-               base_run_payload(params, profile_id, prompt, call_type, schema, retry, profiles) do
+               base_run_payload(
+                 params,
+                 profile_id,
+                 prompt,
+                 call_type,
+                 schema,
+                 retry,
+                 profiles,
+                 profile_provider_options
+               ) do
           {:ok, payload}
         end
     end
   end
 
-  defp base_run_payload(params, profile_id, prompt, call_type, schema, retry, profiles) do
+  defp base_run_payload(
+         params,
+         profile_id,
+         prompt,
+         call_type,
+         schema,
+         retry,
+         profiles,
+         profile_provider_options
+       ) do
     payload = %{
       "profileId" => profile_id,
       "userPrompt" => prompt,
       "callType" => call_type,
-      "cacheMode" => params["cacheMode"] || "off",
+      "cacheMode" => normalize_cache_mode(params["cacheMode"]),
       "structuredRepair" => truthy?(params["structuredRepair"])
     }
 
@@ -897,6 +974,11 @@ defmodule HardenLlmWeb.WorkspaceLive do
     payload = put_optional(payload, "systemPrompt", params["systemPrompt"])
     payload = put_reasoning_effort(payload, params["reasoningEffort"], profiles, profile_id)
     payload = if schema, do: Map.put(payload, "schema", schema), else: payload
+
+    payload =
+      if is_map(profile_provider_options) and map_size(profile_provider_options) > 0,
+        do: Map.put(payload, "providerOptions", profile_provider_options),
+        else: payload
 
     retry =
       if truthy?(params["structuredRepair"]),
@@ -987,7 +1069,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       "reasoningEffort" => reasoning_effort,
       "reasoningByProfile" => reasoning_by_profile,
       "structuredRepair" => truthy?(params["structuredRepair"]),
-      "cacheMode" => params["cacheMode"] || "off",
+      "cacheMode" => normalize_cache_mode(params["cacheMode"]),
       "maxAttempts" => integer_or_zero(params["maxAttempts"]),
       "initialBackoffMs" => integer_or_zero(params["initialBackoffMs"]),
       "maximumBackoffMs" => integer_or_zero(params["maximumBackoffMs"]),
@@ -1323,6 +1405,9 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   defp truthy?(value), do: value in [true, "true", "on", "1"]
+
+  defp normalize_cache_mode("refresh"), do: "refresh"
+  defp normalize_cache_mode(_value), do: "cache"
 
   defp boolean_value(value, _default) when value in [true, "true", "on", "1"], do: true
   defp boolean_value(value, _default) when value in [false, "false", "0"], do: false

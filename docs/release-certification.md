@@ -327,8 +327,8 @@ Final P07.S15 deployment evidence:
 - Phoenix stores bearer tokens only in its ephemeral ETS vault and never retries runs.
 
 Accepted deviations are ADR-HLLM-001, ADR-HLLM-002, ADR-HLLM-008,
-ADR-HLLM-009, ADR-HLLM-010, ADR-HLLM-011, ADR-HLLM-012, and ADR-HLLM-013. No other implementation drift is
-accepted.
+ADR-HLLM-009, ADR-HLLM-010, ADR-HLLM-011, ADR-HLLM-012, ADR-HLLM-013, and
+ADR-HLLM-014. No other implementation drift is accepted.
 
 The visual embedding boundary is intentional: Workspace and Profiles are
 single-column, stable-root visual surfaces that can sit inside a host shell
@@ -338,3 +338,18 @@ namespacing and explicit host messages; the route layout remains only an
 adapter around the LiveView behavior. P07.S15 adds a profile-capability guard
 without changing the backend contract, and its authenticated hosted prompt
 verification is complete at deployed release `d02bee8`.
+
+## P07.S16 embedded widget runtime-parity follow-up
+
+The post-certification utility comparison found practical differences in the
+embedded widget even after the no-tabs topology was in place. This follow-up
+implements the searchable custom-value controls, utility two-state cache
+behavior with legacy `off` migration, saved-profile-to-gateway retry/repair
+projection, namespaced main/nested bundle uploads, and the explicit profile-save
+boundary for endpoint, credential, fallback, and identity changes.
+
+The implementation is tracked by ADR-HLLM-014 and WEB-TEST-038 through
+WEB-TEST-042. No KER or related issue was created: timeout, retry budget,
+provider policy, API ownership, authentication, and deployment topology are
+unchanged. Deterministic release and hosted browser evidence is recorded here
+after the follow-up commit is published and deployed.

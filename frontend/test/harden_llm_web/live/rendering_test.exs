@@ -165,7 +165,7 @@ defmodule HardenLlmWeb.RenderingTest do
         "systemPrompt" => "",
         "userPrompt" => "render the bounded result",
         "callType" => "text",
-        "cacheMode" => "off",
+        "cacheMode" => "cache",
         "structuredRepair" => "false",
         "schema" => ""
       }

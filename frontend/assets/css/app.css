@@ -140,6 +140,52 @@ button, a, input, select, textarea { touch-action: manipulation; }
   gap: .45rem;
 }
 
+.ullm-combobox {
+  position: relative;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ullm-combobox-options {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + .25rem);
+  left: 0;
+  right: 0;
+  max-height: 16rem;
+  overflow-y: auto;
+  border: 1px solid var(--ullm-border-strong);
+  border-radius: 8px;
+  padding: .25rem;
+  background: #fffdf8;
+  box-shadow: 0 .8rem 1.8rem rgb(23 33 29 / 16%);
+}
+
+.ullm-combobox-option {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  padding: .52rem .6rem;
+  color: var(--ullm-text);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-size: .82rem;
+}
+
+.ullm-combobox-option:hover,
+.ullm-combobox-option.is-highlighted {
+  background: var(--ullm-panel-muted);
+}
+
+.ullm-combobox-empty {
+  display: block;
+  padding: .55rem .6rem;
+  color: var(--ullm-text-muted);
+  font-size: .78rem;
+}
+
 .ullm-profile-row .ullm-input {
   height: var(--ullm-profile-control-height);
   min-height: var(--ullm-profile-control-height);
@@ -234,6 +280,15 @@ button, a, input, select, textarea { touch-action: manipulation; }
 
 .ullm-model-slot-field {
   min-width: 0;
+}
+
+.ullm-model-slot-field > label,
+.ullm-field > label {
+  display: block;
+  margin-bottom: .3rem;
+  color: var(--ullm-text-muted);
+  font-size: .74rem;
+  font-weight: 800;
 }
 
 .ullm-model-refresh-button {
@@ -338,7 +393,7 @@ button, a, input, select, textarea { touch-action: manipulation; }
 
 .ullm-checkbox-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: .55rem;
 }
 
@@ -425,14 +480,20 @@ button, a, input, select, textarea { touch-action: manipulation; }
 }
 
 .ullm-backup-profile-list li {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: .65rem;
   border-radius: 6px;
   padding: .35rem .5rem;
   background: var(--ullm-panel-muted);
   font-size: .8rem;
+}
+
+.ullm-backup-profile-input {
+  min-height: 2.15rem;
+  padding-top: .45rem;
+  padding-bottom: .45rem;
 }
 
 .ullm-backup-index {

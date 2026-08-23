@@ -6,9 +6,9 @@ defmodule HardenLlmWeb.ProfilesLive do
   @section_keys ~w(options_open retry_open pricing_open credential_open)
   @empty_form %{
     "profileId" => "",
-    "provider" => "openai",
-    "apiInferenceType" => "responses",
-    "baseUrl" => "https://api.openai.com/v1",
+    "provider" => "",
+    "apiInferenceType" => "chat-completions",
+    "baseUrl" => "",
     "modelId" => "",
     "credentialId" => "",
     "credentialConfigured" => "false",
@@ -17,13 +17,13 @@ defmodule HardenLlmWeb.ProfilesLive do
     "backupProfiles" => "",
     "supportsTemperature" => "true",
     "supportsContractedStructuredOutput" => "true",
-    "maxTokens" => "",
+    "maxTokens" => "16000",
     "temperature" => "",
     "topP" => "",
     "topK" => "",
     "stopSequences" => "",
     "defaultOptionsJson" => "{}",
-    "structuredRepairRetryEnabled" => "false",
+    "structuredRepairRetryEnabled" => "true",
     "enableRetryOn429" => "true",
     "enableRetryOn5xx" => "true",
     "enableRetryOnNetworkError" => "true",
@@ -493,15 +493,15 @@ defmodule HardenLlmWeb.ProfilesLive do
     profile = profile_state["profile"] || %{}
     credential = profile_state["credential"] || %{}
     options = profile["defaultOptions"] || %{}
-    retry = options["structuredRepairRetry"] || %{}
+    retry = retry_form_options(options)
     escalation = retry["escalation"] || %{}
     pricing = profile["pricing"] || %{}
 
     Map.merge(@empty_form, %{
       "profileId" => profile["llmProfile"] || "",
-      "provider" => profile["provider"] || "openai",
-      "apiInferenceType" => profile["apiInferenceType"] || "responses",
-      "baseUrl" => profile["baseUrl"] || "",
+      "provider" => profile["provider"] || "",
+      "apiInferenceType" => profile["apiInferenceType"] || "chat-completions",
+      "baseUrl" => normalize_base_url(profile["baseUrl"] || ""),
       "modelId" => profile["modelId"] || "",
       "credentialId" => credential["credentialId"] || "",
       "credentialConfigured" => to_string(credential["configured"] || false),
@@ -511,20 +511,22 @@ defmodule HardenLlmWeb.ProfilesLive do
       "supportsTemperature" => to_string(profile["supportsTemperature"] || false),
       "supportsContractedStructuredOutput" =>
         to_string(profile["supportsContractedStructuredOutput"] || false),
-      "maxTokens" => option_text(options["max_tokens"]),
+      "maxTokens" => option_text(options["max_tokens"] || 16_000),
       "temperature" => option_text(options["temperature"]),
-      "topP" => option_text(options["top_p"]),
-      "topK" => option_text(options["top_k"]),
+      "topP" => option_text(options["top_p"] || options["topP"]),
+      "topK" => option_text(options["top_k"] || options["topK"]),
       "stopSequences" => stop_text(options["stop"]),
       "defaultOptionsJson" => Jason.encode!(options, pretty: true),
-      "structuredRepairRetryEnabled" => to_string(retry["enabled"] == true),
-      "enableRetryOn429" => to_string(retry["enableRetryOn429"] != false),
-      "enableRetryOn5xx" => to_string(retry["enableRetryOn5xx"] != false),
-      "enableRetryOnNetworkError" => to_string(retry["enableRetryOnNetworkError"] != false),
-      "enableRetryOnParseError" => to_string(retry["enableRetryOnParseError"] != false),
-      "retryMaxAttempts" => option_text(retry["maxAttempts"] || 4),
-      "retryBaseDelayMs" => option_text(retry["baseDelayMs"] || 500),
-      "retryMaxDelayMs" => option_text(retry["maxDelayMs"] || 8000),
+      "structuredRepairRetryEnabled" => to_string(retry_enabled?(options, retry)),
+      "enableRetryOn429" => to_string(retry_option(options, retry, "enableRetryOn429", true)),
+      "enableRetryOn5xx" => to_string(retry_option(options, retry, "enableRetryOn5xx", true)),
+      "enableRetryOnNetworkError" =>
+        to_string(retry_option(options, retry, "enableRetryOnNetworkError", true)),
+      "enableRetryOnParseError" =>
+        to_string(retry_option(options, retry, "enableRetryOnParseError", true)),
+      "retryMaxAttempts" => option_text(options["maxAttempts"] || retry["maxAttempts"] || 4),
+      "retryBaseDelayMs" => option_text(options["baseDelayMs"] || retry["baseDelayMs"] || 500),
+      "retryMaxDelayMs" => option_text(options["maxDelayMs"] || retry["maxDelayMs"] || 8000),
       "escalationAttempt" => option_text(escalation["attempt"] || 3),
       "escalationProfile" => escalation["llmProfile"] || "",
       "escalationReasoning" => escalation["reasoningEffort"] || "highest",
@@ -547,9 +549,9 @@ defmodule HardenLlmWeb.ProfilesLive do
           "schemaVersion" => 1,
           "llmProfile" => params["profileId"] || "",
           "provider" => params["provider"] || "",
-          "apiInferenceType" => params["apiInferenceType"] || "responses",
+          "apiInferenceType" => params["apiInferenceType"] || "chat-completions",
           "endpointCredentialScope" => params["endpointCredentialScope"] || "user",
-          "baseUrl" => params["baseUrl"] || "",
+          "baseUrl" => normalize_base_url(params["baseUrl"] || ""),
           "modelId" => params["modelId"] || "",
           "pricing" => pricing,
           "supportsTemperature" => truthy?(params["supportsTemperature"]),
@@ -594,24 +596,33 @@ defmodule HardenLlmWeb.ProfilesLive do
   defp retry_options(options, params) do
     enabled = truthy?(params["structuredRepairRetryEnabled"])
 
-    if enabled do
-      with {:ok, max_attempts} <-
-             integer_value(params["retryMaxAttempts"], "Max Attempts", 1, 10, 4),
-           {:ok, base_delay} <-
-             integer_value(params["retryBaseDelayMs"], "Base Delay Ms", 0, 60_000, 500),
-           {:ok, max_delay} <-
-             integer_value(params["retryMaxDelayMs"], "Max Delay Ms", 0, 600_000, 8000),
-           {:ok, escalation_attempt} <-
-             integer_value(params["escalationAttempt"], "Starting Attempt", 2, 10, 3) do
-        retry = %{
+    with {:ok, max_attempts} <-
+           integer_value(params["retryMaxAttempts"], "Max Attempts", 1, 10, 4),
+         {:ok, base_delay} <-
+           integer_value(params["retryBaseDelayMs"], "Base Delay Ms", 0, 60_000, 500),
+         {:ok, max_delay} <-
+           integer_value(params["retryMaxDelayMs"], "Max Delay Ms", 0, 600_000, 8000),
+         {:ok, escalation_attempt} <-
+           integer_value(params["escalationAttempt"], "Starting Attempt", 2, 10, 3) do
+      options =
+        options
+        |> Map.put("maxAttempts", max_attempts)
+        |> Map.put("baseDelayMs", base_delay)
+        |> Map.put("maxDelayMs", max_delay)
+        |> Map.put("enableRetryOn429", boolean_value(params["enableRetryOn429"], true))
+        |> Map.put("enableRetryOn5xx", boolean_value(params["enableRetryOn5xx"], true))
+        |> Map.put(
+          "enableRetryOnNetworkError",
+          boolean_value(params["enableRetryOnNetworkError"], true)
+        )
+        |> Map.put(
+          "enableRetryOnParseError",
+          boolean_value(params["enableRetryOnParseError"], true)
+        )
+
+      if enabled do
+        repair = %{
           "enabled" => true,
-          "enableRetryOn429" => boolean_value(params["enableRetryOn429"], true),
-          "enableRetryOn5xx" => boolean_value(params["enableRetryOn5xx"], true),
-          "enableRetryOnNetworkError" => boolean_value(params["enableRetryOnNetworkError"], true),
-          "enableRetryOnParseError" => true,
-          "maxAttempts" => max_attempts,
-          "baseDelayMs" => base_delay,
-          "maxDelayMs" => max_delay,
           "escalation" => %{
             "attempt" => escalation_attempt,
             "llmProfile" => String.trim(params["escalationProfile"] || params["profileId"] || ""),
@@ -619,10 +630,10 @@ defmodule HardenLlmWeb.ProfilesLive do
           }
         }
 
-        {:ok, Map.put(options, "structuredRepairRetry", retry)}
+        {:ok, Map.put(options, "structuredRepairRetry", repair)}
+      else
+        {:ok, Map.put(options, "structuredRepairRetry", false)}
       end
-    else
-      {:ok, Map.put(options, "structuredRepairRetry", false)}
     end
   end
 
@@ -649,15 +660,20 @@ defmodule HardenLlmWeb.ProfilesLive do
     end
   end
 
-  defp put_number_option(options, _key, value, _label, _kind) when value in [nil, ""],
-    do: {:ok, options}
+  defp put_number_option(options, key, value, _label, _kind) when value in [nil, ""] do
+    {:ok, Map.delete(options, option_alias(key))}
+  end
 
   defp put_number_option(options, key, value, label, kind) do
     case number_value(value, label, kind) do
-      {:ok, number} -> {:ok, Map.put(options, key, number)}
+      {:ok, number} -> {:ok, options |> Map.put(key, number) |> Map.delete(option_alias(key))}
       {:error, message} -> {:error, message}
     end
   end
+
+  defp option_alias("top_p"), do: "topP"
+  defp option_alias("top_k"), do: "topK"
+  defp option_alias(_key), do: nil
 
   defp put_stop_option(options, value) when value in [nil, ""], do: {:ok, options}
 
@@ -755,6 +771,32 @@ defmodule HardenLlmWeb.ProfilesLive do
 
   defp option_text(value) when is_nil(value), do: ""
   defp option_text(value), do: to_string(value)
+
+  defp retry_form_options(options) do
+    case options["structuredRepairRetry"] do
+      value when is_map(value) -> value
+      _ -> %{}
+    end
+  end
+
+  defp retry_enabled?(options, retry) do
+    case Map.fetch(options, "structuredRepairRetry") do
+      {:ok, false} -> false
+      _ -> retry["enabled"] != false
+    end
+  end
+
+  defp retry_option(options, retry, key, default) do
+    Map.get(options, key, Map.get(retry, key, default))
+  end
+
+  defp normalize_base_url(value) do
+    value
+    |> to_string()
+    |> String.trim()
+    |> String.trim_trailing("/")
+  end
+
   defp stop_text(value) when is_list(value), do: Enum.join(value, "\n")
   defp stop_text(_value), do: ""
 
