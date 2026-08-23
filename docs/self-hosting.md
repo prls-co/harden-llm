@@ -107,6 +107,16 @@ Before an upgrade, take a tested backup, review ADRs and image-lock changes, run
 `make verify` and `make test-compose`, then deploy only immutable release IDs and
 digests. Validate the effective Compose project before `up -d`.
 
+Treat active Loki schema periods as immutable. Before any Loki configuration
+deployment, run `make validate-loki-schema`. A newly appended period must use a
+strictly future UTC `from` date; a same-day or past activation is rejected
+because pre-cutover writes for that UTC table may already exist. Deploy the
+configuration before that future date, verify old and new queries, and only
+then record its exact fingerprint in
+`deploy/loki/schema-periods.lock.yaml`. Never edit or remove an accepted period
+to roll back an object-store transition; use a new future period and a tested
+data-migration plan.
+
 To rotate credential encryption, add a new key ID to
 `HARDEN_LLM_ENCRYPTION_KEYS`, keep old keys present, and switch
 `HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID`. New writes use the active key; existing

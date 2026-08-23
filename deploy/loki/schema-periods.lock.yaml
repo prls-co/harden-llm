@@ -1,0 +1,7 @@
+schema_version: harden_loki_schema_state.v1
+recorded_at: "2026-08-23T13:15:00Z"
+periods:
+  - from: "2024-01-01"
+    fingerprint_sha256: 26e3f95e79a93100f08a3bb5396098b548e80f57b9a47559874e8b3124ed4c26
+  - from: "2026-08-23"
+    fingerprint_sha256: 94ef90ff9ae480a4ee3d76f047d94b9f06f5f00b036ef58cee2fd5d1b2094448
