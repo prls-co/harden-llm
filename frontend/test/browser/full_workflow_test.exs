@@ -40,6 +40,48 @@ defmodule HardenLlmWeb.FullWorkflowTest do
     run_full_workflow(session, 390, 844)
   end
 
+  feature "host embeds two independent widget instances", %{session: session} do
+    session =
+      session
+      |> resize_window(1_440, 900)
+      |> visit("/login")
+      |> fill_in(Query.text_field("Email address"), with: "browser@example.test")
+      |> fill_in(Query.css("#session_password"), with: "browser-password-123")
+      |> click(Query.css("#login-submit"))
+      |> assert_has(Query.css("#workspace-page"))
+      |> visit("/embed/llm")
+      |> assert_has(Query.css("#embedding-page"))
+      |> assert_has(Query.css("#embed-primary-llm-widget"))
+      |> assert_has(Query.css("#embed-secondary-llm-widget"))
+      |> refute_has(Query.css("#embedding-page nav"))
+      |> refute_has(Query.css("#embedding-page [role='tab']"))
+      |> click(Query.css("#embed-primary-model-config-toggle"))
+      |> assert_has(Query.css("#embed-primary-model-options"))
+      |> refute_has(Query.css("#embed-secondary-model-options"))
+      |> click(Query.css("#embed-primary-profile-options-toggle"))
+      |> assert_has(Query.css("#embed-primary-profile-options"))
+      |> click(Query.css("#embed-secondary-model-config-toggle"))
+      |> click(Query.css("#embed-secondary-profile-retry-toggle"))
+      |> click(Query.css("#embed-secondary-profile-escalation-config-toggle"))
+      |> assert_has(Query.css("#embed-secondary-profile-escalation-config"))
+      |> scroll_to_selector("#embed-primary-workspace-cache-toggle")
+      |> click(Query.css("#embed-primary-workspace-cache-toggle"))
+      |> assert_dom_attribute(
+        "#embed-primary-workspace-cache-toggle",
+        "aria-label",
+        "Refresh cache on next run"
+      )
+      |> assert_dom_attribute(
+        "#embed-secondary-workspace-cache-toggle",
+        "aria-label",
+        "Use cache"
+      )
+      |> assert_no_horizontal_overflow()
+      |> assert_unique_dom_ids()
+
+    assert page_source(session) =~ "embed-primary-profile-options"
+  end
+
   defp run_full_workflow(session, width, height) do
     session =
       session
@@ -255,6 +297,47 @@ defmodule HardenLlmWeb.FullWorkflowTest do
     assert_receive {:bounded_viewport, metrics}, 1_000
     assert metrics["bounded"], "horizontal overflow detected: #{inspect(metrics)}"
     session
+  end
+
+  defp assert_unique_dom_ids(session) do
+    test_pid = self()
+
+    session =
+      execute_script(
+        session,
+        """
+        const ids = Array.from(document.querySelectorAll('[id]')).map(element => element.id);
+        return {unique: ids.length === new Set(ids).size, count: ids.length};
+        """,
+        fn value -> send(test_pid, {:unique_dom_ids, value}) end
+      )
+
+    assert_receive {:unique_dom_ids, %{"unique" => true}}, 1_000
+    session
+  end
+
+  defp assert_dom_attribute(session, selector, attribute, expected) do
+    test_pid = self()
+
+    session =
+      execute_script(
+        session,
+        "return document.querySelector(arguments[0])?.getAttribute(arguments[1]);",
+        [selector, attribute],
+        fn value -> send(test_pid, {:dom_attribute, selector, value}) end
+      )
+
+    assert_receive {:dom_attribute, ^selector, actual}, 1_000
+    assert actual == expected, "#{selector} #{attribute} was #{inspect(actual)}"
+    session
+  end
+
+  defp scroll_to_selector(session, selector) do
+    execute_script(
+      session,
+      "document.querySelector(arguments[0])?.scrollIntoView({block: 'center'});",
+      [selector]
+    )
   end
 
   defp assert_field_value(session, selector, expected) do

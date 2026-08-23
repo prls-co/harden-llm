@@ -34,17 +34,21 @@ MIX_ENV=prod mix release
 ```
 
 `mix test` runs WEB-TEST-001 through WEB-TEST-010 plus the source-derived
-WEB-TEST-031 through WEB-TEST-042 parity extensions, and excludes browser and
+WEB-TEST-031 through WEB-TEST-043 parity extensions, and excludes browser and
 Compose tags. The embedded `ProfileWidgetComponent` coverage includes the
 compact no-tabs row, searchable custom-value controls, nested profile folds,
 utility cache/retry projection, explicit profile-save gating, fallback/options
-interactions, namespaced bundle inputs, and canonical profile mutations. The
+interactions, namespaced nested form IDs and bundle inputs, independent
+multi-instance host routing, and canonical profile mutations. The
 browser test requires Chromium and ChromeDriver.
 The primary Run Prompt submitter deliberately uses `formnovalidate` because
 optional nested profile editors share the outer form; LiveView remains the
 server-side validation boundary. The gateway's TEST-012 regression accepts
 utility request controls such as `max_tokens` while still rejecting
 credential-shaped option names.
+The authenticated `/embed/llm` fixture mounts two instances with distinct
+`id_prefix` and upload namespaces; downstream hosts can copy that mounting
+pattern without adopting tabs or page-level navigation.
 WEB-TEST-012 is the release-only sixteen-service test and additionally requires
 Go, Docker, and Compose:
 

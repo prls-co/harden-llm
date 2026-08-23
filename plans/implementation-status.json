@@ -180,7 +180,7 @@
       "WEB-TEST-009", "WEB-TEST-010", "WEB-TEST-011", "WEB-TEST-012",
       "WEB-TEST-031", "WEB-TEST-032", "WEB-TEST-033", "WEB-TEST-034",
       "WEB-TEST-035", "WEB-TEST-036", "WEB-TEST-037", "WEB-TEST-038",
-      "WEB-TEST-039", "WEB-TEST-040", "WEB-TEST-041", "WEB-TEST-042"
+      "WEB-TEST-039", "WEB-TEST-040", "WEB-TEST-041", "WEB-TEST-042", "WEB-TEST-043"
     ],
     "parityInventory": "docs/utility-llm-frontend-parity-inventory.md",
     "paritySource": {
@@ -210,19 +210,19 @@
       "browser": "Pinned Chromium 2 passed at desktop and mobile; hosted authenticated browser passed at b3a50ce with all main/nested folds open, no horizontal overflow, and a real CPA run",
       "backend": "make verify passed",
       "compose": "make test-compose passed in 189.956s on the final merged checkout",
-      "uiControlCoverage": "WEB-TEST-037 through WEB-TEST-042 cover profile/workspace inputs, buttons, no-tabs fold payloads, searchable custom-value controls, fallback/options interactions, write-only credential staging, namespaced nested bundle actions, select-driven draft preservation, utility cache migration, profile-aware reasoning capability guards, retry projection, explicit saved-profile gating, and the native form validation boundary; TEST-012 covers utility provider-option admission",
+      "uiControlCoverage": "WEB-TEST-037 through WEB-TEST-043 cover profile/workspace inputs, buttons, no-tabs fold payloads, searchable custom-value controls, fallback/options interactions, write-only credential staging, namespaced nested bundle actions, select-driven draft preservation, utility cache migration, profile-aware reasoning capability guards, retry projection, explicit saved-profile gating, the native form validation boundary, and two-instance DOM/message/upload isolation; TEST-012 covers utility provider-option admission",
       "hostedAuthenticatedBrowser": "pass: existing production credentials; CPA GPT-5.6 Luna via CPA with gpt-5.6-luna; all main/nested folds opened; real output returned with gateway HTTP 200; desktop/mobile overflow absent; no new account or secret persisted",
       "runBoundary": "PR #25 adds formnovalidate for optional nested profile fields; PR #26 narrows secret-key classification so max_tokens is accepted while credential-shaped names remain rejected; go test ./... and CodeQL passed",
       "embedding": {
         "status": "reusable-live-component",
-        "contract": "ProfileWidgetComponent provides a compact utility-style LLM row plus nested in-flow profile/escalation folds; no tabs, side rail, fixed overlay, or required page-level navigation state; host owns routing/session messages",
+        "contract": "ProfileWidgetComponent provides a compact utility-style LLM row plus nested in-flow profile/escalation folds; no tabs, side rail, fixed overlay, or required page-level navigation state; optional id_prefix namespaces generated form/control IDs, parent messages, and main/escalation upload channels; host owns routing/session messages",
         "stableRoots": [
           "studio-page",
           "studio-stack",
           "studio-card",
           "studio-fold"
         ],
-        "routeShell": "ProfileWidgetComponent is the current reusable in-flow widget; Layouts.app remains an adapter shell and optional id_prefix namespaces multiple host instances"
+        "routeShell": "ProfileWidgetComponent is the current reusable in-flow widget; Layouts.app remains an adapter shell and authenticated /embed/llm demonstrates two independently routed host instances"
       }
     }
   }

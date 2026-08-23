@@ -1480,17 +1480,18 @@ Privacy and data-quality constraints:
 | P07.S15 | Profile-aware reasoning capability handling in `ProfileWidgetComponent`, `WorkspaceLive`, and translated tests/docs | WEB-TEST-040 plus hosted browser workflow | pinned Phoenix suite, desktop/mobile Chromium, `make verify`, publication, deployment, and an authenticated hosted prompt using the existing operator credential |
 | P07.S16 | Utility widget runtime parity follow-up: searchable custom-value controls, two-state cache migration, retry request projection, nested bundle-upload namespacing, and explicit profile-save gating | WEB-TEST-041 and WEB-TEST-042 plus WEB-TEST-038/039 regression coverage | pinned Phoenix suite, full frontend suite, desktop/mobile browser workflow, `make verify`, publication, deployment, public probes, and authenticated hosted prompt |
 | P07.S17 | Hosted run-boundary parity: native optional-fold validation and utility-compatible provider option admission | TEST-012 plus WEB-TEST-010 and authenticated hosted browser workflow | Go tests, CodeQL, full Compose rebuild, public probes, and a real CPA run through the deployed widget |
+| P07.S18 | Complete the reusable embedding contract: namespace generated form IDs, tag parent messages, isolate per-instance uploads, and ship a two-instance host fixture | WEB-TEST-043 plus the existing WEB-TEST-038/039 regression coverage | focused Phoenix suite, isolated Chromium embedding workflow, full frontend suite, `make verify`, Compose rebuild, deployment, public probes, and configured-profile smoke |
 
 ## 11. Execution log
 
 ### Phase Status
 
-- Phase: P07 plus P07.S09-P07.S17 frontend parity closeout amendments
-- Status: P07.S17 complete; merged and deployed
+- Phase: P07 plus P07.S09-P07.S18 frontend parity closeout amendments
+- Status: P07.S18 implementation in progress; release gates pending
 - Target SHA: `b3a50ce` (PR `#26`, following PRs `#24` and `#25`)
 - Backend source fixture SHA: `09769424ca34b9d759e273a7e9dccf4fd00a5f6c`
 - Frontend source revision: `utility-llm` `5c0309e` / `0.15.0`
-- Evidence baseline: `make verify`, pinned Phoenix suite, Wallaby desktop/mobile workflow, WEB-TEST-040, public probes, healthy deployed containers, and authenticated hosted prompt at `d02bee8`; P07.S16 was merged as `314e343`, the P07.S17 native-submit correction as `80397b8`, and the P07.S17 run-boundary correction as `b3a50ce`
+- Evidence baseline: `make verify`, pinned Phoenix suite, Wallaby desktop/mobile workflow, WEB-TEST-040, public probes, healthy deployed containers, and authenticated hosted prompt at `d02bee8`; P07.S16 was merged as `314e343`, the P07.S17 native-submit correction as `80397b8`, and the P07.S17 run-boundary correction as `b3a50ce`. P07.S18 adds the complete `id_prefix` namespace contract and `/embed/llm` host fixture; release evidence is pending merge.
 
 ### Completed Steps
 

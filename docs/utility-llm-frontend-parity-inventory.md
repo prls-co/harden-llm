@@ -300,9 +300,10 @@ The parity implementation is present in the self-hosted checkout:
 - The 2026-08-22 fold-event correction uses `phx-value-open` rather than the reserved `phx-value-value` key, and the real browser workflow verifies that model, advanced-input, retry, history, and output folds open through the LiveView socket.
 - The 2026-08-22 workspace draft correction merges field-local `phx-change` events from the Reasoning and Cache selects into the current draft, preserving the selected profile before submit.
 - The studio surfaces are intentionally component-oriented for embedding: `#workspace-page` and `#profiles-page` are single vertical stacks with stable `studio-page` / `studio-stack` / `studio-card` / `studio-fold` roots, no tabs or side rail, no fixed overlay, and in-flow folds. The canonical Workspace profile surface is the reusable `HardenLlmWeb.ProfileWidgetComponent` at `#workspace-llm-widget`; `Layouts.app` is only a route adapter.
-- `ProfileWidgetComponent` provides the utility-like compact LLM row, profile/API/credential/model/fallback controls, Options, Retries & Repair, nested Escalation Model configuration, Pricing, bundle actions, and in-flow delete confirmation. Its optional `id_prefix` namespaces controls when a host embeds more than one instance; the host owns routing/session orchestration through the existing message and OpenAPI boundaries.
+- `ProfileWidgetComponent` provides the utility-like compact LLM row, profile/API/credential/model/fallback controls, Options, Retries & Repair, nested Escalation Model configuration, Pricing, bundle actions, and in-flow delete confirmation. Its optional `id_prefix` now namespaces every generated control/form ID, tags parent messages, and selects per-instance main/escalation upload channels when a host embeds more than one instance; the host owns routing/session orchestration through the existing message and OpenAPI boundaries. The authenticated `/embed/llm` fixture demonstrates the contract with two instances.
 - The second widget parity pass aligns the practical control behavior with utility: profile/API/base/model/fallback values use searchable custom-value comboboxes, the cache control is the two-state `cache`/`refresh` model with legacy `off` migration, retry/repair fields are stored in utility-shaped profile defaults but projected to the gateway's top-level run policy, and a staged endpoint/credential/fallback identity cannot run until the profile is saved. WEB-TEST-041 and WEB-TEST-042 cover the cache and save boundaries.
 - Main and nested escalation bundle inputs use separate LiveView upload names and DOM namespaces, so both unfolded editors can import/export independently when the component is embedded more than once. The retry/editor fold tree remains in flow; no duplicate workspace retry panel or tab shell is reintroduced.
+- Phoenix-generated form-field IDs are included in the same namespace as fold and action IDs. Without this, two otherwise distinct widgets still collide on `profile_*` inputs and LiveView rejects the page; WEB-TEST-043 keeps this practical embedding boundary executable.
 - The reasoning selector is capability-aware: seeded profiles expose only the levels in their `reasoningEffortMap`, while a custom profile without a map shows a disabled placeholder. `WorkspaceLive` repeats that check when building the run request so stale persisted reasoning cannot produce a provider-preparation failure before the request reaches the provider. WEB-TEST-040 covers the unmapped-profile boundary.
 - The hosted run boundary is browser-safe: the primary Run Prompt submitter uses `formnovalidate` so an unused nested Escalation Model editor cannot block `phx-submit` through native required-field validation, while LiveView still validates the actual run payload. The gateway's provider-option classifier also admits utility-compatible request controls such as `max_tokens` and `max_output_tokens` while rejecting credential-shaped names. TEST-012 and the WEB-TEST-010 rendering assertion cover these boundaries; the hosted browser verified a real CPA run.
 - Workspace model and escalation controls can still deep-link to the canonical `/profiles` editor; new-profile credential fields open automatically while existing-profile edits keep stored credentials behind a closed write-only drawer.
@@ -435,3 +436,20 @@ Final audit evidence for the hosted run-boundary follow-up:
   horizontal overflow, and completed a real CPA `gpt-5.6-luna` prompt. The
   one-off browser harness and temporary evidence files were removed after the
   check; no credential or live output was added to the repository.
+
+Final audit evidence for the multi-instance embedding amendment:
+
+- `WEB-TEST-043` covers the checked-in `/embed/llm` host fixture with two
+  instances. The deterministic LiveView case passed with unique DOM IDs,
+  independent folds/cache/profile selection, and distinct main/escalation
+  upload names.
+- The isolated Chromium case at `test/browser/full_workflow_test.exs:43`
+  passed in 50.6 seconds after opening both widget trees, scrolling the compact
+  control into view, checking independent cache state, and verifying no tabs,
+  duplicate IDs, or horizontal overflow.
+- The implementation found and corrected a practical gap in the earlier
+  `id_prefix` claim: generated Phoenix form IDs and parent messages were still
+  global. The host now routes `{:profile_widget, prefix, message}` events and
+  registers per-instance upload channels. No KER or related issue was created;
+  provider behavior, credentials, retry/timeout budgets, and API ownership are
+  unchanged.

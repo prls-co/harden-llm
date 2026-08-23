@@ -9,8 +9,8 @@ credential correction and final application deployment. It also records the
 2026-08-22 P07.S11-P07.S13 visual-topology, browser-fold, and workspace-draft
 corrections, the P07.S14 reusable no-tabs widget deployment, and the P07.S15
 profile-aware reasoning correction. It also records the P07.S16 runtime-parity
-release and the P07.S17 hosted-run validation correction completed on
-2026-08-23.
+release, the P07.S17 hosted-run validation correction, and the P07.S18
+multi-instance embedding implementation completed on 2026-08-23.
 Detailed command output belongs under ignored
 `plans/evidence/harden-llm/<run-id>/`; secrets and live provider output never do.
 
@@ -75,6 +75,7 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | P07.S15 profile-aware reasoning capability guard | `d02bee8` | complete; PR `#22` merged, deployed, and verified by authenticated hosted browser |
 | P07.S16 reusable no-tabs widget runtime parity | `314e343` | complete; PR `#24` merged and deployed |
 | P07.S17 hosted run validation and provider-option parity | `b3a50ce` | complete; PR `#26` merged, deployed, and verified by authenticated hosted browser |
+| P07.S18 multi-instance reusable widget embedding | working checkout; release pending | implementation and focused/browser evidence pass; merge, deployment, and final configured-profile smoke pending |
 | kin-openapi security remediation | `2c1a34f` | complete; patched release `v0.144.0` |
 
 ## Final gate record
@@ -408,3 +409,25 @@ and includes `cpa.prls.co` in the provider allowlist. This was configuration
 repair for the existing deployment, not an application ownership or routing
 change. No KER, timeout-budget change, retry-budget change, or related issue
 was required.
+
+## P07.S18 multi-instance embedding implementation
+
+The earlier `id_prefix` promise covered only selected visible controls. A
+second widget still collided on Phoenix-generated `profile_*` form IDs, and a
+host could not attribute child messages or bundle uploads to the correct
+instance. P07.S18 closes that practical gap by namespacing all generated
+form/control IDs, tagging parent messages with the widget prefix, assigning
+distinct main/escalation upload channels, and adding the authenticated
+`/embed/llm` two-instance host fixture.
+
+Pre-release evidence:
+
+- WEB-TEST-043 deterministic LiveView coverage passed with unique IDs,
+  independent folds/cache/profile selection, and distinct upload names.
+- The isolated Chromium embedding feature passed in 50.6 seconds after
+  opening both widget trees, checking independent cache state, and verifying
+  no tabs, duplicate IDs, or horizontal overflow.
+- No KER or related issue was created. This is a frontend component-boundary
+  correction; provider policy, credentials, retry/timeout budgets, and API
+  ownership are unchanged. Final merge, deployment, public probes, and the
+  configured-profile live smoke are the remaining release gates.

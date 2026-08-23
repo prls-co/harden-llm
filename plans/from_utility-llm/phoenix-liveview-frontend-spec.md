@@ -8,11 +8,11 @@
 - Target application directory: `/home/kirill/harden-llm/frontend`
 - Backend contract: `/home/kirill/harden-llm/api/openapi.yaml`
 - Source UX reference: `/home/kirill/utility-llm/examples/react-trace-studio`
-- Version: `1.0.2-frontend-embedding-amendment`
+- Version: `1.0.3-multi-instance-embedding-amendment`
 - Owners: frontend and self-hosted runtime maintainers
-- Date: 2026-08-22
+- Date: 2026-08-23
 - Document ID: `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`
-- Summary: This specification defines the separate Elixir/Phoenix LiveView frontend for Harden-LLM. Phoenix renders HTML, owns the browser session and CSRF boundary, and calls the Go gateway server to server through its published REST/OpenAPI contract. The frontend owns no application database, provider integration, retry policy, object storage, pricing, schema validation, cache identity, or domain persistence. The 2026-08-18 parity amendment incorporates the source-derived controls and explicit self-hosted adaptations recorded in `docs/utility-llm-frontend-parity-inventory.md` and ADR-HLLM-012; the 2026-08-22 embedding amendment makes the Workspace and Profiles visual surfaces single-column, stable-root components that can sit inside a host shell.
+- Summary: This specification defines the separate Elixir/Phoenix LiveView frontend for Harden-LLM. Phoenix renders HTML, owns the browser session and CSRF boundary, and calls the Go gateway server to server through its published REST/OpenAPI contract. The frontend owns no application database, provider integration, retry policy, object storage, pricing, schema validation, cache identity, or domain persistence. The 2026-08-18 parity amendment incorporates the source-derived controls and explicit self-hosted adaptations recorded in `docs/utility-llm-frontend-parity-inventory.md` and ADR-HLLM-012; the 2026-08-22 embedding amendment makes the Workspace and Profiles visual surfaces single-column, stable-root components that can sit inside a host shell; the 2026-08-23 multi-instance amendment makes `id_prefix` a complete DOM, parent-message, and upload namespace contract.
 
 ## 2. Canonical stack
 
@@ -277,8 +277,12 @@ Contract synchronization:
   They must not require tabs, a side rail, a fixed overlay, or page-level
   navigation state from the host application. `ProfileWidgetComponent` is the
   current reusable in-flow profile widget at `#workspace-llm-widget`; pass an
-  `id_prefix` when mounting multiple instances. `Layouts.app` remains the
-  current route adapter and host messages keep selection/UI state explicit.
+  `id_prefix` when mounting multiple instances. The prefix namespaces every
+  generated form/control ID, parent message, and main/escalation upload name;
+  the host must register the corresponding upload channels and route tagged
+  messages. `Layouts.app` remains the current route adapter and host messages
+  keep selection/UI state explicit. `/embed/llm` is the checked-in two-instance
+  host fixture for this contract.
 - Use focused views only where the content is genuinely a separate trace inspection; profile editing and destructive profile confirmation must not use viewport overlays that hide the surrounding workspace.
 - Use the generated Phoenix icon component for structural icons and compact emoji labels for high-frequency controls (`🤖`, `🧠`, `💾`, `⚙`, `🔁`, `💰`), with accessible text or labels retained.
 - Every form control has a visible label, error association, keyboard focus state, and disabled/submitting state.
@@ -422,6 +426,7 @@ single-editor adaptations are recorded in ADR-HLLM-012.
 | WEB-TEST-040 | Profile-aware reasoning capability guard | `test/harden_llm_web/live/workspace_live_test.exs`, `frontend/lib/harden_llm_web/live/workspace_live.ex`, `frontend/lib/harden_llm_web/live/profile_widget_component.ex` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | Seeded profiles expose only reasoning levels present in their `reasoningEffortMap`; custom profiles without a map disable the compact selector and the run payload omits stale unsupported reasoning before the gateway can reject it. |
 | WEB-TEST-041 | Utility cache state migration | `test/harden_llm_web/live/workspace_live_test.exs`, `frontend/lib/harden_llm_web/live/workspace_live.ex`, `frontend/lib/harden_llm_web/live/profile_widget_component.ex` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | The widget exposes only `cache` and `refresh`, converts legacy persisted `off` to `cache`, toggles the selected mode, and persists the changed state. |
 | WEB-TEST-042 | Saved-profile boundary before endpoint run | `test/harden_llm_web/live/workspace_live_test.exs`, `frontend/lib/harden_llm_web/live/profile_widget_component.ex`, `frontend/lib/harden_llm_web/live/workspace_live.ex` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | Endpoint, API interface, credential, fallback, or profile-identity edits block a run until the profile mutation is explicitly saved; ordinary transient run options remain available. |
+| WEB-TEST-043 | Multi-instance embedding contract | `test/harden_llm_web/live/embedding_live_test.exs`, `test/browser/full_workflow_test.exs`, `frontend/lib/harden_llm_web/live/embedding_live.ex`, `frontend/lib/harden_llm_web/live/profile_widget_component.ex` | `mix test test/harden_llm_web/live/embedding_live_test.exs && mix test --only browser test/browser/full_workflow_test.exs:43` | Two in-flow widgets have unique DOM/form IDs, tagged parent routing, independent folds/cache/profile selection, and distinct main/escalation upload names without tabs or horizontal overflow. |
 
 Detailed fixtures and isolation:
 
