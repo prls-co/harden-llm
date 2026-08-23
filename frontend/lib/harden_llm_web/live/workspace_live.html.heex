@@ -195,6 +195,7 @@
                 <button
                   id="run-submit"
                   type="submit"
+                  formnovalidate
                   disabled={not is_nil(@run_ref)}
                   phx-disable-with="Running…"
                   class="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2 disabled:cursor-wait disabled:opacity-50"
