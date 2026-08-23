@@ -45,7 +45,7 @@ datasources:
           url: '$${__value.raw}'
           urlDisplayLabel: View trace
     secureJsonData:
-      httpHeaderValue1: harden-llm
+      httpHeaderValue1: fake
   - name: Tempo
     type: tempo
     uid: harden-tempo

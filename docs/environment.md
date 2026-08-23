@@ -77,6 +77,13 @@ These variables belong to the unchanged upstream service graph documented in
 [`deploy/langfuse/UPSTREAM.md`](../deploy/langfuse/UPSTREAM.md); they must never
 be reused for Harden LLM Postgres or Garage.
 
+When Loki authentication is enabled, the existing harden-LLM log path retains
+the canonical `fake` tenant used by Loki while authentication was disabled.
+Both the protected Collector exporter and the `harden-loki` Grafana datasource
+must keep that tenant so pre-cutover and new harden-LLM logs remain one query
+surface. The separate `prod`, `nonprod`, and `test` tenants are reserved for
+PRLS agent telemetry.
+
 ## Optional live certification
 
 Deterministic gates need no provider credential. TEST-037 runs only when

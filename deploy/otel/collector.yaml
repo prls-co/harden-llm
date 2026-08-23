@@ -171,7 +171,7 @@ exporters:
   otlphttp/loki:
     endpoint: http://loki:3100/otlp
     headers:
-      X-Scope-OrgID: harden-llm
+      X-Scope-OrgID: fake
     compression: gzip
     timeout: 5s
     sending_queue:

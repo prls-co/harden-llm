@@ -170,7 +170,7 @@ func TestPRLSCollectorIsolation(t *testing.T) {
 
 	exporters := objectField(t, config, "exporters")
 	hardenLoki := objectField(t, exporters, "otlphttp/loki")
-	if got := stringField(t, objectField(t, hardenLoki, "headers"), "X-Scope-OrgID"); got != "harden-llm" {
+	if got := stringField(t, objectField(t, hardenLoki, "headers"), "X-Scope-OrgID"); got != "fake" {
 		t.Errorf("protected harden-LLM Loki tenant header = %q", got)
 	}
 	for _, tenant := range prlsTenants {
@@ -320,7 +320,7 @@ func TestPRLSGrafanaPrometheusAndCaddy(t *testing.T) {
 		}
 	}
 	hardenLoki := byUID["harden-loki"]
-	if hardenLoki == nil || stringField(t, objectField(t, hardenLoki, "secureJsonData"), "httpHeaderValue1") != "harden-llm" {
+	if hardenLoki == nil || stringField(t, objectField(t, hardenLoki, "secureJsonData"), "httpHeaderValue1") != "fake" {
 		t.Error("protected harden-LLM Loki datasource has no explicit tenant")
 	}
 
