@@ -435,6 +435,7 @@ func TestPRLSGrafanaPrometheusAndCaddy(t *testing.T) {
 	for _, required := range []string{
 		"{$PRLS_ALLURE_HOST}", "tls {$HARDEN_LLM_TLS_MODE}", "basic_auth",
 		"{$PRLS_TESTS_BASIC_AUTH_USER}", "{$PRLS_TESTS_BASIC_AUTH_HASH}",
+		"@allure_ci_reports path /api/reports/*", "handle @allure_ci_reports",
 		"reverse_proxy allure:3000", "import security_headers",
 	} {
 		if !strings.Contains(caddyText, required) {
@@ -445,6 +446,12 @@ func TestPRLSGrafanaPrometheusAndCaddy(t *testing.T) {
 		if strings.Contains(strings.ToLower(caddyText), forbidden) {
 			t.Errorf("PRLS Caddy include contains forbidden directive %q", forbidden)
 		}
+	}
+	if strings.Contains(caddyText, "path /api/*") {
+		t.Error("PRLS Caddy include exposes a broader Allure API route than report writes")
+	}
+	if strings.Count(caddyText, "basic_auth") != 1 || strings.Count(caddyText, "handle {") != 1 {
+		t.Error("PRLS Caddy include must retain one Basic-authenticated UI/history fallback")
 	}
 }
 
