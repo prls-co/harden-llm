@@ -363,11 +363,8 @@ func containsSecretKey(value any) bool {
 	switch typed := value.(type) {
 	case map[string]any:
 		for key, nested := range typed {
-			normalized := strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(key, "-", ""), "_", ""))
-			for _, forbidden := range []string{"authorization", "apikey", "credential", "password", "secret", "token"} {
-				if strings.Contains(normalized, forbidden) {
-					return true
-				}
+			if isSecretKey(key) {
+				return true
 			}
 			if containsSecretKey(nested) {
 				return true
@@ -381,6 +378,27 @@ func containsSecretKey(value any) bool {
 		}
 	}
 	return false
+}
+
+func isSecretKey(key string) bool {
+	normalized := strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(key, "-", ""), "_", ""))
+
+	// Provider request controls such as max_tokens and max_output_tokens are
+	// ordinary utility-llm options, not credentials. Match credential-shaped
+	// names explicitly so those options remain usable without allowing common
+	// credential fields through the persisted state or run boundary.
+	for _, prefix := range []string{"authorization", "apikey", "credential", "password", "secret"} {
+		if strings.HasPrefix(normalized, prefix) {
+			return true
+		}
+	}
+
+	switch normalized {
+	case "token", "accesstoken", "authtoken", "bearertoken", "clienttoken", "idtoken", "refreshtoken", "sessiontoken":
+		return true
+	default:
+		return false
+	}
 }
 
 func encodeHistoryCursor(cursor postgres.RunCursor) (string, error) {
