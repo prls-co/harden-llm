@@ -205,9 +205,31 @@
         "frontendLogin": 200
       }
     },
+    "embeddingRelease": {
+      "pullRequest": 28,
+      "commit": "34eb38072ceeba8abf6f8d99047ff8ff9fb0b63b",
+      "frontendImage": "sha256:9da0680b31ad75f0d5ac226def6fc2c81833fb73ec90f1f763143de765cc75dd",
+      "gatewayImage": "sha256:526c1d7605050b4d7c0521663ff17dbe180b3728f85340001ef1cdfba0afda6a",
+      "deployedAt": "2026-08-23T07:49:39Z",
+      "webHealth": "healthy",
+      "profileCatalog": {
+        "rows": 30,
+        "configured": 2,
+        "unconfiguredPresets": 28,
+        "liveSmokeProfiles": ["CurlStructured", "ShamanLiteLLM"]
+      },
+      "probes": {
+        "apiHealthz": 200,
+        "apiReadyz": 200,
+        "frontendHealthz": 200,
+        "frontendLogin": 200
+      },
+      "publicEmbeddingBrowser": "passed: authenticated two-instance /embed/llm check; independent folds/cache, unique IDs, no tabs/overflow, logout",
+      "configuredProfileSmoke": "passed: bounded text call through both configured profiles; smoke history deleted"
+    },
     "parityVerification": {
-      "phoenix": "Focused workspace/widget suite 30 passed; prior full deterministic frontend suite 88 passed, 3 excluded; formnovalidate rendering assertion passed",
-      "browser": "Pinned Chromium 2 passed at desktop and mobile; hosted authenticated browser passed at b3a50ce with all main/nested folds open, no horizontal overflow, and a real CPA run",
+      "phoenix": "Focused workspace/embedding suite 21 passed; full deterministic frontend suite 89 passed, 4 excluded; formnovalidate rendering assertion passed",
+      "browser": "Pinned Chromium existing desktop/mobile workflows plus isolated WEB-TEST-043 passed; authenticated public /embed/llm browser check passed with no horizontal overflow",
       "backend": "make verify passed",
       "compose": "make test-compose passed in 189.956s on the final merged checkout",
       "uiControlCoverage": "WEB-TEST-037 through WEB-TEST-043 cover profile/workspace inputs, buttons, no-tabs fold payloads, searchable custom-value controls, fallback/options interactions, write-only credential staging, namespaced nested bundle actions, select-driven draft preservation, utility cache migration, profile-aware reasoning capability guards, retry projection, explicit saved-profile gating, the native form validation boundary, and two-instance DOM/message/upload isolation; TEST-012 covers utility provider-option admission",

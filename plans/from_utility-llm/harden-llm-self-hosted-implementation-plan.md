@@ -1178,7 +1178,7 @@ Plan-and-Solve subtasks:
 Exit gates:
 
 - Proceed: TEST-001 through TEST-036, TEST-039, and TEST-040 pass; TEST-037/TEST-038 pass when configured or are explicitly recorded as not run.
-- Frontend closeout additionally requires WEB-TEST-001 through WEB-TEST-012 and the current WEB-TEST-031 through WEB-TEST-042 parity set, the exact Phoenix formatting/compile/unit gates, the browser workflow, and `make test-compose` when deployment validation is requested. P07.S17 additionally requires the gateway provider-option boundary regression and an authenticated hosted Run Prompt.
+- Frontend closeout additionally requires WEB-TEST-001 through WEB-TEST-012 and the current WEB-TEST-031 through WEB-TEST-043 parity set, the exact Phoenix formatting/compile/unit gates, the browser workflow, and `make test-compose` when deployment validation is requested. P07.S17 additionally requires the gateway provider-option boundary regression and an authenticated hosted Run Prompt; P07.S18 additionally requires a two-instance public embedding check and a bounded smoke through every actually configured profile.
 - Escalate: unannotated parity difference, provider uncertainty, or target dependency remains.
 - Stop: release requires Firebase, duplicate telemetry, another implementation path, or substitution of a Langfuse-owned dependency.
 
@@ -1487,11 +1487,11 @@ Privacy and data-quality constraints:
 ### Phase Status
 
 - Phase: P07 plus P07.S09-P07.S18 frontend parity closeout amendments
-- Status: P07.S18 implementation in progress; release gates pending
-- Target SHA: `b3a50ce` (PR `#26`, following PRs `#24` and `#25`)
+- Status: P07.S18 complete; merged, deployed, and publicly verified
+- Target SHA: `34eb38072ceeba8abf6f8d99047ff8ff9fb0b63b` (PR `#28`, following PRs `#24`-`#26`)
 - Backend source fixture SHA: `09769424ca34b9d759e273a7e9dccf4fd00a5f6c`
 - Frontend source revision: `utility-llm` `5c0309e` / `0.15.0`
-- Evidence baseline: `make verify`, pinned Phoenix suite, Wallaby desktop/mobile workflow, WEB-TEST-040, public probes, healthy deployed containers, and authenticated hosted prompt at `d02bee8`; P07.S16 was merged as `314e343`, the P07.S17 native-submit correction as `80397b8`, and the P07.S17 run-boundary correction as `b3a50ce`. P07.S18 adds the complete `id_prefix` namespace contract and `/embed/llm` host fixture; release evidence is pending merge.
+- Evidence baseline: `make verify`, pinned Phoenix suite, Wallaby desktop/mobile workflow, WEB-TEST-040, public probes, healthy deployed containers, and authenticated hosted prompt at `d02bee8`; P07.S16 was merged as `314e343`, the P07.S17 native-submit correction as `80397b8`, and the P07.S17 run-boundary correction as `b3a50ce`. P07.S18 adds the complete `id_prefix` namespace contract and `/embed/llm` host fixture; PR `#28` merged as `34eb380`, the frontend image deployed at `sha256:9da0680b31ad75f0d5ac226def6fc2c81833fb73ec90f1f763143de765cc75dd`, all public probes returned HTTP 200, and both configured profiles passed bounded live smoke.
 
 ### Completed Steps
 
@@ -1507,8 +1507,10 @@ Privacy and data-quality constraints:
 | P07.S15 profile-aware reasoning capability guard | Implemented: supported profiles retain L/M/H, profiles without a reasoning map disable the compact selector, stale persisted reasoning is omitted from run payloads, and known unmapped repair profiles cannot inherit an incompatible primary setting | `frontend/lib/harden_llm_web/live/profile_widget_component.ex`; `frontend/lib/harden_llm_web/live/workspace_live.ex`; WEB-TEST-040; ADR-HLLM-012 |
 | P07.S16 utility widget runtime parity follow-up | Implemented: utility-style searchable comboboxes preserve custom values; cache is `cache`/`refresh` with legacy `off` migration; saved profile defaults are projected into gateway retry/repair request fields; main and nested bundle uploads are namespaced; endpoint/credential/fallback identity edits block runs until explicit save | `frontend/lib/harden_llm_web/live/profile_widget_component.ex`; `frontend/lib/harden_llm_web/live/workspace_live.ex`; WEB-TEST-038..042; ADR-HLLM-014 | PR `#24` merged as `314e343`; deterministic/browser/release evidence passed |
 | P07.S17 hosted run-boundary parity | Implemented: optional nested required fields no longer trigger native validation for the outer Run Prompt action; utility request option names such as `max_tokens` are admitted while credential-shaped option names remain rejected | `frontend/lib/harden_llm_web/live/workspace_live.html.heex`; `internal/gateway/resources.go`; `internal/gateway/run_validation_test.go`; PRs `#25`/`#26`; TEST-012; WEB-TEST-010 | Go tests, CodeQL, full Compose deployment, public probes, and authenticated hosted CPA run passed |
+| P07.S18 multi-instance embedding contract | Implemented: generated form/control IDs, parent messages, and main/escalation upload channels are fully namespaced by `id_prefix`; `/embed/llm` mounts two independently routed in-flow widgets without tabs | `frontend/lib/harden_llm_web/live/profile_widget_component.ex`; `frontend/lib/harden_llm_web/live/embedding_live.ex`; WEB-TEST-043; ADR-HLLM-014 | focused suite 21 passed; full frontend 89 passed/4 excluded; isolated Chromium embedding 1 passed; PR `#28` merged |
 | Final frontend validation | Pass: focused workspace/widget suite 30 passed; full deterministic frontend 88 passed/3 excluded; desktop/mobile Chromium 2 passed; `make verify` and `make test-compose` passed; authenticated hosted CPA prompt passed with no overflow | `frontend/` test suites; release certification |
 | Publication and deployment | Pass: PR `#26` merged as `b3a50ce`; frontend image `sha256:e8b057640e1dcc801d2b1e38276e7be6f1371e49565e5d2440a534a5aa60c6b7` and gateway image `sha256:526c1d7605050b4d7c0521663ff17dbe180b3728f85340001ef1cdfba0afda6`; both healthy, public probes returned HTTP 200, and the authenticated hosted Run Prompt reached the CPA provider | `docs/release-certification.md` |
+| P07.S18 publication/deployment/live smoke | Pass: web image `sha256:9da0680b31ad75f0d5ac226def6fc2c81833fb73ec90f1f763143de765cc75dd` at release `34eb380`; all 16 effective Compose services healthy/running; frontend/API probes returned 200; public embedding browser passed; `CurlStructured` and `ShamanLiteLLM` bounded live calls passed and their history was deleted | `docs/release-certification.md`; PR `#28` |
 
 ### Quantitative Results
 
@@ -1519,6 +1521,8 @@ Privacy and data-quality constraints:
 | Phoenix suite | Focused widget/workspace suite 30 passed; full deterministic frontend suite 88 passed, 3 excluded | formatter, warnings-as-errors, unit suite | Accepted |
 | Browser workflow | 2 passed after P07.S15 reasoning-state changes | desktop and mobile | Accepted |
 | Hosted browser | `CPA GPT-5.6 Luna` at CPA `gpt-5.6-luna` completed a real prompt with the existing operator credentials; all main/nested folds opened, desktop/mobile overflow checks passed, and gateway `/api/v1/run` returned HTTP 200 | deployed frontend, existing operator credential, public probes, and gateway run evidence | Accepted |
+| P07.S18 embedding browser | 1 isolated Chromium feature passed in 50.2s; public deployed check passed in 51.9s; two widgets, nested folds, cache isolation/restoration, unique IDs, no tabs, no overflow, logout | merged `34eb380`; public `https://harden-llm.prls.co/embed/llm` | Accepted |
+| P07.S18 configured-profile smoke | 2/2 configured profiles passed bounded text calls; catalog remained 30 rows with 28 unconfigured presets; smoke history removed | public API, retained operator credentials, cleanup DELETEs | Accepted |
 
 ### Issues/Resolutions
 
@@ -1532,6 +1536,7 @@ Privacy and data-quality constraints:
 | Hosted replay persisted invalid empty reasoning state | After the capability guard disabled the no-map selector, the parent state handler still wrote an empty `reasoningByProfile` value; the gateway correctly rejected that invalid state with HTTP 400 | Omit unsupported reasoning entries during state normalization; add a WEB-TEST-040 assertion before the real run | PR `#22`; focused suite 18 passed; hosted run passed |
 | Browser Run Prompt did not reach LiveView | The optional nested Escalation Model editor lives inside the outer form and its empty required fields triggered native browser validation even when the nested fold was unused | Add `formnovalidate` to the actual Run Prompt submitter while retaining server-side `run_payload` validation; verify the rendered attribute and real browser click | PR `#25`; rendering assertion, hosted browser run |
 | Utility CPA run returned HTTP 422 after the widget was fixed | The gateway secret-key scan rejected every option key containing `token`, including the profile's ordinary `max_tokens` request limit | Classify credential-shaped names explicitly and retain rejection for API keys/auth/credential/password/secret/bearer-token names; add TEST-012 regression coverage | PR `#26`; `go test ./...`; hosted gateway `/api/v1/run` HTTP 200 |
+| Two embedded widgets still collided despite the earlier optional `id_prefix` | Phoenix-generated `profile_*` field IDs remained global, child messages had no host-instance prefix, and both editors used the same main/escalation upload channels | Namespace every generated field/control ID, tag parent messages with the widget prefix, give each editor its own upload atoms, and add the two-instance `/embed/llm` fixture | PR `#28`; WEB-TEST-043; deterministic, isolated Chromium, and public embedding checks |
 
 ### Failed Attempts
 
@@ -1593,6 +1598,12 @@ Privacy and data-quality constraints:
   as `max_tokens`. The Go boundary remains strict for credential-shaped keys;
   TEST-012, WEB-TEST-010, ADR-HLLM-014, PRs `#25`/`#26`, and the deployed
   `b3a50ce` browser run are the evidence.
+- P07.S18 introduced no KER, timeout-budget, retry-budget, provider-policy, or
+  API ownership change and no related issue was created. It closed the
+  practical multi-instance embedding boundary by completing `id_prefix`
+  namespaces for form IDs, parent messages, and uploads, with WEB-TEST-043,
+  PR `#28`, the public embedding browser check, and configured-profile smoke as
+  evidence.
 - The visual embedding constraint is deliberate: preserve stable studio roots,
   in-flow folds, and one vertical surface when a host application supplies its
   own shell. The concrete next step beyond this plan is downstream adoption of

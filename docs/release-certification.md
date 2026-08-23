@@ -24,7 +24,7 @@ Detailed command output belongs under ignored
 | Source package | `@prls-co/utility-llm` `0.14.6` |
 | Current frontend parity source | `utility-llm` `5c0309e` / `0.15.0` |
 | Current profile catalog source | `examples/react-trace-studio/llm-profile-catalog.json` at `utility-llm` `5c0309e2508dc5b7a87d0880c8d794123353c5b0`; SHA-256 `864552eb5e8bf63de590704ef65c2e45ad228e7cc15d4af048609e680348b2f9` |
-| Current merged release | PR `#26` / `b3a50ce` (runtime follow-up to PR `#24` / `314e343` and PR `#25` / `80397b8`) |
+| Current merged release | PR `#28` / `34eb380` (multi-instance embedding follow-up to PR `#26` / `b3a50ce`) |
 | Security dependency remediation | `github.com/getkin/kin-openapi` `v0.144.0` |
 | Parity manifest SHA-256 | `973f138211910fbe58deca867d1569adf2b9660b53e1441a3607570e1f2c98a6` |
 | Langfuse release / commit | `v3.212.0` / `3a572984276dd2dc2f8f77f1b2aadb799aa17fdf` |
@@ -75,7 +75,7 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | P07.S15 profile-aware reasoning capability guard | `d02bee8` | complete; PR `#22` merged, deployed, and verified by authenticated hosted browser |
 | P07.S16 reusable no-tabs widget runtime parity | `314e343` | complete; PR `#24` merged and deployed |
 | P07.S17 hosted run validation and provider-option parity | `b3a50ce` | complete; PR `#26` merged, deployed, and verified by authenticated hosted browser |
-| P07.S18 multi-instance reusable widget embedding | working checkout; release pending | implementation and focused/browser evidence pass; merge, deployment, and final configured-profile smoke pending |
+| P07.S18 multi-instance reusable widget embedding | `34eb380` | complete; PR `#28` merged, web deployed, public embedding browser and configured-profile smoke passed |
 | kin-openapi security remediation | `2c1a34f` | complete; patched release `v0.144.0` |
 
 ## Final gate record
@@ -111,6 +111,10 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | P07.S16 reusable widget runtime parity | pass: PR `#24` merged as `314e343`; searchable custom values, two-state cache, retry projection, nested upload namespaces, explicit profile-save gating, no tabs, all folds, and responsive behavior are covered by the deterministic/browser suites |
 | P07.S17 hosted run boundary | pass: PR `#25` merged as `80397b8` added `formnovalidate` for optional nested profile fields; PR `#26` merged as `b3a50ce` stopped rejecting utility-compatible `max_tokens` provider options; authenticated hosted CPA run returned output with gateway HTTP 200 |
 | P07.S17 production images | pass: web image `sha256:e8b057640e1dcc801d2b1e38276e7be6f1371e49565e5d2440a534a5aa60c6b7`; gateway image `sha256:526c1d7605050b4d7c0521663ff17dbe180b3728f85340001ef1cdfba0afda6`; both release `b3a50ce`, healthy |
+| P07.S18 embedding implementation and regression gate | pass: PR `#28` merged as `34eb380`; WEB-TEST-043 deterministic coverage passed; focused workspace/embedding suite passed 21 tests; full deterministic frontend suite passed 89 tests with 4 excluded; isolated Chromium embedding workflow passed 1 test |
+| P07.S18 deployed frontend image | pass: web image `sha256:9da0680b31ad75f0d5ac226def6fc2c81833fb73ec90f1f763143de765cc75dd`, OCI release `34eb380`, web container healthy; gateway remained healthy at `b3a50ce` / `sha256:526c1d7605050b4d7c0521663ff17dbe180b3728f85340001ef1cdfba0afda6a` |
+| P07.S18 public embedding verification | pass: frontend `/healthz` and `/login`, API `/healthz` and `/readyz` returned HTTP 200; authenticated public Chromium opened both `/embed/llm` widgets, independent folds/cache, unique IDs, no tabs/overflow, and logged out successfully |
+| P07.S18 configured-profile live smoke | pass: authenticated bounded text calls through the two configured profiles `CurlStructured` and `ShamanLiteLLM`; smoke history records were deleted before logout; the remaining 28 catalog presets stayed unconfigured |
 | Tempo trace-ID normalization | pass: 31/32-character external IDs covered by regression tests; no timeout budget changed |
 | kin-openapi security alerts | code fix pass: `v0.144.0` is the first patched release for both alerts and CodeQL Go/JavaScript checks passed; GitHub alert records remained open at final readback pending Dependabot rescan |
 
@@ -420,14 +424,33 @@ form/control IDs, tagging parent messages with the widget prefix, assigning
 distinct main/escalation upload channels, and adding the authenticated
 `/embed/llm` two-instance host fixture.
 
-Pre-release evidence:
+Final release evidence:
 
 - WEB-TEST-043 deterministic LiveView coverage passed with unique IDs,
   independent folds/cache/profile selection, and distinct upload names.
-- The isolated Chromium embedding feature passed in 50.6 seconds after
+- The full deterministic frontend suite passed with 89 tests and 4 exclusions;
+  the focused workspace/embedding suite passed 21 tests. The isolated Chromium
+  embedding feature passed in 50.2 seconds after
   opening both widget trees, checking independent cache state, and verifying
   no tabs, duplicate IDs, or horizontal overflow.
+- PR `#28` merged as `34eb380`. The existing `harden-llm` Compose project was
+  rebuilt with the frontend image
+  `sha256:9da0680b31ad75f0d5ac226def6fc2c81833fb73ec90f1f763143de765cc75dd`
+  carrying OCI release `34eb380`; the gateway remained healthy at release
+  `b3a50ce` and image
+  `sha256:526c1d7605050b4d7c0521663ff17dbe180b3728f85340001ef1cdfba0afda6`.
+  All 16 services reported healthy or running in the effective full Compose
+  project.
+- Public frontend `/healthz` and `/login`, plus API `/healthz` and `/readyz`,
+  returned HTTP 200 after deployment. The authenticated public Chromium check
+  reached `/embed/llm`, opened both widget trees and their nested folds,
+  verified independent cache state, unique DOM IDs, no tabs, no horizontal
+  overflow, and a clean logout.
+- The authenticated profile catalog contained 30 rows: exactly two configured
+  profiles (`CurlStructured` and `ShamanLiteLLM`) and 28 unconfigured presets.
+  One bounded text smoke passed through each configured profile; the temporary
+  history records were deleted before logout. No provider output or credential
+  was persisted in the repository.
 - No KER or related issue was created. This is a frontend component-boundary
   correction; provider policy, credentials, retry/timeout budgets, and API
-  ownership are unchanged. Final merge, deployment, public probes, and the
-  configured-profile live smoke are the remaining release gates.
+  ownership are unchanged.

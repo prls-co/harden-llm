@@ -155,6 +155,11 @@ some control IDs. Phoenix-generated nested form IDs remained global, and child
 messages/upload events were not attributable to a host instance. The fix adds
 complete field-ID scoping, tagged parent messages, per-instance upload names,
 and the authenticated `/embed/llm` two-instance fixture. WEB-TEST-043 covers
-the deterministic and Chromium paths. No KER or related issue was created:
-this changes only component integration boundaries, not provider policy,
-timeouts, retry budgets, API ownership, or credential handling.
+the deterministic and Chromium paths. PR `#28` merged as `34eb380` and the
+frontend image `sha256:9da0680b31ad75f0d5ac226def6fc2c81833fb73ec90f1f763143de765cc75dd`
+is healthy in the existing Compose project. Public frontend/API probes returned
+HTTP 200, the authenticated public embedding browser check passed, and both
+configured provider profiles passed bounded live smoke with cleanup. No KER or
+related issue was created: this changes only component integration boundaries,
+not provider policy, timeouts, retry budgets, API ownership, or credential
+handling.
