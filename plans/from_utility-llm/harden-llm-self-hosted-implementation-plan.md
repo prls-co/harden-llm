@@ -1511,6 +1511,7 @@ Privacy and data-quality constraints:
 | Final frontend validation | Pass: focused workspace/widget suite 30 passed; full deterministic frontend 88 passed/3 excluded; desktop/mobile Chromium 2 passed; `make verify` and `make test-compose` passed; authenticated hosted CPA prompt passed with no overflow | `frontend/` test suites; release certification |
 | Publication and deployment | Pass: PR `#26` merged as `b3a50ce`; frontend image `sha256:e8b057640e1dcc801d2b1e38276e7be6f1371e49565e5d2440a534a5aa60c6b7` and gateway image `sha256:526c1d7605050b4d7c0521663ff17dbe180b3728f85340001ef1cdfba0afda6`; both healthy, public probes returned HTTP 200, and the authenticated hosted Run Prompt reached the CPA provider | `docs/release-certification.md` |
 | P07.S18 publication/deployment/live smoke | Pass: web image `sha256:9da0680b31ad75f0d5ac226def6fc2c81833fb73ec90f1f763143de765cc75dd` at release `34eb380`; all 16 effective Compose services healthy/running; frontend/API probes returned 200; public embedding browser passed; `CurlStructured` and `ShamanLiteLLM` bounded live calls passed and their history was deleted | `docs/release-certification.md`; PR `#28` |
+| Post-certification CPA Luna binding | Pass: existing configured CPA credential was rebound to `CPA GPT-5.6 Luna` with matching user scope; backend save/probe, direct API run, and public UI selection/Run Prompt passed; smoke history was deleted and no new secret was created | `docs/release-certification.md`; `plans/implementation-status.json` |
 
 ### Quantitative Results
 
@@ -1603,6 +1604,11 @@ Privacy and data-quality constraints:
   practical multi-instance embedding boundary by completing `id_prefix`
   namespaces for form IDs, parent messages, and uploads, with WEB-TEST-043,
   PR `#28`, the public embedding browser check, and configured-profile smoke as
+  evidence.
+- The post-certification Luna binding introduced no KER, timeout-budget,
+  retry-budget, provider-policy, or API ownership change and no related issue
+  was created. It reused the existing configured CPA credential under matching
+  user scope; the backend probe, bounded API run, and public UI run are the
   evidence.
 - The visual embedding constraint is deliberate: preserve stable studio roots,
   in-flow folds, and one vertical surface when a host application supplies its
