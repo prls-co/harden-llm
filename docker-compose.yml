@@ -144,6 +144,19 @@ services:
       start_period: 10s
     stop_grace_period: 60s
 
+  otel-collector-state-init:
+    image: postgres:17.9-alpine@sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609
+    user: "0:0"
+    entrypoint: ["/bin/chown"]
+    command: ["10001:10001", "/var/lib/otelcol"]
+    read_only: true
+    network_mode: none
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - otel-collector-state:/var/lib/otelcol
+    restart: "no"
+
   otel-collector:
     <<: *service-defaults
     image: otel/opentelemetry-collector-contrib:0.156.0@sha256:125bdbeb7590cc1952c5b3430ecf14063568980c2c93d5b38676cc0446ed8108
@@ -159,6 +172,8 @@ services:
       - harden-private
       - prls-observability
     depends_on:
+      otel-collector-state-init:
+        condition: service_completed_successfully
       tempo:
         condition: service_healthy
       loki:

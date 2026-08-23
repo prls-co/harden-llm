@@ -34,7 +34,7 @@ func TestPRLSComposeSharedOwner(t *testing.T) {
 	services := objectField(t, config, "services")
 	wantServices := []string{
 		"caddy", "garage", "grafana", "harden-llm-gateway", "harden-postgres",
-		"loki", "otel-collector", "prometheus", "tempo",
+		"loki", "otel-collector", "otel-collector-state-init", "prometheus", "tempo",
 	}
 	if got := sortedKeys(services); !reflect.DeepEqual(got, wantServices) {
 		t.Fatalf("harden-owned services = %v, want exactly %v", got, wantServices)
@@ -73,6 +73,22 @@ func TestPRLSComposeSharedOwner(t *testing.T) {
 	collector := asObject(t, services["otel-collector"], "otel-collector")
 	if !prlsValueContains(collector["volumes"], "otel-collector-state:/var/lib/otelcol") {
 		t.Error("Collector does not persist file-log offsets in a named volume")
+	}
+	collectorDepends := objectField(t, collector, "depends_on")
+	collectorInitDependency := objectField(t, collectorDepends, "otel-collector-state-init")
+	if got := stringField(t, collectorInitDependency, "condition"); got != "service_completed_successfully" {
+		t.Errorf("Collector state initializer dependency = %q", got)
+	}
+	initializer := asObject(t, services["otel-collector-state-init"], "otel-collector-state-init")
+	if stringField(t, initializer, "image") != "postgres:17.9-alpine@sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609" ||
+		stringField(t, initializer, "user") != "0:0" || stringField(t, initializer, "network_mode") != "none" ||
+		!boolField(t, initializer, "read_only") || stringField(t, initializer, "restart") != "no" {
+		t.Errorf("Collector state initializer is not a bounded pinned one-shot: %#v", initializer)
+	}
+	assertStringSliceEqual(t, "collector state initializer entrypoint", stringSliceField(t, initializer, "entrypoint"), []string{"/bin/chown"})
+	assertStringSliceEqual(t, "collector state initializer command", stringSliceField(t, initializer, "command"), []string{"10001:10001", "/var/lib/otelcol"})
+	if !prlsValueContains(initializer["volumes"], "otel-collector-state:/var/lib/otelcol") {
+		t.Error("Collector state initializer does not own the durable volume")
 	}
 	loki := asObject(t, services["loki"], "loki")
 	lokiEnv := prlsEnvironmentMap(t, loki)
