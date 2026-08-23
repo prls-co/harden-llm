@@ -1,4 +1,4 @@
-auth_enabled: false
+auth_enabled: true
 
 server:
   http_listen_address: 0.0.0.0
@@ -12,10 +12,18 @@ common:
   ring:
     kvstore:
       store: inmemory
-  storage:
-    filesystem:
-      chunks_directory: /loki/chunks
-      rules_directory: /loki/rules
+
+storage_config:
+  filesystem:
+    directory: /loki/chunks
+  aws:
+    endpoint: garage:3900
+    region: garage
+    bucketnames: prls-loki
+    access_key_id: ${PRLS_LOKI_S3_ACCESS_KEY}
+    secret_access_key: ${PRLS_LOKI_S3_SECRET_KEY}
+    s3forcepathstyle: true
+    insecure: true
 
 schema_config:
   configs:
@@ -26,16 +34,32 @@ schema_config:
       index:
         prefix: index_
         period: 24h
+    - from: "2026-08-23"
+      store: tsdb
+      object_store: s3
+      schema: v13
+      index:
+        prefix: prls_index_
+        period: 24h
 
 limits_config:
   allow_structured_metadata: true
   volume_enabled: true
-  retention_period: 720h
+  retention_period: 2880h
+  otlp_config:
+    resource_attributes:
+      attributes_config:
+        - action: index_label
+          attributes:
+            - service.name
+            - service.namespace
+            - deployment.environment
+            - prls.agent
 
 compactor:
   working_directory: /loki/compactor
   retention_enabled: true
-  delete_request_store: filesystem
+  delete_request_store: s3
 
 analytics:
   reporting_enabled: false

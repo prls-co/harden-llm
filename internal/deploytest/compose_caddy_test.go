@@ -282,9 +282,17 @@ func assertCaddyContract(t *testing.T, path, extensionDir string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	wantEntries := map[string]bool{".gitkeep": false, "prls-tests.caddy": false}
 	for _, entry := range entries {
-		if entry.Name() != ".gitkeep" {
-			t.Errorf("trusted conf.d must ship empty; found %s", entry.Name())
+		if _, ok := wantEntries[entry.Name()]; !ok {
+			t.Errorf("trusted conf.d contains unreviewed entry %s", entry.Name())
+			continue
+		}
+		wantEntries[entry.Name()] = true
+	}
+	for name, found := range wantEntries {
+		if !found {
+			t.Errorf("trusted conf.d omits reviewed entry %s", name)
 		}
 	}
 }
@@ -326,6 +334,8 @@ func composeContractEnvironment() []string {
 	return []string{
 		"HARDEN_LLM_API_HOST=api.harden.test", "HARDEN_LLM_GRAFANA_HOST=grafana.harden.test",
 		"HARDEN_LLM_LANGFUSE_HOST=langfuse.harden.test", "HARDEN_LLM_ARTIFACT_HOST=artifacts.harden.test",
+		"PRLS_ALLURE_HOST=allure.harden.test", "PRLS_TESTS_BASIC_AUTH_USER=contract-operator",
+		"PRLS_TESTS_BASIC_AUTH_HASH=$2a$14$contractOnlyNotAProductionHash0000000000000000000000",
 		"HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT=https://artifacts.harden.test",
 		"HARDEN_LLM_TLS_MODE=internal", "HARDEN_LLM_POSTGRES_PASSWORD=contract-harden-db-7Y2qN5",
 		"HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID=GKCONTRACT000000000000000000000001",
@@ -341,6 +351,9 @@ func composeContractEnvironment() []string {
 		"MINIO_ROOT_USER=contractminio", "MINIO_ROOT_PASSWORD=contract-minio-8bQ4pT2z",
 		"LANGFUSE_INIT_PROJECT_PUBLIC_KEY=pk-lf-contract000000000000000000000000",
 		"LANGFUSE_INIT_PROJECT_SECRET_KEY=sk-lf-contract000000000000000000000000",
+		"PRLS_LAMINAR_PROJECT_API_KEY=contract-laminar-project-key",
+		"PRLS_LOKI_S3_ACCESS_KEY=GKCONTRACT000000000000000000000002",
+		"PRLS_LOKI_S3_SECRET_KEY=contractLokiGarageKey_7Jt3sM9qP2vW6xN8cR4aD1fH5kB0zE",
 		"LANGFUSE_INIT_USER_PASSWORD=contract-user-9mQ2vN7p", "COMPOSE_PROJECT_NAME=harden-llm-contract",
 	}
 }

@@ -15,8 +15,8 @@ func TestGrafanaArtifacts(t *testing.T) {
 	root := filepath.Join("..", "..", "deploy", "grafana")
 	datasourceConfig := readYAMLObject(t, filepath.Join(root, "provisioning", "datasources", "datasources.yaml"))
 	datasources := sliceField(t, datasourceConfig, "datasources")
-	if len(datasources) != 3 {
-		t.Fatalf("provisioned datasource count = %d, want 3", len(datasources))
+	if len(datasources) != 6 {
+		t.Fatalf("provisioned datasource count = %d, want 3 protected + 3 PRLS Loki", len(datasources))
 	}
 	byUID := make(map[string]map[string]any, len(datasources))
 	for _, raw := range datasources {

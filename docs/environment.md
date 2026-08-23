@@ -13,6 +13,8 @@ independently and stored in a secrets manager or encrypted host backup.
 | `HARDEN_LLM_GRAFANA_HOST` | required | Public Grafana hostname. |
 | `HARDEN_LLM_LANGFUSE_HOST` | required | Public Langfuse hostname. |
 | `HARDEN_LLM_ARTIFACT_HOST` | required | Public Garage presign hostname. |
+| `PRLS_ALLURE_HOST` | required by the shared-observability release | Authenticated Allure Storage hostname routed by the existing Caddy edge. |
+| `PRLS_TESTS_BASIC_AUTH_USER` / `PRLS_TESTS_BASIC_AUTH_HASH` | required by the shared-observability release | Edge user and bcrypt hash for the Allure route. Generate the hash with `caddy hash-password` and single-quote it in `.env`. |
 | `HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT` | required HTTPS origin | Origin embedded in presigned URLs; must match the artifact host. |
 | `HARDEN_LLM_TLS_MODE` | required | Caddy `tls` argument: ACME email in production or `internal` for private-PKI environments. |
 | `HARDEN_LLM_BIND_ADDRESS` | `0.0.0.0` | Address for Caddy's only published ports. |
@@ -30,6 +32,7 @@ independently and stored in a secrets manager or encrypted host backup.
 | `HARDEN_LLM_GARAGE_RPC_SECRET` | secret 64-char hex | Garage node RPC secret. |
 | `HARDEN_LLM_ARTIFACT_BUCKET` | `harden-llm-artifacts` | Dedicated Garage bucket. |
 | `HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID` / `HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY` | secret, required | Bucket-scoped S3 credentials supplied only to Garage and the gateway. |
+| `PRLS_LOKI_S3_ACCESS_KEY` / `PRLS_LOKI_S3_SECRET_KEY` | secret, required by the shared-observability release | Dedicated Garage key restricted to the `prls-loki` bucket; supplied only to Loki. |
 | `HARDEN_LLM_ARTIFACT_PRESIGN_TTL` | `1m`, max `5m` | Lifetime of an authorized artifact redirect. |
 | `HARDEN_LLM_SESSION_TTL` | `24h` | Opaque bearer-session lifetime. |
 | `HARDEN_LLM_STATIC_TOKEN` / `HARDEN_LLM_STATIC_TOKEN_OWNER_ID` | optional pair | Direct CLI bearer token and the existing owner ID it may access. The token is never persisted or returned; remove or rotate it to disable access. Static-token logout is not a revocation path. |
@@ -65,7 +68,11 @@ Garage, provider, Grafana, or Langfuse credential.
 `GRAFANA_ADMIN_USER` and secret `GRAFANA_ADMIN_PASSWORD` secure Grafana.
 Langfuse requires independent Postgres, salt, encryption, NextAuth, ClickHouse,
 Redis, and MinIO secrets plus `LANGFUSE_INIT_*` organization/project/user values.
-The Collector receives only the initialized Langfuse project public/secret keys.
+The protected harden-LLM exporter receives only the initialized Langfuse
+project public/secret keys.
+The separate secret `PRLS_LAMINAR_PROJECT_API_KEY` authorizes the dedicated
+full-content PRLS trace exporter to the existing Laminar deployment; it is not
+shared with the harden-LLM Langfuse path.
 These variables belong to the unchanged upstream service graph documented in
 [`deploy/langfuse/UPSTREAM.md`](../deploy/langfuse/UPSTREAM.md); they must never
 be reused for Harden LLM Postgres or Garage.

@@ -87,8 +87,8 @@ func TestCollectorPipelines(t *testing.T) {
 			receivers: []string{"otlp"}, processors: []string{"memory_limiter", "attributes/redact", "batch/logs"}, exporters: []string{"otlphttp/loki"},
 		},
 	}
-	if len(pipelines) != len(wantPipelines) {
-		t.Errorf("pipeline count = %d, want %d", len(pipelines), len(wantPipelines))
+	if len(pipelines) != len(wantPipelines)+9 {
+		t.Errorf("pipeline count = %d, want %d protected + 9 isolated PRLS", len(pipelines), len(wantPipelines))
 	}
 	langfuseReferences := 0
 	for name, want := range wantPipelines {

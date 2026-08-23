@@ -20,6 +20,9 @@ services:
       HARDEN_LLM_GRAFANA_HOST: ${HARDEN_LLM_GRAFANA_HOST:?set the Grafana hostname}
       HARDEN_LLM_LANGFUSE_HOST: ${HARDEN_LLM_LANGFUSE_HOST:?set the Langfuse hostname}
       HARDEN_LLM_TLS_MODE: ${HARDEN_LLM_TLS_MODE:-internal}
+      PRLS_ALLURE_HOST: ${PRLS_ALLURE_HOST:?set the Allure hostname}
+      PRLS_TESTS_BASIC_AUTH_USER: ${PRLS_TESTS_BASIC_AUTH_USER:?set the PRLS tests edge user}
+      PRLS_TESTS_BASIC_AUTH_HASH: ${PRLS_TESTS_BASIC_AUTH_HASH:?set the PRLS tests bcrypt hash}
     depends_on:
       harden-llm-gateway:
         condition: service_healthy
@@ -37,6 +40,9 @@ services:
       - ./deploy/caddy/conf.d:/etc/caddy/conf.d:ro
       - caddy-data:/data
       - caddy-config:/config
+    networks:
+      - harden-private
+      - prls-observability
     healthcheck:
       test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
       interval: 15s
@@ -127,6 +133,9 @@ services:
       - ./deploy/garage/garage.toml:/etc/garage.toml:ro
       - garage-metadata:/var/lib/garage/meta
       - garage-data:/var/lib/garage/data
+    networks:
+      - harden-private
+      - prls-observability
     healthcheck:
       test: ["CMD", "/garage", "status"]
       interval: 5s
@@ -142,8 +151,12 @@ services:
     environment:
       LANGFUSE_PUBLIC_KEY: ${LANGFUSE_INIT_PROJECT_PUBLIC_KEY:?set the Langfuse project public key}
       LANGFUSE_SECRET_KEY: ${LANGFUSE_INIT_PROJECT_SECRET_KEY:?set the Langfuse project secret key}
+      PRLS_LAMINAR_PROJECT_API_KEY: ${PRLS_LAMINAR_PROJECT_API_KEY:?set the Laminar PRLS project API key}
     volumes:
       - ./deploy/otel/collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+    networks:
+      - harden-private
+      - prls-observability
     depends_on:
       tempo:
         condition: service_healthy
@@ -172,7 +185,11 @@ services:
       - --web.enable-lifecycle
     volumes:
       - ./deploy/prometheus/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/prometheus/rules:/etc/prometheus/rules:ro
       - prometheus-data:/prometheus
+    networks:
+      - harden-private
+      - prls-observability
     healthcheck:
       test: ["CMD", "/bin/prometheus", "--version"]
       interval: 15s
@@ -183,10 +200,16 @@ services:
   loki:
     <<: *service-defaults
     image: grafana/loki:3.7.2@sha256:191d4fdfb7264f16989f0a57f320872620a5a7c2ceeec6229212c4190ec49b86
-    command: ["-config.file=/etc/loki/local-config.yaml"]
+    command: ["-config.file=/etc/loki/local-config.yaml", "-config.expand-env=true"]
+    environment:
+      PRLS_LOKI_S3_ACCESS_KEY: ${PRLS_LOKI_S3_ACCESS_KEY:?set the dedicated PRLS Loki Garage access key}
+      PRLS_LOKI_S3_SECRET_KEY: ${PRLS_LOKI_S3_SECRET_KEY:?set the dedicated PRLS Loki Garage secret key}
     volumes:
       - ./deploy/loki/loki.yaml:/etc/loki/local-config.yaml:ro
       - loki-data:/loki
+    networks:
+      - harden-private
+      - prls-observability
     healthcheck:
       test: ["CMD", "/usr/bin/loki", "-version"]
       interval: 15s
@@ -227,6 +250,9 @@ services:
       - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
+    networks:
+      - harden-private
+      - prls-observability
     depends_on:
       prometheus:
         condition: service_healthy
@@ -245,6 +271,9 @@ services:
 networks:
   harden-private:
     driver: bridge
+  prls-observability:
+    name: prls-observability
+    external: true
 
 volumes:
   caddy-data:
