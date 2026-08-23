@@ -212,11 +212,16 @@
       "gatewayImage": "sha256:526c1d7605050b4d7c0521663ff17dbe180b3728f85340001ef1cdfba0afda6a",
       "deployedAt": "2026-08-23T07:49:39Z",
       "webHealth": "healthy",
-      "profileCatalog": {
+      "profileCatalogAtDeployment": {
         "rows": 30,
         "configured": 2,
-        "unconfiguredPresets": 28,
-        "liveSmokeProfiles": ["CurlStructured", "ShamanLiteLLM"]
+        "unconfiguredPresets": 28
+      },
+      "profileCatalog": {
+        "rows": 30,
+        "configured": 3,
+        "unconfiguredPresets": 27,
+        "liveSmokeProfiles": ["CurlStructured", "ShamanLiteLLM", "CPA GPT-5.6 Luna"]
       },
       "probes": {
         "apiHealthz": 200,
@@ -225,7 +230,18 @@
         "frontendLogin": 200
       },
       "publicEmbeddingBrowser": "passed: authenticated two-instance /embed/llm check; independent folds/cache, unique IDs, no tabs/overflow, logout",
-      "configuredProfileSmoke": "passed: bounded text call through both configured profiles; smoke history deleted"
+      "configuredProfileSmoke": "passed: bounded text call through all three configured profiles; smoke history deleted"
+    },
+    "postCertificationProfileBinding": {
+      "profile": "CPA GPT-5.6 Luna",
+      "baseUrl": "https://cpa.prls.co/v1",
+      "modelId": "gpt-5.6-luna",
+      "credentialReuse": "existing configured CPA credential used by CurlStructured",
+      "endpointCredentialScope": "user",
+      "configured": true,
+      "apiRun": "passed: bounded text call; smoke history deleted",
+      "publicBrowser": "passed: configured status, searchable selection, Run Prompt, and logout",
+      "newSecretCreated": false
     },
     "parityVerification": {
       "phoenix": "Focused workspace/embedding suite 21 passed; full deterministic frontend suite 89 passed, 4 excluded; formnovalidate rendering assertion passed",

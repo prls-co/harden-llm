@@ -454,3 +454,25 @@ Final release evidence:
 - No KER or related issue was created. This is a frontend component-boundary
   correction; provider policy, credentials, retry/timeout budgets, and API
   ownership are unchanged.
+
+## Post-certification CPA GPT-5.6 Luna binding
+
+After the P07.S18 release, the operator requested the previously unconfigured
+`CPA GPT-5.6 Luna` profile to be made usable. The profile already had the CPA
+origin `https://cpa.prls.co/v1` and model `gpt-5.6-luna`; it was rebound to the
+existing configured CPA credential used by `CurlStructured`, with matching
+user-scoped endpoint semantics. No new provider key was created, added to
+`.env`, rendered, or committed.
+
+- The backend profile save/probe succeeded and `GET /api/v1/profiles` reported
+  30 rows with 3 configured profiles: `CurlStructured`, `ShamanLiteLLM`, and
+  `CPA GPT-5.6 Luna`.
+- A bounded direct Luna text run passed through the public API. Its smoke
+  history record was deleted before logout.
+- The authenticated public browser check showed Luna as configured, selected it
+  through the real searchable combobox, completed Run Prompt without the
+  credential error, and returned to the login page. Its smoke history record
+  was deleted afterward.
+- No KER or related issue was created: this was an owner-scoped credential
+  binding using an existing secret, with no code, provider policy, timeout, or
+  retry-budget change.

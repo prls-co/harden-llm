@@ -44,7 +44,7 @@ The separate `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001` contract maps as follows:
 | profiles, workspace, history, traces, artifacts | LiveViews and narrow controllers | WEB-TEST-006 through WEB-TEST-008 |
 | security, telemetry, responsive UI | endpoint/config, observability, components | WEB-TEST-009, WEB-TEST-010 |
 | real user and deployment workflows | Wallaby browser tests | WEB-TEST-011, WEB-TEST-012 |
-| utility-llm frontend parity extension | `WorkspaceLive`, `ProfilesLive`, `HistoryLive`, `ProfileWidgetComponent`, `HardenAPI`, and `api/openapi.yaml` | WEB-TEST-031 through WEB-TEST-042; ADR-HLLM-012, ADR-HLLM-014 |
+| utility-llm frontend parity extension | `WorkspaceLive`, `ProfilesLive`, `HistoryLive`, `ProfileWidgetComponent`, `EmbeddingLive`, `HardenAPI`, and `api/openapi.yaml` | WEB-TEST-031 through WEB-TEST-043; ADR-HLLM-012, ADR-HLLM-014 |
 
 The base backend gates never invoke `frontend/`. The frontend imports no Go
 implementation and synchronizes only through `api/openapi.yaml`.
