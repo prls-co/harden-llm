@@ -444,9 +444,20 @@ Final audit evidence for the multi-instance embedding amendment:
   independent folds/cache/profile selection, and distinct main/escalation
   upload names.
 - The isolated Chromium case at `test/browser/full_workflow_test.exs:43`
-  passed in 50.6 seconds after opening both widget trees, scrolling the compact
+  passed in 50.2 seconds after opening both widget trees, scrolling the compact
   control into view, checking independent cache state, and verifying no tabs,
   duplicate IDs, or horizontal overflow.
+- PR `#28` merged as `34eb380`; the frontend image
+  `sha256:9da0680b31ad75f0d5ac226def6fc2c81833fb73ec90f1f763143de765cc75dd`
+  is healthy in the existing `harden-llm` Compose project. Public frontend and
+  API health/readiness/login probes returned HTTP 200.
+- The authenticated public Chromium check passed in 51.9 seconds against
+  `/embed/llm`: both widgets rendered, independent folds and cache state were
+  exercised and restored, IDs were unique, tabs and horizontal overflow were
+  absent, and logout returned to the login page.
+- The production catalog returned 30 rows with 2 configured profiles. Bounded
+  live text smokes passed for `CurlStructured` and `ShamanLiteLLM`; their smoke
+  history records were deleted before logout.
 - The implementation found and corrected a practical gap in the earlier
   `id_prefix` claim: generated Phoenix form IDs and parent messages were still
   global. The host now routes `{:profile_widget, prefix, message}` events and
