@@ -8,7 +8,9 @@ profile-catalog backfill deployment, and the 2026-08-19 P07.S10 runtime
 credential correction and final application deployment. It also records the
 2026-08-22 P07.S11-P07.S13 visual-topology, browser-fold, and workspace-draft
 corrections, the P07.S14 reusable no-tabs widget deployment, and the P07.S15
-profile-aware reasoning correction.
+profile-aware reasoning correction. It also records the P07.S16 runtime-parity
+release and the P07.S17 hosted-run validation correction completed on
+2026-08-23.
 Detailed command output belongs under ignored
 `plans/evidence/harden-llm/<run-id>/`; secrets and live provider output never do.
 
@@ -22,7 +24,7 @@ Detailed command output belongs under ignored
 | Source package | `@prls-co/utility-llm` `0.14.6` |
 | Current frontend parity source | `utility-llm` `5c0309e` / `0.15.0` |
 | Current profile catalog source | `examples/react-trace-studio/llm-profile-catalog.json` at `utility-llm` `5c0309e2508dc5b7a87d0880c8d794123353c5b0`; SHA-256 `864552eb5e8bf63de590704ef65c2e45ad228e7cc15d4af048609e680348b2f9` |
-| Current merged release | PR `#22` / `d02bee8` (follow-up to profile-aware PR `#21` / `93b7362`) |
+| Current merged release | PR `#26` / `b3a50ce` (runtime follow-up to PR `#24` / `314e343` and PR `#25` / `80397b8`) |
 | Security dependency remediation | `github.com/getkin/kin-openapi` `v0.144.0` |
 | Parity manifest SHA-256 | `973f138211910fbe58deca867d1569adf2b9660b53e1441a3607570e1f2c98a6` |
 | Langfuse release / commit | `v3.212.0` / `3a572984276dd2dc2f8f77f1b2aadb799aa17fdf` |
@@ -71,6 +73,8 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | P07.S13 workspace draft preservation for select events | `7c55266` | complete; PR `#17` merged and deployed |
 | P07.S14 reusable no-tabs embedded profile widget | `9a57dcd` | implementation complete; PR `#19` merged and deployed |
 | P07.S15 profile-aware reasoning capability guard | `d02bee8` | complete; PR `#22` merged, deployed, and verified by authenticated hosted browser |
+| P07.S16 reusable no-tabs widget runtime parity | `314e343` | complete; PR `#24` merged and deployed |
+| P07.S17 hosted run validation and provider-option parity | `b3a50ce` | complete; PR `#26` merged, deployed, and verified by authenticated hosted browser |
 | kin-openapi security remediation | `2c1a34f` | complete; patched release `v0.144.0` |
 
 ## Final gate record
@@ -103,6 +107,9 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | P07.S14 public probes and API smoke | pass: three consecutive samples returned HTTP 200 for frontend `/healthz` and `/login`, API `/healthz` and `/readyz`; the real static-token structured API smoke also passed |
 | P07.S15 profile-capability regression | pass locally: WEB-TEST-040, focused workspace/widget 18 passed, full Phoenix 86 passed/3 excluded, pinned desktop/mobile Chromium 2 passed, and the browser failure was reproduced as an unsupported reasoning option before the outbound CPA call |
 | P07.S15 authenticated hosted browser recheck | pass: existing operator credentials, `CurlStructured`/CPA `gpt-5.6-luna`, all eight nested folds, no desktop/mobile overflow, successful real output, and request JSON without unsupported `reasoningEffort` |
+| P07.S16 reusable widget runtime parity | pass: PR `#24` merged as `314e343`; searchable custom values, two-state cache, retry projection, nested upload namespaces, explicit profile-save gating, no tabs, all folds, and responsive behavior are covered by the deterministic/browser suites |
+| P07.S17 hosted run boundary | pass: PR `#25` merged as `80397b8` added `formnovalidate` for optional nested profile fields; PR `#26` merged as `b3a50ce` stopped rejecting utility-compatible `max_tokens` provider options; authenticated hosted CPA run returned output with gateway HTTP 200 |
+| P07.S17 production images | pass: web image `sha256:e8b057640e1dcc801d2b1e38276e7be6f1371e49565e5d2440a534a5aa60c6b7`; gateway image `sha256:526c1d7605050b4d7c0521663ff17dbe180b3728f85340001ef1cdfba0afda6`; both release `b3a50ce`, healthy |
 | Tempo trace-ID normalization | pass: 31/32-character external IDs covered by regression tests; no timeout budget changed |
 | kin-openapi security alerts | code fix pass: `v0.144.0` is the first patched release for both alerts and CodeQL Go/JavaScript checks passed; GitHub alert records remained open at final readback pending Dependabot rescan |
 
@@ -130,7 +137,7 @@ next dependency-graph refresh, not an unpatched dependency in the release.
 
 | Surface | Production value |
 | --- | --- |
-| Release | frontend `d02bee8`; gateway `8f69e2b` |
+| Release | frontend and gateway `b3a50ce` |
 | Frontend | `https://harden-llm.prls.co` |
 | API gateway | `https://harden-llm-api.prls.co` |
 | Artifact endpoint | `https://harden-llm-artifacts.prls.co` |
@@ -352,4 +359,52 @@ The implementation is tracked by ADR-HLLM-014 and WEB-TEST-038 through
 WEB-TEST-042. No KER or related issue was created: timeout, retry budget,
 provider policy, API ownership, authentication, and deployment topology are
 unchanged. Deterministic release and hosted browser evidence is recorded here
-after the follow-up commit is published and deployed.
+after the follow-up commit was published and deployed.
+
+## P07.S17 hosted-run validation and provider-option parity
+
+The first real browser submission after P07.S16 exposed two practical
+boundaries that deterministic LiveView rendering did not exercise:
+
+- The optional nested Escalation Model editor is rendered inside the outer run
+  form. Its empty profile fields are intentionally required when that editor is
+  used, but native browser validation treated them as required for every run and
+  prevented `phx-submit` from firing. PR `#25` (`80397b8`) added
+  `formnovalidate` to the actual Run Prompt submitter; server-side prompt/profile
+  validation remains in force.
+- The saved CPA profile's normal utility-compatible `defaultOptions` contains
+  `max_tokens`. The gateway's prior generic secret-key scan classified any key
+  containing `token` as a credential and returned HTTP 422 after the request
+  reached `/api/v1/run`. PR `#26` (`b3a50ce`) narrows that classifier to
+  credential-shaped names while retaining rejection of API keys, authorization,
+  credentials, passwords, secrets, and bearer/session/access tokens. TEST-012
+  now covers both accepted request token-limit names and rejected credential
+  names.
+
+Final verification on the deployed `b3a50ce` release:
+
+- Full Go tests passed with `go test ./...`; the new provider-option regression
+  cases passed, and CodeQL Go/JavaScript checks passed on PR `#26`.
+- The current isolated `make test-compose` signal gate passed in `189.956s`,
+  including service readiness, fake-provider execution, persistence, and
+  cross-service correlation.
+- The full Compose deployment was rebuilt with the explicit `harden-llm`
+  project and reported healthy. The frontend image was
+  `sha256:e8b057640e1dcc801d2b1e38276e7be6f1371e49565e5d2440a534a5aa60c6b7`;
+  the gateway image was
+  `sha256:526c1d7605050b4d7c0521663ff17dbe180b3728f85340001ef1cdfba0afda6`.
+- Public frontend `/healthz` and `/login`, plus API `/healthz` and `/readyz`,
+  returned HTTP 200. The gateway log recorded a successful CPA
+  `gpt-5.6-luna` run through `POST /api/v1/run` with HTTP 200.
+- The authenticated Chromium workflow passed login, the compact no-tabs widget,
+  cache toggle, all main and nested folds, desktop/mobile no-overflow checks,
+  and a real Run Prompt using the existing operator credential. No new account,
+  provider key, raw credential, or live output was committed or persisted in
+  the repository.
+
+The deployment configuration correction is also explicit: the ignored runtime
+`.env` uses the public `*.prls.co` hostnames, tunnel-trusted `internal` TLS,
+and includes `cpa.prls.co` in the provider allowlist. This was configuration
+repair for the existing deployment, not an application ownership or routing
+change. No KER, timeout-budget change, retry-budget change, or related issue
+was required.

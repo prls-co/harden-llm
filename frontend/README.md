@@ -40,6 +40,11 @@ compact no-tabs row, searchable custom-value controls, nested profile folds,
 utility cache/retry projection, explicit profile-save gating, fallback/options
 interactions, namespaced bundle inputs, and canonical profile mutations. The
 browser test requires Chromium and ChromeDriver.
+The primary Run Prompt submitter deliberately uses `formnovalidate` because
+optional nested profile editors share the outer form; LiveView remains the
+server-side validation boundary. The gateway's TEST-012 regression accepts
+utility request controls such as `max_tokens` while still rejecting
+credential-shaped option names.
 WEB-TEST-012 is the release-only sixteen-service test and additionally requires
 Go, Docker, and Compose:
 

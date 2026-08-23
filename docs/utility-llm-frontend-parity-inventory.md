@@ -304,6 +304,7 @@ The parity implementation is present in the self-hosted checkout:
 - The second widget parity pass aligns the practical control behavior with utility: profile/API/base/model/fallback values use searchable custom-value comboboxes, the cache control is the two-state `cache`/`refresh` model with legacy `off` migration, retry/repair fields are stored in utility-shaped profile defaults but projected to the gateway's top-level run policy, and a staged endpoint/credential/fallback identity cannot run until the profile is saved. WEB-TEST-041 and WEB-TEST-042 cover the cache and save boundaries.
 - Main and nested escalation bundle inputs use separate LiveView upload names and DOM namespaces, so both unfolded editors can import/export independently when the component is embedded more than once. The retry/editor fold tree remains in flow; no duplicate workspace retry panel or tab shell is reintroduced.
 - The reasoning selector is capability-aware: seeded profiles expose only the levels in their `reasoningEffortMap`, while a custom profile without a map shows a disabled placeholder. `WorkspaceLive` repeats that check when building the run request so stale persisted reasoning cannot produce a provider-preparation failure before the request reaches the provider. WEB-TEST-040 covers the unmapped-profile boundary.
+- The hosted run boundary is browser-safe: the primary Run Prompt submitter uses `formnovalidate` so an unused nested Escalation Model editor cannot block `phx-submit` through native required-field validation, while LiveView still validates the actual run payload. The gateway's provider-option classifier also admits utility-compatible request controls such as `max_tokens` and `max_output_tokens` while rejecting credential-shaped names. TEST-012 and the WEB-TEST-010 rendering assertion cover these boundaries; the hosted browser verified a real CPA run.
 - Workspace model and escalation controls can still deep-link to the canonical `/profiles` editor; new-profile credential fields open automatically while existing-profile edits keep stored credentials behind a closed write-only drawer.
 - `HistoryLive` exposes expandable request/result records, result and credential-free cURL copy, page-size controls over the cursor API, trace observations, artifact links, restore, delete, and clear.
 - The Go state and run contracts now carry the prompt draft, persisted UI flags, model override, explicit bounded retry controls, repair escalation, and run timeout. OpenAPI and backend validation were updated together.
@@ -342,7 +343,9 @@ unimplemented frontend behavior:
   differences are deliberate self-hosted projections: Firebase/Firestore and
   browser-provider ownership, cursor history instead of utility offset
   quick-jump, and the gateway's top-level retry request shape. The widget
-  behavior itself is covered through WEB-TEST-038 through WEB-TEST-042.
+  behavior itself is covered through WEB-TEST-038 through WEB-TEST-042; the
+  primary submitter and provider-option run boundary are covered by WEB-TEST-010,
+  TEST-012, and the authenticated hosted workflow.
 
 The implementation is complete only when the checked-in Go gates, Phoenix
 LiveView suite, browser workflow, formatter/static checks, and
@@ -415,3 +418,20 @@ Final audit evidence for the reusable no-tabs widget amendment:
   unsupported `reasoningEffort`, and reported no horizontal overflow at desktop
   or mobile widths. No KER or related issue was created because the backend
   contract, provider policy, retry budget, and timeout semantics are unchanged.
+
+Final audit evidence for the hosted run-boundary follow-up:
+
+- The browser initially exposed a native HTML validation defect: empty required
+  fields in the optional Escalation Model fold prevented the outer Run Prompt
+  submit event. PR `#25` (`80397b8`) added `formnovalidate` to the real
+  submitter; the server-side run validator remains active.
+- The subsequent gateway 422 was caused by the old secret-key scan rejecting
+  the utility profile's normal `max_tokens` default option. PR `#26`
+  (`b3a50ce`) now distinguishes request token-limit names from credential-shaped
+  names, with TEST-012 regression coverage.
+- The final deployed release `b3a50ce` passed `go test ./...`, CodeQL, healthy
+  Compose startup, public frontend/API probes, and the authenticated Chromium
+  workflow. The widget opened all main/nested folds, had no tabs or mobile
+  horizontal overflow, and completed a real CPA `gpt-5.6-luna` prompt. The
+  one-off browser harness and temporary evidence files were removed after the
+  check; no credential or live output was added to the repository.

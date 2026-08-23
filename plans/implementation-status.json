@@ -188,15 +188,15 @@
       "gitSHA": "5c0309e",
       "packageVersion": "0.15.0"
     },
-    "parityCompletedAt": "2026-08-22T20:36:37Z",
+    "parityCompletedAt": "2026-08-23T06:48:56Z",
     "parityAdaptationADR": "ADR-HLLM-012",
     "parityRuntimeADR": "ADR-HLLM-014",
     "parityRelease": {
-      "pullRequest": 22,
-      "commit": "d02bee8",
-      "gatewayImage": "sha256:1dc2f2037176633ec338b47d99254bcdc5f15bd773d65d9683eb2b76bc5e757b",
-      "frontendImage": "sha256:a208f39bf3f61d706fdf1ad3bd17e2598795438bce92e7f2d3ab6953d7d0671f",
-      "deployedAt": "2026-08-22T20:27:08Z",
+      "pullRequest": 26,
+      "commit": "b3a50ce",
+      "gatewayImage": "sha256:526c1d7605050b4d7c0521663ff17dbe180b3728f85340001ef1cdfba0afda6a",
+      "frontendImage": "sha256:e8b057640e1dcc801d2b1e38276e7be6f1371e49565e5d2440a534a5aa60c6b7",
+      "deployedAt": "2026-08-23T06:48:56Z",
       "dependabotAlertStatus": "patched in main and deployed; GitHub records pending rescan",
       "probes": {
         "apiHealthz": 200,
@@ -206,12 +206,13 @@
       }
     },
     "parityVerification": {
-      "phoenix": "Focused workspace/widget suite 18 passed; full deterministic frontend suite 86 passed, 3 excluded",
-      "browser": "Pinned Chromium 2 passed at desktop and mobile; hosted authenticated browser passed at d02bee8 with all eight folds open and no horizontal overflow",
+      "phoenix": "Focused workspace/widget suite 30 passed; prior full deterministic frontend suite 88 passed, 3 excluded; formnovalidate rendering assertion passed",
+      "browser": "Pinned Chromium 2 passed at desktop and mobile; hosted authenticated browser passed at b3a50ce with all main/nested folds open, no horizontal overflow, and a real CPA run",
       "backend": "make verify passed",
-      "compose": "make test-compose passed",
-      "uiControlCoverage": "WEB-TEST-037 through WEB-TEST-042 cover profile/workspace inputs, buttons, no-tabs fold payloads, searchable custom-value controls, fallback/options interactions, write-only credential staging, namespaced nested bundle actions, select-driven draft preservation, utility cache migration, profile-aware reasoning capability guards, retry projection, and explicit saved-profile gating; the deployed image, public probes, and hosted run pass for the previously certified release, with the ADR-014 follow-up pending its release evidence",
-      "hostedAuthenticatedBrowser": "pass: existing production credentials; CurlStructured via CPA with gpt-5.6-luna; eight folds opened; real output returned; request omitted reasoningEffort; desktop/mobile overflow absent; no new account or secret persisted",
+      "compose": "make test-compose passed in 189.956s on the final merged checkout",
+      "uiControlCoverage": "WEB-TEST-037 through WEB-TEST-042 cover profile/workspace inputs, buttons, no-tabs fold payloads, searchable custom-value controls, fallback/options interactions, write-only credential staging, namespaced nested bundle actions, select-driven draft preservation, utility cache migration, profile-aware reasoning capability guards, retry projection, explicit saved-profile gating, and the native form validation boundary; TEST-012 covers utility provider-option admission",
+      "hostedAuthenticatedBrowser": "pass: existing production credentials; CPA GPT-5.6 Luna via CPA with gpt-5.6-luna; all main/nested folds opened; real output returned with gateway HTTP 200; desktop/mobile overflow absent; no new account or secret persisted",
+      "runBoundary": "PR #25 adds formnovalidate for optional nested profile fields; PR #26 narrows secret-key classification so max_tokens is accepted while credential-shaped names remain rejected; go test ./... and CodeQL passed",
       "embedding": {
         "status": "reusable-live-component",
         "contract": "ProfileWidgetComponent provides a compact utility-style LLM row plus nested in-flow profile/escalation folds; no tabs, side rail, fixed overlay, or required page-level navigation state; host owns routing/session messages",

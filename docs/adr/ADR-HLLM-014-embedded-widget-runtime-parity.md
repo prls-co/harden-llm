@@ -1,9 +1,9 @@
 # ADR-HLLM-014: Embedded Widget Runtime Parity
 
 - Status: Accepted
-- Date: 2026-08-22
+- Date: 2026-08-23 (amended after hosted-run verification)
 - Requirements: REQ-003, REQ-006, REQ-007, REQ-011, REQ-012, REQ-018, REQ-019 and `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`
-- Verification: WEB-TEST-038 through WEB-TEST-042, focused Phoenix/profile tests, full frontend tests, browser workflow, `make verify`, and deployed probes/browser verification
+- Verification: WEB-TEST-010 and WEB-TEST-038 through WEB-TEST-042, TEST-012, focused Phoenix/profile tests, full frontend tests, browser workflow, `make verify`, and deployed probes/browser verification
 
 ## Context
 
@@ -20,6 +20,14 @@ row (`LLM`, profile, reasoning, cache, config), then reveals the complete
 profile editor, nested escalation editor, options, retry/repair, pricing, and
 mutation actions. Harden must retain that component boundary while keeping
 provider calls, credentials, persistence, and validation on the Go contract.
+
+The first authenticated browser run also exposed two boundary failures that
+render-only tests could not see. The optional nested escalation editor is
+inside the outer run form, so its empty required fields triggered native HTML
+validation even when the fold was unused. After that was corrected, the
+gateway rejected the utility profile's ordinary `max_tokens` provider option
+because its secret-key scan treated every key containing `token` as a
+credential.
 
 ## Decision
 
@@ -56,6 +64,16 @@ provider calls, credentials, persistence, and validation on the Go contract.
   adaptation: the compact selector exposes only the selected profile's
   portable map, and the server removes stale unsupported reasoning before
   state/run validation.
+- Mark the primary Run Prompt submitter `formnovalidate`. The browser may not
+  use the unused nested editor's required fields to veto a primary run; the
+  LiveView `run_payload` validation remains authoritative for profile, prompt,
+  schema, retry, and escalation values.
+- Classify provider-option secret keys explicitly. Allow ordinary utility
+  request controls such as `max_tokens`, `max_output_tokens`, and
+  `max_completion_tokens`, while rejecting credential-shaped names such as
+  API keys, authorization, credentials, passwords, secrets, and bearer/access/
+  session tokens. This preserves the source contract without weakening the
+  credential boundary.
 
 ## Consequences
 
@@ -71,6 +89,11 @@ Phoenix layer must maintain the projection rules when the REST contract
 changes. Utility's offset/page-number history quick-jump and Firebase/browser
 provider implementation remain the previously accepted adaptations in
 ADR-HLLM-012.
+
+The native-submit correction and the provider-option classifier are deliberate
+boundary adaptations discovered by live browser verification. They do not add
+a second runtime path, alter endpoint allowlisting, change timeout/retry
+budgets, or persist credentials in the browser.
 
 No KER, timeout-policy change, retry-budget change, provider-policy change,
 new account, or related issue is required for this presentation and request
@@ -94,3 +117,19 @@ The executable parity cases are:
 - WEB-TEST-040: profile-aware reasoning capability and stale-state omission.
 - WEB-TEST-041: two-state cache behavior and legacy `off` migration.
 - WEB-TEST-042: explicit profile save required for endpoint changes before run.
+- TEST-012: provider request-boundary admission accepts utility token-limit
+  option names and rejects credential-shaped option names.
+- WEB-TEST-010 plus the authenticated hosted browser workflow: the primary Run
+  Prompt control carries `formnovalidate`, the optional nested fold remains
+  usable, and a real CPA run reaches the gateway successfully.
+
+## Amendment evidence: 2026-08-23
+
+PR `#25` (`80397b8`) fixed the native form-validation boundary. PR `#26`
+(`b3a50ce`) fixed the false-positive `max_tokens` rejection and added TEST-012
+coverage. The deployed `b3a50ce` frontend and gateway were healthy; public
+frontend/API probes returned HTTP 200; the authenticated browser opened the
+compact widget and every nested fold, passed desktop/mobile overflow checks,
+and completed a real CPA `gpt-5.6-luna` Run Prompt. No KER or related issue was
+created because timeout, retry-budget, provider endpoint, and ownership
+semantics did not change.
