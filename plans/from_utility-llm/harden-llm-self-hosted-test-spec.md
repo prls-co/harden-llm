@@ -244,13 +244,16 @@ Fixture rules:
 
 ### TEST-012: provider request payload parity
 
-- Target: `internal/providers/requests_test.go`
-- Command: `go test ./internal/providers/... -run TestProviderRequestParity -count=1`
+- Target: `internal/providers/requests_test.go`, `internal/gateway/run_validation_test.go`
+- Command: `go test ./internal/providers/... -run TestProviderRequestParity -count=1`; `go test ./internal/gateway/... -run 'TestValidateRunInput' -count=1`
 - Setup: local HTTP servers and request goldens for OpenAI-compatible Chat, OpenAI Responses, Gemini GenerateContent, Anthropic Messages, and generic OpenAI-compatible endpoints.
 - Assertions:
   - Paths, methods, headers, model IDs, prompts, schemas, tools, reasoning options, token limits, and native options match source fixtures.
   - Contracted-only options never leak into native mode.
   - Unknown native options follow the current provider-specific contract.
+  - Utility-compatible request option names such as `max_tokens` and
+    `max_output_tokens` pass the gateway boundary, while credential-shaped
+    option names remain rejected.
 - Pass criteria: canonicalized captured requests match every golden.
 - Expected runtime: 15 seconds.
 
