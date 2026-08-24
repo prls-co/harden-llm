@@ -133,7 +133,7 @@ func TestTestFeedbackTraceability(t *testing.T) {
 	}
 
 	launcher := string(readFile(t, filepath.Join(root, "scripts", "run-deployed-browser-test.mjs")))
-	assertContains("scripts/run-deployed-browser-test.mjs", "HARDEN_LLM_EXPECTED_RELEASE", ".env", "HARDEN_LLM_LOCAL_OPERATOR_EMAIL", "HARDEN_LLM_LOCAL_OPERATOR_PASSWORD", "HARDEN_LLM_WEB_HOST", "HARDEN_LLM_API_HOST")
+	assertContains("scripts/run-deployed-browser-test.mjs", "HARDEN_LLM_EXPECTED_RELEASE", ".env", "HARDEN_LLM_LOCAL_OPERATOR_EMAIL", "HARDEN_LLM_LOCAL_OPERATOR_PASSWORD", "HARDEN_LLM_WEB_HOST", "HARDEN_LLM_API_HOST", "main().then((exitCode)", "process.exitCode = exitCode")
 	if strings.Contains(launcher, "console.log(process.env") || strings.Contains(launcher, "JSON.stringify(process.env") {
 		t.Error("deployed launcher exposes the process environment")
 	}

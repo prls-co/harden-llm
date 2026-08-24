@@ -221,7 +221,11 @@ export async function main() {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main().catch(() => {
+  main().then((exitCode) => {
+    if (Number.isInteger(exitCode)) {
+      process.exitCode = exitCode;
+    }
+  }).catch(() => {
     console.error(JSON.stringify({ accepted: false, failure: "deployed certification failed" }));
     process.exitCode = 1;
   });
