@@ -2,11 +2,13 @@ defmodule HardenLlmWeb.BrowserFeatureCase do
   @moduledoc false
 
   import ExUnit.Assertions
+  import Wallaby.Browser
 
   alias HardenLlmWeb.{BrowserArtifactServer, BrowserBackend}
   alias Wallaby.Browser
+  alias Wallaby.Query
 
-  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-047 TEST-047
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-047 WEB-TEST-048 TEST-047 TEST-056
 
   def setup_browser(_context) do
     BrowserBackend.stop()
@@ -68,6 +70,20 @@ defmodule HardenLlmWeb.BrowserFeatureCase do
            ) == "false"
 
     session
+  end
+
+  def open_fold(session, toggle_selector, body_selector) do
+    session
+    |> assert_has(Query.css("#{toggle_selector}:not([disabled])"))
+    |> maybe_click_fold(toggle_selector)
+    |> assert_has(Query.css(body_selector))
+  end
+
+  def open_ui_fold(session, toggle_selector, body_selector) do
+    session
+    |> assert_has(Query.css("#{toggle_selector}:not([disabled])"))
+    |> maybe_click_fold(toggle_selector)
+    |> assert_has(Query.css(body_selector))
   end
 
   def refute_dom_element(session, selector) do
@@ -243,6 +259,17 @@ defmodule HardenLlmWeb.BrowserFeatureCase do
 
     assert_receive {^reference, value}, 2_000
     value
+  end
+
+  defp maybe_click_fold(session, toggle_selector) do
+    expanded =
+      javascript_value(
+        session,
+        "return document.querySelector(arguments[0])?.getAttribute('aria-expanded') === 'true';",
+        [toggle_selector]
+      )
+
+    if expanded, do: session, else: click(session, Query.css(toggle_selector))
   end
 
   def exactly_one_call?(operations, calls, operation_id) do

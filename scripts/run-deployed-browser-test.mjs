@@ -183,13 +183,9 @@ function runDeployedBrowser(environment, webOrigin, apiOrigin, nonce) {
     "/workspace/frontend",
     ...inheritedNames.flatMap((name) => ["--env", name]),
     browserImage,
-    "mix",
-    "test",
-    "--only",
-    "deployed",
-    "--max-cases",
-    "1",
-    "test/browser/deployed_canary_test.exs",
+    "sh",
+    "-c",
+    "mix local.hex --force >/dev/null 2>&1 && mix local.rebar --force >/dev/null 2>&1 && mix deps.get >/dev/null && exec mix test --only deployed --max-cases 1 test/browser/deployed_canary_test.exs",
   ];
   const result = spawnSync("docker", args, {
     cwd: repositoryRoot,
