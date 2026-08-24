@@ -22,22 +22,15 @@ import (
 // Service is one isolated Compose service and its dynamically published port.
 type Service struct {
 	Endpoint      string
+	Database      string
 	composeFile   string
 	containerPort int
 	project       string
 	service       string
+	release       *leaseState
 }
 
 const composeOperationTimeout = 2 * time.Minute
-
-// StartPostgres starts the dedicated application database used by integration tests.
-func StartPostgres(t testing.TB) (*Service, string) {
-	t.Helper()
-	service := start(t, "harden-postgres", 5432)
-	dsn := fmt.Sprintf("postgres://harden_test:harden_test_password@%s/harden_llm_test?sslmode=disable", service.Endpoint)
-	waitPostgres(t, service.Endpoint, dsn)
-	return service, dsn
-}
 
 // Garage describes the isolated bucket-scoped S3 test configuration.
 type Garage struct {
@@ -46,10 +39,13 @@ type Garage struct {
 	Region          string
 	AccessKeyID     string
 	SecretAccessKey string
+	Namespace       string
+	release         *leaseState
 }
 
-// StartGarage starts the pinned Garage service with one default private bucket.
-func StartGarage(t testing.TB) (*Service, Garage) {
+// StartExclusiveGarage starts the dedicated Garage service used only by the
+// destructive restart integration test.
+func StartExclusiveGarage(t testing.TB) (*Service, Garage) {
 	t.Helper()
 	service := start(t, "garage", 3900)
 	return service, Garage{
@@ -73,7 +69,7 @@ func start(t testing.TB, serviceName string, containerPort int) *Service {
 	t.Helper()
 	root := repositoryRoot(t)
 	composeFile := filepath.Join(root, "deploy", "test", "compose.integration.yml")
-	project := "harden-llm-" + strings.ReplaceAll(serviceName, "_", "-") + "-" + randomSuffix(t)
+	project := "harden-llm-test-exclusive-" + randomSuffix(t)
 	service := &Service{composeFile: composeFile, containerPort: containerPort, project: project, service: serviceName}
 	// Prefer the pinned local image and only contact the registry when it is
 	// missing. An unconditional pull makes otherwise-hermetic integration tests
@@ -81,11 +77,19 @@ func start(t testing.TB, serviceName string, containerPort int) *Service {
 	service.run(t, "up", "-d", "--wait", "--pull", "missing", serviceName)
 	service.refreshEndpoint(t)
 	waitTCP(t, service.Endpoint, 45*time.Second)
+	service.release = newLeaseState(func(ctx context.Context) error {
+		command := exec.CommandContext(ctx, "docker", "compose", "-f", composeFile, "-p", project, "down", "-v", "--remove-orphans")
+		if output, err := command.CombinedOutput(); err != nil {
+			return fmt.Errorf("compose cleanup %s: %w: %s", project, err, strings.TrimSpace(string(output)))
+		}
+		return nil
+	})
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		command := exec.CommandContext(ctx, "docker", "compose", "-f", composeFile, "-p", project, "down", "-v", "--remove-orphans")
-		_ = command.Run()
+		if err := service.Release(ctx); err != nil {
+			t.Errorf("exclusive service cleanup: %v", err)
+		}
 	})
 	return service
 }
@@ -154,7 +158,7 @@ func waitTCP(t testing.TB, endpoint string, timeout time.Duration) {
 	t.Fatalf("service %s did not accept TCP connections: %v", endpoint, lastErr)
 }
 
-func waitPostgres(t testing.TB, endpoint, dsn string) {
+func waitPostgres(t testingTB, endpoint, dsn string) {
 	t.Helper()
 	deadline := time.Now().Add(45 * time.Second)
 	var lastErr error

@@ -269,10 +269,10 @@
     "baselineSHA": "009629211632beed029374549938d1e322fcba04",
     "adr": "ADR-HLLM-015",
     "ker": "KER-HLLM-TEST-FEEDBACK-001",
-    "checkpointCommit": "9aca8aa",
-    "status": "P04-complete",
-    "currentPhase": "P05",
-    "completedPhases": ["P00", "P01", "P02", "P03", "P04"],
+    "checkpointCommit": "pending-p05-commit",
+    "status": "P05-complete",
+    "currentPhase": "P06",
+    "completedPhases": ["P00", "P01", "P02", "P03", "P04", "P05"],
     "evaluations": {
       "EVAL-001": {
         "accepted": true,
@@ -426,6 +426,38 @@
           "successfulRunScreenshotCount": true,
           "leakedBrowserProcessCount": true,
           "zeroLeaks": true
+        }
+      },
+      "EVAL-006": {
+        "accepted": true,
+        "sampleCount": 48,
+        "warmSamples": 5,
+        "coldSamples": 3,
+        "candidateCount": 6,
+        "failureCount": 0,
+        "leakedResourceCount": 0,
+        "rawEvidencePath": "plans/evidence/harden-llm/integration-pool-eval.json",
+        "rawEvidenceSha256": "bc7371b53497467754a1897deac27ca425b3638019eda343cf503563f46922a4",
+        "manifestSha256": "6e3e8fd3ee4056cd715226ac24e252d02135c7de870b111e3c1de14ddfb7257a",
+        "candidatePackageSlots": [1, 2, 3],
+        "candidateRaceSlots": [1, 2],
+        "selectedPackageSlots": 3,
+        "selectedRaceSlots": 2,
+        "normalWarmP95WallTimeMs": 14159,
+        "normalWarmPeakRssMiBMax": 474.375,
+        "raceWarmP95WallTimeMs": 36039,
+        "raceWarmPeakRssMiBMax": 716.41015625,
+        "serviceStartCount": 144,
+        "exclusiveOverlapCount": 0,
+        "raceBudgetReference": "accepted full-system warm wall/RSS ceilings because P00 integration was not race-instrumented",
+        "checks": {
+          "allCandidateSamplesPassed": true,
+          "zeroLeaks": true,
+          "normalP95WithinEightyPercentOfComposeBaseline": true,
+          "normalPeakRSSWithinAcceptedIntegrationBudget": true,
+          "raceTaskCompletedWithoutRaceReport": true,
+          "racePeakRSSWithinConservativeInstrumentedBudget": true,
+          "exclusiveOverlapCount": true
         }
       }
     },

@@ -4,7 +4,7 @@
 - Date: 2026-08-23
 - Scope: `PLAN-HARDEN-LLM-TEST-FEEDBACK-002`
 - Requirements: REQ-001 through REQ-018
-- Initial verification: TEST-041, TEST-044, TEST-045, TEST-046, TEST-047, TEST-048, TEST-049, TEST-050, TEST-051, TEST-052, EVAL-002, EVAL-003, EVAL-004, EVAL-005
+- Initial verification: TEST-041, TEST-042, TEST-043, TEST-044, TEST-045, TEST-046, TEST-047, TEST-048, TEST-049, TEST-050, TEST-051, TEST-052, TEST-053, EVAL-002, EVAL-003, EVAL-004, EVAL-005, EVAL-006
 - Evidence record: `KER-HLLM-TEST-FEEDBACK-001`
 
 ## Context
@@ -72,6 +72,22 @@ parameter spelling mismatch: a `phx-value-api-key` attribute arrives as
 retaining write-only staging and redaction. Browser-specific evidence checks
 the exact feature inventory, session count, successful completion, screenshot
 absence, and cleanup rather than treating a zero exit code as sufficient.
+
+P05 accepted ordinary service pooling after TEST-042 proved concurrent
+Postgres database and Garage key-prefix isolation, cross-namespace read/write/
+delete/list rejection, release-one/retain-one behavior, injected child failure,
+and exact cleanup. The canonical runner owns one randomized
+`harden-llm-test-<12-hex>` Compose project per ordinary task invocation and
+passes dynamic loopback endpoints to unique database/prefix leases. The
+`garage-restart-exclusive` task is the only `service_garage_exclusive` consumer;
+TEST-043 prevents it from overlapping the ordinary pool and preserves the
+restart assertion. TEST-053 covers the migrated consumers and normal/race
+execution. EVAL-006 selected three normal package slots and two race package
+slots from six measured candidates with 48 successful samples, zero leaks, and
+zero exclusive overlap. Because the P00 integration reference was not
+race-instrumented, its race comparator uses the accepted full-system warm
+wall/RSS ceilings as a conservative safety ceiling; this is an explicit
+measurement-fidelity adaptation, not a threshold relaxation.
 
 Every higher-tier defect is evaluated for a lower-tier root-invariant
 regression. Lower fidelity may replace an environmental boundary, never the

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -149,6 +149,111 @@ async function sha256File(filePath) {
   return createHash("sha256").update(await fs.readFile(filePath)).digest("hex");
 }
 
+function servicePoolProjectName() {
+  return `harden-llm-test-${randomBytes(6).toString("hex")}`;
+}
+
+function composeBaseArguments(composeFile, project) {
+  return ["compose", "-f", composeFile, "-p", project];
+}
+
+function normalizePublishedEndpoint(value) {
+  const line = String(value).trim().split(/\r?\n/).filter(Boolean).at(-1) ?? "";
+  const separator = line.lastIndexOf(":");
+  if (separator <= 0 || separator === line.length - 1) throw new Error(`invalid published service endpoint ${line}`);
+  const host = line.slice(0, separator);
+  const port = line.slice(separator + 1);
+  if (!/^\d+$/.test(port)) throw new Error(`invalid published service port ${line}`);
+  return `${host === "0.0.0.0" || host === "::" ? "127.0.0.1" : host}:${port}`;
+}
+
+async function runExternal(executable, args, options = {}) {
+  const stdout = boundedCapture();
+  const stderr = boundedCapture();
+  const child = spawn(executable, args, {
+    cwd: options.cwd ?? REPOSITORY_ROOT,
+    env: options.environment ?? process.env,
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: process.platform !== "win32",
+  });
+  child.stdout.on("data", (chunk) => stdout.append(chunk));
+  child.stderr.on("data", (chunk) => stderr.append(chunk));
+  let timedOut = false;
+  let killTimer = null;
+  const terminate = () => terminateProcessGroup(child, "SIGTERM");
+  const abortHandler = () => terminate();
+  options.signal?.addEventListener("abort", abortHandler, { once: true });
+  const timeoutTimer = options.timeoutMs ? setTimeout(() => {
+    timedOut = true;
+    terminate();
+    killTimer = setTimeout(() => terminateProcessGroup(child, "SIGKILL"), TASK_TIMEOUT_GRACE_MS);
+    killTimer.unref();
+  }, options.timeoutMs) : null;
+  const outcome = await new Promise((resolve) => {
+    child.once("error", (error) => resolve({ error }));
+    child.once("close", (exitCode, signal) => resolve({ exitCode, signal }));
+  });
+  if (timeoutTimer) clearTimeout(timeoutTimer);
+  if (killTimer) clearTimeout(killTimer);
+  options.signal?.removeEventListener("abort", abortHandler);
+  return {
+    status: outcome.error ? 1 : (outcome.exitCode ?? 1),
+    signal: outcome.signal ?? null,
+    timedOut,
+    stdout: stdout.value,
+    stderr: stderr.value,
+  };
+}
+
+function poolFailure(pool, message) {
+  return new Error(`${pool?.project ?? "integration service pool"}: ${message}`);
+}
+
+async function startServicePool(task, options) {
+  const definition = task.servicePool;
+  if (!definition || typeof definition !== "object") throw new Error(`task ${task.id} has no servicePool definition`);
+  if (!Array.isArray(definition.services) || definition.services.length === 0) throw new Error(`task ${task.id} servicePool has no services`);
+  const project = servicePoolProjectName();
+  if (!/^harden-llm-test-[0-9a-f]{12}$/.test(project)) throw new Error(`invalid service pool project ${project}`);
+  const composeFile = path.resolve(options.root, definition.composeFile ?? "");
+  if (!(await exists(composeFile))) throw new Error(`service pool Compose file is missing: ${composeFile}`);
+  const base = composeBaseArguments(composeFile, project);
+  const pool = { project, composeFile, base, environment: {}, cleaned: false };
+  try {
+    const up = await runExternal("docker", [...base, "up", "-d", "--wait", "--pull", "missing", ...definition.services.map((service) => service.name)], { cwd: options.root, signal: options.signal, timeoutMs: 120_000 });
+    if (up.status !== 0) throw poolFailure(pool, `service startup failed: ${scrub(up.stderr.tailPreview || up.stdout.tailPreview)}`);
+    for (const service of definition.services) {
+      if (!service.name || !Number.isInteger(service.port) || service.port <= 0) throw poolFailure(pool, "service definition is invalid");
+      const resolved = await runExternal("docker", [...base, "port", service.name, String(service.port)], { cwd: options.root, signal: options.signal, timeoutMs: 10_000 });
+      if (resolved.status !== 0) throw poolFailure(pool, `cannot resolve ${service.name} port: ${scrub(resolved.stderr.tailPreview)}`);
+      const endpoint = normalizePublishedEndpoint(resolved.stdout.preview);
+      if (service.name === "harden-postgres") pool.environment.HARDEN_LLM_TEST_POSTGRES_ENDPOINT = endpoint;
+      if (service.name === "garage") pool.environment.HARDEN_LLM_TEST_GARAGE_ENDPOINT = endpoint;
+    }
+  } catch (error) {
+    await cleanupServicePool(pool, options);
+    throw error;
+  }
+  pool.environment.HARDEN_LLM_TEST_POOL = "1";
+  pool.environment.HARDEN_LLM_TEST_SERVICE_PROJECT = project;
+  return pool;
+}
+
+async function cleanupServicePool(pool, options) {
+  if (!pool || pool.cleaned) return [];
+  pool.cleaned = true;
+  const errors = [];
+  const down = await runExternal("docker", [...pool.base, "down", "-v", "--remove-orphans", "--timeout", "30"], { cwd: options.root, timeoutMs: 60_000 });
+  if (down.status !== 0 && !/no such project|no containers to stop|no resources found/i.test(down.stderr.tailPreview)) {
+    errors.push(scrub(down.stderr.tailPreview || down.stdout.tailPreview || `compose down exited ${down.status}`));
+  }
+  const containers = await runExternal("docker", ["ps", "-aq", "--filter", `label=com.docker.compose.project=${pool.project}`], { cwd: options.root, timeoutMs: 10_000 });
+  if (containers.status !== 0 || containers.stdout.preview.trim() !== "") errors.push(`service pool ${pool.project} retained containers`);
+  const volumes = await runExternal("docker", ["volume", "ls", "-q", "--filter", `label=com.docker.compose.project=${pool.project}`], { cwd: options.root, timeoutMs: 10_000 });
+  if (volumes.status !== 0 || volumes.stdout.preview.trim() !== "") errors.push(`service pool ${pool.project} retained volumes`);
+  return errors;
+}
+
 function parseTimeFile(contents) {
   const metric = (label) => {
     const match = contents.match(new RegExp(`^\\s*${label}\\s+(.+)$`, "m"));
@@ -252,17 +357,19 @@ function resolvedCommand(task, options) {
     : task.seedArgument
       ? [...task.command, "--seed", String(options.seed ?? DEFAULT_SEED)]
       : [...task.command];
+  const packageSlots = options.packageSlots ?? task.packageSlots;
+  const interpolated = effective.map((part) => part.replaceAll("${HARDEN_LLM_TEST_PACKAGE_SLOTS}", packageSlots === undefined ? "" : String(packageSlots)));
   if (!task.container) {
     return {
-      executable: effective[0],
-      args: effective.slice(1),
+      executable: interpolated[0],
+      args: interpolated.slice(1),
       cwd: path.resolve(options.root, task.workingDirectory ?? "."),
       environment: resolvedEnvironment(task, options),
       containerIDPath: null,
     };
   }
   const containerIDPath = path.join(options.taskDirectory, "container.id");
-  const commandText = effective.map(shellQuote).join(" ");
+  const commandText = interpolated.map(shellQuote).join(" ");
   const bootstrap = task.container.bootstrap
     ? "mix local.hex --force >/dev/null 2>&1 && mix local.rebar --force >/dev/null 2>&1 && mix deps.get >/dev/null && "
     : "";
@@ -296,84 +403,126 @@ export async function runCommand(task, options) {
   const stdout = boundedCapture();
   const stderr = boundedCapture();
   const command = resolvedCommand(task, { ...options, taskDirectory });
-  const useGNUTime = process.platform === "linux" && await exists("/usr/bin/time");
-  const executable = useGNUTime ? "/usr/bin/time" : command.executable;
-  const args = useGNUTime ? ["-v", "-o", timePath, "--", command.executable, ...command.args] : command.args;
   const startedAt = performance.now();
-  const child = spawn(executable, args, {
-    cwd: command.cwd,
-    env: command.environment,
-    stdio: ["ignore", "pipe", "pipe"],
-    detached: process.platform !== "win32",
-  });
-  child.stdout.on("data", (chunk) => stdout.append(chunk));
-  child.stderr.on("data", (chunk) => stderr.append(chunk));
-
   let peakRSS = 0;
   let timedOut = false;
-  let sampling = true;
-  let samplingInFlight = false;
-  const sampleRSS = async () => {
-    if (!sampling || samplingInFlight || !child.pid) return;
-    samplingInFlight = true;
-    peakRSS = Math.max(peakRSS, await processTreeRSS(child.pid));
-    samplingInFlight = false;
-  };
-  const interval = setInterval(sampleRSS, 50);
-  let killTimer = null;
-  const timeoutTimer = setTimeout(() => {
-    timedOut = true;
-    terminateProcessGroup(child, "SIGTERM");
-    killTimer = setTimeout(() => terminateProcessGroup(child, "SIGKILL"), TASK_TIMEOUT_GRACE_MS);
-    killTimer.unref();
-  }, task.timeoutMs);
-  const abortHandler = () => terminateProcessGroup(child, "SIGTERM");
-  options.signal?.addEventListener("abort", abortHandler, { once: true });
-
-  const outcome = await new Promise((resolve) => {
-    child.once("error", (error) => resolve({ error }));
-    child.once("close", (exitCode, signal) => resolve({ exitCode, signal }));
-  });
-  clearTimeout(timeoutTimer);
-  if (killTimer) clearTimeout(killTimer);
-  options.signal?.removeEventListener("abort", abortHandler);
-  sampling = false;
-  clearInterval(interval);
-  await sampleRSS();
+  let status = 1;
+  let signal = null;
+  let failureSummary = null;
+  let output = stdout.value;
+  let errorOutput = stderr.value;
+  let pool = null;
   let timeMetrics = {};
-  try {
-    timeMetrics = parseTimeFile(await fs.readFile(timePath, "utf8"));
-  } catch {
-    // Some platforms do not provide GNU time; process sampling remains valid.
-  }
-  const status = outcome.error ? 1 : (outcome.exitCode ?? 1);
-  const endedAt = performance.now();
-  const output = stdout.value;
-  const errorOutput = stderr.value;
-  const failureDiagnostic = `${errorOutput.tailPreview}\n${output.tailPreview}`.split("\n").map((line) => line.trim()).filter(Boolean).pop();
   const result = {
     taskId: task.id,
     tier: task.tier,
     resourceClass: task.resourceClass,
     command: [command.executable, ...command.args].map((part) => scrub(part)),
-    status,
+    status: 1,
     seed: options.seed ?? DEFAULT_SEED,
     cold: Boolean(options.cold),
-    signal: outcome.signal ?? null,
-    timedOut,
-    wallTimeMs: Math.round(endedAt - startedAt),
-    peakRssMiB: Math.max(peakRSS / (1024 * 1024), timeMetrics.peakRssMiB ?? 0),
-    cpuMs: timeMetrics.cpuMs ?? 0,
-    stdoutBytes: output.bytes,
-    stderrBytes: errorOutput.bytes,
-    truncatedOutputBytes: output.truncatedBytes + errorOutput.truncatedBytes,
-    stdoutPreview: task.tier === "T5" || task.network === "public" ? "[suppressed]" : output.preview,
-    stderrPreview: task.tier === "T5" || task.network === "public" ? "[suppressed]" : errorOutput.preview,
-    failureSummary: status === 0 ? null : scrub(failureDiagnostic ?? `exit=${outcome.exitCode ?? "null"} signal=${outcome.signal ?? "none"}`).slice(0, 240),
+    signal: null,
+    timedOut: false,
+    wallTimeMs: 0,
+    peakRssMiB: 0,
+    cpuMs: 0,
+    stdoutBytes: 0,
+    stderrBytes: 0,
+    truncatedOutputBytes: 0,
+    stdoutPreview: "",
+    stderrPreview: "",
+    failureSummary: null,
     cleanupError: null,
+    servicePoolStarted: false,
+    servicePoolProject: null,
+    startedAtMs: null,
+    endedAtMs: null,
   };
-  const containerError = await cleanupContainer(command.containerIDPath);
-  if (containerError) result.cleanupError = containerError;
+  try {
+    if (task.servicePool) {
+      pool = await startServicePool(task, options);
+      command.environment = {...command.environment, ...pool.environment};
+      result.servicePoolStarted = true;
+      result.servicePoolProject = pool.project;
+    }
+    const useGNUTime = process.platform === "linux" && await exists("/usr/bin/time");
+    const executable = useGNUTime ? "/usr/bin/time" : command.executable;
+    const args = useGNUTime ? ["-v", "-o", timePath, "--", command.executable, ...command.args] : command.args;
+    const child = spawn(executable, args, {
+      cwd: command.cwd,
+      env: command.environment,
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: process.platform !== "win32",
+    });
+    child.stdout.on("data", (chunk) => stdout.append(chunk));
+    child.stderr.on("data", (chunk) => stderr.append(chunk));
+
+    let sampling = true;
+    let samplingInFlight = false;
+    const sampleRSS = async () => {
+      if (!sampling || samplingInFlight || !child.pid) return;
+      samplingInFlight = true;
+      peakRSS = Math.max(peakRSS, await processTreeRSS(child.pid));
+      samplingInFlight = false;
+    };
+    const interval = setInterval(sampleRSS, 50);
+    let killTimer = null;
+    const timeoutTimer = setTimeout(() => {
+      timedOut = true;
+      terminateProcessGroup(child, "SIGTERM");
+      killTimer = setTimeout(() => terminateProcessGroup(child, "SIGKILL"), TASK_TIMEOUT_GRACE_MS);
+      killTimer.unref();
+    }, task.timeoutMs);
+    const abortHandler = () => terminateProcessGroup(child, "SIGTERM");
+    options.signal?.addEventListener("abort", abortHandler, { once: true });
+
+    const outcome = await new Promise((resolve) => {
+      child.once("error", (error) => resolve({ error }));
+      child.once("close", (exitCode, childSignal) => resolve({ exitCode, signal: childSignal }));
+    });
+    clearTimeout(timeoutTimer);
+    if (killTimer) clearTimeout(killTimer);
+    options.signal?.removeEventListener("abort", abortHandler);
+    sampling = false;
+    clearInterval(interval);
+    await sampleRSS();
+    status = outcome.error ? 1 : (outcome.exitCode ?? 1);
+    signal = outcome.signal ?? null;
+    try {
+      timeMetrics = parseTimeFile(await fs.readFile(timePath, "utf8"));
+    } catch {
+      // Some platforms do not provide GNU time; process sampling remains valid.
+    }
+    output = stdout.value;
+    errorOutput = stderr.value;
+    const failureDiagnostic = `${errorOutput.tailPreview}\n${output.tailPreview}`.split("\n").map((line) => line.trim()).filter(Boolean).pop();
+    failureSummary = status === 0 ? null : scrub(failureDiagnostic ?? `exit=${outcome.exitCode ?? "null"} signal=${outcome.signal ?? "none"}`).slice(0, 240);
+  } catch (error) {
+    failureSummary = scrub(error?.message ?? String(error)).slice(0, 240);
+    errorOutput = { bytes: 0, preview: "", tailPreview: failureSummary, truncatedBytes: 0 };
+  } finally {
+    const containerError = await cleanupContainer(command.containerIDPath);
+    if (containerError) result.cleanupError = containerError;
+    if (pool) {
+      const poolErrors = await cleanupServicePool(pool, options);
+      if (poolErrors.length > 0) result.cleanupError = poolErrors.join("; ");
+    }
+  }
+  const endedAt = performance.now();
+  result.startedAtMs = Math.round(startedAt);
+  result.endedAtMs = Math.round(endedAt);
+  result.status = status;
+  result.signal = signal;
+  result.timedOut = timedOut;
+  result.wallTimeMs = Math.round(endedAt - startedAt);
+  result.peakRssMiB = Math.max(peakRSS / (1024 * 1024), timeMetrics.peakRssMiB ?? 0);
+  result.cpuMs = timeMetrics.cpuMs ?? 0;
+  result.stdoutBytes = output.bytes;
+  result.stderrBytes = errorOutput.bytes;
+  result.truncatedOutputBytes = output.truncatedBytes + errorOutput.truncatedBytes;
+  result.stdoutPreview = task.tier === "T5" || task.network === "public" ? "[suppressed]" : output.preview;
+  result.stderrPreview = task.tier === "T5" || task.network === "public" ? "[suppressed]" : errorOutput.preview;
+  result.failureSummary = status === 0 ? null : failureSummary;
   try {
     await fs.rm(taskDirectory, { recursive: true, force: true });
   } catch (error) {
@@ -420,6 +569,10 @@ function cancelledResult(task, reason) {
     stderrPreview: "",
     failureSummary: reason,
     cleanupError: null,
+    servicePoolStarted: false,
+    servicePoolProject: null,
+    startedAtMs: null,
+    endedAtMs: null,
   };
 }
 
@@ -456,6 +609,7 @@ export async function runTasks(tasks, options) {
         launched = true;
         runCommand(task, {
           ...options,
+          packageSlots: options.packageSlotsByTask?.[task.id] ?? options.packageSlots,
           runDirectory,
           runID: options.runID ?? path.basename(runDirectory),
           signal: controller.signal,

@@ -29,6 +29,8 @@ export function parseArgs(argv) {
     verifyBaseline: null,
     seeds: [DEFAULT_SEED],
     candidateSlots: null,
+    candidatePackageSlots: null,
+    candidateRaceSlots: null,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -56,6 +58,8 @@ export function parseArgs(argv) {
     else if (name === "verify-baseline") result.verifyBaseline = value;
     else if (name === "seeds") result.seeds = value.split(",").filter(Boolean).map((seed) => positiveInteger(seed, "seed"));
     else if (name === "candidate-slots") result.candidateSlots = positiveInteger(value, name);
+    else if (name === "candidate-package-slots") result.candidatePackageSlots = value.split(",").filter(Boolean).map((slot) => positiveInteger(slot, "candidate-package-slots"));
+    else if (name === "candidate-race-slots") result.candidateRaceSlots = value.split(",").filter(Boolean).map((slot) => positiveInteger(slot, "candidate-race-slots"));
     else throw new Error(`unknown option --${name}`);
   }
   return result;
@@ -186,16 +190,19 @@ export function aggregate(results, { parallel = false, cleanupErrors = [] } = {}
     cpuMs: { p50: percentile(cpu, 0.5), max: cpu.length ? Math.max(...cpu) : null },
     failureCount,
     leakedResourceCount: cleanupCount,
+    serviceStartCount: results.filter((result) => result.servicePoolStarted).length,
+    servicePoolProjects: results.map((result) => result.servicePoolProject).filter(Boolean),
   };
 }
 
-async function runSample(tasks, manifest, { root, seed, cold, parallel, candidateSlots, runID }) {
+async function runSample(tasks, manifest, { root, seed, cold, parallel, candidateSlots, packageSlotsByTask, runID }) {
   const result = await runTierTasks(tasks, {
     root,
     resourceClasses: manifest.resourceClasses,
     seed,
     cold,
     candidateSlots: parallel ? candidateSlots : 1,
+    packageSlotsByTask,
     runID,
   });
   return {
@@ -242,16 +249,27 @@ async function runRequestedTask(manifest, args, common) {
       index,
       seed: args.seeds[index % args.seeds.length],
     })));
-  for (const { kind, index, seed } of samplePlan) {
-    const sample = await runSample(tasks, manifest, {
-      ...common,
-      seed,
-      cold: kind === "cold",
-      parallel: true,
-      candidateSlots: args.candidateSlots,
-      runID: `task-${args.task}-${kind}-${index + 1}`,
-    });
-    samples.push({ lane: args.task, kind, sample: index + 1, seed, taskIds: tasks.map((task) => task.id), ...sample });
+  const candidatePackageSlots = args.task === "integration-pool" ? (args.candidatePackageSlots ?? [3]) : [null];
+  const candidateRaceSlots = args.task === "integration-pool" ? (args.candidateRaceSlots ?? [2]) : [null];
+  for (const packageSlots of candidatePackageSlots) {
+    for (const raceSlots of candidateRaceSlots) {
+      const lane = args.task === "integration-pool" ? `${args.task}-p${packageSlots}-r${raceSlots}` : args.task;
+      for (const { kind, index, seed } of samplePlan) {
+        const packageSlotsByTask = args.task === "integration-pool"
+          ? { "go-integration": packageSlots, "go-integration-race": raceSlots }
+          : undefined;
+        const sample = await runSample(tasks, manifest, {
+          ...common,
+          seed,
+          cold: kind === "cold",
+          parallel: true,
+          candidateSlots: args.candidateSlots,
+          packageSlotsByTask,
+          runID: `task-${lane}-${kind}-${index + 1}`,
+        });
+        samples.push({ lane, kind, sample: index + 1, seed, taskIds: tasks.map((task) => task.id), candidatePackageSlots: packageSlots, candidateRaceSlots: raceSlots, ...sample });
+      }
+    }
   }
   return samples;
 }
@@ -276,6 +294,8 @@ export function groupAggregates(samples) {
       cpuMs: metricSummary(cpu),
       failureCount: values.reduce((total, value) => total + value.failureCount, 0),
       leakedResourceCount: values.reduce((total, value) => total + value.leakedResourceCount, 0),
+      serviceStartCount: values.reduce((total, value) => total + (value.serviceStartCount ?? 0), 0),
+      servicePoolProjects: values.flatMap((value) => value.servicePoolProjects ?? []),
     };
   }
   return result;
@@ -362,6 +382,88 @@ async function compareClientCoreEvaluation(evaluations, baseline, manifest) {
     reference: { warmP95WallTimeMsMax: 2000, acceptedPeakRssMiBMax: rssLimit },
     current: { sampleCount: current.sampleCount, p95WallTimeMs: current.wallTimeMs.p95, peakRssMiBMax: current.peakRssMiB.max },
     checks,
+  };
+}
+
+function taskMetricForSamples(samples, lane, kind, taskID, field) {
+  const values = samples
+    .filter((sample) => sample.lane === lane && sample.kind === kind)
+    .flatMap((sample) => sample.results.filter((result) => result.taskId === taskID).map((result) => Number(result[field])))
+    .filter((value) => Number.isFinite(value));
+  return metricSummary(values);
+}
+
+function exclusiveOverlapCount(samples) {
+  let overlaps = 0;
+  for (const sample of samples) {
+    const exclusive = sample.results.find((result) => result.taskId === "garage-restart-exclusive");
+    if (!exclusive || exclusive.startedAtMs === null || exclusive.endedAtMs === null) continue;
+    for (const result of sample.results) {
+      if (result.taskId === exclusive.taskId || result.startedAtMs === null || result.endedAtMs === null) continue;
+      if (result.startedAtMs < exclusive.endedAtMs && exclusive.startedAtMs < result.endedAtMs) overlaps += 1;
+    }
+  }
+  return overlaps;
+}
+
+async function compareIntegrationEvaluation(evaluations, baseline, samples) {
+  const candidateLanes = [...new Set(samples.map((sample) => sample.lane).filter((lane) => lane.startsWith("integration-p")))].sort();
+  const reference = baseline.evaluations?.["integration:warm"];
+  const acceptedBudget = baseline.acceptedBudgets?.["integration:warm"];
+  const raceBudget = baseline.acceptedBudgets?.["full-system:warm"];
+  if (candidateLanes.length === 0 || !reference || !acceptedBudget || !raceBudget) {
+    return { accepted: false, reason: "integration comparison requires candidate lanes and integration/full-system accepted budgets" };
+  }
+  const candidates = candidateLanes.map((lane) => {
+    const warm = evaluations[`${lane}:warm`];
+    const cold = evaluations[`${lane}:cold`];
+    const normalWarm = taskMetricForSamples(samples, lane, "warm", "go-integration", "wallTimeMs");
+    const normalRSS = taskMetricForSamples(samples, lane, "warm", "go-integration", "peakRssMiB");
+    const raceWarm = taskMetricForSamples(samples, lane, "warm", "go-integration-race", "wallTimeMs");
+    const raceRSS = taskMetricForSamples(samples, lane, "warm", "go-integration-race", "peakRssMiB");
+    const sampleCount = warm?.sampleCount ?? 0;
+    const coldSampleCount = cold?.sampleCount ?? 0;
+    const serviceStartCount = (warm?.serviceStartCount ?? 0) + (cold?.serviceStartCount ?? 0);
+    const expectedServiceStartCount = (sampleCount + coldSampleCount) * 3;
+    const checks = {
+      successfulWarmSamples: sampleCount === 5 && warm.failureCount === 0,
+      successfulColdSamples: coldSampleCount === 3 && cold.failureCount === 0,
+      zeroLeaks: (warm?.leakedResourceCount ?? 1) === 0 && (cold?.leakedResourceCount ?? 1) === 0,
+      normalP95WithinEightyPercentOfComposeBaseline: normalWarm.p95 !== null && normalWarm.p95 <= reference.wallTimeMs.p95 * 0.8,
+      normalPeakRSSWithinAcceptedIntegrationBudget: normalRSS.max !== null && normalRSS.max <= acceptedBudget.peakRssMiBMax,
+      raceTaskCompletedWithoutRaceReport: raceWarm.p95 !== null && raceWarm.max !== null && raceWarm.p95 <= raceBudget.wallTimeMsP95,
+      racePeakRSSWithinConservativeInstrumentedBudget: raceRSS.max !== null && raceRSS.max <= raceBudget.peakRssMiBMax,
+      onePoolPerOrdinaryTaskInvocation: serviceStartCount === expectedServiceStartCount,
+    };
+    return {
+      lane,
+      candidatePackageSlots: samples.find((sample) => sample.lane === lane)?.candidatePackageSlots ?? null,
+      candidateRaceSlots: samples.find((sample) => sample.lane === lane)?.candidateRaceSlots ?? null,
+      current: { aggregate: warm, normalWarm, normalRSS, raceWarm, raceRSS, serviceStartCount, expectedServiceStartCount },
+      checks,
+      accepted: Object.values(checks).every(Boolean),
+    };
+  });
+  const acceptedCandidates = candidates.filter((candidate) => candidate.accepted);
+  acceptedCandidates.sort((left, right) => left.current.normalWarm.p95 - right.current.normalWarm.p95);
+  const selected = acceptedCandidates[0] ?? null;
+  return {
+    accepted: selected !== null && exclusiveOverlapCount(samples) === 0,
+    reference: {
+      normalWallP95Ms: reference.wallTimeMs.p95,
+      normalWallBudgetMs: reference.wallTimeMs.p95 * 0.8,
+      normalPeakRssMiBMax: acceptedBudget.peakRssMiBMax,
+      raceWallP95BudgetMs: raceBudget.wallTimeMsP95,
+      racePeakRssMiBMax: raceBudget.peakRssMiBMax,
+    },
+    selected,
+    candidates,
+    serviceStartCount: samples.reduce((total, sample) => total + (sample.aggregate.serviceStartCount ?? 0), 0),
+    exclusiveOverlapCount: exclusiveOverlapCount(samples),
+    checks: {
+      atLeastOneSafeCandidate: selected !== null,
+      exclusiveOverlapCount: exclusiveOverlapCount(samples) === 0,
+    },
   };
 }
 
@@ -508,6 +610,8 @@ export async function main(argv = process.argv.slice(2)) {
         ? await compareClientCoreEvaluation(evaluations, comparison, manifest)
         : args.mode === "task" && args.task === "browser"
           ? await compareBrowserEvaluation(evaluations, comparison)
+          : args.mode === "task" && args.task === "integration-pool"
+            ? await compareIntegrationEvaluation(evaluations, comparison, samples)
       : args.mode === "task" && selectedTasks.some((task) => task.seedEachSample)
         ? await compareSeededEvaluation(evaluations, comparison, manifest)
         : { accepted: true, reason: "comparison recorded without a task budget" };

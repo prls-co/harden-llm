@@ -2478,7 +2478,7 @@ implementation continues at P05.
 | P02 | Done |
 | P03 | Done |
 | P04 | Done |
-| P05 | Pending |
+| P05 | Done |
 | P06 | Pending |
 | P07 | Pending |
 
@@ -2652,6 +2652,40 @@ implementation continues at P05.
 - ADR Updates: ADR-HLLM-015 now records TEST-047, TEST-052, the exact two-canary policy, separate Compose ownership, the pinned 2 GiB browser environment, and accepted EVAL-005; no new ADR number or threshold relaxation was required.
 - Refactoring Assessment: Completed. Shared browser setup and JavaScript helpers live in `BrowserFeatureCase`; the two canaries have distinct feature ownership, and the old monolithic `full_workflow_test.exs` was removed rather than retained as duplicate coverage.
 - Remaining Work: P05 through P07 remain pending; issue #32 remains open and tracks shared integration-service isolation, documentation/CI, release, deployment, merge, and certification work.
+
+### P05: Shared isolated integration services with exclusive lifecycle control
+
+- Phase Status: Done.
+- Completed Steps: P05.S01, P05.S02, P05.S03, P05.S04, P05.S05, P05.S06, and P05.S07.
+- Configuration Checkpoint:
+  - Branch: `feat/parallel-test-feedback-hierarchy`; P05 implementation checkpoint is recorded by the phase-boundary commit `test: pool isolated integration services`.
+  - Baseline SHA: `009629211632beed029374549938d1e322fcba04`.
+  - Current manifest SHA-256: `6e3e8fd3ee4056cd715226ac24e252d02135c7de870b111e3c1de14ddfb7257a`.
+  - Host/toolchain: Linux `7.0.0-28-generic` x86_64, 6 physical/12 logical CPUs, 31229 MiB RAM, Go `go1.26.6`, Node `v22.22.1`, Elixir `1.20.2`, OTP `28.4.3`, Docker `29.1.3`, Compose `2.40.3+ds1-0ubuntu1`.
+  - Ordinary service ownership: one runner-owned randomized `harden-llm-test-<12-hex>` Compose project per ordinary task invocation, dynamic loopback ports, unique Postgres databases, and unique Garage key-prefix namespaces.
+  - Exclusive ownership: `garage-restart-exclusive` is the sole `service_garage_exclusive` task and uses a dedicated restartable Garage project; it never shares the ordinary pool.
+- Quantitative Results:
+  - EVAL-006 sample count: `48` total, consisting of five warm and three cold samples for each of six candidates (`packageSlots=1,2,3` × `raceSlots=1,2`).
+  - All samples passed; test failures: `0`; leaked-resource/cleanup errors: `0`; total ordinary service-pool starts: `144`; exclusive restart overlap count: `0`.
+  - Selected candidate: normal package slots `3`, race package slots `2`.
+  - Selected normal warm `go-integration` p95 wall time: `14159 ms`, below the 80%-of-P00-Compose limit `63238.4 ms`; peak RSS maximum `474.375 MiB`, below the accepted integration budget `574.67 MiB`.
+  - Selected race warm `go-integration-race` p95 wall time: `36039 ms`; peak RSS maximum `716.41015625 MiB`; coefficient of variation was `0.076` for race RSS and `0.0408` for normal RSS.
+  - Raw EVAL-006 evidence: `plans/evidence/harden-llm/integration-pool-eval.json`, SHA-256 `bc7371b53497467754a1897deac27ca425b3638019eda343cf503563f46922a4` (ignored).
+- Verification:
+  - RED then GREEN: `node scripts/run-test-tier.mjs --task integration-isolation` passed the concurrent sentinel, cross-namespace rejection, release-one/retain-one, injected child-failure, and exact cleanup cases.
+  - RED then GREEN: `go test ./internal/testkit/... -run TestExclusiveGarageResourcePolicy -count=1` passed with exactly one exclusive restart task and no ordinary per-test service constructor.
+  - `node scripts/run-test-tier.mjs --task integration-pool` passed normal, race, isolation, and exclusive lanes together; normal package cap `3`, race cap `2`, zero leaks, and zero exclusive overlap.
+  - `node scripts/benchmark-test-feedback.mjs --mode task --task integration-pool --warm-samples 5 --cold-samples 3 --candidate-package-slots 1,2,3 --candidate-race-slots 1,2 --seeds 104729,130363,155921,181081,206369,231709,257053,282437 --compare ker/test-feedback/baseline.json --output plans/evidence/harden-llm/integration-pool-eval.json` passed EVAL-006.
+- Issues/Resolutions:
+  - The intended P05 RED isolation command initially failed because the lease APIs and runner-owned pool did not exist. The implementation then added the APIs and exercised the real pinned Postgres/Garage services; no in-memory substitute was used.
+  - The Garage restart assertion was moved to a dedicated `integration && garageexclusive` file and task. Ordinary consumers now acquire leases only; the old ordinary per-test start path was removed rather than retained as a fallback.
+  - The candidate sweep was intentionally long because it executes 48 real service/race samples. It completed with no failed sample, resource leak, or retained Docker project.
+- Failed Attempts: The expected P05.S01 RED isolation run before lease implementation. It contributed no accepted timing evidence.
+- Deviations: P05.S07 had no race-specific P00 budget because the P00 integration lane was non-race. The comparator therefore used the already accepted full-system warm wall/RSS ceilings (`311707 ms` / `1526.23 MiB`) as a conservative instrumented race safety ceiling while retaining the stricter normal integration RSS budget and the zero-race-report requirement. No threshold was relaxed, no race assertion was removed, and the adaptation is recorded in ADR-HLLM-015 and the KER.
+- Lessons Learned: Service-process sharing is safe only when the lease owns every mutable name and cleanup path. The runner must count pool startups and timestamp the exclusive task so performance adoption cannot hide lifecycle overlap.
+- ADR Updates: ADR-HLLM-015 now records TEST-042, TEST-043, TEST-053, EVAL-006, the selected caps, and the conservative race-budget comparison rationale; no new ADR number was required.
+- Refactoring Assessment: Completed. Ordinary service lifecycle, lease naming, and cleanup have one owner in `internal/integrationtest/pool.go` plus the canonical runner; the only remaining constructor is the explicit exclusive restart path.
+- Remaining Work: P06 and P07 remain pending; issue #32 remains open and tracks documentation/CI/release-candidate work, merge, deployment, hosted certification, closure evidence, and cleanup.
 
 For each phase, maintain this record:
 

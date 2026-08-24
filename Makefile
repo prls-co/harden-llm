@@ -1,9 +1,9 @@
 GO ?= go
 GOFMT ?= gofmt
 NODE ?= node
-# Testcontainers and race-instrumented package binaries compete heavily for WSL
-# CPU, memory, and Docker networking; serial package scheduling keeps the
-# integration and wall-clock isolation gates meaningful.
+# The canonical runner owns the integration service pool and selects the
+# measured package caps; these variables remain available to downstream local
+# wrappers but are not an independent scheduler.
 INTEGRATION_PACKAGE_PARALLELISM ?= 1
 RACE_PACKAGE_PARALLELISM ?= 1
 
@@ -31,10 +31,10 @@ test-parity:
 	$(GO) test ./... -run 'Parity|Contract|Identity|Replay' -count=1
 
 test-integration:
-	$(GO) test -p=$(INTEGRATION_PACKAGE_PARALLELISM) ./... -tags=integration -count=1
+	$(NODE) scripts/run-test-tier.mjs --task go-integration
 
 test-integration-race:
-	$(GO) test -race -p=$(RACE_PACKAGE_PARALLELISM) ./... -tags=integration -count=1
+	$(NODE) scripts/run-test-tier.mjs --task go-integration-race
 
 test-api:
 	$(GO) test ./internal/gateway/... -count=1

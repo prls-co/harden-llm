@@ -74,6 +74,26 @@ absence, and browser cleanup. Browser task CPU is retained as informational
 runner output only because the Docker-client measurement is not an equivalent
 Chromium-process measurement.
 
+P05 EVAL-006 is recorded separately at
+`plans/evidence/harden-llm/integration-pool-eval.json` (SHA-256
+`bc7371b53497467754a1897deac27ca425b3638019eda343cf503563f46922a4`). It
+contains 48 real service samples: five warm and three cold samples for each of
+six normal/race package-cap candidates. Each ordinary task invocation started
+one exact randomized service pool, allocated unique Postgres/Garage leases,
+and cleaned the project and mutable namespaces. All 48 samples passed with
+zero failures, zero leaked resources, 144 ordinary service-pool starts, and
+zero overlap with the dedicated Garage restart lane. The selected caps are
+three normal package slots and two race package slots. Selected normal warm
+`go-integration` p95 was `14159 ms` with maximum RSS `474.375 MiB`; selected
+race warm p95 was `36039 ms` with maximum RSS `716.41015625 MiB`.
+
+The normal comparison uses the P00 integration p95 and accepted integration
+RSS budget. P00 did not contain a race-specific integration baseline, so the
+race comparator uses the accepted full-system warm wall/RSS ceilings as a
+conservative instrumented budget. That preserves a safety bound and does not
+change the original KER thresholds. Any future race-budget change requires a
+new evidence set and an ADR-HLLM-015 amendment.
+
 Only redacted aggregates belong in this directory. Raw output, command logs,
 provider responses, credentials, cookies, request bodies, and process
 environments are forbidden. A benchmark sample with a failed task or cleanup
