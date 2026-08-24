@@ -9,6 +9,7 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const browserImage = "harden-llm-browser-test:local";
 const composeFiles = [
   "docker-compose.yml",
+  "deploy/langfuse/docker-compose.upstream.yml",
   "deploy/langfuse/compose.private.yml",
   "deploy/frontend/compose.frontend.yml",
 ];
@@ -96,8 +97,9 @@ async function expectedRelease(environment) {
   return { value: cleanRepositoryRelease(), source: "clean checkout HEAD" };
 }
 
-function inspectFrontendContainer(environment) {
-  const containerID = command("docker", [...composeArgs(), "ps", "-q", "harden-llm-web"], { env: environment });
+function inspectFrontendContainer(environment, expectedRelease) {
+  const composeEnvironment = { ...environment, HARDEN_LLM_RELEASE: expectedRelease };
+  const containerID = command("docker", [...composeArgs(), "ps", "-q", "harden-llm-web"], { env: composeEnvironment });
   if (!containerID) throw new Error("harden-llm-web container is not running in project harden-llm");
   const records = JSON.parse(command("docker", ["inspect", containerID], { env: environment }));
   const record = records[0];
@@ -193,7 +195,7 @@ export async function main() {
     throw new Error("operator credentials are missing from approved environment names");
   }
   const expected = await expectedRelease(environment);
-  const identity = inspectFrontendContainer(environment);
+  const identity = inspectFrontendContainer(environment, expected.value);
   if (identity.releaseLabel !== expected.value) {
     console.error(JSON.stringify({
       accepted: false,
