@@ -2591,7 +2591,7 @@ implementation continues at P03.
 - Phase Status: Done.
 - Completed Steps: P03.S01, P03.S02, P03.S03, P03.S04, P03.S05, P03.S06, and P03.S07.
 - Configuration Checkpoint:
-  - Branch: `feat/parallel-test-feedback-hierarchy`; P02 checkpoint commits `af46175` and `6892c5f`; P03 phase-boundary commit is recorded after this gate.
+  - Branch: `feat/parallel-test-feedback-hierarchy`; P02 checkpoint commits `af46175` and `6892c5f`; P03 phase-boundary commit `9c90bf9`.
   - Baseline SHA: `009629211632beed029374549938d1e322fcba04`.
   - Current manifest SHA-256: `82fa6a792f45022125f8cdbe6008a3219dc84d709f2efb59f8d0b8d9275b46f5`.
   - Client coverage uses stock Node 22's built-in runner; `frontend/assets/package.json` remains absent and no DOM emulator or package-install task was added.
