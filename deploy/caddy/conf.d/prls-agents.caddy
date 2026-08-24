@@ -15,7 +15,10 @@ masked-recall-api.prls.co {
 	request_body {
 		max_size 8MB
 	}
-	reverse_proxy masked-recall-api:8080
+	# The host also runs a legacy masked-recall stack on harden-private.
+	# Target the locked shared production container explicitly so Docker DNS
+	# cannot route this public hostname to the legacy service.
+	reverse_proxy prls-agent-platform-shared-masked-recall-api-1:8080
 }
 
 product-opportunity-api.prls.co {

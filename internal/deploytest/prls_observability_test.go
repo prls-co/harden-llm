@@ -462,7 +462,7 @@ func TestPRLSGrafanaPrometheusAndCaddy(t *testing.T) {
 	agentCaddyText := string(agentCaddy)
 	for _, required := range []string{
 		"platform.prls.co", "reverse_proxy platform-web:4000",
-		"masked-recall-api.prls.co", "reverse_proxy masked-recall-api:8080",
+		"masked-recall-api.prls.co", "reverse_proxy prls-agent-platform-shared-masked-recall-api-1:8080",
 		"product-opportunity-api.prls.co", "reverse_proxy product-opportunity-api:8080",
 		"synthetic-product-dataset-api.prls.co", "reverse_proxy synthetic-product-dataset-api:8080",
 		"import security_headers", "tls {$HARDEN_LLM_TLS_MODE}",
