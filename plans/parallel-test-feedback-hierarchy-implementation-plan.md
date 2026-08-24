@@ -2468,8 +2468,9 @@ accepted field.
 ## 11. Execution log
 
 The living copy records each phase only after its ordered subtask validation
-passes or a blocker is recorded. P00 through P06 are complete;
-implementation continues at P07.
+passes or a blocker is recorded. P00 through P07 are complete; the final
+application-bearing release, docs-only closure, issue state, and next actions
+are recorded below.
 
 | Phase | Status |
 | --- | --- |
@@ -2480,7 +2481,7 @@ implementation continues at P07.
 | P04 | Done |
 | P05 | Done |
 | P06 | Done |
-| P07 | Pending |
+| P07 | Done |
 
 ### P00: Reproducible baseline and accepted test architecture
 
@@ -2720,7 +2721,48 @@ implementation continues at P07.
 - ADR Updates: ADR-HLLM-015 now records TEST-054, TEST-055, EVAL-007, the release-candidate observations, and the exact causal corrections; no new ADR number or budget amendment was required.
 - External coordination: issue [#32](https://github.com/prls-co/harden-llm/issues/32) was updated with the P06 checkpoint, EVAL-007 hashes, deviations, and remaining P07 acceptance. The redacted issue body checksum was `c099dfe5edc992d7086cea9781a1e321a59a470d1fe10b544cc5719f9faa68eb`.
 - Refactoring Assessment: No refactor needed. The manifest remains the only task-selection source, Make and hosted workflow remain thin delegates, the deployed launcher owns the single external canary boundary, and EVAL-007 reuses the existing cleanup/resource ownership.
-- Remaining Work: P07.S01 through P07.S12 remain: reconcile current main, run the reconciled release, push/open/review/merge the implementation PR, demonstrate pre-deployment identity mismatch, deploy the merged frontend, run TEST-056, verify sustained public identity, merge closure evidence, close issue #32, clean resources, and certify final main.
+- Historical P06 checkpoint: P07.S01 through P07.S12 were still pending at this point; the completed P07 record follows.
+
+### P07: Merged, deployed, publicly certified, documented, and clean final state
+
+- Phase Status: Done.
+- Completed Steps: P07.S01, P07.S02, P07.S03, P07.S04, P07.S05, P07.S06, P07.S07, P07.S08, P07.S09, P07.S10, P07.S11, and P07.S12.
+- Configuration Checkpoint:
+  - Final local/remote main: `40083fd980a4c88c344dfa884c90a2edbbcc7111`; worktree was clean at final verification.
+  - Implementation PR chain: #33 merged as `c6033bd543ecc9645c772f0fe88b38717ea21e5d`; #34 as `2c8efc49d3a8d9868cd019b824d2de81d87bef8b`; #35 as `761f5f76d0262ca29973fda2ca3d5214dfa920c0`; #36 as `23538c2ad7d59f4becd0e8e2676d205ba597f8cb`; #37 as `40083fd980a4c88c344dfa884c90a2edbbcc7111`.
+  - Application-bearing deployment SHA: `761f5f76d0262ca29973fda2ca3d5214dfa920c0`. Later commits changed only the deployed-certification launcher/tests and documentation; they are not represented as application image releases.
+  - Manifest SHA-256: `4f20b980f0fa5527898f2cfdfc7be8a9e07730d0e7eb27bbb4fc693ed4a206ca`.
+  - KER timing evidence: P06 `EVAL-007` raw SHA `01abadc0381656c4aebffd4d8cac84c31d6e1babef5aac3f18d49bce2440de58`; P07 reconciled raw SHA `3948602734df92c6c44744bf47cf048381b10646d6d41e2ff26561340b9753ce`.
+  - Production project: `harden-llm`; frontend image `sha256:982d82e91eb2a89ea7c033457eb9297168529bb998786ecf5e17e68bf7188366`, gateway image `sha256:110a136efd631d5f4f6af3cb92e5dd16bb7a61641b2a6812bb56d6c896d8dd83`; both containers healthy.
+- Quantitative Results:
+  - P07 reconciled EVAL-007 selected 25 tasks in one warm sample. All tasks passed; failures/leaks were `0`; service-pool starts were `2`; critical path was `244253 ms`; maximum RSS was `1194.3046875 MiB`; aggregate task CPU p50/max was `4650/142340 ms`. This is an accepted release observation, not a new budget.
+  - Hosted PR #37 full dispatch run `32716112245` passed: fast `3m01s`, integration `2m47s`, browser `2m23s`, release `16m07s`. CodeQL actions/Go/JavaScript run `32715724034` passed.
+  - TEST-056 passed after merge against the deployed application-bearing release. Frontend and API preflight/login/health/readiness returned HTTP 200; the authenticated canary selected CPA GPT-5.6 Luna, opened all main/nested folds, produced nonempty output, inspected request/response details, deleted only its nonce history record, logged out, and found no credential/live output in page evidence.
+  - Three sustained public samples passed for each of frontend `/healthz`, frontend `/login`, API `/healthz`, and API `/readyz`; every status was HTTP 200.
+  - Final cleanup inventory: zero task-owned test containers, zero task-owned test volumes, empty `frontend/tmp` task directories, and the exact exited stale `harden-llm-otel-collector-state-init-1` orphan removed.
+- Verification:
+  - P07.S06 RED was demonstrated before authenticated browser work: the deployed launcher stopped on expected-versus-running release mismatch.
+  - P07.S07/P07.S08 GREEN: production Compose recovery completed with healthy services, correct image labels/digests, the production env file passed natively with `--env-file`, TEST-056 passed, and public probes were sustained.
+  - P07.S09 static traceability and JSON checks passed after recording status, KER, ADR, release certification, and plan evidence.
+  - P07.S10 closure documentation was reviewed and merged in the final docs-only closure; the tracking issue was closed only after that merge.
+  - P07.S11 final main, origin/main, production health, Compose inventory, issue state, and task-resource cleanup were rechecked. P07.S12 found no alternate implementation, deploy, task-selection, or evidence path.
+- Issues/Resolutions:
+  - The first direct deployed-canary attempt exposed that `Dockerfile.browser` intentionally contains the pinned browser/toolchain but not frontend Hex dependencies. The deployed launcher now performs the same deterministic Hex/Rebar/`mix deps.get` bootstrap as the canonical browser runner; no browser oracle changed.
+  - The next canary exposed a persisted LiveView fold/UI-save race: a sibling fold can be temporarily disabled while UI state persists, and a prior run can leave a fold open. TEST-056 now waits for enabled controls, opens only when collapsed, and asserts visible bodies; it does not skip a fold or weaken output/history/logout/redaction assertions.
+  - The initial production deployment shell-sourced `.env` and stripped embedded JSON quotes, leaving the gateway unhealthy. The exact deployment was recovered with Compose's `--env-file` parser, with no volume deletion, DNS change, provider-policy change, or data loss.
+  - The PR event initially skipped expensive lanes because the `test:full` label was attached after workflow `if` evaluation. A manual full workflow dispatch on the exact reviewed SHA supplied the required hosted evidence; the skipped event was not counted as a pass.
+- Failed Attempts: The pre-fix launcher dependency-load failure, the pre-fix persisted-fold canary failure, the initial shell-parsed deployment configuration failure, and the label-order skipped hosted event were retained as causal process evidence only. None contributed accepted timing data, and none was resolved by retrying as if successful.
+- Deviations:
+  - P07.S07 planned deployment from current `HEAD`; actual application images were built/deployed from application-bearing `761f5f76` because subsequent `23538c2` and `40083fd` commits were certification tooling/tests/docs only. Fidelity impact: none; oracle impact: none; production impact: application source remained the reviewed merged implementation and identity is explicitly recorded.
+  - P07.S04's planned PR-label event did not select all jobs because the label was applied after event evaluation; P07 used an explicit workflow dispatch on the exact PR SHA. Fidelity impact: none; no job was omitted from the accepted full run.
+  - P07.S07 initially used shell parsing of JSON env values; native Compose `--env-file` was used for the accepted recovery. This corrected configuration parsing without changing tests, secrets, volumes, or deployment topology.
+  - P07.S01/P07.S02 were executed across the implementation PR chain rather than one undivided feature branch because the review/fix sequence exposed launcher and canary defects at their actual boundaries. All commits were reviewed, hosted-tested, and merged before final certification.
+  - P07 changed no KER threshold, retry/timeout budget, provider/API contract, authentication behavior, DOM-emulator policy, or test purpose. The exact stale exited orphan and root-owned task scratch artifacts were cleaned after target validation.
+- Lessons Learned: A deployed browser image must declare dependency bootstrap ownership just as the ordinary browser tier does; persisted LiveView UI state and async save guards must be treated as runtime preconditions in an authenticated canary; and deployment env files containing structured JSON must always be parsed by Compose rather than a shell.
+- ADR Updates: ADR-HLLM-015 status is now Accepted with P07 verification. No new ADR or threshold amendment was required because every deviation preserved the exact assertions and resource boundaries.
+- External coordination: implementation PRs #33-#37 were merged; tracking issue [#32](https://github.com/prls-co/harden-llm/issues/32) was updated with the P07 evidence and closed after the documentation-only closure merge.
+- Refactoring Assessment: No refactor needed. The manifest remains the only task-selection source, `run-test-tier.mjs` remains the only runner, `run-deployed-browser-test.mjs` remains the only deployed canary boundary, Compose has one production project, and the KER/status/release docs form one redacted evidence chain.
+- Remaining Work: No P07 or other in-plan work remains.
 
 For each phase, maintain this record:
 

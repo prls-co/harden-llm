@@ -122,6 +122,28 @@ causal Compose portability/fixture corrections were resolved before the
 accepted run. No test oracle, assertion purpose, or resource threshold was
 weakened, and failed-attempt scratch artifacts were removed.
 
+P07 records the reconciled release run at
+`plans/evidence/harden-llm/reconciled-release-eval.json` (SHA-256
+`3948602734df92c6c44744bf47cf048381b10646d6d41e2ff26561340b9753ce`). One
+sample selected the same 25 release tasks; all passed with zero failures,
+zero leaks, two service-pool starts, `244253 ms` critical-path wall time,
+`1194.3046875 MiB` maximum RSS, and aggregate task CPU p50/max
+`4650/142340 ms`. This is a reconciled release observation, not a new KER
+budget.
+
+P07 deployment certification is recorded separately from the timing KER. The
+application-bearing frontend and gateway release is
+`761f5f76d0262ca29973fda2ca3d5214dfa920c0`; the later merged commits are
+launcher/test or documentation closure changes and are not misreported as the
+deployed application image. TEST-056 passed against healthy frontend/gateway
+containers, all four public probes returned HTTP 200, the authenticated CPA
+GPT-5.6 Luna canary opened the nested folds, produced output, deleted its exact
+nonce history record, and logged out. Three bounded probe samples passed, no
+task-owned test container or volume remained, and the exact stale exited
+`otel-collector-state-init-1` orphan was removed. The first deployment attempt
+used shell-sourced JSON environment values and was not accepted; the recovered
+Compose `--env-file` deployment passed without volume deletion.
+
 Only redacted aggregates belong in this directory. Raw output, command logs,
 provider responses, credentials, cookies, request bodies, and process
 environments are forbidden. A benchmark sample with a failed task or cleanup

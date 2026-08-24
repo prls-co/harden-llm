@@ -153,6 +153,46 @@
       }
     }
   },
+  "p07ReconciledRelease": {
+    "accepted": true,
+    "rawEvidencePath": "plans/evidence/harden-llm/reconciled-release-eval.json",
+    "rawEvidenceSha256": "3948602734df92c6c44744bf47cf048381b10646d6d41e2ff26561340b9753ce",
+    "manifestSha256": "4f20b980f0fa5527898f2cfdfc7be8a9e07730d0e7eb27bbb4fc693ed4a206ca",
+    "sampleCount": 1,
+    "selectedTaskCount": 25,
+    "criticalPathWallTimeMs": 244253,
+    "peakRssMiBMax": 1194.3046875,
+    "cpuMs": {"p50": 4650, "max": 142340},
+    "failureCount": 0,
+    "leakedResourceCount": 0,
+    "serviceStartCount": 2,
+    "checks": {
+      "allSelectedTasksPassed": true,
+      "zeroFailures": true,
+      "zeroLeaks": true,
+      "cleanupCompleted": true
+    }
+  },
+  "deploymentCertification": {
+    "applicationBearingSHA": "761f5f76d0262ca29973fda2ca3d5214dfa920c0",
+    "mergedMainSHA": "40083fd980a4c88c344dfa884c90a2edbbcc7111",
+    "frontendImageDigest": "sha256:982d82e91eb2a89ea7c033457eb9297168529bb998786ecf5e17e68bf7188366",
+    "gatewayImageDigest": "sha256:110a136efd631d5f4f6af3cb92e5dd16bb7a61641b2a6812bb56d6c896d8dd83",
+    "frontendContainerId": "1cd12739e02c",
+    "gatewayContainerId": "142855d29b0b",
+    "project": "harden-llm",
+    "test056": {
+      "accepted": true,
+      "probes": {"webHealthz": 200, "login": 200, "apiHealthz": 200, "apiReadyz": 200},
+      "sustainedProbeSamples": 3,
+      "smokeHistoryCleanup": true
+    },
+    "cleanup": {
+      "testContainerCount": 0,
+      "testVolumeCount": 0,
+      "staleOrphanRemoved": "harden-llm-otel-collector-state-init-1"
+    }
+  },
   "acceptedEvaluationFields": [
     "accepted",
     "sampleCount",
