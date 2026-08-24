@@ -11,6 +11,9 @@ corrections, the P07.S14 reusable no-tabs widget deployment, and the P07.S15
 profile-aware reasoning correction. It also records the P07.S16 runtime-parity
 release, the P07.S17 hosted-run validation correction, and the P07.S18
 multi-instance embedding implementation completed on 2026-08-23.
+The resource-aware parallel test-feedback hierarchy then completed P07 merge,
+deployment, and certification on 2026-08-24; its application-bearing release
+is recorded separately from later launcher/test and documentation commits.
 Detailed command output belongs under ignored
 `plans/evidence/harden-llm/<run-id>/`; secrets and live provider output never do.
 
@@ -506,3 +509,57 @@ user-scoped endpoint semantics. No new provider key was created, added to
 - No KER or related issue was created: this was an owner-scoped credential
   binding using an existing secret, with no code, provider policy, timeout, or
   retry-budget change.
+
+## Parallel test-feedback hierarchy P07 closure (2026-08-24)
+
+P07 completed `PLAN-HARDEN-LLM-TEST-FEEDBACK-002` through reviewed merge,
+deployment, public behavior, and cleanup certification. Implementation PRs
+`#33` through `#37` are merged. PR `#37` (`40083fd980a4c88c344dfa884c90a2edbbcc7111`)
+corrected two real certification defects: the pinned browser image requires a
+Hex/Rebar/dependency bootstrap before the deployed canary, and persisted
+LiveView fold state plus asynchronous UI saves require enabled-control waits
+and open-or-verify fold assertions. The canary's output, history nonce cleanup,
+logout, and redaction oracles were preserved.
+
+The reconciled release candidate was measured once at
+`plans/evidence/harden-llm/reconciled-release-eval.json` (SHA-256
+`3948602734df92c6c44744bf47cf048381b10646d6d41e2ff26561340b9753ce`) under
+manifest SHA
+`4f20b980f0fa5527898f2cfdfc7be8a9e07730d0e7eb27bbb4fc693ed4a206ca`.
+All 25 selected tasks passed with zero failures/leaks and two service-pool
+starts; the graph observed `244253 ms` critical-path wall time,
+`1194.3046875 MiB` peak RSS, and aggregate task CPU p50/max
+`4650/142340 ms`. This is an observation, not a new timing budget.
+
+Hosted certification for PR `#37` was the explicit workflow-dispatch run
+`32716112245`: fast passed in 3m01s, integration in 2m47s, browser in 2m23s,
+and release in 16m07s. CodeQL actions, Go, and JavaScript analyses passed in
+run `32715724034`. The initial pull-request event ran fast and skipped the
+expensive lanes because the `test:full` label was attached after event
+evaluation; the explicit full dispatch on the exact PR SHA supplied the
+required lane evidence.
+
+The pre-deployment identity check correctly rejected the running image before
+authenticated browser work when given the merged expected release. The
+production application-bearing release is
+`761f5f76d0262ca29973fda2ca3d5214dfa920c0` (PR `#35`); later merges
+`23538c2ad7d59f4becd0e8e2676d205ba597f8cb` and
+`40083fd980a4c88c344dfa884c90a2edbbcc7111` changed only certification
+tooling/tests and documentation, so neither is misrepresented as the image
+release.
+
+| Surface | Certified value |
+| --- | --- |
+| Frontend release/container | `761f5f76d0262ca29973fda2ca3d5214dfa920c0`; container `1cd12739e02c`; image `sha256:982d82e91eb2a89ea7c033457eb9297168529bb998786ecf5e17e68bf7188366`; `healthy` |
+| Gateway release/container | `761f5f76d0262ca29973fda2ca3d5214dfa920c0`; container `142855d29b0b`; image `sha256:110a136efd631d5f4f6af3cb92e5dd16bb7a61641b2a6812bb56d6c896d8dd83`; `healthy` |
+| Compose project | `harden-llm`, production env supplied with Compose `--env-file`; named volumes retained |
+| TEST-056 | pass: public identity/health, login, CPA GPT-5.6 Luna, all nested folds, nonempty output, request/response details, exact nonce history deletion, logout, and redaction |
+| Sustained public probes | three samples each of frontend `/healthz`, frontend `/login`, API `/healthz`, and API `/readyz`; every response HTTP 200 |
+| Cleanup | zero task-owned test containers/volumes; exact exited stale `harden-llm-otel-collector-state-init-1` orphan removed; frontend scratch directories empty |
+
+The first deployment invocation shell-sourced JSON environment values and
+left the gateway unhealthy because embedded JSON quotes were stripped. No data
+or volumes were lost. The deployment was recovered with Compose's native
+`--env-file` parser, and the recovered stack plus TEST-056 passed. No DNS,
+provider policy, API contract, retry/timeout budget, or test threshold was
+changed.

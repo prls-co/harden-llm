@@ -1,10 +1,10 @@
 # ADR-HLLM-015: Resource-aware parallel test-feedback hierarchy
 
-- Status: Accepted; P06 release candidate complete, P07 merge/deploy pending
+- Status: Accepted; P07 merged, deployed, and certified
 - Date: 2026-08-23
 - Scope: `PLAN-HARDEN-LLM-TEST-FEEDBACK-002`
 - Requirements: REQ-001 through REQ-018
-- Initial verification: TEST-041, TEST-042, TEST-043, TEST-044, TEST-045, TEST-046, TEST-047, TEST-048, TEST-049, TEST-050, TEST-051, TEST-052, TEST-053, TEST-054, TEST-055, EVAL-002, EVAL-003, EVAL-004, EVAL-005, EVAL-006, EVAL-007
+- Initial verification: TEST-041, TEST-042, TEST-043, TEST-044, TEST-045, TEST-046, TEST-047, TEST-048, TEST-049, TEST-050, TEST-051, TEST-052, TEST-053, TEST-054, TEST-055, TEST-056, EVAL-002, EVAL-003, EVAL-004, EVAL-005, EVAL-006, EVAL-007
 - Evidence record: `KER-HLLM-TEST-FEEDBACK-001`
 
 ## Context
@@ -108,8 +108,34 @@ rewrote PATH, host-path mounts were enabled for Docker-in-Docker Compose
 fixtures, and the fake-provider Compose fixture selected the Responses
 inference type required by its existing assertion. These changes preserve test
 oracles and resource boundaries; failed attempts and their scratch artifacts
-were not accepted as evidence. P07 must still prove merged identity and public
+were not accepted as evidence. P07 then proved merged identity and public
 behavior with TEST-056.
+
+P07 completed the release boundary without changing the hierarchy's test
+purpose, fidelity classes, or budgets. PRs #33 through #37 merged the
+implementation, launcher/configuration, and canary reliability corrections;
+hosted fast, integration, browser, and release lanes plus CodeQL passed on the
+reviewed source. The reconciled release observation passed 25 selected tasks
+with zero failures/leaks and was recorded separately from the P00 KER budgets.
+
+The deployed application-bearing release is
+`761f5f76d0262ca29973fda2ca3d5214dfa920c0`, with healthy frontend and gateway
+image digests recorded in the status and release-certification documents. The
+later `main` commits only corrected certification tooling/tests and completed
+documentation, so they are not presented as the deployed application image.
+TEST-056 passed the real public login/widget/CPA GPT-5.6 Luna/history-cleanup
+path and three samples of each public probe returned HTTP 200.
+
+Two P07 defects were corrected at their causal boundaries. The deployed
+launcher now bootstraps Hex, Rebar, and frontend dependencies inside the
+pinned browser image, matching the canonical browser tier. The canary waits
+for enabled fold controls, opens only collapsed persisted LiveView state, and
+asserts visible bodies; it does not skip or weaken any fold, output, history,
+logout, or redaction assertion. The first production invocation also exposed
+that shell-sourcing JSON environment values strips embedded quotes; recovery
+uses Compose's `--env-file` parser and retained all named volumes. These are
+operational corrections, not threshold, API, DOM-emulator, or production
+ownership changes.
 
 Every higher-tier defect, including each expensive-tier defect, is evaluated
 for a lower-tier root-invariant regression. Lower fidelity may replace an environmental boundary, never the

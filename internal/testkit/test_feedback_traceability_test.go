@@ -84,6 +84,7 @@ func TestTestFeedbackTraceability(t *testing.T) {
 		"EVAL-006",
 		"EVAL-007",
 		"P06: Traceable commands",
+		"P07: Merged, deployed, publicly certified, documented, and clean final state",
 	)
 	assertContains(
 		"docs/requirements-traceability.md",
@@ -166,7 +167,7 @@ func TestTestFeedbackTraceability(t *testing.T) {
 	if hierarchy.DocumentID != "PLAN-HARDEN-LLM-TEST-FEEDBACK-002" || hierarchy.ADR != "ADR-HLLM-015" || hierarchy.KER != "KER-HLLM-TEST-FEEDBACK-001" {
 		t.Errorf("status does not identify the feedback hierarchy contract: %+v", hierarchy)
 	}
-	for _, phase := range []string{"P00", "P01", "P02", "P03", "P04", "P05"} {
+	for _, phase := range []string{"P00", "P01", "P02", "P03", "P04", "P05", "P06", "P07"} {
 		if !contains(hierarchy.CompletedPhases, phase) {
 			t.Errorf("status does not record completed %s", phase)
 		}
@@ -179,7 +180,11 @@ func TestTestFeedbackTraceability(t *testing.T) {
 		if hierarchy.CurrentPhase != "P07" || !contains(hierarchy.CompletedPhases, "P06") {
 			t.Errorf("completed P06 status has an invalid phase boundary: completed=%v currentPhase=%q", hierarchy.CompletedPhases, hierarchy.CurrentPhase)
 		}
+	} else if hierarchy.Status == "P07-complete" {
+		if hierarchy.CurrentPhase != "P07" || !contains(hierarchy.CompletedPhases, "P07") {
+			t.Errorf("completed P07 status has an invalid phase boundary: completed=%v currentPhase=%q", hierarchy.CompletedPhases, hierarchy.CurrentPhase)
+		}
 	} else {
-		t.Errorf("status is neither the P06 candidate nor release-candidate checkpoint: status=%q currentPhase=%q", hierarchy.Status, hierarchy.CurrentPhase)
+		t.Errorf("status is neither a P06 checkpoint nor the completed P07 state: status=%q currentPhase=%q", hierarchy.Status, hierarchy.CurrentPhase)
 	}
 }

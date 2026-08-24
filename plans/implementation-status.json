@@ -269,10 +269,10 @@
     "baselineSHA": "009629211632beed029374549938d1e322fcba04",
     "adr": "ADR-HLLM-015",
     "ker": "KER-HLLM-TEST-FEEDBACK-001",
-    "checkpointCommit": "4a0b11b",
-    "status": "P06-complete",
+    "checkpointCommit": "40083fd980a4c88c344dfa884c90a2edbbcc7111",
+    "status": "P07-complete",
     "currentPhase": "P07",
-    "completedPhases": ["P00", "P01", "P02", "P03", "P04", "P05", "P06"],
+    "completedPhases": ["P00", "P01", "P02", "P03", "P04", "P05", "P06", "P07"],
     "evaluations": {
       "EVAL-001": {
         "accepted": true,
@@ -492,11 +492,71 @@
         }
       }
     },
-    "applicationRelease": null,
+    "reconciledRelease": {
+      "accepted": true,
+      "rawEvidencePath": "plans/evidence/harden-llm/reconciled-release-eval.json",
+      "rawEvidenceSha256": "3948602734df92c6c44744bf47cf048381b10646d6d41e2ff26561340b9753ce",
+      "manifestSha256": "4f20b980f0fa5527898f2cfdfc7be8a9e07730d0e7eb27bbb4fc693ed4a206ca",
+      "sampleCount": 1,
+      "selectedTaskCount": 25,
+      "criticalPathWallTimeMs": 244253,
+      "peakRssMiBMax": 1194.3046875,
+      "cpuMs": {"p50": 4650, "max": 142340},
+      "failureCount": 0,
+      "leakedResourceCount": 0,
+      "serviceStartCount": 2,
+      "checks": {
+        "allSelectedTasksPassed": true,
+        "zeroFailures": true,
+        "zeroLeaks": true,
+        "cleanupCompleted": true
+      }
+    },
+    "applicationRelease": {
+      "applicationBearingSHA": "761f5f76d0262ca29973fda2ca3d5214dfa920c0",
+      "sourceMainSHA": "40083fd980a4c88c344dfa884c90a2edbbcc7111",
+      "frontendRelease": "761f5f76d0262ca29973fda2ca3d5214dfa920c0",
+      "frontendImageDigest": "sha256:982d82e91eb2a89ea7c033457eb9297168529bb998786ecf5e17e68bf7188366",
+      "frontendContainerId": "1cd12739e02c",
+      "gatewayRelease": "761f5f76d0262ca29973fda2ca3d5214dfa920c0",
+      "gatewayImageDigest": "sha256:110a136efd631d5f4f6af3cb92e5dd16bb7a61641b2a6812bb56d6c896d8dd83",
+      "gatewayContainerId": "142855d29b0b",
+      "project": "harden-llm",
+      "environmentFileRole": "production Compose env file supplied with --env-file"
+    },
+    "deploymentCertification": {
+      "implementationPRs": [33, 34, 35, 36, 37],
+      "latestMergedMainSHA": "40083fd980a4c88c344dfa884c90a2edbbcc7111",
+      "hostedFullRun": "32716112245",
+      "hostedFullRunJobs": {
+        "fast": "success in 3m01s",
+        "integration": "success in 2m47s",
+        "browser": "success in 2m23s",
+        "release": "success in 16m07s"
+      },
+      "codeQLRun": "32715724034",
+      "preDeploymentMismatch": "passed: expected merged release stopped before authenticated browser work",
+      "test056": {
+        "accepted": true,
+        "command": "node scripts/run-deployed-browser-test.mjs",
+        "expectedRelease": "761f5f76d0262ca29973fda2ca3d5214dfa920c0",
+        "identityHealth": "healthy",
+        "probes": {"webHealthz": 200, "login": 200, "apiHealthz": 200, "apiReadyz": 200},
+        "authenticatedCanary": "passed: CPA GPT-5.6 Luna, all nested folds, output, request/response details, nonce history deletion, logout",
+        "smokeHistoryCleanup": true
+      },
+      "sustainedPublicProbeSamples": 3,
+      "cleanup": {
+        "testContainerCount": 0,
+        "testVolumeCount": 0,
+        "staleOrphanRemoved": "harden-llm-otel-collector-state-init-1"
+      },
+      "initialDeploymentRecovery": "first shell-sourced JSON environment attempt left the gateway unhealthy; Compose --env-file recovery completed healthy without volume deletion"
+    },
     "issue": {
       "number": 32,
       "url": "https://github.com/prls-co/harden-llm/issues/32",
-      "state": "OPEN"
+      "state": "CLOSED"
     },
     "noRefactorNeeded": true,
     "notes": [
@@ -517,7 +577,12 @@
       "P04 EVAL-005 passed five warm browser samples at 39621 ms p95 and 403.08203125 MiB maximum RSS, with two ordinary browser features per sample, zero failures/leaks/screenshots/running containers, and unchanged P00 budgets.",
       "P04's initial browser benchmark invocation was made explicit with task mode and zero cold samples; browser-specific comparison now checks feature inventory, session count, screenshots, and cleanup. Browser task CPU remains informational because the Docker-client measurement is not equivalent to Chromium-process CPU.",
       "P06 EVAL-007 passed one complete release candidate with all 25 selected tasks green, zero failures, zero leaked resources, and two ordinary service-pool starts. The release critical path was 233358 ms and peak RSS was 1165.16796875 MiB; these are release-graph observations rather than new tier budgets. The release candidate was measured with the pinned Elixir/OTP PATH required by the reference host.",
-      "P06 failed attempts were not accepted as evidence: the first release invocation used an incomplete lifecycle status, the next omitted the pinned Elixir/OTP PATH, and the initial Compose certification required causal fixes for browser-image pinning, login-shell PATH rewriting, host-path Docker mounts, and the fake-provider Responses inference type. No test oracle, assertion purpose, or resource threshold was weakened; failed-attempt scratch artifacts were removed."
+      "P06 failed attempts were not accepted as evidence: the first release invocation used an incomplete lifecycle status, the next omitted the pinned Elixir/OTP PATH, and the initial Compose certification required causal fixes for browser-image pinning, login-shell PATH rewriting, host-path Docker mounts, and the fake-provider Responses inference type. No test oracle, assertion purpose, or resource threshold was weakened; failed-attempt scratch artifacts were removed.",
+      "P07 found and corrected a real deployed-launcher defect: the pinned browser image contains Chromium and the toolchain but not frontend Hex dependencies, so the launcher now performs the same Hex/Rebar/deps bootstrap as the canonical browser tier.",
+      "P07 found and corrected a real deployed-canary timing/state defect: persisted LiveView fold state and asynchronous UI-state saves could disable the next fold. TEST-056 now waits for enabled controls, opens only when collapsed, and asserts the visible body without changing the oracle.",
+      "P07 deployment identity intentionally distinguishes application-bearing release 761f5f76 from later test/docs-only merges 23538c2 and 40083fd; no later application image input changed.",
+      "P07 initial deployment used an unsafe shell source for JSON environment values and produced a healthy-configuration failure; recovery used Compose --env-file, preserved named volumes, and passed health, public probes, and TEST-056.",
+      "P07 cleanup removed root-owned browser scratch artifacts and the exact exited stale otel-collector-state-init-1 orphan; no task-owned test container or volume remained."
     ]
   }
 }
