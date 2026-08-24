@@ -71,7 +71,7 @@ func TestCollectorPipelines(t *testing.T) {
 	}
 
 	service := objectField(t, config, "service")
-	assertStringSliceEqual(t, "service extensions", stringSliceField(t, service, "extensions"), []string{"health_check", "basicauth/langfuse"})
+	assertStringSliceEqual(t, "service extensions", stringSliceField(t, service, "extensions"), []string{"health_check", "basicauth/langfuse", "file_storage/harden_llm_web"})
 	pipelines := objectField(t, service, "pipelines")
 	wantPipelines := map[string]pipelineContract{
 		"traces/tempo": {
@@ -87,8 +87,8 @@ func TestCollectorPipelines(t *testing.T) {
 			receivers: []string{"otlp"}, processors: []string{"memory_limiter", "attributes/redact", "batch/logs"}, exporters: []string{"otlphttp/loki"},
 		},
 	}
-	if len(pipelines) != len(wantPipelines) {
-		t.Errorf("pipeline count = %d, want %d", len(pipelines), len(wantPipelines))
+	if len(pipelines) != len(wantPipelines)+10 {
+		t.Errorf("pipeline count = %d, want %d protected + 9 isolated PRLS + 1 Allure health", len(pipelines), len(wantPipelines))
 	}
 	langfuseReferences := 0
 	for name, want := range wantPipelines {

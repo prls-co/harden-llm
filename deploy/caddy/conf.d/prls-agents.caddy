@@ -1,0 +1,40 @@
+platform.prls.co {
+	tls {$HARDEN_LLM_TLS_MODE}
+	import security_headers
+	header Content-Security-Policy "default-src 'self'; frame-ancestors 'none'; base-uri 'self'"
+	header X-Frame-Options "DENY"
+	request_body {
+		max_size 8MB
+	}
+	reverse_proxy platform-web:4000
+}
+
+masked-recall-api.prls.co {
+	tls {$HARDEN_LLM_TLS_MODE}
+	import security_headers
+	request_body {
+		max_size 8MB
+	}
+	# The host also runs a legacy masked-recall stack on harden-private.
+	# Target the locked shared production container explicitly so Docker DNS
+	# cannot route this public hostname to the legacy service.
+	reverse_proxy prls-agent-platform-shared-masked-recall-api-1:8080
+}
+
+product-opportunity-api.prls.co {
+	tls {$HARDEN_LLM_TLS_MODE}
+	import security_headers
+	request_body {
+		max_size 8MB
+	}
+	reverse_proxy product-opportunity-api:8080
+}
+
+synthetic-product-dataset-api.prls.co {
+	tls {$HARDEN_LLM_TLS_MODE}
+	import security_headers
+	request_body {
+		max_size 8MB
+	}
+	reverse_proxy synthetic-product-dataset-api:8080
+}

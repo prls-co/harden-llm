@@ -7,6 +7,12 @@ deleteDatasources:
     orgId: 1
   - name: Tempo
     orgId: 1
+  - name: PRLS Loki prod
+    orgId: 1
+  - name: PRLS Loki nonprod
+    orgId: 1
+  - name: PRLS Loki test
+    orgId: 1
 
 datasources:
   - name: Prometheus
@@ -30,6 +36,7 @@ datasources:
     url: http://loki:3100
     editable: false
     jsonData:
+      httpHeaderName1: X-Scope-OrgID
       maxLines: 1000
       derivedFields:
         - name: TraceID
@@ -37,6 +44,8 @@ datasources:
           datasourceUid: harden-tempo
           url: '$${__value.raw}'
           urlDisplayLabel: View trace
+    secureJsonData:
+      httpHeaderValue1: fake
   - name: Tempo
     type: tempo
     uid: harden-tempo
@@ -80,3 +89,54 @@ datasources:
       streamingEnabled:
         search: true
         metrics: true
+  - name: PRLS Loki prod
+    type: loki
+    uid: prls-loki-prod
+    orgId: 1
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      httpHeaderName1: X-Scope-OrgID
+      maxLines: 1000
+      derivedFields:
+        - name: TraceID
+          matcherRegex: '"?trace_id"?[=:]\s*"?([0-9a-f]{32})"?'
+          url: '$${__value.raw}'
+          urlDisplayLabel: Copy trace ID
+    secureJsonData:
+      httpHeaderValue1: prod
+  - name: PRLS Loki nonprod
+    type: loki
+    uid: prls-loki-nonprod
+    orgId: 1
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      httpHeaderName1: X-Scope-OrgID
+      maxLines: 1000
+      derivedFields:
+        - name: TraceID
+          matcherRegex: '"?trace_id"?[=:]\s*"?([0-9a-f]{32})"?'
+          url: '$${__value.raw}'
+          urlDisplayLabel: Copy trace ID
+    secureJsonData:
+      httpHeaderValue1: nonprod
+  - name: PRLS Loki test
+    type: loki
+    uid: prls-loki-test
+    orgId: 1
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      httpHeaderName1: X-Scope-OrgID
+      maxLines: 1000
+      derivedFields:
+        - name: TraceID
+          matcherRegex: '"?trace_id"?[=:]\s*"?([0-9a-f]{32})"?'
+          url: '$${__value.raw}'
+          urlDisplayLabel: Copy trace ID
+    secureJsonData:
+      httpHeaderValue1: test

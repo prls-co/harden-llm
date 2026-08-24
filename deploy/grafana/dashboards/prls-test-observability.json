@@ -1,0 +1,228 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "prls-loki-prod"
+      },
+      "description": "Production agent logs. Correlation identifiers stay in structured metadata and can be filtered in the query body.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "prls-loki-prod"
+          },
+          "editorMode": "code",
+          "expr": "{service_namespace=\"prls-agents\"} | json",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "PRLS production logs",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "prls-loki-nonprod"
+      },
+      "description": "Non-production agent logs in the isolated nonprod Loki tenant.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "prls-loki-nonprod"
+          },
+          "editorMode": "code",
+          "expr": "{service_namespace=\"prls-agents\"} | json",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "PRLS nonprod logs",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "prls-loki-test"
+      },
+      "description": "Test-run logs in the isolated test Loki tenant.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "prls-loki-test"
+          },
+          "editorMode": "code",
+          "expr": "{service_namespace=\"prls-agents\"} | json",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "PRLS test logs",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "harden-prometheus"
+      },
+      "description": "Failed PRLS log and trace exports. Agent execution remains independent of this signal.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "harden-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (exporter) (rate(otelcol_exporter_send_failed_log_records{exporter=~\"otlphttp/loki_prls_.*\"}[5m])) + sum by (exporter) (rate(otelcol_exporter_send_failed_spans{exporter=\"otlp/prls_laminar\"}[5m]))",
+          "legendFormat": "{{exporter}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "PRLS exporter failures",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "harden-prometheus"
+      },
+      "description": "Bounded exporter queue utilization for the PRLS signal paths.",
+      "fieldConfig": {
+        "defaults": {
+          "max": 1,
+          "min": 0,
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "harden-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (exporter) (otelcol_exporter_queue_size{exporter=~\".*prls.*\"} / clamp_min(otelcol_exporter_queue_capacity{exporter=~\".*prls.*\"}, 1))",
+          "legendFormat": "{{exporter}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "PRLS exporter queue utilization",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": [
+    "prls",
+    "tests",
+    "observability"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "PRLS Test Observability",
+  "uid": "prls-test-observability",
+  "version": 1
+}

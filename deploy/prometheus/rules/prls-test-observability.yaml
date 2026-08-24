@@ -1,0 +1,60 @@
+groups:
+  - name: prls-test-observability
+    interval: 30s
+    rules:
+      - alert: PRLSCollectorExportFailures
+        expr: |
+          sum(rate(otelcol_exporter_send_failed_log_records{exporter=~"otlphttp/loki_prls_.*"}[5m])) > 0
+          or sum(rate(otelcol_exporter_send_failed_spans{exporter="otlp/prls_laminar"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: otel-collector
+        annotations:
+          summary: PRLS telemetry export is failing
+          description: The bounded PRLS Loki or Laminar exporter has failed records during the last five minutes.
+      - alert: PRLSCollectorQueueNearCapacity
+        expr: |
+          max(
+            otelcol_exporter_queue_size{exporter=~".*prls.*"}
+            / clamp_min(otelcol_exporter_queue_capacity{exporter=~".*prls.*"}, 1)
+          ) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          service: otel-collector
+        annotations:
+          summary: PRLS telemetry exporter queue is near capacity
+          description: A bounded PRLS exporter queue has remained above 80 percent utilization for ten minutes.
+      - alert: PRLSCollectorRefusedTelemetry
+        expr: |
+          sum(rate(otelcol_receiver_refused_log_records{receiver=~"otlp/prls_.*"}[5m])) > 0
+          or sum(rate(otelcol_receiver_refused_spans{receiver=~"otlp/prls_.*"}[5m])) > 0
+          or sum(rate(otelcol_receiver_refused_metric_points{receiver=~"otlp/prls_.*"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: otel-collector
+        annotations:
+          summary: PRLS telemetry receiver is refusing records
+          description: A PRLS receiver has refused logs, spans, or metric points during the last five minutes.
+      - alert: PRLSLokiDiscardedLogs
+        expr: sum(rate(loki_discarded_samples_total[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: loki
+        annotations:
+          summary: Loki is discarding log records
+          description: The shared Loki service has discarded log samples during the last five minutes.
+      - alert: PRLSAllureStorageUnavailable
+        expr: |
+          absent(httpcheck_status{http_url="http://allure:3000/api/ping", http_status_class="2xx"})
+          or httpcheck_status{http_url="http://allure:3000/api/ping", http_status_class="2xx"} != 1
+        for: 5m
+        labels:
+          severity: critical
+          service: allure
+        annotations:
+          summary: Allure Storage is unavailable
+          description: The existing Collector cannot obtain a 2xx response from Allure /api/ping on the shared network.

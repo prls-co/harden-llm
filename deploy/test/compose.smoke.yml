@@ -35,3 +35,14 @@ services:
       options:
         max-size: 5m
         max-file: "2"
+
+  loki:
+    volumes:
+      - ./deploy/test/loki.smoke.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+
+networks:
+  prls-observability:
+    name: ${PRLS_SMOKE_OBSERVABILITY_NETWORK:?set the unique smoke observability network}
+    external: false
+    driver: bridge

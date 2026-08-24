@@ -7,7 +7,7 @@ NODE ?= node
 INTEGRATION_PACKAGE_PARALLELISM ?= 1
 RACE_PACKAGE_PARALLELISM ?= 1
 
-.PHONY: format lint build test-static test-unit test-parity test-integration test-integration-race test-api test-observability test-compose test-race test-vulnerability live-structured-call test-fast test-browser test-release test-live benchmark-test-feedback verify
+.PHONY: format lint build validate-loki-schema test-static test-unit test-parity test-integration test-integration-race test-api test-observability test-compose test-race test-vulnerability live-structured-call test-fast test-browser test-release test-live benchmark-test-feedback verify
 
 format:
 	@unformatted="$$($(GOFMT) -l $$(find . -type f -name '*.go' -not -path './.git/*' -not -path './.codex/*'))"; \
@@ -19,7 +19,10 @@ lint:
 build:
 	$(GO) build ./...
 
-test-static:
+validate-loki-schema:
+	$(GO) run ./cmd/loki-schema-guard
+
+test-static: validate-loki-schema
 	$(GO) test ./internal/testkit/... -count=1
 	$(NODE) scripts/verify-parity-fixtures.mjs
 

@@ -378,6 +378,10 @@ func smokeEnvironment(t *testing.T, material tlsMaterial, httpPort, httpsPort in
 	return map[string]string{
 		"HARDEN_LLM_API_HOST": "api.smoke.localhost", "HARDEN_LLM_GRAFANA_HOST": "grafana.smoke.localhost",
 		"HARDEN_LLM_LANGFUSE_HOST": "langfuse.smoke.localhost", "HARDEN_LLM_ARTIFACT_HOST": "artifacts.smoke.localhost",
+		"PRLS_ALLURE_HOST": "allure.smoke.localhost", "PRLS_TESTS_BASIC_AUTH_USER": "smoke-operator",
+		"PRLS_TESTS_BASIC_AUTH_HASH":            "$2a$14$5Fp.WGvCHKPhc3F2aALXlezzw1EKDwB5HyTTXd.vCT43XAhkGCmqG",
+		"PRLS_SMOKE_OBSERVABILITY_NETWORK":      "prls-observability-smoke-" + hexSecret(8),
+		"PRLS_LAMINAR_PROJECT_API_KEY":          textSecret("lmnr"),
 		"HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT": fmt.Sprintf("https://artifacts.smoke.localhost:%d", httpsPort),
 		"HARDEN_LLM_BIND_ADDRESS":               "127.0.0.1", "HARDEN_LLM_HTTP_PORT": strconv.Itoa(httpPort),
 		"HARDEN_LLM_HTTPS_PORT": strconv.Itoa(httpsPort), "HARDEN_LLM_TLS_MODE": "internal",
@@ -388,6 +392,7 @@ func smokeEnvironment(t *testing.T, material tlsMaterial, httpPort, httpsPort in
 		"HARDEN_LLM_GARAGE_RPC_SECRET":        hexSecret(32), "HARDEN_LLM_ARTIFACT_BUCKET": "harden-llm-artifacts-smoke",
 		"HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID":     "GK" + strings.ToUpper(hexSecret(16)),
 		"HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY": hexSecret(32), "HARDEN_LLM_ARTIFACT_PRESIGN_TTL": "2m",
+		"PRLS_LOKI_S3_ACCESS_KEY": "GK" + strings.ToUpper(hexSecret(16)), "PRLS_LOKI_S3_SECRET_KEY": hexSecret(32),
 		"GRAFANA_ADMIN_USER": "smoke-admin", "GRAFANA_ADMIN_PASSWORD": textSecret("grafana"),
 		"LANGFUSE_POSTGRES_PASSWORD": textSecret("lfdb"), "LANGFUSE_SALT": textSecret("salt"),
 		"LANGFUSE_ENCRYPTION_KEY": hexSecret(32), "LANGFUSE_NEXTAUTH_SECRET": textSecret("auth"),
