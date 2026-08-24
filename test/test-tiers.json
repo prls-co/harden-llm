@@ -394,6 +394,13 @@
       "resourceClass": "release",
       "command": ["mix", "test", "--only", "compose", "--max-cases", "1"],
       "workingDirectory": "frontend",
+      "container": {
+        "image": "harden-llm-browser-test:local",
+        "network": "host",
+        "dockerSocket": true,
+        "bootstrap": true,
+        "shmSize": "2g"
+      },
       "dependsOn": [],
       "timeoutMs": 1800000,
       "cleanupOwner": "compose-browser",
