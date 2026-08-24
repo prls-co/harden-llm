@@ -270,9 +270,9 @@
     "adr": "ADR-HLLM-015",
     "ker": "KER-HLLM-TEST-FEEDBACK-001",
     "checkpointCommit": "af46175",
-    "status": "P02-complete",
-    "currentPhase": "P03",
-    "completedPhases": ["P00", "P01", "P02"],
+    "status": "P03-complete",
+    "currentPhase": "P04",
+    "completedPhases": ["P00", "P01", "P02", "P03"],
     "evaluations": {
       "EVAL-001": {
         "accepted": true,
@@ -362,6 +362,35 @@
           "deterministicSerialExceptionCount": true,
           "p95WithinSequentialBaseline": true
         }
+      },
+      "EVAL-004": {
+        "accepted": true,
+        "sampleCount": 30,
+        "warmSamples": 30,
+        "coldSamples": 0,
+        "failureCount": 0,
+        "leakedResourceCount": 0,
+        "rawEvidencePath": "plans/evidence/harden-llm/client-core-eval.json",
+        "rawEvidenceSha256": "18d5145ab24007a32da0a67c8128756b02f787306ef94c0ddfc4291ce82d5885",
+        "manifestSha256": "82fa6a792f45022125f8cdbe6008a3219dc84d709f2efb59f8d0b8d9275b46f5",
+        "selectedTaskIds": ["client-core"],
+        "warmP50WallTimeMs": 416,
+        "warmP95WallTimeMs": 495,
+        "warmWallTimeMsMax": 522,
+        "warmPeakRssMiBP95": 120.38,
+        "warmPeakRssMiBMax": 120.3984375,
+        "warmCpuMsP95": 500,
+        "maxCoefficientOfVariation": 0.0972,
+        "packageInstallCount": 0,
+        "networkAttemptCount": 0,
+        "checks": {
+          "successfulWarmSampleCount": true,
+          "warmP95WithinTwoSeconds": true,
+          "peakRSSWithinKER": true,
+          "zeroLeaks": true,
+          "zeroPackageInstallCount": true,
+          "zeroNetworkAttemptCount": true
+        }
       }
     },
     "applicationRelease": null,
@@ -380,7 +409,10 @@
       "P01 fixture-only RED corrections retained the intended runner assertions, including bounded timeout termination; the provisional eight-slot evaluation was rejected for raw RSS variance and was not used as accepted evidence.",
       "P02 converted all safe deterministic frontend modules to async ownership, retained exactly the SessionVault lifecycle/clock and observability configuration exceptions, and added explicit LiveView Req allowances plus view/proxy teardown.",
       "P02 replaced one process-global malformed-login SessionVault count assertion with request-local session absence assertions; this preserved the user-visible security oracle while making the test valid under concurrent execution.",
-      "P02's first ten-seed attempt exposed a Req ownership cleanup race at seed 181081 and was rejected; the explicit allowance/teardown boundary was added, and the final ten-seed EVAL-003 passed with zero failures/leaks at 4125 ms warm p95 versus the 10033 ms sequential frontend reference."
+      "P02's first ten-seed attempt exposed a Req ownership cleanup race at seed 181081 and was rejected; the explicit allowance/teardown boundary was added, and the final ten-seed EVAL-003 passed with zero failures/leaks at 4125 ms warm p95 versus the 10033 ms sequential frontend reference.",
+      "P03 extracted the pure client decision core into frontend/assets/js/client_core.mjs, imported it from app.js, added TEST-046/051, and kept browser effects in thin hooks with no package manifest or DOM emulator.",
+      "P03 EVAL-004 passed 30 warm client-core samples at 495 ms p95 and 120.3984375 MiB maximum RSS, with zero failures/leaks/package installs/network attempts.",
+      "P03's unqualified benchmark command accidentally selected baseline mode and started backend verification; the exact runner-owned scratch directory was cleaned, no evidence was accepted, and the command was corrected to explicit task mode with zero cold samples."
     ]
   }
 }

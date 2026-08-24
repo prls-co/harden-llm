@@ -291,6 +291,20 @@
       "pathSelectors": ["frontend/lib/**", "frontend/test/harden_llm_web/**", "frontend/test/support/**"]
     },
     {
+      "id": "client-core",
+      "testIds": ["TEST-046"],
+      "tier": "T0",
+      "resourceClass": "cpu",
+      "command": ["node", "--test", "frontend/assets/test/client_core.test.mjs"],
+      "dependsOn": [],
+      "timeoutMs": 120000,
+      "cleanupOwner": "runner",
+      "network": "forbidden",
+      "credentialKeys": [],
+      "requiredFor": ["baseline", "fast", "release"],
+      "pathSelectors": ["frontend/assets/js/**", "frontend/assets/test/**"]
+    },
+    {
       "id": "frontend-browser",
       "testIds": ["TEST-018"],
       "tier": "T4",

@@ -4,7 +4,7 @@
 - Date: 2026-08-23
 - Scope: `PLAN-HARDEN-LLM-TEST-FEEDBACK-002`
 - Requirements: REQ-001 through REQ-018
-- Initial verification: TEST-041, TEST-044, TEST-045, TEST-048, TEST-049, TEST-050, EVAL-002, EVAL-003
+- Initial verification: TEST-041, TEST-044, TEST-045, TEST-046, TEST-048, TEST-049, TEST-050, TEST-051, EVAL-002, EVAL-003, EVAL-004
 - Evidence record: `KER-HLLM-TEST-FEEDBACK-001`
 
 ## Context
@@ -49,6 +49,11 @@ SessionVault lifecycle/clock case and global observability application
 configuration. EVAL-003 passed all ten fixed seeds with zero ownership or
 cleanup failures and warm p95 of 4125 ms against the 10033 ms sequential
 frontend reference.
+
+The extracted client decision core is measured as an independent T0 task.
+EVAL-004 passed 30 warm samples at 495 ms p95 and 120.3984375 MiB maximum
+RSS, with no package installation or network attempt. Its production import
+is the only decision path; hooks retain browser effects and listener teardown.
 
 Every higher-tier defect is evaluated for a lower-tier root-invariant
 regression. Lower fidelity may replace an environmental boundary, never the

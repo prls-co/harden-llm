@@ -43,6 +43,18 @@ rejected attempt exposed an ownership cleanup race at seed `181081`; it was
 not accepted as timing evidence, and the final run used explicit LiveView
 allowances and teardown.
 
+P03 EVAL-004 is recorded separately at
+`plans/evidence/harden-llm/client-core-eval.json` (SHA-256
+`18d5145ab24007a32da0a67c8128756b02f787306ef94c0ddfc4291ce82d5885`). It
+contains 30 warm samples of the dependency-free Node client-core task under
+manifest SHA
+`82fa6a792f45022125f8cdbe6008a3219dc84d709f2efb59f8d0b8d9275b46f5`. Warm
+p50/p95/max wall time was `416/495/522 ms`; maximum RSS was `120.3984375 MiB`;
+failures and cleanup leaks were zero. The comparator verified the 2-second
+p95 limit, the accepted KER RSS budget, zero package installs, and zero
+network attempts. The accidental baseline-mode invocation caused by the
+original unqualified command was interrupted and is not evidence.
+
 Only redacted aggregates belong in this directory. Raw output, command logs,
 provider responses, credentials, cookies, request bodies, and process
 environments are forbidden. A benchmark sample with a failed task or cleanup

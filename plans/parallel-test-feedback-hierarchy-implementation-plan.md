@@ -907,7 +907,7 @@ Plan-and-Solve subtasks:
   - Requirement link: REQ-001, REQ-004, REQ-008, REQ-013.
   - Verification link: EVAL-004.
   - Verification mode: MEASURE.
-  - Command/procedure: `node scripts/benchmark-test-feedback.mjs --task client-core --warm-samples 30 --compare ker/test-feedback/baseline.json --output plans/evidence/harden-llm/client-core-eval.json`.
+  - Command/procedure: `node scripts/benchmark-test-feedback.mjs --mode task --task client-core --warm-samples 30 --cold-samples 0 --compare ker/test-feedback/baseline.json --output plans/evidence/harden-llm/client-core-eval.json`.
   - Expected result: p95 wall time is at most 2 seconds, peak RSS is within the KER limit, all samples pass, and package/network counts are zero.
   - Evidence produced: EVAL-004 JSON and accepted KER client-core budget.
   - Stop/escalate condition: Suspend if startup dominates the budget or any implicit dependency/network path appears; optimize imports before changing the threshold.
@@ -2585,6 +2585,38 @@ implementation continues at P03.
 - ADR Updates: ADR-HLLM-015 now records explicit LiveView Req allowances/teardown, the exact two serial exceptions, and EVAL-003's accepted ten-seed result; no new ADR number or threshold relaxation was required.
 - Refactoring Assessment: Completed. Repeated authenticated setup now uses one ConnCase helper, Req ownership is configured once, the new widget fixture owns the structured-repair shape it needs, and the benchmark remains manifest/runner-owned.
 - Remaining Work: P03 through P07 remain pending; issue #32 remains open and tracks the remaining pure-JavaScript extraction, browser/service tiers, documentation/CI, release, deployment, merge, and certification work.
+
+### P03: Tested pure JavaScript core with thin production hooks
+
+- Phase Status: Done.
+- Completed Steps: P03.S01, P03.S02, P03.S03, P03.S04, P03.S05, P03.S06, and P03.S07.
+- Configuration Checkpoint:
+  - Branch: `feat/parallel-test-feedback-hierarchy`; P02 checkpoint commits `af46175` and `6892c5f`; P03 phase-boundary commit is recorded after this gate.
+  - Baseline SHA: `009629211632beed029374549938d1e322fcba04`.
+  - Current manifest SHA-256: `82fa6a792f45022125f8cdbe6008a3219dc84d709f2efb59f8d0b8d9275b46f5`.
+  - Client coverage uses stock Node 22's built-in runner; `frontend/assets/package.json` remains absent and no DOM emulator or package-install task was added.
+- Quantitative Results:
+  - EVAL-004 sample count: 30 warm samples, zero cold samples, all successful.
+  - Warm wall time p50/p95/max: `416 / 495 / 522 ms`; peak RSS p50/p95/max: `118.84 / 120.38 / 120.3984375 MiB`; CPU p95: `500 ms`; maximum reported coefficient of variation: `0.0972`.
+  - Failures: `0`; leaked-resource/cleanup errors: `0`; package-install count: `0`; network-attempt count: `0`.
+  - Accepted limits: warm p95 `495 ms <= 2000 ms`; maximum RSS `120.3984375 MiB <= 601.09 MiB` KER budget.
+  - Raw EVAL-004 evidence: `plans/evidence/harden-llm/client-core-eval.json`, SHA-256 `18d5145ab24007a32da0a67c8128756b02f787306ef94c0ddfc4291ce82d5885` (ignored).
+- Verification:
+  - RED then GREEN: `node --test frontend/assets/test/client_core.test.mjs` passed 7/7 table-driven cases covering search normalization/filtering, empty state, highlight wraparound, known/custom commit, escape/blur, submit shortcuts, and schema-pending presentation.
+  - RED then GREEN: `cd frontend && mix test test/harden_llm_web/boundary_test.exs` passed 6/6, requiring the production import, pure-module browser-effect absence, listener teardown, native bubbling change dispatch, and no JS package/emulator dependency; `mix assets.build` passed.
+  - `node --check frontend/assets/js/app.js`, `node --check frontend/assets/js/client_core.mjs`, `node scripts/verify-test-tiers.mjs`, `go test ./internal/testkit/... -count=1`, and `node scripts/run-test-tier.mjs --task client-core` passed.
+  - `PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH CHROME_BIN=/usr/bin/google-chrome make test-fast` passed with seven tasks and zero cleanup errors.
+  - `node scripts/benchmark-test-feedback.mjs --mode task --task client-core --warm-samples 30 --cold-samples 0 --compare ker/test-feedback/baseline.json --output plans/evidence/harden-llm/client-core-eval.json` passed with the accepted EVAL-004 result above.
+- Issues/Resolutions:
+  - P03.S01 and P03.S03 produced the planned RED failures before the module/import existed; the pure module and production import then made both contracts GREEN.
+  - The first attempt to follow the unqualified P03 benchmark command omitted `--mode task`; because the benchmark defaults to baseline mode, it started the expensive backend-verify-baseline/integration lane. The exact runner session was interrupted, its runner-owned scratch directory was removed, and it was excluded from evidence. The plan command was corrected to include `--mode task --cold-samples 0` before the accepted run.
+  - The production hook retains browser-owned DOM, listener, timer, focus, and LiveSocket effects; only deterministic decisions moved to `client_core.mjs`. No product semantics or browser assertions were weakened.
+- Failed Attempts: The expected RED Node/boundary tests, the accidental unqualified baseline benchmark invocation, and the root-directory Mix invocation that did not run because no `mix.exs` exists at the repository root. Only the final task-mode EVAL-004 artifact contributes evidence.
+- Deviations: P03.S06's written command was corrected before acceptance to make task mode and zero cold samples explicit; this changed execution selection only, not the threshold or test purpose. P03.S04 imported all named pure decisions into `app.js` while leaving Clipboard and SecretStager effect-only, as planned. Fidelity impact: none; browser effects remain un-emulated. Oracle impact: none. Concurrency impact: the client-core task is an independent T0 fast task. Production impact: one direct import of the tested module and adapter delegation. ADR disposition: within ADR-HLLM-015; no synthetic DOM or package dependency was introduced.
+- Lessons Learned: Benchmark adapters must make mode explicit when a selector is intended to run independently; default baseline mode is intentionally expensive. A small pure module can cover the hook decision matrix without pretending to cover native browser behavior.
+- ADR Updates: ADR-HLLM-015 now records TEST-046/051 and the accepted EVAL-004 budget; no new ADR number or threshold relaxation was required.
+- Refactoring Assessment: Completed. Search/filter, highlight, commit/revert, shortcut, and schema-pending decisions have one production implementation; `app.js` owns only browser effects and imports the module.
+- Remaining Work: P04 through P07 remain pending; issue #32 remains open and tracks the targeted Chromium canaries, service isolation, CI/release/deployed harness, deployment, merge, and certification work.
 
 For each phase, maintain this record:
 

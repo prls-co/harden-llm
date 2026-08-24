@@ -337,6 +337,34 @@ async function compareSeededEvaluation(evaluations, baseline, manifest) {
   };
 }
 
+async function compareClientCoreEvaluation(evaluations, baseline, manifest) {
+  const current = evaluations["client-core:warm"];
+  const task = manifest.tasks.find((candidate) => candidate.id === "client-core");
+  if (!current || !task) return { accepted: false, reason: "client-core comparison requires its warm evaluation and manifest task" };
+
+  let packageManifestPresent = true;
+  try {
+    await fs.access(path.join(REPOSITORY_ROOT, "frontend", "assets", "package.json"));
+  } catch {
+    packageManifestPresent = false;
+  }
+  const rssLimit = baseline.acceptedBudgets?.["fast-candidates:warm"]?.peakRssMiBMax ?? null;
+  const checks = {
+    successfulWarmSampleCount: current.sampleCount === 30 && current.failureCount === 0,
+    warmP95WithinTwoSeconds: current.wallTimeMs.p95 <= 2000,
+    peakRSSWithinKER: rssLimit !== null && current.peakRssMiB.max <= rssLimit,
+    zeroLeaks: current.leakedResourceCount === 0,
+    zeroPackageInstallCount: !packageManifestPresent && !task.command.some((part) => /^(npm|pnpm|yarn|bun)$/.test(part)),
+    zeroNetworkAttemptCount: task.network === "forbidden" && (task.credentialKeys ?? []).length === 0,
+  };
+  return {
+    accepted: Object.values(checks).every(Boolean),
+    reference: { warmP95WallTimeMsMax: 2000, acceptedPeakRssMiBMax: rssLimit },
+    current: { sampleCount: current.sampleCount, p95WallTimeMs: current.wallTimeMs.p95, peakRssMiBMax: current.peakRssMiB.max },
+    checks,
+  };
+}
+
 async function verifyBaseline(filePath) {
   const baseline = await loadJSON(path.resolve(REPOSITORY_ROOT, filePath));
   const required = ["schemaVersion", "documentId", "kerId", "hostFingerprint", "executionStatus", "evaluations", "acceptedEvaluationFields"];
@@ -396,6 +424,8 @@ export async function main(argv = process.argv.slice(2)) {
     const comparison = await loadJSON(path.resolve(REPOSITORY_ROOT, args.compare));
     result.comparison = args.mode === "task" && args.task === "fast"
       ? compareTaskEvaluation(evaluations, comparison)
+      : args.mode === "task" && args.task === "client-core"
+        ? await compareClientCoreEvaluation(evaluations, comparison, manifest)
       : args.mode === "task" && selectedTasks.some((task) => task.seedEachSample)
         ? await compareSeededEvaluation(evaluations, comparison, manifest)
         : { accepted: true, reason: "comparison recorded without a task budget" };
