@@ -57,11 +57,12 @@ func TestReleaseTaskComposition(t *testing.T) {
 
 	var manifest struct {
 		Tasks []struct {
-			ID          string   `json:"id"`
-			Tier        string   `json:"tier"`
-			Resource    string   `json:"resourceClass"`
-			RequiredFor []string `json:"requiredFor"`
-			Network     string   `json:"network"`
+			ID          string          `json:"id"`
+			Tier        string          `json:"tier"`
+			Resource    string          `json:"resourceClass"`
+			RequiredFor []string        `json:"requiredFor"`
+			Network     string          `json:"network"`
+			Container   json.RawMessage `json:"container"`
 		} `json:"tasks"`
 	}
 	if err := json.Unmarshal(readFile(t, filepath.Join(root, "test", "test-tiers.json")), &manifest); err != nil {
@@ -94,6 +95,19 @@ func TestReleaseTaskComposition(t *testing.T) {
 		}
 		if task.Network == "public" {
 			t.Errorf("release selection includes public-network task %q; live is a separate selector", task.ID)
+		}
+		if task.ID == "frontend-compose" {
+			var container map[string]any
+			if err := json.Unmarshal(task.Container, &container); err != nil {
+				t.Errorf("frontend-compose container is not valid JSON: %v", err)
+				continue
+			}
+			if container["image"] != "harden-llm-browser-test:local" {
+				t.Errorf("frontend-compose container image = %v", container["image"])
+			}
+			if container["dockerSocket"] != true || container["mountAtHostPath"] != true {
+				t.Errorf("frontend-compose container must use the Docker socket and host-path mount: %v", container)
+			}
 		}
 	}
 }

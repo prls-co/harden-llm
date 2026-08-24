@@ -17,7 +17,7 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
 
   alias Wallaby.Query
 
-  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-012
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-012 TEST-055
 
   setup do
     root = Path.expand("../../..", __DIR__)
@@ -78,6 +78,7 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
       |> click(Query.css("#new-profile"))
       |> fill_in(Query.text_field("Profile name"), with: "Smoke")
       |> fill_in(Query.text_field("Provider family"), with: "openai")
+      |> choose_option("#profile_apiInferenceType", "responses")
       |> fill_in(Query.text_field("Default model"), with: "smoke-model")
       |> fill_in(Query.fillable_field("HTTPS base URL"), with: "https://fake-provider:8443/v1")
       |> fill_in(Query.text_field("Credential ID"), with: "compose-smoke-provider")

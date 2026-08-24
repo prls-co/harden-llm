@@ -386,7 +386,10 @@ function resolvedCommand(task, options) {
   for (const [key, value] of Object.entries(containerEnvironment)) args.push("-e", `${key}=${value}`);
   if (task.container.shmSize) args.push("--shm-size", task.container.shmSize);
   if (task.container.dockerSocket) args.push("-v", "/var/run/docker.sock:/var/run/docker.sock");
-  args.push("--cidfile", containerIDPath, "-v", `${options.root}:/workspace`, "-w", `/workspace/${task.workingDirectory ?? "."}`, task.container.image, "sh", "-lc", `${bootstrap}${commandText}`);
+  // A login shell rewrites PATH from the image's profile and can hide pinned
+  // tools such as the copied Go binary. Keep the image environment intact.
+  const mountPath = task.container.mountAtHostPath ? options.root : "/workspace";
+  args.push("--cidfile", containerIDPath, "-v", `${options.root}:${mountPath}`, "-w", path.join(mountPath, task.workingDirectory ?? "."), task.container.image, "sh", "-c", `${bootstrap}${commandText}`);
   return {
     executable: "docker",
     args,

@@ -151,7 +151,7 @@ func TestTestTierPolicy(t *testing.T) {
 
 	runnerPath := filepath.Join(root, "scripts", "run-test-tier.mjs")
 	runner := string(readFile(t, runnerPath))
-	for _, primitive := range []string{"HARDEN_LLM_TEST_OFFLINE", "HARDEN_LLM_TEST_NETWORK", "SIGTERM", "SIGKILL", "container.id", "truncatedOutputBytes"} {
+	for _, primitive := range []string{"HARDEN_LLM_TEST_OFFLINE", "HARDEN_LLM_TEST_NETWORK", "SIGTERM", "SIGKILL", "container.id", "truncatedOutputBytes", `"sh", "-c"`} {
 		if !strings.Contains(runner, primitive) {
 			t.Errorf("canonical runner is missing required policy primitive %q", primitive)
 		}

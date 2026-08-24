@@ -399,7 +399,8 @@
         "network": "host",
         "dockerSocket": true,
         "bootstrap": true,
-        "shmSize": "2g"
+        "shmSize": "2g",
+        "mountAtHostPath": true
       },
       "dependsOn": [],
       "timeoutMs": 1800000,
