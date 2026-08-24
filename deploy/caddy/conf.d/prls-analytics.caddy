@@ -1,0 +1,16 @@
+analytics.prls.co {
+	tls {$HARDEN_LLM_TLS_MODE}
+	import security_headers
+	header Content-Security-Policy "default-src 'self'; frame-ancestors 'none'; base-uri 'self'"
+	header X-Frame-Options "DENY"
+	request_body {
+		max_size 16MB
+	}
+	reverse_proxy analytics-gateway:8080
+}
+
+admin-aiknowledge.prls.co {
+	tls {$HARDEN_LLM_TLS_MODE}
+	import security_headers
+	redir https://analytics.prls.co/dataset-reach 308
+}
