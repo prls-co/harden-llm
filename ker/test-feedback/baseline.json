@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "documentId": "PLAN-HARDEN-LLM-TEST-FEEDBACK-002",
+  "kerId": "KER-HLLM-TEST-FEEDBACK-001",
+  "hostFingerprint": {
+    "os": "linux-7.0.0-28-generic-x86_64",
+    "physicalCpuCount": 6,
+    "logicalCpuCount": 12,
+    "memoryMiB": 31229,
+    "goVersion": "go version go1.26.6 linux/amd64",
+    "nodeVersion": "v22.22.1",
+    "dockerVersion": "29.1.3",
+    "composeVersion": "2.40.3+ds1-0ubuntu1"
+  },
+  "executionStatus": "measured",
+  "reference": {
+    "command": "CHROME_BIN=/usr/bin/google-chrome PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH node scripts/benchmark-test-feedback.mjs --mode baseline --warm-samples 5 --cold-samples 3 --seeds 104729,130363,155921 --output plans/evidence/harden-llm/ptf-20260823/test-feedback-baseline.json",
+    "evidencePath": "plans/evidence/harden-llm/ptf-20260823/test-feedback-baseline.json",
+    "rawEvidenceSha256": "c1ef33761d68d2b08415b9bd5b67f2f1b42794a76c1151f86b5083bede17f616",
+    "manifestSha256": "a88a84d65a97725d5da5c827fb952c131098b5fb2cb920de00f4579a9f69b663",
+    "warmSamples": 5,
+    "coldSamples": 3,
+    "seeds": [104729, 130363, 155921],
+    "maxCoefficientOfVariation": 0.2
+  },
+  "evaluations": {
+    "fast-candidates:cold": {
+      "accepted": true,
+      "sampleCount": 3,
+      "wallTimeMs": {"p50": 22453, "p95": 23075, "max": 23075, "coefficientOfVariation": 0.0207},
+      "peakRssMiB": {"p50": 426.21, "p95": 426.29, "max": 426.28515625, "coefficientOfVariation": 0.0005},
+      "cpuMs": {"p50": 65310, "p95": 65780, "max": 65780, "coefficientOfVariation": 0.0109},
+      "failureCount": 0,
+      "leakedResourceCount": 0,
+      "rawEvidenceSha256": "c1ef33761d68d2b08415b9bd5b67f2f1b42794a76c1151f86b5083bede17f616"
+    },
+    "integration:cold": {
+      "accepted": true,
+      "sampleCount": 3,
+      "wallTimeMs": {"p50": 72065, "p95": 72755, "max": 72755, "coefficientOfVariation": 0.0088},
+      "peakRssMiB": {"p50": 427.08, "p95": 427.89, "max": 427.890625, "coefficientOfVariation": 0.0014},
+      "cpuMs": {"p50": 15290, "p95": 16040, "max": 16040, "coefficientOfVariation": 0.036},
+      "failureCount": 0,
+      "leakedResourceCount": 0,
+      "rawEvidenceSha256": "c1ef33761d68d2b08415b9bd5b67f2f1b42794a76c1151f86b5083bede17f616"
+    },
+    "browser:cold": {
+      "accepted": true,
+      "sampleCount": 3,
+      "wallTimeMs": {"p50": 165081, "p95": 165721, "max": 165721, "coefficientOfVariation": 0.0046},
+      "peakRssMiB": {"p50": 547.54, "p95": 559.3, "max": 559.296875, "coefficientOfVariation": 0.0125},
+      "cpuMs": {"p50": 96253.39, "p95": 97040.11, "max": 97040.11, "coefficientOfVariation": 0.0131},
+      "failureCount": 0,
+      "leakedResourceCount": 0,
+      "rawEvidenceSha256": "c1ef33761d68d2b08415b9bd5b67f2f1b42794a76c1151f86b5083bede17f616"
+    },
+    "full-system:cold": {
+      "accepted": true,
+      "sampleCount": 3,
+      "wallTimeMs": {"p50": 234478, "p95": 236425, "max": 236425, "coefficientOfVariation": 0.0108},
+      "peakRssMiB": {"p50": 1231.79, "p95": 1272.27, "max": 1272.2734375, "coefficientOfVariation": 0.0203},
+      "cpuMs": {"p50": 123290, "p95": 125470, "max": 125470, "coefficientOfVariation": 0.0205},
+      "failureCount": 0,
+      "leakedResourceCount": 0,
+      "rawEvidenceSha256": "c1ef33761d68d2b08415b9bd5b67f2f1b42794a76c1151f86b5083bede17f616"
+    },
+    "fast-candidates:warm": {
+      "accepted": true,
+      "sampleCount": 5,
+      "wallTimeMs": {"p50": 24217, "p95": 25619, "max": 25619, "coefficientOfVariation": 0.0562},
+      "peakRssMiB": {"p50": 426.78, "p95": 480.87, "max": 480.87109375, "coefficientOfVariation": 0.0499},
+      "cpuMs": {"p50": 68470, "p95": 71490, "max": 71490, "coefficientOfVariation": 0.0392},
+      "failureCount": 0,
+      "leakedResourceCount": 0,
+      "rawEvidenceSha256": "c1ef33761d68d2b08415b9bd5b67f2f1b42794a76c1151f86b5083bede17f616"
+    },
+    "integration:warm": {
+      "accepted": true,
+      "sampleCount": 5,
+      "wallTimeMs": {"p50": 74280, "p95": 79048, "max": 79048, "coefficientOfVariation": 0.0308},
+      "peakRssMiB": {"p50": 428.03, "p95": 459.73, "max": 459.73046875, "coefficientOfVariation": 0.0302},
+      "cpuMs": {"p50": 16380, "p95": 17140, "max": 17140, "coefficientOfVariation": 0.0441},
+      "failureCount": 0,
+      "leakedResourceCount": 0,
+      "rawEvidenceSha256": "c1ef33761d68d2b08415b9bd5b67f2f1b42794a76c1151f86b5083bede17f616"
+    },
+    "browser:warm": {
+      "accepted": true,
+      "sampleCount": 5,
+      "wallTimeMs": {"p50": 165630, "p95": 172929, "max": 172929, "coefficientOfVariation": 0.0178},
+      "peakRssMiB": {"p50": 650.04, "p95": 831.14, "max": 831.140625, "coefficientOfVariation": 0.1604},
+      "cpuMs": {"p50": 97685.04, "p95": 108177.78, "max": 108177.78, "coefficientOfVariation": 0.0432},
+      "failureCount": 0,
+      "leakedResourceCount": 0,
+      "rawEvidenceSha256": "c1ef33761d68d2b08415b9bd5b67f2f1b42794a76c1151f86b5083bede17f616"
+    },
+    "full-system:warm": {
+      "accepted": true,
+      "sampleCount": 5,
+      "wallTimeMs": {"p50": 242226, "p95": 249365, "max": 249365, "coefficientOfVariation": 0.0162},
+      "peakRssMiB": {"p50": 1206.77, "p95": 1220.98, "max": 1220.98046875, "coefficientOfVariation": 0.0388},
+      "cpuMs": {"p50": 129740, "p95": 130790, "max": 130790, "coefficientOfVariation": 0.0195},
+      "failureCount": 0,
+      "leakedResourceCount": 0,
+      "rawEvidenceSha256": "c1ef33761d68d2b08415b9bd5b67f2f1b42794a76c1151f86b5083bede17f616"
+    }
+  },
+  "acceptedBudgets": {
+    "fast-candidates:warm": {"wallTimeMsP95": 32024, "peakRssMiBMax": 601.09, "cpuMsP95": 89363},
+    "integration:warm": {"wallTimeMsP95": 98810, "peakRssMiBMax": 574.67, "cpuMsP95": 21425},
+    "browser:warm": {"wallTimeMsP95": 216162, "peakRssMiBMax": 1038.93, "cpuMsP95": 135222.23},
+    "full-system:warm": {"wallTimeMsP95": 311707, "peakRssMiBMax": 1526.23, "cpuMsP95": 163488}
+  },
+  "acceptedEvaluationFields": [
+    "accepted",
+    "sampleCount",
+    "wallTimeMs.p50",
+    "wallTimeMs.p95",
+    "wallTimeMs.max",
+    "peakRssMiB.max",
+    "failureCount",
+    "leakedResourceCount",
+    "rawEvidenceSha256"
+  ]
+}

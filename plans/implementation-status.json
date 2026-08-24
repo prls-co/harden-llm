@@ -263,5 +263,59 @@
         "routeShell": "ProfileWidgetComponent is the current reusable in-flow widget; Layouts.app remains an adapter shell and authenticated /embed/llm demonstrates two independently routed host instances"
       }
     }
+  },
+  "testFeedbackHierarchy": {
+    "documentId": "PLAN-HARDEN-LLM-TEST-FEEDBACK-002",
+    "baselineSHA": "009629211632beed029374549938d1e322fcba04",
+    "adr": "ADR-HLLM-015",
+    "ker": "KER-HLLM-TEST-FEEDBACK-001",
+    "status": "P00-complete",
+    "currentPhase": "P01",
+    "completedPhases": ["P00"],
+    "evaluations": {
+      "EVAL-001": {
+        "accepted": true,
+        "sampleCount": 32,
+        "warmSamples": 5,
+        "coldSamples": 3,
+        "failureCount": 0,
+        "leakedResourceCount": 0,
+        "rawEvidencePath": "plans/evidence/harden-llm/ptf-20260823/test-feedback-baseline.json",
+        "rawEvidenceSha256": "c1ef33761d68d2b08415b9bd5b67f2f1b42794a76c1151f86b5083bede17f616",
+        "manifestSha256": "a88a84d65a97725d5da5c827fb952c131098b5fb2cb920de00f4579a9f69b663",
+        "maxCoefficientOfVariation": 0.1604,
+        "warmP95WallTimeMs": {
+          "fast-candidates": 25619,
+          "integration": 79048,
+          "browser": 172929,
+          "full-system": 249365
+        },
+        "warmPeakRssMiBMax": {
+          "fast-candidates": 480.87109375,
+          "integration": 459.73046875,
+          "browser": 831.140625,
+          "full-system": 1220.98046875
+        },
+        "warmCpuMsP95": {
+          "fast-candidates": 71490,
+          "integration": 17140,
+          "browser": 108177.78,
+          "full-system": 130790
+        }
+      }
+    },
+    "applicationRelease": null,
+    "issue": {
+      "number": 32,
+      "url": "https://github.com/prls-co/harden-llm/issues/32",
+      "state": "OPEN"
+    },
+    "noRefactorNeeded": true,
+    "notes": [
+      "The hierarchy is additive and does not rewrite the completed self-hosted plan or phases.",
+      "P00.S04 first green 32-sample run was not accepted because the harness grouped task p50 wall time, omitted grouped CPU, and measured Docker client CPU for browser containers; the benchmark was corrected and the unchanged task observations were deterministically re-aggregated.",
+      "A pre-reference browser smoke failed with the default container shared-memory limit; the runner now uses the pinned browser image with --shm-size 2g. No accepted sample failed.",
+      "The initial KER is measured only on the recorded Linux/Go/Node/Docker/Compose fingerprint; no synthetic DOM dependency is accepted in the initial implementation."
+    ]
   }
 }
