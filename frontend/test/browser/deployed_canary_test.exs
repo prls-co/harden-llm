@@ -11,7 +11,9 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       assert_no_horizontal_overflow: 1,
       commit_combobox: 3,
       javascript_value: 2,
-      javascript_value: 3
+      javascript_value: 3,
+      open_fold: 3,
+      open_ui_fold: 3
     ]
 
   alias Wallaby.Query
@@ -48,20 +50,13 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       |> assert_no_horizontal_overflow()
       |> commit_combobox("#run_selectedProfileId", "CPA GPT-5.6 Luna")
       |> assert_field_value("#run_selectedProfileId", "CPA GPT-5.6 Luna")
-      |> click(Query.css("#model-config-toggle"))
-      |> assert_has(Query.css("#profile-config-fields"))
-      |> click(Query.css("#profile-options-toggle"))
-      |> assert_has(Query.css("#profile-options"))
-      |> click(Query.css("#profile-retry-toggle"))
-      |> assert_has(Query.css("#profile-retry-repair"))
-      |> click(Query.css("#profile-escalation-config-toggle"))
-      |> assert_has(Query.css("#profile-escalation-config"))
-      |> click(Query.css("#escalation-options-toggle"))
-      |> assert_has(Query.css("#escalation-options"))
-      |> click(Query.css("#profile-pricing-toggle"))
-      |> assert_has(Query.css("#profile-pricing"))
-      |> click(Query.css("#input-advanced-toggle"))
-      |> assert_has(Query.css("#advanced-input"))
+      |> open_ui_fold("#model-config-toggle", "#profile-config-fields")
+      |> open_fold("#profile-options-toggle", "#profile-options")
+      |> open_fold("#profile-retry-toggle", "#profile-retry-repair")
+      |> open_fold("#profile-escalation-config-toggle", "#profile-escalation-config")
+      |> open_fold("#escalation-options-toggle", "#escalation-options")
+      |> open_fold("#profile-pricing-toggle", "#profile-pricing")
+      |> open_ui_fold("#input-advanced-toggle", "#advanced-input:not(.hidden)")
       |> fill_in(Query.css("#run_userPrompt"), with: prompt)
       |> click(Query.css("#run-submit"))
       |> assert_has(Query.css("#run-output"))
@@ -76,13 +71,12 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
 
     session =
       session
-      |> click(Query.css("#output-details-toggle"))
+      |> open_ui_fold("#output-details-toggle", "#output-details")
       |> click(Query.css("#show-run-request"))
       |> assert_has(Query.css("#run-request"))
       |> click(Query.css("#show-run-response"))
       |> assert_has(Query.css("#run-response"))
-      |> click(Query.css("#history-fold-toggle"))
-      |> assert_has(Query.css("#workspace-history"))
+      |> open_ui_fold("#history-fold-toggle", "#workspace-history")
 
     run_id =
       javascript_value(

@@ -133,7 +133,7 @@ func TestTestFeedbackTraceability(t *testing.T) {
 	}
 
 	launcher := string(readFile(t, filepath.Join(root, "scripts", "run-deployed-browser-test.mjs")))
-	assertContains("scripts/run-deployed-browser-test.mjs", "deploy/langfuse/docker-compose.upstream.yml", "HARDEN_LLM_EXPECTED_RELEASE", "HARDEN_LLM_COMPOSE_ENV_FILE", "--env-file", "HARDEN_LLM_RELEASE = expectedRelease", ".env", "HARDEN_LLM_LOCAL_OPERATOR_EMAIL", "HARDEN_LLM_LOCAL_OPERATOR_PASSWORD", "HARDEN_LLM_WEB_HOST", "HARDEN_LLM_API_HOST", "main().then((exitCode)", "process.exitCode = exitCode")
+	assertContains("scripts/run-deployed-browser-test.mjs", "deploy/langfuse/docker-compose.upstream.yml", "HARDEN_LLM_EXPECTED_RELEASE", "HARDEN_LLM_COMPOSE_ENV_FILE", "--env-file", "HARDEN_LLM_RELEASE = expectedRelease", ".env", "HARDEN_LLM_LOCAL_OPERATOR_EMAIL", "HARDEN_LLM_LOCAL_OPERATOR_PASSWORD", "HARDEN_LLM_WEB_HOST", "HARDEN_LLM_API_HOST", "mix local.hex --force", "mix local.rebar --force", "mix deps.get", "main().then((exitCode)", "process.exitCode = exitCode")
 	if strings.Contains(launcher, "console.log(process.env") || strings.Contains(launcher, "JSON.stringify(process.env") {
 		t.Error("deployed launcher exposes the process environment")
 	}
