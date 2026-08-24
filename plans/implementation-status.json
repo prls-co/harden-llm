@@ -513,16 +513,31 @@
       }
     },
     "applicationRelease": {
-      "applicationBearingSHA": "761f5f76d0262ca29973fda2ca3d5214dfa920c0",
-      "sourceMainSHA": "40083fd980a4c88c344dfa884c90a2edbbcc7111",
-      "frontendRelease": "761f5f76d0262ca29973fda2ca3d5214dfa920c0",
-      "frontendImageDigest": "sha256:982d82e91eb2a89ea7c033457eb9297168529bb998786ecf5e17e68bf7188366",
-      "frontendContainerId": "1cd12739e02c",
-      "gatewayRelease": "761f5f76d0262ca29973fda2ca3d5214dfa920c0",
-      "gatewayImageDigest": "sha256:110a136efd631d5f4f6af3cb92e5dd16bb7a61641b2a6812bb56d6c896d8dd83",
-      "gatewayContainerId": "142855d29b0b",
+      "applicationBearingSHA": "5b830904e7d7a2e7a0a8d7d271969e10c38397a1",
+      "sourceMainSHA": "5b830904e7d7a2e7a0a8d7d271969e10c38397a1",
+      "frontendRelease": "5b830904e7d7a2e7a0a8d7d271969e10c38397a1",
+      "frontendImageDigest": "sha256:f6879e443e85d5243f563e8398d6a0883bbebcde4924f464213cf8bb41f3b2e3",
+      "frontendContainerId": "98c00d5b6dc0",
+      "gatewayRelease": "5b830904e7d7a2e7a0a8d7d271969e10c38397a1",
+      "gatewayImageDigest": "sha256:4706a01d669801176ec95a217331d483b4d606eadb9ab871f55e3c3dd79d0aef",
+      "gatewayContainerId": "18a56b568e5d",
       "project": "harden-llm",
       "environmentFileRole": "production Compose env file supplied with --env-file"
+    },
+    "latestProductionCertification": {
+      "mergedMainSHA": "5b830904e7d7a2e7a0a8d7d271969e10c38397a1",
+      "mergedThroughPR": 40,
+      "duplicatePRClosed": 41,
+      "releaseTier": "make test-release accepted 25 tasks with zero failures and zero cleanup errors",
+      "composeSmoke": "make test-compose passed in 285.042s",
+      "test056": {
+        "accepted": true,
+        "expectedRelease": "5b830904e7d7a2e7a0a8d7d271969e10c38397a1",
+        "identityHealth": "healthy",
+        "probes": {"webHealthz": 200, "login": 200, "apiHealthz": 200, "apiReadyz": 200},
+        "authenticatedCanary": "passed with existing operator credentials; smoke history cleanup asserted",
+        "cleanup": "browser container and generated frontend scratch removed"
+      }
     },
     "deploymentCertification": {
       "implementationPRs": [33, 34, 35, 36, 37],
@@ -583,7 +598,8 @@
       "P07 found and corrected a real deployed-canary timing/state defect: persisted LiveView fold state and asynchronous UI-state saves could disable the next fold. TEST-056 now waits for enabled controls, opens only when collapsed, and asserts the visible body without changing the oracle.",
       "P07 deployment identity intentionally distinguishes application-bearing release 761f5f76 from later test/docs-only merges 23538c2 and 40083fd; no later application image input changed.",
       "P07 initial deployment used an unsafe shell source for JSON environment values and produced a healthy-configuration failure; recovery used Compose --env-file, preserved named volumes, and passed health, public probes, and TEST-056.",
-      "P07 cleanup removed root-owned browser scratch artifacts and the exact exited stale otel-collector-state-init-1 orphan; no task-owned test container or volume remained."
+      "P07 cleanup removed root-owned browser scratch artifacts and the exact exited stale otel-collector-state-init-1 orphan; no task-owned test container or volume remained.",
+      "Post-P07 observability deployment merged through PR #40 as 5b830904e7d7a2e7a0a8d7d271969e10c38397a1 and was certified with the latestProductionCertification record; PR #41 was closed as a duplicate after an identical-tree check."
     ]
   }
 }

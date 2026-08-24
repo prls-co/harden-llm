@@ -13,7 +13,9 @@ release, the P07.S17 hosted-run validation correction, and the P07.S18
 multi-instance embedding implementation completed on 2026-08-23.
 The resource-aware parallel test-feedback hierarchy then completed P07 merge,
 deployment, and certification on 2026-08-24; its application-bearing release
-is recorded separately from later launcher/test and documentation commits.
+is recorded separately from later launcher/test and documentation commits. The
+shared PRLS observability routing was then merged through PR `#40` and deployed
+as release `5b830904e7d7a2e7a0a8d7d271969e10c38397a1` on 2026-08-24.
 Detailed command output belongs under ignored
 `plans/evidence/harden-llm/<run-id>/`; secrets and live provider output never do.
 
@@ -55,7 +57,7 @@ merged identity, deployment, and TEST-056 public certification.
 | Source package | `@prls-co/utility-llm` `0.14.6` |
 | Current frontend parity source | `utility-llm` `5c0309e` / `0.15.0` |
 | Current profile catalog source | `examples/react-trace-studio/llm-profile-catalog.json` at `utility-llm` `5c0309e2508dc5b7a87d0880c8d794123353c5b0`; SHA-256 `864552eb5e8bf63de590704ef65c2e45ad228e7cc15d4af048609e680348b2f9` |
-| Current merged release | PR `#28` / `34eb380` (multi-instance embedding follow-up to PR `#26` / `b3a50ce`) |
+| Current merged release | PR `#40` / `5b830904e7d7a2e7a0a8d7d271969e10c38397a1` (shared PRLS observability routing) |
 | Security dependency remediation | `github.com/getkin/kin-openapi` `v0.144.0` |
 | Parity manifest SHA-256 | `973f138211910fbe58deca867d1569adf2b9660b53e1441a3607570e1f2c98a6` |
 | Langfuse release / commit | `v3.212.0` / `3a572984276dd2dc2f8f77f1b2aadb799aa17fdf` |
@@ -175,7 +177,7 @@ next dependency-graph refresh, not an unpatched dependency in the release.
 
 | Surface | Production value |
 | --- | --- |
-| Release | frontend and gateway `b3a50ce` |
+| Release | frontend and gateway `5b830904e7d7a2e7a0a8d7d271969e10c38397a1` |
 | Frontend | `https://harden-llm.prls.co` |
 | API gateway | `https://harden-llm-api.prls.co` |
 | Artifact endpoint | `https://harden-llm-artifacts.prls.co` |
@@ -563,3 +565,48 @@ or volumes were lost. The deployment was recovered with Compose's native
 `--env-file` parser, and the recovered stack plus TEST-056 passed. No DNS,
 provider policy, API contract, retry/timeout budget, or test threshold was
 changed.
+
+## Shared PRLS observability deployment (2026-08-24)
+
+While the observability branch was being prepared, PR `#40` merged the exact
+same repository tree into `main` as
+`5b830904e7d7a2e7a0a8d7d271969e10c38397a1`. The pending PR `#41` was therefore
+closed as a duplicate after verifying that its tree and `origin/main` were
+identical; no duplicate merge or review gate was required. The only surfaced
+working-tree correction was the explicit `masked-recall-api.prls.co` proxy
+target for the shared production container. Its deployment-test oracle now
+requires that target exactly.
+
+Final local validation on the merged tree:
+
+- The deterministic backend verification passed, including Loki schema
+  validation, Go tests, parity, integration and race tiers, API and
+  observability tests, and vulnerability scanning.
+- `make test-compose` passed in `285.042s` on the merged observability tree.
+- `make test-release` accepted all 25 selected tasks with zero failures and
+  zero cleanup errors. The release graph included the final backend
+  verification and both Compose browser checks.
+- A first release attempt stopped before tests because the clean checkout had
+  no fetched Phoenix dependencies; the lockfile dependencies were fetched
+  with Hex/Rebar and the unchanged release command was rerun. One transient
+  frontend recovery assertion was reproduced and passed on a targeted rerun;
+  no assertion or resource threshold was weakened.
+
+The production Compose project was rebuilt with release
+`5b830904e7d7a2e7a0a8d7d271969e10c38397a1`, using Compose-native environment
+files and retaining all named volumes. The application images are:
+
+| Surface | Certified value |
+| --- | --- |
+| Frontend | release `5b830904e7d7a2e7a0a8d7d271969e10c38397a1`; container `98c00d5b6dc0`; image `sha256:f6879e443e85d5243f563e8398d6a0883bbebcde4924f464213cf8bb41f3b2e3`; healthy |
+| Gateway | release `5b830904e7d7a2e7a0a8d7d271969e10c38397a1`; container `18a56b568e5d`; image `sha256:4706a01d669801176ec95a217331d483b4d606eadb9ab871f55e3c3dd79d0aef`; healthy |
+| Public probes | three samples each: frontend `/healthz`, frontend `/login`, API `/healthz`, and API `/readyz`; every response HTTP 200 |
+| TEST-056 | accepted deployed canary; release identity matched, authenticated browser workflow passed, and nonce history cleanup was asserted |
+| Ingress | Caddy configuration validated; the shared masked-recall target resolved on `prls-observability` and its unauthenticated protected endpoint returned HTTP 401 |
+| Cleanup | task browser containers and volumes absent; exact exited `harden-llm-otel-collector-state-init-1` one-shot container removed; generated frontend scratch removed |
+
+The canary used the existing operator credentials from the retained host
+configuration. No credential, provider output, or live diagnostic payload was
+written to Git. No new ADR or KER was needed: the change preserves the
+accepted single-host topology, API ownership, test hierarchy, provider policy,
+and timeout/retry budgets.
