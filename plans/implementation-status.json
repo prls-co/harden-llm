@@ -527,6 +527,7 @@
     "deploymentCertification": {
       "implementationPRs": [33, 34, 35, 36, 37],
       "latestMergedMainSHA": "40083fd980a4c88c344dfa884c90a2edbbcc7111",
+      "finalMainSHA": "62b9b2386346fd3eaba7f0784aa1f19f42418e",
       "hostedFullRun": "32716112245",
       "hostedFullRunJobs": {
         "fast": "success in 3m01s",
