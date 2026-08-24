@@ -14,14 +14,20 @@ config :harden_llm, :browser_session,
 config :harden_llm, :harden_api_req_options, plug: {Req.Test, HardenLlmWeb.HardenAPI}
 
 config :wallaby,
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 TEST-056
   otp_app: :harden_llm,
   driver: Wallaby.Chrome,
   chromedriver: [
-    binary: System.get_env("CHROME_BIN"),
+    binary:
+      System.get_env("CHROME_BIN") ||
+        System.find_executable("google-chrome") ||
+        System.find_executable("chromium-browser") ||
+        System.find_executable("chromium") ||
+        "/usr/bin/chromium-browser",
     path: System.get_env("CHROMEDRIVER_BIN", "chromedriver")
   ],
   max_wait_time: 15_000,
-  screenshot_on_failure: true,
+  screenshot_on_failure: System.get_env("HARDEN_LLM_DEPLOYED_NO_SCREENSHOTS") != "1",
   screenshot_dir: "tmp/wallaby"
 
 # Print only warnings and errors during test

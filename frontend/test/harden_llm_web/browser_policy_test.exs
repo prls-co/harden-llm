@@ -1,7 +1,7 @@
 defmodule HardenLlmWeb.BrowserPolicyTest do
   use ExUnit.Case, async: true
 
-  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-047 TEST-052
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-047 TEST-052 TEST-056
 
   @repo_root Path.expand("../../..", __DIR__)
   @browser_root Path.join(@repo_root, "frontend/test/browser")
@@ -13,7 +13,7 @@ defmodule HardenLlmWeb.BrowserPolicyTest do
 
   test "ordinary browser coverage is exactly two focused serialized canaries" do
     browser_files = Path.wildcard(Path.join(@browser_root, "*_test.exs"))
-    ordinary_files = Enum.reject(browser_files, &compose_file?/1)
+    ordinary_files = Enum.reject(browser_files, &non_ordinary_file?/1)
     ordinary_names = Enum.map(ordinary_files, &Path.basename/1) |> Enum.sort()
 
     assert ordinary_names == Enum.sort(@ordinary_files),
@@ -60,5 +60,7 @@ defmodule HardenLlmWeb.BrowserPolicyTest do
     refute "frontend/test/browser/compose_smoke_test.exs" in task["pathSelectors"]
   end
 
-  defp compose_file?(path), do: Path.basename(path) == "compose_smoke_test.exs"
+  defp non_ordinary_file?(path) do
+    Path.basename(path) in ["compose_smoke_test.exs", "deployed_canary_test.exs"]
+  end
 end

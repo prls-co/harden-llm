@@ -1376,7 +1376,7 @@ Plan-and-Solve subtasks:
   - Requirement link: REQ-001, REQ-012, REQ-013, REQ-015, REQ-016, REQ-017.
   - Verification link: TEST-055, EVAL-007.
   - Verification mode: MEASURE.
-  - Command/procedure: `node scripts/benchmark-test-feedback.mjs --task release --warm-samples 1 --compare ker/test-feedback/baseline.json --output plans/evidence/harden-llm/release-candidate-eval.json`.
+  - Command/procedure: `node scripts/benchmark-test-feedback.mjs --mode task --task release --warm-samples 1 --cold-samples 0 --compare ker/test-feedback/baseline.json --output plans/evidence/harden-llm/release-candidate-eval.json`.
   - Expected result: Every selected task passes at its resource cap; no race/vulnerability/audit failure occurs; browser/Compose work is bounded; all transient resources are removed.
   - Evidence produced: TEST-055 task graph, EVAL-007 result, per-task metrics, and cleanup summary.
   - Stop/escalate condition: Suspend on any failure, budget breach, leak, or stale generated artifact; fix the causal issue and rerun the smallest failing tier before repeating release.

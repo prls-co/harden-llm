@@ -403,6 +403,29 @@
       "pathSelectors": ["frontend/test/browser/compose_smoke_test.exs", "deploy/test/**"]
     },
     {
+      "id": "frontend-deployed",
+      "testIds": ["TEST-056"],
+      "tier": "T5",
+      "resourceClass": "live",
+      "command": ["node", "scripts/run-deployed-browser-test.mjs"],
+      "dependsOn": [],
+      "timeoutMs": 600000,
+      "cleanupOwner": "deployed-canary",
+      "network": "public",
+      "credentialKeys": [
+        "HARDEN_LLM_LOCAL_OPERATOR_EMAIL",
+        "HARDEN_LLM_LOCAL_OPERATOR_PASSWORD",
+        "HARDEN_LLM_WEB_HOST",
+        "HARDEN_LLM_API_HOST"
+      ],
+      "requiredFor": ["deployed"],
+      "pathSelectors": [
+        "frontend/test/browser/deployed_canary_test.exs",
+        "frontend/test/test_helper.exs",
+        "scripts/run-deployed-browser-test.mjs"
+      ]
+    },
+    {
       "id": "frontend-deps-audit",
       "testIds": ["TEST-020"],
       "tier": "T3",
@@ -473,7 +496,7 @@
       "cleanupOwner": "release",
       "network": "local-only",
       "credentialKeys": [],
-      "requiredFor": ["baseline"],
+      "requiredFor": ["baseline", "release"],
       "benchmarkLanes": ["full-system"],
       "pathSelectors": ["Makefile", "**/*.go", "go.mod", "go.sum"]
     }

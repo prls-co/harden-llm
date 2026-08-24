@@ -111,6 +111,24 @@
     "browser:warm": {"wallTimeMsP95": 216162, "peakRssMiBMax": 1038.93, "cpuMsP95": 135222.23},
     "full-system:warm": {"wallTimeMsP95": 311707, "peakRssMiBMax": 1526.23, "cpuMsP95": 163488}
   },
+  "phaseEvaluations": {
+    "EVAL-006": {
+      "accepted": true,
+      "rawEvidencePath": "plans/evidence/harden-llm/integration-pool-eval.json",
+      "rawEvidenceSha256": "bc7371b53497467754a1897deac27ca425b3638019eda343cf503563f46922a4",
+      "manifestSha256": "6e3e8fd3ee4056cd715226ac24e252d02135c7de870b111e3c1de14ddfb7257a",
+      "sampleCount": 48,
+      "selectedPackageSlots": 3,
+      "selectedRaceSlots": 2,
+      "normalWarmP95WallTimeMs": 14159,
+      "normalWarmPeakRssMiBMax": 474.375,
+      "raceWarmP95WallTimeMs": 36039,
+      "raceWarmPeakRssMiBMax": 716.41015625,
+      "serviceStartCount": 144,
+      "exclusiveOverlapCount": 0,
+      "raceBudgetReference": "full-system:warm accepted ceilings because P00 integration was not race-instrumented"
+    }
+  },
   "acceptedEvaluationFields": [
     "accepted",
     "sampleCount",

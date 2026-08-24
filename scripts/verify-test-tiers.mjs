@@ -42,6 +42,7 @@ const requiredCommands = [
   ["mix", "assets.deploy"],
   ["mix", "release"],
   ["make", "verify"],
+  ["node", "scripts/run-deployed-browser-test.mjs"],
 ];
 
 function fail(message) {
@@ -108,6 +109,11 @@ async function main() {
   const fastTasks = selectTasks(manifest, "fast");
   if (fastTasks.length === 0) fail("fast selection is empty");
   for (const task of fastTasks) assertCheapTask(task);
+
+  const deployed = manifest.tasks.find((task) => task.id === "frontend-deployed");
+  if (!deployed || deployed.tier !== "T5" || deployed.resourceClass !== "live" || deployed.network !== "public") {
+    fail("frontend-deployed must be an explicit T5 live/public task");
+  }
 
   const runner = await fs.readFile(path.join(repositoryRoot, "scripts", "run-test-tier.mjs"), "utf8");
   for (const primitive of ["HARDEN_LLM_TEST_OFFLINE", "HARDEN_LLM_TEST_NETWORK", "SIGTERM", "SIGKILL", "container.id", "truncatedOutputBytes"]) {

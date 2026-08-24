@@ -14,6 +14,25 @@ multi-instance embedding implementation completed on 2026-08-23.
 Detailed command output belongs under ignored
 `plans/evidence/harden-llm/<run-id>/`; secrets and live provider output never do.
 
+## Parallel test-feedback release contract
+
+The implementation candidate is evaluated through the same manifest-owned
+hierarchy used during development. `make test-fast` is the broad T0-T2 loop;
+`make test-integration` and its race target cover T3 service boundaries;
+`make test-browser` covers exactly two ordinary Chromium canaries; and
+`make test-release` is the complete release candidate, including the existing
+backend/Compose and frontend/Compose checks. The workflow delegates to those
+targets and does not copy their task lists.
+
+The KER records accepted reference-host budgets and phase evaluations. A
+successful release requires TEST-055, zero failed/leaked task resources, and
+redacted evidence. A deployed check is an application-bearing identity check,
+not merely a health probe: TEST-056 compares the merged application release
+with the frontend image/container, then verifies public probes, authenticated
+widget behavior, one bounded configured-profile prompt, exact smoke-history
+cleanup, and logout. The documentation-only closure commit is never presented
+as the deployed application-bearing SHA.
+
 ## Provenance checkpoint
 
 | Input | Certified value |

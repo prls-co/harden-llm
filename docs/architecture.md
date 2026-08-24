@@ -63,3 +63,41 @@ sixteen with the Phoenix overlay. Caddy is the only public-port owner. The
 gateway and Phoenix release images are stateless and non-root; horizontal or
 multi-host deployment requires a later ADR, including a replacement for the
 single-instance Phoenix ETS token vault.
+
+## Test feedback architecture
+
+Test execution is a separate resource architecture around the application
+boundaries:
+
+```text
+edit -> test-fast (T0 pure / T1 in-process / T2 client rules)
+          | only when the changed invariant needs it
+          v
+       T3 pooled Postgres/Garage leases and race
+          | only for native browser facts
+          v
+       T4 two Chromium canaries
+          | release/deploy only
+          v
+       T5 Compose, deployed, or explicitly authorized live provider
+```
+
+`test/test-tiers.json` owns task selection, resource class, timeout, cleanup
+owner, network policy, credentials declaration, and canonical IDs. The Node
+runner owns scheduling, process-group cancellation, bounded output, service
+service pool startup, exact cleanup, and evidence. Make and CI are delegates. Ordinary
+T3 tasks share service processes but own unique database/prefix leases; the
+Garage restart task holds the exclusive resource and cannot overlap the pool.
+
+LiveView remains the server-side state owner: folds, profile state, reasoning,
+cache, retries, uploads, parent messages, and embedded-instance independence
+are tested through public events and diffs. Pure JavaScript decisions are
+tested by Node and imported by production hooks. Chromium remains the owner of
+native events, focus, CSS/layout, LiveSocket patching, and hook effects. No
+Happy DOM or jsdom dependency is part of this architecture.
+
+An expensive-tier defect must be evaluated for a cheap root-invariant
+regression. If the invariant is representable at T0-T2, the regression belongs
+there; the expensive test remains only for the distinct service, browser,
+deployment, or provider boundary. A serial exception must identify the global
+resource that prevents safe concurrency.

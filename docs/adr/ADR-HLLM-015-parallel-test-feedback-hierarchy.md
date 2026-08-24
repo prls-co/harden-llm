@@ -89,8 +89,8 @@ race-instrumented, its race comparator uses the accepted full-system warm
 wall/RSS ceilings as a conservative safety ceiling; this is an explicit
 measurement-fidelity adaptation, not a threshold relaxation.
 
-Every higher-tier defect is evaluated for a lower-tier root-invariant
-regression. Lower fidelity may replace an environmental boundary, never the
+Every higher-tier defect, including each expensive-tier defect, is evaluated
+for a lower-tier root-invariant regression. Lower fidelity may replace an environmental boundary, never the
 assertion oracle. A failed or leaked benchmark sample is not a timing datum.
 Thresholds are derived from the fingerprinted KER samples and its accepted
 budgets, and may change only with new evidence and an ADR amendment.

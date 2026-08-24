@@ -94,6 +94,16 @@ conservative instrumented budget. That preserves a safety bound and does not
 change the original KER thresholds. Any future race-budget change requires a
 new evidence set and an ADR-HLLM-015 amendment.
 
+P06 EVAL-007 is the complete release-candidate measurement. It must execute
+the manifest's `release` selector through `node scripts/run-test-tier.mjs`,
+covering deterministic backend/frontend gates, pooled integration and race,
+audits, ordinary browser canaries, and Compose certification without a public
+network task. Its accepted record is written only after every selected task
+passes, cleanup/leak counts are zero, and the bounded result is redacted.
+The release candidate is the required bridge between the local hierarchy and
+the later merged/deployed P07 certification; a pending or failed EVAL-007 is
+not release evidence.
+
 Only redacted aggregates belong in this directory. Raw output, command logs,
 provider responses, credentials, cookies, request bodies, and process
 environments are forbidden. A benchmark sample with a failed task or cleanup

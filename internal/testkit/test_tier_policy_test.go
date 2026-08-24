@@ -52,6 +52,28 @@ func TestTestTierPolicy(t *testing.T) {
 	if !strings.Contains(makeTargetBody(makefile, "benchmark-test-feedback"), "scripts/benchmark-test-feedback.mjs") {
 		t.Error("benchmark-test-feedback does not delegate to the benchmark harness")
 	}
+	workflowPath := filepath.Join(repositoryRoot(t), ".github", "workflows", "test-hierarchy.yml")
+	if !fileExists(t, workflowPath) {
+		t.Errorf("hosted hierarchy workflow %s is missing", workflowPath)
+	} else {
+		workflow := string(readFile(t, workflowPath))
+		for _, job := range []string{"fast:", "integration:", "browser:", "release:"} {
+			if !strings.Contains(workflow, job) {
+				t.Errorf("hosted workflow is missing %s job", job)
+			}
+		}
+		for _, command := range []string{"make test-fast", "make test-integration", "make test-browser", "make test-release"} {
+			if !strings.Contains(workflow, command) {
+				t.Errorf("hosted workflow is missing canonical command %q", command)
+			}
+		}
+		if !strings.Contains(workflow, "concurrency:") || !strings.Contains(workflow, "cancel-in-progress") {
+			t.Error("hosted workflow does not define cancellation/concurrency policy")
+		}
+		if strings.Contains(workflow, "go test") || strings.Contains(workflow, "mix test") || strings.Contains(workflow, "node --test") {
+			t.Error("hosted workflow composes test commands outside the canonical targets")
+		}
+	}
 
 	manifestPath := filepath.Join(root, "test", "test-tiers.json")
 	var manifest testTierPolicyManifest
