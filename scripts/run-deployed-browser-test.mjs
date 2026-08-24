@@ -195,7 +195,14 @@ export async function main() {
   const expected = await expectedRelease(environment);
   const identity = inspectFrontendContainer(environment);
   if (identity.releaseLabel !== expected.value) {
-    throw new Error(`frontend release mismatch: expected ${expected.value}, running ${identity.releaseLabel}`);
+    console.error(JSON.stringify({
+      accepted: false,
+      failure: "frontend release mismatch",
+      expectedReleaseSource: expected.source,
+      frontendIdentityChecked: true,
+      authenticatedCanaryStarted: false,
+    }));
+    return 1;
   }
   const probes = {
     webHealthz: await probe(webOrigin, "/healthz"),
@@ -214,8 +221,8 @@ export async function main() {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main().catch((error) => {
-    console.error(JSON.stringify({ accepted: false, failure: String(error.message).replaceAll(/\s+/g, " ").slice(0, 240) }));
+  main().catch(() => {
+    console.error(JSON.stringify({ accepted: false, failure: "deployed certification failed" }));
     process.exitCode = 1;
   });
 }
