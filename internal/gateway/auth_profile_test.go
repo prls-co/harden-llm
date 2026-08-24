@@ -2,7 +2,7 @@
 
 package gateway
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-022
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-022 TEST-053
 
 import (
 	"bytes"
@@ -25,7 +25,7 @@ import (
 )
 
 func TestAuthProfileContract(t *testing.T) {
-	_, dsn := integrationtest.StartPostgres(t)
+	_, dsn := integrationtest.PostgresLease(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	store, err := postgres.Open(ctx, dsn)

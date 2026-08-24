@@ -2,7 +2,7 @@
 
 package gateway_test
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-025
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-025 TEST-053
 
 import (
 	"bytes"
@@ -28,7 +28,7 @@ import (
 )
 
 func TestRunRoute(t *testing.T) {
-	_, dsn := integrationtest.StartPostgres(t)
+	_, dsn := integrationtest.PostgresLease(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	store, err := postgres.Open(ctx, dsn)

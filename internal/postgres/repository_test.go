@@ -2,7 +2,7 @@
 
 package postgres
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-020
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-020 TEST-053
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 )
 
 func TestRepositoryContract(t *testing.T) {
-	_, dsn := integrationtest.StartPostgres(t)
+	_, dsn := integrationtest.PostgresLease(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 

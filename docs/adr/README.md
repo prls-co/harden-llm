@@ -17,6 +17,7 @@ migration path.
 | [ADR-HLLM-012](ADR-HLLM-012-frontend-parity-adaptations.md) | Accepted | Record the self-hosted adaptations required to complete the utility-llm frontend behavior without Firebase, browser provider calls, or a second UI/backend path. |
 | [ADR-HLLM-013](ADR-HLLM-013-profile-catalog-seed.md) | Accepted | Embed the current 28-profile utility-llm catalog and insert missing presets per owner without credentials or overwrite. |
 | [ADR-HLLM-014](ADR-HLLM-014-embedded-widget-runtime-parity.md) | Accepted | Preserve the reusable no-tabs widget while aligning combobox, cache, retry projection, nested upload, and explicit profile-save behavior with utility-llm. |
+| [ADR-HLLM-015](ADR-HLLM-015-parallel-test-feedback-hierarchy.md) | Accepted; P07 merged, deployed, and certified | Establish one resource-aware T0-T5 test hierarchy, canonical runner, measured four-slot fast cap, exact assertion oracles, and no initial synthetic DOM dependency. |
 
 The remaining planned deviation triggers are ADR-HLLM-003 through ADR-HLLM-007
 in the canonical implementation plan. Create one of those records only when its

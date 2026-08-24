@@ -70,6 +70,45 @@ defmodule HardenLlmWeb.BoundaryTest do
     end
   end
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-046 WEB-TEST-051 TEST-046 TEST-051
+  test "client decisions are imported from one dependency-free pure module" do
+    app = File.read!("assets/js/app.js")
+    core = File.read!("assets/js/client_core.mjs")
+
+    assert app =~ ~s(from "./client_core.mjs")
+
+    for function <- ~w(
+      normalizeSearch visibleOptionIndices emptyStateVisible highlightIndex commitValue
+      escapeValue blurValue isSubmitShortcut schemaPendingState
+    ) do
+      assert app =~ function
+      assert core =~ "export function #{function}"
+    end
+
+    for browser_effect <- ~w(
+      document window navigator setTimeout addEventListener removeEventListener
+      dispatchEvent fetch
+    ) do
+      refute core =~ ~r/\b#{browser_effect}\b/,
+             "pure client core must not depend on browser effect #{browser_effect}"
+    end
+
+    refute File.exists?("assets/package.json"),
+           "client-core coverage must not add a package manifest"
+
+    for forbidden <- ~w(happy-dom jsdom vitest jest) do
+      refute source_files() =~ forbidden
+    end
+
+    for hook <- ~w(Clipboard PromptShortcut SchemaPending SearchableCombobox SecretStager) do
+      [_, body] = Regex.run(~r/const #{hook} = \{(.*?)\n\}\n\nconst/s, app)
+      assert body =~ ".addEventListener"
+      assert body =~ ".removeEventListener"
+    end
+
+    assert app =~ "dispatchEvent(new Event(\"change\", {bubbles: true}))"
+  end
+
   defp source_files do
     Path.wildcard("{lib,assets}/**/*")
     |> Enum.filter(&File.regular?/1)

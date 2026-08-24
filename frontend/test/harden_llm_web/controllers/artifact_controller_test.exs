@@ -1,12 +1,11 @@
 defmodule HardenLlmWeb.ArtifactControllerTest do
-  use HardenLlmWeb.ConnCase, async: false
+  use HardenLlmWeb.ConnCase, async: true
 
   alias HardenLlmWeb.{APIFixtures, ArtifactController, HardenAPI, SessionVault}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-008
 
   setup %{conn: conn} do
-    Req.Test.set_req_test_to_private()
     handle = APIFixtures.insert_session()
     {:ok, conn: init_test_session(conn, APIFixtures.session_map(handle)), handle: handle}
   end

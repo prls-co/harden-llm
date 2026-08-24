@@ -1,17 +1,13 @@
 defmodule HardenLlmWeb.WorkspaceLiveTest do
-  use HardenLlmWeb.ConnCase, async: false
+  use HardenLlmWeb.ConnCase, async: true
 
-  import Phoenix.LiveViewTest
+  import Phoenix.LiveViewTest, except: [live: 1, live: 2, live: 3]
 
   alias HardenLlmWeb.{APIFixtures, HardenAPI}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-007
 
-  setup %{conn: conn} do
-    Req.Test.set_req_test_to_shared()
-    handle = APIFixtures.insert_session()
-    {:ok, conn: init_test_session(conn, APIFixtures.session_map(handle))}
-  end
+  setup %{conn: conn}, do: {:ok, conn: authenticated_conn(conn)}
 
   test "hydrates canonical state and profiles, then loads history when opened", %{conn: conn} do
     install_stub(fn conn ->
@@ -209,6 +205,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     refute has_element?(view, ~s(#input-advanced-toggle[phx-value-value]))
 
     view |> element("#input-advanced-toggle") |> render_click()
+    render_async(view, 1_000)
     view |> element("#profile-retry-toggle") |> render_click()
     render_async(view, 1_000)
 

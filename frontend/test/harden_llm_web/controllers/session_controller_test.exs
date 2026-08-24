@@ -1,14 +1,9 @@
 defmodule HardenLlmWeb.SessionControllerTest do
-  use HardenLlmWeb.ConnCase, async: false
+  use HardenLlmWeb.ConnCase, async: true
 
   alias HardenLlmWeb.{APIFixtures, HardenAPI, SessionVault}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-004
-
-  setup do
-    Req.Test.set_req_test_to_private()
-    :ok
-  end
 
   test "GET /login renders a labeled CSRF-protected form", %{conn: conn} do
     conn = get(conn, ~p"/login")
@@ -63,7 +58,7 @@ defmodule HardenLlmWeb.SessionControllerTest do
     assert get_session(conn, "session_handle") == nil
   end
 
-  test "malformed login response never stores a token", %{conn: conn} do
+  test "malformed login response never establishes a session", %{conn: conn} do
     Req.Test.stub(HardenAPI, fn conn ->
       Req.Test.json(conn, %{
         "state" => %{},
@@ -72,15 +67,15 @@ defmodule HardenLlmWeb.SessionControllerTest do
       })
     end)
 
-    before_count = SessionVault.count()
-
     conn =
       post(conn, ~p"/login", %{
         "session" => %{"email" => "operator@example.test", "password" => "fixture-password-123"}
       })
 
     assert redirected_to(conn) == ~p"/login"
-    assert SessionVault.count() == before_count
+    assert get_session(conn, "session_handle") == nil
+    assert get_session(conn, "session_expiry") == nil
+    assert get_session(conn, "identity") == nil
   end
 
   test "invalid CSRF submit is rejected", %{conn: conn} do

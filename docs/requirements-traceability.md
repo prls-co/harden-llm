@@ -46,6 +46,49 @@ The separate `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001` contract maps as follows:
 | real user and deployment workflows | Wallaby browser tests | WEB-TEST-011, WEB-TEST-012 |
 | utility-llm frontend parity extension | `WorkspaceLive`, `ProfilesLive`, `HistoryLive`, `ProfileWidgetComponent`, `EmbeddingLive`, `HardenAPI`, and `api/openapi.yaml` | WEB-TEST-031 through WEB-TEST-043; ADR-HLLM-012, ADR-HLLM-014 |
 
+## Parallel test-feedback traceability
+
+The following matrix is the durable summary of
+`PLAN-HARDEN-LLM-TEST-FEEDBACK-002`. The manifest and runner remain the only
+task-selection source; this document records ownership and acceptance without
+repeating command composition.
+
+| Requirement | Intent | Primary owner | Acceptance evidence |
+| --- | --- | --- | --- |
+| TFH-REQ-001 | One broad cheap coding loop | `Makefile`, `test/test-tiers.json` | TEST-041, TEST-050 |
+| TFH-REQ-002 | One tier/resource/cleanup/test-ID owner per task | `test/test-tiers.json`, runner validator | TEST-041, TEST-054 |
+| TFH-REQ-003 | Maximum safe parallelism by resource class | `scripts/run-test-tier.mjs` | TEST-049, EVAL-002, EVAL-006 |
+| TFH-REQ-004 | Fingerprinted reproducible budgets | benchmark/KER | TEST-048, EVAL-001 through EVAL-007 |
+| TFH-REQ-005 | Exact assertion oracle despite lower fidelity | test specifications, ADR-015 | TEST-044, TEST-046, TEST-047, TEST-054 |
+| TFH-REQ-006 | Broad server-owned widget coverage without Chromium | LiveViewTest component/workspace/embedding tests | WEB-TEST-044 |
+| TFH-REQ-007 | Async frontend ownership with named serial exceptions | ConnCase, frontend policy | WEB-TEST-045, EVAL-003 |
+| TFH-REQ-008 | Pure client rules use production imports | `frontend/assets/js/client_core.mjs` | WEB-TEST-046, EVAL-004 |
+| TFH-REQ-009 | Small browser boundary-specific suite | two ordinary canaries plus Compose canary | WEB-TEST-047, EVAL-005 |
+| TFH-REQ-010 | Shared services with isolated mutable state | integration lease/pool support | TEST-042, TEST-053, EVAL-006 |
+| TFH-REQ-011 | Destructive Garage lifecycle is exclusive | `garage-restart-exclusive` | TEST-043, EVAL-006 |
+| TFH-REQ-012 | Existing `make verify` meaning is preserved | Make/static release policy | TEST-041, TEST-055 |
+| TFH-REQ-013 | Cheap tiers are offline and credential-free | manifest and runner policy | TEST-041, TEST-050 |
+| TFH-REQ-014 | Expensive-tier defect gains cheap regression when representable | AGENTS/spec/PR evidence policy | TEST-054, CHECK-002 |
+| TFH-REQ-015 | Exact cleanup and redacted bounded evidence | runner, fixtures, deployed launcher | TEST-049, TEST-042, TEST-056 |
+| TFH-REQ-016 | Plans/docs/ADR/KER/status/issues agree | traceability test and lifecycle records | TEST-054, CHECK-001, CHECK-005 |
+| TFH-REQ-017 | Hosted jobs invoke canonical Make targets | `.github/workflows/test-hierarchy.yml` | TEST-041, TEST-054 |
+| TFH-REQ-018 | Deployed frontend identity and behavior match merge | deployed canary/release process | TEST-056, CHECK-004 |
+
+| Case | Tier | Primary path | Canonical command/evidence |
+| --- | --- | --- | --- |
+| TEST-041 | policy | `internal/testkit/test_tier_policy_test.go` | `go test ./internal/testkit/... -run TestTestTierPolicy -count=1` |
+| TEST-042 | T3 service isolation | `internal/integrationtest/isolation_test.go` | `node scripts/run-test-tier.mjs --task integration-isolation` |
+| TEST-043 | T3 exclusive lifecycle | `internal/artifacts/garage_restart_test.go` | manifest task `garage-restart-exclusive` |
+| TEST-044/045 | T1 frontend server/ownership | frontend LiveView tests | `mix test` and policy test |
+| TEST-046/051 | T2 client/boundary | `frontend/assets/test/client_core.test.mjs` | `node --test frontend/assets/test/client_core.test.mjs` |
+| TEST-047/052 | T4 browser policy/canaries | frontend browser tests | `make test-browser` |
+| TEST-049 | runner contract | `scripts/test/run_test_tier_test.mjs` | `node --test scripts/test/run_test_tier_test.mjs` |
+| TEST-050 | fast execution | manifest-selected T0-T2 tasks | `make test-fast` |
+| TEST-053 | pooled normal/race consumers | integration packages | `make test-integration` and `make test-integration-race` |
+| TEST-054 | lifecycle traceability | `internal/testkit/test_feedback_traceability_test.go` | `go test ./internal/testkit/... -run TestTestFeedbackTraceability -count=1` |
+| TEST-055 | release composition | `internal/testkit/release_gate_test.go` | `make test-release`, EVAL-007 |
+| TEST-056 | deployed identity/canary | deployed launcher and WEB-TEST-048 | `node scripts/run-deployed-browser-test.mjs` |
+
 The base backend gates never invoke `frontend/`. The frontend imports no Go
 implementation and synchronizes only through `api/openapi.yaml`.
 

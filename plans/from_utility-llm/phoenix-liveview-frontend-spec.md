@@ -428,6 +428,26 @@ single-editor adaptations are recorded in ADR-HLLM-012.
 | WEB-TEST-042 | Saved-profile boundary before endpoint run | `test/harden_llm_web/live/workspace_live_test.exs`, `frontend/lib/harden_llm_web/live/profile_widget_component.ex`, `frontend/lib/harden_llm_web/live/workspace_live.ex` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | Endpoint, API interface, credential, fallback, or profile-identity edits block a run until the profile mutation is explicitly saved; ordinary transient run options remain available. |
 | WEB-TEST-043 | Multi-instance embedding contract | `test/harden_llm_web/live/embedding_live_test.exs`, `test/browser/full_workflow_test.exs`, `frontend/lib/harden_llm_web/live/embedding_live.ex`, `frontend/lib/harden_llm_web/live/profile_widget_component.ex` | `mix test test/harden_llm_web/live/embedding_live_test.exs && mix test --only browser test/browser/full_workflow_test.exs:43` | Two in-flow widgets have unique DOM/form IDs, tagged parent routing, independent folds/cache/profile selection, and distinct main/escalation upload names without tabs or horizontal overflow. |
 
+### Parallel feedback hierarchy addendum
+
+The frontend follows the lowest sufficient tier rule. LiveViewTest is the
+primary owner of server-side state and rendered diffs; Node's built-in runner
+owns extracted pure client decisions; Chromium is reserved for native browser,
+LiveSocket, hook, focus, layout, and event-serialization boundaries. There is
+no DOM emulator in the initial implementation. If an expensive-tier defect is
+found, the root invariant receives a cheap regression whenever it can be
+represented without browser APIs; the browser case remains only for its
+distinct boundary. `mix test` remains deterministic and excludes all browser,
+Compose, and deployed tags by default.
+
+| ID | Test | Target | Command | Pass criteria |
+| --- | --- | --- | --- | --- |
+| WEB-TEST-044 | Server-owned widget state matrix | `test/harden_llm_web/live/profile_widget_component_test.exs`, workspace/embedding tests | `mix test test/harden_llm_web/live/profile_widget_component_test.exs` | Public LiveView events and diffs cover compact no-tabs topology, all main/nested folds, profile/reasoning/cache/retry/repair transitions, uploads, tagged parent messages, capability-aware reasoning, and independent instances. |
+| WEB-TEST-045 | Async frontend ownership policy | `test/harden_llm_web/test_policy_test.exs`, `test/support/conn_case.ex`, affected deterministic tests | `mix test test/harden_llm_web/test_policy_test.exs` | Safe deterministic modules use `async: true` and private Req ownership; exactly the named SessionVault and observability global-state exceptions remain serial with rationale. |
+| WEB-TEST-046 | Pure client functional core | `frontend/assets/js/client_core.mjs`, `frontend/assets/test/client_core.test.mjs`, `test/harden_llm_web/boundary_test.exs` | `node --test frontend/assets/test/client_core.test.mjs` | Filtering, highlight wraparound, known/custom commit, Escape/blur, shortcut, and schema-pending decisions pass through the same production import; no package or DOM emulator is added. |
+| WEB-TEST-047 | Ordinary browser canaries | `test/browser/widget_canary_test.exs`, `test/browser/authenticated_workflow_canary_test.exs`, `test/browser/compose_smoke_test.exs` | `mix test --only browser --max-cases 1` | Exactly two ordinary canaries prove browser-owned event, hook, focus, overflow, authentication, run/reconnect/logout, and two-instance boundaries; Compose remains separate and release-only. |
+| WEB-TEST-048 | Deployed release canary | `test/browser/deployed_canary_test.exs`, `scripts/run-deployed-browser-test.mjs` | `node scripts/run-deployed-browser-test.mjs` | After release identity validation, one serialized authenticated session unfolds the widget, selects `CPA GPT-5.6 Luna`, performs one bounded nonce-marked prompt, resolves ambiguous history once without resubmission, deletes only its smoke record, logs out, and leaves no credential/live output in evidence. |
+
 Detailed fixtures and isolation:
 
 - Use `Req.Test` as the default API substitute. No test opens an unregistered network connection.

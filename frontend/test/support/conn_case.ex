@@ -1,4 +1,6 @@
 defmodule HardenLlmWeb.ConnCase do
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-044 WEB-TEST-045 TEST-044 TEST-045
+
   @moduledoc """
   This module defines the test case to be used by
   tests that require setting up a connection.
@@ -31,7 +33,57 @@ defmodule HardenLlmWeb.ConnCase do
     end
   end
 
+  setup :configure_req_test
+
   setup _tags do
     {:ok, conn: Phoenix.ConnTest.build_conn()}
+  end
+
+  def configure_req_test(context), do: Req.Test.set_req_test_from_context(context)
+
+  defmacro live(conn, path \\ nil, opts \\ []) do
+    quote do
+      HardenLlmWeb.ConnCase.live_with_req(
+        unquote(conn),
+        unquote(path),
+        unquote(opts)
+      )
+    end
+  end
+
+  def live_with_req(conn, path, opts) do
+    result =
+      case path do
+        nil ->
+          Phoenix.LiveViewTest.__live__(conn, nil, opts)
+
+        path when is_binary(path) ->
+          conn = Phoenix.ConnTest.dispatch(conn, HardenLlmWeb.Endpoint, :get, path)
+          Phoenix.LiveViewTest.__live__(conn, path, opts)
+
+        _ ->
+          raise ArgumentError, "path must be nil or a binary, got: #{inspect(path)}"
+      end
+
+    case result do
+      {:ok, %{pid: pid} = view, html} ->
+        :ok = Req.Test.allow(HardenLlmWeb.HardenAPI, self(), pid)
+        ExUnit.Callbacks.on_exit(fn -> stop_live_view(view) end)
+        {:ok, view, html}
+
+      other ->
+        other
+    end
+  end
+
+  def authenticated_conn(conn) do
+    handle = HardenLlmWeb.APIFixtures.insert_session()
+    ExUnit.Callbacks.on_exit(fn -> HardenLlmWeb.SessionVault.revoke(handle) end)
+    Phoenix.ConnTest.init_test_session(conn, HardenLlmWeb.APIFixtures.session_map(handle))
+  end
+
+  defp stop_live_view(%{pid: pid, proxy: proxy}) do
+    if is_pid(pid) and Process.alive?(pid), do: Process.exit(pid, :shutdown)
+    if is_pid(proxy) and Process.alive?(proxy), do: Process.exit(proxy, :shutdown)
   end
 end

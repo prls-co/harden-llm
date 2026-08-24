@@ -33,6 +33,31 @@ MIX_ENV=prod mix assets.deploy
 MIX_ENV=prod mix release
 ```
 
+### Feedback tiers
+
+During frontend edits, use the repository-root `make test-fast` loop or run
+`mix test` directly for the T0-T2 boundary. T0 covers pure rules, T1 covers
+in-process Go/Elixir behavior, and T2 covers the dependency-free client core.
+LiveViewTest owns server-side
+folding, profile/reasoning/cache/retry state, upload namespaces, parent
+messages, and independent embedded instances. The extracted client decision
+core is tested by Node's built-in runner; it deliberately does not emulate a
+DOM.
+
+T3 owns real service integration and race execution, T4 owns the two targeted
+Chromium canaries and native hook/event/layout behavior, and T5 owns full
+Compose or deployed/live certification. Use `make test-browser` and
+`make test-release` only when those boundaries are relevant. A serial test
+must name the global resource that prevents async execution. An expensive-tier
+defect should gain a cheap T0-T2 regression for its root invariant whenever
+possible; the expensive test remains for the boundary fact it uniquely proves.
+
+Happy DOM and jsdom are intentionally not installed. Promotion requires a
+concrete adapter defect that pure rules cannot express, an API comparison and
+ADR-HLLM-015 amendment, and a retained real-browser canary. The deployed
+canary is opt-in and reads credentials only from inherited named environment
+entries; it never commits secrets or live output.
+
 `mix test` runs WEB-TEST-001 through WEB-TEST-010 plus the source-derived
 WEB-TEST-031 through WEB-TEST-043 parity extensions, and excludes browser and
 Compose tags. The embedded `ProfileWidgetComponent` coverage includes the

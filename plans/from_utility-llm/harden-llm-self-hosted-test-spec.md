@@ -82,6 +82,48 @@ Fixture rules:
 - Compose tests may pull pinned images before the timed readiness interval begins.
 - `plans/implementation-status.json` records completed phases; TEST-005 requires traceability only for completed phases and requires all TEST IDs when P07 is complete.
 
+### Parallel feedback hierarchy addendum
+
+The separate `PLAN-HARDEN-LLM-TEST-FEEDBACK-002` contract assigns each case to
+the lowest sufficient tier (the lowest sufficient fidelity tier). T0-T2 are the credential-free, offline
+coding loop; T3 owns real service and race boundaries; T4 owns native browser
+behavior; and T5 owns full Compose, deployed, or explicitly authorized live
+provider behavior. A lower tier may replace an environment boundary, but it
+must preserve the exact assertion oracle. When an expensive-tier defect is
+found, add a cheap root-invariant regression whenever that invariant is
+representable below the boundary. Do not add a DOM emulator, weaken an
+assertion, or serialize a test without a named global resource and rationale.
+
+The canonical selection source is `test/test-tiers.json`; the canonical
+execution path is `scripts/run-test-tier.mjs`. Make and CI targets are thin
+delegates. Ordinary Postgres/Garage integration uses runner-owned services and
+unique leases after TEST-042 proves isolation; destructive Garage restart uses
+the exclusive resource in TEST-043. These additions do not alter the backend
+runtime contract or the meaning of `make verify`.
+
+### TEST-041: tier policy, command composition, and fast boundary
+
+- Target: `internal/testkit/test_tier_policy_test.go`, `scripts/verify-test-tiers.mjs`, `test/test-tiers.json`.
+- Command: `go test ./internal/testkit/... -run TestTestTierPolicy -count=1`.
+- Assertions: every task has one tier/resource/cleanup/test-ID owner; `test-fast` is T0-T2, offline, credential-free, and container-free; Make/CI delegate to the canonical runner; `make verify` retains its certified dependency list; cancellation and output policy are present.
+- Pass criteria: policy validation passes without selecting integration, browser, Compose, live, or vulnerability work in the fast loop.
+- Higher-fidelity fact left elsewhere: actual service, browser, release, and public behavior is covered by TEST-042/043, WEB-TEST-047/048, TEST-055, and TEST-056.
+
+### TEST-042: shared service namespace isolation
+
+- Target: `internal/integrationtest/isolation_test.go` and runner-owned integration services.
+- Command: `node scripts/run-test-tier.mjs --task integration-isolation`.
+- Assertions: two Postgres database leases and two Garage prefix leases can run concurrently; sentinels cannot be read, overwritten, deleted, or listed across leases; releasing one lease retains the other; injected child failure and interruption cleanup remove only exact resources and the randomized test project.
+- Pass criteria: the pinned real Postgres/Garage services pass all sentinels with zero residual databases, prefixes, containers, volumes, or runner directories.
+- Higher-fidelity fact left elsewhere: destructive Garage restart persistence is TEST-043; consumer/race execution is TEST-053.
+
+### TEST-043: exclusive Garage lifecycle
+
+- Target: `internal/testkit/test_tier_policy_test.go`, `internal/artifacts/garage_restart_test.go`, and `scripts/run-test-tier.mjs`.
+- Command: `go test ./internal/testkit/... -run TestExclusiveGarageResourcePolicy -count=1` plus the manifest task `garage-restart-exclusive`.
+- Assertions: exactly one exclusive Garage resource exists; the restart test uses `integration && garageexclusive` and a dedicated service; ordinary consumers use leases and cannot overlap it.
+- Pass criteria: restart persistence remains asserted and measured normal/race tasks have zero exclusive overlap and zero cleanup leaks.
+
 ## 5. Static and migration-foundation tests
 
 ### TEST-001: target module and repository layout
