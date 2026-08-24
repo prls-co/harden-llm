@@ -365,6 +365,86 @@ async function compareClientCoreEvaluation(evaluations, baseline, manifest) {
   };
 }
 
+async function browserFeatureInventory() {
+  const browserRoot = path.join(REPOSITORY_ROOT, "frontend", "test", "browser");
+  const entries = await fs.readdir(browserRoot, { withFileTypes: true });
+  const ordinary = [];
+
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith("_test.exs") || entry.name === "compose_smoke_test.exs") continue;
+    const source = await fs.readFile(path.join(browserRoot, entry.name), "utf8");
+    ordinary.push({ file: entry.name, featureCount: [...source.matchAll(/\bfeature\s+\"/g)].length });
+  }
+
+  return {
+    ordinaryFeatureCount: ordinary.reduce((total, item) => total + item.featureCount, 0),
+    ordinaryFiles: ordinary.map((item) => item.file).sort(),
+    chromiumSessionCountPerSample: ordinary.reduce((total, item) => total + item.featureCount, 0),
+  };
+}
+
+async function countBrowserScreenshots() {
+  const screenshotRoot = path.join(REPOSITORY_ROOT, "frontend", "tmp", "wallaby");
+  let count = 0;
+  const visit = async (directory) => {
+    try {
+      for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+        const entryPath = path.join(directory, entry.name);
+        if (entry.isDirectory()) await visit(entryPath);
+        else if (entry.isFile() && entry.name.endsWith(".png")) count += 1;
+      }
+    } catch {
+      // A clean successful run normally has no Wallaby directory at all.
+    }
+  };
+  await visit(screenshotRoot);
+  return count;
+}
+
+async function compareBrowserEvaluation(evaluations, baseline) {
+  const current = evaluations["browser:warm"];
+  const inventory = await browserFeatureInventory();
+  const screenshots = await countBrowserScreenshots();
+  const runningContainers = commandOutput("docker", [
+    "ps",
+    "-q",
+    "--filter",
+    "ancestor=harden-llm-browser-test:local",
+  ]);
+  const acceptedBudget = baseline.acceptedBudgets?.["browser:warm"];
+
+  if (!current || !acceptedBudget) {
+    return { accepted: false, reason: "browser comparison requires browser:warm and its accepted budget" };
+  }
+
+  const checks = {
+    successfulBrowserSamples: current.sampleCount === 5 && current.failureCount === 0,
+    ordinaryFeatureCount: inventory.ordinaryFeatureCount === 2,
+    chromiumSessionCountPerSample: inventory.chromiumSessionCountPerSample === 2,
+    p95WithinThreeFeatureBaseline: current.wallTimeMs.p95 <= acceptedBudget.wallTimeMsP95,
+    peakRSSWithinThreeFeatureBaseline: current.peakRssMiB.max <= acceptedBudget.peakRssMiBMax,
+    successfulRunScreenshotCount: screenshots === 0,
+    leakedBrowserProcessCount: runningContainers === "",
+    zeroLeaks: current.leakedResourceCount === 0,
+  };
+  return {
+    accepted: Object.values(checks).every(Boolean),
+    reference: {
+      wallP95MsMax: acceptedBudget.wallTimeMsP95,
+      peakRssMiBMax: acceptedBudget.peakRssMiBMax,
+    },
+    current: {
+      sampleCount: current.sampleCount,
+      wallP95Ms: current.wallTimeMs.p95,
+      peakRssMiBMax: current.peakRssMiB.max,
+    },
+    inventory,
+    screenshots,
+    runningContainers,
+    checks,
+  };
+}
+
 async function verifyBaseline(filePath) {
   const baseline = await loadJSON(path.resolve(REPOSITORY_ROOT, filePath));
   const required = ["schemaVersion", "documentId", "kerId", "hostFingerprint", "executionStatus", "evaluations", "acceptedEvaluationFields"];
@@ -426,6 +506,8 @@ export async function main(argv = process.argv.slice(2)) {
       ? compareTaskEvaluation(evaluations, comparison)
       : args.mode === "task" && args.task === "client-core"
         ? await compareClientCoreEvaluation(evaluations, comparison, manifest)
+        : args.mode === "task" && args.task === "browser"
+          ? await compareBrowserEvaluation(evaluations, comparison)
       : args.mode === "task" && selectedTasks.some((task) => task.seedEachSample)
         ? await compareSeededEvaluation(evaluations, comparison, manifest)
         : { accepted: true, reason: "comparison recorded without a task budget" };

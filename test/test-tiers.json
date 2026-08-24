@@ -326,7 +326,14 @@
       "credentialKeys": [],
       "requiredFor": ["baseline", "browser", "release"],
       "benchmarkLanes": ["browser"],
-      "pathSelectors": ["frontend/assets/**", "frontend/lib/**", "frontend/test/browser/**"]
+      "pathSelectors": [
+        "frontend/assets/**",
+        "frontend/lib/**",
+        "frontend/test/browser/widget_canary_test.exs",
+        "frontend/test/browser/authenticated_workflow_canary_test.exs",
+        "frontend/test/support/browser_backend.ex",
+        "frontend/test/support/browser_feature_case.ex"
+      ]
     },
     {
       "id": "frontend-compose",
