@@ -2557,7 +2557,7 @@ implementation continues at P03.
 - Phase Status: Done.
 - Completed Steps: P02.S01, P02.S02, P02.S03, P02.S04, P02.S05, P02.S06, and P02.S07.
 - Configuration Checkpoint:
-  - Branch: `feat/parallel-test-feedback-hierarchy`; P00 `0ae6ff6` and P01 `bdac362` are pushed checkpoints; the P02 phase-boundary commit is recorded after this gate.
+  - Branch: `feat/parallel-test-feedback-hierarchy`; P00 `0ae6ff6`, P01 `bdac362`, and P02 phase-boundary commit `af46175` are pushed checkpoints.
   - Baseline SHA: `009629211632beed029374549938d1e322fcba04`.
   - Current manifest SHA-256: `86ac58bc384021eb1e064dc794412dd9896ceef7922bcbd1b07678cb90394599`.
   - Deterministic frontend serial exceptions: `frontend/test/harden_llm_web/session_vault_test.exs` for process-global SessionVault lifecycle/clock state and `frontend/test/harden_llm_web/security_observability_test.exs` for process-global observability application configuration. No third exception was added.

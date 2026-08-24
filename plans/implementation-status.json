@@ -269,6 +269,7 @@
     "baselineSHA": "009629211632beed029374549938d1e322fcba04",
     "adr": "ADR-HLLM-015",
     "ker": "KER-HLLM-TEST-FEEDBACK-001",
+    "checkpointCommit": "af46175",
     "status": "P02-complete",
     "currentPhase": "P03",
     "completedPhases": ["P00", "P01", "P02"],
