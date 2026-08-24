@@ -1,4 +1,4 @@
-platform.prod.agents.prls.co {
+platform.prls.co {
 	tls {$HARDEN_LLM_TLS_MODE}
 	import security_headers
 	header Content-Security-Policy "default-src 'self'; frame-ancestors 'none'; base-uri 'self'"
@@ -9,7 +9,7 @@ platform.prod.agents.prls.co {
 	reverse_proxy platform-web:4000
 }
 
-masked-recall-api.prod.agents.prls.co {
+masked-recall-api.prls.co {
 	tls {$HARDEN_LLM_TLS_MODE}
 	import security_headers
 	request_body {
@@ -18,7 +18,7 @@ masked-recall-api.prod.agents.prls.co {
 	reverse_proxy masked-recall-api:8080
 }
 
-product-opportunity-api.prod.agents.prls.co {
+product-opportunity-api.prls.co {
 	tls {$HARDEN_LLM_TLS_MODE}
 	import security_headers
 	request_body {
@@ -27,7 +27,7 @@ product-opportunity-api.prod.agents.prls.co {
 	reverse_proxy product-opportunity-api:8080
 }
 
-synthetic-product-dataset-api.prod.agents.prls.co {
+synthetic-product-dataset-api.prls.co {
 	tls {$HARDEN_LLM_TLS_MODE}
 	import security_headers
 	request_body {
