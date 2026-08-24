@@ -4,7 +4,7 @@
 - Date: 2026-08-23
 - Scope: `PLAN-HARDEN-LLM-TEST-FEEDBACK-002`
 - Requirements: REQ-001 through REQ-018
-- Initial verification: TEST-041, TEST-048, TEST-049, TEST-050, EVAL-002
+- Initial verification: TEST-041, TEST-044, TEST-045, TEST-048, TEST-049, TEST-050, EVAL-002, EVAL-003
 - Evidence record: `KER-HLLM-TEST-FEEDBACK-001`
 
 ## Context
@@ -40,6 +40,15 @@ Server-owned LiveView behavior is tested through public LiveView events and
 rendered diffs. Pure client decisions are extracted into a dependency-free
 JavaScript module and tested by Node's built-in runner. No initial synthetic DOM dependency such as happy-dom or jsdom is accepted: the thin hook adapters,
 native events, CSS, focus, and LiveSocket patching remain browser-owned facts.
+
+Deterministic LiveView tests use private Req ownership by default. The shared
+test boundary explicitly allows each spawned LiveView process to access its
+test stub and stops the LiveView/proxy during teardown, so async work does not
+outlive the Req owner. Exactly two deterministic modules remain serial: the
+SessionVault lifecycle/clock case and global observability application
+configuration. EVAL-003 passed all ten fixed seeds with zero ownership or
+cleanup failures and warm p95 of 4125 ms against the 10033 ms sequential
+frontend reference.
 
 Every higher-tier defect is evaluated for a lower-tier root-invariant
 regression. Lower fidelity may replace an environmental boundary, never the

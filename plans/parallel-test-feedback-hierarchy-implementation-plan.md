@@ -2468,14 +2468,14 @@ accepted field.
 ## 11. Execution log
 
 The living copy records each phase only after its ordered subtask validation
-passes or a blocker is recorded. P00 and P01 are complete; implementation
-continues at P02.
+passes or a blocker is recorded. P00, P01, and P02 are complete;
+implementation continues at P03.
 
 | Phase | Status |
 | --- | --- |
 | P00 | Done |
 | P01 | Done |
-| P02 | Pending |
+| P02 | Done |
 | P03 | Pending |
 | P04 | Pending |
 | P05 | Pending |
@@ -2522,7 +2522,7 @@ continues at P02.
 - Phase Status: Done.
 - Completed Steps: P01.S01, P01.S02, P01.S03, P01.S04, P01.S05, P01.S06, and P01.S07.
 - Configuration Checkpoint:
-  - Branch: `feat/parallel-test-feedback-hierarchy`; P00 checkpoint commit `0ae6ff6`; P01 implementation remains uncommitted until this phase gate completes.
+  - Branch: `feat/parallel-test-feedback-hierarchy`; P00 checkpoint commit `0ae6ff6`; P01 checkpoint commit `bdac362`.
   - Baseline SHA: `009629211632beed029374549938d1e322fcba04`.
   - Current manifest SHA-256: `9256c998aaa9a80d3cd82fa92bcd1a907fccc4c9a6439e2df2113dd5c7ecda6f`.
   - Host/toolchain: Linux `7.0.0-28-generic` x86_64, 6 physical/12 logical CPUs, 31229 MiB RAM, Go `go1.26.6`, Node `v22.22.1`, Elixir `1.20.2`, OTP `28.4.3`, Docker `29.1.3`, Compose `2.40.3+ds1-0ubuntu1`.
@@ -2550,7 +2550,41 @@ continues at P02.
 - Lessons Learned: Resource slots constrain aggregate contention but do not guarantee identical per-process RSS; acceptance must distinguish raw reference observations from the KER’s declared operational budget. The runner’s redacted result schema makes this visible without exposing process environments or provider material.
 - ADR Updates: ADR-HLLM-015 now records the canonical runner/manifest ownership and the measured four-slot fast policy; no new ADR number is required.
 - Refactoring Assessment: Completed. `scripts/benchmark-test-feedback.mjs` is now an evidence adapter over `scripts/run-test-tier.mjs`; benchmark lane membership is manifest-owned, and Make targets remain thin delegates.
-- Remaining Work: P02 through P07 remain pending; issue #32 remains open and tracks the remaining implementation, release, deployment, and certification work.
+- Remaining Work at this checkpoint: P02 through P07 remained pending; issue #32 remained open and tracks the remaining implementation, release, deployment, and certification work.
+
+### P02: Parallel-safe Phoenix tests and complete server-owned widget coverage
+
+- Phase Status: Done.
+- Completed Steps: P02.S01, P02.S02, P02.S03, P02.S04, P02.S05, P02.S06, and P02.S07.
+- Configuration Checkpoint:
+  - Branch: `feat/parallel-test-feedback-hierarchy`; P00 `0ae6ff6` and P01 `bdac362` are pushed checkpoints; the P02 phase-boundary commit is recorded after this gate.
+  - Baseline SHA: `009629211632beed029374549938d1e322fcba04`.
+  - Current manifest SHA-256: `86ac58bc384021eb1e064dc794412dd9896ceef7922bcbd1b07678cb90394599`.
+  - Deterministic frontend serial exceptions: `frontend/test/harden_llm_web/session_vault_test.exs` for process-global SessionVault lifecycle/clock state and `frontend/test/harden_llm_web/security_observability_test.exs` for process-global observability application configuration. No third exception was added.
+  - Test ownership: ConnCase configures private Req ownership from ExUnit context; the shared `live` test boundary explicitly allows each LiveView process to use its test stub and stops the view/proxy during teardown; authenticated fixture sessions are revoked in `on_exit`.
+- Quantitative Results:
+  - EVAL-003 sample count: 10 warm samples, one each for seeds `104729`, `130363`, `155921`, `181081`, `206369`, `231709`, `257053`, `282437`, `307969`, and `333269`.
+  - All ten frontend runs passed; ownership errors: `0`; leaked messages/processes/runner cleanup errors: `0`; serial exceptions: `2`.
+  - Warm wall time p50/p95/max: `3699 / 4125 / 4125 ms`; peak RSS p50/p95/max: `312.22 / 321.63 / 321.62890625 MiB`; CPU p95: `18500 ms`; maximum reported coefficient of variation: `0.0594`.
+  - Sequential P00 frontend p95 reference: `10033 ms`; EVAL-003 p95 comparison passed (`4125 <= 10033`).
+  - Raw EVAL-003 evidence: `plans/evidence/harden-llm/p02-phoenix-async-eval.json`, SHA-256 `582282d778cca0e19da803a3eed7eee4cd51fa23864df0466a73c8f92c478271` (ignored).
+- Verification:
+  - RED then GREEN: `cd frontend && mix test test/harden_llm_web/test_policy_test.exs` passed with the machine-checked two-exception inventory and no unapproved shared Req ownership.
+  - RED then GREEN: `cd frontend && mix test test/harden_llm_web/live/profile_widget_component_test.exs` passed 3/3; the cases use public LiveView events and verify compact no-tab rendering, main/nested folds, capability-aware reasoning, draft projection, and independent two-instance IDs/folds.
+  - `PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH CHROME_BIN=/usr/bin/google-chrome mix test --seed 181081` passed `93 passed, 4 excluded`.
+  - `node scripts/benchmark-test-feedback.mjs --task phoenix-async --seeds 104729,130363,155921,181081,206369,231709,257053,282437,307969,333269 --compare ker/test-feedback/baseline.json --output plans/evidence/harden-llm/p02-phoenix-async-eval.json` passed with the ten seeded samples above.
+  - `PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH CHROME_BIN=/usr/bin/google-chrome make test-fast` passed with six tasks and zero cleanup errors; `node --test scripts/test/run_test_tier_test.mjs` passed 7/7; `go test ./internal/testkit/... -count=1`, `node scripts/verify-test-tiers.mjs`, and `mix format --check-formatted` passed.
+- Issues/Resolutions:
+  - An initial direct frontend run without the manifest-provided `CHROME_BIN=/usr/bin/google-chrome` failed while compiling the browser module because Wallaby could not locate Chrome. The canonical runner already injects that environment; all accepted deterministic runs used the pinned executable. No browser test was reclassified or weakened.
+  - The new widget test initially failed because its fixture did not include a configured structured-repair escalation, so `#escalation-delete` was correctly absent. The fixture was completed with the escalation shape already required by the utility-style profile contract; no production behavior was changed.
+  - Converting the malformed-login test to async exposed that its global `SessionVault.count/0` comparison was not a test-isolated oracle. It now asserts the request-local session handle, expiry, and identity remain absent after a malformed response. This preserves the user-visible security invariant without adding a third global-state exception; the internal global-count oracle is explicitly recorded as a fidelity tradeoff.
+  - One ten-seed attempt was rejected when seed `181081` exposed a Req ownership cleanup race, and a separate focused policy run once lost the fixed endpoint port to a concurrently running Mix process. Neither was accepted evidence. The explicit LiveView Req allowance plus view/proxy teardown fixed the ownership race; focused checks are run serially when they boot the fixed port.
+- Failed Attempts: The initial no-`CHROME_BIN` invocation, the missing-escalation fixture, the async global-count assertion, the rejected seed-`181081` ownership evaluation, and the concurrent fixed-port policy invocation. Each was corrected or rejected without changing the purpose of the product assertions; no failed sample contributed accepted timing evidence.
+- Deviations: P02.S02 planned private Req ownership plus explicit spawned-process allowances; the implementation added a ConnCase `live` boundary that performs the allowance for the actual LiveView PID and deterministic teardown, rather than relying only on `$callers`. P02.S03/P02.S04 planned a production correction only if public-event coverage exposed a state defect; the component behavior was already correct, so the actual change was expanded server-owned coverage and a complete escalation fixture. P02.S02 also replaced one process-global SessionVault count assertion with request-local absence assertions to make the test valid under async execution. Fidelity impact: the global internal count oracle is narrower, while the externally observable session-security oracle remains intact. Oracle impact: no other assertions changed. Concurrency impact: safe modules are async and spawned Req work is explicitly owned. Production impact: none. ADR disposition: within ADR-HLLM-015; two named global exceptions remain and no DOM emulator or third exception was introduced.
+- Lessons Learned: LiveViewTest's public event assertions are cheap and broad, but async Req ownership needs an explicit process boundary and lifecycle cleanup. UI fold events that start backend persistence must be awaited before another disabled control is clicked. Fixed endpoint ports make concurrent focused Mix invocations invalid; the tier runner remains the concurrency boundary.
+- ADR Updates: ADR-HLLM-015 now records explicit LiveView Req allowances/teardown, the exact two serial exceptions, and EVAL-003's accepted ten-seed result; no new ADR number or threshold relaxation was required.
+- Refactoring Assessment: Completed. Repeated authenticated setup now uses one ConnCase helper, Req ownership is configured once, the new widget fixture owns the structured-repair shape it needs, and the benchmark remains manifest/runner-owned.
+- Remaining Work: P03 through P07 remain pending; issue #32 remains open and tracks the remaining pure-JavaScript extraction, browser/service tiers, documentation/CI, release, deployment, merge, and certification work.
 
 For each phase, maintain this record:
 

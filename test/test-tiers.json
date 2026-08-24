@@ -256,7 +256,7 @@
     },
     {
       "id": "frontend-deterministic",
-      "testIds": ["TEST-017"],
+      "testIds": ["TEST-017", "TEST-044"],
       "tier": "T1",
       "resourceClass": "cpu",
       "command": ["mix", "test"],
@@ -270,6 +270,24 @@
       "credentialKeys": [],
       "requiredFor": ["baseline", "fast", "release"],
       "benchmarkLanes": ["fast-candidates", "browser"],
+      "pathSelectors": ["frontend/lib/**", "frontend/test/harden_llm_web/**", "frontend/test/support/**"]
+    },
+    {
+      "id": "frontend-async",
+      "testIds": ["TEST-045"],
+      "tier": "T1",
+      "resourceClass": "cpu",
+      "command": ["mix", "test"],
+      "workingDirectory": "frontend",
+      "seedArgument": true,
+      "seedEachSample": true,
+      "environment": {"CHROME_BIN": "/usr/bin/google-chrome"},
+      "dependsOn": [],
+      "timeoutMs": 900000,
+      "cleanupOwner": "runner",
+      "network": "forbidden",
+      "credentialKeys": [],
+      "requiredFor": ["phoenix-async"],
       "pathSelectors": ["frontend/lib/**", "frontend/test/harden_llm_web/**", "frontend/test/support/**"]
     },
     {

@@ -43,8 +43,14 @@ export function parseArgs(argv) {
     index += 1;
     if (name === "mode") result.mode = value;
     else if (name === "task") result.task = value;
-    else if (name === "warm-samples") result.warmSamples = nonNegativeInteger(value, name);
-    else if (name === "cold-samples") result.coldSamples = nonNegativeInteger(value, name);
+    else if (name === "warm-samples") {
+      result.warmSamples = nonNegativeInteger(value, name);
+      result.warmSamplesExplicit = true;
+    }
+    else if (name === "cold-samples") {
+      result.coldSamples = nonNegativeInteger(value, name);
+      result.coldSamplesExplicit = true;
+    }
     else if (name === "output") result.output = value;
     else if (name === "compare") result.compare = value;
     else if (name === "verify-baseline") result.verifyBaseline = value;
@@ -227,20 +233,25 @@ async function runBaseline(manifest, args, common) {
 async function runRequestedTask(manifest, args, common) {
   const tasks = selectTasks(manifest, args.task);
   const samples = [];
-  for (const kind of ["cold", "warm"]) {
-    const count = kind === "cold" ? args.coldSamples : args.warmSamples;
-    for (let index = 0; index < count; index += 1) {
-      const seed = args.seeds[index % args.seeds.length];
-      const sample = await runSample(tasks, manifest, {
-        ...common,
-        seed,
-        cold: kind === "cold",
-        parallel: true,
-        candidateSlots: args.candidateSlots,
-        runID: `task-${args.task}-${kind}-${index + 1}`,
-      });
-      samples.push({ lane: args.task, kind, sample: index + 1, seed, taskIds: tasks.map((task) => task.id), ...sample });
-    }
+  const seedEachSample = tasks.some((task) => task.seedEachSample);
+  const explicitSampleCounts = args.warmSamplesExplicit || args.coldSamplesExplicit;
+  const samplePlan = seedEachSample && !explicitSampleCounts
+    ? args.seeds.map((seed, index) => ({ kind: "warm", index, seed }))
+    : ["cold", "warm"].flatMap((kind) => Array.from({ length: kind === "cold" ? args.coldSamples : args.warmSamples }, (_, index) => ({
+      kind,
+      index,
+      seed: args.seeds[index % args.seeds.length],
+    })));
+  for (const { kind, index, seed } of samplePlan) {
+    const sample = await runSample(tasks, manifest, {
+      ...common,
+      seed,
+      cold: kind === "cold",
+      parallel: true,
+      candidateSlots: args.candidateSlots,
+      runID: `task-${args.task}-${kind}-${index + 1}`,
+    });
+    samples.push({ lane: args.task, kind, sample: index + 1, seed, taskIds: tasks.map((task) => task.id), ...sample });
   }
   return samples;
 }
@@ -293,6 +304,39 @@ function compareTaskEvaluation(evaluations, baseline) {
   };
 }
 
+async function compareSeededEvaluation(evaluations, baseline, manifest) {
+  const current = Object.entries(evaluations).find(([key]) => key.endsWith(":warm"))?.[1];
+  if (!current) return { accepted: false, reason: "seeded comparison requires a warm evaluation" };
+
+  let sequentialP95 = baseline.evaluations?.["fast-candidates:warm"]?.wallTimeMs?.p95 ?? null;
+  const rawEvidencePath = baseline.reference?.evidencePath;
+  if (rawEvidencePath) {
+    try {
+      const rawEvidence = await loadJSON(path.resolve(REPOSITORY_ROOT, rawEvidencePath));
+      const frontendTaskWall = rawEvidence.samples
+        .filter((sample) => sample.kind === "warm")
+        .map((sample) => sample.results.find((result) => result.taskId === "frontend-deterministic")?.wallTimeMs)
+        .filter((value) => Number.isFinite(value));
+      if (frontendTaskWall.length > 0) sequentialP95 = percentile(frontendTaskWall, 0.95);
+    } catch {
+      // The committed KER aggregate remains the conservative fallback when raw evidence is unavailable.
+    }
+  }
+  const checks = {
+    seededFrontendPassCount: current.sampleCount === 10 && current.failureCount === 0,
+    ownershipErrorCount: current.failureCount === 0,
+    leakedMessageOrProcessCount: current.leakedResourceCount === 0,
+    deterministicSerialExceptionCount: (manifest.frontendSerialExceptions ?? []).length <= 2,
+    p95WithinSequentialBaseline: sequentialP95 !== null && current.wallTimeMs.p95 <= sequentialP95,
+  };
+  return {
+    accepted: Object.values(checks).every(Boolean),
+    reference: { sequentialP95WallTimeMs: sequentialP95 },
+    current: { sampleCount: current.sampleCount, p95WallTimeMs: current.wallTimeMs.p95 },
+    checks,
+  };
+}
+
 async function verifyBaseline(filePath) {
   const baseline = await loadJSON(path.resolve(REPOSITORY_ROOT, filePath));
   const required = ["schemaVersion", "documentId", "kerId", "hostFingerprint", "executionStatus", "evaluations", "acceptedEvaluationFields"];
@@ -329,6 +373,7 @@ export async function main(argv = process.argv.slice(2)) {
   const common = { root: REPOSITORY_ROOT };
   const hostFingerprint = collectHostFingerprint();
   const manifestSHA256 = await sha256File(manifestPath);
+  const selectedTasks = args.task ? selectTasks(manifest, args.task) : [];
   const samples = args.mode === "baseline"
     ? await runBaseline(manifest, args, common)
     : await runRequestedTask(manifest, args, common);
@@ -349,7 +394,11 @@ export async function main(argv = process.argv.slice(2)) {
   };
   if (args.compare) {
     const comparison = await loadJSON(path.resolve(REPOSITORY_ROOT, args.compare));
-    result.comparison = args.mode === "task" && args.task === "fast" ? compareTaskEvaluation(evaluations, comparison) : { accepted: true, reason: "comparison recorded without a task budget" };
+    result.comparison = args.mode === "task" && args.task === "fast"
+      ? compareTaskEvaluation(evaluations, comparison)
+      : args.mode === "task" && selectedTasks.some((task) => task.seedEachSample)
+        ? await compareSeededEvaluation(evaluations, comparison, manifest)
+        : { accepted: true, reason: "comparison recorded without a task budget" };
   }
   result.accepted = result.failureCount === 0 && result.leakedResourceCount === 0 && (result.comparison?.accepted ?? true);
   if (args.output) {

@@ -29,6 +29,20 @@ maximum RSS across all samples was 486.2265625 MiB against the KER accepted
 `9256c998aaa9a80d3cd82fa92bcd1a907fccc4c9a6439e2df2113dd5c7ecda6f`; the
 P00 reference hash remains the historical sequential baseline.
 
+P02 EVAL-003 is recorded separately at
+`plans/evidence/harden-llm/p02-phoenix-async-eval.json` (SHA-256
+`582282d778cca0e19da803a3eed7eee4cd51fa23864df0466a73c8f92c478271`). It
+contains one warm deterministic frontend run for each of ten fixed seeds, with
+the final manifest SHA
+`86ac58bc384021eb1e064dc794412dd9896ceef7922bcbd1b07678cb90394599`. All
+ten runs passed with zero Req ownership errors, zero leaked messages/processes,
+and exactly two documented serial exceptions. Warm p50/p95/max wall time was
+`3699/4125/4125 ms`; p95 RSS was `321.63 MiB`; p95 CPU was `18500 ms`.
+The p95 was below the `10033 ms` sequential frontend reference. The first
+rejected attempt exposed an ownership cleanup race at seed `181081`; it was
+not accepted as timing evidence, and the final run used explicit LiveView
+allowances and teardown.
+
 Only redacted aggregates belong in this directory. Raw output, command logs,
 provider responses, credentials, cookies, request bodies, and process
 environments are forbidden. A benchmark sample with a failed task or cleanup

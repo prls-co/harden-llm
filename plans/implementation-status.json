@@ -269,9 +269,9 @@
     "baselineSHA": "009629211632beed029374549938d1e322fcba04",
     "adr": "ADR-HLLM-015",
     "ker": "KER-HLLM-TEST-FEEDBACK-001",
-    "status": "P01-complete",
-    "currentPhase": "P02",
-    "completedPhases": ["P00", "P01"],
+    "status": "P02-complete",
+    "currentPhase": "P03",
+    "completedPhases": ["P00", "P01", "P02"],
     "evaluations": {
       "EVAL-001": {
         "accepted": true,
@@ -330,6 +330,37 @@
           "zeroFailures": true,
           "zeroLeaks": true
         }
+      },
+      "EVAL-003": {
+        "accepted": true,
+        "sampleCount": 10,
+        "warmSamples": 10,
+        "coldSamples": 0,
+        "failureCount": 0,
+        "leakedResourceCount": 0,
+        "rawEvidencePath": "plans/evidence/harden-llm/p02-phoenix-async-eval.json",
+        "rawEvidenceSha256": "582282d778cca0e19da803a3eed7eee4cd51fa23864df0466a73c8f92c478271",
+        "manifestSha256": "86ac58bc384021eb1e064dc794412dd9896ceef7922bcbd1b07678cb90394599",
+        "seeds": [104729, 130363, 155921, 181081, 206369, 231709, 257053, 282437, 307969, 333269],
+        "selectedTaskIds": ["frontend-async"],
+        "serialExceptions": [
+          "frontend/test/harden_llm_web/session_vault_test.exs",
+          "frontend/test/harden_llm_web/security_observability_test.exs"
+        ],
+        "warmP50WallTimeMs": 3699,
+        "warmP95WallTimeMs": 4125,
+        "warmPeakRssMiBP95": 321.63,
+        "warmPeakRssMiBMax": 321.62890625,
+        "warmCpuMsP95": 18500,
+        "sequentialReferenceWarmP95WallTimeMs": 10033,
+        "maxCoefficientOfVariation": 0.0594,
+        "checks": {
+          "seededFrontendPassCount": true,
+          "ownershipErrorCount": true,
+          "leakedMessageOrProcessCount": true,
+          "deterministicSerialExceptionCount": true,
+          "p95WithinSequentialBaseline": true
+        }
       }
     },
     "applicationRelease": null,
@@ -345,7 +376,10 @@
       "A pre-reference browser smoke failed with the default container shared-memory limit; the runner now uses the pinned browser image with --shm-size 2g. No accepted sample failed.",
       "The initial KER is measured only on the recorded Linux/Go/Node/Docker/Compose fingerprint; no synthetic DOM dependency is accepted in the initial implementation.",
       "P01.S07 EVAL-002 passed with four CPU slots: warm p95 wall 8078 ms versus the 20495.2 ms budget, all-sample peak RSS 486.2265625 MiB versus the accepted 601.09 MiB budget, zero failures, zero leaks, and identical six-task selection across all eight samples.",
-      "P01 fixture-only RED corrections retained the intended runner assertions, including bounded timeout termination; the provisional eight-slot evaluation was rejected for raw RSS variance and was not used as accepted evidence."
+      "P01 fixture-only RED corrections retained the intended runner assertions, including bounded timeout termination; the provisional eight-slot evaluation was rejected for raw RSS variance and was not used as accepted evidence.",
+      "P02 converted all safe deterministic frontend modules to async ownership, retained exactly the SessionVault lifecycle/clock and observability configuration exceptions, and added explicit LiveView Req allowances plus view/proxy teardown.",
+      "P02 replaced one process-global malformed-login SessionVault count assertion with request-local session absence assertions; this preserved the user-visible security oracle while making the test valid under concurrent execution.",
+      "P02's first ten-seed attempt exposed a Req ownership cleanup race at seed 181081 and was rejected; the explicit allowance/teardown boundary was added, and the final ten-seed EVAL-003 passed with zero failures/leaks at 4125 ms warm p95 versus the 10033 ms sequential frontend reference."
     ]
   }
 }

@@ -247,7 +247,11 @@ function resolvedEnvironment(task, options) {
 }
 
 function resolvedCommand(task, options) {
-  const effective = task.testSeed ? [...task.command, "--seed", String(task.testSeed)] : [...task.command];
+  const effective = task.testSeed
+    ? [...task.command, "--seed", String(task.testSeed)]
+    : task.seedArgument
+      ? [...task.command, "--seed", String(options.seed ?? DEFAULT_SEED)]
+      : [...task.command];
   if (!task.container) {
     return {
       executable: effective[0],
