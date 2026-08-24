@@ -33,6 +33,25 @@ make test-compose          # real fifteen-service correlated smoke test
 make verify                # format, vet, build, tests, race, and govulncheck
 ```
 
+### Test feedback hierarchy
+
+Use `make test-fast` as the repeated edit-test loop. It runs the broad T0-T2
+checks in parallel: default-tag Go/static/parity work, deterministic
+Phoenix/LiveViewTest, and the pure client-core Node tests. It is offline and
+credential-free and does not start Docker, Chromium, or a live provider.
+
+Choose a higher tier only for the boundary it owns: `make test-integration`
+for pooled real Postgres/Garage and race work, `make test-browser` for the two
+ordinary native-browser canaries, and `make test-release` for the complete
+manifest-owned release candidate including Compose certification. Live
+provider checks remain explicitly authorized and separate. If a T3-T5 defect
+is found, add a cheap T0-T2 regression for the root invariant whenever that is
+representable; keep the expensive test for its distinct environment fact.
+
+The canonical policy is [`test/test-tiers.json`](test/test-tiers.json), and the
+canonical scheduler is [`scripts/run-test-tier.mjs`](scripts/run-test-tier.mjs).
+Make and CI delegate to them rather than maintaining another task list.
+
 `make verify` intentionally excludes `frontend/` and live provider credentials.
 The frontend has its own pinned Mix gates in [frontend/README.md](frontend/README.md).
 

@@ -1,16 +1,12 @@
 defmodule HardenLlmWeb.EmbeddingLiveTest do
-  use HardenLlmWeb.ConnCase, async: false
+  use HardenLlmWeb.ConnCase, async: true
 
-  import Phoenix.LiveViewTest
+  import Phoenix.LiveViewTest, except: [live: 1, live: 2, live: 3]
 
   alias HardenLlmWeb.{APIFixtures, HardenAPI}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-043
-  setup %{conn: conn} do
-    Req.Test.set_req_test_to_shared()
-    handle = APIFixtures.insert_session()
-    {:ok, conn: init_test_session(conn, APIFixtures.session_map(handle))}
-  end
+  setup %{conn: conn}, do: {:ok, conn: authenticated_conn(conn)}
 
   test "host namespaces two widget instances and routes their controls independently", %{
     conn: conn

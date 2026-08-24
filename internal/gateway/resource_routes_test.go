@@ -2,7 +2,7 @@
 
 package gateway_test
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-024
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-024 TEST-053
 
 import (
 	"bytes"
@@ -27,8 +27,8 @@ import (
 )
 
 func TestResourceRoutes(t *testing.T) {
-	_, dsn := integrationtest.StartPostgres(t)
-	_, garageFixture := integrationtest.StartGarage(t)
+	_, dsn := integrationtest.PostgresLease(t)
+	_, garageFixture := integrationtest.GarageLease(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	store, err := postgres.Open(ctx, dsn)
@@ -83,7 +83,7 @@ func TestResourceRoutes(t *testing.T) {
 		Store: store, Profiles: profileService, ModelRefresher: modelRefresher, Clock: clock,
 		NewID: func() (string, error) { return "bundle-1", nil },
 		ArtifactScope: func(ownerID string) (gateway.ArtifactPresigner, error) {
-			return garageStore.Scoped("llm-traces/" + ownerID + "/")
+			return garageStore.Scoped(garageFixture.Scope("llm-traces/" + ownerID + "/"))
 		},
 	})
 	if err != nil {
@@ -189,11 +189,11 @@ func TestResourceRoutes(t *testing.T) {
 		t.Fatalf("second history page = %#v", response.JSON)
 	}
 
-	ownerStore, err := garageStore.Scoped("llm-traces/owner-a/")
+	ownerStore, err := garageStore.Scoped(garageFixture.Scope("llm-traces/owner-a/"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	objectKey := "llm-traces/owner-a/run-a/trace-a/artifact-a-trace.json"
+	objectKey := garageFixture.Key("llm-traces/owner-a/run-a/trace-a/artifact-a-trace.json")
 	reference, err := ownerStore.Put(ctx, objectKey, []byte(`{"safe":true}`), "application/json")
 	if err != nil {
 		t.Fatal(err)

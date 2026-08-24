@@ -24,6 +24,17 @@ import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/harden_llm"
 import topbar from "../vendor/topbar"
+import {
+  blurValue,
+  commitValue,
+  emptyStateVisible,
+  escapeValue,
+  highlightIndex,
+  isSubmitShortcut,
+  normalizeSearch,
+  schemaPendingState,
+  visibleOptionIndices,
+} from "./client_core.mjs"
 
 const Clipboard = {
   mounted() {
@@ -53,7 +64,7 @@ const Clipboard = {
 const PromptShortcut = {
   mounted() {
     this.submit = event => {
-      if (event.key !== "Enter" || (!event.ctrlKey && !event.metaKey) || event.altKey || event.shiftKey) return
+      if (!isSubmitShortcut(event)) return
       const form = document.getElementById(this.el.dataset.formId || "run-form")
       if (!form || form.querySelector("button[type='submit']")?.disabled) return
       event.preventDefault()
@@ -71,14 +82,10 @@ const SchemaPending = {
     this.markPending = () => {
       const status = document.getElementById(this.el.dataset.statusId || "schema-status")
       if (!status) return
-      if (this.el.value.trim() === "") {
-        status.textContent = ""
-        status.removeAttribute("role")
-      } else {
-        status.textContent = "Schema check pending."
-        status.className = "text-xs text-slate-500"
-        status.removeAttribute("role")
-      }
+      const state = schemaPendingState(this.el.value)
+      status.textContent = state.message
+      if (state.pending) status.className = state.className
+      status.removeAttribute("role")
     }
     this.el.addEventListener("input", this.markPending)
   },
@@ -131,15 +138,21 @@ const SearchableCombobox = {
         }
       } else if (event.key === "Escape") {
         event.preventDefault()
-        this.input.value = this.committed
+        this.input.value = escapeValue({committed: this.committed}).value
         this.closeMenu()
       }
     }
     this.onBlur = () => {
       window.setTimeout(() => {
         if (!this.el.contains(document.activeElement)) {
-          if (this.allowCustom && this.input.value !== this.committed) this.commitCustomValue()
-          else if (!this.allowCustom && !this.isKnownValue(this.input.value)) this.input.value = this.committed
+          const decision = blurValue({
+            value: this.input.value,
+            committed: this.committed,
+            knownValues: this.options.map(option => option.dataset.value || ""),
+            allowCustom: this.allowCustom,
+          })
+          if (decision.action === "custom") this.commitCustomValue()
+          else if (decision.action === "revert") this.input.value = decision.value
           this.closeMenu()
         }
       }, 0)
@@ -173,15 +186,16 @@ const SearchableCombobox = {
     return this.options.filter(option => !option.hidden)
   },
   filterOptions() {
-    const query = this.input.value.trim().toLowerCase()
-    let visible = 0
-    this.options.forEach(option => {
-      const search = (option.dataset.search || option.dataset.value || "").toLowerCase()
-      option.hidden = query !== "" && !search.includes(query)
+    const options = this.options.map(option => ({
+      search: normalizeSearch(option.dataset.search || option.dataset.value || ""),
+      value: option.dataset.value || "",
+    }))
+    const visibleIndices = new Set(visibleOptionIndices(options, this.input.value))
+    this.options.forEach((option, index) => {
+      option.hidden = !visibleIndices.has(index)
       option.classList.remove("is-highlighted")
-      if (!option.hidden) visible += 1
     })
-    this.empty.hidden = visible !== 0
+    this.empty.hidden = !emptyStateVisible(visibleIndices.size)
     this.highlighted = -1
   },
   openMenu() {
@@ -199,24 +213,38 @@ const SearchableCombobox = {
   moveHighlight(direction) {
     const visible = this.visibleOptions()
     if (!visible.length) return
-    this.highlighted = (this.highlighted + direction + visible.length) % visible.length
+    this.highlighted = highlightIndex(this.highlighted, direction, visible.length)
     this.options.forEach(option => option.classList.remove("is-highlighted"))
     visible[this.highlighted].classList.add("is-highlighted")
     visible[this.highlighted].scrollIntoView({block: "nearest"})
   },
-  isKnownValue(value) {
-    return this.options.some(option => option.dataset.value === value)
-  },
   commitCustomValue() {
-    this.committed = this.input.value
-    this.dispatchChange()
+    const decision = commitValue({
+      value: this.input.value,
+      committed: this.committed,
+      knownValues: this.options.map(option => option.dataset.value || ""),
+      allowCustom: true,
+    })
+    if (decision.action === "custom" || decision.action === "known") {
+      this.committed = decision.value
+      this.dispatchChange()
+    }
     this.closeMenu()
   },
   selectOption(option) {
     if (!option) return
-    this.input.value = option.dataset.value || ""
-    this.committed = this.input.value
-    this.dispatchChange()
+    const value = option.dataset.value || ""
+    const decision = commitValue({
+      value,
+      committed: this.committed,
+      knownValues: this.options.map(item => item.dataset.value || ""),
+      allowCustom: this.allowCustom,
+    })
+    this.input.value = decision.value
+    if (decision.action !== "revert") {
+      this.committed = decision.value
+      this.dispatchChange()
+    }
     this.closeMenu()
   },
   dispatchChange() {

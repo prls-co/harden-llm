@@ -1,5 +1,5 @@
 defmodule HardenLlmWeb.HardenAPITest do
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   alias HardenLlmWeb.{APIError, APIFixtures, HardenAPI, SessionVault}
 
@@ -7,8 +7,8 @@ defmodule HardenLlmWeb.HardenAPITest do
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-003
 
-  setup do
-    Req.Test.set_req_test_to_private()
+  setup context do
+    Req.Test.set_req_test_from_context(context)
     :ok
   end
 

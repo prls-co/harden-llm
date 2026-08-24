@@ -14,6 +14,34 @@ multi-instance embedding implementation completed on 2026-08-23.
 Detailed command output belongs under ignored
 `plans/evidence/harden-llm/<run-id>/`; secrets and live provider output never do.
 
+## Parallel test-feedback release contract
+
+The implementation candidate is evaluated through the same manifest-owned
+hierarchy used during development. `make test-fast` is the broad T0-T2 loop;
+`make test-integration` and its race target cover T3 service boundaries;
+`make test-browser` covers exactly two ordinary Chromium canaries; and
+`make test-release` is the complete release candidate, including the existing
+backend/Compose and frontend/Compose checks. The workflow delegates to those
+targets and does not copy their task lists.
+
+The KER records accepted reference-host budgets and phase evaluations. A
+successful release requires TEST-055, zero failed/leaked task resources, and
+redacted evidence. A deployed check is an application-bearing identity check,
+not merely a health probe: TEST-056 compares the merged application release
+with the frontend image/container, then verifies public probes, authenticated
+widget behavior, one bounded configured-profile prompt, exact smoke-history
+cleanup, and logout. The documentation-only closure commit is never presented
+as the deployed application-bearing SHA.
+
+P06 EVAL-007 is the accepted local release-candidate checkpoint. One warm
+sample selected 25 manifest tasks and passed all of them with zero failures,
+zero leaked resources, and two cleaned service-pool starts. The release graph
+observed `233358 ms` critical-path wall time and `1165.16796875 MiB` peak RSS;
+the result was recorded without a task-specific budget and did not alter the
+accepted P00 ceilings. The measured command used the reference host's pinned
+Elixir `1.20.2` / OTP `28.4.3` PATH. P07 remains responsible for hosted checks,
+merged identity, deployment, and TEST-056 public certification.
+
 ## Provenance checkpoint
 
 | Input | Certified value |
@@ -45,6 +73,8 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 - Current WSL refresh: Docker client/server `29.6.2`; Compose `v5.3.1`.
 - `govulncheck` `1.6.0` with the official Go vulnerability database.
 - Frontend builder: Elixir `1.20.2`, Erlang/OTP `28.4.3`, Phoenix `1.8.9`.
+- Reference-host frontend/release commands must expose the pinned toolchain:
+  `PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH`.
 - Frontend browser image: Docker CLI `29.5.2`, Compose `2.40.3`, Chromium/ChromeDriver `149.0.7827.53`.
 - Phoenix LiveView `1.2.9` is the current exact security pin; ADR-HLLM-009 records the original `1.2.7` patch and this subsequent advisory-driven update.
 

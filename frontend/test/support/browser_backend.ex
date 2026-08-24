@@ -17,6 +17,10 @@ defmodule HardenLlmWeb.BrowserBackend do
     Agent.update(__MODULE__, fn _state -> initial_state() end)
   end
 
+  def fail_next_run do
+    Agent.update(__MODULE__, &Map.put(&1, :fail_next_run, true))
+  end
+
   def stop do
     if pid = Process.whereis(__MODULE__), do: Agent.stop(pid)
     :ok
@@ -157,27 +161,39 @@ defmodule HardenLlmWeb.BrowserBackend do
   end
 
   defp dispatch(%{method: "POST", path_info: ["api", "v1", "run"]} = conn, body) do
-    result = run_result()
-    item = history_item(body, result)
-    trace = trace(result)
+    case Agent.get_and_update(__MODULE__, fn state ->
+           if state.fail_next_run do
+             {:failure, %{state | fail_next_run: false}}
+           else
+             {:success, state}
+           end
+         end) do
+      :failure ->
+        error(conn, 503, "upstream_timeout")
 
-    Agent.update(__MODULE__, fn state ->
-      %{
-        state
-        | history: [item | Enum.reject(state.history, &(&1["runId"] == result["runId"]))],
-          traces: Map.put(state.traces, result["traceId"], trace),
-          workspace:
-            state.workspace
-            |> Map.put("lastRunId", result["runId"])
-            |> Map.put("lastTraceId", result["traceId"])
-      }
-    end)
+      :success ->
+        result = run_result()
+        item = history_item(body, result)
+        trace = trace(result)
 
-    json(
-      conn,
-      200,
-      success(result, %{"lastRunId" => result["runId"], "lastTraceId" => result["traceId"]})
-    )
+        Agent.update(__MODULE__, fn state ->
+          %{
+            state
+            | history: [item | Enum.reject(state.history, &(&1["runId"] == result["runId"]))],
+              traces: Map.put(state.traces, result["traceId"], trace),
+              workspace:
+                state.workspace
+                |> Map.put("lastRunId", result["runId"])
+                |> Map.put("lastTraceId", result["traceId"])
+          }
+        end)
+
+        json(
+          conn,
+          200,
+          success(result, %{"lastRunId" => result["runId"], "lastTraceId" => result["traceId"]})
+        )
+    end
   end
 
   defp dispatch(
@@ -219,6 +235,7 @@ defmodule HardenLlmWeb.BrowserBackend do
       profiles: %{},
       history: [],
       traces: %{},
+      fail_next_run: false,
       calls: []
     }
   end

@@ -1,16 +1,11 @@
 defmodule HardenLlmWeb.AuthTest do
-  use HardenLlmWeb.ConnCase, async: false
+  use HardenLlmWeb.ConnCase, async: true
 
-  import Phoenix.LiveViewTest
+  import Phoenix.LiveViewTest, except: [live: 1, live: 2, live: 3]
 
   alias HardenLlmWeb.{APIFixtures, HardenAPI, SessionVault}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-005
-
-  setup do
-    Req.Test.set_req_test_to_shared()
-    :ok
-  end
 
   test "unauthenticated LiveViews redirect to login", %{conn: conn} do
     assert {:error, {:redirect, %{to: "/login"}}} = live(conn, ~p"/workspace")

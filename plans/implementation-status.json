@@ -263,5 +263,261 @@
         "routeShell": "ProfileWidgetComponent is the current reusable in-flow widget; Layouts.app remains an adapter shell and authenticated /embed/llm demonstrates two independently routed host instances"
       }
     }
+  },
+  "testFeedbackHierarchy": {
+    "documentId": "PLAN-HARDEN-LLM-TEST-FEEDBACK-002",
+    "baselineSHA": "009629211632beed029374549938d1e322fcba04",
+    "adr": "ADR-HLLM-015",
+    "ker": "KER-HLLM-TEST-FEEDBACK-001",
+    "checkpointCommit": "4a0b11b",
+    "status": "P06-complete",
+    "currentPhase": "P07",
+    "completedPhases": ["P00", "P01", "P02", "P03", "P04", "P05", "P06"],
+    "evaluations": {
+      "EVAL-001": {
+        "accepted": true,
+        "sampleCount": 32,
+        "warmSamples": 5,
+        "coldSamples": 3,
+        "failureCount": 0,
+        "leakedResourceCount": 0,
+        "rawEvidencePath": "plans/evidence/harden-llm/ptf-20260823/test-feedback-baseline.json",
+        "rawEvidenceSha256": "c1ef33761d68d2b08415b9bd5b67f2f1b42794a76c1151f86b5083bede17f616",
+        "manifestSha256": "a88a84d65a97725d5da5c827fb952c131098b5fb2cb920de00f4579a9f69b663",
+        "maxCoefficientOfVariation": 0.1604,
+        "warmP95WallTimeMs": {
+          "fast-candidates": 25619,
+          "integration": 79048,
+          "browser": 172929,
+          "full-system": 249365
+        },
+        "warmPeakRssMiBMax": {
+          "fast-candidates": 480.87109375,
+          "integration": 459.73046875,
+          "browser": 831.140625,
+          "full-system": 1220.98046875
+        },
+        "warmCpuMsP95": {
+          "fast-candidates": 71490,
+          "integration": 17140,
+          "browser": 108177.78,
+          "full-system": 130790
+        }
+      },
+      "EVAL-002": {
+        "accepted": true,
+        "sampleCount": 8,
+        "warmSamples": 5,
+        "coldSamples": 3,
+        "failureCount": 0,
+        "leakedResourceCount": 0,
+        "rawEvidencePath": "plans/evidence/harden-llm/p01-fast-eval.json",
+        "rawEvidenceSha256": "8a70d8dab2ad801a670969147e7fc2094d4bfcf0ee7ef7ca1b3b6be0122133e3",
+        "manifestSha256": "9256c998aaa9a80d3cd82fa92bcd1a907fccc4c9a6439e2df2113dd5c7ecda6f",
+        "cpuSlots": 4,
+        "selectedTaskIds": ["go-static", "go-unit", "go-parity", "go-api", "go-observability", "frontend-deterministic"],
+        "allSamplesSelectedSameTasks": true,
+        "maxCoefficientOfVariation": 0.0905,
+        "warmP95WallTimeMs": 8078,
+        "sequentialReferenceWarmP95WallTimeMs": 25619,
+        "warmWallTimeBudgetMs": 20495.2,
+        "warmPeakRssMiBMax": 482.18359375,
+        "allSamplesPeakRssMiBMax": 486.2265625,
+        "acceptedPeakRssBudgetMiBMax": 601.09,
+        "warmCpuMsP95": 7040,
+        "checks": {
+          "warmP95WithinBudget": true,
+          "peakRSSWithinAcceptedBudget": true,
+          "zeroFailures": true,
+          "zeroLeaks": true
+        }
+      },
+      "EVAL-003": {
+        "accepted": true,
+        "sampleCount": 10,
+        "warmSamples": 10,
+        "coldSamples": 0,
+        "failureCount": 0,
+        "leakedResourceCount": 0,
+        "rawEvidencePath": "plans/evidence/harden-llm/p02-phoenix-async-eval.json",
+        "rawEvidenceSha256": "582282d778cca0e19da803a3eed7eee4cd51fa23864df0466a73c8f92c478271",
+        "manifestSha256": "86ac58bc384021eb1e064dc794412dd9896ceef7922bcbd1b07678cb90394599",
+        "seeds": [104729, 130363, 155921, 181081, 206369, 231709, 257053, 282437, 307969, 333269],
+        "selectedTaskIds": ["frontend-async"],
+        "serialExceptions": [
+          "frontend/test/harden_llm_web/session_vault_test.exs",
+          "frontend/test/harden_llm_web/security_observability_test.exs"
+        ],
+        "warmP50WallTimeMs": 3699,
+        "warmP95WallTimeMs": 4125,
+        "warmPeakRssMiBP95": 321.63,
+        "warmPeakRssMiBMax": 321.62890625,
+        "warmCpuMsP95": 18500,
+        "sequentialReferenceWarmP95WallTimeMs": 10033,
+        "maxCoefficientOfVariation": 0.0594,
+        "checks": {
+          "seededFrontendPassCount": true,
+          "ownershipErrorCount": true,
+          "leakedMessageOrProcessCount": true,
+          "deterministicSerialExceptionCount": true,
+          "p95WithinSequentialBaseline": true
+        }
+      },
+      "EVAL-004": {
+        "accepted": true,
+        "sampleCount": 30,
+        "warmSamples": 30,
+        "coldSamples": 0,
+        "failureCount": 0,
+        "leakedResourceCount": 0,
+        "rawEvidencePath": "plans/evidence/harden-llm/client-core-eval.json",
+        "rawEvidenceSha256": "18d5145ab24007a32da0a67c8128756b02f787306ef94c0ddfc4291ce82d5885",
+        "manifestSha256": "82fa6a792f45022125f8cdbe6008a3219dc84d709f2efb59f8d0b8d9275b46f5",
+        "selectedTaskIds": ["client-core"],
+        "warmP50WallTimeMs": 416,
+        "warmP95WallTimeMs": 495,
+        "warmWallTimeMsMax": 522,
+        "warmPeakRssMiBP95": 120.38,
+        "warmPeakRssMiBMax": 120.3984375,
+        "warmCpuMsP95": 500,
+        "maxCoefficientOfVariation": 0.0972,
+        "packageInstallCount": 0,
+        "networkAttemptCount": 0,
+        "checks": {
+          "successfulWarmSampleCount": true,
+          "warmP95WithinTwoSeconds": true,
+          "peakRSSWithinKER": true,
+          "zeroLeaks": true,
+          "zeroPackageInstallCount": true,
+          "zeroNetworkAttemptCount": true
+        }
+      },
+      "EVAL-005": {
+        "accepted": true,
+        "sampleCount": 5,
+        "warmSamples": 5,
+        "coldSamples": 0,
+        "failureCount": 0,
+        "leakedResourceCount": 0,
+        "rawEvidencePath": "plans/evidence/harden-llm/browser-canary-eval.json",
+        "rawEvidenceSha256": "11d7ed867aac8e73e9501c44b1a720539849e1060c1ee4ef2d54e3f9a9c295f2",
+        "manifestSha256": "53e31dc061da4bf5ace6d8b3f3c6fe3ac68cb87442d8b7f05570ca6240088f38",
+        "selectedTaskIds": ["frontend-deterministic", "frontend-browser"],
+        "ordinaryFeatureCount": 2,
+        "ordinaryFiles": ["authenticated_workflow_canary_test.exs", "widget_canary_test.exs"],
+        "chromiumSessionCountPerSample": 2,
+        "warmP50WallTimeMs": 39589,
+        "warmP95WallTimeMs": 39621,
+        "warmWallTimeMsMax": 39621,
+        "warmPeakRssMiBP50": 386.25,
+        "warmPeakRssMiBP95": 403.08,
+        "warmPeakRssMiBMax": 403.08203125,
+        "maxCoefficientOfVariation": 0.0337,
+        "acceptedWallP95BudgetMs": 216162,
+        "acceptedPeakRssBudgetMiBMax": 1038.93,
+        "screenshotCount": 0,
+        "runningBrowserContainerCount": 0,
+        "checks": {
+          "successfulBrowserSamples": true,
+          "ordinaryFeatureCount": true,
+          "chromiumSessionCountPerSample": true,
+          "p95WithinThreeFeatureBaseline": true,
+          "peakRSSWithinThreeFeatureBaseline": true,
+          "successfulRunScreenshotCount": true,
+          "leakedBrowserProcessCount": true,
+          "zeroLeaks": true
+        }
+      },
+      "EVAL-006": {
+        "accepted": true,
+        "sampleCount": 48,
+        "warmSamples": 5,
+        "coldSamples": 3,
+        "candidateCount": 6,
+        "failureCount": 0,
+        "leakedResourceCount": 0,
+        "rawEvidencePath": "plans/evidence/harden-llm/integration-pool-eval.json",
+        "rawEvidenceSha256": "bc7371b53497467754a1897deac27ca425b3638019eda343cf503563f46922a4",
+        "manifestSha256": "6e3e8fd3ee4056cd715226ac24e252d02135c7de870b111e3c1de14ddfb7257a",
+        "candidatePackageSlots": [1, 2, 3],
+        "candidateRaceSlots": [1, 2],
+        "selectedPackageSlots": 3,
+        "selectedRaceSlots": 2,
+        "normalWarmP95WallTimeMs": 14159,
+        "normalWarmPeakRssMiBMax": 474.375,
+        "raceWarmP95WallTimeMs": 36039,
+        "raceWarmPeakRssMiBMax": 716.41015625,
+        "serviceStartCount": 144,
+        "exclusiveOverlapCount": 0,
+        "raceBudgetReference": "accepted full-system warm wall/RSS ceilings because P00 integration was not race-instrumented",
+        "checks": {
+          "allCandidateSamplesPassed": true,
+          "zeroLeaks": true,
+          "normalP95WithinEightyPercentOfComposeBaseline": true,
+          "normalPeakRSSWithinAcceptedIntegrationBudget": true,
+          "raceTaskCompletedWithoutRaceReport": true,
+          "racePeakRSSWithinConservativeInstrumentedBudget": true,
+          "exclusiveOverlapCount": true
+        }
+      },
+      "EVAL-007": {
+        "accepted": true,
+        "sampleCount": 1,
+        "warmSamples": 1,
+        "coldSamples": 0,
+        "failureCount": 0,
+        "leakedResourceCount": 0,
+        "rawEvidencePath": "plans/evidence/harden-llm/release-candidate-eval.json",
+        "rawEvidenceSha256": "01abadc0381656c4aebffd4d8cac84c31d6e1babef5aac3f18d49bce2440de58",
+        "manifestSha256": "4f20b980f0fa5527898f2cfdfc7be8a9e07730d0e7eb27bbb4fc693ed4a206ca",
+        "selectedTaskCount": 25,
+        "criticalPathWallTimeMs": {
+          "p50": 233358,
+          "p95": 233358,
+          "max": 233358
+        },
+        "peakRssMiBMax": 1165.16796875,
+        "cpuMs": {
+          "p50": 4850,
+          "max": 143820
+        },
+        "serviceStartCount": 2,
+        "comparison": "recorded without a task-specific budget; observed critical path and RSS were below the accepted P00 full-system warm ceilings",
+        "checks": {
+          "allSelectedTasksPassed": true,
+          "zeroFailures": true,
+          "zeroLeaks": true,
+          "releaseComposition": true,
+          "cleanupCompleted": true
+        }
+      }
+    },
+    "applicationRelease": null,
+    "issue": {
+      "number": 32,
+      "url": "https://github.com/prls-co/harden-llm/issues/32",
+      "state": "OPEN"
+    },
+    "noRefactorNeeded": true,
+    "notes": [
+      "The hierarchy is additive and does not rewrite the completed self-hosted plan or phases.",
+      "P00.S04 first green 32-sample run was not accepted because the harness grouped task p50 wall time, omitted grouped CPU, and measured Docker client CPU for browser containers; the benchmark was corrected and the unchanged task observations were deterministically re-aggregated.",
+      "A pre-reference browser smoke failed with the default container shared-memory limit; the runner now uses the pinned browser image with --shm-size 2g. No accepted sample failed.",
+      "The initial KER is measured only on the recorded Linux/Go/Node/Docker/Compose fingerprint; no synthetic DOM dependency is accepted in the initial implementation.",
+      "P01.S07 EVAL-002 passed with four CPU slots: warm p95 wall 8078 ms versus the 20495.2 ms budget, all-sample peak RSS 486.2265625 MiB versus the accepted 601.09 MiB budget, zero failures, zero leaks, and identical six-task selection across all eight samples.",
+      "P01 fixture-only RED corrections retained the intended runner assertions, including bounded timeout termination; the provisional eight-slot evaluation was rejected for raw RSS variance and was not used as accepted evidence.",
+      "P02 converted all safe deterministic frontend modules to async ownership, retained exactly the SessionVault lifecycle/clock and observability configuration exceptions, and added explicit LiveView Req allowances plus view/proxy teardown.",
+      "P02 replaced one process-global malformed-login SessionVault count assertion with request-local session absence assertions; this preserved the user-visible security oracle while making the test valid under concurrent execution.",
+      "P02's first ten-seed attempt exposed a Req ownership cleanup race at seed 181081 and was rejected; the explicit allowance/teardown boundary was added, and the final ten-seed EVAL-003 passed with zero failures/leaks at 4125 ms warm p95 versus the 10033 ms sequential frontend reference.",
+      "P03 extracted the pure client decision core into frontend/assets/js/client_core.mjs, imported it from app.js, added TEST-046/051, and kept browser effects in thin hooks with no package manifest or DOM emulator.",
+      "P03 EVAL-004 passed 30 warm client-core samples at 495 ms p95 and 120.3984375 MiB maximum RSS, with zero failures/leaks/package installs/network attempts.",
+      "P03's unqualified benchmark command accidentally selected baseline mode and started backend verification; the exact runner-owned scratch directory was cleaned, no evidence was accepted, and the command was corrected to explicit task mode with zero cold samples.",
+      "P04 replaced the monolithic ordinary browser workflow with exactly two targeted canaries and kept Compose smoke separate; the pinned browser image uses host networking, the Docker socket, and 2 GiB shared memory.",
+      "P04 browser coverage found the real SecretStager api-key serialization mismatch; the production handler now accepts the hyphenated public-event key while preserving write-only credential behavior.",
+      "P04 EVAL-005 passed five warm browser samples at 39621 ms p95 and 403.08203125 MiB maximum RSS, with two ordinary browser features per sample, zero failures/leaks/screenshots/running containers, and unchanged P00 budgets.",
+      "P04's initial browser benchmark invocation was made explicit with task mode and zero cold samples; browser-specific comparison now checks feature inventory, session count, screenshots, and cleanup. Browser task CPU remains informational because the Docker-client measurement is not equivalent to Chromium-process CPU.",
+      "P06 EVAL-007 passed one complete release candidate with all 25 selected tasks green, zero failures, zero leaked resources, and two ordinary service-pool starts. The release critical path was 233358 ms and peak RSS was 1165.16796875 MiB; these are release-graph observations rather than new tier budgets. The release candidate was measured with the pinned Elixir/OTP PATH required by the reference host.",
+      "P06 failed attempts were not accepted as evidence: the first release invocation used an incomplete lifecycle status, the next omitted the pinned Elixir/OTP PATH, and the initial Compose certification required causal fixes for browser-image pinning, login-shell PATH rewriting, host-path Docker mounts, and the fake-provider Responses inference type. No test oracle, assertion purpose, or resource threshold was weakened; failed-attempt scratch artifacts were removed."
+    ]
   }
 }

@@ -268,7 +268,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       when kind in ["main", "escalation"] do
     kind_atom = String.to_existing_atom(kind)
     form = form_for(socket, kind_atom)
-    key = String.trim(params["apiKey"] || form.params["apiKey"] || "")
+    key = String.trim(params["apiKey"] || params["api-key"] || form.params["apiKey"] || "")
 
     if key == "" do
       {:noreply,

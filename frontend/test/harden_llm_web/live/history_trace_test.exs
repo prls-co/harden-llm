@@ -1,17 +1,13 @@
 defmodule HardenLlmWeb.HistoryTraceTest do
-  use HardenLlmWeb.ConnCase, async: false
+  use HardenLlmWeb.ConnCase, async: true
 
-  import Phoenix.LiveViewTest
+  import Phoenix.LiveViewTest, except: [live: 1, live: 2, live: 3]
 
   alias HardenLlmWeb.{APIFixtures, HardenAPI}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-008
 
-  setup %{conn: conn} do
-    Req.Test.set_req_test_to_shared()
-    handle = APIFixtures.insert_session()
-    {:ok, conn: init_test_session(conn, APIFixtures.session_map(handle))}
-  end
+  setup %{conn: conn}, do: {:ok, conn: authenticated_conn(conn)}
 
   test "history streams a page, appends by cursor, and deletes after success", %{conn: conn} do
     test_pid = self()
