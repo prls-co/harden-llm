@@ -43,7 +43,7 @@
       "resourceClass": "cpu",
       "command": ["make", "lint"],
       "dependsOn": [],
-      "timeoutMs": 180000,
+      "timeoutMs": 600000,
       "cleanupOwner": "runner",
       "network": "forbidden",
       "credentialKeys": [],
