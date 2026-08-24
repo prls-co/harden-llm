@@ -128,6 +128,15 @@ function shellQuote(value) {
   return `'${String(value).replaceAll("'", "'\\''")}'`;
 }
 
+function summarizeFailure(value) {
+  const lines = String(value)
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const useful = lines.filter((line) => !/^(?:failed?:?\s+\d+\s+features?|finished in |randomized with seed |\d+ tests?,?\s+\d+ failures?)/i.test(line));
+  return scrub((useful.length > 0 ? useful : lines).slice(-3).join(" | ")).slice(0, 240);
+}
+
 function commandOutput(command, args, timeout = 3_000) {
   try {
     return spawnSync(command, args, { encoding: "utf8", timeout, stdio: ["ignore", "pipe", "ignore"] }).stdout.trim();
@@ -498,10 +507,10 @@ export async function runCommand(task, options) {
     }
     output = stdout.value;
     errorOutput = stderr.value;
-    const failureDiagnostic = `${errorOutput.tailPreview}\n${output.tailPreview}`.split("\n").map((line) => line.trim()).filter(Boolean).pop();
-    failureSummary = status === 0 ? null : scrub(failureDiagnostic ?? `exit=${outcome.exitCode ?? "null"} signal=${outcome.signal ?? "none"}`).slice(0, 240);
+    const failureDiagnostic = `${errorOutput.tailPreview}\n${output.tailPreview}`;
+    failureSummary = status === 0 ? null : summarizeFailure(failureDiagnostic || `exit=${outcome.exitCode ?? "null"} signal=${outcome.signal ?? "none"}`);
   } catch (error) {
-    failureSummary = scrub(error?.message ?? String(error)).slice(0, 240);
+    failureSummary = summarizeFailure(error?.message ?? String(error));
     errorOutput = { bytes: 0, preview: "", tailPreview: failureSummary, truncatedBytes: 0 };
   } finally {
     const containerError = await cleanupContainer(command.containerIDPath);
