@@ -2468,16 +2468,16 @@ accepted field.
 ## 11. Execution log
 
 The living copy records each phase only after its ordered subtask validation
-passes or a blocker is recorded. P00, P01, and P02 are complete;
-implementation continues at P03.
+passes or a blocker is recorded. P00 through P04 are complete;
+implementation continues at P05.
 
 | Phase | Status |
 | --- | --- |
 | P00 | Done |
 | P01 | Done |
 | P02 | Done |
-| P03 | Pending |
-| P04 | Pending |
+| P03 | Done |
+| P04 | Done |
 | P05 | Pending |
 | P06 | Pending |
 | P07 | Pending |
@@ -2617,6 +2617,41 @@ implementation continues at P03.
 - ADR Updates: ADR-HLLM-015 now records TEST-046/051 and the accepted EVAL-004 budget; no new ADR number or threshold relaxation was required.
 - Refactoring Assessment: Completed. Search/filter, highlight, commit/revert, shortcut, and schema-pending decisions have one production implementation; `app.js` owns only browser effects and imports the module.
 - Remaining Work: P04 through P07 remain pending; issue #32 remains open and tracks the targeted Chromium canaries, service isolation, CI/release/deployed harness, deployment, merge, and certification work.
+
+### P04: Two targeted real-browser canaries
+
+- Phase Status: Done.
+- Completed Steps: P04.S01, P04.S02, P04.S03, P04.S04, P04.S05, P04.S06, and P04.S07.
+- Configuration Checkpoint:
+  - Branch: `feat/parallel-test-feedback-hierarchy`; P04 implementation checkpoint `9aca8aa`.
+  - Baseline SHA: `009629211632beed029374549938d1e322fcba04`.
+  - Current manifest SHA-256: `53e31dc061da4bf5ace6d8b3f3c6fe3ac68cb87442d8b7f05570ca6240088f38`.
+  - Browser image: `harden-llm-browser-test:local`, with host networking, the Docker socket, and `--shm-size 2g`; the pinned Chromium/ChromeDriver image is the only accepted browser environment.
+  - Ordinary browser inventory: exactly `widget_canary_test.exs` and `authenticated_workflow_canary_test.exs`; the unchanged `compose_smoke_test.exs` remains a separate Compose feature and is not counted as an ordinary canary.
+- Quantitative Results:
+  - EVAL-005 sample count: 5 warm samples, 0 cold samples, seeds `104729`, `130363`, `155921`, `181081`, and `206369`.
+  - All browser samples passed; failures: `0`; leaked resources: `0`; screenshots: `0`; running browser containers after completion: `0`.
+  - Browser wall time p50/p95/max: `39589 / 39621 / 39621 ms`; peak RSS p50/p95/max: `386.25 / 403.08 / 403.08203125 MiB`; maximum reported coefficient of variation: `0.0337`.
+  - Accepted reference budgets remained the P00 browser budgets: p95 wall `216162 ms` and peak RSS `1038.93 MiB`; the current result is below both without changing a threshold.
+  - Raw EVAL-005 evidence: `plans/evidence/harden-llm/browser-canary-eval.json`, SHA-256 `11d7ed867aac8e73e9501c44b1a720539849e1060c1ee4ef2d54e3f9a9c295f2` (ignored).
+- Verification:
+  - RED then GREEN: `cd frontend && mix test test/harden_llm_web/browser_policy_test.exs` passed 3/3 and enforces the exact two ordinary feature files, one unchanged Compose feature, serialized browser ownership, the pinned image, host networking, Docker socket, and 2 GiB shared memory.
+  - RED then GREEN: the two ordinary canaries passed together in the pinned browser container (`Result: 2 passed`). Their public behavior covers login/LiveSocket, mobile and desktop overflow, utility-style combobox commit/blur/focus, main and nested folds, staged write-only credentials, cache changes, profile save/refresh/selection, schema-pending state, prompt shortcut execution, output/request/response/history/trace, clipboard feedback, forced ambiguous outcome and refresh, reconnect/logout, independent two-widget IDs/folds, and secret non-disclosure.
+  - `PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH node scripts/run-test-tier.mjs --task browser` passed with two tasks and zero cleanup errors.
+  - `PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH make test-fast` passed with seven tasks and zero cleanup errors; the affected deterministic frontend suites passed 42 tests.
+  - `node scripts/verify-test-tiers.mjs`, `node --check scripts/benchmark-test-feedback.mjs`, `jq empty test/test-tiers.json`, `mix format --check-formatted` for the changed Elixir files, and `git diff --check` passed.
+  - `node scripts/benchmark-test-feedback.mjs --mode task --task browser --warm-samples 5 --cold-samples 0 --seeds 104729,130363,155921,181081,206369 --compare ker/test-feedback/baseline.json --output plans/evidence/harden-llm/browser-canary-eval.json` passed the EVAL-005 comparator, including ordinary-feature count, browser-session count, p95/RSS budget, screenshot, process-leak, and container-cleanup checks.
+- Issues/Resolutions:
+  - The host does not provide a usable ChromeDriver, so the direct host invocation was rejected; the canonical pinned browser container is required by policy and was used for every accepted sample.
+  - The first browser canary exposed a real production defect: the SecretStager rendered `phx-value-api-key`, LiveView delivered `api-key`, and the handler only read `apiKey`. The handler now accepts the actual public-event key spelling while preserving write-only staging and redaction behavior.
+  - The canary was corrected to reopen the credential drawer before asserting its clear action, scroll to the cache control before clicking it, and use a bounded DOM-presence assertion for intentionally absent profile options instead of a slow Wallaby retry on a missing element. These changes preserve the same user-visible oracles and avoid driver retry timeouts.
+  - Five root-owned failed Wallaby screenshots created during the rejected attempts were removed from the exact `frontend/tmp/wallaby/178754*.png` targets using the browser container; the directory contains no screenshot artifacts and no browser containers remain.
+- Failed Attempts: the missing-host-ChromeDriver invocation; the first canary run before the `api-key` production correction; the drawer-order, cache-scroll, and absent-element-driver failures; the first browser-tier run without the native Elixir/OTP PATH; and the first unqualified browser benchmark invocation before the explicit task-mode command. None contributed accepted evidence, and no test was skipped, weakened, or retried into acceptance.
+- Deviations: P04.S03 required the planned production correction after public browser-event coverage found the `api-key` mismatch; fidelity impact is positive because the real browser path is now exercised, oracle impact is none, concurrency impact is none, and production impact is the required one-line parameter compatibility correction; ADR disposition is an amendment to ADR-HLLM-015. P04.S06's benchmark invocation was made explicit with `--mode task --cold-samples 0` so it could not select the intentionally expensive baseline mode; this changes execution selection only, not the test purpose or threshold. P04.S07 added a browser-specific comparator because success alone does not prove the exact two-feature inventory, screenshot absence, or browser cleanup; it retains the existing KER budgets. Browser task CPU is reported transparently by the runner but is not used as an acceptance criterion because Docker-client CPU is not an equivalent Chromium-process measurement; no CPU threshold was changed.
+- Lessons Learned: ordinary browser coverage should be named and intentionally small, while the Compose feature stays a separate higher-cost lane. Public LiveView event tests can miss browser serialization details such as hyphenated `phx-value-*` keys; one targeted real-browser canary caught that gap. Browser evidence must assert both successful behavior and post-run artifact/process cleanup.
+- ADR Updates: ADR-HLLM-015 now records TEST-047, TEST-052, the exact two-canary policy, separate Compose ownership, the pinned 2 GiB browser environment, and accepted EVAL-005; no new ADR number or threshold relaxation was required.
+- Refactoring Assessment: Completed. Shared browser setup and JavaScript helpers live in `BrowserFeatureCase`; the two canaries have distinct feature ownership, and the old monolithic `full_workflow_test.exs` was removed rather than retained as duplicate coverage.
+- Remaining Work: P05 through P07 remain pending; issue #32 remains open and tracks shared integration-service isolation, documentation/CI, release, deployment, merge, and certification work.
 
 For each phase, maintain this record:
 

@@ -55,6 +55,25 @@ p95 limit, the accepted KER RSS budget, zero package installs, and zero
 network attempts. The accidental baseline-mode invocation caused by the
 original unqualified command was interrupted and is not evidence.
 
+P04 EVAL-005 is recorded separately at
+`plans/evidence/harden-llm/browser-canary-eval.json` (SHA-256
+`11d7ed867aac8e73e9501c44b1a720539849e1060c1ee4ef2d54e3f9a9c295f2`). It
+contains five warm samples and no cold samples under manifest SHA
+`53e31dc061da4bf5ace6d8b3f3c6fe3ac68cb87442d8b7f05570ca6240088f38`.
+Each sample ran exactly two ordinary browser features:
+`widget_canary_test.exs` and `authenticated_workflow_canary_test.exs`; the
+Compose feature remains separate. Wall time p50/p95/max was
+`39589/39621/39621 ms`; peak RSS p50/p95/max was
+`386.25/403.08/403.08203125 MiB`; the maximum coefficient of variation was
+`0.0337`. Failures, cleanup leaks, screenshots, and remaining browser
+containers were all zero. The browser image was
+`harden-llm-browser-test:local` with host networking, the Docker socket, and
+2 GiB shared memory. The comparator checked the exact ordinary-feature
+inventory, two-session count, unchanged P00 p95/RSS budgets, screenshot
+absence, and browser cleanup. Browser task CPU is retained as informational
+runner output only because the Docker-client measurement is not an equivalent
+Chromium-process measurement.
+
 Only redacted aggregates belong in this directory. Raw output, command logs,
 provider responses, credentials, cookies, request bodies, and process
 environments are forbidden. A benchmark sample with a failed task or cleanup

@@ -269,10 +269,10 @@
     "baselineSHA": "009629211632beed029374549938d1e322fcba04",
     "adr": "ADR-HLLM-015",
     "ker": "KER-HLLM-TEST-FEEDBACK-001",
-    "checkpointCommit": "9c90bf9",
-    "status": "P03-complete",
-    "currentPhase": "P04",
-    "completedPhases": ["P00", "P01", "P02", "P03"],
+    "checkpointCommit": "9aca8aa",
+    "status": "P04-complete",
+    "currentPhase": "P05",
+    "completedPhases": ["P00", "P01", "P02", "P03", "P04"],
     "evaluations": {
       "EVAL-001": {
         "accepted": true,
@@ -391,6 +391,42 @@
           "zeroPackageInstallCount": true,
           "zeroNetworkAttemptCount": true
         }
+      },
+      "EVAL-005": {
+        "accepted": true,
+        "sampleCount": 5,
+        "warmSamples": 5,
+        "coldSamples": 0,
+        "failureCount": 0,
+        "leakedResourceCount": 0,
+        "rawEvidencePath": "plans/evidence/harden-llm/browser-canary-eval.json",
+        "rawEvidenceSha256": "11d7ed867aac8e73e9501c44b1a720539849e1060c1ee4ef2d54e3f9a9c295f2",
+        "manifestSha256": "53e31dc061da4bf5ace6d8b3f3c6fe3ac68cb87442d8b7f05570ca6240088f38",
+        "selectedTaskIds": ["frontend-deterministic", "frontend-browser"],
+        "ordinaryFeatureCount": 2,
+        "ordinaryFiles": ["authenticated_workflow_canary_test.exs", "widget_canary_test.exs"],
+        "chromiumSessionCountPerSample": 2,
+        "warmP50WallTimeMs": 39589,
+        "warmP95WallTimeMs": 39621,
+        "warmWallTimeMsMax": 39621,
+        "warmPeakRssMiBP50": 386.25,
+        "warmPeakRssMiBP95": 403.08,
+        "warmPeakRssMiBMax": 403.08203125,
+        "maxCoefficientOfVariation": 0.0337,
+        "acceptedWallP95BudgetMs": 216162,
+        "acceptedPeakRssBudgetMiBMax": 1038.93,
+        "screenshotCount": 0,
+        "runningBrowserContainerCount": 0,
+        "checks": {
+          "successfulBrowserSamples": true,
+          "ordinaryFeatureCount": true,
+          "chromiumSessionCountPerSample": true,
+          "p95WithinThreeFeatureBaseline": true,
+          "peakRSSWithinThreeFeatureBaseline": true,
+          "successfulRunScreenshotCount": true,
+          "leakedBrowserProcessCount": true,
+          "zeroLeaks": true
+        }
       }
     },
     "applicationRelease": null,
@@ -412,7 +448,11 @@
       "P02's first ten-seed attempt exposed a Req ownership cleanup race at seed 181081 and was rejected; the explicit allowance/teardown boundary was added, and the final ten-seed EVAL-003 passed with zero failures/leaks at 4125 ms warm p95 versus the 10033 ms sequential frontend reference.",
       "P03 extracted the pure client decision core into frontend/assets/js/client_core.mjs, imported it from app.js, added TEST-046/051, and kept browser effects in thin hooks with no package manifest or DOM emulator.",
       "P03 EVAL-004 passed 30 warm client-core samples at 495 ms p95 and 120.3984375 MiB maximum RSS, with zero failures/leaks/package installs/network attempts.",
-      "P03's unqualified benchmark command accidentally selected baseline mode and started backend verification; the exact runner-owned scratch directory was cleaned, no evidence was accepted, and the command was corrected to explicit task mode with zero cold samples."
+      "P03's unqualified benchmark command accidentally selected baseline mode and started backend verification; the exact runner-owned scratch directory was cleaned, no evidence was accepted, and the command was corrected to explicit task mode with zero cold samples.",
+      "P04 replaced the monolithic ordinary browser workflow with exactly two targeted canaries and kept Compose smoke separate; the pinned browser image uses host networking, the Docker socket, and 2 GiB shared memory.",
+      "P04 browser coverage found the real SecretStager api-key serialization mismatch; the production handler now accepts the hyphenated public-event key while preserving write-only credential behavior.",
+      "P04 EVAL-005 passed five warm browser samples at 39621 ms p95 and 403.08203125 MiB maximum RSS, with two ordinary browser features per sample, zero failures/leaks/screenshots/running containers, and unchanged P00 budgets.",
+      "P04's initial browser benchmark invocation was made explicit with task mode and zero cold samples; browser-specific comparison now checks feature inventory, session count, screenshots, and cleanup. Browser task CPU remains informational because the Docker-client measurement is not equivalent to Chromium-process CPU."
     ]
   }
 }

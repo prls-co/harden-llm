@@ -4,7 +4,7 @@
 - Date: 2026-08-23
 - Scope: `PLAN-HARDEN-LLM-TEST-FEEDBACK-002`
 - Requirements: REQ-001 through REQ-018
-- Initial verification: TEST-041, TEST-044, TEST-045, TEST-046, TEST-048, TEST-049, TEST-050, TEST-051, EVAL-002, EVAL-003, EVAL-004
+- Initial verification: TEST-041, TEST-044, TEST-045, TEST-046, TEST-047, TEST-048, TEST-049, TEST-050, TEST-051, TEST-052, EVAL-002, EVAL-003, EVAL-004, EVAL-005
 - Evidence record: `KER-HLLM-TEST-FEEDBACK-001`
 
 ## Context
@@ -55,6 +55,24 @@ EVAL-004 passed 30 warm samples at 495 ms p95 and 120.3984375 MiB maximum
 RSS, with no package installation or network attempt. Its production import
 is the only decision path; hooks retain browser effects and listener teardown.
 
+Ordinary real-browser coverage is exactly two named serialized canaries:
+`widget_canary_test.exs` and `authenticated_workflow_canary_test.exs`. The
+old monolithic ordinary workflow is removed, while the Compose feature remains
+an explicitly separate higher-cost feature and is not counted as an ordinary
+canary. The browser task uses the pinned
+`harden-llm-browser-test:local` image, host networking, the Docker socket, and
+2 GiB shared memory. EVAL-005 passed five warm samples with two Chromium
+sessions per sample, p95 wall time `39621 ms`, peak RSS
+`403.08203125 MiB`, and zero failures, leaks, screenshots, or remaining
+browser containers. These results are below the unchanged P00 browser budgets.
+
+The canary's public LiveView event path found and corrected a production
+parameter spelling mismatch: a `phx-value-api-key` attribute arrives as
+`api-key`, so the SecretStager handler accepts that actual event key while
+retaining write-only staging and redaction. Browser-specific evidence checks
+the exact feature inventory, session count, successful completion, screenshot
+absence, and cleanup rather than treating a zero exit code as sufficient.
+
 Every higher-tier defect is evaluated for a lower-tier root-invariant
 regression. Lower fidelity may replace an environmental boundary, never the
 assertion oracle. A failed or leaked benchmark sample is not a timing datum.
@@ -72,8 +90,9 @@ silently enforce reference-host budgets.
 
 The two named frontend serial exceptions are the SessionVault lifecycle/clock
 case and global observability application configuration. A third exception,
-additional browser feature, DOM emulator, threshold relaxation, or pooling
-fidelity change requires a new decision record or an amendment before merge.
+additional browser feature, changing the separate Compose ownership, DOM
+emulator, threshold relaxation, or pooling fidelity change requires a new
+decision record or an amendment before merge.
 
 ## Alternatives rejected
 
