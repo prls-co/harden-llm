@@ -4,7 +4,7 @@
 - Date: 2026-08-23
 - Scope: `PLAN-HARDEN-LLM-TEST-FEEDBACK-002`
 - Requirements: REQ-001 through REQ-018
-- Initial verification: TEST-048
+- Initial verification: TEST-041, TEST-048, TEST-049, TEST-050, EVAL-002
 - Evidence record: `KER-HLLM-TEST-FEEDBACK-001`
 
 ## Context
@@ -18,14 +18,19 @@ high-fidelity boundaries.
 ## Decision
 
 Accept one machine-readable task manifest at `test/test-tiers.json` and one
-dependency-free benchmark harness at `scripts/benchmark-test-feedback.mjs`.
+dependency-free execution runner at `scripts/run-test-tier.mjs`. The benchmark
+at `scripts/benchmark-test-feedback.mjs` is an evidence adapter over that
+runner, and Make targets are thin delegates rather than a second task list.
 Tasks are classified T0 through T5 and carry one command, resource class,
 timeout, cleanup owner, network policy, credential-key declaration, and
 canonical test identifier. The canonical Make targets remain unchanged; new
 hierarchy targets are additive.
 
-T0-T2 work is offline and credential-free. CPU work may overlap within the
-measured slot cap. Postgres/Garage integration uses pooled services only after
+T0-T2 work is offline and credential-free. On the reference host, fast CPU
+work overlaps within a measured four-slot cap; EVAL-002 accepted that cap with
+warm p95 wall time 8078 ms versus a 20495.2 ms budget and zero failures/leaks.
+The KER's accepted RSS budget, including its documented 25% headroom, is the
+operational pressure boundary. Postgres/Garage integration uses pooled services only after
 unique namespace, cleanup, and contamination tests pass. Destructive Garage
 restart behavior remains exclusive. Chromium, Compose, release, and live
 provider work remain bounded higher-fidelity lanes rather than part of the
@@ -39,13 +44,14 @@ native events, CSS, focus, and LiveSocket patching remain browser-owned facts.
 Every higher-tier defect is evaluated for a lower-tier root-invariant
 regression. Lower fidelity may replace an environmental boundary, never the
 assertion oracle. A failed or leaked benchmark sample is not a timing datum.
-Thresholds are derived from the fingerprinted KER samples and may change only
-with new evidence and an ADR amendment.
+Thresholds are derived from the fingerprinted KER samples and its accepted
+budgets, and may change only with new evidence and an ADR amendment.
 
 ## Consequences
 
-The repository gains one policy source, one benchmark/evidence path, explicit
-resource ownership, and a repeatable T0-T2 loop. Browser and service startup
+The repository gains one policy source, one execution path, one
+benchmark/evidence adapter, explicit resource ownership, and a repeatable
+T0-T2 loop. Browser and service startup
 cost is isolated from ordinary coding feedback. The runner and KER must keep
 bounded logs and cleanup evidence, and unlike hosts must report rather than
 silently enforce reference-host budgets.

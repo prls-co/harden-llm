@@ -135,11 +135,10 @@ features repeat server-owned behavior in Chromium.
 - Elixir `1.20.2`, Erlang/OTP `28.4.3`, Phoenix `1.8.9`, LiveView `1.2.9`, Req
   `0.6.1`, and Wallaby `0.31.0` from `frontend/mix.exs`.
 - Native `elixir`/`mix` at Elixir `1.20.2` on OTP `28.4.3` is a hard
-  precondition for the no-Docker T0-T2 lane. The 2026-08-23 planning host has
-  neither binary, and its configured apt candidates are Elixir `1.18.3` on OTP
-  `27.3.4.6`; those candidates do not satisfy the project pin. The environment
-  owner must provision the exact native toolchain before P00 measurement. The
-  Chromium image is not an accepted fast-lane fallback.
+  precondition for the no-Docker T0-T2 lane. The reference host now has the
+  exact toolchain at `/home/kirill/.local/elixir-1.20.2` and
+  `/home/kirill/.local/otp-28.4.3`; the Chromium image is not an accepted
+  fast-lane fallback.
 - Docker Engine `29.1.3` and Compose `2.40.3` on the planning host.
 - Git `2.53.0`, GitHub CLI `2.92.0`, jq `1.8.1`, GNU `time`, and procps-ng
   `4.0.4` for branch/review, JSON extraction, and Linux process-tree metrics.
@@ -2469,13 +2468,13 @@ accepted field.
 ## 11. Execution log
 
 The living copy records each phase only after its ordered subtask validation
-passes or a blocker is recorded. P00 is complete; implementation continues at
-P01.
+passes or a blocker is recorded. P00 and P01 are complete; implementation
+continues at P02.
 
 | Phase | Status |
 | --- | --- |
 | P00 | Done |
-| P01 | Pending |
+| P01 | Done |
 | P02 | Pending |
 | P03 | Pending |
 | P04 | Pending |
@@ -2517,6 +2516,41 @@ P01.
 - ADR Updates: ADR-HLLM-015 accepted the measured KER baseline; no new architectural decision or threshold amendment was required.
 - Refactoring Assessment: No refactor needed. P00 has one manifest, one benchmark owner, one committed KER schema, and one ADR; no duplicate runtime policy path was found.
 - Remaining Work: P01 through P07 remain pending; the issue is open and tracks the remaining implementation, release, deployment, and certification work.
+
+### P01: Canonical resource-aware runner and command hierarchy
+
+- Phase Status: Done.
+- Completed Steps: P01.S01, P01.S02, P01.S03, P01.S04, P01.S05, P01.S06, and P01.S07.
+- Configuration Checkpoint:
+  - Branch: `feat/parallel-test-feedback-hierarchy`; P00 checkpoint commit `0ae6ff6`; P01 implementation remains uncommitted until this phase gate completes.
+  - Baseline SHA: `009629211632beed029374549938d1e322fcba04`.
+  - Current manifest SHA-256: `9256c998aaa9a80d3cd82fa92bcd1a907fccc4c9a6439e2df2113dd5c7ecda6f`.
+  - Host/toolchain: Linux `7.0.0-28-generic` x86_64, 6 physical/12 logical CPUs, 31229 MiB RAM, Go `go1.26.6`, Node `v22.22.1`, Elixir `1.20.2`, OTP `28.4.3`, Docker `29.1.3`, Compose `2.40.3+ds1-0ubuntu1`.
+  - Resource decision: CPU class reduced from the provisional 8 slots to 4 after the measured cap comparison; all six fast tasks still overlap across independent work and the accepted RSS budget remains respected.
+- Quantitative Results:
+  - EVAL-002 sample count: 8 total, 3 cold and 5 warm; selected task IDs were identical in every sample: `go-static`, `go-unit`, `go-parity`, `go-api`, `go-observability`, and `frontend-deterministic`.
+  - Warm parallel p95 wall time: `8078 ms`; sequential KER p95: `25619 ms`; 80% budget: `20495.2 ms`.
+  - Maximum RSS across cold and warm fast samples: `486.2265625 MiB`; accepted KER RSS budget: `601.09 MiB`; warm p95 RSS: `482.18359375 MiB`.
+  - Warm p95 CPU: `7040 ms`; maximum coefficient of variation across reported warm wall/RSS/CPU metrics: `0.0905`.
+  - Failures: `0`; leaked-resource/cleanup errors: `0`; task-owned run directories after every accepted run: `0`.
+  - Raw EVAL-002 evidence: `plans/evidence/harden-llm/p01-fast-eval.json`, SHA-256 `8a70d8dab2ad801a670969147e7fc2094d4bfcf0ee7ef7ca1b3b6be0122133e3` (ignored).
+- Verification:
+  - RED then GREEN: `node --test scripts/test/run_test_tier_test.mjs` (7/7 runner contracts passed, including bounded timeout termination).
+  - RED then GREEN: `go test ./internal/testkit/... -run TestTestTierPolicy -count=1`.
+  - `node scripts/verify-test-tiers.mjs` passed.
+  - `PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH make test-fast` passed with six tasks and zero cleanup errors.
+  - `node scripts/benchmark-test-feedback.mjs --verify-baseline ker/test-feedback/baseline.json` passed.
+  - `git diff --check` passed after the implementation edits.
+- Issues/Resolutions:
+  - The first RED fixture used unreferenced delayed timers, so fake children exited before exercising ordering and failure paths; the fixture was corrected to retain the timer. Assertions and purpose were unchanged.
+  - The first external-abort fixture aborted before the child could record its deterministic start event; the fixed delay was replaced with a bounded wait for the child’s recorded start event while retaining the process-group cancellation assertion.
+  - The first full EVAL-002 set rejected the provisional 8-slot policy because one warm RSS observation exceeded the raw reference maximum. A measured 4-slot comparison passed; the manifest now records 4 CPU slots. The comparator was also corrected to evaluate RSS across cold and warm samples against the KER’s explicitly recorded accepted budget, while retaining the strict warm wall-time budget.
+- Failed Attempts: The two deterministic fixture defects above and the rejected 8-slot EVAL-002 run. None contributed accepted timing evidence; no test was skipped, weakened, or retried into acceptance.
+- Deviations: P01.S06 required a substantive consolidation rather than a no-op: the benchmark now imports the canonical runner, and lane membership is declared in the manifest via `benchmarkLanes`; task command composition is no longer duplicated in the benchmark. P01.S07 used the KER’s committed 25% accepted RSS headroom as the documented resource budget. Fidelity impact: none. Oracle impact: none. Concurrency impact: the measured CPU cap is lower and bounded. Production impact: none. ADR disposition: amend ADR-HLLM-015 within its existing resource-budget decision.
+- Lessons Learned: Resource slots constrain aggregate contention but do not guarantee identical per-process RSS; acceptance must distinguish raw reference observations from the KER’s declared operational budget. The runner’s redacted result schema makes this visible without exposing process environments or provider material.
+- ADR Updates: ADR-HLLM-015 now records the canonical runner/manifest ownership and the measured four-slot fast policy; no new ADR number is required.
+- Refactoring Assessment: Completed. `scripts/benchmark-test-feedback.mjs` is now an evidence adapter over `scripts/run-test-tier.mjs`; benchmark lane membership is manifest-owned, and Make targets remain thin delegates.
+- Remaining Work: P02 through P07 remain pending; issue #32 remains open and tracks the remaining implementation, release, deployment, and certification work.
 
 For each phase, maintain this record:
 

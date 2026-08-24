@@ -3,13 +3,14 @@
   "documentId": "PLAN-HARDEN-LLM-TEST-FEEDBACK-002",
   "baselineSHA": "009629211632beed029374549938d1e322fcba04",
   "resourceClasses": {
-    "cpu": {"slots": 8, "exclusive": false},
+    "cpu": {"slots": 4, "exclusive": false},
     "service": {"slots": 1, "exclusive": false},
     "service_garage_exclusive": {"slots": 1, "exclusive": true},
     "browser": {"slots": 1, "exclusive": false},
     "release": {"slots": 1, "exclusive": true},
     "live": {"slots": 1, "exclusive": true}
   },
+  "benchmarkLaneOrder": ["fast-candidates", "integration", "browser", "full-system"],
   "frontendSerialExceptions": [
     {
       "path": "frontend/test/harden_llm_web/session_vault_test.exs",
@@ -75,6 +76,7 @@
       "network": "forbidden",
       "credentialKeys": [],
       "requiredFor": ["baseline", "fast", "release"],
+      "benchmarkLanes": ["fast-candidates"],
       "pathSelectors": ["internal/testkit/**", "scripts/**", "go.mod", "go.sum"]
     },
     {
@@ -89,6 +91,7 @@
       "network": "forbidden",
       "credentialKeys": [],
       "requiredFor": ["baseline", "fast", "release"],
+      "benchmarkLanes": ["fast-candidates"],
       "pathSelectors": ["**/*_test.go", "**/*.go", "go.mod", "go.sum"]
     },
     {
@@ -103,6 +106,7 @@
       "network": "forbidden",
       "credentialKeys": [],
       "requiredFor": ["baseline", "fast", "release"],
+      "benchmarkLanes": ["fast-candidates"],
       "pathSelectors": ["internal/**", "scripts/verify-parity-fixtures.mjs", "plans/**"]
     },
     {
@@ -117,6 +121,7 @@
       "network": "local-only",
       "credentialKeys": [],
       "requiredFor": ["baseline", "integration", "release"],
+      "benchmarkLanes": ["integration"],
       "pathSelectors": ["internal/**", "deploy/test/**", "go.mod", "go.sum"]
     },
     {
@@ -145,6 +150,7 @@
       "network": "forbidden",
       "credentialKeys": [],
       "requiredFor": ["baseline", "fast", "release"],
+      "benchmarkLanes": ["fast-candidates"],
       "pathSelectors": ["internal/gateway/**", "api/**", "go.mod", "go.sum"]
     },
     {
@@ -159,6 +165,7 @@
       "network": "forbidden",
       "credentialKeys": [],
       "requiredFor": ["baseline", "fast", "release"],
+      "benchmarkLanes": ["fast-candidates"],
       "pathSelectors": ["internal/observability/**", "internal/gateway/**", "go.mod", "go.sum"]
     },
     {
@@ -255,12 +262,14 @@
       "command": ["mix", "test"],
       "workingDirectory": "frontend",
       "testSeed": 104729,
+      "environment": {"CHROME_BIN": "/usr/bin/google-chrome"},
       "dependsOn": [],
       "timeoutMs": 900000,
       "cleanupOwner": "runner",
       "network": "forbidden",
       "credentialKeys": [],
       "requiredFor": ["baseline", "fast", "release"],
+      "benchmarkLanes": ["fast-candidates", "browser"],
       "pathSelectors": ["frontend/lib/**", "frontend/test/harden_llm_web/**", "frontend/test/support/**"]
     },
     {
@@ -284,6 +293,7 @@
       "network": "local-only",
       "credentialKeys": [],
       "requiredFor": ["baseline", "browser", "release"],
+      "benchmarkLanes": ["browser"],
       "pathSelectors": ["frontend/assets/**", "frontend/lib/**", "frontend/test/browser/**"]
     },
     {
@@ -373,6 +383,7 @@
       "network": "local-only",
       "credentialKeys": [],
       "requiredFor": ["baseline"],
+      "benchmarkLanes": ["full-system"],
       "pathSelectors": ["Makefile", "**/*.go", "go.mod", "go.sum"]
     }
   ]
