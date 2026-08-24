@@ -2728,7 +2728,8 @@ are recorded below.
 - Phase Status: Done.
 - Completed Steps: P07.S01, P07.S02, P07.S03, P07.S04, P07.S05, P07.S06, P07.S07, P07.S08, P07.S09, P07.S10, P07.S11, and P07.S12.
 - Configuration Checkpoint:
-  - Final local/remote main: `40083fd980a4c88c344dfa884c90a2edbbcc7111`; worktree was clean at final verification.
+  - Application-certification main before the documentation-only closure: `40083fd980a4c88c344dfa884c90a2edbbcc7111`; this is the source checkpoint associated with the deployed application-bearing release.
+  - Final local/remote main after the documentation-only closure: `62b9b2386346fd3eaba7f0784aa1f19f42418e`; the worktree was clean at final verification.
   - Implementation PR chain: #33 merged as `c6033bd543ecc9645c772f0fe88b38717ea21e5d`; #34 as `2c8efc49d3a8d9868cd019b824d2de81d87bef8b`; #35 as `761f5f76d0262ca29973fda2ca3d5214dfa920c0`; #36 as `23538c2ad7d59f4becd0e8e2676d205ba597f8cb`; #37 as `40083fd980a4c88c344dfa884c90a2edbbcc7111`.
   - Application-bearing deployment SHA: `761f5f76d0262ca29973fda2ca3d5214dfa920c0`. Later commits changed only the deployed-certification launcher/tests and documentation; they are not represented as application image releases.
   - Manifest SHA-256: `4f20b980f0fa5527898f2cfdfc7be8a9e07730d0e7eb27bbb4fc693ed4a206ca`.
