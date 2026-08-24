@@ -21,6 +21,7 @@ const dotEnvKeys = new Set([
   "HARDEN_LLM_WEB_HOST",
   "HARDEN_LLM_API_HOST",
   "HARDEN_LLM_EXPECTED_RELEASE",
+  "HARDEN_LLM_COMPOSE_ENV_FILE",
 ]);
 
 function parseDotEnv(contents) {
@@ -38,11 +39,18 @@ function parseDotEnv(contents) {
 }
 
 async function loadDotEnv() {
-  try {
-    return parseDotEnv(await fs.readFile(path.join(repositoryRoot, ".env"), "utf8"));
-  } catch {
-    return {};
+  const candidates = [
+    process.env.HARDEN_LLM_COMPOSE_ENV_FILE,
+    path.join(repositoryRoot, ".env"),
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    try {
+      return parseDotEnv(await fs.readFile(candidate, "utf8"));
+    } catch {
+      // Try the next approved environment-file location.
+    }
   }
+  return {};
 }
 
 function firstValue(environment, names) {
@@ -71,8 +79,28 @@ function command(command, args, options = {}) {
   }).trim();
 }
 
-function composeArgs() {
-  return ["compose", "-p", "harden-llm", ...composeFiles.flatMap((file) => ["-f", file])];
+function composeArgs(environment = {}) {
+  const envFile = firstValue(environment, ["HARDEN_LLM_COMPOSE_ENV_FILE"]);
+  return [
+    "compose",
+    ...(envFile ? ["--env-file", envFile] : []),
+    "-p",
+    "harden-llm",
+    ...composeFiles.flatMap((file) => ["-f", file]),
+  ];
+}
+
+function composeInspectionEnvironment(environment, expectedRelease) {
+  const result = { ...environment };
+  if (firstValue(environment, ["HARDEN_LLM_COMPOSE_ENV_FILE"])) {
+    for (const name of Object.keys(result)) {
+      if (name.startsWith("HARDEN_LLM_") || name.startsWith("LANGFUSE_") || name.startsWith("MINIO_") || name.startsWith("CLICKHOUSE_") || name.startsWith("REDIS_") || name.startsWith("GRAFANA_")) {
+        delete result[name];
+      }
+    }
+    result.HARDEN_LLM_RELEASE = expectedRelease;
+  }
+  return result;
 }
 
 function cleanRepositoryRelease() {
@@ -98,10 +126,10 @@ async function expectedRelease(environment) {
 }
 
 function inspectFrontendContainer(environment, expectedRelease) {
-  const composeEnvironment = { ...environment, HARDEN_LLM_RELEASE: expectedRelease };
-  const containerID = command("docker", [...composeArgs(), "ps", "-q", "harden-llm-web"], { env: composeEnvironment });
+  const composeEnvironment = composeInspectionEnvironment(environment, expectedRelease);
+  const containerID = command("docker", [...composeArgs(environment), "ps", "-q", "harden-llm-web"], { env: composeEnvironment });
   if (!containerID) throw new Error("harden-llm-web container is not running in project harden-llm");
-  const records = JSON.parse(command("docker", ["inspect", containerID], { env: environment }));
+  const records = JSON.parse(command("docker", ["inspect", containerID], { env: composeEnvironment }));
   const record = records[0];
   const labels = record?.Config?.Labels ?? {};
   const releaseLabel = labels["org.opencontainers.image.revision"] ?? labels["org.opencontainers.image.version"] ?? null;
