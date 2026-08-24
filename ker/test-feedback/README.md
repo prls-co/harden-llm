@@ -94,15 +94,33 @@ conservative instrumented budget. That preserves a safety bound and does not
 change the original KER thresholds. Any future race-budget change requires a
 new evidence set and an ADR-HLLM-015 amendment.
 
-P06 EVAL-007 is the complete release-candidate measurement. It must execute
-the manifest's `release` selector through `node scripts/run-test-tier.mjs`,
-covering deterministic backend/frontend gates, pooled integration and race,
-audits, ordinary browser canaries, and Compose certification without a public
-network task. Its accepted record is written only after every selected task
-passes, cleanup/leak counts are zero, and the bounded result is redacted.
-The release candidate is the required bridge between the local hierarchy and
-the later merged/deployed P07 certification; a pending or failed EVAL-007 is
-not release evidence.
+P06 EVAL-007 is recorded at
+`plans/evidence/harden-llm/release-candidate-eval.json` (SHA-256
+`01abadc0381656c4aebffd4d8cac84c31d6e1babef5aac3f18d49bce2440de58`) under
+manifest SHA
+`4f20b980f0fa5527898f2cfdfc7be8a9e07730d0e7eb27bbb4fc693ed4a206ca`. One
+warm release sample selected 25 tasks: deterministic backend/frontend gates,
+pooled integration and race, audits, ordinary browser canaries, Compose
+certification, and the existing backend verification baseline. All 25 tasks
+passed with zero failures, zero leaked resources, and two ordinary service-pool
+starts. Release-graph critical-path wall time was `233358 ms`; peak RSS was
+`1165.16796875 MiB`; aggregate task CPU was `4850 ms` p50 and `143820 ms`
+maximum.
+
+The result was measured with the reference host's pinned Elixir `1.20.2` and
+OTP `28.4.3` PATH. The comparison is accepted as a release-graph record
+without a task-specific budget; its observed critical path and RSS are below
+the accepted P00 full-system warm ceilings (`311707 ms` and `1526.23 MiB`),
+but those ceilings are not replaced or relaxed by this one-sample result. The
+release candidate is the required bridge between the local hierarchy and the
+later merged/deployed P07 certification; EVAL-007 alone does not certify a
+merged or deployed revision.
+
+The failed P06 attempts are retained as process evidence, not timing data: an
+initial lifecycle-status mismatch, a missing local Elixir/OTP PATH, and four
+causal Compose portability/fixture corrections were resolved before the
+accepted run. No test oracle, assertion purpose, or resource threshold was
+weakened, and failed-attempt scratch artifacts were removed.
 
 Only redacted aggregates belong in this directory. Raw output, command logs,
 provider responses, credentials, cookies, request bodies, and process

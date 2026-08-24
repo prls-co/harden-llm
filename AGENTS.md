@@ -32,6 +32,12 @@ Use these implemented repository gates:
 - `cd frontend && mix test --only browser` — opt-in browser tests.
 - `git diff HEAD --check` — whitespace validation for tracked changes.
 
+On the reference host, local frontend and release commands must expose the
+pinned Elixir/OTP toolchain before invoking `mix`, `make test-fast`, or
+`make test-release`:
+`PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH`.
+Hosted jobs install the equivalent toolchain through their setup step.
+
 Do not report Docker, live-provider, or browser gates as passing unless they ran in the current environment or the result is explicitly identified as retained certification evidence.
 
 ## Test Feedback Methodology

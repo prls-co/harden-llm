@@ -58,7 +58,7 @@ repeating command composition.
 | TFH-REQ-001 | One broad cheap coding loop | `Makefile`, `test/test-tiers.json` | TEST-041, TEST-050 |
 | TFH-REQ-002 | One tier/resource/cleanup/test-ID owner per task | `test/test-tiers.json`, runner validator | TEST-041, TEST-054 |
 | TFH-REQ-003 | Maximum safe parallelism by resource class | `scripts/run-test-tier.mjs` | TEST-049, EVAL-002, EVAL-006 |
-| TFH-REQ-004 | Fingerprinted reproducible budgets | benchmark/KER | TEST-048, EVAL-001 through EVAL-006 |
+| TFH-REQ-004 | Fingerprinted reproducible budgets | benchmark/KER | TEST-048, EVAL-001 through EVAL-007 |
 | TFH-REQ-005 | Exact assertion oracle despite lower fidelity | test specifications, ADR-015 | TEST-044, TEST-046, TEST-047, TEST-054 |
 | TFH-REQ-006 | Broad server-owned widget coverage without Chromium | LiveViewTest component/workspace/embedding tests | WEB-TEST-044 |
 | TFH-REQ-007 | Async frontend ownership with named serial exceptions | ConnCase, frontend policy | WEB-TEST-045, EVAL-003 |
@@ -86,7 +86,7 @@ repeating command composition.
 | TEST-050 | fast execution | manifest-selected T0-T2 tasks | `make test-fast` |
 | TEST-053 | pooled normal/race consumers | integration packages | `make test-integration` and `make test-integration-race` |
 | TEST-054 | lifecycle traceability | `internal/testkit/test_feedback_traceability_test.go` | `go test ./internal/testkit/... -run TestTestFeedbackTraceability -count=1` |
-| TEST-055 | release composition | `internal/testkit/release_gate_test.go` | `make test-release` |
+| TEST-055 | release composition | `internal/testkit/release_gate_test.go` | `make test-release`, EVAL-007 |
 | TEST-056 | deployed identity/canary | deployed launcher and WEB-TEST-048 | `node scripts/run-deployed-browser-test.mjs` |
 
 The base backend gates never invoke `frontend/`. The frontend imports no Go

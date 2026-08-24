@@ -7,7 +7,8 @@
 - Version: `1.0.0-plan`
 - Date: 2026-08-23
 - Document ID: `PLAN-HARDEN-LLM-TEST-FEEDBACK-001`
-- Status: approved for implementation; implementation has not started
+- Status: approved; implementation executed through P06 under
+  `PLAN-HARDEN-LLM-TEST-FEEDBACK-002`; P07 merge/deploy/certification remains
 - Decision input: `ask_me/test-feedback-hierarchy-decisions.md`
 - Related specifications:
   - `plans/from_utility-llm/harden-llm-self-hosted-test-spec.md`

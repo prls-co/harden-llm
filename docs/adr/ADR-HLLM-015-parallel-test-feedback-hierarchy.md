@@ -1,10 +1,10 @@
 # ADR-HLLM-015: Resource-aware parallel test-feedback hierarchy
 
-- Status: Accepted for implementation
+- Status: Accepted; P06 release candidate complete, P07 merge/deploy pending
 - Date: 2026-08-23
 - Scope: `PLAN-HARDEN-LLM-TEST-FEEDBACK-002`
 - Requirements: REQ-001 through REQ-018
-- Initial verification: TEST-041, TEST-042, TEST-043, TEST-044, TEST-045, TEST-046, TEST-047, TEST-048, TEST-049, TEST-050, TEST-051, TEST-052, TEST-053, EVAL-002, EVAL-003, EVAL-004, EVAL-005, EVAL-006
+- Initial verification: TEST-041, TEST-042, TEST-043, TEST-044, TEST-045, TEST-046, TEST-047, TEST-048, TEST-049, TEST-050, TEST-051, TEST-052, TEST-053, TEST-054, TEST-055, EVAL-002, EVAL-003, EVAL-004, EVAL-005, EVAL-006, EVAL-007
 - Evidence record: `KER-HLLM-TEST-FEEDBACK-001`
 
 ## Context
@@ -88,6 +88,28 @@ zero exclusive overlap. Because the P00 integration reference was not
 race-instrumented, its race comparator uses the accepted full-system warm
 wall/RSS ceilings as a conservative safety ceiling; this is an explicit
 measurement-fidelity adaptation, not a threshold relaxation.
+
+P06 completed the release-facing lifecycle contract. TEST-054 now checks that
+the methodology, manifest, hosted workflow, deployed harness, KER, status, and
+traceability records remain linked. TEST-055 requires the release selector to
+include the backend baseline, pooled integration/race, audits, ordinary browser
+canaries, Compose certification, and frontend release tasks without a public
+network task. EVAL-007 measured one complete release candidate: all 25 selected
+tasks passed, failures and leaked resources were zero, and two ordinary service
+pool starts were cleaned up. The release graph observed `233358 ms` critical
+path wall time and `1165.16796875 MiB` peak RSS. This is a candidate observation
+against the accepted P00 full-system ceilings, not a new budget.
+
+The P06 release run required several causal corrections before acceptance:
+the lifecycle status was advanced to an explicit candidate checkpoint, the
+reference host's pinned Elixir/OTP PATH was supplied, the Compose browser task
+was pinned to the browser image, the runner stopped using a login shell that
+rewrote PATH, host-path mounts were enabled for Docker-in-Docker Compose
+fixtures, and the fake-provider Compose fixture selected the Responses
+inference type required by its existing assertion. These changes preserve test
+oracles and resource boundaries; failed attempts and their scratch artifacts
+were not accepted as evidence. P07 must still prove merged identity and public
+behavior with TEST-056.
 
 Every higher-tier defect, including each expensive-tier defect, is evaluated
 for a lower-tier root-invariant regression. Lower fidelity may replace an environmental boundary, never the

@@ -269,10 +269,10 @@
     "baselineSHA": "009629211632beed029374549938d1e322fcba04",
     "adr": "ADR-HLLM-015",
     "ker": "KER-HLLM-TEST-FEEDBACK-001",
-    "checkpointCommit": "b625540",
-    "status": "P06-candidate",
-    "currentPhase": "P06",
-    "completedPhases": ["P00", "P01", "P02", "P03", "P04", "P05"],
+    "checkpointCommit": "4a0b11b",
+    "status": "P06-complete",
+    "currentPhase": "P07",
+    "completedPhases": ["P00", "P01", "P02", "P03", "P04", "P05", "P06"],
     "evaluations": {
       "EVAL-001": {
         "accepted": true,
@@ -459,6 +459,37 @@
           "racePeakRSSWithinConservativeInstrumentedBudget": true,
           "exclusiveOverlapCount": true
         }
+      },
+      "EVAL-007": {
+        "accepted": true,
+        "sampleCount": 1,
+        "warmSamples": 1,
+        "coldSamples": 0,
+        "failureCount": 0,
+        "leakedResourceCount": 0,
+        "rawEvidencePath": "plans/evidence/harden-llm/release-candidate-eval.json",
+        "rawEvidenceSha256": "01abadc0381656c4aebffd4d8cac84c31d6e1babef5aac3f18d49bce2440de58",
+        "manifestSha256": "4f20b980f0fa5527898f2cfdfc7be8a9e07730d0e7eb27bbb4fc693ed4a206ca",
+        "selectedTaskCount": 25,
+        "criticalPathWallTimeMs": {
+          "p50": 233358,
+          "p95": 233358,
+          "max": 233358
+        },
+        "peakRssMiBMax": 1165.16796875,
+        "cpuMs": {
+          "p50": 4850,
+          "max": 143820
+        },
+        "serviceStartCount": 2,
+        "comparison": "recorded without a task-specific budget; observed critical path and RSS were below the accepted P00 full-system warm ceilings",
+        "checks": {
+          "allSelectedTasksPassed": true,
+          "zeroFailures": true,
+          "zeroLeaks": true,
+          "releaseComposition": true,
+          "cleanupCompleted": true
+        }
       }
     },
     "applicationRelease": null,
@@ -484,7 +515,9 @@
       "P04 replaced the monolithic ordinary browser workflow with exactly two targeted canaries and kept Compose smoke separate; the pinned browser image uses host networking, the Docker socket, and 2 GiB shared memory.",
       "P04 browser coverage found the real SecretStager api-key serialization mismatch; the production handler now accepts the hyphenated public-event key while preserving write-only credential behavior.",
       "P04 EVAL-005 passed five warm browser samples at 39621 ms p95 and 403.08203125 MiB maximum RSS, with two ordinary browser features per sample, zero failures/leaks/screenshots/running containers, and unchanged P00 budgets.",
-      "P04's initial browser benchmark invocation was made explicit with task mode and zero cold samples; browser-specific comparison now checks feature inventory, session count, screenshots, and cleanup. Browser task CPU remains informational because the Docker-client measurement is not equivalent to Chromium-process CPU."
+      "P04's initial browser benchmark invocation was made explicit with task mode and zero cold samples; browser-specific comparison now checks feature inventory, session count, screenshots, and cleanup. Browser task CPU remains informational because the Docker-client measurement is not equivalent to Chromium-process CPU.",
+      "P06 EVAL-007 passed one complete release candidate with all 25 selected tasks green, zero failures, zero leaked resources, and two ordinary service-pool starts. The release critical path was 233358 ms and peak RSS was 1165.16796875 MiB; these are release-graph observations rather than new tier budgets. The release candidate was measured with the pinned Elixir/OTP PATH required by the reference host.",
+      "P06 failed attempts were not accepted as evidence: the first release invocation used an incomplete lifecycle status, the next omitted the pinned Elixir/OTP PATH, and the initial Compose certification required causal fixes for browser-image pinning, login-shell PATH rewriting, host-path Docker mounts, and the fake-provider Responses inference type. No test oracle, assertion purpose, or resource threshold was weakened; failed-attempt scratch artifacts were removed."
     ]
   }
 }

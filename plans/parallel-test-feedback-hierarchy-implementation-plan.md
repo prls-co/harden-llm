@@ -2468,8 +2468,8 @@ accepted field.
 ## 11. Execution log
 
 The living copy records each phase only after its ordered subtask validation
-passes or a blocker is recorded. P00 through P04 are complete;
-implementation continues at P05.
+passes or a blocker is recorded. P00 through P06 are complete;
+implementation continues at P07.
 
 | Phase | Status |
 | --- | --- |
@@ -2479,7 +2479,7 @@ implementation continues at P05.
 | P03 | Done |
 | P04 | Done |
 | P05 | Done |
-| P06 | Pending |
+| P06 | Done |
 | P07 | Pending |
 
 ### P00: Reproducible baseline and accepted test architecture
@@ -2686,6 +2686,41 @@ implementation continues at P05.
 - ADR Updates: ADR-HLLM-015 now records TEST-042, TEST-043, TEST-053, EVAL-006, the selected caps, and the conservative race-budget comparison rationale; no new ADR number was required.
 - Refactoring Assessment: Completed. Ordinary service lifecycle, lease naming, and cleanup have one owner in `internal/integrationtest/pool.go` plus the canonical runner; the only remaining constructor is the explicit exclusive restart path.
 - Remaining Work: P06 and P07 remain pending; issue #32 remains open and tracks documentation/CI/release-candidate work, merge, deployment, hosted certification, closure evidence, and cleanup.
+
+### P06: Traceable commands, CI lanes, deployed harness, and release candidate
+
+- Phase Status: Done.
+- Completed Steps: P06.S01, P06.S02, P06.S03, P06.S04, P06.S05, P06.S06, P06.S07, and P06.S08.
+- Configuration Checkpoint:
+  - Branch: `feat/parallel-test-feedback-hierarchy`; implementation checkpoint `4a0b11b` (`fix: make compose browser certification portable`). The documentation/status checkpoint follows after the P06 record is committed.
+  - Baseline SHA: `009629211632beed029374549938d1e322fcba04`.
+  - Manifest SHA-256: `4f20b980f0fa5527898f2cfdfc7be8a9e07730d0e7eb27bbb4fc693ed4a206ca`.
+  - Host/toolchain: Linux `7.0.0-28-generic` x86_64, 6 physical/12 logical CPUs, 31229 MiB RAM, Go `go1.26.6`, Node `v22.22.1`, Elixir `1.20.2`, OTP `28.4.3`, Docker `29.1.3`, Compose `2.40.3+ds1-0ubuntu1`.
+  - Lifecycle status now records `P06-complete`, current phase `P07`, and all completed phases through P06 in `plans/implementation-status.json`.
+- Quantitative Results:
+  - EVAL-007 sample count: `1` warm release candidate and `0` cold samples.
+  - Selected task count: `25`; every manifest-selected task passed; failures: `0`; leaked-resource/cleanup errors: `0`; ordinary service-pool starts: `2`.
+  - Release-graph critical-path wall time p50/p95/max: `233358/233358/233358 ms`; aggregate task CPU p50/max: `4850/143820 ms`; peak RSS maximum: `1165.16796875 MiB`.
+  - The result was accepted as a release-graph observation without a task-specific budget. Its critical path and RSS are below the accepted P00 full-system warm ceilings (`311707 ms` / `1526.23 MiB`), which remain unchanged thresholds.
+  - Raw EVAL-007 evidence: `plans/evidence/harden-llm/release-candidate-eval.json`, SHA-256 `01abadc0381656c4aebffd4d8cac84c31d6e1babef5aac3f18d49bce2440de58` (ignored).
+- Verification:
+  - RED then GREEN: TEST-054 lifecycle traceability and TEST-041 policy checks passed after all required documentation, manifest, runner, workflow, release, and deployed-harness surfaces were present.
+  - `node scripts/verify-test-tiers.mjs`, `node --test scripts/test/run_test_tier_test.mjs`, `go test ./internal/testkit/... -count=1`, `mix format --check-formatted`, `mix compile --warnings-as-errors`, and the deterministic frontend suite passed after the final fixes.
+  - With the pinned PATH, `make test-fast` passed with seven tasks and `make test-release` passed with all 25 tasks and zero cleanup errors after the documentation/status changes.
+  - The exact accepted release command was `PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH node scripts/benchmark-test-feedback.mjs --mode task --task release --warm-samples 1 --cold-samples 0 --compare ker/test-feedback/baseline.json --output plans/evidence/harden-llm/release-candidate-eval.json`.
+- Issues/Resolutions:
+  - The first exact release invocation failed the lifecycle oracle because status still represented an unfinished P06 boundary; status was corrected to an explicit `P06-candidate` checkpoint before measuring again.
+  - The next release attempt omitted the reference host's Elixir/OTP PATH and failed at `frontend-format`; the command was corrected and the prerequisite was added to `AGENTS.md` and release documentation. Hosted setup remains independent of this host path.
+  - The Compose browser task initially failed because the host runner did not provide ChromeDriver. It was moved behind the pinned `harden-llm-browser-test:local` container, with the existing browser boundary and assertions unchanged.
+  - The containerized Compose task then exposed three real portability/fixture defects: a login shell rewrote the pinned Go PATH, Docker-in-Docker Compose needed host-path mounts, and the fake-provider profile probe required the existing Responses inference type. The runner, manifest, and Compose canary were corrected at their causal boundaries; no test was skipped or weakened.
+  - Root-owned failed-attempt screenshots and Compose scratch directories were cleaned through the pinned browser container. Final inventory had no task-owned browser container, Compose project, volume, screenshot, or `frontend/tmp` artifact.
+- Failed Attempts: The stale-status release run, the missing-Elixir/OTP-PATH release run, the host-ChromeDriver Compose attempt, the login-shell PATH attempt, the Docker mount-path attempt, and the default-Chat-Completions fake-provider attempt. They contributed no accepted metrics. Their failures were diagnosed from first-causal output and fixed before the accepted run; no retry was counted as a pass.
+- Deviations: P06.S04 added a pinned browser image and host-path mount contract to the Compose task so certification is portable on hosts without ChromeDriver and can resolve the host Docker bind paths; P06.S05 adds the reference-host toolchain prerequisite to local guidance; P06.S06 records the one-sample release graph without inventing a task-specific budget. Fidelity impact is limited to execution environment portability, assertion/oracle impact is none, concurrency impact is bounded by the existing manifest resource classes, and production impact is none in P06. The corrections are recorded in ADR-HLLM-015 and the KER; no threshold relaxation or DOM emulator was introduced.
+- Lessons Learned: A release gate can be green only when lifecycle status, toolchain, container image, shell environment, host mounts, and fixture protocol are all explicit. A browser task's container boundary must preserve the host path when its Compose child mounts host files. Release evidence must distinguish a graph observation from a tier budget, and a successful local candidate still cannot stand in for merged/deployed identity.
+- ADR Updates: ADR-HLLM-015 now records TEST-054, TEST-055, EVAL-007, the release-candidate observations, and the exact causal corrections; no new ADR number or budget amendment was required.
+- External coordination: issue [#32](https://github.com/prls-co/harden-llm/issues/32) was updated with the P06 checkpoint, EVAL-007 hashes, deviations, and remaining P07 acceptance. The redacted issue body checksum was `c099dfe5edc992d7086cea9781a1e321a59a470d1fe10b544cc5719f9faa68eb`.
+- Refactoring Assessment: No refactor needed. The manifest remains the only task-selection source, Make and hosted workflow remain thin delegates, the deployed launcher owns the single external canary boundary, and EVAL-007 reuses the existing cleanup/resource ownership.
+- Remaining Work: P07.S01 through P07.S12 remain: reconcile current main, run the reconciled release, push/open/review/merge the implementation PR, demonstrate pre-deployment identity mismatch, deploy the merged frontend, run TEST-056, verify sustained public identity, merge closure evidence, close issue #32, clean resources, and certify final main.
 
 For each phase, maintain this record:
 

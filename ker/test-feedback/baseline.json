@@ -127,6 +127,30 @@
       "serviceStartCount": 144,
       "exclusiveOverlapCount": 0,
       "raceBudgetReference": "full-system:warm accepted ceilings because P00 integration was not race-instrumented"
+    },
+    "EVAL-007": {
+      "accepted": true,
+      "rawEvidencePath": "plans/evidence/harden-llm/release-candidate-eval.json",
+      "rawEvidenceSha256": "01abadc0381656c4aebffd4d8cac84c31d6e1babef5aac3f18d49bce2440de58",
+      "manifestSha256": "4f20b980f0fa5527898f2cfdfc7be8a9e07730d0e7eb27bbb4fc693ed4a206ca",
+      "sampleCount": 1,
+      "warmSamples": 1,
+      "coldSamples": 0,
+      "selectedTaskCount": 25,
+      "criticalPathWallTimeMs": {"p50": 233358, "p95": 233358, "max": 233358},
+      "peakRssMiBMax": 1165.16796875,
+      "cpuMs": {"p50": 4850, "max": 143820},
+      "serviceStartCount": 2,
+      "failureCount": 0,
+      "leakedResourceCount": 0,
+      "comparison": "recorded without a task-specific budget; observed critical path and RSS were below accepted P00 full-system warm ceilings",
+      "checks": {
+        "allSelectedTasksPassed": true,
+        "zeroFailures": true,
+        "zeroLeaks": true,
+        "releaseComposition": true,
+        "cleanupCompleted": true
+      }
     }
   },
   "acceptedEvaluationFields": [

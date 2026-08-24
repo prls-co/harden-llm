@@ -33,6 +33,15 @@ widget behavior, one bounded configured-profile prompt, exact smoke-history
 cleanup, and logout. The documentation-only closure commit is never presented
 as the deployed application-bearing SHA.
 
+P06 EVAL-007 is the accepted local release-candidate checkpoint. One warm
+sample selected 25 manifest tasks and passed all of them with zero failures,
+zero leaked resources, and two cleaned service-pool starts. The release graph
+observed `233358 ms` critical-path wall time and `1165.16796875 MiB` peak RSS;
+the result was recorded without a task-specific budget and did not alter the
+accepted P00 ceilings. The measured command used the reference host's pinned
+Elixir `1.20.2` / OTP `28.4.3` PATH. P07 remains responsible for hosted checks,
+merged identity, deployment, and TEST-056 public certification.
+
 ## Provenance checkpoint
 
 | Input | Certified value |
@@ -64,6 +73,8 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 - Current WSL refresh: Docker client/server `29.6.2`; Compose `v5.3.1`.
 - `govulncheck` `1.6.0` with the official Go vulnerability database.
 - Frontend builder: Elixir `1.20.2`, Erlang/OTP `28.4.3`, Phoenix `1.8.9`.
+- Reference-host frontend/release commands must expose the pinned toolchain:
+  `PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH`.
 - Frontend browser image: Docker CLI `29.5.2`, Compose `2.40.3`, Chromium/ChromeDriver `149.0.7827.53`.
 - Phoenix LiveView `1.2.9` is the current exact security pin; ADR-HLLM-009 records the original `1.2.7` patch and this subsequent advisory-driven update.
 
