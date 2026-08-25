@@ -163,3 +163,26 @@ configured provider profiles passed bounded live smoke with cleanup. No KER or
 related issue was created: this changes only component integration boundaries,
 not provider policy, timeouts, retry budgets, API ownership, or credential
 handling.
+
+## Amendment decision: 2026-08-25 utility-informed ownership follow-up
+
+The follow-up comparison confirms that exact React/pixel duplication is not the
+product goal. The reusable component keeps utility's practical control and
+failure-mode semantics while using the self-hosted ownership model:
+
+- Saved-profile model refresh remains ID-only and uses the stored credential;
+  dirty endpoint or credential drafts require an explicit Save before refresh.
+- Hosts own their model catalog. The widget accepts normalized `{id, label?}`
+  values, uses a small Harden preset only when no catalog is supplied, and
+  retains an omitted current ID as a custom value. Provider discovery remains a
+  host/backend concern.
+- Ordinary profile drafts remain component-local until a commit boundary. Main
+  and escalation mutation actions use independent pending keys so embedding one
+  widget does not create cross-editor busy-state coupling.
+- Visual acceptance is structural, semantic, accessible, and practical. A
+  targeted native-browser boundary is retained for focus, LiveSocket patches,
+  file inputs, and layout; no synthetic DOM dependency is introduced.
+
+These decisions are detailed in ADR-HLLM-016 and are executable through
+TEST-101 through TEST-117. They do not change provider policy, credentials,
+retry budgets, or the public run contract.

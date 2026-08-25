@@ -2,6 +2,7 @@ defmodule HardenLlmWeb.BoundaryTest do
   use ExUnit.Case, async: true
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-001
+  # PLAN-HLLM-WIDGET-PARITY-001 TEST-115
 
   @forbidden_dependencies ~w(ecto ecto_sql postgrex sqlite_ecto2 firebase garage aws temporal oban broadway react)
 
@@ -79,7 +80,7 @@ defmodule HardenLlmWeb.BoundaryTest do
 
     for function <- ~w(
       normalizeSearch visibleOptionIndices emptyStateVisible highlightIndex commitValue
-      escapeValue blurValue isSubmitShortcut schemaPendingState
+      escapeValue focusValue blurValue isSubmitShortcut schemaPendingState
     ) do
       assert app =~ function
       assert core =~ "export function #{function}"

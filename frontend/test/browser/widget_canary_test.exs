@@ -9,6 +9,7 @@ defmodule HardenLlmWeb.WidgetCanaryTest do
   alias Wallaby.Query
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-047 TEST-047
+  # PLAN-HLLM-WIDGET-PARITY-001 TEST-114
 
   setup {HardenLlmWeb.BrowserFeatureCase, :setup_browser}
 
@@ -62,7 +63,7 @@ defmodule HardenLlmWeb.WidgetCanaryTest do
       |> assert_dom_attribute(
         "#workspace-cache-toggle",
         "aria-label",
-        "Refresh cache on next run"
+        "Overwrite cache on next run"
       )
       |> assert_no_horizontal_overflow()
       |> visit("/embed/llm")

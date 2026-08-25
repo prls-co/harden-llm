@@ -168,6 +168,10 @@
     {
       "adr": "ADR-HLLM-014",
       "summary": "The reusable no-tabs widget aligns utility combobox, cache, retry projection, nested upload, and explicit profile-save behavior with the self-hosted gateway contract."
+    },
+    {
+      "adr": "ADR-HLLM-016",
+      "summary": "The widget keeps ordinary drafts local, refreshes only saved profiles, accepts a host-owned model catalog with a small default fallback, and keeps mutation pending state independent by widget kind."
     }
   ],
   "frontend": {
@@ -262,6 +266,31 @@
         ],
         "routeShell": "ProfileWidgetComponent is the current reusable in-flow widget; Layouts.app remains an adapter shell and authenticated /embed/llm demonstrates two independently routed host instances"
       }
+    }
+  },
+  "widgetParity": {
+    "plan": "PLAN-HLLM-WIDGET-PARITY-001",
+    "status": "in_progress",
+    "requirements": 18,
+    "tests": [
+      "TEST-101", "TEST-102", "TEST-103", "TEST-104", "TEST-105",
+      "TEST-106", "TEST-107", "TEST-108", "TEST-109", "TEST-110",
+      "TEST-111", "TEST-112", "TEST-113", "TEST-114", "TEST-115",
+      "TEST-116", "TEST-117", "TEST-118"
+    ],
+    "utilitySource": {
+      "repository": "/home/kirill/p/utility-llm",
+      "gitSHA": "5c0309e2508dc5b7a87d0880c8d794123353c5b0",
+      "workingTreeDirty": false
+    },
+    "adr": "ADR-HLLM-016",
+    "ker": "KER-HLLM-WIDGET-PARITY-001",
+    "implementationSHA": null,
+    "release": {
+      "mergedSHA": null,
+      "verificationImage": null,
+      "productionImage": null,
+      "status": "not-run"
     }
   },
   "testFeedbackHierarchy": {

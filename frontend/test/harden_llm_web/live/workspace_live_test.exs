@@ -6,6 +6,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
   alias HardenLlmWeb.{APIFixtures, HardenAPI}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-007
+  # PLAN-HLLM-WIDGET-PARITY-001 TEST-101 TEST-102 TEST-103 TEST-104 TEST-106 TEST-107 TEST-109 TEST-113
 
   setup %{conn: conn}, do: {:ok, conn: authenticated_conn(conn)}
 
@@ -421,7 +422,6 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           "#escalation-refresh-models",
           "#escalation_modelId",
           "#escalation-fallback-toggle",
-          "#escalation-identity-toggle",
           "#escalation-options-toggle",
           "#escalation-pricing-toggle",
           "#escalation-bundle-file",
@@ -550,9 +550,73 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       ])
 
     render_upload(upload, "profiles.json")
-    view |> element("#profile-import-bundle") |> render_click()
+    render_change(view, "import-bundle", %{"kind" => "main", "widget" => ""})
     assert_received {:widget_imported, %{"schemaVersion" => 1}}
     assert has_element?(view, ~s(#run_selectedProfileId-options [data-value="CPA GPT-5.6 Luna"]))
+  end
+
+  test "dirty profile configuration requires save before model refresh", %{conn: conn} do
+    primary = widget_profile("Primary", "model-primary")
+
+    install_stub(
+      fn conn ->
+        unexpected(conn)
+      end,
+      profiles: [primary]
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+
+    refute has_element?(view, "#profile-refresh-models[disabled]")
+
+    view
+    |> with_target("#workspace-llm-widget")
+    |> render_change("profile-draft-change", %{
+      "profile" => %{"baseUrl" => "https://changed.example.test/v1"}
+    })
+
+    assert has_element?(view, "#profile-save", "Save Profile")
+    assert has_element?(view, "#profile-refresh-models[disabled]")
+    assert has_element?(view, "#profile-save-required", "Save profile before refreshing models.")
+  end
+
+  test "ordinary profile drafts stay local until a committed model selection", %{conn: conn} do
+    {:ok, counter} = Agent.start_link(fn -> 0 end)
+    on_exit(fn -> if Process.alive?(counter), do: Agent.stop(counter) end)
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          Agent.update(counter, &(&1 + 1))
+          Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
+    Agent.update(counter, fn _ -> 0 end)
+
+    for value <- ["16001", "16002", "16003"] do
+      view
+      |> with_target("#workspace-llm-widget")
+      |> render_change("profile-draft-change", %{"profile" => %{"maxTokens" => value}})
+    end
+
+    assert Agent.get(counter, & &1) == 0
+
+    view
+    |> with_target("#workspace-llm-widget")
+    |> render_change("profile-draft-change", %{"profile" => %{"modelId" => "model-committed"}})
+
+    render_async(view, 1_000)
+    assert Agent.get(counter, & &1) == 1
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-040

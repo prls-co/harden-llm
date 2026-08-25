@@ -9,7 +9,7 @@ defmodule HardenLlmWeb.EmbeddingLive do
 
   use HardenLlmWeb, :live_view
 
-  alias HardenLlmWeb.{APIError, Auth, HardenAPI, Observability}
+  alias HardenLlmWeb.{APIError, Auth, HardenAPI, Observability, ProfileWidgetState}
 
   @instance_specs [
     %{
@@ -304,6 +304,7 @@ defmodule HardenLlmWeb.EmbeddingLive do
               id={spec.component_id}
               id_prefix={spec.prefix}
               profiles={@profiles}
+              model_catalog={host_model_catalog(@profiles)}
               selected_profile_id={instance.selected_profile_id}
               reasoning_effort={instance.reasoning_effort}
               cache_mode={instance.cache_mode}
@@ -327,4 +328,18 @@ defmodule HardenLlmWeb.EmbeddingLive do
   def status_label(:loading), do: "Checking backend"
   def status_label(:ready), do: "Backend ready"
   def status_label(:unavailable), do: "Backend unavailable"
+
+  defp host_model_catalog(profiles) do
+    profiles
+    |> Enum.flat_map(fn profile_state ->
+      profile_state
+      |> get_in(["profile", "models"])
+      |> List.wrap()
+    end)
+    |> ProfileWidgetState.normalize_model_catalog()
+    |> case do
+      [] -> nil
+      models -> models
+    end
+  end
 end

@@ -6,6 +6,7 @@ defmodule HardenLlmWeb.HardenAPITest do
   require OpenTelemetry.Tracer, as: Tracer
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-003
+  # PLAN-HLLM-WIDGET-PARITY-001 TEST-109
 
   setup context do
     Req.Test.set_req_test_from_context(context)
@@ -44,6 +45,23 @@ defmodule HardenLlmWeb.HardenAPITest do
     end)
 
     assert {:ok, %{"ownerId" => "owner-test"}, %{}} = HardenAPI.get_session(handle)
+  end
+
+  test "saved-profile model refresh sends only the profile ID path" do
+    handle = APIFixtures.insert_session()
+
+    Req.Test.stub(HardenAPI, fn conn ->
+      assert conn.method == "POST"
+      assert conn.request_path == "/api/v1/profiles/Primary/models:refresh"
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      assert body == ""
+      assert Plug.Conn.get_req_header(conn, "authorization") == ["Bearer " <> APIFixtures.token()]
+
+      Req.Test.json(conn, APIFixtures.success(%{"profile" => %{"models" => []}}))
+    end)
+
+    assert {:ok, %{"profile" => %{"models" => []}}, %{}} =
+             HardenAPI.refresh_profile_models(handle, "Primary")
   end
 
   test "active W3C trace context is injected into backend requests" do

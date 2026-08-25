@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+// PLAN-HLLM-WIDGET-PARITY-001 TEST-117
+
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -109,6 +111,26 @@ async function main() {
   const fastTasks = selectTasks(manifest, "fast");
   if (fastTasks.length === 0) fail("fast selection is empty");
   for (const task of fastTasks) assertCheapTask(task);
+
+  const fastTestIds = new Set(fastTasks.flatMap((task) => task.testIds ?? []));
+  for (const testId of [
+    "TEST-101",
+    "TEST-102",
+    "TEST-103",
+    "TEST-104",
+    "TEST-105",
+    "TEST-106",
+    "TEST-107",
+    "TEST-109",
+    "TEST-110",
+    "TEST-111",
+    "TEST-112",
+    "TEST-113",
+    "TEST-115",
+    "TEST-116",
+  ]) {
+    if (!fastTestIds.has(testId)) fail(`cheap selection is missing widget test ${testId}`);
+  }
 
   const deployed = manifest.tasks.find((task) => task.id === "frontend-deployed");
   if (!deployed || deployed.tier !== "T5" || deployed.resourceClass !== "live" || deployed.network !== "public") {

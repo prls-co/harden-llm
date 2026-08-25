@@ -77,6 +77,23 @@ These variables belong to the unchanged upstream service graph documented in
 [`deploy/langfuse/UPSTREAM.md`](../deploy/langfuse/UPSTREAM.md); they must never
 be reused for Harden LLM Postgres or Garage.
 
+The production `.env` may intentionally keep the shared-observability values in
+an approved, mode-0600 environment file instead of copying them into the
+checkout. Compose receives those values through the invoking process, which
+overrides the repository `.env` without writing or logging the secrets:
+
+```bash
+set -a
+. /path/to/approved/observability.env
+set +a
+docker compose --env-file .env ... config --quiet
+```
+
+The same injection is required for `PRLS_LOKI_S3_ACCESS_KEY`,
+`PRLS_LOKI_S3_SECRET_KEY`, and `PRLS_LAMINAR_PROJECT_API_KEY` when they are
+managed by the shared observability host. Never commit a merged environment
+file or place its values in a release command, plan, log, or KER.
+
 When Loki authentication is enabled, the existing harden-LLM log path retains
 the canonical `fake` tenant used by Loki while authentication was disabled.
 Both the protected Collector exporter and the `harden-loki` Grafana datasource

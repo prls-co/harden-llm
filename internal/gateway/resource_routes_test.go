@@ -3,6 +3,7 @@
 package gateway_test
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-024 TEST-053
+// PLAN-HLLM-WIDGET-PARITY-001 TEST-108
 
 import (
 	"bytes"

@@ -308,7 +308,23 @@
     },
     {
       "id": "frontend-deterministic",
-      "testIds": ["TEST-017", "TEST-044"],
+      "testIds": [
+        "TEST-017",
+        "TEST-044",
+        "TEST-101",
+        "TEST-102",
+        "TEST-103",
+        "TEST-104",
+        "TEST-105",
+        "TEST-106",
+        "TEST-107",
+        "TEST-109",
+        "TEST-110",
+        "TEST-111",
+        "TEST-112",
+        "TEST-113",
+        "TEST-115"
+      ],
       "tier": "T1",
       "resourceClass": "cpu",
       "command": ["mix", "test"],
@@ -355,6 +371,21 @@
       "credentialKeys": [],
       "requiredFor": ["baseline", "fast", "release"],
       "pathSelectors": ["frontend/assets/js/**", "frontend/assets/test/**"]
+    },
+    {
+      "id": "widget-traceability",
+      "testIds": ["TEST-116"],
+      "tier": "T0",
+      "resourceClass": "cpu",
+      "command": ["node", "--test", "scripts/test/widget_parity_traceability_test.mjs"],
+      "dependsOn": [],
+      "timeoutMs": 120000,
+      "cleanupOwner": "runner",
+      "network": "forbidden",
+      "credentialKeys": [],
+      "requiredFor": ["baseline", "fast", "release"],
+      "benchmarkLanes": ["fast-candidates"],
+      "pathSelectors": ["plans/llm-widget-utility-parity-implementation-plan.md", "docs/**", "ker/widget-parity/**", "scripts/test/**"]
     },
     {
       "id": "frontend-browser",

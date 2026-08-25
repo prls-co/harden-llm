@@ -82,8 +82,8 @@ editor reuses the same field set but excludes nested retry/repair controls.
 | `Clear staged key` | Danger button | Removes a newly staged unsaved key, not the stored backend credential. |
 | `Cancel` | Button | Clears the local replacement draft and closes the credential drawer. |
 | `Stage key` | Primary button | Copies a non-empty local draft into the write-only profile payload and closes the drawer. |
-| `Refresh Models` | Button beside the first model slot | Discovers models from the draft/saved endpoint, preserves old models on failure, and updates suggestions without changing the profile identity. |
-| `Model ID` | Editable searchable combobox | Single selected model value. Suggestions merge discovered profile models, global model options, and the current typed value; custom model IDs are allowed. |
+| `Refresh Models` | Button beside the first model slot | Uses the saved profile ID and stored credential only, preserves old models on failure, and updates suggestions without changing profile identity. Dirty endpoint or credential drafts require Save first; no draft request body is sent. |
+| `Model ID` | Editable searchable combobox | Single selected model value. A host-owned `{id, label?}` catalog is authoritative; the Harden preset is used only when the host supplies none, and the current typed ID remains visible if omitted. Custom model IDs are allowed. |
 | `Fallback LLMs` | Group | Ordered backup profile references. The current profile is excluded from its own options; custom references remain possible so the backend can return graph validation errors. |
 | `Add Fallback LLM` | Button | Appends an empty ordered fallback slot. |
 | `Fallback LLM N` | Editable searchable combobox | Edits the ordered profile reference at index N. |
@@ -269,7 +269,38 @@ passed, including 16 React/server test files and 147 Vitest tests.
 | Trace API | Go returns trace observations/artifacts and Phoenix authorizes artifact redirects. | Normalized LLM stats, availability, request/response, and cURL behavior are now exposed without raw provider credentials. |
 | Tests | Phoenix unit/live/browser and Go tests cover the translated self-hosted behavior. | Keep the utility test inventory as the regression checklist and add any newly discovered behavior to canonical `WEB-TEST-###`/`TEST-###` cases. |
 
-## 7. Implementation order
+## 7.1 Widget parity follow-up matrix (2026-08-25)
+
+The following matrix is the bounded parity contract for
+`PLAN-HLLM-WIDGET-PARITY-001`. Every approved requirement is classified; there
+are no unclassified rows. “Adapted” means the observable behavior is retained
+through the self-hosted ownership boundary. “Changed by decision” is an
+intentional product or release choice recorded in the plan and ADRs.
+
+| Requirement | Utility source surface | Hardened target surface | Status | Decision/evidence |
+| --- | --- | --- | --- | --- |
+| REQ-001 | `src/react/index.js:ProfileConfigControl` | `ProfileWidgetComponent.render/1` | aligned | Compact in-flow row: category, profile, reasoning, cache, config; TEST-101 |
+| REQ-002 | `ProfileConfigFields`, `FoldSection` | `profile_widget_component.ex` folds | aligned | Ordinary and nested folds remain in flow; TEST-102 |
+| REQ-003 | `ProfileConfigControl` cache button | `cache_label/1`, `cache_title/1`, workspace cache state | aligned | Two-state cache/refresh labels, title, and pressed semantics; TEST-101 |
+| REQ-004 | `EndpointCredentialDrawer`, `ProfileActionRow` | credential drawer and staged-key handlers | adapted | Phoenix keeps stored status and write-only replacement behavior; TEST-103 |
+| REQ-005 | Utility omits storage/capability metadata from ordinary editor | backend profile validation plus new-profile-only fields | changed by decision | No ordinary identity fold or credential ID/scope controls; TEST-102 |
+| REQ-006 | `BackupProfilesEditor` | fallback rows and `ProfileWidgetState.move_fallback/3` | aligned | Unnumbered rows, Up/Down boundaries, custom values; TEST-104 |
+| REQ-007 | `ProfileActionRow`, bundle callbacks | namespaced LiveView upload/action rows | adapted | File selection triggers one LiveView import; hardened delete confirmation remains; TEST-104 |
+| REQ-008 | `OptionsEditor.updateOptions` | `ProfileWidgetState.patch_options/2` | aligned | Raw JSON is canonical and unknown top-level keys survive; TEST-105 |
+| REQ-009 | `RetryRepairEditor` | `patch_options/2` plus server payload validation | aligned | Default-true omission, explicit false, nested preservation, parse-retry removal; TEST-105 |
+| REQ-010 | controlled field callbacks in `App.jsx` | component-local draft forms and host messages | changed by decision | No per-keystroke host state persistence; TEST-106/EVAL-102 |
+| REQ-011 | profile-save/run boundary | `WorkspaceLive.run/2` and dirty/save state | adapted | Existing saved-profile safety gate is retained and made explicit; TEST-107 |
+| REQ-012 | `onRefreshModels` callback | `HardenAPI.refresh_profile_models/2` and gateway route | changed by decision | Saved-profile ID-only refresh; dirty drafts require Save; TEST-108/109 |
+| REQ-013 | `EditableCombobox`, model option callbacks | host catalog assign, default preset, `client_core.mjs` | changed by decision | Host owns catalog; widget only supplies defaults when catalog is absent; TEST-110/111 |
+| REQ-014 | `idPrefix` and widget callback props | `id_prefix`, upload names, parent messages | aligned | Two instances have independent IDs, uploads, folds, and action state; TEST-113 |
+| REQ-015 | `styles.css` field/fold/combobox rules | `.ullm-*` scoped CSS and LiveView markup | adapted | Structural/semantic visual acceptance; no screenshot matrix; TEST-112/114 |
+| REQ-016 | utility API/client ownership | Phoenix `HardenAPI`, Go/OpenAPI, write-only secrets | adapted | Firebase/browser-provider paths remain outside this self-hosted widget; TEST-103/109/115 |
+| REQ-017 | browser-native combobox/file/layout boundaries | Node pure core plus targeted Wallaby tier | changed by decision | Chromium is separate and targeted; no Happy DOM/jsdom dependency; TEST-111/114/115/117 |
+| REQ-018 | release/deployment identity | test tiers, immutable release evidence, staged promotion | changed by decision | Verify merged SHA and same image digest before production; TEST-116/118/EVAL-104 |
+
+The durable data-ownership record is [ADR-HLLM-016](adr/ADR-HLLM-016-widget-draft-and-data-contract.md).
+
+## 7.2 Implementation order
 
 1. Extend the Go/OpenAPI state/profile/run/history projections and fixtures so
    the Phoenix UI has one canonical self-hosted contract.
