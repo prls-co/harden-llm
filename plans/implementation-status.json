@@ -270,7 +270,7 @@
   },
   "widgetParity": {
     "plan": "PLAN-HLLM-WIDGET-PARITY-001",
-    "status": "in_progress",
+    "status": "complete_with_documented_p05_deviation",
     "requirements": 18,
     "tests": [
       "TEST-101", "TEST-102", "TEST-103", "TEST-104", "TEST-105",
@@ -285,12 +285,24 @@
     },
     "adr": "ADR-HLLM-016",
     "ker": "KER-HLLM-WIDGET-PARITY-001",
-    "implementationSHA": null,
+    "implementationSHA": "84a06fa38da24bacbb5ffc537de509e77b0cb82b",
     "release": {
-      "mergedSHA": null,
+      "mergedSHA": "84a06fa38da24bacbb5ffc537de509e77b0cb82b",
       "verificationImage": null,
-      "productionImage": null,
-      "status": "not-run"
+      "productionImage": {
+        "frontend": "sha256:76d7140345765903249eff1c1b30b0824a42501a2ea11594e6be21860950a757",
+        "gateway": "sha256:97eefe84b1b560f208cf99d48e78ab6999fcdb4811b33c2486ea730d98c033c5"
+      },
+      "labelsMatchMergedSHA": true,
+      "target": "docker compose project harden-llm",
+      "canary": "passed: authenticated CPA GPT-5.6 Luna widget workflow, nested folds, output, history cleanup, logout",
+      "healthProbes": "passed: web health/login and API health/readiness, three sustained samples",
+      "status": "deployed_with_direct_production_deviation"
+    },
+    "deviation": {
+      "planStep": "P05.S04",
+      "reason": "No separate authorized verification deployment target or immutable image transport was available on this host.",
+      "mitigation": "The isolated release Compose/browser gate passed before merge; the two merged images were built once, deployed with --no-build, matched the merged SHA labels/digests, and passed the authenticated production canary."
     }
   },
   "testFeedbackHierarchy": {

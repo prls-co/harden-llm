@@ -27,6 +27,13 @@ session material, or unredacted provider responses.
    databases are runner-owned and must be removed or explicitly accounted for
    before closure.
 
+For this execution, no separate authorized verification target or immutable
+image transport was available. EVAL-104 therefore records a direct-production
+verification deviation explicitly: the isolated release Compose/browser gate
+was green before merge, the exact merged images were built once and deployed
+with `--no-build`, and production image labels, digests, probes, authenticated
+canary, and cleanup were verified. This is not represented as staged promotion.
+
 ## Verification commands
 
 The canonical commands are defined by `test/test-tiers.json` and delegated by

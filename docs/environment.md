@@ -89,6 +89,17 @@ set +a
 docker compose --env-file .env ... config --quiet
 ```
 
+The deployed browser launcher performs the same Compose inspection and must be
+run from a process that has the approved observability values injected; it does
+not read secret files or print them:
+
+```bash
+set -a
+. /path/to/approved/observability.env
+set +a
+HARDEN_LLM_EXPECTED_RELEASE=<merged-sha> node scripts/run-deployed-browser-test.mjs
+```
+
 The same injection is required for `PRLS_LOKI_S3_ACCESS_KEY`,
 `PRLS_LOKI_S3_SECRET_KEY`, and `PRLS_LAMINAR_PROJECT_API_KEY` when they are
 managed by the shared observability host. Never commit a merged environment

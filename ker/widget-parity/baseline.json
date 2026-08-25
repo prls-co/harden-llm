@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "documentId": "KER-HLLM-WIDGET-PARITY-001",
   "planId": "PLAN-HLLM-WIDGET-PARITY-001",
-  "status": "in_progress",
+  "status": "complete_with_documented_p05_deviation",
   "source": {
     "repository": "harden-llm",
     "baseSha": "10b96a4",
-    "implementationSha": null,
+    "implementationSha": "84a06fa38da24bacbb5ffc537de509e77b0cb82b",
     "utilitySource": "/home/kirill/p/utility-llm",
     "utilitySourceSha": "5c0309e2508dc5b7a87d0880c8d794123353c5b0"
   },
@@ -60,16 +60,24 @@
     }
   },
   "release": {
-    "mergedSha": null,
+    "mergedSha": "84a06fa38da24bacbb5ffc537de509e77b0cb82b",
     "verificationArtifactDigest": null,
-    "productionArtifactDigest": null,
+    "productionArtifactDigest": {
+      "frontend": "sha256:76d7140345765903249eff1c1b30b0824a42501a2ea11594e6be21860950a757",
+      "gateway": "sha256:97eefe84b1b560f208cf99d48e78ab6999fcdb4811b33c2486ea730d98c033c5"
+    },
     "verificationTarget": null,
-    "productionTarget": null,
-    "status": "not-run"
+    "productionTarget": "docker compose project harden-llm on the authorized production host",
+    "releaseLabelsMatchMergedSha": true,
+    "healthProbes": {"webHealthz": 200, "login": 200, "apiHealthz": 200, "apiReadyz": 200, "sustainedSamples": 3},
+    "deployedCanary": {"accepted": true, "historyCleanup": true, "logout": true, "screenshots": 0},
+    "status": "passed_with_direct_production_deviation",
+    "deviation": "No separate authorized verification target or immutable transport was available; the user-authorized production target was verified directly after an isolated release Compose/browser gate."
   },
   "cleanup": {
     "secretsRecorded": false,
-    "temporaryArtifacts": "zero after benchmark and release cleanup; final wrapper cleanup pending",
-    "runnerContainers": "zero after benchmark and release cleanup"
+    "temporaryArtifacts": "zero after benchmark, release, and deployed-canary cleanup",
+    "runnerContainers": "zero",
+    "runnerVolumes": "zero"
   }
 }

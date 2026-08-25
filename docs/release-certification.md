@@ -639,3 +639,29 @@ runtime identity is verified.
   the pinned `harden-llm-browser-test:local` image; the wrapper permits network
   only for Hex dependency-audit tasks and keeps deterministic tasks offline.
   This changes execution tooling, not the test purpose or application code.
+
+The implementation commit `e175cb4` was merged through PR `#42` as
+`84a06fa38da24bacbb5ffc537de509e77b0cb82b`. The exact merged images were built
+once and deployed to the authorized `harden-llm` production Compose project
+with `--no-build`; both containers were healthy and their labels matched the
+merged SHA:
+
+| Surface | Release label | Image ID/digest | Runtime result |
+| --- | --- | --- | --- |
+| Frontend | `84a06fa38da24bacbb5ffc537de509e77b0cb82b` | `sha256:76d7140345765903249eff1c1b30b0824a42501a2ea11594e6be21860950a757` | healthy |
+| Gateway | `84a06fa38da24bacbb5ffc537de509e77b0cb82b` | `sha256:97eefe84b1b560f208cf99d48e78ab6999fcdb4811b33c2486ea730d98c033c5` | healthy |
+
+The canonical deployed launcher passed with the approved environment:
+frontend `/healthz` and `/login`, API `/healthz` and `/readyz`, and three
+sustained probe samples all returned HTTP 200. TEST-118 passed the
+authenticated CPA GPT-5.6 Luna workspace flow, nested folds, output,
+request/response details, exact nonce history deletion, logout, and redaction;
+no screenshots or task-owned browser artifacts remained.
+
+P05.S04's staged-promotion policy is the one documented deviation: this host
+has no separate authorized verification deployment target or immutable image
+transport. The isolated release Compose/browser gate passed before merge; the
+user authorized production completion, so the exact two merged images were
+verified directly on production. This is recorded as direct production
+verification, not mislabeled staged promotion. Named production volumes were
+retained.

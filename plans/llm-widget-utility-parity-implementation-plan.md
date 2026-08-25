@@ -1526,7 +1526,7 @@ persist a profile, credential, or workspace state.
 
 ### Phase P00
 
-- Phase Status: Complete pending final merged/deployed identity.
+- Phase Status: Complete.
 - Completed Steps: Recorded the 18 requirement classifications, utility source
   revision, host-catalog decision, saved-profile refresh boundary, no-DOM
   decision, browser-tier boundary, and traceability IDs TEST-101 through
@@ -1550,7 +1550,7 @@ persist a profile, credential, or workspace state.
 
 ### Phase P01
 
-- Phase Status: Complete pending final merged/deployed identity.
+- Phase Status: Complete.
 - Completed Steps: Removed ordinary identity and credential metadata folds;
   implemented the compact no-tabs row, utility cache/refresh semantics,
   fold-disabled guards, utility labels/titles, and independent main/escalation
@@ -1570,7 +1570,7 @@ persist a profile, credential, or workspace state.
 
 ### Phase P02
 
-- Phase Status: Complete pending final merged/deployed identity.
+- Phase Status: Complete.
 - Completed Steps: Added `ProfileWidgetState`, canonical options/retry
   transformations, unknown-key preservation, blank-field deletion, ordered
   fallback movement, import-on-file-selection, independent action state,
@@ -1594,7 +1594,7 @@ persist a profile, credential, or workspace state.
 
 ### Phase P03
 
-- Phase Status: Complete pending final merged/deployed identity.
+- Phase Status: Complete.
 - Completed Steps: Kept Refresh Models ID-only and saved-profile-only; added
   the dirty Save gate, host-owned model catalog with default fallback/current
   value retention, saved-profile refresh tests, and a dependency-free
@@ -1618,7 +1618,7 @@ persist a profile, credential, or workspace state.
 
 ### Phase P04
 
-- Phase Status: Complete pending final merged/deployed identity.
+- Phase Status: Complete.
 - Completed Steps: Scoped widget DOM/CSS behavior, namespaced IDs/uploads,
   multi-instance state, lightweight JavaScript hooks, accessibility assertions,
   targeted native browser coverage, and the no-Happy-DOM/jsdom dependency
@@ -1644,13 +1644,14 @@ persist a profile, credential, or workspace state.
 
 ### Phase P05
 
-- Phase Status: In progress: local evidence is complete; merge/deploy identity
-  remains to be recorded.
+- Phase Status: Complete with the documented P05.S04 direct-production
+  verification deviation.
 - Completed Steps: Updated parity inventory, ADRs, requirements/status records,
   frontend documentation, KER/evaluation files, test-tier traceability, and
   release narrative. `make test-release` was rerun with captured output and
   accepted 26 tasks with no failures or cleanup errors. The final benchmark
-  accepted all 32 samples.
+  accepted all 32 samples. Commit `e175cb4` was pushed in PR #42 and merged as
+  `84a06fa38da24bacbb5ffc537de509e77b0cb82b` without a review gate.
 - Quantitative Results: EVAL-103 is passed. Warm p95 wall time/RSS maxima are:
   fast candidates 30,741 ms/489.777 MiB, integration 25,099 ms/458.711 MiB,
   browser 68,351 ms/30.578 MiB, and full system 122,522 ms/1,258.883 MiB.
@@ -1665,15 +1666,32 @@ persist a profile, credential, or workspace state.
   browser` path failed before tests because host Mix is unavailable; direct
   pinned-container execution passed. These are recorded toolchain deviations,
   not application failures.
-- Deviations: The final merged/deployed identity and EVAL-104 are intentionally
-  still open. No deployment is claimed until the artifact can be tied to the
-  merged SHA and the production canary has completed. The benchmark's raw JSON
-  remains ignored; the tracked evidence stores only redacted metrics.
+- Deviations: P05.S04 requires an isolated verification target and staged
+  promotion, but this host has no separate authorized target or immutable image
+  transport. Per the user's direct production-completion authorization, the
+  exact two images were built once from the merged SHA, deployed with
+  `--no-build` to the authorized `harden-llm` production Compose project, and
+  verified there. The isolated release Compose/browser gate remains the
+  pre-merge verification evidence; this direct path is not mislabeled as staged
+  promotion. The benchmark's raw JSON remains ignored; tracked evidence stores
+  only redacted metrics.
 - Lessons Learned: Release evidence must be captured from the runner's final
   structured output; process exit/cleanup alone is not sufficient proof.
 - ADR Updates: No new design ADR is required; implementation and evidence are
-  governed by ADR-HLLM-014/016. Final release identity will be appended after
-  merge and deployment.
+  governed by ADR-HLLM-014/016. The direct-production release deviation is
+  recorded in the EVAL-104/KER/status records and this execution log.
+
+- Merged/deployed identity: frontend label and image
+  `84a06fa38da24bacbb5ffc537de509e77b0cb82b` /
+  `sha256:76d7140345765903249eff1c1b30b0824a42501a2ea11594e6be21860950a757`;
+  gateway label and image `84a06fa38da24bacbb5ffc537de509e77b0cb82b` /
+  `sha256:97eefe84b1b560f208cf99d48e78ab6999fcdb4811b33c2486ea730d98c033c5`.
+- Deployment verification: production frontend/API health and login/readiness
+  probes returned 200 in one check and three sustained samples; the canonical
+  deployed launcher passed the authenticated CPA GPT-5.6 Luna workflow with
+  nested folds, output, history nonce deletion, logout, and zero screenshots.
+- Cleanup: no task-owned containers, volumes, or frontend scratch files remain;
+  named production volumes were retained.
 
 ## 12. Appendix: ADR index
 
