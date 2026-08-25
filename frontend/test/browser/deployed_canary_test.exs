@@ -19,6 +19,7 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
   alias Wallaby.Query
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-048 TEST-056
+  # PLAN-HLLM-WIDGET-PARITY-001 TEST-118
 
   setup do
     {:ok,

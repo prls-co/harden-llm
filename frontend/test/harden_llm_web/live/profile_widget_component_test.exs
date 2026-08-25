@@ -6,6 +6,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
   alias HardenLlmWeb.{APIFixtures, HardenAPI}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-044 TEST-044
+  # PLAN-HLLM-WIDGET-PARITY-001 TEST-101 TEST-102 TEST-103 TEST-104 TEST-112
 
   setup %{conn: conn}, do: {:ok, conn: authenticated_conn(conn)}
 
@@ -24,6 +25,28 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     assert has_element?(view, "#workspace-llm-widget #model-config-toggle")
     refute has_element?(view, ~s([role="tab"]))
 
+    assert has_element?(
+             view,
+             ~s(#workspace-cache-toggle[aria-label="Use cache"][aria-pressed="true"])
+           )
+
+    assert has_element?(
+             view,
+             ~s(#workspace-cache-toggle[title="Uses a saved response when this exact operation has already run."])
+           )
+
+    view |> element("#workspace-cache-toggle") |> render_click()
+
+    assert has_element?(
+             view,
+             ~s(#workspace-cache-toggle[aria-label="Overwrite cache on next run"][aria-pressed="false"])
+           )
+
+    assert has_element?(
+             view,
+             ~s(#workspace-cache-toggle[title="Fresh run: skips old cache and overwrites the saved response after success."])
+           )
+
     view |> element("#model-config-toggle") |> render_click()
 
     for selector <- [
@@ -39,6 +62,10 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
         ] do
       assert has_element?(view, selector), "missing main widget selector #{selector}"
     end
+
+    refute has_element?(view, "#profile-identity-toggle")
+    refute has_element?(view, "#profile_credentialId")
+    refute has_element?(view, "#profile_endpointCredentialScope")
 
     view |> element("#profile-credential-toggle") |> render_click()
     assert has_element?(view, "#profile-credential-drawer")
@@ -75,6 +102,23 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
 
     view |> element("#profile-pricing-toggle") |> render_click()
     assert has_element?(view, "#profile-pricing")
+  end
+
+  test "fallback rows use unnumbered utility actions and preserve boundary state", %{conn: conn} do
+    primary = profile("Primary", "model-primary")
+    backup = profile("Backup", "model-backup")
+    primary = put_in(primary, ["profile", "backupProfiles"], ["Backup", "custom-fallback"])
+    install_stub([primary, backup], primary)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+
+    refute has_element?(view, "#profile-fallback-list ol")
+    assert has_element?(view, "#profile-fallback-0-up", "Up")
+    assert has_element?(view, "#profile-fallback-0-down", "Down")
+    assert has_element?(view, "#profile-fallback-0-up[disabled]")
+    assert has_element?(view, "#profile-fallback-1-down[disabled]")
   end
 
   test "nested escalation folds and profile capabilities stay server-owned", %{conn: conn} do

@@ -29,6 +29,7 @@ import {
   commitValue,
   emptyStateVisible,
   escapeValue,
+  focusValue,
   highlightIndex,
   isSubmitShortcut,
   normalizeSearch,
@@ -121,6 +122,9 @@ const SearchableCombobox = {
       this.openMenu()
     }
     this.onFocus = () => {
+      const decision = focusValue({value: this.committed})
+      this.input.value = decision.value
+      this.input.select()
       this.filterOptions()
       this.openMenu()
     }

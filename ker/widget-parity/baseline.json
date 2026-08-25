@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "documentId": "KER-HLLM-WIDGET-PARITY-001",
+  "planId": "PLAN-HLLM-WIDGET-PARITY-001",
+  "status": "in_progress",
+  "source": {
+    "repository": "harden-llm",
+    "baseSha": "10b96a4",
+    "implementationSha": null,
+    "utilitySource": "/home/kirill/p/utility-llm",
+    "utilitySourceSha": "5c0309e2508dc5b7a87d0880c8d794123353c5b0"
+  },
+  "tests": {
+    "frontendDeterministic": {
+      "command": "docker run --rm --network none -v /home/kirill/.mix:/root/.mix:ro -v /home/kirill/p/harden-llm:/workspace -w /workspace/frontend harden-llm-browser-test:local mix test --seed 104729",
+      "status": "passed",
+      "passed": 107,
+      "excluded": 4,
+      "excludedTags": ["browser", "compose", "deployed"],
+      "seed": 104729
+    },
+    "clientCore": {
+      "command": "node --test frontend/assets/test/client_core.test.mjs",
+      "status": "passed",
+      "passed": 8
+    },
+    "compileWarningsAsErrors": {
+      "command": "mix compile --warnings-as-errors",
+      "status": "passed"
+    },
+    "tierVerifier": {
+      "command": "node scripts/verify-test-tiers.mjs",
+      "status": "passed",
+      "fastTaskCount": 8
+    },
+    "traceability": {
+      "command": "node --test scripts/test/widget_parity_traceability_test.mjs",
+      "status": "passed",
+      "requirements": 18,
+      "testCases": 18
+    },
+    "release": {
+      "command": "PATH=/tmp/harden-llm-mix-wrapper.7ejH6R:$PATH make test-release",
+      "status": "passed",
+      "accepted": true,
+      "taskCount": 26,
+      "failure": null,
+      "cleanupErrors": []
+    },
+    "benchmark": {
+      "command": "PATH=/tmp/harden-llm-mix-wrapper.7ejH6R:$PATH make benchmark-test-feedback",
+      "status": "passed",
+      "accepted": true,
+      "sampleCount": 32,
+      "seeds": [104729, 130363, 155921],
+      "failureCount": 0,
+      "leakedResourceCount": 0,
+      "warmP95WallTimeMs": {"fastCandidates": 30741, "integration": 25099, "browser": 68351, "fullSystem": 122522},
+      "warmPeakRssMiBMax": {"fastCandidates": 489.77734375, "integration": 458.7109375, "browser": 30.578125, "fullSystem": 1258.8828125}
+    }
+  },
+  "release": {
+    "mergedSha": null,
+    "verificationArtifactDigest": null,
+    "productionArtifactDigest": null,
+    "verificationTarget": null,
+    "productionTarget": null,
+    "status": "not-run"
+  },
+  "cleanup": {
+    "secretsRecorded": false,
+    "temporaryArtifacts": "zero after benchmark and release cleanup; final wrapper cleanup pending",
+    "runnerContainers": "zero after benchmark and release cleanup"
+  }
+}

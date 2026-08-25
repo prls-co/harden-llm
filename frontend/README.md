@@ -26,7 +26,7 @@ non-production; production requires independent signing/encryption salts, a
 mix format --check-formatted
 mix compile --warnings-as-errors
 mix test
-mix test --only browser test/browser/full_workflow_test.exs
+mix test --only browser test/browser/widget_canary_test.exs
 mix deps.audit
 mix hex.audit
 MIX_ENV=prod mix assets.deploy
@@ -65,7 +65,27 @@ compact no-tabs row, searchable custom-value controls, nested profile folds,
 utility cache/retry projection, explicit profile-save gating, fallback/options
 interactions, namespaced nested form IDs and bundle inputs, independent
 multi-instance host routing, and canonical profile mutations. The
-browser test requires Chromium and ChromeDriver.
+widget-specific plan cases TEST-101 through TEST-113 and TEST-115 are included
+in the deterministic suite. The browser test requires Chromium and ChromeDriver
+and is limited to the targeted native boundaries in TEST-114; it is not part of
+the cheap edit-test loop.
+
+The repository-root tier runner is the canonical scheduler. On a host without
+Elixir/Mix, run the deterministic frontend check in the pinned browser
+toolchain image (this still does not launch Chromium):
+
+```bash
+docker run --rm --network none \
+  -v "$HOME/.mix:/root/.mix:ro" \
+  -v "$PWD:/workspace" \
+  -w /workspace/frontend \
+  harden-llm-browser-test:local mix test --seed 104729
+```
+
+Do not add a DOM emulator to compensate for a missing Mix toolchain. The pure
+combobox decision core remains Node-tested without a DOM; native focus,
+LiveSocket patching, file inputs, CSS/layout, and browser cleanup remain
+owned by TEST-114.
 The primary Run Prompt submitter deliberately uses `formnovalidate` because
 optional nested profile editors share the outer form; LiveView remains the
 server-side validation boundary. The gateway's TEST-012 regression accepts

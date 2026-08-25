@@ -1,7 +1,7 @@
 defmodule HardenLlmWeb.WorkspaceLive do
   use HardenLlmWeb, :live_view
 
-  alias HardenLlmWeb.{APIError, Auth, HardenAPI, Observability}
+  alias HardenLlmWeb.{APIError, Auth, HardenAPI, Observability, ProfileWidgetState}
 
   @schema_keywords ~w($schema $defs additionalProperties allOf anyOf const default definitions description enum examples exclusiveMaximum exclusiveMinimum format items maxItems maxLength maximum minItems minLength minimum multipleOf not oneOf pattern prefixItems properties propertyOrdering required title type uniqueItems)
   @schema_types ~w(object array string number integer boolean)
@@ -142,8 +142,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     {:noreply,
      socket
      |> assign(:form, to_form(params, as: :run))
-     |> assign(:reasoning_by_profile, state["reasoningByProfile"])
-     |> persist_form_state(params)}
+     |> assign(:reasoning_by_profile, state["reasoningByProfile"])}
   end
 
   def handle_info(
@@ -409,6 +408,11 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   @impl true
+  def handle_event("save-draft", %{"_target" => [scope | _]}, socket)
+      when scope in ["profile", "escalation"] do
+    {:noreply, socket}
+  end
+
   def handle_event("save-draft", event_params, socket) do
     params = event_form_params(event_params, socket)
     state = state_from_params(params, socket.assigns.ui, socket.assigns.reasoning_by_profile)
@@ -1495,4 +1499,18 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp workspace_upload_name("escalation", _widget), do: :escalation_profile_bundle
   defp workspace_upload_name(_kind, _widget), do: :profile_bundle
+
+  defp host_model_catalog(profiles) do
+    profiles
+    |> Enum.flat_map(fn profile_state ->
+      profile_state
+      |> get_in(["profile", "models"])
+      |> List.wrap()
+    end)
+    |> ProfileWidgetState.normalize_model_catalog()
+    |> case do
+      [] -> nil
+      models -> models
+    end
+  end
 end

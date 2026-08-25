@@ -16,6 +16,12 @@ deployment, and certification on 2026-08-24; its application-bearing release
 is recorded separately from later launcher/test and documentation commits. The
 shared PRLS observability routing was then merged through PR `#40` and deployed
 as release `5b830904e7d7a2e7a0a8d7d271969e10c38397a1` on 2026-08-24.
+
+The 2026-08-25 utility-informed embeddable-widget parity work is tracked
+separately by `PLAN-HLLM-WIDGET-PARITY-001`. Its release identity and deployed
+canary evidence are appended only after the merged SHA and promoted image
+digest are independently verified; the existing release records above are not
+retroactively relabeled.
 Detailed command output belongs under ignored
 `plans/evidence/harden-llm/<run-id>/`; secrets and live provider output never do.
 
@@ -610,3 +616,26 @@ configuration. No credential, provider output, or live diagnostic payload was
 written to Git. No new ADR or KER was needed: the change preserves the
 accepted single-host topology, API ownership, test hierarchy, provider policy,
 and timeout/retry budgets.
+
+## Embeddable widget parity release candidate (2026-08-25)
+
+The utility-informed widget follow-up is tracked separately from the earlier
+production certifications under `PLAN-HLLM-WIDGET-PARITY-001`. The accepted
+local release candidate has not yet been assigned a merged or deployed SHA in
+this section; those values are appended only after the branch is merged and the
+runtime identity is verified.
+
+- Utility source: `/home/kirill/p/utility-llm` at
+  `5c0309e2508dc5b7a87d0880c8d794123353c5b0`, clean and read-only.
+- Deterministic frontend: 107 passed, 4 excluded (`browser`, `compose`, and
+  `deployed` tags); Node client core 8/8; traceability 18/18; tier verifier
+  fast-task count 8.
+- Release graph: captured `accepted=true` for 26 tasks with `failure=null` and
+  `cleanupErrors=[]`.
+- Final benchmark: 32 samples over seeds `104729`, `130363`, and `155921`,
+  zero failures, and zero leaked resources. Redacted metrics are recorded in
+  `plans/evidence/harden-llm/widget-parity-eval.json` and the KER baseline.
+- Environment deviation: this host has no Mix executable, so Phoenix tests use
+  the pinned `harden-llm-browser-test:local` image; the wrapper permits network
+  only for Hex dependency-audit tasks and keeps deterministic tasks offline.
+  This changes execution tooling, not the test purpose or application code.

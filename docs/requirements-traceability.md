@@ -45,6 +45,7 @@ The separate `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001` contract maps as follows:
 | security, telemetry, responsive UI | endpoint/config, observability, components | WEB-TEST-009, WEB-TEST-010 |
 | real user and deployment workflows | Wallaby browser tests | WEB-TEST-011, WEB-TEST-012 |
 | utility-llm frontend parity extension | `WorkspaceLive`, `ProfilesLive`, `HistoryLive`, `ProfileWidgetComponent`, `EmbeddingLive`, `HardenAPI`, and `api/openapi.yaml` | WEB-TEST-031 through WEB-TEST-043; ADR-HLLM-012, ADR-HLLM-014 |
+| embeddable widget utility-informed follow-up | `ProfileWidgetState`, `ProfileWidgetComponent`, `WorkspaceLive`, `EmbeddingLive`, `HardenAPI`, `client_core.mjs`, and the existing tier runner | `PLAN-HLLM-WIDGET-PARITY-001`; TEST-101 through TEST-118; EVAL-101 through EVAL-104; ADR-HLLM-014, ADR-HLLM-016 |
 
 ## Parallel test-feedback traceability
 
@@ -106,6 +107,15 @@ cursor/limit history, server-owned profile defaults and credentials, a
 utility-shaped cache/retry projection, an explicit saved-profile boundary for
 endpoint identity changes, and same-origin trace/artifact access; no Firebase,
 GCP, browser provider call, or second persistence/runtime path is introduced.
+
+The embeddable widget follow-up is specified in
+`plans/llm-widget-utility-parity-implementation-plan.md`. Its 18 requirements
+are classified in the parity inventory and verified by cheap LiveView/pure
+state/Node/static tests, one targeted native browser boundary, the release
+graph, and the final deployed canary. The host owns an optional model catalog;
+Harden-LLM defaults are a no-catalog preset, and saved-profile model refresh
+remains an ID-only backend operation. No Happy DOM, jsdom, React, or other DOM
+emulator/runtime dependency is introduced.
 
 The current backend profile seed is also sourced from that revision's
 `examples/react-trace-studio/llm-profile-catalog.json`. `TEST-017` verifies all

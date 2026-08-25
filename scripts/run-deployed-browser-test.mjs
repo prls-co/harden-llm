@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+// PLAN-HLLM-WIDGET-PARITY-001 TEST-118
+
 import { execFileSync, spawnSync } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";

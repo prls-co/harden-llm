@@ -6,6 +6,7 @@ import {
   commitValue,
   emptyStateVisible,
   escapeValue,
+  focusValue,
   highlightIndex,
   isSubmitShortcut,
   normalizeSearch,
@@ -14,6 +15,14 @@ import {
 } from "../js/client_core.mjs";
 
 // SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-046 TEST-046
+// PLAN-HLLM-WIDGET-PARITY-001 TEST-111
+
+test("focus selects the committed value without requiring a DOM", () => {
+  assert.deepEqual(focusValue({value: "gpt-5.6-luna"}), {
+    action: "select",
+    value: "gpt-5.6-luna",
+  });
+});
 
 test("normalizes search text and returns visible option indices", () => {
   assert.equal(normalizeSearch("  CPA GPT-5.6 Luna "), "cpa gpt-5.6 luna");

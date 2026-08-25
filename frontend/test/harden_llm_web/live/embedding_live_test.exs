@@ -6,6 +6,7 @@ defmodule HardenLlmWeb.EmbeddingLiveTest do
   alias HardenLlmWeb.{APIFixtures, HardenAPI}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-043
+  # PLAN-HLLM-WIDGET-PARITY-001 TEST-110 TEST-113
   setup %{conn: conn}, do: {:ok, conn: authenticated_conn(conn)}
 
   test "host namespaces two widget instances and routes their controls independently", %{
@@ -49,6 +50,17 @@ defmodule HardenLlmWeb.EmbeddingLiveTest do
 
     view |> element("#embed-primary-model-config-toggle") |> render_click()
     assert has_element?(view, "#embed-primary-model-options")
+
+    assert has_element?(
+             view,
+             "#embed-primary-profile_modelId-options [data-value=\"model-primary\"]"
+           )
+
+    refute has_element?(
+             view,
+             "#embed-primary-profile_modelId-options [data-value=\"gpt-5.6-luna\"]"
+           )
+
     refute has_element?(view, "#embed-secondary-model-options")
     assert has_element?(view, ~s(input[type="file"][name="embed_primary_profile_bundle"]))
 
@@ -72,7 +84,7 @@ defmodule HardenLlmWeb.EmbeddingLiveTest do
 
     assert has_element?(
              view,
-             ~s(#embed-primary-workspace-cache-toggle[aria-label="Refresh cache on next run"])
+             ~s(#embed-primary-workspace-cache-toggle[aria-label="Overwrite cache on next run"])
            )
 
     assert has_element?(

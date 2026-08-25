@@ -45,6 +45,10 @@ export function escapeValue({committed}) {
   return {action: "revert", value: text(committed), close: true};
 }
 
+export function focusValue({value}) {
+  return {action: "select", value: text(value)};
+}
+
 export function blurValue({value, committed, knownValues = [], allowCustom = false}) {
   const next = text(value);
   const previous = text(committed);
