@@ -666,3 +666,41 @@ user authorized production completion, so the exact two merged images were
 verified directly on production. This is recorded as direct production
 verification, not mislabeled staged promotion. Named production volumes were
 retained.
+
+## Utility profile defaults and preset follow-up (2026-08-26)
+
+This follow-up closes the utility-llm defaults, help-marker, and backend-preset
+coverage gap identified after the embeddable widget release. It keeps the
+server-owned LiveView boundary: no browser-test permutations were added for
+defaults, catalog rendering, or profile/model synchronization.
+
+- Utility source remained `/home/kirill/p/utility-llm` at `5c0309e`; the
+  normalized utility catalog and `internal/profiles/default-profile-catalog.json`
+  are equal and contain exactly 28 profiles.
+- The application-bearing implementation is `4f4f655`, with the frontend
+  runtime pin correction in `c43f097`. `ProfileDefaults` now supplies the
+  utility-aligned option, retry, escalation, pricing, profile/model,
+  reasoning, cache, and contextual `?` help-marker defaults.
+- `WEB-TEST-052` through `WEB-TEST-055` cover the defaults, rendered help
+  markers, all 28 backend catalog options, empty-state `CPA GPT-5.6 Luna`
+  selection, and non-default preset/model synchronization through ExUnit and
+  `Phoenix.LiveViewTest`.
+- The pinned deterministic frontend suite passed with 114 tests and 4
+  exclusions. The focused workspace LiveView suite passed 25 tests, and the
+  exact catalog comparison passed with no diff. `make test-fast` and
+  `git diff --check` passed on the final checkout.
+
+The application-bearing frontend deployment was verified directly in the
+authorized production Compose project. The test/documentation follow-up does
+not alter the runtime image, so no rebuild was needed after `c43f097`:
+
+| Surface | Release label | Image ID/digest | Runtime result |
+| --- | --- | --- | --- |
+| Frontend | `c43f097` | `sha256:ce9859beb10a631aa1400957a2807f3ff56f2960b672ca465d9ace4819b8240b` | healthy |
+| Gateway | `84a06fa38da24bacbb5ffc537de509e77b0cb82b` | `sha256:97eefe84b1b560f208cf99d48e78ab699fcdb4811b33c2486ea730d98c033c5` | healthy, unchanged |
+| Public probes | frontend `/healthz`, `/login`; API `/healthz`, `/readyz` | HTTP 200 | pass |
+| TEST-118 | authenticated deployed canary | release identity matched; workspace folds, bounded CPA smoke, exact smoke-history cleanup, logout, and redaction passed | pass |
+
+The new LiveView tests are the authoritative regression coverage for these
+server-owned invariants. The existing deployed browser canary remains the
+minimal native LiveSocket/combobox and production-boundary check.

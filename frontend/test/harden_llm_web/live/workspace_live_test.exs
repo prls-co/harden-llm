@@ -37,6 +37,75 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, ~s(#run_selectedProfileId-options [data-value="OpenAI GPT-5.4"]))
   end
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-054
+  test "renders every backend-owned utility preset in the workspace picker", %{conn: conn} do
+    profiles = utility_preset_profiles()
+
+    state =
+      APIFixtures.state()
+      |> Map.put("selectedProfileId", "CPA GPT-5.6 Luna")
+      |> Map.put("modelId", "gpt-5.6-luna")
+
+    install_stub(fn conn -> unexpected(conn) end, profiles: profiles, state: state)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+
+    assert length(profiles) == 28
+
+    for profile <- profiles do
+      profile_id = get_in(profile, ["profile", "llmProfile"])
+
+      assert has_element?(
+               view,
+               ~s(#run_selectedProfileId-options [data-value="#{profile_id}"])
+             ),
+             "missing utility preset #{profile_id}"
+    end
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-055
+  test "switching presets synchronizes the workspace model with the selected profile", %{
+    conn: conn
+  } do
+    primary = widget_profile("CPA GPT-5.6 Luna", "gpt-5.6-luna")
+    secondary = widget_profile("OpenAI GPT-5.4", "gpt-5.4")
+
+    state =
+      APIFixtures.state()
+      |> Map.put("selectedProfileId", "CPA GPT-5.6 Luna")
+      |> Map.put("modelId", "gpt-5.6-luna")
+
+    install_stub(
+      fn conn ->
+        case {conn.method, conn.request_path} do
+          {"POST", "/api/v1/state"} ->
+            {:ok, body, conn} = Plug.Conn.read_body(conn)
+            Req.Test.json(conn, APIFixtures.success(nil, Jason.decode!(body)))
+
+          _ ->
+            unexpected(conn)
+        end
+      end,
+      profiles: [primary, secondary],
+      state: state
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+
+    view
+    |> with_target("#workspace-llm-widget")
+    |> render_change("select-profile", %{
+      "run" => %{"selectedProfileId" => "OpenAI GPT-5.4"}
+    })
+
+    render_async(view, 1_000)
+
+    assert has_element?(view, ~s(#run_selectedProfileId[value="OpenAI GPT-5.4"]))
+    assert has_element?(view, ~s(#run_modelId[value="gpt-5.4"]))
+  end
+
   test "hydrates canonical state and profiles, then loads history when opened", %{conn: conn} do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
@@ -1213,6 +1282,19 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       }
     )
     |> put_in(["credential", "credentialId"], "credential-#{profile_id}")
+  end
+
+  defp utility_preset_profiles do
+    catalog_path =
+      Path.expand("../../../../internal/profiles/default-profile-catalog.json", __DIR__)
+
+    catalog_path
+    |> File.read!()
+    |> Jason.decode!()
+    |> Enum.sort_by(fn {profile_id, _profile} -> profile_id end)
+    |> Enum.map(fn {_profile_id, profile} ->
+      %{"profile" => profile, "credential" => %{"configured" => false}}
+    end)
   end
 
   defp widget_profile_without_reasoning(profile_id, model_id) do
