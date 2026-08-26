@@ -621,9 +621,10 @@ and timeout/retry budgets.
 
 The utility-informed widget follow-up is tracked separately from the earlier
 production certifications under `PLAN-HLLM-WIDGET-PARITY-001`. The accepted
-local release candidate has not yet been assigned a merged or deployed SHA in
-this section; those values are appended only after the branch is merged and the
-runtime identity is verified.
+local release candidate, merged application commit, and verified production
+identity are recorded below. The application-bearing release is
+`84a06fa38da24bacbb5ffc537de509e77b0cb82b`; the final documentation commit is
+`1fcdf772a4bb82f239d2e62887791997aa26fd92`.
 
 - Utility source: `/home/kirill/p/utility-llm` at
   `5c0309e2508dc5b7a87d0880c8d794123353c5b0`, clean and read-only.
