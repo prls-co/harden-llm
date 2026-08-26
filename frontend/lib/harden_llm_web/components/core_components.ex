@@ -172,6 +172,11 @@ defmodule HardenLlmWeb.CoreComponents do
   attr :id, :any, default: nil
   attr :name, :any
   attr :label, :string, default: nil
+
+  attr :info, :string,
+    default: nil,
+    doc: "optional utility-style help text shown beside the label"
+
   attr :value, :any
 
   attr :type, :string,
@@ -237,6 +242,12 @@ defmodule HardenLlmWeb.CoreComponents do
             class={@class || "size-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600"}
             {@rest}
           />{@label}
+          <span
+            :if={@info}
+            class="ullm-field-label-info"
+            title={@info}
+            aria-hidden="true"
+          >?</span>
         </span>
       </label>
       <.error :for={msg <- @errors}>{msg}</.error>
@@ -248,7 +259,15 @@ defmodule HardenLlmWeb.CoreComponents do
     ~H"""
     <div class="mb-2">
       <label for={@id} class="block">
-        <span :if={@label} class="mb-1.5 block text-sm font-medium text-slate-800">{@label}</span>
+        <span :if={@label} class="mb-1.5 block text-sm font-medium text-slate-800">
+          {@label}
+          <span
+            :if={@info}
+            class="ullm-field-label-info"
+            title={@info}
+            aria-hidden="true"
+          >?</span>
+        </span>
         <select
           id={@id}
           name={@name}
@@ -273,7 +292,15 @@ defmodule HardenLlmWeb.CoreComponents do
     ~H"""
     <div class="mb-2">
       <label for={@id} class="block">
-        <span :if={@label} class="mb-1.5 block text-sm font-medium text-slate-800">{@label}</span>
+        <span :if={@label} class="mb-1.5 block text-sm font-medium text-slate-800">
+          {@label}
+          <span
+            :if={@info}
+            class="ullm-field-label-info"
+            title={@info}
+            aria-hidden="true"
+          >?</span>
+        </span>
         <textarea
           id={@id}
           name={@name}
@@ -295,7 +322,15 @@ defmodule HardenLlmWeb.CoreComponents do
     ~H"""
     <div class="mb-2">
       <label for={@id} class="block">
-        <span :if={@label} class="mb-1.5 block text-sm font-medium text-slate-800">{@label}</span>
+        <span :if={@label} class="mb-1.5 block text-sm font-medium text-slate-800">
+          {@label}
+          <span
+            :if={@info}
+            class="ullm-field-label-info"
+            title={@info}
+            aria-hidden="true"
+          >?</span>
+        </span>
         <input
           type={@type}
           name={@name}

@@ -1,48 +1,12 @@
 defmodule HardenLlmWeb.ProfilesLive do
   use HardenLlmWeb, :live_view
 
-  alias HardenLlmWeb.{APIError, Auth, HardenAPI, Observability}
+  alias HardenLlmWeb.{APIError, Auth, HardenAPI, Observability, ProfileDefaults}
 
   @section_keys ~w(options_open retry_open pricing_open credential_open)
-  @empty_form %{
-    "profileId" => "",
-    "provider" => "",
-    "apiInferenceType" => "chat-completions",
-    "baseUrl" => "",
-    "modelId" => "",
-    "credentialId" => "",
-    "credentialConfigured" => "false",
-    "endpointCredentialScope" => "user",
-    "apiKey" => "",
-    "backupProfiles" => "",
-    "supportsTemperature" => "true",
-    "supportsContractedStructuredOutput" => "true",
-    "maxTokens" => "16000",
-    "temperature" => "",
-    "topP" => "",
-    "topK" => "",
-    "stopSequences" => "",
-    "defaultOptionsJson" => "{}",
-    "structuredRepairRetryEnabled" => "true",
-    "enableRetryOn429" => "true",
-    "enableRetryOn5xx" => "true",
-    "enableRetryOnNetworkError" => "true",
-    "enableRetryOnParseError" => "true",
-    "retryMaxAttempts" => "4",
-    "retryBaseDelayMs" => "500",
-    "retryMaxDelayMs" => "8000",
-    "escalationAttempt" => "3",
-    "escalationProfile" => "",
-    "escalationReasoning" => "highest",
-    "pricingInput" => "",
-    "pricingOutput" => "",
-    "pricingCacheRead" => "",
-    "pricingCacheWrite" => "",
-    "pricingReasoning" => ""
-  }
 
   @doc "Returns the blank profile editor shape used by reusable profile controls."
-  def empty_form, do: @empty_form
+  def empty_form, do: ProfileDefaults.empty_form()
 
   @impl true
   def mount(_params, _session, socket) do
@@ -52,7 +16,7 @@ defmodule HardenLlmWeb.ProfilesLive do
       |> assign(:loading?, true)
       |> assign(:profiles_by_id, %{})
       |> assign(:editing?, false)
-      |> assign(:form, to_form(@empty_form, as: :profile))
+      |> assign(:form, to_form(empty_form(), as: :profile))
       |> assign(:field_errors, %{})
       |> assign(:operation_error, nil)
       |> assign(:pending, nil)
@@ -90,7 +54,7 @@ defmodule HardenLlmWeb.ProfilesLive do
     {:noreply,
      socket
      |> assign(:editing?, true)
-     |> assign(:form, to_form(@empty_form, as: :profile))
+     |> assign(:form, to_form(empty_form(), as: :profile))
      |> assign(:field_errors, %{})
      |> assign(:operation_error, nil)
      |> assign(:requested_edit_id, nil)
@@ -227,7 +191,7 @@ defmodule HardenLlmWeb.ProfilesLive do
     {:noreply,
      socket
      |> assign(:editing?, true)
-     |> assign(:form, to_form(@empty_form, as: :profile))
+     |> assign(:form, to_form(empty_form(), as: :profile))
      |> assign(:field_errors, %{})
      |> assign(:operation_error, nil)
      |> assign(:requested_edit_id, nil)
@@ -492,15 +456,16 @@ defmodule HardenLlmWeb.ProfilesLive do
   def profile_form(profile_state) do
     profile = profile_state["profile"] || %{}
     credential = profile_state["credential"] || %{}
-    options = profile["defaultOptions"] || %{}
+    options = ProfileDefaults.normalize_options(profile["defaultOptions"])
     retry = retry_form_options(options)
     escalation = retry["escalation"] || %{}
     pricing = profile["pricing"] || %{}
 
-    Map.merge(@empty_form, %{
+    Map.merge(ProfileDefaults.empty_form(), %{
       "profileId" => profile["llmProfile"] || "",
       "provider" => profile["provider"] || "",
-      "apiInferenceType" => profile["apiInferenceType"] || "chat-completions",
+      "apiInferenceType" =>
+        profile["apiInferenceType"] || ProfileDefaults.api_inference_type_default(),
       "baseUrl" => normalize_base_url(profile["baseUrl"] || ""),
       "modelId" => profile["modelId"] || "",
       "credentialId" => credential["credentialId"] || "",
@@ -511,7 +476,8 @@ defmodule HardenLlmWeb.ProfilesLive do
       "supportsTemperature" => to_string(profile["supportsTemperature"] || false),
       "supportsContractedStructuredOutput" =>
         to_string(profile["supportsContractedStructuredOutput"] || false),
-      "maxTokens" => option_text(options["max_tokens"] || 16_000),
+      "maxTokens" =>
+        option_text(options["max_tokens"] || ProfileDefaults.default_options()["max_tokens"]),
       "temperature" => option_text(options["temperature"]),
       "topP" => option_text(options["top_p"] || options["topP"]),
       "topK" => option_text(options["top_k"] || options["topK"]),
@@ -524,12 +490,26 @@ defmodule HardenLlmWeb.ProfilesLive do
         to_string(retry_option(options, retry, "enableRetryOnNetworkError", true)),
       "enableRetryOnParseError" =>
         to_string(retry_option(options, retry, "enableRetryOnParseError", true)),
-      "retryMaxAttempts" => option_text(options["maxAttempts"] || retry["maxAttempts"] || 4),
-      "retryBaseDelayMs" => option_text(options["baseDelayMs"] || retry["baseDelayMs"] || 500),
-      "retryMaxDelayMs" => option_text(options["maxDelayMs"] || retry["maxDelayMs"] || 8000),
-      "escalationAttempt" => option_text(escalation["attempt"] || 3),
+      "retryMaxAttempts" =>
+        option_text(
+          options["maxAttempts"] || retry["maxAttempts"] ||
+            ProfileDefaults.retry_default("maxAttempts")
+        ),
+      "retryBaseDelayMs" =>
+        option_text(
+          options["baseDelayMs"] || retry["baseDelayMs"] ||
+            ProfileDefaults.retry_default("baseDelayMs")
+        ),
+      "retryMaxDelayMs" =>
+        option_text(
+          options["maxDelayMs"] || retry["maxDelayMs"] ||
+            ProfileDefaults.retry_default("maxDelayMs")
+        ),
+      "escalationAttempt" =>
+        option_text(escalation["attempt"] || ProfileDefaults.retry_default("escalationAttempt")),
       "escalationProfile" => escalation["llmProfile"] || "",
-      "escalationReasoning" => escalation["reasoningEffort"] || "highest",
+      "escalationReasoning" =>
+        escalation["reasoningEffort"] || ProfileDefaults.repair_reasoning_default(),
       "pricingInput" => pricing_text(pricing["input_cost_per_token"]),
       "pricingOutput" => pricing_text(pricing["output_cost_per_token"]),
       "pricingCacheRead" => pricing_text(pricing["cache_read_input_token_cost"]),
@@ -549,7 +529,8 @@ defmodule HardenLlmWeb.ProfilesLive do
           "schemaVersion" => 1,
           "llmProfile" => params["profileId"] || "",
           "provider" => params["provider"] || "",
-          "apiInferenceType" => params["apiInferenceType"] || "chat-completions",
+          "apiInferenceType" =>
+            params["apiInferenceType"] || ProfileDefaults.api_inference_type_default(),
           "endpointCredentialScope" => params["endpointCredentialScope"] || "user",
           "baseUrl" => normalize_base_url(params["baseUrl"] || ""),
           "modelId" => params["modelId"] || "",
@@ -597,13 +578,37 @@ defmodule HardenLlmWeb.ProfilesLive do
     enabled = truthy?(params["structuredRepairRetryEnabled"])
 
     with {:ok, max_attempts} <-
-           integer_value(params["retryMaxAttempts"], "Max Attempts", 1, 10, 4),
+           integer_value(
+             params["retryMaxAttempts"],
+             "Max Attempts",
+             1,
+             10,
+             ProfileDefaults.retry_default("maxAttempts")
+           ),
          {:ok, base_delay} <-
-           integer_value(params["retryBaseDelayMs"], "Base Delay Ms", 0, 60_000, 500),
+           integer_value(
+             params["retryBaseDelayMs"],
+             "Base Delay Ms",
+             0,
+             60_000,
+             ProfileDefaults.retry_default("baseDelayMs")
+           ),
          {:ok, max_delay} <-
-           integer_value(params["retryMaxDelayMs"], "Max Delay Ms", 0, 600_000, 8000),
+           integer_value(
+             params["retryMaxDelayMs"],
+             "Max Delay Ms",
+             0,
+             600_000,
+             ProfileDefaults.retry_default("maxDelayMs")
+           ),
          {:ok, escalation_attempt} <-
-           integer_value(params["escalationAttempt"], "Starting Attempt", 2, 10, 3) do
+           integer_value(
+             params["escalationAttempt"],
+             "Starting Attempt",
+             2,
+             10,
+             ProfileDefaults.retry_default("escalationAttempt")
+           ) do
       options =
         options
         |> Map.put("maxAttempts", max_attempts)
@@ -626,7 +631,8 @@ defmodule HardenLlmWeb.ProfilesLive do
           "escalation" => %{
             "attempt" => escalation_attempt,
             "llmProfile" => String.trim(params["escalationProfile"] || params["profileId"] || ""),
-            "reasoningEffort" => params["escalationReasoning"] || "highest"
+            "reasoningEffort" =>
+              params["escalationReasoning"] || ProfileDefaults.repair_reasoning_default()
           }
         }
 

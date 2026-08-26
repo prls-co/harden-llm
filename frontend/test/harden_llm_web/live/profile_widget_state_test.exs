@@ -126,6 +126,29 @@ defmodule HardenLlmWeb.ProfileWidgetStateTest do
            )
   end
 
+  test "selects the seeded utility preset when the saved workspace has no selection" do
+    profiles = [
+      %{"profile" => %{"llmProfile" => "Custom", "modelId" => "custom-model"}},
+      %{
+        "profile" => %{
+          "llmProfile" => "CPA GPT-5.6 Luna",
+          "modelId" => "gpt-5.6-luna"
+        }
+      }
+    ]
+
+    assert ProfileWidgetState.resolve_selected_profile_id(profiles, "") ==
+             "CPA GPT-5.6 Luna"
+
+    assert ProfileWidgetState.resolve_selected_profile_id(profiles, "Custom") == "Custom"
+
+    assert ProfileWidgetState.resolve_selected_model_id(
+             profiles,
+             "CPA GPT-5.6 Luna",
+             ""
+           ) == "gpt-5.6-luna"
+  end
+
   test "fallback movement is bounded and cache values normalize to two states" do
     assert ProfileWidgetState.move_fallback(["A", "B"], 0, "up") == ["A", "B"]
     assert ProfileWidgetState.move_fallback(["A", "B"], 1, "down") == ["A", "B"]

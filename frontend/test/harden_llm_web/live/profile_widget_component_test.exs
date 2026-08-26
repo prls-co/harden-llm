@@ -86,6 +86,19 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
       assert has_element?(view, selector), "missing options selector #{selector}"
     end
 
+    assert has_element?(view, ~s(#profile_modelId[placeholder="gpt-5.6-luna"]))
+    assert has_element?(view, ~s(#profile_baseUrl[placeholder="https://openrouter.ai/api/v1"]))
+    assert has_element?(view, ~s(#profile_maxTokens[placeholder="16000"]))
+    assert has_element?(view, ~s(#profile_temperature[placeholder="0.2"]))
+    assert has_element?(view, ~s(#profile_topP[placeholder="0.95"]))
+    assert has_element?(view, ~s(#profile_topK[placeholder="40"]))
+    assert has_element?(view, ~s(#profile_stopSequences[placeholder="one sequence per line"]))
+
+    assert has_element?(
+             view,
+             ~s(#profile_defaultOptionsJson[placeholder='{"temperature":0,"max_tokens":16000}'])
+           )
+
     view |> element("#profile-retry-toggle") |> render_click()
 
     for selector <- [
@@ -100,8 +113,32 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
       assert has_element?(view, selector), "missing retry selector #{selector}"
     end
 
+    assert has_element?(view, ~s(#profile_retryMaxAttempts[placeholder="4"]))
+    assert has_element?(view, ~s(#profile_retryBaseDelayMs[placeholder="500"]))
+    assert has_element?(view, ~s(#profile_retryMaxDelayMs[placeholder="8000"]))
+    assert has_element?(view, ~s(#profile_escalationAttempt[placeholder="3"]))
+
+    assert has_element?(
+             view,
+             ~s(.ullm-field-label-info[title="Total attempts for the utility call, including initial, ordinary retry, repair, and escalation attempts."])
+           )
+
+    assert has_element?(view, ~s(.ullm-field-label-info[title*="Structured Repair requires"]))
+
+    assert has_element?(
+             view,
+             ~s(#profile-escalation-profile[placeholder="OpenRouter DeepSeek V4 Flash"])
+           )
+
     view |> element("#profile-pricing-toggle") |> render_click()
     assert has_element?(view, "#profile-pricing")
+    assert has_element?(view, ~s(#profile_pricingInput[placeholder="n/a"]))
+    assert has_element?(view, ~s(#profile_pricingOutput[placeholder="n/a"]))
+    assert has_element?(view, ~s(#profile_pricingCacheRead[placeholder="n/a"]))
+    assert has_element?(view, ~s(#profile_pricingCacheWrite[placeholder="n/a"]))
+    assert has_element?(view, ~s(#profile_pricingReasoning[placeholder="n/a"]))
+    assert has_element?(view, ~s(.ullm-field-label-info[title*="Cache write applies"]))
+    assert has_element?(view, ~s(.ullm-field-label-info[title*="Reasoning output applies"]))
   end
 
   test "fallback rows use unnumbered utility actions and preserve boundary state", %{conn: conn} do

@@ -12,7 +12,14 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
   use HardenLlmWeb, :live_component
 
-  alias HardenLlmWeb.{APIError, HardenAPI, Observability, ProfileWidgetState, ProfilesLive}
+  alias HardenLlmWeb.{
+    APIError,
+    HardenAPI,
+    Observability,
+    ProfileDefaults,
+    ProfileWidgetState,
+    ProfilesLive
+  }
 
   @api_inference_types [
     {"Chat Completions", "chat-completions"},
@@ -57,7 +64,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
      |> assign(:escalation_fallback_open, false)
      |> assign(:escalation_options_open, false)
      |> assign(:escalation_pricing_open, false)
-     |> assign(:escalation_cache_mode, "cache")
+     |> assign(:escalation_cache_mode, ProfileDefaults.cache_mode_default())
      |> assign(:api_inference_types, @api_inference_types)
      |> assign(:model_catalog, nil)
      |> assign(:model_options, [])
@@ -112,10 +119,10 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
        normalize_reasoning_effort(
          profiles,
          selected_profile_id,
-         Map.get(assigns, :reasoning_effort, "lowest")
+         Map.get(assigns, :reasoning_effort, ProfileDefaults.reasoning_default())
        )
      )
-     |> assign(:cache_mode, Map.get(assigns, :cache_mode, "cache"))}
+     |> assign(:cache_mode, Map.get(assigns, :cache_mode, ProfileDefaults.cache_mode_default()))}
   end
 
   @impl true
@@ -450,7 +457,14 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
                   assign(acc, :reasoning_effort, value)
 
                 "cacheMode" ->
-                  assign(acc, :cache_mode, if(value == "refresh", do: "refresh", else: "cache"))
+                  assign(
+                    acc,
+                    :cache_mode,
+                    if(value == "refresh",
+                      do: "refresh",
+                      else: ProfileDefaults.cache_mode_default()
+                    )
+                  )
               end
 
             notify_parent(acc, {:profile_widget_control, key, value})
@@ -709,6 +723,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             options={profile_combobox_options(@profiles)}
             allow_custom
             required
+            placeholder={ProfileDefaults.profile_placeholder()}
             aria_label="LLM Profile"
             class="ullm-input ullm-profile-select"
             phx_change="select-profile"
@@ -968,6 +983,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             options={base_url_combobox_options(@profiles, @form[:baseUrl].value)}
             allow_custom
             required
+            placeholder={ProfileDefaults.base_url_placeholder()}
             aria_label="Base URL"
             class="ullm-input ullm-input-mono"
             phx_change="profile-draft-change"
@@ -1075,6 +1091,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               )
             }
             allow_custom
+            placeholder={ProfileDefaults.model_placeholder(@kind)}
             aria_label="Model ID"
             class="ullm-input ullm-input-mono"
             phx_change="profile-draft-change"
@@ -1239,6 +1256,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               type="number"
               label="Max Output Tokens"
               min="0"
+              placeholder={ProfileDefaults.option_placeholder("maxTokens")}
               class="ullm-input"
               phx-change="profile-draft-change"
               phx-target={@target}
@@ -1250,6 +1268,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               label="Temperature"
               min="0"
               step="any"
+              placeholder={ProfileDefaults.option_placeholder("temperature")}
               class="ullm-input"
               phx-change="profile-draft-change"
               phx-target={@target}
@@ -1261,6 +1280,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               label="Top P"
               min="0"
               step="any"
+              placeholder={ProfileDefaults.option_placeholder("topP")}
               class="ullm-input"
               phx-change="profile-draft-change"
               phx-target={@target}
@@ -1271,6 +1291,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               type="number"
               label="Top K"
               min="0"
+              placeholder={ProfileDefaults.option_placeholder("topK")}
               class="ullm-input"
               phx-change="profile-draft-change"
               phx-target={@target}
@@ -1281,7 +1302,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             id={field_id(@id_prefix, @form[:stopSequences].id)}
             type="textarea"
             label="Stop Sequences"
-            placeholder="one sequence per line"
+            placeholder={ProfileDefaults.option_placeholder("stopSequences")}
             rows="2"
             class="ullm-input"
             phx-change="profile-draft-change"
@@ -1292,6 +1313,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             id={field_id(@id_prefix, @form[:defaultOptionsJson].id)}
             type="textarea"
             label="Default Options JSON"
+            placeholder={ProfileDefaults.option_placeholder("defaultOptionsJson")}
             rows="5"
             class="ullm-input ullm-input-mono"
             phx-change="profile-draft-change"
@@ -1320,6 +1342,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               id={field_id(@id_prefix, @form[:structuredRepairRetryEnabled].id)}
               type="checkbox"
               label="Structured Repair"
+              info={ProfileDefaults.field_info("structuredRepairRetry")}
               phx-change="profile-draft-change"
               phx-target={@target}
             />
@@ -1328,6 +1351,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               id={field_id(@id_prefix, @form[:enableRetryOn429].id)}
               type="checkbox"
               label="Rate Limits"
+              info={ProfileDefaults.field_info("enableRetryOn429")}
               phx-change="profile-draft-change"
               phx-target={@target}
             />
@@ -1336,6 +1360,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               id={field_id(@id_prefix, @form[:enableRetryOn5xx].id)}
               type="checkbox"
               label="Server Errors"
+              info={ProfileDefaults.field_info("enableRetryOn5xx")}
               phx-change="profile-draft-change"
               phx-target={@target}
             />
@@ -1344,6 +1369,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               id={field_id(@id_prefix, @form[:enableRetryOnNetworkError].id)}
               type="checkbox"
               label="Network Errors"
+              info={ProfileDefaults.field_info("enableRetryOnNetworkError")}
               phx-change="profile-draft-change"
               phx-target={@target}
             />
@@ -1353,6 +1379,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               type="checkbox"
               label="Parse / Schema Errors"
               disabled={truthy?(@form[:structuredRepairRetryEnabled].value)}
+              info={ProfileDefaults.field_info("enableRetryOnParseError")}
               phx-change="profile-draft-change"
               phx-target={@target}
             />
@@ -1365,6 +1392,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               label="Max Attempts"
               min="1"
               max="10"
+              placeholder={ProfileDefaults.retry_placeholder("retryMaxAttempts")}
+              info={ProfileDefaults.field_info("maxAttempts")}
               class="ullm-input"
               phx-change="profile-draft-change"
               phx-target={@target}
@@ -1375,6 +1404,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               type="number"
               label="Base Delay Ms"
               min="0"
+              placeholder={ProfileDefaults.retry_placeholder("retryBaseDelayMs")}
+              info={ProfileDefaults.field_info("baseDelayMs")}
               class="ullm-input"
               phx-change="profile-draft-change"
               phx-target={@target}
@@ -1385,6 +1416,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               type="number"
               label="Max Delay Ms"
               min="0"
+              placeholder={ProfileDefaults.retry_placeholder("retryMaxDelayMs")}
+              info={ProfileDefaults.field_info("maxDelayMs")}
               class="ullm-input"
               phx-change="profile-draft-change"
               phx-target={@target}
@@ -1396,6 +1429,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               label="Starting Attempt"
               min="2"
               max="10"
+              placeholder={ProfileDefaults.retry_placeholder("escalationAttempt")}
+              info={ProfileDefaults.field_info("escalationAttempt")}
               class="ullm-input"
               phx-change="profile-draft-change"
               phx-target={@target}
@@ -1412,6 +1447,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
                   value={@form[:escalationProfile].value}
                   options={profile_combobox_options(@profiles)}
                   allow_custom
+                  placeholder={ProfileDefaults.profile_placeholder()}
                   aria_label="LLM Profile"
                   class="ullm-input"
                   phx_change="profile-draft-change"
@@ -1525,6 +1561,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             label="Input $/1M tokens"
             min="0"
             step="any"
+            placeholder={ProfileDefaults.pricing_placeholder()}
             class="ullm-input"
             phx-change="profile-draft-change"
             phx-target={@target}
@@ -1536,6 +1573,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             label="Output $/1M tokens"
             min="0"
             step="any"
+            placeholder={ProfileDefaults.pricing_placeholder()}
             class="ullm-input"
             phx-change="profile-draft-change"
             phx-target={@target}
@@ -1547,6 +1585,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             label="Cache read $/1M tokens"
             min="0"
             step="any"
+            placeholder={ProfileDefaults.pricing_placeholder()}
             class="ullm-input"
             phx-change="profile-draft-change"
             phx-target={@target}
@@ -1558,6 +1597,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             label="Cache write $/1M tokens"
             min="0"
             step="any"
+            placeholder={ProfileDefaults.pricing_placeholder()}
+            info={ProfileDefaults.field_info("pricingCacheWrite")}
             class="ullm-input"
             phx-change="profile-draft-change"
             phx-target={@target}
@@ -1569,6 +1610,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             label="Reasoning output $/1M tokens"
             min="0"
             step="any"
+            placeholder={ProfileDefaults.pricing_placeholder()}
+            info={ProfileDefaults.field_info("pricingReasoning")}
             class="ullm-input"
             phx-change="profile-draft-change"
             phx-target={@target}
@@ -1704,7 +1747,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     |> assign(:escalation_staged_key, "")
     |> assign(:main_requires_save?, false)
     |> assign(:escalation_requires_save?, false)
-    |> assign(:escalation_cache_mode, "cache")
+    |> assign(:escalation_cache_mode, ProfileDefaults.cache_mode_default())
   end
 
   defp update_profile_form(socket, :main, incoming) do
@@ -1790,7 +1833,10 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     escalation = if is_map(retry_map["escalation"]), do: retry_map["escalation"], else: %{}
 
     params
-    |> Map.put("maxTokens", option_text(options["max_tokens"] || 16_000))
+    |> Map.put(
+      "maxTokens",
+      option_text(options["max_tokens"] || ProfileDefaults.default_options()["max_tokens"])
+    )
     |> Map.put("temperature", option_text(options["temperature"]))
     |> Map.put("topP", option_text(options["top_p"] || options["topP"]))
     |> Map.put("topK", option_text(options["top_k"] || options["topK"]))
@@ -1817,19 +1863,34 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     )
     |> Map.put(
       "retryMaxAttempts",
-      option_text(options["maxAttempts"] || retry_map["maxAttempts"] || 4)
+      option_text(
+        options["maxAttempts"] ||
+          retry_map["maxAttempts"] || ProfileDefaults.retry_default("maxAttempts")
+      )
     )
     |> Map.put(
       "retryBaseDelayMs",
-      option_text(options["baseDelayMs"] || retry_map["baseDelayMs"] || 500)
+      option_text(
+        options["baseDelayMs"] ||
+          retry_map["baseDelayMs"] || ProfileDefaults.retry_default("baseDelayMs")
+      )
     )
     |> Map.put(
       "retryMaxDelayMs",
-      option_text(options["maxDelayMs"] || retry_map["maxDelayMs"] || 8000)
+      option_text(
+        options["maxDelayMs"] ||
+          retry_map["maxDelayMs"] || ProfileDefaults.retry_default("maxDelayMs")
+      )
     )
-    |> Map.put("escalationAttempt", option_text(escalation["attempt"] || 3))
+    |> Map.put(
+      "escalationAttempt",
+      option_text(escalation["attempt"] || ProfileDefaults.retry_default("escalationAttempt"))
+    )
     |> Map.put("escalationProfile", escalation["llmProfile"] || "")
-    |> Map.put("escalationReasoning", escalation["reasoningEffort"] || "highest")
+    |> Map.put(
+      "escalationReasoning",
+      escalation["reasoningEffort"] || ProfileDefaults.repair_reasoning_default()
+    )
   end
 
   defp decode_options(value) do
@@ -2043,17 +2104,34 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     escalation =
       if enabled and escalation_model != "" do
         %{
-          "attempt" => integer_or_default(params["escalationAttempt"], 3),
+          "attempt" =>
+            integer_or_default(
+              params["escalationAttempt"],
+              ProfileDefaults.retry_default("escalationAttempt")
+            ),
           "profileId" => escalation_profile,
           "modelId" => escalation_model,
-          "reasoningEffort" => params["escalationReasoning"] || "highest"
+          "reasoningEffort" =>
+            params["escalationReasoning"] || ProfileDefaults.repair_reasoning_default()
         }
       end
 
     %{
-      "maxAttempts" => integer_or_default(params["retryMaxAttempts"], 4),
-      "initialBackoffMs" => integer_or_default(params["retryBaseDelayMs"], 500),
-      "maximumBackoffMs" => integer_or_default(params["retryMaxDelayMs"], 8000),
+      "maxAttempts" =>
+        integer_or_default(
+          params["retryMaxAttempts"],
+          ProfileDefaults.retry_default("maxAttempts")
+        ),
+      "initialBackoffMs" =>
+        integer_or_default(
+          params["retryBaseDelayMs"],
+          ProfileDefaults.retry_default("baseDelayMs")
+        ),
+      "maximumBackoffMs" =>
+        integer_or_default(
+          params["retryMaxDelayMs"],
+          ProfileDefaults.retry_default("maxDelayMs")
+        ),
       "retryNetwork" => truthy?(params["enableRetryOnNetworkError"]),
       "retryRateLimit" => truthy?(params["enableRetryOn429"]),
       "retryServerError" => truthy?(params["enableRetryOn5xx"]),
@@ -2086,7 +2164,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         original = %{
           "profileId" => profile["llmProfile"],
           "provider" => profile["provider"],
-          "apiInferenceType" => profile["apiInferenceType"] || "chat-completions",
+          "apiInferenceType" =>
+            profile["apiInferenceType"] || ProfileDefaults.api_inference_type_default(),
           "baseUrl" => profile["baseUrl"],
           "endpointCredentialScope" => profile["endpointCredentialScope"] || "user",
           "credentialId" => credential["credentialId"],
@@ -2108,7 +2187,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     %{
       "profileId" => "",
       "provider" => "",
-      "apiInferenceType" => "chat-completions",
+      "apiInferenceType" => ProfileDefaults.api_inference_type_default(),
       "baseUrl" => "",
       "endpointCredentialScope" => "user",
       "credentialId" => "",

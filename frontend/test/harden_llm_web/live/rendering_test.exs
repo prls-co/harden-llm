@@ -73,7 +73,7 @@ defmodule HardenLlmWeb.RenderingTest do
     assert has_element?(profiles, "#export-bundle")
     assert has_element?(profiles, "#bundle-import-form label", "Encrypted profile bundle JSON")
     assert has_element?(profiles, "#bundle-import-submit")
-    assert has_element?(profiles, "#profiles-empty", "No profiles configured.")
+    assert has_element?(profiles, "#profiles-empty", "No profiles available.")
     assert has_element?(profiles, "#profiles")
     refute has_element?(profiles, ".overflow-x-auto table")
 

@@ -10,6 +10,33 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
   setup %{conn: conn}, do: {:ok, conn: authenticated_conn(conn)}
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-053
+  test "hydrates the utility preset and exposes the backend catalog when state is empty", %{
+    conn: conn
+  } do
+    preset = widget_profile("CPA GPT-5.6 Luna", "gpt-5.6-luna")
+    other = widget_profile("OpenAI GPT-5.4", "gpt-5.4")
+
+    state =
+      APIFixtures.state()
+      |> Map.put("selectedProfileId", "")
+      |> Map.put("modelId", "")
+
+    install_stub(fn conn -> unexpected(conn) end, profiles: [other, preset], state: state)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+
+    assert has_element?(
+             view,
+             ~s(#run_selectedProfileId[value="CPA GPT-5.6 Luna"])
+           )
+
+    assert has_element?(view, ~s(#run_modelId[value="gpt-5.6-luna"]))
+    assert has_element?(view, ~s(#run_selectedProfileId-options [data-value="CPA GPT-5.6 Luna"]))
+    assert has_element?(view, ~s(#run_selectedProfileId-options [data-value="OpenAI GPT-5.4"]))
+  end
+
   test "hydrates canonical state and profiles, then loads history when opened", %{conn: conn} do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
@@ -1219,7 +1246,8 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
 
         {"GET", "/api/v1/state"} ->
-          Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+          state = Keyword.get(options, :state, APIFixtures.state())
+          Req.Test.json(conn, APIFixtures.success(nil, state))
 
         {"GET", "/api/v1/profiles"} ->
           profiles = Keyword.get(options, :profiles, [APIFixtures.profile_state()])

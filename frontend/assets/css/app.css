@@ -291,6 +291,24 @@ button, a, input, select, textarea { touch-action: manipulation; }
   font-weight: 800;
 }
 
+.ullm-field-label-info {
+  display: inline-flex;
+  width: 1rem;
+  height: 1rem;
+  align-items: center;
+  justify-content: center;
+  margin-left: .3rem;
+  border: 1px solid var(--ullm-border);
+  border-radius: 999px;
+  color: var(--ullm-text-muted);
+  font-size: .68rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: help;
+  user-select: none;
+  vertical-align: .05rem;
+}
+
 .ullm-model-refresh-button {
   align-self: end;
   min-height: var(--ullm-profile-control-height);

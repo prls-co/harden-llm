@@ -171,7 +171,19 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> Map.put("ui", normalize_ui((hydration.state || %{})["ui"]))
 
     reasoning_by_profile = state["reasoningByProfile"] || %{}
-    selected_profile_id = state["selectedProfileId"] || ""
+
+    selected_profile_id =
+      ProfileWidgetState.resolve_selected_profile_id(
+        hydration.profiles,
+        state["selectedProfileId"]
+      )
+
+    model_id =
+      ProfileWidgetState.resolve_selected_model_id(
+        hydration.profiles,
+        selected_profile_id,
+        state["modelId"]
+      )
 
     state =
       Map.put(
@@ -179,6 +191,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
         "reasoningEffort",
         reasoning_by_profile[selected_profile_id] || state["reasoningEffort"] || "lowest"
       )
+      |> Map.put("selectedProfileId", selected_profile_id)
+      |> Map.put("modelId", model_id)
 
     socket =
       socket

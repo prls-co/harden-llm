@@ -73,9 +73,15 @@
     </section>
 
     <section
-      aria-label="Configured profiles"
+      aria-labelledby="profile-catalog-title"
       class="studio-card min-w-0 max-w-full overflow-hidden p-3 sm:p-4"
     >
+      <div class="mb-3 border-b border-slate-200 px-1 pb-3">
+        <h2 id="profile-catalog-title" class="font-semibold text-slate-950">Profile catalog</h2>
+        <p id="profile-presets-help" class="mt-1 max-w-3xl text-xs text-slate-500">
+          The workspace picker uses this same backend-owned catalog. Built-in utility-llm presets appear alongside custom profiles; add a credential before running one.
+        </p>
+      </div>
       <div :if={@loading?} id="profiles-loading" role="status" class="p-8 text-sm text-slate-500">
         Loading profiles…
       </div>
@@ -84,7 +90,7 @@
           id="profiles-empty"
           class="hidden only:block py-10 text-center text-sm text-slate-500"
         >
-          No profiles configured.
+          No profiles available.
         </div>
         <article
           :for={{dom_id, profile_state} <- @streams.profiles}
@@ -242,6 +248,7 @@
               field={@form[:modelId]}
               label="Default model ID"
               required
+              placeholder={HardenLlmWeb.ProfileDefaults.model_placeholder("main")}
               list="profile-model-options"
               autocomplete="off"
             />
@@ -262,6 +269,7 @@
             type="url"
             label="HTTPS base URL"
             required
+            placeholder={HardenLlmWeb.ProfileDefaults.base_url_placeholder()}
             list="profile-base-url-options"
             autocomplete="off"
           />
@@ -444,27 +452,49 @@
           </button>
           <div :if={@options_open} id="profile-options" class="studio-fold-body space-y-4">
             <div class="grid gap-4 sm:grid-cols-4">
-              <.input field={@form[:maxTokens]} type="number" label="Max Output Tokens" min="0" />
+              <.input
+                field={@form[:maxTokens]}
+                type="number"
+                label="Max Output Tokens"
+                min="0"
+                placeholder={HardenLlmWeb.ProfileDefaults.option_placeholder("maxTokens")}
+              />
               <.input
                 field={@form[:temperature]}
                 type="number"
                 label="Temperature"
                 min="0"
                 step="any"
+                placeholder={HardenLlmWeb.ProfileDefaults.option_placeholder("temperature")}
               />
-              <.input field={@form[:topP]} type="number" label="Top P" min="0" step="any" />
-              <.input field={@form[:topK]} type="number" label="Top K" min="0" />
+              <.input
+                field={@form[:topP]}
+                type="number"
+                label="Top P"
+                min="0"
+                step="any"
+                placeholder={HardenLlmWeb.ProfileDefaults.option_placeholder("topP")}
+              />
+              <.input
+                field={@form[:topK]}
+                type="number"
+                label="Top K"
+                min="0"
+                placeholder={HardenLlmWeb.ProfileDefaults.option_placeholder("topK")}
+              />
             </div>
             <.input
               field={@form[:stopSequences]}
               type="textarea"
               label="Stop Sequences (one per line)"
+              placeholder={HardenLlmWeb.ProfileDefaults.option_placeholder("stopSequences")}
               rows="3"
             />
             <.input
               field={@form[:defaultOptionsJson]}
               type="textarea"
               label="Default Options JSON"
+              placeholder={HardenLlmWeb.ProfileDefaults.option_placeholder("defaultOptionsJson")}
               rows="7"
             />
           </div>
@@ -489,18 +519,31 @@
                 field={@form[:structuredRepairRetryEnabled]}
                 type="checkbox"
                 label="Structured Repair"
+                info={HardenLlmWeb.ProfileDefaults.field_info("structuredRepairRetry")}
               />
-              <.input field={@form[:enableRetryOn429]} type="checkbox" label="Rate Limits" />
-              <.input field={@form[:enableRetryOn5xx]} type="checkbox" label="Server Errors" />
+              <.input
+                field={@form[:enableRetryOn429]}
+                type="checkbox"
+                label="Rate Limits"
+                info={HardenLlmWeb.ProfileDefaults.field_info("enableRetryOn429")}
+              />
+              <.input
+                field={@form[:enableRetryOn5xx]}
+                type="checkbox"
+                label="Server Errors"
+                info={HardenLlmWeb.ProfileDefaults.field_info("enableRetryOn5xx")}
+              />
               <.input
                 field={@form[:enableRetryOnNetworkError]}
                 type="checkbox"
                 label="Network Errors"
+                info={HardenLlmWeb.ProfileDefaults.field_info("enableRetryOnNetworkError")}
               />
               <.input
                 field={@form[:enableRetryOnParseError]}
                 type="checkbox"
                 label="Parse / Schema Errors"
+                info={HardenLlmWeb.ProfileDefaults.field_info("enableRetryOnParseError")}
               />
             </div>
             <div class="grid gap-4 sm:grid-cols-3">
@@ -510,18 +553,24 @@
                 label="Max Attempts"
                 min="1"
                 max="10"
+                placeholder={HardenLlmWeb.ProfileDefaults.retry_placeholder("retryMaxAttempts")}
+                info={HardenLlmWeb.ProfileDefaults.field_info("maxAttempts")}
               />
               <.input
                 field={@form[:retryBaseDelayMs]}
                 type="number"
                 label="Base Delay Ms"
                 min="0"
+                placeholder={HardenLlmWeb.ProfileDefaults.retry_placeholder("retryBaseDelayMs")}
+                info={HardenLlmWeb.ProfileDefaults.field_info("baseDelayMs")}
               />
               <.input
                 field={@form[:retryMaxDelayMs]}
                 type="number"
                 label="Max Delay Ms"
                 min="0"
+                placeholder={HardenLlmWeb.ProfileDefaults.retry_placeholder("retryMaxDelayMs")}
+                info={HardenLlmWeb.ProfileDefaults.field_info("maxDelayMs")}
               />
             </div>
             <div class="grid gap-4 sm:grid-cols-3">
@@ -543,6 +592,8 @@
                 label="Starting Attempt"
                 min="2"
                 max="10"
+                placeholder={HardenLlmWeb.ProfileDefaults.retry_placeholder("escalationAttempt")}
+                info={HardenLlmWeb.ProfileDefaults.field_info("escalationAttempt")}
               />
               <.input
                 field={@form[:escalationReasoning]}
@@ -578,6 +629,7 @@
               label="Input $/1M tokens"
               min="0"
               step="any"
+              placeholder={HardenLlmWeb.ProfileDefaults.pricing_placeholder()}
             />
             <.input
               field={@form[:pricingOutput]}
@@ -585,6 +637,7 @@
               label="Output $/1M tokens"
               min="0"
               step="any"
+              placeholder={HardenLlmWeb.ProfileDefaults.pricing_placeholder()}
             />
             <.input
               field={@form[:pricingCacheRead]}
@@ -592,6 +645,7 @@
               label="Cache read $/1M tokens"
               min="0"
               step="any"
+              placeholder={HardenLlmWeb.ProfileDefaults.pricing_placeholder()}
             />
             <.input
               field={@form[:pricingCacheWrite]}
@@ -599,6 +653,8 @@
               label="Cache write $/1M tokens"
               min="0"
               step="any"
+              placeholder={HardenLlmWeb.ProfileDefaults.pricing_placeholder()}
+              info={HardenLlmWeb.ProfileDefaults.field_info("pricingCacheWrite")}
             />
             <.input
               field={@form[:pricingReasoning]}
@@ -606,6 +662,8 @@
               label="Reasoning output $/1M tokens"
               min="0"
               step="any"
+              placeholder={HardenLlmWeb.ProfileDefaults.pricing_placeholder()}
+              info={HardenLlmWeb.ProfileDefaults.field_info("pricingReasoning")}
             />
           </div>
         </section>

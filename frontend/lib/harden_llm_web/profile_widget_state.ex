@@ -8,6 +8,8 @@ defmodule HardenLlmWeb.ProfileWidgetState do
   dependencies.
   """
 
+  alias HardenLlmWeb.ProfileDefaults
+
   @default_models [
     %{"id" => "gpt-5.6-luna", "label" => "GPT-5.6 Luna"},
     %{"id" => "gpt-5.6-sol", "label" => "GPT-5.6 Sol"},
@@ -29,6 +31,43 @@ defmodule HardenLlmWeb.ProfileWidgetState do
 
   @doc "Returns the small built-in catalog used only when a host supplies none."
   def default_model_options, do: @default_models
+
+  @doc "Resolves the initial profile without hiding the backend-owned presets."
+  def resolve_selected_profile_id(profiles, selected_id) when is_list(profiles) do
+    selected_id = normalize_text(selected_id)
+
+    if selected_id != "" do
+      selected_id
+    else
+      profile_ids = Enum.map(profiles, &get_in(&1, ["profile", "llmProfile"]))
+
+      cond do
+        ProfileDefaults.default_profile_id() in profile_ids ->
+          ProfileDefaults.default_profile_id()
+
+        true ->
+          Enum.find(profile_ids, &(is_binary(&1) and &1 != "")) || ""
+      end
+    end
+  end
+
+  def resolve_selected_profile_id(_profiles, selected_id), do: normalize_text(selected_id)
+
+  @doc "Resolves the initial model from the selected backend-owned profile."
+  def resolve_selected_model_id(profiles, profile_id, model_id) when is_list(profiles) do
+    model_id = normalize_text(model_id)
+
+    if model_id != "" do
+      model_id
+    else
+      profiles
+      |> Enum.find(&(get_in(&1, ["profile", "llmProfile"]) == profile_id))
+      |> get_in(["profile", "modelId"])
+      |> normalize_text()
+    end
+  end
+
+  def resolve_selected_model_id(_profiles, _profile_id, model_id), do: normalize_text(model_id)
 
   @doc "Normalizes a host-owned model catalog without adding widget defaults."
   def normalize_model_catalog(models), do: normalize_models(models)

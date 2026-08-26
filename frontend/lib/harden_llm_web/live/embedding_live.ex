@@ -185,8 +185,17 @@ defmodule HardenLlmWeb.EmbeddingLive do
          {:ok, %{"profiles" => profiles}, _} <- HardenAPI.list_profiles(handle),
          true <- is_list(profiles) do
       state = state || %{}
-      selected_profile_id = state["selectedProfileId"] || ""
-      model_id = state["modelId"] || ""
+
+      selected_profile_id =
+        ProfileWidgetState.resolve_selected_profile_id(profiles, state["selectedProfileId"])
+
+      model_id =
+        ProfileWidgetState.resolve_selected_model_id(
+          profiles,
+          selected_profile_id,
+          state["modelId"]
+        )
+
       reasoning_effort = state["reasoningEffort"] || "lowest"
       cache_mode = normalize_cache_mode(state["cacheMode"])
 
