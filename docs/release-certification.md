@@ -623,8 +623,8 @@ The utility-informed widget follow-up is tracked separately from the earlier
 production certifications under `PLAN-HLLM-WIDGET-PARITY-001`. The accepted
 local release candidate, merged application commit, and verified production
 identity are recorded below. The application-bearing release is
-`84a06fa38da24bacbb5ffc537de509e77b0cb82b`; this certification record was
-finalized in merge commit `3b3671e6342009ae19d1515615a2e9d096207a84`.
+`84a06fa38da24bacbb5ffc537de509e77b0cb82b`; this section records its
+post-merge production verification.
 
 - Utility source: `/home/kirill/p/utility-llm` at
   `5c0309e2508dc5b7a87d0880c8d794123353c5b0`, clean and read-only.
