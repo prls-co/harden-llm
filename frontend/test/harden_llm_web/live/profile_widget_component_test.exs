@@ -21,6 +21,17 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     assert html =~ "LLM Profile"
     assert has_element?(view, "#workspace-llm-widget .ullm-profile-category", "LLM")
     assert has_element?(view, "#workspace-llm-widget #workspace-reasoning")
+
+    assert has_element?(
+             view,
+             "#workspace-llm-widget .ullm-reasoning-field > .ullm-profile-label"
+           )
+
+    assert has_element?(
+             view,
+             "#workspace-llm-widget .ullm-reasoning-field > #workspace-reasoning"
+           )
+
     assert has_element?(view, "#workspace-llm-widget #workspace-cache-toggle")
     assert has_element?(view, "#workspace-llm-widget #model-config-toggle")
     refute has_element?(view, ~s([role="tab"]))

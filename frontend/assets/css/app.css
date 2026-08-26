@@ -140,6 +140,19 @@ button, a, input, select, textarea { touch-action: manipulation; }
   gap: .45rem;
 }
 
+.ullm-reasoning-field {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: .45rem;
+}
+
+.ullm-reasoning-field .ullm-compact-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+
 .ullm-combobox {
   position: relative;
   min-width: 0;
