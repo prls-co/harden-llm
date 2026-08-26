@@ -4,6 +4,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
   alias HardenLlmWeb.{APIError, Auth, HardenAPI, Observability, ProfileWidgetState}
 
   @schema_keywords ~w($schema $defs additionalProperties allOf anyOf const default definitions description enum examples exclusiveMaximum exclusiveMinimum format items maxItems maxLength maximum minItems minLength minimum multipleOf not oneOf pattern prefixItems properties propertyOrdering required title type uniqueItems)
+  @contracted_schema_keywords ~w(type properties required additionalProperties items description enum)
   @schema_types ~w(object array string number integer boolean)
   @reasoning_options [{"Lowest", "lowest"}, {"Middle", "middle"}, {"Highest", "highest"}]
   @ui_keys ~w(llmProfileConfigOpen modelOptionsOpen pricingOpen retryRepairOpen inputAdvancedOpen historyOpen outputDetailsOpen)
@@ -18,15 +19,31 @@ defmodule HardenLlmWeb.WorkspaceLive do
     "outputDetailsOpen" => false
   }
 
+  @default_schema %{
+    "type" => "object",
+    "properties" => %{
+      "joke" => %{"type" => "string"},
+      "explanation" => %{"type" => "string"}
+    },
+    "required" => ["joke", "explanation"],
+    "additionalProperties" => false
+  }
+
+  @default_schema_shorthand ~s({
+    "joke": "string",
+    "explanation": "string"
+  })
+
   @default_state %{
     "schemaVersion" => 1,
     "selectedProfileId" => "",
     "modelId" => "",
-    "systemPrompt" => "",
-    "userPrompt" => "",
-    "schemaShorthand" => "",
-    "callType" => "text",
-    "structuredRepair" => false,
+    "systemPrompt" => "You are a helpful assistant",
+    "userPrompt" => "write a haiku joke",
+    "schemaShorthand" => @default_schema_shorthand,
+    "schema" => @default_schema,
+    "callType" => "structured",
+    "structuredRepair" => true,
     "cacheMode" => "cache",
     "reasoningEffort" => "lowest",
     "reasoningByProfile" => %{},
@@ -435,6 +452,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     {:noreply,
      socket
      |> assign(:form, to_form(params, as: :run))
+     |> assign(:run_error, nil)
      |> assign(:reasoning_by_profile, state["reasoningByProfile"])
      |> assign(:schema_check, schema_check_from_params(params))
      |> start_async(
@@ -902,12 +920,17 @@ defmodule HardenLlmWeb.WorkspaceLive do
       "systemPrompt" => request["systemPrompt"] || "",
       "userPrompt" => request["userPrompt"] || "",
       "schemaShorthand" => request["schemaShorthand"] || "",
-      "callType" => request["callType"] || "text",
+      "callType" =>
+        request["callType"] || if(is_map(request["schema"]), do: "structured", else: "text"),
       "schema" => request["schema"],
       "reasoningEffort" => reasoning,
       "reasoningByProfile" =>
         if(selected_profile_id == "", do: %{}, else: %{selected_profile_id => reasoning}),
-      "structuredRepair" => request["structuredRepair"] || false,
+      "structuredRepair" =>
+        if(Map.has_key?(request, "structuredRepair"),
+          do: truthy?(request["structuredRepair"]),
+          else: is_map(request["schema"])
+        ),
       "cacheMode" => normalize_cache_mode(request["cacheMode"]),
       "maxAttempts" => request["maxAttempts"] || 0,
       "initialBackoffMs" => request["initialBackoffMs"] || 0,
@@ -981,6 +1004,14 @@ defmodule HardenLlmWeb.WorkspaceLive do
     end
   end
 
+  defp run_disabled?(form, schema_check, run_ref) do
+    profile_id = String.trim(form[:selectedProfileId].value || "")
+    schema = String.trim(form[:schema].value || "")
+
+    run_ref != nil or profile_id == "" or
+      (schema != "" and schema_check.status != :valid)
+  end
+
   defp base_run_payload(
          params,
          profile_id,
@@ -991,12 +1022,14 @@ defmodule HardenLlmWeb.WorkspaceLive do
          profiles,
          profile_provider_options
        ) do
+    structured_repair = structured_repair?(params, call_type)
+
     payload = %{
       "profileId" => profile_id,
       "userPrompt" => prompt,
       "callType" => call_type,
       "cacheMode" => normalize_cache_mode(params["cacheMode"]),
-      "structuredRepair" => truthy?(params["structuredRepair"])
+      "structuredRepair" => structured_repair
     }
 
     payload = put_optional(payload, "modelId", params["modelId"])
@@ -1010,7 +1043,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
         else: payload
 
     retry =
-      if truthy?(params["structuredRepair"]),
+      if structured_repair,
         do: retry,
         else: Map.delete(retry, "repairEscalation")
 
@@ -1073,6 +1106,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     schema = state_schema(params["schema"])
     profile_id = params["selectedProfileId"] || ""
     reasoning_effort = params["reasoningEffort"] || "lowest"
+    call_type = params["callType"] || if(is_map(schema), do: "structured", else: "text")
 
     reasoning_by_profile =
       cond do
@@ -1093,11 +1127,11 @@ defmodule HardenLlmWeb.WorkspaceLive do
       "systemPrompt" => params["systemPrompt"] || "",
       "userPrompt" => params["userPrompt"] || "",
       "schemaShorthand" => params["schemaShorthand"] || "",
-      "callType" => params["callType"] || "text",
+      "callType" => call_type,
       "schema" => schema,
       "reasoningEffort" => reasoning_effort,
       "reasoningByProfile" => reasoning_by_profile,
-      "structuredRepair" => truthy?(params["structuredRepair"]),
+      "structuredRepair" => structured_repair?(params, call_type),
       "cacheMode" => normalize_cache_mode(params["cacheMode"]),
       "maxAttempts" => integer_or_zero(params["maxAttempts"]),
       "initialBackoffMs" => integer_or_zero(params["initialBackoffMs"]),
@@ -1120,16 +1154,32 @@ defmodule HardenLlmWeb.WorkspaceLive do
     end
   end
 
-  defp parse_schema(value, "structured") when is_binary(value) do
+  defp structured_repair?(params, "structured") do
+    if Map.has_key?(params, "structuredRepair"),
+      do: truthy?(params["structuredRepair"]),
+      else: true
+  end
+
+  defp structured_repair?(params, _call_type), do: truthy?(params["structuredRepair"])
+
+  defp parse_schema(value, call_type) when is_binary(value) do
     case schema_check(value) do
       {:ok, nil, _message} ->
-        {:error, "Structured output requires a valid JSON Schema object."}
+        if call_type == "structured" do
+          {:error, "Structured output requires a valid JSON Schema object."}
+        else
+          {:ok, nil}
+        end
 
       {:ok, schema, _message} ->
-        {:ok, schema}
+        if call_type == "structured", do: {:ok, schema}, else: {:ok, nil}
 
       {:error, message} ->
-        {:error, "Structured output requires a valid JSON object schema. #{message}"}
+        if call_type == "structured" do
+          {:error, "Structured output requires a valid JSON object schema. #{message}"}
+        else
+          {:error, message}
+        end
     end
   end
 
@@ -1138,8 +1188,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
   defp schema_check_for_state(state) do
     case state["schema"] do
       schema when is_map(schema) ->
-        case validate_contracted_schema(schema) do
-          :ok -> %{status: :valid, message: "Schema valid."}
+        case schema_check(Jason.encode!(schema)) do
+          {:ok, _schema, message} -> %{status: :valid, message: message}
           {:error, message} -> %{status: :error, message: message}
         end
 
@@ -1164,9 +1214,16 @@ defmodule HardenLlmWeb.WorkspaceLive do
     else
       case Jason.decode(text) do
         {:ok, schema} when is_map(schema) ->
-          case validate_contracted_schema(schema) do
-            :ok -> {:ok, schema, "Schema valid."}
-            {:error, message} -> {:error, message}
+          cond do
+            not schema_object?(schema) ->
+              {:error,
+               "schemaJson must be a JSON Schema object. Generate it from shorthand first."}
+
+            true ->
+              case validate_contracted_schema(schema) do
+                :ok -> {:ok, schema, "Schema valid."}
+                {:error, message} -> {:error, message}
+              end
           end
 
         {:ok, _} ->
@@ -1181,9 +1238,9 @@ defmodule HardenLlmWeb.WorkspaceLive do
   defp schema_check(_value), do: {:error, "schemaJson must be valid JSON."}
 
   defp generate_schema(value) do
-    case Jason.decode(String.trim(value || "")) do
+    case Jason.decode(String.trim(value || "{}")) do
       {:ok, shorthand} when is_map(shorthand) ->
-        schema = shorthand_schema(shorthand) |> prepare_schema()
+        schema = shorthand_schema(shorthand) |> prepare_schema() |> Map.delete("$schema")
 
         case validate_contracted_schema(schema) do
           :ok -> {:ok, schema, "Schema generated."}
@@ -1281,45 +1338,127 @@ defmodule HardenLlmWeb.WorkspaceLive do
   defp validate_contracted_schema(schema) when is_map(schema),
     do: validate_schema_node(schema, "", true)
 
-  defp validate_contracted_schema(_schema), do: {:error, "schemaJson must be a JSON object."}
-
   defp validate_schema_node(node, path, root?) when is_map(node) do
-    if Enum.any?(Map.keys(node), &(&1 not in @schema_keywords)) do
-      {:error, "#{path || "schema"} contains an unsupported JSON Schema keyword."}
-    else
-      type = node["type"]
-
-      cond do
-        not is_binary(type) or type not in @schema_types ->
-          {:error, "#{path || "schema"}.type must be a contracted schema type."}
-
-        root? and type != "object" ->
-          {:error, "schema.type must be object."}
-
-        type == "object" and not is_map(node["properties"]) ->
-          {:error, "#{path || "schema"}.properties must be an object."}
-
-        type == "object" and node["additionalProperties"] != false ->
-          {:error, "#{path || "schema"}.additionalProperties must be false."}
-
-        type == "object" and not is_list(node["required"]) ->
-          {:error, "#{path || "schema"}.required must list every property."}
-
-        type == "object" and
-            Enum.sort(node["required"]) != Enum.sort(Map.keys(node["properties"])) ->
-          {:error, "#{path || "schema"}.required must list every property."}
-
-        type == "array" and not is_map(node["items"]) ->
-          {:error, "#{path || "schema"}.items must be an object schema."}
-
-        true ->
-          validate_schema_children(node, path)
-      end
+    with :ok <- validate_schema_keys(node, path),
+         :ok <- validate_schema_type(node, path, root?),
+         :ok <- validate_schema_enum(node, path),
+         :ok <- validate_schema_object(node, path),
+         :ok <- validate_schema_array(node, path) do
+      validate_schema_children(node, path)
     end
   end
 
   defp validate_schema_node(_node, path, _root?),
     do: {:error, "#{path || "schema"} must be an object."}
+
+  defp validate_schema_keys(node, path) do
+    case Enum.find(Map.keys(node), &(&1 not in @contracted_schema_keywords)) do
+      nil ->
+        :ok
+
+      key ->
+        {:error,
+         "Unsupported structured output schema at #{json_pointer(path, key)}: " <>
+           "#{key} is not part of the utility-llm contracted schema subset."}
+    end
+  end
+
+  defp validate_schema_type(node, path, root?) do
+    type = node["type"]
+
+    cond do
+      not is_binary(type) ->
+        {:error,
+         "Unsupported structured output schema at #{json_pointer(path, "type")}: " <>
+           "type must be a contracted string type."}
+
+      type not in @schema_types ->
+        {:error,
+         "Unsupported structured output schema at #{json_pointer(path, "type")}: " <>
+           "#{type} is not a contracted schema type."}
+
+      root? and type != "object" ->
+        {:error,
+         "Unsupported structured output schema at #{json_pointer(path, "type")}: " <>
+           "root schema must be an object."}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_schema_enum(%{"enum" => values}, path)
+       when is_list(values) do
+    if Enum.all?(values, &scalar_enum_value?/1) do
+      :ok
+    else
+      {:error,
+       "Unsupported structured output schema at #{json_pointer(path, "enum")}: " <>
+         "enum must contain only scalar values."}
+    end
+  end
+
+  defp validate_schema_enum(%{"enum" => _values}, path),
+    do:
+      {:error,
+       "Unsupported structured output schema at #{json_pointer(path, "enum")}: " <>
+         "enum must contain only scalar values."}
+
+  defp validate_schema_enum(_node, _path), do: :ok
+
+  defp validate_schema_object(%{"type" => "object"} = node, path) do
+    cond do
+      not is_map(node["properties"]) ->
+        {:error,
+         "Unsupported structured output schema at #{json_pointer(path, "properties")}: " <>
+           "object schemas must define properties."}
+
+      node["additionalProperties"] != false ->
+        {:error,
+         "Unsupported structured output schema at #{json_pointer(path, "additionalProperties")}: " <>
+           "object schemas must set additionalProperties: false."}
+
+      not is_list(node["required"]) ->
+        {:error,
+         "Unsupported structured output schema at #{json_pointer(path, "required")}: " <>
+           "object schemas must list all required properties."}
+
+      Enum.any?(node["required"], &(not Map.has_key?(node["properties"], &1))) ->
+        {:error,
+         "Unsupported structured output schema at #{json_pointer(path, "required")}: " <>
+           "required property is not defined in properties."}
+
+      Enum.any?(Map.keys(node["properties"]), &(&1 not in node["required"])) ->
+        {:error,
+         "Unsupported structured output schema at #{json_pointer(path, "properties")}: " <>
+           "every property must be listed in required."}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_schema_object(_node, _path), do: :ok
+
+  defp validate_schema_array(%{"type" => "array"} = node, path) do
+    if is_map(node["items"]) do
+      :ok
+    else
+      {:error,
+       "Unsupported structured output schema at #{json_pointer(path, "items")}: " <>
+         "array schemas must define a single object-form items schema."}
+    end
+  end
+
+  defp validate_schema_array(_node, _path), do: :ok
+
+  defp scalar_enum_value?(value),
+    do: is_nil(value) or is_binary(value) or is_number(value) or is_boolean(value)
+
+  defp json_pointer(path, key) do
+    escaped = key |> to_string() |> String.replace("~", "~0") |> String.replace("/", "~1")
+    "#{path}/#{escaped}"
+  end
 
   defp validate_schema_children(node, path) do
     property_result =

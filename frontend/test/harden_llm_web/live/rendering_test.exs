@@ -152,6 +152,8 @@ defmodule HardenLlmWeb.RenderingTest do
     {:ok, workspace, _html} = live(conn, ~p"/workspace")
     render_async(workspace, 1_000)
 
+    workspace |> element("#input-advanced-toggle") |> render_click()
+
     workspace
     |> form("#run-form", %{
       "run" => %{

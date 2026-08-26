@@ -80,7 +80,7 @@ defmodule HardenLlmWeb.BoundaryTest do
 
     for function <- ~w(
       normalizeSearch visibleOptionIndices emptyStateVisible highlightIndex commitValue
-      escapeValue focusValue blurValue isSubmitShortcut schemaPendingState
+      escapeValue focusValue blurValue isSubmitShortcut schemaCheckPayload schemaPendingState
     ) do
       assert app =~ function
       assert core =~ "export function #{function}"
@@ -101,7 +101,8 @@ defmodule HardenLlmWeb.BoundaryTest do
       refute source_files() =~ forbidden
     end
 
-    for hook <- ~w(Clipboard PromptShortcut SchemaPending SearchableCombobox SecretStager) do
+    for hook <-
+          ~w(Clipboard PromptShortcut SchemaPending SchemaCheck SearchableCombobox SecretStager) do
       [_, body] = Regex.run(~r/const #{hook} = \{(.*?)\n\}\n\nconst/s, app)
       assert body =~ ".addEventListener"
       assert body =~ ".removeEventListener"

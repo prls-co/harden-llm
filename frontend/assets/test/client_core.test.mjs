@@ -10,6 +10,7 @@ import {
   highlightIndex,
   isSubmitShortcut,
   normalizeSearch,
+  schemaCheckPayload,
   schemaPendingState,
   visibleOptionIndices,
 } from "../js/client_core.mjs";
@@ -130,6 +131,13 @@ test("qualifies only the intended modified-enter submit shortcut", () => {
   }
 });
 
+test("builds a schema check event from the current control value", () => {
+  assert.deepEqual(schemaCheckPayload(undefined), {run: {schema: ""}});
+  assert.deepEqual(schemaCheckPayload("  {\"type\":\"object\"}  "), {
+    run: {schema: "  {\"type\":\"object\"}  "},
+  });
+});
+
 test("returns schema-pending presentation without DOM state", () => {
   assert.deepEqual(schemaPendingState(""), {
     pending: false,
@@ -140,7 +148,7 @@ test("returns schema-pending presentation without DOM state", () => {
   assert.deepEqual(schemaPendingState("  {\"answer\":\"string\"}"), {
     pending: true,
     message: "Schema check pending.",
-    className: "text-xs text-slate-500",
+    className: "ullm-field-hint",
     role: null,
   });
 });

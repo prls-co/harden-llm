@@ -33,6 +33,7 @@ import {
   highlightIndex,
   isSubmitShortcut,
   normalizeSearch,
+  schemaCheckPayload,
   schemaPendingState,
   visibleOptionIndices,
 } from "./client_core.mjs"
@@ -85,13 +86,42 @@ const SchemaPending = {
       if (!status) return
       const state = schemaPendingState(this.el.value)
       status.textContent = state.message
-      if (state.pending) status.className = state.className
+      status.className = state.className
       status.removeAttribute("role")
+
+      const run = document.getElementById(this.el.dataset.runSubmitId || "run-submit")
+      if (!run) return
+
+      if (state.pending) {
+        if (!run.disabled) {
+          run.disabled = true
+          run.dataset.schemaPending = "true"
+        }
+      } else if (run.dataset.schemaPending === "true") {
+        run.disabled = false
+        delete run.dataset.schemaPending
+      }
     }
     this.el.addEventListener("input", this.markPending)
   },
   destroyed() {
     this.el.removeEventListener("input", this.markPending)
+  },
+}
+
+const SchemaCheck = {
+  mounted() {
+    this.check = event => {
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      const form = document.getElementById(this.el.dataset.formId || "run-form")
+      const schema = form?.querySelector("[name='run[schema]']")
+      this.pushEvent("check-schema", schemaCheckPayload(schema?.value))
+    }
+    this.el.addEventListener("click", this.check)
+  },
+  destroyed() {
+    this.el.removeEventListener("click", this.check)
   },
 }
 
@@ -279,7 +309,7 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, Clipboard, PromptShortcut, SchemaPending, SearchableCombobox, SecretStager},
+  hooks: {...colocatedHooks, Clipboard, PromptShortcut, SchemaPending, SchemaCheck, SearchableCombobox, SecretStager},
 })
 
 // Show progress bar on live navigation and form submits

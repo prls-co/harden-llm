@@ -113,6 +113,22 @@ button, a, input, select, textarea { touch-action: manipulation; }
   box-shadow: 0 .8rem 2.2rem rgb(23 33 29 / 7%);
 }
 
+.ullm-widget-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+}
+
+.ullm-widget-header h2,
+.ullm-subheading {
+  color: var(--ullm-accent-muted);
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
 .ullm-profile-row {
   display: grid;
   grid-template-columns: minmax(4rem, auto) minmax(0, 1fr) minmax(4.75rem, 5.5rem) var(--ullm-profile-control-height) var(--ullm-profile-control-height);
@@ -238,6 +254,10 @@ button, a, input, select, textarea { touch-action: manipulation; }
   background: #fff;
 }
 
+.ullm-input[aria-invalid="true"] {
+  border-color: var(--ullm-danger);
+}
+
 .ullm-input:disabled {
   cursor: not-allowed;
   opacity: .58;
@@ -246,6 +266,60 @@ button, a, input, select, textarea { touch-action: manipulation; }
 .ullm-input-mono {
   font-family: var(--ullm-mono-font);
   font-size: .84rem;
+}
+
+.ullm-input-widget > .mb-2,
+.ullm-input-widget .ullm-options-body > .mb-2 {
+  display: flex;
+  flex-direction: column;
+  gap: .32rem;
+  margin: 0;
+}
+
+.ullm-input-widget > .mb-2 > label,
+.ullm-input-widget .ullm-options-body > .mb-2 > label {
+  display: flex;
+  flex-direction: column;
+  gap: .32rem;
+}
+
+.ullm-input-widget .ullm-input-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .6rem;
+  color: var(--ullm-text-muted);
+  font-size: .76rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.ullm-input-widget .ullm-field-hint {
+  color: var(--ullm-accent-muted);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.ullm-input-widget .ullm-field-hint-error {
+  color: var(--ullm-danger);
+}
+
+.ullm-input-widget .ullm-input-error {
+  margin: 0;
+  color: var(--ullm-danger);
+  font-size: .72rem;
+  line-height: 1.35;
+}
+
+.ullm-input-widget .ullm-input-error svg {
+  display: none;
+}
+
+.ullm-input-widget > .grid > .mb-2 {
+  margin: 0;
 }
 
 .ullm-compact-select {

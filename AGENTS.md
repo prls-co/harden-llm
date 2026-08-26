@@ -82,6 +82,16 @@ Backend tests use canonical `TEST-###` identifiers and must reference `SPEC-HARD
 
 History favors concise conventional subjects such as `docs: define backend REST contract`; continue with `docs:`, `feat:`, `fix:`, or `test:` as appropriate. PRs should summarize the change, name affected specification or test IDs, call out OpenAPI or ownership-boundary changes, list validation run, and link relevant issues. Include screenshots only for rendered UI changes.
 
+For user-visible changes, commit and push each verified coherent checkpoint
+promptly, then deploy that exact pushed revision through the documented
+production path so progress is visible at
+`https://harden-llm.prls.co/workspace`. Do this incrementally during a task;
+do not leave verified UI work only in the local checkout. Before reporting
+completion, record the commit/SHA, push result, deployment result, release or
+image identity, and hosted health or workflow evidence. If deployment is
+blocked, report the exact blocker instead of implying that the hosted site has
+the local changes.
+
 ## Security & Configuration
 
 Never commit provider credentials, bearer tokens, session material, or unredacted diagnostic fixtures. Treat `/home/kirill/utility-llm` as a read-only contract source and record fixture provenance rather than copying secrets or live output.

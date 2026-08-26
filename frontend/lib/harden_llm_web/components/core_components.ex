@@ -194,6 +194,9 @@ defmodule HardenLlmWeb.CoreComponents do
   attr :multiple, :boolean, default: false, doc: "the multiple flag for select inputs"
   attr :class, :any, default: nil, doc: "the input class to use over defaults"
   attr :error_class, :any, default: nil, doc: "the input error class to use over defaults"
+  attr :hint, :string, default: nil, doc: "optional utility-style hint shown beside the label"
+  attr :hint_id, :string, default: nil
+  attr :hint_tone, :string, default: "neutral", values: ~w(neutral error)
 
   attr :rest, :global,
     include: ~w(accept autocomplete capture cols disabled form list max maxlength min minlength
@@ -239,6 +242,7 @@ defmodule HardenLlmWeb.CoreComponents do
             name={@name}
             value="true"
             checked={@checked}
+            aria-invalid={if @errors != [], do: "true"}
             class={@class || "size-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600"}
             {@rest}
           />{@label}
@@ -259,8 +263,14 @@ defmodule HardenLlmWeb.CoreComponents do
     ~H"""
     <div class="mb-2">
       <label for={@id} class="block">
-        <span :if={@label} class="mb-1.5 block text-sm font-medium text-slate-800">
-          {@label}
+        <span :if={@label || (is_binary(@hint) and @hint != "")} class="ullm-input-label">
+          <span :if={@label}>{@label}</span>
+          <span
+            :if={is_binary(@hint) and @hint != ""}
+            id={@hint_id}
+            class={[@hint_tone == "error" && "ullm-field-hint-error", "ullm-field-hint"]}
+            role={if @hint_tone == "error", do: "alert"}
+          >{@hint}</span>
           <span
             :if={@info}
             class="ullm-field-label-info"
@@ -276,6 +286,7 @@ defmodule HardenLlmWeb.CoreComponents do
               "w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 disabled:bg-slate-100",
             @errors != [] && (@error_class || "border-rose-500")
           ]}
+          aria-invalid={if @errors != [], do: "true"}
           multiple={@multiple}
           {@rest}
         >
@@ -292,8 +303,14 @@ defmodule HardenLlmWeb.CoreComponents do
     ~H"""
     <div class="mb-2">
       <label for={@id} class="block">
-        <span :if={@label} class="mb-1.5 block text-sm font-medium text-slate-800">
-          {@label}
+        <span :if={@label || (is_binary(@hint) and @hint != "")} class="ullm-input-label">
+          <span :if={@label}>{@label}</span>
+          <span
+            :if={is_binary(@hint) and @hint != ""}
+            id={@hint_id}
+            class={[@hint_tone == "error" && "ullm-field-hint-error", "ullm-field-hint"]}
+            role={if @hint_tone == "error", do: "alert"}
+          >{@hint}</span>
           <span
             :if={@info}
             class="ullm-field-label-info"
@@ -309,6 +326,7 @@ defmodule HardenLlmWeb.CoreComponents do
               "w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 disabled:bg-slate-100",
             @errors != [] && (@error_class || "border-rose-500")
           ]}
+          aria-invalid={if @errors != [], do: "true"}
           {@rest}
         >{Phoenix.HTML.Form.normalize_value("textarea", @value)}</textarea>
       </label>
@@ -322,8 +340,14 @@ defmodule HardenLlmWeb.CoreComponents do
     ~H"""
     <div class="mb-2">
       <label for={@id} class="block">
-        <span :if={@label} class="mb-1.5 block text-sm font-medium text-slate-800">
-          {@label}
+        <span :if={@label || (is_binary(@hint) and @hint != "")} class="ullm-input-label">
+          <span :if={@label}>{@label}</span>
+          <span
+            :if={is_binary(@hint) and @hint != ""}
+            id={@hint_id}
+            class={[@hint_tone == "error" && "ullm-field-hint-error", "ullm-field-hint"]}
+            role={if @hint_tone == "error", do: "alert"}
+          >{@hint}</span>
           <span
             :if={@info}
             class="ullm-field-label-info"
@@ -341,6 +365,7 @@ defmodule HardenLlmWeb.CoreComponents do
               "w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 disabled:bg-slate-100",
             @errors != [] && (@error_class || "border-rose-500")
           ]}
+          aria-invalid={if @errors != [], do: "true"}
           {@rest}
         />
       </label>
@@ -352,7 +377,7 @@ defmodule HardenLlmWeb.CoreComponents do
   # Helper used by inputs to generate form errors
   defp error(assigns) do
     ~H"""
-    <p class="mt-1.5 flex items-center gap-2 text-sm text-rose-700">
+    <p class="ullm-input-error mt-1.5 flex items-center gap-2 text-sm text-rose-700">
       <.icon name="hero-exclamation-circle" class="size-5" />
       {render_slot(@inner_block)}
     </p>

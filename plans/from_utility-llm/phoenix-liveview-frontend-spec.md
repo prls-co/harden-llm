@@ -451,6 +451,8 @@ Compose, and deployed tags by default.
 | WEB-TEST-053 | Empty-state utility preset hydration | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | An empty saved selection resolves to the backend-owned `CPA GPT-5.6 Luna` preset and its `gpt-5.6-luna` model while the backend catalog remains visible. |
 | WEB-TEST-054 | Complete backend preset picker rendering | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | Every one of the 28 backend-owned utility-llm catalog profiles is present in the server-rendered workspace combobox. |
 | WEB-TEST-055 | Preset/model synchronization | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | Selecting a non-default backend preset updates the LiveView-selected profile and synchronizes the workspace model ID to that preset. |
+| WEB-TEST-056 | Workspace input widget topology and defaults | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | The server-rendered input widget uses utility prompt/schema labels, placeholders, rows, monospace controls, conditional advanced rendering, action order, and populated default draft/repair values. |
+| WEB-TEST-057 | Contracted schema validation and run gate | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | Unsupported utility JSON Schema keywords are rejected and a non-empty invalid schema disables and rejects Run even when the explicit response type is text. |
 
 Detailed fixtures and isolation:
 

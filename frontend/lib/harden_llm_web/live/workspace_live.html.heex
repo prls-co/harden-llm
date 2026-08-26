@@ -69,50 +69,42 @@
             />
           </section>
 
-          <section
-            aria-label="Input"
-            class="studio-card p-4 sm:p-5"
-          >
-            <div class="space-y-5">
-              <div class="flex items-center justify-between gap-3">
-                <h2 class="text-lg font-semibold text-slate-950">✍️ Input</h2>
-                <button
-                  id="input-advanced-toggle"
-                  type="button"
-                  phx-click="toggle-ui"
-                  phx-value-name="inputAdvancedOpen"
-                  phx-value-open={if @ui["inputAdvancedOpen"], do: "false", else: "true"}
-                  aria-expanded={to_string(@ui["inputAdvancedOpen"])}
-                  disabled={@ui_save_pending?}
-                  class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  {if @ui["inputAdvancedOpen"],
-                    do: "⌃ Hide advanced input",
-                    else: "⌄ Advanced input"}
-                </button>
-              </div>
-              <.input
-                field={@form[:userPrompt]}
-                type="textarea"
-                label="Prompt"
-                rows="8"
-                required
-                phx-hook="PromptShortcut"
-                data-form-id="run-form"
-              />
-              <div
-                id="advanced-input"
-                class={
-                  if @ui["inputAdvancedOpen"],
-                    do: "space-y-4 border-t border-slate-100 pt-4",
-                    else: "hidden space-y-4 border-t border-slate-100 pt-4"
-                }
-              >
+          <section aria-label="Input" class="ullm-widget ullm-input-widget">
+            <div class="ullm-widget-header">
+              <h2>Input</h2>
+            </div>
+            <.input
+              field={@form[:userPrompt]}
+              type="textarea"
+              label="Prompt"
+              rows="8"
+              placeholder="Ask the selected model to produce a concise answer."
+              class="ullm-input"
+              phx-debounce="blur"
+              required
+              phx-hook="PromptShortcut"
+              data-form-id="run-form"
+            />
+            <div class="ullm-options-fold">
+              <button
+                id="input-advanced-toggle"
+                type="button"
+                phx-click="toggle-ui"
+                phx-value-name="inputAdvancedOpen"
+                phx-value-open={if @ui["inputAdvancedOpen"], do: "false", else: "true"}
+                aria-expanded={to_string(@ui["inputAdvancedOpen"])}
+                disabled={@ui_save_pending?}
+                class="ullm-btn ullm-options-summary"
+              >Advanced input</button>
+              <div :if={@ui["inputAdvancedOpen"]} id="advanced-input" class="ullm-options-body">
                 <.input
                   field={@form[:systemPrompt]}
                   type="textarea"
-                  label="System prompt"
+                  label="System Prompt"
                   rows="3"
+                  placeholder="Optional system instruction."
+                  class="ullm-input"
+                  phx-debounce="blur"
                 />
                 <.input
                   field={@form[:schemaShorthand]}
@@ -120,88 +112,104 @@
                   label="Schema shorthand"
                   placeholder={~s({"answer":"string"})}
                   rows="4"
+                  class="ullm-input ullm-input-mono"
+                  phx-debounce="blur"
                 />
-                <div class="flex flex-wrap gap-2">
+                <div class="ullm-button-row ullm-button-row-end">
                   <button
                     id="generate-schema"
                     type="button"
                     phx-click="generate-schema"
-                    class="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-800 hover:bg-teal-100"
+                    disabled={String.trim(@form[:schemaShorthand].value || "") == ""}
+                    class="ullm-btn"
                   >Generate JSON Schema</button>
-                  <button
-                    id="clear-schema"
-                    type="button"
-                    phx-click="clear-schema"
-                    class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  >Clear Schema</button>
                 </div>
                 <.input
                   field={@form[:schema]}
                   type="textarea"
-                  label="Structured output schema"
-                  rows="8"
-                  placeholder="Generate a contracted JSON Schema or paste one here"
+                  label="Structured Output Schema"
+                  rows="6"
+                  placeholder={~s({"type":"object","properties":{"answer":{"type":"string"}}})}
+                  class="ullm-input ullm-input-mono"
+                  hint_id="schema-status"
+                  hint={schema_status_text(@schema_check)}
+                  hint_tone={if @schema_check.status == :error, do: "error", else: "neutral"}
+                  aria-invalid={if @schema_check.status == :error, do: "true"}
                   phx-debounce="5000"
                   phx-hook="SchemaPending"
                   data-status-id="schema-status"
+                  data-run-submit-id="run-submit"
                 />
-                <div class="flex flex-wrap items-center gap-3">
+                <div class="ullm-button-row ullm-button-row-end">
                   <button
                     id="check-schema"
                     type="button"
                     phx-click="check-schema"
-                    class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    phx-hook="SchemaCheck"
+                    data-form-id="run-form"
+                    disabled={String.trim(@form[:schema].value || "") == ""}
+                    class="ullm-btn"
                   >Check Schema</button>
-                  <p
-                    id="schema-status"
-                    class={"text-xs #{schema_status_class(@schema_check)}"}
-                    role={if @schema_check.status == :error, do: "alert", else: nil}
-                  >
-                    {schema_status_text(@schema_check)}
-                  </p>
+                  <button
+                    id="clear-schema"
+                    type="button"
+                    phx-click="clear-schema"
+                    disabled={
+                      String.trim(@form[:schemaShorthand].value || "") == "" and
+                        String.trim(@form[:schema].value || "") == ""
+                    }
+                    class="ullm-btn"
+                  >Clear Schema</button>
                 </div>
               </div>
-              <div class="grid gap-4 sm:grid-cols-2">
-                <.input
-                  field={@form[:callType]}
-                  type="select"
-                  label="Response type"
-                  options={[{"Text", "text"}, {"Structured JSON", "structured"}]}
-                />
-                <.input
-                  field={@form[:structuredRepair]}
-                  type="checkbox"
-                  label="Structured repair"
-                />
-              </div>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <.input
+                field={@form[:callType]}
+                type="select"
+                label="Response type"
+                options={[{"Text", "text"}, {"Structured JSON", "structured"}]}
+                phx-debounce="blur"
+              />
+              <.input
+                field={@form[:structuredRepair]}
+                type="checkbox"
+                label="Structured repair"
+                phx-debounce="blur"
+              />
+            </div>
 
-              <div
-                :if={@run_error}
-                id="run-error"
-                role="alert"
-                class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900"
+            <div
+              :if={@run_error}
+              id="run-error"
+              role="alert"
+              class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900"
+            >
+              {@run_error}
+            </div>
+            <div class="ullm-button-row ullm-button-row-end">
+              <button
+                id="clear-prompt-fields"
+                type="button"
+                phx-click="clear-prompt"
+                disabled={
+                  String.trim(@form[:userPrompt].value || "") == "" and
+                    String.trim(@form[:systemPrompt].value || "") == "" and
+                    String.trim(@form[:schemaShorthand].value || "") == "" and
+                    String.trim(@form[:schema].value || "") == ""
+                }
+                class="ullm-btn"
+              >🧹 Clear Prompt Fields</button>
+              <button
+                id="run-submit"
+                type="submit"
+                formnovalidate
+                disabled={run_disabled?(@form, @schema_check, @run_ref)}
+                phx-disable-with="Running…"
+                class="ullm-btn ullm-btn-primary"
               >
-                {@run_error}
-              </div>
-              <div class="flex flex-wrap gap-2">
-                <button
-                  id="clear-prompt-fields"
-                  type="button"
-                  phx-click="clear-prompt"
-                  class="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                >🧹 Clear Prompt Fields</button>
-                <button
-                  id="run-submit"
-                  type="submit"
-                  formnovalidate
-                  disabled={not is_nil(@run_ref)}
-                  phx-disable-with="Running…"
-                  class="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2 disabled:cursor-wait disabled:opacity-50"
-                >
-                  <.icon name="hero-play" class="size-4" />
-                  <span>{if @run_ref, do: "⏳ Running…", else: "▶ Run Prompt"}</span>
-                </button>
-              </div>
+                {if @run_ref, do: "⏳ Running…", else: "Run Prompt"}
+              </button>
             </div>
           </section>
 

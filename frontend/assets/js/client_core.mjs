@@ -69,6 +69,10 @@ export function isSubmitShortcut(event = {}) {
     event.shiftKey !== true;
 }
 
+export function schemaCheckPayload(value) {
+  return {run: {schema: text(value)}};
+}
+
 export function schemaPendingState(value) {
   if (normalizeSearch(value) === "") {
     return {pending: false, message: "", className: "", role: null};
@@ -76,7 +80,7 @@ export function schemaPendingState(value) {
   return {
     pending: true,
     message: "Schema check pending.",
-    className: "text-xs text-slate-500",
+    className: "ullm-field-hint",
     role: null,
   };
 }

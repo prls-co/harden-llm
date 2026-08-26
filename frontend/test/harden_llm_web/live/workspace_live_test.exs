@@ -106,6 +106,156 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, ~s(#run_modelId[value="gpt-5.4"]))
   end
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-056
+  test "renders utility input defaults and the utility control topology", %{conn: conn} do
+    install_stub(
+      fn conn ->
+        case {conn.method, conn.request_path} do
+          {"POST", "/api/v1/state"} ->
+            {:ok, body, conn} = Plug.Conn.read_body(conn)
+            Req.Test.json(conn, APIFixtures.success(nil, Jason.decode!(body)))
+
+          _ ->
+            unexpected(conn)
+        end
+      end,
+      state: %{}
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+
+    assert has_element?(
+             view,
+             ~s(#run_userPrompt.ullm-input[placeholder="Ask the selected model to produce a concise answer."][rows="8"])
+           )
+
+    assert has_element?(view, "#run_userPrompt", "write a haiku joke")
+    refute has_element?(view, "#run_systemPrompt")
+    refute has_element?(view, "#advanced-input")
+    assert has_element?(view, ~s(#input-advanced-toggle[aria-expanded="false"]))
+    assert has_element?(view, "#run-submit:not([disabled])")
+
+    view |> element("#input-advanced-toggle") |> render_click()
+
+    assert has_element?(view, "#advanced-input")
+
+    assert has_element?(
+             view,
+             ~s(#run_systemPrompt[placeholder="Optional system instruction."][rows="3"])
+           )
+
+    assert has_element?(view, ~s(#run_schemaShorthand.ullm-input-mono[rows="4"]))
+    assert has_element?(view, ~s(#run_schema.ullm-input-mono[rows="6"]))
+    assert has_element?(view, ~s(#run_callType option[value="structured"][selected]))
+    assert has_element?(view, "#run_structuredRepair[checked]")
+    assert has_element?(view, "#schema-status", "Schema valid.")
+    assert has_element?(view, "#generate-schema:not([disabled])")
+    assert has_element?(view, "#check-schema:not([disabled])")
+    assert has_element?(view, "#clear-schema:not([disabled])")
+
+    html = render(view)
+    shorthand_index = :binary.match(html, "id=\"run_schemaShorthand\"") |> elem(0)
+    generate_index = :binary.match(html, "id=\"generate-schema\"") |> elem(0)
+    schema_index = :binary.match(html, "id=\"run_schema\"") |> elem(0)
+    check_index = :binary.match(html, "id=\"check-schema\"") |> elem(0)
+
+    assert shorthand_index < generate_index
+    assert generate_index < schema_index
+    assert schema_index < check_index
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-057
+  test "schema validation uses utility's contracted subset and gates text runs too", %{conn: conn} do
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          Req.Test.json(conn, APIFixtures.success(nil, Jason.decode!(body)))
+
+        {"POST", "/api/v1/run"} ->
+          flunk("invalid schema reached backend")
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    view |> element("#input-advanced-toggle") |> render_click()
+
+    unsupported_schema =
+      Jason.encode!(%{
+        "type" => "object",
+        "properties" => %{"answer" => %{"type" => "string"}},
+        "required" => ["answer"],
+        "additionalProperties" => false,
+        "minLength" => 1
+      })
+
+    view
+    |> form("#run-form", %{
+      "run" => %{
+        "selectedProfileId" => "Primary",
+        "modelId" => "model-test",
+        "userPrompt" => "schema gate",
+        "callType" => "text",
+        "schema" => unsupported_schema
+      }
+    })
+    |> render_change()
+
+    assert has_element?(
+             view,
+             "#schema-status",
+             "not part of the utility-llm contracted schema subset"
+           )
+
+    assert has_element?(view, "#run-submit[disabled]")
+
+    view
+    |> form("#run-form", %{
+      "run" => %{
+        "selectedProfileId" => "Primary",
+        "modelId" => "model-test",
+        "userPrompt" => "schema gate",
+        "callType" => "text",
+        "schema" => unsupported_schema
+      }
+    })
+    |> render_submit()
+
+    assert has_element?(
+             view,
+             "#run-error",
+             "not part of the utility-llm contracted schema subset"
+           )
+
+    valid_schema =
+      Jason.encode!(%{
+        "type" => "object",
+        "properties" => %{"answer" => %{"type" => "string"}},
+        "required" => ["answer"],
+        "additionalProperties" => false
+      })
+
+    view
+    |> form("#run-form", %{
+      "run" => %{
+        "selectedProfileId" => "Primary",
+        "modelId" => "model-test",
+        "userPrompt" => "schema gate",
+        "callType" => "text",
+        "schema" => valid_schema
+      }
+    })
+    |> render_change()
+
+    refute has_element?(view, "#run-error")
+    assert has_element?(view, "#run-submit:not([disabled])")
+  end
+
   test "hydrates canonical state and profiles, then loads history when opened", %{conn: conn} do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
@@ -189,6 +339,10 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
     render_async(view, 1_000)
+
+    view
+    |> element("#input-advanced-toggle")
+    |> render_click()
 
     view
     |> form("#run-form", %{
@@ -939,6 +1093,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     render_async(view, 1_000)
 
     assert render(view) =~ ~s(phx-hook="PromptShortcut")
+    view |> element("#input-advanced-toggle") |> render_click()
     assert has_element?(view, ~s(#run_schema[phx-debounce="5000"]))
 
     submit_run(view, %{"userPrompt" => "resource controls"})
@@ -1079,6 +1234,8 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/workspace")
     render_async(view, 1_000)
 
+    view |> element("#input-advanced-toggle") |> render_click()
+
     view
     |> form("#run-form", %{
       "run" => %{
@@ -1122,7 +1279,6 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     |> with_target("#workspace-llm-widget")
     |> render_change("profile-draft-change", %{"escalation" => %{"modelId" => "repair-model"}})
 
-    view |> element("#input-advanced-toggle") |> render_click()
     view |> element("#generate-schema") |> render_click()
     render_async(view, 1_000)
 
@@ -1303,6 +1459,10 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
   end
 
   defp submit_run(view, overrides) do
+    unless has_element?(view, "#advanced-input") do
+      view |> element("#input-advanced-toggle") |> render_click()
+    end
+
     params =
       Map.merge(
         %{
