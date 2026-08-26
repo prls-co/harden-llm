@@ -31,7 +31,7 @@ RUN apk add --no-cache \
       libgcc=15.2.0-r2 \
       libstdc++=15.2.0-r2 \
       ncurses-libs=6.5_p20251123-r0 \
-      openssl=3.5.7-r0 \
+      openssl=3.5.8-r0 \
     && addgroup -S -g 10001 harden_llm \
     && adduser -S -D -H -u 10001 -G harden_llm harden_llm \
     && mkdir -p /app /var/log/harden-llm-web \
