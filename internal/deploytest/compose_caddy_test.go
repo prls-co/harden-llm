@@ -218,7 +218,7 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 
 	garage := asObject(t, services["garage"], "garage")
 	command := stringListValue(t, garage["command"], "garage command")
-	if !equalStrings(command, []string{"/garage", "server", "--single-node", "--default-bucket"}) {
+	if !equalStrings(command, []string{"/garage", "server"}) {
 		t.Errorf("Garage command = %v", command)
 	}
 	garageEnv := environmentValueMap(t, garage["environment"])
@@ -295,7 +295,12 @@ func assertCaddyContract(t *testing.T, path, extensionDir string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantEntries := map[string]bool{".gitkeep": false, "prls-agents.caddy": false, "prls-tests.caddy": false}
+	wantEntries := map[string]bool{
+		".gitkeep":             false,
+		"prls-agents.caddy":    false,
+		"prls-analytics.caddy": false,
+		"prls-tests.caddy":     false,
+	}
 	for _, entry := range entries {
 		if _, ok := wantEntries[entry.Name()]; !ok {
 			t.Errorf("trusted conf.d contains unreviewed entry %s", entry.Name())

@@ -122,7 +122,10 @@ services:
   garage:
     <<: *service-defaults
     image: dxflrs/garage:v2.3.0@sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690
-    command: ["/garage", "server", "--single-node", "--default-bucket"]
+    # Production metadata may already contain a post-v1 cluster layout. The
+    # bootstrap flags are only valid while creating the initial single-node
+    # layout and make Garage refuse to start against that retained metadata.
+    command: ["/garage", "server"]
     environment:
       GARAGE_CONFIG_FILE: /etc/garage.toml
       GARAGE_RPC_SECRET: ${HARDEN_LLM_GARAGE_RPC_SECRET:?set a 64-character hex Garage RPC secret}
