@@ -283,10 +283,11 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
     javascript_value(
       session,
       """
-      const facts = Array.from(document.querySelectorAll("#run-result-panel dl > div"));
+      const facts = Array.from(document.querySelectorAll("#run-result-panel .llm-trace-details p"));
       const value = label => {
-        const fact = facts.find(item => item.querySelector("dt")?.textContent.trim() === label);
-        return fact?.querySelector("dd")?.getAttribute("title") || "";
+        const fact = facts.find(item => item.querySelector("strong")?.textContent.trim() === `${label}:`);
+        const prefix = fact?.querySelector("strong")?.textContent || "";
+        return fact ? fact.textContent.slice(prefix.length).trim() : "";
       };
       return {runId: value("Run ID"), traceId: value("Trace ID")};
       """
