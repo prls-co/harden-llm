@@ -979,6 +979,65 @@ defmodule HardenLlmWeb.WorkspaceLive do
     truthy?(cache["served"] || cache["servedFromCache"])
   end
 
+  def output_cache_status(run_result) do
+    cache = if is_map(run_result["cache"]), do: run_result["cache"], else: %{}
+    mode = output_text([cache["mode"]])
+    status = output_text([cache["status"]])
+
+    cond do
+      output_cache_served?(run_result) or status == "hit" -> "hit"
+      mode == "off" or status in [nil, "", "disabled", "skipped"] -> "disabled"
+      status == "miss" -> "miss"
+      status == "refresh" -> "refresh"
+      truthy?(cache["written"]) -> "written"
+      true -> "unknown"
+    end
+  end
+
+  def output_cache_status_label(run_result) do
+    status = output_cache_status(run_result)
+
+    case status do
+      "hit" ->
+        "Hit"
+
+      "miss" ->
+        if(output_cache_written?(run_result), do: "Miss · saved", else: "Miss")
+
+      "refresh" ->
+        if(output_cache_written?(run_result), do: "Fresh run · saved", else: "Fresh run")
+
+      "written" ->
+        "Saved"
+
+      "disabled" ->
+        "Disabled"
+
+      _ ->
+        "Unknown"
+    end
+  end
+
+  def output_cache_status_title(run_result) do
+    status = output_cache_status(run_result)
+    written = output_cache_written?(run_result)
+
+    case {status, written} do
+      {"hit", _} -> "Cache hit: reused the saved response without a provider call."
+      {"miss", true} -> "Cache miss: ran the provider and saved the successful response."
+      {"miss", false} -> "Cache miss: no saved response was available."
+      {"refresh", true} -> "Fresh run: skipped the old cache and saved the successful response."
+      {"refresh", false} -> "Fresh run: skipped the old cache."
+      {"disabled", _} -> "Cache was disabled for this run."
+      {"written", _} -> "The successful response was saved to the cache."
+      _ -> "The cache result did not include a recognized status."
+    end
+  end
+
+  defp output_cache_written?(run_result) do
+    truthy?(get_in(run_result, ["cache", "written"]))
+  end
+
   defp output_cost_value(run_result) do
     cost = run_result["cost"] || %{}
 

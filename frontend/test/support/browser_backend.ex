@@ -28,6 +28,8 @@ defmodule HardenLlmWeb.BrowserBackend do
 
   def calls, do: Agent.get(__MODULE__, &Enum.reverse(&1.calls))
 
+  def run_requests, do: Agent.get(__MODULE__, &Enum.reverse(&1.run_requests))
+
   def call(conn, _options) do
     with {:ok, body, conn} <- read_json(conn) do
       record_call(conn)
@@ -162,17 +164,19 @@ defmodule HardenLlmWeb.BrowserBackend do
 
   defp dispatch(%{method: "POST", path_info: ["api", "v1", "run"]} = conn, body) do
     case Agent.get_and_update(__MODULE__, fn state ->
+           state = %{state | run_requests: [body | state.run_requests]}
+
            if state.fail_next_run do
              {:failure, %{state | fail_next_run: false}}
            else
-             {:success, state}
+             {result, cache_entries} = run_result(body, state.cache_entries)
+             {{:success, result}, %{state | cache_entries: cache_entries}}
            end
          end) do
       :failure ->
         error(conn, 503, "upstream_timeout")
 
-      :success ->
-        result = run_result()
+      {:success, result} ->
         item = history_item(body, result)
         trace = trace(result)
 
@@ -236,7 +240,9 @@ defmodule HardenLlmWeb.BrowserBackend do
       history: [],
       traces: %{},
       fail_next_run: false,
-      calls: []
+      calls: [],
+      run_requests: [],
+      cache_entries: %{}
     }
   end
 
@@ -261,8 +267,8 @@ defmodule HardenLlmWeb.BrowserBackend do
     }
   end
 
-  defp run_result do
-    %{
+  defp run_result(request, cache_entries) do
+    result = %{
       "runId" => "run-browser",
       "callId" => "call-browser",
       "traceId" => "trace-browser",
@@ -277,9 +283,34 @@ defmodule HardenLlmWeb.BrowserBackend do
       },
       "cost" => %{"totalUsd" => 0.0, "known" => true, "source" => "fixture"},
       "attempts" => [%{"profileId" => "BrowserProfile", "outcome" => "success"}],
-      "cache" => %{"mode" => "off", "status" => "disabled", "served" => false, "written" => false},
       "artifacts" => []
     }
+
+    {cache, next_cache_entries} = cache_facts(request, cache_entries)
+    {Map.put(result, "cache", cache), next_cache_entries}
+  end
+
+  defp cache_facts(request, cache_entries) do
+    mode = request["cacheMode"] || "off"
+    key = Map.delete(request, "cacheMode")
+
+    cond do
+      mode == "cache" and Map.has_key?(cache_entries, key) ->
+        {%{"mode" => "cache", "status" => "hit", "served" => true, "written" => false},
+         cache_entries}
+
+      mode == "cache" ->
+        {%{"mode" => "cache", "status" => "miss", "served" => false, "written" => true},
+         Map.put(cache_entries, key, true)}
+
+      mode == "refresh" ->
+        {%{"mode" => "refresh", "status" => "refresh", "served" => false, "written" => true},
+         Map.put(cache_entries, key, true)}
+
+      true ->
+        {%{"mode" => "off", "status" => "disabled", "served" => false, "written" => false},
+         cache_entries}
+    end
   end
 
   defp history_item(request, result) do

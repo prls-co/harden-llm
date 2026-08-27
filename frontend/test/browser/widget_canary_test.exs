@@ -65,6 +65,7 @@ defmodule HardenLlmWeb.WidgetCanaryTest do
         "aria-label",
         "Overwrite cache on next run"
       )
+      |> assert_field_value("#workspace-cache", "refresh")
       |> assert_no_horizontal_overflow()
       |> visit("/embed/llm")
       |> assert_has(Query.css("#embedding-page"))

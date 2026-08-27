@@ -1067,6 +1067,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, ".llm-trace-summary", "Model: model-test")
     assert has_element?(view, ".llm-trace-summary", "📥 1")
     assert has_element?(view, ".llm-trace-summary", "📤 1")
+    assert has_element?(view, "#run-cache-status", "Cache: Disabled")
     assert has_element?(view, ".llm-trace-summary", "$0.0010")
     assert has_element?(view, ~s(.llm-trace-summary span[title="Output tokens"]), "📤 1")
     assert has_element?(view, ~s(a[href="/history?trace_id=trace-test"]), "View JSON Trace")
@@ -1116,6 +1117,8 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert WorkspaceLive.output_cost(result) == "$0.0010"
     assert WorkspaceLive.output_cost_title(result) == "Trace-attributed cost $0.0010"
     assert WorkspaceLive.output_cache_served?(result) == false
+    assert WorkspaceLive.output_cache_status(result) == "disabled"
+    assert WorkspaceLive.output_cache_status_label(result) == "Disabled"
     assert WorkspaceLive.output_used_repair?(result)
     assert WorkspaceLive.output_attempt_count(Map.put(result, "attempts", [])) == 0
     assert WorkspaceLive.output_attempts(Map.put(result, "attempts", [])) == []
@@ -1123,8 +1126,23 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     cached = put_in(result, ["cache", "served"], true)
     assert WorkspaceLive.output_cache_served?(cached)
+    assert WorkspaceLive.output_cache_status(cached) == "hit"
+    assert WorkspaceLive.output_cache_status_label(cached) == "Hit"
     assert WorkspaceLive.output_cost(cached) == "🗄️$0.0010"
     assert WorkspaceLive.output_cost_title(cached) == "Cached trace-attributed cost $0.0010"
+
+    miss =
+      put_in(result, ["cache"], %{
+        "mode" => "cache",
+        "status" => "miss",
+        "served" => false,
+        "written" => true
+      })
+
+    assert WorkspaceLive.output_cache_status_label(miss) == "Miss · saved"
+
+    assert WorkspaceLive.output_cache_status_title(miss) ==
+             "Cache miss: ran the provider and saved the successful response."
 
     assert WorkspaceLive.output_attempts(result) == [
              %{

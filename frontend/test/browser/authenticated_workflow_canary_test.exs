@@ -48,14 +48,35 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> choose_option("#run_selectedProfileId", "BrowserProfile")
       |> click(Query.css("#input-advanced-toggle"))
       |> assert_has(Query.css("#advanced-input"))
-      |> fill_in(Query.css("#run_schema"), with: ~s({"type":"object"}))
-      |> assert_has(Query.css("#schema-status", text: "Schema check pending."))
+      |> fill_in(
+        Query.css("#run_schema"),
+        with:
+          ~s({"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"],"additionalProperties":false})
+      )
+      |> assert_has(Query.css("#schema-status", text: "Schema valid."))
       |> click(Query.css("#clear-schema"))
+      |> assert_has(Query.css("#run-submit:not([disabled])"))
       |> fill_in(Query.css("#run_userPrompt"), with: "run the browser canary")
-      |> trigger_prompt_shortcut("#run_userPrompt")
+      |> assert_has(Query.css("#run-submit:not([disabled])"))
+      |> click(Query.css("#run-submit"))
       |> assert_has(Query.css("#run-output", text: "deterministic browser output"))
       |> assert_has(Query.css("#run-result-panel", text: "trace-browser"))
-      |> click(Query.css("#output-details-toggle"))
+      |> assert_has(Query.css("#run-cache-status", text: "Cache: Miss · saved"))
+      |> click(Query.css("#run-submit"))
+      |> assert_has(Query.css("#run-cache-status", text: "Cache: Hit"))
+      |> assert_dom_attribute("#workspace-cache-toggle", "data-cache-mode", "cache")
+      |> scroll_to_selector("#workspace-cache-toggle")
+      |> click(Query.css("#workspace-cache-toggle"))
+      |> assert_has(Query.css("#workspace-cache-toggle[data-cache-mode='refresh']"))
+      |> assert_dom_attribute(
+        "#workspace-cache-toggle",
+        "aria-label",
+        "Overwrite cache on next run"
+      )
+      |> assert_field_value("#workspace-cache", "refresh")
+      |> click(Query.css("#run-submit"))
+      |> assert_has(Query.css("#run-cache-status", text: "Cache: Fresh run · saved"))
+      |> assert_has(Query.css("#output-details"))
       |> click(Query.css("#show-run-request"))
       |> assert_has(Query.css("#run-request"))
       |> click(Query.css("#show-run-response"))
@@ -98,7 +119,15 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> visit("/workspace")
       |> assert_has(Query.css("#login-page"))
 
-    assert Enum.count(BrowserBackend.calls(), &(&1 == {"POST", "/api/v1/run"})) == 2
+    assert Enum.count(BrowserBackend.calls(), &(&1 == {"POST", "/api/v1/run"})) == 4
+
+    assert Enum.map(BrowserBackend.run_requests(), & &1["cacheMode"]) == [
+             "cache",
+             "cache",
+             "refresh",
+             "refresh"
+           ]
+
     refute page_source(session) =~ "browser-provider-secret"
     refute inspect(cookies(session)) =~ "browser-fixture-token-that-never-leaves-the-server"
   end

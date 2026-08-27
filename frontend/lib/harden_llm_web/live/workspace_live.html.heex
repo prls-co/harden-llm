@@ -46,6 +46,14 @@
       phx-submit="run"
       class="contents"
     >
+      <div
+        :if={@draft_error}
+        id="draft-error"
+        role="alert"
+        class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900"
+      >
+        {@draft_error}
+      </div>
       <div :if={@backend_state == :ready} class="studio-stack">
         <section class="studio-stack">
           <section id="model-config" aria-label="LLM model config" class="studio-card p-0">
@@ -278,6 +286,12 @@
                           <div>
                             <span title="Attempts">🔁 {output_attempt_count(@run_result)}</span>
                             <span title="Duration">⏱️ {output_duration(@run_result)}</span>
+                            <span
+                              id="run-cache-status"
+                              class={"ullm-cache-status ullm-cache-status-#{output_cache_status(@run_result)}"}
+                              data-cache-status={output_cache_status(@run_result)}
+                              title={output_cache_status_title(@run_result)}
+                            >Cache: {output_cache_status_label(@run_result)}</span>
                             <span title="Input tokens">📥 {output_number(
                               get_in(@run_result, ["usage", "inputTokens"])
                             )}</span>
@@ -319,6 +333,7 @@
                             <strong>Run ID:</strong> {output_text([@run_result["runId"]]) || "—"}
                           </p>
                           <p><strong>Status:</strong> {output_status_label(@run_result)}</p>
+                          <p><strong>Cache:</strong> {output_cache_status_label(@run_result)}</p>
                           <p>
                             <strong>Used Repair:</strong> {if output_used_repair?(@run_result),
                               do: "Yes",

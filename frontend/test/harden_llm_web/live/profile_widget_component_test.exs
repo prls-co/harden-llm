@@ -38,8 +38,11 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
 
     assert has_element?(
              view,
-             ~s(#workspace-cache-toggle[aria-label="Use cache"][aria-pressed="true"])
+             ~s(#workspace-cache-toggle[aria-label="Use cache"][aria-pressed="true"][data-cache-mode="cache"])
            )
+
+    assert has_element?(view, "#workspace-cache-toggle", "💾")
+    assert has_element?(view, "#workspace-cache-toggle", "Cache")
 
     assert has_element?(
              view,
@@ -50,8 +53,11 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
 
     assert has_element?(
              view,
-             ~s(#workspace-cache-toggle[aria-label="Overwrite cache on next run"][aria-pressed="false"])
+             ~s(#workspace-cache-toggle[aria-label="Overwrite cache on next run"][aria-pressed="false"][data-cache-mode="refresh"])
            )
+
+    assert has_element?(view, "#workspace-cache-toggle", "↻")
+    assert has_element?(view, "#workspace-cache-toggle", "Refresh")
 
     assert has_element?(
              view,

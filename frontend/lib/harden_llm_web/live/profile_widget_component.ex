@@ -767,8 +767,12 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           phx-target={@myself}
           aria-label={cache_label(@cache_mode)}
           aria-pressed={to_string(@cache_mode == "cache")}
+          data-cache-mode={@cache_mode}
           title={cache_title(@cache_mode)}
-        >💾</button>
+        >
+          <span aria-hidden="true">{cache_icon(@cache_mode)}</span>
+          <span class="ullm-cache-toggle-label">{cache_mode_label(@cache_mode)}</span>
+        </button>
         <select
           id={scope_id(@id_prefix, "workspace-cache")}
           name="run[cacheMode]"
@@ -1481,15 +1485,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
                   </option>
                 </select>
               </div>
-              <button
-                type="button"
-                class="ullm-btn ullm-profile-cache-toggle"
-                phx-click="toggle-cache"
-                phx-target={@target}
-                aria-label={cache_label(@cache_mode)}
-                aria-pressed={to_string(@cache_mode == "cache")}
-                title={cache_title(@cache_mode)}
-              >💾</button>
               <button
                 type="button"
                 id={"#{@id_prefix}-escalation-config-toggle"}
@@ -2373,6 +2368,12 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   end
 
   defp truthy?(value), do: value in [true, "true", "on", "1"]
+
+  defp cache_icon("refresh"), do: "↻"
+  defp cache_icon(_), do: "💾"
+
+  defp cache_mode_label("refresh"), do: "Refresh"
+  defp cache_mode_label(_), do: "Cache"
 
   defp cache_label("refresh"), do: "Overwrite cache on next run"
   defp cache_label(_), do: "Use cache"
