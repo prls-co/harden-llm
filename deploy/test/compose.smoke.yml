@@ -1,4 +1,9 @@
 services:
+  garage:
+    # The smoke project owns fresh volumes, so it must create its isolated
+    # single-node layout and bucket before the gateway readiness probe.
+    command: ["/garage", "server", "--single-node", "--default-bucket"]
+
   harden-llm-gateway:
     environment:
       HARDEN_LLM_PROVIDER_ALLOWED_HOSTS: ""
