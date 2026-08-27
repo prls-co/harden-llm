@@ -655,7 +655,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> persist_form_state(next_params)}
   end
 
-  def handle_event("clear-prompt", event_params, socket) do
+  def handle_event("new-conversation", event_params, socket) do
     params = event_form_params(event_params, socket)
 
     next_params =
@@ -665,10 +665,35 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> Map.put("schemaShorthand", "")
       |> Map.put("schema", "")
 
+    socket =
+      socket
+      |> clear_conversation_selection()
+      |> assign(:form, to_form(next_params, as: :run))
+      |> assign(:schema_check, %{status: :idle, message: ""})
+      |> persist_form_state(next_params)
+
+    {:noreply, push_patch(socket, to: ~p"/workspace")}
+  end
+
+  def handle_event("new-prompt", event_params, socket) do
+    params = event_form_params(event_params, socket)
+    next_params = Map.put(params, "userPrompt", "")
+
     {:noreply,
      socket
      |> assign(:form, to_form(next_params, as: :run))
-     |> assign(:schema_check, %{status: :idle, message: ""})
+     |> assign(:run_error, nil)
+     |> persist_form_state(next_params)}
+  end
+
+  def handle_event("clear-system-prompt", event_params, socket) do
+    params = event_form_params(event_params, socket)
+    next_params = Map.put(params, "systemPrompt", "")
+
+    {:noreply,
+     socket
+     |> assign(:form, to_form(next_params, as: :run))
+     |> assign(:run_error, nil)
      |> persist_form_state(next_params)}
   end
 
@@ -1523,6 +1548,17 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
     run_ref != nil or profile_id == "" or
       (schema != "" and schema_check.status != :valid)
+  end
+
+  defp new_disabled?(form, run_result, conversation_trace_id) do
+    params = form.params || %{}
+
+    prompt_fields_empty? =
+      Enum.all?(["userPrompt", "systemPrompt", "schemaShorthand", "schema"], fn key ->
+        String.trim(params[key] || "") == ""
+      end)
+
+    prompt_fields_empty? and is_nil(run_result) and is_nil(conversation_trace_id)
   end
 
   defp base_run_payload(

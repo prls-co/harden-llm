@@ -145,6 +145,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
              ~s(#run_systemPrompt[placeholder="Optional system instruction."][rows="3"])
            )
 
+    assert has_element?(view, "#clear-system-prompt:not([disabled])")
     assert has_element?(view, ~s(#run_schemaShorthand.ullm-input-mono[rows="4"]))
     assert has_element?(view, ~s(#run_schema.ullm-input-mono[rows="6"]))
     assert has_element?(view, ~s(#run_callType option[value="structured"][selected]))
@@ -508,7 +509,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     view |> element("#check-schema") |> render_click()
     assert has_element?(view, "#schema-status", "Schema valid.")
     view |> element("#clear-schema") |> render_click()
-    view |> element("#clear-prompt-fields") |> render_click()
+    view |> element("#new-conversation") |> render_click()
     render_async(view, 1_000)
 
     assert has_element?(view, "#run-submit")
@@ -1098,6 +1099,70 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, "#run-output", "fixture output")
     assert has_element?(view, "#run-result-panel", "trace-test")
     assert has_element?(view, "#run-result-panel", "Success (200)")
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-058
+  test "workspace reset controls clear only their documented fields", %{conn: conn} do
+    trace =
+      APIFixtures.trace()
+      |> Map.put("record", Map.put(APIFixtures.run_result(), "status", "succeeded"))
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/traces/trace-test"} ->
+          Req.Test.json(conn, APIFixtures.success(trace))
+
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          Req.Test.json(conn, APIFixtures.success(nil, Jason.decode!(body)))
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?trace_id=trace-test")
+    render_async(view, 1_000)
+    view |> element("#input-advanced-toggle") |> render_click()
+
+    schema =
+      Jason.encode!(%{
+        "type" => "object",
+        "properties" => %{"answer" => %{"type" => "string"}},
+        "required" => ["answer"],
+        "additionalProperties" => false
+      })
+
+    view
+    |> form("#run-form", %{
+      "run" => %{
+        "userPrompt" => "prompt to clear",
+        "systemPrompt" => "system to preserve",
+        "schemaShorthand" => ~s({"answer":"string"}),
+        "schema" => schema
+      }
+    })
+    |> render_change()
+
+    view |> element("#new-prompt") |> render_click()
+    assert has_element?(view, "#run_systemPrompt", "system to preserve")
+    assert has_element?(view, "#run_schemaShorthand", "answer")
+    assert has_element?(view, "#run_schema", "additionalProperties")
+    refute has_element?(view, "#run_userPrompt", "prompt to clear")
+
+    view |> element("#clear-system-prompt") |> render_click()
+    refute has_element?(view, "#run_systemPrompt", "system to preserve")
+    assert has_element?(view, "#run_schema", "additionalProperties")
+
+    view |> element("#new-conversation") |> render_click()
+    assert_patch(view, ~p"/workspace")
+    render_async(view, 1_000)
+
+    refute has_element?(view, "#run-output")
+    refute has_element?(view, "#run_schemaShorthand", "answer")
+    refute has_element?(view, "#run_schema", "additionalProperties")
+    assert has_element?(view, "#new-conversation", "New")
+    assert has_element?(view, "#new-prompt", "New Prompt")
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-035

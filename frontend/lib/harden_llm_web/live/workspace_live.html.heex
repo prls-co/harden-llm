@@ -114,6 +114,15 @@
                   class="ullm-input"
                   phx-debounce="blur"
                 />
+                <div class="ullm-button-row ullm-button-row-end">
+                  <button
+                    id="clear-system-prompt"
+                    type="button"
+                    phx-click="clear-system-prompt"
+                    disabled={String.trim(@form[:systemPrompt].value || "") == ""}
+                    class="ullm-btn"
+                  >Clear System Prompt</button>
+                </div>
                 <.input
                   field={@form[:schemaShorthand]}
                   type="textarea"
@@ -197,17 +206,19 @@
             </div>
             <div class="ullm-button-row ullm-button-row-end">
               <button
-                id="clear-prompt-fields"
+                id="new-conversation"
                 type="button"
-                phx-click="clear-prompt"
-                disabled={
-                  String.trim(@form[:userPrompt].value || "") == "" and
-                    String.trim(@form[:systemPrompt].value || "") == "" and
-                    String.trim(@form[:schemaShorthand].value || "") == "" and
-                    String.trim(@form[:schema].value || "") == ""
-                }
+                phx-click="new-conversation"
+                disabled={new_disabled?(@form, @run_result, @conversation_trace_id)}
                 class="ullm-btn"
-              >🧹 Clear Prompt Fields</button>
+              >New</button>
+              <button
+                id="new-prompt"
+                type="button"
+                phx-click="new-prompt"
+                disabled={String.trim(@form[:userPrompt].value || "") == ""}
+                class="ullm-btn"
+              >New Prompt</button>
               <button
                 id="run-submit"
                 type="submit"

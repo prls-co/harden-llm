@@ -132,13 +132,15 @@ successful read or included in rendered state.
 | `Prompt` | Multiline textarea | Main user prompt. `Ctrl+Enter` or `Cmd+Enter` invokes the same run action as the button. |
 | `Advanced input` | Disclosure button | Shows/hides system and structured-output controls; state is persisted. |
 | `System Prompt` | Multiline textarea | Optional system instruction. |
+| `Clear System Prompt` | Button | Clears only the system prompt and persists the remaining draft unchanged. |
 | `Schema shorthand` | Monospace multiline textarea | Compact object-like schema description, for example `{"answer":"string"}`. |
 | `Generate JSON Schema` | Button | Converts shorthand to editable strict JSON Schema; invalid shorthand stays in place and reports a safe validation message. |
 | `Structured Output Schema` | Monospace multiline textarea | Full JSON Schema object. It is checked explicitly and after five seconds of inactivity; invalid, pending, or failed checks block a structured run. |
 | `Check Schema` | Button | Immediately validates the current schema and updates the inline status. |
 | `Clear Schema` | Button | Clears shorthand and full schema only, persists that non-structured draft, and resets validation state. |
-| `Clear Prompt Fields` | Button | Clears prompt, system prompt, shorthand, and schema while preserving selected profile. |
-| `Run Prompt` | Primary button | Runs the selected profile with the current prompts, schema, reasoning, cache mode, default options, and retry/repair policy. Disabled without a profile, while running, or while schema validation blocks execution. |
+| `New` | Button | Starts a new conversation by clearing prompt, system prompt, shorthand, schema, current output, and the trace URL while preserving selected profile. |
+| `New Prompt` | Button | Clears only the user prompt so another prompt can be entered without changing system or structured-output settings. |
+| `Run Prompt` | Primary button | Runs the selected profile with the current prompts, schema, reasoning, cache mode, default options, and retry/repair policy, then addresses the conversation at `/workspace?trace_id=...`. Disabled without a profile, while running, or while schema validation blocks execution. |
 
 ### 3.5 Output, trace, and row-local resource controls
 
@@ -147,6 +149,7 @@ successful read or included in rendered state.
 | `Output` | Section heading | Labels the latest output widget. |
 | `Latest output` | Output header | Shows the latest result and interface/endpoint metadata. |
 | Result body | Monospace preformatted text | Pretty-prints JSON/object results; displays an empty-state message before the first run. |
+| Conversation URL | URL query | A successful run writes its trace ID to `/workspace?trace_id=...`; opening or refreshing that URL restores the redacted output from the backend trace record. `New` removes the query and starts an empty conversation. |
 | `Copy` | Button | Copies the formatted latest result, changes to `Copied` or `Failed` briefly, and does not expose trace credentials. |
 | Trace summary | Clickable summary row | Expands/collapses measured LLM stats. The `Details` button performs the same action with an accessible label. |
 | Trace summary metrics | Text | Success/failure status, trace ID, model, retry count, duration, input/cache/output-plus-reasoning tokens, and known cost. Zero-token placeholders are not treated as measured stats; metric titles provide the same hover labels as utility-llm. |
