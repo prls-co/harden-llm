@@ -1051,6 +1051,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     submit_run(view, %{"userPrompt" => "run fixture"})
     render_async(view, 1_000)
+    assert_patch(view, ~p"/workspace?trace_id=trace-test")
 
     assert_received {:run_payload, %{"profileId" => "Primary", "userPrompt" => "run fixture"}}
     assert has_element?(view, "#run-output", "fixture output")
@@ -1074,6 +1075,29 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, ~s(a[href="/history?trace_id=trace-test"]), "View JSON Trace")
     assert has_element?(view, ~s(a[rel="noopener noreferrer"]), "View JSON Trace")
     assert has_element?(view, ".llm-trace-details", "Success (200)")
+  end
+
+  test "workspace trace URL restores the redacted output after a hard refresh", %{conn: conn} do
+    trace =
+      APIFixtures.trace()
+      |> Map.put("record", Map.put(APIFixtures.run_result(), "status", "succeeded"))
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/traces/trace-test"} ->
+          Req.Test.json(conn, APIFixtures.success(trace))
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?trace_id=trace-test")
+    render_async(view, 1_000)
+
+    assert has_element?(view, "#run-output", "fixture output")
+    assert has_element?(view, "#run-result-panel", "trace-test")
+    assert has_element?(view, "#run-result-panel", "Success (200)")
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-035

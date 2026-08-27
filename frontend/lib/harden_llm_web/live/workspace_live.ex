@@ -60,7 +60,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
   }
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(params, _session, socket) do
     socket =
       socket
       |> assign(:page_title, "Workspace")
@@ -75,6 +75,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:run_result, nil)
       |> assign(:run_error, nil)
       |> assign(:run_ref, nil)
+      |> assign(:conversation_trace_id, normalize_trace_id(params["trace_id"]))
+      |> assign(:conversation_trace_ref, nil)
       |> assign(:draft_error, nil)
       |> assign(:ui_error, nil)
       |> assign(:ui_save_pending?, false)
@@ -102,6 +104,18 @@ defmodule HardenLlmWeb.WorkspaceLive do
       {:ok, start_async(socket, :hydrate, Observability.propagate(fn -> hydrate(handle) end))}
     else
       {:ok, socket}
+    end
+  end
+
+  @impl true
+  def handle_params(params, _uri, socket) do
+    case normalize_trace_id(params["trace_id"]) do
+      nil ->
+        {:noreply, clear_conversation_selection(socket)}
+
+      trace_id ->
+        socket = assign(socket, :conversation_trace_id, trace_id)
+        {:noreply, maybe_start_conversation_load(socket)}
     end
   end
 
@@ -224,6 +238,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:reasoning_by_profile, reasoning_by_profile)
       |> assign(:form, to_form(stringify_form(state), as: :run))
       |> assign(:schema_check, schema_check_for_state(state))
+      |> maybe_start_conversation_load()
 
     {:noreply, maybe_start_history_load(socket)}
   end
@@ -296,14 +311,16 @@ defmodule HardenLlmWeb.WorkspaceLive do
         {:ok, {:ok, result, _state}},
         %{assigns: %{run_ref: reference}} = socket
       ) do
-    {:noreply,
-     socket
-     |> assign(:run_ref, nil)
-     |> assign(:run_result, result)
-     |> assign(:run_error, nil)
-     |> assign(:output_request_open?, false)
-     |> assign(:output_response_open?, false)
-     |> maybe_refresh_history()}
+    socket =
+      socket
+      |> assign(:run_ref, nil)
+      |> assign(:run_result, result)
+      |> assign(:run_error, nil)
+      |> assign(:output_request_open?, false)
+      |> assign(:output_response_open?, false)
+      |> maybe_refresh_history()
+
+    {:noreply, push_conversation_url(socket, result_trace_id(result))}
   end
 
   def handle_async(
@@ -333,6 +350,45 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   def handle_async({:run, _stale_reference}, _result, socket), do: {:noreply, socket}
+
+  def handle_async(
+        {:load_conversation, reference, trace_id},
+        {:ok, {:ok, trace, _state}},
+        %{assigns: %{conversation_trace_ref: reference, conversation_trace_id: trace_id}} = socket
+      ) do
+    case conversation_run_result(trace) do
+      {:ok, result} ->
+        {:noreply,
+         socket
+         |> assign(:conversation_trace_ref, nil)
+         |> assign(:run_result, result)
+         |> assign(:run_error, nil)
+         |> assign(:output_request_open?, false)
+         |> assign(:output_response_open?, false)}
+
+      :error ->
+        {:noreply,
+         socket
+         |> assign(:conversation_trace_ref, nil)
+         |> assign(:run_result, nil)
+         |> assign(:run_error, "This conversation could not be restored.")}
+    end
+  end
+
+  def handle_async(
+        {:load_conversation, reference, trace_id},
+        {:ok, {:error, %APIError{}}},
+        %{assigns: %{conversation_trace_ref: reference, conversation_trace_id: trace_id}} = socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:conversation_trace_ref, nil)
+     |> assign(:run_result, nil)
+     |> assign(:run_error, "This conversation could not be restored.")}
+  end
+
+  def handle_async({:load_conversation, _reference, _trace_id}, _result, socket),
+    do: {:noreply, socket}
 
   def handle_async(
         {:restore_history, reference},
@@ -1296,6 +1352,60 @@ defmodule HardenLlmWeb.WorkspaceLive do
     end
   end
 
+  defp maybe_start_conversation_load(socket) do
+    trace_id = socket.assigns.conversation_trace_id
+
+    if connected?(socket) and socket.assigns.backend_state == :ready and
+         is_binary(trace_id) and trace_id != "" and
+         is_nil(socket.assigns.conversation_trace_ref) and
+         result_trace_id(socket.assigns.run_result) != trace_id do
+      reference = System.unique_integer([:positive, :monotonic])
+      handle = socket.assigns.session_handle
+
+      socket
+      |> assign(:conversation_trace_ref, reference)
+      |> start_async(
+        {:load_conversation, reference, trace_id},
+        Observability.propagate(fn -> HardenAPI.get_trace(handle, trace_id) end)
+      )
+    else
+      socket
+    end
+  end
+
+  defp clear_conversation_selection(socket) do
+    socket
+    |> assign(:conversation_trace_id, nil)
+    |> assign(:conversation_trace_ref, nil)
+    |> assign(:run_result, nil)
+    |> assign(:run_error, nil)
+    |> assign(:output_request_open?, false)
+    |> assign(:output_response_open?, false)
+  end
+
+  defp push_conversation_url(socket, nil), do: socket
+
+  defp push_conversation_url(socket, trace_id) do
+    push_patch(socket, to: ~p"/workspace?trace_id=#{trace_id}")
+  end
+
+  defp conversation_run_result(%{"record" => record} = trace) when is_map(record) do
+    artifacts = if is_list(trace["artifacts"]), do: trace["artifacts"], else: []
+
+    {:ok,
+     record
+     |> Map.put_new("traceId", trace["traceId"])
+     |> Map.put("artifacts", artifacts)}
+  end
+
+  defp conversation_run_result(_trace), do: :error
+
+  defp result_trace_id(result) when is_map(result) do
+    output_text([result["traceId"], result["callId"], result["runId"]])
+  end
+
+  defp result_trace_id(_result), do: nil
+
   defp start_history_load(socket) do
     handle = socket.assigns.session_handle
 
@@ -1946,6 +2056,15 @@ defmodule HardenLlmWeb.WorkspaceLive do
     do: Map.merge(@default_ui, Map.take(value, @ui_keys))
 
   defp normalize_ui(_value), do: @default_ui
+
+  defp normalize_trace_id(value) when is_binary(value) do
+    case String.trim(value) do
+      "" -> nil
+      trace_id -> trace_id
+    end
+  end
+
+  defp normalize_trace_id(_value), do: nil
 
   defp duration_ms(item) do
     with {:ok, started, _} <- DateTime.from_iso8601(item["startedAt"] || ""),
