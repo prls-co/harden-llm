@@ -217,156 +217,191 @@
             <section
               id="run-result-panel"
               aria-label="Output"
-              class="min-h-64 rounded-xl border border-slate-200 bg-slate-950 p-4 text-slate-100 shadow-sm sm:p-5"
+              class="ullm-widget ullm-output-widget"
             >
-              <div class="flex items-center justify-between gap-3">
-                <h2 class="text-sm font-semibold uppercase tracking-[0.16em] text-teal-300">
-                  📤 Output
-                </h2>
-                <button
-                  :if={@run_result}
-                  id="copy-run-output"
-                  type="button"
-                  phx-hook="Clipboard"
-                  data-copy-value={safe_output(@run_result["output"])}
-                  class="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800"
-                >📋 Copy</button>
-                <button
-                  :if={@run_result}
-                  id="copy-run-curl"
-                  type="button"
-                  phx-hook="Clipboard"
-                  data-copy-value={run_curl(@form.params, @profiles)}
-                  class="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800"
-                >📋 Copy cURL</button>
+              <div class="ullm-widget-header">
+                <h2>Output</h2>
               </div>
-              <div :if={is_nil(@run_result)} class="mt-8 text-sm leading-6 text-slate-400">
-                A successful run will show its redacted output, usage, cost, attempts, cache facts, and correlation IDs here.
-              </div>
-              <div :if={@run_result} class="mt-5 space-y-5">
-                <pre
-                  id="run-output"
-                  class="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-slate-900 p-4 text-sm"
-                ><%= safe_output(@run_result["output"]) %></pre>
-                <dl class="grid grid-cols-2 gap-3 text-xs">
-                  <.result_fact label="Run ID" value={@run_result["runId"]} />
-                  <.result_fact label="Trace ID" value={@run_result["traceId"]} />
-                  <.result_fact
-                    label="Input tokens"
-                    value={get_in(@run_result, ["usage", "inputTokens"])}
-                  />
-                  <.result_fact
-                    label="Cache read tokens"
-                    value={get_in(@run_result, ["usage", "cacheReadTokens"])}
-                  />
-                  <.result_fact
-                    label="Cache write tokens"
-                    value={get_in(@run_result, ["usage", "cacheCreationTokens"])}
-                  />
-                  <.result_fact
-                    label="Output tokens"
-                    value={get_in(@run_result, ["usage", "outputTokens"])}
-                  />
-                  <.result_fact
-                    label="Reasoning tokens"
-                    value={get_in(@run_result, ["usage", "reasoningTokens"])}
-                  />
-                  <.result_fact
-                    label="Total tokens"
-                    value={get_in(@run_result, ["usage", "totalTokens"])}
-                  />
-                  <.result_fact
-                    label="Cost USD"
-                    value={get_in(@run_result, ["cost", "totalUsd"])}
-                  />
-                  <.result_fact label="Attempts" value={length(@run_result["attempts"] || [])} />
-                  <.result_fact label="Cache" value={get_in(@run_result, ["cache", "status"])} />
-                </dl>
-                <button
-                  id="output-details-toggle"
-                  type="button"
-                  phx-click="toggle-ui"
-                  phx-value-name="outputDetailsOpen"
-                  phx-value-open={if @ui["outputDetailsOpen"], do: "false", else: "true"}
-                  aria-expanded={to_string(@ui["outputDetailsOpen"])}
-                  disabled={@ui_save_pending?}
-                  class="text-xs font-semibold text-teal-300 hover:text-teal-200"
-                >{if @ui["outputDetailsOpen"], do: "⌃ Hide details", else: "⌄ Details"}</button>
-                <div :if={@ui["outputDetailsOpen"]} id="output-details" class="space-y-3 text-xs">
-                  <div class="flex flex-wrap gap-2">
-                    <button
-                      id="show-run-request"
-                      type="button"
-                      phx-click="toggle-output-data"
-                      phx-value-kind="request"
-                      aria-expanded={to_string(@output_request_open?)}
-                      class="rounded-lg border border-slate-700 px-3 py-1.5 font-semibold text-slate-200 hover:bg-slate-800"
-                    >{if @output_request_open?, do: "Hide request", else: "Show request"}</button>
-                    <button
-                      id="show-run-response"
-                      type="button"
-                      phx-click="toggle-output-data"
-                      phx-value-kind="response"
-                      aria-expanded={to_string(@output_response_open?)}
-                      class="rounded-lg border border-slate-700 px-3 py-1.5 font-semibold text-slate-200 hover:bg-slate-800"
-                    >{if @output_response_open?, do: "Hide response", else: "Show response"}</button>
+              <div class="ullm-result-panel">
+                <p :if={is_nil(@run_result)} class="ullm-empty-text">
+                  Run a prompt to see the trace summary here.
+                </p>
+                <article
+                  :if={@run_result}
+                  class="ullm-run-output ullm-run-output-open"
+                >
+                  <div class="ullm-run-output-head">
+                    <div class="ullm-run-output-label">
+                      <span class="ullm-run-output-title">Latest output</span>
+                      <span class="ullm-run-output-meta ullm-mono">
+                        {output_meta(@run_result, @form.params, @profiles)}
+                      </span>
+                    </div>
+                    <div class="ullm-run-output-actions">
+                      <button
+                        id="copy-run-output"
+                        type="button"
+                        phx-hook="Clipboard"
+                        data-copy-value={safe_output(@run_result["output"])}
+                        class="ullm-btn ullm-btn-tiny"
+                      >Copy</button>
+                    </div>
                   </div>
-                  <div :if={@output_request_open?} id="run-request-section" class="space-y-1">
-                    <h3 class="font-semibold text-slate-200">Request</h3>
-                    <pre
-                      id="run-request"
-                      class="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-slate-900 p-3"
-                    ><%= run_request_json(@form.params, @profiles) %></pre>
+                  <div class="ullm-run-output-body">
+                    <pre id="run-output" class="ullm-result-body ullm-mono"><%= safe_output(@run_result["output"]) %></pre>
+                    <div :if={output_measured?(@run_result)} class="ullm-output-trace">
+                      <div class="llm-trace-item">
+                        <div
+                          class="llm-trace-summary"
+                          phx-click="toggle-ui"
+                          phx-value-name="outputDetailsOpen"
+                          phx-value-open={if @ui["outputDetailsOpen"], do: "false", else: "true"}
+                        >
+                          <div>
+                            <span class="status-icon">{output_status_icon(@run_result)}</span>
+                            <strong>ID: {output_trace_id(@run_result)}</strong>
+                            <span
+                              :if={output_model_id(@run_result, @form.params, @profiles) != ""}
+                              class="llm-trace-model ullm-mono"
+                              title="Model"
+                            >Model: {output_model_id(@run_result, @form.params, @profiles)}</span>
+                            <span
+                              :if={!output_success?(@run_result)}
+                              class="error-category"
+                            >({output_error_category(@run_result)})</span>
+                          </div>
+                          <div>
+                            <span>🔁 {output_attempt_count(@run_result)}</span>
+                            <span>⏱️ {output_duration(@run_result)}</span>
+                            <span>📥 {output_number(get_in(@run_result, ["usage", "inputTokens"]))}</span>
+                            <span>↺ {output_number(output_cache_tokens(@run_result))}</span>
+                            <span>📤 {output_number(get_in(@run_result, ["usage", "outputTokens"]))}</span>
+                            <span :if={output_cost(@run_result)}>{output_cost(@run_result)}</span>
+                            <button
+                              id="output-details-toggle"
+                              type="button"
+                              phx-click="toggle-ui"
+                              phx-value-name="outputDetailsOpen"
+                              phx-value-open={
+                                if @ui["outputDetailsOpen"], do: "false", else: "true"
+                              }
+                              aria-label={
+                                if @ui["outputDetailsOpen"],
+                                  do: "Hide trace details",
+                                  else: "Show trace details"
+                              }
+                              aria-expanded={to_string(@ui["outputDetailsOpen"])}
+                              disabled={@ui_save_pending?}
+                            >{if @ui["outputDetailsOpen"], do: "Hide", else: "Details"}</button>
+                          </div>
+                        </div>
+                        <div
+                          :if={@ui["outputDetailsOpen"]}
+                          id="output-details"
+                          class="llm-trace-details"
+                        >
+                          <p><strong>Trace ID:</strong> {output_trace_id(@run_result)}</p>
+                          <p>
+                            <strong>Run ID:</strong> {output_text([@run_result["runId"]]) || "—"}
+                          </p>
+                          <p><strong>Status:</strong> {output_status_label(@run_result)}</p>
+                          <p>
+                            <strong>Used Repair:</strong> {if output_used_repair?(@run_result),
+                              do: "Yes",
+                              else: "No"}
+                          </p>
+                          <strong>Attempts:</strong>
+                          <ul>
+                            <li :for={attempt <- output_attempts(@run_result)}>
+                              Attempt {attempt["attempt"]}: {attempt["category"]} ({attempt[
+                                "statusCode"
+                              ]})
+                              <span :if={attempt["retryable"]}> - Retried after {attempt[
+                                "delayMs"
+                              ]}ms</span>
+                            </li>
+                          </ul>
+                          <strong>Resources:</strong>
+                          <div class="trace-resources">
+                            <a
+                              :if={output_trace_url(@run_result)}
+                              href={output_trace_url(@run_result)}
+                              target="_blank"
+                              rel="noreferrer"
+                            >View JSON Trace</a>
+                            <button
+                              :if={is_nil(output_trace_url(@run_result))}
+                              type="button"
+                              disabled
+                              class="trace-resource-disabled"
+                            >View JSON Trace</button>
+                            <button
+                              id="copy-run-curl"
+                              type="button"
+                              phx-hook="Clipboard"
+                              data-copy-value={run_curl(@form.params, @profiles)}
+                            >Copy cURL</button>
+                            <button
+                              id="show-run-request"
+                              type="button"
+                              phx-click="toggle-output-data"
+                              phx-value-kind="request"
+                              aria-expanded={to_string(@output_request_open?)}
+                            >{if @output_request_open?, do: "Hide Request", else: "Show Request"}</button>
+                            <button
+                              id="show-run-response"
+                              type="button"
+                              phx-click="toggle-output-data"
+                              phx-value-kind="response"
+                              aria-expanded={to_string(@output_response_open?)}
+                            >{if @output_response_open?,
+                              do: "Hide Response",
+                              else: "Show Response"}</button>
+                          </div>
+                          <div
+                            :if={@output_request_open? or @output_response_open?}
+                            class="trace-data-display"
+                          >
+                            <div
+                              :if={@output_request_open?}
+                              id="run-request-section"
+                              class="trace-data-section"
+                            >
+                              <h4>Request</h4>
+                              <pre id="run-request" class="trace-json ullm-mono"><%= run_request_json(@form.params, @profiles) %></pre>
+                            </div>
+                            <div
+                              :if={@output_response_open?}
+                              id="run-response-section"
+                              class="trace-data-section"
+                            >
+                              <h4>Response</h4>
+                              <pre id="run-response" class="trace-json ullm-mono"><%= safe_output(@run_result) %></pre>
+                            </div>
+                          </div>
+                          <div
+                            :if={Enum.any?(@run_result["artifacts"] || [])}
+                            id="run-artifacts"
+                            class="trace-resources"
+                          >
+                            <a
+                              :for={artifact <- @run_result["artifacts"] || []}
+                              href={
+                                ~p"/traces/#{output_trace_id(@run_result)}/artifacts/#{artifact["artifactId"]}"
+                              }
+                            >{artifact["kind"]} · {artifact["sizeBytes"]} bytes</a>
+                          </div>
+                          <a
+                            :if={output_trace_id(@run_result) != ""}
+                            href={~p"/history?trace_id=#{output_trace_id(@run_result)}"}
+                            target="_blank"
+                            rel="noreferrer"
+                          >View JSON trace in History →</a>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div :if={@output_response_open?} id="run-response-section" class="space-y-1">
-                    <h3 class="font-semibold text-slate-200">Response</h3>
-                    <pre
-                      id="run-response"
-                      class="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-slate-900 p-3"
-                    ><%= safe_output(@run_result) %></pre>
-                  </div>
-                  <p class="text-slate-400">
-                    Trace: <span class="font-mono text-slate-200">{@run_result["traceId"]}</span>
-                  </p>
-                  <p class="text-slate-400">
-                    Structured repair:
-                    <span class="text-slate-200">{if Enum.any?(
-                                                       @run_result["attempts"] || [],
-                                                       & &1["repair"]
-                                                     ), do: "used", else: "not used"}</span>
-                  </p>
-                  <pre
-                    id="run-attempts"
-                    class="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-slate-900 p-3"
-                  ><%= safe_output(@run_result["attempts"] || []) %></pre>
-                  <pre
-                    id="run-result-json"
-                    class="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-slate-900 p-3"
-                  ><%= safe_output(@run_result) %></pre>
-                  <div
-                    :if={Enum.any?(@run_result["artifacts"] || [])}
-                    id="run-artifacts"
-                    class="space-y-2"
-                  >
-                    <h3 class="font-semibold text-slate-200">Trace resources</h3>
-                    <a
-                      :for={artifact <- @run_result["artifacts"] || []}
-                      href={
-                        ~p"/traces/#{@run_result["traceId"]}/artifacts/#{artifact["artifactId"]}"
-                      }
-                      class="block rounded-lg border border-slate-700 px-3 py-2 text-teal-300 hover:bg-slate-800"
-                    >{artifact["kind"]} · {artifact["sizeBytes"]} bytes</a>
-                  </div>
-                  <a
-                    :if={@run_result["traceId"]}
-                    href={~p"/history?trace_id=#{@run_result["traceId"]}"}
-                    target="_blank"
-                    rel="noreferrer"
-                    class="inline-block font-semibold text-teal-300 hover:text-teal-200"
-                  >
-                    View JSON trace in History →
-                  </a>
-                </div>
+                </article>
               </div>
             </section>
 

@@ -3,7 +3,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
   import Phoenix.LiveViewTest, except: [live: 1, live: 2, live: 3]
 
-  alias HardenLlmWeb.{APIFixtures, HardenAPI}
+  alias HardenLlmWeb.{APIFixtures, HardenAPI, WorkspaceLive}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-007
   # PLAN-HLLM-WIDGET-PARITY-001 TEST-101 TEST-102 TEST-103 TEST-104 TEST-106 TEST-107 TEST-109 TEST-113
@@ -1054,7 +1054,83 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert_received {:run_payload, %{"profileId" => "Primary", "userPrompt" => "run fixture"}}
     assert has_element?(view, "#run-output", "fixture output")
     assert has_element?(view, "#run-result-panel", "trace-test")
-    assert has_element?(view, "#run-result-panel", "2")
+    assert has_element?(view, "#run-result-panel.ullm-widget.ullm-output-widget")
+    assert has_element?(view, ".ullm-run-output-label", "Latest output")
+
+    assert has_element?(
+             view,
+             ".ullm-run-output-meta",
+             "responses · https://provider.example.test/v1"
+           )
+
+    assert has_element?(view, ".llm-trace-summary", "ID: trace-test")
+    assert has_element?(view, ".llm-trace-summary", "Model: model-test")
+    assert has_element?(view, ".llm-trace-summary", "📥 1")
+    assert has_element?(view, ".llm-trace-summary", "📤 1")
+    assert has_element?(view, ".llm-trace-summary", "$0.0010")
+    assert has_element?(view, ".llm-trace-details", "Success (200)")
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-035
+  test "output trace helpers normalize utility usage, retries, repair, and status fields" do
+    result =
+      APIFixtures.run_result()
+      |> Map.put("totalCallDurationMs", 1050)
+      |> Map.put("attempts", [
+        %{
+          "attempt" => 1,
+          "outcome" => "rate_limit",
+          "statusCode" => 429,
+          "retryable" => true,
+          "delayMs" => 500,
+          "repair" => true
+        },
+        %{"attempt" => 2, "outcome" => "success", "statusCode" => 200}
+      ])
+      |> put_in(["usage", "inputTokens"], 1_830)
+      |> put_in(["usage", "cacheReadTokens"], 200)
+      |> put_in(["usage", "cacheCreationTokens"], 50)
+      |> put_in(["usage", "outputTokens"], 122)
+      |> put_in(["usage", "totalTokens"], 2_202)
+
+    assert WorkspaceLive.output_meta(result, APIFixtures.state(), [APIFixtures.profile_state()]) ==
+             "responses · https://provider.example.test/v1"
+
+    assert WorkspaceLive.output_model_id(result, APIFixtures.state(), [
+             APIFixtures.profile_state()
+           ]) ==
+             "model-test"
+
+    assert WorkspaceLive.output_trace_id(result) == "trace-test"
+    assert WorkspaceLive.output_measured?(result)
+    assert WorkspaceLive.output_attempt_count(result) == 2
+    assert WorkspaceLive.output_duration(result) == "1.05s"
+    assert WorkspaceLive.output_number(1_830) == "1,830"
+    assert WorkspaceLive.output_cache_tokens(result) == 250
+    assert WorkspaceLive.output_cost(result) == "$0.0010"
+    assert WorkspaceLive.output_used_repair?(result)
+
+    assert WorkspaceLive.output_attempts(result) == [
+             %{
+               "attempt" => 1,
+               "category" => "rate_limit",
+               "statusCode" => 429,
+               "retryable" => true,
+               "delayMs" => 500
+             },
+             %{
+               "attempt" => 2,
+               "category" => "success",
+               "statusCode" => 200,
+               "retryable" => false,
+               "delayMs" => 0
+             }
+           ]
+
+    failure = Map.merge(result, %{"category" => "rate_limit", "statusCode" => 429})
+    refute WorkspaceLive.output_success?(failure)
+    assert WorkspaceLive.output_status_icon(failure) == "❌"
+    assert WorkspaceLive.output_status_label(failure) == "Rate Limit (429)"
   end
 
   test "structured calls reject invalid local JSON without backend mutation", %{conn: conn} do
@@ -1098,7 +1174,16 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     submit_run(view, %{"userPrompt" => "resource controls"})
     render_async(view, 1_000)
+    assert has_element?(view, "#show-run-request")
+    assert has_element?(view, "#show-run-response")
+
     view |> element("#output-details-toggle") |> render_click()
+    render_async(view, 1_000)
+    refute has_element?(view, "#show-run-request")
+    refute has_element?(view, "#show-run-response")
+
+    view |> element("#output-details-toggle") |> render_click()
+    render_async(view, 1_000)
     assert has_element?(view, "#show-run-request")
     assert has_element?(view, "#show-run-response")
 

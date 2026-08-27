@@ -173,11 +173,11 @@ defmodule HardenLlmWeb.RenderingTest do
 
     assert has_element?(
              workspace,
-             "#run-output.max-h-80.overflow-auto.whitespace-pre-wrap.break-words"
+             "#run-output.ullm-result-body.ullm-mono"
            )
 
-    assert has_element?(workspace, ~s(#run-result-panel dd.truncate[title="#{long_run}"]))
-    assert has_element?(workspace, ~s(#run-result-panel dd.truncate[title="#{long_trace}"]))
+    assert has_element?(workspace, "#run-result-panel", long_run)
+    assert has_element?(workspace, "#run-result-panel", long_trace)
     assert has_element?(workspace, ~s(#workspace-history .truncate[title="#{long_run}"]))
 
     {:ok, profiles, _html} = live(conn, ~p"/profiles")

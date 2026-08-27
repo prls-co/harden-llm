@@ -16,7 +16,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     "retryRepairOpen" => false,
     "inputAdvancedOpen" => false,
     "historyOpen" => false,
-    "outputDetailsOpen" => false
+    "outputDetailsOpen" => true
   }
 
   @default_schema %{
@@ -816,6 +816,285 @@ defmodule HardenLlmWeb.WorkspaceLive do
     "curl -X POST /api/v1/run -H 'content-type: application/json' --data-raw '#{body}'"
   end
 
+  def output_meta(run_result, params, profiles) do
+    params = params || %{}
+    profile = output_profile(run_result, params, profiles)
+
+    inference_type =
+      output_text([
+        run_result["apiInferenceType"],
+        params["apiInferenceType"],
+        get_in(profile, ["profile", "apiInferenceType"])
+      ]) || "-"
+
+    base_url =
+      output_text([
+        run_result["providerBaseUrl"],
+        params["baseUrl"],
+        get_in(profile, ["profile", "baseUrl"])
+      ]) || "-"
+
+    "#{inference_type} · #{base_url}"
+  end
+
+  def output_model_id(run_result, params, profiles) do
+    params = params || %{}
+    profile = output_profile(run_result, params, profiles)
+
+    output_text([
+      run_result["modelId"],
+      params["modelId"],
+      get_in(profile, ["profile", "modelId"])
+    ]) || ""
+  end
+
+  def output_trace_id(run_result) do
+    output_text([
+      run_result["traceId"],
+      run_result["callId"],
+      run_result["runId"],
+      "trace"
+    ]) || "trace"
+  end
+
+  def output_measured?(run_result) do
+    output_number_value(get_in(run_result, ["usage", "totalTokens"])) not in [nil, 0]
+  end
+
+  def output_status_icon(run_result), do: if(output_success?(run_result), do: "✅", else: "❌")
+
+  def output_success?(run_result) do
+    category = output_category(run_result)
+    status = output_status_value(run_result)
+    status_text = String.downcase(to_string(run_result["status"] || ""))
+
+    category in [nil, "", "success", "ok"] and
+      status_text not in ["failed", "failure", "error", "timeout"] and
+      (is_nil(status) or status < 400)
+  end
+
+  def output_error_category(run_result) do
+    output_category(run_result)
+    |> case do
+      nil -> "Error"
+      category -> output_title_case(category)
+    end
+  end
+
+  def output_status_label(run_result) do
+    label = if output_success?(run_result), do: "Success", else: output_error_category(run_result)
+    status = output_status_value(run_result) || if(output_success?(run_result), do: 200, else: "")
+    "#{label} (#{status})"
+  end
+
+  def output_attempt_count(run_result) do
+    case output_number_value(run_result["attempts"]) do
+      attempts when is_number(attempts) and attempts > 0 ->
+        trunc(attempts)
+
+      _ ->
+        case run_result["attempts"] do
+          attempts when is_list(attempts) and attempts != [] -> length(attempts)
+          _ -> max(output_number_value(run_result["totalAttempts"]) || 1, 1)
+        end
+    end
+  end
+
+  def output_duration(run_result) do
+    duration_ms =
+      output_number_value(
+        run_result["totalCallDurationMs"] || run_result["durationMs"] || run_result["totalWaitMs"]
+      ) || 0
+
+    seconds = duration_ms / 1000
+    :erlang.float_to_binary(seconds * 1.0, decimals: 2) <> "s"
+  end
+
+  def output_cache_tokens(run_result) do
+    cache_read = output_number_value(get_in(run_result, ["usage", "cacheReadTokens"])) || 0
+
+    cache_creation =
+      output_number_value(get_in(run_result, ["usage", "cacheCreationTokens"])) || 0
+
+    trunc(cache_read + cache_creation)
+  end
+
+  def output_number(value) do
+    value
+    |> output_number_value()
+    |> Kernel.||(0)
+    |> trunc()
+    |> Integer.to_string()
+    |> output_group_digits()
+  end
+
+  def output_cost(run_result) do
+    cost = run_result["cost"] || %{}
+
+    if cost["known"] == false do
+      nil
+    else
+      case output_number_value(cost["totalUsd"]) do
+        nil -> nil
+        value -> "$" <> :erlang.float_to_binary(value * 1.0, decimals: 4)
+      end
+    end
+  end
+
+  def output_used_repair?(run_result) do
+    truthy?(run_result["usedRepair"]) or
+      Enum.any?(output_raw_attempts(run_result), fn attempt ->
+        is_map(attempt) and (truthy?(attempt["repair"]) or truthy?(attempt["usedRepair"]))
+      end)
+  end
+
+  def output_attempts(run_result) do
+    case run_result["attempts"] do
+      attempts when is_list(attempts) and attempts != [] ->
+        Enum.with_index(attempts, 1)
+        |> Enum.map(fn {attempt, index} ->
+          normalize_output_attempt(attempt, index, run_result)
+        end)
+
+      _ ->
+        [
+          %{
+            "attempt" => 1,
+            "category" =>
+              if(output_success?(run_result),
+                do: "success",
+                else: output_error_category(run_result)
+              ),
+            "statusCode" =>
+              output_status_value(run_result) ||
+                if(output_success?(run_result), do: 200, else: nil),
+            "retryable" => false,
+            "delayMs" => 0
+          }
+        ]
+    end
+  end
+
+  def output_trace_url(run_result) do
+    case output_text([run_result["traceUrl"], run_result["url"]]) do
+      nil -> nil
+      url -> url
+    end
+  end
+
+  defp output_profile(run_result, params, profiles) do
+    profile_id = params["selectedProfileId"] || run_result["profileId"] || ""
+    selected_profile(profiles || [], profile_id) || %{}
+  end
+
+  defp output_category(run_result) do
+    output_text([
+      run_result["lastErrorCategory"],
+      run_result["category"],
+      run_result["outcome"]
+    ])
+  end
+
+  defp output_status_value(run_result) do
+    output_number_value(
+      run_result["lastErrorStatus"] || run_result["statusCode"] || run_result["status"]
+    )
+  end
+
+  defp normalize_output_attempt(attempt, index, run_result) when is_map(attempt) do
+    category =
+      output_text([attempt["category"], attempt["outcome"]]) || output_category(run_result) ||
+        "success"
+
+    %{
+      "attempt" => trunc(output_number_value(attempt["attempt"]) || index),
+      "category" => category,
+      "statusCode" =>
+        output_number_value(attempt["status"] || attempt["statusCode"]) ||
+          output_status_value(run_result) || if(category in ["success", "ok"], do: 200, else: nil),
+      "retryable" => truthy?(attempt["retryable"]),
+      "delayMs" => trunc(output_number_value(attempt["delayMs"]) || 0)
+    }
+  end
+
+  defp normalize_output_attempt(_attempt, index, run_result) do
+    normalize_output_attempt(%{}, index, run_result)
+  end
+
+  defp output_raw_attempts(run_result) do
+    case run_result["attempts"] do
+      attempts when is_list(attempts) -> attempts
+      _ -> []
+    end
+  end
+
+  defp output_text(values) do
+    Enum.find_value(values, fn
+      value when value in [nil, false] ->
+        nil
+
+      value when is_binary(value) ->
+        case String.trim(value) do
+          "" -> nil
+          text -> text
+        end
+
+      value when is_atom(value) ->
+        Atom.to_string(value)
+
+      value when is_number(value) ->
+        to_string(value)
+
+      _ ->
+        nil
+    end)
+  end
+
+  defp output_title_case(value) do
+    value
+    |> to_string()
+    |> String.split(~r/[\s_-]+/)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.map(&String.capitalize(&1))
+    |> Enum.join(" ")
+  end
+
+  defp output_number_value(nil), do: nil
+  defp output_number_value(value) when is_integer(value) or is_float(value), do: value
+
+  defp output_number_value(value) when is_binary(value) do
+    case Integer.parse(String.trim(value)) do
+      {number, ""} ->
+        number
+
+      _ ->
+        case Float.parse(String.trim(value)) do
+          {number, ""} -> number
+          _ -> nil
+        end
+    end
+  end
+
+  defp output_number_value(_value), do: nil
+
+  defp output_group_digits(value) do
+    {sign, digits} =
+      if String.starts_with?(value, "-"),
+        do: {"-", String.slice(value, 1..-1//1)},
+        else: {"", value}
+
+    grouped =
+      digits
+      |> String.reverse()
+      |> String.graphemes()
+      |> Enum.chunk_every(3)
+      |> Enum.map(&Enum.join/1)
+      |> Enum.join(",")
+      |> String.reverse()
+
+    sign <> grouped
+  end
+
   defp run_request(params, profiles) do
     case run_payload(params || %{}, profiles) do
       {:ok, payload} -> payload
@@ -837,8 +1116,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
   def schema_status_class(%{status: :valid}), do: "text-emerald-700"
   def schema_status_class(_), do: "text-slate-500"
 
-  attr :label, :string, required: true
-  attr :value, :any, default: nil
+  attr(:label, :string, required: true)
+  attr(:value, :any, default: nil)
 
   def result_fact(assigns) do
     ~H"""
@@ -851,8 +1130,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
     """
   end
 
-  attr :label, :string, required: true
-  attr :value, :any, default: nil
+  attr(:label, :string, required: true)
+  attr(:value, :any, default: nil)
 
   def history_fact(assigns) do
     ~H"""

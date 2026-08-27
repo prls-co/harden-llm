@@ -73,6 +73,7 @@ button, a, input, select, textarea { touch-action: manipulation; }
    be embedded beside another application's prompt or result component. */
 :root {
   --ullm-panel: #fffaf0;
+  --ullm-panel-strong: #f8f5ed;
   --ullm-panel-muted: #eef2ea;
   --ullm-text: #17211d;
   --ullm-text-muted: #5b665c;
@@ -111,6 +112,259 @@ button, a, input, select, textarea { touch-action: manipulation; }
   border-radius: 8px;
   background: rgb(255 250 240 / 90%);
   box-shadow: 0 .8rem 2.2rem rgb(23 33 29 / 7%);
+}
+
+.ullm-result-panel {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+.ullm-output-widget {
+  font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  gap: .85em;
+  padding: 1em;
+  box-shadow: 0 11.2px 30.8px rgb(23 33 29 / 7%);
+}
+
+.ullm-output-widget .ullm-widget-header {
+  gap: .75em;
+}
+
+.ullm-output-widget .ullm-widget-header h2 {
+  font-size: .78em;
+}
+
+.ullm-result-body {
+  max-height: 448px;
+  overflow: auto;
+  border: 1px solid var(--ullm-border);
+  border-radius: 8px;
+  padding: 11.9px;
+  color: #10201b;
+  background: var(--ullm-panel-muted);
+  font-size: .84em;
+}
+
+.ullm-run-output {
+  border: 1px solid var(--ullm-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgb(255 255 255 / 42%);
+}
+
+.ullm-run-output-head {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: .6em;
+}
+
+.ullm-run-output-label {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  gap: .65em;
+  min-height: 2.25em;
+  padding: .45em .65em;
+  text-align: left;
+}
+
+.ullm-run-output-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .35em;
+  padding: .35em;
+}
+
+.ullm-run-output-title {
+  flex: 0 0 auto;
+  color: var(--ullm-text-muted);
+  font-size: .78em;
+}
+
+.ullm-run-output-meta {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ullm-text-muted);
+  font-size: .78em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ullm-run-output-body {
+  display: flex;
+  flex-direction: column;
+  gap: .6em;
+  border-top: 1px solid var(--ullm-border);
+  padding: .7em;
+}
+
+.ullm-empty-text {
+  color: var(--ullm-text-muted);
+}
+
+.ullm-output-trace {
+  margin-top: .65em;
+}
+
+.llm-trace-item {
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 8px;
+  background-color: #fff;
+}
+
+.llm-trace-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75em;
+  padding: 8px;
+  cursor: pointer;
+  background-color: #f9f9f9;
+}
+
+.llm-trace-summary:hover {
+  background-color: #f1f1f1;
+}
+
+.llm-trace-summary .status-icon {
+  margin-right: 8px;
+}
+
+.llm-trace-summary .error-category {
+  margin-left: 4px;
+  color: #d9534f;
+  font-size: .9em;
+}
+
+.llm-trace-model {
+  max-width: 308px;
+  overflow: hidden;
+  color: #555;
+  font-size: .9em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.llm-trace-summary > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.llm-trace-summary button {
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: #fff;
+  cursor: pointer;
+  font-size: .9em;
+}
+
+.llm-trace-summary button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.llm-trace-details {
+  padding: 12px;
+  border-top: 1px solid #eee;
+  background-color: #fafafa;
+}
+
+.llm-trace-details p {
+  margin: 0 0 8px;
+}
+
+.llm-trace-details strong {
+  font-weight: 600;
+}
+
+.llm-trace-details ul {
+  margin: 4px 0 10px 20px;
+  padding: 0;
+}
+
+.llm-trace-details .trace-resources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.llm-trace-details .trace-resources button,
+.llm-trace-details .trace-resources a,
+.trace-resource-disabled {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  color: #333;
+  background-color: #fff;
+  font-size: .9em;
+  text-decoration: none;
+}
+
+.trace-resource-disabled {
+  opacity: .55;
+}
+
+.trace-data-display {
+  margin-top: 15px;
+  border-top: 1px solid #eee;
+  padding-top: 10px;
+  text-align: left;
+}
+
+.trace-data-section + .trace-data-section {
+  margin-top: .75em;
+}
+
+.trace-data-display h4 {
+  margin: 0 0 5px;
+}
+
+.trace-json {
+  max-height: 336px;
+  overflow: auto;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: .75em;
+  background: #fff;
+}
+
+.trace-data-display + .trace-resources {
+  margin-top: .75em;
+}
+
+.llm-trace-details > a {
+  display: inline-block;
+  margin-top: .75em;
+  color: var(--ullm-accent-muted);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.llm-trace-details > a:hover {
+  text-decoration: underline;
+}
+
+.ullm-output-widget .ullm-btn {
+  background: var(--ullm-panel-strong);
+}
+
+.ullm-output-widget .ullm-btn-tiny {
+  min-height: 25.2px;
+  padding: 3.92px 7.7px;
+  font-size: .78em;
 }
 
 .ullm-widget-header {
