@@ -248,7 +248,12 @@
                     </div>
                   </div>
                   <div class="ullm-run-output-body">
-                    <pre id="run-output" class="ullm-result-body ullm-mono"><%= safe_output(@run_result["output"]) %></pre>
+                    <p :if={is_nil(@run_result["output"])} class="ullm-empty-text">No output.</p>
+                    <pre
+                      :if={!is_nil(@run_result["output"])}
+                      id="run-output"
+                      class="ullm-result-body ullm-mono"
+                    ><%= safe_output(@run_result["output"]) %></pre>
                     <div :if={output_measured?(@run_result)} class="ullm-output-trace">
                       <div class="llm-trace-item">
                         <div
@@ -271,12 +276,21 @@
                             >({output_error_category(@run_result)})</span>
                           </div>
                           <div>
-                            <span>🔁 {output_attempt_count(@run_result)}</span>
-                            <span>⏱️ {output_duration(@run_result)}</span>
-                            <span>📥 {output_number(get_in(@run_result, ["usage", "inputTokens"]))}</span>
-                            <span>↺ {output_number(output_cache_tokens(@run_result))}</span>
-                            <span>📤 {output_number(get_in(@run_result, ["usage", "outputTokens"]))}</span>
-                            <span :if={output_cost(@run_result)}>{output_cost(@run_result)}</span>
+                            <span title="Attempts">🔁 {output_attempt_count(@run_result)}</span>
+                            <span title="Duration">⏱️ {output_duration(@run_result)}</span>
+                            <span title="Input tokens">📥 {output_number(
+                              get_in(@run_result, ["usage", "inputTokens"])
+                            )}</span>
+                            <span title="Cache tokens">↺ {output_number(
+                              output_cache_tokens(@run_result)
+                            )}</span>
+                            <span title="Output tokens">📤 {output_number(
+                              output_output_tokens(@run_result)
+                            )}</span>
+                            <span
+                              :if={output_cost(@run_result)}
+                              title={output_cost_title(@run_result)}
+                            >{output_cost(@run_result)}</span>
                             <button
                               id="output-details-toggle"
                               type="button"
@@ -324,17 +338,10 @@
                           <strong>Resources:</strong>
                           <div class="trace-resources">
                             <a
-                              :if={output_trace_url(@run_result)}
-                              href={output_trace_url(@run_result)}
+                              href={~p"/history?trace_id=#{output_trace_id(@run_result)}"}
                               target="_blank"
-                              rel="noreferrer"
+                              rel="noopener noreferrer"
                             >View JSON Trace</a>
-                            <button
-                              :if={is_nil(output_trace_url(@run_result))}
-                              type="button"
-                              disabled
-                              class="trace-resource-disabled"
-                            >View JSON Trace</button>
                             <button
                               id="copy-run-curl"
                               type="button"
@@ -391,12 +398,6 @@
                               }
                             >{artifact["kind"]} · {artifact["sizeBytes"]} bytes</a>
                           </div>
-                          <a
-                            :if={output_trace_id(@run_result) != ""}
-                            href={~p"/history?trace_id=#{output_trace_id(@run_result)}"}
-                            target="_blank"
-                            rel="noreferrer"
-                          >View JSON trace in History →</a>
                         </div>
                       </div>
                     </div>

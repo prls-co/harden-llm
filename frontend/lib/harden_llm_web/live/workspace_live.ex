@@ -678,6 +678,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     socket =
       socket
       |> assign(:ui, ui)
+      |> reset_output_data_if_closed(name, ui[name])
       |> assign(:ui_save_pending?, true)
       |> assign(:ui_error, nil)
       |> start_async(
@@ -691,6 +692,14 @@ defmodule HardenLlmWeb.WorkspaceLive do
        else: socket
      )}
   end
+
+  defp reset_output_data_if_closed(socket, "outputDetailsOpen", false) do
+    socket
+    |> assign(:output_request_open?, false)
+    |> assign(:output_response_open?, false)
+  end
+
+  defp reset_output_data_if_closed(socket, _name, _open), do: socket
 
   def status_label(:loading), do: "Checking backend"
   def status_label(:ready), do: "Backend ready"
@@ -758,6 +767,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     end
   end
 
+  def safe_output(nil), do: ""
   def safe_output(value) when is_binary(value), do: value
   def safe_output(value), do: Jason.encode!(value, pretty: true)
 
@@ -858,7 +868,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   def output_measured?(run_result) do
-    output_number_value(get_in(run_result, ["usage", "totalTokens"])) not in [nil, 0]
+    case output_number_value(get_in(run_result, ["usage", "totalTokens"])) do
+      total_tokens when is_number(total_tokens) -> total_tokens > 0
+      _ -> false
+    end
   end
 
   def output_status_icon(run_result), do: if(output_success?(run_result), do: "✅", else: "❌")
@@ -876,34 +889,39 @@ defmodule HardenLlmWeb.WorkspaceLive do
   def output_error_category(run_result) do
     output_category(run_result)
     |> case do
-      nil -> "Error"
-      category -> output_title_case(category)
+      nil -> "error"
+      category -> category
     end
   end
 
   def output_status_label(run_result) do
-    label = if output_success?(run_result), do: "Success", else: output_error_category(run_result)
+    label =
+      if output_success?(run_result),
+        do: "Success",
+        else: output_title_case(output_error_category(run_result))
+
     status = output_status_value(run_result) || if(output_success?(run_result), do: 200, else: "")
     "#{label} (#{status})"
   end
 
   def output_attempt_count(run_result) do
-    case output_number_value(run_result["attempts"]) do
-      attempts when is_number(attempts) and attempts > 0 ->
-        trunc(attempts)
+    case run_result["attempts"] do
+      attempts when is_list(attempts) ->
+        length(attempts)
 
       _ ->
-        case run_result["attempts"] do
-          attempts when is_list(attempts) and attempts != [] -> length(attempts)
-          _ -> max(output_number_value(run_result["totalAttempts"]) || 1, 1)
-        end
+        max(trunc(output_number_value(run_result["totalAttempts"]) || 0), 0)
     end
   end
 
   def output_duration(run_result) do
     duration_ms =
       output_number_value(
-        run_result["totalCallDurationMs"] || run_result["durationMs"] || run_result["totalWaitMs"]
+        output_first_present([
+          run_result["totalCallDurationMs"],
+          run_result["durationMs"],
+          run_result["totalWaitMs"]
+        ])
       ) || 0
 
     seconds = duration_ms / 1000
@@ -919,6 +937,12 @@ defmodule HardenLlmWeb.WorkspaceLive do
     trunc(cache_read + cache_creation)
   end
 
+  def output_output_tokens(run_result) do
+    output_tokens = output_number_value(get_in(run_result, ["usage", "outputTokens"])) || 0
+    reasoning_tokens = output_number_value(get_in(run_result, ["usage", "reasoningTokens"])) || 0
+    trunc(output_tokens + reasoning_tokens)
+  end
+
   def output_number(value) do
     value
     |> output_number_value()
@@ -929,6 +953,33 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   def output_cost(run_result) do
+    case output_cost_value(run_result) do
+      nil -> nil
+      value -> if(output_cache_served?(run_result), do: "🗄️" <> value, else: value)
+    end
+  end
+
+  def output_cost_title(run_result) do
+    case output_cost_value(run_result) do
+      nil ->
+        nil
+
+      value ->
+        prefix =
+          if output_cache_served?(run_result),
+            do: "Cached trace-attributed cost",
+            else: "Trace-attributed cost"
+
+        "#{prefix} #{value}"
+    end
+  end
+
+  def output_cache_served?(run_result) do
+    cache = run_result["cache"] || %{}
+    truthy?(cache["served"] || cache["servedFromCache"])
+  end
+
+  defp output_cost_value(run_result) do
     cost = run_result["cost"] || %{}
 
     if cost["known"] == false do
@@ -950,35 +1001,14 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   def output_attempts(run_result) do
     case run_result["attempts"] do
-      attempts when is_list(attempts) and attempts != [] ->
+      attempts when is_list(attempts) ->
         Enum.with_index(attempts, 1)
         |> Enum.map(fn {attempt, index} ->
           normalize_output_attempt(attempt, index, run_result)
         end)
 
       _ ->
-        [
-          %{
-            "attempt" => 1,
-            "category" =>
-              if(output_success?(run_result),
-                do: "success",
-                else: output_error_category(run_result)
-              ),
-            "statusCode" =>
-              output_status_value(run_result) ||
-                if(output_success?(run_result), do: 200, else: nil),
-            "retryable" => false,
-            "delayMs" => 0
-          }
-        ]
-    end
-  end
-
-  def output_trace_url(run_result) do
-    case output_text([run_result["traceUrl"], run_result["url"]]) do
-      nil -> nil
-      url -> url
+        []
     end
   end
 
@@ -997,7 +1027,12 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp output_status_value(run_result) do
     output_number_value(
-      run_result["lastErrorStatus"] || run_result["statusCode"] || run_result["status"]
+      output_first_present([
+        run_result["lastErrorStatus"],
+        run_result["httpStatus"],
+        run_result["statusCode"],
+        run_result["status"]
+      ])
     )
   end
 
@@ -1006,14 +1041,27 @@ defmodule HardenLlmWeb.WorkspaceLive do
       output_text([attempt["category"], attempt["outcome"]]) || output_category(run_result) ||
         "success"
 
+    attempt_number =
+      case output_number_value(output_first_present([attempt["number"], attempt["attempt"]])) do
+        number when is_number(number) and number > 0 -> trunc(number)
+        _ -> index
+      end
+
+    status =
+      output_number_value(
+        output_first_present([attempt["httpStatus"], attempt["status"], attempt["statusCode"]])
+      ) || output_status_value(run_result)
+
+    status = if is_nil(status) and category in ["success", "ok"], do: 200, else: status
+
     %{
-      "attempt" => trunc(output_number_value(attempt["attempt"]) || index),
+      "attempt" => attempt_number,
       "category" => category,
-      "statusCode" =>
-        output_number_value(attempt["status"] || attempt["statusCode"]) ||
-          output_status_value(run_result) || if(category in ["success", "ok"], do: 200, else: nil),
+      "statusCode" => status,
       "retryable" => truthy?(attempt["retryable"]),
-      "delayMs" => trunc(output_number_value(attempt["delayMs"]) || 0)
+      "delayMs" =>
+        output_attempt_duration_ms(attempt["delayMs"] || attempt["waitMs"], attempt["wait"]),
+      "durationMs" => output_attempt_duration_ms(attempt["durationMs"], attempt["duration"])
     }
   end
 
@@ -1026,6 +1074,23 @@ defmodule HardenLlmWeb.WorkspaceLive do
       attempts when is_list(attempts) -> attempts
       _ -> []
     end
+  end
+
+  defp output_attempt_duration_ms(value, nanoseconds) do
+    case output_number_value(value) do
+      number when is_number(number) ->
+        trunc(number)
+
+      _ ->
+        case output_number_value(nanoseconds) do
+          number when is_number(number) -> trunc(number / 1_000_000)
+          _ -> 0
+        end
+    end
+  end
+
+  defp output_first_present(values) do
+    Enum.find(values, fn value -> not is_nil(value) and value != "" end)
   end
 
   defp output_text(values) do

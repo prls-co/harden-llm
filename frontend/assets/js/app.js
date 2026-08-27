@@ -50,7 +50,7 @@ const Clipboard = {
           if (this.el.isConnected) this.el.textContent = label
         }, 1200)
       } catch (_error) {
-        this.el.textContent = "Copy failed"
+        this.el.textContent = "Failed"
         window.setTimeout(() => {
           if (this.el.isConnected) this.el.textContent = label
         }, 1200)

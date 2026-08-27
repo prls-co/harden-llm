@@ -149,12 +149,12 @@ successful read or included in rendered state.
 | Result body | Monospace preformatted text | Pretty-prints JSON/object results; displays an empty-state message before the first run. |
 | `Copy` | Button | Copies the formatted latest result, changes to `Copied` or `Failed` briefly, and does not expose trace credentials. |
 | Trace summary | Clickable summary row | Expands/collapses measured LLM stats. The `Details` button performs the same action with an accessible label. |
-| Trace summary metrics | Text | Success/failure status, trace ID, model, retry count, duration, input/cache/output tokens, and known cost. Zero-token placeholders are not treated as measured stats. |
-| `Trace ID`, `Status`, `Used Repair`, `Attempts` | Expanded trace text/list | Shows normalized retry categories, status codes, delays, and repair metadata. |
-| `View JSON Trace` | Link or disabled button | Opens an available trace JSON resource in a new tab. If unavailable, the control remains visible but disabled. Self-hosted maps to authenticated same-origin trace/artifact access. |
+| Trace summary metrics | Text | Success/failure status, trace ID, model, retry count, duration, input/cache/output-plus-reasoning tokens, and known cost. Zero-token placeholders are not treated as measured stats; metric titles provide the same hover labels as utility-llm. |
+| `Trace ID`, `Status`, `Used Repair`, `Attempts` | Expanded trace text/list | Shows normalized retry categories, status codes, retry delays converted from the API's canonical nanosecond durations, and repair metadata. An empty attempt list remains empty (for example, a cache-served result). |
+| `View JSON Trace` | Same-origin link | Opens the authenticated History trace view in a new tab; this is the self-hosted equivalent of utility-llm's supplied JSON trace URL and uses `noopener noreferrer`. |
 | `Copy cURL` | Button | Copies the safe trace request command when the backend supplied one. Disabled if unavailable. |
-| `Show Request` / `Hide Request` | Button | Lazily fetches trace JSON once, then displays the request payload if present. Loading/errors are inline. |
-| `Show Response` / `Hide Response` | Button | Same lazy fetch path for the response payload. |
+| `Show Request` / `Hide Request` | Button | Displays the request payload from the current LiveView form; the self-hosted run response does not require a second browser fetch. |
+| `Show Response` / `Hide Response` | Button | Displays the normalized run response from the current LiveView result. Both folds reset when the parent trace details are collapsed. |
 | Request/response blocks | Monospace preformatted text | Show exact available trace payloads or an explicit unavailable message; absent properties are not represented as fake empty values. |
 
 ### 3.6 History and pagination

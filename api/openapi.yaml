@@ -1383,6 +1383,9 @@ components:
         artifacts:
           type: array
           items: {$ref: "#/components/schemas/RunArtifact"}
+        totalCallDurationMs: {type: integer, minimum: 0, description: Elapsed runtime call duration in milliseconds.}
+        totalWaitMs: {type: integer, minimum: 0, description: Sum of retry waits in milliseconds.}
+        usedRepair: {type: boolean, description: Whether structured-output repair was used.}
     RunState:
       type: object
       additionalProperties: false

@@ -63,15 +63,18 @@ type RunArtifact struct {
 }
 
 type RunOutput struct {
-	RunID     string                `json:"runId"`
-	Output    any                   `json:"output"`
-	CallID    string                `json:"callId"`
-	TraceID   string                `json:"traceId"`
-	Usage     hardenllm.Usage       `json:"usage"`
-	Cost      hardenllm.Cost        `json:"cost"`
-	Attempts  []hardenllm.Attempt   `json:"attempts"`
-	Cache     hardenllm.CacheResult `json:"cache"`
-	Artifacts []RunArtifact         `json:"artifacts"`
+	RunID               string                `json:"runId"`
+	Output              any                   `json:"output"`
+	CallID              string                `json:"callId"`
+	TraceID             string                `json:"traceId"`
+	Usage               hardenllm.Usage       `json:"usage"`
+	Cost                hardenllm.Cost        `json:"cost"`
+	Attempts            []hardenllm.Attempt   `json:"attempts"`
+	Cache               hardenllm.CacheResult `json:"cache"`
+	Artifacts           []RunArtifact         `json:"artifacts"`
+	TotalCallDurationMs int64                 `json:"totalCallDurationMs"`
+	TotalWaitMs         int64                 `json:"totalWaitMs"`
+	UsedRepair          bool                  `json:"usedRepair"`
 }
 
 type RunState struct {
@@ -221,10 +224,14 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 		}
 	}
 	artifacts, artifactRecords := runArtifacts(ownerID, runID, traceID, result.Artifacts, completedAt)
+	totalCallDurationMs := elapsedMilliseconds(startedAt, completedAt)
+	totalWaitMs := attemptWaitMilliseconds(result.Attempts)
+	usedRepair := attemptsUsedRepair(result.Attempts)
 	output = RunOutput{
 		RunID: runID, Output: result.Output, CallID: result.CallID, TraceID: traceID,
 		Usage: result.Usage, Cost: result.Cost, Attempts: append([]hardenllm.Attempt(nil), result.Attempts...),
-		Cache: result.Cache, Artifacts: artifacts,
+		Cache: result.Cache, Artifacts: artifacts, TotalCallDurationMs: totalCallDurationMs,
+		TotalWaitMs: totalWaitMs, UsedRepair: usedRepair,
 	}
 	requestDocument, _ := json.Marshal(input)
 	persistedOutput := output
@@ -234,6 +241,8 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 		"schemaVersion": 1, "runId": runID, "callId": result.CallID, "traceId": traceID,
 		"status": status, "profileId": input.ProfileID, "output": result.Output,
 		"usage": result.Usage, "cost": result.Cost, "attempts": result.Attempts, "cache": result.Cache,
+		"totalCallDurationMs": totalCallDurationMs, "totalWaitMs": totalWaitMs,
+		"usedRepair": usedRepair, "providerInvoked": len(result.Attempts) > 0,
 	})
 	observations := runObservations(ownerID, traceID, result.Attempts, completedAt)
 	persistContext, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), persistenceTimeout)
@@ -269,6 +278,30 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 		return RunOutput{}, state, errors.New("gateway: persist completed run")
 	}
 	return output, state, nil
+}
+
+func elapsedMilliseconds(started, completed time.Time) int64 {
+	if completed.Before(started) {
+		return 0
+	}
+	return completed.Sub(started).Milliseconds()
+}
+
+func attemptWaitMilliseconds(attempts []hardenllm.Attempt) int64 {
+	var total int64
+	for _, attempt := range attempts {
+		total += attempt.Wait.Milliseconds()
+	}
+	return total
+}
+
+func attemptsUsedRepair(attempts []hardenllm.Attempt) bool {
+	for _, attempt := range attempts {
+		if attempt.Repair {
+			return true
+		}
+	}
+	return false
 }
 
 func validateRunInput(input RunInput) error {

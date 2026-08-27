@@ -119,7 +119,10 @@ defmodule HardenLlmWeb.APIFixtures do
       "cost" => %{"totalUsd" => 0.001, "known" => true, "source" => "fixture"},
       "attempts" => [],
       "cache" => %{"mode" => "off", "status" => "disabled", "served" => false, "written" => false},
-      "artifacts" => []
+      "artifacts" => [],
+      "totalCallDurationMs" => 120,
+      "totalWaitMs" => 0,
+      "usedRepair" => false
     }
   end
 
