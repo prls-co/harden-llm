@@ -149,6 +149,21 @@ defmodule HardenLlmWeb.ProfileWidgetStateTest do
            ) == "gpt-5.6-luna"
   end
 
+  test "selects the seeded CPA Sol profile for escalation when it is available" do
+    profiles = [
+      %{"profile" => %{"llmProfile" => "Primary", "modelId" => "primary-model"}},
+      %{"profile" => %{"llmProfile" => "CPA GPT-5.6 Sol", "modelId" => "gpt-5.6-sol"}}
+    ]
+
+    assert ProfileWidgetState.resolve_escalation_profile_id(profiles, "Primary") ==
+             "CPA GPT-5.6 Sol"
+
+    assert ProfileWidgetState.resolve_escalation_profile_id(
+             [%{"profile" => %{"llmProfile" => "Primary"}}],
+             "Primary"
+           ) == "Primary"
+  end
+
   test "fallback movement is bounded and cache values normalize to two states" do
     assert ProfileWidgetState.move_fallback(["A", "B"], 0, "up") == ["A", "B"]
     assert ProfileWidgetState.move_fallback(["A", "B"], 1, "down") == ["A", "B"]

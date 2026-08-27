@@ -640,6 +640,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           "#profile_retryMaxDelayMs",
           "#profile_escalationAttempt",
           "#profile-escalation-profile",
+          "#profile-escalation-cache-toggle",
           "#profile-escalation-config-toggle"
         ] do
       assert has_element?(view, selector), "missing retry control #{selector}"

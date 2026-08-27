@@ -357,7 +357,7 @@ defmodule HardenLlmWeb.ProfilesLive do
 
   def field_error(errors, name), do: errors[name] || errors["profile." <> name]
 
-  attr :message, :string, default: nil
+  attr(:message, :string, default: nil)
 
   def field_error(assigns) do
     ~H"""
@@ -507,7 +507,8 @@ defmodule HardenLlmWeb.ProfilesLive do
         ),
       "escalationAttempt" =>
         option_text(escalation["attempt"] || ProfileDefaults.retry_default("escalationAttempt")),
-      "escalationProfile" => escalation["llmProfile"] || "",
+      "escalationProfile" =>
+        escalation["llmProfile"] || ProfileDefaults.default_escalation_profile_id(),
       "escalationReasoning" =>
         escalation["reasoningEffort"] || ProfileDefaults.repair_reasoning_default(),
       "pricingInput" => pricing_text(pricing["input_cost_per_token"]),
@@ -626,11 +627,17 @@ defmodule HardenLlmWeb.ProfilesLive do
         )
 
       if enabled do
+        escalation_profile =
+          case String.trim(params["escalationProfile"] || "") do
+            "" -> ProfileDefaults.default_escalation_profile_id()
+            value -> value
+          end
+
         repair = %{
           "enabled" => true,
           "escalation" => %{
             "attempt" => escalation_attempt,
-            "llmProfile" => String.trim(params["escalationProfile"] || params["profileId"] || ""),
+            "llmProfile" => escalation_profile,
             "reasoningEffort" =>
               params["escalationReasoning"] || ProfileDefaults.repair_reasoning_default()
           }

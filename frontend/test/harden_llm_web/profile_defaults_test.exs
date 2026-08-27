@@ -14,6 +14,7 @@ defmodule HardenLlmWeb.ProfileDefaultsTest do
     assert form["retryBaseDelayMs"] == "500"
     assert form["retryMaxDelayMs"] == "8000"
     assert form["escalationAttempt"] == "3"
+    assert form["escalationProfile"] == "CPA GPT-5.6 Sol"
     assert form["apiInferenceType"] == "chat-completions"
     assert form["escalationReasoning"] == "highest"
 
@@ -33,7 +34,7 @@ defmodule HardenLlmWeb.ProfileDefaultsTest do
     assert ProfileDefaults.profile_placeholder() == "OpenRouter DeepSeek V4 Flash"
     assert ProfileDefaults.base_url_placeholder() == "https://openrouter.ai/api/v1"
     assert ProfileDefaults.model_placeholder("main") == "gpt-5.6-luna"
-    assert ProfileDefaults.model_placeholder("escalation") == "gpt-5.4"
+    assert ProfileDefaults.model_placeholder("escalation") == "gpt-5.6-sol"
     assert ProfileDefaults.reasoning_default() == "lowest"
     assert ProfileDefaults.repair_reasoning_default() == "highest"
     assert ProfileDefaults.cache_mode_default() == "cache"
@@ -53,6 +54,8 @@ defmodule HardenLlmWeb.ProfileDefaultsTest do
   test "exposes the utility workspace preset and contextual help text" do
     assert ProfileDefaults.default_profile_id() == "CPA GPT-5.6 Luna"
     assert ProfileDefaults.default_model_id() == "gpt-5.6-luna"
+    assert ProfileDefaults.default_escalation_profile_id() == "CPA GPT-5.6 Sol"
+    assert ProfileDefaults.default_escalation_model_id() == "gpt-5.6-sol"
 
     assert ProfileDefaults.field_info("maxAttempts") ==
              "Total attempts for the utility call, including initial, ordinary retry, repair, and escalation attempts."

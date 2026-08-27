@@ -414,7 +414,7 @@ button, a, input, select, textarea { touch-action: manipulation; }
 
 .ullm-profile-row {
   display: grid;
-  grid-template-columns: minmax(4rem, auto) minmax(0, 1fr) minmax(4.75rem, 5.5rem) minmax(5.5rem, auto) var(--ullm-profile-control-height);
+  grid-template-columns: minmax(4rem, auto) minmax(0, 1fr) minmax(4.75rem, 5.5rem) var(--ullm-profile-control-height) var(--ullm-profile-control-height);
   align-items: center;
   gap: .65rem;
 }
@@ -831,13 +831,6 @@ button, a, input, select, textarea { touch-action: manipulation; }
 
 .ullm-profile-cache-toggle {
   transition: border-color .15s ease, background-color .15s ease, color .15s ease, box-shadow .15s ease;
-  min-width: 5.5rem;
-  white-space: nowrap;
-}
-
-.ullm-cache-toggle-label {
-  font-size: .72rem;
-  letter-spacing: .03em;
 }
 
 .ullm-profile-cache-toggle[aria-pressed="true"] {
@@ -937,10 +930,6 @@ button, a, input, select, textarea { touch-action: manipulation; }
   padding-top: .75rem;
 }
 
-.ullm-escalation-profile-row {
-  grid-template-columns: minmax(4rem, auto) minmax(0, 1fr) minmax(4.75rem, 5.5rem) var(--ullm-profile-control-height) var(--ullm-profile-control-height);
-}
-
 .ullm-delete-confirm,
 .ullm-widget-error {
   display: flex;
@@ -969,7 +958,7 @@ button, a, input, select, textarea { touch-action: manipulation; }
 
 @media (max-width: 720px) {
   .ullm-widget { padding: .85rem; }
-  .ullm-profile-row { grid-template-columns: minmax(0, 1fr) minmax(5.5rem, auto) var(--ullm-profile-control-height); }
+  .ullm-profile-row { grid-template-columns: minmax(0, 1fr) var(--ullm-profile-control-height) var(--ullm-profile-control-height); }
   .ullm-profile-category { grid-column: 1 / -1; max-width: none; }
   .ullm-profile-picker { grid-column: 1 / -1; }
   .ullm-reasoning-field { min-width: 0; }
@@ -978,7 +967,6 @@ button, a, input, select, textarea { touch-action: manipulation; }
   .ullm-model-slot-row,
   .ullm-backup-profile-row { grid-template-columns: 1fr; }
   .ullm-model-refresh-button { justify-self: start; }
-  .ullm-escalation-profile-row { grid-template-columns: minmax(0, 1fr) var(--ullm-profile-control-height); }
   .ullm-escalation-profile-row .ullm-profile-category { display: none; }
   .ullm-escalation-profile-row .ullm-profile-picker { grid-column: 1 / -1; }
 }

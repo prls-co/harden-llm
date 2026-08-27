@@ -305,6 +305,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     assert has_element?(view, "#profile_retryBaseDelayMs")
     assert has_element?(view, "#profile_retryMaxDelayMs")
     assert has_element?(view, "#profile_escalationProfile")
+    assert has_element?(view, ~s(#profile_escalationProfile[value="CPA GPT-5.6 Sol"]))
     assert has_element?(view, "#profile_escalationAttempt")
     assert has_element?(view, "#profile_escalationReasoning")
     assert has_element?(view, "#profile_pricingInput")

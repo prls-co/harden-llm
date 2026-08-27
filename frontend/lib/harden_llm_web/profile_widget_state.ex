@@ -53,6 +53,25 @@ defmodule HardenLlmWeb.ProfileWidgetState do
 
   def resolve_selected_profile_id(_profiles, selected_id), do: normalize_text(selected_id)
 
+  @doc "Resolves the default escalation profile without inventing an unknown profile."
+  def resolve_escalation_profile_id(profiles, selected_id) when is_list(profiles) do
+    profile_ids = Enum.map(profiles, &get_in(&1, ["profile", "llmProfile"]))
+    selected_id = normalize_text(selected_id)
+
+    cond do
+      ProfileDefaults.default_escalation_profile_id() in profile_ids ->
+        ProfileDefaults.default_escalation_profile_id()
+
+      selected_id in profile_ids ->
+        selected_id
+
+      true ->
+        ""
+    end
+  end
+
+  def resolve_escalation_profile_id(_profiles, selected_id), do: normalize_text(selected_id)
+
   @doc "Resolves the initial model from the selected backend-owned profile."
   def resolve_selected_model_id(profiles, profile_id, model_id) when is_list(profiles) do
     model_id = normalize_text(model_id)

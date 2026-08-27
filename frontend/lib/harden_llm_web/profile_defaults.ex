@@ -13,6 +13,8 @@ defmodule HardenLlmWeb.ProfileDefaults do
   @default_api_inference_type "chat-completions"
   @default_profile_id "CPA GPT-5.6 Luna"
   @default_model_id "gpt-5.6-luna"
+  @default_escalation_profile_id "CPA GPT-5.6 Sol"
+  @default_escalation_model_id "gpt-5.6-sol"
   @default_reasoning "lowest"
   @default_repair_reasoning "highest"
   @default_cache_mode "cache"
@@ -90,7 +92,7 @@ defmodule HardenLlmWeb.ProfileDefaults do
     "enableRetryOn5xx" => "true",
     "enableRetryOnNetworkError" => "true",
     "enableRetryOnParseError" => "true",
-    "escalationProfile" => "",
+    "escalationProfile" => @default_escalation_profile_id,
     "escalationReasoning" => @default_repair_reasoning,
     "pricingInput" => "",
     "pricingOutput" => "",
@@ -118,6 +120,12 @@ defmodule HardenLlmWeb.ProfileDefaults do
 
   @doc "Returns the model ID paired with the default workspace profile."
   def default_model_id, do: @default_model_id
+
+  @doc "Returns the default profile used for structured-repair escalation."
+  def default_escalation_profile_id, do: @default_escalation_profile_id
+
+  @doc "Returns the model ID paired with the default escalation profile."
+  def default_escalation_model_id, do: @default_escalation_model_id
 
   @doc "Returns the default reasoning level for an ordinary model run."
   def reasoning_default, do: @default_reasoning
@@ -156,6 +164,6 @@ defmodule HardenLlmWeb.ProfileDefaults do
   def base_url_placeholder, do: "https://openrouter.ai/api/v1"
 
   @doc "Returns the model-slot placeholder for the main or repair editor."
-  def model_placeholder("escalation"), do: "gpt-5.4"
+  def model_placeholder("escalation"), do: @default_escalation_model_id
   def model_placeholder(_kind), do: "gpt-5.6-luna"
 end

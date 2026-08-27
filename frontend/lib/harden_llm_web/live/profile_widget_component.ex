@@ -64,7 +64,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
      |> assign(:escalation_fallback_open, false)
      |> assign(:escalation_options_open, false)
      |> assign(:escalation_pricing_open, false)
-     |> assign(:escalation_cache_mode, ProfileDefaults.cache_mode_default())
      |> assign(:api_inference_types, @api_inference_types)
      |> assign(:model_catalog, nil)
      |> assign(:model_options, [])
@@ -710,98 +709,33 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   def render(assigns) do
     ~H"""
     <section id={@id} class="ullm-widget ullm-model-config-widget" aria-label="LLM model config">
-      <div class="ullm-profile-row">
-        <span class="ullm-profile-category" title={@category_name}>{@category_name}</span>
-        <div class="ullm-profile-picker">
-          <label for={scope_id(@id_prefix, "run_selectedProfileId")} class="ullm-profile-label">
-            <span aria-hidden="true">🤖</span><span class="ullm-sr-only">LLM Profile</span>
-          </label>
-          <.searchable_input
-            id={scope_id(@id_prefix, "run_selectedProfileId")}
-            name="run[selectedProfileId]"
-            value={@selected_profile_id}
-            options={profile_combobox_options(@profiles)}
-            allow_custom
-            required
-            placeholder={ProfileDefaults.profile_placeholder()}
-            aria_label="LLM Profile"
-            class="ullm-input ullm-profile-select"
-            phx_change="select-profile"
-            phx_target={@myself}
-          />
-        </div>
-        <div class="ullm-reasoning-field">
-          <label for={scope_id(@id_prefix, "workspace-reasoning")} class="ullm-profile-label">
-            <span aria-hidden="true">🧠</span><span class="ullm-sr-only">Reasoning</span>
-          </label>
-          <select
-            id={scope_id(@id_prefix, "workspace-reasoning")}
-            name="run[reasoningEffort]"
-            aria-label="Reasoning"
-            class="ullm-input ullm-compact-select"
-            phx-change="workspace-control"
-            phx-target={@myself}
-            disabled={reasoning_options(@profiles, @selected_profile_id) == []}
-          >
-            <option
-              :if={reasoning_options(@profiles, @selected_profile_id) == []}
-              value=""
-              selected
-            >
-              —
-            </option>
-            <option
-              :for={{value, label} <- reasoning_options(@profiles, @selected_profile_id)}
-              value={value}
-              selected={@reasoning_effort == value}
-            >
-              {label}
-            </option>
-          </select>
-        </div>
-        <button
-          id={scope_id(@id_prefix, "workspace-cache-toggle")}
-          type="button"
-          class="ullm-btn ullm-profile-cache-toggle"
-          phx-click="toggle-cache"
-          phx-target={@myself}
-          aria-label={cache_label(@cache_mode)}
-          aria-pressed={to_string(@cache_mode == "cache")}
-          data-cache-mode={@cache_mode}
-          title={cache_title(@cache_mode)}
-        >
-          <span aria-hidden="true">{cache_icon(@cache_mode)}</span>
-          <span class="ullm-cache-toggle-label">{cache_mode_label(@cache_mode)}</span>
-        </button>
-        <select
-          id={scope_id(@id_prefix, "workspace-cache")}
-          name="run[cacheMode]"
-          class="ullm-sr-only"
-          aria-label="Cache mode"
-          phx-change="workspace-control"
-          phx-target={@myself}
-        >
-          <option value="cache" selected={@cache_mode != "refresh"}>cache</option>
-          <option value="refresh" selected={@cache_mode == "refresh"}>refresh</option>
-        </select>
-        <input
-          id={scope_id(@id_prefix, "run_modelId")}
-          name="run[modelId]"
-          value={@model_id}
-          class="ullm-sr-only"
-          autocomplete="off"
-        />
-        <button
-          id={scope_id(@id_prefix, "model-config-toggle")}
-          type="button"
-          class="ullm-btn ullm-profile-config-toggle"
-          phx-click="toggle-config"
-          phx-target={@myself}
-          disabled={@fold_disabled}
-          aria-expanded={to_string(@main_config_open)}
-          aria-label="Profile config"
-        >⚙</button>
-      </div>
+      <.profile_row
+        category={@category_name}
+        profile_input_id={scope_id(@id_prefix, "run_selectedProfileId")}
+        profile_name="run[selectedProfileId]"
+        profile_value={@selected_profile_id}
+        profile_options={profile_combobox_options(@profiles)}
+        profile_required={true}
+        profile_class="ullm-input ullm-profile-select"
+        profile_change="select-profile"
+        reasoning_input_id={scope_id(@id_prefix, "workspace-reasoning")}
+        reasoning_name="run[reasoningEffort]"
+        reasoning_value={@reasoning_effort}
+        reasoning_options={reasoning_options(@profiles, @selected_profile_id)}
+        reasoning_change="workspace-control"
+        cache_input_id={scope_id(@id_prefix, "workspace-cache-toggle")}
+        cache_field_id={scope_id(@id_prefix, "workspace-cache")}
+        cache_field_name="run[cacheMode]"
+        cache_mode={@cache_mode}
+        config_id={scope_id(@id_prefix, "model-config-toggle")}
+        config_event="toggle-config"
+        config_open={@main_config_open}
+        model_input_id={scope_id(@id_prefix, "run_modelId")}
+        model_input_name="run[modelId]"
+        model_value={@model_id}
+        target={@myself}
+        fold_disabled={@fold_disabled}
+      />
 
       <div
         :if={@operation_error}
@@ -860,19 +794,19 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     """
   end
 
-  attr :id, :string, required: true
-  attr :name, :string, required: true
-  attr :value, :any, default: ""
-  attr :options, :list, default: []
-  attr :allow_custom, :boolean, default: false
-  attr :required, :boolean, default: false
-  attr :disabled, :boolean, default: false
-  attr :aria_label, :string, default: nil
-  attr :class, :string, default: "ullm-input"
-  attr :placeholder, :string, default: nil
-  attr :phx_change, :string, default: nil
-  attr :phx_target, :any, default: nil
-  attr :index, :any, default: nil
+  attr(:id, :string, required: true)
+  attr(:name, :string, required: true)
+  attr(:value, :any, default: "")
+  attr(:options, :list, default: [])
+  attr(:allow_custom, :boolean, default: false)
+  attr(:required, :boolean, default: false)
+  attr(:disabled, :boolean, default: false)
+  attr(:aria_label, :string, default: nil)
+  attr(:class, :string, default: "ullm-input")
+  attr(:placeholder, :string, default: nil)
+  attr(:phx_change, :string, default: nil)
+  attr(:phx_target, :any, default: nil)
+  attr(:index, :any, default: nil)
 
   def searchable_input(assigns) do
     assigns = assign(assigns, :normalized_options, normalize_combobox_options(assigns.options))
@@ -924,42 +858,160 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     """
   end
 
-  attr :form, :any, required: true
-  attr :kind, :string, required: true
-  attr :id_prefix, :string, required: true
-  attr :target, :any, required: true
-  attr :profiles, :list, required: true
-  attr :field_errors, :map, default: %{}
-  attr :api_inference_types, :list, default: @api_inference_types
-  attr :model_catalog, :list, default: nil
-  attr :model_options, :list, default: []
-  attr :requires_save, :boolean, default: false
-  attr :escalation_requires_save, :boolean, default: false
-  attr :backup_rows, :list, default: []
-  attr :escalation_backup_rows, :list, default: []
-  attr :fold_disabled, :boolean, default: false
-  attr :credential_open, :boolean, default: false
-  attr :fallback_open, :boolean, default: false
-  attr :options_open, :boolean, default: false
-  attr :retry_open, :boolean, default: false
-  attr :pricing_open, :boolean, default: false
-  attr :staged_key, :string, default: ""
-  attr :cache_mode, :string, default: "cache"
-  attr :config_open, :boolean, default: false
-  attr :include_retry, :boolean, default: true
-  attr :bundle_upload, :any, default: nil
-  attr :escalation_bundle_upload, :any, default: nil
-  attr :widget_id, :string, default: ""
-  attr :pending, :any, default: nil
-  attr :delete_kind, :any, default: nil
-  attr :escalation_form, :any, default: nil
-  attr :escalation_config_open, :boolean, default: false
-  attr :escalation_credential_open, :boolean, default: false
-  attr :escalation_fallback_open, :boolean, default: false
-  attr :escalation_options_open, :boolean, default: false
-  attr :escalation_pricing_open, :boolean, default: false
-  attr :escalation_staged_key, :string, default: ""
-  attr :escalation_id_prefix, :string, default: "escalation"
+  attr(:category, :string, required: true)
+  attr(:profile_input_id, :string, required: true)
+  attr(:profile_name, :string, required: true)
+  attr(:profile_value, :any, default: "")
+  attr(:profile_options, :list, default: [])
+  attr(:profile_required, :boolean, default: false)
+  attr(:profile_class, :string, default: "ullm-input")
+  attr(:profile_change, :string, default: "profile-draft-change")
+  attr(:profile_placeholder, :string, default: nil)
+  attr(:reasoning_input_id, :string, required: true)
+  attr(:reasoning_name, :string, required: true)
+  attr(:reasoning_value, :any, default: "")
+  attr(:reasoning_options, :list, default: [])
+  attr(:reasoning_change, :string, default: "profile-draft-change")
+  attr(:cache_input_id, :string, required: true)
+  attr(:cache_mode, :string, required: true)
+  attr(:cache_field_id, :string, default: nil)
+  attr(:cache_field_name, :string, default: nil)
+  attr(:config_id, :string, required: true)
+  attr(:config_event, :string, required: true)
+  attr(:config_open, :boolean, default: false)
+  attr(:model_input_id, :string, default: nil)
+  attr(:model_input_name, :string, default: nil)
+  attr(:model_value, :any, default: "")
+  attr(:target, :any, required: true)
+  attr(:fold_disabled, :boolean, default: false)
+  attr(:row_class, :string, default: "")
+
+  def profile_row(assigns) do
+    ~H"""
+    <div class={"ullm-profile-row #{@row_class}"}>
+      <span class="ullm-profile-category" title={@category}>{@category}</span>
+      <div class="ullm-profile-picker">
+        <label for={@profile_input_id} class="ullm-profile-label">
+          <span aria-hidden="true">🤖</span><span class="ullm-sr-only">LLM Profile</span>
+        </label>
+        <.searchable_input
+          id={@profile_input_id}
+          name={@profile_name}
+          value={@profile_value}
+          options={@profile_options}
+          allow_custom
+          required={@profile_required}
+          placeholder={@profile_placeholder || ProfileDefaults.profile_placeholder()}
+          aria_label="LLM Profile"
+          class={@profile_class}
+          phx_change={@profile_change}
+          phx_target={@target}
+        />
+      </div>
+      <div class="ullm-reasoning-field">
+        <label for={@reasoning_input_id} class="ullm-profile-label">
+          <span aria-hidden="true">🧠</span><span class="ullm-sr-only">Reasoning</span>
+        </label>
+        <select
+          id={@reasoning_input_id}
+          name={@reasoning_name}
+          aria-label="Reasoning"
+          class="ullm-input ullm-compact-select"
+          phx-change={@reasoning_change}
+          phx-target={@target}
+          disabled={@reasoning_options == []}
+        >
+          <option :if={@reasoning_options == []} value="" selected>—</option>
+          <option
+            :for={{value, label} <- @reasoning_options}
+            value={value}
+            selected={@reasoning_value == value}
+          >
+            {label}
+          </option>
+        </select>
+      </div>
+      <button
+        id={@cache_input_id}
+        type="button"
+        class="ullm-btn ullm-profile-cache-toggle"
+        phx-click="toggle-cache"
+        phx-target={@target}
+        aria-label={cache_label(@cache_mode)}
+        aria-pressed={to_string(@cache_mode == "cache")}
+        data-cache-mode={@cache_mode}
+        title={cache_title(@cache_mode)}
+      ><span aria-hidden="true">{cache_icon(@cache_mode)}</span></button>
+      <select
+        :if={@cache_field_id}
+        id={@cache_field_id}
+        name={@cache_field_name}
+        class="ullm-sr-only"
+        aria-label="Cache mode"
+        phx-change="workspace-control"
+        phx-target={@target}
+      >
+        <option value="cache" selected={@cache_mode != "refresh"}>cache</option>
+        <option value="refresh" selected={@cache_mode == "refresh"}>refresh</option>
+      </select>
+      <input
+        :if={@model_input_id}
+        id={@model_input_id}
+        name={@model_input_name}
+        value={@model_value}
+        class="ullm-sr-only"
+        autocomplete="off"
+      />
+      <button
+        id={@config_id}
+        type="button"
+        class="ullm-btn ullm-profile-config-toggle"
+        phx-click={@config_event}
+        phx-target={@target}
+        disabled={@fold_disabled}
+        aria-expanded={to_string(@config_open)}
+        aria-label="Profile config"
+      >⚙</button>
+    </div>
+    """
+  end
+
+  attr(:form, :any, required: true)
+  attr(:kind, :string, required: true)
+  attr(:id_prefix, :string, required: true)
+  attr(:target, :any, required: true)
+  attr(:profiles, :list, required: true)
+  attr(:field_errors, :map, default: %{})
+  attr(:api_inference_types, :list, default: @api_inference_types)
+  attr(:model_catalog, :list, default: nil)
+  attr(:model_options, :list, default: [])
+  attr(:requires_save, :boolean, default: false)
+  attr(:escalation_requires_save, :boolean, default: false)
+  attr(:backup_rows, :list, default: [])
+  attr(:escalation_backup_rows, :list, default: [])
+  attr(:fold_disabled, :boolean, default: false)
+  attr(:credential_open, :boolean, default: false)
+  attr(:fallback_open, :boolean, default: false)
+  attr(:options_open, :boolean, default: false)
+  attr(:retry_open, :boolean, default: false)
+  attr(:pricing_open, :boolean, default: false)
+  attr(:staged_key, :string, default: "")
+  attr(:cache_mode, :string, default: "cache")
+  attr(:config_open, :boolean, default: false)
+  attr(:include_retry, :boolean, default: true)
+  attr(:bundle_upload, :any, default: nil)
+  attr(:escalation_bundle_upload, :any, default: nil)
+  attr(:widget_id, :string, default: "")
+  attr(:pending, :any, default: nil)
+  attr(:delete_kind, :any, default: nil)
+  attr(:escalation_form, :any, default: nil)
+  attr(:escalation_config_open, :boolean, default: false)
+  attr(:escalation_credential_open, :boolean, default: false)
+  attr(:escalation_fallback_open, :boolean, default: false)
+  attr(:escalation_options_open, :boolean, default: false)
+  attr(:escalation_pricing_open, :boolean, default: false)
+  attr(:escalation_staged_key, :string, default: "")
+  attr(:escalation_id_prefix, :string, default: "escalation")
 
   def profile_editor(assigns) do
     ~H"""
@@ -1441,61 +1493,26 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             />
           </div>
           <div class="ullm-escalation-profile-editor">
-            <div class="ullm-profile-row ullm-escalation-profile-row">
-              <span class="ullm-profile-category" title="Escalation Model">Escalation Model</span>
-              <div class="ullm-profile-picker">
-                <label for={"#{@id_prefix}-escalation-profile"} class="ullm-profile-label"><span aria-hidden="true">🤖</span><span class="ullm-sr-only">LLM Profile</span></label>
-                <.searchable_input
-                  id={"#{@id_prefix}-escalation-profile"}
-                  name={"#{@form.name}[escalationProfile]"}
-                  value={@form[:escalationProfile].value}
-                  options={profile_combobox_options(@profiles)}
-                  allow_custom
-                  placeholder={ProfileDefaults.profile_placeholder()}
-                  aria_label="LLM Profile"
-                  class="ullm-input"
-                  phx_change="profile-draft-change"
-                  phx_target={@target}
-                />
-              </div>
-              <div class="ullm-reasoning-field">
-                <label for={"#{@id_prefix}-escalation-reasoning"} class="ullm-profile-label"><span aria-hidden="true">🧠</span><span class="ullm-sr-only">Reasoning</span></label>
-                <select
-                  id={"#{@id_prefix}-escalation-reasoning"}
-                  name={"#{@form.name}[escalationReasoning]"}
-                  class="ullm-input ullm-compact-select"
-                  aria-label="Reasoning"
-                  phx-change="profile-draft-change"
-                  phx-target={@target}
-                  disabled={escalation_reasoning_options(@profiles, @form) == []}
-                >
-                  <option
-                    :if={escalation_reasoning_options(@profiles, @form) == []}
-                    value=""
-                    selected
-                  >
-                    —
-                  </option>
-                  <option
-                    :for={{value, label} <- escalation_reasoning_options(@profiles, @form)}
-                    value={value}
-                    selected={@form[:escalationReasoning].value == value}
-                  >
-                    {label}
-                  </option>
-                </select>
-              </div>
-              <button
-                type="button"
-                id={"#{@id_prefix}-escalation-config-toggle"}
-                class="ullm-btn ullm-profile-config-toggle"
-                phx-click="toggle-escalation-config"
-                phx-target={@target}
-                disabled={@fold_disabled}
-                aria-expanded={to_string(@config_open)}
-                aria-label="Profile config"
-              >⚙</button>
-            </div>
+            <.profile_row
+              category="Escalation Model"
+              row_class="ullm-escalation-profile-row"
+              profile_input_id={"#{@id_prefix}-escalation-profile"}
+              profile_name={"#{@form.name}[escalationProfile]"}
+              profile_value={@form[:escalationProfile].value}
+              profile_options={profile_combobox_options(@profiles)}
+              profile_change="profile-draft-change"
+              reasoning_input_id={"#{@id_prefix}-escalation-reasoning"}
+              reasoning_name={"#{@form.name}[escalationReasoning]"}
+              reasoning_value={@form[:escalationReasoning].value}
+              reasoning_options={escalation_reasoning_options(@profiles, @form)}
+              cache_input_id={"#{@id_prefix}-escalation-cache-toggle"}
+              cache_mode={@cache_mode}
+              config_id={"#{@id_prefix}-escalation-config-toggle"}
+              config_event="toggle-escalation-config"
+              config_open={@config_open}
+              target={@target}
+              fold_disabled={@fold_disabled}
+            />
             <div
               :if={@config_open}
               id={"#{@id_prefix}-escalation-config"}
@@ -1726,7 +1743,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
   defp reset_profile_forms(socket, profiles, selected_profile_id) do
     main_form = profile_form_for(profiles, selected_profile_id, :profile)
-    escalation_id = escalation_profile_id(main_form, selected_profile_id)
+    escalation_id = escalation_profile_id(main_form, selected_profile_id, profiles)
+    main_form = put_escalation_profile(main_form, escalation_id)
     escalation_form = profile_form_for(profiles, escalation_id, :escalation)
 
     socket
@@ -1742,7 +1760,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     |> assign(:escalation_staged_key, "")
     |> assign(:main_requires_save?, false)
     |> assign(:escalation_requires_save?, false)
-    |> assign(:escalation_cache_mode, ProfileDefaults.cache_mode_default())
   end
 
   defp update_profile_form(socket, :main, incoming) do
@@ -1756,7 +1773,13 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     form = to_form(params, as: :profile)
 
     escalation_id =
-      String.trim(params["escalationProfile"] || socket.assigns.selected_profile_id || "")
+      escalation_profile_id(
+        to_form(params, as: :profile),
+        socket.assigns.selected_profile_id,
+        socket.assigns.profiles
+      )
+
+    form = put_escalation_profile(form, escalation_id)
 
     socket =
       socket
@@ -1881,7 +1904,10 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       "escalationAttempt",
       option_text(escalation["attempt"] || ProfileDefaults.retry_default("escalationAttempt"))
     )
-    |> Map.put("escalationProfile", escalation["llmProfile"] || "")
+    |> Map.put(
+      "escalationProfile",
+      escalation["llmProfile"] || ProfileDefaults.default_escalation_profile_id()
+    )
     |> Map.put(
       "escalationReasoning",
       escalation["reasoningEffort"] || ProfileDefaults.repair_reasoning_default()
@@ -1988,8 +2014,18 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     end
   end
 
-  defp escalation_profile_id(form, selected_profile_id) do
-    String.trim(form.params["escalationProfile"] || selected_profile_id || "")
+  defp escalation_profile_id(form, selected_profile_id, profiles) do
+    escalation_id = String.trim(form.params["escalationProfile"] || "")
+
+    if escalation_id == ProfileDefaults.default_escalation_profile_id() do
+      ProfileWidgetState.resolve_escalation_profile_id(profiles, selected_profile_id)
+    else
+      escalation_id
+    end
+  end
+
+  defp put_escalation_profile(form, escalation_id) do
+    to_form(Map.put(form.params, "escalationProfile", escalation_id), as: form.name)
   end
 
   defp profile_id(%Phoenix.HTML.Form{} = form), do: String.trim(form.params["profileId"] || "")
@@ -2371,9 +2407,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
   defp cache_icon("refresh"), do: "↻"
   defp cache_icon(_), do: "💾"
-
-  defp cache_mode_label("refresh"), do: "Refresh"
-  defp cache_mode_label(_), do: "Cache"
 
   defp cache_label("refresh"), do: "Overwrite cache on next run"
   defp cache_label(_), do: "Use cache"

@@ -42,7 +42,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
            )
 
     assert has_element?(view, "#workspace-cache-toggle", "💾")
-    assert has_element?(view, "#workspace-cache-toggle", "Cache")
+    refute has_element?(view, "#workspace-cache-toggle .ullm-cache-toggle-label")
 
     assert has_element?(
              view,
@@ -57,7 +57,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
            )
 
     assert has_element?(view, "#workspace-cache-toggle", "↻")
-    assert has_element?(view, "#workspace-cache-toggle", "Refresh")
+    refute has_element?(view, "#workspace-cache-toggle .ullm-cache-toggle-label")
 
     assert has_element?(
              view,
@@ -156,6 +156,38 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     assert has_element?(view, ~s(#profile_pricingReasoning[placeholder="n/a"]))
     assert has_element?(view, ~s(.ullm-field-label-info[title*="Cache write applies"]))
     assert has_element?(view, ~s(.ullm-field-label-info[title*="Reasoning output applies"]))
+  end
+
+  test "main and escalation rows reuse the cache control and default escalation to CPA Sol", %{
+    conn: conn
+  } do
+    primary = profile_without_escalation("Primary", "primary-model")
+    escalation = profile("CPA GPT-5.6 Sol", "gpt-5.6-sol")
+    install_stub([primary, escalation], primary)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+
+    view |> element("#model-config-toggle") |> render_click()
+    view |> element("#profile-retry-toggle") |> render_click()
+
+    assert has_element?(view, ~s(#profile-escalation-profile[value="CPA GPT-5.6 Sol"]))
+    assert has_element?(view, ~s(#profile-escalation-cache-toggle[data-cache-mode="cache"]))
+    assert has_element?(view, "#profile-escalation-cache-toggle", "💾")
+    refute has_element?(view, "#profile-escalation-cache-toggle .ullm-cache-toggle-label")
+
+    view |> element("#profile-escalation-config-toggle") |> render_click()
+    assert has_element?(view, ~s(#escalation_modelId[value="gpt-5.6-sol"]))
+
+    view |> element("#profile-escalation-cache-toggle") |> render_click()
+
+    assert has_element?(view, ~s(#workspace-cache-toggle[data-cache-mode="refresh"]))
+    assert has_element?(view, ~s(#profile-escalation-cache-toggle[data-cache-mode="refresh"]))
+
+    view |> element("#workspace-cache-toggle") |> render_click()
+
+    assert has_element?(view, ~s(#workspace-cache-toggle[data-cache-mode="cache"]))
+    assert has_element?(view, ~s(#profile-escalation-cache-toggle[data-cache-mode="cache"]))
   end
 
   test "fallback rows use unnumbered utility actions and preserve boundary state", %{conn: conn} do
@@ -303,5 +335,10 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
   defp profile_without_reasoning(profile_id, model_id) do
     profile(profile_id, model_id)
     |> update_in(["profile"], &Map.delete(&1, "reasoningEffortMap"))
+  end
+
+  defp profile_without_escalation(profile_id, model_id) do
+    profile(profile_id, model_id)
+    |> put_in(["profile", "defaultOptions", "structuredRepairRetry"], %{"enabled" => true})
   end
 end
