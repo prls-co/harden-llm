@@ -18,7 +18,7 @@ browser -> Caddy -> Phoenix LiveView -> Go REST gateway -> hardenllm.Client.Call
 | --- | --- | --- |
 | Root Go library | provider payloads, retries, repair, schema, cache identity, usage/cost, domain projections | environment loading, exporters, auth, SQL, HTTP routes |
 | Go gateway | bearer auth, owner isolation, REST envelopes, profile catalog backfill, local profiles, persistence adapters, process telemetry | browser cookies, CSRF, HTML, duplicate provider logic |
-| Phoenix frontend | encrypted browser session, encrypted durable token vault, CSRF, presentation, REST calls | database, durable jobs, provider SDKs, pricing, retries, storage |
+| Phoenix frontend | encrypted browser session, encrypted durable token vault, CSRF, presentation, REST calls | database, durable jobs, provider SDKs, pricing, retries, domain storage |
 | Caddy | TLS, public host routing, security headers, request-size limits | application authorization |
 | Collector | the single telemetry fanout and redaction pipeline | application or provider results |
 
