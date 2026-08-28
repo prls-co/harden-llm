@@ -355,6 +355,12 @@
                           >{if @output_response_open?,
                             do: "Hide Response",
                             else: "Show Response"}</button>
+                          <a
+                            :for={artifact <- @run_result["artifacts"] || []}
+                            href={
+                              ~p"/traces/#{output_trace_id(@run_result)}/artifacts/#{artifact["artifactId"]}"
+                            }
+                          >{artifact["kind"]} · {artifact["sizeBytes"]} bytes</a>
                         </div>
                         <div
                           :if={@ui["outputDetailsOpen"]}
@@ -408,18 +414,6 @@
                             <h4>Response</h4>
                             <pre id="run-response" class="trace-json ullm-mono"><%= safe_output(@run_result) %></pre>
                           </div>
-                        </div>
-                        <div
-                          :if={Enum.any?(@run_result["artifacts"] || [])}
-                          id="run-artifacts"
-                          class="trace-resources"
-                        >
-                          <a
-                            :for={artifact <- @run_result["artifacts"] || []}
-                            href={
-                              ~p"/traces/#{output_trace_id(@run_result)}/artifacts/#{artifact["artifactId"]}"
-                            }
-                          >{artifact["kind"]} · {artifact["sizeBytes"]} bytes</a>
                         </div>
                       </div>
                     </div>

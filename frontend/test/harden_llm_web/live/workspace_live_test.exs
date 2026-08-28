@@ -1101,6 +1101,12 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
   test "one async run renders normalized result fields", %{conn: conn} do
     test_pid = self()
 
+    run_result =
+      APIFixtures.run_result()
+      |> Map.put("artifacts", [
+        %{"artifactId" => "artifact-test", "kind" => "trace", "sizeBytes" => 1373}
+      ])
+
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
         {"POST", "/api/v1/run"} ->
@@ -1109,7 +1115,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
           Req.Test.json(
             conn,
-            APIFixtures.success(APIFixtures.run_result(), %{
+            APIFixtures.success(run_result, %{
               "lastRunId" => "run-test",
               "lastTraceId" => "trace-test"
             })
@@ -1169,6 +1175,14 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, ".trace-controls #show-run-response", "Show Response")
     assert has_element?(view, ~s(.trace-controls a[href="/history?trace_id=trace-test"]))
     assert has_element?(view, ~s(.trace-controls a[rel="noopener noreferrer"]))
+
+    assert has_element?(
+             view,
+             ~s(.trace-controls a[href="/traces/trace-test/artifacts/artifact-test"]),
+             "trace · 1373 bytes"
+           )
+
+    refute has_element?(view, "#run-artifacts")
     assert has_element?(view, ".llm-trace-details", "Success (200)")
   end
 
