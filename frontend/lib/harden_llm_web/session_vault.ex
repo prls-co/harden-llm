@@ -61,8 +61,15 @@ defmodule HardenLlmWeb.SessionVault do
            auto_save: @auto_save_interval
          ) do
       {:ok, table} ->
-        schedule_cleanup()
-        {:ok, %{table: table, encryption_key: encryption_key}}
+        case File.chmod(path, 0o600) do
+          :ok ->
+            schedule_cleanup()
+            {:ok, %{table: table, encryption_key: encryption_key}}
+
+          {:error, reason} ->
+            _ = :dets.close(table)
+            {:stop, {:session_vault_permissions_failed, reason}}
+        end
 
       {:error, reason} ->
         {:stop, {:session_vault_open_failed, reason}}

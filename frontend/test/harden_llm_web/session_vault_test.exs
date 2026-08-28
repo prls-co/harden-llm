@@ -35,6 +35,8 @@ defmodule HardenLlmWeb.SessionVaultTest do
 
     path = Application.fetch_env!(:harden_llm, :session_vault) |> Keyword.fetch!(:path)
     refute File.read!(path) =~ APIFixtures.token()
+    assert {:ok, stat} = File.stat(path)
+    assert Bitwise.band(stat.mode, 0o777) == 0o600
   end
 
   test "expired entries are rejected and cleaned without waiting" do
