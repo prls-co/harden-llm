@@ -238,62 +238,18 @@
     </section>
 
     <% stats = stats_summary(@history_by_id) %>
-    <section
+    <.llm_stats_summary
       id="history-stats-summary"
+      title="LLM stats summary"
+      subtitle="Loaded records only"
+      stats={stats}
+      aria_label="LLM stats summary"
       class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-    >
-      <div class="flex items-center justify-between gap-3">
-        <h2 class="font-semibold text-slate-950">LLM stats summary</h2>
-        <span class="text-xs text-slate-500">Loaded records only</span>
-      </div>
-      <dl class="mt-4 grid grid-cols-2 gap-3 text-xs sm:grid-cols-3 lg:grid-cols-6">
-        <div class="rounded-lg bg-slate-50 p-3">
-          <dt class="text-slate-500">Success</dt><dd class="mt-1 font-mono font-semibold">
-            {stats.success}
-          </dd>
-        </div>
-        <div class="rounded-lg bg-slate-50 p-3">
-          <dt class="text-slate-500">Failed</dt><dd class="mt-1 font-mono font-semibold">
-            {stats.failed}
-          </dd>
-        </div>
-        <div class="rounded-lg bg-slate-50 p-3">
-          <dt class="text-slate-500">Timeout</dt><dd class="mt-1 font-mono font-semibold">
-            {stats.timeout}
-          </dd>
-        </div>
-        <div class="rounded-lg bg-slate-50 p-3">
-          <dt class="text-slate-500">Prompt tokens</dt><dd class="mt-1 font-mono font-semibold">
-            {stats.prompt_tokens}
-          </dd>
-        </div>
-        <div class="rounded-lg bg-slate-50 p-3">
-          <dt class="text-slate-500">Cache read</dt><dd class="mt-1 font-mono font-semibold">
-            {stats.cache_read_tokens}
-          </dd>
-        </div>
-        <div class="rounded-lg bg-slate-50 p-3">
-          <dt class="text-slate-500">Output tokens</dt><dd class="mt-1 font-mono font-semibold">
-            {stats.output_tokens}
-          </dd>
-        </div>
-        <div class="rounded-lg bg-slate-50 p-3">
-          <dt class="text-slate-500">Tokens</dt><dd class="mt-1 font-mono font-semibold">
-            {stats.total_tokens}
-          </dd>
-        </div>
-        <div class="rounded-lg bg-slate-50 p-3">
-          <dt class="text-slate-500">Known cost</dt><dd class="mt-1 font-mono font-semibold">
-            {stats.known_cost}
-          </dd>
-        </div>
-        <div class="rounded-lg bg-slate-50 p-3">
-          <dt class="text-slate-500">Avg ms</dt><dd class="mt-1 font-mono font-semibold">
-            {stats.average_duration || "—"}
-          </dd>
-        </div>
-      </dl>
-    </section>
+      grid_class="mt-4 grid grid-cols-2 gap-3 text-xs sm:grid-cols-3 lg:grid-cols-6"
+      fact_class="rounded-lg bg-slate-50 p-3"
+      value_class="mt-1 font-mono font-semibold text-slate-700"
+      labels={%{"average_duration" => "Avg ms"}}
+    />
 
     <div
       :if={@selected_trace_id}

@@ -265,157 +265,28 @@
                       class="ullm-result-body ullm-mono"
                     ><%= safe_output(@run_result["output"]) %></pre>
                     <div :if={output_measured?(@run_result)} class="ullm-output-trace">
-                      <div class="llm-trace-item">
-                        <div
-                          class="llm-trace-summary"
-                          phx-click="toggle-ui"
-                          phx-value-name="outputDetailsOpen"
-                          phx-value-open={if @ui["outputDetailsOpen"], do: "false", else: "true"}
-                        >
-                          <div>
-                            <span class="status-icon">{output_status_icon(@run_result)}</span>
-                            <strong>ID: {output_trace_id(@run_result)}</strong>
-                            <span
-                              :if={output_model_id(@run_result, @form.params, @profiles) != ""}
-                              class="llm-trace-model ullm-mono"
-                              title="Model"
-                            >Model: {output_model_id(@run_result, @form.params, @profiles)}</span>
-                            <span
-                              :if={!output_success?(@run_result)}
-                              class="error-category"
-                            >({output_error_category(@run_result)})</span>
-                          </div>
-                          <div>
-                            <span title="Attempts">🔁 {output_attempt_count(@run_result)}</span>
-                            <span title="Duration">⏱️ {output_duration(@run_result)}</span>
-                            <span
-                              id="run-cache-status"
-                              class={"ullm-cache-status ullm-cache-status-#{output_cache_status(@run_result)}"}
-                              data-cache-status={output_cache_status(@run_result)}
-                              title={output_cache_status_title(@run_result)}
-                              aria-label={"Harden-LLM cache: #{output_cache_status_label(@run_result)}"}
-                              role="img"
-                            >💾</span>
-                            <span title="Input tokens">📥 {output_number(
-                              get_in(@run_result, ["usage", "inputTokens"])
-                            )}</span>
-                            <span title="Cache tokens">↺ {output_number(
-                              output_cache_tokens(@run_result)
-                            )}</span>
-                            <span title="Output tokens">📤 {output_number(
-                              output_output_tokens(@run_result)
-                            )}</span>
-                            <span
-                              :if={output_cost(@run_result)}
-                              title={output_cost_title(@run_result)}
-                            >{output_cost(@run_result)}</span>
-                          </div>
-                        </div>
-                        <div class="trace-resources trace-controls">
-                          <button
-                            id="output-details-toggle"
-                            type="button"
-                            phx-click="toggle-ui"
-                            phx-value-name="outputDetailsOpen"
-                            phx-value-open={
-                              if @ui["outputDetailsOpen"], do: "false", else: "true"
-                            }
-                            aria-label={
-                              if @ui["outputDetailsOpen"],
-                                do: "Hide trace details",
-                                else: "Show trace details"
-                            }
-                            aria-expanded={to_string(@ui["outputDetailsOpen"])}
-                            disabled={@ui_save_pending?}
-                          >{if @ui["outputDetailsOpen"], do: "Hide", else: "Details"}</button>
-                          <a
-                            href={~p"/history?trace_id=#{output_trace_id(@run_result)}"}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >View JSON Trace</a>
-                          <button
-                            id="copy-run-curl"
-                            type="button"
-                            phx-hook="Clipboard"
-                            data-copy-value={run_curl(@form.params, @profiles)}
-                          >Copy cURL</button>
-                          <button
-                            id="show-run-request"
-                            type="button"
-                            phx-click="toggle-output-data"
-                            phx-value-kind="request"
-                            aria-expanded={to_string(@output_request_open?)}
-                          >{if @output_request_open?, do: "Hide Request", else: "Show Request"}</button>
-                          <button
-                            id="show-run-response"
-                            type="button"
-                            phx-click="toggle-output-data"
-                            phx-value-kind="response"
-                            aria-expanded={to_string(@output_response_open?)}
-                          >{if @output_response_open?,
-                            do: "Hide Response",
-                            else: "Show Response"}</button>
-                          <a
-                            :for={artifact <- @run_result["artifacts"] || []}
-                            href={
-                              ~p"/traces/#{output_trace_id(@run_result)}/artifacts/#{artifact["artifactId"]}"
-                            }
-                          >{artifact["kind"]} · {artifact["sizeBytes"]} bytes</a>
-                        </div>
-                        <div
-                          :if={@ui["outputDetailsOpen"]}
-                          id="output-details"
-                          class="llm-trace-details"
-                        >
-                          <p><strong>Trace ID:</strong> {output_trace_id(@run_result)}</p>
-                          <p>
-                            <strong>Run ID:</strong> {output_text([@run_result["runId"]]) || "—"}
-                          </p>
-                          <p><strong>Status:</strong> {output_status_label(@run_result)}</p>
-                          <p>
-                            <strong>Harden-LLM cache:</strong> {output_cache_status_label(
-                              @run_result
-                            )}
-                          </p>
-                          <p>
-                            <strong>Used Repair:</strong> {if output_used_repair?(@run_result),
-                              do: "Yes",
-                              else: "No"}
-                          </p>
-                          <strong>Attempts:</strong>
-                          <ul>
-                            <li :for={attempt <- output_attempts(@run_result)}>
-                              Attempt {attempt["attempt"]}: {attempt["category"]} ({attempt[
-                                "statusCode"
-                              ]})
-                              <span :if={attempt["retryable"]}> - Retried after {attempt[
-                                "delayMs"
-                              ]}ms</span>
-                            </li>
-                          </ul>
-                        </div>
-                        <div
-                          :if={@output_request_open? or @output_response_open?}
-                          class="trace-data-display"
-                        >
-                          <div
-                            :if={@output_request_open?}
-                            id="run-request-section"
-                            class="trace-data-section"
-                          >
-                            <h4>Request</h4>
-                            <pre id="run-request" class="trace-json ullm-mono"><%= run_request_json(@form.params, @profiles) %></pre>
-                          </div>
-                          <div
-                            :if={@output_response_open?}
-                            id="run-response-section"
-                            class="trace-data-section"
-                          >
-                            <h4>Response</h4>
-                            <pre id="run-response" class="trace-json ullm-mono"><%= safe_output(@run_result) %></pre>
-                          </div>
-                        </div>
-                      </div>
+                      <.llm_trace
+                        id="output-trace"
+                        summary={output_trace_summary(@run_result, @form.params, @profiles)}
+                        details={output_trace_details(@run_result)}
+                        resources={@output_trace_resources}
+                        details_open={@ui["outputDetailsOpen"]}
+                        request_open={@output_request_open?}
+                        response_open={@output_response_open?}
+                        details_event="toggle-ui"
+                        details_name="outputDetailsOpen"
+                        resource_event="toggle-output-data"
+                        details_disabled={@ui_save_pending?}
+                        details_id="output-details"
+                        details_toggle_id="output-details-toggle"
+                        curl_id="copy-run-curl"
+                        request_toggle_id="show-run-request"
+                        response_toggle_id="show-run-response"
+                        request_id="run-request-section"
+                        response_id="run-response-section"
+                        request_content_id="run-request"
+                        response_content_id="run-response"
+                      />
                     </div>
                   </div>
                 </article>
@@ -562,27 +433,14 @@
               </div>
             </section>
             <% stats = stats_summary(@history) %>
-            <section
+            <.llm_stats_summary
               id="llm-stats-summary"
-              aria-label="LLM stats"
+              aria_label="LLM stats"
+              title="📊 LLM stats"
+              stats={stats}
+              navigate={~p"/history"}
               class="studio-card p-4 sm:p-5"
-            >
-              <div class="flex items-center justify-between gap-3">
-                <h2 class="font-semibold text-slate-950">📊 LLM stats</h2>
-                <.link navigate={~p"/history"} class="text-xs font-semibold text-teal-700">Full view</.link>
-              </div>
-              <dl class="mt-4 grid grid-cols-2 gap-3 text-xs sm:grid-cols-3">
-                <.result_fact label="Success" value={stats.success} />
-                <.result_fact label="Failed" value={stats.failed} />
-                <.result_fact label="Timeout" value={stats.timeout} />
-                <.result_fact label="Prompt tokens" value={stats.prompt_tokens} />
-                <.result_fact label="Cache read" value={stats.cache_read_tokens} />
-                <.result_fact label="Output tokens" value={stats.output_tokens} />
-                <.result_fact label="Tokens" value={stats.total_tokens} />
-                <.result_fact label="Known cost" value={stats.known_cost} />
-                <.result_fact label="Avg duration ms" value={stats.average_duration} />
-              </dl>
-            </section>
+            />
           </aside>
         </section>
       </div>

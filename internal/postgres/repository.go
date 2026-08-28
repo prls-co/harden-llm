@@ -402,6 +402,20 @@ func (store *Store) Run(ctx context.Context, ownerID, runID string) (RunRecord, 
 	return record, nil
 }
 
+func (store *Store) RunByTrace(ctx context.Context, ownerID, traceID string) (RunRecord, error) {
+	var record RunRecord
+	err := store.pool.QueryRow(ctx, `
+		SELECT owner_id, run_id, profile_id, trace_id, status, request, result, started_at, completed_at
+		FROM llm_runs WHERE owner_id = $1 AND trace_id = $2`, ownerID, traceID).Scan(
+		&record.OwnerID, &record.ID, &record.ProfileID, &record.TraceID, &record.Status,
+		&record.Request, &record.Result, &record.StartedAt, &record.CompletedAt,
+	)
+	if err != nil {
+		return RunRecord{}, notFound(err)
+	}
+	return record, nil
+}
+
 func (store *Store) SaveTrace(ctx context.Context, trace TraceRecord, observations []ObservationRecord) error {
 	if err := validateIdentifier("owner ID", trace.OwnerID); err != nil {
 		return err

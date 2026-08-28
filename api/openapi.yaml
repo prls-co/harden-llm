@@ -242,7 +242,7 @@ paths:
       operationId: getTrace
       tags: [Traces]
       summary: Read a domain trace
-      description: Returns one redacted trace with ordered observations and safe artifact metadata.
+      description: Returns one redacted trace with ordered observations, safe artifact metadata, and explicitly available persisted request/response resources.
       responses:
         "200":
           $ref: "#/components/responses/TraceSuccess"
@@ -827,6 +827,13 @@ components:
                       sizeBytes: 512
                       contentType: application/json
                       createdAt: "2026-07-13T12:00:01Z"
+                  resources:
+                    request:
+                      available: true
+                      payload: {profileId: Primary, userPrompt: "say ok", callType: text}
+                    response:
+                      available: true
+                      payload: {output: "ok"}
                 error: null
   schemas:
     Identifier:
@@ -1431,7 +1438,7 @@ components:
     TraceView:
       type: object
       additionalProperties: false
-      required: [traceId, record, observations, artifacts]
+      required: [traceId, record, observations, artifacts, resources]
       properties:
         traceId: {$ref: "#/components/schemas/Identifier"}
         record: {type: object}
@@ -1441,6 +1448,22 @@ components:
         artifacts:
           type: array
           items: {$ref: "#/components/schemas/TraceArtifact"}
+        resources: {$ref: "#/components/schemas/TraceResources"}
+    TraceResource:
+      type: object
+      additionalProperties: false
+      required: [available]
+      properties:
+        available: {type: boolean}
+        payload: {type: object}
+        message: {type: string, minLength: 1, maxLength: 256}
+    TraceResources:
+      type: object
+      additionalProperties: false
+      required: [request, response]
+      properties:
+        request: {$ref: "#/components/schemas/TraceResource"}
+        response: {$ref: "#/components/schemas/TraceResource"}
     TraceEnvelope:
       type: object
       additionalProperties: false

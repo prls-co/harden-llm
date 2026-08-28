@@ -87,11 +87,23 @@ type TraceObservation struct {
 	CreatedAt time.Time       `json:"createdAt"`
 }
 
+type TraceResource struct {
+	Available bool            `json:"available"`
+	Payload   json.RawMessage `json:"payload,omitempty"`
+	Message   string          `json:"message,omitempty"`
+}
+
+type TraceResources struct {
+	Request  TraceResource `json:"request"`
+	Response TraceResource `json:"response"`
+}
+
 type TraceView struct {
 	TraceID      string             `json:"traceId"`
 	Record       json.RawMessage    `json:"record"`
 	Observations []TraceObservation `json:"observations"`
 	Artifacts    []TraceArtifact    `json:"artifacts"`
+	Resources    TraceResources     `json:"resources"`
 }
 
 type ArtifactPresigner interface {
@@ -286,10 +298,40 @@ func (service *ResourceService) Trace(ctx context.Context, ownerID, traceID stri
 			Data: append(json.RawMessage(nil), observation.Data...), CreatedAt: observation.CreatedAt,
 		})
 	}
+	resources := unavailableTraceResources()
+	run, runErr := service.store.RunByTrace(ctx, ownerID, traceID)
+	switch {
+	case runErr == nil:
+		resources = TraceResources{
+			Request:  availableTraceResource(run.Request),
+			Response: availableTraceResource(run.Result),
+		}
+	case errors.Is(runErr, postgres.ErrNotFound):
+		// Domain traces can outlive the run projection or be imported without
+		// request/response data. Keep the trace readable and make the absence
+		// explicit to resource-aware clients.
+	default:
+		return TraceView{}, runErr
+	}
 	return TraceView{
 		TraceID: traceID, Record: append(json.RawMessage(nil), record.Record...),
-		Observations: publicObservations, Artifacts: publicArtifacts,
+		Observations: publicObservations, Artifacts: publicArtifacts, Resources: resources,
 	}, nil
+}
+
+func availableTraceResource(payload json.RawMessage) TraceResource {
+	return TraceResource{Available: true, Payload: append(json.RawMessage(nil), payload...)}
+}
+
+func unavailableTraceResources() TraceResources {
+	return TraceResources{
+		Request: TraceResource{
+			Message: "Request payload is not available for this trace.",
+		},
+		Response: TraceResource{
+			Message: "Response payload is not available for this trace.",
+		},
+	}
 }
 
 func (service *ResourceService) PresignArtifact(ctx context.Context, ownerID, traceID, artifactID string) (string, error) {

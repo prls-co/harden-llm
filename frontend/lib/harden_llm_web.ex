@@ -86,6 +86,7 @@ defmodule HardenLlmWeb do
       import Phoenix.HTML
       # Core UI components
       import HardenLlmWeb.CoreComponents
+      import HardenLlmWeb.LlmTraceComponents
 
       # Common modules used in templates
       alias Phoenix.LiveView.JS

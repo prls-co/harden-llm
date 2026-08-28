@@ -155,11 +155,11 @@ successful read or included in rendered state.
 | Trace summary | Clickable summary row | Expands/collapses measured LLM stats. The `Details` button performs the same action with an accessible label. |
 | Trace summary metrics | Text | Success/failure status, trace ID, model, retry count, duration, input/cache/output-plus-reasoning tokens, and known cost. Zero-token placeholders are not treated as measured stats; metric titles provide the same hover labels as utility-llm. |
 | `Trace ID`, `Status`, `Used Repair`, `Attempts` | Expanded trace text/list | Shows normalized retry categories, status codes, retry delays converted from the API's canonical nanosecond durations, and repair metadata. An empty attempt list remains empty (for example, a cache-served result). |
-| `View JSON Trace` | Same-origin link | Opens the authenticated History trace view in a new tab; this is the self-hosted equivalent of utility-llm's supplied JSON trace URL and uses `noopener noreferrer`. |
-| `Copy cURL` | Button | Copies the safe trace request command when the backend supplied one. Disabled if unavailable. |
-| `Show Request` / `Hide Request` | Button | Displays the request payload from the current LiveView form; the self-hosted run response does not require a second browser fetch. |
-| `Show Response` / `Hide Response` | Button | Displays the normalized run response from the current LiveView result. Both folds reset when the parent trace details are collapsed. |
-| Request/response blocks | Monospace preformatted text | Show exact available trace payloads or an explicit unavailable message; absent properties are not represented as fake empty values. |
+| `View JSON Trace` | Same-origin link | Opens the authenticated JSON representation at `/traces/{traceID}` in a new tab; the Phoenix controller proxies the owner-scoped Go trace response with `no-store`/`no-referrer` headers and uses `noopener noreferrer`. |
+| `Copy cURL` | Button | Copies the exact safe request payload persisted for the displayed run. It is disabled when the trace has no request resource or the run did not produce a usable payload. |
+| `Show Request` / `Hide Request` | Button | Displays the exact persisted request resource for the displayed trace, not the mutable current LiveView draft. It is disabled when the backend marks the resource unavailable. |
+| `Show Response` / `Hide Response` | Button | Displays the exact persisted run result resource for the displayed trace. It is disabled when the backend marks the resource unavailable. Both folds reset when a new run, restored trace, or parent details collapse changes the displayed trace. |
+| Request/response blocks | Monospace preformatted text | Show exact available trace payloads, including an explicit JSON `null`, or an explicit unavailable message; absent properties are not represented as fabricated empty values. Loading and fetch-error states are supported by the reusable component contract. |
 
 ### 3.6 History and pagination
 
@@ -184,6 +184,15 @@ Trace Studio composes trace details inside output/history.
 | --- | --- |
 | `LlmStatsWidget` | `LLM stats` heading; all supplied trace rows; status/category/status-code, attempts, duration, token groups, cache marker, cost, and row-local request/response/cURL/JSON trace resources. It does not own pagination. |
 | `LlmStatsSummaryWidget` | Aggregate `LLM Stats:` line with success, failure, optional timeout, prompt/output token totals, cache-aware cost, average duration, optional full-view link `⛶`, and controlled `Expand`/`Collapse` button with detail slot. It omits empty totals and zero timeout. |
+
+The Phoenix equivalent is the backend-agnostic
+`HardenLlmWeb.LlmTraceComponents` module. `<.llm_trace>` owns only markup,
+accessibility attributes, resource availability states, and event wiring; the
+host owns trace loading, persistence, and state. `<.llm_stats_summary>` accepts
+the same normalized aggregate shape independently of `WorkspaceLive` or
+`HistoryLive`. Both components use namespaced default IDs and accept host
+overrides so they can be extracted into another LLM-facing frontend without
+coupling that frontend to Harden-LLM's API client or data store.
 
 ## 4. Utility action/API contract
 

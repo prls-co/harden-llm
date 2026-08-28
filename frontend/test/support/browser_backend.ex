@@ -178,7 +178,7 @@ defmodule HardenLlmWeb.BrowserBackend do
 
       {:success, result} ->
         item = history_item(body, result)
-        trace = trace(result)
+        trace = trace(body, result)
 
         Agent.update(__MODULE__, fn state ->
           %{
@@ -326,7 +326,7 @@ defmodule HardenLlmWeb.BrowserBackend do
     }
   end
 
-  defp trace(result) do
+  defp trace(request, result) do
     %{
       "traceId" => result["traceId"],
       "record" => %{"status" => "succeeded"},
@@ -347,7 +347,11 @@ defmodule HardenLlmWeb.BrowserBackend do
           "contentType" => "application/json",
           "createdAt" => "2026-07-13T12:00:01Z"
         }
-      ]
+      ],
+      "resources" => %{
+        "request" => %{"available" => true, "payload" => request},
+        "response" => %{"available" => true, "payload" => result}
+      }
     }
   end
 

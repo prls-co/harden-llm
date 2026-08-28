@@ -147,7 +147,18 @@ defmodule HardenLlmWeb.APIFixtures do
           "contentType" => "application/json",
           "createdAt" => "2026-07-13T12:00:01Z"
         }
-      ]
+      ],
+      "resources" => %{
+        "request" => %{
+          "available" => true,
+          "payload" => %{
+            "profileId" => "Primary",
+            "userPrompt" => "safe restored prompt",
+            "callType" => "text"
+          }
+        },
+        "response" => %{"available" => true, "payload" => run_result()}
+      }
     }
   end
 

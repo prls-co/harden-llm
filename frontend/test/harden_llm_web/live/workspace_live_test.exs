@@ -1121,6 +1121,9 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
             })
           )
 
+        {"POST", "/api/v1/state"} ->
+          Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+
         _ ->
           unexpected(conn)
       end
@@ -1173,7 +1176,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, ".trace-controls #copy-run-curl", "Copy cURL")
     assert has_element?(view, ".trace-controls #show-run-request", "Show Request")
     assert has_element?(view, ".trace-controls #show-run-response", "Show Response")
-    assert has_element?(view, ~s(.trace-controls a[href="/history?trace_id=trace-test"]))
+    assert has_element?(view, ~s(.trace-controls a[href="/traces/trace-test"]))
     assert has_element?(view, ~s(.trace-controls a[rel="noopener noreferrer"]))
 
     assert has_element?(
@@ -1184,6 +1187,16 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     refute has_element?(view, "#run-artifacts")
     assert has_element?(view, ".llm-trace-details", "Success (200)")
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "changed after run"}})
+    |> render_change()
+
+    render_async(view, 1_000)
+    assert has_element?(view, "#copy-run-curl[data-copy-value*='run fixture']")
+    view |> element("#show-run-request") |> render_click()
+    assert has_element?(view, "#run-request", "run fixture")
+    refute has_element?(view, "#run-request", "changed after run")
   end
 
   test "workspace trace URL restores the redacted output after a hard refresh", %{conn: conn} do
@@ -1207,6 +1220,14 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, "#run-output", "fixture output")
     assert has_element?(view, "#run-result-panel", "trace-test")
     assert has_element?(view, "#run-result-panel", "Success (200)")
+    assert has_element?(view, ".trace-controls a[href=\"/traces/trace-test\"]", "View JSON Trace")
+
+    view |> element("#show-run-request") |> render_click()
+    assert has_element?(view, "#run-request", "safe restored prompt")
+    refute has_element?(view, "#run-request", "write a haiku joke")
+
+    view |> element("#show-run-response") |> render_click()
+    assert has_element?(view, "#run-response", "fixture output")
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-058
@@ -1355,6 +1376,22 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
                "attempt" => 2,
                "category" => "success",
                "statusCode" => 200,
+               "retryable" => false,
+               "delayMs" => 0,
+               "durationMs" => 0
+             }
+           ]
+
+    explicit_null_status =
+      result
+      |> Map.put("statusCode", 429)
+      |> Map.put("attempts", [%{"number" => 1, "category" => "rate_limit", "statusCode" => nil}])
+
+    assert WorkspaceLive.output_attempts(explicit_null_status) == [
+             %{
+               "attempt" => 1,
+               "category" => "rate_limit",
+               "statusCode" => nil,
                "retryable" => false,
                "delayMs" => 0,
                "durationMs" => 0

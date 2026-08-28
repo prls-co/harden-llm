@@ -61,6 +61,7 @@ defmodule HardenLlmWeb.Router do
 
     post "/logout", SessionController, :delete
     get "/profiles/bundle", BundleController, :show
+    get "/traces/:trace_id", TraceController, :show
     get "/traces/:trace_id/artifacts/:artifact_id", ArtifactController, :show
 
     live_session :authenticated,

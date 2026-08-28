@@ -75,6 +75,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:run_result, nil)
       |> assign(:run_error, nil)
       |> assign(:run_ref, nil)
+      |> assign(:run_request_payload, nil)
       |> assign(:conversation_trace_id, normalize_trace_id(params["trace_id"]))
       |> assign(:conversation_trace_ref, nil)
       |> assign(:draft_error, nil)
@@ -82,6 +83,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:ui_save_pending?, false)
       |> assign(:output_request_open?, false)
       |> assign(:output_response_open?, false)
+      |> assign(:output_trace_resources, %{})
       |> assign(:schema_check, %{status: :idle, message: ""})
       |> assign(:profile_provider_options, %{})
       |> assign(:profile_requires_save?, false)
@@ -316,6 +318,11 @@ defmodule HardenLlmWeb.WorkspaceLive do
       socket
       |> assign(:run_ref, nil)
       |> assign(:run_result, result)
+      |> assign(
+        :output_trace_resources,
+        output_trace_resources(result, socket.assigns.run_request_payload)
+      )
+      |> assign(:run_request_payload, nil)
       |> assign(:run_error, nil)
       |> assign(:output_request_open?, false)
       |> assign(:output_response_open?, false)
@@ -336,7 +343,12 @@ defmodule HardenLlmWeb.WorkspaceLive do
         error.message
       end
 
-    {:noreply, socket |> assign(:run_ref, nil) |> assign(:run_error, message)}
+    {:noreply,
+     socket
+     |> assign(:run_ref, nil)
+     |> assign(:run_request_payload, nil)
+     |> assign(:output_trace_resources, %{})
+     |> assign(:run_error, message)}
   end
 
   def handle_async(
@@ -347,6 +359,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
     {:noreply,
      socket
      |> assign(:run_ref, nil)
+     |> assign(:run_request_payload, nil)
+     |> assign(:output_trace_resources, %{})
      |> assign(:run_error, "The run could not be completed. Try again or check History.")}
   end
 
@@ -363,6 +377,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
          socket
          |> assign(:conversation_trace_ref, nil)
          |> assign(:run_result, result)
+         |> assign(:output_trace_resources, trace_output_resources(trace, result))
+         |> assign(:run_request_payload, nil)
          |> assign(:run_error, nil)
          |> assign(:output_request_open?, false)
          |> assign(:output_response_open?, false)}
@@ -372,6 +388,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
          socket
          |> assign(:conversation_trace_ref, nil)
          |> assign(:run_result, nil)
+         |> assign(:output_trace_resources, %{})
          |> assign(:run_error, "This conversation could not be restored.")}
     end
   end
@@ -385,6 +402,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
      socket
      |> assign(:conversation_trace_ref, nil)
      |> assign(:run_result, nil)
+     |> assign(:output_trace_resources, %{})
      |> assign(:run_error, "This conversation could not be restored.")}
   end
 
@@ -729,7 +747,9 @@ defmodule HardenLlmWeb.WorkspaceLive do
              socket
              |> assign(:form, to_form(params, as: :run))
              |> assign(:run_ref, reference)
+             |> assign(:run_request_payload, payload)
              |> assign(:run_result, nil)
+             |> assign(:output_trace_resources, %{})
              |> assign(:run_error, nil)
              |> assign(:output_request_open?, false)
              |> assign(:output_response_open?, false)
@@ -905,17 +925,85 @@ defmodule HardenLlmWeb.WorkspaceLive do
     }
   end
 
+  def output_trace_summary(run_result, params, profiles) do
+    metrics = [
+      %{"value" => "🔁 #{output_attempt_count(run_result)}", "title" => "Attempts"},
+      %{"value" => "⏱️ #{output_duration(run_result)}", "title" => "Duration"},
+      %{
+        "value" => "💾",
+        "id" => "run-cache-status",
+        "class" => "ullm-cache-status ullm-cache-status-#{output_cache_status(run_result)}",
+        "title" => output_cache_status_title(run_result),
+        "aria_label" => "Harden-LLM cache: #{output_cache_status_label(run_result)}",
+        "data_cache_status" => output_cache_status(run_result),
+        "role" => "img"
+      },
+      %{
+        "value" => "📥 #{output_number(get_in(run_result, ["usage", "inputTokens"]))}",
+        "title" => "Input tokens"
+      },
+      %{
+        "value" => "↺ #{output_number(output_cache_tokens(run_result))}",
+        "title" => "Cache tokens"
+      },
+      %{
+        "value" => "📤 #{output_number(output_output_tokens(run_result))}",
+        "title" => "Output tokens"
+      },
+      if(output_cost(run_result),
+        do: %{
+          "value" => output_cost(run_result),
+          "title" => output_cost_title(run_result)
+        },
+        else: nil
+      )
+    ]
+
+    %{
+      "status_icon" => output_status_icon(run_result),
+      "trace_id" => output_trace_id(run_result),
+      "model_id" => output_model_id(run_result, params, profiles),
+      "error_category" =>
+        if(output_success?(run_result), do: nil, else: output_error_category(run_result)),
+      "metrics" => Enum.reject(metrics, &is_nil/1)
+    }
+  end
+
+  def output_trace_details(run_result) do
+    %{
+      "trace_id" => output_trace_id(run_result),
+      "run_id" => output_text([run_result["runId"]]),
+      "status" => output_status_label(run_result),
+      "cache_status" => output_cache_status_label(run_result),
+      "used_repair" => output_used_repair?(run_result),
+      "attempts" =>
+        Enum.map(output_attempts(run_result), fn attempt ->
+          %{
+            "attempt" => attempt["attempt"],
+            "category" => attempt["category"],
+            "status_code" => attempt["statusCode"],
+            "retryable" => attempt["retryable"],
+            "delay_ms" => attempt["delayMs"]
+          }
+        end)
+    }
+  end
+
   def run_request_json(params), do: run_request_json(params, nil)
 
   def run_request_json(params, profiles), do: safe_output(run_request(params, profiles))
 
   def run_curl(params), do: run_curl(params, nil)
 
-  def run_curl(params, profiles) do
-    body = Jason.encode!(run_request(params, profiles))
+  def run_curl(params, profiles), do: request_curl(run_request(params, profiles))
+
+  def request_curl(payload) when is_map(payload) do
+    body = Jason.encode!(payload)
 
     "curl -X POST /api/v1/run -H 'content-type: application/json' --data-raw '#{body}'"
   end
+
+  def request_curl(_payload), do: nil
 
   def output_meta(run_result, params, profiles) do
     params = params || %{}
@@ -1213,9 +1301,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
       end
 
     status =
-      output_number_value(
-        output_first_present([attempt["httpStatus"], attempt["status"], attempt["statusCode"]])
-      ) || output_status_value(run_result)
+      case output_attempt_status(attempt) do
+        {:present, value} -> output_number_value(value)
+        :missing -> output_status_value(run_result)
+      end
 
     status = if is_nil(status) and category in ["success", "ok"], do: 200, else: status
 
@@ -1232,6 +1321,15 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp normalize_output_attempt(_attempt, index, run_result) do
     normalize_output_attempt(%{}, index, run_result)
+  end
+
+  defp output_attempt_status(attempt) do
+    case Enum.find(["httpStatus", "status", "statusCode"], fn key ->
+           Map.has_key?(attempt, key) and attempt[key] != ""
+         end) do
+      nil -> :missing
+      key -> {:present, attempt[key]}
+    end
   end
 
   defp output_raw_attempts(run_result) do
@@ -1428,10 +1526,97 @@ defmodule HardenLlmWeb.WorkspaceLive do
     |> assign(:conversation_trace_id, nil)
     |> assign(:conversation_trace_ref, nil)
     |> assign(:run_result, nil)
+    |> assign(:run_request_payload, nil)
+    |> assign(:output_trace_resources, %{})
     |> assign(:run_error, nil)
     |> assign(:output_request_open?, false)
     |> assign(:output_response_open?, false)
   end
+
+  defp output_trace_resources(result, request) do
+    trace_id = output_trace_id(result)
+
+    %{
+      "trace_url" => trace_url(trace_id),
+      "curl" => request_curl(request),
+      "request" =>
+        local_trace_resource(request, "Request payload is not available for this trace."),
+      "response" =>
+        local_trace_resource(result, "Response payload is not available for this trace."),
+      "artifacts" => trace_artifact_links(result, trace_id)
+    }
+  end
+
+  defp trace_output_resources(trace, result) do
+    trace_id = output_trace_id(result)
+    resources = if is_map(trace["resources"]), do: trace["resources"], else: %{}
+
+    request =
+      normalize_trace_resource(
+        resources["request"],
+        "Request payload is not available for this trace."
+      )
+
+    response =
+      normalize_trace_resource(
+        resources["response"],
+        "Response payload is not available for this trace."
+      )
+
+    %{
+      "trace_url" => trace_url(trace_id),
+      "curl" => resource_curl(request),
+      "request" => request,
+      "response" => response,
+      "artifacts" => trace_artifact_links(result, trace_id)
+    }
+  end
+
+  defp local_trace_resource(payload, _message) when is_map(payload) do
+    %{"available" => true, "payload" => payload}
+  end
+
+  defp local_trace_resource(_payload, message), do: %{"available" => false, "message" => message}
+
+  defp normalize_trace_resource(resource, message) when is_map(resource) do
+    if resource["available"] == true do
+      resource
+    else
+      %{"available" => false, "message" => output_text([resource["message"]]) || message}
+    end
+  end
+
+  defp normalize_trace_resource(_resource, message),
+    do: %{"available" => false, "message" => message}
+
+  defp resource_curl(%{"available" => true, "payload" => payload}), do: request_curl(payload)
+  defp resource_curl(_resource), do: nil
+
+  defp trace_url(trace_id) when is_binary(trace_id) and trace_id != "",
+    do: ~p"/traces/#{trace_id}"
+
+  defp trace_url(_trace_id), do: nil
+
+  defp trace_artifact_links(result, trace_id) when is_map(result) and is_binary(trace_id) do
+    result
+    |> Map.get("artifacts", [])
+    |> then(&if(is_list(&1), do: &1, else: []))
+    |> Enum.filter(fn artifact ->
+      is_map(artifact) and output_text([artifact["artifactId"]]) != ""
+    end)
+    |> Enum.map(fn artifact ->
+      artifact_id = artifact["artifactId"]
+      kind = output_text([artifact["kind"]]) || "artifact"
+      size = output_number_value(artifact["sizeBytes"]) || 0
+
+      %{
+        "href" => ~p"/traces/#{trace_id}/artifacts/#{artifact_id}",
+        "label" => "#{kind} · #{size} bytes"
+      }
+    end)
+  end
+
+  defp trace_artifact_links(_result, _trace_id), do: []
 
   defp push_conversation_url(socket, nil), do: socket
 

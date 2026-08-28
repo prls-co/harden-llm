@@ -211,6 +211,26 @@ func TestResourceRoutes(t *testing.T) {
 	if bytes.Contains(response.Body, []byte(objectKey)) || len(response.JSON["result"].(map[string]any)["artifacts"].([]any)) != 1 {
 		t.Fatalf("trace response exposed storage key: %s", response.Body)
 	}
+	traceResult := response.JSON["result"].(map[string]any)
+	traceResources := traceResult["resources"].(map[string]any)
+	requestResource := traceResources["request"].(map[string]any)
+	responseResource := traceResources["response"].(map[string]any)
+	if requestResource["available"] != true || requestResource["payload"].(map[string]any)["profileId"] != "Backup" {
+		t.Fatalf("trace request resource = %#v", requestResource)
+	}
+	if responseResource["available"] != true || responseResource["payload"].(map[string]any)["output"] != "ok" {
+		t.Fatalf("trace response resource = %#v", responseResource)
+	}
+	if bytes.Contains(response.Body, []byte("run-route-provider-secret")) {
+		t.Fatalf("trace response exposed provider secret: %s", response.Body)
+	}
+	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/traces/trace-orphan", nil, authA)
+	assertEnvelope(t, response, http.StatusOK, false)
+	orphanResources := response.JSON["result"].(map[string]any)["resources"].(map[string]any)
+	if orphanResources["request"].(map[string]any)["available"] != false ||
+		orphanResources["response"].(map[string]any)["available"] != false {
+		t.Fatalf("orphan trace resource availability = %#v", orphanResources)
+	}
 	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/traces/trace-a", nil, authB)
 	assertEnvelope(t, response, http.StatusNotFound, true)
 
@@ -317,5 +337,10 @@ func seedResourceHistory(t *testing.T, ctx context.Context, store *postgres.Stor
 		}); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if err := store.SaveTrace(ctx, postgres.TraceRecord{
+		OwnerID: "owner-a", TraceID: "trace-orphan", Record: json.RawMessage(`{"status":"succeeded"}`), CreatedAt: now, UpdatedAt: now,
+	}, nil); err != nil {
+		t.Fatal(err)
 	}
 }
