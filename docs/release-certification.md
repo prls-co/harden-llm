@@ -705,3 +705,50 @@ not alter the runtime image, so no rebuild was needed after `c43f097`:
 The new LiveView tests are the authoritative regression coverage for these
 server-owned invariants. The existing deployed browser canary remains the
 minimal native LiveSocket/combobox and production-boundary check.
+
+## Output trace details hardening (2026-08-28)
+
+Application commit `fcda74b3824fc22a517df709f0a67939b8aa0b9c` was pushed to
+`origin/main`, built once, and deployed with `--no-build --no-deps` to the
+authorized `harden-llm` production Compose project. The deployment replaced
+only the gateway and web containers and retained the Postgres, Garage,
+frontend-session, Langfuse, and observability volumes.
+
+The output trace details now project immutable run identity and diagnostics
+through `HardenLlm.LlmTraceProjection`; the LiveViews own loading and events,
+while `LlmTraceComponents` remains storage- and transport-independent. Product
+history, aggregate statistics, trace observations, and artifact metadata use
+the application Postgres database. Artifact bodies use Garage. Aggregate
+statistics are computed directly from owner-scoped `llm_runs`; the unused
+`llm_stats_totals` projection was empty before migration `2` removed it.
+
+Deletion removes Garage objects before transactionally removing run, trace,
+observation, and artifact metadata. Run persistence commits the run, trace,
+observations, and artifact references in one Postgres transaction and cleans
+uploaded Garage objects if that transaction fails. Failed and zero-token runs
+remain traceable through immutable persisted metadata.
+
+| Gate or production check | Result |
+| --- | --- |
+| `make test-fast` | accepted: 8 tasks, no failure or cleanup error |
+| `make verify` | passed: deterministic backend, integration, API, observability, race, and vulnerability gates |
+| `make test-browser` | accepted: 2 Chromium tasks, including computed cache-icon and trace-control/cURL assertions |
+| `make test-release` | accepted: 26 tasks, no failure or cleanup error |
+| Database migration | versions `1` and `2` applied; `llm_stats_totals` absent |
+| Public probes | three rounds of frontend `/healthz` and `/login`, plus API `/healthz` and `/readyz`, returned HTTP 200 |
+| Stats API | authenticated `GET /api/v1/stats` returned HTTP 200 with all 19 required aggregate fields |
+| TEST-118 | authenticated CPA GPT-5.6 Luna run, same-row trace controls, unboxed cache icon, request/response details, public-origin credential-placeholder cURL, exact smoke-history deletion, logout, and redaction passed |
+
+| Surface | Release label | Image ID/digest | Runtime result |
+| --- | --- | --- | --- |
+| Gateway | `fcda74b3824fc22a517df709f0a67939b8aa0b9c` | `sha256:d04c669ba75ce7e94442d0e3fa77358ebd24df6716d01a488358518444bc90d7` | healthy |
+| Frontend | `fcda74b3824fc22a517df709f0a67939b8aa0b9c` | `sha256:281bba025f97fad8129df46b179b7b6b1b027d1be1578760adf5f95148da3d53` | healthy |
+
+The output widget does not query telemetry backends. The default application
+OTLP receiver exports traces to Tempo and a filtered/tail-sampled copy to
+Langfuse, metrics to Prometheus, and logs to Loki. The separate PRLS receivers
+export traces to Laminar. ClickHouse is owned by Langfuse and is not an
+application source of truth. At certification time the Collector target was
+up, Tempo and Langfuse had accepted spans, Loki had accepted logs, Prometheus
+had accepted metric points, and no span, log, or metric exporter-failure
+series was present.
