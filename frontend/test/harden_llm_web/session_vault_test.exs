@@ -29,8 +29,12 @@ defmodule HardenLlmWeb.SessionVaultTest do
 
     source = File.read!("lib/harden_llm_web/session_vault.ex")
     assert source =~ ":crypto.hash(:sha256, handle)"
-    assert source =~ ":private"
+    assert source =~ ":dets.open_file"
+    assert source =~ "MessageEncryptor"
     refute source =~ ":ets.tab2list"
+
+    path = Application.fetch_env!(:harden_llm, :session_vault) |> Keyword.fetch!(:path)
+    refute File.read!(path) =~ APIFixtures.token()
   end
 
   test "expired entries are rejected and cleaned without waiting" do
@@ -42,12 +46,14 @@ defmodule HardenLlmWeb.SessionVaultTest do
     assert :ok = SessionVault.cleanup()
   end
 
-  test "a vault restart intentionally invalidates every frontend session" do
+  test "a vault restart preserves valid frontend sessions" do
     {:ok, handle} = SessionVault.insert(APIFixtures.token(), APIFixtures.expiry())
     assert {:ok, _, _} = SessionVault.lookup(handle)
 
     assert :ok = Supervisor.terminate_child(HardenLlm.Supervisor, SessionVault)
     assert {:ok, _pid} = Supervisor.restart_child(HardenLlm.Supervisor, SessionVault)
-    assert SessionVault.lookup(handle) == :error
+    assert {:ok, token, _expiry_ms} = SessionVault.lookup(handle)
+    assert token == APIFixtures.token()
+    assert :ok = SessionVault.revoke(handle)
   end
 end

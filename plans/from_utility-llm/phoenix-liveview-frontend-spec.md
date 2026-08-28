@@ -8,11 +8,11 @@
 - Target application directory: `/home/kirill/harden-llm/frontend`
 - Backend contract: `/home/kirill/harden-llm/api/openapi.yaml`
 - Source UX reference: `/home/kirill/utility-llm/examples/react-trace-studio`
-- Version: `1.0.3-multi-instance-embedding-amendment`
+- Version: `1.0.4-durable-session-amendment`
 - Owners: frontend and self-hosted runtime maintainers
-- Date: 2026-08-23
+- Date: 2026-08-28
 - Document ID: `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`
-- Summary: This specification defines the separate Elixir/Phoenix LiveView frontend for Harden-LLM. Phoenix renders HTML, owns the browser session and CSRF boundary, and calls the Go gateway server to server through its published REST/OpenAPI contract. The frontend owns no application database, provider integration, retry policy, object storage, pricing, schema validation, cache identity, or domain persistence. The 2026-08-18 parity amendment incorporates the source-derived controls and explicit self-hosted adaptations recorded in `docs/utility-llm-frontend-parity-inventory.md` and ADR-HLLM-012; the 2026-08-22 embedding amendment makes the Workspace and Profiles visual surfaces single-column, stable-root components that can sit inside a host shell; the 2026-08-23 multi-instance amendment makes `id_prefix` a complete DOM, parent-message, and upload namespace contract.
+- Summary: This specification defines the separate Elixir/Phoenix LiveView frontend for Harden-LLM. Phoenix renders HTML, owns the browser session and CSRF boundary, and calls the Go gateway server to server through its published REST/OpenAPI contract. The frontend owns no application database, provider integration, retry policy, object storage, pricing, schema validation, cache identity, or domain persistence. The 2026-08-18 parity amendment incorporates the source-derived controls and explicit self-hosted adaptations recorded in `docs/utility-llm-frontend-parity-inventory.md` and ADR-HLLM-012; the 2026-08-22 embedding amendment makes the Workspace and Profiles visual surfaces single-column, stable-root components that can sit inside a host shell; the 2026-08-23 multi-instance amendment makes `id_prefix` a complete DOM, parent-message, and upload namespace contract; the 2026-08-28 durable-session amendment retains encrypted server-side bearer mappings across single-replica frontend releases as recorded in ADR-HLLM-017.
 
 ## 2. Canonical stack
 
@@ -25,8 +25,8 @@
 | API contract | Backend OpenAPI 3.1 document at `api/openapi.yaml` | Canonical operations, bearer security, request/response schemas, errors, and examples. |
 | Components | Phoenix function components and generated core components | Shared forms, compact profile cards, in-flow folds, focused trace views, status displays, and icons. |
 | Assets | Phoenix-generated esbuild and Tailwind wrappers | Compile static assets; no Node.js runtime service is deployed. |
-| Browser auth | Encrypted and signed Phoenix cookie plus supervised ETS token vault | The cookie carries a random frontend session handle; only the server-memory vault holds the Go bearer token. |
-| Frontend persistence | None | The token vault is ephemeral. Durable user, profile, state, run, trace, and artifact data remain in the Go REST service. |
+| Browser auth | Encrypted and signed Phoenix cookie plus supervised encrypted DETS token vault | The cookie carries a random frontend session handle; the server-side vault holds the Go bearer token encrypted at rest. |
+| Frontend persistence | Retained session-vault volume only | The vault preserves active frontend sessions across a single-replica release; durable user, profile, state, run, trace, and artifact data remain in the Go REST service. |
 | Tracing | OpenTelemetry Erlang plus Phoenix instrumentation | Export server-side HTTP and REST-client spans to the existing Collector. |
 | Metrics | PromEx 1.12.0 | Expose bounded Phoenix, LiveView, BEAM, and REST-client metrics for the existing Prometheus service to scrape privately. |
 | Logs | `LoggerJSON` 7.0.4, `opentelemetry_logger_metadata` 0.2.0, and OTP `:logger_std_h` | Emit redacted correlated JSON to stdout and a bounded named volume that the existing Collector tails into Loki, without relying on the unstable OTel Erlang logs API. |
@@ -43,9 +43,9 @@ Runtime feature dependencies are limited to the Phoenix-generated HTTP/asset pac
 | Use Phoenix LiveView | DECISION | The product is an authenticated operational console with forms, tables, progress states, and server-owned API credentials. LiveView provides interactive server-rendered UI without recreating a separate browser state/API layer. |
 | Keep frontend and backend separate | DECISION | Phoenix consumes only REST/OpenAPI. It never imports Go internals or accesses the backend database, Garage, providers, or Langfuse directly. |
 | Keep the frontend in the same repository | DECISION | `frontend/` keeps contract changes and product releases reviewable together while preserving independent Go and Mix build boundaries. |
-| Do not use Ecto | DECISION | Postgres belongs to the Go backend. A Phoenix database would create a second persistence and migration path without a v1 requirement. |
+| Do not use Ecto | DECISION | Postgres belongs to the Go backend. A Phoenix domain database would create a second persistence and migration path without a v1 requirement; the retained token vault is authentication state only and is not a domain store. |
 | Use one Req client module | DECISION | All REST paths, bearer injection, envelope decoding, timeout behavior, trace propagation, and redaction pass through `HardenLlmWeb.HardenAPI`. LiveViews and controllers do not call Req directly. |
-| Keep the backend token out of client-carried session data | DECISION | A supervised ETS vault stores the Go bearer token under a random frontend session handle. The encrypted cookie and LiveView session carry only that handle, so the reusable Go token never enters rendered LiveView session data. |
+| Keep the backend token out of client-carried session data | DECISION | A supervised encrypted DETS vault stores the Go bearer token under a random frontend session handle. The encrypted cookie and LiveView session carry only that handle, so the reusable Go token never enters browser session data or rendered LiveView session data. |
 | Keep browser-to-Go traffic disabled | DECISION | The browser talks only to Phoenix over same-origin HTTP/WebSocket. The Go API needs no CORS or browser CSRF behavior. |
 | Do not generate an API client in v1 | DECISION | One small hand-written client boundary is simpler than committing generated code. Contract tests compare its operation registry to OpenAPI so route drift still fails. |
 | Do not retry REST calls automatically | DECISION | A hidden retry could duplicate an ambiguous synchronous `/api/v1/run`. Provider retries remain owned by the Go library. Users may explicitly submit a new run after an ambiguous result. |
@@ -72,7 +72,9 @@ Runtime feature dependencies are limited to the Phoenix-generated HTTP/asset pac
 
 - Provider SDKs, provider payload construction, retries, repair, backup-profile execution, schema validation, pricing, usage calculation, cache keys, or redaction rules.
 - Direct Postgres, Garage, Firebase, Langfuse, Tempo, Loki, Prometheus, or Grafana data access from product UI code.
-- Ecto, SQLite, Redis, Oban, Temporal, Broadway, or another durable frontend state store.
+- Ecto, SQLite, Redis, Oban, Temporal, Broadway, or another durable frontend
+  domain-state store. The retained authentication vault is the explicit
+  single-replica session exception.
 - Browser calls to the Go API, a JavaScript SPA state layer, React compatibility, or copied React components.
 - Public registration, password reset email, OIDC, SAML, RBAC administration, or multi-tenant organization management.
 - Background run queues, automatic replay of ambiguous runs, streaming provider output, or offline mode.
@@ -86,7 +88,7 @@ browser
   v
 Phoenix LiveView
   |-- encrypted browser session handle
-  |-- ephemeral server-side token vault
+  |-- retained encrypted server-side token vault
   |-- CSRF and form validation for presentation
   |-- Authorization: Bearer <opaque-token>
   |-- traceparent propagation
@@ -191,7 +193,7 @@ Contract synchronization:
 
 1. The unauthenticated Phoenix controller renders an email/password form with Phoenix CSRF protection.
 2. On submit, the controller calls `POST /api/v1/auth/login` server to server.
-3. On success, Phoenix renews the Plug session, generates a random frontend session handle, stores the backend token and expiry in the supervised ETS vault under a SHA-256 digest of that handle, stores only the handle and expiry in the encrypted cookie session, drops the token from local variables, and redirects to the authenticated LiveView.
+3. On success, Phoenix renews the Plug session, generates a random frontend session handle, stores the backend token and expiry in the supervised encrypted DETS vault under a SHA-256 digest of that handle, stores only the handle and expiry in the encrypted cookie session, drops the token from local variables, and redirects to the authenticated LiveView.
 4. Passwords and access tokens are never included in flash messages, logs, telemetry, rendered assigns, URLs, or client-side storage.
 
 ### Session cookie
@@ -205,12 +207,12 @@ Contract synchronization:
 
 ### Token vault
 
-- `HardenLlmWeb.SessionVault` owns one private ETS table under the application supervisor; all access is serialized through its narrow API.
+- `HardenLlmWeb.SessionVault` owns one DETS table under the application supervisor; all access is serialized through its narrow API, and production retains the file on the `harden-llm-web-sessions` volume.
 - Vault keys are SHA-256 digests of 256-bit random frontend session handles. Values contain only the backend token and absolute expiry.
-- Lookup, insert, revoke, and expired-entry cleanup are the only operations. The table is never dumped, logged, exposed through observability, or persisted.
+- Lookup, insert, revoke, and expired-entry cleanup are the only operations. The token is encrypted before persistence; the table is never dumped, logged, or exposed through observability.
 - Login revokes any prior handle before rotating to a new one. Logout removes the vault entry after attempting backend revocation.
 - A missing vault entry is treated as an expired local session and clears the cookie.
-- A Phoenix restart intentionally invalidates all frontend sessions. V1 runs one Phoenix instance and does not add Redis or distributed session replication. Multi-instance frontend deployment requires a later ADR and shared secret-vault design.
+- A Phoenix image restart preserves valid frontend sessions when the named volume and stable `HARDEN_LLM_WEB_SECRET_KEY_BASE` remain available. Deleting the volume or rotating that secret invalidates frontend sessions. V1 still runs one Phoenix instance; multi-instance frontend deployment requires a later ADR and shared vault design.
 
 ### LiveView authorization
 
@@ -363,7 +365,7 @@ Rules:
 - Caddy remains the only service with public host ports.
 - Phoenix exposes `/healthz` for process health. Readiness verifies endpoint startup and static configuration only; backend readiness remains the Go `/readyz` contract.
 - The frontend starts when the backend is temporarily unavailable and renders a bounded unavailable state rather than crash-looping.
-- V1 deploys exactly one Phoenix replica. Restarting it clears the ephemeral token vault and requires users to log in again.
+- V1 deploys exactly one Phoenix replica. The encrypted session vault is retained across normal image replacement; intentionally deleting its volume or changing its encryption root requires users to log in again.
 - The frontend hostname is separate from the API hostname. Browser requests never need API CORS.
 
 Required variables:
@@ -391,10 +393,10 @@ All tests are free, self-hosted, deterministic, and isolated from live LLM provi
 
 | ID | Test | Target | Command | Pass criteria | Budget |
 | --- | --- | --- | --- | --- | --- |
-| WEB-TEST-001 | Project boundary | `test/harden_llm_web/boundary_test.exs` | `mix test test/harden_llm_web/boundary_test.exs` | No Ecto/database/provider/Garage/Firebase/React dependency; only `HardenAPI` uses Req; runtime pins match the spec. | 10s |
+| WEB-TEST-001 | Project boundary | `test/harden_llm_web/boundary_test.exs` | `mix test test/harden_llm_web/boundary_test.exs` | No Ecto/domain-database/provider/Garage/Firebase/React dependency; only `HardenAPI` uses Req; runtime pins match the spec. | 10s |
 | WEB-TEST-002 | OpenAPI/client parity | `test/harden_llm_web/harden_api_contract_test.exs` | `mix test test/harden_llm_web/harden_api_contract_test.exs` | Operation IDs, methods, paths, bearer requirements, examples, and backend-only allowlist match `api/openapi.yaml`. | 10s |
 | WEB-TEST-003 | REST client behavior | `test/harden_llm_web/harden_api_test.exs` | `mix test test/harden_llm_web/harden_api_test.exs` | Req.Test proves headers, trace propagation, no redirects/retries, timeouts, envelopes, safe `credential_required` classification, malformed responses, and redaction. | 15s |
-| WEB-TEST-004 | Browser auth/session and token vault | `test/harden_llm_web/controllers/session_controller_test.exs`, `test/harden_llm_web/session_vault_test.exs` | `mix test test/harden_llm_web/controllers/session_controller_test.exs test/harden_llm_web/session_vault_test.exs` | Login rotates the handle; only its digest indexes ETS; cookie flags pass; token is absent from cookie/HTML/LiveView session; expiry/restart/logout clear access; CSRF rejects invalid submits. | 15s |
+| WEB-TEST-004 | Browser auth/session and token vault | `test/harden_llm_web/controllers/session_controller_test.exs`, `test/harden_llm_web/session_vault_test.exs` | `mix test test/harden_llm_web/controllers/session_controller_test.exs test/harden_llm_web/session_vault_test.exs` | Login rotates the handle; only its digest indexes the encrypted DETS vault; cookie flags pass; token is absent from cookie/HTML/LiveView session and vault file; expiry/restart/logout behavior is correct; CSRF rejects invalid submits. | 15s |
 | WEB-TEST-005 | LiveView authorization | `test/harden_llm_web/live/auth_test.exs` | `mix test test/harden_llm_web/live/auth_test.exs` | Initial mount/reconnect validates backend session; 401 clears session; unauthenticated routes redirect; token never appears in rendered HTML/diffs. | 15s |
 | WEB-TEST-006 | Profile workflows | `test/harden_llm_web/live/profiles_live_test.exs` | `mix test test/harden_llm_web/live/profiles_live_test.exs` | Create/edit/delete, write-only credentials, field errors, model refresh, backup references, and bundle import/export use only expected REST operations. | 20s |
 | WEB-TEST-007 | Workspace/run workflows | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | State hydration/save, validation, one run submit, async state, trace-addressed result restoration, distinct new/prompt/system reset actions, non-ambiguous missing-credential guidance, ambiguous failure, no automatic retry, and stale-response rejection pass. | 25s |
@@ -491,11 +493,11 @@ The frontend v1 is complete when:
 - `mix format --check-formatted`, warning-free compile, dependency audits, asset build, and OTP release build pass from a clean checkout.
 - The browser performs every required workflow without direct Go API, Postgres, Garage, Firebase, or provider access.
 - OpenAPI/client parity proves there is one cross-runtime contract.
-- Login tokens remain confined to the ephemeral server-side token vault and server-side REST calls; browser and LiveView session payloads contain only a random handle.
+- Login tokens remain confined to the encrypted server-side token vault and server-side REST calls; browser and LiveView session payloads contain only a random handle.
 - No mutation, especially `/api/v1/run`, is retried automatically.
 - One Tempo trace correlates Phoenix request/LiveView work with the Go gateway and downstream spans.
 - The base backend remains runnable without `frontend/`, while the overlay produces a healthy 16-service full product.
-- No React, Firebase, Ecto, second persistence path, or duplicated backend domain logic remains in the frontend.
+- No React, Firebase, Ecto, second domain persistence path, or duplicated backend domain logic remains in the frontend.
 
 ## 17. References
 

@@ -172,6 +172,10 @@
     {
       "adr": "ADR-HLLM-016",
       "summary": "The widget keeps ordinary drafts local, refreshes only saved profiles, accepts a host-owned model catalog with a small default fallback, and keeps mutation pending state independent by widget kind."
+    },
+    {
+      "adr": "ADR-HLLM-017",
+      "summary": "The single-replica frontend retains an encrypted server-side bearer-token vault across image replacement without putting the token in browser session data."
     }
   ],
   "frontend": {

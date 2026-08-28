@@ -22,6 +22,9 @@ config :harden_llm, :browser_session,
   encryption_salt: "dev-encryption-salt",
   secure: false
 
+config :harden_llm, :session_vault,
+  path: Path.expand("../tmp/harden-llm-session-vault.dets", __DIR__)
+
 config :harden_llm,
   artifact_public_origin: "https://artifacts.example.test",
   max_bundle_bytes: 2_097_152

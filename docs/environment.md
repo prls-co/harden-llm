@@ -51,6 +51,7 @@ point at Langfuse-owned stores.
 | --- | --- | --- |
 | `HARDEN_LLM_WEB_SECRET_KEY_BASE` | secret, 64+ random bytes | Phoenix signing/encryption root. |
 | `HARDEN_LLM_WEB_SESSION_SIGNING_SALT` / `HARDEN_LLM_WEB_SESSION_ENCRYPTION_SALT` | independent secrets | Separate cookie signing and encryption salts. |
+| `HARDEN_LLM_WEB_SESSION_VAULT_PATH` | `/var/lib/harden-llm-web/session-vault.dets` | Encrypted single-replica Phoenix bearer-token vault file; keep its named Docker volume across releases. |
 | `HARDEN_LLM_WEB_INSTANCE_ID` | `harden-llm-web-1` | Bounded OTel instance identity. |
 | `HARDEN_LLM_WEB_API_TIMEOUT_MS` | `15000` | Normal server-to-server REST timeout. |
 | `HARDEN_LLM_WEB_RUN_TIMEOUT_MS` | `65000` | Run transport timeout; startup requires it to exceed the gateway cap. |

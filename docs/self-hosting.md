@@ -6,9 +6,10 @@ the repository root with Docker 29+ and Compose 2.40+.
 
 ## Prepare the host
 
-Allocate persistent storage for Docker volumes, working DNS for the five public
-hostnames, and inbound TCP 80/443. Copy `.env.example` to `.env`, set mode 0600,
-and replace every placeholder. Generate every secret independently; do not
+Allocate persistent storage for Docker volumes, including the retained
+`harden-llm-web-sessions` volume, working DNS for the five public hostnames, and
+inbound TCP 80/443. Copy `.env.example` to `.env`, set mode 0600, and replace
+every placeholder. Generate every secret independently; do not
 reuse application, Garage, Grafana, or Langfuse credentials.
 
 Use a public ACME account email as `HARDEN_LLM_TLS_MODE` in production. `internal`
@@ -90,7 +91,9 @@ Back up these failure domains independently:
 3. Langfuse: upstream Postgres, ClickHouse, Redis, and MinIO according to the
    pinned Langfuse release's procedures.
 4. Prometheus, Loki, Tempo, and Grafana volumes when diagnostic retention matters.
-5. `.env` and Caddy data through a separate encrypted secrets/PKI backup.
+5. `harden-llm-web-sessions` when preserving active frontend logins across host
+   recovery matters; losing it requires frontend reauthentication.
+6. `.env` and Caddy data through a separate encrypted secrets/PKI backup.
 
 For a portable cold backup, run `"${COMPOSE[@]}" down` without `--volumes`,
 snapshot all named volumes at the Docker volume-driver layer, then restart and
@@ -123,14 +126,15 @@ To rotate credential encryption, add a new key ID to
 records remain readable. Remove an old key only after a deliberate re-encryption
 migration proves no row references it.
 
-Rollback the stateless gateway/frontend images only to a version compatible
-with the deployed schema. Database migrations are forward-only; if compatibility
-is uncertain, stop writes and restore the pre-upgrade failure-domain backups.
+Rollback the gateway/frontend images only to a version compatible with the
+deployed schema, retaining `harden-llm-web-sessions` for the current session
+contract. Database migrations are forward-only; if compatibility is uncertain,
+stop writes and restore the pre-upgrade failure-domain backups.
 After any recovery, verify login, profile probe, one deterministic run, artifact
 download, and correlated Tempo/Loki/Prometheus/Langfuse diagnostics.
 
 ## Shutdown
 
 `"${COMPOSE[@]}" down` preserves named volumes. Adding `--volumes` permanently
-deletes application, artifact, telemetry, and Langfuse data and is reserved for
-disposable test projects.
+deletes application, artifact, telemetry, Langfuse, and frontend-session data;
+it is reserved for disposable test projects and forces frontend reauthentication.

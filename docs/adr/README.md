@@ -7,7 +7,7 @@ migration path.
 
 | ADR | Status | Decision |
 | --- | --- | --- |
-| [ADR-HLLM-000](ADR-HLLM-000-certified-baseline.md) | Accepted | Preserve the specified single-host certification baseline while keeping stateless service boundaries. |
+| [ADR-HLLM-000](ADR-HLLM-000-certified-baseline.md) | Accepted | Preserve the specified single-host certification baseline while keeping gateway and frontend ownership boundaries explicit. |
 | [ADR-HLLM-001](ADR-HLLM-001-intentional-portability-differences.md) | Accepted | Define the intentional JS-to-Go security and persistence projections. |
 | [ADR-HLLM-002](ADR-HLLM-002-root-public-api.md) | Accepted | Replace the JavaScript export inventory with one typed Go call surface. |
 | [ADR-HLLM-008](ADR-HLLM-008-rest-process-contract.md) | Accepted | Complete the redacted profile-read, historical-run, and process-bind contracts. |
@@ -19,6 +19,7 @@ migration path.
 | [ADR-HLLM-014](ADR-HLLM-014-embedded-widget-runtime-parity.md) | Accepted | Preserve the reusable no-tabs widget while aligning combobox, cache, retry projection, nested upload, and explicit profile-save behavior with utility-llm. |
 | [ADR-HLLM-015](ADR-HLLM-015-parallel-test-feedback-hierarchy.md) | Accepted; P07 merged, deployed, and certified | Establish one resource-aware T0-T5 test hierarchy, canonical runner, measured four-slot fast cap, exact assertion oracles, and no initial synthetic DOM dependency. |
 | [ADR-HLLM-016](ADR-HLLM-016-widget-draft-and-data-contract.md) | Accepted | Keep drafts component-local, keep refresh saved-profile-only, and make model catalogs host-owned with a small default fallback. |
+| [ADR-HLLM-017](ADR-HLLM-017-durable-frontend-sessions.md) | Accepted | Retain the encrypted server-side bearer-token vault across single-replica frontend releases without putting the token in browser session data. |
 
 The remaining planned deviation triggers are ADR-HLLM-003 through ADR-HLLM-007
 in the canonical implementation plan. Create one of those records only when its

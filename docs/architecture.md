@@ -18,7 +18,7 @@ browser -> Caddy -> Phoenix LiveView -> Go REST gateway -> hardenllm.Client.Call
 | --- | --- | --- |
 | Root Go library | provider payloads, retries, repair, schema, cache identity, usage/cost, domain projections | environment loading, exporters, auth, SQL, HTTP routes |
 | Go gateway | bearer auth, owner isolation, REST envelopes, profile catalog backfill, local profiles, persistence adapters, process telemetry | browser cookies, CSRF, HTML, duplicate provider logic |
-| Phoenix frontend | encrypted browser session, ephemeral token vault, CSRF, presentation, REST calls | database, durable jobs, provider SDKs, pricing, retries, storage |
+| Phoenix frontend | encrypted browser session, encrypted durable token vault, CSRF, presentation, REST calls | database, durable jobs, provider SDKs, pricing, retries, storage |
 | Caddy | TLS, public host routing, security headers, request-size limits | application authorization |
 | Collector | the single telemetry fanout and redaction pipeline | application or provider results |
 
@@ -36,7 +36,8 @@ transport failure is never automatically replayed by either layer.
 | upstream `clickhouse` | Langfuse analytics | unchanged upstream service |
 | upstream `minio` | Langfuse-owned objects | never receives Harden LLM artifacts |
 | Prometheus/Loki/Tempo/Grafana volumes | operational diagnostics | no provider credentials or raw request/response bodies |
-| `harden-llm-web-logs` | bounded, redacted Phoenix JSON logs | Collector reads it; Phoenix stores no durable domain state |
+| `harden-llm-web-logs` | bounded, redacted Phoenix JSON logs | Collector reads it; no domain state |
+| `harden-llm-web-sessions` | encrypted Phoenix bearer-token vault records | single Phoenix replica only; losing it requires frontend reauthentication |
 
 The Harden LLM database and Garage pair are a separate failure and backup
 domain from Langfuse. Sharing endpoints, buckets, credentials, databases, or
@@ -60,9 +61,10 @@ stores a credential.
 
 The certified topology is one Linux Docker host: fifteen backend services, or
 sixteen with the Phoenix overlay. Caddy is the only public-port owner. The
-gateway and Phoenix release images are stateless and non-root; horizontal or
-multi-host deployment requires a later ADR, including a replacement for the
-single-instance Phoenix ETS token vault.
+gateway and Phoenix release images run non-root; the Phoenix image uses the
+retained `harden-llm-web-sessions` volume for one encrypted single-replica token
+vault. Horizontal or multi-host deployment requires a later ADR with a shared
+vault design.
 
 ## Test feedback architecture
 

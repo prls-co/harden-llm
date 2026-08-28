@@ -2,9 +2,9 @@
 
 This Phoenix LiveView application is the browser-facing operations console for
 Harden LLM. It is an independent REST client of `../api/openapi.yaml`: it owns
-HTML, CSRF, an encrypted session cookie, and an ephemeral ETS token vault. It
-does not own a database, provider integration, retry policy, cache identity,
-pricing, Garage access, or domain persistence.
+HTML, CSRF, an encrypted session cookie, and an encrypted durable DETS token
+vault. It does not own a database, provider integration, retry policy, cache
+identity, pricing, Garage access, or domain persistence.
 
 ## Local development
 
@@ -109,9 +109,11 @@ networking so Compose paths and published smoke ports remain valid.
 ## Production
 
 `Dockerfile` builds assets and one OTP release, then copies only runtime files
-into a non-root Alpine image. The service is stateless; restarting it revokes
-all frontend sessions because bearer tokens live only in ETS. V1 supports one
-frontend replica.
+into a non-root Alpine image. The bearer-token vault is encrypted at rest on the
+retained `harden-llm-web-sessions` volume, so replacing the single frontend
+container preserves valid browser sessions. Removing that volume or rotating
+the Phoenix secret requires users to sign in again. V1 supports one frontend
+replica.
 
 Deploy with `../deploy/frontend/compose.frontend.yml` layered over the backend
 and pinned Langfuse files. The overlay supplies the private API/Collector

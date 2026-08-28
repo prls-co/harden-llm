@@ -1,5 +1,11 @@
 import Config
 
+test_session_vault_path =
+  Path.join(
+    System.tmp_dir!(),
+    "harden-llm-session-vault-test-#{System.unique_integer([:positive])}.dets"
+  )
+
 config :harden_llm, HardenLlmWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "5dLH0wNT6/cqjy5KDzfp9HwkttRVEJF1g7s7rVePY8w3Q6fcEvmFonqkv0SlxhKT",
@@ -10,6 +16,8 @@ config :harden_llm, :browser_session,
   signing_salt: "test-signing-salt",
   encryption_salt: "test-encryption-salt",
   secure: false
+
+config :harden_llm, :session_vault, path: test_session_vault_path
 
 config :harden_llm, :harden_api_req_options, plug: {Req.Test, HardenLlmWeb.HardenAPI}
 

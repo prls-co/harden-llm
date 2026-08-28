@@ -40,7 +40,7 @@ The separate `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001` contract maps as follows:
 | Surface | Implementation | Tests |
 | --- | --- | --- |
 | package/runtime boundary and OpenAPI client | `frontend/mix.exs`, `HardenAPI` | WEB-TEST-001 through WEB-TEST-003 |
-| cookie session and ephemeral token vault | session controller, auth hook, `SessionVault` | WEB-TEST-004, WEB-TEST-005 |
+| cookie session and durable encrypted token vault | session controller, auth hook, `SessionVault` | WEB-TEST-004, WEB-TEST-005 |
 | profiles, workspace, history, traces, artifacts | LiveViews and narrow controllers | WEB-TEST-006 through WEB-TEST-008 |
 | security, telemetry, responsive UI | endpoint/config, observability, components | WEB-TEST-009, WEB-TEST-010 |
 | real user and deployment workflows | Wallaby browser tests | WEB-TEST-011, WEB-TEST-012 |
@@ -106,7 +106,7 @@ snapshot. Its self-hosted adaptations are one canonical profile editor,
 cursor/limit history, server-owned profile defaults and credentials, a
 utility-shaped cache/retry projection, an explicit saved-profile boundary for
 endpoint identity changes, and same-origin trace/artifact access; no Firebase,
-GCP, browser provider call, or second persistence/runtime path is introduced.
+GCP, browser provider call, or second domain-persistence/runtime path is introduced.
 
 The embeddable widget follow-up is specified in
 `plans/llm-widget-utility-parity-implementation-plan.md`. Its 18 requirements

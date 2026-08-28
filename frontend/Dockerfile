@@ -34,8 +34,8 @@ RUN apk add --no-cache \
       openssl=3.5.8-r0 \
     && addgroup -S -g 10001 harden_llm \
     && adduser -S -D -H -u 10001 -G harden_llm harden_llm \
-    && mkdir -p /app /var/log/harden-llm-web \
-    && chown -R harden_llm:harden_llm /app /var/log/harden-llm-web
+    && mkdir -p /app /var/log/harden-llm-web /var/lib/harden-llm-web \
+    && chown -R harden_llm:harden_llm /app /var/log/harden-llm-web /var/lib/harden-llm-web
 
 WORKDIR /app
 COPY --from=build --chown=harden_llm:harden_llm /release/ ./

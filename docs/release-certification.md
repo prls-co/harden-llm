@@ -377,11 +377,12 @@ Final P07.S15 deployment evidence:
   Langfuse while retaining cross-runtime traces in Tempo.
 - Telemetry and artifact failures cannot change a completed provider result.
 - Caddy is the only public-port owner in both effective Compose projects.
-- Phoenix stores bearer tokens only in its ephemeral ETS vault and never retries runs.
+- Phoenix stores bearer tokens only in its encrypted server-side vault on the
+  retained frontend-session volume and never retries runs.
 
 Accepted deviations are ADR-HLLM-001, ADR-HLLM-002, ADR-HLLM-008,
 ADR-HLLM-009, ADR-HLLM-010, ADR-HLLM-011, ADR-HLLM-012, ADR-HLLM-013, and
-ADR-HLLM-014. No other implementation drift is accepted.
+ADR-HLLM-014, and ADR-HLLM-017. No other implementation drift is accepted.
 
 The visual embedding boundary is intentional: Workspace and Profiles are
 single-column, stable-root visual surfaces that can sit inside a host shell

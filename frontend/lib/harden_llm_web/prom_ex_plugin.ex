@@ -43,7 +43,7 @@ defmodule HardenLlmWeb.PromExPlugin do
       [
         last_value([:harden_llm_web, :session_vault, :entries],
           event_name: [:harden_llm_web, :session_vault, :count],
-          description: "Number of ephemeral backend tokens held by the frontend vault.",
+          description: "Number of backend tokens held by the encrypted frontend vault.",
           measurement: :count
         )
       ],

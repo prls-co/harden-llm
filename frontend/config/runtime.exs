@@ -116,6 +116,13 @@ if config_env() == :prod do
     encryption_salt: encryption_salt,
     secure: true
 
+  config :harden_llm, :session_vault,
+    path:
+      System.get_env(
+        "HARDEN_LLM_WEB_SESSION_VAULT_PATH",
+        "/var/lib/harden-llm-web/session-vault.dets"
+      )
+
   config :harden_llm, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
   config :harden_llm, HardenLlmWeb.Endpoint,

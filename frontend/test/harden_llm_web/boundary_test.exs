@@ -32,7 +32,7 @@ defmodule HardenLlmWeb.BoundaryTest do
     end
   end
 
-  test "frontend has no persistence, provider, storage, Firebase, or React dependency" do
+  test "frontend has no domain persistence, provider, storage, Firebase, or React dependency" do
     direct_names =
       Mix.Project.config()[:deps] |> Enum.map(&elem(&1, 0)) |> Enum.map(&Atom.to_string/1)
 
@@ -65,6 +65,7 @@ defmodule HardenLlmWeb.BoundaryTest do
       HARDEN_LLM_WEB_SERVICE_NAME
       HARDEN_LLM_WEB_ENVIRONMENT
       HARDEN_LLM_WEB_RELEASE
+      HARDEN_LLM_WEB_SESSION_VAULT_PATH
     ) do
       assert runtime =~ name
       assert compose =~ name
