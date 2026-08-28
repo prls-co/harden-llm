@@ -1104,14 +1104,29 @@ defmodule HardenLlmWeb.WorkspaceLive do
     written = output_cache_written?(run_result)
 
     case {status, written} do
-      {"hit", _} -> "Cache hit: reused the saved response without a provider call."
-      {"miss", true} -> "Cache miss: ran the provider and saved the successful response."
-      {"miss", false} -> "Cache miss: no saved response was available."
-      {"refresh", true} -> "Fresh run: skipped the old cache and saved the successful response."
-      {"refresh", false} -> "Fresh run: skipped the old cache."
-      {"disabled", _} -> "Cache was disabled for this run."
-      {"written", _} -> "The successful response was saved to the cache."
-      _ -> "The cache result did not include a recognized status."
+      {"hit", _} ->
+        "Harden-LLM cache hit: reused the saved response without a provider call."
+
+      {"miss", true} ->
+        "Harden-LLM cache miss: ran the provider and saved the successful response."
+
+      {"miss", false} ->
+        "Harden-LLM cache miss: no saved response was available."
+
+      {"refresh", true} ->
+        "Harden-LLM fresh run: skipped the old cache and saved the successful response."
+
+      {"refresh", false} ->
+        "Harden-LLM fresh run: skipped the old cache."
+
+      {"disabled", _} ->
+        "Harden-LLM cache was disabled for this run."
+
+      {"written", _} ->
+        "The successful response was saved to the Harden-LLM cache."
+
+      _ ->
+        "The Harden-LLM cache result did not include a recognized status."
     end
   end
 

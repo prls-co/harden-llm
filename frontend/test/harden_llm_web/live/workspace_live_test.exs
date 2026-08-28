@@ -1070,7 +1070,16 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, ".llm-trace-summary", "Model: model-test")
     assert has_element?(view, ".llm-trace-summary", "📥 1")
     assert has_element?(view, ".llm-trace-summary", "📤 1")
-    assert has_element?(view, "#run-cache-status", "Cache: Disabled")
+    assert has_element?(view, "#run-cache-status", "💾")
+    assert has_element?(view, ~s(#run-cache-status[data-cache-status="disabled"]))
+    assert has_element?(view, ~s(#run-cache-status[role="img"]))
+    assert has_element?(view, ~s(#run-cache-status[aria-label="Harden-LLM cache: Disabled"]))
+
+    assert has_element?(
+             view,
+             ~s(#run-cache-status[title="Harden-LLM cache was disabled for this run."])
+           )
+
     assert has_element?(view, ".llm-trace-summary", "$0.0010")
     assert has_element?(view, ~s(.llm-trace-summary span[title="Output tokens"]), "📤 1")
     assert has_element?(view, ~s(a[href="/history?trace_id=trace-test"]), "View JSON Trace")
@@ -1232,7 +1241,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert WorkspaceLive.output_cache_status_label(miss) == "Miss · saved"
 
     assert WorkspaceLive.output_cache_status_title(miss) ==
-             "Cache miss: ran the provider and saved the successful response."
+             "Harden-LLM cache miss: ran the provider and saved the successful response."
 
     assert WorkspaceLive.output_attempts(result) == [
              %{

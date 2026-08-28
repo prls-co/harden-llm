@@ -302,7 +302,9 @@
                               class={"ullm-cache-status ullm-cache-status-#{output_cache_status(@run_result)}"}
                               data-cache-status={output_cache_status(@run_result)}
                               title={output_cache_status_title(@run_result)}
-                            >Cache: {output_cache_status_label(@run_result)}</span>
+                              aria-label={"Harden-LLM cache: #{output_cache_status_label(@run_result)}"}
+                              role="img"
+                            >💾</span>
                             <span title="Input tokens">📥 {output_number(
                               get_in(@run_result, ["usage", "inputTokens"])
                             )}</span>
@@ -344,7 +346,11 @@
                             <strong>Run ID:</strong> {output_text([@run_result["runId"]]) || "—"}
                           </p>
                           <p><strong>Status:</strong> {output_status_label(@run_result)}</p>
-                          <p><strong>Cache:</strong> {output_cache_status_label(@run_result)}</p>
+                          <p>
+                            <strong>Harden-LLM cache:</strong> {output_cache_status_label(
+                              @run_result
+                            )}
+                          </p>
                           <p>
                             <strong>Used Repair:</strong> {if output_used_repair?(@run_result),
                               do: "Yes",
