@@ -174,6 +174,12 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     assert has_element?(
              view,
              ".ullm-escalation-profile-row > .ullm-profile-category",
+             "Escalation"
+           )
+
+    refute has_element?(
+             view,
+             ".ullm-escalation-profile-row > .ullm-profile-category",
              "Escalation Model"
            )
 

@@ -1494,7 +1494,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           </div>
           <div class="ullm-escalation-profile-editor">
             <.profile_row
-              category="Escalation Model"
+              category="Escalation"
               row_class="ullm-escalation-profile-row"
               profile_input_id={"#{@id_prefix}-escalation-profile"}
               profile_name={"#{@form.name}[escalationProfile]"}

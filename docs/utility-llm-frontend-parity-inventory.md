@@ -57,14 +57,14 @@ cache records, trace records, and profile validation remain backend-owned.
 
 The `ModelConfigWidget` renders one compact row per model category. The
 current Trace Studio passes the category name `LLM`; the escalation editor
-reuses the same controls with category name `Escalation Model`.
+reuses the same controls with category name `Escalation`.
 
 | Element/text | Type | Behavior and state |
 | --- | --- | --- |
-| Category name (`LLM`, `Escalation Model`) | Text | Labels the model slot; a blank category is a programming error. |
+| Category name (`LLM`, `Escalation`) | Text | Labels the model slot; a blank category is a programming error. |
 | `LLM Profile` / visible `🤖` | Searchable editable combobox | Searches by profile name, model, endpoint, interface, and discovered models. Existing profile selection loads the profile and prompt draft through the backend state mutation. A typed custom value remains visible and can produce a field error. The escalation version writes `structuredRepairRetry.escalation.llmProfile`. |
 | `Reasoning` / visible `🧠` | Select with `L`, `M`, `H` | Controls `lowest`, `middle`, or `highest`. Main profile reasoning is persisted as per-profile UI/run state; escalation reasoning is written into escalation options. |
-| `💾` / `↻` | Pressed cache-mode button | The control is emoji-only visually: `💾` means normal cache lookup and `↻` means refresh/overwrite on the next run. Accessible `aria-pressed`, title, and label text still describe the state. The main and Escalation Model rows bind to the same run-level `cacheMode`; Harden exposes the same two states and migrates legacy persisted `off` to `cache`. |
+| `💾` / `↻` | Pressed cache-mode button | The control is emoji-only visually: `💾` means normal cache lookup and `↻` means refresh/overwrite on the next run. Both cache states use the shared neutral compact-button styling; accessible `aria-pressed`, title, and label text still describe the state. The main and Escalation rows bind to the same run-level `cacheMode`; Harden exposes the same two states and migrates legacy persisted `off` to `cache`. |
 | `⚙` / `Profile config` | Disclosure button | Opens/closes the complete profile editor. Fold state is controlled and persisted. It is disabled while a UI-state save is pending so stale responses cannot overwrite the newest fold state. |
 
 ### 3.3 Profile configuration fields and actions
@@ -107,7 +107,7 @@ editor reuses the same field set but excludes nested retry/repair controls.
 | `Max Delay Ms` | Number input | Upper retry backoff bound. |
 | `Starting Attempt` | Number input | First attempt using the escalation profile; disabled when structured repair is off. |
 | Escalation `LLM Profile` | Reused searchable editable combobox | Selects the stronger profile for repair. It can create a new profile draft and has its own profile editor. |
-| Escalation `Reasoning` / cache / `Profile config` | Reused controls | Same semantics as the primary row, with retries excluded from the nested editor. |
+| Escalation `Reasoning` / cache / `Profile config` | Reused controls | Same semantics and compact sizing as the primary row, with retries excluded from the nested editor. |
 | `Pricing` | Disclosure button | Opens profile-level pricing metadata, kept outside `defaultOptions`. |
 | `Input $/1M tokens` | Number input | Converts UI dollars-per-million value to stored per-token input pricing. |
 | `Output $/1M tokens` | Number input | Converts output pricing. |
@@ -334,7 +334,7 @@ The parity implementation is present in the self-hosted checkout:
 - The 2026-08-22 fold-event correction uses `phx-value-open` rather than the reserved `phx-value-value` key, and the real browser workflow verifies that model, advanced-input, retry, history, and output folds open through the LiveView socket.
 - The 2026-08-22 workspace draft correction merges field-local `phx-change` events from the Reasoning and Cache selects into the current draft, preserving the selected profile before submit.
 - The studio surfaces are intentionally component-oriented for embedding: `#workspace-page` and `#profiles-page` are single vertical stacks with stable `studio-page` / `studio-stack` / `studio-card` / `studio-fold` roots, no tabs or side rail, no fixed overlay, and in-flow folds. The canonical Workspace profile surface is the reusable `HardenLlmWeb.ProfileWidgetComponent` at `#workspace-llm-widget`; `Layouts.app` is only a route adapter.
-- `ProfileWidgetComponent` provides the utility-like compact LLM row, profile/API/credential/model/fallback controls, Options, Retries & Repair, nested Escalation Model configuration, Pricing, bundle actions, and in-flow delete confirmation. Its optional `id_prefix` now namespaces every generated control/form ID, tags parent messages, and selects per-instance main/escalation upload channels when a host embeds more than one instance; the host owns routing/session orchestration through the existing message and OpenAPI boundaries. The authenticated `/embed/llm` fixture demonstrates the contract with two instances.
+- `ProfileWidgetComponent` provides the utility-like compact LLM row, profile/API/credential/model/fallback controls, Options, Retries & Repair, nested Escalation configuration, Pricing, bundle actions, and in-flow delete confirmation. Its optional `id_prefix` now namespaces every generated control/form ID, tags parent messages, and selects per-instance main/escalation upload channels when a host embeds more than one instance; the host owns routing/session orchestration through the existing message and OpenAPI boundaries. The authenticated `/embed/llm` fixture demonstrates the contract with two instances.
 - `ProfileDefaults` is the single frontend source for the utility-aligned editor defaults: `max_tokens: 16000`, temperature/top-p/top-k/stop-sequence placeholders, retry and escalation defaults (`CPA GPT-5.6 Sol` / `gpt-5.6-sol`), model/base-URL/profile placeholders, reasoning/cache defaults, and contextual `?` help markers. `WEB-TEST-052` covers the pure default contract; the LiveView component suite verifies the rendered fields and marker titles.
 - The workspace profile picker renders the backend-owned catalog rather than a second frontend preset list. The catalog is normalized equal to utility-llm's current 28-profile source, `WEB-TEST-053` covers empty-state selection of `CPA GPT-5.6 Luna`, `WEB-TEST-054` renders every catalog entry in the LiveView combobox, and `WEB-TEST-055` verifies that selecting another preset synchronizes its model ID. These defaults/preset cases are server-rendered LiveView behavior and therefore do not add browser-test permutations; the existing browser canary remains responsible only for native LiveSocket/combobox integration.
 - The workspace input widget now follows utility-llm's prompt/advanced/schema topology: utility placeholders and row counts, monospace schema fields, right-aligned action rows, a field-local schema hint, conditional advanced rendering, populated default prompt/schema/repair values, and the contracted schema keyword/enum guard. `WEB-TEST-056` and `WEB-TEST-057` cover these server-owned defaults, rendered diffs, validation, and Run gating; the `SchemaCheck` and `SchemaPending` hooks have only their pure client decisions covered by Node, so no browser permutation is added for backend invariants.
@@ -342,7 +342,7 @@ The parity implementation is present in the self-hosted checkout:
 - Main and nested escalation bundle inputs use separate LiveView upload names and DOM namespaces, so both unfolded editors can import/export independently when the component is embedded more than once. The retry/editor fold tree remains in flow; no duplicate workspace retry panel or tab shell is reintroduced.
 - Phoenix-generated form-field IDs are included in the same namespace as fold and action IDs. Without this, two otherwise distinct widgets still collide on `profile_*` inputs and LiveView rejects the page; WEB-TEST-043 keeps this practical embedding boundary executable.
 - The reasoning selector is capability-aware: seeded profiles expose only the levels in their `reasoningEffortMap`, while a custom profile without a map shows a disabled placeholder. `WorkspaceLive` repeats that check when building the run request so stale persisted reasoning cannot produce a provider-preparation failure before the request reaches the provider. WEB-TEST-040 covers the unmapped-profile boundary.
-- The hosted run boundary is browser-safe: the primary Run Prompt submitter uses `formnovalidate` so an unused nested Escalation Model editor cannot block `phx-submit` through native required-field validation, while LiveView still validates the actual run payload. The gateway's provider-option classifier also admits utility-compatible request controls such as `max_tokens` and `max_output_tokens` while rejecting credential-shaped names. TEST-012 and the WEB-TEST-010 rendering assertion cover these boundaries; the hosted browser verified a real CPA run.
+- The hosted run boundary is browser-safe: the primary Run Prompt submitter uses `formnovalidate` so an unused nested Escalation editor cannot block `phx-submit` through native required-field validation, while LiveView still validates the actual run payload. The gateway's provider-option classifier also admits utility-compatible request controls such as `max_tokens` and `max_output_tokens` while rejecting credential-shaped names. TEST-012 and the WEB-TEST-010 rendering assertion cover these boundaries; the hosted browser verified a real CPA run.
 - Workspace model and escalation controls can still deep-link to the canonical `/profiles` editor; new-profile credential fields open automatically while existing-profile edits keep stored credentials behind a closed write-only drawer.
 - `HistoryLive` exposes expandable request/result records, result and credential-free cURL copy, page-size controls over the cursor API, trace observations, artifact links, restore, delete, and clear.
 - The Go state and run contracts now carry the prompt draft, persisted UI flags, model override, explicit bounded retry controls, repair escalation, and run timeout. OpenAPI and backend validation were updated together.
@@ -444,7 +444,7 @@ Final audit evidence for the reusable no-tabs widget amendment:
   suite passed 18 tests and the full deterministic frontend suite passed 86
   tests with 3 excluded.
 - The pinned Chromium desktop/mobile workflow passed 2 tests in 102.4 seconds.
-  It opened the main Options, Retries & Repair, Pricing, Escalation Model, and
+  It opened the main Options, Retries & Repair, Pricing, Escalation, and
   nested Options folds through the real LiveView socket without tabs, overlays,
   horizontal overflow, or page errors.
 - The fallback chooser, option-to-JSON synchronization, nested cache control,
@@ -470,7 +470,7 @@ Final audit evidence for the reusable no-tabs widget amendment:
 Final audit evidence for the hosted run-boundary follow-up:
 
 - The browser initially exposed a native HTML validation defect: empty required
-  fields in the optional Escalation Model fold prevented the outer Run Prompt
+  fields in the optional Escalation fold prevented the outer Run Prompt
   submit event. PR `#25` (`80397b8`) added `formnovalidate` to the real
   submitter; the server-side run validator remains active.
 - The subsequent gateway 422 was caused by the old secret-key scan rejecting
