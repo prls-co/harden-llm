@@ -171,8 +171,18 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     view |> element("#model-config-toggle") |> render_click()
     view |> element("#profile-retry-toggle") |> render_click()
 
+    assert has_element?(
+             view,
+             ".ullm-escalation-profile-row > .ullm-profile-category",
+             "Escalation Model"
+           )
+
+    assert has_element?(view, ".ullm-escalation-profile-row > .ullm-profile-picker")
+    assert has_element?(view, ".ullm-escalation-profile-row > .ullm-reasoning-field")
     assert has_element?(view, ~s(#profile-escalation-profile[value="CPA GPT-5.6 Sol"]))
     assert has_element?(view, ~s(#profile-escalation-cache-toggle[data-cache-mode="cache"]))
+    assert has_element?(view, ".ullm-escalation-profile-row > #profile-escalation-cache-toggle")
+    assert has_element?(view, ".ullm-escalation-profile-row > #profile-escalation-config-toggle")
     assert has_element?(view, "#profile-escalation-cache-toggle", "💾")
     refute has_element?(view, "#profile-escalation-cache-toggle .ullm-cache-toggle-label")
 

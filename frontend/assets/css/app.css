@@ -417,10 +417,11 @@ button, a, input, select, textarea { touch-action: manipulation; }
   grid-template-columns: minmax(4rem, auto) minmax(0, 1fr) minmax(4.75rem, 5.5rem) var(--ullm-profile-control-height) var(--ullm-profile-control-height);
   align-items: center;
   gap: .65rem;
+  min-width: 0;
 }
 
 .ullm-escalation-profile-row {
-  grid-template-columns: minmax(4rem, auto) minmax(0, 1fr) minmax(4.75rem, 5.5rem) var(--ullm-profile-control-height);
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(3.25rem, 4.25rem) var(--ullm-profile-control-height) var(--ullm-profile-control-height);
 }
 
 .ullm-profile-category {
@@ -967,6 +968,9 @@ button, a, input, select, textarea { touch-action: manipulation; }
   .ullm-model-slot-row,
   .ullm-backup-profile-row { grid-template-columns: 1fr; }
   .ullm-model-refresh-button { justify-self: start; }
-  .ullm-escalation-profile-row .ullm-profile-category { display: none; }
-  .ullm-escalation-profile-row .ullm-profile-picker { grid-column: 1 / -1; }
+  .ullm-escalation-profile-row {
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(3.25rem, 4.25rem) var(--ullm-profile-control-height) var(--ullm-profile-control-height);
+  }
+  .ullm-escalation-profile-row .ullm-profile-category,
+  .ullm-escalation-profile-row .ullm-profile-picker { grid-column: auto; }
 }
