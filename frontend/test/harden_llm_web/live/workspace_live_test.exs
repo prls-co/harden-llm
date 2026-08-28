@@ -1162,8 +1162,13 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     assert has_element?(view, ".llm-trace-summary", "$0.0010")
     assert has_element?(view, ~s(.llm-trace-summary span[title="Output tokens"]), "📤 1")
-    assert has_element?(view, ~s(a[href="/history?trace_id=trace-test"]), "View JSON Trace")
-    assert has_element?(view, ~s(a[rel="noopener noreferrer"]), "View JSON Trace")
+    assert has_element?(view, ".trace-controls #output-details-toggle", "Hide")
+    assert has_element?(view, ".trace-controls a", "View JSON Trace")
+    assert has_element?(view, ".trace-controls #copy-run-curl", "Copy cURL")
+    assert has_element?(view, ".trace-controls #show-run-request", "Show Request")
+    assert has_element?(view, ".trace-controls #show-run-response", "Show Response")
+    assert has_element?(view, ~s(.trace-controls a[href="/history?trace_id=trace-test"]))
+    assert has_element?(view, ~s(.trace-controls a[rel="noopener noreferrer"]))
     assert has_element?(view, ".llm-trace-details", "Success (200)")
   end
 
@@ -1399,8 +1404,10 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     view |> element("#output-details-toggle") |> render_click()
     render_async(view, 1_000)
-    refute has_element?(view, "#show-run-request")
-    refute has_element?(view, "#show-run-response")
+    refute has_element?(view, "#output-details")
+    assert has_element?(view, ".trace-controls #output-details-toggle", "Details")
+    assert has_element?(view, ".trace-controls #show-run-request", "Show Request")
+    assert has_element?(view, ".trace-controls #show-run-response", "Show Response")
 
     view |> element("#output-details-toggle") |> render_click()
     render_async(view, 1_000)

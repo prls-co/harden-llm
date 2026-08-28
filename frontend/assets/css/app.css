@@ -323,13 +323,17 @@ button, a, input, select, textarea { touch-action: manipulation; }
   padding: 0;
 }
 
+.llm-trace-item > .trace-resources,
 .llm-trace-details .trace-resources {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 10px;
 }
 
+.llm-trace-item > .trace-resources button,
+.llm-trace-item > .trace-resources a,
 .llm-trace-details .trace-resources button,
 .llm-trace-details .trace-resources a,
 .trace-resource-disabled {
