@@ -124,6 +124,13 @@
                   >Clear System Prompt</button>
                 </div>
                 <.input
+                  field={@form[:callType]}
+                  type="select"
+                  label="Structured output"
+                  options={[{"Off", "text"}, {"On", "structured"}]}
+                  phx-debounce="blur"
+                />
+                <.input
                   field={@form[:schemaShorthand]}
                   type="textarea"
                   label="Schema shorthand"

@@ -146,9 +146,9 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
            )
 
     assert has_element?(view, "#clear-system-prompt:not([disabled])")
+    assert has_element?(view, ~s(#run_callType option[value="structured"][selected]))
     assert has_element?(view, ~s(#run_schemaShorthand.ullm-input-mono[rows="4"]))
     assert has_element?(view, ~s(#run_schema.ullm-input-mono[rows="6"]))
-    refute has_element?(view, "#run_callType")
     refute has_element?(view, "#run_structuredRepair")
     assert has_element?(view, "#schema-status", "Schema valid.")
     assert has_element?(view, "#generate-schema:not([disabled])")
@@ -167,7 +167,9 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-059
-  test "schema selects response mode while retry policy stays in the profile fold", %{conn: conn} do
+  test "structured output selector controls mode while retry policy stays in the profile fold", %{
+    conn: conn
+  } do
     test_pid = self()
 
     profile =
@@ -179,7 +181,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         case {conn.method, conn.request_path} do
           {"POST", "/api/v1/run"} ->
             {:ok, body, conn} = Plug.Conn.read_body(conn)
-            send(test_pid, {:inferred_run_payload, Jason.decode!(body)})
+            send(test_pid, {:mode_run_payload, Jason.decode!(body)})
             Req.Test.json(conn, APIFixtures.success(APIFixtures.run_result()))
 
           _ ->
@@ -192,7 +194,9 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/workspace")
     render_async(view, 1_000)
 
-    refute has_element?(view, "#run_callType")
+    view |> element("#input-advanced-toggle") |> render_click()
+
+    assert has_element?(view, ~s(#run_callType option[value="text"][selected]))
     refute has_element?(view, "#run_structuredRepair")
 
     schema =
@@ -203,18 +207,40 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         "additionalProperties" => false
       })
 
-    submit_run(view, %{"schema" => schema})
+    submit_run(view, %{"callType" => "structured", "schema" => schema})
     render_async(view, 1_000)
 
-    assert_received {:inferred_run_payload,
+    assert_received {:mode_run_payload,
                      %{
                        "callType" => "structured",
+                       "structuredRepair" => false
+                     }}
+
+    view
+    |> form("#run-form", %{
+      "run" => %{
+        "callType" => "text",
+        "schema" => "{invalid",
+        "userPrompt" => "plain text despite a schema draft"
+      }
+    })
+    |> render_change()
+
+    assert has_element?(view, ~s(#run_callType option[value="text"][selected]))
+    assert has_element?(view, "#run-submit:not([disabled])")
+
+    view |> form("#run-form") |> render_submit()
+    render_async(view, 1_000)
+
+    assert_received {:mode_run_payload,
+                     %{
+                       "callType" => "text",
                        "structuredRepair" => false
                      }}
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-057
-  test "schema validation uses utility's contracted subset and gates inferred structured runs", %{
+  test "schema validation uses utility's contracted subset and gates selected structured runs", %{
     conn: conn
   } do
     install_stub(fn conn ->
@@ -250,6 +276,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         "selectedProfileId" => "Primary",
         "modelId" => "model-test",
         "userPrompt" => "schema gate",
+        "callType" => "structured",
         "schema" => unsupported_schema
       }
     })
@@ -269,6 +296,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         "selectedProfileId" => "Primary",
         "modelId" => "model-test",
         "userPrompt" => "schema gate",
+        "callType" => "structured",
         "schema" => unsupported_schema
       }
     })
@@ -294,6 +322,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         "selectedProfileId" => "Primary",
         "modelId" => "model-test",
         "userPrompt" => "schema gate",
+        "callType" => "structured",
         "schema" => valid_schema
       }
     })
@@ -512,6 +541,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           "#run_modelId",
           "#run_userPrompt",
           "#run_systemPrompt",
+          "#run_callType",
           "#run_schemaShorthand",
           "#run_schema",
           "#profile-retry-repair",
@@ -538,6 +568,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         "systemPrompt" => "control coverage system",
         "schemaShorthand" => ~s({"answer":"string"}),
         "schema" => "",
+        "callType" => "text",
         "reasoningEffort" => "highest",
         "cacheMode" => "cache"
       }
@@ -546,9 +577,11 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     view |> element("#generate-schema") |> render_click()
     assert has_element?(view, "#schema-status", "Schema generated.")
+    assert has_element?(view, ~s(#run_callType option[value="structured"][selected]))
     view |> element("#check-schema") |> render_click()
     assert has_element?(view, "#schema-status", "Schema valid.")
     view |> element("#clear-schema") |> render_click()
+    assert has_element?(view, ~s(#run_callType option[value="text"][selected]))
     view |> element("#new-conversation") |> render_click()
     render_async(view, 1_000)
 
@@ -1325,7 +1358,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/workspace")
     render_async(view, 1_000)
 
-    submit_run(view, %{"schema" => "{invalid"})
+    submit_run(view, %{"callType" => "structured", "schema" => "{invalid"})
     assert has_element?(view, "#run-error", "valid JSON object schema")
   end
 
@@ -1739,6 +1772,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           "modelId" => "model-test",
           "systemPrompt" => "",
           "userPrompt" => "fixture prompt",
+          "callType" => "text",
           "cacheMode" => "cache",
           "schema" => ""
         },

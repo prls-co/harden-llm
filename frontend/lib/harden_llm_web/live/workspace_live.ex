@@ -620,7 +620,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
     case generate_schema(shorthand) do
       {:ok, schema, message} ->
-        next_params = Map.put(params, "schema", Jason.encode!(schema, pretty: true))
+        next_params =
+          params
+          |> Map.put("callType", "structured")
+          |> Map.put("schema", Jason.encode!(schema, pretty: true))
 
         {:noreply,
          socket
@@ -647,7 +650,12 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   def handle_event("clear-schema", event_params, socket) do
     params = event_form_params(event_params, socket)
-    next_params = params |> Map.put("schemaShorthand", "") |> Map.put("schema", "")
+
+    next_params =
+      params
+      |> Map.put("callType", "text")
+      |> Map.put("schemaShorthand", "")
+      |> Map.put("schema", "")
 
     {:noreply,
      socket
@@ -663,6 +671,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       params
       |> Map.put("systemPrompt", "")
       |> Map.put("userPrompt", "")
+      |> Map.put("callType", "text")
       |> Map.put("schemaShorthand", "")
       |> Map.put("schema", "")
 
@@ -1467,7 +1476,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
     reasoning = request["reasoningEffort"] || "lowest"
     schema = state_schema(request["schema"])
-    call_type = inferred_call_type(schema)
+    call_type = response_call_type(request)
 
     %{
       "schemaVersion" => 1,
@@ -1527,7 +1536,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
   defp run_payload(params, profiles, profile_provider_options \\ %{}) do
     prompt = String.trim(params["userPrompt"] || "")
     profile_id = String.trim(params["selectedProfileId"] || "")
-    call_type = inferred_call_type(params["schema"])
+    call_type = response_call_type(params)
 
     cond do
       profile_id == "" ->
@@ -1558,9 +1567,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
   defp run_disabled?(form, schema_check, run_ref) do
     profile_id = String.trim(form[:selectedProfileId].value || "")
     schema = String.trim(form[:schema].value || "")
+    call_type = response_call_type(form.params || %{})
 
     run_ref != nil or profile_id == "" or
-      (schema != "" and schema_check.status != :valid)
+      (call_type == "structured" and (schema == "" or schema_check.status != :valid))
   end
 
   defp new_disabled?(form, run_result, conversation_trace_id) do
@@ -1668,7 +1678,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     schema = state_schema(params["schema"])
     profile_id = params["selectedProfileId"] || ""
     reasoning_effort = params["reasoningEffort"] || "lowest"
-    call_type = inferred_call_type(schema)
+    call_type = response_call_type(params)
 
     reasoning_by_profile =
       cond do
@@ -1718,7 +1728,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp normalize_response_state(state) do
     schema = state_schema(state["schema"])
-    call_type = inferred_call_type(schema)
+    call_type = response_call_type(state)
 
     state
     |> Map.put("schema", schema)
@@ -1734,6 +1744,16 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp structured_repair?(_params, _call_type), do: false
 
+  defp response_call_type(params) when is_map(params) do
+    case params["callType"] do
+      "text" -> "text"
+      "structured" -> "structured"
+      _ -> inferred_call_type(params["schema"])
+    end
+  end
+
+  defp response_call_type(_params), do: "text"
+
   defp inferred_call_type(value) when is_binary(value) do
     if String.trim(value) == "", do: "text", else: "structured"
   end
@@ -1741,26 +1761,23 @@ defmodule HardenLlmWeb.WorkspaceLive do
   defp inferred_call_type(value) when is_map(value), do: "structured"
   defp inferred_call_type(_value), do: "text"
 
-  defp parse_schema(value, call_type) when is_binary(value) do
+  defp parse_schema(_value, "text"), do: {:ok, nil}
+
+  defp parse_schema(value, "structured") when is_binary(value) do
     case schema_check(value) do
       {:ok, nil, _message} ->
-        if call_type == "structured" do
-          {:error, "Structured output requires a valid JSON Schema object."}
-        else
-          {:ok, nil}
-        end
+        {:error, "Structured output requires a valid JSON Schema object."}
 
       {:ok, schema, _message} ->
-        if call_type == "structured", do: {:ok, schema}, else: {:ok, nil}
+        {:ok, schema}
 
       {:error, message} ->
-        if call_type == "structured" do
-          {:error, "Structured output requires a valid JSON object schema. #{message}"}
-        else
-          {:error, message}
-        end
+        {:error, "Structured output requires a valid JSON object schema. #{message}"}
     end
   end
+
+  defp parse_schema(_value, "structured"),
+    do: {:error, "Structured output requires a valid JSON Schema object."}
 
   defp parse_schema(_value, _call_type), do: {:ok, nil}
 
