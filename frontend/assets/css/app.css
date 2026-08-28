@@ -278,30 +278,27 @@ button, a, input, select, textarea { touch-action: manipulation; }
 .ullm-cache-status {
   display: inline-flex;
   align-items: center;
-  border: 1px solid var(--ullm-border);
-  border-radius: 999px;
-  padding: .1em .45em;
-  font-weight: 700;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  font-weight: inherit;
   white-space: nowrap;
 }
 
 .ullm-cache-status-hit {
-  border-color: var(--ullm-success);
   color: var(--ullm-success);
-  background: rgb(73 111 74 / 10%);
 }
 
 .ullm-cache-status-miss,
 .ullm-cache-status-refresh {
-  border-color: var(--ullm-accent-muted);
   color: var(--ullm-accent-muted);
-  background: rgb(107 90 37 / 8%);
 }
 
 .ullm-cache-status-disabled,
 .ullm-cache-status-unknown {
   color: var(--ullm-text-muted);
-  background: var(--ullm-panel-strong);
 }
 
 .llm-trace-details {
