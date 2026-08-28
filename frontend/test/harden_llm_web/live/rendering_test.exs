@@ -55,7 +55,6 @@ defmodule HardenLlmWeb.RenderingTest do
     assert has_element?(workspace, "#run-submit")
     assert has_element?(workspace, "#run-submit[formnovalidate]")
     assert has_element?(workspace, "#workspace-history", "No runs yet in this session.")
-    assert has_element?(workspace, ".sm\\:grid-cols-2")
 
     assert has_element?(workspace, ".studio-stack")
 
@@ -161,9 +160,7 @@ defmodule HardenLlmWeb.RenderingTest do
         "modelId" => "model-test",
         "systemPrompt" => "",
         "userPrompt" => "render the bounded result",
-        "callType" => "text",
         "cacheMode" => "cache",
-        "structuredRepair" => "false",
         "schema" => ""
       }
     })

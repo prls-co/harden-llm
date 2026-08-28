@@ -2148,6 +2148,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       end
 
     %{
+      "structuredRepair" => enabled,
       "maxAttempts" =>
         integer_or_default(
           params["retryMaxAttempts"],

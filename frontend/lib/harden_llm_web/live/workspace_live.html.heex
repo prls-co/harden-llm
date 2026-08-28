@@ -180,22 +180,6 @@
                 </div>
               </div>
             </div>
-            <div class="grid gap-4 sm:grid-cols-2">
-              <.input
-                field={@form[:callType]}
-                type="select"
-                label="Response type"
-                options={[{"Text", "text"}, {"Structured JSON", "structured"}]}
-                phx-debounce="blur"
-              />
-              <.input
-                field={@form[:structuredRepair]}
-                type="checkbox"
-                label="Structured repair"
-                phx-debounce="blur"
-              />
-            </div>
-
             <div
               :if={@run_error}
               id="run-error"

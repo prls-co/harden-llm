@@ -200,6 +200,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> Map.merge(hydration.state || %{})
       |> Map.update("cacheMode", "cache", &normalize_cache_mode/1)
       |> Map.put("ui", normalize_ui((hydration.state || %{})["ui"]))
+      |> normalize_response_state()
 
     reasoning_by_profile = state["reasoningByProfile"] || %{}
 
@@ -1465,6 +1466,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
       if(profile_known?(profiles, selected_profile_id), do: selected_profile_id, else: "")
 
     reasoning = request["reasoningEffort"] || "lowest"
+    schema = state_schema(request["schema"])
+    call_type = inferred_call_type(schema)
 
     %{
       "schemaVersion" => 1,
@@ -1473,17 +1476,12 @@ defmodule HardenLlmWeb.WorkspaceLive do
       "systemPrompt" => request["systemPrompt"] || "",
       "userPrompt" => request["userPrompt"] || "",
       "schemaShorthand" => request["schemaShorthand"] || "",
-      "callType" =>
-        request["callType"] || if(is_map(request["schema"]), do: "structured", else: "text"),
-      "schema" => request["schema"],
+      "callType" => call_type,
+      "schema" => schema,
       "reasoningEffort" => reasoning,
       "reasoningByProfile" =>
         if(selected_profile_id == "", do: %{}, else: %{selected_profile_id => reasoning}),
-      "structuredRepair" =>
-        if(Map.has_key?(request, "structuredRepair"),
-          do: truthy?(request["structuredRepair"]),
-          else: is_map(request["schema"])
-        ),
+      "structuredRepair" => structured_repair?(request, call_type),
       "cacheMode" => normalize_cache_mode(request["cacheMode"]),
       "maxAttempts" => request["maxAttempts"] || 0,
       "initialBackoffMs" => request["initialBackoffMs"] || 0,
@@ -1529,7 +1527,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
   defp run_payload(params, profiles, profile_provider_options \\ %{}) do
     prompt = String.trim(params["userPrompt"] || "")
     profile_id = String.trim(params["selectedProfileId"] || "")
-    call_type = params["callType"] || "text"
+    call_type = inferred_call_type(params["schema"])
 
     cond do
       profile_id == "" ->
@@ -1670,7 +1668,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     schema = state_schema(params["schema"])
     profile_id = params["selectedProfileId"] || ""
     reasoning_effort = params["reasoningEffort"] || "lowest"
-    call_type = params["callType"] || if(is_map(schema), do: "structured", else: "text")
+    call_type = inferred_call_type(schema)
 
     reasoning_by_profile =
       cond do
@@ -1718,13 +1716,30 @@ defmodule HardenLlmWeb.WorkspaceLive do
     end
   end
 
+  defp normalize_response_state(state) do
+    schema = state_schema(state["schema"])
+    call_type = inferred_call_type(schema)
+
+    state
+    |> Map.put("schema", schema)
+    |> Map.put("callType", call_type)
+    |> Map.put("structuredRepair", structured_repair?(state, call_type))
+  end
+
   defp structured_repair?(params, "structured") do
     if Map.has_key?(params, "structuredRepair"),
       do: truthy?(params["structuredRepair"]),
       else: true
   end
 
-  defp structured_repair?(params, _call_type), do: truthy?(params["structuredRepair"])
+  defp structured_repair?(_params, _call_type), do: false
+
+  defp inferred_call_type(value) when is_binary(value) do
+    if String.trim(value) == "", do: "text", else: "structured"
+  end
+
+  defp inferred_call_type(value) when is_map(value), do: "structured"
+  defp inferred_call_type(_value), do: "text"
 
   defp parse_schema(value, call_type) when is_binary(value) do
     case schema_check(value) do
