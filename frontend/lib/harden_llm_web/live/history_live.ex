@@ -1,6 +1,7 @@
 defmodule HardenLlmWeb.HistoryLive do
   use HardenLlmWeb, :live_view
 
+  alias HardenLlm.LlmTraceProjection
   alias HardenLlmWeb.{APIError, Auth, HardenAPI, Observability}
 
   @impl true
@@ -13,6 +14,9 @@ defmodule HardenLlmWeb.HistoryLive do
       |> assign(:next_cursor, nil)
       |> assign(:page_size, 20)
       |> assign(:page_number, 1)
+      |> assign(:stats, LlmTraceProjection.stats(%{}))
+      |> assign(:stats_error, nil)
+      |> assign(:stats_ref, nil)
       |> assign(:expanded_history_id, nil)
       |> assign(:selected_trace_id, nil)
       |> assign(:trace, nil)
@@ -26,12 +30,15 @@ defmodule HardenLlmWeb.HistoryLive do
     if connected?(socket) do
       handle = socket.assigns.session_handle
 
-      {:ok,
-       start_async(
-         socket,
-         :load_history,
-         Observability.propagate(fn -> HardenAPI.list_history(handle, limit: 20) end)
-       )}
+      socket =
+        socket
+        |> start_async(
+          :load_history,
+          Observability.propagate(fn -> HardenAPI.list_history(handle, limit: 20) end)
+        )
+        |> refresh_stats()
+
+      {:ok, socket}
     else
       {:ok, socket}
     end
@@ -72,6 +79,31 @@ defmodule HardenLlmWeb.HistoryLive do
      |> assign(:loading?, false)
      |> assign(:operation_error, "History is temporarily unavailable.")}
   end
+
+  def handle_async(
+        {:load_stats, reference},
+        {:ok, {:ok, stats, _state}},
+        %{assigns: %{stats_ref: reference}} = socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:stats, LlmTraceProjection.stats(stats))
+     |> assign(:stats_error, nil)
+     |> assign(:stats_ref, nil)}
+  end
+
+  def handle_async(
+        {:load_stats, reference},
+        _result,
+        %{assigns: %{stats_ref: reference}} = socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:stats_error, "Aggregate stats are temporarily unavailable.")
+     |> assign(:stats_ref, nil)}
+  end
+
+  def handle_async({:load_stats, _reference}, _result, socket), do: {:noreply, socket}
 
   def handle_async(
         {:load_more, reference},
@@ -172,6 +204,7 @@ defmodule HardenLlmWeb.HistoryLive do
      |> assign(:history_by_id, Map.delete(socket.assigns.history_by_id, run_id))
      |> assign(:expanded_history_id, nil)
      |> stream_delete(:history, item)
+     |> refresh_stats()
      |> put_flash(:info, "History item deleted.")}
   end
 
@@ -189,6 +222,7 @@ defmodule HardenLlmWeb.HistoryLive do
      |> assign(:page_number, 1)
      |> assign(:expanded_history_id, nil)
      |> stream(:history, [], reset: true)
+     |> refresh_stats()
      |> put_flash(:info, "History cleared.")}
   end
 
@@ -370,76 +404,8 @@ defmodule HardenLlmWeb.HistoryLive do
     end
   end
 
-  def history_curl(item) do
-    request = item["request"] || %{}
-    body = Jason.encode!(request)
-    "curl -X POST /api/v1/run -H 'content-type: application/json' --data-raw '#{body}'"
-  end
-
-  def history_stats(item) do
-    usage = get_in(item, ["result", "usage"]) || %{}
-    cost = get_in(item, ["result", "cost"]) || %{}
-    attempts = get_in(item, ["result", "attempts"]) || []
-
-    %{
-      status: item["status"] || "unknown",
-      profile: item["profileId"] || "",
-      duration: duration_ms(item),
-      input_tokens: usage["inputTokens"] || 0,
-      cache_read_tokens: usage["cacheReadTokens"] || 0,
-      cache_creation_tokens: usage["cacheCreationTokens"] || 0,
-      output_tokens: usage["outputTokens"] || 0,
-      reasoning_tokens: usage["reasoningTokens"] || 0,
-      total_tokens: usage["totalTokens"] || 0,
-      known_cost: if(cost["known"] == false, do: nil, else: cost["totalUsd"]),
-      attempts: length(attempts)
-    }
-  end
-
-  def stats_summary(history_by_id) do
-    items = Map.values(history_by_id)
-    durations = items |> Enum.map(&duration_ms/1) |> Enum.reject(&is_nil/1)
-
-    %{
-      success: Enum.count(items, &(&1["status"] == "succeeded")),
-      failed: Enum.count(items, &(&1["status"] == "failed")),
-      timeout: Enum.count(items, &(&1["status"] == "timeout")),
-      prompt_tokens:
-        Enum.sum(Enum.map(items, &(get_in(&1, ["result", "usage", "inputTokens"]) || 0))),
-      cache_read_tokens:
-        Enum.sum(Enum.map(items, &(get_in(&1, ["result", "usage", "cacheReadTokens"]) || 0))),
-      cache_creation_tokens:
-        Enum.sum(Enum.map(items, &(get_in(&1, ["result", "usage", "cacheCreationTokens"]) || 0))),
-      output_tokens:
-        Enum.sum(Enum.map(items, &(get_in(&1, ["result", "usage", "outputTokens"]) || 0))),
-      reasoning_tokens:
-        Enum.sum(Enum.map(items, &(get_in(&1, ["result", "usage", "reasoningTokens"]) || 0))),
-      total_tokens:
-        Enum.sum(Enum.map(items, &(get_in(&1, ["result", "usage", "totalTokens"]) || 0))),
-      known_cost:
-        Enum.sum(
-          Enum.map(items, fn item ->
-            if get_in(item, ["result", "cost", "known"]) == false,
-              do: 0,
-              else: get_in(item, ["result", "cost", "totalUsd"]) || 0
-          end)
-        ),
-      average_duration:
-        if(durations == [], do: nil, else: div(Enum.sum(durations), length(durations)))
-    }
-  end
-
   def expanded_history(history_by_id, run_id) when is_binary(run_id), do: history_by_id[run_id]
   def expanded_history(_history_by_id, _run_id), do: nil
-
-  defp duration_ms(item) do
-    with {:ok, started, _} <- DateTime.from_iso8601(item["startedAt"] || ""),
-         {:ok, completed, _} <- DateTime.from_iso8601(item["completedAt"] || "") do
-      DateTime.diff(completed, started, :millisecond)
-    else
-      _ -> nil
-    end
-  end
 
   defp put_page(socket, page, reset?, page_number) do
     items = page["items"] || []
@@ -451,6 +417,18 @@ defmodule HardenLlmWeb.HistoryLive do
     |> assign(:next_cursor, page["nextCursor"])
     |> assign(:page_number, page_number)
     |> stream(:history, items, reset: reset?)
+  end
+
+  defp refresh_stats(socket) do
+    reference = System.unique_integer([:positive, :monotonic])
+    handle = socket.assigns.session_handle
+
+    socket
+    |> assign(:stats_ref, reference)
+    |> start_async(
+      {:load_stats, reference},
+      Observability.propagate(fn -> HardenAPI.get_stats(handle) end)
+    )
   end
 
   defp restore_state(request, item) do

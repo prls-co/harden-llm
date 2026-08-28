@@ -64,6 +64,11 @@ type RunArtifact struct {
 
 type RunOutput struct {
 	RunID               string                `json:"runId"`
+	ProfileID           string                `json:"profileId"`
+	ModelID             string                `json:"modelId"`
+	Provider            string                `json:"provider"`
+	APIInferenceType    string                `json:"apiInferenceType"`
+	ProviderBaseURL     string                `json:"providerBaseUrl"`
 	Output              any                   `json:"output"`
 	CallID              string                `json:"callId"`
 	TraceID             string                `json:"traceId"`
@@ -74,6 +79,7 @@ type RunOutput struct {
 	Artifacts           []RunArtifact         `json:"artifacts"`
 	TotalCallDurationMs int64                 `json:"totalCallDurationMs"`
 	TotalWaitMs         int64                 `json:"totalWaitMs"`
+	OverBudgetMs        int64                 `json:"overBudgetMs"`
 	UsedRepair          bool                  `json:"usedRepair"`
 }
 
@@ -226,22 +232,28 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 	artifacts, artifactRecords := runArtifacts(ownerID, runID, traceID, result.Artifacts, completedAt)
 	totalCallDurationMs := elapsedMilliseconds(startedAt, completedAt)
 	totalWaitMs := attemptWaitMilliseconds(result.Attempts)
+	overBudgetMs := int64(0)
+	if input.TimeoutMS > 0 {
+		overBudgetMs = max(totalCallDurationMs-int64(input.TimeoutMS), 0)
+	}
 	usedRepair := attemptsUsedRepair(result.Attempts)
 	output = RunOutput{
-		RunID: runID, Output: result.Output, CallID: result.CallID, TraceID: traceID,
+		RunID: runID, ProfileID: input.ProfileID, ModelID: profile.ModelID, Provider: profile.Provider,
+		APIInferenceType: profile.APIInferenceType, ProviderBaseURL: profile.BaseURL,
+		Output: result.Output, CallID: result.CallID, TraceID: traceID,
 		Usage: result.Usage, Cost: result.Cost, Attempts: append([]hardenllm.Attempt(nil), result.Attempts...),
 		Cache: result.Cache, Artifacts: artifacts, TotalCallDurationMs: totalCallDurationMs,
-		TotalWaitMs: totalWaitMs, UsedRepair: usedRepair,
+		TotalWaitMs: totalWaitMs, OverBudgetMs: overBudgetMs, UsedRepair: usedRepair,
 	}
 	requestDocument, _ := json.Marshal(input)
-	persistedOutput := output
-	persistedOutput.Artifacts = nil
-	resultDocument, _ := json.Marshal(persistedOutput)
+	resultDocument, _ := json.Marshal(output)
 	traceDocument, _ := json.Marshal(map[string]any{
 		"schemaVersion": 1, "runId": runID, "callId": result.CallID, "traceId": traceID,
-		"status": status, "profileId": input.ProfileID, "output": result.Output,
+		"status": status, "profileId": input.ProfileID, "modelId": profile.ModelID,
+		"provider": profile.Provider, "apiInferenceType": profile.APIInferenceType,
+		"providerBaseUrl": profile.BaseURL, "output": result.Output,
 		"usage": result.Usage, "cost": result.Cost, "attempts": result.Attempts, "cache": result.Cache,
-		"totalCallDurationMs": totalCallDurationMs, "totalWaitMs": totalWaitMs,
+		"totalCallDurationMs": totalCallDurationMs, "totalWaitMs": totalWaitMs, "overBudgetMs": overBudgetMs,
 		"usedRepair": usedRepair, "providerInvoked": len(result.Attempts) > 0,
 	})
 	observations := runObservations(ownerID, traceID, result.Attempts, completedAt)
@@ -251,23 +263,9 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 	persistErr := service.store.SaveExecution(persistContext, postgres.RunRecord{
 		OwnerID: ownerID, ID: runID, ProfileID: input.ProfileID, TraceID: traceID, Status: status,
 		Request: requestDocument, Result: resultDocument, StartedAt: startedAt, CompletedAt: completedAt,
-	}, postgres.TraceRecord{OwnerID: ownerID, TraceID: traceID, Record: traceDocument, CreatedAt: startedAt, UpdatedAt: completedAt}, observations)
-	if persistErr == nil {
-		for _, artifact := range artifactRecords {
-			artifactContext, endArtifactIndex := service.telemetry.StartPersistence(persistContext, "postgres", "artifact.index")
-			if saveErr := service.store.SaveArtifact(artifactContext, artifact); saveErr != nil {
-				output.Artifacts = removeRunArtifact(output.Artifacts, artifact.ID)
-				endArtifactIndex(saveErr)
-			} else {
-				endArtifactIndex(nil)
-			}
-		}
-		updatedResult, marshalErr := json.Marshal(output)
-		if marshalErr != nil {
-			persistErr = errors.New("gateway: encode persisted run result")
-		} else if updateErr := service.store.UpdateRunResult(persistContext, ownerID, runID, updatedResult); updateErr != nil {
-			persistErr = updateErr
-		}
+	}, postgres.TraceRecord{OwnerID: ownerID, TraceID: traceID, Record: traceDocument, CreatedAt: startedAt, UpdatedAt: completedAt}, observations, artifactRecords)
+	if persistErr != nil && len(artifactRecords) > 0 {
+		cleanupUploadedArtifacts(ctx, artifactStore, artifactRecords, service.logger)
 	}
 	endPersistence(persistErr)
 	state = RunState{LastRunID: runID, LastTraceID: traceID}
@@ -448,11 +446,20 @@ func runObservations(ownerID, traceID string, attempts []hardenllm.Attempt, now 
 	return result
 }
 
-func removeRunArtifact(artifacts []RunArtifact, artifactID string) []RunArtifact {
-	for index := range artifacts {
-		if artifacts[index].ArtifactID == artifactID {
-			return append(artifacts[:index:index], artifacts[index+1:]...)
-		}
+func cleanupUploadedArtifacts(ctx context.Context, store hardenllm.ArtifactStore, artifacts []postgres.ArtifactRecord, logger *slog.Logger) {
+	cleanup, ok := store.(interface {
+		DeleteMany(context.Context, []string) error
+	})
+	if !ok {
+		return
 	}
-	return artifacts
+	keys := make([]string, len(artifacts))
+	for index, artifact := range artifacts {
+		keys[index] = artifact.ObjectKey
+	}
+	cleanupContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), persistenceTimeout)
+	defer cancel()
+	if err := cleanup.DeleteMany(cleanupContext, keys); err != nil {
+		logger.WarnContext(cleanupContext, "uploaded artifact cleanup failed", "artifact_count", len(keys))
+	}
 }

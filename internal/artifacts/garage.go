@@ -22,6 +22,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	hardenllm "github.com/prls-co/harden-llm"
@@ -302,6 +303,68 @@ func (store *ScopedStore) PresignGet(ctx context.Context, key string, ttl time.D
 
 func (store *GarageStore) PresignGet(ctx context.Context, key string, ttl time.Duration) (string, error) {
 	return store.presignGet(ctx, key, ttl, "")
+}
+
+// DeleteMany removes an owner-scoped set of objects. S3 deletion is
+// idempotent, so retries are safe when metadata deletion fails after the
+// object operation completes.
+func (store *ScopedStore) DeleteMany(ctx context.Context, keys []string) error {
+	if store == nil || store.store == nil {
+		return &Error{Operation: "delete", Kind: KindInvalid, err: errors.New("store is not initialized")}
+	}
+	return store.store.deleteMany(ctx, keys, store.prefix)
+}
+
+func (store *GarageStore) DeleteMany(ctx context.Context, keys []string) error {
+	return store.deleteMany(ctx, keys, "")
+}
+
+func (store *GarageStore) deleteMany(ctx context.Context, keys []string, prefix string) (err error) {
+	if store == nil || store.client == nil {
+		return &Error{Operation: "delete", Kind: KindInvalid, err: errors.New("store is not initialized")}
+	}
+	if len(keys) == 0 {
+		return nil
+	}
+	objects := make([]types.ObjectIdentifier, len(keys))
+	for index, key := range keys {
+		if err := validateKey(key, prefix); err != nil {
+			return &Error{Operation: "delete", Kind: KindInvalid, err: err}
+		}
+		objects[index] = types.ObjectIdentifier{Key: aws.String(key)}
+	}
+	ctx, endOperation := store.telemetry.Start(ctx, "delete")
+	defer func() { endOperation(err) }()
+	for start := 0; start < len(objects); start += 1000 {
+		end := min(start+1000, len(objects))
+		requestContext, cancel := store.operationContext(ctx)
+		output, deleteErr := store.client.DeleteObjects(requestContext, &s3.DeleteObjectsInput{
+			Bucket: aws.String(store.bucket),
+			Delete: &types.Delete{Objects: objects[start:end], Quiet: aws.Bool(true)},
+		})
+		if deleteErr != nil {
+			classified := classify("delete", requestContext, deleteErr)
+			cancel()
+			return classified
+		}
+		cancel()
+		if output == nil || deleteOutputFailed(output.Errors) {
+			return &Error{Operation: "delete", Kind: KindUnavailable, err: errors.New("object deletion was incomplete")}
+		}
+	}
+	return nil
+}
+
+func deleteOutputFailed(deleteErrors []types.Error) bool {
+	for _, deleteError := range deleteErrors {
+		switch strings.ToLower(strings.TrimSpace(aws.ToString(deleteError.Code))) {
+		case "nosuchkey", "notfound", "no_such_key":
+			continue
+		default:
+			return true
+		}
+	}
+	return false
 }
 
 func (store *GarageStore) presignGet(ctx context.Context, key string, ttl time.Duration, prefix string) (location string, err error) {

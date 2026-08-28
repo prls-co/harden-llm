@@ -105,9 +105,24 @@ type CacheRecord struct {
 	UpdatedAt     time.Time
 }
 
-type StatsRecord struct {
-	OwnerID   string
-	Scope     string
-	Totals    json.RawMessage
-	UpdatedAt time.Time
+type RunStats struct {
+	TotalCount          int64
+	SuccessCount        int64
+	FailureCount        int64
+	TimeoutCount        int64
+	TotalPromptTokens   int64
+	CacheReadTokens     int64
+	CacheCreationTokens int64
+	TotalOutputTokens   int64
+	ReasoningTokens     int64
+	TotalTokens         int64
+	TotalCost           float64
+	CachedCost          float64
+	CachedCount         int64
+	KnownCostCount      int64
+	UnknownCostCount    int64
+	TotalCallDurationMS int64
+	MaxCallDurationMS   int64
+	OverBudgetCount     int64
+	MaxOverBudgetMS     int64
 }

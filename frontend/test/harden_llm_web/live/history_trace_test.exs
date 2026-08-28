@@ -234,6 +234,9 @@ defmodule HardenLlmWeb.HistoryTraceTest do
         {"GET", "/api/v1/auth/session"} ->
           Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
 
+        {"GET", "/api/v1/stats"} ->
+          Req.Test.json(conn, APIFixtures.success(APIFixtures.stats()))
+
         _ ->
           handler.(conn)
       end

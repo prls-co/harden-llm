@@ -221,6 +221,8 @@ func (api *API) operationHandler(operationID string) http.HandlerFunc {
 		return api.refreshProfileModels
 	case "listHistory":
 		return api.listHistory
+	case "getStats":
+		return api.getStats
 	case "deleteHistory":
 		return api.deleteHistory
 	case "clearHistory":

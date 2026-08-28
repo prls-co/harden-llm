@@ -170,6 +170,21 @@ defmodule HardenLlmWeb.LlmTraceComponents do
         <p :if={present?(value(@details, "run_id"))}>
           <strong>Run ID:</strong> {value(@details, "run_id")}
         </p>
+        <p :if={present?(value(@details, "profile_id"))}>
+          <strong>Profile:</strong> {value(@details, "profile_id")}
+        </p>
+        <p :if={present?(value(@details, "model_id"))}>
+          <strong>Model:</strong> {value(@details, "model_id")}
+        </p>
+        <p :if={present?(value(@details, "provider"))}>
+          <strong>Provider:</strong> {value(@details, "provider")}
+        </p>
+        <p :if={present?(value(@details, "api_inference_type"))}>
+          <strong>API inference type:</strong> {value(@details, "api_inference_type")}
+        </p>
+        <p :if={present?(value(@details, "provider_base_url"))}>
+          <strong>Provider base URL:</strong> {value(@details, "provider_base_url")}
+        </p>
         <p :if={present?(value(@details, "status"))}>
           <strong>Status:</strong> {value(@details, "status")}
         </p>
@@ -184,7 +199,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
           <li :for={attempt <- list_value(@details, "attempts")}>
             Attempt {value(attempt, "attempt")}: {value(attempt, "category")} ({format_status(
               value(attempt, "status_code")
-            )})
+            )}) · {value(attempt, "duration_ms") || 0}ms
             <span :if={value(attempt, "retryable")}>
               - Retried after {value(attempt, "delay_ms")}ms
             </span>
@@ -253,14 +268,12 @@ defmodule HardenLlmWeb.LlmTraceComponents do
     <section id={@id} aria-label={@aria_label} class={@class}>
       <div class="flex items-center justify-between gap-3">
         <h2 class="font-semibold text-slate-950">{@title}</h2>
-        <%= cond do %>
-          <% present?(@navigate) -> %>
-            <a href={@navigate} class="text-xs font-semibold text-teal-700">{@link_label}</a>
-          <% present?(@subtitle) -> %>
-            <span class="text-xs text-slate-500">{@subtitle}</span>
-          <% true -> %>
-            nil
-        <% end %>
+        <div class="flex items-center gap-3">
+          <span :if={present?(@subtitle)} class="text-xs text-slate-500">{@subtitle}</span>
+          <a :if={present?(@navigate)} href={@navigate} class="text-xs font-semibold text-teal-700">
+            {@link_label}
+          </a>
+        </div>
       </div>
       <dl class={@grid_class}>
         <div :for={{key, default_label} <- stats_fields()} class={@fact_class}>
@@ -336,29 +349,51 @@ defmodule HardenLlmWeb.LlmTraceComponents do
 
   defp stats_fields do
     [
+      {"runs", "Runs"},
       {"success", "Success"},
       {"failed", "Failed"},
       {"timeout", "Timeout"},
       {"prompt_tokens", "Prompt tokens"},
       {"cache_read_tokens", "Cache read"},
+      {"cache_creation_tokens", "Cache creation"},
       {"output_tokens", "Output tokens"},
+      {"reasoning_tokens", "Reasoning tokens"},
       {"total_tokens", "Tokens"},
       {"known_cost", "Known cost"},
-      {"average_duration", "Avg duration ms"}
+      {"cached_cost", "Cached cost"},
+      {"cached_count", "Cached runs"},
+      {"known_cost_count", "Known-cost runs"},
+      {"unknown_cost_count", "Unknown-cost runs"},
+      {"total_duration", "Total duration ms"},
+      {"average_duration", "Avg duration ms"},
+      {"max_duration", "Max duration ms"},
+      {"over_budget_count", "Over budget"},
+      {"max_over_budget", "Max over budget ms"}
     ]
   end
 
   defp stats_display(stats, key) do
     stats_key = %{
+      "runs" => :runs,
       "success" => :success,
       "failed" => :failed,
       "timeout" => :timeout,
       "prompt_tokens" => :prompt_tokens,
       "cache_read_tokens" => :cache_read_tokens,
+      "cache_creation_tokens" => :cache_creation_tokens,
       "output_tokens" => :output_tokens,
+      "reasoning_tokens" => :reasoning_tokens,
       "total_tokens" => :total_tokens,
       "known_cost" => :known_cost,
-      "average_duration" => :average_duration
+      "cached_cost" => :cached_cost,
+      "cached_count" => :cached_count,
+      "known_cost_count" => :known_cost_count,
+      "unknown_cost_count" => :unknown_cost_count,
+      "total_duration" => :total_duration,
+      "average_duration" => :average_duration,
+      "max_duration" => :max_duration,
+      "over_budget_count" => :over_budget_count,
+      "max_over_budget" => :max_over_budget
     }
 
     result =

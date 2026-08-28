@@ -76,7 +76,7 @@ func (telemetry *storeTelemetry) Start(ctx context.Context, operation string) (c
 
 func boundedGarageOperation(value string) string {
 	switch value {
-	case "put", "get", "presign", "ready":
+	case "put", "get", "delete", "presign", "ready":
 		return value
 	default:
 		return "other"

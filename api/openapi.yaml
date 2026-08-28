@@ -136,7 +136,7 @@ paths:
       operationId: clearHistory
       tags: [Runs]
       summary: Clear run history
-      description: Deletes all run history and dependent trace metadata for the owner.
+      description: Deletes all owned runs, domain traces, observations, artifact metadata, and artifact object bodies.
       responses:
         "200":
           $ref: "#/components/responses/ClearHistorySuccess"
@@ -149,10 +149,21 @@ paths:
       operationId: deleteHistory
       tags: [Runs]
       summary: Delete one history item
-      description: Deletes an owned run and its dependent domain trace metadata.
+      description: Deletes an owned run, its domain trace, observations, artifact metadata, and artifact object bodies.
       responses:
         "200":
           $ref: "#/components/responses/DeleteHistorySuccess"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/stats:
+    get:
+      operationId: getStats
+      tags: [Runs]
+      summary: Read aggregate run statistics
+      description: Computes authoritative owner-scoped totals directly from persisted run records.
+      responses:
+        "200":
+          $ref: "#/components/responses/StatsSuccess"
         default:
           $ref: "#/components/responses/Error"
   /api/v1/profiles/bundle:
@@ -688,6 +699,37 @@ components:
                       completedAt: "2026-07-13T12:00:01Z"
                   nextCursor: eyJzdGFydGVkQXQiOiIyMDI2LTA3LTEzVDEyOjAwOjAwWiIsImlkIjoicnVuLWV4YW1wbGUifQ
                 error: null
+    StatsSuccess:
+      description: Authoritative aggregates for all owned run records.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StatsEnvelope"
+          examples:
+            totals:
+              value:
+                state: {}
+                result:
+                  totalCount: 3
+                  successCount: 2
+                  failureCount: 1
+                  timeoutCount: 0
+                  totalPromptTokens: 24
+                  cacheReadTokens: 8
+                  cacheCreationTokens: 2
+                  totalOutputTokens: 12
+                  reasoningTokens: 4
+                  totalTokens: 42
+                  totalCost: 0.00042
+                  cachedCost: 0.0001
+                  cachedCount: 1
+                  knownCostCount: 2
+                  unknownCostCount: 1
+                  totalCallDurationMs: 2580
+                  maxCallDurationMs: 1200
+                  overBudgetCount: 1
+                  maxOverBudgetMs: 50
+                error: null
     DeleteHistorySuccess:
       description: Confirmation that one run was deleted.
       content:
@@ -736,6 +778,11 @@ components:
                 state: {lastRunId: run-example, lastTraceId: trace-example}
                 result:
                   runId: run-example
+                  profileId: Primary
+                  modelId: gpt-example
+                  provider: openai
+                  apiInferenceType: responses
+                  providerBaseUrl: https://api.openai.com/v1
                   output: OK
                   callId: call-example
                   traceId: trace-example
@@ -763,6 +810,10 @@ components:
                       sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
                       sizeBytes: 512
                       contentType: application/json
+                  totalCallDurationMs: 120
+                  totalWaitMs: 0
+                  overBudgetMs: 0
+                  usedRepair: false
                 error: null
     RunTimeout:
       description: The effective synchronous deadline expired and the root call was canceled.
@@ -1259,6 +1310,38 @@ components:
           properties:
             deletedCount: {type: integer, minimum: 0}
         error: {type: "null"}
+    Stats:
+      type: object
+      additionalProperties: false
+      required: [totalCount, successCount, failureCount, timeoutCount, totalPromptTokens, cacheReadTokens, cacheCreationTokens, totalOutputTokens, reasoningTokens, totalTokens, totalCost, cachedCost, cachedCount, knownCostCount, unknownCostCount, totalCallDurationMs, maxCallDurationMs, overBudgetCount, maxOverBudgetMs]
+      properties:
+        totalCount: {type: integer, minimum: 0}
+        successCount: {type: integer, minimum: 0}
+        failureCount: {type: integer, minimum: 0}
+        timeoutCount: {type: integer, minimum: 0}
+        totalPromptTokens: {type: integer, minimum: 0}
+        cacheReadTokens: {type: integer, minimum: 0}
+        cacheCreationTokens: {type: integer, minimum: 0}
+        totalOutputTokens: {type: integer, minimum: 0}
+        reasoningTokens: {type: integer, minimum: 0}
+        totalTokens: {type: integer, minimum: 0}
+        totalCost: {type: number, minimum: 0, description: Sum of known trace-attributed USD costs.}
+        cachedCost: {type: number, minimum: 0, description: Known trace-attributed USD cost served from cache.}
+        cachedCount: {type: integer, minimum: 0}
+        knownCostCount: {type: integer, minimum: 0}
+        unknownCostCount: {type: integer, minimum: 0}
+        totalCallDurationMs: {type: integer, minimum: 0}
+        maxCallDurationMs: {type: integer, minimum: 0}
+        overBudgetCount: {type: integer, minimum: 0}
+        maxOverBudgetMs: {type: integer, minimum: 0}
+    StatsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [state, result, error]
+      properties:
+        state: {$ref: "#/components/schemas/EmptyState"}
+        result: {$ref: "#/components/schemas/Stats"}
+        error: {type: "null"}
     DeleteProfileEnvelope:
       type: object
       additionalProperties: false
@@ -1374,9 +1457,14 @@ components:
     RunResult:
       type: object
       additionalProperties: false
-      required: [runId, output, callId, traceId, usage, cost, attempts, cache, artifacts]
+      required: [runId, profileId, modelId, provider, apiInferenceType, providerBaseUrl, output, callId, traceId, usage, cost, attempts, cache, artifacts, totalCallDurationMs, totalWaitMs, overBudgetMs, usedRepair]
       properties:
         runId: {$ref: "#/components/schemas/Identifier"}
+        profileId: {$ref: "#/components/schemas/ProfileID"}
+        modelId: {type: string, minLength: 1, maxLength: 512}
+        provider: {type: string, minLength: 1, maxLength: 64}
+        apiInferenceType: {type: string, enum: [chat-completions, responses, gemini-generate-content, anthropic-messages]}
+        providerBaseUrl: {type: string, format: uri, minLength: 1, maxLength: 2048}
         output: {}
         callId: {$ref: "#/components/schemas/Identifier"}
         traceId: {$ref: "#/components/schemas/Identifier"}
@@ -1392,6 +1480,7 @@ components:
           items: {$ref: "#/components/schemas/RunArtifact"}
         totalCallDurationMs: {type: integer, minimum: 0, description: Elapsed runtime call duration in milliseconds.}
         totalWaitMs: {type: integer, minimum: 0, description: Sum of retry waits in milliseconds.}
+        overBudgetMs: {type: integer, minimum: 0, description: Amount by which an explicit per-run timeout budget was exceeded.}
         usedRepair: {type: boolean, description: Whether structured-output repair was used.}
     RunState:
       type: object

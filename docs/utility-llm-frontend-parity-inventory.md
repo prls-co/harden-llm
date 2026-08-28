@@ -153,10 +153,10 @@ successful read or included in rendered state.
 | Conversation URL | URL query | A successful run writes its trace ID to `/workspace?trace_id=...`; opening or refreshing that URL restores the redacted output from the backend trace record. `New` removes the query and starts an empty conversation. |
 | `Copy` | Button | Copies the formatted latest result, changes to `Copied` or `Failed` briefly, and does not expose trace credentials. |
 | Trace summary | Clickable summary row | Expands/collapses measured LLM stats. The `Details` button performs the same action with an accessible label. |
-| Trace summary metrics | Text | Success/failure status, trace ID, model, retry count, duration, input/cache/output-plus-reasoning tokens, and known cost. Zero-token placeholders are not treated as measured stats; metric titles provide the same hover labels as utility-llm. |
-| `Trace ID`, `Status`, `Used Repair`, `Attempts` | Expanded trace text/list | Shows normalized retry categories, status codes, retry delays converted from the API's canonical nanosecond durations, and repair metadata. An empty attempt list remains empty (for example, a cache-served result). |
+| Trace summary metrics | Text | Success/failure status, trace ID, immutable model, retry count, duration, input/cache/output-plus-reasoning tokens, and known cost. A persisted trace remains inspectable when usage is zero, which is required for immediate failures. Metric titles provide the same hover labels as utility-llm. |
+| `Trace ID`, `Run ID`, `Profile`, `Model`, `Provider`, `API inference type`, `Provider base URL`, `Status`, `Used Repair`, `Attempts` | Expanded trace text/list | Shows immutable execution identity, normalized retry categories, status codes, retry delays and durations converted from the API's canonical nanosecond durations, and repair metadata. An empty attempt list remains empty (for example, a cache-served result or a pre-provider failure). |
 | `View JSON Trace` | Same-origin link | Opens the authenticated JSON representation at `/traces/{traceID}` in a new tab; the Phoenix controller proxies the owner-scoped Go trace response with `no-store`/`no-referrer` headers and uses `noopener noreferrer`. |
-| `Copy cURL` | Button | Copies the exact safe request payload persisted for the displayed run. It is disabled when the trace has no request resource or the run did not produce a usable payload. |
+| `Copy cURL` | Button | Copies an executable absolute-URL replay command containing the exact safe persisted request, a literal `HARDEN_LLM_TOKEN` environment placeholder, and POSIX-safe payload quoting. It is disabled when the trace has no request resource or the run did not produce a usable payload. |
 | `Show Request` / `Hide Request` | Button | Displays the exact persisted request resource for the displayed trace, not the mutable current LiveView draft. It is disabled when the backend marks the resource unavailable. |
 | `Show Response` / `Hide Response` | Button | Displays the exact persisted run result resource for the displayed trace. It is disabled when the backend marks the resource unavailable. Both folds reset when a new run, restored trace, or parent details collapse changes the displayed trace. |
 | Request/response blocks | Monospace preformatted text | Show exact available trace payloads, including an explicit JSON `null`, or an explicit unavailable message; absent properties are not represented as fabricated empty values. Loading and fetch-error states are supported by the reusable component contract. |
@@ -165,7 +165,7 @@ successful read or included in rendered state.
 
 | Element/text | Type | Behavior |
 | --- | --- | --- |
-| `History (N)` | Section heading | Shows the total history count returned by the backend. |
+| `History (N loaded)` | Section heading | Shows the bounded number of rows currently loaded; the all-owner run count comes from the authoritative stats endpoint. |
 | `Delete all` | Danger button | Clears all history through the backend and resets the page/result expansion. The button is disabled for an empty history or in-flight clear. |
 | `Show history` / `Hide history` | Disclosure button | Persists visibility. The workspace hydrates a bounded recent page with its state request and keeps the history panel hidden by default; the dedicated History view loads pages over the cursor contract. |
 | History item header | Expand/collapse button | Shows model and prompt preview; opening displays result and trace stats/resources. |
@@ -186,11 +186,16 @@ Trace Studio composes trace details inside output/history.
 | `LlmStatsSummaryWidget` | Aggregate `LLM Stats:` line with success, failure, optional timeout, prompt/output token totals, cache-aware cost, average duration, optional full-view link `⛶`, and controlled `Expand`/`Collapse` button with detail slot. It omits empty totals and zero timeout. |
 
 The Phoenix equivalent is the backend-agnostic
-`HardenLlmWeb.LlmTraceComponents` module. `<.llm_trace>` owns only markup,
+`HardenLlmWeb.LlmTraceComponents` module plus the pure
+`HardenLlm.LlmTraceProjection` data projection. `<.llm_trace>` owns only markup,
 accessibility attributes, resource availability states, and event wiring; the
 host owns trace loading, persistence, and state. `<.llm_stats_summary>` accepts
 the same normalized aggregate shape independently of `WorkspaceLive` or
-`HistoryLive`. Both components use namespaced default IDs and accept host
+`HistoryLive`. Both views load all-owner aggregates from `GET /api/v1/stats`,
+not from a currently loaded history page. The aggregate includes utility's
+canonical outcome, prompt/output, cache-attributed cost/count, total/max
+duration, and over-budget fields, plus detailed token groups and explicit
+known/unknown cost counts. Both components use namespaced default IDs and accept host
 overrides so they can be extracted into another LLM-facing frontend without
 coupling that frontend to Harden-LLM's API client or data store.
 
@@ -229,7 +234,7 @@ The 26 named `App.test.jsx` cases cover:
 - startup gating until state hydration;
 - new/selected profile persistence before form replacement;
 - complete profile pricing save, bundle import/export, and canonical save/refresh/run/delete payloads;
-- latest-output stats and zero-token suppression;
+- latest-output stats and zero-token failure diagnostics;
 - schema shorthand generation, schema edit checking, schema-only clear, and run blocking;
 - invalid typed profiles and redacted save-probe progress/details;
 - history delete, clear, restore, and pagination refresh.
@@ -279,7 +284,7 @@ passed, including 16 React/server test files and 147 Vitest tests.
 | Backend state | Go/OpenAPI state carries prompt draft, selected profile, schema shorthand, reasoning map, cache mode, retry/repair controls, and fold visibility with strict validation. | Continue adding only behavior required by the inventory and keep credentials write-only. |
 | Profile schema | Go `Profile` already has pricing, default options, backups, models, reasoning map, and credential state. | Expose and test the existing fields through Phoenix; add only fields needed by utility behavior, not Firebase-specific copies. |
 | History API | Go contract is cursor/limit based and the LiveView preserves that boundary. | Keep cursor navigation deterministic; do not add an offset compatibility path solely for the utility quick-jump control. |
-| Trace API | Go returns trace observations/artifacts and Phoenix authorizes artifact redirects. | Normalized LLM stats, availability, request/response, and cURL behavior are now exposed without raw provider credentials. |
+| Trace and stats APIs | Go returns immutable run identity, trace observations/artifacts, and authoritative owner aggregates; Phoenix authorizes artifact redirects. | Normalized LLM stats, zero-token diagnostics, availability, request/response, and executable credential-placeholder cURL behavior are exposed without raw provider credentials. |
 | Tests | Phoenix unit/live/browser and Go tests cover the translated self-hosted behavior. | Keep the utility test inventory as the regression checklist and add any newly discovered behavior to canonical `WEB-TEST-###`/`TEST-###` cases. |
 
 ## 7.1 Widget parity follow-up matrix (2026-08-25)

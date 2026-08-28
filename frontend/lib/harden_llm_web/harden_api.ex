@@ -36,6 +36,7 @@ defmodule HardenLlmWeb.HardenAPI do
       path: "/api/v1/history",
       auth: true
     },
+    %{id: "getStats", function: :get_stats, method: :get, path: "/api/v1/stats", auth: true},
     %{
       id: "clearHistory",
       function: :clear_history,
@@ -111,10 +112,17 @@ defmodule HardenLlmWeb.HardenAPI do
   def validate_config! do
     config = config()
     uri = URI.parse(config.base_url)
+    public_uri = URI.parse(config.public_base_url)
 
     unless uri.scheme in ["http", "https"] and is_binary(uri.host) and uri.host != "" and
              is_nil(uri.userinfo) and is_nil(uri.query) and is_nil(uri.fragment) do
       raise "HARDEN_LLM_API_BASE_URL must be an absolute HTTP(S) origin"
+    end
+
+    unless public_uri.scheme in ["http", "https"] and is_binary(public_uri.host) and
+             public_uri.host != "" and is_nil(public_uri.userinfo) and is_nil(public_uri.query) and
+             is_nil(public_uri.fragment) and public_uri.path in [nil, "", "/"] do
+      raise "HARDEN_LLM_PUBLIC_API_BASE_URL must be an absolute HTTP(S) origin"
     end
 
     unless config.api_timeout_ms > 0 do
@@ -137,6 +145,8 @@ defmodule HardenLlmWeb.HardenAPI do
   def get_state(handle), do: request("getState", handle)
   def save_state(handle, state), do: request("saveState", handle, json: state)
   def list_profiles(handle), do: request("listProfiles", handle)
+  def get_stats(handle), do: request("getStats", handle)
+  def public_base_url, do: config().public_base_url
 
   def list_history(handle, options \\ []) do
     params =
@@ -339,6 +349,7 @@ defmodule HardenLlmWeb.HardenAPI do
 
     %{
       base_url: Keyword.fetch!(config, :base_url),
+      public_base_url: Keyword.fetch!(config, :public_base_url),
       api_timeout_ms: Keyword.fetch!(config, :api_timeout_ms),
       run_timeout_ms: Keyword.fetch!(config, :run_timeout_ms),
       max_run_duration_ms: Keyword.fetch!(config, :max_run_duration_ms)

@@ -36,6 +36,7 @@ end
 
 config :harden_llm, :harden_api,
   base_url: System.get_env("HARDEN_LLM_API_BASE_URL", "http://127.0.0.1:8080"),
+  public_base_url: System.get_env("HARDEN_LLM_PUBLIC_API_BASE_URL", "https://api.example.test"),
   api_timeout_ms: parse_positive_integer.("HARDEN_LLM_WEB_API_TIMEOUT_MS", "15000"),
   run_timeout_ms: parse_positive_integer.("HARDEN_LLM_WEB_RUN_TIMEOUT_MS", "65000"),
   max_run_duration_ms: parse_positive_integer.("HARDEN_LLM_MAX_RUN_DURATION_MS", "60000")

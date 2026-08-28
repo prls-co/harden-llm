@@ -73,11 +73,59 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
     session =
       session
       |> open_ui_fold("#output-details-toggle", "#output-details")
+      |> assert_has(Query.css(".trace-controls #output-details-toggle", text: "Hide"))
+      |> assert_has(Query.css(".trace-controls a", text: "View JSON Trace"))
+      |> assert_has(Query.css(".trace-controls #copy-run-curl", text: "Copy cURL"))
+      |> assert_has(Query.css(".trace-controls #show-run-request", text: "Show Request"))
+      |> assert_has(Query.css(".trace-controls #show-run-response", text: "Show Response"))
       |> click(Query.css("#show-run-request"))
       |> assert_has(Query.css("#run-request"))
       |> click(Query.css("#show-run-response"))
       |> assert_has(Query.css("#run-response"))
       |> open_ui_fold("#history-fold-toggle", "#workspace-history")
+
+    widget_facts =
+      javascript_value(
+        session,
+        """
+        const controls = document.querySelector('.trace-controls');
+        const cacheStyle = window.getComputedStyle(document.querySelector('#run-cache-status'));
+        return {
+          controlDisplay: window.getComputedStyle(controls).display,
+          directLabels: Array.from(controls.children).map(node => node.textContent.trim()),
+          cacheBorderWidth: cacheStyle.borderTopWidth,
+          cacheBorderRadius: cacheStyle.borderRadius,
+          cacheBackground: cacheStyle.backgroundColor,
+          cachePadding: cacheStyle.padding,
+          curl: document.querySelector('#copy-run-curl')?.dataset.copyValue || ''
+        };
+        """
+      )
+
+    assert widget_facts["controlDisplay"] == "flex"
+
+    assert Enum.take(widget_facts["directLabels"], 5) == [
+             "Hide",
+             "View JSON Trace",
+             "Copy cURL",
+             "Hide Request",
+             "Hide Response"
+           ]
+
+    assert widget_facts["cacheBorderWidth"] == "0px"
+    assert widget_facts["cacheBorderRadius"] == "0px"
+    assert widget_facts["cacheBackground"] == "rgba(0, 0, 0, 0)"
+    assert widget_facts["cachePadding"] == "0px"
+
+    public_api_origin = System.fetch_env!("HARDEN_LLM_PUBLIC_API_BASE_URL")
+
+    assert String.starts_with?(
+             widget_facts["curl"],
+             "curl --fail-with-body --request POST '#{public_api_origin}/api/v1/run'"
+           )
+
+    assert widget_facts["curl"] =~ ~s(authorization: Bearer ${HARDEN_LLM_TOKEN})
+    refute widget_facts["curl"] =~ password
 
     run_id =
       javascript_value(

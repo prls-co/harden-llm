@@ -3,7 +3,8 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
   import Phoenix.LiveViewTest, except: [live: 1, live: 2, live: 3]
 
-  alias HardenLlmWeb.{APIFixtures, HardenAPI, WorkspaceLive}
+  alias HardenLlm.LlmTraceProjection
+  alias HardenLlmWeb.{APIFixtures, HardenAPI}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-007
   # PLAN-HLLM-WIDGET-PARITY-001 TEST-101 TEST-102 TEST-103 TEST-104 TEST-106 TEST-107 TEST-109 TEST-113
@@ -1230,6 +1231,55 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, "#run-response", "fixture output")
   end
 
+  test "failed zero-token runs reload persisted trace details and resources", %{conn: conn} do
+    failed_result =
+      APIFixtures.run_result()
+      |> Map.put("status", "failed")
+      |> Map.put("category", "rate_limit")
+      |> Map.put("statusCode", 429)
+      |> put_in(["usage", "inputTokens"], 0)
+      |> put_in(["usage", "outputTokens"], 0)
+      |> put_in(["usage", "totalTokens"], 0)
+
+    trace =
+      APIFixtures.trace()
+      |> Map.put("record", failed_result)
+      |> put_in(["resources", "response", "payload"], failed_result)
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/run"} ->
+          conn
+          |> Plug.Conn.put_status(503)
+          |> Req.Test.json(%{
+            "state" => %{"lastRunId" => "run-test", "lastTraceId" => "trace-test"},
+            "result" => nil,
+            "error" => %{"code" => "run_failed", "message" => "provider detail"}
+          })
+
+        {"GET", "/api/v1/traces/trace-test"} ->
+          Req.Test.json(conn, APIFixtures.success(trace))
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    submit_run(view, %{"userPrompt" => "failed fixture"})
+    render_async(view, 1_000)
+
+    assert_patch(view, ~p"/workspace?trace_id=trace-test")
+    assert has_element?(view, "#run-error", "run outcome is unknown")
+    refute render(view) =~ "provider detail"
+    assert has_element?(view, ".llm-trace-summary", "ID: trace-test")
+    assert has_element?(view, ".llm-trace-details", "Rate Limit (429)")
+    assert has_element?(view, ".llm-trace-details", "Profile: Primary")
+    assert has_element?(view, ".trace-controls #show-run-request:not([disabled])")
+    assert has_element?(view, ".trace-controls #show-run-response:not([disabled])")
+  end
+
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-058
   test "workspace reset controls clear only their documented fields", %{conn: conn} do
     trace =
@@ -1318,37 +1368,33 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       |> put_in(["usage", "reasoningTokens"], 8)
       |> put_in(["usage", "totalTokens"], 2_202)
 
-    assert WorkspaceLive.output_meta(result, APIFixtures.state(), [APIFixtures.profile_state()]) ==
+    assert LlmTraceProjection.meta(result) ==
              "responses · https://provider.example.test/v1"
 
-    assert WorkspaceLive.output_model_id(result, APIFixtures.state(), [
-             APIFixtures.profile_state()
-           ]) ==
-             "model-test"
-
-    assert WorkspaceLive.output_trace_id(result) == "trace-test"
-    assert WorkspaceLive.output_measured?(result)
-    assert WorkspaceLive.output_attempt_count(result) == 2
-    assert WorkspaceLive.output_duration(result) == "1.05s"
-    assert WorkspaceLive.output_number(1_830) == "1,830"
-    assert WorkspaceLive.output_cache_tokens(result) == 250
-    assert WorkspaceLive.output_output_tokens(result) == 130
-    assert WorkspaceLive.output_cost(result) == "$0.0010"
-    assert WorkspaceLive.output_cost_title(result) == "Trace-attributed cost $0.0010"
-    assert WorkspaceLive.output_cache_served?(result) == false
-    assert WorkspaceLive.output_cache_status(result) == "disabled"
-    assert WorkspaceLive.output_cache_status_label(result) == "Disabled"
-    assert WorkspaceLive.output_used_repair?(result)
-    assert WorkspaceLive.output_attempt_count(Map.put(result, "attempts", [])) == 0
-    assert WorkspaceLive.output_attempts(Map.put(result, "attempts", [])) == []
-    assert WorkspaceLive.safe_output(nil) == ""
+    assert LlmTraceProjection.summary(result)["model_id"] == "model-test"
+    assert LlmTraceProjection.trace_id(result) == "trace-test"
+    assert LlmTraceProjection.trace_available?(result)
+    assert LlmTraceProjection.attempt_count(result) == 2
+    assert LlmTraceProjection.duration(result) == "1.05s"
+    assert LlmTraceProjection.number(1_830) == "1,830"
+    assert LlmTraceProjection.cache_tokens(result) == 250
+    assert LlmTraceProjection.completion_tokens(result) == 130
+    assert LlmTraceProjection.cost(result) == "$0.0010"
+    assert LlmTraceProjection.cost_title(result) == "Trace-attributed cost $0.0010"
+    assert LlmTraceProjection.cache_served?(result) == false
+    assert LlmTraceProjection.cache_status(result) == "disabled"
+    assert LlmTraceProjection.cache_status_label(result) == "Disabled"
+    assert LlmTraceProjection.used_repair?(result)
+    assert LlmTraceProjection.attempt_count(Map.put(result, "attempts", [])) == 0
+    assert LlmTraceProjection.attempts(Map.put(result, "attempts", [])) == []
+    assert LlmTraceProjection.json_text(nil) == ""
 
     cached = put_in(result, ["cache", "served"], true)
-    assert WorkspaceLive.output_cache_served?(cached)
-    assert WorkspaceLive.output_cache_status(cached) == "hit"
-    assert WorkspaceLive.output_cache_status_label(cached) == "Hit"
-    assert WorkspaceLive.output_cost(cached) == "🗄️$0.0010"
-    assert WorkspaceLive.output_cost_title(cached) == "Cached trace-attributed cost $0.0010"
+    assert LlmTraceProjection.cache_served?(cached)
+    assert LlmTraceProjection.cache_status(cached) == "hit"
+    assert LlmTraceProjection.cache_status_label(cached) == "Hit"
+    assert LlmTraceProjection.cost(cached) == "🗄️$0.0010"
+    assert LlmTraceProjection.cost_title(cached) == "Cached trace-attributed cost $0.0010"
 
     miss =
       put_in(result, ["cache"], %{
@@ -1358,12 +1404,12 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         "written" => true
       })
 
-    assert WorkspaceLive.output_cache_status_label(miss) == "Miss · saved"
+    assert LlmTraceProjection.cache_status_label(miss) == "Miss · saved"
 
-    assert WorkspaceLive.output_cache_status_title(miss) ==
+    assert LlmTraceProjection.cache_status_title(miss) ==
              "Harden-LLM cache miss: ran the provider and saved the successful response."
 
-    assert WorkspaceLive.output_attempts(result) == [
+    assert LlmTraceProjection.attempts(result) == [
              %{
                "attempt" => 1,
                "category" => "rate_limit",
@@ -1387,7 +1433,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       |> Map.put("statusCode", 429)
       |> Map.put("attempts", [%{"number" => 1, "category" => "rate_limit", "statusCode" => nil}])
 
-    assert WorkspaceLive.output_attempts(explicit_null_status) == [
+    assert LlmTraceProjection.attempts(explicit_null_status) == [
              %{
                "attempt" => 1,
                "category" => "rate_limit",
@@ -1399,9 +1445,8 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
            ]
 
     failure = Map.merge(result, %{"category" => "rate_limit", "statusCode" => 429})
-    refute WorkspaceLive.output_success?(failure)
-    assert WorkspaceLive.output_status_icon(failure) == "❌"
-    assert WorkspaceLive.output_status_label(failure) == "Rate Limit (429)"
+    assert LlmTraceProjection.summary(failure)["status_icon"] == "❌"
+    assert LlmTraceProjection.details(failure)["status"] == "Rate Limit (429)"
   end
 
   test "structured calls reject invalid local JSON without backend mutation", %{conn: conn} do
@@ -1853,6 +1898,12 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         {"GET", "/api/v1/profiles"} ->
           profiles = Keyword.get(options, :profiles, [APIFixtures.profile_state()])
           Req.Test.json(conn, APIFixtures.success(%{"profiles" => profiles}))
+
+        {"GET", "/api/v1/stats"} ->
+          Req.Test.json(
+            conn,
+            APIFixtures.success(Keyword.get(options, :stats, APIFixtures.stats()))
+          )
 
         {"GET", "/api/v1/history"} ->
           case Keyword.get(options, :history) do

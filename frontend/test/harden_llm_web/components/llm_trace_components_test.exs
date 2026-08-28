@@ -20,9 +20,21 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
         details: %{
           "trace_id" => "trace-1",
           "run_id" => "run-1",
+          "profile_id" => "Primary",
+          "model_id" => "model-1",
+          "provider" => "openai",
+          "api_inference_type" => "responses",
+          "provider_base_url" => "https://provider.example.test/v1",
           "status" => "Success (200)",
           "used_repair" => false,
-          "attempts" => [%{"attempt" => 1, "category" => "success", "status_code" => 200}]
+          "attempts" => [
+            %{
+              "attempt" => 1,
+              "category" => "success",
+              "status_code" => 200,
+              "duration_ms" => 120
+            }
+          ]
         },
         resources: %{
           "trace_url" => "/traces/trace-1",
@@ -39,7 +51,12 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
     assert html =~ ~s(id="trace-widget")
     assert html =~ "ID: trace-1"
     assert html =~ "Model: model-1"
+    assert html =~ "Profile:</strong> Primary"
+    assert html =~ "Provider:</strong> openai"
+    assert html =~ "API inference type:</strong> responses"
+    assert html =~ "Provider base URL:</strong> https://provider.example.test/v1"
     assert html =~ "Success (200)"
+    assert html =~ "120ms"
     assert html =~ ~s(href="/traces/trace-1")
     assert html =~ ~s(data-copy-value="curl -X POST /api/v1/run")
     assert html =~ ~s(phx-value-kind="request")
@@ -126,12 +143,25 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
     html =
       render_component(&LlmTraceComponents.llm_stats_summary/1,
         id: "stats-widget",
-        stats: %{"success" => 0, "known_cost" => 0, "average_duration" => nil},
+        stats: %{
+          "success" => 0,
+          "known_cost" => "$0.0000",
+          "cached_cost" => "$0.0000",
+          "cached_count" => 0,
+          "average_duration" => nil,
+          "max_duration" => 0,
+          "over_budget_count" => 0,
+          "max_over_budget" => 0
+        },
         navigate: "/history"
       )
 
     assert html =~ "LLM stats summary"
     assert html =~ ~s(href="/history")
+    assert html =~ "Cached cost"
+    assert html =~ "Cached runs"
+    assert html =~ "Max duration ms"
+    assert html =~ "Over budget"
     assert html =~ ">0</dd>"
     assert html =~ ">—</dd>"
 

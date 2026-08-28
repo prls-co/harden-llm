@@ -148,7 +148,7 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 		Store: store, Profiles: profileService, ModelRefresher: providerModelRefresher{discovery: modelDiscovery},
 		ArtifactTTL: config.artifactPresignTTL,
 		Telemetry:   gatewayTelemetry,
-		ArtifactScope: func(ownerID string) (gateway.ArtifactPresigner, error) {
+		ArtifactScope: func(ownerID string) (gateway.ArtifactAccess, error) {
 			return garageStore.Scoped(artifactPrefix(ownerID))
 		},
 	})

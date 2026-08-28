@@ -161,12 +161,14 @@ function runDeployedBrowser(environment, webOrigin, apiOrigin, nonce) {
     ...environment,
     HARDEN_LLM_DEPLOYED_BASE_URL: webOrigin,
     HARDEN_LLM_API_BASE_URL: apiOrigin,
+    HARDEN_LLM_PUBLIC_API_BASE_URL: apiOrigin,
     HARDEN_LLM_SMOKE_NONCE: nonce,
     HARDEN_LLM_DEPLOYED_NO_SCREENSHOTS: "1",
   };
   const inheritedNames = [
     "HARDEN_LLM_DEPLOYED_BASE_URL",
     "HARDEN_LLM_API_BASE_URL",
+    "HARDEN_LLM_PUBLIC_API_BASE_URL",
     "HARDEN_LLM_LOCAL_OPERATOR_EMAIL",
     "HARDEN_LLM_LOCAL_OPERATOR_PASSWORD",
     "HARDEN_LLM_SMOKE_NONCE",

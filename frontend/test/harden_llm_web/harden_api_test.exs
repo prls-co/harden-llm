@@ -47,6 +47,20 @@ defmodule HardenLlmWeb.HardenAPITest do
     assert {:ok, %{"ownerId" => "owner-test"}, %{}} = HardenAPI.get_session(handle)
   end
 
+  test "stats use the authenticated authoritative aggregate endpoint" do
+    handle = APIFixtures.insert_session()
+
+    Req.Test.stub(HardenAPI, fn conn ->
+      assert conn.method == "GET"
+      assert conn.request_path == "/api/v1/stats"
+      assert Plug.Conn.get_req_header(conn, "authorization") == ["Bearer " <> APIFixtures.token()]
+      Req.Test.json(conn, APIFixtures.success(APIFixtures.stats()))
+    end)
+
+    assert {:ok, %{"totalCount" => 3, "cachedCount" => 1}, %{}} =
+             HardenAPI.get_stats(handle)
+  end
+
   test "saved-profile model refresh sends only the profile ID path" do
     handle = APIFixtures.insert_session()
 

@@ -96,7 +96,7 @@ defmodule HardenLlmWeb.APIFixtures do
         "userPrompt" => "safe restored prompt",
         "callType" => "text"
       },
-      "result" => %{"output" => "ok"},
+      "result" => run_result(),
       "startedAt" => "2026-07-13T12:00:00Z",
       "completedAt" => "2026-07-13T12:00:01Z"
     }
@@ -105,6 +105,11 @@ defmodule HardenLlmWeb.APIFixtures do
   def run_result do
     %{
       "runId" => "run-test",
+      "profileId" => "Primary",
+      "modelId" => "model-test",
+      "provider" => "openai",
+      "apiInferenceType" => "responses",
+      "providerBaseUrl" => "https://provider.example.test/v1",
       "callId" => "call-test",
       "traceId" => "trace-test",
       "output" => "fixture output",
@@ -122,14 +127,39 @@ defmodule HardenLlmWeb.APIFixtures do
       "artifacts" => [],
       "totalCallDurationMs" => 120,
       "totalWaitMs" => 0,
+      "overBudgetMs" => 0,
       "usedRepair" => false
+    }
+  end
+
+  def stats do
+    %{
+      "totalCount" => 3,
+      "successCount" => 2,
+      "failureCount" => 1,
+      "timeoutCount" => 0,
+      "totalPromptTokens" => 24,
+      "cacheReadTokens" => 8,
+      "cacheCreationTokens" => 2,
+      "totalOutputTokens" => 12,
+      "reasoningTokens" => 4,
+      "totalTokens" => 42,
+      "totalCost" => 0.00042,
+      "cachedCost" => 0.0001,
+      "cachedCount" => 1,
+      "knownCostCount" => 2,
+      "unknownCostCount" => 1,
+      "totalCallDurationMs" => 2_580,
+      "maxCallDurationMs" => 1_200,
+      "overBudgetCount" => 1,
+      "maxOverBudgetMs" => 50
     }
   end
 
   def trace do
     %{
       "traceId" => "trace-test",
-      "record" => %{"status" => "succeeded"},
+      "record" => Map.put(run_result(), "status", "succeeded"),
       "observations" => [
         %{
           "sequence" => 0,

@@ -144,6 +144,11 @@ defmodule HardenLlmWeb.BrowserBackend do
     json(conn, 200, success(%{"items" => history, "nextCursor" => nil}))
   end
 
+  defp dispatch(%{method: "GET", path_info: ["api", "v1", "stats"]} = conn, _body) do
+    history = Agent.get(__MODULE__, & &1.history)
+    json(conn, 200, success(stats(history)))
+  end
+
   defp dispatch(%{method: "DELETE", path_info: ["api", "v1", "history"]} = conn, _body) do
     count = Agent.get(__MODULE__, &length(&1.history))
     Agent.update(__MODULE__, &%{&1 | history: []})
@@ -270,6 +275,11 @@ defmodule HardenLlmWeb.BrowserBackend do
   defp run_result(request, cache_entries) do
     result = %{
       "runId" => "run-browser",
+      "profileId" => request["profileId"],
+      "modelId" => request["modelId"] || "model-browser",
+      "provider" => "openai",
+      "apiInferenceType" => "responses",
+      "providerBaseUrl" => "https://provider.example.test/v1",
       "callId" => "call-browser",
       "traceId" => "trace-browser",
       "output" => "deterministic browser output",
@@ -283,7 +293,11 @@ defmodule HardenLlmWeb.BrowserBackend do
       },
       "cost" => %{"totalUsd" => 0.0, "known" => true, "source" => "fixture"},
       "attempts" => [%{"profileId" => "BrowserProfile", "outcome" => "success"}],
-      "artifacts" => []
+      "artifacts" => [],
+      "totalCallDurationMs" => 1_000,
+      "totalWaitMs" => 0,
+      "overBudgetMs" => 0,
+      "usedRepair" => false
     }
 
     {cache, next_cache_entries} = cache_facts(request, cache_entries)
@@ -320,7 +334,7 @@ defmodule HardenLlmWeb.BrowserBackend do
       "traceId" => result["traceId"],
       "status" => "succeeded",
       "request" => request,
-      "result" => %{"output" => result["output"]},
+      "result" => result,
       "startedAt" => "2026-07-13T12:00:00Z",
       "completedAt" => "2026-07-13T12:00:01Z"
     }
@@ -329,7 +343,7 @@ defmodule HardenLlmWeb.BrowserBackend do
   defp trace(request, result) do
     %{
       "traceId" => result["traceId"],
-      "record" => %{"status" => "succeeded"},
+      "record" => Map.put(result, "status", "succeeded"),
       "observations" => [
         %{
           "sequence" => 0,
@@ -366,6 +380,45 @@ defmodule HardenLlmWeb.BrowserBackend do
       "sessionId" => "session-browser",
       "expiresAt" => @expiry
     }
+  end
+
+  defp stats(history) do
+    usage = Enum.map(history, &(get_in(&1, ["result", "usage"]) || %{}))
+    known = Enum.filter(history, &(get_in(&1, ["result", "cost", "known"]) == true))
+    cached = Enum.filter(history, &(get_in(&1, ["result", "cache", "served"]) == true))
+    durations = Enum.map(history, &(get_in(&1, ["result", "totalCallDurationMs"]) || 0))
+    over_budget = Enum.map(history, &(get_in(&1, ["result", "overBudgetMs"]) || 0))
+
+    %{
+      "totalCount" => length(history),
+      "successCount" => Enum.count(history, &(&1["status"] == "succeeded")),
+      "failureCount" => Enum.count(history, &(&1["status"] == "failed")),
+      "timeoutCount" => Enum.count(history, &(&1["status"] == "timeout")),
+      "totalPromptTokens" =>
+        sum_usage(usage, "inputTokens") + sum_usage(usage, "cacheReadTokens") +
+          sum_usage(usage, "cacheCreationTokens"),
+      "cacheReadTokens" => sum_usage(usage, "cacheReadTokens"),
+      "cacheCreationTokens" => sum_usage(usage, "cacheCreationTokens"),
+      "totalOutputTokens" =>
+        sum_usage(usage, "outputTokens") + sum_usage(usage, "reasoningTokens"),
+      "reasoningTokens" => sum_usage(usage, "reasoningTokens"),
+      "totalTokens" => sum_usage(usage, "totalTokens"),
+      "totalCost" => sum_cost(known),
+      "cachedCost" => cached |> Enum.filter(&(&1 in known)) |> sum_cost(),
+      "cachedCount" => length(cached),
+      "knownCostCount" => length(known),
+      "unknownCostCount" => length(history) - length(known),
+      "totalCallDurationMs" => Enum.sum(durations),
+      "maxCallDurationMs" => Enum.max(durations, fn -> 0 end),
+      "overBudgetCount" => Enum.count(over_budget, &(&1 > 0)),
+      "maxOverBudgetMs" => Enum.max(over_budget, fn -> 0 end)
+    }
+  end
+
+  defp sum_usage(usage, key), do: Enum.sum(Enum.map(usage, &(&1[key] || 0)))
+
+  defp sum_cost(history) do
+    Enum.sum(Enum.map(history, &(get_in(&1, ["result", "cost", "totalUsd"]) || 0)))
   end
 
   defp public_route?(%{method: "POST", path_info: ["api", "v1", "auth", "login"]}), do: true

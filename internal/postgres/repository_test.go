@@ -51,7 +51,7 @@ func TestRepositoryContract(t *testing.T) {
 	}
 	store := stores[0]
 	versions, err := store.AppliedMigrations(ctx)
-	if err != nil || !reflect.DeepEqual(versions, []int64{1}) {
+	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2}) {
 		t.Fatalf("migration versions = %v, %v", versions, err)
 	}
 	if err := store.Ready(ctx); err != nil {
@@ -131,7 +131,32 @@ func TestRepositoryContract(t *testing.T) {
 		t.Fatalf("cross-owner state read = %v", err)
 	}
 
-	run := RunRecord{OwnerID: "owner-a", ID: "run-a", ProfileID: "profile-a", TraceID: "trace-a", Status: "succeeded", Request: json.RawMessage(`{"prompt":"redacted"}`), Result: json.RawMessage(`{"output":"ok"}`), StartedAt: now, CompletedAt: now.Add(time.Second)}
+	atomicRun := RunRecord{
+		OwnerID: "owner-a", ID: "run-atomic", ProfileID: "profile-a", TraceID: "trace-atomic",
+		Status: "succeeded", Request: json.RawMessage(`{"prompt":"redacted"}`),
+		Result: json.RawMessage(`{"output":"ok"}`), StartedAt: now, CompletedAt: now,
+	}
+	atomicTrace := TraceRecord{
+		OwnerID: "owner-a", TraceID: "trace-atomic", Record: json.RawMessage(`{"status":"succeeded"}`),
+		CreatedAt: now, UpdatedAt: now,
+	}
+	duplicateArtifact := ArtifactRecord{
+		OwnerID: "owner-a", TraceID: "trace-atomic", ID: "artifact-atomic", Kind: "trace",
+		ObjectKey:   "llm-traces/owner-a/run-atomic/trace-atomic/artifact-atomic.json",
+		ContentType: "application/json", SHA256: strings.Repeat("a", 64), SizeBytes: 1,
+		Available: true, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := store.SaveExecution(ctx, atomicRun, atomicTrace, nil, []ArtifactRecord{duplicateArtifact, duplicateArtifact}); err == nil {
+		t.Fatal("duplicate execution artifact did not reject the atomic save")
+	}
+	if _, err := store.Run(ctx, "owner-a", "run-atomic"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("failed atomic execution left a run: %v", err)
+	}
+	if _, _, err := store.Trace(ctx, "owner-a", "trace-atomic"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("failed atomic execution left a trace: %v", err)
+	}
+
+	run := RunRecord{OwnerID: "owner-a", ID: "run-a", ProfileID: "profile-a", TraceID: "trace-a", Status: "succeeded", Request: json.RawMessage(`{"prompt":"redacted"}`), Result: json.RawMessage(`{"output":"ok","usage":{"inputTokens":10,"cacheReadTokens":2,"cacheCreationTokens":3,"outputTokens":4,"reasoningTokens":5,"totalTokens":24},"cost":{"known":true,"totalUsd":0.125},"cache":{"served":true},"totalCallDurationMs":1000,"overBudgetMs":42}`), StartedAt: now, CompletedAt: now.Add(time.Second)}
 	if err := store.SaveRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
@@ -165,15 +190,39 @@ func TestRepositoryContract(t *testing.T) {
 		t.Fatalf("cross-owner artifact read = %v", err)
 	}
 
-	stats := StatsRecord{OwnerID: "owner-a", Scope: "all", Totals: json.RawMessage(`{"calls":1,"tokens":2}`), UpdatedAt: now}
-	if err := store.SaveStats(ctx, stats); err != nil {
+	failedRun := RunRecord{OwnerID: "owner-a", ID: "run-b", ProfileID: "profile-a", TraceID: "trace-b", Status: "failed", Request: json.RawMessage(`{"prompt":"redacted"}`), Result: json.RawMessage(`{"output":null,"usage":{"inputTokens":1,"cacheReadTokens":0,"cacheCreationTokens":0,"outputTokens":0,"reasoningTokens":0,"totalTokens":1},"cost":{"known":false,"totalUsd":0},"cache":{"served":false},"totalCallDurationMs":3000,"overBudgetMs":0}`), StartedAt: now, CompletedAt: now.Add(3 * time.Second)}
+	if err := store.SaveRun(ctx, failedRun); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := store.Stats(ctx, "owner-a", "all"); err != nil || !jsonEqual(got.Totals, stats.Totals) {
-		t.Fatalf("stats round trip = %#v, %v", got, err)
+	if got, err := store.RunStats(ctx, "owner-a"); err != nil || got.TotalCount != 2 || got.SuccessCount != 1 || got.FailureCount != 1 || got.TimeoutCount != 0 || got.TotalPromptTokens != 16 || got.CacheReadTokens != 2 || got.CacheCreationTokens != 3 || got.TotalOutputTokens != 9 || got.ReasoningTokens != 5 || got.TotalTokens != 25 || got.TotalCost != 0.125 || got.CachedCost != 0.125 || got.CachedCount != 1 || got.KnownCostCount != 1 || got.UnknownCostCount != 1 || got.TotalCallDurationMS != 4000 || got.MaxCallDurationMS != 3000 || got.OverBudgetCount != 1 || got.MaxOverBudgetMS != 42 {
+		t.Fatalf("authoritative stats = %#v, %v", got, err)
 	}
-	if _, err := store.Stats(ctx, "owner-b", "all"); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("cross-owner stats read = %v", err)
+	if got, err := store.RunStats(ctx, "owner-b"); err != nil || got.TotalCount != 0 || got.TotalCallDurationMS != 0 || got.MaxCallDurationMS != 0 {
+		t.Fatalf("empty owner stats = %#v, %v", got, err)
+	}
+	if artifacts, err := store.ArtifactsForOwner(ctx, "owner-a"); err != nil || len(artifacts) != 1 || artifacts[0].ObjectKey != artifact.ObjectKey {
+		t.Fatalf("owner artifacts = %#v, %v", artifacts, err)
+	}
+	if err := store.DeleteExecution(ctx, "owner-a", "run-a", "trace-a"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Run(ctx, "owner-a", "run-a"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("deleted execution run remained: %v", err)
+	}
+	if _, _, err := store.Trace(ctx, "owner-a", "trace-a"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("deleted execution trace remained: %v", err)
+	}
+	if artifacts, err := store.ArtifactsForOwner(ctx, "owner-a"); err != nil || len(artifacts) != 0 {
+		t.Fatalf("deleted execution artifact metadata remained: %#v, %v", artifacts, err)
+	}
+	if err := store.SaveTrace(ctx, TraceRecord{OwnerID: "owner-a", TraceID: "trace-orphan", Record: json.RawMessage(`{"status":"failed"}`), CreatedAt: now, UpdatedAt: now}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if count, err := store.ClearExecutions(ctx, "owner-a"); err != nil || count != 1 {
+		t.Fatalf("clear executions = %d, %v", count, err)
+	}
+	if _, _, err := store.Trace(ctx, "owner-a", "trace-orphan"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("orphan trace survived execution clear: %v", err)
 	}
 
 	session := Session{ID: "session-a", OwnerID: "owner-a", TokenDigest: []byte(strings.Repeat("d", 32)), ExpiresAt: now.Add(time.Hour), CreatedAt: now}
@@ -207,10 +256,13 @@ func assertSchema(t *testing.T, ctx context.Context, store *Store) {
 		tables = append(tables, table)
 	}
 	sort.Strings(tables)
-	for _, required := range []string{"users", "user_sessions", "llm_profiles", "llm_endpoint_credentials", "llm_client_state", "llm_runs", "llm_traces", "llm_trace_observations", "llm_artifacts", "llm_operation_cache", "llm_stats_totals", "schema_migrations"} {
+	for _, required := range []string{"users", "user_sessions", "llm_profiles", "llm_endpoint_credentials", "llm_client_state", "llm_runs", "llm_traces", "llm_trace_observations", "llm_artifacts", "llm_operation_cache", "schema_migrations"} {
 		if !contains(tables, required) {
 			t.Errorf("required table %s missing from %v", required, tables)
 		}
+	}
+	if contains(tables, "llm_stats_totals") {
+		t.Fatal("unused mutable stats projection table remains in the application schema")
 	}
 	if strings.Contains(strings.ToLower(string(migrationSource())), "langfuse") {
 		t.Fatal("application migration names an external diagnostics database")

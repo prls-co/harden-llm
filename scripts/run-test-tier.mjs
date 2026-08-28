@@ -360,7 +360,7 @@ function resolvedEnvironment(task, options) {
   return environment;
 }
 
-function resolvedCommand(task, options) {
+export function resolvedCommand(task, options) {
   const effective = task.testSeed
     ? [...task.command, "--seed", String(task.testSeed)]
     : task.seedArgument
@@ -369,11 +369,15 @@ function resolvedCommand(task, options) {
   const packageSlots = options.packageSlots ?? task.packageSlots;
   const interpolated = effective.map((part) => part.replaceAll("${HARDEN_LLM_TEST_PACKAGE_SLOTS}", packageSlots === undefined ? "" : String(packageSlots)));
   if (!task.container) {
+    const environment = resolvedEnvironment(task, options);
+    if (path.basename(interpolated[0]) === "mix") {
+      environment.MIX_BUILD_PATH = path.join(options.taskDirectory, "mix-build");
+    }
     return {
       executable: interpolated[0],
       args: interpolated.slice(1),
       cwd: path.resolve(options.root, task.workingDirectory ?? "."),
-      environment: resolvedEnvironment(task, options),
+      environment,
       containerIDPath: null,
     };
   }

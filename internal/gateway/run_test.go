@@ -83,12 +83,15 @@ func TestRunRoute(t *testing.T) {
 	defer server.Close()
 	authorization := map[string][]string{"Authorization": {"Bearer valid-token"}}
 
-	textBody := []byte(`{"profileId":"Backup","userPrompt":"say ok","callType":"text","cacheMode":"off","maxAttempts":1}`)
+	textBody := []byte(`{"profileId":"Backup","modelId":"model-override","userPrompt":"say ok","callType":"text","cacheMode":"off","maxAttempts":1}`)
 	response := apiRequest(t, server.Client(), http.MethodPost, server.URL+"/api/v1/run", textBody, authorization)
 	assertEnvelope(t, response, http.StatusOK, false)
 	result := response.JSON["result"].(map[string]any)
 	if result["output"] != "text-ok" || result["runId"] != "run-1" || result["traceId"] != "trace-1" || caller.calls != 1 {
 		t.Fatalf("text run = %#v calls=%d", result, caller.calls)
+	}
+	if result["profileId"] != "Backup" || result["modelId"] != "model-override" || result["provider"] != profile.Provider || result["apiInferenceType"] != profile.APIInferenceType || result["providerBaseUrl"] != profile.BaseURL {
+		t.Fatalf("text run lost effective immutable metadata: %#v", result)
 	}
 	if caller.last.Context.OrganizationID != "owner-a" || caller.last.Context.RunID != "run-1" || len(caller.last.Profiles) != 1 {
 		t.Fatalf("root request = %#v", caller.last)
@@ -100,6 +103,10 @@ func TestRunRoute(t *testing.T) {
 	trace, observations, err := store.Trace(ctx, "owner-a", "trace-1")
 	if err != nil || trace.TraceID != "trace-1" || len(observations) != 1 {
 		t.Fatalf("stored trace = %#v %#v, %v", trace, observations, err)
+	}
+	var traceDocument map[string]any
+	if err := json.Unmarshal(trace.Record, &traceDocument); err != nil || traceDocument["modelId"] != "model-override" || traceDocument["provider"] != profile.Provider {
+		t.Fatalf("stored trace lost effective immutable metadata: %#v %v", traceDocument, err)
 	}
 	if _, err := store.Artifact(ctx, "owner-a", "trace-1", "call-1-trace"); err != nil {
 		t.Fatalf("successful artifact reference was not indexed: %v", err)
@@ -123,7 +130,9 @@ func TestRunRoute(t *testing.T) {
 		t.Fatalf("failure state lost runtime identity: %#v %v", failureState, callErr)
 	}
 	if failureOutput.CallID != "call-failure" || failureOutput.TraceID != "trace-failure" || len(failureOutput.Attempts) != 1 ||
-		failureOutput.Usage.TotalTokens != 6 || len(failureOutput.Artifacts) != 2 {
+		failureOutput.Usage.TotalTokens != 6 || len(failureOutput.Artifacts) != 2 || failureOutput.ProfileID != "Backup" ||
+		failureOutput.ModelID != profile.ModelID || failureOutput.Provider != profile.Provider || failureOutput.APIInferenceType != profile.APIInferenceType ||
+		failureOutput.ProviderBaseURL != profile.BaseURL {
 		t.Fatalf("failure output lost runtime diagnostics: %#v", failureOutput)
 	}
 	failedRun, err := store.Run(ctx, "owner-a", "failure-run")

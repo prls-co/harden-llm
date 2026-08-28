@@ -390,7 +390,6 @@ The `harden_llm` database is the source of truth for application state.
 | `llm_trace_observations` | Domain observations for cache, attempt, retry, and persistence events. |
 | `llm_artifacts` | Owner-scoped Garage object key, kind, content type, SHA-256, byte length, availability state, and timestamps. |
 | `llm_operation_cache` | Owner-scoped operation-cache records. |
-| `llm_stats_totals` | Strict aggregate projections. |
 | `schema_migrations` | Applied application migration versions. |
 
 Rules:
@@ -400,9 +399,11 @@ Rules:
 - Credential ciphertext is separate from profile JSON.
 - JSONB payloads are normalized and redacted before persistence.
 - Garage artifact bytes are private, canonical JSON, redacted before upload, and referenced by immutable object key, SHA-256, and byte length. Raw credentials and unredacted provider envelopes are never persisted.
-- Artifact metadata commits only after a successful Garage upload. A failed upload records a bounded diagnostic observation and never creates a dangling available artifact row.
+- Artifact metadata commits only after a successful Garage upload and in the same Postgres transaction as its run, domain trace, and observations. A failed upload never creates an available artifact row; a failed execution transaction triggers bounded best-effort cleanup of uploaded bodies.
 - Artifact access requires owner authorization through the gateway; Postgres stores object keys, never durable public URLs. Presigned GET URLs are short lived.
 - Timestamps and indexes support a future retention policy, but v1 performs no scheduled deletion.
+- `GET /api/v1/stats` computes owner-scoped canonical utility totals directly from `llm_runs`, including cache-attributed cost/count, total/max duration, and timeout-budget overruns; detailed token groups and known/unknown cost counts preserve completeness. A separately maintained aggregate projection is prohibited because it can drift from history.
+- User-initiated history deletion removes Garage artifact bodies before transactionally deleting the run, trace, observations, and artifact metadata. A Garage failure leaves metadata intact for a safe retry.
 - Migration application uses one canonical runner and a Postgres advisory lock so concurrent gateway starts do not race.
 
 ### Harden-LLM artifact contract

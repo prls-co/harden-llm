@@ -83,7 +83,7 @@ func TestResourceRoutes(t *testing.T) {
 	resourceService, err := gateway.NewResourceService(gateway.ResourceServiceConfig{
 		Store: store, Profiles: profileService, ModelRefresher: modelRefresher, Clock: clock,
 		NewID: func() (string, error) { return "bundle-1", nil },
-		ArtifactScope: func(ownerID string) (gateway.ArtifactPresigner, error) {
+		ArtifactScope: func(ownerID string) (gateway.ArtifactAccess, error) {
 			return garageStore.Scoped(garageFixture.Scope("llm-traces/" + ownerID + "/"))
 		},
 	})
@@ -189,6 +189,12 @@ func TestResourceRoutes(t *testing.T) {
 	if len(items) != 1 || items[0].(map[string]any)["runId"] != "run-a" {
 		t.Fatalf("second history page = %#v", response.JSON)
 	}
+	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/stats", nil, authA)
+	assertEnvelope(t, response, http.StatusOK, false)
+	stats := response.JSON["result"].(map[string]any)
+	if stats["totalCount"] != float64(3) || stats["successCount"] != float64(3) || stats["totalCallDurationMs"] != float64(0) {
+		t.Fatalf("owner stats = %#v", stats)
+	}
 
 	ownerStore, err := garageStore.Scoped(garageFixture.Scope("llm-traces/owner-a/"))
 	if err != nil {
@@ -259,13 +265,65 @@ func TestResourceRoutes(t *testing.T) {
 		t.Fatalf("cross-owner artifact redirect = %d %q", redirect.StatusCode, redirect.Header.Get("Location"))
 	}
 
+	if err := store.SaveTrace(ctx, postgres.TraceRecord{
+		OwnerID: "owner-a", TraceID: "trace-delete-failure", Record: json.RawMessage(`{"status":"failed"}`), CreatedAt: now, UpdatedAt: now,
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveRun(ctx, postgres.RunRecord{
+		OwnerID: "owner-a", ID: "run-delete-failure", ProfileID: "Backup", TraceID: "trace-delete-failure", Status: "failed",
+		Request: json.RawMessage(`{"profileId":"Backup"}`), Result: json.RawMessage(`{"output":null}`), StartedAt: now, CompletedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	failureObjectKey := garageFixture.Key("llm-traces/owner-a/run-delete-failure/trace-delete-failure/artifact-delete-failure-trace.json")
+	if err := store.SaveArtifact(ctx, postgres.ArtifactRecord{
+		OwnerID: "owner-a", TraceID: "trace-delete-failure", ID: "artifact-delete-failure", Kind: "trace", ObjectKey: failureObjectKey,
+		ContentType: "application/json", SHA256: strings.Repeat("b", 64), SizeBytes: 1,
+		Available: true, CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	failingService, err := gateway.NewResourceService(gateway.ResourceServiceConfig{
+		Store: store, Profiles: profileService,
+		ArtifactScope: func(string) (gateway.ArtifactAccess, error) { return failingArtifactAccess{}, nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := failingService.DeleteHistory(ctx, "owner-a", "run-delete-failure"); err == nil {
+		t.Fatal("artifact deletion failure did not fail closed")
+	}
+	if _, err := store.Run(ctx, "owner-a", "run-delete-failure"); err != nil {
+		t.Fatalf("artifact deletion failure removed run metadata: %v", err)
+	}
+	if _, _, err := store.Trace(ctx, "owner-a", "trace-delete-failure"); err != nil {
+		t.Fatalf("artifact deletion failure removed trace metadata: %v", err)
+	}
+
 	response = apiRequest(t, server.Client(), http.MethodDelete, server.URL+"/api/v1/history/run-a", nil, authA)
 	assertEnvelope(t, response, http.StatusOK, false)
 	if _, err := store.Run(ctx, "owner-a", "run-a"); !errors.Is(err, postgres.ErrNotFound) {
 		t.Fatalf("history record was not deleted: %v", err)
 	}
+	if _, _, err := store.Trace(ctx, "owner-a", "trace-a"); !errors.Is(err, postgres.ErrNotFound) {
+		t.Fatalf("trace metadata was not deleted: %v", err)
+	}
+	if _, err := store.Artifact(ctx, "owner-a", "trace-a", "artifact-a"); !errors.Is(err, postgres.ErrNotFound) {
+		t.Fatalf("artifact metadata was not deleted: %v", err)
+	}
+	if _, _, err := ownerStore.Get(ctx, objectKey); !artifacts.IsKind(err, artifacts.KindNotFound) {
+		t.Fatalf("artifact object body was not deleted: %v", err)
+	}
 	response = apiRequest(t, server.Client(), http.MethodDelete, server.URL+"/api/v1/history", nil, authA)
 	assertEnvelope(t, response, http.StatusOK, false)
+	if _, _, err := store.Trace(ctx, "owner-a", "trace-orphan"); !errors.Is(err, postgres.ErrNotFound) {
+		t.Fatalf("orphan trace was not cleared: %v", err)
+	}
+	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/stats", nil, authA)
+	if response.JSON["result"].(map[string]any)["totalCount"] != float64(0) {
+		t.Fatalf("cleared owner stats = %#v", response.JSON)
+	}
 	response = apiRequest(t, server.Client(), http.MethodDelete, server.URL+"/api/v1/profiles/Backup", nil, authA)
 	assertEnvelope(t, response, http.StatusOK, false)
 }
@@ -279,6 +337,16 @@ func (prober *testProfileProber) Probe(context.Context, profiles.Profile, profil
 type testModelRefresher struct {
 	models []profiles.Model
 	err    error
+}
+
+type failingArtifactAccess struct{}
+
+func (failingArtifactAccess) PresignGet(context.Context, string, time.Duration) (string, error) {
+	return "", errors.New("presign unavailable")
+}
+
+func (failingArtifactAccess) DeleteMany(context.Context, []string) error {
+	return errors.New("delete unavailable")
 }
 
 func (refresher *testModelRefresher) RefreshModels(context.Context, profiles.Profile, profiles.CredentialPayload) ([]profiles.Model, error) {

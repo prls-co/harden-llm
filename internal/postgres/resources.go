@@ -2,9 +2,9 @@ package postgres
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -249,21 +249,102 @@ func (store *Store) Runs(ctx context.Context, ownerID string, limit int, cursor 
 	return records, rows.Err()
 }
 
-func (store *Store) DeleteRun(ctx context.Context, ownerID, runID string) error {
-	result, err := store.pool.Exec(ctx, `DELETE FROM llm_runs WHERE owner_id=$1 AND run_id=$2`, ownerID, runID)
+// RunStats computes the authoritative owner-scoped aggregate directly from
+// persisted runs. It cannot drift from history because it has no separately
+// maintained projection.
+func (store *Store) RunStats(ctx context.Context, ownerID string) (RunStats, error) {
+	var stats RunStats
+	err := store.pool.QueryRow(ctx, `
+		WITH normalized AS (
+			SELECT status,
+				CASE WHEN jsonb_typeof(result #> '{usage,inputTokens}') = 'number' THEN GREATEST((result #>> '{usage,inputTokens}')::bigint, 0) ELSE 0 END AS input_tokens,
+				CASE WHEN jsonb_typeof(result #> '{usage,cacheReadTokens}') = 'number' THEN GREATEST((result #>> '{usage,cacheReadTokens}')::bigint, 0) ELSE 0 END AS cache_read_tokens,
+				CASE WHEN jsonb_typeof(result #> '{usage,cacheCreationTokens}') = 'number' THEN GREATEST((result #>> '{usage,cacheCreationTokens}')::bigint, 0) ELSE 0 END AS cache_creation_tokens,
+				CASE WHEN jsonb_typeof(result #> '{usage,outputTokens}') = 'number' THEN GREATEST((result #>> '{usage,outputTokens}')::bigint, 0) ELSE 0 END AS output_tokens,
+				CASE WHEN jsonb_typeof(result #> '{usage,reasoningTokens}') = 'number' THEN GREATEST((result #>> '{usage,reasoningTokens}')::bigint, 0) ELSE 0 END AS reasoning_tokens,
+				COALESCE(result #>> '{cost,known}' = 'true', false) AS cost_known,
+				CASE WHEN jsonb_typeof(result #> '{cost,totalUsd}') = 'number' THEN GREATEST((result #>> '{cost,totalUsd}')::double precision, 0) ELSE 0 END AS total_cost,
+				COALESCE(result #>> '{cache,served}' = 'true', false) AS cache_served,
+				CASE WHEN jsonb_typeof(result #> '{totalCallDurationMs}') = 'number' THEN GREATEST((result #>> '{totalCallDurationMs}')::bigint, 0) ELSE 0 END AS duration_ms,
+				CASE WHEN jsonb_typeof(result #> '{overBudgetMs}') = 'number' THEN GREATEST((result #>> '{overBudgetMs}')::bigint, 0) ELSE 0 END AS over_budget_ms
+			FROM llm_runs WHERE owner_id = $1
+		)
+		SELECT
+			COUNT(*),
+			COUNT(*) FILTER (WHERE status = 'succeeded'),
+			COUNT(*) FILTER (WHERE status = 'failed'),
+			COUNT(*) FILTER (WHERE status = 'timeout'),
+			COALESCE(SUM(input_tokens + cache_read_tokens + cache_creation_tokens), 0),
+			COALESCE(SUM(cache_read_tokens), 0),
+			COALESCE(SUM(cache_creation_tokens), 0),
+			COALESCE(SUM(output_tokens + reasoning_tokens), 0),
+			COALESCE(SUM(reasoning_tokens), 0),
+			COALESCE(SUM(input_tokens + cache_read_tokens + cache_creation_tokens + output_tokens + reasoning_tokens), 0),
+			COALESCE(SUM(CASE WHEN cost_known THEN total_cost ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN cache_served AND cost_known THEN total_cost ELSE 0 END), 0),
+			COUNT(*) FILTER (WHERE cache_served),
+			COUNT(*) FILTER (WHERE cost_known),
+			COUNT(*) FILTER (WHERE NOT cost_known),
+			COALESCE(SUM(duration_ms), 0),
+			COALESCE(MAX(duration_ms), 0),
+			COUNT(*) FILTER (WHERE over_budget_ms > 0),
+			COALESCE(MAX(over_budget_ms), 0)
+		FROM normalized`, ownerID).Scan(
+		&stats.TotalCount, &stats.SuccessCount, &stats.FailureCount, &stats.TimeoutCount,
+		&stats.TotalPromptTokens, &stats.CacheReadTokens, &stats.CacheCreationTokens,
+		&stats.TotalOutputTokens, &stats.ReasoningTokens, &stats.TotalTokens,
+		&stats.TotalCost, &stats.CachedCost, &stats.CachedCount,
+		&stats.KnownCostCount, &stats.UnknownCostCount,
+		&stats.TotalCallDurationMS, &stats.MaxCallDurationMS,
+		&stats.OverBudgetCount, &stats.MaxOverBudgetMS,
+	)
 	if err != nil {
-		return fmt.Errorf("postgres: delete history record: %w", err)
+		return RunStats{}, fmt.Errorf("postgres: aggregate run stats: %w", err)
+	}
+	return stats, nil
+}
+
+// DeleteExecution removes the run and its domain trace in one transaction.
+// Observation and artifact metadata are removed by trace foreign keys.
+func (store *Store) DeleteExecution(ctx context.Context, ownerID, runID, traceID string) error {
+	transaction, err := store.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("postgres: begin execution deletion: %w", err)
+	}
+	defer func() { _ = transaction.Rollback(ctx) }()
+	result, err := transaction.Exec(ctx, `DELETE FROM llm_runs WHERE owner_id=$1 AND run_id=$2 AND trace_id=$3`, ownerID, runID, traceID)
+	if err != nil {
+		return fmt.Errorf("postgres: delete execution run: %w", err)
 	}
 	if result.RowsAffected() == 0 {
 		return ErrNotFound
 	}
+	if _, err := transaction.Exec(ctx, `DELETE FROM llm_traces WHERE owner_id=$1 AND trace_id=$2`, ownerID, traceID); err != nil {
+		return fmt.Errorf("postgres: delete execution trace: %w", err)
+	}
+	if err := transaction.Commit(ctx); err != nil {
+		return fmt.Errorf("postgres: commit execution deletion: %w", err)
+	}
 	return nil
 }
 
-func (store *Store) ClearRuns(ctx context.Context, ownerID string) (int64, error) {
-	result, err := store.pool.Exec(ctx, `DELETE FROM llm_runs WHERE owner_id=$1`, ownerID)
+// ClearExecutions removes every run and trace owned by the caller, including
+// orphan traces that have no run projection.
+func (store *Store) ClearExecutions(ctx context.Context, ownerID string) (int64, error) {
+	transaction, err := store.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return 0, fmt.Errorf("postgres: clear history: %w", err)
+		return 0, fmt.Errorf("postgres: begin execution clear: %w", err)
+	}
+	defer func() { _ = transaction.Rollback(ctx) }()
+	result, err := transaction.Exec(ctx, `DELETE FROM llm_runs WHERE owner_id=$1`, ownerID)
+	if err != nil {
+		return 0, fmt.Errorf("postgres: clear execution runs: %w", err)
+	}
+	if _, err := transaction.Exec(ctx, `DELETE FROM llm_traces WHERE owner_id=$1`, ownerID); err != nil {
+		return 0, fmt.Errorf("postgres: clear execution traces: %w", err)
+	}
+	if err := transaction.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("postgres: commit execution clear: %w", err)
 	}
 	return result.RowsAffected(), nil
 }
@@ -281,6 +362,25 @@ func (store *Store) Artifacts(ctx context.Context, ownerID, traceID string) ([]A
 		var record ArtifactRecord
 		if err := rows.Scan(&record.OwnerID, &record.TraceID, &record.ID, &record.Kind, &record.ObjectKey, &record.ContentType, &record.SHA256, &record.SizeBytes, &record.Available, &record.CreatedAt, &record.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("postgres: scan trace artifact: %w", err)
+		}
+		records = append(records, record)
+	}
+	return records, rows.Err()
+}
+
+func (store *Store) ArtifactsForOwner(ctx context.Context, ownerID string) ([]ArtifactRecord, error) {
+	rows, err := store.pool.Query(ctx, `
+		SELECT owner_id, trace_id, artifact_id, kind, object_key, content_type, sha256, size_bytes, available, created_at, updated_at
+		FROM llm_artifacts WHERE owner_id=$1 AND available ORDER BY created_at, artifact_id`, ownerID)
+	if err != nil {
+		return nil, fmt.Errorf("postgres: list owner artifacts: %w", err)
+	}
+	defer rows.Close()
+	var records []ArtifactRecord
+	for rows.Next() {
+		var record ArtifactRecord
+		if err := rows.Scan(&record.OwnerID, &record.TraceID, &record.ID, &record.Kind, &record.ObjectKey, &record.ContentType, &record.SHA256, &record.SizeBytes, &record.Available, &record.CreatedAt, &record.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("postgres: scan owner artifact: %w", err)
 		}
 		records = append(records, record)
 	}
@@ -307,9 +407,10 @@ func (store *Store) DeleteCache(ctx context.Context, ownerID, operationHash stri
 	return nil
 }
 
-// SaveExecution atomically commits one normalized run, domain trace, and its
-// contiguous observations after the provider call has completed.
-func (store *Store) SaveExecution(ctx context.Context, run RunRecord, trace TraceRecord, observations []ObservationRecord) error {
+// SaveExecution atomically commits one normalized run, domain trace, its
+// contiguous observations, and every available artifact reference after the
+// provider call has completed.
+func (store *Store) SaveExecution(ctx context.Context, run RunRecord, trace TraceRecord, observations []ObservationRecord, artifacts []ArtifactRecord) error {
 	if run.OwnerID != trace.OwnerID || run.TraceID != trace.TraceID {
 		return errors.New("postgres: execution run and trace binding mismatch")
 	}
@@ -347,6 +448,14 @@ func (store *Store) SaveExecution(ctx context.Context, run RunRecord, trace Trac
 			return err
 		}
 	}
+	for _, artifact := range artifacts {
+		if artifact.OwnerID != trace.OwnerID || artifact.TraceID != trace.TraceID {
+			return errors.New("postgres: execution artifact binding mismatch")
+		}
+		if err := validateArtifact(artifact); err != nil {
+			return err
+		}
+	}
 	transaction, err := store.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return fmt.Errorf("postgres: begin execution save: %w", err)
@@ -368,6 +477,15 @@ func (store *Store) SaveExecution(ctx context.Context, run RunRecord, trace Trac
 			return fmt.Errorf("postgres: save execution observation: %w", err)
 		}
 	}
+	for _, artifact := range artifacts {
+		if _, err := transaction.Exec(ctx, `
+			INSERT INTO llm_artifacts
+				(owner_id, trace_id, artifact_id, kind, object_key, content_type, sha256, size_bytes, available, created_at, updated_at)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, artifact.OwnerID, artifact.TraceID, artifact.ID, artifact.Kind,
+			artifact.ObjectKey, artifact.ContentType, strings.ToLower(artifact.SHA256), artifact.SizeBytes, artifact.Available, artifact.CreatedAt, artifact.UpdatedAt); err != nil {
+			return fmt.Errorf("postgres: save execution artifact: %w", err)
+		}
+	}
 	if _, err := transaction.Exec(ctx, `
 		INSERT INTO llm_runs (owner_id, run_id, profile_id, trace_id, status, request, result, started_at, completed_at)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, run.OwnerID, run.ID, run.ProfileID, run.TraceID, run.Status, run.Request, run.Result, run.StartedAt, run.CompletedAt); err != nil {
@@ -375,20 +493,6 @@ func (store *Store) SaveExecution(ctx context.Context, run RunRecord, trace Trac
 	}
 	if err := transaction.Commit(ctx); err != nil {
 		return fmt.Errorf("postgres: commit execution save: %w", err)
-	}
-	return nil
-}
-
-func (store *Store) UpdateRunResult(ctx context.Context, ownerID, runID string, result json.RawMessage) error {
-	if err := validateJSONObject("run result", result); err != nil {
-		return err
-	}
-	command, err := store.pool.Exec(ctx, `UPDATE llm_runs SET result=$3 WHERE owner_id=$1 AND run_id=$2`, ownerID, runID, result)
-	if err != nil {
-		return fmt.Errorf("postgres: update run result: %w", err)
-	}
-	if command.RowsAffected() == 0 {
-		return ErrNotFound
 	}
 	return nil
 }

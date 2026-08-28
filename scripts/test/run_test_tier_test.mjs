@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { runTasks } from "../run-test-tier.mjs";
+import { resolvedCommand, runTasks } from "../run-test-tier.mjs";
 
 const TEST_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const fixtureSource = `
@@ -108,6 +108,32 @@ function interval(records, id) {
 }
 
 describe("resource-aware tier runner", () => {
+  test("isolates parallel Mix build output in runner-owned task directories", async () => {
+    const data = await fixture();
+    const firstDirectory = path.join(data.root, "run", "tasks", "frontend-compile");
+    const secondDirectory = path.join(data.root, "run", "tasks", "frontend-deterministic");
+    const mixTask = task(data, "frontend-compile", "cpu", "ok", 20, {
+      command: ["mix", "compile"],
+      workingDirectory: "frontend",
+    });
+    const options = {
+      root: data.root,
+      runID: "runner-test",
+      seed: 104729,
+      environment: { MIX_BUILD_PATH: path.join(data.root, "shared-build") },
+    };
+
+    const first = resolvedCommand(mixTask, { ...options, taskDirectory: firstDirectory });
+    const second = resolvedCommand(
+      { ...mixTask, id: "frontend-deterministic", command: ["mix", "test"] },
+      { ...options, taskDirectory: secondDirectory },
+    );
+
+    assert.equal(first.environment.MIX_BUILD_PATH, path.join(firstDirectory, "mix-build"));
+    assert.equal(second.environment.MIX_BUILD_PATH, path.join(secondDirectory, "mix-build"));
+    assert.notEqual(first.environment.MIX_BUILD_PATH, second.environment.MIX_BUILD_PATH);
+  });
+
   test("honors dependency ordering and exposes a stable result record", async () => {
     const data = await fixture();
     const first = task(data, "first", "cpu", "ok", 30);

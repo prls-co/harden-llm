@@ -502,6 +502,22 @@ func (store *Store) Trace(ctx context.Context, ownerID, traceID string) (TraceRe
 }
 
 func (store *Store) SaveArtifact(ctx context.Context, artifact ArtifactRecord) error {
+	if err := validateArtifact(artifact); err != nil {
+		return err
+	}
+	_, err := store.pool.Exec(ctx, `
+		INSERT INTO llm_artifacts
+			(owner_id, trace_id, artifact_id, kind, object_key, content_type, sha256, size_bytes, available, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, artifact.OwnerID, artifact.TraceID, artifact.ID, artifact.Kind,
+		artifact.ObjectKey, artifact.ContentType, strings.ToLower(artifact.SHA256), artifact.SizeBytes, artifact.Available, artifact.CreatedAt, artifact.UpdatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("postgres: save artifact: %w", err)
+	}
+	return nil
+}
+
+func validateArtifact(artifact ArtifactRecord) error {
 	if !artifact.Available {
 		return errors.New("postgres: only successfully uploaded artifacts can be indexed")
 	}
@@ -512,15 +528,6 @@ func (store *Store) SaveArtifact(ctx context.Context, artifact ArtifactRecord) e
 	}
 	if artifact.ObjectKey == "" || strings.Contains(artifact.ObjectKey, "..") || artifact.ContentType != "application/json" || len(artifact.SHA256) != 64 || artifact.SizeBytes <= 0 {
 		return errors.New("postgres: invalid artifact metadata")
-	}
-	_, err := store.pool.Exec(ctx, `
-		INSERT INTO llm_artifacts
-			(owner_id, trace_id, artifact_id, kind, object_key, content_type, sha256, size_bytes, available, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, artifact.OwnerID, artifact.TraceID, artifact.ID, artifact.Kind,
-		artifact.ObjectKey, artifact.ContentType, strings.ToLower(artifact.SHA256), artifact.SizeBytes, artifact.Available, artifact.CreatedAt, artifact.UpdatedAt,
-	)
-	if err != nil {
-		return fmt.Errorf("postgres: save artifact: %w", err)
 	}
 	return nil
 }
@@ -537,39 +544,6 @@ func (store *Store) Artifact(ctx context.Context, ownerID, traceID, artifactID s
 		return ArtifactRecord{}, notFound(err)
 	}
 	return artifact, nil
-}
-
-func (store *Store) SaveStats(ctx context.Context, stats StatsRecord) error {
-	if err := validateIdentifier("owner ID", stats.OwnerID); err != nil {
-		return err
-	}
-	if stats.Scope == "" || len(stats.Scope) > 128 || stats.UpdatedAt.IsZero() {
-		return errors.New("postgres: valid stats metadata is required")
-	}
-	if err := validateJSONObject("stats totals", stats.Totals); err != nil {
-		return err
-	}
-	_, err := store.pool.Exec(ctx, `
-		INSERT INTO llm_stats_totals (owner_id, scope, totals, updated_at) VALUES ($1,$2,$3,$4)
-		ON CONFLICT (owner_id, scope) DO UPDATE SET totals = EXCLUDED.totals, updated_at = EXCLUDED.updated_at`,
-		stats.OwnerID, stats.Scope, stats.Totals, stats.UpdatedAt,
-	)
-	if err != nil {
-		return fmt.Errorf("postgres: save stats: %w", err)
-	}
-	return nil
-}
-
-func (store *Store) Stats(ctx context.Context, ownerID, scope string) (StatsRecord, error) {
-	var stats StatsRecord
-	err := store.pool.QueryRow(ctx, `
-		SELECT owner_id, scope, totals, updated_at FROM llm_stats_totals WHERE owner_id = $1 AND scope = $2`, ownerID, scope).Scan(
-		&stats.OwnerID, &stats.Scope, &stats.Totals, &stats.UpdatedAt,
-	)
-	if err != nil {
-		return StatsRecord{}, notFound(err)
-	}
-	return stats, nil
 }
 
 func validateProfile(profile ProfileRecord) error {

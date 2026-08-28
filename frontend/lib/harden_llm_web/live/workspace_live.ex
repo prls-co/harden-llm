@@ -1,6 +1,7 @@
 defmodule HardenLlmWeb.WorkspaceLive do
   use HardenLlmWeb, :live_view
 
+  alias HardenLlm.LlmTraceProjection
   alias HardenLlmWeb.{APIError, Auth, HardenAPI, Observability, ProfileWidgetState}
 
   @schema_keywords ~w($schema $defs additionalProperties allOf anyOf const default definitions description enum examples exclusiveMaximum exclusiveMinimum format items maxItems maxLength maximum minItems minLength minimum multipleOf not oneOf pattern prefixItems properties propertyOrdering required title type uniqueItems)
@@ -72,9 +73,13 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:history_loading?, false)
       |> assign(:history_error, nil)
       |> assign(:history_pending, nil)
+      |> assign(:stats, LlmTraceProjection.stats(%{}))
+      |> assign(:stats_error, nil)
+      |> assign(:stats_ref, nil)
       |> assign(:run_result, nil)
       |> assign(:run_error, nil)
       |> assign(:run_ref, nil)
+      |> assign(:diagnostic_ref, nil)
       |> assign(:run_request_payload, nil)
       |> assign(:conversation_trace_id, normalize_trace_id(params["trace_id"]))
       |> assign(:conversation_trace_ref, nil)
@@ -103,7 +108,13 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
     if connected?(socket) do
       handle = socket.assigns.session_handle
-      {:ok, start_async(socket, :hydrate, Observability.propagate(fn -> hydrate(handle) end))}
+
+      socket =
+        socket
+        |> start_async(:hydrate, Observability.propagate(fn -> hydrate(handle) end))
+        |> refresh_stats()
+
+      {:ok, socket}
     else
       {:ok, socket}
     end
@@ -310,6 +321,31 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   def handle_async(
+        {:load_stats, reference},
+        {:ok, {:ok, stats, _state}},
+        %{assigns: %{stats_ref: reference}} = socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:stats, LlmTraceProjection.stats(stats))
+     |> assign(:stats_error, nil)
+     |> assign(:stats_ref, nil)}
+  end
+
+  def handle_async(
+        {:load_stats, reference},
+        _result,
+        %{assigns: %{stats_ref: reference}} = socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:stats_error, "Aggregate stats are temporarily unavailable.")
+     |> assign(:stats_ref, nil)}
+  end
+
+  def handle_async({:load_stats, _reference}, _result, socket), do: {:noreply, socket}
+
+  def handle_async(
         {:run, reference},
         {:ok, {:ok, result, _state}},
         %{assigns: %{run_ref: reference}} = socket
@@ -327,8 +363,9 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:output_request_open?, false)
       |> assign(:output_response_open?, false)
       |> maybe_refresh_history()
+      |> refresh_stats()
 
-    {:noreply, push_conversation_url(socket, result_trace_id(result))}
+    {:noreply, push_conversation_url(socket, LlmTraceProjection.trace_id(result))}
   end
 
   def handle_async(
@@ -343,12 +380,18 @@ defmodule HardenLlmWeb.WorkspaceLive do
         error.message
       end
 
-    {:noreply,
-     socket
-     |> assign(:run_ref, nil)
-     |> assign(:run_request_payload, nil)
-     |> assign(:output_trace_resources, %{})
-     |> assign(:run_error, message)}
+    socket =
+      socket
+      |> assign(:run_ref, nil)
+      |> assign(:run_result, nil)
+      |> assign(:run_request_payload, nil)
+      |> assign(:output_trace_resources, %{})
+      |> assign(:run_error, message)
+      |> maybe_refresh_history()
+      |> refresh_stats()
+      |> maybe_load_run_diagnostics(error.trace_id)
+
+    {:noreply, socket}
   end
 
   def handle_async(
@@ -359,6 +402,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     {:noreply,
      socket
      |> assign(:run_ref, nil)
+     |> assign(:run_result, nil)
      |> assign(:run_request_payload, nil)
      |> assign(:output_trace_resources, %{})
      |> assign(:run_error, "The run could not be completed. Try again or check History.")}
@@ -367,11 +411,44 @@ defmodule HardenLlmWeb.WorkspaceLive do
   def handle_async({:run, _stale_reference}, _result, socket), do: {:noreply, socket}
 
   def handle_async(
+        {:load_run_diagnostics, reference, trace_id},
+        {:ok, {:ok, trace, _state}},
+        %{assigns: %{diagnostic_ref: reference}} = socket
+      ) do
+    case LlmTraceProjection.run_result(trace) do
+      {:ok, result} ->
+        socket =
+          socket
+          |> assign(:diagnostic_ref, nil)
+          |> assign(:run_result, result)
+          |> assign(:output_trace_resources, trace_output_resources(trace, result))
+          |> assign(:output_request_open?, false)
+          |> assign(:output_response_open?, false)
+
+        {:noreply, push_conversation_url(socket, trace_id)}
+
+      :error ->
+        {:noreply, assign(socket, :diagnostic_ref, nil)}
+    end
+  end
+
+  def handle_async(
+        {:load_run_diagnostics, reference, _trace_id},
+        _result,
+        %{assigns: %{diagnostic_ref: reference}} = socket
+      ) do
+    {:noreply, assign(socket, :diagnostic_ref, nil)}
+  end
+
+  def handle_async({:load_run_diagnostics, _reference, _trace_id}, _result, socket),
+    do: {:noreply, socket}
+
+  def handle_async(
         {:load_conversation, reference, trace_id},
         {:ok, {:ok, trace, _state}},
         %{assigns: %{conversation_trace_ref: reference, conversation_trace_id: trace_id}} = socket
       ) do
-    case conversation_run_result(trace) do
+    case LlmTraceProjection.run_result(trace) do
       {:ok, result} ->
         {:noreply,
          socket
@@ -453,7 +530,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:history_pending, nil)
      |> assign(:history, Enum.reject(socket.assigns.history, &(&1["runId"] == run_id)))
      |> assign(:history_error, nil)
-     |> maybe_refresh_history()}
+     |> maybe_refresh_history()
+     |> refresh_stats()}
   end
 
   def handle_async(
@@ -488,7 +566,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:history_pending, nil)
      |> assign(:history, [])
      |> assign(:history_loaded?, true)
-     |> assign(:history_error, nil)}
+     |> assign(:history_error, nil)
+     |> refresh_stats()}
   end
 
   def handle_async(
@@ -878,560 +957,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
     end
   end
 
-  def safe_output(nil), do: ""
-  def safe_output(value) when is_binary(value), do: value
-  def safe_output(value), do: Jason.encode!(value, pretty: true)
-
-  def history_curl(item) do
-    body = Jason.encode!(item["request"] || %{})
-    "curl -X POST /api/v1/run -H 'content-type: application/json' --data-raw '#{body}'"
-  end
-
-  def history_result_json(item), do: safe_output(item["result"] || %{})
-
-  def history_item_stats(item) do
-    usage = get_in(item, ["result", "usage"]) || %{}
-    cost = get_in(item, ["result", "cost"]) || %{}
-
-    %{
-      duration: duration_ms(item),
-      input_tokens: usage["inputTokens"] || 0,
-      output_tokens: usage["outputTokens"] || 0,
-      total_tokens: usage["totalTokens"] || 0,
-      cost: if(cost["known"] == false, do: nil, else: cost["totalUsd"]),
-      attempts: length(get_in(item, ["result", "attempts"]) || [])
-    }
-  end
-
-  def stats_summary(history) do
-    durations = history |> Enum.map(&duration_ms/1) |> Enum.reject(&is_nil/1)
-    usage = Enum.map(history, &(get_in(&1, ["result", "usage"]) || %{}))
-    costs = Enum.map(history, &(get_in(&1, ["result", "cost"]) || %{}))
-
-    %{
-      success: Enum.count(history, &(&1["status"] == "succeeded")),
-      failed: Enum.count(history, &(&1["status"] == "failed")),
-      timeout: Enum.count(history, &(&1["status"] == "timeout")),
-      prompt_tokens: sum_metric(usage, "inputTokens"),
-      cache_read_tokens: sum_metric(usage, "cacheReadTokens"),
-      cache_creation_tokens: sum_metric(usage, "cacheCreationTokens"),
-      output_tokens: sum_metric(usage, "outputTokens"),
-      reasoning_tokens: sum_metric(usage, "reasoningTokens"),
-      total_tokens: sum_metric(usage, "totalTokens"),
-      known_cost:
-        Enum.sum(Enum.map(costs, &if(&1["known"] == false, do: 0, else: &1["totalUsd"] || 0))),
-      average_duration:
-        if(durations == [], do: nil, else: div(Enum.sum(durations), length(durations)))
-    }
-  end
-
-  def output_trace_summary(run_result, params, profiles) do
-    metrics = [
-      %{"value" => "🔁 #{output_attempt_count(run_result)}", "title" => "Attempts"},
-      %{"value" => "⏱️ #{output_duration(run_result)}", "title" => "Duration"},
-      %{
-        "value" => "💾",
-        "id" => "run-cache-status",
-        "class" => "ullm-cache-status ullm-cache-status-#{output_cache_status(run_result)}",
-        "title" => output_cache_status_title(run_result),
-        "aria_label" => "Harden-LLM cache: #{output_cache_status_label(run_result)}",
-        "data_cache_status" => output_cache_status(run_result),
-        "role" => "img"
-      },
-      %{
-        "value" => "📥 #{output_number(get_in(run_result, ["usage", "inputTokens"]))}",
-        "title" => "Input tokens"
-      },
-      %{
-        "value" => "↺ #{output_number(output_cache_tokens(run_result))}",
-        "title" => "Cache tokens"
-      },
-      %{
-        "value" => "📤 #{output_number(output_output_tokens(run_result))}",
-        "title" => "Output tokens"
-      },
-      if(output_cost(run_result),
-        do: %{
-          "value" => output_cost(run_result),
-          "title" => output_cost_title(run_result)
-        },
-        else: nil
-      )
-    ]
-
-    %{
-      "status_icon" => output_status_icon(run_result),
-      "trace_id" => output_trace_id(run_result),
-      "model_id" => output_model_id(run_result, params, profiles),
-      "error_category" =>
-        if(output_success?(run_result), do: nil, else: output_error_category(run_result)),
-      "metrics" => Enum.reject(metrics, &is_nil/1)
-    }
-  end
-
-  def output_trace_details(run_result) do
-    %{
-      "trace_id" => output_trace_id(run_result),
-      "run_id" => output_text([run_result["runId"]]),
-      "status" => output_status_label(run_result),
-      "cache_status" => output_cache_status_label(run_result),
-      "used_repair" => output_used_repair?(run_result),
-      "attempts" =>
-        Enum.map(output_attempts(run_result), fn attempt ->
-          %{
-            "attempt" => attempt["attempt"],
-            "category" => attempt["category"],
-            "status_code" => attempt["statusCode"],
-            "retryable" => attempt["retryable"],
-            "delay_ms" => attempt["delayMs"]
-          }
-        end)
-    }
-  end
-
-  def run_request_json(params), do: run_request_json(params, nil)
-
-  def run_request_json(params, profiles), do: safe_output(run_request(params, profiles))
-
-  def run_curl(params), do: run_curl(params, nil)
-
-  def run_curl(params, profiles), do: request_curl(run_request(params, profiles))
-
-  def request_curl(payload) when is_map(payload) do
-    body = Jason.encode!(payload)
-
-    "curl -X POST /api/v1/run -H 'content-type: application/json' --data-raw '#{body}'"
-  end
-
-  def request_curl(_payload), do: nil
-
-  def output_meta(run_result, params, profiles) do
-    params = params || %{}
-    profile = output_profile(run_result, params, profiles)
-
-    inference_type =
-      output_text([
-        run_result["apiInferenceType"],
-        params["apiInferenceType"],
-        get_in(profile, ["profile", "apiInferenceType"])
-      ]) || "-"
-
-    base_url =
-      output_text([
-        run_result["providerBaseUrl"],
-        params["baseUrl"],
-        get_in(profile, ["profile", "baseUrl"])
-      ]) || "-"
-
-    "#{inference_type} · #{base_url}"
-  end
-
-  def output_model_id(run_result, params, profiles) do
-    params = params || %{}
-    profile = output_profile(run_result, params, profiles)
-
-    output_text([
-      run_result["modelId"],
-      params["modelId"],
-      get_in(profile, ["profile", "modelId"])
-    ]) || ""
-  end
-
-  def output_trace_id(run_result) do
-    output_text([
-      run_result["traceId"],
-      run_result["callId"],
-      run_result["runId"],
-      "trace"
-    ]) || "trace"
-  end
-
-  def output_measured?(run_result) do
-    case output_number_value(get_in(run_result, ["usage", "totalTokens"])) do
-      total_tokens when is_number(total_tokens) -> total_tokens > 0
-      _ -> false
-    end
-  end
-
-  def output_status_icon(run_result), do: if(output_success?(run_result), do: "✅", else: "❌")
-
-  def output_success?(run_result) do
-    category = output_category(run_result)
-    status = output_status_value(run_result)
-    status_text = String.downcase(to_string(run_result["status"] || ""))
-
-    category in [nil, "", "success", "ok"] and
-      status_text not in ["failed", "failure", "error", "timeout"] and
-      (is_nil(status) or status < 400)
-  end
-
-  def output_error_category(run_result) do
-    output_category(run_result)
-    |> case do
-      nil -> "error"
-      category -> category
-    end
-  end
-
-  def output_status_label(run_result) do
-    label =
-      if output_success?(run_result),
-        do: "Success",
-        else: output_title_case(output_error_category(run_result))
-
-    status = output_status_value(run_result) || if(output_success?(run_result), do: 200, else: "")
-    "#{label} (#{status})"
-  end
-
-  def output_attempt_count(run_result) do
-    case run_result["attempts"] do
-      attempts when is_list(attempts) ->
-        length(attempts)
-
-      _ ->
-        max(trunc(output_number_value(run_result["totalAttempts"]) || 0), 0)
-    end
-  end
-
-  def output_duration(run_result) do
-    duration_ms =
-      output_number_value(
-        output_first_present([
-          run_result["totalCallDurationMs"],
-          run_result["durationMs"],
-          run_result["totalWaitMs"]
-        ])
-      ) || 0
-
-    seconds = duration_ms / 1000
-    :erlang.float_to_binary(seconds * 1.0, decimals: 2) <> "s"
-  end
-
-  def output_cache_tokens(run_result) do
-    cache_read = output_number_value(get_in(run_result, ["usage", "cacheReadTokens"])) || 0
-
-    cache_creation =
-      output_number_value(get_in(run_result, ["usage", "cacheCreationTokens"])) || 0
-
-    trunc(cache_read + cache_creation)
-  end
-
-  def output_output_tokens(run_result) do
-    output_tokens = output_number_value(get_in(run_result, ["usage", "outputTokens"])) || 0
-    reasoning_tokens = output_number_value(get_in(run_result, ["usage", "reasoningTokens"])) || 0
-    trunc(output_tokens + reasoning_tokens)
-  end
-
-  def output_number(value) do
-    value
-    |> output_number_value()
-    |> Kernel.||(0)
-    |> trunc()
-    |> Integer.to_string()
-    |> output_group_digits()
-  end
-
-  def output_cost(run_result) do
-    case output_cost_value(run_result) do
-      nil -> nil
-      value -> if(output_cache_served?(run_result), do: "🗄️" <> value, else: value)
-    end
-  end
-
-  def output_cost_title(run_result) do
-    case output_cost_value(run_result) do
-      nil ->
-        nil
-
-      value ->
-        prefix =
-          if output_cache_served?(run_result),
-            do: "Cached trace-attributed cost",
-            else: "Trace-attributed cost"
-
-        "#{prefix} #{value}"
-    end
-  end
-
-  def output_cache_served?(run_result) do
-    cache = run_result["cache"] || %{}
-    truthy?(cache["served"] || cache["servedFromCache"])
-  end
-
-  def output_cache_status(run_result) do
-    cache = if is_map(run_result["cache"]), do: run_result["cache"], else: %{}
-    mode = output_text([cache["mode"]])
-    status = output_text([cache["status"]])
-
-    cond do
-      output_cache_served?(run_result) or status == "hit" -> "hit"
-      mode == "off" or status in [nil, "", "disabled", "skipped"] -> "disabled"
-      status == "miss" -> "miss"
-      status == "refresh" -> "refresh"
-      truthy?(cache["written"]) -> "written"
-      true -> "unknown"
-    end
-  end
-
-  def output_cache_status_label(run_result) do
-    status = output_cache_status(run_result)
-
-    case status do
-      "hit" ->
-        "Hit"
-
-      "miss" ->
-        if(output_cache_written?(run_result), do: "Miss · saved", else: "Miss")
-
-      "refresh" ->
-        if(output_cache_written?(run_result), do: "Fresh run · saved", else: "Fresh run")
-
-      "written" ->
-        "Saved"
-
-      "disabled" ->
-        "Disabled"
-
-      _ ->
-        "Unknown"
-    end
-  end
-
-  def output_cache_status_title(run_result) do
-    status = output_cache_status(run_result)
-    written = output_cache_written?(run_result)
-
-    case {status, written} do
-      {"hit", _} ->
-        "Harden-LLM cache hit: reused the saved response without a provider call."
-
-      {"miss", true} ->
-        "Harden-LLM cache miss: ran the provider and saved the successful response."
-
-      {"miss", false} ->
-        "Harden-LLM cache miss: no saved response was available."
-
-      {"refresh", true} ->
-        "Harden-LLM fresh run: skipped the old cache and saved the successful response."
-
-      {"refresh", false} ->
-        "Harden-LLM fresh run: skipped the old cache."
-
-      {"disabled", _} ->
-        "Harden-LLM cache was disabled for this run."
-
-      {"written", _} ->
-        "The successful response was saved to the Harden-LLM cache."
-
-      _ ->
-        "The Harden-LLM cache result did not include a recognized status."
-    end
-  end
-
-  defp output_cache_written?(run_result) do
-    truthy?(get_in(run_result, ["cache", "written"]))
-  end
-
-  defp output_cost_value(run_result) do
-    cost = run_result["cost"] || %{}
-
-    if cost["known"] == false do
-      nil
-    else
-      case output_number_value(cost["totalUsd"]) do
-        nil -> nil
-        value -> "$" <> :erlang.float_to_binary(value * 1.0, decimals: 4)
-      end
-    end
-  end
-
-  def output_used_repair?(run_result) do
-    truthy?(run_result["usedRepair"]) or
-      Enum.any?(output_raw_attempts(run_result), fn attempt ->
-        is_map(attempt) and (truthy?(attempt["repair"]) or truthy?(attempt["usedRepair"]))
-      end)
-  end
-
-  def output_attempts(run_result) do
-    case run_result["attempts"] do
-      attempts when is_list(attempts) ->
-        Enum.with_index(attempts, 1)
-        |> Enum.map(fn {attempt, index} ->
-          normalize_output_attempt(attempt, index, run_result)
-        end)
-
-      _ ->
-        []
-    end
-  end
-
-  defp output_profile(run_result, params, profiles) do
-    profile_id = params["selectedProfileId"] || run_result["profileId"] || ""
-    selected_profile(profiles || [], profile_id) || %{}
-  end
-
-  defp output_category(run_result) do
-    output_text([
-      run_result["lastErrorCategory"],
-      run_result["category"],
-      run_result["outcome"]
-    ])
-  end
-
-  defp output_status_value(run_result) do
-    output_number_value(
-      output_first_present([
-        run_result["lastErrorStatus"],
-        run_result["httpStatus"],
-        run_result["statusCode"],
-        run_result["status"]
-      ])
-    )
-  end
-
-  defp normalize_output_attempt(attempt, index, run_result) when is_map(attempt) do
-    category =
-      output_text([attempt["category"], attempt["outcome"]]) || output_category(run_result) ||
-        "success"
-
-    attempt_number =
-      case output_number_value(output_first_present([attempt["number"], attempt["attempt"]])) do
-        number when is_number(number) and number > 0 -> trunc(number)
-        _ -> index
-      end
-
-    status =
-      case output_attempt_status(attempt) do
-        {:present, value} -> output_number_value(value)
-        :missing -> output_status_value(run_result)
-      end
-
-    status = if is_nil(status) and category in ["success", "ok"], do: 200, else: status
-
-    %{
-      "attempt" => attempt_number,
-      "category" => category,
-      "statusCode" => status,
-      "retryable" => truthy?(attempt["retryable"]),
-      "delayMs" =>
-        output_attempt_duration_ms(attempt["delayMs"] || attempt["waitMs"], attempt["wait"]),
-      "durationMs" => output_attempt_duration_ms(attempt["durationMs"], attempt["duration"])
-    }
-  end
-
-  defp normalize_output_attempt(_attempt, index, run_result) do
-    normalize_output_attempt(%{}, index, run_result)
-  end
-
-  defp output_attempt_status(attempt) do
-    case Enum.find(["httpStatus", "status", "statusCode"], fn key ->
-           Map.has_key?(attempt, key) and attempt[key] != ""
-         end) do
-      nil -> :missing
-      key -> {:present, attempt[key]}
-    end
-  end
-
-  defp output_raw_attempts(run_result) do
-    case run_result["attempts"] do
-      attempts when is_list(attempts) -> attempts
-      _ -> []
-    end
-  end
-
-  defp output_attempt_duration_ms(value, nanoseconds) do
-    case output_number_value(value) do
-      number when is_number(number) ->
-        trunc(number)
-
-      _ ->
-        case output_number_value(nanoseconds) do
-          number when is_number(number) -> trunc(number / 1_000_000)
-          _ -> 0
-        end
-    end
-  end
-
-  defp output_first_present(values) do
-    Enum.find(values, fn value -> not is_nil(value) and value != "" end)
-  end
-
-  defp output_text(values) do
-    Enum.find_value(values, fn
-      value when value in [nil, false] ->
-        nil
-
-      value when is_binary(value) ->
-        case String.trim(value) do
-          "" -> nil
-          text -> text
-        end
-
-      value when is_atom(value) ->
-        Atom.to_string(value)
-
-      value when is_number(value) ->
-        to_string(value)
-
-      _ ->
-        nil
-    end)
-  end
-
-  defp output_title_case(value) do
-    value
-    |> to_string()
-    |> String.split(~r/[\s_-]+/)
-    |> Enum.reject(&(&1 == ""))
-    |> Enum.map(&String.capitalize(&1))
-    |> Enum.join(" ")
-  end
-
-  defp output_number_value(nil), do: nil
-  defp output_number_value(value) when is_integer(value) or is_float(value), do: value
-
-  defp output_number_value(value) when is_binary(value) do
-    case Integer.parse(String.trim(value)) do
-      {number, ""} ->
-        number
-
-      _ ->
-        case Float.parse(String.trim(value)) do
-          {number, ""} -> number
-          _ -> nil
-        end
-    end
-  end
-
-  defp output_number_value(_value), do: nil
-
-  defp output_group_digits(value) do
-    {sign, digits} =
-      if String.starts_with?(value, "-"),
-        do: {"-", String.slice(value, 1..-1//1)},
-        else: {"", value}
-
-    grouped =
-      digits
-      |> String.reverse()
-      |> String.graphemes()
-      |> Enum.chunk_every(3)
-      |> Enum.map(&Enum.join/1)
-      |> Enum.join(",")
-      |> String.reverse()
-
-    sign <> grouped
-  end
-
-  defp run_request(params, profiles) do
-    case run_payload(params || %{}, profiles) do
-      {:ok, payload} -> payload
-      {:error, _message} -> %{}
-    end
-  end
-
-  defp sum_metric(values, key), do: Enum.sum(Enum.map(values, &(&1[key] || 0)))
-
   def schema_status_text(%{status: :valid, message: message})
       when is_binary(message) and message != "", do: message
 
@@ -1500,13 +1025,40 @@ defmodule HardenLlmWeb.WorkspaceLive do
     end
   end
 
+  defp refresh_stats(socket) do
+    reference = System.unique_integer([:positive, :monotonic])
+    handle = socket.assigns.session_handle
+
+    socket
+    |> assign(:stats_ref, reference)
+    |> start_async(
+      {:load_stats, reference},
+      Observability.propagate(fn -> HardenAPI.get_stats(handle) end)
+    )
+  end
+
+  defp maybe_load_run_diagnostics(socket, trace_id)
+       when is_binary(trace_id) and trace_id != "" do
+    reference = System.unique_integer([:positive, :monotonic])
+    handle = socket.assigns.session_handle
+
+    socket
+    |> assign(:diagnostic_ref, reference)
+    |> start_async(
+      {:load_run_diagnostics, reference, trace_id},
+      Observability.propagate(fn -> HardenAPI.get_trace(handle, trace_id) end)
+    )
+  end
+
+  defp maybe_load_run_diagnostics(socket, _trace_id), do: socket
+
   defp maybe_start_conversation_load(socket) do
     trace_id = socket.assigns.conversation_trace_id
 
     if connected?(socket) and socket.assigns.backend_state == :ready and
          is_binary(trace_id) and trace_id != "" and
          is_nil(socket.assigns.conversation_trace_ref) and
-         result_trace_id(socket.assigns.run_result) != trace_id do
+         LlmTraceProjection.trace_id(socket.assigns.run_result) != trace_id do
       reference = System.unique_integer([:positive, :monotonic])
       handle = socket.assigns.session_handle
 
@@ -1525,6 +1077,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     socket
     |> assign(:conversation_trace_id, nil)
     |> assign(:conversation_trace_ref, nil)
+    |> assign(:diagnostic_ref, nil)
     |> assign(:run_result, nil)
     |> assign(:run_request_payload, nil)
     |> assign(:output_trace_resources, %{})
@@ -1534,112 +1087,42 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   defp output_trace_resources(result, request) do
-    trace_id = output_trace_id(result)
+    trace_id = LlmTraceProjection.trace_id(result)
 
-    %{
-      "trace_url" => trace_url(trace_id),
-      "curl" => request_curl(request),
-      "request" =>
-        local_trace_resource(request, "Request payload is not available for this trace."),
-      "response" =>
-        local_trace_resource(result, "Response payload is not available for this trace."),
-      "artifacts" => trace_artifact_links(result, trace_id)
-    }
+    LlmTraceProjection.resources_from_run(
+      result,
+      request,
+      HardenAPI.public_base_url(),
+      trace_url(trace_id),
+      &artifact_url/2
+    )
   end
 
   defp trace_output_resources(trace, result) do
-    trace_id = output_trace_id(result)
-    resources = if is_map(trace["resources"]), do: trace["resources"], else: %{}
+    trace_id = LlmTraceProjection.trace_id(result)
 
-    request =
-      normalize_trace_resource(
-        resources["request"],
-        "Request payload is not available for this trace."
-      )
-
-    response =
-      normalize_trace_resource(
-        resources["response"],
-        "Response payload is not available for this trace."
-      )
-
-    %{
-      "trace_url" => trace_url(trace_id),
-      "curl" => resource_curl(request),
-      "request" => request,
-      "response" => response,
-      "artifacts" => trace_artifact_links(result, trace_id)
-    }
+    LlmTraceProjection.resources_from_trace(
+      trace,
+      result,
+      HardenAPI.public_base_url(),
+      trace_url(trace_id),
+      &artifact_url/2
+    )
   end
-
-  defp local_trace_resource(payload, _message) when is_map(payload) do
-    %{"available" => true, "payload" => payload}
-  end
-
-  defp local_trace_resource(_payload, message), do: %{"available" => false, "message" => message}
-
-  defp normalize_trace_resource(resource, message) when is_map(resource) do
-    if resource["available"] == true do
-      resource
-    else
-      %{"available" => false, "message" => output_text([resource["message"]]) || message}
-    end
-  end
-
-  defp normalize_trace_resource(_resource, message),
-    do: %{"available" => false, "message" => message}
-
-  defp resource_curl(%{"available" => true, "payload" => payload}), do: request_curl(payload)
-  defp resource_curl(_resource), do: nil
 
   defp trace_url(trace_id) when is_binary(trace_id) and trace_id != "",
     do: ~p"/traces/#{trace_id}"
 
   defp trace_url(_trace_id), do: nil
 
-  defp trace_artifact_links(result, trace_id) when is_map(result) and is_binary(trace_id) do
-    result
-    |> Map.get("artifacts", [])
-    |> then(&if(is_list(&1), do: &1, else: []))
-    |> Enum.filter(fn artifact ->
-      is_map(artifact) and output_text([artifact["artifactId"]]) != ""
-    end)
-    |> Enum.map(fn artifact ->
-      artifact_id = artifact["artifactId"]
-      kind = output_text([artifact["kind"]]) || "artifact"
-      size = output_number_value(artifact["sizeBytes"]) || 0
-
-      %{
-        "href" => ~p"/traces/#{trace_id}/artifacts/#{artifact_id}",
-        "label" => "#{kind} · #{size} bytes"
-      }
-    end)
-  end
-
-  defp trace_artifact_links(_result, _trace_id), do: []
+  defp artifact_url(trace_id, artifact_id),
+    do: ~p"/traces/#{trace_id}/artifacts/#{artifact_id}"
 
   defp push_conversation_url(socket, nil), do: socket
 
   defp push_conversation_url(socket, trace_id) do
     push_patch(socket, to: ~p"/workspace?trace_id=#{trace_id}")
   end
-
-  defp conversation_run_result(%{"record" => record} = trace) when is_map(record) do
-    artifacts = if is_list(trace["artifacts"]), do: trace["artifacts"], else: []
-
-    {:ok,
-     record
-     |> Map.put_new("traceId", trace["traceId"])
-     |> Map.put("artifacts", artifacts)}
-  end
-
-  defp conversation_run_result(_trace), do: :error
-
-  defp result_trace_id(result) when is_map(result) do
-    output_text([result["traceId"], result["callId"], result["runId"]])
-  end
-
-  defp result_trace_id(_result), do: nil
 
   defp start_history_load(socket) do
     handle = socket.assigns.session_handle
@@ -1718,7 +1201,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp event_form_params(_event_params, socket), do: socket.assigns.form.params || %{}
 
-  defp run_payload(params, profiles, profile_provider_options \\ %{}) do
+  defp run_payload(params, profiles, profile_provider_options) do
     prompt = String.trim(params["userPrompt"] || "")
     profile_id = String.trim(params["selectedProfileId"] || "")
     call_type = response_call_type(params)
@@ -2333,15 +1816,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   defp normalize_trace_id(_value), do: nil
-
-  defp duration_ms(item) do
-    with {:ok, started, _} <- DateTime.from_iso8601(item["startedAt"] || ""),
-         {:ok, completed, _} <- DateTime.from_iso8601(item["completedAt"] || "") do
-      DateTime.diff(completed, started, :millisecond)
-    else
-      _ -> nil
-    end
-  end
 
   defp integer_value(value, _label, _minimum, _maximum, default) when value in [nil, ""],
     do: {:ok, default}

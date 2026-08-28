@@ -12,6 +12,7 @@ config :harden_llm,
 
 config :harden_llm, :harden_api,
   base_url: "http://127.0.0.1:8080",
+  public_base_url: "https://api.example.test",
   api_timeout_ms: 15_000,
   run_timeout_ms: 65_000,
   max_run_duration_ms: 60_000

@@ -244,7 +244,7 @@
                     <div class="ullm-run-output-label">
                       <span class="ullm-run-output-title">Latest output</span>
                       <span class="ullm-run-output-meta ullm-mono">
-                        {output_meta(@run_result, @form.params, @profiles)}
+                        {LlmTraceProjection.meta(@run_result)}
                       </span>
                     </div>
                     <div class="ullm-run-output-actions">
@@ -252,7 +252,7 @@
                         id="copy-run-output"
                         type="button"
                         phx-hook="Clipboard"
-                        data-copy-value={safe_output(@run_result["output"])}
+                        data-copy-value={LlmTraceProjection.json_text(@run_result["output"])}
                         class="ullm-btn ullm-btn-tiny"
                       >Copy</button>
                     </div>
@@ -263,12 +263,15 @@
                       :if={!is_nil(@run_result["output"])}
                       id="run-output"
                       class="ullm-result-body ullm-mono"
-                    ><%= safe_output(@run_result["output"]) %></pre>
-                    <div :if={output_measured?(@run_result)} class="ullm-output-trace">
+                    ><%= LlmTraceProjection.json_text(@run_result["output"]) %></pre>
+                    <div
+                      :if={LlmTraceProjection.trace_available?(@run_result)}
+                      class="ullm-output-trace"
+                    >
                       <.llm_trace
                         id="output-trace"
-                        summary={output_trace_summary(@run_result, @form.params, @profiles)}
-                        details={output_trace_details(@run_result)}
+                        summary={LlmTraceProjection.summary(@run_result)}
+                        details={LlmTraceProjection.details(@run_result)}
                         resources={@output_trace_resources}
                         details_open={@ui["outputDetailsOpen"]}
                         request_open={@output_request_open?}
@@ -300,7 +303,9 @@
             >
               <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 class="font-semibold text-slate-950">🕘 History ({length(@history)})</h2>
+                  <h2 class="font-semibold text-slate-950">
+                    🕘 History ({length(@history)} loaded)
+                  </h2>
                   <p class="mt-1 text-xs text-slate-500">
                     Restore a prompt or inspect its redacted result.
                   </p>
@@ -397,28 +402,33 @@
                     <summary class="cursor-pointer text-slate-600">
                       Show request and result
                     </summary>
-                    <pre class="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-white p-2 text-[11px] text-slate-700"><%= safe_output(item["request"] || %{}) %></pre>
-                    <% item_stats = history_item_stats(item) %>
+                    <pre class="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-white p-2 text-[11px] text-slate-700"><%= LlmTraceProjection.json_text(item["request"] || %{}) %></pre>
+                    <% item_stats = LlmTraceProjection.history_stats(item) %>
                     <dl class="mt-2 grid grid-cols-2 gap-2 text-[11px] text-slate-600 sm:grid-cols-5">
                       <.history_fact label="Status" value={item["status"]} />
                       <.history_fact label="Duration ms" value={item_stats.duration} />
                       <.history_fact label="Prompt tokens" value={item_stats.input_tokens} />
                       <.history_fact label="Output tokens" value={item_stats.output_tokens} />
-                      <.history_fact label="Cost" value={item_stats.cost} />
+                      <.history_fact label="Cost" value={item_stats.known_cost} />
                     </dl>
                     <div class="mt-2 flex flex-wrap gap-2">
                       <button
                         type="button"
                         id={"workspace-history-copy-result-#{item["runId"]}"}
                         phx-hook="Clipboard"
-                        data-copy-value={history_result_json(item)}
+                        data-copy-value={LlmTraceProjection.json_text(item["result"] || %{})}
                         class="rounded-lg border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-700"
                       >Copy result</button>
                       <button
                         type="button"
                         id={"workspace-history-copy-curl-#{item["runId"]}"}
                         phx-hook="Clipboard"
-                        data-copy-value={history_curl(item)}
+                        data-copy-value={
+                          LlmTraceProjection.curl(
+                            item["request"] || %{},
+                            HardenAPI.public_base_url()
+                          )
+                        }
                         class="rounded-lg border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-700"
                       >Copy cURL</button>
                       <a
@@ -427,17 +437,17 @@
                         class="rounded-lg border border-slate-200 bg-white px-2 py-1 font-semibold text-teal-700"
                       >{artifact["kind"]} resource</a>
                     </div>
-                    <pre class="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-white p-2 text-[11px] text-slate-700"><%= safe_output(item["result"] || %{}) %></pre>
+                    <pre class="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-white p-2 text-[11px] text-slate-700"><%= LlmTraceProjection.json_text(item["result"] || %{}) %></pre>
                   </details>
                 </article>
               </div>
             </section>
-            <% stats = stats_summary(@history) %>
             <.llm_stats_summary
               id="llm-stats-summary"
               aria_label="LLM stats"
               title="📊 LLM stats"
-              stats={stats}
+              stats={@stats}
+              subtitle={@stats_error}
               navigate={~p"/history"}
               class="studio-card p-4 sm:p-5"
             />

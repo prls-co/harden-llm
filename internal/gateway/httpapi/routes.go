@@ -23,6 +23,7 @@ var routeCatalog = []Route{
 	{Method: http.MethodPost, Path: "/api/v1/state", OperationID: "saveState", Protected: true, RequestBody: true},
 	{Method: http.MethodGet, Path: "/api/v1/profiles", OperationID: "listProfiles", Protected: true},
 	{Method: http.MethodGet, Path: "/api/v1/history", OperationID: "listHistory", Protected: true, QueryParameters: []string{"cursor", "limit"}},
+	{Method: http.MethodGet, Path: "/api/v1/stats", OperationID: "getStats", Protected: true},
 	{Method: http.MethodDelete, Path: "/api/v1/history/{historyID}", OperationID: "deleteHistory", Protected: true},
 	{Method: http.MethodDelete, Path: "/api/v1/history", OperationID: "clearHistory", Protected: true},
 	{Method: http.MethodGet, Path: "/api/v1/profiles/bundle", OperationID: "exportProfileBundle", Protected: true},

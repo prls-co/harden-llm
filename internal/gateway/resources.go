@@ -71,6 +71,28 @@ type HistoryPage struct {
 	NextCursor string        `json:"nextCursor,omitempty"`
 }
 
+type StatsView struct {
+	TotalCount          int64   `json:"totalCount"`
+	SuccessCount        int64   `json:"successCount"`
+	FailureCount        int64   `json:"failureCount"`
+	TimeoutCount        int64   `json:"timeoutCount"`
+	TotalPromptTokens   int64   `json:"totalPromptTokens"`
+	CacheReadTokens     int64   `json:"cacheReadTokens"`
+	CacheCreationTokens int64   `json:"cacheCreationTokens"`
+	TotalOutputTokens   int64   `json:"totalOutputTokens"`
+	ReasoningTokens     int64   `json:"reasoningTokens"`
+	TotalTokens         int64   `json:"totalTokens"`
+	TotalCost           float64 `json:"totalCost"`
+	CachedCost          float64 `json:"cachedCost"`
+	CachedCount         int64   `json:"cachedCount"`
+	KnownCostCount      int64   `json:"knownCostCount"`
+	UnknownCostCount    int64   `json:"unknownCostCount"`
+	TotalCallDurationMS int64   `json:"totalCallDurationMs"`
+	MaxCallDurationMS   int64   `json:"maxCallDurationMs"`
+	OverBudgetCount     int64   `json:"overBudgetCount"`
+	MaxOverBudgetMS     int64   `json:"maxOverBudgetMs"`
+}
+
 type TraceArtifact struct {
 	ArtifactID  string    `json:"artifactId"`
 	Kind        string    `json:"kind"`
@@ -106,11 +128,12 @@ type TraceView struct {
 	Resources    TraceResources     `json:"resources"`
 }
 
-type ArtifactPresigner interface {
+type ArtifactAccess interface {
 	PresignGet(context.Context, string, time.Duration) (string, error)
+	DeleteMany(context.Context, []string) error
 }
 
-type ArtifactScope func(ownerID string) (ArtifactPresigner, error)
+type ArtifactScope func(ownerID string) (ArtifactAccess, error)
 
 type ResourceServiceConfig struct {
 	Store          *postgres.Store
@@ -267,12 +290,70 @@ func (service *ResourceService) History(ctx context.Context, ownerID, encodedCur
 	return page, nil
 }
 
+func (service *ResourceService) Stats(ctx context.Context, ownerID string) (StatsView, error) {
+	stats, err := service.store.RunStats(ctx, ownerID)
+	if err != nil {
+		return StatsView{}, err
+	}
+	return StatsView{
+		TotalCount: stats.TotalCount, SuccessCount: stats.SuccessCount,
+		FailureCount: stats.FailureCount, TimeoutCount: stats.TimeoutCount,
+		TotalPromptTokens: stats.TotalPromptTokens, CacheReadTokens: stats.CacheReadTokens,
+		CacheCreationTokens: stats.CacheCreationTokens,
+		TotalOutputTokens:   stats.TotalOutputTokens, ReasoningTokens: stats.ReasoningTokens,
+		TotalTokens: stats.TotalTokens, TotalCost: stats.TotalCost,
+		CachedCost: stats.CachedCost, CachedCount: stats.CachedCount,
+		KnownCostCount: stats.KnownCostCount, UnknownCostCount: stats.UnknownCostCount,
+		TotalCallDurationMS: stats.TotalCallDurationMS, MaxCallDurationMS: stats.MaxCallDurationMS,
+		OverBudgetCount: stats.OverBudgetCount, MaxOverBudgetMS: stats.MaxOverBudgetMS,
+	}, nil
+}
+
 func (service *ResourceService) DeleteHistory(ctx context.Context, ownerID, runID string) error {
-	return service.store.DeleteRun(ctx, ownerID, runID)
+	run, err := service.store.Run(ctx, ownerID, runID)
+	if err != nil {
+		return err
+	}
+	artifacts, err := service.store.Artifacts(ctx, ownerID, run.TraceID)
+	if err != nil {
+		return err
+	}
+	if err := service.deleteArtifacts(ctx, ownerID, artifacts); err != nil {
+		return err
+	}
+	return service.store.DeleteExecution(ctx, ownerID, runID, run.TraceID)
 }
 
 func (service *ResourceService) ClearHistory(ctx context.Context, ownerID string) (int64, error) {
-	return service.store.ClearRuns(ctx, ownerID)
+	artifacts, err := service.store.ArtifactsForOwner(ctx, ownerID)
+	if err != nil {
+		return 0, err
+	}
+	if err := service.deleteArtifacts(ctx, ownerID, artifacts); err != nil {
+		return 0, err
+	}
+	return service.store.ClearExecutions(ctx, ownerID)
+}
+
+func (service *ResourceService) deleteArtifacts(ctx context.Context, ownerID string, artifacts []postgres.ArtifactRecord) error {
+	if len(artifacts) == 0 {
+		return nil
+	}
+	if service.artifactScope == nil {
+		return errors.New("gateway: artifact access is not configured")
+	}
+	store, err := service.artifactScope(ownerID)
+	if err != nil {
+		return fmt.Errorf("gateway: artifact access is unavailable: %w", err)
+	}
+	keys := make([]string, len(artifacts))
+	for index, artifact := range artifacts {
+		keys[index] = artifact.ObjectKey
+	}
+	if err := store.DeleteMany(ctx, keys); err != nil {
+		return fmt.Errorf("gateway: artifact deletion failed: %w", err)
+	}
+	return nil
 }
 
 func (service *ResourceService) Trace(ctx context.Context, ownerID, traceID string) (TraceView, error) {

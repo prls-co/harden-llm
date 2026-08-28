@@ -97,6 +97,34 @@ func TestGarageArtifactStore(t *testing.T) {
 	if _, err := owner.PresignGet(context.Background(), artifacts[0].key, 5*time.Minute+time.Second); !IsKind(err, KindInvalid) {
 		t.Fatalf("oversized presign TTL was accepted: %v", err)
 	}
+	if err := owner.DeleteMany(context.Background(), []string{
+		artifacts[0].key,
+		fixture.Key("llm-traces/owner-b/cross-owner.json"),
+	}); !IsKind(err, KindInvalid) {
+		t.Fatalf("cross-prefix delete was accepted: %v", err)
+	}
+	if _, _, err := owner.Get(context.Background(), artifacts[0].key); err != nil {
+		t.Fatalf("invalid batch partially deleted a validated key: %v", err)
+	}
+	missingKey := fixture.Key("llm-traces/owner-a/never-created.json")
+	if err := owner.DeleteMany(context.Background(), []string{missingKey}); err != nil {
+		t.Fatalf("never-created object deletion was not idempotent: %v", err)
+	}
+	keys := make([]string, 0, len(artifacts))
+	for _, artifact := range artifacts {
+		keys = append(keys, artifact.key)
+	}
+	if err := owner.DeleteMany(context.Background(), keys); err != nil {
+		t.Fatalf("delete artifacts: %v", err)
+	}
+	for _, key := range keys {
+		if _, _, err := owner.Get(context.Background(), key); !IsKind(err, KindNotFound) {
+			t.Fatalf("deleted artifact %s remained readable: %v", key, err)
+		}
+	}
+	if err := owner.DeleteMany(context.Background(), keys); err != nil {
+		t.Fatalf("idempotent artifact deletion failed: %v", err)
+	}
 
 	wrongCredentialStore, err := NewGarage(Config{
 		Endpoint: fixture.Endpoint, ExternalEndpoint: fixture.Endpoint,

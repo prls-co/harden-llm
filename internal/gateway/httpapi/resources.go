@@ -167,6 +167,18 @@ func (api *API) listHistory(writer http.ResponseWriter, request *http.Request) {
 	writeSuccess(writer, http.StatusOK, page, map[string]any{})
 }
 
+func (api *API) getStats(writer http.ResponseWriter, request *http.Request) {
+	if !api.requireResources(writer) {
+		return
+	}
+	stats, err := api.resources.Stats(request.Context(), mustPrincipal(request.Context()).OwnerID)
+	if err != nil {
+		api.writeServiceError(writer, err)
+		return
+	}
+	writeSuccess(writer, http.StatusOK, stats, map[string]any{})
+}
+
 func (api *API) deleteHistory(writer http.ResponseWriter, request *http.Request) {
 	if !api.requireResources(writer) {
 		return

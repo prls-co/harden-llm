@@ -3,10 +3,15 @@ package gateway
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-025
 
 import (
+	"context"
+	"io"
+	"log/slog"
+	"reflect"
 	"testing"
 	"time"
 
 	hardenllm "github.com/prls-co/harden-llm"
+	"github.com/prls-co/harden-llm/internal/postgres"
 )
 
 func TestRunOutputTimingAndRepairProjection(t *testing.T) {
@@ -32,4 +37,46 @@ func TestRunOutputTimingAndRepairProjection(t *testing.T) {
 	if attemptsUsedRepair([]hardenllm.Attempt{{Repair: false}}) {
 		t.Fatal("repair projection = true, want false")
 	}
+}
+
+func TestFailedExecutionPersistenceCleansUploadedArtifacts(t *testing.T) {
+	store := &cleanupArtifactStore{}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	artifacts := []postgres.ArtifactRecord{
+		{ObjectKey: "llm-traces/owner/run/trace/first.json"},
+		{ObjectKey: "llm-traces/owner/run/trace/second.json"},
+	}
+
+	cleanupUploadedArtifacts(
+		ctx,
+		store,
+		artifacts,
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+	)
+
+	want := []string{
+		"llm-traces/owner/run/trace/first.json",
+		"llm-traces/owner/run/trace/second.json",
+	}
+	if !reflect.DeepEqual(store.deleted, want) {
+		t.Fatalf("deleted keys = %#v, want %#v", store.deleted, want)
+	}
+}
+
+type cleanupArtifactStore struct {
+	deleted []string
+}
+
+func (*cleanupArtifactStore) Put(context.Context, string, []byte, string) (hardenllm.ArtifactRef, error) {
+	return hardenllm.ArtifactRef{}, nil
+}
+
+func (*cleanupArtifactStore) PresignGet(context.Context, string, time.Duration) (string, error) {
+	return "", nil
+}
+
+func (store *cleanupArtifactStore) DeleteMany(_ context.Context, keys []string) error {
+	store.deleted = append([]string(nil), keys...)
+	return nil
 }
