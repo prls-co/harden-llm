@@ -65,6 +65,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
            )
 
     view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
 
     for selector <- [
           "#profile-config-fields",
@@ -90,6 +91,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     refute has_element?(view, "#profile-credential-drawer")
 
     view |> element("#profile-options-toggle") |> render_click()
+    render_async(view, 1_000)
 
     for selector <- [
           "#profile-options",
@@ -117,6 +119,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
            )
 
     view |> element("#profile-retry-toggle") |> render_click()
+    render_async(view, 1_000)
 
     for selector <- [
           "#profile-retry-repair",
@@ -169,7 +172,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     render_async(view, 1_000)
 
     view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
     view |> element("#profile-retry-toggle") |> render_click()
+    render_async(view, 1_000)
 
     assert has_element?(
              view,
@@ -215,6 +220,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     {:ok, view, _html} = live(conn, ~p"/workspace")
     render_async(view, 1_000)
     view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
 
     refute has_element?(view, "#profile-fallback-list ol")
     assert has_element?(view, "#profile-fallback-0-up", "Up")
@@ -235,7 +241,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     assert has_element?(view, ~s(#workspace-reasoning option[value=""][selected]))
 
     view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
     view |> element("#profile-retry-toggle") |> render_click()
+    render_async(view, 1_000)
     view |> element("#profile-escalation-config-toggle") |> render_click()
 
     for selector <- [

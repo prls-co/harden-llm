@@ -838,6 +838,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/workspace")
     render_async(view, 1_000)
     view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
 
     view |> element("#profile-credential-toggle") |> render_click()
 
@@ -1698,9 +1699,13 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     |> render_change()
 
     view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
     view |> element("#profile-options-toggle") |> render_click()
+    render_async(view, 1_000)
     view |> element("#profile-retry-toggle") |> render_click()
+    render_async(view, 1_000)
     view |> element("#profile-pricing-toggle") |> render_click()
+    render_async(view, 1_000)
 
     view
     |> with_target("#workspace-llm-widget")
