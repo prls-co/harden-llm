@@ -610,7 +610,7 @@ func fetchArtifact(t *testing.T, client *http.Client, location string) []byte {
 
 func assertPostgresState(t *testing.T, runner composeRunner) {
 	t.Helper()
-	query := `SELECT (SELECT count(*) FROM llm_runs WHERE owner_id='smoke-owner'), (SELECT count(*) FROM llm_traces WHERE owner_id='smoke-owner'), (SELECT count(*) FROM llm_artifacts WHERE owner_id='smoke-owner' AND available);`
+	query := `SELECT (SELECT count(*) FROM llm_runs WHERE owner_id='smoke-owner'), (SELECT count(*) FROM llm_traces WHERE owner_id='smoke-owner'), (SELECT count(*) FROM llm_artifacts WHERE owner_id='smoke-owner' AND state='available');`
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	output, err := runner.output(ctx, "exec", "-T", "-e", "PGPASSWORD="+runner.environment["HARDEN_LLM_POSTGRES_PASSWORD"],
