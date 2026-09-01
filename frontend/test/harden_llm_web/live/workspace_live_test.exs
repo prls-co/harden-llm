@@ -587,7 +587,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     render_async(view, 1_000)
 
     assert has_element?(view, "#run-submit")
-    assert has_element?(view, "#output-details-toggle") == false
+    assert has_element?(view, "#output-trace-details-toggle") == false
     assert has_element?(view, "#history-fold-toggle")
   end
 
@@ -1105,7 +1105,13 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     run_result =
       APIFixtures.run_result()
       |> Map.put("artifacts", [
-        %{"artifactId" => "artifact-test", "kind" => "trace", "sizeBytes" => 1373}
+        %{
+          "artifactId" => "artifact-test",
+          "kind" => "trace",
+          "sha256" => String.duplicate("a", 64),
+          "sizeBytes" => 1373,
+          "contentType" => "application/json"
+        }
       ])
 
     install_stub(fn conn ->
@@ -1160,23 +1166,27 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, ".llm-trace-summary", "Model: model-test")
     assert has_element?(view, ".llm-trace-summary", "📥 1")
     assert has_element?(view, ".llm-trace-summary", "📤 1")
-    assert has_element?(view, "#run-cache-status", "💾")
-    assert has_element?(view, ~s(#run-cache-status[data-cache-status="disabled"]))
-    assert has_element?(view, ~s(#run-cache-status[role="img"]))
-    assert has_element?(view, ~s(#run-cache-status[aria-label="Harden-LLM cache: Disabled"]))
+    assert has_element?(view, "#output-trace-cache-status", "💾")
+    assert has_element?(view, ~s(#output-trace-cache-status[data-cache-status="disabled"]))
+    assert has_element?(view, ~s(#output-trace-cache-status[role="img"]))
 
     assert has_element?(
              view,
-             ~s(#run-cache-status[title="Harden-LLM cache was disabled for this run."])
+             ~s(#output-trace-cache-status[aria-label="Harden-LLM cache: Disabled"])
+           )
+
+    assert has_element?(
+             view,
+             ~s(#output-trace-cache-status[title="Harden-LLM cache was disabled for this run."])
            )
 
     assert has_element?(view, ".llm-trace-summary", "$0.0010")
-    assert has_element?(view, ~s(.llm-trace-summary span[title="Output tokens"]), "📤 1")
-    assert has_element?(view, ".trace-controls #output-details-toggle", "Hide")
+    assert has_element?(view, ~s(.llm-trace-summary span[title="Completion tokens"]), "📤 1")
+    assert has_element?(view, ".trace-controls #output-trace-details-toggle", "Hide")
     assert has_element?(view, ".trace-controls a", "View JSON Trace")
-    assert has_element?(view, ".trace-controls #copy-run-curl", "Copy cURL")
-    assert has_element?(view, ".trace-controls #show-run-request", "Show Request")
-    assert has_element?(view, ".trace-controls #show-run-response", "Show Response")
+    assert has_element?(view, ".trace-controls #output-trace-copy-curl", "Copy cURL")
+    assert has_element?(view, ".trace-controls #output-trace-show-request", "Show Request")
+    assert has_element?(view, ".trace-controls #output-trace-show-response", "Show Response")
     assert has_element?(view, ~s(.trace-controls a[href="/traces/trace-test"]))
     assert has_element?(view, ~s(.trace-controls a[rel="noopener noreferrer"]))
 
@@ -1194,10 +1204,10 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     |> render_change()
 
     render_async(view, 1_000)
-    assert has_element?(view, "#copy-run-curl[data-copy-value*='run fixture']")
-    view |> element("#show-run-request") |> render_click()
-    assert has_element?(view, "#run-request", "run fixture")
-    refute has_element?(view, "#run-request", "changed after run")
+    assert has_element?(view, "#output-trace-copy-curl[data-copy-value*='run fixture']")
+    view |> element("#output-trace-show-request") |> render_click()
+    assert has_element?(view, "#output-trace-request-content", "run fixture")
+    refute has_element?(view, "#output-trace-request-content", "changed after run")
   end
 
   test "workspace trace URL restores the redacted output after a hard refresh", %{conn: conn} do
@@ -1223,23 +1233,34 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, "#run-result-panel", "Success (200)")
     assert has_element?(view, ".trace-controls a[href=\"/traces/trace-test\"]", "View JSON Trace")
 
-    view |> element("#show-run-request") |> render_click()
-    assert has_element?(view, "#run-request", "safe restored prompt")
-    refute has_element?(view, "#run-request", "write a haiku joke")
+    view |> element("#output-trace-show-request") |> render_click()
+    assert has_element?(view, "#output-trace-request-content", "safe restored prompt")
+    refute has_element?(view, "#output-trace-request-content", "write a haiku joke")
 
-    view |> element("#show-run-response") |> render_click()
-    assert has_element?(view, "#run-response", "fixture output")
+    view |> element("#output-trace-show-response") |> render_click()
+    assert has_element?(view, "#output-trace-response-content", "fixture output")
   end
 
   test "failed zero-token runs reload persisted trace details and resources", %{conn: conn} do
     failed_result =
       APIFixtures.run_result()
       |> Map.put("status", "failed")
-      |> Map.put("category", "rate_limit")
-      |> Map.put("statusCode", 429)
-      |> put_in(["usage", "inputTokens"], 0)
-      |> put_in(["usage", "outputTokens"], 0)
-      |> put_in(["usage", "totalTokens"], 0)
+      |> put_in(["attempts", Access.at(0), "category"], "rate_limit")
+      |> put_in(["attempts", Access.at(0), "httpStatus"], 429)
+      |> put_in(
+        ["accounting", "result", "usage"],
+        %{
+          "inputTokens" => 0,
+          "cacheReadTokens" => 0,
+          "cacheCreationTokens" => 0,
+          "outputTokens" => 0,
+          "reasoningTokens" => 0,
+          "promptTokens" => 0,
+          "completionTokens" => 0,
+          "totalTokens" => 0,
+          "status" => "complete"
+        }
+      )
 
     trace =
       APIFixtures.trace()
@@ -1276,8 +1297,8 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, ".llm-trace-summary", "ID: trace-test")
     assert has_element?(view, ".llm-trace-details", "Rate Limit (429)")
     assert has_element?(view, ".llm-trace-details", "Profile: Primary")
-    assert has_element?(view, ".trace-controls #show-run-request:not([disabled])")
-    assert has_element?(view, ".trace-controls #show-run-response:not([disabled])")
+    assert has_element?(view, ".trace-controls #output-trace-show-request:not([disabled])")
+    assert has_element?(view, ".trace-controls #output-trace-show-response:not([disabled])")
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-058
@@ -1346,27 +1367,42 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-035
   test "output trace helpers normalize utility usage, retries, repair, and status fields" do
+    [base_attempt] = APIFixtures.run_result()["attempts"]
+
     result =
       APIFixtures.run_result()
       |> Map.put("totalCallDurationMs", 1050)
       |> Map.put("attempts", [
-        %{
+        Map.merge(base_attempt, %{
           "number" => 1,
+          "retryLocalNumber" => 1,
           "category" => "rate_limit",
           "httpStatus" => 429,
           "retryable" => true,
           "wait" => 500_000_000,
           "duration" => 25_000_000,
           "repair" => true
-        },
-        %{"number" => 2, "category" => "success", "httpStatus" => 200}
+        }),
+        Map.merge(base_attempt, %{
+          "number" => 2,
+          "retryLocalNumber" => 2,
+          "category" => "success",
+          "httpStatus" => 200,
+          "wait" => 0,
+          "duration" => 0
+        })
       ])
-      |> put_in(["usage", "inputTokens"], 1_830)
-      |> put_in(["usage", "cacheReadTokens"], 200)
-      |> put_in(["usage", "cacheCreationTokens"], 50)
-      |> put_in(["usage", "outputTokens"], 122)
-      |> put_in(["usage", "reasoningTokens"], 8)
-      |> put_in(["usage", "totalTokens"], 2_202)
+      |> put_in(["accounting", "result", "usage"], %{
+        "inputTokens" => 1_830,
+        "cacheReadTokens" => 200,
+        "cacheCreationTokens" => 50,
+        "outputTokens" => 122,
+        "reasoningTokens" => 8,
+        "promptTokens" => 2_080,
+        "completionTokens" => 130,
+        "totalTokens" => 2_210,
+        "status" => "complete"
+      })
 
     assert LlmTraceProjection.meta(result) ==
              "responses · https://provider.example.test/v1"
@@ -1380,7 +1416,10 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert LlmTraceProjection.cache_tokens(result) == 250
     assert LlmTraceProjection.completion_tokens(result) == 130
     assert LlmTraceProjection.cost(result) == "$0.0010"
-    assert LlmTraceProjection.cost_title(result) == "Trace-attributed cost $0.0010"
+
+    assert LlmTraceProjection.cost_title(result) ==
+             "Result exact trace-attributed cost $0.0010"
+
     assert LlmTraceProjection.cache_served?(result) == false
     assert LlmTraceProjection.cache_status(result) == "disabled"
     assert LlmTraceProjection.cache_status_label(result) == "Disabled"
@@ -1389,12 +1428,21 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert LlmTraceProjection.attempts(Map.put(result, "attempts", [])) == []
     assert LlmTraceProjection.json_text(nil) == ""
 
-    cached = put_in(result, ["cache", "served"], true)
+    cached =
+      result
+      |> put_in(["cache", "served"], true)
+      |> put_in(["resultSource"], %{
+        "kind" => "cache",
+        "producer" => get_in(result, ["resultSource", "producer"])
+      })
+
     assert LlmTraceProjection.cache_served?(cached)
     assert LlmTraceProjection.cache_status(cached) == "hit"
     assert LlmTraceProjection.cache_status_label(cached) == "Hit"
     assert LlmTraceProjection.cost(cached) == "🗄️$0.0010"
-    assert LlmTraceProjection.cost_title(cached) == "Cached trace-attributed cost $0.0010"
+
+    assert LlmTraceProjection.cost_title(cached) ==
+             "Cached result exact trace-attributed cost $0.0010"
 
     miss =
       put_in(result, ["cache"], %{
@@ -1409,42 +1457,35 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert LlmTraceProjection.cache_status_title(miss) ==
              "Harden-LLM cache miss: ran the provider and saved the successful response."
 
-    assert LlmTraceProjection.attempts(result) == [
+    assert [
              %{
                "attempt" => 1,
+               "retry_local_attempt" => 1,
                "category" => "rate_limit",
-               "statusCode" => 429,
+               "status_code" => 429,
                "retryable" => true,
-               "delayMs" => 500,
-               "durationMs" => 25
+               "delay_ms" => 500,
+               "duration_ms" => 25,
+               "provider_used" => true
              },
              %{
                "attempt" => 2,
+               "retry_local_attempt" => 2,
                "category" => "success",
-               "statusCode" => 200,
+               "status_code" => 200,
                "retryable" => false,
-               "delayMs" => 0,
-               "durationMs" => 0
+               "delay_ms" => 0,
+               "duration_ms" => 0,
+               "provider_used" => true
              }
-           ]
+           ] = LlmTraceProjection.attempts(result)
 
-    explicit_null_status =
+    failure =
       result
-      |> Map.put("statusCode", 429)
-      |> Map.put("attempts", [%{"number" => 1, "category" => "rate_limit", "statusCode" => nil}])
+      |> Map.put("status", "failed")
+      |> put_in(["attempts", Access.at(1), "category"], "rate_limit")
+      |> put_in(["attempts", Access.at(1), "httpStatus"], 429)
 
-    assert LlmTraceProjection.attempts(explicit_null_status) == [
-             %{
-               "attempt" => 1,
-               "category" => "rate_limit",
-               "statusCode" => nil,
-               "retryable" => false,
-               "delayMs" => 0,
-               "durationMs" => 0
-             }
-           ]
-
-    failure = Map.merge(result, %{"category" => "rate_limit", "statusCode" => 429})
     assert LlmTraceProjection.summary(failure)["status_icon"] == "❌"
     assert LlmTraceProjection.details(failure)["status"] == "Rate Limit (429)"
   end
@@ -1490,27 +1531,27 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     submit_run(view, %{"userPrompt" => "resource controls"})
     render_async(view, 1_000)
-    assert has_element?(view, "#show-run-request")
-    assert has_element?(view, "#show-run-response")
+    assert has_element?(view, "#output-trace-show-request")
+    assert has_element?(view, "#output-trace-show-response")
 
-    view |> element("#show-run-request") |> render_click()
-    view |> element("#show-run-response") |> render_click()
-    assert has_element?(view, "#run-request", "profileId")
-    assert has_element?(view, "#run-response", "fixture output")
+    view |> element("#output-trace-show-request") |> render_click()
+    view |> element("#output-trace-show-response") |> render_click()
+    assert has_element?(view, "#output-trace-request-content", "profileId")
+    assert has_element?(view, "#output-trace-response-content", "fixture output")
 
-    view |> element("#output-details-toggle") |> render_click()
+    view |> element("#output-trace-details-toggle") |> render_click()
     render_async(view, 1_000)
-    refute has_element?(view, "#output-details")
-    assert has_element?(view, ".trace-controls #output-details-toggle", "Details")
-    assert has_element?(view, ".trace-controls #show-run-request", "Show Request")
-    assert has_element?(view, ".trace-controls #show-run-response", "Show Response")
+    refute has_element?(view, "#output-trace-details")
+    assert has_element?(view, ".trace-controls #output-trace-details-toggle", "Details")
+    assert has_element?(view, ".trace-controls #output-trace-show-request", "Show Request")
+    assert has_element?(view, ".trace-controls #output-trace-show-response", "Show Response")
 
-    view |> element("#output-details-toggle") |> render_click()
+    view |> element("#output-trace-details-toggle") |> render_click()
     render_async(view, 1_000)
-    assert has_element?(view, "#show-run-request")
-    assert has_element?(view, "#show-run-response")
-    refute has_element?(view, "#run-request")
-    refute has_element?(view, "#run-response")
+    assert has_element?(view, "#output-trace-show-request")
+    assert has_element?(view, "#output-trace-show-response")
+    refute has_element?(view, "#output-trace-request-content")
+    refute has_element?(view, "#output-trace-response-content")
   end
 
   test "duplicate active submits are ignored and the run button alone is disabled", %{conn: conn} do

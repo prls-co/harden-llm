@@ -61,9 +61,10 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> click(Query.css("#run-submit"))
       |> assert_has(Query.css("#run-output", text: "deterministic browser output"))
       |> assert_has(Query.css("#run-result-panel", text: "trace-browser"))
-      |> assert_has(Query.css("#run-cache-status[data-cache-status='miss']", text: "💾"))
+      |> assert_has(Query.css("#output-trace-cache-status[data-cache-status='miss']", text: "💾"))
+      |> assert_has(Query.css("#run-submit:not([disabled])"))
       |> click(Query.css("#run-submit"))
-      |> assert_has(Query.css("#run-cache-status[data-cache-status='hit']", text: "💾"))
+      |> assert_has(Query.css("#output-trace-cache-status[data-cache-status='hit']", text: "💾"))
       |> assert_dom_attribute("#workspace-cache-toggle", "data-cache-mode", "cache")
       |> scroll_to_selector("#workspace-cache-toggle")
       |> click(Query.css("#workspace-cache-toggle"))
@@ -74,25 +75,30 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
         "Overwrite cache on next run"
       )
       |> assert_field_value("#workspace-cache", "refresh")
+      |> assert_has(Query.css("#run-submit:not([disabled])"))
       |> click(Query.css("#run-submit"))
-      |> assert_has(Query.css("#run-cache-status[data-cache-status='refresh']", text: "💾"))
-      |> assert_has(Query.css("#output-details"))
-      |> assert_has(Query.css(".trace-controls #output-details-toggle", text: "Hide"))
+      |> assert_has(
+        Query.css("#output-trace-cache-status[data-cache-status='refresh']", text: "💾")
+      )
+      |> assert_has(Query.css("#output-trace-details"))
+      |> assert_has(Query.css(".trace-controls #output-trace-details-toggle", text: "Hide"))
       |> assert_has(Query.css(".trace-controls a", text: "View JSON Trace"))
-      |> assert_has(Query.css(".trace-controls #copy-run-curl", text: "Copy cURL"))
-      |> assert_has(Query.css(".trace-controls #show-run-request", text: "Show Request"))
-      |> assert_has(Query.css(".trace-controls #show-run-response", text: "Show Response"))
-      |> click(Query.css("#show-run-request"))
-      |> assert_has(Query.css("#run-request"))
-      |> click(Query.css("#show-run-response"))
-      |> assert_has(Query.css("#run-response"))
+      |> assert_has(Query.css(".trace-controls #output-trace-copy-curl", text: "Copy cURL"))
+      |> assert_has(Query.css(".trace-controls #output-trace-show-request", text: "Show Request"))
+      |> assert_has(
+        Query.css(".trace-controls #output-trace-show-response", text: "Show Response")
+      )
+      |> click(Query.css("#output-trace-show-request"))
+      |> assert_has(Query.css("#output-trace-request-content"))
+      |> click(Query.css("#output-trace-show-response"))
+      |> assert_has(Query.css("#output-trace-response-content"))
 
     widget_facts =
       javascript_value(
         session,
         """
         const controls = document.querySelector('.trace-controls');
-        const cache = document.querySelector('#run-cache-status');
+        const cache = document.querySelector('#output-trace-cache-status');
         const cacheStyle = window.getComputedStyle(cache);
         return {
           controlDisplay: window.getComputedStyle(controls).display,
@@ -123,7 +129,7 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
     curl =
       javascript_value(
         session,
-        "return document.querySelector('#copy-run-curl')?.dataset.copyValue || '';"
+        "return document.querySelector('#output-trace-copy-curl')?.dataset.copyValue || '';"
       )
 
     assert String.starts_with?(
@@ -137,8 +143,8 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
     session =
       session
       |> install_clipboard_stub()
-      |> click(Query.css("#copy-run-curl"))
-      |> assert_has(Query.css("#copy-run-curl", text: "Copied"))
+      |> click(Query.css("#output-trace-copy-curl"))
+      |> assert_has(Query.css("#output-trace-copy-curl", text: "Copied"))
       |> click(Query.css("#copy-run-output"))
       |> assert_has(Query.css("#copy-run-output", text: "Copied"))
       |> visit("/history")

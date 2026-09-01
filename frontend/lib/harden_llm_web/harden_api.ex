@@ -6,6 +6,7 @@ defmodule HardenLlmWeb.HardenAPI do
   validation, and safe error normalization. Callers never receive Req structs.
   """
 
+  alias HardenLlm.LlmDiagnosticsWire
   alias HardenLlmWeb.{APIError, SessionVault}
   require Logger
   require OpenTelemetry.Tracer, as: Tracer
@@ -268,13 +269,19 @@ defmodule HardenLlmWeb.HardenAPI do
     end
   end
 
-  defp decode_envelope(_operation, status, %{
+  defp decode_envelope(operation, status, %{
          "state" => state,
          "result" => result,
          "error" => nil
        })
        when status in 200..299 and is_map(state) do
-    {:ok, {:ok, result, state}}
+    case LlmDiagnosticsWire.decode(operation.id, result) do
+      {:ok, decoded} ->
+        {:ok, {:ok, decoded, state}}
+
+      {:error, _reason} ->
+        {:error, protocol_error_value("The backend returned malformed diagnostics.", operation)}
+    end
   end
 
   defp decode_envelope(operation, status, %{

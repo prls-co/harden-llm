@@ -38,36 +38,21 @@ defmodule HardenLlmWeb.LlmTraceComponents do
   attr :resource_event, :string, default: nil
   attr :target, :any, default: nil
   attr :details_disabled, :boolean, default: false
-  attr :details_id, :string, default: nil
-  attr :details_toggle_id, :string, default: nil
-  attr :curl_id, :string, default: nil
-  attr :request_toggle_id, :string, default: nil
-  attr :response_toggle_id, :string, default: nil
-  attr :request_id, :string, default: nil
-  attr :response_id, :string, default: nil
-  attr :request_content_id, :string, default: nil
-  attr :response_content_id, :string, default: nil
   attr :class, :any, default: nil
 
   @doc "Renders one expandable LLM trace summary, detail panel, and resources row."
   def llm_trace(assigns) do
     assigns =
       assigns
-      |> assign(:details_id, assigns.details_id || "#{assigns.id}-details")
-      |> assign(:details_toggle_id, assigns.details_toggle_id || "#{assigns.id}-details-toggle")
-      |> assign(:curl_id, assigns.curl_id || "#{assigns.id}-copy-curl")
-      |> assign(:request_toggle_id, assigns.request_toggle_id || "#{assigns.id}-show-request")
-      |> assign(:response_toggle_id, assigns.response_toggle_id || "#{assigns.id}-show-response")
-      |> assign(:request_id, assigns.request_id || "#{assigns.id}-request")
-      |> assign(:response_id, assigns.response_id || "#{assigns.id}-response")
-      |> assign(
-        :request_content_id,
-        assigns.request_content_id || "#{assigns.id}-request-content"
-      )
-      |> assign(
-        :response_content_id,
-        assigns.response_content_id || "#{assigns.id}-response-content"
-      )
+      |> assign(:details_id, "#{assigns.id}-details")
+      |> assign(:details_toggle_id, "#{assigns.id}-details-toggle")
+      |> assign(:curl_id, "#{assigns.id}-copy-curl")
+      |> assign(:request_toggle_id, "#{assigns.id}-show-request")
+      |> assign(:response_toggle_id, "#{assigns.id}-show-response")
+      |> assign(:request_id, "#{assigns.id}-request")
+      |> assign(:response_id, "#{assigns.id}-response")
+      |> assign(:request_content_id, "#{assigns.id}-request-content")
+      |> assign(:response_content_id, "#{assigns.id}-response-content")
 
     ~H"""
     <div id={@id} class={[@class, "llm-trace-item"]}>
@@ -94,7 +79,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
         <div>
           <span
             :for={metric <- list_value(@summary, "metrics")}
-            id={value(metric, "id")}
+            id={metric_id(@id, metric)}
             class={value(metric, "class")}
             title={value(metric, "title") || value(metric, "label")}
             role={value(metric, "role")}
@@ -167,6 +152,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
         class="llm-trace-details"
       >
         <p><strong>Trace ID:</strong> {value(@details, "trace_id") || "—"}</p>
+        <p><strong>Diagnostics schema:</strong> {value(@details, "schema_label") || "—"}</p>
         <p :if={present?(value(@details, "run_id"))}>
           <strong>Run ID:</strong> {value(@details, "run_id")}
         </p>
@@ -183,7 +169,35 @@ defmodule HardenLlmWeb.LlmTraceComponents do
           <strong>API inference type:</strong> {value(@details, "api_inference_type")}
         </p>
         <p :if={present?(value(@details, "provider_base_url"))}>
-          <strong>Provider base URL:</strong> {value(@details, "provider_base_url")}
+          <strong>Selected endpoint:</strong> {value(@details, "provider_base_url")}
+        </p>
+        <p :if={present?(value(@details, "result_source"))}>
+          <strong>Result source:</strong> {value(@details, "result_source")}
+        </p>
+        <p :if={present?(value(@details, "producer_profile_id"))}>
+          <strong>Producer profile:</strong> {value(@details, "producer_profile_id")}
+        </p>
+        <p :if={present?(value(@details, "producer_provider"))}>
+          <strong>Producer target:</strong>
+          {value(@details, "producer_provider")} · {value(@details, "producer_protocol")} · {value(
+            @details,
+            "producer_model_id"
+          )} · {value(@details, "producer_endpoint")}
+        </p>
+        <p :if={not is_nil(value(@details, "provider_invoked"))}>
+          <strong>Provider invoked this run:</strong>
+          {if value(@details, "provider_invoked"), do: "Yes", else: "No"}
+        </p>
+        <p :if={present?(value(@details, "result_usage_status"))}>
+          <strong>Result accounting:</strong>
+          usage {value(@details, "result_usage_status")} · cost {value(@details, "result_cost_status")}
+        </p>
+        <p :if={present?(value(@details, "provider_usage_status"))}>
+          <strong>Provider accounting:</strong>
+          usage {value(@details, "provider_usage_status")} · cost {value(
+            @details,
+            "provider_cost_status"
+          )}
         </p>
         <p :if={present?(value(@details, "status"))}>
           <strong>Status:</strong> {value(@details, "status")}
@@ -197,9 +211,18 @@ defmodule HardenLlmWeb.LlmTraceComponents do
         <strong>Attempts:</strong>
         <ul>
           <li :for={attempt <- list_value(@details, "attempts")}>
-            Attempt {value(attempt, "attempt")}: {value(attempt, "category")} ({format_status(
-              value(attempt, "status_code")
-            )}) · {value(attempt, "duration_ms") || 0}ms
+            Attempt {value(attempt, "attempt")}<span :if={value(attempt, "retry_local_attempt")}>
+              / retry {value(attempt, "retry_local_attempt")}</span>: {value(
+              attempt,
+              "category"
+            )} ({format_status(value(attempt, "status_code"))}) · {value(attempt, "duration_ms") ||
+              "—"}ms
+            <span :if={present?(value(attempt, "provider"))}>
+              · {value(attempt, "provider")} / {value(attempt, "model_id")}
+            </span>
+            <span :if={not is_nil(value(attempt, "provider_used"))}>
+              · provider {if value(attempt, "provider_used"), do: "used", else: "not used"}
+            </span>
             <span :if={value(attempt, "retryable")}>
               - Retried after {value(attempt, "delay_ms")}ms
             </span>
@@ -250,7 +273,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
   end
 
   attr :id, :string, required: true
-  attr :stats, :map, required: true
+  attr :stats, :any, required: true
   attr :title, :string, default: "LLM stats summary"
   attr :subtitle, :string, default: nil
   attr :navigate, :string, default: nil
@@ -275,10 +298,19 @@ defmodule HardenLlmWeb.LlmTraceComponents do
           </a>
         </div>
       </div>
-      <dl class={@grid_class}>
+      <p :if={@stats.loading} id={"#{@id}-loading"} class="mt-3 text-xs text-slate-500" role="status">
+        Loading aggregate diagnostics…
+      </p>
+      <p :if={@stats.failed} id={"#{@id}-error"} class="mt-3 text-xs text-rose-700" role="alert">
+        Aggregate diagnostics are temporarily unavailable.<%= if @stats.ok? do %>
+          Showing the last successful snapshot.
+        <% end %>
+      </p>
+      <dl :if={@stats.ok?} class={@grid_class}>
         <div :for={{key, default_label} <- stats_fields()} class={@fact_class}>
+          <% display = stats_display(@stats.result, key) %>
           <dt class="text-slate-500">{Map.get(@labels, key, default_label)}</dt>
-          <dd class={@value_class}>{stats_display(@stats, key)}</dd>
+          <dd class={@value_class} title={to_string(display)}>{display}</dd>
         </div>
       </dl>
     </section>
@@ -347,23 +379,38 @@ defmodule HardenLlmWeb.LlmTraceComponents do
     |> Enum.filter(&(present?(value(&1, "href")) and present?(value(&1, "label"))))
   end
 
+  defp metric_id(widget_id, metric) do
+    case value(metric, "key") do
+      key when is_binary(key) and key != "" -> "#{widget_id}-#{key}"
+      _ -> nil
+    end
+  end
+
   defp stats_fields do
     [
       {"runs", "Runs"},
       {"success", "Success"},
       {"failed", "Failed"},
       {"timeout", "Timeout"},
-      {"prompt_tokens", "Prompt tokens"},
-      {"cache_read_tokens", "Cache read"},
-      {"cache_creation_tokens", "Cache creation"},
-      {"output_tokens", "Output tokens"},
-      {"reasoning_tokens", "Reasoning tokens"},
-      {"total_tokens", "Tokens"},
-      {"known_cost", "Known cost"},
+      {"result_prompt_tokens", "Result prompt tokens"},
+      {"result_cache_read_tokens", "Result cache read"},
+      {"result_cache_creation_tokens", "Result cache creation"},
+      {"result_output_tokens", "Result output tokens"},
+      {"result_reasoning_tokens", "Result reasoning tokens"},
+      {"result_total_tokens", "Result tokens"},
+      {"result_usage_coverage", "Result usage coverage"},
+      {"result_known_cost", "Result known subtotal"},
+      {"result_cost_coverage", "Result cost coverage"},
+      {"provider_prompt_tokens", "Provider prompt tokens"},
+      {"provider_output_tokens", "Provider output tokens"},
+      {"provider_reasoning_tokens", "Provider reasoning tokens"},
+      {"provider_total_tokens", "Provider tokens"},
+      {"provider_usage_coverage", "Provider usage coverage"},
+      {"provider_known_cost", "Provider known subtotal"},
+      {"provider_cost_coverage", "Provider cost coverage"},
       {"cached_cost", "Cached cost"},
+      {"cached_cost_coverage", "Cached cost coverage"},
       {"cached_count", "Cached runs"},
-      {"known_cost_count", "Known-cost runs"},
-      {"unknown_cost_count", "Unknown-cost runs"},
       {"total_duration", "Total duration ms"},
       {"average_duration", "Avg duration ms"},
       {"max_duration", "Max duration ms"},
@@ -378,17 +425,25 @@ defmodule HardenLlmWeb.LlmTraceComponents do
       "success" => :success,
       "failed" => :failed,
       "timeout" => :timeout,
-      "prompt_tokens" => :prompt_tokens,
-      "cache_read_tokens" => :cache_read_tokens,
-      "cache_creation_tokens" => :cache_creation_tokens,
-      "output_tokens" => :output_tokens,
-      "reasoning_tokens" => :reasoning_tokens,
-      "total_tokens" => :total_tokens,
-      "known_cost" => :known_cost,
+      "result_prompt_tokens" => :result_prompt_tokens,
+      "result_cache_read_tokens" => :result_cache_read_tokens,
+      "result_cache_creation_tokens" => :result_cache_creation_tokens,
+      "result_output_tokens" => :result_output_tokens,
+      "result_reasoning_tokens" => :result_reasoning_tokens,
+      "result_total_tokens" => :result_total_tokens,
+      "result_usage_coverage" => :result_usage_coverage,
+      "result_known_cost" => :result_known_cost,
+      "result_cost_coverage" => :result_cost_coverage,
+      "provider_prompt_tokens" => :provider_prompt_tokens,
+      "provider_output_tokens" => :provider_output_tokens,
+      "provider_reasoning_tokens" => :provider_reasoning_tokens,
+      "provider_total_tokens" => :provider_total_tokens,
+      "provider_usage_coverage" => :provider_usage_coverage,
+      "provider_known_cost" => :provider_known_cost,
+      "provider_cost_coverage" => :provider_cost_coverage,
       "cached_cost" => :cached_cost,
+      "cached_cost_coverage" => :cached_cost_coverage,
       "cached_count" => :cached_count,
-      "known_cost_count" => :known_cost_count,
-      "unknown_cost_count" => :unknown_cost_count,
       "total_duration" => :total_duration,
       "average_duration" => :average_duration,
       "max_duration" => :max_duration,

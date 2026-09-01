@@ -26,10 +26,7 @@ defmodule HardenLlmWeb.HistoryTraceTest do
         {"GET", "/api/v1/history", query} ->
           assert URI.decode_query(query)["cursor"] == "cursor-2"
 
-          second =
-            APIFixtures.history_item()
-            |> Map.put("runId", "run-second")
-            |> Map.put("traceId", "trace-second")
+          second = APIFixtures.history_item("run-second", "trace-second")
 
           Req.Test.json(conn, APIFixtures.success(%{"items" => [second]}))
 
@@ -190,7 +187,7 @@ defmodule HardenLlmWeb.HistoryTraceTest do
           Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
 
         {"GET", "/api/v1/history", "limit=50"} ->
-          item = Map.put(APIFixtures.history_item(), "runId", "run-page-size")
+          item = APIFixtures.history_item("run-page-size")
           Req.Test.json(conn, APIFixtures.success(%{"items" => [item]}))
       end
     end)

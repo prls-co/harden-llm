@@ -1,8 +1,9 @@
 defmodule HardenLlmWeb.WorkspaceLive do
   use HardenLlmWeb, :live_view
 
-  alias HardenLlm.LlmTraceProjection
+  alias HardenLlm.{LlmStatsProjection, LlmTraceProjection}
   alias HardenLlmWeb.{APIError, Auth, HardenAPI, Observability, ProfileWidgetState}
+  alias Phoenix.LiveView.AsyncResult
 
   @schema_keywords ~w($schema $defs additionalProperties allOf anyOf const default definitions description enum examples exclusiveMaximum exclusiveMinimum format items maxItems maxLength maximum minItems minLength minimum multipleOf not oneOf pattern prefixItems properties propertyOrdering required title type uniqueItems)
   @contracted_schema_keywords ~w(type properties required additionalProperties items description enum)
@@ -73,8 +74,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:history_loading?, false)
       |> assign(:history_error, nil)
       |> assign(:history_pending, nil)
-      |> assign(:stats, LlmTraceProjection.stats(%{}))
-      |> assign(:stats_error, nil)
+      |> assign(:stats, AsyncResult.loading())
       |> assign(:stats_ref, nil)
       |> assign(:run_result, nil)
       |> assign(:run_error, nil)
@@ -327,8 +327,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       ) do
     {:noreply,
      socket
-     |> assign(:stats, LlmTraceProjection.stats(stats))
-     |> assign(:stats_error, nil)
+     |> assign(:stats, AsyncResult.ok(socket.assigns.stats, LlmStatsProjection.project(stats)))
      |> assign(:stats_ref, nil)}
   end
 
@@ -339,7 +338,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       ) do
     {:noreply,
      socket
-     |> assign(:stats_error, "Aggregate stats are temporarily unavailable.")
+     |> assign(:stats, AsyncResult.failed(socket.assigns.stats, :unavailable))
      |> assign(:stats_ref, nil)}
   end
 
@@ -1030,6 +1029,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     handle = socket.assigns.session_handle
 
     socket
+    |> assign(:stats, AsyncResult.loading(socket.assigns.stats))
     |> assign(:stats_ref, reference)
     |> start_async(
       {:load_stats, reference},

@@ -1,10 +1,10 @@
 defmodule HardenLlm.LlmTraceProjection do
   @moduledoc """
-  Pure projection for reusable LLM trace details and aggregate statistics.
+  Pure display and resource projection for validated LLM execution diagnostics.
 
-  The module has no LiveView, route, session, or transport dependency. Hosts
-  supply their own public URLs while this module owns normalization, display
-  semantics, and credential-free replay command generation.
+  The current path consumes schema v2. A single bounded retained-v1 branch
+  exposes only values that were actually captured and labels missing facts as
+  unavailable; it never reconstructs producer identity or accounting.
   """
 
   @missing_request "Request payload is not available for this trace."
@@ -14,12 +14,14 @@ defmodule HardenLlm.LlmTraceProjection do
   def trace_available?(_result), do: false
 
   def summary(result) when is_map(result) do
+    usage = result_usage(result)
+
     metrics = [
-      %{"value" => "🔁 #{attempt_count(result)}", "title" => "Attempts"},
-      %{"value" => "⏱️ #{duration(result)}", "title" => "Duration"},
+      %{"key" => "attempts", "value" => "🔁 #{attempt_count(result)}", "title" => "Attempts"},
+      %{"key" => "duration", "value" => "⏱️ #{duration(result)}", "title" => "Duration"},
       %{
+        "key" => "cache-status",
         "value" => "💾",
-        "id" => "run-cache-status",
         "class" => "ullm-cache-status ullm-cache-status-#{cache_status(result)}",
         "title" => cache_status_title(result),
         "aria_label" => "Harden-LLM cache: #{cache_status_label(result)}",
@@ -27,57 +29,73 @@ defmodule HardenLlm.LlmTraceProjection do
         "role" => "img"
       },
       %{
-        "value" => "📥 #{number(get_in(result, ["usage", "inputTokens"]))}",
-        "title" => "Input tokens"
+        "key" => "input-tokens",
+        "value" => "📥 #{usage_number(usage, "inputTokens")}",
+        "title" => usage_title(usage, "Input tokens")
       },
-      %{"value" => "↺ #{number(cache_tokens(result))}", "title" => "Cache tokens"},
-      %{"value" => "📤 #{number(completion_tokens(result))}", "title" => "Output tokens"},
-      if(cost(result), do: %{"value" => cost(result), "title" => cost_title(result)})
+      %{
+        "key" => "cache-tokens",
+        "value" => "↺ #{usage_sum(usage, ~w(cacheReadTokens cacheCreationTokens))}",
+        "title" => usage_title(usage, "Cache tokens")
+      },
+      %{
+        "key" => "completion-tokens",
+        "value" => "📤 #{usage_sum(usage, ~w(outputTokens reasoningTokens))}",
+        "title" => usage_title(usage, "Completion tokens")
+      },
+      %{"key" => "cost", "value" => cost(result), "title" => cost_title(result)}
     ]
+
+    target = selected_target(result)
 
     %{
       "status_icon" => if(success?(result), do: "✅", else: "❌"),
       "trace_id" => trace_id(result),
-      "model_id" => text([result["modelId"]]) || "",
+      "model_id" => target["modelId"] || "",
       "error_category" => if(success?(result), do: nil, else: error_category(result)),
-      "metrics" => Enum.reject(metrics, &is_nil/1)
+      "metrics" => metrics
     }
   end
 
   def summary(_result), do: %{"status_icon" => "ℹ️", "metrics" => []}
 
   def details(result) when is_map(result) do
+    selected = selected_target(result)
+    producer = producer_target(result)
+    accounting = result["accounting"] || %{}
+
     %{
       "trace_id" => trace_id(result),
       "run_id" => text([result["runId"]]),
-      "profile_id" => text([result["profileId"]]),
-      "model_id" => text([result["modelId"]]),
-      "provider" => text([result["provider"]]),
-      "api_inference_type" => text([result["apiInferenceType"]]),
-      "provider_base_url" => text([result["providerBaseUrl"]]),
+      "schema_label" => if(v2?(result), do: "v2", else: "retained v1"),
+      "profile_id" => text([selected["profileId"]]),
+      "model_id" => text([selected["modelId"]]),
+      "provider" => text([selected["provider"]]),
+      "api_inference_type" => text([selected["protocol"]]),
+      "provider_base_url" => text([selected["endpoint"]]),
+      "result_source" => result_source_label(result),
+      "producer_profile_id" => text([producer["profileId"]]),
+      "producer_model_id" => text([producer["modelId"]]),
+      "producer_provider" => text([producer["provider"]]),
+      "producer_protocol" => text([producer["protocol"]]),
+      "producer_endpoint" => text([producer["endpoint"]]),
+      "provider_invoked" => if(v2?(result), do: result["providerInvoked"], else: nil),
+      "result_usage_status" => get_in(accounting, ["result", "usage", "status"]),
+      "provider_usage_status" => get_in(accounting, ["provider", "usage", "status"]),
+      "result_cost_status" => get_in(accounting, ["result", "cost", "status"]),
+      "provider_cost_status" => get_in(accounting, ["provider", "cost", "status"]),
       "status" => status_label(result),
       "cache_status" => cache_status_label(result),
       "used_repair" => used_repair?(result),
-      "attempts" =>
-        Enum.map(attempts(result), fn attempt ->
-          %{
-            "attempt" => attempt["attempt"],
-            "category" => attempt["category"],
-            "status_code" => attempt["statusCode"],
-            "retryable" => attempt["retryable"],
-            "delay_ms" => attempt["delayMs"],
-            "duration_ms" => attempt["durationMs"]
-          }
-        end)
+      "attempts" => attempts(result)
     }
   end
 
   def details(_result), do: %{"attempts" => []}
 
   def meta(result) when is_map(result) do
-    inference_type = text([result["apiInferenceType"]]) || "—"
-    base_url = text([result["providerBaseUrl"]]) || "—"
-    "#{inference_type} · #{base_url}"
+    target = selected_target(result)
+    "#{target["protocol"] || "—"} · #{target["endpoint"] || "—"}"
   end
 
   def meta(_result), do: "— · —"
@@ -100,15 +118,9 @@ defmodule HardenLlm.LlmTraceProjection do
   def resources_from_trace(trace, result, api_origin, trace_url, artifact_url)
       when is_map(trace) and is_map(result) do
     id = trace_id(result)
-    resources = if is_map(trace["resources"]), do: trace["resources"], else: %{}
+    resources = trace["resources"]
     request = normalize_resource(resources["request"], @missing_request)
-
-    result =
-      Map.put(
-        result,
-        "artifacts",
-        if(is_list(trace["artifacts"]), do: trace["artifacts"], else: [])
-      )
+    result = Map.put(result, "artifacts", trace["artifacts"])
 
     %{
       "trace_url" => trace_url,
@@ -121,13 +133,9 @@ defmodule HardenLlm.LlmTraceProjection do
 
   def resources_from_trace(_trace, _result, _api_origin, _trace_url, _artifact_url), do: %{}
 
-  def run_result(%{"record" => record} = trace) when is_map(record) do
-    artifacts = if is_list(trace["artifacts"]), do: trace["artifacts"], else: []
-
-    {:ok,
-     record
-     |> Map.put_new("traceId", trace["traceId"])
-     |> Map.put("artifacts", artifacts)}
+  def run_result(%{"record" => record, "artifacts" => artifacts, "traceId" => trace_id})
+      when is_map(record) and is_list(artifacts) do
+    {:ok, record |> Map.put_new("traceId", trace_id) |> Map.put("artifacts", artifacts)}
   end
 
   def run_result(_trace), do: :error
@@ -144,55 +152,26 @@ defmodule HardenLlm.LlmTraceProjection do
 
   def curl(_payload, _api_origin), do: nil
 
-  def stats(api_stats) when is_map(api_stats) do
-    total_count = integer(api_stats["totalCount"])
-    total_duration = integer(api_stats["totalCallDurationMs"])
-    total_cost = numeric(api_stats["totalCost"]) || 0
-    cached_cost = numeric(api_stats["cachedCost"]) || 0
-
-    %{
-      runs: total_count,
-      success: integer(api_stats["successCount"]),
-      failed: integer(api_stats["failureCount"]),
-      timeout: integer(api_stats["timeoutCount"]),
-      prompt_tokens: integer(api_stats["totalPromptTokens"]),
-      cache_read_tokens: integer(api_stats["cacheReadTokens"]),
-      cache_creation_tokens: integer(api_stats["cacheCreationTokens"]),
-      output_tokens: integer(api_stats["totalOutputTokens"]),
-      reasoning_tokens: integer(api_stats["reasoningTokens"]),
-      total_tokens: integer(api_stats["totalTokens"]),
-      known_cost: "$" <> :erlang.float_to_binary(total_cost * 1.0, decimals: 4),
-      cached_cost: "$" <> :erlang.float_to_binary(cached_cost * 1.0, decimals: 4),
-      cached_count: integer(api_stats["cachedCount"]),
-      known_cost_count: integer(api_stats["knownCostCount"]),
-      unknown_cost_count: integer(api_stats["unknownCostCount"]),
-      total_duration: total_duration,
-      average_duration: if(total_count > 0, do: div(total_duration, total_count), else: nil),
-      max_duration: integer(api_stats["maxCallDurationMs"]),
-      over_budget_count: integer(api_stats["overBudgetCount"]),
-      max_over_budget: integer(api_stats["maxOverBudgetMs"])
-    }
-  end
-
-  def stats(_api_stats), do: stats(%{})
-
   def history_stats(item) when is_map(item) do
-    usage = get_in(item, ["result", "usage"]) || %{}
-    cost = get_in(item, ["result", "cost"]) || %{}
-    attempts = get_in(item, ["result", "attempts"]) || []
+    result = item["result"] || %{}
+    usage = result_usage(result)
+    result_cost = result_cost(result)
 
     %{
-      status: item["status"] || "unknown",
-      profile: item["profileId"] || "",
+      status: item["status"],
+      profile: item["profileId"],
       duration: history_duration_ms(item),
-      input_tokens: integer(usage["inputTokens"]),
-      cache_read_tokens: integer(usage["cacheReadTokens"]),
-      cache_creation_tokens: integer(usage["cacheCreationTokens"]),
-      output_tokens: integer(usage["outputTokens"]),
-      reasoning_tokens: integer(usage["reasoningTokens"]),
-      total_tokens: integer(usage["totalTokens"]),
-      known_cost: if(cost["known"] == false, do: nil, else: numeric(cost["totalUsd"])),
-      attempts: if(is_list(attempts), do: length(attempts), else: 0)
+      input_tokens: captured_usage_value(usage, "inputTokens"),
+      cache_read_tokens: captured_usage_value(usage, "cacheReadTokens"),
+      cache_creation_tokens: captured_usage_value(usage, "cacheCreationTokens"),
+      output_tokens: captured_usage_value(usage, "outputTokens"),
+      reasoning_tokens: captured_usage_value(usage, "reasoningTokens"),
+      total_tokens: captured_usage_value(usage, "totalTokens"),
+      usage_status:
+        usage["status"] || if(map_size(usage) == 0, do: "not captured", else: "legacy"),
+      known_cost: known_cost_value(result_cost),
+      cost_status: result_cost["status"] || legacy_cost_status(result_cost),
+      attempts: attempt_count(result)
     }
   end
 
@@ -202,16 +181,13 @@ defmodule HardenLlm.LlmTraceProjection do
   def json_text(value) when is_binary(value), do: value
   def json_text(value), do: Jason.encode!(value, pretty: true)
 
-  def trace_id(result) when is_map(result) do
-    text([result["traceId"]])
-  end
-
+  def trace_id(result) when is_map(result), do: text([result["traceId"]])
   def trace_id(_result), do: nil
 
   def attempt_count(result) when is_map(result) do
     case result["attempts"] do
       attempts when is_list(attempts) -> length(attempts)
-      _ -> max(integer(result["totalAttempts"]), 0)
+      _ -> nonnegative_integer(result["totalAttempts"]) || 0
     end
   end
 
@@ -219,78 +195,61 @@ defmodule HardenLlm.LlmTraceProjection do
 
   def duration(result) when is_map(result) do
     duration_ms =
-      numeric(
-        first_present([
-          result["totalCallDurationMs"],
-          result["durationMs"],
-          result["totalWaitMs"]
-        ])
-      ) ||
-        0
+      number_value(result["totalCallDurationMs"] || result["durationMs"] || result["totalWaitMs"])
 
-    :erlang.float_to_binary(duration_ms / 1000, decimals: 2) <> "s"
+    if is_number(duration_ms),
+      do: :erlang.float_to_binary(duration_ms / 1000, decimals: 2) <> "s",
+      else: "—"
   end
 
-  def duration(_result), do: "0.00s"
+  def duration(_result), do: "—"
 
   def cache_tokens(result) when is_map(result) do
-    integer(get_in(result, ["usage", "cacheReadTokens"])) +
-      integer(get_in(result, ["usage", "cacheCreationTokens"]))
+    result |> result_usage() |> sum_if_captured(~w(cacheReadTokens cacheCreationTokens))
   end
 
-  def cache_tokens(_result), do: 0
+  def cache_tokens(_result), do: nil
 
   def completion_tokens(result) when is_map(result) do
-    integer(get_in(result, ["usage", "outputTokens"])) +
-      integer(get_in(result, ["usage", "reasoningTokens"]))
+    result |> result_usage() |> sum_if_captured(~w(outputTokens reasoningTokens))
   end
 
-  def completion_tokens(_result), do: 0
+  def completion_tokens(_result), do: nil
 
-  def number(value) do
-    value
-    |> integer()
-    |> Integer.to_string()
-    |> group_digits()
-  end
+  def number(value) when is_integer(value), do: value |> Integer.to_string() |> group_digits()
+  def number(_value), do: "—"
 
   def cost(result) when is_map(result) do
-    case cost_value(result) do
-      nil -> nil
-      value -> if(cache_served?(result), do: "🗄️" <> value, else: value)
-    end
+    value = cost_value(result_cost(result))
+    if(cache_served?(result), do: "🗄️" <> value, else: value)
   end
 
-  def cost(_result), do: nil
+  def cost(_result), do: "$—"
 
   def cost_title(result) do
-    case cost_value(result) do
-      nil ->
-        nil
+    cost = result_cost(result)
+    prefix = if(cache_served?(result), do: "Cached result", else: "Result")
 
-      value ->
-        "#{if(cache_served?(result), do: "Cached trace-attributed cost", else: "Trace-attributed cost")} #{value}"
+    case cost_status(cost) do
+      "exact" -> "#{prefix} exact trace-attributed cost #{cost_value(cost)}"
+      "partial" -> "#{prefix} known cost subtotal #{cost_value(cost)}; additional cost is unknown"
+      "unknown" -> "#{prefix} cost is unknown"
+      _ -> "#{prefix} cost was not captured"
     end
   end
 
-  def cache_served?(result) when is_map(result) do
-    cache = if is_map(result["cache"]), do: result["cache"], else: %{}
-    truthy?(cache["served"] || cache["servedFromCache"])
-  end
-
+  def cache_served?(result) when is_map(result), do: get_in(result, ["cache", "served"]) == true
   def cache_served?(_result), do: false
 
   def cache_status(result) when is_map(result) do
-    cache = if is_map(result["cache"]), do: result["cache"], else: %{}
-    mode = text([cache["mode"]])
-    status = text([cache["status"]])
+    cache = result["cache"] || %{}
 
     cond do
-      cache_served?(result) or status == "hit" -> "hit"
-      mode == "off" or status in [nil, "", "disabled", "skipped"] -> "disabled"
-      status == "miss" -> "miss"
-      status == "refresh" -> "refresh"
-      truthy?(cache["written"]) -> "written"
+      cache["served"] == true or cache["status"] == "hit" -> "hit"
+      cache["mode"] == "off" or cache["status"] in [nil, "", "disabled", "skipped"] -> "disabled"
+      cache["status"] == "miss" -> "miss"
+      cache["status"] == "refresh" -> "refresh"
+      cache["written"] == true -> "written"
       true -> "unknown"
     end
   end
@@ -337,10 +296,8 @@ defmodule HardenLlm.LlmTraceProjection do
   end
 
   def used_repair?(result) when is_map(result) do
-    truthy?(result["usedRepair"]) or
-      Enum.any?(raw_attempts(result), fn attempt ->
-        is_map(attempt) and (truthy?(attempt["repair"]) or truthy?(attempt["usedRepair"]))
-      end)
+    result["usedRepair"] == true or
+      Enum.any?(raw_attempts(result), &(&1["repair"] == true or &1["usedRepair"] == true))
   end
 
   def used_repair?(_result), do: false
@@ -349,121 +306,166 @@ defmodule HardenLlm.LlmTraceProjection do
     result
     |> raw_attempts()
     |> Enum.with_index(1)
-    |> Enum.map(fn {attempt, index} -> normalize_attempt(attempt, index, result) end)
+    |> Enum.map(fn {attempt, index} ->
+      target = attempt["target"] || %{}
+
+      %{
+        "attempt" => attempt["number"] || attempt["attempt"] || index,
+        "retry_local_attempt" => attempt["retryLocalNumber"],
+        "profile_id" => attempt["profileId"] || target["profileId"],
+        "provider" => target["provider"],
+        "protocol" => target["protocol"],
+        "model_id" => target["modelId"],
+        "category" => text([attempt["category"], attempt["outcome"]]) || "not captured",
+        "status_code" => attempt["httpStatus"] || attempt["statusCode"] || attempt["status"],
+        "retryable" => attempt["retryable"] == true,
+        "delay_ms" => milliseconds(attempt["delayMs"], attempt["wait"] || attempt["waitMs"]),
+        "duration_ms" => milliseconds(attempt["durationMs"], attempt["duration"]),
+        "provider_used" => attempt["providerUsed"],
+        "repair" => attempt["repair"] || attempt["usedRepair"] || false
+      }
+    end)
   end
 
   def attempts(_result), do: []
 
-  defp success?(result) do
-    category = category(result)
-    status = status_value(result)
-    status_text = String.downcase(to_string(result["status"] || ""))
+  defp v2?(result), do: result["schemaVersion"] == 2
 
-    category in [nil, "", "success", "ok"] and
-      status_text not in ["failed", "failure", "error", "timeout"] and
-      (is_nil(status) or status < 400)
-  end
+  defp selected_target(%{"schemaVersion" => 2, "selectedTarget" => target}), do: target
 
-  defp error_category(result), do: category(result) || "error"
-
-  defp status_label(result) do
-    label = if(success?(result), do: "Success", else: title_case(error_category(result)))
-    status = status_value(result) || if(success?(result), do: 200, else: "")
-    if status == "", do: label, else: "#{label} (#{status})"
-  end
-
-  defp category(result) do
-    attempt = List.last(raw_attempts(result)) || %{}
-    status = String.downcase(to_string(result["status"] || ""))
-
-    text([
-      result["lastErrorCategory"],
-      result["category"],
-      result["outcome"],
-      attempt["category"],
-      attempt["outcome"],
-      if(status == "timeout", do: "timeout"),
-      if(status in ["failed", "failure", "error"], do: "error")
-    ])
-  end
-
-  defp status_value(result) do
-    attempt = List.last(raw_attempts(result)) || %{}
-
-    numeric(
-      first_present([
-        result["lastErrorStatus"],
-        result["httpStatus"],
-        result["statusCode"],
-        attempt["httpStatus"],
-        attempt["statusCode"]
-      ])
-    )
-  end
-
-  defp normalize_attempt(attempt, index, result) when is_map(attempt) do
-    category = text([attempt["category"], attempt["outcome"]]) || category(result) || "success"
-
-    attempt_number =
-      positive_integer(first_present([attempt["number"], attempt["attempt"]])) || index
-
-    status =
-      case Enum.find(
-             ["httpStatus", "status", "statusCode"],
-             &(Map.has_key?(attempt, &1) and attempt[&1] != "")
-           ) do
-        nil -> status_value(result)
-        key -> numeric(attempt[key])
-      end
-
+  defp selected_target(result) do
     %{
-      "attempt" => attempt_number,
-      "category" => category,
-      "statusCode" => if(is_nil(status) and category in ["success", "ok"], do: 200, else: status),
-      "retryable" => truthy?(attempt["retryable"]),
-      "delayMs" => milliseconds(attempt["delayMs"] || attempt["waitMs"], attempt["wait"]),
-      "durationMs" => milliseconds(attempt["durationMs"], attempt["duration"])
+      "profileId" => result["profileId"],
+      "provider" => result["provider"],
+      "protocol" => result["apiInferenceType"],
+      "endpoint" => result["providerBaseUrl"],
+      "modelId" => result["modelId"]
     }
   end
 
-  defp normalize_attempt(_attempt, index, result), do: normalize_attempt(%{}, index, result)
+  defp producer_target(%{"schemaVersion" => 2} = result),
+    do: get_in(result, ["resultSource", "producer"]) || %{}
 
-  defp raw_attempts(result) do
-    if is_list(result["attempts"]), do: result["attempts"], else: []
-  end
+  defp producer_target(_result), do: %{}
 
-  defp milliseconds(value, nanoseconds) do
-    case numeric(value) do
-      number when is_number(number) -> trunc(number)
-      _ -> trunc((numeric(nanoseconds) || 0) / 1_000_000)
+  defp result_source_label(%{"schemaVersion" => 2, "resultSource" => source}) do
+    case source["kind"] do
+      "provider" -> "Provider attempt #{source["attemptNumber"]}"
+      "cache" -> "Cache"
+      _ -> "No result"
     end
   end
 
-  defp cost_value(result) do
-    cost = if is_map(result["cost"]), do: result["cost"], else: %{}
+  defp result_source_label(_result), do: "Not captured (retained v1)"
 
-    if cost["known"] == false do
-      nil
-    else
-      case numeric(cost["totalUsd"]) do
-        nil -> nil
-        value -> "$" <> :erlang.float_to_binary(value * 1.0, decimals: 4)
-      end
+  defp result_usage(%{"schemaVersion" => 2} = result),
+    do: get_in(result, ["accounting", "result", "usage"])
+
+  defp result_usage(result), do: result["usage"] || %{}
+
+  defp result_cost(%{"schemaVersion" => 2} = result),
+    do: get_in(result, ["accounting", "result", "cost"])
+
+  defp result_cost(result), do: result["cost"] || %{}
+
+  defp usage_number(usage, key) do
+    case captured_usage_value(usage, key) do
+      value when is_integer(value) -> number(value)
+      _ -> "—"
     end
   end
 
-  defp cache_written?(result), do: truthy?(get_in(result, ["cache", "written"]))
+  defp usage_sum(usage, keys) do
+    case sum_if_captured(usage, keys) do
+      value when is_integer(value) -> number(value)
+      _ -> "—"
+    end
+  end
+
+  defp sum_if_captured(usage, keys) do
+    values = Enum.map(keys, &captured_usage_value(usage, &1))
+    if Enum.all?(values, &is_integer/1), do: Enum.sum(values), else: nil
+  end
+
+  defp captured_usage_value(%{"status" => status}, _key)
+       when status in ~w(unavailable inconsistent), do: nil
+
+  defp captured_usage_value(usage, key), do: if(is_integer(usage[key]), do: usage[key], else: nil)
+
+  defp usage_title(%{"status" => "partial"}, label), do: "#{label} (partial accounting)"
+
+  defp usage_title(%{"status" => status}, label) when status in ~w(unavailable inconsistent),
+    do: "#{label} (#{status})"
+
+  defp usage_title(_usage, label), do: label
+
+  defp cost_value(cost) do
+    case cost_status(cost) do
+      "exact" -> money(cost["knownSubtotalUsd"] || cost["totalUsd"])
+      "partial" -> "≥" <> money(cost["knownSubtotalUsd"])
+      _ -> "$—"
+    end
+  end
+
+  defp known_cost_value(cost) do
+    case cost_status(cost) do
+      status when status in ~w(exact partial) -> cost["knownSubtotalUsd"] || cost["totalUsd"]
+      _ -> nil
+    end
+  end
+
+  defp cost_status(%{"status" => status}), do: status
+  defp cost_status(cost), do: legacy_cost_status(cost)
+  defp legacy_cost_status(%{"known" => true}), do: "exact"
+  defp legacy_cost_status(%{"known" => false}), do: "unknown"
+  defp legacy_cost_status(_cost), do: "not captured"
+
+  defp money(value) when is_number(value),
+    do: "$" <> :erlang.float_to_binary(value * 1.0, decimals: 4)
+
+  defp money(_value), do: "$—"
+
+  defp success?(result), do: result["status"] in [nil, "succeeded", "success"]
+
+  defp error_category(result) do
+    attempt = List.last(raw_attempts(result)) || %{}
+
+    text([result["lastErrorCategory"], result["category"], attempt["category"], result["status"]]) ||
+      "error"
+  end
+
+  defp status_label(result) do
+    attempt = List.last(raw_attempts(result)) || %{}
+
+    status_code =
+      result["lastErrorStatus"] || result["statusCode"] || attempt["httpStatus"] ||
+        attempt["statusCode"]
+
+    label = if(success?(result), do: "Success", else: title_case(error_category(result)))
+    if is_integer(status_code), do: "#{label} (#{status_code})", else: label
+  end
+
+  defp raw_attempts(result), do: if(is_list(result["attempts"]), do: result["attempts"], else: [])
+
+  defp milliseconds(value, _nanoseconds) when is_integer(value), do: value
+
+  defp milliseconds(_value, nanoseconds) when is_integer(nanoseconds),
+    do: div(nanoseconds, 1_000_000)
+
+  defp milliseconds(_value, _nanoseconds), do: nil
+
+  defp cache_written?(result), do: get_in(result, ["cache", "written"]) == true
 
   defp local_resource(payload, _message) when is_map(payload),
     do: %{"available" => true, "payload" => payload}
 
   defp local_resource(_payload, message), do: %{"available" => false, "message" => message}
 
-  defp normalize_resource(resource, message) when is_map(resource) do
-    if resource["available"] == true,
-      do: resource,
-      else: %{"available" => false, "message" => text([resource["message"]]) || message}
-  end
+  defp normalize_resource(%{"available" => true, "payload" => _payload} = resource, _message),
+    do: resource
+
+  defp normalize_resource(%{"available" => false, "message" => message}, _default),
+    do: %{"available" => false, "message" => message}
 
   defp normalize_resource(_resource, message), do: %{"available" => false, "message" => message}
 
@@ -474,23 +476,19 @@ defmodule HardenLlm.LlmTraceProjection do
 
   defp artifact_links(result, id, artifact_url)
        when is_binary(id) and is_function(artifact_url, 2) do
-    result
-    |> Map.get("artifacts", [])
-    |> then(&if(is_list(&1), do: &1, else: []))
-    |> Enum.filter(&(is_map(&1) and present?(text([&1["artifactId"]]))))
-    |> Enum.map(fn artifact ->
-      artifact_id = artifact["artifactId"]
-      kind = text([artifact["kind"]]) || "artifact"
-      size = integer(artifact["sizeBytes"])
-      %{"href" => artifact_url.(id, artifact_id), "label" => "#{kind} · #{size} bytes"}
+    Enum.map(result["artifacts"] || [], fn artifact ->
+      %{
+        "href" => artifact_url.(id, artifact["artifactId"]),
+        "label" => "#{artifact["kind"]} · #{artifact["sizeBytes"]} bytes"
+      }
     end)
   end
 
   defp artifact_links(_result, _id, _artifact_url), do: []
 
   defp history_duration_ms(item) do
-    with {:ok, started, _} <- DateTime.from_iso8601(item["startedAt"] || ""),
-         {:ok, completed, _} <- DateTime.from_iso8601(item["completedAt"] || "") do
+    with {:ok, started, _} <- DateTime.from_iso8601(item["startedAt"]),
+         {:ok, completed, _} <- DateTime.from_iso8601(item["completedAt"]) do
       DateTime.diff(completed, started, :millisecond)
     else
       _ -> nil
@@ -498,8 +496,6 @@ defmodule HardenLlm.LlmTraceProjection do
   end
 
   defp shell_quote(value), do: "'" <> String.replace(value, "'", "'\"'\"'") <> "'"
-
-  defp first_present(values), do: Enum.find(values, &(not is_nil(&1) and &1 != ""))
 
   defp text(values) do
     Enum.find_value(values, fn
@@ -526,53 +522,15 @@ defmodule HardenLlm.LlmTraceProjection do
     |> Enum.join(" ")
   end
 
-  defp positive_integer(value) do
-    case numeric(value) do
-      number when is_number(number) and number > 0 -> trunc(number)
-      _ -> nil
-    end
-  end
-
-  defp integer(value), do: trunc(numeric(value) || 0)
-
-  defp numeric(nil), do: nil
-  defp numeric(value) when is_integer(value) or is_float(value), do: value
-
-  defp numeric(value) when is_binary(value) do
-    case Integer.parse(String.trim(value)) do
-      {number, ""} ->
-        number
-
-      _ ->
-        case Float.parse(String.trim(value)) do
-          {number, ""} -> number
-          _ -> nil
-        end
-    end
-  end
-
-  defp numeric(_value), do: nil
+  defp nonnegative_integer(value) when is_integer(value) and value >= 0, do: value
+  defp nonnegative_integer(_value), do: nil
+  defp number_value(value) when is_integer(value) or is_float(value), do: value
+  defp number_value(_value), do: nil
 
   defp group_digits(value) do
-    {sign, digits} =
-      if String.starts_with?(value, "-"),
-        do: {"-", String.slice(value, 1..-1//1)},
-        else: {"", value}
-
-    grouped =
-      digits
-      |> String.reverse()
-      |> String.graphemes()
-      |> Enum.chunk_every(3)
-      |> Enum.map(&Enum.join/1)
-      |> Enum.join(",")
-      |> String.reverse()
-
-    sign <> grouped
+    value |> String.reverse() |> String.replace(~r/(\d{3})(?=\d)/, "\\1,") |> String.reverse()
   end
 
   defp present?(value) when is_binary(value), do: String.trim(value) != ""
   defp present?(value), do: not is_nil(value)
-
-  defp truthy?(value), do: value in [true, "true", 1, "1", "on"]
 end

@@ -1,8 +1,9 @@
 defmodule HardenLlmWeb.HistoryLive do
   use HardenLlmWeb, :live_view
 
-  alias HardenLlm.LlmTraceProjection
+  alias HardenLlm.{LlmStatsProjection, LlmTraceProjection}
   alias HardenLlmWeb.{APIError, Auth, HardenAPI, Observability}
+  alias Phoenix.LiveView.AsyncResult
 
   @impl true
   def mount(_params, _session, socket) do
@@ -14,8 +15,7 @@ defmodule HardenLlmWeb.HistoryLive do
       |> assign(:next_cursor, nil)
       |> assign(:page_size, 20)
       |> assign(:page_number, 1)
-      |> assign(:stats, LlmTraceProjection.stats(%{}))
-      |> assign(:stats_error, nil)
+      |> assign(:stats, AsyncResult.loading())
       |> assign(:stats_ref, nil)
       |> assign(:expanded_history_id, nil)
       |> assign(:selected_trace_id, nil)
@@ -87,8 +87,7 @@ defmodule HardenLlmWeb.HistoryLive do
       ) do
     {:noreply,
      socket
-     |> assign(:stats, LlmTraceProjection.stats(stats))
-     |> assign(:stats_error, nil)
+     |> assign(:stats, AsyncResult.ok(socket.assigns.stats, LlmStatsProjection.project(stats)))
      |> assign(:stats_ref, nil)}
   end
 
@@ -99,7 +98,7 @@ defmodule HardenLlmWeb.HistoryLive do
       ) do
     {:noreply,
      socket
-     |> assign(:stats_error, "Aggregate stats are temporarily unavailable.")
+     |> assign(:stats, AsyncResult.failed(socket.assigns.stats, :unavailable))
      |> assign(:stats_ref, nil)}
   end
 
@@ -424,6 +423,7 @@ defmodule HardenLlmWeb.HistoryLive do
     handle = socket.assigns.session_handle
 
     socket
+    |> assign(:stats, AsyncResult.loading(socket.assigns.stats))
     |> assign(:stats_ref, reference)
     |> start_async(
       {:load_stats, reference},

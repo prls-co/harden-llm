@@ -1,7 +1,7 @@
 defmodule HardenLlm.LlmTraceProjectionTest do
   use ExUnit.Case, async: true
 
-  alias HardenLlm.LlmTraceProjection
+  alias HardenLlm.{LlmDiagnosticsWire, LlmStatsProjection, LlmTraceProjection}
   alias HardenLlmWeb.APIFixtures
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-036
@@ -10,17 +10,20 @@ defmodule HardenLlm.LlmTraceProjectionTest do
     result =
       APIFixtures.run_result()
       |> Map.put("status", "failed")
-      |> Map.put("category", "rate_limit")
-      |> Map.put("statusCode", 429)
-      |> put_in(["usage", "totalTokens"], 0)
+      |> put_in(["attempts", Access.at(0), "category"], "rate_limit")
+      |> put_in(["attempts", Access.at(0), "httpStatus"], 429)
 
     assert LlmTraceProjection.trace_available?(result)
-    assert LlmTraceProjection.meta(result) == "responses · https://provider.example.test/v1"
+
+    assert LlmTraceProjection.meta(result) ==
+             "responses · https://provider.example.test/v1"
+
     assert LlmTraceProjection.summary(result)["model_id"] == "model-test"
 
     assert %{
              "profile_id" => "Primary",
              "provider" => "openai",
+             "result_source" => "Provider attempt 1",
              "status" => "Rate Limit (429)"
            } = LlmTraceProjection.details(result)
   end
@@ -43,19 +46,19 @@ defmodule HardenLlm.LlmTraceProjectionTest do
              runs: 3,
              success: 2,
              failed: 1,
-             cache_creation_tokens: 2,
-             reasoning_tokens: 4,
-             known_cost: "$0.0004",
+             result_cache_creation_tokens: 2,
+             result_reasoning_tokens: 4,
+             result_known_cost: "$0.0004",
+             result_cost_coverage: "1 exact · 1 partial · 1 unknown · 0 unavailable",
+             provider_known_cost: "$0.0003",
              cached_cost: "$0.0001",
              cached_count: 1,
-             known_cost_count: 2,
-             unknown_cost_count: 1,
              total_duration: 2_580,
              average_duration: 860,
              max_duration: 1_200,
              over_budget_count: 1,
              max_over_budget: 50
-           } = LlmTraceProjection.stats(APIFixtures.stats())
+           } = LlmStatsProjection.project(APIFixtures.stats())
   end
 
   test "projects local and restored resources without owning host routes" do
@@ -89,5 +92,50 @@ defmodule HardenLlm.LlmTraceProjectionTest do
     assert restored["artifacts"] == [
              %{"href" => "/artifacts/trace-test/artifact-test", "label" => "trace · 42 bytes"}
            ]
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-063
+  test "retained v1 trace exposes captured identity and explicit unavailable accounting" do
+    legacy = %{
+      "runId" => "run-legacy",
+      "traceId" => "trace-legacy",
+      "profileId" => "Legacy Profile",
+      "modelId" => "legacy-model",
+      "provider" => "openai",
+      "apiInferenceType" => "responses",
+      "providerBaseUrl" => "https://legacy.example.test/v1",
+      "output" => "retained output",
+      "attempts" => [],
+      "cache" => %{
+        "mode" => "off",
+        "status" => "disabled",
+        "served" => false,
+        "written" => false
+      },
+      "artifacts" => [],
+      "totalCallDurationMs" => 42,
+      "totalWaitMs" => 0,
+      "overBudgetMs" => 0,
+      "usedRepair" => false,
+      "status" => "succeeded"
+    }
+
+    trace =
+      APIFixtures.trace()
+      |> Map.put("traceId", "trace-legacy")
+      |> Map.put("record", legacy)
+      |> put_in(["resources", "response", "payload"], legacy)
+
+    assert {:ok, ^trace} = LlmDiagnosticsWire.decode("getTrace", trace)
+    assert LlmTraceProjection.summary(legacy)["model_id"] == "legacy-model"
+    assert LlmTraceProjection.cost(legacy) == "$—"
+
+    assert %{
+             "schema_label" => "retained v1",
+             "result_source" => "Not captured (retained v1)",
+             "producer_provider" => nil,
+             "result_usage_status" => nil,
+             "result_cost_status" => nil
+           } = LlmTraceProjection.details(legacy)
   end
 end

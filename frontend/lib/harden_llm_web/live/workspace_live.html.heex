@@ -280,15 +280,6 @@
                         details_name="outputDetailsOpen"
                         resource_event="toggle-output-data"
                         details_disabled={@ui_save_pending?}
-                        details_id="output-details"
-                        details_toggle_id="output-details-toggle"
-                        curl_id="copy-run-curl"
-                        request_toggle_id="show-run-request"
-                        response_toggle_id="show-run-response"
-                        request_id="run-request-section"
-                        response_id="run-response-section"
-                        request_content_id="run-request"
-                        response_content_id="run-response"
                       />
                     </div>
                   </div>
@@ -447,7 +438,6 @@
               aria_label="LLM stats"
               title="📊 LLM stats"
               stats={@stats}
-              subtitle={@stats_error}
               navigate={~p"/history"}
               class="studio-card p-4 sm:p-5"
             />

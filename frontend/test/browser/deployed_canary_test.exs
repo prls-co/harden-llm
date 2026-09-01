@@ -72,16 +72,18 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
 
     session =
       session
-      |> open_ui_fold("#output-details-toggle", "#output-details")
-      |> assert_has(Query.css(".trace-controls #output-details-toggle", text: "Hide"))
+      |> open_ui_fold("#output-trace-details-toggle", "#output-trace-details")
+      |> assert_has(Query.css(".trace-controls #output-trace-details-toggle", text: "Hide"))
       |> assert_has(Query.css(".trace-controls a", text: "View JSON Trace"))
-      |> assert_has(Query.css(".trace-controls #copy-run-curl", text: "Copy cURL"))
-      |> assert_has(Query.css(".trace-controls #show-run-request", text: "Show Request"))
-      |> assert_has(Query.css(".trace-controls #show-run-response", text: "Show Response"))
-      |> click(Query.css("#show-run-request"))
-      |> assert_has(Query.css("#run-request"))
-      |> click(Query.css("#show-run-response"))
-      |> assert_has(Query.css("#run-response"))
+      |> assert_has(Query.css(".trace-controls #output-trace-copy-curl", text: "Copy cURL"))
+      |> assert_has(Query.css(".trace-controls #output-trace-show-request", text: "Show Request"))
+      |> assert_has(
+        Query.css(".trace-controls #output-trace-show-response", text: "Show Response")
+      )
+      |> click(Query.css("#output-trace-show-request"))
+      |> assert_has(Query.css("#output-trace-request-content"))
+      |> click(Query.css("#output-trace-show-response"))
+      |> assert_has(Query.css("#output-trace-response-content"))
       |> open_ui_fold("#history-fold-toggle", "#workspace-history")
 
     widget_facts =
@@ -89,7 +91,7 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
         session,
         """
         const controls = document.querySelector('.trace-controls');
-        const cacheStyle = window.getComputedStyle(document.querySelector('#run-cache-status'));
+        const cacheStyle = window.getComputedStyle(document.querySelector('#output-trace-cache-status'));
         return {
           controlDisplay: window.getComputedStyle(controls).display,
           directLabels: Array.from(controls.children).map(node => node.textContent.trim()),
@@ -97,7 +99,7 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
           cacheBorderRadius: cacheStyle.borderRadius,
           cacheBackground: cacheStyle.backgroundColor,
           cachePadding: cacheStyle.padding,
-          curl: document.querySelector('#copy-run-curl')?.dataset.copyValue || ''
+          curl: document.querySelector('#output-trace-copy-curl')?.dataset.copyValue || ''
         };
         """
       )

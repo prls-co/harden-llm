@@ -57,8 +57,57 @@ defmodule HardenLlmWeb.HardenAPITest do
       Req.Test.json(conn, APIFixtures.success(APIFixtures.stats()))
     end)
 
-    assert {:ok, %{"totalCount" => 3, "cachedCount" => 1}, %{}} =
+    assert {:ok, %{"totalCount" => 3, "cached" => %{"count" => 1}}, %{}} =
              HardenAPI.get_stats(handle)
+  end
+
+  test "history accepts the terminal page's null cursor" do
+    handle = APIFixtures.insert_session()
+
+    Req.Test.stub(HardenAPI, fn conn ->
+      assert conn.method == "GET"
+      assert conn.request_path == "/api/v1/history"
+
+      Req.Test.json(
+        conn,
+        APIFixtures.success(%{"items" => [APIFixtures.history_item()], "nextCursor" => nil})
+      )
+    end)
+
+    assert {:ok, %{"items" => [%{"runId" => "run-test"}], "nextCursor" => nil}, %{}} =
+             HardenAPI.list_history(handle, limit: 20)
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-060
+  test "diagnostics operations reject malformed identities, equations, and coverage" do
+    handle = APIFixtures.insert_session()
+
+    malformed = [
+      {"/api/v1/run", :post,
+       put_in(APIFixtures.run_result(), ["accounting", "result", "usage", "totalTokens"], 99)},
+      {"/api/v1/stats", :get,
+       put_in(APIFixtures.stats(), ["resultAccounting", "cost", "coverage", "unknown"], 0)},
+      {"/api/v1/traces/trace-test", :get,
+       put_in(APIFixtures.trace(), ["record", "traceId"], "different-trace")}
+    ]
+
+    for {path, method, result} <- malformed do
+      Req.Test.stub(HardenAPI, fn conn ->
+        assert conn.method == method |> Atom.to_string() |> String.upcase()
+        assert conn.request_path == path
+        Req.Test.json(conn, APIFixtures.success(result))
+      end)
+
+      response =
+        case path do
+          "/api/v1/run" -> HardenAPI.run(handle, %{})
+          "/api/v1/stats" -> HardenAPI.get_stats(handle)
+          _ -> HardenAPI.get_trace(handle, "trace-test")
+        end
+
+      assert {:error, %APIError{category: :protocol}} = response
+      Req.Test.verify!()
+    end
   end
 
   test "saved-profile model refresh sends only the profile ID path" do

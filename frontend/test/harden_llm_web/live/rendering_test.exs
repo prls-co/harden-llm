@@ -104,11 +104,7 @@ defmodule HardenLlmWeb.RenderingTest do
       |> put_in(["profile", "llmProfile"], long_profile)
       |> put_in(["profile", "baseUrl"], "https://#{String.duplicate("a", 120)}.example.test/v1")
 
-    history =
-      APIFixtures.history_item()
-      |> Map.put("profileId", long_profile)
-      |> Map.put("runId", long_run)
-      |> Map.put("traceId", long_trace)
+    history = APIFixtures.history_item(long_run, long_trace, long_profile)
 
     run_result =
       APIFixtures.run_result()
@@ -139,6 +135,8 @@ defmodule HardenLlmWeb.RenderingTest do
           trace =
             APIFixtures.trace()
             |> Map.put("traceId", long_trace)
+            |> Map.put("record", run_result)
+            |> put_in(["resources", "response", "payload"], run_result)
             |> put_in(["observations", Access.at(0), "data"], %{"output" => long_output})
 
           Req.Test.json(conn, APIFixtures.success(trace))

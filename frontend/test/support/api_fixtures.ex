@@ -85,46 +85,95 @@ defmodule HardenLlmWeb.APIFixtures do
     }
   end
 
-  def history_item do
+  def history_item(run_id \\ "run-test", trace_id \\ "trace-test", profile_id \\ "Primary") do
+    result =
+      run_result()
+      |> Map.put("runId", run_id)
+      |> Map.put("traceId", trace_id)
+      |> put_in(["selectedTarget", "profileId"], profile_id)
+      |> put_in(["resultSource", "producer", "profileId"], profile_id)
+      |> put_in(["attempts", Access.at(0), "profileId"], profile_id)
+      |> put_in(["attempts", Access.at(0), "target", "profileId"], profile_id)
+
     %{
-      "runId" => "run-test",
-      "profileId" => "Primary",
-      "traceId" => "trace-test",
+      "runId" => run_id,
+      "profileId" => profile_id,
+      "traceId" => trace_id,
       "status" => "succeeded",
       "request" => %{
         "profileId" => "Primary",
         "userPrompt" => "safe restored prompt",
         "callType" => "text"
       },
-      "result" => run_result(),
+      "result" => result,
       "startedAt" => "2026-07-13T12:00:00Z",
       "completedAt" => "2026-07-13T12:00:01Z"
     }
   end
 
   def run_result do
-    %{
-      "runId" => "run-test",
+    selected_target = %{
       "profileId" => "Primary",
-      "modelId" => "model-test",
       "provider" => "openai",
-      "apiInferenceType" => "responses",
-      "providerBaseUrl" => "https://provider.example.test/v1",
+      "protocol" => "responses",
+      "endpoint" => "https://provider.example.test/v1",
+      "modelId" => "model-test"
+    }
+
+    producer = Map.put(selected_target, "protocol", "openai.responses")
+
+    usage = %{
+      "inputTokens" => 1,
+      "cacheReadTokens" => 0,
+      "cacheCreationTokens" => 0,
+      "outputTokens" => 1,
+      "reasoningTokens" => 0,
+      "promptTokens" => 1,
+      "completionTokens" => 1,
+      "totalTokens" => 2,
+      "status" => "complete"
+    }
+
+    cost = %{
+      "knownSubtotalUsd" => 0.001,
+      "status" => "exact",
+      "source" => "fixture",
+      "knownObservations" => 1,
+      "unknownObservations" => 0
+    }
+
+    %{
+      "schemaVersion" => 2,
+      "runId" => "run-test",
+      "status" => "succeeded",
       "callId" => "call-test",
       "traceId" => "trace-test",
       "output" => "fixture output",
-      "usage" => %{
-        "inputTokens" => 1,
-        "cacheReadTokens" => 0,
-        "cacheCreationTokens" => 0,
-        "outputTokens" => 1,
-        "reasoningTokens" => 0,
-        "totalTokens" => 2
+      "selectedTarget" => selected_target,
+      "resultSource" => %{"kind" => "provider", "attemptNumber" => 1, "producer" => producer},
+      "accounting" => %{
+        "result" => %{"usage" => usage, "cost" => cost},
+        "provider" => %{"usage" => usage, "cost" => cost}
       },
-      "cost" => %{"totalUsd" => 0.001, "known" => true, "source" => "fixture"},
-      "attempts" => [],
+      "attempts" => [
+        %{
+          "number" => 1,
+          "retryLocalNumber" => 1,
+          "profileId" => "Primary",
+          "target" => producer,
+          "category" => "success",
+          "httpStatus" => 200,
+          "retryable" => false,
+          "wait" => 0,
+          "duration" => 120_000_000,
+          "repair" => false,
+          "backupIndex" => 0,
+          "providerUsed" => true
+        }
+      ],
       "cache" => %{"mode" => "off", "status" => "disabled", "served" => false, "written" => false},
       "artifacts" => [],
+      "providerInvoked" => true,
       "totalCallDurationMs" => 120,
       "totalWaitMs" => 0,
       "overBudgetMs" => 0,
@@ -134,21 +183,58 @@ defmodule HardenLlmWeb.APIFixtures do
 
   def stats do
     %{
+      "schemaVersion" => 2,
       "totalCount" => 3,
       "successCount" => 2,
       "failureCount" => 1,
       "timeoutCount" => 0,
-      "totalPromptTokens" => 24,
-      "cacheReadTokens" => 8,
-      "cacheCreationTokens" => 2,
-      "totalOutputTokens" => 12,
-      "reasoningTokens" => 4,
-      "totalTokens" => 42,
-      "totalCost" => 0.00042,
-      "cachedCost" => 0.0001,
-      "cachedCount" => 1,
-      "knownCostCount" => 2,
-      "unknownCostCount" => 1,
+      "resultAccounting" => %{
+        "usage" => %{
+          "promptTokens" => 24,
+          "cacheReadTokens" => 8,
+          "cacheCreationTokens" => 2,
+          "outputTokens" => 12,
+          "reasoningTokens" => 4,
+          "totalTokens" => 40,
+          "coverage" => %{
+            "complete" => 2,
+            "partial" => 0,
+            "unavailable" => 1,
+            "inconsistent" => 0
+          }
+        },
+        "cost" => %{
+          "knownSubtotalUsd" => 0.00042,
+          "coverage" => %{"exact" => 1, "partial" => 1, "unknown" => 1, "unavailable" => 0}
+        }
+      },
+      "providerAccounting" => %{
+        "usage" => %{
+          "promptTokens" => 16,
+          "cacheReadTokens" => 0,
+          "cacheCreationTokens" => 0,
+          "outputTokens" => 9,
+          "reasoningTokens" => 3,
+          "totalTokens" => 28,
+          "coverage" => %{
+            "complete" => 1,
+            "partial" => 1,
+            "unavailable" => 1,
+            "inconsistent" => 0
+          }
+        },
+        "cost" => %{
+          "knownSubtotalUsd" => 0.00032,
+          "coverage" => %{"exact" => 1, "partial" => 1, "unknown" => 0, "unavailable" => 1}
+        }
+      },
+      "cached" => %{
+        "count" => 1,
+        "cost" => %{
+          "knownSubtotalUsd" => 0.0001,
+          "coverage" => %{"exact" => 1, "partial" => 0, "unknown" => 0, "unavailable" => 0}
+        }
+      },
       "totalCallDurationMs" => 2_580,
       "maxCallDurationMs" => 1_200,
       "overBudgetCount" => 1,

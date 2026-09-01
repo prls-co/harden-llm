@@ -273,35 +273,115 @@ defmodule HardenLlmWeb.BrowserBackend do
   end
 
   defp run_result(request, cache_entries) do
-    result = %{
-      "runId" => "run-browser",
+    selected_target = %{
       "profileId" => request["profileId"],
-      "modelId" => request["modelId"] || "model-browser",
       "provider" => "openai",
-      "apiInferenceType" => "responses",
-      "providerBaseUrl" => "https://provider.example.test/v1",
+      "protocol" => "responses",
+      "endpoint" => "https://provider.example.test/v1",
+      "modelId" => request["modelId"] || "model-browser"
+    }
+
+    producer = Map.put(selected_target, "protocol", "openai.responses")
+
+    usage = %{
+      "inputTokens" => 4,
+      "cacheReadTokens" => 0,
+      "cacheCreationTokens" => 0,
+      "outputTokens" => 3,
+      "reasoningTokens" => 0,
+      "promptTokens" => 4,
+      "completionTokens" => 3,
+      "totalTokens" => 7,
+      "status" => "complete"
+    }
+
+    exact_cost = %{
+      "knownSubtotalUsd" => 0.0,
+      "status" => "exact",
+      "source" => "fixture",
+      "knownObservations" => 1,
+      "unknownObservations" => 0
+    }
+
+    {cache, next_cache_entries} = cache_facts(request, cache_entries)
+    cache_hit? = cache["served"]
+
+    provider_ledger =
+      if cache_hit? do
+        %{
+          "usage" => %{
+            "inputTokens" => 0,
+            "cacheReadTokens" => 0,
+            "cacheCreationTokens" => 0,
+            "outputTokens" => 0,
+            "reasoningTokens" => 0,
+            "promptTokens" => 0,
+            "completionTokens" => 0,
+            "totalTokens" => 0,
+            "status" => "unavailable"
+          },
+          "cost" => %{
+            "knownSubtotalUsd" => 0.0,
+            "status" => "unavailable",
+            "source" => "",
+            "knownObservations" => 0,
+            "unknownObservations" => 0
+          }
+        }
+      else
+        %{"usage" => usage, "cost" => exact_cost}
+      end
+
+    attempts =
+      if cache_hit? do
+        []
+      else
+        [
+          %{
+            "number" => 1,
+            "retryLocalNumber" => 1,
+            "profileId" => request["profileId"],
+            "target" => producer,
+            "category" => "success",
+            "httpStatus" => 200,
+            "retryable" => false,
+            "wait" => 0,
+            "duration" => 1_000_000_000,
+            "repair" => false,
+            "backupIndex" => 0,
+            "providerUsed" => true
+          }
+        ]
+      end
+
+    result = %{
+      "schemaVersion" => 2,
+      "runId" => "run-browser",
+      "status" => "succeeded",
       "callId" => "call-browser",
       "traceId" => "trace-browser",
       "output" => "deterministic browser output",
-      "usage" => %{
-        "inputTokens" => 4,
-        "cacheReadTokens" => 0,
-        "cacheCreationTokens" => 0,
-        "outputTokens" => 3,
-        "reasoningTokens" => 0,
-        "totalTokens" => 7
+      "selectedTarget" => selected_target,
+      "resultSource" =>
+        if(cache_hit?,
+          do: %{"kind" => "cache", "producer" => producer},
+          else: %{"kind" => "provider", "attemptNumber" => 1, "producer" => producer}
+        ),
+      "accounting" => %{
+        "result" => %{"usage" => usage, "cost" => exact_cost},
+        "provider" => provider_ledger
       },
-      "cost" => %{"totalUsd" => 0.0, "known" => true, "source" => "fixture"},
-      "attempts" => [%{"profileId" => "BrowserProfile", "outcome" => "success"}],
+      "attempts" => attempts,
+      "cache" => cache,
       "artifacts" => [],
+      "providerInvoked" => not cache_hit?,
       "totalCallDurationMs" => 1_000,
       "totalWaitMs" => 0,
       "overBudgetMs" => 0,
       "usedRepair" => false
     }
 
-    {cache, next_cache_entries} = cache_facts(request, cache_entries)
-    {Map.put(result, "cache", cache), next_cache_entries}
+    {result, next_cache_entries}
   end
 
   defp cache_facts(request, cache_entries) do
@@ -383,31 +463,42 @@ defmodule HardenLlmWeb.BrowserBackend do
   end
 
   defp stats(history) do
-    usage = Enum.map(history, &(get_in(&1, ["result", "usage"]) || %{}))
-    known = Enum.filter(history, &(get_in(&1, ["result", "cost", "known"]) == true))
+    result_usage = Enum.map(history, &get_in(&1, ["result", "accounting", "result", "usage"]))
+
+    provider_usage =
+      Enum.map(history, &get_in(&1, ["result", "accounting", "provider", "usage"]))
+
     cached = Enum.filter(history, &(get_in(&1, ["result", "cache", "served"]) == true))
+    provider_count = Enum.count(history, &get_in(&1, ["result", "providerInvoked"]))
     durations = Enum.map(history, &(get_in(&1, ["result", "totalCallDurationMs"]) || 0))
     over_budget = Enum.map(history, &(get_in(&1, ["result", "overBudgetMs"]) || 0))
 
     %{
+      "schemaVersion" => 2,
       "totalCount" => length(history),
       "successCount" => Enum.count(history, &(&1["status"] == "succeeded")),
       "failureCount" => Enum.count(history, &(&1["status"] == "failed")),
       "timeoutCount" => Enum.count(history, &(&1["status"] == "timeout")),
-      "totalPromptTokens" =>
-        sum_usage(usage, "inputTokens") + sum_usage(usage, "cacheReadTokens") +
-          sum_usage(usage, "cacheCreationTokens"),
-      "cacheReadTokens" => sum_usage(usage, "cacheReadTokens"),
-      "cacheCreationTokens" => sum_usage(usage, "cacheCreationTokens"),
-      "totalOutputTokens" =>
-        sum_usage(usage, "outputTokens") + sum_usage(usage, "reasoningTokens"),
-      "reasoningTokens" => sum_usage(usage, "reasoningTokens"),
-      "totalTokens" => sum_usage(usage, "totalTokens"),
-      "totalCost" => sum_cost(known),
-      "cachedCost" => cached |> Enum.filter(&(&1 in known)) |> sum_cost(),
-      "cachedCount" => length(cached),
-      "knownCostCount" => length(known),
-      "unknownCostCount" => length(history) - length(known),
+      "resultAccounting" => %{
+        "usage" => usage_stats(result_usage, length(history), 0),
+        "cost" => exact_cost_stats(length(history))
+      },
+      "providerAccounting" => %{
+        "usage" => usage_stats(provider_usage, provider_count, length(history) - provider_count),
+        "cost" => %{
+          "knownSubtotalUsd" => 0.0,
+          "coverage" => %{
+            "exact" => provider_count,
+            "partial" => 0,
+            "unknown" => 0,
+            "unavailable" => length(history) - provider_count
+          }
+        }
+      },
+      "cached" => %{
+        "count" => length(cached),
+        "cost" => exact_cost_stats(length(cached))
+      },
       "totalCallDurationMs" => Enum.sum(durations),
       "maxCallDurationMs" => Enum.max(durations, fn -> 0 end),
       "overBudgetCount" => Enum.count(over_budget, &(&1 > 0)),
@@ -417,8 +508,28 @@ defmodule HardenLlmWeb.BrowserBackend do
 
   defp sum_usage(usage, key), do: Enum.sum(Enum.map(usage, &(&1[key] || 0)))
 
-  defp sum_cost(history) do
-    Enum.sum(Enum.map(history, &(get_in(&1, ["result", "cost", "totalUsd"]) || 0)))
+  defp usage_stats(usage, complete, unavailable) do
+    %{
+      "promptTokens" => sum_usage(usage, "promptTokens"),
+      "cacheReadTokens" => sum_usage(usage, "cacheReadTokens"),
+      "cacheCreationTokens" => sum_usage(usage, "cacheCreationTokens"),
+      "outputTokens" => sum_usage(usage, "outputTokens"),
+      "reasoningTokens" => sum_usage(usage, "reasoningTokens"),
+      "totalTokens" => sum_usage(usage, "totalTokens"),
+      "coverage" => %{
+        "complete" => complete,
+        "partial" => 0,
+        "unavailable" => unavailable,
+        "inconsistent" => 0
+      }
+    }
+  end
+
+  defp exact_cost_stats(count) do
+    %{
+      "knownSubtotalUsd" => 0.0,
+      "coverage" => %{"exact" => count, "partial" => 0, "unknown" => 0, "unavailable" => 0}
+    }
   end
 
   defp public_route?(%{method: "POST", path_info: ["api", "v1", "auth", "login"]}), do: true

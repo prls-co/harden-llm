@@ -4,6 +4,7 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
   import Phoenix.LiveViewTest
 
   alias HardenLlmWeb.LlmTraceComponents
+  alias Phoenix.LiveView.AsyncResult
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-036
 
@@ -54,7 +55,7 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
     assert html =~ "Profile:</strong> Primary"
     assert html =~ "Provider:</strong> openai"
     assert html =~ "API inference type:</strong> responses"
-    assert html =~ "Provider base URL:</strong> https://provider.example.test/v1"
+    assert html =~ "Selected endpoint:</strong> https://provider.example.test/v1"
     assert html =~ "Success (200)"
     assert html =~ "120ms"
     assert html =~ ~s(href="/traces/trace-1")
@@ -143,16 +144,17 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
     html =
       render_component(&LlmTraceComponents.llm_stats_summary/1,
         id: "stats-widget",
-        stats: %{
-          "success" => 0,
-          "known_cost" => "$0.0000",
-          "cached_cost" => "$0.0000",
-          "cached_count" => 0,
-          "average_duration" => nil,
-          "max_duration" => 0,
-          "over_budget_count" => 0,
-          "max_over_budget" => 0
-        },
+        stats:
+          AsyncResult.ok(%{
+            "success" => 0,
+            "result_known_cost" => "$0.0000",
+            "cached_cost" => "$0.0000",
+            "cached_count" => 0,
+            "average_duration" => nil,
+            "max_duration" => 0,
+            "over_budget_count" => 0,
+            "max_over_budget" => 0
+          }),
         navigate: "/history"
       )
 
@@ -168,11 +170,69 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
     atom_key_html =
       render_component(&LlmTraceComponents.llm_stats_summary/1,
         id: "atom-stats-widget",
-        stats: %{success: 2, total_tokens: 7, average_duration: 125}
+        stats: AsyncResult.ok(%{success: 2, result_total_tokens: 7, average_duration: 125})
       )
 
     assert atom_key_html =~ ">2</dd>"
     assert atom_key_html =~ ">7</dd>"
     assert atom_key_html =~ ">125</dd>"
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-061
+  test "renders loading, unavailable, and stale aggregate resource states without zero defaults" do
+    loading =
+      render_component(&LlmTraceComponents.llm_stats_summary/1,
+        id: "loading-stats",
+        stats: AsyncResult.loading()
+      )
+
+    assert loading =~ "Loading aggregate diagnostics"
+    refute loading =~ "Result known subtotal"
+
+    unavailable =
+      render_component(&LlmTraceComponents.llm_stats_summary/1,
+        id: "failed-stats",
+        stats: AsyncResult.loading() |> AsyncResult.failed(:unavailable)
+      )
+
+    assert unavailable =~ "temporarily unavailable"
+    refute unavailable =~ "$0.0000"
+
+    stale =
+      AsyncResult.ok(%{runs: 2, result_known_cost: "$0.0042"})
+      |> AsyncResult.failed(:unavailable)
+
+    stale_html =
+      render_component(&LlmTraceComponents.llm_stats_summary/1,
+        id: "stale-stats",
+        stats: stale
+      )
+
+    assert stale_html =~ "Showing the last successful snapshot"
+    assert stale_html =~ "$0.0042"
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-062
+  test "derives every DOM id from the component instance" do
+    html =
+      for id <- ["trace-a", "trace-b"] do
+        render_component(&LlmTraceComponents.llm_trace/1,
+          id: id,
+          summary: %{
+            "trace_id" => id,
+            "metrics" => [%{"key" => "cache-status", "value" => "💾"}]
+          },
+          details: %{"trace_id" => id, "attempts" => []},
+          details_event: "toggle-details",
+          resource_event: "toggle-resource"
+        )
+      end
+      |> Enum.join()
+
+    for id <- ["trace-a", "trace-b"] do
+      assert html =~ ~s(id="#{id}-cache-status")
+      assert html =~ ~s(id="#{id}-details-toggle")
+      assert html =~ ~s(id="#{id}-copy-curl")
+    end
   end
 end
