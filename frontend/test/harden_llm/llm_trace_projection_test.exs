@@ -172,4 +172,62 @@ defmodule HardenLlm.LlmTraceProjectionTest do
              "result_cost_status" => nil
            } = LlmTraceProjection.details(legacy)
   end
+
+  test "production-shaped retained v1 failures remain readable without relaxing v2" do
+    legacy_failure = %{
+      "runId" => "run-retained-failure",
+      "callId" => "",
+      "traceId" => "trace-retained-failure",
+      "output" => nil,
+      "usage" => %{
+        "inputTokens" => 0,
+        "cacheReadTokens" => 0,
+        "cacheCreationTokens" => 0,
+        "outputTokens" => 0,
+        "reasoningTokens" => 0,
+        "totalTokens" => 0
+      },
+      "cost" => %{"totalUsd" => 0, "known" => false, "source" => ""},
+      "attempts" => nil,
+      "cache" => %{"mode" => "", "status" => "", "served" => false, "written" => false},
+      "artifacts" => []
+    }
+
+    history = %{
+      "items" => [
+        %{
+          "runId" => "run-retained-failure",
+          "profileId" => "Primary",
+          "traceId" => "trace-retained-failure",
+          "status" => "failed",
+          "request" => %{"profileId" => "Primary"},
+          "result" => legacy_failure,
+          "startedAt" => "2026-07-13T12:00:00Z",
+          "completedAt" => "2026-07-13T12:00:01Z"
+        }
+      ]
+    }
+
+    assert {:ok, ^history} = LlmDiagnosticsWire.decode("listHistory", history)
+    assert LlmTraceProjection.cache_status_label(legacy_failure) == "Unknown"
+    assert LlmTraceProjection.attempt_count(legacy_failure) == 0
+
+    retained_trace =
+      legacy_failure
+      |> Map.put("schemaVersion", 1)
+      |> Map.put("status", "failed")
+      |> Map.put("profileId", "Primary")
+      |> Map.put("providerInvoked", false)
+
+    trace =
+      APIFixtures.trace()
+      |> Map.put("traceId", "trace-retained-failure")
+      |> Map.put("record", retained_trace)
+
+    assert {:ok, ^trace} = LlmDiagnosticsWire.decode("getTrace", trace)
+    assert LlmTraceProjection.details(retained_trace)["provider_invoked"] == false
+
+    malformed = put_in(history, ["items", Access.at(0), "result", "cache", "served"], true)
+    assert {:error, :malformed_diagnostics} = LlmDiagnosticsWire.decode("listHistory", malformed)
+  end
 end

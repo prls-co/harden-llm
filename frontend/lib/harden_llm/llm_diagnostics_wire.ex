@@ -8,7 +8,7 @@ defmodule HardenLlm.LlmDiagnosticsWire do
   """
 
   @run_keys ~w(schemaVersion runId status output callId traceId selectedTarget resultSource accounting attempts cache artifacts providerInvoked totalCallDurationMs totalWaitMs overBudgetMs usedRepair)
-  @legacy_run_keys ~w(schemaVersion runId profileId modelId provider apiInferenceType providerBaseUrl callId traceId output usage cost attempts cache artifacts totalCallDurationMs totalWaitMs overBudgetMs usedRepair status category statusCode lastErrorCategory lastErrorStatus httpStatus outcome totalAttempts)
+  @legacy_run_keys ~w(schemaVersion runId profileId modelId provider apiInferenceType providerBaseUrl callId traceId output usage cost attempts cache artifacts providerInvoked totalCallDurationMs totalWaitMs overBudgetMs usedRepair status category statusCode lastErrorCategory lastErrorStatus httpStatus outcome totalAttempts)
   @attempt_keys ~w(number retryLocalNumber profileId target category httpStatus code type providerRequestId retryable wait duration repair backupIndex providerUsed)
   @legacy_attempt_keys ~w(number attempt profileId category outcome httpStatus status statusCode code type providerRequestId retryable delayMs waitMs wait durationMs duration repair usedRepair backupIndex providerUsed)
   @target_keys ~w(profileId provider protocol endpoint modelId)
@@ -53,7 +53,7 @@ defmodule HardenLlm.LlmDiagnosticsWire do
     with :ok <- subset_keys(value, @legacy_run_keys),
          :ok <- optional(value, "schemaVersion", &enum(&1, [1])),
          :ok <- optional(value, "runId", &identifier/1),
-         :ok <- optional(value, "callId", &identifier/1),
+         :ok <- optional(value, "callId", &legacy_identifier/1),
          :ok <- optional(value, "traceId", &identifier/1),
          :ok <-
            optional(
@@ -72,10 +72,11 @@ defmodule HardenLlm.LlmDiagnosticsWire do
              ~w(statusCode lastErrorStatus httpStatus totalAttempts totalCallDurationMs totalWaitMs overBudgetMs)
            ),
          :ok <- optional(value, "usedRepair", &boolean/1),
+         :ok <- optional(value, "providerInvoked", &boolean/1),
          :ok <- optional(value, "usage", &legacy_usage/1),
          :ok <- optional(value, "cost", &legacy_cost/1),
          :ok <- optional(value, "attempts", &legacy_attempts/1),
-         :ok <- optional(value, "cache", &cache/1),
+         :ok <- optional(value, "cache", &legacy_cache/1),
          :ok <- optional(value, "artifacts", &legacy_artifacts/1) do
       {:ok, value}
     else
@@ -523,7 +524,26 @@ defmodule HardenLlm.LlmDiagnosticsWire do
     end)
   end
 
+  # Retained v1 failures serialized a nil Go slice when no provider attempt was
+  # produced. It is the historical zero-attempt representation, not an unknown
+  # current-schema shape.
+  defp legacy_attempts(nil), do: :ok
   defp legacy_attempts(_values), do: :error
+
+  # The first v1 writer persisted the zero value of CacheResult when execution
+  # failed before cache setup. Keep this one exact sentinel readable; all other
+  # retained cache values must satisfy the normal cache contract.
+  defp legacy_cache(
+         %{
+           "mode" => "",
+           "status" => "",
+           "served" => false,
+           "written" => false
+         } = value
+       ),
+       do: exact_keys(value, ~w(mode status served written))
+
+  defp legacy_cache(value), do: cache(value)
 
   defp trace_observations(values) when is_list(values) do
     values
@@ -616,6 +636,8 @@ defmodule HardenLlm.LlmDiagnosticsWire do
 
   defp identifier(value) when is_binary(value) and byte_size(value) in 1..256, do: :ok
   defp identifier(_value), do: :error
+  defp legacy_identifier(""), do: :ok
+  defp legacy_identifier(value), do: identifier(value)
   defp nullable_cursor(nil), do: :ok
   defp nullable_cursor(value), do: nonempty_text(value)
   defp nonempty_text(value) when is_binary(value) and byte_size(value) in 1..2048, do: :ok

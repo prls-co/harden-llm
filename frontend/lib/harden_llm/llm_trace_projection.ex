@@ -79,7 +79,7 @@ defmodule HardenLlm.LlmTraceProjection do
       "producer_provider" => text([producer["provider"]]),
       "producer_protocol" => text([producer["protocol"]]),
       "producer_endpoint" => text([producer["endpoint"]]),
-      "provider_invoked" => if(v2?(result), do: result["providerInvoked"], else: nil),
+      "provider_invoked" => captured_boolean(result["providerInvoked"]),
       "result_usage_status" => get_in(accounting, ["result", "usage", "status"]),
       "provider_usage_status" => get_in(accounting, ["provider", "usage", "status"]),
       "result_cost_status" => get_in(accounting, ["result", "cost", "status"]),
@@ -246,7 +246,8 @@ defmodule HardenLlm.LlmTraceProjection do
 
     cond do
       cache["served"] == true or cache["status"] == "hit" -> "hit"
-      cache["mode"] == "off" or cache["status"] in [nil, "", "disabled", "skipped"] -> "disabled"
+      cache["mode"] in [nil, ""] and cache["status"] in [nil, ""] -> "unknown"
+      cache["mode"] == "off" or cache["status"] in ["disabled", "skipped"] -> "disabled"
       cache["status"] == "miss" -> "miss"
       cache["status"] == "refresh" -> "refresh"
       cache["written"] == true -> "written"
@@ -446,6 +447,9 @@ defmodule HardenLlm.LlmTraceProjection do
   end
 
   defp raw_attempts(result), do: if(is_list(result["attempts"]), do: result["attempts"], else: [])
+
+  defp captured_boolean(value) when is_boolean(value), do: value
+  defp captured_boolean(_value), do: nil
 
   defp milliseconds(value, _nanoseconds) when is_integer(value), do: value
 

@@ -1321,7 +1321,7 @@ components:
         traceId: {$ref: "#/components/schemas/Identifier"}
         status: {type: string, enum: [succeeded, failed, timeout]}
         request: {type: object}
-        result: {type: object}
+        result: {$ref: "#/components/schemas/ReadableRunResult"}
         startedAt: {type: string, format: date-time}
         completedAt: {type: string, format: date-time}
     HistoryEnvelope:
@@ -1596,6 +1596,120 @@ components:
         version: {type: string, maxLength: 64}
         served: {type: boolean}
         written: {type: boolean}
+    RetainedUsage:
+      type: object
+      description: Usage fields captured by the retired v1 writer; omitted fields were not captured.
+      additionalProperties: false
+      properties:
+        inputTokens: {type: integer, minimum: 0}
+        cacheReadTokens: {type: integer, minimum: 0}
+        cacheCreationTokens: {type: integer, minimum: 0}
+        outputTokens: {type: integer, minimum: 0}
+        reasoningTokens: {type: integer, minimum: 0}
+        totalTokens: {type: integer, minimum: 0}
+    RetainedCost:
+      type: object
+      description: Cost fields captured by the retired v1 writer; known false never implies a zero-dollar cost.
+      additionalProperties: false
+      properties:
+        totalUsd: {type: number, minimum: 0}
+        known: {type: boolean}
+        source: {type: string}
+    RetainedAttempt:
+      type: object
+      additionalProperties: false
+      properties:
+        number: {type: integer, minimum: 0}
+        attempt: {type: integer, minimum: 0}
+        profileId: {type: string}
+        category: {type: string}
+        outcome: {type: string}
+        httpStatus: {type: integer, minimum: 0}
+        status: {type: integer, minimum: 0}
+        statusCode: {type: integer, minimum: 0}
+        code: {type: string}
+        type: {type: string}
+        providerRequestId: {type: string}
+        retryable: {type: boolean}
+        delayMs: {type: integer, minimum: 0}
+        waitMs: {type: integer, minimum: 0}
+        wait: {type: integer, minimum: 0}
+        durationMs: {type: integer, minimum: 0}
+        duration: {type: integer, minimum: 0}
+        repair: {type: boolean}
+        usedRepair: {type: boolean}
+        backupIndex: {type: integer, minimum: 0}
+        providerUsed: {type: boolean}
+    RetainedCacheResult:
+      description: A valid v1 cache result or the exact zero-value sentinel emitted before cache setup.
+      oneOf:
+        - $ref: "#/components/schemas/CacheResult"
+        - type: object
+          additionalProperties: false
+          required: [mode, status, served, written]
+          properties:
+            mode: {type: string, const: ""}
+            status: {type: string, const: ""}
+            served: {type: boolean, const: false}
+            written: {type: boolean, const: false}
+    RetainedRunArtifact:
+      type: object
+      additionalProperties: false
+      required: [artifactId, kind, sha256, sizeBytes, contentType]
+      properties:
+        artifactId: {$ref: "#/components/schemas/Identifier"}
+        kind: {type: string, enum: [trace, parse-failure-response, diagnostic-event]}
+        state: {type: string, enum: [available, deleting, unavailable]}
+        sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
+        sizeBytes: {type: integer, minimum: 1}
+        contentType: {type: string, const: application/json}
+    RetainedRunResult:
+      type: object
+      description: >-
+        Bounded read-only contract for records emitted by the retired v1 writer.
+        Missing and zero-value fields remain unavailable; clients must not infer
+        current identity or accounting facts from mutable configuration.
+      additionalProperties: false
+      properties:
+        schemaVersion: {type: integer, const: 1}
+        runId: {$ref: "#/components/schemas/Identifier"}
+        profileId: {type: string}
+        modelId: {type: string}
+        provider: {type: string}
+        apiInferenceType: {type: string}
+        providerBaseUrl: {type: string}
+        callId:
+          anyOf:
+            - $ref: "#/components/schemas/Identifier"
+            - type: string
+              const: ""
+        traceId: {$ref: "#/components/schemas/Identifier"}
+        output: {}
+        usage: {$ref: "#/components/schemas/RetainedUsage"}
+        cost: {$ref: "#/components/schemas/RetainedCost"}
+        attempts:
+          anyOf:
+            - type: array
+              maxItems: 10
+              items: {$ref: "#/components/schemas/RetainedAttempt"}
+            - type: "null"
+        cache: {$ref: "#/components/schemas/RetainedCacheResult"}
+        artifacts:
+          type: array
+          items: {$ref: "#/components/schemas/RetainedRunArtifact"}
+        providerInvoked: {type: boolean}
+        totalCallDurationMs: {type: integer, minimum: 0}
+        totalWaitMs: {type: integer, minimum: 0}
+        overBudgetMs: {type: integer, minimum: 0}
+        usedRepair: {type: boolean}
+        status: {type: string, enum: [succeeded, failed, timeout, success, failure, error]}
+        category: {type: string}
+        statusCode: {type: integer, minimum: 0}
+        lastErrorCategory: {type: string}
+        lastErrorStatus: {type: integer, minimum: 0}
+        httpStatus: {type: integer, minimum: 0}
+        outcome: {type: string}
+        totalAttempts: {type: integer, minimum: 0}
     RunArtifact:
       type: object
       additionalProperties: false
@@ -1634,6 +1748,11 @@ components:
         totalWaitMs: {type: integer, minimum: 0, description: Sum of retry waits in milliseconds.}
         overBudgetMs: {type: integer, minimum: 0, description: Amount by which an explicit per-run timeout budget was exceeded.}
         usedRepair: {type: boolean, description: Whether structured-output repair was used.}
+    ReadableRunResult:
+      description: Current schema v2 or one bounded retained v1 record on read-only history and trace routes.
+      oneOf:
+        - $ref: "#/components/schemas/RunResult"
+        - $ref: "#/components/schemas/RetainedRunResult"
     RunState:
       type: object
       additionalProperties: false
@@ -1683,7 +1802,7 @@ components:
       required: [traceId, record, observations, artifacts, resources]
       properties:
         traceId: {$ref: "#/components/schemas/Identifier"}
-        record: {type: object}
+        record: {$ref: "#/components/schemas/ReadableRunResult"}
         observations:
           type: array
           items: {$ref: "#/components/schemas/TraceObservation"}
