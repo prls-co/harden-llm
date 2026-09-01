@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	defaultCacheVersion = "v1"
+	defaultCacheVersion = "operation-v2"
 	maximumRunAttempts  = 10
 	persistenceTimeout  = 5 * time.Second
 )
@@ -63,24 +63,23 @@ type RunArtifact struct {
 }
 
 type RunOutput struct {
-	RunID               string                `json:"runId"`
-	ProfileID           string                `json:"profileId"`
-	ModelID             string                `json:"modelId"`
-	Provider            string                `json:"provider"`
-	APIInferenceType    string                `json:"apiInferenceType"`
-	ProviderBaseURL     string                `json:"providerBaseUrl"`
-	Output              any                   `json:"output"`
-	CallID              string                `json:"callId"`
-	TraceID             string                `json:"traceId"`
-	Usage               hardenllm.Usage       `json:"usage"`
-	Cost                hardenllm.Cost        `json:"cost"`
-	Attempts            []hardenllm.Attempt   `json:"attempts"`
-	Cache               hardenllm.CacheResult `json:"cache"`
-	Artifacts           []RunArtifact         `json:"artifacts"`
-	TotalCallDurationMs int64                 `json:"totalCallDurationMs"`
-	TotalWaitMs         int64                 `json:"totalWaitMs"`
-	OverBudgetMs        int64                 `json:"overBudgetMs"`
-	UsedRepair          bool                  `json:"usedRepair"`
+	SchemaVersion       int                       `json:"schemaVersion"`
+	RunID               string                    `json:"runId"`
+	Status              string                    `json:"status"`
+	Output              any                       `json:"output"`
+	CallID              string                    `json:"callId"`
+	TraceID             string                    `json:"traceId"`
+	SelectedTarget      hardenllm.ExecutionTarget `json:"selectedTarget"`
+	ResultSource        hardenllm.ResultSource    `json:"resultSource"`
+	Accounting          hardenllm.Accounting      `json:"accounting"`
+	Attempts            []hardenllm.Attempt       `json:"attempts"`
+	Cache               hardenllm.CacheResult     `json:"cache"`
+	Artifacts           []RunArtifact             `json:"artifacts"`
+	ProviderInvoked     bool                      `json:"providerInvoked"`
+	TotalCallDurationMs int64                     `json:"totalCallDurationMs"`
+	TotalWaitMs         int64                     `json:"totalWaitMs"`
+	OverBudgetMs        int64                     `json:"overBudgetMs"`
+	UsedRepair          bool                      `json:"usedRepair"`
 }
 
 type RunState struct {
@@ -238,23 +237,18 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 	}
 	usedRepair := attemptsUsedRepair(result.Attempts)
 	output = RunOutput{
-		RunID: runID, ProfileID: input.ProfileID, ModelID: profile.ModelID, Provider: profile.Provider,
-		APIInferenceType: profile.APIInferenceType, ProviderBaseURL: profile.BaseURL,
+		SchemaVersion: 2, RunID: runID, Status: status,
 		Output: result.Output, CallID: result.CallID, TraceID: traceID,
-		Usage: result.Usage, Cost: result.Cost, Attempts: append([]hardenllm.Attempt(nil), result.Attempts...),
-		Cache: result.Cache, Artifacts: artifacts, TotalCallDurationMs: totalCallDurationMs,
-		TotalWaitMs: totalWaitMs, OverBudgetMs: overBudgetMs, UsedRepair: usedRepair,
+		SelectedTarget: result.SelectedTarget, ResultSource: result.ResultSource, Accounting: result.Accounting,
+		Attempts: append([]hardenllm.Attempt(nil), result.Attempts...),
+		Cache:    result.Cache, Artifacts: artifacts, TotalCallDurationMs: totalCallDurationMs,
+		ProviderInvoked: attemptsInvokedProvider(result.Attempts),
+		TotalWaitMs:     totalWaitMs, OverBudgetMs: overBudgetMs, UsedRepair: usedRepair,
 	}
 	requestDocument, _ := json.Marshal(input)
 	resultDocument, _ := json.Marshal(output)
 	traceDocument, _ := json.Marshal(map[string]any{
-		"schemaVersion": 1, "runId": runID, "callId": result.CallID, "traceId": traceID,
-		"status": status, "profileId": input.ProfileID, "modelId": profile.ModelID,
-		"provider": profile.Provider, "apiInferenceType": profile.APIInferenceType,
-		"providerBaseUrl": profile.BaseURL, "output": result.Output,
-		"usage": result.Usage, "cost": result.Cost, "attempts": result.Attempts, "cache": result.Cache,
-		"totalCallDurationMs": totalCallDurationMs, "totalWaitMs": totalWaitMs, "overBudgetMs": overBudgetMs,
-		"usedRepair": usedRepair, "providerInvoked": len(result.Attempts) > 0,
+		"schemaVersion": 2, "runId": runID, "traceId": traceID,
 	})
 	observations := runObservations(ownerID, traceID, result.Attempts, completedAt)
 	persistContext, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), persistenceTimeout)
@@ -262,8 +256,9 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 	persistContext, endPersistence := service.telemetry.StartPersistence(persistContext, "postgres", OperationTracePersistence)
 	persistErr := service.store.SaveExecution(persistContext, postgres.RunRecord{
 		OwnerID: ownerID, ID: runID, ProfileID: input.ProfileID, TraceID: traceID, Status: status,
-		Request: requestDocument, Result: resultDocument, StartedAt: startedAt, CompletedAt: completedAt,
-	}, postgres.TraceRecord{OwnerID: ownerID, TraceID: traceID, Record: traceDocument, CreatedAt: startedAt, UpdatedAt: completedAt}, observations, artifactRecords)
+		Request: requestDocument, Result: resultDocument, Execution: executionFields(result, output),
+		StartedAt: startedAt, CompletedAt: completedAt,
+	}, postgres.TraceRecord{OwnerID: ownerID, TraceID: traceID, RunID: runID, Record: traceDocument, CreatedAt: startedAt, UpdatedAt: completedAt}, observations, artifactRecords)
 	if persistErr != nil && len(artifactRecords) > 0 {
 		cleanupUploadedArtifacts(ctx, artifactStore, artifactRecords, service.logger)
 	}
@@ -276,6 +271,46 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 		return RunOutput{}, state, errors.New("gateway: persist completed run")
 	}
 	return output, state, nil
+}
+
+func executionFields(result hardenllm.Result, output RunOutput) *postgres.ExecutionFields {
+	producer := hardenllm.ExecutionTarget{}
+	if result.ResultSource.Producer != nil {
+		producer = *result.ResultSource.Producer
+	}
+	return &postgres.ExecutionFields{
+		SchemaVersion:    2,
+		SelectedProvider: result.SelectedTarget.Provider, SelectedProtocol: result.SelectedTarget.Protocol,
+		SelectedEndpoint: result.SelectedTarget.Endpoint, SelectedModelID: result.SelectedTarget.ModelID,
+		ResultSource:      string(result.ResultSource.Kind),
+		ProducerProfileID: producer.ProfileID, ProducerProvider: producer.Provider,
+		ProducerProtocol: producer.Protocol, ProducerEndpoint: producer.Endpoint,
+		ProducerModelID: producer.ModelID,
+		ProviderInvoked: output.ProviderInvoked,
+		ResultUsage: postgres.UsageFields{
+			Status:      result.Accounting.Result.Usage.Status,
+			InputTokens: result.Accounting.Result.Usage.InputTokens, CacheReadTokens: result.Accounting.Result.Usage.CacheReadTokens,
+			CacheCreationTokens: result.Accounting.Result.Usage.CacheCreationTokens,
+			OutputTokens:        result.Accounting.Result.Usage.OutputTokens, ReasoningTokens: result.Accounting.Result.Usage.ReasoningTokens,
+		},
+		ProviderUsage: postgres.UsageFields{
+			Status:      result.Accounting.Provider.Usage.Status,
+			InputTokens: result.Accounting.Provider.Usage.InputTokens, CacheReadTokens: result.Accounting.Provider.Usage.CacheReadTokens,
+			CacheCreationTokens: result.Accounting.Provider.Usage.CacheCreationTokens,
+			OutputTokens:        result.Accounting.Provider.Usage.OutputTokens, ReasoningTokens: result.Accounting.Provider.Usage.ReasoningTokens,
+		},
+		ResultCost: postgres.CostFields{
+			Status: result.Accounting.Result.Cost.Status, KnownSubtotalUSD: result.Accounting.Result.Cost.KnownSubtotalUSD,
+			KnownObservations:   result.Accounting.Result.Cost.KnownObservations,
+			UnknownObservations: result.Accounting.Result.Cost.UnknownObservations,
+		},
+		ProviderCost: postgres.CostFields{
+			Status: result.Accounting.Provider.Cost.Status, KnownSubtotalUSD: result.Accounting.Provider.Cost.KnownSubtotalUSD,
+			KnownObservations:   result.Accounting.Provider.Cost.KnownObservations,
+			UnknownObservations: result.Accounting.Provider.Cost.UnknownObservations,
+		},
+		CacheServed: result.Cache.Served, TotalCallDurationMS: output.TotalCallDurationMs, OverBudgetMS: output.OverBudgetMs,
+	}
 }
 
 func elapsedMilliseconds(started, completed time.Time) int64 {
@@ -296,6 +331,15 @@ func attemptWaitMilliseconds(attempts []hardenllm.Attempt) int64 {
 func attemptsUsedRepair(attempts []hardenllm.Attempt) bool {
 	for _, attempt := range attempts {
 		if attempt.Repair {
+			return true
+		}
+	}
+	return false
+}
+
+func attemptsInvokedProvider(attempts []hardenllm.Attempt) bool {
+	for _, attempt := range attempts {
+		if attempt.ProviderUsed {
 			return true
 		}
 	}
@@ -367,29 +411,32 @@ func (cache *ownerCacheStore) Get(ctx context.Context, operationHash string) (ha
 		return hardenllm.CacheRecord{}, false, err
 	}
 	return hardenllm.CacheRecord{
-		SchemaVersion: 1, CacheVersion: record.Version, OperationHash: record.OperationHash,
+		SchemaVersion: 2, CacheVersion: record.Version, OperationHash: record.OperationHash,
 		Operation: record.Operation, RawProviderEnvelope: record.Envelope, ProviderResult: record.Result, CreatedAt: record.CreatedAt,
 	}, true, nil
 }
 
 func (cache *ownerCacheStore) Set(ctx context.Context, operationHash string, record hardenllm.CacheRecord) error {
 	var projection struct {
-		Usage json.RawMessage `json:"usage"`
-		Cost  json.RawMessage `json:"cost"`
+		Accounting struct {
+			Usage json.RawMessage `json:"usage"`
+			Cost  json.RawMessage `json:"cost"`
+		} `json:"accounting"`
 	}
 	if err := json.Unmarshal(record.ProviderResult, &projection); err != nil {
 		return errors.New("gateway: cached provider result is invalid")
 	}
-	if len(projection.Usage) == 0 {
-		projection.Usage = json.RawMessage(`{}`)
+	if len(projection.Accounting.Usage) == 0 {
+		projection.Accounting.Usage = json.RawMessage(`{}`)
 	}
-	if len(projection.Cost) == 0 {
-		projection.Cost = json.RawMessage(`{}`)
+	if len(projection.Accounting.Cost) == 0 {
+		projection.Accounting.Cost = json.RawMessage(`{}`)
 	}
 	now := cache.clock().UTC()
 	return cache.store.PutCache(ctx, postgres.CacheRecord{
 		OwnerID: cache.ownerID, Version: record.CacheVersion, OperationHash: operationHash,
-		Operation: record.Operation, Result: record.ProviderResult, Usage: projection.Usage, Cost: projection.Cost,
+		Operation: record.Operation, Result: record.ProviderResult,
+		Usage: projection.Accounting.Usage, Cost: projection.Accounting.Cost,
 		Envelope: record.RawProviderEnvelope, CreatedAt: record.CreatedAt, UpdatedAt: now,
 	})
 }

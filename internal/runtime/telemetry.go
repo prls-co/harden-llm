@@ -113,6 +113,8 @@ func (telemetry *Telemetry) StartCall(ctx context.Context, observation CallObser
 		attribute.String("harden_llm.profile.id", boundedSpanValue(observation.ProfileID)),
 	))
 	return ctx, func(record CallRecord, terminalErr error) {
+		provider = providerFromRecord(record, provider)
+		providerUsage := record.Accounting.Provider.Usage
 		outcome, category := outcomeAndCategory(terminalErr)
 		attributes := []attribute.KeyValue{
 			attribute.String("provider", provider), attribute.String("call_type", callType),
@@ -122,8 +124,8 @@ func (telemetry *Telemetry) StartCall(ctx context.Context, observation CallObser
 		span.SetAttributes(
 			attribute.String("harden_llm.outcome", outcome), attribute.String("error.type", category),
 			attribute.String("harden_llm.cache.outcome", boundedCacheOutcome(record.Cache.Status)),
-			attribute.Int64("gen_ai.usage.input_tokens", record.Usage.InputTokens),
-			attribute.Int64("gen_ai.usage.output_tokens", record.Usage.OutputTokens),
+			attribute.Int64("gen_ai.usage.input_tokens", providerUsage.PromptTokens()),
+			attribute.Int64("gen_ai.usage.output_tokens", providerUsage.CompletionTokens()),
 		)
 		if record.CallID != "" {
 			span.SetAttributes(attribute.String("harden_llm.call.id", boundedSpanValue(record.CallID)))
@@ -172,17 +174,18 @@ func (telemetry *Telemetry) StartProvider(ctx context.Context, profile Profile, 
 	}
 }
 
-func (telemetry *Telemetry) RetryHooks(profile Profile, callType string, policy retry.Policy) retry.Hooks {
+func (telemetry *Telemetry) RetryHooks(profile Profile, callType string, policy retry.Policy, attemptOffset int) retry.Hooks {
 	provider := providerFamily(profile.Provider, profile.APIInferenceType)
 	callType = boundedCallType(callType)
 	return retry.Hooks{
 		Attempt: func(ctx context.Context, number int, work func(context.Context) error) error {
+			globalNumber := attemptOffset + number
 			started := time.Now()
 			attemptContext, span := telemetry.tracer.Start(ctx, SpanAttempt, trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(
 				attribute.String("gen_ai.provider.name", provider),
 				attribute.String("gen_ai.request.model", boundedSpanValue(profile.ModelID)),
 				attribute.String("gen_ai.operation.name", callType),
-				attribute.Int("harden_llm.attempt.number", number),
+				attribute.Int("harden_llm.attempt.number", globalNumber),
 			))
 			err := work(attemptContext)
 			_, category := outcomeAndCategoryWithPolicy(err, policy)
@@ -272,21 +275,34 @@ func (telemetry *Telemetry) StartArtifact(ctx context.Context, kind string) (con
 
 func (telemetry *Telemetry) recordAccounting(ctx context.Context, provider, callType string, record CallRecord) {
 	base := []attribute.KeyValue{attribute.String("provider", provider), attribute.String("call_type", callType)}
+	usage := record.Accounting.Provider.Usage
 	for tokenType, value := range map[string]int64{
-		"input": record.Usage.InputTokens, "cache_read": record.Usage.CacheReadTokens,
-		"cache_creation": record.Usage.CacheCreationTokens, "output": record.Usage.OutputTokens,
-		"reasoning": record.Usage.ReasoningTokens,
+		"input": usage.InputTokens, "cache_read": usage.CacheReadTokens,
+		"cache_creation": usage.CacheCreationTokens, "output": usage.OutputTokens,
+		"reasoning": usage.ReasoningTokens,
 	} {
 		if value > 0 {
 			telemetry.tokens.Add(ctx, value, metric.WithAttributes(append(base, attribute.String("token_type", tokenType))...))
 		}
 	}
-	if record.Cost.Known && record.Cost.TotalUSD >= 0 {
-		telemetry.costUSD.Add(ctx, record.Cost.TotalUSD, metric.WithAttributes(
+	cost := record.Accounting.Provider.Cost
+	if cost.KnownObservations > 0 && cost.KnownSubtotalUSD >= 0 {
+		telemetry.costUSD.Add(ctx, cost.KnownSubtotalUSD, metric.WithAttributes(
 			attribute.String("provider", provider), attribute.String("call_type", callType),
-			attribute.String("source", boundedCostSource(record.Cost.Source)),
+			attribute.String("source", boundedCostSource(cost.Source)),
+			attribute.String("coverage", boundedCostSource(string(cost.Status))),
 		))
 	}
+}
+
+func providerFromRecord(record CallRecord, fallback string) string {
+	for index := len(record.Attempts) - 1; index >= 0; index-- {
+		attempt := record.Attempts[index]
+		if attempt.ProviderUsed {
+			return providerFamily(attempt.Target.Provider, attempt.Target.Protocol)
+		}
+	}
+	return fallback
 }
 
 func setSpanStatus(span trace.Span, err error, category string) {

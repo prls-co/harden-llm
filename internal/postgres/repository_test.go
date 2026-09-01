@@ -2,7 +2,7 @@
 
 package postgres
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-020 TEST-053
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-020 TEST-053 TEST-059
 
 import (
 	"context"
@@ -51,7 +51,7 @@ func TestRepositoryContract(t *testing.T) {
 	}
 	store := stores[0]
 	versions, err := store.AppliedMigrations(ctx)
-	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2}) {
+	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3}) {
 		t.Fatalf("migration versions = %v, %v", versions, err)
 	}
 	if err := store.Ready(ctx); err != nil {
@@ -134,7 +134,9 @@ func TestRepositoryContract(t *testing.T) {
 	atomicRun := RunRecord{
 		OwnerID: "owner-a", ID: "run-atomic", ProfileID: "profile-a", TraceID: "trace-atomic",
 		Status: "succeeded", Request: json.RawMessage(`{"prompt":"redacted"}`),
-		Result: json.RawMessage(`{"output":"ok"}`), StartedAt: now, CompletedAt: now,
+		Result:    json.RawMessage(`{"schemaVersion":2,"output":"ok"}`),
+		Execution: providerExecutionFields(1, 0, 0, 1, 0, "exact", 0.001, 1, 0, 0, 0),
+		StartedAt: now, CompletedAt: now,
 	}
 	atomicTrace := TraceRecord{
 		OwnerID: "owner-a", TraceID: "trace-atomic", Record: json.RawMessage(`{"status":"succeeded"}`),
@@ -156,8 +158,16 @@ func TestRepositoryContract(t *testing.T) {
 		t.Fatalf("failed atomic execution left a trace: %v", err)
 	}
 
-	run := RunRecord{OwnerID: "owner-a", ID: "run-a", ProfileID: "profile-a", TraceID: "trace-a", Status: "succeeded", Request: json.RawMessage(`{"prompt":"redacted"}`), Result: json.RawMessage(`{"output":"ok","usage":{"inputTokens":10,"cacheReadTokens":2,"cacheCreationTokens":3,"outputTokens":4,"reasoningTokens":5,"totalTokens":24},"cost":{"known":true,"totalUsd":0.125},"cache":{"served":true},"totalCallDurationMs":1000,"overBudgetMs":42}`), StartedAt: now, CompletedAt: now.Add(time.Second)}
-	if err := store.SaveRun(ctx, run); err != nil {
+	run := RunRecord{
+		OwnerID: "owner-a", ID: "run-a", ProfileID: "profile-a", TraceID: "trace-a", Status: "succeeded",
+		Request:   json.RawMessage(`{"prompt":"redacted"}`),
+		Result:    json.RawMessage(`{"schemaVersion":2,"output":"ok"}`),
+		Execution: cachedExecutionFields(10, 2, 3, 4, 5, 0.125, 1000, 42),
+		StartedAt: now, CompletedAt: now.Add(time.Second),
+	}
+	trace := TraceRecord{OwnerID: "owner-a", TraceID: "trace-a", RunID: "run-a", Record: json.RawMessage(`{"schemaVersion":2,"runId":"run-a","traceId":"trace-a"}`), CreatedAt: now, UpdatedAt: now}
+	observations := []ObservationRecord{{OwnerID: "owner-a", TraceID: "trace-a", Sequence: 0, Type: "attempt", Data: json.RawMessage(`{"number":1}`), CreatedAt: now}}
+	if err := store.SaveExecution(ctx, run, trace, observations, nil); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := store.Run(ctx, "owner-a", "run-a"); err != nil || got.TraceID != run.TraceID || !jsonEqual(got.Result, run.Result) {
@@ -167,12 +177,7 @@ func TestRepositoryContract(t *testing.T) {
 		t.Fatalf("cross-owner run read = %v", err)
 	}
 
-	trace := TraceRecord{OwnerID: "owner-a", TraceID: "trace-a", Record: json.RawMessage(`{"status":"success"}`), CreatedAt: now, UpdatedAt: now}
-	observations := []ObservationRecord{{OwnerID: "owner-a", TraceID: "trace-a", Sequence: 0, Type: "attempt", Data: json.RawMessage(`{"number":1}`), CreatedAt: now}}
-	if err := store.SaveTrace(ctx, trace, observations); err != nil {
-		t.Fatal(err)
-	}
-	if got, gotObservations, err := store.Trace(ctx, "owner-a", "trace-a"); err != nil || !jsonEqual(got.Record, trace.Record) || !reflect.DeepEqual(observationTypes(gotObservations), []string{"attempt"}) {
+	if got, gotObservations, err := store.Trace(ctx, "owner-a", "trace-a"); err != nil || got.RunID != "run-a" || !jsonEqual(got.Record, trace.Record) || !reflect.DeepEqual(observationTypes(gotObservations), []string{"attempt"}) {
 		t.Fatalf("trace round trip = %#v %#v, %v", got, gotObservations, err)
 	}
 	if _, _, err := store.Trace(ctx, "owner-b", "trace-a"); !errors.Is(err, ErrNotFound) {
@@ -190,11 +195,26 @@ func TestRepositoryContract(t *testing.T) {
 		t.Fatalf("cross-owner artifact read = %v", err)
 	}
 
-	failedRun := RunRecord{OwnerID: "owner-a", ID: "run-b", ProfileID: "profile-a", TraceID: "trace-b", Status: "failed", Request: json.RawMessage(`{"prompt":"redacted"}`), Result: json.RawMessage(`{"output":null,"usage":{"inputTokens":1,"cacheReadTokens":0,"cacheCreationTokens":0,"outputTokens":0,"reasoningTokens":0,"totalTokens":1},"cost":{"known":false,"totalUsd":0},"cache":{"served":false},"totalCallDurationMs":3000,"overBudgetMs":0}`), StartedAt: now, CompletedAt: now.Add(3 * time.Second)}
-	if err := store.SaveRun(ctx, failedRun); err != nil {
+	failedRun := RunRecord{
+		OwnerID: "owner-a", ID: "run-b", ProfileID: "profile-a", TraceID: "trace-b", Status: "failed",
+		Request: json.RawMessage(`{"prompt":"redacted"}`), Result: json.RawMessage(`{"schemaVersion":2,"output":null}`),
+		Execution: providerExecutionFields(1, 0, 0, 0, 0, "unknown", 0, 0, 1, 3000, 0),
+		StartedAt: now, CompletedAt: now.Add(3 * time.Second),
+	}
+	failedTrace := TraceRecord{OwnerID: "owner-a", TraceID: "trace-b", RunID: "run-b", Record: json.RawMessage(`{"schemaVersion":2,"runId":"run-b","traceId":"trace-b"}`), CreatedAt: now, UpdatedAt: now}
+	if err := store.SaveExecution(ctx, failedRun, failedTrace, nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := store.RunStats(ctx, "owner-a"); err != nil || got.TotalCount != 2 || got.SuccessCount != 1 || got.FailureCount != 1 || got.TimeoutCount != 0 || got.TotalPromptTokens != 16 || got.CacheReadTokens != 2 || got.CacheCreationTokens != 3 || got.TotalOutputTokens != 9 || got.ReasoningTokens != 5 || got.TotalTokens != 25 || got.TotalCost != 0.125 || got.CachedCost != 0.125 || got.CachedCount != 1 || got.KnownCostCount != 1 || got.UnknownCostCount != 1 || got.TotalCallDurationMS != 4000 || got.MaxCallDurationMS != 3000 || got.OverBudgetCount != 1 || got.MaxOverBudgetMS != 42 {
+	if got, err := store.RunStats(ctx, "owner-a"); err != nil ||
+		got.TotalCount != 2 || got.SuccessCount != 1 || got.FailureCount != 1 || got.TimeoutCount != 0 ||
+		got.ResultPromptTokens != 16 || got.ResultCacheReadTokens != 2 || got.ResultCacheCreationTokens != 3 ||
+		got.ResultOutputTokens != 4 || got.ResultReasoningTokens != 5 || got.ResultTotalTokens != 25 ||
+		got.ProviderPromptTokens != 1 || got.ProviderOutputTokens != 0 || got.ProviderReasoningTokens != 0 || got.ProviderTotalTokens != 1 ||
+		got.ResultKnownCostSubtotalUSD != 0.125 || got.ProviderKnownCostSubtotalUSD != 0 ||
+		got.CachedKnownCostSubtotalUSD != 0.125 || got.CachedCount != 1 ||
+		got.ResultExactCostCount != 1 || got.ResultUnknownCostCount != 1 ||
+		got.ProviderUnavailableCostCount != 1 || got.ProviderUnknownCostCount != 1 ||
+		got.TotalCallDurationMS != 4000 || got.MaxCallDurationMS != 3000 || got.OverBudgetCount != 1 || got.MaxOverBudgetMS != 42 {
 		t.Fatalf("authoritative stats = %#v, %v", got, err)
 	}
 	if got, err := store.RunStats(ctx, "owner-b"); err != nil || got.TotalCount != 0 || got.TotalCallDurationMS != 0 || got.MaxCallDurationMS != 0 {
@@ -289,4 +309,42 @@ func contains(values []string, wanted string) bool {
 		}
 	}
 	return false
+}
+
+func providerExecutionFields(input, cacheRead, cacheCreation, output, reasoning int64, costStatus string, subtotal float64, known, unknown, durationMS, overBudgetMS int64) *ExecutionFields {
+	usage := UsageFields{
+		Status: "complete", InputTokens: input, CacheReadTokens: cacheRead,
+		CacheCreationTokens: cacheCreation, OutputTokens: output, ReasoningTokens: reasoning,
+	}
+	cost := CostFields{
+		Status: costStatus, KnownSubtotalUSD: subtotal,
+		KnownObservations: known, UnknownObservations: unknown,
+	}
+	return &ExecutionFields{
+		SchemaVersion:    2,
+		SelectedProvider: "openai", SelectedProtocol: "responses",
+		SelectedEndpoint: "https://provider.example", SelectedModelID: "model-a",
+		ResultSource: "provider", ProducerProfileID: "profile-a", ProducerProvider: "openai",
+		ProducerProtocol: "openai.responses", ProducerEndpoint: "https://provider.example", ProducerModelID: "model-a",
+		ProviderInvoked: true, ResultUsage: usage, ProviderUsage: usage, ResultCost: cost, ProviderCost: cost,
+		TotalCallDurationMS: durationMS, OverBudgetMS: overBudgetMS,
+	}
+}
+
+func cachedExecutionFields(input, cacheRead, cacheCreation, output, reasoning int64, subtotal float64, durationMS, overBudgetMS int64) *ExecutionFields {
+	usage := UsageFields{
+		Status: "complete", InputTokens: input, CacheReadTokens: cacheRead,
+		CacheCreationTokens: cacheCreation, OutputTokens: output, ReasoningTokens: reasoning,
+	}
+	return &ExecutionFields{
+		SchemaVersion:    2,
+		SelectedProvider: "openai", SelectedProtocol: "responses",
+		SelectedEndpoint: "https://provider.example", SelectedModelID: "model-a",
+		ResultSource: "cache", ProducerProfileID: "profile-a", ProducerProvider: "openai",
+		ProducerProtocol: "openai.responses", ProducerEndpoint: "https://provider.example", ProducerModelID: "model-a",
+		ProviderInvoked: false, ResultUsage: usage, ProviderUsage: UsageFields{Status: "unavailable"},
+		ResultCost:   CostFields{Status: "exact", KnownSubtotalUSD: subtotal, KnownObservations: 1},
+		ProviderCost: CostFields{Status: "unavailable"}, CacheServed: true,
+		TotalCallDurationMS: durationMS, OverBudgetMS: overBudgetMS,
+	}
 }

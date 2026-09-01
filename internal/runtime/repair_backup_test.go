@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prls-co/harden-llm/internal/accounting"
 	"github.com/prls-co/harden-llm/internal/cachekey"
 	"github.com/prls-co/harden-llm/internal/retry"
 )
@@ -84,8 +85,12 @@ func TestStructuredRepair(t *testing.T) {
 		if executor.prepares != 2 || executor.executes != 2 || len(record.Attempts) != 2 || !record.Attempts[1].Repair {
 			t.Fatalf("repair counts/attempts = %d/%d/%#v", executor.prepares, executor.executes, record.Attempts)
 		}
-		if record.Usage.InputTokens != 18 || record.Usage.OutputTokens != 5 || record.Usage.TotalTokens != 23 {
-			t.Fatalf("repair usage was not accumulated: %#v", record.Usage)
+		providerUsage := record.Accounting.Provider.Usage
+		if providerUsage.InputTokens != 18 || providerUsage.OutputTokens != 5 || providerUsage.TotalTokens() != 23 {
+			t.Fatalf("repair provider usage was not accumulated: %#v", providerUsage)
+		}
+		if record.Accounting.Result.Usage.TotalTokens() != 13 || record.ResultSource.Kind != ResultSourceProvider || record.ResultSource.AttemptNumber != 2 {
+			t.Fatalf("result accounting/source = %#v / %#v", record.Accounting.Result, record.ResultSource)
 		}
 	})
 
@@ -142,16 +147,86 @@ func TestStructuredRepair(t *testing.T) {
 		if err == nil {
 			t.Fatal("terminal provider parse failure was accepted")
 		}
-		if record.Usage != (Usage{InputTokens: 7, OutputTokens: 3, TotalTokens: 10}) {
-			t.Fatalf("partial usage was lost: %#v", record.Usage)
+		if record.Accounting.Provider.Usage != completeUsage(t, 7, 0, 0, 3, 0) {
+			t.Fatalf("partial usage was lost: %#v", record.Accounting.Provider.Usage)
 		}
-		if record.Cost != (Cost{TotalUSD: 0.25, Known: true, Source: "reported"}) {
-			t.Fatalf("partial cost was lost: %#v", record.Cost)
+		if record.Accounting.Provider.Cost != accounting.ExactCost(0.25, "reported") {
+			t.Fatalf("partial cost was lost: %#v", record.Accounting.Provider.Cost)
 		}
 		if !strings.Contains(string(record.ParseFailureResponse), `"rawResponse":"not-json"`) {
 			t.Fatalf("parse failure evidence was lost: %s", record.ParseFailureResponse)
 		}
 	})
+}
+
+func TestExecutionIdentityAndGlobalAttemptBudget(t *testing.T) {
+	// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-057
+	t.Parallel()
+
+	executor := &backupIdentityExecutor{}
+	record, err := Execute(
+		context.Background(), executor,
+		func(context.Context, Profile) (Credential, error) { return Credential{}, nil },
+		"primary",
+		map[string]Profile{
+			"primary": {
+				ID: "primary", Provider: "selected-provider", APIInferenceType: "selected-protocol",
+				BaseURL: "https://selected.example/v1", ModelID: "selected-model", Backups: []string{"backup"},
+			},
+			"backup": {
+				ID: "backup", Provider: "backup-provider", APIInferenceType: "backup-protocol",
+				BaseURL: "https://backup.example/v1", ModelID: "backup-model",
+			},
+		},
+		Call{CallType: "text"},
+		retry.Config{MaxAttempts: 2, Policy: retry.Policy{Network: false, ParseError: true}},
+		nil, cachekey.ModeOff, "operation-v2", "call", "trace",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if record.SelectedTarget.ProfileID != "primary" || record.SelectedTarget.ModelID != "selected-model" {
+		t.Fatalf("selected target = %#v", record.SelectedTarget)
+	}
+	if len(record.Attempts) != 2 || record.Attempts[0].Number != 1 || record.Attempts[1].Number != 2 ||
+		record.Attempts[0].RetryLocalNumber != 1 || record.Attempts[1].RetryLocalNumber != 1 {
+		t.Fatalf("global/local attempts = %#v", record.Attempts)
+	}
+	if !record.Attempts[0].ProviderUsed || !record.Attempts[1].ProviderUsed ||
+		record.Attempts[0].Target.ModelID != "selected-model" || record.Attempts[1].Target.ModelID != "backup-model" {
+		t.Fatalf("attempt targets/lifecycle = %#v", record.Attempts)
+	}
+	if record.ResultSource.Kind != ResultSourceProvider || record.ResultSource.AttemptNumber != 2 ||
+		record.ResultSource.Producer == nil || record.ResultSource.Producer.ProfileID != "backup" || record.ResultSource.Producer.ModelID != "backup-model" {
+		t.Fatalf("result source = %#v", record.ResultSource)
+	}
+	if executor.executes != 2 || record.Accounting.Result.Usage.TotalTokens() != 3 || record.Accounting.Provider.Usage.TotalTokens() != 3 {
+		t.Fatalf("execution/accounting = %d %#v", executor.executes, record.Accounting)
+	}
+}
+
+type backupIdentityExecutor struct{ executes int }
+
+func (*backupIdentityExecutor) Prepare(_ context.Context, profile Profile, _ Credential, _ Call) (PreparedOperation, error) {
+	return PreparedOperation{Operation: cachekey.Operation{
+		SchemaVersion: cachekey.OperationSchemaVersion, Protocol: profile.APIInferenceType,
+		Endpoint: cachekey.Endpoint{Identity: profile.BaseURL, Method: "POST", Path: "/run"},
+		Model:    profile.ModelID, Payload: map[string]any{}, SemanticHeaders: map[string]any{},
+		ResponseProjection: cachekey.ResponseProjection{Provider: profile.Provider, Kind: "fixture", Version: "v1"},
+	}}, nil
+}
+
+func (executor *backupIdentityExecutor) Execute(_ context.Context, operation PreparedOperation) (ProviderResult, error) {
+	executor.executes++
+	if operation.Operation.Model == "selected-model" {
+		return ProviderResult{}, &retry.ProviderError{Code: "ECONNRESET", Err: errors.New("connection reset")}
+	}
+	return ProviderResult{
+		Output: "backup-result",
+		Accounting: Ledger{
+			Usage: completeUsageWithoutTest(2, 0, 0, 1, 0), Cost: accounting.ExactCost(0.01, "reported"),
+		},
+	}, nil
 }
 
 type repairSequenceExecutor struct {
@@ -184,12 +259,12 @@ func (executor *repairSequenceExecutor) Execute(_ context.Context, operation Pre
 				"repair": map[string]any{"explanation": "fixed type", "changes": []any{"answer is string"}},
 				"data":   map[string]any{"answer": "ok"},
 			},
-			Usage: Usage{InputTokens: 10, OutputTokens: 3, TotalTokens: 13},
+			Accounting: Ledger{Usage: completeUsageWithoutTest(10, 0, 0, 3, 0), Cost: accounting.UnavailableCost()},
 		}, nil
 	}
 	return ProviderResult{
-		Output: map[string]any{"answer": float64(42)},
-		Usage:  Usage{InputTokens: 8, OutputTokens: 2, TotalTokens: 10},
+		Output:     map[string]any{"answer": float64(42)},
+		Accounting: Ledger{Usage: completeUsageWithoutTest(8, 0, 0, 2, 0), Cost: accounting.UnavailableCost()},
 	}, nil
 }
 
@@ -209,9 +284,27 @@ func (partialFailureExecutor) Prepare(context.Context, Profile, Credential, Call
 
 func (partialFailureExecutor) Execute(context.Context, PreparedOperation) (ProviderResult, error) {
 	return ProviderResult{
-		Usage: Usage{InputTokens: 7, OutputTokens: 3, TotalTokens: 10},
-		Cost:  Cost{TotalUSD: 0.25, Known: true, Source: "reported"},
+		Accounting: Ledger{
+			Usage: completeUsageWithoutTest(7, 0, 0, 3, 0), Cost: accounting.ExactCost(0.25, "reported"),
+		},
 	}, &retry.ProviderError{Err: errors.New("invalid structured output"), Parse: true, RawResponse: "not-json"}
+}
+
+func completeUsage(t *testing.T, input, cacheRead, cacheCreation, output, reasoning int64) Usage {
+	t.Helper()
+	usage, err := accounting.CompleteUsage(input, cacheRead, cacheCreation, output, reasoning)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return usage
+}
+
+func completeUsageWithoutTest(input, cacheRead, cacheCreation, output, reasoning int64) Usage {
+	usage, err := accounting.CompleteUsage(input, cacheRead, cacheCreation, output, reasoning)
+	if err != nil {
+		panic(err)
+	}
+	return usage
 }
 
 func TestBackupProfiles(t *testing.T) {

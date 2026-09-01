@@ -3,7 +3,9 @@ package runtime
 import (
 	"context"
 	"encoding/json"
+	"time"
 
+	"github.com/prls-co/harden-llm/internal/accounting"
 	"github.com/prls-co/harden-llm/internal/cachekey"
 	"github.com/prls-co/harden-llm/internal/retry"
 )
@@ -25,13 +27,7 @@ type Profile struct {
 	Pricing                  Pricing
 }
 
-type Pricing struct {
-	Input         *float64
-	CacheRead     *float64
-	CacheCreation *float64
-	Output        *float64
-	Reasoning     *float64
-}
+type Pricing = accounting.Pricing
 
 type Credential struct {
 	APIKey  string
@@ -80,25 +76,14 @@ type PreparedOperation struct {
 	Opaque    any
 }
 
-type Usage struct {
-	InputTokens         int64 `json:"inputTokens"`
-	CacheReadTokens     int64 `json:"cacheReadTokens"`
-	CacheCreationTokens int64 `json:"cacheCreationTokens"`
-	OutputTokens        int64 `json:"outputTokens"`
-	ReasoningTokens     int64 `json:"reasoningTokens"`
-	TotalTokens         int64 `json:"totalTokens"`
-}
-
-type Cost struct {
-	TotalUSD float64 `json:"totalUsd"`
-	Known    bool    `json:"known"`
-	Source   string  `json:"source"`
-}
+type Usage = accounting.Usage
+type Cost = accounting.Cost
+type Ledger = accounting.Ledger
+type Accounting = accounting.Accounting
 
 type ProviderResult struct {
 	Output              any             `json:"output"`
-	Usage               Usage           `json:"usage"`
-	Cost                Cost            `json:"cost"`
+	Accounting          Ledger          `json:"accounting"`
 	RawProviderEnvelope json.RawMessage `json:"rawProviderEnvelope"`
 }
 
@@ -109,13 +94,54 @@ type Executor interface {
 
 type CredentialLookup func(context.Context, Profile) (Credential, error)
 
+type ExecutionTarget struct {
+	ProfileID string `json:"profileId"`
+	Provider  string `json:"provider"`
+	Protocol  string `json:"protocol"`
+	Endpoint  string `json:"endpoint"`
+	ModelID   string `json:"modelId"`
+}
+
+type AttemptRecord struct {
+	Number            int             `json:"number"`
+	RetryLocalNumber  int             `json:"retryLocalNumber"`
+	ProfileID         string          `json:"profileId"`
+	BackupIndex       int             `json:"backupIndex"`
+	Target            ExecutionTarget `json:"target"`
+	ProviderUsed      bool            `json:"providerUsed"`
+	Category          retry.Category  `json:"category,omitempty"`
+	Status            int             `json:"httpStatus,omitempty"`
+	Retryable         bool            `json:"retryable"`
+	Delay             time.Duration   `json:"wait"`
+	Duration          time.Duration   `json:"duration"`
+	Repair            bool            `json:"repair"`
+	Code              string          `json:"code,omitempty"`
+	Type              string          `json:"type,omitempty"`
+	ProviderRequestID string          `json:"providerRequestId,omitempty"`
+}
+
+type ResultSourceKind string
+
+const (
+	ResultSourceNone     ResultSourceKind = "none"
+	ResultSourceProvider ResultSourceKind = "provider"
+	ResultSourceCache    ResultSourceKind = "cache"
+)
+
+type ResultSource struct {
+	Kind          ResultSourceKind `json:"kind"`
+	AttemptNumber int              `json:"attemptNumber,omitempty"`
+	Producer      *ExecutionTarget `json:"producer,omitempty"`
+}
+
 type CallRecord struct {
 	CallID               string
 	TraceID              string
 	Output               any
-	Usage                Usage
-	Cost                 Cost
-	Attempts             []retry.Attempt
+	SelectedTarget       ExecutionTarget
+	ResultSource         ResultSource
+	Accounting           Accounting
+	Attempts             []AttemptRecord
 	RawProviderEnvelope  json.RawMessage
 	ParseFailureResponse json.RawMessage
 	PreparedOperation    PreparedOperation

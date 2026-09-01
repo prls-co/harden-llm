@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/prls-co/harden-llm/internal/accounting"
 	"github.com/prls-co/harden-llm/internal/cachekey"
 	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
 )
@@ -77,8 +78,7 @@ func TestClientCallResult(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			executor := &fixedExecutor{result: coreruntime.ProviderResult{
 				Output:              test.output,
-				Usage:               coreruntime.Usage{InputTokens: 12, OutputTokens: 3, TotalTokens: 15},
-				Cost:                coreruntime.Cost{TotalUSD: 0.0000225, Known: true, Source: "calculated"},
+				Accounting:          testLedger(12, 0, 0, 3, 0, accounting.ExactCost(0.0000225, "calculated")),
 				RawProviderEnvelope: json.RawMessage(`{"id":"fixture-response"}`),
 			}}
 			client, err := New(Options{Credentials: fixedCredentialResolver{}})
@@ -114,7 +114,7 @@ func TestClientCallResult(t *testing.T) {
 			if result.CallID != "call-fixed" || result.TraceID != "trace-fixed" {
 				t.Fatalf("unexpected IDs: %#v", result)
 			}
-			if result.Usage.TotalTokens != 15 || !result.Cost.Known || len(result.Attempts) != 1 {
+			if result.Accounting.Result.Usage.TotalTokens != 15 || result.Accounting.Result.Cost.Status != "exact" || len(result.Attempts) != 1 {
 				t.Fatalf("incomplete normalized result: %#v", result)
 			}
 			if observed.CallID != result.CallID || observed.TraceID != result.TraceID || !reflect.DeepEqual(observed.Output, result.Output) {

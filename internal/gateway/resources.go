@@ -72,25 +72,57 @@ type HistoryPage struct {
 }
 
 type StatsView struct {
-	TotalCount          int64   `json:"totalCount"`
-	SuccessCount        int64   `json:"successCount"`
-	FailureCount        int64   `json:"failureCount"`
-	TimeoutCount        int64   `json:"timeoutCount"`
-	TotalPromptTokens   int64   `json:"totalPromptTokens"`
-	CacheReadTokens     int64   `json:"cacheReadTokens"`
-	CacheCreationTokens int64   `json:"cacheCreationTokens"`
-	TotalOutputTokens   int64   `json:"totalOutputTokens"`
-	ReasoningTokens     int64   `json:"reasoningTokens"`
-	TotalTokens         int64   `json:"totalTokens"`
-	TotalCost           float64 `json:"totalCost"`
-	CachedCost          float64 `json:"cachedCost"`
-	CachedCount         int64   `json:"cachedCount"`
-	KnownCostCount      int64   `json:"knownCostCount"`
-	UnknownCostCount    int64   `json:"unknownCostCount"`
-	TotalCallDurationMS int64   `json:"totalCallDurationMs"`
-	MaxCallDurationMS   int64   `json:"maxCallDurationMs"`
-	OverBudgetCount     int64   `json:"overBudgetCount"`
-	MaxOverBudgetMS     int64   `json:"maxOverBudgetMs"`
+	SchemaVersion       int                 `json:"schemaVersion"`
+	TotalCount          int64               `json:"totalCount"`
+	SuccessCount        int64               `json:"successCount"`
+	FailureCount        int64               `json:"failureCount"`
+	TimeoutCount        int64               `json:"timeoutCount"`
+	ResultAccounting    AccountingStatsView `json:"resultAccounting"`
+	ProviderAccounting  AccountingStatsView `json:"providerAccounting"`
+	Cached              CachedStatsView     `json:"cached"`
+	TotalCallDurationMS int64               `json:"totalCallDurationMs"`
+	MaxCallDurationMS   int64               `json:"maxCallDurationMs"`
+	OverBudgetCount     int64               `json:"overBudgetCount"`
+	MaxOverBudgetMS     int64               `json:"maxOverBudgetMs"`
+}
+
+type AccountingStatsView struct {
+	Usage UsageStatsView `json:"usage"`
+	Cost  CostStatsView  `json:"cost"`
+}
+
+type UsageStatsView struct {
+	PromptTokens        int64             `json:"promptTokens"`
+	CacheReadTokens     int64             `json:"cacheReadTokens"`
+	CacheCreationTokens int64             `json:"cacheCreationTokens"`
+	OutputTokens        int64             `json:"outputTokens"`
+	ReasoningTokens     int64             `json:"reasoningTokens"`
+	TotalTokens         int64             `json:"totalTokens"`
+	Coverage            UsageCoverageView `json:"coverage"`
+}
+
+type UsageCoverageView struct {
+	Complete     int64 `json:"complete"`
+	Partial      int64 `json:"partial"`
+	Unavailable  int64 `json:"unavailable"`
+	Inconsistent int64 `json:"inconsistent"`
+}
+
+type CostStatsView struct {
+	KnownSubtotalUSD float64          `json:"knownSubtotalUsd"`
+	Coverage         CostCoverageView `json:"coverage"`
+}
+
+type CostCoverageView struct {
+	Exact       int64 `json:"exact"`
+	Partial     int64 `json:"partial"`
+	Unknown     int64 `json:"unknown"`
+	Unavailable int64 `json:"unavailable"`
+}
+
+type CachedStatsView struct {
+	Count int64         `json:"count"`
+	Cost  CostStatsView `json:"cost"`
 }
 
 type TraceArtifact struct {
@@ -296,14 +328,54 @@ func (service *ResourceService) Stats(ctx context.Context, ownerID string) (Stat
 		return StatsView{}, err
 	}
 	return StatsView{
-		TotalCount: stats.TotalCount, SuccessCount: stats.SuccessCount,
+		SchemaVersion: 2, TotalCount: stats.TotalCount, SuccessCount: stats.SuccessCount,
 		FailureCount: stats.FailureCount, TimeoutCount: stats.TimeoutCount,
-		TotalPromptTokens: stats.TotalPromptTokens, CacheReadTokens: stats.CacheReadTokens,
-		CacheCreationTokens: stats.CacheCreationTokens,
-		TotalOutputTokens:   stats.TotalOutputTokens, ReasoningTokens: stats.ReasoningTokens,
-		TotalTokens: stats.TotalTokens, TotalCost: stats.TotalCost,
-		CachedCost: stats.CachedCost, CachedCount: stats.CachedCount,
-		KnownCostCount: stats.KnownCostCount, UnknownCostCount: stats.UnknownCostCount,
+		ResultAccounting: AccountingStatsView{
+			Usage: UsageStatsView{
+				PromptTokens: stats.ResultPromptTokens, CacheReadTokens: stats.ResultCacheReadTokens,
+				CacheCreationTokens: stats.ResultCacheCreationTokens, OutputTokens: stats.ResultOutputTokens,
+				ReasoningTokens: stats.ResultReasoningTokens, TotalTokens: stats.ResultTotalTokens,
+				Coverage: UsageCoverageView{
+					Complete: stats.ResultCompleteUsageCount, Partial: stats.ResultPartialUsageCount,
+					Unavailable: stats.ResultUnavailableUsageCount, Inconsistent: stats.ResultInconsistentUsageCount,
+				},
+			},
+			Cost: CostStatsView{
+				KnownSubtotalUSD: stats.ResultKnownCostSubtotalUSD,
+				Coverage: CostCoverageView{
+					Exact: stats.ResultExactCostCount, Partial: stats.ResultPartialCostCount,
+					Unknown: stats.ResultUnknownCostCount, Unavailable: stats.ResultUnavailableCostCount,
+				},
+			},
+		},
+		ProviderAccounting: AccountingStatsView{
+			Usage: UsageStatsView{
+				PromptTokens: stats.ProviderPromptTokens, CacheReadTokens: stats.ProviderCacheReadTokens,
+				CacheCreationTokens: stats.ProviderCacheCreationTokens, OutputTokens: stats.ProviderOutputTokens,
+				ReasoningTokens: stats.ProviderReasoningTokens, TotalTokens: stats.ProviderTotalTokens,
+				Coverage: UsageCoverageView{
+					Complete: stats.ProviderCompleteUsageCount, Partial: stats.ProviderPartialUsageCount,
+					Unavailable: stats.ProviderUnavailableUsageCount, Inconsistent: stats.ProviderInconsistentUsageCount,
+				},
+			},
+			Cost: CostStatsView{
+				KnownSubtotalUSD: stats.ProviderKnownCostSubtotalUSD,
+				Coverage: CostCoverageView{
+					Exact: stats.ProviderExactCostCount, Partial: stats.ProviderPartialCostCount,
+					Unknown: stats.ProviderUnknownCostCount, Unavailable: stats.ProviderUnavailableCostCount,
+				},
+			},
+		},
+		Cached: CachedStatsView{
+			Count: stats.CachedCount,
+			Cost: CostStatsView{
+				KnownSubtotalUSD: stats.CachedKnownCostSubtotalUSD,
+				Coverage: CostCoverageView{
+					Exact: stats.CachedExactCostCount, Partial: stats.CachedPartialCostCount,
+					Unknown: stats.CachedUnknownCostCount, Unavailable: stats.CachedUnavailableCostCount,
+				},
+			},
+		},
 		TotalCallDurationMS: stats.TotalCallDurationMS, MaxCallDurationMS: stats.MaxCallDurationMS,
 		OverBudgetCount: stats.OverBudgetCount, MaxOverBudgetMS: stats.MaxOverBudgetMS,
 	}, nil
@@ -380,22 +452,23 @@ func (service *ResourceService) Trace(ctx context.Context, ownerID, traceID stri
 		})
 	}
 	resources := unavailableTraceResources()
+	recordPayload := append(json.RawMessage(nil), record.Record...)
 	run, runErr := service.store.RunByTrace(ctx, ownerID, traceID)
 	switch {
 	case runErr == nil:
+		recordPayload = append(json.RawMessage(nil), run.Result...)
 		resources = TraceResources{
 			Request:  availableTraceResource(run.Request),
 			Response: availableTraceResource(run.Result),
 		}
 	case errors.Is(runErr, postgres.ErrNotFound):
-		// Domain traces can outlive the run projection or be imported without
-		// request/response data. Keep the trace readable and make the absence
-		// explicit to resource-aware clients.
+		// Retained v1 orphan traces remain readable until the explicit audited
+		// reconciliation. New writes are always run-bound.
 	default:
 		return TraceView{}, runErr
 	}
 	return TraceView{
-		TraceID: traceID, Record: append(json.RawMessage(nil), record.Record...),
+		TraceID: traceID, Record: recordPayload,
 		Observations: publicObservations, Artifacts: publicArtifacts, Resources: resources,
 	}, nil
 }

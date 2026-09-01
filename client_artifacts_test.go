@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prls-co/harden-llm/internal/accounting"
 	"github.com/prls-co/harden-llm/internal/retry"
 	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
 )
@@ -19,8 +20,8 @@ import (
 func TestClientArtifactPersistenceIsRedactedAndNonFatal(t *testing.T) {
 	t.Parallel()
 	resultFixture := coreruntime.ProviderResult{
-		Output: "ok", Usage: coreruntime.Usage{InputTokens: 1, OutputTokens: 1, TotalTokens: 2},
-		Cost:                coreruntime.Cost{Known: false, Source: "unknown"},
+		Output:              "ok",
+		Accounting:          testLedger(1, 0, 0, 1, 0, accounting.UnknownCost("missing_rate")),
 		RawProviderEnvelope: json.RawMessage(`{"authorization":"Bearer fixture-only-key","output_text":"fixture prompt echoed"}`),
 	}
 
@@ -75,8 +76,7 @@ func TestClientArtifactPersistenceIsRedactedAndNonFatal(t *testing.T) {
 		}
 		client.executor = &fixedExecutor{
 			result: coreruntime.ProviderResult{
-				Usage: coreruntime.Usage{InputTokens: 4, OutputTokens: 2, TotalTokens: 6},
-				Cost:  coreruntime.Cost{TotalUSD: 0.000006, Known: true, Source: "profile"},
+				Accounting: testLedger(4, 0, 0, 2, 0, accounting.ExactCost(0.000006, "profile")),
 			},
 			err: &retry.ProviderError{
 				Err: errors.New("structured parse failed"), Parse: true,
@@ -94,7 +94,7 @@ func TestClientArtifactPersistenceIsRedactedAndNonFatal(t *testing.T) {
 			t.Fatalf("parse failure artifacts = %d/%d, error = %v", len(store.contents), len(result.Artifacts), err)
 		}
 		if result.CallID != "call-parse" || result.TraceID != "trace-parse" || len(result.Attempts) != 1 ||
-			result.Usage.TotalTokens != 6 || !result.Cost.Known {
+			result.Accounting.Provider.Usage.TotalTokens != 6 || result.Accounting.Provider.Cost.Status != "exact" {
 			t.Fatalf("parse failure result lost diagnostic context: %#v", result)
 		}
 		for key, content := range store.contents {

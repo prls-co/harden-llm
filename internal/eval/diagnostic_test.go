@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/prls-co/harden-llm/internal/accounting"
 	"github.com/prls-co/harden-llm/internal/artifacts"
 	"github.com/prls-co/harden-llm/internal/cachekey"
 	"github.com/prls-co/harden-llm/internal/gateway"
@@ -281,14 +282,12 @@ func (diagnosticRepairExecutor) Execute(_ context.Context, operation coreruntime
 				"repair": map[string]any{"explanation": "normalized", "changes": []any{"answer"}},
 				"data":   map[string]any{"answer": "ok"},
 			},
-			Usage: coreruntime.Usage{InputTokens: 7, OutputTokens: 3, TotalTokens: 10},
-			Cost:  coreruntime.Cost{TotalUSD: 0.02, Known: true, Source: "reported"},
+			Accounting: diagnosticLedger(7, 3, 0.02),
 		}, nil
 	}
 	return coreruntime.ProviderResult{
-		Output: map[string]any{"answer": "private provider response"},
-		Usage:  coreruntime.Usage{InputTokens: 5, OutputTokens: 2, TotalTokens: 7},
-		Cost:   coreruntime.Cost{TotalUSD: 0.01, Known: true, Source: "reported"},
+		Output:     map[string]any{"answer": "private provider response"},
+		Accounting: diagnosticLedger(5, 2, 0.01),
 	}, nil
 }
 
@@ -312,18 +311,26 @@ func diagnosticOperation(repair bool) coreruntime.PreparedOperation {
 }
 
 type diagnosticCache struct {
-	record coreruntime.ProviderResult
+	record coreruntime.CachedResult
 	found  bool
 }
 
-func (cache *diagnosticCache) Get(context.Context, string, string) (coreruntime.ProviderResult, bool, error) {
+func (cache *diagnosticCache) Get(context.Context, string, string) (coreruntime.CachedResult, bool, error) {
 	return cache.record, cache.found, nil
 }
 
-func (cache *diagnosticCache) Set(_ context.Context, _, _ string, _ cachekey.Operation, result coreruntime.ProviderResult) error {
+func (cache *diagnosticCache) Set(_ context.Context, _, _ string, _ cachekey.Operation, result coreruntime.CachedResult) error {
 	cache.record = result
 	cache.found = true
 	return nil
+}
+
+func diagnosticLedger(input, output int64, cost float64) coreruntime.Ledger {
+	usage, err := accounting.CompleteUsage(input, 0, 0, output, 0)
+	if err != nil {
+		panic(err)
+	}
+	return coreruntime.Ledger{Usage: usage, Cost: accounting.ExactCost(cost, "reported")}
 }
 
 type diagnosticGarageClient struct{}

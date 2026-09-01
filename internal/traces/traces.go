@@ -41,8 +41,9 @@ type Trace struct {
 	TotalWaitMs         int64                        `json:"totalWaitMs"`
 	LastErrorCategory   string                       `json:"lastErrorCategory,omitempty"`
 	LastErrorStatus     *int                         `json:"lastErrorStatus"`
-	Usage               runtime.Usage                `json:"usage"`
-	Cost                runtime.Cost                 `json:"cost"`
+	SelectedTarget      runtime.ExecutionTarget      `json:"selectedTarget"`
+	ResultSource        runtime.ResultSource         `json:"resultSource"`
+	Accounting          runtime.Accounting           `json:"accounting"`
 	Attempts            []Attempt                    `json:"attempts"`
 	Cache               runtime.CacheFacts           `json:"cache"`
 	ProviderInvoked     bool                         `json:"providerInvoked"`
@@ -52,18 +53,21 @@ type Trace struct {
 }
 
 type Attempt struct {
-	Number            int            `json:"number"`
-	ProfileID         string         `json:"profileId"`
-	BackupIndex       int            `json:"backupIndex"`
-	Category          retry.Category `json:"category"`
-	Status            int            `json:"status,omitempty"`
-	Code              string         `json:"code,omitempty"`
-	Type              string         `json:"type,omitempty"`
-	ProviderRequestID string         `json:"providerRequestId,omitempty"`
-	Retryable         bool           `json:"retryable"`
-	DelayMs           int64          `json:"delayMs"`
-	DurationMs        int64          `json:"durationMs"`
-	Repair            bool           `json:"repair"`
+	Number            int                     `json:"number"`
+	RetryLocalNumber  int                     `json:"retryLocalNumber"`
+	ProfileID         string                  `json:"profileId"`
+	BackupIndex       int                     `json:"backupIndex"`
+	Target            runtime.ExecutionTarget `json:"target"`
+	ProviderUsed      bool                    `json:"providerUsed"`
+	Category          retry.Category          `json:"category"`
+	Status            int                     `json:"status,omitempty"`
+	Code              string                  `json:"code,omitempty"`
+	Type              string                  `json:"type,omitempty"`
+	ProviderRequestID string                  `json:"providerRequestId,omitempty"`
+	Retryable         bool                    `json:"retryable"`
+	DelayMs           int64                   `json:"delayMs"`
+	DurationMs        int64                   `json:"durationMs"`
+	Repair            bool                    `json:"repair"`
 }
 
 type Observation struct {
@@ -85,10 +89,11 @@ func Project(record runtime.CallRecord, callContext runtime.ObservabilityContext
 		completed = started
 	}
 	trace := Trace{
-		SchemaVersion: "harden-llm.trace.v1", CallID: record.CallID, TraceID: record.TraceID,
+		SchemaVersion: "harden-llm.trace.v2", CallID: record.CallID, TraceID: record.TraceID,
 		Status: statusFor(terminalErr), StartedAt: started.UTC(), CompletedAt: completed.UTC(),
-		TotalCallDurationMs: completed.Sub(started).Milliseconds(), Usage: record.Usage, Cost: record.Cost,
-		Cache: record.Cache, ProviderInvoked: len(record.Attempts) > 0, Context: cloneContext(callContext),
+		TotalCallDurationMs: completed.Sub(started).Milliseconds(),
+		SelectedTarget:      record.SelectedTarget, ResultSource: record.ResultSource, Accounting: record.Accounting,
+		Cache: record.Cache, ProviderInvoked: providerWasInvoked(record.Attempts), Context: cloneContext(callContext),
 		Attempts: make([]Attempt, 0, len(record.Attempts)), Observations: make([]Observation, 0, len(record.Attempts)*3+2),
 	}
 	if record.Cache.Mode != "" {
@@ -98,7 +103,9 @@ func Project(record runtime.CallRecord, callContext runtime.ObservabilityContext
 	}
 	for _, source := range record.Attempts {
 		attempt := Attempt{
-			Number: source.Number, ProfileID: source.ProfileID, BackupIndex: source.BackupIndex,
+			Number: source.Number, RetryLocalNumber: source.RetryLocalNumber,
+			ProfileID: source.ProfileID, BackupIndex: source.BackupIndex,
+			Target: source.Target, ProviderUsed: source.ProviderUsed,
 			Category: source.Category, Status: source.Status, Retryable: source.Retryable,
 			Code: source.Code, Type: source.Type, ProviderRequestID: source.ProviderRequestID,
 			DelayMs: source.Delay.Milliseconds(), DurationMs: source.Duration.Milliseconds(), Repair: source.Repair,
@@ -136,6 +143,15 @@ func Project(record runtime.CallRecord, callContext runtime.ObservabilityContext
 		}
 	}
 	return trace
+}
+
+func providerWasInvoked(attempts []runtime.AttemptRecord) bool {
+	for _, attempt := range attempts {
+		if attempt.ProviderUsed {
+			return true
+		}
+	}
+	return false
 }
 
 func (trace *Trace) appendObservation(kind, outcome string, fields map[string]any) {

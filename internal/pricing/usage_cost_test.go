@@ -5,6 +5,8 @@ import (
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/prls-co/harden-llm/internal/accounting"
 )
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-015
@@ -51,7 +53,7 @@ func TestUsageCostParity(t *testing.T) {
 	}
 	reported := 0.25
 	cost, err := ResolveCost(unknown, &reported)
-	if err != nil || !cost.Known || cost.TotalUSD != reported || cost.Source != "reported" {
+	if err != nil || cost.Status != accounting.CostExact || cost.KnownSubtotalUSD != reported || cost.Source != "reported" {
 		t.Fatalf("reported cost did not win: %#v %v", cost, err)
 	}
 }

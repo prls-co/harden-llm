@@ -710,21 +710,40 @@ components:
               value:
                 state: {}
                 result:
+                  schemaVersion: 2
                   totalCount: 3
                   successCount: 2
                   failureCount: 1
                   timeoutCount: 0
-                  totalPromptTokens: 24
-                  cacheReadTokens: 8
-                  cacheCreationTokens: 2
-                  totalOutputTokens: 12
-                  reasoningTokens: 4
-                  totalTokens: 42
-                  totalCost: 0.00042
-                  cachedCost: 0.0001
-                  cachedCount: 1
-                  knownCostCount: 2
-                  unknownCostCount: 1
+                  resultAccounting:
+                    usage:
+                      promptTokens: 24
+                      cacheReadTokens: 8
+                      cacheCreationTokens: 2
+                      outputTokens: 12
+                      reasoningTokens: 4
+                      totalTokens: 40
+                      coverage: {complete: 2, partial: 0, unavailable: 1, inconsistent: 0}
+                    cost:
+                      knownSubtotalUsd: 0.00042
+                      coverage: {exact: 1, partial: 1, unknown: 1, unavailable: 0}
+                  providerAccounting:
+                    usage:
+                      promptTokens: 16
+                      cacheReadTokens: 0
+                      cacheCreationTokens: 0
+                      outputTokens: 9
+                      reasoningTokens: 3
+                      totalTokens: 28
+                      coverage: {complete: 1, partial: 1, unavailable: 1, inconsistent: 0}
+                    cost:
+                      knownSubtotalUsd: 0.00032
+                      coverage: {exact: 1, partial: 1, unknown: 0, unavailable: 1}
+                  cached:
+                    count: 1
+                    cost:
+                      knownSubtotalUsd: 0.0001
+                      coverage: {exact: 1, partial: 0, unknown: 0, unavailable: 0}
                   totalCallDurationMs: 2580
                   maxCallDurationMs: 1200
                   overBudgetCount: 1
@@ -777,26 +796,62 @@ components:
               value:
                 state: {lastRunId: run-example, lastTraceId: trace-example}
                 result:
+                  schemaVersion: 2
                   runId: run-example
-                  profileId: Primary
-                  modelId: gpt-example
-                  provider: openai
-                  apiInferenceType: responses
-                  providerBaseUrl: https://api.openai.com/v1
+                  status: succeeded
                   output: OK
                   callId: call-example
                   traceId: trace-example
-                  usage:
-                    inputTokens: 8
-                    cacheReadTokens: 0
-                    cacheCreationTokens: 0
-                    outputTokens: 1
-                    reasoningTokens: 0
-                    totalTokens: 9
-                  cost: {totalUsd: 0.00001, known: true, source: profile}
+                  selectedTarget:
+                    profileId: Primary
+                    provider: openai
+                    protocol: responses
+                    endpoint: https://api.openai.com/v1
+                    modelId: gpt-example
+                  resultSource:
+                    kind: provider
+                    attemptNumber: 1
+                    producer:
+                      profileId: Primary
+                      provider: openai
+                      protocol: openai.responses
+                      endpoint: https://api.openai.com:443
+                      modelId: gpt-example
+                  accounting:
+                    result:
+                      usage:
+                        inputTokens: 8
+                        cacheReadTokens: 0
+                        cacheCreationTokens: 0
+                        outputTokens: 1
+                        reasoningTokens: 0
+                        promptTokens: 8
+                        completionTokens: 1
+                        totalTokens: 9
+                        status: complete
+                      cost: {knownSubtotalUsd: 0.00001, status: exact, source: profile, knownObservations: 1, unknownObservations: 0}
+                    provider:
+                      usage:
+                        inputTokens: 8
+                        cacheReadTokens: 0
+                        cacheCreationTokens: 0
+                        outputTokens: 1
+                        reasoningTokens: 0
+                        promptTokens: 8
+                        completionTokens: 1
+                        totalTokens: 9
+                        status: complete
+                      cost: {knownSubtotalUsd: 0.00001, status: exact, source: profile, knownObservations: 1, unknownObservations: 0}
                   attempts:
                     - number: 1
+                      retryLocalNumber: 1
                       profileId: Primary
+                      target:
+                        profileId: Primary
+                        provider: openai
+                        protocol: openai.responses
+                        endpoint: https://api.openai.com:443
+                        modelId: gpt-example
                       retryable: false
                       wait: 0
                       duration: 120000000
@@ -810,6 +865,7 @@ components:
                       sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
                       sizeBytes: 512
                       contentType: application/json
+                  providerInvoked: true
                   totalCallDurationMs: 120
                   totalWaitMs: 0
                   overBudgetMs: 0
@@ -1313,27 +1369,70 @@ components:
     Stats:
       type: object
       additionalProperties: false
-      required: [totalCount, successCount, failureCount, timeoutCount, totalPromptTokens, cacheReadTokens, cacheCreationTokens, totalOutputTokens, reasoningTokens, totalTokens, totalCost, cachedCost, cachedCount, knownCostCount, unknownCostCount, totalCallDurationMs, maxCallDurationMs, overBudgetCount, maxOverBudgetMs]
+      required: [schemaVersion, totalCount, successCount, failureCount, timeoutCount, resultAccounting, providerAccounting, cached, totalCallDurationMs, maxCallDurationMs, overBudgetCount, maxOverBudgetMs]
       properties:
+        schemaVersion: {type: integer, const: 2}
         totalCount: {type: integer, minimum: 0}
         successCount: {type: integer, minimum: 0}
         failureCount: {type: integer, minimum: 0}
         timeoutCount: {type: integer, minimum: 0}
-        totalPromptTokens: {type: integer, minimum: 0}
-        cacheReadTokens: {type: integer, minimum: 0}
-        cacheCreationTokens: {type: integer, minimum: 0}
-        totalOutputTokens: {type: integer, minimum: 0}
-        reasoningTokens: {type: integer, minimum: 0}
-        totalTokens: {type: integer, minimum: 0}
-        totalCost: {type: number, minimum: 0, description: Sum of known trace-attributed USD costs.}
-        cachedCost: {type: number, minimum: 0, description: Known trace-attributed USD cost served from cache.}
-        cachedCount: {type: integer, minimum: 0}
-        knownCostCount: {type: integer, minimum: 0}
-        unknownCostCount: {type: integer, minimum: 0}
+        resultAccounting: {$ref: "#/components/schemas/AccountingStats"}
+        providerAccounting: {$ref: "#/components/schemas/AccountingStats"}
+        cached:
+          type: object
+          additionalProperties: false
+          required: [count, cost]
+          properties:
+            count: {type: integer, minimum: 0}
+            cost: {$ref: "#/components/schemas/CostStats"}
         totalCallDurationMs: {type: integer, minimum: 0}
         maxCallDurationMs: {type: integer, minimum: 0}
         overBudgetCount: {type: integer, minimum: 0}
         maxOverBudgetMs: {type: integer, minimum: 0}
+    UsageCoverage:
+      type: object
+      additionalProperties: false
+      required: [complete, partial, unavailable, inconsistent]
+      properties:
+        complete: {type: integer, minimum: 0}
+        partial: {type: integer, minimum: 0}
+        unavailable: {type: integer, minimum: 0}
+        inconsistent: {type: integer, minimum: 0}
+    UsageStats:
+      type: object
+      additionalProperties: false
+      required: [promptTokens, cacheReadTokens, cacheCreationTokens, outputTokens, reasoningTokens, totalTokens, coverage]
+      properties:
+        promptTokens: {type: integer, minimum: 0}
+        cacheReadTokens: {type: integer, minimum: 0}
+        cacheCreationTokens: {type: integer, minimum: 0}
+        outputTokens: {type: integer, minimum: 0}
+        reasoningTokens: {type: integer, minimum: 0}
+        totalTokens: {type: integer, minimum: 0}
+        coverage: {$ref: "#/components/schemas/UsageCoverage"}
+    CostCoverage:
+      type: object
+      additionalProperties: false
+      required: [exact, partial, unknown, unavailable]
+      properties:
+        exact: {type: integer, minimum: 0}
+        partial: {type: integer, minimum: 0}
+        unknown: {type: integer, minimum: 0}
+        unavailable: {type: integer, minimum: 0}
+    CostStats:
+      type: object
+      additionalProperties: false
+      required: [knownSubtotalUsd, coverage]
+      properties:
+        knownSubtotalUsd: {type: number, minimum: 0}
+        coverage: {$ref: "#/components/schemas/CostCoverage"}
+    AccountingStats:
+      type: object
+      additionalProperties: false
+      required: [usage, cost]
+      properties:
+        usage: {$ref: "#/components/schemas/UsageStats"}
+        cost: {$ref: "#/components/schemas/CostStats"}
     StatsEnvelope:
       type: object
       additionalProperties: false
@@ -1399,29 +1498,80 @@ components:
     Usage:
       type: object
       additionalProperties: false
-      required: [inputTokens, cacheReadTokens, cacheCreationTokens, outputTokens, reasoningTokens, totalTokens]
+      required: [inputTokens, cacheReadTokens, cacheCreationTokens, outputTokens, reasoningTokens, promptTokens, completionTokens, totalTokens, status]
       properties:
         inputTokens: {type: integer, minimum: 0}
         cacheReadTokens: {type: integer, minimum: 0}
         cacheCreationTokens: {type: integer, minimum: 0}
         outputTokens: {type: integer, minimum: 0}
         reasoningTokens: {type: integer, minimum: 0}
+        promptTokens: {type: integer, minimum: 0, description: inputTokens + cacheReadTokens + cacheCreationTokens.}
+        completionTokens: {type: integer, minimum: 0, description: outputTokens + reasoningTokens.}
         totalTokens: {type: integer, minimum: 0}
+        status: {type: string, enum: [complete, partial, unavailable, inconsistent]}
     Cost:
       type: object
       additionalProperties: false
-      required: [totalUsd, known, source]
+      required: [knownSubtotalUsd, status, source, knownObservations, unknownObservations]
       properties:
-        totalUsd: {type: number, minimum: 0}
-        known: {type: boolean}
+        knownSubtotalUsd: {type: number, minimum: 0}
+        status: {type: string, enum: [exact, partial, unknown, unavailable]}
         source: {type: string, maxLength: 64}
+        knownObservations: {type: integer, minimum: 0}
+        unknownObservations: {type: integer, minimum: 0}
+    AccountingLedger:
+      type: object
+      additionalProperties: false
+      required: [usage, cost]
+      properties:
+        usage: {$ref: "#/components/schemas/Usage"}
+        cost: {$ref: "#/components/schemas/Cost"}
+    Accounting:
+      type: object
+      additionalProperties: false
+      required: [result, provider]
+      properties:
+        result: {$ref: "#/components/schemas/AccountingLedger"}
+        provider: {$ref: "#/components/schemas/AccountingLedger"}
+    ExecutionTarget:
+      type: object
+      additionalProperties: false
+      required: [profileId, provider, protocol, endpoint, modelId]
+      properties:
+        profileId: {$ref: "#/components/schemas/ProfileID"}
+        provider: {type: string, minLength: 1, maxLength: 128}
+        protocol: {type: string, minLength: 1, maxLength: 128}
+        endpoint: {type: string, format: uri, pattern: "^https://", maxLength: 2048}
+        modelId: {type: string, minLength: 1, maxLength: 512}
+    ResultSource:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [kind]
+          properties:
+            kind: {type: string, const: none}
+        - type: object
+          additionalProperties: false
+          required: [kind, attemptNumber, producer]
+          properties:
+            kind: {type: string, const: provider}
+            attemptNumber: {type: integer, minimum: 1, maximum: 10}
+            producer: {$ref: "#/components/schemas/ExecutionTarget"}
+        - type: object
+          additionalProperties: false
+          required: [kind, producer]
+          properties:
+            kind: {type: string, const: cache}
+            producer: {$ref: "#/components/schemas/ExecutionTarget"}
     Attempt:
       type: object
       additionalProperties: false
-      required: [number, profileId, retryable, wait, duration, repair, backupIndex, providerUsed]
+      required: [number, retryLocalNumber, profileId, target, retryable, wait, duration, repair, backupIndex, providerUsed]
       properties:
         number: {type: integer, minimum: 1, maximum: 10}
+        retryLocalNumber: {type: integer, minimum: 1, maximum: 10}
         profileId: {$ref: "#/components/schemas/ProfileID"}
+        target: {$ref: "#/components/schemas/ExecutionTarget"}
         category: {type: string, maxLength: 64}
         httpStatus: {type: integer, minimum: 100, maximum: 599}
         code: {type: string, maxLength: 80}
@@ -1457,19 +1607,17 @@ components:
     RunResult:
       type: object
       additionalProperties: false
-      required: [runId, profileId, modelId, provider, apiInferenceType, providerBaseUrl, output, callId, traceId, usage, cost, attempts, cache, artifacts, totalCallDurationMs, totalWaitMs, overBudgetMs, usedRepair]
+      required: [schemaVersion, runId, status, output, callId, traceId, selectedTarget, resultSource, accounting, attempts, cache, artifacts, providerInvoked, totalCallDurationMs, totalWaitMs, overBudgetMs, usedRepair]
       properties:
+        schemaVersion: {type: integer, const: 2}
         runId: {$ref: "#/components/schemas/Identifier"}
-        profileId: {$ref: "#/components/schemas/ProfileID"}
-        modelId: {type: string, minLength: 1, maxLength: 512}
-        provider: {type: string, minLength: 1, maxLength: 64}
-        apiInferenceType: {type: string, enum: [chat-completions, responses, gemini-generate-content, anthropic-messages]}
-        providerBaseUrl: {type: string, format: uri, minLength: 1, maxLength: 2048}
+        status: {type: string, enum: [succeeded, failed, timeout]}
         output: {}
         callId: {$ref: "#/components/schemas/Identifier"}
         traceId: {$ref: "#/components/schemas/Identifier"}
-        usage: {$ref: "#/components/schemas/Usage"}
-        cost: {$ref: "#/components/schemas/Cost"}
+        selectedTarget: {$ref: "#/components/schemas/ExecutionTarget"}
+        resultSource: {$ref: "#/components/schemas/ResultSource"}
+        accounting: {$ref: "#/components/schemas/Accounting"}
         attempts:
           type: array
           maxItems: 10
@@ -1478,6 +1626,7 @@ components:
         artifacts:
           type: array
           items: {$ref: "#/components/schemas/RunArtifact"}
+        providerInvoked: {type: boolean}
         totalCallDurationMs: {type: integer, minimum: 0, description: Elapsed runtime call duration in milliseconds.}
         totalWaitMs: {type: integer, minimum: 0, description: Sum of retry waits in milliseconds.}
         overBudgetMs: {type: integer, minimum: 0, description: Amount by which an explicit per-run timeout budget was exceeded.}

@@ -42,14 +42,15 @@ type Request struct {
 
 // Result is the single detailed result returned by Client.Call.
 type Result struct {
-	Output    any
-	CallID    string
-	TraceID   string
-	Usage     Usage
-	Cost      Cost
-	Attempts  []Attempt
-	Cache     CacheResult
-	Artifacts []ArtifactRef
+	Output         any
+	CallID         string
+	TraceID        string
+	SelectedTarget ExecutionTarget
+	ResultSource   ResultSource
+	Accounting     Accounting
+	Attempts       []Attempt
+	Cache          CacheResult
+	Artifacts      []ArtifactRef
 }
 
 // CallType identifies text or contracted structured-output execution.
@@ -112,36 +113,77 @@ type RepairEscalation struct {
 
 // Attempt is safe, normalized metadata for one provider invocation.
 type Attempt struct {
-	Number            int           `json:"number"`
-	ProfileID         string        `json:"profileId"`
-	Category          string        `json:"category,omitempty"`
-	HTTPStatus        int           `json:"httpStatus,omitempty"`
-	Code              string        `json:"code,omitempty"`
-	Type              string        `json:"type,omitempty"`
-	ProviderRequestID string        `json:"providerRequestId,omitempty"`
-	Retryable         bool          `json:"retryable"`
-	Wait              time.Duration `json:"wait"`
-	Duration          time.Duration `json:"duration"`
-	Repair            bool          `json:"repair"`
-	BackupIndex       int           `json:"backupIndex"`
-	ProviderUsed      bool          `json:"providerUsed"`
+	Number            int             `json:"number"`
+	RetryLocalNumber  int             `json:"retryLocalNumber"`
+	ProfileID         string          `json:"profileId"`
+	Target            ExecutionTarget `json:"target"`
+	Category          string          `json:"category,omitempty"`
+	HTTPStatus        int             `json:"httpStatus,omitempty"`
+	Code              string          `json:"code,omitempty"`
+	Type              string          `json:"type,omitempty"`
+	ProviderRequestID string          `json:"providerRequestId,omitempty"`
+	Retryable         bool            `json:"retryable"`
+	Wait              time.Duration   `json:"wait"`
+	Duration          time.Duration   `json:"duration"`
+	Repair            bool            `json:"repair"`
+	BackupIndex       int             `json:"backupIndex"`
+	ProviderUsed      bool            `json:"providerUsed"`
+}
+
+// ExecutionTarget is the immutable prepared provider target for selection,
+// invocation, or cache-producer attribution.
+type ExecutionTarget struct {
+	ProfileID string `json:"profileId"`
+	Provider  string `json:"provider"`
+	Protocol  string `json:"protocol"`
+	Endpoint  string `json:"endpoint"`
+	ModelID   string `json:"modelId"`
+}
+
+type ResultSourceKind string
+
+const (
+	ResultSourceNone     ResultSourceKind = "none"
+	ResultSourceProvider ResultSourceKind = "provider"
+	ResultSourceCache    ResultSourceKind = "cache"
+)
+
+type ResultSource struct {
+	Kind          ResultSourceKind `json:"kind"`
+	AttemptNumber int              `json:"attemptNumber,omitempty"`
+	Producer      *ExecutionTarget `json:"producer,omitempty"`
 }
 
 // Usage preserves canonical token groups without provider-native payloads.
 type Usage struct {
-	InputTokens         int64 `json:"inputTokens"`
-	CacheReadTokens     int64 `json:"cacheReadTokens"`
-	CacheCreationTokens int64 `json:"cacheCreationTokens"`
-	OutputTokens        int64 `json:"outputTokens"`
-	ReasoningTokens     int64 `json:"reasoningTokens"`
-	TotalTokens         int64 `json:"totalTokens"`
+	InputTokens         int64  `json:"inputTokens"`
+	CacheReadTokens     int64  `json:"cacheReadTokens"`
+	CacheCreationTokens int64  `json:"cacheCreationTokens"`
+	OutputTokens        int64  `json:"outputTokens"`
+	ReasoningTokens     int64  `json:"reasoningTokens"`
+	PromptTokens        int64  `json:"promptTokens"`
+	CompletionTokens    int64  `json:"completionTokens"`
+	TotalTokens         int64  `json:"totalTokens"`
+	Status              string `json:"status"`
 }
 
-// Cost records the normalized USD total and whether it is known.
+// Cost records diagnostic cost and its exact coverage state.
 type Cost struct {
-	TotalUSD float64 `json:"totalUsd"`
-	Known    bool    `json:"known"`
-	Source   string  `json:"source"`
+	KnownSubtotalUSD    float64 `json:"knownSubtotalUsd"`
+	Status              string  `json:"status"`
+	Source              string  `json:"source"`
+	KnownObservations   int64   `json:"knownObservations"`
+	UnknownObservations int64   `json:"unknownObservations"`
+}
+
+type AccountingLedger struct {
+	Usage Usage `json:"usage"`
+	Cost  Cost  `json:"cost"`
+}
+
+type Accounting struct {
+	Result   AccountingLedger `json:"result"`
+	Provider AccountingLedger `json:"provider"`
 }
 
 // EndpointPolicy is the single outbound endpoint-security configuration.

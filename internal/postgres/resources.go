@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -255,46 +256,71 @@ func (store *Store) Runs(ctx context.Context, ownerID string, limit int, cursor 
 func (store *Store) RunStats(ctx context.Context, ownerID string) (RunStats, error) {
 	var stats RunStats
 	err := store.pool.QueryRow(ctx, `
-		WITH normalized AS (
-			SELECT status,
-				CASE WHEN jsonb_typeof(result #> '{usage,inputTokens}') = 'number' THEN GREATEST((result #>> '{usage,inputTokens}')::bigint, 0) ELSE 0 END AS input_tokens,
-				CASE WHEN jsonb_typeof(result #> '{usage,cacheReadTokens}') = 'number' THEN GREATEST((result #>> '{usage,cacheReadTokens}')::bigint, 0) ELSE 0 END AS cache_read_tokens,
-				CASE WHEN jsonb_typeof(result #> '{usage,cacheCreationTokens}') = 'number' THEN GREATEST((result #>> '{usage,cacheCreationTokens}')::bigint, 0) ELSE 0 END AS cache_creation_tokens,
-				CASE WHEN jsonb_typeof(result #> '{usage,outputTokens}') = 'number' THEN GREATEST((result #>> '{usage,outputTokens}')::bigint, 0) ELSE 0 END AS output_tokens,
-				CASE WHEN jsonb_typeof(result #> '{usage,reasoningTokens}') = 'number' THEN GREATEST((result #>> '{usage,reasoningTokens}')::bigint, 0) ELSE 0 END AS reasoning_tokens,
-				COALESCE(result #>> '{cost,known}' = 'true', false) AS cost_known,
-				CASE WHEN jsonb_typeof(result #> '{cost,totalUsd}') = 'number' THEN GREATEST((result #>> '{cost,totalUsd}')::double precision, 0) ELSE 0 END AS total_cost,
-				COALESCE(result #>> '{cache,served}' = 'true', false) AS cache_served,
-				CASE WHEN jsonb_typeof(result #> '{totalCallDurationMs}') = 'number' THEN GREATEST((result #>> '{totalCallDurationMs}')::bigint, 0) ELSE 0 END AS duration_ms,
-				CASE WHEN jsonb_typeof(result #> '{overBudgetMs}') = 'number' THEN GREATEST((result #>> '{overBudgetMs}')::bigint, 0) ELSE 0 END AS over_budget_ms
-			FROM llm_runs WHERE owner_id = $1
-		)
-		SELECT
-			COUNT(*),
-			COUNT(*) FILTER (WHERE status = 'succeeded'),
-			COUNT(*) FILTER (WHERE status = 'failed'),
-			COUNT(*) FILTER (WHERE status = 'timeout'),
-			COALESCE(SUM(input_tokens + cache_read_tokens + cache_creation_tokens), 0),
-			COALESCE(SUM(cache_read_tokens), 0),
-			COALESCE(SUM(cache_creation_tokens), 0),
-			COALESCE(SUM(output_tokens + reasoning_tokens), 0),
-			COALESCE(SUM(reasoning_tokens), 0),
-			COALESCE(SUM(input_tokens + cache_read_tokens + cache_creation_tokens + output_tokens + reasoning_tokens), 0),
-			COALESCE(SUM(CASE WHEN cost_known THEN total_cost ELSE 0 END), 0),
-			COALESCE(SUM(CASE WHEN cache_served AND cost_known THEN total_cost ELSE 0 END), 0),
-			COUNT(*) FILTER (WHERE cache_served),
-			COUNT(*) FILTER (WHERE cost_known),
-			COUNT(*) FILTER (WHERE NOT cost_known),
-			COALESCE(SUM(duration_ms), 0),
-			COALESCE(MAX(duration_ms), 0),
-			COUNT(*) FILTER (WHERE over_budget_ms > 0),
-			COALESCE(MAX(over_budget_ms), 0)
-		FROM normalized`, ownerID).Scan(
+			SELECT
+				COUNT(*),
+				COUNT(*) FILTER (WHERE status = 'succeeded'),
+				COUNT(*) FILTER (WHERE status = 'failed'),
+				COUNT(*) FILTER (WHERE status = 'timeout'),
+
+				COALESCE(SUM(CASE WHEN result_usage_status IN ('complete','partial') THEN result_input_tokens + result_cache_read_tokens + result_cache_creation_tokens ELSE 0 END), 0),
+				COALESCE(SUM(CASE WHEN result_usage_status IN ('complete','partial') THEN result_cache_read_tokens ELSE 0 END), 0),
+				COALESCE(SUM(CASE WHEN result_usage_status IN ('complete','partial') THEN result_cache_creation_tokens ELSE 0 END), 0),
+				COALESCE(SUM(CASE WHEN result_usage_status IN ('complete','partial') THEN result_output_tokens ELSE 0 END), 0),
+				COALESCE(SUM(CASE WHEN result_usage_status IN ('complete','partial') THEN result_reasoning_tokens ELSE 0 END), 0),
+				COALESCE(SUM(CASE WHEN result_usage_status IN ('complete','partial') THEN result_input_tokens + result_cache_read_tokens + result_cache_creation_tokens + result_output_tokens + result_reasoning_tokens ELSE 0 END), 0),
+
+				COALESCE(SUM(CASE WHEN provider_usage_status IN ('complete','partial') THEN provider_input_tokens + provider_cache_read_tokens + provider_cache_creation_tokens ELSE 0 END), 0),
+				COALESCE(SUM(CASE WHEN provider_usage_status IN ('complete','partial') THEN provider_cache_read_tokens ELSE 0 END), 0),
+				COALESCE(SUM(CASE WHEN provider_usage_status IN ('complete','partial') THEN provider_cache_creation_tokens ELSE 0 END), 0),
+				COALESCE(SUM(CASE WHEN provider_usage_status IN ('complete','partial') THEN provider_output_tokens ELSE 0 END), 0),
+				COALESCE(SUM(CASE WHEN provider_usage_status IN ('complete','partial') THEN provider_reasoning_tokens ELSE 0 END), 0),
+				COALESCE(SUM(CASE WHEN provider_usage_status IN ('complete','partial') THEN provider_input_tokens + provider_cache_read_tokens + provider_cache_creation_tokens + provider_output_tokens + provider_reasoning_tokens ELSE 0 END), 0),
+
+				COUNT(*) FILTER (WHERE result_usage_status = 'complete'),
+				COUNT(*) FILTER (WHERE result_usage_status = 'partial'),
+				COUNT(*) FILTER (WHERE result_usage_status = 'unavailable'),
+				COUNT(*) FILTER (WHERE result_usage_status = 'inconsistent'),
+				COUNT(*) FILTER (WHERE provider_usage_status = 'complete'),
+				COUNT(*) FILTER (WHERE provider_usage_status = 'partial'),
+				COUNT(*) FILTER (WHERE provider_usage_status = 'unavailable'),
+				COUNT(*) FILTER (WHERE provider_usage_status = 'inconsistent'),
+
+				COALESCE(SUM(CASE WHEN result_cost_status IN ('exact','partial') THEN result_known_cost_usd ELSE 0 END), 0),
+				COALESCE(SUM(CASE WHEN provider_cost_status IN ('exact','partial') THEN provider_known_cost_usd ELSE 0 END), 0),
+				COALESCE(SUM(CASE WHEN cache_served AND result_cost_status IN ('exact','partial') THEN result_known_cost_usd ELSE 0 END), 0),
+				COUNT(*) FILTER (WHERE result_cost_status = 'exact'),
+				COUNT(*) FILTER (WHERE result_cost_status = 'partial'),
+				COUNT(*) FILTER (WHERE result_cost_status = 'unknown'),
+				COUNT(*) FILTER (WHERE result_cost_status = 'unavailable'),
+				COUNT(*) FILTER (WHERE provider_cost_status = 'exact'),
+				COUNT(*) FILTER (WHERE provider_cost_status = 'partial'),
+				COUNT(*) FILTER (WHERE provider_cost_status = 'unknown'),
+				COUNT(*) FILTER (WHERE provider_cost_status = 'unavailable'),
+				COUNT(*) FILTER (WHERE cache_served AND result_cost_status = 'exact'),
+				COUNT(*) FILTER (WHERE cache_served AND result_cost_status = 'partial'),
+				COUNT(*) FILTER (WHERE cache_served AND result_cost_status = 'unknown'),
+				COUNT(*) FILTER (WHERE cache_served AND result_cost_status = 'unavailable'),
+				COUNT(*) FILTER (WHERE cache_served),
+
+				COALESCE(SUM(total_call_duration_ms), 0),
+				COALESCE(MAX(total_call_duration_ms), 0),
+				COUNT(*) FILTER (WHERE over_budget_ms > 0),
+				COALESCE(MAX(over_budget_ms), 0)
+			FROM llm_runs WHERE owner_id = $1`, ownerID).Scan(
 		&stats.TotalCount, &stats.SuccessCount, &stats.FailureCount, &stats.TimeoutCount,
-		&stats.TotalPromptTokens, &stats.CacheReadTokens, &stats.CacheCreationTokens,
-		&stats.TotalOutputTokens, &stats.ReasoningTokens, &stats.TotalTokens,
-		&stats.TotalCost, &stats.CachedCost, &stats.CachedCount,
-		&stats.KnownCostCount, &stats.UnknownCostCount,
+		&stats.ResultPromptTokens, &stats.ResultCacheReadTokens, &stats.ResultCacheCreationTokens,
+		&stats.ResultOutputTokens, &stats.ResultReasoningTokens, &stats.ResultTotalTokens,
+		&stats.ProviderPromptTokens, &stats.ProviderCacheReadTokens, &stats.ProviderCacheCreationTokens,
+		&stats.ProviderOutputTokens, &stats.ProviderReasoningTokens, &stats.ProviderTotalTokens,
+		&stats.ResultCompleteUsageCount, &stats.ResultPartialUsageCount,
+		&stats.ResultUnavailableUsageCount, &stats.ResultInconsistentUsageCount,
+		&stats.ProviderCompleteUsageCount, &stats.ProviderPartialUsageCount,
+		&stats.ProviderUnavailableUsageCount, &stats.ProviderInconsistentUsageCount,
+		&stats.ResultKnownCostSubtotalUSD, &stats.ProviderKnownCostSubtotalUSD, &stats.CachedKnownCostSubtotalUSD,
+		&stats.ResultExactCostCount, &stats.ResultPartialCostCount, &stats.ResultUnknownCostCount, &stats.ResultUnavailableCostCount,
+		&stats.ProviderExactCostCount, &stats.ProviderPartialCostCount, &stats.ProviderUnknownCostCount, &stats.ProviderUnavailableCostCount,
+		&stats.CachedExactCostCount, &stats.CachedPartialCostCount, &stats.CachedUnknownCostCount, &stats.CachedUnavailableCostCount,
+		&stats.CachedCount,
 		&stats.TotalCallDurationMS, &stats.MaxCallDurationMS,
 		&stats.OverBudgetCount, &stats.MaxOverBudgetMS,
 	)
@@ -414,6 +440,12 @@ func (store *Store) SaveExecution(ctx context.Context, run RunRecord, trace Trac
 	if run.OwnerID != trace.OwnerID || run.TraceID != trace.TraceID {
 		return errors.New("postgres: execution run and trace binding mismatch")
 	}
+	if trace.RunID == "" {
+		trace.RunID = run.ID
+	}
+	if trace.RunID != run.ID {
+		return errors.New("postgres: execution trace and run identity mismatch")
+	}
 	if err := validateIdentifier("owner ID", run.OwnerID); err != nil {
 		return err
 	}
@@ -433,6 +465,11 @@ func (store *Store) SaveExecution(ctx context.Context, run RunRecord, trace Trac
 	}
 	if err := validateJSONObject("run result", run.Result); err != nil {
 		return err
+	}
+	if run.Execution != nil {
+		if err := validateExecutionFields(*run.Execution); err != nil {
+			return err
+		}
 	}
 	if run.StartedAt.IsZero() || run.CompletedAt.Before(run.StartedAt) || trace.CreatedAt.IsZero() || trace.UpdatedAt.Before(trace.CreatedAt) {
 		return errors.New("postgres: execution timestamps are invalid")
@@ -462,9 +499,9 @@ func (store *Store) SaveExecution(ctx context.Context, run RunRecord, trace Trac
 	}
 	defer func() { _ = transaction.Rollback(ctx) }()
 	if _, err := transaction.Exec(ctx, `
-		INSERT INTO llm_traces (owner_id, trace_id, record, created_at, updated_at) VALUES ($1,$2,$3,$4,$5)
-		ON CONFLICT (owner_id, trace_id) DO UPDATE SET record=EXCLUDED.record, updated_at=EXCLUDED.updated_at`,
-		trace.OwnerID, trace.TraceID, trace.Record, trace.CreatedAt, trace.UpdatedAt); err != nil {
+			INSERT INTO llm_traces (owner_id, trace_id, run_id, record, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6)
+			ON CONFLICT (owner_id, trace_id) DO UPDATE SET run_id=EXCLUDED.run_id, record=EXCLUDED.record, updated_at=EXCLUDED.updated_at`,
+		trace.OwnerID, trace.TraceID, trace.RunID, trace.Record, trace.CreatedAt, trace.UpdatedAt); err != nil {
 		return fmt.Errorf("postgres: save execution trace: %w", err)
 	}
 	if _, err := transaction.Exec(ctx, `DELETE FROM llm_trace_observations WHERE owner_id=$1 AND trace_id=$2`, trace.OwnerID, trace.TraceID); err != nil {
@@ -486,13 +523,137 @@ func (store *Store) SaveExecution(ctx context.Context, run RunRecord, trace Trac
 			return fmt.Errorf("postgres: save execution artifact: %w", err)
 		}
 	}
-	if _, err := transaction.Exec(ctx, `
-		INSERT INTO llm_runs (owner_id, run_id, profile_id, trace_id, status, request, result, started_at, completed_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, run.OwnerID, run.ID, run.ProfileID, run.TraceID, run.Status, run.Request, run.Result, run.StartedAt, run.CompletedAt); err != nil {
+	if err := insertExecutionRun(ctx, transaction, run); err != nil {
 		return fmt.Errorf("postgres: save execution run: %w", err)
 	}
 	if err := transaction.Commit(ctx); err != nil {
 		return fmt.Errorf("postgres: commit execution save: %w", err)
 	}
 	return nil
+}
+
+func insertExecutionRun(ctx context.Context, transaction pgx.Tx, run RunRecord) error {
+	if run.Execution == nil {
+		_, err := transaction.Exec(ctx, `
+			INSERT INTO llm_runs (owner_id, run_id, profile_id, trace_id, status, request, result, started_at, completed_at)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+			run.OwnerID, run.ID, run.ProfileID, run.TraceID, run.Status, run.Request, run.Result, run.StartedAt, run.CompletedAt)
+		return err
+	}
+	execution := run.Execution
+	_, err := transaction.Exec(ctx, `
+		INSERT INTO llm_runs (
+			owner_id, run_id, profile_id, trace_id, status, request, result, started_at, completed_at,
+			result_schema_version, selected_provider, selected_protocol, selected_endpoint, selected_model_id,
+			result_source, producer_profile_id, producer_provider, producer_protocol, producer_endpoint, producer_model_id,
+			provider_invoked,
+			result_usage_status, result_input_tokens, result_cache_read_tokens, result_cache_creation_tokens, result_output_tokens, result_reasoning_tokens,
+			provider_usage_status, provider_input_tokens, provider_cache_read_tokens, provider_cache_creation_tokens, provider_output_tokens, provider_reasoning_tokens,
+			result_cost_status, result_known_cost_usd, result_known_cost_observations, result_unknown_cost_observations,
+			provider_cost_status, provider_known_cost_usd, provider_known_cost_observations, provider_unknown_cost_observations,
+			cache_served, total_call_duration_ms, over_budget_ms
+		) VALUES (
+			$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,
+			$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44
+		)`,
+		run.OwnerID, run.ID, run.ProfileID, run.TraceID, run.Status, run.Request, run.Result, run.StartedAt, run.CompletedAt,
+		execution.SchemaVersion, execution.SelectedProvider, execution.SelectedProtocol, execution.SelectedEndpoint, execution.SelectedModelID,
+		execution.ResultSource, nullableString(execution.ProducerProfileID), nullableString(execution.ProducerProvider),
+		nullableString(execution.ProducerProtocol), nullableString(execution.ProducerEndpoint), nullableString(execution.ProducerModelID),
+		execution.ProviderInvoked,
+		execution.ResultUsage.Status, execution.ResultUsage.InputTokens, execution.ResultUsage.CacheReadTokens,
+		execution.ResultUsage.CacheCreationTokens, execution.ResultUsage.OutputTokens, execution.ResultUsage.ReasoningTokens,
+		execution.ProviderUsage.Status, execution.ProviderUsage.InputTokens, execution.ProviderUsage.CacheReadTokens,
+		execution.ProviderUsage.CacheCreationTokens, execution.ProviderUsage.OutputTokens, execution.ProviderUsage.ReasoningTokens,
+		execution.ResultCost.Status, execution.ResultCost.KnownSubtotalUSD, execution.ResultCost.KnownObservations, execution.ResultCost.UnknownObservations,
+		execution.ProviderCost.Status, execution.ProviderCost.KnownSubtotalUSD, execution.ProviderCost.KnownObservations, execution.ProviderCost.UnknownObservations,
+		execution.CacheServed, execution.TotalCallDurationMS, execution.OverBudgetMS,
+	)
+	return err
+}
+
+func validateExecutionFields(execution ExecutionFields) error {
+	if execution.SchemaVersion != 2 || strings.TrimSpace(execution.SelectedProvider) == "" ||
+		strings.TrimSpace(execution.SelectedProtocol) == "" || strings.TrimSpace(execution.SelectedEndpoint) == "" ||
+		strings.TrimSpace(execution.SelectedModelID) == "" {
+		return errors.New("postgres: canonical execution identity is invalid")
+	}
+	if execution.ResultSource != "provider" && execution.ResultSource != "cache" && execution.ResultSource != "none" {
+		return errors.New("postgres: canonical result source is invalid")
+	}
+	if (execution.ResultSource == "provider" || execution.ResultSource == "cache") &&
+		(strings.TrimSpace(execution.ProducerProfileID) == "" || strings.TrimSpace(execution.ProducerProvider) == "" ||
+			strings.TrimSpace(execution.ProducerProtocol) == "" || strings.TrimSpace(execution.ProducerEndpoint) == "" ||
+			strings.TrimSpace(execution.ProducerModelID) == "") {
+		return errors.New("postgres: canonical result producer is invalid")
+	}
+	for _, usage := range []UsageFields{execution.ResultUsage, execution.ProviderUsage} {
+		if err := validateUsageFields(usage); err != nil {
+			return err
+		}
+	}
+	for _, cost := range []CostFields{execution.ResultCost, execution.ProviderCost} {
+		if err := validateCostFields(cost); err != nil {
+			return err
+		}
+	}
+	if execution.TotalCallDurationMS < 0 || execution.OverBudgetMS < 0 {
+		return errors.New("postgres: canonical execution timing is invalid")
+	}
+	return nil
+}
+
+func validateUsageFields(usage UsageFields) error {
+	if usage.Status != "complete" && usage.Status != "partial" && usage.Status != "unavailable" && usage.Status != "inconsistent" {
+		return errors.New("postgres: canonical usage status is invalid")
+	}
+	values := []int64{usage.InputTokens, usage.CacheReadTokens, usage.CacheCreationTokens, usage.OutputTokens, usage.ReasoningTokens}
+	for _, value := range values {
+		if value < 0 {
+			return errors.New("postgres: canonical usage contains negative tokens")
+		}
+	}
+	if usage.Status == "unavailable" {
+		for _, value := range values {
+			if value != 0 {
+				return errors.New("postgres: unavailable usage contains token values")
+			}
+		}
+	}
+	return nil
+}
+
+func validateCostFields(cost CostFields) error {
+	if math.IsNaN(cost.KnownSubtotalUSD) || math.IsInf(cost.KnownSubtotalUSD, 0) || cost.KnownSubtotalUSD < 0 ||
+		cost.KnownObservations < 0 || cost.UnknownObservations < 0 {
+		return errors.New("postgres: canonical cost values are invalid")
+	}
+	switch cost.Status {
+	case "exact":
+		if cost.KnownObservations == 0 || cost.UnknownObservations != 0 {
+			return errors.New("postgres: exact cost coverage is invalid")
+		}
+	case "partial":
+		if cost.KnownObservations == 0 || cost.UnknownObservations == 0 {
+			return errors.New("postgres: partial cost coverage is invalid")
+		}
+	case "unknown":
+		if cost.KnownObservations != 0 || cost.UnknownObservations == 0 || cost.KnownSubtotalUSD != 0 {
+			return errors.New("postgres: unknown cost coverage is invalid")
+		}
+	case "unavailable":
+		if cost.KnownObservations != 0 || cost.UnknownObservations != 0 || cost.KnownSubtotalUSD != 0 {
+			return errors.New("postgres: unavailable cost coverage is invalid")
+		}
+	default:
+		return errors.New("postgres: canonical cost status is invalid")
+	}
+	return nil
+}
+
+func nullableString(value string) any {
+	if value == "" {
+		return nil
+	}
+	return value
 }

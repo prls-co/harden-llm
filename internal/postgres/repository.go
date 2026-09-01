@@ -423,6 +423,11 @@ func (store *Store) SaveTrace(ctx context.Context, trace TraceRecord, observatio
 	if err := validateIdentifier("trace ID", trace.TraceID); err != nil {
 		return err
 	}
+	if trace.RunID != "" {
+		if err := validateIdentifier("run ID", trace.RunID); err != nil {
+			return err
+		}
+	}
 	if err := validateJSONObject("trace record", trace.Record); err != nil {
 		return err
 	}
@@ -446,9 +451,9 @@ func (store *Store) SaveTrace(ctx context.Context, trace TraceRecord, observatio
 	}
 	defer func() { _ = transaction.Rollback(ctx) }()
 	_, err = transaction.Exec(ctx, `
-		INSERT INTO llm_traces (owner_id, trace_id, record, created_at, updated_at) VALUES ($1,$2,$3,$4,$5)
-		ON CONFLICT (owner_id, trace_id) DO UPDATE SET record = EXCLUDED.record, updated_at = EXCLUDED.updated_at`,
-		trace.OwnerID, trace.TraceID, trace.Record, trace.CreatedAt, trace.UpdatedAt,
+		INSERT INTO llm_traces (owner_id, trace_id, run_id, record, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6)
+		ON CONFLICT (owner_id, trace_id) DO UPDATE SET run_id = EXCLUDED.run_id, record = EXCLUDED.record, updated_at = EXCLUDED.updated_at`,
+		trace.OwnerID, trace.TraceID, nullableString(trace.RunID), trace.Record, trace.CreatedAt, trace.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("postgres: save trace: %w", err)
@@ -473,9 +478,9 @@ func (store *Store) SaveTrace(ctx context.Context, trace TraceRecord, observatio
 func (store *Store) Trace(ctx context.Context, ownerID, traceID string) (TraceRecord, []ObservationRecord, error) {
 	var trace TraceRecord
 	err := store.pool.QueryRow(ctx, `
-		SELECT owner_id, trace_id, record, created_at, updated_at
+		SELECT owner_id, trace_id, COALESCE(run_id, ''), record, created_at, updated_at
 		FROM llm_traces WHERE owner_id = $1 AND trace_id = $2`, ownerID, traceID).Scan(
-		&trace.OwnerID, &trace.TraceID, &trace.Record, &trace.CreatedAt, &trace.UpdatedAt,
+		&trace.OwnerID, &trace.TraceID, &trace.RunID, &trace.Record, &trace.CreatedAt, &trace.UpdatedAt,
 	)
 	if err != nil {
 		return TraceRecord{}, nil, notFound(err)

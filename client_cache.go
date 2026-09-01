@@ -11,52 +11,57 @@ import (
 	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
 )
 
-const cacheRecordSchemaVersion = 1
+const cacheRecordSchemaVersion = 2
 
 type cacheAdapter struct {
 	store CacheStore
 }
 
 type cachedProviderProjection struct {
-	Output any               `json:"output"`
-	Usage  coreruntime.Usage `json:"usage"`
-	Cost   coreruntime.Cost  `json:"cost"`
+	Output     any                         `json:"output"`
+	Accounting coreruntime.Ledger          `json:"accounting"`
+	Producer   coreruntime.ExecutionTarget `json:"producer"`
 }
 
-func (adapter *cacheAdapter) Get(ctx context.Context, operationHash, cacheVersion string) (coreruntime.ProviderResult, bool, error) {
+func (adapter *cacheAdapter) Get(ctx context.Context, operationHash, cacheVersion string) (coreruntime.CachedResult, bool, error) {
 	record, found, err := adapter.store.Get(ctx, operationHash)
 	if err != nil || !found {
-		return coreruntime.ProviderResult{}, found, err
+		return coreruntime.CachedResult{}, found, err
 	}
 	if record.SchemaVersion != cacheRecordSchemaVersion || record.OperationHash != operationHash || record.CacheVersion != cacheVersion {
-		return coreruntime.ProviderResult{}, false, errors.New("hardenllm: invalid operation cache record identity")
+		return coreruntime.CachedResult{}, false, errors.New("hardenllm: invalid operation cache record identity")
 	}
 	var projection cachedProviderProjection
 	if err := json.Unmarshal(record.ProviderResult, &projection); err != nil {
-		return coreruntime.ProviderResult{}, false, fmt.Errorf("hardenllm: decode operation cache record: %w", err)
+		return coreruntime.CachedResult{}, false, fmt.Errorf("hardenllm: decode operation cache record: %w", err)
 	}
 	if !json.Valid(record.RawProviderEnvelope) {
-		return coreruntime.ProviderResult{}, false, errors.New("hardenllm: invalid cached provider envelope")
+		return coreruntime.CachedResult{}, false, errors.New("hardenllm: invalid cached provider envelope")
 	}
-	return coreruntime.ProviderResult{
-		Output: projection.Output, Usage: projection.Usage, Cost: projection.Cost,
-		RawProviderEnvelope: append(json.RawMessage(nil), record.RawProviderEnvelope...),
+	return coreruntime.CachedResult{
+		ProviderResult: coreruntime.ProviderResult{
+			Output: projection.Output, Accounting: projection.Accounting,
+			RawProviderEnvelope: append(json.RawMessage(nil), record.RawProviderEnvelope...),
+		},
+		Producer: projection.Producer,
 	}, true, nil
 }
 
-func (adapter *cacheAdapter) Set(ctx context.Context, operationHash, cacheVersion string, operation cachekey.Operation, result coreruntime.ProviderResult) error {
+func (adapter *cacheAdapter) Set(ctx context.Context, operationHash, cacheVersion string, operation cachekey.Operation, result coreruntime.CachedResult) error {
 	operationJSON, err := cachekey.StableJSON(operation)
 	if err != nil {
 		return fmt.Errorf("hardenllm: encode cached operation: %w", err)
 	}
-	providerJSON, err := json.Marshal(cachedProviderProjection{Output: result.Output, Usage: result.Usage, Cost: result.Cost})
+	providerJSON, err := json.Marshal(cachedProviderProjection{
+		Output: result.ProviderResult.Output, Accounting: result.ProviderResult.Accounting, Producer: result.Producer,
+	})
 	if err != nil {
 		return fmt.Errorf("hardenllm: encode cached provider result: %w", err)
 	}
 	record := CacheRecord{
 		SchemaVersion: cacheRecordSchemaVersion, CacheVersion: cacheVersion, OperationHash: operationHash,
 		Operation:           append(json.RawMessage(nil), operationJSON...),
-		RawProviderEnvelope: append(json.RawMessage(nil), result.RawProviderEnvelope...),
+		RawProviderEnvelope: append(json.RawMessage(nil), result.ProviderResult.RawProviderEnvelope...),
 		ProviderResult:      append(json.RawMessage(nil), providerJSON...),
 		CreatedAt:           time.Now().UTC(),
 	}

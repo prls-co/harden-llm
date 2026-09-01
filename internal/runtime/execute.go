@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/prls-co/harden-llm/internal/accounting"
 	"github.com/prls-co/harden-llm/internal/cachekey"
 	"github.com/prls-co/harden-llm/internal/retry"
 )
@@ -52,15 +53,27 @@ func Execute(
 	if cacheVersion == "" {
 		cacheVersion = cachekey.DefaultVersion
 	}
+	selectedProfile := profiles[primary]
 	record = CallRecord{
 		CallID: callID, TraceID: traceID,
+		SelectedTarget: targetFromProfile(selectedProfile),
+		ResultSource:   ResultSource{Kind: ResultSourceNone},
+		Accounting: Accounting{
+			Result: accounting.EmptyLedger(), Provider: accounting.EmptyLedger(),
+		},
 		Cache: CacheFacts{Mode: cacheMode, Status: "skipped", Version: cacheVersion},
 	}
+	maxAttempts := retryConfig.MaxAttempts
+	if maxAttempts <= 0 {
+		maxAttempts = retry.DefaultMaxAttempts
+	}
 	var lastErr error
-	var aggregateUsage Usage
-	var aggregateCost Cost
-	costObserved := false
+	providerAccounting := accounting.EmptyLedger()
 	for backupIndex, profileID := range plan {
+		attemptOffset := len(record.Attempts)
+		if attemptOffset >= maxAttempts {
+			break
+		}
 		if err := ctx.Err(); err != nil {
 			return record, err
 		}
@@ -96,10 +109,12 @@ func Execute(
 				}
 				if found {
 					endCache("hit", nil)
-					record.Output = cached.Output
-					record.Usage = cached.Usage
-					record.Cost = cached.Cost
-					record.RawProviderEnvelope = append(json.RawMessage(nil), cached.RawProviderEnvelope...)
+					record.Output = cached.ProviderResult.Output
+					record.Accounting.Result = normalizedLedger(cached.ProviderResult.Accounting)
+					record.Accounting.Provider = providerAccounting
+					producer := cached.Producer
+					record.ResultSource = ResultSource{Kind: ResultSourceCache, Producer: &producer}
+					record.RawProviderEnvelope = append(json.RawMessage(nil), cached.ProviderResult.RawProviderEnvelope...)
 					record.Cache.Status = "hit"
 					record.Cache.Served = true
 					return record, nil
@@ -117,19 +132,23 @@ func Execute(
 		previousOutput := ""
 		repairAttempts := make(map[int]bool)
 		attemptProfiles := make(map[int]string)
+		attemptTargets := make(map[int]ExecutionTarget)
+		providerUsed := make(map[int]bool)
 		providerContext := ctx
 		endProvider := func(error) {}
 		activeRetryConfig := retryConfig
+		activeRetryConfig.MaxAttempts = maxAttempts - attemptOffset
 		if call.Telemetry != nil {
 			providerContext, endProvider = call.Telemetry.StartProvider(ctx, profile, call.CallType)
-			activeRetryConfig.Hooks = call.Telemetry.RetryHooks(profile, call.CallType, retryConfig.Policy)
+			activeRetryConfig.Hooks = call.Telemetry.RetryHooks(profile, call.CallType, retryConfig.Policy, attemptOffset)
 		}
-		attempts, runErr := retry.Do(providerContext, activeRetryConfig, func(attemptContext context.Context, _ int) error {
-			attemptNumber := len(repairAttempts) + 1
+		attempts, runErr := retry.Do(providerContext, activeRetryConfig, func(attemptContext context.Context, localAttemptNumber int) error {
+			globalAttemptNumber := attemptOffset + localAttemptNumber
 			repairActive := false
-			if call.StructuredRepair.Enabled && RepairEligible(attemptNumber-1, retryConfig.MaxAttempts, lastClassification, len(call.Schema) > 0) {
+			activeProfile := profile
+			if call.StructuredRepair.Enabled && RepairEligible(globalAttemptNumber-1, maxAttempts, lastClassification, len(call.Schema) > 0) {
 				repairCall := call
-				repairCall.Repair = buildRepairRequest(attemptNumber, retryConfig.MaxAttempts, previousOutput, call)
+				repairCall.Repair = buildRepairRequest(globalAttemptNumber, maxAttempts, previousOutput, call)
 				repairProfile := profile
 				repairCredential := credential
 				if repairCall.Repair.ProfileID != "" {
@@ -148,7 +167,8 @@ func Execute(
 						return lastFailure
 					}
 				}
-				attemptProfiles[attemptNumber] = repairProfile.ID
+				activeProfile = repairProfile
+				attemptProfiles[localAttemptNumber] = repairProfile.ID
 				var prepareErr error
 				activePrepared, prepareErr = executor.Prepare(attemptContext, repairProfile, repairCredential, repairCall)
 				if prepareErr != nil {
@@ -158,11 +178,19 @@ func Execute(
 				}
 				repairActive = true
 			}
-			repairAttempts[attemptNumber] = repairActive
+			repairAttempts[localAttemptNumber] = repairActive
+			attemptTargets[localAttemptNumber] = targetFromPrepared(activeProfile, activePrepared)
+			providerUsed[localAttemptNumber] = true
 			result, executeErr := executor.Execute(attemptContext, activePrepared)
-			if hasProviderAccounting(result) {
-				aggregateUsage = addUsage(aggregateUsage, result.Usage)
-				aggregateCost, costObserved = addCost(aggregateCost, costObserved, result.Cost)
+			attemptAccounting := normalizedLedger(result.Accounting)
+			if hasProviderAccounting(attemptAccounting) {
+				var accountingErr error
+				providerAccounting, accountingErr = accounting.AddLedger(providerAccounting, attemptAccounting)
+				if accountingErr != nil {
+					lastFailure = accountingErr
+					lastClassification = retry.Classify(accountingErr, retryConfig.Policy)
+					return accountingErr
+				}
 			}
 			if executeErr != nil {
 				captureProviderParseFailure(&record, executeErr, &previousOutput)
@@ -220,32 +248,35 @@ func Execute(
 				}
 			}
 			providerResult = result
-			providerResult.Usage = aggregateUsage
-			if costObserved {
-				providerResult.Cost = aggregateCost
-			}
+			providerResult.Accounting = attemptAccounting
 			lastFailure = nil
 			lastClassification = retry.Classification{Category: retry.CategorySuccess}
 			return nil
 		})
 		endProvider(runErr)
-		for index := range attempts {
-			attempts[index].ProfileID = profileID
-			if repairProfileID := attemptProfiles[attempts[index].Number]; repairProfileID != "" {
-				attempts[index].ProfileID = repairProfileID
+		for _, attempt := range attempts {
+			attemptProfileID := profileID
+			if repairProfileID := attemptProfiles[attempt.Number]; repairProfileID != "" {
+				attemptProfileID = repairProfileID
 			}
-			attempts[index].BackupIndex = backupIndex
-			attempts[index].Repair = repairAttempts[attempts[index].Number]
+			record.Attempts = append(record.Attempts, AttemptRecord{
+				Number: attemptOffset + attempt.Number, RetryLocalNumber: attempt.Number,
+				ProfileID: attemptProfileID, BackupIndex: backupIndex,
+				Target: attemptTargets[attempt.Number], ProviderUsed: providerUsed[attempt.Number],
+				Category: attempt.Category, Status: attempt.Status, Retryable: attempt.Retryable,
+				Delay: attempt.Delay, Duration: attempt.Duration, Repair: repairAttempts[attempt.Number],
+				Code: attempt.Code, Type: attempt.Type, ProviderRequestID: attempt.ProviderRequestID,
+			})
 		}
-		record.Attempts = append(record.Attempts, attempts...)
-		record.Usage = aggregateUsage
-		if costObserved {
-			record.Cost = aggregateCost
-		}
+		record.Accounting.Provider = providerAccounting
 		if runErr == nil {
 			record.Output = providerResult.Output
-			record.Usage = providerResult.Usage
-			record.Cost = providerResult.Cost
+			record.Accounting.Result = providerResult.Accounting
+			successfulAttempt := record.Attempts[len(record.Attempts)-1]
+			producer := successfulAttempt.Target
+			record.ResultSource = ResultSource{
+				Kind: ResultSourceProvider, AttemptNumber: successfulAttempt.Number, Producer: &producer,
+			}
 			record.RawProviderEnvelope = append(record.RawProviderEnvelope[:0], providerResult.RawProviderEnvelope...)
 			if cacheMode != cachekey.ModeOff {
 				cacheContext := ctx
@@ -253,7 +284,8 @@ func Execute(
 				if call.Telemetry != nil {
 					cacheContext, endCache = call.Telemetry.StartCache(ctx, "write")
 				}
-				if cacheErr := cache.Set(cacheContext, record.Cache.OperationHash, cacheVersion, prepared.Operation, providerResult); cacheErr != nil {
+				cachedResult := CachedResult{ProviderResult: providerResult, Producer: successfulAttempt.Target}
+				if cacheErr := cache.Set(cacheContext, record.Cache.OperationHash, cacheVersion, prepared.Operation, cachedResult); cacheErr != nil {
 					endCache("unknown", cacheErr)
 					return record, cacheErr
 				}
@@ -268,11 +300,42 @@ func Execute(
 			return record, runErr
 		}
 	}
+	if lastErr == nil && len(record.Attempts) >= maxAttempts {
+		lastErr = errors.New("runtime: call-global attempt budget exhausted")
+	}
 	return record, lastErr
 }
 
-func hasProviderAccounting(result ProviderResult) bool {
-	return result.Usage != (Usage{}) || result.Cost.Known || result.Cost.Source != ""
+func hasProviderAccounting(ledger Ledger) bool {
+	return ledger.Usage.Status != accounting.UsageUnavailable || ledger.Cost.Status != accounting.CostUnavailable
+}
+
+func normalizedLedger(ledger Ledger) Ledger {
+	if ledger.Usage.Status == "" {
+		ledger.Usage = accounting.UnavailableUsage()
+	}
+	if ledger.Cost.Status == "" {
+		ledger.Cost = accounting.UnavailableCost()
+	}
+	return ledger
+}
+
+func targetFromProfile(profile Profile) ExecutionTarget {
+	return ExecutionTarget{
+		ProfileID: profile.ID, Provider: profile.Provider, Protocol: profile.APIInferenceType,
+		Endpoint: profile.BaseURL, ModelID: profile.ModelID,
+	}
+}
+
+func targetFromPrepared(profile Profile, prepared PreparedOperation) ExecutionTarget {
+	target := targetFromProfile(profile)
+	target.Protocol = prepared.Operation.Protocol
+	target.Endpoint = prepared.Operation.Endpoint.Identity
+	target.ModelID = prepared.Operation.Model
+	if prepared.Operation.ResponseProjection.Provider != "" {
+		target.Provider = prepared.Operation.ResponseProjection.Provider
+	}
+	return target
 }
 
 func captureProviderParseFailure(record *CallRecord, err error, previousOutput *string) {
@@ -309,29 +372,4 @@ func buildRepairRequest(attempt, maxAttempts int, previousOutput string, call Ca
 		request.ReasoningEffort = escalation.ReasoningEffort
 	}
 	return request
-}
-
-func addUsage(left, right Usage) Usage {
-	return Usage{
-		InputTokens:         left.InputTokens + right.InputTokens,
-		CacheReadTokens:     left.CacheReadTokens + right.CacheReadTokens,
-		CacheCreationTokens: left.CacheCreationTokens + right.CacheCreationTokens,
-		OutputTokens:        left.OutputTokens + right.OutputTokens,
-		ReasoningTokens:     left.ReasoningTokens + right.ReasoningTokens,
-		TotalTokens:         left.TotalTokens + right.TotalTokens,
-	}
-}
-
-func addCost(current Cost, observed bool, next Cost) (Cost, bool) {
-	if !observed {
-		return next, true
-	}
-	if !current.Known || !next.Known {
-		return Cost{Known: false, Source: "unknown"}, true
-	}
-	source := current.Source
-	if source != next.Source {
-		source = "mixed"
-	}
-	return Cost{TotalUSD: current.TotalUSD + next.TotalUSD, Known: true, Source: source}, true
 }

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/prls-co/harden-llm/internal/accounting"
 	"github.com/prls-co/harden-llm/internal/retry"
 	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
 )
@@ -74,8 +75,14 @@ func TestCacheReplay(t *testing.T) {
 	if first.Cache.Status != "miss" || !first.Cache.Written || second.Cache.Status != "hit" || !second.Cache.Served {
 		t.Fatalf("cache facts first=%#v second=%#v", first.Cache, second.Cache)
 	}
-	if second.Output != first.Output || second.Usage != first.Usage || second.Cost != first.Cost || len(second.Attempts) != 0 {
+	if second.Output != first.Output || second.Accounting.Result != first.Accounting.Result || len(second.Attempts) != 0 {
 		t.Fatalf("cache replay diverged: first=%#v second=%#v", first, second)
+	}
+	if first.ResultSource.Kind != ResultSourceProvider || second.ResultSource.Kind != ResultSourceCache ||
+		first.ResultSource.Producer == nil || second.ResultSource.Producer == nil ||
+		*second.ResultSource.Producer != *first.ResultSource.Producer || second.Accounting.Provider.Usage.Status != "unavailable" ||
+		second.Accounting.Provider.Cost.Status != "unavailable" {
+		t.Fatalf("cache provenance/accounting = first=%#v second=%#v", first, second)
 	}
 	if second.CallID == first.CallID || second.TraceID == first.TraceID {
 		t.Fatal("cache replay reused call or trace identity")
@@ -95,6 +102,36 @@ func TestCacheReplay(t *testing.T) {
 	}
 	if executor.executed != 3 || cache.gets != 2 || cache.sets != 2 {
 		t.Fatalf("off behavior executed/gets/sets = %d/%d/%d", executor.executed, cache.gets, cache.sets)
+	}
+}
+
+func TestCacheV2RejectsV1Envelope(t *testing.T) {
+	// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-058
+	t.Parallel()
+
+	cache := &memoryCache{records: make(map[string]CacheRecord)}
+	client, err := New(Options{Credentials: fixedCredentialResolver{}, Cache: cache})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.executor = &fixedExecutor{result: fixtureProviderResult()}
+	client.newID = sequenceIDs()
+	request := Request{
+		ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "v2-only",
+		CallType: CallTypeText, CacheMode: CacheModeCache, CacheVersion: "operation-v2",
+		RetryPolicy: RetryPolicy{MaxAttempts: 1},
+	}
+	if _, err := client.Call(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
+	cache.mu.Lock()
+	for key, record := range cache.records {
+		record.SchemaVersion = 1
+		cache.records[key] = record
+	}
+	cache.mu.Unlock()
+	if _, err := client.Call(context.Background(), request); err == nil {
+		t.Fatal("cache v1 envelope was accepted after the v2 cut")
 	}
 }
 
@@ -131,8 +168,7 @@ func TestEmptyProviderResponseRetriesSameOperationBeforeCaching(t *testing.T) {
 func fixtureProviderResult() coreruntime.ProviderResult {
 	return coreruntime.ProviderResult{
 		Output:              "Apples, bananas",
-		Usage:               coreruntime.Usage{InputTokens: 12, OutputTokens: 3, TotalTokens: 15},
-		Cost:                coreruntime.Cost{TotalUSD: 0.0000225, Known: true, Source: "calculated"},
+		Accounting:          testLedger(12, 0, 0, 3, 0, accounting.ExactCost(0.0000225, "calculated")),
 		RawProviderEnvelope: json.RawMessage(`{"id":"fixture-response"}`),
 	}
 }

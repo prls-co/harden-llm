@@ -9,6 +9,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/prls-co/harden-llm/internal/accounting"
 	"github.com/prls-co/harden-llm/internal/retry"
 	"github.com/prls-co/harden-llm/internal/runtime"
 	contractschema "github.com/prls-co/harden-llm/internal/schema"
@@ -31,7 +32,7 @@ func normalizeResponse(prepared preparedRequest, body []byte) (runtime.ProviderR
 	}
 	usage := normalizeUsage(prepared.protocol, response)
 	cost := normalizeCost(response, usage, prepared.pricing)
-	partial := runtime.ProviderResult{Usage: usage, Cost: cost}
+	partial := runtime.ProviderResult{Accounting: accounting.Ledger{Usage: usage, Cost: cost}}
 	if prepared.callType == "structured" && output == nil {
 		parsed, _, parseErr := contractschema.ParseProviderOutput(text, prepared.protocol)
 		if parseErr != nil {
@@ -55,7 +56,9 @@ func normalizeResponse(prepared preparedRequest, body []byte) (runtime.ProviderR
 	if err != nil {
 		return runtime.ProviderResult{}, &retry.ProviderError{Err: errors.New("provider response normalization failed"), Code: "NORMALIZATION", Parse: true}
 	}
-	return runtime.ProviderResult{Output: output, Usage: usage, Cost: cost, RawProviderEnvelope: envelope}, nil
+	return runtime.ProviderResult{
+		Output: output, Accounting: accounting.Ledger{Usage: usage, Cost: cost}, RawProviderEnvelope: envelope,
+	}, nil
 }
 
 func decodeJSONObject(input []byte) (map[string]any, error) {
@@ -181,6 +184,9 @@ func normalizeUsage(protocol string, response map[string]any) runtime.Usage {
 	switch protocol {
 	case "openai.responses", "openai.chat.completions", "openai-compatible.chat.completions":
 		usage := objectValue(response["usage"])
+		if len(usage) == 0 {
+			return accounting.UnavailableUsage()
+		}
 		totalInput := integerValue(firstValue(usage, "prompt_tokens", "input_tokens"))
 		details := objectValue(firstValue(usage, "prompt_tokens_details", "input_tokens_details"))
 		cacheReadValue, cacheReadPresent := firstPresent(details, "cached_tokens")
@@ -203,17 +209,23 @@ func normalizeUsage(protocol string, response map[string]any) runtime.Usage {
 		return completedUsage(totalInput-cacheRead-cacheCreation, cacheRead, cacheCreation, totalOutput-reasoning, reasoning)
 	case "google.gemini.generateContent":
 		usage := objectValue(response["usageMetadata"])
+		if len(usage) == 0 {
+			return accounting.UnavailableUsage()
+		}
 		totalInput := integerValue(usage["promptTokenCount"])
 		cacheRead := integerValue(usage["cachedContentTokenCount"])
 		return completedUsage(totalInput-cacheRead, cacheRead, 0, integerValue(usage["candidatesTokenCount"]), integerValue(usage["thoughtsTokenCount"]))
 	case "anthropic.messages":
 		usage := objectValue(response["usage"])
+		if len(usage) == 0 {
+			return accounting.UnavailableUsage()
+		}
 		return completedUsage(
 			integerValue(usage["input_tokens"]), integerValue(usage["cache_read_input_tokens"]),
 			integerValue(usage["cache_creation_input_tokens"]), integerValue(usage["output_tokens"]), 0,
 		)
 	default:
-		return runtime.Usage{}
+		return accounting.UnavailableUsage()
 	}
 }
 
@@ -223,48 +235,25 @@ func completedUsage(input, cacheRead, cacheCreation, output, reasoning int64) ru
 	cacheCreation = max(0, cacheCreation)
 	output = max(0, output)
 	reasoning = max(0, reasoning)
-	return runtime.Usage{
-		InputTokens: input, CacheReadTokens: cacheRead, CacheCreationTokens: cacheCreation,
-		OutputTokens: output, ReasoningTokens: reasoning,
-		TotalTokens: input + cacheRead + cacheCreation + output + reasoning,
+	usage, err := accounting.CompleteUsage(input, cacheRead, cacheCreation, output, reasoning)
+	if err != nil {
+		return runtime.Usage{Status: accounting.UsageInconsistent}
 	}
+	return usage
 }
 
 func normalizeCost(response map[string]any, usage runtime.Usage, pricing runtime.Pricing) runtime.Cost {
 	usageObject := objectValue(response["usage"])
 	for _, value := range []any{usageObject["cost"], usageObject["total_cost"], response["cost"], response["total_cost"]} {
 		if reported, ok := nonnegativeFloat(value); ok {
-			return runtime.Cost{TotalUSD: reported, Known: true, Source: "reported"}
+			return accounting.ExactCost(reported, "reported")
 		}
 	}
-	total := float64(0)
-	groups := []struct {
-		count int64
-		rate  *float64
-	}{
-		{usage.InputTokens, pricing.Input},
-		{usage.CacheReadTokens, pricing.CacheRead},
-		{usage.CacheCreationTokens, pricing.CacheCreation},
-		{usage.OutputTokens, pricing.Output},
-		{usage.ReasoningTokens, pricing.Reasoning},
+	cost, err := accounting.ResolveCost(usage, pricing, nil)
+	if err != nil {
+		return accounting.UnknownCost("invalid_usage_or_rate")
 	}
-	for _, group := range groups {
-		if group.count == 0 {
-			continue
-		}
-		if group.rate == nil || math.IsNaN(*group.rate) || math.IsInf(*group.rate, 0) || *group.rate < 0 {
-			return runtime.Cost{Known: false, Source: "unknown"}
-		}
-		total += float64(group.count) * *group.rate
-	}
-	if allPricingMissing(pricing) {
-		return runtime.Cost{Known: false, Source: "unknown"}
-	}
-	return runtime.Cost{TotalUSD: total, Known: true, Source: "profile"}
-}
-
-func allPricingMissing(pricing runtime.Pricing) bool {
-	return pricing.Input == nil && pricing.CacheRead == nil && pricing.CacheCreation == nil && pricing.Output == nil && pricing.Reasoning == nil
+	return cost
 }
 
 func objectValue(value any) map[string]any {

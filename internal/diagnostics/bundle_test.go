@@ -9,6 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/prls-co/harden-llm/internal/accounting"
 	"github.com/prls-co/harden-llm/internal/runtime"
 	"github.com/prls-co/harden-llm/internal/traces"
 )
@@ -19,9 +20,11 @@ func TestDiagnosticsBundleRedactsAdversarialInputs(t *testing.T) {
 	t.Parallel()
 	secrets := []string{"fake-provider-secret", "fake-prompt-secret", "fake-cookie-secret", "fake-encryption-secret", "fake-ciphertext-secret"}
 	trace := traces.Trace{
-		SchemaVersion: "harden-llm.trace.v1", CallID: "call-1", TraceID: "trace-1", Status: traces.StatusFailure,
-		TotalCallDurationMs: 250, TotalWaitMs: 50, Usage: runtime.Usage{InputTokens: 2, OutputTokens: 1, TotalTokens: 3},
-		Cost:    runtime.Cost{Known: false, Source: "unknown"},
+		SchemaVersion: "harden-llm.trace.v2", CallID: "call-1", TraceID: "trace-1", Status: traces.StatusFailure,
+		TotalCallDurationMs: 250, TotalWaitMs: 50,
+		Accounting: runtime.Accounting{
+			Result: diagnosticsLedger(2, 1), Provider: diagnosticsLedger(2, 1),
+		},
 		Cache:   runtime.CacheFacts{Status: "miss"},
 		Context: runtime.ObservabilityContext{Environment: "test", Metadata: map[string]string{"authorization": "Bearer fake-provider-secret"}},
 	}
@@ -51,9 +54,17 @@ func TestDiagnosticsBundleRedactsAdversarialInputs(t *testing.T) {
 	if bundle.EndpointHost != "api.example" || bundle.EnvironmentFingerprint == "" || len(bundle.Artifacts) != 1 {
 		t.Fatalf("diagnostic signal missing: %#v", bundle)
 	}
-	if bundle.Trace.Usage.TotalTokens != 3 || bundle.Trace.TotalCallDurationMs != 250 {
+	if bundle.Trace.Accounting.Result.Usage.TotalTokens() != 3 || bundle.Trace.TotalCallDurationMs != 250 {
 		t.Fatalf("trace signal changed during redaction: %#v", bundle.Trace)
 	}
+}
+
+func diagnosticsLedger(input, output int64) runtime.Ledger {
+	usage, err := accounting.CompleteUsage(input, 0, 0, output, 0)
+	if err != nil {
+		panic(err)
+	}
+	return runtime.Ledger{Usage: usage, Cost: accounting.UnknownCost("missing_rate")}
 }
 
 func TestDiagnosticsBundleArtifactFailureIsBoundedAndNonFatal(t *testing.T) {

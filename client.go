@@ -321,24 +321,61 @@ func resultFromRecord(record coreruntime.CallRecord) Result {
 	attempts := make([]Attempt, 0, len(record.Attempts))
 	for _, item := range record.Attempts {
 		attempts = append(attempts, Attempt{
-			Number: item.Number, ProfileID: item.ProfileID, Category: string(item.Category), HTTPStatus: item.Status,
+			Number: item.Number, RetryLocalNumber: item.RetryLocalNumber,
+			ProfileID: item.ProfileID, Target: publicExecutionTarget(item.Target),
+			Category: string(item.Category), HTTPStatus: item.Status,
 			Code: item.Code, Type: item.Type, ProviderRequestID: item.ProviderRequestID,
 			Retryable: item.Retryable, Wait: item.Delay, Duration: item.Duration,
-			Repair: item.Repair, BackupIndex: item.BackupIndex, ProviderUsed: true,
+			Repair: item.Repair, BackupIndex: item.BackupIndex, ProviderUsed: item.ProviderUsed,
 		})
 	}
 	return Result{
 		Output: record.Output, CallID: record.CallID, TraceID: record.TraceID,
-		Usage: Usage{
-			InputTokens: record.Usage.InputTokens, CacheReadTokens: record.Usage.CacheReadTokens,
-			CacheCreationTokens: record.Usage.CacheCreationTokens, OutputTokens: record.Usage.OutputTokens,
-			ReasoningTokens: record.Usage.ReasoningTokens, TotalTokens: record.Usage.TotalTokens,
+		SelectedTarget: publicExecutionTarget(record.SelectedTarget),
+		ResultSource: ResultSource{
+			Kind: ResultSourceKind(record.ResultSource.Kind), AttemptNumber: record.ResultSource.AttemptNumber,
+			Producer: publicExecutionTargetPointer(record.ResultSource.Producer),
 		},
-		Cost:     Cost{TotalUSD: record.Cost.TotalUSD, Known: record.Cost.Known, Source: record.Cost.Source},
+		Accounting: Accounting{
+			Result:   publicAccountingLedger(record.Accounting.Result),
+			Provider: publicAccountingLedger(record.Accounting.Provider),
+		},
 		Attempts: attempts,
 		Cache: CacheResult{
 			Mode: CacheMode(record.Cache.Mode), Status: record.Cache.Status, OperationHash: record.Cache.OperationHash,
 			Version: record.Cache.Version, Served: record.Cache.Served, Written: record.Cache.Written,
+		},
+	}
+}
+
+func publicExecutionTargetPointer(target *coreruntime.ExecutionTarget) *ExecutionTarget {
+	if target == nil {
+		return nil
+	}
+	result := publicExecutionTarget(*target)
+	return &result
+}
+
+func publicExecutionTarget(target coreruntime.ExecutionTarget) ExecutionTarget {
+	return ExecutionTarget{
+		ProfileID: target.ProfileID, Provider: target.Provider, Protocol: target.Protocol,
+		Endpoint: target.Endpoint, ModelID: target.ModelID,
+	}
+}
+
+func publicAccountingLedger(ledger coreruntime.Ledger) AccountingLedger {
+	usage := ledger.Usage
+	cost := ledger.Cost
+	return AccountingLedger{
+		Usage: Usage{
+			InputTokens: usage.InputTokens, CacheReadTokens: usage.CacheReadTokens,
+			CacheCreationTokens: usage.CacheCreationTokens, OutputTokens: usage.OutputTokens,
+			ReasoningTokens: usage.ReasoningTokens, PromptTokens: usage.PromptTokens(),
+			CompletionTokens: usage.CompletionTokens(), TotalTokens: usage.TotalTokens(), Status: string(usage.Status),
+		},
+		Cost: Cost{
+			KnownSubtotalUSD: cost.KnownSubtotalUSD, Status: string(cost.Status), Source: cost.Source,
+			KnownObservations: cost.KnownObservations, UnknownObservations: cost.UnknownObservations,
 		},
 	}
 }

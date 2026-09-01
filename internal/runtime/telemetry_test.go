@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prls-co/harden-llm/internal/accounting"
 	"github.com/prls-co/harden-llm/internal/cachekey"
 	"github.com/prls-co/harden-llm/internal/retry"
 	"go.opentelemetry.io/otel/attribute"
@@ -112,7 +113,7 @@ func TestOTelContract(t *testing.T) {
 	allowedLabels := map[string]bool{
 		"provider": true, "call_type": true, "outcome": true, "category": true,
 		"cache_outcome": true, "operation": true, "repair": true, "token_type": true,
-		"source": true, "store": true, "kind": true, "scope": true,
+		"source": true, "coverage": true, "store": true, "kind": true, "scope": true,
 	}
 	for _, scope := range metrics.ScopeMetrics {
 		for _, observed := range scope.Metrics {
@@ -154,27 +155,29 @@ func (*telemetryExecutor) Execute(_ context.Context, operation PreparedOperation
 				"repair": map[string]any{"explanation": "fixed", "changes": []any{"answer"}},
 				"data":   map[string]any{"answer": "ok"},
 			},
-			Usage: Usage{InputTokens: 5, OutputTokens: 2, TotalTokens: 7},
-			Cost:  Cost{TotalUSD: 0.01, Known: true, Source: "reported"},
+			Accounting: Ledger{
+				Usage: completeUsageWithoutTest(5, 0, 0, 2, 0), Cost: accounting.ExactCost(0.01, "reported"),
+			},
 		}, nil
 	}
 	return ProviderResult{
 		Output: map[string]any{"answer": float64(42)},
-		Usage:  Usage{InputTokens: 4, OutputTokens: 1, TotalTokens: 5},
-		Cost:   Cost{TotalUSD: 0.01, Known: true, Source: "reported"},
+		Accounting: Ledger{
+			Usage: completeUsageWithoutTest(4, 0, 0, 1, 0), Cost: accounting.ExactCost(0.01, "reported"),
+		},
 	}, nil
 }
 
 type telemetryCache struct {
-	record ProviderResult
+	record CachedResult
 	found  bool
 }
 
-func (cache *telemetryCache) Get(context.Context, string, string) (ProviderResult, bool, error) {
+func (cache *telemetryCache) Get(context.Context, string, string) (CachedResult, bool, error) {
 	return cache.record, cache.found, nil
 }
 
-func (cache *telemetryCache) Set(_ context.Context, _, _ string, _ cachekey.Operation, result ProviderResult) error {
+func (cache *telemetryCache) Set(_ context.Context, _, _ string, _ cachekey.Operation, result CachedResult) error {
 	cache.record = result
 	return nil
 }

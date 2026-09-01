@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prls-co/harden-llm/internal/accounting"
 	"github.com/prls-co/harden-llm/internal/cachekey"
 	"github.com/prls-co/harden-llm/internal/pricing"
 	"github.com/prls-co/harden-llm/internal/retry"
@@ -43,32 +44,32 @@ func TestProviderNormalization(t *testing.T) {
 		{
 			name: "OpenAI Responses", protocol: "openai.responses", callType: "text",
 			body:       `{"output_text":"responses-ok","usage":{"input_tokens":20,"input_tokens_details":{"cached_tokens":4},"output_tokens":8,"output_tokens_details":{"reasoning_tokens":3}}}`,
-			wantOutput: "responses-ok", wantUsage: runtime.Usage{InputTokens: 16, CacheReadTokens: 4, OutputTokens: 5, ReasoningTokens: 3, TotalTokens: 28},
-			wantCost: runtime.Cost{TotalUSD: 0.0354, Known: true, Source: "profile"},
+			wantOutput: "responses-ok", wantUsage: completeProviderUsage(16, 4, 0, 5, 3),
+			wantCost: accounting.ExactCost(0.0354, "profile"),
 		},
 		{
 			name: "OpenAI-compatible structured", protocol: "openai-compatible.chat.completions", callType: "structured",
 			body:       `{"choices":[{"message":{"content":"{\"answer\":\"chat-ok\"}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2,"cost":0.125}}`,
-			wantOutput: map[string]any{"answer": "chat-ok"}, wantUsage: runtime.Usage{InputTokens: 3, OutputTokens: 2, TotalTokens: 5},
-			wantCost: runtime.Cost{TotalUSD: 0.125, Known: true, Source: "reported"},
+			wantOutput: map[string]any{"answer": "chat-ok"}, wantUsage: completeProviderUsage(3, 0, 0, 2, 0),
+			wantCost: accounting.ExactCost(0.125, "reported"),
 		},
 		{
 			name: "Gemini", protocol: "google.gemini.generateContent", callType: "text",
 			body:       `{"candidates":[{"content":{"parts":[{"text":"gemini-"},{"text":"ok"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":10,"cachedContentTokenCount":2,"candidatesTokenCount":4,"thoughtsTokenCount":1}}`,
-			wantOutput: "gemini-", wantUsage: runtime.Usage{InputTokens: 8, CacheReadTokens: 2, OutputTokens: 4, ReasoningTokens: 1, TotalTokens: 15},
-			wantCost: runtime.Cost{TotalUSD: 0.0192, Known: true, Source: "profile"},
+			wantOutput: "gemini-", wantUsage: completeProviderUsage(8, 2, 0, 4, 1),
+			wantCost: accounting.ExactCost(0.0192, "profile"),
 		},
 		{
 			name: "OpenAI nullish usage precedence", protocol: "openai.responses", callType: "text",
 			body:       `{"output_text":"ok","usage":{"input_tokens":10,"input_tokens_details":{"cached_tokens":0},"cached_tokens":5,"output_tokens":4,"output_tokens_details":{"reasoning_tokens":0},"reasoning_tokens":3}}`,
-			wantOutput: "ok", wantUsage: runtime.Usage{InputTokens: 10, OutputTokens: 4, TotalTokens: 14},
-			wantCost: runtime.Cost{TotalUSD: 0.018, Known: true, Source: "profile"},
+			wantOutput: "ok", wantUsage: completeProviderUsage(10, 0, 0, 4, 0),
+			wantCost: accounting.ExactCost(0.018, "profile"),
 		},
 		{
 			name: "Anthropic", protocol: "anthropic.messages", callType: "text",
 			body:       `{"content":[{"type":"text","text":"anthropic-"},{"type":"text","text":"ok"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"cache_read_input_tokens":2,"output_tokens":3}}`,
-			wantOutput: "anthropic-ok", wantUsage: runtime.Usage{InputTokens: 5, CacheReadTokens: 2, OutputTokens: 3, TotalTokens: 10},
-			wantCost: runtime.Cost{TotalUSD: 0.0112, Known: true, Source: "profile"},
+			wantOutput: "anthropic-ok", wantUsage: completeProviderUsage(5, 2, 0, 3, 0),
+			wantCost: accounting.ExactCost(0.0112, "profile"),
 		},
 	}
 	for _, test := range tests {
@@ -82,11 +83,11 @@ func TestProviderNormalization(t *testing.T) {
 			if !deepEqualJSON(result.Output, test.wantOutput) {
 				t.Fatalf("output mismatch: got %#v want %#v", result.Output, test.wantOutput)
 			}
-			if result.Usage != test.wantUsage {
-				t.Fatalf("usage mismatch: got %#v want %#v", result.Usage, test.wantUsage)
+			if result.Accounting.Usage != test.wantUsage {
+				t.Fatalf("usage mismatch: got %#v want %#v", result.Accounting.Usage, test.wantUsage)
 			}
-			if !costNear(result.Cost, test.wantCost) {
-				t.Fatalf("cost mismatch: got %#v want %#v", result.Cost, test.wantCost)
+			if !costNear(result.Accounting.Cost, test.wantCost) {
+				t.Fatalf("cost mismatch: got %#v want %#v", result.Accounting.Cost, test.wantCost)
 			}
 			if strings.Contains(string(result.RawProviderEnvelope), "authorization") {
 				t.Fatalf("raw envelope contains credential material: %s", result.RawProviderEnvelope)
@@ -144,18 +145,17 @@ func TestProviderNormalizationParityCapturedSource(t *testing.T) {
 					if !deepEqualJSON(result.Output, variant.normalized.Result) {
 						t.Fatalf("output mismatch: got %#v want %#v", result.Output, variant.normalized.Result)
 					}
-					wantUsage := runtime.Usage{
-						InputTokens: rates[pricing.ItemInput].Tokens, CacheReadTokens: rates[pricing.ItemCacheRead].Tokens,
-						CacheCreationTokens: rates[pricing.ItemCacheCreation].Tokens, OutputTokens: rates[pricing.ItemOutput].Tokens,
-						ReasoningTokens: rates[pricing.ItemReasoning].Tokens,
-					}
-					wantUsage.TotalTokens = wantUsage.InputTokens + wantUsage.CacheReadTokens + wantUsage.CacheCreationTokens + wantUsage.OutputTokens + wantUsage.ReasoningTokens
-					if result.Usage != wantUsage {
-						t.Fatalf("usage mismatch: got %#v want %#v", result.Usage, wantUsage)
+					wantUsage := completeProviderUsage(
+						rates[pricing.ItemInput].Tokens, rates[pricing.ItemCacheRead].Tokens,
+						rates[pricing.ItemCacheCreation].Tokens, rates[pricing.ItemOutput].Tokens,
+						rates[pricing.ItemReasoning].Tokens,
+					)
+					if result.Accounting.Usage != wantUsage {
+						t.Fatalf("usage mismatch: got %#v want %#v", result.Accounting.Usage, wantUsage)
 					}
 					summary, summaryErr := pricing.Summarize(variant.normalized.Usage)
-					if summaryErr != nil || summary.TotalCost == nil || !result.Cost.Known || math.Abs(result.Cost.TotalUSD-*summary.TotalCost) > 1e-12 {
-						t.Fatalf("cost mismatch: got %#v source=%#v error=%v", result.Cost, summary, summaryErr)
+					if summaryErr != nil || summary.TotalCost == nil || result.Accounting.Cost.Status != accounting.CostExact || math.Abs(result.Accounting.Cost.KnownSubtotalUSD-*summary.TotalCost) > 1e-12 {
+						t.Fatalf("cost mismatch: got %#v source=%#v error=%v", result.Accounting.Cost, summary, summaryErr)
 					}
 				})
 			}
@@ -200,7 +200,7 @@ func TestProviderNormalizationClassifiesSafeFailures(t *testing.T) {
 		preparedRequest{provider: "fixture", protocol: "openai-compatible.chat.completions", callType: "structured"},
 		[]byte(`{"choices":[{"message":{"content":"{\"answer\":\"\\uZZZZ\"}"}}],"usage":{"prompt_tokens":3,"completion_tokens":2}}`),
 	)
-	if parseErr == nil || partial.Usage != (runtime.Usage{InputTokens: 3, OutputTokens: 2, TotalTokens: 5}) {
+	if parseErr == nil || partial.Accounting.Usage != completeProviderUsage(3, 0, 0, 2, 0) {
 		t.Fatalf("structured parse failure lost billable usage: %#v %v", partial, parseErr)
 	}
 
@@ -290,7 +290,7 @@ func TestProviderNormalizationCollectsResponsesEventStream(t *testing.T) {
 	if err != nil {
 		t.Fatalf("normalizeResponse: %v", err)
 	}
-	if result.Output != "stream-ok" || result.Usage.TotalTokens != 3 {
+	if result.Output != "stream-ok" || result.Accounting.Usage.TotalTokens() != 3 {
 		t.Fatalf("unexpected stream result: %#v", result)
 	}
 }
@@ -413,5 +413,15 @@ func jsonMarshal(value any) ([]byte, error) {
 }
 
 func costNear(left, right runtime.Cost) bool {
-	return left.Known == right.Known && left.Source == right.Source && math.Abs(left.TotalUSD-right.TotalUSD) < 1e-12
+	return left.Status == right.Status && left.Source == right.Source &&
+		left.KnownObservations == right.KnownObservations && left.UnknownObservations == right.UnknownObservations &&
+		math.Abs(left.KnownSubtotalUSD-right.KnownSubtotalUSD) < 1e-12
+}
+
+func completeProviderUsage(input, cacheRead, cacheCreation, output, reasoning int64) runtime.Usage {
+	usage, err := accounting.CompleteUsage(input, cacheRead, cacheCreation, output, reasoning)
+	if err != nil {
+		panic(err)
+	}
+	return usage
 }
