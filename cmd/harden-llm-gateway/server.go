@@ -144,13 +144,20 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 	artifactPrefix := func(ownerID string) string {
 		return "llm-traces/" + traces.SafeObjectKeyComponent(ownerID) + "/"
 	}
+	artifactCoordinator, err := gateway.NewArtifactCoordinator(gateway.ArtifactCoordinatorConfig{
+		Store: store, Logger: logger, Telemetry: gatewayTelemetry,
+		Scope: func(ownerID string) (gateway.ArtifactObjectAccess, error) {
+			return garageStore.Scoped(artifactPrefix(ownerID))
+		},
+	})
+	if err != nil {
+		return safeStartupError(redactor, "configure artifact coordinator", err)
+	}
 	resourceService, err := gateway.NewResourceService(gateway.ResourceServiceConfig{
 		Store: store, Profiles: profileService, ModelRefresher: providerModelRefresher{discovery: modelDiscovery},
 		ArtifactTTL: config.artifactPresignTTL,
 		Telemetry:   gatewayTelemetry,
-		ArtifactScope: func(ownerID string) (gateway.ArtifactAccess, error) {
-			return garageStore.Scoped(artifactPrefix(ownerID))
-		},
+		Artifacts:   artifactCoordinator,
 	})
 	if err != nil {
 		return safeStartupError(redactor, "configure resource service", err)
@@ -162,7 +169,7 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 	runService, err := gateway.NewRunService(gateway.RunServiceConfig{
 		Store: store, Profiles: profileService, CallerFactory: callerFactory,
 		ArtifactScope: func(ownerID string) (hardenllm.ArtifactStore, error) {
-			return garageStore.Scoped(artifactPrefix(ownerID))
+			return artifactCoordinator.Scoped(ownerID)
 		},
 		Telemetry: gatewayTelemetry, Logger: logger,
 	})
@@ -203,6 +210,7 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 	defer listener.Close()
 	baseContext, cancelBase := context.WithCancel(context.Background())
 	defer cancelBase()
+	go artifactCoordinator.RunReconciler(baseContext)
 	boundedOperationDuration := config.maxRunDuration
 	if boundedOperationDuration < 15*time.Second {
 		boundedOperationDuration = 15 * time.Second

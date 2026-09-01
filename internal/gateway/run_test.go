@@ -90,7 +90,8 @@ func TestRunRoute(t *testing.T) {
 	if result["output"] != "text-ok" || result["runId"] != "run-1" || result["traceId"] != "trace-1" || caller.calls != 1 {
 		t.Fatalf("text run = %#v calls=%d", result, caller.calls)
 	}
-	if result["profileId"] != "Backup" || result["modelId"] != "model-override" || result["provider"] != profile.Provider || result["apiInferenceType"] != profile.APIInferenceType || result["providerBaseUrl"] != profile.BaseURL {
+	selectedTarget := result["selectedTarget"].(map[string]any)
+	if selectedTarget["profileId"] != "Backup" || selectedTarget["modelId"] != "model-override" || selectedTarget["provider"] != profile.Provider || selectedTarget["protocol"] != profile.APIInferenceType || selectedTarget["endpoint"] != profile.BaseURL {
 		t.Fatalf("text run lost effective immutable metadata: %#v", result)
 	}
 	if caller.last.Context.OrganizationID != "owner-a" || caller.last.Context.RunID != "run-1" || len(caller.last.Profiles) != 1 {
@@ -105,11 +106,8 @@ func TestRunRoute(t *testing.T) {
 		t.Fatalf("stored trace = %#v %#v, %v", trace, observations, err)
 	}
 	var traceDocument map[string]any
-	if err := json.Unmarshal(trace.Record, &traceDocument); err != nil || traceDocument["modelId"] != "model-override" || traceDocument["provider"] != profile.Provider {
-		t.Fatalf("stored trace lost effective immutable metadata: %#v %v", traceDocument, err)
-	}
-	if _, err := store.Artifact(ctx, "owner-a", "trace-1", "call-1-trace"); err != nil {
-		t.Fatalf("successful artifact reference was not indexed: %v", err)
+	if err := json.Unmarshal(trace.Record, &traceDocument); err != nil || traceDocument["schemaVersion"] != float64(2) || traceDocument["runId"] != "run-1" {
+		t.Fatalf("stored trace lost canonical execution identity: %#v %v", traceDocument, err)
 	}
 	if bytes.Contains(response.Body, []byte("llm-traces/")) {
 		t.Fatalf("run response exposed artifact object key: %s", response.Body)
@@ -130,9 +128,9 @@ func TestRunRoute(t *testing.T) {
 		t.Fatalf("failure state lost runtime identity: %#v %v", failureState, callErr)
 	}
 	if failureOutput.CallID != "call-failure" || failureOutput.TraceID != "trace-failure" || len(failureOutput.Attempts) != 1 ||
-		failureOutput.Usage.TotalTokens != 6 || len(failureOutput.Artifacts) != 2 || failureOutput.ProfileID != "Backup" ||
-		failureOutput.ModelID != profile.ModelID || failureOutput.Provider != profile.Provider || failureOutput.APIInferenceType != profile.APIInferenceType ||
-		failureOutput.ProviderBaseURL != profile.BaseURL {
+		failureOutput.Accounting.Provider.Usage.TotalTokens != 6 || len(failureOutput.Artifacts) != 0 || failureOutput.SelectedTarget.ProfileID != "Backup" ||
+		failureOutput.SelectedTarget.ModelID != profile.ModelID || failureOutput.SelectedTarget.Provider != profile.Provider ||
+		failureOutput.SelectedTarget.Protocol != profile.APIInferenceType || failureOutput.SelectedTarget.Endpoint != profile.BaseURL {
 		t.Fatalf("failure output lost runtime diagnostics: %#v", failureOutput)
 	}
 	failedRun, err := store.Run(ctx, "owner-a", "failure-run")
@@ -141,14 +139,9 @@ func TestRunRoute(t *testing.T) {
 	}
 	var failedResult gateway.RunOutput
 	if err := json.Unmarshal(failedRun.Result, &failedResult); err != nil || failedResult.CallID != "call-failure" ||
-		failedResult.TraceID != "trace-failure" || len(failedResult.Attempts) != 1 || failedResult.Usage.TotalTokens != 6 ||
-		len(failedResult.Artifacts) != 2 {
+		failedResult.TraceID != "trace-failure" || len(failedResult.Attempts) != 1 || failedResult.Accounting.Provider.Usage.TotalTokens != 6 ||
+		len(failedResult.Artifacts) != 0 {
 		t.Fatalf("failed run lost diagnostic result: %#v %v", failedResult, err)
-	}
-	for _, artifactID := range []string{"call-failure-trace", "call-failure-raw"} {
-		if _, err := store.Artifact(ctx, "owner-a", "trace-failure", artifactID); err != nil {
-			t.Fatalf("failed-run artifact %q was not indexed: %v", artifactID, err)
-		}
 	}
 
 	structuredBody := []byte(`{"profileId":"Backup","userPrompt":"return JSON","callType":"structured","schema":{"type":"object","required":["ok"],"properties":{"ok":{"type":"boolean"}}},"structuredRepair":true,"maxAttempts":2}`)
@@ -164,14 +157,6 @@ func TestRunRoute(t *testing.T) {
 	if caller.calls != beforeInvalid {
 		t.Fatal("invalid run reached the root caller")
 	}
-
-	caller.invalidArtifact = true
-	response = apiRequest(t, server.Client(), http.MethodPost, server.URL+"/api/v1/run", textBody, authorization)
-	assertEnvelope(t, response, http.StatusOK, false)
-	if len(response.JSON["result"].(map[string]any)["artifacts"].([]any)) != 0 {
-		t.Fatalf("failed artifact index changed provider success: %#v", response.JSON)
-	}
-	caller.invalidArtifact = false
 
 	blocking := &blockingRuntimeCaller{canceled: make(chan struct{})}
 	timeoutIDs := 0
@@ -282,9 +267,8 @@ func TestRunRoute(t *testing.T) {
 }
 
 type recordingRuntimeCaller struct {
-	calls           int
-	last            hardenllm.Request
-	invalidArtifact bool
+	calls int
+	last  hardenllm.Request
 }
 
 func (caller *recordingRuntimeCaller) Call(_ context.Context, request hardenllm.Request) (hardenllm.Result, error) {
@@ -296,20 +280,22 @@ func (caller *recordingRuntimeCaller) Call(_ context.Context, request hardenllm.
 	if request.CallType == hardenllm.CallTypeStructured {
 		output = map[string]any{"ok": true}
 	}
-	digest := strings.Repeat("a", 64)
-	if caller.invalidArtifact {
-		digest = "invalid"
+	profile := request.Profiles[request.ProfileID]
+	target := hardenllm.ExecutionTarget{
+		ProfileID: request.ProfileID, Provider: profile.Provider, Protocol: profile.APIInferenceType,
+		Endpoint: profile.BaseURL, ModelID: profile.ModelID,
 	}
+	usage := hardenllm.Usage{InputTokens: 2, OutputTokens: 1, PromptTokens: 2, CompletionTokens: 1, TotalTokens: 3, Status: "complete"}
+	cost := hardenllm.Cost{KnownSubtotalUSD: 0.001, Status: "exact", Source: "profile", KnownObservations: 1}
 	return hardenllm.Result{
-		Output: output, CallID: callID, TraceID: traceID,
-		Usage:    hardenllm.Usage{InputTokens: 2, OutputTokens: 1, TotalTokens: 3},
-		Cost:     hardenllm.Cost{Known: true, TotalUSD: 0.001, Source: "profile"},
-		Attempts: []hardenllm.Attempt{{Number: 1, ProfileID: request.ProfileID, ProviderUsed: true}},
+		Output: output, CallID: callID, TraceID: traceID, SelectedTarget: target,
+		ResultSource: hardenllm.ResultSource{Kind: hardenllm.ResultSourceProvider, AttemptNumber: 1, Producer: &target},
+		Accounting: hardenllm.Accounting{
+			Result:   hardenllm.AccountingLedger{Usage: usage, Cost: cost},
+			Provider: hardenllm.AccountingLedger{Usage: usage, Cost: cost},
+		},
+		Attempts: []hardenllm.Attempt{{Number: 1, RetryLocalNumber: 1, ProfileID: request.ProfileID, Target: target, Category: "success", ProviderUsed: true}},
 		Cache:    hardenllm.CacheResult{Mode: request.CacheMode, Status: "disabled"},
-		Artifacts: []hardenllm.ArtifactRef{{
-			Key:    fmt.Sprintf("llm-traces/%s/%s/%s/%s-trace.json", request.Context.OrganizationID, request.Context.TaskID, traceID, callID),
-			SHA256: digest, SizeBytes: 15, ContentType: "application/json",
-		}},
 	}, nil
 }
 
@@ -321,17 +307,21 @@ type blockingRuntimeCaller struct {
 type failureRuntimeCaller struct{}
 
 func (failureRuntimeCaller) Call(_ context.Context, request hardenllm.Request) (hardenllm.Result, error) {
-	digest := strings.Repeat("b", 64)
-	prefix := fmt.Sprintf("llm-traces/%s/%s/trace-failure/call-failure", request.Context.OrganizationID, request.Context.TaskID)
+	profile := request.Profiles[request.ProfileID]
+	target := hardenllm.ExecutionTarget{
+		ProfileID: request.ProfileID, Provider: profile.Provider, Protocol: profile.APIInferenceType,
+		Endpoint: profile.BaseURL, ModelID: profile.ModelID,
+	}
+	usage := hardenllm.Usage{InputTokens: 4, OutputTokens: 2, PromptTokens: 4, CompletionTokens: 2, TotalTokens: 6, Status: "complete"}
+	cost := hardenllm.Cost{KnownSubtotalUSD: 0.000006, Status: "exact", Source: "profile", KnownObservations: 1}
 	return hardenllm.Result{
-		CallID: "call-failure", TraceID: "trace-failure",
-		Usage:    hardenllm.Usage{InputTokens: 4, OutputTokens: 2, TotalTokens: 6},
-		Cost:     hardenllm.Cost{TotalUSD: 0.000006, Known: true, Source: "profile"},
-		Attempts: []hardenllm.Attempt{{Number: 1, ProfileID: request.ProfileID, Category: "parse", ProviderUsed: true}},
-		Artifacts: []hardenllm.ArtifactRef{
-			{Key: prefix + "-trace.json", SHA256: digest, SizeBytes: 64, ContentType: "application/json"},
-			{Key: prefix + "-raw.json", SHA256: digest, SizeBytes: 32, ContentType: "application/json"},
+		CallID: "call-failure", TraceID: "trace-failure", SelectedTarget: target,
+		ResultSource: hardenllm.ResultSource{Kind: hardenllm.ResultSourceNone},
+		Accounting: hardenllm.Accounting{
+			Result:   hardenllm.AccountingLedger{Usage: usage, Cost: cost},
+			Provider: hardenllm.AccountingLedger{Usage: usage, Cost: cost},
 		},
+		Attempts: []hardenllm.Attempt{{Number: 1, RetryLocalNumber: 1, ProfileID: request.ProfileID, Target: target, Category: "parse_error", ProviderUsed: true}},
 	}, errors.New("fixture provider failure")
 }
 

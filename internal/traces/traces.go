@@ -78,6 +78,7 @@ type Observation struct {
 }
 
 type ArtifactProjection struct {
+	ArtifactID  string          `json:"artifactId"`
 	Kind        string          `json:"kind"`
 	Key         string          `json:"key"`
 	Content     json.RawMessage `json:"content"`
@@ -201,8 +202,10 @@ func ArtifactProjections(trace Trace, parseFailureResponse json.RawMessage, secr
 		"llm-traces", SafeObjectKeyComponent(trace.Context.OrganizationID),
 		SafeObjectKeyComponent(trace.Context.TaskID), SafeObjectKeyComponent(trace.TraceID),
 	)
+	traceArtifactID := SafeObjectKeyComponent(trace.CallID) + "-trace"
 	result := []ArtifactProjection{{
-		Kind: ArtifactKindTrace, Key: path.Join(prefix, SafeObjectKeyComponent(trace.CallID)+"-trace.json"),
+		ArtifactID: traceArtifactID,
+		Kind:       ArtifactKindTrace, Key: path.Join(prefix, traceArtifactID+".json"),
 		Content: redactedTrace, ContentType: "application/json",
 	}}
 	parseAttempt := 0
@@ -223,10 +226,12 @@ func ArtifactProjections(trace Trace, parseFailureResponse json.RawMessage, secr
 		if redactErr != nil {
 			return nil, fmt.Errorf("traces: redact parse failure artifact: %w", redactErr)
 		}
+		artifactID := fmt.Sprintf("%s-attempt-%d-raw", SafeObjectKeyComponent(trace.CallID), parseAttempt)
 		result = append(result, ArtifactProjection{
-			Kind:    ArtifactKindParseFailureResponse,
-			Key:     path.Join(prefix, fmt.Sprintf("%s-attempt-%d-raw.json", SafeObjectKeyComponent(trace.CallID), parseAttempt)),
-			Content: redactedResponse, ContentType: "application/json",
+			ArtifactID: artifactID,
+			Kind:       ArtifactKindParseFailureResponse,
+			Key:        path.Join(prefix, artifactID+".json"),
+			Content:    redactedResponse, ContentType: "application/json",
 		})
 	}
 	return result, nil

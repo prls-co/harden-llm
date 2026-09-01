@@ -172,3 +172,18 @@ Rollout gates and exit criteria
 - After apply and schema migration require: zero runs without traces, zero traces without runs, one owner/run binding per trace, every artifact metadata row integrity-valid in Garage, and a no-op second reconciliation.
 - Product stats remain PostgreSQL-derived. Tempo, Langfuse, Laminar, Prometheus, Loki, and ClickHouse provide operational evidence only and cannot classify or backfill retained product rows.
 - This KER closes only after the retained set is reconciled, structural ownership prevents recurrence, mixed-version presentation is explicit, and exact deployed revision evidence is recorded.
+
+Implementation checkpoint (2026-09-01)
+- The existing gateway binary now owns a bounded `reconcile-history` command.
+  Dry-run is mandatory by default, reports only redacted counts plus a
+  deterministic digest, and apply requires the unchanged digest and explicit
+  owner or all-owner scope.
+- Classification accepts only self-consistent execution-like v1 trace subtrees,
+  contiguous observations, canonical owner/run/trace artifact paths, no live
+  run identity, and integrity-matching Garage objects. Unknown or truncated
+  plans fail closed.
+- Apply routes each object deletion through the durable artifact coordinator,
+  rechecks an exact subtree fingerprint under the owner lock, and is idempotent.
+  TEST-061 covers deterministic plans, changed-plan rejection, apply, and a
+  no-op second apply. Restored-snapshot and production reconciliation plus the
+  follow-on structural migration remain required before closure.

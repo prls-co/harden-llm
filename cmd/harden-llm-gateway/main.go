@@ -33,6 +33,9 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 	if args[0] == "healthcheck" {
 		return runHealthcheck(ctx, args[1:], stdout)
 	}
+	if args[0] == "reconcile-history" {
+		return runHistoryReconciliation(ctx, args[1:], stdout, getenv)
+	}
 	if args[0] == "version" && len(args) == 1 {
 		_, err := fmt.Fprintln(stdout, version)
 		return err

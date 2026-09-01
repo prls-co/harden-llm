@@ -15,7 +15,7 @@ defmodule HardenLlm.LlmDiagnosticsWire do
   @usage_keys ~w(inputTokens cacheReadTokens cacheCreationTokens outputTokens reasoningTokens promptTokens completionTokens totalTokens status)
   @cost_keys ~w(knownSubtotalUsd status source knownObservations unknownObservations)
   @cache_keys ~w(mode status operationHash version served written)
-  @artifact_keys ~w(artifactId kind sha256 sizeBytes contentType)
+  @artifact_keys ~w(artifactId kind state sha256 sizeBytes contentType)
 
   def decode("run", value), do: decode_run(value, false)
   def decode("getStats", value), do: decode_stats(value)
@@ -76,7 +76,7 @@ defmodule HardenLlm.LlmDiagnosticsWire do
          :ok <- optional(value, "cost", &legacy_cost/1),
          :ok <- optional(value, "attempts", &legacy_attempts/1),
          :ok <- optional(value, "cache", &cache/1),
-         :ok <- optional(value, "artifacts", &artifacts/1) do
+         :ok <- optional(value, "artifacts", &legacy_artifacts/1) do
       {:ok, value}
     else
       _ -> malformed()
@@ -335,13 +335,43 @@ defmodule HardenLlm.LlmDiagnosticsWire do
 
   defp cache(_value), do: :error
 
-  defp artifacts(values) when is_list(values), do: each(values, &run_artifact/1)
+  defp artifacts(values) when is_list(values) do
+    with :ok <- each(values, &run_artifact/1),
+         true <- Enum.all?(values, &(&1["state"] == "available")) do
+      :ok
+    else
+      _ -> :error
+    end
+  end
+
   defp artifacts(_values), do: :error
+
+  defp legacy_artifacts(values) when is_list(values) do
+    each(values, fn value ->
+      with true <- is_map(value),
+           :ok <- subset_keys(value, @artifact_keys),
+           :ok <- required_keys(value, ~w(artifactId kind sha256 sizeBytes contentType)),
+           :ok <- identifier(value["artifactId"]),
+           :ok <- enum(value["kind"], ~w(trace parse-failure-response diagnostic-event)),
+           :ok <- optional(value, "state", &enum(&1, ~w(available deleting unavailable))),
+           true <-
+             is_binary(value["sha256"]) and Regex.match?(~r/^[0-9a-f]{64}$/, value["sha256"]),
+           :ok <- positive_integer(value["sizeBytes"]),
+           :ok <- enum(value["contentType"], ["application/json"]) do
+        :ok
+      else
+        _ -> :error
+      end
+    end)
+  end
+
+  defp legacy_artifacts(_values), do: :error
 
   defp run_artifact(value) when is_map(value) do
     with :ok <- exact_keys(value, @artifact_keys),
          :ok <- identifier(value["artifactId"]),
          :ok <- enum(value["kind"], ~w(trace parse-failure-response diagnostic-event)),
+         :ok <- enum(value["state"], ~w(available deleting unavailable)),
          true <- is_binary(value["sha256"]) and Regex.match?(~r/^[0-9a-f]{64}$/, value["sha256"]),
          :ok <- positive_integer(value["sizeBytes"]),
          :ok <- enum(value["contentType"], ["application/json"]) do

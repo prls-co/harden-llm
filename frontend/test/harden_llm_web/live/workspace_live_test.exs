@@ -1108,6 +1108,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         %{
           "artifactId" => "artifact-test",
           "kind" => "trace",
+          "state" => "available",
           "sha256" => String.duplicate("a", 64),
           "sizeBytes" => 1373,
           "contentType" => "application/json"

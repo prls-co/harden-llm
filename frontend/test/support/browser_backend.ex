@@ -436,6 +436,7 @@ defmodule HardenLlmWeb.BrowserBackend do
         %{
           "artifactId" => "artifact-browser",
           "kind" => "trace",
+          "state" => "available",
           "sha256" => String.duplicate("a", 64),
           "sizeBytes" => 42,
           "contentType" => "application/json",

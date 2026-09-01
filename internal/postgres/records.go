@@ -120,6 +120,7 @@ type ObservationRecord struct {
 
 type ArtifactRecord struct {
 	OwnerID     string
+	RunID       string
 	TraceID     string
 	ID          string
 	Kind        string
@@ -127,9 +128,49 @@ type ArtifactRecord struct {
 	ContentType string
 	SHA256      string
 	SizeBytes   int64
-	Available   bool
+	State       string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+}
+
+type ArtifactOperation struct {
+	ID            string
+	BatchID       string
+	Action        string
+	State         string
+	OwnerID       string
+	RunID         string
+	TraceID       string
+	ArtifactID    string
+	Kind          string
+	ObjectKey     string
+	ContentType   string
+	SHA256        string
+	SizeBytes     int64
+	AttemptCount  int
+	NextAttemptAt time.Time
+	ErrorCategory string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+type ArtifactOperationBacklog struct {
+	Pending   int64
+	OldestAge time.Duration
+}
+
+type ArtifactDeleteBatch struct {
+	ID                    string
+	OwnerID               string
+	Scope                 string
+	RunID                 string
+	TraceID               string
+	State                 string
+	ExpectedArtifactCount int
+	DeletedRunCount       int64
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	Operations            []ArtifactOperation
 }
 
 type CacheRecord struct {

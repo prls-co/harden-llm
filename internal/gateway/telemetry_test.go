@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/prls-co/harden-llm/internal/artifacts"
@@ -44,6 +45,7 @@ func TestGatewayOTelContract(t *testing.T) {
 	endTracePersistence(nil)
 	_, endArtifactIndex := telemetry.StartPersistence(ctx, "postgres", "artifact.index")
 	endArtifactIndex(context.DeadlineExceeded)
+	telemetry.RecordArtifactReconciliation(ctx, 2, 45*time.Second, "partial")
 
 	queryTracer, err := postgres.NewQueryTelemetry(tracerProvider, meterProvider)
 	if err != nil {
@@ -92,6 +94,8 @@ func TestGatewayOTelContract(t *testing.T) {
 		"harden_llm.persistence.duration": false, "harden_llm.persistence.failures": false,
 		"harden_llm.postgres.operations": false, "harden_llm.postgres.duration": false,
 		"harden_llm.garage.operations": false, "harden_llm.garage.duration": false,
+		"harden_llm.artifact.reconciliations": false, "harden_llm.artifact.pending_operations": false,
+		"harden_llm.artifact.oldest_pending_age": false,
 	}
 	allowedLabels := map[string]bool{
 		"route": true, "method": true, "outcome": true, "category": true,
@@ -151,6 +155,18 @@ func gatewayMetricAttributeSets(data metricdata.Aggregation) []attribute.Set {
 		}
 		return result
 	case metricdata.Histogram[float64]:
+		result := make([]attribute.Set, 0, len(value.DataPoints))
+		for _, point := range value.DataPoints {
+			result = append(result, point.Attributes)
+		}
+		return result
+	case metricdata.Gauge[int64]:
+		result := make([]attribute.Set, 0, len(value.DataPoints))
+		for _, point := range value.DataPoints {
+			result = append(result, point.Attributes)
+		}
+		return result
+	case metricdata.Gauge[float64]:
 		result := make([]attribute.Set, 0, len(value.DataPoints))
 		for _, point := range value.DataPoints {
 			result = append(result, point.Attributes)

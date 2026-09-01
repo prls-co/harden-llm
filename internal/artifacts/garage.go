@@ -202,6 +202,17 @@ func (store *GarageStore) Put(ctx context.Context, key string, content []byte, c
 	return store.put(ctx, key, content, contentType, "")
 }
 
+func (store *ScopedStore) Inspect(ctx context.Context, key string) (hardenllm.ArtifactRef, bool, error) {
+	if store == nil || store.store == nil {
+		return hardenllm.ArtifactRef{}, false, &Error{Operation: "head", Kind: KindInvalid, err: errors.New("store is not initialized")}
+	}
+	return store.store.inspect(ctx, key, store.prefix)
+}
+
+func (store *GarageStore) Inspect(ctx context.Context, key string) (hardenllm.ArtifactRef, bool, error) {
+	return store.inspect(ctx, key, "")
+}
+
 func (store *GarageStore) put(ctx context.Context, key string, content []byte, contentType, prefix string) (reference hardenllm.ArtifactRef, err error) {
 	if store == nil || store.client == nil {
 		return hardenllm.ArtifactRef{}, &Error{Operation: "put", Kind: KindInvalid, err: errors.New("store is not initialized")}
@@ -222,12 +233,15 @@ func (store *GarageStore) put(ctx context.Context, key string, content []byte, c
 	defer keyLock.Unlock()
 	requestContext, cancel := store.operationContext(ctx)
 	defer cancel()
-	_, headErr := store.client.HeadObject(requestContext, &s3.HeadObjectInput{Bucket: aws.String(store.bucket), Key: aws.String(key)})
-	if headErr == nil {
-		return hardenllm.ArtifactRef{}, &Error{Operation: "put", Kind: KindConflict, err: errors.New("artifact key already exists")}
+	existing, found, inspectErr := store.inspect(requestContext, key, prefix)
+	if inspectErr != nil {
+		return hardenllm.ArtifactRef{}, inspectErr
 	}
-	if classified := classify("put", requestContext, headErr); !IsKind(classified, KindNotFound) {
-		return hardenllm.ArtifactRef{}, classified
+	if found {
+		if existing.SHA256 == digestText && existing.SizeBytes == int64(len(content)) && existing.ContentType == contentType {
+			return existing, nil
+		}
+		return hardenllm.ArtifactRef{}, &Error{Operation: "put", Kind: KindConflict, err: errors.New("artifact key contains different content")}
 	}
 	_, err = store.client.PutObject(requestContext, &s3.PutObjectInput{
 		Bucket: aws.String(store.bucket), Key: aws.String(key), Body: bytes.NewReader(content),
@@ -235,9 +249,43 @@ func (store *GarageStore) put(ctx context.Context, key string, content []byte, c
 		IfNoneMatch: aws.String("*"), Metadata: map[string]string{"sha256": digestText},
 	})
 	if err != nil {
-		return hardenllm.ArtifactRef{}, classify("put", requestContext, err)
+		putErr := classify("put", requestContext, err)
+		if existing, found, inspectErr := store.inspect(context.WithoutCancel(ctx), key, prefix); inspectErr == nil && found &&
+			existing.SHA256 == digestText && existing.SizeBytes == int64(len(content)) && existing.ContentType == contentType {
+			return existing, nil
+		}
+		return hardenllm.ArtifactRef{}, putErr
 	}
 	return hardenllm.ArtifactRef{Key: key, SHA256: digestText, SizeBytes: int64(len(content)), ContentType: contentType}, nil
+}
+
+func (store *GarageStore) inspect(ctx context.Context, key, prefix string) (reference hardenllm.ArtifactRef, found bool, err error) {
+	if store == nil || store.client == nil {
+		return hardenllm.ArtifactRef{}, false, &Error{Operation: "head", Kind: KindInvalid, err: errors.New("store is not initialized")}
+	}
+	if err := validateKey(key, prefix); err != nil {
+		return hardenllm.ArtifactRef{}, false, &Error{Operation: "head", Kind: KindInvalid, err: err}
+	}
+	requestContext, cancel := store.operationContext(ctx)
+	defer cancel()
+	output, err := store.client.HeadObject(requestContext, &s3.HeadObjectInput{Bucket: aws.String(store.bucket), Key: aws.String(key)})
+	if err != nil {
+		classified := classify("head", requestContext, err)
+		if IsKind(classified, KindNotFound) {
+			return hardenllm.ArtifactRef{}, false, nil
+		}
+		return hardenllm.ArtifactRef{}, false, classified
+	}
+	digest := ""
+	for name, value := range output.Metadata {
+		if strings.EqualFold(name, "sha256") {
+			digest = strings.ToLower(value)
+		}
+	}
+	if output.ContentLength == nil || *output.ContentLength <= 0 || aws.ToString(output.ContentType) != "application/json" || len(digest) != 64 {
+		return hardenllm.ArtifactRef{}, true, &Error{Operation: "head", Kind: KindIntegrity, err: errors.New("stored artifact metadata is invalid")}
+	}
+	return hardenllm.ArtifactRef{Key: key, SHA256: digest, SizeBytes: *output.ContentLength, ContentType: aws.ToString(output.ContentType)}, true, nil
 }
 
 func (store *ScopedStore) Get(ctx context.Context, key string) ([]byte, hardenllm.ArtifactRef, error) {

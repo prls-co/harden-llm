@@ -40,7 +40,7 @@ func (client *Client) persistCallArtifacts(
 		if projection.Kind == traces.ArtifactKindTrace {
 			continue
 		}
-		reference, persistErr := client.putArtifact(persistContext, projection)
+		reference, persistErr := client.putArtifact(persistContext, projection, record, callContext)
 		if persistErr != nil {
 			safeMessage := client.logArtifactFailure(ctx, projection.Kind, persistErr, secrets)
 			traces.AddObservation(&trace, "artifact.persistence", "failure", map[string]any{
@@ -60,7 +60,7 @@ func (client *Client) persistCallArtifacts(
 		if projection.Kind != traces.ArtifactKindTrace {
 			continue
 		}
-		reference, persistErr := client.putArtifact(persistContext, projection)
+		reference, persistErr := client.putArtifact(persistContext, projection, record, callContext)
 		if persistErr != nil {
 			client.logArtifactFailure(ctx, projection.Kind, persistErr, secrets)
 			return secondary
@@ -70,10 +70,23 @@ func (client *Client) persistCallArtifacts(
 	return secondary
 }
 
-func (client *Client) putArtifact(ctx context.Context, projection traces.ArtifactProjection) (reference ArtifactRef, err error) {
+func (client *Client) putArtifact(
+	ctx context.Context,
+	projection traces.ArtifactProjection,
+	record coreruntime.CallRecord,
+	callContext coreruntime.ObservabilityContext,
+) (reference ArtifactRef, err error) {
 	ctx, endArtifact := client.telemetry.StartArtifact(ctx, projection.Kind)
 	defer func() { endArtifact(err) }()
-	reference, err = client.options.Artifacts.Put(ctx, projection.Key, projection.Content, projection.ContentType)
+	if publisher, ok := client.options.Artifacts.(ArtifactPublisher); ok {
+		reference, err = publisher.PublishArtifact(ctx, ArtifactPublication{
+			OwnerID: callContext.OrganizationID, RunID: callContext.RunID, TraceID: record.TraceID,
+			ArtifactID: projection.ArtifactID, Kind: projection.Kind, ObjectKey: projection.Key,
+			Content: append([]byte(nil), projection.Content...), ContentType: projection.ContentType,
+		})
+	} else {
+		reference, err = client.options.Artifacts.Put(ctx, projection.Key, projection.Content, projection.ContentType)
+	}
 	if err != nil {
 		return ArtifactRef{}, err
 	}
@@ -85,6 +98,8 @@ func (client *Client) putArtifact(ctx context.Context, projection traces.Artifac
 	if decodeErr != nil || len(decoded) != 32 {
 		return ArtifactRef{}, errors.New("artifact store returned an invalid SHA-256 digest")
 	}
+	reference.ArtifactID = projection.ArtifactID
+	reference.Kind = projection.Kind
 	return reference, nil
 }
 

@@ -41,7 +41,10 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
           "trace_url" => "/traces/trace-1",
           "curl" => "curl -X POST /api/v1/run",
           "request" => %{"available" => true, "payload" => %{"userPrompt" => "hello"}},
-          "response" => %{"available" => true, "payload" => nil}
+          "response" => %{"available" => true, "payload" => nil},
+          "artifacts" => [
+            %{"available" => false, "href" => nil, "label" => "trace · unavailable"}
+          ]
         },
         request_open: true,
         response_open: true,
@@ -66,6 +69,9 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
     assert html =~ "hello"
     assert html =~ ~s(id="trace-widget-response-content")
     assert html =~ ">null</pre>"
+    assert html =~ ~s(aria-disabled="true")
+    assert html =~ "trace · unavailable"
+    refute html =~ ~s(href="")
   end
 
   test "renders explicit unavailable, loading, and error resource states" do

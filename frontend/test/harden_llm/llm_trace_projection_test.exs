@@ -90,8 +90,42 @@ defmodule HardenLlm.LlmTraceProjectionTest do
     assert restored["request"]["payload"]["userPrompt"] == "safe restored prompt"
 
     assert restored["artifacts"] == [
-             %{"href" => "/artifacts/trace-test/artifact-test", "label" => "trace · 42 bytes"}
+             %{
+               "available" => true,
+               "href" => "/artifacts/trace-test/artifact-test",
+               "label" => "trace · 42 bytes"
+             }
            ]
+
+    unavailable_trace =
+      APIFixtures.trace()
+      |> put_in(["artifacts", Access.at(0), "state"], "unavailable")
+
+    unavailable =
+      LlmTraceProjection.resources_from_trace(
+        unavailable_trace,
+        result,
+        "https://api.example.test",
+        "/traces/trace-test",
+        artifact_url
+      )
+
+    assert unavailable["artifacts"] == [
+             %{
+               "available" => false,
+               "href" => nil,
+               "label" => "trace · 42 bytes · unavailable"
+             }
+           ]
+  end
+
+  test "strict current run decoding rejects nonavailable artifact references" do
+    artifact = APIFixtures.trace()["artifacts"] |> hd() |> Map.delete("createdAt")
+    current = Map.put(APIFixtures.run_result(), "artifacts", [artifact])
+    assert {:ok, ^current} = LlmDiagnosticsWire.decode("run", current)
+
+    deleting = put_in(current, ["artifacts", Access.at(0), "state"], "deleting")
+    assert {:error, :malformed_diagnostics} = LlmDiagnosticsWire.decode("run", deleting)
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-063

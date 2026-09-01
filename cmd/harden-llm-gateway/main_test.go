@@ -25,6 +25,14 @@ func TestBootstrapCommandInput(t *testing.T) {
 	if err := run(context.Background(), []string{"unknown"}, strings.NewReader(""), &output, &output, func(string) string { return "" }); err == nil {
 		t.Fatal("unknown command was accepted")
 	}
+	output.Reset()
+	err = run(context.Background(), []string{"reconcile-history", "--owner-id", "owner-a"}, strings.NewReader(""), &output, &output, func(string) string { return "" })
+	if err == nil || !strings.Contains(err.Error(), databaseURLEnvironment) || output.Len() != 0 {
+		t.Fatalf("missing reconciliation configuration = %v, output=%q", err, output.String())
+	}
+	if err := run(context.Background(), []string{"reconcile-history", "--all-owners", "--apply"}, strings.NewReader(""), &output, &output, func(string) string { return "" }); err == nil || !strings.Contains(err.Error(), "--digest") {
+		t.Fatalf("digest-free reconciliation apply = %v", err)
+	}
 }
 
 func TestVersionCommand(t *testing.T) {

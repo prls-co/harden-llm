@@ -39,6 +39,9 @@ type Telemetry struct {
 	persistence         metric.Int64Counter
 	persistenceDuration metric.Float64Histogram
 	persistenceFailures metric.Int64Counter
+	artifactReconciles  metric.Int64Counter
+	artifactPending     metric.Int64Gauge
+	artifactOldestAge   metric.Float64Gauge
 }
 
 func NewTelemetry(tracerProvider trace.TracerProvider, meterProvider metric.MeterProvider) (*Telemetry, error) {
@@ -69,7 +72,36 @@ func NewTelemetry(tracerProvider trace.TracerProvider, meterProvider metric.Mete
 	if telemetry.persistenceFailures, err = meter.Int64Counter("harden_llm.persistence.failures"); err != nil {
 		return nil, err
 	}
+	if telemetry.artifactReconciles, err = meter.Int64Counter("harden_llm.artifact.reconciliations"); err != nil {
+		return nil, err
+	}
+	if telemetry.artifactPending, err = meter.Int64Gauge("harden_llm.artifact.pending_operations"); err != nil {
+		return nil, err
+	}
+	if telemetry.artifactOldestAge, err = meter.Float64Gauge("harden_llm.artifact.oldest_pending_age", metric.WithUnit("s")); err != nil {
+		return nil, err
+	}
 	return telemetry, nil
+}
+
+func (telemetry *Telemetry) RecordArtifactReconciliation(ctx context.Context, pending int64, oldestAge time.Duration, outcome string) {
+	if telemetry == nil {
+		return
+	}
+	if pending < 0 {
+		pending = 0
+	}
+	if oldestAge < 0 {
+		oldestAge = 0
+	}
+	switch outcome {
+	case "success", "partial", "error":
+	default:
+		outcome = "error"
+	}
+	telemetry.artifactReconciles.Add(ctx, 1, metric.WithAttributes(attribute.String("outcome", outcome)))
+	telemetry.artifactPending.Record(ctx, pending)
+	telemetry.artifactOldestAge.Record(ctx, oldestAge.Seconds())
 }
 
 func (telemetry *Telemetry) StartHTTP(ctx context.Context, method string) (context.Context, func(string, int)) {

@@ -51,7 +51,7 @@ func TestRepositoryContract(t *testing.T) {
 	}
 	store := stores[0]
 	versions, err := store.AppliedMigrations(ctx)
-	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3}) {
+	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4}) {
 		t.Fatalf("migration versions = %v, %v", versions, err)
 	}
 	if err := store.Ready(ctx); err != nil {
@@ -146,7 +146,7 @@ func TestRepositoryContract(t *testing.T) {
 		OwnerID: "owner-a", TraceID: "trace-atomic", ID: "artifact-atomic", Kind: "trace",
 		ObjectKey:   "llm-traces/owner-a/run-atomic/trace-atomic/artifact-atomic.json",
 		ContentType: "application/json", SHA256: strings.Repeat("a", 64), SizeBytes: 1,
-		Available: true, CreatedAt: now, UpdatedAt: now,
+		State: "available", CreatedAt: now, UpdatedAt: now,
 	}
 	if err := store.SaveExecution(ctx, atomicRun, atomicTrace, nil, []ArtifactRecord{duplicateArtifact, duplicateArtifact}); err == nil {
 		t.Fatal("duplicate execution artifact did not reject the atomic save")
@@ -184,7 +184,7 @@ func TestRepositoryContract(t *testing.T) {
 		t.Fatalf("cross-owner trace read = %v", err)
 	}
 
-	artifact := ArtifactRecord{OwnerID: "owner-a", TraceID: "trace-a", ID: "artifact-a", Kind: "trace", ObjectKey: "owners/owner-a/traces/trace-a/trace/artifact-a.json", ContentType: "application/json", SHA256: strings.Repeat("a", 64), SizeBytes: 17, Available: true, CreatedAt: now, UpdatedAt: now}
+	artifact := ArtifactRecord{OwnerID: "owner-a", TraceID: "trace-a", ID: "artifact-a", Kind: "trace", ObjectKey: "owners/owner-a/traces/trace-a/trace/artifact-a.json", ContentType: "application/json", SHA256: strings.Repeat("a", 64), SizeBytes: 17, State: "available", CreatedAt: now, UpdatedAt: now}
 	if err := store.SaveArtifact(ctx, artifact); err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +276,7 @@ func assertSchema(t *testing.T, ctx context.Context, store *Store) {
 		tables = append(tables, table)
 	}
 	sort.Strings(tables)
-	for _, required := range []string{"users", "user_sessions", "llm_profiles", "llm_endpoint_credentials", "llm_client_state", "llm_runs", "llm_traces", "llm_trace_observations", "llm_artifacts", "llm_operation_cache", "schema_migrations"} {
+	for _, required := range []string{"users", "user_sessions", "llm_profiles", "llm_endpoint_credentials", "llm_client_state", "llm_runs", "llm_traces", "llm_trace_observations", "llm_artifacts", "llm_artifact_operations", "llm_artifact_delete_batches", "llm_operation_cache", "schema_migrations"} {
 		if !contains(tables, required) {
 			t.Errorf("required table %s missing from %v", required, tables)
 		}

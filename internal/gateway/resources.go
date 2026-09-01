@@ -128,6 +128,7 @@ type CachedStatsView struct {
 type TraceArtifact struct {
 	ArtifactID  string    `json:"artifactId"`
 	Kind        string    `json:"kind"`
+	State       string    `json:"state"`
 	SHA256      string    `json:"sha256"`
 	SizeBytes   int64     `json:"sizeBytes"`
 	ContentType string    `json:"contentType"`
@@ -160,18 +161,17 @@ type TraceView struct {
 	Resources    TraceResources     `json:"resources"`
 }
 
-type ArtifactAccess interface {
-	PresignGet(context.Context, string, time.Duration) (string, error)
-	DeleteMany(context.Context, []string) error
+type ArtifactLifecycle interface {
+	PresignGet(context.Context, string, string, time.Duration) (string, error)
+	DeleteExecution(context.Context, string, string, string) error
+	ClearOwner(context.Context, string) (int64, error)
 }
-
-type ArtifactScope func(ownerID string) (ArtifactAccess, error)
 
 type ResourceServiceConfig struct {
 	Store          *postgres.Store
 	Profiles       *ProfileService
 	ModelRefresher ModelRefresher
-	ArtifactScope  ArtifactScope
+	Artifacts      ArtifactLifecycle
 	ArtifactTTL    time.Duration
 	Clock          func() time.Time
 	NewID          func() (string, error)
@@ -182,7 +182,7 @@ type ResourceService struct {
 	store          *postgres.Store
 	profiles       *ProfileService
 	modelRefresher ModelRefresher
-	artifactScope  ArtifactScope
+	artifacts      ArtifactLifecycle
 	artifactTTL    time.Duration
 	clock          func() time.Time
 	newID          func() (string, error)
@@ -210,7 +210,7 @@ func NewResourceService(config ResourceServiceConfig) (*ResourceService, error) 
 	}
 	return &ResourceService{
 		store: config.Store, profiles: config.Profiles, modelRefresher: config.ModelRefresher,
-		artifactScope: config.ArtifactScope, artifactTTL: config.ArtifactTTL,
+		artifacts: config.Artifacts, artifactTTL: config.ArtifactTTL,
 		clock: config.Clock, newID: config.NewID, telemetry: config.Telemetry,
 	}, nil
 }
@@ -386,46 +386,17 @@ func (service *ResourceService) DeleteHistory(ctx context.Context, ownerID, runI
 	if err != nil {
 		return err
 	}
-	artifacts, err := service.store.Artifacts(ctx, ownerID, run.TraceID)
-	if err != nil {
-		return err
+	if service.artifacts == nil {
+		return errors.New("gateway: artifact coordinator is not configured")
 	}
-	if err := service.deleteArtifacts(ctx, ownerID, artifacts); err != nil {
-		return err
-	}
-	return service.store.DeleteExecution(ctx, ownerID, runID, run.TraceID)
+	return service.artifacts.DeleteExecution(ctx, ownerID, runID, run.TraceID)
 }
 
 func (service *ResourceService) ClearHistory(ctx context.Context, ownerID string) (int64, error) {
-	artifacts, err := service.store.ArtifactsForOwner(ctx, ownerID)
-	if err != nil {
-		return 0, err
+	if service.artifacts == nil {
+		return 0, errors.New("gateway: artifact coordinator is not configured")
 	}
-	if err := service.deleteArtifacts(ctx, ownerID, artifacts); err != nil {
-		return 0, err
-	}
-	return service.store.ClearExecutions(ctx, ownerID)
-}
-
-func (service *ResourceService) deleteArtifacts(ctx context.Context, ownerID string, artifacts []postgres.ArtifactRecord) error {
-	if len(artifacts) == 0 {
-		return nil
-	}
-	if service.artifactScope == nil {
-		return errors.New("gateway: artifact access is not configured")
-	}
-	store, err := service.artifactScope(ownerID)
-	if err != nil {
-		return fmt.Errorf("gateway: artifact access is unavailable: %w", err)
-	}
-	keys := make([]string, len(artifacts))
-	for index, artifact := range artifacts {
-		keys[index] = artifact.ObjectKey
-	}
-	if err := store.DeleteMany(ctx, keys); err != nil {
-		return fmt.Errorf("gateway: artifact deletion failed: %w", err)
-	}
-	return nil
+	return service.artifacts.ClearOwner(ctx, ownerID)
 }
 
 func (service *ResourceService) Trace(ctx context.Context, ownerID, traceID string) (TraceView, error) {
@@ -440,7 +411,7 @@ func (service *ResourceService) Trace(ctx context.Context, ownerID, traceID stri
 	publicArtifacts := make([]TraceArtifact, 0, len(artifacts))
 	for _, artifact := range artifacts {
 		publicArtifacts = append(publicArtifacts, TraceArtifact{
-			ArtifactID: artifact.ID, Kind: artifact.Kind, SHA256: artifact.SHA256,
+			ArtifactID: artifact.ID, Kind: artifact.Kind, State: artifact.State, SHA256: artifact.SHA256,
 			SizeBytes: artifact.SizeBytes, ContentType: artifact.ContentType, CreatedAt: artifact.CreatedAt,
 		})
 	}
@@ -489,18 +460,14 @@ func unavailableTraceResources() TraceResources {
 }
 
 func (service *ResourceService) PresignArtifact(ctx context.Context, ownerID, traceID, artifactID string) (string, error) {
-	if service.artifactScope == nil {
-		return "", errors.New("gateway: artifact access is not configured")
+	if service.artifacts == nil {
+		return "", errors.New("gateway: artifact coordinator is not configured")
 	}
 	artifact, err := service.store.Artifact(ctx, ownerID, traceID, artifactID)
 	if err != nil {
 		return "", err
 	}
-	store, err := service.artifactScope(ownerID)
-	if err != nil {
-		return "", errors.New("gateway: artifact access is unavailable")
-	}
-	return store.PresignGet(ctx, artifact.ObjectKey, service.artifactTTL)
+	return service.artifacts.PresignGet(ctx, ownerID, artifact.ObjectKey, service.artifactTTL)
 }
 
 func defaultClientState() ClientState {

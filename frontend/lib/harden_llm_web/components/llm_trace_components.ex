@@ -15,7 +15,9 @@ defmodule HardenLlmWeb.LlmTraceComponents do
         "curl" => "curl ...",
         "request" => %{"available" => true, "payload" => %{}},
         "response" => %{"available" => false, "message" => "..."},
-        "artifacts" => [%{"href" => "/traces/...", "label" => "trace · 42 bytes"}]
+        "artifacts" => [
+          %{"available" => true, "href" => "/traces/...", "label" => "trace · 42 bytes"}
+        ]
       }
 
   A resource without `available: true` is rendered as unavailable rather than
@@ -140,10 +142,14 @@ defmodule HardenLlmWeb.LlmTraceComponents do
           disabled={not resource_available?(@resources, "response") or @resource_loading?}
         >{if @response_open, do: "Hide Response", else: "Show Response"}</button>
 
-        <a
-          :for={artifact <- artifact_links(@resources)}
-          href={value(artifact, "href")}
-        >{value(artifact, "label")}</a>
+        <%= for artifact <- artifact_links(@resources) do %>
+          <a :if={value(artifact, "available", false)} href={value(artifact, "href")}>
+            {value(artifact, "label")}
+          </a>
+          <span :if={not value(artifact, "available", false)} aria-disabled="true">
+            {value(artifact, "label")}
+          </span>
+        <% end %>
       </div>
 
       <div
@@ -376,7 +382,10 @@ defmodule HardenLlmWeb.LlmTraceComponents do
     resources
     |> value("artifacts", [])
     |> then(&if(is_list(&1), do: &1, else: []))
-    |> Enum.filter(&(present?(value(&1, "href")) and present?(value(&1, "label"))))
+    |> Enum.filter(fn artifact ->
+      present?(value(artifact, "label")) and
+        (value(artifact, "available", true) == false or present?(value(artifact, "href")))
+    end)
   end
 
   defp metric_id(widget_id, metric) do

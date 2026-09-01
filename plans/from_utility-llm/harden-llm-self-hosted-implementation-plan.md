@@ -1354,6 +1354,7 @@ Schema snapshot:
 - `llm_traces`: owner, normalized domain call record, timestamps.
 - `llm_trace_observations`: owner/trace, sequence, type, redacted data, timestamps.
 - `llm_artifacts`: owner/trace/artifact IDs, kind, Garage object key, content type, SHA-256, byte length, availability state, timestamps.
+- `llm_artifact_operations` and `llm_artifact_delete_batches`: durable typed publication/deletion intent, bounded retry state, and exact owner/run/trace/artifact integrity identity; artifact content is never stored in the journal.
 - `llm_operation_cache`: owner, version, operation hash, result/envelope projection, usage/cost, timestamps.
 - `GET /api/v1/stats`: owner-scoped canonical utility totals computed directly from `llm_runs`, with cache cost/count, duration/over-budget totals, detailed token groups, and cost-completeness counts; no mutable aggregate table is maintained.
 - `schema_migrations`: version and applied timestamp.
@@ -1365,7 +1366,10 @@ Invariants:
 
 - One normalized call record feeds Result, domain trace, stats, cache metadata, and telemetry.
 - Product-visible aggregate stats are derived from persisted runs so history and totals cannot drift.
-- A run, domain trace, observations, and uploaded artifact references become visible in one Postgres transaction; transaction failure triggers bounded uploaded-body cleanup.
+- A typed publication intent precedes Garage upload; a run, domain trace,
+  observations, and integrity-matching artifact references become visible in
+  one Postgres transaction that consumes the intent. Interrupted publication or
+  deletion converges through the bounded gateway reconciler.
 - Cache identity excludes runtime-only metadata.
 - Endpoint credentials are bound to owner, credential identity, and normalized endpoint origin.
 - Gateway handlers call the root library and do not own runtime transforms.

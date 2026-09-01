@@ -3,15 +3,11 @@ package gateway
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-025
 
 import (
-	"context"
-	"io"
-	"log/slog"
-	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	hardenllm "github.com/prls-co/harden-llm"
-	"github.com/prls-co/harden-llm/internal/postgres"
 )
 
 func TestRunOutputTimingAndRepairProjection(t *testing.T) {
@@ -39,44 +35,15 @@ func TestRunOutputTimingAndRepairProjection(t *testing.T) {
 	}
 }
 
-func TestFailedExecutionPersistenceCleansUploadedArtifacts(t *testing.T) {
-	store := &cleanupArtifactStore{}
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	artifacts := []postgres.ArtifactRecord{
-		{ObjectKey: "llm-traces/owner/run/trace/first.json"},
-		{ObjectKey: "llm-traces/owner/run/trace/second.json"},
+func TestRunArtifactsUseTypedIdentityWithoutParsingObjectKeys(t *testing.T) {
+	now := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	references := []hardenllm.ArtifactRef{{
+		ArtifactID: "artifact-explicit", Kind: "trace", Key: "opaque/and-not-derived.json",
+		SHA256: strings.Repeat("a", 64), SizeBytes: 17, ContentType: "application/json",
+	}}
+	public, records := runArtifacts("owner-a", "run-a", "trace-a", references, now)
+	if len(public) != 1 || len(records) != 1 || public[0].ArtifactID != "artifact-explicit" ||
+		records[0].RunID != "run-a" || records[0].TraceID != "trace-a" || records[0].State != "available" {
+		t.Fatalf("typed artifacts = %#v %#v", public, records)
 	}
-
-	cleanupUploadedArtifacts(
-		ctx,
-		store,
-		artifacts,
-		slog.New(slog.NewTextHandler(io.Discard, nil)),
-	)
-
-	want := []string{
-		"llm-traces/owner/run/trace/first.json",
-		"llm-traces/owner/run/trace/second.json",
-	}
-	if !reflect.DeepEqual(store.deleted, want) {
-		t.Fatalf("deleted keys = %#v, want %#v", store.deleted, want)
-	}
-}
-
-type cleanupArtifactStore struct {
-	deleted []string
-}
-
-func (*cleanupArtifactStore) Put(context.Context, string, []byte, string) (hardenllm.ArtifactRef, error) {
-	return hardenllm.ArtifactRef{}, nil
-}
-
-func (*cleanupArtifactStore) PresignGet(context.Context, string, time.Duration) (string, error) {
-	return "", nil
-}
-
-func (store *cleanupArtifactStore) DeleteMany(_ context.Context, keys []string) error {
-	store.deleted = append([]string(nil), keys...)
-	return nil
 }

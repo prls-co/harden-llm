@@ -80,12 +80,19 @@ func TestResourceRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceService, err := gateway.NewResourceService(gateway.ResourceServiceConfig{
-		Store: store, Profiles: profileService, ModelRefresher: modelRefresher, Clock: clock,
-		NewID: func() (string, error) { return "bundle-1", nil },
-		ArtifactScope: func(ownerID string) (gateway.ArtifactAccess, error) {
+	artifactCoordinator, err := gateway.NewArtifactCoordinator(gateway.ArtifactCoordinatorConfig{
+		Store: store, Clock: clock,
+		Scope: func(ownerID string) (gateway.ArtifactObjectAccess, error) {
 			return garageStore.Scoped(garageFixture.Scope("llm-traces/" + ownerID + "/"))
 		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resourceService, err := gateway.NewResourceService(gateway.ResourceServiceConfig{
+		Store: store, Profiles: profileService, ModelRefresher: modelRefresher, Clock: clock,
+		NewID:     func() (string, error) { return "bundle-1", nil },
+		Artifacts: artifactCoordinator,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -208,7 +215,7 @@ func TestResourceRoutes(t *testing.T) {
 	if err := store.SaveArtifact(ctx, postgres.ArtifactRecord{
 		OwnerID: "owner-a", TraceID: "trace-a", ID: "artifact-a", Kind: "trace", ObjectKey: objectKey,
 		ContentType: reference.ContentType, SHA256: reference.SHA256, SizeBytes: reference.SizeBytes,
-		Available: true, CreatedAt: now, UpdatedAt: now,
+		State: "available", CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -265,28 +272,28 @@ func TestResourceRoutes(t *testing.T) {
 		t.Fatalf("cross-owner artifact redirect = %d %q", redirect.StatusCode, redirect.Header.Get("Location"))
 	}
 
-	if err := store.SaveTrace(ctx, postgres.TraceRecord{
-		OwnerID: "owner-a", TraceID: "trace-delete-failure", Record: json.RawMessage(`{"status":"failed"}`), CreatedAt: now, UpdatedAt: now,
-	}, nil); err != nil {
-		t.Fatal(err)
-	}
 	if err := store.SaveRun(ctx, postgres.RunRecord{
 		OwnerID: "owner-a", ID: "run-delete-failure", ProfileID: "Backup", TraceID: "trace-delete-failure", Status: "failed",
 		Request: json.RawMessage(`{"profileId":"Backup"}`), Result: json.RawMessage(`{"output":null}`), StartedAt: now, CompletedAt: now,
 	}); err != nil {
 		t.Fatal(err)
 	}
+	if err := store.SaveTrace(ctx, postgres.TraceRecord{
+		OwnerID: "owner-a", TraceID: "trace-delete-failure", RunID: "run-delete-failure", Record: json.RawMessage(`{"status":"failed"}`), CreatedAt: now, UpdatedAt: now,
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
 	failureObjectKey := garageFixture.Key("llm-traces/owner-a/run-delete-failure/trace-delete-failure/artifact-delete-failure-trace.json")
 	if err := store.SaveArtifact(ctx, postgres.ArtifactRecord{
 		OwnerID: "owner-a", TraceID: "trace-delete-failure", ID: "artifact-delete-failure", Kind: "trace", ObjectKey: failureObjectKey,
 		ContentType: "application/json", SHA256: strings.Repeat("b", 64), SizeBytes: 1,
-		Available: true, CreatedAt: now, UpdatedAt: now,
+		State: "available", CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
 		t.Fatal(err)
 	}
 	failingService, err := gateway.NewResourceService(gateway.ResourceServiceConfig{
 		Store: store, Profiles: profileService,
-		ArtifactScope: func(string) (gateway.ArtifactAccess, error) { return failingArtifactAccess{}, nil },
+		Artifacts: failingArtifactLifecycle{},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -339,14 +346,18 @@ type testModelRefresher struct {
 	err    error
 }
 
-type failingArtifactAccess struct{}
+type failingArtifactLifecycle struct{}
 
-func (failingArtifactAccess) PresignGet(context.Context, string, time.Duration) (string, error) {
+func (failingArtifactLifecycle) PresignGet(context.Context, string, string, time.Duration) (string, error) {
 	return "", errors.New("presign unavailable")
 }
 
-func (failingArtifactAccess) DeleteMany(context.Context, []string) error {
+func (failingArtifactLifecycle) DeleteExecution(context.Context, string, string, string) error {
 	return errors.New("delete unavailable")
+}
+
+func (failingArtifactLifecycle) ClearOwner(context.Context, string) (int64, error) {
+	return 0, errors.New("delete unavailable")
 }
 
 func (refresher *testModelRefresher) RefreshModels(context.Context, profiles.Profile, profiles.CredentialPayload) ([]profiles.Model, error) {
@@ -393,11 +404,6 @@ func cloneProfileCatalog(input profiles.Catalog) profiles.Catalog {
 
 func seedResourceHistory(t *testing.T, ctx context.Context, store *postgres.Store, now time.Time) {
 	t.Helper()
-	if err := store.SaveTrace(ctx, postgres.TraceRecord{
-		OwnerID: "owner-a", TraceID: "trace-a", Record: json.RawMessage(`{"status":"success"}`), CreatedAt: now, UpdatedAt: now,
-	}, []postgres.ObservationRecord{{OwnerID: "owner-a", TraceID: "trace-a", Sequence: 0, Type: "provider.attempt", Data: json.RawMessage(`{"number":1}`), CreatedAt: now}}); err != nil {
-		t.Fatal(err)
-	}
 	for _, id := range []string{"run-a", "run-b", "run-c"} {
 		if err := store.SaveRun(ctx, postgres.RunRecord{
 			OwnerID: "owner-a", ID: id, ProfileID: "Backup", TraceID: strings.Replace(id, "run", "trace", 1), Status: "succeeded",
@@ -405,6 +411,11 @@ func seedResourceHistory(t *testing.T, ctx context.Context, store *postgres.Stor
 		}); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if err := store.SaveTrace(ctx, postgres.TraceRecord{
+		OwnerID: "owner-a", TraceID: "trace-a", RunID: "run-a", Record: json.RawMessage(`{"status":"success"}`), CreatedAt: now, UpdatedAt: now,
+	}, []postgres.ObservationRecord{{OwnerID: "owner-a", TraceID: "trace-a", Sequence: 0, Type: "provider.attempt", Data: json.RawMessage(`{"number":1}`), CreatedAt: now}}); err != nil {
+		t.Fatal(err)
 	}
 	if err := store.SaveTrace(ctx, postgres.TraceRecord{
 		OwnerID: "owner-a", TraceID: "trace-orphan", Record: json.RawMessage(`{"status":"succeeded"}`), CreatedAt: now, UpdatedAt: now,

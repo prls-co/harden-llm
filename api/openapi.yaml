@@ -862,6 +862,7 @@ components:
                   artifacts:
                     - artifactId: call-example-trace
                       kind: trace
+                      state: available
                       sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
                       sizeBytes: 512
                       contentType: application/json
@@ -930,6 +931,7 @@ components:
                   artifacts:
                     - artifactId: call-example-trace
                       kind: trace
+                      state: available
                       sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
                       sizeBytes: 512
                       contentType: application/json
@@ -1597,10 +1599,11 @@ components:
     RunArtifact:
       type: object
       additionalProperties: false
-      required: [artifactId, kind, sha256, sizeBytes, contentType]
+      required: [artifactId, kind, state, sha256, sizeBytes, contentType]
       properties:
         artifactId: {$ref: "#/components/schemas/Identifier"}
         kind: {type: string, enum: [trace, parse-failure-response, diagnostic-event]}
+        state: {type: string, const: available}
         sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
         sizeBytes: {type: integer, minimum: 1}
         contentType: {type: string, const: application/json}
@@ -1665,10 +1668,11 @@ components:
     TraceArtifact:
       type: object
       additionalProperties: false
-      required: [artifactId, kind, sha256, sizeBytes, contentType, createdAt]
+      required: [artifactId, kind, state, sha256, sizeBytes, contentType, createdAt]
       properties:
         artifactId: {$ref: "#/components/schemas/Identifier"}
         kind: {type: string, enum: [trace, parse-failure-response, diagnostic-event]}
+        state: {type: string, enum: [available, deleting, unavailable]}
         sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
         sizeBytes: {type: integer, minimum: 1}
         contentType: {type: string, const: application/json}

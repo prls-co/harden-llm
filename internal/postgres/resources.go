@@ -377,8 +377,9 @@ func (store *Store) ClearExecutions(ctx context.Context, ownerID string) (int64,
 
 func (store *Store) Artifacts(ctx context.Context, ownerID, traceID string) ([]ArtifactRecord, error) {
 	rows, err := store.pool.Query(ctx, `
-		SELECT owner_id, trace_id, artifact_id, kind, object_key, content_type, sha256, size_bytes, available, created_at, updated_at
-		FROM llm_artifacts WHERE owner_id=$1 AND trace_id=$2 AND available ORDER BY created_at, artifact_id`, ownerID, traceID)
+		SELECT a.owner_id, COALESCE(t.run_id, ''), a.trace_id, a.artifact_id, a.kind, a.object_key, a.content_type, a.sha256, a.size_bytes, a.state, a.created_at, a.updated_at
+		FROM llm_artifacts a JOIN llm_traces t ON t.owner_id=a.owner_id AND t.trace_id=a.trace_id
+		WHERE a.owner_id=$1 AND a.trace_id=$2 ORDER BY a.created_at, a.artifact_id`, ownerID, traceID)
 	if err != nil {
 		return nil, fmt.Errorf("postgres: list trace artifacts: %w", err)
 	}
@@ -386,7 +387,7 @@ func (store *Store) Artifacts(ctx context.Context, ownerID, traceID string) ([]A
 	var records []ArtifactRecord
 	for rows.Next() {
 		var record ArtifactRecord
-		if err := rows.Scan(&record.OwnerID, &record.TraceID, &record.ID, &record.Kind, &record.ObjectKey, &record.ContentType, &record.SHA256, &record.SizeBytes, &record.Available, &record.CreatedAt, &record.UpdatedAt); err != nil {
+		if err := rows.Scan(&record.OwnerID, &record.RunID, &record.TraceID, &record.ID, &record.Kind, &record.ObjectKey, &record.ContentType, &record.SHA256, &record.SizeBytes, &record.State, &record.CreatedAt, &record.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("postgres: scan trace artifact: %w", err)
 		}
 		records = append(records, record)
@@ -396,8 +397,9 @@ func (store *Store) Artifacts(ctx context.Context, ownerID, traceID string) ([]A
 
 func (store *Store) ArtifactsForOwner(ctx context.Context, ownerID string) ([]ArtifactRecord, error) {
 	rows, err := store.pool.Query(ctx, `
-		SELECT owner_id, trace_id, artifact_id, kind, object_key, content_type, sha256, size_bytes, available, created_at, updated_at
-		FROM llm_artifacts WHERE owner_id=$1 AND available ORDER BY created_at, artifact_id`, ownerID)
+		SELECT a.owner_id, COALESCE(t.run_id, ''), a.trace_id, a.artifact_id, a.kind, a.object_key, a.content_type, a.sha256, a.size_bytes, a.state, a.created_at, a.updated_at
+		FROM llm_artifacts a JOIN llm_traces t ON t.owner_id=a.owner_id AND t.trace_id=a.trace_id
+		WHERE a.owner_id=$1 ORDER BY a.created_at, a.artifact_id`, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("postgres: list owner artifacts: %w", err)
 	}
@@ -405,7 +407,7 @@ func (store *Store) ArtifactsForOwner(ctx context.Context, ownerID string) ([]Ar
 	var records []ArtifactRecord
 	for rows.Next() {
 		var record ArtifactRecord
-		if err := rows.Scan(&record.OwnerID, &record.TraceID, &record.ID, &record.Kind, &record.ObjectKey, &record.ContentType, &record.SHA256, &record.SizeBytes, &record.Available, &record.CreatedAt, &record.UpdatedAt); err != nil {
+		if err := rows.Scan(&record.OwnerID, &record.RunID, &record.TraceID, &record.ID, &record.Kind, &record.ObjectKey, &record.ContentType, &record.SHA256, &record.SizeBytes, &record.State, &record.CreatedAt, &record.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("postgres: scan owner artifact: %w", err)
 		}
 		records = append(records, record)
@@ -492,12 +494,29 @@ func (store *Store) SaveExecution(ctx context.Context, run RunRecord, trace Trac
 		if err := validateArtifact(artifact); err != nil {
 			return err
 		}
+		if artifact.RunID != run.ID || artifact.State != "available" {
+			return errors.New("postgres: execution artifact lifecycle binding mismatch")
+		}
 	}
 	transaction, err := store.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return fmt.Errorf("postgres: begin execution save: %w", err)
 	}
 	defer func() { _ = transaction.Rollback(ctx) }()
+	if _, err := transaction.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 1095914578))`, run.OwnerID); err != nil {
+		return fmt.Errorf("postgres: lock artifact owner: %w", err)
+	}
+	var ownerDeleteActive bool
+	if err := transaction.QueryRow(ctx, `SELECT EXISTS (
+		SELECT 1 FROM llm_artifact_delete_batches
+		WHERE owner_id=$1 AND state <> 'completed'
+		AND (scope='owner' OR (scope='reconciliation' AND trace_id=$2))
+	)`, run.OwnerID, trace.TraceID).Scan(&ownerDeleteActive); err != nil {
+		return fmt.Errorf("postgres: inspect owner deletion: %w", err)
+	}
+	if ownerDeleteActive {
+		return errors.New("postgres: owner history deletion is in progress")
+	}
 	if _, err := transaction.Exec(ctx, `
 			INSERT INTO llm_traces (owner_id, trace_id, run_id, record, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6)
 			ON CONFLICT (owner_id, trace_id) DO UPDATE SET run_id=EXCLUDED.run_id, record=EXCLUDED.record, updated_at=EXCLUDED.updated_at`,
@@ -517,10 +536,24 @@ func (store *Store) SaveExecution(ctx context.Context, run RunRecord, trace Trac
 	for _, artifact := range artifacts {
 		if _, err := transaction.Exec(ctx, `
 			INSERT INTO llm_artifacts
-				(owner_id, trace_id, artifact_id, kind, object_key, content_type, sha256, size_bytes, available, created_at, updated_at)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, artifact.OwnerID, artifact.TraceID, artifact.ID, artifact.Kind,
-			artifact.ObjectKey, artifact.ContentType, strings.ToLower(artifact.SHA256), artifact.SizeBytes, artifact.Available, artifact.CreatedAt, artifact.UpdatedAt); err != nil {
+				(owner_id, trace_id, artifact_id, kind, object_key, content_type, sha256, size_bytes, state, created_at, updated_at, verified_at)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$11)`, artifact.OwnerID, artifact.TraceID, artifact.ID, artifact.Kind,
+			artifact.ObjectKey, artifact.ContentType, strings.ToLower(artifact.SHA256), artifact.SizeBytes, artifact.State, artifact.CreatedAt, artifact.UpdatedAt); err != nil {
 			return fmt.Errorf("postgres: save execution artifact: %w", err)
+		}
+		operationID := ArtifactOperationID("publish", artifact)
+		result, err := transaction.Exec(ctx, `
+			UPDATE llm_artifact_operations SET state='completed', completed_at=$2, updated_at=$2, error_category=''
+			WHERE operation_id=$1 AND action='publish' AND state='object_applied'
+			AND owner_id=$3 AND run_id=$4 AND trace_id=$5 AND artifact_id=$6 AND kind=$7
+			AND object_key=$8 AND content_type=$9 AND sha256=$10 AND size_bytes=$11`,
+			operationID, artifact.UpdatedAt, artifact.OwnerID, artifact.RunID, artifact.TraceID, artifact.ID,
+			artifact.Kind, artifact.ObjectKey, artifact.ContentType, strings.ToLower(artifact.SHA256), artifact.SizeBytes)
+		if err != nil {
+			return fmt.Errorf("postgres: consume artifact publication: %w", err)
+		}
+		if result.RowsAffected() != 1 {
+			return errors.New("postgres: artifact publication intent is not committed")
 		}
 	}
 	if err := insertExecutionRun(ctx, transaction, run); err != nil {

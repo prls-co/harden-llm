@@ -477,9 +477,14 @@ defmodule HardenLlm.LlmTraceProjection do
   defp artifact_links(result, id, artifact_url)
        when is_binary(id) and is_function(artifact_url, 2) do
     Enum.map(result["artifacts"] || [], fn artifact ->
+      available? = artifact["state"] in [nil, "available"]
+
       %{
-        "href" => artifact_url.(id, artifact["artifactId"]),
-        "label" => "#{artifact["kind"]} · #{artifact["sizeBytes"]} bytes"
+        "available" => available?,
+        "href" => if(available?, do: artifact_url.(id, artifact["artifactId"]), else: nil),
+        "label" =>
+          "#{artifact["kind"]} · #{artifact["sizeBytes"]} bytes" <>
+            if(available?, do: "", else: " · #{artifact["state"]}")
       }
     end)
   end

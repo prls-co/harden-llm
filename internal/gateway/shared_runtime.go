@@ -110,6 +110,18 @@ func (dynamicArtifactStore) Put(ctx context.Context, key string, content []byte,
 	return binding.artifacts.Put(ctx, key, content, contentType)
 }
 
+func (dynamicArtifactStore) PublishArtifact(ctx context.Context, publication hardenllm.ArtifactPublication) (hardenllm.ArtifactRef, error) {
+	binding, err := runtimeBinding(ctx)
+	if err != nil || binding.artifacts == nil {
+		return hardenllm.ArtifactRef{}, errors.New("gateway: runtime artifact binding is unavailable")
+	}
+	publisher, ok := binding.artifacts.(hardenllm.ArtifactPublisher)
+	if !ok {
+		return hardenllm.ArtifactRef{}, errors.New("gateway: runtime artifact publisher is unavailable")
+	}
+	return publisher.PublishArtifact(ctx, publication)
+}
+
 func (dynamicArtifactStore) PresignGet(ctx context.Context, key string, ttl time.Duration) (string, error) {
 	binding, err := runtimeBinding(ctx)
 	if err != nil || binding.artifacts == nil {

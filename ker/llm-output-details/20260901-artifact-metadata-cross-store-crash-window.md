@@ -175,3 +175,16 @@ Rollout and exit criteria
 - Start reconciliation in audit-only mode, review redacted counts/oldest age, then enable mutations only after the scope is approved.
 - Require zero aged publish intents, zero stuck deletions, zero available/missing artifacts, zero unreferenced aged objects, and a no-op second pass.
 - Record exact commit/image/migration identity, health, authenticated artifact round trip, reconciliation telemetry, and cleanup evidence before closure.
+
+Implementation checkpoint (2026-09-01)
+- Migration 0004 replaces the boolean artifact flag with explicit lifecycle
+  state and adds typed publication/deletion journals and integrity-audit age.
+- The root client now publishes through one gateway coordinator; execution save
+  consumes exact intents, and history deletion uses durable batches.
+- Garage PUT is idempotent only for identical integrity metadata, deletion is
+  retry-safe, and the bounded reconciler resumes interrupted work while
+  demoting missing or mismatched available objects.
+- TEST-060 covers object-without-metadata cleanup, interrupted deletion,
+  integrity demotion, idempotent second passes, real Postgres/Garage behavior,
+  and bounded reconciliation telemetry. Production deployment evidence remains
+  required before this KER can close.

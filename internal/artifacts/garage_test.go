@@ -55,6 +55,10 @@ func TestGarageArtifactStore(t *testing.T) {
 		if err != nil || string(content) != artifact.content || loaded != reference {
 			t.Fatalf("get %s: content=%s metadata=%#v error=%v", artifact.key, content, loaded, err)
 		}
+		identical, err := owner.Put(context.Background(), artifact.key, []byte(artifact.content), "application/json")
+		if err != nil || identical != reference {
+			t.Fatalf("idempotent put %s: metadata=%#v error=%v", artifact.key, identical, err)
+		}
 	}
 	if _, err := owner.Put(context.Background(), artifacts[0].key, []byte(`{"changed":true}`), "application/json"); !IsKind(err, KindConflict) {
 		t.Fatalf("duplicate object key was not rejected: %v", err)

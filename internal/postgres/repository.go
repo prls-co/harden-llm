@@ -512,9 +512,9 @@ func (store *Store) SaveArtifact(ctx context.Context, artifact ArtifactRecord) e
 	}
 	_, err := store.pool.Exec(ctx, `
 		INSERT INTO llm_artifacts
-			(owner_id, trace_id, artifact_id, kind, object_key, content_type, sha256, size_bytes, available, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, artifact.OwnerID, artifact.TraceID, artifact.ID, artifact.Kind,
-		artifact.ObjectKey, artifact.ContentType, strings.ToLower(artifact.SHA256), artifact.SizeBytes, artifact.Available, artifact.CreatedAt, artifact.UpdatedAt,
+			(owner_id, trace_id, artifact_id, kind, object_key, content_type, sha256, size_bytes, state, created_at, updated_at, verified_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$11)`, artifact.OwnerID, artifact.TraceID, artifact.ID, artifact.Kind,
+		artifact.ObjectKey, artifact.ContentType, strings.ToLower(artifact.SHA256), artifact.SizeBytes, artifact.State, artifact.CreatedAt, artifact.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("postgres: save artifact: %w", err)
@@ -523,8 +523,8 @@ func (store *Store) SaveArtifact(ctx context.Context, artifact ArtifactRecord) e
 }
 
 func validateArtifact(artifact ArtifactRecord) error {
-	if !artifact.Available {
-		return errors.New("postgres: only successfully uploaded artifacts can be indexed")
+	if artifact.State != "available" && artifact.State != "deleting" && artifact.State != "unavailable" {
+		return errors.New("postgres: artifact lifecycle state is invalid")
 	}
 	for name, value := range map[string]string{"owner ID": artifact.OwnerID, "trace ID": artifact.TraceID, "artifact ID": artifact.ID} {
 		if err := validateIdentifier(name, value); err != nil {
@@ -540,10 +540,11 @@ func validateArtifact(artifact ArtifactRecord) error {
 func (store *Store) Artifact(ctx context.Context, ownerID, traceID, artifactID string) (ArtifactRecord, error) {
 	var artifact ArtifactRecord
 	err := store.pool.QueryRow(ctx, `
-		SELECT owner_id, trace_id, artifact_id, kind, object_key, content_type, sha256, size_bytes, available, created_at, updated_at
-		FROM llm_artifacts WHERE owner_id = $1 AND trace_id = $2 AND artifact_id = $3 AND available`, ownerID, traceID, artifactID).Scan(
-		&artifact.OwnerID, &artifact.TraceID, &artifact.ID, &artifact.Kind, &artifact.ObjectKey, &artifact.ContentType,
-		&artifact.SHA256, &artifact.SizeBytes, &artifact.Available, &artifact.CreatedAt, &artifact.UpdatedAt,
+		SELECT a.owner_id, COALESCE(t.run_id, ''), a.trace_id, a.artifact_id, a.kind, a.object_key, a.content_type, a.sha256, a.size_bytes, a.state, a.created_at, a.updated_at
+		FROM llm_artifacts a JOIN llm_traces t ON t.owner_id=a.owner_id AND t.trace_id=a.trace_id
+		WHERE a.owner_id = $1 AND a.trace_id = $2 AND a.artifact_id = $3 AND a.state = 'available'`, ownerID, traceID, artifactID).Scan(
+		&artifact.OwnerID, &artifact.RunID, &artifact.TraceID, &artifact.ID, &artifact.Kind, &artifact.ObjectKey, &artifact.ContentType,
+		&artifact.SHA256, &artifact.SizeBytes, &artifact.State, &artifact.CreatedAt, &artifact.UpdatedAt,
 	)
 	if err != nil {
 		return ArtifactRecord{}, notFound(err)

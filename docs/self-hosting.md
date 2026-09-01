@@ -104,6 +104,35 @@ matching metadata, or mix Harden LLM Garage volumes with Langfuse MinIO.
 
 Test restoration on another host before treating a backup as valid.
 
+## Reconcile retained execution history
+
+The gateway image includes one bounded administrative command for the legacy
+runless-trace migration. It does not use Tempo, Langfuse, Laminar, ClickHouse,
+or logs as product data. Run it only after a matching Postgres and Garage
+backup has passed an isolated restore test and normal writes are quiesced.
+
+Dry-run is the default and must be scoped explicitly:
+
+```bash
+"${COMPOSE[@]}" run --rm --no-deps harden-llm-gateway \
+  reconcile-history --all-owners
+```
+
+The JSON report contains redacted counts, no owner/run/trace/object identities,
+and one deterministic `planDigest`. Apply fails closed on any unclassified,
+truncated, changed, missing, or integrity-mismatched row. After reviewing the
+dry-run report, pass the exact digest without putting credentials in arguments:
+
+```bash
+"${COMPOSE[@]}" run --rm --no-deps harden-llm-gateway \
+  reconcile-history --all-owners --apply --digest '<exact-plan-digest>'
+```
+
+Repeat apply with the same digest; an already completed plan reports zero
+candidates and zero applied traces. Before enabling the structural ownership
+migration, require zero runless traces and inspect artifact reconciliation
+metrics for zero pending operations and zero unavailable available-state rows.
+
 ## Upgrade, rotate, and roll back
 
 Before an upgrade, take a tested backup, review ADRs and image-lock changes, run

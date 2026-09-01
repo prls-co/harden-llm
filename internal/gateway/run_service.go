@@ -2,19 +2,16 @@ package gateway
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
-	"path"
 	"strings"
 	"time"
 	"unicode/utf8"
 
 	hardenllm "github.com/prls-co/harden-llm"
 	"github.com/prls-co/harden-llm/internal/postgres"
-	"github.com/prls-co/harden-llm/internal/traces"
 )
 
 const (
@@ -57,6 +54,7 @@ type RepairEscalation struct {
 type RunArtifact struct {
 	ArtifactID  string `json:"artifactId"`
 	Kind        string `json:"kind"`
+	State       string `json:"state"`
 	SHA256      string `json:"sha256"`
 	SizeBytes   int64  `json:"sizeBytes"`
 	ContentType string `json:"contentType"`
@@ -259,9 +257,6 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 		Request: requestDocument, Result: resultDocument, Execution: executionFields(result, output),
 		StartedAt: startedAt, CompletedAt: completedAt,
 	}, postgres.TraceRecord{OwnerID: ownerID, TraceID: traceID, RunID: runID, Record: traceDocument, CreatedAt: startedAt, UpdatedAt: completedAt}, observations, artifactRecords)
-	if persistErr != nil && len(artifactRecords) > 0 {
-		cleanupUploadedArtifacts(ctx, artifactStore, artifactRecords, service.logger)
-	}
 	endPersistence(persistErr)
 	state = RunState{LastRunID: runID, LastTraceID: traceID}
 	if callErr != nil {
@@ -448,37 +443,20 @@ func (cache *ownerCacheStore) Delete(ctx context.Context, operationHash string) 
 func runArtifacts(ownerID, runID, traceID string, references []hardenllm.ArtifactRef, now time.Time) ([]RunArtifact, []postgres.ArtifactRecord) {
 	public := make([]RunArtifact, 0, len(references))
 	records := make([]postgres.ArtifactRecord, 0, len(references))
-	prefix := path.Join(
-		"llm-traces", traces.SafeObjectKeyComponent(ownerID), traces.SafeObjectKeyComponent(runID), traces.SafeObjectKeyComponent(traceID),
-	) + "/"
 	for _, reference := range references {
-		if !strings.HasPrefix(reference.Key, prefix) || path.Dir(reference.Key) != strings.TrimSuffix(prefix, "/") ||
-			reference.ContentType != "application/json" || reference.SizeBytes < 1 || !strings.HasSuffix(reference.Key, ".json") {
+		if reference.ArtifactID == "" || len(reference.ArtifactID) > 128 ||
+			(reference.Kind != "trace" && reference.Kind != "parse-failure-response" && reference.Kind != "diagnostic-event") ||
+			reference.Key == "" || reference.ContentType != "application/json" || reference.SizeBytes < 1 {
 			continue
 		}
-		digest, err := hex.DecodeString(reference.SHA256)
-		if err != nil || len(digest) != 32 || hex.EncodeToString(digest) != reference.SHA256 {
+		if len(reference.SHA256) != 64 || strings.ToLower(reference.SHA256) != reference.SHA256 {
 			continue
 		}
-		filename := path.Base(reference.Key)
-		artifactID := strings.TrimSuffix(filename, ".json")
-		kind := ""
-		switch {
-		case strings.HasSuffix(artifactID, "-trace"):
-			kind = traces.ArtifactKindTrace
-		case strings.Contains(artifactID, "-raw"):
-			kind = traces.ArtifactKindParseFailureResponse
-		case strings.Contains(artifactID, "-diagnostic"):
-			kind = "diagnostic-event"
-		}
-		if kind == "" || len(artifactID) > 128 {
-			continue
-		}
-		public = append(public, RunArtifact{ArtifactID: artifactID, Kind: kind, SHA256: reference.SHA256, SizeBytes: reference.SizeBytes, ContentType: reference.ContentType})
+		public = append(public, RunArtifact{ArtifactID: reference.ArtifactID, Kind: reference.Kind, State: "available", SHA256: reference.SHA256, SizeBytes: reference.SizeBytes, ContentType: reference.ContentType})
 		records = append(records, postgres.ArtifactRecord{
-			OwnerID: ownerID, TraceID: traceID, ID: artifactID, Kind: kind, ObjectKey: reference.Key,
+			OwnerID: ownerID, RunID: runID, TraceID: traceID, ID: reference.ArtifactID, Kind: reference.Kind, ObjectKey: reference.Key,
 			ContentType: reference.ContentType, SHA256: reference.SHA256, SizeBytes: reference.SizeBytes,
-			Available: true, CreatedAt: now, UpdatedAt: now,
+			State: "available", CreatedAt: now, UpdatedAt: now,
 		})
 	}
 	return public, records
@@ -491,22 +469,4 @@ func runObservations(ownerID, traceID string, attempts []hardenllm.Attempt, now 
 		result = append(result, postgres.ObservationRecord{OwnerID: ownerID, TraceID: traceID, Sequence: index, Type: "provider.attempt", Data: data, CreatedAt: now})
 	}
 	return result
-}
-
-func cleanupUploadedArtifacts(ctx context.Context, store hardenllm.ArtifactStore, artifacts []postgres.ArtifactRecord, logger *slog.Logger) {
-	cleanup, ok := store.(interface {
-		DeleteMany(context.Context, []string) error
-	})
-	if !ok {
-		return
-	}
-	keys := make([]string, len(artifacts))
-	for index, artifact := range artifacts {
-		keys[index] = artifact.ObjectKey
-	}
-	cleanupContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), persistenceTimeout)
-	defer cancel()
-	if err := cleanup.DeleteMany(cleanupContext, keys); err != nil {
-		logger.WarnContext(cleanupContext, "uploaded artifact cleanup failed", "artifact_count", len(keys))
-	}
 }
