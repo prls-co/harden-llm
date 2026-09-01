@@ -134,18 +134,19 @@ func Execute(
 		attemptProfiles := make(map[int]string)
 		attemptTargets := make(map[int]ExecutionTarget)
 		providerUsed := make(map[int]bool)
-		providerContext := ctx
-		endProvider := func(error) {}
 		activeRetryConfig := retryConfig
 		activeRetryConfig.MaxAttempts = maxAttempts - attemptOffset
 		if call.Telemetry != nil {
-			providerContext, endProvider = call.Telemetry.StartProvider(ctx, profile, call.CallType)
-			activeRetryConfig.Hooks = call.Telemetry.RetryHooks(profile, call.CallType, retryConfig.Policy, attemptOffset)
+			activeRetryConfig.Hooks = call.Telemetry.RetryHooks(call.CallType, retryConfig.Policy, attemptOffset, func(number int) ExecutionTarget {
+				return attemptTargets[number]
+			})
 		}
-		attempts, runErr := retry.Do(providerContext, activeRetryConfig, func(attemptContext context.Context, localAttemptNumber int) error {
+		attempts, runErr := retry.Do(ctx, activeRetryConfig, func(attemptContext context.Context, localAttemptNumber int) error {
 			globalAttemptNumber := attemptOffset + localAttemptNumber
 			repairActive := false
 			activeProfile := profile
+			attemptProfiles[localAttemptNumber] = profile.ID
+			attemptTargets[localAttemptNumber] = targetFromProfile(profile)
 			if call.StructuredRepair.Enabled && RepairEligible(globalAttemptNumber-1, maxAttempts, lastClassification, len(call.Schema) > 0) {
 				repairCall := call
 				repairCall.Repair = buildRepairRequest(globalAttemptNumber, maxAttempts, previousOutput, call)
@@ -169,6 +170,7 @@ func Execute(
 				}
 				activeProfile = repairProfile
 				attemptProfiles[localAttemptNumber] = repairProfile.ID
+				attemptTargets[localAttemptNumber] = targetFromProfile(repairProfile)
 				var prepareErr error
 				activePrepared, prepareErr = executor.Prepare(attemptContext, repairProfile, repairCredential, repairCall)
 				if prepareErr != nil {
@@ -179,9 +181,16 @@ func Execute(
 				repairActive = true
 			}
 			repairAttempts[localAttemptNumber] = repairActive
-			attemptTargets[localAttemptNumber] = targetFromPrepared(activeProfile, activePrepared)
+			activeTarget := targetFromPrepared(activeProfile, activePrepared)
+			attemptTargets[localAttemptNumber] = activeTarget
 			providerUsed[localAttemptNumber] = true
-			result, executeErr := executor.Execute(attemptContext, activePrepared)
+			providerContext := attemptContext
+			endProvider := func(error) {}
+			if call.Telemetry != nil {
+				providerContext, endProvider = call.Telemetry.StartProvider(attemptContext, activeTarget, call.CallType)
+			}
+			result, executeErr := executor.Execute(providerContext, activePrepared)
+			endProvider(executeErr)
 			attemptAccounting := normalizedLedger(result.Accounting)
 			if hasProviderAccounting(attemptAccounting) {
 				var accountingErr error
@@ -215,7 +224,7 @@ func Execute(
 							if call.Telemetry == nil {
 								return call.ValidateStructured(value)
 							}
-							return call.Telemetry.ValidateSchema(attemptContext, profile, true, func(context.Context) error {
+							return call.Telemetry.ValidateSchema(attemptContext, activeProfile, true, func(context.Context) error {
 								return call.ValidateStructured(value)
 							})
 						})
@@ -230,7 +239,7 @@ func Execute(
 					if call.Telemetry == nil {
 						validationErr = call.ValidateStructured(result.Output)
 					} else {
-						validationErr = call.Telemetry.ValidateSchema(attemptContext, profile, false, func(context.Context) error {
+						validationErr = call.Telemetry.ValidateSchema(attemptContext, activeProfile, false, func(context.Context) error {
 							return call.ValidateStructured(result.Output)
 						})
 					}
@@ -253,7 +262,6 @@ func Execute(
 			lastClassification = retry.Classification{Category: retry.CategorySuccess}
 			return nil
 		})
-		endProvider(runErr)
 		for _, attempt := range attempts {
 			attemptProfileID := profileID
 			if repairProfileID := attemptProfiles[attempt.Number]; repairProfileID != "" {

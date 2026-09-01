@@ -37,10 +37,14 @@ func TestOTelContract(t *testing.T) {
 		ID: "adversarial-profile", Provider: "openai", APIInferenceType: "responses",
 		BaseURL: "https://api.openai.com/v1", ModelID: "gpt-fixture",
 	}
+	repairProfile := Profile{
+		ID: "repair-profile", Provider: "anthropic", APIInferenceType: "messages",
+		BaseURL: "https://api.anthropic.com/v1", ModelID: "claude-fixture",
+	}
 	call := Call{
 		SystemPrompt: "adversarial system prompt", UserPrompt: "adversarial user prompt",
 		CallType: "structured", Schema: json.RawMessage(`{"type":"object"}`),
-		StructuredRepair: StructuredRepair{Enabled: true}, Telemetry: telemetry,
+		StructuredRepair: StructuredRepair{Enabled: true, Escalation: &RepairEscalation{Attempt: 2, ProfileID: repairProfile.ID}}, Telemetry: telemetry,
 		ValidateStructured: func(value any) error {
 			object, ok := value.(map[string]any)
 			if !ok || object["answer"] != "ok" {
@@ -55,7 +59,7 @@ func TestOTelContract(t *testing.T) {
 	})
 	record, err := Execute(ctx, &telemetryExecutor{}, func(context.Context, Profile) (Credential, error) {
 		return Credential{APIKey: "super-secret-api-key"}, nil
-	}, profile.ID, map[string]Profile{profile.ID: profile}, call, retry.Config{
+	}, profile.ID, map[string]Profile{profile.ID: profile, repairProfile.ID: repairProfile}, call, retry.Config{
 		MaxAttempts: 2, BaseDelay: 1, MaxDelay: 1, Policy: retry.Policy{ParseError: true},
 		Random: func() float64 { return 0 }, Wait: func(context.Context, time.Duration) error { return nil },
 	}, cache, cachekey.ModeRefresh, "v1", "call-fixture", "trace-fixture")
@@ -90,8 +94,9 @@ func TestOTelContract(t *testing.T) {
 			t.Errorf("required span %q was not emitted", required)
 		}
 	}
-	assertSpanParent(t, spans, SpanAttempt, SpanProvider)
+	assertSpanParent(t, spans, SpanProvider, SpanAttempt)
 	assertSpanParent(t, spans, SpanSchema, SpanAttempt)
+	assertAttemptTargets(t, spans, []string{profile.ID, repairProfile.ID}, []string{profile.ModelID, repairProfile.ModelID})
 	encodedSpans := fmt.Sprint(spans)
 	for _, forbidden := range []string{"super-secret-api-key", "adversarial system prompt", "adversarial user prompt", "adversarial response"} {
 		if strings.Contains(encodedSpans, forbidden) {
@@ -138,14 +143,36 @@ func TestOTelContract(t *testing.T) {
 
 type telemetryExecutor struct{}
 
-func (*telemetryExecutor) Prepare(_ context.Context, _ Profile, _ Credential, call Call) (PreparedOperation, error) {
+func (*telemetryExecutor) Prepare(_ context.Context, profile Profile, _ Credential, call Call) (PreparedOperation, error) {
 	return PreparedOperation{Operation: cachekey.Operation{
 		SchemaVersion: cachekey.OperationSchemaVersion, Protocol: "fixture",
-		Endpoint: cachekey.Endpoint{Identity: "https://example.test:443", Method: "POST", Path: "/run"},
-		Model:    "gpt-fixture", Payload: map[string]any{"repair": call.Repair != nil},
+		Endpoint: cachekey.Endpoint{Identity: profile.BaseURL, Method: "POST", Path: "/run"},
+		Model:    profile.ModelID, Payload: map[string]any{"repair": call.Repair != nil},
 		SemanticHeaders:    map[string]any{},
 		ResponseProjection: cachekey.ResponseProjection{Provider: "openai", Kind: "fixture", Version: "v1"},
 	}, Opaque: call.Repair != nil}, nil
+}
+
+func assertAttemptTargets(t *testing.T, spans tracetest.SpanStubs, profiles, models []string) {
+	t.Helper()
+	var attempts []tracetest.SpanStub
+	for _, span := range spans {
+		if span.Name == SpanAttempt {
+			attempts = append(attempts, span)
+		}
+	}
+	if len(attempts) < len(profiles) {
+		t.Fatalf("attempt spans = %d, want at least %d", len(attempts), len(profiles))
+	}
+	for index := range profiles {
+		attributes := make(map[string]string)
+		for _, value := range attempts[index].Attributes {
+			attributes[string(value.Key)] = value.Value.AsString()
+		}
+		if attributes["harden_llm.profile.id"] != profiles[index] || attributes["gen_ai.request.model"] != models[index] {
+			t.Fatalf("attempt %d target = %#v, want profile=%q model=%q", index+1, attributes, profiles[index], models[index])
+		}
+	}
 }
 
 func (*telemetryExecutor) Execute(_ context.Context, operation PreparedOperation) (ProviderResult, error) {
