@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "resolvedAt": "2026-07-13T14:30:00Z",
+  "resolvedAt": "2026-09-01T20:15:00Z",
   "images": {
     "caddy": "caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
     "harden-llm-gateway": "harden-llm-gateway:0.1.0",
@@ -11,11 +11,11 @@
     "loki": "grafana/loki:3.7.2@sha256:191d4fdfb7264f16989f0a57f320872620a5a7c2ceeec6229212c4190ec49b86",
     "tempo": "grafana/tempo:2.10.5@sha256:ee21727732c7a7199cb71c3eee9153bbf23f9b0b87619f0555a0cf21a67f1a33",
     "grafana": "grafana/grafana:13.0.2@sha256:5dad0df181cb644a14e13617b913b261a54f7d4fd4510721dba420929f35bea2",
-    "langfuse-web": "docker.io/langfuse/langfuse:3@sha256:35461119756177199bf4412ceed03e0f637ca5c4a6b8b85d9e31c35e515e670d",
-    "langfuse-worker": "docker.io/langfuse/langfuse-worker:3@sha256:080377807b6d1fca2117662840161e60a0ab6842b2578ef39ea17df80ba42bfd",
-    "postgres": "docker.io/postgres:17@sha256:0af65001d05296a2ead57ac4a6412433d8913d1bb5d0c88435a7d1e1ee5cb04b",
-    "clickhouse": "docker.io/clickhouse/clickhouse-server@sha256:1d1f6508eba2dccce2cee9913907c5f7766327debc57a6b1991f2c9e3176c163",
-    "redis": "docker.io/redis:7@sha256:b2b95679e3b46fb51864949ed25ea976fc3a6bcc00a40a1bc00d568cb2822e50",
-    "minio": "cgr.dev/chainguard/minio@sha256:8230f06574280781ea6ad45e27962db60175b18e4a43dd54c19012feb5438174"
+    "langfuse-web": "docker.io/langfuse/langfuse:3.225.5@sha256:a921990b3cf6f62e9452eaf8ab9bea045852375a6883abd1fdbe63afa08defa0",
+    "langfuse-worker": "docker.io/langfuse/langfuse-worker:3.225.5@sha256:7d0f28214bd2d1bb03056439f810442b147f0143c7ebf9bdf0f39dc4e47df6cd",
+    "postgres": "docker.io/postgres:17.11@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675",
+    "clickhouse": "docker.io/clickhouse/clickhouse-server:26.7.5.10@sha256:800e82865530eb2f1c4bc1b960e43b435fd9b2d83b4bd04a2564a5cfd88fdb6e",
+    "redis": "docker.io/redis:7.4.11@sha256:71da9275c5f3fcb97d0fa0c8c5b36cc995327265420f17a04bfd544f458059f7",
+    "minio": "cgr.dev/chainguard/minio@sha256:6bf8b5199cd0333152558a9596b653a67142636203cf4393f0a8b41e2797d73e"
   }
 }

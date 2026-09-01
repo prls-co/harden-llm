@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	langfuseComposeSHA256 = "f4502f5240857cf9189113fe6c32837ec28f46699415f7efb4b59a6f16423741"
-	langfuseCommit        = "3a572984276dd2dc2f8f77f1b2aadb799aa17fdf"
+	langfuseComposeSHA256 = "26510ab5cc9163bf2212d5dfb991b3a71e1ce5cf7d032b595e7eee122bec1687"
+	langfuseCommit        = "a914a47f357f5d1cf5611e1387ea68678410c671"
 )
 
 var productionServices = []string{
@@ -62,7 +62,7 @@ func assertLangfuseProvenance(t *testing.T, composePath, provenancePath string) 
 	}
 	text := string(provenance)
 	for _, required := range []string{
-		"v3.212.0", langfuseCommit, langfuseComposeSHA256,
+		"v3.225.5", langfuseCommit, langfuseComposeSHA256,
 		"https://raw.githubusercontent.com/langfuse/langfuse/" + langfuseCommit + "/docker-compose.yml",
 		"Apache-2.0",
 	} {
