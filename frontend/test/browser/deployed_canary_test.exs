@@ -85,6 +85,7 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       |> click(Query.css("#output-trace-show-response"))
       |> assert_has(Query.css("#output-trace-response-content"))
       |> open_ui_fold("#history-fold-toggle", "#workspace-history")
+      |> assert_has(Query.css("#workspace-history article", text: nonce))
 
     widget_facts =
       javascript_value(
