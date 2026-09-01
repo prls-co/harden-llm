@@ -133,6 +133,24 @@ candidates and zero applied traces. Before enabling the structural ownership
 migration, require zero runless traces and inspect artifact reconciliation
 metrics for zero pending operations and zero unavailable available-state rows.
 
+The reconciliation command intentionally migrates only through schema version
+4. This allows the new image to reconcile an older installation before normal
+gateway startup applies schema version 5. Do not start the normal gateway with
+runless traces still present: migration 5 rejects them instead of preserving a
+compatibility path.
+
+After migration and reconciliation, run the read-only reverse inventory:
+
+```bash
+"${COMPOSE[@]}" run --rm --no-deps harden-llm-gateway audit-artifacts
+```
+
+The report is redacted and count-only. `healthy:true` requires a complete
+inventory, no available metadata with a missing body, and no unreferenced
+object older than the 15-minute in-flight window. Young unreferenced objects
+are reported but do not trigger deletion; rerun after the window and inspect
+the durable operation backlog before taking any manual action.
+
 ## Upgrade, rotate, and roll back
 
 Before an upgrade, take a tested backup, review ADRs and image-lock changes, run

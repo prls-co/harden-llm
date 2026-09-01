@@ -110,6 +110,20 @@ type ScopedStore struct {
 	prefix string
 }
 
+// InventoryObject is the minimum redacted S3 fact needed to compare Garage
+// ownership with PostgreSQL references. Object bodies and user identifiers are
+// never loaded by inventory.
+type InventoryObject struct {
+	Key          string
+	SizeBytes    int64
+	LastModified time.Time
+}
+
+type InventoryPage struct {
+	Objects           []InventoryObject
+	ContinuationToken string
+}
+
 // NewGarage validates configuration and constructs bounded path-style clients.
 func NewGarage(config Config) (*GarageStore, error) {
 	endpoint, err := validateEndpoint(config.Endpoint)
@@ -211,6 +225,45 @@ func (store *ScopedStore) Inspect(ctx context.Context, key string) (hardenllm.Ar
 
 func (store *GarageStore) Inspect(ctx context.Context, key string) (hardenllm.ArtifactRef, bool, error) {
 	return store.inspect(ctx, key, "")
+}
+
+// Inventory lists one bounded page below an exact artifact prefix. It is an
+// administrative read path for conservative cross-store audits, not a product
+// lookup or deletion API.
+func (store *GarageStore) Inventory(ctx context.Context, prefix, continuationToken string, limit int32) (page InventoryPage, err error) {
+	if store == nil || store.client == nil {
+		return InventoryPage{}, &Error{Operation: "list", Kind: KindInvalid, err: errors.New("store is not initialized")}
+	}
+	if limit < 1 || limit > 1000 || len(continuationToken) > 4096 || !validInventoryPrefix(prefix) {
+		return InventoryPage{}, &Error{Operation: "list", Kind: KindInvalid, err: errors.New("invalid inventory page")}
+	}
+	ctx, endOperation := store.telemetry.Start(ctx, "list")
+	defer func() { endOperation(err) }()
+	requestContext, cancel := store.operationContext(ctx)
+	defer cancel()
+	input := &s3.ListObjectsV2Input{Bucket: aws.String(store.bucket), Prefix: aws.String(prefix), MaxKeys: aws.Int32(limit)}
+	if continuationToken != "" {
+		input.ContinuationToken = aws.String(continuationToken)
+	}
+	output, err := store.client.ListObjectsV2(requestContext, input)
+	if err != nil {
+		return InventoryPage{}, classify("list", requestContext, err)
+	}
+	page.Objects = make([]InventoryObject, 0, len(output.Contents))
+	for _, object := range output.Contents {
+		key := aws.ToString(object.Key)
+		if object.Size == nil || *object.Size <= 0 || object.LastModified == nil || validateKey(key, prefix) != nil {
+			return InventoryPage{}, &Error{Operation: "list", Kind: KindIntegrity, err: errors.New("inventory object metadata is invalid")}
+		}
+		page.Objects = append(page.Objects, InventoryObject{Key: key, SizeBytes: *object.Size, LastModified: object.LastModified.UTC()})
+	}
+	if aws.ToBool(output.IsTruncated) {
+		page.ContinuationToken = aws.ToString(output.NextContinuationToken)
+		if page.ContinuationToken == "" {
+			return InventoryPage{}, &Error{Operation: "list", Kind: KindIntegrity, err: errors.New("inventory continuation token is missing")}
+		}
+	}
+	return page, nil
 }
 
 func (store *GarageStore) put(ctx context.Context, key string, content []byte, contentType, prefix string) (reference hardenllm.ArtifactRef, err error) {
@@ -494,6 +547,15 @@ func validateKey(key, prefix string) error {
 		return errors.New("artifact key is outside owner prefix")
 	}
 	return nil
+}
+
+func validInventoryPrefix(prefix string) bool {
+	if prefix == "" || len(prefix) > 740 || !strings.HasSuffix(prefix, "/") || !utf8.ValidString(prefix) ||
+		path.IsAbs(prefix) || path.Clean(strings.TrimSuffix(prefix, "/"))+"/" != prefix ||
+		strings.ContainsAny(prefix, "\\?#\x00\r\n") || strings.Contains(prefix, "//") {
+		return false
+	}
+	return true
 }
 
 func safeHTTPClient(timeout time.Duration) *http.Client {

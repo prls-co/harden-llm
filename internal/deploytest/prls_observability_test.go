@@ -404,7 +404,10 @@ func TestPRLSGrafanaPrometheusAndCaddy(t *testing.T) {
 
 	prometheus := readYAMLObject(t, filepath.Join(root, "deploy", "prometheus", "prometheus.yaml"))
 	ruleFiles := stringSliceField(t, prometheus, "rule_files")
-	if !reflect.DeepEqual(ruleFiles, []string{"/etc/prometheus/rules/prls-test-observability.yaml"}) {
+	if !reflect.DeepEqual(ruleFiles, []string{
+		"/etc/prometheus/rules/harden-llm-artifact-lifecycle.yaml",
+		"/etc/prometheus/rules/prls-test-observability.yaml",
+	}) {
 		t.Errorf("Prometheus rule files = %v", ruleFiles)
 	}
 	rules := readYAMLObject(t, filepath.Join(root, "deploy", "prometheus", "rules", "prls-test-observability.yaml"))

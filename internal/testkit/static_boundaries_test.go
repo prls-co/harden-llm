@@ -4,6 +4,7 @@ package testkit_test
 
 import (
 	"go/ast"
+	"go/build"
 	"go/parser"
 	"go/token"
 	"io/fs"
@@ -74,6 +75,35 @@ func TestImplementationBoundaries(t *testing.T) {
 		}
 		if seen > 1 {
 			t.Errorf("%s has %d implementation homes", concern, seen)
+		}
+	}
+
+	postgresPackage, err := build.Default.ImportDir(filepath.Join(root, "internal", "postgres"), 0)
+	if err != nil {
+		t.Fatalf("resolve production Postgres files: %v", err)
+	}
+	forbiddenStoreMethods := map[string]bool{
+		"SaveRun": false, "SaveTrace": false, "SaveArtifact": false,
+		"DeleteExecution": false, "ClearExecutions": false,
+	}
+	for _, name := range postgresPackage.GoFiles {
+		file, parseErr := parser.ParseFile(token.NewFileSet(), filepath.Join(postgresPackage.Dir, name), nil, 0)
+		if parseErr != nil {
+			t.Fatalf("parse production Postgres file %s: %v", name, parseErr)
+		}
+		for _, declaration := range file.Decls {
+			function, ok := declaration.(*ast.FuncDecl)
+			if !ok || function.Recv == nil {
+				continue
+			}
+			if _, forbidden := forbiddenStoreMethods[function.Name.Name]; forbidden {
+				forbiddenStoreMethods[function.Name.Name] = true
+			}
+		}
+	}
+	for method, found := range forbiddenStoreMethods {
+		if found {
+			t.Errorf("production Postgres exposes independent execution mutation method %s", method)
 		}
 	}
 }

@@ -147,6 +147,7 @@ func TestDiagnosticCompletenessEval(t *testing.T) {
 	endTracePersistence(nil)
 	_, endArtifactIndex := gatewayTelemetry.StartPersistence(httpContext, "postgres", "artifact.index")
 	endArtifactIndex(context.DeadlineExceeded)
+	gatewayTelemetry.RecordArtifactReconciliation(httpContext, 2, 45*time.Second, "partial")
 
 	queryTelemetry, err := postgres.NewQueryTelemetry(tracerProvider, meterProvider)
 	if err != nil {
@@ -196,6 +197,8 @@ func TestDiagnosticCompletenessEval(t *testing.T) {
 		"harden_llm.artifact.operations", "harden_llm.persistence.failures",
 		"harden_llm.http.requests", "harden_llm.http.request.duration", "harden_llm.gateway.operations",
 		"harden_llm.persistence.operations", "harden_llm.persistence.duration",
+		"harden_llm.artifact.reconciliations", "harden_llm.artifact.pending_operations",
+		"harden_llm.artifact.oldest_pending_age",
 		"harden_llm.postgres.operations", "harden_llm.postgres.duration",
 		"harden_llm.garage.operations", "harden_llm.garage.duration",
 	}

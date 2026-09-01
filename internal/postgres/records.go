@@ -159,6 +159,12 @@ type ArtifactOperationBacklog struct {
 	OldestAge time.Duration
 }
 
+type ArtifactInventoryReference struct {
+	ObjectKey string
+	Source    string
+	State     string
+}
+
 type ArtifactDeleteBatch struct {
 	ID                    string
 	OwnerID               string

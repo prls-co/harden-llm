@@ -77,6 +77,12 @@ history and stats. `llm_traces` becomes a one-to-one execution identity child;
 attempt/event rows and artifact metadata remain children. New writes do not
 persist a second trace record containing duplicate execution facts.
 
+The database enforces this ownership structurally: `llm_traces.run_id` is not
+nullable, the exact owner/run/trace tuple references `llm_runs`, and deleting
+the run cascades all relational children. `SaveExecution` inserts the run first
+and is the only production aggregate writer; independent run, trace, artifact,
+and relational delete methods are not part of the production store API.
+
 The trace REST endpoint projects from the execution aggregate. The Garage trace
 JSON is an immutable redacted export, not a source of product truth. Standalone
 domain traces are unsupported until a separate producer, lifecycle, and REST
@@ -98,6 +104,11 @@ Garage PUT and DELETE operations are idempotent. Publication, deletion, partial
 multi-delete, ambiguous responses, process termination, and restart converge
 through one bounded in-process reconciler. The reconciler is a lightweight
 gateway maintenance loop, not a second service or workflow engine.
+
+A separate bounded read-only inventory command compares Garage listings with
+live metadata and incomplete journal operations. It reports only aggregate
+counts and never deletes unknown objects. Forward convergence remains journal
+driven; reverse inventory is an operator verification and incident tool.
 
 Execution commits use a shared owner advisory lock. Clear-history planning uses
 the matching exclusive owner lock, and single-run deletion uses an ordered
@@ -152,6 +163,11 @@ dependency. Normal concurrent runs are not serialized by clear-history safety.
 5. Reconcile retained history from a tested PostgreSQL/Garage restore, then add
    structural run-to-trace ownership and remove independent writers/read
    fallbacks.
+
+The release binary supports that ordering directly: `reconcile-history`
+applies at most migrations 1-4, while normal startup applies the full set.
+Migration 5 rejects runless or mismatched rows and remains retryable after a
+failed precondition.
 
 Each pushed checkpoint is deployable only when its current schema and code are
 compatible. Rollback returns the whole checkpoint image set; it never restores

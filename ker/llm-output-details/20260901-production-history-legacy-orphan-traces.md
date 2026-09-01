@@ -185,5 +185,16 @@ Implementation checkpoint (2026-09-01)
 - Apply routes each object deletion through the durable artifact coordinator,
   rechecks an exact subtree fingerprint under the owner lock, and is idempotent.
   TEST-061 covers deterministic plans, changed-plan rejection, apply, and a
-  no-op second apply. Restored-snapshot and production reconciliation plus the
-  follow-on structural migration remain required before closure.
+  no-op second apply.
+- The restored production snapshot and live production were reconciled on
+  2026-09-01: 43/43 classified runless traces were removed through exact
+  artifact batches, the repeated apply was a no-op, and post-state was 44 runs,
+  44 traces, zero runless traces, 46 available artifacts, and zero pending
+  operations. Matching PostgreSQL and Garage backups and isolated restore proof
+  were retained under ignored release evidence.
+- Migration 0005 now rejects runless or mismatched bindings, makes
+  `llm_traces.run_id` mandatory, and adds the exact cascading
+  owner/run/trace foreign key. `SaveExecution` inserts the run first;
+  independent production writers and the missing-run trace read fallback are
+  removed. The same binary bounds `reconcile-history` at migration 4 so a
+  direct upgrade can satisfy migration 5 without a legacy server image.

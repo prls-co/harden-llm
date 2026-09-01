@@ -212,8 +212,8 @@ func TestResourceRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveArtifact(ctx, postgres.ArtifactRecord{
-		OwnerID: "owner-a", TraceID: "trace-a", ID: "artifact-a", Kind: "trace", ObjectKey: objectKey,
+	if err := store.SeedArtifactMetadataForTest(ctx, postgres.ArtifactRecord{
+		OwnerID: "owner-a", RunID: "run-a", TraceID: "trace-a", ID: "artifact-a", Kind: "trace", ObjectKey: objectKey,
 		ContentType: reference.ContentType, SHA256: reference.SHA256, SizeBytes: reference.SizeBytes,
 		State: "available", CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
@@ -236,13 +236,6 @@ func TestResourceRoutes(t *testing.T) {
 	}
 	if bytes.Contains(response.Body, []byte("run-route-provider-secret")) {
 		t.Fatalf("trace response exposed provider secret: %s", response.Body)
-	}
-	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/traces/trace-orphan", nil, authA)
-	assertEnvelope(t, response, http.StatusOK, false)
-	orphanResources := response.JSON["result"].(map[string]any)["resources"].(map[string]any)
-	if orphanResources["request"].(map[string]any)["available"] != false ||
-		orphanResources["response"].(map[string]any)["available"] != false {
-		t.Fatalf("orphan trace resource availability = %#v", orphanResources)
 	}
 	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/traces/trace-a", nil, authB)
 	assertEnvelope(t, response, http.StatusNotFound, true)
@@ -272,20 +265,17 @@ func TestResourceRoutes(t *testing.T) {
 		t.Fatalf("cross-owner artifact redirect = %d %q", redirect.StatusCode, redirect.Header.Get("Location"))
 	}
 
-	if err := store.SaveRun(ctx, postgres.RunRecord{
+	if err := store.SaveExecution(ctx, postgres.RunRecord{
 		OwnerID: "owner-a", ID: "run-delete-failure", ProfileID: "Backup", TraceID: "trace-delete-failure", Status: "failed",
 		Request: json.RawMessage(`{"profileId":"Backup"}`), Result: json.RawMessage(`{"output":null}`), StartedAt: now, CompletedAt: now,
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.SaveTrace(ctx, postgres.TraceRecord{
+	}, postgres.TraceRecord{
 		OwnerID: "owner-a", TraceID: "trace-delete-failure", RunID: "run-delete-failure", Record: json.RawMessage(`{"status":"failed"}`), CreatedAt: now, UpdatedAt: now,
-	}, nil); err != nil {
+	}, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	failureObjectKey := garageFixture.Key("llm-traces/owner-a/run-delete-failure/trace-delete-failure/artifact-delete-failure-trace.json")
-	if err := store.SaveArtifact(ctx, postgres.ArtifactRecord{
-		OwnerID: "owner-a", TraceID: "trace-delete-failure", ID: "artifact-delete-failure", Kind: "trace", ObjectKey: failureObjectKey,
+	if err := store.SeedArtifactMetadataForTest(ctx, postgres.ArtifactRecord{
+		OwnerID: "owner-a", RunID: "run-delete-failure", TraceID: "trace-delete-failure", ID: "artifact-delete-failure", Kind: "trace", ObjectKey: failureObjectKey,
 		ContentType: "application/json", SHA256: strings.Repeat("b", 64), SizeBytes: 1,
 		State: "available", CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
@@ -405,21 +395,18 @@ func cloneProfileCatalog(input profiles.Catalog) profiles.Catalog {
 func seedResourceHistory(t *testing.T, ctx context.Context, store *postgres.Store, now time.Time) {
 	t.Helper()
 	for _, id := range []string{"run-a", "run-b", "run-c"} {
-		if err := store.SaveRun(ctx, postgres.RunRecord{
-			OwnerID: "owner-a", ID: id, ProfileID: "Backup", TraceID: strings.Replace(id, "run", "trace", 1), Status: "succeeded",
+		traceID := strings.Replace(id, "run", "trace", 1)
+		var observations []postgres.ObservationRecord
+		if id == "run-a" {
+			observations = []postgres.ObservationRecord{{OwnerID: "owner-a", TraceID: traceID, Sequence: 0, Type: "provider.attempt", Data: json.RawMessage(`{"number":1}`), CreatedAt: now}}
+		}
+		if err := store.SaveExecution(ctx, postgres.RunRecord{
+			OwnerID: "owner-a", ID: id, ProfileID: "Backup", TraceID: traceID, Status: "succeeded",
 			Request: json.RawMessage(`{"profileId":"Backup"}`), Result: json.RawMessage(`{"output":"ok"}`), StartedAt: now, CompletedAt: now,
-		}); err != nil {
+		}, postgres.TraceRecord{
+			OwnerID: "owner-a", TraceID: traceID, RunID: id, Record: json.RawMessage(`{"status":"success"}`), CreatedAt: now, UpdatedAt: now,
+		}, observations, nil); err != nil {
 			t.Fatal(err)
 		}
-	}
-	if err := store.SaveTrace(ctx, postgres.TraceRecord{
-		OwnerID: "owner-a", TraceID: "trace-a", RunID: "run-a", Record: json.RawMessage(`{"status":"success"}`), CreatedAt: now, UpdatedAt: now,
-	}, []postgres.ObservationRecord{{OwnerID: "owner-a", TraceID: "trace-a", Sequence: 0, Type: "provider.attempt", Data: json.RawMessage(`{"number":1}`), CreatedAt: now}}); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.SaveTrace(ctx, postgres.TraceRecord{
-		OwnerID: "owner-a", TraceID: "trace-orphan", Record: json.RawMessage(`{"status":"succeeded"}`), CreatedAt: now, UpdatedAt: now,
-	}, nil); err != nil {
-		t.Fatal(err)
 	}
 }

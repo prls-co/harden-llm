@@ -356,38 +356,6 @@ func (store *Store) ClientState(ctx context.Context, ownerID string) (ClientStat
 	return state, nil
 }
 
-func (store *Store) SaveRun(ctx context.Context, record RunRecord) error {
-	if err := validateIdentifier("owner ID", record.OwnerID); err != nil {
-		return err
-	}
-	for name, value := range map[string]string{"run ID": record.ID, "trace ID": record.TraceID} {
-		if err := validateIdentifier(name, value); err != nil {
-			return err
-		}
-	}
-	if err := validateProfileIdentifier(record.ProfileID); err != nil {
-		return err
-	}
-	if err := validateJSONObject("run request", record.Request); err != nil {
-		return err
-	}
-	if err := validateJSONObject("run result", record.Result); err != nil {
-		return err
-	}
-	if record.StartedAt.IsZero() || record.CompletedAt.Before(record.StartedAt) {
-		return errors.New("postgres: valid run timestamps are required")
-	}
-	_, err := store.pool.Exec(ctx, `
-		INSERT INTO llm_runs (owner_id, run_id, profile_id, trace_id, status, request, result, started_at, completed_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-		record.OwnerID, record.ID, record.ProfileID, record.TraceID, record.Status, record.Request, record.Result, record.StartedAt, record.CompletedAt,
-	)
-	if err != nil {
-		return fmt.Errorf("postgres: save run: %w", err)
-	}
-	return nil
-}
-
 func (store *Store) Run(ctx context.Context, ownerID, runID string) (RunRecord, error) {
 	var record RunRecord
 	err := store.pool.QueryRow(ctx, `
@@ -414,65 +382,6 @@ func (store *Store) RunByTrace(ctx context.Context, ownerID, traceID string) (Ru
 		return RunRecord{}, notFound(err)
 	}
 	return record, nil
-}
-
-func (store *Store) SaveTrace(ctx context.Context, trace TraceRecord, observations []ObservationRecord) error {
-	if err := validateIdentifier("owner ID", trace.OwnerID); err != nil {
-		return err
-	}
-	if err := validateIdentifier("trace ID", trace.TraceID); err != nil {
-		return err
-	}
-	if trace.RunID != "" {
-		if err := validateIdentifier("run ID", trace.RunID); err != nil {
-			return err
-		}
-	}
-	if err := validateJSONObject("trace record", trace.Record); err != nil {
-		return err
-	}
-	if trace.CreatedAt.IsZero() || trace.UpdatedAt.Before(trace.CreatedAt) {
-		return errors.New("postgres: valid trace timestamps are required")
-	}
-	for index, observation := range observations {
-		if observation.OwnerID != trace.OwnerID || observation.TraceID != trace.TraceID || observation.Sequence != index {
-			return errors.New("postgres: trace observations must be owner-bound and contiguous")
-		}
-		if observation.Type == "" || len(observation.Type) > 64 || observation.CreatedAt.IsZero() {
-			return errors.New("postgres: valid trace observation metadata is required")
-		}
-		if err := validateJSONObject("trace observation", observation.Data); err != nil {
-			return err
-		}
-	}
-	transaction, err := store.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return fmt.Errorf("postgres: begin trace save: %w", err)
-	}
-	defer func() { _ = transaction.Rollback(ctx) }()
-	_, err = transaction.Exec(ctx, `
-		INSERT INTO llm_traces (owner_id, trace_id, run_id, record, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6)
-		ON CONFLICT (owner_id, trace_id) DO UPDATE SET run_id = EXCLUDED.run_id, record = EXCLUDED.record, updated_at = EXCLUDED.updated_at`,
-		trace.OwnerID, trace.TraceID, nullableString(trace.RunID), trace.Record, trace.CreatedAt, trace.UpdatedAt,
-	)
-	if err != nil {
-		return fmt.Errorf("postgres: save trace: %w", err)
-	}
-	if _, err := transaction.Exec(ctx, `DELETE FROM llm_trace_observations WHERE owner_id = $1 AND trace_id = $2`, trace.OwnerID, trace.TraceID); err != nil {
-		return fmt.Errorf("postgres: replace trace observations: %w", err)
-	}
-	for _, observation := range observations {
-		_, err := transaction.Exec(ctx, `
-			INSERT INTO llm_trace_observations (owner_id, trace_id, sequence, observation_type, data, created_at)
-			VALUES ($1,$2,$3,$4,$5,$6)`, observation.OwnerID, observation.TraceID, observation.Sequence, observation.Type, observation.Data, observation.CreatedAt)
-		if err != nil {
-			return fmt.Errorf("postgres: save trace observation: %w", err)
-		}
-	}
-	if err := transaction.Commit(ctx); err != nil {
-		return fmt.Errorf("postgres: commit trace save: %w", err)
-	}
-	return nil
 }
 
 func (store *Store) Trace(ctx context.Context, ownerID, traceID string) (TraceRecord, []ObservationRecord, error) {
@@ -504,22 +413,6 @@ func (store *Store) Trace(ctx context.Context, ownerID, traceID string) (TraceRe
 		return TraceRecord{}, nil, fmt.Errorf("postgres: iterate trace observations: %w", err)
 	}
 	return trace, observations, nil
-}
-
-func (store *Store) SaveArtifact(ctx context.Context, artifact ArtifactRecord) error {
-	if err := validateArtifact(artifact); err != nil {
-		return err
-	}
-	_, err := store.pool.Exec(ctx, `
-		INSERT INTO llm_artifacts
-			(owner_id, trace_id, artifact_id, kind, object_key, content_type, sha256, size_bytes, state, created_at, updated_at, verified_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$11)`, artifact.OwnerID, artifact.TraceID, artifact.ID, artifact.Kind,
-		artifact.ObjectKey, artifact.ContentType, strings.ToLower(artifact.SHA256), artifact.SizeBytes, artifact.State, artifact.CreatedAt, artifact.UpdatedAt,
-	)
-	if err != nil {
-		return fmt.Errorf("postgres: save artifact: %w", err)
-	}
-	return nil
 }
 
 func validateArtifact(artifact ArtifactRecord) error {

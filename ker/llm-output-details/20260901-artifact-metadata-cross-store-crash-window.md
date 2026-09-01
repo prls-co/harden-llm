@@ -188,3 +188,10 @@ Implementation checkpoint (2026-09-01)
   integrity demotion, idempotent second passes, real Postgres/Garage behavior,
   and bounded reconciliation telemetry. Production deployment evidence remains
   required before this KER can close.
+- A bounded `audit-artifacts` command now performs the reverse comparison that
+  the periodic metadata HEAD audit cannot: Garage keys are matched against live
+  metadata and incomplete journal operations, output is count-only, and aged
+  unreferenced or missing available objects fail the command without deletion.
+- Grafana now exposes journal backlog, oldest pending age, and reconciliation
+  failures. Prometheus warnings cover non-converging operations, stale backlog,
+  and continuous reconciliation errors with no owner/run/trace labels.

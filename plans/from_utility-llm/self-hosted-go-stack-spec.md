@@ -411,7 +411,13 @@ Rules:
   once in a versioned result document plus typed query columns. `llm_traces` is
   a one-to-one execution identity child; its REST representation is projected
   from the aggregate rather than a second independently mutable execution
-  document. Standalone traces have no v1 producer or lifecycle.
+  document. `llm_traces.run_id` is mandatory and its exact
+  `(owner_id, run_id, trace_id)` binding references the run with
+  `ON DELETE CASCADE`. Standalone traces have no v1 producer or lifecycle.
+- `SaveExecution` is the only production write path for run, trace,
+  observations, and artifact metadata. It inserts the aggregate root before
+  children in one transaction. Relational deletion removes only the run after
+  Garage deletion has converged; PostgreSQL cascades the child metadata.
 - Canonical accounting has result and current-provider views. Five exclusive
   token components derive prompt, completion, and total. Usage completeness and
   cost certainty are explicit; missing or inconsistent values are not zero.
@@ -435,7 +441,7 @@ Rules:
   artifact metadata non-actionable, then removes Garage bodies and finalizes
   relational deletion. A Garage failure retains the run and retryable journal
   state while unavailable/deleting artifacts cannot be presigned.
-- Migration application uses one canonical runner and a Postgres advisory lock so concurrent gateway starts do not race.
+- Migration application uses one canonical runner and a Postgres advisory lock so concurrent gateway starts do not race. The retained-history command is intentionally bounded through migration 4, allowing a direct-upgrade binary to remove legacy runless traces before normal startup applies structural ownership migration 5.
 
 ### Harden-LLM artifact contract
 
@@ -448,6 +454,10 @@ Rules:
   deletion intents precede object removal. Idempotent object operations and one
   bounded in-process reconciler converge interrupted operations; no distributed
   transaction or second recovery service is introduced.
+- A bounded read-only administrative inventory compares Garage keys with live
+  artifact metadata and incomplete journal operations. It emits counts only,
+  fails closed on truncation, missing available objects, or aged unreferenced
+  objects, and never performs blind deletion.
 - Reads authorize the Postgres owner/trace relationship before requesting a presigned Garage URL. URLs expire in at most five minutes and are not stored.
 - Garage timeouts and failures are bounded. Artifact persistence failure cannot change a completed provider result, cache result, or normalized usage/cost; it creates a redacted persistence-failure observation and metric.
 - Garage S3 and administration credentials are different. Only the S3 API is reachable through Caddy, and only the gateway receives bucket credentials.

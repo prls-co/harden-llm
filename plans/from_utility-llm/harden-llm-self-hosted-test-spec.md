@@ -780,6 +780,8 @@ runtime contract or the meaning of `make verify`.
   - Shared save/exclusive clear/per-execution delete lock ordering preserves
     concurrency and owner isolation.
   - Only available artifacts presign; unavailable/deleting artifacts never do.
+  - A bounded reverse inventory identifies missing available bodies and aged
+    unreferenced objects without emitting object keys or deleting data.
 - Expected runtime: T3 with real PostgreSQL and Garage.
 
 ### TEST-061: retained-history reconciliation and structural ownership
@@ -791,7 +793,9 @@ runtime contract or the meaning of `make verify`.
     rows fail closed; apply requires the unchanged digest and owner scope.
   - Artifact deletion routes through the coordinator; repeated apply is a no-op.
   - After reconciliation, every trace has one owner/run binding and relational
-    cascade prevents independent trace subtrees or writers.
+    cascade prevents independent trace subtrees or writers. A direct-upgrade
+    binary can apply migrations 1-4 for reconciliation, rejects migration 5
+    while runless rows remain, and applies migration 5 after reconciliation.
 - Expected runtime: T0/T1 plus restored-snapshot T3 certification.
 
 ## 14. Evidence requirements

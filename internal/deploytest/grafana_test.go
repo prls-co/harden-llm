@@ -88,7 +88,7 @@ func TestGrafanaArtifacts(t *testing.T) {
 	requiredPanels := map[string]bool{
 		"gateway": false, "provider": false, "retry": false, "cache": false,
 		"usage / cost": false, "schema / repair": false, "postgres": false,
-		"garage artifacts": false, "collector": false, "persistence failures": false,
+		"garage artifacts": false, "artifact lifecycle": false, "collector": false, "persistence failures": false,
 	}
 	allowedUIDs := map[string]bool{"harden-prometheus": true, "harden-loki": true, "harden-tempo": true}
 	for _, raw := range panels {

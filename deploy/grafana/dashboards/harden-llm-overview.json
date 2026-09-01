@@ -154,7 +154,7 @@
       "datasource": {"type": "loki", "uid": "harden-loki"},
       "description": "Correlated structured gateway logs with trace links.",
       "fieldConfig": {"defaults": {}, "overrides": []},
-      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 40},
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 48},
       "id": 12,
       "options": {"dedupStrategy": "none", "enableLogDetails": true, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true},
       "targets": [{"expr": "{service_name=\"harden-llm-gateway\"} | json | trace_id != \"\"", "refId": "A"}],
@@ -165,12 +165,27 @@
       "datasource": {"type": "tempo", "uid": "harden-tempo"},
       "description": "Recent gateway traces for operational drill-down.",
       "fieldConfig": {"defaults": {}, "overrides": []},
-      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 40},
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 48},
       "id": 13,
       "options": {},
       "targets": [{"expr": "{ resource.service.name = \"harden-llm-gateway\" }", "queryType": "traceql", "refId": "A"}],
       "title": "Recent Traces",
       "type": "traces"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "harden-prometheus"},
+      "description": "Durable publication/deletion backlog, oldest pending age, and reconciliation failures.",
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 40},
+      "id": 14,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [
+        {"expr": "max(harden_llm_artifact_pending_operations)", "legendFormat": "pending operations", "refId": "A"},
+        {"expr": "max(harden_llm_artifact_oldest_pending_age)", "legendFormat": "oldest pending seconds", "refId": "B"},
+        {"expr": "sum(rate(harden_llm_artifact_reconciliations{outcome!=\"success\"}[5m])) by (outcome)", "legendFormat": "reconcile {{outcome}}", "refId": "C"}
+      ],
+      "title": "Artifact Lifecycle",
+      "type": "timeseries"
     }
   ],
   "refresh": "30s",

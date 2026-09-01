@@ -1,0 +1,31 @@
+groups:
+  - name: harden-llm-artifact-lifecycle
+    interval: 30s
+    rules:
+      - alert: HardenLLMArtifactOperationsPending
+        expr: max(harden_llm_artifact_pending_operations) > 0
+        for: 10m
+        labels:
+          severity: warning
+          service: harden-llm-gateway
+        annotations:
+          summary: Harden LLM artifact operations are not converging
+          description: At least one durable artifact publication or deletion operation has remained pending for ten minutes.
+      - alert: HardenLLMArtifactPendingAgeHigh
+        expr: max(harden_llm_artifact_oldest_pending_age) > 600
+        for: 5m
+        labels:
+          severity: warning
+          service: harden-llm-gateway
+        annotations:
+          summary: Harden LLM artifact backlog is stale
+          description: The oldest durable artifact operation has exceeded ten minutes for five minutes.
+      - alert: HardenLLMArtifactReconciliationErrors
+        expr: sum(rate(harden_llm_artifact_reconciliations{outcome="error"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: harden-llm-gateway
+        annotations:
+          summary: Harden LLM artifact reconciliation is failing
+          description: The artifact reconciler has reported errors continuously during the last five minutes.

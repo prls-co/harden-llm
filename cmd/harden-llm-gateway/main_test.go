@@ -33,6 +33,12 @@ func TestBootstrapCommandInput(t *testing.T) {
 	if err := run(context.Background(), []string{"reconcile-history", "--all-owners", "--apply"}, strings.NewReader(""), &output, &output, func(string) string { return "" }); err == nil || !strings.Contains(err.Error(), "--digest") {
 		t.Fatalf("digest-free reconciliation apply = %v", err)
 	}
+	if err := run(context.Background(), []string{"audit-artifacts"}, strings.NewReader(""), &output, &output, func(string) string { return "" }); err == nil || !strings.Contains(err.Error(), databaseURLEnvironment) {
+		t.Fatalf("missing artifact audit configuration = %v", err)
+	}
+	if err := run(context.Background(), []string{"audit-artifacts", "unexpected"}, strings.NewReader(""), &output, &output, func(string) string { return "" }); err == nil {
+		t.Fatal("artifact audit accepted arguments")
+	}
 }
 
 func TestVersionCommand(t *testing.T) {

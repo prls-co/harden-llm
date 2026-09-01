@@ -74,6 +74,17 @@ func TestGarageArtifactStore(t *testing.T) {
 	if _, _, err := owner.Get(context.Background(), fixture.Key("llm-traces/owner-b/object.json")); !IsKind(err, KindInvalid) {
 		t.Fatalf("cross-prefix read was accepted: %v", err)
 	}
+	firstInventory, err := store.Inventory(context.Background(), fixture.Scope("llm-traces/owner-a/"), "", 2)
+	if err != nil || len(firstInventory.Objects) != 2 || firstInventory.ContinuationToken == "" {
+		t.Fatalf("first bounded inventory page = %#v, %v", firstInventory, err)
+	}
+	secondInventory, err := store.Inventory(context.Background(), fixture.Scope("llm-traces/owner-a/"), firstInventory.ContinuationToken, 2)
+	if err != nil || len(secondInventory.Objects) != 1 || secondInventory.ContinuationToken != "" {
+		t.Fatalf("second bounded inventory page = %#v, %v", secondInventory, err)
+	}
+	if _, err := store.Inventory(context.Background(), "", "", 2); !IsKind(err, KindInvalid) {
+		t.Fatalf("unscoped inventory was accepted: %v", err)
+	}
 
 	presigned, err := owner.PresignGet(context.Background(), artifacts[0].key, time.Second)
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -30,7 +31,7 @@ func TestRetainedHistoryReconciliation(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer store.Close()
-	if err := store.Migrate(ctx); err != nil {
+	if err := store.MigrateForHistoryReconciliation(ctx); err != nil {
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
@@ -45,7 +46,7 @@ func TestRetainedHistoryReconciliation(t *testing.T) {
 		Record:    json.RawMessage(`{"schemaVersion":1,"runId":"legacy-run","traceId":"legacy-trace","callId":"legacy-call","status":"succeeded","attempts":[],"cache":{},"usage":{},"cost":{}}`),
 		CreatedAt: now, UpdatedAt: now,
 	}
-	if err := store.SaveTrace(ctx, trace, []postgres.ObservationRecord{{
+	if err := store.SeedLegacyRunlessTraceForTest(ctx, trace, []postgres.ObservationRecord{{
 		OwnerID: trace.OwnerID, TraceID: trace.TraceID, Sequence: 0, Type: "result",
 		Data: json.RawMessage(`{"outcome":"success"}`), CreatedAt: now,
 	}}); err != nil {
@@ -57,7 +58,7 @@ func TestRetainedHistoryReconciliation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveArtifact(ctx, postgres.ArtifactRecord{
+	if err := store.SeedArtifactMetadataForTest(ctx, postgres.ArtifactRecord{
 		OwnerID: trace.OwnerID, TraceID: trace.TraceID, ID: "legacy-artifact", Kind: "trace",
 		ObjectKey: objectKey, ContentType: reference.ContentType, SHA256: reference.SHA256,
 		SizeBytes: reference.SizeBytes, State: "available", CreatedAt: now, UpdatedAt: now,
@@ -69,7 +70,7 @@ func TestRetainedHistoryReconciliation(t *testing.T) {
 		Record:    json.RawMessage(`{"schemaVersion":1,"runId":"legacy-run-sibling","traceId":"legacy-trace-sibling","callId":"legacy-call-sibling","status":"succeeded","attempts":[],"cache":{},"usage":{},"cost":{}}`),
 		CreatedAt: now, UpdatedAt: now,
 	}
-	if err := store.SaveTrace(ctx, siblingTrace, nil); err != nil {
+	if err := store.SeedLegacyRunlessTraceForTest(ctx, siblingTrace, nil); err != nil {
 		t.Fatal(err)
 	}
 	siblingObjectKey := "llm-traces/legacy-owner/legacy-run-sibling/legacy-trace-sibling/legacy-artifact-sibling.json"
@@ -77,12 +78,18 @@ func TestRetainedHistoryReconciliation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveArtifact(ctx, postgres.ArtifactRecord{
+	if err := store.SeedArtifactMetadataForTest(ctx, postgres.ArtifactRecord{
 		OwnerID: siblingTrace.OwnerID, TraceID: siblingTrace.TraceID, ID: "legacy-artifact-sibling", Kind: "trace",
 		ObjectKey: siblingObjectKey, ContentType: siblingReference.ContentType, SHA256: siblingReference.SHA256,
 		SizeBytes: siblingReference.SizeBytes, State: "available", CreatedAt: siblingTrace.CreatedAt, UpdatedAt: siblingTrace.UpdatedAt,
 	}); err != nil {
 		t.Fatal(err)
+	}
+	if err := store.Migrate(ctx); err == nil {
+		t.Fatal("execution ownership migration accepted retained runless traces")
+	}
+	if versions, err := store.AppliedMigrations(ctx); err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4}) {
+		t.Fatalf("failed ownership migration changed migration state: %v, %v", versions, err)
 	}
 	nextID := 0
 	coordinator, err := gateway.NewArtifactCoordinator(gateway.ArtifactCoordinatorConfig{
@@ -136,6 +143,15 @@ func TestRetainedHistoryReconciliation(t *testing.T) {
 	noOp, err := ReconcileHistory(ctx, apply)
 	if err != nil || noOp.AppliedTraces != 0 || noOp.CandidateTraces != 0 {
 		t.Fatalf("second apply = %#v, %v", noOp, err)
+	}
+	if err := store.Migrate(ctx); err != nil {
+		t.Fatalf("ownership migration after reconciliation: %v", err)
+	}
+	if versions, err := store.AppliedMigrations(ctx); err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5}) {
+		t.Fatalf("post-reconciliation migrations = %v, %v", versions, err)
+	}
+	if err := store.Ready(ctx); err != nil {
+		t.Fatalf("post-reconciliation store is not ready: %v", err)
 	}
 }
 

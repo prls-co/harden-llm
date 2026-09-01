@@ -67,7 +67,7 @@ func runHistoryReconciliation(ctx context.Context, args []string, stdout io.Writ
 		return err
 	}
 	defer store.Close()
-	if err := store.Migrate(commandContext); err != nil {
+	if err := store.MigrateForHistoryReconciliation(commandContext); err != nil {
 		return err
 	}
 	garage, err := artifacts.NewGarage(artifacts.Config{

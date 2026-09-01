@@ -1351,7 +1351,7 @@ Schema snapshot:
 - `llm_endpoint_credentials`: owner, credential ID, key ID, nonce, ciphertext, normalized origin, metadata, timestamps.
 - `llm_client_state`: owner and strict client-state JSONB.
 - `llm_runs`: owner, run/profile/trace IDs, request/result summary, status, timestamps.
-- `llm_traces`: owner, normalized domain call record, timestamps.
+- `llm_traces`: mandatory owner/run/trace aggregate identity, redacted domain observations document, timestamps; exact owner/run/trace foreign key cascades from `llm_runs`.
 - `llm_trace_observations`: owner/trace, sequence, type, redacted data, timestamps.
 - `llm_artifacts`: owner/trace/artifact IDs, kind, Garage object key, content type, SHA-256, byte length, availability state, timestamps.
 - `llm_artifact_operations` and `llm_artifact_delete_batches`: durable typed publication/deletion intent, bounded retry state, and exact owner/run/trace/artifact integrity identity; artifact content is never stored in the journal.
@@ -1370,6 +1370,9 @@ Invariants:
   observations, and integrity-matching artifact references become visible in
   one Postgres transaction that consumes the intent. Interrupted publication or
   deletion converges through the bounded gateway reconciler.
+- `SaveExecution` is the sole production aggregate writer. Independent run,
+  trace, and artifact writers are excluded from production builds, and a
+  bounded read-only reverse inventory detects unresolved cross-store residue.
 - Cache identity excludes runtime-only metadata.
 - Endpoint credentials are bound to owner, credential identity, and normalized endpoint origin.
 - Gateway handlers call the root library and do not own runtime transforms.

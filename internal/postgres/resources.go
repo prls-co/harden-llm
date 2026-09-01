@@ -330,51 +330,6 @@ func (store *Store) RunStats(ctx context.Context, ownerID string) (RunStats, err
 	return stats, nil
 }
 
-// DeleteExecution removes the run and its domain trace in one transaction.
-// Observation and artifact metadata are removed by trace foreign keys.
-func (store *Store) DeleteExecution(ctx context.Context, ownerID, runID, traceID string) error {
-	transaction, err := store.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return fmt.Errorf("postgres: begin execution deletion: %w", err)
-	}
-	defer func() { _ = transaction.Rollback(ctx) }()
-	result, err := transaction.Exec(ctx, `DELETE FROM llm_runs WHERE owner_id=$1 AND run_id=$2 AND trace_id=$3`, ownerID, runID, traceID)
-	if err != nil {
-		return fmt.Errorf("postgres: delete execution run: %w", err)
-	}
-	if result.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-	if _, err := transaction.Exec(ctx, `DELETE FROM llm_traces WHERE owner_id=$1 AND trace_id=$2`, ownerID, traceID); err != nil {
-		return fmt.Errorf("postgres: delete execution trace: %w", err)
-	}
-	if err := transaction.Commit(ctx); err != nil {
-		return fmt.Errorf("postgres: commit execution deletion: %w", err)
-	}
-	return nil
-}
-
-// ClearExecutions removes every run and trace owned by the caller, including
-// orphan traces that have no run projection.
-func (store *Store) ClearExecutions(ctx context.Context, ownerID string) (int64, error) {
-	transaction, err := store.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return 0, fmt.Errorf("postgres: begin execution clear: %w", err)
-	}
-	defer func() { _ = transaction.Rollback(ctx) }()
-	result, err := transaction.Exec(ctx, `DELETE FROM llm_runs WHERE owner_id=$1`, ownerID)
-	if err != nil {
-		return 0, fmt.Errorf("postgres: clear execution runs: %w", err)
-	}
-	if _, err := transaction.Exec(ctx, `DELETE FROM llm_traces WHERE owner_id=$1`, ownerID); err != nil {
-		return 0, fmt.Errorf("postgres: clear execution traces: %w", err)
-	}
-	if err := transaction.Commit(ctx); err != nil {
-		return 0, fmt.Errorf("postgres: commit execution clear: %w", err)
-	}
-	return result.RowsAffected(), nil
-}
-
 func (store *Store) Artifacts(ctx context.Context, ownerID, traceID string) ([]ArtifactRecord, error) {
 	rows, err := store.pool.Query(ctx, `
 		SELECT a.owner_id, COALESCE(t.run_id, ''), a.trace_id, a.artifact_id, a.kind, a.object_key, a.content_type, a.sha256, a.size_bytes, a.state, a.created_at, a.updated_at
@@ -441,9 +396,6 @@ func (store *Store) DeleteCache(ctx context.Context, ownerID, operationHash stri
 func (store *Store) SaveExecution(ctx context.Context, run RunRecord, trace TraceRecord, observations []ObservationRecord, artifacts []ArtifactRecord) error {
 	if run.OwnerID != trace.OwnerID || run.TraceID != trace.TraceID {
 		return errors.New("postgres: execution run and trace binding mismatch")
-	}
-	if trace.RunID == "" {
-		trace.RunID = run.ID
 	}
 	if trace.RunID != run.ID {
 		return errors.New("postgres: execution trace and run identity mismatch")
@@ -517,14 +469,14 @@ func (store *Store) SaveExecution(ctx context.Context, run RunRecord, trace Trac
 	if ownerDeleteActive {
 		return errors.New("postgres: owner history deletion is in progress")
 	}
+	if err := insertExecutionRun(ctx, transaction, run); err != nil {
+		return fmt.Errorf("postgres: save execution run: %w", err)
+	}
 	if _, err := transaction.Exec(ctx, `
-			INSERT INTO llm_traces (owner_id, trace_id, run_id, record, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6)
-			ON CONFLICT (owner_id, trace_id) DO UPDATE SET run_id=EXCLUDED.run_id, record=EXCLUDED.record, updated_at=EXCLUDED.updated_at`,
+			INSERT INTO llm_traces (owner_id, trace_id, run_id, record, created_at, updated_at)
+			VALUES ($1,$2,$3,$4,$5,$6)`,
 		trace.OwnerID, trace.TraceID, trace.RunID, trace.Record, trace.CreatedAt, trace.UpdatedAt); err != nil {
 		return fmt.Errorf("postgres: save execution trace: %w", err)
-	}
-	if _, err := transaction.Exec(ctx, `DELETE FROM llm_trace_observations WHERE owner_id=$1 AND trace_id=$2`, trace.OwnerID, trace.TraceID); err != nil {
-		return fmt.Errorf("postgres: replace execution observations: %w", err)
 	}
 	for _, observation := range observations {
 		if _, err := transaction.Exec(ctx, `
@@ -555,9 +507,6 @@ func (store *Store) SaveExecution(ctx context.Context, run RunRecord, trace Trac
 		if result.RowsAffected() != 1 {
 			return errors.New("postgres: artifact publication intent is not committed")
 		}
-	}
-	if err := insertExecutionRun(ctx, transaction, run); err != nil {
-		return fmt.Errorf("postgres: save execution run: %w", err)
 	}
 	if err := transaction.Commit(ctx); err != nil {
 		return fmt.Errorf("postgres: commit execution save: %w", err)

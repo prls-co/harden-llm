@@ -4,6 +4,7 @@ global:
   evaluation_interval: 15s
 
 rule_files:
+  - /etc/prometheus/rules/harden-llm-artifact-lifecycle.yaml
   - /etc/prometheus/rules/prls-test-observability.yaml
 
 scrape_configs:

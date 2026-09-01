@@ -51,7 +51,7 @@ func TestRepositoryContract(t *testing.T) {
 	}
 	store := stores[0]
 	versions, err := store.AppliedMigrations(ctx)
-	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4}) {
+	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5}) {
 		t.Fatalf("migration versions = %v, %v", versions, err)
 	}
 	if err := store.Ready(ctx); err != nil {
@@ -62,6 +62,9 @@ func TestRepositoryContract(t *testing.T) {
 	}
 	if err := store.Ready(ctx); err == nil {
 		t.Fatal("store with an unknown migration reported ready")
+	}
+	if err := store.Migrate(ctx); err == nil {
+		t.Fatal("migration runner accepted an unknown applied migration")
 	}
 	if _, err := store.pool.Exec(ctx, `DELETE FROM schema_migrations WHERE version = 999`); err != nil {
 		t.Fatal(err)
@@ -139,11 +142,11 @@ func TestRepositoryContract(t *testing.T) {
 		StartedAt: now, CompletedAt: now,
 	}
 	atomicTrace := TraceRecord{
-		OwnerID: "owner-a", TraceID: "trace-atomic", Record: json.RawMessage(`{"status":"succeeded"}`),
+		OwnerID: "owner-a", TraceID: "trace-atomic", RunID: "run-atomic", Record: json.RawMessage(`{"status":"succeeded"}`),
 		CreatedAt: now, UpdatedAt: now,
 	}
 	duplicateArtifact := ArtifactRecord{
-		OwnerID: "owner-a", TraceID: "trace-atomic", ID: "artifact-atomic", Kind: "trace",
+		OwnerID: "owner-a", RunID: "run-atomic", TraceID: "trace-atomic", ID: "artifact-atomic", Kind: "trace",
 		ObjectKey:   "llm-traces/owner-a/run-atomic/trace-atomic/artifact-atomic.json",
 		ContentType: "application/json", SHA256: strings.Repeat("a", 64), SizeBytes: 1,
 		State: "available", CreatedAt: now, UpdatedAt: now,
@@ -184,12 +187,15 @@ func TestRepositoryContract(t *testing.T) {
 		t.Fatalf("cross-owner trace read = %v", err)
 	}
 
-	artifact := ArtifactRecord{OwnerID: "owner-a", TraceID: "trace-a", ID: "artifact-a", Kind: "trace", ObjectKey: "owners/owner-a/traces/trace-a/trace/artifact-a.json", ContentType: "application/json", SHA256: strings.Repeat("a", 64), SizeBytes: 17, State: "available", CreatedAt: now, UpdatedAt: now}
-	if err := store.SaveArtifact(ctx, artifact); err != nil {
+	artifact := ArtifactRecord{OwnerID: "owner-a", RunID: "run-a", TraceID: "trace-a", ID: "artifact-a", Kind: "trace", ObjectKey: "owners/owner-a/traces/trace-a/trace/artifact-a.json", ContentType: "application/json", SHA256: strings.Repeat("a", 64), SizeBytes: 17, State: "available", CreatedAt: now, UpdatedAt: now}
+	if err := store.SeedArtifactMetadataForTest(ctx, artifact); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := store.Artifact(ctx, "owner-a", "trace-a", "artifact-a"); err != nil || got.ObjectKey != artifact.ObjectKey || got.SHA256 != artifact.SHA256 {
 		t.Fatalf("artifact round trip = %#v, %v", got, err)
+	}
+	if references, truncated, err := store.ArtifactInventoryReferences(ctx, 10); err != nil || truncated || len(references) != 1 || references[0].ObjectKey != artifact.ObjectKey || references[0].Source != "metadata" {
+		t.Fatalf("artifact inventory references = %#v, %v, %v", references, truncated, err)
 	}
 	if _, err := store.Artifact(ctx, "owner-b", "trace-a", "artifact-a"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("cross-owner artifact read = %v", err)
@@ -223,7 +229,7 @@ func TestRepositoryContract(t *testing.T) {
 	if artifacts, err := store.ArtifactsForOwner(ctx, "owner-a"); err != nil || len(artifacts) != 1 || artifacts[0].ObjectKey != artifact.ObjectKey {
 		t.Fatalf("owner artifacts = %#v, %v", artifacts, err)
 	}
-	if err := store.DeleteExecution(ctx, "owner-a", "run-a", "trace-a"); err != nil {
+	if _, err := store.pool.Exec(ctx, `DELETE FROM llm_runs WHERE owner_id=$1 AND run_id=$2`, "owner-a", "run-a"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.Run(ctx, "owner-a", "run-a"); !errors.Is(err, ErrNotFound) {
@@ -235,14 +241,21 @@ func TestRepositoryContract(t *testing.T) {
 	if artifacts, err := store.ArtifactsForOwner(ctx, "owner-a"); err != nil || len(artifacts) != 0 {
 		t.Fatalf("deleted execution artifact metadata remained: %#v, %v", artifacts, err)
 	}
-	if err := store.SaveTrace(ctx, TraceRecord{OwnerID: "owner-a", TraceID: "trace-orphan", Record: json.RawMessage(`{"status":"failed"}`), CreatedAt: now, UpdatedAt: now}, nil); err != nil {
-		t.Fatal(err)
+	if _, err := store.pool.Exec(ctx, `
+		INSERT INTO llm_traces (owner_id, trace_id, run_id, record, created_at, updated_at)
+		VALUES ($1,$2,NULL,$3,$4,$4)`, "owner-a", "trace-orphan", json.RawMessage(`{"status":"failed"}`), now); err == nil {
+		t.Fatal("runless trace bypassed structural execution ownership")
 	}
-	if count, err := store.ClearExecutions(ctx, "owner-a"); err != nil || count != 1 {
-		t.Fatalf("clear executions = %d, %v", count, err)
+	if _, err := store.pool.Exec(ctx, `
+		INSERT INTO llm_traces (owner_id, trace_id, run_id, record, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$5)`, "owner-a", "trace-mismatch", "run-b", json.RawMessage(`{"status":"failed"}`), now); err == nil {
+		t.Fatal("mismatched trace and run binding bypassed structural execution ownership")
 	}
-	if _, _, err := store.Trace(ctx, "owner-a", "trace-orphan"); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("orphan trace survived execution clear: %v", err)
+	if result, err := store.pool.Exec(ctx, `DELETE FROM llm_runs WHERE owner_id=$1`, "owner-a"); err != nil || result.RowsAffected() != 1 {
+		t.Fatalf("aggregate root clear = %d, %v", result.RowsAffected(), err)
+	}
+	if _, _, err := store.Trace(ctx, "owner-a", "trace-b"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("aggregate root clear left a trace: %v", err)
 	}
 
 	session := Session{ID: "session-a", OwnerID: "owner-a", TokenDigest: []byte(strings.Repeat("d", 32)), ExpiresAt: now.Add(time.Hour), CreatedAt: now}

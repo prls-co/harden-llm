@@ -196,6 +196,42 @@ func (store *Store) ArtifactOperationBacklog(ctx context.Context, now time.Time)
 	return backlog, nil
 }
 
+// ArtifactInventoryReferences returns a bounded snapshot of every object key
+// that current metadata or an incomplete journal operation can legitimately
+// own. Completed journal rows are evidence, not live ownership references.
+func (store *Store) ArtifactInventoryReferences(ctx context.Context, limit int) ([]ArtifactInventoryReference, bool, error) {
+	if limit < 1 || limit > 100_000 {
+		return nil, false, errors.New("postgres: artifact inventory limit is invalid")
+	}
+	rows, err := store.pool.Query(ctx, `
+		SELECT object_key, source, state FROM (
+			SELECT object_key, 'metadata'::text AS source, state FROM llm_artifacts
+			UNION ALL
+			SELECT object_key, 'operation'::text AS source, state FROM llm_artifact_operations
+			WHERE state IN ('pending','object_applied')
+		) AS inventory_references
+		ORDER BY object_key, source
+		LIMIT $1`, limit+1)
+	if err != nil {
+		return nil, false, fmt.Errorf("postgres: list artifact inventory references: %w", err)
+	}
+	defer rows.Close()
+	references := make([]ArtifactInventoryReference, 0, limit)
+	truncated := false
+	for rows.Next() {
+		if len(references) == limit {
+			truncated = true
+			continue
+		}
+		var reference ArtifactInventoryReference
+		if err := rows.Scan(&reference.ObjectKey, &reference.Source, &reference.State); err != nil {
+			return nil, false, fmt.Errorf("postgres: scan artifact inventory reference: %w", err)
+		}
+		references = append(references, reference)
+	}
+	return references, truncated, rows.Err()
+}
+
 func (store *Store) AvailableArtifactsForAudit(ctx context.Context, verifiedBefore time.Time, limit int) ([]ArtifactRecord, error) {
 	if verifiedBefore.IsZero() || limit < 1 || limit > 1000 {
 		return nil, errors.New("postgres: artifact audit limit is invalid")
@@ -434,18 +470,12 @@ func (store *Store) FinalizeArtifactDeleteBatch(ctx context.Context, batchID str
 			return 0, fmt.Errorf("postgres: delete journaled execution: %w", err)
 		}
 		deleted = command.RowsAffected()
-		if _, err := transaction.Exec(ctx, `DELETE FROM llm_traces WHERE owner_id=$1 AND trace_id=$2`, ownerID, *traceID); err != nil {
-			return 0, fmt.Errorf("postgres: delete journaled trace: %w", err)
-		}
 	} else if scope == "owner" {
 		command, err := transaction.Exec(ctx, `DELETE FROM llm_runs WHERE owner_id=$1`, ownerID)
 		if err != nil {
 			return 0, fmt.Errorf("postgres: clear journaled executions: %w", err)
 		}
 		deleted = command.RowsAffected()
-		if _, err := transaction.Exec(ctx, `DELETE FROM llm_traces WHERE owner_id=$1`, ownerID); err != nil {
-			return 0, fmt.Errorf("postgres: clear journaled traces: %w", err)
-		}
 	} else {
 		command, err := transaction.Exec(ctx, `DELETE FROM llm_traces WHERE owner_id=$1 AND trace_id=$2 AND run_id IS NULL`, ownerID, *traceID)
 		if err != nil {

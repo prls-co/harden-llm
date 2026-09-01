@@ -43,6 +43,13 @@ The Harden LLM database and Garage pair are a separate failure and backup
 domain from Langfuse. Sharing endpoints, buckets, credentials, databases, or
 migrations across those domains is unsupported.
 
+`llm_runs` is the relational execution aggregate root. A mandatory exact
+owner/run/trace foreign key makes the trace, observations, and artifact metadata
+one cascade-owned subtree. The gateway persists that subtree only through
+`SaveExecution`; Garage bytes cross the transaction boundary through the
+PostgreSQL artifact journal and one bounded reconciler. Product reads and stats
+never depend on Tempo, Loki, Prometheus, Langfuse, Laminar, or ClickHouse.
+
 ## Profile catalog ownership
 
 `internal/profiles/default-profile-catalog.json` is the credential-free,
