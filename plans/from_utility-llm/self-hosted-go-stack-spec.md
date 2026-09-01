@@ -240,11 +240,18 @@ Contract requirements:
 - An owner receives any missing current 28-profile source-derived presets on the first profile/catalog/runtime operation. Seeding is one owner-locked Postgres transaction, credential-free, and never overwrites an existing row.
 - `Result.Output` matches the current JS direct return for equivalent deterministic inputs.
 - Result metadata and emitted telemetry derive from the same internal normalized call record.
+- That normalized record includes the immutable selected target, every
+  call-global attempt and prepared target, provider/cache/none result source,
+  result accounting, and current provider accounting. The gateway never
+  reconstructs these facts from mutable profile rows.
 - Cache identity excludes observability context, retry controls, timeout/deadline, cancellation state, and UI context.
-- `maxAttempts` means total provider attempts.
+- `maxAttempts` means the call-global total provider-invocation budget across
+  primary, retry, repair, and backup candidates.
 - Parse/schema retry and semantic repair consume the same attempt budget.
 - Backup profiles are resolved from flat `backupProfiles` references with current cycle, duplicate, missing-reference, and maximum-depth behavior preserved.
-- Every candidate profile receives its normal retry policy while the caller context remains the final overall deadline.
+- Candidate profiles retain retry classification and backoff policy, but cannot
+  reset or exceed the call-global attempt budget. The caller context remains the
+  final overall deadline.
 - Provider payloads, errors, and diagnostic data pass through the shared redactor before persistence or emission.
 - `ArtifactStore` is optional for direct library callers. When configured, the library writes canonical redacted JSON trace artifacts and diagnostic attachments and returns immutable references; an artifact-store failure is recorded diagnostically but does not change an otherwise successful provider result.
 - The self-hosted gateway supplies the one Garage-backed `ArtifactStore`. The library has no MinIO or Langfuse storage configuration.
@@ -398,11 +405,26 @@ Rules:
 - Owner ID is mandatory on every user-owned application row.
 - Credential ciphertext is separate from profile JSON.
 - JSONB payloads are normalized and redacted before persistence.
+- `llm_runs` is the execution aggregate root. New execution facts are stored
+  once in a versioned result document plus typed query columns. `llm_traces` is
+  a one-to-one execution identity child; its REST representation is projected
+  from the aggregate rather than a second independently mutable execution
+  document. Standalone traces have no v1 producer or lifecycle.
+- Canonical accounting has result and current-provider views. Five exclusive
+  token components derive prompt, completion, and total. Usage completeness and
+  cost certainty are explicit; missing or inconsistent values are not zero.
+- Cache entries retain immutable result producer identity and result accounting.
+  Cache hits have no current provider attempt/accounting. Cache v1 records are
+  invalidated at the canonical execution cut rather than dual-read.
 - Garage artifact bytes are private, canonical JSON, redacted before upload, and referenced by immutable object key, SHA-256, and byte length. Raw credentials and unredacted provider envelopes are never persisted.
 - Artifact metadata commits only after a successful Garage upload and in the same Postgres transaction as its run, domain trace, and observations. A failed upload never creates an available artifact row; a failed execution transaction triggers bounded best-effort cleanup of uploaded bodies.
 - Artifact access requires owner authorization through the gateway; Postgres stores object keys, never durable public URLs. Presigned GET URLs are short lived.
 - Timestamps and indexes support a future retention policy, but v1 performs no scheduled deletion.
-- `GET /api/v1/stats` computes owner-scoped canonical utility totals directly from `llm_runs`, including cache-attributed cost/count, total/max duration, and timeout-budget overruns; detailed token groups and known/unknown cost counts preserve completeness. A separately maintained aggregate projection is prohibited because it can drift from history.
+- `GET /api/v1/stats` computes owner-scoped canonical totals directly from typed
+  `llm_runs` execution fields. It distinguishes result accounting from current
+  provider accounting and returns usage/cost coverage for the overall and
+  cached subsets. A separately maintained aggregate projection is prohibited
+  because it can drift from history.
 - User-initiated history deletion removes Garage artifact bodies before transactionally deleting the run, trace, observations, and artifact metadata. A Garage failure leaves metadata intact for a safe retry.
 - Migration application uses one canonical runner and a Postgres advisory lock so concurrent gateway starts do not race.
 
@@ -412,7 +434,11 @@ Rules:
 - Supported v1 artifact kinds are redacted call trace JSON, redacted parse-failure response JSON, and diagnostic-event JSON attachments migrated from Firebase Storage.
 - Object keys are generated from an owner-scoped prefix, trace ID, artifact kind, and unique artifact ID. User input cannot supply a raw object key, and an artifact ID is never reused.
 - JSON is canonicalized once, redacted once, hashed with SHA-256, and uploaded with `application/json`. The exact stored bytes define `sha256` and `size_bytes` in `llm_artifacts`.
-- The gateway writes the Garage object before marking its Postgres metadata available. A Postgres failure after upload is logged as a possible orphan; v1 does not add an orphan sweeper.
+- The gateway records a typed PostgreSQL publication intent before Garage PUT
+  and consumes it with execution metadata in the execution transaction. Typed
+  deletion intents precede object removal. Idempotent object operations and one
+  bounded in-process reconciler converge interrupted operations; no distributed
+  transaction or second recovery service is introduced.
 - Reads authorize the Postgres owner/trace relationship before requesting a presigned Garage URL. URLs expire in at most five minutes and are not stored.
 - Garage timeouts and failures are bounded. Artifact persistence failure cannot change a completed provider result, cache result, or normalized usage/cost; it creates a redacted persistence-failure observation and metric.
 - Garage S3 and administration credentials are different. Only the S3 API is reachable through Caddy, and only the gateway receives bucket credentials.

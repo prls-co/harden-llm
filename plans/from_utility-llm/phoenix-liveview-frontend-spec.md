@@ -105,6 +105,10 @@ Boundary rules:
 
 - Phoenix is a REST client, not a second backend implementation.
 - `api/openapi.yaml` is the only cross-runtime contract. No Go struct, Elixir struct, database table, or source fixture is imported across the boundary.
+- `HardenAPI` strictly decodes OpenAPI response shapes into typed frontend data.
+  Pure trace/stats view-model modules format validated domain values and never
+  reconstruct execution identity, usage arithmetic, cost certainty, or product
+  availability from telemetry.
 - The frontend may perform presentation validation such as required fields, local JSON syntax feedback, and file-size checks. The Go API remains authoritative and every backend `fieldErrors` entry is rendered next to the matching input.
 - LiveViews and controllers use `HardenLlmWeb.HardenAPI`; direct `Req` calls elsewhere fail the static boundary test.
 - Phoenix does not read backend environment secrets other than its own API base URL. Provider, Postgres, Garage, Langfuse, and Grafana credentials are not present in the frontend container.
@@ -457,6 +461,10 @@ Compose, and deployed tags by default.
 | WEB-TEST-057 | Contracted schema validation and run gate | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | Unsupported utility JSON Schema keywords are rejected and a non-empty invalid schema disables and rejects a selected structured Run; the same schema draft does not block a text Run when structured output is Off. |
 | WEB-TEST-058 | Workspace conversation restore and reset scopes | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | A successful run patches the trace-addressed workspace URL; a trace URL restores the redacted output after mount; `New Prompt`, `Clear System Prompt`, and `New` clear only their documented fields and conversation state. |
 | WEB-TEST-059 | Explicit response mode and repair projection | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | The input widget renders one structured-output selector and no duplicate repair control; selecting On produces a structured request, selecting Off permits a text request with a retained schema draft, and the profile `Retries & Repair` setting controls structured repair. |
+| WEB-TEST-060 | Strict trace and stats data models | `test/harden_llm/llm_trace_projection_test.exs`, `test/harden_llm/llm_stats_projection_test.exs`, `test/harden_llm_web/harden_api_test.exs` | `mix test test/harden_llm/llm_trace_projection_test.exs test/harden_llm/llm_stats_projection_test.exs test/harden_llm_web/harden_api_test.exs` | Complete v2 responses decode; missing, malformed, contradictory, or legacy wire fields fail closed before projection; pure projections contain semantic data but no DOM identity. |
+| WEB-TEST-061 | Stats lifecycle and accounting certainty | workspace/history LiveView and component tests | `mix test test/harden_llm_web/live/workspace_live_test.exs test/harden_llm_web/live/history_trace_test.exs test/harden_llm_web/components/llm_trace_components_test.exs` | Initial loading/failure never renders unverified zeroes; successful empty is authoritative; refresh failure is visibly stale; result/provider usage and exact/partial/unknown cost render with accessible semantics. |
+| WEB-TEST-062 | Multi-instance trace component contract | component and embedding LiveView tests | `mix test test/harden_llm_web/components/llm_trace_components_test.exs test/harden_llm_web/live/embedding_live_test.exs` | Two trace instances have globally unique DOM/ARIA identity, root-scoped selectors/styles, instance-keyed events, and independent details/request/response state. |
+| WEB-TEST-063 | Rendered canonical execution details | projection, workspace, history, and browser canary tests | `make test-fast && make test-browser` | Selected target, provider/cache/none result source, per-attempt target, result/provider accounting, artifact state, and explicit retained-v1 not-captured state render consistently. |
 
 Detailed fixtures and isolation:
 

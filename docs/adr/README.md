@@ -20,6 +20,7 @@ migration path.
 | [ADR-HLLM-015](ADR-HLLM-015-parallel-test-feedback-hierarchy.md) | Accepted; P07 merged, deployed, and certified | Establish one resource-aware T0-T5 test hierarchy, canonical runner, measured four-slot fast cap, exact assertion oracles, and no initial synthetic DOM dependency. |
 | [ADR-HLLM-016](ADR-HLLM-016-widget-draft-and-data-contract.md) | Accepted | Keep drafts component-local, keep refresh saved-profile-only, and make model catalogs host-owned with a small default fallback. |
 | [ADR-HLLM-017](ADR-HLLM-017-durable-frontend-sessions.md) | Accepted | Retain the encrypted server-side bearer-token vault across single-replica frontend releases without putting the token in browser session data. |
+| [ADR-HLLM-018](ADR-HLLM-018-canonical-execution-accounting-and-recovery.md) | Accepted | Use one canonical execution/accounting record, one execution aggregate, strict frontend models, and a durable artifact recovery journal. |
 
 The remaining planned deviation triggers are ADR-HLLM-003 through ADR-HLLM-007
 in the canonical implementation plan. Create one of those records only when its

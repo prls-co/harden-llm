@@ -27,6 +27,7 @@ routes each requirement to its implementation home and release gate.
 | REQ-018 migration independence | `fixtures/parity/`, static dependency scans | TEST-003, TEST-004, TEST-027, TEST-035 |
 | REQ-019 release quality | Makefile, AST/static checks, pinned toolchain, catalog provenance | TEST-001 through TEST-003, TEST-017, TEST-036 |
 | REQ-020 Garage artifacts | `internal/artifacts/`, owner-authorized routes | TEST-024, TEST-034, TEST-038, TEST-040 |
+| REQ-021 canonical execution diagnostics | root execution record, accounting, execution aggregate, artifact journal, strict trace/stats frontend | TEST-057 through TEST-061; WEB-TEST-060 through WEB-TEST-063; ADR-HLLM-018 |
 
 TEST-036 is the aggregate deterministic backend gate. TEST-034 separately
 certifies the real fifteen-service deployment. TEST-037 and TEST-038 are opt-in

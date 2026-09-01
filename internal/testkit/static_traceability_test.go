@@ -84,6 +84,7 @@ func TestTraceability(t *testing.T) {
 		"P05": {"TEST-028", "TEST-029", "TEST-030", "TEST-031", "TEST-032"},
 		"P06": {"TEST-033", "TEST-034"},
 		"P07": {"TEST-035", "TEST-036", "TEST-037", "TEST-038", "TEST-039"},
+		"P08": {"TEST-057", "TEST-058", "TEST-059", "TEST-060", "TEST-061"},
 	}
 	for _, phase := range status.CompletedPhases {
 		for _, id := range phaseIDs[phase] {

@@ -724,6 +724,76 @@ runtime contract or the meaning of `make verify`.
 - Pass criteria: unchanged/reduced timeouts pass; unsupported increases fail.
 - Expected runtime: 10 seconds.
 
+### TEST-057: canonical execution identity and result source
+
+- Target: root client, `internal/runtime/`, providers, traces, and telemetry.
+- Command: `go test ./... -run 'Test(ExecutionIdentity|ResultSource|GlobalAttemptBudget)' -count=1`
+- Assertions:
+  - Selected target and immutable prepared target remain distinct.
+  - Provider result source references exactly one successful call-global attempt;
+    cache source retains producer identity without a current provider attempt;
+    failed/pre-provider calls use none.
+  - Primary, retry, repair, and backup attempts share one global budget and
+    sequence; `providerUsed` is set only at the execution boundary.
+  - Public result, domain trace, artifact projection, and telemetry derive from
+    the same canonical record.
+- Expected runtime: 15 seconds.
+
+### TEST-058: canonical accounting and cache v2
+
+- Target: `internal/accounting/`, runtime, providers, cache, pricing, telemetry.
+- Command: `go test ./internal/accounting/... ./internal/providers/... ./internal/runtime/... ./... -run 'Test(Accounting|CacheV2)' -count=1`
+- Assertions:
+  - Five exclusive components derive prompt/completion/total with checked
+    arithmetic and explicit completeness.
+  - Result and current-provider accounting remain distinct through retries and
+    cache hits.
+  - Exact, partial, unknown, and unavailable cost preserve known subtotal;
+    tiny positive cost never becomes exact zero.
+  - Cache v2 retains producer identity/result accounting and cache v1 is not
+    accepted after the version cut.
+- Expected runtime: 20 seconds.
+
+### TEST-059: execution aggregate, OpenAPI, stats, and mixed versions
+
+- Target: gateway, Postgres, migrations, `api/openapi.yaml`.
+- Command: `make test-api && make test-integration`
+- Assertions:
+  - New execution facts persist once under the run aggregate; history and trace
+    APIs agree without a second trace document.
+  - Stats use typed execution fields and preserve result/provider accounting,
+    usage completeness, and overall/cached cost coverage.
+  - Retained v1 documents render only immutable captured facts and explicitly
+    mark missing facts; current profiles and telemetry are never consulted.
+  - OpenAPI examples satisfy semantic equations, not only JSON shape.
+- Expected runtime: integration tier.
+
+### TEST-060: artifact operation journal and crash convergence
+
+- Target: gateway artifact coordinator, Postgres journal, Garage integration.
+- Command: `make test-integration`
+- Assertions:
+  - Publish/delete intent precedes object mutation; identical retries are
+    idempotent and integrity conflicts fail closed.
+  - Ambiguous PUT, partial multi-delete, process-boundary failpoints, competing
+    reconcilers, and restart converge; the second reconciliation is a no-op.
+  - Shared save/exclusive clear/per-execution delete lock ordering preserves
+    concurrency and owner isolation.
+  - Only available artifacts presign; unavailable/deleting artifacts never do.
+- Expected runtime: T3 with real PostgreSQL and Garage.
+
+### TEST-061: retained-history reconciliation and structural ownership
+
+- Target: reconciliation command, restored production fixtures, migration.
+- Command: targeted T0/T1 command tests plus `make test-integration`.
+- Assertions:
+  - Dry-run classification and digest are deterministic and redacted; unknown
+    rows fail closed; apply requires the unchanged digest and owner scope.
+  - Artifact deletion routes through the coordinator; repeated apply is a no-op.
+  - After reconciliation, every trace has one owner/run binding and relational
+    cascade prevents independent trace subtrees or writers.
+- Expected runtime: T0/T1 plus restored-snapshot T3 certification.
+
 ## 14. Evidence requirements
 
 Each phase records under ignored `plans/evidence/harden-llm/<run-id>/`:
@@ -751,7 +821,16 @@ Each phase records under ignored `plans/evidence/harden-llm/<run-id>/`:
 | P05 | TEST-028 through TEST-032 |
 | P06 | TEST-033 and TEST-034 |
 | P07 | TEST-035 through TEST-039 |
+| P08 | TEST-057 through TEST-061 |
 
 ## 16. Completion criteria
 
-The backend v1 test program is complete when TEST-001 through TEST-036, TEST-039, and TEST-040 pass, TEST-037 and TEST-038 pass when explicit live certification is required, all backend target test files use the single `TEST-###` namespace, OpenAPI and router behavior conform, backend-owned paths have no Firebase or frontend implementation surface, backend gates do not invoke `frontend/`, Collector fanout is the only Langfuse export path, Garage is the only Harden-LLM artifact store, Langfuse retains its pinned upstream MinIO dependency, and the full fifteen-service Compose smoke proves correlated API, artifact, Tempo, Loki, Prometheus, Grafana, and Langfuse diagnostics.
+The backend program is complete when TEST-001 through TEST-036, TEST-039,
+TEST-040, and TEST-057 through TEST-061 pass; TEST-037 and TEST-038 pass when
+explicit live certification is required; all backend target test files use the
+single `TEST-###` namespace; OpenAPI and router behavior conform; backend-owned
+paths have no Firebase or frontend implementation surface; backend gates do not
+invoke `frontend/`; Collector fanout is the only Langfuse export path; Garage is
+the only Harden-LLM artifact store; Langfuse retains its pinned upstream MinIO
+dependency; and the full Compose smoke proves correlated application and
+diagnostic behavior.
