@@ -75,6 +75,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:history_refresh_pending?, false)
       |> assign(:history_error, nil)
       |> assign(:history_pending, nil)
+      |> assign(:history_delete_rollback, nil)
       |> assign(:stats, AsyncResult.loading())
       |> assign(:stats_ref, nil)
       |> assign(:run_result, nil)
@@ -250,6 +251,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:history_loading?, false)
       |> assign(:history_refresh_pending?, false)
       |> assign(:history_error, nil)
+      |> assign(:history_delete_rollback, nil)
       |> assign(:ui, state["ui"])
       |> assign(:reasoning_by_profile, reasoning_by_profile)
       |> assign(:form, to_form(stringify_form(state), as: :run))
@@ -302,7 +304,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
   def handle_async(:load_history, {:ok, {:ok, %{"items" => history}, _state}}, socket) do
     {:noreply,
      socket
-     |> assign(:history, history)
+     |> assign(
+       :history,
+       suppress_pending_history_delete(history, socket.assigns.history_delete_rollback)
+     )
      |> assign(:history_loaded?, true)
      |> assign(:history_loading?, false)
      |> assign(:history_error, nil)
@@ -532,6 +537,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     {:noreply,
      socket
      |> assign(:history_pending, nil)
+     |> assign(:history_delete_rollback, nil)
      |> assign(:history, Enum.reject(socket.assigns.history, &(&1["runId"] == run_id)))
      |> assign(:history_error, nil)
      |> maybe_refresh_history()
@@ -546,6 +552,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     {:noreply,
      socket
      |> assign(:history_pending, nil)
+     |> rollback_history_delete()
      |> assign(:history_error, error.message)}
   end
 
@@ -557,6 +564,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     {:noreply,
      socket
      |> assign(:history_pending, nil)
+     |> rollback_history_delete()
      |> assign(:history_error, "The history item could not be deleted.")}
   end
 
@@ -568,6 +576,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     {:noreply,
      socket
      |> assign(:history_pending, nil)
+     |> assign(:history_delete_rollback, nil)
      |> assign(:history, [])
      |> assign(:history_loaded?, true)
      |> assign(:history_refresh_pending?, false)
@@ -687,16 +696,26 @@ defmodule HardenLlmWeb.WorkspaceLive do
         %{"run-id" => run_id},
         %{assigns: %{history_pending: nil}} = socket
       ) do
-    reference = System.unique_integer([:positive, :monotonic])
-    handle = socket.assigns.session_handle
+    case Enum.find_index(socket.assigns.history, &(&1["runId"] == run_id)) do
+      nil ->
+        {:noreply, assign(socket, :history_error, "This history item is no longer available.")}
 
-    {:noreply,
-     socket
-     |> assign(:history_pending, reference)
-     |> start_async(
-       {:delete_history, reference, run_id},
-       Observability.propagate(fn -> HardenAPI.delete_history(handle, run_id) end)
-     )}
+      index ->
+        reference = System.unique_integer([:positive, :monotonic])
+        handle = socket.assigns.session_handle
+        item = Enum.at(socket.assigns.history, index)
+
+        {:noreply,
+         socket
+         |> assign(:history_pending, reference)
+         |> assign(:history_delete_rollback, %{item: item, index: index, run_id: run_id})
+         |> assign(:history, List.delete_at(socket.assigns.history, index))
+         |> assign(:history_error, nil)
+         |> start_async(
+           {:delete_history, reference, run_id},
+           Observability.propagate(fn -> HardenAPI.delete_history(handle, run_id) end)
+         )}
+    end
   end
 
   def handle_event("delete-history", _params, socket), do: {:noreply, socket}
@@ -1155,6 +1174,30 @@ defmodule HardenLlmWeb.WorkspaceLive do
       :load_history,
       Observability.propagate(fn -> HardenAPI.list_history(handle, limit: 10) end)
     )
+  end
+
+  defp suppress_pending_history_delete(history, %{run_id: run_id}),
+    do: Enum.reject(history, &(&1["runId"] == run_id))
+
+  defp suppress_pending_history_delete(history, _rollback), do: history
+
+  defp rollback_history_delete(socket) do
+    case socket.assigns.history_delete_rollback do
+      %{item: item, index: index, run_id: run_id} ->
+        history =
+          if Enum.any?(socket.assigns.history, &(&1["runId"] == run_id)) do
+            socket.assigns.history
+          else
+            List.insert_at(socket.assigns.history, index, item)
+          end
+
+        socket
+        |> assign(:history, history)
+        |> assign(:history_delete_rollback, nil)
+
+      _ ->
+        socket
+    end
   end
 
   defp restore_state(request, item, profiles, ui) do

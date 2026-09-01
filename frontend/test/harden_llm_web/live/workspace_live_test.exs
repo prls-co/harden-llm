@@ -1023,8 +1023,13 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
             Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
 
           {"DELETE", "/api/v1/history/run-test"} ->
-            send(test_pid, :workspace_deleted)
-            Req.Test.json(conn, APIFixtures.success(%{"deleted" => true}))
+            send(test_pid, {:workspace_delete_started, self()})
+
+            receive do
+              :release_workspace_delete ->
+                send(test_pid, :workspace_deleted)
+                Req.Test.json(conn, APIFixtures.success(%{"deleted" => true}))
+            end
 
           _ ->
             unexpected(conn)
@@ -1064,10 +1069,62 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     |> element(~s(button[phx-click="delete-history"][phx-value-run-id="run-test"]))
     |> render_click()
 
+    assert_receive {:workspace_delete_started, delete_process}
+    refute has_element?(view, "#workspace-history-run-test")
+    send(delete_process, :release_workspace_delete)
     render_async(view, 1_000)
     assert_received :workspace_deleted
     assert Agent.get(history_calls, & &1) == 2
     refute has_element?(view, "#workspace-history-run-test")
+  end
+
+  test "failed workspace history deletion restores the optimistically hidden row", %{conn: conn} do
+    test_pid = self()
+
+    state =
+      APIFixtures.state()
+      |> Map.put("ui", %{"historyOpen" => true})
+
+    install_stub(
+      fn conn ->
+        case {conn.method, conn.request_path} do
+          {"DELETE", "/api/v1/history/run-test"} ->
+            send(test_pid, {:failing_workspace_delete_started, self()})
+
+            receive do
+              :release_failing_workspace_delete ->
+                conn
+                |> Plug.Conn.put_status(503)
+                |> Req.Test.json(%{
+                  "state" => %{},
+                  "result" => nil,
+                  "error" => %{"code" => "service_unavailable", "message" => "detail"}
+                })
+            end
+
+          _ ->
+            unexpected(conn)
+        end
+      end,
+      state: state,
+      history: [APIFixtures.history_item()]
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    assert has_element?(view, "#workspace-history-run-test")
+
+    view
+    |> element(~s(button[phx-click="delete-history"][phx-value-run-id="run-test"]))
+    |> render_click()
+
+    assert_receive {:failing_workspace_delete_started, delete_process}
+    refute has_element?(view, "#workspace-history-run-test")
+    send(delete_process, :release_failing_workspace_delete)
+    render_async(view, 1_000)
+
+    assert has_element?(view, "#workspace-history-run-test")
+    assert has_element?(view, ~s(#workspace-history-error[role="alert"]))
   end
 
   test "successful run refreshes an already loaded open history snapshot", %{conn: conn} do
