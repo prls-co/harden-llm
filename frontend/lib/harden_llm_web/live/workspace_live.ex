@@ -72,6 +72,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:history, [])
       |> assign(:history_loaded?, false)
       |> assign(:history_loading?, false)
+      |> assign(:history_refresh_pending?, false)
       |> assign(:history_error, nil)
       |> assign(:history_pending, nil)
       |> assign(:stats, AsyncResult.loading())
@@ -247,6 +248,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:history, [])
       |> assign(:history_loaded?, false)
       |> assign(:history_loading?, false)
+      |> assign(:history_refresh_pending?, false)
       |> assign(:history_error, nil)
       |> assign(:ui, state["ui"])
       |> assign(:reasoning_by_profile, reasoning_by_profile)
@@ -303,21 +305,24 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:history, history)
      |> assign(:history_loaded?, true)
      |> assign(:history_loading?, false)
-     |> assign(:history_error, nil)}
+     |> assign(:history_error, nil)
+     |> maybe_continue_history_refresh()}
   end
 
   def handle_async(:load_history, {:ok, {:error, %APIError{} = error}}, socket) do
     {:noreply,
      socket
      |> assign(:history_loading?, false)
-     |> assign(:history_error, error.message)}
+     |> assign(:history_error, error.message)
+     |> maybe_continue_history_refresh()}
   end
 
   def handle_async(:load_history, _result, socket) do
     {:noreply,
      socket
      |> assign(:history_loading?, false)
-     |> assign(:history_error, "History is temporarily unavailable.")}
+     |> assign(:history_error, "History is temporarily unavailable.")
+     |> maybe_continue_history_refresh()}
   end
 
   def handle_async(
@@ -565,6 +570,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:history_pending, nil)
      |> assign(:history, [])
      |> assign(:history_loaded?, true)
+     |> assign(:history_refresh_pending?, false)
      |> assign(:history_error, nil)
      |> refresh_stats()}
   end
@@ -1008,7 +1014,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   defp maybe_start_history_load(socket) do
-    if socket.assigns.ui["historyOpen"] and not socket.assigns.history_loaded? and
+    if socket.assigns.ui["historyOpen"] and
+         (not socket.assigns.history_loaded? or socket.assigns.history_refresh_pending?) and
          not socket.assigns.history_loading? do
       start_history_load(socket)
     else
@@ -1017,7 +1024,20 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   defp maybe_refresh_history(socket) do
-    if socket.assigns.history_loaded? and not socket.assigns.history_loading? do
+    cond do
+      socket.assigns.history_loading? ->
+        assign(socket, :history_refresh_pending?, true)
+
+      socket.assigns.ui["historyOpen"] ->
+        start_history_load(socket)
+
+      true ->
+        assign(socket, :history_refresh_pending?, true)
+    end
+  end
+
+  defp maybe_continue_history_refresh(socket) do
+    if socket.assigns.history_refresh_pending? and socket.assigns.ui["historyOpen"] do
       start_history_load(socket)
     else
       socket
@@ -1129,6 +1149,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
     socket
     |> assign(:history_loading?, true)
+    |> assign(:history_refresh_pending?, false)
     |> assign(:history_error, nil)
     |> start_async(
       :load_history,

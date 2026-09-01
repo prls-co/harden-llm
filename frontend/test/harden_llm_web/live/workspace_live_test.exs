@@ -1070,6 +1070,125 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     refute has_element?(view, "#workspace-history-run-test")
   end
 
+  test "successful run refreshes an already loaded open history snapshot", %{conn: conn} do
+    {:ok, history_calls} = Agent.start_link(fn -> 0 end)
+
+    state =
+      APIFixtures.state()
+      |> Map.put("ui", %{"historyOpen" => true})
+
+    fresh_history =
+      APIFixtures.history_item("run-fresh", "trace-fresh")
+      |> put_in(["request", "userPrompt"], "fresh run prompt")
+
+    run_result =
+      APIFixtures.run_result()
+      |> Map.put("runId", "run-fresh")
+      |> Map.put("traceId", "trace-fresh")
+
+    install_stub(
+      fn conn ->
+        case {conn.method, conn.request_path} do
+          {"POST", "/api/v1/run"} ->
+            Req.Test.json(conn, APIFixtures.success(run_result))
+
+          _ ->
+            unexpected(conn)
+        end
+      end,
+      state: state,
+      history: fn conn ->
+        call = Agent.get_and_update(history_calls, fn value -> {value, value + 1} end)
+        page = if call == 0, do: [APIFixtures.history_item()], else: [fresh_history]
+        Req.Test.json(conn, APIFixtures.success(%{"items" => page}))
+      end
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    assert has_element?(view, "#workspace-history-run-test")
+
+    submit_run(view, %{"userPrompt" => "fresh run prompt"})
+    render_async(view, 1_000)
+
+    assert Agent.get(history_calls, & &1) == 2
+    assert has_element?(view, "#workspace-history-run-fresh", "fresh run prompt")
+  end
+
+  test "successful run coalesces a refresh behind an in-flight history load", %{conn: conn} do
+    test_pid = self()
+    {:ok, history_calls} = Agent.start_link(fn -> 0 end)
+
+    state =
+      APIFixtures.state()
+      |> Map.put("ui", %{"historyOpen" => true})
+
+    fresh_history =
+      APIFixtures.history_item("run-fresh", "trace-fresh")
+      |> put_in(["request", "userPrompt"], "fresh run prompt")
+
+    run_result =
+      APIFixtures.run_result()
+      |> Map.put("runId", "run-fresh")
+      |> Map.put("traceId", "trace-fresh")
+
+    install_stub(
+      fn conn ->
+        case {conn.method, conn.request_path} do
+          {"POST", "/api/v1/run"} ->
+            send(test_pid, {:run_started, self()})
+
+            receive do
+              :release_run -> Req.Test.json(conn, APIFixtures.success(run_result))
+            end
+
+          _ ->
+            unexpected(conn)
+        end
+      end,
+      state: state,
+      history: fn conn ->
+        case Agent.get_and_update(history_calls, fn value -> {value, value + 1} end) do
+          0 ->
+            send(test_pid, {:initial_history_started, self()})
+
+            receive do
+              :release_initial_history ->
+                Req.Test.json(
+                  conn,
+                  APIFixtures.success(%{"items" => [APIFixtures.history_item()]})
+                )
+            end
+
+          1 ->
+            send(test_pid, :history_refresh_started)
+            Req.Test.json(conn, APIFixtures.success(%{"items" => [fresh_history]}))
+
+          call ->
+            flunk("unexpected history request #{call + 1}")
+        end
+      end
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    assert_receive {:initial_history_started, history_pid}, 1_000
+    assert has_element?(view, "#workspace-history-loading")
+
+    submit_run(view, %{"userPrompt" => "fresh run prompt"})
+    assert_receive {:run_started, run_pid}, 1_000
+    run_monitor = Process.monitor(run_pid)
+    send(run_pid, :release_run)
+    assert_receive {:DOWN, ^run_monitor, :process, ^run_pid, :normal}, 1_000
+    assert has_element?(view, "#run-output")
+
+    send(history_pid, :release_initial_history)
+    render_async(view, 1_000)
+
+    assert_received :history_refresh_started
+    assert Agent.get(history_calls, & &1) == 2
+    assert has_element?(view, "#workspace-history-run-fresh", "fresh run prompt")
+  end
+
   test "workspace clear-history control deletes the loaded page", %{conn: conn} do
     test_pid = self()
 
