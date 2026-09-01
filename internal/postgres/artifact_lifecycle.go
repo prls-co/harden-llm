@@ -531,7 +531,7 @@ func deletionArtifacts(ctx context.Context, transaction pgx.Tx, ownerID, scope, 
 		FROM llm_artifacts a JOIN llm_traces t ON t.owner_id=a.owner_id AND t.trace_id=a.trace_id
 		WHERE a.owner_id=$1 AND a.state='available'`
 	arguments := []any{ownerID}
-	if scope == "execution" {
+	if scope == "execution" || scope == "reconciliation" {
 		query += ` AND a.trace_id=$2`
 		arguments = append(arguments, traceID)
 	}

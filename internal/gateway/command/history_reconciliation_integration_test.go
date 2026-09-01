@@ -64,6 +64,26 @@ func TestRetainedHistoryReconciliation(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	siblingTrace := postgres.TraceRecord{
+		OwnerID: trace.OwnerID, TraceID: "legacy-trace-sibling",
+		Record:    json.RawMessage(`{"schemaVersion":1,"runId":"legacy-run-sibling","traceId":"legacy-trace-sibling","callId":"legacy-call-sibling","status":"succeeded","attempts":[],"cache":{},"usage":{},"cost":{}}`),
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if err := store.SaveTrace(ctx, siblingTrace, nil); err != nil {
+		t.Fatal(err)
+	}
+	siblingObjectKey := "llm-traces/legacy-owner/legacy-run-sibling/legacy-trace-sibling/legacy-artifact-sibling.json"
+	siblingReference, err := objects.Put(ctx, siblingObjectKey, []byte(`{"safe":"sibling"}`), "application/json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveArtifact(ctx, postgres.ArtifactRecord{
+		OwnerID: siblingTrace.OwnerID, TraceID: siblingTrace.TraceID, ID: "legacy-artifact-sibling", Kind: "trace",
+		ObjectKey: siblingObjectKey, ContentType: siblingReference.ContentType, SHA256: siblingReference.SHA256,
+		SizeBytes: siblingReference.SizeBytes, State: "available", CreatedAt: siblingTrace.CreatedAt, UpdatedAt: siblingTrace.UpdatedAt,
+	}); err != nil {
+		t.Fatal(err)
+	}
 	nextID := 0
 	coordinator, err := gateway.NewArtifactCoordinator(gateway.ArtifactCoordinatorConfig{
 		Store: store, Clock: func() time.Time { return now },
@@ -80,7 +100,7 @@ func TestRetainedHistoryReconciliation(t *testing.T) {
 	}
 	config := HistoryReconciliationConfig{Store: store, Artifacts: coordinator, OwnerID: trace.OwnerID}
 	first, err := ReconcileHistory(ctx, config)
-	if err != nil || first.ClassifiedTraces != 1 || first.UnclassifiedTraces != 0 || first.IntegrityArtifacts != 1 {
+	if err != nil || first.ClassifiedTraces != 2 || first.UnclassifiedTraces != 0 || first.IntegrityArtifacts != 2 {
 		t.Fatalf("dry run = %#v, %v", first, err)
 	}
 	second, err := ReconcileHistory(ctx, config)
@@ -98,7 +118,7 @@ func TestRetainedHistoryReconciliation(t *testing.T) {
 	apply := config
 	apply.Apply, apply.PlanDigest = true, first.PlanDigest
 	applied, err := ReconcileHistory(ctx, apply)
-	if err != nil || applied.AppliedTraces != 1 {
+	if err != nil || applied.AppliedTraces != 2 {
 		t.Fatalf("apply = %#v, %v", applied, err)
 	}
 	if _, _, err := store.Trace(ctx, trace.OwnerID, trace.TraceID); !errors.Is(err, postgres.ErrNotFound) {
@@ -106,6 +126,12 @@ func TestRetainedHistoryReconciliation(t *testing.T) {
 	}
 	if objects.exists(objectKey) {
 		t.Fatal("reconciled artifact object remained")
+	}
+	if _, _, err := store.Trace(ctx, siblingTrace.OwnerID, siblingTrace.TraceID); !errors.Is(err, postgres.ErrNotFound) {
+		t.Fatalf("reconciled sibling trace remained: %v", err)
+	}
+	if objects.exists(siblingObjectKey) {
+		t.Fatal("reconciled sibling artifact object remained")
 	}
 	noOp, err := ReconcileHistory(ctx, apply)
 	if err != nil || noOp.AppliedTraces != 0 || noOp.CandidateTraces != 0 {
