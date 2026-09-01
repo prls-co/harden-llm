@@ -113,7 +113,7 @@ func assertNarrowLangfuseOverlay(t *testing.T, path string) {
 	if got := sortedKeys(services); !equalStrings(got, want) {
 		t.Fatalf("Langfuse overlay services = %v, want %v", got, want)
 	}
-	allowedFields := map[string]bool{"environment": true, "networks": true, "ports": true}
+	allowedFields := map[string]bool{"environment": true, "image": true, "networks": true, "ports": true}
 	for name, raw := range services {
 		service := asObject(t, raw, "overlay service "+name)
 		for field := range service {
@@ -339,7 +339,7 @@ func assertImageManifest(t *testing.T, path string, effective map[string]any) {
 			t.Errorf("image manifest omits %s", name)
 			continue
 		}
-		if strings.Contains(image, "@sha256:") && locked != image {
+		if locked != image {
 			t.Errorf("locked image %s = %q, effective %q", name, locked, image)
 		}
 		if !strings.Contains(locked, "@sha256:") && name != "harden-llm-gateway" {

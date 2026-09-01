@@ -7,4 +7,4 @@
 - License: `Apache-2.0`
 - Image resolution checkpoint: `2026-07-13`; resolved manifest digests are recorded in `../images.lock.json`.
 
-`docker-compose.upstream.yml` is copied byte-for-byte from the released commit. It owns six services: Langfuse web and worker plus their Postgres, Redis, ClickHouse, and MinIO dependencies. Update it only by selecting another released commit, replacing the whole file, recalculating the hash, refreshing the image lock, and rerunning the complete Compose smoke test.
+`docker-compose.upstream.yml` is copied byte-for-byte from the released commit. It owns six services: Langfuse web and worker plus their Postgres, Redis, ClickHouse, and MinIO dependencies. `compose.private.yml` overlays the resolved digests from `../images.lock.json` so an ordinary Compose pull cannot drift from this checkpoint. Update the upstream fragment only by selecting another released commit, replacing the whole file, recalculating the hash, refreshing both the image lock and digest overlay, and rerunning the complete Compose smoke test.
