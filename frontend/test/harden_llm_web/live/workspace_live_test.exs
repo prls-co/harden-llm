@@ -356,6 +356,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
            )
 
     view |> element("#history-fold-toggle") |> render_click()
+    render_async(view, 1_000)
     assert has_element?(view, "#workspace-history-run-test")
   end
 
