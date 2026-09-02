@@ -39,7 +39,10 @@ defmodule HardenLlmWeb.ConnCase do
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
 
-  def configure_req_test(context), do: Req.Test.set_req_test_from_context(context)
+  def configure_req_test(context) do
+    Req.Test.set_req_test_from_context(context)
+    Req.Test.verify_on_exit!(context)
+  end
 
   defmacro live(conn, path \\ nil, opts \\ []) do
     quote do
@@ -82,8 +85,27 @@ defmodule HardenLlmWeb.ConnCase do
     Phoenix.ConnTest.init_test_session(conn, HardenLlmWeb.APIFixtures.session_map(handle))
   end
 
-  defp stop_live_view(%{pid: pid, proxy: proxy}) do
-    if is_pid(pid) and Process.alive?(pid), do: Process.exit(pid, :shutdown)
-    if is_pid(proxy) and Process.alive?(proxy), do: Process.exit(proxy, :shutdown)
+  defp stop_live_view(%{pid: pid}) do
+    async_pids =
+      if Process.alive?(pid) do
+        Phoenix.LiveView.Channel.async_pids(pid)
+      else
+        []
+      end
+
+    monitors =
+      [pid | async_pids]
+      |> Enum.filter(&Process.alive?/1)
+      |> Enum.map(&Process.monitor/1)
+
+    if Process.alive?(pid), do: Phoenix.LiveView.Channel.graceful_exit(pid, :shutdown)
+
+    Enum.each(monitors, fn monitor ->
+      receive do
+        {:DOWN, ^monitor, :process, _pid, _reason} -> :ok
+      after
+        1_000 -> Process.demonitor(monitor, [:flush])
+      end
+    end)
   end
 end

@@ -76,43 +76,9 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     submit_run(view, %{"userPrompt" => "task exit fixture"})
     assert_receive {:stats_request, 2}, 1_000
+    render_async(view, 1_000)
 
     assert has_element?(view, "#run-error", "run could not be completed")
-  end
-
-  test "stats coalesce refresh signals while a snapshot is in flight", %{conn: conn} do
-    test_pid = self()
-    counter = start_supervised!({Agent, fn -> 0 end})
-
-    install_stub(
-      fn conn -> unexpected(conn) end,
-      stats: fn conn ->
-        request_number = Agent.get_and_update(counter, fn count -> {count + 1, count + 1} end)
-        send(test_pid, {:stats_request, request_number, self()})
-
-        if request_number == 2 do
-          receive do
-            :release -> Req.Test.json(conn, APIFixtures.success(APIFixtures.stats()))
-          end
-        else
-          Req.Test.json(conn, APIFixtures.success(APIFixtures.stats()))
-        end
-      end
-    )
-
-    {:ok, view, _html} = live(conn, ~p"/workspace")
-    render_async(view, 1_000)
-    assert_received {:stats_request, 1, _pid}
-
-    view |> element("#llm-stats-summary-refresh") |> render_click()
-    assert_receive {:stats_request, 2, request_pid}, 1_000
-
-    send(view.pid, :refresh_stats_snapshot)
-    render(view)
-    send(request_pid, :release)
-
-    assert_receive {:stats_request, 3, _pid}, 1_000
-    render_async(view, 1_000)
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-053

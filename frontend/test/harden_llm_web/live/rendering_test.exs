@@ -25,6 +25,8 @@ defmodule HardenLlmWeb.RenderingTest do
   end
 
   test "loading and empty states retain landmarks, labels, and stable controls", %{conn: conn} do
+    test_pid = self()
+
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/state"} ->
@@ -35,6 +37,7 @@ defmodule HardenLlmWeb.RenderingTest do
           Req.Test.json(conn, APIFixtures.success(%{"profiles" => []}))
 
         {"GET", "/api/v1/history"} ->
+          send(test_pid, :workspace_history_requested)
           Req.Test.json(conn, APIFixtures.success(%{"items" => []}))
 
         _ ->
@@ -45,6 +48,8 @@ defmodule HardenLlmWeb.RenderingTest do
     {:ok, workspace, workspace_html} = live(conn, ~p"/workspace")
     assert workspace_html =~ ~s(id="workspace-loading")
     assert workspace_html =~ ~s(role="status")
+    render_async(workspace, 1_000)
+    assert_receive :workspace_history_requested, 1_000
     render_async(workspace, 1_000)
 
     assert has_element?(workspace, "main#workspace-page h1")

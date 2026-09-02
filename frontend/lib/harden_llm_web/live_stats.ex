@@ -19,11 +19,10 @@ defmodule HardenLlmWeb.LiveStats do
     socket
     |> assign(:stats, AsyncResult.loading())
     |> assign(:stats_ref, nil)
-    |> assign(:stats_refresh_pending?, false)
     |> assign(:stats_updated_at, nil)
   end
 
-  def refresh(%{assigns: %{stats_ref: nil}} = socket) do
+  def refresh(socket) do
     reference = System.unique_integer([:positive, :monotonic])
     handle = socket.assigns.session_handle
 
@@ -36,8 +35,6 @@ defmodule HardenLlmWeb.LiveStats do
     )
   end
 
-  def refresh(socket), do: assign(socket, :stats_refresh_pending?, true)
-
   def complete(
         %{assigns: %{stats_ref: reference}} = socket,
         reference,
@@ -47,14 +44,12 @@ defmodule HardenLlmWeb.LiveStats do
     |> assign(:stats, AsyncResult.ok(socket.assigns.stats, LlmStatsProjection.project(stats)))
     |> assign(:stats_ref, nil)
     |> assign(:stats_updated_at, DateTime.utc_now() |> DateTime.truncate(:second))
-    |> continue_pending_refresh()
   end
 
   def complete(%{assigns: %{stats_ref: reference}} = socket, reference, _result) do
     socket
     |> assign(:stats, AsyncResult.failed(socket.assigns.stats, :unavailable))
     |> assign(:stats_ref, nil)
-    |> continue_pending_refresh()
   end
 
   def complete(socket, _reference, _result), do: socket
@@ -62,12 +57,4 @@ defmodule HardenLlmWeb.LiveStats do
   def schedule_refresh do
     Process.send_after(self(), :refresh_stats_snapshot, @refresh_interval_ms)
   end
-
-  defp continue_pending_refresh(%{assigns: %{stats_refresh_pending?: true}} = socket) do
-    socket
-    |> assign(:stats_refresh_pending?, false)
-    |> refresh()
-  end
-
-  defp continue_pending_refresh(socket), do: socket
 end
