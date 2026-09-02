@@ -7,6 +7,8 @@ defmodule HardenLlm.LlmTraceProjection do
   unavailable; it never reconstructs producer identity or accounting.
   """
 
+  alias HardenLlm.LlmCostFormatter
+
   @missing_request "Request payload is not available for this trace."
   @missing_response "Response payload is not available for this trace."
 
@@ -402,8 +404,8 @@ defmodule HardenLlm.LlmTraceProjection do
 
   defp cost_value(cost) do
     case cost_status(cost) do
-      "exact" -> money(cost["knownSubtotalUsd"] || cost["totalUsd"])
-      "partial" -> "≥" <> money(cost["knownSubtotalUsd"])
+      "exact" -> LlmCostFormatter.format(cost["knownSubtotalUsd"] || cost["totalUsd"])
+      "partial" -> "≥" <> LlmCostFormatter.format(cost["knownSubtotalUsd"])
       _ -> "$—"
     end
   end
@@ -420,11 +422,6 @@ defmodule HardenLlm.LlmTraceProjection do
   defp legacy_cost_status(%{"known" => true}), do: "exact"
   defp legacy_cost_status(%{"known" => false}), do: "unknown"
   defp legacy_cost_status(_cost), do: "not captured"
-
-  defp money(value) when is_number(value),
-    do: "$" <> :erlang.float_to_binary(value * 1.0, decimals: 4)
-
-  defp money(_value), do: "$—"
 
   defp success?(result), do: result["status"] in [nil, "succeeded", "success"]
 

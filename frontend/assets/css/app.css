@@ -222,16 +222,31 @@ button, a, input, select, textarea { touch-action: manipulation; }
 
 .llm-trace-summary {
   display: flex;
+  width: 100%;
   align-items: center;
   justify-content: space-between;
   gap: .75em;
+  border: 0;
   padding: 8px;
   cursor: pointer;
+  color: inherit;
   background-color: #f9f9f9;
+  font: inherit;
+  text-align: left;
 }
 
 .llm-trace-summary:hover {
   background-color: #f1f1f1;
+}
+
+.llm-trace-summary:focus-visible {
+  outline: 2px solid var(--ullm-accent);
+  outline-offset: 2px;
+}
+
+.llm-trace-summary:disabled {
+  cursor: not-allowed;
+  opacity: .55;
 }
 
 .llm-trace-summary .status-icon {
@@ -253,26 +268,12 @@ button, a, input, select, textarea { touch-action: manipulation; }
   white-space: nowrap;
 }
 
-.llm-trace-summary > div {
+.llm-trace-summary > span {
   display: flex;
   align-items: center;
   gap: 12px;
   min-width: 0;
   flex-wrap: wrap;
-}
-
-.llm-trace-summary button {
-  padding: 4px 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  background-color: #fff;
-  cursor: pointer;
-  font-size: .9em;
-}
-
-.llm-trace-summary button:disabled {
-  cursor: not-allowed;
-  opacity: .55;
 }
 
 .ullm-cache-status {

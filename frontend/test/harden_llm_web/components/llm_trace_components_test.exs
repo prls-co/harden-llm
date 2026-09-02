@@ -53,6 +53,12 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
       )
 
     assert html =~ ~s(id="trace-widget")
+
+    assert html =~
+             ~s(<button type="button" class="llm-trace-summary" phx-click="toggle-details")
+
+    assert html =~ ~s(aria-controls="trace-widget-details")
+    assert html =~ ~s(aria-expanded="true")
     assert html =~ "ID: trace-1"
     assert html =~ "Model: model-1"
     assert html =~ "Profile:</strong> Primary"
@@ -211,11 +217,15 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
     stale_html =
       render_component(&LlmTraceComponents.llm_stats_summary/1,
         id: "stale-stats",
-        stats: stale
+        stats: stale,
+        updated_at: ~U[2026-09-02 10:15:30Z],
+        refresh_event: "refresh-stats"
       )
 
-    assert stale_html =~ "Showing the last successful snapshot"
+    assert stale_html =~ "Showing the last successful snapshot from 2026-09-02 10:15:30 UTC"
     assert stale_html =~ "$0.0042"
+    assert stale_html =~ ~s(id="stale-stats-refresh")
+    assert stale_html =~ ~s(phx-click="refresh-stats")
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-062

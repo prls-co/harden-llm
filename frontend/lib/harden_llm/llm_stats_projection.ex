@@ -6,6 +6,8 @@ defmodule HardenLlm.LlmStatsProjection do
   the stats presentation reusable by other LLM-facing applications.
   """
 
+  alias HardenLlm.LlmCostFormatter
+
   def project(%{"schemaVersion" => 2} = stats) do
     result = stats["resultAccounting"]
     provider = stats["providerAccounting"]
@@ -23,16 +25,17 @@ defmodule HardenLlm.LlmStatsProjection do
       result_reasoning_tokens: get_in(result, ["usage", "reasoningTokens"]),
       result_total_tokens: get_in(result, ["usage", "totalTokens"]),
       result_usage_coverage: usage_coverage(get_in(result, ["usage", "coverage"])),
-      result_known_cost: money(get_in(result, ["cost", "knownSubtotalUsd"])),
+      result_known_cost: LlmCostFormatter.format(get_in(result, ["cost", "knownSubtotalUsd"])),
       result_cost_coverage: cost_coverage(get_in(result, ["cost", "coverage"])),
       provider_prompt_tokens: get_in(provider, ["usage", "promptTokens"]),
       provider_output_tokens: get_in(provider, ["usage", "outputTokens"]),
       provider_reasoning_tokens: get_in(provider, ["usage", "reasoningTokens"]),
       provider_total_tokens: get_in(provider, ["usage", "totalTokens"]),
       provider_usage_coverage: usage_coverage(get_in(provider, ["usage", "coverage"])),
-      provider_known_cost: money(get_in(provider, ["cost", "knownSubtotalUsd"])),
+      provider_known_cost:
+        LlmCostFormatter.format(get_in(provider, ["cost", "knownSubtotalUsd"])),
       provider_cost_coverage: cost_coverage(get_in(provider, ["cost", "coverage"])),
-      cached_cost: money(get_in(cached, ["cost", "knownSubtotalUsd"])),
+      cached_cost: LlmCostFormatter.format(get_in(cached, ["cost", "knownSubtotalUsd"])),
       cached_cost_coverage: cost_coverage(get_in(cached, ["cost", "coverage"])),
       cached_count: cached["count"],
       total_duration: stats["totalCallDurationMs"],
@@ -45,8 +48,6 @@ defmodule HardenLlm.LlmStatsProjection do
 
   defp average(_duration, 0), do: nil
   defp average(duration, count), do: div(duration, count)
-
-  defp money(value), do: "$" <> :erlang.float_to_binary(value * 1.0, decimals: 4)
 
   defp usage_coverage(coverage) do
     "#{coverage["complete"]} complete · #{coverage["partial"]} partial · " <>

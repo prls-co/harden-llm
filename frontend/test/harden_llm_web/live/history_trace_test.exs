@@ -9,6 +9,32 @@ defmodule HardenLlmWeb.HistoryTraceTest do
 
   setup %{conn: conn}, do: {:ok, conn: authenticated_conn(conn)}
 
+  test "history stats can be refreshed explicitly", %{conn: conn} do
+    test_pid = self()
+
+    install_stub(
+      fn conn ->
+        case {conn.method, conn.request_path} do
+          {"GET", "/api/v1/history"} ->
+            Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
+        end
+      end,
+      stats: fn conn ->
+        send(test_pid, :stats_request)
+        Req.Test.json(conn, APIFixtures.success(APIFixtures.stats()))
+      end
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/history")
+    render_async(view, 1_000)
+    assert_received :stats_request
+
+    view |> element("#history-stats-summary-refresh") |> render_click()
+    assert_receive :stats_request, 1_000
+    render_async(view, 1_000)
+    assert has_element?(view, "#history-stats-summary-updated", "Last updated")
+  end
+
   test "history streams a page, appends by cursor, and deletes after success", %{conn: conn} do
     test_pid = self()
 
@@ -225,14 +251,17 @@ defmodule HardenLlmWeb.HistoryTraceTest do
     refute render(view) =~ APIFixtures.token()
   end
 
-  defp install_stub(handler) do
+  defp install_stub(handler, options \\ []) do
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/auth/session"} ->
           Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
 
         {"GET", "/api/v1/stats"} ->
-          Req.Test.json(conn, APIFixtures.success(APIFixtures.stats()))
+          case Keyword.get(options, :stats, APIFixtures.stats()) do
+            stats when is_function(stats, 1) -> stats.(conn)
+            stats -> Req.Test.json(conn, APIFixtures.success(stats))
+          end
 
         _ ->
           handler.(conn)

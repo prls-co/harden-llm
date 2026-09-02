@@ -61,6 +61,20 @@ defmodule HardenLlm.LlmTraceProjectionTest do
            } = LlmStatsProjection.project(APIFixtures.stats())
   end
 
+  test "preserves tiny positive costs instead of displaying zero" do
+    stats =
+      APIFixtures.stats()
+      |> put_in(["resultAccounting", "cost", "knownSubtotalUsd"], 0.0000224)
+
+    assert LlmStatsProjection.project(stats).result_known_cost == "$0.0000224"
+
+    result =
+      APIFixtures.run_result()
+      |> put_in(["accounting", "result", "cost", "knownSubtotalUsd"], 0.00000002)
+
+    assert LlmTraceProjection.cost(result) == "$0.00000002"
+  end
+
   test "projects local and restored resources without owning host routes" do
     result = APIFixtures.run_result()
     request = %{"profileId" => "Primary", "userPrompt" => "hello", "callType" => "text"}

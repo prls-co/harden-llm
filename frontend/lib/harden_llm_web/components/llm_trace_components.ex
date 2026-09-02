@@ -58,14 +58,18 @@ defmodule HardenLlmWeb.LlmTraceComponents do
 
     ~H"""
     <div id={@id} class={[@class, "llm-trace-item"]}>
-      <div
+      <button
+        type="button"
         class="llm-trace-summary"
         phx-click={@details_event}
         phx-value-name={@details_name}
         phx-value-open={to_string(!@details_open)}
         phx-target={@target}
+        aria-controls={@details_id}
+        aria-expanded={to_string(@details_open)}
+        disabled={@details_disabled}
       >
-        <div>
+        <span>
           <span class="status-icon">{value(@summary, "status_icon") || "ℹ️"}</span>
           <strong>ID: {value(@summary, "trace_id") || "—"}</strong>
           <span
@@ -77,8 +81,8 @@ defmodule HardenLlmWeb.LlmTraceComponents do
             :if={present?(value(@summary, "error_category"))}
             class="error-category"
           >({value(@summary, "error_category")})</span>
-        </div>
-        <div>
+        </span>
+        <span>
           <span
             :for={metric <- list_value(@summary, "metrics")}
             id={metric_id(@id, metric)}
@@ -88,8 +92,8 @@ defmodule HardenLlmWeb.LlmTraceComponents do
             aria-label={value(metric, "aria_label")}
             data-cache-status={value(metric, "data_cache_status")}
           >{value(metric, "value")}</span>
-        </div>
-      </div>
+        </span>
+      </button>
 
       <div class="trace-resources trace-controls" aria-label="Trace resources">
         <button
@@ -280,6 +284,9 @@ defmodule HardenLlmWeb.LlmTraceComponents do
 
   attr :id, :string, required: true
   attr :stats, :any, required: true
+  attr :updated_at, :any, default: nil
+  attr :refresh_event, :string, default: nil
+  attr :refresh_target, :any, default: nil
   attr :title, :string, default: "LLM stats summary"
   attr :subtitle, :string, default: nil
   attr :navigate, :string, default: nil
@@ -299,6 +306,20 @@ defmodule HardenLlmWeb.LlmTraceComponents do
         <h2 class="font-semibold text-slate-950">{@title}</h2>
         <div class="flex items-center gap-3">
           <span :if={present?(@subtitle)} class="text-xs text-slate-500">{@subtitle}</span>
+          <span
+            :if={not is_nil(@updated_at)}
+            id={"#{@id}-updated"}
+            class="text-xs text-slate-500"
+          >Last updated {snapshot_time(@updated_at)}</span>
+          <button
+            :if={present?(@refresh_event)}
+            id={"#{@id}-refresh"}
+            type="button"
+            phx-click={@refresh_event}
+            phx-target={@refresh_target}
+            disabled={@stats.loading}
+            class="text-xs font-semibold text-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >{refresh_label(@stats)}</button>
           <a :if={present?(@navigate)} href={@navigate} class="text-xs font-semibold text-teal-700">
             {@link_label}
           </a>
@@ -308,9 +329,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
         Loading aggregate diagnostics…
       </p>
       <p :if={@stats.failed} id={"#{@id}-error"} class="mt-3 text-xs text-rose-700" role="alert">
-        Aggregate diagnostics are temporarily unavailable.<%= if @stats.ok? do %>
-          Showing the last successful snapshot.
-        <% end %>
+        {stats_error(@stats, @updated_at)}
       </p>
       <dl :if={@stats.ok?} class={@grid_class}>
         <div :for={{key, default_label} <- stats_fields()} class={@fact_class}>
@@ -354,6 +373,25 @@ defmodule HardenLlmWeb.LlmTraceComponents do
 
   defp format_status(nil), do: ""
   defp format_status(value), do: value
+
+  defp snapshot_time(%DateTime{} = value),
+    do: Calendar.strftime(value, "%Y-%m-%d %H:%M:%S UTC")
+
+  defp snapshot_time(value), do: to_string(value)
+
+  defp refresh_label(%{failed: failed, ok?: false}) when not is_nil(failed), do: "Retry"
+  defp refresh_label(_stats), do: "Refresh"
+
+  defp stats_error(%{ok?: true}, nil),
+    do: "Aggregate diagnostics are temporarily unavailable. Showing the last successful snapshot."
+
+  defp stats_error(%{ok?: true}, updated_at) do
+    "Aggregate diagnostics are temporarily unavailable. " <>
+      "Showing the last successful snapshot from #{snapshot_time(updated_at)}."
+  end
+
+  defp stats_error(_stats, _updated_at),
+    do: "Aggregate diagnostics are temporarily unavailable."
 
   defp trace_url(resources), do: value(resources, "trace_url")
   defp curl(resources), do: value(resources, "curl")

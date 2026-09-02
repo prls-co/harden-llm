@@ -1,9 +1,8 @@
 defmodule HardenLlmWeb.HistoryLive do
   use HardenLlmWeb, :live_view
 
-  alias HardenLlm.{LlmStatsProjection, LlmTraceProjection}
-  alias HardenLlmWeb.{APIError, Auth, HardenAPI, Observability}
-  alias Phoenix.LiveView.AsyncResult
+  alias HardenLlm.LlmTraceProjection
+  alias HardenLlmWeb.{APIError, Auth, HardenAPI, LiveStats, Observability}
 
   @impl true
   def mount(_params, _session, socket) do
@@ -15,8 +14,7 @@ defmodule HardenLlmWeb.HistoryLive do
       |> assign(:next_cursor, nil)
       |> assign(:page_size, 20)
       |> assign(:page_number, 1)
-      |> assign(:stats, AsyncResult.loading())
-      |> assign(:stats_ref, nil)
+      |> LiveStats.init()
       |> assign(:expanded_history_id, nil)
       |> assign(:selected_trace_id, nil)
       |> assign(:trace, nil)
@@ -29,6 +27,7 @@ defmodule HardenLlmWeb.HistoryLive do
 
     if connected?(socket) do
       handle = socket.assigns.session_handle
+      LiveStats.schedule_refresh()
 
       socket =
         socket
@@ -36,7 +35,7 @@ defmodule HardenLlmWeb.HistoryLive do
           :load_history,
           Observability.propagate(fn -> HardenAPI.list_history(handle, limit: 20) end)
         )
-        |> refresh_stats()
+        |> LiveStats.refresh()
 
       {:ok, socket}
     else
@@ -65,6 +64,12 @@ defmodule HardenLlmWeb.HistoryLive do
   def handle_params(_params, _uri, socket), do: {:noreply, socket}
 
   @impl true
+  def handle_info(:refresh_stats_snapshot, socket) do
+    LiveStats.schedule_refresh()
+    {:noreply, LiveStats.refresh(socket)}
+  end
+
+  @impl true
   def handle_async(_operation, {:ok, {:error, %APIError{status: 401}}}, socket) do
     {:noreply, Auth.expire_live(socket)}
   end
@@ -80,29 +85,9 @@ defmodule HardenLlmWeb.HistoryLive do
      |> assign(:operation_error, "History is temporarily unavailable.")}
   end
 
-  def handle_async(
-        {:load_stats, reference},
-        {:ok, {:ok, stats, _state}},
-        %{assigns: %{stats_ref: reference}} = socket
-      ) do
-    {:noreply,
-     socket
-     |> assign(:stats, AsyncResult.ok(socket.assigns.stats, LlmStatsProjection.project(stats)))
-     |> assign(:stats_ref, nil)}
+  def handle_async({:load_stats, reference}, result, socket) do
+    {:noreply, LiveStats.complete(socket, reference, result)}
   end
-
-  def handle_async(
-        {:load_stats, reference},
-        _result,
-        %{assigns: %{stats_ref: reference}} = socket
-      ) do
-    {:noreply,
-     socket
-     |> assign(:stats, AsyncResult.failed(socket.assigns.stats, :unavailable))
-     |> assign(:stats_ref, nil)}
-  end
-
-  def handle_async({:load_stats, _reference}, _result, socket), do: {:noreply, socket}
 
   def handle_async(
         {:load_more, reference},
@@ -203,7 +188,7 @@ defmodule HardenLlmWeb.HistoryLive do
      |> assign(:history_by_id, Map.delete(socket.assigns.history_by_id, run_id))
      |> assign(:expanded_history_id, nil)
      |> stream_delete(:history, item)
-     |> refresh_stats()
+     |> LiveStats.refresh()
      |> put_flash(:info, "History item deleted.")}
   end
 
@@ -221,7 +206,7 @@ defmodule HardenLlmWeb.HistoryLive do
      |> assign(:page_number, 1)
      |> assign(:expanded_history_id, nil)
      |> stream(:history, [], reset: true)
-     |> refresh_stats()
+     |> LiveStats.refresh()
      |> put_flash(:info, "History cleared.")}
   end
 
@@ -266,6 +251,8 @@ defmodule HardenLlmWeb.HistoryLive do
   def handle_async(_operation, _result, socket), do: {:noreply, socket}
 
   @impl true
+  def handle_event("refresh-stats", _params, socket), do: {:noreply, LiveStats.refresh(socket)}
+
   def handle_event(
         "load-more",
         _params,
@@ -416,19 +403,6 @@ defmodule HardenLlmWeb.HistoryLive do
     |> assign(:next_cursor, page["nextCursor"])
     |> assign(:page_number, page_number)
     |> stream(:history, items, reset: reset?)
-  end
-
-  defp refresh_stats(socket) do
-    reference = System.unique_integer([:positive, :monotonic])
-    handle = socket.assigns.session_handle
-
-    socket
-    |> assign(:stats, AsyncResult.loading(socket.assigns.stats))
-    |> assign(:stats_ref, reference)
-    |> start_async(
-      {:load_stats, reference},
-      Observability.propagate(fn -> HardenAPI.get_stats(handle) end)
-    )
   end
 
   defp restore_state(request, item) do

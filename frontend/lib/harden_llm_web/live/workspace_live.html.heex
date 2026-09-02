@@ -438,6 +438,8 @@
               aria_label="LLM stats"
               title="📊 LLM stats"
               stats={@stats}
+              updated_at={@stats_updated_at}
+              refresh_event="refresh-stats"
               navigate={~p"/history"}
               class="studio-card p-4 sm:p-5"
             />

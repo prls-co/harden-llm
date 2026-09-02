@@ -11,6 +11,110 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
   setup %{conn: conn}, do: {:ok, conn: authenticated_conn(conn)}
 
+  test "stats expose retry, snapshot time, and bounded periodic refresh", %{conn: conn} do
+    test_pid = self()
+    counter = start_supervised!({Agent, fn -> 0 end})
+
+    install_stub(
+      fn conn -> unexpected(conn) end,
+      stats: fn conn ->
+        request_number = Agent.get_and_update(counter, fn count -> {count + 1, count + 1} end)
+        send(test_pid, {:stats_request, request_number})
+
+        if request_number == 1 do
+          {status, envelope} = APIFixtures.error(503, "temporarily_unavailable")
+          conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
+        else
+          stats = put_in(APIFixtures.stats(), ["maxCallDurationMs"], request_number * 1_000)
+          Req.Test.json(conn, APIFixtures.success(stats))
+        end
+      end
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+
+    assert_received {:stats_request, 1}
+    assert has_element?(view, "#llm-stats-summary-error", "temporarily unavailable")
+    assert has_element?(view, "#llm-stats-summary-refresh:not([disabled])", "Retry")
+
+    view |> element("#llm-stats-summary-refresh") |> render_click()
+    assert_receive {:stats_request, 2}, 1_000
+    render_async(view, 1_000)
+
+    refute has_element?(view, "#llm-stats-summary-error")
+    assert has_element?(view, "#llm-stats-summary-updated", "Last updated")
+    assert has_element?(view, "#llm-stats-summary", "2000")
+
+    send(view.pid, :refresh_stats_snapshot)
+    assert_receive {:stats_request, 3}, 1_000
+    render_async(view, 1_000)
+    assert has_element?(view, "#llm-stats-summary", "3000")
+  end
+
+  test "unexpected run task exits reconcile authoritative stats", %{conn: conn} do
+    test_pid = self()
+    counter = start_supervised!({Agent, fn -> 0 end})
+
+    install_stub(
+      fn conn ->
+        case {conn.method, conn.request_path} do
+          {"POST", "/api/v1/run"} -> exit(:simulated_task_exit)
+          _ -> unexpected(conn)
+        end
+      end,
+      stats: fn conn ->
+        request_number = Agent.get_and_update(counter, fn count -> {count + 1, count + 1} end)
+        send(test_pid, {:stats_request, request_number})
+        Req.Test.json(conn, APIFixtures.success(APIFixtures.stats()))
+      end
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    assert_received {:stats_request, 1}
+
+    submit_run(view, %{"userPrompt" => "task exit fixture"})
+    assert_receive {:stats_request, 2}, 1_000
+
+    assert has_element?(view, "#run-error", "run could not be completed")
+  end
+
+  test "stats coalesce refresh signals while a snapshot is in flight", %{conn: conn} do
+    test_pid = self()
+    counter = start_supervised!({Agent, fn -> 0 end})
+
+    install_stub(
+      fn conn -> unexpected(conn) end,
+      stats: fn conn ->
+        request_number = Agent.get_and_update(counter, fn count -> {count + 1, count + 1} end)
+        send(test_pid, {:stats_request, request_number, self()})
+
+        if request_number == 2 do
+          receive do
+            :release -> Req.Test.json(conn, APIFixtures.success(APIFixtures.stats()))
+          end
+        else
+          Req.Test.json(conn, APIFixtures.success(APIFixtures.stats()))
+        end
+      end
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    assert_received {:stats_request, 1, _pid}
+
+    view |> element("#llm-stats-summary-refresh") |> render_click()
+    assert_receive {:stats_request, 2, request_pid}, 1_000
+
+    send(view.pid, :refresh_stats_snapshot)
+    render(view)
+    send(request_pid, :release)
+
+    assert_receive {:stats_request, 3, _pid}, 1_000
+    render_async(view, 1_000)
+  end
+
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-053
   test "hydrates the utility preset and exposes the backend catalog when state is empty", %{
     conn: conn
@@ -2191,10 +2295,13 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           Req.Test.json(conn, APIFixtures.success(%{"profiles" => profiles}))
 
         {"GET", "/api/v1/stats"} ->
-          Req.Test.json(
-            conn,
-            APIFixtures.success(Keyword.get(options, :stats, APIFixtures.stats()))
-          )
+          case Keyword.get(options, :stats, APIFixtures.stats()) do
+            stats when is_function(stats, 1) ->
+              stats.(conn)
+
+            stats ->
+              Req.Test.json(conn, APIFixtures.success(stats))
+          end
 
         {"GET", "/api/v1/history"} ->
           case Keyword.get(options, :history) do
