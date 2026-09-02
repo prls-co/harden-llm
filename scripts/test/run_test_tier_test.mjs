@@ -229,6 +229,8 @@ describe("resource-aware tier runner", () => {
     assert.equal(noisy.stdoutBytes, 20_000);
     assert.ok(noisy.truncatedOutputBytes > 0);
     assert.ok(noisy.failureSummary.length <= 240);
+    assert.ok(noisy.failureDetail.length <= 4096);
+    assert.equal(result.firstFailure.failureDetail, noisy.failureDetail);
     assert.equal(result.cleanupErrors.length, 0);
   });
 });

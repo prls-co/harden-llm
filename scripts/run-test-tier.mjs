@@ -12,6 +12,7 @@ const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)
 const DEFAULT_RUN_ROOT = path.join(REPOSITORY_ROOT, "tmp", "test-feedback");
 const DEFAULT_SEED = 104729;
 const MAX_CAPTURE_BYTES = 8192;
+const MAX_FAILURE_DETAIL_BYTES = 4096;
 const TASK_TIMEOUT_GRACE_MS = 2_000;
 
 export async function loadManifest(manifestPath) {
@@ -135,6 +136,12 @@ function summarizeFailure(value) {
     .filter(Boolean);
   const useful = lines.filter((line) => !/^(?:failed?:?\s+\d+\s+features?|finished in |randomized with seed |\d+ tests?,?\s+\d+ failures?)/i.test(line));
   return scrub((useful.length > 0 ? useful : lines).slice(-3).join(" | ")).slice(0, 240);
+}
+
+function failureDetail(task, stdout, stderr) {
+  if (task.tier === "T5" || task.network === "public") return "[suppressed]";
+  const detail = `${stderr.tailPreview}\n${stdout.tailPreview}`.trim();
+  return detail ? scrub(detail).slice(-MAX_FAILURE_DETAIL_BYTES) : null;
 }
 
 function commandOutput(command, args, timeout = 3_000) {
@@ -448,6 +455,7 @@ export async function runCommand(task, options) {
     stdoutPreview: "",
     stderrPreview: "",
     failureSummary: null,
+    failureDetail: null,
     cleanupError: null,
     servicePoolStarted: false,
     servicePoolProject: null,
@@ -539,6 +547,7 @@ export async function runCommand(task, options) {
   result.stdoutPreview = task.tier === "T5" || task.network === "public" ? "[suppressed]" : output.preview;
   result.stderrPreview = task.tier === "T5" || task.network === "public" ? "[suppressed]" : errorOutput.preview;
   result.failureSummary = status === 0 ? null : failureSummary;
+  result.failureDetail = status === 0 ? null : failureDetail(task, output, errorOutput);
   try {
     await fs.rm(taskDirectory, { recursive: true, force: true });
   } catch (error) {
@@ -584,6 +593,7 @@ function cancelledResult(task, reason) {
     stdoutPreview: "",
     stderrPreview: "",
     failureSummary: reason,
+    failureDetail: null,
     cleanupError: null,
     servicePoolStarted: false,
     servicePoolProject: null,
@@ -676,7 +686,12 @@ export async function runTasks(tasks, options) {
     accepted: !graphError && firstFailure === null && orderedResults.every((result) => result.status === 0) && cleanupErrors.length === 0,
     runDirectory,
     results: orderedResults,
-    firstFailure: firstFailure ? { taskId: firstFailure.taskId, status: firstFailure.status, failureSummary: firstFailure.failureSummary } : null,
+    firstFailure: firstFailure ? {
+      taskId: firstFailure.taskId,
+      status: firstFailure.status,
+      failureSummary: firstFailure.failureSummary,
+      failureDetail: firstFailure.failureDetail,
+    } : null,
     cleanupErrors,
   };
 }
