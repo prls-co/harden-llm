@@ -9,8 +9,9 @@ session material, or unredacted provider responses.
 
 - `baseline.json` records the source, implementation, test, cleanup, and
   release-identity fields for the current verification attempt.
-- `plans/evidence/harden-llm/widget-parity-eval.json` records requirement
-  classification and the EVAL-101 through EVAL-104 measurements.
+- `evaluation.json` is the tracked, redacted requirement classification and
+  EVAL-101 through EVAL-104 record. Raw run output remains under the ignored
+  `plans/evidence/harden-llm/` tree and is not a clean-checkout dependency.
 
 ## Recording rules
 

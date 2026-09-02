@@ -789,7 +789,7 @@ Plan-and-Solve subtasks:
 - `P02.S05 Measure committed draft synchronization cost`
   - Action: Repeat the deterministic workspace draft test with seeds `104729`, `130363`, and `155921`; record parent state-save requests during text/numeric editing, committed state-save requests, wall time, and cleanup in the `EVAL-102` evidence record.
   - Why now: The implementation is green and the request-count invariant must be measured before later API and browser work depends on it.
-  - Files/surfaces: `frontend/test/harden_llm_web/live/workspace_live_test.exs`, `plans/evidence/harden-llm/widget-parity-eval.json` (created), existing Req.Test request counter.
+  - Files/surfaces: `frontend/test/harden_llm_web/live/workspace_live_test.exs`, `ker/widget-parity/evaluation.json` (created), existing Req.Test request counter.
   - Requirement link: `REQ-010`, `REQ-011`.
   - Verification link: `EVAL-102`, `TEST-106`.
   - Verification mode: `MEASURE`.
@@ -1075,7 +1075,7 @@ Plan-and-Solve subtasks:
 - `P04.S06 Measure targeted browser cost and cleanup`
   - Action: Run the existing benchmark harness after the widget browser boundary is green; record focused/fast/browser wall time, peak RSS, sample variability, and cleanup in the `EVAL-103` evidence record without adding a browser matrix.
   - Why now: Native browser behavior is the only intentionally expensive widget boundary, so its resource cost must be measured before release certification.
-  - Files/surfaces: `scripts/benchmark-test-feedback.mjs`, `Makefile`, `test/test-tiers.json`, `frontend/test/browser/widget_canary_test.exs`, `plans/evidence/harden-llm/widget-parity-eval.json` (created).
+  - Files/surfaces: `scripts/benchmark-test-feedback.mjs`, `Makefile`, `test/test-tiers.json`, `frontend/test/browser/widget_canary_test.exs`, `ker/widget-parity/evaluation.json` (created).
   - Requirement link: `REQ-017`, `REQ-018`.
   - Verification link: `EVAL-103`, `TEST-114`.
   - Verification mode: `MEASURE`.
@@ -1134,7 +1134,7 @@ Impacted surfaces:
 - `plans/implementation-status.json`
 - `ker/widget-parity/README.md` (created)
 - `ker/widget-parity/baseline.json` (created)
-- `plans/evidence/harden-llm/widget-parity-eval.json` (created)
+- `ker/widget-parity/evaluation.json` (created)
 - `scripts/test/widget_parity_traceability_test.mjs`
 - `.github/workflows/test-hierarchy.yml` only if an existing canonical target
   needs a parity test selection adjustment.
@@ -1193,7 +1193,7 @@ Plan-and-Solve subtasks:
   - Verification mode: `GREEN`.
   - Command/procedure: `make test-fast`; `make test-release`; `make verify`; `make benchmark-test-feedback`.
   - Expected result: All four commands exit zero with no required test excluded, no cleanup leak, and release evidence records source SHA, task results, and the accepted EVAL-103 measurements.
-  - Evidence produced: `plans/evidence/harden-llm/widget-parity-eval.json`, release output, and final test counts.
+  - Evidence produced: `ker/widget-parity/evaluation.json`, release output, and final test counts.
   - Stop/escalate condition: Stop on any required test failure, cleanup leak, image mismatch, or timeout; diagnose the causal boundary before changing a budget.
   - Unlocks: `P05.S04`.
 
@@ -1213,7 +1213,7 @@ Plan-and-Solve subtasks:
 - `P05.S05 Record final closure and confirm no refactor debt remains`
   - Action: Review the final diff, traceability matrix, KER, evaluation evidence, failed-attempt log, temporary-file inventory, and deployment identity. State any exact plan deviation and its reason; state whether the plan is done; record any remaining work outside the plan. No refactor is needed after the release gate if the final source has no duplicate parity paths, stale assigns, undocumented adaptation, or unowned artifact.
   - Why now: Closure must distinguish completed work from unverified assumptions and preserve a reproducible handoff.
-  - Files/surfaces: all changed files, `plans/evidence/harden-llm/widget-parity-eval.json`, `ker/widget-parity/baseline.json`, execution log in this plan, Git remote and deployment runtime.
+  - Files/surfaces: all changed files, `ker/widget-parity/evaluation.json`, `ker/widget-parity/baseline.json`, execution log in this plan, Git remote and deployment runtime.
   - Requirement link: `REQ-016`, `REQ-018`.
   - Verification link: `TEST-116`, `TEST-117`, `TEST-118`, `EVAL-101`, `EVAL-102`, `EVAL-103`, `EVAL-104`.
   - Verification mode: `VERIFY`.

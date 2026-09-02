@@ -62,7 +62,7 @@ test("widget plan requirements, tests, paths, and trace tags agree", () => {
     "docs/adr/ADR-HLLM-016-widget-draft-and-data-contract.md",
     "ker/widget-parity/README.md",
     "ker/widget-parity/baseline.json",
-    "plans/evidence/harden-llm/widget-parity-eval.json",
+    "ker/widget-parity/evaluation.json",
   ]) {
     read(documentation);
   }

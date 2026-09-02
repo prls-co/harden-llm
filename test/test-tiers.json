@@ -283,7 +283,7 @@
       "resourceClass": "cpu",
       "command": ["mix", "format", "--check-formatted"],
       "workingDirectory": "frontend",
-      "dependsOn": [],
+      "dependsOn": ["frontend-compile"],
       "timeoutMs": 180000,
       "cleanupOwner": "runner",
       "network": "forbidden",

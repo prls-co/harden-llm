@@ -636,7 +636,7 @@ post-merge production verification.
   `cleanupErrors=[]`.
 - Final benchmark: 32 samples over seeds `104729`, `130363`, and `155921`,
   zero failures, and zero leaked resources. Redacted metrics are recorded in
-  `plans/evidence/harden-llm/widget-parity-eval.json` and the KER baseline.
+  `ker/widget-parity/evaluation.json` and the KER baseline.
 - Environment deviation: this host has no Mix executable, so Phoenix tests use
   the pinned `harden-llm-browser-test:local` image; the wrapper permits network
   only for Hex dependency-audit tasks and keeps deterministic tasks offline.

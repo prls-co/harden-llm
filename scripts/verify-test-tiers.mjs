@@ -137,6 +137,11 @@ async function main() {
     fail("frontend-deployed must be an explicit T5 live/public task");
   }
 
+  const frontendFormat = manifest.tasks.find((task) => task.id === "frontend-format");
+  if (!frontendFormat?.dependsOn?.includes("frontend-compile")) {
+    fail("frontend-format must follow frontend-compile so clean runners do not compile the same dev dependencies concurrently");
+  }
+
   const runner = await fs.readFile(path.join(repositoryRoot, "scripts", "run-test-tier.mjs"), "utf8");
   for (const primitive of ["HARDEN_LLM_TEST_OFFLINE", "HARDEN_LLM_TEST_NETWORK", "SIGTERM", "SIGKILL", "container.id", "truncatedOutputBytes"]) {
     if (!runner.includes(primitive)) fail(`runner is missing ${primitive}`);

@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "documentId": "EVAL-HLLM-WIDGET-PARITY-001",
+  "planId": "PLAN-HLLM-WIDGET-PARITY-001",
+  "status": "complete_with_documented_p05_deviation",
+  "evaluations": {
+    "EVAL-101": {
+      "status": "passed",
+      "requirements": 18,
+      "classifiedRequirements": 18,
+      "source": "docs/utility-llm-frontend-parity-inventory.md#71-widget-parity-follow-up-matrix-2026-08-25",
+      "note": "All approved requirements have an explicit classification and executable evidence link."
+    },
+    "EVAL-102": {
+      "status": "passed",
+      "seeds": [104729, 130363, 155921],
+      "command": "mix test test/harden_llm_web/live/workspace_live_test.exs:585 --seed <seed>",
+      "samples": [
+        {"seed": 104729, "passed": 1, "excluded": 21, "wallSeconds": 1.9},
+        {"seed": 130363, "passed": 1, "excluded": 21, "wallSeconds": 1.9},
+        {"seed": 155921, "passed": 1, "excluded": 21, "wallSeconds": 1.9}
+      ],
+      "draftStateSaveRequests": 0,
+      "committedStateSaveRequests": 1,
+      "cleanupLeaks": 0,
+      "note": "Each sample asserted zero parent writes for ordinary drafts, one write after commit, and clean teardown."
+    },
+    "EVAL-103": {
+      "status": "passed",
+      "focused": {
+        "frontendDeterministic": {"passed": 107, "excluded": 4, "excludedTags": ["browser", "compose", "deployed"]},
+        "clientCore": {"passed": 8},
+        "traceability": {"requirements": 18, "testCases": 18},
+        "compileWarningsAsErrors": "passed",
+        "tierVerifierFastTaskCount": 8,
+        "release": {"accepted": true, "taskCount": 26, "failure": null, "cleanupErrors": []}
+      },
+      "benchmark": {
+        "mode": "baseline",
+        "seeds": [104729, 130363, 155921],
+        "sampleCount": 32,
+        "coldSamples": 3,
+        "warmSamples": 5,
+        "failureCount": 0,
+        "leakedResourceCount": 0,
+        "warmP95WallTimeMs": {
+          "fastCandidates": 30741,
+          "integration": 25099,
+          "browser": 68351,
+          "fullSystem": 122522
+        },
+        "warmPeakRssMiBMax": {
+          "fastCandidates": 489.77734375,
+          "integration": 458.7109375,
+          "browser": 30.578125,
+          "fullSystem": 1258.8828125
+        },
+        "rawEvidence": "plans/evidence/harden-llm/test-feedback-latest.json"
+      },
+      "cleanupLeaks": 0
+    },
+    "EVAL-104": {
+      "status": "passed_with_direct_production_deviation",
+      "mergedSha": "84a06fa38da24bacbb5ffc537de509e77b0cb82b",
+      "verificationTarget": null,
+      "productionTarget": "docker compose project harden-llm on the authorized production host",
+      "productionArtifactDigest": {
+        "frontend": "sha256:76d7140345765903249eff1c1b30b0824a42501a2ea11594e6be21860950a757",
+        "gateway": "sha256:97eefe84b1b560f208cf99d48e78ab6999fcdb4811b33c2486ea730d98c033c5"
+      },
+      "releaseLabels": {
+        "frontend": "84a06fa38da24bacbb5ffc537de509e77b0cb82b",
+        "gateway": "84a06fa38da24bacbb5ffc537de509e77b0cb82b"
+      },
+      "healthProbes": {
+        "single": {"webHealthz": 200, "login": 200, "apiHealthz": 200, "apiReadyz": 200},
+        "sustainedSamples": 3,
+        "allResponses": 200
+      },
+      "deployedCanary": {
+        "accepted": true,
+        "authenticatedWidget": "CPA GPT-5.6 Luna; nested folds; output; request/response details",
+        "historyCleanup": true,
+        "logout": true,
+        "screenshots": 0
+      },
+      "cleanup": {"testContainers": 0, "testVolumes": 0, "frontendScratchFiles": 0},
+      "deviation": {
+        "planStep": "P05.S04",
+        "reason": "No separate authorized verification target or immutable image transport existed on the reference host.",
+        "mitigation": "The isolated release Compose/browser gate passed before merge, and production image labels, digests, probes, canary, and cleanup were verified."
+      }
+    }
+  },
+  "redaction": {
+    "credentialsIncluded": false,
+    "providerResponsesIncluded": false,
+    "sessionMaterialIncluded": false
+  }
+}
