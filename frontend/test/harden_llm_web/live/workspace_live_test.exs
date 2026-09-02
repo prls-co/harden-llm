@@ -1108,10 +1108,21 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         end
       end,
       state: state,
-      history: [APIFixtures.history_item()]
+      history: fn conn ->
+        send(test_pid, {:rollback_history_load_started, self()})
+
+        receive do
+          :release_rollback_history_load ->
+            Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
+        end
+      end
     )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
+    assert_receive {:rollback_history_load_started, history_process}
+    history_monitor = Process.monitor(history_process)
+    send(history_process, :release_rollback_history_load)
+    assert_receive {:DOWN, ^history_monitor, :process, ^history_process, :normal}, 1_000
     render_async(view, 1_000)
     assert has_element?(view, "#workspace-history-run-test")
 
@@ -1121,7 +1132,9 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     assert_receive {:failing_workspace_delete_started, delete_process}
     refute has_element?(view, "#workspace-history-run-test")
+    delete_monitor = Process.monitor(delete_process)
     send(delete_process, :release_failing_workspace_delete)
+    assert_receive {:DOWN, ^delete_monitor, :process, ^delete_process, :normal}, 1_000
     render_async(view, 1_000)
 
     assert has_element?(view, "#workspace-history-run-test")
