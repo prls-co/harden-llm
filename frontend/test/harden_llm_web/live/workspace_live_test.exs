@@ -1037,9 +1037,24 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         end
       end,
       history: fn conn ->
-        call = Agent.get_and_update(history_calls, fn value -> {value, value + 1} end)
-        page = if call == 0, do: [APIFixtures.history_item()], else: []
-        Req.Test.json(conn, APIFixtures.success(%{"items" => page}))
+        case Agent.get_and_update(history_calls, fn value -> {value, value + 1} end) do
+          0 ->
+            Req.Test.json(
+              conn,
+              APIFixtures.success(%{"items" => [APIFixtures.history_item()]})
+            )
+
+          1 ->
+            send(test_pid, {:workspace_history_refresh_started, self()})
+
+            receive do
+              :release_workspace_history_refresh ->
+                Req.Test.json(conn, APIFixtures.success(%{"items" => []}))
+            end
+
+          call ->
+            flunk("unexpected history request #{call + 1}")
+        end
       end
     )
 
@@ -1072,9 +1087,14 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     assert_receive {:workspace_delete_started, delete_process}
     refute has_element?(view, "#workspace-history-run-test")
-    send(delete_process, :release_workspace_delete)
-    render_async(view, 1_000)
+    release_request(delete_process, :release_workspace_delete)
+    render(view)
     assert_received :workspace_deleted
+
+    assert_receive {:workspace_history_refresh_started, history_process}
+    release_request(history_process, :release_workspace_history_refresh)
+    render_async(view, 1_000)
+
     assert Agent.get(history_calls, & &1) == 2
     refute has_element?(view, "#workspace-history-run-test")
   end
@@ -1120,9 +1140,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
     assert_receive {:rollback_history_load_started, history_process}
-    history_monitor = Process.monitor(history_process)
-    send(history_process, :release_rollback_history_load)
-    assert_receive {:DOWN, ^history_monitor, :process, ^history_process, :normal}, 1_000
+    release_request(history_process, :release_rollback_history_load)
     render_async(view, 1_000)
     assert has_element?(view, "#workspace-history-run-test")
 
@@ -1132,9 +1150,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     assert_receive {:failing_workspace_delete_started, delete_process}
     refute has_element?(view, "#workspace-history-run-test")
-    delete_monitor = Process.monitor(delete_process)
-    send(delete_process, :release_failing_workspace_delete)
-    assert_receive {:DOWN, ^delete_monitor, :process, ^delete_process, :normal}, 1_000
+    release_request(delete_process, :release_failing_workspace_delete)
     render_async(view, 1_000)
 
     assert has_element?(view, "#workspace-history-run-test")
@@ -1142,6 +1158,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
   end
 
   test "successful run refreshes an already loaded open history snapshot", %{conn: conn} do
+    test_pid = self()
     {:ok, history_calls} = Agent.start_link(fn -> 0 end)
 
     state =
@@ -1161,7 +1178,11 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       fn conn ->
         case {conn.method, conn.request_path} do
           {"POST", "/api/v1/run"} ->
-            Req.Test.json(conn, APIFixtures.success(run_result))
+            send(test_pid, {:refresh_run_started, self()})
+
+            receive do
+              :release_refresh_run -> Req.Test.json(conn, APIFixtures.success(run_result))
+            end
 
           _ ->
             unexpected(conn)
@@ -1169,17 +1190,45 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end,
       state: state,
       history: fn conn ->
-        call = Agent.get_and_update(history_calls, fn value -> {value, value + 1} end)
-        page = if call == 0, do: [APIFixtures.history_item()], else: [fresh_history]
-        Req.Test.json(conn, APIFixtures.success(%{"items" => page}))
+        case Agent.get_and_update(history_calls, fn value -> {value, value + 1} end) do
+          0 ->
+            send(test_pid, {:loaded_history_started, self()})
+
+            receive do
+              :release_loaded_history ->
+                Req.Test.json(
+                  conn,
+                  APIFixtures.success(%{"items" => [APIFixtures.history_item()]})
+                )
+            end
+
+          1 ->
+            send(test_pid, {:loaded_history_refresh_started, self()})
+
+            receive do
+              :release_loaded_history_refresh ->
+                Req.Test.json(conn, APIFixtures.success(%{"items" => [fresh_history]}))
+            end
+
+          call ->
+            flunk("unexpected history request #{call + 1}")
+        end
       end
     )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
+    assert_receive {:loaded_history_started, history_process}
+    release_request(history_process, :release_loaded_history)
     render_async(view, 1_000)
     assert has_element?(view, "#workspace-history-run-test")
 
     submit_run(view, %{"userPrompt" => "fresh run prompt"})
+    assert_receive {:refresh_run_started, run_process}
+    release_request(run_process, :release_refresh_run)
+    render(view)
+
+    assert_receive {:loaded_history_refresh_started, refresh_process}
+    release_request(refresh_process, :release_loaded_history_refresh)
     render_async(view, 1_000)
 
     assert Agent.get(history_calls, & &1) == 2
@@ -1232,8 +1281,12 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
             end
 
           1 ->
-            send(test_pid, :history_refresh_started)
-            Req.Test.json(conn, APIFixtures.success(%{"items" => [fresh_history]}))
+            send(test_pid, {:history_refresh_started, self()})
+
+            receive do
+              :release_history_refresh ->
+                Req.Test.json(conn, APIFixtures.success(%{"items" => [fresh_history]}))
+            end
 
           call ->
             flunk("unexpected history request #{call + 1}")
@@ -1247,15 +1300,16 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     submit_run(view, %{"userPrompt" => "fresh run prompt"})
     assert_receive {:run_started, run_pid}, 1_000
-    run_monitor = Process.monitor(run_pid)
-    send(run_pid, :release_run)
-    assert_receive {:DOWN, ^run_monitor, :process, ^run_pid, :normal}, 1_000
+    release_request(run_pid, :release_run)
     assert has_element?(view, "#run-output")
 
-    send(history_pid, :release_initial_history)
+    release_request(history_pid, :release_initial_history)
+    render(view)
+
+    assert_receive {:history_refresh_started, refresh_pid}
+    release_request(refresh_pid, :release_history_refresh)
     render_async(view, 1_000)
 
-    assert_received :history_refresh_started
     assert Agent.get(history_calls, & &1) == 2
     assert has_element?(view, "#workspace-history-run-fresh", "fresh run prompt")
   end
@@ -2155,6 +2209,12 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           handler.(conn)
       end
     end)
+  end
+
+  defp release_request(process, message) do
+    monitor = Process.monitor(process)
+    send(process, message)
+    assert_receive {:DOWN, ^monitor, :process, ^process, :normal}, 1_000
   end
 
   defp unexpected(conn), do: flunk("unexpected API call: #{conn.method} #{conn.request_path}")
