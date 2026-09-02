@@ -2,7 +2,7 @@ Known Error Record: Unknown run costs render as a measured zero-dollar total
 
 KER slug: 20260901-unknown-cost-renders-zero-dollars
 Git reference: fcda74b3824fc22a517df709f0a67939b8aa0b9c (application release where observed)
-Resolution status: Open
+Resolution status: Resolved
 Applies to (scope): Aggregate LLM stats for owners whose runs include unknown cost, especially when `knownCostCount` is zero
 Tags: llm-stats, cost, unknown-cost, partial-total, billing-semantics
 Anomaly classification (IEEE 1044–inspired, lightweight):
@@ -177,3 +177,16 @@ Migration, rollout, and exit criteria
 - Deploy gateway before or atomically with Phoenix. The new frontend fails closed when required cached certainty is absent; do not add mathematical guesses or a telemetry fallback.
 - Before deployment, verify overall/cached equations and malformed-shape counts. After deployment require unknown-only never renders currency, exact zero remains exact, tiny positive never renders zero, partial known subtotal survives retries, and cached certainty is independently correct.
 - Closure requires T0-T4 gates, `make test-fast`, `make verify`, `make test-browser`, `make test-release`, hosted CI, exact release/image identity, authenticated production comparison, and zero canary history residue.
+
+Final resolution (2026-09-01)
+- `1470930c204989e3bb94c9dad3b5e6d31b6ac97f` replaced the ambiguous amount
+  with a canonical exact/partial/unknown/unavailable cost ledger, known
+  subtotal, source, and observation counts for both result and provider views.
+- Direct Postgres aggregation owns overall and cached-subset coverage equations.
+  `LlmStatsProjection` renders unknown as unavailable, partial as a qualified
+  subtotal, exact zero as `$0.0000`, and positive subprecision values as
+  `<$0.0001`; it never infers certainty from an amount.
+- Retry, fallback, repair, cache replay, malformed retained JSON, SQL/API
+  equations, projection, component, browser, release, and authenticated
+  production checks passed. Exact closure evidence and smoke cleanup are on
+  issue `#46`.

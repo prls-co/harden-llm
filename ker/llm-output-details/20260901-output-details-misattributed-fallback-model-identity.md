@@ -2,7 +2,7 @@ Known Error Record: Output details can misattribute fallback or repair output to
 
 KER slug: 20260901-output-details-misattributed-fallback-model-identity
 Git reference: fcda74b3824fc22a517df709f0a67939b8aa0b9c (application release where observed)
-Resolution status: Open
+Resolution status: Resolved
 Applies to (scope): Self-hosted Go runtime and Phoenix output trace details when a backup profile or structured-repair escalation differs from the selected profile/model
 Tags: llm-trace, output-details, fallback, repair, profile-id, model-id, attribution
 Anomaly classification (IEEE 1044–inspired, lightweight):
@@ -186,3 +186,18 @@ Rollout and exit criteria
 - Deploy the additive API/document v2 and cache version cut in one coherent release; legacy persisted rows remain readable through one explicit v1 normalization path.
 - Record bounded counters for `result_source=provider|cache|none` and identity transition class. Alert on provider-used attempts without identity, invalid provider attempt references, or new cache hits without producer identity.
 - This KER closes only when selected and actual identity differ correctly in deterministic backup and repair cases, cache provenance survives a hit, telemetry agrees with product records, legacy data is explicit, and the exact deployed revision passes the production gates.
+
+Final resolution (2026-09-01)
+- `1470930c204989e3bb94c9dad3b5e6d31b6ac97f` made schema v2 the canonical
+  execution record: selected target, attempt-local immutable target, terminal
+  result source, provider invocation, and result/provider accounting are
+  persisted together in the run and trace documents.
+- `8407b83b01a36fe63397259f75ccbab05f34329a` derives telemetry attribution
+  from the same immutable attempt/result facts. Telemetry remains diagnostic
+  and never reconstructs product identity.
+- `9943ed901ae6d3181aac24557078e7a5b22568b7` projects selected and actual
+  producer identity through strict pure view models. Retained v1 records show
+  unavailable producer identity instead of consulting mutable profiles.
+- Backup, repair, cache-hit, failure, strict-wire, component, LiveView,
+  browser, release, and authenticated deployed-canary coverage passed. Exact
+  closure release and image evidence are recorded on issue `#46`.

@@ -183,6 +183,8 @@ function runDeployedBrowser(environment, webOrigin, apiOrigin, nonce) {
     "2g",
     "--mount",
     `type=bind,src=${repositoryRoot},dst=/workspace`,
+    "--mount",
+    "type=tmpfs,destination=/workspace/frontend/tmp/wallaby,tmpfs-mode=1777",
     "--workdir",
     "/workspace/frontend",
     ...inheritedNames.flatMap((name) => ["--env", name]),
@@ -194,16 +196,48 @@ function runDeployedBrowser(environment, webOrigin, apiOrigin, nonce) {
   const result = spawnSync("docker", args, {
     cwd: repositoryRoot,
     env: childEnvironment,
-    stdio: "ignore",
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
     timeout: 300_000,
   });
   if (result.error?.code === "ETIMEDOUT") throw new Error("deployed browser canary timed out");
   if (result.error) throw new Error(`deployed browser launcher failed before test: ${result.error.code ?? "spawn"}`);
-  if (result.status !== 0) throw new Error(`deployed browser canary failed with exit ${result.status ?? "signal"}`);
+  if (result.status !== 0) {
+    const detail = sanitizeBrowserFailure(`${result.stdout ?? ""}\n${result.stderr ?? ""}`, childEnvironment);
+    throw new Error(`deployed browser canary failed with exit ${result.status ?? "signal"}: ${detail}`);
+  }
+}
+
+function sanitizeBrowserFailure(output, environment) {
+  let sanitized = String(output ?? "");
+  for (const name of ["HARDEN_LLM_LOCAL_OPERATOR_EMAIL", "HARDEN_LLM_LOCAL_OPERATOR_PASSWORD"]) {
+    const value = environment[name];
+    if (value) sanitized = sanitized.replaceAll(value, "[REDACTED]");
+  }
+  sanitized = sanitized.replace(/Bearer\s+[A-Za-z0-9._~-]+/gi, "Bearer [REDACTED]").trim();
+  if (!sanitized) return "no test output was captured";
+  return sanitized.slice(-8_000);
 }
 
 async function cleanupScreenshots() {
-  await fs.rm(path.join(repositoryRoot, "frontend", "tmp", "wallaby"), { recursive: true, force: true });
+  const screenshotDirectory = path.join(repositoryRoot, "frontend", "tmp", "wallaby");
+  try {
+    await fs.rm(screenshotDirectory, { recursive: true, force: true });
+  } catch (error) {
+    if (error?.code !== "EACCES" && error?.code !== "EPERM") throw error;
+    execFileSync("docker", [
+      "run",
+      "--rm",
+      "--mount",
+      `type=bind,src=${screenshotDirectory},dst=/artifacts`,
+      browserImage,
+      "chmod",
+      "-R",
+      "a+rwX",
+      "/artifacts",
+    ], { cwd: repositoryRoot, stdio: "ignore", timeout: 30_000 });
+    await fs.rm(screenshotDirectory, { recursive: true, force: true });
+  }
 }
 
 export async function main() {
@@ -241,6 +275,7 @@ export async function main() {
     apiReadyz: await probe(apiOrigin, "/readyz"),
   };
   const nonce = `harden-llm-deployed-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  await cleanupScreenshots();
   try {
     runDeployedBrowser(environment, webOrigin, apiOrigin, nonce);
   } finally {
@@ -255,8 +290,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     if (Number.isInteger(exitCode)) {
       process.exitCode = exitCode;
     }
-  }).catch(() => {
-    console.error(JSON.stringify({ accepted: false, failure: "deployed certification failed" }));
+  }).catch((error) => {
+    console.error(JSON.stringify({
+      accepted: false,
+      failure: "deployed certification failed",
+      detail: error instanceof Error ? error.message : "unknown certification failure",
+    }));
     process.exitCode = 1;
   });
 }

@@ -2,7 +2,7 @@ Known Error Record: Artifact bodies and PostgreSQL metadata have cross-store cra
 
 KER slug: 20260901-artifact-metadata-cross-store-crash-window
 Git reference: fcda74b3824fc22a517df709f0a67939b8aa0b9c (application release where observed)
-Resolution status: Open
+Resolution status: Resolved
 Applies to (scope): Self-hosted run persistence and history deletion spanning Garage object storage and application PostgreSQL
 Tags: garage, postgres, artifacts, crash-consistency, reconciliation, persistence
 Anomaly classification (IEEE 1044–inspired, lightweight):
@@ -195,3 +195,16 @@ Implementation checkpoint (2026-09-01)
 - Grafana now exposes journal backlog, oldest pending age, and reconciliation
   failures. Prometheus warnings cover non-converging operations, stale backlog,
   and continuous reconciliation errors with no owner/run/trace labels.
+
+Final resolution (2026-09-01)
+- `95ff6731cddae12973a14c3975bb2cfb7b34ac2f` added migration 4's typed
+  publication/deletion journal and one gateway coordinator across Postgres and
+  Garage. Idempotent integrity-aware PUT, exact deletion batches, restart
+  reconciliation, and explicit unavailable state close both crash windows.
+- `62898a0df330ff6df6f11ae16c28ad4ce4d9777c` fixed retained batch isolation;
+  `dde9833e7543f97314a261a2ad7af0805c382433` added bounded reverse inventory,
+  audit-only failure semantics, metrics, dashboard panels, and alerts.
+- Real Postgres/Garage failpoints, repeated reconciliation, second-pass no-op,
+  deletion cascade, release Compose, production audit, and alert-rule health
+  passed. The final count-only audit and exact release evidence are recorded on
+  issue `#46`.

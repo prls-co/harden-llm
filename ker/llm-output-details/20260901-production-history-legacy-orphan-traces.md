@@ -2,7 +2,7 @@ Known Error Record: Retained production history contains legacy runless traces a
 
 KER slug: 20260901-production-history-legacy-orphan-traces
 Git reference: fcda74b3824fc22a517df709f0a67939b8aa0b9c (application release where observed)
-Resolution status: Open
+Resolution status: Resolved
 Applies to (scope): Retained self-hosted production PostgreSQL data created before the atomic execution and immutable-identity release; exact counts must be refreshed before remediation
 Tags: postgres, history, legacy-schema, orphan-trace, artifact-metadata, reconciliation
 Anomaly classification (IEEE 1044–inspired, lightweight):
@@ -198,3 +198,22 @@ Implementation checkpoint (2026-09-01)
   independent production writers and the missing-run trace read fallback are
   removed. The same binary bounds `reconcile-history` at migration 4 so a
   direct upgrade can satisfy migration 5 without a legacy server image.
+
+Final resolution (2026-09-01)
+- `62898a0df330ff6df6f11ae16c28ad4ce4d9777c` made retained deletion batches
+  isolated and repeatable. The production rehearsal used a fresh encrypted
+  Postgres/Garage backup with isolated restore proof before applying cleanup.
+- `dde9833e7543f97314a261a2ad7af0805c382433` removed independent writers and
+  missing-run read fallback, made `SaveExecution` the sole aggregate writer,
+  and added migration 5's non-null run ownership plus exact cascading
+  owner/run/trace foreign key. Production reconciliation removed 43 classified
+  runless legacy traces; its second apply was a no-op.
+- `ed76eac0f003f10ce394393f301b8f020971be25` added the bounded OpenAPI v1/v2
+  read union for historical Go zero values and proved every retained production
+  history and trace document decodes without fabrication.
+- `c1d448b8ca58aa2bed239a5d91f3bce10998ffb9` and
+  `ebd8a4f2309b372a43eaf258dc0a53cfadd4b995` make refresh and deletion
+  completion order deterministic, including reversible optimistic deletion.
+- Production has zero runless traces, zero run/trace ownership mismatches, and
+  no smoke residue after certification. Exact closure evidence is on issue
+  `#46`.

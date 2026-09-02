@@ -6,18 +6,19 @@ application release `fcda74b3824fc22a517df709f0a67939b8aa0b9c`.
 
 Each record is intentionally independent and follows
 `/home/kirill/p/llm-coding-tools/ker-generation-prompt.txt`. All seven records
-are open: they document the current failure mode, evidence, bounded workaround,
-recommended permanent correction, and the verification required before closure.
+are resolved. They retain the original failure evidence and principal-level
+implementation plan, followed by the applied architecture, regression, and
+production-certification evidence.
 
-| KER | Surface | Impact |
-| --- | --- | --- |
-| [`20260901-output-details-misattributed-fallback-model-identity.md`](20260901-output-details-misattributed-fallback-model-identity.md) | Run and attempt identity | High |
-| [`20260901-run-history-inconsistent-token-semantics.md`](20260901-run-history-inconsistent-token-semantics.md) | Token metrics | Medium |
-| [`20260901-production-history-legacy-orphan-traces.md`](20260901-production-history-legacy-orphan-traces.md) | Retained production data | Medium |
-| [`20260901-artifact-metadata-cross-store-crash-window.md`](20260901-artifact-metadata-cross-store-crash-window.md) | PostgreSQL and Garage consistency | Medium |
-| [`20260901-reusable-trace-widget-duplicate-cache-id.md`](20260901-reusable-trace-widget-duplicate-cache-id.md) | Reusable component contract | Low |
-| [`20260901-stats-load-failure-renders-zero-values.md`](20260901-stats-load-failure-renders-zero-values.md) | Stats availability state | Medium |
-| [`20260901-unknown-cost-renders-zero-dollars.md`](20260901-unknown-cost-renders-zero-dollars.md) | Cost semantics | Medium |
+| KER | Surface | Impact | Status |
+| --- | --- | --- | --- |
+| [`20260901-output-details-misattributed-fallback-model-identity.md`](20260901-output-details-misattributed-fallback-model-identity.md) | Run and attempt identity | High | Resolved |
+| [`20260901-run-history-inconsistent-token-semantics.md`](20260901-run-history-inconsistent-token-semantics.md) | Token metrics | Medium | Resolved |
+| [`20260901-production-history-legacy-orphan-traces.md`](20260901-production-history-legacy-orphan-traces.md) | Retained production data | Medium | Resolved |
+| [`20260901-artifact-metadata-cross-store-crash-window.md`](20260901-artifact-metadata-cross-store-crash-window.md) | PostgreSQL and Garage consistency | Medium | Resolved |
+| [`20260901-reusable-trace-widget-duplicate-cache-id.md`](20260901-reusable-trace-widget-duplicate-cache-id.md) | Reusable component contract | Low | Resolved |
+| [`20260901-stats-load-failure-renders-zero-values.md`](20260901-stats-load-failure-renders-zero-values.md) | Stats availability state | Medium | Resolved |
+| [`20260901-unknown-cost-renders-zero-dollars.md`](20260901-unknown-cost-renders-zero-dollars.md) | Cost semantics | Medium | Resolved |
 
 Telemetry is deliberately not a widget data source. Product history and stats
 come from application PostgreSQL, artifact bodies come from Garage, and the
@@ -77,3 +78,13 @@ This sequence avoids duplicate migrations and compatibility paths: identity,
 usage, and cost share one execution/cache version cut; frontend KERs share one
 component contract cut; storage consistency precedes destructive historical
 cleanup.
+
+## Closure evidence
+
+The implementation spans `1470930c204989e3bb94c9dad3b5e6d31b6ac97f`
+through `ebd8a4f2309b372a43eaf258dc0a53cfadd4b995`. It establishes one
+canonical execution record, one atomic Postgres aggregate writer, one durable
+Garage lifecycle coordinator, strict versioned OpenAPI/Phoenix read models,
+and instance-scoped presentational components. The final closure revision,
+exact image IDs, release gates, public probes, authenticated canary, storage
+audit, alert state, and smoke cleanup are recorded on GitHub issue `#46`.

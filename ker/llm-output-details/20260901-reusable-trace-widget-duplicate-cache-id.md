@@ -2,7 +2,7 @@ Known Error Record: Reusable trace widgets emit a duplicate cache metric DOM ID
 
 KER slug: 20260901-reusable-trace-widget-duplicate-cache-id
 Git reference: fcda74b3824fc22a517df709f0a67939b8aa0b9c (application release where observed)
-Resolution status: Open
+Resolution status: Resolved
 Applies to (scope): Any Phoenix page embedding more than one `LlmTraceComponents.llm_trace/1` projection; broader cross-application extraction also inherits global CSS and map-contract coupling
 Tags: liveview, reusable-widget, duplicate-id, accessibility, css-scope, projection
 Anomaly classification (IEEE 1044–inspired, lightweight):
@@ -166,3 +166,17 @@ Cross-KER coordination and exit criteria
 - Coordinate changes to `LlmTraceProjection` and `LlmTraceComponents` with execution identity, token semantics, cost certainty, and stats availability in one frontend contract cut. Storage KERs do not block this work.
 - Migrate selectors atomically; do not leave compatibility IDs or a second event API.
 - This KER closes when two instances have unique DOM/ARIA identity, independent state/events, root-scoped stable selectors/styles, and the exact deployed widget preserves the approved layout and unboxed cache icon.
+
+Final resolution (2026-09-01)
+- `9943ed901ae6d3181aac24557078e7a5b22568b7` split strict transport decoding,
+  pure trace/stats projection, and presentational LiveView components. Hosts own
+  authenticated loading/events; components own semantic markup, ARIA, scoped
+  styles, resources, and root-derived instance IDs.
+- Multiple instances now have independent selectors, folds, resource panels,
+  cache metrics, and event routing. The cache icon has no border, radius,
+  background, or padding, and the details toggle, JSON trace, cURL, request,
+  and response controls share one wrapping flex row.
+- Deterministic two-instance tests, unique-DOM browser checks, clipboard/cURL
+  checks, and the deployed output/history canary passed. A separately
+  distributed package remains intentionally deferred until a second consumer
+  supplies a concrete extraction contract.

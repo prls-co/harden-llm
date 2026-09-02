@@ -2,7 +2,7 @@ Known Error Record: Run history and output widgets use inconsistent token semant
 
 KER slug: 20260901-run-history-inconsistent-token-semantics
 Git reference: fcda74b3824fc22a517df709f0a67939b8aa0b9c (application release where observed)
-Resolution status: Open
+Resolution status: Resolved
 Applies to (scope): Phoenix workspace history, full history, output trace summary, and owner-scoped aggregate stats for all providers
 Tags: llm-stats, tokens, history, reasoning-tokens, cache-tokens, projection
 Anomaly classification (IEEE 1044–inspired, lightweight):
@@ -183,3 +183,16 @@ Dependencies, rollout, and exit criteria
 - Coordinate aggregate completeness with the cost and stats-availability KERs; unknown usage must not become the next false-zero state.
 - Before deployment, record complete/partial/unavailable/inconsistent retained counts and prove backup/restore. After deployment require `knownUsageCount + incompleteUsageCount = totalCount`, standard telemetry totals equal canonical prompt/completion values, and no new persisted invariant violations.
 - This KER closes when a five-component fixture has identical named semantics in run output, both history surfaces, stats API/SQL, and telemetry, while invalid usage remains visibly non-authoritative.
+
+Final resolution (2026-09-01)
+- `1470930c204989e3bb94c9dad3b5e6d31b6ac97f` introduced one usage ledger
+  with input, cache-read, cache-creation, output, and reasoning components plus
+  exact prompt, completion, and total equations and completeness status.
+- The same vocabulary now feeds run/trace persistence, direct Postgres stats,
+  OpenAPI, telemetry attributes, compact history, full history, and the output
+  details projection; Phoenix performs formatting, not accounting.
+- Retained v1 records remain read-only and display only captured components.
+  Malformed current equations fail the strict wire boundary.
+- Five-component parity fixtures and runtime, SQL, gateway, projection,
+  LiveView, browser, release, and deployed checks passed; final evidence is on
+  issue `#46`.

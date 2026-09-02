@@ -2,7 +2,7 @@ Known Error Record: Initial stats load failure renders placeholder zeroes as if 
 
 KER slug: 20260901-stats-load-failure-renders-zero-values
 Git reference: fcda74b3824fc22a517df709f0a67939b8aa0b9c (application release where observed)
-Resolution status: Open
+Resolution status: Resolved
 Applies to (scope): Phoenix workspace and history aggregate LLM stats during initial API loading or failure
 Tags: llm-stats, liveview, loading-state, error-state, stale-data, availability
 Anomaly classification (IEEE 1044–inspired, lightweight):
@@ -172,3 +172,16 @@ Telemetry, rollout, and exit criteria
 - Reuse `harden_llm_web_api_requests{operation="getStats"}`, request duration, structured logs, and OTel spans. Add no second telemetry pipeline and no widget-data dependency on telemetry.
 - Cut over both LiveViews and the component together; no database migration or retained-data rewrite is required.
 - This KER closes when initial loading/failure/malformed success never show unverified numbers, successful empty still shows zero, refresh failure is explicitly stale, response ordering is deterministic, and the exact deployed widget passes the lifecycle canary.
+
+Final resolution (2026-09-01)
+- `9943ed901ae6d3181aac24557078e7a5b22568b7` introduced strict
+  `LlmStatsProjection`, an explicit `AsyncResult` component contract, and one
+  lifecycle across Workspace and History. Loading/unavailable states contain
+  no numeric grid; stale state keeps and labels only a prior validated snapshot;
+  successful empty remains an authoritative zero.
+- Stable async references reject stale completion order, malformed 2xx stats
+  remain protocol errors, and manual retry uses the existing `HardenAPI`
+  boundary. PostgreSQL remains the only product-data source.
+- Projection, component accessibility, both LiveViews, reverse completion
+  order, browser, release, and authenticated production checks passed. Exact
+  closure evidence is on issue `#46`.
