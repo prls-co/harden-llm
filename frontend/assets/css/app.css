@@ -259,6 +259,48 @@ button, a, input, select, textarea { touch-action: manipulation; }
   font-size: .9em;
 }
 
+.llm-stats-disclosure {
+  max-width: 100%;
+}
+
+.llm-stats-disclosure-summary {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: .25rem;
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.llm-stats-disclosure-summary:focus-visible {
+  outline: 2px solid var(--ullm-focus-border);
+  outline-offset: 2px;
+}
+
+.llm-stats-disclosure-summary-exact {
+  color: #0f766e;
+}
+
+.llm-stats-disclosure-summary-partial,
+.llm-stats-disclosure-summary-unknown {
+  color: #a16207;
+}
+
+.llm-stats-disclosure-summary-unavailable {
+  color: var(--ullm-text-dim);
+}
+
+.llm-stats-disclosure-detail {
+  max-width: 28rem;
+  margin: .45rem 0 0;
+  color: var(--ullm-text-muted);
+  font-size: .9em;
+  line-height: 1.4;
+  white-space: normal;
+}
+
 .llm-trace-model {
   max-width: 308px;
   overflow: hidden;

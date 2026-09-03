@@ -147,6 +147,14 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> assert_has(Query.css("#output-trace-copy-curl", text: "Copied"))
       |> click(Query.css("#copy-run-output"))
       |> assert_has(Query.css("#copy-run-output", text: "Copied"))
+      |> assert_has(Query.css("#llm-stats-summary-result_cost-details"))
+      |> click(Query.css("#llm-stats-summary-result_cost-details > summary"))
+      |> assert_has(
+        Query.css(
+          "#llm-stats-summary-result_cost-details[open] .llm-stats-disclosure-detail",
+          text: "Known result subtotal is exact."
+        )
+      )
       |> visit("/history")
       |> assert_has(Query.css("#history-page"))
       |> assert_has(Query.css("#history-run-browser"))

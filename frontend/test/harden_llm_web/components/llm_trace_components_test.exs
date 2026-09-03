@@ -152,15 +152,27 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
     refute payload_on_unavailable_resource_html =~ "must_not"
   end
 
-  test "renders reusable aggregate stats with zeroes and missing values distinctly" do
+  test "renders concise aggregate cost disclosures and scalar stats" do
     html =
       render_component(&LlmTraceComponents.llm_stats_summary/1,
         id: "stats-widget",
         stats:
           AsyncResult.ok(%{
             "success" => 0,
-            "result_known_cost" => "$0.0000",
-            "cached_cost" => "$0.0000",
+            "result_cost" => %{
+              text: "⚠️ $0.0000",
+              state: :partial,
+              detail:
+                "Known subtotal; not total cost. 1 exact · 0 partial · 1 unknown · 0 unavailable",
+              aria_label: "Partial result cost, $0.0000 known; show details"
+            },
+            "cached_cost" => %{
+              text: "—",
+              state: :unavailable,
+              detail:
+                "No cost observation was available. 0 exact · 0 partial · 0 unknown · 0 unavailable",
+              aria_label: "Cached cost unavailable; show details"
+            },
             "cached_count" => 0,
             "average_duration" => nil,
             "max_duration" => 0,
@@ -172,7 +184,14 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
 
     assert html =~ "LLM stats summary"
     assert html =~ ~s(href="/history")
-    assert html =~ "Cached cost"
+    assert html =~ ~s(aria-busy="false")
+    assert html =~ ~s(id="stats-widget-result_cost-details")
+    assert html =~ ~s(aria-label="Partial result cost, $0.0000 known; show details")
+    assert html =~ "Known subtotal; not total cost."
+    assert html =~ ~s(id="stats-widget-cached_cost-details")
+    assert html =~ "Cached cost unavailable; show details"
+    refute html =~ "Result cost coverage"
+    refute html =~ "Cached cost coverage"
     assert html =~ "Cached runs"
     assert html =~ "Max duration ms"
     assert html =~ "Over budget"
@@ -185,9 +204,22 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
         stats: AsyncResult.ok(%{success: 2, result_total_tokens: 7, average_duration: 125})
       )
 
+    refute atom_key_html =~ "<details"
     assert atom_key_html =~ ">2</dd>"
     assert atom_key_html =~ ">7</dd>"
     assert atom_key_html =~ ">125</dd>"
+  end
+
+  test "marks aggregate stats busy while refreshing" do
+    html =
+      render_component(&LlmTraceComponents.llm_stats_summary/1,
+        id: "refreshing-stats",
+        stats: AsyncResult.ok(%{success: 1}) |> AsyncResult.loading()
+      )
+
+    assert html =~ ~s(aria-busy="true")
+    assert html =~ "Loading aggregate diagnostics"
+    assert html =~ ">1</dd>"
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-061
@@ -211,7 +243,15 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
     refute unavailable =~ "$0.0000"
 
     stale =
-      AsyncResult.ok(%{runs: 2, result_known_cost: "$0.0042"})
+      AsyncResult.ok(%{
+        runs: 2,
+        result_cost: %{
+          text: "$0.0042",
+          state: :exact,
+          detail: "Known result subtotal is exact.",
+          aria_label: "Exact result cost, $0.0042; show details"
+        }
+      })
       |> AsyncResult.failed(:unavailable)
 
     stale_html =

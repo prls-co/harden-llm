@@ -301,7 +301,12 @@ defmodule HardenLlmWeb.LlmTraceComponents do
   @doc "Renders reusable aggregate LLM statistics from a normalized stats map."
   def llm_stats_summary(assigns) do
     ~H"""
-    <section id={@id} aria-label={@aria_label} class={@class}>
+    <section
+      id={@id}
+      aria-label={@aria_label}
+      aria-busy={to_string(@stats.loading == true)}
+      class={@class}
+    >
       <div class="flex items-center justify-between gap-3">
         <h2 class="font-semibold text-slate-950">{@title}</h2>
         <div class="flex items-center gap-3">
@@ -335,7 +340,24 @@ defmodule HardenLlmWeb.LlmTraceComponents do
         <div :for={{key, default_label} <- stats_fields()} class={@fact_class}>
           <% display = stats_display(@stats.result, key) %>
           <dt class="text-slate-500">{Map.get(@labels, key, default_label)}</dt>
-          <dd class={@value_class} title={to_string(display)}>{display}</dd>
+          <%= if metric_details?(display) do %>
+            <dd class="mt-1">
+              <details id={"#{@id}-#{key}-details"} class="llm-stats-disclosure">
+                <summary
+                  class={[
+                    "llm-stats-disclosure-summary",
+                    "llm-stats-disclosure-summary-#{display.state}"
+                  ]}
+                  aria-label={display.aria_label}
+                >
+                  <span class="llm-stats-disclosure-value">{display.text}</span>
+                </summary>
+                <p class="llm-stats-disclosure-detail">{display.detail}</p>
+              </details>
+            </dd>
+          <% else %>
+            <dd class={@value_class} title={to_string(display)}>{display}</dd>
+          <% end %>
         </div>
       </dl>
     </section>
@@ -446,17 +468,14 @@ defmodule HardenLlmWeb.LlmTraceComponents do
       {"result_reasoning_tokens", "Result reasoning tokens"},
       {"result_total_tokens", "Result tokens"},
       {"result_usage_coverage", "Result usage coverage"},
-      {"result_known_cost", "Result known subtotal"},
-      {"result_cost_coverage", "Result cost coverage"},
+      {"result_cost", "Result cost"},
       {"provider_prompt_tokens", "Provider prompt tokens"},
       {"provider_output_tokens", "Provider output tokens"},
       {"provider_reasoning_tokens", "Provider reasoning tokens"},
       {"provider_total_tokens", "Provider tokens"},
       {"provider_usage_coverage", "Provider usage coverage"},
-      {"provider_known_cost", "Provider known subtotal"},
-      {"provider_cost_coverage", "Provider cost coverage"},
+      {"provider_cost", "Provider cost"},
       {"cached_cost", "Cached cost"},
-      {"cached_cost_coverage", "Cached cost coverage"},
       {"cached_count", "Cached runs"},
       {"total_duration", "Total duration ms"},
       {"average_duration", "Avg duration ms"},
@@ -479,17 +498,14 @@ defmodule HardenLlmWeb.LlmTraceComponents do
       "result_reasoning_tokens" => :result_reasoning_tokens,
       "result_total_tokens" => :result_total_tokens,
       "result_usage_coverage" => :result_usage_coverage,
-      "result_known_cost" => :result_known_cost,
-      "result_cost_coverage" => :result_cost_coverage,
+      "result_cost" => :result_cost,
       "provider_prompt_tokens" => :provider_prompt_tokens,
       "provider_output_tokens" => :provider_output_tokens,
       "provider_reasoning_tokens" => :provider_reasoning_tokens,
       "provider_total_tokens" => :provider_total_tokens,
       "provider_usage_coverage" => :provider_usage_coverage,
-      "provider_known_cost" => :provider_known_cost,
-      "provider_cost_coverage" => :provider_cost_coverage,
+      "provider_cost" => :provider_cost,
       "cached_cost" => :cached_cost,
-      "cached_cost_coverage" => :cached_cost_coverage,
       "cached_count" => :cached_count,
       "total_duration" => :total_duration,
       "average_duration" => :average_duration,
@@ -510,4 +526,6 @@ defmodule HardenLlmWeb.LlmTraceComponents do
       :error -> "—"
     end
   end
+
+  defp metric_details?(value), do: is_map(value) and is_binary(value[:detail])
 end

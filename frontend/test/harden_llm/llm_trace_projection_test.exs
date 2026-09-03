@@ -48,10 +48,24 @@ defmodule HardenLlm.LlmTraceProjectionTest do
              failed: 1,
              result_cache_creation_tokens: 2,
              result_reasoning_tokens: 4,
-             result_known_cost: "$0.0004",
-             result_cost_coverage: "1 exact · 1 partial · 1 unknown · 0 unavailable",
-             provider_known_cost: "$0.0003",
-             cached_cost: "$0.0001",
+             result_cost: %{
+               text: "⚠️ $0.0004",
+               state: :partial,
+               detail:
+                 "Known subtotal; not total cost. 1 exact · 1 partial · 1 unknown · 0 unavailable"
+             },
+             provider_cost: %{
+               text: "⚠️ $0.0003",
+               state: :partial,
+               detail:
+                 "Known subtotal; not total cost. 1 exact · 1 partial · 0 unknown · 1 unavailable"
+             },
+             cached_cost: %{
+               text: "$0.0001",
+               state: :exact,
+               detail:
+                 "Known cached subtotal is exact. 1 exact · 0 partial · 0 unknown · 0 unavailable"
+             },
              cached_count: 1,
              total_duration: 2_580,
              average_duration: 860,
@@ -61,12 +75,56 @@ defmodule HardenLlm.LlmTraceProjectionTest do
            } = LlmStatsProjection.project(APIFixtures.stats())
   end
 
+  test "keeps cost display concise while preserving certainty details" do
+    cases = [
+      {"exact zero", %{"knownSubtotalUsd" => 0.0, "coverage" => coverage(3, 0, 0, 0)},
+       %{text: "$0.0000", state: :exact}},
+      {"tiny exact", %{"knownSubtotalUsd" => 0.0000224, "coverage" => coverage(3, 0, 0, 0)},
+       %{text: "$0.0000224", state: :exact}},
+      {"unknown only", %{"knownSubtotalUsd" => 0.0, "coverage" => coverage(0, 0, 3, 0)},
+       %{text: "❔", state: :unknown}},
+      {"unavailable only", %{"knownSubtotalUsd" => 0.0, "coverage" => coverage(0, 0, 0, 3)},
+       %{text: "—", state: :unavailable}},
+      {"known and unknown", %{"knownSubtotalUsd" => 0.0011, "coverage" => coverage(1, 0, 2, 0)},
+       %{text: "⚠️ $0.0011", state: :partial}}
+    ]
+
+    for {label, cost, expected} <- cases do
+      actual = LlmStatsProjection.project(stats_with_cost(cost)).result_cost
+
+      assert actual.text == expected.text, label
+      assert actual.state == expected.state, label
+      assert is_binary(actual.detail), label
+      assert is_binary(actual.aria_label), label
+    end
+  end
+
+  defp stats_with_cost(cost) do
+    APIFixtures.stats()
+    |> put_in(["resultAccounting", "cost"], cost)
+    |> put_in(["resultAccounting", "usage", "coverage"], coverage(3, 0, 0, 0))
+    |> put_in(["providerAccounting", "usage", "coverage"], coverage(3, 0, 0, 0))
+    |> put_in(["providerAccounting", "cost"], %{
+      "knownSubtotalUsd" => 0.001,
+      "coverage" => coverage(3, 0, 0, 0)
+    })
+    |> put_in(["cached", "cost"], %{
+      "knownSubtotalUsd" => 0.0,
+      "coverage" => coverage(1, 0, 0, 0)
+    })
+  end
+
+  defp coverage(exact, partial, unknown, unavailable) do
+    %{"exact" => exact, "partial" => partial, "unknown" => unknown, "unavailable" => unavailable}
+  end
+
   test "preserves tiny positive costs instead of displaying zero" do
     stats =
       APIFixtures.stats()
       |> put_in(["resultAccounting", "cost", "knownSubtotalUsd"], 0.0000224)
+      |> put_in(["resultAccounting", "cost", "coverage"], coverage(3, 0, 0, 0))
 
-    assert LlmStatsProjection.project(stats).result_known_cost == "$0.0000224"
+    assert LlmStatsProjection.project(stats).result_cost.text == "$0.0000224"
 
     result =
       APIFixtures.run_result()
