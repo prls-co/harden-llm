@@ -274,12 +274,16 @@
                         details={LlmTraceProjection.details(@run_result)}
                         resources={@output_trace_resources}
                         details_open={@ui["outputDetailsOpen"]}
+                        controls_open={@ui["outputControlsOpen"]}
                         request_open={@output_request_open?}
                         response_open={@output_response_open?}
                         details_event="toggle-ui"
                         details_name="outputDetailsOpen"
+                        controls_event="toggle-ui"
+                        controls_name="outputControlsOpen"
                         resource_event="toggle-output-data"
                         details_disabled={@ui_save_pending?}
+                        controls_disabled={@ui_save_pending?}
                       />
                     </div>
                   </div>

@@ -1847,8 +1847,18 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     submit_run(view, %{"userPrompt" => "resource controls"})
     render_async(view, 1_000)
+    assert has_element?(view, "#output-trace-controls:not([hidden])")
     assert has_element?(view, "#output-trace-show-request")
     assert has_element?(view, "#output-trace-show-response")
+
+    view |> element("#output-trace-summary") |> render_click()
+    render_async(view, 1_000)
+    assert has_element?(view, "#output-trace-controls[hidden]")
+    assert has_element?(view, "#output-trace-details")
+
+    view |> element("#output-trace-summary") |> render_click()
+    render_async(view, 1_000)
+    assert has_element?(view, "#output-trace-controls:not([hidden])")
 
     view |> element("#output-trace-show-request") |> render_click()
     view |> element("#output-trace-show-response") |> render_click()

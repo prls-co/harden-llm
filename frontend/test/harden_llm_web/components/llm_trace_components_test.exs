@@ -49,16 +49,19 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
         request_open: true,
         response_open: true,
         details_event: "toggle-details",
+        controls_event: "toggle-controls",
         resource_event: "toggle-resource"
       )
 
     assert html =~ ~s(id="trace-widget")
 
-    assert html =~ ~s(<div class="llm-trace-summary">)
-    refute html =~ ~s(class="llm-trace-summary" phx-click=)
+    assert html =~ ~s(<button id="trace-widget-summary" type="button" class="llm-trace-summary")
+    assert html =~ ~s(phx-click="toggle-controls")
+    assert html =~ ~s(aria-controls="trace-widget-controls")
+    assert html =~ ~s(aria-expanded="true")
     assert html =~ ~s(id="trace-widget-details-toggle")
     assert html =~ ~s(aria-controls="trace-widget-details")
-    assert html =~ ~s(aria-expanded="true")
+    assert html =~ ~s(id="trace-widget-controls")
     assert html =~ "ID: trace-1"
     assert html =~ "Model: model-1"
     assert html =~ "Profile:</strong> Primary"
@@ -78,6 +81,20 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
     assert html =~ ~s(aria-disabled="true")
     assert html =~ "trace · unavailable"
     refute html =~ ~s(href="")
+
+    collapsed_html =
+      render_component(&LlmTraceComponents.llm_trace/1,
+        id: "collapsed-trace",
+        summary: %{"trace_id" => "trace-collapsed", "metrics" => []},
+        controls_open: false,
+        controls_event: "toggle-controls",
+        details_event: "toggle-details",
+        resource_event: "toggle-resource"
+      )
+
+    assert collapsed_html =~ ~s(id="collapsed-trace-controls")
+    assert collapsed_html =~ ~s( hidden>)
+    assert collapsed_html =~ ~s(aria-expanded="false")
   end
 
   test "renders explicit unavailable, loading, and error resource states" do

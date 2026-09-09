@@ -7,6 +7,7 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
   import HardenLlmWeb.BrowserFeatureCase,
     only: [
       assert_field_value: 3,
+      assert_dom_attribute: 4,
       assert_live_socket_connected: 1,
       assert_no_horizontal_overflow: 1,
       commit_combobox: 3,
@@ -72,6 +73,13 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
 
     session =
       session
+      |> assert_dom_attribute("#output-trace-summary", "aria-expanded", "true")
+      |> click(Query.css("#output-trace-summary"))
+      |> assert_dom_attribute("#output-trace-summary", "aria-expanded", "false")
+      |> assert_dom_attribute("#output-trace-controls", "hidden", "")
+      |> click(Query.css("#output-trace-summary"))
+      |> assert_dom_attribute("#output-trace-summary", "aria-expanded", "true")
+      |> assert_dom_attribute("#output-trace-controls", "hidden", nil)
       |> open_ui_fold("#output-trace-details-toggle", "#output-trace-details")
       |> assert_has(Query.css(".trace-controls #output-trace-details-toggle", text: "Hide"))
       |> assert_has(Query.css(".trace-controls a", text: "View JSON Trace"))

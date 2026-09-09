@@ -37,9 +37,13 @@ defmodule HardenLlmWeb.LlmTraceComponents do
   attr :resource_error, :string, default: nil
   attr :details_event, :string, default: nil
   attr :details_name, :string, default: "detailsOpen"
+  attr :controls_open, :boolean, default: true
+  attr :controls_event, :string, default: nil
+  attr :controls_name, :string, default: "controlsOpen"
   attr :resource_event, :string, default: nil
   attr :target, :any, default: nil
   attr :details_disabled, :boolean, default: false
+  attr :controls_disabled, :boolean, default: false
   attr :class, :any, default: nil
 
   @doc "Renders one LLM trace summary, detail panel, and resources row."
@@ -47,6 +51,8 @@ defmodule HardenLlmWeb.LlmTraceComponents do
     assigns =
       assigns
       |> assign(:details_id, "#{assigns.id}-details")
+      |> assign(:summary_id, "#{assigns.id}-summary")
+      |> assign(:controls_id, "#{assigns.id}-controls")
       |> assign(:details_toggle_id, "#{assigns.id}-details-toggle")
       |> assign(:curl_id, "#{assigns.id}-copy-curl")
       |> assign(:request_toggle_id, "#{assigns.id}-show-request")
@@ -58,7 +64,19 @@ defmodule HardenLlmWeb.LlmTraceComponents do
 
     ~H"""
     <div id={@id} class={[@class, "llm-trace-item"]}>
-      <div class="llm-trace-summary">
+      <button
+        id={@summary_id}
+        type="button"
+        class="llm-trace-summary"
+        phx-click={@controls_event}
+        phx-value-name={@controls_name}
+        phx-value-open={to_string(!@controls_open)}
+        phx-target={@target}
+        aria-controls={@controls_id}
+        aria-expanded={to_string(@controls_open)}
+        aria-label={if @controls_open, do: "Hide trace controls", else: "Show trace controls"}
+        disabled={@controls_disabled}
+      >
         <span>
           <span class="status-icon">{value(@summary, "status_icon") || "ℹ️"}</span>
           <strong>ID: {value(@summary, "trace_id") || "—"}</strong>
@@ -83,9 +101,14 @@ defmodule HardenLlmWeb.LlmTraceComponents do
             data-cache-status={value(metric, "data_cache_status")}
           >{value(metric, "value")}</span>
         </span>
-      </div>
+      </button>
 
-      <div class="trace-resources trace-controls" aria-label="Trace resources">
+      <div
+        id={@controls_id}
+        class="trace-resources trace-controls"
+        aria-label="Trace resources"
+        hidden={not @controls_open}
+      >
         <button
           id={@details_toggle_id}
           type="button"

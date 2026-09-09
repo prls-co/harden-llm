@@ -8,7 +8,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
   @contracted_schema_keywords ~w(type properties required additionalProperties items description enum)
   @schema_types ~w(object array string number integer boolean)
   @reasoning_options [{"Lowest", "lowest"}, {"Middle", "middle"}, {"Highest", "highest"}]
-  @ui_keys ~w(llmProfileConfigOpen modelOptionsOpen pricingOpen retryRepairOpen inputAdvancedOpen historyOpen outputDetailsOpen)
+  @ui_keys ~w(llmProfileConfigOpen modelOptionsOpen pricingOpen retryRepairOpen inputAdvancedOpen historyOpen outputDetailsOpen outputControlsOpen)
 
   @default_ui %{
     "llmProfileConfigOpen" => false,
@@ -17,7 +17,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
     "retryRepairOpen" => false,
     "inputAdvancedOpen" => false,
     "historyOpen" => false,
-    "outputDetailsOpen" => true
+    "outputDetailsOpen" => true,
+    "outputControlsOpen" => true
   }
 
   @default_schema %{
