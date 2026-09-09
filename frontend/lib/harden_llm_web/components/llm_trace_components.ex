@@ -42,7 +42,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
   attr :details_disabled, :boolean, default: false
   attr :class, :any, default: nil
 
-  @doc "Renders one expandable LLM trace summary, detail panel, and resources row."
+  @doc "Renders one LLM trace summary, detail panel, and resources row."
   def llm_trace(assigns) do
     assigns =
       assigns
@@ -58,17 +58,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
 
     ~H"""
     <div id={@id} class={[@class, "llm-trace-item"]}>
-      <button
-        type="button"
-        class="llm-trace-summary"
-        phx-click={@details_event}
-        phx-value-name={@details_name}
-        phx-value-open={to_string(!@details_open)}
-        phx-target={@target}
-        aria-controls={@details_id}
-        aria-expanded={to_string(@details_open)}
-        disabled={@details_disabled}
-      >
+      <div class="llm-trace-summary">
         <span>
           <span class="status-icon">{value(@summary, "status_icon") || "ℹ️"}</span>
           <strong>ID: {value(@summary, "trace_id") || "—"}</strong>
@@ -93,7 +83,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
             data-cache-status={value(metric, "data_cache_status")}
           >{value(metric, "value")}</span>
         </span>
-      </button>
+      </div>
 
       <div class="trace-resources trace-controls" aria-label="Trace resources">
         <button
@@ -104,6 +94,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
           phx-value-open={to_string(!@details_open)}
           phx-target={@target}
           aria-label={if @details_open, do: "Hide trace details", else: "Show trace details"}
+          aria-controls={@details_id}
           aria-expanded={to_string(@details_open)}
           disabled={@details_disabled}
         >{if @details_open, do: "Hide", else: "Details"}</button>

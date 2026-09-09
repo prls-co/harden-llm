@@ -54,9 +54,9 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
 
     assert html =~ ~s(id="trace-widget")
 
-    assert html =~
-             ~s(<button type="button" class="llm-trace-summary" phx-click="toggle-details")
-
+    assert html =~ ~s(<div class="llm-trace-summary">)
+    refute html =~ ~s(class="llm-trace-summary" phx-click=)
+    assert html =~ ~s(id="trace-widget-details-toggle")
     assert html =~ ~s(aria-controls="trace-widget-details")
     assert html =~ ~s(aria-expanded="true")
     assert html =~ "ID: trace-1"
