@@ -81,13 +81,11 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       |> assert_dom_attribute("#output-trace-summary", "aria-expanded", "true")
       |> assert_dom_attribute("#output-trace-content", "hidden", nil)
       |> open_ui_fold("#output-trace-details-toggle", "#output-trace-details")
-      |> assert_has(Query.css(".trace-controls #output-trace-details-toggle", text: "Hide"))
-      |> assert_has(Query.css(".trace-controls #output-trace-view-json", text: "View JSON Trace"))
-      |> assert_has(Query.css(".trace-controls #output-trace-copy-curl", text: "Copy cURL"))
-      |> assert_has(Query.css(".trace-controls #output-trace-show-request", text: "Show Request"))
-      |> assert_has(
-        Query.css(".trace-controls #output-trace-show-response", text: "Show Response")
-      )
+      |> assert_has(Query.css(".trace-controls #output-trace-details-toggle", text: "Details"))
+      |> assert_has(Query.css(".trace-controls #output-trace-view-json", text: "JSON"))
+      |> assert_has(Query.css(".trace-controls #output-trace-copy-curl", text: "cURL"))
+      |> assert_has(Query.css(".trace-controls #output-trace-show-request", text: "Request"))
+      |> assert_has(Query.css(".trace-controls #output-trace-show-response", text: "Response"))
       |> click(Query.css("#output-trace-view-json"))
       |> assert_has(Query.css("#output-trace-trace-json .trace-json-node", text: "traceId"))
       |> click(Query.css("#output-trace-show-request"))
@@ -122,11 +120,11 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
     assert widget_facts["controlDisplay"] == "flex"
 
     assert Enum.take(widget_facts["directLabels"], 5) == [
-             "Hide",
-             "Hide JSON Trace",
-             "Copy cURL",
-             "Hide Request",
-             "Hide Response"
+             "Details",
+             "JSON",
+             "cURL",
+             "Request",
+             "Response"
            ]
 
     assert widget_facts["cacheBorderWidth"] == "0px"

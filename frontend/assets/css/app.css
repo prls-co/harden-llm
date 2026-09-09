@@ -390,6 +390,40 @@ button, a, input, select, textarea { touch-action: manipulation; }
   opacity: .55;
 }
 
+.trace-action {
+  min-height: 2rem;
+  color: var(--ullm-text-muted);
+  background: var(--ullm-panel);
+  font-weight: 700;
+  transition: border-color .15s ease, background-color .15s ease, color .15s ease;
+}
+
+.trace-action:hover:not(:disabled),
+.trace-action:focus-visible {
+  border-color: var(--ullm-accent);
+  color: var(--ullm-accent);
+  background: #fff;
+}
+
+.trace-action[aria-expanded="true"],
+.trace-action[aria-pressed="true"],
+.trace-action-active {
+  border-color: rgb(73 111 74 / 52%);
+  color: var(--ullm-success);
+  background: rgb(73 111 74 / 10%);
+}
+
+.trace-action-loading {
+  border-style: dashed;
+  color: var(--ullm-accent-muted);
+  background: rgb(107 90 37 / 8%);
+}
+
+.trace-action:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
 .trace-data-display {
   margin-top: 15px;
   border-top: 1px solid #eee;

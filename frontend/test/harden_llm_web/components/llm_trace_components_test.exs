@@ -63,9 +63,16 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
     assert html =~ ~s(aria-expanded="true")
     assert html =~ ~s(id="trace-widget-content")
     assert html =~ ~s(id="trace-widget-details-toggle")
+    assert html =~ ~s(aria-label="Trace details")
+    assert html =~ ~s(aria-pressed="true")
     assert html =~ ~s(aria-controls="trace-widget-details")
     assert html =~ ~s(id="trace-widget-controls")
     assert html =~ ~s(id="trace-widget-view-json")
+    assert html =~ ~s(aria-label="JSON trace")
+    assert html =~ ~s(>JSON</button>)
+    assert html =~ ~s(>cURL</button>)
+    assert html =~ ~s(>Request</button>)
+    assert html =~ ~s(>Response</button>)
     assert html =~ ~s(phx-value-kind="trace")
     assert html =~ "ID: trace-1"
     assert html =~ "Model: model-1"
@@ -89,6 +96,11 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
     assert html =~ "null"
     assert html =~ ~s(aria-disabled="true")
     assert html =~ "trace · unavailable"
+    refute html =~ "View JSON Trace"
+    refute html =~ "Show Request"
+    refute html =~ "Hide Request"
+    refute html =~ "Show Response"
+    refute html =~ "Hide Response"
     refute html =~ ~s(href="")
 
     collapsed_html =

@@ -117,55 +117,85 @@ defmodule HardenLlmWeb.LlmTraceComponents do
           <button
             id={@details_toggle_id}
             type="button"
+            class={[
+              "trace-action",
+              if(@details_open, do: "trace-action-active", else: "trace-action-inactive")
+            ]}
             phx-click={@details_event}
             phx-value-name={@details_name}
             phx-value-open={to_string(!@details_open)}
             phx-target={@target}
-            aria-label={if @details_open, do: "Hide trace details", else: "Show trace details"}
+            aria-label="Trace details"
+            title="Trace details"
             aria-controls={@details_id}
             aria-expanded={to_string(@details_open)}
+            aria-pressed={to_string(@details_open)}
             disabled={@details_disabled}
-          >{if @details_open, do: "Hide", else: "Details"}</button>
+          >Details</button>
 
           <button
             id={@trace_toggle_id}
             type="button"
+            class={[
+              "trace-action",
+              if(@trace_loading?, do: "trace-action-loading", else: nil),
+              if(@trace_open, do: "trace-action-active", else: "trace-action-inactive")
+            ]}
             phx-click={@resource_event}
             phx-value-kind="trace"
             phx-target={@target}
+            aria-label="JSON trace"
+            title="JSON trace"
             aria-expanded={to_string(@trace_open)}
+            aria-pressed={to_string(@trace_open)}
+            aria-busy={to_string(@trace_loading?)}
             disabled={not present?(trace_url(@resources)) or @trace_loading?}
-          >{if @trace_loading?,
-            do: "Loading JSON Trace…",
-            else: if(@trace_open, do: "Hide JSON Trace", else: "View JSON Trace")}</button>
+          >JSON</button>
 
           <button
             id={@curl_id}
             type="button"
+            class="trace-action"
             phx-hook="Clipboard"
             data-copy-value={curl(@resources)}
+            aria-label="Copy cURL"
+            title="Copy cURL"
             disabled={not present?(curl(@resources))}
-          >Copy cURL</button>
+          >cURL</button>
 
           <button
             id={@request_toggle_id}
             type="button"
+            class={[
+              "trace-action",
+              if(@request_open, do: "trace-action-active", else: "trace-action-inactive")
+            ]}
             phx-click={@resource_event}
             phx-value-kind="request"
             phx-target={@target}
+            aria-label="Request payload"
+            title="Request payload"
             aria-expanded={to_string(@request_open)}
+            aria-pressed={to_string(@request_open)}
             disabled={not resource_available?(@resources, "request") or @resource_loading?}
-          >{if @request_open, do: "Hide Request", else: "Show Request"}</button>
+          >Request</button>
 
           <button
             id={@response_toggle_id}
             type="button"
+            class={[
+              "trace-action",
+              if(@response_open, do: "trace-action-active", else: "trace-action-inactive")
+            ]}
             phx-click={@resource_event}
             phx-value-kind="response"
             phx-target={@target}
+            aria-label="Response payload"
+            title="Response payload"
             aria-expanded={to_string(@response_open)}
+            aria-pressed={to_string(@response_open)}
             disabled={not resource_available?(@resources, "response") or @resource_loading?}
-          >{if @response_open, do: "Hide Response", else: "Show Response"}</button>
+          >Response</button>
 
           <%= for {artifact, index} <- Enum.with_index(artifact_links(@resources)) do %>
             <button
@@ -175,7 +205,14 @@ defmodule HardenLlmWeb.LlmTraceComponents do
               phx-click={@resource_event}
               phx-value-kind="trace"
               phx-target={@target}
+              class={[
+                "trace-action",
+                if(@trace_open, do: "trace-action-active", else: "trace-action-inactive")
+              ]}
+              aria-label={value(artifact, "label")}
+              title={value(artifact, "label")}
               aria-expanded={to_string(@trace_open)}
+              aria-pressed={to_string(@trace_open)}
               disabled={@trace_loading?}
             >{value(artifact, "label")}</button>
             <span :if={not value(artifact, "available", false)} aria-disabled="true">

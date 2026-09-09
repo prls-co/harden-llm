@@ -1501,11 +1501,11 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     assert has_element?(view, ".llm-trace-summary", "$0.0010")
     assert has_element?(view, ~s(.llm-trace-summary span[title="Completion tokens"]), "📤 1")
-    assert has_element?(view, ".trace-controls #output-trace-details-toggle", "Hide")
-    assert has_element?(view, ".trace-controls #output-trace-view-json", "View JSON Trace")
-    assert has_element?(view, ".trace-controls #output-trace-copy-curl", "Copy cURL")
-    assert has_element?(view, ".trace-controls #output-trace-show-request", "Show Request")
-    assert has_element?(view, ".trace-controls #output-trace-show-response", "Show Response")
+    assert has_element?(view, ".trace-controls #output-trace-details-toggle", "Details")
+    assert has_element?(view, ".trace-controls #output-trace-view-json", "JSON")
+    assert has_element?(view, ".trace-controls #output-trace-copy-curl", "cURL")
+    assert has_element?(view, ".trace-controls #output-trace-show-request", "Request")
+    assert has_element?(view, ".trace-controls #output-trace-show-response", "Response")
     refute has_element?(view, ".trace-controls a")
 
     assert has_element?(
@@ -1555,7 +1555,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, "#run-output", "fixture output")
     assert has_element?(view, "#run-result-panel", "trace-test")
     assert has_element?(view, "#run-result-panel", "Success (200)")
-    assert has_element?(view, "#output-trace-view-json", "View JSON Trace")
+    assert has_element?(view, "#output-trace-view-json", "JSON")
     refute has_element?(view, ".trace-controls a")
 
     view |> element("#output-trace-view-json") |> render_click()
@@ -1892,8 +1892,8 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     render_async(view, 1_000)
     refute has_element?(view, "#output-trace-details")
     assert has_element?(view, ".trace-controls #output-trace-details-toggle", "Details")
-    assert has_element?(view, ".trace-controls #output-trace-show-request", "Show Request")
-    assert has_element?(view, ".trace-controls #output-trace-show-response", "Show Response")
+    assert has_element?(view, ".trace-controls #output-trace-show-request", "Request")
+    assert has_element?(view, ".trace-controls #output-trace-show-response", "Response")
 
     view |> element("#output-trace-details-toggle") |> render_click()
     render_async(view, 1_000)
