@@ -15,9 +15,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
         "curl" => "curl ...",
         "request" => %{"available" => true, "payload" => %{}},
         "response" => %{"available" => false, "message" => "..."},
-        "artifacts" => [
-          %{"available" => true, "href" => "/traces/...", "label" => "trace · 42 bytes"}
-        ]
+        "artifacts" => [%{"available" => true, "label" => "trace · 42 bytes"}]
       }
 
   A resource without `available: true` is rendered as unavailable rather than
@@ -35,6 +33,10 @@ defmodule HardenLlmWeb.LlmTraceComponents do
   attr :response_open, :boolean, default: false
   attr :resource_loading?, :boolean, default: false
   attr :resource_error, :string, default: nil
+  attr :trace_open, :boolean, default: false
+  attr :trace_loading?, :boolean, default: false
+  attr :trace_error, :string, default: nil
+  attr :trace_data, :any, default: nil
   attr :details_event, :string, default: nil
   attr :details_name, :string, default: "detailsOpen"
   attr :controls_open, :boolean, default: true
@@ -52,8 +54,11 @@ defmodule HardenLlmWeb.LlmTraceComponents do
       assigns
       |> assign(:details_id, "#{assigns.id}-details")
       |> assign(:summary_id, "#{assigns.id}-summary")
+      |> assign(:content_id, "#{assigns.id}-content")
       |> assign(:controls_id, "#{assigns.id}-controls")
       |> assign(:details_toggle_id, "#{assigns.id}-details-toggle")
+      |> assign(:trace_toggle_id, "#{assigns.id}-view-json")
+      |> assign(:trace_json_id, "#{assigns.id}-trace-json")
       |> assign(:curl_id, "#{assigns.id}-copy-curl")
       |> assign(:request_toggle_id, "#{assigns.id}-show-request")
       |> assign(:response_toggle_id, "#{assigns.id}-show-response")
@@ -72,7 +77,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
         phx-value-name={@controls_name}
         phx-value-open={to_string(!@controls_open)}
         phx-target={@target}
-        aria-controls={@controls_id}
+        aria-controls={@content_id}
         aria-expanded={to_string(@controls_open)}
         aria-label={if @controls_open, do: "Hide trace controls", else: "Show trace controls"}
         disabled={@controls_disabled}
@@ -104,193 +109,220 @@ defmodule HardenLlmWeb.LlmTraceComponents do
       </button>
 
       <div
-        id={@controls_id}
-        class="trace-resources trace-controls"
-        aria-label="Trace resources"
+        id={@content_id}
+        class="llm-trace-content"
         hidden={not @controls_open}
       >
-        <button
-          id={@details_toggle_id}
-          type="button"
-          phx-click={@details_event}
-          phx-value-name={@details_name}
-          phx-value-open={to_string(!@details_open)}
-          phx-target={@target}
-          aria-label={if @details_open, do: "Hide trace details", else: "Show trace details"}
-          aria-controls={@details_id}
-          aria-expanded={to_string(@details_open)}
-          disabled={@details_disabled}
-        >{if @details_open, do: "Hide", else: "Details"}</button>
+        <div class="trace-resources trace-controls" id={@controls_id} aria-label="Trace resources">
+          <button
+            id={@details_toggle_id}
+            type="button"
+            phx-click={@details_event}
+            phx-value-name={@details_name}
+            phx-value-open={to_string(!@details_open)}
+            phx-target={@target}
+            aria-label={if @details_open, do: "Hide trace details", else: "Show trace details"}
+            aria-controls={@details_id}
+            aria-expanded={to_string(@details_open)}
+            disabled={@details_disabled}
+          >{if @details_open, do: "Hide", else: "Details"}</button>
 
-        <%= if present?(trace_url(@resources)) do %>
-          <a
-            href={trace_url(@resources)}
-            target="_blank"
-            rel="noopener noreferrer"
-          >View JSON Trace</a>
-        <% else %>
-          <button type="button" class="trace-resource-disabled" disabled>View JSON Trace</button>
-        <% end %>
+          <button
+            id={@trace_toggle_id}
+            type="button"
+            phx-click={@resource_event}
+            phx-value-kind="trace"
+            phx-target={@target}
+            aria-expanded={to_string(@trace_open)}
+            disabled={not present?(trace_url(@resources)) or @trace_loading?}
+          >{if @trace_loading?,
+            do: "Loading JSON Trace…",
+            else: if(@trace_open, do: "Hide JSON Trace", else: "View JSON Trace")}</button>
 
-        <button
-          id={@curl_id}
-          type="button"
-          phx-hook="Clipboard"
-          data-copy-value={curl(@resources)}
-          disabled={not present?(curl(@resources))}
-        >Copy cURL</button>
+          <button
+            id={@curl_id}
+            type="button"
+            phx-hook="Clipboard"
+            data-copy-value={curl(@resources)}
+            disabled={not present?(curl(@resources))}
+          >Copy cURL</button>
 
-        <button
-          id={@request_toggle_id}
-          type="button"
-          phx-click={@resource_event}
-          phx-value-kind="request"
-          phx-target={@target}
-          aria-expanded={to_string(@request_open)}
-          disabled={not resource_available?(@resources, "request") or @resource_loading?}
-        >{if @request_open, do: "Hide Request", else: "Show Request"}</button>
+          <button
+            id={@request_toggle_id}
+            type="button"
+            phx-click={@resource_event}
+            phx-value-kind="request"
+            phx-target={@target}
+            aria-expanded={to_string(@request_open)}
+            disabled={not resource_available?(@resources, "request") or @resource_loading?}
+          >{if @request_open, do: "Hide Request", else: "Show Request"}</button>
 
-        <button
-          id={@response_toggle_id}
-          type="button"
-          phx-click={@resource_event}
-          phx-value-kind="response"
-          phx-target={@target}
-          aria-expanded={to_string(@response_open)}
-          disabled={not resource_available?(@resources, "response") or @resource_loading?}
-        >{if @response_open, do: "Hide Response", else: "Show Response"}</button>
+          <button
+            id={@response_toggle_id}
+            type="button"
+            phx-click={@resource_event}
+            phx-value-kind="response"
+            phx-target={@target}
+            aria-expanded={to_string(@response_open)}
+            disabled={not resource_available?(@resources, "response") or @resource_loading?}
+          >{if @response_open, do: "Hide Response", else: "Show Response"}</button>
 
-        <%= for artifact <- artifact_links(@resources) do %>
-          <a :if={value(artifact, "available", false)} href={value(artifact, "href")}>
-            {value(artifact, "label")}
-          </a>
-          <span :if={not value(artifact, "available", false)} aria-disabled="true">
-            {value(artifact, "label")}
-          </span>
-        <% end %>
-      </div>
-
-      <div
-        :if={@details_open}
-        id={@details_id}
-        class="llm-trace-details"
-      >
-        <p><strong>Trace ID:</strong> {value(@details, "trace_id") || "—"}</p>
-        <p><strong>Diagnostics schema:</strong> {value(@details, "schema_label") || "—"}</p>
-        <p :if={present?(value(@details, "run_id"))}>
-          <strong>Run ID:</strong> {value(@details, "run_id")}
-        </p>
-        <p :if={present?(value(@details, "profile_id"))}>
-          <strong>Profile:</strong> {value(@details, "profile_id")}
-        </p>
-        <p :if={present?(value(@details, "model_id"))}>
-          <strong>Model:</strong> {value(@details, "model_id")}
-        </p>
-        <p :if={present?(value(@details, "provider"))}>
-          <strong>Provider:</strong> {value(@details, "provider")}
-        </p>
-        <p :if={present?(value(@details, "api_inference_type"))}>
-          <strong>API inference type:</strong> {value(@details, "api_inference_type")}
-        </p>
-        <p :if={present?(value(@details, "provider_base_url"))}>
-          <strong>Selected endpoint:</strong> {value(@details, "provider_base_url")}
-        </p>
-        <p :if={present?(value(@details, "result_source"))}>
-          <strong>Result source:</strong> {value(@details, "result_source")}
-        </p>
-        <p :if={present?(value(@details, "producer_profile_id"))}>
-          <strong>Producer profile:</strong> {value(@details, "producer_profile_id")}
-        </p>
-        <p :if={present?(value(@details, "producer_provider"))}>
-          <strong>Producer target:</strong>
-          {value(@details, "producer_provider")} · {value(@details, "producer_protocol")} · {value(
-            @details,
-            "producer_model_id"
-          )} · {value(@details, "producer_endpoint")}
-        </p>
-        <p :if={not is_nil(value(@details, "provider_invoked"))}>
-          <strong>Provider invoked this run:</strong>
-          {if value(@details, "provider_invoked"), do: "Yes", else: "No"}
-        </p>
-        <p :if={present?(value(@details, "result_usage_status"))}>
-          <strong>Result accounting:</strong>
-          usage {value(@details, "result_usage_status")} · cost {value(@details, "result_cost_status")}
-        </p>
-        <p :if={present?(value(@details, "provider_usage_status"))}>
-          <strong>Provider accounting:</strong>
-          usage {value(@details, "provider_usage_status")} · cost {value(
-            @details,
-            "provider_cost_status"
-          )}
-        </p>
-        <p :if={present?(value(@details, "status"))}>
-          <strong>Status:</strong> {value(@details, "status")}
-        </p>
-        <p :if={present?(value(@details, "cache_status"))}>
-          <strong>Harden-LLM cache:</strong> {value(@details, "cache_status")}
-        </p>
-        <p :if={not is_nil(value(@details, "used_repair"))}>
-          <strong>Used Repair:</strong> {if value(@details, "used_repair"), do: "Yes", else: "No"}
-        </p>
-        <strong>Attempts:</strong>
-        <ul>
-          <li :for={attempt <- list_value(@details, "attempts")}>
-            Attempt {value(attempt, "attempt")}<span :if={value(attempt, "retry_local_attempt")}>
-              / retry {value(attempt, "retry_local_attempt")}</span>: {value(
-              attempt,
-              "category"
-            )} ({format_status(value(attempt, "status_code"))}) · {value(attempt, "duration_ms") ||
-              "—"}ms
-            <span :if={present?(value(attempt, "provider"))}>
-              · {value(attempt, "provider")} / {value(attempt, "model_id")}
+          <%= for {artifact, index} <- Enum.with_index(artifact_links(@resources)) do %>
+            <button
+              :if={value(artifact, "available", false)}
+              id={"#{@id}-artifact-#{index}"}
+              type="button"
+              phx-click={@resource_event}
+              phx-value-kind="trace"
+              phx-target={@target}
+              aria-expanded={to_string(@trace_open)}
+              disabled={@trace_loading?}
+            >{value(artifact, "label")}</button>
+            <span :if={not value(artifact, "available", false)} aria-disabled="true">
+              {value(artifact, "label")}
             </span>
-            <span :if={not is_nil(value(attempt, "provider_used"))}>
-              · provider {if value(attempt, "provider_used"), do: "used", else: "not used"}
-            </span>
-            <span :if={value(attempt, "retryable")}>
-              - Retried after {value(attempt, "delay_ms")}ms
-            </span>
-          </li>
-        </ul>
-      </div>
+          <% end %>
+        </div>
 
-      <p
-        :if={@resource_loading?}
-        id={"#{@id}-resource-loading"}
-        class="trace-resource-muted"
-        role="status"
-      >
-        Loading trace JSON…
-      </p>
-      <p
-        :if={present?(@resource_error)}
-        id={"#{@id}-resource-error"}
-        class="trace-resource-muted"
-        role="alert"
-      >
-        {@resource_error}
-      </p>
+        <div
+          :if={@details_open}
+          id={@details_id}
+          class="llm-trace-details"
+        >
+          <p><strong>Trace ID:</strong> {value(@details, "trace_id") || "—"}</p>
+          <p><strong>Diagnostics schema:</strong> {value(@details, "schema_label") || "—"}</p>
+          <p :if={present?(value(@details, "run_id"))}>
+            <strong>Run ID:</strong> {value(@details, "run_id")}
+          </p>
+          <p :if={present?(value(@details, "profile_id"))}>
+            <strong>Profile:</strong> {value(@details, "profile_id")}
+          </p>
+          <p :if={present?(value(@details, "model_id"))}>
+            <strong>Model:</strong> {value(@details, "model_id")}
+          </p>
+          <p :if={present?(value(@details, "provider"))}>
+            <strong>Provider:</strong> {value(@details, "provider")}
+          </p>
+          <p :if={present?(value(@details, "api_inference_type"))}>
+            <strong>API inference type:</strong> {value(@details, "api_inference_type")}
+          </p>
+          <p :if={present?(value(@details, "provider_base_url"))}>
+            <strong>Selected endpoint:</strong> {value(@details, "provider_base_url")}
+          </p>
+          <p :if={present?(value(@details, "result_source"))}>
+            <strong>Result source:</strong> {value(@details, "result_source")}
+          </p>
+          <p :if={present?(value(@details, "producer_profile_id"))}>
+            <strong>Producer profile:</strong> {value(@details, "producer_profile_id")}
+          </p>
+          <p :if={present?(value(@details, "producer_provider"))}>
+            <strong>Producer target:</strong>
+            {value(@details, "producer_provider")} · {value(@details, "producer_protocol")} · {value(
+              @details,
+              "producer_model_id"
+            )} · {value(@details, "producer_endpoint")}
+          </p>
+          <p :if={not is_nil(value(@details, "provider_invoked"))}>
+            <strong>Provider invoked this run:</strong>
+            {if value(@details, "provider_invoked"), do: "Yes", else: "No"}
+          </p>
+          <p :if={present?(value(@details, "result_usage_status"))}>
+            <strong>Result accounting:</strong>
+            usage {value(@details, "result_usage_status")} · cost {value(
+              @details,
+              "result_cost_status"
+            )}
+          </p>
+          <p :if={present?(value(@details, "provider_usage_status"))}>
+            <strong>Provider accounting:</strong>
+            usage {value(@details, "provider_usage_status")} · cost {value(
+              @details,
+              "provider_cost_status"
+            )}
+          </p>
+          <p :if={present?(value(@details, "status"))}>
+            <strong>Status:</strong> {value(@details, "status")}
+          </p>
+          <p :if={present?(value(@details, "cache_status"))}>
+            <strong>Harden-LLM cache:</strong> {value(@details, "cache_status")}
+          </p>
+          <p :if={not is_nil(value(@details, "used_repair"))}>
+            <strong>Used Repair:</strong> {if value(@details, "used_repair"), do: "Yes", else: "No"}
+          </p>
+          <strong>Attempts:</strong>
+          <ul>
+            <li :for={attempt <- list_value(@details, "attempts")}>
+              Attempt {value(attempt, "attempt")}<span :if={value(attempt, "retry_local_attempt")}>
+                / retry {value(attempt, "retry_local_attempt")}</span>: {value(
+                attempt,
+                "category"
+              )} ({format_status(value(attempt, "status_code"))}) · {value(attempt, "duration_ms") ||
+                "—"}ms
+              <span :if={present?(value(attempt, "provider"))}>
+                · {value(attempt, "provider")} / {value(attempt, "model_id")}
+              </span>
+              <span :if={not is_nil(value(attempt, "provider_used"))}>
+                · provider {if value(attempt, "provider_used"), do: "used", else: "not used"}
+              </span>
+              <span :if={value(attempt, "retryable")}>
+                - Retried after {value(attempt, "delay_ms")}ms
+              </span>
+            </li>
+          </ul>
+        </div>
 
-      <div
-        :if={!@resource_loading? and is_nil(@resource_error) and (@request_open or @response_open)}
-        class="trace-data-display"
-      >
-        <.trace_resource_block
-          :if={@request_open}
-          id={@request_id}
-          title="Request"
-          resource={resource(@resources, "request")}
-          missing_message="Request payload is not available for this trace."
-          content_id={@request_content_id}
-        />
-        <.trace_resource_block
-          :if={@response_open}
-          id={@response_id}
-          title="Response"
-          resource={resource(@resources, "response")}
-          missing_message="Response payload is not available for this trace."
-          content_id={@response_content_id}
-        />
+        <p
+          :if={@trace_loading? or @resource_loading?}
+          id={"#{@id}-resource-loading"}
+          class="trace-resource-muted"
+          role="status"
+        >
+          Loading trace JSON…
+        </p>
+        <p
+          :if={present?(@trace_error) or present?(@resource_error)}
+          id={"#{@id}-resource-error"}
+          class="trace-resource-muted"
+          role="alert"
+        >
+          {@trace_error || @resource_error}
+        </p>
+
+        <div
+          :if={
+            not (@trace_loading? or @resource_loading?) and is_nil(@trace_error) and
+              is_nil(@resource_error) and
+              (@trace_open or @request_open or @response_open)
+          }
+          class="trace-data-display"
+        >
+          <section
+            :if={@trace_open and is_map(@trace_data)}
+            id={@trace_json_id}
+            class="trace-data-section"
+          >
+            <h4>JSON Trace</h4>
+            <div id={"#{@trace_json_id}-content"} class="trace-json trace-json-display">
+              <.json_value id={"#{@trace_json_id}-root"} value={@trace_data} root />
+            </div>
+          </section>
+          <.trace_resource_block
+            :if={@request_open}
+            id={@request_id}
+            title="Request"
+            resource={resource(@resources, "request")}
+            missing_message="Request payload is not available for this trace."
+            content_id={@request_content_id}
+          />
+          <.trace_resource_block
+            :if={@response_open}
+            id={@response_id}
+            title="Response"
+            resource={resource(@resources, "response")}
+            missing_message="Response payload is not available for this trace."
+            content_id={@response_content_id}
+          />
+        </div>
       </div>
     </div>
     """
@@ -390,11 +422,49 @@ defmodule HardenLlmWeb.LlmTraceComponents do
     <div id={@id} class="trace-data-section">
       <h4>{@title}</h4>
       <%= if resource_payload_present?(@resource) do %>
-        <pre id={@content_id || @id} class="trace-json ullm-mono"><%= payload_text(@resource) %></pre>
+        <div id={@content_id || @id} class="trace-json trace-json-display">
+          <.json_value
+            id={"#{@content_id || @id}-root"}
+            value={resource_payload(@resource)}
+            root
+          />
+        </div>
       <% else %>
         <p class="trace-resource-muted">{@missing_message}</p>
       <% end %>
     </div>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :value, :any, required: true
+  attr :label, :any, default: nil
+  attr :root, :boolean, default: false
+
+  @doc "Renders a dependency-free, foldable JSON value tree."
+  def json_value(assigns) do
+    ~H"""
+    <%= if json_container?(@value) do %>
+      <details id={@id} class="trace-json-node" open={@root}>
+        <summary>
+          <span :if={not is_nil(@label)} class="trace-json-key">{json_key(@label)}</span>
+          <span class="trace-json-type">{json_container_label(@value)}</span>
+        </summary>
+        <div class="trace-json-children">
+          <.json_value
+            :for={{key, child, index} <- json_entries(@value)}
+            id={json_child_id(@id, index)}
+            label={key}
+            value={child}
+          />
+        </div>
+      </details>
+    <% else %>
+      <div id={@id} class="trace-json-leaf">
+        <span :if={not is_nil(@label)} class="trace-json-key">{json_key(@label)}</span>
+        <span class="trace-json-value">{json_scalar(@value)}</span>
+      </div>
+    <% end %>
     """
   end
 
@@ -443,14 +513,52 @@ defmodule HardenLlmWeb.LlmTraceComponents do
       Map.has_key?(resource, "payload")
   end
 
-  defp payload_text(resource) do
+  defp resource_payload(resource) do
     case value(resource, "payload", :missing) do
-      :missing -> ""
-      value when is_binary(value) -> value
-      nil -> "null"
-      value -> Jason.encode!(value, pretty: true)
+      :missing -> nil
+      payload when is_binary(payload) -> decode_json_payload(payload)
+      payload -> payload
     end
   end
+
+  defp decode_json_payload(payload) do
+    case Jason.decode(payload) do
+      {:ok, value} -> value
+      {:error, _reason} -> payload
+    end
+  end
+
+  defp json_container?(value), do: is_map(value) or is_list(value)
+
+  defp json_entries(value) when is_map(value) do
+    value
+    |> Enum.sort_by(fn {key, _value} -> json_key_sort_value(key) end)
+    |> Enum.with_index()
+    |> Enum.map(fn {{key, child}, index} -> {key, child, index} end)
+  end
+
+  defp json_entries(value) when is_list(value) do
+    Enum.with_index(value)
+    |> Enum.map(fn {child, index} -> {index, child, index} end)
+  end
+
+  defp json_entries(_value), do: []
+
+  defp json_key_sort_value(key) when is_binary(key), do: key
+  defp json_key_sort_value(key), do: inspect(key)
+
+  defp json_child_id(parent_id, index), do: "#{parent_id}-#{index}"
+
+  defp json_container_label(value) when is_map(value), do: "{#{map_size(value)} keys}"
+  defp json_container_label(value) when is_list(value), do: "[#{length(value)} items]"
+
+  defp json_key(key) when is_integer(key), do: "[#{key}]"
+  defp json_key(key), do: Jason.encode!(to_string(key)) <> ":"
+
+  defp json_scalar(nil), do: "null"
+  defp json_scalar(value) when is_boolean(value) or is_number(value), do: Jason.encode!(value)
+  defp json_scalar(value) when is_binary(value), do: Jason.encode!(value)
+  defp json_scalar(value), do: Jason.encode!(inspect(value))
 
   defp artifact_links(resources) do
     resources

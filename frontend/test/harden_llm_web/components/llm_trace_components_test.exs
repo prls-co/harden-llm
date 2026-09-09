@@ -48,6 +48,8 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
         },
         request_open: true,
         response_open: true,
+        trace_open: true,
+        trace_data: %{"traceId" => "trace-1", "observations" => [%{"ok" => true}]},
         details_event: "toggle-details",
         controls_event: "toggle-controls",
         resource_event: "toggle-resource"
@@ -57,11 +59,14 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
 
     assert html =~ ~s(<button id="trace-widget-summary" type="button" class="llm-trace-summary")
     assert html =~ ~s(phx-click="toggle-controls")
-    assert html =~ ~s(aria-controls="trace-widget-controls")
+    assert html =~ ~s(aria-controls="trace-widget-content")
     assert html =~ ~s(aria-expanded="true")
+    assert html =~ ~s(id="trace-widget-content")
     assert html =~ ~s(id="trace-widget-details-toggle")
     assert html =~ ~s(aria-controls="trace-widget-details")
     assert html =~ ~s(id="trace-widget-controls")
+    assert html =~ ~s(id="trace-widget-view-json")
+    assert html =~ ~s(phx-value-kind="trace")
     assert html =~ "ID: trace-1"
     assert html =~ "Model: model-1"
     assert html =~ "Profile:</strong> Primary"
@@ -70,14 +75,18 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
     assert html =~ "Selected endpoint:</strong> https://provider.example.test/v1"
     assert html =~ "Success (200)"
     assert html =~ "120ms"
-    assert html =~ ~s(href="/traces/trace-1")
+    refute html =~ ~s(href="/traces/trace-1")
+    refute html =~ ~s(target="_blank")
     assert html =~ ~s(data-copy-value="curl -X POST /api/v1/run")
     assert html =~ ~s(phx-value-kind="request")
     assert html =~ ~s(phx-value-kind="response")
     assert html =~ ~s(id="trace-widget-request-content")
     assert html =~ "hello"
     assert html =~ ~s(id="trace-widget-response-content")
-    assert html =~ ">null</pre>"
+    assert html =~ ~s(class="trace-json-node")
+    assert html =~ "traceId"
+    assert html =~ "observations"
+    assert html =~ "null"
     assert html =~ ~s(aria-disabled="true")
     assert html =~ "trace · unavailable"
     refute html =~ ~s(href="")
@@ -92,6 +101,7 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
         resource_event: "toggle-resource"
       )
 
+    assert collapsed_html =~ ~s(id="collapsed-trace-content")
     assert collapsed_html =~ ~s(id="collapsed-trace-controls")
     assert collapsed_html =~ ~s( hidden>)
     assert collapsed_html =~ ~s(aria-expanded="false")

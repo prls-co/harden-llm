@@ -363,7 +363,7 @@ button, a, input, select, textarea { touch-action: manipulation; }
   padding: 0;
 }
 
-.llm-trace-item > .trace-resources,
+.llm-trace-content > .trace-resources,
 .llm-trace-details .trace-resources {
   display: flex;
   align-items: center;
@@ -372,8 +372,8 @@ button, a, input, select, textarea { touch-action: manipulation; }
   margin-top: 10px;
 }
 
-.llm-trace-item > .trace-resources button,
-.llm-trace-item > .trace-resources a,
+.llm-trace-content > .trace-resources button,
+.llm-trace-content > .trace-resources a,
 .llm-trace-details .trace-resources button,
 .llm-trace-details .trace-resources a,
 .trace-resource-disabled {
@@ -412,6 +412,59 @@ button, a, input, select, textarea { touch-action: manipulation; }
   border-radius: 6px;
   padding: .75em;
   background: #fff;
+}
+
+.trace-json-display {
+  color: #334155;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .86em;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.trace-json-node {
+  min-width: max-content;
+}
+
+.trace-json-node > summary {
+  display: flex;
+  align-items: baseline;
+  gap: .45rem;
+  cursor: pointer;
+  list-style-position: outside;
+  padding: .12rem 0;
+}
+
+.trace-json-node > summary:focus-visible {
+  outline: 2px solid var(--ullm-focus-border);
+  outline-offset: 2px;
+}
+
+.trace-json-type {
+  color: #64748b;
+  font-size: .9em;
+}
+
+.trace-json-children {
+  margin: .1rem 0 .1rem .9rem;
+  border-left: 1px solid #e2e8f0;
+  padding-left: .8rem;
+}
+
+.trace-json-leaf {
+  display: grid;
+  grid-template-columns: minmax(7rem, max-content) minmax(0, 1fr);
+  gap: .55rem;
+  padding: .12rem 0;
+}
+
+.trace-json-key {
+  color: #0f766e;
+}
+
+.trace-json-value {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .trace-data-display + .trace-resources {

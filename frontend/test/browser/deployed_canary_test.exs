@@ -76,22 +76,28 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       |> assert_dom_attribute("#output-trace-summary", "aria-expanded", "true")
       |> click(Query.css("#output-trace-summary"))
       |> assert_dom_attribute("#output-trace-summary", "aria-expanded", "false")
-      |> assert_dom_attribute("#output-trace-controls", "hidden", "")
+      |> assert_dom_attribute("#output-trace-content", "hidden", "")
       |> click(Query.css("#output-trace-summary"))
       |> assert_dom_attribute("#output-trace-summary", "aria-expanded", "true")
-      |> assert_dom_attribute("#output-trace-controls", "hidden", nil)
+      |> assert_dom_attribute("#output-trace-content", "hidden", nil)
       |> open_ui_fold("#output-trace-details-toggle", "#output-trace-details")
       |> assert_has(Query.css(".trace-controls #output-trace-details-toggle", text: "Hide"))
-      |> assert_has(Query.css(".trace-controls a", text: "View JSON Trace"))
+      |> assert_has(Query.css(".trace-controls #output-trace-view-json", text: "View JSON Trace"))
       |> assert_has(Query.css(".trace-controls #output-trace-copy-curl", text: "Copy cURL"))
       |> assert_has(Query.css(".trace-controls #output-trace-show-request", text: "Show Request"))
       |> assert_has(
         Query.css(".trace-controls #output-trace-show-response", text: "Show Response")
       )
+      |> click(Query.css("#output-trace-view-json"))
+      |> assert_has(Query.css("#output-trace-trace-json .trace-json-node", text: "traceId"))
       |> click(Query.css("#output-trace-show-request"))
       |> assert_has(Query.css("#output-trace-request-content"))
       |> click(Query.css("#output-trace-show-response"))
       |> assert_has(Query.css("#output-trace-response-content"))
+      |> click(Query.css("#output-trace-summary"))
+      |> assert_dom_attribute("#output-trace-content", "hidden", "")
+      |> click(Query.css("#output-trace-summary"))
+      |> assert_dom_attribute("#output-trace-content", "hidden", nil)
       |> open_ui_fold("#history-fold-toggle", "#workspace-history")
       |> assert_has(Query.css("#workspace-history article", text: nonce))
 
@@ -117,7 +123,7 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
 
     assert Enum.take(widget_facts["directLabels"], 5) == [
              "Hide",
-             "View JSON Trace",
+             "Hide JSON Trace",
              "Copy cURL",
              "Hide Request",
              "Hide Response"

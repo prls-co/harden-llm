@@ -90,6 +90,11 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:output_request_open?, false)
       |> assign(:output_response_open?, false)
       |> assign(:output_trace_resources, %{})
+      |> assign(:output_trace_data, nil)
+      |> assign(:output_trace_open?, false)
+      |> assign(:output_trace_loading?, false)
+      |> assign(:output_trace_error, nil)
+      |> assign(:output_trace_ref, nil)
       |> assign(:schema_check, %{status: :idle, message: ""})
       |> assign(:profile_provider_options, %{})
       |> assign(:profile_requires_save?, false)
@@ -356,6 +361,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:run_error, nil)
       |> assign(:output_request_open?, false)
       |> assign(:output_response_open?, false)
+      |> reset_output_trace()
       |> maybe_refresh_history()
       |> LiveStats.refresh()
 
@@ -381,6 +387,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:run_request_payload, nil)
       |> assign(:output_trace_resources, %{})
       |> assign(:run_error, message)
+      |> reset_output_trace()
       |> maybe_refresh_history()
       |> LiveStats.refresh()
       |> maybe_load_run_diagnostics(error.trace_id)
@@ -400,6 +407,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:run_request_payload, nil)
      |> assign(:output_trace_resources, %{})
      |> assign(:run_error, "The run could not be completed. Try again or check History.")
+     |> reset_output_trace()
      |> maybe_refresh_history()
      |> LiveStats.refresh()}
   end
@@ -418,6 +426,11 @@ defmodule HardenLlmWeb.WorkspaceLive do
           |> assign(:diagnostic_ref, nil)
           |> assign(:run_result, result)
           |> assign(:output_trace_resources, trace_output_resources(trace, result))
+          |> assign(:output_trace_data, trace)
+          |> assign(:output_trace_open?, false)
+          |> assign(:output_trace_loading?, false)
+          |> assign(:output_trace_error, nil)
+          |> assign(:output_trace_ref, nil)
           |> assign(:output_request_open?, false)
           |> assign(:output_response_open?, false)
 
@@ -451,6 +464,11 @@ defmodule HardenLlmWeb.WorkspaceLive do
          |> assign(:conversation_trace_ref, nil)
          |> assign(:run_result, result)
          |> assign(:output_trace_resources, trace_output_resources(trace, result))
+         |> assign(:output_trace_data, trace)
+         |> assign(:output_trace_open?, false)
+         |> assign(:output_trace_loading?, false)
+         |> assign(:output_trace_error, nil)
+         |> assign(:output_trace_ref, nil)
          |> assign(:run_request_payload, nil)
          |> assign(:run_error, nil)
          |> assign(:output_request_open?, false)
@@ -462,6 +480,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
          |> assign(:conversation_trace_ref, nil)
          |> assign(:run_result, nil)
          |> assign(:output_trace_resources, %{})
+         |> reset_output_trace()
          |> assign(:run_error, "This conversation could not be restored.")}
     end
   end
@@ -480,6 +499,62 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   def handle_async({:load_conversation, _reference, _trace_id}, _result, socket),
+    do: {:noreply, socket}
+
+  def handle_async(
+        {:load_output_trace, reference, trace_id},
+        {:ok, {:ok, trace, _state}},
+        %{assigns: %{output_trace_ref: reference, run_result: result}} = socket
+      ) do
+    if LlmTraceProjection.trace_id(result) == trace_id do
+      socket =
+        socket
+        |> assign(:output_trace_ref, nil)
+        |> assign(:output_trace_loading?, false)
+        |> assign(:output_trace_error, nil)
+        |> assign(:output_trace_data, trace)
+        |> assign(:output_trace_open?, true)
+
+      socket =
+        case LlmTraceProjection.run_result(trace) do
+          {:ok, _trace_result} ->
+            assign(socket, :output_trace_resources, trace_output_resources(trace, result))
+
+          :error ->
+            socket
+        end
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_async(
+        {:load_output_trace, reference, _trace_id},
+        {:ok, {:error, %APIError{} = error}},
+        %{assigns: %{output_trace_ref: reference}} = socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:output_trace_ref, nil)
+     |> assign(:output_trace_loading?, false)
+     |> assign(:output_trace_error, error.message)}
+  end
+
+  def handle_async(
+        {:load_output_trace, reference, _trace_id},
+        _result,
+        %{assigns: %{output_trace_ref: reference}} = socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:output_trace_ref, nil)
+     |> assign(:output_trace_loading?, false)
+     |> assign(:output_trace_error, "Trace JSON is temporarily unavailable.")}
+  end
+
+  def handle_async({:load_output_trace, _reference, _trace_id}, _result, socket),
     do: {:noreply, socket}
 
   def handle_async(
@@ -845,6 +920,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
              |> assign(:run_error, nil)
              |> assign(:output_request_open?, false)
              |> assign(:output_response_open?, false)
+             |> reset_output_trace()
              |> start_async(
                {:run, reference},
                Observability.propagate(fn -> HardenAPI.run(handle, payload) end)
@@ -864,6 +940,43 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   def handle_event("toggle-output-data", %{"kind" => "response"}, socket) do
     {:noreply, update(socket, :output_response_open?, &(!&1))}
+  end
+
+  def handle_event("toggle-output-data", %{"kind" => "trace"}, socket) do
+    {:noreply, toggle_output_trace(socket)}
+  end
+
+  defp toggle_output_trace(%{assigns: %{output_trace_loading?: true}} = socket),
+    do: socket
+
+  defp toggle_output_trace(%{assigns: %{output_trace_open?: true}} = socket),
+    do: assign(socket, :output_trace_open?, false)
+
+  defp toggle_output_trace(%{assigns: %{output_trace_data: trace}} = socket)
+       when is_map(trace),
+       do: assign(socket, :output_trace_open?, true)
+
+  defp toggle_output_trace(socket) do
+    case LlmTraceProjection.trace_id(socket.assigns.run_result) do
+      trace_id when is_binary(trace_id) and trace_id != "" ->
+        reference = System.unique_integer([:positive, :monotonic])
+        handle = socket.assigns.session_handle
+
+        socket
+        |> assign(:output_trace_ref, reference)
+        |> assign(:output_trace_open?, true)
+        |> assign(:output_trace_loading?, true)
+        |> assign(:output_trace_error, nil)
+        |> start_async(
+          {:load_output_trace, reference, trace_id},
+          Observability.propagate(fn -> HardenAPI.get_trace(handle, trace_id) end)
+        )
+
+      _ ->
+        socket
+        |> assign(:output_trace_open?, true)
+        |> assign(:output_trace_error, "Trace JSON is not available for this run.")
+    end
   end
 
   defp toggle_ui(socket, name, value) do
@@ -900,9 +1013,19 @@ defmodule HardenLlmWeb.WorkspaceLive do
     socket
     |> assign(:output_request_open?, false)
     |> assign(:output_response_open?, false)
+    |> assign(:output_trace_open?, false)
   end
 
   defp reset_output_data_if_closed(socket, _name, _open), do: socket
+
+  defp reset_output_trace(socket) do
+    socket
+    |> assign(:output_trace_data, nil)
+    |> assign(:output_trace_open?, false)
+    |> assign(:output_trace_loading?, false)
+    |> assign(:output_trace_error, nil)
+    |> assign(:output_trace_ref, nil)
+  end
 
   def status_label(:loading), do: "Checking backend"
   def status_label(:ready), do: "Backend ready"
@@ -1099,6 +1222,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     |> assign(:run_error, nil)
     |> assign(:output_request_open?, false)
     |> assign(:output_response_open?, false)
+    |> reset_output_trace()
   end
 
   defp output_trace_resources(result, request) do

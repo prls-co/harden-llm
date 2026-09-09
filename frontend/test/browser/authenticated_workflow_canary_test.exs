@@ -84,21 +84,28 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> assert_dom_attribute("#output-trace-summary", "aria-expanded", "true")
       |> click(Query.css("#output-trace-summary"))
       |> assert_dom_attribute("#output-trace-summary", "aria-expanded", "false")
-      |> assert_dom_attribute("#output-trace-controls", "hidden", "")
+      |> assert_dom_attribute("#output-trace-content", "hidden", "")
       |> click(Query.css("#output-trace-summary"))
       |> assert_dom_attribute("#output-trace-summary", "aria-expanded", "true")
-      |> assert_dom_attribute("#output-trace-controls", "hidden", nil)
+      |> assert_dom_attribute("#output-trace-content", "hidden", nil)
       |> assert_has(Query.css(".trace-controls #output-trace-details-toggle", text: "Hide"))
-      |> assert_has(Query.css(".trace-controls a", text: "View JSON Trace"))
+      |> assert_has(Query.css(".trace-controls #output-trace-view-json", text: "View JSON Trace"))
       |> assert_has(Query.css(".trace-controls #output-trace-copy-curl", text: "Copy cURL"))
       |> assert_has(Query.css(".trace-controls #output-trace-show-request", text: "Show Request"))
       |> assert_has(
         Query.css(".trace-controls #output-trace-show-response", text: "Show Response")
       )
+      |> click(Query.css("#output-trace-view-json"))
+      |> assert_has(Query.css("#output-trace-trace-json .trace-json-node", text: "traceId"))
+      |> assert_has(Query.css("#output-trace-artifact-0", text: "trace · 42 bytes"))
       |> click(Query.css("#output-trace-show-request"))
       |> assert_has(Query.css("#output-trace-request-content"))
       |> click(Query.css("#output-trace-show-response"))
       |> assert_has(Query.css("#output-trace-response-content"))
+      |> click(Query.css("#output-trace-summary"))
+      |> assert_dom_attribute("#output-trace-content", "hidden", "")
+      |> click(Query.css("#output-trace-summary"))
+      |> assert_dom_attribute("#output-trace-content", "hidden", nil)
 
     widget_facts =
       javascript_value(
@@ -122,7 +129,7 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
 
     assert Enum.take(widget_facts["directLabels"], 5) == [
              "Hide",
-             "View JSON Trace",
+             "Hide JSON Trace",
              "Copy cURL",
              "Hide Request",
              "Hide Response"
