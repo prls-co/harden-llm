@@ -79,6 +79,7 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       |> assert_dom_attribute("#output-trace-content", "hidden", "")
       |> click(Query.css("#output-trace-summary"))
       |> assert_dom_attribute("#output-trace-summary", "aria-expanded", "true")
+      |> assert_dom_attribute("#output-trace-summary", "aria-label", "Trace controls")
       |> assert_dom_attribute("#output-trace-content", "hidden", nil)
       |> open_ui_fold("#output-trace-details-toggle", "#output-trace-details")
       |> assert_has(Query.css(".trace-controls #output-trace-details-toggle", text: "Details"))

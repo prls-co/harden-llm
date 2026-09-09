@@ -79,7 +79,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
         phx-target={@target}
         aria-controls={@content_id}
         aria-expanded={to_string(@controls_open)}
-        aria-label={if @controls_open, do: "Hide trace controls", else: "Show trace controls"}
+        aria-label="Trace controls"
         disabled={@controls_disabled}
       >
         <span>

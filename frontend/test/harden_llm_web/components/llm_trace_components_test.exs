@@ -61,6 +61,7 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
     assert html =~ ~s(phx-click="toggle-controls")
     assert html =~ ~s(aria-controls="trace-widget-content")
     assert html =~ ~s(aria-expanded="true")
+    assert html =~ ~s(aria-label="Trace controls")
     assert html =~ ~s(id="trace-widget-content")
     assert html =~ ~s(id="trace-widget-details-toggle")
     assert html =~ ~s(aria-label="Trace details")
@@ -97,6 +98,8 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
     assert html =~ ~s(aria-disabled="true")
     assert html =~ "trace · unavailable"
     refute html =~ "View JSON Trace"
+    refute html =~ "Show trace controls"
+    refute html =~ "Hide trace controls"
     refute html =~ "Show Request"
     refute html =~ "Hide Request"
     refute html =~ "Show Response"
