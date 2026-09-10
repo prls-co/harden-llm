@@ -372,12 +372,6 @@ button, a, input, select, textarea { touch-action: manipulation; }
   transition: border-color .15s ease, background-color .15s ease, color .15s ease;
 }
 
-.trace-resource-meta {
-  color: var(--ullm-text-muted);
-  font-size: .82em;
-  white-space: nowrap;
-}
-
 .trace-action:hover:not(:disabled),
 .trace-action:focus-visible {
   border-color: var(--ullm-accent);

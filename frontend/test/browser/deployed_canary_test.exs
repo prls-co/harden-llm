@@ -97,7 +97,7 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       |> open_ui_fold("#output-trace-details-toggle", "#output-trace-details")
       |> assert_has(Query.css(".trace-controls #output-trace-details-toggle", text: "Details"))
       |> assert_has(Query.css(".trace-controls #output-trace-view-json", text: "JSON"))
-      |> assert_has(Query.css(".trace-controls #output-trace-copy-curl", text: "cURL"))
+      |> assert_has(Query.css(".trace-controls #output-trace-copy-curl", text: "Copy cURL"))
       |> assert_has(Query.css(".trace-controls #output-trace-show-request", text: "Request"))
       |> assert_has(Query.css(".trace-controls #output-trace-show-response", text: "Response"))
       |> click(Query.css("#output-trace-view-json"))
@@ -141,12 +141,12 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
 
     assert widget_facts["controlDisplay"] == "flex"
 
-    assert Enum.take(widget_facts["directLabels"], 5) == [
+    assert widget_facts["directLabels"] == [
              "Details",
              "JSON",
-             "cURL",
              "Request",
-             "Response"
+             "Response",
+             "Copy cURL"
            ]
 
     assert widget_facts["selectedBackground"] != widget_facts["closedBackground"]

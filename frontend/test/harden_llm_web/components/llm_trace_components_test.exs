@@ -71,7 +71,7 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
     assert html =~ ~s(id="trace-widget-view-json")
     assert html =~ ~s(aria-label="JSON trace")
     assert html =~ ~s(>JSON</button>)
-    assert html =~ ~s(>cURL</button>)
+    assert html =~ ~s(>Copy cURL</button>)
     assert html =~ ~s(>Request</button>)
     assert html =~ ~s(>Response</button>)
     assert html =~ ~s(phx-value-kind="trace")
@@ -99,8 +99,14 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
     assert html =~ "traceId"
     assert html =~ "observations"
     assert html =~ "null"
-    assert html =~ ~s(class="trace-resource-meta")
-    assert html =~ "trace · unavailable"
+    refute html =~ "trace · unavailable"
+
+    assert html
+           |> LazyHTML.from_document()
+           |> LazyHTML.query("#trace-widget-controls > *")
+           |> Enum.map(&LazyHTML.text/1)
+           |> Enum.map(&String.trim/1) == ["Details", "JSON", "Request", "Response", "Copy cURL"]
+
     refute html =~ "View JSON Trace"
     refute html =~ "Show trace controls"
     refute html =~ "Hide trace controls"

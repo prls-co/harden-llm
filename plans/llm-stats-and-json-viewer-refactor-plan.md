@@ -63,24 +63,22 @@ fresh audit/deployment results from creating this plan.
 | Stats row | Hide/show the entire controls-and-content region | Preserve selected panes and loaded data; expose `aria-expanded` and `aria-controls` |
 | Details | Toggle normalized execution details only | Stable label; inline JSON; no effect on JSON/Request/Response |
 | JSON | Toggle the full trace REST response | Stable label; load once per current trace as needed; show loading/error inside this pane only |
-| cURL | Copy the existing prepared cURL text | Command, not a disclosure; preserve clipboard success/failure feedback; no `aria-expanded` or selected state |
 | Request | Toggle the available request payload only | Stable label; inline JSON; usable while trace JSON is loading or failed |
 | Response | Toggle the available response payload only | Same independent behavior as Request |
-| `trace · N bytes` | No action | Compact metadata for the stored artifact, including availability/state where supplied |
+| Copy cURL | Copy the existing prepared cURL text | Command, not a disclosure; preserve clipboard success/failure feedback; no `aria-expanded` or selected state |
 
-Keep the current order `Details`, `JSON`, `cURL`, `Request`, `Response`, artifact
-metadata. Wrapping is allowed. Do not add another Show/Hide control, force a
+The 2026-09-10 follow-up removes the output artifact metadata label and sets the
+order to `Details`, `JSON`, `Request`, `Response`, `Copy cURL`.
+Wrapping is allowed. Do not add another Show/Hide control, force a
 single unwrappable row, or open output information in a new tab.
 
 Multiple panes may be open simultaneously. Closing and reopening the stats row
 must restore the same selection, including an existing JSON error. Closing a
 pane must also hide its loading/error message. Closing Details is not a reset.
 
-Artifact `sizeBytes` describes the Garage export, not necessarily the byte count
-of the REST response displayed by JSON. Keep that distinction in its accessible
-description/title; do not calculate or advertise a false equivalence. Preserve
-existing artifact download functionality in History; the output metadata was
-not performing an artifact-specific download.
+Preserve existing artifact download functionality in History. The removed
+output metadata was not performing an artifact-specific download; the JSON
+button continues to open the full trace REST response inline.
 
 ### 3.2 JSON request transitions
 

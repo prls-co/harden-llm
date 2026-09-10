@@ -14,8 +14,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
         "trace_url" => "/traces/trace-1",
         "curl" => "curl ...",
         "request" => %{"available" => true, "payload" => %{}},
-        "response" => %{"available" => false, "message" => "..."},
-        "artifacts" => [%{"available" => true, "label" => "trace · 42 bytes"}]
+        "response" => %{"available" => false, "message" => "..."}
       }
 
   A resource without `available: true` is rendered as unavailable rather than
@@ -142,17 +141,6 @@ defmodule HardenLlmWeb.LlmTraceComponents do
             disabled={not present?(trace_url(@resources))}
           />
 
-          <button
-            id={@curl_id}
-            type="button"
-            class="trace-action"
-            phx-hook="Clipboard"
-            data-copy-value={curl(@resources)}
-            aria-label="Copy cURL"
-            title="Copy cURL"
-            disabled={not present?(curl(@resources))}
-          >cURL</button>
-
           <.trace_disclosure
             id={@request_toggle_id}
             label="Request"
@@ -179,14 +167,16 @@ defmodule HardenLlmWeb.LlmTraceComponents do
             disabled={not resource_available?(@resources, "response")}
           />
 
-          <%= for {artifact, index} <- Enum.with_index(artifact_links(@resources)) do %>
-            <span
-              id={"#{@id}-artifact-#{index}"}
-              class="trace-resource-meta"
-              title="Stored artifact metadata; its size may differ from the rendered JSON response."
-              aria-label={artifact_label(artifact)}
-            >{artifact_label(artifact)}</span>
-          <% end %>
+          <button
+            id={@curl_id}
+            type="button"
+            class="trace-action"
+            phx-hook="Clipboard"
+            data-copy-value={curl(@resources)}
+            aria-label="Copy cURL"
+            title="Copy cURL"
+            disabled={not present?(curl(@resources))}
+          >Copy cURL</button>
         </div>
 
         <div
@@ -336,15 +326,6 @@ defmodule HardenLlmWeb.LlmTraceComponents do
   defp resource_payload(resource) do
     Map.get(resource, "payload")
   end
-
-  defp artifact_links(resources) do
-    resources
-    |> value("artifacts", [])
-    |> then(&if(is_list(&1), do: &1, else: []))
-    |> Enum.filter(&present?(value(&1, "label")))
-  end
-
-  defp artifact_label(artifact), do: value(artifact, "label") || "Trace artifact"
 
   defp metric_id(widget_id, metric) do
     case value(metric, "key") do
