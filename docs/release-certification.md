@@ -786,3 +786,38 @@ downstream projection: OTLP sends application traces to Tempo and filtered
 traces to Langfuse, metrics to Prometheus, and logs to Loki; Laminar is a
 separate PRLS receiver path. Langfuse-owned ClickHouse is not queried by the
 widget and is not a product source of truth.
+
+## Output control row simplification (2026-09-10)
+
+Application commit `03645c99877a4fa66fd3e9aa6cf47edc4e338283` was pushed to
+`origin/main` and deployed to the existing production Compose project. Only
+the frontend service was replaced, using its once-built image with
+`--no-build --no-deps`. The output row now contains `Details`, `JSON`,
+`Request`, `Response`, `Copy cURL`, in that order. The inert output
+`trace · N bytes` metadata and its unused component helpers/CSS were removed.
+Inline JSON and History artifact downloads remain unchanged.
+
+| Gate or production check | Result |
+| --- | --- |
+| Focused trace component tests, WEB-TEST-036 | 7 passed |
+| `make test-fast` | accepted: 8 tasks; no failure or cleanup error |
+| `make test-release` | accepted: 26 tasks, including Chromium and Compose checks; no failure or cleanup error |
+| Formatting and `git diff HEAD --check` | passed |
+| Frontend image | `sha256:9f47c18058020623917a25938127a6d14076689725a592f1101391316f69af19`, OCI release `03645c99877a4fa66fd3e9aa6cf47edc4e338283`, healthy |
+| Gateway | `sha256:924f573041275184ea12df883afd89610aa14d8163bfe1fae4badc0fdf10a20f`, release `729804cdfab9ff5c2e9dd75c64609cddd6773557`, healthy and unchanged |
+| Public probes after deployment | frontend `/healthz`, `/login`; API `/healthz`, `/readyz`: HTTP 200 |
+| Authenticated deployed canary, WEB-TEST-048 / TEST-118 | **Failed** at the smoke History removal assertion, after passing exact release identity, the bounded provider run, control order/labels, inline pane, and cURL payload assertions |
+
+The failed canary expected `#workspace-history-PM6TYB-0MTwv-tgZ5x33fw` to
+disappear at `frontend/test/browser/deployed_canary_test.exs:186`. A separate
+authenticated, read-only History API check returned HTTP 200 and confirmed
+that this new smoke record was absent. That diagnostic session logged out
+successfully (HTTP 200). The browser assertion failure is retained: it does
+not establish why the UI failed to observe cleanup, and the canary's later
+logout assertions did not run. No repeat provider run or History behavior
+change was made. Deployment is complete; full hosted canary certification
+remains unaccepted.
+
+The previous compatible frontend image was retained as
+`harden-llm-web:rollback-21d53f3`, image
+`sha256:247cfd6c1ba9c630851388720d6c7e75bf208a0e74721037629f08a8790ab371`.
