@@ -752,3 +752,37 @@ application source of truth. At certification time the Collector target was
 up, Tempo and Langfuse had accepted spans, Loki had accepted logs, Prometheus
 had accepted metric points, and no span, log, or metric exporter-failure
 series was present.
+
+## LLM stats and reusable JSON viewer (2026-09-09)
+
+The application-bearing checkpoint `21d53f3d5fd34ceb3bc9d8c992c46d17b08a118f`
+was pushed to `origin/main`, built once, and promoted with
+`--no-build --no-deps` to the existing production Compose project. The
+test-only deployed-canary follow-up `1c26356c6024df1de48324e0f85d779763431edc`
+was pushed afterward and does not change the runtime image.
+
+This checkpoint separates aggregate stats presentation into
+`LlmStatsComponents`, extracts a transport-free type-preserving `JsonViewer`,
+uses it for Output and History structured data, makes Details/JSON/Request/
+Response panes independent, preserves folds across unrelated patches, removes
+the cache-icon decoration, and coalesces slow UI-preference saves so the stats
+row remains interactive. No Go, OpenAPI, storage, or telemetry path changed.
+
+| Gate or production check | Result |
+| --- | --- |
+| `make test-fast` | accepted: 8 tasks, no failure or cleanup error |
+| `make test-browser` | accepted: 4 tasks, no failure or cleanup error |
+| `make test-release` | accepted: 26 tasks, no failure or cleanup error |
+| Workspace LiveView regression | 40 passed, including slow UI-preference-save coalescing |
+| Frontend image | `sha256:247cfd6c1ba9c630851388720d6c7e75bf208a0e74721037629f08a8790ab371`, OCI release `21d53f3d5fd34ceb3bc9d8c992c46d17b08a118f`, healthy |
+| Gateway | `sha256:924f573041275184ea12df883afd89610aa14d8163bfe1fae4badc0fdf10a20f`, release `729804cdfab9ff5c2e9dd75c64609cddd6773557`, healthy and unchanged |
+| Public probes | frontend `/healthz`, `/login`; API `/healthz`, `/readyz`: HTTP 200 |
+| Authenticated deployed canary | exact frontend identity, trace controls/panes, bounded CPA smoke, smoke-history cleanup, logout, and redaction passed |
+
+The widget reads product data from the existing application sources: execution
+and aggregate facts from PostgreSQL, immutable trace/artifact bodies from
+Garage, and existing REST projections through `HardenAPI`. Telemetry remains a
+downstream projection: OTLP sends application traces to Tempo and filtered
+traces to Langfuse, metrics to Prometheus, and logs to Loki; Laminar is a
+separate PRLS receiver path. Langfuse-owned ClickHouse is not queried by the
+widget and is not a product source of truth.

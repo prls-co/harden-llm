@@ -1,8 +1,7 @@
 # LLM Stats, Output Details, and Reusable JSON Viewer Plan
 
 - Plan ID: `PLAN-HLLM-STATS-JSON-001`
-- Status: Implemented; release certification and production promotion pending at
-  the time this plan was updated.
+- Status: Implemented and production-verified.
 - Date: 2026-09-09
 - Inspected baseline: `729804cdfab9ff5c2e9dd75c64609cddd6773557`
 - Scope: Correct the reviewed output-details interactions, extract a small reusable JSON viewer, simplify stats presentation, and verify the resulting release.
@@ -425,9 +424,40 @@ available rollback candidate's known limitations must remain explicit.
 - [x] No duplicate renderer, implicit string parser, obsolete active-state
   classes, or unused compatibility/loading layer remains.
 - [x] Deterministic, real-browser, and complete release gates pass for the candidate.
-- [ ] The exact pushed revision is deployed and authenticated hosted checks pass.
-- [ ] Final handoff names commit/push/deployment/image evidence and any remaining
+- [x] The exact pushed application revision is deployed and authenticated hosted
+  checks pass. Test-only certification follow-up is pushed separately.
+- [x] Final handoff names commit/push/deployment/image evidence and any remaining
   blocker; it does not call local-only work production-complete.
+
+### 8.4 Completed certification evidence
+
+The application-bearing checkpoint is `21d53f3d5fd34ceb3bc9d8c992c46d17b08a118f`.
+It was pushed to `origin/main`, built once as the frontend release image, and
+promoted with `--no-build --no-deps` to the existing production Compose project.
+The later test-only canary robustness commit is
+`1c26356c6024df1de48324e0f85d779763431edc`; it does not change the runtime
+image or require a second deployment.
+
+Final verification:
+
+- `make test-fast`: accepted, 8 tasks, no failures or cleanup errors.
+- `make test-browser`: accepted, 4 tasks, no failures or cleanup errors.
+- `make test-release`: accepted, 26 tasks, no failures or cleanup errors.
+- Workspace LiveView suite: 40 passed; the added regression holds output
+  controls interactive during a slow UI-preference save and persists the latest
+  state after the save completes.
+- Frontend image: `sha256:247cfd6c1ba9c630851388720d6c7e75bf208a0e74721037629f08a8790ab371`,
+  OCI release label `21d53f3d5fd34ceb3bc9d8c992c46d17b08a118f`, healthy.
+- Gateway remained unchanged at release `729804cdfab9ff5c2e9dd75c64609cddd6773557`,
+  image `sha256:924f573041275184ea12df883afd89610aa14d8163bfe1fae4badc0fdf10a20f`,
+  healthy.
+- Production `/healthz` and `/login` plus API `/healthz` and `/readyz`: HTTP 200.
+- Exact-identity authenticated deployed canary passed the workspace trace
+  controls, JSON/request/response panes, bounded CPA smoke, smoke-history
+  cleanup, logout, and redaction checks.
+
+The deployed canary also confirmed that persisted closed/open control state is
+valid and that the canary must normalize it before asserting the interaction.
 
 ## 9. Deliberately deferred work
 
