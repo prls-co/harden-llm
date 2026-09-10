@@ -72,12 +72,25 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
     assert is_binary(output) and String.trim(output) != ""
 
     session =
+      if javascript_value(
+           session,
+           "return document.querySelector('#output-trace-summary')?.getAttribute('aria-expanded');"
+         ) == "true" do
+        session
+      else
+        click(session, Query.css("#output-trace-summary"))
+      end
+
+    session =
       session
+      |> assert_has(Query.css("#output-trace-summary[aria-expanded='true']"))
       |> assert_dom_attribute("#output-trace-summary", "aria-expanded", "true")
       |> click(Query.css("#output-trace-summary"))
+      |> assert_has(Query.css("#output-trace-summary[aria-expanded='false']"))
       |> assert_dom_attribute("#output-trace-summary", "aria-expanded", "false")
       |> assert_dom_attribute("#output-trace-content", "hidden", "")
       |> click(Query.css("#output-trace-summary"))
+      |> assert_has(Query.css("#output-trace-summary[aria-expanded='true']"))
       |> assert_dom_attribute("#output-trace-summary", "aria-expanded", "true")
       |> assert_dom_attribute("#output-trace-summary", "aria-label", "Trace controls")
       |> assert_dom_attribute("#output-trace-content", "hidden", nil)
@@ -94,8 +107,10 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       |> click(Query.css("#output-trace-show-response"))
       |> assert_has(Query.css("#output-trace-response-content"))
       |> click(Query.css("#output-trace-summary"))
+      |> assert_has(Query.css("#output-trace-content[hidden]", visible: :any))
       |> assert_dom_attribute("#output-trace-content", "hidden", "")
       |> click(Query.css("#output-trace-summary"))
+      |> assert_has(Query.css("#output-trace-content:not([hidden])"))
       |> assert_dom_attribute("#output-trace-content", "hidden", nil)
       |> open_ui_fold("#history-fold-toggle", "#workspace-history")
       |> assert_has(Query.css("#workspace-history article", text: nonce))
