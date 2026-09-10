@@ -2,7 +2,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
   use HardenLlmWeb, :live_view
 
   alias HardenLlm.LlmTraceProjection
-  alias HardenLlmWeb.{APIError, Auth, HardenAPI, LiveStats, Observability, ProfileWidgetState}
+  alias HardenLlmWeb.{APIError, Auth, HardenAPI, Observability, ProfileWidgetState}
 
   @schema_keywords ~w($schema $defs additionalProperties allOf anyOf const default definitions description enum examples exclusiveMaximum exclusiveMinimum format items maxItems maxLength maximum minItems minLength minimum multipleOf not oneOf pattern prefixItems properties propertyOrdering required title type uniqueItems)
   @contracted_schema_keywords ~w(type properties required additionalProperties items description enum)
@@ -77,7 +77,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:history_error, nil)
       |> assign(:history_pending, nil)
       |> assign(:history_delete_rollback, nil)
-      |> LiveStats.init()
       |> assign(:run_result, nil)
       |> assign(:run_error, nil)
       |> assign(:run_ref, nil)
@@ -116,14 +115,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
     if connected?(socket) do
       handle = socket.assigns.session_handle
-      LiveStats.schedule_refresh()
 
-      socket =
-        socket
-        |> start_async(:hydrate, Observability.propagate(fn -> hydrate(handle) end))
-        |> LiveStats.refresh()
-
-      {:ok, socket}
+      {:ok, start_async(socket, :hydrate, Observability.propagate(fn -> hydrate(handle) end))}
     else
       {:ok, socket}
     end
@@ -161,11 +154,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   @impl true
-  def handle_info(:refresh_stats_snapshot, socket) do
-    LiveStats.schedule_refresh()
-    {:noreply, LiveStats.refresh(socket)}
-  end
-
   def handle_info({:profile_widget, _prefix, {:profile_widget_ui, name, open}}, socket)
       when name in @ui_keys do
     toggle_ui(socket, name, to_string(open))
@@ -348,10 +336,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> maybe_continue_history_refresh()}
   end
 
-  def handle_async({:load_stats, reference}, result, socket) do
-    {:noreply, LiveStats.complete(socket, reference, result)}
-  end
-
   def handle_async(
         {:run, reference},
         {:ok, {:ok, result, _state}},
@@ -373,7 +357,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:output_response_open?, false)
       |> reset_output_trace()
       |> maybe_refresh_history()
-      |> LiveStats.refresh()
 
     {:noreply, push_conversation_url(socket, LlmTraceProjection.trace_id(result))}
   end
@@ -401,7 +384,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:run_error, message)
       |> reset_output_trace()
       |> maybe_refresh_history()
-      |> LiveStats.refresh()
       |> maybe_load_run_diagnostics(error.trace_id)
 
     {:noreply, socket}
@@ -422,8 +404,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:output_trace_resources, %{})
      |> assign(:run_error, "The run could not be completed. Try again or check History.")
      |> reset_output_trace()
-     |> maybe_refresh_history()
-     |> LiveStats.refresh()}
+     |> maybe_refresh_history()}
   end
 
   def handle_async({:run, _stale_reference}, _result, socket), do: {:noreply, socket}
@@ -638,8 +619,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:history_delete_rollback, nil)
      |> assign(:history, Enum.reject(socket.assigns.history, &(&1["runId"] == run_id)))
      |> assign(:history_error, nil)
-     |> maybe_refresh_history()
-     |> LiveStats.refresh()}
+     |> maybe_refresh_history()}
   end
 
   def handle_async(
@@ -679,8 +659,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:history_result_states, %{})
      |> assign(:history_loaded?, true)
      |> assign(:history_refresh_pending?, false)
-     |> assign(:history_error, nil)
-     |> LiveStats.refresh()}
+     |> assign(:history_error, nil)}
   end
 
   def handle_async(
@@ -706,8 +685,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   @impl true
-  def handle_event("refresh-stats", _params, socket), do: {:noreply, LiveStats.refresh(socket)}
-
   def handle_event("save-draft", %{"_target" => [scope | _]}, socket)
       when scope in ["profile", "escalation"] do
     {:noreply, socket}

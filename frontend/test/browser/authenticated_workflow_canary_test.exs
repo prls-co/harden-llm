@@ -251,16 +251,17 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
 
     session =
       session
-      |> assert_has(Query.css("#llm-stats-summary-result_cost-details"))
-      |> click(Query.css("#llm-stats-summary-result_cost-details > summary"))
+      |> assert_has(Query.css("#llm-stats-summary", count: 0, visible: :any))
+      |> visit("/history")
+      |> assert_has(Query.css("#history-page"))
+      |> assert_has(Query.css("#history-stats-summary-result_cost-details"))
+      |> click(Query.css("#history-stats-summary-result_cost-details > summary"))
       |> assert_has(
         Query.css(
-          "#llm-stats-summary-result_cost-details[open] .llm-stats-disclosure-detail",
+          "#history-stats-summary-result_cost-details[open] .llm-stats-disclosure-detail",
           text: "Known result subtotal is exact."
         )
       )
-      |> visit("/history")
-      |> assert_has(Query.css("#history-page"))
       |> assert_has(Query.css("#history-run-browser"))
       |> click(Query.css("#history-run-browser button[aria-label='Open trace']"))
       |> assert_has(Query.css("#trace-dialog"))
@@ -284,6 +285,7 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> assert_has(Query.css("#workspace-history"))
       |> assert_has(Query.css("#workspace-history-run-browser"))
       |> assert_has(Query.css("#workspace-history-run-browser.llm-result .llm-result-stats"))
+      |> assert_has(Query.css("[aria-label='Inspect in audit history']", count: 0, visible: :any))
       |> click(Query.css("#workspace-history-run-browser-expand"))
       |> assert_has(Query.css("#workspace-history-run-browser.is-expanded"))
       |> scroll_to_selector("#workspace-history-run-browser")

@@ -115,6 +115,8 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       |> assert_dom_attribute("#output-trace-content", "hidden", nil)
       |> open_ui_fold("#history-fold-toggle", "#workspace-history")
       |> assert_has(Query.css("#workspace-history article", text: nonce))
+      |> assert_has(Query.css("#llm-stats-summary", count: 0, visible: :any))
+      |> assert_has(Query.css("[aria-label='Inspect in audit history']", count: 0, visible: :any))
       |> click(Query.css("#output-trace-show-request"))
 
     widget_facts =

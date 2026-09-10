@@ -220,50 +220,51 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     refute has_element?(view, "#history-trace-run-test-trace-json")
   end
 
-  test "stats expose retry, snapshot time, and bounded periodic refresh", %{conn: conn} do
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-068
+  test "workspace keeps per-result stats without aggregate stats or audit shortcuts", %{
+    conn: conn
+  } do
     test_pid = self()
-    counter = start_supervised!({Agent, fn -> 0 end})
 
     install_stub(
-      fn conn -> unexpected(conn) end,
-      stats: fn conn ->
-        request_number = Agent.get_and_update(counter, fn count -> {count + 1, count + 1} end)
-        send(test_pid, {:stats_request, request_number})
+      fn conn ->
+        case {conn.method, conn.request_path} do
+          {"POST", "/api/v1/run"} ->
+            Req.Test.json(conn, APIFixtures.success(APIFixtures.run_result()))
 
-        if request_number == 1 do
-          {status, envelope} = APIFixtures.error(503, "temporarily_unavailable")
-          conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
-        else
-          stats = put_in(APIFixtures.stats(), ["maxCallDurationMs"], request_number * 1_000)
-          Req.Test.json(conn, APIFixtures.success(stats))
+          {"POST", "/api/v1/state"} ->
+            Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+
+          _ ->
+            unexpected(conn)
         end
+      end,
+      stats: fn conn ->
+        send(test_pid, :unexpected_aggregate_stats_request)
+        Req.Test.json(conn, APIFixtures.success(APIFixtures.stats()))
       end
     )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
     render_async(view, 1_000)
+    refute_received :unexpected_aggregate_stats_request
+    refute has_element?(view, "#llm-stats-summary")
 
-    assert_received {:stats_request, 1}
-    assert has_element?(view, "#llm-stats-summary-error", "temporarily unavailable")
-    assert has_element?(view, "#llm-stats-summary-refresh:not([disabled])", "Retry")
-
-    view |> element("#llm-stats-summary-refresh") |> render_click()
-    assert_receive {:stats_request, 2}, 1_000
+    view |> element("#history-fold-toggle") |> render_click()
     render_async(view, 1_000)
+    assert has_element?(view, "#history-trace-run-test-summary")
+    refute has_element?(view, "[aria-label='Inspect in audit history']")
+    assert has_element?(view, "#workspace-history-panel a[href='/history']", "View all")
 
-    refute has_element?(view, "#llm-stats-summary-error")
-    assert has_element?(view, "#llm-stats-summary-updated", "Last updated")
-    assert has_element?(view, "#llm-stats-summary", "2000")
-
-    send(view.pid, :refresh_stats_snapshot)
-    assert_receive {:stats_request, 3}, 1_000
+    submit_run(view, %{"userPrompt" => "per-result stats only"})
     render_async(view, 1_000)
-    assert has_element?(view, "#llm-stats-summary", "3000")
+    assert has_element?(view, "#output-trace-summary")
+    refute_received :unexpected_aggregate_stats_request
+    refute has_element?(view, "#llm-stats-summary")
   end
 
-  test "unexpected run task exits reconcile authoritative stats", %{conn: conn} do
+  test "unexpected run task exits surface errors without aggregate stats requests", %{conn: conn} do
     test_pid = self()
-    counter = start_supervised!({Agent, fn -> 0 end})
 
     install_stub(
       fn conn ->
@@ -273,21 +274,20 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         end
       end,
       stats: fn conn ->
-        request_number = Agent.get_and_update(counter, fn count -> {count + 1, count + 1} end)
-        send(test_pid, {:stats_request, request_number})
+        send(test_pid, :unexpected_aggregate_stats_request)
         Req.Test.json(conn, APIFixtures.success(APIFixtures.stats()))
       end
     )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
     render_async(view, 1_000)
-    assert_received {:stats_request, 1}
+    refute_received :unexpected_aggregate_stats_request
 
     submit_run(view, %{"userPrompt" => "task exit fixture"})
-    assert_receive {:stats_request, 2}, 1_000
     render_async(view, 1_000)
 
     assert has_element?(view, "#run-error", "run could not be completed")
+    refute_received :unexpected_aggregate_stats_request
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-053

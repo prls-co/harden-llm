@@ -9,8 +9,9 @@ defmodule HardenLlmWeb.HistoryTraceTest do
 
   setup %{conn: conn}, do: {:ok, conn: authenticated_conn(conn)}
 
-  test "history stats can be refreshed explicitly", %{conn: conn} do
+  test "history aggregate stats retain retry, snapshot time, and periodic refresh", %{conn: conn} do
     test_pid = self()
+    counter = start_supervised!({Agent, fn -> 0 end})
 
     install_stub(
       fn conn ->
@@ -20,19 +21,36 @@ defmodule HardenLlmWeb.HistoryTraceTest do
         end
       end,
       stats: fn conn ->
-        send(test_pid, :stats_request)
-        Req.Test.json(conn, APIFixtures.success(APIFixtures.stats()))
+        request_number = Agent.get_and_update(counter, fn count -> {count + 1, count + 1} end)
+        send(test_pid, {:stats_request, request_number})
+
+        if request_number == 1 do
+          {status, envelope} = APIFixtures.error(503, "temporarily_unavailable")
+          conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
+        else
+          stats = put_in(APIFixtures.stats(), ["maxCallDurationMs"], request_number * 1_000)
+          Req.Test.json(conn, APIFixtures.success(stats))
+        end
       end
     )
 
     {:ok, view, _html} = live(conn, ~p"/history")
     render_async(view, 1_000)
-    assert_received :stats_request
+    assert_received {:stats_request, 1}
+    assert has_element?(view, "#history-stats-summary-error", "temporarily unavailable")
+    assert has_element?(view, "#history-stats-summary-refresh:not([disabled])", "Retry")
 
     view |> element("#history-stats-summary-refresh") |> render_click()
-    assert_receive :stats_request, 1_000
+    assert_receive {:stats_request, 2}, 1_000
     render_async(view, 1_000)
+    refute has_element?(view, "#history-stats-summary-error")
     assert has_element?(view, "#history-stats-summary-updated", "Last updated")
+    assert has_element?(view, "#history-stats-summary", "2000")
+
+    send(view.pid, :refresh_stats_snapshot)
+    assert_receive {:stats_request, 3}, 1_000
+    render_async(view, 1_000)
+    assert has_element?(view, "#history-stats-summary", "3000")
   end
 
   test "history streams a page, appends by cursor, and deletes after success", %{conn: conn} do

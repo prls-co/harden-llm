@@ -378,26 +378,10 @@
                       aria-label="Delete result"
                       title="Delete result"
                     >🗑️</button>
-                    <.link
-                      navigate={~p"/history?trace_id=#{item["traceId"]}"}
-                      class="llm-result-action"
-                      aria-label="Inspect in audit history"
-                      title="Inspect in audit history"
-                    >🔎</.link>
                   </:actions>
                 </.llm_result>
               </div>
             </section>
-            <.llm_stats_summary
-              id="llm-stats-summary"
-              aria_label="LLM stats"
-              title="📊 LLM stats"
-              stats={@stats}
-              updated_at={@stats_updated_at}
-              refresh_event="refresh-stats"
-              navigate={~p"/history"}
-              class="studio-card p-4 sm:p-5"
-            />
           </aside>
         </section>
       </div>

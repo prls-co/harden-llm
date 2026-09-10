@@ -16,7 +16,10 @@ The full request (including system prompt/options) remains in Request.
 The stats row retains the existing Overview-on-open behavior. Its controls are
 Overview, Details, Request, Response, cURL, then `🔁` rerun. History cards start
 with stats details closed and maintain independent selections. Existing
-restore, delete, inspection, and artifact downloads remain available.
+restore, delete, and artifact downloads remain available. The per-card audit
+shortcut is omitted because inline trace details provide inspection in place.
+The workspace has no separate aggregate stats panel or aggregate stats polling;
+owner-wide totals remain on `/history`, reached through History's View all link.
 
 ## 2. Ownership and data flow
 
