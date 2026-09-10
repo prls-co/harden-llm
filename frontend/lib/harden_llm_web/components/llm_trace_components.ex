@@ -143,17 +143,6 @@ defmodule HardenLlmWeb.LlmTraceComponents do
             disabled={not present?(trace_url(@resources))}
           />
 
-          <button
-            id={@curl_id}
-            type="button"
-            class="trace-action"
-            phx-hook="Clipboard"
-            data-copy-value={curl(@resources)}
-            aria-label="Copy cURL"
-            title="Copy cURL"
-            disabled={not present?(curl(@resources))}
-          >cURL</button>
-
           <.trace_disclosure
             id={@request_toggle_id}
             label="Request"
@@ -179,6 +168,17 @@ defmodule HardenLlmWeb.LlmTraceComponents do
             expanded={@response_open}
             disabled={not resource_available?(@resources, "response")}
           />
+
+          <button
+            id={@curl_id}
+            type="button"
+            class="trace-action"
+            phx-hook="Clipboard"
+            data-copy-value={curl(@resources)}
+            aria-label="Copy cURL"
+            title="Copy cURL"
+            disabled={not present?(curl(@resources))}
+          >cURL</button>
         </div>
 
         <div

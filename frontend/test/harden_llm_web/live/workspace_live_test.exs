@@ -1503,7 +1503,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, ~s(.llm-trace-summary span[title="Completion tokens"]), "📤 1")
     assert has_element?(view, ".trace-controls #output-trace-details-toggle", "Overview")
     assert has_element?(view, ".trace-controls #output-trace-view-json", "Details")
-    assert has_element?(view, ".trace-controls #output-trace-copy-curl:nth-child(3)", "cURL")
+    assert has_element?(view, ".trace-controls #output-trace-copy-curl:last-child", "cURL")
     assert has_element?(view, ".trace-controls #output-trace-show-request", "Request")
     assert has_element?(view, ".trace-controls #output-trace-show-response", "Response")
     refute has_element?(view, ".trace-controls a")

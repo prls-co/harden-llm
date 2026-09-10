@@ -63,14 +63,14 @@ fresh audit/deployment results from creating this plan.
 | Stats row | Hide/show the entire controls-and-content region | On expansion, open Overview; preserve other selected panes and loaded data; expose `aria-expanded` and `aria-controls` |
 | Overview | Toggle normalized execution summary only | Stable label; inline JSON; no effect on Details/Request/Response |
 | Details | Toggle the full trace REST response | Stable label; load once per current trace as needed; show loading/error inside this pane only |
-| cURL | Copy the existing prepared cURL text | Command, not a disclosure; preserve clipboard success/failure feedback; no `aria-expanded` or selected state |
 | Request | Toggle the available request payload only | Stable label; inline JSON; usable while trace JSON is loading or failed |
 | Response | Toggle the available response payload only | Same independent behavior as Request |
+| cURL | Copy the existing prepared cURL text | Command, not a disclosure; preserve clipboard success/failure feedback; no `aria-expanded` or selected state |
 
 The 2026-09-10 follow-up removes the output artifact metadata label. At the
-user's subsequent request, restore the original cURL label and position and
+user's subsequent requests, keep the original cURL label, place it last, and
 rename the summary and full-trace buttons:
-`Overview`, `Details`, `cURL`, `Request`, `Response`.
+`Overview`, `Details`, `Request`, `Response`, `cURL`.
 Wrapping is allowed. Do not add another Show/Hide control, force a
 single unwrappable row, or open output information in a new tab.
 

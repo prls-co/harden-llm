@@ -163,9 +163,9 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
     assert widget_facts["directLabels"] == [
              "Overview",
              "Details",
-             "cURL",
              "Request",
-             "Response"
+             "Response",
+             "cURL"
            ]
 
     assert widget_facts["selectedBackground"] != widget_facts["closedBackground"]

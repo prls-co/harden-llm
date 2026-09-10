@@ -106,7 +106,7 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
            |> LazyHTML.from_document()
            |> LazyHTML.query("#trace-widget-controls > *")
            |> Enum.map(&LazyHTML.text/1)
-           |> Enum.map(&String.trim/1) == ["Overview", "Details", "cURL", "Request", "Response"]
+           |> Enum.map(&String.trim/1) == ["Overview", "Details", "Request", "Response", "cURL"]
 
     refute html =~ "View JSON Trace"
     refute html =~ "Show trace controls"
