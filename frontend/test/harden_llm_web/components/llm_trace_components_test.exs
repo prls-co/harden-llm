@@ -7,6 +7,36 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-036
 
+  test "compact identity retains full values and metrics have a separate layout boundary" do
+    trace_id = "c955f912-65e1-4ded-84df-52f5c4696c77"
+    model = "provider/a-long-model-name-with-a-version"
+
+    document =
+      render_component(&LlmTraceComponents.llm_trace/1,
+        id: "compact-trace",
+        summary: %{
+          "trace_id" => trace_id,
+          "model_id" => model,
+          "metrics" => [%{"value" => "📥 123456", "title" => "Input tokens"}]
+        }
+      )
+      |> LazyHTML.from_document()
+
+    identity = LazyHTML.query(document, ".llm-trace-identity")
+
+    assert LazyHTML.attribute(LazyHTML.query(identity, ".llm-trace-id"), "title") == [
+             "ID: #{trace_id}"
+           ]
+
+    assert LazyHTML.attribute(LazyHTML.query(identity, ".llm-trace-model"), "title") == [
+             "Model: #{model}"
+           ]
+
+    assert LazyHTML.text(identity) =~ trace_id
+    assert LazyHTML.text(identity) =~ model
+    assert LazyHTML.text(LazyHTML.query(document, ".llm-trace-metrics")) =~ "📥 123456"
+  end
+
   test "shared trace controls expose available host-projected artifact links only once" do
     html =
       render_component(&LlmTraceComponents.llm_trace/1,

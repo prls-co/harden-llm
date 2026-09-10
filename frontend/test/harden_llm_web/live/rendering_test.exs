@@ -45,7 +45,7 @@ defmodule HardenLlmWeb.RenderingTest do
       end
     end)
 
-    {:ok, workspace, workspace_html} = live(conn, ~p"/workspace")
+    {:ok, workspace, workspace_html} = live(conn, ~p"/")
     assert workspace_html =~ ~s(id="workspace-loading")
     assert workspace_html =~ ~s(role="status")
     render_async(workspace, 1_000)
@@ -141,7 +141,7 @@ defmodule HardenLlmWeb.RenderingTest do
       end
     end)
 
-    {:ok, workspace, _html} = live(conn, ~p"/workspace")
+    {:ok, workspace, _html} = live(conn, ~p"/")
     render_async(workspace, 1_000)
 
     workspace |> element("#input-advanced-toggle") |> render_click()
@@ -201,7 +201,7 @@ defmodule HardenLlmWeb.RenderingTest do
       end
     end)
 
-    {:ok, workspace, _html} = live(conn, ~p"/workspace")
+    {:ok, workspace, _html} = live(conn, ~p"/")
     render_async(workspace, 1_000)
     assert has_element?(workspace, ~s(#workspace-unavailable[role="alert"]))
     assert has_element?(workspace, "#backend-status", "Backend unavailable")
@@ -231,7 +231,7 @@ defmodule HardenLlmWeb.RenderingTest do
       end
     end)
 
-    {:ok, trace_view, _html} = live(conn, ~p"/workspace")
+    {:ok, trace_view, _html} = live(conn, ~p"/")
     render_async(trace_view, 1_000)
     render_async(trace_view, 1_000)
     trace_view |> element("#history-trace-run-test-summary") |> render_click()

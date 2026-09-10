@@ -25,7 +25,7 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> fill_in(Query.css("#session_password"), with: "browser-password-123")
       |> click(Query.css("#login-submit"))
       |> assert_has(Query.css("#workspace-page"))
-      |> visit("/history")
+      |> visit("/")
       |> assert_has(Query.css("#workspace-page"))
       |> assert_has(Query.css("#backend-status", text: "Backend ready"))
       |> assert_live_socket_connected()
@@ -45,7 +45,7 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> assert_has(Query.css("#profile-BrowserProfile", text: "BrowserProfile"))
       |> click(Query.css("#profile-BrowserProfile button[aria-label='Refresh models']"))
       |> assert_has(Query.css("#flash-info", text: "Model catalog refreshed"))
-      |> visit("/workspace")
+      |> visit("/")
       |> assert_has(Query.css("#backend-status", text: "Backend ready"))
       |> choose_option("#run_selectedProfileId", "BrowserProfile")
       |> click(Query.css("#input-advanced-toggle"))
@@ -63,6 +63,7 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> click(Query.css("#run-submit"))
       |> assert_has(Query.css("#run-output", text: "deterministic browser output"))
       |> assert_has(Query.css("#run-result-panel", text: "trace-browser"))
+      |> assert_compact_stats_layout("#output-trace-summary")
       |> assert_has(Query.css("#output-trace-cache-status[data-cache-status='miss']", text: "💾"))
       |> assert_has(Query.css("#run-submit:not([disabled])"))
       |> click(Query.css("#run-submit"))
@@ -262,7 +263,7 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
 
     session =
       session
-      |> visit("/workspace")
+      |> visit("/")
       |> fill_in(Query.css("#run_userPrompt"), with: "ambiguous browser outcome")
       |> trigger_prompt_shortcut("#run_userPrompt")
       |> assert_has(
@@ -276,6 +277,7 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> assert_has(Query.css("#workspace-history"))
       |> assert_has(Query.css("#workspace-history-run-browser"))
       |> assert_has(Query.css("#workspace-history-run-browser.llm-result .llm-result-stats"))
+      |> assert_compact_stats_layout("#history-trace-run-browser-summary")
       |> assert_has(Query.css("[aria-label='Inspect in audit history']", count: 0, visible: :any))
       |> scroll_to_selector("#history-trace-run-browser-summary")
       |> click(Query.css("#history-trace-run-browser-summary"))
@@ -304,7 +306,7 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> assert_no_horizontal_overflow()
       |> click(Query.css("#logout-button"))
       |> assert_has(Query.css("#login-page"))
-      |> visit("/workspace")
+      |> visit("/")
       |> assert_has(Query.css("#login-page"))
 
     assert Enum.count(BrowserBackend.calls(), &(&1 == {"POST", "/api/v1/run"})) == 4
@@ -319,5 +321,55 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
 
     refute page_source(session) =~ "browser-provider-secret"
     refute inspect(cookies(session)) =~ "browser-fixture-token-that-never-leaves-the-server"
+  end
+
+  # Real layout boundary only; markup/full-value invariants live in WEB-TEST-036.
+  defp assert_compact_stats_layout(session, selector) do
+    measurements =
+      javascript_value(
+        session,
+        """
+        const source = document.querySelector(arguments[0]);
+        return [900, 700, 320].map(width => {
+          const host = document.createElement('div');
+          host.style.cssText = `position:fixed;left:0;top:0;width:${width}px;visibility:hidden`;
+          const bar = source.cloneNode(true);
+          bar.removeAttribute('id');
+          bar.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
+          bar.querySelector('.llm-trace-id').textContent = 'ID: c955f912-65e1-4ded-84df-52f5c4696c77';
+          bar.querySelector('.llm-trace-model').textContent = 'Model: provider/a-very-long-model-name-and-version';
+          host.append(bar);
+          source.parentElement.append(host);
+          try {
+            const identity = bar.querySelector('.llm-trace-identity');
+            const metrics = bar.querySelector('.llm-trace-metrics');
+            const lineHeight = parseFloat(getComputedStyle(bar).lineHeight);
+            return {
+              width, font: getComputedStyle(bar).fontSize,
+              overflow: bar.scrollWidth > bar.clientWidth,
+              height: bar.getBoundingClientRect().height,
+              singleRow: Math.abs(identity.getBoundingClientRect().top - metrics.getBoundingClientRect().top) < 2,
+              wholeMetrics: Array.from(metrics.children).every(metric => metric.getBoundingClientRect().height <= lineHeight + 1),
+              wholeIdentity: Array.from(identity.children).every(item => item.getBoundingClientRect().height <= lineHeight + 1)
+            };
+          } finally { host.remove(); }
+        });
+        """,
+        [selector]
+      )
+
+    for measurement <- measurements do
+      assert measurement["font"] == "14px", inspect(measurement)
+      refute measurement["overflow"], inspect(measurement)
+      assert measurement["wholeMetrics"], inspect(measurement)
+      assert measurement["wholeIdentity"], inspect(measurement)
+
+      if measurement["width"] >= 700 do
+        assert measurement["singleRow"], inspect(measurement)
+        assert measurement["height"] < 40, inspect(measurement)
+      end
+    end
+
+    session
   end
 end

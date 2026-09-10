@@ -85,7 +85,7 @@ History favors concise conventional subjects such as `docs: define backend REST 
 For user-visible changes, commit and push each verified coherent checkpoint
 promptly, then deploy that exact pushed revision through the documented
 production path so progress is visible at
-`https://harden-llm.prls.co/workspace`. Do this incrementally during a task;
+`https://harden-llm.prls.co/`. Do this incrementally during a task;
 do not leave verified UI work only in the local checkout. Before reporting
 completion, record the commit/SHA, push result, deployment result, release or
 image identity, and hosted health or workflow evidence. If deployment is

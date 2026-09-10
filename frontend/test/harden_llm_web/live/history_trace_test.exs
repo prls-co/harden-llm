@@ -8,14 +8,21 @@ defmodule HardenLlmWeb.HistoryTraceTest do
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-008 WEB-TEST-033 WEB-TEST-036 WEB-TEST-069
   setup %{conn: conn}, do: {:ok, conn: authenticated_conn(conn)}
 
-  test "retired audit URLs redirect to the canonical workspace and preserve trace selection", %{
+  test "retired workspace and audit URLs have no routes or compatibility redirects", %{
     conn: conn
   } do
     install_stub(fn conn -> unexpected(conn) end)
-    assert conn |> get("/history") |> redirected_to() == "/workspace"
 
-    assert conn |> get("/history?trace_id=trace-test") |> redirected_to() ==
-             "/workspace?trace_id=trace-test"
+    for path <- [
+          "/workspace",
+          "/workspace?trace_id=trace-test",
+          "/history",
+          "/history?trace_id=trace-test"
+        ] do
+      response = get(conn, path)
+      assert response.status == 404
+      assert get_resp_header(response, "location") == []
+    end
   end
 
   test "workspace appends older Result cards by cursor without duplicating records", %{conn: conn} do
@@ -249,7 +256,7 @@ defmodule HardenLlmWeb.HistoryTraceTest do
   end
 
   defp open_history(conn) do
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
     render_async(view, 1_000)
     view

@@ -88,20 +88,23 @@ defmodule HardenLlmWeb.LlmTraceComponents do
         aria-label="Trace controls"
         disabled={@controls_disabled}
       >
-        <span>
+        <span class="llm-trace-identity">
           <span class="status-icon">{value(@summary, "status_icon") || "ℹ️"}</span>
-          <strong>ID: {value(@summary, "trace_id") || "—"}</strong>
+          <strong
+            class="llm-trace-id"
+            title={"ID: #{value(@summary, "trace_id") || "—"}"}
+          >ID: {value(@summary, "trace_id") || "—"}</strong>
           <span
             :if={present?(value(@summary, "model_id"))}
             class="llm-trace-model ullm-mono"
-            title="Model"
+            title={"Model: #{value(@summary, "model_id")}"}
           >Model: {value(@summary, "model_id")}</span>
           <span
             :if={present?(value(@summary, "error_category"))}
             class="error-category"
           >({value(@summary, "error_category")})</span>
         </span>
-        <span>
+        <span class="llm-trace-metrics">
           <span
             :for={metric <- list_value(@summary, "metrics")}
             id={metric_id(@id, metric)}

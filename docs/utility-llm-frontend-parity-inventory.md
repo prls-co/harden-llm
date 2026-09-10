@@ -141,7 +141,7 @@ successful read or included in rendered state.
 | `Clear Schema` | Button | Clears shorthand and full schema only, persists that non-structured draft, and resets validation state. |
 | `New` | Button | Starts a new conversation by clearing prompt, system prompt, shorthand, schema, current output, and the trace URL while preserving selected profile. |
 | `New Prompt` | Button | Clears only the user prompt so another prompt can be entered without changing system or structured-output settings. |
-| `Run Prompt` | Primary button | Runs the selected profile with the current prompts, selected structured-output mode, reasoning, cache mode, default options, and retry/repair policy, then addresses the conversation at `/workspace?trace_id=...`. Disabled without a profile, while running, or while enabled structured output has no valid schema. |
+| `Run Prompt` | Primary button | Runs the selected profile with the current prompts, selected structured-output mode, reasoning, cache mode, default options, and retry/repair policy, then addresses the conversation at `/?trace_id=...`. Disabled without a profile, while running, or while enabled structured output has no valid schema. |
 
 ### 3.5 Output, trace, and row-local resource controls
 
@@ -150,7 +150,7 @@ successful read or included in rendered state.
 | `Output` | Section heading | Labels the latest output widget. |
 | `Latest output` | Output header | Shows the latest result and interface/endpoint metadata. |
 | Result body | Monospace preformatted text | Pretty-prints JSON/object results; displays an empty-state message before the first run. |
-| Conversation URL | URL query | A successful run writes its trace ID to `/workspace?trace_id=...`; opening or refreshing that URL restores the redacted output from the backend trace record. `New` removes the query and starts an empty conversation. |
+| Conversation URL | URL query | A successful run writes its trace ID to `/?trace_id=...`; opening or refreshing that URL restores the redacted output from the backend trace record. `New` removes the query and starts an empty conversation. |
 | `Copy` | Button | Copies the formatted latest result, changes to `Copied` or `Failed` briefly, and does not expose trace credentials. |
 | Trace summary | Clickable summary row | Expands/collapses measured LLM stats. The `Details` button performs the same action with an accessible label. |
 | Trace summary metrics | Text | Success/failure status, trace ID, immutable model, retry count, duration, input/cache/output-plus-reasoning tokens, and known cost. A persisted trace remains inspectable when usage is zero, which is required for immediate failures. Metric titles provide the same hover labels as utility-llm. |

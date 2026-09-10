@@ -25,7 +25,7 @@ defmodule HardenLlmWeb.SessionController do
           |> put_session("session_handle", handle)
           |> put_session("session_expiry", expires_at)
           |> put_session("identity", safe_identity(principal))
-          |> redirect(to: "/workspace")
+          |> redirect(to: "/")
         else
           _ -> unavailable(conn)
         end

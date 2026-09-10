@@ -256,7 +256,7 @@ Contract synchronization:
 
 ### History and traces
 
-- Workspace History is the canonical list of reusable Result cards, using stable cursor pagination from the REST contract and Load more in batches of ten. The separate audit page and its aggregate-statistics UI are retired; old `/history` URLs redirect to the workspace, preserving trace selection.
+- The authenticated main UI is `/`, with `/?trace_id=...` selecting a stored result. Workspace History is the canonical list of reusable Result cards, using stable cursor pagination from the REST contract and Load more in batches of ten. The separate audit page and its aggregate-statistics UI are retired; `/history` and `/workspace` return 404 without compatibility redirects.
 - Restoring a history item updates the workspace through backend-returned safe fields; it does not reconstruct hidden provider or credential state.
 - Single delete optimistically removes the card and rolls it back on failure. Successful mutations refresh from the first cursor page.
 - Clear-all requires explicit confirmation, empties the list after backend success, and invalidates in-flight history reads so stale pages cannot restore deleted cards.
@@ -470,7 +470,7 @@ Compose, and deployed tags by default.
 | WEB-TEST-066 | Reusable result cards | `test/harden_llm_web/components/llm_result_components_test.exs`, workspace/rendering and authenticated browser tests | `make test-fast && make test-browser` | Current Result and workspace History use the same input/output/stats card; both text rows copy their full recorded values with emoji controls; one local expansion control reveals both rows and survives unrelated patches; History cards retain independent stats/trace state and existing management actions. |
 | WEB-TEST-067 | Recorded result rerun | `test/harden_llm_web/live/workspace_live_test.exs` | `make test-fast` | Rerun follows cURL, submits only an available server-owned recorded request with its original cache mode, preserves the editor draft, uses the existing execution lifecycle, and refuses duplicate/unknown requests. |
 | WEB-TEST-068 | Compact workspace stats ownership | Workspace and History LiveView tests, authenticated/deployed browser canaries | `make test-fast && make test-browser` | Workspace exposes stats only inside Result/History cards, omits audit shortcuts and View all, and never loads aggregate stats. The duplicate audit page and Domain trace dialog are retired. |
-| WEB-TEST-069 | Canonical workspace History | `test/harden_llm_web/live/history_trace_test.exs`, authenticated/deployed browser canaries | `make test-fast && make test-browser` | Retired audit URLs redirect to Workspace; cursor append preserves cards/disclosures, rejects duplicate load-more events, retries failures explicitly, and rejects stale pages after clear-all; inline trace JSON and authorized downloads replace the Domain trace dialog. |
+| WEB-TEST-069 | Canonical workspace History | `test/harden_llm_web/live/history_trace_test.exs`, authenticated/deployed browser canaries | `make test-fast && make test-browser` | Root serves the authenticated main UI; retired workspace/audit URLs return 404 without redirects. Cursor append preserves cards/disclosures, rejects duplicate load-more events, retries failures explicitly, and rejects stale pages after clear-all; inline trace JSON and authorized downloads replace the Domain trace dialog. |
 
 Detailed fixtures and isolation:
 

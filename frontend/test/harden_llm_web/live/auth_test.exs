@@ -8,7 +8,7 @@ defmodule HardenLlmWeb.AuthTest do
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-005
 
   test "unauthenticated LiveViews redirect to login", %{conn: conn} do
-    assert {:error, {:redirect, %{to: "/login"}}} = live(conn, ~p"/workspace")
+    assert {:error, {:redirect, %{to: "/login"}}} = live(conn, ~p"/")
   end
 
   test "mount validates the backend session and token never enters rendered HTML", %{conn: conn} do
@@ -16,7 +16,7 @@ defmodule HardenLlmWeb.AuthTest do
     install_workspace_stub()
 
     conn = init_test_session(conn, APIFixtures.session_map(handle))
-    {:ok, view, html} = live(conn, ~p"/workspace")
+    {:ok, view, html} = live(conn, ~p"/")
 
     assert has_element?(view, "#workspace-page")
     refute html =~ APIFixtures.token()
@@ -33,7 +33,7 @@ defmodule HardenLlmWeb.AuthTest do
     end)
 
     conn = init_test_session(conn, APIFixtures.session_map(handle))
-    assert {:error, {:redirect, %{to: "/session/expired"}}} = live(conn, ~p"/workspace")
+    assert {:error, {:redirect, %{to: "/session/expired"}}} = live(conn, ~p"/")
 
     expired = get(conn, ~p"/session/expired")
     assert redirected_to(expired) == ~p"/login"

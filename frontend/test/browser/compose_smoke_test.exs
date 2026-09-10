@@ -85,7 +85,7 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
       |> fill_in(Query.css("#profile_apiKey"), with: provider_secret)
       |> click(Query.css("#profile-save"))
       |> assert_has(Query.css("#profile-Smoke", text: "Smoke"))
-      |> visit(fixture["web_url"] <> "/workspace")
+      |> visit(fixture["web_url"] <> "/")
       |> assert_has(Query.css("#backend-status", text: "Backend ready"))
       |> click(Query.css("#model-config-toggle"))
       |> assert_has(Query.css("#model-options"))
@@ -147,7 +147,7 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
 
     session =
       session
-      |> visit(fixture["web_url"] <> "/workspace")
+      |> visit(fixture["web_url"] <> "/")
       |> assert_has(Query.css("#login-page"))
 
     _output =

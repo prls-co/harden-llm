@@ -5,8 +5,9 @@
 The workspace Output panel becomes Result. Current Result and each workspace
 History item use one presentation-only `LlmResultComponents.llm_result/1`.
 History is one cursor-paginated array of these cards inside the workspace.
-The duplicate audit page and Domain trace dialog are retired; old `/history`
-bookmarks redirect to `/workspace`, preserving an optional trace selection.
+The main UI is `/`, with `/?trace_id=...` selecting a stored result. The duplicate
+audit page, Domain trace dialog, `/history`, and `/workspace` are removed.
+Retired URLs return 404; there are no compatibility redirects.
 
 Each card has three rows: recorded user input, output, and LLM stats. Input
 and output each have an accessible `📋` copy command. One `↕️` command expands
@@ -64,28 +65,18 @@ the required release gate before promoting the exact pushed frontend image.
 Use the existing production path and retain the previous image for rollback.
 Record hosted identity, health, and authenticated results accurately.
 
-## 4. Stats-row wrapping investigation (proposal only)
+## 4. Component-owned stats layout
 
-The shared summary uses `font: inherit`. Current Result is hosted under
-`.ullm-output-widget` (14px, line-height 1.45); History lacks that typography
-and inherits the application's 16px default. The rendered fixture cards show
-this mismatch. Both immediate summary groups explicitly use `flex-wrap: wrap`
-with 12px gaps. Full trace IDs, model names, error categories, and wider metric
-values consume the available width; even an individual metric can break at a
-space. This is a layout issue, not duplicated or disconnected stats data.
+The summary owns its 14px typography, independent of its host. Identity and
+metrics have separate flex groups: long IDs/models truncate visually, while full
+values remain in the DOM, hover titles, and Overview. Individual metrics never
+split across lines. Ordinary desktop cards use one row. Narrow cards wrap between
+groups or whole metrics rather than clipping data or forcing page-wide scrolling.
 
-Recommended next change: give the stats component consistent 14px typography,
-make the identity group shrink with ellipsis on ID/model (retain full accessible
-text and add full-value titles), and keep individual metrics unbroken. Target a
-single desktop row with deliberate narrow-screen wrapping. Forcing one row at
-every width would require horizontal scrolling or moving lower-priority metrics
-into Overview; that is a separate product choice. No wrapping CSS is changed
-in this cleanup.
-
-Local Chromium screenshots cover rendered Result and History cards; the pinned
-test image lacks emoji glyphs, so those screenshots are not proof of emoji
-appearance or universal line-break thresholds. Existing DOM/ARIA checks cover
-the emoji controls. The temporary layout probe was removed before the checkpoint.
+WEB-TEST-036 checks identity and metric markup; WEB-TEST-047 checks real Chromium
+layout at 900/700/320px in both Result and History contexts. The pinned browser
+image lacks emoji glyphs, so screenshots do not certify platform-specific emoji
+widths. Layout remains content-responsive, without a viewport-specific breakpoint.
 
 ## 5. Retained implementation notes
 

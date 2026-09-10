@@ -30,7 +30,7 @@ defmodule HardenLlmWeb.Auth do
 
   def redirect_if_authenticated(%{assigns: %{session_handle: handle}} = conn, _options)
       when is_binary(handle) do
-    conn |> Phoenix.Controller.redirect(to: "/workspace") |> halt()
+    conn |> Phoenix.Controller.redirect(to: "/") |> halt()
   end
 
   def redirect_if_authenticated(conn, _options), do: conn

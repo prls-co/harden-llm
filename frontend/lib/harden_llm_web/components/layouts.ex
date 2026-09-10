@@ -45,7 +45,7 @@ defmodule HardenLlmWeb.Layouts do
       <div class="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <.link
           id="brand-home"
-          navigate={~p"/workspace"}
+          navigate={~p"/"}
           class="mr-auto flex items-center gap-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600"
         >
           <span class="grid size-9 place-items-center rounded-xl bg-slate-950 text-sm font-bold text-white">HL</span>

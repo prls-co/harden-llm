@@ -45,7 +45,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     )
 
-    {:ok, view, _} = live(conn, ~p"/workspace")
+    {:ok, view, _} = live(conn, ~p"/")
     render_async(view, 1_000)
     view |> element("#history-fold-toggle") |> render_click()
     render_async(view, 1_000)
@@ -95,7 +95,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _} = live(conn, ~p"/workspace")
+    {:ok, view, _} = live(conn, ~p"/")
     render_async(view, 1_000)
     view |> element("#history-fold-toggle") |> render_click()
     render_async(view, 1_000)
@@ -125,7 +125,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
   test "rerun refuses an unowned or unavailable result ID", %{conn: conn} do
     install_stub(fn conn -> unexpected(conn) end)
-    {:ok, view, _} = live(conn, ~p"/workspace")
+    {:ok, view, _} = live(conn, ~p"/")
     render_async(view, 1_000)
     render_click(view, "rerun-result", %{"run-id" => "not-loaded"})
     assert has_element?(view, "#run-error", "recorded request is unavailable")
@@ -152,7 +152,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _} = live(conn, ~p"/workspace")
+    {:ok, view, _} = live(conn, ~p"/")
     render_async(view, 1_000)
     view |> element("#history-fold-toggle") |> render_click()
     render_async(view, 1_000)
@@ -201,7 +201,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     )
 
-    {:ok, view, _} = live(conn, ~p"/workspace")
+    {:ok, view, _} = live(conn, ~p"/")
     render_async(view, 1_000)
     view |> element("#history-fold-toggle") |> render_click()
     render_async(view, 1_000)
@@ -245,7 +245,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     )
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
     refute_received :unexpected_aggregate_stats_request
     refute has_element?(view, "#llm-stats-summary")
@@ -279,7 +279,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     )
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
     refute_received :unexpected_aggregate_stats_request
 
@@ -304,7 +304,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     install_stub(fn conn -> unexpected(conn) end, profiles: [other, preset], state: state)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
     assert has_element?(
@@ -328,7 +328,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     install_stub(fn conn -> unexpected(conn) end, profiles: profiles, state: state)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
     assert length(profiles) == 28
@@ -371,7 +371,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       state: state
     )
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
     view
@@ -402,7 +402,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       state: %{}
     )
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
     assert has_element?(
@@ -471,7 +471,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       profiles: [profile]
     )
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
     view |> element("#input-advanced-toggle") |> render_click()
@@ -537,7 +537,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
     view |> element("#input-advanced-toggle") |> render_click()
 
@@ -623,7 +623,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, html} = live(conn, ~p"/workspace")
+    {:ok, view, html} = live(conn, ~p"/")
     assert html =~ "Loading the canonical workspace"
     render_async(view, 1_000)
 
@@ -655,7 +655,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
     view
@@ -693,7 +693,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
     view
@@ -765,7 +765,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
     view
@@ -801,7 +801,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
     view |> element("#model-config-toggle") |> render_click()
@@ -904,7 +904,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
     refute has_element?(view, "nav")
@@ -1117,7 +1117,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
     view |> element("#model-config-toggle") |> render_click()
     render_async(view, 1_000)
@@ -1174,7 +1174,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       profiles: [primary]
     )
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
     view |> element("#model-config-toggle") |> render_click()
 
@@ -1206,7 +1206,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
     view |> element("#model-config-toggle") |> render_click()
     render_async(view, 1_000)
@@ -1265,7 +1265,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
     assert has_element?(view, ~s(#workspace-reasoning[disabled]))
@@ -1339,7 +1339,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     )
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
     view |> element("#history-fold-toggle") |> render_click()
     render_async(view, 1_000)
@@ -1429,7 +1429,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     )
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     assert_receive {:rollback_history_load_started, history_process}
     release_request(history_process, :release_rollback_history_load)
     render_async(view, 1_000)
@@ -1519,7 +1519,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     )
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     assert_receive {:loaded_history_started, history_process}
     release_request(history_process, :release_loaded_history)
     render_async(view, 1_000)
@@ -1597,7 +1597,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     )
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     assert_receive {:initial_history_started, history_pid}, 1_000
     assert has_element?(view, "#workspace-history-loading")
 
@@ -1634,7 +1634,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
     view |> element("#history-fold-toggle") |> render_click()
     render_async(view, 1_000)
@@ -1688,12 +1688,12 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
     submit_run(view, %{"userPrompt" => "run fixture"})
     render_async(view, 1_000)
-    assert_patch(view, ~p"/workspace?trace_id=trace-test")
+    assert_patch(view, ~p"/?trace_id=trace-test")
 
     assert_received {:run_payload,
                      %{
@@ -1798,7 +1798,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace?trace_id=trace-test")
+    {:ok, view, _html} = live(conn, ~p"/?trace_id=trace-test")
     render_async(view, 1_000)
     # Hydration starts the trace load as a second async operation; join that
     # transitive task explicitly instead of racing the first render.
@@ -1851,7 +1851,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
     submit_run(view, %{"userPrompt" => "pane state"})
     render_async(view, 1_000)
@@ -1916,10 +1916,10 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace?trace_id=trace-old")
+    {:ok, view, _html} = live(conn, ~p"/?trace_id=trace-old")
     assert_receive {:conversation_load_started, :old, old_pid}, 1_000
 
-    render_patch(view, ~p"/workspace?trace_id=trace-new")
+    render_patch(view, ~p"/?trace_id=trace-new")
     assert_receive {:conversation_load_started, :new, new_pid}, 1_000
 
     release_request(old_pid, :release_old)
@@ -1978,12 +1978,12 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
     submit_run(view, %{"userPrompt" => "failed fixture"})
     render_async(view, 1_000)
 
-    assert_patch(view, ~p"/workspace?trace_id=trace-test")
+    assert_patch(view, ~p"/?trace_id=trace-test")
     assert has_element?(view, "#run-error", "run outcome is unknown")
     refute render(view) =~ "provider detail"
     assert has_element?(view, ".llm-trace-summary", "ID: trace-test")
@@ -2013,7 +2013,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace?trace_id=trace-test")
+    {:ok, view, _html} = live(conn, ~p"/?trace_id=trace-test")
     render_async(view, 1_000)
     view |> element("#input-advanced-toggle") |> render_click()
 
@@ -2047,7 +2047,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, "#run_schema", "additionalProperties")
 
     view |> element("#new-conversation") |> render_click()
-    assert_patch(view, ~p"/workspace")
+    assert_patch(view, ~p"/")
     render_async(view, 1_000)
 
     refute has_element?(view, "#run-output")
@@ -2189,7 +2189,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         else: unexpected(conn)
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
     submit_run(view, %{"callType" => "structured", "schema" => "{invalid"})
@@ -2214,7 +2214,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
     assert render(view) =~ ~s(phx-hook="PromptShortcut")
@@ -2311,7 +2311,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
     view
@@ -2368,7 +2368,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
     submit_run(view, %{"userPrompt" => "one active run"})
     assert_receive {:run_started, task_pid}, 1_000
@@ -2396,7 +2396,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
     submit_run(view, %{"userPrompt" => "ambiguous run"})
     render_async(view, 1_000)
@@ -2419,7 +2419,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
     submit_run(view, %{"userPrompt" => "missing credential run"})
     render_async(view, 1_000)
@@ -2440,7 +2440,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
     submit_run(view, %{"userPrompt" => "expired session"})
 
@@ -2474,7 +2474,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       profiles: [APIFixtures.profile_state(), backup]
     )
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
     view |> element("#input-advanced-toggle") |> render_click()
@@ -2584,7 +2584,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
     assert has_element?(view, ~s(#workspace-cache option[value="cache"][selected]))
@@ -2616,7 +2616,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
     view |> element("#model-config-toggle") |> render_click()
 

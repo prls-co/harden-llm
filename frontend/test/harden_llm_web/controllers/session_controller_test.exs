@@ -29,7 +29,7 @@ defmodule HardenLlmWeb.SessionControllerTest do
         "session" => %{"email" => "operator@example.test", "password" => "fixture-password-123"}
       })
 
-    assert redirected_to(conn) == ~p"/workspace"
+    assert redirected_to(conn) == ~p"/"
     new_handle = get_session(conn, "session_handle")
     assert is_binary(new_handle)
     refute new_handle == old_handle

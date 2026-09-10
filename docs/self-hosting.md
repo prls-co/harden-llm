@@ -68,6 +68,13 @@ run; the API never returns the stored secret.
 
 ## Health and diagnostics
 
+The authenticated application lives at `/`; `/?trace_id=<id>` restores a result.
+There are no `/workspace` or `/history` routes or legacy redirects. Separate
+frontend routes remain for `/login`, `/logout`, `/session/expired`, `/profiles`,
+`/profiles/bundle`, `/embed/llm`, `/traces/:trace_id`, and artifact downloads at
+`/traces/:trace_id/artifacts/:artifact_id`. `/healthz` is the frontend health probe.
+The Go REST API routes are independent and unchanged.
+
 - `https://<api-host>/healthz` checks process liveness.
 - `https://<api-host>/readyz` checks migrations and the Garage bucket.
 - `https://<web-host>/healthz` checks Phoenix startup.

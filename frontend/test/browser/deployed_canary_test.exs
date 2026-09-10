@@ -48,7 +48,7 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       |> fill_in(Query.css("#session_password"), with: password)
       |> click(Query.css("#login-submit"))
       |> assert_has(Query.css("#workspace-page"))
-      |> visit("/history")
+      |> visit("/")
       |> assert_has(Query.css("#workspace-page"))
       |> assert_has(Query.css("#workspace-llm-widget"))
       |> assert_live_socket_connected()

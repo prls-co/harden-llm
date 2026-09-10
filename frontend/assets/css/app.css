@@ -206,6 +206,7 @@ button, a, input, select, textarea { touch-action: manipulation; }
 
 .llm-trace-summary {
   display: flex;
+  flex-wrap: wrap;
   width: 100%;
   align-items: center;
   justify-content: space-between;
@@ -215,7 +216,7 @@ button, a, input, select, textarea { touch-action: manipulation; }
   cursor: pointer;
   color: inherit;
   background-color: #f9f9f9;
-  font: inherit;
+  font: 14px/1.45 "IBM Plex Sans", "Avenir Next", "Segoe UI", Arial, sans-serif;
   text-align: left;
 }
 
@@ -234,31 +235,40 @@ button, a, input, select, textarea { touch-action: manipulation; }
 }
 
 .llm-trace-summary .status-icon {
-  margin-right: 8px;
+  flex: none;
 }
 
 .llm-trace-summary .error-category {
-  margin-left: 4px;
   color: #d9534f;
   font-size: .9em;
 }
 
-.llm-trace-model {
-  max-width: 308px;
+.llm-trace-id,
+.llm-trace-model,
+.llm-trace-summary .error-category {
+  min-width: 0;
   overflow: hidden;
-  color: #555;
-  font-size: .9em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.llm-trace-summary > span {
+.llm-trace-id { flex: 0 1 auto; }
+.llm-trace-model { flex: 0 1 auto; color: #555; font-size: .9em; }
+
+.llm-trace-identity,
+.llm-trace-metrics {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
+}
+
+.llm-trace-identity { flex: 1 1 240px; }
+.llm-trace-metrics {
+  flex: 0 1 auto;
   flex-wrap: wrap;
 }
+.llm-trace-metrics > span { white-space: nowrap; }
 
 .ullm-cache-status {
   display: inline-flex;

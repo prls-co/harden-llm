@@ -918,7 +918,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:schema_check, %{status: :idle, message: ""})
       |> persist_form_state(next_params)
 
-    {:noreply, push_patch(socket, to: ~p"/workspace")}
+    {:noreply, push_patch(socket, to: ~p"/")}
   end
 
   def handle_event("new-prompt", event_params, socket) do
@@ -1435,7 +1435,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
   defp push_conversation_url(socket, nil), do: socket
 
   defp push_conversation_url(socket, trace_id) do
-    push_patch(socket, to: ~p"/workspace?trace_id=#{trace_id}")
+    push_patch(socket, to: ~p"/?trace_id=#{trace_id}")
   end
 
   defp start_history_load(socket, cursor \\ nil) do

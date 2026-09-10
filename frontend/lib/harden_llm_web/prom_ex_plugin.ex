@@ -6,16 +6,17 @@ defmodule HardenLlmWeb.PromExPlugin do
   @routes [
     "/",
     "/healthz",
-    "/history",
+    "/embed/llm",
     "/login",
     "/logout",
     "/profiles",
     "/profiles/bundle",
     "/session/expired",
-    "/traces/:trace_id/artifacts/:artifact_id",
-    "/workspace"
+    "/traces/:trace_id",
+    "/traces/:trace_id/artifacts/:artifact_id"
   ]
   @live_views [
+    HardenLlmWeb.EmbeddingLive,
     HardenLlmWeb.ProfilesLive,
     HardenLlmWeb.WorkspaceLive
   ]

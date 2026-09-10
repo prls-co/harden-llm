@@ -14,7 +14,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     primary = profile("CPA GPT-5.6 Luna", "gpt-5.6-luna")
     install_stub([primary], primary)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
     html = render(view)
 
@@ -168,7 +168,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     escalation = profile("CPA GPT-5.6 Sol", "gpt-5.6-sol")
     install_stub([primary, escalation], primary)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
     view |> element("#model-config-toggle") |> render_click()
@@ -217,7 +217,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     primary = put_in(primary, ["profile", "backupProfiles"], ["Backup", "custom-fallback"])
     install_stub([primary, backup], primary)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
     view |> element("#model-config-toggle") |> render_click()
     render_async(view, 1_000)
@@ -234,7 +234,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     backup = profile("Repair LLM", "repair-model")
     install_stub([primary, backup], primary)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
     assert has_element?(view, ~s(#workspace-reasoning[disabled]))
