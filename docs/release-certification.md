@@ -856,3 +856,51 @@ change was made. Full hosted canary certification remains unaccepted.
 The previous frontend image remains available as
 `harden-llm-web:rollback-03645c9`, image
 `sha256:9f47c18058020623917a25938127a6d14076689725a592f1101391316f69af19`.
+
+## Shared Result and workspace History cards (2026-09-10)
+
+Application commit `6baefd34979661b5bb52a49345d83de61c429395` was pushed to
+`origin/main`, built once in the clean production worktree, and deployed with
+`--no-build --no-deps`, replacing only the frontend service. Result and workspace
+History now share a transport-free card with input, output, and stats rows.
+Each text row has an accessible emoji copy button; one local expansion control
+reveals both full values. Stats retain inline folding JSON, with rerun immediately
+after cURL. Rerun submits the server-owned recorded request through the existing
+execution lifecycle, preserves its cache mode and the editor draft, and prevents
+duplicate active submissions. No backend, OpenAPI, storage, or dependency change
+was made. See [the implementation and ownership plan](../plans/reusable-result-widget-plan.md).
+
+| Gate or production check | Result |
+| --- | --- |
+| Deterministic frontend tests | 166 passed, 4 opt-in tests excluded; WEB-TEST-066/067 cover shared cards and recorded rerun |
+| `make test-fast`, application checkpoint | accepted: 8 tasks, no failure or cleanup error |
+| `make test-browser` | accepted: 4 tasks; repeated successfully after the test-only History cleanup correction |
+| Full release selector, application checkpoint | accepted: 26 tasks, including native browser, frontend/backend Compose, packaging, and backend verification; no failure or cleanup error; local report `tmp/result-widget-release.json` |
+| Formatting and whitespace | passed |
+| Frontend image | `sha256:f7b76033fbd8f5ba62e61b4d766340fba9dedfac896e00f28452d6913b98d555`, OCI release `6baefd34979661b5bb52a49345d83de61c429395`, healthy |
+| Gateway | unchanged: `sha256:924f573041275184ea12df883afd89610aa14d8163bfe1fae4badc0fdf10a20f`, release `729804cdfab9ff5c2e9dd75c64609cddd6773557`, healthy |
+| Public probes | frontend `/healthz`, `/login`; API `/healthz`, `/readyz`: HTTP 200 |
+| Authenticated deployed canary, WEB-TEST-048 / TEST-118 | **accepted**: exact release/image identity, bounded provider run, trace controls and inline data, cURL payload, History DOM removal, and logout |
+| GitHub application-checkpoint workflow | fast and integration passed; browser and release jobs failed during test-image provisioning, before tests ran; see [run 34501081567](https://github.com/prls-co/harden-llm/actions/runs/34501081567) |
+
+The first hosted canary failed at its existing History cleanup assertion. The
+frontend logged a successful `deleteHistory` followed by `listHistory`; an
+owner-scoped API check confirmed smoke record `_FYZr9-k5CecxP7h9Mtibg` was absent
+and logged out successfully. Wallaby's `refute_has` queries presence and fails
+immediately if the old row is found; it does not wait for the asynchronous DOM
+removal. Test-only commit `e9e22cb01332a30e511a27414672cf72b4bfd24b`, pushed to
+`origin/main`, changes both canaries to await an exact DOM count of zero,
+including hidden elements. The existing timeout and deletion oracle are not
+weakened. All 166 deterministic frontend tests and the targeted browser gate
+passed afterward; a fresh hosted canary then passed against the unchanged
+application image above. Runtime sources, assets, configuration, dependencies,
+and Dockerfile were verified unchanged between these two commits.
+
+GitHub's separate provisioning failure is a pre-existing
+`frontend/Dockerfile.browser` pin: Alpine now offers `curl-8.22.0-r0` instead of
+the required `curl=8.20.0-r0`. Local browser/release checks ran using the existing
+pinned test image, `sha256:84fb69e72902863edb423c183d0c79ba7c2e7eb39f85e56a111268e28f801fad`.
+This cold-build CI limitation remains unresolved and is not reported as a pass.
+
+Rollback remains available as `harden-llm-web:rollback-333f646`, image
+`sha256:869377cd70ef5913f19e4030bd0b6a262ad80e9fe0bb0caae7ffd47cd27847b7`.
