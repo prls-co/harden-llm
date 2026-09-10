@@ -1052,3 +1052,91 @@ choice remains unresolved. The old-data decoder remains until the retained
 records' deletion scope is resolved; removing it now would break operator
 History reads. No database volume, credentials, sessions, or telemetry was
 deleted. This is a routing/layout clean cut, not a completed data/schema cutover.
+
+## Approved execution-data purge and v2-only cutover (2026-09-10)
+
+The user's subsequent approval resolved the preceding deletion boundary:
+purge runs and caches for `guest` and `operator-local`, preserving profiles,
+credentials, sessions, client settings, and telemetry.
+
+The existing owner-history API and journaled artifact coordinator removed
+25 operator runs, their 25 traces, and 25 Garage artifacts. Guest execution
+history was already empty. A guarded, owner-scoped database transaction then
+removed 81 operation-cache entries (8 guest, 73 operator). Independent database
+counts confirmed zero runs, traces, artifacts, and cache entries for both
+owners. `audit-artifacts` independently reported zero objects and metadata
+references, no missing or unreferenced objects, and `healthy:true`.
+
+Before/after configuration fingerprints matched, and every pre-existing API
+session row was unchanged. Only the purge's temporary authenticated session
+was logged out. No session-vault volume, telemetry store, backup, or unrelated
+application was purged. The application cannot undo the deletion; recovery
+would require a pre-existing backup. Completed deletion journals retain
+operational metadata, not the deleted output bodies.
+
+Application revision `2c0478c83c698af1524bc8c3525c0d792e6ab2be` removes retained-v1
+execution decoders, projection aliases, OpenAPI schemas, and the obsolete
+`reconcile-history` CLI/backend path. History and trace reads use the same
+canonical v2 decoder as fresh results and reject inconsistent wrapper
+identities/statuses. Current artifact audit, journal recovery, and execution
+deletion remain. Historical SQL migrations are unchanged; current profile,
+client-state, and semantic-operation version-1 contracts are unrelated and
+remain supported. This removes 1,123 net lines without adding a new service,
+adapter, dependency, or permanent purge endpoint.
+
+Cheap regressions failed before implementation for retained-data acceptance,
+the retired command, and retained OpenAPI schemas. After implementation, all
+164 deterministic Phoenix tests passed (4 opt-in cases excluded), focused Go
+tests passed, and the offline gate accepted all 8 tasks in
+`tmp/v2-cutover-fast.json`. Relevant contracts include TEST-022/026/061 and
+WEB-TEST-063 under their canonical specifications.
+
+### Certification blocker: no application promotion
+
+The exact application revision was pushed to `origin/main`. The full local
+release selector in `tmp/v2-cutover-release.json` did **not** pass: 23 tasks
+passed, `frontend-compose` failed, and the remaining packaging/baseline tasks
+were not run (status 125). Cleanup completed without errors. The passing
+tasks include backend Compose, integration/race/observability, native browser
+canaries, deterministic frontend/client tests, and dependency checks.
+
+The failure is at `ComposeSmokeTest.assert_telemetry!/2`: its 150-second Tempo
+poll did not obtain a trace containing both `harden-llm-web` and
+`harden-llm-gateway` plus the domain trace ID. The preceding browser run and
+result-ID assertions passed. The final diagnostic is only `:retry`; retained
+evidence cannot distinguish an absent search result from incomplete
+cross-service spans. The test fixture was automatically removed. This is an
+unresolved correlation failure, not a proven application regression or a
+certified transient. No timeout/assertion was weakened and no unexplained
+retry was used to obtain a pass. Diagnosing that boundary is the next release
+entrypoint; application promotion remains blocked.
+
+[GitHub run 34540870988](https://github.com/prls-co/harden-llm/actions/runs/34540870988)
+passed fast and pooled integration. Browser/release jobs failed before tests
+because `frontend/Dockerfile.browser` pins `curl=8.20.0-r0` while Alpine offers
+`8.22.0-r0`, confirmed in this run's job log. Local certification used the
+existing pinned browser image; that does not certify hosted cold builds.
+
+No candidate container was deployed, and no hosted live-provider canary was
+started. Production remains healthy at these unchanged identities:
+
+| Service | Running image | Application revision |
+| --- | --- | --- |
+| Gateway | `sha256:924f573041275184ea12df883afd89610aa14d8163bfe1fae4badc0fdf10a20f` | `729804cdfab9ff5c2e9dd75c64609cddd6773557` |
+| Frontend | `sha256:501316e3d70025744f536b94769bedc8f2b2c2ef4b1943bf91c50b56d60f0b63` | `1d7d7ede5b13cbb30a479dad8fd52ac1213a251a` |
+
+Final independent database and Garage checks again confirmed zero runs,
+traces, artifacts, cached outputs, and trace objects for the approved scope.
+Public frontend health/login and API health/readiness returned 200;
+`/workspace` and `/history` remained 404. The production worktree was restored
+to its prior frontend revision after candidate preparation was abandoned.
+
+Rollback preparation retained `harden-llm-web:rollback-1d7d7ed` at the running
+frontend image. The running gateway's original image manifest was no longer
+available locally, so `harden-llm-gateway:rollback-729804c` was rebuilt from its
+exact prior source, producing
+`sha256:7f0dc0671c229a546dd0023553f14d2eb9c39bb1cfa3949120e856ad8b433e25`.
+Its binary version and OCI version label both matched the prior gateway SHA;
+this is a rebuilt rollback image, not the original running image. The
+temporary source worktree was removed, and mutable gateway/frontend image
+tags were restored to the verified rollback images without restarting services.
