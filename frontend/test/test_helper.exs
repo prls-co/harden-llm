@@ -22,7 +22,6 @@ browser_gate? =
     end)
 
 if browser_gate? do
-  Mix.Task.run("assets.build")
   {:ok, _applications} = Application.ensure_all_started(:wallaby)
 
   Application.put_env(

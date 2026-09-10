@@ -134,7 +134,26 @@ defmodule HardenLlmWeb.WorkspaceLive do
         {:noreply, clear_conversation_selection(socket)}
 
       trace_id ->
-        socket = assign(socket, :conversation_trace_id, trace_id)
+        current_trace_id = LlmTraceProjection.trace_id(socket.assigns.run_result)
+        route_changed? = trace_id != socket.assigns.conversation_trace_id
+
+        socket =
+          cond do
+            not route_changed? ->
+              socket
+
+            trace_id == current_trace_id ->
+              socket
+              |> assign(:conversation_trace_id, trace_id)
+              |> assign(:conversation_trace_ref, nil)
+              |> assign(:diagnostic_ref, nil)
+
+            true ->
+              socket
+              |> assign(:conversation_trace_id, trace_id)
+              |> reset_conversation_selection()
+          end
+
         {:noreply, maybe_start_conversation_load(socket)}
     end
   end
@@ -353,6 +372,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
       socket
       |> assign(:run_ref, nil)
       |> assign(:run_result, result)
+      |> assign(:diagnostic_ref, nil)
+      |> assign(:conversation_trace_ref, nil)
       |> assign(
         :output_trace_resources,
         output_trace_resources(result, socket.assigns.run_request_payload)
@@ -384,6 +405,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
       socket
       |> assign(:run_ref, nil)
       |> assign(:run_result, nil)
+      |> assign(:diagnostic_ref, nil)
+      |> assign(:conversation_trace_ref, nil)
       |> assign(:run_request_payload, nil)
       |> assign(:output_trace_resources, %{})
       |> assign(:run_error, message)
@@ -404,6 +427,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
      socket
      |> assign(:run_ref, nil)
      |> assign(:run_result, nil)
+     |> assign(:diagnostic_ref, nil)
+     |> assign(:conversation_trace_ref, nil)
      |> assign(:run_request_payload, nil)
      |> assign(:output_trace_resources, %{})
      |> assign(:run_error, "The run could not be completed. Try again or check History.")
@@ -513,7 +538,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
         |> assign(:output_trace_loading?, false)
         |> assign(:output_trace_error, nil)
         |> assign(:output_trace_data, trace)
-        |> assign(:output_trace_open?, true)
 
       socket =
         case LlmTraceProjection.run_result(trace) do
@@ -526,7 +550,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
       {:noreply, socket}
     else
-      {:noreply, socket}
+      {:noreply,
+       socket
+       |> assign(:output_trace_ref, nil)
+       |> assign(:output_trace_loading?, false)}
     end
   end
 
@@ -916,6 +943,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
              |> assign(:run_ref, reference)
              |> assign(:run_request_payload, payload)
              |> assign(:run_result, nil)
+             |> assign(:diagnostic_ref, nil)
+             |> assign(:conversation_trace_ref, nil)
              |> assign(:output_trace_resources, %{})
              |> assign(:run_error, nil)
              |> assign(:output_request_open?, false)
@@ -946,11 +975,12 @@ defmodule HardenLlmWeb.WorkspaceLive do
     {:noreply, toggle_output_trace(socket)}
   end
 
-  defp toggle_output_trace(%{assigns: %{output_trace_loading?: true}} = socket),
-    do: socket
-
   defp toggle_output_trace(%{assigns: %{output_trace_open?: true}} = socket),
     do: assign(socket, :output_trace_open?, false)
+
+  defp toggle_output_trace(%{assigns: %{output_trace_ref: reference}} = socket)
+       when not is_nil(reference),
+       do: assign(socket, :output_trace_open?, true)
 
   defp toggle_output_trace(%{assigns: %{output_trace_data: trace}} = socket)
        when is_map(trace),
@@ -994,7 +1024,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
     socket =
       socket
       |> assign(:ui, ui)
-      |> reset_output_data_if_closed(name, ui[name])
       |> assign(:ui_save_pending?, true)
       |> assign(:ui_error, nil)
       |> start_async(
@@ -1008,15 +1037,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
        else: socket
      )}
   end
-
-  defp reset_output_data_if_closed(socket, "outputDetailsOpen", false) do
-    socket
-    |> assign(:output_request_open?, false)
-    |> assign(:output_response_open?, false)
-    |> assign(:output_trace_open?, false)
-  end
-
-  defp reset_output_data_if_closed(socket, _name, _open), do: socket
 
   defp reset_output_trace(socket) do
     socket
@@ -1214,6 +1234,11 @@ defmodule HardenLlmWeb.WorkspaceLive do
   defp clear_conversation_selection(socket) do
     socket
     |> assign(:conversation_trace_id, nil)
+    |> reset_conversation_selection()
+  end
+
+  defp reset_conversation_selection(socket) do
+    socket
     |> assign(:conversation_trace_ref, nil)
     |> assign(:diagnostic_ref, nil)
     |> assign(:run_result, nil)

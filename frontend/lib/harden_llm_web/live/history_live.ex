@@ -380,7 +380,6 @@ defmodule HardenLlmWeb.HistoryLive do
     end
   end
 
-  def observation_data(observation), do: Jason.encode!(observation["data"] || %{}, pretty: true)
   def history_json(value), do: Jason.encode!(value || %{}, pretty: true)
 
   def history_prompt_preview(item) do

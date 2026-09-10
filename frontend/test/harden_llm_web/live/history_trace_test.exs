@@ -127,6 +127,8 @@ defmodule HardenLlmWeb.HistoryTraceTest do
 
     assert has_element?(view, "#trace-dialog")
     assert has_element?(view, "#observation-0", "result")
+    assert has_element?(view, "#trace-record.json-viewer")
+    assert has_element?(view, "#observation-0-json.json-viewer")
 
     assert has_element?(
              view,
@@ -245,6 +247,8 @@ defmodule HardenLlmWeb.HistoryTraceTest do
 
     assert has_element?(view, "#history-expanded", "Request")
     assert has_element?(view, "#history-expanded", "safe restored prompt")
+    assert has_element?(view, "#history-expanded-request-run-test.json-viewer")
+    assert has_element?(view, "#history-expanded-result-run-test.json-viewer")
     assert has_element?(view, "#history-run-stats", "Prompt tokens")
     assert has_element?(view, "#copy-history-output")
     assert has_element?(view, "#copy-history-curl")

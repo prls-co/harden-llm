@@ -402,7 +402,7 @@
         "bootstrap": true,
         "shmSize": "2g"
       },
-      "dependsOn": ["frontend-deterministic"],
+      "dependsOn": ["frontend-deterministic", "frontend-assets-deploy"],
       "timeoutMs": 600000,
       "cleanupOwner": "browser",
       "network": "local-only",

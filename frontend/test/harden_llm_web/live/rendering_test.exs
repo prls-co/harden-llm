@@ -201,10 +201,7 @@ defmodule HardenLlmWeb.RenderingTest do
     render_async(history_view, 1_000)
     assert has_element?(history_view, ~s(#trace-title.truncate[title="#{long_trace}"]))
 
-    assert has_element?(
-             history_view,
-             "#trace-observations pre.max-h-64.overflow-auto.break-words"
-           )
+    assert has_element?(history_view, "#trace-observations .json-viewer")
   end
 
   test "backend error states are announced and trace failures leave loading state", %{conn: conn} do

@@ -1,0 +1,80 @@
+/* Shared decoded-JSON tree viewer. It has no LLM or transport-specific styles. */
+.json-viewer {
+  max-height: 336px;
+  min-width: 0;
+  overflow: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: .75em;
+  background: #fff;
+  color: #334155;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .86em;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.json-viewer-node {
+  min-width: max-content;
+}
+
+.json-viewer-node > summary {
+  display: flex;
+  align-items: baseline;
+  gap: .45rem;
+  cursor: pointer;
+  list-style: none;
+  padding: .12rem 0;
+}
+
+.json-viewer-node > summary::-webkit-details-marker {
+  display: none;
+}
+
+.json-viewer-node > summary::before {
+  width: .8rem;
+  color: #64748b;
+  content: "▸";
+  font-family: sans-serif;
+  text-align: center;
+}
+
+.json-viewer-node[open] > summary::before {
+  content: "▾";
+}
+
+.json-viewer-node > summary:focus-visible {
+  outline: 2px solid var(--ullm-focus-border, #17211d);
+  outline-offset: 2px;
+}
+
+.json-viewer-type {
+  color: #64748b;
+  font-size: .9em;
+}
+
+.json-viewer-children {
+  margin: .1rem 0 .1rem .9rem;
+  border-left: 1px solid #e2e8f0;
+  padding-left: .8rem;
+}
+
+.json-viewer-leaf {
+  display: grid;
+  grid-template-columns: minmax(7rem, max-content) minmax(0, 1fr);
+  gap: .55rem;
+  padding: .12rem 0;
+}
+
+.json-viewer-root-leaf {
+  display: block;
+}
+
+.json-viewer-key {
+  color: #0f766e;
+}
+
+.json-viewer-value {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

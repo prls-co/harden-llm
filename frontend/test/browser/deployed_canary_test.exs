@@ -88,7 +88,7 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       |> assert_has(Query.css(".trace-controls #output-trace-show-request", text: "Request"))
       |> assert_has(Query.css(".trace-controls #output-trace-show-response", text: "Response"))
       |> click(Query.css("#output-trace-view-json"))
-      |> assert_has(Query.css("#output-trace-trace-json .trace-json-node", text: "traceId"))
+      |> assert_has(Query.css("#output-trace-trace-json .json-viewer-node", text: "traceId"))
       |> click(Query.css("#output-trace-show-request"))
       |> assert_has(Query.css("#output-trace-request-content"))
       |> click(Query.css("#output-trace-show-response"))
@@ -99,6 +99,7 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       |> assert_dom_attribute("#output-trace-content", "hidden", nil)
       |> open_ui_fold("#history-fold-toggle", "#workspace-history")
       |> assert_has(Query.css("#workspace-history article", text: nonce))
+      |> click(Query.css("#output-trace-show-request"))
 
     widget_facts =
       javascript_value(
@@ -106,9 +107,14 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
         """
         const controls = document.querySelector('.trace-controls');
         const cacheStyle = window.getComputedStyle(document.querySelector('#output-trace-cache-status'));
+        const selectedStyle = window.getComputedStyle(document.querySelector('#output-trace-details-toggle'));
+        const closedStyle = window.getComputedStyle(document.querySelector('#output-trace-show-request'));
         return {
           controlDisplay: window.getComputedStyle(controls).display,
           directLabels: Array.from(controls.children).map(node => node.textContent.trim()),
+          selectedBackground: selectedStyle.backgroundColor,
+          closedBackground: closedStyle.backgroundColor,
+          selectedShadow: selectedStyle.boxShadow,
           cacheBorderWidth: cacheStyle.borderTopWidth,
           cacheBorderRadius: cacheStyle.borderRadius,
           cacheBackground: cacheStyle.backgroundColor,
@@ -127,6 +133,9 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
              "Request",
              "Response"
            ]
+
+    assert widget_facts["selectedBackground"] != widget_facts["closedBackground"]
+    assert widget_facts["selectedShadow"] != "none"
 
     assert widget_facts["cacheBorderWidth"] == "0px"
     assert widget_facts["cacheBorderRadius"] == "0px"

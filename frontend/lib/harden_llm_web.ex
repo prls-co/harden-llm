@@ -86,6 +86,8 @@ defmodule HardenLlmWeb do
       import Phoenix.HTML
       # Core UI components
       import HardenLlmWeb.CoreComponents
+      import HardenLlmWeb.JsonViewer
+      import HardenLlmWeb.LlmStatsComponents
       import HardenLlmWeb.LlmTraceComponents
 
       # Common modules used in templates

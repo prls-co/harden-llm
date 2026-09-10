@@ -283,13 +283,19 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
     javascript_value(
       session,
       """
-      const facts = Array.from(document.querySelectorAll("#run-result-panel .llm-trace-details p"));
-      const value = label => {
-        const fact = facts.find(item => item.querySelector("strong")?.textContent.trim() === `${label}:`);
-        const prefix = fact?.querySelector("strong")?.textContent || "";
-        return fact ? fact.textContent.slice(prefix.length).trim() : "";
+      const value = key => {
+        const keyText = JSON.stringify(key) + ":";
+        const leaf = Array.from(document.querySelectorAll("#output-trace-details-json .json-viewer-leaf"))
+          .find(item => item.querySelector(".json-viewer-key")?.textContent.trim() === keyText);
+        const text = leaf?.querySelector(".json-viewer-value")?.textContent.trim() || "";
+        try {
+          const decoded = JSON.parse(text);
+          return typeof decoded === "string" ? decoded : String(decoded);
+        } catch (_error) {
+          return text;
+        }
       };
-      return {runId: value("Run ID"), traceId: value("Trace ID")};
+      return {runId: value("run_id"), traceId: value("trace_id")};
       """
     )
     |> then(fn result -> {result["runId"], result["traceId"]} end)

@@ -160,12 +160,20 @@
           <div>
             <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
               Request
-            </h3><pre class="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-white p-4 text-xs text-slate-700"><%= history_json(item["request"]) %></pre>
+            </h3><.json_viewer
+              id={"history-expanded-request-#{@expanded_history_id}"}
+              data={item["request"] || %{}}
+              class="history-json-viewer"
+            />
           </div>
           <div>
             <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
               Result
-            </h3><pre class="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-white p-4 text-xs text-slate-700"><%= history_json(item["result"]) %></pre>
+            </h3><.json_viewer
+              id={"history-expanded-result-#{@expanded_history_id}"}
+              data={item["result"] || %{}}
+              class="history-json-viewer"
+            />
           </div>
         </div>
         <dl
@@ -313,10 +321,11 @@
                 class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold"
               >Copy JSON trace</button>
             </div>
-            <pre
+            <.json_viewer
               id="trace-record"
-              class="mb-4 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-slate-950 p-4 text-xs text-slate-100"
-            ><%= history_json(@trace["record"]) %></pre>
+              data={@trace["record"] || %{}}
+              class="history-json-viewer history-json-viewer-dark"
+            />
             <ol id="trace-observations" class="space-y-3">
               <li
                 :for={observation <- @trace["observations"] || []}
@@ -328,7 +337,11 @@
                     {observation["type"]}
                   </p>
                 </div>
-                <pre class="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-slate-950 p-3 text-xs text-slate-100"><%= observation_data(observation) %></pre>
+                <.json_viewer
+                  id={"observation-#{observation["sequence"]}-json"}
+                  data={observation["data"] || %{}}
+                  class="history-json-viewer history-json-viewer-dark"
+                />
               </li>
             </ol>
           </section>

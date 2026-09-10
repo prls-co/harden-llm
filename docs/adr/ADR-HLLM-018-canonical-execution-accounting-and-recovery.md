@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-01
 - Requirements: REQ-008, REQ-010, REQ-011, REQ-019, REQ-020, REQ-021, and GitHub issue #46
-- Verification: TEST-057 through TEST-061 and WEB-TEST-060 through WEB-TEST-063
+- Verification: TEST-057 through TEST-061 and WEB-TEST-060 through WEB-TEST-065
 
 ## Context
 
@@ -185,6 +185,10 @@ second persistence or telemetry path.
 - WEB-TEST-061: stats lifecycle and cost/usage certainty.
 - WEB-TEST-062: multi-instance trace component identity and event isolation.
 - WEB-TEST-063: rendered execution identity, accounting, and legacy states.
+- WEB-TEST-064: reusable decoded JSON viewer, type fidelity, stable identities,
+  and structured Output/History adoption.
+- WEB-TEST-065: trace route identity invalidation and stale asynchronous result
+  isolation.
 
 Completion additionally requires `make test-fast`, `make verify`,
 `make test-browser`, `make test-release`, exact pushed revision/image identity,

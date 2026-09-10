@@ -95,7 +95,7 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> assert_has(Query.css(".trace-controls #output-trace-show-request", text: "Request"))
       |> assert_has(Query.css(".trace-controls #output-trace-show-response", text: "Response"))
       |> click(Query.css("#output-trace-view-json"))
-      |> assert_has(Query.css("#output-trace-trace-json .trace-json-node", text: "traceId"))
+      |> assert_has(Query.css("#output-trace-trace-json .json-viewer-node", text: "traceId"))
       |> assert_has(Query.css("#output-trace-artifact-0", text: "trace · 42 bytes"))
       |> click(Query.css("#output-trace-show-request"))
       |> assert_has(Query.css("#output-trace-request-content"))
@@ -105,6 +105,30 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> assert_dom_attribute("#output-trace-content", "hidden", "")
       |> click(Query.css("#output-trace-summary"))
       |> assert_dom_attribute("#output-trace-content", "hidden", nil)
+      |> click(Query.css("#output-trace-show-request"))
+
+    nested_json_id =
+      javascript_value(
+        session,
+        """
+        const node = Array.from(document.querySelectorAll('#output-trace-trace-json .json-viewer-node'))
+          .find(element => !element.open);
+        node?.querySelector('summary')?.click();
+        return node?.id || null;
+        """
+      )
+
+    if is_binary(nested_json_id) do
+      session =
+        session
+        |> fill_in(Query.css("#run_userPrompt"), with: "trigger an unrelated draft patch")
+
+      assert javascript_value(
+               session,
+               "return document.getElementById(arguments[0])?.open === true;",
+               [nested_json_id]
+             )
+    end
 
     widget_facts =
       javascript_value(
@@ -113,9 +137,16 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
         const controls = document.querySelector('.trace-controls');
         const cache = document.querySelector('#output-trace-cache-status');
         const cacheStyle = window.getComputedStyle(cache);
+        const selectedAction = document.querySelector('#output-trace-details-toggle');
+        const closedAction = document.querySelector('#output-trace-show-request');
+        const selectedStyle = window.getComputedStyle(selectedAction);
+        const closedStyle = window.getComputedStyle(closedAction);
         return {
           controlDisplay: window.getComputedStyle(controls).display,
           directLabels: Array.from(controls.children).map(node => node.textContent.trim()),
+          selectedBackground: selectedStyle.backgroundColor,
+          closedBackground: closedStyle.backgroundColor,
+          selectedShadow: selectedStyle.boxShadow,
           cacheBorderWidth: cacheStyle.borderTopWidth,
           cacheBorderRadius: cacheStyle.borderRadius,
           cacheBackground: cacheStyle.backgroundColor,
@@ -133,6 +164,9 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
              "Request",
              "Response"
            ]
+
+    assert widget_facts["selectedBackground"] != widget_facts["closedBackground"]
+    assert widget_facts["selectedShadow"] != "none"
 
     assert widget_facts["cacheBorderWidth"] == "0px"
     assert widget_facts["cacheBorderRadius"] == "0px"

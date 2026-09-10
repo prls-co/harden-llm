@@ -1530,7 +1530,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     view |> element("#output-trace-view-json") |> render_click()
     render_async(view, 1_000)
     assert has_element?(view, "#output-trace-trace-json", "traceId")
-    assert has_element?(view, "#output-trace-trace-json .trace-json-node", "traceId")
+    assert has_element?(view, "#output-trace-trace-json .json-viewer-node", "traceId")
     refute has_element?(view, ".trace-controls a")
   end
 
@@ -1551,6 +1551,9 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/workspace?trace_id=trace-test")
     render_async(view, 1_000)
+    # Hydration starts the trace load as a second async operation; join that
+    # transitive task explicitly instead of racing the first render.
+    render_async(view, 1_000)
 
     assert has_element?(view, "#run-output", "fixture output")
     assert has_element?(view, "#run-result-panel", "trace-test")
@@ -1567,6 +1570,111 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     view |> element("#output-trace-show-response") |> render_click()
     assert has_element?(view, "#output-trace-response-content", "fixture output")
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-063
+  test "closing an in-flight JSON pane preserves independent panes and avoids duplicate loads", %{
+    conn: conn
+  } do
+    test_pid = self()
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/run"} ->
+          Req.Test.json(conn, APIFixtures.success(APIFixtures.run_result()))
+
+        {"GET", "/api/v1/traces/trace-test"} ->
+          send(test_pid, {:trace_load_started, self()})
+
+          receive do
+            :release_trace -> Req.Test.json(conn, APIFixtures.success(APIFixtures.trace()))
+          end
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    submit_run(view, %{"userPrompt" => "pane state"})
+    render_async(view, 1_000)
+
+    view |> element("#output-trace-view-json") |> render_click()
+    assert_receive {:trace_load_started, trace_process}, 1_000
+    assert has_element?(view, "#output-trace-trace-json:not([hidden])[aria-busy=\"true\"]")
+
+    view |> element("#output-trace-view-json") |> render_click()
+    assert has_element?(view, "#output-trace-trace-json[hidden]")
+
+    view |> element("#output-trace-show-request") |> render_click()
+    assert has_element?(view, "#output-trace-request:not([hidden])", "pane state")
+    refute_receive {:trace_load_started, _}, 100
+
+    send(trace_process, :release_trace)
+    render_async(view, 1_000)
+
+    assert has_element?(view, "#output-trace-trace-json[hidden]")
+    assert has_element?(view, "#output-trace-request:not([hidden])")
+
+    view |> element("#output-trace-view-json") |> render_click()
+    assert has_element?(view, "#output-trace-trace-json:not([hidden])", "traceId")
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-065
+  test "changing trace routes invalidates an in-flight conversation load", %{conn: conn} do
+    test_pid = self()
+
+    trace_for = fn trace_id, output ->
+      APIFixtures.trace()
+      |> Map.put("traceId", trace_id)
+      |> Map.put(
+        "record",
+        APIFixtures.run_result()
+        |> Map.put("traceId", trace_id)
+        |> Map.put("output", output)
+      )
+    end
+
+    old_trace = trace_for.("trace-old", "old output")
+    new_trace = trace_for.("trace-new", "new output")
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/traces/trace-old"} ->
+          send(test_pid, {:conversation_load_started, :old, self()})
+
+          receive do
+            :release_old -> Req.Test.json(conn, APIFixtures.success(old_trace))
+          end
+
+        {"GET", "/api/v1/traces/trace-new"} ->
+          send(test_pid, {:conversation_load_started, :new, self()})
+
+          receive do
+            :release_new -> Req.Test.json(conn, APIFixtures.success(new_trace))
+          end
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?trace_id=trace-old")
+    assert_receive {:conversation_load_started, :old, old_pid}, 1_000
+
+    render_patch(view, ~p"/workspace?trace_id=trace-new")
+    assert_receive {:conversation_load_started, :new, new_pid}, 1_000
+
+    release_request(old_pid, :release_old)
+    render(view)
+    refute has_element?(view, "#run-output", "old output")
+
+    release_request(new_pid, :release_new)
+    render_async(view, 1_000)
+
+    assert has_element?(view, "#run-output", "new output")
+    assert has_element?(view, ".llm-trace-summary", "ID: trace-new")
   end
 
   test "failed zero-token runs reload persisted trace details and resources", %{conn: conn} do
@@ -1624,7 +1732,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     refute render(view) =~ "provider detail"
     assert has_element?(view, ".llm-trace-summary", "ID: trace-test")
     assert has_element?(view, ".llm-trace-details", "Rate Limit (429)")
-    assert has_element?(view, ".llm-trace-details", "Profile: Primary")
+    assert has_element?(view, ".llm-trace-details .json-viewer", "Primary")
     assert has_element?(view, ".trace-controls #output-trace-show-request:not([disabled])")
     assert has_element?(view, ".trace-controls #output-trace-show-response:not([disabled])")
   end
@@ -1866,11 +1974,11 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     view |> element("#output-trace-summary") |> render_click()
     render_async(view, 1_000)
     assert has_element?(view, "#output-trace-content[hidden]")
-    refute has_element?(view, "#output-trace-content:not([hidden]) #output-trace-details")
 
     view |> element("#output-trace-summary") |> render_click()
     render_async(view, 1_000)
     assert has_element?(view, "#output-trace-content:not([hidden])")
+    assert has_element?(view, "#output-trace-details:not([hidden])")
 
     view |> element("#output-trace-show-request") |> render_click()
     view |> element("#output-trace-show-response") |> render_click()
@@ -1890,17 +1998,23 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     view |> element("#output-trace-details-toggle") |> render_click()
     render_async(view, 1_000)
-    refute has_element?(view, "#output-trace-details")
+    assert has_element?(view, "#output-trace-details[hidden]")
     assert has_element?(view, ".trace-controls #output-trace-details-toggle", "Details")
     assert has_element?(view, ".trace-controls #output-trace-show-request", "Request")
     assert has_element?(view, ".trace-controls #output-trace-show-response", "Response")
+    assert has_element?(view, "#output-trace-request:not([hidden])")
+    assert has_element?(view, "#output-trace-response:not([hidden])")
 
     view |> element("#output-trace-details-toggle") |> render_click()
     render_async(view, 1_000)
     assert has_element?(view, "#output-trace-show-request")
     assert has_element?(view, "#output-trace-show-response")
-    refute has_element?(view, "#output-trace-request-content")
-    refute has_element?(view, "#output-trace-response-content")
+    assert has_element?(view, "#output-trace-request:not([hidden]) #output-trace-request-content")
+
+    assert has_element?(
+             view,
+             "#output-trace-response:not([hidden]) #output-trace-response-content"
+           )
   end
 
   test "duplicate active submits are ignored and the run button alone is disabled", %{conn: conn} do
