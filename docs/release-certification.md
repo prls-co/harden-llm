@@ -904,3 +904,34 @@ This cold-build CI limitation remains unresolved and is not reported as a pass.
 
 Rollback remains available as `harden-llm-web:rollback-333f646`, image
 `sha256:869377cd70ef5913f19e4030bd0b6a262ad80e9fe0bb0caae7ffd47cd27847b7`.
+
+## Compact workspace stats ownership (2026-09-10)
+
+Application commit `378b5727116db4c34457dc35bba635133c675c4a` was pushed to
+`origin/main`, built once in the clean production worktree, and deployed with
+`--no-build --no-deps`, replacing only the frontend. The workspace's bottom LLM
+stats panel and per-card "Inspect in audit history" shortcut are removed, along
+with the unused aggregate snapshot loading, polling, and refresh callbacks.
+Inline Result/History stats remain unchanged. View all still opens the audit
+History page, where owner-wide aggregate totals and their refresh lifecycle
+remain available. No API, storage, telemetry, or dependency changes were made.
+
+| Gate or production check | Result |
+| --- | --- |
+| Focused Workspace/History tests, WEB-TEST-068 | 54 passed; the new no-aggregate-request regression failed before implementation and passed afterward; aggregate retry/snapshot/polling coverage retained on the audit page |
+| `make test-fast` | accepted: 8 tasks, no failure or cleanup error |
+| Full release selector | accepted: 26 tasks, including native browser and frontend/backend Compose; no failure or cleanup error; local report `tmp/compact-workspace-release.json` |
+| Formatting and whitespace | passed |
+| Frontend image | `sha256:9b902d8c412ede4e1e13026f5f958c10cb5c03ce535e32b804755dd18204acf7`, OCI release `378b5727116db4c34457dc35bba635133c675c4a`, healthy |
+| Gateway | unchanged: `sha256:924f573041275184ea12df883afd89610aa14d8163bfe1fae4badc0fdf10a20f`, release `729804cdfab9ff5c2e9dd75c64609cddd6773557`, healthy |
+| Public probes | frontend `/healthz`, `/login`; API `/healthz`, `/readyz`: HTTP 200 |
+| Hosted canary, WEB-TEST-048 / TEST-118 | accepted: exact image/release, removed controls absent from the DOM, bounded provider run, inline trace controls, History removal, and logout |
+
+[GitHub run 34512584194](https://github.com/prls-co/harden-llm/actions/runs/34512584194)
+passed fast and integration jobs. Browser/release jobs remain blocked before
+tests by the existing `curl=8.20.0-r0` browser-image pin; Alpine now offers
+`8.22.0-r0`. Local certification used the existing pinned browser image, as
+documented above. This unrelated cold-build limitation is not reported as a pass.
+
+Rollback remains available as `harden-llm-web:rollback-6baefd3`, image
+`sha256:f7b76033fbd8f5ba62e61b4d766340fba9dedfac896e00f28452d6913b98d555`.
