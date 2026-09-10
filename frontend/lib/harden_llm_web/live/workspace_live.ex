@@ -87,6 +87,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:draft_error, nil)
       |> assign(:ui_error, nil)
       |> assign(:ui_save_pending?, false)
+      |> assign(:ui_save_dirty?, false)
       |> assign(:output_request_open?, false)
       |> assign(:output_response_open?, false)
       |> assign(:output_trace_resources, %{})
@@ -309,25 +310,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
     {:noreply, assign(socket, :draft_error, "The draft could not be saved.")}
   end
 
-  def handle_async(:save_ui, {:ok, {:ok, _result, _state}}, socket) do
-    {:noreply,
-     socket
-     |> assign(:ui_save_pending?, false)
-     |> assign(:ui_error, nil)}
-  end
-
-  def handle_async(:save_ui, {:ok, {:error, %APIError{} = error}}, socket) do
-    {:noreply,
-     socket
-     |> assign(:ui_save_pending?, false)
-     |> assign(:ui_error, error.message)}
-  end
-
-  def handle_async(:save_ui, _result, socket) do
-    {:noreply,
-     socket
-     |> assign(:ui_save_pending?, false)
-     |> assign(:ui_error, "The workspace display state could not be saved.")}
+  def handle_async(:save_ui, result, socket) do
+    {:noreply, finish_ui_save(socket, ui_save_error(result))}
   end
 
   def handle_async(:load_history, {:ok, {:ok, %{"items" => history}, _state}}, socket) do
@@ -750,11 +734,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   def handle_event("toggle-ui", %{"name" => name, "open" => value}, socket)
       when name in @ui_keys do
-    if socket.assigns.ui_save_pending? do
-      {:noreply, socket}
-    else
-      toggle_ui(socket, name, value)
-    end
+    toggle_ui(socket, name, value)
   end
 
   def handle_event("restore-history", %{"run-id" => run_id}, socket) do
@@ -1012,24 +992,17 @@ defmodule HardenLlmWeb.WorkspaceLive do
   defp toggle_ui(socket, name, value) do
     ui = Map.put(socket.assigns.ui, name, truthy?(value))
 
-    state =
-      state_from_params(
-        socket.assigns.form.params || %{},
-        ui,
-        socket.assigns.reasoning_by_profile
-      )
-
-    handle = socket.assigns.session_handle
-
     socket =
       socket
       |> assign(:ui, ui)
-      |> assign(:ui_save_pending?, true)
       |> assign(:ui_error, nil)
-      |> start_async(
-        :save_ui,
-        Observability.propagate(fn -> HardenAPI.save_state(handle, state) end)
-      )
+
+    socket =
+      if socket.assigns.ui_save_pending? do
+        assign(socket, :ui_save_dirty?, true)
+      else
+        start_ui_save(socket)
+      end
 
     {:noreply,
      if(name == "historyOpen" and truthy?(value),
@@ -1037,6 +1010,40 @@ defmodule HardenLlmWeb.WorkspaceLive do
        else: socket
      )}
   end
+
+  defp start_ui_save(socket) do
+    state =
+      state_from_params(
+        socket.assigns.form.params || %{},
+        socket.assigns.ui,
+        socket.assigns.reasoning_by_profile
+      )
+
+    handle = socket.assigns.session_handle
+
+    socket
+    |> assign(:ui_save_pending?, true)
+    |> assign(:ui_save_dirty?, false)
+    |> start_async(
+      :save_ui,
+      Observability.propagate(fn -> HardenAPI.save_state(handle, state) end)
+    )
+  end
+
+  defp finish_ui_save(socket, error) do
+    if socket.assigns.ui_save_dirty? do
+      start_ui_save(socket)
+    else
+      socket
+      |> assign(:ui_save_pending?, false)
+      |> assign(:ui_save_dirty?, false)
+      |> assign(:ui_error, error)
+    end
+  end
+
+  defp ui_save_error({:ok, {:ok, _result, _state}}), do: nil
+  defp ui_save_error({:ok, {:error, %APIError{} = error}}), do: error.message
+  defp ui_save_error(_result), do: "The workspace display state could not be saved."
 
   defp reset_output_trace(socket) do
     socket

@@ -2017,6 +2017,70 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
            )
   end
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-063
+  test "output controls remain interactive while a display preference save is pending", %{
+    conn: conn
+  } do
+    test_pid = self()
+    save_counter = start_supervised!({Agent, fn -> 0 end})
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/run"} ->
+          Req.Test.json(conn, APIFixtures.success(APIFixtures.run_result()))
+
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          state = Jason.decode!(body)
+
+          request_number =
+            Agent.get_and_update(save_counter, fn number -> {number, number + 1} end)
+
+          send(test_pid, {:ui_save_started, request_number, self(), state})
+
+          if request_number == 0 do
+            receive do
+              :release_ui_save -> :ok
+            end
+          end
+
+          Req.Test.json(conn, APIFixtures.success(nil, state))
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+
+    view
+    |> form("#run-form", %{
+      "run" => %{
+        "selectedProfileId" => "Primary",
+        "modelId" => "model-test",
+        "userPrompt" => "pending preference save",
+        "cacheMode" => "cache"
+      }
+    })
+    |> render_submit()
+
+    render_async(view, 1_000)
+
+    view |> element("#model-config-toggle") |> render_click()
+    assert_receive {:ui_save_started, 0, save_process, _state}, 1_000
+
+    view |> element("#output-trace-summary") |> render_click()
+    assert has_element?(view, "#output-trace-summary[aria-expanded=\"false\"]")
+    assert has_element?(view, "#output-trace-content[hidden]")
+
+    send(save_process, :release_ui_save)
+    assert_receive {:ui_save_started, 1, _second_save_process, state}, 1_000
+    assert get_in(state, ["ui", "outputControlsOpen"]) == false
+    render_async(view, 1_000)
+    refute has_element?(view, "#output-trace-summary[disabled]")
+  end
+
   test "duplicate active submits are ignored and the run button alone is disabled", %{conn: conn} do
     test_pid = self()
 
