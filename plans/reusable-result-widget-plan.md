@@ -61,6 +61,16 @@ can leave its top-row controls under the sticky header. Collapse, patch
 retention, and clipboard assertions remain unchanged; an explicit hit-test
 checks that the expansion control is unobstructed.
 
+Hosted cleanup exposed a separate canary assertion error: Wallaby `refute_has`
+queries presence and fails immediately when the pre-patch row is found. It does
+not wait for disappearance. The frontend logged a successful delete and a
+subsequent owner-scoped API read confirmed the exact smoke record was absent.
+Both local and hosted canaries now assert `count: 0, visible: :any`, waiting
+within the existing timeout for actual DOM removal, not merely hiding. Existing
+LiveView tests cover optimistic removal, successful refresh, and failed-delete
+rollback; the browser case covers native click and patch delivery. No deletion
+implementation change is needed for this test defect.
+
 The earlier cURL-only checkpoint `a3d65e2` passed the fast gate and was pushed.
 Its release run was deliberately cancelled through the runner's signal handler
 when this larger request arrived; cleanup reported no errors. It was not

@@ -186,7 +186,7 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       session
       |> scroll_to_selector("##{run_id} button[phx-click='delete-history']")
       |> click(Query.css("##{run_id} button[phx-click='delete-history']"))
-      |> refute_has(Query.css("##{run_id}"))
+      |> assert_has(Query.css("##{run_id}", count: 0, visible: :any))
       |> assert_no_horizontal_overflow()
       |> click(Query.css("#logout-button"))
       |> assert_has(Query.css("#login-page"))
