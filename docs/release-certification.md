@@ -935,3 +935,61 @@ documented above. This unrelated cold-build limitation is not reported as a pass
 
 Rollback remains available as `harden-llm-web:rollback-6baefd3`, image
 `sha256:f7b76033fbd8f5ba62e61b4d766340fba9dedfac896e00f28452d6913b98d555`.
+
+## Canonical workspace History (2026-09-10)
+
+Deployed revision `37f39cfd9879fd69b97770afda892732995acc38` contains the UI
+cleanup from `39316358bef562164a3f8483f50f6710f98f5090` plus a deterministic
+test synchronization correction. Both checkpoints were pushed to `origin/main`;
+only the final revision was promoted. It was built once in the clean production
+worktree and deployed with `--no-build --no-deps`, replacing only the frontend.
+
+Workspace History is now the only History UI. View all, the separate audit page,
+its Domain trace dialog, aggregate statistics renderer/projection/polling, and
+obsolete frontend helpers/tests/styles are removed. Old `/history` bookmarks
+redirect to Workspace, preserving optional trace selection. Ten-card cursor
+Load more preserves access to older results; explicit retries retain existing
+cards, and clear-all invalidates stale in-flight pages. Inline Details retains
+observations and discovers available downloads through the shared stats resource
+projection. No backend/OpenAPI, storage, telemetry, or dependency change was
+made. Removed UI code is recoverable from Git; existing History data was not
+deleted by the cleanup.
+
+| Gate or production check | Result |
+| --- | --- |
+| New workspace History regressions, WEB-TEST-008/033/036/069 | Pagination/redirect/retry regressions failed before implementation and passed afterward; cursor append/deduplication, disclosure retention, duplicate-event suppression, failure retry, clear/read races, inline JSON, artifacts, and trace authorization covered |
+| Offline gate | `make test-fast`: accepted, 8 tasks; final release also passed all 160 deterministic Phoenix cases, 4 opt-in cases excluded |
+| Targeted native browser gate | accepted, 4 tasks including both Chromium canaries; report `tmp/unified-history-browser-verified.json` |
+| Full final release selector | accepted, 26 tasks including native browser, backend/frontend Compose, packaging, and baseline verification; no failure or cleanup error; report `tmp/unified-history-release-verified.json` |
+| Formatting and whitespace | passed |
+| Frontend image | `sha256:9b0205e2cc15b339a177d6a4376882904cf67a12793a1a325b54e962fe5cc394`, OCI release `37f39cfd9879fd69b97770afda892732995acc38`, healthy |
+| Gateway | unchanged: `sha256:924f573041275184ea12df883afd89610aa14d8163bfe1fae4badc0fdf10a20f`, release `729804cdfab9ff5c2e9dd75c64609cddd6773557`, healthy |
+| Public probes | frontend `/healthz`, `/login`; API `/healthz`, `/readyz`: HTTP 200 |
+| Hosted canary, WEB-TEST-048 / TEST-118 | accepted: exact image/release, retired audit URL redirect, duplicate controls/dialog absent from DOM, inline trace JSON, bounded CPA run, smoke History record removal, and logout |
+
+The first browser attempt exposed an overly broad new assertion: an expanded
+JSON parent and child both contained `observations`. The assertion now targets
+the unique JSON viewer container, retaining the content check. The first full
+release attempt then exposed a pre-existing profile-fold test race: it clicked
+Pricing before the preceding preference save completed. The test now joins
+each persisted fold operation; a controlled pending-save case explicitly checks
+Pricing disabled/enabled behavior. All 45 Workspace tests passed at the release
+seed before the full gate was restarted. No assertion was bypassed, timeout
+increased, or production interlock changed.
+
+[GitHub run 34522860780](https://github.com/prls-co/harden-llm/actions/runs/34522860780)
+passed fast and integration. Its browser/release jobs failed before tests:
+the existing `frontend/Dockerfile.browser` pin requires `curl=8.20.0-r0`, while
+Alpine offers `8.22.0-r0`. Local certification used the existing pinned browser
+image `sha256:84fb69e72902863edb423c183d0c79ba7c2e7eb39f85e56a111268e28f801fad`.
+The unrelated cold-build limitation remains open and is not reported as a pass.
+
+Stats-row wrapping was investigated but not changed: inherited 14px/16px
+typography, wrapping flex groups, and full-length identities explain the
+inconsistency. The bounded next-step recommendation is recorded in
+`plans/reusable-result-widget-plan.md`, section 4. Fixture screenshots were
+inspected; the test image's missing emoji glyphs limit typography/line-break
+claims, as documented there.
+
+Rollback is `harden-llm-web:rollback-378b572`, image
+`sha256:9b902d8c412ede4e1e13026f5f958c10cb5c03ce535e32b804755dd18204acf7`.
