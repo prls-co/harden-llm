@@ -821,3 +821,38 @@ remains unaccepted.
 The previous compatible frontend image was retained as
 `harden-llm-web:rollback-21d53f3`, image
 `sha256:247cfd6c1ba9c630851388720d6c7e75bf208a0e74721037629f08a8790ab371`.
+
+## Overview default and output panel labels (2026-09-10)
+
+Application commit `333f6465567cb512f71894f00000bf3f2318ff36` was pushed to
+`origin/main`, built once, and deployed to the existing production project
+with `--no-build --no-deps`, replacing only the frontend. The row is now
+`Overview`, `Details`, `cURL`, `Request`, `Response`. This restores the
+original cURL label/position while retaining removal of the inert artifact
+label. Overview is the curated summary; Details is the full trace JSON.
+Expanding the stats row opens Overview and preserves other pane selections.
+The existing preference-save path persists both flags together, including
+while a previous save is pending. No storage or API contract changed.
+
+| Gate or production check | Result |
+| --- | --- |
+| Focused component and workspace tests | 47 passed; the new Overview reopening regression failed before the implementation and passed afterward |
+| `make test-fast` | accepted: 8 tasks; no failure or cleanup error |
+| `make test-release` | accepted: 26 tasks, including native Overview reopening and clipboard checks; no failure or cleanup error |
+| Formatting and whitespace | passed |
+| Frontend image | `sha256:869377cd70ef5913f19e4030bd0b6a262ad80e9fe0bb0caae7ffd47cd27847b7`, OCI release `333f6465567cb512f71894f00000bf3f2318ff36`, healthy |
+| Gateway | unchanged: `sha256:924f573041275184ea12df883afd89610aa14d8163bfe1fae4badc0fdf10a20f`, release `729804cdfab9ff5c2e9dd75c64609cddd6773557`, healthy |
+| Public probes | frontend `/healthz`, `/login`; API `/healthz`, `/readyz`: HTTP 200 |
+| Hosted canary, WEB-TEST-048 / TEST-118 | exact identity, Overview default, labels/order, inline panels, provider run, and cURL payload assertions passed; **overall failed** at the pre-existing History cleanup assertion (`deployed_canary_test.exs:186`) |
+
+The failed canary left `Augi38De8Jnyf90cYfKehQ` in owner-scoped History.
+A separate API check verified its exact ID and canary nonce before deleting
+only that smoke record (HTTP 200); a subsequent History read confirmed its
+absence. Diagnostic and cleanup sessions logged out successfully (HTTP 200).
+This cleanup does not turn the failed browser assertion into a pass, and its
+later browser logout assertions did not run. No canary retry or History code
+change was made. Full hosted canary certification remains unaccepted.
+
+The previous frontend image remains available as
+`harden-llm-web:rollback-03645c9`, image
+`sha256:9f47c18058020623917a25938127a6d14076689725a592f1101391316f69af19`.
