@@ -5,60 +5,75 @@ defmodule HardenLlmWeb.HistoryTraceTest do
 
   alias HardenLlmWeb.{APIFixtures, HardenAPI}
 
-  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-008
-
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-008 WEB-TEST-033 WEB-TEST-036 WEB-TEST-069
   setup %{conn: conn}, do: {:ok, conn: authenticated_conn(conn)}
 
-  test "history aggregate stats retain retry, snapshot time, and periodic refresh", %{conn: conn} do
-    test_pid = self()
-    counter = start_supervised!({Agent, fn -> 0 end})
+  test "retired audit URLs redirect to the canonical workspace and preserve trace selection", %{
+    conn: conn
+  } do
+    install_stub(fn conn -> unexpected(conn) end)
+    assert conn |> get("/history") |> redirected_to() == "/workspace"
 
-    install_stub(
-      fn conn ->
-        case {conn.method, conn.request_path} do
-          {"GET", "/api/v1/history"} ->
-            Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
-        end
-      end,
-      stats: fn conn ->
-        request_number = Agent.get_and_update(counter, fn count -> {count + 1, count + 1} end)
-        send(test_pid, {:stats_request, request_number})
-
-        if request_number == 1 do
-          {status, envelope} = APIFixtures.error(503, "temporarily_unavailable")
-          conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
-        else
-          stats = put_in(APIFixtures.stats(), ["maxCallDurationMs"], request_number * 1_000)
-          Req.Test.json(conn, APIFixtures.success(stats))
-        end
-      end
-    )
-
-    {:ok, view, _html} = live(conn, ~p"/history")
-    render_async(view, 1_000)
-    assert_received {:stats_request, 1}
-    assert has_element?(view, "#history-stats-summary-error", "temporarily unavailable")
-    assert has_element?(view, "#history-stats-summary-refresh:not([disabled])", "Retry")
-
-    view |> element("#history-stats-summary-refresh") |> render_click()
-    assert_receive {:stats_request, 2}, 1_000
-    render_async(view, 1_000)
-    refute has_element?(view, "#history-stats-summary-error")
-    assert has_element?(view, "#history-stats-summary-updated", "Last updated")
-    assert has_element?(view, "#history-stats-summary", "2000")
-
-    send(view.pid, :refresh_stats_snapshot)
-    assert_receive {:stats_request, 3}, 1_000
-    render_async(view, 1_000)
-    assert has_element?(view, "#history-stats-summary", "3000")
+    assert conn |> get("/history?trace_id=trace-test") |> redirected_to() ==
+             "/workspace?trace_id=trace-test"
   end
 
-  test "history streams a page, appends by cursor, and deletes after success", %{conn: conn} do
+  test "workspace appends older Result cards by cursor without duplicating records", %{conn: conn} do
     test_pid = self()
 
     install_stub(fn conn ->
-      case {conn.method, conn.request_path, conn.query_string} do
-        {"GET", "/api/v1/history", "limit=20"} ->
+      assert conn.method == "GET"
+      assert conn.request_path == "/api/v1/history"
+      query = URI.decode_query(conn.query_string)
+      assert query["limit"] == "10"
+      send(test_pid, {:history_cursor, query["cursor"]})
+
+      page =
+        case query["cursor"] do
+          nil ->
+            %{"items" => [APIFixtures.history_item()], "nextCursor" => "cursor-2"}
+
+          "cursor-2" ->
+            %{
+              "items" => [
+                APIFixtures.history_item(),
+                APIFixtures.history_item("run-second", "trace-second")
+              ]
+            }
+        end
+
+      Req.Test.json(conn, APIFixtures.success(page))
+    end)
+
+    view = open_history(conn)
+    assert_received {:history_cursor, nil}
+    refute has_element?(view, "a[href='/history']")
+    refute has_element?(view, "#history-page")
+    refute has_element?(view, "#trace-dialog")
+    view |> element("#history-trace-run-test-summary") |> render_click()
+    view |> element("#workspace-history-load-more") |> render_click()
+    render_async(view, 1_000)
+    assert_received {:history_cursor, "cursor-2"}
+    assert has_element?(view, "#workspace-history-run-second.llm-result")
+
+    assert Enum.count(
+             LazyHTML.query(LazyHTML.from_document(render(view)), "#workspace-history-run-test")
+           ) == 1
+
+    assert has_element?(view, "#history-trace-run-test-summary[aria-expanded='true']")
+    refute has_element?(view, "#workspace-history-load-more")
+  end
+
+  test "failed pagination keeps existing cards and retries the same cursor; duplicate clicks do not refetch",
+       %{conn: conn} do
+    test_pid = self()
+    counter = start_supervised!({Agent, fn -> 0 end})
+
+    install_stub(fn conn ->
+      query = URI.decode_query(conn.query_string)
+
+      case query["cursor"] do
+        nil ->
           Req.Test.json(
             conn,
             APIFixtures.success(%{
@@ -67,227 +82,211 @@ defmodule HardenLlmWeb.HistoryTraceTest do
             })
           )
 
-        {"GET", "/api/v1/history", query} ->
-          assert URI.decode_query(query)["cursor"] == "cursor-2"
+        "cursor-2" ->
+          number = Agent.get_and_update(counter, &{&1 + 1, &1 + 1})
 
-          second = APIFixtures.history_item("run-second", "trace-second")
+          if number == 1 do
+            send(test_pid, {:page_started, self()})
 
-          Req.Test.json(conn, APIFixtures.success(%{"items" => [second]}))
-
-        {"DELETE", "/api/v1/history/run-test", _query} ->
-          send(test_pid, :deleted)
-          Req.Test.json(conn, APIFixtures.success(%{"deleted" => true, "runId" => "run-test"}))
+            receive do
+              :release_page -> unavailable(conn)
+            after
+              2_000 -> flunk("pagination request was not released")
+            end
+          else
+            Req.Test.json(
+              conn,
+              APIFixtures.success(%{"items" => [APIFixtures.history_item("run-second")]})
+            )
+          end
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/history")
+    view = open_history(conn)
+    view |> element("#workspace-history-load-more") |> render_click()
+    assert_receive {:page_started, page_pid}
+    assert has_element?(view, "#workspace-history-load-more[disabled]")
+    render_click(view, "load-more-history")
+    send(page_pid, :release_page)
     render_async(view, 1_000)
-    assert has_element?(view, "#history-run-test")
-    view |> element("#history-load-more") |> render_click()
+    assert Agent.get(counter, & &1) == 1
+    assert has_element?(view, "#workspace-history-error[role='alert']")
+    assert has_element?(view, "#workspace-history-run-test")
+    assert has_element?(view, "#workspace-history-load-more:not([disabled])")
+    view |> element("#workspace-history-load-more") |> render_click()
     render_async(view, 1_000)
-    assert has_element?(view, "#history-run-second")
-
-    view |> element(~s(button[phx-click="delete"][phx-value-run-id="run-test"])) |> render_click()
-    render_async(view, 1_000)
-    assert_received :deleted
-    refute has_element?(view, "#history-run-test")
+    assert Agent.get(counter, & &1) == 2
+    assert has_element?(view, "#workspace-history-run-second")
+    refute has_element?(view, "#workspace-history-error")
   end
 
-  test "restore saves only backend-returned safe request fields then navigates", %{conn: conn} do
+  test "failed initial history has an explicit retry without toggling folds", %{conn: conn} do
+    counter = start_supervised!({Agent, fn -> 0 end})
+
+    install_stub(fn conn ->
+      if Agent.get_and_update(counter, &{&1, &1 + 1}) == 0 do
+        unavailable(conn)
+      else
+        Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
+      end
+    end)
+
+    view = open_history(conn)
+    assert has_element?(view, "#workspace-history-error[role='alert']")
+    view |> element("#workspace-history-retry") |> render_click()
+    render_async(view, 1_000)
+    assert has_element?(view, "#workspace-history-run-test")
+    refute has_element?(view, "#workspace-history-error")
+  end
+
+  test "clear invalidates an in-flight older page so deleted records cannot reappear", %{
+    conn: conn
+  } do
     test_pid = self()
 
     install_stub(fn conn ->
-      case {conn.method, conn.request_path} do
-        {"GET", "/api/v1/history"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
+      case {conn.method, URI.decode_query(conn.query_string)["cursor"]} do
+        {"GET", nil} ->
+          Req.Test.json(
+            conn,
+            APIFixtures.success(%{
+              "items" => [APIFixtures.history_item()],
+              "nextCursor" => "cursor-2"
+            })
+          )
 
-        {"POST", "/api/v1/state"} ->
-          {:ok, body, conn} = Plug.Conn.read_body(conn)
-          send(test_pid, {:restored, Jason.decode!(body)})
-          Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+        {"GET", "cursor-2"} ->
+          send(test_pid, {:page_started, self()})
+
+          receive do
+            :release_page ->
+              Req.Test.json(
+                conn,
+                APIFixtures.success(%{
+                  "items" => [APIFixtures.history_item("run-stale")],
+                  "nextCursor" => "cursor-3"
+                })
+              )
+          after
+            2_000 -> flunk("pagination request was not released")
+          end
+
+        {"DELETE", nil} ->
+          send(test_pid, {:clear_started, self()})
+
+          receive do
+            :release_clear ->
+              Req.Test.json(conn, APIFixtures.success(%{"deletedCount" => 2}))
+          after
+            2_000 -> flunk("clear request was not released")
+          end
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/history")
+    view = open_history(conn)
+    view |> element("#workspace-history-load-more") |> render_click()
+    assert_receive {:page_started, page_pid}
+    view |> element("#workspace-clear-history") |> render_click()
+    assert_receive {:clear_started, clear_pid}
+    release_request(clear_pid, :release_clear)
+    refute has_element?(view, "#workspace-history .llm-result")
+    release_request(page_pid, :release_page)
     render_async(view, 1_000)
-
-    view
-    |> element(~s(button[phx-click="restore"][phx-value-run-id="run-test"]))
-    |> render_click()
-
-    assert_redirect(view, ~p"/workspace")
-
-    assert_received {:restored,
-                     %{"selectedProfileId" => "Primary", "userPrompt" => "safe restored prompt"}}
+    refute has_element?(view, "#workspace-history .llm-result")
+    refute has_element?(view, "#workspace-history-load-more")
+    refute has_element?(view, "#workspace-history-loading")
   end
 
-  test "trace observations stay ordered and artifacts use same-origin controller links", %{
-    conn: conn
-  } do
+  test "inline Details retains trace observations, foldable JSON and authorized artifact links",
+       %{conn: conn} do
     install_stub(fn conn ->
-      case {conn.method, conn.request_path} do
-        {"GET", "/api/v1/history"} ->
+      case conn.request_path do
+        "/api/v1/history" ->
           Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
 
-        {"GET", "/api/v1/traces/trace-test"} ->
+        "/api/v1/traces/trace-test" ->
           Req.Test.json(conn, APIFixtures.success(APIFixtures.trace()))
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/history")
+    view = open_history(conn)
+    view |> element("#history-trace-run-test-summary") |> render_click()
+    view |> element("#history-trace-run-test-view-json") |> render_click()
     render_async(view, 1_000)
-
-    view
-    |> element(~s(button[phx-click="open-trace"][phx-value-trace-id="trace-test"]))
-    |> render_click()
-
-    render_async(view, 1_000)
-
-    assert has_element?(view, "#trace-dialog")
-    assert has_element?(view, "#observation-0", "result")
-    assert has_element?(view, "#trace-record.json-viewer")
-    assert has_element?(view, "#observation-0-json.json-viewer")
+    assert has_element?(view, "#history-trace-run-test-trace-json .json-viewer", "observations")
+    assert has_element?(view, "#history-trace-run-test-trace-json", "fixture output")
+    assert has_element?(view, "#history-trace-run-test-trace-json", "artifact-test")
 
     assert has_element?(
              view,
-             ~s(#artifact-artifact-test[href="/traces/trace-test/artifacts/artifact-test"])
+             "#history-trace-run-test-controls a[href='/traces/trace-test/artifacts/artifact-test']"
            )
 
+    assert has_element?(view, "#workspace-history-run-test button[aria-label='Copy input']")
+    assert has_element?(view, "#workspace-history-run-test button[aria-label='Copy output']")
+    assert has_element?(view, "#history-trace-run-test-copy-curl")
+    refute has_element?(view, "[role='dialog']")
     refute render(view) =~ "X-Amz-Signature"
+    refute render(view) =~ APIFixtures.token()
   end
 
-  test "clear-all confirms and reloads the canonical empty stream", %{conn: conn} do
+  test "an active inline trace 401 revokes the session", %{conn: conn} do
     install_stub(fn conn ->
-      case {conn.method, conn.request_path} do
-        {"GET", "/api/v1/history"} ->
+      case conn.request_path do
+        "/api/v1/history" ->
           Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
 
-        {"DELETE", "/api/v1/history"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"deletedCount" => 1}))
-      end
-    end)
-
-    {:ok, view, _html} = live(conn, ~p"/history")
-    render_async(view, 1_000)
-    view |> element("#clear-history") |> render_click()
-    assert has_element?(view, "#clear-history-dialog")
-    view |> element("#clear-history-confirm") |> render_click()
-    render_async(view, 1_000)
-    refute has_element?(view, "#history-run-test")
-  end
-
-  test "an active trace 401 redirects through session revocation", %{conn: conn} do
-    install_stub(fn conn ->
-      case {conn.method, conn.request_path} do
-        {"GET", "/api/v1/history"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
-
-        {"GET", "/api/v1/traces/trace-test"} ->
+        "/api/v1/traces/trace-test" ->
           {status, envelope} = APIFixtures.error(401, "session_expired")
           conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
       end
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/history")
-    render_async(view, 1_000)
-
-    view
-    |> element(~s(button[phx-click="open-trace"][phx-value-trace-id="trace-test"]))
-    |> render_click()
-
+    view = open_history(conn)
+    view |> element("#history-trace-run-test-summary") |> render_click()
+    view |> element("#history-trace-run-test-view-json") |> render_click()
     assert_redirect(view, ~p"/session/expired", 1_000)
   end
 
-  test "load-more errors clear the pending state", %{conn: conn} do
-    install_stub(fn conn ->
-      case {conn.method, conn.request_path, conn.query_string} do
-        {"GET", "/api/v1/history", "limit=20"} ->
-          Req.Test.json(
-            conn,
-            APIFixtures.success(%{
-              "items" => [APIFixtures.history_item()],
-              "nextCursor" => "cursor-2"
-            })
-          )
-
-        {"GET", "/api/v1/history", _query} ->
-          {status, envelope} = APIFixtures.error(503, "temporarily_unavailable")
-          conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
-      end
-    end)
-
-    {:ok, view, _html} = live(conn, ~p"/history")
+  defp open_history(conn) do
+    {:ok, view, _html} = live(conn, ~p"/workspace")
     render_async(view, 1_000)
-    view |> element("#history-load-more") |> render_click()
     render_async(view, 1_000)
-
-    assert has_element?(view, "#history-error")
-    assert has_element?(view, "#history-load-more:not([disabled])")
-  end
-
-  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-036
-  test "translated page-size control reloads the cursor history from page one", %{conn: conn} do
-    install_stub(fn conn ->
-      case {conn.method, conn.request_path, conn.query_string} do
-        {"GET", "/api/v1/history", "limit=20"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
-
-        {"GET", "/api/v1/history", "limit=50"} ->
-          item = APIFixtures.history_item("run-page-size")
-          Req.Test.json(conn, APIFixtures.success(%{"items" => [item]}))
-      end
-    end)
-
-    {:ok, view, _html} = live(conn, ~p"/history")
-    render_async(view, 1_000)
-    view |> form("#history-pagination", %{"pageSize" => "50"}) |> render_change()
-    render_async(view, 1_000)
-
-    assert has_element?(view, "#history-run-page-size")
-    assert has_element?(view, "#history-pagination", "Page 1")
-  end
-
-  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-033
-  test "history expands redacted request/result records and exposes copy controls", %{conn: conn} do
-    install_stub(fn conn ->
-      case {conn.method, conn.request_path} do
-        {"GET", "/api/v1/history"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
-      end
-    end)
-
-    {:ok, view, _html} = live(conn, ~p"/history")
-    render_async(view, 1_000)
-
     view
-    |> element(~s(button[phx-click="toggle-history"][phx-value-run-id="run-test"]))
-    |> render_click()
-
-    assert has_element?(view, "#history-expanded", "Request")
-    assert has_element?(view, "#history-expanded", "safe restored prompt")
-    assert has_element?(view, "#history-expanded-request-run-test.json-viewer")
-    assert has_element?(view, "#history-expanded-result-run-test.json-viewer")
-    assert has_element?(view, "#history-run-stats", "Prompt tokens")
-    assert has_element?(view, "#copy-history-output")
-    assert has_element?(view, "#copy-history-curl")
-    refute render(view) =~ APIFixtures.token()
   end
 
-  defp install_stub(handler, options \\ []) do
+  defp release_request(process, message) do
+    monitor = Process.monitor(process)
+    send(process, message)
+    assert_receive {:DOWN, ^monitor, :process, ^process, :normal}, 1_000
+  end
+
+  defp install_stub(handler) do
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/auth/session"} ->
           Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
 
+        {"GET", "/api/v1/state"} ->
+          state = Map.put(APIFixtures.state(), "ui", %{"historyOpen" => true})
+          Req.Test.json(conn, APIFixtures.success(nil, state))
+
+        {"GET", "/api/v1/profiles"} ->
+          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+
         {"GET", "/api/v1/stats"} ->
-          case Keyword.get(options, :stats, APIFixtures.stats()) do
-            stats when is_function(stats, 1) -> stats.(conn)
-            stats -> Req.Test.json(conn, APIFixtures.success(stats))
-          end
+          flunk("the workspace must not fetch retired aggregate stats")
 
         _ ->
           handler.(conn)
       end
     end)
   end
+
+  defp unavailable(conn) do
+    {status, envelope} = APIFixtures.error(503, "temporarily_unavailable")
+    conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
+  end
+
+  defp unexpected(conn), do: flunk("unexpected API call: #{conn.method} #{conn.request_path}")
 end

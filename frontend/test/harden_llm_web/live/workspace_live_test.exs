@@ -254,7 +254,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     render_async(view, 1_000)
     assert has_element?(view, "#history-trace-run-test-summary")
     refute has_element?(view, "[aria-label='Inspect in audit history']")
-    assert has_element?(view, "#workspace-history-panel a[href='/history']", "View all")
+    refute has_element?(view, "#workspace-history-panel a[href='/history']")
 
     submit_run(view, %{"userPrompt" => "per-result stats only"})
     render_async(view, 1_000)
@@ -1736,10 +1736,17 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, ".trace-controls #output-trace-details-toggle", "Overview")
     assert has_element?(view, ".trace-controls #output-trace-view-json", "Details")
     assert has_element?(view, ".trace-controls #output-trace-copy-curl", "cURL")
-    assert has_element?(view, "#output-trace-copy-curl + #output-trace-rerun:last-child", "🔁")
+    assert has_element?(view, "#output-trace-copy-curl + #output-trace-rerun:last-of-type", "🔁")
     assert has_element?(view, ".trace-controls #output-trace-show-request", "Request")
     assert has_element?(view, ".trace-controls #output-trace-show-response", "Response")
-    refute has_element?(view, ".trace-controls a")
+    refute has_element?(view, ".trace-controls a[href='/traces/trace-test']")
+    refute has_element?(view, ".trace-controls a[target='_blank']")
+
+    assert has_element?(
+             view,
+             "#output-trace-controls a[href='/traces/trace-test/artifacts/artifact-test']",
+             "📎"
+           )
 
     refute has_element?(
              view,
@@ -1764,7 +1771,14 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     render_async(view, 1_000)
     assert has_element?(view, "#output-trace-trace-json", "traceId")
     assert has_element?(view, "#output-trace-trace-json .json-viewer-node", "traceId")
-    refute has_element?(view, ".trace-controls a")
+    refute has_element?(view, ".trace-controls a[href='/traces/trace-test']")
+    refute has_element?(view, ".trace-controls a[target='_blank']")
+
+    assert has_element?(
+             view,
+             "#output-trace-controls a[href='/traces/trace-test/artifacts/artifact-test']",
+             "📎"
+           )
   end
 
   test "workspace trace URL restores the redacted output after a hard refresh", %{conn: conn} do
@@ -1792,7 +1806,14 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, "#run-result-panel", "trace-test")
     assert has_element?(view, "#run-result-panel", "Success (200)")
     assert has_element?(view, "#output-trace-view-json", "Details")
-    refute has_element?(view, ".trace-controls a")
+    refute has_element?(view, ".trace-controls a[href='/traces/trace-test']")
+    refute has_element?(view, ".trace-controls a[target='_blank']")
+
+    assert has_element?(
+             view,
+             "#output-trace-controls a[href='/traces/trace-test/artifacts/artifact-test']",
+             "📎"
+           )
 
     view |> element("#output-trace-view-json") |> render_click()
     assert has_element?(view, "#output-trace-trace-json", "traceId")

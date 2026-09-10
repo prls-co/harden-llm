@@ -63,13 +63,13 @@ defmodule HardenLlmWeb.Router do
     get "/profiles/bundle", BundleController, :show
     get "/traces/:trace_id", TraceController, :show
     get "/traces/:trace_id/artifacts/:artifact_id", ArtifactController, :show
+    get "/history", PageController, :history
 
     live_session :authenticated,
       on_mount: [{HardenLlmWeb.Auth, :require_authenticated}] do
       live "/workspace", WorkspaceLive
       live "/embed/llm", EmbeddingLive
       live "/profiles", ProfilesLive
-      live "/history", HistoryLive
     end
   end
 

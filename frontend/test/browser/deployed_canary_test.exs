@@ -48,6 +48,8 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       |> fill_in(Query.css("#session_password"), with: password)
       |> click(Query.css("#login-submit"))
       |> assert_has(Query.css("#workspace-page"))
+      |> visit("/history")
+      |> assert_has(Query.css("#workspace-page"))
       |> assert_has(Query.css("#workspace-llm-widget"))
       |> assert_live_socket_connected()
       |> assert_no_horizontal_overflow()
@@ -116,6 +118,8 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       |> open_ui_fold("#history-fold-toggle", "#workspace-history")
       |> assert_has(Query.css("#workspace-history article", text: nonce))
       |> assert_has(Query.css("#llm-stats-summary", count: 0, visible: :any))
+      |> assert_has(Query.css("a[href='/history']", count: 0, visible: :any))
+      |> assert_has(Query.css("#trace-dialog", count: 0, visible: :any))
       |> assert_has(Query.css("[aria-label='Inspect in audit history']", count: 0, visible: :any))
       |> click(Query.css("#output-trace-show-request"))
 
@@ -129,7 +133,7 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
         const closedStyle = window.getComputedStyle(document.querySelector('#output-trace-show-request'));
         return {
           controlDisplay: window.getComputedStyle(controls).display,
-          directLabels: Array.from(controls.children).map(node => node.textContent.trim()),
+          directLabels: Array.from(controls.querySelectorAll(':scope > button')).map(node => node.textContent.trim()),
           selectedBackground: selectedStyle.backgroundColor,
           closedBackground: closedStyle.backgroundColor,
           selectedShadow: selectedStyle.boxShadow,

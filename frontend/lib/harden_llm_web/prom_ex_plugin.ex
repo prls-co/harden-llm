@@ -16,7 +16,6 @@ defmodule HardenLlmWeb.PromExPlugin do
     "/workspace"
   ]
   @live_views [
-    HardenLlmWeb.HistoryLive,
     HardenLlmWeb.ProfilesLive,
     HardenLlmWeb.WorkspaceLive
   ]

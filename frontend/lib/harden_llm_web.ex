@@ -87,7 +87,6 @@ defmodule HardenLlmWeb do
       # Core UI components
       import HardenLlmWeb.CoreComponents
       import HardenLlmWeb.JsonViewer
-      import HardenLlmWeb.LlmStatsComponents
       import HardenLlmWeb.LlmTraceComponents
       import HardenLlmWeb.LlmResultComponents
 

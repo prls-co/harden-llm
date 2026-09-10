@@ -154,31 +154,6 @@ defmodule HardenLlm.LlmTraceProjection do
 
   def curl(_payload, _api_origin), do: nil
 
-  def history_stats(item) when is_map(item) do
-    result = item["result"] || %{}
-    usage = result_usage(result)
-    result_cost = result_cost(result)
-
-    %{
-      status: item["status"],
-      profile: item["profileId"],
-      duration: history_duration_ms(item),
-      input_tokens: captured_usage_value(usage, "inputTokens"),
-      cache_read_tokens: captured_usage_value(usage, "cacheReadTokens"),
-      cache_creation_tokens: captured_usage_value(usage, "cacheCreationTokens"),
-      output_tokens: captured_usage_value(usage, "outputTokens"),
-      reasoning_tokens: captured_usage_value(usage, "reasoningTokens"),
-      total_tokens: captured_usage_value(usage, "totalTokens"),
-      usage_status:
-        usage["status"] || if(map_size(usage) == 0, do: "not captured", else: "legacy"),
-      known_cost: known_cost_value(result_cost),
-      cost_status: result_cost["status"] || legacy_cost_status(result_cost),
-      attempts: attempt_count(result)
-    }
-  end
-
-  def history_stats(_item), do: %{}
-
   def json_text(nil), do: ""
   def json_text(value) when is_binary(value), do: value
   def json_text(value), do: Jason.encode!(value, pretty: true)
@@ -410,13 +385,6 @@ defmodule HardenLlm.LlmTraceProjection do
     end
   end
 
-  defp known_cost_value(cost) do
-    case cost_status(cost) do
-      status when status in ~w(exact partial) -> cost["knownSubtotalUsd"] || cost["totalUsd"]
-      _ -> nil
-    end
-  end
-
   defp cost_status(%{"status" => status}), do: status
   defp cost_status(cost), do: legacy_cost_status(cost)
   defp legacy_cost_status(%{"known" => true}), do: "exact"
@@ -491,15 +459,6 @@ defmodule HardenLlm.LlmTraceProjection do
   end
 
   defp artifact_links(_result, _id, _artifact_url), do: []
-
-  defp history_duration_ms(item) do
-    with {:ok, started, _} <- DateTime.from_iso8601(item["startedAt"]),
-         {:ok, completed, _} <- DateTime.from_iso8601(item["completedAt"]) do
-      DateTime.diff(completed, started, :millisecond)
-    else
-      _ -> nil
-    end
-  end
 
   defp shell_quote(value), do: "'" <> String.replace(value, "'", "'\"'\"'") <> "'"
 

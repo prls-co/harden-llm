@@ -4,8 +4,9 @@
 
 The workspace Output panel becomes Result. Current Result and each workspace
 History item use one presentation-only `LlmResultComponents.llm_result/1`.
-The separate `/history` audit page retains its pagination, inspection, restore,
-and download workflows.
+History is one cursor-paginated array of these cards inside the workspace.
+The duplicate audit page and Domain trace dialog are retired; old `/history`
+bookmarks redirect to `/workspace`, preserving an optional trace selection.
 
 Each card has three rows: recorded user input, output, and LLM stats. Input
 and output each have an accessible `📋` copy command. One `↕️` command expands
@@ -18,8 +19,10 @@ Overview, Details, Request, Response, cURL, then `🔁` rerun. History cards sta
 with stats details closed and maintain independent selections. Existing
 restore, delete, and artifact downloads remain available. The per-card audit
 shortcut is omitted because inline trace details provide inspection in place.
-The workspace has no separate aggregate stats panel or aggregate stats polling;
-owner-wide totals remain on `/history`, reached through History's View all link.
+There is no separate aggregate stats panel or aggregate polling UI. Backend
+aggregate accounting, trace storage, OpenAPI, and telemetry remain unchanged.
+Available artifact downloads use the shared resource projection and inline
+controls, including artifacts that become available when Details loads.
 
 ## 2. Ownership and data flow
 
@@ -35,6 +38,14 @@ trace state is transient and pruned when History changes. Full trace requests
 start only on Details, avoid duplicate in-flight loads, and ignore completions
 for removed or superseded records. No backend/OpenAPI or storage change is
 needed.
+
+History loads ten cards per REST page and offers Load more only when a server
+cursor exists. One in-flight history read is allowed; pagination appends by
+unique run ID and preserves existing card disclosure state. Refresh after a
+run/deletion restarts from the first page; older pages can be loaded again.
+Failed page reads retain loaded cards and the cursor for an explicit retry.
+Clear-all invalidates the active read reference so late pages cannot resurrect
+deleted cards. WEB-TEST-069 covers this lifecycle and retired-page redirects.
 
 Rerun resolves the request by ID from server-owned current result/History data,
 never from client-submitted payloads or the edited form. It reuses the same
@@ -52,6 +63,31 @@ Run focused deterministic tests, `make test-fast`, native browser checks, and
 the required release gate before promoting the exact pushed frontend image.
 Use the existing production path and retain the previous image for rollback.
 Record hosted identity, health, and authenticated results accurately.
+
+## 4. Stats-row wrapping investigation (proposal only)
+
+The shared summary uses `font: inherit`. Current Result is hosted under
+`.ullm-output-widget` (14px, line-height 1.45); History lacks that typography
+and inherits the application's 16px default. The rendered fixture cards show
+this mismatch. Both immediate summary groups explicitly use `flex-wrap: wrap`
+with 12px gaps. Full trace IDs, model names, error categories, and wider metric
+values consume the available width; even an individual metric can break at a
+space. This is a layout issue, not duplicated or disconnected stats data.
+
+Recommended next change: give the stats component consistent 14px typography,
+make the identity group shrink with ellipsis on ID/model (retain full accessible
+text and add full-value titles), and keep individual metrics unbroken. Target a
+single desktop row with deliberate narrow-screen wrapping. Forcing one row at
+every width would require horizontal scrolling or moving lower-priority metrics
+into Overview; that is a separate product choice. No wrapping CSS is changed
+in this cleanup.
+
+Local Chromium screenshots cover rendered Result and History cards; the pinned
+test image lacks emoji glyphs, so those screenshots are not proof of emoji
+appearance or universal line-break thresholds. Existing DOM/ARIA checks cover
+the emoji controls. The temporary layout probe was removed before the checkpoint.
+
+## 5. Retained implementation notes
 
 Deletion clears a removed card's transient trace state immediately. A cheap
 regression proves that a trace completing during an optimistic delete cannot

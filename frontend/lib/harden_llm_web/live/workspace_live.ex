@@ -73,6 +73,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:history_result_states, %{})
       |> assign(:history_loaded?, false)
       |> assign(:history_loading?, false)
+      |> assign(:history_load_ref, nil)
+      |> assign(:history_next_cursor, nil)
       |> assign(:history_refresh_pending?, false)
       |> assign(:history_error, nil)
       |> assign(:history_pending, nil)
@@ -303,13 +305,21 @@ defmodule HardenLlmWeb.WorkspaceLive do
     {:noreply, finish_ui_save(socket, ui_save_error(result))}
   end
 
-  def handle_async(:load_history, {:ok, {:ok, %{"items" => history}, _state}}, socket) do
+  def handle_async(
+        {:load_history, reference, cursor},
+        {:ok, {:ok, %{"items" => items} = page, _state}},
+        %{assigns: %{history_load_ref: reference}} = socket
+      ) do
+    history =
+      if(is_nil(cursor), do: items, else: socket.assigns.history ++ items)
+      |> Enum.uniq_by(& &1["runId"])
+      |> suppress_pending_history_delete(socket.assigns.history_delete_rollback)
+
     {:noreply,
      socket
-     |> assign(
-       :history,
-       suppress_pending_history_delete(history, socket.assigns.history_delete_rollback)
-     )
+     |> assign(:history, history)
+     |> assign(:history_next_cursor, page["nextCursor"])
+     |> assign(:history_load_ref, nil)
      |> assign(:history_loaded?, true)
      |> update(
        :history_result_states,
@@ -320,21 +330,34 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> maybe_continue_history_refresh()}
   end
 
-  def handle_async(:load_history, {:ok, {:error, %APIError{} = error}}, socket) do
+  def handle_async(
+        {:load_history, reference, _cursor},
+        {:ok, {:error, %APIError{} = error}},
+        %{assigns: %{history_load_ref: reference}} = socket
+      ) do
     {:noreply,
      socket
+     |> assign(:history_load_ref, nil)
      |> assign(:history_loading?, false)
      |> assign(:history_error, error.message)
      |> maybe_continue_history_refresh()}
   end
 
-  def handle_async(:load_history, _result, socket) do
+  def handle_async(
+        {:load_history, reference, _cursor},
+        _result,
+        %{assigns: %{history_load_ref: reference}} = socket
+      ) do
     {:noreply,
      socket
+     |> assign(:history_load_ref, nil)
      |> assign(:history_loading?, false)
      |> assign(:history_error, "History is temporarily unavailable.")
      |> maybe_continue_history_refresh()}
   end
+
+  def handle_async({:load_history, _reference, _cursor}, _result, socket),
+    do: {:noreply, socket}
 
   def handle_async(
         {:run, reference},
@@ -657,6 +680,9 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:history_delete_rollback, nil)
      |> assign(:history, [])
      |> assign(:history_result_states, %{})
+     |> assign(:history_load_ref, nil)
+     |> assign(:history_next_cursor, nil)
+     |> assign(:history_loading?, false)
      |> assign(:history_loaded?, true)
      |> assign(:history_refresh_pending?, false)
      |> assign(:history_error, nil)}
@@ -764,6 +790,20 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   def handle_event("restore-history", _params, socket), do: {:noreply, socket}
+
+  def handle_event("load-more-history", _params, socket) do
+    if socket.assigns.ui["historyOpen"] and not socket.assigns.history_loading? and
+         is_nil(socket.assigns.history_pending) and
+         not socket.assigns.history_refresh_pending? and
+         is_binary(socket.assigns.history_next_cursor) do
+      {:noreply, start_history_load(socket, socket.assigns.history_next_cursor)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("refresh-history", _params, socket),
+    do: {:noreply, maybe_refresh_history(socket)}
 
   def handle_event(
         "delete-history",
@@ -1398,16 +1438,19 @@ defmodule HardenLlmWeb.WorkspaceLive do
     push_patch(socket, to: ~p"/workspace?trace_id=#{trace_id}")
   end
 
-  defp start_history_load(socket) do
+  defp start_history_load(socket, cursor \\ nil) do
     handle = socket.assigns.session_handle
+    reference = System.unique_integer([:positive, :monotonic])
+    options = if is_nil(cursor), do: [limit: 10], else: [limit: 10, cursor: cursor]
 
     socket
+    |> assign(:history_load_ref, reference)
     |> assign(:history_loading?, true)
     |> assign(:history_refresh_pending?, false)
     |> assign(:history_error, nil)
     |> start_async(
-      :load_history,
-      Observability.propagate(fn -> HardenAPI.list_history(handle, limit: 10) end)
+      {:load_history, reference, cursor},
+      Observability.propagate(fn -> HardenAPI.list_history(handle, options) end)
     )
   end
 

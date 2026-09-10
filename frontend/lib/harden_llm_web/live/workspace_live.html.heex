@@ -309,10 +309,6 @@
                     disabled={@ui_save_pending?}
                     class="text-xs font-semibold text-teal-700 hover:text-teal-900"
                   >{if @ui["historyOpen"], do: "⌃ Hide", else: "⌄ Show"}</button>
-                  <.link
-                    navigate={~p"/history"}
-                    class="text-sm font-medium text-teal-700 hover:text-teal-900"
-                  >View all</.link>
                 </div>
               </div>
               <div :if={@ui["historyOpen"]} id="workspace-history" class="space-y-2">
@@ -324,14 +320,21 @@
                 >
                   Loading history…
                 </p>
-                <p
+                <div
                   :if={@history_error}
                   id="workspace-history-error"
                   role="alert"
                   class="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800"
                 >
                   {@history_error}
-                </p>
+                  <button
+                    id="workspace-history-retry"
+                    type="button"
+                    phx-click="refresh-history"
+                    disabled={@history_loading? or not is_nil(@history_pending)}
+                    class="ml-2 font-semibold underline disabled:opacity-50"
+                  >Retry</button>
+                </div>
                 <p
                   :if={@history_loaded? and @history == [] and is_nil(@history_error)}
                   class="text-sm text-slate-500"
@@ -345,19 +348,7 @@
                   output={get_in(item, ["result", "output"])}
                 >
                   <:stats>
-                    <.llm_trace {history_trace_assigns(item, @history_result_states, @run_ref, @profile_requires_save?)}>
-                      <:actions>
-                        <a
-                          :for={artifact <- get_in(item, ["result", "artifacts"]) || []}
-                          href={
-                            ~p"/traces/#{item["traceId"]}/artifacts/#{artifact["artifactId"]}"
-                          }
-                          class="trace-action"
-                          title={"Download #{artifact["kind"]} artifact"}
-                          aria-label={"Download #{artifact["kind"]} artifact"}
-                        >📎</a>
-                      </:actions>
-                    </.llm_trace>
+                    <.llm_trace {history_trace_assigns(item, @history_result_states, @run_ref, @profile_requires_save?)} />
                   </:stats>
                   <:actions>
                     <button
@@ -380,6 +371,16 @@
                     >🗑️</button>
                   </:actions>
                 </.llm_result>
+                <button
+                  :if={@history_next_cursor}
+                  id="workspace-history-load-more"
+                  type="button"
+                  phx-click="load-more-history"
+                  disabled={
+                    @history_loading? or not is_nil(@history_pending) or @history_refresh_pending?
+                  }
+                  class="text-sm font-semibold text-teal-700 hover:text-teal-900 disabled:opacity-50"
+                >Load more</button>
               </div>
             </section>
           </aside>

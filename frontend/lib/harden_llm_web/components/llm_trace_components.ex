@@ -200,6 +200,14 @@ defmodule HardenLlmWeb.LlmTraceComponents do
             title="Rerun recorded request with its original cache mode and current saved profile"
             disabled={@rerun_disabled}
           >🔁</button>
+          <a
+            :for={artifact <- list_value(@resources, "artifacts")}
+            :if={value(artifact, "available") == true and present?(value(artifact, "href"))}
+            href={value(artifact, "href")}
+            class="trace-action"
+            title={"Download #{value(artifact, "label")}"}
+            aria-label={"Download #{value(artifact, "label")}"}
+          >📎</a>
           {render_slot(@actions)}
         </div>
 

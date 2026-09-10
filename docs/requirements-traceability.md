@@ -45,8 +45,14 @@ The separate `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001` contract maps as follows:
 | profiles, workspace, history, traces, artifacts | LiveViews and narrow controllers | WEB-TEST-006 through WEB-TEST-008 |
 | security, telemetry, responsive UI | endpoint/config, observability, components | WEB-TEST-009, WEB-TEST-010 |
 | real user and deployment workflows | Wallaby browser tests | WEB-TEST-011, WEB-TEST-012 |
-| utility-llm frontend parity extension | `WorkspaceLive`, `ProfilesLive`, `HistoryLive`, `ProfileWidgetComponent`, `EmbeddingLive`, `HardenAPI`, and `api/openapi.yaml` | WEB-TEST-031 through WEB-TEST-043; ADR-HLLM-012, ADR-HLLM-014 |
+| utility-llm frontend parity extension | `WorkspaceLive`, `ProfilesLive`, `ProfileWidgetComponent`, `EmbeddingLive`, `HardenAPI`, and `api/openapi.yaml` | WEB-TEST-031 through WEB-TEST-043; ADR-HLLM-012, ADR-HLLM-014 |
 | embeddable widget utility-informed follow-up | `ProfileWidgetState`, `ProfileWidgetComponent`, `WorkspaceLive`, `EmbeddingLive`, `HardenAPI`, `client_core.mjs`, and the existing tier runner | `PLAN-HLLM-WIDGET-PARITY-001`; TEST-101 through TEST-118; EVAL-101 through EVAL-104; ADR-HLLM-014, ADR-HLLM-016 |
+
+History and trace inspection now have one UI owner: Workspace Result cards.
+WEB-TEST-069 covers cursor pagination, retries, clear/read races, and retired
+audit-page redirects; shared stats/JSON components retain inline inspection and
+authorized downloads. Aggregate accounting and trace persistence remain backend
+contracts, not a second UI.
 
 ## Parallel test-feedback traceability
 

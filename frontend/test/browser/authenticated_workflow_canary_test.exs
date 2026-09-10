@@ -25,6 +25,8 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> fill_in(Query.css("#session_password"), with: "browser-password-123")
       |> click(Query.css("#login-submit"))
       |> assert_has(Query.css("#workspace-page"))
+      |> visit("/history")
+      |> assert_has(Query.css("#workspace-page"))
       |> assert_has(Query.css("#backend-status", text: "Backend ready"))
       |> assert_live_socket_connected()
       |> assert_no_horizontal_overflow()
@@ -185,7 +187,7 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
         const closedStyle = window.getComputedStyle(closedAction);
         return {
           controlDisplay: window.getComputedStyle(controls).display,
-          directLabels: Array.from(controls.children).map(node => node.textContent.trim()),
+          directLabels: Array.from(controls.querySelectorAll(':scope > button')).map(node => node.textContent.trim()),
           selectedBackground: selectedStyle.backgroundColor,
           closedBackground: closedStyle.backgroundColor,
           selectedShadow: selectedStyle.boxShadow,
@@ -252,20 +254,9 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
     session =
       session
       |> assert_has(Query.css("#llm-stats-summary", count: 0, visible: :any))
-      |> visit("/history")
-      |> assert_has(Query.css("#history-page"))
-      |> assert_has(Query.css("#history-stats-summary-result_cost-details"))
-      |> click(Query.css("#history-stats-summary-result_cost-details > summary"))
-      |> assert_has(
-        Query.css(
-          "#history-stats-summary-result_cost-details[open] .llm-stats-disclosure-detail",
-          text: "Known result subtotal is exact."
-        )
-      )
-      |> assert_has(Query.css("#history-run-browser"))
-      |> click(Query.css("#history-run-browser button[aria-label='Open trace']"))
-      |> assert_has(Query.css("#trace-dialog"))
-      |> assert_has(Query.css("#observation-0", text: "deterministic browser output"))
+      |> assert_has(Query.css("a[href='/history']", count: 0, visible: :any))
+      |> assert_has(Query.css("#output-trace-trace-json .json-viewer", text: "observations"))
+      |> assert_has(Query.css("#trace-dialog", count: 0, visible: :any))
 
     BrowserBackend.fail_next_run()
 
@@ -286,6 +277,21 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> assert_has(Query.css("#workspace-history-run-browser"))
       |> assert_has(Query.css("#workspace-history-run-browser.llm-result .llm-result-stats"))
       |> assert_has(Query.css("[aria-label='Inspect in audit history']", count: 0, visible: :any))
+      |> scroll_to_selector("#history-trace-run-browser-summary")
+      |> click(Query.css("#history-trace-run-browser-summary"))
+      |> assert_has(Query.css("#history-trace-run-browser-details:not([hidden])"))
+      |> click(Query.css("#history-trace-run-browser-view-json"))
+      |> assert_has(
+        Query.css("#history-trace-run-browser-trace-json .json-viewer", text: "observations")
+      )
+      |> assert_has(
+        Query.css(
+          "#history-trace-run-browser-controls a[href='/traces/trace-browser/artifacts/artifact-browser']"
+        )
+      )
+      |> scroll_to_selector("#history-trace-run-browser-summary")
+      |> click(Query.css("#history-trace-run-browser-summary"))
+      |> assert_has(Query.css("#history-trace-run-browser-content[hidden]", visible: :any))
       |> click(Query.css("#workspace-history-run-browser-expand"))
       |> assert_has(Query.css("#workspace-history-run-browser.is-expanded"))
       |> scroll_to_selector("#workspace-history-run-browser")
@@ -302,6 +308,7 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> assert_has(Query.css("#login-page"))
 
     assert Enum.count(BrowserBackend.calls(), &(&1 == {"POST", "/api/v1/run"})) == 4
+    refute {"GET", "/api/v1/stats"} in BrowserBackend.calls()
 
     assert Enum.map(BrowserBackend.run_requests(), & &1["cacheMode"]) == [
              "cache",

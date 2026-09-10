@@ -144,11 +144,6 @@ defmodule HardenLlmWeb.BrowserBackend do
     json(conn, 200, success(%{"items" => history, "nextCursor" => nil}))
   end
 
-  defp dispatch(%{method: "GET", path_info: ["api", "v1", "stats"]} = conn, _body) do
-    history = Agent.get(__MODULE__, & &1.history)
-    json(conn, 200, success(stats(history)))
-  end
-
   defp dispatch(%{method: "DELETE", path_info: ["api", "v1", "history"]} = conn, _body) do
     count = Agent.get(__MODULE__, &length(&1.history))
     Agent.update(__MODULE__, &%{&1 | history: []})
@@ -460,76 +455,6 @@ defmodule HardenLlmWeb.BrowserBackend do
       "email" => "browser@example.test",
       "sessionId" => "session-browser",
       "expiresAt" => @expiry
-    }
-  end
-
-  defp stats(history) do
-    result_usage = Enum.map(history, &get_in(&1, ["result", "accounting", "result", "usage"]))
-
-    provider_usage =
-      Enum.map(history, &get_in(&1, ["result", "accounting", "provider", "usage"]))
-
-    cached = Enum.filter(history, &(get_in(&1, ["result", "cache", "served"]) == true))
-    provider_count = Enum.count(history, &get_in(&1, ["result", "providerInvoked"]))
-    durations = Enum.map(history, &(get_in(&1, ["result", "totalCallDurationMs"]) || 0))
-    over_budget = Enum.map(history, &(get_in(&1, ["result", "overBudgetMs"]) || 0))
-
-    %{
-      "schemaVersion" => 2,
-      "totalCount" => length(history),
-      "successCount" => Enum.count(history, &(&1["status"] == "succeeded")),
-      "failureCount" => Enum.count(history, &(&1["status"] == "failed")),
-      "timeoutCount" => Enum.count(history, &(&1["status"] == "timeout")),
-      "resultAccounting" => %{
-        "usage" => usage_stats(result_usage, length(history), 0),
-        "cost" => exact_cost_stats(length(history))
-      },
-      "providerAccounting" => %{
-        "usage" => usage_stats(provider_usage, provider_count, length(history) - provider_count),
-        "cost" => %{
-          "knownSubtotalUsd" => 0.0,
-          "coverage" => %{
-            "exact" => provider_count,
-            "partial" => 0,
-            "unknown" => 0,
-            "unavailable" => length(history) - provider_count
-          }
-        }
-      },
-      "cached" => %{
-        "count" => length(cached),
-        "cost" => exact_cost_stats(length(cached))
-      },
-      "totalCallDurationMs" => Enum.sum(durations),
-      "maxCallDurationMs" => Enum.max(durations, fn -> 0 end),
-      "overBudgetCount" => Enum.count(over_budget, &(&1 > 0)),
-      "maxOverBudgetMs" => Enum.max(over_budget, fn -> 0 end)
-    }
-  end
-
-  defp sum_usage(usage, key), do: Enum.sum(Enum.map(usage, &(&1[key] || 0)))
-
-  defp usage_stats(usage, complete, unavailable) do
-    %{
-      "promptTokens" => sum_usage(usage, "promptTokens"),
-      "cacheReadTokens" => sum_usage(usage, "cacheReadTokens"),
-      "cacheCreationTokens" => sum_usage(usage, "cacheCreationTokens"),
-      "outputTokens" => sum_usage(usage, "outputTokens"),
-      "reasoningTokens" => sum_usage(usage, "reasoningTokens"),
-      "totalTokens" => sum_usage(usage, "totalTokens"),
-      "coverage" => %{
-        "complete" => complete,
-        "partial" => 0,
-        "unavailable" => unavailable,
-        "inconsistent" => 0
-      }
-    }
-  end
-
-  defp exact_cost_stats(count) do
-    %{
-      "knownSubtotalUsd" => 0.0,
-      "coverage" => %{"exact" => count, "partial" => 0, "unknown" => 0, "unavailable" => 0}
     }
   end
 

@@ -81,18 +81,8 @@ defmodule HardenLlmWeb.RenderingTest do
     assert has_element?(profiles, "#profiles")
     refute has_element?(profiles, ".overflow-x-auto table")
 
-    {:ok, history, history_html} = live(conn, ~p"/history")
-    assert history_html =~ ~s(id="history-loading")
-    render_async(history, 1_000)
-
-    assert has_element?(history, "main#history-page h1")
-    assert has_element?(history, "#clear-history")
-    assert has_element?(history, "#history-empty", "No history yet.")
-    assert has_element?(history, ~s(#history-page th[scope="col"]))
-    assert has_element?(history, ".overflow-x-auto table")
-    refute has_element?(history, "nav")
-    refute has_element?(history, ~s([role="tab"]))
-    assert has_element?(history, "#logout-button")
+    assert has_element?(workspace, "#logout-button")
+    refute has_element?(workspace, "a[href='/history']")
   end
 
   test "success states bound long backend values without removing their full accessible text", %{
@@ -188,20 +178,17 @@ defmodule HardenLlmWeb.RenderingTest do
     assert has_element?(profiles, ~s(button[aria-label="Edit profile"]))
     assert has_element?(profiles, ~s(button[aria-label="Delete profile"]))
 
-    {:ok, history_view, _html} = live(conn, ~p"/history")
-    render_async(history_view, 1_000)
-    assert has_element?(history_view, ~s(#history .truncate[title="#{long_run}"]))
-    assert has_element?(history_view, ~s(#history .truncate[title="#{long_trace}"]))
-    assert has_element?(history_view, ~s(#history .truncate[title="#{long_profile}"]))
-
-    history_view
-    |> element(~s(button[phx-click="open-trace"][phx-value-trace-id="#{long_trace}"]))
+    workspace
+    |> element(~s(#history-trace-#{long_run}-summary))
     |> render_click()
 
-    render_async(history_view, 1_000)
-    assert has_element?(history_view, ~s(#trace-title.truncate[title="#{long_trace}"]))
+    workspace
+    |> element(~s(#history-trace-#{long_run}-view-json))
+    |> render_click()
 
-    assert has_element?(history_view, "#trace-observations .json-viewer")
+    render_async(workspace, 1_000)
+    assert has_element?(workspace, ~s(#history-trace-#{long_run}-trace-json .json-viewer))
+    assert has_element?(workspace, ~s(#history-trace-#{long_run}-trace-json), long_output)
   end
 
   test "backend error states are announced and trace failures leave loading state", %{conn: conn} do
@@ -224,13 +211,15 @@ defmodule HardenLlmWeb.RenderingTest do
     assert has_element?(profiles, ~s(#profiles-error[role="alert"]), "temporarily unavailable")
     refute has_element?(profiles, "#profiles-loading")
 
-    {:ok, history, _html} = live(conn, ~p"/history")
-    render_async(history, 1_000)
-    assert has_element?(history, ~s(#history-error[role="alert"]), "temporarily unavailable")
-    refute has_element?(history, "#history-loading")
-
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/state"} ->
+          state = Map.put(APIFixtures.state(), "ui", %{"historyOpen" => true})
+          Req.Test.json(conn, APIFixtures.success(nil, state))
+
+        {"GET", "/api/v1/profiles"} ->
+          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+
         {"GET", "/api/v1/history"} ->
           Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
 
@@ -242,26 +231,24 @@ defmodule HardenLlmWeb.RenderingTest do
       end
     end)
 
-    {:ok, trace_view, _html} = live(conn, ~p"/history")
+    {:ok, trace_view, _html} = live(conn, ~p"/workspace")
     render_async(trace_view, 1_000)
-
-    trace_view
-    |> element(~s(button[phx-click="open-trace"][phx-value-trace-id="trace-test"]))
-    |> render_click()
-
+    render_async(trace_view, 1_000)
+    trace_view |> element("#history-trace-run-test-summary") |> render_click()
+    trace_view |> element("#history-trace-run-test-view-json") |> render_click()
     render_async(trace_view, 1_000)
 
     assert has_element?(
              trace_view,
-             ~s(#trace-dialog[role="dialog"][aria-labelledby="trace-title"])
+             "#history-trace-run-test-trace-json [role='alert']",
+             "temporarily unavailable"
            )
 
-    assert has_element?(trace_view, ~s(#trace-error[role="alert"]), "temporarily unavailable")
-    refute has_element?(trace_view, "#trace-loading")
-    assert has_element?(trace_view, "#trace-dialog-close[autofocus]")
+    refute has_element?(trace_view, "#history-trace-run-test-trace-json [role='status']")
+    refute has_element?(trace_view, "#trace-dialog")
   end
 
-  test "profile editing is an inline fold and focused dialogs remain accessible", %{conn: conn} do
+  test "profile editing and delete confirmation remain accessible inline", %{conn: conn} do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/profiles"} ->
@@ -311,23 +298,6 @@ defmodule HardenLlmWeb.RenderingTest do
 
     assert has_element?(profiles, "#profile-delete-cancel")
     assert has_element?(profiles, "#profile-delete-confirm")
-
-    {:ok, history, _html} = live(conn, ~p"/history")
-    render_async(history, 1_000)
-    history |> element("#clear-history") |> render_click()
-
-    assert has_element?(
-             history,
-             ~s(#clear-history-dialog[role="alertdialog"][aria-labelledby="clear-history-title"])
-           )
-
-    assert has_element?(
-             history,
-             ~s(#clear-history-dialog[aria-describedby="clear-history-description"])
-           )
-
-    assert has_element?(history, "#clear-history-cancel[autofocus]")
-    assert has_element?(history, "#clear-history-confirm")
   end
 
   defp install_stub(handler) do
@@ -335,9 +305,6 @@ defmodule HardenLlmWeb.RenderingTest do
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/auth/session"} ->
           Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
-
-        {"GET", "/api/v1/stats"} ->
-          Req.Test.json(conn, APIFixtures.success(APIFixtures.stats()))
 
         _ ->
           handler.(conn)

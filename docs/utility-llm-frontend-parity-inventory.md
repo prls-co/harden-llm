@@ -171,7 +171,7 @@ successful read or included in rendered state.
 | History item header | Expand/collapse button | Shows model and prompt preview; opening displays result and trace stats/resources. |
 | `Restore prompt` | Button | Restores user/system/schema fields and selected profile from one history entry, then persists the draft. |
 | `Delete` | Danger button | Deletes one history entry, refreshes the current page, and closes its expansion. |
-| History pagination | Pagination controls | Utility uses page/page-size callbacks and a quick-jump input. The self-hosted implementation provides bounded page-size selection and cursor-based `Load more`; arbitrary page jumps are intentionally not reproduced because the current Go contract has no offset/page-number operation. |
+| History pagination | Pagination controls | Utility uses page/page-size callbacks and a quick-jump input. The self-hosted implementation provides ten-card cursor-based `Load more`; arbitrary page jumps are intentionally not reproduced because the current Go contract has no offset/page-number operation. |
 | `Loading history...` | Status text | Shown during lazy/page loads. |
 | `No runs yet in this session.` | Empty text | Shown for an empty history. |
 
@@ -189,15 +189,12 @@ The Phoenix equivalent is the backend-agnostic
 `HardenLlmWeb.LlmTraceComponents` module plus the pure
 `HardenLlm.LlmTraceProjection` data projection. `<.llm_trace>` owns only markup,
 accessibility attributes, resource availability states, and event wiring; the
-host owns trace loading, persistence, and state. `<.llm_stats_summary>` accepts
-the same normalized aggregate shape independently of `WorkspaceLive` or
-`HistoryLive`. Both views load all-owner aggregates from `GET /api/v1/stats`,
-not from a currently loaded history page. The aggregate includes utility's
-canonical outcome, prompt/output, cache-attributed cost/count, total/max
-duration, and over-budget fields, plus detailed token groups and explicit
-known/unknown cost counts. Both components use namespaced default IDs and accept host
-overrides so they can be extracted into another LLM-facing frontend without
-coupling that frontend to Harden-LLM's API client or data store.
+host owns trace loading, persistence, and state. The aggregate summary UI and
+its polling were retired with the duplicate audit page; backend
+`GET /api/v1/stats` accounting remains available through its existing contract.
+Current Result and Workspace History use the same Result/stats/JSON components,
+with namespaced IDs and host-owned resources, independent of the API client and
+data store.
 
 ## 4. Utility action/API contract
 
@@ -279,8 +276,8 @@ passed, including 16 React/server test files and 147 Vitest tests.
 | --- | --- | --- |
 | Auth/shell | Phoenix session login/logout and protected LiveViews exist. | Preserve behavior while matching utility shell status/error semantics. |
 | Profiles | Dedicated Phoenix studio with compact profile cards, provider/interface/endpoint/model, write-only credential staging, ordered backups, options, retry/repair/escalation, pricing, refresh, CRUD, bundle actions, and deep-link editing. The full editor unfolds inline below the cards. | The utility’s compact row/fold language is preserved without creating a second profile-editor owner; Firebase-specific persistence and browser provider calls remain excluded. The embedded widget now uses the same searchable/custom-value interaction for profile, API type, base URL, model, and fallbacks, and namespaces the nested bundle upload. |
-| Workspace | One narrow vertical studio stack containing model, input, output, history, and stats widgets; advanced prompt/schema controls, persisted UI folds, custom profile values, actionable history rows, output copy/request/response/cURL, token/cache/cost stats, and canonical run payloads. | Keep the single Phoenix/Go path; no browser provider calls or second widget runtime. Cache is utility-compatible (`cache`/`refresh`), retry policy is projected into the gateway request boundary, and endpoint/credential/fallback identity edits require profile save before a run. |
-| History | Cursor-based expandable records, restore, trace observations/artifacts, row stats, request/response/cURL copy, delete, clear confirmation, page-size selection, and load more; workspace history has the same row-local actions. | Arbitrary page-number/quick-jump behavior would require an offset contract; retain cursor semantics as the self-hosted adaptation. |
+| Workspace | One narrow vertical studio stack containing model, input, Result, and History; advanced prompt/schema controls, persisted UI folds, custom profile values, inline token/cache/cost stats and request/response/cURL, and canonical run payloads. | Keep the single Phoenix/Go path; no browser provider calls or second widget runtime. Cache is utility-compatible (`cache`/`refresh`), retry policy is projected into the gateway request boundary, and endpoint/credential/fallback identity edits require profile save before a run. |
+| History | One workspace list of reusable Result cards: expandable input/output, inline stats and trace observations, copy, rerun, artifact downloads, restore, delete, clear confirmation, and cursor Load more. | No separate audit page or Domain trace dialog; ten-card cursor pages replace page-size and arbitrary page-number/quick-jump controls. |
 | Backend state | Go/OpenAPI state carries prompt draft, selected profile, schema shorthand, reasoning map, cache mode, retry/repair controls, and fold visibility with strict validation. | Continue adding only behavior required by the inventory and keep credentials write-only. |
 | Profile schema | Go `Profile` already has pricing, default options, backups, models, reasoning map, and credential state. | Expose and test the existing fields through Phoenix; add only fields needed by utility behavior, not Firebase-specific copies. |
 | History API | Go contract is cursor/limit based and the LiveView preserves that boundary. | Keep cursor navigation deterministic; do not add an offset compatibility path solely for the utility quick-jump control. |
@@ -343,7 +340,7 @@ harden-llm element, backend contract, or an explicit self-hosted boundary note.
 The parity implementation is present in the self-hosted checkout:
 
 - `WorkspaceLive` persists prompt drafts, schema shorthand, generated contracted schemas, reasoning, cache mode, retry controls, repair escalation model settings, and UI fold state through the Go state endpoint.
-- The workspace exposes advanced input, schema generation/check/clear actions, output copy, attempt/usage/cost/cache facts, a local LLM statistics summary, and a richer recent-history view. History is loaded lazily, supports restore/delete/clear, and preserves typed custom profile values.
+- The workspace exposes advanced input, schema generation/check/clear actions, output copy, attempt/usage/cost/cache facts, inline per-result LLM stats, and a cursor-paginated History of the same Result cards. History is loaded lazily, supports restore/delete/clear, and preserves typed custom profile values.
 - `ProfilesLive` exposes write-only credential staging, ordered backup editing, common provider options plus source JSON, retry/repair controls, escalation metadata, all five pricing rates, model refresh, bundle import/export, and the existing CRUD actions.
 - The 2026-08-22 UI pass replaces profile and delete overlays with in-flow `#profile-editor` / `#profile-delete-panel` folds, replaces the wide profile table with responsive compact cards, and applies the utility warm-card/emoji control language to both Profiles and the single-column Workspace stack.
 - The 2026-08-22 fold-event correction uses `phx-value-open` rather than the reserved `phx-value-value` key, and the real browser workflow verifies that model, advanced-input, retry, history, and output folds open through the LiveView socket.
@@ -359,10 +356,10 @@ The parity implementation is present in the self-hosted checkout:
 - The reasoning selector is capability-aware: seeded profiles expose only the levels in their `reasoningEffortMap`, while a custom profile without a map shows a disabled placeholder. `WorkspaceLive` repeats that check when building the run request so stale persisted reasoning cannot produce a provider-preparation failure before the request reaches the provider. WEB-TEST-040 covers the unmapped-profile boundary.
 - The hosted run boundary is browser-safe: the primary Run Prompt submitter uses `formnovalidate` so an unused nested Escalation editor cannot block `phx-submit` through native required-field validation, while LiveView still validates the actual run payload. The gateway's provider-option classifier also admits utility-compatible request controls such as `max_tokens` and `max_output_tokens` while rejecting credential-shaped names. TEST-012 and the WEB-TEST-010 rendering assertion cover these boundaries; the hosted browser verified a real CPA run.
 - Workspace model and escalation controls can still deep-link to the canonical `/profiles` editor; new-profile credential fields open automatically while existing-profile edits keep stored credentials behind a closed write-only drawer.
-- `HistoryLive` exposes expandable request/result records, result and credential-free cURL copy, page-size controls over the cursor API, trace observations, artifact links, restore, delete, and clear.
+- Workspace History owns expandable input/output, credential-free cURL copy, cursor Load more, inline trace observations, artifact downloads, restore, delete, and clear. `HistoryLive`, its Domain trace dialog, View all, and aggregate stats UI are retired; old audit bookmarks redirect to the workspace.
 - The Go state and run contracts now carry the prompt draft, persisted UI flags, model override, explicit bounded retry controls, repair escalation, and run timeout. OpenAPI and backend validation were updated together.
 - The prompt shortcut, five-second schema debounce, model/base-URL datalists, write-only staged-key controls, output request/response folds, and per-record token/cache/cost summaries are covered by `WEB-TEST-034` through `WEB-TEST-036` and the corresponding rendering assertions.
-- Workspace history rows now expose row-local restore/delete/inspect/copy/resource controls, and all history loading and mutation failures remain inline and credential-free.
+- Workspace history rows now expose row-local restore/delete/copy/resource controls, and all history loading and mutation failures remain inline and credential-free.
 - The Compose smoke harness now prints gateway/provider diagnostics on failure, and the smoke override clears inherited provider-host policy before exercising its fake provider; the deterministic Compose gate passes without weakening production endpoint policy.
 
 The self-hosted runtime now carries an optional escalation profile ID and resolves that profile's credential and provider protocol for the repair attempt. The operation remains bounded by the same retry budget and records the effective profile on the attempt, preserving the self-hosted trace and cache ownership boundaries.
