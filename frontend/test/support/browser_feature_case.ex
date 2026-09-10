@@ -118,7 +118,10 @@ defmodule HardenLlmWeb.BrowserFeatureCase do
       """
       Object.defineProperty(navigator, "clipboard", {
         configurable: true,
-        value: {writeText: () => Promise.resolve()}
+        value: {writeText: value => {
+          window.__hardenCopiedText = value;
+          return Promise.resolve();
+        }}
       });
       """
     )

@@ -14,7 +14,8 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       javascript_value: 2,
       javascript_value: 3,
       open_fold: 3,
-      open_ui_fold: 3
+      open_ui_fold: 3,
+      scroll_to_selector: 2
     ]
 
   alias Wallaby.Query
@@ -146,7 +147,8 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
              "Details",
              "Request",
              "Response",
-             "cURL"
+             "cURL",
+             "🔁"
            ]
 
     assert widget_facts["selectedBackground"] != widget_facts["closedBackground"]
@@ -182,6 +184,7 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
 
     session =
       session
+      |> scroll_to_selector("##{run_id} button[phx-click='delete-history']")
       |> click(Query.css("##{run_id} button[phx-click='delete-history']"))
       |> refute_has(Query.css("##{run_id}"))
       |> assert_no_horizontal_overflow()

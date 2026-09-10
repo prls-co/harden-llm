@@ -45,9 +45,13 @@ defmodule HardenLlmWeb.LlmTraceComponents do
   attr :controls_name, :string, default: "controlsOpen"
   attr :resource_event, :string, default: nil
   attr :target, :any, default: nil
+  attr :run_id, :string, default: nil
+  attr :rerun_event, :string, default: nil
+  attr :rerun_disabled, :boolean, default: false
   attr :details_disabled, :boolean, default: false
   attr :controls_disabled, :boolean, default: false
   attr :class, :any, default: nil
+  slot :actions
 
   @doc "Renders one LLM trace summary, detail panel, and resources row."
   def llm_trace(assigns) do
@@ -76,6 +80,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
         class="llm-trace-summary"
         phx-click={@controls_event}
         phx-value-name={@controls_name}
+        phx-value-run-id={@run_id}
         phx-value-open={to_string(!@controls_open)}
         phx-target={@target}
         aria-controls={@content_id}
@@ -120,6 +125,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
             label="Overview"
             event={@details_event}
             value_name={@details_name}
+            run_id={@run_id}
             value_open={to_string(!@details_open)}
             target={@target}
             aria_label="Execution overview"
@@ -134,6 +140,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
             label="Details"
             event={@resource_event}
             kind="trace"
+            run_id={@run_id}
             target={@target}
             aria_label="Full trace details"
             title="Full trace details"
@@ -148,6 +155,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
             label="Request"
             event={@resource_event}
             kind="request"
+            run_id={@run_id}
             target={@target}
             aria_label="Request payload"
             title="Request payload"
@@ -161,6 +169,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
             label="Response"
             event={@resource_event}
             kind="response"
+            run_id={@run_id}
             target={@target}
             aria_label="Response payload"
             title="Response payload"
@@ -179,6 +188,19 @@ defmodule HardenLlmWeb.LlmTraceComponents do
             title="Copy cURL"
             disabled={not present?(curl(@resources))}
           >cURL</button>
+          <button
+            :if={@rerun_event}
+            id={"#{@id}-rerun"}
+            type="button"
+            class="trace-action"
+            phx-click={@rerun_event}
+            phx-value-run-id={@run_id}
+            phx-target={@target}
+            aria-label="Rerun recorded request"
+            title="Rerun recorded request with its original cache mode and current saved profile"
+            disabled={@rerun_disabled}
+          >🔁</button>
+          {render_slot(@actions)}
         </div>
 
         <div
@@ -246,6 +268,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
   attr :event, :string, default: nil
   attr :kind, :string, default: nil
   attr :value_name, :string, default: nil
+  attr :run_id, :string, default: nil
   attr :value_open, :string, default: nil
   attr :target, :any, default: nil
   attr :aria_label, :string, required: true
@@ -264,6 +287,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
       class="trace-action"
       phx-click={@event}
       phx-value-kind={@kind}
+      phx-value-run-id={@run_id}
       phx-value-name={@value_name}
       phx-value-open={@value_open}
       phx-target={@target}

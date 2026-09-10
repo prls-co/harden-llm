@@ -173,12 +173,12 @@ defmodule HardenLlmWeb.RenderingTest do
 
     assert has_element?(
              workspace,
-             "#run-output.ullm-result-body.ullm-mono"
+             "#run-output.llm-result-text"
            )
 
     assert has_element?(workspace, "#run-result-panel", long_run)
     assert has_element?(workspace, "#run-result-panel", long_trace)
-    assert has_element?(workspace, ~s(#workspace-history .truncate[title="#{long_run}"]))
+    assert has_element?(workspace, "#workspace-history .llm-result .llm-trace-details", long_run)
 
     {:ok, profiles, _html} = live(conn, ~p"/profiles")
     render_async(profiles, 1_000)

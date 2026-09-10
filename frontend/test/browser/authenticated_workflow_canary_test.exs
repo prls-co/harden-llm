@@ -133,6 +133,45 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
              )
     end
 
+    session =
+      session
+      |> click(Query.css("#run-result-panel button[id$='-expand']"))
+      |> assert_has(Query.css("#run-result-panel .llm-result.is-expanded"))
+      |> click(Query.css("#output-trace-summary"))
+      |> assert_has(Query.css("#output-trace-content[hidden]", visible: :any))
+      |> click(Query.css("#output-trace-summary"))
+      |> assert_has(Query.css("#output-trace-content:not([hidden])"))
+
+    result_facts =
+      javascript_value(session, """
+        const card = document.querySelector('#run-result-panel .llm-result');
+        return {
+          rows: Array.from(card.children).map(node => node.className),
+          expanded: card.classList.contains('is-expanded'),
+          wrapping: Array.from(card.querySelectorAll('.llm-result-text')).map(node => getComputedStyle(node).whiteSpace)
+        };
+      """)
+
+    assert result_facts["rows"] == ["llm-result-row", "llm-result-row", "llm-result-stats"]
+    assert result_facts["expanded"]
+    assert result_facts["wrapping"] == ["pre-wrap", "pre-wrap"]
+
+    session =
+      session
+      |> scroll_to_selector("#run-result-panel button[id$='-expand']")
+      |> Wallaby.Browser.take_screenshot(name: "result-card-expanded")
+
+    assert javascript_value(session, """
+             const button = document.querySelector('#run-result-panel button[id$="-expand"]');
+             const rect = button.getBoundingClientRect();
+             return button.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
+           """)
+
+    session =
+      session
+      |> click(Query.css("#run-result-panel button[id$='-expand']"))
+      |> assert_has(Query.css("#run-result-panel .llm-result:not(.is-expanded)"))
+
     widget_facts =
       javascript_value(
         session,
@@ -165,7 +204,8 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
              "Details",
              "Request",
              "Response",
-             "cURL"
+             "cURL",
+             "🔁"
            ]
 
     assert widget_facts["selectedBackground"] != widget_facts["closedBackground"]
@@ -193,10 +233,24 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
     session =
       session
       |> install_clipboard_stub()
+      |> click(Query.css("#run-result-panel button[aria-label='Copy input']"))
+      |> assert_has(Query.css("#run-result-panel button[aria-label='Copy input']", text: "✅"))
+
+    assert javascript_value(session, "return window.__hardenCopiedText;") ==
+             "run the browser canary"
+
+    session =
+      session
       |> click(Query.css("#output-trace-copy-curl"))
       |> assert_has(Query.css("#output-trace-copy-curl", text: "Copied"))
       |> click(Query.css("#copy-run-output"))
-      |> assert_has(Query.css("#copy-run-output", text: "Copied"))
+      |> assert_has(Query.css("#copy-run-output", text: "✅"))
+
+    assert javascript_value(session, "return window.__hardenCopiedText;") ==
+             "deterministic browser output"
+
+    session =
+      session
       |> assert_has(Query.css("#llm-stats-summary-result_cost-details"))
       |> click(Query.css("#llm-stats-summary-result_cost-details > summary"))
       |> assert_has(
@@ -229,6 +283,11 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> click(Query.css("#history-fold-toggle"))
       |> assert_has(Query.css("#workspace-history"))
       |> assert_has(Query.css("#workspace-history-run-browser"))
+      |> assert_has(Query.css("#workspace-history-run-browser.llm-result .llm-result-stats"))
+      |> click(Query.css("#workspace-history-run-browser-expand"))
+      |> assert_has(Query.css("#workspace-history-run-browser.is-expanded"))
+      |> scroll_to_selector("#workspace-history-run-browser")
+      |> Wallaby.Browser.take_screenshot(name: "history-result-card")
       |> force_live_reconnect()
       |> assert_has(Query.css("body[data-browser-reconnected='true']"))
       |> assert_no_horizontal_overflow()

@@ -89,6 +89,7 @@ defmodule HardenLlmWeb do
       import HardenLlmWeb.JsonViewer
       import HardenLlmWeb.LlmStatsComponents
       import HardenLlmWeb.LlmTraceComponents
+      import HardenLlmWeb.LlmResultComponents
 
       # Common modules used in templates
       alias Phoenix.LiveView.JS

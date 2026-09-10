@@ -45,12 +45,12 @@ const Clipboard = {
       const label = this.el.textContent
       try {
         await navigator.clipboard.writeText(value)
-        this.el.textContent = "Copied"
+        this.el.textContent = this.el.dataset.copySuccess || "Copied"
         window.setTimeout(() => {
           if (this.el.isConnected) this.el.textContent = label
         }, 1200)
       } catch (_error) {
-        this.el.textContent = "Failed"
+        this.el.textContent = this.el.dataset.copyError || "Failed"
         window.setTimeout(() => {
           if (this.el.isConnected) this.el.textContent = label
         }, 1200)

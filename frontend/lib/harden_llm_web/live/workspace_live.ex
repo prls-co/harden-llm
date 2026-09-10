@@ -70,6 +70,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:backend_state, :loading)
       |> assign(:profiles, [])
       |> assign(:history, [])
+      |> assign(:history_result_states, %{})
       |> assign(:history_loaded?, false)
       |> assign(:history_loading?, false)
       |> assign(:history_refresh_pending?, false)
@@ -322,6 +323,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
        suppress_pending_history_delete(history, socket.assigns.history_delete_rollback)
      )
      |> assign(:history_loaded?, true)
+     |> update(
+       :history_result_states,
+       &Map.take(&1, Enum.map(history, fn item -> item["runId"] end))
+     )
      |> assign(:history_loading?, false)
      |> assign(:history_error, nil)
      |> maybe_continue_history_refresh()}
@@ -568,6 +573,26 @@ defmodule HardenLlmWeb.WorkspaceLive do
   def handle_async({:load_output_trace, _reference, _trace_id}, _result, socket),
     do: {:noreply, socket}
 
+  def handle_async({:history_result_trace, run_id, reference}, result, socket) do
+    state = socket.assigns.history_result_states[run_id]
+
+    if state && state.load_ref == reference &&
+         Enum.any?(socket.assigns.history, &(&1["runId"] == run_id)) do
+      state = %{state | load_ref: nil, trace_loading?: false}
+
+      state =
+        case result do
+          {:ok, {:ok, trace, _}} -> %{state | trace_data: trace, trace_error: nil}
+          {:ok, {:error, %APIError{} = error}} -> %{state | trace_error: error.message}
+          _ -> %{state | trace_error: "Trace details are temporarily unavailable."}
+        end
+
+      {:noreply, put_history_result_state(socket, run_id, state)}
+    else
+      {:noreply, socket}
+    end
+  end
+
   def handle_async(
         {:restore_history, reference},
         {:ok, {:ok, _result, _state}},
@@ -651,6 +676,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:history_pending, nil)
      |> assign(:history_delete_rollback, nil)
      |> assign(:history, [])
+     |> assign(:history_result_states, %{})
      |> assign(:history_loaded?, true)
      |> assign(:history_refresh_pending?, false)
      |> assign(:history_error, nil)
@@ -781,6 +807,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
          |> assign(:history_pending, reference)
          |> assign(:history_delete_rollback, %{item: item, index: index, run_id: run_id})
          |> assign(:history, List.delete_at(socket.assigns.history, index))
+         |> update(:history_result_states, &Map.delete(&1, run_id))
          |> assign(:history_error, nil)
          |> start_async(
            {:delete_history, reference, run_id},
@@ -914,26 +941,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       true ->
         case run_payload(params, socket.assigns.profiles, socket.assigns.profile_provider_options) do
           {:ok, payload} ->
-            reference = System.unique_integer([:positive, :monotonic])
-            handle = socket.assigns.session_handle
-
-            {:noreply,
-             socket
-             |> assign(:form, to_form(params, as: :run))
-             |> assign(:run_ref, reference)
-             |> assign(:run_request_payload, payload)
-             |> assign(:run_result, nil)
-             |> assign(:diagnostic_ref, nil)
-             |> assign(:conversation_trace_ref, nil)
-             |> assign(:output_trace_resources, %{})
-             |> assign(:run_error, nil)
-             |> assign(:output_request_open?, false)
-             |> assign(:output_response_open?, false)
-             |> reset_output_trace()
-             |> start_async(
-               {:run, reference},
-               Observability.propagate(fn -> HardenAPI.run(handle, payload) end)
-             )}
+            {:noreply, socket |> assign(:form, to_form(params, as: :run)) |> start_run(payload)}
 
           {:error, message} ->
             {:noreply, assign(socket, :run_error, message)}
@@ -942,6 +950,76 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   def handle_event("run", _params, socket), do: {:noreply, socket}
+
+  def handle_event(
+        "rerun-result",
+        %{"run-id" => run_id},
+        %{assigns: %{run_ref: nil, profile_requires_save?: false}} = socket
+      ) do
+    resources =
+      cond do
+        is_map(socket.assigns.run_result) and socket.assigns.run_result["runId"] == run_id ->
+          socket.assigns.output_trace_resources
+
+        item = Enum.find(socket.assigns.history, &(&1["runId"] == run_id)) ->
+          output_trace_resources(history_result(item), item["request"])
+
+        true ->
+          %{}
+      end
+
+    if rerun_available?(resources) do
+      {:noreply, start_run(socket, get_in(resources, ["request", "payload"]))}
+    else
+      {:noreply,
+       assign(
+         socket,
+         :run_error,
+         "The recorded request is unavailable; this result cannot be rerun."
+       )}
+    end
+  end
+
+  def handle_event("rerun-result", _params, socket), do: {:noreply, socket}
+
+  def handle_event("toggle-history-result", %{"run-id" => run_id} = params, socket) do
+    kind = params["kind"] || params["name"]
+    item = Enum.find(socket.assigns.history, &(&1["runId"] == run_id))
+
+    if item && kind in ~w(controls overview request response trace) do
+      state = Map.get(socket.assigns.history_result_states, run_id, history_result_state())
+
+      state =
+        case kind do
+          "controls" -> %{state | controls_open: not state.controls_open, details_open: true}
+          "overview" -> %{state | details_open: not state.details_open}
+          "request" -> %{state | request_open: not state.request_open}
+          "response" -> %{state | response_open: not state.response_open}
+          "trace" -> %{state | trace_open: not state.trace_open}
+        end
+
+      if kind == "trace" && state.trace_open && is_nil(state.trace_data) && is_nil(state.load_ref) do
+        reference = System.unique_integer([:positive, :monotonic])
+        handle = socket.assigns.session_handle
+        trace_id = item["traceId"]
+        state = %{state | trace_loading?: true, trace_error: nil, load_ref: reference}
+
+        {:noreply,
+         socket
+         |> put_history_result_state(run_id, state)
+         |> start_async(
+           {:history_result_trace, run_id, reference},
+           Observability.propagate(fn -> HardenAPI.get_trace(handle, trace_id) end)
+         )}
+      else
+        {:noreply, put_history_result_state(socket, run_id, state)}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle-history-result", _params, socket), do: {:noreply, socket}
 
   def handle_event("toggle-output-data", %{"kind" => "request"}, socket) do
     {:noreply, update(socket, :output_request_open?, &(!&1))}
@@ -1117,15 +1195,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
     end
   end
 
-  def history_prompt_preview(item) do
-    item
-    |> get_in(["request", "userPrompt"])
-    |> case do
-      prompt when is_binary(prompt) and prompt != "" -> String.slice(String.trim(prompt), 0, 140)
-      _ -> "No prompt preview"
-    end
-  end
-
   def schema_status_text(%{status: :valid, message: message})
       when is_binary(message) and message != "", do: message
 
@@ -1137,37 +1206,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
   def schema_status_class(%{status: :error}), do: "text-rose-700"
   def schema_status_class(%{status: :valid}), do: "text-emerald-700"
   def schema_status_class(_), do: "text-slate-500"
-
-  attr(:label, :string, required: true)
-  attr(:value, :any, default: nil)
-
-  def result_fact(assigns) do
-    ~H"""
-    <div class="min-w-0 rounded-lg border border-slate-800 p-2">
-      <dt class="text-slate-500">{@label}</dt>
-      <dd class="mt-1 truncate font-mono text-slate-200" title={to_string(@value || "—")}>
-        {@value || "—"}
-      </dd>
-    </div>
-    """
-  end
-
-  attr(:label, :string, required: true)
-  attr(:value, :any, default: nil)
-
-  def history_fact(assigns) do
-    ~H"""
-    <div class="min-w-0 rounded-lg bg-white p-2">
-      <dt class="text-slate-500">{@label}</dt>
-      <dd
-        class="mt-1 truncate font-mono font-semibold text-slate-700"
-        title={to_string(@value || "—")}
-      >
-        {@value || "—"}
-      </dd>
-    </div>
-    """
-  end
 
   defp hydrate(handle) do
     with {:ok, _result, state} <- HardenAPI.get_state(handle),
@@ -1273,6 +1311,88 @@ defmodule HardenLlmWeb.WorkspaceLive do
       trace_url(trace_id),
       &artifact_url/2
     )
+  end
+
+  defp start_run(socket, payload) do
+    reference = System.unique_integer([:positive, :monotonic])
+    handle = socket.assigns.session_handle
+
+    socket
+    |> assign(:run_ref, reference)
+    |> assign(:run_request_payload, payload)
+    |> assign(:run_result, nil)
+    |> assign(:diagnostic_ref, nil)
+    |> assign(:conversation_trace_ref, nil)
+    |> assign(:output_trace_resources, %{})
+    |> assign(:run_error, nil)
+    |> assign(:output_request_open?, false)
+    |> assign(:output_response_open?, false)
+    |> reset_output_trace()
+    |> start_async(
+      {:run, reference},
+      Observability.propagate(fn -> HardenAPI.run(handle, payload) end)
+    )
+  end
+
+  defp rerun_available?(%{"request" => %{"available" => true, "payload" => request}})
+       when is_map(request) do
+    Enum.all?(~w(profileId userPrompt), fn key ->
+      is_binary(request[key]) and String.trim(request[key]) != ""
+    end)
+  end
+
+  defp rerun_available?(_resources), do: false
+
+  defp history_result_state do
+    %{
+      controls_open: false,
+      details_open: true,
+      request_open: false,
+      response_open: false,
+      trace_open: false,
+      trace_loading?: false,
+      trace_data: nil,
+      trace_error: nil,
+      load_ref: nil
+    }
+  end
+
+  defp put_history_result_state(socket, run_id, state),
+    do: update(socket, :history_result_states, &Map.put(&1, run_id, state))
+
+  defp history_result(item) do
+    (item["result"] || %{})
+    |> Map.put_new("runId", item["runId"])
+    |> Map.put_new("traceId", item["traceId"])
+    |> Map.put_new("status", item["status"])
+  end
+
+  defp history_trace_assigns(item, states, run_ref, profile_requires_save?) do
+    state = Map.get(states, item["runId"], history_result_state())
+    result = history_result(item)
+
+    resources =
+      if is_map(state.trace_data),
+        do: trace_output_resources(state.trace_data, result),
+        else: output_trace_resources(result, item["request"])
+
+    state
+    |> Map.delete(:load_ref)
+    |> Map.merge(%{
+      id: "history-trace-#{item["runId"]}",
+      summary: LlmTraceProjection.summary(result),
+      details: LlmTraceProjection.details(result),
+      resources: resources,
+      run_id: item["runId"],
+      controls_event: "toggle-history-result",
+      controls_name: "controls",
+      details_event: "toggle-history-result",
+      details_name: "overview",
+      resource_event: "toggle-history-result",
+      rerun_event: "rerun-result",
+      rerun_disabled:
+        not is_nil(run_ref) or profile_requires_save? or not rerun_available?(resources)
+    })
   end
 
   defp trace_output_resources(trace, result) do

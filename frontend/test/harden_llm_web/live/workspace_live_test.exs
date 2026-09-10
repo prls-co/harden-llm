@@ -11,6 +11,215 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
   setup %{conn: conn}, do: {:ok, conn: authenticated_conn(conn)}
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-066 WEB-TEST-067
+  test "history result cards have independent lazy trace controls", %{conn: conn} do
+    test_pid = self()
+
+    install_stub(
+      fn conn ->
+        case {conn.method, conn.request_path} do
+          {"POST", "/api/v1/state"} ->
+            Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+
+          {"GET", "/api/v1/traces/trace-test"} ->
+            send(test_pid, {:result_trace_started, self()})
+
+            receive do
+              :release -> Req.Test.json(conn, APIFixtures.success(APIFixtures.trace()))
+            end
+
+          _ ->
+            unexpected(conn)
+        end
+      end,
+      history: fn conn ->
+        Req.Test.json(
+          conn,
+          APIFixtures.success(%{
+            "items" => [
+              APIFixtures.history_item(),
+              APIFixtures.history_item("second-run", "second-trace")
+            ]
+          })
+        )
+      end
+    )
+
+    {:ok, view, _} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    view |> element("#history-fold-toggle") |> render_click()
+    render_async(view, 1_000)
+    assert has_element?(view, "#workspace-history-run-test.llm-result")
+    assert has_element?(view, "#workspace-history-run-test-input", "safe restored prompt")
+    refute_receive {:result_trace_started, _}, 50
+
+    view |> element("#history-trace-run-test-summary") |> render_click()
+    assert has_element?(view, "#history-trace-run-test-details:not([hidden])")
+    assert has_element?(view, "#history-trace-second-run-content[hidden]")
+    view |> element("#history-trace-run-test-show-request") |> render_click()
+    assert has_element?(view, "#history-trace-run-test-request:not([hidden])")
+    assert has_element?(view, "#history-trace-second-run-request[hidden]")
+
+    view |> element("#history-trace-run-test-view-json") |> render_click()
+    assert_receive {:result_trace_started, trace_process}, 1_000
+    view |> element("#history-trace-run-test-view-json") |> render_click()
+    view |> element("#history-trace-run-test-view-json") |> render_click()
+    refute_receive {:result_trace_started, _}, 50
+    view |> element("#history-trace-run-test-summary") |> render_click()
+    send(trace_process, :release)
+    render_async(view, 1_000)
+    assert has_element?(view, "#history-trace-run-test-content[hidden]")
+    view |> element("#history-trace-run-test-summary") |> render_click()
+    assert has_element?(view, "#history-trace-run-test-trace-json", "observations")
+  end
+
+  test "rerun submits the recorded request once and keeps the editor draft", %{conn: conn} do
+    test_pid = self()
+    original = APIFixtures.history_item()["request"]
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+
+        {"POST", "/api/v1/run"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          send(test_pid, {:rerun_started, self(), Jason.decode!(body)})
+
+          receive do
+            :release -> Req.Test.json(conn, APIFixtures.success(APIFixtures.run_result()))
+          end
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    view |> element("#history-fold-toggle") |> render_click()
+    render_async(view, 1_000)
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "keep my new draft"}})
+    |> render_change()
+
+    render_async(view, 1_000)
+    view |> element("#history-trace-run-test-summary") |> render_click()
+    view |> element("#history-trace-run-test-rerun") |> render_click()
+    assert_receive {:rerun_started, run_process, ^original}, 1_000
+    assert has_element?(view, "#history-trace-run-test-rerun[disabled]")
+    render_click(view, "rerun-result", %{"run-id" => "run-test"})
+    refute_receive {:rerun_started, _, _}, 50
+    send(run_process, :release)
+    render_async(view, 1_000)
+    assert has_element?(view, "#run_userPrompt", "keep my new draft")
+    assert has_element?(view, "#run-result-panel .llm-result-row", original["userPrompt"])
+    assert has_element?(view, "#output-trace-copy-curl + #output-trace-rerun")
+
+    view |> element("#output-trace-rerun") |> render_click()
+    assert_receive {:rerun_started, current_process, ^original}, 1_000
+    send(current_process, :release)
+    render_async(view, 1_000)
+  end
+
+  test "rerun refuses an unowned or unavailable result ID", %{conn: conn} do
+    install_stub(fn conn -> unexpected(conn) end)
+    {:ok, view, _} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    render_click(view, "rerun-result", %{"run-id" => "not-loaded"})
+    assert has_element?(view, "#run-error", "recorded request is unavailable")
+  end
+
+  test "history trace errors retry on demand without affecting other panes", %{conn: conn} do
+    calls = start_supervised!({Agent, fn -> 0 end})
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+
+        {"GET", "/api/v1/traces/trace-test"} ->
+          if Agent.get_and_update(calls, fn n -> {n, n + 1} end) == 0 do
+            {status, error} = APIFixtures.error(503, "temporarily_unavailable")
+            conn |> Plug.Conn.put_status(status) |> Req.Test.json(error)
+          else
+            Req.Test.json(conn, APIFixtures.success(APIFixtures.trace()))
+          end
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    view |> element("#history-fold-toggle") |> render_click()
+    render_async(view, 1_000)
+    view |> element("#history-trace-run-test-summary") |> render_click()
+    view |> element("#history-trace-run-test-show-request") |> render_click()
+    view |> element("#history-trace-run-test-view-json") |> render_click()
+    render_async(view, 1_000)
+    assert has_element?(view, "#history-trace-run-test-trace-error[role='alert']")
+    assert has_element?(view, "#history-trace-run-test-request:not([hidden])")
+    view |> element("#history-trace-run-test-view-json") |> render_click()
+    view |> element("#history-trace-run-test-view-json") |> render_click()
+    render_async(view, 1_000)
+    refute has_element?(view, "#history-trace-run-test-trace-error")
+    assert has_element?(view, "#history-trace-run-test-trace-json", "observations")
+    assert Agent.get(calls, & &1) == 2
+  end
+
+  test "a delayed trace cannot bring back a deleted history result", %{conn: conn} do
+    test_pid = self()
+    present = start_supervised!({Agent, fn -> true end})
+
+    install_stub(
+      fn conn ->
+        case {conn.method, conn.request_path} do
+          {"POST", "/api/v1/state"} ->
+            Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+
+          {"GET", "/api/v1/traces/trace-test"} ->
+            send(test_pid, {:delayed_result_trace, self()})
+
+            receive do
+              :release -> Req.Test.json(conn, APIFixtures.success(APIFixtures.trace()))
+            end
+
+          {"DELETE", "/api/v1/history/run-test"} ->
+            Agent.update(present, fn _ -> false end)
+            Req.Test.json(conn, APIFixtures.success(%{"deleted" => true}))
+
+          _ ->
+            unexpected(conn)
+        end
+      end,
+      history: fn conn ->
+        items = if Agent.get(present, & &1), do: [APIFixtures.history_item()], else: []
+        Req.Test.json(conn, APIFixtures.success(%{"items" => items}))
+      end
+    )
+
+    {:ok, view, _} = live(conn, ~p"/workspace")
+    render_async(view, 1_000)
+    view |> element("#history-fold-toggle") |> render_click()
+    render_async(view, 1_000)
+    view |> element("#history-trace-run-test-summary") |> render_click()
+    view |> element("#history-trace-run-test-view-json") |> render_click()
+    assert_receive {:delayed_result_trace, process}, 1_000
+
+    view
+    |> element("#workspace-history-run-test button[phx-click='delete-history']")
+    |> render_click()
+
+    refute has_element?(view, "#workspace-history-run-test")
+    send(process, :release)
+    render_async(view, 1_000)
+    refute has_element?(view, "#workspace-history-run-test")
+    refute has_element?(view, "#history-trace-run-test-trace-json")
+  end
+
   test "stats expose retry, snapshot time, and bounded periodic refresh", %{conn: conn} do
     test_pid = self()
     counter = start_supervised!({Agent, fn -> 0 end})
@@ -1169,7 +1378,9 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     refute has_element?(view, "#workspace-history-run-test")
   end
 
-  test "failed workspace history deletion restores the optimistically hidden row", %{conn: conn} do
+  test "failed workspace history deletion restores the row with usable trace loading", %{
+    conn: conn
+  } do
     test_pid = self()
 
     state =
@@ -1179,6 +1390,14 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     install_stub(
       fn conn ->
         case {conn.method, conn.request_path} do
+          {"GET", "/api/v1/traces/trace-test"} ->
+            send(test_pid, {:rollback_trace_started, self()})
+
+            receive do
+              :release_rollback_trace ->
+                Req.Test.json(conn, APIFixtures.success(APIFixtures.trace()))
+            end
+
           {"DELETE", "/api/v1/history/run-test"} ->
             send(test_pid, {:failing_workspace_delete_started, self()})
 
@@ -1214,17 +1433,29 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     render_async(view, 1_000)
     assert has_element?(view, "#workspace-history-run-test")
 
+    view |> element("#history-trace-run-test-summary") |> render_click()
+    view |> element("#history-trace-run-test-view-json") |> render_click()
+    assert_receive {:rollback_trace_started, trace_process}
+
     view
     |> element(~s(button[phx-click="delete-history"][phx-value-run-id="run-test"]))
     |> render_click()
 
     assert_receive {:failing_workspace_delete_started, delete_process}
     refute has_element?(view, "#workspace-history-run-test")
+    release_request(trace_process, :release_rollback_trace)
+    render(view)
     release_request(delete_process, :release_failing_workspace_delete)
     render_async(view, 1_000)
 
     assert has_element?(view, "#workspace-history-run-test")
     assert has_element?(view, ~s(#workspace-history-error[role="alert"]))
+    view |> element("#history-trace-run-test-summary") |> render_click()
+    view |> element("#history-trace-run-test-view-json") |> render_click()
+    assert_receive {:rollback_trace_started, reloaded_process}
+    release_request(reloaded_process, :release_rollback_trace)
+    render_async(view, 1_000)
+    assert has_element?(view, "#history-trace-run-test-trace-json")
   end
 
   test "successful run refreshes an already loaded open history snapshot", %{conn: conn} do
@@ -1473,12 +1704,13 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, "#run-output", "fixture output")
     assert has_element?(view, "#run-result-panel", "trace-test")
     assert has_element?(view, "#run-result-panel.ullm-widget.ullm-output-widget")
-    assert has_element?(view, ".ullm-run-output-label", "Latest output")
+    assert has_element?(view, "#run-result-panel[aria-label='Result'] h2", "Result")
+    assert has_element?(view, "#run-result-panel .llm-result-row", "run fixture")
 
     assert has_element?(
              view,
-             ".ullm-run-output-meta",
-             "responses · https://provider.example.test/v1"
+             "#output-trace-details",
+             "https://provider.example.test/v1"
            )
 
     assert has_element?(view, ".llm-trace-summary", "ID: trace-test")
@@ -1503,7 +1735,8 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, ~s(.llm-trace-summary span[title="Completion tokens"]), "📤 1")
     assert has_element?(view, ".trace-controls #output-trace-details-toggle", "Overview")
     assert has_element?(view, ".trace-controls #output-trace-view-json", "Details")
-    assert has_element?(view, ".trace-controls #output-trace-copy-curl:last-child", "cURL")
+    assert has_element?(view, ".trace-controls #output-trace-copy-curl", "cURL")
+    assert has_element?(view, "#output-trace-copy-curl + #output-trace-rerun:last-child", "🔁")
     assert has_element?(view, ".trace-controls #output-trace-show-request", "Request")
     assert has_element?(view, ".trace-controls #output-trace-show-response", "Response")
     refute has_element?(view, ".trace-controls a")
