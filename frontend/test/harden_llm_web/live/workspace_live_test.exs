@@ -2054,7 +2054,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     refute has_element?(view, "#run_schemaShorthand", "answer")
     refute has_element?(view, "#run_schema", "additionalProperties")
     assert has_element?(view, "#new-conversation", "New")
-    assert has_element?(view, "#new-prompt", "New Prompt")
+    assert has_element?(view, "#new-prompt", "Clear Prompt")
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-035
