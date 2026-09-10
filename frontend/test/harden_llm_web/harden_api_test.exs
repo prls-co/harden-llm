@@ -79,6 +79,24 @@ defmodule HardenLlmWeb.HardenAPITest do
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-060
+  test "history and trace never pass retired execution records to the UI" do
+    handle = APIFixtures.insert_session()
+    old = %{"runId" => "run-test", "traceId" => "trace-test", "status" => "succeeded"}
+
+    Req.Test.stub(HardenAPI, fn conn ->
+      payload =
+        case conn.request_path do
+          "/api/v1/history" -> %{"items" => [Map.put(APIFixtures.history_item(), "result", old)]}
+          "/api/v1/traces/trace-test" -> Map.put(APIFixtures.trace(), "record", old)
+        end
+
+      Req.Test.json(conn, APIFixtures.success(payload))
+    end)
+
+    assert {:error, %APIError{category: :protocol}} = HardenAPI.list_history(handle)
+    assert {:error, %APIError{category: :protocol}} = HardenAPI.get_trace(handle, "trace-test")
+  end
+
   test "diagnostics operations reject malformed identities, equations, and coverage" do
     handle = APIFixtures.insert_session()
 

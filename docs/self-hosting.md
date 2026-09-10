@@ -111,42 +111,19 @@ matching metadata, or mix Harden LLM Garage volumes with Langfuse MinIO.
 
 Test restoration on another host before treating a backup as valid.
 
-## Reconcile retained execution history
+## Execution data and artifact inventory
 
-The gateway image includes one bounded administrative command for the legacy
-runless-trace migration. It does not use Tempo, Langfuse, Laminar, ClickHouse,
-or logs as product data. Run it only after a matching Postgres and Garage
-backup has passed an isolated restore test and normal writes are quiesced.
+Execution reads use schema v2 only. The retained-v1 decoder and the one-off
+`reconcile-history` command were removed after the authorized 2026-09-10
+run/cache purge. Forward-only database migrations remain; no new legacy-data
+migration or fallback is provided.
 
-Dry-run is the default and must be scoped explicitly:
+History deletion removes an owner's runs, traces, observations, and artifact
+bodies through the journaled coordinator. It does not delete operation-cache
+outputs or external telemetry. Purging those requires explicit scope; never
+delete database or object-store volumes to clear one owner's run data.
 
-```bash
-"${COMPOSE[@]}" run --rm --no-deps harden-llm-gateway \
-  reconcile-history --all-owners
-```
-
-The JSON report contains redacted counts, no owner/run/trace/object identities,
-and one deterministic `planDigest`. Apply fails closed on any unclassified,
-truncated, changed, missing, or integrity-mismatched row. After reviewing the
-dry-run report, pass the exact digest without putting credentials in arguments:
-
-```bash
-"${COMPOSE[@]}" run --rm --no-deps harden-llm-gateway \
-  reconcile-history --all-owners --apply --digest '<exact-plan-digest>'
-```
-
-Repeat apply with the same digest; an already completed plan reports zero
-candidates and zero applied traces. Before enabling the structural ownership
-migration, require zero runless traces and inspect artifact reconciliation
-metrics for zero pending operations and zero unavailable available-state rows.
-
-The reconciliation command intentionally migrates only through schema version
-4. This allows the new image to reconcile an older installation before normal
-gateway startup applies schema version 5. Do not start the normal gateway with
-runless traces still present: migration 5 rejects them instead of preserving a
-compatibility path.
-
-After migration and reconciliation, run the read-only reverse inventory:
+Normal artifact crash recovery and the read-only reverse inventory remain:
 
 ```bash
 "${COMPOSE[@]}" run --rm --no-deps harden-llm-gateway audit-artifacts

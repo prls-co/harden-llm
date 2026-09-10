@@ -2,9 +2,8 @@ defmodule HardenLlm.LlmTraceProjection do
   @moduledoc """
   Pure display and resource projection for validated LLM execution diagnostics.
 
-  The current path consumes schema v2. A single bounded retained-v1 branch
-  exposes only values that were actually captured and labels missing facts as
-  unavailable; it never reconstructs producer identity or accounting.
+  Consumes schema v2 validated by `LlmDiagnosticsWire`; it does not adapt retired
+  execution formats or reconstruct diagnostics from mutable configuration.
   """
 
   alias HardenLlm.LlmCostFormatter
@@ -69,7 +68,7 @@ defmodule HardenLlm.LlmTraceProjection do
     %{
       "trace_id" => trace_id(result),
       "run_id" => text([result["runId"]]),
-      "schema_label" => if(v2?(result), do: "v2", else: "retained v1"),
+      "schema_label" => "v2",
       "profile_id" => text([selected["profileId"]]),
       "model_id" => text([selected["modelId"]]),
       "provider" => text([selected["provider"]]),
@@ -161,18 +160,13 @@ defmodule HardenLlm.LlmTraceProjection do
   def trace_id(result) when is_map(result), do: text([result["traceId"]])
   def trace_id(_result), do: nil
 
-  def attempt_count(result) when is_map(result) do
-    case result["attempts"] do
-      attempts when is_list(attempts) -> length(attempts)
-      _ -> nonnegative_integer(result["totalAttempts"]) || 0
-    end
-  end
+  def attempt_count(result) when is_map(result), do: length(raw_attempts(result))
 
   def attempt_count(_result), do: 0
 
   def duration(result) when is_map(result) do
     duration_ms =
-      number_value(result["totalCallDurationMs"] || result["durationMs"] || result["totalWaitMs"])
+      number_value(result["totalCallDurationMs"])
 
     if is_number(duration_ms),
       do: :erlang.float_to_binary(duration_ms / 1000, decimals: 2) <> "s",
@@ -223,7 +217,6 @@ defmodule HardenLlm.LlmTraceProjection do
 
     cond do
       cache["served"] == true or cache["status"] == "hit" -> "hit"
-      cache["mode"] in [nil, ""] and cache["status"] in [nil, ""] -> "unknown"
       cache["mode"] == "off" or cache["status"] in ["disabled", "skipped"] -> "disabled"
       cache["status"] == "miss" -> "miss"
       cache["status"] == "refresh" -> "refresh"
@@ -275,7 +268,7 @@ defmodule HardenLlm.LlmTraceProjection do
 
   def used_repair?(result) when is_map(result) do
     result["usedRepair"] == true or
-      Enum.any?(raw_attempts(result), &(&1["repair"] == true or &1["usedRepair"] == true))
+      Enum.any?(raw_attempts(result), &(&1["repair"] == true))
   end
 
   def used_repair?(_result), do: false
@@ -283,50 +276,34 @@ defmodule HardenLlm.LlmTraceProjection do
   def attempts(result) when is_map(result) do
     result
     |> raw_attempts()
-    |> Enum.with_index(1)
-    |> Enum.map(fn {attempt, index} ->
+    |> Enum.map(fn attempt ->
       target = attempt["target"] || %{}
 
       %{
-        "attempt" => attempt["number"] || attempt["attempt"] || index,
+        "attempt" => attempt["number"],
         "retry_local_attempt" => attempt["retryLocalNumber"],
-        "profile_id" => attempt["profileId"] || target["profileId"],
+        "profile_id" => attempt["profileId"],
         "provider" => target["provider"],
         "protocol" => target["protocol"],
         "model_id" => target["modelId"],
-        "category" => text([attempt["category"], attempt["outcome"]]) || "not captured",
-        "status_code" => attempt["httpStatus"] || attempt["statusCode"] || attempt["status"],
+        "category" => text([attempt["category"]]) || "not captured",
+        "status_code" => attempt["httpStatus"],
         "retryable" => attempt["retryable"] == true,
-        "delay_ms" => milliseconds(attempt["delayMs"], attempt["wait"] || attempt["waitMs"]),
-        "duration_ms" => milliseconds(attempt["durationMs"], attempt["duration"]),
+        "delay_ms" => milliseconds(attempt["wait"]),
+        "duration_ms" => milliseconds(attempt["duration"]),
         "provider_used" => attempt["providerUsed"],
-        "repair" => attempt["repair"] || attempt["usedRepair"] || false
+        "repair" => attempt["repair"]
       }
     end)
   end
 
   def attempts(_result), do: []
 
-  defp v2?(result), do: result["schemaVersion"] == 2
+  defp selected_target(result), do: result["selectedTarget"] || %{}
 
-  defp selected_target(%{"schemaVersion" => 2, "selectedTarget" => target}), do: target
+  defp producer_target(result), do: get_in(result, ["resultSource", "producer"]) || %{}
 
-  defp selected_target(result) do
-    %{
-      "profileId" => result["profileId"],
-      "provider" => result["provider"],
-      "protocol" => result["apiInferenceType"],
-      "endpoint" => result["providerBaseUrl"],
-      "modelId" => result["modelId"]
-    }
-  end
-
-  defp producer_target(%{"schemaVersion" => 2} = result),
-    do: get_in(result, ["resultSource", "producer"]) || %{}
-
-  defp producer_target(_result), do: %{}
-
-  defp result_source_label(%{"schemaVersion" => 2, "resultSource" => source}) do
+  defp result_source_label(%{"resultSource" => source}) do
     case source["kind"] do
       "provider" -> "Provider attempt #{source["attemptNumber"]}"
       "cache" -> "Cache"
@@ -334,17 +311,11 @@ defmodule HardenLlm.LlmTraceProjection do
     end
   end
 
-  defp result_source_label(_result), do: "Not captured (retained v1)"
+  defp result_source_label(_result), do: "No result"
 
-  defp result_usage(%{"schemaVersion" => 2} = result),
-    do: get_in(result, ["accounting", "result", "usage"])
+  defp result_usage(result), do: get_in(result, ["accounting", "result", "usage"]) || %{}
 
-  defp result_usage(result), do: result["usage"] || %{}
-
-  defp result_cost(%{"schemaVersion" => 2} = result),
-    do: get_in(result, ["accounting", "result", "cost"])
-
-  defp result_cost(result), do: result["cost"] || %{}
+  defp result_cost(result), do: get_in(result, ["accounting", "result", "cost"]) || %{}
 
   defp usage_number(usage, key) do
     case captured_usage_value(usage, key) do
@@ -379,33 +350,28 @@ defmodule HardenLlm.LlmTraceProjection do
 
   defp cost_value(cost) do
     case cost_status(cost) do
-      "exact" -> LlmCostFormatter.format(cost["knownSubtotalUsd"] || cost["totalUsd"])
+      "exact" -> LlmCostFormatter.format(cost["knownSubtotalUsd"])
       "partial" -> "≥" <> LlmCostFormatter.format(cost["knownSubtotalUsd"])
       _ -> "$—"
     end
   end
 
   defp cost_status(%{"status" => status}), do: status
-  defp cost_status(cost), do: legacy_cost_status(cost)
-  defp legacy_cost_status(%{"known" => true}), do: "exact"
-  defp legacy_cost_status(%{"known" => false}), do: "unknown"
-  defp legacy_cost_status(_cost), do: "not captured"
+  defp cost_status(_cost), do: "not captured"
 
-  defp success?(result), do: result["status"] in [nil, "succeeded", "success"]
+  defp success?(result), do: result["status"] == "succeeded"
 
   defp error_category(result) do
     attempt = List.last(raw_attempts(result)) || %{}
 
-    text([result["lastErrorCategory"], result["category"], attempt["category"], result["status"]]) ||
+    text([attempt["category"], result["status"]]) ||
       "error"
   end
 
   defp status_label(result) do
     attempt = List.last(raw_attempts(result)) || %{}
 
-    status_code =
-      result["lastErrorStatus"] || result["statusCode"] || attempt["httpStatus"] ||
-        attempt["statusCode"]
+    status_code = attempt["httpStatus"]
 
     label = if(success?(result), do: "Success", else: title_case(error_category(result)))
     if is_integer(status_code), do: "#{label} (#{status_code})", else: label
@@ -416,12 +382,8 @@ defmodule HardenLlm.LlmTraceProjection do
   defp captured_boolean(value) when is_boolean(value), do: value
   defp captured_boolean(_value), do: nil
 
-  defp milliseconds(value, _nanoseconds) when is_integer(value), do: value
-
-  defp milliseconds(_value, nanoseconds) when is_integer(nanoseconds),
-    do: div(nanoseconds, 1_000_000)
-
-  defp milliseconds(_value, _nanoseconds), do: nil
+  defp milliseconds(nanoseconds) when is_integer(nanoseconds), do: div(nanoseconds, 1_000_000)
+  defp milliseconds(_nanoseconds), do: nil
 
   defp cache_written?(result), do: get_in(result, ["cache", "written"]) == true
 
@@ -446,7 +408,7 @@ defmodule HardenLlm.LlmTraceProjection do
   defp artifact_links(result, id, artifact_url)
        when is_binary(id) and is_function(artifact_url, 2) do
     Enum.map(result["artifacts"] || [], fn artifact ->
-      available? = artifact["state"] in [nil, "available"]
+      available? = artifact["state"] == "available"
 
       %{
         "available" => available?,
@@ -487,8 +449,6 @@ defmodule HardenLlm.LlmTraceProjection do
     |> Enum.join(" ")
   end
 
-  defp nonnegative_integer(value) when is_integer(value) and value >= 0, do: value
-  defp nonnegative_integer(_value), do: nil
   defp number_value(value) when is_integer(value) or is_float(value), do: value
   defp number_value(_value), do: nil
 

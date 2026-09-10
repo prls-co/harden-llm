@@ -784,19 +784,20 @@ runtime contract or the meaning of `make verify`.
     unreferenced objects without emitting object keys or deleting data.
 - Expected runtime: T3 with real PostgreSQL and Garage.
 
-### TEST-061: retained-history reconciliation and structural ownership
+### TEST-061: current execution contract and structural ownership
 
-- Target: reconciliation command, restored production fixtures, migration.
-- Command: targeted T0/T1 command tests plus `make test-integration`.
+- Target: v2 execution reads, retired command removal, run-to-trace ownership.
+- Command: targeted command/OpenAPI tests plus `make test-integration`.
 - Assertions:
-  - Dry-run classification and digest are deterministic and redacted; unknown
-    rows fail closed; apply requires the unchanged digest and owner scope.
-  - Artifact deletion routes through the coordinator; repeated apply is a no-op.
-  - After reconciliation, every trace has one owner/run binding and relational
-    cascade prevents independent trace subtrees or writers. A direct-upgrade
-    binary can apply migrations 1-4 for reconciliation, rejects migration 5
-    while runless rows remain, and applies migration 5 after reconciliation.
-- Expected runtime: T0/T1 plus restored-snapshot T3 certification.
+  - History and trace use the canonical RunResult schema, without retained-v1
+    alternatives; the retired `reconcile-history` command is rejected.
+  - Every trace has one owner/run binding; relational cascade prevents
+    independent trace subtrees or writers. Deletion still uses the artifact
+    coordinator and journal, including idempotency and crash convergence.
+  - Forward-only migrations remain unchanged; new installations reach the
+    current schema. The bounded pre-v2 reconciliation tool was removed after
+    the explicitly authorized 2026-09-10 data purge, not replaced with a fallback.
+- Expected runtime: T0/T1 plus PostgreSQL/Garage T3 certification.
 
 ## 14. Evidence requirements
 

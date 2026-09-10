@@ -1,6 +1,6 @@
 package main
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-022
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-022 TEST-061
 
 import (
 	"bytes"
@@ -26,12 +26,8 @@ func TestBootstrapCommandInput(t *testing.T) {
 		t.Fatal("unknown command was accepted")
 	}
 	output.Reset()
-	err = run(context.Background(), []string{"reconcile-history", "--owner-id", "owner-a"}, strings.NewReader(""), &output, &output, func(string) string { return "" })
-	if err == nil || !strings.Contains(err.Error(), databaseURLEnvironment) || output.Len() != 0 {
-		t.Fatalf("missing reconciliation configuration = %v, output=%q", err, output.String())
-	}
-	if err := run(context.Background(), []string{"reconcile-history", "--all-owners", "--apply"}, strings.NewReader(""), &output, &output, func(string) string { return "" }); err == nil || !strings.Contains(err.Error(), "--digest") {
-		t.Fatalf("digest-free reconciliation apply = %v", err)
+	if err := run(context.Background(), []string{"reconcile-history"}, strings.NewReader(""), &output, &output, func(string) string { return "" }); err == nil || !strings.Contains(err.Error(), "unknown command") {
+		t.Fatalf("retired history migration command = %v", err)
 	}
 	if err := run(context.Background(), []string{"audit-artifacts"}, strings.NewReader(""), &output, &output, func(string) string { return "" }); err == nil || !strings.Contains(err.Error(), databaseURLEnvironment) {
 		t.Fatalf("missing artifact audit configuration = %v", err)

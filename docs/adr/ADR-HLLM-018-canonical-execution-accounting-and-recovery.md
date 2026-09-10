@@ -88,10 +88,11 @@ JSON is an immutable redacted export, not a source of product truth. Standalone
 domain traces are unsupported until a separate producer, lifecycle, and REST
 contract are explicitly introduced.
 
-Retained v1 documents are read through one bounded version-aware normalizer and
-render missing facts as not captured. The public `/api/v1` schema is cut over
-atomically with Phoenix; no duplicate old/new wire fields or alternate endpoint
-is retained. Cache envelopes move once to v2 and old entries are invalidated.
+Execution reads use v2 only. The temporary retained-v1 normalizer was removed
+after the explicitly authorized 2026-09-10 run/cache purge. The public `/api/v1`
+schema and Phoenix share one RunResult contract; no duplicate old/new wire
+fields, legacy display aliases, or alternate endpoints remain. Profile, client
+state, and semantic-operation schema versions are independent of execution v2.
 
 ### Durable artifact coordination
 
@@ -164,10 +165,12 @@ dependency. Normal concurrent runs are not serialized by clear-history safety.
    structural run-to-trace ownership and remove independent writers/read
    fallbacks.
 
-The release binary supports that ordering directly: `reconcile-history`
-applies at most migrations 1-4, while normal startup applies the full set.
-Migration 5 rejects runless or mismatched rows and remains retryable after a
-failed precondition.
+Those steps describe the initial migration, not a retained compatibility path.
+After the authorized 2026-09-10 purge, `reconcile-history`, its runless-trace
+scanner, and partial migration entrypoint were removed. Normal startup applies
+the unchanged forward-only migration set. Migration 5 continues to reject
+runless or mismatched rows; restoring a pre-cutover database requires a
+separately authorized recovery procedure, not an automatic legacy adapter.
 
 Each pushed checkpoint is deployable only when its current schema and code are
 compatible. Rollback returns the whole checkpoint image set; it never restores
@@ -178,13 +181,13 @@ second persistence or telemetry path.
 
 - TEST-057: canonical execution identity, attempt budget, and result source.
 - TEST-058: canonical usage/cost, result/provider accounting, and cache v2.
-- TEST-059: typed execution persistence, OpenAPI, stats, and mixed-version data.
+- TEST-059: typed execution persistence, OpenAPI, stats, and v2 data.
 - TEST-060: artifact journal, idempotency, crash convergence, and lock policy.
-- TEST-061: retained-history reconciliation and structural execution ownership.
+- TEST-061: v2-only execution reads, retired command rejection, and structural ownership.
 - WEB-TEST-060: strict trace/stats frontend data models.
 - WEB-TEST-061: stats lifecycle and cost/usage certainty.
 - WEB-TEST-062: multi-instance trace component identity and event isolation.
-- WEB-TEST-063: rendered execution identity, accounting, and legacy states.
+- WEB-TEST-063: rendered v2 execution identity/accounting and retired-record rejection.
 - WEB-TEST-064: reusable decoded JSON viewer, type fidelity, stable identities,
   and structured Output/History adoption.
 - WEB-TEST-065: trace route identity invalidation and stale asynchronous result

@@ -2,30 +2,25 @@ defmodule HardenLlm.LlmDiagnosticsWire do
   @moduledoc """
   Strict, operation-specific decoding for execution diagnostics at the REST boundary.
 
-  Current run and stats responses must use schema v2. History and trace reads also
-  accept the bounded retained v1 shape so old rows remain inspectable without
-  inventing identity, usage, or cost facts that were never captured.
+  Run, history, trace, and stats responses all use the current schema v2.
+  Retired execution formats are rejected at this boundary before projection.
   """
 
   @run_keys ~w(schemaVersion runId status output callId traceId selectedTarget resultSource accounting attempts cache artifacts providerInvoked totalCallDurationMs totalWaitMs overBudgetMs usedRepair)
-  @legacy_run_keys ~w(schemaVersion runId profileId modelId provider apiInferenceType providerBaseUrl callId traceId output usage cost attempts cache artifacts providerInvoked totalCallDurationMs totalWaitMs overBudgetMs usedRepair status category statusCode lastErrorCategory lastErrorStatus httpStatus outcome totalAttempts)
   @attempt_keys ~w(number retryLocalNumber profileId target category httpStatus code type providerRequestId retryable wait duration repair backupIndex providerUsed)
-  @legacy_attempt_keys ~w(number attempt profileId category outcome httpStatus status statusCode code type providerRequestId retryable delayMs waitMs wait durationMs duration repair usedRepair backupIndex providerUsed)
   @target_keys ~w(profileId provider protocol endpoint modelId)
   @usage_keys ~w(inputTokens cacheReadTokens cacheCreationTokens outputTokens reasoningTokens promptTokens completionTokens totalTokens status)
   @cost_keys ~w(knownSubtotalUsd status source knownObservations unknownObservations)
   @cache_keys ~w(mode status operationHash version served written)
   @artifact_keys ~w(artifactId kind state sha256 sizeBytes contentType)
 
-  def decode("run", value), do: decode_run(value, false)
+  def decode("run", value), do: decode_run(value)
   def decode("getStats", value), do: decode_stats(value)
   def decode("getTrace", value), do: decode_trace(value)
   def decode("listHistory", value), do: decode_history(value)
   def decode(_operation, value), do: {:ok, value}
 
-  def decode_run(value, allow_legacy? \\ false)
-
-  def decode_run(%{"schemaVersion" => 2} = value, _allow_legacy?) do
+  def decode_run(%{"schemaVersion" => 2} = value) do
     with :ok <- exact_keys(value, @run_keys),
          :ok <- enum(value["status"], ~w(succeeded failed timeout)),
          :ok <- identifier(value["runId"]),
@@ -49,42 +44,7 @@ defmodule HardenLlm.LlmDiagnosticsWire do
     end
   end
 
-  def decode_run(value, true) when is_map(value) do
-    with :ok <- subset_keys(value, @legacy_run_keys),
-         :ok <- optional(value, "schemaVersion", &enum(&1, [1])),
-         :ok <- optional(value, "runId", &identifier/1),
-         :ok <- optional(value, "callId", &legacy_identifier/1),
-         :ok <- optional(value, "traceId", &identifier/1),
-         :ok <-
-           optional(
-             value,
-             "status",
-             &enum(&1, ~w(succeeded failed timeout success failed failure error))
-           ),
-         :ok <-
-           optional_texts(
-             value,
-             ~w(profileId modelId provider apiInferenceType providerBaseUrl category lastErrorCategory outcome)
-           ),
-         :ok <-
-           optional_nonnegative_integers(
-             value,
-             ~w(statusCode lastErrorStatus httpStatus totalAttempts totalCallDurationMs totalWaitMs overBudgetMs)
-           ),
-         :ok <- optional(value, "usedRepair", &boolean/1),
-         :ok <- optional(value, "providerInvoked", &boolean/1),
-         :ok <- optional(value, "usage", &legacy_usage/1),
-         :ok <- optional(value, "cost", &legacy_cost/1),
-         :ok <- optional(value, "attempts", &legacy_attempts/1),
-         :ok <- optional(value, "cache", &legacy_cache/1),
-         :ok <- optional(value, "artifacts", &legacy_artifacts/1) do
-      {:ok, value}
-    else
-      _ -> malformed()
-    end
-  end
-
-  def decode_run(_value, _allow_legacy?), do: malformed()
+  def decode_run(_value), do: malformed()
 
   def decode_stats(value) when is_map(value) do
     keys =
@@ -134,8 +94,8 @@ defmodule HardenLlm.LlmDiagnosticsWire do
       ) do
     with :ok <- exact_keys(value, ~w(traceId record observations artifacts resources)),
          :ok <- identifier(trace_id),
-         {:ok, _record} <- decode_run(record, true),
-         true <- record["traceId"] in [nil, trace_id],
+         {:ok, _record} <- decode_run(record),
+         true <- record["traceId"] == trace_id,
          :ok <- trace_observations(observations),
          :ok <- trace_artifacts(artifacts),
          :ok <- trace_resources(resources) do
@@ -158,12 +118,11 @@ defmodule HardenLlm.LlmDiagnosticsWire do
          :ok <- identifier(value["traceId"]),
          :ok <- enum(value["status"], ~w(succeeded failed timeout)),
          true <- is_map(value["request"]),
-         {:ok, _result} <- decode_run(value["result"], true),
-         true <- value["result"]["runId"] in [nil, value["runId"]],
-         true <- value["result"]["traceId"] in [nil, value["traceId"]],
-         true <-
-           value["result"]["schemaVersion"] != 2 or
-             get_in(value, ["result", "selectedTarget", "profileId"]) == value["profileId"],
+         {:ok, _result} <- decode_run(value["result"]),
+         true <- value["result"]["runId"] == value["runId"],
+         true <- value["result"]["traceId"] == value["traceId"],
+         true <- get_in(value, ["result", "selectedTarget", "profileId"]) == value["profileId"],
+         true <- value["result"]["status"] == value["status"],
          :ok <- iso8601(value["startedAt"]),
          :ok <- iso8601(value["completedAt"]) do
       :ok
@@ -347,27 +306,6 @@ defmodule HardenLlm.LlmDiagnosticsWire do
 
   defp artifacts(_values), do: :error
 
-  defp legacy_artifacts(values) when is_list(values) do
-    each(values, fn value ->
-      with true <- is_map(value),
-           :ok <- subset_keys(value, @artifact_keys),
-           :ok <- required_keys(value, ~w(artifactId kind sha256 sizeBytes contentType)),
-           :ok <- identifier(value["artifactId"]),
-           :ok <- enum(value["kind"], ~w(trace parse-failure-response diagnostic-event)),
-           :ok <- optional(value, "state", &enum(&1, ~w(available deleting unavailable))),
-           true <-
-             is_binary(value["sha256"]) and Regex.match?(~r/^[0-9a-f]{64}$/, value["sha256"]),
-           :ok <- positive_integer(value["sizeBytes"]),
-           :ok <- enum(value["contentType"], ["application/json"]) do
-        :ok
-      else
-        _ -> :error
-      end
-    end)
-  end
-
-  defp legacy_artifacts(_values), do: :error
-
   defp run_artifact(value) when is_map(value) do
     with :ok <- exact_keys(value, @artifact_keys),
          :ok <- identifier(value["artifactId"]),
@@ -479,72 +417,6 @@ defmodule HardenLlm.LlmDiagnosticsWire do
 
   defp coverage(_value, _keys, _total_count), do: :error
 
-  defp legacy_usage(value) when is_map(value) do
-    keys =
-      ~w(inputTokens cacheReadTokens cacheCreationTokens outputTokens reasoningTokens totalTokens)
-
-    with :ok <- subset_keys(value, keys),
-         :ok <- optional_nonnegative_integers(value, keys) do
-      :ok
-    end
-  end
-
-  defp legacy_usage(_value), do: :error
-
-  defp legacy_cost(value) when is_map(value) do
-    with :ok <- subset_keys(value, ~w(totalUsd known source)),
-         :ok <- optional(value, "totalUsd", &nonnegative_number/1),
-         :ok <- optional(value, "known", &boolean/1),
-         :ok <-
-           optional(value, "source", fn candidate ->
-             if is_binary(candidate), do: :ok, else: :error
-           end) do
-      :ok
-    end
-  end
-
-  defp legacy_cost(_value), do: :error
-
-  defp legacy_attempts(values) when is_list(values) and length(values) <= 10 do
-    each(values, fn value ->
-      with true <- is_map(value),
-           :ok <- subset_keys(value, @legacy_attempt_keys),
-           :ok <-
-             optional_texts(value, ~w(profileId category outcome code type providerRequestId)),
-           :ok <-
-             optional_nonnegative_integers(
-               value,
-               ~w(number attempt httpStatus status statusCode delayMs waitMs wait durationMs duration backupIndex)
-             ),
-           :ok <- optional_booleans(value, ~w(retryable repair usedRepair providerUsed)) do
-        :ok
-      else
-        _ -> :error
-      end
-    end)
-  end
-
-  # Retained v1 failures serialized a nil Go slice when no provider attempt was
-  # produced. It is the historical zero-attempt representation, not an unknown
-  # current-schema shape.
-  defp legacy_attempts(nil), do: :ok
-  defp legacy_attempts(_values), do: :error
-
-  # The first v1 writer persisted the zero value of CacheResult when execution
-  # failed before cache setup. Keep this one exact sentinel readable; all other
-  # retained cache values must satisfy the normal cache contract.
-  defp legacy_cache(
-         %{
-           "mode" => "",
-           "status" => "",
-           "served" => false,
-           "written" => false
-         } = value
-       ),
-       do: exact_keys(value, ~w(mode status served written))
-
-  defp legacy_cache(value), do: cache(value)
-
   defp trace_observations(values) when is_list(values) do
     values
     |> Enum.with_index()
@@ -621,12 +493,6 @@ defmodule HardenLlm.LlmDiagnosticsWire do
         &optional(value, &1, fn candidate -> if is_binary(candidate), do: :ok, else: :error end)
       )
 
-  defp optional_booleans(value, keys),
-    do: each(keys, &optional(value, &1, fn candidate -> boolean(candidate) end))
-
-  defp optional_nonnegative_integers(value, keys),
-    do: each(keys, &optional(value, &1, fn candidate -> nonnegative_integer(candidate) end))
-
   defp nonnegative_integers(value, keys), do: each(keys, &nonnegative_integer(value[&1]))
   defp booleans(value, keys), do: each(keys, &boolean(value[&1]))
 
@@ -636,8 +502,6 @@ defmodule HardenLlm.LlmDiagnosticsWire do
 
   defp identifier(value) when is_binary(value) and byte_size(value) in 1..256, do: :ok
   defp identifier(_value), do: :error
-  defp legacy_identifier(""), do: :ok
-  defp legacy_identifier(value), do: identifier(value)
   defp nullable_cursor(nil), do: :ok
   defp nullable_cursor(value), do: nonempty_text(value)
   defp nonempty_text(value) when is_binary(value) and byte_size(value) in 1..2048, do: :ok

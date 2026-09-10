@@ -194,35 +194,6 @@ func (coordinator *ArtifactCoordinator) ClearOwner(ctx context.Context, ownerID 
 	return coordinator.applyDeletionBatch(ctx, batch)
 }
 
-func (coordinator *ArtifactCoordinator) VerifyArtifact(ctx context.Context, record postgres.ArtifactRecord) (bool, error) {
-	if coordinator == nil || record.OwnerID == "" || record.ObjectKey == "" {
-		return false, errors.New("gateway: artifact verification identity is invalid")
-	}
-	objectStore, err := coordinator.scope(record.OwnerID)
-	if err != nil {
-		return false, fmt.Errorf("gateway: artifact object scope is unavailable: %w", err)
-	}
-	reference, found, err := objectStore.Inspect(ctx, record.ObjectKey)
-	if err != nil || !found {
-		return false, err
-	}
-	return artifactReferenceMatches(reference, record), nil
-}
-
-func (coordinator *ArtifactCoordinator) DeleteReconciledTrace(ctx context.Context, ownerID, runID, traceID, fingerprint string) error {
-	batchID, err := coordinator.newID()
-	if err != nil {
-		return errors.New("gateway: generate artifact reconciliation batch ID")
-	}
-	batch, err := coordinator.store.BeginReconciledTraceDeletion(
-		ctx, batchID, ownerID, runID, traceID, fingerprint, coordinator.clock().UTC())
-	if err != nil {
-		return err
-	}
-	_, err = coordinator.applyDeletionBatch(ctx, batch)
-	return err
-}
-
 func (coordinator *ArtifactCoordinator) applyDeletionBatch(ctx context.Context, batch postgres.ArtifactDeleteBatch) (int64, error) {
 	objectStore, err := coordinator.scope(batch.OwnerID)
 	if err != nil {

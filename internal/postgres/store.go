@@ -20,8 +20,6 @@ import (
 
 const migrationAdvisoryLock int64 = 0x484c4c4d
 
-const historyReconciliationMigration int64 = 4
-
 //go:embed migrations/*.sql
 var migrations embed.FS
 
@@ -127,17 +125,6 @@ func (store *Store) Ready(ctx context.Context) error {
 
 // Migrate applies embedded migrations once under a session-scoped advisory lock.
 func (store *Store) Migrate(ctx context.Context) error {
-	return store.migrate(ctx, 0)
-}
-
-// MigrateForHistoryReconciliation applies only the schema needed by the
-// retained-history command. Migration 5 deliberately rejects runless traces,
-// so direct upgrades must reconcile those records before normal startup.
-func (store *Store) MigrateForHistoryReconciliation(ctx context.Context) error {
-	return store.migrate(ctx, historyReconciliationMigration)
-}
-
-func (store *Store) migrate(ctx context.Context, maximumVersion int64) error {
 	if store == nil || store.pool == nil {
 		return errors.New("postgres: store is not initialized")
 	}
@@ -191,9 +178,6 @@ func (store *Store) migrate(ctx context.Context, maximumVersion int64) error {
 	}
 	appliedRows.Close()
 	for _, entry := range entries {
-		if maximumVersion > 0 && entry.version > maximumVersion {
-			continue
-		}
 		var applied bool
 		if err := connection.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = $1)`, entry.version).Scan(&applied); err != nil {
 			return fmt.Errorf("postgres: inspect migration %d: %w", entry.version, err)

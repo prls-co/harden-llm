@@ -117,7 +117,7 @@ defmodule HardenLlm.LlmTraceProjectionTest do
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-063
-  test "retained v1 trace exposes captured identity and explicit unavailable accounting" do
+  test "retired v1 records are rejected instead of projected as current diagnostics" do
     legacy = %{
       "runId" => "run-legacy",
       "traceId" => "trace-legacy",
@@ -148,20 +148,11 @@ defmodule HardenLlm.LlmTraceProjectionTest do
       |> Map.put("record", legacy)
       |> put_in(["resources", "response", "payload"], legacy)
 
-    assert {:ok, ^trace} = LlmDiagnosticsWire.decode("getTrace", trace)
-    assert LlmTraceProjection.summary(legacy)["model_id"] == "legacy-model"
-    assert LlmTraceProjection.cost(legacy) == "$—"
-
-    assert %{
-             "schema_label" => "retained v1",
-             "result_source" => "Not captured (retained v1)",
-             "producer_provider" => nil,
-             "result_usage_status" => nil,
-             "result_cost_status" => nil
-           } = LlmTraceProjection.details(legacy)
+    assert {:error, :malformed_diagnostics} = LlmDiagnosticsWire.decode("getTrace", trace)
+    assert {:error, :malformed_diagnostics} = LlmDiagnosticsWire.decode("run", legacy)
   end
 
-  test "production-shaped retained v1 failures remain readable without relaxing v2" do
+  test "retired zero-value failure records are rejected on history and trace reads" do
     legacy_failure = %{
       "runId" => "run-retained-failure",
       "callId" => "",
@@ -196,9 +187,7 @@ defmodule HardenLlm.LlmTraceProjectionTest do
       ]
     }
 
-    assert {:ok, ^history} = LlmDiagnosticsWire.decode("listHistory", history)
-    assert LlmTraceProjection.cache_status_label(legacy_failure) == "Unknown"
-    assert LlmTraceProjection.attempt_count(legacy_failure) == 0
+    assert {:error, :malformed_diagnostics} = LlmDiagnosticsWire.decode("listHistory", history)
 
     retained_trace =
       legacy_failure
@@ -212,10 +201,28 @@ defmodule HardenLlm.LlmTraceProjectionTest do
       |> Map.put("traceId", "trace-retained-failure")
       |> Map.put("record", retained_trace)
 
-    assert {:ok, ^trace} = LlmDiagnosticsWire.decode("getTrace", trace)
-    assert LlmTraceProjection.details(retained_trace)["provider_invoked"] == false
+    assert {:error, :malformed_diagnostics} = LlmDiagnosticsWire.decode("getTrace", trace)
 
     malformed = put_in(history, ["items", Access.at(0), "result", "cache", "served"], true)
     assert {:error, :malformed_diagnostics} = LlmDiagnosticsWire.decode("listHistory", malformed)
+  end
+
+  test "every execution read uses v2 and checks its enclosing identity" do
+    for version <- [nil, 1, 3] do
+      result = Map.put(APIFixtures.run_result(), "schemaVersion", version)
+      history = %{"items" => [Map.put(APIFixtures.history_item(), "result", result)]}
+      trace = Map.put(APIFixtures.trace(), "record", result)
+      assert {:error, :malformed_diagnostics} = LlmDiagnosticsWire.decode("run", result)
+      assert {:error, :malformed_diagnostics} = LlmDiagnosticsWire.decode("listHistory", history)
+      assert {:error, :malformed_diagnostics} = LlmDiagnosticsWire.decode("getTrace", trace)
+    end
+
+    for key <- ~w(runId traceId profileId status) do
+      history = %{"items" => [Map.put(APIFixtures.history_item(), key, "mismatched")]}
+      assert {:error, :malformed_diagnostics} = LlmDiagnosticsWire.decode("listHistory", history)
+    end
+
+    history = %{"items" => [Map.put(APIFixtures.history_item(), "status", "failed")]}
+    assert {:error, :malformed_diagnostics} = LlmDiagnosticsWire.decode("listHistory", history)
   end
 end

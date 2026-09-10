@@ -294,18 +294,14 @@ func (store *Store) ArtifactMetadataMatches(ctx context.Context, operation Artif
 }
 
 func (store *Store) BeginExecutionArtifactDeletion(ctx context.Context, batchID, ownerID, runID, traceID string, now time.Time) (ArtifactDeleteBatch, error) {
-	return store.beginArtifactDeletion(ctx, batchID, ownerID, "execution", runID, traceID, "", now)
+	return store.beginArtifactDeletion(ctx, batchID, ownerID, "execution", runID, traceID, now)
 }
 
 func (store *Store) BeginOwnerArtifactDeletion(ctx context.Context, batchID, ownerID string, now time.Time) (ArtifactDeleteBatch, error) {
-	return store.beginArtifactDeletion(ctx, batchID, ownerID, "owner", "", "", "", now)
+	return store.beginArtifactDeletion(ctx, batchID, ownerID, "owner", "", "", now)
 }
 
-func (store *Store) BeginReconciledTraceDeletion(ctx context.Context, batchID, ownerID, runID, traceID, fingerprint string, now time.Time) (ArtifactDeleteBatch, error) {
-	return store.beginArtifactDeletion(ctx, batchID, ownerID, "reconciliation", runID, traceID, fingerprint, now)
-}
-
-func (store *Store) beginArtifactDeletion(ctx context.Context, batchID, ownerID, scope, runID, traceID, fingerprint string, now time.Time) (ArtifactDeleteBatch, error) {
+func (store *Store) beginArtifactDeletion(ctx context.Context, batchID, ownerID, scope, runID, traceID string, now time.Time) (ArtifactDeleteBatch, error) {
 	transaction, err := store.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return ArtifactDeleteBatch{}, fmt.Errorf("postgres: begin artifact deletion: %w", err)
@@ -314,7 +310,7 @@ func (store *Store) beginArtifactDeletion(ctx context.Context, batchID, ownerID,
 	if _, err := transaction.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, $2))`, ownerID, artifactOwnerLockSalt); err != nil {
 		return ArtifactDeleteBatch{}, fmt.Errorf("postgres: lock artifact owner: %w", err)
 	}
-	existing, err := activeDeleteBatch(ctx, transaction, ownerID, scope, runID, traceID)
+	existing, err := activeDeleteBatch(ctx, transaction, ownerID, scope, runID)
 	if err == nil {
 		return existing, transaction.Commit(ctx)
 	}
@@ -332,16 +328,7 @@ func (store *Store) beginArtifactDeletion(ctx context.Context, batchID, ownerID,
 			return ArtifactDeleteBatch{}, ErrNotFound
 		}
 	}
-	if scope == "reconciliation" {
-		candidate, candidateErr := loadRunlessTraceCandidate(ctx, transaction, ownerID, traceID, true)
-		if candidateErr != nil {
-			return ArtifactDeleteBatch{}, candidateErr
-		}
-		if fingerprint == "" || candidate.Fingerprint != fingerprint {
-			return ArtifactDeleteBatch{}, errors.New("postgres: runless trace changed after reconciliation plan")
-		}
-	}
-	artifacts, err := deletionArtifacts(ctx, transaction, ownerID, scope, runID, traceID)
+	artifacts, err := deletionArtifacts(ctx, transaction, ownerID, scope, traceID)
 	if err != nil {
 		return ArtifactDeleteBatch{}, err
 	}
@@ -477,13 +464,7 @@ func (store *Store) FinalizeArtifactDeleteBatch(ctx context.Context, batchID str
 		}
 		deleted = command.RowsAffected()
 	} else {
-		command, err := transaction.Exec(ctx, `DELETE FROM llm_traces WHERE owner_id=$1 AND trace_id=$2 AND run_id IS NULL`, ownerID, *traceID)
-		if err != nil {
-			return 0, fmt.Errorf("postgres: delete reconciled trace: %w", err)
-		}
-		if command.RowsAffected() != 1 {
-			return 0, errors.New("postgres: reconciled trace is no longer deletable")
-		}
+		return 0, errors.New("postgres: unsupported artifact deletion scope")
 	}
 	if _, err := transaction.Exec(ctx, `
 		UPDATE llm_artifact_operations SET state='completed', completed_at=$2, updated_at=$2 WHERE batch_id=$1`, batchID, now); err != nil {
@@ -500,15 +481,12 @@ func (store *Store) FinalizeArtifactDeleteBatch(ctx context.Context, batchID str
 	return deleted, nil
 }
 
-func activeDeleteBatch(ctx context.Context, transaction pgx.Tx, ownerID, scope, runID, traceID string) (ArtifactDeleteBatch, error) {
+func activeDeleteBatch(ctx context.Context, transaction pgx.Tx, ownerID, scope, runID string) (ArtifactDeleteBatch, error) {
 	query := `SELECT batch_id FROM llm_artifact_delete_batches WHERE owner_id=$1 AND scope=$2 AND state <> 'completed'`
 	arguments := []any{ownerID, scope}
 	if scope == "execution" {
 		query += ` AND run_id=$3`
 		arguments = append(arguments, runID)
-	} else if scope == "reconciliation" {
-		query += ` AND trace_id=$3`
-		arguments = append(arguments, traceID)
 	}
 	var batchID string
 	if err := transaction.QueryRow(ctx, query, arguments...).Scan(&batchID); err != nil {
@@ -554,14 +532,14 @@ func activeDeleteBatch(ctx context.Context, transaction pgx.Tx, ownerID, scope, 
 	return batch, rows.Err()
 }
 
-func deletionArtifacts(ctx context.Context, transaction pgx.Tx, ownerID, scope, runID, traceID string) ([]ArtifactRecord, error) {
+func deletionArtifacts(ctx context.Context, transaction pgx.Tx, ownerID, scope, traceID string) ([]ArtifactRecord, error) {
 	query := `
-		SELECT a.owner_id, COALESCE(t.run_id, ''), a.trace_id, a.artifact_id, a.kind,
+		SELECT a.owner_id, t.run_id, a.trace_id, a.artifact_id, a.kind,
 			a.object_key, a.content_type, a.sha256, a.size_bytes, a.state, a.created_at, a.updated_at
 		FROM llm_artifacts a JOIN llm_traces t ON t.owner_id=a.owner_id AND t.trace_id=a.trace_id
 		WHERE a.owner_id=$1 AND a.state='available'`
 	arguments := []any{ownerID}
-	if scope == "execution" || scope == "reconciliation" {
+	if scope == "execution" {
 		query += ` AND a.trace_id=$2`
 		arguments = append(arguments, traceID)
 	}
@@ -580,11 +558,6 @@ func deletionArtifacts(ctx context.Context, transaction pgx.Tx, ownerID, scope, 
 			return nil, err
 		}
 		artifacts = append(artifacts, artifact)
-	}
-	if scope == "reconciliation" {
-		for index := range artifacts {
-			artifacts[index].RunID = runID
-		}
 	}
 	return artifacts, rows.Err()
 }

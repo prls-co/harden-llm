@@ -1,6 +1,6 @@
 package gateway_test
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-026
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-026 TEST-061
 
 import (
 	"context"
@@ -29,6 +29,16 @@ func TestOpenAPIContract(t *testing.T) {
 	}
 	if err := document.Validate(context.Background()); err != nil {
 		t.Fatalf("validate OpenAPI: %v", err)
+	}
+	for name := range document.Components.Schemas {
+		if strings.HasPrefix(name, "Retained") || name == "ReadableRunResult" {
+			t.Fatalf("retired execution schema still exposed: %s", name)
+		}
+	}
+	for name, field := range map[string]string{"HistoryItem": "result", "TraceView": "record"} {
+		if document.Components.Schemas[name].Value.Properties[field].Ref != "#/components/schemas/RunResult" {
+			t.Fatalf("%s.%s does not use the canonical run result", name, field)
+		}
 	}
 	securityScheme := document.Components.SecuritySchemes["bearerAuth"]
 	if securityScheme == nil || securityScheme.Value == nil || securityScheme.Value.Type != "http" || securityScheme.Value.Scheme != "bearer" {
