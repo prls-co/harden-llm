@@ -8,6 +8,8 @@ defmodule HardenLlmWeb.LlmTraceComponents do
   is stored, or which API client loads it. This keeps the widget embeddable in
   other LLM-facing LiveViews and applications.
 
+  Hosts open the overview (`details_open`) when expanding the controls.
+
   The resource contract is a map with string keys:
 
       %{
@@ -115,13 +117,13 @@ defmodule HardenLlmWeb.LlmTraceComponents do
         <div class="trace-resources trace-controls" id={@controls_id} aria-label="Trace resources">
           <.trace_disclosure
             id={@details_toggle_id}
-            label="Details"
+            label="Overview"
             event={@details_event}
             value_name={@details_name}
             value_open={to_string(!@details_open)}
             target={@target}
-            aria_label="Trace details"
-            title="Trace details"
+            aria_label="Execution overview"
+            title="Execution overview"
             controls={@details_id}
             expanded={@details_open}
             disabled={@details_disabled}
@@ -129,17 +131,28 @@ defmodule HardenLlmWeb.LlmTraceComponents do
 
           <.trace_disclosure
             id={@trace_toggle_id}
-            label="JSON"
+            label="Details"
             event={@resource_event}
             kind="trace"
             target={@target}
-            aria_label="JSON trace"
-            title="JSON trace"
+            aria_label="Full trace details"
+            title="Full trace details"
             controls={@trace_json_id}
             expanded={@trace_open}
             busy={@trace_loading?}
             disabled={not present?(trace_url(@resources))}
           />
+
+          <button
+            id={@curl_id}
+            type="button"
+            class="trace-action"
+            phx-hook="Clipboard"
+            data-copy-value={curl(@resources)}
+            aria-label="Copy cURL"
+            title="Copy cURL"
+            disabled={not present?(curl(@resources))}
+          >cURL</button>
 
           <.trace_disclosure
             id={@request_toggle_id}
@@ -166,17 +179,6 @@ defmodule HardenLlmWeb.LlmTraceComponents do
             expanded={@response_open}
             disabled={not resource_available?(@resources, "response")}
           />
-
-          <button
-            id={@curl_id}
-            type="button"
-            class="trace-action"
-            phx-hook="Clipboard"
-            data-copy-value={curl(@resources)}
-            aria-label="Copy cURL"
-            title="Copy cURL"
-            disabled={not present?(curl(@resources))}
-          >Copy cURL</button>
         </div>
 
         <div
@@ -193,7 +195,7 @@ defmodule HardenLlmWeb.LlmTraceComponents do
           hidden={not @trace_open}
           aria-busy={to_string(@trace_loading?)}
         >
-          <h4>JSON Trace</h4>
+          <h4>Trace details</h4>
           <p
             :if={@trace_loading?}
             id={"#{@id}-trace-loading"}

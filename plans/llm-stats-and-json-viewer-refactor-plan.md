@@ -60,25 +60,30 @@ fresh audit/deployment results from creating this plan.
 
 | Element | Click behavior | State and presentation |
 | --- | --- | --- |
-| Stats row | Hide/show the entire controls-and-content region | Preserve selected panes and loaded data; expose `aria-expanded` and `aria-controls` |
-| Details | Toggle normalized execution details only | Stable label; inline JSON; no effect on JSON/Request/Response |
-| JSON | Toggle the full trace REST response | Stable label; load once per current trace as needed; show loading/error inside this pane only |
+| Stats row | Hide/show the entire controls-and-content region | On expansion, open Overview; preserve other selected panes and loaded data; expose `aria-expanded` and `aria-controls` |
+| Overview | Toggle normalized execution summary only | Stable label; inline JSON; no effect on Details/Request/Response |
+| Details | Toggle the full trace REST response | Stable label; load once per current trace as needed; show loading/error inside this pane only |
+| cURL | Copy the existing prepared cURL text | Command, not a disclosure; preserve clipboard success/failure feedback; no `aria-expanded` or selected state |
 | Request | Toggle the available request payload only | Stable label; inline JSON; usable while trace JSON is loading or failed |
 | Response | Toggle the available response payload only | Same independent behavior as Request |
-| Copy cURL | Copy the existing prepared cURL text | Command, not a disclosure; preserve clipboard success/failure feedback; no `aria-expanded` or selected state |
 
-The 2026-09-10 follow-up removes the output artifact metadata label and sets the
-order to `Details`, `JSON`, `Request`, `Response`, `Copy cURL`.
+The 2026-09-10 follow-up removes the output artifact metadata label. At the
+user's subsequent request, restore the original cURL label and position and
+rename the summary and full-trace buttons:
+`Overview`, `Details`, `cURL`, `Request`, `Response`.
 Wrapping is allowed. Do not add another Show/Hide control, force a
 single unwrappable row, or open output information in a new tab.
 
 Multiple panes may be open simultaneously. Closing and reopening the stats row
-must restore the same selection, including an existing JSON error. Closing a
-pane must also hide its loading/error message. Closing Details is not a reset.
+must open Overview and restore the other pane selections, including an existing
+full-trace error. Closing a pane must also hide its loading/error message.
+Closing Overview is not a reset. Existing DOM IDs and persisted preference
+keys remain stable; the host opens Overview in the same preference update as
+the controls, including when an earlier save is still pending.
 
 Preserve existing artifact download functionality in History. The removed
 output metadata was not performing an artifact-specific download; the JSON
-button continues to open the full trace REST response inline.
+disclosure, now labeled Details, continues to open the full trace REST response inline.
 
 ### 3.2 JSON request transitions
 

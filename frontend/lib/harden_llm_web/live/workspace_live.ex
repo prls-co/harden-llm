@@ -992,6 +992,12 @@ defmodule HardenLlmWeb.WorkspaceLive do
   defp toggle_ui(socket, name, value) do
     ui = Map.put(socket.assigns.ui, name, truthy?(value))
 
+    # Expanding the output always reveals Overview, even if it was closed before.
+    ui =
+      if name == "outputControlsOpen" and truthy?(value),
+        do: Map.put(ui, "outputDetailsOpen", true),
+        else: ui
+
     socket =
       socket
       |> assign(:ui, ui)

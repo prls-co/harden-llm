@@ -65,13 +65,14 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
     assert html =~ ~s(aria-label="Trace controls")
     assert html =~ ~s(id="trace-widget-content")
     assert html =~ ~s(id="trace-widget-details-toggle")
-    assert html =~ ~s(aria-label="Trace details")
+    assert html =~ ~s(aria-label="Execution overview")
     assert html =~ ~s(aria-controls="trace-widget-details")
     assert html =~ ~s(id="trace-widget-controls")
     assert html =~ ~s(id="trace-widget-view-json")
-    assert html =~ ~s(aria-label="JSON trace")
-    assert html =~ ~s(>JSON</button>)
-    assert html =~ ~s(>Copy cURL</button>)
+    assert html =~ ~s(aria-label="Full trace details")
+    assert html =~ ~s(>Overview</button>)
+    assert html =~ ~s(>Details</button>)
+    assert html =~ ~s(>cURL</button>)
     assert html =~ ~s(>Request</button>)
     assert html =~ ~s(>Response</button>)
     assert html =~ ~s(phx-value-kind="trace")
@@ -105,7 +106,7 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
            |> LazyHTML.from_document()
            |> LazyHTML.query("#trace-widget-controls > *")
            |> Enum.map(&LazyHTML.text/1)
-           |> Enum.map(&String.trim/1) == ["Details", "JSON", "Request", "Response", "Copy cURL"]
+           |> Enum.map(&String.trim/1) == ["Overview", "Details", "cURL", "Request", "Response"]
 
     refute html =~ "View JSON Trace"
     refute html =~ "Show trace controls"

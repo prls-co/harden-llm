@@ -1501,9 +1501,9 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     assert has_element?(view, ".llm-trace-summary", "$0.0010")
     assert has_element?(view, ~s(.llm-trace-summary span[title="Completion tokens"]), "📤 1")
-    assert has_element?(view, ".trace-controls #output-trace-details-toggle", "Details")
-    assert has_element?(view, ".trace-controls #output-trace-view-json", "JSON")
-    assert has_element?(view, ".trace-controls #output-trace-copy-curl:last-child", "Copy cURL")
+    assert has_element?(view, ".trace-controls #output-trace-details-toggle", "Overview")
+    assert has_element?(view, ".trace-controls #output-trace-view-json", "Details")
+    assert has_element?(view, ".trace-controls #output-trace-copy-curl:nth-child(3)", "cURL")
     assert has_element?(view, ".trace-controls #output-trace-show-request", "Request")
     assert has_element?(view, ".trace-controls #output-trace-show-response", "Response")
     refute has_element?(view, ".trace-controls a")
@@ -1558,7 +1558,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, "#run-output", "fixture output")
     assert has_element?(view, "#run-result-panel", "trace-test")
     assert has_element?(view, "#run-result-panel", "Success (200)")
-    assert has_element?(view, "#output-trace-view-json", "JSON")
+    assert has_element?(view, "#output-trace-view-json", "Details")
     refute has_element?(view, ".trace-controls a")
 
     view |> element("#output-trace-view-json") |> render_click()
@@ -1999,14 +1999,18 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     view |> element("#output-trace-details-toggle") |> render_click()
     render_async(view, 1_000)
     assert has_element?(view, "#output-trace-details[hidden]")
-    assert has_element?(view, ".trace-controls #output-trace-details-toggle", "Details")
+    assert has_element?(view, ".trace-controls #output-trace-details-toggle", "Overview")
     assert has_element?(view, ".trace-controls #output-trace-show-request", "Request")
     assert has_element?(view, ".trace-controls #output-trace-show-response", "Response")
     assert has_element?(view, "#output-trace-request:not([hidden])")
     assert has_element?(view, "#output-trace-response:not([hidden])")
 
-    view |> element("#output-trace-details-toggle") |> render_click()
+    view |> element("#output-trace-summary") |> render_click()
+    assert has_element?(view, "#output-trace-content[hidden]")
+    view |> element("#output-trace-summary") |> render_click()
     render_async(view, 1_000)
+    assert has_element?(view, "#output-trace-content:not([hidden])")
+    assert has_element?(view, "#output-trace-details:not([hidden])")
     assert has_element?(view, "#output-trace-show-request")
     assert has_element?(view, "#output-trace-show-response")
     assert has_element?(view, "#output-trace-request:not([hidden]) #output-trace-request-content")
@@ -2070,13 +2074,21 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     view |> element("#model-config-toggle") |> render_click()
     assert_receive {:ui_save_started, 0, save_process, _state}, 1_000
 
+    view |> element("#output-trace-details-toggle") |> render_click()
+    assert has_element?(view, "#output-trace-details[hidden]")
+
     view |> element("#output-trace-summary") |> render_click()
     assert has_element?(view, "#output-trace-summary[aria-expanded=\"false\"]")
     assert has_element?(view, "#output-trace-content[hidden]")
 
+    view |> element("#output-trace-summary") |> render_click()
+    assert has_element?(view, "#output-trace-summary[aria-expanded=\"true\"]")
+    assert has_element?(view, "#output-trace-details:not([hidden])")
+
     send(save_process, :release_ui_save)
     assert_receive {:ui_save_started, 1, _second_save_process, state}, 1_000
-    assert get_in(state, ["ui", "outputControlsOpen"]) == false
+    assert get_in(state, ["ui", "outputControlsOpen"]) == true
+    assert get_in(state, ["ui", "outputDetailsOpen"]) == true
     render_async(view, 1_000)
     refute has_element?(view, "#output-trace-summary[disabled]")
   end

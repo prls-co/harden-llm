@@ -81,6 +81,8 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
         Query.css("#output-trace-cache-status[data-cache-status='refresh']", text: "💾")
       )
       |> assert_has(Query.css("#output-trace-details"))
+      |> click(Query.css("#output-trace-details-toggle"))
+      |> assert_has(Query.css("#output-trace-details[hidden]", visible: :any))
       |> assert_dom_attribute("#output-trace-summary", "aria-expanded", "true")
       |> click(Query.css("#output-trace-summary"))
       |> assert_dom_attribute("#output-trace-summary", "aria-expanded", "false")
@@ -89,9 +91,10 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> assert_dom_attribute("#output-trace-summary", "aria-expanded", "true")
       |> assert_dom_attribute("#output-trace-summary", "aria-label", "Trace controls")
       |> assert_dom_attribute("#output-trace-content", "hidden", nil)
-      |> assert_has(Query.css(".trace-controls #output-trace-details-toggle", text: "Details"))
-      |> assert_has(Query.css(".trace-controls #output-trace-view-json", text: "JSON"))
-      |> assert_has(Query.css(".trace-controls #output-trace-copy-curl", text: "Copy cURL"))
+      |> assert_has(Query.css("#output-trace-details:not([hidden])"))
+      |> assert_has(Query.css(".trace-controls #output-trace-details-toggle", text: "Overview"))
+      |> assert_has(Query.css(".trace-controls #output-trace-view-json", text: "Details"))
+      |> assert_has(Query.css(".trace-controls #output-trace-copy-curl", text: "cURL"))
       |> assert_has(Query.css(".trace-controls #output-trace-show-request", text: "Request"))
       |> assert_has(Query.css(".trace-controls #output-trace-show-response", text: "Response"))
       |> click(Query.css("#output-trace-view-json"))
@@ -158,11 +161,11 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
     assert widget_facts["controlDisplay"] == "flex"
 
     assert widget_facts["directLabels"] == [
+             "Overview",
              "Details",
-             "JSON",
+             "cURL",
              "Request",
-             "Response",
-             "Copy cURL"
+             "Response"
            ]
 
     assert widget_facts["selectedBackground"] != widget_facts["closedBackground"]
