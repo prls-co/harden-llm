@@ -993,3 +993,62 @@ claims, as documented there.
 
 Rollback is `harden-llm-web:rollback-378b572`, image
 `sha256:9b902d8c412ede4e1e13026f5f958c10cb5c03ce535e32b804755dd18204acf7`.
+## Root route and compact trace stats (2026-09-10)
+
+Application revision `1d7d7ede5b13cbb30a479dad8fd52ac1213a251a` was committed,
+pushed to `origin/main`, built once in the clean production worktree, and
+deployed through the documented Compose overlay with `--no-build --no-deps`.
+Only the frontend container was replaced.
+
+The authenticated application now lives at `/`; `/?trace_id=...` selects a
+stored result. `/workspace` and `/history` are removed without redirects.
+Login, navigation, trace patches, browser workflows, and route telemetry labels
+use the current routes. The unused redirect controller and starter page/template
+are deleted and remain recoverable from Git. Profile editing/export, embedding,
+authentication, trace/artifact downloads, LiveView transport, and health routes
+remain functional. Internal `/metrics` remains blocked by the public proxy.
+
+The shared stats bar owns its 14px typography. Identity and metrics have explicit
+layout groups; IDs/models truncate visually while retaining full DOM text and
+hover titles. Metrics do not split internally. Desktop rows stay compact;
+narrow cards wrap between groups or whole metrics without page overflow.
+No dependencies, backend/OpenAPI, storage, or telemetry pipeline changed.
+
+| Gate or production check | Result |
+| --- | --- |
+| Cheap regressions, WEB-TEST-005/036/069 | Root routing and compact identity regressions failed before implementation; final deterministic suite passed all 162 cases, with 4 opt-in cases excluded |
+| Offline gate | accepted, 8 tasks; `tmp/root-stats-fast.json` |
+| Targeted Chromium | accepted, 4 tasks including both canaries; `tmp/root-stats-browser.json`; native layout assertions at 900/700/320px in Result and History, with single-row desktop assertions and intact metrics |
+| Rendered inspection | Result and History fixture screenshots inspected; matching compact desktop rows. The pinned test image lacks emoji glyphs, so this does not certify platform-specific glyph widths |
+| Full release gate | accepted, all 26 tasks, no cleanup errors; `tmp/root-stats-release.json` |
+| Frontend image | `sha256:501316e3d70025744f536b94769bedc8f2b2c2ef4b1943bf91c50b56d60f0b63`, OCI release `1d7d7ede5b13cbb30a479dad8fd52ac1213a251a`, healthy |
+| Gateway | unchanged: image `sha256:924f573041275184ea12df883afd89610aa14d8163bfe1fae4badc0fdf10a20f`, release `729804cdfab9ff5c2e9dd75c64609cddd6773557`, healthy |
+| Public route probes | Anonymous `/`: 302 to login; `/login` and frontend/API health/readiness: 200; `/workspace`, `/history`, and both trace-query variants: 404; public `/metrics`: 404 |
+| Hosted canary, WEB-TEST-048 / TEST-118 | accepted: exact image/release, login and root application, inline trace details, bounded CPA run, deletion of its smoke History record, logout |
+
+[GitHub run 34532899986](https://github.com/prls-co/harden-llm/actions/runs/34532899986)
+passed fast and integration. Browser/release jobs failed before testing because
+the existing browser Dockerfile pins `curl=8.20.0-r0` while Alpine offers
+`8.22.0-r0`; this was verified in the current job log. Local certification used
+the existing pinned browser image. Hosted CI is not reported as green.
+
+Rollback: `harden-llm-web:rollback-37f39cf`, image
+`sha256:9b0205e2cc15b339a177d6a4376882904cf67a12793a1a325b54e962fe5cc394`.
+
+### Historical-data deletion boundary
+
+No broad historical-data purge was performed in this checkpoint. Read-only
+production inventory before the hosted smoke found `guest` with zero runs,
+traces, or artifacts and eight cached outputs; `operator-local` had 25 runs,
+25 traces, 25 artifacts, and 72 cached outputs. Twenty operator records were
+pre-v2. The guest owner-deletion batch was completed. Delete all removes the
+owner's executions/traces/artifacts through the existing journaled coordinator,
+but not its operation cache or exported telemetry. The hosted smoke deletes its
+own History entry but can add a cache entry.
+
+The user was asked whether the purge should cover one account or all application
+accounts while retaining configuration, sessions, and shared telemetry. That
+choice remains unresolved. The old-data decoder remains until the retained
+records' deletion scope is resolved; removing it now would break operator
+History reads. No database volume, credentials, sessions, or telemetry was
+deleted. This is a routing/layout clean cut, not a completed data/schema cutover.
