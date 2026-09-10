@@ -962,6 +962,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, "#profile-fallback-list", "Backup LLM")
 
     view |> element("#profile-options-toggle") |> render_click()
+    render_async(view, 1_000)
 
     for selector <- [
           "#profile-options",
@@ -982,6 +983,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, "#profile_defaultOptionsJson", ~s("max_tokens": 12000))
 
     view |> element("#profile-retry-toggle") |> render_click()
+    render_async(view, 1_000)
 
     for selector <- [
           "#profile-retry-repair",
@@ -1002,7 +1004,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     end
 
     view |> element("#profile-pricing-toggle") |> render_click()
-    html = render(view)
+    html = render_async(view, 1_000)
 
     for selector <- [
           "#profile-pricing",
@@ -2327,6 +2329,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     view |> element("#model-config-toggle") |> render_click()
     assert_receive {:ui_save_started, 0, save_process, _state}, 1_000
+    assert has_element?(view, "#profile-pricing-toggle[disabled]")
 
     view |> element("#output-trace-details-toggle") |> render_click()
     assert has_element?(view, "#output-trace-details[hidden]")
@@ -2345,6 +2348,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert get_in(state, ["ui", "outputDetailsOpen"]) == true
     render_async(view, 1_000)
     refute has_element?(view, "#output-trace-summary[disabled]")
+    assert has_element?(view, "#profile-pricing-toggle:not([disabled])")
   end
 
   test "duplicate active submits are ignored and the run button alone is disabled", %{conn: conn} do
