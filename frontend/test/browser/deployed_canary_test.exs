@@ -78,12 +78,12 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
     session =
       session
       |> assert_has(Query.css("#run-result-panel button[id$='-expand']", count: 0))
-      |> click(Query.css("#run-result-panel button[id$='-toggle-input']", text: "📥"))
+      |> click(Query.css("#run-result-panel button[id$='-toggle-input']", text: "💬"))
       |> assert_has(Query.css("#run-result-panel .llm-result.is-expanded"))
       |> assert_has(
         Query.css("#run-result-panel .llm-result-toggle[aria-expanded='true']", count: 2)
       )
-      |> click(Query.css("#run-result-panel button[id$='-toggle-output']", text: "📤"))
+      |> click(Query.css("#run-result-panel button[id$='-toggle-output']", text: "🤖"))
       |> assert_has(Query.css("#run-result-panel .llm-result:not(.is-expanded)"))
       |> assert_has(
         Query.css("#run-result-panel .llm-result-toggle[aria-expanded='false']", count: 2)

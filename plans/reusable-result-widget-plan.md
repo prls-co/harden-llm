@@ -10,7 +10,7 @@ audit page, Domain trace dialog, `/history`, and `/workspace` are removed.
 Retired URLs return 404; there are no compatibility redirects.
 
 Each card has three rows: recorded user input, output, and LLM stats. Input
-and output are labeled by accessible `📥` and `📤` buttons; either button expands
+and output are labeled by accessible `💬` and `🤖` buttons; either button expands
 or collapses both text rows together. Both buttons expose the same card-local
 expanded state. Each row retains its `📋` copy command and full underlying value;
 there is no separate trailing expansion button.

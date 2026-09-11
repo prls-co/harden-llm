@@ -35,7 +35,7 @@ defmodule HardenLlmWeb.LlmResultComponents do
         <.text_toggle
           id={"#{@id}-toggle-input"}
           label="Input"
-          emoji="📥"
+          emoji="💬"
           controls={"#{@input_id} #{@output_id}"}
           command={@toggle_text}
         />
@@ -47,7 +47,7 @@ defmodule HardenLlmWeb.LlmResultComponents do
         <.text_toggle
           id={"#{@id}-toggle-output"}
           label="Output"
-          emoji="📤"
+          emoji="🤖"
           controls={"#{@input_id} #{@output_id}"}
           command={@toggle_text}
         />

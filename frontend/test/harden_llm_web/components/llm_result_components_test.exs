@@ -38,7 +38,7 @@ defmodule HardenLlmWeb.LlmResultComponentsTest do
       assert LazyHTML.query(doc, ".llm-result-label") |> Enum.empty?()
       assert LazyHTML.query(doc, toggle_selector) |> Enum.count() == 2
 
-      for {kind, label, emoji} <- [{"input", "Input", "📥"}, {"output", "Output", "📤"}] do
+      for {kind, label, emoji} <- [{"input", "Input", "💬"}, {"output", "Output", "🤖"}] do
         button = LazyHTML.query(doc, "##{id}-toggle-#{kind}")
         assert LazyHTML.text(button) == emoji
         assert LazyHTML.attribute(button, "type") == ["button"]
