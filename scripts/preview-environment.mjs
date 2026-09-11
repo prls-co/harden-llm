@@ -20,6 +20,16 @@ export async function writePrivate(file, value) {
   await fs.rename(`${file}.writing`, file);
 }
 
+export async function writePrivateIfChanged(file, value) {
+  try {
+    if ((await fs.readFile(file, "utf8")) === value) return false;
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  await writePrivate(file, value);
+  return true;
+}
+
 export async function readJSON(file, fallback) {
   try { return JSON.parse(await fs.readFile(file, "utf8")); }
   catch (error) { if (error.code === "ENOENT" && fallback !== undefined) return fallback; throw error; }
@@ -73,6 +83,17 @@ function compose(c, state, args, extraEnv = {}) {
 
 export function dotenv(values) {
   return Object.entries(values).map(([k, v]) => `${k}=${JSON.stringify(String(v)).replaceAll("$", () => "$$")}\n`).join("");
+}
+
+export function reusableImage(image, service, sha, run = command) {
+  try {
+    const [info] = JSON.parse(run("docker", ["image", "inspect", image]));
+    const labels = info?.Config?.Labels ?? {};
+    if (labels["org.opencontainers.image.version"] !== sha || labels["co.prls.harden.preview-image"] !== service) return null;
+    return info;
+  } catch {
+    return null;
+  }
 }
 
 export function operatorCredentials(contents) {
@@ -170,10 +191,12 @@ export async function authCheck(url, credentials) {
 }
 
 export async function syncControl(c, repositoryRoot) {
+  const changed = [];
   for (const name of ["compose.yml", "host.compose.yml", "Caddyfile"]) {
-    await writePrivate(path.join(c.root, "control", name), await fs.readFile(path.join(repositoryRoot, "deploy/preview", name)));
+    if (await writePrivateIfChanged(path.join(c.root, "control", name), await fs.readFile(path.join(repositoryRoot, "deploy/preview", name), "utf8"))) changed.push(name);
   }
-  await writePrivate(path.join(c.root, "control/garage.toml"), await fs.readFile(path.join(repositoryRoot, "deploy/garage/garage.toml")));
+  if (await writePrivateIfChanged(path.join(c.root, "control/garage.toml"), await fs.readFile(path.join(repositoryRoot, "deploy/garage/garage.toml"), "utf8"))) changed.push("garage.toml");
+  return changed;
 }
 
 function fetchBranch(c, branch) {
@@ -188,7 +211,7 @@ function fetchBranch(c, branch) {
   command("git", ["-C", c.sourceRepository, "fetch", "--no-tags", remote, `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { env });
 }
 
-export async function deployEnvironment(c, branch, sha) {
+export async function deployEnvironment(c, branch, sha, options = {}) {
   if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error("Expected an exact commit SHA");
   const state = await stateFor(c, branch);
   if (!state?.enabled) throw new Error("Preview is not enabled");
@@ -212,14 +235,18 @@ export async function deployEnvironment(c, branch, sha) {
   const credentials = await readJSON(path.join(directory, "secrets.json"), null) ?? {
     ...secrets(), ...operatorCredentials(sharedEnv),
   };
-  await writePrivate(path.join(directory, "secrets.json"), JSON.stringify(credentials, null, 2) + "\n");
-  await writePrivate(path.join(directory, "login.txt"), `URL: ${state.url}\nGuest email: ${guest.email}\nGuest password: ${guest.password}\nOperator email: ${credentials.OPERATOR_EMAIL}\nOperator password: ${credentials.OPERATOR_PASSWORD}\n`);
+  await writePrivateIfChanged(path.join(directory, "secrets.json"), JSON.stringify(credentials, null, 2) + "\n");
+  await writePrivateIfChanged(path.join(directory, "login.txt"), `URL: ${state.url}\nGuest email: ${guest.email}\nGuest password: ${guest.password}\nOperator email: ${credentials.OPERATOR_EMAIL}\nOperator password: ${credentials.OPERATOR_PASSWORD}\n`);
   const components = structuredClone(state.components);
   for (const service of services) {
     const image = `harden-llm-preview-${service}:${sha}`;
-    console.log(`Building preview ${service} at ${sha.slice(0, 12)}`);
-    command("docker", ["build", "--label", `co.prls.harden.preview-image=${service}`, "--build-arg", `VERSION=${sha}`, "--tag", image, "--file", path.join(source, service === "web" ? "frontend/Dockerfile" : "Dockerfile"), service === "web" ? path.join(source, "frontend") : source]);
-    const [info] = JSON.parse(command("docker", ["image", "inspect", image]));
+    let info = reusableImage(image, service, sha);
+    if (info) console.log(`Reusing preview ${service} at ${sha.slice(0, 12)}`);
+    else {
+      console.log(`Building preview ${service} at ${sha.slice(0, 12)}`);
+      command("docker", ["build", "--label", `co.prls.harden.preview-image=${service}`, "--build-arg", `VERSION=${sha}`, "--tag", image, "--file", path.join(source, service === "web" ? "frontend/Dockerfile" : "Dockerfile"), service === "web" ? path.join(source, "frontend") : source]);
+      [info] = JSON.parse(command("docker", ["image", "inspect", image]));
+    }
     if (info.Config.Labels["org.opencontainers.image.version"] !== sha) throw new Error("Preview image release label mismatch");
     components[service] = { image, imageID: info.Id, release: sha };
   }
@@ -231,7 +258,7 @@ export async function deployEnvironment(c, branch, sha) {
   const values = { ...credentials, ...sharedApplicationVariables(sharedValues), PREVIEW_ID: state.id, PREVIEW_PROJECT: state.project, PREVIEW_HOST: state.host,
     PREVIEW_CONTROL: path.join(c.root, "control"), GATEWAY_IMAGE: components.gateway.imageID, WEB_IMAGE: components.web.imageID,
     GATEWAY_RELEASE: components.gateway.release, WEB_RELEASE: components.web.release };
-  await writePrivate(envPath, dotenv(values));
+  await writePrivateIfChanged(envPath, dotenv(values));
   try {
     if (!state.initialized) {
       console.log("Initializing isolated preview data services");
@@ -254,8 +281,11 @@ export async function deployEnvironment(c, branch, sha) {
     const [edgeInfo] = JSON.parse(command("docker", ["inspect", edge]));
     if (!edgeInfo.NetworkSettings.Networks[`${state.project}-private`]) command("docker", ["network", "connect", `${state.project}-private`, edge]);
     const route = path.join(c.root, "routes", `${state.id}.caddy`);
-    await writePrivate(route, routeFor(state));
-    hostCompose(c, ["exec", "-T", "edge", "caddy", "reload", "--config", "/etc/caddy/control/Caddyfile"]);
+    const routeChanged = await writePrivateIfChanged(route, routeFor(state));
+    const controlChanged = options.controlChanges ?? [];
+    if (routeChanged || controlChanged.includes("Caddyfile")) {
+      hostCompose(c, ["exec", "-T", "edge", "caddy", "reload", "--config", "/etc/caddy/control/Caddyfile"]);
+    }
     const dnsID = await ensureDNS(c, state);
     // New Cloudflare hostnames can take several minutes to reach every edge.
     await healthCheck(state.url, state.initialized ? 90_000 : 300_000);

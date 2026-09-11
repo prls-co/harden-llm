@@ -26,8 +26,8 @@ test('only portable application variables are shared', () => {
 test('sync uses local encryption and DB, stdin keys, both accounts and no provider call', () => {
   const values = { HARDEN_LLM_SHARED_PROFILES:'{"Example":{"llmProfile":"Example"}}', HARDEN_LLM_SHARED_CREDENTIALS:'{"Example":"EXAMPLE_API_KEY"}', EXAMPLE_API_KEY:'fixture-private', TEST_LOGIN:'guest@example.test', HARDEN_LLM_LOCAL_OPERATOR_EMAIL:'operator@example.test' };
   const calls=[];
-  const run=(bin,args,options)=>{calls.push({bin,args,options});return args[0]==='inspect'?JSON.stringify([{Id:'target-id',Config:{Labels:{'com.docker.compose.project':'hllm-preview-dev','com.docker.compose.service':'gateway'},Env:['HARDEN_LLM_DATABASE_URL=local-db','HARDEN_LLM_ENCRYPTION_KEYS=local-keys','HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID=local','UNRELATED_SECRET=excluded']}}]):'{}';};
-  assert.deepEqual(syncSharedProfiles('target','image',values,run),{accounts:2,profiles:1,configured:1});
+  const run=(bin,args,options)=>{calls.push({bin,args,options});return args[0]==='inspect'?JSON.stringify([{Id:'target-id',Config:{Labels:{'com.docker.compose.project':'hllm-preview-dev','com.docker.compose.service':'gateway'},Env:['HARDEN_LLM_DATABASE_URL=local-db','HARDEN_LLM_ENCRYPTION_KEYS=local-keys','HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID=local','UNRELATED_SECRET=excluded']}}]):'{"changed":false}';};
+  assert.deepEqual(syncSharedProfiles('target','image',values,run),{accounts:2,profiles:1,configured:1,changed:false});
   assert.equal(calls.length,3);
   for(const call of calls.slice(1)){
     assert(call.args.includes('container:target-id'));

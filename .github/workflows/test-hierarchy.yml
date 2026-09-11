@@ -66,6 +66,17 @@ jobs:
         with:
           elixir-version: ${{ env.ELIXIR_VERSION }}
           otp-version: ${{ env.OTP_VERSION }}
+      - name: Restore Phoenix dependency and compile caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.mix
+            ~/.hex
+            frontend/deps
+            frontend/_build
+          key: beam-${{ runner.os }}-${{ runner.arch }}-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-${{ hashFiles('frontend/mix.exs', 'frontend/mix.lock') }}
+          restore-keys: |
+            beam-${{ runner.os }}-${{ runner.arch }}-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-
       - run: go mod download
       - working-directory: frontend
         run: mix deps.get

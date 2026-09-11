@@ -94,7 +94,30 @@ Phoenix session material remains in its own volume. Diagnostic logs are bounded.
 OTLP exports are disabled in previews: no preview Langfuse, Luminar, ClickHouse,
 or production telemetry dependency is introduced.
 
-## 4. Host architecture and setup
+## 4. Iteration efficiency and isolation boundaries
+
+The fast loop keeps isolation where it protects correctness and shares only
+the host-level control plane. Caddy, its Cloudflare tunnel, and the deployment
+runner are shared; each preview still owns its Postgres database, Garage
+layout, application network, volumes, session material, and disposable data.
+
+Application images use BuildKit Go module/build caches and stable dependency
+layers. CI caches the pinned Phoenix dependencies and compile output. A
+deployment reuses an existing local image only when both its service label and
+exact source-SHA release label match; otherwise it builds a new image. Control
+files, routes, environment files, and profile synchronization are
+content-aware, so an unchanged deployment does not rewrite or reload them.
+Health checks probe quickly during startup and less frequently after startup;
+preview services have conservative memory and CPU limits to prevent idle
+branches from consuming unbounded host resources.
+
+Postgres and Garage are deliberately not shared between previews yet. Sharing
+them would reduce idle memory but would add database/schema ownership,
+per-branch bucket prefixes and credentials, cleanup, backup, and noisy-neighbor
+coordination. Revisit that tradeoff when concurrent preview count and measured
+resource pressure justify the additional operational surface.
+
+## 5. Host architecture and setup
 
 A dedicated Caddy router and Cloudflare tunnel serve only preview hostnames.
 The router joins each branch network; application containers do not share an
@@ -127,7 +150,7 @@ State lives in `~/.local/share/harden-llm-previews` (private). Cloudflare is
 configured through its [remote tunnel API](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/get-started/create-remote-tunnel-api/).
 DNS writes refuse existing records without the expected ownership marker.
 
-## 5. Deployment checks and recovery
+## 6. Deployment checks and recovery
 
 The trusted workflow requires passing fast (or browser-free release) checks
 for the exact current branch SHA. It rechecks the branch after builds, uses a
@@ -154,7 +177,7 @@ never collect complete environment dumps into issue/workflow logs.
 `AGENTS.md`, ADR-HLLM-015, and TEST-062 define this policy. Production deployment
 procedures remain separate; this feature does not promote or restart production.
 
-## 6. Initial verification (2026-09-11 UTC)
+## 7. Initial verification (2026-09-11 UTC)
 
 Current verified dev application revision:
 `da00a4aa7faa998d000806fdb60da96b38620c90`.

@@ -72,10 +72,12 @@ export function syncSharedProfiles(container, image, values, run = command) {
   const keys = ['HARDEN_LLM_DATABASE_URL', 'HARDEN_LLM_ENCRYPTION_KEYS', 'HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID'];
   if (keys.some(k => !environment[k])) throw new Error('Gateway provisioning environment is incomplete');
   const env = { ...process.env, ...Object.fromEntries(keys.map(k => [k, environment[k]])) };
+  let changed = false;
   for (const email of emails) {
-    run('docker', ['run', '--rm', '-i', '--read-only', '--cap-drop=ALL', '--security-opt=no-new-privileges', '--network', `container:${info.Id}`, ...keys.flatMap(k => ['--env', k]), image, 'sync-profiles', '--email', email], { env, input: JSON.stringify(config) });
+    const output = run('docker', ['run', '--rm', '-i', '--read-only', '--cap-drop=ALL', '--security-opt=no-new-privileges', '--network', `container:${info.Id}`, ...keys.flatMap(k => ['--env', k]), image, 'sync-profiles', '--email', email], { env, input: JSON.stringify(config) });
+    try { changed ||= Boolean(JSON.parse(output).changed); } catch { throw new Error('Shared profile synchronization returned invalid status'); }
   }
-  return { accounts: emails.length, profiles: Object.keys(config.profiles).length, configured: Object.keys(config.credentials).length };
+  return { accounts: emails.length, profiles: Object.keys(config.profiles).length, configured: Object.keys(config.credentials).length, changed };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

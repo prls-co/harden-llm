@@ -24,8 +24,6 @@ RUN mix assets.deploy && mix release --path /release
 
 FROM ${RUNTIME_IMAGE} AS runtime
 
-ARG VERSION=dev
-
 RUN apk add --no-cache \
       ca-certificates=20260611-r0 \
       libgcc=15.2.0-r2 \
@@ -40,6 +38,7 @@ RUN apk add --no-cache \
 WORKDIR /app
 COPY --from=build --chown=harden_llm:harden_llm /release/ ./
 
+ARG VERSION=dev
 LABEL org.opencontainers.image.title="harden-llm-web" \
       org.opencontainers.image.version="${VERSION}"
 

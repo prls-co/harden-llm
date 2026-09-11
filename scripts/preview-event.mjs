@@ -106,7 +106,7 @@ async function reconcile(c) {
     return;
   }
   if (!deploymentAllowed({ branch, sameRepository: true, enabled: state.enabled, success, sha, tip: current.commit.sha })) throw new Error("Preview deployment policy rejected revision");
-  await syncControl(c, path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."));
+  const controlChanges = await syncControl(c, path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."));
   const deployment = await api("deployments", "POST", { ref: sha, environment: `preview-${identity.id}`, transient_environment: branch !== "dev", production_environment: false, auto_merge: false, required_contexts: [] });
   const status = value => api(`deployments/${deployment.id}/statuses`, "POST", {
     state: value, environment: `preview-${identity.id}`, environment_url: identity.url,
@@ -114,7 +114,7 @@ async function reconcile(c) {
   });
   await status("in_progress");
   try {
-    const result = await deployEnvironment(c, branch, sha);
+    const result = await deployEnvironment(c, branch, sha, { controlChanges });
     await saveState(c, { ...result, deploymentID: deployment.id });
     await status("success");
     if (process.env.GITHUB_STEP_SUMMARY) await fs.appendFile(process.env.GITHUB_STEP_SUMMARY,

@@ -3,12 +3,15 @@ FROM --platform=$BUILDPLATFORM golang:1.26.6-alpine3.23@sha256:5978cc992ad5ef96a
 
 ARG TARGETOS
 ARG TARGETARCH
-ARG VERSION=0.1.0
 WORKDIR /src
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
+ARG VERSION=0.1.0
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
     -trimpath -buildvcs=true -ldflags="-s -w -X main.version=$VERSION" \
     -o /out/harden-llm-gateway ./cmd/harden-llm-gateway
 

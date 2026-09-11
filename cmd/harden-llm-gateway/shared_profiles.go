@@ -48,8 +48,9 @@ func runSyncProfiles(ctx context.Context, args []string, stdin io.Reader, stdout
 	if err != nil {
 		return errors.New("sync-profiles: local account not found")
 	}
-	if err := gateway.ApplySharedProfiles(ctx, store, vault, user.ID, config); err != nil {
+	result, err := gateway.ApplySharedProfilesWithResult(ctx, store, vault, user.ID, config)
+	if err != nil {
 		return errors.New("sync-profiles: configuration could not be applied")
 	}
-	return json.NewEncoder(stdout).Encode(map[string]any{"profiles": len(config.Profiles), "configured": len(config.Credentials)})
+	return json.NewEncoder(stdout).Encode(result)
 }

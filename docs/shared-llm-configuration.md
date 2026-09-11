@@ -77,6 +77,14 @@ custom profiles. Each environment encrypts identical provider keys with its own
 vault key and fresh nonces. A multi-account or multi-environment failure is
 reported, not disguised as a globally atomic operation; fix the cause and rerun.
 
+When the persisted managed profiles, bindings, decrypted key payloads, and
+custom-profile endpoint bindings already match the shared configuration, the
+command returns `changed: false` and performs no profile or credential write.
+The deployment still runs this local comparison because a user may have
+changed a profile through the UI since the previous deployment. A configuration
+change returns `changed: true`; the subsequent readback remains the source of
+truth for all accounts.
+
 Managed profile names are authoritative: deployment overwrites edits to those
 profiles. Removing a credential mapping explicitly unbinds that managed profile;
 other bindings/custom profiles and old encrypted credential records are retained.
