@@ -208,6 +208,24 @@ application-bearing identities:
 - Production web/gateway container IDs and image digests remained unchanged
   and healthy throughout. No browser or production deployment was performed.
 
+## 8. Latest efficiency verification (2026-09-11 UTC)
+
+Control-plane revision `85cd3f346521401ee0aaa4feed02d3353516eaf5` passed
+[dev fast CI](https://github.com/prls-co/harden-llm/actions/runs/34627180082),
+[main fast CI](https://github.com/prls-co/harden-llm/actions/runs/34627180400),
+and the [trusted dev deployment](https://github.com/prls-co/harden-llm/actions/runs/34627571985).
+The deployment rebuilt no application image and retained the exact verified
+application images from `cfea235`:
+
+- Gateway: `sha256:f16fee16a297154e06c3e7636802c190e9a5085f012cd29d81d1356856636859`.
+- Web: `sha256:4136f249378ee8797cc4da5d2023efc2827f96199641f9ae1460fc68f10fb81a`.
+
+The live dev preview returned HTTP 200 for `/healthz`, `/readyz`, and `/login`.
+All four Compose services were healthy with the configured limits: Postgres
+and Garage 256 MiB/0.50 CPU each, gateway 128 MiB/0.50 CPU, and web 512 MiB/1
+CPU. This verification used HTTP and Docker inspection only; no browser or
+real provider call was made.
+
 Startup regressions found during bring-up are covered by the cheap policy
 tests: quoted Compose tmpfs options, gateway development-mode telemetry policy,
 HTTPS forwarding to Phoenix, and immutable image references. Initial routing
