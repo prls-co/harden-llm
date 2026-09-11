@@ -152,11 +152,6 @@ button, a, input, select, textarea { touch-action: manipulation; }
   min-width: 0;
   padding: .15rem 0;
 }
-.llm-result-label {
-  flex: 0 0 3rem;
-  color: var(--ullm-text-muted);
-  font-size: .8rem;
-}
 .llm-result-text {
   flex: 1 1 auto;
   min-width: 0;

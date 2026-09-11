@@ -138,8 +138,12 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
 
     session =
       session
-      |> click(Query.css("#run-result-panel button[id$='-expand']"))
+      |> assert_has(Query.css("#run-result-panel button[id$='-expand']", count: 0))
+      |> click(Query.css("#run-result-panel button[id$='-toggle-input']"))
       |> assert_has(Query.css("#run-result-panel .llm-result.is-expanded"))
+      |> assert_has(
+        Query.css("#run-result-panel .llm-result-toggle[aria-expanded='true']", count: 2)
+      )
       |> click(Query.css("#output-trace-summary"))
       |> assert_has(Query.css("#output-trace-content[hidden]", visible: :any))
       |> click(Query.css("#output-trace-summary"))
@@ -161,19 +165,32 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
 
     session =
       session
-      |> scroll_to_selector("#run-result-panel button[id$='-expand']")
+      |> scroll_to_selector("#run-result-panel button[id$='-toggle-output']")
       |> Wallaby.Browser.take_screenshot(name: "result-card-expanded")
 
     assert javascript_value(session, """
-             const button = document.querySelector('#run-result-panel button[id$="-expand"]');
+             const button = document.querySelector('#run-result-panel button[id$="-toggle-output"]');
              const rect = button.getBoundingClientRect();
              return button.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
            """)
 
     session =
       session
-      |> click(Query.css("#run-result-panel button[id$='-expand']"))
+      |> click(Query.css("#run-result-panel button[id$='-toggle-output']"))
       |> assert_has(Query.css("#run-result-panel .llm-result:not(.is-expanded)"))
+      |> assert_has(
+        Query.css("#run-result-panel .llm-result-toggle[aria-expanded='false']", count: 2)
+      )
+      |> send_keys(Query.css("#run-result-panel button[id$='-toggle-input']"), [:enter])
+      |> assert_has(Query.css("#run-result-panel .llm-result.is-expanded"))
+      |> assert_has(
+        Query.css("#run-result-panel .llm-result-toggle[aria-expanded='true']", count: 2)
+      )
+      |> send_keys(Query.css("#run-result-panel button[id$='-toggle-output']"), [" "])
+      |> assert_has(Query.css("#run-result-panel .llm-result:not(.is-expanded)"))
+      |> assert_has(
+        Query.css("#run-result-panel .llm-result-toggle[aria-expanded='false']", count: 2)
+      )
 
     widget_facts =
       javascript_value(
@@ -294,10 +311,23 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> scroll_to_selector("#history-trace-run-browser-summary")
       |> click(Query.css("#history-trace-run-browser-summary"))
       |> assert_has(Query.css("#history-trace-run-browser-content[hidden]", visible: :any))
-      |> click(Query.css("#workspace-history-run-browser-expand"))
+      |> click(Query.css("#workspace-history-run-browser-toggle-output"))
       |> assert_has(Query.css("#workspace-history-run-browser.is-expanded"))
+      |> assert_has(
+        Query.css("#workspace-history-run-browser .llm-result-toggle[aria-expanded='true']",
+          count: 2
+        )
+      )
       |> scroll_to_selector("#workspace-history-run-browser")
       |> Wallaby.Browser.take_screenshot(name: "history-result-card")
+      |> scroll_to_selector("#workspace-history-run-browser-toggle-input")
+      |> click(Query.css("#workspace-history-run-browser-toggle-input"))
+      |> assert_has(Query.css("#workspace-history-run-browser:not(.is-expanded)"))
+      |> assert_has(
+        Query.css("#workspace-history-run-browser .llm-result-toggle[aria-expanded='false']",
+          count: 2
+        )
+      )
       |> force_live_reconnect()
       |> assert_has(Query.css("body[data-browser-reconnected='true']"))
       |> scroll_to_selector("#workspace-history-run-browser button[phx-click='delete-history']")

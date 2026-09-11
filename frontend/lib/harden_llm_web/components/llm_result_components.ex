@@ -21,30 +21,36 @@ defmodule HardenLlmWeb.LlmResultComponents do
       assigns
       |> assign(:input_id, assigns.input_id || "#{assigns.id}-input")
       |> assign(:output_id, assigns.output_id || "#{assigns.id}-output")
+      |> assign(
+        :toggle_text,
+        JS.toggle_class("is-expanded", to: "##{assigns.id}")
+        |> JS.toggle_attribute({"aria-expanded", "true", "false"},
+          to: "##{assigns.id} > .llm-result-row > .llm-result-toggle"
+        )
+      )
 
     ~H"""
     <article id={@id} class="llm-result">
       <div class="llm-result-row">
-        <span class="llm-result-label">Input</span>
+        <.text_toggle
+          id={"#{@id}-toggle-input"}
+          label="Input"
+          emoji="📥"
+          controls={"#{@input_id} #{@output_id}"}
+          command={@toggle_text}
+        />
         <pre id={@input_id} class="llm-result-text"><%= text(@input) || "Input unavailable." %></pre>
         <.copy_button id={"#{@id}-copy-input"} label="Copy input" value={text(@input)} />
-        <button
-          id={"#{@id}-expand"}
-          type="button"
-          class="llm-result-action"
-          aria-label="Expand or collapse input and output"
-          title="Expand or collapse input and output"
-          aria-controls={"#{@input_id} #{@output_id}"}
-          aria-expanded="false"
-          phx-click={
-            JS.toggle_class("is-expanded", to: "##{@id}")
-            |> JS.toggle_attribute({"aria-expanded", "true", "false"})
-          }
-        >↕️</button>
         <span :if={@actions != []} class="llm-result-actions">{render_slot(@actions)}</span>
       </div>
       <div class="llm-result-row">
-        <span class="llm-result-label">Output</span>
+        <.text_toggle
+          id={"#{@id}-toggle-output"}
+          label="Output"
+          emoji="📤"
+          controls={"#{@input_id} #{@output_id}"}
+          command={@toggle_text}
+        />
         <pre id={@output_id} class="llm-result-text"><%= text(@output) || "No output." %></pre>
         <.copy_button
           id={@copy_output_id || "#{@id}-copy-output"}
@@ -54,6 +60,27 @@ defmodule HardenLlmWeb.LlmResultComponents do
       </div>
       <div :if={@stats != []} class="llm-result-stats">{render_slot(@stats)}</div>
     </article>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :label, :string, required: true
+  attr :emoji, :string, required: true
+  attr :controls, :string, required: true
+  attr :command, JS, required: true
+
+  defp text_toggle(assigns) do
+    ~H"""
+    <button
+      id={@id}
+      type="button"
+      class="llm-result-action llm-result-toggle"
+      aria-label={"#{@label}: expand or collapse input and output"}
+      title={"#{@label}: expand or collapse input and output"}
+      aria-controls={@controls}
+      aria-expanded="false"
+      phx-click={@command}
+    >{@emoji}</button>
     """
   end
 

@@ -31,15 +31,33 @@ defmodule HardenLlmWeb.LlmResultComponentsTest do
       assert html =~ ~s(aria-controls="#{id}-input #{id}-output")
       assert html =~ ~s(aria-expanded="false")
 
-      [expand_command] =
-        LazyHTML.query(doc, "##{id}-expand") |> LazyHTML.attribute("phx-click")
-
       card_selector = "##{id}"
+      toggle_selector = "##{id} > .llm-result-row > .llm-result-toggle"
 
-      assert [
-               ["toggle_class", %{"names" => ["is-expanded"], "to" => ^card_selector}],
-               ["toggle_attr", %{"attr" => ["aria-expanded", "true", "false"]}]
-             ] = Jason.decode!(expand_command)
+      assert LazyHTML.query(doc, "##{id}-expand") |> Enum.empty?()
+      assert LazyHTML.query(doc, ".llm-result-label") |> Enum.empty?()
+      assert LazyHTML.query(doc, toggle_selector) |> Enum.count() == 2
+
+      for {kind, label, emoji} <- [{"input", "Input", "📥"}, {"output", "Output", "📤"}] do
+        button = LazyHTML.query(doc, "##{id}-toggle-#{kind}")
+        assert LazyHTML.text(button) == emoji
+        assert LazyHTML.attribute(button, "type") == ["button"]
+        assert LazyHTML.attribute(button, "aria-expanded") == ["false"]
+        assert LazyHTML.attribute(button, "aria-controls") == ["#{id}-input #{id}-output"]
+
+        assert LazyHTML.attribute(button, "aria-label") ==
+                 ["#{label}: expand or collapse input and output"]
+
+        [command] = LazyHTML.attribute(button, "phx-click")
+
+        assert [
+                 ["toggle_class", %{"names" => ["is-expanded"], "to" => ^card_selector}],
+                 [
+                   "toggle_attr",
+                   %{"attr" => ["aria-expanded", "true", "false"], "to" => ^toggle_selector}
+                 ]
+               ] = Jason.decode!(command)
+      end
 
       assert html =~ ~s(data-copy-success="✅")
       assert html =~ "&quot;ok&quot;: true"
@@ -54,5 +72,18 @@ defmodule HardenLlmWeb.LlmResultComponentsTest do
 
     assert html |> LazyHTML.from_document() |> LazyHTML.query("button[disabled]") |> Enum.count() ==
              2
+  end
+
+  test "both emoji controls reference host-supplied text IDs" do
+    doc =
+      render_component(&LlmResultComponents.llm_result/1,
+        id: "custom-result",
+        input_id: "recorded-input",
+        output_id: "run-output"
+      )
+      |> LazyHTML.from_document()
+
+    assert LazyHTML.query(doc, ".llm-result-toggle") |> LazyHTML.attribute("aria-controls") ==
+             ["recorded-input run-output", "recorded-input run-output"]
   end
 end

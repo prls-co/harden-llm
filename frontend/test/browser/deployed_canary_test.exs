@@ -51,6 +51,7 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       |> visit("/")
       |> assert_has(Query.css("#workspace-page"))
       |> assert_has(Query.css("#workspace-llm-widget"))
+      |> assert_has(Query.css("#new-prompt", text: "Clear Prompt"))
       |> assert_live_socket_connected()
       |> assert_no_horizontal_overflow()
       |> commit_combobox("#run_selectedProfileId", "CPA GPT-5.6 Luna")
@@ -73,6 +74,20 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       )
 
     assert is_binary(output) and String.trim(output) != ""
+
+    session =
+      session
+      |> assert_has(Query.css("#run-result-panel button[id$='-expand']", count: 0))
+      |> click(Query.css("#run-result-panel button[id$='-toggle-input']", text: "📥"))
+      |> assert_has(Query.css("#run-result-panel .llm-result.is-expanded"))
+      |> assert_has(
+        Query.css("#run-result-panel .llm-result-toggle[aria-expanded='true']", count: 2)
+      )
+      |> click(Query.css("#run-result-panel button[id$='-toggle-output']", text: "📤"))
+      |> assert_has(Query.css("#run-result-panel .llm-result:not(.is-expanded)"))
+      |> assert_has(
+        Query.css("#run-result-panel .llm-result-toggle[aria-expanded='false']", count: 2)
+      )
 
     session =
       if javascript_value(

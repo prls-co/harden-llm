@@ -10,8 +10,10 @@ audit page, Domain trace dialog, `/history`, and `/workspace` are removed.
 Retired URLs return 404; there are no compatibility redirects.
 
 Each card has three rows: recorded user input, output, and LLM stats. Input
-and output each have an accessible `📋` copy command. One `↕️` command expands
-or collapses both text rows without truncating the underlying copy values.
+and output are labeled by accessible `📥` and `📤` buttons; either button expands
+or collapses both text rows together. Both buttons expose the same card-local
+expanded state. Each row retains its `📋` copy command and full underlying value;
+there is no separate trailing expansion button.
 Expansion is card-local and retained across unrelated LiveView patches.
 The full request (including system prompt/options) remains in Request.
 
@@ -74,9 +76,10 @@ split across lines. Ordinary desktop cards use one row. Narrow cards wrap betwee
 groups or whole metrics rather than clipping data or forcing page-wide scrolling.
 
 WEB-TEST-036 checks identity and metric markup; WEB-TEST-047 checks real Chromium
-layout at 900/700/320px in both Result and History contexts. The pinned browser
-image lacks emoji glyphs, so screenshots do not certify platform-specific emoji
-widths. Layout remains content-responsive, without a viewport-specific breakpoint.
+layout at 900/700/320px in both Result and History contexts. The browser image
+includes pinned Noto Color Emoji so visual checks render the emoji-only controls;
+platform-specific glyph widths can still differ. Layout remains content-responsive,
+without a viewport-specific breakpoint.
 
 ## 5. Retained implementation notes
 
