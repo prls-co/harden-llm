@@ -1209,3 +1209,72 @@ deadline starts after profile lookup. The real HTTP route separately retains
 timeout increase. Default-tag T1 cases cover deployment bounds, including the
 unchanged 60-second maximum. No application code, timeout, assertion deadline,
 or required service boundary was changed to address this test defect.
+
+### Completed production promotion
+
+Final source `3a721a1fcc72d524800aac27b95729be0b8ce342` was committed and pushed
+to `origin/main`. The complete local release selector accepted all 26 tasks
+with zero failures and cleanup errors in
+`tmp/result-production-release-verified.json` (SHA-256
+`88849abb17f787f7dd3a8751e8ec8d4ee4c742a76d723e184b1a9534351a7790`).
+[GitHub run 34546660108](https://github.com/prls-co/harden-llm/actions/runs/34546660108)
+also passed all four jobs for that exact SHA, including its cold browser-image
+build and complete release gate. The earlier failed/cancelled runs are not
+substituted for this evidence.
+
+The font-inclusive Result and History screenshots were visually inspected:
+both emoji controls render, copy actions remain at the right, and no trailing
+expand control remains. Native browser checks passed at 900, 700, and 320px,
+including click/keyboard disclosure, paired accessibility state, and patch
+retention. Screenshot artifacts are disposable test fixtures, not production
+data or committed screenshots.
+
+Production deployment started at `2026-09-11T00:48:52Z` (September 10 local).
+Images were built from the clean production worktree at the pushed source,
+their version labels checked, then promoted with Compose
+`up -d --no-build --no-deps --wait --wait-timeout 300` for only the gateway and
+frontend. Both became healthy with matching source labels; the gateway binary
+also reports the exact source SHA.
+
+| Service | Live image ID | Retained release tag |
+| --- | --- | --- |
+| Gateway | `sha256:cd8a408899fe8dc478f799cd77e379ae11ae76a68b39ea777ab27018926c9736` | `harden-llm-gateway:release-3a721a1` |
+| Frontend | `sha256:c02637b248639155e16a5664baa0dd97934bc2376939490131ef117bc6f0c7b0` | `harden-llm-web:release-3a721a1` |
+
+Existing rollback tags documented above remain available. Database, Garage,
+session-vault, and telemetry services/volumes were not replaced or purged.
+The pending v2-only cleanup and Clear Prompt rename are now live as part of
+this release; `reconcile-history` independently returns unknown command, while
+the supported artifact audit remains healthy.
+
+The authenticated deployed-browser canary accepted the exact live frontend
+image using the existing CPA GPT-5.6 Luna profile. It checked Clear Prompt,
+both emoji controls and synchronized disclosure, absence of the old expand
+button, inline structured stats, History, and logout. Frontend health/login
+and API health/readiness returned 200. Anonymous `/` redirects to `/login`;
+`/workspace`, `/history` (also with a trace query), and public `/metrics` return
+404. The application entry point is `https://harden-llm.prls.co/`.
+
+Live release RPC confirmed boot order
+`grpcbox,opentelemetry_exporter,opentelemetry`. Startup logs contained zero
+exporter-initialization or observability-setup failures. Tempo trace
+`9574ac2075eaf8c8e9f334f6af314eeb`, correlated to the successful canary's
+frontend run log, contains both service names and `harden_llm.trace.id`.
+Only correlation facts were recorded, not trace or request/response bodies.
+
+The canary deleted its own History entry; a guarded transaction then removed
+exactly its one cache entry, matching owner, version, operation hash, creation
+timestamp, and smoke nonce. No broad historical purge was repeated. Before
+and after this deployment, the new guest record remained at one run, trace,
+artifact, and cache entry; operator-local returned to zero in each category.
+Garage audit found the one referenced object, no missing/unreferenced objects,
+and `healthy:true`. Profiles, credentials, sessions, telemetry, and backups
+were preserved. The disposable smoke record/cache cannot be restored by the
+application; no user record was removed in this promotion.
+
+The durable, sanitized [production receipt](../plans/evidence/harden-llm/result-emoji-production-certification.json)
+records each accepted local task, source/report identities, hosted workflow,
+images, live probes, telemetry, and cleanup. `plans/implementation-status.json`
+now points to this deployed application identity, so the default deployed
+launcher no longer uses its older certification SHA. Subsequent documentation
+commits do not change the certified application images.

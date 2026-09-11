@@ -558,29 +558,31 @@
       }
     },
     "applicationRelease": {
-      "applicationBearingSHA": "14c8be00407b1151c424ffdf83dfd0ee4fd4bc20",
-      "sourceMainSHA": "14c8be00407b1151c424ffdf83dfd0ee4fd4bc20",
-      "frontendRelease": "14c8be00407b1151c424ffdf83dfd0ee4fd4bc20",
-      "frontendImageDigest": "sha256:dbaff28f5ef5c6c5c39371655bf96e6d752985a22b070aa2a4673489467b9b21",
-      "frontendContainerId": "085c4051091f",
-      "gatewayRelease": "14c8be00407b1151c424ffdf83dfd0ee4fd4bc20",
-      "gatewayImageDigest": "sha256:894f6bc1736e4c920f392900ed41c84e87198e645690e18f40b6565a8e102e0c",
-      "gatewayContainerId": "28a88b34dffc",
+      "applicationBearingSHA": "3a721a1fcc72d524800aac27b95729be0b8ce342",
+      "sourceMainSHA": "3a721a1fcc72d524800aac27b95729be0b8ce342",
+      "frontendRelease": "3a721a1fcc72d524800aac27b95729be0b8ce342",
+      "frontendImageDigest": "sha256:c02637b248639155e16a5664baa0dd97934bc2376939490131ef117bc6f0c7b0",
+      "frontendContainerId": "c0aad9a884e1",
+      "gatewayRelease": "3a721a1fcc72d524800aac27b95729be0b8ce342",
+      "gatewayImageDigest": "sha256:cd8a408899fe8dc478f799cd77e379ae11ae76a68b39ea777ab27018926c9736",
+      "gatewayContainerId": "a793531b0f94",
       "project": "harden-llm",
       "environmentFileRole": "production Compose env file supplied with --env-file"
     },
     "latestProductionCertification": {
-      "mergedMainSHA": "14c8be00407b1151c424ffdf83dfd0ee4fd4bc20",
-      "closureIssue": 46,
-      "releaseTier": "make test-release accepted 26 tasks with zero failures and zero cleanup errors",
+      "mergedMainSHA": "3a721a1fcc72d524800aac27b95729be0b8ce342",
+      "certifiedAt": "2026-09-11T00:50:34Z",
+      "evidencePath": "plans/evidence/harden-llm/result-emoji-production-certification.json",
+      "hostedWorkflow": "https://github.com/prls-co/harden-llm/actions/runs/34546660108",
+      "releaseTier": "canonical release selector accepted 26 tasks with zero failures and zero cleanup errors; all four hosted hierarchy jobs passed",
       "composeSmoke": "release-owned Compose and browser tasks passed",
       "test056": {
         "accepted": true,
-        "expectedRelease": "14c8be00407b1151c424ffdf83dfd0ee4fd4bc20",
+        "expectedRelease": "3a721a1fcc72d524800aac27b95729be0b8ce342",
         "identityHealth": "healthy",
         "probes": {"webHealthz": 200, "login": 200, "apiHealthz": 200, "apiReadyz": 200},
-        "authenticatedCanary": "passed with existing operator credentials; smoke history cleanup asserted",
-        "cleanup": "browser container and generated frontend scratch removed"
+        "authenticatedCanary": "passed with existing operator credentials: CPA GPT-5.6 Luna, Clear Prompt, paired emoji disclosure, inline stats, nonce History cleanup and logout",
+        "cleanup": "browser container and generated frontend scratch removed; exactly one canary cache row deleted; existing guest result preserved"
       }
     },
     "deploymentCertification": {

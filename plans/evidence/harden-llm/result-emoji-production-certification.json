@@ -1,0 +1,345 @@
+{
+  "schemaVersion": 1,
+  "applicationRelease": "3a721a1fcc72d524800aac27b95729be0b8ce342",
+  "sourcePushedTo": "origin/main",
+  "deploymentStartedAt": "2026-09-11T00:48:52.826Z",
+  "scope": "Shared Result/History emoji disclosure, pending Clear Prompt and v2-only cleanup, and release blockers; only gateway and frontend replaced.",
+  "localRelease": {
+    "sourceReport": "tmp/result-production-release-verified.json",
+    "sourceReportSHA256": "88849abb17f787f7dd3a8751e8ec8d4ee4c742a76d723e184b1a9534351a7790",
+    "generatedAt": "2026-09-11T00:47:43.627Z",
+    "manifestSHA256": "0ec990a67af2136543f1a465e5268464c7f8ebbd4f48cc44227d8aa434f0a169",
+    "accepted": true,
+    "cleanupErrors": [],
+    "tasks": [
+      {
+        "taskId": "go-format",
+        "tier": "T0",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 228
+      },
+      {
+        "taskId": "go-lint",
+        "tier": "T0",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 1806
+      },
+      {
+        "taskId": "go-build",
+        "tier": "T1",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 9715
+      },
+      {
+        "taskId": "go-static",
+        "tier": "T0",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 3077
+      },
+      {
+        "taskId": "go-unit",
+        "tier": "T1",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 10135
+      },
+      {
+        "taskId": "go-parity",
+        "tier": "T0",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 8183
+      },
+      {
+        "taskId": "go-integration",
+        "tier": "T3",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 31659
+      },
+      {
+        "taskId": "go-integration-race",
+        "tier": "T3",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 61446
+      },
+      {
+        "taskId": "garage-restart-exclusive",
+        "tier": "T3",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 26291
+      },
+      {
+        "taskId": "go-api",
+        "tier": "T1",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 9010
+      },
+      {
+        "taskId": "go-observability",
+        "tier": "T1",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 6305
+      },
+      {
+        "taskId": "go-compose",
+        "tier": "T4",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 246475
+      },
+      {
+        "taskId": "go-race",
+        "tier": "T3",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 72434
+      },
+      {
+        "taskId": "go-vulnerability",
+        "tier": "T3",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 7534
+      },
+      {
+        "taskId": "frontend-format",
+        "tier": "T0",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 92032
+      },
+      {
+        "taskId": "frontend-compile",
+        "tier": "T1",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 125968
+      },
+      {
+        "taskId": "frontend-deterministic",
+        "tier": "T1",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 197034
+      },
+      {
+        "taskId": "client-core",
+        "tier": "T0",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 1226
+      },
+      {
+        "taskId": "widget-traceability",
+        "tier": "T0",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 922
+      },
+      {
+        "taskId": "frontend-browser",
+        "tier": "T4",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 80950
+      },
+      {
+        "taskId": "frontend-compose",
+        "tier": "T4",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 319126
+      },
+      {
+        "taskId": "frontend-deps-audit",
+        "tier": "T3",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 116063
+      },
+      {
+        "taskId": "frontend-hex-audit",
+        "tier": "T3",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 3368
+      },
+      {
+        "taskId": "frontend-assets-deploy",
+        "tier": "T2",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 102716
+      },
+      {
+        "taskId": "frontend-release",
+        "tier": "T4",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 60920
+      },
+      {
+        "taskId": "backend-verify-baseline",
+        "tier": "T4",
+        "status": 0,
+        "timedOut": false,
+        "cleanupError": null,
+        "wallTimeMs": 151283
+      }
+    ]
+  },
+  "hostedWorkflow": {
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/34546660108",
+    "headSHA": "3a721a1fcc72d524800aac27b95729be0b8ce342",
+    "conclusion": "success",
+    "jobs": {
+      "fast T0-T2": "success",
+      "pooled T3 integration": "success",
+      "targeted T4 browser": "success",
+      "release candidate T3-T5": "success"
+    }
+  },
+  "images": {
+    "gateway": {
+      "imageID": "sha256:cd8a408899fe8dc478f799cd77e379ae11ae76a68b39ea777ab27018926c9736",
+      "releaseTag": "harden-llm-gateway:release-3a721a1",
+      "containerID": "a793531b0f94",
+      "health": "healthy",
+      "binaryVersion": "3a721a1fcc72d524800aac27b95729be0b8ce342"
+    },
+    "frontend": {
+      "imageID": "sha256:c02637b248639155e16a5664baa0dd97934bc2376939490131ef117bc6f0c7b0",
+      "releaseTag": "harden-llm-web:release-3a721a1",
+      "containerID": "c0aad9a884e1",
+      "health": "healthy"
+    },
+    "browser": {
+      "imageID": "sha256:79123817638bf60b80b4997082326472d8b0b148f93c1939298e1f2d598b7f1b",
+      "curl": "8.22.0-r0",
+      "emojiFont": "font-noto-emoji=2.048-r0"
+    }
+  },
+  "deployedCanary": {
+    "accepted": true,
+    "startedAt": "2026-09-11T00:49:17.581Z",
+    "command": "node scripts/run-deployed-browser-test.mjs",
+    "expectedRelease": "3a721a1fcc72d524800aac27b95729be0b8ce342",
+    "provider": "existing CPA GPT-5.6 Luna profile",
+    "checks": [
+      "Clear Prompt label",
+      "paired emoji disclosure and synchronized aria-expanded",
+      "removed trailing expand button",
+      "inline Overview/Details/Request/Response",
+      "stats collapse hides all inline content",
+      "single-row controls and unboxed cache icon",
+      "nonce History deletion and logout"
+    ],
+    "probes": {
+      "webHealthz": 200,
+      "login": 200,
+      "apiHealthz": 200,
+      "apiReadyz": 200
+    }
+  },
+  "publicRoutes": {
+    "anonymousRoot": {
+      "status": 302,
+      "location": "/login"
+    },
+    "/workspace": 404,
+    "/history": 404,
+    "/history?trace_id=00000000-0000-0000-0000-000000000000": 404,
+    "/metrics": 404
+  },
+  "telemetry": {
+    "releaseBootOrder": [
+      "grpcbox",
+      "opentelemetry_exporter",
+      "opentelemetry"
+    ],
+    "exporterInitializationFailures": 0,
+    "observabilitySetupFailures": 0,
+    "tempoTraceID": "9574ac2075eaf8c8e9f334f6af314eeb",
+    "frontendSpanPresent": true,
+    "gatewaySpanPresent": true,
+    "domainTraceIDPresent": true
+  },
+  "cleanup": {
+    "canaryHistoryRemoved": true,
+    "canaryCacheRowsRemoved": 1,
+    "cacheDeletionGuard": "exact owner, operation version, hash, creation timestamp, nonce; transaction requires one row",
+    "ownerCounts": {
+      "guest": {
+        "runs": 1,
+        "traces": 1,
+        "artifacts": 1,
+        "cachedOutputs": 1
+      },
+      "operator-local": {
+        "runs": 0,
+        "traces": 0,
+        "artifacts": 0,
+        "cachedOutputs": 0
+      }
+    },
+    "artifactAudit": {
+      "scannedObjects": 1,
+      "metadataReferences": 1,
+      "missingAvailableObjects": 0,
+      "unreferencedYoungObjects": 0,
+      "unreferencedAgedObjects": 0,
+      "healthy": true
+    },
+    "preserved": "New guest result, profiles, credentials, sessions, volumes, telemetry stores and backups; no broad purge."
+  },
+  "retiredCommand": {
+    "command": "reconcile-history",
+    "status": 1,
+    "result": "unknown command"
+  },
+  "rollback": {
+    "frontend": {
+      "tag": "harden-llm-web:rollback-1d7d7ed",
+      "imageID": "sha256:501316e3d70025744f536b94769bedc8f2b2c2ef4b1943bf91c50b56d60f0b63"
+    },
+    "gateway": {
+      "tag": "harden-llm-gateway:rollback-729804c",
+      "imageID": "sha256:7f0dc0671c229a546dd0023553f14d2eb9c39bb1cfa3949120e856ad8b433e25",
+      "provenance": "Rebuilt from exact prior source; original running image manifest was unavailable."
+    }
+  }
+}
