@@ -141,6 +141,14 @@ Before an upgrade, take a tested backup, review ADRs and image-lock changes, run
 `make verify` and `make test-compose`, then deploy only immutable release IDs and
 digests. Validate the effective Compose project before `up -d`.
 
+Keep the frontend's `opentelemetry_exporter` before `opentelemetry` in both
+the Mix dependency list and explicit release applications. `extra_applications`
+alone does not guarantee the generated release boot order. Starting the SDK
+before the exporter's gRPC dependencies can fail initialization and discard
+early spans. This follows the [OpenTelemetry release guidance](https://github.com/open-telemetry/opentelemetry-erlang#design).
+WEB-TEST-009 checks the configuration; the Compose test checks the actual boot
+script, startup diagnostics, and end-to-end frontend/gateway trace correlation.
+
 Treat active Loki schema periods as immutable. Before any Loki configuration
 deployment, run `make validate-loki-schema`. A newly appended period must use a
 strictly future UTC `from` date; a same-day or past activation is rejected

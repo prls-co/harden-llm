@@ -190,11 +190,19 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
                  trace =~ domain_trace_id do
               {:ok, {trace_id, trace}}
             else
-              :retry
+              {:retry,
+               %{
+                 signal: :tempo,
+                 trace_found: true,
+                 trace_bytes: byte_size(trace),
+                 frontend: trace =~ "harden-llm-web",
+                 gateway: trace =~ "harden-llm-gateway",
+                 domain_trace: trace =~ domain_trace_id
+               }}
             end
 
           _other ->
-            :retry
+            {:retry, %{signal: :tempo, trace_found: false}}
         end
       end)
 
@@ -270,6 +278,28 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
       ])
 
     assert output == "runtime-image-contract-ok\n"
+
+    # Check the generated boot script, not just Mix's extra_applications list.
+    boot_order =
+      compose!(fixture, root, [
+        "exec",
+        "-T",
+        "harden-llm-web",
+        "/app/bin/harden_llm",
+        "rpc",
+        """
+        path = Path.join([System.fetch_env!("RELEASE_ROOT"), "releases", System.fetch_env!("RELEASE_VSN"), "start.script"])
+        {:ok, [{:script, _, instructions}]} = :file.consult(String.to_charlist(path))
+        applications = for {:apply, {:application, :start_boot, [app, _]}} <- instructions, do: app
+        selected = Enum.filter(applications, &(&1 in [:grpcbox, :opentelemetry_exporter, :opentelemetry]))
+        IO.puts(Enum.join(selected, ","))
+        """
+      ])
+
+    assert String.trim(boot_order) == "grpcbox,opentelemetry_exporter,opentelemetry"
+
+    startup_logs = compose!(fixture, root, ["logs", "--no-color", "harden-llm-web"])
+    refute startup_logs =~ "OTLP exporter failed to initialize"
   end
 
   defp prometheus_sample?(body) do

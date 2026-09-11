@@ -8,6 +8,11 @@ defmodule HardenLlm.MixProject do
       elixir: "~> 1.20.2",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
+      releases: [
+        harden_llm: [
+          applications: [opentelemetry_exporter: :permanent, opentelemetry: :permanent]
+        ]
+      ],
       aliases: aliases(),
       deps: deps(),
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
@@ -62,9 +67,9 @@ defmodule HardenLlm.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
       {:req, "== 0.6.1"},
+      {:opentelemetry_exporter, "== 1.10.0"},
       {:opentelemetry, "== 1.7.0"},
       {:opentelemetry_api, "== 1.5.0"},
-      {:opentelemetry_exporter, "== 1.10.0"},
       {:opentelemetry_phoenix, "== 2.0.1"},
       {:opentelemetry_logger_metadata, "== 0.2.0"},
       {:prom_ex, "== 1.12.0"},
