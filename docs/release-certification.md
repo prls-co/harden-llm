@@ -1278,3 +1278,21 @@ images, live probes, telemetry, and cleanup. `plans/implementation-status.json`
 now points to this deployed application identity, so the default deployed
 launcher no longer uses its older certification SHA. Subsequent documentation
 commits do not change the certified application images.
+
+### Existing dependency-alert qualification
+
+The final push reported three open Dependabot alerts (#3/#4/#5) for indirect
+`google.golang.org/grpc v1.83.0`: two high and one medium. The same dependency
+was present in the prior deployed gateway revision; this release did not
+introduce or upgrade it. The current release's `govulncheck ./...` passed with
+zero detected affected calls/imported packages, while reporting four advisory
+matches in required modules. That reachability result is not a claim that the
+dependency version has no vulnerabilities.
+
+The gateway uses gRPC as the OTLP client to its private Collector, not as a
+public gRPC/xDS server; the production dependency graph has no xDS packages.
+GitHub identifies 1.83.2 as covering all three reported alerts. Dependency
+remediation remains a separate maintenance item; no alert was dismissed and
+no dependency change was added to this certified UI promotion. This limitation
+is included in the production receipt rather than silently treating the push
+warning as resolved.

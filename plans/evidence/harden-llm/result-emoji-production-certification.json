@@ -326,6 +326,17 @@
     },
     "preserved": "New guest result, profiles, credentials, sessions, volumes, telemetry stores and backups; no broad purge."
   },
+  "existingDependencyAlerts": {
+    "package": "google.golang.org/grpc",
+    "version": "1.83.0",
+    "presentInPriorDeployedGateway": true,
+    "openDependabotAlertNumbers": [3, 4, 5],
+    "severities": {"high": 2, "medium": 1},
+    "patchedVersionCoveringAllThree": "1.83.2",
+    "releaseGovulncheck": "passed: zero affected calls or imported packages detected; four advisory matches in required modules",
+    "gatewayUsage": "OTLP gRPC client to private Collector; no public gRPC server or xDS packages in production dependency graph",
+    "status": "documented existing maintenance item; not remediated or dismissed in this UI release"
+  },
   "retiredCommand": {
     "command": "reconcile-history",
     "status": 1,
