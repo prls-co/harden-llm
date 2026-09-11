@@ -31,7 +31,8 @@ export function ciMode(event, suite = "fast") {
 export function changedServices(paths) {
   const selected = new Set();
   for (const p of paths) {
-    if (/^deploy\/preview\//.test(p)) { selected.add("gateway"); selected.add("web"); }
+    // Compose/routing configuration is applied by deployEnvironment; it is not
+    // an application image input and must not trigger either image build.
     if (/^frontend\/(lib\/|assets\/|config\/|priv\/|mix\.(exs|lock)$|Dockerfile$|\.dockerignore$)/.test(p)) selected.add("web");
     if ((/^(Dockerfile|\.dockerignore|go\.mod|go\.sum)$/.test(p) || /^(internal\/|cmd\/|[^/]+\.go$)/.test(p)) &&
         !p.endsWith("_test.go") && !/^internal\/(testkit|integrationtest|smoke|deploytest)\//.test(p)) selected.add("gateway");

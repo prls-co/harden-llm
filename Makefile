@@ -25,7 +25,7 @@ validate-loki-schema:
 test-static: validate-loki-schema
 	$(GO) test ./internal/testkit/... -count=1
 	$(NODE) scripts/verify-parity-fixtures.mjs
-	$(NODE) --test scripts/test/preview_policy_test.mjs
+	$(NODE) --test scripts/test/preview_policy_test.mjs scripts/test/shared_profiles_test.mjs
 
 test-unit:
 	$(GO) test ./... -count=1

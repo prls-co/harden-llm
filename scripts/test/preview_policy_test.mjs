@@ -25,7 +25,7 @@ test("guest login provisioning uses TEST variables and never replaces an existin
   assert.throws(() => ensureTestLogin({root:"/tmp/preview-test"}, branchIdentity("dev"), guest, () => "different@example.test"), /different account/);
 });
 
-test("new previews share only the approved operator login, never service secrets", () => {
+test("operator login parsing never imports provider or infrastructure secrets", () => {
   assert.deepEqual(operatorCredentials('HARDEN_LLM_LOCAL_OPERATOR_EMAIL="Operator@Example.test"\nHARDEN_LLM_LOCAL_OPERATOR_PASSWORD=\'fixture$only\'\nPROVIDER_API_KEY=must-not-copy\nHARDEN_LLM_WEB_SECRET_KEY_BASE=must-not-copy'), {
     OPERATOR_EMAIL: "operator@example.test", OPERATOR_PASSWORD: "fixture$only",
   });
@@ -64,7 +64,7 @@ test("image rebuilds follow application inputs, not docs or test-only changes", 
   assert.deepEqual(changedServices(["frontend/lib/widget.ex", "frontend/assets/app.css"]), ["web"]);
   assert.deepEqual(changedServices(["internal/gateway/run.go", "go.mod"]), ["gateway"]);
   assert.deepEqual(changedServices(["frontend/mix.lock", "run.go"]), ["gateway", "web"]);
-  assert.deepEqual(changedServices(["deploy/preview/compose.yml"]), ["gateway", "web"]);
+  assert.deepEqual(changedServices(["deploy/preview/compose.yml"]), []);
 });
 
 test("deployments require an enabled same-repository branch and a passing current revision", () => {

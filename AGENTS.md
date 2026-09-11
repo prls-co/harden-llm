@@ -100,8 +100,13 @@ Routine changes do not require full release certification or production
 deployment. Promote to `main`/production only when explicitly requested. Skip
 application builds for docs/test-only changes and rebuild only affected
 services. Preview operator logins use the same email/password as production,
-as explicitly requested. Keep provider/service secrets, data, sessions, and
-networks separate; never copy production datasets or bearer sessions. Before
+as explicitly requested. Provider keys and model/profile configuration now come
+from the single protected `.env` identified by preview host `sharedEnvFile`.
+Apply them with the trusted `sync-profiles` administrative command; never use
+interactive profile-save probes as deployment checks. Keep infrastructure
+credentials, encryption keys, data, sessions, and networks separate; never copy
+production datasets or bearer sessions. Only trusted branches may receive shared
+provider credentials (they have real production-provider spending authority). Before
 provisioning login access, distinguish the guest `TEST_LOGIN`/`TEST_PASSWORD`
 pair from `HARDEN_LLM_LOCAL_OPERATOR_*`; syncing the operator alone does not
 provide guest access. Preserve both accounts and their independent data. Before

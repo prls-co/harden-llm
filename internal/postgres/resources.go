@@ -59,6 +59,16 @@ func (store *Store) Credentials(ctx context.Context, ownerID string) ([]Credenti
 }
 
 func (store *Store) ReplaceProfileBundle(ctx context.Context, ownerID string, profileRecords []ProfileRecord, credentialRecords []CredentialRecord) error {
+	return store.writeProfileBundle(ctx, ownerID, profileRecords, credentialRecords, true)
+}
+
+// UpsertProfileBundle applies trusted deployment configuration atomically without
+// deleting unrelated user profiles, credentials, state, or history.
+func (store *Store) UpsertProfileBundle(ctx context.Context, ownerID string, profileRecords []ProfileRecord, credentialRecords []CredentialRecord) error {
+	return store.writeProfileBundle(ctx, ownerID, profileRecords, credentialRecords, false)
+}
+
+func (store *Store) writeProfileBundle(ctx context.Context, ownerID string, profileRecords []ProfileRecord, credentialRecords []CredentialRecord, replace bool) error {
 	if err := validateIdentifier("owner ID", ownerID); err != nil {
 		return err
 	}
@@ -137,19 +147,21 @@ func (store *Store) ReplaceProfileBundle(ctx context.Context, ownerID string, pr
 			return fmt.Errorf("postgres: replace bundle profile: %w", err)
 		}
 	}
-	if len(profileIDs) == 0 {
-		if _, err := transaction.Exec(ctx, `DELETE FROM llm_profiles WHERE owner_id = $1`, ownerID); err != nil {
+	if replace {
+		if len(profileIDs) == 0 {
+			if _, err := transaction.Exec(ctx, `DELETE FROM llm_profiles WHERE owner_id = $1`, ownerID); err != nil {
+				return fmt.Errorf("postgres: delete replaced profiles: %w", err)
+			}
+		} else if _, err := transaction.Exec(ctx, `DELETE FROM llm_profiles WHERE owner_id = $1 AND NOT (profile_id = ANY($2))`, ownerID, profileIDs); err != nil {
 			return fmt.Errorf("postgres: delete replaced profiles: %w", err)
 		}
-	} else if _, err := transaction.Exec(ctx, `DELETE FROM llm_profiles WHERE owner_id = $1 AND NOT (profile_id = ANY($2))`, ownerID, profileIDs); err != nil {
-		return fmt.Errorf("postgres: delete replaced profiles: %w", err)
-	}
-	if len(credentialIDs) == 0 {
-		if _, err := transaction.Exec(ctx, `DELETE FROM llm_endpoint_credentials WHERE owner_id = $1`, ownerID); err != nil {
+		if len(credentialIDs) == 0 {
+			if _, err := transaction.Exec(ctx, `DELETE FROM llm_endpoint_credentials WHERE owner_id = $1`, ownerID); err != nil {
+				return fmt.Errorf("postgres: delete replaced credentials: %w", err)
+			}
+		} else if _, err := transaction.Exec(ctx, `DELETE FROM llm_endpoint_credentials WHERE owner_id = $1 AND NOT (credential_id = ANY($2))`, ownerID, credentialIDs); err != nil {
 			return fmt.Errorf("postgres: delete replaced credentials: %w", err)
 		}
-	} else if _, err := transaction.Exec(ctx, `DELETE FROM llm_endpoint_credentials WHERE owner_id = $1 AND NOT (credential_id = ANY($2))`, ownerID, credentialIDs); err != nil {
-		return fmt.Errorf("postgres: delete replaced credentials: %w", err)
 	}
 	if _, err := transaction.Exec(ctx, `
 		UPDATE llm_endpoint_credentials c SET metadata = jsonb_set(
@@ -162,7 +174,9 @@ func (store *Store) ReplaceProfileBundle(ctx context.Context, ownerID string, pr
 				) inference_types WHERE value IS NOT NULL AND value <> ''
 			), '[]'::jsonb), true
 		)
-		WHERE c.owner_id=$1`, ownerID); err != nil {
+		WHERE c.owner_id=$1 AND EXISTS (
+			SELECT 1 FROM llm_profiles p WHERE p.owner_id=c.owner_id AND p.credential_id=c.credential_id
+		)`, ownerID); err != nil {
 		return fmt.Errorf("postgres: reconcile bundled credential inference types: %w", err)
 	}
 	if err := transaction.Commit(ctx); err != nil {

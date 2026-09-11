@@ -67,21 +67,21 @@ from `.env`. This is a separate account from the operator described below.
 The guest credentials have been verified on both production and dev. Do not
 substitute `HARDEN_LLM_LOCAL_OPERATOR_*` when asked for the guest/test login.
 
-Each environment starts empty, with the same operator email/password as
-production (user-requested policy). The local login reference is at:
+Each environment has its own data, with the same guest/operator login and shared
+provider/model setup as production (user-requested policy). The local login reference is at:
 
 ```text
 /home/kirill/.local/share/harden-llm-previews/environments/<id>/login.txt
 ```
 
 Read that private file on the host; never put its password in Git, workflow
-logs, or chat. New previews read only `HARDEN_LLM_LOCAL_OPERATOR_EMAIL` and
-`HARDEN_LLM_LOCAL_OPERATOR_PASSWORD` from the host configuration's
-`operatorEnvFile` (reference host: `/home/kirill/p/harden-llm-production/.env`).
-Configure
-development provider credentials through that environment's UI if needed.
-Only the operator login is shared; production provider/service secrets and
-data are not copied. Accounts and bearer sessions remain local to each database,
+logs, or chat. All previews read one protected `.env` from host configuration
+`sharedEnvFile` (reference host: `/home/kirill/p/harden-llm/.env`). This is also
+the source used to apply production's shared model/key configuration; branch
+checkouts are not alternative configuration sources. See
+[shared configuration](shared-llm-configuration.md) for updates and rotation.
+Provider keys and profile/model settings are shared. Infrastructure credentials,
+encryption keys, databases and artifacts are not. Accounts and bearer sessions remain local to each database,
 not SSO. A later password rotation must also update existing preview accounts;
 deployment does not silently reset an existing account. Automated checks never submit
 an LLM run or incur provider charges.

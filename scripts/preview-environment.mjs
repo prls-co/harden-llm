@@ -1,12 +1,14 @@
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-062
 // Host-side deployment primitives. Invoked only by trusted main-branch orchestration.
-import { spawnSync } from "node:child_process";
+import { command } from "./host-command.mjs";
+export { command } from "./host-command.mjs";
 import { randomBytes } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { parseEnv } from "node:util";
 import { branchIdentity, changedServices } from "./preview-policy.mjs";
+import { sharedProfiles, sharedApplicationVariables, syncSharedProfiles, verifySharedProfiles } from "./shared-profiles.mjs";
 
 export const configPath = path.join(os.homedir(), ".config/harden-llm-preview/host.json");
 export const repo = "prls-co/harden-llm";
@@ -21,15 +23,6 @@ export async function writePrivate(file, value) {
 export async function readJSON(file, fallback) {
   try { return JSON.parse(await fs.readFile(file, "utf8")); }
   catch (error) { if (error.code === "ENOENT" && fallback !== undefined) return fallback; throw error; }
-}
-
-export function command(bin, args, options = {}) {
-  const result = spawnSync(bin, args, { encoding: "utf8", timeout: 900_000, maxBuffer: 8 * 1024 * 1024, ...options });
-  if (result.status !== 0 || result.error) {
-    // Do not include subprocess output: connection errors may include credentials.
-    throw new Error(`${bin} ${args[0] ?? ""} failed (exit ${result.status ?? result.error?.code}); inspect the scoped service locally`);
-  }
-  return (result.stdout ?? "").trim();
 }
 
 export async function loadConfig() {
@@ -212,7 +205,9 @@ export async function deployEnvironment(c, branch, sha) {
     if (command("git", ["-C", source, "status", "--porcelain"])) throw new Error("Preview worktree has local changes; refusing overwrite");
     command("git", ["-C", source, "checkout", "--detach", sha]);
   }
-  const sharedEnv = await fs.readFile(c.operatorEnvFile, "utf8");
+  const sharedEnv = await fs.readFile(c.sharedEnvFile, "utf8");
+  const sharedValues = parseEnv(sharedEnv);
+  sharedProfiles(sharedValues); // Fail before changing services if keys/config are incomplete.
   const guest = testCredentials(sharedEnv);
   const credentials = await readJSON(path.join(directory, "secrets.json"), null) ?? {
     ...secrets(), ...operatorCredentials(sharedEnv),
@@ -233,7 +228,7 @@ export async function deployEnvironment(c, branch, sha) {
   if (command("git", ["-C", c.sourceRepository, "rev-parse", `refs/remotes/origin/${branch}`]) !== sha) throw new Error("Branch advanced during build; nothing promoted");
   let previousEnv = null;
   try { previousEnv = await fs.readFile(envPath); } catch (e) { if (e.code !== "ENOENT") throw e; }
-  const values = { ...credentials, PREVIEW_ID: state.id, PREVIEW_PROJECT: state.project, PREVIEW_HOST: state.host,
+  const values = { ...credentials, ...sharedApplicationVariables(sharedValues), PREVIEW_ID: state.id, PREVIEW_PROJECT: state.project, PREVIEW_HOST: state.host,
     PREVIEW_CONTROL: path.join(c.root, "control"), GATEWAY_IMAGE: components.gateway.imageID, WEB_IMAGE: components.web.imageID,
     GATEWAY_RELEASE: components.gateway.release, WEB_RELEASE: components.web.release };
   await writePrivate(envPath, dotenv(values));
@@ -250,8 +245,11 @@ export async function deployEnvironment(c, branch, sha) {
         command("docker", args, { input: credentials.OPERATOR_PASSWORD + "\n" });
       }
     }
-    if (!state.initialized || services.length) compose(c, state, ["up", "-d", "--no-build", "--no-deps", "--wait", "--wait-timeout", "180", ...(!state.initialized ? ["gateway", "web"] : services)]);
+    // Compose recreates only changed image/config services; .env-only changes
+    // must apply even when neither application needed rebuilding.
+    compose(c, state, ["up", "-d", "--no-build", "--no-deps", "--wait", "--wait-timeout", "180", "gateway", "web"]);
     const guestCreated = ensureTestLogin(c, state, guest);
+    syncSharedProfiles(compose(c, state, ["ps", "-q", "gateway"]), components.gateway.imageID, sharedValues);
     const edge = hostCompose(c, ["ps", "-q", "edge"]);
     const [edgeInfo] = JSON.parse(command("docker", ["inspect", edge]));
     if (!edgeInfo.NetworkSettings.Networks[`${state.project}-private`]) command("docker", ["network", "connect", `${state.project}-private`, edge]);
@@ -263,6 +261,7 @@ export async function deployEnvironment(c, branch, sha) {
     await healthCheck(state.url, state.initialized ? 90_000 : 300_000);
     if (!state.initialized) await authCheck(state.url, credentials);
     if (!state.initialized || guestCreated) await authCheck(state.url, { OPERATOR_EMAIL: guest.email, OPERATOR_PASSWORD: guest.password });
+    await verifySharedProfiles(state.url, sharedValues);
     for (const service of ["gateway", "web"]) {
       const id = compose(c, state, ["ps", "-q", service]);
       const [info] = JSON.parse(command("docker", ["inspect", id]));
