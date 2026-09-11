@@ -37,7 +37,7 @@ async function requestFast(branch, sha) {
     throw new Error("Branch CI differs from trusted browser-free workflow; merge current main first");
   }
   const { workflow_runs: runs } = await api(`actions/workflows/test-hierarchy.yml/runs?head_sha=${sha}&per_page=30`);
-  if (!runs.some(run => run.head_sha === sha && ["queued", "in_progress", "waiting", "requested", "pending"].includes(run.status))) {
+  if (!runs.some(run => run.head_branch === branch && run.head_sha === sha && ["queued", "in_progress", "waiting", "requested", "pending"].includes(run.status))) {
     await api("actions/workflows/test-hierarchy.yml/dispatches", "POST", { ref: branch, inputs: { suite: "fast" } });
   }
   console.log(`Preview enabled for ${branch}; waiting for browser-free checks at ${sha}`);
