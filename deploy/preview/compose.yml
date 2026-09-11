@@ -70,7 +70,8 @@ services:
       HARDEN_LLM_MAX_RUN_DURATION_MS: '60000'
       HARDEN_LLM_OTEL_EXPORTER_OTLP_ENDPOINT: ''
       HARDEN_LLM_SERVICE_NAME: harden-llm-preview-gateway
-      HARDEN_LLM_ENVIRONMENT: preview-${PREVIEW_ID}
+      # Existing development mode explicitly permits no telemetry exporter.
+      HARDEN_LLM_ENVIRONMENT: development
       HARDEN_LLM_RELEASE: ${GATEWAY_RELEASE:?}
     depends_on:
       postgres: {condition: service_healthy}
