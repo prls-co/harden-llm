@@ -277,7 +277,7 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
     // data services on every deploy so a control-file change cannot be missed
     // by a later code-only checkpoint; unchanged containers remain untouched.
     const runtimeServices = ["postgres", "garage", "gateway", "web"];
-    compose(c, state, ["up", "-d", "--no-build", "--no-deps", "--wait", "--wait-timeout", "180", ...runtimeServices]);
+    compose(c, state, ["up", "-d", "--no-build", "--wait", "--wait-timeout", "180", ...runtimeServices]);
     const guestCreated = ensureTestLogin(c, state, guest);
     syncSharedProfiles(compose(c, state, ["ps", "-q", "gateway"]), components.gateway.imageID, sharedValues);
     const edge = hostCompose(c, ["ps", "-q", "edge"]);

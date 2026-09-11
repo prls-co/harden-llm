@@ -111,6 +111,13 @@ Health checks probe quickly during startup and less frequently after startup;
 preview services have conservative memory and CPU limits to prevent idle
 branches from consuming unbounded host resources.
 
+The measured dev baseline before these changes was approximately 199 MiB for
+the four idle containers (gateway 11 MiB, web 142 MiB, Postgres 33 MiB, and
+Garage 13 MiB). The last application-bearing fast CI run took about four
+minutes and the preview reconciliation took about 26 seconds; subsequent
+no-change reconciliations are expected to reuse images and leave unchanged
+containers in place.
+
 Postgres and Garage are deliberately not shared between previews yet. Sharing
 them would reduce idle memory but would add database/schema ownership,
 per-branch bucket prefixes and credentials, cleanup, backup, and noisy-neighbor
