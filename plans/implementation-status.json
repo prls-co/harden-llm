@@ -558,11 +558,11 @@
       }
     },
     "applicationRelease": {
-      "applicationBearingSHA": "3a721a1fcc72d524800aac27b95729be0b8ce342",
-      "sourceMainSHA": "3a721a1fcc72d524800aac27b95729be0b8ce342",
-      "frontendRelease": "3a721a1fcc72d524800aac27b95729be0b8ce342",
-      "frontendImageDigest": "sha256:c02637b248639155e16a5664baa0dd97934bc2376939490131ef117bc6f0c7b0",
-      "frontendContainerId": "c0aad9a884e1",
+      "applicationBearingSHA": "94ada3324a2c3cbede245e2d43c6ab36377f278b",
+      "sourceMainSHA": "94ada3324a2c3cbede245e2d43c6ab36377f278b",
+      "frontendRelease": "94ada3324a2c3cbede245e2d43c6ab36377f278b",
+      "frontendImageDigest": "sha256:52edb3a68415f0325a439c87419599adeee5870b8fcf89bfae101206a79da025",
+      "frontendContainerId": "7573f1a00a5a",
       "gatewayRelease": "3a721a1fcc72d524800aac27b95729be0b8ce342",
       "gatewayImageDigest": "sha256:cd8a408899fe8dc478f799cd77e379ae11ae76a68b39ea777ab27018926c9736",
       "gatewayContainerId": "a793531b0f94",
@@ -570,18 +570,18 @@
       "environmentFileRole": "production Compose env file supplied with --env-file"
     },
     "latestProductionCertification": {
-      "mergedMainSHA": "3a721a1fcc72d524800aac27b95729be0b8ce342",
-      "certifiedAt": "2026-09-11T00:50:34Z",
-      "evidencePath": "plans/evidence/harden-llm/result-emoji-production-certification.json",
-      "hostedWorkflow": "https://github.com/prls-co/harden-llm/actions/runs/34546660108",
-      "releaseTier": "canonical release selector accepted 26 tasks with zero failures and zero cleanup errors; all four hosted hierarchy jobs passed",
+      "mergedMainSHA": "94ada3324a2c3cbede245e2d43c6ab36377f278b",
+      "certifiedAt": "2026-09-11T01:34:50Z",
+      "evidencePath": "docs/release-certification.md",
+      "hostedWorkflow": "https://github.com/prls-co/harden-llm/actions/runs/34549732580",
+      "releaseTier": "hosted canonical release selector accepted 26 tasks with zero failures and zero cleanup errors; all four hosted hierarchy jobs passed; local fast gate accepted 8 tasks",
       "composeSmoke": "release-owned Compose and browser tasks passed",
       "test056": {
         "accepted": true,
-        "expectedRelease": "3a721a1fcc72d524800aac27b95729be0b8ce342",
+        "expectedRelease": "94ada3324a2c3cbede245e2d43c6ab36377f278b",
         "identityHealth": "healthy",
         "probes": {"webHealthz": 200, "login": 200, "apiHealthz": 200, "apiReadyz": 200},
-        "authenticatedCanary": "passed with existing operator credentials: CPA GPT-5.6 Luna, Clear Prompt, paired emoji disclosure, inline stats, nonce History cleanup and logout",
+        "authenticatedCanary": "passed with existing operator credentials: CPA GPT-5.6 Luna, conversation/robot emoji disclosure, inline stats, nonce History cleanup and logout",
         "cleanup": "browser container and generated frontend scratch removed; exactly one canary cache row deleted; existing guest result preserved"
       }
     },

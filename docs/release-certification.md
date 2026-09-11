@@ -1322,3 +1322,44 @@ awaits hydration and the History task it starts, each with the established
 Explicit trace/delete handshakes and every rollback/reload assertion remain.
 No application logic, configured timeout, or assertion limit was increased.
 The failed release is retained as rejected evidence, not silently retried.
+
+### Verified conversation-icon rollout
+
+Final source `94ada3324a2c3cbede245e2d43c6ab36377f278b` was pushed to
+`origin/main`. The corrected local fast gate accepted all 8 tasks, including
+166 deterministic Phoenix tests (4 opt-in cases excluded), with no cleanup
+errors (`tmp/result-conversation-icons-verified-fast.json`). The focused
+rollback and component tests also passed. The application and browser-test
+inputs are unchanged from the visually inspected initial candidate; the
+additional change is the deterministic test setup described above.
+
+[GitHub run 34549732580](https://github.com/prls-co/harden-llm/actions/runs/34549732580)
+passed all four jobs on the final SHA. Its `make test-release` accepted all
+26 tasks with no failure or cleanup errors at `2026-09-11T01:32:15Z`.
+The complete release gate was run in GitHub, not redundantly repeated locally.
+
+The frontend-only deployment began at `2026-09-11T01:33:14Z`, using Compose
+`up -d --no-build --no-deps --wait --wait-timeout 300 harden-llm-web` from the
+clean production worktree. Live container `7573f1a00a5a` is healthy with source
+label `94ada3324a2c3cbede245e2d43c6ab36377f278b` and image
+`sha256:52edb3a68415f0325a439c87419599adeee5870b8fcf89bfae101206a79da025`,
+also retained as `harden-llm-web:release-94ada33`. The preceding frontend image
+remains available as `harden-llm-web:release-3a721a1` for rollback. The gateway
+container, image, and release remain unchanged at `3a721a1`; no backend,
+database, session-vault, or telemetry service was replaced.
+
+The authenticated deployed-browser canary accepted the exact live frontend
+identity and verified `💬` input / `🤖` output, paired folding, inline stats,
+History cleanup, and logout. Frontend health/login and API health/readiness
+all returned 200. Frontend startup logs showed no exporter-initialization or
+observability-setup failures.
+
+The canary removed its History entry; an exact owner/version/hash/timestamp/
+nonce-guarded transaction removed only its one cache entry. The existing guest
+run, trace, artifact, and cache counts remain one each; operator-local returned
+to zero in all four categories. The artifact audit is healthy, with one
+referenced object and none missing or unreferenced. No user record or telemetry
+was purged. `plans/implementation-status.json` records the new frontend and
+unchanged gateway identities. Subsequent documentation-only commits do not
+alter these certified images. The previously documented dependency alerts
+remain outside this icon-only application change.
