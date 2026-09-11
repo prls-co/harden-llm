@@ -90,6 +90,24 @@ export function operatorCredentials(contents) {
   return { OPERATOR_EMAIL: email, OPERATOR_PASSWORD: password };
 }
 
+export function testCredentials(contents) {
+  const values = parseEnv(contents);
+  const email = values.TEST_LOGIN?.trim().toLowerCase();
+  const password = values.TEST_PASSWORD;
+  if (!email || !password || /[\r\n]/.test(password)) throw new Error("TEST_LOGIN/TEST_PASSWORD are missing or invalid");
+  return { email, password };
+}
+
+export function ensureTestLogin(c, state, guest, run = command) {
+  if (state.project !== branchIdentity(state.branch).project) throw new Error("Preview ownership mismatch");
+  const base = ["compose", "--env-file", path.join(environmentDirectory(c, state.branch), ".env"), "-p", state.project, "-f", path.join(c.root, "control/compose.yml"), "exec", "-T"];
+  const email = run("docker", [...base, "postgres", "sh", "-c", 'PGPASSWORD="$POSTGRES_PASSWORD" psql -X -qAt -v ON_ERROR_STOP=1 -U harden_llm -d harden_llm -c "SELECT email FROM users WHERE id=\'guest\'"']);
+  if (email === guest.email) return false;
+  if (email) throw new Error("Guest owner ID belongs to a different account; refusing overwrite");
+  run("docker", [...base, "gateway", "/harden-llm-gateway", "bootstrap-user", "--owner-id", "guest", "--email", guest.email, "--password-file", "-"], { input: guest.password + "\n" });
+  return true;
+}
+
 function secrets() {
   const secret = n => randomBytes(n).toString("base64url");
   return {
@@ -194,11 +212,13 @@ export async function deployEnvironment(c, branch, sha) {
     if (command("git", ["-C", source, "status", "--porcelain"])) throw new Error("Preview worktree has local changes; refusing overwrite");
     command("git", ["-C", source, "checkout", "--detach", sha]);
   }
+  const sharedEnv = await fs.readFile(c.operatorEnvFile, "utf8");
+  const guest = testCredentials(sharedEnv);
   const credentials = await readJSON(path.join(directory, "secrets.json"), null) ?? {
-    ...secrets(), ...operatorCredentials(await fs.readFile(c.operatorEnvFile, "utf8")),
+    ...secrets(), ...operatorCredentials(sharedEnv),
   };
   await writePrivate(path.join(directory, "secrets.json"), JSON.stringify(credentials, null, 2) + "\n");
-  await writePrivate(path.join(directory, "login.txt"), `URL: ${state.url}\nEmail: ${credentials.OPERATOR_EMAIL}\nPassword: ${credentials.OPERATOR_PASSWORD}\n`);
+  await writePrivate(path.join(directory, "login.txt"), `URL: ${state.url}\nGuest email: ${guest.email}\nGuest password: ${guest.password}\nOperator email: ${credentials.OPERATOR_EMAIL}\nOperator password: ${credentials.OPERATOR_PASSWORD}\n`);
   const components = structuredClone(state.components);
   for (const service of services) {
     const image = `harden-llm-preview-${service}:${sha}`;
@@ -231,6 +251,7 @@ export async function deployEnvironment(c, branch, sha) {
       }
     }
     if (!state.initialized || services.length) compose(c, state, ["up", "-d", "--no-build", "--no-deps", "--wait", "--wait-timeout", "180", ...(!state.initialized ? ["gateway", "web"] : services)]);
+    const guestCreated = ensureTestLogin(c, state, guest);
     const edge = hostCompose(c, ["ps", "-q", "edge"]);
     const [edgeInfo] = JSON.parse(command("docker", ["inspect", edge]));
     if (!edgeInfo.NetworkSettings.Networks[`${state.project}-private`]) command("docker", ["network", "connect", `${state.project}-private`, edge]);
@@ -241,6 +262,7 @@ export async function deployEnvironment(c, branch, sha) {
     // New Cloudflare hostnames can take several minutes to reach every edge.
     await healthCheck(state.url, state.initialized ? 90_000 : 300_000);
     if (!state.initialized) await authCheck(state.url, credentials);
+    if (!state.initialized || guestCreated) await authCheck(state.url, { OPERATOR_EMAIL: guest.email, OPERATOR_PASSWORD: guest.password });
     for (const service of ["gateway", "web"]) {
       const id = compose(c, state, ["ps", "-q", service]);
       const [info] = JSON.parse(command("docker", ["inspect", id]));

@@ -62,6 +62,11 @@ images remain reusable; do not run broad Docker prune commands on this host.
 
 ## 3. Login and data ownership
 
+For the guest login, use `TEST_LOGIN` (`guest@guest.com`) and `TEST_PASSWORD`
+from `.env`. This is a separate account from the operator described below.
+The guest credentials have been verified on both production and dev. Do not
+substitute `HARDEN_LLM_LOCAL_OPERATOR_*` when asked for the guest/test login.
+
 Each environment starts empty, with the same operator email/password as
 production (user-requested policy). The local login reference is at:
 
@@ -194,3 +199,14 @@ Production's account was not modified. HTTP checks verified both logins and
 that a production bearer token remains invalid in dev. New preview creation
 uses the same approved login source, but still generates separate service and
 session secrets. No application image rebuild/restart or browser was needed.
+
+### Guest login correction (2026-09-11)
+
+The preceding operator alignment did not provision `TEST_LOGIN`. The existing
+guest account authenticated successfully in production but returned 401 in dev.
+Dev now has its own `guest` account created with the exact `TEST_PASSWORD` from
+`.env`, without changing the operator or copying production data. HTTP login,
+session, profiles, history, and logout passed. The dev-branch provisioning fix
+also checks for this separate guest account and creates it when missing; it
+does not overwrite an existing account. That automation change becomes active
+for future previews when promoted to the trusted `main` orchestration branch.

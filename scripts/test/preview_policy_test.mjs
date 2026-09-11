@@ -4,10 +4,26 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { branchIdentity, ciMode, changedServices, deploymentAllowed } from "../preview-policy.mjs";
 import { loadManifest, selectTasks, runSelection } from "../run-test-tier.mjs";
-import { dotenv, routeFor, stateFor, destroyEnvironment, operatorCredentials } from "../preview-environment.mjs";
+import { dotenv, routeFor, stateFor, destroyEnvironment, operatorCredentials, testCredentials, ensureTestLogin } from "../preview-environment.mjs";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+
+test("guest login provisioning uses TEST variables and never replaces an existing account", () => {
+  const guest = testCredentials('TEST_LOGIN="guest@guest.com"\nTEST_PASSWORD=\'fixture$guest\'\nHARDEN_LLM_LOCAL_OPERATOR_EMAIL=operator@example.test');
+  assert.deepEqual(guest, { email: "guest@guest.com", password: "fixture$guest" });
+  assert.throws(() => testCredentials("TEST_LOGIN=guest@guest.com"), /missing/);
+  const calls = [];
+  const run = (...args) => { calls.push(args); return ""; };
+  assert.equal(ensureTestLogin({root:"/tmp/preview-test"}, branchIdentity("dev"), guest, run), true);
+  assert.equal(calls.length, 2);
+  assert(calls[1][1].includes("bootstrap-user"));
+  assert(calls[1][1].includes("guest"));
+  assert(!calls[1][1].includes(guest.password));
+  assert.equal(calls[1][2].input, guest.password + "\n");
+  assert.equal(ensureTestLogin({root:"/tmp/preview-test"}, branchIdentity("dev"), guest, () => guest.email), false);
+  assert.throws(() => ensureTestLogin({root:"/tmp/preview-test"}, branchIdentity("dev"), guest, () => "different@example.test"), /different account/);
+});
 
 test("new previews share only the approved operator login, never service secrets", () => {
   assert.deepEqual(operatorCredentials('HARDEN_LLM_LOCAL_OPERATOR_EMAIL="Operator@Example.test"\nHARDEN_LLM_LOCAL_OPERATOR_PASSWORD=\'fixture$only\'\nPROVIDER_API_KEY=must-not-copy\nHARDEN_LLM_WEB_SECRET_KEY_BASE=must-not-copy'), {

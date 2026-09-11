@@ -102,6 +102,9 @@ application builds for docs/test-only changes and rebuild only affected
 services. Preview operator logins use the same email/password as production,
 as explicitly requested. Keep provider/service secrets, data, sessions, and
 networks separate; never copy production datasets or bearer sessions. Before
+provisioning login access, distinguish the guest `TEST_LOGIN`/`TEST_PASSWORD`
+pair from `HARDEN_LLM_LOCAL_OPERATOR_*`; syncing the operator alone does not
+provide guest access. Preserve both accounts and their independent data. Before
 reporting a deployed change, record the branch, source SHA,
 component image identities, environment URL, and browser-free checks. Report
 deployment blockers rather than implying that an undeployed change is live.
