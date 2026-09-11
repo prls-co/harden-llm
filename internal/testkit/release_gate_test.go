@@ -81,7 +81,7 @@ func TestReleaseTaskComposition(t *testing.T) {
 		"go-integration", "go-integration-race", "garage-restart-exclusive", "go-api",
 		"go-observability", "go-compose", "go-race", "go-vulnerability",
 		"frontend-format", "frontend-compile", "frontend-deterministic", "client-core",
-		"frontend-browser", "frontend-compose", "frontend-deps-audit", "frontend-hex-audit",
+		"frontend-deps-audit", "frontend-hex-audit",
 		"frontend-assets-deploy", "frontend-release", "backend-verify-baseline",
 	}
 	for _, taskID := range required {
@@ -90,11 +90,10 @@ func TestReleaseTaskComposition(t *testing.T) {
 		}
 	}
 	for _, task := range manifest.Tasks {
-		if _, ok := selected[task.ID]; !ok {
-			continue
-		}
-		if task.Network == "public" {
-			t.Errorf("release selection includes public-network task %q; live is a separate selector", task.ID)
+		if task.ID == "frontend-browser" || task.ID == "frontend-compose" || task.ID == "frontend-deployed" {
+			if _, automatic := selected[task.ID]; automatic {
+				t.Errorf("browser task %q must require explicit authorization, not release selection", task.ID)
+			}
 		}
 		if task.ID == "frontend-compose" {
 			var container map[string]any
@@ -108,6 +107,9 @@ func TestReleaseTaskComposition(t *testing.T) {
 			if container["dockerSocket"] != true || container["mountAtHostPath"] != true {
 				t.Errorf("frontend-compose container must use the Docker socket and host-path mount: %v", container)
 			}
+		}
+		if _, ok := selected[task.ID]; ok && task.Network == "public" {
+			t.Errorf("release selection includes public-network task %q; live is a separate selector", task.ID)
 		}
 	}
 }

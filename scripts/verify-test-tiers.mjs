@@ -44,7 +44,7 @@ const requiredCommands = [
   ["mix", "assets.deploy"],
   ["mix", "release"],
   ["make", "verify"],
-  ["node", "scripts/run-deployed-browser-test.mjs"],
+  ["node", "scripts/run-deployed-browser-test.mjs", "--allow-browser"],
 ];
 
 function fail(message) {
@@ -86,7 +86,7 @@ async function main() {
   for (const [target, selector] of Object.entries(requiredTargets)) {
     const body = targetBody(makefile, target);
     if (!body) fail(`missing Make target ${target}`);
-    const expected = `$(NODE) scripts/run-test-tier.mjs --task ${selector}`;
+    const expected = `$(NODE) scripts/run-test-tier.mjs --task ${selector}${selector === "browser" ? " --allow-browser" : ""}`;
     if (!body.includes(expected)) fail(`${target} must delegate to ${expected}`);
     if (body.some((line) => /\b(go|mix|node)\s+(test|format|compile|build)\b/.test(line))) fail(`${target} composes a task command outside the manifest`);
   }
@@ -109,6 +109,12 @@ async function main() {
   for (const [lane, count] of laneCounts) if (count === 0) fail(`benchmark lane ${lane} has no manifest tasks`);
 
   const fastTasks = selectTasks(manifest, "fast");
+  for (const selector of ["fast", "baseline", "release"]) {
+    if (selectTasks(manifest, selector).some(task => task.requiresBrowser)) fail(`${selector} must be browser-free`);
+  }
+  for (const id of ["frontend-browser", "frontend-compose", "frontend-deployed"]) {
+    if (!manifest.tasks.find(task => task.id === id)?.requiresBrowser) fail(`${id} must declare explicit browser authorization`);
+  }
   if (fastTasks.length === 0) fail("fast selection is empty");
   for (const task of fastTasks) assertCheapTask(task);
 

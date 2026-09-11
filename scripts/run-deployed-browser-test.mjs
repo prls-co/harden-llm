@@ -241,6 +241,7 @@ async function cleanupScreenshots() {
 }
 
 export async function main() {
+  if (!process.argv.includes("--allow-browser")) throw new Error("Explicit browser authorization required: --allow-browser");
   const fileEnvironment = await loadDotEnv();
   const environment = { ...fileEnvironment, ...process.env };
   environment.HARDEN_LLM_LOCAL_OPERATOR_EMAIL = firstValue(environment, [

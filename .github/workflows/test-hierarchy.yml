@@ -2,9 +2,17 @@ name: Harden-LLM test hierarchy
 
 on:
   push:
-    branches: [main]
+    branches: ['**']
+    paths-ignore: ['**/*.md', 'docs/**', 'plans/**']
   pull_request:
+    paths-ignore: ['**/*.md', 'docs/**', 'plans/**']
   workflow_dispatch:
+    inputs:
+      suite:
+        description: 'Browser tests run ONLY when explicitly selected here'
+        type: choice
+        default: fast
+        options: [fast, integration, release, browser, full-with-browser]
   schedule:
     - cron: "17 5 * * *"
 
@@ -12,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: harden-llm-hierarchy-${{ github.workflow }}-${{ github.ref }}
+  group: harden-llm-hierarchy-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -22,8 +30,25 @@ env:
   OTP_VERSION: "28.4.3"
 
 jobs:
+  mode:
+    runs-on: ubuntu-latest
+    outputs:
+      fast: ${{ steps.mode.outputs.fast }}
+      integration: ${{ steps.mode.outputs.integration }}
+      release: ${{ steps.mode.outputs.release }}
+      browser: ${{ steps.mode.outputs.browser }}
+      browserCompose: ${{ steps.mode.outputs.browserCompose }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: mode
+        env:
+          SUITE: ${{ inputs.suite }}
+        run: node scripts/preview-policy.mjs ci
+
   fast:
     name: fast T0-T2
+    needs: mode
+    if: needs.mode.outputs.fast == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
@@ -48,10 +73,8 @@ jobs:
 
   integration:
     name: pooled T3 integration
-    if: >-
-      github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ||
-      github.event_name == 'push' ||
-      contains(github.event.pull_request.labels.*.name, 'test:full')
+    needs: mode
+    if: needs.mode.outputs.integration == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     concurrency:
@@ -67,11 +90,9 @@ jobs:
       - run: make test-integration-race
 
   browser:
-    name: targeted T4 browser
-    if: >-
-      github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ||
-      github.event_name == 'push' ||
-      contains(github.event.pull_request.labels.*.name, 'test:full')
+    name: explicitly requested browser checks
+    needs: mode
+    if: needs.mode.outputs.browser == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     concurrency:
@@ -93,13 +114,13 @@ jobs:
         run: mix deps.get
       - run: docker build --tag harden-llm-browser-test:local --file frontend/Dockerfile.browser .
       - run: make test-browser
+      - if: needs.mode.outputs.browserCompose == 'true'
+        run: make test-browser-compose
 
   release:
-    name: release candidate T3-T5
-    if: >-
-      github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ||
-      github.event_name == 'push' ||
-      contains(github.event.pull_request.labels.*.name, 'test:full')
+    name: browser-free release
+    needs: mode
+    if: needs.mode.outputs.release == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 180
     concurrency:
@@ -120,5 +141,4 @@ jobs:
       - run: go mod download
       - working-directory: frontend
         run: mix deps.get
-      - run: docker build --tag harden-llm-browser-test:local --file frontend/Dockerfile.browser .
       - run: make test-release

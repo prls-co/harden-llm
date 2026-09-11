@@ -17,6 +17,23 @@ high-fidelity boundaries.
 
 ## Decision
 
+### September 2026 amendment: browser-free iteration and branch environments
+
+The user explicitly requires browser execution to be opt-in. `fast`, `baseline`,
+and `release` no longer select browser tasks. Browser tasks retain their original
+assertions and resource limits, carry `requiresBrowser`, and require explicit
+authorization. `make test-browser` and `make test-browser-compose` provide that
+authorization only when the user requests them. Push/PR CI runs cheap tests;
+scheduled/manual release checks are browser-free. The historical certifications
+below describe the earlier policy, not a requirement to launch a browser today.
+
+`dev` and explicitly enabled same-repository branch environments use isolated
+application state and browser-free HTTP health/auth checks. Production promotion
+is explicit. See `docs/preview-environments.md`; TEST-055/062 prove selection,
+branch identity, current-revision gating, and targeted deployment behavior.
+
+### Retained hierarchy and certification history
+
 Accept one machine-readable task manifest at `test/test-tiers.json` and one
 dependency-free execution runner at `scripts/run-test-tier.mjs`. The benchmark
 at `scripts/benchmark-test-feedback.mjs` is an evidence adapter over that

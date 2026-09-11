@@ -1,0 +1,27 @@
+services:
+  edge:
+    image: caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+    restart: unless-stopped
+    command: [caddy, run, --config, /etc/caddy/control/Caddyfile]
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - ${PREVIEW_ROOT}/control:/etc/caddy/control:ro
+      - ${PREVIEW_ROOT}/routes:/etc/caddy/routes:ro
+    networks: [edge]
+    logging:
+      options: {max-size: 10m, max-file: '3'}
+  tunnel:
+    image: ${PREVIEW_TUNNEL_IMAGE:?}
+    user: ${PREVIEW_UID:?}
+    command: [tunnel, --no-autoupdate, run, --token-file, /run/tunnel-token]
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - ${PREVIEW_ROOT}/tunnel-token:/run/tunnel-token:ro
+    networks: [edge]
+    depends_on: [edge]
+    logging:
+      options: {max-size: 10m, max-file: '3'}
+networks:
+  edge:
+    name: harden-llm-preview-edge

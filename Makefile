@@ -7,7 +7,7 @@ NODE ?= node
 INTEGRATION_PACKAGE_PARALLELISM ?= 1
 RACE_PACKAGE_PARALLELISM ?= 1
 
-.PHONY: format lint build validate-loki-schema test-static test-unit test-parity test-integration test-integration-race test-api test-observability test-compose test-race test-vulnerability live-structured-call test-fast test-browser test-release test-live benchmark-test-feedback verify
+.PHONY: format lint build validate-loki-schema test-static test-unit test-parity test-integration test-integration-race test-api test-observability test-compose test-race test-vulnerability live-structured-call test-fast test-browser test-browser-compose test-release test-live benchmark-test-feedback verify
 
 format:
 	@unformatted="$$($(GOFMT) -l $$(find . -type f -name '*.go' -not -path './.git/*' -not -path './.codex/*'))"; \
@@ -25,6 +25,7 @@ validate-loki-schema:
 test-static: validate-loki-schema
 	$(GO) test ./internal/testkit/... -count=1
 	$(NODE) scripts/verify-parity-fixtures.mjs
+	$(NODE) --test scripts/test/preview_policy_test.mjs
 
 test-unit:
 	$(GO) test ./... -count=1
@@ -61,7 +62,10 @@ test-fast:
 	$(NODE) scripts/run-test-tier.mjs --task fast
 
 test-browser:
-	$(NODE) scripts/run-test-tier.mjs --task browser
+	$(NODE) scripts/run-test-tier.mjs --task browser --allow-browser
+
+test-browser-compose:
+	$(NODE) scripts/run-test-tier.mjs --task frontend-compose --allow-browser
 
 test-release:
 	$(NODE) scripts/run-test-tier.mjs --task release

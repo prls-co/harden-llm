@@ -1,0 +1,53 @@
+name: Harden-LLM branch environments
+
+on:
+  workflow_run:
+    workflows: ['Harden-LLM test hierarchy']
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Trusted repository branch (never main)'
+        required: true
+        default: dev
+      action:
+        description: 'Enable/update a preview, or remove its data and URL'
+        type: choice
+        options: [deploy, destroy]
+        default: deploy
+  pull_request_target:
+    types: [labeled, unlabeled, closed]
+  delete:
+
+permissions:
+  contents: read
+  actions: write
+  pull-requests: read
+  deployments: write
+
+# Preserve unrelated branch events. The dedicated runner and host flock serialize writes.
+concurrency:
+  group: preview-${{ github.event.workflow_run.head_branch || github.event.pull_request.head.ref || inputs.branch || github.event.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository) ||
+      (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name == github.repository && (github.event.action == 'closed' || github.event.label.name == 'deploy:preview')) ||
+      (github.event_name == 'delete' && github.event.ref_type == 'branch')
+    runs-on: [self-hosted, linux, x64, harden-llm-preview]
+    timeout-minutes: 30
+    steps:
+      # Trusted orchestration only; never check out a PR head on this runner.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Reconcile branch environment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_BRANCH: ${{ inputs.branch }}
+          PREVIEW_ACTION: ${{ inputs.action }}
+        run: node scripts/preview-event.mjs

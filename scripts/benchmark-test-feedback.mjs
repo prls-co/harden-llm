@@ -36,6 +36,7 @@ export function parseArgs(argv) {
     const argument = argv[index];
     if (!argument.startsWith("--")) throw new Error(`unexpected argument ${argument}`);
     const name = argument.slice(2);
+    if (name === "allow-browser") { result.allowBrowser = true; continue; }
     if (name === "help") {
       result.help = true;
       continue;
@@ -195,8 +196,9 @@ export function aggregate(results, { parallel = false, cleanupErrors = [] } = {}
   };
 }
 
-async function runSample(tasks, manifest, { root, seed, cold, parallel, candidateSlots, packageSlotsByTask, runID }) {
+async function runSample(tasks, manifest, { root, seed, cold, parallel, candidateSlots, packageSlotsByTask, runID, allowBrowser }) {
   const result = await runTierTasks(tasks, {
+    allowBrowser,
     root,
     resourceClasses: manifest.resourceClasses,
     seed,
@@ -564,7 +566,7 @@ async function verifyBaseline(filePath) {
 }
 
 function usage() {
-  return "Usage: node scripts/benchmark-test-feedback.mjs [--mode baseline|task] [--task ID|GROUP] [--warm-samples N] [--cold-samples N] [--seeds CSV] [--candidate-slots N] [--output PATH] [--compare PATH] [--verify-baseline PATH]";
+  return "Usage: node scripts/benchmark-test-feedback.mjs [--mode baseline|task] [--task ID|GROUP] [--warm-samples N] [--cold-samples N] [--seeds CSV] [--candidate-slots N] [--output PATH] [--compare PATH] [--verify-baseline PATH] [--allow-browser]";
 }
 
 export async function main(argv = process.argv.slice(2)) {
@@ -580,7 +582,9 @@ export async function main(argv = process.argv.slice(2)) {
   }
   const manifestPath = path.join(REPOSITORY_ROOT, "test", "test-tiers.json");
   const manifest = await loadManifest(manifestPath);
-  const common = { root: REPOSITORY_ROOT };
+  const common = { root: REPOSITORY_ROOT, allowBrowser: args.allowBrowser };
+  const intended = args.mode === "baseline" ? benchmarkLanes(manifest).flatMap(lane => lane.tasks) : selectTasks(manifest, args.task);
+  if (!args.allowBrowser && intended.some(task => task.requiresBrowser)) throw new Error("Explicit browser authorization required: --allow-browser (or select --mode task --task fast)");
   const hostFingerprint = collectHostFingerprint();
   const manifestSHA256 = await sha256File(manifestPath);
   const selectedTasks = args.task ? selectTasks(manifest, args.task) : [];

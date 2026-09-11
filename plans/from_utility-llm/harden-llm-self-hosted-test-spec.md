@@ -800,6 +800,23 @@ runtime contract or the meaning of `make verify`.
     the explicitly authorized 2026-09-10 data purge, not replaced with a fallback.
 - Expected runtime: T0/T1 plus PostgreSQL/Garage T3 certification.
 
+### TEST-062: browser-free branch preview lifecycle
+
+- Canonical specification: `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001`.
+- T0/T1: branch identities are stable and collision-resistant; production/dev
+  cleanup boundaries are enforced; current same-repository passing revisions
+  alone qualify; changed paths select only affected images; automatic fast,
+  baseline, and release selectors cannot launch browsers. Browser assertions
+  remain explicit opt-ins (amends TEST-055 selection, not its assertion oracles).
+- T5, browser-free: dedicated preview tunnel/router, isolated application/data
+  services, healthy exact image identity, public HTTP readiness and initial
+  authenticated API checks; feature cleanup leaves dev/production untouched.
+- Implementation: `scripts/test/preview_policy_test.mjs`,
+  `scripts/preview-policy.mjs`, `scripts/preview-event.mjs`, and
+  `scripts/preview-environment.mjs`.
+- Operations: `docs/preview-environments.md`. No provider run is a deployment
+  prerequisite; real browser certification requires explicit user selection.
+
 ## 14. Evidence requirements
 
 Each phase records under ignored `plans/evidence/harden-llm/<run-id>/`:

@@ -66,7 +66,7 @@
     },
     {
       "id": "go-static",
-      "testIds": ["TEST-004"],
+      "testIds": ["TEST-004", "TEST-062"],
       "tier": "T0",
       "resourceClass": "cpu",
       "command": ["make", "test-static"],
@@ -389,6 +389,7 @@
     },
     {
       "id": "frontend-browser",
+      "requiresBrowser": true,
       "testIds": ["TEST-018"],
       "tier": "T4",
       "resourceClass": "browser",
@@ -407,7 +408,7 @@
       "cleanupOwner": "browser",
       "network": "local-only",
       "credentialKeys": [],
-      "requiredFor": ["baseline", "browser", "release"],
+      "requiredFor": ["browser"],
       "benchmarkLanes": ["browser"],
       "pathSelectors": [
         "frontend/assets/**",
@@ -420,6 +421,7 @@
     },
     {
       "id": "frontend-compose",
+      "requiresBrowser": true,
       "testIds": ["TEST-019"],
       "tier": "T4",
       "resourceClass": "release",
@@ -438,15 +440,16 @@
       "cleanupOwner": "compose-browser",
       "network": "local-only",
       "credentialKeys": [],
-      "requiredFor": ["release"],
+      "requiredFor": ["browser-compose"],
       "pathSelectors": ["frontend/test/browser/compose_smoke_test.exs", "deploy/test/**"]
     },
     {
       "id": "frontend-deployed",
+      "requiresBrowser": true,
       "testIds": ["TEST-056"],
       "tier": "T5",
       "resourceClass": "live",
-      "command": ["node", "scripts/run-deployed-browser-test.mjs"],
+      "command": ["node", "scripts/run-deployed-browser-test.mjs", "--allow-browser"],
       "dependsOn": [],
       "timeoutMs": 600000,
       "cleanupOwner": "deployed-canary",

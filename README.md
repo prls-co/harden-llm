@@ -43,8 +43,8 @@ credential-free and does not start Docker, Chromium, or a live provider.
 
 Choose a higher tier only for the boundary it owns: `make test-integration`
 for pooled real Postgres/Garage and race work, `make test-browser` for the two
-ordinary native-browser canaries, and `make test-release` for the complete
-manifest-owned release candidate including Compose certification. Live
+explicitly requested native-browser canaries, and `make test-release` for the
+browser-free release candidate including backend Compose certification. Live
 provider checks remain explicitly authorized and separate. If a T3-T5 defect
 is found, add a cheap T0-T2 regression for the root invariant whenever that is
 representable; keep the expensive test for its distinct environment fact.
@@ -130,6 +130,7 @@ configuration to disable it.
 - [API and library examples](docs/api-and-library.md)
 - [Requirements traceability](docs/requirements-traceability.md)
 - [Release certification](docs/release-certification.md)
+- [Development and branch preview environments](docs/preview-environments.md)
 - [Parallel test feedback hierarchy plan](plans/from_utility-llm/harden-llm-parallel-test-feedback-plan.md)
 - [utility-llm frontend parity inventory](docs/utility-llm-frontend-parity-inventory.md)
 - [Langfuse upstream provenance](deploy/langfuse/UPSTREAM.md)

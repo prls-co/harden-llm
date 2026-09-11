@@ -27,6 +27,16 @@ Detailed command output belongs under ignored
 
 ## Parallel test-feedback release contract
 
+Effective 2026-09-11, automatic development and scheduled checks are
+browser-free. `make test-release` retains backend Compose certification but
+excludes browser-containing frontend Compose and deployed canaries. Those
+remain explicit user-authorized opt-ins. Routine changes deploy to isolated
+branch previews, not production; see [branch environments](preview-environments.md).
+The earlier measured checkpoints below retain their original evidence and
+must not be interpreted as authorization to repeat browser/provider checks.
+
+### Historical certification contract
+
 The implementation candidate is evaluated through the same manifest-owned
 hierarchy used during development. `make test-fast` is the broad T0-T2 loop;
 `make test-integration` and its race target cover T3 service boundaries;

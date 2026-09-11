@@ -603,6 +603,9 @@ function cancelledResult(task, reason) {
 }
 
 export async function runTasks(tasks, options) {
+  if (!options.allowBrowser && tasks.some(task => task.requiresBrowser)) {
+    throw new Error("Explicit browser authorization required");
+  }
   const resourceClasses = options.resourceClasses ?? {};
   validateTaskGraph(tasks, resourceClasses);
   const runDirectory = options.runDirectory ?? path.join(DEFAULT_RUN_ROOT, `run-${Date.now()}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`);
@@ -696,10 +699,14 @@ export async function runTasks(tasks, options) {
   };
 }
 
-export async function runSelection({ manifest, selector, root = REPOSITORY_ROOT, seed = DEFAULT_SEED, candidateSlots, signal, runID }) {
+export async function runSelection({ manifest, selector, root = REPOSITORY_ROOT, seed = DEFAULT_SEED, candidateSlots, signal, runID, allowBrowser = false }) {
   const tasks = selectTasks(manifest, selector);
+  if (!allowBrowser && tasks.some(task => task.requiresBrowser)) {
+    throw new Error("Explicit browser authorization required: pass --allow-browser only when requested");
+  }
   const runDirectory = path.join(root, "tmp", "test-feedback", runID ?? `run-${Date.now()}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`);
   const result = await runTasks(tasks, {
+    allowBrowser,
     root,
     resourceClasses: manifest.resourceClasses,
     seed,
@@ -716,6 +723,7 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--help") return { help: true };
+    if (argument === "--allow-browser") { result.allowBrowser = true; continue; }
     if (!argument.startsWith("--")) throw new Error(`unexpected argument ${argument}`);
     const name = argument.slice(2);
     const value = argv[++index];
@@ -735,7 +743,7 @@ function parseArgs(argv) {
 }
 
 function usage() {
-  return "Usage: node scripts/run-test-tier.mjs --task fast|browser|release|live [--manifest PATH] [--root PATH] [--output PATH] [--seed N] [--candidate-slots N]";
+  return "Usage: node scripts/run-test-tier.mjs --task fast|browser|release|live [--allow-browser] [--manifest PATH] [--root PATH] [--output PATH] [--seed N] [--candidate-slots N]";
 }
 
 export async function main(argv = process.argv.slice(2)) {

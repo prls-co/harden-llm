@@ -1,0 +1,11 @@
+{
+	admin 127.0.0.1:2019
+	auto_https off
+	persist_config off
+}
+
+:8080 {
+	respond "Unknown preview" 404
+}
+
+import /etc/caddy/routes/*.caddy

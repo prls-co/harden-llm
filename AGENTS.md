@@ -24,10 +24,10 @@ Use these implemented repository gates:
   Chromium, or a public provider path.
 - `make verify` — aggregate deterministic backend gate; requires Docker for integration slices.
 - `make test-unit`, `make test-parity`, `make test-integration`, and `make test-api` — focused backend gates.
-- `make test-browser` — the two ordinary targeted Chromium canaries; the
-  Compose browser feature remains release-only.
-- `make test-release` — the complete manifest-owned release candidate. Use it
-  before review or promotion, not after every edit.
+- `make test-browser` and `make test-browser-compose` — explicit browser opt-ins.
+  Run these only when the user specifically requests browser testing.
+- `make test-release` — broader browser-free certification for explicit releases
+  and cross-system changes, not routine development edits.
 - `cd frontend && mix test` — deterministic Phoenix tests with the exact Elixir version pinned by `frontend/mix.exs`.
 - `cd frontend && mix test --only browser` — opt-in browser tests.
 - `git diff HEAD --check` — whitespace validation for tracked changes.
@@ -82,15 +82,27 @@ Backend tests use canonical `TEST-###` identifiers and must reference `SPEC-HARD
 
 History favors concise conventional subjects such as `docs: define backend REST contract`; continue with `docs:`, `feat:`, `fix:`, or `test:` as appropriate. PRs should summarize the change, name affected specification or test IDs, call out OpenAPI or ownership-boundary changes, list validation run, and link relevant issues. Include screenshots only for rendered UI changes.
 
-For user-visible changes, commit and push each verified coherent checkpoint
-promptly, then deploy that exact pushed revision through the documented
-production path so progress is visible at
-`https://harden-llm.prls.co/`. Do this incrementally during a task;
-do not leave verified UI work only in the local checkout. Before reporting
-completion, record the commit/SHA, push result, deployment result, release or
-image identity, and hosted health or workflow evidence. If deployment is
-blocked, report the exact blocker instead of implying that the hosted site has
-the local changes.
+Use `dev` for normal iteration and create feature branches from the current
+`dev` or `main` policy. Push verified checkpoints promptly. `dev` deploys to
+`https://harden-llm-dev.prls.co/` after browser-free fast checks. Other trusted
+branches get stable URLs only after explicit preview enablement (manual
+workflow or `deploy:preview` PR label); subsequent passing pushes update them.
+See `docs/preview-environments.md` for URLs, credentials, and cleanup.
+
+Never launch Chromium, Wallaby, Playwright, a deployed browser canary, or a
+browser-containing Compose test unless the user specifically requests it.
+UI work, deployment, "verify", and "production-ready" are not browser
+authorization. Use component/LiveView/Node tests and HTTP health/auth checks;
+state explicitly when actual browser layout has not been checked. Never run a
+real provider call as an automatic deployment smoke test.
+
+Routine changes do not require full release certification or production
+deployment. Promote to `main`/production only when explicitly requested. Skip
+application builds for docs/test-only changes and rebuild only affected
+services. Keep preview data, credentials, sessions, and networks separate from
+production. Before reporting a deployed change, record the branch, source SHA,
+component image identities, environment URL, and browser-free checks. Report
+deployment blockers rather than implying that an undeployed change is live.
 
 ## Security & Configuration
 
