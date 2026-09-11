@@ -8,7 +8,8 @@ Use `dev` for normal iteration. Its persistent URL is
 
 Run `make test-fast`, commit, and push. Push/PR CI runs the same browser-free
 T0–T2 checks. Passing pushes update enabled previews. Markdown/docs-only pushes
-skip CI and application builds. Application builds use Docker layer caching;
+skip the test hierarchy and application builds. Repository-managed security
+checks on `main` remain independent. Application builds use Docker layer caching;
 frontend-only changes rebuild/restart only Phoenix, backend-only changes only
 the Go gateway. Initial environment creation builds both.
 
@@ -121,6 +122,8 @@ for the exact current branch SHA. It rechecks the branch after builds, uses a
 host lock for router/state mutations, and records component image IDs and
 release labels separately from the branch SHA. A docs/test-only update need
 not change component identities. Superseded CI revisions are ignored.
+Compose pins immutable local image IDs, so a shared tag rebuilt for another
+branch cannot change this environment's next restart or rollback.
 
 Deployment checks healthy container/image identity and public `/healthz`,
 `/readyz`, and `/login`. Initial setup also checks API login, session, profiles,

@@ -106,4 +106,7 @@ test("preview templates expose no host ports or production telemetry and protect
   assert.match(compose, /tmpfs: \['\/tmp:size=16m,mode=1777'\]/);
   assert.match(compose, /tmpfs: \['\/tmp:size=32m,mode=1777'\]/);
   assert.equal(dotenv({ KEY: 'a$b"c' }), 'KEY="a$$b\\"c"\n');
+  const launcher = await readFile(new URL("../preview-environment.mjs", import.meta.url), "utf8");
+  assert.match(launcher, /GATEWAY_IMAGE: components\.gateway\.imageID/);
+  assert.match(launcher, /WEB_IMAGE: components\.web\.imageID/);
 });

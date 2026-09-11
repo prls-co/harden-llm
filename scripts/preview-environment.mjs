@@ -204,7 +204,7 @@ export async function deployEnvironment(c, branch, sha) {
   let previousEnv = null;
   try { previousEnv = await fs.readFile(envPath); } catch (e) { if (e.code !== "ENOENT") throw e; }
   const values = { ...credentials, PREVIEW_ID: state.id, PREVIEW_PROJECT: state.project, PREVIEW_HOST: state.host,
-    PREVIEW_CONTROL: path.join(c.root, "control"), GATEWAY_IMAGE: components.gateway.image, WEB_IMAGE: components.web.image,
+    PREVIEW_CONTROL: path.join(c.root, "control"), GATEWAY_IMAGE: components.gateway.imageID, WEB_IMAGE: components.web.imageID,
     GATEWAY_RELEASE: components.gateway.release, WEB_RELEASE: components.web.release };
   await writePrivate(envPath, dotenv(values));
   try {
