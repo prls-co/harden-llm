@@ -160,6 +160,8 @@ test("preview templates expose no host ports or production telemetry and protect
   assert.match(compose, /mem_limit: 128m/);
   assert.match(compose, /mem_limit: 512m/);
   assert.match(compose, /start_interval: 3s/);
+  assert.match(compose, /start_interval: 2s/);
+  assert.match(compose, /start_period: 10s/);
   assert.match(compose, /interval: 20s/);
   assert.equal(dotenv({ KEY: 'a$b"c' }), 'KEY="a$$b\\"c"\n');
   const launcher = await readFile(new URL("../preview-environment.mjs", import.meta.url), "utf8");

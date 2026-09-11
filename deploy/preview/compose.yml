@@ -25,6 +25,7 @@ services:
       test: [CMD-SHELL, 'pg_isready -U harden_llm -d harden_llm']
       interval: 20s
       start_interval: 2s
+      start_period: 10s
       timeout: 3s
       retries: 30
 
@@ -51,6 +52,7 @@ services:
       test: [CMD, /garage, status]
       interval: 20s
       start_interval: 2s
+      start_period: 10s
       timeout: 3s
       retries: 30
 
