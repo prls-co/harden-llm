@@ -507,8 +507,8 @@ runtime contract or the meaning of `make verify`.
 
 ### TEST-025: gateway run route uses the root library
 
-- Target: `internal/gateway/run_test.go`
-- Command: `go test ./internal/gateway/... -tags=integration -run TestRunRoute -count=1`
+- Target: `internal/gateway/run_test.go`, `internal/gateway/http_contract_test.go`
+- Command: `go test ./internal/gateway -run TestHTTPRunDurationLimit -count=1` and `go test ./internal/gateway/... -tags=integration -run TestRunRoute -count=1`
 - Setup: saved profile, fake provider, Postgres cache/trace/artifact-index stores, fake `ArtifactStore`, and injected root `Client` constructor.
 - Assertions:
   - Run resolves/decrypts profile state and calls `Client.Call` once.
@@ -517,6 +517,7 @@ runtime contract or the meaning of `make verify`.
   - Successful artifact references create available owner-scoped Postgres metadata; failed artifact persistence leaves no available row and does not change the provider result.
   - Invalid request or unsafe endpoint fails before provider invocation.
   - The gateway enforces the 60-second contract maximum, rejects a configured or requested increase, permits a shorter deployment/request deadline, returns the documented 504 `run_timeout`, cancels the root call, and never retries the HTTP operation.
+  - Deployment bounds are checked at T1 without Postgres. T3 proves exactly one root call is canceled by the real RunService deadline, which begins after profile lookup. The HTTP deadline separately covers profile I/O and must return 504 without retrying whether it expires before the caller starts or during the call. The test must not assume that Postgres completes within the request's 10ms budget.
   - Handler files contain no provider payload, retry, schema, pricing, or cache-key logic.
 - Pass criteria: success/failure/cache tables pass and boundary scan remains green.
 - Expected runtime: 60 seconds.

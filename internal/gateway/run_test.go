@@ -168,6 +168,21 @@ func TestRunRoute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The service creates its caller deadline after loading profiles from Postgres.
+	// Prove cancellation here without requiring that SQL completes within 10ms.
+	_, _, timeoutErr := timeoutService.Run(ctx, "owner-a", gateway.RunInput{
+		ProfileID: "Backup", UserPrompt: "wait", CallType: hardenllm.CallTypeText, TimeoutMS: 10,
+	})
+	if !errors.Is(timeoutErr, context.DeadlineExceeded) || blocking.calls != 1 {
+		t.Fatalf("caller timeout = %v calls=%d", timeoutErr, blocking.calls)
+	}
+	select {
+	case <-blocking.canceled:
+	default:
+		t.Fatal("run timeout did not cancel root caller")
+	}
+	blocking = &blockingRuntimeCaller{canceled: make(chan struct{})}
+
 	timeoutAPI, err := httpapi.New(httpapi.Config{Auth: identity, Runs: timeoutService, MaxRunDuration: 50 * time.Millisecond})
 	if err != nil {
 		t.Fatal(err)
@@ -176,21 +191,23 @@ func TestRunRoute(t *testing.T) {
 	defer timeoutServer.Close()
 	response = apiRequest(t, timeoutServer.Client(), http.MethodPost, timeoutServer.URL+"/api/v1/run", []byte(`{"profileId":"Backup","userPrompt":"wait","callType":"text","timeoutMs":10}`), authorization)
 	assertEnvelope(t, response, http.StatusGatewayTimeout, true)
-	if response.JSON["error"].(map[string]any)["code"] != "run_timeout" || blocking.calls != 1 {
+	// The outer HTTP deadline also includes profile I/O: expiring before the
+	// caller starts is valid. It must still return 504 and never retry the call.
+	if response.JSON["error"].(map[string]any)["code"] != "run_timeout" || blocking.calls > 1 {
 		t.Fatalf("timeout response = %#v calls=%d", response.JSON, blocking.calls)
 	}
-	select {
-	case <-blocking.canceled:
-	default:
-		t.Fatal("run timeout did not cancel root caller")
+	if blocking.calls == 1 {
+		select {
+		case <-blocking.canceled:
+		default:
+			t.Fatal("HTTP timeout did not cancel the started root caller")
+		}
 	}
+	beforeInvalidTimeout := blocking.calls
 	response = apiRequest(t, timeoutServer.Client(), http.MethodPost, timeoutServer.URL+"/api/v1/run", []byte(`{"profileId":"Backup","userPrompt":"wait","callType":"text","timeoutMs":51}`), authorization)
 	assertEnvelope(t, response, http.StatusUnprocessableEntity, true)
-	if blocking.calls != 1 {
+	if blocking.calls != beforeInvalidTimeout {
 		t.Fatal("timeout increase reached root caller")
-	}
-	if _, err := httpapi.New(httpapi.Config{Auth: identity, MaxRunDuration: 60*time.Second + time.Millisecond}); err == nil {
-		t.Fatal("gateway accepted a run duration above the 60-second contract maximum")
 	}
 
 	privateProfile := profile

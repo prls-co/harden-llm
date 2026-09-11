@@ -160,6 +160,20 @@ func TestHTTPTraceContextPropagation(t *testing.T) {
 	}
 }
 
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-025 TEST-039
+func TestHTTPRunDurationLimit(t *testing.T) {
+	for _, duration := range []time.Duration{0, time.Millisecond, 50 * time.Millisecond, 60 * time.Second} {
+		if _, err := httpapi.New(httpapi.Config{Auth: &fakeHTTPAuth{}, MaxRunDuration: duration}); err != nil {
+			t.Fatalf("valid run duration %v rejected: %v", duration, err)
+		}
+	}
+	for _, duration := range []time.Duration{-time.Millisecond, time.Microsecond, 60*time.Second + time.Millisecond} {
+		if _, err := httpapi.New(httpapi.Config{Auth: &fakeHTTPAuth{}, MaxRunDuration: duration}); err == nil {
+			t.Fatalf("gateway accepted invalid run duration %v", duration)
+		}
+	}
+}
+
 type fakeHTTPAuth struct {
 	login             auth.LoginResult
 	lastAuthorization string

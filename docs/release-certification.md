@@ -1140,3 +1140,72 @@ Its binary version and OCI version label both matched the prior gateway SHA;
 this is a rebuilt rollback image, not the original running image. The
 temporary source worktree was removed, and mutable gateway/frontend image
 tags were restored to the verified rollback images without restarting services.
+
+## Paired result emoji controls and production release repair (2026-09-10)
+
+Application candidate `effc8a27befb5a5d7cd9b394507185f77eb609bc` includes the
+previously pending v2-only cutover and Clear Prompt rename. The shared Result
+card now uses `📥` and `📤` buttons in place of Input/Output labels. Either
+button toggles both text rows, with synchronized `aria-expanded` and scoped
+`aria-controls`; the trailing expand button and unused label CSS are removed.
+Current Result and History reuse the same component. Copy values, stats,
+collection actions, transport ownership, and persisted data are unchanged.
+The existing Phoenix JS commands own the local disclosure; no new client state,
+hook, application dependency, or service is introduced for this interaction.
+
+WEB-TEST-066's regression failed before implementation. The first targeted
+Chromium gate passed all four tasks, including mouse and Enter/Space toggles,
+paired state, History folding, clipboard, and existing responsive layout.
+Reports: `tmp/result-emoji-fast.json`, `tmp/result-emoji-browser.json`.
+Screenshot inspection exposed the test image's previously documented missing
+emoji glyphs. The browser Dockerfile now pins `font-noto-emoji=2.048-r0`;
+`fc-match emoji` resolves Noto Color Emoji. It also updates the unavailable
+curl pin to `8.22.0-r0`, verified against the pinned image's Alpine repository.
+An uncached build with the corrected curl pin succeeded, followed by the
+font-inclusive image build:
+`sha256:79123817638bf60b80b4997082326472d8b0b148f93c1939298e1f2d598b7f1b`.
+These packages belong only to the test image, not the production frontend.
+
+### Telemetry startup root cause and regression boundary
+
+The instrumented diagnostic run in `tmp/result-emoji-compose-diagnostic.json`
+passed, but direct inspection during startup captured
+`OTLP exporter failed to initialize with exception :error::badarg` and no
+frontend traces while gateway traces were present. The generated production
+`start.script` conclusively started the SDK before `gproc`, `grpcbox`, and
+`opentelemetry_exporter`. Correct ordering in `extra_applications` and the
+compiled application's dependency list did not establish release boot order.
+The SDK's batch processor disables span insertion when exporter initialization
+fails and later attempts initialization again; early spans can be lost. The
+diagnostic pass was therefore not treated as resolution of the earlier failure.
+
+Mix now explicitly places the exporter before the SDK in release applications
+and lists the exporter first among the telemetry dependencies. Existing
+permanent application modes and the telemetry architecture are unchanged.
+The new offline WEB-TEST-009 configuration regression failed before this fix
+and passed afterward. The Compose boundary additionally reads the actual boot
+script and rejects exporter initialization failures, while retaining its
+frontend/gateway Tempo correlation, Loki, Prometheus, and Grafana checks and
+their original deadlines. Failure diagnostics now distinguish absent Tempo
+search results from missing services/domain correlation without logging bodies.
+See the linked upstream startup-order guidance in `docs/self-hosting.md`.
+
+Final fast gate: accepted all 8 tasks; 166 deterministic Phoenix tests passed,
+4 opt-in tests excluded; `tmp/result-production-fast.json`. The candidate was
+committed and pushed to `origin/main` before full release certification.
+
+### Race-gate timeout fixture repair
+
+The first full gate (`tmp/result-production-release.json`) rejected the
+candidate in `go-integration-race`: TEST-025 returned the correct 504 but
+reported `calls=0`. The test required profile/database I/O to finish within
+the HTTP request's 10ms budget before its blocking caller could start. That
+timing assumption is not a production contract.
+
+The exact one-call/deadline-cancellation oracle now runs against the real
+RunService and Postgres at the service boundary, where its existing caller
+deadline starts after profile lookup. The real HTTP route separately retains
+504, cancellation of any started caller, no retry, and rejection of a requested
+timeout increase. Default-tag T1 cases cover deployment bounds, including the
+unchanged 60-second maximum. No application code, timeout, assertion deadline,
+or required service boundary was changed to address this test defect.
