@@ -102,9 +102,12 @@ runner are shared; each preview still owns its Postgres database, Garage
 layout, application network, volumes, session material, and disposable data.
 
 Application images use BuildKit Go module/build caches and stable dependency
-layers. CI caches the pinned Phoenix dependencies and compile output. A
-deployment reuses an existing local image only when both its service label and
-exact source-SHA release label match; otherwise it builds a new image. Control
+layers. CI caches the pinned Phoenix dependencies and compile output. For a
+service whose application inputs changed, a deployment reuses an existing
+local image only when both its service label and exact source-SHA release
+label match; otherwise it builds a new image. Services whose application
+inputs did not change retain their previously verified immutable image, so
+control-plane/docs-only changes do not force an application rebuild. Control
 files, routes, environment files, and profile synchronization are
 content-aware, so an unchanged deployment does not rewrite or reload them.
 Health checks probe quickly during startup and less frequently after startup;
@@ -232,6 +235,18 @@ All four Compose services were healthy with the configured limits: Postgres
 and Garage 256 MiB/0.50 CPU each, gateway 128 MiB/0.50 CPU, and web 512 MiB/1
 CPU. This verification used HTTP and Docker inspection only; no browser or
 real provider call was made.
+
+## 9. Final control-plane verification (2026-09-11 UTC)
+
+Control-plane revision `b947a84dd3f5f3ff35324034952408a9e20c25ad` passed
+[dev fast CI](https://github.com/prls-co/harden-llm/actions/runs/34627945820),
+[main fast CI](https://github.com/prls-co/harden-llm/actions/runs/34627945003),
+and the [trusted dev deployment](https://github.com/prls-co/harden-llm/actions/runs/34629012917).
+The deployment reported `rebuiltServices: []`, retained the verified gateway
+and web image identities from `cfea235`, and reconciled all four Compose
+services. Live `/healthz`, `/readyz`, and `/login` returned HTTP 200; all four
+services were healthy with the configured CPU and memory limits. No browser,
+real provider call, or production restart was performed.
 
 Startup regressions found during bring-up are covered by the cheap policy
 tests: quoted Compose tmpfs options, gateway development-mode telemetry policy,
