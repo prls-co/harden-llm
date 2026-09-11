@@ -141,3 +141,39 @@ never collect complete environment dumps into issue/workflow logs.
 
 `AGENTS.md`, ADR-HLLM-015, and TEST-062 define this policy. Production deployment
 procedures remain separate; this feature does not promote or restart production.
+
+## 6. Initial verification (2026-09-11 UTC)
+
+Current verified dev application revision:
+`da00a4aa7faa998d000806fdb60da96b38620c90`.
+[Fast CI](https://github.com/prls-co/harden-llm/actions/runs/34558229654),
+[automatic deployment](https://github.com/prls-co/harden-llm/actions/runs/34558512418),
+and [no-change redeployment](https://github.com/prls-co/harden-llm/actions/runs/34558667305)
+all passed. The latter rebuilt no images and retained identical application
+container IDs. Public health/readiness/login and authenticated API checks
+passed again afterward. Documentation-only closure does not replace these
+application-bearing identities:
+
+- Gateway image: `sha256:4da0f9e3e76d45d7e022f2b0ea5e0516aa90107ee06af77c43de87c2e756f1e5`.
+- Web image: `sha256:27cc44573ed8d4ab8cf00c6f772ffc72973e904f9f33250b0f3c703698fdc403`.
+
+- Local `make test-fast`: eight tasks passed; current script suite: 17 tests
+  passed; `go test ./internal/testkit -count=1` and whitespace validation passed.
+- Initial dev application revision `d5a239cf1ae480c5680831b2f2c8417a79e29706`:
+  [browser-free CI](https://github.com/prls-co/harden-llm/actions/runs/34557244800)
+  and [authenticated deployment](https://github.com/prls-co/harden-llm/actions/runs/34558064002) passed.
+- A separate `preview/setup-canary` URL passed
+  [deployment](https://github.com/prls-co/harden-llm/actions/runs/34558065617).
+  A valid dev bearer session returned 200 in dev and 401 in that preview;
+  the test session was revoked. No LLM/provider call was made.
+- Deleting the canary branch triggered successful
+  [automatic cleanup](https://github.com/prls-co/harden-llm/actions/runs/34558277373).
+  Its DNS record, state/worktree, containers, network, and volumes were absent
+  afterward. Dev retained the same healthy container IDs and public 200s.
+- Production web/gateway container IDs and image digests remained unchanged
+  and healthy throughout. No browser or production deployment was performed.
+
+Startup regressions found during bring-up are covered by the cheap policy
+tests: quoted Compose tmpfs options, gateway development-mode telemetry policy,
+HTTPS forwarding to Phoenix, and immutable image references. Initial routing
+also established the separate, bounded Cloudflare propagation budget above.
