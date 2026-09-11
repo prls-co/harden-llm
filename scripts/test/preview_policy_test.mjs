@@ -78,6 +78,7 @@ test("routes and state enforce exact environment ownership before writes", async
   const route = routeFor(state);
   assert.match(route, /@api path \/api\/\* \/readyz/);
   assert(route.includes(`${state.project}-web:4000`));
+  assert.match(route, /header_up X-Forwarded-Proto https/);
   assert(route.includes(`${state.project}-garage:3900`));
   assert.doesNotMatch(route, /harden-llm\.prls\.co|otel-collector/);
   assert.throws(() => routeFor({ ...state, host: "harden-llm.prls.co" }));

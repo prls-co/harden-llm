@@ -100,7 +100,7 @@ export function routeFor(state) {
     `\t@private path /metrics\n\thandle @private {\n\t\trespond 404\n\t}\n` +
     `\t@api path /api/* /readyz\n\thandle @api {\n\t\treverse_proxy ${state.project}-gateway:8080\n\t}\n` +
     `\thandle /harden-llm-artifacts/* {\n\t\treverse_proxy ${state.project}-garage:3900\n\t}\n` +
-    `\thandle {\n\t\treverse_proxy ${state.project}-web:4000\n\t}\n}\n`;
+    `\thandle {\n\t\treverse_proxy ${state.project}-web:4000 {\n\t\t\theader_up X-Forwarded-Proto https\n\t\t}\n\t}\n}\n`;
 }
 
 async function ensureDNS(c, state) {
