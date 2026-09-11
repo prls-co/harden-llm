@@ -210,3 +210,12 @@ session, profiles, history, and logout passed. The dev-branch provisioning fix
 also checks for this separate guest account and creates it when missing; it
 does not overwrite an existing account. That automation change becomes active
 for future previews when promoted to the trusted `main` orchestration branch.
+
+### Shared provider/model configuration (2026-09-11)
+
+`934e00a` promoted the guest provisioning fix and shared configuration tooling
+to trusted `main`. Guest/operator accounts now receive the same `.env`-managed
+model setup and provider keys in every enabled preview. Production received
+the same configuration without replacing its application images. See the
+[verified rollout](shared-llm-configuration.md#4-verified-rollout--2026-09-11)
+for exact image identities, browser-free evidence, and update/rotation semantics.

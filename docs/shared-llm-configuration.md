@@ -56,6 +56,14 @@ running gateway image. Keys are supplied on stdin, never command-line arguments.
 Only the administrative container receives the three required local DB/vault
 variables; this does not connect development to production data.
 
+For a production runtime-variable change, pass
+`sharedApplicationVariables(parseEnv(sharedEnvContents))` from
+`scripts/shared-profiles.mjs` into the production Compose command's process
+environment. These values override infrastructure `.env` interpolation without
+copying its secrets. Recreate only the gateway/frontend services whose settings
+changed, retaining their pinned images. The profile-sync command itself does
+not recreate services or change runtime variables.
+
 Run this same command as part of a production configuration/release rollout.
 After editing `.env`, redeploy enabled previews (manual branch workflow from
 trusted `main`) or run the scoped command for each existing target. There is no
@@ -91,3 +99,43 @@ Keep a private backup of `.env` before rotation. Restore the prior shared values
 and rerun synchronization against affected environments. Reverting application
 images alone does **not** revert synchronized profile/key configuration. Do not
 reset databases, copy production sessions, or delete user history to recover.
+
+## 4. Verified rollout — 2026-09-11
+
+Configuration implementation: `934e00a0b35c314045aa663581b4568d61a76317`, pushed
+to `dev` and trusted `main`. The single private `.env` now contains 31 managed
+profiles, with seven configured bindings using the two existing CPA/LiteLLM
+provider keys. Both guest and operator accounts were synchronized in dev and
+production. Providers without existing keys remain explicitly unconfigured.
+
+Validation performed in this rollout:
+
+- `make test-fast` passed twice locally. Full gateway/Postgres integration
+  packages passed through the runner-owned local service pool.
+- [Dev fast CI](https://github.com/prls-co/harden-llm/actions/runs/34614866308),
+  [main fast CI](https://github.com/prls-co/harden-llm/actions/runs/34614864987),
+  and [automatic dev deployment](https://github.com/prls-co/harden-llm/actions/runs/34615284869)
+  passed. No browser or full-release suite was triggered.
+- Both public APIs returned health/readiness 200. Guest/operator profile
+  readback matched all 31 shared profiles and seven configured bindings.
+- All nine configured portable runtime variables matched the shared `.env` in
+  both environments (host-list order normalized).
+- Protected, in-memory decryption of each exported configured binding matched
+  the intended `.env` key for all four account/environment combinations.
+  Ciphertexts were distinct; local vault keys remained isolated. Test sessions
+  were logged out; no provider calls were made.
+
+Deployed component identities:
+
+| Environment/component | Image identity |
+| --- | --- |
+| [Dev](https://harden-llm-dev.prls.co/) gateway, release `934e00a` | `sha256:d8b8b76b61b093721c9eee79267fe8f74e918b27d80768651e92cfe8bbc87424` |
+| Dev web, retained release `da00a4a` | `sha256:27cc44573ed8d4ab8cf00c6f772ffc72973e904f9f33250b0f3c703698fdc403` |
+| [Production](https://harden-llm.prls.co/) gateway, unchanged | `sha256:cd8a408899fe8dc478f799cd77e379ae11ae76a68b39ea777ab27018926c9736` |
+| Production web, unchanged | `sha256:52edb3a68415f0325a439c87419599adeee5870b8fcf89bfae101206a79da025` |
+
+The one-time administrative image used to apply production configuration was
+`sha256:0b1326fd2d7a262c0fdc01efd85d69f5b6295fd6c30b42a5c3034687ed87049f`,
+also built from `934e00a`. Production application container IDs and images
+remained unchanged. A private pre-change `.env` backup was retained on the host;
+no production history, sessions, or artifact data was copied to dev.
