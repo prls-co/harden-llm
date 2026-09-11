@@ -4,10 +4,18 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { branchIdentity, ciMode, changedServices, deploymentAllowed } from "../preview-policy.mjs";
 import { loadManifest, selectTasks, runSelection } from "../run-test-tier.mjs";
-import { dotenv, routeFor, stateFor, destroyEnvironment } from "../preview-environment.mjs";
+import { dotenv, routeFor, stateFor, destroyEnvironment, operatorCredentials } from "../preview-environment.mjs";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+
+test("new previews share only the approved operator login, never service secrets", () => {
+  assert.deepEqual(operatorCredentials('HARDEN_LLM_LOCAL_OPERATOR_EMAIL="Operator@Example.test"\nHARDEN_LLM_LOCAL_OPERATOR_PASSWORD=\'fixture$only\'\nPROVIDER_API_KEY=must-not-copy\nHARDEN_LLM_WEB_SECRET_KEY_BASE=must-not-copy'), {
+    OPERATOR_EMAIL: "operator@example.test", OPERATOR_PASSWORD: "fixture$only",
+  });
+  assert.throws(() => operatorCredentials("HARDEN_LLM_LOCAL_OPERATOR_EMAIL=operator@example.test"), /missing/);
+  assert.throws(() => operatorCredentials('HARDEN_LLM_LOCAL_OPERATOR_EMAIL=a@b.test\nHARDEN_LLM_LOCAL_OPERATOR_PASSWORD="line\nbreak"'), /invalid/);
+});
 
 test("branch identities are stable, bounded, distinct and cannot target production", () => {
   assert.equal(branchIdentity("dev").host, "harden-llm-dev.prls.co");

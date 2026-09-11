@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { parseEnv } from "node:util";
 import { branchIdentity, changedServices } from "./preview-policy.mjs";
 
 export const configPath = path.join(os.homedir(), ".config/harden-llm-preview/host.json");
@@ -81,6 +82,14 @@ export function dotenv(values) {
   return Object.entries(values).map(([k, v]) => `${k}=${JSON.stringify(String(v)).replaceAll("$", () => "$$")}\n`).join("");
 }
 
+export function operatorCredentials(contents) {
+  const values = parseEnv(contents);
+  const email = values.HARDEN_LLM_LOCAL_OPERATOR_EMAIL?.trim().toLowerCase();
+  const password = values.HARDEN_LLM_LOCAL_OPERATOR_PASSWORD;
+  if (!email || !password || /[\r\n]/.test(password)) throw new Error("Shared operator email/password are missing or invalid");
+  return { OPERATOR_EMAIL: email, OPERATOR_PASSWORD: password };
+}
+
 function secrets() {
   const secret = n => randomBytes(n).toString("base64url");
   return {
@@ -88,7 +97,6 @@ function secrets() {
     ARTIFACT_ACCESS_KEY: `GK${randomBytes(16).toString("hex")}`, ARTIFACT_SECRET_KEY: randomBytes(32).toString("hex"),
     ENCRYPTION_KEYS: JSON.stringify({ preview: secret(32) }), WEB_SECRET: secret(64),
     WEB_SIGNING_SALT: secret(16), WEB_ENCRYPTION_SALT: secret(16),
-    OPERATOR_EMAIL: "developer@harden-llm.local", OPERATOR_PASSWORD: secret(24),
   };
 }
 
@@ -186,7 +194,9 @@ export async function deployEnvironment(c, branch, sha) {
     if (command("git", ["-C", source, "status", "--porcelain"])) throw new Error("Preview worktree has local changes; refusing overwrite");
     command("git", ["-C", source, "checkout", "--detach", sha]);
   }
-  const credentials = await readJSON(path.join(directory, "secrets.json"), null) ?? secrets();
+  const credentials = await readJSON(path.join(directory, "secrets.json"), null) ?? {
+    ...secrets(), ...operatorCredentials(await fs.readFile(c.operatorEnvFile, "utf8")),
+  };
   await writePrivate(path.join(directory, "secrets.json"), JSON.stringify(credentials, null, 2) + "\n");
   await writePrivate(path.join(directory, "login.txt"), `URL: ${state.url}\nEmail: ${credentials.OPERATOR_EMAIL}\nPassword: ${credentials.OPERATOR_PASSWORD}\n`);
   const components = structuredClone(state.components);

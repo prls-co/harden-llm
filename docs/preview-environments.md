@@ -62,16 +62,23 @@ images remain reusable; do not run broad Docker prune commands on this host.
 
 ## 3. Login and data ownership
 
-Each environment starts empty, with a generated local operator login at:
+Each environment starts empty, with the same operator email/password as
+production (user-requested policy). The local login reference is at:
 
 ```text
 /home/kirill/.local/share/harden-llm-previews/environments/<id>/login.txt
 ```
 
 Read that private file on the host; never put its password in Git, workflow
-logs, or chat. The operator email is `developer@harden-llm.local`. Configure
+logs, or chat. New previews read only `HARDEN_LLM_LOCAL_OPERATOR_EMAIL` and
+`HARDEN_LLM_LOCAL_OPERATOR_PASSWORD` from the host configuration's
+`operatorEnvFile` (reference host: `/home/kirill/p/harden-llm-production/.env`).
+Configure
 development provider credentials through that environment's UI if needed.
-Production credentials and data are not copied. Automated checks never submit
+Only the operator login is shared; production provider/service secrets and
+data are not copied. Accounts and bearer sessions remain local to each database,
+not SSO. A later password rotation must also update existing preview accounts;
+deployment does not silently reset an existing account. Automated checks never submit
 an LLM run or incur provider charges.
 
 Each branch owns a Compose project containing Phoenix, Go gateway, Postgres,
@@ -127,7 +134,7 @@ branch cannot change this environment's next restart or rollback.
 
 Deployment checks healthy container/image identity and public `/healthz`,
 `/readyz`, and `/login`. Initial setup also checks API login, session, profiles,
-history, and logout with the generated operator. These are HTTP checks, not a
+history, and logout with the configured operator. These are HTTP checks, not a
 claim of browser layout or LiveSocket certification.
 First-time hostname creation allows up to five minutes for Cloudflare route
 propagation; updates to an existing hostname use a 90-second readiness budget.
@@ -177,3 +184,13 @@ Startup regressions found during bring-up are covered by the cheap policy
 tests: quoted Compose tmpfs options, gateway development-mode telemetry policy,
 HTTPS forwarding to Phoenix, and immutable image references. Initial routing
 also established the separate, bounded Cloudflare propagation budget above.
+
+### Operator login alignment (2026-09-11)
+
+Per user request, dev's existing `preview-local` account now uses the production
+operator email/password. Its owner ID, profiles, runs, and provider credentials
+were preserved; the old generated login was disabled and its sessions revoked.
+Production's account was not modified. HTTP checks verified both logins and
+that a production bearer token remains invalid in dev. New preview creation
+uses the same approved login source, but still generates separate service and
+session secrets. No application image rebuild/restart or browser was needed.

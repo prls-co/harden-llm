@@ -24,6 +24,9 @@ if (!config) {
   await writePrivate(configPath, JSON.stringify(config, null, 2) + "\n");
 }
 if (config.repository !== repo || config.root !== root || config.sourceRepository !== sourceRepository) throw new Error("Host configuration ownership mismatch");
+// Share only the explicitly approved operator login, never provider/service secrets.
+config.operatorEnvFile ??= path.join(os.homedir(), "p/harden-llm-production/.env");
+await writePrivate(configPath, JSON.stringify(config, null, 2) + "\n");
 await cf(config, `accounts/${config.accountID}/cfd_tunnel/${config.tunnelID}/configurations`, "PUT", {
   config: { ingress: [{ service: "http://edge:8080" }] },
 });
