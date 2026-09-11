@@ -228,7 +228,8 @@ export async function deployEnvironment(c, branch, sha) {
     await writePrivate(route, routeFor(state));
     hostCompose(c, ["exec", "-T", "edge", "caddy", "reload", "--config", "/etc/caddy/control/Caddyfile"]);
     const dnsID = await ensureDNS(c, state);
-    await healthCheck(state.url);
+    // New Cloudflare hostnames can take several minutes to reach every edge.
+    await healthCheck(state.url, state.initialized ? 90_000 : 300_000);
     if (!state.initialized) await authCheck(state.url, credentials);
     for (const service of ["gateway", "web"]) {
       const id = compose(c, state, ["ps", "-q", service]);

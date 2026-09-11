@@ -126,6 +126,8 @@ Deployment checks healthy container/image identity and public `/healthz`,
 `/readyz`, and `/login`. Initial setup also checks API login, session, profiles,
 history, and logout with the generated operator. These are HTTP checks, not a
 claim of browser layout or LiveSocket certification.
+First-time hostname creation allows up to five minutes for Cloudflare route
+propagation; updates to an existing hostname use a 90-second readiness budget.
 
 On failed updates, previous application images are restored and branch data
 is retained. This is **not database migration rollback**: for incompatible
