@@ -102,5 +102,7 @@ test("preview templates expose no host ports or production telemetry and protect
   assert.match(compose, /OTEL_SDK_DISABLED: 'true'/);
   assert.match(compose, /HARDEN_LLM_OTEL_EXPORTER_OTLP_ENDPOINT: ''/);
   assert.match(compose, /name: \$\{PREVIEW_PROJECT\}-private/);
+  assert.match(compose, /tmpfs: \['\/tmp:size=16m,mode=1777'\]/);
+  assert.match(compose, /tmpfs: \['\/tmp:size=32m,mode=1777'\]/);
   assert.equal(dotenv({ KEY: 'a$b"c' }), 'KEY="a$$b\\"c"\n');
 });

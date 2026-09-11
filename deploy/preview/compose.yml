@@ -53,7 +53,7 @@ services:
     image: ${GATEWAY_IMAGE:?}
     init: true
     read_only: true
-    tmpfs: [/tmp:size=16m,mode=1777]
+    tmpfs: ['/tmp:size=16m,mode=1777']
     networks:
       private:
         aliases: ['${PREVIEW_PROJECT}-gateway']
@@ -88,7 +88,7 @@ services:
     image: ${WEB_IMAGE:?}
     init: true
     read_only: true
-    tmpfs: [/tmp:size=32m,mode=1777]
+    tmpfs: ['/tmp:size=32m,mode=1777']
     networks:
       private:
         aliases: ['${PREVIEW_PROJECT}-web']
