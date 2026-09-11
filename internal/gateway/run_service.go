@@ -238,7 +238,7 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 		SchemaVersion: 2, RunID: runID, Status: status,
 		Output: result.Output, CallID: result.CallID, TraceID: traceID,
 		SelectedTarget: result.SelectedTarget, ResultSource: result.ResultSource, Accounting: result.Accounting,
-		Attempts: append([]hardenllm.Attempt(nil), result.Attempts...),
+		Attempts: cloneAttempts(result.Attempts),
 		Cache:    result.Cache, Artifacts: artifacts, TotalCallDurationMs: totalCallDurationMs,
 		ProviderInvoked: attemptsInvokedProvider(result.Attempts),
 		TotalWaitMs:     totalWaitMs, OverBudgetMs: overBudgetMs, UsedRepair: usedRepair,
@@ -313,6 +313,10 @@ func elapsedMilliseconds(started, completed time.Time) int64 {
 		return 0
 	}
 	return completed.Sub(started).Milliseconds()
+}
+
+func cloneAttempts(attempts []hardenllm.Attempt) []hardenllm.Attempt {
+	return append([]hardenllm.Attempt{}, attempts...)
 }
 
 func attemptWaitMilliseconds(attempts []hardenllm.Attempt) int64 {

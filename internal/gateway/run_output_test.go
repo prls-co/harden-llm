@@ -3,6 +3,8 @@ package gateway
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-025
 
 import (
+	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -32,6 +34,28 @@ func TestRunOutputTimingAndRepairProjection(t *testing.T) {
 	}
 	if attemptsUsedRepair([]hardenllm.Attempt{{Repair: false}}) {
 		t.Fatal("repair projection = true, want false")
+	}
+}
+
+func TestRunOutputUsesEmptyAttemptsArrayWhenRuntimeHasNoAttempts(t *testing.T) {
+	encoded, err := json.Marshal(RunOutput{Attempts: cloneAttempts(nil)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(encoded, []byte(`"attempts":[]`)) {
+		t.Fatalf("run output attempts = %s, want an empty array", encoded)
+	}
+}
+
+func TestNormalizeRunResultDocumentRepairsRetainedNullAttempts(t *testing.T) {
+	normalized := normalizeRunResultDocument(json.RawMessage(`{"schemaVersion":2,"attempts":null,"status":"succeeded"}`))
+	if !bytes.Contains(normalized, []byte(`"attempts":[]`)) {
+		t.Fatalf("normalized result = %s, want an empty attempts array", normalized)
+	}
+
+	unchanged := normalizeRunResultDocument(json.RawMessage(`{"schemaVersion":2,"attempts":[{"number":1}]}`))
+	if string(unchanged) != `{"schemaVersion":2,"attempts":[{"number":1}]}` {
+		t.Fatalf("non-null attempts changed: %s", unchanged)
 	}
 }
 
