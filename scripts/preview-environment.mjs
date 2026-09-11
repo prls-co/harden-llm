@@ -273,12 +273,10 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
       }
     }
     // Compose recreates only changed image/config services; .env-only changes
-    // must apply even when neither application needed rebuilding. A control
-    // Compose change also reconciles the retained data-service containers so
-    // resource and health settings reach existing previews.
-    const runtimeServices = (options.controlChanges ?? []).includes("compose.yml")
-      ? ["postgres", "garage", "gateway", "web"]
-      : ["gateway", "web"];
+    // must apply even when neither application needed rebuilding. Reconcile
+    // data services on every deploy so a control-file change cannot be missed
+    // by a later code-only checkpoint; unchanged containers remain untouched.
+    const runtimeServices = ["postgres", "garage", "gateway", "web"];
     compose(c, state, ["up", "-d", "--no-build", "--no-deps", "--wait", "--wait-timeout", "180", ...runtimeServices]);
     const guestCreated = ensureTestLogin(c, state, guest);
     syncSharedProfiles(compose(c, state, ["ps", "-q", "gateway"]), components.gateway.imageID, sharedValues);

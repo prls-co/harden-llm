@@ -166,7 +166,7 @@ test("preview templates expose no host ports or production telemetry and protect
   assert.match(launcher, /GATEWAY_IMAGE: components\.gateway\.imageID/);
   assert.match(launcher, /WEB_IMAGE: components\.web\.imageID/);
   assert.match(launcher, /Reusing preview/);
-  assert.match(launcher, /includes\("compose\.yml"\)/);
+  assert.match(launcher, /const runtimeServices = \["postgres", "garage", "gateway", "web"\]/);
   assert.match(launcher, /"postgres", "garage", "gateway", "web"/);
   const workflow = await readFile(new URL("../../.github/workflows/test-hierarchy.yml", import.meta.url), "utf8");
   assert.match(workflow, /actions\/cache@v4/);
