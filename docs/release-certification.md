@@ -1296,3 +1296,29 @@ remediation remains a separate maintenance item; no alert was dismissed and
 no dependency change was added to this certified UI promotion. This limitation
 is included in the production receipt rather than silently treating the push
 warning as resolved.
+
+## Conversation icons for Result and History (2026-09-10)
+
+The user selected `💬` for recorded input and `🤖` for assistant output. Only
+the two glyphs in the shared result component change; text disclosure, copy
+actions, accessibility labels, token-stat icons, backend, and storage do not.
+WEB-TEST-066's exact-glyph regression failed before the component change and
+passed afterward. Local fast and browser gates accepted all 8 and 4 tasks,
+respectively (`tmp/result-conversation-icons-fast.json` and
+`tmp/result-conversation-icons-browser.json`). Result and History screenshots
+were inspected with both glyphs rendered and no layout regression.
+
+The initial source `7318260dcce316c52fee2f3c63c1de715c348252` was pushed but
+not deployed: [GitHub run 34549014225](https://github.com/prls-co/harden-llm/actions/runs/34549014225)
+passed fast, integration, and browser jobs, but its full release gate failed
+in the existing History-deletion rollback test. Its initial
+`assert_receive` required hydration and the subsequent History request to
+start within ExUnit's default 100ms; the failure still showed the workspace
+loading screen. This is setup timing unrelated to the rollback oracle.
+
+That test now uses the existing immediate History fixture and separately
+awaits hydration and the History task it starts, each with the established
+1,000ms async wait. The unused blocked initial-load fixture is removed.
+Explicit trace/delete handshakes and every rollback/reload assertion remain.
+No application logic, configured timeout, or assertion limit was increased.
+The failed release is retained as rejected evidence, not silently retried.

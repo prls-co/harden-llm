@@ -1418,20 +1418,12 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
             unexpected(conn)
         end
       end,
-      state: state,
-      history: fn conn ->
-        send(test_pid, {:rollback_history_load_started, self()})
-
-        receive do
-          :release_rollback_history_load ->
-            Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
-        end
-      end
+      state: state
     )
 
     {:ok, view, _html} = live(conn, ~p"/")
-    assert_receive {:rollback_history_load_started, history_process}
-    release_request(history_process, :release_rollback_history_load)
+    # Hydration starts History loading; await both stages before testing deletion rollback.
+    render_async(view, 1_000)
     render_async(view, 1_000)
     assert has_element?(view, "#workspace-history-run-test")
 
