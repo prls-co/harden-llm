@@ -148,6 +148,16 @@ test("preview control files and image reuse are idempotent", async () => {
   } finally { await rm(root, { recursive: true }); }
 });
 
+test("preview gateway leaves room for consecutive 64 MiB password checks and bounded Go GC", async () => {
+  const compose = await readFile(new URL("../../deploy/preview/compose.yml", import.meta.url), "utf8");
+  const gateway = compose.split("\n  gateway:\n")[1]?.split("\n  web:\n")[0];
+  assert.ok(gateway, "gateway service must exist");
+  assert.match(gateway, /mem_limit: 256m\n/);
+  assert.match(gateway, /GOMEMLIMIT: 192MiB\n/);
+  const password = await readFile(new URL("../../internal/gateway/auth/password.go", import.meta.url), "utf8");
+  assert.match(password, /argonMemory\s+uint32 = 64 \* 1024/);
+});
+
 test("preview templates expose no host ports or production telemetry and protect generated dotenv", async () => {
   const compose = await readFile(new URL("../../deploy/preview/compose.yml", import.meta.url), "utf8");
   assert.doesNotMatch(compose, /\bports:|external: true|docker\.sock/);
@@ -157,7 +167,6 @@ test("preview templates expose no host ports or production telemetry and protect
   assert.match(compose, /name: \$\{PREVIEW_PROJECT\}-private/);
   assert.match(compose, /tmpfs: \['\/tmp:size=16m,mode=1777'\]/);
   assert.match(compose, /tmpfs: \['\/tmp:size=32m,mode=1777'\]/);
-  assert.match(compose, /mem_limit: 128m/);
   assert.match(compose, /mem_limit: 512m/);
   assert.match(compose, /start_interval: 3s/);
   assert.match(compose, /start_interval: 2s/);

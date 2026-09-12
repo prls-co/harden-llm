@@ -3,7 +3,8 @@
 ## 1. Source and boundaries
 
 The operator-owned `/home/kirill/p/harden-llm/.env` is the source of shared
-provider keys, model catalogs and portable application settings. Preview host
+provider keys, credentials and portable scalar application settings. Model
+catalogs live in a separate JSON configuration file. Preview host
 `sharedEnvFile` points to this file. Production's infrastructure `.env` remains
 separate; do not copy database passwords, encryption keys, artifact credentials,
 bearer tokens, session secrets, URLs or environment identity across deployments.
@@ -14,23 +15,37 @@ provider access and spending authority. Never enable previews for untrusted code
 
 The configuration uses the existing profile catalog schema:
 
-- `HARDEN_LLM_SHARED_PROFILES`: single-quoted JSON catalog keyed by `llmProfile`.
-  It contains full model IDs, endpoints, capabilities, pricing, backup profiles,
-  cached model lists and default options. No provider keys belong in this JSON.
-- `HARDEN_LLM_SHARED_CREDENTIALS`: single-quoted JSON mapping profile names to
-  explicit `*_API_KEY` variable names, for example
-  `'{"CPA GPT-5.6 Luna":"CPA_API_KEY"}'`.
+- `HARDEN_LLM_CONFIG_FILE`: absolute path to a JSON file with `profiles` (the full
+  catalog keyed by `llmProfile`) and `credentialEnv` (profile-name to `*_API_KEY`
+  variable-name mapping). Reference host: `config/llm-profiles.local.json`.
+  Model IDs, endpoints, capabilities, pricing, backups and default options stay
+  in that file, not `.env`. Actual secret values must not appear in this JSON.
 - Referenced `*_API_KEY` values: ordinary secret `.env` variables. Missing or
   empty referenced keys fail deployment; profiles deliberately without a mapping
   remain unconfigured. Never invent dummy keys to make readiness appear green.
 - `HARDEN_LLM_MAX_RUN_DURATION_MS`, `HARDEN_LLM_PROVIDER_ALLOWED_HOSTS`, and
   `HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST`: shared gateway settings. The private
   allowlist must be reviewed before allowing internal endpoints in branch code.
+- `JINA_API_KEY`: optional server-side credential for the web-search fallback;
+  keep it in the protected environment file and never expose it to Phoenix or
+  browser clients.
+- `HARDEN_LLM_TOKEN`: the persistent dev API bearer token, used directly by cURL.
+  Dev binds it to its existing `preview-local` operator using the existing static
+  token implementation. No refresh interval or extra client auth flow. Changing
+  this variable and redeploying dev rotates it. Browser login sessions remain
+  independent; this token is not propagated to other previews or production.
 - Artifact presign/session TTLs and frontend API/run timeout and log-size limits
   are also shared; encryption/session **secrets** are not.
 
 Use literal single-quoted dotenv values to protect dollar signs. Keep `.env`
 mode 0600 and outside Git. No branch build receives this file or these keys.
+
+When reusing an explicitly authorized application's `.env`, copy only the
+needed inference/search variables into this canonical file, preserving existing
+values unless rotating them intentionally. Bind new inference keys to existing
+profiles through `credentialEnv` in the JSON config; `JINA_API_KEY` is a runtime
+setting, not a model profile. Do not copy unrelated service or infrastructure
+credentials. Configuration sync alone does not validate those upstream keys.
 
 ## 2. Application and verification
 
@@ -103,7 +118,15 @@ custom profiles. Real paid calls and browser tests remain separate opt-ins.
 
 ## 3. Rollback
 
-Keep a private backup of `.env` before rotation. Restore the prior shared values
+The trusted deployment controller checks out `main`; updating a `dev`
+application does not update that controller. Configuration-format changes must
+ship the matching loader, runtime-variable mappings, preview Compose template,
+and tests to the controller together. A controller-only update does not promote
+the application or deploy production. Verify the normal `workflow_run` path
+after a passing dev push, not only a manual host deployment. Keep large JSON
+catalogs in the config file; never restore JSON-in-`.env` to bypass validation.
+
+Keep a private backup of `.env` and the JSON config before rotation. Restore the prior shared values
 and rerun synchronization against affected environments. Reverting application
 images alone does **not** revert synchronized profile/key configuration. Do not
 reset databases, copy production sessions, or delete user history to recover.

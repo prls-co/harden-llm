@@ -8,7 +8,7 @@ import path from "node:path";
 import os from "node:os";
 import { parseEnv } from "node:util";
 import { branchIdentity, changedServices } from "./preview-policy.mjs";
-import { sharedProfiles, sharedApplicationVariables, syncSharedProfiles, verifySharedProfiles } from "./shared-profiles.mjs";
+import { sharedProfiles, sharedApplicationVariables, previewTokenVariables, syncSharedProfiles, verifySharedProfiles } from "./shared-profiles.mjs";
 
 export const configPath = path.join(os.homedir(), ".config/harden-llm-preview/host.json");
 export const repo = "prls-co/harden-llm";
@@ -255,7 +255,7 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
   if (command("git", ["-C", c.sourceRepository, "rev-parse", `refs/remotes/origin/${branch}`]) !== sha) throw new Error("Branch advanced during build; nothing promoted");
   let previousEnv = null;
   try { previousEnv = await fs.readFile(envPath); } catch (e) { if (e.code !== "ENOENT") throw e; }
-  const values = { ...credentials, ...sharedApplicationVariables(sharedValues), PREVIEW_ID: state.id, PREVIEW_PROJECT: state.project, PREVIEW_HOST: state.host,
+  const values = { ...credentials, ...sharedApplicationVariables(sharedValues), ...previewTokenVariables(branch, sharedValues), PREVIEW_ID: state.id, PREVIEW_PROJECT: state.project, PREVIEW_HOST: state.host,
     PREVIEW_CONTROL: path.join(c.root, "control"), GATEWAY_IMAGE: components.gateway.imageID, WEB_IMAGE: components.web.imageID,
     GATEWAY_RELEASE: components.gateway.release, WEB_RELEASE: components.web.release };
   await writePrivateIfChanged(envPath, dotenv(values));
