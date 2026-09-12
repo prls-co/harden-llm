@@ -118,14 +118,13 @@ custom profiles. Real paid calls and browser tests remain separate opt-ins.
 
 ## 3. Rollback
 
-Dev-only migration note (2026-09-12): the new JSON loader and dev-token mapping
-must also reach the trusted deployment controller before automatic deployment
-can use this format. The controller currently checks out `main`; updating a
-`dev` application does not update it. Until that separate control-plane change
-is approved, use the reviewed dev `deployEnvironment`/`syncControl` host commands
-under the existing `deploy.lock`, after fast checks, and do not promote the app
-to production. The old controller fails config validation before applying
-application changes; do not restore large JSON values in `.env` to bypass it.
+The trusted deployment controller checks out `main`; updating a `dev`
+application does not update that controller. Configuration-format changes must
+ship the matching loader, runtime-variable mappings, preview Compose template,
+and tests to the controller together. A controller-only update does not promote
+the application or deploy production. Verify the normal `workflow_run` path
+after a passing dev push, not only a manual host deployment. Keep large JSON
+catalogs in the config file; never restore JSON-in-`.env` to bypass validation.
 
 Keep a private backup of `.env` and the JSON config before rotation. Restore the prior shared values
 and rerun synchronization against affected environments. Reverting application

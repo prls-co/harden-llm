@@ -21,7 +21,9 @@ defmodule HardenLlm.LlmDiagnosticsWire do
   def decode(_operation, value), do: {:ok, value}
 
   def decode_run(%{"schemaVersion" => 2} = value) do
-    with :ok <- exact_keys(value, @run_keys),
+    with :ok <- subset_keys(value, @run_keys ++ ~w(search)),
+         :ok <- required_keys(value, @run_keys),
+         :ok <- optional(value, "search", &search/1),
          :ok <- enum(value["status"], ~w(succeeded failed timeout)),
          :ok <- identifier(value["runId"]),
          :ok <- identifier(value["callId"]),
@@ -45,6 +47,70 @@ defmodule HardenLlm.LlmDiagnosticsWire do
   end
 
   def decode_run(_value), do: malformed()
+
+  # Optional OpenAPI WebSearchResult, shared by live runs, history and traces.
+  # executed describes the original answer, including when served from cache.
+  defp search(value) when is_map(value) do
+    with :ok <- subset_keys(value, ~w(mode executed sources costStatus citations entryPointHtml)),
+         :ok <- required_keys(value, ~w(mode executed sources costStatus)),
+         :ok <- enum(value["mode"], ~w(native jina)),
+         :ok <- boolean(value["executed"]),
+         :ok <- enum(value["costStatus"], ~w(unavailable)),
+         sources when is_list(sources) and length(sources) <= 50 <- value["sources"],
+         :ok <- each(sources, &search_source/1),
+         :ok <- optional(value, "citations", &search_citations/1),
+         :ok <- optional(value, "entryPointHtml", &search_entry_point/1) do
+      :ok
+    else
+      _ -> :error
+    end
+  end
+
+  defp search(_value), do: :error
+
+  defp search_source(value) when is_map(value) do
+    with :ok <- exact_keys(value, ~w(url title)),
+         :ok <- search_url(value["url"]),
+         true <- is_binary(value["title"]),
+         do: :ok,
+         else: (_ -> :error)
+  end
+
+  defp search_source(_value), do: :error
+
+  defp search_citations(values) when is_list(values), do: each(values, &search_citation/1)
+  defp search_citations(_value), do: :error
+
+  defp search_citation(value) when is_map(value) do
+    with :ok <- exact_keys(value, ~w(url title startIndex endIndex)),
+         :ok <- search_source(Map.take(value, ~w(url title))),
+         :ok <- nonnegative_integer(value["startIndex"]),
+         :ok <- positive_integer(value["endIndex"]),
+         true <- value["endIndex"] > value["startIndex"],
+         do: :ok,
+         else: (_ -> :error)
+  end
+
+  defp search_citation(_value), do: :error
+
+  defp search_url(value) when is_binary(value) do
+    case URI.parse(value) do
+      %URI{scheme: scheme, host: host, userinfo: nil}
+      when scheme in ["http", "https"] and is_binary(host) and host != "" ->
+        :ok
+
+      _ ->
+        :error
+    end
+  end
+
+  defp search_url(_value), do: :error
+
+  defp search_entry_point(value) when is_binary(value) do
+    if length(String.codepoints(value)) <= 32_768, do: :ok, else: :error
+  end
+
+  defp search_entry_point(_value), do: :error
 
   def decode_stats(value) when is_map(value) do
     keys =

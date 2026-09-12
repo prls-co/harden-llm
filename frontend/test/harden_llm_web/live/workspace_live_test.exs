@@ -11,6 +11,77 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
   setup %{conn: conn}, do: {:ok, conn: authenticated_conn(conn)}
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-070
+  for mode <- ~w(native jina) do
+    @search_mode mode
+    test "#{mode} search response crosses the REST boundary and renders run history and trace", %{
+      conn: conn
+    } do
+      parent = self()
+
+      search = %{
+        "mode" => @search_mode,
+        "executed" => true,
+        "costStatus" => "unavailable",
+        "sources" => [%{"url" => "https://example.test/evidence", "title" => "Search evidence"}]
+      }
+
+      result = Map.put(APIFixtures.run_result(), "search", search)
+      history = %{"items" => [Map.put(APIFixtures.history_item(), "result", result)]}
+      trace = Map.put(APIFixtures.trace(), "record", result)
+
+      install_stub(
+        fn conn ->
+          case {conn.method, conn.request_path} do
+            {"POST", "/api/v1/state"} ->
+              Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+
+            {"POST", "/api/v1/run"} ->
+              {:ok, body, conn} = Plug.Conn.read_body(conn)
+              send(parent, {:search_run, Jason.decode!(body)})
+              Req.Test.json(conn, APIFixtures.success(result))
+
+            {"GET", "/api/v1/traces/trace-test"} ->
+              Req.Test.json(conn, APIFixtures.success(trace))
+
+            _ ->
+              unexpected(conn)
+          end
+        end,
+        history: fn conn -> Req.Test.json(conn, APIFixtures.success(history)) end
+      )
+
+      {:ok, view, _} = live(conn, ~p"/")
+      render_async(view, 1_000)
+      view |> element("#workspace-web-search-toggle") |> render_click()
+      submit_run(view, %{"userPrompt" => "search fixture"})
+      render_async(view, 1_000)
+      assert_received {:search_run, %{"webSearch" => true}}
+      refute has_element?(view, "#run-error")
+
+      assert has_element?(
+               view,
+               "#run-result-panel a[href='https://example.test/evidence']",
+               "Search evidence"
+             )
+
+      view |> element("#history-fold-toggle") |> render_click()
+      render_async(view, 1_000)
+      refute has_element?(view, "#workspace-history-error")
+
+      assert has_element?(
+               view,
+               "#workspace-history-run-test a[href='https://example.test/evidence']"
+             )
+
+      view |> element("#history-trace-run-test-summary") |> render_click()
+      view |> element("#history-trace-run-test-view-json") |> render_click()
+      render_async(view, 1_000)
+      assert has_element?(view, "#history-trace-run-test-trace-json", "Search evidence")
+      refute_received {:search_run, _}
+    end
+  end
+
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-066 WEB-TEST-067
   test "history result cards have independent lazy trace controls", %{conn: conn} do
     test_pid = self()

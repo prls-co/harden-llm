@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-12
 - Requirements: REQ-002, REQ-006, REQ-011, REQ-019
-- Verification: TEST-011, TEST-012, TEST-025, WEB-TEST-007, WEB-TEST-044
+- Verification: TEST-011, TEST-012, TEST-025, WEB-TEST-007, WEB-TEST-044, WEB-TEST-070
 
 ## Context
 
@@ -86,3 +86,14 @@ The cache tests cover both the runtime lookup boundary and the public
 an in-memory runtime cache misses dropped fields in `client_cache.go`.
 `TestSearchCachePersistenceProjection` now requires native/Jina evidence and
 inline citations to survive the real serialization path without another call.
+
+The Phoenix diagnostics decoder must also accept the optional `search` object
+on run, History and trace responses. A successful native-search run was stored
+by the gateway but rejected by the old exact-key decoder, producing the UI's
+unknown-outcome warning and preventing History recovery. WEB-TEST-070 exercises
+the strict decoder and the real Req-to-LiveView boundary with native/Jina
+evidence, including cached evidence with zero current provider usage. Unknown
+fields and malformed sources/citations remain errors; do not fix this by
+discarding search metadata or weakening all response validation. Browser
+verification can replay the already completed cached run without repeating
+the paid search.
