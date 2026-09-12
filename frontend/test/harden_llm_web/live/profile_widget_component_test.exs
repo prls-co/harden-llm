@@ -43,6 +43,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
            )
 
     assert has_element?(view, "#workspace-web-search-toggle", "🌐")
+    refute has_element?(view, "#workspace-web-search-toggle.is-enabled")
     assert has_element?(view, "#workspace-web-search[value=\"false\"]")
 
     html = render(view)
@@ -61,6 +62,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
            )
 
     assert has_element?(view, "#workspace-web-search[value=\"true\"]")
+    assert has_element?(view, "#workspace-web-search-toggle.is-enabled")
 
     assert has_element?(
              view,

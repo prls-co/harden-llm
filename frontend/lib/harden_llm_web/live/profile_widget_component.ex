@@ -975,7 +975,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         :if={@search_input_id}
         id={@search_input_id}
         type="button"
-        class="ullm-btn ullm-profile-search-toggle"
+        class={["ullm-btn", "ullm-profile-search-toggle", @search_enabled && "is-enabled"]}
         phx-click="toggle-web-search"
         phx-target={@target}
         aria-label={web_search_label(@search_enabled)}

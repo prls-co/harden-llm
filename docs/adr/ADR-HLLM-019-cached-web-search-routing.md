@@ -80,3 +80,9 @@ trusted gateway environments; the local ignored `.env` may contain a separate
 development bearer token and Jina key. Deterministic provider, gateway, and
 LiveView tests run through `make test-fast`; live provider and browser
 certification remain separate opt-in gates.
+
+The cache tests cover both the runtime lookup boundary and the public
+`CacheRecord` JSON projection. A deployed regression showed that testing only
+an in-memory runtime cache misses dropped fields in `client_cache.go`.
+`TestSearchCachePersistenceProjection` now requires native/Jina evidence and
+inline citations to survive the real serialization path without another call.

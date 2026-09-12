@@ -5,6 +5,7 @@ package hardenllm
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"sync"
 	"testing"
 
@@ -18,6 +19,46 @@ type memoryCache struct {
 	records map[string]CacheRecord
 	gets    int
 	sets    int
+}
+
+// Regression for a deployed cache replay dropping search evidence in the
+// public persistence projection, despite the runtime cache retaining it.
+func TestSearchCachePersistenceProjection(t *testing.T) {
+	t.Parallel()
+	for _, mode := range []string{"native", "jina"} {
+		t.Run(mode, func(t *testing.T) {
+			cache := &memoryCache{records: make(map[string]CacheRecord)}
+			fixture := fixtureProviderResult()
+			fixture.Search = &SearchResult{Mode: mode, Executed: true, CostStatus: "unavailable", Sources: []SearchSource{{URL: "https://example.test/source", Title: "Source"}}, Citations: []coreruntime.SearchCitation{{URL: "https://example.test/source", Title: "Source", StartIndex: 0, EndIndex: 2}}}
+			executor := &fixedExecutor{result: fixture}
+			client, err := New(Options{Credentials: fixedCredentialResolver{}, Cache: cache})
+			if err != nil {
+				t.Fatal(err)
+			}
+			client.executor = executor
+			request := Request{ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "search fixture", WebSearch: true, CallType: CallTypeText, CacheMode: CacheModeCache, CacheVersion: "operation-v2", RetryPolicy: RetryPolicy{MaxAttempts: 1}}
+			fresh, err := client.Call(context.Background(), request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			replayed, err := client.Call(context.Background(), request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if fresh.Search == nil || !reflect.DeepEqual(fresh.Search, replayed.Search) || !replayed.Cache.Served || executor.executed != 1 {
+				t.Fatalf("search evidence lost during persisted replay: fresh=%#v cached=%#v calls=%d", fresh.Search, replayed.Search, executor.executed)
+			}
+			for _, record := range cache.records {
+				var projection map[string]any
+				if err := json.Unmarshal(record.ProviderResult, &projection); err != nil {
+					t.Fatal(err)
+				}
+				if projection["search"] == nil {
+					t.Fatal("serialized cache projection has no search")
+				}
+			}
+		})
+	}
 }
 
 func (cache *memoryCache) Get(_ context.Context, key string) (CacheRecord, bool, error) {
