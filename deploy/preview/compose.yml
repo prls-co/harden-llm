@@ -62,12 +62,14 @@ services:
     init: true
     read_only: true
     tmpfs: ['/tmp:size=16m,mode=1777']
-    mem_limit: 128m
+    # Argon2 allocates 64 MiB per login; allow consecutive checks before GC.
+    mem_limit: 256m
     cpus: 0.50
     networks:
       private:
         aliases: ['${PREVIEW_PROJECT}-gateway']
     environment:
+      GOMEMLIMIT: 192MiB
       HARDEN_LLM_LISTEN_ADDRESS: :8080
       HARDEN_LLM_DATABASE_URL: postgresql://harden_llm:${POSTGRES_PASSWORD}@postgres:5432/harden_llm?sslmode=disable
       HARDEN_LLM_ENCRYPTION_KEYS: ${ENCRYPTION_KEYS:?}

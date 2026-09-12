@@ -116,6 +116,13 @@ Health checks probe quickly during startup and less frequently after startup;
 preview services have conservative memory and CPU limits to prevent idle
 branches from consuming unbounded host resources.
 
+The gateway has a 256 MiB container limit and `GOMEMLIMIT=192MiB`, leaving
+headroom for native/container overhead. Password verification allocates 64 MiB
+per Argon2 check; the former 128 MiB limit caused kernel OOM kills and public
+502 responses during consecutive guest/operator login checks. Do not reduce
+the limit based only on idle usage. The persistent API token avoids password
+verification on inference requests; this change does not alter authentication.
+
 The measured dev baseline before these changes was approximately 199 MiB for
 the four idle containers (gateway 11 MiB, web 142 MiB, Postgres 33 MiB, and
 Garage 13 MiB). The last application-bearing fast CI run took about four

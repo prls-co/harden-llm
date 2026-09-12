@@ -40,6 +40,13 @@ The configuration uses the existing profile catalog schema:
 Use literal single-quoted dotenv values to protect dollar signs. Keep `.env`
 mode 0600 and outside Git. No branch build receives this file or these keys.
 
+When reusing an explicitly authorized application's `.env`, copy only the
+needed inference/search variables into this canonical file, preserving existing
+values unless rotating them intentionally. Bind new inference keys to existing
+profiles through `credentialEnv` in the JSON config; `JINA_API_KEY` is a runtime
+setting, not a model profile. Do not copy unrelated service or infrastructure
+credentials. Configuration sync alone does not validate those upstream keys.
+
 ## 2. Application and verification
 
 Every preview deployment resolves the shared config, applies gateway settings
