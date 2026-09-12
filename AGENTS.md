@@ -100,8 +100,9 @@ Routine changes do not require full release certification or production
 deployment. Promote to `main`/production only when explicitly requested. Skip
 application builds for docs/test-only changes and rebuild only affected
 services. Preview operator logins use the same email/password as production,
-as explicitly requested. Provider keys and model/profile configuration now come
-from the single protected `.env` identified by preview host `sharedEnvFile`.
+as explicitly requested. Provider keys and scalar settings come from the `.env`
+identified by preview host `sharedEnvFile`; full profile JSON and credential-env
+references live in the separate JSON file named by `HARDEN_LLM_CONFIG_FILE`.
 Apply them with the trusted `sync-profiles` administrative command; never use
 interactive profile-save probes as deployment checks. Keep infrastructure
 credentials, encryption keys, data, sessions, and networks separate; never copy

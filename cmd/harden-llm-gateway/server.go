@@ -125,6 +125,7 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 	}
 	rootOptions := hardenllm.Options{
 		EndpointPolicy: rootPolicy, Logger: logger,
+		WebSearch:      hardenllm.WebSearchOptions{JinaAPIKey: config.jinaAPIKey},
 		TracerProvider: telemetryRuntime.TracerProvider(), MeterProvider: telemetryRuntime.MeterProvider(),
 	}
 	profileProber, err := gateway.NewSharedRootProfileProber(rootOptions)
@@ -250,7 +251,7 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 }
 
 func configurationRedactor(config serverConfig) *redaction.Redactor {
-	secrets := []string{config.databaseURL, config.artifactAccessKey, config.artifactSecretKey, config.staticToken}
+	secrets := []string{config.databaseURL, config.artifactAccessKey, config.artifactSecretKey, config.staticToken, config.jinaAPIKey}
 	if parsed, err := url.Parse(config.databaseURL); err == nil && parsed.User != nil {
 		if password, ok := parsed.User.Password(); ok {
 			secrets = append(secrets, password)

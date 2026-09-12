@@ -65,6 +65,7 @@
               selected_profile_id={@form[:selectedProfileId].value || ""}
               reasoning_effort={@form[:reasoningEffort].value || "lowest"}
               cache_mode={@form[:cacheMode].value || "cache"}
+              web_search={@form[:webSearch].value in [true, "true", "on", "1"]}
               model_id={@form[:modelId].value || ""}
               config_open={@ui["llmProfileConfigOpen"]}
               options_open={@ui["modelOptionsOpen"]}
@@ -241,6 +242,7 @@
                   id={"result-#{@run_result["runId"]}"}
                   input={get_in(@output_trace_resources, ["request", "payload", "userPrompt"])}
                   output={@run_result["output"]}
+                  search={@run_result["search"]}
                   output_id="run-output"
                   copy_output_id="copy-run-output"
                 >
@@ -346,6 +348,7 @@
                   id={"workspace-history-#{item["runId"]}"}
                   input={get_in(item, ["request", "userPrompt"])}
                   output={get_in(item, ["result", "output"])}
+                  search={get_in(item, ["result", "search"])}
                 >
                   <:stats>
                     <.llm_trace {history_trace_assigns(item, @history_result_states, @run_ref, @profile_requires_save?)} />

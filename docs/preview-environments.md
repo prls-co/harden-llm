@@ -76,7 +76,9 @@ provider/model setup as production (user-requested policy). The local login refe
 
 Read that private file on the host; never put its password in Git, workflow
 logs, or chat. All previews read one protected `.env` from host configuration
-`sharedEnvFile` (reference host: `/home/kirill/p/harden-llm/.env`). This is also
+`sharedEnvFile` (reference host: `/home/kirill/p/harden-llm/.env`). Profile JSON
+and credential-variable references are loaded from the absolute
+`HARDEN_LLM_CONFIG_FILE` path; keys and scalar settings remain in `.env`. This is also
 the source used to apply production's shared model/key configuration; branch
 checkouts are not alternative configuration sources. See
 [shared configuration](shared-llm-configuration.md) for updates and rotation.

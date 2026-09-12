@@ -50,6 +50,7 @@ type Profile struct {
 	Pricing                            *Pricing                  `json:"pricing"`
 	SupportsTemperature                *bool                     `json:"supportsTemperature"`
 	SupportsContractedStructuredOutput bool                      `json:"supportsContractedStructuredOutput"`
+	SupportsWebSearch                  *bool                     `json:"supportsWebSearch,omitempty"`
 	TokensParam                        *string                   `json:"tokensParam"`
 	ResponsesTokensParam               *string                   `json:"responsesTokensParam"`
 	DefaultOptions                     map[string]any            `json:"defaultOptions"`
@@ -57,6 +58,15 @@ type Profile struct {
 	BackupProfiles                     []string                  `json:"backupProfiles"`
 	Models                             []Model                   `json:"models,omitempty"`
 	LastModelRefreshAt                 *time.Time                `json:"lastModelRefreshAt,omitempty"`
+}
+
+// NativeWebSearchSupported uses an explicit profile capability, never a provider
+// name heuristic. Omission is false for both REST and Go callers.
+func NativeWebSearchSupported(profile Profile) bool {
+	if profile.SupportsWebSearch != nil {
+		return *profile.SupportsWebSearch
+	}
+	return false
 }
 
 type Pricing struct {

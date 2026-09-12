@@ -1,30 +1,40 @@
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-062
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sharedProfiles, sharedApplicationVariables, syncSharedProfiles, verifySharedProfiles } from '../shared-profiles.mjs';
+import { sharedProfiles, sharedApplicationVariables, previewTokenVariables, syncSharedProfiles, verifySharedProfiles } from '../shared-profiles.mjs';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
-test('shared configuration resolves only explicitly bound env keys, without interpolation', () => {
+function configFile(t, profiles, credentialEnv = {Example:'EXAMPLE_API_KEY'}) {
+  const dir = mkdtempSync(path.join(tmpdir(),'hllm-config-test-'));
+  t.after(()=>rmSync(dir,{recursive:true}));
+  const file=path.join(dir,'profiles.json');
+  writeFileSync(file, JSON.stringify({profiles,credentialEnv}));
+  return file;
+}
+
+test('shared configuration resolves only explicitly bound env keys, without interpolation', t => {
   const catalog = { Example: { llmProfile: 'Example', baseUrl: 'https://example.test/v1' } };
   const values = {
-    HARDEN_LLM_SHARED_PROFILES: JSON.stringify(catalog),
-    HARDEN_LLM_SHARED_CREDENTIALS: JSON.stringify({ Example: 'EXAMPLE_API_KEY' }),
+    HARDEN_LLM_CONFIG_FILE: configFile(t,catalog),
     EXAMPLE_API_KEY: 'fixture$not-expanded',
     HARDEN_LLM_WEB_SECRET_KEY_BASE: 'never-shared',
   };
   assert.deepEqual(sharedProfiles(values), { profiles: catalog, credentials: { Example: { apiKey: 'fixture$not-expanded' } } });
   assert.throws(() => sharedProfiles({ ...values, EXAMPLE_API_KEY: '' }), /missing/);
-  assert.throws(() => sharedProfiles({ ...values, HARDEN_LLM_SHARED_CREDENTIALS: '{"Unknown":"EXAMPLE_API_KEY"}' }), /unknown profile/);
-  assert.throws(() => sharedProfiles({ ...values, HARDEN_LLM_SHARED_CREDENTIALS: '{"Example":"HARDEN_LLM_WEB_SECRET_KEY_BASE"}' }), /API_KEY/);
-  assert.throws(() => sharedProfiles({ ...values, HARDEN_LLM_SHARED_PROFILES: 'secret malformed value' }), /invalid shared/);
-  assert.throws(() => sharedProfiles({ ...values, HARDEN_LLM_SHARED_CREDENTIALS: '42' }), /invalid shared/);
+  assert.throws(() => sharedProfiles({ ...values, HARDEN_LLM_CONFIG_FILE: configFile(t,catalog,{Unknown:'EXAMPLE_API_KEY'}) }), /unknown profile/);
+  assert.throws(() => sharedProfiles({ ...values, HARDEN_LLM_CONFIG_FILE: configFile(t,catalog,{Example:'HARDEN_LLM_WEB_SECRET_KEY_BASE'}) }), /API_KEY/);
+  assert.throws(() => sharedProfiles({ ...values, HARDEN_LLM_CONFIG_FILE: 'secret malformed value' }), /invalid shared/);
+  assert.throws(() => sharedProfiles({ ...values, HARDEN_LLM_CONFIG_FILE: configFile(t,catalog,42) }), /invalid shared/);
 });
 
 test('only portable application variables are shared', () => {
-  assert.deepEqual(sharedApplicationVariables({ HARDEN_LLM_MAX_RUN_DURATION_MS:'45000', HARDEN_LLM_PROVIDER_ALLOWED_HOSTS:'example.test', HARDEN_LLM_DATABASE_URL:'not-shared', HARDEN_LLM_STATIC_TOKEN:'not-shared', HARDEN_LLM_WEB_SECRET_KEY_BASE:'not-shared' }), { HARDEN_LLM_MAX_RUN_DURATION_MS:'45000', HARDEN_LLM_PROVIDER_ALLOWED_HOSTS:'example.test' });
+  assert.deepEqual(sharedApplicationVariables({ HARDEN_LLM_MAX_RUN_DURATION_MS:'45000', HARDEN_LLM_PROVIDER_ALLOWED_HOSTS:'example.test', JINA_API_KEY:'fixture-jina-key', HARDEN_LLM_DATABASE_URL:'not-shared', HARDEN_LLM_STATIC_TOKEN:'not-shared', HARDEN_LLM_WEB_SECRET_KEY_BASE:'not-shared' }), { HARDEN_LLM_MAX_RUN_DURATION_MS:'45000', HARDEN_LLM_PROVIDER_ALLOWED_HOSTS:'example.test', JINA_API_KEY:'fixture-jina-key' });
 });
 
-test('sync uses local encryption and DB, stdin keys, both accounts and no provider call', () => {
-  const values = { HARDEN_LLM_SHARED_PROFILES:'{"Example":{"llmProfile":"Example"}}', HARDEN_LLM_SHARED_CREDENTIALS:'{"Example":"EXAMPLE_API_KEY"}', EXAMPLE_API_KEY:'fixture-private', TEST_LOGIN:'guest@example.test', HARDEN_LLM_LOCAL_OPERATOR_EMAIL:'operator@example.test' };
+test('sync uses local encryption and DB, stdin keys, both accounts and no provider call', t => {
+  const values = { HARDEN_LLM_CONFIG_FILE:configFile(t,{Example:{llmProfile:'Example'}}), EXAMPLE_API_KEY:'fixture-private', TEST_LOGIN:'guest@example.test', HARDEN_LLM_LOCAL_OPERATOR_EMAIL:'operator@example.test' };
   const calls=[];
   const run=(bin,args,options)=>{calls.push({bin,args,options});return args[0]==='inspect'?JSON.stringify([{Id:'target-id',Config:{Labels:{'com.docker.compose.project':'hllm-preview-dev','com.docker.compose.service':'gateway'},Env:['HARDEN_LLM_DATABASE_URL=local-db','HARDEN_LLM_ENCRYPTION_KEYS=local-keys','HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID=local','UNRELATED_SECRET=excluded']}}]):'{"changed":false}';};
   assert.deepEqual(syncSharedProfiles('target','image',values,run),{accounts:2,profiles:1,configured:1,changed:false});
@@ -40,9 +50,9 @@ test('sync uses local encryption and DB, stdin keys, both accounts and no provid
   assert.throws(()=>syncSharedProfiles('wrong','image',values,()=>JSON.stringify([{Config:{Labels:{}}}])),/Not a harden-llm gateway/);
 });
 
-test('readback verifies model settings and key availability, and logs out on mismatch', async () => {
+test('readback verifies model settings and key availability, and logs out on mismatch', async t => {
   const profile={llmProfile:'Example',modelId:'model'};
-  const values={HARDEN_LLM_SHARED_PROFILES:JSON.stringify({Example:profile}),HARDEN_LLM_SHARED_CREDENTIALS:'{"Example":"EXAMPLE_API_KEY"}',EXAMPLE_API_KEY:'fixture-only',TEST_LOGIN:'guest',TEST_PASSWORD:'guest-password',HARDEN_LLM_LOCAL_OPERATOR_EMAIL:'operator',HARDEN_LLM_LOCAL_OPERATOR_PASSWORD:'operator-password'};
+  const values={HARDEN_LLM_CONFIG_FILE:configFile(t,{Example:profile}),EXAMPLE_API_KEY:'fixture-only',TEST_LOGIN:'guest',TEST_PASSWORD:'guest-password',HARDEN_LLM_LOCAL_OPERATOR_EMAIL:'operator',HARDEN_LLM_LOCAL_OPERATOR_PASSWORD:'operator-password'};
   for(const mismatch of [false,true]) {
     const calls=[];
     const request=async(url,options)=>{
@@ -57,4 +67,12 @@ test('readback verifies model settings and key availability, and logs out on mis
     assert(!calls.some(c=>c.url.endsWith('/run')));
     assert(!JSON.stringify(calls).includes('fixture-only'));
   }
+});
+
+test('dev uses one persistent env token and existing operator; other previews do not inherit it',()=>{
+  const token='fixture-token'.repeat(4);
+  assert.deepEqual(previewTokenVariables('dev',{HARDEN_LLM_TOKEN:token}),{HARDEN_LLM_STATIC_TOKEN:token,HARDEN_LLM_STATIC_TOKEN_OWNER_ID:'preview-local'});
+  assert.deepEqual(previewTokenVariables('feature',{HARDEN_LLM_TOKEN:token}),{});
+  assert.deepEqual(previewTokenVariables('dev',{}),{});
+  assert.throws(()=>previewTokenVariables('dev',{HARDEN_LLM_TOKEN:'short'}),/invalid HARDEN_LLM_TOKEN/);
 });

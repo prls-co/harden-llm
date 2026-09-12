@@ -20,7 +20,23 @@ func normalizeResponse(prepared preparedRequest, body []byte) (runtime.ProviderR
 	if err != nil {
 		return runtime.ProviderResult{}, &retry.ProviderError{Err: errors.New("provider returned malformed JSON"), Code: "MALFORMED_RESPONSE", Parse: true}
 	}
-	output, text, refusal, empty := extractProviderOutput(prepared.protocol, response)
+	projection := response
+	if prepared.searchMode == "native" && prepared.protocol == "openai.responses" {
+		// Search may emit a commentary message before the final answer. Never
+		// return that preamble as a successful searched answer.
+		projection = cloneMap(response)
+		projection["output"] = finalResponseOutput(response)
+		delete(projection, "output_text")
+	}
+	if prepared.searchMode == "native" && prepared.protocol == "anthropic.messages" {
+		for _, item := range arrayValue(response["content"]) {
+			part := objectValue(item)
+			if part["type"] == "web_search_tool_result" && objectValue(part["content"])["type"] == "web_search_tool_result_error" {
+				return runtime.ProviderResult{}, &retry.ProviderError{Err: errors.New("native web search tool failed"), Code: "WEB_SEARCH_TOOL_ERROR"}
+			}
+		}
+	}
+	output, text, refusal, empty := extractProviderOutput(prepared.protocol, projection)
 	if refusal {
 		return runtime.ProviderResult{}, &retry.ProviderError{Err: errors.New("provider refusal or content filter"), Code: "PROVIDER_REFUSAL", Refusal: true}
 	}
@@ -57,6 +73,7 @@ func normalizeResponse(prepared preparedRequest, body []byte) (runtime.ProviderR
 		return runtime.ProviderResult{}, &retry.ProviderError{Err: errors.New("provider response normalization failed"), Code: "NORMALIZATION", Parse: true}
 	}
 	return runtime.ProviderResult{
+		Search: normalizeSearch(prepared, response),
 		Output: output, Accounting: accounting.Ledger{Usage: usage, Cost: cost}, RawProviderEnvelope: envelope,
 	}, nil
 }

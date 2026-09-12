@@ -414,6 +414,10 @@ button, a, input, select, textarea { touch-action: manipulation; }
   min-width: 0;
 }
 
+.ullm-profile-row-with-search {
+  grid-template-columns: minmax(4rem, auto) minmax(0, 1fr) minmax(4.75rem, 5.5rem) var(--ullm-profile-control-height) var(--ullm-profile-control-height) var(--ullm-profile-control-height);
+}
+
 .ullm-escalation-profile-row {
   grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(4.75rem, 5.5rem) var(--ullm-profile-control-height) var(--ullm-profile-control-height);
 }
@@ -611,6 +615,7 @@ button, a, input, select, textarea { touch-action: manipulation; }
 }
 
 .ullm-profile-cache-toggle,
+.ullm-profile-search-toggle,
 .ullm-profile-config-toggle {
   width: var(--ullm-profile-control-height);
   min-width: var(--ullm-profile-control-height);
@@ -926,6 +931,7 @@ button, a, input, select, textarea { touch-action: manipulation; }
 @media (max-width: 720px) {
   .ullm-widget { padding: .85rem; }
   .ullm-profile-row { grid-template-columns: minmax(0, 1fr) var(--ullm-profile-control-height) var(--ullm-profile-control-height); }
+  .ullm-profile-row-with-search { grid-template-columns: minmax(0, 1fr) repeat(4, var(--ullm-profile-control-height)); }
   .ullm-profile-category { grid-column: 1 / -1; max-width: none; }
   .ullm-profile-picker { grid-column: 1 / -1; }
   .ullm-reasoning-field { min-width: 0; }
@@ -940,3 +946,6 @@ button, a, input, select, textarea { touch-action: manipulation; }
   .ullm-escalation-profile-row .ullm-profile-category,
   .ullm-escalation-profile-row .ullm-profile-picker { grid-column: auto; }
 }
+/* Search evidence is retained with the result, including cache replays. */
+.llm-result-sources { display: flex; flex-wrap: wrap; gap: .4rem .75rem; padding: .5rem; font-size: .8rem; }
+.llm-result-sources a { text-decoration: underline; overflow-wrap: anywhere; }

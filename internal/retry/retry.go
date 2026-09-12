@@ -291,7 +291,7 @@ func clampRandom(value float64) float64 {
 
 func isNetworkCode(code string) bool {
 	switch strings.ToUpper(strings.TrimSpace(code)) {
-	case "ETIMEDOUT", "ECONNRESET", "ENOTFOUND", "EAI_AGAIN", "EPIPE", "ECONNABORTED", "NETWORK_ERROR":
+	case "ETIMEDOUT", "ECONNRESET", "ENOTFOUND", "EAI_AGAIN", "EPIPE", "ECONNABORTED", "NETWORK_ERROR", "WEB_SEARCH_NETWORK":
 		return true
 	default:
 		return false

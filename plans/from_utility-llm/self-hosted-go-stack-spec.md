@@ -183,9 +183,16 @@ type Options struct {
   Cache          CacheStore
   Artifacts      ArtifactStore
   EndpointPolicy EndpointPolicy
+  WebSearch      WebSearchOptions
   TracerProvider trace.TracerProvider
   MeterProvider  metric.MeterProvider
   Logger         *slog.Logger
+}
+
+type WebSearchOptions struct {
+  JinaAPIKey           string
+  JinaTimeout          time.Duration
+  JinaMaxResponseBytes int64
 }
 
 type Request struct {
@@ -196,6 +203,7 @@ type Request struct {
   CallType        CallType
   Schema          json.RawMessage
   ReasoningEffort ReasoningEffort
+  WebSearch       bool
   ProviderOptions map[string]any
   Context         ObservabilityContext
   CacheMode       CacheMode
@@ -245,6 +253,15 @@ Contract requirements:
   result accounting, and current provider accounting. The gateway never
   reconstructs these facts from mutable profile rows.
 - Cache identity excludes observability context, retry controls, timeout/deadline, cancellation state, and UI context.
+- An explicit web-search request is part of operation semantics. Native-capable
+  CPA/OpenAI Responses profiles use the hosted `web_search` tool; Gemini,
+  Claude text and Sonar use their native protocol adapters. Unsupported routes
+  use the fixed-host Jina fallback. Capability omission is false. The cache lookup
+  occurs before either search or provider execution, so a cache hit skips both.
+  Refresh recomputes and overwrites the same search-enabled operation key.
+  Search evidence/citations remain attached to cached answers. Successful Jina
+  results are memoized only within the logical call, including retries, repairs
+  and backups. No speculative native/Jina dual execution occurs (ADR-HLLM-019).
 - `maxAttempts` means the call-global total provider-invocation budget across
   primary, retry, repair, and backup candidates.
 - Parse/schema retry and semantic repair consume the same attempt budget.
@@ -623,6 +640,7 @@ Application variables:
 | `HARDEN_LLM_ENVIRONMENT` | Deployment environment. |
 | `HARDEN_LLM_RELEASE` | Release identifier. |
 | `HARDEN_LLM_SESSION_TTL` | Session lifetime. |
+| `JINA_API_KEY` | Optional protected Jina Search credential for requested web-search fallback calls. Cache hits do not call Jina. |
 | `HARDEN_LLM_MAX_RUN_DURATION_MS` | Effective synchronous `/api/v1/run` cap in milliseconds; default `60000`, required range `1..60000`. Requests may lower but not raise it. |
 | `HARDEN_LLM_PROVIDER_ALLOWED_HOSTS` | Optional restriction for public provider hosts. |
 | `HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST` | Exact private hosts/CIDRs allowed by the administrator. |

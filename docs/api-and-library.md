@@ -140,6 +140,42 @@ curl --fail-with-body --silent --show-error \
   "$API/api/v1/run" | jq
 ```
 
+Set `webSearch:true` to enable web evidence (the UI uses `🌐` after Reasoning).
+Explicitly capable CPA/OpenAI Responses profiles use native `web_search`;
+Gemini uses Google Search, Claude uses its server search tool for text, and
+Perplexity Sonar uses its built-in search. Unsupported profiles/routes and
+Claude strict structured output use Jina. Capability omission means false,
+consistently in REST and Go. The toggle owns search tools; conflicting raw
+search-tool options cannot turn search on while it is off. `cacheMode:"cache"` still looks up the exact
+search-enabled operation first, so a hit skips both the search and model call;
+`cacheMode:"refresh"` recomputes and overwrites that same cache entry. No automatic
+cache bypass or expiry is added for search. A cached answer may be stale by design.
+
+`result.search` records `mode`, actual `executed`, `sources`, optional inline
+`citations`, and `costStatus:"unavailable"` (search fees are not included in model
+token accounting). These describe the original answer and survive cache replay;
+use `result.cache.served` and `result.providerInvoked` for this invocation.
+The native Gemini/Claude tools may decide not to search; no speculative Jina
+request follows a native response or failure. Source links appear in current
+results and history without modifying copied text or structured output.
+
+For the development gateway, keep the bearer token and optional Jina key in
+the ignored mode-0600 `.env` as `HARDEN_LLM_TOKEN` and `JINA_API_KEY`. Read the
+token directly; it is bound to the existing dev operator and does not expire
+or need refreshing. Browser login sessions remain independent. No production
+token is copied. Changing `HARDEN_LLM_TOKEN` and redeploying dev rotates it:
+
+```bash
+API=https://harden-llm-dev.prls.co
+TOKEN="$(sed -n 's/^HARDEN_LLM_TOKEN=//p' .env)"
+curl --fail-with-body --silent --show-error --request POST "$API/api/v1/run" \
+  --header 'Accept: application/json' \
+  --header "Authorization: Bearer ${TOKEN}" \
+  --header 'Content-Type: application/json' \
+  --data-raw '{"cacheMode":"cache","cacheVersion":"operation-v2","callType":"text","initialBackoffMs":500,"maxAttempts":4,"maximumBackoffMs":8000,"modelId":"gpt-5.6-luna","profileId":"CPA GPT-5.6 Luna","providerOptions":{"max_tokens":16000,"stream":true},"reasoningEffort":"lowest","retryEmpty":true,"retryNetwork":true,"retryParse":true,"retryRateLimit":true,"retryServerError":true,"systemPrompt":"You are a helpful assistant","userPrompt":"write 2 haiku joke about burning man","webSearch":true}' | jq
+unset TOKEN
+```
+
 For the deployed structured smoke call, `scripts/harden-structured-call.sh`
 uses `HARDEN_LLM_STATIC_TOKEN` from the local ignored `.env` when configured;
 otherwise it reads `HARDEN_LLM_LIVE_USER_EMAIL` and

@@ -166,7 +166,13 @@ func (telemetry *Telemetry) StartProvider(ctx context.Context, target ExecutionT
 	return ctx, func(err error) {
 		_, category := outcomeAndCategory(err)
 		setSpanStatus(span, err, category)
+		var beforeProvider *BeforeProviderError
+		invoked := !errors.As(err, &beforeProvider)
+		span.SetAttributes(attribute.Bool("harden_llm.provider.invoked", invoked))
 		span.End()
+		if !invoked {
+			return
+		}
 		telemetry.providerAttempts.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("provider", provider), attribute.String("call_type", callType),
 			attribute.String("outcome", outcomeValue(err)), attribute.String("category", category),

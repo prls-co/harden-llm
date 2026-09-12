@@ -42,7 +42,9 @@ func New(options Options) (*Client, error) {
 			ConnectTimeout: options.EndpointPolicy.ConnectTimeout, TLSHandshakeTimeout: options.EndpointPolicy.TLSHandshakeTimeout,
 			ResponseHeaderTimeout: options.EndpointPolicy.ResponseHeaderTimeout,
 		},
-		Logger: options.Logger,
+		Logger:     options.Logger,
+		JinaAPIKey: options.WebSearch.JinaAPIKey, JinaTimeout: options.WebSearch.JinaTimeout,
+		JinaMaxResponseBytes: options.WebSearch.JinaMaxResponseBytes,
 	})
 	if err != nil {
 		return nil, err
@@ -107,6 +109,7 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 	call := coreruntime.Call{
 		SystemPrompt: request.SystemPrompt, UserPrompt: request.UserPrompt, CallType: string(request.CallType),
 		Schema: append([]byte(nil), request.Schema...), ReasoningEffort: string(request.ReasoningEffort),
+		WebSearch:       request.WebSearch,
 		ProviderOptions: cloneAnyMap(request.ProviderOptions), Context: runtimeContext(request.Context),
 		StructuredRepair: repairPolicy,
 		Telemetry:        client.telemetry,
@@ -254,6 +257,7 @@ func runtimeProfiles(catalog ProfileCatalog) (map[string]coreruntime.Profile, er
 	validated := make(contractprofiles.Catalog, len(catalog))
 	for key, profile := range catalog {
 		supportsTemperature := profile.SupportsTemperature
+		supportsWebSearch := profile.SupportsWebSearch
 		tokensParam := profile.TokensParam
 		responsesTokensParam := profile.ResponsesTokensParam
 		var pricing *contractprofiles.Pricing
@@ -270,6 +274,7 @@ func runtimeProfiles(catalog ProfileCatalog) (map[string]coreruntime.Profile, er
 			BaseURL: profile.BaseURL, ModelID: profile.ModelID, Pricing: pricing,
 			SupportsTemperature:                &supportsTemperature,
 			SupportsContractedStructuredOutput: profile.SupportsContractedStructuredOutput,
+			SupportsWebSearch:                  &supportsWebSearch,
 			TokensParam:                        &tokensParam, ResponsesTokensParam: &responsesTokensParam,
 			DefaultOptions:     cloneAnyMap(profile.DefaultOptions),
 			ReasoningEffortMap: cloneNestedAnyMap(profile.ReasoningEffortMap),
@@ -292,7 +297,9 @@ func runtimeProfiles(catalog ProfileCatalog) (map[string]coreruntime.Profile, er
 			DefaultOptions: cloneAnyMap(profile.DefaultOptions), ReasoningEffortMap: cloneNestedAnyMap(profile.ReasoningEffortMap),
 			Backups: append([]string(nil), profile.BackupProfiles...), SupportsStructuredOutput: profile.SupportsContractedStructuredOutput,
 			SupportsTemperature: *profile.SupportsTemperature, TokensParam: *profile.TokensParam,
-			ResponsesTokensParam: *profile.ResponsesTokensParam, Pricing: runtimeContractPricing(profile.Pricing),
+			ResponsesTokensParam: *profile.ResponsesTokensParam,
+			SupportsWebSearch:    profile.SupportsWebSearch != nil && *profile.SupportsWebSearch,
+			Pricing:              runtimeContractPricing(profile.Pricing),
 		}
 	}
 	return profiles, nil
@@ -330,6 +337,7 @@ func resultFromRecord(record coreruntime.CallRecord) Result {
 		})
 	}
 	return Result{
+		Search: record.Search,
 		Output: record.Output, CallID: record.CallID, TraceID: record.TraceID,
 		SelectedTarget: publicExecutionTarget(record.SelectedTarget),
 		ResultSource: ResultSource{

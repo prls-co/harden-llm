@@ -30,6 +30,7 @@ const (
 	sessionTTLEnvironment            = "HARDEN_LLM_SESSION_TTL"
 	staticTokenEnvironment           = "HARDEN_LLM_STATIC_TOKEN"
 	staticTokenOwnerEnvironment      = "HARDEN_LLM_STATIC_TOKEN_OWNER_ID"
+	jinaAPIKeyEnvironment            = "JINA_API_KEY"
 	maxRunDurationEnvironment        = "HARDEN_LLM_MAX_RUN_DURATION_MS"
 	allowedHostsEnvironment          = "HARDEN_LLM_PROVIDER_ALLOWED_HOSTS"
 	privateAllowlistEnvironment      = "HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST"
@@ -59,6 +60,7 @@ type serverConfig struct {
 	sessionTTL          time.Duration
 	staticToken         string
 	staticTokenOwnerID  string
+	jinaAPIKey          string
 	maxRunDuration      time.Duration
 	allowedHosts        []string
 	privateAllowedHosts []string
@@ -88,6 +90,7 @@ func loadServerConfig(getenv func(string) string) (serverConfig, error) {
 		serviceName:         strings.TrimSpace(getenv(serviceNameEnvironment)),
 		staticToken:         strings.TrimSpace(getenv(staticTokenEnvironment)),
 		staticTokenOwnerID:  strings.TrimSpace(getenv(staticTokenOwnerEnvironment)),
+		jinaAPIKey:          strings.TrimSpace(getenv(jinaAPIKeyEnvironment)),
 	}
 	if config.listenAddress == "" {
 		config.listenAddress = defaultListenAddress

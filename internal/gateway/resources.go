@@ -42,6 +42,7 @@ type ClientState struct {
 	ReasoningByProfile map[string]string `json:"reasoningByProfile,omitempty"`
 	StructuredRepair   bool              `json:"structuredRepair"`
 	CacheMode          string            `json:"cacheMode"`
+	WebSearch          bool              `json:"webSearch"`
 	ProviderOptions    map[string]any    `json:"providerOptions,omitempty"`
 	MaxAttempts        int               `json:"maxAttempts,omitempty"`
 	InitialBackoffMS   int               `json:"initialBackoffMs,omitempty"`
@@ -475,7 +476,7 @@ func (service *ResourceService) PresignArtifact(ctx context.Context, ownerID, tr
 }
 
 func defaultClientState() ClientState {
-	return ClientState{SchemaVersion: clientStateSchemaVersion, CallType: string(hardenllm.CallTypeText), CacheMode: string(hardenllm.CacheModeOff)}
+	return ClientState{SchemaVersion: clientStateSchemaVersion, CallType: string(hardenllm.CallTypeText), CacheMode: string(hardenllm.CacheModeOff), WebSearch: false}
 }
 
 func validateClientState(state ClientState) error {

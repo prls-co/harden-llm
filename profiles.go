@@ -14,6 +14,7 @@ type Profile struct {
 	Pricing                            *Pricing                  `json:"pricing"`
 	SupportsTemperature                bool                      `json:"supportsTemperature"`
 	SupportsContractedStructuredOutput bool                      `json:"supportsContractedStructuredOutput"`
+	SupportsWebSearch                  bool                      `json:"supportsWebSearch,omitempty"`
 	TokensParam                        string                    `json:"tokensParam"`
 	ResponsesTokensParam               string                    `json:"responsesTokensParam"`
 	DefaultOptions                     map[string]any            `json:"defaultOptions"`

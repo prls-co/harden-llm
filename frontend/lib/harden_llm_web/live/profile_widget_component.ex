@@ -40,6 +40,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     {:ok,
      socket
      |> assign(:initialized?, false)
+     |> assign(:web_search, false)
      |> assign(:id_prefix, "")
      |> assign(:loaded_profile_id, nil)
      |> assign(:profiles_revision, nil)
@@ -121,7 +122,11 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
          Map.get(assigns, :reasoning_effort, ProfileDefaults.reasoning_default())
        )
      )
-     |> assign(:cache_mode, Map.get(assigns, :cache_mode, ProfileDefaults.cache_mode_default()))}
+     |> assign(:cache_mode, Map.get(assigns, :cache_mode, ProfileDefaults.cache_mode_default()))
+     |> assign(
+       :web_search,
+       truthy?(Map.get(assigns, :web_search, Map.get(socket.assigns, :web_search, false)))
+     )}
   end
 
   @impl true
@@ -176,6 +181,15 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     socket
     |> assign(:cache_mode, next_mode)
     |> notify_parent({:profile_widget_control, "cacheMode", next_mode})
+    |> noreply()
+  end
+
+  def handle_event("toggle-web-search", _params, socket) do
+    next_enabled = not socket.assigns.web_search
+
+    socket
+    |> assign(:web_search, next_enabled)
+    |> notify_parent({:profile_widget_control, "webSearch", next_enabled})
     |> noreply()
   end
 
@@ -473,6 +487,24 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         end
       end)
 
+    socket =
+      case Map.fetch(params, "webSearch") do
+        {:ok, value} when value in [true, false] ->
+          socket
+          |> assign(:web_search, value)
+          |> notify_parent({:profile_widget_control, "webSearch", value})
+
+        {:ok, value} when is_binary(value) and value != "" ->
+          enabled = truthy?(value)
+
+          socket
+          |> assign(:web_search, enabled)
+          |> notify_parent({:profile_widget_control, "webSearch", enabled})
+
+        _ ->
+          socket
+      end
+
     {:noreply, socket}
   end
 
@@ -723,6 +755,10 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         reasoning_value={@reasoning_effort}
         reasoning_options={reasoning_options(@profiles, @selected_profile_id)}
         reasoning_change="workspace-control"
+        search_input_id={scope_id(@id_prefix, "workspace-web-search-toggle")}
+        search_field_id={scope_id(@id_prefix, "workspace-web-search")}
+        search_field_name="run[webSearch]"
+        search_enabled={@web_search}
         cache_input_id={scope_id(@id_prefix, "workspace-cache-toggle")}
         cache_field_id={scope_id(@id_prefix, "workspace-cache")}
         cache_field_name="run[cacheMode]"
@@ -872,6 +908,10 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:reasoning_value, :any, default: "")
   attr(:reasoning_options, :list, default: [])
   attr(:reasoning_change, :string, default: "profile-draft-change")
+  attr(:search_input_id, :string, default: nil)
+  attr(:search_field_id, :string, default: nil)
+  attr(:search_field_name, :string, default: nil)
+  attr(:search_enabled, :boolean, default: false)
   attr(:cache_input_id, :string, required: true)
   attr(:cache_mode, :string, required: true)
   attr(:cache_field_id, :string, default: nil)
@@ -888,7 +928,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
   def profile_row(assigns) do
     ~H"""
-    <div class={"ullm-profile-row #{@row_class}"}>
+    <div class={"ullm-profile-row #{if @search_input_id, do: "ullm-profile-row-with-search", else: ""} #{@row_class}"}>
       <span class="ullm-profile-category" title={@category}>{@category}</span>
       <div class="ullm-profile-picker">
         <label for={@profile_input_id} class="ullm-profile-label">
@@ -931,6 +971,27 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           </option>
         </select>
       </div>
+      <button
+        :if={@search_input_id}
+        id={@search_input_id}
+        type="button"
+        class="ullm-btn ullm-profile-search-toggle"
+        phx-click="toggle-web-search"
+        phx-target={@target}
+        aria-label={web_search_label(@search_enabled)}
+        aria-pressed={to_string(@search_enabled)}
+        data-web-search={to_string(@search_enabled)}
+        title={web_search_title(@search_enabled)}
+      ><span aria-hidden="true">🌐</span></button>
+      <input
+        :if={@search_field_id}
+        id={@search_field_id}
+        type="hidden"
+        name={@search_field_name}
+        value={to_string(@search_enabled)}
+        class="ullm-sr-only"
+        autocomplete="off"
+      />
       <button
         id={@cache_input_id}
         type="button"
@@ -1290,7 +1351,21 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           phx-change="profile-draft-change"
           phx-target={@target}
         />
+        <.input
+          field={@form[:supportsWebSearch]}
+          id={field_id(@id_prefix, @form[:supportsWebSearch].id)}
+          type="checkbox"
+          label="Supports native web search"
+          phx-change="profile-draft-change"
+          phx-target={@target}
+        />
       </div>
+      <input
+        :if={not new_profile_fields_visible?(@kind, @form, @profiles)}
+        type="hidden"
+        name={@form[:supportsWebSearch].name}
+        value={to_string(truthy?(@form[:supportsWebSearch].value))}
+      />
 
       <div class="ullm-options-fold">
         <button
@@ -2416,6 +2491,15 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     do: "Fresh run: skips old cache and overwrites the saved response after success."
 
   defp cache_title(_), do: "Uses a saved response when this exact operation has already run."
+
+  defp web_search_label(true), do: "Disable web search"
+  defp web_search_label(false), do: "Enable web search"
+
+  defp web_search_title(true),
+    do:
+      "Web search is on; use native provider search when supported or Jina fallback. Cache still applies."
+
+  defp web_search_title(false), do: "Web search is off."
 
   defp next_cache_mode("cache"), do: "refresh"
   defp next_cache_mode("refresh"), do: "cache"

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync"
 
 	"github.com/prls-co/harden-llm/internal/accounting"
 	"github.com/prls-co/harden-llm/internal/cachekey"
@@ -26,6 +27,9 @@ func Execute(
 ) (record CallRecord, err error) {
 	if executor == nil {
 		return CallRecord{}, errors.New("runtime executor is required")
+	}
+	if call.WebSearch {
+		call.SearchMemo = &sync.Map{}
 	}
 	if credentials == nil {
 		return CallRecord{}, errors.New("credential lookup is required")
@@ -110,6 +114,7 @@ func Execute(
 				if found {
 					endCache("hit", nil)
 					record.Output = cached.ProviderResult.Output
+					record.Search = cached.ProviderResult.Search
 					record.Accounting.Result = normalizedLedger(cached.ProviderResult.Accounting)
 					record.Accounting.Provider = providerAccounting
 					producer := cached.Producer
@@ -190,6 +195,10 @@ func Execute(
 				providerContext, endProvider = call.Telemetry.StartProvider(attemptContext, activeTarget, call.CallType)
 			}
 			result, executeErr := executor.Execute(providerContext, activePrepared)
+			var beforeProvider *BeforeProviderError
+			if errors.As(executeErr, &beforeProvider) {
+				providerUsed[localAttemptNumber] = false
+			}
 			endProvider(executeErr)
 			attemptAccounting := normalizedLedger(result.Accounting)
 			if hasProviderAccounting(attemptAccounting) {
@@ -286,6 +295,7 @@ func Execute(
 				Kind: ResultSourceProvider, AttemptNumber: successfulAttempt.Number, Producer: &producer,
 			}
 			record.RawProviderEnvelope = append(record.RawProviderEnvelope[:0], providerResult.RawProviderEnvelope...)
+			record.Search = providerResult.Search
 			if cacheMode != cachekey.ModeOff {
 				cacheContext := ctx
 				endCache := func(string, error) {}

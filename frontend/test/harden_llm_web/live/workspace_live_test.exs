@@ -2531,6 +2531,10 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
                        }
                      }}
 
+    assert has_element?(view, ~s(#workspace-web-search-toggle[data-web-search="false"]))
+    view |> element("#workspace-web-search-toggle") |> render_click()
+    assert has_element?(view, ~s(#workspace-web-search-toggle[data-web-search="true"]))
+
     view |> form("#run-form") |> render_submit()
     render_async(view, 1_000)
 
@@ -2541,6 +2545,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert payload["structuredRepair"] == true
     assert payload["reasoningEffort"] == "highest"
     assert payload["cacheMode"] == "cache"
+    assert payload["webSearch"] == true
     assert payload["maxAttempts"] == 4
     assert payload["initialBackoffMs"] == 500
 

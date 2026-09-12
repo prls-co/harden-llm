@@ -16,7 +16,7 @@ var runtimeOptionKeys = map[string]struct{}{
 	"baseDelayMs": {}, "maxDelayMs": {}, "enableRetryOn429": {}, "enableRetryOn5xx": {},
 	"enableRetryOnNetworkError": {}, "enableRetryOnParseError": {}, "cacheMode": {},
 	"cacheVersion": {}, "callType": {}, "reasoningEffort": {}, "structuredRepairRetry": {},
-	"useResponsesApi": {},
+	"useResponsesApi": {}, "webSearch": {},
 }
 
 func buildPayload(profile runtime.Profile, call runtime.Call) (string, string, string, map[string]any, map[string]any, error) {
@@ -25,6 +25,9 @@ func buildPayload(profile runtime.Profile, call runtime.Call) (string, string, s
 	}
 	options, err := mergedOptions(profile, call)
 	if err != nil {
+		return "", "", "", nil, nil, err
+	}
+	if err := manageSearchOptions(options); err != nil {
 		return "", "", "", nil, nil, err
 	}
 	schema, err := decodedSchema(call)
@@ -189,7 +192,65 @@ func buildResponsesPayload(profile runtime.Profile, call runtime.Call, options m
 			"verbosity": "medium",
 		}
 	}
+	if nativeWebSearchEnabled(profile, call) {
+		addNativeWebSearch(payload)
+	}
 	return payload
+}
+
+func nativeWebSearchEnabled(profile runtime.Profile, call runtime.Call) bool {
+	if !call.WebSearch || !profile.SupportsWebSearch {
+		return false
+	}
+	switch profile.APIInferenceType {
+	case "responses":
+		useResponses, configured := call.ProviderOptions["useResponsesApi"].(bool)
+		return !configured || useResponses
+	case "gemini-generate-content":
+		return true
+	case "anthropic-messages":
+		// Claude's search citations and strict structured output cannot be
+		// combined. Jina provides context without changing the output contract.
+		return call.CallType != "structured"
+	case "chat-completions":
+		return strings.EqualFold(profile.Provider, "perplexity")
+	default:
+		return false
+	}
+}
+
+func addNativeWebSearch(payload map[string]any) {
+	// manageSearchOptions already validated tools and removed search overrides.
+	payload["tools"] = append(arrayValue(payload["tools"]), map[string]any{"type": "web_search"})
+	// The UI toggle is an explicit request to search, so do not leave the
+	// Responses API's default "auto" behavior in charge of whether a search
+	// happens.
+	payload["tool_choice"] = map[string]any{"type": "web_search"}
+	addWebSearchSources(payload)
+}
+
+func addWebSearchSources(payload map[string]any) {
+	const sourceInclude = "web_search_call.action.sources"
+	includes := make([]any, 0, 1)
+	switch existing := payload["include"].(type) {
+	case []any:
+		includes = append(includes, existing...)
+	case []string:
+		for _, value := range existing {
+			includes = append(includes, value)
+		}
+	case nil:
+		// Add the source projection below.
+	default:
+		return
+	}
+	for _, value := range includes {
+		if value == sourceInclude {
+			payload["include"] = includes
+			return
+		}
+	}
+	payload["include"] = append(includes, sourceInclude)
 }
 
 func buildChatPayload(profile runtime.Profile, call runtime.Call, options map[string]any, schema any) map[string]any {
@@ -210,6 +271,10 @@ func buildChatPayload(profile runtime.Profile, call runtime.Call, options map[st
 	}
 	for key, value := range normalized {
 		payload[key] = value
+	}
+	if strings.EqualFold(profile.Provider, "perplexity") {
+		payload["disable_search"] = !nativeWebSearchEnabled(profile, call)
+		payload["enable_search_classifier"] = false
 	}
 	if call.CallType == "structured" {
 		if strings.EqualFold(profile.Provider, "novita") {
@@ -264,6 +329,12 @@ func buildGeminiPayload(profile runtime.Profile, call runtime.Call, options map[
 	if len(systemParts) > 0 {
 		payload["system_instruction"] = map[string]any{"parts": systemParts}
 	}
+	if tools, ok := options["tools"]; ok {
+		payload["tools"] = tools
+	}
+	if nativeWebSearchEnabled(profile, call) {
+		payload["tools"] = append(arrayValue(payload["tools"]), map[string]any{"google_search": map[string]any{}})
+	}
 	return payload
 }
 
@@ -293,6 +364,12 @@ func buildAnthropicPayload(profile runtime.Profile, call runtime.Call, options m
 	}
 	if call.CallType == "structured" {
 		payload["output_config"] = map[string]any{"format": map[string]any{"type": "json_schema", "schema": anthropicSchema(schema)}}
+	}
+	if nativeWebSearchEnabled(profile, call) {
+		payload["tools"] = append(arrayValue(payload["tools"]), map[string]any{"type": "web_search_20250305", "name": "web_search", "max_uses": 3})
+		// Forced tool use is incompatible with extended thinking. The server
+		// tool runs in this request; report actual use from the response.
+		payload["tool_choice"] = map[string]any{"type": "auto"}
 	}
 	return payload
 }

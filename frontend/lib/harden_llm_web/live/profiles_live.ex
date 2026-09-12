@@ -476,6 +476,7 @@ defmodule HardenLlmWeb.ProfilesLive do
       "supportsTemperature" => to_string(profile["supportsTemperature"] || false),
       "supportsContractedStructuredOutput" =>
         to_string(profile["supportsContractedStructuredOutput"] || false),
+      "supportsWebSearch" => to_string(supports_web_search?(profile)),
       "maxTokens" =>
         option_text(options["max_tokens"] || ProfileDefaults.default_options()["max_tokens"]),
       "temperature" => option_text(options["temperature"]),
@@ -539,6 +540,7 @@ defmodule HardenLlmWeb.ProfilesLive do
           "supportsTemperature" => truthy?(params["supportsTemperature"]),
           "supportsContractedStructuredOutput" =>
             truthy?(params["supportsContractedStructuredOutput"]),
+          "supportsWebSearch" => truthy?(params["supportsWebSearch"]),
           "tokensParam" => nil,
           "responsesTokensParam" => nil,
           "defaultOptions" => options,
@@ -821,6 +823,14 @@ defmodule HardenLlmWeb.ProfilesLive do
 
   defp pricing_text(_value), do: ""
   defp truthy?(value), do: value in [true, "true", "on", "1"]
+
+  defp supports_web_search?(profile) do
+    case Map.fetch(profile, "supportsWebSearch") do
+      {:ok, value} -> truthy?(value)
+      :error -> false
+    end
+  end
+
   defp boolean_value(value, _default) when value in [true, "true", "on", "1"], do: true
   defp boolean_value(value, _default) when value in [false, "false", "0"], do: false
   defp boolean_value(_value, default), do: default

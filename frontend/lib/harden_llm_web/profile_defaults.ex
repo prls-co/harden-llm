@@ -81,6 +81,7 @@ defmodule HardenLlmWeb.ProfileDefaults do
     "backupProfiles" => "",
     "supportsTemperature" => "true",
     "supportsContractedStructuredOutput" => "true",
+    "supportsWebSearch" => "false",
     "maxTokens" => Integer.to_string(@default_max_output_tokens),
     "temperature" => "",
     "topP" => "",

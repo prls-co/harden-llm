@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"encoding/json"
+	"sync"
 	"time"
 
 	"github.com/prls-co/harden-llm/internal/accounting"
@@ -22,6 +23,7 @@ type Profile struct {
 	Backups                  []string
 	SupportsStructuredOutput bool
 	SupportsTemperature      bool
+	SupportsWebSearch        bool
 	TokensParam              string
 	ResponsesTokensParam     string
 	Pricing                  Pricing
@@ -35,11 +37,14 @@ type Credential struct {
 }
 
 type Call struct {
-	SystemPrompt       string
-	UserPrompt         string
-	CallType           string
-	Schema             json.RawMessage
-	ReasoningEffort    string
+	SystemPrompt    string
+	UserPrompt      string
+	CallType        string
+	Schema          json.RawMessage
+	ReasoningEffort string
+	WebSearch       bool
+	// SearchMemo is owned by one logical call and shared by retries/repairs/backups.
+	SearchMemo         *sync.Map
 	ProviderOptions    map[string]any
 	Context            ObservabilityContext
 	StructuredRepair   StructuredRepair
@@ -82,6 +87,7 @@ type Ledger = accounting.Ledger
 type Accounting = accounting.Accounting
 
 type ProviderResult struct {
+	Search              *SearchResult   `json:"search,omitempty"`
 	Output              any             `json:"output"`
 	Accounting          Ledger          `json:"accounting"`
 	RawProviderEnvelope json.RawMessage `json:"rawProviderEnvelope"`
@@ -135,6 +141,7 @@ type ResultSource struct {
 }
 
 type CallRecord struct {
+	Search               *SearchResult
 	CallID               string
 	TraceID              string
 	Output               any

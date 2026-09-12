@@ -47,6 +47,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     "callType" => "structured",
     "structuredRepair" => true,
     "cacheMode" => "cache",
+    "webSearch" => false,
     "reasoningEffort" => "lowest",
     "reasoningByProfile" => %{},
     "maxAttempts" => 4,
@@ -166,7 +167,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   def handle_info({:profile_widget, _prefix, {:profile_widget_control, key, value}}, socket)
-      when key in ["reasoningEffort", "cacheMode", "modelId"] do
+      when key in ["reasoningEffort", "cacheMode", "modelId", "webSearch"] do
     update_workspace_form(socket, key, value)
   end
 
@@ -235,6 +236,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       @default_state
       |> Map.merge(hydration.state || %{})
       |> Map.update("cacheMode", "cache", &normalize_cache_mode/1)
+      |> Map.update("webSearch", false, &truthy?/1)
       |> Map.put("ui", normalize_ui((hydration.state || %{})["ui"]))
       |> normalize_response_state()
 
@@ -1502,6 +1504,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
         if(selected_profile_id == "", do: %{}, else: %{selected_profile_id => reasoning}),
       "structuredRepair" => structured_repair?(request, call_type),
       "cacheMode" => normalize_cache_mode(request["cacheMode"]),
+      "webSearch" => truthy?(request["webSearch"]),
       "maxAttempts" => request["maxAttempts"] || 0,
       "initialBackoffMs" => request["initialBackoffMs"] || 0,
       "maximumBackoffMs" => request["maximumBackoffMs"] || 0,
@@ -1611,6 +1614,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       "userPrompt" => prompt,
       "callType" => call_type,
       "cacheMode" => normalize_cache_mode(params["cacheMode"]),
+      "webSearch" => truthy?(params["webSearch"]),
       "structuredRepair" => structured_repair
     }
 
@@ -1715,6 +1719,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       "reasoningByProfile" => reasoning_by_profile,
       "structuredRepair" => structured_repair?(params, call_type),
       "cacheMode" => normalize_cache_mode(params["cacheMode"]),
+      "webSearch" => truthy?(params["webSearch"]),
       "maxAttempts" => integer_or_zero(params["maxAttempts"]),
       "initialBackoffMs" => integer_or_zero(params["initialBackoffMs"]),
       "maximumBackoffMs" => integer_or_zero(params["maximumBackoffMs"]),
@@ -1743,6 +1748,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     state
     |> Map.put("schema", schema)
     |> Map.put("callType", call_type)
+    |> Map.put("webSearch", truthy?(state["webSearch"]))
     |> Map.put("structuredRepair", structured_repair?(state, call_type))
   end
 
@@ -2132,6 +2138,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     state
     |> Map.put("schema", schema)
     |> Map.put("schemaShorthand", state["schemaShorthand"] || "")
+    |> Map.put("webSearch", to_string(truthy?(state["webSearch"])))
     |> Map.put("repairEscalationModelId", escalation["modelId"] || "")
     |> Map.put("repairEscalationProfileId", escalation["profileId"] || "")
     |> Map.put("repairEscalationAttempt", to_string(escalation["attempt"] || 3))

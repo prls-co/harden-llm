@@ -74,6 +74,10 @@ func TestDefaultCatalogParity(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			profile := catalog[name]
 			expected := want[name]
+			wantNativeSearch := slices.Contains([]string{"cpa", "openai", "google", "anthropic", "perplexity"}, expected.provider)
+			if NativeWebSearchSupported(profile) != wantNativeSearch {
+				t.Fatalf("%s native search capability mismatch", name)
+			}
 			if profile.LLMProfile != name || profile.Provider != expected.provider ||
 				profile.APIInferenceType != expected.inference || profile.BaseURL != expected.baseURL || profile.ModelID != expected.modelID {
 				t.Fatalf("profile transport = %#v, want provider=%q inference=%q base=%q model=%q", profile, expected.provider, expected.inference, expected.baseURL, expected.modelID)

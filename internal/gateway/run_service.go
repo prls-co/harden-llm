@@ -28,6 +28,7 @@ type RunInput struct {
 	CallType         hardenllm.CallType  `json:"callType"`
 	Schema           json.RawMessage     `json:"schema,omitempty"`
 	ReasoningEffort  string              `json:"reasoningEffort,omitempty"`
+	WebSearch        bool                `json:"webSearch,omitempty"`
 	ProviderOptions  map[string]any      `json:"providerOptions,omitempty"`
 	CacheMode        hardenllm.CacheMode `json:"cacheMode,omitempty"`
 	CacheVersion     string              `json:"cacheVersion,omitempty"`
@@ -61,6 +62,7 @@ type RunArtifact struct {
 }
 
 type RunOutput struct {
+	Search              *hardenllm.SearchResult   `json:"search,omitempty"`
 	SchemaVersion       int                       `json:"schemaVersion"`
 	RunID               string                    `json:"runId"`
 	Status              string                    `json:"status"`
@@ -204,6 +206,7 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 		ProfileID: input.ProfileID, Profiles: catalog, SystemPrompt: input.SystemPrompt, UserPrompt: input.UserPrompt,
 		CallType: input.CallType, Schema: append(json.RawMessage(nil), input.Schema...),
 		ReasoningEffort: hardenllm.ReasoningEffort(input.ReasoningEffort), ProviderOptions: cloneAnyMap(input.ProviderOptions),
+		WebSearch: input.WebSearch,
 		Context:   hardenllm.ObservabilityContext{TaskID: runID, RunID: runID, OrganizationID: ownerID},
 		CacheMode: input.CacheMode, CacheVersion: input.CacheVersion,
 		RetryPolicy: hardenllm.RetryPolicy{
@@ -240,8 +243,8 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 		SelectedTarget: result.SelectedTarget, ResultSource: result.ResultSource, Accounting: result.Accounting,
 		Attempts: cloneAttempts(result.Attempts),
 		Cache:    result.Cache, Artifacts: artifacts, TotalCallDurationMs: totalCallDurationMs,
-		ProviderInvoked: attemptsInvokedProvider(result.Attempts),
-		TotalWaitMs:     totalWaitMs, OverBudgetMs: overBudgetMs, UsedRepair: usedRepair,
+		Search: result.Search, ProviderInvoked: attemptsInvokedProvider(result.Attempts),
+		TotalWaitMs: totalWaitMs, OverBudgetMs: overBudgetMs, UsedRepair: usedRepair,
 	}
 	requestDocument, _ := json.Marshal(input)
 	resultDocument, _ := json.Marshal(output)

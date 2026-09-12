@@ -21,7 +21,8 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": []
+    "backupProfiles": [],
+    "supportsWebSearch": true
   },
   "Claude Opus 4.7": {
     "schemaVersion": 1,
@@ -45,7 +46,8 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": []
+    "backupProfiles": [],
+    "supportsWebSearch": true
   },
   "Claude Opus 5": {
     "schemaVersion": 1,
@@ -69,7 +71,8 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": []
+    "backupProfiles": [],
+    "supportsWebSearch": true
   },
   "Claude Sonnet 4.6": {
     "schemaVersion": 1,
@@ -93,7 +96,8 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": []
+    "backupProfiles": [],
+    "supportsWebSearch": true
   },
   "Claude Sonnet 5": {
     "schemaVersion": 1,
@@ -117,7 +121,8 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": []
+    "backupProfiles": [],
+    "supportsWebSearch": true
   },
   "CPA GPT-5.4": {
     "schemaVersion": 1,
@@ -159,7 +164,8 @@
           "effort": "xhigh"
         }
       }
-    }
+    },
+    "supportsWebSearch": true
   },
   "CPA GPT-5.4 Mini": {
     "schemaVersion": 1,
@@ -201,7 +207,8 @@
           "effort": "xhigh"
         }
       }
-    }
+    },
+    "supportsWebSearch": true
   },
   "CPA GPT-5.6 Luna": {
     "schemaVersion": 1,
@@ -243,7 +250,8 @@
           "effort": "xhigh"
         }
       }
-    }
+    },
+    "supportsWebSearch": true
   },
   "CPA GPT-5.6 Sol": {
     "schemaVersion": 1,
@@ -285,7 +293,8 @@
           "effort": "xhigh"
         }
       }
-    }
+    },
+    "supportsWebSearch": true
   },
   "Gemini 3.1 Flash Lite": {
     "schemaVersion": 1,
@@ -326,7 +335,8 @@
           "thinkingLevel": "HIGH"
         }
       }
-    }
+    },
+    "supportsWebSearch": true
   },
   "Gemini 3.1 Pro Preview": {
     "schemaVersion": 1,
@@ -367,7 +377,8 @@
           "thinkingLevel": "HIGH"
         }
       }
-    }
+    },
+    "supportsWebSearch": true
   },
   "Gemini 3.5 Flash": {
     "schemaVersion": 1,
@@ -408,7 +419,8 @@
           "thinkingLevel": "HIGH"
         }
       }
-    }
+    },
+    "supportsWebSearch": true
   },
   "Gemini 3.5 Flash Lite": {
     "schemaVersion": 1,
@@ -449,7 +461,8 @@
           "thinkingLevel": "HIGH"
         }
       }
-    }
+    },
+    "supportsWebSearch": true
   },
   "Gemini 3.7 Flash": {
     "schemaVersion": 1,
@@ -490,7 +503,8 @@
           "thinkingLevel": "HIGH"
         }
       }
-    }
+    },
+    "supportsWebSearch": true
   },
   "Novita DeepSeek V4 Flash": {
     "schemaVersion": 1,
@@ -595,6 +609,7 @@
     },
     "supportsTemperature": false,
     "supportsContractedStructuredOutput": true,
+    "supportsWebSearch": true,
     "tokensParam": null,
     "responsesTokensParam": "max_output_tokens",
     "defaultOptions": {
@@ -636,6 +651,7 @@
     },
     "supportsTemperature": false,
     "supportsContractedStructuredOutput": true,
+    "supportsWebSearch": true,
     "tokensParam": null,
     "responsesTokensParam": "max_output_tokens",
     "defaultOptions": {
@@ -677,6 +693,7 @@
     },
     "supportsTemperature": false,
     "supportsContractedStructuredOutput": true,
+    "supportsWebSearch": true,
     "tokensParam": null,
     "responsesTokensParam": "max_output_tokens",
     "defaultOptions": {
@@ -718,6 +735,7 @@
     },
     "supportsTemperature": false,
     "supportsContractedStructuredOutput": true,
+    "supportsWebSearch": true,
     "tokensParam": null,
     "responsesTokensParam": "max_output_tokens",
     "defaultOptions": {
@@ -759,6 +777,7 @@
     },
     "supportsTemperature": false,
     "supportsContractedStructuredOutput": true,
+    "supportsWebSearch": true,
     "tokensParam": null,
     "responsesTokensParam": "max_output_tokens",
     "defaultOptions": {
@@ -921,7 +940,8 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": []
+    "backupProfiles": [],
+    "supportsWebSearch": true
   },
   "Perplexity Sonar Pro": {
     "schemaVersion": 1,
@@ -945,7 +965,8 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": []
+    "backupProfiles": [],
+    "supportsWebSearch": true
   },
   "Perplexity Sonar Reasoning Pro": {
     "schemaVersion": 1,
@@ -969,6 +990,7 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": []
+    "backupProfiles": [],
+    "supportsWebSearch": true
   }
 }

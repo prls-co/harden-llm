@@ -83,7 +83,7 @@ func TestRunRoute(t *testing.T) {
 	defer server.Close()
 	authorization := map[string][]string{"Authorization": {"Bearer valid-token"}}
 
-	textBody := []byte(`{"profileId":"Backup","modelId":"model-override","userPrompt":"say ok","callType":"text","cacheMode":"off","maxAttempts":1}`)
+	textBody := []byte(`{"profileId":"Backup","modelId":"model-override","userPrompt":"say ok","callType":"text","webSearch":true,"cacheMode":"off","maxAttempts":1}`)
 	response := apiRequest(t, server.Client(), http.MethodPost, server.URL+"/api/v1/run", textBody, authorization)
 	assertEnvelope(t, response, http.StatusOK, false)
 	result := response.JSON["result"].(map[string]any)
@@ -97,9 +97,19 @@ func TestRunRoute(t *testing.T) {
 	if caller.last.Context.OrganizationID != "owner-a" || caller.last.Context.RunID != "run-1" || len(caller.last.Profiles) != 1 {
 		t.Fatalf("root request = %#v", caller.last)
 	}
+	if !caller.last.WebSearch {
+		t.Fatal("REST request lost webSearch at the public Go boundary")
+	}
 	storedRun, err := store.Run(ctx, "owner-a", "run-1")
 	if err != nil || storedRun.TraceID != "trace-1" || bytes.Contains(storedRun.Request, []byte("run-route-provider-secret")) {
 		t.Fatalf("stored run = %#v, %v", storedRun, err)
+	}
+	var storedInput gateway.RunInput
+	if err := json.Unmarshal(storedRun.Request, &storedInput); err != nil {
+		t.Fatal(err)
+	}
+	if !storedInput.WebSearch {
+		t.Fatal("run history lost search intent")
 	}
 	trace, observations, err := store.Trace(ctx, "owner-a", "trace-1")
 	if err != nil || trace.TraceID != "trace-1" || len(observations) != 1 {

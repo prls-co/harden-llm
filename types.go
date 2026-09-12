@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"github.com/prls-co/harden-llm/internal/runtime"
 	"log/slog"
 	"net"
 	"net/netip"
@@ -19,9 +20,18 @@ type Options struct {
 	Cache          CacheStore
 	Artifacts      ArtifactStore
 	EndpointPolicy EndpointPolicy
+	WebSearch      WebSearchOptions
 	TracerProvider trace.TracerProvider
 	MeterProvider  metric.MeterProvider
 	Logger         *slog.Logger
+}
+
+// WebSearchOptions configures the server-side fallback used when a selected
+// profile does not advertise native web-search support.
+type WebSearchOptions struct {
+	JinaAPIKey           string
+	JinaTimeout          time.Duration
+	JinaMaxResponseBytes int64
 }
 
 // Request describes one provider-neutral LLM call.
@@ -33,6 +43,7 @@ type Request struct {
 	CallType        CallType
 	Schema          json.RawMessage
 	ReasoningEffort ReasoningEffort
+	WebSearch       bool
 	ProviderOptions map[string]any
 	Context         ObservabilityContext
 	CacheMode       CacheMode
@@ -42,6 +53,7 @@ type Request struct {
 
 // Result is the single detailed result returned by Client.Call.
 type Result struct {
+	Search         *SearchResult
 	Output         any
 	CallID         string
 	TraceID        string
@@ -52,6 +64,9 @@ type Result struct {
 	Cache          CacheResult
 	Artifacts      []ArtifactRef
 }
+
+type SearchResult = runtime.SearchResult
+type SearchSource = runtime.SearchSource
 
 // CallType identifies text or contracted structured-output execution.
 type CallType string

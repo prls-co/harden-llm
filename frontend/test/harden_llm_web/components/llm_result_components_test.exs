@@ -4,6 +4,73 @@ defmodule HardenLlmWeb.LlmResultComponentsTest do
   alias HardenLlmWeb.LlmResultComponents
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-066
+  test "inline citations link exact Unicode text and ignore invalid or overlapping offsets" do
+    output = "🌐 a source and <text>"
+    source = %{"url" => "https://example.test/source", "title" => "Source"}
+
+    citations = [
+      Map.merge(source, %{"startIndex" => 4, "endIndex" => 10}),
+      Map.merge(source, %{"startIndex" => 5, "endIndex" => 7}),
+      Map.merge(source, %{"startIndex" => 99, "endIndex" => 100})
+    ]
+
+    html =
+      render_component(&LlmResultComponents.llm_result/1,
+        id: "inline",
+        output: output,
+        search: %{
+          "mode" => "native",
+          "executed" => true,
+          "sources" => [source],
+          "citations" => citations,
+          "entryPointHtml" => "<a>suggestion</a>"
+        }
+      )
+
+    doc = LazyHTML.from_document(html)
+    assert LazyHTML.query(doc, "#inline-output a") |> LazyHTML.text() == "source"
+    assert LazyHTML.query(doc, "#inline-output a") |> Enum.count() == 1
+    assert LazyHTML.query(doc, "#inline-output") |> LazyHTML.text() == output
+
+    assert LazyHTML.query(doc, "#inline-copy-output") |> LazyHTML.attribute("data-copy-value") ==
+             [output]
+
+    assert LazyHTML.query(doc, "iframe") |> LazyHTML.attribute("sandbox") == [
+             "allow-popups allow-popups-to-escape-sandbox"
+           ]
+  end
+
+  test "search sources are clickable without changing structured output or trusting unsafe URLs" do
+    html =
+      render_component(&LlmResultComponents.llm_result/1,
+        id: "search-result",
+        output: %{"answer" => "source"},
+        search: %{
+          "mode" => "native",
+          "executed" => true,
+          "sources" => [
+            %{"url" => "https://example.test/source", "title" => "<source>"},
+            %{"url" => "javascript:alert(1)", "title" => "bad"}
+          ]
+        }
+      )
+
+    doc = LazyHTML.from_document(html)
+
+    assert LazyHTML.query(doc, "aside a") |> LazyHTML.attribute("href") == [
+             "https://example.test/source"
+           ]
+
+    assert html =~ "&lt;source&gt;"
+    assert html =~ "native: searched"
+    refute html =~ "javascript:"
+
+    assert LazyHTML.query(doc, "#search-result-copy-output")
+           |> LazyHTML.attribute("data-copy-value") == [
+             Jason.encode!(%{"answer" => "source"}, pretty: true)
+           ]
+  end
+
   test "result rows retain full values for copy and expansion and scope controls to each card" do
     input = "first line\n" <> String.duplicate("long input <tag> ", 40)
 

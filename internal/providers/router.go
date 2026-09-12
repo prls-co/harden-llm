@@ -39,9 +39,13 @@ var (
 
 // Config configures a provider router.
 type Config struct {
-	EndpointPolicy   EndpointPolicy
-	Logger           *slog.Logger
-	MaxResponseBytes int64
+	EndpointPolicy       EndpointPolicy
+	Logger               *slog.Logger
+	MaxResponseBytes     int64
+	WebSearcher          Searcher
+	JinaAPIKey           string
+	JinaTimeout          time.Duration
+	JinaMaxResponseBytes int64
 }
 
 // Router prepares and executes every supported provider protocol.
@@ -50,18 +54,21 @@ type Router struct {
 	guard            *endpointGuard
 	logger           *slog.Logger
 	maxResponseBytes int64
+	webSearcher      Searcher
 }
 
 type preparedRequest struct {
-	url       *url.URL
-	headers   http.Header
-	body      []byte
-	provider  string
-	protocol  string
-	callType  string
-	pricing   runtime.Pricing
-	timeout   time.Duration
-	operation cachekey.Operation
+	url        *url.URL
+	headers    http.Header
+	body       []byte
+	provider   string
+	protocol   string
+	callType   string
+	pricing    runtime.Pricing
+	timeout    time.Duration
+	operation  cachekey.Operation
+	webSearch  *preparedWebSearch
+	searchMode string
 }
 
 // NewRouter creates a router with one hardened, reusable egress client.
@@ -82,7 +89,14 @@ func NewRouter(config Config) (*Router, error) {
 	if maximum <= 0 {
 		maximum = defaultMaxResponseBytes
 	}
-	return &Router{client: client, guard: guard, logger: logger, maxResponseBytes: maximum}, nil
+	webSearcher := config.WebSearcher
+	if webSearcher == nil {
+		webSearcher, err = newJinaSearcher(config.EndpointPolicy, config.JinaAPIKey, config.JinaTimeout, config.JinaMaxResponseBytes)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &Router{client: client, guard: guard, logger: logger, maxResponseBytes: maximum, webSearcher: webSearcher}, nil
 }
 
 // Prepare converts a provider-neutral call into one canonical operation and an
@@ -126,7 +140,7 @@ func (router *Router) Prepare(ctx context.Context, profile runtime.Profile, cred
 		Endpoint: cachekey.Endpoint{
 			Identity: identity, Method: http.MethodPost, Path: path,
 		},
-		Model: profile.ModelID, Payload: payload, SemanticHeaders: semanticHeaders,
+		Model: profile.ModelID, Payload: operationPayload(payload, profile, call), SemanticHeaders: semanticHeaders,
 		ResponseProjection: cachekey.ResponseProjection{
 			Provider: provider, Kind: responseKind(call.CallType), Version: "v1",
 		},
@@ -134,6 +148,13 @@ func (router *Router) Prepare(ctx context.Context, profile runtime.Profile, cred
 	request := preparedRequest{
 		url: requestURL, headers: headers, body: body, provider: provider, protocol: protocol,
 		callType: call.CallType, pricing: profile.Pricing, timeout: timeout, operation: operation,
+		webSearch: fallbackWebSearch(profile, call),
+	}
+	if call.WebSearch {
+		request.searchMode = "jina"
+		if nativeWebSearchEnabled(profile, call) {
+			request.searchMode = "native"
+		}
 	}
 	return runtime.PreparedOperation{Operation: operation, Opaque: request}, nil
 }
@@ -156,7 +177,28 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 		requestContext, cancel = context.WithTimeout(ctx, prepared.timeout)
 	}
 	defer cancel()
-	request, err := http.NewRequestWithContext(requestContext, http.MethodPost, prepared.url.String(), bytes.NewReader(prepared.body))
+	body := prepared.body
+	var err error
+	if prepared.webSearch != nil {
+		searchResults, searchErr := prepared.webSearch.results(requestContext, router.webSearcher)
+		if searchErr != nil {
+			return runtime.ProviderResult{}, &runtime.BeforeProviderError{Err: searchErr}
+		}
+		searchCall := prepared.webSearch.call
+		searchCall.UserPrompt = appendWebSearchContext(searchCall.UserPrompt, searchResults)
+		_, protocol, path, payload, _, buildErr := buildPayload(prepared.webSearch.profile, searchCall)
+		if buildErr != nil {
+			return runtime.ProviderResult{}, buildErr
+		}
+		if protocol != prepared.protocol || path != prepared.operation.Endpoint.Path {
+			return runtime.ProviderResult{}, errors.New("providers: web-search fallback changed provider routing")
+		}
+		body, err = json.Marshal(payload)
+		if err != nil {
+			return runtime.ProviderResult{}, fmt.Errorf("providers: encode web-search request payload: %w", err)
+		}
+	}
+	request, err := http.NewRequestWithContext(requestContext, http.MethodPost, prepared.url.String(), bytes.NewReader(body))
 	if err != nil {
 		return runtime.ProviderResult{}, fmt.Errorf("providers: build request: %w", err)
 	}
@@ -176,7 +218,7 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 		return runtime.ProviderResult{}, &retry.ProviderError{Err: errors.New("provider network request failed"), Code: "NETWORK_ERROR"}
 	}
 	defer response.Body.Close()
-	body, err := readBounded(response.Body, router.maxResponseBytes)
+	body, err = readBounded(response.Body, router.maxResponseBytes)
 	if err != nil {
 		if prepared.protocol == "openai.responses" {
 			if streamErr := normalizeResponsesStreamReadError(err); streamErr != nil {

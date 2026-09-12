@@ -36,6 +36,9 @@ independently and stored in a secrets manager or encrypted host backup.
 | `HARDEN_LLM_ARTIFACT_PRESIGN_TTL` | `1m`, max `5m` | Lifetime of an authorized artifact redirect. |
 | `HARDEN_LLM_SESSION_TTL` | `24h` | Opaque bearer-session lifetime. |
 | `HARDEN_LLM_STATIC_TOKEN` / `HARDEN_LLM_STATIC_TOKEN_OWNER_ID` | optional pair | Direct CLI bearer token and the existing owner ID it may access. The token is never persisted or returned; remove or rotate it to disable access. Static-token logout is not a revocation path. |
+| `JINA_API_KEY` | optional server secret | Jina Search API credential used only when a run requests web search and its selected profile does not advertise native web-search support. A cache hit does not call Jina. |
+| `HARDEN_LLM_CONFIG_FILE` | shared host scalar | Absolute path to profile/credential-reference JSON; large catalogs do not belong in `.env`. |
+| `HARDEN_LLM_TOKEN` | dev API credential | Persistent bearer token used directly by cURL, bound at dev deployment to the existing operator through the static-token mechanism. No refresh or expiry flow. |
 | `HARDEN_LLM_MAX_RUN_DURATION_MS` | `60000`, range `1..60000` | Deployment and request ceiling for synchronous runs. Requests may lower it. |
 | `HARDEN_LLM_PROVIDER_ALLOWED_HOSTS` | empty | Optional comma-separated restriction for public provider hostnames. |
 | `HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST` | empty | Explicit comma-separated private hostnames/CIDRs; never use broad ranges casually. |

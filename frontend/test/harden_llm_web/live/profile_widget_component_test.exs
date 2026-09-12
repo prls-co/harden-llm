@@ -34,7 +34,33 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
 
     assert has_element?(view, "#workspace-llm-widget #workspace-cache-toggle")
     assert has_element?(view, "#workspace-llm-widget #model-config-toggle")
+    assert has_element?(view, "#workspace-llm-widget #workspace-web-search-toggle")
     refute has_element?(view, ~s([role="tab"]))
+
+    assert has_element?(
+             view,
+             ~s(#workspace-web-search-toggle[aria-label="Enable web search"][aria-pressed="false"][data-web-search="false"])
+           )
+
+    assert has_element?(view, "#workspace-web-search-toggle", "🌐")
+    assert has_element?(view, "#workspace-web-search[value=\"false\"]")
+
+    html = render(view)
+    reasoning_index = :binary.match(html, "id=\"workspace-reasoning\"") |> elem(0)
+    search_index = :binary.match(html, "id=\"workspace-web-search-toggle\"") |> elem(0)
+    cache_index = :binary.match(html, "id=\"workspace-cache-toggle\"") |> elem(0)
+
+    assert reasoning_index < search_index
+    assert search_index < cache_index
+
+    view |> element("#workspace-web-search-toggle") |> render_click()
+
+    assert has_element?(
+             view,
+             ~s(#workspace-web-search-toggle[aria-label="Disable web search"][aria-pressed="true"][data-web-search="true"])
+           )
+
+    assert has_element?(view, "#workspace-web-search[value=\"true\"]")
 
     assert has_element?(
              view,

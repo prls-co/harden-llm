@@ -2,14 +2,16 @@
 // The shared .env is trusted host configuration, never branch-supplied input.
 import { parseEnv, isDeepStrictEqual } from 'node:util';
 import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { command } from './host-command.mjs';
 
 export function sharedProfiles(values) {
   let profiles, references;
   try {
-    profiles = JSON.parse(values.HARDEN_LLM_SHARED_PROFILES);
-    references = JSON.parse(values.HARDEN_LLM_SHARED_CREDENTIALS);
+    if (!path.isAbsolute(values.HARDEN_LLM_CONFIG_FILE ?? '')) throw new Error('absolute config path required');
+    ({ profiles, credentialEnv: references } = JSON.parse(readFileSync(values.HARDEN_LLM_CONFIG_FILE, 'utf8')));
   } catch { throw new Error('invalid shared profile configuration'); }
   if (!profiles || typeof profiles !== 'object' || Array.isArray(profiles) || !Object.keys(profiles).length || !references || typeof references !== 'object' || Array.isArray(references)) throw new Error('invalid shared profile configuration');
   const credentials = [];
@@ -22,6 +24,14 @@ export function sharedProfiles(values) {
   return { profiles, credentials: Object.fromEntries(credentials) };
 }
 
+// One persistent dev API token, bound to the existing operator account. Other
+// previews retain their own sessions; no production bearer is copied.
+export function previewTokenVariables(branch, values) {
+  if (branch !== 'dev' || !values.HARDEN_LLM_TOKEN) return {};
+  if (!/^[!-~]{32,512}$/.test(values.HARDEN_LLM_TOKEN)) throw new Error('invalid HARDEN_LLM_TOKEN');
+  return { HARDEN_LLM_STATIC_TOKEN: values.HARDEN_LLM_TOKEN, HARDEN_LLM_STATIC_TOKEN_OWNER_ID: 'preview-local' };
+}
+
 // Explicit application settings only. Never propagate deployment identities,
 // databases, encryption keys, artifact credentials, or bearer/session secrets.
 export function sharedApplicationVariables(values) {
@@ -29,6 +39,7 @@ export function sharedApplicationVariables(values) {
     'HARDEN_LLM_MAX_RUN_DURATION_MS', 'HARDEN_LLM_PROVIDER_ALLOWED_HOSTS',
     'HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST',
     'HARDEN_LLM_ARTIFACT_PRESIGN_TTL', 'HARDEN_LLM_SESSION_TTL',
+    'JINA_API_KEY',
     'HARDEN_LLM_WEB_API_TIMEOUT_MS', 'HARDEN_LLM_WEB_RUN_TIMEOUT_MS',
     'HARDEN_LLM_WEB_LOG_MAX_BYTES', 'HARDEN_LLM_WEB_LOG_MAX_FILES',
   ].filter(key => values[key] !== undefined).map(key => [key, values[key]]));

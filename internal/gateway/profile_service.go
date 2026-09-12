@@ -389,6 +389,7 @@ func rootProfile(profile profiles.Profile) hardenllm.Profile {
 		APIInferenceType: profile.APIInferenceType, EndpointCredentialScope: profile.EndpointCredentialScope,
 		BaseURL: profile.BaseURL, ModelID: profile.ModelID,
 		SupportsContractedStructuredOutput: profile.SupportsContractedStructuredOutput,
+		SupportsWebSearch:                  profiles.NativeWebSearchSupported(profile),
 		DefaultOptions:                     cloneAnyMap(profile.DefaultOptions), ReasoningEffortMap: cloneNestedAnyMap(profile.ReasoningEffortMap),
 		BackupProfiles: append([]string(nil), profile.BackupProfiles...),
 	}

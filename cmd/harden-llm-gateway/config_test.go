@@ -23,8 +23,9 @@ func TestServerConfiguration(t *testing.T) {
 
 	environment[staticTokenEnvironment] = strings.Repeat("s", 43)
 	environment[staticTokenOwnerEnvironment] = "operator-01"
+	environment[jinaAPIKeyEnvironment] = "fixture-jina-key"
 	config, err = loadServerConfig(mapEnvironment(environment))
-	if err != nil || config.staticToken != strings.Repeat("s", 43) || config.staticTokenOwnerID != "operator-01" {
+	if err != nil || config.staticToken != strings.Repeat("s", 43) || config.staticTokenOwnerID != "operator-01" || config.jinaAPIKey != "fixture-jina-key" {
 		t.Fatalf("static token configuration = %#v, %v", config, err)
 	}
 
