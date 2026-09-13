@@ -61,7 +61,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
       assert has_element?(
                view,
-               "#run-result-panel a[href='https://example.test/evidence']",
+               "#run-result-panel .llm-result-response .llm-result-search-details a[href='https://example.test/evidence']",
                "Search evidence"
              )
 
@@ -71,7 +71,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
       assert has_element?(
                view,
-               "#workspace-history-run-test a[href='https://example.test/evidence']"
+               "#workspace-history-run-test .llm-result-response .llm-result-search-details a[href='https://example.test/evidence']"
              )
 
       view |> element("#history-trace-run-test-summary") |> render_click()

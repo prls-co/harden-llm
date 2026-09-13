@@ -152,6 +152,10 @@ button, a, input, select, textarea { touch-action: manipulation; }
   min-width: 0;
   padding: .15rem 0;
 }
+.llm-result-response {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .llm-result-text {
   flex: 1 1 auto;
   min-width: 0;
@@ -946,7 +950,9 @@ button, a, input, select, textarea { touch-action: manipulation; }
   .ullm-escalation-profile-row .ullm-profile-category,
   .ullm-escalation-profile-row .ullm-profile-picker { grid-column: auto; }
 }
-/* Search evidence is retained with the result, including cache replays. */
+/* Search evidence is part of the response fold, including cache replays. */
+.llm-result-search-details { display: none; }
+.llm-result.is-expanded .llm-result-search-details { display: block; }
 .llm-result-sources { display: flex; flex-wrap: wrap; gap: .4rem .75rem; padding: .5rem; font-size: .8rem; }
 .llm-result-sources a { text-decoration: underline; overflow-wrap: anywhere; }
 .ullm-profile-search-toggle:not(.is-enabled) { filter: grayscale(1); opacity: .55; }

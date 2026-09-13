@@ -2,7 +2,7 @@ defmodule HardenLlmWeb.LlmResultComponents do
   @moduledoc """
   Transport-free result card: recorded input, output, and a host-supplied stats
   slot. Hosts own execution, resource loading, and collection management.
-  Text expansion is local to each card and does not change stored data.
+  Text and search-evidence expansion is local to each card and does not change stored data.
   """
   use Phoenix.Component
   alias Phoenix.LiveView.JS
@@ -24,6 +24,17 @@ defmodule HardenLlmWeb.LlmResultComponents do
       |> assign(:output_id, assigns.output_id || "#{assigns.id}-output")
       |> assign(:sources, safe_sources(assigns.search))
       |> assign(:output_parts, output_parts(assigns.output, assigns.search))
+      |> then(fn assigns ->
+        assign(
+          assigns,
+          :text_controls,
+          Enum.join(
+            [assigns.input_id, assigns.output_id] ++
+              if(assigns.search, do: ["#{assigns.id}-search-details"], else: []),
+            " "
+          )
+        )
+      end)
       |> assign(
         :toggle_text,
         JS.toggle_class("is-expanded", to: "##{assigns.id}")
@@ -39,7 +50,7 @@ defmodule HardenLlmWeb.LlmResultComponents do
           id={"#{@id}-toggle-input"}
           label="Input"
           emoji="💬"
-          controls={"#{@input_id} #{@output_id}"}
+          controls={@text_controls}
           command={@toggle_text}
         />
         <pre id={@input_id} class="llm-result-text"><%= text(@input) || "Input unavailable." %></pre>
@@ -51,30 +62,41 @@ defmodule HardenLlmWeb.LlmResultComponents do
           id={"#{@id}-toggle-output"}
           label="Output"
           emoji="🤖"
-          controls={"#{@input_id} #{@output_id}"}
+          controls={@text_controls}
           command={@toggle_text}
         />
-        <pre id={@output_id} class="llm-result-text"><%= for part <- @output_parts do %><%= if part.url do %><a href={part.url} target="_blank" rel="noopener noreferrer" class="underline"><%= part.text %></a><% else %><%= part.text %><% end %><% end %></pre>
+        <div class="llm-result-response">
+          <pre id={@output_id} class="llm-result-text"><%= for part <- @output_parts do %><%= if part.url do %><a href={part.url} target="_blank" rel="noopener noreferrer" class="underline"><%= part.text %></a><% else %><%= part.text %><% end %><% end %></pre>
+          <div :if={@search} id={"#{@id}-search-details"} class="llm-result-search-details">
+            <aside aria-label="Web search evidence" class="llm-result-sources">
+              <span title="Model token accounting excludes search fees">Search fees unavailable</span>
+              <span>🌐 {@search["mode"]}: {if @search["executed"],
+                do: "searched",
+                else: "no search reported"}</span>
+              <a
+                :for={source <- @sources}
+                href={source["url"]}
+                target="_blank"
+                rel="noopener noreferrer"
+              >{source[
+                "title"
+              ] || source["url"]}</a>
+            </aside>
+            <iframe
+              :if={@search["entryPointHtml"]}
+              title="Google Search suggestions"
+              srcdoc={@search["entryPointHtml"]}
+              sandbox="allow-popups allow-popups-to-escape-sandbox"
+              class="w-full border-0"
+            />
+          </div>
+        </div>
         <.copy_button
           id={@copy_output_id || "#{@id}-copy-output"}
           label="Copy output"
           value={text(@output)}
         />
       </div>
-      <aside :if={@search} aria-label="Web search evidence" class="llm-result-sources">
-        <span title="Model token accounting excludes search fees">Search fees unavailable</span>
-        <span>🌐 {@search["mode"]}: {if @search["executed"], do: "searched", else: "no search reported"}</span>
-        <a :for={source <- @sources} href={source["url"]} target="_blank" rel="noopener noreferrer">{source[
-          "title"
-        ] || source["url"]}</a>
-      </aside>
-      <iframe
-        :if={@search && @search["entryPointHtml"]}
-        title="Google Search suggestions"
-        srcdoc={@search["entryPointHtml"]}
-        sandbox="allow-popups allow-popups-to-escape-sandbox"
-        class="w-full border-0"
-      />
       <div :if={@stats != []} class="llm-result-stats">{render_slot(@stats)}</div>
     </article>
     """
