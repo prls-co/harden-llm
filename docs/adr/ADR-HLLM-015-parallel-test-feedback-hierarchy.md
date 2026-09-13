@@ -17,6 +17,20 @@ high-fidelity boundaries.
 
 ## Decision
 
+### September 2026 clarification: reusable three-level development guideline
+
+Adopt [LiveView and Go testing guidelines](../liveview-go-testing-guidelines.md)
+for day-to-day decisions and reuse in other repositories. Level 1 groups the
+existing cheap Go/Elixir/LiveView and plain Node checks; Level 2 is an optional,
+justified DOM-adapter layer; Level 3 is explicitly requested real-browser work.
+Service integration and full-system/live checks remain separate tracks.
+Existing T0-T5 labels, task selection, test IDs, and DOM-emulator promotion
+requirements are unchanged. No DOM dependency or new scheduler is introduced.
+
+The operating policy is one coordinated browser-test workflow per shared host.
+Existing serial worker limits apply per invocation, not across independent
+launchers; a host-wide lock is not implemented by this documentation change.
+
 ### September 2026 amendment: browser-free iteration and branch environments
 
 The user explicitly requires browser execution to be opt-in. `fast`, `baseline`,

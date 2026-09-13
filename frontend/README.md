@@ -22,11 +22,14 @@ non-production; production requires independent signing/encryption salts, a
 
 ## Verification
 
+These are separate gates, not a script to run after every edit. The default
+development loop is described below; audits/builds are selected for their
+release or dependency boundary.
+
 ```bash
 mix format --check-formatted
 mix compile --warnings-as-errors
 mix test
-mix test --only browser test/browser/widget_canary_test.exs
 mix deps.audit
 mix hex.audit
 MIX_ENV=prod mix assets.deploy
@@ -34,6 +37,11 @@ MIX_ENV=prod mix release
 ```
 
 ### Feedback tiers
+
+Follow the reusable [LiveView and Go testing guidelines](../docs/liveview-go-testing-guidelines.md).
+Plain Node tests belong in the fast default; a DOM emulator is optional, and
+browser testing always requires an explicit request. Existing T0-T5 labels below
+are repository execution tiers, not the guide's three practical levels.
 
 During frontend edits, use the repository-root `make test-fast` loop or run
 `mix test` directly for the T0-T2 boundary. T0 covers pure rules, T1 covers
@@ -46,8 +54,9 @@ DOM.
 
 T3 owns real service integration and race execution, T4 owns the two targeted
 Chromium canaries and native hook/event/layout behavior, and T5 owns full
-Compose or deployed/live certification. Use `make test-browser` and
-`make test-release` only when those boundaries are relevant. A serial test
+Compose or deployed/live certification. Use `make test-browser` only when
+browser testing is explicitly requested; `make test-release` is browser-free
+and is selected for release boundaries. A serial test
 must name the global resource that prevents async execution. An expensive-tier
 defect should gain a cheap T0-T2 regression for its root invariant whenever
 possible; the expensive test remains for the boundary fact it uniquely proves.

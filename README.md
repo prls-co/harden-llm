@@ -36,6 +36,11 @@ make verify                # format, vet, build, tests, race, and govulncheck
 
 ### Test feedback hierarchy
 
+Follow the reusable [LiveView and Go testing guidelines](docs/liveview-go-testing-guidelines.md)
+for the three practical levels: fast browser-free tests, optional DOM adapter
+tests, and explicitly requested browser checks. The guide includes adoption
+instructions for other repositories and maps to this repository's T0-T5 labels.
+
 Use `make test-fast` as the repeated edit-test loop. It runs the broad T0-T2
 checks in parallel: default-tag Go/static/parity work, deterministic
 Phoenix/LiveViewTest, and the pure client-core Node tests. It is offline and

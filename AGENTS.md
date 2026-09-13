@@ -8,9 +8,9 @@ This checkout contains the self-hosted implementation and its canonical specific
 - `self-hosted-go-stack-spec.md` defines the Go, REST, storage, and deployment architecture.
 - `harden-llm-self-hosted-test-spec.md` is the canonical backend test catalog.
 - `phoenix-liveview-frontend-spec.md` defines the separate `frontend/` application.
-- `harden-llm-parallel-test-feedback-plan.md` defines the approved but not yet
-  implemented hierarchy for cheap parallel feedback and targeted expensive
-  certification.
+- `harden-llm-parallel-test-feedback-plan.md` records the implemented hierarchy
+  for cheap parallel feedback and targeted expensive certification; current
+  browser opt-in policy is recorded in ADR-HLLM-015.
 
 The public Go package is at the repository root, internal packages are under `internal/`, the gateway is under `cmd/harden-llm-gateway/`, and the shared REST contract is `api/openapi.yaml`. Phoenix code belongs only in `frontend/`. Keep backend and frontend coupled through OpenAPI, never through internal types.
 
@@ -41,6 +41,13 @@ Hosted jobs install the equivalent toolchain through their setup step.
 Do not report Docker, live-provider, or browser gates as passing unless they ran in the current environment or the result is explicitly identified as retained certification evidence.
 
 ## Test Feedback Methodology
+
+Follow the reusable [LiveView and Go testing guidelines](docs/liveview-go-testing-guidelines.md):
+Level 1 is Go/Elixir/LiveView plus plain Node; Level 2 is a justified optional
+DOM emulator; Level 3 is explicitly requested browser testing. These practical
+levels do not renumber this repository's T0-T5 execution tiers. Coordinate one
+browser-test workflow per shared host; per-runner worker limits are not a
+host-wide lock. This policy does not authorize installing a DOM emulator.
 
 Use the lowest sufficient tier for the invariant being changed. Run `make
 test-fast` repeatedly while coding; it is intentionally broad and cheap. T0
