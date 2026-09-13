@@ -1,5 +1,9 @@
 # Testing guidelines for LiveView frontends and Go backends
 
+This is a standalone, portable guideline. Copy the whole file to
+`docs/liveview-go-testing-guidelines.md` in another repository, then paste the
+`AGENTS.md` text from section 8. No files from the source repository are needed.
+
 ## 1. Purpose and governing rule
 
 Use this standard in repositories with a Phoenix LiveView frontend and a Go
@@ -163,8 +167,38 @@ need their affected checks even when no application rebuild is necessary.
 
 ## 8. Adoption in another repository
 
-Copy this document's reusable sections and link them from the repository's
-`AGENTS.md` and development README. Record locally:
+### Copy and activate
+
+1. Copy this **entire file, unchanged**, to
+   `docs/liveview-go-testing-guidelines.md` in the destination repository.
+2. Add the following block to that repository's root `AGENTS.md`. If a testing
+   section already exists, merge the block into it and preserve local commands
+   and stricter requirements.
+3. Optionally link the guideline from the development README. No other document,
+   dependency, scheduler, or CI workflow needs to be copied to use the policy.
+
+### Ready-to-paste `AGENTS.md` text
+
+```markdown
+## Test Feedback Methodology
+
+Read and follow [LiveView and Go testing guidelines](docs/liveview-go-testing-guidelines.md)
+in full before planning changes, writing tests, or running verification.
+Use its three-level policy: fast Go/Elixir/LiveView and plain Node by default,
+optional justified DOM tests, and real browsers only on explicit user request.
+Keep repository-specific commands and stricter requirements in this file.
+```
+
+The link in this snippet is relative to the repository-root `AGENTS.md`. If you
+choose another guideline location or a nested `AGENTS.md`, adjust the link.
+Copying the policy does not automatically enforce it in CI; use existing local
+gates and report any enforcement gaps rather than claiming they are implemented.
+
+### Repository-specific details
+
+Keep local details in `AGENTS.md` or the development README, not in this portable
+file. Record the actual commands and paths; do not assume another repository has
+the same Make targets, directory layout, test IDs, or toolchain versions:
 
 - Pinned Go, Elixir/OTP, and Node toolchains and the broad fast command.
 - Backend/frontend contract location and fixture ownership.
@@ -175,23 +209,3 @@ Copy this document's reusable sections and link them from the repository's
 Use existing Make/Mix/CI entrypoints where possible. Keep one authoritative
 task selection policy instead of introducing a second scheduler. Adopting this
 document does not itself install dependencies or implement process locks.
-
-## 9. Harden-LLM mapping and current status
-
-The three levels above do not renumber this repository's existing T0-T5 labels:
-
-| Guideline level/track | Harden-LLM mapping |
-| --- | --- |
-| Level 1 | Existing T0-T2; `make test-fast`, with focused `make test-api`, `mix test` in `frontend/`, or `node --test frontend/assets/test/client_core.test.mjs` from the root. |
-| Level 2 | Not adopted; Happy DOM/jsdom are not installed. The existing promotion rule requires at least two concrete adapter defects, an API/cost comparison, and an ADR amendment before adoption. |
-| Level 3 | Existing T4 browser cases, plus browser-bearing deployed/Compose cases; `make test-browser` or `make test-browser-compose` only on explicit request. |
-| Separate tracks | T3 real Postgres/Garage and integration/race checks; T5 system/deployed/live checks selected for the actual boundary. `make test-release` remains browser-free. |
-
-Current browser worker limits serialize one runner invocation; they are **not
-a host-wide lock across independent agents or commands**. Operators must
-coordinate; this documentation change adds no runtime enforcement.
-
-Use the pinned toolchain setup in [AGENTS.md](../AGENTS.md). Existing test IDs,
-OpenAPI ownership, and the [task manifest](../test/test-tiers.json) remain
-authoritative. See [ADR-HLLM-015](adr/ADR-HLLM-015-parallel-test-feedback-hierarchy.md)
-and the [DOM promotion rule](../plans/from_utility-llm/harden-llm-parallel-test-feedback-plan.md#dom-emulator-promotion-rule).

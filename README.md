@@ -38,8 +38,9 @@ make verify                # format, vet, build, tests, race, and govulncheck
 
 Follow the reusable [LiveView and Go testing guidelines](docs/liveview-go-testing-guidelines.md)
 for the three practical levels: fast browser-free tests, optional DOM adapter
-tests, and explicitly requested browser checks. The guide includes adoption
-instructions for other repositories and maps to this repository's T0-T5 labels.
+tests, and explicitly requested browser checks. Copy the entire guide to another
+repository and use its ready-to-paste `AGENTS.md` block. This repository's T0-T5
+mapping stays in [ADR-HLLM-015](docs/adr/ADR-HLLM-015-parallel-test-feedback-hierarchy.md).
 
 Use `make test-fast` as the repeated edit-test loop. It runs the broad T0-T2
 checks in parallel: default-tag Go/static/parity work, deterministic

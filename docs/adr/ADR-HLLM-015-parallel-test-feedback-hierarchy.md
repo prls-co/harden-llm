@@ -31,6 +31,25 @@ The operating policy is one coordinated browser-test workflow per shared host.
 Existing serial worker limits apply per invocation, not across independent
 launchers; a host-wide lock is not implemented by this documentation change.
 
+#### Harden-LLM mapping and current status
+
+The shared guideline is a standalone file with a ready-to-paste `AGENTS.md`
+block. Keep these repository-specific details here so the guideline can be
+copied unchanged without local files or broken relative links.
+
+| Guideline level/track | Harden-LLM mapping |
+| --- | --- |
+| Level 1 | Existing T0-T2; `make test-fast`, with focused `make test-api`, `mix test` in `frontend/`, or `node --test frontend/assets/test/client_core.test.mjs` from the root. |
+| Level 2 | Not adopted; Happy DOM/jsdom are not installed. The existing promotion rule requires at least two concrete adapter defects, an API/cost comparison, and an ADR amendment before adoption. |
+| Level 3 | Existing T4 browser cases, plus browser-bearing deployed/Compose cases; `make test-browser` or `make test-browser-compose` only on explicit request. |
+| Separate tracks | T3 real Postgres/Garage and integration/race checks; T5 system/deployed/live checks selected for the actual boundary. `make test-release` remains browser-free. |
+
+Use the pinned toolchain setup in [AGENTS.md](../../AGENTS.md). Existing test IDs,
+OpenAPI ownership, and the [task manifest](../../test/test-tiers.json) remain
+authoritative. The [DOM promotion rule](../../plans/from_utility-llm/harden-llm-parallel-test-feedback-plan.md#dom-emulator-promotion-rule)
+is unchanged. Operators must coordinate browser work across independent
+launchers; these instructions add no host-wide runtime enforcement.
+
 ### September 2026 amendment: browser-free iteration and branch environments
 
 The user explicitly requires browser execution to be opt-in. `fast`, `baseline`,

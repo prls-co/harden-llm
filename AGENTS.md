@@ -42,12 +42,15 @@ Do not report Docker, live-provider, or browser gates as passing unless they ran
 
 ## Test Feedback Methodology
 
-Follow the reusable [LiveView and Go testing guidelines](docs/liveview-go-testing-guidelines.md):
-Level 1 is Go/Elixir/LiveView plus plain Node; Level 2 is a justified optional
-DOM emulator; Level 3 is explicitly requested browser testing. These practical
-levels do not renumber this repository's T0-T5 execution tiers. Coordinate one
-browser-test workflow per shared host; per-runner worker limits are not a
-host-wide lock. This policy does not authorize installing a DOM emulator.
+Read and follow [LiveView and Go testing guidelines](docs/liveview-go-testing-guidelines.md)
+in full before planning changes, writing tests, or running verification.
+Use its three-level policy: fast Go/Elixir/LiveView and plain Node by default,
+optional justified DOM tests, and real browsers only on explicit user request.
+Keep repository-specific commands and stricter requirements in this file.
+
+These practical levels do not renumber this repository's T0-T5 execution tiers.
+Coordinate one browser-test workflow per shared host; per-runner worker limits
+are not a host-wide lock. This policy does not authorize installing a DOM emulator.
 
 Use the lowest sufficient tier for the invariant being changed. Run `make
 test-fast` repeatedly while coding; it is intentionally broad and cheap. T0
