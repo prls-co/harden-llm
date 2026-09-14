@@ -156,8 +156,17 @@ cache bypass or expiry is added for search. A cached answer may be stale by desi
 token accounting). These describe the original answer and survive cache replay;
 use `result.cache.served` and `result.providerInvoked` for this invocation.
 The native Gemini/Claude tools may decide not to search; no speculative Jina
-request follows a native response or failure. Source links appear in current
-results and history without modifying copied text or structured output.
+request follows a native response or failure. Search fees, status, source links,
+and optional suggestions live inside the response fold in both current Result
+and History. They expand with the existing input/output controls, without
+modifying copied text or structured output.
+
+For production, the UI is `https://harden-llm.prls.co/` and the API base is
+`https://harden-llm-api.prls.co`. Use production's existing
+`HARDEN_LLM_STATIC_TOKEN` from its protected infrastructure environment file
+(reference host: `/home/kirill/p/harden-llm-production/.env`). Production retains
+its own token; the development `HARDEN_LLM_TOKEN` below is not a production
+credential. The `webSearch` and cache contracts are the same in both environments.
 
 For the development gateway, keep the bearer token and optional Jina key in
 the ignored mode-0600 `.env` as `HARDEN_LLM_TOKEN` and `JINA_API_KEY`. Read the

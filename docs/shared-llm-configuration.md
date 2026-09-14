@@ -106,7 +106,8 @@ other bindings/custom profiles and old encrypted credential records are retained
 Removing an entire profile from the shared catalog stops managing it; it does
 not delete it from databases. To revoke a key globally, revoke it at the provider
 and synchronize every environment. UI changes to custom profiles stay local;
-promote desired settings into `.env` to share them. Custom models on a shared
+promote desired profile settings into the shared JSON catalog and keys/scalar
+runtime settings into `.env` to share them. Custom models on a shared
 endpoint reuse that endpoint's shared key (same origin, scope and inference
 type), so key rotation cannot leave contradictory credentials in one catalog.
 
@@ -170,3 +171,28 @@ The one-time administrative image used to apply production configuration was
 also built from `934e00a`. Production application container IDs and images
 remained unchanged. A private pre-change `.env` backup was retained on the host;
 no production history, sessions, or artifact data was copied to dev.
+
+## 5. Production web-search rollout — 2026-09-14
+
+Production gateway and web now run source
+`9284df00a3270fd592051352da149077704dc521`. See the
+[production release record](release-certification.md#cached-web-search-and-portable-testing-guidelines--production-2026-09-14)
+for exact image identities, tests, backup, and rollback evidence. Section 4
+above is the historical rollout record; its JSON-in-`.env` format and binding
+counts are not the current configuration.
+
+The current shared scalar settings and keys are in
+`/home/kirill/p/harden-llm/.env`; the profile catalog and credential variable
+references are in the separate JSON file selected by `HARDEN_LLM_CONFIG_FILE`.
+The trusted administrative sync and authenticated readback passed for both
+existing production accounts: **31 managed profiles, 21 configured bindings
+each**. Unconfigured profiles remain explicitly unconfigured. No unrelated
+profiles, history, or credentials were deleted.
+
+The gateway received shared search/runtime settings, including `JINA_API_KEY`;
+Phoenix did not receive that key. Production's own `HARDEN_LLM_STATIC_TOKEN`
+and its owner, infrastructure credentials, vault keys, and session secrets
+were retained. The development `HARDEN_LLM_TOKEN` was not copied to production.
+Health/readiness, both web logins, static-token API access, and retained guest
+History/trace reads passed without a browser or paid provider request. This
+validates deployment/configuration, not upstream key acceptance or live search.

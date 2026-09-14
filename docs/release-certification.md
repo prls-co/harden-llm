@@ -1373,3 +1373,102 @@ was purged. `plans/implementation-status.json` records the new frontend and
 unchanged gateway identities. Subsequent documentation-only commits do not
 alter these certified images. The previously documented dependency alerts
 remain outside this icon-only application change.
+
+## Cached web search and portable testing guidelines — production (2026-09-14)
+
+Application source `9284df00a3270fd592051352da149077704dc521` was promoted
+from `dev` to `origin/main` and deployed to
+[production](https://harden-llm.prls.co/) on explicit user request. This brings
+cached native/Jina web search, retained-cache response decoding fixes, folded
+search evidence in Result and History, and the portable
+[LiveView/Go testing guideline](liveview-go-testing-guidelines.md) into production.
+Search and non-search both retain caching; there is no search cache bypass.
+
+### Fresh release verification
+
+The canonical browser-free release selector passed **24/24 tasks**, with zero
+failures or cleanup errors. It covered Go formatting, lint, build, static,
+unit/parity/API/observability, real isolated PostgreSQL/Garage integration and
+race checks, Garage restart, backend Compose, vulnerability scanning, and the
+frontend compile, deterministic tests, client core, audits, asset build and
+release. Phoenix passed **176 tests**, with **4 opt-in cases excluded**.
+
+The command was equivalent to `make test-release`, with an explicit local report:
+
+```bash
+PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH \
+  node scripts/run-test-tier.mjs --task release \
+  --output tmp/search-production-release-2026-09-14.json
+```
+
+Report SHA-256:
+`73cced6fe5d8a6485ecac46c985dc1d6fbc00d6d909c5e5e7fd88a0a979939aa`.
+[Main fast CI](https://github.com/prls-co/harden-llm/actions/runs/34876325169)
+and [CodeQL](https://github.com/prls-co/harden-llm/actions/runs/34876316407)
+also passed on the exact application SHA. The full release gate ran locally;
+the hosted fast check is not described as a hosted full-release run.
+
+Three pre-existing `google.golang.org/grpc` Dependabot alerts remain: #3 and
+#4 high, #5 medium. This release did not change `go.mod` or `go.sum` from the
+previous production application. `govulncheck` found no affected calls/imported
+packages; this is not a claim that all dependency alerts are resolved.
+
+### Deployed identities and HTTP checks
+
+The rollout completed at `2026-09-14T17:48:07.057Z` from the clean production
+worktree, replacing only gateway and web with `--no-build --no-deps --wait`.
+Both runtime releases and image version labels are the application SHA above.
+
+| Component | Immutable image identity | Container |
+| --- | --- | --- |
+| Gateway | `sha256:89c0843d7cc5ec9589d2b9579000c6bc7a1ff329c0788f340ab03d6cb0c35f09` | `2fe7e550b634` |
+| Web | `sha256:24698d47caa2c7a4e97afc5f0d80a5a509459e39968cd108cef552841d3cf38d` | `e0725481fbc8` |
+
+At `2026-09-14T17:49:51.159Z`, both were healthy with zero restarts. The UI's
+`/healthz` and API's `/healthz` and `/readyz` returned 200. Browser-free
+cookie/CSRF login, authenticated workspace, and logout passed for both guest
+and operator. Anonymous API History returned 401; the existing production
+static token returned 200. Guest History and its retained trace were readable,
+including array-shaped `attempts`. Served production CSS includes the rules
+that hide search details until the response expands.
+
+Shared profile readback matched **31 managed profiles and 21 configured
+bindings per account**. Jina was injected only into the gateway. Production
+retained its own bearer token, encryption keys, session secrets and data volumes;
+no development bearer token or sessions were copied. All verification login
+sessions were logged out. Existing two users, one run, one trace, and 62
+profiles were preserved; managed credential records increased during sync.
+Infrastructure containers and the durable frontend session volume were retained.
+
+No browser was launched and **browser layout was not checked**. No paid
+inference or live-search call was made during this promotion. The served-CSS
+check and deterministic tests are not presented as visual or upstream-provider
+certification. Older browser/provider results elsewhere in this journal remain
+historical evidence for their recorded source, not fresh evidence for this SHA.
+
+### Backup, rollback, and documentation handoff
+
+Before deployment, a private production environment backup and PostgreSQL
+custom-format archive were retained in
+`/home/kirill/.local/state/harden-llm-prod-20260914-asZFvc`. The archive was
+restored into an isolated, network-disabled disposable PostgreSQL container;
+the retained user/run/trace/profile counts matched. That verification container
+was removed. No database migration changed in this release.
+
+The same directory contains `images.yml` (deployed images) and
+`rollback-images.yml` (previous exact images and release environment values).
+Rollback tags `harden-llm-gateway:rollback-20260914` and
+`harden-llm-web:rollback-20260914` retain the prior digests recorded in the
+preceding rollout. Use the normal production Compose files plus the rollback
+override, retaining environment injection and named volumes; recreate only
+the two application services. Image rollback does not undo synchronized
+profile/key changes; see [configuration rollback](shared-llm-configuration.md#3-rollback).
+The tested archive is available for deliberate data recovery, not an automatic
+overwrite of post-deployment user activity.
+
+The sanitized host-local receipt is
+`plans/evidence/harden-llm/web-search-production-2026-09-14.json`; this journal
+and `plans/implementation-status.json` retain the committed release facts.
+Follow-up documentation-only commits do not change these certified application
+images or require rebuilding them. Cross-repository guideline adoption remains
+tracked separately in [Ops issue #1](https://github.com/prls-co/ops/issues/1).

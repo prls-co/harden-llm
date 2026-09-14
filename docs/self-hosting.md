@@ -137,9 +137,22 @@ the durable operation backlog before taking any manual action.
 
 ## Upgrade, rotate, and roll back
 
-Before an upgrade, take a tested backup, review ADRs and image-lock changes, run
-`make verify` and `make test-compose`, then deploy only immutable release IDs and
-digests. Validate the effective Compose project before `up -d`.
+Before an explicit production upgrade, take a tested backup, review ADRs and
+image-lock changes, and run `make test-release`. This browser-free gate includes
+`make verify` and the backend Compose check; do not repeat them separately or
+launch a browser/live-provider canary automatically. Deploy only immutable
+release IDs and digests, validate the effective Compose project before `up -d`,
+and rebuild/recreate only affected application services with `--no-deps` when
+their dependencies are unchanged. Retain rollback images and named data/session
+volumes. Verify public health/readiness and authenticated read-only routes;
+report browser and live-provider checks as not run unless separately authorized.
+
+Inject shared provider settings through the approved process environment as
+described in [shared LLM configuration](shared-llm-configuration.md), then run
+the trusted `sync-profiles` command for the existing guest and operator accounts.
+Keep production's infrastructure credentials, bearer token, encryption keys,
+and sessions independent of development. Shared-observability variables may
+also require the injection described in [the environment reference](environment.md).
 
 Keep the frontend's `opentelemetry_exporter` before `opentelemetry` in both
 the Mix dependency list and explicit release applications. `extra_applications`
