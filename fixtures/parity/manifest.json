@@ -63,14 +63,6 @@
         "tests": [
           "TEST-008"
         ]
-      },
-      {
-        "evidence": "retry-classification.json",
-        "target": "internal/runtime/repair_backup_test.go",
-        "testFunction": "TestBackupEligibilityParityCapturedSource",
-        "tests": [
-          "TEST-009"
-        ]
       }
     ],
     "generated/schema-normalization.json": [
@@ -681,7 +673,8 @@
         "generated/profile-catalog.json",
         "generated/retry-classification.json",
         "source/combinatorial/retry-decision-matrix.json",
-        "source/evals/jsonrepair-object-key-expected-incident.json"
+        "source/evals/jsonrepair-object-key-expected-incident.json",
+        "generated/structured-parser-cases.json"
       ],
       "id": "explicit-selected-target-recovery",
       "mode": "intentional-difference",

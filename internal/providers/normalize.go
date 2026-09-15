@@ -50,7 +50,7 @@ func normalizeResponse(prepared preparedRequest, body []byte) (runtime.ProviderR
 	cost := normalizeCost(response, usage, prepared.pricing)
 	partial := runtime.ProviderResult{Accounting: accounting.Ledger{Usage: usage, Cost: cost}}
 	if prepared.callType == "structured" && output == nil {
-		parsed, _, parseErr := contractschema.ParseProviderOutput(text, prepared.protocol)
+		parsed, _, parseErr := contractschema.ParseProviderOutput(text)
 		if parseErr != nil {
 			return partial, &retry.ProviderError{
 				Err: errors.New("provider returned malformed structured output"), Code: "STRUCTURED_PARSE",
@@ -58,8 +58,6 @@ func normalizeResponse(prepared preparedRequest, body []byte) (runtime.ProviderR
 			}
 		}
 		output = parsed
-	} else if prepared.callType == "structured" {
-		output = contractschema.NormalizeNumericStringsDeep(output)
 	} else if output == nil {
 		output = text
 	}

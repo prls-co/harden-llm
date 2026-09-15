@@ -1,4 +1,4 @@
-package retry
+package retry_test
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-008 TEST-009
 
@@ -6,11 +6,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/rand"
 	"os"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/prls-co/harden-llm/internal/cachekey"
+	. "github.com/prls-co/harden-llm/internal/retry"
+	"github.com/prls-co/harden-llm/internal/runtime"
 )
 
 // TEST-008 consumes the source-owned combinatorial retry decision model
@@ -36,24 +41,17 @@ func TestCurrentSourceRetryDecisionMatrixParity(t *testing.T) {
 		t.Run(row.ID, func(t *testing.T) {
 			policy := DefaultPolicy()
 			enabled := row.Policy == "enabled"
-			switch row.Outcome {
-			case "network":
-				policy.Network = enabled
-			case "rate_limit":
-				policy.RateLimit = enabled
-			case "server_error":
-				policy.ServerError = enabled
-			case "empty_response":
-				policy.EmptyResponse = enabled
-			case "parse_error":
-				policy.ParseError = enabled
+			policy.RetryOn = []Category{}
+			policy.RepairInvalidOutput = row.Outcome == "parse_error" && enabled
+			if enabled && row.Outcome != "parse_error" && row.Outcome != "refusal" {
+				policy.RetryOn = []Category{Category(row.Outcome)}
 			}
+
 			failure := sourceMatrixError(row.Outcome)
 			calls := 0
-			_, runErr := Do(context.Background(), Config{
-				MaxAttempts: row.MaxAttempts, Policy: policy,
-				Wait: func(context.Context, time.Duration) error { return nil },
-			}, func(context.Context, int) error {
+			policy.MaxAttempts = row.MaxAttempts
+			policy.Backoff = Backoff{BaseDelayMS: 500, MaxDelayMS: 8000}
+			_, runErr := executeSequence(context.Background(), Config{Policy: policy, Wait: func(context.Context, time.Duration) error { return nil }}, func(context.Context, int) error {
 				calls++
 				if calls == 1 {
 					return failure
@@ -116,7 +114,11 @@ func TestRetryClassificationParityCapturedSource(t *testing.T) {
 		testCase := testCase
 		t.Run(testCase.Name, func(t *testing.T) {
 			policy := DefaultPolicy()
-			policy.ParseError = testCase.Policy.ParseError
+			policy.RepairInvalidOutput = testCase.Policy.ParseError
+			// ADR-HLLM-020: parse recovery belongs to the runtime repair path.
+			if testCase.Classification.Category == CategoryParse {
+				testCase.Classification.Retryable = false
+			}
 			classification := Classify(capturedClassificationError(testCase.Name), policy)
 			wantStatus := 0
 			if testCase.Classification.Status != nil {
@@ -165,10 +167,10 @@ func TestRetryContract(t *testing.T) {
 			{name: "network", err: &ProviderError{Code: "ECONNRESET"}, policy: DefaultPolicy(), want: Classification{Retryable: true, Category: CategoryNetwork, Code: "ECONNRESET"}},
 			{name: "rate limit", err: &ProviderError{Status: 429, RetryAfter: 2 * time.Second}, policy: DefaultPolicy(), want: Classification{Retryable: true, Category: CategoryRateLimit, Status: 429, RetryAfter: 2 * time.Second}},
 			{name: "server", err: &ProviderError{Status: 503}, policy: DefaultPolicy(), want: Classification{Retryable: true, Category: CategoryServer, Status: 503}},
-			{name: "provider retry", err: &ProviderError{Err: errors.New("retry this provider request"), Code: "provider_retry", ProviderRequestID: "req_fixture_0001"}, policy: Policy{ServerError: false}, want: Classification{Retryable: true, Category: CategoryProvider, Code: "provider_retry", ProviderRequestID: "req_fixture_0001"}},
+			{name: "provider retry", err: &ProviderError{Err: errors.New("retry this provider request"), Code: "provider_retry", ProviderRequestID: "req_fixture_0001"}, policy: Policy{RetryOn: []Category{CategoryProvider}}, want: Classification{Retryable: true, Category: CategoryProvider, Code: "provider_retry", ProviderRequestID: "req_fixture_0001"}},
 			{name: "empty wording without code", err: &ProviderError{Err: errors.New("provider returned an empty or null response")}, policy: DefaultPolicy(), want: Classification{Category: CategoryOther}},
 			{name: "parse disabled", err: &ProviderError{Parse: true}, policy: DefaultPolicy(), want: Classification{Category: CategoryParse}},
-			{name: "parse enabled", err: &ProviderError{Parse: true}, policy: Policy{Network: true, RateLimit: true, ServerError: true, EmptyResponse: true, ParseError: true}, want: Classification{Retryable: true, Category: CategoryParse}},
+			{name: "parse enabled", err: &ProviderError{Parse: true}, policy: DefaultPolicy(), want: Classification{Category: CategoryParse}},
 			{name: "refusal", err: &ProviderError{Status: 503, Refusal: true}, policy: DefaultPolicy(), want: Classification{Category: CategoryRefusal, Status: 503}},
 			{name: "invalid request", err: &ProviderError{Status: 400}, policy: DefaultPolicy(), want: Classification{Category: CategoryOther, Status: 400}},
 			{name: "auth", err: &ProviderError{Status: 401}, policy: DefaultPolicy(), want: Classification{Category: CategoryOther, Status: 401}},
@@ -188,12 +190,10 @@ func TestRetryContract(t *testing.T) {
 		var waits []time.Duration
 		calls := 0
 		random := rand.New(rand.NewSource(12001))
-		attempts, err := Do(context.Background(), Config{
-			MaxAttempts: 3,
-			BaseDelay:   500 * time.Millisecond,
-			MaxDelay:    8 * time.Second,
-			Policy:      DefaultPolicy(),
-			Random:      random.Float64,
+		policy := DefaultPolicy()
+		policy.MaxAttempts = 3
+		policy.Backoff = Backoff{BaseDelayMS: 500, MaxDelayMS: 8000}
+		attempts, err := executeSequence(context.Background(), Config{Policy: policy, Random: random.Float64,
 			Wait: func(_ context.Context, duration time.Duration) error {
 				waits = append(waits, duration)
 				return nil
@@ -219,11 +219,13 @@ func TestRetryContract(t *testing.T) {
 		}
 	})
 
-	t.Run("retry after capped", func(t *testing.T) {
+	t.Run("retry after remains a server minimum", func(t *testing.T) {
 		var wait time.Duration
 		calls := 0
-		_, err := Do(context.Background(), Config{
-			MaxAttempts: 2, MaxDelay: 2 * time.Second, Policy: DefaultPolicy(), Random: func() float64 { return 0.5 },
+		policy := DefaultPolicy()
+		policy.MaxAttempts = 2
+		policy.Backoff = Backoff{BaseDelayMS: 500, MaxDelayMS: 2000}
+		_, err := executeSequence(context.Background(), Config{Policy: policy, Random: func() float64 { return 0.5 },
 			Wait: func(_ context.Context, duration time.Duration) error { wait = duration; return nil },
 		}, func(context.Context, int) error {
 			calls++
@@ -232,7 +234,7 @@ func TestRetryContract(t *testing.T) {
 			}
 			return nil
 		})
-		if err != nil || wait != 2*time.Second {
+		if err != nil || wait != 10*time.Second {
 			t.Fatalf("err/wait = %v/%v", err, wait)
 		}
 	})
@@ -241,7 +243,10 @@ func TestRetryContract(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		calls := 0
-		_, err := Do(ctx, Config{MaxAttempts: 2}, func(context.Context, int) error { calls++; return nil })
+		policy := DefaultPolicy()
+		policy.MaxAttempts = 2
+		policy.Backoff = Backoff{BaseDelayMS: 500, MaxDelayMS: 8000}
+		_, err := executeSequence(ctx, Config{Policy: policy}, func(context.Context, int) error { calls++; return nil })
 		if !errors.Is(err, context.Canceled) || calls != 0 {
 			t.Fatalf("err/calls = %v/%d", err, calls)
 		}
@@ -249,63 +254,64 @@ func TestRetryContract(t *testing.T) {
 
 	t.Run("cancellation during wait", func(t *testing.T) {
 		calls := 0
-		_, err := Do(context.Background(), Config{
-			MaxAttempts: 2, Policy: DefaultPolicy(),
-			Wait: func(context.Context, time.Duration) error { return context.Canceled },
-		}, func(context.Context, int) error { calls++; return &ProviderError{Status: 503} })
+		policy := DefaultPolicy()
+		policy.MaxAttempts = 2
+		policy.Backoff = Backoff{BaseDelayMS: 500, MaxDelayMS: 8000}
+		_, err := executeSequence(context.Background(), Config{Policy: policy, Wait: func(context.Context, time.Duration) error { return context.Canceled }}, func(context.Context, int) error { calls++; return &ProviderError{Status: 503} })
 		if !errors.Is(err, context.Canceled) || calls != 1 {
 			t.Fatalf("err/calls = %v/%d", err, calls)
 		}
 	})
 
-	t.Run("instrumentation hooks preserve execution exactly once", func(t *testing.T) {
-		type contextKey string
-		const key contextKey = "hook"
-		attemptHookCalls := 0
-		waitHookCalls := 0
-		workCalls := 0
-		waitCalls := 0
-		attempts, err := Do(context.Background(), Config{
-			MaxAttempts: 2,
-			BaseDelay:   time.Millisecond,
-			MaxDelay:    time.Millisecond,
-			Policy:      DefaultPolicy(),
-			Random:      func() float64 { return 0.5 },
-			Wait: func(ctx context.Context, duration time.Duration) error {
-				waitCalls++
-				if ctx.Value(key) != "wait" || duration != time.Millisecond {
-					t.Fatalf("wait context/duration = %v/%v", ctx.Value(key), duration)
-				}
-				return nil
-			},
-			Hooks: Hooks{
-				Attempt: func(ctx context.Context, number int, work func(context.Context) error) error {
-					attemptHookCalls++
-					return work(context.WithValue(ctx, key, number))
-				},
-				Wait: func(ctx context.Context, classification Classification, delay time.Duration, wait func(context.Context, time.Duration) error) error {
-					waitHookCalls++
-					if classification.Category != CategoryServer || delay != time.Millisecond {
-						t.Fatalf("classification/delay = %#v/%v", classification, delay)
-					}
-					return wait(context.WithValue(ctx, key, "wait"), delay)
-				},
-			},
-		}, func(ctx context.Context, number int) error {
-			workCalls++
-			if ctx.Value(key) != number {
-				t.Fatalf("work context = %v, want %d", ctx.Value(key), number)
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-206
+func TestRecoveryBackoff(t *testing.T) {
+	for _, status := range []int{429, 503} {
+		t.Run(fmt.Sprintf("server minimum/%d", status), func(t *testing.T) {
+			classification := Classify(&ProviderError{Status: status, RetryAfter: 30 * time.Second}, DefaultPolicy())
+			if classification.RetryAfter != 30*time.Second {
+				t.Fatalf("server delay lost: %#v", classification)
 			}
+			if delay := Delay(1, classification.RetryAfter, Backoff{BaseDelayMS: 1000, MaxDelayMS: 2000}, 0.5); delay != 30*time.Second {
+				t.Fatalf("server minimum capped: %v", delay)
+			}
+		})
+	}
+	if delay := Delay(1, 100*time.Millisecond, Backoff{BaseDelayMS: 1000, MaxDelayMS: 2000}, 0.5); delay != time.Second {
+		t.Errorf("server delay replaced longer backoff: %v", delay)
+	}
+	if got := Classify(&ProviderError{Code: "provider_retry"}, Policy{}); got.Retryable {
+		t.Errorf("disabled provider retry is implicit: %#v", got)
+	}
+	t.Run("zero calculated delay", func(t *testing.T) {
+		var delays []time.Duration
+		_, err := executeSequence(context.Background(), Config{Policy: Policy{MaxAttempts: 2, RetryOn: []Category{"network"}, RepairInvalidOutput: false, Backoff: Backoff{BaseDelayMS: 0, MaxDelayMS: 0}}, Random: func() float64 { return 0.5 }, Wait: func(_ context.Context, delay time.Duration) error { delays = append(delays, delay); return nil }}, func(_ context.Context, number int) error {
 			if number == 1 {
-				return &ProviderError{Status: 503}
+				return &ProviderError{Code: "ECONNRESET"}
 			}
 			return nil
 		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(attempts) != 2 || workCalls != 2 || attemptHookCalls != 2 || waitCalls != 1 || waitHookCalls != 1 {
-			t.Fatalf("attempts/work/attempt hooks/waits/wait hooks = %d/%d/%d/%d/%d", len(attempts), workCalls, attemptHookCalls, waitCalls, waitHookCalls)
+		if err != nil || !reflect.DeepEqual(delays, []time.Duration{0}) {
+			t.Fatalf("zero delay was defaulted: %v/%v", delays, err)
 		}
 	})
+}
+
+// A test-owned executor exercises the production loop; it never implements retries.
+type sequenceExecutor struct {
+	work  func(context.Context, int) error
+	calls int
+}
+
+func (*sequenceExecutor) Prepare(context.Context, runtime.Profile, runtime.Credential, runtime.Call) (runtime.PreparedOperation, error) {
+	return runtime.PreparedOperation{}, nil
+}
+func (s *sequenceExecutor) Execute(ctx context.Context, _ runtime.PreparedOperation) (runtime.ProviderResult, error) {
+	s.calls++
+	return runtime.ProviderResult{Output: map[string]any{}}, s.work(ctx, s.calls)
+}
+func executeSequence(ctx context.Context, config Config, work func(context.Context, int) error) ([]runtime.AttemptRecord, error) {
+	record, err := runtime.Execute(ctx, &sequenceExecutor{work: work}, func(context.Context, runtime.Profile) (runtime.Credential, error) { return runtime.Credential{}, nil }, "selected", map[string]runtime.Profile{"selected": {ID: "selected"}}, runtime.Call{CallType: "structured", Schema: []byte(`{"type":"object"}`), ValidateStructured: func(any) error { return nil }}, config, nil, cachekey.ModeOff, "v1", "call", "trace")
+	return record.Attempts, err
 }

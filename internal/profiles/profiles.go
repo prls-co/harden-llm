@@ -15,16 +15,16 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/prls-co/harden-llm/internal/retry"
 )
 
 const (
-	SchemaVersion         = 1
-	MaxBackupProfileDepth = 5
-	MaxProfileNameBytes   = 1500
-	MaxBackupProfiles     = 100
-	MaxModels             = 5000
-	MaxModelIDBytes       = 512
-	MaxModelLabelBytes    = 1024
+	SchemaVersion       = 2
+	MaxProfileNameBytes = 1500
+	MaxModels           = 5000
+	MaxModelIDBytes     = 512
+	MaxModelLabelBytes  = 1024
 )
 
 var (
@@ -55,7 +55,7 @@ type Profile struct {
 	ResponsesTokensParam               *string                   `json:"responsesTokensParam"`
 	DefaultOptions                     map[string]any            `json:"defaultOptions"`
 	ReasoningEffortMap                 map[string]map[string]any `json:"reasoningEffortMap,omitempty"`
-	BackupProfiles                     []string                  `json:"backupProfiles"`
+	RecoveryPolicy                     retry.Policy              `json:"recoveryPolicy"`
 	Models                             []Model                   `json:"models,omitempty"`
 	LastModelRefreshAt                 *time.Time                `json:"lastModelRefreshAt,omitempty"`
 }
@@ -114,7 +114,7 @@ func ParseCatalog(input []byte) (Catalog, error) {
 		for _, required := range []string{
 			"schemaVersion", "llmProfile", "provider", "apiInferenceType", "endpointCredentialScope",
 			"baseUrl", "modelId", "pricing", "supportsTemperature", "supportsContractedStructuredOutput",
-			"tokensParam", "responsesTokensParam", "defaultOptions",
+			"tokensParam", "responsesTokensParam", "defaultOptions", "recoveryPolicy",
 		} {
 			if _, ok := fields[required]; !ok {
 				return nil, validationFailure(name+"."+required, "Required profile catalog field is missing.")
@@ -125,6 +125,10 @@ func ParseCatalog(input []byte) (Catalog, error) {
 		decoder.UseNumber()
 		var profile Profile
 		if err := decoder.Decode(&profile); err != nil {
+			var policyError *retry.ValidationError
+			if errors.As(err, &policyError) {
+				return nil, validationFailure(name+"."+policyError.Field, policyError.Message)
+			}
 			return nil, validationFailure(name, err.Error())
 		}
 		if err := requireJSONEOF(decoder); err != nil {
@@ -136,9 +140,6 @@ func ParseCatalog(input []byte) (Catalog, error) {
 		profile.EndpointCredentialScope = strings.TrimSpace(profile.EndpointCredentialScope)
 		profile.BaseURL = strings.TrimRight(strings.TrimSpace(profile.BaseURL), "/")
 		profile.ModelID = strings.TrimSpace(profile.ModelID)
-		if profile.BackupProfiles == nil {
-			profile.BackupProfiles = []string{}
-		}
 		catalog[name] = profile
 	}
 	if err := ValidateCatalog(catalog); err != nil {
@@ -172,12 +173,12 @@ func ValidateCatalog(catalog Catalog) error {
 			return err
 		}
 	}
-	return validateBackupGraph(catalog, names)
+	return nil
 }
 
 func validateProfile(profile Profile, prefix string) error {
 	if profile.SchemaVersion != SchemaVersion {
-		return validationFailure(prefix+".schemaVersion", "schemaVersion must be 1.")
+		return validationFailure(prefix+".schemaVersion", "schemaVersion must be 2.")
 	}
 	if err := validateProfileName(profile.LLMProfile); err != nil {
 		return validationFailure("llmProfile", err.Error())
@@ -220,6 +221,9 @@ func validateProfile(profile Profile, prefix string) error {
 		return validationFailure(field, "defaultOptions may contain request defaults only.")
 	}
 	for level, options := range profile.ReasoningEffortMap {
+		if err := profile.RecoveryPolicy.ValidateProviderOptions(options); err != nil {
+			return validationFailure(prefix+".reasoningEffortMap."+level, err.Error())
+		}
 		if _, ok := reasoningLevels[level]; !ok {
 			return validationFailure(prefix+".reasoningEffortMap."+level, "reasoningEffortMap may contain only contracted reasoning levels.")
 		}
@@ -230,8 +234,15 @@ func validateProfile(profile Profile, prefix string) error {
 			return validationFailure(prefix+".reasoningEffortMap."+level, "reasoning effort options must contain JSON values only.")
 		}
 	}
-	if len(profile.BackupProfiles) > MaxBackupProfiles {
-		return validationFailure(prefix+".backupProfiles", fmt.Sprintf("A profile may reference at most %d backup profiles.", MaxBackupProfiles))
+	if err := profile.RecoveryPolicy.ValidateProviderOptions(profile.DefaultOptions); err != nil {
+		return validationFailure(prefix+".defaultOptions", err.Error())
+	}
+	if err := profile.RecoveryPolicy.Validate(); err != nil {
+		var policyError *retry.ValidationError
+		if errors.As(err, &policyError) {
+			return validationFailure(prefix+"."+policyError.Field, policyError.Message)
+		}
+		return validationFailure(prefix+".recoveryPolicy", err.Error())
 	}
 	if len(profile.Models) > MaxModels {
 		return validationFailure(prefix+".models", fmt.Sprintf("A profile may contain at most %d models.", MaxModels))
@@ -322,55 +333,6 @@ func forbiddenOptionField(value any, path string) string {
 		}
 	}
 	return ""
-}
-
-func validateBackupGraph(catalog Catalog, names []string) error {
-	for _, name := range names {
-		profile := catalog[name]
-		seen := make(map[string]struct{}, len(profile.BackupProfiles))
-		for index, backup := range profile.BackupProfiles {
-			field := fmt.Sprintf("%s.backupProfiles[%d]", name, index)
-			if strings.TrimSpace(backup) == "" {
-				return validationFailure(field, "Backup profile references must not be empty.")
-			}
-			if backup == name {
-				return validationFailure(field, "A profile cannot reference itself as a backup profile.")
-			}
-			if _, duplicate := seen[backup]; duplicate {
-				return validationFailure(field, fmt.Sprintf("Duplicate backup profile %q.", backup))
-			}
-			seen[backup] = struct{}{}
-			if _, found := catalog[backup]; !found {
-				return validationFailure(field, fmt.Sprintf("Backup profile %q was not found.", backup))
-			}
-		}
-	}
-	for _, root := range names {
-		if err := visitBackupGraph(catalog, root, root, 0, map[string]struct{}{}); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func visitBackupGraph(catalog Catalog, root, current string, depth int, stack map[string]struct{}) error {
-	if depth > MaxBackupProfileDepth {
-		return validationFailure(root+".backupProfiles", fmt.Sprintf("Backup profile depth cannot exceed %d.", MaxBackupProfileDepth))
-	}
-	nextStack := make(map[string]struct{}, len(stack)+1)
-	for key := range stack {
-		nextStack[key] = struct{}{}
-	}
-	nextStack[current] = struct{}{}
-	for index, backup := range catalog[current].BackupProfiles {
-		if _, cycle := nextStack[backup]; cycle {
-			return validationFailure(fmt.Sprintf("%s.backupProfiles[%d]", current, index), fmt.Sprintf("Backup profile cycle includes %q.", backup))
-		}
-		if err := visitBackupGraph(catalog, root, backup, depth+1, nextStack); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func NormalizeModels(input []Model) []Model {

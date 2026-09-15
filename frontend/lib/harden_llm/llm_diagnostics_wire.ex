@@ -2,12 +2,12 @@ defmodule HardenLlm.LlmDiagnosticsWire do
   @moduledoc """
   Strict, operation-specific decoding for execution diagnostics at the REST boundary.
 
-  Run, history, trace, and stats responses all use the current schema v2.
+  Run, history and trace records use schema v3; stats retain schema v2.
   Retired execution formats are rejected at this boundary before projection.
   """
 
   @run_keys ~w(schemaVersion runId status output callId traceId selectedTarget resultSource accounting attempts cache artifacts providerInvoked totalCallDurationMs totalWaitMs overBudgetMs usedRepair)
-  @attempt_keys ~w(number retryLocalNumber profileId target category httpStatus code type providerRequestId retryable wait duration repair backupIndex providerUsed)
+  @attempt_keys ~w(number profileId target category httpStatus code type providerRequestId retryable wait duration repair providerUsed)
   @target_keys ~w(profileId provider protocol endpoint modelId)
   @usage_keys ~w(inputTokens cacheReadTokens cacheCreationTokens outputTokens reasoningTokens promptTokens completionTokens totalTokens status)
   @cost_keys ~w(knownSubtotalUsd status source knownObservations unknownObservations)
@@ -18,9 +18,51 @@ defmodule HardenLlm.LlmDiagnosticsWire do
   def decode("getStats", value), do: decode_stats(value)
   def decode("getTrace", value), do: decode_trace(value)
   def decode("listHistory", value), do: decode_history(value)
+
+  def decode(operation, value) when operation in ["listProfiles", "importProfileBundle"],
+    do: decode_profiles(value)
+
   def decode(_operation, value), do: {:ok, value}
 
-  def decode_run(%{"schemaVersion" => 2} = value) do
+  defp decode_profiles(%{"profiles" => profiles, "defaults" => defaults} = value)
+       when is_list(profiles) and is_map(defaults) do
+    with :ok <- exact_keys(value, ~w(profiles defaults)),
+         :ok <- exact_keys(defaults, ~w(recoveryPolicy)),
+         :ok <- recovery_policy(defaults["recoveryPolicy"]),
+         :ok <- each(profiles, &profile_state/1) do
+      {:ok, value}
+    else
+      _ -> malformed()
+    end
+  end
+
+  defp decode_profiles(_value), do: malformed()
+
+  defp profile_state(%{"profile" => %{"schemaVersion" => 2, "recoveryPolicy" => policy}}),
+    do: recovery_policy(policy)
+
+  defp profile_state(_value), do: :error
+
+  # Check the required wire shape only. Go owns policy semantics and defaults.
+  defp recovery_policy(value) when is_map(value) do
+    with :ok <- exact_keys(value, ~w(maxAttempts retryOn repairInvalidOutput backoff)),
+         true <- is_integer(value["maxAttempts"]),
+         categories when is_list(categories) <- value["retryOn"],
+         true <- Enum.all?(categories, &is_binary/1),
+         :ok <- boolean(value["repairInvalidOutput"]),
+         backoff when is_map(backoff) <- value["backoff"],
+         :ok <- exact_keys(backoff, ~w(baseDelayMs maxDelayMs)),
+         true <- is_integer(backoff["baseDelayMs"]),
+         true <- is_integer(backoff["maxDelayMs"]) do
+      :ok
+    else
+      _ -> :error
+    end
+  end
+
+  defp recovery_policy(_value), do: :error
+
+  def decode_run(%{"schemaVersion" => 3} = value) do
     with :ok <- subset_keys(value, @run_keys ++ ~w(search)),
          :ok <- required_keys(value, @run_keys),
          :ok <- optional(value, "search", &search/1),
@@ -328,16 +370,15 @@ defmodule HardenLlm.LlmDiagnosticsWire do
          :ok <-
            required_keys(
              value,
-             ~w(number retryLocalNumber profileId target retryable wait duration repair backupIndex providerUsed)
+             ~w(number profileId target retryable wait duration repair providerUsed)
            ),
          true <- value["number"] == expected,
-         :ok <- positive_integer(value["retryLocalNumber"]),
          :ok <- nonempty_text(value["profileId"]),
          :ok <- target(value["target"]),
          :ok <- optional_texts(value, ~w(category code type providerRequestId)),
          :ok <- optional(value, "httpStatus", &http_status/1),
          :ok <- booleans(value, ~w(retryable repair providerUsed)),
-         :ok <- nonnegative_integers(value, ~w(wait duration backupIndex)) do
+         :ok <- nonnegative_integers(value, ~w(wait duration)) do
       :ok
     else
       _ -> :error

@@ -326,7 +326,7 @@ func TestProviderNormalizationParityClassifiesResponsesProviderRetryDirective(t 
 	if !ok {
 		t.Fatalf("error type = %T, want *retry.ProviderError", err)
 	}
-	classification := retry.Classify(err, retry.Policy{ServerError: false})
+	classification := retry.Classify(err, retry.Policy{RetryOn: []retry.Category{retry.CategoryProvider}})
 	if classification.Category != retry.CategoryProvider || !classification.Retryable || providerErr.Code != fixture.PositiveCase.Expected.Code ||
 		providerErr.ProviderRequestID != fixture.PositiveCase.Expected.ProviderRequestID || providerErr.Status != 0 || providerErr.Type != "" {
 		t.Fatalf("provider retry normalization = %#v / %#v", providerErr, classification)

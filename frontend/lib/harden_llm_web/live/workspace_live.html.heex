@@ -70,11 +70,13 @@
               config_open={@ui["llmProfileConfigOpen"]}
               options_open={@ui["modelOptionsOpen"]}
               retry_open={@ui["retryRepairOpen"]}
+              recovery_policy_default={@recovery_policy_default}
+              recovery_policy={@form.params["recoveryPolicy"]}
+              recovery_field_errors={@recovery_field_errors}
               pricing_open={@ui["pricingOpen"]}
               fold_disabled={@ui_save_pending?}
               session_handle={@session_handle}
               bundle_upload={@uploads.profile_bundle}
-              escalation_bundle_upload={@uploads.escalation_profile_bundle}
             />
           </section>
 

@@ -13,30 +13,10 @@ defmodule HardenLlmWeb.ProfileDefaults do
   @default_api_inference_type "chat-completions"
   @default_profile_id "CPA GPT-5.6 Luna"
   @default_model_id "gpt-5.6-luna"
-  @default_escalation_profile_id "CPA GPT-5.6 Sol"
-  @default_escalation_model_id "gpt-5.6-sol"
   @default_reasoning "lowest"
-  @default_repair_reasoning "highest"
   @default_cache_mode "cache"
 
   @field_info %{
-    "structuredRepairRetry" =>
-      "Uses another model call to repair invalid JSON or output that fails schema validation. Enabled by default. Repair attempts count toward Max Attempts.",
-    "enableRetryOn429" =>
-      "When enabled, provider rate-limit responses can consume another attempt from the shared max-attempt retry budget.",
-    "enableRetryOn5xx" =>
-      "When enabled, upstream server errors can consume another attempt from the shared max-attempt retry budget.",
-    "enableRetryOnNetworkError" =>
-      "When enabled, transient network failures can consume another attempt from the shared max-attempt retry budget.",
-    "enableRetryOnParseError" =>
-      "When enabled, JSON parse and schema failures can consume another attempt. Structured Repair requires this and locks it on.",
-    "maxAttempts" =>
-      "Total attempts for the utility call, including initial, ordinary retry, repair, and escalation attempts.",
-    "baseDelayMs" =>
-      "Initial retry delay before the next attempt. Backoff grows from this value.",
-    "maxDelayMs" => "Upper bound for retry backoff delay between attempts.",
-    "escalationAttempt" =>
-      "First attempt number that should use the escalation profile for structured repair.",
     "pricingCacheWrite" =>
       "Cache write applies to prompt tokens used to create cache entries. Some providers only expose cache read pricing, so this is optional.",
     "pricingReasoning" =>
@@ -52,22 +32,6 @@ defmodule HardenLlmWeb.ProfileDefaults do
     "defaultOptionsJson" => ~s({"temperature":0,"max_tokens":16000})
   }
 
-  @retry_defaults %{
-    "maxAttempts" => 4,
-    "baseDelayMs" => 500,
-    "maxDelayMs" => 8_000,
-    "escalationAttempt" => 3
-  }
-
-  @retry_form_defaults %{
-    "retryMaxAttempts" => Integer.to_string(@retry_defaults["maxAttempts"]),
-    "retryBaseDelayMs" => Integer.to_string(@retry_defaults["baseDelayMs"]),
-    "retryMaxDelayMs" => Integer.to_string(@retry_defaults["maxDelayMs"]),
-    "escalationAttempt" => Integer.to_string(@retry_defaults["escalationAttempt"])
-  }
-
-  @retry_placeholders @retry_form_defaults
-
   @empty_form_base %{
     "profileId" => "",
     "provider" => "",
@@ -78,7 +42,6 @@ defmodule HardenLlmWeb.ProfileDefaults do
     "credentialConfigured" => "false",
     "endpointCredentialScope" => "user",
     "apiKey" => "",
-    "backupProfiles" => "",
     "supportsTemperature" => "true",
     "supportsContractedStructuredOutput" => "true",
     "supportsWebSearch" => "false",
@@ -88,13 +51,6 @@ defmodule HardenLlmWeb.ProfileDefaults do
     "topK" => "",
     "stopSequences" => "",
     "defaultOptionsJson" => @default_options_json,
-    "structuredRepairRetryEnabled" => "true",
-    "enableRetryOn429" => "true",
-    "enableRetryOn5xx" => "true",
-    "enableRetryOnNetworkError" => "true",
-    "enableRetryOnParseError" => "true",
-    "escalationProfile" => @default_escalation_profile_id,
-    "escalationReasoning" => @default_repair_reasoning,
     "pricingInput" => "",
     "pricingOutput" => "",
     "pricingCacheRead" => "",
@@ -102,10 +58,9 @@ defmodule HardenLlmWeb.ProfileDefaults do
     "pricingReasoning" => ""
   }
 
-  @empty_form Map.merge(@empty_form_base, @retry_form_defaults)
-
   @doc "Returns the blank profile editor shape used by all profile surfaces."
-  def empty_form, do: @empty_form
+  def empty_form(recovery_policy),
+    do: Map.put(@empty_form_base, "recoveryPolicy", recovery_policy)
 
   @doc "Returns the actual default model options used when no options are stored."
   def default_options, do: @default_options
@@ -122,17 +77,8 @@ defmodule HardenLlmWeb.ProfileDefaults do
   @doc "Returns the model ID paired with the default workspace profile."
   def default_model_id, do: @default_model_id
 
-  @doc "Returns the default profile used for structured-repair escalation."
-  def default_escalation_profile_id, do: @default_escalation_profile_id
-
-  @doc "Returns the model ID paired with the default escalation profile."
-  def default_escalation_model_id, do: @default_escalation_model_id
-
   @doc "Returns the default reasoning level for an ordinary model run."
   def reasoning_default, do: @default_reasoning
-
-  @doc "Returns the default reasoning level for structured-repair escalation."
-  def repair_reasoning_default, do: @default_repair_reasoning
 
   @doc "Returns the cache-first mode used by the utility-llm UI."
   def cache_mode_default, do: @default_cache_mode
@@ -146,23 +92,8 @@ defmodule HardenLlmWeb.ProfileDefaults do
 
   def normalize_options(_options), do: @default_options
 
-  @doc "Resolves Structured Repair from profile options, defaulting to enabled when unset."
-  def structured_repair_enabled?(options) do
-    case options["structuredRepairRetry"] do
-      false -> false
-      %{"enabled" => false} -> false
-      _ -> true
-    end
-  end
-
   @doc "Returns the utility-llm placeholder for one option editor field."
   def option_placeholder(field), do: Map.get(@option_placeholders, field)
-
-  @doc "Returns the utility-llm runtime fallback for one retry control."
-  def retry_default(field), do: Map.get(@retry_defaults, field)
-
-  @doc "Returns the utility-llm placeholder for one retry editor field."
-  def retry_placeholder(field), do: Map.get(@retry_placeholders, field)
 
   @doc "Returns the utility-llm empty-pricing placeholder."
   def pricing_placeholder, do: "n/a"
@@ -174,6 +105,5 @@ defmodule HardenLlmWeb.ProfileDefaults do
   def base_url_placeholder, do: "https://openrouter.ai/api/v1"
 
   @doc "Returns the model-slot placeholder for the main or repair editor."
-  def model_placeholder("escalation"), do: @default_escalation_model_id
   def model_placeholder(_kind), do: "gpt-5.6-luna"
 end

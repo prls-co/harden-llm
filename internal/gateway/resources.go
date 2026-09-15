@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	clientStateSchemaVersion = 1
+	clientStateSchemaVersion = 2
 	defaultHistoryLimit      = 20
 	maximumHistoryLimit      = 100
 	defaultArtifactTTL       = time.Minute
@@ -30,30 +30,21 @@ var (
 )
 
 type ClientState struct {
-	SchemaVersion      int               `json:"schemaVersion"`
-	SelectedProfileID  string            `json:"selectedProfileId,omitempty"`
-	ModelID            string            `json:"modelId,omitempty"`
-	SystemPrompt       string            `json:"systemPrompt,omitempty"`
-	UserPrompt         string            `json:"userPrompt,omitempty"`
-	SchemaShorthand    string            `json:"schemaShorthand,omitempty"`
-	CallType           string            `json:"callType"`
-	Schema             json.RawMessage   `json:"schema,omitempty"`
-	ReasoningEffort    string            `json:"reasoningEffort,omitempty"`
-	ReasoningByProfile map[string]string `json:"reasoningByProfile,omitempty"`
-	StructuredRepair   bool              `json:"structuredRepair"`
-	CacheMode          string            `json:"cacheMode"`
-	WebSearch          bool              `json:"webSearch"`
-	ProviderOptions    map[string]any    `json:"providerOptions,omitempty"`
-	MaxAttempts        int               `json:"maxAttempts,omitempty"`
-	InitialBackoffMS   int               `json:"initialBackoffMs,omitempty"`
-	MaximumBackoffMS   int               `json:"maximumBackoffMs,omitempty"`
-	RetryNetwork       *bool             `json:"retryNetwork,omitempty"`
-	RetryRateLimit     *bool             `json:"retryRateLimit,omitempty"`
-	RetryServerError   *bool             `json:"retryServerError,omitempty"`
-	RetryEmpty         *bool             `json:"retryEmpty,omitempty"`
-	RetryParse         *bool             `json:"retryParse,omitempty"`
-	RepairEscalation   map[string]any    `json:"repairEscalation,omitempty"`
-	UI                 map[string]any    `json:"ui,omitempty"`
+	RecoveryPolicy     hardenllm.RecoveryPolicy `json:"recoveryPolicy"`
+	SchemaVersion      int                      `json:"schemaVersion"`
+	SelectedProfileID  string                   `json:"selectedProfileId,omitempty"`
+	ModelID            string                   `json:"modelId,omitempty"`
+	SystemPrompt       string                   `json:"systemPrompt,omitempty"`
+	UserPrompt         string                   `json:"userPrompt,omitempty"`
+	SchemaShorthand    string                   `json:"schemaShorthand,omitempty"`
+	CallType           string                   `json:"callType"`
+	Schema             json.RawMessage          `json:"schema,omitempty"`
+	ReasoningEffort    string                   `json:"reasoningEffort,omitempty"`
+	ReasoningByProfile map[string]string        `json:"reasoningByProfile,omitempty"`
+	CacheMode          string                   `json:"cacheMode"`
+	WebSearch          bool                     `json:"webSearch"`
+	ProviderOptions    map[string]any           `json:"providerOptions,omitempty"`
+	UI                 map[string]any           `json:"ui,omitempty"`
 }
 
 type HistoryItem struct {
@@ -476,7 +467,7 @@ func (service *ResourceService) PresignArtifact(ctx context.Context, ownerID, tr
 }
 
 func defaultClientState() ClientState {
-	return ClientState{SchemaVersion: clientStateSchemaVersion, CallType: string(hardenllm.CallTypeText), CacheMode: string(hardenllm.CacheModeOff), WebSearch: false}
+	return ClientState{RecoveryPolicy: hardenllm.DefaultRecoveryPolicy(), SchemaVersion: clientStateSchemaVersion, CallType: string(hardenllm.CallTypeText), CacheMode: string(hardenllm.CacheModeOff), WebSearch: false}
 }
 
 func validateClientState(state ClientState) error {
@@ -511,19 +502,18 @@ func validateClientState(state ClientState) error {
 	if encoded, err := json.Marshal(state.ProviderOptions); err != nil || len(encoded) > 32<<10 || containsSecretKey(state.ProviderOptions) {
 		return fmt.Errorf("%w: provider options", ErrInvalidRequest)
 	}
-	if len(state.RepairEscalation) > 0 {
-		if encoded, err := json.Marshal(state.RepairEscalation); err != nil || len(encoded) > 16<<10 || containsSecretKey(state.RepairEscalation) {
-			return fmt.Errorf("%w: repair escalation", ErrInvalidRequest)
-		}
-	}
 	if len(state.UI) > 0 {
 		if encoded, err := json.Marshal(state.UI); err != nil || len(encoded) > 16<<10 || containsSecretKey(state.UI) {
 			return fmt.Errorf("%w: ui state", ErrInvalidRequest)
 		}
 	}
-	if state.MaxAttempts < 0 || state.MaxAttempts > maximumRunAttempts || state.InitialBackoffMS < 0 || state.InitialBackoffMS > 60000 || state.MaximumBackoffMS < 0 || state.MaximumBackoffMS > 600000 {
-		return fmt.Errorf("%w: retry controls", ErrInvalidRequest)
+	if err := state.RecoveryPolicy.Validate(); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidRequest, err)
 	}
+	if err := state.RecoveryPolicy.ValidateProviderOptions(state.ProviderOptions); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidRequest, err)
+	}
+
 	return nil
 }
 

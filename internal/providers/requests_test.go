@@ -3,10 +3,12 @@ package providers
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/netip"
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/prls-co/harden-llm/internal/cachekey"
 	"github.com/prls-co/harden-llm/internal/runtime"
@@ -31,7 +33,7 @@ func TestProviderRequestParity(t *testing.T) {
 	baseCall := runtime.Call{
 		SystemPrompt: "Be exact.", UserPrompt: "Answer.", CallType: "structured", Schema: schema,
 		ReasoningEffort: "highest", ProviderOptions: map[string]any{
-			"max_tokens": float64(42), "timeout": float64(5000), "maxRetries": float64(9),
+			"max_tokens": float64(42), "timeout": float64(5000),
 			"tools": []any{map[string]any{"type": "function", "name": "lookup"}}, "provider_native": "preserve-where-supported",
 		},
 	}
@@ -199,7 +201,7 @@ func TestProviderRequestParityCapturedSource(t *testing.T) {
 	}
 	request := runtime.Call{
 		SystemPrompt: "Be exact.", UserPrompt: "Answer the deterministic fixture.", CallType: "text",
-		ProviderOptions: map[string]any{"max_tokens": float64(42), "timeout": float64(5000), "maxRetries": float64(9)},
+		ProviderOptions: map[string]any{"max_tokens": float64(42), "timeout": float64(5000)},
 	}
 	profiles := map[string]runtime.Profile{
 		"openai-responses": {
@@ -249,6 +251,8 @@ func TestProviderRequestParityCapturedSource(t *testing.T) {
 			if structuredErr != nil {
 				t.Fatalf("Prepare structured: %v", structuredErr)
 			}
+			// ADR-HLLM-020 advances only the structured response projection.
+			captured.StructuredOperation.ResponseProjection.Version = "v2"
 			if !jsonEquivalent(structured.Operation, captured.StructuredOperation) {
 				got, _ := json.MarshalIndent(structured.Operation, "", "  ")
 				want, _ := json.MarshalIndent(captured.StructuredOperation, "", "  ")
@@ -408,4 +412,22 @@ func jsonEquivalent(left, right any) bool {
 		return false
 	}
 	return reflect.DeepEqual(leftValue, rightValue)
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-206
+func TestRecoveryRetryAfter(t *testing.T) {
+	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
+	for _, c := range []struct {
+		header string
+		want   time.Duration
+	}{
+		{"30", 30 * time.Second}, {" 30 ", 30 * time.Second}, {"0", 0}, {"-3", 0}, {"bad", 0}, {"1.5", 0},
+		{now.Add(30 * time.Second).Format(http.TimeFormat), 30 * time.Second},
+		{now.Add(-time.Second).Format(http.TimeFormat), 0},
+		{"9223372036854775807", time.Duration(1<<63 - 1)},
+	} {
+		if got := parseRetryAfter(c.header, now); got != c.want {
+			t.Errorf("header=%q delay=%v want=%v", c.header, got, c.want)
+		}
+	}
 }

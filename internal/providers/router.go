@@ -108,9 +108,6 @@ func (router *Router) Prepare(ctx context.Context, profile runtime.Profile, cred
 	if err := validateProfile(profile, call); err != nil {
 		return runtime.PreparedOperation{}, err
 	}
-	if call.Repair != nil && call.Repair.ModelID != "" {
-		profile.ModelID = call.Repair.ModelID
-	}
 	provider, protocol, path, payload, semanticHeaders, err := buildPayload(profile, call)
 	if err != nil {
 		return runtime.PreparedOperation{}, err
@@ -142,7 +139,7 @@ func (router *Router) Prepare(ctx context.Context, profile runtime.Profile, cred
 		},
 		Model: profile.ModelID, Payload: operationPayload(payload, profile, call), SemanticHeaders: semanticHeaders,
 		ResponseProjection: cachekey.ResponseProjection{
-			Provider: provider, Kind: responseKind(call.CallType), Version: "v1",
+			Provider: provider, Kind: responseKind(call.CallType), Version: responseProjectionVersion(call.CallType),
 		},
 	}
 	request := preparedRequest{
@@ -591,10 +588,20 @@ func parseRetryAfter(value string, now time.Time) time.Duration {
 		if seconds <= 0 {
 			return 0
 		}
+		if seconds > int(time.Duration(1<<63-1)/time.Second) {
+			return time.Duration(1<<63 - 1)
+		}
 		return time.Duration(seconds) * time.Second
 	}
 	if timestamp, err := http.ParseTime(value); err == nil && timestamp.After(now) {
 		return timestamp.Sub(now)
 	}
 	return 0
+}
+
+func responseProjectionVersion(callType string) string {
+	if callType == "structured" {
+		return "v2"
+	}
+	return "v1"
 }

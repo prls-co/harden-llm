@@ -23,8 +23,8 @@ func TestParityTraceProjectionAndObservations(t *testing.T) {
 			Provider: traceLedger(10, 2, 0, 4, 1, accounting.ExactCost(0.125, "profile")),
 		},
 		Attempts: []runtime.AttemptRecord{
-			{Number: 1, RetryLocalNumber: 1, ProfileID: "Primary", ProviderUsed: true, Category: retry.CategoryParse, Retryable: true, Delay: 500 * time.Millisecond, Duration: 10 * time.Millisecond},
-			{Number: 2, RetryLocalNumber: 2, ProfileID: "Primary", ProviderUsed: true, Category: retry.CategorySuccess, Repair: true, Duration: 20 * time.Millisecond},
+			{Number: 1, ProfileID: "Primary", ProviderUsed: true, Category: retry.CategoryParse, Retryable: true, Delay: 500 * time.Millisecond, Duration: 10 * time.Millisecond},
+			{Number: 2, ProfileID: "Primary", ProviderUsed: true, Category: retry.CategorySuccess, Repair: true, Duration: 20 * time.Millisecond},
 		},
 		Cache: runtime.CacheFacts{Mode: cachekey.ModeCache, Status: "miss", OperationHash: "sha256:operation", Version: "v1", Written: true},
 	}

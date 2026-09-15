@@ -37,14 +37,10 @@ func TestOTelContract(t *testing.T) {
 		ID: "adversarial-profile", Provider: "openai", APIInferenceType: "responses",
 		BaseURL: "https://api.openai.com/v1", ModelID: "gpt-fixture",
 	}
-	repairProfile := Profile{
-		ID: "repair-profile", Provider: "anthropic", APIInferenceType: "messages",
-		BaseURL: "https://api.anthropic.com/v1", ModelID: "claude-fixture",
-	}
 	call := Call{
 		SystemPrompt: "adversarial system prompt", UserPrompt: "adversarial user prompt",
 		CallType: "structured", Schema: json.RawMessage(`{"type":"object"}`),
-		StructuredRepair: StructuredRepair{Enabled: true, Escalation: &RepairEscalation{Attempt: 2, ProfileID: repairProfile.ID}}, Telemetry: telemetry,
+		Telemetry: telemetry,
 		ValidateStructured: func(value any) error {
 			object, ok := value.(map[string]any)
 			if !ok || object["answer"] != "ok" {
@@ -59,10 +55,7 @@ func TestOTelContract(t *testing.T) {
 	})
 	record, err := Execute(ctx, &telemetryExecutor{}, func(context.Context, Profile) (Credential, error) {
 		return Credential{APIKey: "super-secret-api-key"}, nil
-	}, profile.ID, map[string]Profile{profile.ID: profile, repairProfile.ID: repairProfile}, call, retry.Config{
-		MaxAttempts: 2, BaseDelay: 1, MaxDelay: 1, Policy: retry.Policy{ParseError: true},
-		Random: func() float64 { return 0 }, Wait: func(context.Context, time.Duration) error { return nil },
-	}, cache, cachekey.ModeRefresh, "v1", "call-fixture", "trace-fixture")
+	}, profile.ID, map[string]Profile{profile.ID: profile}, call, retry.Config{Policy: retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{}, RepairInvalidOutput: true, Backoff: retry.Backoff{BaseDelayMS: 0, MaxDelayMS: 0}}, Random: func() float64 { return 0 }, Wait: func(context.Context, time.Duration) error { return nil }}, cache, cachekey.ModeRefresh, "v1", "call-fixture", "trace-fixture")
 	endCall(record, err)
 	if err != nil || len(record.Attempts) != 2 || !record.Cache.Written {
 		t.Fatalf("instrumented repaired call = %#v, %v", record, err)
@@ -74,7 +67,7 @@ func TestOTelContract(t *testing.T) {
 	})
 	cached, cacheErr := Execute(ctx, &telemetryExecutor{}, func(context.Context, Profile) (Credential, error) {
 		return Credential{APIKey: "super-secret-api-key"}, nil
-	}, profile.ID, map[string]Profile{profile.ID: profile}, call, retry.Config{MaxAttempts: 1}, cache,
+	}, profile.ID, map[string]Profile{profile.ID: profile}, call, retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, cache,
 		cachekey.ModeCache, "v1", "call-cache", "trace-cache")
 	endCall(cached, cacheErr)
 	if cacheErr != nil || !cached.Cache.Served {
@@ -96,7 +89,7 @@ func TestOTelContract(t *testing.T) {
 	}
 	assertSpanParent(t, spans, SpanProvider, SpanAttempt)
 	assertSpanParent(t, spans, SpanSchema, SpanAttempt)
-	assertAttemptTargets(t, spans, []string{profile.ID, repairProfile.ID}, []string{profile.ModelID, repairProfile.ModelID})
+	assertAttemptTargets(t, spans, []string{profile.ID, profile.ID}, []string{profile.ModelID, profile.ModelID})
 	encodedSpans := fmt.Sprint(spans)
 	for _, forbidden := range []string{"super-secret-api-key", "adversarial system prompt", "adversarial user prompt", "adversarial response"} {
 		if strings.Contains(encodedSpans, forbidden) {
@@ -185,8 +178,8 @@ func assertAttemptTargets(t *testing.T, spans tracetest.SpanStubs, profiles, mod
 			attempts = append(attempts, span)
 		}
 	}
-	if len(attempts) < len(profiles) {
-		t.Fatalf("attempt spans = %d, want at least %d", len(attempts), len(profiles))
+	if len(attempts) != len(profiles) {
+		t.Fatalf("attempt spans = %d, want exactly %d", len(attempts), len(profiles))
 	}
 	for index := range profiles {
 		attributes := make(map[string]string)
@@ -202,10 +195,7 @@ func assertAttemptTargets(t *testing.T, spans tracetest.SpanStubs, profiles, mod
 func (*telemetryExecutor) Execute(_ context.Context, operation PreparedOperation) (ProviderResult, error) {
 	if repair, _ := operation.Opaque.(bool); repair {
 		return ProviderResult{
-			Output: map[string]any{
-				"repair": map[string]any{"explanation": "fixed", "changes": []any{"answer"}},
-				"data":   map[string]any{"answer": "ok"},
-			},
+			Output: map[string]any{"answer": "ok"},
 			Accounting: Ledger{
 				Usage: completeUsageWithoutTest(5, 0, 0, 2, 0), Cost: accounting.ExactCost(0.01, "reported"),
 			},

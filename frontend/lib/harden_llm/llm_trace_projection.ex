@@ -281,7 +281,6 @@ defmodule HardenLlm.LlmTraceProjection do
 
       %{
         "attempt" => attempt["number"],
-        "retry_local_attempt" => attempt["retryLocalNumber"],
         "profile_id" => attempt["profileId"],
         "provider" => target["provider"],
         "protocol" => target["protocol"],

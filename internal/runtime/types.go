@@ -20,7 +20,6 @@ type Profile struct {
 	ModelID                  string
 	DefaultOptions           map[string]any
 	ReasoningEffortMap       map[string]map[string]any
-	Backups                  []string
 	SupportsStructuredOutput bool
 	SupportsTemperature      bool
 	SupportsWebSearch        bool
@@ -43,37 +42,21 @@ type Call struct {
 	Schema          json.RawMessage
 	ReasoningEffort string
 	WebSearch       bool
-	// SearchMemo is owned by one logical call and shared by retries/repairs/backups.
+	// SearchMemo is owned by one logical call and shared by retries and repairs.
 	SearchMemo         *sync.Map
 	ProviderOptions    map[string]any
 	Context            ObservabilityContext
-	StructuredRepair   StructuredRepair
 	ValidateStructured func(any) error
 	Repair             *RepairRequest
 	Telemetry          *Telemetry
 }
 
-type StructuredRepair struct {
-	Enabled    bool
-	Escalation *RepairEscalation
-}
-
-type RepairEscalation struct {
-	Attempt         int
-	ProfileID       string
-	ModelID         string
-	ReasoningEffort string
-}
-
 type RepairRequest struct {
-	Attempt         int
-	MaxAttempts     int
-	PreviousOutput  string
-	TargetSchema    json.RawMessage
-	Escalated       bool
-	ProfileID       string
-	ModelID         string
-	ReasoningEffort string
+	Attempt            int
+	MaxAttempts        int
+	PreviousOutput     string
+	ValidationFeedback string
+	TargetSchema       json.RawMessage
 }
 
 type PreparedOperation struct {
@@ -110,9 +93,7 @@ type ExecutionTarget struct {
 
 type AttemptRecord struct {
 	Number            int             `json:"number"`
-	RetryLocalNumber  int             `json:"retryLocalNumber"`
 	ProfileID         string          `json:"profileId"`
-	BackupIndex       int             `json:"backupIndex"`
 	Target            ExecutionTarget `json:"target"`
 	ProviderUsed      bool            `json:"providerUsed"`
 	Category          retry.Category  `json:"category,omitempty"`

@@ -85,8 +85,8 @@ func TestDefaultCatalogParity(t *testing.T) {
 			if profile.EndpointCredentialScope != "global" || !profile.SupportsContractedStructuredOutput {
 				t.Fatalf("profile security/capability defaults = scope %q structured=%t", profile.EndpointCredentialScope, profile.SupportsContractedStructuredOutput)
 			}
-			if len(profile.BackupProfiles) != 0 || len(profile.Models) != 0 {
-				t.Fatalf("seeded runtime state was copied into %s: backups=%v models=%v", name, profile.BackupProfiles, profile.Models)
+			if len(profile.Models) != 0 {
+				t.Fatalf("seeded runtime state was copied into %s: models=%v", name, profile.Models)
 			}
 			if fmt.Sprint(profile.DefaultOptions["max_tokens"]) != "16000" {
 				t.Fatalf("%s max_tokens = %#v, want 16000", name, profile.DefaultOptions["max_tokens"])

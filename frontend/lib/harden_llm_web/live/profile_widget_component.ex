@@ -7,7 +7,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   caller's prompt, output, or other controls without introducing navigation or
   a modal surface. Hosts that mount more than one instance pass a distinct
   `id_prefix`; it namespaces generated form/control IDs and parent messages,
-  while the host supplies matching main/escalation upload configurations.
+  while the host supplies matching upload configurations.
   """
 
   use HardenLlmWeb, :live_component
@@ -31,8 +31,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   @reasoning_options [{"lowest", "L"}, {"middle", "M"}, {"highest", "H"}]
 
   @fold_keys ~w(
-    main_credential_open main_fallback_open main_options_open main_retry_open main_pricing_open
-    escalation_credential_open escalation_fallback_open escalation_options_open escalation_pricing_open
+    main_credential_open main_options_open main_retry_open main_pricing_open
   )
 
   @impl true
@@ -41,37 +40,27 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
      socket
      |> assign(:initialized?, false)
      |> assign(:web_search, false)
+     |> assign(:recovery_policy_default, %{})
      |> assign(:id_prefix, "")
      |> assign(:loaded_profile_id, nil)
      |> assign(:profiles_revision, nil)
-     |> assign(:main_form, to_form(ProfilesLive.empty_form(), as: :profile))
-     |> assign(:escalation_form, to_form(ProfilesLive.empty_form(), as: :escalation))
+     |> assign(:main_form, to_form(ProfilesLive.empty_form(%{}), as: :profile))
      |> assign(:main_dirty?, false)
-     |> assign(:escalation_dirty?, false)
      |> assign(:main_requires_save?, false)
-     |> assign(:escalation_requires_save?, false)
      |> assign(:main_staged_key, "")
-     |> assign(:escalation_staged_key, "")
-     |> assign(:main_backup_rows, [])
-     |> assign(:escalation_backup_rows, [])
      |> assign(:main_config_open, false)
      |> assign(:main_credential_open, false)
-     |> assign(:main_fallback_open, false)
      |> assign(:main_options_open, false)
      |> assign(:main_retry_open, false)
      |> assign(:main_pricing_open, false)
-     |> assign(:escalation_config_open, false)
-     |> assign(:escalation_credential_open, false)
-     |> assign(:escalation_fallback_open, false)
-     |> assign(:escalation_options_open, false)
-     |> assign(:escalation_pricing_open, false)
      |> assign(:api_inference_types, @api_inference_types)
      |> assign(:model_catalog, nil)
      |> assign(:model_options, [])
      |> assign(:category_name, "LLM")
      |> assign(:field_errors, %{})
+     |> assign(:recovery_field_errors, %{})
      |> assign(:fold_disabled, false)
-     |> assign(:pending, %{main: nil, escalation: nil})
+     |> assign(:pending, %{main: nil})
      |> assign(:operation_error, nil)
      |> assign(:delete_kind, nil)}
   end
@@ -86,6 +75,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       socket
       |> assign(assigns)
       |> assign(:id_prefix, Map.get(assigns, :id_prefix, socket.assigns.id_prefix))
+
+    initial? = not socket.assigns.initialized?
 
     needs_profile_reset? =
       not socket.assigns.initialized? or
@@ -107,6 +98,15 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           Map.get(assigns, :config_open, socket.assigns.main_config_open)
         )
         |> assign(:profiles_revision, revision)
+      end
+
+    socket =
+      if Map.has_key?(assigns, :recovery_policy) and (initial? or not needs_profile_reset?) do
+        update(socket, :main_form, fn form ->
+          to_form(Map.put(form.params, "recoveryPolicy", assigns.recovery_policy), as: :profile)
+        end)
+      else
+        socket
       end
 
     socket = if needs_profile_reset?, do: notify_profile_runtime(socket, :main), else: socket
@@ -194,7 +194,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   end
 
   def handle_event("toggle-fold", %{"kind" => kind, "fold" => fold}, socket)
-      when kind in ["main", "escalation"] do
+      when kind == "main" do
     key = "#{kind}_#{fold}_open"
 
     if key in @fold_keys and not socket.assigns.fold_disabled do
@@ -214,80 +214,12 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     end
   end
 
-  def handle_event("toggle-escalation-config", _params, socket) do
-    if socket.assigns.fold_disabled do
-      {:noreply, socket}
-    else
-      {:noreply, update(socket, :escalation_config_open, &(!&1))}
-    end
-  end
-
-  def handle_event("profile-draft-change", params, socket) do
-    socket =
-      cond do
-        is_map(params["profile"]) ->
-          update_profile_form(socket, :main, params["profile"])
-
-        is_map(params["escalation"]) ->
-          update_profile_form(socket, :escalation, params["escalation"])
-
-        true ->
-          socket
-      end
-
-    {:noreply,
-     notify_profile_runtime(
-       socket,
-       if(is_map(params["escalation"]), do: :escalation, else: :main)
-     )}
-  end
-
-  def handle_event("add-backup", %{"kind" => kind} = params, socket)
-      when kind in ["main", "escalation"] do
-    add_backup(socket, String.to_existing_atom(kind), params)
-  end
-
-  def handle_event("add-backup-main", params, socket), do: add_backup(socket, :main, params)
-
-  def handle_event("add-backup-escalation", params, socket),
-    do: add_backup(socket, :escalation, params)
-
-  def handle_event("edit-backup", %{"index" => index, "profile" => profile}, socket)
-      when is_binary(index) do
-    value = Map.get(profile, "backupProfiles", "")
-
-    {:noreply, update_backup_at(socket, :main, parse_index(index), value)}
-  end
-
-  def handle_event("edit-backup", %{"index" => index, "escalation" => escalation}, socket)
-      when is_binary(index) do
-    value = Map.get(escalation, "backupProfiles", "")
-
-    {:noreply, update_backup_at(socket, :escalation, parse_index(index), value)}
-  end
-
-  def handle_event("remove-backup", %{"kind" => kind, "index" => index}, socket)
-      when kind in ["main", "escalation"] do
-    {:noreply,
-     update_backup(socket, String.to_existing_atom(kind), fn backups ->
-       List.delete_at(backups, parse_index(index))
-     end)}
-  end
-
-  def handle_event(
-        "move-backup",
-        %{"kind" => kind, "index" => index, "direction" => direction},
-        socket
-      )
-      when kind in ["main", "escalation"] do
-    {:noreply,
-     update_backup(socket, String.to_existing_atom(kind), fn backups ->
-       ProfileWidgetState.move_fallback(backups, parse_index(index), direction)
-     end)}
+  def handle_event("profile-draft-change", %{"profile" => params}, socket) do
+    socket |> update_profile_form(:main, params) |> notify_profile_runtime(:main) |> noreply()
   end
 
   def handle_event("toggle-credential", %{"kind" => kind}, socket)
-      when kind in ["main", "escalation"] do
+      when kind == "main" do
     if socket.assigns.fold_disabled do
       {:noreply, socket}
     else
@@ -297,7 +229,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   end
 
   def handle_event("stage-key", %{"kind" => kind} = params, socket)
-      when kind in ["main", "escalation"] do
+      when kind == "main" do
     kind_atom = String.to_existing_atom(kind)
     form = form_for(socket, kind_atom)
     key = String.trim(params["apiKey"] || params["api-key"] || form.params["apiKey"] || "")
@@ -320,7 +252,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   end
 
   def handle_event("clear-staged-key", %{"kind" => kind}, socket)
-      when kind in ["main", "escalation"] do
+      when kind == "main" do
     kind_atom = String.to_existing_atom(kind)
 
     {:noreply,
@@ -331,7 +263,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   end
 
   def handle_event("cancel-key", %{"kind" => kind}, socket)
-      when kind in ["main", "escalation"] do
+      when kind == "main" do
     kind_atom = String.to_existing_atom(kind)
 
     {:noreply,
@@ -342,16 +274,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
      |> notify_profile_runtime(kind_atom)}
   end
 
-  def handle_event("new-profile", %{"kind" => "escalation"}, socket) do
-    socket
-    |> assign(:escalation_form, to_form(ProfilesLive.empty_form(), as: :escalation))
-    |> assign(:escalation_backup_rows, [])
-    |> assign(:escalation_dirty?, true)
-    |> assign(:escalation_config_open, true)
-    |> notify_profile_runtime(:escalation)
-    |> noreply()
-  end
-
   def handle_event("new-profile", _params, socket) do
     selected_profile_id = ""
 
@@ -360,20 +282,19 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     |> assign(:loaded_profile_id, selected_profile_id)
     |> assign(:main_config_open, true)
     |> assign(:main_dirty?, true)
-    |> assign(:main_backup_rows, [])
     |> notify_parent({:profile_widget_selection, selected_profile_id})
     |> notify_profile_runtime(:main)
     |> noreply()
   end
 
   def handle_event("profile-confirm-delete", %{"kind" => kind}, socket)
-      when kind in ["main", "escalation"], do: {:noreply, assign(socket, :delete_kind, kind)}
+      when kind == "main", do: {:noreply, assign(socket, :delete_kind, kind)}
 
   def handle_event("profile-cancel-delete", _params, socket),
     do: {:noreply, assign(socket, :delete_kind, nil)}
 
   def handle_event("profile-delete", %{"kind" => kind}, socket)
-      when kind in ["main", "escalation"] do
+      when kind == "main" do
     if pending_for(socket, kind) != nil do
       {:noreply, socket}
     else
@@ -398,7 +319,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   end
 
   def handle_event("profile-save", %{"kind" => kind}, socket)
-      when kind in ["main", "escalation"] do
+      when kind == "main" do
     if pending_for(socket, kind) != nil do
       {:noreply, socket}
     else
@@ -429,7 +350,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   def handle_event("profile-save", _params, socket), do: {:noreply, socket}
 
   def handle_event("profile-refresh", %{"kind" => kind}, socket)
-      when kind in ["main", "escalation"] do
+      when kind == "main" do
     kind_atom = String.to_existing_atom(kind)
     id = profile_id(form_for(socket, kind_atom))
 
@@ -510,14 +431,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
   defp notify_workspace_controls(socket, _params), do: {:noreply, socket}
 
-  defp add_backup(socket, kind, params) do
-    id =
-      params["id"] || params["fallbackProfile"] ||
-        get_in(params, [Atom.to_string(kind), "fallbackProfile"]) || ""
-
-    {:noreply, update_backup(socket, kind, fn backups -> backups ++ [String.trim(id)] end)}
-  end
-
   @impl true
   def handle_async(
         {:profile_save, reference, kind},
@@ -538,35 +451,17 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         |> assign(:delete_kind, nil)
         |> assign(:profiles, profiles)
         |> assign(:profiles_revision, :erlang.phash2(profiles))
-        |> assign(:main_dirty?, if(kind == "main", do: false, else: socket.assigns.main_dirty?))
-        |> assign(
-          :escalation_dirty?,
-          if(kind == "escalation", do: false, else: socket.assigns.escalation_dirty?)
-        )
+        |> assign(:main_dirty?, false)
         |> assign_form(
           kind_atom,
           to_form(ProfilesLive.profile_form(profile_state), as: form_as(kind_atom))
         )
-        |> assign(
-          String.to_existing_atom("#{kind}_backup_rows"),
-          ProfilesLive.backup_list(get_in(profile_state, ["profile", "backupProfiles"]))
-        )
         |> assign(String.to_existing_atom("#{kind}_staged_key"), "")
-
-      socket =
-        if kind == "escalation" do
-          update_profile_form(socket, :main, %{"escalationProfile" => id})
-        else
-          socket
-        end
 
       socket = notify_profile_runtime(socket, :main)
 
       socket
-      |> notify_parent(
-        {:profile_widget_profiles, profiles,
-         if(kind == "main", do: id, else: socket.assigns.selected_profile_id)}
-      )
+      |> notify_parent({:profile_widget_profiles, profiles, id})
       |> noreply()
     end
   end
@@ -622,10 +517,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         |> assign_form(
           kind_atom,
           to_form(ProfilesLive.profile_form(profile_state), as: form_as(kind_atom))
-        )
-        |> assign(
-          String.to_existing_atom("#{kind}_backup_rows"),
-          ProfilesLive.backup_list(get_in(profile_state, ["profile", "backupProfiles"]))
         )
         |> put_flash(:info, "Model catalog refreshed.")
 
@@ -685,20 +576,10 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         |> assign(:profiles_revision, :erlang.phash2(profiles))
         |> assign(:operation_error, nil)
 
-      socket =
-        if kind == "main" do
-          socket
-          |> reset_profile_forms(profiles, "")
-          |> assign(:loaded_profile_id, "")
-        else
-          update_profile_form(socket, :main, %{"escalationProfile" => ""})
-        end
+      socket = socket |> reset_profile_forms(profiles, "") |> assign(:loaded_profile_id, "")
 
       socket
-      |> notify_parent(
-        {:profile_widget_profiles, profiles,
-         if(kind == "main", do: "", else: socket.assigns.selected_profile_id)}
-      )
+      |> notify_parent({:profile_widget_profiles, profiles, ""})
       |> noreply()
     end
   end
@@ -791,39 +672,24 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           form={@main_form}
           kind="main"
           id_prefix={scope_id(@id_prefix, "profile")}
-          escalation_id_prefix={scope_id(@id_prefix, "escalation")}
           target={@myself}
           profiles={@profiles}
-          field_errors={@field_errors}
+          field_errors={Map.merge(@field_errors, @recovery_field_errors)}
           api_inference_types={@api_inference_types}
           model_catalog={@model_catalog}
           model_options={@model_options}
           requires_save={@main_requires_save?}
-          escalation_requires_save={@escalation_requires_save?}
-          backup_rows={@main_backup_rows}
           fold_disabled={@fold_disabled}
           credential_open={@main_credential_open}
-          fallback_open={@main_fallback_open}
           options_open={@main_options_open}
           retry_open={@main_retry_open}
           pricing_open={@main_pricing_open}
           staged_key={@main_staged_key}
           cache_mode={@cache_mode}
-          config_open={@escalation_config_open}
-          include_retry={true}
           bundle_upload={@bundle_upload}
-          escalation_bundle_upload={@escalation_bundle_upload}
           widget_id={@id_prefix}
           pending={pending_value(@pending, "main")}
           delete_kind={@delete_kind}
-          escalation_form={@escalation_form}
-          escalation_config_open={@escalation_config_open}
-          escalation_credential_open={@escalation_credential_open}
-          escalation_fallback_open={@escalation_fallback_open}
-          escalation_options_open={@escalation_options_open}
-          escalation_pricing_open={@escalation_pricing_open}
-          escalation_staged_key={@escalation_staged_key}
-          escalation_backup_rows={@escalation_backup_rows}
         />
       </div>
     </section>
@@ -1047,32 +913,17 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:model_catalog, :list, default: nil)
   attr(:model_options, :list, default: [])
   attr(:requires_save, :boolean, default: false)
-  attr(:escalation_requires_save, :boolean, default: false)
-  attr(:backup_rows, :list, default: [])
-  attr(:escalation_backup_rows, :list, default: [])
   attr(:fold_disabled, :boolean, default: false)
   attr(:credential_open, :boolean, default: false)
-  attr(:fallback_open, :boolean, default: false)
   attr(:options_open, :boolean, default: false)
   attr(:retry_open, :boolean, default: false)
   attr(:pricing_open, :boolean, default: false)
   attr(:staged_key, :string, default: "")
   attr(:cache_mode, :string, default: "cache")
-  attr(:config_open, :boolean, default: false)
-  attr(:include_retry, :boolean, default: true)
   attr(:bundle_upload, :any, default: nil)
-  attr(:escalation_bundle_upload, :any, default: nil)
   attr(:widget_id, :string, default: "")
   attr(:pending, :any, default: nil)
   attr(:delete_kind, :any, default: nil)
-  attr(:escalation_form, :any, default: nil)
-  attr(:escalation_config_open, :boolean, default: false)
-  attr(:escalation_credential_open, :boolean, default: false)
-  attr(:escalation_fallback_open, :boolean, default: false)
-  attr(:escalation_options_open, :boolean, default: false)
-  attr(:escalation_pricing_open, :boolean, default: false)
-  attr(:escalation_staged_key, :string, default: "")
-  attr(:escalation_id_prefix, :string, default: "escalation")
 
   def profile_editor(assigns) do
     ~H"""
@@ -1236,83 +1087,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         </div>
       </div>
 
-      <section class="ullm-backup-profiles">
-        <div class="ullm-backup-profiles-header">
-          <div>
-            <div class="ullm-backup-profiles-title">Fallback LLMs</div>
-            <p class="ullm-field-help">Fallback order is explicit and backend-validated.</p>
-          </div>
-          <button
-            type="button"
-            id={"#{@id_prefix}-fallback-toggle"}
-            class="ullm-btn ullm-btn-tiny"
-            phx-click="add-backup"
-            phx-value-kind={@kind}
-            phx-value-id=""
-            phx-target={@target}
-            disabled={@fold_disabled}
-          >+ Add Fallback LLM</button>
-        </div>
-        <div id={"#{@id_prefix}-fallback-options"} class="ullm-backup-profile-row">
-          <div id={"#{@id_prefix}-fallback-list"} class="ullm-backup-profile-list">
-            <div
-              :for={{backup, index} <- Enum.with_index(@backup_rows)}
-              class="ullm-backup-profile-item"
-            >
-              <.searchable_input
-                id={"#{@id_prefix}-fallback-#{index}"}
-                name={"#{@form.name}[backupProfiles]"}
-                value={backup}
-                options={
-                  profile_combobox_options(available_backup_profiles(@profiles, profile_id(@form)))
-                }
-                allow_custom
-                aria_label={"Fallback LLM #{index + 1}"}
-                class="ullm-input ullm-input-mono ullm-backup-profile-input"
-                phx_change="edit-backup"
-                phx_target={@target}
-                index={index}
-              />
-              <span class="ullm-backup-profile-actions">
-                <button
-                  type="button"
-                  id={"#{@id_prefix}-fallback-#{index}-up"}
-                  class="ullm-btn ullm-btn-tiny"
-                  phx-click="move-backup"
-                  phx-value-kind={@kind}
-                  phx-value-index={index}
-                  phx-value-direction="up"
-                  phx-target={@target}
-                  disabled={@fold_disabled or index == 0}
-                  aria-label={"Move #{backup} up"}
-                >Up</button>
-                <button
-                  type="button"
-                  id={"#{@id_prefix}-fallback-#{index}-down"}
-                  class="ullm-btn ullm-btn-tiny"
-                  phx-click="move-backup"
-                  phx-value-kind={@kind}
-                  phx-value-index={index}
-                  phx-value-direction="down"
-                  phx-target={@target}
-                  disabled={@fold_disabled or index == length(@backup_rows) - 1}
-                  aria-label={"Move #{backup} down"}
-                >Down</button>
-                <button
-                  type="button"
-                  class="ullm-btn ullm-btn-tiny ullm-btn-danger"
-                  phx-click="remove-backup"
-                  phx-value-kind={@kind}
-                  phx-value-index={index}
-                  phx-target={@target}
-                  aria-label={"Remove #{backup}"}
-                >Remove</button>
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <div
         :if={new_profile_fields_visible?(@kind, @form, @profiles)}
         class="ullm-new-profile-fields ullm-options-grid"
@@ -1454,7 +1228,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         </div>
       </div>
 
-      <section :if={@include_retry} class="ullm-options-fold">
+      <section class="ullm-options-fold">
         <button
           id={"#{@id_prefix}-retry-toggle"}
           type="button"
@@ -1467,160 +1241,13 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           aria-expanded={to_string(@retry_open)}
         >Retries &amp; Repair</button>
         <div :if={@retry_open} id={"#{@id_prefix}-retry-repair"} class="ullm-options-body">
-          <div class="ullm-checkbox-grid">
-            <.input
-              field={@form[:structuredRepairRetryEnabled]}
-              id={field_id(@id_prefix, @form[:structuredRepairRetryEnabled].id)}
-              type="checkbox"
-              label="Structured Repair"
-              info={ProfileDefaults.field_info("structuredRepairRetry")}
-              phx-change="profile-draft-change"
-              phx-target={@target}
-            />
-            <.input
-              field={@form[:enableRetryOn429]}
-              id={field_id(@id_prefix, @form[:enableRetryOn429].id)}
-              type="checkbox"
-              label="Rate Limits"
-              info={ProfileDefaults.field_info("enableRetryOn429")}
-              phx-change="profile-draft-change"
-              phx-target={@target}
-            />
-            <.input
-              field={@form[:enableRetryOn5xx]}
-              id={field_id(@id_prefix, @form[:enableRetryOn5xx].id)}
-              type="checkbox"
-              label="Server Errors"
-              info={ProfileDefaults.field_info("enableRetryOn5xx")}
-              phx-change="profile-draft-change"
-              phx-target={@target}
-            />
-            <.input
-              field={@form[:enableRetryOnNetworkError]}
-              id={field_id(@id_prefix, @form[:enableRetryOnNetworkError].id)}
-              type="checkbox"
-              label="Network Errors"
-              info={ProfileDefaults.field_info("enableRetryOnNetworkError")}
-              phx-change="profile-draft-change"
-              phx-target={@target}
-            />
-            <.input
-              field={@form[:enableRetryOnParseError]}
-              id={field_id(@id_prefix, @form[:enableRetryOnParseError].id)}
-              type="checkbox"
-              label="Parse / Schema Errors"
-              disabled={truthy?(@form[:structuredRepairRetryEnabled].value)}
-              info={ProfileDefaults.field_info("enableRetryOnParseError")}
-              phx-change="profile-draft-change"
-              phx-target={@target}
-            />
-          </div>
-          <div class="ullm-options-grid">
-            <.input
-              field={@form[:retryMaxAttempts]}
-              id={field_id(@id_prefix, @form[:retryMaxAttempts].id)}
-              type="number"
-              label="Max Attempts"
-              min="1"
-              max="10"
-              placeholder={ProfileDefaults.retry_placeholder("retryMaxAttempts")}
-              info={ProfileDefaults.field_info("maxAttempts")}
-              class="ullm-input"
-              phx-change="profile-draft-change"
-              phx-target={@target}
-            />
-            <.input
-              field={@form[:retryBaseDelayMs]}
-              id={field_id(@id_prefix, @form[:retryBaseDelayMs].id)}
-              type="number"
-              label="Base Delay Ms"
-              min="0"
-              placeholder={ProfileDefaults.retry_placeholder("retryBaseDelayMs")}
-              info={ProfileDefaults.field_info("baseDelayMs")}
-              class="ullm-input"
-              phx-change="profile-draft-change"
-              phx-target={@target}
-            />
-            <.input
-              field={@form[:retryMaxDelayMs]}
-              id={field_id(@id_prefix, @form[:retryMaxDelayMs].id)}
-              type="number"
-              label="Max Delay Ms"
-              min="0"
-              placeholder={ProfileDefaults.retry_placeholder("retryMaxDelayMs")}
-              info={ProfileDefaults.field_info("maxDelayMs")}
-              class="ullm-input"
-              phx-change="profile-draft-change"
-              phx-target={@target}
-            />
-            <.input
-              field={@form[:escalationAttempt]}
-              id={field_id(@id_prefix, @form[:escalationAttempt].id)}
-              type="number"
-              label="Starting Attempt"
-              min="2"
-              max="10"
-              placeholder={ProfileDefaults.retry_placeholder("escalationAttempt")}
-              info={ProfileDefaults.field_info("escalationAttempt")}
-              class="ullm-input"
-              phx-change="profile-draft-change"
-              phx-target={@target}
-            />
-          </div>
-          <div class="ullm-escalation-profile-editor">
-            <.profile_row
-              category="Escalation"
-              row_class="ullm-escalation-profile-row"
-              profile_input_id={"#{@id_prefix}-escalation-profile"}
-              profile_name={"#{@form.name}[escalationProfile]"}
-              profile_value={@form[:escalationProfile].value}
-              profile_options={profile_combobox_options(@profiles)}
-              profile_change="profile-draft-change"
-              reasoning_input_id={"#{@id_prefix}-escalation-reasoning"}
-              reasoning_name={"#{@form.name}[escalationReasoning]"}
-              reasoning_value={@form[:escalationReasoning].value}
-              reasoning_options={escalation_reasoning_options(@profiles, @form)}
-              cache_input_id={"#{@id_prefix}-escalation-cache-toggle"}
-              cache_mode={@cache_mode}
-              config_id={"#{@id_prefix}-escalation-config-toggle"}
-              config_event="toggle-escalation-config"
-              config_open={@config_open}
-              target={@target}
-              fold_disabled={@fold_disabled}
-            />
-            <div
-              :if={@config_open}
-              id={"#{@id_prefix}-escalation-config"}
-              class="ullm-profile-config-body ullm-form-grid"
-            >
-              <.profile_editor
-                form={@escalation_form}
-                kind="escalation"
-                id_prefix={@escalation_id_prefix}
-                target={@target}
-                profiles={@profiles}
-                model_catalog={@model_catalog}
-                field_errors={@field_errors}
-                credential_open={@escalation_credential_open}
-                fallback_open={@escalation_fallback_open}
-                options_open={@escalation_options_open}
-                retry_open={false}
-                pricing_open={@escalation_pricing_open}
-                staged_key={@escalation_staged_key}
-                backup_rows={@escalation_backup_rows}
-                model_options={@model_options}
-                requires_save={@escalation_requires_save}
-                fold_disabled={@fold_disabled}
-                cache_mode={@cache_mode}
-                config_open={false}
-                include_retry={false}
-                bundle_upload={@escalation_bundle_upload}
-                widget_id={@id_prefix}
-                pending={pending_value(@pending, "escalation")}
-                delete_kind={@delete_kind}
-              />
-            </div>
-          </div>
+          <.recovery_fields
+            form={@form}
+            id_prefix={@id_prefix}
+            target={@target}
+            change="profile-draft-change"
+            field_errors={@field_errors}
+          />
         </div>
       </section>
 
@@ -1747,48 +1374,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           phx-target={@target}
         >Delete Profile</button>
       </div>
-      <div :if={@kind == "escalation"} class="ullm-profile-actions ullm-button-row">
-        <button
-          id={scope_id(@id_prefix, "new")}
-          type="button"
-          class="ullm-btn"
-          phx-click="new-profile"
-          phx-value-kind="escalation"
-          phx-target={@target}
-        >+ New</button>
-        <label id={scope_id(@id_prefix, "bundle-file")} class="ullm-btn ullm-file-button">
-          Import Bundle
-          <.live_file_input
-            :if={@bundle_upload}
-            upload={@bundle_upload}
-            phx-change="import-bundle"
-            phx-value-kind={@kind}
-            phx-value-widget={@widget_id}
-          />
-        </label>
-        <a id={scope_id(@id_prefix, "export-bundle")} href={~p"/profiles/bundle"} class="ullm-btn">Export Bundle</a>
-        <button
-          id={scope_id(@id_prefix, "save")}
-          type="button"
-          class="ullm-btn ullm-btn-primary"
-          phx-click="profile-save"
-          phx-value-kind={@kind}
-          phx-target={@target}
-          disabled={
-            @pending != nil or profile_id(@form) == "" or
-              not ProfilesLive.options_valid?(@form[:defaultOptionsJson].value)
-          }
-        >{if @pending, do: "Saving…", else: "Save Profile"}</button>
-        <button
-          :if={profile_id(@form) != ""}
-          id={scope_id(@id_prefix, "delete")}
-          type="button"
-          class="ullm-btn ullm-btn-danger"
-          phx-click="profile-confirm-delete"
-          phx-value-kind={@kind}
-          phx-target={@target}
-        >Delete Profile</button>
-      </div>
+
       <div
         :if={@delete_kind == @kind}
         id={"#{@id_prefix}-delete-confirmation"}
@@ -1816,70 +1402,116 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     """
   end
 
+  attr(:form, :any, required: true)
+  attr(:id_prefix, :string, required: true)
+  attr(:target, :any, default: nil)
+  attr(:change, :string, default: nil)
+  attr(:field_errors, :map, default: %{})
+
+  def recovery_fields(assigns) do
+    assigns =
+      assigns
+      |> assign(:policy, assigns.form.params["recoveryPolicy"] || %{})
+      |> assign(:name, "#{assigns.form.name}[recoveryPolicy]")
+      |> assign(:categories, [
+        {"network", "Network errors"},
+        {"rate_limit", "Rate limits"},
+        {"server_error", "Server errors"},
+        {"empty_response", "Empty responses"},
+        {"provider_retry", "Provider retry requests"}
+      ])
+      |> assign(:numbers, [
+        {"maxAttempts", "Max attempts",
+         "Total provider calls, including the first call, retries and repairs. The selected profile and model stay the same."},
+        {"baseDelayMs", "Base delay (ms)", "Initial calculated backoff. Zero is allowed."},
+        {"maxDelayMs", "Max delay (ms)",
+         "Caps calculated backoff. A valid Retry-After on HTTP 429 or 503 remains a minimum; the caller deadline still applies."}
+      ])
+
+    ~H"""
+    <div id={"#{@id_prefix}-recovery-policy"} class="recovery-policy">
+      <.input
+        type="checkbox"
+        id={"#{@id_prefix}-repair-invalid-output"}
+        name={"#{@name}[repairInvalidOutput]"}
+        value={@policy["repairInvalidOutput"]}
+        errors={
+          List.wrap(ProfilesLive.field_error(@field_errors, "recoveryPolicy.repairInvalidOutput"))
+        }
+        label="Repair invalid structured output"
+        info="Uses the original schema to repair invalid JSON or schema failures. Each repair uses the remaining call budget. Turn this off to stop on invalid output."
+        phx-change={@change}
+        phx-target={@target}
+      />
+      <div class="recovery-policy-categories">
+        <.input
+          :for={{category, label} <- @categories}
+          type="checkbox"
+          multiple
+          id={"#{@id_prefix}-retry-#{category}"}
+          name={"#{@name}[retryOn][]"}
+          value={category}
+          checked={category in (@policy["retryOn"] || [])}
+          label={label}
+          phx-change={@change}
+          phx-target={@target}
+        />
+      </div>
+      <.field_error message={ProfilesLive.field_error(@field_errors, "recoveryPolicy.retryOn")} />
+      <div class="recovery-policy-numbers">
+        <.input
+          :for={{key, label, info} <- @numbers}
+          type="number"
+          id={"#{@id_prefix}-recovery-#{key}"}
+          name={if key == "maxAttempts", do: "#{@name}[#{key}]", else: "#{@name}[backoff][#{key}]"}
+          value={if key == "maxAttempts", do: @policy[key], else: get_in(@policy, ["backoff", key])}
+          errors={
+            List.wrap(
+              ProfilesLive.field_error(
+                @field_errors,
+                if(key == "maxAttempts",
+                  do: "recoveryPolicy.#{key}",
+                  else: "recoveryPolicy.backoff.#{key}"
+                )
+              )
+            )
+          }
+          label={label}
+          info={info}
+          step="1"
+          required
+          phx-change={@change}
+          phx-target={@target}
+        />
+      </div>
+      <.field_error message={ProfilesLive.field_error(@field_errors, "recoveryPolicy")} />
+      <.field_error message={ProfilesLive.field_error(@field_errors, "recoveryPolicy.backoff")} />
+    </div>
+    """
+  end
+
   defp reset_profile_forms(socket, profiles, selected_profile_id) do
-    main_form = profile_form_for(profiles, selected_profile_id, :profile)
-    escalation_id = escalation_profile_id(main_form, selected_profile_id, profiles)
-    main_form = put_escalation_profile(main_form, escalation_id)
-    escalation_form = profile_form_for(profiles, escalation_id, :escalation)
+    form = profile_form_for(profiles, selected_profile_id, socket.assigns.recovery_policy_default)
 
     socket
     |> assign(:selected_profile_id, selected_profile_id)
-    |> assign(:main_form, main_form)
-    |> assign(:escalation_form, escalation_form)
-    |> assign(:main_backup_rows, ProfilesLive.backup_list(main_form.params["backupProfiles"]))
-    |> assign(
-      :escalation_backup_rows,
-      ProfilesLive.backup_list(escalation_form.params["backupProfiles"])
-    )
+    |> assign(:main_form, form)
     |> assign(:main_staged_key, "")
-    |> assign(:escalation_staged_key, "")
     |> assign(:main_requires_save?, false)
-    |> assign(:escalation_requires_save?, false)
   end
 
   defp update_profile_form(socket, :main, incoming) do
-    current = socket.assigns.main_form.params || %{}
-
     params =
-      current
-      |> Map.merge(incoming)
+      socket.assigns.main_form.params
+      |> ProfileWidgetState.merge_draft(incoming)
       |> synchronize_profile_options(incoming)
-
-    form = to_form(params, as: :profile)
-
-    escalation_id =
-      escalation_profile_id(
-        to_form(params, as: :profile),
-        socket.assigns.selected_profile_id,
-        socket.assigns.profiles
-      )
-
-    form = put_escalation_profile(form, escalation_id)
 
     socket =
-      socket
-      |> assign(:main_form, form)
-      |> assign(:main_dirty?, true)
-      |> maybe_update_escalation_form(escalation_id)
+      socket |> assign(:main_form, to_form(params, as: :profile)) |> assign(:main_dirty?, true)
 
-    if Map.has_key?(incoming, "modelId") do
-      notify_parent(socket, {:profile_widget_control, "modelId", params["modelId"] || ""})
-    else
-      socket
-    end
-  end
-
-  defp update_profile_form(socket, :escalation, incoming) do
-    current = socket.assigns.escalation_form.params || %{}
-
-    params =
-      current
-      |> Map.merge(incoming)
-      |> synchronize_profile_options(incoming)
-
-    socket
-    |> assign(:escalation_form, to_form(params, as: :escalation))
-    |> assign(:escalation_dirty?, true)
+    if Map.has_key?(incoming, "modelId"),
+      do: notify_parent(socket, {:profile_widget_control, "modelId", params["modelId"] || ""}),
+      else: socket
   end
 
   defp synchronize_profile_options(params, incoming) do
@@ -1899,13 +1531,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   end
 
   defp sync_default_options_from_fields(params, incoming) do
-    fields = ~w(
-      maxTokens temperature topP topK stopSequences
-      structuredRepairRetryEnabled enableRetryOn429 enableRetryOn5xx
-      enableRetryOnNetworkError enableRetryOnParseError retryMaxAttempts
-      retryBaseDelayMs retryMaxDelayMs escalationAttempt escalationProfile
-      escalationReasoning
-    )
+    fields = ~w(maxTokens temperature topP topK stopSequences)
 
     if Enum.any?(fields, &Map.has_key?(incoming, &1)) do
       options = decode_options(params["defaultOptionsJson"])
@@ -1916,14 +1542,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     end
   end
 
-  defp retry_option(options, retry, key, default),
-    do: Map.get(options, key, Map.get(retry, key, default))
-
   defp sync_option_fields_from_json(params) do
     options = decode_options(params["defaultOptionsJson"])
-    retry = options["structuredRepairRetry"]
-    retry_map = if is_map(retry), do: retry, else: %{}
-    escalation = if is_map(retry_map["escalation"]), do: retry_map["escalation"], else: %{}
 
     params
     |> Map.put(
@@ -1934,59 +1554,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     |> Map.put("topP", option_text(options["top_p"] || options["topP"]))
     |> Map.put("topK", option_text(options["top_k"] || options["topK"]))
     |> Map.put("stopSequences", stop_text(options["stop"]))
-    |> Map.put(
-      "structuredRepairRetryEnabled",
-      to_string(ProfileDefaults.structured_repair_enabled?(options))
-    )
-    |> Map.put(
-      "enableRetryOn429",
-      to_string(retry_option(options, retry_map, "enableRetryOn429", true))
-    )
-    |> Map.put(
-      "enableRetryOn5xx",
-      to_string(retry_option(options, retry_map, "enableRetryOn5xx", true))
-    )
-    |> Map.put(
-      "enableRetryOnNetworkError",
-      to_string(retry_option(options, retry_map, "enableRetryOnNetworkError", true))
-    )
-    |> Map.put(
-      "enableRetryOnParseError",
-      to_string(retry_option(options, retry_map, "enableRetryOnParseError", true))
-    )
-    |> Map.put(
-      "retryMaxAttempts",
-      option_text(
-        options["maxAttempts"] ||
-          retry_map["maxAttempts"] || ProfileDefaults.retry_default("maxAttempts")
-      )
-    )
-    |> Map.put(
-      "retryBaseDelayMs",
-      option_text(
-        options["baseDelayMs"] ||
-          retry_map["baseDelayMs"] || ProfileDefaults.retry_default("baseDelayMs")
-      )
-    )
-    |> Map.put(
-      "retryMaxDelayMs",
-      option_text(
-        options["maxDelayMs"] ||
-          retry_map["maxDelayMs"] || ProfileDefaults.retry_default("maxDelayMs")
-      )
-    )
-    |> Map.put(
-      "escalationAttempt",
-      option_text(escalation["attempt"] || ProfileDefaults.retry_default("escalationAttempt"))
-    )
-    |> Map.put(
-      "escalationProfile",
-      escalation["llmProfile"] || ProfileDefaults.default_escalation_profile_id()
-    )
-    |> Map.put(
-      "escalationReasoning",
-      escalation["reasoningEffort"] || ProfileDefaults.repair_reasoning_default()
-    )
   end
 
   defp decode_options(value) do
@@ -2001,48 +1568,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
   defp stop_text(value) when is_list(value), do: Enum.join(value, "\n")
   defp stop_text(_value), do: ""
-
-  defp maybe_update_escalation_form(socket, ""), do: socket
-
-  defp maybe_update_escalation_form(socket, id) do
-    if profile_id(socket.assigns.escalation_form) != id and not socket.assigns.escalation_dirty? do
-      assign(socket, :escalation_form, profile_form_for(socket.assigns.profiles, id, :escalation))
-    else
-      socket
-    end
-  end
-
-  defp update_backup(socket, kind, update) do
-    form = form_for(socket, kind)
-    backups = Map.get(socket.assigns, String.to_existing_atom("#{kind}_backup_rows"), [])
-
-    next =
-      backups |> update.() |> Enum.map(&String.trim(to_string(&1))) |> Enum.uniq()
-
-    socket =
-      socket
-      |> assign(String.to_existing_atom("#{kind}_backup_rows"), next)
-      |> assign_form(
-        kind,
-        to_form(
-          Map.put(
-            form.params,
-            "backupProfiles",
-            Enum.reject(next, &(&1 == "")) |> Enum.join(", ")
-          ),
-          as: form_as(kind)
-        )
-      )
-      |> assign(String.to_existing_atom("#{kind}_dirty?"), true)
-
-    notify_profile_runtime(socket, kind)
-  end
-
-  defp update_backup_at(socket, kind, index, value) do
-    update_backup(socket, kind, fn backups ->
-      List.update_at(backups, index, fn _ -> String.trim(to_string(value || "")) end)
-    end)
-  end
 
   defp pending_for(socket, kind), do: pending_value(socket.assigns.pending, kind)
 
@@ -2064,11 +1589,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   defp kind_key(kind), do: kind
 
   defp form_for(socket, :main), do: socket.assigns.main_form
-  defp form_for(socket, :escalation), do: socket.assigns.escalation_form
   defp assign_form(socket, :main, form), do: assign(socket, :main_form, form)
-  defp assign_form(socket, :escalation, form), do: assign(socket, :escalation_form, form)
   defp form_as(:main), do: :profile
-  defp form_as(:escalation), do: :escalation
 
   defp params_with_staged_key(socket, kind) do
     form = form_for(socket, kind)
@@ -2078,29 +1600,11 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     if staged == "", do: params, else: Map.put(params, "apiKey", staged)
   end
 
-  defp profile_form_for(_profiles, "", kind), do: to_form(ProfilesLive.empty_form(), as: kind)
-
-  defp profile_form_for(profiles, id, kind) do
-    state = Enum.find(profiles, &(profile_id_from_state(&1) == id))
-
-    case state do
-      nil -> to_form(Map.put(ProfilesLive.empty_form(), "profileId", id), as: kind)
-      profile_state -> to_form(ProfilesLive.profile_form(profile_state), as: kind)
+  defp profile_form_for(profiles, id, recovery_policy_default) do
+    case Enum.find(profiles, &(profile_id_from_state(&1) == id)) do
+      nil -> to_form(ProfilesLive.empty_form(recovery_policy_default), as: :profile)
+      state -> to_form(ProfilesLive.profile_form(state), as: :profile)
     end
-  end
-
-  defp escalation_profile_id(form, selected_profile_id, profiles) do
-    escalation_id = String.trim(form.params["escalationProfile"] || "")
-
-    if escalation_id == ProfileDefaults.default_escalation_profile_id() do
-      ProfileWidgetState.resolve_escalation_profile_id(profiles, selected_profile_id)
-    else
-      escalation_id
-    end
-  end
-
-  defp put_escalation_profile(form, escalation_id) do
-    to_form(Map.put(form.params, "escalationProfile", escalation_id), as: form.name)
   end
 
   defp profile_id(%Phoenix.HTML.Form{} = form), do: String.trim(form.params["profileId"] || "")
@@ -2143,18 +1647,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       :main_pricing_open,
       Map.get(assigns, :pricing_open, socket.assigns.main_pricing_open)
     )
-    |> assign(
-      :escalation_config_open,
-      Map.get(assigns, :escalation_config_open, socket.assigns.escalation_config_open)
-    )
-    |> assign(
-      :escalation_options_open,
-      Map.get(assigns, :escalation_options_open, socket.assigns.escalation_options_open)
-    )
-    |> assign(
-      :escalation_pricing_open,
-      Map.get(assigns, :escalation_pricing_open, socket.assigns.escalation_pricing_open)
-    )
     |> assign(:fold_disabled, Map.get(assigns, :fold_disabled, socket.assigns.fold_disabled))
   end
 
@@ -2171,85 +1663,25 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     socket
     |> assign(:main_requires_save?, main_requires_save?)
     |> notify_parent({:profile_widget_provider_options, options})
-    |> notify_parent({:profile_widget_retry, retry_controls(socket)})
-    |> notify_parent({:profile_widget_profile_dirty, profile_requires_save?(socket)})
-  end
-
-  defp notify_profile_runtime(socket, :escalation) do
-    escalation_requires_save? = profile_requires_save?(socket, :escalation)
-
-    socket
-    |> assign(:escalation_requires_save?, escalation_requires_save?)
-    |> notify_parent({:profile_widget_retry, retry_controls(socket)})
+    |> notify_parent(
+      {:profile_widget_recovery,
+       ProfileWidgetState.serialize_recovery_policy(form.params["recoveryPolicy"])}
+    )
     |> notify_parent({:profile_widget_profile_dirty, profile_requires_save?(socket)})
   end
 
   defp runtime_provider_options(value) do
     case Jason.decode(value || "{}") do
       {:ok, options} when is_map(options) ->
-        Map.drop(options, ~w(
-          timeout maxRetries overallTimeoutMs maxAttempts baseDelayMs maxDelayMs
-          enableRetryOn429 enableRetryOn5xx enableRetryOnNetworkError
-          enableRetryOnParseError cacheMode cacheVersion callType reasoningEffort
-          structuredRepairRetry useResponsesApi
-        ))
+        options
 
       _ ->
         %{}
     end
   end
 
-  defp retry_controls(socket) do
-    params = socket.assigns.main_form.params || %{}
-    escalation_params = socket.assigns.escalation_form.params || %{}
-    enabled = truthy?(params["structuredRepairRetryEnabled"])
-
-    escalation_model = String.trim(escalation_params["modelId"] || "")
-    escalation_profile = String.trim(params["escalationProfile"] || "")
-
-    escalation =
-      if enabled and escalation_model != "" do
-        %{
-          "attempt" =>
-            integer_or_default(
-              params["escalationAttempt"],
-              ProfileDefaults.retry_default("escalationAttempt")
-            ),
-          "profileId" => escalation_profile,
-          "modelId" => escalation_model,
-          "reasoningEffort" =>
-            params["escalationReasoning"] || ProfileDefaults.repair_reasoning_default()
-        }
-      end
-
-    %{
-      "structuredRepair" => enabled,
-      "maxAttempts" =>
-        integer_or_default(
-          params["retryMaxAttempts"],
-          ProfileDefaults.retry_default("maxAttempts")
-        ),
-      "initialBackoffMs" =>
-        integer_or_default(
-          params["retryBaseDelayMs"],
-          ProfileDefaults.retry_default("baseDelayMs")
-        ),
-      "maximumBackoffMs" =>
-        integer_or_default(
-          params["retryMaxDelayMs"],
-          ProfileDefaults.retry_default("maxDelayMs")
-        ),
-      "retryNetwork" => truthy?(params["enableRetryOnNetworkError"]),
-      "retryRateLimit" => truthy?(params["enableRetryOn429"]),
-      "retryServerError" => truthy?(params["enableRetryOn5xx"]),
-      "retryEmpty" => true,
-      "retryParse" => truthy?(params["enableRetryOnParseError"]),
-      "repairEscalation" => escalation
-    }
-  end
-
   defp profile_requires_save?(socket) do
-    profile_requires_save?(socket, :main) or profile_requires_save?(socket, :escalation)
+    profile_requires_save?(socket, :main)
   end
 
   defp profile_requires_save?(socket, kind) do
@@ -2275,8 +1707,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             profile["apiInferenceType"] || ProfileDefaults.api_inference_type_default(),
           "baseUrl" => profile["baseUrl"],
           "endpointCredentialScope" => profile["endpointCredentialScope"] || "user",
-          "credentialId" => credential["credentialId"],
-          "backupProfiles" => profile["backupProfiles"] || []
+          "credentialId" => credential["credentialId"]
         }
 
         staged_key != "" or ProfileWidgetState.dirty_fields(original, current) != MapSet.new()
@@ -2286,7 +1717,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   defp profile_dirty_params(params) do
     Map.take(
       params,
-      ~w(profileId provider apiInferenceType baseUrl endpointCredentialScope credentialId backupProfiles)
+      ~w(profileId provider apiInferenceType baseUrl endpointCredentialScope credentialId)
     )
   end
 
@@ -2297,8 +1728,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       "apiInferenceType" => ProfileDefaults.api_inference_type_default(),
       "baseUrl" => "",
       "endpointCredentialScope" => "user",
-      "credentialId" => "",
-      "backupProfiles" => []
+      "credentialId" => ""
     }
   end
 
@@ -2314,13 +1744,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
   defp normalize_base_url(value),
     do: value |> normalize_text() |> String.trim_trailing("/")
-
-  defp integer_or_default(value, default) do
-    case Integer.parse(normalize_text(value)) do
-      {number, ""} when number >= 0 -> number
-      _ -> default
-    end
-  end
 
   defp normalize_combobox_options(options) do
     options
@@ -2440,17 +1863,10 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     end
   end
 
-  defp escalation_reasoning_options(profiles, form) do
-    reasoning_options(profiles, form[:escalationProfile].value)
-  end
-
-  defp available_backup_profiles(profiles, id),
-    do: Enum.reject(profiles, &(profile_id_from_state(&1) in [id, ""]))
-
-  defp new_profile_fields_visible?(kind, form, profiles) do
+  defp new_profile_fields_visible?(_kind, form, profiles) do
     id = profile_id(form)
 
-    kind == "escalation" or id == "" or
+    id == "" or
       not Enum.any?(profiles, &(profile_id_from_state(&1) == id))
   end
 
@@ -2465,8 +1881,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       [profile_state | profiles]
     end
   end
-
-  defp parse_index(value), do: String.to_integer(to_string(value))
 
   defp credential_available?(form, staged),
     do: staged != "" or form[:credentialConfigured].value in [true, "true"]

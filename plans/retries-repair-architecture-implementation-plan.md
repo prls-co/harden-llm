@@ -661,7 +661,7 @@ Rows remain Pending until their implementation and required evidence are complet
 | Phase | Status | Completed Steps | Quantitative Results | Issues/Resolutions | Failed Attempts | Deviations | Lessons Learned | ADR Updates |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | P00 | Done | P00.S01, P00.S02 | `make test-static`: exit 0; 17 Node cases passed | Full Go/REST/UI/storage/configuration inventory recorded | None | None | Captured source evidence remains immutable; accepted differences are explicit | ADR-HLLM-020 accepted for implementation |
-| P01 | Pending | | | | | | | |
+| P01 | Done | P01.S01–P01.S08 | EVAL-201: `make test-fast` 8/8 tasks, exit 0, approximately 124 s; focused Go and Phoenix recovery cases green | One complete policy, loop, strict parser and shared editor implemented | RED cases reproduced parser, policy, repair-context and UI defects; broad checks caught a lost structured-output capability, stale wire/fixture fields and obsolete CSS assertion; all corrected | Existing tests for removed backup/escalation behavior now assert ADR-HLLM-020; captured source fixtures unchanged | Required zero/false/empty values survive all current UI and REST paths; storage cutover remains P02 | ADR-HLLM-020 implemented for current runtime/API/UI |
 | P02 | Pending | | | | | | | |
 | P03 | Pending | | | | | | | |
 
@@ -675,6 +675,16 @@ For each phase, append its source/configuration checkpoint, command evidence, re
 - Verification: `make test-static` exit 0; existing static and fixture-integrity checks passed; Node 17/17. Command output captured at `/tmp/harden-recovery-p00-static.log` during this execution.
 - Validation purpose: fix the current contract and identify every recovery owner before changing behavior.
 - Risks: external configuration/callers must be prepared before a future coordinated operational cutover; no deployment occurred.
+
+### 11.2 P01 checkpoint
+
+- Branch: `feat/recovery-policy`, based on P00 checkpoint `77c8152`; no deployment.
+- TEST-202–207: final consolidated command `go test . ./internal/schema ./internal/runtime ./internal/retry ./internal/gateway -run '^TestRecovery' -count=1 -timeout=60s -v`; all five packages passed. Fixed data, injected timing and local TLS providers cover value preservation, four provider protocols, original-schema repair, transport retry identity, total attempt budgets, cancellation, cache ownership and current REST/OpenAPI contracts.
+- TEST-209: `mix test --only recovery --seed 104729` with pinned Elixir/OTP; current shared controls/serializer, server defaults, validation errors, history restoration and strict response boundary pass. Initial failing evidence: `/tmp/harden-recovery-p01-s05-frontend-red.log`, `/tmp/harden-recovery-p01-ui-defaults-red.log`, `/tmp/harden-recovery-p01-history-red.log`. The first two newly added profile UI cases initially omitted opening their fold; their test interaction was corrected, without changing assertions.
+- TEST-210 / EVAL-201: `/tmp/harden-recovery-p01-fast3.log` reports `accepted:true`, eight selected tasks and no failure/cleanup errors. Observed elapsed time from log creation/completion is approximately 124 seconds. No named policy, value, identity or budget assertion failed. This is deterministic contract evidence, not live-model quality evidence.
+- Other evidence: `/tmp/harden-recovery-p01-s07-focused.log`, `/tmp/harden-recovery-p01-s07-frontend.log`, `/tmp/harden-recovery-p01-backend-followup.log`. Test identifiers remain in the canonical catalogs and RTM.
+- Consolidation: removed the backup scheduler, retry-loop hooks, repair envelope/escalation, JSON repair dependency, current aliases/defaulting and duplicate recovery controls/styles. Updated maintained callers and current contract fixtures; the original captured parity corpus is unchanged. Retired source backup eligibility is an explicit ADR-HLLM-020 difference, not an active fixture consumer.
+- Tools: Go 1.26.6, Node 22.22.1, Elixir 1.20.2, OTP 28.4.3. Browser, public-provider, integration and deployment boundaries have not been certified by P01. P02 must migrate stored documents and database result-version constraints before coordinated startup; this intermediate checkpoint is not deployable on an unmigrated database.
 
 ## 12. Appendix: ADR index
 

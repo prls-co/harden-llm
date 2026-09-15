@@ -207,8 +207,8 @@ defmodule HardenLlm.LlmTraceProjectionTest do
     assert {:error, :malformed_diagnostics} = LlmDiagnosticsWire.decode("listHistory", malformed)
   end
 
-  test "every execution read uses v2 and checks its enclosing identity" do
-    for version <- [nil, 1, 3] do
+  test "every execution read uses v3 and checks its enclosing identity" do
+    for version <- [nil, 1, 2, 4] do
       result = Map.put(APIFixtures.run_result(), "schemaVersion", version)
       history = %{"items" => [Map.put(APIFixtures.history_item(), "result", result)]}
       trace = Map.put(APIFixtures.trace(), "record", result)

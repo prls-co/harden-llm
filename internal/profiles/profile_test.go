@@ -2,6 +2,7 @@ package profiles
 
 import (
 	"encoding/json"
+	"github.com/prls-co/harden-llm/internal/retry"
 	"os"
 	"reflect"
 	"strings"
@@ -12,7 +13,7 @@ import (
 
 func TestProfileParityRoundTripAndValidation(t *testing.T) {
 	t.Parallel()
-	data, err := os.ReadFile("../../fixtures/parity/generated/profile-catalog.json")
+	data, err := os.ReadFile("../../fixtures/contracts/profile-catalog.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +44,7 @@ func TestProfileParityRoundTripAndValidation(t *testing.T) {
 	}
 }
 
-func TestProfileParityRejectsInvalidShapeAndGraphs(t *testing.T) {
+func TestProfileRejectsInvalidShapeAndRecovery(t *testing.T) {
 	t.Parallel()
 	base := fixtureProfile("Primary")
 	tests := []struct {
@@ -51,6 +52,7 @@ func TestProfileParityRejectsInvalidShapeAndGraphs(t *testing.T) {
 		catalog Catalog
 		field   string
 	}{
+		{"missing policy", Catalog{"Primary": withProfile(base, func(profile *Profile) { profile.RecoveryPolicy = retry.Policy{} })}, "Primary.recoveryPolicy.maxAttempts"},
 		{"key mismatch", Catalog{"Primary": withProfile(base, func(profile *Profile) { profile.LLMProfile = "Other" })}, "Primary.llmProfile"},
 		{"invalid name", Catalog{"Bad/Profile": fixtureProfile("Bad/Profile")}, "llmProfile"},
 		{"control character in name", Catalog{"Bad\nProfile": fixtureProfile("Bad\nProfile")}, "llmProfile"},
@@ -64,9 +66,6 @@ func TestProfileParityRejectsInvalidShapeAndGraphs(t *testing.T) {
 		{"duplicate model", Catalog{"Primary": withProfile(base, func(profile *Profile) {
 			profile.Models = []Model{{ID: "same", Label: "Same"}, {ID: "same", Label: "Same"}}
 		})}, "Primary.models[1].id"},
-		{"duplicate", Catalog{"Primary": withProfile(base, func(profile *Profile) { profile.BackupProfiles = []string{"Backup", "Backup"} }), "Backup": fixtureProfile("Backup")}, "Primary.backupProfiles[1]"},
-		{"missing", Catalog{"Primary": withProfile(base, func(profile *Profile) { profile.BackupProfiles = []string{"Missing"} })}, "Primary.backupProfiles[0]"},
-		{"cycle", Catalog{"Primary": withProfile(base, func(profile *Profile) { profile.BackupProfiles = []string{"Backup"} }), "Backup": withProfile(fixtureProfile("Backup"), func(profile *Profile) { profile.BackupProfiles = []string{"Primary"} })}, "Primary.backupProfiles[0]"},
 	}
 	for _, test := range tests {
 		test := test
@@ -79,19 +78,6 @@ func TestProfileParityRejectsInvalidShapeAndGraphs(t *testing.T) {
 		})
 	}
 
-	depth := Catalog{}
-	for index := 0; index <= 6; index++ {
-		name := string(rune('A' + index))
-		profile := fixtureProfile(name)
-		if index < 6 {
-			profile.BackupProfiles = []string{string(rune('A' + index + 1))}
-		}
-		depth[name] = profile
-	}
-	if err := ValidateCatalog(depth); err == nil || !strings.Contains(err.Error(), "depth") {
-		t.Fatalf("depth-six graph was accepted: %v", err)
-	}
-
 	if _, err := ParseCatalog([]byte(`{"Primary":{"schemaVersion":1,"llmProfile":"Primary","backupProfiles":[{"llmProfile":"Backup"}]}}`)); err == nil {
 		t.Fatal("nested backup compatibility shape was accepted")
 	}
@@ -100,7 +86,7 @@ func TestProfileParityRejectsInvalidShapeAndGraphs(t *testing.T) {
 func fixtureProfile(name string) Profile {
 	noTemperature := false
 	return Profile{
-		SchemaVersion: 1, LLMProfile: name, Provider: "openai", APIInferenceType: "responses",
+		RecoveryPolicy: retry.DefaultPolicy(), SchemaVersion: 2, LLMProfile: name, Provider: "openai", APIInferenceType: "responses",
 		EndpointCredentialScope: "global", BaseURL: "https://api.openai.com/v1", ModelID: "gpt-test",
 		Pricing: &Pricing{}, SupportsTemperature: &noTemperature, SupportsContractedStructuredOutput: true,
 		DefaultOptions: map[string]any{},

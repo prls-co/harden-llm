@@ -6,11 +6,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"reflect"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/prls-co/harden-llm/internal/accounting"
 	"github.com/prls-co/harden-llm/internal/cachekey"
+	"github.com/prls-co/harden-llm/internal/retry"
 	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
 )
 
@@ -96,14 +102,14 @@ func TestClientCallResult(t *testing.T) {
 			client.observeRecord = func(record coreruntime.CallRecord) { observed = record }
 
 			result, callErr := client.Call(context.Background(), Request{
-				ProfileID:    "primary",
-				Profiles:     testProfiles(),
-				UserPrompt:   "deterministic fixture",
-				CallType:     test.callType,
-				Schema:       test.schema,
-				CacheMode:    CacheModeOff,
-				CacheVersion: "operation-v2",
-				RetryPolicy:  RetryPolicy{MaxAttempts: 1},
+				ProfileID:      "primary",
+				Profiles:       testProfiles(),
+				UserPrompt:     "deterministic fixture",
+				CallType:       test.callType,
+				Schema:         test.schema,
+				CacheMode:      CacheModeOff,
+				CacheVersion:   "operation-v2",
+				RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 			})
 			if callErr != nil {
 				t.Fatal(callErr)
@@ -132,8 +138,8 @@ func TestClientCallResult(t *testing.T) {
 		client.newID = func() (string, error) { return "fixed", nil }
 		_, err := client.Call(context.Background(), Request{
 			ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "fixture",
-			CallType:    CallTypeText,
-			RetryPolicy: RetryPolicy{MaxAttempts: 1},
+			CallType:       CallTypeText,
+			RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 		})
 		if err == nil {
 			t.Fatal("Call succeeded, want provider error")
@@ -147,7 +153,7 @@ func TestClientCallResult(t *testing.T) {
 		client.newID = func() (string, error) { return "", errors.New("entropy unavailable") }
 		_, err := client.Call(context.Background(), Request{
 			ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "fixture", CallType: CallTypeText,
-			RetryPolicy: RetryPolicy{MaxAttempts: 1},
+			RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 		})
 		if err == nil || executor.prepared != 0 || executor.executed != 0 {
 			t.Fatalf("identity source failure was not returned before provider execution: %v %#v", err, executor)
@@ -199,9 +205,9 @@ func TestRuntimeProfilesEnforcesStrictCatalogContract(t *testing.T) {
 			profile.ReasoningEffortMap = map[string]map[string]any{"high": {}}
 			catalog["primary"] = profile
 		}},
-		{"missing backup", func(catalog ProfileCatalog) {
+		{"missing recovery policy", func(catalog ProfileCatalog) {
 			profile := catalog["primary"]
-			profile.BackupProfiles = []string{"missing"}
+			profile.RecoveryPolicy = RecoveryPolicy{}
 			catalog["primary"] = profile
 		}},
 	}
@@ -218,50 +224,248 @@ func TestRuntimeProfilesEnforcesStrictCatalogContract(t *testing.T) {
 	}
 }
 
-func TestRetryAndStructuredRepairOptionParity(t *testing.T) {
-	t.Parallel()
-	if !retryConfig(RetryPolicy{}, true).Policy.ParseError {
-		t.Fatal("structured parse retries must be enabled by default")
-	}
-	if retryConfig(RetryPolicy{}, false).Policy.ParseError {
-		t.Fatal("text calls must not enable parse retries")
-	}
-	disabled := false
-	if retryConfig(RetryPolicy{RetryParse: &disabled}, true).Policy.ParseError {
-		t.Fatal("explicit structured parse retry disable was ignored")
-	}
-	valid, err := runtimeRepairPolicy(StructuredRepairPolicy{
-		Enabled: true, Escalation: &RepairEscalation{Attempt: 2, ModelID: " repair-model ", ReasoningEffort: ReasoningEffortHighest},
-	}, 3, true)
-	if err != nil || valid.Escalation == nil || valid.Escalation.ModelID != "repair-model" {
-		t.Fatalf("valid repair policy mismatch: %#v %v", valid, err)
-	}
-	invalid := []struct {
-		policy      StructuredRepairPolicy
-		maxAttempts int
-		structured  bool
-	}{
-		{policy: StructuredRepairPolicy{Escalation: &RepairEscalation{Attempt: 2}}, maxAttempts: 2, structured: true},
-		{policy: StructuredRepairPolicy{Enabled: true}, maxAttempts: 2, structured: false},
-		{policy: StructuredRepairPolicy{Enabled: true, Escalation: &RepairEscalation{Attempt: 1, ModelID: "model"}}, maxAttempts: 2, structured: true},
-		{policy: StructuredRepairPolicy{Enabled: true, Escalation: &RepairEscalation{Attempt: 3, ModelID: "model"}}, maxAttempts: 2, structured: true},
-		{policy: StructuredRepairPolicy{Enabled: true, Escalation: &RepairEscalation{Attempt: 2}}, maxAttempts: 2, structured: true},
-		{policy: StructuredRepairPolicy{Enabled: true, Escalation: &RepairEscalation{Attempt: 2, ModelID: "model", ReasoningEffort: "high"}}, maxAttempts: 2, structured: true},
-	}
-	for index, testCase := range invalid {
-		if _, err := runtimeRepairPolicy(testCase.policy, testCase.maxAttempts, testCase.structured); err == nil {
-			t.Fatalf("invalid repair policy %d was accepted", index)
-		}
-	}
-}
-
 func testProfiles() ProfileCatalog {
 	return ProfileCatalog{
 		"primary": {
-			SchemaVersion: 1, LLMProfile: "primary", Provider: "openai",
+			SchemaVersion: 2, LLMProfile: "primary", Provider: "openai",
 			APIInferenceType: "responses", EndpointCredentialScope: "global",
 			BaseURL: "https://api.openai.com/v1", ModelID: "gpt-test",
-			DefaultOptions: map[string]any{}, BackupProfiles: []string{},
+			DefaultOptions: map[string]any{}, RecoveryPolicy: DefaultRecoveryPolicy(),
 		},
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-204
+func TestRecoveryRepairPayload(t *testing.T) {
+	for _, protocol := range []string{"chat-completions", "responses", "gemini-generate-content", "anthropic-messages"} {
+		t.Run(protocol, func(t *testing.T) {
+			t.Parallel()
+			var mu sync.Mutex
+			var requests []map[string]any
+			var paths []string
+			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var payload map[string]any
+				if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+					t.Error(err)
+					http.Error(w, "invalid request", http.StatusBadRequest)
+					return
+				}
+				mu.Lock()
+				requests = append(requests, payload)
+				paths = append(paths, r.URL.Path)
+				number := len(requests)
+				mu.Unlock()
+				output := `{"zip":42}`
+				if number > 1 {
+					output = `{"zip":"02139"}`
+				}
+				var response any
+				switch protocol {
+				case "chat-completions":
+					response = map[string]any{"choices": []any{map[string]any{"message": map[string]any{"content": output}, "finish_reason": "stop"}}}
+				case "responses":
+					response = map[string]any{"output_text": output, "status": "completed"}
+				case "gemini-generate-content":
+					response = map[string]any{"candidates": []any{map[string]any{"content": map[string]any{"parts": []any{map[string]any{"text": output}}}, "finishReason": "STOP"}}}
+				case "anthropic-messages":
+					response = map[string]any{"content": []any{map[string]any{"type": "text", "text": output}}, "stop_reason": "end_turn"}
+				}
+				w.Header().Set("Content-Type", "application/json")
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Error(err)
+				}
+			}))
+			defer server.Close()
+			endpoint, err := url.Parse(server.URL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			client, err := New(Options{
+				Credentials: fixedCredentialResolver{},
+				EndpointPolicy: EndpointPolicy{
+					AllowedHosts: []string{endpoint.Hostname()}, PrivateAllowedHosts: []string{endpoint.Hostname()},
+					TLSConfig: server.Client().Transport.(*http.Transport).TLSClientConfig.Clone(),
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			catalog := testProfiles()
+			profile := catalog["primary"]
+			profile.BaseURL = server.URL
+			profile.APIInferenceType = protocol
+			profile.SupportsContractedStructuredOutput = true
+			profile.SupportsTemperature = true
+			profile.DefaultOptions = map[string]any{"temperature": 0.3}
+			catalog["primary"] = profile
+			contract := json.RawMessage(`{"type":"object","properties":{"zip":{"type":"string"}},"required":["zip"],"additionalProperties":false}`)
+			result, callErr := client.Call(context.Background(), Request{
+				ProfileID: "primary", Profiles: catalog, SystemPrompt: "Preserve string values.", UserPrompt: "Extract the postal code.",
+				CallType: CallTypeStructured, Schema: contract, CacheMode: CacheModeOff,
+				RecoveryPolicy: RecoveryPolicy{MaxAttempts: 2, RetryOn: []RecoveryCategory{}, RepairInvalidOutput: true, Backoff: RecoveryBackoff{}},
+			})
+			if callErr != nil || !reflect.DeepEqual(result.Output, map[string]any{"zip": "02139"}) {
+				t.Errorf("repair did not preserve direct schema value: output=%#v error=%v", result.Output, callErr)
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			if len(requests) != 2 || len(result.Attempts) != 2 {
+				t.Fatalf("provider requests/attempts = %d/%d, want 2/2", len(requests), len(result.Attempts))
+			}
+			if paths[0] != paths[1] || result.Attempts[0].Target != result.Attempts[1].Target || !result.Attempts[1].Repair {
+				t.Errorf("repair changed target or operation: paths=%v attempts=%#v", paths, result.Attempts)
+			}
+			for index, payload := range requests {
+				if !recoveryPayloadHasOriginalSchema(payload) {
+					t.Errorf("request %d does not use the original schema: %#v", index+1, payload)
+				}
+			}
+			repairJSON, err := json.Marshal(requests[1])
+			if err != nil || !strings.Contains(string(repairJSON), "Extract the postal code.") || !strings.Contains(string(repairJSON), "Preserve string values.") {
+				t.Errorf("repair lost the original task: %s/%v", repairJSON, err)
+			}
+			if !strings.Contains(string(repairJSON), "Validation feedback:") {
+				t.Error("repair is missing validation feedback")
+			}
+			if strings.Contains(string(repairJSON), "non-empty explanation") {
+				t.Error("repair still requests an unnecessary metadata envelope")
+			}
+		})
+	}
+}
+
+func recoveryPayloadHasOriginalSchema(value any) bool {
+	switch typed := value.(type) {
+	case map[string]any:
+		if properties, ok := typed["properties"].(map[string]any); ok {
+			if _, envelope := properties["repair"]; envelope {
+				return false
+			}
+			if len(properties) == 1 && reflect.DeepEqual(properties["zip"], map[string]any{"type": "string"}) {
+				return true
+			}
+		}
+		for _, child := range typed {
+			if recoveryPayloadHasOriginalSchema(child) {
+				return true
+			}
+		}
+	case []any:
+		for _, child := range typed {
+			if recoveryPayloadHasOriginalSchema(child) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-202
+func TestRecoveryPolicy(t *testing.T) {
+	t.Run("complete public field", func(t *testing.T) {
+		if _, ok := reflect.TypeOf(Request{}).FieldByName("RecoveryPolicy"); !ok {
+			t.Error("Request does not carry the complete recovery policy")
+		}
+	})
+	t.Run("missing policy rejected before execution", func(t *testing.T) {
+		client, err := New(Options{Credentials: fixedCredentialResolver{}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		executor := &fixedExecutor{result: coreruntime.ProviderResult{Output: "ok"}}
+		client.executor = executor
+		_, err = client.Call(context.Background(), Request{ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "fixture", CallType: CallTypeText})
+		if err == nil || executor.executed != 0 || executor.prepared != 0 {
+			t.Fatalf("missing policy did not fail at the boundary: error=%v prepare/execute=%d/%d", err, executor.prepared, executor.executed)
+		}
+	})
+	t.Run("explicit disabled categories stay disabled", func(t *testing.T) {
+		client, err := New(Options{Credentials: fixedCredentialResolver{}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		failure := &retry.ProviderError{Code: "ECONNRESET"}
+		executor := &fixedExecutor{sequence: []error{failure, nil}, result: coreruntime.ProviderResult{Output: "ok"}}
+		client.executor = executor
+		result, err := client.Call(context.Background(), Request{
+			ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "fixture", CallType: CallTypeText,
+			RecoveryPolicy: RecoveryPolicy{MaxAttempts: 3, RetryOn: []RecoveryCategory{}, Backoff: RecoveryBackoff{}},
+		})
+		if !errors.Is(err, failure) || executor.executed != 1 || len(result.Attempts) != 1 {
+			t.Fatalf("disabled recovery repeated work: error=%v executions=%d attempts=%#v", err, executor.executed, result.Attempts)
+		}
+	})
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-202
+func TestRecoveryPolicyValues(t *testing.T) {
+	t.Parallel()
+	defaults := DefaultRecoveryPolicy()
+	expected := RecoveryPolicy{MaxAttempts: 4, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, RepairInvalidOutput: true, Backoff: RecoveryBackoff{BaseDelayMS: 500, MaxDelayMS: 8000}}
+	if !reflect.DeepEqual(defaults, expected) {
+		t.Fatalf("defaults=%#v", defaults)
+	}
+	defaults.RetryOn[0] = "changed"
+	if !reflect.DeepEqual(DefaultRecoveryPolicy(), expected) {
+		t.Fatal("default policies share mutable categories")
+	}
+	for _, test := range []struct {
+		name   string
+		change func(*RecoveryPolicy)
+		valid  bool
+	}{
+		{"minimum explicit disabled", func(p *RecoveryPolicy) {
+			p.MaxAttempts = 1
+			p.RetryOn = []RecoveryCategory{}
+			p.RepairInvalidOutput = false
+			p.Backoff = RecoveryBackoff{}
+		}, true},
+		{"maximum", func(p *RecoveryPolicy) {
+			p.MaxAttempts = 10
+			p.Backoff = RecoveryBackoff{BaseDelayMS: 60000, MaxDelayMS: 600000}
+		}, true},
+		{"missing categories", func(p *RecoveryPolicy) { p.RetryOn = nil }, false},
+		{"unknown category", func(p *RecoveryPolicy) { p.RetryOn = []RecoveryCategory{"parse_error"} }, false},
+		{"duplicate category", func(p *RecoveryPolicy) { p.RetryOn = []RecoveryCategory{"network", "network"} }, false},
+		{"zero attempts", func(p *RecoveryPolicy) { p.MaxAttempts = 0 }, false},
+		{"negative attempts", func(p *RecoveryPolicy) { p.MaxAttempts = -1 }, false},
+		{"excess attempts", func(p *RecoveryPolicy) { p.MaxAttempts = 11 }, false},
+		{"negative base", func(p *RecoveryPolicy) { p.Backoff.BaseDelayMS = -1 }, false},
+		{"excess base", func(p *RecoveryPolicy) { p.Backoff = RecoveryBackoff{BaseDelayMS: 60001, MaxDelayMS: 60001} }, false},
+		{"inverted backoff", func(p *RecoveryPolicy) { p.Backoff.MaxDelayMS = 499 }, false},
+		{"excess cap", func(p *RecoveryPolicy) { p.Backoff.MaxDelayMS = 600001 }, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			policy := DefaultRecoveryPolicy()
+			test.change(&policy)
+			executor := &fixedExecutor{result: coreruntime.ProviderResult{Output: "ok"}}
+			client, err := New(Options{Credentials: fixedCredentialResolver{}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			client.executor = executor
+			_, err = client.Call(context.Background(), Request{ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "fixture", CallType: CallTypeText, RecoveryPolicy: policy})
+			if (err == nil) != test.valid || (!test.valid && (executor.prepared != 0 || executor.executed != 0)) {
+				t.Fatalf("valid=%t prepares/calls=%d/%d error=%v", test.valid, executor.prepared, executor.executed, err)
+			}
+		})
+	}
+	for _, raw := range []string{"null", `{}`, `{"maxAttempts":4}`, `{"maxAttempts":4,"retryOn":null,"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`, `{"maxAttempts":4,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0}}`, `{"maxAttempts":4,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0},"extra":true}`} {
+		var policy RecoveryPolicy
+		if err := json.Unmarshal([]byte(raw), &policy); err == nil {
+			t.Errorf("incomplete policy accepted: %s", raw)
+		}
+	}
+	for _, key := range []string{"structuredRepairRetry", "enableRetryOn429", "maxAttempts", "retryParse", "repairEscalation", "backupProfiles"} {
+		executor := &fixedExecutor{}
+		client, err := New(Options{Credentials: fixedCredentialResolver{}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		client.executor = executor
+		_, err = client.Call(context.Background(), Request{ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "fixture", CallType: CallTypeText, RecoveryPolicy: DefaultRecoveryPolicy(), ProviderOptions: map[string]any{key: false}})
+		if err == nil || executor.prepared != 0 || executor.executed != 0 {
+			t.Errorf("retired option %s reached provider: %v", key, err)
+		}
 	}
 }

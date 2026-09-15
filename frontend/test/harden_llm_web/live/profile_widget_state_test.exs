@@ -6,34 +6,13 @@ defmodule HardenLlmWeb.ProfileWidgetStateTest do
   # PLAN-HLLM-WIDGET-PARITY-001 TEST-105 TEST-110
 
   test "options patches preserve unknown keys and canonicalize utility aliases" do
-    options = %{
-      "provider_option" => %{"keep" => true},
-      "topP" => 0.4,
-      "structuredRepairRetry" => %{
-        "enabled" => true,
-        "customRepairKey" => "keep",
-        "escalation" => %{"customEscalationKey" => "keep", "attempt" => 2}
-      },
-      "enableRetryOn429" => true,
-      "enableRetryOn5xx" => false
-    }
+    options = %{"provider_option" => %{"keep" => true}, "topP" => 0.4}
 
     patched =
       ProfileWidgetState.patch_options(options, %{
         "topP" => "",
         "topK" => "40",
-        "stopSequences" => "DONE\n\nSTOP",
-        "enableRetryOn429" => "true",
-        "enableRetryOn5xx" => "false",
-        "enableRetryOnNetworkError" => "true",
-        "enableRetryOnParseError" => "true",
-        "structuredRepairRetryEnabled" => "true",
-        "retryMaxAttempts" => "4",
-        "retryBaseDelayMs" => "500",
-        "retryMaxDelayMs" => "8000",
-        "escalationAttempt" => "3",
-        "escalationProfile" => "Repair",
-        "escalationReasoning" => "highest"
+        "stopSequences" => "DONE\n\nSTOP"
       })
 
     assert patched["provider_option"] == %{"keep" => true}
@@ -41,73 +20,34 @@ defmodule HardenLlmWeb.ProfileWidgetStateTest do
     refute Map.has_key?(patched, "topP")
     refute Map.has_key?(patched, "top_p")
     assert patched["stop"] == ["DONE", "STOP"]
-    refute Map.has_key?(patched, "enableRetryOn429")
-    assert patched["enableRetryOn5xx"] == false
-    refute Map.has_key?(patched, "enableRetryOnNetworkError")
-    assert patched["structuredRepairRetry"]["customRepairKey"] == "keep"
-    assert patched["structuredRepairRetry"]["escalation"]["customEscalationKey"] == "keep"
-    assert patched["structuredRepairRetry"]["escalation"]["llmProfile"] == "Repair"
-    refute Map.has_key?(patched, "enableRetryOnParseError")
   end
 
-  test "disabling repair preserves unrelated options and explicitly disables repair" do
-    options = %{
-      "provider_option" => "keep",
-      "structuredRepairRetry" => %{
-        "enabled" => true,
-        "custom" => "keep",
-        "escalation" => %{"custom" => "keep"}
-      },
-      "enableRetryOnParseError" => false
+  @tag :recovery
+  test "partial recovery edits preserve unrelated fields and blank input" do
+    current = %{
+      "modelId" => "fixture",
+      "recoveryPolicy" => %{
+        "maxAttempts" => 4,
+        "retryOn" => [],
+        "repairInvalidOutput" => true,
+        "backoff" => %{"baseDelayMs" => 0, "maxDelayMs" => 8000}
+      }
     }
 
-    patched =
-      ProfileWidgetState.patch_options(options, %{
-        "structuredRepairRetryEnabled" => "false",
-        "enableRetryOnParseError" => "true"
-      })
-
-    assert patched["provider_option"] == "keep"
-    assert patched["structuredRepairRetry"] == false
-    refute Map.has_key?(patched, "enableRetryOnParseError")
-  end
-
-  test "blank visible retry and escalation fields delete only their canonical keys" do
-    options = %{
-      "maxAttempts" => 4,
-      "baseDelayMs" => 500,
-      "maxDelayMs" => 8_000,
-      "structuredRepairRetry" => %{
-        "enabled" => true,
-        "custom" => "keep",
-        "escalation" => %{
-          "attempt" => 3,
-          "llmProfile" => "Repair",
-          "reasoningEffort" => "highest"
+    changed =
+      ProfileWidgetState.merge_draft(current, %{
+        "recoveryPolicy" => %{
+          "repairInvalidOutput" => "false",
+          "backoff" => %{"baseDelayMs" => ""}
         }
-      },
-      "provider_option" => "keep"
-    }
-
-    patched =
-      ProfileWidgetState.patch_options(options, %{
-        "retryMaxAttempts" => "",
-        "retryBaseDelayMs" => "",
-        "retryMaxDelayMs" => "",
-        "structuredRepairRetryEnabled" => "true",
-        "escalationAttempt" => "",
-        "escalationProfile" => "",
-        "escalationReasoning" => ""
       })
 
-    refute Map.has_key?(patched, "maxAttempts")
-    refute Map.has_key?(patched, "baseDelayMs")
-    refute Map.has_key?(patched, "maxDelayMs")
-    assert patched["structuredRepairRetry"]["custom"] == "keep"
-    refute Map.has_key?(patched["structuredRepairRetry"]["escalation"], "attempt")
-    refute Map.has_key?(patched["structuredRepairRetry"]["escalation"], "llmProfile")
-    refute Map.has_key?(patched["structuredRepairRetry"]["escalation"], "reasoningEffort")
-    assert patched["provider_option"] == "keep"
+    assert changed["modelId"] == "fixture"
+    assert changed["recoveryPolicy"]["maxAttempts"] == 4
+    assert changed["recoveryPolicy"]["retryOn"] == []
+    policy = ProfileWidgetState.serialize_recovery_policy(changed["recoveryPolicy"])
+    assert policy["repairInvalidOutput"] == false
+    assert policy["backoff"] == %{"baseDelayMs" => "", "maxDelayMs" => 8000}
   end
 
   test "model catalog uses host values, default values, and current-value retention" do
@@ -149,25 +89,7 @@ defmodule HardenLlmWeb.ProfileWidgetStateTest do
            ) == "gpt-5.6-luna"
   end
 
-  test "selects the seeded CPA Sol profile for escalation when it is available" do
-    profiles = [
-      %{"profile" => %{"llmProfile" => "Primary", "modelId" => "primary-model"}},
-      %{"profile" => %{"llmProfile" => "CPA GPT-5.6 Sol", "modelId" => "gpt-5.6-sol"}}
-    ]
-
-    assert ProfileWidgetState.resolve_escalation_profile_id(profiles, "Primary") ==
-             "CPA GPT-5.6 Sol"
-
-    assert ProfileWidgetState.resolve_escalation_profile_id(
-             [%{"profile" => %{"llmProfile" => "Primary"}}],
-             "Primary"
-           ) == "Primary"
-  end
-
-  test "fallback movement is bounded and cache values normalize to two states" do
-    assert ProfileWidgetState.move_fallback(["A", "B"], 0, "up") == ["A", "B"]
-    assert ProfileWidgetState.move_fallback(["A", "B"], 1, "down") == ["A", "B"]
-    assert ProfileWidgetState.move_fallback(["A", "B"], 0, "down") == ["B", "A"]
+  test "cache values normalize to two states" do
     assert ProfileWidgetState.normalize_cache_mode("off") == "cache"
     assert ProfileWidgetState.normalize_cache_mode("refresh") == "refresh"
     assert ProfileWidgetState.normalize_cache_mode("unexpected") == "cache"
@@ -180,8 +102,7 @@ defmodule HardenLlmWeb.ProfileWidgetStateTest do
       "apiInferenceType" => "responses",
       "baseUrl" => "https://example.test/v1",
       "endpointCredentialScope" => "user",
-      "credentialId" => "credential-test",
-      "backupProfiles" => ["Backup"]
+      "credentialId" => "credential-test"
     }
 
     current = %{
@@ -190,8 +111,7 @@ defmodule HardenLlmWeb.ProfileWidgetStateTest do
       "apiInferenceType" => "responses",
       "baseUrl" => "https://example.test/v1/",
       "endpointCredentialScope" => "user",
-      "credentialId" => "credential-test",
-      "backupProfiles" => " Backup "
+      "credentialId" => "credential-test"
     }
 
     assert ProfileWidgetState.dirty_fields(original, current) == MapSet.new()
@@ -200,5 +120,38 @@ defmodule HardenLlmWeb.ProfileWidgetStateTest do
              current
              | "baseUrl" => "https://other.test/v1"
            })
+  end
+
+  # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-209
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-071
+  @tag :recovery
+  test "complete policy serialization preserves false empty and zero without defaults" do
+    draft = %{
+      "maxAttempts" => "1",
+      "retryOn" => [""],
+      "repairInvalidOutput" => "false",
+      "backoff" => %{"baseDelayMs" => "0", "maxDelayMs" => "0"}
+    }
+
+    expected = %{
+      "maxAttempts" => 1,
+      "retryOn" => [],
+      "repairInvalidOutput" => false,
+      "backoff" => %{"baseDelayMs" => 0, "maxDelayMs" => 0}
+    }
+
+    assert ProfileWidgetState.serialize_recovery_policy(draft) == expected
+    assert ProfileWidgetState.serialize_recovery_policy(expected) == expected
+    assert ProfileWidgetState.serialize_recovery_policy(%{}) == %{}
+    invalid = put_in(draft, ["backoff", "baseDelayMs"], "")
+
+    assert get_in(ProfileWidgetState.serialize_recovery_policy(invalid), [
+             "backoff",
+             "baseDelayMs"
+           ]) == ""
+
+    assert ProfileWidgetState.serialize_recovery_policy(%{"maxAttempts" => "11"}) == %{
+             "maxAttempts" => 11
+           }
   end
 end

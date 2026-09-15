@@ -2,7 +2,7 @@ defmodule HardenLlmWeb.ProfileWidgetState do
   @moduledoc """
   Pure transformations shared by the reusable profile widget.
 
-  The widget keeps the editable form local, but its options, retry, fallback,
+  The widget keeps the editable form local, but its options, recovery,
   cache, and model-list decisions must have one deterministic implementation.
   This module deliberately has no LiveView, browser, provider, or persistence
   dependencies.
@@ -16,12 +16,6 @@ defmodule HardenLlmWeb.ProfileWidgetState do
     %{"id" => "gpt-5.6-terra", "label" => "GPT-5.6 Terra"}
   ]
 
-  @retry_booleans ~w(enableRetryOn429 enableRetryOn5xx enableRetryOnNetworkError enableRetryOnParseError)
-  @retry_numbers %{
-    "retryMaxAttempts" => {"maxAttempts", :integer},
-    "retryBaseDelayMs" => {"baseDelayMs", :integer},
-    "retryMaxDelayMs" => {"maxDelayMs", :integer}
-  }
   @scalar_options %{
     "maxTokens" => {"max_tokens", :integer},
     "temperature" => {"temperature", :float},
@@ -53,25 +47,6 @@ defmodule HardenLlmWeb.ProfileWidgetState do
 
   def resolve_selected_profile_id(_profiles, selected_id), do: normalize_text(selected_id)
 
-  @doc "Resolves the default escalation profile without inventing an unknown profile."
-  def resolve_escalation_profile_id(profiles, selected_id) when is_list(profiles) do
-    profile_ids = Enum.map(profiles, &get_in(&1, ["profile", "llmProfile"]))
-    selected_id = normalize_text(selected_id)
-
-    cond do
-      ProfileDefaults.default_escalation_profile_id() in profile_ids ->
-        ProfileDefaults.default_escalation_profile_id()
-
-      selected_id in profile_ids ->
-        selected_id
-
-      true ->
-        ""
-    end
-  end
-
-  def resolve_escalation_profile_id(_profiles, selected_id), do: normalize_text(selected_id)
-
   @doc "Resolves the initial model from the selected backend-owned profile."
   def resolve_selected_model_id(profiles, profile_id, model_id) when is_list(profiles) do
     model_id = normalize_text(model_id)
@@ -94,21 +69,6 @@ defmodule HardenLlmWeb.ProfileWidgetState do
   @doc "Normalizes legacy cache values to the two supported widget states."
   def normalize_cache_mode("refresh"), do: "refresh"
   def normalize_cache_mode(_), do: "cache"
-
-  @doc "Moves one fallback row while preserving order at list boundaries."
-  def move_fallback(rows, index, direction) when is_list(rows) and is_integer(index) do
-    target = if direction == "up", do: index - 1, else: index + 1
-
-    if index < 0 or target < 0 or index >= length(rows) or target >= length(rows) do
-      rows
-    else
-      current = Enum.at(rows, index)
-      other = Enum.at(rows, target)
-      rows |> List.replace_at(index, other) |> List.replace_at(target, current)
-    end
-  end
-
-  def move_fallback(rows, _index, _direction), do: rows
 
   @doc "Builds the model combobox catalog with stable ID ownership."
   def model_options(host_catalog, profile_models, current_id) do
@@ -134,10 +94,6 @@ defmodule HardenLlmWeb.ProfileWidgetState do
     |> canonicalize_alias("top_k", "topK")
     |> patch_scalar_options(params)
     |> patch_stop_sequences(params)
-    |> patch_retry_numbers(params)
-    |> patch_retry_booleans(params)
-    |> patch_structured_repair(params)
-    |> remove_parse_retry_when_repair_enabled()
   end
 
   def patch_options(_options, _params), do: %{}
@@ -145,7 +101,7 @@ defmodule HardenLlmWeb.ProfileWidgetState do
   @doc "Returns the field names whose persisted profile values differ."
   def dirty_fields(original, current) when is_map(original) and is_map(current) do
     fields =
-      ~w(profileId provider apiInferenceType baseUrl endpointCredentialScope credentialId backupProfiles)
+      ~w(profileId provider apiInferenceType baseUrl endpointCredentialScope credentialId)
 
     fields
     |> Enum.filter(fn key ->
@@ -194,103 +150,6 @@ defmodule HardenLlmWeb.ProfileWidgetState do
     end
   end
 
-  defp patch_retry_numbers(options, params) do
-    Enum.reduce(@retry_numbers, options, fn {field, {key, kind}}, acc ->
-      if Map.has_key?(params, field) do
-        if blank?(params[field]) do
-          Map.delete(acc, key)
-        else
-          case parse_number(params[field], kind) do
-            {:ok, value} -> Map.put(acc, key, value)
-            :error -> acc
-          end
-        end
-      else
-        acc
-      end
-    end)
-  end
-
-  defp patch_retry_booleans(options, params) do
-    Enum.reduce(@retry_booleans, options, fn key, acc ->
-      value = if Map.has_key?(params, key), do: truthy?(params[key]), else: Map.get(acc, key)
-
-      case value do
-        true -> Map.delete(acc, key)
-        false -> Map.put(acc, key, false)
-        _ -> acc
-      end
-    end)
-  end
-
-  defp patch_structured_repair(options, params) do
-    if Map.has_key?(params, "structuredRepairRetryEnabled") do
-      if truthy?(params["structuredRepairRetryEnabled"]) do
-        repair =
-          case options["structuredRepairRetry"] do
-            value when is_map(value) -> value
-            _ -> %{}
-          end
-
-        repair =
-          repair
-          |> Map.put("enabled", true)
-          |> patch_escalation(params)
-
-        Map.put(options, "structuredRepairRetry", repair)
-      else
-        Map.put(options, "structuredRepairRetry", false)
-      end
-    else
-      options
-    end
-  end
-
-  defp patch_escalation(repair, params) do
-    if Enum.any?(
-         ~w(escalationAttempt escalationProfile escalationReasoning),
-         &Map.has_key?(params, &1)
-       ) do
-      escalation = if is_map(repair["escalation"]), do: repair["escalation"], else: %{}
-
-      escalation =
-        escalation
-        |> put_number_if_present("attempt", params["escalationAttempt"], :integer)
-        |> put_text_if_present("llmProfile", params["escalationProfile"])
-        |> put_text_if_present("reasoningEffort", params["escalationReasoning"])
-
-      Map.put(repair, "escalation", escalation)
-    else
-      repair
-    end
-  end
-
-  defp remove_parse_retry_when_repair_enabled(options) do
-    case options["structuredRepairRetry"] do
-      %{"enabled" => true} -> Map.delete(options, "enableRetryOnParseError")
-      _ -> options
-    end
-  end
-
-  defp put_number_if_present(map, _key, nil, _kind), do: map
-
-  defp put_number_if_present(map, key, value, kind) do
-    if blank?(value) do
-      Map.delete(map, key)
-    else
-      case parse_number(value, kind) do
-        {:ok, parsed} -> Map.put(map, key, parsed)
-        :error -> map
-      end
-    end
-  end
-
-  defp put_text_if_present(map, _key, nil), do: map
-
-  defp put_text_if_present(map, key, value) do
-    if blank?(value), do: Map.delete(map, key), else: Map.put(map, key, normalize_text(value))
-  end
-
   defp canonicalize_alias(options, key, alias_key) do
     cond do
       Map.has_key?(options, key) ->
@@ -331,19 +190,7 @@ defmodule HardenLlmWeb.ProfileWidgetState do
   defp normalize_field("baseUrl", value),
     do: value |> normalize_text() |> String.trim_trailing("/")
 
-  defp normalize_field("backupProfiles", value), do: normalize_backups(value)
   defp normalize_field(_key, value), do: normalize_text(value)
-
-  defp normalize_backups(value) when is_list(value),
-    do: Enum.map(value, &normalize_text/1) |> Enum.reject(&(&1 == ""))
-
-  defp normalize_backups(value),
-    do:
-      value
-      |> normalize_text()
-      |> String.split(",")
-      |> Enum.map(&String.trim/1)
-      |> Enum.reject(&(&1 == ""))
 
   defp parse_number(value, :integer) do
     case Integer.parse(normalize_text(value)) do
@@ -361,5 +208,45 @@ defmodule HardenLlmWeb.ProfileWidgetState do
 
   defp blank?(value), do: normalize_text(value) == ""
   defp normalize_text(value), do: String.trim(to_string(value || ""))
-  defp truthy?(value), do: value in [true, "true", "on", "1"]
+  @doc "Serializes form values without supplying defaults or validating backend policy semantics."
+  def serialize_recovery_policy(policy) when is_map(policy) do
+    Map.new(policy, fn
+      {"maxAttempts", value} ->
+        {"maxAttempts", form_integer(value)}
+
+      {"backoff", values} when is_map(values) ->
+        {"backoff", Map.new(values, fn {key, value} -> {key, form_integer(value)} end)}
+
+      {"retryOn", values} when is_list(values) ->
+        {"retryOn", Enum.reject(values, &(&1 == ""))}
+
+      {"repairInvalidOutput", "true"} ->
+        {"repairInvalidOutput", true}
+
+      {"repairInvalidOutput", "false"} ->
+        {"repairInvalidOutput", false}
+
+      entry ->
+        entry
+    end)
+  end
+
+  def serialize_recovery_policy(policy), do: policy
+
+  @doc "Applies a partial form event while retaining unrelated draft fields."
+  def merge_draft(current, incoming) do
+    Map.merge(current, incoming, fn
+      _key, old, new when is_map(old) and is_map(new) -> merge_draft(old, new)
+      _key, _old, new -> new
+    end)
+  end
+
+  defp form_integer(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {number, ""} -> number
+      _ -> value
+    end
+  end
+
+  defp form_integer(value), do: value
 end

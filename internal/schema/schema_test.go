@@ -4,7 +4,6 @@ package schema
 
 import (
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -13,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/prls-co/harden-llm/internal/retry"
-	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
 )
 
 func TestSchemaContract(t *testing.T) {
@@ -77,27 +75,6 @@ func TestSchemaContract(t *testing.T) {
 		})
 	}
 
-	envelope := json.RawMessage(`{"repair":{"explanation":"fixed","changes":["answer type"]},"data":{"answer":"ok"}}`)
-	data, _, err := coreruntime.ExtractRepairData(envelope, func(raw json.RawMessage) error {
-		var value any
-		if err := json.Unmarshal(raw, &value); err != nil {
-			return err
-		}
-		return ValidateValue(contract, value)
-	})
-	if err != nil || string(data) != `{"answer":"ok"}` {
-		t.Fatalf("validated repair data = %s/%v", data, err)
-	}
-	_, _, err = coreruntime.ExtractRepairData(json.RawMessage(`{"repair":{"explanation":"x","changes":[]},"data":{"answer":42}}`), func(raw json.RawMessage) error {
-		var value any
-		if unmarshalErr := json.Unmarshal(raw, &value); unmarshalErr != nil {
-			return unmarshalErr
-		}
-		return ValidateValue(contract, value)
-	})
-	if err == nil || !errors.Is(err, ErrValueInvalid) {
-		t.Fatalf("invalid repair data error = %v", err)
-	}
 }
 
 func TestStructuredParserParityCapturedSource(t *testing.T) {
@@ -128,31 +105,32 @@ func TestStructuredParserParityCapturedSource(t *testing.T) {
 	if err = json.Unmarshal(contents, &fixture); err != nil {
 		t.Fatal(err)
 	}
+	// ADR-HLLM-020 intentionally rejects source salvage and preserves numeric strings.
 	for _, testCase := range fixture.RepairCases {
-		testCase := testCase
 		t.Run("repair/"+testCase.Name, func(t *testing.T) {
-			t.Parallel()
-			parsed, diagnostic, parseErr := ParseProviderOutput(testCase.Raw, "openai.responses")
-			if parseErr != nil || diagnostic != nil || !reflect.DeepEqual(normalizeParsedNumbers(parsed), normalizeParsedNumbers(testCase.Parsed)) {
-				t.Fatalf("parser mismatch: got=%#v diagnostic=%#v error=%v want=%#v", parsed, diagnostic, parseErr, testCase.Parsed)
+			parsed, diagnostic, err := ParseProviderOutput(testCase.Raw)
+			if testCase.Name == "numeric-string-normalization" {
+				if err != nil || diagnostic != nil || !reflect.DeepEqual(parsed, map[string]any{"answer": "ok", "count": "42"}) {
+					t.Fatalf("numeric string changed: %#v/%#v/%v", parsed, diagnostic, err)
+				}
+			} else if err == nil || diagnostic == nil || diagnostic.Stage != "json_parse" {
+				t.Fatalf("source salvage accepted: %#v/%#v/%v", parsed, diagnostic, err)
 			}
 		})
 	}
 	for _, testCase := range fixture.GeminiCases {
-		testCase := testCase
 		t.Run("gemini/"+testCase.Name, func(t *testing.T) {
-			t.Parallel()
-			parsed, diagnostic, parseErr := ParseProviderOutput(testCase.Raw, "google.gemini.generateContent")
-			if parseErr != nil || diagnostic != nil || !reflect.DeepEqual(normalizeParsedNumbers(parsed), normalizeParsedNumbers(testCase.Parsed)) {
-				t.Fatalf("Gemini parser mismatch: got=%#v diagnostic=%#v error=%v want=%#v", parsed, diagnostic, parseErr, testCase.Parsed)
+			parsed, diagnostic, err := ParseProviderOutput(testCase.Raw)
+			if err == nil || diagnostic == nil || diagnostic.Stage != "json_parse" {
+				t.Fatalf("provider-specific salvage accepted: %#v/%#v/%v", parsed, diagnostic, err)
 			}
 		})
 	}
 	if fixture.RepairFailure.Succeeded {
 		t.Fatal("captured source unexpectedly accepted invalid Unicode")
 	}
-	_, diagnostic, err := ParseProviderOutput(fixture.RepairFailure.Diagnostics.RawResponse, "openai.responses")
-	if err == nil || diagnostic == nil || diagnostic.Stage != "json_repair" {
+	_, diagnostic, err := ParseProviderOutput(fixture.RepairFailure.Diagnostics.RawResponse)
+	if err == nil || diagnostic == nil || diagnostic.Stage != "json_parse" {
 		t.Fatalf("repair failure classification mismatch: %#v %v", diagnostic, err)
 	}
 }
@@ -192,16 +170,16 @@ func TestJSONRepairIncidentParityCapturedSource(t *testing.T) {
 	if fixture.Expected.ParseStage != "repair" || fixture.Expected.ParserLibrary != "jsonrepair" || fixture.Expected.RetryCategory != string(retry.CategoryParse) || !fixture.Expected.Retryable {
 		t.Fatalf("captured incident expectation changed: %#v", fixture.Expected)
 	}
-	_, diagnostic, parseErr := ParseProviderOutput(raw, "openai.responses")
-	if parseErr == nil || diagnostic == nil || diagnostic.Stage != "json_repair" || diagnostic.Category != string(retry.CategoryParse) || diagnostic.RawLength != fixture.Expected.RawLength {
+	_, diagnostic, parseErr := ParseProviderOutput(raw)
+	if parseErr == nil || diagnostic == nil || diagnostic.Stage != "json_parse" || diagnostic.Category != string(retry.CategoryParse) || diagnostic.RawLength != fixture.Expected.RawLength {
 		t.Fatalf("target incident classification mismatch: diagnostic=%#v error=%v", diagnostic, parseErr)
 	}
 	wantTail := safeTail(raw, 128)
 	if diagnostic.RawTail != wantTail {
 		t.Fatalf("bounded raw tail mismatch: got %q want %q", diagnostic.RawTail, wantTail)
 	}
-	classification := retry.Classify(&retry.ProviderError{Err: parseErr, Parse: true}, retry.Policy{ParseError: true})
-	if classification.Category != retry.CategoryParse || !classification.Retryable {
+	classification := retry.Classify(&retry.ProviderError{Err: parseErr, Parse: true}, retry.DefaultPolicy())
+	if classification.Category != retry.CategoryParse || classification.Retryable {
 		t.Fatalf("target incident retry classification mismatch: %#v", classification)
 	}
 }
@@ -227,4 +205,60 @@ func loadSchemaFixture(t *testing.T) schemaFixture {
 		t.Fatal(err)
 	}
 	return fixture
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-203
+func TestRecoveryValues(t *testing.T) {
+	t.Parallel()
+	t.Run("null JSON value", func(t *testing.T) {
+		value, diagnostic, err := ParseProviderOutput("null")
+		if value != nil || diagnostic != nil || err != nil {
+			t.Fatalf("null JSON changed: %#v/%#v/%v", value, diagnostic, err)
+		}
+	})
+	for _, test := range []struct {
+		name, value, property string
+		invalid               bool
+	}{
+		{"postal code", `"02139"`, `{"type":"string"}`, false},
+		{"numeric string enum", `"007"`, `{"type":"string","enum":["007"]}`, false},
+		{"large integer", `9007199254740993`, `{"type":"integer"}`, false},
+		{"precise decimal", `0.123456789123456789`, `{"type":"number"}`, false},
+		{"nested strings", `[{"zip":"02139"}]`, `{"type":"array","items":{"type":"object","properties":{"zip":{"type":"string"}},"required":["zip"],"additionalProperties":false}}`, false},
+		{"null fails string schema", `null`, `{"type":"string"}`, true},
+		{"number cannot become string", `42`, `{"type":"string"}`, true},
+		{"string cannot become number", `"42"`, `{"type":"number"}`, true},
+		{"large fractional integer", `9007199254740992.5`, `{"type":"integer"}`, true},
+		{"adjacent large integer enum", `9007199254740993`, `{"type":"integer","enum":[9007199254740992]}`, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			raw := `{"value":` + test.value + `}`
+			contract := json.RawMessage(`{"type":"object","properties":{"value":` + test.property + `},"required":["value"],"additionalProperties":false}`)
+			parsed, diagnostic, err := ParseAndValidate(raw, contract)
+			if test.invalid {
+				if err == nil || diagnostic == nil {
+					t.Fatalf("invalid value accepted: %#v, diagnostic=%#v, error=%v", parsed, diagnostic, err)
+				}
+				return
+			}
+			if err != nil || diagnostic != nil {
+				t.Fatalf("valid value rejected: diagnostic=%#v, error=%v", diagnostic, err)
+			}
+			encoded, err := json.Marshal(parsed)
+			if err != nil || string(encoded) != raw {
+				t.Fatalf("value changed: got %s/%v, want %s", encoded, err, raw)
+			}
+		})
+	}
+	contract := json.RawMessage(`{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}`)
+	for _, raw := range []string{
+		`{"value":"ok",}`, `{'value':'ok'}`, "```json\n{\"value\":\"ok\"}\n```",
+		`Here is the JSON: {"value":"ok"}`, `{"value":"ok"} {}`, `{"value":`,
+	} {
+		t.Run("invalid syntax/"+raw, func(t *testing.T) {
+			if value, diagnostic, err := ParseAndValidate(raw, contract); err == nil || diagnostic == nil {
+				t.Fatalf("invalid JSON accepted: value=%#v diagnostic=%#v error=%v", value, diagnostic, err)
+			}
+		})
+	}
 }

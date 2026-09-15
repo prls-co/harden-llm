@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	hardenllm "github.com/prls-co/harden-llm"
 	"net/http"
 	"strconv"
 	"time"
@@ -57,7 +58,7 @@ func (api *API) listProfiles(writer http.ResponseWriter, request *http.Request) 
 		api.writeServiceError(writer, err)
 		return
 	}
-	writeSuccess(writer, http.StatusOK, map[string]any{"profiles": states}, map[string]any{})
+	writeSuccess(writer, http.StatusOK, map[string]any{"profiles": states, "defaults": map[string]any{"recoveryPolicy": hardenllm.DefaultRecoveryPolicy()}}, map[string]any{})
 }
 
 func (api *API) saveProfile(writer http.ResponseWriter, request *http.Request) {
@@ -143,7 +144,7 @@ func (api *API) importProfileBundle(writer http.ResponseWriter, request *http.Re
 		api.writeServiceError(writer, err)
 		return
 	}
-	writeSuccess(writer, http.StatusOK, map[string]any{"profiles": states}, map[string]any{})
+	writeSuccess(writer, http.StatusOK, map[string]any{"profiles": states, "defaults": map[string]any{"recoveryPolicy": hardenllm.DefaultRecoveryPolicy()}}, map[string]any{})
 }
 
 func (api *API) listHistory(writer http.ResponseWriter, request *http.Request) {
@@ -258,6 +259,10 @@ func (api *API) run(writer http.ResponseWriter, request *http.Request) {
 			writeErrorState(writer, http.StatusGatewayTimeout, "run_timeout", "The run exceeded its deadline.", state)
 			return
 		}
+		if failure := requestValidationFailure(err); failure != nil {
+			writeFailure(writer, *failure)
+			return
+		}
 		if errors.Is(err, gateway.ErrInvalidRequest) {
 			writeError(writer, http.StatusUnprocessableEntity, "invalid_request", "The run request is invalid.")
 			return
@@ -285,20 +290,15 @@ func (api *API) requireResources(writer http.ResponseWriter) bool {
 }
 
 func (api *API) writeServiceError(writer http.ResponseWriter, err error) {
-	var validation *profiles.ValidationError
+	if failure := requestValidationFailure(err); failure != nil {
+		writeFailure(writer, *failure)
+		return
+	}
 	switch {
 	case errors.Is(err, postgres.ErrNotFound):
 		writeError(writer, http.StatusNotFound, "not_found", "The requested resource was not found.")
 	case errors.Is(err, gateway.ErrInvalidCursor), errors.Is(err, gateway.ErrInvalidRequest):
 		writeError(writer, http.StatusBadRequest, "invalid_request", "The request is invalid.")
-	case errors.Is(err, gateway.ErrProfileConflict):
-		writeError(writer, http.StatusConflict, "profile_conflict", "The profile is still referenced.")
-	case errors.As(err, &validation):
-		fields := make(map[string]string, len(validation.FieldErrors))
-		for _, field := range validation.FieldErrors {
-			fields[field.Field] = field.Message
-		}
-		writeJSON(writer, http.StatusUnprocessableEntity, envelope{State: map[string]any{}, Error: &Error{Code: "validation_failed", Message: "Profile validation failed.", FieldErrors: fields}})
 	case errors.Is(err, context.DeadlineExceeded):
 		writeError(writer, http.StatusGatewayTimeout, "operation_timeout", "The operation exceeded its deadline.")
 	default:
@@ -315,4 +315,21 @@ type authPrincipal struct{ OwnerID string }
 
 func writeErrorState(writer http.ResponseWriter, status int, code, message string, state any) {
 	writeJSON(writer, status, envelope{State: state, Result: nil, Error: &Error{Code: code, Message: message}})
+}
+
+func requestValidationFailure(err error) *responseFailure {
+	var policyError *hardenllm.RecoveryPolicyError
+	var profileError *profiles.ValidationError
+	fields := map[string]string{}
+	switch {
+	case errors.As(err, &policyError):
+		fields[policyError.Field] = policyError.Message
+	case errors.As(err, &profileError):
+		for _, field := range profileError.FieldErrors {
+			fields[field.Field] = field.Message
+		}
+	default:
+		return nil
+	}
+	return &responseFailure{Status: http.StatusUnprocessableEntity, Code: "validation_failed", Message: "Settings validation failed.", FieldErrors: fields}
 }

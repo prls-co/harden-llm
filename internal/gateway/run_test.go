@@ -83,7 +83,7 @@ func TestRunRoute(t *testing.T) {
 	defer server.Close()
 	authorization := map[string][]string{"Authorization": {"Bearer valid-token"}}
 
-	textBody := []byte(`{"profileId":"Backup","modelId":"model-override","userPrompt":"say ok","callType":"text","webSearch":true,"cacheMode":"off","maxAttempts":1}`)
+	textBody := []byte(`{"profileId":"Backup","modelId":"model-override","userPrompt":"say ok","callType":"text","webSearch":true,"cacheMode":"off","recoveryPolicy":{"maxAttempts":1,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}}`)
 	response := apiRequest(t, server.Client(), http.MethodPost, server.URL+"/api/v1/run", textBody, authorization)
 	assertEnvelope(t, response, http.StatusOK, false)
 	result := response.JSON["result"].(map[string]any)
@@ -116,7 +116,7 @@ func TestRunRoute(t *testing.T) {
 		t.Fatalf("stored trace = %#v %#v, %v", trace, observations, err)
 	}
 	var traceDocument map[string]any
-	if err := json.Unmarshal(trace.Record, &traceDocument); err != nil || traceDocument["schemaVersion"] != float64(2) || traceDocument["runId"] != "run-1" {
+	if err := json.Unmarshal(trace.Record, &traceDocument); err != nil || traceDocument["schemaVersion"] != float64(3) || traceDocument["runId"] != "run-1" {
 		t.Fatalf("stored trace lost canonical execution identity: %#v %v", traceDocument, err)
 	}
 	if bytes.Contains(response.Body, []byte("llm-traces/")) {
@@ -132,7 +132,7 @@ func TestRunRoute(t *testing.T) {
 		t.Fatal(err)
 	}
 	failureOutput, failureState, callErr := failureService.Run(ctx, "owner-a", gateway.RunInput{
-		ProfileID: "Backup", UserPrompt: "fail safely", CallType: hardenllm.CallTypeText, MaxAttempts: 1,
+		ProfileID: "Backup", UserPrompt: "fail safely", CallType: hardenllm.CallTypeText, RecoveryPolicy: hardenllm.RecoveryPolicy{MaxAttempts: 1, RetryOn: []hardenllm.RecoveryCategory{}, Backoff: hardenllm.RecoveryBackoff{}},
 	})
 	if callErr == nil || failureState.LastRunID != "failure-run" || failureState.LastTraceID != "trace-failure" {
 		t.Fatalf("failure state lost runtime identity: %#v %v", failureState, callErr)
@@ -154,7 +154,7 @@ func TestRunRoute(t *testing.T) {
 		t.Fatalf("failed run lost diagnostic result: %#v %v", failedResult, err)
 	}
 
-	structuredBody := []byte(`{"profileId":"Backup","userPrompt":"return JSON","callType":"structured","schema":{"type":"object","required":["ok"],"properties":{"ok":{"type":"boolean"}}},"structuredRepair":true,"maxAttempts":2}`)
+	structuredBody := []byte(`{"profileId":"Backup","userPrompt":"return JSON","callType":"structured","schema":{"type":"object","required":["ok"],"properties":{"ok":{"type":"boolean"}}},"recoveryPolicy":{"maxAttempts":2,"retryOn":[],"repairInvalidOutput":true,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}}`)
 	response = apiRequest(t, server.Client(), http.MethodPost, server.URL+"/api/v1/run", structuredBody, authorization)
 	assertEnvelope(t, response, http.StatusOK, false)
 	if response.JSON["result"].(map[string]any)["output"].(map[string]any)["ok"] != true || caller.calls != 2 {
@@ -162,7 +162,7 @@ func TestRunRoute(t *testing.T) {
 	}
 
 	beforeInvalid := caller.calls
-	response = apiRequest(t, server.Client(), http.MethodPost, server.URL+"/api/v1/run", []byte(`{"profileId":"Backup","userPrompt":"","callType":"text"}`), authorization)
+	response = apiRequest(t, server.Client(), http.MethodPost, server.URL+"/api/v1/run", []byte(`{"profileId":"Backup","userPrompt":"","callType":"text","recoveryPolicy":{"maxAttempts":1,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}}`), authorization)
 	assertEnvelope(t, response, http.StatusUnprocessableEntity, true)
 	if caller.calls != beforeInvalid {
 		t.Fatal("invalid run reached the root caller")
@@ -180,7 +180,7 @@ func TestRunRoute(t *testing.T) {
 	}
 	// The service creates its caller deadline after loading profiles from Postgres.
 	// Prove cancellation here without requiring that SQL completes within 10ms.
-	_, _, timeoutErr := timeoutService.Run(ctx, "owner-a", gateway.RunInput{
+	_, _, timeoutErr := timeoutService.Run(ctx, "owner-a", gateway.RunInput{RecoveryPolicy: hardenllm.DefaultRecoveryPolicy(),
 		ProfileID: "Backup", UserPrompt: "wait", CallType: hardenllm.CallTypeText, TimeoutMS: 10,
 	})
 	if !errors.Is(timeoutErr, context.DeadlineExceeded) || blocking.calls != 1 {
@@ -199,7 +199,7 @@ func TestRunRoute(t *testing.T) {
 	}
 	timeoutServer := httptest.NewServer(timeoutAPI.Handler())
 	defer timeoutServer.Close()
-	response = apiRequest(t, timeoutServer.Client(), http.MethodPost, timeoutServer.URL+"/api/v1/run", []byte(`{"profileId":"Backup","userPrompt":"wait","callType":"text","timeoutMs":10}`), authorization)
+	response = apiRequest(t, timeoutServer.Client(), http.MethodPost, timeoutServer.URL+"/api/v1/run", []byte(`{"profileId":"Backup","userPrompt":"wait","callType":"text","timeoutMs":10,"recoveryPolicy":{"maxAttempts":1,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}}`), authorization)
 	assertEnvelope(t, response, http.StatusGatewayTimeout, true)
 	// The outer HTTP deadline also includes profile I/O: expiring before the
 	// caller starts is valid. It must still return 504 and never retry the call.
@@ -214,7 +214,7 @@ func TestRunRoute(t *testing.T) {
 		}
 	}
 	beforeInvalidTimeout := blocking.calls
-	response = apiRequest(t, timeoutServer.Client(), http.MethodPost, timeoutServer.URL+"/api/v1/run", []byte(`{"profileId":"Backup","userPrompt":"wait","callType":"text","timeoutMs":51}`), authorization)
+	response = apiRequest(t, timeoutServer.Client(), http.MethodPost, timeoutServer.URL+"/api/v1/run", []byte(`{"profileId":"Backup","userPrompt":"wait","callType":"text","timeoutMs":51,"recoveryPolicy":{"maxAttempts":1,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}}`), authorization)
 	assertEnvelope(t, response, http.StatusUnprocessableEntity, true)
 	if blocking.calls != beforeInvalidTimeout {
 		t.Fatal("timeout increase reached root caller")
@@ -251,7 +251,7 @@ func TestRunRoute(t *testing.T) {
 	}
 	realServer := httptest.NewServer(realAPI.Handler())
 	defer realServer.Close()
-	response = apiRequest(t, realServer.Client(), http.MethodPost, realServer.URL+"/api/v1/run", []byte(`{"profileId":"Private","userPrompt":"must not dial","callType":"text","maxAttempts":1}`), authorization)
+	response = apiRequest(t, realServer.Client(), http.MethodPost, realServer.URL+"/api/v1/run", []byte(`{"profileId":"Private","userPrompt":"must not dial","callType":"text","recoveryPolicy":{"maxAttempts":1,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}}`), authorization)
 	assertEnvelope(t, response, http.StatusBadGateway, true)
 	if dials != 0 {
 		t.Fatalf("unsafe endpoint reached provider dial %d times", dials)
@@ -268,7 +268,7 @@ func TestRunRoute(t *testing.T) {
 	}, nil); err != nil {
 		t.Fatal(err)
 	}
-	response = apiRequest(t, realServer.Client(), http.MethodPost, realServer.URL+"/api/v1/run", []byte(`{"profileId":"Unconfigured","userPrompt":"must require credentials","callType":"text","maxAttempts":1}`), authorization)
+	response = apiRequest(t, realServer.Client(), http.MethodPost, realServer.URL+"/api/v1/run", []byte(`{"profileId":"Unconfigured","userPrompt":"must require credentials","callType":"text","recoveryPolicy":{"maxAttempts":1,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}}`), authorization)
 	assertEnvelope(t, response, http.StatusUnprocessableEntity, true)
 	if response.JSON["error"].(map[string]any)["code"] != "credential_required" || dials != 0 {
 		t.Fatalf("unconfigured profile response = %#v dials=%d", response.JSON, dials)
@@ -321,7 +321,7 @@ func (caller *recordingRuntimeCaller) Call(_ context.Context, request hardenllm.
 			Result:   hardenllm.AccountingLedger{Usage: usage, Cost: cost},
 			Provider: hardenllm.AccountingLedger{Usage: usage, Cost: cost},
 		},
-		Attempts: []hardenllm.Attempt{{Number: 1, RetryLocalNumber: 1, ProfileID: request.ProfileID, Target: target, Category: "success", ProviderUsed: true}},
+		Attempts: []hardenllm.Attempt{{Number: 1, ProfileID: request.ProfileID, Target: target, Category: "success", ProviderUsed: true}},
 		Cache:    hardenllm.CacheResult{Mode: request.CacheMode, Status: "disabled"},
 	}, nil
 }
@@ -348,7 +348,7 @@ func (failureRuntimeCaller) Call(_ context.Context, request hardenllm.Request) (
 			Result:   hardenllm.AccountingLedger{Usage: usage, Cost: cost},
 			Provider: hardenllm.AccountingLedger{Usage: usage, Cost: cost},
 		},
-		Attempts: []hardenllm.Attempt{{Number: 1, RetryLocalNumber: 1, ProfileID: request.ProfileID, Target: target, Category: "parse_error", ProviderUsed: true}},
+		Attempts: []hardenllm.Attempt{{Number: 1, ProfileID: request.ProfileID, Target: target, Category: "parse_error", ProviderUsed: true}},
 	}, errors.New("fixture provider failure")
 }
 

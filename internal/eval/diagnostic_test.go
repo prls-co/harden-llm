@@ -68,8 +68,7 @@ func TestDiagnosticCompletenessEval(t *testing.T) {
 	}
 	call := coreruntime.Call{
 		SystemPrompt: secrets[0], UserPrompt: secrets[1], CallType: "structured",
-		Schema: json.RawMessage(`{"type":"object"}`), StructuredRepair: coreruntime.StructuredRepair{Enabled: true},
-		Telemetry: runtimeTelemetry,
+		Schema: json.RawMessage(`{"type":"object"}`), Telemetry: runtimeTelemetry,
 		ValidateStructured: func(value any) error {
 			object, ok := value.(map[string]any)
 			if !ok || object["answer"] != "ok" {
@@ -85,9 +84,7 @@ func TestDiagnosticCompletenessEval(t *testing.T) {
 	repaired, err := coreruntime.Execute(
 		ctx, diagnosticRepairExecutor{}, diagnosticCredentials(secrets[3]), profile.ID,
 		map[string]coreruntime.Profile{profile.ID: profile}, call,
-		retry.Config{
-			MaxAttempts: 2, BaseDelay: time.Nanosecond, MaxDelay: time.Nanosecond,
-			Policy: retry.Policy{ParseError: true}, Random: func() float64 { return 0.5 },
+		retry.Config{Policy: retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{}, RepairInvalidOutput: true, Backoff: retry.Backoff{BaseDelayMS: 0, MaxDelayMS: 0}}, Random: func() float64 { return 0.5 },
 			Wait: func(context.Context, time.Duration) error { return nil },
 		},
 		cache, cachekey.ModeRefresh, cachekey.DefaultVersion, "call-repaired", "trace-repaired",
@@ -103,7 +100,7 @@ func TestDiagnosticCompletenessEval(t *testing.T) {
 	cached, cacheErr := coreruntime.Execute(
 		ctx, diagnosticRepairExecutor{}, diagnosticCredentials(secrets[3]), profile.ID,
 		map[string]coreruntime.Profile{profile.ID: profile}, call,
-		retry.Config{MaxAttempts: 1}, cache, cachekey.ModeCache, cachekey.DefaultVersion,
+		retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, cache, cachekey.ModeCache, cachekey.DefaultVersion,
 		"call-cached", "trace-cached",
 	)
 	endCall(cached, cacheErr)
@@ -114,14 +111,13 @@ func TestDiagnosticCompletenessEval(t *testing.T) {
 	failedCall := call
 	failedCall.CallType = "text"
 	failedCall.Schema = nil
-	failedCall.StructuredRepair = coreruntime.StructuredRepair{}
 	failedCall.ValidateStructured = nil
 	ctx, endCall = runtimeTelemetry.StartCall(context.Background(), coreruntime.CallObservation{
 		ProfileID: profile.ID, Provider: profile.Provider, ModelID: profile.ModelID, CallType: failedCall.CallType,
 	})
 	failed, failedErr := coreruntime.Execute(
 		ctx, diagnosticFailureExecutor{secret: secrets[3]}, diagnosticCredentials(secrets[3]), profile.ID,
-		map[string]coreruntime.Profile{profile.ID: profile}, failedCall, retry.Config{MaxAttempts: 1},
+		map[string]coreruntime.Profile{profile.ID: profile}, failedCall, retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}},
 		nil, cachekey.ModeOff, cachekey.DefaultVersion, "call-failed", "trace-failed",
 	)
 	endCall(failed, failedErr)
@@ -281,10 +277,7 @@ func (diagnosticRepairExecutor) Prepare(_ context.Context, _ coreruntime.Profile
 func (diagnosticRepairExecutor) Execute(_ context.Context, operation coreruntime.PreparedOperation) (coreruntime.ProviderResult, error) {
 	if repair, _ := operation.Opaque.(bool); repair {
 		return coreruntime.ProviderResult{
-			Output: map[string]any{
-				"repair": map[string]any{"explanation": "normalized", "changes": []any{"answer"}},
-				"data":   map[string]any{"answer": "ok"},
-			},
+			Output:     map[string]any{"answer": "ok"},
 			Accounting: diagnosticLedger(7, 3, 0.02),
 		}, nil
 	}

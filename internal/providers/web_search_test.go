@@ -187,7 +187,7 @@ func TestWebSearchCacheHitSkipsJinaFallback(t *testing.T) {
 		},
 		profile.ID, map[string]runtime.Profile{profile.ID: profile},
 		runtime.Call{CallType: "text", UserPrompt: "cached search", WebSearch: true},
-		retry.Config{MaxAttempts: 1}, cache, cachekey.ModeCache, cachekey.DefaultVersion, "call", "trace",
+		retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, cache, cachekey.ModeCache, cachekey.DefaultVersion, "call", "trace",
 	)
 	if err != nil {
 		t.Fatalf("runtime.Execute: %v", err)

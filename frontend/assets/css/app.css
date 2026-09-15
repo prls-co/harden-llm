@@ -422,9 +422,6 @@ button, a, input, select, textarea { touch-action: manipulation; }
   grid-template-columns: minmax(4rem, auto) minmax(0, 1fr) minmax(4.75rem, 5.5rem) var(--ullm-profile-control-height) var(--ullm-profile-control-height) var(--ullm-profile-control-height);
 }
 
-.ullm-escalation-profile-row {
-  grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(4.75rem, 5.5rem) var(--ullm-profile-control-height) var(--ullm-profile-control-height);
-}
 
 .ullm-profile-category {
   min-width: 0;
@@ -722,24 +719,18 @@ button, a, input, select, textarea { touch-action: manipulation; }
   min-height: var(--ullm-profile-control-height);
   white-space: nowrap;
 }
-
-.ullm-backup-profiles,
 .ullm-credential-block,
 .ullm-options-fold {
   border: 1px solid var(--ullm-border);
   border-radius: 8px;
   background: rgb(255 255 255 / 44%);
 }
-
-.ullm-backup-profiles,
 .ullm-credential-block {
   display: flex;
   flex-direction: column;
   gap: .65rem;
   padding: .8rem;
 }
-
-.ullm-backup-profiles-header,
 .ullm-credential-row,
 .ullm-section-header {
   display: flex;
@@ -747,8 +738,6 @@ button, a, input, select, textarea { touch-action: manipulation; }
   justify-content: space-between;
   gap: .65rem;
 }
-
-.ullm-backup-profiles-title,
 .ullm-credential-label,
 .ullm-section-header h3 {
   color: var(--ullm-text-muted);
@@ -881,14 +870,6 @@ button, a, input, select, textarea { touch-action: manipulation; }
   background: var(--ullm-danger-bg);
 }
 
-.ullm-backup-profile-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: .65rem;
-}
-
-.ullm-backup-profile-actions,
 .ullm-profile-actions {
   display: flex;
   flex-wrap: wrap;
@@ -896,45 +877,10 @@ button, a, input, select, textarea { touch-action: manipulation; }
   gap: .35rem;
 }
 
-.ullm-backup-profile-list {
-  display: flex;
-  flex-direction: column;
-  gap: .4rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
 
-.ullm-backup-profile-list li {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: .65rem;
-  border-radius: 6px;
-  padding: .35rem .5rem;
-  background: var(--ullm-panel-muted);
-  font-size: .8rem;
-}
 
-.ullm-backup-profile-input {
-  min-height: 2.15rem;
-  padding-top: .45rem;
-  padding-bottom: .45rem;
-}
 
-.ullm-backup-index {
-  margin-right: .4rem;
-  color: var(--ullm-text-dim);
-  font-family: var(--ullm-mono-font);
-}
 
-.ullm-escalation-profile-editor {
-  display: flex;
-  flex-direction: column;
-  gap: .75rem;
-  border-top: 1px solid var(--ullm-border);
-  padding-top: .75rem;
-}
 
 .ullm-delete-confirm,
 .ullm-widget-error {
@@ -971,14 +917,8 @@ button, a, input, select, textarea { touch-action: manipulation; }
   .ullm-reasoning-field { min-width: 0; }
   .ullm-options-grid,
   .ullm-checkbox-grid,
-  .ullm-model-slot-row,
-  .ullm-backup-profile-row { grid-template-columns: 1fr; }
+  .ullm-model-slot-row { grid-template-columns: 1fr; }
   .ullm-model-refresh-button { justify-self: start; }
-  .ullm-escalation-profile-row {
-    grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(4.75rem, 5.5rem) var(--ullm-profile-control-height) var(--ullm-profile-control-height);
-  }
-  .ullm-escalation-profile-row .ullm-profile-category,
-  .ullm-escalation-profile-row .ullm-profile-picker { grid-column: auto; }
 }
 /* Search evidence is part of the response fold, including cache replays. */
 .llm-result-search-details { display: none; }
@@ -987,3 +927,11 @@ button, a, input, select, textarea { touch-action: manipulation; }
 .llm-result-sources a { text-decoration: underline; overflow-wrap: anywhere; }
 .ullm-profile-search-toggle:not(.is-enabled) { filter: grayscale(1); opacity: .55; }
 .ullm-profile-search-toggle.is-enabled { background: #dbeafe; border-color: #60a5fa; }
+
+/* The same recovery controls are used by the profile catalog and workspace. */
+.recovery-policy-categories,
+.recovery-policy-numbers {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+}

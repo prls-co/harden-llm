@@ -189,7 +189,7 @@ func TestWebSearchCacheLifecycle(t *testing.T) {
 			run := func(search bool, mode cachekey.Mode) runtime.CallRecord {
 				r, err := runtime.Execute(context.Background(), router, func(context.Context, runtime.Profile) (runtime.Credential, error) {
 					return runtime.Credential{APIKey: "fixture-key"}, nil
-				}, p.ID, map[string]runtime.Profile{p.ID: p}, runtime.Call{CallType: "text", UserPrompt: "query", WebSearch: search}, retry.Config{MaxAttempts: 1}, cache, mode, cachekey.DefaultVersion, "call", "trace")
+				}, p.ID, map[string]runtime.Profile{p.ID: p}, runtime.Call{CallType: "text", UserPrompt: "query", WebSearch: search}, retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, cache, mode, cachekey.DefaultVersion, "call", "trace")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -234,7 +234,7 @@ func TestJinaFailureIsNotAnLLMInvocation(t *testing.T) {
 	p := runtime.Profile{ID: "p", Provider: "cpa", APIInferenceType: "responses", BaseURL: s.URL, ModelID: "fixture"}
 	r, err := runtime.Execute(context.Background(), router, func(context.Context, runtime.Profile) (runtime.Credential, error) {
 		return runtime.Credential{APIKey: "fixture-key"}, nil
-	}, p.ID, map[string]runtime.Profile{p.ID: p}, runtime.Call{CallType: "text", UserPrompt: "query", WebSearch: true}, retry.Config{MaxAttempts: 1}, nil, cachekey.ModeOff, cachekey.DefaultVersion, "call", "trace")
+	}, p.ID, map[string]runtime.Profile{p.ID: p}, runtime.Call{CallType: "text", UserPrompt: "query", WebSearch: true}, retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, nil, cachekey.ModeOff, cachekey.DefaultVersion, "call", "trace")
 	if err == nil || len(r.Attempts) != 1 || r.Attempts[0].ProviderUsed {
 		t.Fatalf("pre-provider failure: %#v %v", r, err)
 	}

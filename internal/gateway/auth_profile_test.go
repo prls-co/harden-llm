@@ -174,7 +174,7 @@ func TestAuthProfileContract(t *testing.T) {
 	sharedProfile.ModelID = "gpt-chat"
 	sharedProfile.TokensParam = &chatTokensParam
 	sharedProfile.ResponsesTokensParam = nil
-	sharedProfile.BackupProfiles = nil
+	sharedProfile.RecoveryPolicy = hardenllm.DefaultRecoveryPolicy()
 	if _, err := profileService.Save(ctx, SaveProfileRequest{
 		OwnerID: "owner-a", ProfileID: sharedProfile.LLMProfile, Profile: sharedProfile, CredentialID: "credential-a",
 	}); err != nil {
@@ -240,7 +240,7 @@ func TestAuthProfileContract(t *testing.T) {
 	privateProfile := profile
 	privateProfile.LLMProfile = "Private"
 	privateProfile.BaseURL = "https://127.0.0.1/v1"
-	privateProfile.BackupProfiles = nil
+	privateProfile.RecoveryPolicy = hardenllm.DefaultRecoveryPolicy()
 	dials := 0
 	rootProber := RootProfileProber{EndpointPolicy: hardenllm.EndpointPolicy{DialContext: func(context.Context, string, string) (net.Conn, error) {
 		dials++
@@ -293,7 +293,7 @@ func (prober *recordingProber) Probe(context.Context, profiles.Profile, profiles
 
 func sourceProfile(t *testing.T) profiles.Profile {
 	t.Helper()
-	contents, err := os.ReadFile("../../fixtures/parity/generated/profile-catalog.json")
+	contents, err := os.ReadFile("../../fixtures/contracts/profile-catalog.json")
 	if err != nil {
 		t.Fatal(err)
 	}

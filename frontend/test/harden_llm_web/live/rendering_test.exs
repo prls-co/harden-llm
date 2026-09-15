@@ -34,7 +34,7 @@ defmodule HardenLlmWeb.RenderingTest do
           Req.Test.json(conn, APIFixtures.success(nil, state))
 
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => []}))
+          Req.Test.json(conn, APIFixtures.profiles([]))
 
         {"GET", "/api/v1/history"} ->
           send(test_pid, :workspace_history_requested)
@@ -118,7 +118,7 @@ defmodule HardenLlmWeb.RenderingTest do
           Req.Test.json(conn, APIFixtures.success(nil, state))
 
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [profile]}))
+          Req.Test.json(conn, APIFixtures.profiles([profile]))
 
         {"GET", "/api/v1/history"} ->
           Req.Test.json(conn, APIFixtures.success(%{"items" => [history]}))
@@ -218,7 +218,7 @@ defmodule HardenLlmWeb.RenderingTest do
           Req.Test.json(conn, APIFixtures.success(nil, state))
 
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+          Req.Test.json(conn, APIFixtures.profiles([APIFixtures.profile_state()]))
 
         {"GET", "/api/v1/history"} ->
           Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
@@ -252,7 +252,7 @@ defmodule HardenLlmWeb.RenderingTest do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+          Req.Test.json(conn, APIFixtures.profiles([APIFixtures.profile_state()]))
 
         {"GET", "/api/v1/history"} ->
           Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))

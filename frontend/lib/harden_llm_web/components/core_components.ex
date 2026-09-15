@@ -237,7 +237,7 @@ defmodule HardenLlmWeb.CoreComponents do
         <input
           type="hidden"
           name={@name}
-          value="false"
+          value={if @multiple, do: "", else: "false"}
           disabled={@rest[:disabled]}
           form={@rest[:form]}
         />
@@ -246,7 +246,7 @@ defmodule HardenLlmWeb.CoreComponents do
             type="checkbox"
             id={@id}
             name={@name}
-            value="true"
+            value={if @multiple, do: @value, else: "true"}
             checked={@checked}
             aria-invalid={if @errors != [], do: "true"}
             class={@class || "size-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600"}

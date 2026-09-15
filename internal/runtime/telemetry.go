@@ -184,44 +184,34 @@ func (telemetry *Telemetry) StartProvider(ctx context.Context, target ExecutionT
 	}
 }
 
-func (telemetry *Telemetry) RetryHooks(callType string, policy retry.Policy, attemptOffset int, targetFor func(int) ExecutionTarget) retry.Hooks {
-	callType = boundedCallType(callType)
-	lastProvider := "unknown"
-	return retry.Hooks{
-		Attempt: func(ctx context.Context, number int, work func(context.Context) error) error {
-			globalNumber := attemptOffset + number
-			attemptContext, span := telemetry.tracer.Start(ctx, SpanAttempt, trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(
-				attribute.String("gen_ai.operation.name", callType),
-				attribute.Int("harden_llm.attempt.number", globalNumber),
-			))
-			err := work(attemptContext)
-			target := targetFor(number)
-			lastProvider = providerFamily(target.Provider, target.Protocol)
-			span.SetAttributes(
-				attribute.String("gen_ai.provider.name", lastProvider),
-				attribute.String("gen_ai.request.model", boundedSpanValue(target.ModelID)),
-				attribute.String("harden_llm.profile.id", boundedSpanValue(target.ProfileID)),
-			)
-			_, category := outcomeAndCategoryWithPolicy(err, policy)
-			setSpanStatus(span, err, category)
-			span.End()
-			return err
-		},
-		Wait: func(ctx context.Context, classification retry.Classification, delay time.Duration, wait func(context.Context, time.Duration) error) error {
-			category := boundedCategory(string(classification.Category))
-			waitContext, span := telemetry.tracer.Start(ctx, SpanRetryWait, trace.WithAttributes(
-				attribute.String("gen_ai.provider.name", lastProvider), attribute.String("error.type", category),
-				attribute.Int64("harden_llm.retry.delay_ms", delay.Milliseconds()),
-			))
-			telemetry.retries.Add(ctx, 1, metric.WithAttributes(
-				attribute.String("provider", lastProvider), attribute.String("call_type", callType), attribute.String("category", category),
-			))
-			err := wait(waitContext, delay)
-			setSpanStatus(span, err, boundedCategory(string(retry.Classify(err, policy).Category)))
-			span.End()
-			return err
-		},
+func (telemetry *Telemetry) StartAttempt(ctx context.Context, target ExecutionTarget, callType string, number int) (context.Context, func(error)) {
+	attemptContext, span := telemetry.tracer.Start(ctx, SpanAttempt, trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(
+		attribute.String("gen_ai.operation.name", boundedCallType(callType)),
+		attribute.Int("harden_llm.attempt.number", number),
+		attribute.String("gen_ai.provider.name", providerFamily(target.Provider, target.Protocol)),
+		attribute.String("gen_ai.request.model", boundedSpanValue(target.ModelID)),
+		attribute.String("harden_llm.profile.id", boundedSpanValue(target.ProfileID)),
+	))
+	return attemptContext, func(err error) {
+		_, category := outcomeAndCategory(err)
+		setSpanStatus(span, err, category)
+		span.End()
 	}
+}
+
+func (telemetry *Telemetry) WaitForRetry(ctx context.Context, target ExecutionTarget, callType string, classification retry.Classification, delay time.Duration, wait func(context.Context, time.Duration) error) error {
+	provider := providerFamily(target.Provider, target.Protocol)
+	category := boundedCategory(string(classification.Category))
+	waitContext, span := telemetry.tracer.Start(ctx, SpanRetryWait, trace.WithAttributes(
+		attribute.String("gen_ai.provider.name", provider), attribute.String("error.type", category),
+		attribute.Int64("harden_llm.retry.delay_ms", delay.Milliseconds()),
+	))
+	telemetry.retries.Add(ctx, 1, metric.WithAttributes(attribute.String("provider", provider), attribute.String("call_type", boundedCallType(callType)), attribute.String("category", category)))
+	err := wait(waitContext, delay)
+	_, outcome := outcomeAndCategory(err)
+	setSpanStatus(span, err, outcome)
+	span.End()
+	return err
 }
 
 func (telemetry *Telemetry) ValidateSchema(ctx context.Context, profile Profile, repair bool, validate func(context.Context) error) error {

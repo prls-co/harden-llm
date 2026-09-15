@@ -37,7 +37,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
   })
 
   @default_state %{
-    "schemaVersion" => 1,
+    "schemaVersion" => 2,
     "selectedProfileId" => "",
     "modelId" => "",
     "systemPrompt" => "You are a helpful assistant",
@@ -45,20 +45,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
     "schemaShorthand" => @default_schema_shorthand,
     "schema" => @default_schema,
     "callType" => "structured",
-    "structuredRepair" => true,
     "cacheMode" => "cache",
     "webSearch" => false,
     "reasoningEffort" => "lowest",
     "reasoningByProfile" => %{},
-    "maxAttempts" => 4,
-    "initialBackoffMs" => 500,
-    "maximumBackoffMs" => 8000,
-    "retryNetwork" => true,
-    "retryRateLimit" => true,
-    "retryServerError" => true,
-    "retryEmpty" => true,
-    "retryParse" => true,
-    "repairEscalation" => nil,
     "ui" => @default_ui
   }
 
@@ -70,6 +60,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:loading?, true)
       |> assign(:backend_state, :loading)
       |> assign(:profiles, [])
+      |> assign(:recovery_policy_default, %{})
+      |> assign(:recovery_field_errors, %{})
       |> assign(:history, [])
       |> assign(:history_result_states, %{})
       |> assign(:history_loaded?, false)
@@ -106,11 +98,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:ui, @default_ui)
       |> assign(:form, to_form(stringify_form(@default_state), as: :run))
       |> allow_upload(:profile_bundle,
-        accept: ~w(.json application/json),
-        max_entries: 1,
-        max_file_size: Application.get_env(:harden_llm, :max_bundle_bytes, 2_097_152)
-      )
-      |> allow_upload(:escalation_profile_bundle,
         accept: ~w(.json application/json),
         max_entries: 1,
         max_file_size: Application.get_env(:harden_llm, :max_bundle_bytes, 2_097_152)
@@ -186,31 +173,11 @@ defmodule HardenLlmWeb.WorkspaceLive do
     {:noreply, assign(socket, :profile_requires_save?, requires_save?)}
   end
 
-  def handle_info({:profile_widget, _prefix, {:profile_widget_retry, retry}}, socket)
-      when is_map(retry) do
-    params = Map.merge(socket.assigns.form.params || %{}, Map.delete(retry, "repairEscalation"))
-
-    params =
-      case retry["repairEscalation"] do
-        escalation when is_map(escalation) ->
-          params
-          |> Map.put("repairEscalationProfileId", escalation["profileId"] || "")
-          |> Map.put("repairEscalationModelId", escalation["modelId"] || "")
-          |> Map.put("repairEscalationAttempt", to_string(escalation["attempt"] || 3))
-          |> Map.put("repairEscalationReasoning", escalation["reasoningEffort"] || "highest")
-
-        _ ->
-          params
-          |> Map.put("repairEscalationProfileId", "")
-          |> Map.put("repairEscalationModelId", "")
-      end
-
-    state = state_from_params(params, socket.assigns.ui, socket.assigns.reasoning_by_profile)
+  def handle_info({:profile_widget, _prefix, {:profile_widget_recovery, policy}}, socket) do
+    params = Map.put(socket.assigns.form.params, "recoveryPolicy", policy)
 
     {:noreply,
-     socket
-     |> assign(:form, to_form(params, as: :run))
-     |> assign(:reasoning_by_profile, state["reasoningByProfile"])}
+     socket |> assign(:form, to_form(params, as: :run)) |> assign(:recovery_field_errors, %{})}
   end
 
   def handle_info(
@@ -269,6 +236,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:loading?, false)
       |> assign(:backend_state, :ready)
       |> assign(:profiles, hydration.profiles)
+      |> assign(:recovery_policy_default, hydration.recovery_policy_default)
       |> assign(:history, [])
       |> assign(:history_loaded?, false)
       |> assign(:history_loading?, false)
@@ -407,6 +375,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:run_request_payload, nil)
       |> assign(:output_trace_resources, %{})
       |> assign(:run_error, message)
+      |> assign(:recovery_field_errors, error.field_errors)
       |> reset_output_trace()
       |> maybe_refresh_history()
       |> maybe_load_run_diagnostics(error.trace_id)
@@ -714,7 +683,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   @impl true
   def handle_event("save-draft", %{"_target" => [scope | _]}, socket)
-      when scope in ["profile", "escalation"] do
+      when scope == "profile" do
     {:noreply, socket}
   end
 
@@ -770,7 +739,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   def handle_event("restore-history", %{"run-id" => run_id}, socket) do
     with item when is_map(item) <- Enum.find(socket.assigns.history, &(&1["runId"] == run_id)),
-         request when is_map(request) <- item["request"] do
+         request when is_map(request) <- item["request"],
+         true <- is_map(request["recoveryPolicy"]) do
       state = restore_state(request, item, socket.assigns.profiles, socket.assigns.ui)
       params = stringify_form(state)
       reference = System.unique_integer([:positive, :monotonic])
@@ -787,7 +757,13 @@ defmodule HardenLlmWeb.WorkspaceLive do
          Observability.propagate(fn -> HardenAPI.save_state(handle, state) end)
        )}
     else
-      _ -> {:noreply, assign(socket, :history_error, "This history item could not be restored.")}
+      _ ->
+        {:noreply,
+         assign(
+           socket,
+           :history_error,
+           "The recorded request uses an unsupported format and cannot be restored."
+         )}
     end
   end
 
@@ -954,7 +930,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
          assign(
            socket,
            :run_error,
-           "Save the LLM profile before running endpoint, credential, fallback, or identity changes."
+           "Save the LLM profile before running endpoint, credential, or identity changes."
          )}
 
       true ->
@@ -994,7 +970,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
        assign(
          socket,
          :run_error,
-         "The recorded request is unavailable; this result cannot be rerun."
+         "The recorded request is unavailable or uses an unsupported format; this result cannot be rerun."
        )}
     end
   end
@@ -1228,9 +1204,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp hydrate(handle) do
     with {:ok, _result, state} <- HardenAPI.get_state(handle),
-         {:ok, %{"profiles" => profiles}, _} <- HardenAPI.list_profiles(handle),
+         {:ok, %{"profiles" => profiles, "defaults" => %{"recoveryPolicy" => policy}}, _} <-
+           HardenAPI.list_profiles(handle),
          true <- is_list(profiles) do
-      {:ok, %{state: state || %{}, profiles: profiles}}
+      {:ok, %{state: state, profiles: profiles, recovery_policy_default: policy}}
     end
   end
 
@@ -1355,9 +1332,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp rerun_available?(%{"request" => %{"available" => true, "payload" => request}})
        when is_map(request) do
-    Enum.all?(~w(profileId userPrompt), fn key ->
-      is_binary(request[key]) and String.trim(request[key]) != ""
-    end)
+    is_map(request["recoveryPolicy"]) and
+      Enum.all?(~w(profileId userPrompt), fn key ->
+        is_binary(request[key]) and String.trim(request[key]) != ""
+      end)
   end
 
   defp rerun_available?(_resources), do: false
@@ -1491,7 +1469,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     call_type = response_call_type(request)
 
     %{
-      "schemaVersion" => 1,
+      "schemaVersion" => 2,
       "selectedProfileId" => selected_profile_id,
       "modelId" => request["modelId"] || "",
       "systemPrompt" => request["systemPrompt"] || "",
@@ -1502,18 +1480,9 @@ defmodule HardenLlmWeb.WorkspaceLive do
       "reasoningEffort" => reasoning,
       "reasoningByProfile" =>
         if(selected_profile_id == "", do: %{}, else: %{selected_profile_id => reasoning}),
-      "structuredRepair" => structured_repair?(request, call_type),
+      "recoveryPolicy" => ProfileWidgetState.serialize_recovery_policy(request["recoveryPolicy"]),
       "cacheMode" => normalize_cache_mode(request["cacheMode"]),
       "webSearch" => truthy?(request["webSearch"]),
-      "maxAttempts" => request["maxAttempts"] || 0,
-      "initialBackoffMs" => request["initialBackoffMs"] || 0,
-      "maximumBackoffMs" => request["maximumBackoffMs"] || 0,
-      "retryNetwork" => request["retryNetwork"],
-      "retryRateLimit" => request["retryRateLimit"],
-      "retryServerError" => request["retryServerError"],
-      "retryEmpty" => request["retryEmpty"],
-      "retryParse" => request["retryParse"],
-      "repairEscalation" => request["repairEscalation"],
       "ui" => normalize_ui(ui)
     }
   end
@@ -1560,7 +1529,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
       true ->
         with {:ok, schema} <- parse_schema(params["schema"], call_type),
-             {:ok, retry} <- retry_payload(params),
              {:ok, payload} <-
                base_run_payload(
                  params,
@@ -1568,7 +1536,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
                  prompt,
                  call_type,
                  schema,
-                 retry,
                  profiles,
                  profile_provider_options
                ) do
@@ -1603,19 +1570,16 @@ defmodule HardenLlmWeb.WorkspaceLive do
          prompt,
          call_type,
          schema,
-         retry,
          profiles,
          profile_provider_options
        ) do
-    structured_repair = structured_repair?(params, call_type)
-
     payload = %{
       "profileId" => profile_id,
       "userPrompt" => prompt,
       "callType" => call_type,
+      "recoveryPolicy" => ProfileWidgetState.serialize_recovery_policy(params["recoveryPolicy"]),
       "cacheMode" => normalize_cache_mode(params["cacheMode"]),
-      "webSearch" => truthy?(params["webSearch"]),
-      "structuredRepair" => structured_repair
+      "webSearch" => truthy?(params["webSearch"])
     }
 
     payload = put_optional(payload, "modelId", params["modelId"])
@@ -1628,64 +1592,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
         do: Map.put(payload, "providerOptions", profile_provider_options),
         else: payload
 
-    retry =
-      if structured_repair,
-        do: retry,
-        else: Map.delete(retry, "repairEscalation")
-
-    {payload, retry} =
-      normalize_repair_reasoning(payload, retry, params, profiles, profile_id)
-
-    {:ok, Map.merge(payload, retry)}
-  end
-
-  defp retry_payload(params) do
-    with {:ok, max_attempts} <- integer_value(params["maxAttempts"], "Max Attempts", 0, 10, 4),
-         {:ok, initial_backoff} <-
-           integer_value(params["initialBackoffMs"], "Base Delay Ms", 0, 60_000, 500),
-         {:ok, maximum_backoff} <-
-           integer_value(params["maximumBackoffMs"], "Max Delay Ms", 0, 600_000, 8000),
-         {:ok, escalation} <- escalation_payload(params) do
-      payload = %{
-        "maxAttempts" => max_attempts,
-        "initialBackoffMs" => initial_backoff,
-        "maximumBackoffMs" => maximum_backoff,
-        "retryNetwork" => boolean_value(params["retryNetwork"], true),
-        "retryRateLimit" => boolean_value(params["retryRateLimit"], true),
-        "retryServerError" => boolean_value(params["retryServerError"], true),
-        "retryEmpty" => boolean_value(params["retryEmpty"], true),
-        "retryParse" => boolean_value(params["retryParse"], true)
-      }
-
-      {:ok, if(escalation, do: Map.put(payload, "repairEscalation", escalation), else: payload)}
-    end
-  end
-
-  defp escalation_payload(params) do
-    model_id = String.trim(params["repairEscalationModelId"] || "")
-
-    if model_id == "" do
-      {:ok, nil}
-    else
-      with {:ok, attempt} <-
-             integer_value(params["repairEscalationAttempt"], "Starting Attempt", 2, 10, 3),
-           reasoning <- params["repairEscalationReasoning"] || "highest",
-           true <- reasoning in ["lowest", "middle", "highest"] do
-        escalation = %{
-          "attempt" => attempt,
-          "modelId" => model_id,
-          "reasoningEffort" => reasoning
-        }
-
-        profile_id = String.trim(params["repairEscalationProfileId"] || "")
-
-        {:ok,
-         if(profile_id == "", do: escalation, else: Map.put(escalation, "profileId", profile_id))}
-      else
-        false -> {:error, "Escalation reasoning must be lowest, middle, or highest."}
-        {:error, message} -> {:error, message}
-      end
-    end
+    {:ok, payload}
   end
 
   defp state_from_params(params, ui, existing_reasoning_by_profile) do
@@ -1707,7 +1614,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       end
 
     %{
-      "schemaVersion" => 1,
+      "schemaVersion" => 2,
       "selectedProfileId" => params["selectedProfileId"] || "",
       "modelId" => params["modelId"] || "",
       "systemPrompt" => params["systemPrompt"] || "",
@@ -1717,28 +1624,11 @@ defmodule HardenLlmWeb.WorkspaceLive do
       "schema" => schema,
       "reasoningEffort" => reasoning_effort,
       "reasoningByProfile" => reasoning_by_profile,
-      "structuredRepair" => structured_repair?(params, call_type),
+      "recoveryPolicy" => ProfileWidgetState.serialize_recovery_policy(params["recoveryPolicy"]),
       "cacheMode" => normalize_cache_mode(params["cacheMode"]),
       "webSearch" => truthy?(params["webSearch"]),
-      "maxAttempts" => integer_or_zero(params["maxAttempts"]),
-      "initialBackoffMs" => integer_or_zero(params["initialBackoffMs"]),
-      "maximumBackoffMs" => integer_or_zero(params["maximumBackoffMs"]),
-      "retryNetwork" => truthy?(params["retryNetwork"]),
-      "retryRateLimit" => truthy?(params["retryRateLimit"]),
-      "retryServerError" => truthy?(params["retryServerError"]),
-      "retryEmpty" => truthy?(params["retryEmpty"]),
-      "retryParse" => truthy?(params["retryParse"]),
-      "repairEscalation" => state_escalation(params),
       "ui" => normalize_ui(ui)
     }
-  end
-
-  defp state_escalation(params) do
-    case escalation_payload(params) do
-      {:ok, nil} -> nil
-      {:ok, escalation} -> escalation
-      {:error, _message} -> nil
-    end
   end
 
   defp normalize_response_state(state) do
@@ -1749,16 +1639,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     |> Map.put("schema", schema)
     |> Map.put("callType", call_type)
     |> Map.put("webSearch", truthy?(state["webSearch"]))
-    |> Map.put("structuredRepair", structured_repair?(state, call_type))
   end
-
-  defp structured_repair?(params, "structured") do
-    if Map.has_key?(params, "structuredRepair"),
-      do: truthy?(params["structuredRepair"]),
-      else: true
-  end
-
-  defp structured_repair?(_params, _call_type), do: false
 
   defp response_call_type(params) when is_map(params) do
     case params["callType"] do
@@ -2133,23 +2014,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
     schema =
       if is_map(state["schema"]), do: Jason.encode!(state["schema"], pretty: true), else: ""
 
-    escalation = state["repairEscalation"] || %{}
-
     state
     |> Map.put("schema", schema)
     |> Map.put("schemaShorthand", state["schemaShorthand"] || "")
     |> Map.put("webSearch", to_string(truthy?(state["webSearch"])))
-    |> Map.put("repairEscalationModelId", escalation["modelId"] || "")
-    |> Map.put("repairEscalationProfileId", escalation["profileId"] || "")
-    |> Map.put("repairEscalationAttempt", to_string(escalation["attempt"] || 3))
-    |> Map.put("repairEscalationReasoning", escalation["reasoningEffort"] || "highest")
-    |> stringify_numbers(["maxAttempts", "initialBackoffMs", "maximumBackoffMs"])
-  end
-
-  defp stringify_numbers(state, keys) do
-    Enum.reduce(keys, state, fn key, acc ->
-      Map.update(acc, key, "", fn value -> to_string(value) end)
-    end)
   end
 
   defp normalize_ui(value) when is_map(value),
@@ -2166,33 +2034,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp normalize_trace_id(_value), do: nil
 
-  defp integer_value(value, _label, _minimum, _maximum, default) when value in [nil, ""],
-    do: {:ok, default}
-
-  defp integer_value(value, label, minimum, maximum, _default) do
-    text = String.trim(to_string(value || ""))
-
-    case Integer.parse(text) do
-      {number, ""} when number >= minimum and number <= maximum -> {:ok, number}
-      _ -> {:error, "#{label} must be between #{minimum} and #{maximum}."}
-    end
-  end
-
-  defp integer_or_zero(value) do
-    case Integer.parse(String.trim(to_string(value || ""))) do
-      {number, ""} when number >= 0 -> number
-      _ -> 0
-    end
-  end
-
   defp truthy?(value), do: value in [true, "true", "on", "1"]
 
   defp normalize_cache_mode("refresh"), do: "refresh"
   defp normalize_cache_mode(_value), do: "cache"
-
-  defp boolean_value(value, _default) when value in [true, "true", "on", "1"], do: true
-  defp boolean_value(value, _default) when value in [false, "false", "0"], do: false
-  defp boolean_value(_value, default), do: default
 
   defp put_reasoning_effort(payload, value, nil, _profile_id),
     do: put_optional(payload, "reasoningEffort", value)
@@ -2202,50 +2047,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
       put_optional(payload, "reasoningEffort", value)
     else
       payload
-    end
-  end
-
-  defp normalize_repair_reasoning(payload, retry, _params, nil, _profile_id),
-    do: {payload, retry}
-
-  defp normalize_repair_reasoning(payload, retry, params, profiles, profile_id) do
-    case retry["repairEscalation"] do
-      escalation when is_map(escalation) ->
-        escalation_profile_id =
-          String.trim(to_string(escalation["profileId"] || profile_id || ""))
-
-        escalation_reasoning = String.trim(to_string(escalation["reasoningEffort"] || ""))
-        main_reasoning = String.trim(to_string(params["reasoningEffort"] || ""))
-        escalation_profile_known? = profile_known?(profiles, escalation_profile_id)
-
-        escalation_reasoning_supported? =
-          not escalation_profile_known? or
-            escalation_reasoning == "" or
-            reasoning_supported?(profiles, escalation_profile_id, escalation_reasoning)
-
-        escalation =
-          if escalation_reasoning_supported?,
-            do: escalation,
-            else: Map.delete(escalation, "reasoningEffort")
-
-        payload =
-          if not escalation_profile_known? or
-               (escalation_reasoning_supported? and escalation_reasoning != "") do
-            payload
-          else
-            main_reasoning_supported? =
-              main_reasoning == "" or
-                reasoning_supported?(profiles, escalation_profile_id, main_reasoning)
-
-            if main_reasoning_supported?,
-              do: payload,
-              else: Map.delete(payload, "reasoningEffort")
-          end
-
-        {payload, Map.put(retry, "repairEscalation", escalation)}
-
-      _ ->
-        {payload, retry}
     end
   end
 
@@ -2263,7 +2064,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
   defp put_optional(map, _key, value) when value in [nil, ""], do: map
   defp put_optional(map, key, value), do: Map.put(map, key, String.trim(value))
 
-  defp workspace_upload_name("escalation", _widget), do: :escalation_profile_bundle
   defp workspace_upload_name(_kind, _widget), do: :profile_bundle
 
   defp host_model_catalog(profiles) do

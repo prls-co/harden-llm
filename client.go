@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/prls-co/harden-llm/internal/cachekey"
@@ -98,12 +97,10 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 	if client.options.Cache != nil {
 		runtimeCache = &cacheAdapter{store: client.options.Cache}
 	}
-	resolvedRetry := retryConfig(request.RetryPolicy, request.CallType == CallTypeStructured)
-	repairPolicy, err := runtimeRepairPolicyWithProfiles(
-		request.RetryPolicy.StructuredRepair, resolvedRetry.MaxAttempts, request.CallType == CallTypeStructured,
-		profiles,
-	)
-	if err != nil {
+	if err := request.RecoveryPolicy.ValidateProviderOptions(request.ProviderOptions); err != nil {
+		return Result{}, err
+	}
+	if err := request.RecoveryPolicy.Validate(); err != nil {
 		return Result{}, err
 	}
 	call := coreruntime.Call{
@@ -111,8 +108,7 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 		Schema: append([]byte(nil), request.Schema...), ReasoningEffort: string(request.ReasoningEffort),
 		WebSearch:       request.WebSearch,
 		ProviderOptions: cloneAnyMap(request.ProviderOptions), Context: runtimeContext(request.Context),
-		StructuredRepair: repairPolicy,
-		Telemetry:        client.telemetry,
+		Telemetry: client.telemetry,
 	}
 	if request.CallType == CallTypeStructured {
 		if len(request.Schema) == 0 {
@@ -163,7 +159,7 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 		request.ProfileID,
 		profiles,
 		call,
-		resolvedRetry,
+		retry.Config{Policy: request.RecoveryPolicy},
 		runtimeCache,
 		cacheMode,
 		request.CacheVersion,
@@ -181,73 +177,6 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 		return result, err
 	}
 	return result, nil
-}
-
-func runtimeRepairPolicy(policy StructuredRepairPolicy, maxAttempts int, structured bool) (coreruntime.StructuredRepair, error) {
-	return runtimeRepairPolicyWithProfiles(policy, maxAttempts, structured, nil)
-}
-
-func runtimeRepairPolicyWithProfiles(policy StructuredRepairPolicy, maxAttempts int, structured bool, profiles map[string]coreruntime.Profile) (coreruntime.StructuredRepair, error) {
-	result := coreruntime.StructuredRepair{Enabled: policy.Enabled}
-	if !policy.Enabled {
-		if policy.Escalation != nil {
-			return coreruntime.StructuredRepair{}, errors.New("hardenllm: structured repair escalation requires repair to be enabled")
-		}
-		return result, nil
-	}
-	if !structured {
-		return coreruntime.StructuredRepair{}, errors.New("hardenllm: structured repair is supported only for structured calls")
-	}
-	if policy.Escalation == nil {
-		return result, nil
-	}
-	escalation := policy.Escalation
-	modelID := strings.TrimSpace(escalation.ModelID)
-	effort := ReasoningEffort(strings.TrimSpace(string(escalation.ReasoningEffort)))
-	if escalation.Attempt < 2 || escalation.Attempt > maxAttempts {
-		return coreruntime.StructuredRepair{}, errors.New("hardenllm: structured repair escalation attempt must be from 2 through maxAttempts")
-	}
-	if modelID == "" {
-		return coreruntime.StructuredRepair{}, errors.New("hardenllm: structured repair escalation model ID is required")
-	}
-	profileID := strings.TrimSpace(escalation.ProfileID)
-	if profileID != "" && profiles != nil {
-		if _, ok := profiles[profileID]; !ok {
-			return coreruntime.StructuredRepair{}, errors.New("hardenllm: structured repair escalation profile was not found")
-		}
-	}
-	if effort != "" && effort != ReasoningEffortLowest && effort != ReasoningEffortMiddle && effort != ReasoningEffortHighest {
-		return coreruntime.StructuredRepair{}, errors.New("hardenllm: structured repair escalation reasoning effort must be lowest, middle, or highest")
-	}
-	result.Escalation = &coreruntime.RepairEscalation{
-		Attempt: escalation.Attempt, ProfileID: profileID, ModelID: modelID, ReasoningEffort: string(effort),
-	}
-	return result, nil
-}
-
-func retryConfig(policy RetryPolicy, structured bool) retry.Config {
-	resolved := retry.DefaultPolicy()
-	resolved.ParseError = structured
-	maxAttempts := policy.MaxAttempts
-	if maxAttempts <= 0 {
-		maxAttempts = retry.DefaultMaxAttempts
-	}
-	applyBool := func(value *bool, target *bool) {
-		if value != nil {
-			*target = *value
-		}
-	}
-	applyBool(policy.RetryNetwork, &resolved.Network)
-	applyBool(policy.RetryRateLimit, &resolved.RateLimit)
-	applyBool(policy.RetryServerError, &resolved.ServerError)
-	applyBool(policy.RetryEmpty, &resolved.EmptyResponse)
-	applyBool(policy.RetryParse, &resolved.ParseError)
-	return retry.Config{
-		MaxAttempts: maxAttempts,
-		BaseDelay:   policy.InitialBackoff,
-		MaxDelay:    policy.MaximumBackoff,
-		Policy:      resolved,
-	}
 }
 
 func runtimeProfiles(catalog ProfileCatalog) (map[string]coreruntime.Profile, error) {
@@ -269,7 +198,8 @@ func runtimeProfiles(catalog ProfileCatalog) (map[string]coreruntime.Profile, er
 			}
 		}
 		validated[key] = contractprofiles.Profile{
-			SchemaVersion: profile.SchemaVersion, LLMProfile: profile.LLMProfile, Provider: profile.Provider,
+			RecoveryPolicy: profile.RecoveryPolicy,
+			SchemaVersion:  profile.SchemaVersion, LLMProfile: profile.LLMProfile, Provider: profile.Provider,
 			APIInferenceType: profile.APIInferenceType, EndpointCredentialScope: profile.EndpointCredentialScope,
 			BaseURL: profile.BaseURL, ModelID: profile.ModelID, Pricing: pricing,
 			SupportsTemperature:                &supportsTemperature,
@@ -278,7 +208,6 @@ func runtimeProfiles(catalog ProfileCatalog) (map[string]coreruntime.Profile, er
 			TokensParam:                        &tokensParam, ResponsesTokensParam: &responsesTokensParam,
 			DefaultOptions:     cloneAnyMap(profile.DefaultOptions),
 			ReasoningEffortMap: cloneNestedAnyMap(profile.ReasoningEffortMap),
-			BackupProfiles:     append([]string(nil), profile.BackupProfiles...),
 		}
 	}
 	encodedCatalog, err := json.Marshal(validated)
@@ -295,11 +224,11 @@ func runtimeProfiles(catalog ProfileCatalog) (map[string]coreruntime.Profile, er
 			ID: profile.LLMProfile, Provider: profile.Provider, APIInferenceType: profile.APIInferenceType,
 			CredentialScope: profile.EndpointCredentialScope, BaseURL: profile.BaseURL, ModelID: profile.ModelID,
 			DefaultOptions: cloneAnyMap(profile.DefaultOptions), ReasoningEffortMap: cloneNestedAnyMap(profile.ReasoningEffortMap),
-			Backups: append([]string(nil), profile.BackupProfiles...), SupportsStructuredOutput: profile.SupportsContractedStructuredOutput,
 			SupportsTemperature: *profile.SupportsTemperature, TokensParam: *profile.TokensParam,
-			ResponsesTokensParam: *profile.ResponsesTokensParam,
-			SupportsWebSearch:    profile.SupportsWebSearch != nil && *profile.SupportsWebSearch,
-			Pricing:              runtimeContractPricing(profile.Pricing),
+			SupportsStructuredOutput: profile.SupportsContractedStructuredOutput,
+			ResponsesTokensParam:     *profile.ResponsesTokensParam,
+			SupportsWebSearch:        profile.SupportsWebSearch != nil && *profile.SupportsWebSearch,
+			Pricing:                  runtimeContractPricing(profile.Pricing),
 		}
 	}
 	return profiles, nil
@@ -328,12 +257,12 @@ func resultFromRecord(record coreruntime.CallRecord) Result {
 	attempts := make([]Attempt, 0, len(record.Attempts))
 	for _, item := range record.Attempts {
 		attempts = append(attempts, Attempt{
-			Number: item.Number, RetryLocalNumber: item.RetryLocalNumber,
+			Number:    item.Number,
 			ProfileID: item.ProfileID, Target: publicExecutionTarget(item.Target),
 			Category: string(item.Category), HTTPStatus: item.Status,
 			Code: item.Code, Type: item.Type, ProviderRequestID: item.ProviderRequestID,
 			Retryable: item.Retryable, Wait: item.Delay, Duration: item.Duration,
-			Repair: item.Repair, BackupIndex: item.BackupIndex, ProviderUsed: item.ProviderUsed,
+			Repair: item.Repair, ProviderUsed: item.ProviderUsed,
 		})
 	}
 	return Result{

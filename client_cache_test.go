@@ -36,7 +36,7 @@ func TestSearchCachePersistenceProjection(t *testing.T) {
 				t.Fatal(err)
 			}
 			client.executor = executor
-			request := Request{ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "search fixture", WebSearch: true, CallType: CallTypeText, CacheMode: CacheModeCache, CacheVersion: "operation-v2", RetryPolicy: RetryPolicy{MaxAttempts: 1}}
+			request := Request{ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "search fixture", WebSearch: true, CallType: CallTypeText, CacheMode: CacheModeCache, CacheVersion: "operation-v2", RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}}}
 			fresh, err := client.Call(context.Background(), request)
 			if err != nil {
 				t.Fatal(err)
@@ -93,7 +93,7 @@ func TestCacheReplay(t *testing.T) {
 	request := Request{
 		ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "deterministic fixture",
 		CallType: CallTypeText, CacheMode: CacheModeCache, CacheVersion: "operation-v2",
-		RetryPolicy: RetryPolicy{MaxAttempts: 1},
+		RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 	}
 
 	first, err := client.Call(context.Background(), request)
@@ -160,7 +160,7 @@ func TestCacheV2RejectsV1Envelope(t *testing.T) {
 	request := Request{
 		ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "v2-only",
 		CallType: CallTypeText, CacheMode: CacheModeCache, CacheVersion: "operation-v2",
-		RetryPolicy: RetryPolicy{MaxAttempts: 1},
+		RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 	}
 	if _, err := client.Call(context.Background(), request); err != nil {
 		t.Fatal(err)
@@ -193,7 +193,7 @@ func TestEmptyProviderResponseRetriesSameOperationBeforeCaching(t *testing.T) {
 	client.newID = sequenceIDs()
 	result, err := client.Call(context.Background(), Request{
 		ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "retry empty output",
-		CallType: CallTypeText, CacheMode: CacheModeCache, RetryPolicy: RetryPolicy{MaxAttempts: 2},
+		CallType: CallTypeText, CacheMode: CacheModeCache, RecoveryPolicy: RecoveryPolicy{MaxAttempts: 2, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 	})
 	if err != nil {
 		t.Fatal(err)

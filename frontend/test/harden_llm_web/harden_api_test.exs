@@ -298,4 +298,33 @@ defmodule HardenLlmWeb.HardenAPITest do
     assert {:error, %APIError{category: :unauthorized}} = HardenAPI.get_state("missing-handle")
     assert SessionVault.count() >= 0
   end
+
+  # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-209
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-073
+  @tag :recovery
+  test "profile responses require backend defaults and current policy shape" do
+    handle = APIFixtures.insert_session()
+    result = APIFixtures.profiles([APIFixtures.profile_state()])["result"]
+
+    policy = %{
+      "maxAttempts" => 1,
+      "retryOn" => [],
+      "repairInvalidOutput" => false,
+      "backoff" => %{"baseDelayMs" => 0, "maxDelayMs" => 0}
+    }
+
+    result = put_in(result, ["defaults", "recoveryPolicy"], policy)
+    Req.Test.stub(HardenAPI, fn conn -> Req.Test.json(conn, APIFixtures.success(result)) end)
+    assert {:ok, ^result, %{}} = HardenAPI.list_profiles(handle)
+
+    for invalid <- [
+          Map.delete(result, "defaults"),
+          put_in(result, ["defaults", "recoveryPolicy"], nil),
+          put_in(result, ["defaults", "recoveryPolicy", "backoff"], %{}),
+          put_in(result, ["profiles", Access.at(0), "profile", "schemaVersion"], 1)
+        ] do
+      Req.Test.stub(HardenAPI, fn conn -> Req.Test.json(conn, APIFixtures.success(invalid)) end)
+      assert {:error, %APIError{category: :protocol}} = HardenAPI.list_profiles(handle)
+    end
+  end
 end

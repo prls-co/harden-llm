@@ -36,8 +36,8 @@ func TestClientArtifactPersistenceIsRedactedAndNonFatal(t *testing.T) {
 		client.newID = func() (string, error) { id := ids[0]; ids = ids[1:]; return id, nil }
 		result, err := client.Call(context.Background(), Request{
 			ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "fixture prompt", CallType: CallTypeText,
-			Context:     ObservabilityContext{OrganizationID: "org-1", TaskID: "task-1"},
-			RetryPolicy: RetryPolicy{MaxAttempts: 1},
+			Context:        ObservabilityContext{OrganizationID: "org-1", TaskID: "task-1"},
+			RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -61,7 +61,7 @@ func TestClientArtifactPersistenceIsRedactedAndNonFatal(t *testing.T) {
 		client.newID = func() (string, error) { return "fixed", nil }
 		result, err := client.Call(context.Background(), Request{
 			ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "fixture", CallType: CallTypeText,
-			RetryPolicy: RetryPolicy{MaxAttempts: 1},
+			RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 		})
 		if err != nil || result.Output != "ok" || len(result.Artifacts) != 0 {
 			t.Fatalf("artifact failure changed provider result: %#v %v", result, err)
@@ -87,8 +87,8 @@ func TestClientArtifactPersistenceIsRedactedAndNonFatal(t *testing.T) {
 		client.newID = func() (string, error) { id := ids[0]; ids = ids[1:]; return id, nil }
 		result, err := client.Call(context.Background(), Request{
 			ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "fixture", CallType: CallTypeText,
-			Context:     ObservabilityContext{OrganizationID: "org-1", TaskID: "task-1"},
-			RetryPolicy: RetryPolicy{MaxAttempts: 1},
+			Context:        ObservabilityContext{OrganizationID: "org-1", TaskID: "task-1"},
+			RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 		})
 		if err == nil || len(store.contents) != 2 || len(result.Artifacts) != 2 {
 			t.Fatalf("parse failure artifacts = %d/%d, error = %v", len(store.contents), len(result.Artifacts), err)

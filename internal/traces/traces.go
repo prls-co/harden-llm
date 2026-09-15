@@ -54,9 +54,7 @@ type Trace struct {
 
 type Attempt struct {
 	Number            int                     `json:"number"`
-	RetryLocalNumber  int                     `json:"retryLocalNumber"`
 	ProfileID         string                  `json:"profileId"`
-	BackupIndex       int                     `json:"backupIndex"`
 	Target            runtime.ExecutionTarget `json:"target"`
 	ProviderUsed      bool                    `json:"providerUsed"`
 	Category          retry.Category          `json:"category"`
@@ -104,9 +102,9 @@ func Project(record runtime.CallRecord, callContext runtime.ObservabilityContext
 	}
 	for _, source := range record.Attempts {
 		attempt := Attempt{
-			Number: source.Number, RetryLocalNumber: source.RetryLocalNumber,
-			ProfileID: source.ProfileID, BackupIndex: source.BackupIndex,
-			Target: source.Target, ProviderUsed: source.ProviderUsed,
+			Number:    source.Number,
+			ProfileID: source.ProfileID,
+			Target:    source.Target, ProviderUsed: source.ProviderUsed,
 			Category: source.Category, Status: source.Status, Retryable: source.Retryable,
 			Code: source.Code, Type: source.Type, ProviderRequestID: source.ProviderRequestID,
 			DelayMs: source.Delay.Milliseconds(), DurationMs: source.Duration.Milliseconds(), Repair: source.Repair,

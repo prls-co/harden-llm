@@ -16,40 +16,23 @@ import (
 
 const (
 	defaultCacheVersion = "operation-v2"
-	maximumRunAttempts  = 10
 	persistenceTimeout  = 5 * time.Second
 )
 
 type RunInput struct {
-	ProfileID        string              `json:"profileId"`
-	ModelID          string              `json:"modelId,omitempty"`
-	SystemPrompt     string              `json:"systemPrompt,omitempty"`
-	UserPrompt       string              `json:"userPrompt"`
-	CallType         hardenllm.CallType  `json:"callType"`
-	Schema           json.RawMessage     `json:"schema,omitempty"`
-	ReasoningEffort  string              `json:"reasoningEffort,omitempty"`
-	WebSearch        bool                `json:"webSearch,omitempty"`
-	ProviderOptions  map[string]any      `json:"providerOptions,omitempty"`
-	CacheMode        hardenllm.CacheMode `json:"cacheMode,omitempty"`
-	CacheVersion     string              `json:"cacheVersion,omitempty"`
-	MaxAttempts      int                 `json:"maxAttempts,omitempty"`
-	StructuredRepair bool                `json:"structuredRepair,omitempty"`
-	TimeoutMS        int                 `json:"timeoutMs,omitempty"`
-	InitialBackoffMS int                 `json:"initialBackoffMs,omitempty"`
-	MaximumBackoffMS int                 `json:"maximumBackoffMs,omitempty"`
-	RetryNetwork     *bool               `json:"retryNetwork,omitempty"`
-	RetryRateLimit   *bool               `json:"retryRateLimit,omitempty"`
-	RetryServerError *bool               `json:"retryServerError,omitempty"`
-	RetryEmpty       *bool               `json:"retryEmpty,omitempty"`
-	RetryParse       *bool               `json:"retryParse,omitempty"`
-	RepairEscalation *RepairEscalation   `json:"repairEscalation,omitempty"`
-}
-
-type RepairEscalation struct {
-	Attempt         int    `json:"attempt"`
-	ProfileID       string `json:"profileId,omitempty"`
-	ModelID         string `json:"modelId"`
-	ReasoningEffort string `json:"reasoningEffort,omitempty"`
+	ProfileID       string                   `json:"profileId"`
+	ModelID         string                   `json:"modelId,omitempty"`
+	SystemPrompt    string                   `json:"systemPrompt,omitempty"`
+	UserPrompt      string                   `json:"userPrompt"`
+	CallType        hardenllm.CallType       `json:"callType"`
+	Schema          json.RawMessage          `json:"schema,omitempty"`
+	ReasoningEffort string                   `json:"reasoningEffort,omitempty"`
+	WebSearch       bool                     `json:"webSearch,omitempty"`
+	ProviderOptions map[string]any           `json:"providerOptions,omitempty"`
+	CacheMode       hardenllm.CacheMode      `json:"cacheMode,omitempty"`
+	CacheVersion    string                   `json:"cacheVersion,omitempty"`
+	TimeoutMS       int                      `json:"timeoutMs,omitempty"`
+	RecoveryPolicy  hardenllm.RecoveryPolicy `json:"recoveryPolicy"`
 }
 
 type RunArtifact struct {
@@ -209,13 +192,7 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 		WebSearch: input.WebSearch,
 		Context:   hardenllm.ObservabilityContext{TaskID: runID, RunID: runID, OrganizationID: ownerID},
 		CacheMode: input.CacheMode, CacheVersion: input.CacheVersion,
-		RetryPolicy: hardenllm.RetryPolicy{
-			MaxAttempts: input.MaxAttempts, InitialBackoff: time.Duration(input.InitialBackoffMS) * time.Millisecond,
-			MaximumBackoff: time.Duration(input.MaximumBackoffMS) * time.Millisecond,
-			RetryNetwork:   input.RetryNetwork, RetryRateLimit: input.RetryRateLimit, RetryServerError: input.RetryServerError,
-			RetryEmpty: input.RetryEmpty, RetryParse: input.RetryParse,
-			StructuredRepair: hardenllm.StructuredRepairPolicy{Enabled: input.StructuredRepair, Escalation: repairEscalation(input.RepairEscalation)},
-		},
+		RecoveryPolicy: input.RecoveryPolicy,
 	})
 	completedAt := service.clock().UTC()
 	traceID := result.TraceID
@@ -238,7 +215,7 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 	}
 	usedRepair := attemptsUsedRepair(result.Attempts)
 	output = RunOutput{
-		SchemaVersion: 2, RunID: runID, Status: status,
+		SchemaVersion: 3, RunID: runID, Status: status,
 		Output: result.Output, CallID: result.CallID, TraceID: traceID,
 		SelectedTarget: result.SelectedTarget, ResultSource: result.ResultSource, Accounting: result.Accounting,
 		Attempts: cloneAttempts(result.Attempts),
@@ -277,7 +254,7 @@ func executionFields(result hardenllm.Result, output RunOutput) *postgres.Execut
 		producer = *result.ResultSource.Producer
 	}
 	return &postgres.ExecutionFields{
-		SchemaVersion:    2,
+		SchemaVersion:    3,
 		SelectedProvider: result.SelectedTarget.Provider, SelectedProtocol: result.SelectedTarget.Protocol,
 		SelectedEndpoint: result.SelectedTarget.Endpoint, SelectedModelID: result.SelectedTarget.ModelID,
 		ResultSource:      string(result.ResultSource.Kind),
@@ -370,31 +347,19 @@ func validateRunInput(input RunInput) error {
 	if input.CacheMode != "" && input.CacheMode != hardenllm.CacheModeOff && input.CacheMode != hardenllm.CacheModeCache && input.CacheMode != hardenllm.CacheModeRefresh {
 		return fmt.Errorf("%w: cache mode", ErrInvalidRequest)
 	}
-	if len(input.CacheVersion) > 64 || (input.MaxAttempts < 0 || input.MaxAttempts > maximumRunAttempts) || input.TimeoutMS < 0 || input.TimeoutMS > 60000 || input.InitialBackoffMS < 0 || input.InitialBackoffMS > 60000 || input.MaximumBackoffMS < 0 || input.MaximumBackoffMS > 600000 {
+	if len(input.CacheVersion) > 64 || input.TimeoutMS < 0 || input.TimeoutMS > 60000 {
 		return fmt.Errorf("%w: run controls", ErrInvalidRequest)
 	}
-	if input.RepairEscalation != nil {
-		escalation := input.RepairEscalation
-		if escalation.Attempt < 2 || escalation.Attempt > maximumRunAttempts ||
-			(strings.TrimSpace(escalation.ProfileID) != "" && (!utf8.ValidString(escalation.ProfileID) || len(escalation.ProfileID) > 1500)) ||
-			!utf8.ValidString(escalation.ModelID) || strings.TrimSpace(escalation.ModelID) == "" || len(escalation.ModelID) > 512 ||
-			(escalation.ReasoningEffort != "" && escalation.ReasoningEffort != string(hardenllm.ReasoningEffortLowest) && escalation.ReasoningEffort != string(hardenllm.ReasoningEffortMiddle) && escalation.ReasoningEffort != string(hardenllm.ReasoningEffortHighest)) {
-			return fmt.Errorf("%w: repair escalation", ErrInvalidRequest)
-		}
+	if err := input.RecoveryPolicy.Validate(); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidRequest, err)
+	}
+	if err := input.RecoveryPolicy.ValidateProviderOptions(input.ProviderOptions); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidRequest, err)
 	}
 	if encoded, err := json.Marshal(input.ProviderOptions); err != nil || len(encoded) > 32<<10 || containsSecretKey(input.ProviderOptions) {
 		return fmt.Errorf("%w: provider options", ErrInvalidRequest)
 	}
 	return nil
-}
-
-func repairEscalation(input *RepairEscalation) *hardenllm.RepairEscalation {
-	if input == nil {
-		return nil
-	}
-	return &hardenllm.RepairEscalation{
-		Attempt: input.Attempt, ProfileID: strings.TrimSpace(input.ProfileID), ModelID: strings.TrimSpace(input.ModelID), ReasoningEffort: hardenllm.ReasoningEffort(strings.TrimSpace(input.ReasoningEffort)),
-	}
 }
 
 type ownerCacheStore struct {

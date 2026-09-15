@@ -29,7 +29,7 @@ defmodule HardenLlmWeb.EmbeddingLiveTest do
           Req.Test.json(conn, APIFixtures.success(nil, state))
 
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [primary, secondary]}))
+          Req.Test.json(conn, APIFixtures.profiles([primary, secondary]))
 
         _ ->
           flunk("unexpected API call: #{conn.method} #{conn.request_path}")
@@ -69,14 +69,13 @@ defmodule HardenLlmWeb.EmbeddingLiveTest do
 
     view |> element("#embed-secondary-model-config-toggle") |> render_click()
     view |> element("#embed-secondary-profile-retry-toggle") |> render_click()
-    view |> element("#embed-secondary-profile-escalation-config-toggle") |> render_click()
 
     assert has_element?(view, "#embed-secondary-model-options")
-    assert has_element?(view, "#embed-secondary-profile-escalation-config")
+    assert has_element?(view, "#embed-secondary-profile-recovery-policy")
 
     assert has_element?(
              view,
-             ~s(input[type="file"][name="embed_secondary_escalation_profile_bundle"])
+             ~s(input[type="file"][name="embed_secondary_profile_bundle"])
            )
 
     view |> element("#embed-primary-workspace-cache-toggle") |> render_click()

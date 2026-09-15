@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"slices"
 	"strings"
@@ -16,9 +15,7 @@ import (
 	"github.com/prls-co/harden-llm/internal/profiles"
 )
 
-const profileBundleSchemaVersion = 1
-
-var ErrProfileConflict = errors.New("gateway: profile conflict")
+const profileBundleSchemaVersion = 2
 
 type ModelRefresher interface {
 	RefreshModels(context.Context, profiles.Profile, profiles.CredentialPayload) ([]profiles.Model, error)
@@ -106,16 +103,8 @@ func (service *ProfileService) Profile(ctx context.Context, ownerID, profileID s
 }
 
 func (service *ProfileService) Delete(ctx context.Context, ownerID, profileID string) error {
-	catalog, err := service.catalog(ctx, ownerID)
-	if err != nil {
+	if err := service.ensureSeeded(ctx, ownerID); err != nil {
 		return err
-	}
-	if _, ok := catalog[profileID]; !ok {
-		return postgres.ErrNotFound
-	}
-	delete(catalog, profileID)
-	if err := profiles.ValidateCatalog(catalog); err != nil {
-		return fmt.Errorf("%w: profile is referenced by the remaining catalog", ErrProfileConflict)
 	}
 	return service.store.DeleteProfile(ctx, ownerID, profileID)
 }

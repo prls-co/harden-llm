@@ -323,7 +323,7 @@ func (prober RootProfileProber) Probe(ctx context.Context, profile profiles.Prof
 	_, err = client.Call(ctx, hardenllm.Request{
 		ProfileID: rootProfile.LLMProfile, Profiles: hardenllm.ProfileCatalog{rootProfile.LLMProfile: rootProfile},
 		UserPrompt: "Reply with OK.", CallType: hardenllm.CallTypeText,
-		RetryPolicy: hardenllm.RetryPolicy{MaxAttempts: 1},
+		RecoveryPolicy: hardenllm.RecoveryPolicy{MaxAttempts: 1, RetryOn: []hardenllm.RecoveryCategory{}, Backoff: hardenllm.RecoveryBackoff{}},
 	})
 	return err
 }
@@ -356,7 +356,7 @@ func (prober *sharedRootProfileProber) Probe(ctx context.Context, profile profil
 	}), hardenllm.Request{
 		ProfileID: rootProfile.LLMProfile, Profiles: hardenllm.ProfileCatalog{rootProfile.LLMProfile: rootProfile},
 		UserPrompt: "Reply with OK.", CallType: hardenllm.CallTypeText,
-		RetryPolicy: hardenllm.RetryPolicy{MaxAttempts: 1},
+		RecoveryPolicy: hardenllm.RecoveryPolicy{MaxAttempts: 1, RetryOn: []hardenllm.RecoveryCategory{}, Backoff: hardenllm.RecoveryBackoff{}},
 	})
 	return err
 }
@@ -373,7 +373,6 @@ func (probeCredentialResolver) ResolveCredential(ctx context.Context, _ hardenll
 
 func probeRootProfile(profile profiles.Profile) hardenllm.Profile {
 	result := rootProfile(profile)
-	result.BackupProfiles = nil
 	return result
 }
 
@@ -391,7 +390,7 @@ func rootProfile(profile profiles.Profile) hardenllm.Profile {
 		SupportsContractedStructuredOutput: profile.SupportsContractedStructuredOutput,
 		SupportsWebSearch:                  profiles.NativeWebSearchSupported(profile),
 		DefaultOptions:                     cloneAnyMap(profile.DefaultOptions), ReasoningEffortMap: cloneNestedAnyMap(profile.ReasoningEffortMap),
-		BackupProfiles: append([]string(nil), profile.BackupProfiles...),
+		RecoveryPolicy: profile.RecoveryPolicy,
 	}
 	if profile.SupportsTemperature != nil {
 		result.SupportsTemperature = *profile.SupportsTemperature
