@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"slices"
 	"strings"
@@ -203,7 +204,12 @@ func (service *ProfileService) ExportBundle(ctx context.Context, ownerID, bundle
 
 func (service *ProfileService) ReplaceBundle(ctx context.Context, ownerID string, bundle ProfileBundle) ([]ProfileState, error) {
 	ownerID = strings.TrimSpace(ownerID)
-	if bundle.SchemaVersion != profileBundleSchemaVersion || strings.TrimSpace(bundle.BundleID) == "" || bundle.CreatedAt.IsZero() || bundle.Profiles == nil || bundle.CredentialIDs == nil {
+	if bundle.SchemaVersion != profileBundleSchemaVersion {
+		return nil, &profiles.ValidationError{Code: "profile_invalid", FieldErrors: []profiles.FieldError{{
+			Field: "schemaVersion", Message: fmt.Sprintf("must be %d; prepare a current-format profile bundle", profileBundleSchemaVersion),
+		}}}
+	}
+	if strings.TrimSpace(bundle.BundleID) == "" || bundle.CreatedAt.IsZero() || bundle.Profiles == nil || bundle.CredentialIDs == nil {
 		return nil, errors.New("gateway: profile bundle is invalid")
 	}
 	normalizedCatalog := make(profiles.Catalog, len(bundle.Profiles))

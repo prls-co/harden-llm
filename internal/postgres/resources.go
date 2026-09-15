@@ -569,7 +569,7 @@ func insertExecutionRun(ctx context.Context, transaction pgx.Tx, run RunRecord) 
 }
 
 func validateExecutionFields(execution ExecutionFields) error {
-	if execution.SchemaVersion != 2 || strings.TrimSpace(execution.SelectedProvider) == "" ||
+	if execution.SchemaVersion != 3 || strings.TrimSpace(execution.SelectedProvider) == "" ||
 		strings.TrimSpace(execution.SelectedProtocol) == "" || strings.TrimSpace(execution.SelectedEndpoint) == "" ||
 		strings.TrimSpace(execution.SelectedModelID) == "" {
 		return errors.New("postgres: canonical execution identity is invalid")

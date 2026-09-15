@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"time"
 
@@ -28,6 +29,9 @@ func runSyncProfiles(ctx context.Context, args []string, stdin io.Reader, stdout
 	}
 	if err := decoder.Decode(new(any)); err != io.EOF {
 		return errors.New("sync-profiles: unexpected trailing configuration")
+	}
+	if err := profiles.ValidateCatalog(config.Profiles); err != nil {
+		return fmt.Errorf("sync-profiles: profiles require schemaVersion %d and a complete recoveryPolicy", profiles.SchemaVersion)
 	}
 	keys, err := parseEncryptionKeys(getenv(encryptionKeysEnvironment))
 	if err != nil {

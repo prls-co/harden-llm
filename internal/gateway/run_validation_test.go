@@ -3,11 +3,16 @@ package gateway
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-012
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	hardenllm "github.com/prls-co/harden-llm"
+	"github.com/prls-co/harden-llm/internal/profiles"
 )
 
 func TestValidateRunInputAllowsProviderTokenLimitOptions(t *testing.T) {
@@ -23,6 +28,44 @@ func TestValidateRunInputAllowsProviderTokenLimitOptions(t *testing.T) {
 				t.Fatalf("provider request option %q rejected: %v", key, err)
 			}
 		})
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-207
+func TestRecoveryContractImports(t *testing.T) {
+	data, err := os.ReadFile("../../config/llm-profiles.example.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var example struct {
+		Profiles profiles.Catalog `json:"profiles"`
+	}
+	if err := json.Unmarshal(data, &example); err != nil {
+		t.Fatal(err)
+	}
+	if err := profiles.ValidateCatalog(example.Profiles); err != nil {
+		t.Fatalf("current configuration example: %v", err)
+	}
+	// The old bundle fails before any vault, provider or store is needed.
+	service := &ProfileService{}
+	_, err = service.ReplaceBundle(context.Background(), "owner", ProfileBundle{
+		SchemaVersion: 1, BundleID: "retired", CreatedAt: time.Date(2026, 9, 14, 0, 0, 0, 0, time.UTC),
+		Profiles: profiles.Catalog{}, CredentialIDs: map[string]string{},
+	})
+	var invalid *profiles.ValidationError
+	if !errors.As(err, &invalid) || len(invalid.FieldErrors) != 1 || invalid.FieldErrors[0].Field != "schemaVersion" || !strings.Contains(invalid.FieldErrors[0].Message, "2") {
+		t.Fatalf("retired bundle must identify the current format, got %v", err)
+	}
+	catalog, err := profiles.DefaultCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for id, profile := range catalog {
+		profile.SchemaVersion = 1
+		if err := profiles.ValidateCatalog(profiles.Catalog{id: profile}); err == nil {
+			t.Fatal("retired profile accepted")
+		}
+		break
 	}
 }
 

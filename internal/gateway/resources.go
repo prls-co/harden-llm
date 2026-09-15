@@ -300,7 +300,7 @@ func (service *ResourceService) History(ctx context.Context, ownerID, encodedCur
 	for _, record := range records {
 		items = append(items, HistoryItem{
 			RunID: record.ID, ProfileID: record.ProfileID, TraceID: record.TraceID, Status: record.Status,
-			Request: append(json.RawMessage(nil), record.Request...), Result: normalizeRunResultDocument(record.Result),
+			Request: append(json.RawMessage(nil), record.Request...), Result: append(json.RawMessage(nil), record.Result...),
 			StartedAt: record.StartedAt, CompletedAt: record.CompletedAt,
 		})
 	}
@@ -418,7 +418,7 @@ func (service *ResourceService) Trace(ctx context.Context, ownerID, traceID stri
 	if err != nil {
 		return TraceView{}, err
 	}
-	result := normalizeRunResultDocument(run.Result)
+	result := append(json.RawMessage(nil), run.Result...)
 	return TraceView{
 		TraceID: traceID, Record: result,
 		Observations: publicObservations, Artifacts: publicArtifacts,
@@ -427,28 +427,6 @@ func (service *ResourceService) Trace(ctx context.Context, ownerID, traceID stri
 			Response: availableTraceResource(result),
 		},
 	}, nil
-}
-
-// normalizeRunResultDocument repairs the only non-semantic nullability drift
-// emitted by older run records. The v2 REST contract defines attempts as an
-// array, including cache hits and runs that failed before an attempt started.
-// Keep this at the read boundary so retained history and traces converge to
-// the same shape as newly serialized RunOutput values without rewriting data.
-func normalizeRunResultDocument(document json.RawMessage) json.RawMessage {
-	clone := append(json.RawMessage(nil), document...)
-	var object map[string]json.RawMessage
-	if err := json.Unmarshal(document, &object); err != nil {
-		return clone
-	}
-	if attempts, ok := object["attempts"]; !ok || !bytes.Equal(bytes.TrimSpace(attempts), []byte("null")) {
-		return clone
-	}
-	object["attempts"] = json.RawMessage("[]")
-	normalized, err := json.Marshal(object)
-	if err != nil {
-		return clone
-	}
-	return normalized
 }
 
 func availableTraceResource(payload json.RawMessage) TraceResource {

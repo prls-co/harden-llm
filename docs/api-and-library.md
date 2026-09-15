@@ -28,8 +28,10 @@ func (key credential) ResolveCredential(
 }
 
 func main() {
+    policy := hardenllm.DefaultRecoveryPolicy()
+    policy.MaxAttempts = 1
     profile := hardenllm.Profile{
-        SchemaVersion: 1,
+        SchemaVersion: 2,
         LLMProfile: "Primary",
         Provider: "openai",
         APIInferenceType: "responses",
@@ -39,6 +41,7 @@ func main() {
         SupportsContractedStructuredOutput: true,
         ResponsesTokensParam: "max_output_tokens",
         DefaultOptions: map[string]any{"max_tokens": 64},
+        RecoveryPolicy: policy,
     }
     client, err := hardenllm.New(hardenllm.Options{
         Credentials: credential("resolve-from-a-secret-store"),
@@ -56,13 +59,23 @@ func main() {
         UserPrompt: "Reply with OK.",
         CallType: hardenllm.CallTypeText,
         CacheMode: hardenllm.CacheModeOff,
-        RetryPolicy: hardenllm.RetryPolicy{MaxAttempts: 1},
+        RecoveryPolicy: policy,
     })
     if err != nil { panic(err) }
     fmt.Printf("output=%v trace=%s tokens=%d\n",
-        result.Output, result.TraceID, result.Usage.TotalTokens)
+        result.Output, result.TraceID, result.Accounting.Result.Usage.TotalTokens)
 }
 ```
+
+Every profile and request supplies a complete `recoveryPolicy`. The public
+constructor creates defaults; execution never fills in omitted settings.
+`maxAttempts` counts the first provider call plus every retry and repair.
+`retryOn: []` disables ordinary retries; `repairInvalidOutput: false` stops on
+invalid structured output. Zero delays remain zero. Repair uses the selected
+profile/model and original schema. Text calls retain the preference but do not
+perform structured repair. Profile/state/bundle documents use schema version 2;
+run results use version 3. The profiles response supplies creation defaults at
+`result.defaults.recoveryPolicy`.
 
 Credential resolution happens only after endpoint validation and is bound to
 the normalized origin. Inject OTel providers, cache, artifact store, and logger
@@ -113,13 +126,13 @@ without contacting a provider:
 ```bash
 printf '%s' "$OPENAI_API_KEY" | jq -Rs '{
   profile: {
-    schemaVersion:1, llmProfile:"Primary", provider:"openai",
+    schemaVersion:2, llmProfile:"Primary", provider:"openai",
     apiInferenceType:"responses", endpointCredentialScope:"user",
     baseUrl:"https://api.openai.com/v1", modelId:"replace-with-model-id",
     pricing:null, supportsTemperature:false,
     supportsContractedStructuredOutput:true, tokensParam:null,
     responsesTokensParam:"max_output_tokens", defaultOptions:{max_tokens:64},
-    backupProfiles:[]
+    recoveryPolicy:{"maxAttempts":1,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}
   },
   credentialId:"primary-openai", credential:{apiKey:.}
 }' | curl --fail-with-body --silent --show-error \
@@ -133,7 +146,7 @@ failure; inspect history before deciding whether to submit another run.
 
 ```bash
 jq -n '{profileId:"Primary",userPrompt:"Reply with OK.",callType:"text",
-  cacheMode:"off",maxAttempts:1,timeoutMs:60000}' | \
+  cacheMode:"off",recoveryPolicy:{"maxAttempts":1,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}},timeoutMs:60000}' | \
 curl --fail-with-body --silent --show-error \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' --data-binary @- \
@@ -181,7 +194,7 @@ curl --fail-with-body --silent --show-error --request POST "$API/api/v1/run" \
   --header 'Accept: application/json' \
   --header "Authorization: Bearer ${TOKEN}" \
   --header 'Content-Type: application/json' \
-  --data-raw '{"cacheMode":"cache","cacheVersion":"operation-v2","callType":"text","initialBackoffMs":500,"maxAttempts":4,"maximumBackoffMs":8000,"modelId":"gpt-5.6-luna","profileId":"CPA GPT-5.6 Luna","providerOptions":{"max_tokens":16000,"stream":true},"reasoningEffort":"lowest","retryEmpty":true,"retryNetwork":true,"retryParse":true,"retryRateLimit":true,"retryServerError":true,"systemPrompt":"You are a helpful assistant","userPrompt":"write 2 haiku joke about burning man","webSearch":true}' | jq
+  --data-raw '{"cacheMode":"cache","cacheVersion":"operation-v2","callType":"text","modelId":"gpt-5.6-luna","profileId":"CPA GPT-5.6 Luna","providerOptions":{"max_tokens":16000,"stream":true},"reasoningEffort":"lowest","systemPrompt":"You are a helpful assistant","userPrompt":"write 2 haiku joke about burning man","webSearch":true,"recoveryPolicy":{"maxAttempts":4,"retryOn":["network","rate_limit","server_error","empty_response","provider_retry"],"repairInvalidOutput":true,"backoff":{"baseDelayMs":500,"maxDelayMs":8000}}}' | jq
 unset TOKEN
 ```
 

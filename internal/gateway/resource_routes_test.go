@@ -14,10 +14,12 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	hardenllm "github.com/prls-co/harden-llm"
 	"github.com/prls-co/harden-llm/internal/artifacts"
 	"github.com/prls-co/harden-llm/internal/gateway"
 	"github.com/prls-co/harden-llm/internal/gateway/auth"
@@ -133,6 +135,16 @@ func TestResourceRoutes(t *testing.T) {
 	}
 	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/profiles", nil, authA)
 	profilesResult := response.JSON["result"].(map[string]any)["profiles"].([]any)
+	// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-208
+	defaults := response.JSON["result"].(map[string]any)["defaults"].(map[string]any)
+	wantDefaults, _ := json.Marshal(hardenllm.DefaultRecoveryPolicy())
+	gotDefaults, _ := json.Marshal(defaults["recoveryPolicy"])
+	var gotPolicy, wantPolicy any
+	_ = json.Unmarshal(gotDefaults, &gotPolicy)
+	_ = json.Unmarshal(wantDefaults, &wantPolicy)
+	if !reflect.DeepEqual(gotPolicy, wantPolicy) {
+		t.Fatalf("profiles defaults = %s, want %s", gotDefaults, wantDefaults)
+	}
 	if len(profilesResult) != 1 || bytes.Contains(response.Body, []byte("ciphertext")) {
 		t.Fatalf("profile list = %s", response.Body)
 	}
@@ -180,6 +192,14 @@ func TestResourceRoutes(t *testing.T) {
 		t.Fatal("invalid bundle partially replaced prior profiles")
 	}
 	validBytes, _ := json.Marshal(bundle)
+	oldBundle := bundle
+	oldBundle.SchemaVersion = 1
+	oldBytes, _ := json.Marshal(oldBundle)
+	response = apiRequest(t, server.Client(), http.MethodPut, server.URL+"/api/v1/profiles/bundle", oldBytes, authA)
+	assertEnvelope(t, response, http.StatusUnprocessableEntity, true)
+	if !bytes.Contains(response.Body, []byte(`"schemaVersion"`)) {
+		t.Fatalf("old bundle format error lacks field identity: %s", response.Body)
+	}
 	response = apiRequest(t, server.Client(), http.MethodPut, server.URL+"/api/v1/profiles/bundle", validBytes, authA)
 	assertEnvelope(t, response, http.StatusOK, false)
 

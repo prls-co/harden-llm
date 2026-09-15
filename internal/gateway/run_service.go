@@ -226,7 +226,7 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 	requestDocument, _ := json.Marshal(input)
 	resultDocument, _ := json.Marshal(output)
 	traceDocument, _ := json.Marshal(map[string]any{
-		"schemaVersion": 2, "runId": runID, "traceId": traceID,
+		"schemaVersion": 3, "runId": runID, "traceId": traceID,
 	})
 	observations := runObservations(ownerID, traceID, result.Attempts, completedAt)
 	persistContext, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), persistenceTimeout)

@@ -1,0 +1,40 @@
+{
+  "profiles": {
+    "Example": {
+      "apiInferenceType": "responses",
+      "baseUrl": "https://api.openai.com/v1",
+      "defaultOptions": {
+        "max_tokens": 512,
+        "temperature": 0
+      },
+      "endpointCredentialScope": "user",
+      "llmProfile": "Example",
+      "modelId": "replace-with-model-id",
+      "pricing": null,
+      "provider": "openai",
+      "responsesTokensParam": "max_output_tokens",
+      "schemaVersion": 2,
+      "supportsContractedStructuredOutput": true,
+      "supportsTemperature": false,
+      "tokensParam": null,
+      "recoveryPolicy": {
+        "maxAttempts": 4,
+        "retryOn": [
+          "network",
+          "rate_limit",
+          "server_error",
+          "empty_response",
+          "provider_retry"
+        ],
+        "repairInvalidOutput": true,
+        "backoff": {
+          "baseDelayMs": 500,
+          "maxDelayMs": 8000
+        }
+      }
+    }
+  },
+  "credentialEnv": {
+    "Example": "EXAMPLE_API_KEY"
+  }
+}

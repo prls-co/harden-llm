@@ -2,9 +2,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { sharedProfiles, sharedApplicationVariables, previewTokenVariables, syncSharedProfiles, verifySharedProfiles } from '../shared-profiles.mjs';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+
+const example = JSON.parse(readFileSync(new URL('../../config/llm-profiles.example.json', import.meta.url), 'utf8')).profiles.Example;
 
 function configFile(t, profiles, credentialEnv = {Example:'EXAMPLE_API_KEY'}) {
   const dir = mkdtempSync(path.join(tmpdir(),'hllm-config-test-'));
@@ -15,7 +17,7 @@ function configFile(t, profiles, credentialEnv = {Example:'EXAMPLE_API_KEY'}) {
 }
 
 test('shared configuration resolves only explicitly bound env keys, without interpolation', t => {
-  const catalog = { Example: { llmProfile: 'Example', baseUrl: 'https://example.test/v1' } };
+  const catalog = { Example: example };
   const values = {
     HARDEN_LLM_CONFIG_FILE: configFile(t,catalog),
     EXAMPLE_API_KEY: 'fixture$not-expanded',
@@ -34,7 +36,7 @@ test('only portable application variables are shared', () => {
 });
 
 test('sync uses local encryption and DB, stdin keys, both accounts and no provider call', t => {
-  const values = { HARDEN_LLM_CONFIG_FILE:configFile(t,{Example:{llmProfile:'Example'}}), EXAMPLE_API_KEY:'fixture-private', TEST_LOGIN:'guest@example.test', HARDEN_LLM_LOCAL_OPERATOR_EMAIL:'operator@example.test' };
+  const values = { HARDEN_LLM_CONFIG_FILE:configFile(t,{Example:example}), EXAMPLE_API_KEY:'fixture-private', TEST_LOGIN:'guest@example.test', HARDEN_LLM_LOCAL_OPERATOR_EMAIL:'operator@example.test' };
   const calls=[];
   const run=(bin,args,options)=>{calls.push({bin,args,options});return args[0]==='inspect'?JSON.stringify([{Id:'target-id',Config:{Labels:{'com.docker.compose.project':'hllm-preview-dev','com.docker.compose.service':'gateway'},Env:['HARDEN_LLM_DATABASE_URL=local-db','HARDEN_LLM_ENCRYPTION_KEYS=local-keys','HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID=local','UNRELATED_SECRET=excluded']}}]):'{"changed":false}';};
   assert.deepEqual(syncSharedProfiles('target','image',values,run),{accounts:2,profiles:1,configured:1,changed:false});
@@ -51,7 +53,7 @@ test('sync uses local encryption and DB, stdin keys, both accounts and no provid
 });
 
 test('readback verifies model settings and key availability, and logs out on mismatch', async t => {
-  const profile={llmProfile:'Example',modelId:'model'};
+  const profile={...example,modelId:'model'};
   const values={HARDEN_LLM_CONFIG_FILE:configFile(t,{Example:profile}),EXAMPLE_API_KEY:'fixture-only',TEST_LOGIN:'guest',TEST_PASSWORD:'guest-password',HARDEN_LLM_LOCAL_OPERATOR_EMAIL:'operator',HARDEN_LLM_LOCAL_OPERATOR_PASSWORD:'operator-password'};
   for(const mismatch of [false,true]) {
     const calls=[];
