@@ -558,11 +558,11 @@
       }
     },
     "applicationRelease": {
-      "applicationBearingSHA": "f285ccdcbf66a597c506491126c37e07b4100bb0",
-      "sourceMainSHA": "f285ccdcbf66a597c506491126c37e07b4100bb0",
-      "frontendRelease": "f285ccdcbf66a597c506491126c37e07b4100bb0",
-      "frontendImageDigest": "sha256:2eed4af24d6fcadfd15806159c9725a90ae529001b23bd7be6cb8ffa509cc0ba",
-      "frontendContainerId": "057ea03fdf77",
+      "applicationBearingSHA": "f50375e244324718bf71a032193b3117b7861549",
+      "sourceMainSHA": "f50375e244324718bf71a032193b3117b7861549",
+      "frontendRelease": "f50375e244324718bf71a032193b3117b7861549",
+      "frontendImageDigest": "sha256:3e66d51c9b5b0ca14db0d5e5fafd3162db69c830fd1596f495a7491a282be3fd",
+      "frontendContainerId": "b7b83076b8db",
       "gatewayRelease": "9284df00a3270fd592051352da149077704dc521",
       "gatewayImageDigest": "sha256:89c0843d7cc5ec9589d2b9579000c6bc7a1ff329c0788f340ab03d6cb0c35f09",
       "gatewayContainerId": "2fe7e550b634",
@@ -570,6 +570,72 @@
       "environmentFileRole": "production Compose env file supplied with --env-file"
     },
     "latestProductionCertification": {
+      "mergedMainSHA": "f50375e244324718bf71a032193b3117b7861549",
+      "certifiedAt": "2026-09-15T01:31:45.034Z",
+      "evidencePath": "docs/release-certification.md",
+      "localReceiptPath": "plans/evidence/harden-llm/field-help-production-f50375e.json",
+      "hostedWorkflow": "https://github.com/prls-co/harden-llm/actions/runs/34917188083",
+      "codeQLWorkflow": "https://github.com/prls-co/harden-llm/actions/runs/34917187735",
+      "releaseTier": "routine frontend change: 80 focused Phoenix tests and all 8 browser-free fast tasks passed with zero cleanup errors; dev/main fast CI and CodeQL passed; full release suite was not rerun",
+      "verificationEvidenceSHA256": "f243af10f64ef34fe21f1406bc205b85767d4b8822e354d1d24950bbbfd529a7",
+      "httpVerification": {
+        "accepted": true,
+        "identityHealth": "healthy; frontend and gateway match their separate applicationRelease identities, zero restarts",
+        "probes": {
+          "webHealthz": 200,
+          "apiHealthz": 200,
+          "apiReadyz": 200
+        },
+        "guestAndOperatorWebLogin": "cookie/CSRF login 302, authenticated workspace shell 200, logout 302",
+        "runtimeFieldHelpVariants": [
+          {
+            "type": "checkbox",
+            "nonSubmitHelpButton": true,
+            "independentOfLabel": true,
+            "hiddenHelp": true,
+            "associatedHelpID": "verification-checkbox-help",
+            "visibilityAndAriaCommands": true
+          },
+          {
+            "type": "select",
+            "nonSubmitHelpButton": true,
+            "independentOfLabel": true,
+            "hiddenHelp": true,
+            "associatedHelpID": "verification-select-help",
+            "visibilityAndAriaCommands": true
+          },
+          {
+            "type": "textarea",
+            "nonSubmitHelpButton": true,
+            "independentOfLabel": true,
+            "hiddenHelp": true,
+            "associatedHelpID": "verification-textarea-help",
+            "visibilityAndAriaCommands": true
+          },
+          {
+            "type": "number",
+            "nonSubmitHelpButton": true,
+            "independentOfLabel": true,
+            "hiddenHelp": true,
+            "associatedHelpID": "verification-number-help",
+            "visibilityAndAriaCommands": true
+          }
+        ],
+        "publishedHelpStyles": {
+          "url": "https://harden-llm.prls.co/assets/css/app-792742a1ef26d2bfae8e000521067232.css?vsn=d",
+          "status": 200,
+          "disclosureAndFocusStyles": true
+        },
+        "verificationSessionsLoggedOut": true
+      },
+      "frontendOnly": true,
+      "productionConfigurationPreserved": true,
+      "infrastructureAndSessionVolumePreserved": true,
+      "rollbackDirectory": "/home/kirill/.local/state/harden-llm-field-help-f50375e",
+      "browserLayoutChecked": false,
+      "providerCallsMade": 0
+    },
+    "previousProductionCertification": {
       "mergedMainSHA": "f285ccdcbf66a597c506491126c37e07b4100bb0",
       "certifiedAt": "2026-09-15T01:01:47.058Z",
       "evidencePath": "docs/release-certification.md",
@@ -605,43 +671,6 @@
       "rollbackDirectory": "/home/kirill/.local/state/harden-llm-repair-f285ccd",
       "browserLayoutChecked": false,
       "providerCallsMade": 0
-    },
-    "previousProductionCertification": {
-      "mergedMainSHA": "9284df00a3270fd592051352da149077704dc521",
-      "certifiedAt": "2026-09-14T17:49:51.159Z",
-      "evidencePath": "docs/release-certification.md",
-      "localReceiptPath": "plans/evidence/harden-llm/web-search-production-2026-09-14.json",
-      "hostedWorkflow": "https://github.com/prls-co/harden-llm/actions/runs/34876325169",
-      "codeQLWorkflow": "https://github.com/prls-co/harden-llm/actions/runs/34876316407",
-      "releaseTier": "local browser-free canonical release selector accepted 24 tasks with zero failures and cleanup errors; 176 deterministic Phoenix tests passed, 4 opt-in tests excluded; hosted fast CI and CodeQL passed",
-      "releaseEvidenceSHA256": "73cced6fe5d8a6485ecac46c985dc1d6fbc00d6d909c5e5e7fd88a0a979939aa",
-      "composeSmoke": "release-owned backend Compose passed; no browser task selected",
-      "httpVerification": {
-        "accepted": true,
-        "identityHealth": "healthy; gateway and web labels match applicationRelease, zero restarts",
-        "probes": {
-          "webHealthz": 200,
-          "apiHealthz": 200,
-          "apiReadyz": 200
-        },
-        "guestAndOperatorWebLogin": "cookie/CSRF login 302, authenticated workspace 200, logout 302",
-        "staticTokenHistory": 200,
-        "anonymousHistory": 401,
-        "retainedGuestHistory": "one run and trace readable; attempts arrays verified",
-        "servedCSSFoldRules": true,
-        "verificationSessionsLoggedOut": true
-      },
-      "configuration": {
-        "accounts": 2,
-        "managedProfilesPerAccount": 31,
-        "configuredBindingsPerAccount": 21,
-        "readbackVerified": true
-      },
-      "backupRestoreVerified": true,
-      "infrastructureAndDataPreserved": true,
-      "browserLayoutChecked": false,
-      "providerCallsMade": 0,
-      "dependencyQualification": "three pre-existing grpc Dependabot alerts remain; govulncheck found no affected code"
     },
     "deploymentCertification": {
       "implementationPRs": [33, 34, 35, 36, 37],

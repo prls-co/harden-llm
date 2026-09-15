@@ -1518,3 +1518,48 @@ The previous frontend image, Compose rollback override, and private environment
 snapshot are retained in
 `/home/kirill/.local/state/harden-llm-repair-f285ccd`. Rollback replaces only the
 frontend and retains the same production session volume and settings.
+
+## Clickable field help — production (2026-09-15 UTC)
+
+Application source `f50375e244324718bf71a032193b3117b7861549` was promoted from `dev` to
+`main` and deployed to <https://harden-llm.prls.co/> at
+`2026-09-15T01:31:08.468Z`. The shared input component now renders each
+`?` as a non-submit button that expands or collapses inline help. Buttons
+remain outside their field labels, so opening help does not activate a checkbox
+or another input. Native button semantics provide keyboard activation; the
+client commands update both visibility and `aria-expanded`. WEB-TEST-052
+covers all four input variants, independent field IDs, labels, and help content.
+
+Fresh validation passed **80 focused Phoenix tests**, formatting/whitespace
+checks, and all **8 browser-free fast tasks** with no cleanup errors.
+[Dev fast CI](https://github.com/prls-co/harden-llm/actions/runs/34917161881),
+[main fast CI](https://github.com/prls-co/harden-llm/actions/runs/34917188083),
+and [CodeQL](https://github.com/prls-co/harden-llm/actions/runs/34917187735) passed
+on this application SHA. This routine frontend change did not rerun the full
+release suite; the preceding release entry remains retained evidence for the
+unchanged backend and infrastructure.
+
+[Dev deployment](https://github.com/prls-co/harden-llm/actions/runs/34917435535)
+rebuilt only Phoenix. Production reused that immutable image with
+`--no-build --no-deps --wait`. The runtime environment and named session
+volume were preserved, and all other production containers remained unchanged.
+
+| Component | Runtime release | Immutable image |
+| --- | --- | --- |
+| Frontend | `f50375e244324718bf71a032193b3117b7861549` | `sha256:3e66d51c9b5b0ca14db0d5e5fafd3162db69c830fd1596f495a7491a282be3fd` |
+| Gateway (retained) | `9284df00a3270fd592051352da149077704dc521` | `sha256:89c0843d7cc5ec9589d2b9579000c6bc7a1ff329c0788f340ab03d6cb0c35f09` |
+
+At `2026-09-15T01:31:45.034Z`, production UI health and API
+health/readiness returned 200. Guest and operator cookie/CSRF login, authenticated
+workspace HTML, and logout passed. Release RPC rendered the actual shared input
+component for checkbox, select, textarea, and number fields and verified the
+help buttons, initial hidden text, field associations, and visibility/ARIA
+commands. The public hashed stylesheet returned 200 and contained the new help
+and focus styles. These checks establish deployed code, assets, and HTTP/auth
+behavior; **browser interaction and layout were not checked**. No provider call
+was made, and verification sessions were logged out.
+
+The sanitized host-local receipt is `plans/evidence/harden-llm/field-help-production-f50375e.json`,
+SHA-256 `f243af10f64ef34fe21f1406bc205b85767d4b8822e354d1d24950bbbfd529a7`. The previous frontend image, rollback Compose
+override, and protected environment snapshot are retained at
+`/home/kirill/.local/state/harden-llm-field-help-f50375e`.
