@@ -1,7 +1,7 @@
 # 1. Retries & Repair boundary consolidation
 
 - Project: harden-llm self-hosted gateway and Phoenix Trace Studio.
-- Version: 1.1.0; status: proposed implementation plan, all phases pending.
+- Version: 1.1.0; status: implemented and locally certified; deployment, browser and live-provider checks remain separate.
 - Owners: repository maintainers for Go runtime/providers and Phoenix workspace; executing engineer records phase evidence and the maintainer reviews architectural changes.
 - Date: 2026-09-15.
 - Document ID: PLAN-HLLM-RECOVERY-BOUNDARIES-001.
@@ -980,17 +980,22 @@ export PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3
 | P04 | REQ-223 | TEST-222 | `internal/testkit/release_gate_test.go` | `make test-release` |
 | P04 | REQ-224 | TEST-222 | `internal/testkit/release_gate_test.go` | `make test-release` |
 
-## 11. Execution log template
+## 11. Execution log
 
-This section is intentionally unexecuted. Fill it during implementation; use only Pending or Done for phase status and put blockers in Issues/Resolutions. A completed subtask record includes its exact command, result, source identity and evidence location. Do not populate metrics from planning estimates.
+The entries below record the local implementation run. A phase is marked Done
+only when its focused selectors and required aggregate gate passed. Counts are
+from one deterministic sample; no statistical confidence interval is meaningful
+for these pass/fail gates. The source checkpoint for the implementation and
+release run is `91fbd2e`; the execution-log edit itself is documentation-only.
+No hosted deployment, browser layout or paid-provider behavior is claimed.
 
 | Phase | Phase Status | Completed Steps | Quantitative Results: metrics mean +/- std, 95% CI | Issues/Resolutions | Failed Attempts | Deviations | Lessons Learned | ADR Updates |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| P00 | Pending | | | | | | | |
-| P01 | Pending | | | | | | | |
-| P02 | Pending | | | | | | | |
-| P03 | Pending | | | | | | | |
-| P04 | Pending | | | | | | | |
+| P00 | Done | P00.S01–P00.S05: ADR/catalog registration, typed classification, telemetry projection cleanup and fast gate | 0 classification violations; 8/8 fast tasks; sample size 1; focused suites green | Initial static/fast runs passed; no unresolved issue | Baseline RED cases were reproduced before GREEN using the same selector | None | One source-owned category and one runtime decision removed message-based interpretation | ADR-HLLM-021 created; catalog and manifest registered |
+| P01 | Done | P01.S01–P01.S06: guarded execution, observed dispatch, shared HTTP normalization, full-jitter timing and fast gate | 0 transport/security/timing violations; timing and transport selectors green; 8/8 fast tasks; sample size 1 | Request-local timeout remains network; parent cancellation/deadline remains terminal; no security bypass | Baseline RED cases preceded the implementation; no final failed gate | DNS moved from preparation into guarded execution; server minimum retained for 500/503 as well as 429 | One model transport observation feeds runtime and telemetry | ADR-HLLM-021 transport/dispatch clauses |
+| P02 | Done | P02.S01–P02.S06: terminal completion admission, validated accounting, v3 projection and fast gate | Completion selector green; accounting/cache selector green; 0 incomplete cache admissions; 8/8 fast tasks; sample size 1 | First release vulnerability was outside this phase and resolved in P04; no protocol fallback added | Strict malformed-shape and exact-token regressions added after audit, then passed | Captured parity bytes/hashes unchanged; test-local completion markers are documented | Completion and accounting are evaluated before output/cache admission | ADR-HLLM-021 completion/accounting/cache clauses |
+| P03 | Done | P03.S01–P03.S06: host-owned policy, atomic selection, one ordered state writer and frontend gates | Owner 3/3; persistence 5/5; full deterministic frontend 198 passed, 4 excluded; peak writes 1; sample size 1 | Failure feedback is tied to the current save/restore operation; cross-session ordering remains out of scope | Baseline RED ownership and overlapping-write cases reproduced before GREEN | None | One complete state snapshot and one pending snapshot preserve per-LiveView order | ADR-HLLM-021 frontend ownership/persistence clauses |
+| P04 | Done | P04.S01–P04.S03: holdout, release certification, traceability and whitespace audit | Holdout root/gateway green; release 24/24 tasks; static 33 parity fixtures and 17 Node tests green; sample size 1 | `GO-2026-6348` on grpc v1.83.0 fixed by upgrading to v1.83.1 before the passing release run | One release attempt failed only at vulnerability scanning; no test assertion was weakened | The transitive security patch is the only dependency change; browser/live-provider tasks were not selected | Release gate confirms existing storage/API/race boundaries; local evidence remains separate from deployment | ADR-HLLM-021 and canonical specs updated |
 
 ```yaml
 execution_entry:
@@ -1028,7 +1033,7 @@ execution_entry:
 | ADR-HLLM-020 — `docs/adr/ADR-HLLM-020-recovery-policy-and-execution.md` | Retain complete policy, fixed target, original-schema repair and one loop; later boundary admission/cache changes are documented separately. |
 | ADR-HLLM-021 — `docs/adr/ADR-HLLM-021-recovery-boundary-ownership.md` | Create in P00.S01: explicit failure/dispatch facts, complete-response admission, partial accounting, projection v3, host policy ownership, ordered persistence and full jitter. |
 
-Any changed acceptance threshold, supported protocol completion rule or public schema requirement requires an ADR update before affected implementation continues. This plan proposes ADR-HLLM-021; it does not claim that ADR or any phase implementation already exists.
+Any changed acceptance threshold, supported protocol completion rule or public schema requirement requires an ADR update before affected implementation continues. ADR-HLLM-021 records the implemented boundary decisions and their local evidence; deployment and external certification remain separate.
 
 ## 13. Consistency check
 
@@ -1036,9 +1041,9 @@ Any changed acceptance threshold, supported protocol completion rule or public s
 - Five ordered phases contain 26 subtasks, each with all required fields and an explicit verification mode. Seven behavioral GREEN subtasks follow matching RED subtasks with identical test IDs and commands.
 - Each implementation phase contains a cleanup subtask and a measured fast gate. Final certification contains the evidence-conditioned No refactor needed review and measured release gate.
 - All phase, eval and RTM test references resolve to Section 7.3; RTM file sets and commands match those definitions. No manual check substitutes for an automated acceptance control.
-- New selectors/tags are created in their RED steps; existing commands, scheduler and resource budgets remain authoritative. The only proposed new non-test architecture document is created before behavior changes; no application dependency or executable runner is proposed.
+- New selectors/tags are created in their RED steps; existing commands, scheduler and resource budgets remain authoritative. ADR-HLLM-021 is the only new architecture document; no executable runner or service was added.
 - Current policy/REST versions and prior implementation history are preserved. The cache projection changes explicitly, without a migration, historical rewrite or old-key reader.
-- Phase metrics are populated planning judgments; executable invariant thresholds and existing operational envelopes are the binding acceptance controls. Execution results remain blank and phase status Pending until evidence exists.
+- Phase metrics remain planning judgments; the execution log records measured local gate results, while executable invariant thresholds and existing operational envelopes are the binding acceptance controls.
 - Scope excludes production deployment, browser layout and paid-provider certification. Final reporting must distinguish those boundaries from completed local implementation and tests.
-- Retained v1.0.0 plan-authoring evidence on 2026-09-15: the one-off structural audit passed all 26 subtask field/ordering checks, seven RED/GREEN pair matches, 29 exact RTM rows, YAML parsing and repository-path checks. `make test-static` passed the Go policy checks, 33 parity fixtures and 17 Node tests; tracked-diff and new-file whitespace checks passed. Implementation and release gates remain pending.
-- Revision v1.1.0 verification on 2026-09-15: repeated the one-off structural audit for all 26 subtasks, seven matching RED/GREEN pairs, 29 exact RTM rows, 12 covered requirements, ordered sections, YAML and repository paths. `make test-static` passed Go policy checks, 33 parity fixtures and 17 Node tests. Tracked-diff and new-file whitespace checks passed. This revision changes only the plan; all implementation phases remain Pending.
+- Retained v1.0.0 plan-authoring evidence on 2026-09-15: the one-off structural audit passed all 26 subtask field/ordering checks, seven RED/GREEN pair matches, 29 exact RTM rows, YAML parsing and repository-path checks. `make test-static` passed the Go policy checks, 33 parity fixtures and 17 Node tests; tracked-diff and new-file whitespace checks passed.
+- Revision v1.1.0 verification on 2026-09-15: implementation and release evidence are recorded in Section 11. The same structural/static controls remain green; the only release retry was a vulnerability fix from grpc v1.83.0 to v1.83.1. Browser layout and live-provider behavior remain explicitly outside this plan.
