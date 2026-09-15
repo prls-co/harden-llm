@@ -2,16 +2,19 @@
 
 - Project: Harden LLM, self-hosted Go gateway and Phoenix Trace Studio.
 - Document ID: `PLAN-HARDEN-LLM-RECOVERY-001`.
-- Version: 2.0.0.
+- Version: 2.1.0.
 - Date: 2026-09-14.
 - Owners: repository maintainer for contracts/cutover; Go maintainer for execution/data; Phoenix maintainer for editors; implementing engineer for evidence.
 - Baseline: `dev` at `1770443592a63c85c6e48d5c68d6e573d4b89ea4`.
-- Status: implementation in progress on `feat/recovery-policy`; phase results are recorded in Section 11.
+- Status: complete on `feat/recovery-policy`; all four phases and 17 steps implemented and locally certified. Phase results and operational prerequisites are recorded in Section 11.
 - Canonical specifications: `plans/from_utility-llm/harden-llm-self-hosted-implementation-plan.md`, `plans/from_utility-llm/self-hosted-go-stack-spec.md`, `plans/from_utility-llm/harden-llm-self-hosted-test-spec.md` and `plans/from_utility-llm/phoenix-liveview-frontend-spec.md`.
 
-Replace competing retry/repair settings and execution paths with one explicit policy, one selected target, one execution loop and one shared editor. Remove fallback routing, escalation, heuristic JSON repair and compatibility execution paths. Transition existing saved data with one ordinary PostgreSQL migration. This document plans implementation and local certification; it does not authorize production migration/deployment, browser execution or paid provider calls.
+Replace competing retry/repair settings and execution paths with one explicit policy, one selected target, one execution loop and one shared editor. Remove fallback routing, escalation, heuristic JSON repair and compatibility execution paths. Transition existing saved data with one ordinary PostgreSQL migration. This document records implementation and local certification; it does not authorize production migration/deployment, browser execution or paid provider calls.
 
 ## 2. Design consensus and trade-offs
+
+The decisions below describe the reviewed baseline and the chosen replacement;
+Section 11 records the completed implementation.
 
 | Topic | Verdict | Decision and repository rationale |
 | --- | --- | --- |
@@ -115,7 +118,7 @@ Ownership: Phoenix uses REST; gateway uses public Go; no new service or adapter 
 - Scope/objectives: REQ-201 through REQ-212; contract/specification changes and the inventory needed for the coordinated cutover.
 - Impacted surfaces: This plan; `docs/adr/ADR-HLLM-020-recovery-policy-and-execution.md` (create); `docs/adr/README.md`; the four canonical specifications listed in Section 1; `fixtures/parity/manifest.json`.
 - Lifecycle evidence: requirements = the scope above; design/code = listed surfaces and ADR; verification = subtask commands; validation purpose = Confirm the design covers actual callers and stored formats without introducing another execution or compatibility path. Configuration checkpoint = phase-end source SHA, tool versions and fixture/migration identity; risks/assumptions = Owned callers and operator configuration must be accounted for before the breaking contract is deployed.
-- Phase metrics: Confidence and robustness: pending executable evidence. Internal interactions: public Go, runtime, gateway, storage, Phoenix. External interactions: current callers/configuration only. Complexity: one selected target; feature creep: excluded features stay excluded; debt: a concrete deletion inventory. YAGNI: no speculative infrastructure. MoSCoW: Must. Scope: repository-wide contract. Architectural changes planned: one policy and one execution loop, zero new services.
+- Phase metrics: Confidence and robustness: executable evidence recorded in Section 11. Internal interactions: public Go, runtime, gateway, storage, Phoenix. External interactions: current callers/configuration only. Complexity: one selected target; feature creep: excluded features stay excluded; debt: a concrete deletion inventory. YAGNI: no speculative infrastructure. MoSCoW: Must. Scope: repository-wide contract. Architectural changes planned: one policy and one execution loop, zero new services.
 
 - `P00.S01 Inventory recovery owners and stored formats`
   - Action: Inspect current policy/default/parser/routing/result owners and every in-repository caller; record exact removed symbols and affected external formats in ADR-HLLM-020. Confirm Section 8 against version-1 documents and canonical result v2.
@@ -186,7 +189,7 @@ Exit: all phase assertions/evaluations pass, lifecycle evidence is recorded and 
   - Requirement link: REQ-201, REQ-202, REQ-204, REQ-205, REQ-206, REQ-209, REQ-210, REQ-212.
   - Verification link: TEST-202, TEST-205, TEST-206, TEST-207.
   - Verification mode: RED.
-  - Command/procedure: `go test . -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/runtime -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/retry -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/gateway -run '^TestRecoveryContract' -count=1 -timeout=60s -v`
+  - Command/procedure: `go test . -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/runtime -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/retry ./internal/providers -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/gateway -run '^TestRecoveryContract' -count=1 -timeout=60s -v`
   - Expected result: Behavioral assertions fail for the intended missing behavior. Minimal inert type declarations may permit compilation; no test-only behavior replaces the production boundary.
   - Evidence produced: Failing contract, dispatch, accounting and wait cases.
   - Stop/escalate condition: A failure comes only from missing declarations, zero matched cases or unavailable infrastructure.
@@ -199,7 +202,7 @@ Exit: all phase assertions/evaluations pass, lifecycle evidence is recorded and 
   - Requirement link: REQ-201, REQ-202, REQ-204, REQ-205, REQ-206, REQ-209, REQ-210, REQ-212.
   - Verification link: TEST-202, TEST-205, TEST-206, TEST-207.
   - Verification mode: GREEN.
-  - Command/procedure: `go test . -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/runtime -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/retry -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/gateway -run '^TestRecoveryContract' -count=1 -timeout=60s -v`
+  - Command/procedure: `go test . -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/runtime -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/retry ./internal/providers -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/gateway -run '^TestRecoveryContract' -count=1 -timeout=60s -v`
   - Expected result: One complete policy reaches one loop; waits and records describe the dispatched work; all focused cases pass.
   - Evidence produced: Backend/contract diff and matching passing output.
   - Stop/escalate condition: Keeping compilation or behavior working would require a new compatibility adapter or another retry layer.
@@ -238,7 +241,7 @@ Exit: all phase assertions/evaluations pass, lifecycle evidence is recorded and 
   - Requirement link: REQ-201 through REQ-207, REQ-209 through REQ-212.
   - Verification link: TEST-202, TEST-203, TEST-205, TEST-206, TEST-207, TEST-209.
   - Verification mode: REFACTOR.
-  - Command/procedure: `go test . -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/schema -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/runtime -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/retry -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/gateway -run '^TestRecoveryContract' -count=1 -timeout=60s -v`; `(cd frontend && mix test --only recovery --seed 104729)`
+  - Command/procedure: `go test . -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/schema -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/runtime -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/retry ./internal/providers -run '^TestRecovery' -count=1 -timeout=60s -v`; `go test ./internal/gateway -run '^TestRecoveryContract' -count=1 -timeout=60s -v`; `(cd frontend && mix test --only recovery --seed 104729)`
   - Expected result: Focused assertions remain green; the source inventory has one owner per behavior.
   - Evidence produced: Consolidation diff, formatting output and focused results.
   - Stop/escalate condition: An assertion would need weakening to make the consolidation pass.
@@ -452,7 +455,7 @@ All focused `TestRecovery...` functions and frontend tags below are added by the
   - Type / verifies: unit; REQ-203.
   - Location: `internal/schema/schema_test.go`.
   - Command: `go test ./internal/schema -run '^TestRecovery' -count=1 -timeout=60s -v`
-  - Fixtures/data: Add TestRecoveryValues: postal codes, numeric string enums, large integers, decimals, nested arrays, null, trailing data, fenced JSON, malformed JSON and schema mismatches.
+  - Fixtures/data: Add TestRecoveryValues: postal codes, numeric string enums, large integers, decimals, large positive/negative exponents, nested arrays, null, trailing data, fenced JSON, malformed JSON and schema mismatches.
   - Deterministic controls: Fixed inline JSON and schemas; existing decoder and validator boundary.
   - Pass criteria: Valid JSON values retain their types and precision; invalid syntax/schema fails without coercion or heuristic salvage.
   - Expected runtime: 60-second package timeout; report observed duration.
@@ -477,9 +480,9 @@ All focused `TestRecovery...` functions and frontend tags below are added by the
 
 - `TEST-206 — Explicit retry categories and waiting`
   - Type / verifies: unit; REQ-201, REQ-205.
-  - Location: `internal/retry/retry_test.go`.
-  - Command: `go test ./internal/retry -run '^TestRecovery' -count=1 -timeout=60s -v`
-  - Fixtures/data: Add TestRecoveryBackoff: every enabled/disabled category, all disabled, zero delays, cap/jitter boundaries, Retry-After on 429/503, malformed/past header, deadline before dispatch and cancellation during wait.
+  - Location: `internal/retry/retry_test.go`; `internal/providers/requests_test.go`.
+  - Command: `go test ./internal/retry ./internal/providers -run '^TestRecovery' -count=1 -timeout=60s -v`
+  - Fixtures/data: Add TestRecoveryBackoff: every enabled/disabled category, all disabled, zero delays, cap/jitter boundaries, Retry-After on 429/503, oversized numeric delay, signed/malformed/past header, deadline before dispatch and cancellation during wait.
   - Deterministic controls: Injected clock, random source and waiter; local header parsing fixtures.
   - Pass criteria: Only listed transient categories repeat; valid server delay is never capped below its minimum; no wait or dispatch escapes context cancellation/deadline.
   - Expected runtime: 60-second package timeout; report observed duration.
@@ -488,6 +491,7 @@ All focused `TestRecovery...` functions and frontend tags below are added by the
   - Type / verifies: unit; REQ-201, REQ-206, REQ-208, REQ-209, REQ-210.
   - Location: `internal/gateway/run_validation_test.go`; `internal/gateway/openapi_contract_test.go`.
   - Command: `go test ./internal/gateway -run '^TestRecoveryContract' -count=1 -timeout=60s -v`
+  - Administrative boundary: `cmd/harden-llm-gateway/shared_profiles_test.go`; `go test ./cmd/harden-llm-gateway -run '^TestSyncProfilesRejectsOldCatalog' -count=1 -timeout=60s -v` rejects an old catalog before environment/database access.
   - Fixtures/data: Add TestRecoveryContractInput and TestRecoveryContractOpenAPI: required policy, profiles response defaults, current profile/state/bundle versions, result v3, old input rejection and examples shared with frontend tests.
   - Deterministic controls: Existing validators, strict decoders and OpenAPI example validation; no database for shape permutations.
   - Pass criteria: One current wire shape; exact required fields; no recovery aliases, retired routing controls, alternate history result schema or silently accepted old request. Integration handlers remain covered by TEST-208/TEST-211.
@@ -635,15 +639,16 @@ export PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3
 | P01 | REQ-201 | TEST-202 | `client_test.go` | `go test . -run '^TestRecovery' -count=1 -timeout=60s -v` |
 | P01 | REQ-201 | TEST-207 | `internal/gateway/run_validation_test.go; internal/gateway/openapi_contract_test.go` | `go test ./internal/gateway -run '^TestRecoveryContract' -count=1 -timeout=60s -v` |
 | P01 | REQ-202 | TEST-205 | `internal/runtime/repair_test.go` | `go test ./internal/runtime -run '^TestRecovery' -count=1 -timeout=60s -v` |
-| P01 | REQ-203 | TEST-203 | `internal/schema/schema_test.go` | `go test ./internal/schema -run '^TestRecovery' -count=1 -timeout=60s -v` |
+| P01, P03 | REQ-203 | TEST-203 | `internal/schema/schema_test.go` | `go test ./internal/schema -run '^TestRecovery' -count=1 -timeout=60s -v` |
 | P01 | REQ-204 | TEST-204 | `client_test.go` | `go test . -run '^TestRecovery' -count=1 -timeout=60s -v` |
 | P01 | REQ-204 | TEST-205 | `internal/runtime/repair_test.go` | `go test ./internal/runtime -run '^TestRecovery' -count=1 -timeout=60s -v` |
-| P01 | REQ-205 | TEST-206 | `internal/retry/retry_test.go` | `go test ./internal/retry -run '^TestRecovery' -count=1 -timeout=60s -v` |
+| P01, P03 | REQ-205 | TEST-206 | `internal/retry/retry_test.go; internal/providers/requests_test.go` | `go test ./internal/retry ./internal/providers -run '^TestRecovery' -count=1 -timeout=60s -v` |
 | P01 | REQ-206 | TEST-207 | `internal/gateway/run_validation_test.go; internal/gateway/openapi_contract_test.go` | `go test ./internal/gateway -run '^TestRecoveryContract' -count=1 -timeout=60s -v` |
-| P01 | REQ-206 | TEST-209 | `frontend/test/harden_llm_web/live/profile_widget_state_test.exs; frontend/test/harden_llm_web/live/profile_widget_component_test.exs; frontend/test/harden_llm_web/live/profiles_live_test.exs; frontend/test/harden_llm_web/live/workspace_live_test.exs; frontend/test/harden_llm_web/harden_api_test.exs; frontend/test/harden_llm_web/profile_widget_style_test.exs` | `(cd frontend && mix test --only recovery --seed 104729)` |
+| P01, P03 | REQ-206 | TEST-209 | `frontend/test/harden_llm_web/live/profile_widget_state_test.exs; frontend/test/harden_llm_web/live/profile_widget_component_test.exs; frontend/test/harden_llm_web/live/profiles_live_test.exs; frontend/test/harden_llm_web/live/workspace_live_test.exs; frontend/test/harden_llm_web/harden_api_test.exs; frontend/test/harden_llm_web/profile_widget_style_test.exs` | `(cd frontend && mix test --only recovery --seed 104729)` |
 | P01 | REQ-207 | TEST-209 | `frontend/test/harden_llm_web/live/profile_widget_state_test.exs; frontend/test/harden_llm_web/live/profile_widget_component_test.exs; frontend/test/harden_llm_web/live/profiles_live_test.exs; frontend/test/harden_llm_web/live/workspace_live_test.exs; frontend/test/harden_llm_web/harden_api_test.exs; frontend/test/harden_llm_web/profile_widget_style_test.exs` | `(cd frontend && mix test --only recovery --seed 104729)` |
+| P02 | REQ-201 | TEST-207 | `cmd/harden-llm-gateway/shared_profiles_test.go` | `go test ./cmd/harden-llm-gateway -run '^TestSyncProfilesRejectsOldCatalog' -count=1 -timeout=60s -v` |
 | P02 | REQ-208 | TEST-208 | `internal/postgres/repository_test.go; internal/gateway/resource_routes_test.go` | `make test-integration` |
-| P01 | REQ-208 | TEST-209 | `frontend/test/harden_llm_web/live/profile_widget_state_test.exs; frontend/test/harden_llm_web/live/profile_widget_component_test.exs; frontend/test/harden_llm_web/live/profiles_live_test.exs; frontend/test/harden_llm_web/live/workspace_live_test.exs; frontend/test/harden_llm_web/harden_api_test.exs; frontend/test/harden_llm_web/profile_widget_style_test.exs` | `(cd frontend && mix test --only recovery --seed 104729)` |
+| P01, P03 | REQ-208 | TEST-209 | `frontend/test/harden_llm_web/live/profile_widget_state_test.exs; frontend/test/harden_llm_web/live/profile_widget_component_test.exs; frontend/test/harden_llm_web/live/profiles_live_test.exs; frontend/test/harden_llm_web/live/workspace_live_test.exs; frontend/test/harden_llm_web/harden_api_test.exs; frontend/test/harden_llm_web/profile_widget_style_test.exs` | `(cd frontend && mix test --only recovery --seed 104729)` |
 | P01 | REQ-209 | TEST-205 | `internal/runtime/repair_test.go` | `go test ./internal/runtime -run '^TestRecovery' -count=1 -timeout=60s -v` |
 | P02 | REQ-209 | TEST-208 | `internal/postgres/repository_test.go; internal/gateway/resource_routes_test.go` | `make test-integration` |
 | P01 | REQ-210 | TEST-204 | `client_test.go` | `go test . -run '^TestRecovery' -count=1 -timeout=60s -v` |
@@ -654,16 +659,16 @@ export PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3
 | P01 | REQ-212 | TEST-205 | `internal/runtime/repair_test.go` | `go test ./internal/runtime -run '^TestRecovery' -count=1 -timeout=60s -v` |
 | P03 | REQ-212 | TEST-211 | `internal/testkit/release_gate_test.go` | `make test-release` |
 
-## 11. Execution log template
+## 11. Execution log
 
-Rows remain Pending until their implementation and required evidence are complete. For quantitative results, record actual counts/durations; mean +/- std and 95% CI apply only to a defensible repeated sample.
+All phases below have completed their required implementation and evidence. Counts and durations are observed results; no repeated sample was collected for statistical estimates.
 
 | Phase | Status | Completed Steps | Quantitative Results | Issues/Resolutions | Failed Attempts | Deviations | Lessons Learned | ADR Updates |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | P00 | Done | P00.S01, P00.S02 | `make test-static`: exit 0; 17 Node cases passed | Full Go/REST/UI/storage/configuration inventory recorded | None | None | Captured source evidence remains immutable; accepted differences are explicit | ADR-HLLM-020 accepted for implementation |
 | P01 | Done | P01.S01–P01.S08 | EVAL-201: `make test-fast` 8/8 tasks, exit 0, approximately 124 s; focused Go and Phoenix recovery cases green | One complete policy, loop, strict parser and shared editor implemented | RED cases reproduced parser, policy, repair-context and UI defects; broad checks caught a lost structured-output capability, stale wire/fixture fields and obsolete CSS assertion; all corrected | Existing tests for removed backup/escalation behavior now assert ADR-HLLM-020; captured source fixtures unchanged | Required zero/false/empty values survive all current UI and REST paths; storage cutover remains P02 | ADR-HLLM-020 implemented for current runtime/API/UI |
 | P02 | Done | P02.S01–P02.S04 | Integration: exit 0, approximately 26 s; EVAL-202 race: exit 0, approximately 128 s; shared-config Node 5/5; contract/static gates green | Ordinary migration 6 preserves independent rows and canonicalizes current writable documents; typed old-import errors | RED invalid-setting assertions; fixed a SQL name ambiguity and a synthetic credential metadata omission during GREEN | Added the existing database result-version constraint to the coordinated v3 change; migration runner unchanged | Version-5 fixture setup uses embedded prior SQL, while every conversion invokes normal Store.Migrate | Cutover prerequisites and unchanged credential/history boundaries documented |
-| P03 | Pending | P03.S01 | Final fast gate: 8/8 tasks, exit 0, 132.58 s | Single-editor cleanup and strict response boundaries complete; release certification pending | New UI regression lacked its asynchronous completion wait; fixed synchronization without changing assertions | None | Numeric validation compares digits and exponents without expanding powers | Final deletion inventory closed; operational certification remains separate |
+| P03 | Done | P03.S01–P03.S03 | Final fast: 8/8, 132.58 s; EVAL-203 release: 24/24, 760.52 s; hosted fast CI green | Single-editor cleanup, strict response boundaries and local release certification complete | New boundary/numeric regressions reproduced defects; a new UI case needed its asynchronous completion wait; fixes retained the assertions | None | One decimal representation handles exact type/enum checks without expanding powers | Final inventory, local certification and traceability checks complete |
 
 For each phase, append its source/configuration checkpoint, command evidence, requirement/surface links, validation purpose, risks/assumptions and unresolved operational prerequisites. A planning review is not implementation evidence.
 
@@ -698,12 +703,17 @@ For each phase, append its source/configuration checkpoint, command evidence, re
 
 ### 11.4 P03 checkpoint
 
-- Source: P02 checkpoint `f603f60` plus the final consolidation on `feat/recovery-policy`; no deployment.
+- Certified application source: `1aa9fd65175a504d5052524b61388061e4f6502f` on `feat/recovery-policy`, following P02 checkpoint `f603f60`. The working tree was clean throughout release certification; remaining edits only finalize documentation. No deployment.
 - P03.S01 / TEST-210: `make test-fast` reports eight accepted tasks, exit 0, 132.58 seconds (`/tmp/harden-recovery-p03-fast2.log`). The initial broad run found a missing asynchronous completion wait in the new widget regression; the test now awaits that operation before clicking the next control. No assertion was removed or weakened. Focused widget verification passed 5/5 (`/tmp/harden-recovery-p03-ui-sync-green.log`). The full focused frontend run passed 190 tests with the four existing browser/Compose/deployed exclusions (`/tmp/harden-recovery-p03-frontend-green2.log`, seed 104729).
 - TEST-203 / TEST-206: exact-number regressions exposed the rational parser's exponent limit; validation now compares canonical digits and an arbitrary-size exponent without expanding powers. Valid oversized numeric Retry-After values saturate the duration representation rather than being ignored, while signed/malformed values remain invalid. RED logs: `/tmp/harden-recovery-p03-number-red.log`, `/tmp/harden-recovery-p03-retry-after-red.log`; GREEN: `/tmp/harden-recovery-p03-numeric-green.log`.
 - TEST-209: RED `/tmp/harden-recovery-p03-boundary-red.log` exposed missing current-policy checks on state/individual-profile responses and discarded inline profile-save field errors. The shared wire checker now validates those responses, and the single editor retains backend field errors and the user's draft. Existing profile/state fixtures were brought to the required current contract; unrelated interaction assertions remain intact.
 - Deletion inventory: one policy/default/validator, one selected-target execution loop, one strict parser/value validator, one recovery draft serializer and one shared control/help/style owner. Removed the remaining main/backup editor discriminator, per-kind pending maps, forwarding helpers and duplicate asynchronous error branches. Active references to retired recovery option names are confined to the shared rejection list. Captured source evidence and migration inputs retain historical names; unrelated search/cache routing remains unchanged.
-- P03.S02 / EVAL-203 and P03.S03 remain pending until the committed-source release gate and final traceability checks complete.
+- P03.S02 / TEST-211 / EVAL-203: `make test-release` exited 0, `accepted:true`, all 24 selected tasks passed, `failure:null`, `cleanupErrors:[]`, elapsed 760.52 seconds (`/tmp/harden-recovery-p03-release.log`). No required task was disabled or skipped. This includes Go format/lint/build/static/unit/parity/API/observability checks, real owned Postgres/Garage integration and race checks, Garage restart, full local Compose smoke, Go race/vulnerability checks, Phoenix compile/format/deterministic tests, dependency audits, client-core/traceability cases, production assets/release packaging and the aggregate backend verify gate. Test task selection and assertions were not relaxed.
+- Hosted verification: [fast T0-T2 run 34936647070](https://github.com/prls-co/harden-llm/actions/runs/34936647070) passed for the same application SHA. Hosted integration/release/browser jobs were not selected by this feature-branch push; the 24-task release evidence above is local.
+- Configuration identity: test manifest SHA-256 `190fe41274adc284f2ddb11239e1173beb2e91b2a8e9b4aecf431bd4663e84ea`; synthetic profile example SHA-256 `8c1d4b077bdf907b55631d712423e74121192588325f39e51064b4d3dbe7cf44`; migration identity is recorded in P02. Pinned tools: Go 1.26.6, Node 22.22.1, Elixir 1.20.2, OTP 28.4.3; ExUnit seed 104729; existing resource classes and test-owned service leases.
+- Local service image identities: `postgres:17.6-alpine` = `sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94`; `dxflrs/garage:v2.3.0` = `sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690`. The runner reported no cleanup errors; no smoke-project container remained after completion.
+- P03.S03 / TEST-201: the catalog/RTM includes TEST-206 header parsing and TEST-207 administrative imports. `make test-static` exited 0 with 17/17 Node cases plus the Go static/fixture checks (`/tmp/harden-recovery-p03-static.log`); `git diff HEAD --check` passed. All phase gates and the deletion inventory are complete. The final checkpoint only records documentation after certified application source `1aa9fd6`.
+- Remaining operational prerequisites: the separately authorized coordinated database/configuration/component cutover in `docs/preview-environments.md` section 6.1. Active operator configuration and production data were not changed. Browser execution/layout and live-provider repair quality were not checked; the existing browser/public-provider opt-ins remain outside this certification.
 
 ## 12. Appendix: ADR index
 
@@ -713,7 +723,7 @@ For each phase, append its source/configuration checkpoint, command evidence, re
 | ADR-HLLM-015 | `docs/adr/ADR-HLLM-015-parallel-test-feedback-hierarchy.md` | Reuse test hierarchy and explicit browser opt-in policy. |
 | ADR-HLLM-018 | `docs/adr/ADR-HLLM-018-canonical-execution-accounting-and-recovery.md` | Preserve one canonical execution/accounting owner; ADR-HLLM-020 supersedes retired retry diagnostics and documents the v3 data transition. |
 | ADR-HLLM-019 | `docs/adr/ADR-HLLM-019-cached-web-search-routing.md` | Preserve search ownership and cache-hit behavior. |
-| ADR-HLLM-020 | `docs/adr/ADR-HLLM-020-recovery-policy-and-execution.md` (create in P00) | Adopt the explicit policy, selected-target loop, strict original-schema repair, shared UI and finite migration; remove competing paths. |
+| ADR-HLLM-020 | `docs/adr/ADR-HLLM-020-recovery-policy-and-execution.md` | Adopt the explicit policy, selected-target loop, strict original-schema repair, shared UI and finite migration; remove competing paths. |
 
 ## 13. Consistency check
 
@@ -725,4 +735,4 @@ For each phase, append its source/configuration checkpoint, command evidence, re
 - Current policy fields/defaults, result/data versions, immutable execution facts and deliberate removals agree throughout.
 - Metrics use observable outcomes rather than unsupported percentages; evaluations reuse actual gates with no extra framework or arbitrary corpus.
 - No compatibility converter, fallback/escalation execution, duplicated serializer/defaults/styles, new service or unapproved browser/provider/deployment step remains in scope.
-- All implementation statuses stay Pending until executed; documentation checks do not imply application tests or deployment passed.
+- Every completed phase has executable evidence in Section 11; local certification and the remaining operational cutover are explicitly distinguished.

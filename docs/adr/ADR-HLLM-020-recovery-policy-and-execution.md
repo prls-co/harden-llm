@@ -1,6 +1,6 @@
 # ADR-HLLM-020: One Recovery Policy and Execution Loop
 
-- Status: Accepted for implementation; operational cutover is not yet certified.
+- Status: Implemented and locally certified; operational cutover remains separate.
 - Date: 2026-09-14.
 - Requirements: REQ-201 through REQ-212 in `plans/retries-repair-architecture-implementation-plan.md`.
 - Verification: TEST-201 through TEST-211; WEB-TEST-071 through WEB-TEST-073.
@@ -8,12 +8,12 @@
 
 ## 1. Problem and decision
 
-The public client, retry package and two editors independently interpret retry
-defaults. Runtime nests retry work inside a backup graph and tracks dispatched
-repair state in parallel maps. A repair request can survive a transport retry
-while its repair flag and target metadata reset. Structured parsing also changes
-numeric strings and silently repairs syntax through a separate Gemini path or
-jsonrepair. The provider repair envelope requires metadata that is discarded.
+Before this change, the public client, retry package and two editors independently
+interpreted retry defaults. Runtime nested retry work inside a backup graph and
+tracked dispatched repair state in parallel maps. A repair request could survive
+a transport retry while its repair flag and target metadata reset. Parsing changed
+numeric strings and silently repaired syntax through a separate Gemini path or
+jsonrepair. The provider repair envelope required metadata that was discarded.
 
 Use one complete RecoveryPolicy, one selected target, one execution loop and one
 shared editor. The public Go API exposes the policy owned by internal/retry;
@@ -35,6 +35,8 @@ Invalid structured output either fails or requests repair against the original
 schema. It never repeats the original prompt as an alternative repair strategy.
 One JSON decoder preserves number precision and requires EOF; one validator
 checks initial and repair responses without coercion or heuristic salvage.
+Numeric type/enum validation compares decimal digits and exponents without
+expanding powers or changing returned provider values.
 Protocol response extraction and payload serialization keep their current owners.
 
 Current prepared work carries request, operation and repair feedback together.
@@ -52,7 +54,7 @@ Repair responses contain the direct original-schema value, without metadata.
 
 ## 2. Current owners and deletion inventory
 
-| Behavior | Current surfaces | Resulting ownership/removal |
+| Behavior | Baseline surfaces | Resulting ownership/removal |
 | --- | --- | --- |
 | Policy/defaults | types.go, client.go, internal/retry/retry.go, internal/profiles/profiles.go | One policy/default/validator; remove RetryPolicy, StructuredRepairPolicy, RepairEscalation, retryConfig and runtimeRepairPolicy conversions. |
 | Selection/dispatch | internal/runtime/execute.go, types.go, backup.go; client.go runtimeProfiles | Remove BuildBackupPlan, ProfileNode, BackupEligible, backup depth/cycle validation, nested retry loops and repair/target/provider-used maps. |
@@ -100,6 +102,13 @@ integration/race and browser-free release gates. No new eval package/runner or
 arbitrary case-count/percentage target is introduced. Actual provider work,
 strict value preservation, repair identity, editor agreement and exact migration
 changes are the acceptance oracles. Browser/live-model quality is not inferred.
+
+All four implementation phases and their source/gate evidence are recorded in
+Section 11 of `plans/retries-repair-architecture-implementation-plan.md`.
+The final ownership audit removed the retired editor discriminator and its
+per-kind pending maps/forwarding helpers. State and individual-profile responses
+use the shared current-policy wire checker; backend field errors reach the
+shared editor without a second semantic validator.
 
 This intentionally changes utility-llm parity for fallback/escalation, implicit
 defaults, provider-retry opt-out, capped Retry-After, JSON salvage/coercion and

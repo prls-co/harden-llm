@@ -883,7 +883,7 @@ ADR-HLLM-020 and PLAN-HARDEN-LLM-RECOVERY-001 define the current recovery contra
 - Type / verifies: unit; REQ-203.
 - Location: `internal/schema/schema_test.go`.
 - Command: `go test ./internal/schema -run '^TestRecovery' -count=1 -timeout=60s -v`
-- Fixtures/data: Add TestRecoveryValues: postal codes, numeric string enums, large integers, decimals, nested arrays, null, trailing data, fenced JSON, malformed JSON and schema mismatches.
+- Fixtures/data: Add TestRecoveryValues: postal codes, numeric string enums, large integers, decimals, large positive/negative exponents, nested arrays, null, trailing data, fenced JSON, malformed JSON and schema mismatches.
 - Deterministic controls: Fixed inline JSON and schemas; existing decoder and validator boundary.
 - Pass criteria: Valid JSON values retain their types and precision; invalid syntax/schema fails without coercion or heuristic salvage.
 - Expected runtime: 60-second package timeout; report observed duration.
@@ -911,9 +911,9 @@ ADR-HLLM-020 and PLAN-HARDEN-LLM-RECOVERY-001 define the current recovery contra
 ### TEST-206: Explicit retry categories and waiting
 
 - Type / verifies: unit; REQ-201, REQ-205.
-- Location: `internal/retry/retry_test.go`.
-- Command: `go test ./internal/retry -run '^TestRecovery' -count=1 -timeout=60s -v`
-- Fixtures/data: Add TestRecoveryBackoff: every enabled/disabled category, all disabled, zero delays, cap/jitter boundaries, Retry-After on 429/503, malformed/past header, deadline before dispatch and cancellation during wait.
+- Location: `internal/retry/retry_test.go`; `internal/providers/requests_test.go`.
+- Command: `go test ./internal/retry ./internal/providers -run '^TestRecovery' -count=1 -timeout=60s -v`
+- Fixtures/data: Add TestRecoveryBackoff: every enabled/disabled category, all disabled, zero delays, cap/jitter boundaries, Retry-After on 429/503, oversized numeric delay, signed/malformed/past header, deadline before dispatch and cancellation during wait.
 - Deterministic controls: Injected clock, random source and waiter; local header parsing fixtures.
 - Pass criteria: Only listed transient categories repeat; valid server delay is never capped below its minimum; no wait or dispatch escapes context cancellation/deadline.
 - Expected runtime: 60-second package timeout; report observed duration.
@@ -923,6 +923,7 @@ ADR-HLLM-020 and PLAN-HARDEN-LLM-RECOVERY-001 define the current recovery contra
 - Type / verifies: unit; REQ-201, REQ-206, REQ-208, REQ-209, REQ-210.
 - Location: `internal/gateway/run_validation_test.go`; `internal/gateway/openapi_contract_test.go`.
 - Command: `go test ./internal/gateway -run '^TestRecoveryContract' -count=1 -timeout=60s -v`
+- Administrative boundary: `cmd/harden-llm-gateway/shared_profiles_test.go`; `go test ./cmd/harden-llm-gateway -run '^TestSyncProfilesRejectsOldCatalog' -count=1 -timeout=60s -v` rejects an old catalog before environment/database access.
 - Fixtures/data: Add TestRecoveryContractInput and TestRecoveryContractOpenAPI: required policy, profiles response defaults, current profile/state/bundle versions, result v3, old input rejection and examples shared with frontend tests.
 - Deterministic controls: Existing validators, strict decoders and OpenAPI example validation; no database for shape permutations.
 - Pass criteria: One current wire shape; exact required fields; no recovery aliases, retired routing controls, alternate history result schema or silently accepted old request. Integration handlers remain covered by TEST-208/TEST-211.
