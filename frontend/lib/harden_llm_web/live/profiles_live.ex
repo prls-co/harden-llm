@@ -484,7 +484,8 @@ defmodule HardenLlmWeb.ProfilesLive do
       "topK" => option_text(options["top_k"] || options["topK"]),
       "stopSequences" => stop_text(options["stop"]),
       "defaultOptionsJson" => Jason.encode!(options, pretty: true),
-      "structuredRepairRetryEnabled" => to_string(retry_enabled?(options, retry)),
+      "structuredRepairRetryEnabled" =>
+        to_string(ProfileDefaults.structured_repair_enabled?(options)),
       "enableRetryOn429" => to_string(retry_option(options, retry, "enableRetryOn429", true)),
       "enableRetryOn5xx" => to_string(retry_option(options, retry, "enableRetryOn5xx", true)),
       "enableRetryOnNetworkError" =>
@@ -791,13 +792,6 @@ defmodule HardenLlmWeb.ProfilesLive do
     case options["structuredRepairRetry"] do
       value when is_map(value) -> value
       _ -> %{}
-    end
-  end
-
-  defp retry_enabled?(options, retry) do
-    case Map.fetch(options, "structuredRepairRetry") do
-      {:ok, false} -> false
-      _ -> retry["enabled"] != false
     end
   end
 

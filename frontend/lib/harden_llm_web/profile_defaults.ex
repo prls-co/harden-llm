@@ -21,7 +21,7 @@ defmodule HardenLlmWeb.ProfileDefaults do
 
   @field_info %{
     "structuredRepairRetry" =>
-      "Runs semantic JSON repair for structured-output parse or schema failures. Missing settings default to enabled in Trace Studio; set this off to store structuredRepairRetry: false.",
+      "Uses another model call to repair invalid JSON or output that fails schema validation. Enabled by default. Repair attempts count toward Max Attempts.",
     "enableRetryOn429" =>
       "When enabled, provider rate-limit responses can consume another attempt from the shared max-attempt retry budget.",
     "enableRetryOn5xx" =>
@@ -145,6 +145,15 @@ defmodule HardenLlmWeb.ProfileDefaults do
     do: Map.put_new(options, "max_tokens", @default_max_output_tokens)
 
   def normalize_options(_options), do: @default_options
+
+  @doc "Resolves Structured Repair from profile options, defaulting to enabled when unset."
+  def structured_repair_enabled?(options) do
+    case options["structuredRepairRetry"] do
+      false -> false
+      %{"enabled" => false} -> false
+      _ -> true
+    end
+  end
 
   @doc "Returns the utility-llm placeholder for one option editor field."
   def option_placeholder(field), do: Map.get(@option_placeholders, field)

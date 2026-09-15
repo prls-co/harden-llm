@@ -121,6 +121,23 @@ editor reuses the same field set but excludes nested retry/repair controls.
 | `Save Profile` / `Save Escalation Profile` | Primary button | Submits the complete profile, pricing, options, ordered backups, and optional replacement credential. Save is disabled for invalid JSON or missing required identity. Backend probing/validation is atomic. |
 | `Delete Profile` / `Delete Escalation Profile` | Danger button | Deletes the selected profile after backend dependency validation. |
 
+Profile loading and `Default Options JSON` editing use the same rule for
+`defaultOptions.structuredRepairRetry`:
+
+| Stored value | Structured Repair |
+| --- | --- |
+| Option omitted | Enabled by default |
+| `true` | Enabled |
+| `{"enabled": true}` | Enabled |
+| `{}` (no `enabled` field) | Enabled by default |
+| `false` | Disabled |
+| `{"enabled": false}` | Disabled |
+
+Saving writes an object with `enabled: true` when repair is on, or `false` when
+it is off. The run request carries the resolved choice as `structuredRepair`
+for structured calls; text calls do not use repair. Repair attempts share the
+`Max Attempts` budget with the initial call and other retries.
+
 The profile row and every nested editor must preserve safe field errors next to
 the corresponding control. A credential value is never repopulated from a
 successful read or included in rendered state.

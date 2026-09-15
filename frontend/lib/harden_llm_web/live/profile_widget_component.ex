@@ -1936,7 +1936,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     |> Map.put("stopSequences", stop_text(options["stop"]))
     |> Map.put(
       "structuredRepairRetryEnabled",
-      to_string(retry != false)
+      to_string(ProfileDefaults.structured_repair_enabled?(options))
     )
     |> Map.put(
       "enableRetryOn429",

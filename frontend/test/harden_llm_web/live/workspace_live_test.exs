@@ -517,6 +517,110 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert schema_index < check_index
   end
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-052 WEB-TEST-059
+  for {label, options, enabled} <- [
+        {"omitted", %{}, true},
+        {"true", %{"structuredRepairRetry" => true}, true},
+        {"false", %{"structuredRepairRetry" => false}, false},
+        {"empty object", %{"structuredRepairRetry" => %{}}, true},
+        {"enabled object", %{"structuredRepairRetry" => %{"enabled" => true}}, true},
+        {"disabled object", %{"structuredRepairRetry" => %{"enabled" => false}}, false}
+      ] do
+    @tag repair_options: options, repair_enabled: enabled
+    test "repair setting #{label} survives loading, JSON edits, runs, and saving", %{
+      conn: conn,
+      repair_options: options,
+      repair_enabled: enabled
+    } do
+      test_pid = self()
+
+      profile =
+        widget_profile("Primary", "model-test")
+        |> put_in(["profile", "defaultOptions"], options)
+
+      install_stub(
+        fn conn ->
+          case {conn.method, conn.request_path} do
+            {"POST", "/api/v1/state"} ->
+              {:ok, body, conn} = Plug.Conn.read_body(conn)
+              Req.Test.json(conn, APIFixtures.success(nil, Jason.decode!(body)))
+
+            {"POST", "/api/v1/run"} ->
+              {:ok, body, conn} = Plug.Conn.read_body(conn)
+              send(test_pid, {:repair_run, Jason.decode!(body)})
+              Req.Test.json(conn, APIFixtures.success(APIFixtures.run_result()))
+
+            {"PUT", "/api/v1/profiles/Primary"} ->
+              {:ok, body, conn} = Plug.Conn.read_body(conn)
+              payload = Jason.decode!(body)
+              send(test_pid, {:repair_saved, payload})
+              saved = update_in(profile, ["profile"], &Map.merge(&1, payload["profile"]))
+              Req.Test.json(conn, APIFixtures.success(saved))
+
+            _ ->
+              unexpected(conn)
+          end
+        end,
+        profiles: [profile]
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/")
+      render_async(view, 1_000)
+
+      view |> element("#model-config-toggle") |> render_click()
+      render_async(view, 1_000)
+      view |> element("#profile-retry-toggle") |> render_click()
+      render_async(view, 1_000)
+      view |> element("#profile-options-toggle") |> render_click()
+      render_async(view, 1_000)
+
+      assert has_element?(view, "#profile_structuredRepairRetryEnabled[checked]") == enabled
+      assert has_element?(view, "#profile_enableRetryOnParseError[disabled]") == enabled
+
+      view
+      |> element("#profile_structuredRepairRetryEnabled")
+      |> render_change(%{"profile" => %{"structuredRepairRetryEnabled" => to_string(!enabled)}})
+
+      assert has_element?(view, "#profile_structuredRepairRetryEnabled[checked]") == !enabled
+
+      view
+      |> element("#profile_defaultOptionsJson")
+      |> render_change(%{"profile" => %{"defaultOptionsJson" => Jason.encode!(options)}})
+
+      assert has_element?(view, "#profile_structuredRepairRetryEnabled[checked]") == enabled
+      assert has_element?(view, "#profile_enableRetryOnParseError[disabled]") == enabled
+      assert has_element?(view, "#profile_defaultOptionsJson", Jason.encode!(options))
+
+      view |> element("#input-advanced-toggle") |> render_click()
+
+      schema = %{
+        "type" => "object",
+        "properties" => %{"answer" => %{"type" => "string"}},
+        "required" => ["answer"],
+        "additionalProperties" => false
+      }
+
+      submit_run(view, %{"callType" => "structured", "schema" => Jason.encode!(schema)})
+      render_async(view, 1_000)
+
+      assert_received {:repair_run, %{"callType" => "structured", "structuredRepair" => ^enabled}}
+
+      view |> element("#profile-save") |> render_click()
+      render_async(view, 1_000)
+
+      assert_received {:repair_saved, payload}
+      repair = get_in(payload, ["profile", "defaultOptions", "structuredRepairRetry"])
+
+      if enabled do
+        assert %{"enabled" => true} = repair
+      else
+        assert repair == false
+      end
+
+      assert has_element?(view, "#profile_structuredRepairRetryEnabled[checked]") == enabled
+    end
+  end
+
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-059
   test "structured output selector controls mode while retry policy stays in the profile fold", %{
     conn: conn
