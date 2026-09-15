@@ -361,28 +361,53 @@ func validateValueNode(node map[string]any, value any, path string) error {
 
 func isNumber(value any, integer bool) bool {
 	number, ok := numericValue(value)
-	return ok && (!integer || number.IsInt())
+	return ok && (!integer || number.exponent.Sign() >= 0)
 }
 
-// numericValue compares the decimal JSON value exactly, including integers
-// beyond float64 precision. It never changes the returned provider value.
-func numericValue(value any) (*big.Rat, bool) {
+type decimalValue struct {
+	digits   string
+	exponent *big.Int
+}
+
+// Compare canonical decimal digits and an exponent without expanding powers
+// of ten. Work stays proportional to the input, even for very large exponents.
+// This representation is only for validation; provider values remain intact.
+func numericValue(value any) (decimalValue, bool) {
 	switch value.(type) {
 	case json.Number, float64, float32, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
-		encoded, err := json.Marshal(value)
-		if err != nil {
-			return nil, false
-		}
-		return new(big.Rat).SetString(string(encoded))
 	default:
-		return nil, false
+		return decimalValue{}, false
 	}
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return decimalValue{}, false
+	}
+	text := strings.ToLower(string(encoded))
+	negative := strings.HasPrefix(text, "-")
+	mantissa, power, hasPower := strings.Cut(strings.TrimPrefix(text, "-"), "e")
+	whole, fraction, _ := strings.Cut(mantissa, ".")
+	digits := strings.TrimLeft(whole+fraction, "0")
+	exponent := new(big.Int)
+	if digits == "" {
+		return decimalValue{digits: "0", exponent: exponent}, true
+	}
+	if hasPower {
+		if _, ok := exponent.SetString(power, 10); !ok {
+			return decimalValue{}, false
+		}
+	}
+	trimmed := strings.TrimRight(digits, "0")
+	exponent.Add(exponent, big.NewInt(int64(len(digits)-len(trimmed)-len(fraction))))
+	if negative {
+		trimmed = "-" + trimmed
+	}
+	return decimalValue{digits: trimmed, exponent: exponent}, true
 }
 
 func equalJSONValue(left, right any) bool {
 	if number, ok := numericValue(left); ok {
 		other, ok := numericValue(right)
-		return ok && number.Cmp(other) == 0
+		return ok && number.digits == other.digits && number.exponent.Cmp(other.exponent) == 0
 	}
 	switch left := left.(type) {
 	case map[string]any:

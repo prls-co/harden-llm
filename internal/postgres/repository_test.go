@@ -141,7 +141,7 @@ func TestRepositoryContract(t *testing.T) {
 	atomicRun := RunRecord{
 		OwnerID: "owner-a", ID: "run-atomic", ProfileID: "profile-a", TraceID: "trace-atomic",
 		Status: "succeeded", Request: json.RawMessage(`{"prompt":"redacted"}`),
-		Result:    json.RawMessage(`{"schemaVersion":2,"output":"ok"}`),
+		Result:    json.RawMessage(`{"schemaVersion":3,"output":"ok"}`),
 		Execution: providerExecutionFields(1, 0, 0, 1, 0, "exact", 0.001, 1, 0, 0, 0),
 		StartedAt: now, CompletedAt: now,
 	}
@@ -168,11 +168,11 @@ func TestRepositoryContract(t *testing.T) {
 	run := RunRecord{
 		OwnerID: "owner-a", ID: "run-a", ProfileID: "profile-a", TraceID: "trace-a", Status: "succeeded",
 		Request:   json.RawMessage(`{"prompt":"redacted"}`),
-		Result:    json.RawMessage(`{"schemaVersion":2,"output":"ok"}`),
+		Result:    json.RawMessage(`{"schemaVersion":3,"output":"ok"}`),
 		Execution: cachedExecutionFields(10, 2, 3, 4, 5, 0.125, 1000, 42),
 		StartedAt: now, CompletedAt: now.Add(time.Second),
 	}
-	trace := TraceRecord{OwnerID: "owner-a", TraceID: "trace-a", RunID: "run-a", Record: json.RawMessage(`{"schemaVersion":2,"runId":"run-a","traceId":"trace-a"}`), CreatedAt: now, UpdatedAt: now}
+	trace := TraceRecord{OwnerID: "owner-a", TraceID: "trace-a", RunID: "run-a", Record: json.RawMessage(`{"schemaVersion":3,"runId":"run-a","traceId":"trace-a"}`), CreatedAt: now, UpdatedAt: now}
 	observations := []ObservationRecord{{OwnerID: "owner-a", TraceID: "trace-a", Sequence: 0, Type: "attempt", Data: json.RawMessage(`{"number":1}`), CreatedAt: now}}
 	if err := store.SaveExecution(ctx, run, trace, observations, nil); err != nil {
 		t.Fatal(err)
@@ -207,11 +207,11 @@ func TestRepositoryContract(t *testing.T) {
 
 	failedRun := RunRecord{
 		OwnerID: "owner-a", ID: "run-b", ProfileID: "profile-a", TraceID: "trace-b", Status: "failed",
-		Request: json.RawMessage(`{"prompt":"redacted"}`), Result: json.RawMessage(`{"schemaVersion":2,"output":null}`),
+		Request: json.RawMessage(`{"prompt":"redacted"}`), Result: json.RawMessage(`{"schemaVersion":3,"output":null}`),
 		Execution: providerExecutionFields(1, 0, 0, 0, 0, "unknown", 0, 0, 1, 3000, 0),
 		StartedAt: now, CompletedAt: now.Add(3 * time.Second),
 	}
-	failedTrace := TraceRecord{OwnerID: "owner-a", TraceID: "trace-b", RunID: "run-b", Record: json.RawMessage(`{"schemaVersion":2,"runId":"run-b","traceId":"trace-b"}`), CreatedAt: now, UpdatedAt: now}
+	failedTrace := TraceRecord{OwnerID: "owner-a", TraceID: "trace-b", RunID: "run-b", Record: json.RawMessage(`{"schemaVersion":3,"runId":"run-b","traceId":"trace-b"}`), CreatedAt: now, UpdatedAt: now}
 	if err := store.SaveExecution(ctx, failedRun, failedTrace, nil, nil); err != nil {
 		t.Fatal(err)
 	}

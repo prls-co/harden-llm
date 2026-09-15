@@ -235,7 +235,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     assert length(ids) == length(Enum.uniq(ids)), "duplicate DOM ids found"
   end
 
-  defp install_stub(profiles, state_profile) do
+  defp install_stub(profiles, state_profile, save_response \\ nil) do
     state =
       APIFixtures.state()
       |> Map.put("selectedProfileId", get_in(state_profile, ["profile", "llmProfile"]))
@@ -258,6 +258,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
         {"POST", "/api/v1/state"} ->
           {:ok, body, conn} = Plug.Conn.read_body(conn)
           Req.Test.json(conn, APIFixtures.success(nil, Jason.decode!(body)))
+
+        {"PUT", "/api/v1/profiles/Primary"} when is_function(save_response, 1) ->
+          save_response.(conn)
 
         _ ->
           flunk("unexpected API call: #{conn.method} #{conn.request_path}")
@@ -314,5 +317,37 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     refute has_element?(view, "#profile-fallback-toggle")
     refute render(view) =~ "Escalation"
     refute render(view) =~ "enableRetryOnParseError"
+  end
+
+  @tag :recovery
+  test "inline profile saves retain policy values and display backend field errors", %{conn: conn} do
+    primary = profile("Primary", "fixture")
+
+    install_stub([primary], primary, fn conn ->
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      assert Jason.decode!(body)["profile"]["recoveryPolicy"]["maxAttempts"] == 11
+
+      {status, envelope} =
+        APIFixtures.error(422, "validation_failed", %{
+          "Primary.recoveryPolicy.maxAttempts" => "must be between 1 and 10"
+        })
+
+      conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
+    end)
+
+    {:ok, view, _} = live(conn, ~p"/")
+    render_async(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
+    view |> element("#profile-retry-toggle") |> render_click()
+
+    view
+    |> element("#profile-recovery-maxAttempts")
+    |> render_change(%{"profile" => %{"recoveryPolicy" => %{"maxAttempts" => "11"}}})
+
+    view |> element("#profile-save") |> render_click()
+    render_async(view, 1_000)
+    assert has_element?(view, ~s(#profile-recovery-maxAttempts[value="11"][aria-invalid="true"]))
+    assert has_element?(view, "#profile-recovery-policy", "must be between 1 and 10")
   end
 end

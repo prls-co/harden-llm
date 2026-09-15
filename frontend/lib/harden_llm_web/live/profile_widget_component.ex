@@ -60,9 +60,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
      |> assign(:field_errors, %{})
      |> assign(:recovery_field_errors, %{})
      |> assign(:fold_disabled, false)
-     |> assign(:pending, %{main: nil})
+     |> assign(:pending, nil)
      |> assign(:operation_error, nil)
-     |> assign(:delete_kind, nil)}
+     |> assign(:delete_confirm, false)}
   end
 
   @impl true
@@ -109,7 +109,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         socket
       end
 
-    socket = if needs_profile_reset?, do: notify_profile_runtime(socket, :main), else: socket
+    socket = if needs_profile_reset?, do: notify_profile_runtime(socket), else: socket
 
     {:ok,
      socket
@@ -163,7 +163,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     |> notify_parent({:profile_widget_selection, selected_profile_id})
     |> notify_parent({:profile_widget_control, "modelId", model_id})
     |> notify_parent({:profile_widget_control, "reasoningEffort", reasoning_effort})
-    |> notify_profile_runtime(:main)
+    |> notify_profile_runtime()
     |> noreply()
   end
 
@@ -193,15 +193,14 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     |> noreply()
   end
 
-  def handle_event("toggle-fold", %{"kind" => kind, "fold" => fold}, socket)
-      when kind == "main" do
-    key = "#{kind}_#{fold}_open"
+  def handle_event("toggle-fold", %{"fold" => fold}, socket) do
+    key = "main_#{fold}_open"
 
     if key in @fold_keys and not socket.assigns.fold_disabled do
       atom_key = String.to_existing_atom(key)
       socket = update(socket, atom_key, &(!&1))
 
-      case fold_ui_name(kind, fold) do
+      case fold_ui_name(fold) do
         nil ->
           {:noreply, socket}
 
@@ -215,63 +214,54 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   end
 
   def handle_event("profile-draft-change", %{"profile" => params}, socket) do
-    socket |> update_profile_form(:main, params) |> notify_profile_runtime(:main) |> noreply()
+    socket |> update_profile_form(params) |> notify_profile_runtime() |> noreply()
   end
 
-  def handle_event("toggle-credential", %{"kind" => kind}, socket)
-      when kind == "main" do
+  def handle_event("toggle-credential", _params, socket) do
     if socket.assigns.fold_disabled do
       {:noreply, socket}
     else
-      key = String.to_existing_atom("#{kind}_credential_open")
+      key = :main_credential_open
       {:noreply, update(socket, key, &(!&1))}
     end
   end
 
-  def handle_event("stage-key", %{"kind" => kind} = params, socket)
-      when kind == "main" do
-    kind_atom = String.to_existing_atom(kind)
-    form = form_for(socket, kind_atom)
+  def handle_event("stage-key", params, socket) do
+    form = socket.assigns.main_form
     key = String.trim(params["apiKey"] || params["api-key"] || form.params["apiKey"] || "")
 
     if key == "" do
       {:noreply,
        assign(socket, :operation_error, "Enter a replacement API key before staging it.")}
     else
-      form = to_form(Map.put(form.params, "apiKey", ""), as: form_as(kind_atom))
+      form = to_form(Map.put(form.params, "apiKey", ""), as: :profile)
 
       socket =
         socket
-        |> assign_form(kind_atom, form)
-        |> assign(String.to_existing_atom("#{kind}_staged_key"), key)
-        |> assign(String.to_existing_atom("#{kind}_credential_open"), false)
+        |> assign(:main_form, form)
+        |> assign(:main_staged_key, key)
+        |> assign(:main_credential_open, false)
         |> assign(:operation_error, nil)
 
-      {:noreply, notify_profile_runtime(socket, kind_atom)}
+      {:noreply, notify_profile_runtime(socket)}
     end
   end
 
-  def handle_event("clear-staged-key", %{"kind" => kind}, socket)
-      when kind == "main" do
-    kind_atom = String.to_existing_atom(kind)
-
+  def handle_event("clear-staged-key", _params, socket) do
     {:noreply,
      socket
-     |> assign(String.to_existing_atom("#{kind}_staged_key"), "")
-     |> update_profile_form(kind_atom, %{"apiKey" => ""})
-     |> notify_profile_runtime(kind_atom)}
+     |> assign(:main_staged_key, "")
+     |> update_profile_form(%{"apiKey" => ""})
+     |> notify_profile_runtime()}
   end
 
-  def handle_event("cancel-key", %{"kind" => kind}, socket)
-      when kind == "main" do
-    kind_atom = String.to_existing_atom(kind)
-
+  def handle_event("cancel-key", _params, socket) do
     {:noreply,
      socket
-     |> assign(String.to_existing_atom("#{kind}_staged_key"), "")
-     |> assign(String.to_existing_atom("#{kind}_credential_open"), false)
-     |> update_profile_form(kind_atom, %{"apiKey" => ""})
-     |> notify_profile_runtime(kind_atom)}
+     |> assign(:main_staged_key, "")
+     |> assign(:main_credential_open, false)
+     |> update_profile_form(%{"apiKey" => ""})
+     |> notify_profile_runtime()}
   end
 
   def handle_event("new-profile", _params, socket) do
@@ -283,48 +273,44 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     |> assign(:main_config_open, true)
     |> assign(:main_dirty?, true)
     |> notify_parent({:profile_widget_selection, selected_profile_id})
-    |> notify_profile_runtime(:main)
+    |> notify_profile_runtime()
     |> noreply()
   end
 
-  def handle_event("profile-confirm-delete", %{"kind" => kind}, socket)
-      when kind == "main", do: {:noreply, assign(socket, :delete_kind, kind)}
+  def handle_event("profile-confirm-delete", _params, socket),
+    do: {:noreply, assign(socket, :delete_confirm, true)}
 
   def handle_event("profile-cancel-delete", _params, socket),
-    do: {:noreply, assign(socket, :delete_kind, nil)}
+    do: {:noreply, assign(socket, :delete_confirm, false)}
 
-  def handle_event("profile-delete", %{"kind" => kind}, socket)
-      when kind == "main" do
-    if pending_for(socket, kind) != nil do
+  def handle_event("profile-delete", _params, socket) do
+    if socket.assigns.pending != nil do
       {:noreply, socket}
     else
-      kind_atom = String.to_existing_atom(kind)
-      id = profile_id(form_for(socket, kind_atom))
+      id = profile_id(socket.assigns.main_form)
 
       if id == "" do
-        {:noreply, assign(socket, :delete_kind, nil)}
+        {:noreply, assign(socket, :delete_confirm, false)}
       else
         reference = System.unique_integer([:positive, :monotonic])
         handle = socket.assigns.session_handle
 
         {:noreply,
          socket
-         |> put_pending(kind, reference)
+         |> assign(:pending, reference)
          |> start_async(
-           {:profile_delete, reference, kind},
+           {:profile_delete, reference},
            Observability.propagate(fn -> HardenAPI.delete_profile(handle, id) end)
          )}
       end
     end
   end
 
-  def handle_event("profile-save", %{"kind" => kind}, socket)
-      when kind == "main" do
-    if pending_for(socket, kind) != nil do
+  def handle_event("profile-save", _params, socket) do
+    if socket.assigns.pending != nil do
       {:noreply, socket}
     else
-      kind_atom = String.to_existing_atom(kind)
-      params = params_with_staged_key(socket, kind_atom)
+      params = params_with_staged_key(socket)
 
       case ProfilesLive.profile_payload(params) do
         {:ok, payload} ->
@@ -334,10 +320,10 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
           {:noreply,
            socket
-           |> put_pending(kind, reference)
-           |> assign_form(kind_atom, to_form(params, as: form_as(kind_atom)))
+           |> assign(:pending, reference)
+           |> assign(:main_form, to_form(params, as: :profile))
            |> start_async(
-             {:profile_save, reference, kind},
+             {:profile_save, reference},
              Observability.propagate(fn -> HardenAPI.save_profile(handle, id, payload) end)
            )}
 
@@ -347,21 +333,17 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     end
   end
 
-  def handle_event("profile-save", _params, socket), do: {:noreply, socket}
-
-  def handle_event("profile-refresh", %{"kind" => kind}, socket)
-      when kind == "main" do
-    kind_atom = String.to_existing_atom(kind)
-    id = profile_id(form_for(socket, kind_atom))
+  def handle_event("profile-refresh", _params, socket) do
+    id = profile_id(socket.assigns.main_form)
 
     cond do
-      pending_for(socket, kind) != nil ->
+      socket.assigns.pending != nil ->
         {:noreply, socket}
 
       id == "" ->
         {:noreply, socket}
 
-      profile_requires_save?(socket, kind_atom) ->
+      profile_requires_save?(socket) ->
         {:noreply, assign(socket, :operation_error, "Save profile before refreshing models.")}
 
       true ->
@@ -370,15 +352,13 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
         {:noreply,
          socket
-         |> put_pending(kind, reference)
+         |> assign(:pending, reference)
          |> start_async(
-           {:profile_refresh, reference, kind},
+           {:profile_refresh, reference},
            Observability.propagate(fn -> HardenAPI.refresh_profile_models(handle, id) end)
          )}
     end
   end
-
-  def handle_event("profile-refresh", _params, socket), do: {:noreply, socket}
 
   defp notify_workspace_controls(socket, params) when is_map(params) do
     socket =
@@ -432,188 +412,84 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   defp notify_workspace_controls(socket, _params), do: {:noreply, socket}
 
   @impl true
-  def handle_async(
-        {:profile_save, reference, kind},
-        {:ok, {:ok, profile_state, _state}},
-        socket
-      ) do
-    if pending_for(socket, kind) != reference do
-      {:noreply, socket}
-    else
-      id = get_in(profile_state, ["profile", "llmProfile"]) || ""
-      profiles = replace_profile(socket.assigns.profiles, profile_state)
-      kind_atom = String.to_existing_atom(kind)
+  def handle_async({_operation, reference}, _result, %{assigns: %{pending: pending}} = socket)
+      when reference != pending, do: {:noreply, socket}
 
-      socket =
-        socket
-        |> clear_pending(kind)
-        |> assign(:operation_error, nil)
-        |> assign(:delete_kind, nil)
-        |> assign(:profiles, profiles)
-        |> assign(:profiles_revision, :erlang.phash2(profiles))
-        |> assign(:main_dirty?, false)
-        |> assign_form(
-          kind_atom,
-          to_form(ProfilesLive.profile_form(profile_state), as: form_as(kind_atom))
-        )
-        |> assign(String.to_existing_atom("#{kind}_staged_key"), "")
+  def handle_async({:profile_save, _reference}, {:ok, {:ok, profile_state, _state}}, socket) do
+    id = profile_id_from_state(profile_state)
+    profiles = replace_profile(socket.assigns.profiles, profile_state)
 
-      socket = notify_profile_runtime(socket, :main)
-
-      socket
-      |> notify_parent({:profile_widget_profiles, profiles, id})
-      |> noreply()
-    end
+    socket
+    |> assign(:pending, nil)
+    |> assign(:operation_error, nil)
+    |> assign(:field_errors, %{})
+    |> assign(:delete_confirm, false)
+    |> assign(:profiles, profiles)
+    |> assign(:profiles_revision, :erlang.phash2(profiles))
+    |> assign(:main_dirty?, false)
+    |> assign(:main_form, to_form(ProfilesLive.profile_form(profile_state), as: :profile))
+    |> assign(:main_staged_key, "")
+    |> notify_profile_runtime()
+    |> notify_parent({:profile_widget_profiles, profiles, id})
+    |> noreply()
   end
 
-  def handle_async(
-        {:profile_save, reference, kind},
-        {:ok, {:error, %APIError{} = error}},
-        socket
-      ) do
-    if pending_for(socket, kind) != reference do
-      {:noreply, socket}
-    else
-      {:noreply,
-       socket
-       |> clear_pending(kind)
-       |> assign(:operation_error, error.message)}
-    end
+  def handle_async({:profile_refresh, _reference}, {:ok, {:ok, profile_state, _state}}, socket) do
+    profiles = replace_profile(socket.assigns.profiles, profile_state)
+
+    socket
+    |> assign(:pending, nil)
+    |> assign(:profiles, profiles)
+    |> assign(:profiles_revision, :erlang.phash2(profiles))
+    |> assign(:operation_error, nil)
+    |> assign(:field_errors, %{})
+    |> assign(:main_form, to_form(ProfilesLive.profile_form(profile_state), as: :profile))
+    |> put_flash(:info, "Model catalog refreshed.")
+    |> notify_parent({:profile_widget_profiles, profiles, profile_id_from_state(profile_state)})
+    |> noreply()
   end
 
-  def handle_async(
-        {:profile_save, reference, kind},
-        _result,
-        socket
-      ) do
-    if pending_for(socket, kind) != reference do
-      {:noreply, socket}
-    else
-      {:noreply,
-       socket
-       |> clear_pending(kind)
-       |> assign(:operation_error, "The profile could not be saved.")}
-    end
+  def handle_async({:profile_delete, _reference}, {:ok, {:ok, _result, _state}}, socket) do
+    id = profile_id(socket.assigns.main_form)
+    profiles = Enum.reject(socket.assigns.profiles, &(profile_id_from_state(&1) == id))
+
+    socket
+    |> assign(:pending, nil)
+    |> assign(:delete_confirm, false)
+    |> assign(:profiles, profiles)
+    |> assign(:profiles_revision, :erlang.phash2(profiles))
+    |> assign(:operation_error, nil)
+    |> assign(:field_errors, %{})
+    |> reset_profile_forms(profiles, "")
+    |> assign(:loaded_profile_id, "")
+    |> notify_parent({:profile_widget_profiles, profiles, ""})
+    |> noreply()
   end
 
-  def handle_async(
-        {:profile_refresh, reference, kind},
-        {:ok, {:ok, profile_state, _state}},
-        socket
-      ) do
-    if pending_for(socket, kind) != reference do
-      {:noreply, socket}
-    else
-      profiles = replace_profile(socket.assigns.profiles, profile_state)
-      kind_atom = String.to_existing_atom(kind)
-      id = get_in(profile_state, ["profile", "llmProfile"]) || ""
-
-      socket =
-        socket
-        |> clear_pending(kind)
-        |> assign(:profiles, profiles)
-        |> assign(:profiles_revision, :erlang.phash2(profiles))
-        |> assign(:operation_error, nil)
-        |> assign_form(
-          kind_atom,
-          to_form(ProfilesLive.profile_form(profile_state), as: form_as(kind_atom))
-        )
-        |> put_flash(:info, "Model catalog refreshed.")
-
-      socket
-      |> notify_parent({:profile_widget_profiles, profiles, id})
-      |> noreply()
-    end
+  def handle_async({operation, _reference}, {:ok, {:error, %APIError{} = error}}, socket)
+      when operation in [:profile_save, :profile_refresh, :profile_delete] do
+    socket
+    |> assign(:pending, nil)
+    |> assign(:delete_confirm, false)
+    |> assign(:field_errors, error.field_errors)
+    |> assign(:operation_error, error.message)
+    |> noreply()
   end
 
-  def handle_async(
-        {:profile_refresh, reference, kind},
-        {:ok, {:error, %APIError{} = error}},
-        socket
-      ) do
-    if pending_for(socket, kind) != reference do
-      {:noreply, socket}
-    else
-      {:noreply,
-       socket
-       |> clear_pending(kind)
-       |> assign(:operation_error, error.message)}
-    end
-  end
+  def handle_async({operation, _reference}, _result, socket)
+      when operation in [:profile_save, :profile_refresh, :profile_delete] do
+    message =
+      case operation do
+        :profile_save -> "The profile could not be saved."
+        :profile_refresh -> "The model catalog could not be refreshed."
+        :profile_delete -> "The profile could not be deleted."
+      end
 
-  def handle_async(
-        {:profile_refresh, reference, kind},
-        _result,
-        socket
-      ) do
-    if pending_for(socket, kind) != reference do
-      {:noreply, socket}
-    else
-      {:noreply,
-       socket
-       |> clear_pending(kind)
-       |> assign(:operation_error, "The model catalog could not be refreshed.")}
-    end
-  end
-
-  def handle_async(
-        {:profile_delete, reference, kind},
-        {:ok, {:ok, _result, _state}},
-        socket
-      ) do
-    if pending_for(socket, kind) != reference do
-      {:noreply, socket}
-    else
-      kind_atom = String.to_existing_atom(kind)
-      id = profile_id(form_for(socket, kind_atom))
-      profiles = Enum.reject(socket.assigns.profiles, &(profile_id_from_state(&1) == id))
-
-      socket =
-        socket
-        |> clear_pending(kind)
-        |> assign(:delete_kind, nil)
-        |> assign(:profiles, profiles)
-        |> assign(:profiles_revision, :erlang.phash2(profiles))
-        |> assign(:operation_error, nil)
-
-      socket = socket |> reset_profile_forms(profiles, "") |> assign(:loaded_profile_id, "")
-
-      socket
-      |> notify_parent({:profile_widget_profiles, profiles, ""})
-      |> noreply()
-    end
-  end
-
-  def handle_async(
-        {:profile_delete, reference, kind},
-        {:ok, {:error, %APIError{} = error}},
-        socket
-      ) do
-    if pending_for(socket, kind) != reference do
-      {:noreply, socket}
-    else
-      {:noreply,
-       socket
-       |> clear_pending(kind)
-       |> assign(:delete_kind, nil)
-       |> assign(:operation_error, error.message)}
-    end
-  end
-
-  def handle_async(
-        {:profile_delete, reference, kind},
-        _result,
-        socket
-      ) do
-    if pending_for(socket, kind) != reference do
-      {:noreply, socket}
-    else
-      {:noreply,
-       socket
-       |> clear_pending(kind)
-       |> assign(:delete_kind, nil)
-       |> assign(:operation_error, "The profile could not be deleted.")}
-    end
+    socket
+    |> assign(:pending, nil)
+    |> assign(:delete_confirm, false)
+    |> assign(:operation_error, message)
+    |> noreply()
   end
 
   def handle_async(_operation, _result, socket), do: {:noreply, socket}
@@ -670,7 +546,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       >
         <.profile_editor
           form={@main_form}
-          kind="main"
           id_prefix={scope_id(@id_prefix, "profile")}
           target={@myself}
           profiles={@profiles}
@@ -688,8 +563,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           cache_mode={@cache_mode}
           bundle_upload={@bundle_upload}
           widget_id={@id_prefix}
-          pending={pending_value(@pending, "main")}
-          delete_kind={@delete_kind}
+          pending={@pending}
+          delete_confirm={@delete_confirm}
         />
       </div>
     </section>
@@ -904,7 +779,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   end
 
   attr(:form, :any, required: true)
-  attr(:kind, :string, required: true)
   attr(:id_prefix, :string, required: true)
   attr(:target, :any, required: true)
   attr(:profiles, :list, required: true)
@@ -923,7 +797,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:bundle_upload, :any, default: nil)
   attr(:widget_id, :string, default: "")
   attr(:pending, :any, default: nil)
-  attr(:delete_kind, :any, default: nil)
+  attr(:delete_confirm, :boolean, default: false)
 
   def profile_editor(assigns) do
     ~H"""
@@ -977,7 +851,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             id={"#{@id_prefix}-credential-toggle"}
             class="ullm-btn ullm-btn-tiny"
             phx-click="toggle-credential"
-            phx-value-kind={@kind}
             phx-target={@target}
             disabled={@fold_disabled}
             aria-expanded={to_string(@credential_open)}
@@ -1007,7 +880,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               type="button"
               class="ullm-btn ullm-btn-danger"
               phx-click="clear-staged-key"
-              phx-value-kind={@kind}
               phx-target={@target}
             >Clear staged key</button>
             <button
@@ -1015,7 +887,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               type="button"
               class="ullm-btn"
               phx-click="cancel-key"
-              phx-value-kind={@kind}
               phx-target={@target}
             >Cancel</button>
             <button
@@ -1023,7 +894,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               type="button"
               class="ullm-btn ullm-btn-primary"
               phx-click="stage-key"
-              phx-value-kind={@kind}
               phx-target={@target}
               data-stage-key
             >Stage key</button>
@@ -1037,7 +907,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           id={"#{@id_prefix}-refresh-models"}
           class="ullm-btn ullm-model-refresh-button"
           phx-click="profile-refresh"
-          phx-value-kind={@kind}
           phx-target={@target}
           disabled={@pending != nil or profile_id(@form) == "" or @requires_save}
         >Refresh Models</button>
@@ -1059,7 +928,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               )
             }
             allow_custom
-            placeholder={ProfileDefaults.model_placeholder(@kind)}
+            placeholder={ProfileDefaults.model_placeholder()}
             aria_label="Model ID"
             class="ullm-input ullm-input-mono"
             phx_change="profile-draft-change"
@@ -1088,7 +957,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       </div>
 
       <div
-        :if={new_profile_fields_visible?(@kind, @form, @profiles)}
+        :if={new_profile_fields_visible?(@form, @profiles)}
         class="ullm-new-profile-fields ullm-options-grid"
       >
         <.input
@@ -1135,7 +1004,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         />
       </div>
       <input
-        :if={not new_profile_fields_visible?(@kind, @form, @profiles)}
+        :if={not new_profile_fields_visible?(@form, @profiles)}
         type="hidden"
         name={@form[:supportsWebSearch].name}
         value={to_string(truthy?(@form[:supportsWebSearch].value))}
@@ -1147,7 +1016,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           type="button"
           class="ullm-btn ullm-options-summary"
           phx-click="toggle-fold"
-          phx-value-kind={@kind}
           phx-value-fold="options"
           phx-target={@target}
           disabled={@fold_disabled}
@@ -1234,7 +1102,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           type="button"
           class="ullm-btn ullm-options-summary"
           phx-click="toggle-fold"
-          phx-value-kind={@kind}
           phx-value-fold="retry"
           phx-target={@target}
           disabled={@fold_disabled}
@@ -1257,7 +1124,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           type="button"
           class="ullm-btn ullm-options-summary"
           phx-click="toggle-fold"
-          phx-value-kind={@kind}
           phx-value-fold="pricing"
           phx-target={@target}
           disabled={@fold_disabled}
@@ -1333,7 +1199,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         </div>
       </div>
 
-      <div :if={@kind == "main"} class="ullm-profile-actions ullm-button-row">
+      <div class="ullm-profile-actions ullm-button-row">
         <button
           id={scope_id(@id_prefix, "new")}
           type="button"
@@ -1347,7 +1213,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             :if={@bundle_upload}
             upload={@bundle_upload}
             phx-change="import-bundle"
-            phx-value-kind={@kind}
             phx-value-widget={@widget_id}
           />
         </label>
@@ -1357,7 +1222,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           type="button"
           class="ullm-btn ullm-btn-primary"
           phx-click="profile-save"
-          phx-value-kind={@kind}
           phx-target={@target}
           disabled={
             @pending != nil or profile_id(@form) == "" or
@@ -1370,13 +1234,12 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           type="button"
           class="ullm-btn ullm-btn-danger"
           phx-click="profile-confirm-delete"
-          phx-value-kind={@kind}
           phx-target={@target}
         >Delete Profile</button>
       </div>
 
       <div
-        :if={@delete_kind == @kind}
+        :if={@delete_confirm}
         id={"#{@id_prefix}-delete-confirmation"}
         class="ullm-delete-confirm"
         role="alert"
@@ -1394,7 +1257,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           type="button"
           class="ullm-btn ullm-btn-danger"
           phx-click="profile-delete"
-          phx-value-kind={@kind}
           phx-target={@target}
         >Confirm delete</button>
       </div>
@@ -1500,7 +1362,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     |> assign(:main_requires_save?, false)
   end
 
-  defp update_profile_form(socket, :main, incoming) do
+  defp update_profile_form(socket, incoming) do
     params =
       socket.assigns.main_form.params
       |> ProfileWidgetState.merge_draft(incoming)
@@ -1569,32 +1431,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   defp stop_text(value) when is_list(value), do: Enum.join(value, "\n")
   defp stop_text(_value), do: ""
 
-  defp pending_for(socket, kind), do: pending_value(socket.assigns.pending, kind)
-
-  defp pending_value(pending, kind) when is_map(pending) and is_binary(kind),
-    do: Map.get(pending, String.to_existing_atom(kind))
-
-  defp pending_value(pending, kind) when is_map(pending) and is_atom(kind),
-    do: Map.get(pending, kind)
-
-  defp pending_value(_pending, _kind), do: nil
-
-  defp put_pending(socket, kind, reference),
-    do: update(socket, :pending, &Map.put(&1, kind_key(kind), reference))
-
-  defp clear_pending(socket, kind),
-    do: update(socket, :pending, &Map.put(&1, kind_key(kind), nil))
-
-  defp kind_key(kind) when is_binary(kind), do: String.to_existing_atom(kind)
-  defp kind_key(kind), do: kind
-
-  defp form_for(socket, :main), do: socket.assigns.main_form
-  defp assign_form(socket, :main, form), do: assign(socket, :main_form, form)
-  defp form_as(:main), do: :profile
-
-  defp params_with_staged_key(socket, kind) do
-    form = form_for(socket, kind)
-    staged = Map.get(socket.assigns, String.to_existing_atom("#{kind}_staged_key"), "")
+  defp params_with_staged_key(socket) do
+    form = socket.assigns.main_form
+    staged = socket.assigns.main_staged_key
 
     params = Map.delete(form.params, "apiKey")
     if staged == "", do: params, else: Map.put(params, "apiKey", staged)
@@ -1650,15 +1489,15 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     |> assign(:fold_disabled, Map.get(assigns, :fold_disabled, socket.assigns.fold_disabled))
   end
 
-  defp fold_ui_name("main", "options"), do: "modelOptionsOpen"
-  defp fold_ui_name("main", "retry"), do: "retryRepairOpen"
-  defp fold_ui_name("main", "pricing"), do: "pricingOpen"
-  defp fold_ui_name(_, _), do: nil
+  defp fold_ui_name("options"), do: "modelOptionsOpen"
+  defp fold_ui_name("retry"), do: "retryRepairOpen"
+  defp fold_ui_name("pricing"), do: "pricingOpen"
+  defp fold_ui_name(_), do: nil
 
-  defp notify_profile_runtime(socket, :main) do
+  defp notify_profile_runtime(socket) do
     form = socket.assigns.main_form
     options = runtime_provider_options(form.params["defaultOptionsJson"])
-    main_requires_save? = profile_requires_save?(socket, :main)
+    main_requires_save? = profile_requires_save?(socket)
 
     socket
     |> assign(:main_requires_save?, main_requires_save?)
@@ -1667,7 +1506,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       {:profile_widget_recovery,
        ProfileWidgetState.serialize_recovery_policy(form.params["recoveryPolicy"])}
     )
-    |> notify_parent({:profile_widget_profile_dirty, profile_requires_save?(socket)})
+    |> notify_parent({:profile_widget_profile_dirty, main_requires_save?})
   end
 
   defp runtime_provider_options(value) do
@@ -1681,14 +1520,10 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   end
 
   defp profile_requires_save?(socket) do
-    profile_requires_save?(socket, :main)
-  end
-
-  defp profile_requires_save?(socket, kind) do
-    form = form_for(socket, kind)
+    form = socket.assigns.main_form
     params = form.params || %{}
     id = String.trim(params["profileId"] || "")
-    staged_key = Map.get(socket.assigns, String.to_existing_atom("#{kind}_staged_key"), "")
+    staged_key = socket.assigns.main_staged_key
     current = profile_dirty_params(params)
 
     case Enum.find(socket.assigns.profiles, &(profile_id_from_state(&1) == id)) do
@@ -1863,7 +1698,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     end
   end
 
-  defp new_profile_fields_visible?(_kind, form, profiles) do
+  defp new_profile_fields_visible?(form, profiles) do
     id = profile_id(form)
 
     id == "" or

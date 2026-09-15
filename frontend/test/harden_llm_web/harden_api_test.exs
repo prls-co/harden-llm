@@ -138,7 +138,10 @@ defmodule HardenLlmWeb.HardenAPITest do
       assert body == ""
       assert Plug.Conn.get_req_header(conn, "authorization") == ["Bearer " <> APIFixtures.token()]
 
-      Req.Test.json(conn, APIFixtures.success(%{"profile" => %{"models" => []}}))
+      Req.Test.json(
+        conn,
+        APIFixtures.success(put_in(APIFixtures.profile_state(), ["profile", "models"], []))
+      )
     end)
 
     assert {:ok, %{"profile" => %{"models" => []}}, %{}} =
@@ -326,5 +329,38 @@ defmodule HardenLlmWeb.HardenAPITest do
       Req.Test.stub(HardenAPI, fn conn -> Req.Test.json(conn, APIFixtures.success(invalid)) end)
       assert {:error, %APIError{category: :protocol}} = HardenAPI.list_profiles(handle)
     end
+  end
+
+  @tag :recovery
+  test "state and individual profile responses require the current policy contract" do
+    handle = APIFixtures.insert_session()
+    state = APIFixtures.state()
+
+    for invalid <- [
+          Map.put(state, "schemaVersion", 1),
+          Map.delete(state, "recoveryPolicy"),
+          put_in(state, ["recoveryPolicy", "backoff"], %{})
+        ] do
+      Req.Test.stub(HardenAPI, fn conn ->
+        Req.Test.json(conn, APIFixtures.success(nil, invalid))
+      end)
+
+      assert {:error, %APIError{category: :protocol}} = HardenAPI.get_state(handle)
+      assert {:error, %APIError{category: :protocol}} = HardenAPI.save_state(handle, state)
+    end
+
+    Req.Test.stub(HardenAPI, fn conn -> Req.Test.json(conn, APIFixtures.success(nil, state)) end)
+    assert {:ok, nil, ^state} = HardenAPI.get_state(handle)
+
+    invalid =
+      update_in(APIFixtures.profile_state(), ["profile"], &Map.delete(&1, "recoveryPolicy"))
+
+    Req.Test.stub(HardenAPI, fn conn -> Req.Test.json(conn, APIFixtures.success(invalid)) end)
+
+    assert {:error, %APIError{category: :protocol}} =
+             HardenAPI.save_profile(handle, "Primary", %{})
+
+    assert {:error, %APIError{category: :protocol}} =
+             HardenAPI.refresh_profile_models(handle, "Primary")
   end
 end

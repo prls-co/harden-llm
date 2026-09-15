@@ -470,7 +470,12 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
             unexpected(conn)
         end
       end,
-      state: %{}
+      state: %{
+        "schemaVersion" => 2,
+        "callType" => "structured",
+        "cacheMode" => "cache",
+        "recoveryPolicy" => APIFixtures.recovery_policy()
+      }
     )
 
     {:ok, view, _html} = live(conn, ~p"/")
@@ -1236,7 +1241,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     view
     |> with_target("#workspace-llm-widget")
-    |> render_click("stage-key", %{"kind" => "main", "apiKey" => "widget-secret"})
+    |> render_click("stage-key", %{"apiKey" => "widget-secret"})
 
     assert has_element?(view, "#profile-credential-toggle", "Replace key")
     refute render(view) =~ "widget-secret"
@@ -1269,7 +1274,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       ])
 
     render_upload(upload, "profiles.json")
-    render_change(view, "import-bundle", %{"kind" => "main", "widget" => ""})
+    render_change(view, "import-bundle", %{})
     assert_received {:widget_imported, %{"schemaVersion" => 2}}
     assert has_element?(view, ~s(#run_selectedProfileId-options [data-value="CPA GPT-5.6 Luna"]))
   end

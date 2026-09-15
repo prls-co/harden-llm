@@ -22,7 +22,25 @@ defmodule HardenLlm.LlmDiagnosticsWire do
   def decode(operation, value) when operation in ["listProfiles", "importProfileBundle"],
     do: decode_profiles(value)
 
+  def decode(operation, value) when operation in ["saveProfile", "refreshProfileModels"] do
+    case profile_state(value) do
+      :ok -> {:ok, value}
+      _ -> malformed()
+    end
+  end
+
   def decode(_operation, value), do: {:ok, value}
+
+  def decode_state(operation, value) when operation in ["getState", "saveState"] do
+    with %{"schemaVersion" => 2, "recoveryPolicy" => policy} <- value,
+         :ok <- recovery_policy(policy) do
+      {:ok, value}
+    else
+      _ -> malformed()
+    end
+  end
+
+  def decode_state(_operation, value), do: {:ok, value}
 
   defp decode_profiles(%{"profiles" => profiles, "defaults" => defaults} = value)
        when is_list(profiles) and is_map(defaults) do

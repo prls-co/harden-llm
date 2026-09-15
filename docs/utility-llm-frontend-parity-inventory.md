@@ -1,5 +1,13 @@
 # Utility LLM Frontend Parity Inventory
 
+Recovery-specific source behavior is superseded by
+[ADR-HLLM-020](adr/ADR-HLLM-020-recovery-policy-and-execution.md).
+References below to source backup ordering, implicit defaults, parse retry and
+repair escalation describe the captured source, not supported harden-llm paths.
+The current implementation has one complete recovery policy, selected target,
+shared recovery editor and original-schema repair. TEST-202–209 document the
+intentional difference; unrelated widget invariants still apply.
+
 ## 1. Audit scope and source revisions
 
 This inventory records the frontend behavior that must be represented by the

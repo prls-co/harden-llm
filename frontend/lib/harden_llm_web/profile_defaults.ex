@@ -104,6 +104,6 @@ defmodule HardenLlmWeb.ProfileDefaults do
   @doc "Returns the default endpoint placeholder used by utility-llm."
   def base_url_placeholder, do: "https://openrouter.ai/api/v1"
 
-  @doc "Returns the model-slot placeholder for the main or repair editor."
-  def model_placeholder(_kind), do: "gpt-5.6-luna"
+  @doc "Returns the profile model placeholder."
+  def model_placeholder(), do: "gpt-5.6-luna"
 end

@@ -91,8 +91,8 @@ defmodule HardenLlmWeb.EmbeddingLive do
   @impl true
   def handle_event("validate-bundle", _params, socket), do: {:noreply, socket}
 
-  def handle_event("import-bundle", %{"kind" => kind, "widget" => prefix}, socket) do
-    case upload_name(prefix, kind) do
+  def handle_event("import-bundle", %{"widget" => prefix}, socket) do
+    case upload_name(prefix) do
       nil -> {:noreply, assign(socket, :upload_error, "The widget upload namespace is invalid.")}
       upload -> import_bundle(socket, upload)
     end
@@ -238,7 +238,7 @@ defmodule HardenLlmWeb.EmbeddingLive do
     Enum.find_value(@instance_specs, fn spec -> if spec.prefix == prefix, do: spec.key end)
   end
 
-  defp upload_name(prefix, _kind) do
+  defp upload_name(prefix) do
     Enum.find_value(@instance_specs, fn spec ->
       if spec.prefix == prefix, do: spec.bundle_upload
     end)

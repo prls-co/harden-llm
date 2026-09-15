@@ -706,11 +706,9 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   def handle_event("validate-bundle", _params, socket), do: {:noreply, socket}
 
-  def handle_event("import-bundle", params, socket) do
-    upload = workspace_upload_name(params["kind"], params["widget"])
-
+  def handle_event("import-bundle", _params, socket) do
     results =
-      consume_uploaded_entries(socket, upload, fn %{path: path}, _entry ->
+      consume_uploaded_entries(socket, :profile_bundle, fn %{path: path}, _entry ->
         case File.read(path) do
           {:ok, bytes} -> {:ok, bytes}
           {:error, _reason} -> {:postpone, :read_failed}
@@ -2063,8 +2061,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp put_optional(map, _key, value) when value in [nil, ""], do: map
   defp put_optional(map, key, value), do: Map.put(map, key, String.trim(value))
-
-  defp workspace_upload_name(_kind, _widget), do: :profile_bundle
 
   defp host_model_catalog(profiles) do
     profiles

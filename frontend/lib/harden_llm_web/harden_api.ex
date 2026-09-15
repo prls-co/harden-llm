@@ -275,12 +275,12 @@ defmodule HardenLlmWeb.HardenAPI do
          "error" => nil
        })
        when status in 200..299 and is_map(state) do
-    case LlmDiagnosticsWire.decode(operation.id, result) do
-      {:ok, decoded} ->
-        {:ok, {:ok, decoded, state}}
-
+    with {:ok, decoded} <- LlmDiagnosticsWire.decode(operation.id, result),
+         {:ok, decoded_state} <- LlmDiagnosticsWire.decode_state(operation.id, state) do
+      {:ok, {:ok, decoded, decoded_state}}
+    else
       {:error, _reason} ->
-        {:error, protocol_error_value("The backend returned malformed diagnostics.", operation)}
+        {:error, protocol_error_value("The backend returned a malformed response.", operation)}
     end
   end
 

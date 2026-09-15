@@ -393,7 +393,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-032
-  test "profile editor translates options, ordered fallbacks, retry repair, and pricing", %{
+  test "profile editor translates options, recovery policy, and pricing", %{
     conn: conn
   } do
     test_pid = self()

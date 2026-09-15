@@ -425,6 +425,9 @@ func TestRecoveryRetryAfter(t *testing.T) {
 		{now.Add(30 * time.Second).Format(http.TimeFormat), 30 * time.Second},
 		{now.Add(-time.Second).Format(http.TimeFormat), 0},
 		{"9223372036854775807", time.Duration(1<<63 - 1)},
+		{"999999999999999999999999999999", time.Duration(1<<63 - 1)},
+		{"999999999999999999999999999999bad", 0},
+		{"+30", 0},
 	} {
 		if got := parseRetryAfter(c.header, now); got != c.want {
 			t.Errorf("header=%q delay=%v want=%v", c.header, got, c.want)

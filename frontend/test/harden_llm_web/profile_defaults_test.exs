@@ -25,7 +25,7 @@ defmodule HardenLlmWeb.ProfileDefaultsTest do
     assert ProfileDefaults.pricing_placeholder() == "n/a"
     assert ProfileDefaults.profile_placeholder() == "OpenRouter DeepSeek V4 Flash"
     assert ProfileDefaults.base_url_placeholder() == "https://openrouter.ai/api/v1"
-    assert ProfileDefaults.model_placeholder("main") == "gpt-5.6-luna"
+    assert ProfileDefaults.model_placeholder() == "gpt-5.6-luna"
     assert ProfileDefaults.reasoning_default() == "lowest"
     assert ProfileDefaults.cache_mode_default() == "cache"
   end
