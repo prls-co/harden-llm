@@ -181,7 +181,7 @@ func TestEmptyProviderResponseRetriesSameOperationBeforeCaching(t *testing.T) {
 	executor := &fixedExecutor{
 		result: fixtureProviderResult(),
 		sequence: []error{
-			&retry.ProviderError{Code: "empty_response", Empty: true, RawResponse: `{"output_text":""}`},
+			&retry.ProviderError{Code: "empty_response", Category: retry.CategoryEmpty, RawResponse: `{"output_text":""}`},
 			nil,
 		},
 	}

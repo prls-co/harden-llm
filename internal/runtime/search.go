@@ -22,10 +22,3 @@ type SearchSource struct {
 	URL   string `json:"url"`
 	Title string `json:"title"`
 }
-
-// BeforeProviderError distinguishes preparation/search failure from a model
-// invocation while preserving the original retry classification.
-type BeforeProviderError struct{ Err error }
-
-func (e *BeforeProviderError) Error() string { return e.Err.Error() }
-func (e *BeforeProviderError) Unwrap() error { return e.Err }

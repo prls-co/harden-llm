@@ -131,7 +131,7 @@ func TestJinaFallbackSearchIsExecutedAfterPrepareAndBoundToProviderPayload(t *te
 			t.Errorf("provider input omitted bounded search result: %s", encodedInput)
 		}
 		writer.Header().Set("Content-Type", "application/json")
-		_, _ = writer.Write([]byte(`{"output_text":"ok"}`))
+		_, _ = writer.Write([]byte(`{"status":"completed","output_text":"ok"}`))
 	}))
 	defer provider.Close()
 

@@ -153,16 +153,13 @@ type Classification struct {
 
 type ProviderError struct {
 	Err               error
+	Category          Category
 	Code              string
 	Type              string
 	ProviderRequestID string
 	RawResponse       string
 	Status            int
 	RetryAfter        time.Duration
-	Parse             bool
-	Refusal           bool
-	Empty             bool
-	Timeout           bool
 }
 
 func (providerError *ProviderError) Error() string {
@@ -205,43 +202,36 @@ func Classify(err error, policy Policy) Classification {
 			return Classification{
 				Retryable: retryable, Category: category, Status: providerError.Status,
 				Code: providerError.Code, Type: providerError.Type, ProviderRequestID: providerError.ProviderRequestID,
+				RetryAfter: nonnegativeDuration(providerError.RetryAfter),
 			}
 		}
-		if providerError.Refusal || containsRefusal(providerError.Error()) {
-			return metadata(CategoryRefusal, false)
-		}
-		if providerError.Parse {
-			return metadata(CategoryParse, false)
-		}
-		if providerError.Timeout {
-			return metadata(CategoryTimeout, false)
-		}
-		if isNetworkCode(providerError.Code) || containsNetworkFailure(providerError.Error()) {
-			return metadata(CategoryNetwork, policy.Allows(CategoryNetwork))
+		// A category assigned by the protocol normalizer is authoritative for a
+		// decoded envelope. An unclassified HTTP response is classified from its
+		// status below; free-form diagnostics never override either fact.
+		if providerError.Category != "" {
+			category := providerError.Category
+			return metadata(category, policy.Allows(category) && category != CategoryOther && category != CategoryParse && category != CategoryRefusal && category != CategoryTimeout && category != CategoryCanceled)
 		}
 		if providerError.Status == 429 {
 			classification := metadata(CategoryRateLimit, policy.Allows(CategoryRateLimit))
 			classification.RetryAfter = nonnegativeDuration(providerError.RetryAfter)
 			return classification
 		}
-		if (providerError.Status >= 500 && providerError.Status <= 599) || isProviderServerError(providerError) {
+		if providerError.Status >= 500 && providerError.Status <= 599 {
 			classification := metadata(CategoryServer, policy.Allows(CategoryServer))
 			if providerError.Status == 503 {
 				classification.RetryAfter = nonnegativeDuration(providerError.RetryAfter)
 			}
 			return classification
 		}
-		if providerError.Empty || strings.EqualFold(strings.TrimSpace(providerError.Code), "empty_response") {
-			return metadata(CategoryEmpty, policy.Allows(CategoryEmpty))
+		if providerError.Status != 0 && (providerError.Status < 200 || providerError.Status > 299) {
+			return metadata(CategoryOther, false)
 		}
-		if strings.EqualFold(strings.TrimSpace(providerError.Code), "provider_retry") {
-			return metadata(CategoryProvider, policy.Allows(CategoryProvider))
+		category := categoryForCode(providerError.Code)
+		if category == CategoryParse {
+			return metadata(CategoryParse, false)
 		}
-		return metadata(CategoryOther, false)
-	}
-
-	if containsRefusal(errorMessage(err)) {
-		return Classification{Category: CategoryRefusal}
+		return metadata(category, policy.Allows(category) && category != CategoryOther && category != CategoryParse && category != CategoryRefusal && category != CategoryTimeout && category != CategoryCanceled)
 	}
 	return Classification{Category: CategoryOther}
 }
@@ -256,11 +246,21 @@ type Config struct {
 }
 
 func Delay(attempt int, retryAfter time.Duration, backoff Backoff, random float64) time.Duration {
-	rawMilliseconds := float64(backoff.BaseDelayMS) * math.Pow(2, float64(attempt-1))
-	delayMilliseconds := rawMilliseconds + rawMilliseconds*(clampRandom(random)*0.5-0.25)
-	delayMilliseconds = min(delayMilliseconds, float64(backoff.MaxDelayMS))
-	delay := time.Duration(math.Floor(max(0, delayMilliseconds))) * time.Millisecond
-	return max(delay, retryAfter)
+	window := int64(max(backoff.BaseDelayMS, 0))
+	maximum := int64(max(backoff.MaxDelayMS, 0))
+	if window > maximum {
+		window = maximum
+	}
+	for step := 1; step < max(attempt, 1) && window < maximum; step++ {
+		if window > maximum/2 {
+			window = maximum
+			break
+		}
+		window *= 2
+	}
+	jitter := int64(math.Floor(float64(window) * clampRandom(random)))
+	delay := time.Duration(jitter) * time.Millisecond
+	return max(delay, nonnegativeDuration(retryAfter))
 }
 
 func Wait(ctx context.Context, duration time.Duration) error {
@@ -278,48 +278,38 @@ func Wait(ctx context.Context, duration time.Duration) error {
 }
 
 func clampRandom(value float64) float64 {
-	if math.IsNaN(value) || value < 0 {
+	if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
 		return 0
 	}
-	if value >= 1 {
-		return math.Nextafter(1, 0)
+	if value > 1 {
+		return 1
 	}
 	return value
 }
 
-func isNetworkCode(code string) bool {
-	switch strings.ToUpper(strings.TrimSpace(code)) {
-	case "ETIMEDOUT", "ECONNRESET", "ENOTFOUND", "EAI_AGAIN", "EPIPE", "ECONNABORTED", "NETWORK_ERROR", "WEB_SEARCH_NETWORK":
-		return true
+func categoryForCode(code string) Category {
+	switch strings.ToLower(strings.TrimSpace(code)) {
+	case "etimedout", "econnreset", "enotfound", "eai_again", "epipe", "econnaborted", "network_error", "web_search_network", "provider_response_read":
+		return CategoryNetwork
+	case "empty_response", "web_search_empty":
+		return CategoryEmpty
+	case "provider_retry":
+		return CategoryProvider
+	case "server_is_overloaded", "service_unavailable", "server_error":
+		return CategoryServer
+	case "provider_refusal", "web_search_tool_error":
+		return CategoryRefusal
+	case "structured_parse":
+		return CategoryParse
+	case "provider_request_timeout", "web_search_timeout":
+		return CategoryTimeout
 	default:
-		return false
+		return CategoryOther
 	}
-}
-
-func containsNetworkFailure(message string) bool {
-	message = strings.ToLower(message)
-	return strings.Contains(message, "premature close") || strings.Contains(message, "socket hang up") || strings.Contains(message, "network timeout")
-}
-
-func containsRefusal(message string) bool {
-	message = strings.ToLower(message)
-	return strings.Contains(message, "refusal") || strings.Contains(message, "content filter") || strings.Contains(message, "content_filter") || strings.Contains(message, "safety blocked")
-}
-
-func isProviderServerError(providerError *ProviderError) bool {
-	value := strings.ToLower(strings.Join([]string{providerError.Code, providerError.Type, providerError.Error()}, " "))
-	return strings.Contains(value, "server_is_overloaded") || strings.Contains(value, "service_unavailable") || strings.Contains(value, "server is currently overloaded") || strings.Contains(value, "servers are currently overloaded") || strings.Contains(value, "service unavailable")
 }
 
 func nonnegativeDuration(value time.Duration) time.Duration {
 	return max(value, 0)
-}
-
-func errorMessage(err error) string {
-	if err == nil {
-		return ""
-	}
-	return err.Error()
 }
 
 // ValidateProviderOptions keeps recovery controls out of free-form provider

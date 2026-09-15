@@ -457,6 +457,71 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, ~s(#run_modelId[value="gpt-5.4"]))
   end
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-074
+  @tag :recovery_boundary_owner
+  test "profile selection keeps the active host recovery policy", %{conn: conn} do
+    test_pid = self()
+    primary_policy = Map.put(APIFixtures.recovery_policy(), "maxAttempts", 4)
+    secondary_policy = Map.put(APIFixtures.recovery_policy(), "maxAttempts", 9)
+
+    primary =
+      put_in(
+        widget_profile("Primary", "model-primary"),
+        ["profile", "recoveryPolicy"],
+        primary_policy
+      )
+
+    secondary =
+      put_in(
+        widget_profile("Secondary", "model-secondary"),
+        ["profile", "recoveryPolicy"],
+        secondary_policy
+      )
+
+    state =
+      APIFixtures.state()
+      |> Map.put("selectedProfileId", "Primary")
+      |> Map.put("modelId", "model-primary")
+      |> Map.put("recoveryPolicy", Map.put(primary_policy, "maxAttempts", 7))
+
+    install_stub(
+      fn conn ->
+        case {conn.method, conn.request_path} do
+          {"POST", "/api/v1/state"} ->
+            {:ok, body, conn} = Plug.Conn.read_body(conn)
+            saved = Jason.decode!(body)
+            send(test_pid, {:owner_state, saved})
+            Req.Test.json(conn, APIFixtures.success(nil, saved))
+
+          _ ->
+            unexpected(conn)
+        end
+      end,
+      profiles: [primary, secondary],
+      state: state
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    render_async(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
+    view |> element("#profile-retry-toggle") |> render_click()
+
+    assert has_element?(view, ~s(#profile-recovery-maxAttempts[value="7"]))
+
+    view
+    |> with_target("#workspace-llm-widget")
+    |> render_change("select-profile", %{"run" => %{"selectedProfileId" => "Secondary"}})
+
+    render_async(view, 1_000)
+    assert has_element?(view, ~s(#profile-recovery-maxAttempts[value="7"]))
+
+    assert_receive {:owner_state,
+                    %{"selectedProfileId" => "Secondary", "recoveryPolicy" => policy}}
+
+    assert policy["maxAttempts"] == 7
+  end
+
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-056
   test "renders utility input defaults and the utility control topology", %{conn: conn} do
     install_stub(
@@ -2484,6 +2549,336 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     render_async(view, 1_000)
     refute has_element?(view, "#output-trace-summary[disabled]")
     assert has_element?(view, "#profile-pricing-toggle:not([disabled])")
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-075
+  @tag :recovery_boundary_persistence
+  test "workspace state saves serialize and retain the newest visible draft", %{conn: conn} do
+    test_pid = self()
+    {:ok, stored} = Agent.start_link(fn -> nil end)
+    {:ok, counter} = Agent.start_link(fn -> 0 end)
+
+    on_exit(fn ->
+      if Process.alive?(stored), do: Agent.stop(stored)
+      if Process.alive?(counter), do: Agent.stop(counter)
+    end)
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          state = Jason.decode!(body)
+          number = Agent.get_and_update(counter, fn value -> {value, value + 1} end)
+          Agent.update(stored, fn _ -> state end)
+          send(test_pid, {:state_save_started, number, self(), state})
+
+          if number == 0 do
+            receive do
+              :release_first_state_save -> :ok
+            end
+          end
+
+          Req.Test.json(conn, APIFixtures.success(nil, state))
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    render_async(view, 1_000)
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "first draft"}})
+    |> render_change()
+
+    assert_receive {:state_save_started, 0, first_process, %{"userPrompt" => "first draft"}},
+                   1_000
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "newest draft"}})
+    |> render_change()
+
+    refute_receive {:state_save_started, 1, _, _}, 100
+    send(first_process, :release_first_state_save)
+
+    assert_receive {:state_save_started, 1, second_process, %{"userPrompt" => "newest draft"}},
+                   1_000
+
+    send(second_process, :release_second_state_save)
+    render_async(view, 1_000)
+
+    assert Agent.get(stored, & &1)["userPrompt"] == "newest draft"
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-075
+  @tag :recovery_boundary_persistence
+  test "a failed state write keeps the draft and drains only a newer snapshot", %{conn: conn} do
+    test_pid = self()
+    stored = start_supervised!({Agent, fn -> APIFixtures.state() end})
+    counter = start_supervised!({Agent, fn -> 0 end})
+
+    install_stub(
+      fn conn ->
+        case {conn.method, conn.request_path} do
+          {"POST", "/api/v1/state"} ->
+            {:ok, body, conn} = Plug.Conn.read_body(conn)
+            state = Jason.decode!(body)
+            number = Agent.get_and_update(counter, fn value -> {value, value + 1} end)
+            send(test_pid, {:failed_state_save_started, number, self(), state})
+
+            case number do
+              0 ->
+                receive do
+                  :release_failed_state_save -> :ok
+                end
+
+                {status, envelope} = APIFixtures.error(422, "state_rejected")
+                conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
+
+              1 ->
+                Agent.update(stored, fn _ -> state end)
+                Req.Test.json(conn, APIFixtures.success(nil, state))
+
+              _ ->
+                unexpected(conn)
+            end
+
+          _ ->
+            unexpected(conn)
+        end
+      end,
+      state: fn conn -> Req.Test.json(conn, APIFixtures.success(nil, Agent.get(stored, & &1))) end
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    render_async(view, 1_000)
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "failed draft"}})
+    |> render_change()
+
+    assert_receive {:failed_state_save_started, 0, first_process, first_state}, 1_000
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "newest saved draft"}})
+    |> render_change()
+
+    refute_receive {:failed_state_save_started, 1, _, _}, 100
+    send(first_process, :release_failed_state_save)
+
+    assert_receive {:failed_state_save_started, 1, _second_process, second_state}, 1_000
+    assert first_state["userPrompt"] == "failed draft"
+    assert second_state["userPrompt"] == "newest saved draft"
+    render_async(view, 1_000)
+
+    assert has_element?(view, "#run_userPrompt", "newest saved draft")
+    refute has_element?(view, "#draft-error")
+    assert Agent.get(stored, & &1)["userPrompt"] == "newest saved draft"
+
+    expected_keys =
+      ~w(callType cacheMode modelId reasoningByProfile reasoningEffort recoveryPolicy schema schemaShorthand schemaVersion selectedProfileId systemPrompt ui userPrompt webSearch)
+
+    assert second_state |> Map.keys() |> Enum.sort() == Enum.sort(expected_keys)
+
+    {:ok, reloaded, _html} = live(conn, ~p"/")
+    render_async(reloaded, 1_000)
+    assert has_element?(reloaded, "#run_userPrompt", "newest saved draft")
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-075
+  @tag :recovery_boundary_persistence
+  test "a task exit drains a newer state snapshot without replaying the exited one", %{conn: conn} do
+    test_pid = self()
+    counter = start_supervised!({Agent, fn -> 0 end})
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          state = Jason.decode!(body)
+          number = Agent.get_and_update(counter, fn value -> {value, value + 1} end)
+          send(test_pid, {:exited_state_save_started, number, self(), state})
+
+          if number == 0 do
+            receive do
+              :exit_first_state_save -> exit(:simulated_task_exit)
+            end
+          else
+            Req.Test.json(conn, APIFixtures.success(nil, state))
+          end
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    render_async(view, 1_000)
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "exited draft"}})
+    |> render_change()
+
+    assert_receive {:exited_state_save_started, 0, first_process, _}, 1_000
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "after exit"}})
+    |> render_change()
+
+    send(first_process, :exit_first_state_save)
+    assert_receive {:exited_state_save_started, 1, _second_process, second_state}, 1_000
+    assert second_state["userPrompt"] == "after exit"
+    render_async(view, 1_000)
+    refute has_element?(view, "#draft-error")
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-075
+  @tag :recovery_boundary_persistence
+  test "expired authentication drops a queued state write", %{conn: conn} do
+    test_pid = self()
+    counter = start_supervised!({Agent, fn -> 0 end})
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          state = Jason.decode!(body)
+          number = Agent.get_and_update(counter, fn value -> {value, value + 1} end)
+          send(test_pid, {:expired_state_save_started, number, self(), state})
+
+          if number == 0 do
+            receive do
+              :release_expired_state_save ->
+                {status, envelope} = APIFixtures.error(401, "session_expired")
+                conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
+            end
+          else
+            unexpected(conn)
+          end
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    render_async(view, 1_000)
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "expired draft"}})
+    |> render_change()
+
+    assert_receive {:expired_state_save_started, 0, first_process, _}, 1_000
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "must not dispatch"}})
+    |> render_change()
+
+    send(first_process, :release_expired_state_save)
+    assert_redirect(view, ~p"/session/expired", 1_000)
+    refute_receive {:expired_state_save_started, 1, _, _}, 100
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-075
+  @tag :recovery_boundary_persistence
+  test "a failed idle write is not retried until a new edit", %{conn: conn} do
+    test_pid = self()
+    counter = start_supervised!({Agent, fn -> 0 end})
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          state = Jason.decode!(body)
+          number = Agent.get_and_update(counter, fn value -> {value, value + 1} end)
+          send(test_pid, {:idle_failed_state_save_started, number, state})
+
+          if number == 0 do
+            {status, envelope} = APIFixtures.error(422, "state_rejected")
+            conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
+          else
+            Req.Test.json(conn, APIFixtures.success(nil, state))
+          end
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    render_async(view, 1_000)
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "retry only by edit"}})
+    |> render_change()
+
+    assert_receive {:idle_failed_state_save_started, 0, _}, 1_000
+    render_async(view, 1_000)
+    assert has_element?(view, "#draft-error", "state_rejected")
+    refute_receive {:idle_failed_state_save_started, 1, _}, 100
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "edited again"}})
+    |> render_change()
+
+    assert_receive {:idle_failed_state_save_started, 1, _}, 1_000
+    render_async(view, 1_000)
+    refute has_element?(view, "#draft-error")
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-074
+  @tag :recovery_boundary_owner
+  test "a profile save completion does not replace a newer host policy edit", %{conn: conn} do
+    test_pid = self()
+    primary = widget_profile("Primary", "model-test")
+
+    install_stub(
+      fn conn ->
+        case {conn.method, conn.request_path} do
+          {"POST", "/api/v1/state"} ->
+            {:ok, body, conn} = Plug.Conn.read_body(conn)
+            Req.Test.json(conn, APIFixtures.success(nil, Jason.decode!(body)))
+
+          {"PUT", "/api/v1/profiles/Primary"} ->
+            {:ok, body, conn} = Plug.Conn.read_body(conn)
+            send(test_pid, {:profile_save_started, self(), Jason.decode!(body)})
+
+            receive do
+              :release_profile_save ->
+                saved =
+                  update_in(primary, ["profile"], &Map.merge(&1, Jason.decode!(body)["profile"]))
+
+                Req.Test.json(conn, APIFixtures.success(saved))
+            end
+
+          _ ->
+            unexpected(conn)
+        end
+      end,
+      profiles: [primary]
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    render_async(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
+    view |> element("#profile-retry-toggle") |> render_click()
+
+    view
+    |> element("#profile_baseUrl")
+    |> render_change(%{"profile" => %{"baseUrl" => "https://changed.example.test/v1"}})
+
+    view |> element("#profile-save") |> render_click()
+    assert_receive {:profile_save_started, profile_save_process, _payload}, 1_000
+
+    view
+    |> element("#profile-recovery-maxAttempts")
+    |> render_change(%{"profile" => %{"recoveryPolicy" => %{"maxAttempts" => "7"}}})
+
+    send(profile_save_process, :release_profile_save)
+    render_async(view, 1_000)
+    assert has_element?(view, ~s(#profile-recovery-maxAttempts[value="7"]))
   end
 
   test "duplicate active submits are ignored and the run button alone is disabled", %{conn: conn} do

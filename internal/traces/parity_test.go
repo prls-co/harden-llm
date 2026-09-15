@@ -66,7 +66,7 @@ func TestParityTraceFailureAndCacheHit(t *testing.T) {
 	if failure.Status != StatusTimeout || failure.LastErrorCategory != string(retry.CategoryTimeout) {
 		t.Fatalf("unexpected failure trace: %#v", failure)
 	}
-	providerTimeout := Project(runtime.CallRecord{CallID: "failed-provider", TraceID: "trace-provider", Attempts: []runtime.AttemptRecord{{Number: 1, Category: retry.CategoryTimeout}}}, runtime.ObservabilityContext{}, started, started.Add(time.Second), &retry.ProviderError{Timeout: true})
+	providerTimeout := Project(runtime.CallRecord{CallID: "failed-provider", TraceID: "trace-provider", Attempts: []runtime.AttemptRecord{{Number: 1, Category: retry.CategoryTimeout}}}, runtime.ObservabilityContext{}, started, started.Add(time.Second), &retry.ProviderError{Category: retry.CategoryTimeout})
 	if providerTimeout.Status != StatusTimeout || providerTimeout.LastErrorCategory != string(retry.CategoryTimeout) {
 		t.Fatalf("provider timeout trace mismatch: %#v", providerTimeout)
 	}
@@ -88,6 +88,22 @@ func TestParityTraceFailureAndCacheHit(t *testing.T) {
 	cacheHit := Project(runtime.CallRecord{CallID: "cached", TraceID: "trace-cached", Cache: runtime.CacheFacts{Mode: cachekey.ModeCache, Status: "hit", Served: true}}, runtime.ObservabilityContext{}, started, started, nil)
 	if cacheHit.Status != StatusSuccess || !cacheHit.Cache.Served || cacheHit.ProviderInvoked {
 		t.Fatalf("unexpected cache-hit trace: %#v", cacheHit)
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-217
+func TestRecoveryBoundaryAccountingCache(t *testing.T) {
+	t.Parallel()
+	trace := Project(runtime.CallRecord{
+		CallID: "failed", TraceID: "trace-failed",
+		Accounting: runtime.Accounting{Provider: runtime.Ledger{
+			Usage: runtime.Usage{InputTokens: 11, OutputTokens: 3, Status: accounting.UsagePartial},
+			Cost:  accounting.UnknownCost("partial_usage"),
+		}},
+		Attempts: []runtime.AttemptRecord{{Number: 1, ProviderUsed: true, Category: retry.CategoryNetwork}},
+	}, runtime.ObservabilityContext{}, time.Unix(0, 0), time.Unix(1, 0), &retry.ProviderError{Category: retry.CategoryNetwork})
+	if trace.Accounting.Provider.Usage.Status != accounting.UsagePartial || trace.Accounting.Provider.Usage.InputTokens != 11 || trace.Accounting.Provider.Cost.Status != accounting.CostUnknown || !trace.ProviderInvoked {
+		t.Fatalf("partial failed-attempt accounting was not projected: %#v", trace.Accounting)
 	}
 }
 

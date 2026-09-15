@@ -41,11 +41,13 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
      |> assign(:initialized?, false)
      |> assign(:web_search, false)
      |> assign(:recovery_policy_default, %{})
+     |> assign(:active_recovery_policy, %{})
      |> assign(:id_prefix, "")
      |> assign(:loaded_profile_id, nil)
      |> assign(:profiles_revision, nil)
      |> assign(:main_form, to_form(ProfilesLive.empty_form(%{}), as: :profile))
      |> assign(:main_dirty?, false)
+     |> assign(:main_revision, 0)
      |> assign(:main_requires_save?, false)
      |> assign(:main_staged_key, "")
      |> assign(:main_config_open, false)
@@ -61,6 +63,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
      |> assign(:recovery_field_errors, %{})
      |> assign(:fold_disabled, false)
      |> assign(:pending, nil)
+     |> assign(:pending_profile_revision, nil)
      |> assign(:operation_error, nil)
      |> assign(:delete_confirm, false)}
   end
@@ -70,13 +73,14 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     profiles = Map.get(assigns, :profiles, [])
     selected_profile_id = Map.get(assigns, :selected_profile_id, "") || ""
     revision = :erlang.phash2(profiles)
+    active_recovery_policy = active_recovery_policy(assigns, socket.assigns)
+    component_assigns = Map.delete(assigns, :recovery_policy)
 
     socket =
       socket
-      |> assign(assigns)
+      |> assign(component_assigns)
       |> assign(:id_prefix, Map.get(assigns, :id_prefix, socket.assigns.id_prefix))
-
-    initial? = not socket.assigns.initialized?
+      |> assign(:active_recovery_policy, active_recovery_policy)
 
     needs_profile_reset? =
       not socket.assigns.initialized? or
@@ -100,14 +104,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         |> assign(:profiles_revision, revision)
       end
 
-    socket =
-      if Map.has_key?(assigns, :recovery_policy) and (initial? or not needs_profile_reset?) do
-        update(socket, :main_form, fn form ->
-          to_form(Map.put(form.params, "recoveryPolicy", assigns.recovery_policy), as: :profile)
-        end)
-      else
-        socket
-      end
+    socket = sync_active_recovery_policy(socket)
 
     socket = if needs_profile_reset?, do: notify_profile_runtime(socket), else: socket
 
@@ -156,14 +153,24 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         socket.assigns.reasoning_effort
       )
 
+    provider_options =
+      runtime_provider_options(socket.assigns.main_form.params["defaultOptionsJson"])
+
+    selection = %{
+      profile_id: selected_profile_id,
+      model_id: model_id,
+      reasoning_effort: reasoning_effort,
+      recovery_policy: socket.assigns.active_recovery_policy,
+      provider_options: provider_options
+    }
+
     socket
+    |> mark_main_edit()
     |> assign(:loaded_profile_id, selected_profile_id)
     |> assign(:main_dirty?, false)
     |> assign(:reasoning_effort, reasoning_effort)
-    |> notify_parent({:profile_widget_selection, selected_profile_id})
-    |> notify_parent({:profile_widget_control, "modelId", model_id})
-    |> notify_parent({:profile_widget_control, "reasoningEffort", reasoning_effort})
-    |> notify_profile_runtime()
+    |> notify_parent({:profile_widget_selection, selection})
+    |> notify_parent({:profile_widget_profile_dirty, false})
     |> noreply()
   end
 
@@ -214,7 +221,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   end
 
   def handle_event("profile-draft-change", %{"profile" => params}, socket) do
-    socket |> update_profile_form(params) |> notify_profile_runtime() |> noreply()
+    socket = update_profile_form(socket, params)
+    socket = notify_profile_runtime(socket, Map.get(params, "recoveryPolicy"))
+    noreply(socket)
   end
 
   def handle_event("toggle-credential", _params, socket) do
@@ -242,6 +251,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         |> assign(:main_staged_key, key)
         |> assign(:main_credential_open, false)
         |> assign(:operation_error, nil)
+        |> mark_main_edit()
 
       {:noreply, notify_profile_runtime(socket)}
     end
@@ -266,13 +276,25 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
   def handle_event("new-profile", _params, socket) do
     selected_profile_id = ""
+    socket = reset_profile_forms(socket, socket.assigns.profiles, selected_profile_id)
+
+    provider_options =
+      runtime_provider_options(socket.assigns.main_form.params["defaultOptionsJson"])
+
+    selection = %{
+      profile_id: selected_profile_id,
+      model_id: "",
+      reasoning_effort: socket.assigns.reasoning_effort,
+      recovery_policy: socket.assigns.active_recovery_policy,
+      provider_options: provider_options
+    }
 
     socket
-    |> reset_profile_forms(socket.assigns.profiles, selected_profile_id)
+    |> mark_main_edit()
     |> assign(:loaded_profile_id, selected_profile_id)
     |> assign(:main_config_open, true)
     |> assign(:main_dirty?, true)
-    |> notify_parent({:profile_widget_selection, selected_profile_id})
+    |> notify_parent({:profile_widget_selection, selection})
     |> notify_profile_runtime()
     |> noreply()
   end
@@ -310,17 +332,22 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     if socket.assigns.pending != nil do
       {:noreply, socket}
     else
-      params = params_with_staged_key(socket)
+      params =
+        socket
+        |> params_with_staged_key()
+        |> Map.put("recoveryPolicy", socket.assigns.active_recovery_policy)
 
       case ProfilesLive.profile_payload(params) do
         {:ok, payload} ->
           reference = System.unique_integer([:positive, :monotonic])
           handle = socket.assigns.session_handle
           id = params["profileId"] || ""
+          save_revision = socket.assigns.main_revision
 
           {:noreply,
            socket
            |> assign(:pending, reference)
+           |> assign(:pending_profile_revision, save_revision)
            |> assign(:main_form, to_form(params, as: :profile))
            |> start_async(
              {:profile_save, reference},
@@ -416,21 +443,36 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       when reference != pending, do: {:noreply, socket}
 
   def handle_async({:profile_save, _reference}, {:ok, {:ok, profile_state, _state}}, socket) do
-    id = profile_id_from_state(profile_state)
     profiles = replace_profile(socket.assigns.profiles, profile_state)
+    saved_revision = socket.assigns.pending_profile_revision
+    newer_edits? = not is_nil(saved_revision) and saved_revision != socket.assigns.main_revision
+
+    socket =
+      socket
+      |> assign(:pending, nil)
+      |> assign(:pending_profile_revision, nil)
+      |> assign(:operation_error, nil)
+      |> assign(:field_errors, %{})
+      |> assign(:delete_confirm, false)
+      |> assign(:profiles, profiles)
+      |> assign(:profiles_revision, :erlang.phash2(profiles))
+
+    socket =
+      if newer_edits? do
+        socket
+        |> sync_active_recovery_policy()
+        |> notify_profile_runtime()
+      else
+        socket
+        |> assign(:main_dirty?, false)
+        |> assign(:main_form, to_form(ProfilesLive.profile_form(profile_state), as: :profile))
+        |> assign(:main_staged_key, "")
+        |> sync_active_recovery_policy()
+        |> notify_profile_runtime()
+      end
 
     socket
-    |> assign(:pending, nil)
-    |> assign(:operation_error, nil)
-    |> assign(:field_errors, %{})
-    |> assign(:delete_confirm, false)
-    |> assign(:profiles, profiles)
-    |> assign(:profiles_revision, :erlang.phash2(profiles))
-    |> assign(:main_dirty?, false)
-    |> assign(:main_form, to_form(ProfilesLive.profile_form(profile_state), as: :profile))
-    |> assign(:main_staged_key, "")
-    |> notify_profile_runtime()
-    |> notify_parent({:profile_widget_profiles, profiles, id})
+    |> notify_parent({:profile_widget_profiles, profiles, socket.assigns.selected_profile_id})
     |> noreply()
   end
 
@@ -470,6 +512,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       when operation in [:profile_save, :profile_refresh, :profile_delete] do
     socket
     |> assign(:pending, nil)
+    |> assign(:pending_profile_revision, nil)
     |> assign(:delete_confirm, false)
     |> assign(:field_errors, error.field_errors)
     |> assign(:operation_error, error.message)
@@ -487,6 +530,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
     socket
     |> assign(:pending, nil)
+    |> assign(:pending_profile_revision, nil)
     |> assign(:delete_confirm, false)
     |> assign(:operation_error, message)
     |> noreply()
@@ -1360,6 +1404,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     |> assign(:main_form, form)
     |> assign(:main_staged_key, "")
     |> assign(:main_requires_save?, false)
+    |> sync_active_recovery_policy()
   end
 
   defp update_profile_form(socket, incoming) do
@@ -1369,7 +1414,10 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       |> synchronize_profile_options(incoming)
 
     socket =
-      socket |> assign(:main_form, to_form(params, as: :profile)) |> assign(:main_dirty?, true)
+      socket
+      |> assign(:main_form, to_form(params, as: :profile))
+      |> assign(:main_dirty?, true)
+      |> mark_main_edit()
 
     if Map.has_key?(incoming, "modelId"),
       do: notify_parent(socket, {:profile_widget_control, "modelId", params["modelId"] || ""}),
@@ -1494,7 +1542,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   defp fold_ui_name("pricing"), do: "pricingOpen"
   defp fold_ui_name(_), do: nil
 
-  defp notify_profile_runtime(socket) do
+  defp notify_profile_runtime(socket, recovery_intent \\ nil) do
     form = socket.assigns.main_form
     options = runtime_provider_options(form.params["defaultOptionsJson"])
     main_requires_save? = profile_requires_save?(socket)
@@ -1502,12 +1550,33 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     socket
     |> assign(:main_requires_save?, main_requires_save?)
     |> notify_parent({:profile_widget_provider_options, options})
-    |> notify_parent(
-      {:profile_widget_recovery,
-       ProfileWidgetState.serialize_recovery_policy(form.params["recoveryPolicy"])}
-    )
+    |> maybe_notify_recovery(recovery_intent)
     |> notify_parent({:profile_widget_profile_dirty, main_requires_save?})
   end
+
+  defp maybe_notify_recovery(socket, recovery_intent) when is_map(recovery_intent) do
+    notify_parent(socket, {:profile_widget_recovery, recovery_intent})
+  end
+
+  defp maybe_notify_recovery(socket, _recovery_intent), do: socket
+
+  defp active_recovery_policy(assigns, current_assigns) do
+    case Map.fetch(assigns, :recovery_policy) do
+      {:ok, policy} when is_map(policy) -> policy
+      {:ok, nil} -> Map.get(current_assigns, :active_recovery_policy, %{})
+      :error -> Map.get(current_assigns, :active_recovery_policy, %{})
+    end
+  end
+
+  defp sync_active_recovery_policy(socket) do
+    policy = socket.assigns.active_recovery_policy
+
+    update(socket, :main_form, fn form ->
+      to_form(Map.put(form.params || %{}, "recoveryPolicy", policy), as: :profile)
+    end)
+  end
+
+  defp mark_main_edit(socket), do: update(socket, :main_revision, &(&1 + 1))
 
   defp runtime_provider_options(value) do
     case Jason.decode(value || "{}") do

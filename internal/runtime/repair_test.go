@@ -175,9 +175,9 @@ func (*identityExecutor) Prepare(_ context.Context, profile Profile, _ Credentia
 func (executor *identityExecutor) Execute(_ context.Context, operation PreparedOperation) (ProviderResult, error) {
 	executor.executes++
 	if executor.executes == 1 {
-		return ProviderResult{}, &retry.ProviderError{Code: "ECONNRESET", Err: errors.New("connection reset")}
+		return ProviderResult{ProviderDispatched: true}, &retry.ProviderError{Code: "ECONNRESET", Err: errors.New("connection reset"), Category: retry.CategoryNetwork}
 	}
-	return ProviderResult{
+	return ProviderResult{ProviderDispatched: true,
 		Output: "selected-result",
 		Accounting: Ledger{
 			Usage: completeUsageWithoutTest(2, 0, 0, 1, 0), Cost: accounting.ExactCost(0.01, "reported"),
@@ -210,12 +210,12 @@ func (executor *repairSequenceExecutor) Prepare(_ context.Context, profile Profi
 func (executor *repairSequenceExecutor) Execute(_ context.Context, operation PreparedOperation) (ProviderResult, error) {
 	executor.executes++
 	if operation.Opaque == true {
-		return ProviderResult{
+		return ProviderResult{ProviderDispatched: true,
 			Output:     map[string]any{"answer": "ok"},
 			Accounting: Ledger{Usage: completeUsageWithoutTest(10, 0, 0, 3, 0), Cost: accounting.UnavailableCost()},
 		}, nil
 	}
-	return ProviderResult{
+	return ProviderResult{ProviderDispatched: true,
 		Output:     map[string]any{"answer": float64(42)},
 		Accounting: Ledger{Usage: completeUsageWithoutTest(8, 0, 0, 2, 0), Cost: accounting.UnavailableCost()},
 	}, nil
@@ -236,11 +236,11 @@ func (partialFailureExecutor) Prepare(context.Context, Profile, Credential, Call
 }
 
 func (partialFailureExecutor) Execute(context.Context, PreparedOperation) (ProviderResult, error) {
-	return ProviderResult{
+	return ProviderResult{ProviderDispatched: true,
 		Accounting: Ledger{
 			Usage: completeUsageWithoutTest(7, 0, 0, 3, 0), Cost: accounting.ExactCost(0.25, "reported"),
 		},
-	}, &retry.ProviderError{Err: errors.New("invalid structured output"), Parse: true, RawResponse: "not-json"}
+	}, &retry.ProviderError{Err: errors.New("invalid structured output"), Category: retry.CategoryParse, RawResponse: "not-json"}
 }
 
 func completeUsage(t *testing.T, input, cacheRead, cacheCreation, output, reasoning int64) Usage {
@@ -328,12 +328,12 @@ func (executor *recoveryExecutor) Execute(_ context.Context, operation PreparedO
 	executor.dispatched = append(executor.dispatched, call)
 	index := len(executor.dispatched) - 1
 	if index < len(executor.failures) && executor.failures[index] != nil {
-		return ProviderResult{}, executor.failures[index]
+		return ProviderResult{ProviderDispatched: true}, executor.failures[index]
 	}
 	if call.CallType == "structured" && call.Repair == nil {
-		return ProviderResult{Output: map[string]any{"answer": 42}}, nil
+		return ProviderResult{ProviderDispatched: true, Output: map[string]any{"answer": 42}}, nil
 	}
-	return ProviderResult{Output: map[string]any{"answer": "ok"}}, nil
+	return ProviderResult{ProviderDispatched: true, Output: map[string]any{"answer": "ok"}}, nil
 }
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-205
@@ -406,4 +406,73 @@ func TestRecoveryExecutionBounds(t *testing.T) {
 			t.Fatalf("prerequisite record=%#v error=%v", record, err)
 		}
 	})
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-217
+func TestRecoveryBoundaryAccountingCache(t *testing.T) {
+	t.Parallel()
+	profile := Profile{ID: "selected", Provider: "fixture", APIInferenceType: "responses", BaseURL: "https://example.test", ModelID: "selected-model"}
+	catalog := map[string]Profile{profile.ID: profile}
+	credentials := func(context.Context, Profile) (Credential, error) { return Credential{}, nil }
+	policy := retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{retry.CategoryNetwork}, Backoff: retry.Backoff{}}
+	cache := &telemetryCache{}
+	executor := &accountingSequenceExecutor{results: []ProviderResult{
+		{ProviderDispatched: true, Accounting: Ledger{Usage: completeUsageWithoutTest(11, 0, 0, 3, 0), Cost: accounting.ExactCost(0.1, "reported")}},
+		{ProviderDispatched: true, Output: "accepted", Accounting: Ledger{Usage: completeUsageWithoutTest(17, 0, 0, 5, 0), Cost: accounting.ExactCost(0.2, "reported")}},
+	}, failures: []error{&retry.ProviderError{Category: retry.CategoryNetwork, Code: "ECONNRESET"}, nil}}
+	record, err := Execute(context.Background(), executor, credentials, profile.ID, catalog, Call{CallType: "text"}, retry.Config{Policy: policy, Wait: func(context.Context, time.Duration) error { return nil }}, cache, cachekey.ModeCache, "operation-v2", "call", "trace")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if record.Accounting.Provider.Usage.InputTokens != 28 || record.Accounting.Provider.Usage.OutputTokens != 8 || record.Accounting.Provider.Cost.Status != accounting.CostExact || record.Accounting.Provider.Cost.KnownSubtotalUSD != 0.3 {
+		t.Fatalf("provider ledger totals = %#v", record.Accounting.Provider)
+	}
+	if record.Accounting.Result.Usage.InputTokens != 17 || record.Accounting.Result.Usage.OutputTokens != 5 || record.Accounting.Result.Cost != accounting.ExactCost(0.2, "reported") || !record.Cache.Written {
+		t.Fatalf("result ledger/cache = %#v / %#v", record.Accounting.Result, record.Cache)
+	}
+
+	cache.found = true
+	hitExecutor := &accountingSequenceExecutor{}
+	hit, err := Execute(context.Background(), hitExecutor, credentials, profile.ID, catalog, Call{CallType: "text"}, retry.Config{Policy: policy}, cache, cachekey.ModeCache, "operation-v2", "hit", "trace")
+	if err != nil || !hit.Cache.Served || hitExecutor.executes != 0 || hit.Accounting.Provider.Usage.Status != accounting.UsageUnavailable {
+		t.Fatalf("cache replay = %#v executes=%d error=%v", hit, hitExecutor.executes, err)
+	}
+
+	invalid := &accountingSequenceExecutor{results: []ProviderResult{
+		{ProviderDispatched: true, Accounting: Ledger{Usage: completeUsageWithoutTest(11, 0, 0, 3, 0), Cost: accounting.ExactCost(0.1, "reported")}},
+		{ProviderDispatched: true, Output: "must not publish", Accounting: Ledger{Usage: Usage{InputTokens: -1, Status: accounting.UsagePartial}, Cost: accounting.UnavailableCost()}},
+	}, failures: []error{&retry.ProviderError{Category: retry.CategoryNetwork}, nil}}
+	failed, err := Execute(context.Background(), invalid, credentials, profile.ID, catalog, Call{CallType: "text"}, retry.Config{Policy: policy, Wait: func(context.Context, time.Duration) error { return nil }}, nil, cachekey.ModeOff, "operation-v2", "invalid", "trace")
+	var providerErr *retry.ProviderError
+	if err == nil || !errors.As(err, &providerErr) || providerErr.Code != "ACCOUNTING_INVALID" || failed.Accounting.Provider.Usage.InputTokens != 11 || failed.Output != nil {
+		t.Fatalf("invalid accounting transition = %#v / %v", failed, err)
+	}
+}
+
+type accountingSequenceExecutor struct {
+	results  []ProviderResult
+	failures []error
+	executes int
+}
+
+func (executor *accountingSequenceExecutor) Prepare(_ context.Context, profile Profile, _ Credential, _ Call) (PreparedOperation, error) {
+	return PreparedOperation{Operation: cachekey.Operation{
+		SchemaVersion: cachekey.OperationSchemaVersion, Protocol: profile.APIInferenceType,
+		Endpoint: cachekey.Endpoint{Identity: profile.BaseURL, Method: "POST", Path: "/run"}, Model: profile.ModelID,
+		Payload: map[string]any{}, SemanticHeaders: map[string]any{}, ResponseProjection: cachekey.ResponseProjection{Provider: profile.Provider, Kind: "fixture", Version: "v3"},
+	}}, nil
+}
+
+func (executor *accountingSequenceExecutor) Execute(context.Context, PreparedOperation) (ProviderResult, error) {
+	index := executor.executes
+	executor.executes++
+	var result ProviderResult
+	if index < len(executor.results) {
+		result = executor.results[index]
+	}
+	var err error
+	if index < len(executor.failures) {
+		err = executor.failures[index]
+	}
+	return result, err
 }

@@ -168,6 +168,10 @@ cache bypass or expiry is added for search. A cached answer may be stale by desi
 `citations`, and `costStatus:"unavailable"` (search fees are not included in model
 token accounting). These describe the original answer and survive cache replay;
 use `result.cache.served` and `result.providerInvoked` for this invocation.
+`providerInvoked` (and each attempt's `providerUsed`) means the local model
+transport observed its request headers being written. It does not prove the
+remote service received, completed, or billed the request; search-only and
+pre-dispatch failures remain false.
 The native Gemini/Claude tools may decide not to search; no speculative Jina
 request follows a native response or failure. Search fees, status, source links,
 and optional suggestions live inside the response fold in both current Result

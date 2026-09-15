@@ -144,7 +144,7 @@ func TestSearchFailureDoesNotIncrementProviderMetrics(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, end := telemetry.StartProvider(context.Background(), ExecutionTarget{Provider: "cpa"}, "text")
-	end(&BeforeProviderError{Err: errors.New("search failed")})
+	end(false, errors.New("search failed"))
 	var metrics metricdata.ResourceMetrics
 	if err := reader.Collect(context.Background(), &metrics); err != nil {
 		t.Fatal(err)
@@ -194,14 +194,14 @@ func assertAttemptTargets(t *testing.T, spans tracetest.SpanStubs, profiles, mod
 
 func (*telemetryExecutor) Execute(_ context.Context, operation PreparedOperation) (ProviderResult, error) {
 	if repair, _ := operation.Opaque.(bool); repair {
-		return ProviderResult{
+		return ProviderResult{ProviderDispatched: true,
 			Output: map[string]any{"answer": "ok"},
 			Accounting: Ledger{
 				Usage: completeUsageWithoutTest(5, 0, 0, 2, 0), Cost: accounting.ExactCost(0.01, "reported"),
 			},
 		}, nil
 	}
-	return ProviderResult{
+	return ProviderResult{ProviderDispatched: true,
 		Output: map[string]any{"answer": float64(42)},
 		Accounting: Ledger{
 			Usage: completeUsageWithoutTest(4, 0, 0, 1, 0), Cost: accounting.ExactCost(0.01, "reported"),

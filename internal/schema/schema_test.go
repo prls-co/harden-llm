@@ -178,7 +178,7 @@ func TestJSONRepairIncidentParityCapturedSource(t *testing.T) {
 	if diagnostic.RawTail != wantTail {
 		t.Fatalf("bounded raw tail mismatch: got %q want %q", diagnostic.RawTail, wantTail)
 	}
-	classification := retry.Classify(&retry.ProviderError{Err: parseErr, Parse: true}, retry.DefaultPolicy())
+	classification := retry.Classify(&retry.ProviderError{Err: parseErr, Category: retry.CategoryParse}, retry.DefaultPolicy())
 	if classification.Category != retry.CategoryParse || classification.Retryable {
 		t.Fatalf("target incident retry classification mismatch: %#v", classification)
 	}

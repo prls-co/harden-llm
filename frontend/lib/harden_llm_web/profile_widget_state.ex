@@ -233,6 +233,15 @@ defmodule HardenLlmWeb.ProfileWidgetState do
 
   def serialize_recovery_policy(policy), do: policy
 
+  @doc "Applies one recovery-policy edit to the supplied host-owned policy."
+  def merge_recovery_policy(current, incoming) when is_map(current) and is_map(incoming) do
+    current
+    |> merge_draft(incoming)
+    |> serialize_recovery_policy()
+  end
+
+  def merge_recovery_policy(_current, incoming), do: serialize_recovery_policy(incoming)
+
   @doc "Applies a partial form event while retaining unrelated draft fields."
   def merge_draft(current, incoming) do
     Map.merge(current, incoming, fn

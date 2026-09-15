@@ -83,7 +83,7 @@ func (search *preparedWebSearch) results(ctx context.Context, searcher Searcher)
 	}
 	result = strings.TrimSpace(result)
 	if result == "" {
-		return "", &retry.ProviderError{Err: errors.New("web search returned an empty result"), Code: "WEB_SEARCH_EMPTY", Empty: true}
+		return "", &retry.ProviderError{Err: errors.New("web search returned an empty result"), Code: "WEB_SEARCH_EMPTY", Category: retry.CategoryEmpty}
 	}
 	if search.state.result == "" {
 		search.state.result = result
@@ -118,11 +118,14 @@ type jinaSearcher struct {
 	baseURL          *url.URL
 	timeout          time.Duration
 	maxResponseBytes int64
+	now              func() time.Time
 }
 
-func newJinaSearcher(policy EndpointPolicy, apiKey string, timeout time.Duration, maximum int64) (*jinaSearcher, error) {
+func newJinaSearcher(policy EndpointPolicy, apiKey string, timeout time.Duration, maximum int64, now func() time.Time) (*jinaSearcher, error) {
 	clientPolicy := EndpointPolicy{
 		AllowedHosts:          []string{jinaSearchHost},
+		Resolver:              policy.Resolver,
+		DialContext:           policy.DialContext,
 		TLSConfig:             policy.TLSConfig,
 		ConnectTimeout:        policy.ConnectTimeout,
 		TLSHandshakeTimeout:   policy.TLSHandshakeTimeout,
@@ -142,9 +145,12 @@ func newJinaSearcher(policy EndpointPolicy, apiKey string, timeout time.Duration
 	if maximum <= 0 {
 		maximum = defaultJinaMaxResponseBytes
 	}
+	if now == nil {
+		now = time.Now
+	}
 	return &jinaSearcher{
 		client: client, apiKey: strings.TrimSpace(apiKey), baseURL: baseURL,
-		timeout: timeout, maxResponseBytes: maximum,
+		timeout: timeout, maxResponseBytes: maximum, now: now,
 	}, nil
 }
 
@@ -184,24 +190,35 @@ func (searcher *jinaSearcher) Search(ctx context.Context, query string) (string,
 			return "", contextErr
 		}
 		if requestContext.Err() != nil {
-			return "", &retry.ProviderError{Err: errors.New("web search request timed out"), Code: "WEB_SEARCH_TIMEOUT", Timeout: true}
+			return "", &retry.ProviderError{Err: errors.New("web search request timed out"), Code: "WEB_SEARCH_TIMEOUT", Category: retry.CategoryNetwork}
 		}
-		return "", &retry.ProviderError{Err: errors.New("web search network request failed"), Code: "WEB_SEARCH_NETWORK"}
+		return "", &retry.ProviderError{Err: errors.New("web search network request failed"), Code: "WEB_SEARCH_NETWORK", Category: retry.CategoryNetwork}
 	}
 	defer response.Body.Close()
 	body, err := readBounded(response.Body, searcher.maxResponseBytes)
 	if err != nil {
-		return "", &retry.ProviderError{Err: err, Code: "WEB_SEARCH_RESPONSE_READ"}
+		if response.StatusCode < 200 || response.StatusCode > 299 {
+			now := searcher.now
+			if now == nil {
+				now = time.Now
+			}
+			return "", providerHTTPErrorAt(response, body, now())
+		}
+		if errors.Is(err, errResponseTooLarge) {
+			return "", &retry.ProviderError{Err: errors.New("provider response exceeded the size limit"), Code: "RESPONSE_TOO_LARGE", Category: retry.CategoryOther}
+		}
+		return "", &retry.ProviderError{Err: err, Code: "WEB_SEARCH_RESPONSE_READ", Category: retry.CategoryNetwork}
 	}
 	if response.StatusCode < 200 || response.StatusCode > 299 {
-		return "", &retry.ProviderError{
-			Err:  fmt.Errorf("Jina web search returned HTTP %d", response.StatusCode),
-			Code: "WEB_SEARCH_HTTP", Status: response.StatusCode,
+		now := searcher.now
+		if now == nil {
+			now = time.Now
 		}
+		return "", providerHTTPErrorAt(response, body, now())
 	}
 	result := strings.TrimSpace(string(body))
 	if result == "" {
-		return "", &retry.ProviderError{Err: errors.New("web search returned an empty result"), Code: "WEB_SEARCH_EMPTY", Empty: true}
+		return "", &retry.ProviderError{Err: errors.New("web search returned an empty result"), Code: "WEB_SEARCH_EMPTY", Category: retry.CategoryEmpty}
 	}
 	return result, nil
 }

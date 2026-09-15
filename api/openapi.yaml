@@ -2097,6 +2097,7 @@ components:
           type: boolean
         providerUsed:
           type: boolean
+          description: True only when the local model transport observed request headers being written; does not prove remote execution or billing.
     CacheResult:
       type: object
       additionalProperties: false
@@ -2178,6 +2179,7 @@ components:
             $ref: '#/components/schemas/RunArtifact'
         providerInvoked:
           type: boolean
+          description: True when at least one model attempt observed request headers being written; search-only and pre-dispatch failures remain false, and the value does not prove remote execution or billing.
         totalCallDurationMs:
           type: integer
           minimum: 0

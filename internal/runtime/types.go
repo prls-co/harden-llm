@@ -74,6 +74,9 @@ type ProviderResult struct {
 	Output              any             `json:"output"`
 	Accounting          Ledger          `json:"accounting"`
 	RawProviderEnvelope json.RawMessage `json:"rawProviderEnvelope"`
+	// ProviderDispatched records the local transport's observed request-header
+	// write. It is internal and is never persisted on the wire.
+	ProviderDispatched bool `json:"-"`
 }
 
 type Executor interface {

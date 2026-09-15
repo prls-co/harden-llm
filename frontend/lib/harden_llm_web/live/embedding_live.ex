@@ -133,8 +133,16 @@ defmodule HardenLlmWeb.EmbeddingLive do
     end
   end
 
-  defp route_widget_message(socket, key, {:profile_widget_selection, profile_id}) do
-    update_instance(socket, key, &Map.put(&1, :selected_profile_id, profile_id))
+  defp route_widget_message(socket, key, {:profile_widget_selection, selection})
+       when is_map(selection) do
+    update_instance(socket, key, fn instance ->
+      instance
+      |> Map.put(:selected_profile_id, Map.get(selection, :profile_id, ""))
+      |> Map.put(:model_id, Map.get(selection, :model_id, ""))
+      |> Map.put(:reasoning_effort, Map.get(selection, :reasoning_effort, "lowest"))
+      |> Map.put(:recovery_policy, Map.get(selection, :recovery_policy, %{}))
+      |> Map.put(:provider_options, Map.get(selection, :provider_options, %{}))
+    end)
   end
 
   defp route_widget_message(socket, key, {:profile_widget_control, "modelId", value}) do
@@ -156,7 +164,15 @@ defmodule HardenLlmWeb.EmbeddingLive do
 
   defp route_widget_message(socket, key, {:profile_widget_recovery, policy})
        when is_map(policy) do
-    update_instance(socket, key, &Map.put(&1, :recovery_policy, policy))
+    update_instance(socket, key, fn instance ->
+      current = Map.get(instance, :recovery_policy, %{})
+
+      Map.put(
+        instance,
+        :recovery_policy,
+        ProfileWidgetState.merge_recovery_policy(current, policy)
+      )
+    end)
   end
 
   defp route_widget_message(socket, key, {:profile_widget_profile_dirty, requires_save?}) do
@@ -208,7 +224,7 @@ defmodule HardenLlmWeb.EmbeddingLive do
            |> Map.put(:model_id, model_id)
            |> Map.put(:reasoning_effort, reasoning_effort)
            |> Map.put(:cache_mode, cache_mode)
-           |> Map.put(:recovery_policy, state["recoveryPolicy"])}
+           |> Map.put(:recovery_policy, state["recoveryPolicy"] || policy)}
         end)
 
       {:ok, %{profiles: profiles, instances: instances, recovery_policy_default: policy}}

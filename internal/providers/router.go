@@ -5,6 +5,8 @@ package providers
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,11 +15,13 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/netip"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/prls-co/harden-llm/internal/cachekey"
@@ -25,11 +29,14 @@ import (
 	"github.com/prls-co/harden-llm/internal/runtime"
 )
 
+var errResponseTooLarge = errors.New("provider response exceeded the size limit")
+
 const (
-	defaultMaxResponseBytes = 16 << 20
-	defaultAnthropicVersion = "2023-06-01"
-	defaultTemperature      = 0.3
-	rawEnvelopeVersion      = "utility-llm.raw-provider-envelope.v1"
+	defaultMaxResponseBytes   = 16 << 20
+	defaultAnthropicVersion   = "2023-06-01"
+	defaultTemperature        = 0.3
+	rawEnvelopeVersion        = "utility-llm.raw-provider-envelope.v1"
+	responseProjectionVersion = "v3"
 )
 
 var (
@@ -46,6 +53,7 @@ type Config struct {
 	JinaAPIKey           string
 	JinaTimeout          time.Duration
 	JinaMaxResponseBytes int64
+	Now                  func() time.Time
 }
 
 // Router prepares and executes every supported provider protocol.
@@ -55,6 +63,7 @@ type Router struct {
 	logger           *slog.Logger
 	maxResponseBytes int64
 	webSearcher      Searcher
+	now              func() time.Time
 }
 
 type preparedRequest struct {
@@ -73,11 +82,11 @@ type preparedRequest struct {
 
 // NewRouter creates a router with one hardened, reusable egress client.
 func NewRouter(config Config) (*Router, error) {
-	client, err := newSafeHTTPClient(config.EndpointPolicy)
+	guard, err := newEndpointGuard(config.EndpointPolicy)
 	if err != nil {
 		return nil, err
 	}
-	guard, err := newEndpointGuard(config.EndpointPolicy)
+	client, err := newSafeHTTPClientWithGuard(config.EndpointPolicy, guard)
 	if err != nil {
 		return nil, err
 	}
@@ -89,14 +98,18 @@ func NewRouter(config Config) (*Router, error) {
 	if maximum <= 0 {
 		maximum = defaultMaxResponseBytes
 	}
+	now := config.Now
+	if now == nil {
+		now = time.Now
+	}
 	webSearcher := config.WebSearcher
 	if webSearcher == nil {
-		webSearcher, err = newJinaSearcher(config.EndpointPolicy, config.JinaAPIKey, config.JinaTimeout, config.JinaMaxResponseBytes)
+		webSearcher, err = newJinaSearcher(config.EndpointPolicy, config.JinaAPIKey, config.JinaTimeout, config.JinaMaxResponseBytes, now)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return &Router{client: client, guard: guard, logger: logger, maxResponseBytes: maximum, webSearcher: webSearcher}, nil
+	return &Router{client: client, guard: guard, logger: logger, maxResponseBytes: maximum, webSearcher: webSearcher, now: now}, nil
 }
 
 // Prepare converts a provider-neutral call into one canonical operation and an
@@ -116,7 +129,7 @@ func (router *Router) Prepare(ctx context.Context, profile runtime.Profile, cred
 	if err != nil {
 		return runtime.PreparedOperation{}, err
 	}
-	if _, err = router.guard.resolve(ctx, requestURL.String()); err != nil {
+	if _, err = router.guard.validateURL(requestURL.String()); err != nil {
 		return runtime.PreparedOperation{}, err
 	}
 	headers, err := providerHeaders(profile.APIInferenceType, credential)
@@ -139,7 +152,7 @@ func (router *Router) Prepare(ctx context.Context, profile runtime.Profile, cred
 		},
 		Model: profile.ModelID, Payload: operationPayload(payload, profile, call), SemanticHeaders: semanticHeaders,
 		ResponseProjection: cachekey.ResponseProjection{
-			Provider: provider, Kind: responseKind(call.CallType), Version: responseProjectionVersion(call.CallType),
+			Provider: provider, Kind: responseKind(call.CallType), Version: responseProjectionVersion,
 		},
 	}
 	request := preparedRequest{
@@ -179,7 +192,7 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 	if prepared.webSearch != nil {
 		searchResults, searchErr := prepared.webSearch.results(requestContext, router.webSearcher)
 		if searchErr != nil {
-			return runtime.ProviderResult{}, &runtime.BeforeProviderError{Err: searchErr}
+			return runtime.ProviderResult{}, searchErr
 		}
 		searchCall := prepared.webSearch.call
 		searchCall.UserPrompt = appendWebSearchContext(searchCall.UserPrompt, searchResults)
@@ -200,44 +213,118 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 		return runtime.ProviderResult{}, fmt.Errorf("providers: build request: %w", err)
 	}
 	request.Header = prepared.headers.Clone()
+	var dispatched atomic.Bool
+	request = request.WithContext(httptrace.WithClientTrace(request.Context(), &httptrace.ClientTrace{
+		WroteHeaders: func() { dispatched.Store(true) },
+	}))
 	response, err := router.client.Do(request)
 	if err != nil {
 		if contextErr := ctx.Err(); contextErr != nil {
-			return runtime.ProviderResult{}, contextErr
+			return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, contextErr
 		}
 		if contextErr := requestContext.Err(); contextErr != nil {
-			return runtime.ProviderResult{}, &retry.ProviderError{Err: errors.New("provider request timed out"), Code: "ETIMEDOUT", Timeout: true}
+			return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, &retry.ProviderError{Err: errors.New("provider request timed out"), Code: "ETIMEDOUT", Category: retry.CategoryNetwork}
+		}
+		var policyErr *endpointPolicyError
+		if errors.As(err, &policyErr) {
+			return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, &retry.ProviderError{Err: errors.New("provider endpoint policy rejected the request"), Code: "ENDPOINT_POLICY", Category: retry.CategoryOther}
+		}
+		var resolutionErr *endpointResolutionError
+		if errors.As(err, &resolutionErr) {
+			category, code := classifyResolutionError(resolutionErr)
+			return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, &retry.ProviderError{Err: errors.New("provider endpoint resolution failed"), Code: code, Category: category}
+		}
+		if permanentTransportError(err) {
+			return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, &retry.ProviderError{Err: errors.New("provider TLS or transport configuration failed"), Code: "TLS_OR_TRANSPORT_CONFIGURATION", Category: retry.CategoryOther}
 		}
 		var networkError net.Error
 		if errors.As(err, &networkError) && networkError.Timeout() {
-			return runtime.ProviderResult{}, &retry.ProviderError{Err: errors.New("provider network request timed out"), Code: "ETIMEDOUT", Timeout: true}
+			return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, &retry.ProviderError{Err: errors.New("provider network request timed out"), Code: "ETIMEDOUT", Category: retry.CategoryNetwork}
 		}
-		return runtime.ProviderResult{}, &retry.ProviderError{Err: errors.New("provider network request failed"), Code: "NETWORK_ERROR"}
+		return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, &retry.ProviderError{Err: errors.New("provider network request failed"), Code: "NETWORK_ERROR", Category: retry.CategoryNetwork}
 	}
 	defer response.Body.Close()
 	body, err = readBounded(response.Body, router.maxResponseBytes)
 	if err != nil {
+		if response.StatusCode < 200 || response.StatusCode > 299 {
+			return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, providerHTTPErrorAt(response, body, router.now())
+		}
+		if errors.Is(err, errResponseTooLarge) {
+			return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, &retry.ProviderError{Err: errors.New("provider response exceeded the size limit"), Code: "RESPONSE_TOO_LARGE", Category: retry.CategoryOther}
+		}
 		if prepared.protocol == "openai.responses" {
+			if streamResponse, streamErr := collectResponsesEventStreamIfPresent(response.Header.Get("Content-Type"), body); streamResponse != nil {
+				partial, _ := normalizeDecodedResponse(prepared, streamResponse)
+				partial.ProviderDispatched = dispatched.Load()
+				partial.Output, partial.Search = nil, nil
+				if directiveErr := normalizeResponsesStreamReadError(err); directiveErr != nil {
+					return partial, directiveErr
+				}
+				if streamErr != nil {
+					return partial, streamErr
+				}
+				return partial, &retry.ProviderError{Err: errors.New("provider response could not be read"), Code: "PROVIDER_RESPONSE_READ", Category: retry.CategoryNetwork}
+			}
 			if streamErr := normalizeResponsesStreamReadError(err); streamErr != nil {
-				return runtime.ProviderResult{}, streamErr
+				return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, streamErr
 			}
 		}
-		return runtime.ProviderResult{}, &retry.ProviderError{Err: err, Code: "PROVIDER_RESPONSE_READ"}
+		if decoded, decodeErr := decodeJSONObject(body); decodeErr == nil {
+			partial, _ := normalizeDecodedResponse(prepared, decoded)
+			partial.ProviderDispatched = dispatched.Load()
+			partial.Output, partial.Search = nil, nil
+			return partial, &retry.ProviderError{Err: errors.New("provider response could not be read"), Code: "PROVIDER_RESPONSE_READ", Category: retry.CategoryNetwork}
+		}
+		return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, &retry.ProviderError{Err: errors.New("provider response could not be read"), Code: "PROVIDER_RESPONSE_READ", Category: retry.CategoryNetwork}
 	}
 	if response.StatusCode < 200 || response.StatusCode > 299 {
-		return runtime.ProviderResult{}, providerHTTPError(response, body)
+		return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, providerHTTPErrorAt(response, body, router.now())
 	}
 	if prepared.protocol == "openai.responses" && isEventStream(response.Header.Get("Content-Type"), body) {
-		body, err = collectResponsesEventStream(body)
-		if err != nil {
-			return runtime.ProviderResult{}, err
+		streamResponse, streamErr := collectResponsesEventStream(body)
+		if streamResponse != nil {
+			result, normalizeErr := normalizeDecodedResponse(prepared, streamResponse)
+			result.ProviderDispatched = dispatched.Load()
+			if streamErr != nil {
+				result.Output, result.Search = nil, nil
+				return result, streamErr
+			}
+			if normalizeErr != nil {
+				return result, normalizeErr
+			}
+			return result, nil
+		}
+		if streamErr != nil {
+			return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, streamErr
 		}
 	}
 	result, err := normalizeResponse(prepared, body)
+	result.ProviderDispatched = dispatched.Load()
 	if err != nil {
 		return result, err
 	}
 	return result, nil
+}
+
+func collectResponsesEventStreamIfPresent(contentType string, body []byte) (map[string]any, error) {
+	if !isEventStream(contentType, body) {
+		return nil, nil
+	}
+	return collectResponsesEventStream(body)
+}
+
+func classifyResolutionError(err error) (retry.Category, string) {
+	if err == nil {
+		return retry.CategoryOther, "DNS_ERROR"
+	}
+	var dnsError *net.DNSError
+	if errors.As(err, &dnsError) {
+		if dnsError.IsTemporary || dnsError.IsTimeout {
+			return retry.CategoryNetwork, "DNS_TRANSIENT"
+		}
+		return retry.CategoryOther, "DNS_PERMANENT"
+	}
+	return retry.CategoryOther, "DNS_ERROR"
 }
 
 func requestTimeout(options map[string]any) (time.Duration, error) {
@@ -274,10 +361,9 @@ func isEventStream(contentType string, body []byte) bool {
 		bytes.HasPrefix(bytes.TrimSpace(body), []byte("data:"))
 }
 
-func collectResponsesEventStream(body []byte) ([]byte, error) {
-	var delta strings.Builder
-	done := make([]string, 0)
-	final := make(map[string]any)
+func collectResponsesEventStream(body []byte) (map[string]any, error) {
+	var terminal map[string]any
+	var observed map[string]any
 	for _, block := range splitSSEBlocks(string(body)) {
 		dataLines := make([]string, 0)
 		for _, line := range strings.Split(block, "\n") {
@@ -292,42 +378,49 @@ func collectResponsesEventStream(body []byte) ([]byte, error) {
 		}
 		event, decodeErr := decodeJSONObject([]byte(data))
 		if decodeErr != nil {
-			return nil, &retry.ProviderError{Err: errors.New("provider returned a malformed event stream"), Code: "MALFORMED_STREAM", Parse: true}
+			return observed, &retry.ProviderError{Err: errors.New("provider returned a malformed event stream"), Code: "MALFORMED_STREAM", Category: retry.CategoryOther}
 		}
 		switch stringValue(event["type"]) {
-		case "response.output_text.delta":
-			delta.WriteString(stringValue(event["delta"]))
-		case "response.output_text.done":
-			done = append(done, stringValue(event["text"]))
+		case "response.output_text.delta", "response.output_text.done":
+			// Deltas are progress observations only. They are never promoted to
+			// an accepted response or combined into a synthetic output.
 		case "response.completed":
 			if response := objectValue(event["response"]); len(response) > 0 {
-				final = response
+				terminal = cloneMap(response)
+				observed = terminal
+				if _, present := terminal["status"]; !present {
+					terminal["status"] = "completed"
+				}
 			}
+		case "response.incomplete":
+			if response := objectValue(event["response"]); len(response) > 0 {
+				observed = cloneMap(response)
+			}
+			return observed, validateCompletion("openai.responses", observedOrStatus(observed, "incomplete"))
 		case "response.failed", "error":
-			return nil, normalizeResponsesStreamError(event)
+			if response := objectValue(event["response"]); len(response) > 0 {
+				observed = cloneMap(response)
+			}
+			return observed, normalizeResponsesStreamError(event)
 		}
 	}
-	text := strings.Join(done, "")
-	if text == "" {
-		text = delta.String()
+	if terminal != nil {
+		return terminal, nil
 	}
-	if text == "" {
-		text = stringValue(final["output_text"])
+	if observed != nil {
+		return observed, &retry.ProviderError{Err: errors.New("provider response stream ended before completion"), Code: "STREAM_TERMINAL_REQUIRED", Category: retry.CategoryNetwork}
 	}
-	if text == "" && len(final) == 0 {
-		return nil, &retry.ProviderError{
-			Err: errors.New("provider returned an empty or null response"), Code: "empty_response",
-			RawResponse: string(body), Empty: true,
-		}
+	return nil, &retry.ProviderError{Err: errors.New("provider response stream ended before completion"), Code: "STREAM_TERMINAL_REQUIRED", Category: retry.CategoryNetwork}
+}
+
+func observedOrStatus(observed map[string]any, status string) map[string]any {
+	if observed == nil {
+		observed = make(map[string]any)
 	}
-	if text != "" {
-		final["output_text"] = text
+	if _, present := observed["status"]; !present {
+		observed["status"] = status
 	}
-	encoded, encodeErr := json.Marshal(final)
-	if encodeErr != nil {
-		return nil, &retry.ProviderError{Err: errors.New("provider response stream normalization failed"), Code: "STREAM_NORMALIZATION", Parse: true}
-	}
-	return encoded, nil
+	return observed
 }
 
 func normalizeResponsesStreamError(event map[string]any) error {
@@ -360,8 +453,21 @@ func normalizeResponsesStreamError(event map[string]any) error {
 		code = "provider_retry"
 		requestID = requestIDMatch[1]
 	}
+	category := retry.Category("")
+	if status == 0 {
+		switch strings.ToLower(code) {
+		case "rate_limit_exceeded", "rate_limit":
+			category = retry.CategoryRateLimit
+		case "server_error", "server_is_overloaded", "service_unavailable":
+			category = retry.CategoryServer
+		case "provider_retry":
+			category = retry.CategoryProvider
+		case "refusal", "content_filter":
+			category = retry.CategoryRefusal
+		}
+	}
 	return &retry.ProviderError{
-		Err: errors.New(message), Code: code, Type: typeName, ProviderRequestID: requestID, Status: status,
+		Err: errors.New("provider Responses stream failed"), Code: code, Type: typeName, ProviderRequestID: requestID, Status: status, Category: category,
 	}
 }
 
@@ -514,9 +620,18 @@ func readBounded(reader io.Reader, maximum int64) ([]byte, error) {
 		return body, providerResponseReadError{err: err}
 	}
 	if int64(len(body)) > maximum {
-		return nil, errors.New("provider response exceeded the size limit")
+		return nil, errResponseTooLarge
 	}
 	return body, nil
+}
+
+func permanentTransportError(err error) bool {
+	var unknownAuthority x509.UnknownAuthorityError
+	var hostname x509.HostnameError
+	var certificate x509.CertificateInvalidError
+	var recordHeader tls.RecordHeaderError
+	var alert tls.AlertError
+	return errors.As(err, &unknownAuthority) || errors.As(err, &hostname) || errors.As(err, &certificate) || errors.As(err, &recordHeader) || errors.As(err, &alert)
 }
 
 type providerResponseReadError struct {
@@ -532,6 +647,10 @@ func (err providerResponseReadError) Unwrap() error {
 }
 
 func providerHTTPError(response *http.Response, body []byte) error {
+	return providerHTTPErrorAt(response, body, time.Now())
+}
+
+func providerHTTPErrorAt(response *http.Response, body []byte, now time.Time) error {
 	code, typeName := providerErrorFields(body)
 	message := fmt.Sprintf("provider returned HTTP %d", response.StatusCode)
 	if code != "" {
@@ -541,7 +660,7 @@ func providerHTTPError(response *http.Response, body []byte) error {
 	}
 	return &retry.ProviderError{
 		Err: errors.New(message), Code: code, Type: typeName, Status: response.StatusCode,
-		RetryAfter: parseRetryAfter(response.Header.Get("Retry-After"), time.Now()),
+		RetryAfter: parseRetryAfter(response.Header.Get("Retry-After"), now),
 	}
 }
 
@@ -595,11 +714,4 @@ func parseRetryAfter(value string, now time.Time) time.Duration {
 		return timestamp.Sub(now)
 	}
 	return 0
-}
-
-func responseProjectionVersion(callType string) string {
-	if callType == "structured" {
-		return "v2"
-	}
-	return "v1"
 }

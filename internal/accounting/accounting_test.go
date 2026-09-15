@@ -77,3 +77,23 @@ func TestAccountingSeparatesResultAndProviderLedgers(t *testing.T) {
 		t.Fatalf("cache accounting = %#v", accounting)
 	}
 }
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-217
+func TestRecoveryBoundaryAccountingCache(t *testing.T) {
+	t.Parallel()
+	known, err := CompleteUsage(11, 0, 0, 3, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	partial := Usage{InputTokens: 11, Status: UsagePartial}
+	combined, err := AddUsage(known, partial)
+	if err != nil || combined.Status != UsagePartial || combined.InputTokens != 22 || combined.OutputTokens != 3 {
+		t.Fatalf("partial usage combination = %#v / %v", combined, err)
+	}
+	if _, err := AddLedger(Ledger{Usage: known, Cost: ExactCost(0.1, "reported")}, Ledger{Usage: Usage{InputTokens: -1, Status: UsagePartial}, Cost: UnavailableCost()}); err == nil {
+		t.Fatal("invalid usage entered the ledger")
+	}
+	if _, err := AddUsage(Usage{InputTokens: math.MaxInt64, Status: UsageComplete}, Usage{InputTokens: 1, Status: UsageComplete}); err == nil {
+		t.Fatal("checked overflow was accepted")
+	}
+}

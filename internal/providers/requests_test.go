@@ -2,15 +2,23 @@ package providers
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/json"
+	"errors"
+	"io"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/netip"
+	"net/url"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/prls-co/harden-llm/internal/cachekey"
+	"github.com/prls-co/harden-llm/internal/retry"
 	"github.com/prls-co/harden-llm/internal/runtime"
 )
 
@@ -238,9 +246,11 @@ func TestProviderRequestParityCapturedSource(t *testing.T) {
 			if prepareErr != nil {
 				t.Fatalf("Prepare: %v", prepareErr)
 			}
-			if !jsonEquivalent(prepared.Operation, captured.Operation) {
+			wantOperation := captured.Operation
+			wantOperation.ResponseProjection.Version = "v3"
+			if !jsonEquivalent(prepared.Operation, wantOperation) {
 				got, _ := json.MarshalIndent(prepared.Operation, "", "  ")
-				want, _ := json.MarshalIndent(captured.Operation, "", "  ")
+				want, _ := json.MarshalIndent(wantOperation, "", "  ")
 				t.Fatalf("captured operation mismatch:\n got %s\nwant %s", got, want)
 			}
 
@@ -251,11 +261,11 @@ func TestProviderRequestParityCapturedSource(t *testing.T) {
 			if structuredErr != nil {
 				t.Fatalf("Prepare structured: %v", structuredErr)
 			}
-			// ADR-HLLM-020 advances only the structured response projection.
-			captured.StructuredOperation.ResponseProjection.Version = "v2"
-			if !jsonEquivalent(structured.Operation, captured.StructuredOperation) {
+			wantStructuredOperation := captured.StructuredOperation
+			wantStructuredOperation.ResponseProjection.Version = "v3"
+			if !jsonEquivalent(structured.Operation, wantStructuredOperation) {
 				got, _ := json.MarshalIndent(structured.Operation, "", "  ")
-				want, _ := json.MarshalIndent(captured.StructuredOperation, "", "  ")
+				want, _ := json.MarshalIndent(wantStructuredOperation, "", "  ")
 				t.Fatalf("captured structured operation mismatch:\n got %s\nwant %s", got, want)
 			}
 		})
@@ -326,6 +336,107 @@ func TestCPAResponsesEvalRequestParityCapturedSource(t *testing.T) {
 	if request.headers.Get("Content-Type") != "application/json" || request.headers.Get("Authorization") != "Bearer fixture-secret" {
 		t.Fatalf("CPA request headers mismatch: %#v", request.headers)
 	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-214
+func TestRecoveryBoundaryTransport(t *testing.T) {
+	t.Run("observed model headers set dispatch fact", func(t *testing.T) {
+		server := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+			writer.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(writer, `{"status":"completed","output_text":"ok"}`)
+		}))
+		defer server.Close()
+		requestURL, err := url.Parse(server.URL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		operation := cachekey.Operation{Protocol: "openai.responses", Endpoint: cachekey.Endpoint{Identity: requestURL.String(), Method: http.MethodPost, Path: "/"}}
+		prepared := preparedRequest{url: requestURL, headers: http.Header{"Authorization": {"Bearer fixture"}}, body: []byte(`{}`), protocol: operation.Protocol, operation: operation}
+		result, executeErr := (&Router{client: server.Client(), maxResponseBytes: defaultMaxResponseBytes, now: time.Now}).Execute(context.Background(), runtime.PreparedOperation{Operation: operation, Opaque: prepared})
+		if executeErr != nil || result.Output != "ok" || !result.ProviderDispatched {
+			t.Fatalf("dispatch result = %#v, %v", result, executeErr)
+		}
+	})
+
+	t.Run("HTTP status wins when diagnostic body is interrupted", func(t *testing.T) {
+		requestURL, _ := url.Parse("https://provider.example/run")
+		operation := cachekey.Operation{Protocol: "openai.responses", Endpoint: cachekey.Endpoint{Identity: requestURL.String(), Method: http.MethodPost, Path: "/run"}}
+		router := &Router{client: &http.Client{Transport: transportFunc(func(*http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusServiceUnavailable, Header: make(http.Header), Body: failingBody{}}, nil
+		})}, now: time.Now}
+		_, executeErr := router.Execute(context.Background(), runtime.PreparedOperation{Operation: operation, Opaque: preparedRequest{url: requestURL, headers: make(http.Header), body: []byte(`{}`), protocol: operation.Protocol, operation: operation}})
+		if executeErr == nil || retry.Classify(executeErr, retry.DefaultPolicy()).Category != retry.CategoryServer {
+			t.Fatalf("interrupted HTTP failure = %v", executeErr)
+		}
+	})
+
+	transient := &net.DNSError{Err: "temporary failure", IsTemporary: true}
+	if category, _ := classifyResolutionError(&endpointResolutionError{err: transient}); category != retry.CategoryNetwork {
+		t.Fatalf("transient DNS category = %q", category)
+	}
+	permanent := &net.DNSError{Err: "no such host"}
+	if category, _ := classifyResolutionError(&endpointResolutionError{err: permanent}); category != retry.CategoryOther {
+		t.Fatalf("permanent DNS category = %q", category)
+	}
+
+	now := time.Date(2026, time.September, 15, 12, 0, 0, 0, time.UTC)
+	searcher := &jinaSearcher{
+		client: &http.Client{Transport: transportFunc(func(*http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusTooManyRequests, Header: http.Header{"Retry-After": {now.Add(37 * time.Second).Format(http.TimeFormat)}}, Body: http.NoBody}, nil
+		})},
+		apiKey: "fixture", baseURL: mustURL(t, "https://s.jina.ai/"), now: func() time.Time { return now },
+	}
+	_, searchErr := searcher.Search(context.Background(), "query")
+	classification := retry.Classify(searchErr, retry.DefaultPolicy())
+	if classification.Category != retry.CategoryRateLimit || classification.RetryAfter != 37*time.Second {
+		t.Fatalf("Jina Retry-After = %#v, want rate_limit/37s", classification)
+	}
+
+	certificateURL := mustURL(t, "https://provider.example/run")
+	certificateOperation := cachekey.Operation{Protocol: "openai.responses", Endpoint: cachekey.Endpoint{Identity: certificateURL.String(), Method: http.MethodPost, Path: "/run"}}
+	certificateRouter := &Router{client: &http.Client{Transport: transportFunc(func(*http.Request) (*http.Response, error) {
+		return nil, &url.Error{Op: "tls", URL: certificateURL.String(), Err: x509.UnknownAuthorityError{}}
+	})}, now: time.Now}
+	_, certificateErr := certificateRouter.Execute(context.Background(), runtime.PreparedOperation{Operation: certificateOperation, Opaque: preparedRequest{url: certificateURL, headers: make(http.Header), body: []byte(`{}`), protocol: certificateOperation.Protocol, operation: certificateOperation}})
+	if certificateErr == nil || retry.Classify(certificateErr, retry.DefaultPolicy()).Category != retry.CategoryOther {
+		t.Fatalf("certificate failure = %v", certificateErr)
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-217
+func TestRecoveryBoundaryAccountingCacheRead(t *testing.T) {
+	requestURL := mustURL(t, "https://provider.example/run")
+	operation := cachekey.Operation{Protocol: "openai.responses", Endpoint: cachekey.Endpoint{Identity: requestURL.String(), Method: http.MethodPost, Path: "/run"}}
+	router := &Router{client: &http.Client{Transport: transportFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}},
+			Body: &errorReadCloser{reader: strings.NewReader(`{"status":"completed","output_text":"must not be accepted","usage":{"input_tokens":11,"output_tokens":3}}`), err: errors.New("connection reset after body")},
+		}, nil
+	})}, maxResponseBytes: defaultMaxResponseBytes, now: time.Now}
+	result, err := router.Execute(context.Background(), runtime.PreparedOperation{Operation: operation, Opaque: preparedRequest{
+		url: requestURL, headers: make(http.Header), body: []byte(`{}`), protocol: operation.Protocol, operation: operation,
+	}})
+	if err == nil || retry.Classify(err, retry.DefaultPolicy()).Category != retry.CategoryNetwork || result.Output != nil || result.Accounting.Usage.InputTokens != 11 || result.Accounting.Usage.OutputTokens != 3 {
+		t.Fatalf("partial JSON read = %#v / %v", result, err)
+	}
+}
+
+type transportFunc func(*http.Request) (*http.Response, error)
+
+func (fn transportFunc) RoundTrip(request *http.Request) (*http.Response, error) { return fn(request) }
+
+type failingBody struct{}
+
+func (failingBody) Read([]byte) (int, error) { return 0, errors.New("interrupted diagnostic body") }
+func (failingBody) Close() error             { return nil }
+
+func mustURL(t *testing.T, raw string) *url.URL {
+	t.Helper()
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return parsed
 }
 
 func TestReasoningEffortParityCapturedSource(t *testing.T) {

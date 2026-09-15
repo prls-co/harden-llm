@@ -79,7 +79,7 @@ func TestClientArtifactPersistenceIsRedactedAndNonFatal(t *testing.T) {
 				Accounting: testLedger(4, 0, 0, 2, 0, accounting.ExactCost(0.000006, "profile")),
 			},
 			err: &retry.ProviderError{
-				Err: errors.New("structured parse failed"), Parse: true,
+				Err: errors.New("structured parse failed"), Category: retry.CategoryParse,
 				RawResponse: `{"answer":"fixture-only-key","unfinished":`,
 			},
 		}

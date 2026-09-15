@@ -12,3 +12,4 @@ frontend/priv/static/*-*.ico
 frontend/priv/static/*-*.txt
 frontend/priv/static/images/*.gz
 frontend/priv/static/images/*-*.svg
+.aider*

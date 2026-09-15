@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/prls-co/harden-llm/internal/accounting"
@@ -18,8 +19,12 @@ import (
 func normalizeResponse(prepared preparedRequest, body []byte) (runtime.ProviderResult, error) {
 	response, err := decodeJSONObject(body)
 	if err != nil {
-		return runtime.ProviderResult{}, &retry.ProviderError{Err: errors.New("provider returned malformed JSON"), Code: "MALFORMED_RESPONSE", Parse: true}
+		return runtime.ProviderResult{}, &retry.ProviderError{Err: errors.New("provider returned malformed JSON"), Code: "MALFORMED_RESPONSE", Category: retry.CategoryOther}
 	}
+	return normalizeDecodedResponse(prepared, response)
+}
+
+func normalizeDecodedResponse(prepared preparedRequest, response map[string]any) (runtime.ProviderResult, error) {
 	projection := response
 	if prepared.searchMode == "native" && prepared.protocol == "openai.responses" {
 		// Search may emit a commentary message before the final answer. Never
@@ -28,52 +33,78 @@ func normalizeResponse(prepared preparedRequest, body []byte) (runtime.ProviderR
 		projection["output"] = finalResponseOutput(response)
 		delete(projection, "output_text")
 	}
+	usage, usageErr := normalizeUsage(prepared.protocol, response)
+	cost, costErr := normalizeCost(response, usage, prepared.pricing)
+	partial := runtime.ProviderResult{Accounting: accounting.Ledger{Usage: usage, Cost: cost}}
+	partial.RawProviderEnvelope, _ = rawProviderEnvelope(prepared, response)
+	if usageErr != nil {
+		return partial, accountingProviderError(usageErr)
+	}
+	if costErr != nil {
+		return partial, accountingProviderError(costErr)
+	}
+	if completionErr := validateCompletion(prepared.protocol, response); completionErr != nil {
+		return partial, completionErr
+	}
 	if prepared.searchMode == "native" && prepared.protocol == "anthropic.messages" {
 		for _, item := range arrayValue(response["content"]) {
 			part := objectValue(item)
 			if part["type"] == "web_search_tool_result" && objectValue(part["content"])["type"] == "web_search_tool_result_error" {
-				return runtime.ProviderResult{}, &retry.ProviderError{Err: errors.New("native web search tool failed"), Code: "WEB_SEARCH_TOOL_ERROR"}
+				return partial, &retry.ProviderError{Err: errors.New("native web search tool failed"), Code: "WEB_SEARCH_TOOL_ERROR", Category: retry.CategoryOther}
 			}
 		}
 	}
 	output, text, refusal, empty := extractProviderOutput(prepared.protocol, projection)
 	if refusal {
-		return runtime.ProviderResult{}, &retry.ProviderError{Err: errors.New("provider refusal or content filter"), Code: "PROVIDER_REFUSAL", Refusal: true}
+		return partial, &retry.ProviderError{Err: errors.New("provider refusal or content filter"), Code: "PROVIDER_REFUSAL", Category: retry.CategoryRefusal}
 	}
 	if empty {
-		return runtime.ProviderResult{}, &retry.ProviderError{
+		return partial, &retry.ProviderError{
 			Err: errors.New("provider returned an empty or null response"), Code: "empty_response",
-			RawResponse: string(body), Empty: true,
+			RawResponse: string(mustJSON(response)), Category: retry.CategoryEmpty,
 		}
 	}
-	usage := normalizeUsage(prepared.protocol, response)
-	cost := normalizeCost(response, usage, prepared.pricing)
-	partial := runtime.ProviderResult{Accounting: accounting.Ledger{Usage: usage, Cost: cost}}
 	if prepared.callType == "structured" && output == nil {
 		parsed, _, parseErr := contractschema.ParseProviderOutput(text)
 		if parseErr != nil {
 			return partial, &retry.ProviderError{
 				Err: errors.New("provider returned malformed structured output"), Code: "STRUCTURED_PARSE",
-				Parse: true, RawResponse: text,
+				Category: retry.CategoryParse, RawResponse: text,
 			}
 		}
 		output = parsed
 	} else if output == nil {
 		output = text
 	}
-	envelope, err := json.Marshal(map[string]any{
-		"schemaVersion": rawEnvelopeVersion,
-		"provider":      prepared.provider,
-		"protocol":      prepared.protocol,
-		"response":      response,
-	})
+	envelope, err := rawProviderEnvelope(prepared, response)
 	if err != nil {
-		return runtime.ProviderResult{}, &retry.ProviderError{Err: errors.New("provider response normalization failed"), Code: "NORMALIZATION", Parse: true}
+		return partial, &retry.ProviderError{Err: errors.New("provider response normalization failed"), Code: "NORMALIZATION", Category: retry.CategoryOther}
 	}
 	return runtime.ProviderResult{
 		Search: normalizeSearch(prepared, response),
 		Output: output, Accounting: accounting.Ledger{Usage: usage, Cost: cost}, RawProviderEnvelope: envelope,
 	}, nil
+}
+
+func rawProviderEnvelope(prepared preparedRequest, response map[string]any) ([]byte, error) {
+	return json.Marshal(map[string]any{
+		"schemaVersion": rawEnvelopeVersion,
+		"provider":      prepared.provider,
+		"protocol":      prepared.protocol,
+		"response":      response,
+	})
+}
+
+func mustJSON(value any) []byte {
+	encoded, _ := json.Marshal(value)
+	return encoded
+}
+
+func accountingProviderError(err error) error {
+	if err == nil {
+		return nil
+	}
+	return &retry.ProviderError{Err: errors.New("provider accounting is invalid"), Code: "ACCOUNTING_INVALID", Category: retry.CategoryOther}
 }
 
 func decodeJSONObject(input []byte) (map[string]any, error) {
@@ -195,80 +226,360 @@ func extractProviderOutput(protocol string, response map[string]any) (output any
 	}
 }
 
-func normalizeUsage(protocol string, response map[string]any) runtime.Usage {
+func validateCompletion(protocol string, response map[string]any) error {
+	other := func(code string) error {
+		return &retry.ProviderError{Err: errors.New("provider response did not report a supported completion"), Code: code, Category: retry.CategoryOther}
+	}
+	switch protocol {
+	case "openai.responses":
+		status, ok := response["status"].(string)
+		if !ok || strings.TrimSpace(status) == "" {
+			return other("COMPLETION_REQUIRED")
+		}
+		switch strings.ToLower(strings.TrimSpace(status)) {
+		case "completed":
+			return nil
+		case "failed":
+			return normalizeResponsesFailure(response)
+		case "incomplete":
+			details := objectValue(response["incomplete_details"])
+			if strings.EqualFold(stringValue(details["reason"]), "content_filter") {
+				return &retry.ProviderError{Err: errors.New("provider refusal or content filter"), Code: "PROVIDER_REFUSAL", Category: retry.CategoryRefusal}
+			}
+			return other("COMPLETION_INCOMPLETE")
+		default:
+			return other("COMPLETION_UNSUPPORTED")
+		}
+	case "openai.chat.completions", "openai-compatible.chat.completions":
+		choices := arrayValue(response["choices"])
+		if len(choices) == 0 {
+			return other("COMPLETION_REQUIRED")
+		}
+		finish, ok := objectValue(choices[0])["finish_reason"].(string)
+		if !ok || strings.TrimSpace(finish) == "" {
+			return other("COMPLETION_REQUIRED")
+		}
+		switch strings.ToLower(strings.TrimSpace(finish)) {
+		case "stop":
+			return nil
+		case "content_filter":
+			return &retry.ProviderError{Err: errors.New("provider refusal or content filter"), Code: "PROVIDER_REFUSAL", Category: retry.CategoryRefusal}
+		case "length":
+			return other("COMPLETION_LIMIT")
+		default:
+			return other("COMPLETION_UNSUPPORTED")
+		}
+	case "google.gemini.generateContent":
+		if feedback := objectValue(response["promptFeedback"]); strings.TrimSpace(stringValue(feedback["blockReason"])) != "" {
+			return &retry.ProviderError{Err: errors.New("provider refusal or content filter"), Code: "PROVIDER_REFUSAL", Category: retry.CategoryRefusal}
+		}
+		candidates := arrayValue(response["candidates"])
+		if len(candidates) == 0 {
+			return other("COMPLETION_REQUIRED")
+		}
+		candidate := objectValue(candidates[0])
+		finish, ok := candidate["finishReason"].(string)
+		if !ok || strings.TrimSpace(finish) == "" {
+			return other("COMPLETION_REQUIRED")
+		}
+		switch strings.ToUpper(strings.TrimSpace(finish)) {
+		case "STOP":
+			return nil
+		case "SAFETY", "BLOCKED", "PROHIBITED_CONTENT", "SPII":
+			return &retry.ProviderError{Err: errors.New("provider refusal or content filter"), Code: "PROVIDER_REFUSAL", Category: retry.CategoryRefusal}
+		case "MAX_TOKENS":
+			return other("COMPLETION_LIMIT")
+		default:
+			return other("COMPLETION_UNSUPPORTED")
+		}
+	case "anthropic.messages":
+		finish, ok := response["stop_reason"].(string)
+		if !ok || strings.TrimSpace(finish) == "" {
+			return other("COMPLETION_REQUIRED")
+		}
+		switch strings.ToLower(strings.TrimSpace(finish)) {
+		case "end_turn", "stop_sequence":
+			return nil
+		case "refusal":
+			return &retry.ProviderError{Err: errors.New("provider refusal or content filter"), Code: "PROVIDER_REFUSAL", Category: retry.CategoryRefusal}
+		case "max_tokens":
+			return other("COMPLETION_LIMIT")
+		default:
+			return other("COMPLETION_UNSUPPORTED")
+		}
+	default:
+		return other("COMPLETION_UNSUPPORTED")
+	}
+}
+
+func normalizeResponsesFailure(response map[string]any) error {
+	errorObject := objectValue(response["error"])
+	if len(errorObject) == 0 {
+		errorObject = objectValue(objectValue(response["response"])["error"])
+	}
+	code := boundedCode(stringValue(errorObject["code"]))
+	typeName := boundedCode(stringValue(errorObject["type"]))
+	category := retry.CategoryOther
+	switch strings.ToLower(code) {
+	case "rate_limit_exceeded", "rate_limit":
+		category = retry.CategoryRateLimit
+	case "server_error", "server_is_overloaded", "service_unavailable":
+		category = retry.CategoryServer
+	case "provider_retry":
+		category = retry.CategoryProvider
+	case "refusal", "content_filter":
+		category = retry.CategoryRefusal
+	}
+	return &retry.ProviderError{Err: errors.New("provider response reported failure"), Code: code, Type: typeName, Category: category}
+}
+
+func normalizeUsage(protocol string, response map[string]any) (runtime.Usage, error) {
 	switch protocol {
 	case "openai.responses", "openai.chat.completions", "openai-compatible.chat.completions":
-		usage := objectValue(response["usage"])
-		if len(usage) == 0 {
-			return accounting.UnavailableUsage()
-		}
-		totalInput := integerValue(firstValue(usage, "prompt_tokens", "input_tokens"))
-		details := objectValue(firstValue(usage, "prompt_tokens_details", "input_tokens_details"))
-		cacheReadValue, cacheReadPresent := firstPresent(details, "cached_tokens")
-		if !cacheReadPresent {
-			cacheReadValue, _ = firstPresent(usage, "cached_tokens", "cache_read_input_tokens")
-		}
-		cacheRead := integerValue(cacheReadValue)
-		cacheCreationValue, cacheCreationPresent := firstPresent(details, "cache_write_tokens", "cache_creation_tokens")
-		if !cacheCreationPresent {
-			cacheCreationValue, _ = firstPresent(usage, "cache_creation_input_tokens")
-		}
-		cacheCreation := integerValue(cacheCreationValue)
-		totalOutput := integerValue(firstValue(usage, "completion_tokens", "output_tokens"))
-		outputDetails := objectValue(firstValue(usage, "completion_tokens_details", "output_tokens_details"))
-		reasoningValue, reasoningPresent := firstPresent(outputDetails, "reasoning_tokens")
-		if !reasoningPresent {
-			reasoningValue, _ = firstPresent(usage, "reasoning_tokens")
-		}
-		reasoning := integerValue(reasoningValue)
-		return completedUsage(totalInput-cacheRead-cacheCreation, cacheRead, cacheCreation, totalOutput-reasoning, reasoning)
+		return normalizeOpenAIUsage(response)
 	case "google.gemini.generateContent":
-		usage := objectValue(response["usageMetadata"])
-		if len(usage) == 0 {
-			return accounting.UnavailableUsage()
-		}
-		totalInput := integerValue(usage["promptTokenCount"])
-		cacheRead := integerValue(usage["cachedContentTokenCount"])
-		return completedUsage(totalInput-cacheRead, cacheRead, 0, integerValue(usage["candidatesTokenCount"]), integerValue(usage["thoughtsTokenCount"]))
+		return normalizeGeminiUsage(response)
 	case "anthropic.messages":
-		usage := objectValue(response["usage"])
-		if len(usage) == 0 {
-			return accounting.UnavailableUsage()
-		}
-		return completedUsage(
-			integerValue(usage["input_tokens"]), integerValue(usage["cache_read_input_tokens"]),
-			integerValue(usage["cache_creation_input_tokens"]), integerValue(usage["output_tokens"]), 0,
-		)
+		return normalizeAnthropicUsage(response)
 	default:
-		return accounting.UnavailableUsage()
+		return accounting.UnavailableUsage(), nil
 	}
 }
 
-func completedUsage(input, cacheRead, cacheCreation, output, reasoning int64) runtime.Usage {
-	input = max(0, input)
-	cacheRead = max(0, cacheRead)
-	cacheCreation = max(0, cacheCreation)
-	output = max(0, output)
-	reasoning = max(0, reasoning)
-	usage, err := accounting.CompleteUsage(input, cacheRead, cacheCreation, output, reasoning)
+func normalizeOpenAIUsage(response map[string]any) (runtime.Usage, error) {
+	usage, present, err := usageObject(response, "usage")
+	if err != nil || !present {
+		return accounting.UnavailableUsage(), err
+	}
+	details := optionalObject(usage, "prompt_tokens_details", "input_tokens_details")
+	cacheReadValue, cacheReadPresent := firstPresent(details, "cached_tokens")
+	if !cacheReadPresent {
+		cacheReadValue, cacheReadPresent = firstPresent(usage, "cached_tokens", "cache_read_input_tokens")
+	}
+	cacheRead, err := tokenField(cacheReadValue, cacheReadPresent)
 	if err != nil {
-		return runtime.Usage{Status: accounting.UsageInconsistent}
+		return accounting.UnavailableUsage(), err
 	}
-	return usage
+	cacheCreationValue, cacheCreationPresent := firstPresent(details, "cache_write_tokens", "cache_creation_tokens")
+	if !cacheCreationPresent {
+		cacheCreationValue, cacheCreationPresent = firstPresent(usage, "cache_creation_input_tokens")
+	}
+	cacheCreation, err := tokenField(cacheCreationValue, cacheCreationPresent)
+	if err != nil {
+		return accounting.UnavailableUsage(), err
+	}
+	inputValue, inputPresent := firstPresent(usage, "prompt_tokens", "input_tokens")
+	totalInput, err := tokenField(inputValue, inputPresent)
+	if err != nil {
+		return accounting.UnavailableUsage(), err
+	}
+	outputDetails := optionalObject(usage, "completion_tokens_details", "output_tokens_details")
+	reasoningValue, reasoningPresent := firstPresent(outputDetails, "reasoning_tokens")
+	if !reasoningPresent {
+		reasoningValue, reasoningPresent = firstPresent(usage, "reasoning_tokens")
+	}
+	reasoning, err := tokenField(reasoningValue, reasoningPresent)
+	if err != nil {
+		return accounting.UnavailableUsage(), err
+	}
+	outputValue, outputPresent := firstPresent(usage, "completion_tokens", "output_tokens")
+	totalOutput, err := tokenField(outputValue, outputPresent)
+	if err != nil {
+		return accounting.UnavailableUsage(), err
+	}
+	return usageFromTotals(totalInput, inputPresent, cacheRead, cacheReadPresent, cacheCreation, cacheCreationPresent, totalOutput, outputPresent, reasoning, reasoningPresent, true, true)
 }
 
-func normalizeCost(response map[string]any, usage runtime.Usage, pricing runtime.Pricing) runtime.Cost {
+func normalizeGeminiUsage(response map[string]any) (runtime.Usage, error) {
+	usage, present, err := usageObject(response, "usageMetadata")
+	if err != nil || !present {
+		return accounting.UnavailableUsage(), err
+	}
+	input, inputPresent, err := tokenFieldFromObject(usage, "promptTokenCount")
+	if err != nil {
+		return accounting.UnavailableUsage(), err
+	}
+	cacheRead, cacheReadPresent, err := tokenFieldFromObject(usage, "cachedContentTokenCount")
+	if err != nil {
+		return accounting.UnavailableUsage(), err
+	}
+	output, outputPresent, err := tokenFieldFromObject(usage, "candidatesTokenCount")
+	if err != nil {
+		return accounting.UnavailableUsage(), err
+	}
+	reasoning, reasoningPresent, err := tokenFieldFromObject(usage, "thoughtsTokenCount")
+	if err != nil {
+		return accounting.UnavailableUsage(), err
+	}
+	return usageFromTotals(input, inputPresent, cacheRead, cacheReadPresent, 0, false, output, outputPresent, reasoning, reasoningPresent, false, true)
+}
+
+func normalizeAnthropicUsage(response map[string]any) (runtime.Usage, error) {
+	usage, present, err := usageObject(response, "usage")
+	if err != nil || !present {
+		return accounting.UnavailableUsage(), err
+	}
+	input, inputPresent, err := tokenFieldFromObject(usage, "input_tokens")
+	if err != nil {
+		return accounting.UnavailableUsage(), err
+	}
+	cacheRead, cacheReadPresent, err := tokenFieldFromObject(usage, "cache_read_input_tokens")
+	if err != nil {
+		return accounting.UnavailableUsage(), err
+	}
+	cacheCreation, cacheCreationPresent, err := tokenFieldFromObject(usage, "cache_creation_input_tokens")
+	if err != nil {
+		return accounting.UnavailableUsage(), err
+	}
+	output, outputPresent, err := tokenFieldFromObject(usage, "output_tokens")
+	if err != nil {
+		return accounting.UnavailableUsage(), err
+	}
+	return usageFromTotals(input, inputPresent, cacheRead, cacheReadPresent, cacheCreation, cacheCreationPresent, output, outputPresent, 0, false, false, false)
+}
+
+func usageObject(response map[string]any, key string) (map[string]any, bool, error) {
+	value, exists := response[key]
+	if !exists || value == nil {
+		return nil, false, nil
+	}
+	object, ok := value.(map[string]any)
+	if !ok {
+		return nil, true, errors.New("usage is not an object")
+	}
+	if len(object) == 0 {
+		return nil, false, nil
+	}
+	return object, true, nil
+}
+
+func optionalObject(object map[string]any, keys ...string) map[string]any {
+	for _, key := range keys {
+		if value, ok := object[key]; ok && value != nil {
+			if nested, ok := value.(map[string]any); ok {
+				return nested
+			}
+		}
+	}
+	return nil
+}
+
+func tokenFieldFromObject(object map[string]any, key string) (int64, bool, error) {
+	value, present := firstPresent(object, key)
+	parsed, err := tokenField(value, present)
+	return parsed, present, err
+}
+
+func tokenField(value any, present bool) (int64, error) {
+	if !present || value == nil {
+		return 0, nil
+	}
+	return parseToken(value)
+}
+
+func parseToken(value any) (int64, error) {
+	var parsed int64
+	switch typed := value.(type) {
+	case json.Number:
+		if integer, err := typed.Int64(); err == nil {
+			parsed = integer
+		} else {
+			floating, floatErr := strconv.ParseFloat(typed.String(), 64)
+			if floatErr != nil || math.IsNaN(floating) || math.IsInf(floating, 0) || floating < 0 || math.Trunc(floating) != floating || floating >= float64(math.MaxInt64) {
+				return 0, errors.New("token count is not a nonnegative integer")
+			}
+			parsed = int64(floating)
+		}
+	case float64:
+		if math.IsNaN(typed) || math.IsInf(typed, 0) || typed < 0 || math.Trunc(typed) != typed || typed >= float64(math.MaxInt64) {
+			return 0, errors.New("token count is not a nonnegative integer")
+		}
+		parsed = int64(typed)
+	case int:
+		if typed < 0 {
+			return 0, errors.New("token count is not a nonnegative integer")
+		}
+		parsed = int64(typed)
+	case int64:
+		if typed < 0 {
+			return 0, errors.New("token count is not a nonnegative integer")
+		}
+		parsed = typed
+	default:
+		return 0, errors.New("token count is not a nonnegative integer")
+	}
+	if parsed < 0 {
+		return 0, errors.New("token count is not a nonnegative integer")
+	}
+	return parsed, nil
+}
+
+func usageFromTotals(input int64, inputPresent bool, cacheRead int64, cacheReadPresent bool, cacheCreation int64, cacheCreationPresent bool, output int64, outputPresent bool, reasoning int64, reasoningPresent bool, outputIncludesReasoning bool, inputIncludesCaches bool) (runtime.Usage, error) {
+	if inputPresent && inputIncludesCaches {
+		if cacheRead > input || cacheCreation > input-cacheRead {
+			return accounting.UnavailableUsage(), errors.New("cache token components exceed input tokens")
+		}
+		input -= cacheRead + cacheCreation
+	}
+	if outputPresent && outputIncludesReasoning {
+		if reasoning > output {
+			return accounting.UnavailableUsage(), errors.New("reasoning token component exceeds output tokens")
+		}
+		output -= reasoning
+	}
+	known := inputPresent || outputPresent || cacheReadPresent || cacheCreationPresent || reasoningPresent
+	complete := inputPresent && outputPresent
+	if !known {
+		return accounting.UnavailableUsage(), nil
+	}
+	status := accounting.UsagePartial
+	if complete {
+		status = accounting.UsageComplete
+	}
+	usage := runtime.Usage{InputTokens: input, CacheReadTokens: cacheRead, CacheCreationTokens: cacheCreation, OutputTokens: output, ReasoningTokens: reasoning, Status: status}
+	if err := usage.Validate(); err != nil {
+		return accounting.UnavailableUsage(), err
+	}
+	return usage, nil
+}
+
+func normalizeCost(response map[string]any, usage runtime.Usage, pricing runtime.Pricing) (runtime.Cost, error) {
 	usageObject := objectValue(response["usage"])
 	for _, value := range []any{usageObject["cost"], usageObject["total_cost"], response["cost"], response["total_cost"]} {
-		if reported, ok := nonnegativeFloat(value); ok {
-			return accounting.ExactCost(reported, "reported")
+		if value == nil {
+			continue
 		}
+		reported, err := parseCost(value)
+		if err != nil {
+			return accounting.UnavailableCost(), err
+		}
+		return accounting.ExactCost(reported, "reported"), nil
+	}
+	if usage.Status == accounting.UsageUnavailable {
+		return accounting.UnavailableCost(), nil
 	}
 	cost, err := accounting.ResolveCost(usage, pricing, nil)
 	if err != nil {
-		return accounting.UnknownCost("invalid_usage_or_rate")
+		return accounting.UnavailableCost(), err
 	}
-	return cost
+	if usage.Status == accounting.UsagePartial {
+		if cost.Status == accounting.CostExact && cost.KnownObservations > 0 {
+			cost.Status = accounting.CostPartial
+			cost.KnownObservations = 1
+			cost.UnknownObservations = 1
+		} else if cost.Status == accounting.CostExact {
+			cost = accounting.UnknownCost("partial_usage")
+		}
+	}
+	return cost, cost.Validate()
+}
+
+func parseCost(value any) (float64, error) {
+	parsed, ok := nonnegativeFloat(value)
+	if !ok {
+		return 0, errors.New("reported cost is invalid")
+	}
+	return parsed, nil
 }
 
 func objectValue(value any) map[string]any {

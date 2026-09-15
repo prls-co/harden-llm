@@ -276,12 +276,12 @@ func (diagnosticRepairExecutor) Prepare(_ context.Context, _ coreruntime.Profile
 
 func (diagnosticRepairExecutor) Execute(_ context.Context, operation coreruntime.PreparedOperation) (coreruntime.ProviderResult, error) {
 	if repair, _ := operation.Opaque.(bool); repair {
-		return coreruntime.ProviderResult{
+		return coreruntime.ProviderResult{ProviderDispatched: true,
 			Output:     map[string]any{"answer": "ok"},
 			Accounting: diagnosticLedger(7, 3, 0.02),
 		}, nil
 	}
-	return coreruntime.ProviderResult{
+	return coreruntime.ProviderResult{ProviderDispatched: true,
 		Output:     map[string]any{"answer": "private provider response"},
 		Accounting: diagnosticLedger(5, 2, 0.01),
 	}, nil
@@ -294,7 +294,7 @@ func (diagnosticFailureExecutor) Prepare(_ context.Context, _ coreruntime.Profil
 }
 
 func (executor diagnosticFailureExecutor) Execute(context.Context, coreruntime.PreparedOperation) (coreruntime.ProviderResult, error) {
-	return coreruntime.ProviderResult{}, &retry.ProviderError{Status: http.StatusUnauthorized, Err: errors.New("provider rejected " + executor.secret)}
+	return coreruntime.ProviderResult{ProviderDispatched: true}, &retry.ProviderError{Status: http.StatusUnauthorized, Err: errors.New("provider rejected " + executor.secret)}
 }
 
 func diagnosticOperation(repair bool) coreruntime.PreparedOperation {

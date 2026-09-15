@@ -39,6 +39,9 @@ func (adapter *cacheAdapter) Get(ctx context.Context, operationHash, cacheVersio
 	if !json.Valid(record.RawProviderEnvelope) {
 		return coreruntime.CachedResult{}, false, errors.New("hardenllm: invalid cached provider envelope")
 	}
+	if projection.Output == nil {
+		return coreruntime.CachedResult{}, false, errors.New("hardenllm: cached provider result has no accepted output")
+	}
 	return coreruntime.CachedResult{
 		ProviderResult: coreruntime.ProviderResult{
 			Search: projection.Search,
@@ -50,6 +53,12 @@ func (adapter *cacheAdapter) Get(ctx context.Context, operationHash, cacheVersio
 }
 
 func (adapter *cacheAdapter) Set(ctx context.Context, operationHash, cacheVersion string, operation cachekey.Operation, result coreruntime.CachedResult) error {
+	if result.ProviderResult.Output == nil {
+		return errors.New("hardenllm: cannot cache a provider result without output")
+	}
+	if !json.Valid(result.ProviderResult.RawProviderEnvelope) {
+		return errors.New("hardenllm: cannot cache an invalid provider envelope")
+	}
 	operationJSON, err := cachekey.StableJSON(operation)
 	if err != nil {
 		return fmt.Errorf("hardenllm: encode cached operation: %w", err)

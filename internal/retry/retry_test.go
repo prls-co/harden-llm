@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"os"
 	"reflect"
@@ -78,11 +79,11 @@ func sourceMatrixError(outcome string) error {
 	case "server_error":
 		return &ProviderError{Status: 503}
 	case "empty_response":
-		return &ProviderError{Code: "empty_response"}
+		return &ProviderError{Code: "empty_response", Category: CategoryEmpty}
 	case "parse_error":
-		return &ProviderError{Parse: true}
+		return &ProviderError{Category: CategoryParse}
 	case "refusal":
-		return &ProviderError{Refusal: true}
+		return &ProviderError{Category: CategoryRefusal}
 	default:
 		return &ProviderError{Err: errors.New("unknown source matrix outcome")}
 	}
@@ -146,11 +147,11 @@ func capturedClassificationError(name string) error {
 	case "server":
 		return &ProviderError{Err: errors.New("unavailable"), Status: 503}
 	case "refusal":
-		return &ProviderError{Err: errors.New("content_filter refusal"), Status: 503}
+		return &ProviderError{Err: errors.New("content_filter refusal"), Status: 503, Category: CategoryRefusal}
 	case "timeout":
 		return context.DeadlineExceeded
 	case "parse-disabled", "parse-enabled":
-		return &ProviderError{Err: errors.New("invalid JSON"), Parse: true}
+		return &ProviderError{Err: errors.New("invalid JSON"), Category: CategoryParse}
 	default:
 		return &ProviderError{Err: errors.New("unknown captured classification")}
 	}
@@ -169,9 +170,9 @@ func TestRetryContract(t *testing.T) {
 			{name: "server", err: &ProviderError{Status: 503}, policy: DefaultPolicy(), want: Classification{Retryable: true, Category: CategoryServer, Status: 503}},
 			{name: "provider retry", err: &ProviderError{Err: errors.New("retry this provider request"), Code: "provider_retry", ProviderRequestID: "req_fixture_0001"}, policy: Policy{RetryOn: []Category{CategoryProvider}}, want: Classification{Retryable: true, Category: CategoryProvider, Code: "provider_retry", ProviderRequestID: "req_fixture_0001"}},
 			{name: "empty wording without code", err: &ProviderError{Err: errors.New("provider returned an empty or null response")}, policy: DefaultPolicy(), want: Classification{Category: CategoryOther}},
-			{name: "parse disabled", err: &ProviderError{Parse: true}, policy: DefaultPolicy(), want: Classification{Category: CategoryParse}},
-			{name: "parse enabled", err: &ProviderError{Parse: true}, policy: DefaultPolicy(), want: Classification{Category: CategoryParse}},
-			{name: "refusal", err: &ProviderError{Status: 503, Refusal: true}, policy: DefaultPolicy(), want: Classification{Category: CategoryRefusal, Status: 503}},
+			{name: "parse disabled", err: &ProviderError{Category: CategoryParse}, policy: DefaultPolicy(), want: Classification{Category: CategoryParse}},
+			{name: "parse enabled", err: &ProviderError{Category: CategoryParse}, policy: DefaultPolicy(), want: Classification{Category: CategoryParse}},
+			{name: "explicit protocol refusal", err: &ProviderError{Status: 503, Category: CategoryRefusal}, policy: DefaultPolicy(), want: Classification{Category: CategoryRefusal, Status: 503}},
 			{name: "invalid request", err: &ProviderError{Status: 400}, policy: DefaultPolicy(), want: Classification{Category: CategoryOther, Status: 400}},
 			{name: "auth", err: &ProviderError{Status: 401}, policy: DefaultPolicy(), want: Classification{Category: CategoryOther, Status: 401}},
 			{name: "timeout", err: context.DeadlineExceeded, policy: DefaultPolicy(), want: Classification{Category: CategoryTimeout}},
@@ -211,7 +212,7 @@ func TestRetryContract(t *testing.T) {
 		if calls != 3 || len(attempts) != 3 {
 			t.Fatalf("calls/attempts = %d/%d, want 3/3", calls, len(attempts))
 		}
-		if !reflect.DeepEqual(waits, []time.Duration{601 * time.Millisecond, 1169 * time.Millisecond}) {
+		if !reflect.DeepEqual(waits, []time.Duration{453 * time.Millisecond, 838 * time.Millisecond}) {
 			t.Fatalf("waits = %v", waits)
 		}
 		if attempts[0].Delay != waits[0] || attempts[1].Delay != waits[1] || attempts[2].Category != CategorySuccess {
@@ -278,7 +279,7 @@ func TestRecoveryBackoff(t *testing.T) {
 			}
 		})
 	}
-	if delay := Delay(1, 100*time.Millisecond, Backoff{BaseDelayMS: 1000, MaxDelayMS: 2000}, 0.5); delay != time.Second {
+	if delay := Delay(1, 100*time.Millisecond, Backoff{BaseDelayMS: 1000, MaxDelayMS: 2000}, 0.5); delay != 500*time.Millisecond {
 		t.Errorf("server delay replaced longer backoff: %v", delay)
 	}
 	if got := Classify(&ProviderError{Code: "provider_retry"}, Policy{}); got.Retryable {
@@ -296,6 +297,77 @@ func TestRecoveryBackoff(t *testing.T) {
 			t.Fatalf("zero delay was defaulted: %v/%v", delays, err)
 		}
 	})
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-213
+func TestRecoveryBoundaryClassification(t *testing.T) {
+	policy := DefaultPolicy()
+	tests := []struct {
+		name     string
+		err      error
+		category Category
+		retry    bool
+	}{
+		{name: "schema field is not refusal", err: &ProviderError{Err: errors.New("refusalReason is an optional schema property"), Category: CategoryOther}, category: CategoryOther},
+		{name: "diagnostic text is not network", err: &ProviderError{Err: errors.New("NETWORK_ERROR in provider diagnostic"), Status: 400}, category: CategoryOther},
+		{name: "bad request status wins over body", err: &ProviderError{Err: errors.New("server unavailable"), Status: 400}, category: CategoryOther},
+		{name: "rate status is retryable", err: &ProviderError{Err: errors.New("NETWORK_ERROR"), Status: 429, RetryAfter: 37 * time.Second}, category: CategoryRateLimit, retry: true},
+		{name: "server status is retryable", err: &ProviderError{Err: errors.New("rate limited"), Status: 503}, category: CategoryServer, retry: true},
+		{name: "malformed envelope is terminal protocol", err: &ProviderError{Err: errors.New("invalid JSON"), Code: "MALFORMED_RESPONSE", Category: CategoryOther}, category: CategoryOther},
+		{name: "semantic parse is distinct", err: &ProviderError{Err: errors.New("invalid extracted model JSON"), Category: CategoryParse}, category: CategoryParse},
+		{name: "provider directive is exact code", err: &ProviderError{Err: errors.New("ordinary provider text"), Code: "provider_retry"}, category: CategoryProvider, retry: true},
+		{name: "lookalike directive is terminal", err: &ProviderError{Err: errors.New("provider_retry is mentioned in a prompt")}, category: CategoryOther},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			classification := Classify(test.err, policy)
+			if classification.Category != test.category || classification.Retryable != test.retry {
+				t.Fatalf("classification = %#v, want category=%q retryable=%t", classification, test.category, test.retry)
+			}
+			if test.category == CategoryRateLimit && classification.RetryAfter != 37*time.Second {
+				t.Fatalf("retry-after = %v, want 37s", classification.RetryAfter)
+			}
+		})
+	}
+	for _, contextError := range []struct {
+		name string
+		err  error
+		want Category
+	}{{"parent canceled", context.Canceled, CategoryCanceled}, {"parent deadline", context.DeadlineExceeded, CategoryTimeout}} {
+		t.Run(contextError.name, func(t *testing.T) {
+			if got := Classify(contextError.err, policy).Category; got != contextError.want {
+				t.Fatalf("category = %q, want %q", got, contextError.want)
+			}
+		})
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-215
+func TestRecoveryBoundaryTiming(t *testing.T) {
+	backoff := Backoff{BaseDelayMS: 500, MaxDelayMS: 8000}
+	tests := []struct {
+		attempt int
+		random  float64
+		want    time.Duration
+	}{
+		{1, 0, 0}, {1, 0.25, 125 * time.Millisecond}, {1, 0.5, 250 * time.Millisecond}, {1, 0.75, 375 * time.Millisecond}, {1, 1, 500 * time.Millisecond},
+		{5, 0, 0}, {5, 0.5, 4 * time.Second}, {5, 1, 8 * time.Second},
+		{10, 0.25, 2 * time.Second}, {10, 0.75, 6 * time.Second},
+	}
+	for _, test := range tests {
+		if got := Delay(test.attempt, 0, backoff, test.random); got != test.want {
+			t.Errorf("Delay(attempt=%d, random=%v) = %v, want %v", test.attempt, test.random, got, test.want)
+		}
+	}
+	if got := Delay(1, 37*time.Second, backoff, 0); got != 37*time.Second {
+		t.Fatalf("Retry-After minimum = %v, want 37s", got)
+	}
+	if got := Delay(1, -time.Second, Backoff{BaseDelayMS: 0, MaxDelayMS: 0}, 0.5); got != 0 {
+		t.Fatalf("negative/zero delay = %v, want 0", got)
+	}
+	if got := Delay(1, 0, backoff, math.Inf(1)); got != 0 {
+		t.Fatalf("non-finite randomness = %v, want 0", got)
+	}
 }
 
 // A test-owned executor exercises the production loop; it never implements retries.

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
@@ -97,9 +98,14 @@ func Execute(
 				return record, cacheErr
 			}
 			if found {
+				cached.ProviderResult.Accounting = normalizedLedger(cached.ProviderResult.Accounting)
+				if accountingErr := validateLedger(cached.ProviderResult.Accounting); accountingErr != nil {
+					endCache("unknown", accountingErr)
+					return record, accountingErr
+				}
 				endCache("hit", nil)
 				record.Output, record.Search = cached.ProviderResult.Output, cached.ProviderResult.Search
-				record.Accounting.Result = normalizedLedger(cached.ProviderResult.Accounting)
+				record.Accounting.Result = cached.ProviderResult.Accounting
 				producer := cached.Producer
 				record.ResultSource = ResultSource{Kind: ResultSourceCache, Producer: &producer}
 				record.RawProviderEnvelope = append(json.RawMessage(nil), cached.ProviderResult.RawProviderEnvelope...)
@@ -130,23 +136,34 @@ func Execute(
 			attemptContext, endAttempt = call.Telemetry.StartAttempt(ctx, target, call.CallType, number)
 		}
 		providerContext := attemptContext
-		endProvider := func(error) {}
+		endProvider := func(bool, error) {}
 		if call.Telemetry != nil {
 			providerContext, endProvider = call.Telemetry.StartProvider(attemptContext, target, call.CallType)
 		}
 		result, failure := executor.Execute(providerContext, work.prepared)
-		endProvider(failure)
-		var beforeProvider *BeforeProviderError
-		providerUsed := !errors.As(failure, &beforeProvider)
+		providerUsed := result.ProviderDispatched
 		result.Accounting = normalizedLedger(result.Accounting)
-		if hasProviderAccounting(result.Accounting) {
+		if accountingErr := validateLedger(result.Accounting); accountingErr != nil {
+			if failure == nil {
+				failure = accountingErr
+			}
+		} else if hasProviderAccounting(result.Accounting) {
 			ledger, accountingErr := accounting.AddLedger(record.Accounting.Provider, result.Accounting)
 			if accountingErr != nil {
-				failure = accountingErr
+				if failure == nil {
+					failure = accountingProviderError()
+				}
 			} else {
 				record.Accounting.Provider = ledger
 			}
 		}
+		if len(result.RawProviderEnvelope) > 0 {
+			record.RawProviderEnvelope = append(json.RawMessage(nil), result.RawProviderEnvelope...)
+		}
+		if failure == nil && !acceptedOutput(result.Output) {
+			failure = &retry.ProviderError{Err: errors.New("provider returned no accepted output"), Code: "OUTPUT_REQUIRED", Category: retry.CategoryOther}
+		}
+		endProvider(result.ProviderDispatched, failure)
 		previousOutput := ""
 		if failure != nil {
 			captureProviderParseFailure(&record, failure, &previousOutput)
@@ -159,7 +176,7 @@ func Execute(
 				validationErr = call.Telemetry.ValidateSchema(attemptContext, profile, work.call.Repair != nil, func(context.Context) error { return call.ValidateStructured(result.Output) })
 			}
 			if validationErr != nil {
-				failure = &retry.ProviderError{Err: validationErr, Parse: true}
+				failure = &retry.ProviderError{Err: validationErr, Category: retry.CategoryParse}
 				encoded, marshalErr := json.Marshal(result.Output)
 				if marshalErr != nil {
 					failure = marshalErr
@@ -258,6 +275,30 @@ func normalizedLedger(ledger Ledger) Ledger {
 	return ledger
 }
 
+func validateLedger(ledger Ledger) error {
+	if err := ledger.Usage.Validate(); err != nil {
+		return accountingProviderError()
+	}
+	if err := ledger.Cost.Validate(); err != nil {
+		return accountingProviderError()
+	}
+	return nil
+}
+
+func acceptedOutput(output any) bool {
+	if output == nil {
+		return false
+	}
+	if text, ok := output.(string); ok {
+		return strings.TrimSpace(text) != ""
+	}
+	return true
+}
+
+func accountingProviderError() error {
+	return &retry.ProviderError{Err: errors.New("provider accounting is invalid"), Code: "ACCOUNTING_INVALID", Category: retry.CategoryOther}
+}
+
 func targetFromProfile(profile Profile) ExecutionTarget {
 	return ExecutionTarget{
 		ProfileID: profile.ID, Provider: profile.Provider, Protocol: profile.APIInferenceType,
@@ -278,7 +319,7 @@ func targetFromPrepared(profile Profile, prepared PreparedOperation) ExecutionTa
 
 func captureProviderParseFailure(record *CallRecord, err error, previousOutput *string) {
 	var providerError *retry.ProviderError
-	if !errors.As(err, &providerError) || !providerError.Parse || providerError.RawResponse == "" {
+	if !errors.As(err, &providerError) || providerError.Category != retry.CategoryParse || providerError.RawResponse == "" {
 		return
 	}
 	*previousOutput = providerError.RawResponse

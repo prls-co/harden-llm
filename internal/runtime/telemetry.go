@@ -153,7 +153,7 @@ func (telemetry *Telemetry) StartRuntime(ctx context.Context, observation CallOb
 	}
 }
 
-func (telemetry *Telemetry) StartProvider(ctx context.Context, target ExecutionTarget, callType string) (context.Context, func(error)) {
+func (telemetry *Telemetry) StartProvider(ctx context.Context, target ExecutionTarget, callType string) (context.Context, func(bool, error)) {
 	started := time.Now()
 	provider := providerFamily(target.Provider, target.Protocol)
 	callType = boundedCallType(callType)
@@ -163,14 +163,12 @@ func (telemetry *Telemetry) StartProvider(ctx context.Context, target ExecutionT
 		attribute.String("gen_ai.operation.name", callType),
 		attribute.String("harden_llm.profile.id", boundedSpanValue(target.ProfileID)),
 	))
-	return ctx, func(err error) {
+	return ctx, func(providerDispatched bool, err error) {
 		_, category := outcomeAndCategory(err)
 		setSpanStatus(span, err, category)
-		var beforeProvider *BeforeProviderError
-		invoked := !errors.As(err, &beforeProvider)
-		span.SetAttributes(attribute.Bool("harden_llm.provider.invoked", invoked))
+		span.SetAttributes(attribute.Bool("harden_llm.provider.invoked", providerDispatched))
 		span.End()
-		if !invoked {
+		if !providerDispatched {
 			return
 		}
 		telemetry.providerAttempts.Add(ctx, 1, metric.WithAttributes(

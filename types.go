@@ -111,7 +111,9 @@ type RecoveryPolicyError = retry.ValidationError
 // DefaultRecoveryPolicy creates a new independent policy with backend defaults.
 func DefaultRecoveryPolicy() RecoveryPolicy { return retry.DefaultPolicy() }
 
-// Attempt is safe, normalized metadata for one provider invocation.
+// Attempt is safe, normalized metadata for one execution attempt. ProviderUsed
+// is true only when the local model transport observed request headers being
+// written; it does not prove remote execution or billing.
 type Attempt struct {
 	Number            int             `json:"number"`
 	ProfileID         string          `json:"profileId"`

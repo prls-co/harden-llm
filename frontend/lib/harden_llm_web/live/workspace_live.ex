@@ -80,9 +80,9 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:conversation_trace_id, normalize_trace_id(params["trace_id"]))
       |> assign(:conversation_trace_ref, nil)
       |> assign(:draft_error, nil)
-      |> assign(:ui_error, nil)
-      |> assign(:ui_save_pending?, false)
-      |> assign(:ui_save_dirty?, false)
+      |> assign(:state_save_in_flight, nil)
+      |> assign(:state_save_pending, nil)
+      |> assign(:state_save_sequence, 0)
       |> assign(:output_request_open?, false)
       |> assign(:output_response_open?, false)
       |> assign(:output_trace_resources, %{})
@@ -149,8 +149,12 @@ defmodule HardenLlmWeb.WorkspaceLive do
     toggle_ui(socket, name, to_string(open))
   end
 
-  def handle_info({:profile_widget, _prefix, {:profile_widget_selection, profile_id}}, socket) do
-    update_workspace_form(socket, "selectedProfileId", profile_id)
+  def handle_info(
+        {:profile_widget, _prefix, {:profile_widget_selection, selection}},
+        socket
+      )
+      when is_map(selection) do
+    apply_profile_selection(socket, selection)
   end
 
   def handle_info({:profile_widget, _prefix, {:profile_widget_control, key, value}}, socket)
@@ -174,10 +178,11 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   def handle_info({:profile_widget, _prefix, {:profile_widget_recovery, policy}}, socket) do
-    params = Map.put(socket.assigns.form.params, "recoveryPolicy", policy)
+    current = get_in(socket.assigns.form.params || %{}, ["recoveryPolicy"]) || %{}
+    policy = ProfileWidgetState.merge_recovery_policy(current, policy)
 
     {:noreply,
-     socket |> assign(:form, to_form(params, as: :run)) |> assign(:recovery_field_errors, %{})}
+     update_workspace_snapshot(socket, %{"recoveryPolicy" => policy}, clear_recovery_errors: true)}
   end
 
   def handle_info(
@@ -194,6 +199,19 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   @impl true
+  def handle_async(
+        {:save_state, reference, sequence},
+        {:ok, {:error, %APIError{status: 401}}},
+        %{assigns: %{state_save_in_flight: %{reference: reference, sequence: sequence}}} = socket
+      ) do
+    {:noreply,
+     socket
+     |> clear_state_save()
+     |> assign(:state_save_pending, nil)
+     |> assign(:history_pending, nil)
+     |> Auth.expire_live()}
+  end
+
   def handle_async(_operation, {:ok, {:error, %APIError{status: 401}}}, socket) do
     {:noreply, Auth.expire_live(socket)}
   end
@@ -202,6 +220,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     state =
       @default_state
       |> Map.merge(hydration.state || %{})
+      |> Map.put_new("recoveryPolicy", hydration.recovery_policy_default)
       |> Map.update("cacheMode", "cache", &normalize_cache_mode/1)
       |> Map.update("webSearch", false, &truthy?/1)
       |> Map.put("ui", normalize_ui((hydration.state || %{})["ui"]))
@@ -259,21 +278,30 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:backend_state, :unavailable)}
   end
 
-  def handle_async(:save_draft, {:ok, {:ok, _result, _state}}, socket) do
-    {:noreply, assign(socket, :draft_error, nil)}
+  def handle_async(
+        {:save_state, reference, sequence},
+        result,
+        %{assigns: %{state_save_in_flight: %{reference: reference, sequence: sequence}}} = socket
+      ) do
+    error = state_save_error(result)
+    in_flight = socket.assigns.state_save_in_flight
+    pending = socket.assigns.state_save_pending
+
+    socket =
+      socket
+      |> clear_state_save()
+      |> assign(:draft_error, error)
+      |> finish_restore_save(in_flight, pending, error)
+
+    if is_map(pending) do
+      {:noreply, start_state_save(socket, pending)}
+    else
+      {:noreply, socket}
+    end
   end
 
-  def handle_async(:save_draft, {:ok, {:error, %APIError{} = error}}, socket) do
-    {:noreply, assign(socket, :draft_error, error.message)}
-  end
-
-  def handle_async(:save_draft, _result, socket) do
-    {:noreply, assign(socket, :draft_error, "The draft could not be saved.")}
-  end
-
-  def handle_async(:save_ui, result, socket) do
-    {:noreply, finish_ui_save(socket, ui_save_error(result))}
-  end
+  def handle_async({:save_state, _reference, _sequence}, _result, socket),
+    do: {:noreply, socket}
 
   def handle_async(
         {:load_history, reference, cursor},
@@ -569,40 +597,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   def handle_async(
-        {:restore_history, reference},
-        {:ok, {:ok, _result, _state}},
-        %{assigns: %{history_pending: reference}} = socket
-      ) do
-    {:noreply,
-     socket
-     |> assign(:history_pending, nil)
-     |> assign(:history_error, nil)
-     |> assign(:draft_error, nil)}
-  end
-
-  def handle_async(
-        {:restore_history, reference},
-        {:ok, {:error, %APIError{} = error}},
-        %{assigns: %{history_pending: reference}} = socket
-      ) do
-    {:noreply,
-     socket
-     |> assign(:history_pending, nil)
-     |> assign(:history_error, error.message)}
-  end
-
-  def handle_async(
-        {:restore_history, reference},
-        _result,
-        %{assigns: %{history_pending: reference}} = socket
-      ) do
-    {:noreply,
-     socket
-     |> assign(:history_pending, nil)
-     |> assign(:history_error, "This history item could not be restored.")}
-  end
-
-  def handle_async(
         {:delete_history, reference, run_id},
         {:ok, {:ok, _result, _state}},
         %{assigns: %{history_pending: reference}} = socket
@@ -689,8 +683,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   def handle_event("save-draft", event_params, socket) do
     params = event_form_params(event_params, socket)
-    state = state_from_params(params, socket.assigns.ui, socket.assigns.reasoning_by_profile)
-    handle = socket.assigns.session_handle
+    state = workspace_state(params, socket.assigns.ui, socket.assigns.reasoning_by_profile)
 
     {:noreply,
      socket
@@ -698,10 +691,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:run_error, nil)
      |> assign(:reasoning_by_profile, state["reasoningByProfile"])
      |> assign(:schema_check, schema_check_from_params(params))
-     |> start_async(
-       :save_draft,
-       Observability.propagate(fn -> HardenAPI.save_state(handle, state) end)
-     )}
+     |> queue_state_save(state)}
   end
 
   def handle_event("validate-bundle", _params, socket), do: {:noreply, socket}
@@ -726,7 +716,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
        |> put_flash(:info, "Profile bundle imported atomically.")}
     else
       {:error, %APIError{status: 401}} -> {:noreply, Auth.expire_live(socket)}
-      _ -> {:noreply, assign(socket, :ui_error, "The selected bundle was rejected.")}
+      _ -> {:noreply, assign(socket, :draft_error, "The selected bundle was rejected.")}
     end
   end
 
@@ -741,19 +731,15 @@ defmodule HardenLlmWeb.WorkspaceLive do
          true <- is_map(request["recoveryPolicy"]) do
       state = restore_state(request, item, socket.assigns.profiles, socket.assigns.ui)
       params = stringify_form(state)
-      reference = System.unique_integer([:positive, :monotonic])
-      handle = socket.assigns.session_handle
 
-      {:noreply,
-       socket
-       |> assign(:form, to_form(params, as: :run))
-       |> assign(:reasoning_by_profile, state["reasoningByProfile"] || %{})
-       |> assign(:schema_check, schema_check_for_state(state))
-       |> assign(:history_pending, reference)
-       |> start_async(
-         {:restore_history, reference},
-         Observability.propagate(fn -> HardenAPI.save_state(handle, state) end)
-       )}
+      socket =
+        socket
+        |> assign(:form, to_form(params, as: :run))
+        |> assign(:reasoning_by_profile, state["reasoningByProfile"] || %{})
+        |> assign(:schema_check, schema_check_for_state(state))
+        |> queue_state_save(state, :restore)
+
+      {:noreply, assign(socket, :history_pending, socket.assigns.state_save_sequence)}
     else
       _ ->
         {:noreply,
@@ -1072,14 +1058,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
     socket =
       socket
       |> assign(:ui, ui)
-      |> assign(:ui_error, nil)
-
-    socket =
-      if socket.assigns.ui_save_pending? do
-        assign(socket, :ui_save_dirty?, true)
-      else
-        start_ui_save(socket)
-      end
+      |> assign(:draft_error, nil)
+      |> queue_state_save()
 
     {:noreply,
      if(name == "historyOpen" and truthy?(value),
@@ -1087,40 +1067,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
        else: socket
      )}
   end
-
-  defp start_ui_save(socket) do
-    state =
-      state_from_params(
-        socket.assigns.form.params || %{},
-        socket.assigns.ui,
-        socket.assigns.reasoning_by_profile
-      )
-
-    handle = socket.assigns.session_handle
-
-    socket
-    |> assign(:ui_save_pending?, true)
-    |> assign(:ui_save_dirty?, false)
-    |> start_async(
-      :save_ui,
-      Observability.propagate(fn -> HardenAPI.save_state(handle, state) end)
-    )
-  end
-
-  defp finish_ui_save(socket, error) do
-    if socket.assigns.ui_save_dirty? do
-      start_ui_save(socket)
-    else
-      socket
-      |> assign(:ui_save_pending?, false)
-      |> assign(:ui_save_dirty?, false)
-      |> assign(:ui_error, error)
-    end
-  end
-
-  defp ui_save_error({:ok, {:ok, _result, _state}}), do: nil
-  defp ui_save_error({:ok, {:error, %APIError{} = error}}), do: error.message
-  defp ui_save_error(_result), do: "The workspace display state could not be saved."
 
   defp reset_output_trace(socket) do
     socket
@@ -1456,6 +1402,91 @@ defmodule HardenLlmWeb.WorkspaceLive do
     end
   end
 
+  defp queue_state_save(socket, state \\ nil, context \\ :draft) do
+    state =
+      state ||
+        workspace_state(
+          socket.assigns.form.params || %{},
+          socket.assigns.ui,
+          socket.assigns.reasoning_by_profile
+        )
+
+    sequence = socket.assigns.state_save_sequence + 1
+    snapshot = %{sequence: sequence, state: state, context: context}
+
+    socket =
+      socket
+      |> assign(:state_save_sequence, sequence)
+      |> assign(:draft_error, nil)
+      |> maybe_clear_restore_pending(context)
+
+    case socket.assigns.state_save_in_flight do
+      nil ->
+        start_state_save(socket, snapshot)
+
+      _in_flight ->
+        assign(socket, :state_save_pending, snapshot)
+    end
+  end
+
+  defp start_state_save(socket, snapshot) do
+    reference = System.unique_integer([:positive, :monotonic])
+    handle = socket.assigns.session_handle
+    operation = {:save_state, reference, snapshot.sequence}
+
+    socket
+    |> assign(:state_save_in_flight, Map.put(snapshot, :reference, reference))
+    |> assign(:state_save_pending, nil)
+    |> assign(:draft_error, nil)
+    |> maybe_clear_restore_error(snapshot.context)
+    |> start_async(
+      operation,
+      Observability.propagate(fn -> HardenAPI.save_state(handle, snapshot.state) end)
+    )
+  end
+
+  defp clear_state_save(socket), do: assign(socket, :state_save_in_flight, nil)
+
+  defp state_save_error({:ok, {:ok, _result, _state}}), do: nil
+  defp state_save_error({:ok, {:error, %APIError{} = error}}), do: error.message
+  defp state_save_error(_result), do: "The workspace draft could not be saved."
+
+  defp finish_restore_save(socket, %{context: :restore}, %{context: :restore}, nil) do
+    socket
+  end
+
+  defp finish_restore_save(socket, %{context: :restore}, %{context: :restore}, _error) do
+    socket
+    |> assign(:history_pending, nil)
+    |> assign(:history_error, "This history item could not be restored.")
+  end
+
+  defp finish_restore_save(socket, %{context: :restore}, nil, nil) do
+    socket
+    |> assign(:history_pending, nil)
+    |> assign(:history_error, nil)
+  end
+
+  defp finish_restore_save(socket, %{context: :restore}, nil, _error) do
+    socket
+    |> assign(:history_pending, nil)
+    |> assign(:history_error, "This history item could not be restored.")
+  end
+
+  defp finish_restore_save(socket, _in_flight, _pending, _error), do: socket
+
+  defp maybe_clear_restore_pending(socket, :restore), do: socket
+  defp maybe_clear_restore_pending(socket, _context), do: assign(socket, :history_pending, nil)
+
+  defp maybe_clear_restore_error(socket, :restore), do: assign(socket, :history_error, nil)
+  defp maybe_clear_restore_error(socket, _context), do: socket
+
+  defp maybe_clear_recovery_errors(socket, options) do
+    if Keyword.get(options, :clear_recovery_errors, false),
+      do: assign(socket, :recovery_field_errors, %{}),
+      else: socket
+  end
+
   defp restore_state(request, item, profiles, ui) do
     selected_profile_id = request["profileId"] || item["profileId"] || ""
 
@@ -1486,25 +1517,44 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   defp persist_form_state(socket, params) do
-    handle = socket.assigns.session_handle
-    state = state_from_params(params, socket.assigns.ui, socket.assigns.reasoning_by_profile)
-
-    start_async(
+    queue_state_save(
       socket,
-      :save_draft,
-      Observability.propagate(fn -> HardenAPI.save_state(handle, state) end)
+      workspace_state(params, socket.assigns.ui, socket.assigns.reasoning_by_profile)
     )
   end
 
   defp update_workspace_form(socket, key, value) do
-    params = Map.put(socket.assigns.form.params || %{}, key, value)
-    state = state_from_params(params, socket.assigns.ui, socket.assigns.reasoning_by_profile)
+    {:noreply, update_workspace_snapshot(socket, %{key => value})}
+  end
 
-    {:noreply,
-     socket
-     |> assign(:form, to_form(params, as: :run))
-     |> assign(:reasoning_by_profile, state["reasoningByProfile"])
-     |> persist_form_state(params)}
+  defp apply_profile_selection(socket, selection) do
+    updates = %{
+      "selectedProfileId" => Map.get(selection, :profile_id, ""),
+      "modelId" => Map.get(selection, :model_id, ""),
+      "reasoningEffort" => Map.get(selection, :reasoning_effort, "lowest"),
+      "recoveryPolicy" => Map.get(selection, :recovery_policy, %{})
+    }
+
+    socket =
+      socket
+      |> assign(:profile_provider_options, Map.get(selection, :provider_options, %{}))
+      |> update_workspace_snapshot(updates)
+
+    {:noreply, socket}
+  end
+
+  defp update_workspace_snapshot(socket, updates, options \\ []) when is_map(updates) do
+    params = Map.merge(socket.assigns.form.params || %{}, updates)
+    state = workspace_state(params, socket.assigns.ui, socket.assigns.reasoning_by_profile)
+
+    socket =
+      socket
+      |> assign(:form, to_form(params, as: :run))
+      |> assign(:reasoning_by_profile, state["reasoningByProfile"])
+      |> maybe_clear_recovery_errors(options)
+      |> queue_state_save(state)
+
+    socket
   end
 
   defp event_form_params(%{"run" => params}, socket) when is_map(params) do
@@ -1593,7 +1643,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     {:ok, payload}
   end
 
-  defp state_from_params(params, ui, existing_reasoning_by_profile) do
+  defp workspace_state(params, ui, existing_reasoning_by_profile) do
     schema = state_schema(params["schema"])
     profile_id = params["selectedProfileId"] || ""
     reasoning_effort = params["reasoningEffort"] || "lowest"
