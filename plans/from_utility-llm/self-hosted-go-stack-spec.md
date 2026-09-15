@@ -6,9 +6,9 @@
 - Target repository: `/home/kirill/harden-llm`
 - Go module: `github.com/prls-co/harden-llm`
 - Contract source repository: `/home/kirill/utility-llm`
-- Version: `1.3.0-backend-spec`
+- Version: `1.3.1-recovery-boundary-amendment`
 - Owners: package maintainers and self-hosted runtime implementers
-- Date: 2026-07-12
+- Date: 2026-09-15
 - Document ID: `SPEC-HARDEN-LLM-SELF-HOSTED-GO-001`
 - Summary: This specification defines the self-hosted, free, Go backend for `harden-llm`: one importable root library and one versioned REST API gateway. Application records live in Harden-LLM Postgres, while Harden-LLM-owned trace artifacts and diagnostic attachments replace Firebase Storage in Garage. OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana, and self-hosted Langfuse provide diagnostics. Langfuse retains its upstream default dependency graph, including its own Postgres, Redis, ClickHouse, and MinIO services; Harden-LLM neither substitutes Garage into Langfuse nor uses Langfuse's MinIO. This backend contains no browser UI, Phoenix, LiveView, React, or frontend asset pipeline. The separately specified Phoenix LiveView application consumes only the published REST/OpenAPI contract.
 
@@ -722,3 +722,31 @@ Minimum v1 verification:
 - Caddy: https://caddyserver.com/docs/
 - OWASP SSRF prevention: https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html
 - Phoenix LiveView frontend specification: `plans/from_utility-llm/phoenix-liveview-frontend-spec.md`
+
+## 20. Recovery boundary amendment
+
+The recovery-boundary implementation recorded in ADR-HLLM-021 keeps the
+existing one-library/one-gateway stack and does not add a service, queue or
+compatibility layer.
+
+- `Prepare` performs static provider endpoint checks only. The one guarded model
+  transport resolves and validates addresses during execution, after cache
+  lookup and within the call's attempt budget. Jina uses its own fixed-origin
+  guard while sharing HTTP status and `Retry-After` normalization.
+- Provider normalization assigns one category and bounded metadata at the
+  source. `httptrace.WroteHeaders` supplies a local `ProviderDispatched` fact
+  for model requests; it is not a billing or remote-completion guarantee.
+- Responses streaming admits only the terminal completed response object.
+  Chat, Gemini and Anthropic require their documented successful completion
+  markers. Limits, refusals, malformed envelopes and unsupported terminal
+  states cannot enter semantic repair. Usage/cost is validated before those
+  failures return, and known partial facts remain visible.
+- The internal response projection is `v3` for text and structured operations;
+  the outer `operation-v2` cache namespace remains unchanged. Old projection
+  keys are neither read nor migrated, and recovery policy remains outside
+  semantic operation identity.
+
+These rules are covered by TEST-212 through TEST-217 and TEST-220 through
+TEST-222 in the canonical backend test specification. The frontend consumes the
+same OpenAPI policy shape and owns its active draft/persistence lifecycle under
+WEB-TEST-074/075; no internal Go types cross that boundary.

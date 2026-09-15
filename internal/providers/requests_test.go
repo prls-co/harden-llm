@@ -544,4 +544,8 @@ func TestRecoveryRetryAfter(t *testing.T) {
 			t.Errorf("header=%q delay=%v want=%v", c.header, got, c.want)
 		}
 	}
+	fractionalNow := now.Add(500 * time.Nanosecond)
+	if got := parseRetryAfter(now.Add(time.Second).Format(http.TimeFormat), fractionalNow); got != time.Second {
+		t.Fatalf("fractional date minimum = %v, want %v", got, time.Second)
+	}
 }

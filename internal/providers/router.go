@@ -385,12 +385,15 @@ func collectResponsesEventStream(body []byte) (map[string]any, error) {
 			// Deltas are progress observations only. They are never promoted to
 			// an accepted response or combined into a synthetic output.
 		case "response.completed":
-			if response := objectValue(event["response"]); len(response) > 0 {
-				terminal = cloneMap(response)
-				observed = terminal
-				if _, present := terminal["status"]; !present {
-					terminal["status"] = "completed"
-				}
+			responseValue, present := event["response"]
+			response, ok := responseValue.(map[string]any)
+			if !present || responseValue == nil || !ok || len(response) == 0 {
+				return observed, &retry.ProviderError{Err: errors.New("provider completed event has no response object"), Code: "COMPLETION_MALFORMED", Category: retry.CategoryOther}
+			}
+			terminal = cloneMap(response)
+			observed = terminal
+			if _, present := terminal["status"]; !present {
+				terminal["status"] = "completed"
 			}
 		case "response.incomplete":
 			if response := objectValue(event["response"]); len(response) > 0 {
@@ -711,7 +714,22 @@ func parseRetryAfter(value string, now time.Time) time.Duration {
 		return time.Duration(seconds) * time.Second
 	}
 	if timestamp, err := http.ParseTime(value); err == nil && timestamp.After(now) {
-		return timestamp.Sub(now)
+		return ceilDurationMillisecond(timestamp.Sub(now))
 	}
 	return 0
+}
+
+func ceilDurationMillisecond(value time.Duration) time.Duration {
+	if value <= 0 {
+		return 0
+	}
+	maximum := time.Duration(1<<63 - 1)
+	milliseconds := value / time.Millisecond
+	if value%time.Millisecond != 0 {
+		if milliseconds == maximum/time.Millisecond {
+			return maximum
+		}
+		milliseconds++
+	}
+	return milliseconds * time.Millisecond
 }

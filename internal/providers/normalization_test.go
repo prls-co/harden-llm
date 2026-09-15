@@ -321,9 +321,14 @@ func TestRecoveryBoundaryCompletion(t *testing.T) {
 		{name: "Responses done without terminal is interrupted", body: "data: {\"type\":\"response.output_text.done\",\"text\":\"partial\"}\n\n", wantKind: retry.CategoryNetwork, wantCode: "STREAM_TERMINAL_REQUIRED"},
 		{name: "Responses incomplete is terminal rejection", body: `{"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"output_text":"looks complete"}`, wantKind: retry.CategoryOther, wantCode: "COMPLETION_INCOMPLETE"},
 		{name: "Responses missing status is rejected", body: `{"output_text":"looks complete"}`, wantKind: retry.CategoryOther, wantCode: "COMPLETION_REQUIRED"},
+		{name: "Responses malformed output is terminal rejection", body: `{"status":"completed","output":123}`, wantKind: retry.CategoryOther, wantCode: "OUTPUT_MALFORMED"},
+		{name: "Responses malformed secondary output is not hidden", body: `{"status":"completed","output_text":"ok","output":123}`, wantKind: retry.CategoryOther, wantCode: "OUTPUT_MALFORMED"},
 		{name: "Chat length is terminal rejection", body: `{"choices":[{"finish_reason":"length","message":{"content":"partial"}}]}`, wantKind: retry.CategoryOther, wantCode: "COMPLETION_LIMIT"},
+		{name: "Chat malformed content is terminal rejection", body: `{"choices":[{"finish_reason":"stop","message":{"content":[]}}]}`, wantKind: retry.CategoryOther, wantCode: "OUTPUT_MALFORMED"},
 		{name: "Gemini max tokens is terminal rejection", body: `{"candidates":[{"finishReason":"MAX_TOKENS","content":{"parts":[{"text":"partial"}]}}]}`, wantKind: retry.CategoryOther, wantCode: "COMPLETION_LIMIT"},
+		{name: "Gemini malformed content is terminal rejection", body: `{"candidates":[{"finishReason":"STOP","content":"partial"}]}`, wantKind: retry.CategoryOther, wantCode: "OUTPUT_MALFORMED"},
 		{name: "Anthropic max tokens is terminal rejection", body: `{"stop_reason":"max_tokens","content":[{"type":"text","text":"partial"}]}`, wantKind: retry.CategoryOther, wantCode: "COMPLETION_LIMIT"},
+		{name: "Anthropic malformed content is terminal rejection", body: `{"stop_reason":"end_turn","content":{}}`, wantKind: retry.CategoryOther, wantCode: "OUTPUT_MALFORMED"},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
@@ -368,6 +373,11 @@ func TestRecoveryBoundaryCompletion(t *testing.T) {
 	if err == nil || retry.Classify(err, retry.DefaultPolicy()).Category != retry.CategoryParse || structured.Output != nil {
 		t.Fatalf("completed invalid structured output = %#v / %v", structured, err)
 	}
+
+	_, err = collectResponsesEventStream([]byte(`data: {"type":"response.completed" ,"response":"invalid"}`))
+	if err == nil || retry.Classify(err, retry.DefaultPolicy()).Code != "COMPLETION_MALFORMED" {
+		t.Fatalf("malformed completed event = %v", err)
+	}
 }
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-217
@@ -394,6 +404,9 @@ func TestRecoveryBoundaryAccountingCache(t *testing.T) {
 		`{"status":"completed","output_text":"ok","usage":{"input_tokens":-1,"output_tokens":2}}`,
 		`{"status":"completed","output_text":"ok","usage":{"input_tokens":1.5,"output_tokens":2}}`,
 		`{"status":"completed","output_text":"ok","usage":{"input_tokens":2,"input_tokens_details":{"cached_tokens":3},"output_tokens":2}}`,
+		`{"status":"completed","output_text":"ok","usage":{"input_tokens":2,"input_tokens_details":123,"output_tokens":2}}`,
+		`{"status":"completed","output_text":"ok","usage":{"input_tokens":null,"output_tokens":2}}`,
+		`{"status":"completed","output_text":"ok","usage":null}`,
 	} {
 		result, normalizeErr := normalizeResponse(prepared, []byte(body))
 		if normalizeErr == nil || retry.Classify(normalizeErr, retry.DefaultPolicy()).Code != "ACCOUNTING_INVALID" || result.Accounting.Usage.Status == accounting.UsageInconsistent {
@@ -404,6 +417,15 @@ func TestRecoveryBoundaryAccountingCache(t *testing.T) {
 	reportedPartial, err := normalizeResponse(prepared, []byte(`{"status":"completed","output_text":"ok","usage":{"input_tokens":11,"cost":0.1}}`))
 	if err != nil || reportedPartial.Accounting.Usage.Status != accounting.UsagePartial || reportedPartial.Accounting.Cost != accounting.ExactCost(0.1, "reported") {
 		t.Fatalf("reported exact cost with partial usage = %#v / %v", reportedPartial.Accounting, err)
+	}
+
+	maxValue, err := normalizeResponse(prepared, []byte(`{"status":"completed","output_text":"ok","usage":{"input_tokens":9223372036854775807.0,"output_tokens":0}}`))
+	if err != nil || maxValue.Accounting.Usage.InputTokens != math.MaxInt64 {
+		t.Fatalf("maximum integral token count = %#v / %v", maxValue.Accounting.Usage, err)
+	}
+	overflow, err := normalizeResponse(prepared, []byte(`{"status":"completed","output_text":"ok","usage":{"input_tokens":9223372036854775808.0,"output_tokens":0}}`))
+	if err == nil || retry.Classify(err, retry.DefaultPolicy()).Code != "ACCOUNTING_INVALID" || overflow.Accounting.Usage.Status == accounting.UsageInconsistent {
+		t.Fatalf("overflow token count accepted: %#v / %v", overflow, err)
 	}
 }
 

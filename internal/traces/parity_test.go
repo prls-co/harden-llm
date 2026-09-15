@@ -1,5 +1,7 @@
 package traces
 
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-217
+
 import (
 	"encoding/json"
 	"reflect"

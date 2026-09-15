@@ -2615,8 +2615,13 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
   @tag :recovery_boundary_persistence
   test "a failed state write keeps the draft and drains only a newer snapshot", %{conn: conn} do
     test_pid = self()
-    stored = start_supervised!({Agent, fn -> APIFixtures.state() end})
-    counter = start_supervised!({Agent, fn -> 0 end})
+    {:ok, stored} = Agent.start_link(fn -> APIFixtures.state() end)
+    {:ok, counter} = Agent.start_link(fn -> 0 end)
+
+    on_exit(fn ->
+      if Process.alive?(stored), do: Agent.stop(stored)
+      if Process.alive?(counter), do: Agent.stop(counter)
+    end)
 
     install_stub(
       fn conn ->
@@ -2784,7 +2789,8 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
   @tag :recovery_boundary_persistence
   test "a failed idle write is not retried until a new edit", %{conn: conn} do
     test_pid = self()
-    counter = start_supervised!({Agent, fn -> 0 end})
+    {:ok, counter} = Agent.start_link(fn -> 0 end)
+    on_exit(fn -> if Process.alive?(counter), do: Agent.stop(counter) end)
 
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
@@ -2815,7 +2821,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     assert_receive {:idle_failed_state_save_started, 0, _}, 1_000
     render_async(view, 1_000)
-    assert has_element?(view, "#draft-error", "state_rejected")
+    assert has_element?(view, "#draft-error", "Please correct the highlighted fields.")
     refute_receive {:idle_failed_state_save_started, 1, _}, 100
 
     view
@@ -3247,8 +3253,13 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
 
         {"GET", "/api/v1/state"} ->
-          state = Keyword.get(options, :state, APIFixtures.state())
-          Req.Test.json(conn, APIFixtures.success(nil, state))
+          case Keyword.get(options, :state, APIFixtures.state()) do
+            state when is_function(state, 1) ->
+              state.(conn)
+
+            state ->
+              Req.Test.json(conn, APIFixtures.success(nil, state))
+          end
 
         {"GET", "/api/v1/profiles"} ->
           profiles = Keyword.get(options, :profiles, [APIFixtures.profile_state()])

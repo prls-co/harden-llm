@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"math/big"
 	"strconv"
 	"strings"
 
@@ -54,7 +55,11 @@ func normalizeDecodedResponse(prepared preparedRequest, response map[string]any)
 			}
 		}
 	}
-	output, text, refusal, empty := extractProviderOutput(prepared.protocol, projection)
+	extraction := extractProviderOutputState(prepared.protocol, projection)
+	if extraction.malformed {
+		return partial, &retry.ProviderError{Err: errors.New("provider returned a malformed output envelope"), Code: "OUTPUT_MALFORMED", Category: retry.CategoryOther}
+	}
+	output, text, refusal, empty := extraction.output, extraction.text, extraction.refusal, extraction.empty
 	if refusal {
 		return partial, &retry.ProviderError{Err: errors.New("provider refusal or content filter"), Code: "PROVIDER_REFUSAL", Category: retry.CategoryRefusal}
 	}
@@ -137,93 +142,264 @@ func decodeJSONValue(input []byte) (any, error) {
 }
 
 func extractProviderOutput(protocol string, response map[string]any) (output any, text string, refusal bool, empty bool) {
+	extraction := extractProviderOutputState(protocol, response)
+	return extraction.output, extraction.text, extraction.refusal, extraction.empty
+}
+
+type providerOutputExtraction struct {
+	output    any
+	text      string
+	refusal   bool
+	empty     bool
+	malformed bool
+}
+
+func extractProviderOutputState(protocol string, response map[string]any) providerOutputExtraction {
 	switch protocol {
 	case "openai.responses":
+		if !validResponsesOutputShape(response) {
+			return providerOutputExtraction{malformed: true}
+		}
 		if status, _ := response["status"].(string); status == "incomplete" {
 			if details := objectValue(response["incomplete_details"]); stringValue(details["reason"]) == "content_filter" {
-				return nil, "", true, false
+				return providerOutputExtraction{refusal: true}
 			}
 		}
-		if value := stringValue(response["output_text"]); strings.TrimSpace(value) != "" {
-			return nil, value, false, false
+		outputText, outputTextPresent := response["output_text"]
+		if outputTextPresent {
+			if outputText != nil {
+				value, ok := outputText.(string)
+				if !ok {
+					return providerOutputExtraction{malformed: true}
+				}
+				if strings.TrimSpace(value) != "" {
+					return providerOutputExtraction{text: value}
+				}
+			}
 		}
-		for _, message := range arrayValue(response["output"]) {
-			for _, partValue := range arrayValue(objectValue(message)["content"]) {
-				part := objectValue(partValue)
-				if stringValue(part["type"]) == "refusal" || strings.TrimSpace(stringValue(part["refusal"])) != "" {
-					return nil, "", true, false
+		outputValue, outputPresent := response["output"]
+		if outputPresent && outputValue != nil {
+			outputArray, ok := outputValue.([]any)
+			if !ok {
+				return providerOutputExtraction{malformed: true}
+			}
+			if len(outputArray) == 0 && outputTextPresent {
+				return providerOutputExtraction{empty: true}
+			}
+			for _, messageValue := range outputArray {
+				message, ok := messageValue.(map[string]any)
+				if !ok {
+					return providerOutputExtraction{malformed: true}
 				}
-				if parsed := part["parsed"]; parsed != nil {
-					return parsed, "", false, false
+				messageType := stringValue(message["type"])
+				contentValue, contentPresent := message["content"]
+				if !contentPresent {
+					if messageType == "message" {
+						return providerOutputExtraction{malformed: true}
+					}
+					continue
 				}
-				if parsed := part["json"]; parsed != nil {
-					return parsed, "", false, false
+				if contentValue == nil {
+					continue
 				}
-				for _, key := range []string{"text", "content"} {
-					if value := stringValue(part[key]); strings.TrimSpace(value) != "" {
-						return nil, value, false, false
+				content, ok := contentValue.([]any)
+				if !ok {
+					return providerOutputExtraction{malformed: true}
+				}
+				for _, partValue := range content {
+					part, ok := partValue.(map[string]any)
+					if !ok {
+						return providerOutputExtraction{malformed: true}
+					}
+					if stringValue(part["type"]) == "refusal" || strings.TrimSpace(stringValue(part["refusal"])) != "" {
+						return providerOutputExtraction{refusal: true}
+					}
+					if parsed := part["parsed"]; parsed != nil {
+						return providerOutputExtraction{output: parsed}
+					}
+					if parsed := part["json"]; parsed != nil {
+						return providerOutputExtraction{output: parsed}
+					}
+					for _, key := range []string{"text", "content"} {
+						value, present := part[key]
+						if !present || value == nil {
+							continue
+						}
+						text, ok := value.(string)
+						if !ok {
+							return providerOutputExtraction{malformed: true}
+						}
+						if strings.TrimSpace(text) != "" {
+							return providerOutputExtraction{text: text}
+						}
 					}
 				}
 			}
 		}
-		return nil, "", false, true
+		if outputPresent || outputTextPresent {
+			return providerOutputExtraction{empty: true}
+		}
+		return providerOutputExtraction{malformed: true}
 	case "openai.chat.completions", "openai-compatible.chat.completions":
-		choices := arrayValue(response["choices"])
-		if len(choices) == 0 {
-			return nil, "", false, true
+		choices, ok := response["choices"].([]any)
+		if !ok || len(choices) == 0 {
+			return providerOutputExtraction{malformed: true}
 		}
-		choice := objectValue(choices[0])
+		choice, ok := choices[0].(map[string]any)
+		if !ok {
+			return providerOutputExtraction{malformed: true}
+		}
 		if stringValue(choice["finish_reason"]) == "content_filter" {
-			return nil, "", true, false
+			return providerOutputExtraction{refusal: true}
 		}
-		message := objectValue(choice["message"])
+		message, ok := choice["message"].(map[string]any)
+		if !ok {
+			return providerOutputExtraction{malformed: true}
+		}
 		if strings.TrimSpace(stringValue(message["refusal"])) != "" {
-			return nil, "", true, false
+			return providerOutputExtraction{refusal: true}
 		}
-		if value := strings.TrimSpace(stringValue(message["content"])); value != "" {
-			return nil, value, false, false
+		content, present := message["content"]
+		if !present || (content != nil && !isString(content)) {
+			return providerOutputExtraction{malformed: true}
 		}
-		return nil, "", false, true
+		if value := strings.TrimSpace(stringValue(content)); value != "" {
+			return providerOutputExtraction{text: value}
+		}
+		return providerOutputExtraction{empty: true}
 	case "google.gemini.generateContent":
 		if feedback := objectValue(response["promptFeedback"]); stringValue(feedback["blockReason"]) != "" {
-			return nil, "", true, false
+			return providerOutputExtraction{refusal: true}
 		}
-		candidates := arrayValue(response["candidates"])
+		candidates, ok := response["candidates"].([]any)
+		if !ok {
+			return providerOutputExtraction{malformed: true}
+		}
 		if len(candidates) == 0 {
-			return nil, "", false, true
+			return providerOutputExtraction{empty: true}
 		}
-		candidate := objectValue(candidates[0])
+		candidate, ok := candidates[0].(map[string]any)
+		if !ok {
+			return providerOutputExtraction{malformed: true}
+		}
 		switch stringValue(candidate["finishReason"]) {
 		case "SAFETY", "BLOCKED", "OTHER", "PROHIBITED_CONTENT", "SPII":
-			return nil, "", true, false
+			return providerOutputExtraction{refusal: true}
 		}
-		parts := arrayValue(objectValue(candidate["content"])["parts"])
+		content, ok := candidate["content"].(map[string]any)
+		if !ok {
+			return providerOutputExtraction{malformed: true}
+		}
+		parts, ok := content["parts"].([]any)
+		if !ok {
+			return providerOutputExtraction{malformed: true}
+		}
 		if len(parts) == 0 {
-			return nil, "", false, true
+			return providerOutputExtraction{empty: true}
 		}
-		text := stringValue(objectValue(parts[0])["text"])
+		part, ok := parts[0].(map[string]any)
+		if !ok {
+			return providerOutputExtraction{malformed: true}
+		}
+		value, present := part["text"]
+		if present && value != nil && !isString(value) {
+			return providerOutputExtraction{malformed: true}
+		}
+		text := stringValue(value)
 		if strings.TrimSpace(text) == "" {
-			return nil, "", false, true
+			return providerOutputExtraction{empty: true}
 		}
-		return nil, text, false, false
+		return providerOutputExtraction{text: text}
 	case "anthropic.messages":
 		if stringValue(response["stop_reason"]) == "refusal" {
-			return nil, "", true, false
+			return providerOutputExtraction{refusal: true}
+		}
+		contentValue, present := response["content"]
+		if !present || contentValue == nil {
+			return providerOutputExtraction{empty: true}
+		}
+		content, ok := contentValue.([]any)
+		if !ok {
+			return providerOutputExtraction{malformed: true}
 		}
 		var builder strings.Builder
-		for _, part := range arrayValue(response["content"]) {
-			object := objectValue(part)
+		for _, partValue := range content {
+			object, ok := partValue.(map[string]any)
+			if !ok {
+				return providerOutputExtraction{malformed: true}
+			}
 			if stringValue(object["type"]) == "text" {
-				builder.WriteString(stringValue(object["text"]))
+				value, present := object["text"]
+				if !present || value == nil {
+					continue
+				}
+				if !isString(value) {
+					return providerOutputExtraction{malformed: true}
+				}
+				builder.WriteString(value.(string))
 			}
 		}
 		if strings.TrimSpace(builder.String()) == "" {
-			return nil, "", false, true
+			return providerOutputExtraction{empty: true}
 		}
-		return nil, builder.String(), false, false
+		return providerOutputExtraction{text: builder.String()}
 	default:
-		return nil, "", false, true
+		return providerOutputExtraction{malformed: true}
 	}
+}
+
+func isString(value any) bool {
+	_, ok := value.(string)
+	return ok
+}
+
+// validResponsesOutputShape protects the native-search projection from
+// hiding malformed fields before output extraction selects the final message.
+// It deliberately validates only envelope shape; parsed/json values remain
+// opaque model data and are checked by the structured-schema boundary.
+func validResponsesOutputShape(response map[string]any) bool {
+	if value, present := response["output_text"]; present && value != nil && !isString(value) {
+		return false
+	}
+	value, present := response["output"]
+	if !present || value == nil {
+		return true
+	}
+	output, ok := value.([]any)
+	if !ok {
+		return false
+	}
+	for _, itemValue := range output {
+		item, ok := itemValue.(map[string]any)
+		if !ok {
+			return false
+		}
+		for _, key := range []string{"type"} {
+			if value, present := item[key]; present && value != nil && !isString(value) {
+				return false
+			}
+		}
+		contentValue, contentPresent := item["content"]
+		if !contentPresent || contentValue == nil {
+			continue
+		}
+		content, ok := contentValue.([]any)
+		if !ok {
+			return false
+		}
+		for _, partValue := range content {
+			part, ok := partValue.(map[string]any)
+			if !ok {
+				return false
+			}
+			for _, key := range []string{"type", "text", "content", "refusal"} {
+				if value, present := part[key]; present && value != nil && !isString(value) {
+					return false
+				}
+			}
+		}
+	}
+	return true
 }
 
 func validateCompletion(protocol string, response map[string]any) error {
@@ -351,38 +527,44 @@ func normalizeOpenAIUsage(response map[string]any) (runtime.Usage, error) {
 	if err != nil || !present {
 		return accounting.UnavailableUsage(), err
 	}
-	details := optionalObject(usage, "prompt_tokens_details", "input_tokens_details")
-	cacheReadValue, cacheReadPresent := firstPresent(details, "cached_tokens")
+	details, _, err := optionalObjectStrict(usage, "prompt_tokens_details", "input_tokens_details")
+	if err != nil {
+		return accounting.UnavailableUsage(), err
+	}
+	cacheReadValue, cacheReadPresent := firstField(details, "cached_tokens")
 	if !cacheReadPresent {
-		cacheReadValue, cacheReadPresent = firstPresent(usage, "cached_tokens", "cache_read_input_tokens")
+		cacheReadValue, cacheReadPresent = firstField(usage, "cached_tokens", "cache_read_input_tokens")
 	}
 	cacheRead, err := tokenField(cacheReadValue, cacheReadPresent)
 	if err != nil {
 		return accounting.UnavailableUsage(), err
 	}
-	cacheCreationValue, cacheCreationPresent := firstPresent(details, "cache_write_tokens", "cache_creation_tokens")
+	cacheCreationValue, cacheCreationPresent := firstField(details, "cache_write_tokens", "cache_creation_tokens")
 	if !cacheCreationPresent {
-		cacheCreationValue, cacheCreationPresent = firstPresent(usage, "cache_creation_input_tokens")
+		cacheCreationValue, cacheCreationPresent = firstField(usage, "cache_creation_input_tokens")
 	}
 	cacheCreation, err := tokenField(cacheCreationValue, cacheCreationPresent)
 	if err != nil {
 		return accounting.UnavailableUsage(), err
 	}
-	inputValue, inputPresent := firstPresent(usage, "prompt_tokens", "input_tokens")
+	inputValue, inputPresent := firstField(usage, "prompt_tokens", "input_tokens")
 	totalInput, err := tokenField(inputValue, inputPresent)
 	if err != nil {
 		return accounting.UnavailableUsage(), err
 	}
-	outputDetails := optionalObject(usage, "completion_tokens_details", "output_tokens_details")
-	reasoningValue, reasoningPresent := firstPresent(outputDetails, "reasoning_tokens")
+	outputDetails, _, err := optionalObjectStrict(usage, "completion_tokens_details", "output_tokens_details")
+	if err != nil {
+		return accounting.UnavailableUsage(), err
+	}
+	reasoningValue, reasoningPresent := firstField(outputDetails, "reasoning_tokens")
 	if !reasoningPresent {
-		reasoningValue, reasoningPresent = firstPresent(usage, "reasoning_tokens")
+		reasoningValue, reasoningPresent = firstField(usage, "reasoning_tokens")
 	}
 	reasoning, err := tokenField(reasoningValue, reasoningPresent)
 	if err != nil {
 		return accounting.UnavailableUsage(), err
 	}
-	outputValue, outputPresent := firstPresent(usage, "completion_tokens", "output_tokens")
+	outputValue, outputPresent := firstField(usage, "completion_tokens", "output_tokens")
 	totalOutput, err := tokenField(outputValue, outputPresent)
 	if err != nil {
 		return accounting.UnavailableUsage(), err
@@ -440,8 +622,11 @@ func normalizeAnthropicUsage(response map[string]any) (runtime.Usage, error) {
 
 func usageObject(response map[string]any, key string) (map[string]any, bool, error) {
 	value, exists := response[key]
-	if !exists || value == nil {
+	if !exists {
 		return nil, false, nil
+	}
+	if value == nil {
+		return nil, true, errors.New("usage is null")
 	}
 	object, ok := value.(map[string]any)
 	if !ok {
@@ -453,65 +638,71 @@ func usageObject(response map[string]any, key string) (map[string]any, bool, err
 	return object, true, nil
 }
 
-func optionalObject(object map[string]any, keys ...string) map[string]any {
+func optionalObjectStrict(object map[string]any, keys ...string) (map[string]any, bool, error) {
 	for _, key := range keys {
-		if value, ok := object[key]; ok && value != nil {
-			if nested, ok := value.(map[string]any); ok {
-				return nested
-			}
+		value, present := object[key]
+		if !present {
+			continue
 		}
+		if value == nil {
+			return nil, true, errors.New("usage detail is null")
+		}
+		nested, ok := value.(map[string]any)
+		if !ok {
+			return nil, true, errors.New("usage detail is not an object")
+		}
+		return nested, true, nil
 	}
-	return nil
+	return nil, false, nil
 }
 
 func tokenFieldFromObject(object map[string]any, key string) (int64, bool, error) {
-	value, present := firstPresent(object, key)
+	value, present := firstField(object, key)
 	parsed, err := tokenField(value, present)
 	return parsed, present, err
 }
 
 func tokenField(value any, present bool) (int64, error) {
-	if !present || value == nil {
+	if !present {
 		return 0, nil
+	}
+	if value == nil {
+		return 0, errors.New("token count is null")
 	}
 	return parseToken(value)
 }
 
 func parseToken(value any) (int64, error) {
-	var parsed int64
+	var text string
 	switch typed := value.(type) {
 	case json.Number:
-		if integer, err := typed.Int64(); err == nil {
-			parsed = integer
-		} else {
-			floating, floatErr := strconv.ParseFloat(typed.String(), 64)
-			if floatErr != nil || math.IsNaN(floating) || math.IsInf(floating, 0) || floating < 0 || math.Trunc(floating) != floating || floating >= float64(math.MaxInt64) {
-				return 0, errors.New("token count is not a nonnegative integer")
-			}
-			parsed = int64(floating)
-		}
+		text = typed.String()
 	case float64:
-		if math.IsNaN(typed) || math.IsInf(typed, 0) || typed < 0 || math.Trunc(typed) != typed || typed >= float64(math.MaxInt64) {
+		if math.IsNaN(typed) || math.IsInf(typed, 0) {
 			return 0, errors.New("token count is not a nonnegative integer")
 		}
-		parsed = int64(typed)
+		text = strconv.FormatFloat(typed, 'g', -1, 64)
 	case int:
 		if typed < 0 {
 			return 0, errors.New("token count is not a nonnegative integer")
 		}
-		parsed = int64(typed)
+		text = strconv.FormatInt(int64(typed), 10)
 	case int64:
 		if typed < 0 {
 			return 0, errors.New("token count is not a nonnegative integer")
 		}
-		parsed = typed
+		text = strconv.FormatInt(typed, 10)
 	default:
 		return 0, errors.New("token count is not a nonnegative integer")
 	}
-	if parsed < 0 {
+	if len(text) == 0 || len(text) > 128 {
 		return 0, errors.New("token count is not a nonnegative integer")
 	}
-	return parsed, nil
+	rational, ok := new(big.Rat).SetString(text)
+	if !ok || rational.Sign() < 0 || !rational.IsInt() || !rational.Num().IsInt64() {
+		return 0, errors.New("token count is not a nonnegative integer")
+	}
+	return rational.Num().Int64(), nil
 }
 
 func usageFromTotals(input int64, inputPresent bool, cacheRead int64, cacheReadPresent bool, cacheCreation int64, cacheCreationPresent bool, output int64, outputPresent bool, reasoning int64, reasoningPresent bool, outputIncludesReasoning bool, inputIncludesCaches bool) (runtime.Usage, error) {
@@ -603,18 +794,9 @@ func stringValue(value any) string {
 	return ""
 }
 
-func firstValue(object map[string]any, keys ...string) any {
+func firstField(object map[string]any, keys ...string) (any, bool) {
 	for _, key := range keys {
-		if value, ok := object[key]; ok && value != nil {
-			return value
-		}
-	}
-	return nil
-}
-
-func firstPresent(object map[string]any, keys ...string) (any, bool) {
-	for _, key := range keys {
-		if value, ok := object[key]; ok && value != nil {
+		if value, ok := object[key]; ok {
 			return value, true
 		}
 	}

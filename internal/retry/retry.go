@@ -218,11 +218,7 @@ func Classify(err error, policy Policy) Classification {
 			return classification
 		}
 		if providerError.Status >= 500 && providerError.Status <= 599 {
-			classification := metadata(CategoryServer, policy.Allows(CategoryServer))
-			if providerError.Status == 503 {
-				classification.RetryAfter = nonnegativeDuration(providerError.RetryAfter)
-			}
-			return classification
+			return metadata(CategoryServer, policy.Allows(CategoryServer))
 		}
 		if providerError.Status != 0 && (providerError.Status < 200 || providerError.Status > 299) {
 			return metadata(CategoryOther, false)

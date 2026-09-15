@@ -5,9 +5,9 @@
 - Project name: `harden-llm`
 - Target repository: `/home/kirill/harden-llm`
 - Contract source repository: `/home/kirill/utility-llm`
-- Version: `1.3.1-backend-test-spec`
+- Version: `1.3.2-backend-test-spec`
 - Owners: package maintainers and self-hosted runtime implementers
-- Date: 2026-08-18
+- Date: 2026-09-15
 - Document ID: `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001`
 - Related stack specification: `plans/from_utility-llm/self-hosted-go-stack-spec.md`
 - Summary: This document is the canonical backend test catalog for building `harden-llm`. It defines one `TEST-###` namespace shared with the backend implementation plan. Tests guide the Go library, versioned REST/OpenAPI gateway, Harden-LLM Postgres records, Garage-backed trace artifacts and diagnostic attachments, provider endpoint security, OpenTelemetry/Grafana/Langfuse diagnostics, and full Docker Compose deployment. It contains no frontend, Phoenix, LiveView, React, browser-session, or asset tests. Langfuse retains its pinned upstream default Postgres, Redis, ClickHouse, and MinIO services; tests reject any local Garage substitution into Langfuse.
@@ -968,3 +968,127 @@ ADR-HLLM-020 and PLAN-HARDEN-LLM-RECOVERY-001 define the current recovery contra
 - Deterministic controls: Existing Docker services, lease/resource ownership and release runner; no live-provider or browser path.
 - Pass criteria: All selected release tasks pass against the final source/configuration identity; local evidence is distinguished from hosted CI and deployment.
 - Expected runtime: Existing release-job envelope of 180 minutes; record actual duration.
+
+## 18. Recovery boundary consolidation
+
+The following cases are the canonical additions for
+`PLAN-HLLM-RECOVERY-BOUNDARIES-001`. They extend existing files and retain the
+same T0-T5 hierarchy; no new runner or dependency is introduced. Go cases use
+the backend specification identifier in their source comments. Frontend cases
+are registered in the Phoenix specification with the separate WEB-TEST
+namespace.
+
+### TEST-212: Canonical registration and repository policy
+
+- Type / verifies: static; REQ-223.
+- Location: `internal/testkit/static_traceability_test.go`.
+- Command: `make test-static`.
+- Acceptance: TEST-212 through TEST-222 and WEB-TEST-074/075 have one canonical
+  definition and source traceability; existing parity provenance and policy
+  checks remain intact.
+
+### TEST-213: Failure classification at the provider boundary
+
+- Type / verifies: unit; REQ-213, REQ-215, REQ-224.
+- Location: `internal/retry/retry_test.go`, provider normalization, runtime
+  repair/telemetry and trace parity tests.
+- Command: `go test ./internal/retry ./internal/providers ./internal/runtime ./internal/traces -run '^TestRecoveryBoundaryClassification' -count=1 -timeout=60s -v`.
+- Acceptance: schema field names and diagnostic text cannot create refusal or
+  network failures; HTTP 400/401/403 are terminal while 429/5xx retain their
+  categories and Retry-After; malformed envelopes cannot trigger semantic
+  repair; documented provider directives and parent cancellation/deadline keep
+  their exact categories and bounded metadata.
+
+### TEST-214: Bounded transport recovery and observed dispatch
+
+- Type / verifies: unit; REQ-214, REQ-215, REQ-224.
+- Location: provider request, endpoint-policy and web-search tests plus runtime
+  repair/telemetry tests.
+- Command: `go test ./internal/providers ./internal/runtime -run '^TestRecoveryBoundaryTransport' -count=1 -timeout=60s -v`.
+- Acceptance: preparation/cache hits do no DNS; guarded resolution and transient
+  transport failures consume the single attempt budget; security and redirect
+  checks remain active; model dispatch is false before WroteHeaders and true
+  after it; model/Jina status normalization and partial result facts agree.
+
+### TEST-215: Full jitter, server minimum and parent deadline
+
+- Type / verifies: unit; REQ-215, REQ-222.
+- Location: retry, provider request and runtime repair tests.
+- Command: `go test ./internal/retry ./internal/providers ./internal/runtime -run '^TestRecoveryBoundaryTiming' -count=1 -timeout=60s -v`.
+- Acceptance: integer full-jitter values follow the one capped-window formula,
+  remain distinct at the cap, honor valid Retry-After as a lower bound and
+  stop before the next dispatch when the parent context is canceled or expired.
+
+### TEST-216: Provider completion precedes output acceptance
+
+- Type / verifies: unit; REQ-213, REQ-216.
+- Location: provider normalization and request tests.
+- Command: `go test ./internal/providers -run '^TestRecoveryBoundaryCompletion' -count=1 -timeout=60s -v`.
+- Acceptance: Responses accepts only a completed terminal response object;
+  delta/done-only streams, malformed envelopes, explicit incomplete/limit/
+  refusal states and unsupported terminal markers cannot become output or
+  repair input. Chat, Gemini and Anthropic require their documented successful
+  completion markers and strict output shapes.
+
+### TEST-217: Failed-attempt accounting and cache admission
+
+- Type / verifies: unit; REQ-217, REQ-218, REQ-224.
+- Location: provider normalization/request, runtime repair, accounting,
+  cache-key and trace parity tests.
+- Command: `go test ./internal/providers ./internal/runtime ./internal/accounting ./internal/cachekey ./internal/traces -run '^TestRecoveryBoundaryAccountingCache' -count=1 -timeout=60s -v`.
+- Acceptance: Valid failed-attempt usage/cost survives output/completion errors;
+  known totals accumulate without upgrading uncertainty; invalid token,
+  component or cost data is bounded and terminal; only completed accepted output
+  writes projection v3; old projection keys are never read and policy-only cache
+  changes preserve semantic identity.
+
+### TEST-218: One active recovery policy across editor contexts
+
+- Type / verifies: unit; REQ-219, REQ-221.
+- Location: `frontend/test/harden_llm_web/live/profile_widget_state_test.exs`,
+  component, ProfilesLive, WorkspaceLive and EmbeddingLive tests.
+- Command: `(cd frontend && mix test --only recovery_boundary_owner --seed 104729)`.
+- Acceptance: The host owns one active policy; widget updates are intents,
+  selection is one complete snapshot, restoration preserves captured policy,
+  and run/profile-save/export/cURL actions read the source defined by the
+  frontend contract. Independent widget instances remain isolated.
+
+### TEST-219: One ordered workspace state writer
+
+- Type / verifies: unit; REQ-219, REQ-220.
+- Location: `frontend/test/harden_llm_web/live/workspace_live_test.exs`.
+- Command: `(cd frontend && mix test --only recovery_boundary_persistence --seed 104729)`.
+- Acceptance: Each LiveView has at most one in-flight complete-state write and
+  one latest pending snapshot. Success drains only the newest snapshot; errors,
+  task exits and auth expiry retain the draft without same-snapshot retries;
+  stored read-back and reload equal the last successful visible state.
+
+### TEST-220: Current public and REST contract holdout
+
+- Type / verifies: unit; REQ-215, REQ-221.
+- Location: `client_test.go`, `internal/gateway/run_validation_test.go`,
+  `internal/gateway/openapi_contract_test.go`.
+- Command: `go test . ./internal/gateway -run '^TestRecovery' -count=1 -timeout=60s -v`.
+- Acceptance: Current policy presence/ranges, explicit false/zero/empty values,
+  original-schema repair and current OpenAPI/storage versions retain their
+  existing assertions; retired inputs remain rejected.
+
+### TEST-221: Broad deterministic development gate
+
+- Type / verifies: static; REQ-223.
+- Location: `internal/testkit/test_tier_policy_test.go`.
+- Command: `make test-fast`.
+- Acceptance: Every manifest-selected offline Go, parity, Phoenix and Node task
+  passes with the new focused cases discovered; no required assertion or task
+  is weakened or excluded.
+
+### TEST-222: Final cross-system certification
+
+- Type / verifies: integration; REQ-214, REQ-215, REQ-217, REQ-218, REQ-220,
+  REQ-221, REQ-223, REQ-224.
+- Location: `internal/testkit/release_gate_test.go`.
+- Command: `make test-release`.
+- Acceptance: Existing browser-free release composition passes against the
+  final source/configuration identity, including real storage, API lifecycle,
+  concurrency/race and deterministic frontend boundaries. Browser and live
+  provider tasks are not part of this case.

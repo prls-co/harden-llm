@@ -24,6 +24,7 @@ migration path.
 | [ADR-HLLM-019](ADR-HLLM-019-cached-web-search-routing.md) | Accepted | Route explicit web search to native Responses search or a server-side Jina fallback while keeping cache lookup and refresh semantics unchanged. |
 
 | [ADR-HLLM-020](ADR-HLLM-020-recovery-policy-and-execution.md) | Accepted for implementation | Use one complete recovery policy, selected target, execution loop and shared editor, with a finite standard data migration. |
+| [ADR-HLLM-021](ADR-HLLM-021-recovery-boundary-ownership.md) | Implemented and locally certified | Assign failure, dispatch, completion, accounting, cache, host-policy and ordered-persistence facts to one existing owner. |
 
 The remaining planned deviation triggers are ADR-HLLM-003 through ADR-HLLM-007
 in the canonical implementation plan. Create one of those records only when its

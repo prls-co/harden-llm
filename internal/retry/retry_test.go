@@ -268,7 +268,7 @@ func TestRetryContract(t *testing.T) {
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-206
 func TestRecoveryBackoff(t *testing.T) {
-	for _, status := range []int{429, 503} {
+	for _, status := range []int{429, 500, 503} {
 		t.Run(fmt.Sprintf("server minimum/%d", status), func(t *testing.T) {
 			classification := Classify(&ProviderError{Status: status, RetryAfter: 30 * time.Second}, DefaultPolicy())
 			if classification.RetryAfter != 30*time.Second {

@@ -8,9 +8,9 @@
 - Target application directory: `/home/kirill/harden-llm/frontend`
 - Backend contract: `/home/kirill/harden-llm/api/openapi.yaml`
 - Source UX reference: `/home/kirill/utility-llm/examples/react-trace-studio`
-- Version: `1.0.4-durable-session-amendment`
+- Version: `1.0.5-recovery-boundary-amendment`
 - Owners: frontend and self-hosted runtime maintainers
-- Date: 2026-08-28
+- Date: 2026-09-15
 - Document ID: `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`
 - Summary: This specification defines the separate Elixir/Phoenix LiveView frontend for Harden-LLM. Phoenix renders HTML, owns the browser session and CSRF boundary, and calls the Go gateway server to server through its published REST/OpenAPI contract. The frontend owns no application database, provider integration, retry policy, object storage, pricing, schema validation, cache identity, or domain persistence. The 2026-08-18 parity amendment incorporates the source-derived controls and explicit self-hosted adaptations recorded in `docs/utility-llm-frontend-parity-inventory.md` and ADR-HLLM-012; the 2026-08-22 embedding amendment makes the Workspace and Profiles visual surfaces single-column, stable-root components that can sit inside a host shell; the 2026-08-23 multi-instance amendment makes `id_prefix` a complete DOM, parent-message, and upload namespace contract; the 2026-08-28 durable-session amendment retains encrypted server-side bearer mappings across single-replica frontend releases as recorded in ADR-HLLM-017.
 
@@ -537,3 +537,29 @@ ADR-HLLM-020 requires one ProfileWidgetState draft transform/serializer and one 
 | WEB-TEST-073 | HardenAPI/WorkspaceLive tests; TEST-209 | Backend-validated defaults/current versions decode strictly; unsupported historical requests fail clearly. |
 
 Command: `(cd frontend && mix test --only recovery --seed 104729)`. These cases use LiveViewTest/Req.Test, not a browser layout oracle.
+
+## 19. Recovery ownership and ordered persistence
+
+The recovery-boundary implementation keeps the existing LiveView component and
+REST architecture. `WorkspaceLive` owns the active recovery policy and the
+complete workspace draft; `EmbeddingLive` owns one policy per instance;
+`ProfilesLive` owns its standalone profile form. The reusable widget renders the
+policy supplied by its host and emits field-level intents. Profile selection
+emits one complete snapshot so a profile default cannot overwrite a host edit.
+
+All complete workspace-state mutations use one in-flight `save_state` task and
+one latest pending snapshot. The writer covers ordinary form edits, recovery
+edits, UI toggles, new/clear actions and history restore. Task metadata and
+history lists remain process-local. A successful write drains only the newest
+pending snapshot; an API error or task exit keeps the visible draft and does not
+retry the same failed snapshot. A newer explicit mutation may be saved, and an
+expired session dispatches no pending write.
+
+| ID | Assertion owner | Command | Acceptance |
+| --- | --- | --- | --- |
+| WEB-TEST-074 | ProfileWidgetState/component, ProfilesLive, WorkspaceLive and EmbeddingLive tests | `(cd frontend && mix test --only recovery_boundary_owner --seed 104729)` | Public widget events preserve one host-owned policy through edits, selection, restore, profile save, run, export and cURL; explicit empty/false/zero values and backend errors remain visible; two embedding instances are independent. |
+| WEB-TEST-075 | WorkspaceLive persistence tests | `(cd frontend && mix test --only recovery_boundary_persistence --seed 104729)` | Stored read-back/reload equals the last successful visible draft; peak state writes per LiveView is one; latest pending snapshots drain in order; failures, task exits and authentication expiry retain the draft without autonomous same-snapshot retries. |
+
+These cases are deterministic LiveViewTest/Req.Test checks. They do not certify
+browser layout or cross-session last-write behavior; those remain under the
+existing explicit browser and deployment boundaries.

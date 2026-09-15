@@ -689,6 +689,29 @@
         "TEST-208",
         "TEST-209"
       ]
+    },
+    {
+      "adr": "ADR-HLLM-021",
+      "fixtures": [
+        "generated/provider-cases.json",
+        "source/providers/openai-responses-stream-retry-error.json",
+        "generated/cache-identity.json"
+      ],
+      "id": "recovery-boundary-consolidation",
+      "mode": "intentional-difference",
+      "note": "Typed provider failure and dispatch facts, completed-envelope admission, validated partial accounting, response projection v3, host-owned policy and ordered persistence intentionally refine captured utility behavior; captured source fixtures and hashes remain unchanged.",
+      "tests": [
+        "TEST-213",
+        "TEST-214",
+        "TEST-215",
+        "TEST-216",
+        "TEST-217",
+        "TEST-218",
+        "TEST-219",
+        "TEST-220",
+        "TEST-221",
+        "TEST-222"
+      ]
     }
   ],
   "manifestSchemaVersion": 2,
