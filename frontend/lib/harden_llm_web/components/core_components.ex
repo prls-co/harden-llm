@@ -175,7 +175,7 @@ defmodule HardenLlmWeb.CoreComponents do
 
   attr :info, :string,
     default: nil,
-    doc: "optional utility-style help text shown beside the label"
+    doc: "optional help text expanded by the question-mark button beside the label"
 
   attr :value, :any
 
@@ -219,6 +219,12 @@ defmodule HardenLlmWeb.CoreComponents do
     """
   end
 
+  def input(%{id: nil, name: name} = assigns) when is_binary(name) do
+    assigns
+    |> assign(:id, "input-" <> Base.url_encode64(name, padding: false))
+    |> input()
+  end
+
   def input(%{type: "checkbox"} = assigns) do
     assigns =
       assign_new(assigns, :checked, fn ->
@@ -227,7 +233,7 @@ defmodule HardenLlmWeb.CoreComponents do
 
     ~H"""
     <div class="mb-2">
-      <label for={@id} class="block">
+      <.input_heading input={assigns}>
         <input
           type="hidden"
           name={@name}
@@ -235,7 +241,7 @@ defmodule HardenLlmWeb.CoreComponents do
           disabled={@rest[:disabled]}
           form={@rest[:form]}
         />
-        <span class="flex items-center gap-2 text-sm font-medium text-slate-800">
+        <label for={@id} class="flex items-center gap-2 text-sm font-medium text-slate-800">
           <input
             type="checkbox"
             id={@id}
@@ -246,14 +252,8 @@ defmodule HardenLlmWeb.CoreComponents do
             class={@class || "size-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600"}
             {@rest}
           />{@label}
-          <span
-            :if={@info}
-            class="ullm-field-label-info"
-            title={@info}
-            aria-hidden="true"
-          >?</span>
-        </span>
-      </label>
+        </label>
+      </.input_heading>
       <.error :for={msg <- @errors}>{msg}</.error>
     </div>
     """
@@ -261,39 +261,23 @@ defmodule HardenLlmWeb.CoreComponents do
 
   def input(%{type: "select"} = assigns) do
     ~H"""
-    <div class="mb-2">
-      <label for={@id} class="block">
-        <span :if={@label || (is_binary(@hint) and @hint != "")} class="ullm-input-label">
-          <span :if={@label}>{@label}</span>
-          <span
-            :if={is_binary(@hint) and @hint != ""}
-            id={@hint_id}
-            class={[@hint_tone == "error" && "ullm-field-hint-error", "ullm-field-hint"]}
-            role={if @hint_tone == "error", do: "alert"}
-          >{@hint}</span>
-          <span
-            :if={@info}
-            class="ullm-field-label-info"
-            title={@info}
-            aria-hidden="true"
-          >?</span>
-        </span>
-        <select
-          id={@id}
-          name={@name}
-          class={[
-            @class ||
-              "w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 disabled:bg-slate-100",
-            @errors != [] && (@error_class || "border-rose-500")
-          ]}
-          aria-invalid={if @errors != [], do: "true"}
-          multiple={@multiple}
-          {@rest}
-        >
-          <option :if={@prompt} value="">{@prompt}</option>
-          {Phoenix.HTML.Form.options_for_select(@options, @value)}
-        </select>
-      </label>
+    <div class="mb-2 ullm-core-input">
+      <.input_heading input={assigns} />
+      <select
+        id={@id}
+        name={@name}
+        class={[
+          @class ||
+            "w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 disabled:bg-slate-100",
+          @errors != [] && (@error_class || "border-rose-500")
+        ]}
+        aria-invalid={if @errors != [], do: "true"}
+        multiple={@multiple}
+        {@rest}
+      >
+        <option :if={@prompt} value="">{@prompt}</option>
+        {Phoenix.HTML.Form.options_for_select(@options, @value)}
+      </select>
       <.error :for={msg <- @errors}>{msg}</.error>
     </div>
     """
@@ -301,35 +285,19 @@ defmodule HardenLlmWeb.CoreComponents do
 
   def input(%{type: "textarea"} = assigns) do
     ~H"""
-    <div class="mb-2">
-      <label for={@id} class="block">
-        <span :if={@label || (is_binary(@hint) and @hint != "")} class="ullm-input-label">
-          <span :if={@label}>{@label}</span>
-          <span
-            :if={is_binary(@hint) and @hint != ""}
-            id={@hint_id}
-            class={[@hint_tone == "error" && "ullm-field-hint-error", "ullm-field-hint"]}
-            role={if @hint_tone == "error", do: "alert"}
-          >{@hint}</span>
-          <span
-            :if={@info}
-            class="ullm-field-label-info"
-            title={@info}
-            aria-hidden="true"
-          >?</span>
-        </span>
-        <textarea
-          id={@id}
-          name={@name}
-          class={[
-            @class ||
-              "w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 disabled:bg-slate-100",
-            @errors != [] && (@error_class || "border-rose-500")
-          ]}
-          aria-invalid={if @errors != [], do: "true"}
-          {@rest}
-        >{Phoenix.HTML.Form.normalize_value("textarea", @value)}</textarea>
-      </label>
+    <div class="mb-2 ullm-core-input">
+      <.input_heading input={assigns} />
+      <textarea
+        id={@id}
+        name={@name}
+        class={[
+          @class ||
+            "w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 disabled:bg-slate-100",
+          @errors != [] && (@error_class || "border-rose-500")
+        ]}
+        aria-invalid={if @errors != [], do: "true"}
+        {@rest}
+      >{Phoenix.HTML.Form.normalize_value("textarea", @value)}</textarea>
       <.error :for={msg <- @errors}>{msg}</.error>
     </div>
     """
@@ -338,38 +306,67 @@ defmodule HardenLlmWeb.CoreComponents do
   # All other inputs text, datetime-local, url, password, etc. are handled here...
   def input(assigns) do
     ~H"""
-    <div class="mb-2">
-      <label for={@id} class="block">
-        <span :if={@label || (is_binary(@hint) and @hint != "")} class="ullm-input-label">
-          <span :if={@label}>{@label}</span>
-          <span
-            :if={is_binary(@hint) and @hint != ""}
-            id={@hint_id}
-            class={[@hint_tone == "error" && "ullm-field-hint-error", "ullm-field-hint"]}
-            role={if @hint_tone == "error", do: "alert"}
-          >{@hint}</span>
-          <span
-            :if={@info}
-            class="ullm-field-label-info"
-            title={@info}
-            aria-hidden="true"
-          >?</span>
-        </span>
-        <input
-          type={@type}
-          name={@name}
-          id={@id}
-          value={Phoenix.HTML.Form.normalize_value(@type, @value)}
-          class={[
-            @class ||
-              "w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 disabled:bg-slate-100",
-            @errors != [] && (@error_class || "border-rose-500")
-          ]}
-          aria-invalid={if @errors != [], do: "true"}
-          {@rest}
-        />
-      </label>
+    <div class="mb-2 ullm-core-input">
+      <.input_heading input={assigns} />
+      <input
+        type={@type}
+        name={@name}
+        id={@id}
+        value={Phoenix.HTML.Form.normalize_value(@type, @value)}
+        class={[
+          @class ||
+            "w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 disabled:bg-slate-100",
+          @errors != [] && (@error_class || "border-rose-500")
+        ]}
+        aria-invalid={if @errors != [], do: "true"}
+        {@rest}
+      />
       <.error :for={msg <- @errors}>{msg}</.error>
+    </div>
+    """
+  end
+
+  attr :input, :map, required: true
+  slot :inner_block
+
+  defp input_heading(assigns) do
+    assigns = assign(assigns, :help_id, "#{assigns.input.id}-help")
+
+    ~H"""
+    <div :if={@inner_block != [] || @input.label || @input.hint || @input.info}>
+      <div class={if @inner_block == [], do: "ullm-input-label", else: "flex items-center gap-2"}>
+        <%= if @inner_block == [] do %>
+          <label :if={@input.label} for={@input.id}>{@input.label}</label>
+          <span
+            :if={is_binary(@input.hint) and @input.hint != ""}
+            id={@input.hint_id}
+            class={[@input.hint_tone == "error" && "ullm-field-hint-error", "ullm-field-hint"]}
+            role={if @input.hint_tone == "error", do: "alert"}
+          >{@input.hint}</span>
+        <% else %>
+          {render_slot(@inner_block)}
+        <% end %>
+        <button
+          :if={is_binary(@input.info) and @input.info != ""}
+          type="button"
+          class="ullm-field-label-info"
+          aria-label={if @input.label, do: "Help for #{@input.label}", else: "Field help"}
+          aria-expanded="false"
+          aria-controls={@help_id}
+          phx-click={
+            JS.toggle_attribute({"hidden", ""}, to: "##{@help_id}")
+            |> JS.toggle_attribute({"aria-expanded", "true", "false"})
+          }
+        >?</button>
+      </div>
+      <p
+        :if={is_binary(@input.info) and @input.info != ""}
+        id={@help_id}
+        class="ullm-field-info-text"
+        hidden
+      >
+        {@input.info}
+      </p>
     </div>
     """
   end

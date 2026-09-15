@@ -168,10 +168,16 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
 
     assert has_element?(
              view,
-             ~s(.ullm-field-label-info[title="Total attempts for the utility call, including initial, ordinary retry, repair, and escalation attempts."])
+             "#profile_retryMaxAttempts-help[hidden]",
+             "Total attempts for the utility call, including initial, ordinary retry, repair, and escalation attempts."
            )
 
-    assert has_element?(view, ~s(.ullm-field-label-info[title*="Structured Repair requires"]))
+    assert has_element?(view, ".ullm-field-info-text", "Structured Repair requires")
+
+    assert has_element?(
+             view,
+             ~s(button.ullm-field-label-info[type="button"][aria-controls="profile_structuredRepairRetryEnabled-help"][aria-expanded="false"])
+           )
 
     assert has_element?(
              view,
@@ -185,8 +191,13 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     assert has_element?(view, ~s(#profile_pricingCacheRead[placeholder="n/a"]))
     assert has_element?(view, ~s(#profile_pricingCacheWrite[placeholder="n/a"]))
     assert has_element?(view, ~s(#profile_pricingReasoning[placeholder="n/a"]))
-    assert has_element?(view, ~s(.ullm-field-label-info[title*="Cache write applies"]))
-    assert has_element?(view, ~s(.ullm-field-label-info[title*="Reasoning output applies"]))
+    assert has_element?(view, "#profile_pricingCacheWrite-help[hidden]", "Cache write applies")
+
+    assert has_element?(
+             view,
+             "#profile_pricingReasoning-help[hidden]",
+             "Reasoning output applies"
+           )
   end
 
   test "main and escalation rows reuse the cache control and default escalation to CPA Sol", %{
