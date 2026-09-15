@@ -1472,3 +1472,49 @@ and `plans/implementation-status.json` retain the committed release facts.
 Follow-up documentation-only commits do not change these certified application
 images or require rebuilding them. Cross-repository guideline adoption remains
 tracked separately in [Ops issue #1](https://github.com/prls-co/ops/issues/1).
+
+## Structured repair settings — production (2026-09-15 UTC)
+
+Application source `f285ccdcbf66a597c506491126c37e07b4100bb0` was promoted from
+`dev` to `main` and deployed to <https://harden-llm.prls.co/> at
+`2026-09-15T01:00:20.687Z`. This changes only the frontend: the repair tooltip
+explains the behavior and attempt budget, and profile loading and JSON editing
+share the same default rule. Both `false` and `{"enabled": false}` disable
+repair; omission remains enabled. WEB-TEST-052 and WEB-TEST-059 cover all six
+supported omitted/boolean/object cases through loading, JSON edits, run requests,
+and saving.
+
+The fresh browser-free release selector passed **24/24 tasks**, with no failures
+or cleanup errors; Phoenix passed **182 tests**, with **4 opt-in tests excluded**.
+The report is `tmp/structured-repair-production-release.json`, SHA-256
+`5563977fe845b06f4ff9049aebd9ba9c6e64b335ff56c3bf4416a524f95b0259`.
+[Main fast CI](https://github.com/prls-co/harden-llm/actions/runs/34915447914) and
+[CodeQL](https://github.com/prls-co/harden-llm/actions/runs/34915447689) also passed
+on this exact application SHA.
+
+The existing immutable frontend image from the same verified dev source was
+reused. Compose replaced only `harden-llm-web`, using
+`--no-build --no-deps --wait`. Production environment values and the durable
+session volume were retained, and every other production container remained
+unchanged.
+
+| Component | Runtime release | Immutable image |
+| --- | --- | --- |
+| Frontend | `f285ccdcbf66a597c506491126c37e07b4100bb0` | `sha256:2eed4af24d6fcadfd15806159c9725a90ae529001b23bd7be6cb8ffa509cc0ba` |
+| Gateway (retained) | `9284df00a3270fd592051352da149077704dc521` | `sha256:89c0843d7cc5ec9589d2b9579000c6bc7a1ff329c0788f340ab03d6cb0c35f09` |
+
+At `2026-09-15T01:01:47.058Z`, both application containers were healthy with
+zero restarts. UI health and API health/readiness returned 200. Guest and
+operator cookie/CSRF login, authenticated workspace HTML, and logout passed.
+The running frontend's release RPC verified the exact new tooltip and all six
+repair defaults. HTTP checks cover the initial authenticated LiveView shell;
+they do not establish browser rendering or the connected socket behavior.
+All verification sessions were logged out. **Browser layout was not checked**,
+and no provider call was made.
+
+The sanitized host-local receipt is
+`plans/evidence/harden-llm/structured-repair-production-f285ccd.json`.
+The previous frontend image, Compose rollback override, and private environment
+snapshot are retained in
+`/home/kirill/.local/state/harden-llm-repair-f285ccd`. Rollback replaces only the
+frontend and retains the same production session volume and settings.

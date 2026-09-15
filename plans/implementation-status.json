@@ -558,11 +558,11 @@
       }
     },
     "applicationRelease": {
-      "applicationBearingSHA": "9284df00a3270fd592051352da149077704dc521",
-      "sourceMainSHA": "9284df00a3270fd592051352da149077704dc521",
-      "frontendRelease": "9284df00a3270fd592051352da149077704dc521",
-      "frontendImageDigest": "sha256:24698d47caa2c7a4e97afc5f0d80a5a509459e39968cd108cef552841d3cf38d",
-      "frontendContainerId": "e0725481fbc8",
+      "applicationBearingSHA": "f285ccdcbf66a597c506491126c37e07b4100bb0",
+      "sourceMainSHA": "f285ccdcbf66a597c506491126c37e07b4100bb0",
+      "frontendRelease": "f285ccdcbf66a597c506491126c37e07b4100bb0",
+      "frontendImageDigest": "sha256:2eed4af24d6fcadfd15806159c9725a90ae529001b23bd7be6cb8ffa509cc0ba",
+      "frontendContainerId": "057ea03fdf77",
       "gatewayRelease": "9284df00a3270fd592051352da149077704dc521",
       "gatewayImageDigest": "sha256:89c0843d7cc5ec9589d2b9579000c6bc7a1ff329c0788f340ab03d6cb0c35f09",
       "gatewayContainerId": "2fe7e550b634",
@@ -570,6 +570,43 @@
       "environmentFileRole": "production Compose env file supplied with --env-file"
     },
     "latestProductionCertification": {
+      "mergedMainSHA": "f285ccdcbf66a597c506491126c37e07b4100bb0",
+      "certifiedAt": "2026-09-15T01:01:47.058Z",
+      "evidencePath": "docs/release-certification.md",
+      "localReceiptPath": "plans/evidence/harden-llm/structured-repair-production-f285ccd.json",
+      "hostedWorkflow": "https://github.com/prls-co/harden-llm/actions/runs/34915447914",
+      "codeQLWorkflow": "https://github.com/prls-co/harden-llm/actions/runs/34915447689",
+      "releaseTier": "local browser-free canonical release selector accepted 24 tasks with zero failures and cleanup errors; 182 deterministic Phoenix tests passed, 4 opt-in tests excluded; main fast CI and CodeQL passed",
+      "releaseEvidenceSHA256": "5563977fe845b06f4ff9049aebd9ba9c6e64b335ff56c3bf4416a524f95b0259",
+      "composeSmoke": "release-owned backend Compose passed; no browser task selected",
+      "httpVerification": {
+        "accepted": true,
+        "identityHealth": "healthy; web and gateway match their separate applicationRelease identities, zero restarts",
+        "probes": {
+          "webHealthz": 200,
+          "apiHealthz": 200,
+          "apiReadyz": 200
+        },
+        "guestAndOperatorWebLogin": "cookie/CSRF login 302, authenticated workspace shell 200, logout 302",
+        "runtimeRepairTooltipVerified": true,
+        "runtimeRepairCases": [
+          true,
+          true,
+          false,
+          true,
+          true,
+          false
+        ],
+        "verificationSessionsLoggedOut": true
+      },
+      "frontendOnly": true,
+      "productionConfigurationPreserved": true,
+      "infrastructureAndSessionVolumePreserved": true,
+      "rollbackDirectory": "/home/kirill/.local/state/harden-llm-repair-f285ccd",
+      "browserLayoutChecked": false,
+      "providerCallsMade": 0
+    },
+    "previousProductionCertification": {
       "mergedMainSHA": "9284df00a3270fd592051352da149077704dc521",
       "certifiedAt": "2026-09-14T17:49:51.159Z",
       "evidencePath": "docs/release-certification.md",
@@ -582,7 +619,11 @@
       "httpVerification": {
         "accepted": true,
         "identityHealth": "healthy; gateway and web labels match applicationRelease, zero restarts",
-        "probes": {"webHealthz": 200, "apiHealthz": 200, "apiReadyz": 200},
+        "probes": {
+          "webHealthz": 200,
+          "apiHealthz": 200,
+          "apiReadyz": 200
+        },
         "guestAndOperatorWebLogin": "cookie/CSRF login 302, authenticated workspace 200, logout 302",
         "staticTokenHistory": 200,
         "anonymousHistory": 401,
@@ -590,28 +631,17 @@
         "servedCSSFoldRules": true,
         "verificationSessionsLoggedOut": true
       },
-      "configuration": {"accounts": 2, "managedProfilesPerAccount": 31, "configuredBindingsPerAccount": 21, "readbackVerified": true},
+      "configuration": {
+        "accounts": 2,
+        "managedProfilesPerAccount": 31,
+        "configuredBindingsPerAccount": 21,
+        "readbackVerified": true
+      },
       "backupRestoreVerified": true,
       "infrastructureAndDataPreserved": true,
       "browserLayoutChecked": false,
       "providerCallsMade": 0,
       "dependencyQualification": "three pre-existing grpc Dependabot alerts remain; govulncheck found no affected code"
-    },
-    "previousProductionCertification": {
-      "mergedMainSHA": "94ada3324a2c3cbede245e2d43c6ab36377f278b",
-      "certifiedAt": "2026-09-11T01:34:50Z",
-      "evidencePath": "docs/release-certification.md",
-      "hostedWorkflow": "https://github.com/prls-co/harden-llm/actions/runs/34549732580",
-      "releaseTier": "hosted canonical release selector accepted 26 tasks with zero failures and zero cleanup errors; all four hosted hierarchy jobs passed; local fast gate accepted 8 tasks",
-      "composeSmoke": "release-owned Compose and browser tasks passed",
-      "test056": {
-        "accepted": true,
-        "expectedRelease": "94ada3324a2c3cbede245e2d43c6ab36377f278b",
-        "identityHealth": "healthy",
-        "probes": {"webHealthz": 200, "login": 200, "apiHealthz": 200, "apiReadyz": 200},
-        "authenticatedCanary": "passed with existing operator credentials: CPA GPT-5.6 Luna, conversation/robot emoji disclosure, inline stats, nonce History cleanup and logout",
-        "cleanup": "browser container and generated frontend scratch removed; exactly one canary cache row deleted; existing guest result preserved"
-      }
     },
     "deploymentCertification": {
       "implementationPRs": [33, 34, 35, 36, 37],
