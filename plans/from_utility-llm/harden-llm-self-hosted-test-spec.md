@@ -235,24 +235,20 @@ runtime contract or the meaning of `make verify`.
 - Assertions:
   - `maxAttempts` is total attempts.
   - Retry categories match source fixtures; `empty_response` requires the coded error identity rather than message wording.
-  - A statusless/code-less OpenAI Responses retry directive with a bounded request ID becomes `provider_retry`, retries the same candidate independently of the server-error toggle, and never enters profile fallback.
-  - `Retry-After` and exponential backoff are capped.
+  - A statusless/code-less OpenAI Responses retry directive with a bounded request ID becomes `provider_retry` and repeats the selected target only when that category is explicitly enabled (ADR-HLLM-020).
+  - Calculated exponential backoff is capped; valid 429/503 `Retry-After` is a minimum bounded by the caller deadline, not the backoff cap.
   - Cancellation before an attempt or during wait stops immediately.
   - Attempt and wait metadata are exact.
 - Pass criteria: all categories and attempt-count tables pass without wall-clock sleeps.
 - Expected runtime: 10 seconds.
 
-### TEST-009: structured repair and backup-profile plan
+### TEST-009: structured repair on the selected target
 
-- Target: `internal/runtime/repair_backup_test.go`
-- Command: `go test ./internal/runtime/... ./internal/retry/... -run 'TestStructuredRepair|TestBackupProfiles' -count=1`
-- Setup: malformed/schema-invalid outputs and profile graphs with cycles, duplicates, missing references, and depth boundaries.
-- Assertions:
-  - Repair consumes the existing attempt budget and validates `{ repair, data }`.
-  - Backup profiles apply only to current availability categories.
-  - Current flat-reference, cycle, duplicate, missing-reference, and maximum-depth behavior matches source fixtures.
-  - Caller context remains the overall deadline across candidates.
-- Pass criteria: repair and backup fixtures match source behavior exactly.
+- Target: `internal/runtime/repair_backup_test.go` (renamed to `repair_test.go` by recovery P01.S03).
+- Command: `go test ./internal/runtime/... -run TestStructuredRepair -count=1`
+- Setup: malformed/schema-invalid output, direct repaired values and transient failures during repair.
+- Assertions: repair consumes the shared attempt budget, requests the original schema, preserves target/context and returns the direct validated value; fallback/escalation controls are rejected under ADR-HLLM-020.
+- Pass criteria: repair values, identity, budget and cancellation assertions pass without alternate routing.
 - Expected runtime: 10 seconds.
 
 ### TEST-010: contracted schema validation and parse diagnostics
@@ -265,8 +261,8 @@ runtime contract or the meaning of `make verify`.
   - Unsupported shapes fail closed.
   - Parse diagnostics and schema errors use stable categories and safe excerpts.
   - Raw response length matches the source JavaScript UTF-16 code-unit contract, including non-BMP input, while excerpts remain bounded and redacted.
-  - Repair data extraction returns only validated `data`.
-- Pass criteria: Go output matches schema and parser parity fixtures.
+  - Initial and repair responses return the direct validated value without an envelope or coercion (ADR-HLLM-020).
+- Pass criteria: Go output matches the contracted schema and strict parser acceptance controls; intentional source differences are recorded in ADR-HLLM-020.
 - Expected runtime: 10 seconds.
 
 ### TEST-011: cache identity, modes, and replay parity
@@ -364,7 +360,7 @@ runtime contract or the meaning of `make verify`.
   - `go test ./internal/gateway/... -tags=integration -run TestDefaultProfileSeedParity -count=1`
 - Setup: current source catalog at utility-llm revision `5c0309e` / `0.15.0`,
   the 28 credential-free preset entries, invalid names/endpoints/defaults,
-  backup graphs, fixed endpoint resolver, and isolated owner-scoped Postgres.
+  removed-control rejection, fixed endpoint resolver, and isolated owner-scoped Postgres.
 - Assertions:
   - The embedded seed contains exactly the current 28 profile names and
     matches provider, API inference type, base URL, model ID, pricing,
@@ -383,9 +379,9 @@ runtime contract or the meaning of `make verify`.
     without the matching endpoint credential returns `credential_required`,
     persists a failed history item, and never dials the provider.
   - Profile shape, API inference types, pricing, model list, defaults, and
-    backup references match source behavior.
-  - Graph validation preserves duplicate, cycle, missing-reference, and maximum-depth rules.
-  - No nested backup object or alternate compatibility shape is accepted.
+    complete recovery policies follow ADR-HLLM-020; independent profile data retain source parity.
+  - Backup/escalation fields are rejected; each profile selects exactly one target.
+  - No alternate or old recovery-policy shape is accepted.
 - Pass criteria: the current 28-profile seed and all-profile deterministic
   preparation matrix pass; invalid fixtures fail with stable fields; the
   tagged seed test passes with isolated Postgres.
@@ -734,7 +730,7 @@ runtime contract or the meaning of `make verify`.
   - Provider result source references exactly one successful call-global attempt;
     cache source retains producer identity without a current provider attempt;
     failed/pre-provider calls use none.
-  - Primary, retry, repair, and backup attempts share one global budget and
+  - Initial, retry and repair attempts on the selected target share one global budget and
     sequence; `providerUsed` is set only at the execution boundary.
   - Public result, domain trace, artifact projection, and telemetry derive from
     the same canonical record.
@@ -857,3 +853,117 @@ invoke `frontend/`; Collector fanout is the only Langfuse export path; Garage is
 the only Harden-LLM artifact store; Langfuse retains its pinned upstream MinIO
 dependency; and the full Compose smoke proves correlated application and
 diagnostic behavior.
+
+## 17. Recovery architecture acceptance controls
+
+ADR-HLLM-020 and PLAN-HARDEN-LLM-RECOVERY-001 define the current recovery contract. These cases supplement retained assertions at the same production boundaries.
+
+### TEST-201: Existing specification and static gate
+
+- Type / verifies: static; REQ-211.
+- Location: `internal/testkit/static_traceability_test.go`.
+- Command: `make test-static`
+- Fixtures/data: Canonical catalogs, parity manifest and existing static checks; add only traceability tags where needed.
+- Deterministic controls: Existing runner; no new plan linter or fixture framework.
+- Pass criteria: Catalog links and existing static assertions pass; no unrecorded parity deviation.
+- Expected runtime: Existing local gate; record wall time, without introducing a timing threshold.
+
+### TEST-202: Complete public policy
+
+- Type / verifies: unit; REQ-201, REQ-206.
+- Location: `client_test.go`.
+- Command: `go test . -run '^TestRecovery' -count=1 -timeout=60s -v`
+- Fixtures/data: Add TestRecoveryPolicy: complete defaults, omitted/partial/null policy, unknown categories, duplicate categories, empty retryOn, explicit false, zero delays, maxAttempts 1 and 10, and invalid limits.
+- Deterministic controls: Local client/provider fixtures; no credentials or public network.
+- Pass criteria: One default constructor and validator serve current callers; explicit values survive; invalid input makes zero provider calls.
+- Expected runtime: 60-second package timeout; report observed duration.
+
+### TEST-203: Strict value-preserving structured output
+
+- Type / verifies: unit; REQ-203.
+- Location: `internal/schema/schema_test.go`.
+- Command: `go test ./internal/schema -run '^TestRecovery' -count=1 -timeout=60s -v`
+- Fixtures/data: Add TestRecoveryValues: postal codes, numeric string enums, large integers, decimals, nested arrays, null, trailing data, fenced JSON, malformed JSON and schema mismatches.
+- Deterministic controls: Fixed inline JSON and schemas; existing decoder and validator boundary.
+- Pass criteria: Valid JSON values retain their types and precision; invalid syntax/schema fails without coercion or heuristic salvage.
+- Expected runtime: 60-second package timeout; report observed duration.
+
+### TEST-204: Original-schema repair across supported protocols
+
+- Type / verifies: unit; REQ-204, REQ-210.
+- Location: `client_test.go`.
+- Command: `go test . -run '^TestRecovery' -count=1 -timeout=60s -v`
+- Fixtures/data: Add TestRecoveryRepairPayload using existing local HTTP/TLS fixtures for chat-completions, responses, gemini-generate-content and anthropic-messages; capture initial/repair requests and direct schema-valid responses.
+- Deterministic controls: Test-owned servers, fixed schema/output, no live keys; use the real provider serialization path.
+- Pass criteria: Repair preserves the selected target/options, requests the original schema, treats prior output as data and returns the direct validated value without a repair metadata envelope.
+- Expected runtime: 60-second package timeout; report observed duration.
+
+### TEST-205: Bounded execution and canonical facts
+
+- Type / verifies: unit; REQ-202, REQ-204, REQ-209, REQ-212.
+- Location: `internal/runtime/repair_test.go`.
+- Command: `go test ./internal/runtime -run '^TestRecovery' -count=1 -timeout=60s -v`
+- Fixtures/data: Rename existing repair_backup_test.go in P01.S03 and add TestRecoveryExecution: initial success; invalid output -> repair 503 -> repair success; repeated invalid repairs; exhausted budget; cancellation; prerequisite failure; cache hit; changed structured projection.
+- Deterministic controls: Existing runtime stubs, injected waits/randomness, fixed cache producers and counting dispatchers; no wall-clock sleeps.
+- Pass criteria: No more than maxAttempts slots or model invocations; all calls use the selected target; repair identity survives transport retries; records match dispatched work; cache hit invokes neither search nor model; result/provider accounting remain distinct.
+- Expected runtime: 60-second package timeout; report observed duration.
+
+### TEST-206: Explicit retry categories and waiting
+
+- Type / verifies: unit; REQ-201, REQ-205.
+- Location: `internal/retry/retry_test.go`.
+- Command: `go test ./internal/retry -run '^TestRecovery' -count=1 -timeout=60s -v`
+- Fixtures/data: Add TestRecoveryBackoff: every enabled/disabled category, all disabled, zero delays, cap/jitter boundaries, Retry-After on 429/503, malformed/past header, deadline before dispatch and cancellation during wait.
+- Deterministic controls: Injected clock, random source and waiter; local header parsing fixtures.
+- Pass criteria: Only listed transient categories repeat; valid server delay is never capped below its minimum; no wait or dispatch escapes context cancellation/deadline.
+- Expected runtime: 60-second package timeout; report observed duration.
+
+### TEST-207: Current REST and persisted-document contract
+
+- Type / verifies: unit; REQ-201, REQ-206, REQ-208, REQ-209, REQ-210.
+- Location: `internal/gateway/run_validation_test.go`; `internal/gateway/openapi_contract_test.go`.
+- Command: `go test ./internal/gateway -run '^TestRecoveryContract' -count=1 -timeout=60s -v`
+- Fixtures/data: Add TestRecoveryContractInput and TestRecoveryContractOpenAPI: required policy, profiles response defaults, current profile/state/bundle versions, result v3, old input rejection and examples shared with frontend tests.
+- Deterministic controls: Existing validators, strict decoders and OpenAPI example validation; no database for shape permutations.
+- Pass criteria: One current wire shape; exact required fields; no recovery aliases, retired routing controls, alternate history result schema or silently accepted old request. Integration handlers remain covered by TEST-208/TEST-211.
+- Expected runtime: 60-second package timeout; report observed duration.
+
+### TEST-208: Ordinary migration preserves execution facts and ownership
+
+- Type / verifies: integration; REQ-206, REQ-208, REQ-209, REQ-210.
+- Location: `internal/postgres/repository_test.go`; `internal/gateway/resource_routes_test.go`.
+- Command: `make test-integration`
+- Fixtures/data: Extend existing repository migration cases: migrate a database through version 5, seed two owners' profiles/state/results, credentials and unrelated data, then invoke Store.Migrate; include conflicting/invalid documents, absent fields, false/zero values, old request JSON, null attempts and real concurrent Migrate calls. Existing gateway resource-route cases assert the real profiles defaults response and canonical result read-back.
+- Deterministic controls: Existing PostgresLease and integration runner; synthetic data only; assert version 6 with existing migration history checks.
+- Pass criteria: Only Section 8 transformations occur; all other values/rows and credential ciphertext remain equal; invalid rows abort the entire migration; repeated/concurrent Migrate is safe; current history/trace contracts accept migrated results.
+- Expected runtime: Existing integration task timeout; hosted integration job envelope is 90 minutes, not a new performance target.
+
+### TEST-209: Shared editor and strict frontend boundary
+
+- Type / verifies: unit; REQ-201, REQ-206, REQ-207, REQ-208, REQ-209.
+- Location: `frontend/test/harden_llm_web/live/profile_widget_state_test.exs`; `frontend/test/harden_llm_web/live/profile_widget_component_test.exs`; `frontend/test/harden_llm_web/live/profiles_live_test.exs`; `frontend/test/harden_llm_web/live/workspace_live_test.exs`; `frontend/test/harden_llm_web/harden_api_test.exs`; `frontend/test/harden_llm_web/profile_widget_style_test.exs`.
+- Command: `(cd frontend && mix test --only recovery --seed 104729)`
+- Fixtures/data: Tag new/changed recovery cases with :recovery and register WEB-TEST-071, WEB-TEST-072, WEB-TEST-073. Use backend-validated response examples for new profile, existing profile, edited draft, save/reload/run/cURL, backend errors, current history and rejected old rerun.
+- Deterministic controls: Private Req.Test ownership, async cases where supported, test-owned component IDs and element-driven LiveView events; existing clickable help mechanism.
+- Pass criteria: Both editors use the same controls/help/styles and serializer; drafts preserve explicit values; no Phoenix semantic defaulting; error paths are visible; help trigger/binding remains present; strict decoder accepts the current contract. This does not certify browser execution or layout.
+- Expected runtime: Existing Mix timeouts; within the existing fast-job envelope of 20 minutes.
+
+### TEST-210: Broad deterministic development gate
+
+- Type / verifies: static; REQ-211, REQ-212.
+- Location: `internal/testkit/test_tier_policy_test.go`.
+- Command: `make test-fast`
+- Fixtures/data: Existing Go, static/parity, Phoenix and dependency-free Node tasks including the new cases above.
+- Deterministic controls: Pinned tools; existing worker/resource limits; no new runner task, Docker, browser or public provider.
+- Pass criteria: Every selected task passes; new focused cases are discovered by normal suites; no weakened assertions or excluded required cases.
+- Expected runtime: Existing fast-job envelope of 20 minutes; record actual duration.
+
+### TEST-211: Cross-system browser-free certification
+
+- Type / verifies: integration; REQ-202, REQ-206, REQ-208, REQ-209, REQ-210, REQ-211, REQ-212.
+- Location: `internal/testkit/release_gate_test.go`.
+- Command: `make test-release`
+- Fixtures/data: Existing release tasks with current fixtures, including real storage/API/lifecycle boundaries.
+- Deterministic controls: Existing Docker services, lease/resource ownership and release runner; no live-provider or browser path.
+- Pass criteria: All selected release tasks pass against the final source/configuration identity; local evidence is distinguished from hosted CI and deployment.
+- Expected runtime: Existing release-job envelope of 180 minutes; record actual duration.

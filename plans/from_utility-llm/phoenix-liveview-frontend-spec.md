@@ -58,7 +58,7 @@ Runtime feature dependencies are limited to the Phoenix-generated HTTP/asset pac
 - Local email/password login and logout through the backend auth endpoints.
 - Session validation during HTTP mount, connected LiveView mount, and reconnect.
 - Client-state and prompt-draft load/save through `/api/v1/state`.
-- Profile create/edit/delete, model refresh, credential replacement, and backup-profile selection.
+- Profile create/edit/delete, model refresh, credential replacement, and a complete recovery policy.
 - Profile bundle import/export without inspecting or exposing opaque encrypted credential material.
 - Prompt, optional system prompt, structured-output schema, repair settings, profile/model selection, and synchronous run submission.
 - Result output, normalized usage/cost, attempts, cache facts, run ID, and trace ID display.
@@ -245,12 +245,12 @@ Contract synchronization:
 
 ### Profiles
 
-- List profiles with provider family, API interface, endpoint host, model, pricing status, and backup references.
+- List profiles with provider family, API interface, endpoint host, model, pricing status, and recovery policy.
 - Create and edit through one shared component and one REST mutation path.
 - Credential fields are write-only. Existing secrets render as configured/not configured and are never repopulated.
 - Saving displays backend field errors and probe failures without persisting an invalid local shadow profile.
 - Model refresh is an explicit command and does not run on every render or edit.
-- Delete requires an inline confirmation fold and handles backend dependency errors, such as a profile still referenced as a backup.
+- Delete requires an inline confirmation fold and handles backend errors through the current contract.
 - Bundle export is a Phoenix controller download that streams the backend payload without logging or persisting it.
 - Bundle import validates file size/content type, sends the bytes once to the backend, and replaces UI state only after the atomic backend response succeeds.
 
@@ -403,7 +403,7 @@ All tests are free, self-hosted, deterministic, and isolated from live LLM provi
 | WEB-TEST-003 | REST client behavior | `test/harden_llm_web/harden_api_test.exs` | `mix test test/harden_llm_web/harden_api_test.exs` | Req.Test proves headers, trace propagation, no redirects/retries, timeouts, envelopes, safe `credential_required` classification, malformed responses, and redaction. | 15s |
 | WEB-TEST-004 | Browser auth/session and token vault | `test/harden_llm_web/controllers/session_controller_test.exs`, `test/harden_llm_web/session_vault_test.exs` | `mix test test/harden_llm_web/controllers/session_controller_test.exs test/harden_llm_web/session_vault_test.exs` | Login rotates the handle; only its digest indexes the encrypted DETS vault; cookie flags pass; token is absent from cookie/HTML/LiveView session and vault file; expiry/restart/logout behavior is correct; CSRF rejects invalid submits. | 15s |
 | WEB-TEST-005 | LiveView authorization | `test/harden_llm_web/live/auth_test.exs` | `mix test test/harden_llm_web/live/auth_test.exs` | Initial mount/reconnect validates backend session; 401 clears session; unauthenticated routes redirect; token never appears in rendered HTML/diffs. | 15s |
-| WEB-TEST-006 | Profile workflows | `test/harden_llm_web/live/profiles_live_test.exs` | `mix test test/harden_llm_web/live/profiles_live_test.exs` | Create/edit/delete, write-only credentials, field errors, model refresh, backup references, and bundle import/export use only expected REST operations. | 20s |
+| WEB-TEST-006 | Profile workflows | `test/harden_llm_web/live/profiles_live_test.exs` | `mix test test/harden_llm_web/live/profiles_live_test.exs` | Create/edit/delete, write-only credentials, field errors, model refresh, complete recovery policy, and bundle import/export use only expected REST operations. | 20s |
 | WEB-TEST-007 | Workspace/run workflows | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | State hydration/save, validation, web-search toggle/run projection, one run submit, async state, trace-addressed result restoration, distinct new/prompt/system reset actions, non-ambiguous missing-credential guidance, ambiguous failure, no automatic retry, and stale-response rejection pass. | 25s |
 | WEB-TEST-008 | History/trace/artifacts | `test/harden_llm_web/live/history_trace_test.exs`, `test/harden_llm_web/controllers/artifact_controller_test.exs` | `mix test test/harden_llm_web/live/history_trace_test.exs test/harden_llm_web/controllers/artifact_controller_test.exs` | Workspace cursor append/retry/clear races, inline trace rendering and authorization, artifact authorization, exact-origin redirect validation, and no-store headers pass; restore/delete/clear also remain covered by Workspace LiveView tests. | 20s |
 | WEB-TEST-009 | Security and diagnostics | `test/harden_llm_web/security_observability_test.exs`, `test/harden_llm_web/telemetry_startup_test.exs` | `mix test test/harden_llm_web/security_observability_test.exs test/harden_llm_web/telemetry_startup_test.exs` | CSRF/CSP/origin rules, secret scans, exporter-before-SDK release/dependency order, async trace propagation, safe attributes, bounded PromEx series, private scrape config, JSON Logger correlation/rotation, merged Collector validation with separate frontend pipelines, failure isolation, and no Langfuse frontend export pass. The Compose boundary also verifies the generated boot-script order and no exporter initialization failure. | 20s |
@@ -422,13 +422,13 @@ single-editor adaptations are recorded in ADR-HLLM-012.
 | ID | Test | Target | Command | Pass criteria |
 | --- | --- | --- | --- | --- |
 | WEB-TEST-031 | Workspace schema/fold/retry parity | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | Shorthand schema generation, persisted folds, retry/repair controls, custom typed profiles, lazy history, restore, and deletion use the canonical state/run/history operations. |
-| WEB-TEST-032 | Full profile-editor parity | `test/harden_llm_web/live/profiles_live_test.exs` | `mix test test/harden_llm_web/live/profiles_live_test.exs` | Provider/interface/endpoint, options, ordered fallbacks, retry/repair/escalation, pricing, deep-link editing, and save payloads remain functional. |
+| WEB-TEST-032 | Full profile-editor parity | `test/harden_llm_web/live/profiles_live_test.exs` | `mix test test/harden_llm_web/live/profiles_live_test.exs` | Provider/interface/endpoint, options, shared recovery controls, pricing, deep-link editing, and save payloads remain functional. |
 | WEB-TEST-033 | History trace/resource parity | `test/harden_llm_web/live/history_trace_test.exs` | `mix test test/harden_llm_web/live/history_trace_test.exs` | Inline Result cards expose redacted request/result stats, copy controls, foldable trace observations, and authorized artifact downloads without credentials or a separate dialog. |
 | WEB-TEST-034 | Workspace control rendering parity | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | Prompt shortcut, schema debounce, output request/response folds, trace summary, copy actions, and unavailable states render safely. |
 | WEB-TEST-035 | Profile combobox/credential parity | `test/harden_llm_web/live/profiles_live_test.exs` | `mix test test/harden_llm_web/live/profiles_live_test.exs` | Searchable endpoint/model suggestions and write-only staged-key behavior remain local and never render stored or staged secrets after close. |
 | WEB-TEST-036 | Cursor pagination parity | `test/harden_llm_web/live/history_trace_test.exs` | `mix test test/harden_llm_web/live/history_trace_test.exs` | Load more appends ten-card cursor pages without duplicates; refresh starts at page one; fixed page size avoids a second pagination form and arbitrary offset/page-number controls. |
 | WEB-TEST-037 | Inline studio control coverage | `test/harden_llm_web/live/profiles_live_test.exs`, `test/harden_llm_web/live/workspace_live_test.exs`, `test/browser/full_workflow_test.exs` | `mix test test/harden_llm_web/live/profiles_live_test.exs test/harden_llm_web/live/workspace_live_test.exs && mix test --only browser test/browser/full_workflow_test.exs` | Every profile/workspace button and input has a stable rendered control, each fold opens/closes in flow, field-local select events preserve the draft, and desktop/mobile browser workflows complete without tabs, an overlay, or horizontal overflow. |
-| WEB-TEST-038 | Embedded utility-style profile widget topology | `test/harden_llm_web/live/workspace_live_test.exs`, `test/browser/full_workflow_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs && mix test --only browser test/browser/full_workflow_test.exs` | The no-tabs compact row exposes every main and nested profile fold/action; fallback selection and option-to-JSON synchronization remain functional through the embedded component. |
+| WEB-TEST-038 | Embedded utility-style profile widget topology | `test/harden_llm_web/live/workspace_live_test.exs`, `test/browser/full_workflow_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs && mix test --only browser test/browser/full_workflow_test.exs` | The no-tabs compact row exposes every main and nested profile fold/action; selected-target recovery and option-to-JSON synchronization remain functional through the embedded component. |
 | WEB-TEST-039 | Embedded profile mutation delegation | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | Staged credentials stay write-only while save, model refresh, delete confirmation, and bundle import delegate to the canonical profile REST operations. |
 | WEB-TEST-040 | Profile-aware reasoning capability guard | `test/harden_llm_web/live/workspace_live_test.exs`, `frontend/lib/harden_llm_web/live/workspace_live.ex`, `frontend/lib/harden_llm_web/live/profile_widget_component.ex` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | Seeded profiles expose only reasoning levels present in their `reasoningEffortMap`; custom profiles without a map disable the compact selector and the run payload omits stale unsupported reasoning before the gateway can reject it. |
 | WEB-TEST-041 | Utility cache state migration | `test/harden_llm_web/live/workspace_live_test.exs`, `frontend/lib/harden_llm_web/live/workspace_live.ex`, `frontend/lib/harden_llm_web/live/profile_widget_component.ex` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | The widget exposes only `cache` and `refresh`, converts legacy persisted `off` to `cache`, toggles the selected mode, and persists the changed state. |
@@ -525,3 +525,15 @@ The frontend v1 is complete when:
 - Phoenix LiveView: <https://hexdocs.pm/phoenix_live_view/Phoenix.LiveView.html>
 - Req: <https://hexdocs.pm/req/Req.html>
 - OpenTelemetry Erlang/Elixir: <https://opentelemetry.io/docs/languages/erlang/>
+
+## 18. Shared recovery controls
+
+ADR-HLLM-020 requires one ProfileWidgetState draft transform/serializer and one shared component/help/style implementation for Workspace and Profiles. A required complete recoveryPolicy is copied from a profile or result.defaults.recoveryPolicy returned by the existing profiles REST operation. Phoenix owns input syntax/presentation; Go owns semantic defaults/validation. Save/reload/run/cURL use the same serializer. False, zero and an empty retry list persist exactly. Backup, escalation and independent parse-retry controls are removed. Strict wire decoding uses profile/state/bundle v2 and one RunResult v3 for run/history/trace. Old requests cannot rerun without satisfying the current input contract; no legacy conversion or silent defaults are added.
+
+| ID | Assertion owner | Acceptance |
+| --- | --- | --- |
+| WEB-TEST-071 | ProfileWidgetState/component tests; TEST-209 | Shared policy fields/help/styles, input syntax and serialization preserve explicit values. |
+| WEB-TEST-072 | ProfilesLive/WorkspaceLive tests; TEST-209 | Both editors agree across save/reload/run/cURL and surface errors through their existing event boundaries. |
+| WEB-TEST-073 | HardenAPI/WorkspaceLive tests; TEST-209 | Backend-validated defaults/current versions decode strictly; unsupported historical requests fail clearly. |
+
+Command: `(cd frontend && mix test --only recovery --seed 104729)`. These cases use LiveViewTest/Req.Test, not a browser layout oracle.

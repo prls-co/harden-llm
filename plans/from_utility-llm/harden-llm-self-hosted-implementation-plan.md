@@ -89,7 +89,7 @@
 | --- | --- | --- | --- |
 | REQ-001 | int | The target shall be module `github.com/prls-co/harden-llm` with one root package named `hardenllm`. | External-package tests import `New`, `Client.Call`, request/result, profile/catalog, credential/cache/artifact, endpoint-policy, and telemetry surfaces; built-in provider, Garage, and all other implementation packages remain private. |
 | REQ-002 | func | The library shall expose `New(Options)` and one `Client.Call(context.Context, Request) (Result, error)` execution path. | `Result` contains output and normalized call metadata; no simple/detailed split exists. |
-| REQ-003 | func | Retry, structured repair, and backup-profile behavior shall preserve current total-attempt, classification, backoff, cancellation, graph, and fallback boundaries. | Deterministic fixtures match source behavior and caller context bounds the complete candidate sequence. |
+| REQ-003 | func | Recovery uses one complete policy and one selected-target execution loop under ADR-HLLM-020. | Explicit categories/defaults, strict original-schema repair, exact records and a shared attempt/context budget pass; backup/escalation and old execution formats are removed. |
 | REQ-004 | int | Built-in providers shall cover OpenAI-compatible Chat, OpenAI Responses, Gemini GenerateContent, Anthropic Messages, and generic OpenAI-compatible endpoints. | Request, response, error, usage, and cost fixtures match current contracts. |
 | REQ-005 | security | All provider-bound HTTP operations shall use one endpoint-security policy. | Unsafe schemes, addresses, redirects, DNS rebinding, headers, TLS controls, and credential-origin changes fail before unintended dialing. |
 | REQ-006 | func | Contracted schema handling and operation-cache identity/replay shall preserve current behavior. | Schema/parse/repair fixtures and cache hash/mode/replay fixtures match source behavior. |
@@ -1664,3 +1664,7 @@ Privacy and data-quality constraints:
 | ADR-HLLM-011 | Accepted | Keep the current Go 1.26.6 security-patched toolchain after the original 1.26.5 decision. |
 | ADR-HLLM-012 | Accepted | Complete utility frontend behavior through one self-hosted Phoenix/Go path with explicit editor, pagination, and infrastructure adaptations. |
 | ADR-HLLM-013 | Accepted | Embed the current utility-llm 28-profile catalog and backfill missing owner presets without credentials or overwrite. |
+
+## 13. Recovery architecture follow-up
+
+The accepted implementation sequence is `plans/retries-repair-architecture-implementation-plan.md` (PLAN-HARDEN-LLM-RECOVERY-001), with REQ-201 through REQ-212 and TEST-201 through TEST-211. ADR-HLLM-020 supersedes historical recovery/backup parity clauses in the completed original phases; their historical execution evidence is not rewritten. Follow the new phases for the current implementation and data transition.

@@ -208,7 +208,7 @@ type Request struct {
   Context         ObservabilityContext
   CacheMode       CacheMode
   CacheVersion    string
-  RetryPolicy     RetryPolicy
+  RecoveryPolicy  RecoveryPolicy
 }
 
 type Result struct {
@@ -261,14 +261,12 @@ Contract requirements:
   Refresh recomputes and overwrites the same search-enabled operation key.
   Search evidence/citations remain attached to cached answers. Successful Jina
   results are memoized only within the logical call, including retries, repairs
-  and backups. No speculative native/Jina dual execution occurs (ADR-HLLM-019).
-- `maxAttempts` means the call-global total provider-invocation budget across
-  primary, retry, repair, and backup candidates.
-- Parse/schema retry and semantic repair consume the same attempt budget.
-- Backup profiles are resolved from flat `backupProfiles` references with current cycle, duplicate, missing-reference, and maximum-depth behavior preserved.
-- Candidate profiles retain retry classification and backoff policy, but cannot
-  reset or exceed the call-global attempt budget. The caller context remains the
-  final overall deadline.
+  on the same selected target. No speculative native/Jina dual execution occurs (ADR-HLLM-019).
+- ADR-HLLM-020 defines one required complete RecoveryPolicy shared by the public Go API, runtime, profiles, REST and client state. Go owns defaults/validation; the existing profiles response supplies defaults to the frontend.
+- `maxAttempts` bounds all execution slots/model invocations on one immutable selected target. Initial, retry and repair attempts share the caller context; no backup/escalation or retry-original execution path exists.
+- Strict structured parsing preserves JSON values and validates the original schema for initial and repair responses, without coercion, heuristic salvage or a repair envelope.
+- Explicit false/zero/empty controls survive; only listed transient categories repeat. Valid 429/503 Retry-After is a minimum over capped calculated backoff and cannot escape the caller deadline.
+- Profile/state/bundle documents use v2; current run/history/trace results share v3. The standard migration preserves original requests, output, target snapshots, accounting, ownership and credentials while removing retired controls/attempt metadata. No runtime old-format converter exists.
 - Provider payloads, errors, and diagnostic data pass through the shared redactor before persistence or emission.
 - `ArtifactStore` is optional for direct library callers. When configured, the library writes canonical redacted JSON trace artifacts and diagnostic attachments and returns immutable references; an artifact-store failure is recorded diagnostically but does not change an otherwise successful provider result.
 - The self-hosted gateway supplies the one Garage-backed `ArtifactStore`. The library has no MinIO or Langfuse storage configuration.

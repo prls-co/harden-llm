@@ -674,6 +674,28 @@
         "TEST-028",
         "TEST-031"
       ]
+    },
+    {
+      "adr": "ADR-HLLM-020",
+      "fixtures": [
+        "generated/profile-catalog.json",
+        "generated/retry-classification.json",
+        "source/combinatorial/retry-decision-matrix.json",
+        "source/evals/jsonrepair-object-key-expected-incident.json"
+      ],
+      "id": "explicit-selected-target-recovery",
+      "mode": "intentional-difference",
+      "note": "Complete explicit recovery policy; one selected target; strict value-preserving JSON; original-schema repair; no backup/escalation, implicit retries or capped server Retry-After. Captured source evidence remains unchanged.",
+      "tests": [
+        "TEST-202",
+        "TEST-203",
+        "TEST-204",
+        "TEST-205",
+        "TEST-206",
+        "TEST-207",
+        "TEST-208",
+        "TEST-209"
+      ]
     }
   ],
   "manifestSchemaVersion": 2,
