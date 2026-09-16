@@ -571,11 +571,14 @@ version: 2.2.0
 status: complete
 tested_source_sha: a34e797449d7f6d9fee27485b0855070cce80a47
 tested_branch: feat/recovery-policy
-application_source_sha: 9b4a400bc8b47776134b2d181bb9b55e6292d852
+recovery_application_sha: 9b4a400bc8b47776134b2d181bb9b55e6292d852
+security_patch_sha: c52c438b887bec6f3be06bf13a867cda06b32f11
+application_source_sha: 60b74f7224ab8633acf8bb4ea7670307a1c15e18
 branch: main
 worktree_diff_identity:
   application_commit_sha: a34e797449d7f6d9fee27485b0855070cce80a47
   merge_commit_sha: 9b4a400bc8b47776134b2d181bb9b55e6292d852
+  final_merge_commit_sha: 60b74f7224ab8633acf8bb4ea7670307a1c15e18
   tracked_patch_sha256: none (clean committed source)
   untracked_files: []
 completed_phases:
@@ -644,18 +647,26 @@ issues_and_resolutions:
 deployment:
   production_url: https://harden-llm.prls.co/
   compose_project: harden-llm
-  source_sha: 9b4a400bc8b47776134b2d181bb9b55e6292d852
-  deployed_at: 2026-09-16T05:04:59Z
+  source_sha: 60b74f7224ab8633acf8bb4ea7670307a1c15e18
+  deployed_at: 2026-09-16T05:36:16Z
   migration_version: 7
-  gateway_image: sha256:04bc0e5d9fb6d6b127861064e15d9ba063038f4ceb8c85227b4374f5732795c3
-  gateway_container: 73bc8648c8f1937b158bd092e1c57252a8a25132b6310e2fe3295651660e28ad
-  web_image: sha256:33f49327cbebb28b3cac2621b394bfb473ea9dfbca803782109d004a0da5a887
-  web_container: b41106d3ed3e653b7c2b33e109a44e6b304677b9e5a2500f3d9b3ee389fac877
+  gateway_image: sha256:7d75ff7b3e923301183a44a61ae19d750db9b7ae87ea53eafe0eda91f4775844
+  gateway_container: 6d8f00b01e824e24ba71f3dfcde0505753c7471c7f89167ee8ab03530f888fe1
+  web_image: sha256:cbb385010d370fb70a2efaa0acaa07deccb350b8e58ec55a9b972dbf2709ddb6
+  web_container: 9c51e7f589e9a3b722c14a46e601b0d0610001d4cb3887506b5b63dd68fce8fe
   health: {gateway: healthy, web: healthy, api_healthz: 200, api_readyz: 200, frontend_healthz: 200}
   authenticated_read_only: {static_token_profiles: 200, static_token_history: 200, anonymous_history: 401}
   browser_layout_checked: false
   live_provider_called: false
-  receipt: /home/kirill/.local/state/harden-llm-recovery-9b4a400/post-deploy.json
+  receipt: /home/kirill/.local/state/harden-llm-recovery-60b74f7/post-deploy.json
+security_patch:
+  advisory: GHSA-2v4p-qf9q-27wj
+  dependency: google.golang.org/grpc
+  fixed_version: 1.83.2
+  pull_request: 48
+  release_report: tmp/test-feedback/grpc-security-release-c52c438.json
+  release_report_sha256: 93a2f4ff308c56789a4e2f79753cc2fd93e133c5689f7baa22ed5aee7c26590f
+  dependabot_open_alerts_after_deploy: 0
 remaining_work:
   - browser layout/native-event and live-provider certification were not run because AGENTS.md requires explicit user authorization for those gates
 ```
