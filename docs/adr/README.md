@@ -25,7 +25,7 @@ migration path.
 
 | [ADR-HLLM-020](ADR-HLLM-020-recovery-policy-and-execution.md) | Accepted for implementation | Use one complete recovery policy, selected target, execution loop and shared editor, with a finite standard data migration. |
 | [ADR-HLLM-021](ADR-HLLM-021-recovery-boundary-ownership.md) | Implemented and locally certified | Assign failure, dispatch, completion, accounting, cache, host-policy and ordered-persistence facts to one existing owner. |
-| [ADR-HLLM-022](ADR-HLLM-022-recovery-integrity-boundaries.md) | Accepted for implementation | Correct nested timeout and dispatched-accounting coverage, validate lossless cache replay, remove redundant cache sidecars, and preserve accepted inference after a cache-write failure. |
+| [ADR-HLLM-022](ADR-HLLM-022-recovery-integrity-boundaries.md) | Accepted and implemented | Correct nested timeout and dispatched-accounting coverage, validate lossless cache replay, remove redundant cache sidecars, and preserve accepted inference after a cache-write failure. |
 
 The remaining planned deviation triggers are ADR-HLLM-003 through ADR-HLLM-007
 in the canonical implementation plan. Create one of those records only when its

@@ -1563,3 +1563,59 @@ The sanitized host-local receipt is `plans/evidence/harden-llm/field-help-produc
 SHA-256 `f243af10f64ef34fe21f1406bc205b85767d4b8822e354d1d24950bbbfd529a7`. The previous frontend image, rollback Compose
 override, and protected environment snapshot are retained at
 `/home/kirill/.local/state/harden-llm-field-help-f50375e`.
+
+## Recovery integrity boundaries — production (2026-09-16 UTC)
+
+PR [#47](https://github.com/prls-co/harden-llm/pull/47) merged the recovery
+integrity implementation into `main`. The application-bearing feature commit
+was `a34e797449d7f6d9fee27485b0855070cce80a47`; the production source and
+runtime release identity is the merge commit
+`9b4a400bc8b47776134b2d181bb9b55e6292d852`.
+
+The final browser-free release selector accepted **24/24 tasks**, with no
+failures or cleanup errors. It covered Go formatting, lint, build, static,
+unit/parity/API/observability, PostgreSQL/Garage integration and race checks,
+Garage restart, backend Compose, vulnerability scanning, Phoenix formatting,
+compile, deterministic tests, client core, dependency audits, asset build and
+release, and the backend verification baseline. The exact report is
+`tmp/test-feedback/recovery-r04-final-a34e797.json` with SHA-256
+`8a516e6a625db38465e8ef6d06aff976f02a57ac3f51fb836ee5551762469402`.
+GitHub's fast hierarchy and CodeQL checks passed on the same feature commit:
+[test hierarchy](https://github.com/prls-co/harden-llm/actions/runs/35056721663),
+[CodeQL](https://github.com/prls-co/harden-llm/actions/runs/35056719688), and
+[aggregate CodeQL status](https://github.com/prls-co/harden-llm/runs/104668477583).
+
+Production deployment used the existing `harden-llm` Compose project and
+recreated only `harden-llm-gateway` and `harden-llm-web` with
+`--no-build --no-deps --wait`. The gateway applied migration `0007_cache_projection`
+under the normal migration lock; the database now reports migrations `1` through
+`7`, the cache retains only `owner_id`, `cache_version`, `operation_hash`,
+`result`, `created_at`, and `updated_at`, and the removed cache sidecar tables do
+not exist. All sixteen Compose services are healthy/running; infrastructure and
+named volumes were retained.
+
+| Component | Runtime release | Immutable image | Container |
+| --- | --- | --- | --- |
+| Gateway | `9b4a400bc8b47776134b2d181bb9b55e6292d852` | `sha256:04bc0e5d9fb6d6b127861064e15d9ba063038f4ceb8c85227b4374f5732795c3` | `73bc8648c8f1` |
+| Web | `9b4a400bc8b47776134b2d181bb9b55e6292d852` | `sha256:33f49327cbebb28b3cac2621b394bfb473ea9dfbca803782109d004a0da5a887` | `b41106d3ed3e` |
+
+Both application containers were healthy with zero restarts. Public frontend
+`/healthz` and `/login`, API `/healthz`, and API `/readyz` returned HTTP 200.
+The existing static token authenticated read-only profile and history requests
+(HTTP 200), while anonymous History remained protected (HTTP 401). No provider
+or search request was made.
+
+The first replacement attempt was rejected at readiness because shell-sourcing
+the production `.env` altered the embedded JSON encryption-key value. It was
+not counted as a deployment success. The accepted replacement used Compose's
+native `--env-file` parser, preserved the same data and session volumes, and
+introduced no schema or configuration rollback. Pre- and post-deployment
+identities are retained in the host-local receipts under
+`/home/kirill/.local/state/harden-llm-recovery-9b4a400`.
+
+No browser was launched and browser layout/native-event behavior was not
+checked. No live provider was called. Those remain separate opt-in gates under
+the repository testing policy.
+
+The source documentation update after this deployment is a documentation-only
+checkpoint; it does not change the application images or require a rebuild.

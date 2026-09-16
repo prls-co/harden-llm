@@ -493,7 +493,7 @@ If a gate fails, preserve its output, diagnose and fix the cause at the owning b
 
 Record the tested implementation SHA/worktree identity, per-phase completed steps, failing/passing regression names, migration version, request/write counts, exact-number/retained-row evidence and final runner report location. If only documentation changes after tests, distinguish that documentation checkpoint from the tested implementation rather than claiming a new application run.
 
-Mark the plan implemented only when all required work and gates are complete. List any unfinished step explicitly. No deployment, browser layout or live-provider result follows from these local checks.
+Mark the plan implemented only when all required work and gates are complete. List any unfinished step explicitly. No deployment, browser layout or live-provider result follows from these local checks; the separately authorized production delivery is recorded in the execution evidence below.
 
 
 ## 7. Verification matrix and commands
@@ -547,7 +547,7 @@ An older binary that queries dropped columns cannot run against the migrated sch
 
 Cache data may remain sensitive because generated output and search evidence are retained intentionally. Existing redaction and owner-isolation requirements still apply. The canonical projection is not a substitute for a broader retention policy.
 
-No provider fallback/escalation, exactly-once guarantee, new timeout default, repair truncation, arbitrary internal-executor support, cross-session state protocol, production deployment or historical-accounting rewrite is included.
+No provider fallback/escalation, exactly-once guarantee, new timeout default, repair truncation, arbitrary internal-executor support, cross-session state protocol, or historical-accounting rewrite is included. Production delivery is recorded separately in the execution evidence below.
 
 ## 9. Definition of done and execution evidence
 
@@ -567,17 +567,17 @@ the dirty worktree as a commit.
 
 ```yaml
 plan: PLAN-HLLM-RECOVERY-BOUNDARIES-002
-version: 2.1.0
+version: 2.2.0
 status: complete
-tested_source_sha: f0c67b976da14dbc45ca4d36296c46a9c18fd012
-branch: feat/recovery-policy
+tested_source_sha: a34e797449d7f6d9fee27485b0855070cce80a47
+tested_branch: feat/recovery-policy
+application_source_sha: 9b4a400bc8b47776134b2d181bb9b55e6292d852
+branch: main
 worktree_diff_identity:
-  tracked_patch_sha256: 4aab059d2aaf723560da23f6a4ff60548a582472f04c102d1f710ddc3154e345
-  untracked_files:
-    - docs/adr/ADR-HLLM-022-recovery-integrity-boundaries.md
-    - internal/postgres/migrations/0007_cache_projection.sql
-    - internal/runtime/search_test.go
-    - plans/retries-repair-deep-rca-remediation-plan.md
+  application_commit_sha: a34e797449d7f6d9fee27485b0855070cce80a47
+  merge_commit_sha: 9b4a400bc8b47776134b2d181bb9b55e6292d852
+  tracked_patch_sha256: none (clean committed source)
+  untracked_files: []
 completed_phases:
   - phase: R01
     status: complete
@@ -613,9 +613,10 @@ completed_phases:
   - phase: R04
     status: complete
     completed_steps: [R04.S01, R04.S02, R04.S03]
-    release_command: make test-release
+    release_command: PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH node scripts/run-test-tier.mjs --task release --output tmp/test-feedback/recovery-r04-final-a34e797.json
     release_result: {accepted: true, selector: release, task_count: 24, failure: null, cleanup_errors: []}
-    release_report: tmp/test-feedback/recovery-r04-release-report.json
+    release_report: tmp/test-feedback/recovery-r04-final-a34e797.json
+    release_report_sha256: 8a516e6a625db38465e8ef6d06aff976f02a57ac3f51fb836ee5551762469402
     release_report_result: schema=1, seed=104729, all 24 task statuses 0, integration service pools started and cleaned, firstFailure=null
 red_evidence:
   - accounting overlay reproduced unknown dispatched work being reported complete
@@ -638,6 +639,23 @@ retained_row_and_number_precision_evidence:
 issues_and_resolutions:
   - release smoke setup and service-pool ownership were executed by the canonical tier runner; no standalone integration database was used
   - the retained release report records every task status as 0, both integration service-pool tasks with cleanupError=null, and no first failure
+  - deterministic frontend fold assertions now wait for the component-owned state save before opening a dependent fold; this preserves the real async lifecycle and removed a scheduler-dependent release failure
+  - the first production replacement used a shell-sourced JSON environment and was rejected when the gateway failed its encryption-key configuration check; the accepted deployment used Compose's native --env-file parser, with no volume or data removal
+deployment:
+  production_url: https://harden-llm.prls.co/
+  compose_project: harden-llm
+  source_sha: 9b4a400bc8b47776134b2d181bb9b55e6292d852
+  deployed_at: 2026-09-16T05:04:59Z
+  migration_version: 7
+  gateway_image: sha256:04bc0e5d9fb6d6b127861064e15d9ba063038f4ceb8c85227b4374f5732795c3
+  gateway_container: 73bc8648c8f1937b158bd092e1c57252a8a25132b6310e2fe3295651660e28ad
+  web_image: sha256:33f49327cbebb28b3cac2621b394bfb473ea9dfbca803782109d004a0da5a887
+  web_container: b41106d3ed3e653b7c2b33e109a44e6b304677b9e5a2500f3d9b3ee389fac877
+  health: {gateway: healthy, web: healthy, api_healthz: 200, api_readyz: 200, frontend_healthz: 200}
+  authenticated_read_only: {static_token_profiles: 200, static_token_history: 200, anonymous_history: 401}
+  browser_layout_checked: false
+  live_provider_called: false
+  receipt: /home/kirill/.local/state/harden-llm-recovery-9b4a400/post-deploy.json
 remaining_work:
   - browser layout/native-event and live-provider certification were not run because AGENTS.md requires explicit user authorization for those gates
 ```
