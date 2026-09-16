@@ -76,12 +76,12 @@ func TestLiveProviders(t *testing.T) {
 			catalog := hardenllm.ProfileCatalog{item.Profile.LLMProfile: item.Profile}
 			textContext, cancelText := context.WithTimeout(context.Background(), 90*time.Second)
 			textResult, err := client.Call(textContext, hardenllm.Request{
-				ProfileID:   item.Profile.LLMProfile,
-				Profiles:    catalog,
-				UserPrompt:  "Reply with exactly OK.",
-				CallType:    hardenllm.CallTypeText,
-				CacheMode:   hardenllm.CacheModeOff,
-				RetryPolicy: hardenllm.RetryPolicy{MaxAttempts: 1},
+				ProfileID:      item.Profile.LLMProfile,
+				Profiles:       catalog,
+				UserPrompt:     "Reply with exactly OK.",
+				CallType:       hardenllm.CallTypeText,
+				CacheMode:      hardenllm.CacheModeOff,
+				RecoveryPolicy: hardenllm.RecoveryPolicy{MaxAttempts: 1, RetryOn: []hardenllm.RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: hardenllm.RecoveryBackoff{}},
 			})
 			cancelText()
 			if err != nil {
@@ -97,13 +97,13 @@ func TestLiveProviders(t *testing.T) {
 			}
 			structuredContext, cancelStructured := context.WithTimeout(context.Background(), 90*time.Second)
 			structuredResult, err := client.Call(structuredContext, hardenllm.Request{
-				ProfileID:   item.Profile.LLMProfile,
-				Profiles:    catalog,
-				UserPrompt:  "Return one JSON object whose ok field is true.",
-				CallType:    hardenllm.CallTypeStructured,
-				Schema:      json.RawMessage(`{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"],"additionalProperties":false}`),
-				CacheMode:   hardenllm.CacheModeOff,
-				RetryPolicy: hardenllm.RetryPolicy{MaxAttempts: 1},
+				ProfileID:      item.Profile.LLMProfile,
+				Profiles:       catalog,
+				UserPrompt:     "Return one JSON object whose ok field is true.",
+				CallType:       hardenllm.CallTypeStructured,
+				Schema:         json.RawMessage(`{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"],"additionalProperties":false}`),
+				CacheMode:      hardenllm.CacheModeOff,
+				RecoveryPolicy: hardenllm.RecoveryPolicy{MaxAttempts: 1, RetryOn: []hardenllm.RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: hardenllm.RecoveryBackoff{}},
 			})
 			cancelStructured()
 			if err != nil {

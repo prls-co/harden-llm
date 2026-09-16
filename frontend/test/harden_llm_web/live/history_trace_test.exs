@@ -279,7 +279,7 @@ defmodule HardenLlmWeb.HistoryTraceTest do
           Req.Test.json(conn, APIFixtures.success(nil, state))
 
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+          Req.Test.json(conn, APIFixtures.profiles([APIFixtures.profile_state()]))
 
         {"GET", "/api/v1/stats"} ->
           flunk("the workspace must not fetch retired aggregate stats")

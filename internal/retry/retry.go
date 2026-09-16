@@ -2,11 +2,14 @@
 package retry
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
-	"math/rand"
+	"slices"
 	"strings"
 	"time"
 )
@@ -33,16 +36,109 @@ const (
 	CategoryOther     Category = "other"
 )
 
+// Policy is the complete provider-independent recovery contract. Runtime never
+// replaces explicit values with defaults; callers create policies explicitly.
 type Policy struct {
-	Network       bool
-	RateLimit     bool
-	ServerError   bool
-	EmptyResponse bool
-	ParseError    bool
+	MaxAttempts         int        `json:"maxAttempts"`
+	RetryOn             []Category `json:"retryOn"`
+	RepairInvalidOutput bool       `json:"repairInvalidOutput"`
+	Backoff             Backoff    `json:"backoff"`
 }
 
+type Backoff struct {
+	BaseDelayMS int `json:"baseDelayMs"`
+	MaxDelayMS  int `json:"maxDelayMs"`
+}
+
+type ValidationError struct {
+	Field   string `json:"field"`
+	Message string `json:"message"`
+}
+
+func (err *ValidationError) Error() string { return err.Field + ": " + err.Message }
+
 func DefaultPolicy() Policy {
-	return Policy{Network: true, RateLimit: true, ServerError: true, EmptyResponse: true}
+	return Policy{MaxAttempts: DefaultMaxAttempts,
+		RetryOn:             []Category{CategoryNetwork, CategoryRateLimit, CategoryServer, CategoryEmpty, CategoryProvider},
+		RepairInvalidOutput: true,
+		Backoff:             Backoff{BaseDelayMS: int(DefaultBaseDelay.Milliseconds()), MaxDelayMS: int(DefaultMaxDelay.Milliseconds())}}
+}
+
+func (policy Policy) Validate() error {
+	invalid := func(field, message string) error {
+		return &ValidationError{Field: "recoveryPolicy." + field, Message: message}
+	}
+	if policy.MaxAttempts < 1 || policy.MaxAttempts > 10 {
+		return invalid("maxAttempts", "must be an integer from 1 through 10")
+	}
+	if policy.RetryOn == nil {
+		return invalid("retryOn", "must be an explicit array; use [] to disable retries")
+	}
+	for index, category := range policy.RetryOn {
+		switch category {
+		case CategoryNetwork, CategoryRateLimit, CategoryServer, CategoryEmpty, CategoryProvider:
+		default:
+			return invalid("retryOn", "contains an unsupported retry category")
+		}
+		if slices.Contains(policy.RetryOn[:index], category) {
+			return invalid("retryOn", "categories must be unique")
+		}
+	}
+	if policy.Backoff.BaseDelayMS < 0 || policy.Backoff.BaseDelayMS > 60000 {
+		return invalid("backoff.baseDelayMs", "must be an integer from 0 through 60000")
+	}
+	if policy.Backoff.MaxDelayMS < policy.Backoff.BaseDelayMS || policy.Backoff.MaxDelayMS > 600000 {
+		return invalid("backoff.maxDelayMs", "must be at least baseDelayMs and at most 600000")
+	}
+	return nil
+}
+
+func (policy Policy) Allows(category Category) bool { return slices.Contains(policy.RetryOn, category) }
+
+func (policy *Policy) UnmarshalJSON(data []byte) error {
+	type wire Policy
+	var decoded wire
+	if err := decodeRequired(data, &decoded, "recoveryPolicy", []string{"maxAttempts", "retryOn", "repairInvalidOutput", "backoff"}); err != nil {
+		return err
+	}
+	result := Policy(decoded)
+	if err := result.Validate(); err != nil {
+		return err
+	}
+	*policy = result
+	return nil
+}
+
+func (backoff *Backoff) UnmarshalJSON(data []byte) error {
+	type wire Backoff
+	var decoded wire
+	if err := decodeRequired(data, &decoded, "recoveryPolicy.backoff", []string{"baseDelayMs", "maxDelayMs"}); err != nil {
+		return err
+	}
+	*backoff = Backoff(decoded)
+	return nil
+}
+
+func decodeRequired(data []byte, target any, prefix string, fields []string) error {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(data, &object); err != nil {
+		return &ValidationError{Field: prefix, Message: "must be an object"}
+	}
+	for _, field := range fields {
+		value, exists := object[field]
+		if !exists || bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return &ValidationError{Field: prefix + "." + field, Message: "is required"}
+		}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil {
+		return &ValidationError{Field: prefix, Message: "has an unknown field or invalid value type"}
+	}
+	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
+		return &ValidationError{Field: prefix, Message: "must contain one object"}
+	}
+	return nil
 }
 
 type Classification struct {
@@ -57,16 +153,13 @@ type Classification struct {
 
 type ProviderError struct {
 	Err               error
+	Category          Category
 	Code              string
 	Type              string
 	ProviderRequestID string
 	RawResponse       string
 	Status            int
 	RetryAfter        time.Duration
-	Parse             bool
-	Refusal           bool
-	Empty             bool
-	Timeout           bool
 }
 
 func (providerError *ProviderError) Error() string {
@@ -93,6 +186,9 @@ func (providerError *ProviderError) Unwrap() error {
 }
 
 func Classify(err error, policy Policy) Classification {
+	if err == nil {
+		return Classification{Category: CategorySuccess}
+	}
 	if errors.Is(err, context.Canceled) {
 		return Classification{Category: CategoryCanceled}
 	}
@@ -106,220 +202,120 @@ func Classify(err error, policy Policy) Classification {
 			return Classification{
 				Retryable: retryable, Category: category, Status: providerError.Status,
 				Code: providerError.Code, Type: providerError.Type, ProviderRequestID: providerError.ProviderRequestID,
+				RetryAfter: nonnegativeDuration(providerError.RetryAfter),
 			}
 		}
-		if providerError.Refusal || containsRefusal(providerError.Error()) {
-			return metadata(CategoryRefusal, false)
-		}
-		if providerError.Parse {
-			return metadata(CategoryParse, policy.ParseError)
-		}
-		if providerError.Timeout {
-			return metadata(CategoryTimeout, false)
-		}
-		if isNetworkCode(providerError.Code) || containsNetworkFailure(providerError.Error()) {
-			return metadata(CategoryNetwork, policy.Network)
+		// A category assigned by the protocol normalizer is authoritative for a
+		// decoded envelope. An unclassified HTTP response is classified from its
+		// status below; free-form diagnostics never override either fact.
+		if providerError.Category != "" {
+			category := providerError.Category
+			return metadata(category, policy.Allows(category) && category != CategoryOther && category != CategoryParse && category != CategoryRefusal && category != CategoryTimeout && category != CategoryCanceled)
 		}
 		if providerError.Status == 429 {
-			classification := metadata(CategoryRateLimit, policy.RateLimit)
+			classification := metadata(CategoryRateLimit, policy.Allows(CategoryRateLimit))
 			classification.RetryAfter = nonnegativeDuration(providerError.RetryAfter)
 			return classification
 		}
-		if (providerError.Status >= 500 && providerError.Status <= 599) || isProviderServerError(providerError) {
-			return metadata(CategoryServer, policy.ServerError)
+		if providerError.Status >= 500 && providerError.Status <= 599 {
+			return metadata(CategoryServer, policy.Allows(CategoryServer))
 		}
-		if providerError.Empty || strings.EqualFold(strings.TrimSpace(providerError.Code), "empty_response") {
-			return metadata(CategoryEmpty, policy.EmptyResponse)
+		if providerError.Status != 0 && (providerError.Status < 200 || providerError.Status > 299) {
+			return metadata(CategoryOther, false)
 		}
-		if strings.EqualFold(strings.TrimSpace(providerError.Code), "provider_retry") {
-			return metadata(CategoryProvider, true)
+		category := categoryForCode(providerError.Code)
+		if category == CategoryParse {
+			return metadata(CategoryParse, false)
 		}
-		return metadata(CategoryOther, false)
-	}
-
-	if containsRefusal(errorMessage(err)) {
-		return Classification{Category: CategoryRefusal}
+		return metadata(category, policy.Allows(category) && category != CategoryOther && category != CategoryParse && category != CategoryRefusal && category != CategoryTimeout && category != CategoryCanceled)
 	}
 	return Classification{Category: CategoryOther}
 }
 
+// Config supplies the complete policy and process-local timing dependencies to
+// the runtime's single execution loop. Only dependencies have defaults.
 type Config struct {
-	MaxAttempts int
-	BaseDelay   time.Duration
-	MaxDelay    time.Duration
-	Policy      Policy
-	Random      func() float64
-	Wait        func(context.Context, time.Duration) error
-	Hooks       Hooks
+	Policy Policy
+	Random func() float64
+	Wait   func(context.Context, time.Duration) error
+	Now    func() time.Time
 }
 
-// Hooks instrument retry execution without changing classification, budgets,
-// or wait behavior. A hook must invoke the supplied function exactly once.
-type Hooks struct {
-	Attempt func(context.Context, int, func(context.Context) error) error
-	Wait    func(context.Context, Classification, time.Duration, func(context.Context, time.Duration) error) error
+func Delay(attempt int, retryAfter time.Duration, backoff Backoff, random float64) time.Duration {
+	window := int64(max(backoff.BaseDelayMS, 0))
+	maximum := int64(max(backoff.MaxDelayMS, 0))
+	if window > maximum {
+		window = maximum
+	}
+	for step := 1; step < max(attempt, 1) && window < maximum; step++ {
+		if window > maximum/2 {
+			window = maximum
+			break
+		}
+		window *= 2
+	}
+	jitter := int64(math.Floor(float64(window) * clampRandom(random)))
+	delay := time.Duration(jitter) * time.Millisecond
+	return max(delay, nonnegativeDuration(retryAfter))
 }
 
-type Attempt struct {
-	Number            int
-	ProfileID         string
-	BackupIndex       int
-	Category          Category
-	Status            int
-	Retryable         bool
-	Delay             time.Duration
-	Duration          time.Duration
-	Repair            bool
-	Code              string
-	Type              string
-	ProviderRequestID string
-}
-
-func Do(ctx context.Context, config Config, work func(context.Context, int) error) ([]Attempt, error) {
-	if ctx == nil {
-		return nil, errors.New("retry: context is required")
+func Wait(ctx context.Context, duration time.Duration) error {
+	if err := ctx.Err(); err != nil {
+		return err
 	}
-	if work == nil {
-		return nil, errors.New("retry: work function is required")
-	}
-	config = normalizeConfig(config)
-	attempts := make([]Attempt, 0, config.MaxAttempts)
-	for number := 1; number <= config.MaxAttempts; number++ {
-		if err := ctx.Err(); err != nil {
-			return attempts, err
-		}
-		started := time.Now()
-		var err error
-		if config.Hooks.Attempt == nil {
-			err = work(ctx, number)
-		} else {
-			err = config.Hooks.Attempt(ctx, number, func(attemptContext context.Context) error {
-				return work(attemptContext, number)
-			})
-		}
-		duration := time.Since(started)
-		if contextErr := ctx.Err(); contextErr != nil {
-			classification := Classify(contextErr, config.Policy)
-			attempts = append(attempts, Attempt{
-				Number: number, Category: classification.Category, Status: classification.Status, Duration: duration,
-			})
-			return attempts, contextErr
-		}
-		if err == nil {
-			attempts = append(attempts, Attempt{Number: number, Category: CategorySuccess, Duration: duration})
-			return attempts, nil
-		}
-
-		classification := Classify(err, config.Policy)
-		attempt := Attempt{
-			Number: number, Category: classification.Category, Status: classification.Status,
-			Retryable: classification.Retryable, Duration: duration,
-			Code: classification.Code, Type: classification.Type, ProviderRequestID: classification.ProviderRequestID,
-		}
-		attempts = append(attempts, attempt)
-		if number >= config.MaxAttempts || !classification.Retryable {
-			return attempts, err
-		}
-
-		delay := retryDelay(number, classification.RetryAfter, config.BaseDelay, config.MaxDelay, config.Random)
-		attempts[len(attempts)-1].Delay = delay
-		if config.Hooks.Wait != nil {
-			err = config.Hooks.Wait(ctx, classification, delay, config.Wait)
-		} else {
-			err = config.Wait(ctx, delay)
-		}
-		if err != nil {
-			return attempts, err
-		}
-	}
-	return attempts, errors.New("retry: exhausted attempt loop")
-}
-
-func normalizeConfig(config Config) Config {
-	if config.MaxAttempts <= 0 {
-		config.MaxAttempts = DefaultMaxAttempts
-	}
-	if config.BaseDelay <= 0 {
-		config.BaseDelay = DefaultBaseDelay
-	}
-	if config.MaxDelay <= 0 {
-		config.MaxDelay = DefaultMaxDelay
-	}
-	if config.Policy == (Policy{}) {
-		config.Policy = DefaultPolicy()
-	}
-	if config.Random == nil {
-		config.Random = rand.Float64
-	}
-	if config.Wait == nil {
-		config.Wait = wait
-	}
-	return config
-}
-
-func retryDelay(attempt int, retryAfter, baseDelay, maxDelay time.Duration, random func() float64) time.Duration {
-	if retryAfter > 0 {
-		return min(retryAfter, maxDelay)
-	}
-	rawMilliseconds := float64(baseDelay.Milliseconds()) * math.Pow(2, float64(attempt-1))
-	delayMilliseconds := rawMilliseconds + rawMilliseconds*(clampRandom(random())*0.5-0.25)
-	delayMilliseconds = min(delayMilliseconds, float64(maxDelay.Milliseconds()))
-	delayMilliseconds = max(0, delayMilliseconds)
-	return time.Duration(math.Floor(delayMilliseconds)) * time.Millisecond
-}
-
-func wait(ctx context.Context, duration time.Duration) error {
 	timer := time.NewTimer(duration)
 	defer timer.Stop()
 	select {
 	case <-timer.C:
-		return nil
+		return ctx.Err()
 	case <-ctx.Done():
 		return ctx.Err()
 	}
 }
 
 func clampRandom(value float64) float64 {
-	if math.IsNaN(value) || value < 0 {
+	if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
 		return 0
 	}
-	if value >= 1 {
-		return math.Nextafter(1, 0)
+	if value > 1 {
+		return 1
 	}
 	return value
 }
 
-func isNetworkCode(code string) bool {
-	switch strings.ToUpper(strings.TrimSpace(code)) {
-	case "ETIMEDOUT", "ECONNRESET", "ENOTFOUND", "EAI_AGAIN", "EPIPE", "ECONNABORTED", "NETWORK_ERROR", "WEB_SEARCH_NETWORK":
-		return true
+func categoryForCode(code string) Category {
+	switch strings.ToLower(strings.TrimSpace(code)) {
+	case "etimedout", "econnreset", "enotfound", "eai_again", "epipe", "econnaborted", "network_error", "web_search_network", "provider_response_read":
+		return CategoryNetwork
+	case "empty_response", "web_search_empty":
+		return CategoryEmpty
+	case "provider_retry":
+		return CategoryProvider
+	case "server_is_overloaded", "service_unavailable", "server_error":
+		return CategoryServer
+	case "provider_refusal", "web_search_tool_error":
+		return CategoryRefusal
+	case "structured_parse":
+		return CategoryParse
+	case "provider_request_timeout", "web_search_timeout":
+		return CategoryTimeout
 	default:
-		return false
+		return CategoryOther
 	}
-}
-
-func containsNetworkFailure(message string) bool {
-	message = strings.ToLower(message)
-	return strings.Contains(message, "premature close") || strings.Contains(message, "socket hang up") || strings.Contains(message, "network timeout")
-}
-
-func containsRefusal(message string) bool {
-	message = strings.ToLower(message)
-	return strings.Contains(message, "refusal") || strings.Contains(message, "content filter") || strings.Contains(message, "content_filter") || strings.Contains(message, "safety blocked")
-}
-
-func isProviderServerError(providerError *ProviderError) bool {
-	value := strings.ToLower(strings.Join([]string{providerError.Code, providerError.Type, providerError.Error()}, " "))
-	return strings.Contains(value, "server_is_overloaded") || strings.Contains(value, "service_unavailable") || strings.Contains(value, "server is currently overloaded") || strings.Contains(value, "servers are currently overloaded") || strings.Contains(value, "service unavailable")
 }
 
 func nonnegativeDuration(value time.Duration) time.Duration {
 	return max(value, 0)
 }
 
-func errorMessage(err error) string {
-	if err == nil {
-		return ""
+// ValidateProviderOptions keeps recovery controls out of free-form provider
+// options. All boundaries use this one list; provider serialization cannot
+// silently interpret or discard an old recovery setting.
+func (Policy) ValidateProviderOptions(options map[string]any) error {
+	for _, key := range []string{"maxAttempts", "maxRetries", "max_retries", "baseDelayMs", "maxDelayMs", "initialBackoffMs", "maximumBackoffMs", "enableRetryOn429", "enableRetryOn5xx", "enableRetryOnNetworkError", "enableRetryOnParseError", "structuredRepairRetry", "structuredRepair", "retryNetwork", "retryRateLimit", "retryServerError", "retryEmpty", "retryParse", "repairEscalation", "backupProfiles", "retryPolicy", "recoveryPolicy"} {
+		if _, present := options[key]; present {
+			return &ValidationError{Field: "providerOptions." + key, Message: "recovery controls belong in recoveryPolicy"}
+		}
 	}
-	return err.Error()
+	return nil
 }

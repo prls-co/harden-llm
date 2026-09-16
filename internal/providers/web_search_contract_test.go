@@ -1,6 +1,6 @@
 package providers
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-012 TEST-025
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-012 TEST-025 TEST-216
 
 import (
 	"context"
@@ -57,18 +57,18 @@ func TestNativeSearchProtocols(t *testing.T) {
 
 func TestSearchEvidenceAndToolFailures(t *testing.T) {
 	t.Parallel()
-	r, err := normalizeResponse(preparedRequest{protocol: "openai.responses", callType: "text", searchMode: "native"}, []byte(`{"output":[{"type":"message","content":[{"type":"output_text","text":"Searching..."}]},{"type":"web_search_call","status":"completed"},{"type":"message","content":[{"type":"output_text","text":"Final answer"}]}]}`))
+	r, err := normalizeResponse(preparedRequest{protocol: "openai.responses", callType: "text", searchMode: "native"}, []byte(`{"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"Searching..."}]},{"type":"web_search_call","status":"completed"},{"type":"message","content":[{"type":"output_text","text":"Final answer"}]}]}`))
 	if err != nil || r.Output != "Final answer" {
 		t.Fatalf("search preamble replaced answer: %#v %v", r, err)
 	}
-	_, err = normalizeResponse(preparedRequest{protocol: "anthropic.messages", callType: "text", searchMode: "native"}, []byte(`{"content":[{"type":"web_search_tool_result","content":{"type":"web_search_tool_result_error","error_code":"too_many_requests"}},{"type":"text","text":"Guess"}]}`))
+	_, err = normalizeResponse(preparedRequest{protocol: "anthropic.messages", callType: "text", searchMode: "native"}, []byte(`{"stop_reason":"end_turn","content":[{"type":"web_search_tool_result","content":{"type":"web_search_tool_result_error","error_code":"too_many_requests"}},{"type":"text","text":"Guess"}]}`))
 	if err == nil {
 		t.Fatal("native tool error was hidden by an unsourced answer")
 	}
 	for _, tc := range []struct{ protocol, body string }{
-		{"openai.responses", `{"output":[{"type":"web_search_call","status":"completed"},{"type":"message","content":[{"type":"output_text","text":"a source","annotations":[{"type":"url_citation","url":"https://example.test","title":"Source","start_index":2,"end_index":8},{"type":"url_citation","url":"javascript:alert(1)"}]}]}]}`},
-		{"google.gemini.generateContent", `{"candidates":[{"content":{"parts":[{"text":"a source"}]},"groundingMetadata":{"webSearchQueries":["query"],"groundingChunks":[{"web":{"uri":"https://example.test","title":"Source"}}],"searchEntryPoint":{"renderedContent":"<a href='https://example.test'>Search</a>"}}}]}`},
-		{"anthropic.messages", `{"content":[{"type":"web_search_tool_result","content":[]},{"type":"text","text":"a source","citations":[{"type":"web_search_result_location","url":"https://example.test","title":"Source"}]}]}`},
+		{"openai.responses", `{"status":"completed","output":[{"type":"web_search_call","status":"completed"},{"type":"message","content":[{"type":"output_text","text":"a source","annotations":[{"type":"url_citation","url":"https://example.test","title":"Source","start_index":2,"end_index":8},{"type":"url_citation","url":"javascript:alert(1)"}]}]}]}`},
+		{"google.gemini.generateContent", `{"candidates":[{"content":{"parts":[{"text":"a source"}]},"finishReason":"STOP","groundingMetadata":{"webSearchQueries":["query"],"groundingChunks":[{"web":{"uri":"https://example.test","title":"Source"}}],"searchEntryPoint":{"renderedContent":"<a href='https://example.test'>Search</a>"}}}]}`},
+		{"anthropic.messages", `{"stop_reason":"end_turn","content":[{"type":"web_search_tool_result","content":[]},{"type":"text","text":"a source","citations":[{"type":"web_search_result_location","url":"https://example.test","title":"Source"}]}]}`},
 	} {
 		r, err := normalizeResponse(preparedRequest{protocol: tc.protocol, callType: "text", searchMode: "native"}, []byte(tc.body))
 		if err != nil || r.Search == nil || !r.Search.Executed || len(r.Search.Sources) != 1 || r.Output != "a source" {
@@ -167,7 +167,7 @@ func (c *searchMemoryCache) Get(_ context.Context, key, version string) (runtime
 	v, ok := c.values[key+version]
 	return v, ok, nil
 }
-func (c *searchMemoryCache) Set(_ context.Context, key, version string, _ cachekey.Operation, v runtime.CachedResult) error {
+func (c *searchMemoryCache) Set(_ context.Context, key, version string, v runtime.CachedResult) error {
 	c.values[key+version] = v
 	return nil
 }
@@ -179,7 +179,7 @@ func TestWebSearchCacheLifecycle(t *testing.T) {
 			calls := 0
 			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				calls++
-				json.NewEncoder(w).Encode(map[string]any{"output": []any{map[string]any{"type": "web_search_call", "status": "completed"}, map[string]any{"type": "message", "content": []any{map[string]any{"type": "output_text", "text": "Answer", "annotations": []any{map[string]any{"type": "url_citation", "url": "https://example.test/source", "title": "Source"}}}}}}})
+				json.NewEncoder(w).Encode(map[string]any{"status": "completed", "output": []any{map[string]any{"type": "web_search_call", "status": "completed"}, map[string]any{"type": "message", "content": []any{map[string]any{"type": "output_text", "text": "Answer", "annotations": []any{map[string]any{"type": "url_citation", "url": "https://example.test/source", "title": "Source"}}}}}}})
 			}))
 			defer server.Close()
 			searcher := &recordingSearcher{result: "https://example.test/source evidence"}
@@ -189,7 +189,7 @@ func TestWebSearchCacheLifecycle(t *testing.T) {
 			run := func(search bool, mode cachekey.Mode) runtime.CallRecord {
 				r, err := runtime.Execute(context.Background(), router, func(context.Context, runtime.Profile) (runtime.Credential, error) {
 					return runtime.Credential{APIKey: "fixture-key"}, nil
-				}, p.ID, map[string]runtime.Profile{p.ID: p}, runtime.Call{CallType: "text", UserPrompt: "query", WebSearch: search}, retry.Config{MaxAttempts: 1}, cache, mode, cachekey.DefaultVersion, "call", "trace")
+				}, p.ID, map[string]runtime.Profile{p.ID: p}, runtime.Call{CallType: "text", UserPrompt: "query", WebSearch: search}, retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, cache, mode, cachekey.DefaultVersion, "call", "trace")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -234,7 +234,7 @@ func TestJinaFailureIsNotAnLLMInvocation(t *testing.T) {
 	p := runtime.Profile{ID: "p", Provider: "cpa", APIInferenceType: "responses", BaseURL: s.URL, ModelID: "fixture"}
 	r, err := runtime.Execute(context.Background(), router, func(context.Context, runtime.Profile) (runtime.Credential, error) {
 		return runtime.Credential{APIKey: "fixture-key"}, nil
-	}, p.ID, map[string]runtime.Profile{p.ID: p}, runtime.Call{CallType: "text", UserPrompt: "query", WebSearch: true}, retry.Config{MaxAttempts: 1}, nil, cachekey.ModeOff, cachekey.DefaultVersion, "call", "trace")
+	}, p.ID, map[string]runtime.Profile{p.ID: p}, runtime.Call{CallType: "text", UserPrompt: "query", WebSearch: true}, retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, nil, cachekey.ModeOff, cachekey.DefaultVersion, "call", "trace")
 	if err == nil || len(r.Attempts) != 1 || r.Attempts[0].ProviderUsed {
 		t.Fatalf("pre-provider failure: %#v %v", r, err)
 	}

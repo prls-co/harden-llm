@@ -384,19 +384,6 @@ func (store *Store) ArtifactsForOwner(ctx context.Context, ownerID string) ([]Ar
 	return records, rows.Err()
 }
 
-func (store *Store) LatestCache(ctx context.Context, ownerID, operationHash string) (CacheRecord, error) {
-	var record CacheRecord
-	err := store.pool.QueryRow(ctx, `
-		SELECT owner_id, cache_version, operation_hash, operation, result, usage, cost, provider_envelope, created_at, updated_at
-		FROM llm_operation_cache WHERE owner_id=$1 AND operation_hash=$2 ORDER BY updated_at DESC, cache_version DESC LIMIT 1`, ownerID, operationHash).Scan(
-		&record.OwnerID, &record.Version, &record.OperationHash, &record.Operation, &record.Result,
-		&record.Usage, &record.Cost, &record.Envelope, &record.CreatedAt, &record.UpdatedAt)
-	if err != nil {
-		return CacheRecord{}, notFound(err)
-	}
-	return record, nil
-}
-
 func (store *Store) DeleteCache(ctx context.Context, ownerID, operationHash string) error {
 	if _, err := store.pool.Exec(ctx, `DELETE FROM llm_operation_cache WHERE owner_id=$1 AND operation_hash=$2`, ownerID, operationHash); err != nil {
 		return fmt.Errorf("postgres: delete cache record: %w", err)
@@ -569,7 +556,7 @@ func insertExecutionRun(ctx context.Context, transaction pgx.Tx, run RunRecord) 
 }
 
 func validateExecutionFields(execution ExecutionFields) error {
-	if execution.SchemaVersion != 2 || strings.TrimSpace(execution.SelectedProvider) == "" ||
+	if execution.SchemaVersion != 3 || strings.TrimSpace(execution.SelectedProvider) == "" ||
 		strings.TrimSpace(execution.SelectedProtocol) == "" || strings.TrimSpace(execution.SelectedEndpoint) == "" ||
 		strings.TrimSpace(execution.SelectedModelID) == "" {
 		return errors.New("postgres: canonical execution identity is invalid")

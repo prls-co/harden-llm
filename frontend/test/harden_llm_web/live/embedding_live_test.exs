@@ -29,7 +29,7 @@ defmodule HardenLlmWeb.EmbeddingLiveTest do
           Req.Test.json(conn, APIFixtures.success(nil, state))
 
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [primary, secondary]}))
+          Req.Test.json(conn, APIFixtures.profiles([primary, secondary]))
 
         _ ->
           flunk("unexpected API call: #{conn.method} #{conn.request_path}")
@@ -69,14 +69,13 @@ defmodule HardenLlmWeb.EmbeddingLiveTest do
 
     view |> element("#embed-secondary-model-config-toggle") |> render_click()
     view |> element("#embed-secondary-profile-retry-toggle") |> render_click()
-    view |> element("#embed-secondary-profile-escalation-config-toggle") |> render_click()
 
     assert has_element?(view, "#embed-secondary-model-options")
-    assert has_element?(view, "#embed-secondary-profile-escalation-config")
+    assert has_element?(view, "#embed-secondary-profile-recovery-policy")
 
     assert has_element?(
              view,
-             ~s(input[type="file"][name="embed_secondary_escalation_profile_bundle"])
+             ~s(input[type="file"][name="embed_secondary_profile_bundle"])
            )
 
     view |> element("#embed-primary-workspace-cache-toggle") |> render_click()
@@ -104,6 +103,45 @@ defmodule HardenLlmWeb.EmbeddingLiveTest do
       |> List.flatten()
 
     assert length(ids) == length(Enum.uniq(ids)), "duplicate DOM ids found"
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-074
+  @tag :recovery_boundary_owner
+  test "each embedding instance keeps its own active recovery policy", %{conn: conn} do
+    primary = embedding_profile("Primary", "model-primary")
+    secondary = embedding_profile("Secondary", "model-secondary")
+    state = Map.put(APIFixtures.state(), "recoveryPolicy", APIFixtures.recovery_policy())
+
+    Req.Test.stub(HardenAPI, fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/auth/session"} ->
+          Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
+
+        {"GET", "/api/v1/state"} ->
+          Req.Test.json(conn, APIFixtures.success(nil, state))
+
+        {"GET", "/api/v1/profiles"} ->
+          Req.Test.json(conn, APIFixtures.profiles([primary, secondary]))
+
+        _ ->
+          flunk("unexpected API call: #{conn.method} #{conn.request_path}")
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/embed/llm")
+    render_async(view, 1_000)
+
+    view |> element("#embed-primary-model-config-toggle") |> render_click()
+    view |> element("#embed-primary-profile-retry-toggle") |> render_click()
+    view |> element("#embed-secondary-model-config-toggle") |> render_click()
+    view |> element("#embed-secondary-profile-retry-toggle") |> render_click()
+
+    view
+    |> element("#embed-primary-profile-recovery-maxAttempts")
+    |> render_change(%{"profile" => %{"recoveryPolicy" => %{"maxAttempts" => "7"}}})
+
+    assert has_element?(view, ~s(#embed-primary-profile-recovery-maxAttempts[value="7"]))
+    assert has_element?(view, ~s(#embed-secondary-profile-recovery-maxAttempts[value="4"]))
   end
 
   defp embedding_profile(profile_id, model_id) do

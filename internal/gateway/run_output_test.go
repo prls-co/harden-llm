@@ -47,18 +47,6 @@ func TestRunOutputUsesEmptyAttemptsArrayWhenRuntimeHasNoAttempts(t *testing.T) {
 	}
 }
 
-func TestNormalizeRunResultDocumentRepairsRetainedNullAttempts(t *testing.T) {
-	normalized := normalizeRunResultDocument(json.RawMessage(`{"schemaVersion":2,"attempts":null,"status":"succeeded"}`))
-	if !bytes.Contains(normalized, []byte(`"attempts":[]`)) {
-		t.Fatalf("normalized result = %s, want an empty attempts array", normalized)
-	}
-
-	unchanged := normalizeRunResultDocument(json.RawMessage(`{"schemaVersion":2,"attempts":[{"number":1}]}`))
-	if string(unchanged) != `{"schemaVersion":2,"attempts":[{"number":1}]}` {
-		t.Fatalf("non-null attempts changed: %s", unchanged)
-	}
-}
-
 func TestRunArtifactsUseTypedIdentityWithoutParsingObjectKeys(t *testing.T) {
 	now := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
 	references := []hardenllm.ArtifactRef{{

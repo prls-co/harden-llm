@@ -54,9 +54,7 @@ type Trace struct {
 
 type Attempt struct {
 	Number            int                     `json:"number"`
-	RetryLocalNumber  int                     `json:"retryLocalNumber"`
 	ProfileID         string                  `json:"profileId"`
-	BackupIndex       int                     `json:"backupIndex"`
 	Target            runtime.ExecutionTarget `json:"target"`
 	ProviderUsed      bool                    `json:"providerUsed"`
 	Category          retry.Category          `json:"category"`
@@ -98,15 +96,24 @@ func Project(record runtime.CallRecord, callContext runtime.ObservabilityContext
 		Attempts: make([]Attempt, 0, len(record.Attempts)), Observations: make([]Observation, 0, len(record.Attempts)*3+2),
 	}
 	if record.Cache.Mode != "" {
-		trace.appendObservation("cache.lookup", record.Cache.Status, map[string]any{
+		lookupOutcome := record.Cache.Status
+		if record.Cache.Status == "write_failed" {
+			switch record.Cache.Mode {
+			case "cache":
+				lookupOutcome = "miss"
+			case "refresh":
+				lookupOutcome = "refresh"
+			}
+		}
+		trace.appendObservation("cache.lookup", lookupOutcome, map[string]any{
 			"mode": record.Cache.Mode, "served": record.Cache.Served, "version": record.Cache.Version,
 		})
 	}
 	for _, source := range record.Attempts {
 		attempt := Attempt{
-			Number: source.Number, RetryLocalNumber: source.RetryLocalNumber,
-			ProfileID: source.ProfileID, BackupIndex: source.BackupIndex,
-			Target: source.Target, ProviderUsed: source.ProviderUsed,
+			Number:    source.Number,
+			ProfileID: source.ProfileID,
+			Target:    source.Target, ProviderUsed: source.ProviderUsed,
 			Category: source.Category, Status: source.Status, Retryable: source.Retryable,
 			Code: source.Code, Type: source.Type, ProviderRequestID: source.ProviderRequestID,
 			DelayMs: source.Delay.Milliseconds(), DurationMs: source.Duration.Milliseconds(), Repair: source.Repair,
@@ -127,6 +134,8 @@ func Project(record runtime.CallRecord, callContext runtime.ObservabilityContext
 	}
 	if record.Cache.Written {
 		trace.appendObservation("cache.write", "success", map[string]any{"version": record.Cache.Version})
+	} else if record.Cache.Status == "write_failed" {
+		trace.appendObservation("cache.write", "failure", map[string]any{"version": record.Cache.Version})
 	}
 	if terminalErr != nil {
 		if len(record.Attempts) > 0 {

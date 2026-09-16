@@ -1,0 +1,14 @@
+{
+  "policyId": "test.telemetry-failure-recording-budget",
+  "phase": "recovery integrity release checkpoint",
+  "startProof": "tmp/test-feedback/recovery-r04-final-4b443a3.json",
+  "failedTimingsMilliseconds": [2219.651845],
+  "comparableSuccessesMilliseconds": [72.530504, 79.110112, 83.138889, 95.902234, 115.990436, 180.78702, 213.983621],
+  "p95Milliseconds": 213.983621,
+  "maximumMilliseconds": 2219.651845,
+  "previousTimeoutMilliseconds": 2000,
+  "configuredTimeoutMilliseconds": 10000,
+  "headroomMilliseconds": 7780,
+  "rootCause": "The release selector ran the non-race gateway API package beside integration and frontend work, temporarily starving the telemetry flood test process for about 2.22 seconds. Isolated runs completed the same flood in 0.07 to 0.24 seconds, and the exporters remained asynchronous; no application work waited on an exporter.",
+  "rationale": "Use a test-only 10-second watchdog to detect synchronous exporter backpressure while allowing the documented shared-host scheduler margin. The production exporter timeout, queue size, shutdown bound, and all request budgets remain unchanged."
+}

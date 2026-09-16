@@ -43,7 +43,7 @@ func TestProviderNormalization(t *testing.T) {
 	}{
 		{
 			name: "OpenAI Responses", protocol: "openai.responses", callType: "text",
-			body:       `{"output_text":"responses-ok","usage":{"input_tokens":20,"input_tokens_details":{"cached_tokens":4},"output_tokens":8,"output_tokens_details":{"reasoning_tokens":3}}}`,
+			body:       `{"status":"completed","output_text":"responses-ok","usage":{"input_tokens":20,"input_tokens_details":{"cached_tokens":4},"output_tokens":8,"output_tokens_details":{"reasoning_tokens":3}}}`,
 			wantOutput: "responses-ok", wantUsage: completeProviderUsage(16, 4, 0, 5, 3),
 			wantCost: accounting.ExactCost(0.0354, "profile"),
 		},
@@ -61,7 +61,7 @@ func TestProviderNormalization(t *testing.T) {
 		},
 		{
 			name: "OpenAI nullish usage precedence", protocol: "openai.responses", callType: "text",
-			body:       `{"output_text":"ok","usage":{"input_tokens":10,"input_tokens_details":{"cached_tokens":0},"cached_tokens":5,"output_tokens":4,"output_tokens_details":{"reasoning_tokens":0},"reasoning_tokens":3}}`,
+			body:       `{"status":"completed","output_text":"ok","usage":{"input_tokens":10,"input_tokens_details":{"cached_tokens":0},"cached_tokens":5,"output_tokens":4,"output_tokens_details":{"reasoning_tokens":0},"reasoning_tokens":3}}`,
 			wantOutput: "ok", wantUsage: completeProviderUsage(10, 0, 0, 4, 0),
 			wantCost: accounting.ExactCost(0.018, "profile"),
 		},
@@ -88,9 +88,6 @@ func TestProviderNormalization(t *testing.T) {
 			}
 			if !costNear(result.Accounting.Cost, test.wantCost) {
 				t.Fatalf("cost mismatch: got %#v want %#v", result.Accounting.Cost, test.wantCost)
-			}
-			if strings.Contains(string(result.RawProviderEnvelope), "authorization") {
-				t.Fatalf("raw envelope contains credential material: %s", result.RawProviderEnvelope)
 			}
 		})
 	}
@@ -138,7 +135,20 @@ func TestProviderNormalizationParityCapturedSource(t *testing.T) {
 							Reasoning: rates[pricing.ItemReasoning].RatePerToken,
 						},
 					}
-					result, normalizeErr := normalizeResponse(prepared, variant.normalized.ResponsePayload)
+					responsePayload := variant.normalized.ResponsePayload
+					if variant.operation.Protocol == "openai.responses" {
+						var response map[string]any
+						if err := json.Unmarshal(responsePayload, &response); err != nil {
+							t.Fatalf("decode captured Responses payload: %v", err)
+						}
+						response["status"] = "completed"
+						annotated, marshalErr := json.Marshal(response)
+						if marshalErr != nil {
+							t.Fatalf("annotate captured Responses payload: %v", marshalErr)
+						}
+						responsePayload = annotated
+					}
+					result, normalizeErr := normalizeResponse(prepared, responsePayload)
 					if normalizeErr != nil {
 						t.Fatalf("normalizeResponse: %v", normalizeErr)
 					}
@@ -174,8 +184,8 @@ func TestProviderNormalizationClassifiesSafeFailures(t *testing.T) {
 	}{
 		{"refusal", "openai-compatible.chat.completions", `{"choices":[{"finish_reason":"content_filter","message":{"content":""}}]}`, retry.CategoryRefusal},
 		{"empty", "anthropic.messages", `{"content":[],"stop_reason":"end_turn"}`, retry.CategoryEmpty},
-		{"malformed", "openai.responses", `{not-json`, retry.CategoryParse},
-		{"structured malformed", "openai-compatible.chat.completions", `{"choices":[{"message":{"content":"{\"answer\":\"\\uZZZZ\"}"}}]}`, retry.CategoryParse},
+		{"malformed", "openai.responses", `{not-json`, retry.CategoryOther},
+		{"structured malformed", "openai-compatible.chat.completions", `{"choices":[{"finish_reason":"stop","message":{"content":"{\"answer\":\"\\uZZZZ\"}"}}]}`, retry.CategoryParse},
 	}
 	for _, test := range providerCases {
 		test := test
@@ -263,7 +273,7 @@ func TestProviderNormalizationNetworkAndTimeoutErrorsAreSafe(t *testing.T) {
 	})}}
 	started := time.Now()
 	_, err = perRequestRouter.Execute(context.Background(), runtime.PreparedOperation{Operation: operation, Opaque: perRequest})
-	if err == nil || retry.Classify(err, retry.DefaultPolicy()).Category != retry.CategoryTimeout || time.Since(started) > time.Second {
+	if err == nil || retry.Classify(err, retry.DefaultPolicy()).Category != retry.CategoryNetwork || time.Since(started) > time.Second {
 		t.Fatalf("provider option timeout was not bounded: elapsed=%s error=%v", time.Since(started), err)
 	}
 	for input, want := range map[any]time.Duration{float64(12.9): 12*time.Millisecond + 900*time.Microsecond, "15": 15 * time.Millisecond} {
@@ -279,19 +289,140 @@ func TestProviderNormalizationCollectsResponsesEventStream(t *testing.T) {
 	body := strings.Join([]string{
 		`data: {"type":"response.output_text.delta","delta":"stream-"}`,
 		`data: {"type":"response.output_text.done","text":"stream-ok"}`,
-		`data: {"type":"response.completed","response":{"status":"completed","usage":{"input_tokens":2,"output_tokens":1}}}`,
+		`data: {"type":"response.completed","response":{"status":"completed","output_text":"stream-ok","usage":{"input_tokens":2,"output_tokens":1}}}`,
 		`data: [DONE]`,
 	}, "\n\n")
 	collected, err := collectResponsesEventStream([]byte(body))
 	if err != nil {
 		t.Fatalf("collectResponsesEventStream: %v", err)
 	}
-	result, err := normalizeResponse(preparedRequest{provider: "openai", protocol: "openai.responses", callType: "text"}, collected)
+	result, err := normalizeDecodedResponse(preparedRequest{provider: "openai", protocol: "openai.responses", callType: "text"}, collected)
 	if err != nil {
 		t.Fatalf("normalizeResponse: %v", err)
 	}
 	if result.Output != "stream-ok" || result.Accounting.Usage.TotalTokens() != 3 {
 		t.Fatalf("unexpected stream result: %#v", result)
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-216
+func TestRecoveryBoundaryCompletion(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name     string
+		body     string
+		wantKind retry.Category
+		wantCode string
+	}{
+		{name: "Responses delta only is interrupted", body: "data: {\"type\":\"response.output_text.delta\",\"delta\":\"partial\"}\n\n", wantKind: retry.CategoryNetwork, wantCode: "STREAM_TERMINAL_REQUIRED"},
+		{name: "Responses done without terminal is interrupted", body: "data: {\"type\":\"response.output_text.done\",\"text\":\"partial\"}\n\n", wantKind: retry.CategoryNetwork, wantCode: "STREAM_TERMINAL_REQUIRED"},
+		{name: "Responses incomplete is terminal rejection", body: `{"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"output_text":"looks complete"}`, wantKind: retry.CategoryOther, wantCode: "COMPLETION_INCOMPLETE"},
+		{name: "Responses missing status is rejected", body: `{"output_text":"looks complete"}`, wantKind: retry.CategoryOther, wantCode: "COMPLETION_REQUIRED"},
+		{name: "Responses malformed output is terminal rejection", body: `{"status":"completed","output":123}`, wantKind: retry.CategoryOther, wantCode: "OUTPUT_MALFORMED"},
+		{name: "Responses malformed secondary output is not hidden", body: `{"status":"completed","output_text":"ok","output":123}`, wantKind: retry.CategoryOther, wantCode: "OUTPUT_MALFORMED"},
+		{name: "Chat length is terminal rejection", body: `{"choices":[{"finish_reason":"length","message":{"content":"partial"}}]}`, wantKind: retry.CategoryOther, wantCode: "COMPLETION_LIMIT"},
+		{name: "Chat malformed content is terminal rejection", body: `{"choices":[{"finish_reason":"stop","message":{"content":[]}}]}`, wantKind: retry.CategoryOther, wantCode: "OUTPUT_MALFORMED"},
+		{name: "Gemini max tokens is terminal rejection", body: `{"candidates":[{"finishReason":"MAX_TOKENS","content":{"parts":[{"text":"partial"}]}}]}`, wantKind: retry.CategoryOther, wantCode: "COMPLETION_LIMIT"},
+		{name: "Gemini malformed content is terminal rejection", body: `{"candidates":[{"finishReason":"STOP","content":"partial"}]}`, wantKind: retry.CategoryOther, wantCode: "OUTPUT_MALFORMED"},
+		{name: "Anthropic max tokens is terminal rejection", body: `{"stop_reason":"max_tokens","content":[{"type":"text","text":"partial"}]}`, wantKind: retry.CategoryOther, wantCode: "COMPLETION_LIMIT"},
+		{name: "Anthropic malformed content is terminal rejection", body: `{"stop_reason":"end_turn","content":{}}`, wantKind: retry.CategoryOther, wantCode: "OUTPUT_MALFORMED"},
+	} {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			prepared := preparedRequest{provider: "fixture", protocol: "openai.responses", callType: "text"}
+			if strings.HasPrefix(test.name, "Chat") {
+				prepared.protocol = "openai-compatible.chat.completions"
+			} else if strings.HasPrefix(test.name, "Gemini") {
+				prepared.protocol = "google.gemini.generateContent"
+			} else if strings.HasPrefix(test.name, "Anthropic") {
+				prepared.protocol = "anthropic.messages"
+			}
+			var err error
+			if strings.HasPrefix(test.name, "Responses ") && strings.Contains(test.name, "only") || strings.Contains(test.name, "without terminal") {
+				_, err = collectResponsesEventStream([]byte(test.body))
+			} else {
+				_, err = normalizeResponse(prepared, []byte(test.body))
+			}
+			if err == nil {
+				t.Fatal("completion failure was accepted")
+			}
+			classification := retry.Classify(err, retry.DefaultPolicy())
+			if classification.Category != test.wantKind || classification.Code != test.wantCode {
+				t.Fatalf("completion classification = %#v, want %s/%s", classification, test.wantKind, test.wantCode)
+			}
+		})
+	}
+
+	collected, err := collectResponsesEventStream([]byte(strings.Join([]string{
+		`data: {"type":"response.output_text.delta","delta":"stale"}`,
+		`data: {"type":"response.completed","response":{"status":"completed","output_text":"authoritative"}}`,
+	}, "\n\n")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := normalizeDecodedResponse(preparedRequest{provider: "fixture", protocol: "openai.responses", callType: "text"}, collected)
+	if err != nil || result.Output != "authoritative" {
+		t.Fatalf("terminal output authority = %#v / %v", result, err)
+	}
+
+	structured, err := normalizeResponse(preparedRequest{provider: "fixture", protocol: "openai-compatible.chat.completions", callType: "structured"}, []byte(`{"choices":[{"finish_reason":"stop","message":{"content":"{not-json"}}]}`))
+	if err == nil || retry.Classify(err, retry.DefaultPolicy()).Category != retry.CategoryParse || structured.Output != nil {
+		t.Fatalf("completed invalid structured output = %#v / %v", structured, err)
+	}
+
+	_, err = collectResponsesEventStream([]byte(`data: {"type":"response.completed" ,"response":"invalid"}`))
+	if err == nil || retry.Classify(err, retry.DefaultPolicy()).Code != "COMPLETION_MALFORMED" {
+		t.Fatalf("malformed completed event = %v", err)
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-217
+func TestRecoveryBoundaryAccountingCache(t *testing.T) {
+	t.Parallel()
+	pricingInput, pricingOutput := 0.001, 0.002
+	pricing := runtime.Pricing{Input: &pricingInput, Output: &pricingOutput}
+	prepared := preparedRequest{provider: "fixture", protocol: "openai.responses", callType: "text", pricing: pricing}
+
+	failed, err := normalizeResponse(prepared, []byte(`{"status":"completed","output_text":"","usage":{"input_tokens":11,"output_tokens":3,"cost":0.1}}`))
+	if err == nil || retry.Classify(err, retry.DefaultPolicy()).Category != retry.CategoryEmpty {
+		t.Fatalf("completed empty response = %#v / %v", failed, err)
+	}
+	if failed.Accounting.Usage.Status != accounting.UsageComplete || failed.Accounting.Usage.PromptTokens() != 11 || failed.Accounting.Usage.CompletionTokens() != 3 || failed.Accounting.Cost != accounting.ExactCost(0.1, "reported") {
+		t.Fatalf("failed response accounting = %#v", failed.Accounting)
+	}
+
+	partial, err := normalizeResponse(prepared, []byte(`{"status":"completed","output_text":"known","usage":{"input_tokens":11}}`))
+	if err != nil || partial.Accounting.Usage.Status != accounting.UsagePartial || partial.Accounting.Cost.Status != accounting.CostPartial {
+		t.Fatalf("partial accounting = %#v / %v", partial, err)
+	}
+
+	for _, body := range []string{
+		`{"status":"completed","output_text":"ok","usage":{"input_tokens":-1,"output_tokens":2}}`,
+		`{"status":"completed","output_text":"ok","usage":{"input_tokens":1.5,"output_tokens":2}}`,
+		`{"status":"completed","output_text":"ok","usage":{"input_tokens":2,"input_tokens_details":{"cached_tokens":3},"output_tokens":2}}`,
+		`{"status":"completed","output_text":"ok","usage":{"input_tokens":2,"input_tokens_details":123,"output_tokens":2}}`,
+		`{"status":"completed","output_text":"ok","usage":{"input_tokens":null,"output_tokens":2}}`,
+		`{"status":"completed","output_text":"ok","usage":null}`,
+	} {
+		result, normalizeErr := normalizeResponse(prepared, []byte(body))
+		if normalizeErr == nil || retry.Classify(normalizeErr, retry.DefaultPolicy()).Code != "ACCOUNTING_INVALID" || result.Accounting.Usage.Status == accounting.UsageInconsistent {
+			t.Fatalf("invalid accounting accepted: result=%#v error=%v", result, normalizeErr)
+		}
+	}
+
+	reportedPartial, err := normalizeResponse(prepared, []byte(`{"status":"completed","output_text":"ok","usage":{"input_tokens":11,"cost":0.1}}`))
+	if err != nil || reportedPartial.Accounting.Usage.Status != accounting.UsagePartial || reportedPartial.Accounting.Cost != accounting.ExactCost(0.1, "reported") {
+		t.Fatalf("reported exact cost with partial usage = %#v / %v", reportedPartial.Accounting, err)
+	}
+
+	maxValue, err := normalizeResponse(prepared, []byte(`{"status":"completed","output_text":"ok","usage":{"input_tokens":9223372036854775807.0,"output_tokens":0}}`))
+	if err != nil || maxValue.Accounting.Usage.InputTokens != math.MaxInt64 {
+		t.Fatalf("maximum integral token count = %#v / %v", maxValue.Accounting.Usage, err)
+	}
+	overflow, err := normalizeResponse(prepared, []byte(`{"status":"completed","output_text":"ok","usage":{"input_tokens":9223372036854775808.0,"output_tokens":0}}`))
+	if err == nil || retry.Classify(err, retry.DefaultPolicy()).Code != "ACCOUNTING_INVALID" || overflow.Accounting.Usage.Status == accounting.UsageInconsistent {
+		t.Fatalf("overflow token count accepted: %#v / %v", overflow, err)
 	}
 }
 
@@ -326,7 +457,7 @@ func TestProviderNormalizationParityClassifiesResponsesProviderRetryDirective(t 
 	if !ok {
 		t.Fatalf("error type = %T, want *retry.ProviderError", err)
 	}
-	classification := retry.Classify(err, retry.Policy{ServerError: false})
+	classification := retry.Classify(err, retry.Policy{RetryOn: []retry.Category{retry.CategoryProvider}})
 	if classification.Category != retry.CategoryProvider || !classification.Retryable || providerErr.Code != fixture.PositiveCase.Expected.Code ||
 		providerErr.ProviderRequestID != fixture.PositiveCase.Expected.ProviderRequestID || providerErr.Status != 0 || providerErr.Type != "" {
 		t.Fatalf("provider retry normalization = %#v / %#v", providerErr, classification)

@@ -37,7 +37,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
   })
 
   @default_state %{
-    "schemaVersion" => 1,
+    "schemaVersion" => 2,
     "selectedProfileId" => "",
     "modelId" => "",
     "systemPrompt" => "You are a helpful assistant",
@@ -45,20 +45,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
     "schemaShorthand" => @default_schema_shorthand,
     "schema" => @default_schema,
     "callType" => "structured",
-    "structuredRepair" => true,
     "cacheMode" => "cache",
     "webSearch" => false,
     "reasoningEffort" => "lowest",
     "reasoningByProfile" => %{},
-    "maxAttempts" => 4,
-    "initialBackoffMs" => 500,
-    "maximumBackoffMs" => 8000,
-    "retryNetwork" => true,
-    "retryRateLimit" => true,
-    "retryServerError" => true,
-    "retryEmpty" => true,
-    "retryParse" => true,
-    "repairEscalation" => nil,
     "ui" => @default_ui
   }
 
@@ -70,6 +60,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:loading?, true)
       |> assign(:backend_state, :loading)
       |> assign(:profiles, [])
+      |> assign(:recovery_policy_default, %{})
+      |> assign(:recovery_field_errors, %{})
       |> assign(:history, [])
       |> assign(:history_result_states, %{})
       |> assign(:history_loaded?, false)
@@ -88,9 +80,9 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:conversation_trace_id, normalize_trace_id(params["trace_id"]))
       |> assign(:conversation_trace_ref, nil)
       |> assign(:draft_error, nil)
-      |> assign(:ui_error, nil)
-      |> assign(:ui_save_pending?, false)
-      |> assign(:ui_save_dirty?, false)
+      |> assign(:state_save_in_flight, nil)
+      |> assign(:state_save_pending, nil)
+      |> assign(:state_save_sequence, 0)
       |> assign(:output_request_open?, false)
       |> assign(:output_response_open?, false)
       |> assign(:output_trace_resources, %{})
@@ -106,11 +98,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:ui, @default_ui)
       |> assign(:form, to_form(stringify_form(@default_state), as: :run))
       |> allow_upload(:profile_bundle,
-        accept: ~w(.json application/json),
-        max_entries: 1,
-        max_file_size: Application.get_env(:harden_llm, :max_bundle_bytes, 2_097_152)
-      )
-      |> allow_upload(:escalation_profile_bundle,
         accept: ~w(.json application/json),
         max_entries: 1,
         max_file_size: Application.get_env(:harden_llm, :max_bundle_bytes, 2_097_152)
@@ -162,8 +149,12 @@ defmodule HardenLlmWeb.WorkspaceLive do
     toggle_ui(socket, name, to_string(open))
   end
 
-  def handle_info({:profile_widget, _prefix, {:profile_widget_selection, profile_id}}, socket) do
-    update_workspace_form(socket, "selectedProfileId", profile_id)
+  def handle_info(
+        {:profile_widget, _prefix, {:profile_widget_selection, selection}},
+        socket
+      )
+      when is_map(selection) do
+    apply_profile_selection(socket, selection)
   end
 
   def handle_info({:profile_widget, _prefix, {:profile_widget_control, key, value}}, socket)
@@ -186,31 +177,12 @@ defmodule HardenLlmWeb.WorkspaceLive do
     {:noreply, assign(socket, :profile_requires_save?, requires_save?)}
   end
 
-  def handle_info({:profile_widget, _prefix, {:profile_widget_retry, retry}}, socket)
-      when is_map(retry) do
-    params = Map.merge(socket.assigns.form.params || %{}, Map.delete(retry, "repairEscalation"))
-
-    params =
-      case retry["repairEscalation"] do
-        escalation when is_map(escalation) ->
-          params
-          |> Map.put("repairEscalationProfileId", escalation["profileId"] || "")
-          |> Map.put("repairEscalationModelId", escalation["modelId"] || "")
-          |> Map.put("repairEscalationAttempt", to_string(escalation["attempt"] || 3))
-          |> Map.put("repairEscalationReasoning", escalation["reasoningEffort"] || "highest")
-
-        _ ->
-          params
-          |> Map.put("repairEscalationProfileId", "")
-          |> Map.put("repairEscalationModelId", "")
-      end
-
-    state = state_from_params(params, socket.assigns.ui, socket.assigns.reasoning_by_profile)
+  def handle_info({:profile_widget, _prefix, {:profile_widget_recovery, policy}}, socket) do
+    current = get_in(socket.assigns.form.params || %{}, ["recoveryPolicy"]) || %{}
+    policy = ProfileWidgetState.merge_recovery_policy(current, policy)
 
     {:noreply,
-     socket
-     |> assign(:form, to_form(params, as: :run))
-     |> assign(:reasoning_by_profile, state["reasoningByProfile"])}
+     update_workspace_snapshot(socket, %{"recoveryPolicy" => policy}, clear_recovery_errors: true)}
   end
 
   def handle_info(
@@ -227,6 +199,19 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   @impl true
+  def handle_async(
+        {:save_state, reference, sequence},
+        {:ok, {:error, %APIError{status: 401}}},
+        %{assigns: %{state_save_in_flight: %{reference: reference, sequence: sequence}}} = socket
+      ) do
+    {:noreply,
+     socket
+     |> clear_state_save()
+     |> assign(:state_save_pending, nil)
+     |> assign(:history_pending, nil)
+     |> Auth.expire_live()}
+  end
+
   def handle_async(_operation, {:ok, {:error, %APIError{status: 401}}}, socket) do
     {:noreply, Auth.expire_live(socket)}
   end
@@ -235,6 +220,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     state =
       @default_state
       |> Map.merge(hydration.state || %{})
+      |> Map.put_new("recoveryPolicy", hydration.recovery_policy_default)
       |> Map.update("cacheMode", "cache", &normalize_cache_mode/1)
       |> Map.update("webSearch", false, &truthy?/1)
       |> Map.put("ui", normalize_ui((hydration.state || %{})["ui"]))
@@ -269,6 +255,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:loading?, false)
       |> assign(:backend_state, :ready)
       |> assign(:profiles, hydration.profiles)
+      |> assign(:recovery_policy_default, hydration.recovery_policy_default)
       |> assign(:history, [])
       |> assign(:history_loaded?, false)
       |> assign(:history_loading?, false)
@@ -291,21 +278,30 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:backend_state, :unavailable)}
   end
 
-  def handle_async(:save_draft, {:ok, {:ok, _result, _state}}, socket) do
-    {:noreply, assign(socket, :draft_error, nil)}
+  def handle_async(
+        {:save_state, reference, sequence},
+        result,
+        %{assigns: %{state_save_in_flight: %{reference: reference, sequence: sequence}}} = socket
+      ) do
+    error = state_save_error(result)
+    in_flight = socket.assigns.state_save_in_flight
+    pending = socket.assigns.state_save_pending
+
+    socket =
+      socket
+      |> clear_state_save()
+      |> assign(:draft_error, error)
+      |> finish_restore_save(in_flight, pending, error)
+
+    if is_map(pending) do
+      {:noreply, start_state_save(socket, pending)}
+    else
+      {:noreply, socket}
+    end
   end
 
-  def handle_async(:save_draft, {:ok, {:error, %APIError{} = error}}, socket) do
-    {:noreply, assign(socket, :draft_error, error.message)}
-  end
-
-  def handle_async(:save_draft, _result, socket) do
-    {:noreply, assign(socket, :draft_error, "The draft could not be saved.")}
-  end
-
-  def handle_async(:save_ui, result, socket) do
-    {:noreply, finish_ui_save(socket, ui_save_error(result))}
-  end
+  def handle_async({:save_state, _reference, _sequence}, _result, socket),
+    do: {:noreply, socket}
 
   def handle_async(
         {:load_history, reference, cursor},
@@ -407,6 +403,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:run_request_payload, nil)
       |> assign(:output_trace_resources, %{})
       |> assign(:run_error, message)
+      |> assign(:recovery_field_errors, error.field_errors)
       |> reset_output_trace()
       |> maybe_refresh_history()
       |> maybe_load_run_diagnostics(error.trace_id)
@@ -600,40 +597,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   def handle_async(
-        {:restore_history, reference},
-        {:ok, {:ok, _result, _state}},
-        %{assigns: %{history_pending: reference}} = socket
-      ) do
-    {:noreply,
-     socket
-     |> assign(:history_pending, nil)
-     |> assign(:history_error, nil)
-     |> assign(:draft_error, nil)}
-  end
-
-  def handle_async(
-        {:restore_history, reference},
-        {:ok, {:error, %APIError{} = error}},
-        %{assigns: %{history_pending: reference}} = socket
-      ) do
-    {:noreply,
-     socket
-     |> assign(:history_pending, nil)
-     |> assign(:history_error, error.message)}
-  end
-
-  def handle_async(
-        {:restore_history, reference},
-        _result,
-        %{assigns: %{history_pending: reference}} = socket
-      ) do
-    {:noreply,
-     socket
-     |> assign(:history_pending, nil)
-     |> assign(:history_error, "This history item could not be restored.")}
-  end
-
-  def handle_async(
         {:delete_history, reference, run_id},
         {:ok, {:ok, _result, _state}},
         %{assigns: %{history_pending: reference}} = socket
@@ -714,14 +677,13 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   @impl true
   def handle_event("save-draft", %{"_target" => [scope | _]}, socket)
-      when scope in ["profile", "escalation"] do
+      when scope == "profile" do
     {:noreply, socket}
   end
 
   def handle_event("save-draft", event_params, socket) do
     params = event_form_params(event_params, socket)
-    state = state_from_params(params, socket.assigns.ui, socket.assigns.reasoning_by_profile)
-    handle = socket.assigns.session_handle
+    state = workspace_state(params, socket.assigns.ui, socket.assigns.reasoning_by_profile)
 
     {:noreply,
      socket
@@ -729,19 +691,14 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:run_error, nil)
      |> assign(:reasoning_by_profile, state["reasoningByProfile"])
      |> assign(:schema_check, schema_check_from_params(params))
-     |> start_async(
-       :save_draft,
-       Observability.propagate(fn -> HardenAPI.save_state(handle, state) end)
-     )}
+     |> queue_state_save(state)}
   end
 
   def handle_event("validate-bundle", _params, socket), do: {:noreply, socket}
 
-  def handle_event("import-bundle", params, socket) do
-    upload = workspace_upload_name(params["kind"], params["widget"])
-
+  def handle_event("import-bundle", _params, socket) do
     results =
-      consume_uploaded_entries(socket, upload, fn %{path: path}, _entry ->
+      consume_uploaded_entries(socket, :profile_bundle, fn %{path: path}, _entry ->
         case File.read(path) do
           {:ok, bytes} -> {:ok, bytes}
           {:error, _reason} -> {:postpone, :read_failed}
@@ -759,7 +716,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
        |> put_flash(:info, "Profile bundle imported atomically.")}
     else
       {:error, %APIError{status: 401}} -> {:noreply, Auth.expire_live(socket)}
-      _ -> {:noreply, assign(socket, :ui_error, "The selected bundle was rejected.")}
+      _ -> {:noreply, assign(socket, :draft_error, "The selected bundle was rejected.")}
     end
   end
 
@@ -770,24 +727,27 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   def handle_event("restore-history", %{"run-id" => run_id}, socket) do
     with item when is_map(item) <- Enum.find(socket.assigns.history, &(&1["runId"] == run_id)),
-         request when is_map(request) <- item["request"] do
+         request when is_map(request) <- item["request"],
+         true <- is_map(request["recoveryPolicy"]) do
       state = restore_state(request, item, socket.assigns.profiles, socket.assigns.ui)
       params = stringify_form(state)
-      reference = System.unique_integer([:positive, :monotonic])
-      handle = socket.assigns.session_handle
 
-      {:noreply,
-       socket
-       |> assign(:form, to_form(params, as: :run))
-       |> assign(:reasoning_by_profile, state["reasoningByProfile"] || %{})
-       |> assign(:schema_check, schema_check_for_state(state))
-       |> assign(:history_pending, reference)
-       |> start_async(
-         {:restore_history, reference},
-         Observability.propagate(fn -> HardenAPI.save_state(handle, state) end)
-       )}
+      socket =
+        socket
+        |> assign(:form, to_form(params, as: :run))
+        |> assign(:reasoning_by_profile, state["reasoningByProfile"] || %{})
+        |> assign(:schema_check, schema_check_for_state(state))
+        |> queue_state_save(state, :restore)
+
+      {:noreply, assign(socket, :history_pending, socket.assigns.state_save_sequence)}
     else
-      _ -> {:noreply, assign(socket, :history_error, "This history item could not be restored.")}
+      _ ->
+        {:noreply,
+         assign(
+           socket,
+           :history_error,
+           "The recorded request uses an unsupported format and cannot be restored."
+         )}
     end
   end
 
@@ -954,7 +914,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
          assign(
            socket,
            :run_error,
-           "Save the LLM profile before running endpoint, credential, fallback, or identity changes."
+           "Save the LLM profile before running endpoint, credential, or identity changes."
          )}
 
       true ->
@@ -994,7 +954,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
        assign(
          socket,
          :run_error,
-         "The recorded request is unavailable; this result cannot be rerun."
+         "The recorded request is unavailable or uses an unsupported format; this result cannot be rerun."
        )}
     end
   end
@@ -1098,14 +1058,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
     socket =
       socket
       |> assign(:ui, ui)
-      |> assign(:ui_error, nil)
-
-    socket =
-      if socket.assigns.ui_save_pending? do
-        assign(socket, :ui_save_dirty?, true)
-      else
-        start_ui_save(socket)
-      end
+      |> assign(:draft_error, nil)
+      |> queue_state_save()
 
     {:noreply,
      if(name == "historyOpen" and truthy?(value),
@@ -1113,40 +1067,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
        else: socket
      )}
   end
-
-  defp start_ui_save(socket) do
-    state =
-      state_from_params(
-        socket.assigns.form.params || %{},
-        socket.assigns.ui,
-        socket.assigns.reasoning_by_profile
-      )
-
-    handle = socket.assigns.session_handle
-
-    socket
-    |> assign(:ui_save_pending?, true)
-    |> assign(:ui_save_dirty?, false)
-    |> start_async(
-      :save_ui,
-      Observability.propagate(fn -> HardenAPI.save_state(handle, state) end)
-    )
-  end
-
-  defp finish_ui_save(socket, error) do
-    if socket.assigns.ui_save_dirty? do
-      start_ui_save(socket)
-    else
-      socket
-      |> assign(:ui_save_pending?, false)
-      |> assign(:ui_save_dirty?, false)
-      |> assign(:ui_error, error)
-    end
-  end
-
-  defp ui_save_error({:ok, {:ok, _result, _state}}), do: nil
-  defp ui_save_error({:ok, {:error, %APIError{} = error}}), do: error.message
-  defp ui_save_error(_result), do: "The workspace display state could not be saved."
 
   defp reset_output_trace(socket) do
     socket
@@ -1228,9 +1148,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp hydrate(handle) do
     with {:ok, _result, state} <- HardenAPI.get_state(handle),
-         {:ok, %{"profiles" => profiles}, _} <- HardenAPI.list_profiles(handle),
+         {:ok, %{"profiles" => profiles, "defaults" => %{"recoveryPolicy" => policy}}, _} <-
+           HardenAPI.list_profiles(handle),
          true <- is_list(profiles) do
-      {:ok, %{state: state || %{}, profiles: profiles}}
+      {:ok, %{state: state, profiles: profiles, recovery_policy_default: policy}}
     end
   end
 
@@ -1355,9 +1276,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp rerun_available?(%{"request" => %{"available" => true, "payload" => request}})
        when is_map(request) do
-    Enum.all?(~w(profileId userPrompt), fn key ->
-      is_binary(request[key]) and String.trim(request[key]) != ""
-    end)
+    is_map(request["recoveryPolicy"]) and
+      Enum.all?(~w(profileId userPrompt), fn key ->
+        is_binary(request[key]) and String.trim(request[key]) != ""
+      end)
   end
 
   defp rerun_available?(_resources), do: false
@@ -1480,6 +1402,91 @@ defmodule HardenLlmWeb.WorkspaceLive do
     end
   end
 
+  defp queue_state_save(socket, state \\ nil, context \\ :draft) do
+    state =
+      state ||
+        workspace_state(
+          socket.assigns.form.params || %{},
+          socket.assigns.ui,
+          socket.assigns.reasoning_by_profile
+        )
+
+    sequence = socket.assigns.state_save_sequence + 1
+    snapshot = %{sequence: sequence, state: state, context: context}
+
+    socket =
+      socket
+      |> assign(:state_save_sequence, sequence)
+      |> assign(:draft_error, nil)
+      |> maybe_clear_restore_pending(context)
+
+    case socket.assigns.state_save_in_flight do
+      nil ->
+        start_state_save(socket, snapshot)
+
+      _in_flight ->
+        assign(socket, :state_save_pending, snapshot)
+    end
+  end
+
+  defp start_state_save(socket, snapshot) do
+    reference = System.unique_integer([:positive, :monotonic])
+    handle = socket.assigns.session_handle
+    operation = {:save_state, reference, snapshot.sequence}
+
+    socket
+    |> assign(:state_save_in_flight, Map.put(snapshot, :reference, reference))
+    |> assign(:state_save_pending, nil)
+    |> assign(:draft_error, nil)
+    |> maybe_clear_restore_error(snapshot.context)
+    |> start_async(
+      operation,
+      Observability.propagate(fn -> HardenAPI.save_state(handle, snapshot.state) end)
+    )
+  end
+
+  defp clear_state_save(socket), do: assign(socket, :state_save_in_flight, nil)
+
+  defp state_save_error({:ok, {:ok, _result, _state}}), do: nil
+  defp state_save_error({:ok, {:error, %APIError{} = error}}), do: error.message
+  defp state_save_error(_result), do: "The workspace draft could not be saved."
+
+  defp finish_restore_save(socket, %{context: :restore}, %{context: :restore}, nil) do
+    socket
+  end
+
+  defp finish_restore_save(socket, %{context: :restore}, %{context: :restore}, _error) do
+    socket
+    |> assign(:history_pending, nil)
+    |> assign(:history_error, "This history item could not be restored.")
+  end
+
+  defp finish_restore_save(socket, %{context: :restore}, nil, nil) do
+    socket
+    |> assign(:history_pending, nil)
+    |> assign(:history_error, nil)
+  end
+
+  defp finish_restore_save(socket, %{context: :restore}, nil, _error) do
+    socket
+    |> assign(:history_pending, nil)
+    |> assign(:history_error, "This history item could not be restored.")
+  end
+
+  defp finish_restore_save(socket, _in_flight, _pending, _error), do: socket
+
+  defp maybe_clear_restore_pending(socket, :restore), do: socket
+  defp maybe_clear_restore_pending(socket, _context), do: assign(socket, :history_pending, nil)
+
+  defp maybe_clear_restore_error(socket, :restore), do: assign(socket, :history_error, nil)
+  defp maybe_clear_restore_error(socket, _context), do: socket
+
+  defp maybe_clear_recovery_errors(socket, options) do
+    if Keyword.get(options, :clear_recovery_errors, false),
+      do: assign(socket, :recovery_field_errors, %{}),
+      else: socket
+  end
+
   defp restore_state(request, item, profiles, ui) do
     selected_profile_id = request["profileId"] || item["profileId"] || ""
 
@@ -1491,7 +1498,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     call_type = response_call_type(request)
 
     %{
-      "schemaVersion" => 1,
+      "schemaVersion" => 2,
       "selectedProfileId" => selected_profile_id,
       "modelId" => request["modelId"] || "",
       "systemPrompt" => request["systemPrompt"] || "",
@@ -1502,42 +1509,52 @@ defmodule HardenLlmWeb.WorkspaceLive do
       "reasoningEffort" => reasoning,
       "reasoningByProfile" =>
         if(selected_profile_id == "", do: %{}, else: %{selected_profile_id => reasoning}),
-      "structuredRepair" => structured_repair?(request, call_type),
+      "recoveryPolicy" => ProfileWidgetState.serialize_recovery_policy(request["recoveryPolicy"]),
       "cacheMode" => normalize_cache_mode(request["cacheMode"]),
       "webSearch" => truthy?(request["webSearch"]),
-      "maxAttempts" => request["maxAttempts"] || 0,
-      "initialBackoffMs" => request["initialBackoffMs"] || 0,
-      "maximumBackoffMs" => request["maximumBackoffMs"] || 0,
-      "retryNetwork" => request["retryNetwork"],
-      "retryRateLimit" => request["retryRateLimit"],
-      "retryServerError" => request["retryServerError"],
-      "retryEmpty" => request["retryEmpty"],
-      "retryParse" => request["retryParse"],
-      "repairEscalation" => request["repairEscalation"],
       "ui" => normalize_ui(ui)
     }
   end
 
   defp persist_form_state(socket, params) do
-    handle = socket.assigns.session_handle
-    state = state_from_params(params, socket.assigns.ui, socket.assigns.reasoning_by_profile)
-
-    start_async(
+    queue_state_save(
       socket,
-      :save_draft,
-      Observability.propagate(fn -> HardenAPI.save_state(handle, state) end)
+      workspace_state(params, socket.assigns.ui, socket.assigns.reasoning_by_profile)
     )
   end
 
   defp update_workspace_form(socket, key, value) do
-    params = Map.put(socket.assigns.form.params || %{}, key, value)
-    state = state_from_params(params, socket.assigns.ui, socket.assigns.reasoning_by_profile)
+    {:noreply, update_workspace_snapshot(socket, %{key => value})}
+  end
 
-    {:noreply,
-     socket
-     |> assign(:form, to_form(params, as: :run))
-     |> assign(:reasoning_by_profile, state["reasoningByProfile"])
-     |> persist_form_state(params)}
+  defp apply_profile_selection(socket, selection) do
+    updates = %{
+      "selectedProfileId" => Map.get(selection, :profile_id, ""),
+      "modelId" => Map.get(selection, :model_id, ""),
+      "reasoningEffort" => Map.get(selection, :reasoning_effort, "lowest"),
+      "recoveryPolicy" => Map.get(selection, :recovery_policy, %{})
+    }
+
+    socket =
+      socket
+      |> assign(:profile_provider_options, Map.get(selection, :provider_options, %{}))
+      |> update_workspace_snapshot(updates)
+
+    {:noreply, socket}
+  end
+
+  defp update_workspace_snapshot(socket, updates, options \\ []) when is_map(updates) do
+    params = Map.merge(socket.assigns.form.params || %{}, updates)
+    state = workspace_state(params, socket.assigns.ui, socket.assigns.reasoning_by_profile)
+
+    socket =
+      socket
+      |> assign(:form, to_form(params, as: :run))
+      |> assign(:reasoning_by_profile, state["reasoningByProfile"])
+      |> maybe_clear_recovery_errors(options)
+      |> queue_state_save(state)
+
+    socket
   end
 
   defp event_form_params(%{"run" => params}, socket) when is_map(params) do
@@ -1560,7 +1577,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
       true ->
         with {:ok, schema} <- parse_schema(params["schema"], call_type),
-             {:ok, retry} <- retry_payload(params),
              {:ok, payload} <-
                base_run_payload(
                  params,
@@ -1568,7 +1584,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
                  prompt,
                  call_type,
                  schema,
-                 retry,
                  profiles,
                  profile_provider_options
                ) do
@@ -1603,19 +1618,16 @@ defmodule HardenLlmWeb.WorkspaceLive do
          prompt,
          call_type,
          schema,
-         retry,
          profiles,
          profile_provider_options
        ) do
-    structured_repair = structured_repair?(params, call_type)
-
     payload = %{
       "profileId" => profile_id,
       "userPrompt" => prompt,
       "callType" => call_type,
+      "recoveryPolicy" => ProfileWidgetState.serialize_recovery_policy(params["recoveryPolicy"]),
       "cacheMode" => normalize_cache_mode(params["cacheMode"]),
-      "webSearch" => truthy?(params["webSearch"]),
-      "structuredRepair" => structured_repair
+      "webSearch" => truthy?(params["webSearch"])
     }
 
     payload = put_optional(payload, "modelId", params["modelId"])
@@ -1628,67 +1640,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
         do: Map.put(payload, "providerOptions", profile_provider_options),
         else: payload
 
-    retry =
-      if structured_repair,
-        do: retry,
-        else: Map.delete(retry, "repairEscalation")
-
-    {payload, retry} =
-      normalize_repair_reasoning(payload, retry, params, profiles, profile_id)
-
-    {:ok, Map.merge(payload, retry)}
+    {:ok, payload}
   end
 
-  defp retry_payload(params) do
-    with {:ok, max_attempts} <- integer_value(params["maxAttempts"], "Max Attempts", 0, 10, 4),
-         {:ok, initial_backoff} <-
-           integer_value(params["initialBackoffMs"], "Base Delay Ms", 0, 60_000, 500),
-         {:ok, maximum_backoff} <-
-           integer_value(params["maximumBackoffMs"], "Max Delay Ms", 0, 600_000, 8000),
-         {:ok, escalation} <- escalation_payload(params) do
-      payload = %{
-        "maxAttempts" => max_attempts,
-        "initialBackoffMs" => initial_backoff,
-        "maximumBackoffMs" => maximum_backoff,
-        "retryNetwork" => boolean_value(params["retryNetwork"], true),
-        "retryRateLimit" => boolean_value(params["retryRateLimit"], true),
-        "retryServerError" => boolean_value(params["retryServerError"], true),
-        "retryEmpty" => boolean_value(params["retryEmpty"], true),
-        "retryParse" => boolean_value(params["retryParse"], true)
-      }
-
-      {:ok, if(escalation, do: Map.put(payload, "repairEscalation", escalation), else: payload)}
-    end
-  end
-
-  defp escalation_payload(params) do
-    model_id = String.trim(params["repairEscalationModelId"] || "")
-
-    if model_id == "" do
-      {:ok, nil}
-    else
-      with {:ok, attempt} <-
-             integer_value(params["repairEscalationAttempt"], "Starting Attempt", 2, 10, 3),
-           reasoning <- params["repairEscalationReasoning"] || "highest",
-           true <- reasoning in ["lowest", "middle", "highest"] do
-        escalation = %{
-          "attempt" => attempt,
-          "modelId" => model_id,
-          "reasoningEffort" => reasoning
-        }
-
-        profile_id = String.trim(params["repairEscalationProfileId"] || "")
-
-        {:ok,
-         if(profile_id == "", do: escalation, else: Map.put(escalation, "profileId", profile_id))}
-      else
-        false -> {:error, "Escalation reasoning must be lowest, middle, or highest."}
-        {:error, message} -> {:error, message}
-      end
-    end
-  end
-
-  defp state_from_params(params, ui, existing_reasoning_by_profile) do
+  defp workspace_state(params, ui, existing_reasoning_by_profile) do
     schema = state_schema(params["schema"])
     profile_id = params["selectedProfileId"] || ""
     reasoning_effort = params["reasoningEffort"] || "lowest"
@@ -1707,7 +1662,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       end
 
     %{
-      "schemaVersion" => 1,
+      "schemaVersion" => 2,
       "selectedProfileId" => params["selectedProfileId"] || "",
       "modelId" => params["modelId"] || "",
       "systemPrompt" => params["systemPrompt"] || "",
@@ -1717,28 +1672,11 @@ defmodule HardenLlmWeb.WorkspaceLive do
       "schema" => schema,
       "reasoningEffort" => reasoning_effort,
       "reasoningByProfile" => reasoning_by_profile,
-      "structuredRepair" => structured_repair?(params, call_type),
+      "recoveryPolicy" => ProfileWidgetState.serialize_recovery_policy(params["recoveryPolicy"]),
       "cacheMode" => normalize_cache_mode(params["cacheMode"]),
       "webSearch" => truthy?(params["webSearch"]),
-      "maxAttempts" => integer_or_zero(params["maxAttempts"]),
-      "initialBackoffMs" => integer_or_zero(params["initialBackoffMs"]),
-      "maximumBackoffMs" => integer_or_zero(params["maximumBackoffMs"]),
-      "retryNetwork" => truthy?(params["retryNetwork"]),
-      "retryRateLimit" => truthy?(params["retryRateLimit"]),
-      "retryServerError" => truthy?(params["retryServerError"]),
-      "retryEmpty" => truthy?(params["retryEmpty"]),
-      "retryParse" => truthy?(params["retryParse"]),
-      "repairEscalation" => state_escalation(params),
       "ui" => normalize_ui(ui)
     }
-  end
-
-  defp state_escalation(params) do
-    case escalation_payload(params) do
-      {:ok, nil} -> nil
-      {:ok, escalation} -> escalation
-      {:error, _message} -> nil
-    end
   end
 
   defp normalize_response_state(state) do
@@ -1749,16 +1687,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     |> Map.put("schema", schema)
     |> Map.put("callType", call_type)
     |> Map.put("webSearch", truthy?(state["webSearch"]))
-    |> Map.put("structuredRepair", structured_repair?(state, call_type))
   end
-
-  defp structured_repair?(params, "structured") do
-    if Map.has_key?(params, "structuredRepair"),
-      do: truthy?(params["structuredRepair"]),
-      else: true
-  end
-
-  defp structured_repair?(_params, _call_type), do: false
 
   defp response_call_type(params) when is_map(params) do
     case params["callType"] do
@@ -2133,23 +2062,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
     schema =
       if is_map(state["schema"]), do: Jason.encode!(state["schema"], pretty: true), else: ""
 
-    escalation = state["repairEscalation"] || %{}
-
     state
     |> Map.put("schema", schema)
     |> Map.put("schemaShorthand", state["schemaShorthand"] || "")
     |> Map.put("webSearch", to_string(truthy?(state["webSearch"])))
-    |> Map.put("repairEscalationModelId", escalation["modelId"] || "")
-    |> Map.put("repairEscalationProfileId", escalation["profileId"] || "")
-    |> Map.put("repairEscalationAttempt", to_string(escalation["attempt"] || 3))
-    |> Map.put("repairEscalationReasoning", escalation["reasoningEffort"] || "highest")
-    |> stringify_numbers(["maxAttempts", "initialBackoffMs", "maximumBackoffMs"])
-  end
-
-  defp stringify_numbers(state, keys) do
-    Enum.reduce(keys, state, fn key, acc ->
-      Map.update(acc, key, "", fn value -> to_string(value) end)
-    end)
   end
 
   defp normalize_ui(value) when is_map(value),
@@ -2166,33 +2082,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp normalize_trace_id(_value), do: nil
 
-  defp integer_value(value, _label, _minimum, _maximum, default) when value in [nil, ""],
-    do: {:ok, default}
-
-  defp integer_value(value, label, minimum, maximum, _default) do
-    text = String.trim(to_string(value || ""))
-
-    case Integer.parse(text) do
-      {number, ""} when number >= minimum and number <= maximum -> {:ok, number}
-      _ -> {:error, "#{label} must be between #{minimum} and #{maximum}."}
-    end
-  end
-
-  defp integer_or_zero(value) do
-    case Integer.parse(String.trim(to_string(value || ""))) do
-      {number, ""} when number >= 0 -> number
-      _ -> 0
-    end
-  end
-
   defp truthy?(value), do: value in [true, "true", "on", "1"]
 
   defp normalize_cache_mode("refresh"), do: "refresh"
   defp normalize_cache_mode(_value), do: "cache"
-
-  defp boolean_value(value, _default) when value in [true, "true", "on", "1"], do: true
-  defp boolean_value(value, _default) when value in [false, "false", "0"], do: false
-  defp boolean_value(_value, default), do: default
 
   defp put_reasoning_effort(payload, value, nil, _profile_id),
     do: put_optional(payload, "reasoningEffort", value)
@@ -2202,50 +2095,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
       put_optional(payload, "reasoningEffort", value)
     else
       payload
-    end
-  end
-
-  defp normalize_repair_reasoning(payload, retry, _params, nil, _profile_id),
-    do: {payload, retry}
-
-  defp normalize_repair_reasoning(payload, retry, params, profiles, profile_id) do
-    case retry["repairEscalation"] do
-      escalation when is_map(escalation) ->
-        escalation_profile_id =
-          String.trim(to_string(escalation["profileId"] || profile_id || ""))
-
-        escalation_reasoning = String.trim(to_string(escalation["reasoningEffort"] || ""))
-        main_reasoning = String.trim(to_string(params["reasoningEffort"] || ""))
-        escalation_profile_known? = profile_known?(profiles, escalation_profile_id)
-
-        escalation_reasoning_supported? =
-          not escalation_profile_known? or
-            escalation_reasoning == "" or
-            reasoning_supported?(profiles, escalation_profile_id, escalation_reasoning)
-
-        escalation =
-          if escalation_reasoning_supported?,
-            do: escalation,
-            else: Map.delete(escalation, "reasoningEffort")
-
-        payload =
-          if not escalation_profile_known? or
-               (escalation_reasoning_supported? and escalation_reasoning != "") do
-            payload
-          else
-            main_reasoning_supported? =
-              main_reasoning == "" or
-                reasoning_supported?(profiles, escalation_profile_id, main_reasoning)
-
-            if main_reasoning_supported?,
-              do: payload,
-              else: Map.delete(payload, "reasoningEffort")
-          end
-
-        {payload, Map.put(retry, "repairEscalation", escalation)}
-
-      _ ->
-        {payload, retry}
     end
   end
 
@@ -2262,9 +2111,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp put_optional(map, _key, value) when value in [nil, ""], do: map
   defp put_optional(map, key, value), do: Map.put(map, key, String.trim(value))
-
-  defp workspace_upload_name("escalation", _widget), do: :escalation_profile_bundle
-  defp workspace_upload_name(_kind, _widget), do: :profile_bundle
 
   defp host_model_catalog(profiles) do
     profiles

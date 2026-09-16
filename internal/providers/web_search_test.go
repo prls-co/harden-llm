@@ -1,6 +1,6 @@
 package providers
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-012 TEST-025
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-012 TEST-025 TEST-214
 
 import (
 	"context"
@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prls-co/harden-llm/internal/accounting"
 	"github.com/prls-co/harden-llm/internal/cachekey"
 	"github.com/prls-co/harden-llm/internal/retry"
 	"github.com/prls-co/harden-llm/internal/runtime"
@@ -131,7 +132,7 @@ func TestJinaFallbackSearchIsExecutedAfterPrepareAndBoundToProviderPayload(t *te
 			t.Errorf("provider input omitted bounded search result: %s", encodedInput)
 		}
 		writer.Header().Set("Content-Type", "application/json")
-		_, _ = writer.Write([]byte(`{"output_text":"ok"}`))
+		_, _ = writer.Write([]byte(`{"status":"completed","output_text":"ok"}`))
 	}))
 	defer provider.Close()
 
@@ -177,8 +178,8 @@ func TestWebSearchCacheHitSkipsJinaFallback(t *testing.T) {
 		SupportsWebSearch: false,
 	}
 	cache := &alwaysHitCache{result: runtime.CachedResult{
-		ProviderResult: runtime.ProviderResult{Output: "cached output"},
-		Producer:       runtime.ExecutionTarget{ProfileID: profile.ID, Provider: profile.Provider, ModelID: profile.ModelID},
+		ProviderResult: runtime.ProviderResult{Output: "cached output", Accounting: accounting.EmptyLedger()},
+		Producer:       runtime.ExecutionTarget{ProfileID: profile.ID, Provider: profile.Provider, Protocol: "openai.responses", Endpoint: provider.URL + "/v1", ModelID: profile.ModelID},
 	}}
 	record, err := runtime.Execute(
 		context.Background(), router,
@@ -187,7 +188,7 @@ func TestWebSearchCacheHitSkipsJinaFallback(t *testing.T) {
 		},
 		profile.ID, map[string]runtime.Profile{profile.ID: profile},
 		runtime.Call{CallType: "text", UserPrompt: "cached search", WebSearch: true},
-		retry.Config{MaxAttempts: 1}, cache, cachekey.ModeCache, cachekey.DefaultVersion, "call", "trace",
+		retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, cache, cachekey.ModeCache, cachekey.DefaultVersion, "call", "trace",
 	)
 	if err != nil {
 		t.Fatalf("runtime.Execute: %v", err)
@@ -308,7 +309,7 @@ func (cache *alwaysHitCache) Get(context.Context, string, string) (runtime.Cache
 	return cache.result, true, nil
 }
 
-func (cache *alwaysHitCache) Set(context.Context, string, string, cachekey.Operation, runtime.CachedResult) error {
+func (cache *alwaysHitCache) Set(context.Context, string, string, runtime.CachedResult) error {
 	cache.sets++
 	return errors.New("cache set should not run on a cache hit")
 }

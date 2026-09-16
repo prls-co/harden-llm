@@ -17,16 +17,14 @@ defmodule HardenLlmWeb.EmbeddingLive do
       label: "Primary instance",
       component_id: "embed-primary-llm-widget",
       prefix: "embed-primary",
-      bundle_upload: :embed_primary_profile_bundle,
-      escalation_bundle_upload: :embed_primary_escalation_profile_bundle
+      bundle_upload: :embed_primary_profile_bundle
     },
     %{
       key: :secondary,
       label: "Secondary instance",
       component_id: "embed-secondary-llm-widget",
       prefix: "embed-secondary",
-      bundle_upload: :embed_secondary_profile_bundle,
-      escalation_bundle_upload: :embed_secondary_escalation_profile_bundle
+      bundle_upload: :embed_secondary_profile_bundle
     }
   ]
 
@@ -45,13 +43,12 @@ defmodule HardenLlmWeb.EmbeddingLive do
       |> assign(:loading?, true)
       |> assign(:backend_state, :loading)
       |> assign(:profiles, [])
+      |> assign(:recovery_policy_default, %{})
       |> assign(:instances, initial_instances())
       |> assign(:upload_error, nil)
       |> assign(:instance_specs, @instance_specs)
       |> allow_upload(:embed_primary_profile_bundle, bundle_upload_options())
-      |> allow_upload(:embed_primary_escalation_profile_bundle, bundle_upload_options())
       |> allow_upload(:embed_secondary_profile_bundle, bundle_upload_options())
-      |> allow_upload(:embed_secondary_escalation_profile_bundle, bundle_upload_options())
 
     if connected?(socket) do
       handle = socket.assigns.session_handle
@@ -72,6 +69,7 @@ defmodule HardenLlmWeb.EmbeddingLive do
      |> assign(:loading?, false)
      |> assign(:backend_state, :ready)
      |> assign(:profiles, hydration.profiles)
+     |> assign(:recovery_policy_default, hydration.recovery_policy_default)
      |> assign(:instances, hydration.instances)}
   end
 
@@ -93,8 +91,8 @@ defmodule HardenLlmWeb.EmbeddingLive do
   @impl true
   def handle_event("validate-bundle", _params, socket), do: {:noreply, socket}
 
-  def handle_event("import-bundle", %{"kind" => kind, "widget" => prefix}, socket) do
-    case upload_name(prefix, kind) do
+  def handle_event("import-bundle", %{"widget" => prefix}, socket) do
+    case upload_name(prefix) do
       nil -> {:noreply, assign(socket, :upload_error, "The widget upload namespace is invalid.")}
       upload -> import_bundle(socket, upload)
     end
@@ -135,8 +133,16 @@ defmodule HardenLlmWeb.EmbeddingLive do
     end
   end
 
-  defp route_widget_message(socket, key, {:profile_widget_selection, profile_id}) do
-    update_instance(socket, key, &Map.put(&1, :selected_profile_id, profile_id))
+  defp route_widget_message(socket, key, {:profile_widget_selection, selection})
+       when is_map(selection) do
+    update_instance(socket, key, fn instance ->
+      instance
+      |> Map.put(:selected_profile_id, Map.get(selection, :profile_id, ""))
+      |> Map.put(:model_id, Map.get(selection, :model_id, ""))
+      |> Map.put(:reasoning_effort, Map.get(selection, :reasoning_effort, "lowest"))
+      |> Map.put(:recovery_policy, Map.get(selection, :recovery_policy, %{}))
+      |> Map.put(:provider_options, Map.get(selection, :provider_options, %{}))
+    end)
   end
 
   defp route_widget_message(socket, key, {:profile_widget_control, "modelId", value}) do
@@ -156,8 +162,17 @@ defmodule HardenLlmWeb.EmbeddingLive do
     update_instance(socket, key, &Map.put(&1, :provider_options, options))
   end
 
-  defp route_widget_message(socket, key, {:profile_widget_retry, retry}) when is_map(retry) do
-    update_instance(socket, key, &Map.put(&1, :retry, retry))
+  defp route_widget_message(socket, key, {:profile_widget_recovery, policy})
+       when is_map(policy) do
+    update_instance(socket, key, fn instance ->
+      current = Map.get(instance, :recovery_policy, %{})
+
+      Map.put(
+        instance,
+        :recovery_policy,
+        ProfileWidgetState.merge_recovery_policy(current, policy)
+      )
+    end)
   end
 
   defp route_widget_message(socket, key, {:profile_widget_profile_dirty, requires_save?}) do
@@ -182,7 +197,8 @@ defmodule HardenLlmWeb.EmbeddingLive do
 
   defp hydrate(handle) do
     with {:ok, _result, state} <- HardenAPI.get_state(handle),
-         {:ok, %{"profiles" => profiles}, _} <- HardenAPI.list_profiles(handle),
+         {:ok, %{"profiles" => profiles, "defaults" => %{"recoveryPolicy" => policy}}, _} <-
+           HardenAPI.list_profiles(handle),
          true <- is_list(profiles) do
       state = state || %{}
 
@@ -207,10 +223,11 @@ defmodule HardenLlmWeb.EmbeddingLive do
            |> Map.put(:selected_profile_id, selected_profile_id)
            |> Map.put(:model_id, model_id)
            |> Map.put(:reasoning_effort, reasoning_effort)
-           |> Map.put(:cache_mode, cache_mode)}
+           |> Map.put(:cache_mode, cache_mode)
+           |> Map.put(:recovery_policy, state["recoveryPolicy"] || policy)}
         end)
 
-      {:ok, %{profiles: profiles, instances: instances}}
+      {:ok, %{profiles: profiles, instances: instances, recovery_policy_default: policy}}
     end
   end
 
@@ -227,7 +244,7 @@ defmodule HardenLlmWeb.EmbeddingLive do
          retry_open: false,
          pricing_open: false,
          provider_options: %{},
-         retry: %{},
+         recovery_policy: %{},
          requires_save?: false
        }}
     end)
@@ -237,13 +254,7 @@ defmodule HardenLlmWeb.EmbeddingLive do
     Enum.find_value(@instance_specs, fn spec -> if spec.prefix == prefix, do: spec.key end)
   end
 
-  defp upload_name(prefix, "escalation") do
-    Enum.find_value(@instance_specs, fn spec ->
-      if spec.prefix == prefix, do: spec.escalation_bundle_upload
-    end)
-  end
-
-  defp upload_name(prefix, _kind) do
+  defp upload_name(prefix) do
     Enum.find_value(@instance_specs, fn spec ->
       if spec.prefix == prefix, do: spec.bundle_upload
     end)
@@ -321,11 +332,12 @@ defmodule HardenLlmWeb.EmbeddingLive do
               config_open={instance.config_open}
               options_open={instance.options_open}
               retry_open={instance.retry_open}
+              recovery_policy={instance.recovery_policy}
+              recovery_policy_default={@recovery_policy_default}
               pricing_open={instance.pricing_open}
               fold_disabled={false}
               session_handle={@session_handle}
               bundle_upload={Map.fetch!(@uploads, spec.bundle_upload)}
-              escalation_bundle_upload={Map.fetch!(@uploads, spec.escalation_bundle_upload)}
             />
           </section>
         </div>

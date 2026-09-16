@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"github.com/prls-co/harden-llm/internal/retry"
 	"github.com/prls-co/harden-llm/internal/runtime"
 	"log/slog"
 	"net"
@@ -48,7 +49,7 @@ type Request struct {
 	Context         ObservabilityContext
 	CacheMode       CacheMode
 	CacheVersion    string
-	RetryPolicy     RetryPolicy
+	RecoveryPolicy  RecoveryPolicy
 }
 
 // Result is the single detailed result returned by Client.Call.
@@ -101,35 +102,20 @@ type ObservabilityContext struct {
 	Metadata       map[string]string
 }
 
-// RetryPolicy controls the total provider-attempt budget.
-type RetryPolicy struct {
-	MaxAttempts      int
-	InitialBackoff   time.Duration
-	MaximumBackoff   time.Duration
-	RetryNetwork     *bool
-	RetryRateLimit   *bool
-	RetryServerError *bool
-	RetryEmpty       *bool
-	RetryParse       *bool
-	StructuredRepair StructuredRepairPolicy
-}
+// RecoveryPolicy is the complete explicit policy used by every execution path.
+type RecoveryPolicy = retry.Policy
+type RecoveryBackoff = retry.Backoff
+type RecoveryCategory = retry.Category
+type RecoveryPolicyError = retry.ValidationError
 
-type StructuredRepairPolicy struct {
-	Enabled    bool
-	Escalation *RepairEscalation
-}
+// DefaultRecoveryPolicy creates a new independent policy with backend defaults.
+func DefaultRecoveryPolicy() RecoveryPolicy { return retry.DefaultPolicy() }
 
-type RepairEscalation struct {
-	Attempt         int
-	ProfileID       string
-	ModelID         string
-	ReasoningEffort ReasoningEffort
-}
-
-// Attempt is safe, normalized metadata for one provider invocation.
+// Attempt is safe, normalized metadata for one execution attempt. ProviderUsed
+// is true only when the local model transport observed request headers being
+// written; it does not prove remote execution or billing.
 type Attempt struct {
 	Number            int             `json:"number"`
-	RetryLocalNumber  int             `json:"retryLocalNumber"`
 	ProfileID         string          `json:"profileId"`
 	Target            ExecutionTarget `json:"target"`
 	Category          string          `json:"category,omitempty"`
@@ -141,7 +127,6 @@ type Attempt struct {
 	Wait              time.Duration   `json:"wait"`
 	Duration          time.Duration   `json:"duration"`
 	Repair            bool            `json:"repair"`
-	BackupIndex       int             `json:"backupIndex"`
 	ProviderUsed      bool            `json:"providerUsed"`
 }
 

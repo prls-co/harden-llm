@@ -128,7 +128,7 @@ variable containing its key; never put a key in the JSON:
     "name": "openai-responses",
     "apiKeyEnv": "OPENAI_API_KEY",
     "profile": {
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "llmProfile": "LiveOpenAI",
       "provider": "openai",
       "apiInferenceType": "responses",
@@ -141,7 +141,7 @@ variable containing its key; never put a key in the JSON:
       "tokensParam": "",
       "responsesTokensParam": "max_output_tokens",
       "defaultOptions": {"max_tokens": 32},
-      "backupProfiles": []
+      "recoveryPolicy": {"maxAttempts":1,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}
     }
   }
 ]
@@ -161,7 +161,7 @@ unique profile/run records and deletes them before logout.
   "passwordEnv": "HARDEN_LLM_LIVE_USER_PASSWORD",
   "providerApiKeyEnv": "OPENAI_API_KEY",
   "profile": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "replaced-by-the-test",
     "provider": "openai",
     "apiInferenceType": "responses",
@@ -174,7 +174,7 @@ unique profile/run records and deletes them before logout.
     "tokensParam": null,
     "responsesTokensParam": "max_output_tokens",
     "defaultOptions": {"max_tokens": 32},
-    "backupProfiles": []
+    "recoveryPolicy": {"maxAttempts":1,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}
   },
   "artifactAllowedHosts": ["artifacts.example.net"],
   "grafanaUrl": "https://grafana.example.net",

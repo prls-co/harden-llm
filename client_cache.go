@@ -1,13 +1,14 @@
 package hardenllm
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
-	"github.com/prls-co/harden-llm/internal/cachekey"
 	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
 )
 
@@ -30,29 +31,32 @@ func (adapter *cacheAdapter) Get(ctx context.Context, operationHash, cacheVersio
 		return coreruntime.CachedResult{}, found, err
 	}
 	if record.SchemaVersion != cacheRecordSchemaVersion || record.OperationHash != operationHash || record.CacheVersion != cacheVersion {
-		return coreruntime.CachedResult{}, false, errors.New("hardenllm: invalid operation cache record identity")
+		return coreruntime.CachedResult{}, false, coreruntime.NewCacheIntegrityError()
 	}
 	var projection cachedProviderProjection
-	if err := json.Unmarshal(record.ProviderResult, &projection); err != nil {
-		return coreruntime.CachedResult{}, false, fmt.Errorf("hardenllm: decode operation cache record: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(record.ProviderResult))
+	decoder.UseNumber()
+	if err := decoder.Decode(&projection); err != nil {
+		return coreruntime.CachedResult{}, false, coreruntime.NewCacheIntegrityError()
 	}
-	if !json.Valid(record.RawProviderEnvelope) {
-		return coreruntime.CachedResult{}, false, errors.New("hardenllm: invalid cached provider envelope")
+	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
+		return coreruntime.CachedResult{}, false, coreruntime.NewCacheIntegrityError()
+	}
+	if projection.Output == nil {
+		return coreruntime.CachedResult{}, false, coreruntime.NewCacheIntegrityError()
 	}
 	return coreruntime.CachedResult{
 		ProviderResult: coreruntime.ProviderResult{
 			Search: projection.Search,
 			Output: projection.Output, Accounting: projection.Accounting,
-			RawProviderEnvelope: append(json.RawMessage(nil), record.RawProviderEnvelope...),
 		},
 		Producer: projection.Producer,
 	}, true, nil
 }
 
-func (adapter *cacheAdapter) Set(ctx context.Context, operationHash, cacheVersion string, operation cachekey.Operation, result coreruntime.CachedResult) error {
-	operationJSON, err := cachekey.StableJSON(operation)
-	if err != nil {
-		return fmt.Errorf("hardenllm: encode cached operation: %w", err)
+func (adapter *cacheAdapter) Set(ctx context.Context, operationHash, cacheVersion string, result coreruntime.CachedResult) error {
+	if result.ProviderResult.Output == nil {
+		return errors.New("hardenllm: cannot cache a provider result without output")
 	}
 	providerJSON, err := json.Marshal(cachedProviderProjection{
 		Search: result.ProviderResult.Search,
@@ -63,10 +67,8 @@ func (adapter *cacheAdapter) Set(ctx context.Context, operationHash, cacheVersio
 	}
 	record := CacheRecord{
 		SchemaVersion: cacheRecordSchemaVersion, CacheVersion: cacheVersion, OperationHash: operationHash,
-		Operation:           append(json.RawMessage(nil), operationJSON...),
-		RawProviderEnvelope: append(json.RawMessage(nil), result.ProviderResult.RawProviderEnvelope...),
-		ProviderResult:      append(json.RawMessage(nil), providerJSON...),
-		CreatedAt:           time.Now().UTC(),
+		ProviderResult: append(json.RawMessage(nil), providerJSON...),
+		CreatedAt:      time.Now().UTC(),
 	}
 	if err := adapter.store.Set(ctx, operationHash, record); err != nil {
 		return fmt.Errorf("hardenllm: write operation cache: %w", err)

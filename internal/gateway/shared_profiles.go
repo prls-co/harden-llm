@@ -56,7 +56,7 @@ func ApplySharedProfilesWithResult(ctx context.Context, store *postgres.Store, v
 	if err != nil {
 		return result, err
 	}
-	// Validate against retained custom profiles as well (including backup links).
+	// Validate the current catalog including retained custom profiles.
 	catalog := maps.Clone(config.Profiles)
 	sharedBindings := make(map[runtimeCredentialKey]string)
 	for _, row := range rows {

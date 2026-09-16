@@ -5,7 +5,9 @@ package hardenllm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 
@@ -36,7 +38,7 @@ func TestSearchCachePersistenceProjection(t *testing.T) {
 				t.Fatal(err)
 			}
 			client.executor = executor
-			request := Request{ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "search fixture", WebSearch: true, CallType: CallTypeText, CacheMode: CacheModeCache, CacheVersion: "operation-v2", RetryPolicy: RetryPolicy{MaxAttempts: 1}}
+			request := Request{ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "search fixture", WebSearch: true, CallType: CallTypeText, CacheMode: CacheModeCache, CacheVersion: "operation-v2", RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}}}
 			fresh, err := client.Call(context.Background(), request)
 			if err != nil {
 				t.Fatal(err)
@@ -93,7 +95,7 @@ func TestCacheReplay(t *testing.T) {
 	request := Request{
 		ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "deterministic fixture",
 		CallType: CallTypeText, CacheMode: CacheModeCache, CacheVersion: "operation-v2",
-		RetryPolicy: RetryPolicy{MaxAttempts: 1},
+		RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 	}
 
 	first, err := client.Call(context.Background(), request)
@@ -160,7 +162,7 @@ func TestCacheV2RejectsV1Envelope(t *testing.T) {
 	request := Request{
 		ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "v2-only",
 		CallType: CallTypeText, CacheMode: CacheModeCache, CacheVersion: "operation-v2",
-		RetryPolicy: RetryPolicy{MaxAttempts: 1},
+		RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 	}
 	if _, err := client.Call(context.Background(), request); err != nil {
 		t.Fatal(err)
@@ -176,12 +178,275 @@ func TestCacheV2RejectsV1Envelope(t *testing.T) {
 	}
 }
 
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-224
+func TestRecoveryIntegrityCacheAdmission(t *testing.T) {
+	t.Parallel()
+	baseRequest := func() Request {
+		return Request{
+			ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "cache admission",
+			CallType: CallTypeText, CacheMode: CacheModeCache, CacheVersion: "operation-v2",
+			RecoveryPolicy: RecoveryPolicy{MaxAttempts: 2, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, RepairInvalidOutput: true, Backoff: RecoveryBackoff{}},
+		}
+	}
+	newClient := func(t *testing.T, cache CacheStore, result coreruntime.ProviderResult) (*Client, *fixedExecutor) {
+		t.Helper()
+		executor := &fixedExecutor{result: result}
+		client, err := New(Options{Credentials: fixedCredentialResolver{}, Cache: cache})
+		if err != nil {
+			t.Fatal(err)
+		}
+		client.executor = executor
+		client.newID = sequenceIDs()
+		return client, executor
+	}
+	mutate := func(t *testing.T, cache *memoryCache, mutation func(*cachedProviderProjection)) {
+		t.Helper()
+		cache.mu.Lock()
+		defer cache.mu.Unlock()
+		for key, record := range cache.records {
+			var projection cachedProviderProjection
+			decoder := json.NewDecoder(strings.NewReader(string(record.ProviderResult)))
+			decoder.UseNumber()
+			if err := decoder.Decode(&projection); err != nil {
+				t.Fatalf("decode projection: %v", err)
+			}
+			mutation(&projection)
+			encoded, err := json.Marshal(projection)
+			if err != nil {
+				t.Fatalf("encode projection: %v", err)
+			}
+			record.ProviderResult = encoded
+			cache.records[key] = record
+			return
+		}
+		t.Fatal("cache record was not written")
+	}
+	assertRejected := func(t *testing.T, client *Client, request Request, executor *fixedExecutor) {
+		t.Helper()
+		before := executor.executed
+		result, err := client.Call(context.Background(), request)
+		if err == nil || !strings.Contains(err.Error(), "CACHE_INTEGRITY") || result.Output != nil || result.ResultSource.Kind != ResultSourceNone || result.Cache.Served || result.Cache.Written || executor.executed != before {
+			t.Fatalf("cache admission result=%#v error=%v executions=%d want=%d", result, err, executor.executed, before)
+		}
+	}
+
+	t.Run("precision survives fresh and cached replay", func(t *testing.T) {
+		cache := &memoryCache{records: make(map[string]CacheRecord)}
+		fixture := fixtureProviderResult()
+		fixture.Output = map[string]any{"id": json.Number("9007199254740993"), "fraction": json.Number("0.12345678901234567890123456789")}
+		client, executor := newClient(t, cache, fixture)
+		request := baseRequest()
+		fresh, err := client.Call(context.Background(), request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		replayed, err := client.Call(context.Background(), request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		value, ok := replayed.Output.(map[string]any)
+		if !ok || value["id"] != json.Number("9007199254740993") || value["fraction"] != json.Number("0.12345678901234567890123456789") || !reflect.DeepEqual(fresh.Output, replayed.Output) || executor.executed != 1 {
+			t.Fatalf("precision replay fresh=%#v cached=%#v calls=%d", fresh.Output, replayed.Output, executor.executed)
+		}
+	})
+
+	t.Run("text zero and structured scalar values remain present", func(t *testing.T) {
+		for _, test := range []struct {
+			name   string
+			output any
+			kind   CallType
+			schema json.RawMessage
+		}{
+			{name: "text string with leading zero", output: "0012", kind: CallTypeText},
+			{name: "structured zero", output: map[string]any{"value": json.Number("0")}, kind: CallTypeStructured, schema: json.RawMessage(`{"type":"object","properties":{"value":{"type":"integer"}},"required":["value"],"additionalProperties":false}`)},
+			{name: "structured false", output: map[string]any{"value": false}, kind: CallTypeStructured, schema: json.RawMessage(`{"type":"object","properties":{"value":{"type":"boolean"}},"required":["value"],"additionalProperties":false}`)},
+		} {
+			test := test
+			t.Run(test.name, func(t *testing.T) {
+				cache := &memoryCache{records: make(map[string]CacheRecord)}
+				fixture := fixtureProviderResult()
+				fixture.Output = test.output
+				client, executor := newClient(t, cache, fixture)
+				request := baseRequest()
+				request.CallType, request.Schema = test.kind, test.schema
+				fresh, err := client.Call(context.Background(), request)
+				if err != nil {
+					t.Fatal(err)
+				}
+				replayed, err := client.Call(context.Background(), request)
+				if err != nil || !reflect.DeepEqual(fresh.Output, replayed.Output) || executor.executed != 1 {
+					t.Fatalf("scalar replay fresh=%#v cached=%#v calls=%d error=%v", fresh.Output, replayed.Output, executor.executed, err)
+				}
+			})
+		}
+	})
+
+	t.Run("whitespace output is rejected before provider work", func(t *testing.T) {
+		cache := &memoryCache{records: make(map[string]CacheRecord)}
+		client, executor := newClient(t, cache, fixtureProviderResult())
+		request := baseRequest()
+		if _, err := client.Call(context.Background(), request); err != nil {
+			t.Fatal(err)
+		}
+		mutate(t, cache, func(projection *cachedProviderProjection) { projection.Output = " \n\t" })
+		assertRejected(t, client, request, executor)
+	})
+
+	t.Run("invalid accounting is rejected without defaulting", func(t *testing.T) {
+		cache := &memoryCache{records: make(map[string]CacheRecord)}
+		client, executor := newClient(t, cache, fixtureProviderResult())
+		request := baseRequest()
+		if _, err := client.Call(context.Background(), request); err != nil {
+			t.Fatal(err)
+		}
+		mutate(t, cache, func(projection *cachedProviderProjection) {
+			projection.Accounting.Usage = accounting.Usage{InputTokens: -1, Status: accounting.UsagePartial}
+		})
+		assertRejected(t, client, request, executor)
+	})
+
+	t.Run("invalid search metadata is rejected without trimming", func(t *testing.T) {
+		cache := &memoryCache{records: make(map[string]CacheRecord)}
+		fixture := fixtureProviderResult()
+		fixture.Search = &SearchResult{Mode: "native", CostStatus: "unavailable", Sources: []SearchSource{{URL: "https://example.test/source", Title: "source"}}}
+		client, executor := newClient(t, cache, fixture)
+		request := baseRequest()
+		if _, err := client.Call(context.Background(), request); err != nil {
+			t.Fatal(err)
+		}
+		mutate(t, cache, func(projection *cachedProviderProjection) {
+			projection.Search.EntryPointHTML = strings.Repeat("x", 32769)
+		})
+		assertRejected(t, client, request, executor)
+	})
+
+	t.Run("structured cache output is revalidated against the original schema", func(t *testing.T) {
+		cache := &memoryCache{records: make(map[string]CacheRecord)}
+		fixture := fixtureProviderResult()
+		fixture.Output = map[string]any{"id": float64(7)}
+		client, executor := newClient(t, cache, fixture)
+		request := baseRequest()
+		request.CallType = CallTypeStructured
+		request.Schema = json.RawMessage(`{"type":"object","properties":{"id":{"type":"integer"}},"required":["id"],"additionalProperties":false}`)
+		if _, err := client.Call(context.Background(), request); err != nil {
+			t.Fatal(err)
+		}
+		mutate(t, cache, func(projection *cachedProviderProjection) { projection.Output = map[string]any{"id": "wrong"} })
+		assertRejected(t, client, request, executor)
+	})
+
+	t.Run("producer identity is checked while profile aliases remain valid", func(t *testing.T) {
+		cache := &memoryCache{records: make(map[string]CacheRecord)}
+		client, executor := newClient(t, cache, fixtureProviderResult())
+		request := baseRequest()
+		if _, err := client.Call(context.Background(), request); err != nil {
+			t.Fatal(err)
+		}
+		mutate(t, cache, func(projection *cachedProviderProjection) { projection.Producer.ProfileID = "retired-profile" })
+		if _, err := client.Call(context.Background(), request); err != nil {
+			t.Fatalf("same target alias rejected: %v", err)
+		}
+		mutate(t, cache, func(projection *cachedProviderProjection) { projection.Producer.Provider = "different-provider" })
+		assertRejected(t, client, request, executor)
+	})
+
+	t.Run("trailing projection JSON is rejected", func(t *testing.T) {
+		cache := &memoryCache{records: make(map[string]CacheRecord)}
+		client, executor := newClient(t, cache, fixtureProviderResult())
+		request := baseRequest()
+		if _, err := client.Call(context.Background(), request); err != nil {
+			t.Fatal(err)
+		}
+		cache.mu.Lock()
+		for key, record := range cache.records {
+			record.ProviderResult = append(record.ProviderResult, []byte(` {"trailing":true}`)...)
+			cache.records[key] = record
+		}
+		cache.mu.Unlock()
+		assertRejected(t, client, request, executor)
+	})
+
+	t.Run("cache lookup errors do not become misses", func(t *testing.T) {
+		sentinel := errors.New("cache read failed")
+		cache := &failingCache{err: sentinel}
+		client, executor := newClient(t, cache, fixtureProviderResult())
+		result, err := client.Call(context.Background(), baseRequest())
+		if !errors.Is(err, sentinel) || result.Output != nil || result.ResultSource.Kind != ResultSourceNone || executor.executed != 0 {
+			t.Fatalf("cache read failure result=%#v error=%v executions=%d", result, err, executor.executed)
+		}
+	})
+}
+
+type failingCache struct{ err error }
+
+func (cache *failingCache) Get(context.Context, string) (CacheRecord, bool, error) {
+	return CacheRecord{}, false, cache.err
+}
+
+func (*failingCache) Set(context.Context, string, CacheRecord) error { return nil }
+
+func (*failingCache) Delete(context.Context, string) error { return nil }
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-228
+func TestRecoveryIntegrityCacheWrite(t *testing.T) {
+	t.Parallel()
+	for _, mode := range []CacheMode{CacheModeCache, CacheModeRefresh} {
+		mode := mode
+		t.Run(string(mode), func(t *testing.T) {
+			cache := &failingWriteCache{memoryCache: memoryCache{records: make(map[string]CacheRecord)}, err: errors.New("cache write unavailable")}
+			executor := &fixedExecutor{result: fixtureProviderResult()}
+			client, err := New(Options{Credentials: fixedCredentialResolver{}, Cache: cache})
+			if err != nil {
+				t.Fatal(err)
+			}
+			client.executor, client.newID = executor, sequenceIDs()
+			request := Request{
+				ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "cache write failure", CallType: CallTypeText,
+				CacheMode: mode, CacheVersion: "operation-v2", RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{}, Backoff: RecoveryBackoff{}},
+			}
+			result, err := client.Call(context.Background(), request)
+			if err != nil || result.Output != "Apples, bananas" || result.Accounting.Result.Usage.TotalTokens != 15 || result.Cache.Status != "write_failed" || result.Cache.Written || result.Cache.Served || executor.executed != 1 || cache.sets != 1 {
+				t.Fatalf("cache write failure result=%#v error=%v executions=%d sets=%d", result, err, executor.executed, cache.sets)
+			}
+		})
+	}
+	t.Run("accepted result survives cache write deadline", func(t *testing.T) {
+		cache := &failingWriteCache{memoryCache: memoryCache{records: make(map[string]CacheRecord)}, err: context.DeadlineExceeded}
+		executor := &fixedExecutor{result: fixtureProviderResult()}
+		client, err := New(Options{Credentials: fixedCredentialResolver{}, Cache: cache})
+		if err != nil {
+			t.Fatal(err)
+		}
+		client.executor, client.newID = executor, sequenceIDs()
+		result, callErr := client.Call(context.Background(), Request{
+			ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "cache deadline", CallType: CallTypeText,
+			CacheMode: CacheModeCache, CacheVersion: "operation-v2",
+			RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{}, Backoff: RecoveryBackoff{}},
+		})
+		if callErr != nil || result.Output == nil || result.Cache.Status != "write_failed" || result.Cache.Written || executor.executed != 1 || cache.sets != 1 {
+			t.Fatalf("cache write deadline result=%#v error=%v executions=%d sets=%d", result, callErr, executor.executed, cache.sets)
+		}
+	})
+}
+
+type failingWriteCache struct {
+	memoryCache
+	err error
+}
+
+func (cache *failingWriteCache) Set(context.Context, string, CacheRecord) error {
+	cache.mu.Lock()
+	cache.sets++
+	cache.mu.Unlock()
+	return cache.err
+}
+
 func TestEmptyProviderResponseRetriesSameOperationBeforeCaching(t *testing.T) {
 	cache := &memoryCache{records: make(map[string]CacheRecord)}
 	executor := &fixedExecutor{
 		result: fixtureProviderResult(),
 		sequence: []error{
-			&retry.ProviderError{Code: "empty_response", Empty: true, RawResponse: `{"output_text":""}`},
+			&retry.ProviderError{Code: "empty_response", Category: retry.CategoryEmpty, RawResponse: `{"output_text":""}`},
 			nil,
 		},
 	}
@@ -193,7 +458,7 @@ func TestEmptyProviderResponseRetriesSameOperationBeforeCaching(t *testing.T) {
 	client.newID = sequenceIDs()
 	result, err := client.Call(context.Background(), Request{
 		ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "retry empty output",
-		CallType: CallTypeText, CacheMode: CacheModeCache, RetryPolicy: RetryPolicy{MaxAttempts: 2},
+		CallType: CallTypeText, CacheMode: CacheModeCache, RecoveryPolicy: RecoveryPolicy{MaxAttempts: 2, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -208,9 +473,8 @@ func TestEmptyProviderResponseRetriesSameOperationBeforeCaching(t *testing.T) {
 
 func fixtureProviderResult() coreruntime.ProviderResult {
 	return coreruntime.ProviderResult{
-		Output:              "Apples, bananas",
-		Accounting:          testLedger(12, 0, 0, 3, 0, accounting.ExactCost(0.0000225, "calculated")),
-		RawProviderEnvelope: json.RawMessage(`{"id":"fixture-response"}`),
+		Output:     "Apples, bananas",
+		Accounting: testLedger(12, 0, 0, 3, 0, accounting.ExactCost(0.0000225, "calculated")),
 	}
 }
 

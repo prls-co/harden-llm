@@ -19,7 +19,7 @@ type Profile struct {
 	ResponsesTokensParam               string                    `json:"responsesTokensParam"`
 	DefaultOptions                     map[string]any            `json:"defaultOptions"`
 	ReasoningEffortMap                 map[string]map[string]any `json:"reasoningEffortMap,omitempty"`
-	BackupProfiles                     []string                  `json:"backupProfiles,omitempty"`
+	RecoveryPolicy                     RecoveryPolicy            `json:"recoveryPolicy"`
 	Models                             []Model                   `json:"models,omitempty"`
 }
 

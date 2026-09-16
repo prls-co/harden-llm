@@ -411,6 +411,9 @@ func decodeJSON(writer http.ResponseWriter, request *http.Request, maximum int64
 	decoder.DisallowUnknownFields()
 	decoder.UseNumber()
 	if err := decoder.Decode(destination); err != nil {
+		if failure := requestValidationFailure(err); failure != nil {
+			return failure
+		}
 		var maximumError *http.MaxBytesError
 		if errors.As(err, &maximumError) {
 			return &responseFailure{Status: http.StatusRequestEntityTooLarge, Code: "request_too_large", Message: "The request body is too large."}
@@ -428,13 +431,14 @@ func decodeJSON(writer http.ResponseWriter, request *http.Request, maximum int64
 }
 
 type responseFailure struct {
-	Status  int
-	Code    string
-	Message string
+	FieldErrors map[string]string
+	Status      int
+	Code        string
+	Message     string
 }
 
 func writeFailure(writer http.ResponseWriter, failure responseFailure) {
-	writeError(writer, failure.Status, failure.Code, failure.Message)
+	writeJSON(writer, failure.Status, envelope{State: map[string]any{}, Error: &Error{Code: failure.Code, Message: failure.Message, FieldErrors: failure.FieldErrors}})
 }
 
 func writeSuccess(writer http.ResponseWriter, status int, result, state any) {

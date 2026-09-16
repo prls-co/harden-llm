@@ -1,7 +1,6 @@
 package providers
 
 import (
-	"net/url"
 	"reflect"
 	"regexp"
 	"strings"
@@ -18,8 +17,7 @@ func normalizeSearch(prepared preparedRequest, response map[string]any) *runtime
 	result := &runtime.SearchResult{Mode: prepared.searchMode, Sources: []runtime.SearchSource{}, CostStatus: "unavailable"}
 	seen := map[string]bool{}
 	add := func(raw, title string) {
-		u, err := url.Parse(raw)
-		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Hostname() == "" || u.User != nil || seen[raw] || len(result.Sources) >= 50 {
+		if !runtime.ValidSearchURL(raw) || seen[raw] || len(result.Sources) >= 50 {
 			return
 		}
 		seen[raw] = true

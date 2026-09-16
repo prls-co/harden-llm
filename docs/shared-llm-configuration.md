@@ -13,12 +13,19 @@ Every enabled **trusted** branch receives the same configured profiles for both
 `TEST_LOGIN` and `HARDEN_LLM_LOCAL_OPERATOR_EMAIL`. These provider keys grant real
 provider access and spending authority. Never enable previews for untrusted code.
 
-The configuration uses the existing profile catalog schema:
+The configuration uses profile schema version 2. A complete synthetic example is
+[`config/llm-profiles.example.json`](../config/llm-profiles.example.json). Each
+profile requires its own complete `recoveryPolicy`; old catalogs and bundles
+are rejected. Recovery settings do not belong in provider `defaultOptions`.
+The coordinated data/configuration cutover is described in
+[preview environments, section 6.1](preview-environments.md#61-recovery-policy-cutover-adr-hllm-020).
+
+The configuration uses the existing catalog boundary:
 
 - `HARDEN_LLM_CONFIG_FILE`: absolute path to a JSON file with `profiles` (the full
   catalog keyed by `llmProfile`) and `credentialEnv` (profile-name to `*_API_KEY`
   variable-name mapping). Reference host: `config/llm-profiles.local.json`.
-  Model IDs, endpoints, capabilities, pricing, backups and default options stay
+  Model IDs, endpoints, capabilities, pricing, recovery policies and default options stay
   in that file, not `.env`. Actual secret values must not appear in this JSON.
 - Referenced `*_API_KEY` values: ordinary secret `.env` variables. Missing or
   empty referenced keys fail deployment; profiles deliberately without a mapping

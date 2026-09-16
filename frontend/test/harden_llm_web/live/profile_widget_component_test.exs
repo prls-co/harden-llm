@@ -78,6 +78,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
            )
 
     view |> element("#workspace-cache-toggle") |> render_click()
+    render_async(view, 1_000)
 
     assert has_element?(
              view,
@@ -98,7 +99,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     for selector <- [
           "#profile-config-fields",
           "#profile-credential-toggle",
-          "#profile-fallback-toggle",
           "#profile-options-toggle",
           "#profile-retry-toggle",
           "#profile-pricing-toggle",
@@ -151,37 +151,29 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
 
     for selector <- [
           "#profile-retry-repair",
-          "#profile_enableRetryOn429",
-          "#profile_enableRetryOn5xx",
-          "#profile_enableRetryOnNetworkError",
-          "#profile_enableRetryOnParseError",
-          "#profile_retryMaxAttempts",
-          "#profile-escalation-config-toggle"
+          "#profile-retry-rate_limit",
+          "#profile-retry-server_error",
+          "#profile-retry-network",
+          "#profile-recovery-maxAttempts"
         ] do
       assert has_element?(view, selector), "missing retry selector #{selector}"
     end
 
-    assert has_element?(view, ~s(#profile_retryMaxAttempts[placeholder="4"]))
-    assert has_element?(view, ~s(#profile_retryBaseDelayMs[placeholder="500"]))
-    assert has_element?(view, ~s(#profile_retryMaxDelayMs[placeholder="8000"]))
-    assert has_element?(view, ~s(#profile_escalationAttempt[placeholder="3"]))
+    assert has_element?(view, ~s(#profile-recovery-maxAttempts[value="4"]))
+    assert has_element?(view, ~s(#profile-recovery-baseDelayMs[value="500"]))
+    assert has_element?(view, ~s(#profile-recovery-maxDelayMs[value="8000"]))
 
     assert has_element?(
              view,
-             "#profile_retryMaxAttempts-help[hidden]",
-             "Total attempts for the utility call, including initial, ordinary retry, repair, and escalation attempts."
+             "#profile-recovery-maxAttempts-help[hidden]",
+             "Total provider calls, including the first call, retries and repairs. The selected profile and model stay the same."
            )
 
-    assert has_element?(view, ".ullm-field-info-text", "Structured Repair requires")
+    assert has_element?(view, ".ullm-field-info-text", "original schema")
 
     assert has_element?(
              view,
-             ~s(button.ullm-field-label-info[type="button"][aria-controls="profile_structuredRepairRetryEnabled-help"][aria-expanded="false"])
-           )
-
-    assert has_element?(
-             view,
-             ~s(#profile-escalation-profile[placeholder="OpenRouter DeepSeek V4 Flash"])
+             ~s(button.ullm-field-label-info[type="button"][aria-controls="profile-repair-invalid-output-help"][aria-expanded="false"])
            )
 
     view |> element("#profile-pricing-toggle") |> render_click()
@@ -200,119 +192,20 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
            )
   end
 
-  test "main and escalation rows reuse the cache control and default escalation to CPA Sol", %{
-    conn: conn
-  } do
-    primary = profile_without_escalation("Primary", "primary-model")
-    escalation = profile("CPA GPT-5.6 Sol", "gpt-5.6-sol")
-    install_stub([primary, escalation], primary)
-
-    {:ok, view, _html} = live(conn, ~p"/")
-    render_async(view, 1_000)
-
-    view |> element("#model-config-toggle") |> render_click()
-    render_async(view, 1_000)
-    view |> element("#profile-retry-toggle") |> render_click()
-    render_async(view, 1_000)
-
-    assert has_element?(
-             view,
-             ".ullm-escalation-profile-row > .ullm-profile-category",
-             "Escalation"
-           )
-
-    refute has_element?(
-             view,
-             ".ullm-escalation-profile-row > .ullm-profile-category",
-             "Escalation Model"
-           )
-
-    assert has_element?(view, ".ullm-escalation-profile-row > .ullm-profile-picker")
-    assert has_element?(view, ".ullm-escalation-profile-row > .ullm-reasoning-field")
-    assert has_element?(view, ~s(#profile-escalation-profile[value="CPA GPT-5.6 Sol"]))
-    assert has_element?(view, ~s(#profile-escalation-cache-toggle[data-cache-mode="cache"]))
-    assert has_element?(view, ".ullm-escalation-profile-row > #profile-escalation-cache-toggle")
-    assert has_element?(view, ".ullm-escalation-profile-row > #profile-escalation-config-toggle")
-    assert has_element?(view, "#profile-escalation-cache-toggle", "💾")
-    refute has_element?(view, "#profile-escalation-cache-toggle .ullm-cache-toggle-label")
-
-    view |> element("#profile-escalation-config-toggle") |> render_click()
-    assert has_element?(view, ~s(#escalation_modelId[value="gpt-5.6-sol"]))
-
-    view |> element("#profile-escalation-cache-toggle") |> render_click()
-
-    assert has_element?(view, ~s(#workspace-cache-toggle[data-cache-mode="refresh"]))
-    assert has_element?(view, ~s(#profile-escalation-cache-toggle[data-cache-mode="refresh"]))
-
-    view |> element("#workspace-cache-toggle") |> render_click()
-
-    assert has_element?(view, ~s(#workspace-cache-toggle[data-cache-mode="cache"]))
-    assert has_element?(view, ~s(#profile-escalation-cache-toggle[data-cache-mode="cache"]))
-  end
-
-  test "fallback rows use unnumbered utility actions and preserve boundary state", %{conn: conn} do
-    primary = profile("Primary", "model-primary")
-    backup = profile("Backup", "model-backup")
-    primary = put_in(primary, ["profile", "backupProfiles"], ["Backup", "custom-fallback"])
-    install_stub([primary, backup], primary)
-
-    {:ok, view, _html} = live(conn, ~p"/")
-    render_async(view, 1_000)
-    view |> element("#model-config-toggle") |> render_click()
-    render_async(view, 1_000)
-
-    refute has_element?(view, "#profile-fallback-list ol")
-    assert has_element?(view, "#profile-fallback-0-up", "Up")
-    assert has_element?(view, "#profile-fallback-0-down", "Down")
-    assert has_element?(view, "#profile-fallback-0-up[disabled]")
-    assert has_element?(view, "#profile-fallback-1-down[disabled]")
-  end
-
-  test "nested escalation folds and profile capabilities stay server-owned", %{conn: conn} do
+  test "selected profile capabilities remain server-owned", %{conn: conn} do
     primary = profile_without_reasoning("Primary", "primary-model")
-    backup = profile("Repair LLM", "repair-model")
-    install_stub([primary, backup], primary)
-
-    {:ok, view, _html} = live(conn, ~p"/")
+    install_stub([primary, profile("Another", "another-model")], primary)
+    {:ok, view, _} = live(conn, ~p"/")
     render_async(view, 1_000)
-
     assert has_element?(view, ~s(#workspace-reasoning[disabled]))
     assert has_element?(view, ~s(#workspace-reasoning option[value=""][selected]))
-
     view |> element("#model-config-toggle") |> render_click()
     render_async(view, 1_000)
     view |> element("#profile-retry-toggle") |> render_click()
     render_async(view, 1_000)
-    view |> element("#profile-escalation-config-toggle") |> render_click()
-
-    for selector <- [
-          "#escalation-config-fields",
-          "#escalation-credential-toggle",
-          "#escalation-fallback-toggle",
-          "#escalation-options-toggle",
-          "#escalation-pricing-toggle",
-          "#escalation-bundle-file",
-          "#escalation-save",
-          "#escalation-delete"
-        ] do
-      assert has_element?(view, selector), "missing escalation selector #{selector}"
-    end
-
-    view
-    |> with_target("#workspace-llm-widget")
-    |> render_click("toggle-fold", %{"kind" => "escalation", "fold" => "options"})
-
-    assert has_element?(view, "#escalation-options")
-    assert has_element?(view, "#escalation_maxTokens")
-
-    view
-    |> with_target("#workspace-llm-widget")
-    |> render_change("profile-draft-change", %{
-      "escalation" => %{"modelId" => "repair-model", "maxTokens" => "12000"}
-    })
-
-    assert has_element?(view, ~s(#escalation_modelId[value="repair-model"]))
-    assert has_element?(view, "#escalation_defaultOptionsJson", ~s("max_tokens": 12000))
+    assert has_element?(view, "#profile-recovery-policy")
+    refute render(view) =~ "Escalation"
+    assert has_element?(view, ~s(#run_selectedProfileId[value="Primary"]))
   end
 
   test "two widget instances retain independent IDs, folds, and controls", %{conn: conn} do
@@ -343,7 +236,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     assert length(ids) == length(Enum.uniq(ids)), "duplicate DOM ids found"
   end
 
-  defp install_stub(profiles, state_profile) do
+  defp install_stub(profiles, state_profile, save_response \\ nil) do
     state =
       APIFixtures.state()
       |> Map.put("selectedProfileId", get_in(state_profile, ["profile", "llmProfile"]))
@@ -358,7 +251,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
           Req.Test.json(conn, APIFixtures.success(nil, state))
 
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => profiles}))
+          Req.Test.json(conn, APIFixtures.profiles(profiles))
 
         {"GET", "/api/v1/history"} ->
           Req.Test.json(conn, APIFixtures.success(%{"items" => []}))
@@ -366,6 +259,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
         {"POST", "/api/v1/state"} ->
           {:ok, body, conn} = Plug.Conn.read_body(conn)
           Req.Test.json(conn, APIFixtures.success(nil, Jason.decode!(body)))
+
+        {"PUT", "/api/v1/profiles/Primary"} when is_function(save_response, 1) ->
+          save_response.(conn)
 
         _ ->
           flunk("unexpected API call: #{conn.method} #{conn.request_path}")
@@ -381,15 +277,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     |> put_in(
       ["profile", "defaultOptions"],
       %{
-        "max_tokens" => 16_000,
-        "structuredRepairRetry" => %{
-          "enabled" => true,
-          "escalation" => %{
-            "attempt" => 3,
-            "llmProfile" => profile_id,
-            "reasoningEffort" => "highest"
-          }
-        }
+        "max_tokens" => 16_000
       }
     )
     |> put_in(["credential", "credentialId"], "credential-#{profile_id}")
@@ -400,8 +288,67 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     |> update_in(["profile"], &Map.delete(&1, "reasoningEffortMap"))
   end
 
-  defp profile_without_escalation(profile_id, model_id) do
-    profile(profile_id, model_id)
-    |> put_in(["profile", "defaultOptions", "structuredRepairRetry"], %{"enabled" => true})
+  # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-209
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-072
+  @tag :recovery
+  test "recovery exposes the complete policy and clickable help", %{conn: conn} do
+    primary = profile("Primary", "fixture")
+    install_stub([primary], primary)
+    {:ok, view, _} = live(conn, ~p"/")
+    render_async(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
+    view |> element("#profile-retry-toggle") |> render_click()
+
+    for category <- ~w(network rate_limit server_error empty_response provider_retry) do
+      assert has_element?(
+               view,
+               ~s(input[name="profile[recoveryPolicy][retryOn][]"][value="#{category}"])
+             )
+    end
+
+    assert has_element?(view, ~s(input[name="profile[recoveryPolicy][maxAttempts]"]))
+
+    assert has_element?(
+             view,
+             ~s(input[name="profile[recoveryPolicy][repairInvalidOutput]"][type="checkbox"])
+           )
+
+    assert has_element?(view, "#profile-recovery-policy [phx-click][aria-expanded]")
+    refute has_element?(view, "#profile-fallback-toggle")
+    refute render(view) =~ "Escalation"
+    refute render(view) =~ "enableRetryOnParseError"
+  end
+
+  @tag :recovery
+  test "inline profile saves retain policy values and display backend field errors", %{conn: conn} do
+    primary = profile("Primary", "fixture")
+
+    install_stub([primary], primary, fn conn ->
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      assert Jason.decode!(body)["profile"]["recoveryPolicy"]["maxAttempts"] == 11
+
+      {status, envelope} =
+        APIFixtures.error(422, "validation_failed", %{
+          "Primary.recoveryPolicy.maxAttempts" => "must be between 1 and 10"
+        })
+
+      conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
+    end)
+
+    {:ok, view, _} = live(conn, ~p"/")
+    render_async(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
+    view |> element("#profile-retry-toggle") |> render_click()
+
+    view
+    |> element("#profile-recovery-maxAttempts")
+    |> render_change(%{"profile" => %{"recoveryPolicy" => %{"maxAttempts" => "11"}}})
+
+    view |> element("#profile-save") |> render_click()
+    render_async(view, 1_000)
+    assert has_element?(view, ~s(#profile-recovery-maxAttempts[value="11"][aria-invalid="true"]))
+    assert has_element?(view, "#profile-recovery-policy", "must be between 1 and 10")
   end
 end

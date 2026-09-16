@@ -1,6 +1,6 @@
 {
   "Claude Haiku 4.5": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "Claude Haiku 4.5",
     "provider": "anthropic",
     "apiInferenceType": "anthropic-messages",
@@ -8,10 +8,10 @@
     "baseUrl": "https://api.anthropic.com/v1",
     "modelId": "claude-haiku-4-5-20251001",
     "pricing": {
-      "input_cost_per_token": 0.000001,
-      "output_cost_per_token": 0.000005,
-      "cache_read_input_token_cost": 1e-7,
-      "cache_creation_input_token_cost": 0.00000125,
+      "input_cost_per_token": 1e-06,
+      "output_cost_per_token": 5e-06,
+      "cache_read_input_token_cost": 1e-07,
+      "cache_creation_input_token_cost": 1.25e-06,
       "output_cost_per_reasoning_token": 0
     },
     "supportsTemperature": null,
@@ -21,11 +21,25 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
-    "supportsWebSearch": true
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
   },
   "Claude Opus 4.7": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "Claude Opus 4.7",
     "provider": "anthropic",
     "apiInferenceType": "anthropic-messages",
@@ -33,10 +47,10 @@
     "baseUrl": "https://api.anthropic.com/v1",
     "modelId": "claude-opus-4-7",
     "pricing": {
-      "input_cost_per_token": 0.000005,
-      "output_cost_per_token": 0.000025,
-      "cache_read_input_token_cost": 5e-7,
-      "cache_creation_input_token_cost": 0.00000625,
+      "input_cost_per_token": 5e-06,
+      "output_cost_per_token": 2.5e-05,
+      "cache_read_input_token_cost": 5e-07,
+      "cache_creation_input_token_cost": 6.25e-06,
       "output_cost_per_reasoning_token": 0
     },
     "supportsTemperature": false,
@@ -46,11 +60,25 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
-    "supportsWebSearch": true
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
   },
   "Claude Opus 5": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "Claude Opus 5",
     "provider": "anthropic",
     "apiInferenceType": "anthropic-messages",
@@ -58,10 +86,10 @@
     "baseUrl": "https://api.anthropic.com/v1",
     "modelId": "claude-opus-5",
     "pricing": {
-      "input_cost_per_token": 0.000005,
-      "output_cost_per_token": 0.000025,
-      "cache_read_input_token_cost": 5e-7,
-      "cache_creation_input_token_cost": 0.00000625,
+      "input_cost_per_token": 5e-06,
+      "output_cost_per_token": 2.5e-05,
+      "cache_read_input_token_cost": 5e-07,
+      "cache_creation_input_token_cost": 6.25e-06,
       "output_cost_per_reasoning_token": 0
     },
     "supportsTemperature": false,
@@ -71,11 +99,25 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
-    "supportsWebSearch": true
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
   },
   "Claude Sonnet 4.6": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "Claude Sonnet 4.6",
     "provider": "anthropic",
     "apiInferenceType": "anthropic-messages",
@@ -83,10 +125,10 @@
     "baseUrl": "https://api.anthropic.com/v1",
     "modelId": "claude-sonnet-4-6",
     "pricing": {
-      "input_cost_per_token": 0.000003,
-      "output_cost_per_token": 0.000015,
-      "cache_read_input_token_cost": 3e-7,
-      "cache_creation_input_token_cost": 0.00000375,
+      "input_cost_per_token": 3e-06,
+      "output_cost_per_token": 1.5e-05,
+      "cache_read_input_token_cost": 3e-07,
+      "cache_creation_input_token_cost": 3.75e-06,
       "output_cost_per_reasoning_token": 0
     },
     "supportsTemperature": null,
@@ -96,11 +138,25 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
-    "supportsWebSearch": true
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
   },
   "Claude Sonnet 5": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "Claude Sonnet 5",
     "provider": "anthropic",
     "apiInferenceType": "anthropic-messages",
@@ -108,10 +164,10 @@
     "baseUrl": "https://api.anthropic.com/v1",
     "modelId": "claude-sonnet-5",
     "pricing": {
-      "input_cost_per_token": 0.000002,
-      "output_cost_per_token": 0.00001,
-      "cache_read_input_token_cost": 2e-7,
-      "cache_creation_input_token_cost": 0.0000025,
+      "input_cost_per_token": 2e-06,
+      "output_cost_per_token": 1e-05,
+      "cache_read_input_token_cost": 2e-07,
+      "cache_creation_input_token_cost": 2.5e-06,
       "output_cost_per_reasoning_token": 0
     },
     "supportsTemperature": false,
@@ -121,11 +177,25 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
-    "supportsWebSearch": true
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
   },
   "CPA GPT-5.4": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "CPA GPT-5.4",
     "provider": "cpa",
     "apiInferenceType": "responses",
@@ -133,9 +203,9 @@
     "baseUrl": "https://cpa.prls.co/v1",
     "modelId": "gpt-5.4",
     "pricing": {
-      "input_cost_per_token": 0.0000025,
-      "output_cost_per_token": 0.000015,
-      "cache_read_input_token_cost": 2.5e-7,
+      "input_cost_per_token": 2.5e-06,
+      "output_cost_per_token": 1.5e-05,
+      "cache_read_input_token_cost": 2.5e-07,
       "cache_creation_input_token_cost": 0,
       "output_cost_per_reasoning_token": 0
     },
@@ -147,7 +217,6 @@
       "max_tokens": 16000,
       "stream": true
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "reasoning": {
@@ -165,10 +234,25 @@
         }
       }
     },
-    "supportsWebSearch": true
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
   },
   "CPA GPT-5.4 Mini": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "CPA GPT-5.4 Mini",
     "provider": "cpa",
     "apiInferenceType": "responses",
@@ -176,9 +260,9 @@
     "baseUrl": "https://cpa.prls.co/v1",
     "modelId": "gpt-5.4-mini",
     "pricing": {
-      "input_cost_per_token": 7.5e-7,
-      "output_cost_per_token": 0.0000045,
-      "cache_read_input_token_cost": 7.5e-8,
+      "input_cost_per_token": 7.5e-07,
+      "output_cost_per_token": 4.5e-06,
+      "cache_read_input_token_cost": 7.5e-08,
       "cache_creation_input_token_cost": 0,
       "output_cost_per_reasoning_token": 0
     },
@@ -190,7 +274,6 @@
       "max_tokens": 16000,
       "stream": true
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "reasoning": {
@@ -208,10 +291,25 @@
         }
       }
     },
-    "supportsWebSearch": true
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
   },
   "CPA GPT-5.6 Luna": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "CPA GPT-5.6 Luna",
     "provider": "cpa",
     "apiInferenceType": "responses",
@@ -219,10 +317,10 @@
     "baseUrl": "https://cpa.prls.co/v1",
     "modelId": "gpt-5.6-luna",
     "pricing": {
-      "input_cost_per_token": 2e-7,
-      "output_cost_per_token": 0.0000012,
-      "cache_read_input_token_cost": 2e-8,
-      "cache_creation_input_token_cost": 2.5e-7,
+      "input_cost_per_token": 2e-07,
+      "output_cost_per_token": 1.2e-06,
+      "cache_read_input_token_cost": 2e-08,
+      "cache_creation_input_token_cost": 2.5e-07,
       "output_cost_per_reasoning_token": 0
     },
     "supportsTemperature": false,
@@ -233,7 +331,6 @@
       "max_tokens": 16000,
       "stream": true
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "reasoning": {
@@ -251,10 +348,25 @@
         }
       }
     },
-    "supportsWebSearch": true
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
   },
   "CPA GPT-5.6 Sol": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "CPA GPT-5.6 Sol",
     "provider": "cpa",
     "apiInferenceType": "responses",
@@ -262,10 +374,10 @@
     "baseUrl": "https://cpa.prls.co/v1",
     "modelId": "gpt-5.6-sol",
     "pricing": {
-      "input_cost_per_token": 0.000005,
-      "output_cost_per_token": 0.00003,
-      "cache_read_input_token_cost": 5e-7,
-      "cache_creation_input_token_cost": 0.00000625,
+      "input_cost_per_token": 5e-06,
+      "output_cost_per_token": 3e-05,
+      "cache_read_input_token_cost": 5e-07,
+      "cache_creation_input_token_cost": 6.25e-06,
       "output_cost_per_reasoning_token": 0
     },
     "supportsTemperature": false,
@@ -276,7 +388,6 @@
       "max_tokens": 16000,
       "stream": true
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "reasoning": {
@@ -294,10 +405,25 @@
         }
       }
     },
-    "supportsWebSearch": true
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
   },
   "Gemini 3.1 Flash Lite": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "Gemini 3.1 Flash Lite",
     "provider": "google",
     "apiInferenceType": "gemini-generate-content",
@@ -305,9 +431,9 @@
     "baseUrl": "https://generativelanguage.googleapis.com",
     "modelId": "gemini-3.1-flash-lite",
     "pricing": {
-      "input_cost_per_token": 2.5e-7,
-      "output_cost_per_token": 0.0000015,
-      "cache_read_input_token_cost": 2.5e-8,
+      "input_cost_per_token": 2.5e-07,
+      "output_cost_per_token": 1.5e-06,
+      "cache_read_input_token_cost": 2.5e-08,
       "cache_creation_input_token_cost": 0,
       "output_cost_per_reasoning_token": 0
     },
@@ -318,7 +444,6 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "thinkingConfig": {
@@ -336,10 +461,25 @@
         }
       }
     },
-    "supportsWebSearch": true
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
   },
   "Gemini 3.1 Pro Preview": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "Gemini 3.1 Pro Preview",
     "provider": "google",
     "apiInferenceType": "gemini-generate-content",
@@ -347,9 +487,9 @@
     "baseUrl": "https://generativelanguage.googleapis.com",
     "modelId": "gemini-3.1-pro-preview",
     "pricing": {
-      "input_cost_per_token": 0.000002,
-      "output_cost_per_token": 0.000012,
-      "cache_read_input_token_cost": 2e-7,
+      "input_cost_per_token": 2e-06,
+      "output_cost_per_token": 1.2e-05,
+      "cache_read_input_token_cost": 2e-07,
       "cache_creation_input_token_cost": 0,
       "output_cost_per_reasoning_token": 0
     },
@@ -360,7 +500,6 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "thinkingConfig": {
@@ -378,10 +517,25 @@
         }
       }
     },
-    "supportsWebSearch": true
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
   },
   "Gemini 3.5 Flash": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "Gemini 3.5 Flash",
     "provider": "google",
     "apiInferenceType": "gemini-generate-content",
@@ -389,9 +543,9 @@
     "baseUrl": "https://generativelanguage.googleapis.com",
     "modelId": "gemini-3.5-flash",
     "pricing": {
-      "input_cost_per_token": 0.0000015,
-      "output_cost_per_token": 0.000009,
-      "cache_read_input_token_cost": 1.5e-7,
+      "input_cost_per_token": 1.5e-06,
+      "output_cost_per_token": 9e-06,
+      "cache_read_input_token_cost": 1.5e-07,
       "cache_creation_input_token_cost": 0,
       "output_cost_per_reasoning_token": 0
     },
@@ -402,7 +556,6 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "thinkingConfig": {
@@ -420,10 +573,25 @@
         }
       }
     },
-    "supportsWebSearch": true
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
   },
   "Gemini 3.5 Flash Lite": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "Gemini 3.5 Flash Lite",
     "provider": "google",
     "apiInferenceType": "gemini-generate-content",
@@ -431,9 +599,9 @@
     "baseUrl": "https://generativelanguage.googleapis.com",
     "modelId": "gemini-3.5-flash-lite",
     "pricing": {
-      "input_cost_per_token": 3e-7,
-      "output_cost_per_token": 0.0000025,
-      "cache_read_input_token_cost": 3e-8,
+      "input_cost_per_token": 3e-07,
+      "output_cost_per_token": 2.5e-06,
+      "cache_read_input_token_cost": 3e-08,
       "cache_creation_input_token_cost": 0,
       "output_cost_per_reasoning_token": 0
     },
@@ -444,7 +612,6 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "thinkingConfig": {
@@ -462,10 +629,25 @@
         }
       }
     },
-    "supportsWebSearch": true
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
   },
   "Gemini 3.7 Flash": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "Gemini 3.7 Flash",
     "provider": "google",
     "apiInferenceType": "gemini-generate-content",
@@ -473,9 +655,9 @@
     "baseUrl": "https://generativelanguage.googleapis.com",
     "modelId": "gemini-3.7-flash",
     "pricing": {
-      "input_cost_per_token": 7.5e-7,
-      "output_cost_per_token": 0.00000375,
-      "cache_read_input_token_cost": 7.5e-8,
+      "input_cost_per_token": 7.5e-07,
+      "output_cost_per_token": 3.75e-06,
+      "cache_read_input_token_cost": 7.5e-08,
       "cache_creation_input_token_cost": 0,
       "output_cost_per_reasoning_token": 0
     },
@@ -486,7 +668,6 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "thinkingConfig": {
@@ -504,10 +685,25 @@
         }
       }
     },
-    "supportsWebSearch": true
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
   },
   "Novita DeepSeek V4 Flash": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "Novita DeepSeek V4 Flash",
     "provider": "novita",
     "apiInferenceType": "chat-completions",
@@ -515,9 +711,9 @@
     "baseUrl": "https://api.novita.ai/openai/v1",
     "modelId": "deepseek/deepseek-v4-flash",
     "pricing": {
-      "input_cost_per_token": 1.4e-7,
-      "output_cost_per_token": 2.8e-7,
-      "cache_read_input_token_cost": 2.8e-8,
+      "input_cost_per_token": 1.4e-07,
+      "output_cost_per_token": 2.8e-07,
+      "cache_read_input_token_cost": 2.8e-08,
       "cache_creation_input_token_cost": 0,
       "output_cost_per_reasoning_token": 0
     },
@@ -528,7 +724,6 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "thinking": {
@@ -547,10 +742,25 @@
         },
         "reasoning_effort": "max"
       }
+    },
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
     }
   },
   "Novita DeepSeek V4 Pro": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "Novita DeepSeek V4 Pro",
     "provider": "novita",
     "apiInferenceType": "chat-completions",
@@ -558,9 +768,9 @@
     "baseUrl": "https://api.novita.ai/openai/v1",
     "modelId": "deepseek/deepseek-v4-pro",
     "pricing": {
-      "input_cost_per_token": 0.00000164,
-      "output_cost_per_token": 0.00000338,
-      "cache_read_input_token_cost": 1.35e-7,
+      "input_cost_per_token": 1.64e-06,
+      "output_cost_per_token": 3.38e-06,
+      "cache_read_input_token_cost": 1.35e-07,
       "cache_creation_input_token_cost": 0,
       "output_cost_per_reasoning_token": 0
     },
@@ -571,7 +781,6 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "thinking": {
@@ -590,10 +799,25 @@
         },
         "reasoning_effort": "max"
       }
+    },
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
     }
   },
   "OpenAI GPT-5.4": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "OpenAI GPT-5.4",
     "provider": "openai",
     "apiInferenceType": "responses",
@@ -601,9 +825,9 @@
     "baseUrl": "https://api.openai.com/v1",
     "modelId": "gpt-5.4",
     "pricing": {
-      "input_cost_per_token": 0.0000025,
-      "output_cost_per_token": 0.000015,
-      "cache_read_input_token_cost": 2.5e-7,
+      "input_cost_per_token": 2.5e-06,
+      "output_cost_per_token": 1.5e-05,
+      "cache_read_input_token_cost": 2.5e-07,
       "cache_creation_input_token_cost": 0,
       "output_cost_per_reasoning_token": 0
     },
@@ -615,7 +839,6 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "reasoning": {
@@ -632,10 +855,25 @@
           "effort": "xhigh"
         }
       }
+    },
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
     }
   },
   "OpenAI GPT-5.4 Mini": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "OpenAI GPT-5.4 Mini",
     "provider": "openai",
     "apiInferenceType": "responses",
@@ -643,9 +881,9 @@
     "baseUrl": "https://api.openai.com/v1",
     "modelId": "gpt-5.4-mini",
     "pricing": {
-      "input_cost_per_token": 7.5e-7,
-      "output_cost_per_token": 0.0000045,
-      "cache_read_input_token_cost": 7.5e-8,
+      "input_cost_per_token": 7.5e-07,
+      "output_cost_per_token": 4.5e-06,
+      "cache_read_input_token_cost": 7.5e-08,
       "cache_creation_input_token_cost": 0,
       "output_cost_per_reasoning_token": 0
     },
@@ -657,7 +895,6 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "reasoning": {
@@ -674,10 +911,25 @@
           "effort": "xhigh"
         }
       }
+    },
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
     }
   },
   "OpenAI GPT-5.5": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "OpenAI GPT-5.5",
     "provider": "openai",
     "apiInferenceType": "responses",
@@ -685,9 +937,9 @@
     "baseUrl": "https://api.openai.com/v1",
     "modelId": "gpt-5.5",
     "pricing": {
-      "input_cost_per_token": 0.000005,
-      "output_cost_per_token": 0.00003,
-      "cache_read_input_token_cost": 5e-7,
+      "input_cost_per_token": 5e-06,
+      "output_cost_per_token": 3e-05,
+      "cache_read_input_token_cost": 5e-07,
       "cache_creation_input_token_cost": 0,
       "output_cost_per_reasoning_token": 0
     },
@@ -699,7 +951,6 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "reasoning": {
@@ -716,10 +967,25 @@
           "effort": "xhigh"
         }
       }
+    },
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
     }
   },
   "OpenAI GPT-5.6 Luna": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "OpenAI GPT-5.6 Luna",
     "provider": "openai",
     "apiInferenceType": "responses",
@@ -727,10 +993,10 @@
     "baseUrl": "https://api.openai.com/v1",
     "modelId": "gpt-5.6-luna",
     "pricing": {
-      "input_cost_per_token": 2e-7,
-      "output_cost_per_token": 0.0000012,
-      "cache_read_input_token_cost": 2e-8,
-      "cache_creation_input_token_cost": 2.5e-7,
+      "input_cost_per_token": 2e-07,
+      "output_cost_per_token": 1.2e-06,
+      "cache_read_input_token_cost": 2e-08,
+      "cache_creation_input_token_cost": 2.5e-07,
       "output_cost_per_reasoning_token": 0
     },
     "supportsTemperature": false,
@@ -741,7 +1007,6 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "reasoning": {
@@ -758,10 +1023,25 @@
           "effort": "xhigh"
         }
       }
+    },
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
     }
   },
   "OpenAI GPT-5.6 Sol": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "OpenAI GPT-5.6 Sol",
     "provider": "openai",
     "apiInferenceType": "responses",
@@ -769,10 +1049,10 @@
     "baseUrl": "https://api.openai.com/v1",
     "modelId": "gpt-5.6-sol",
     "pricing": {
-      "input_cost_per_token": 0.000005,
-      "output_cost_per_token": 0.00003,
-      "cache_read_input_token_cost": 5e-7,
-      "cache_creation_input_token_cost": 0.00000625,
+      "input_cost_per_token": 5e-06,
+      "output_cost_per_token": 3e-05,
+      "cache_read_input_token_cost": 5e-07,
+      "cache_creation_input_token_cost": 6.25e-06,
       "output_cost_per_reasoning_token": 0
     },
     "supportsTemperature": false,
@@ -783,7 +1063,6 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "reasoning": {
@@ -800,10 +1079,25 @@
           "effort": "xhigh"
         }
       }
+    },
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
     }
   },
   "OpenRouter DeepSeek V4 Flash": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "OpenRouter DeepSeek V4 Flash",
     "provider": "openrouter",
     "apiInferenceType": "chat-completions",
@@ -818,7 +1112,6 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "reasoning_effort": "low"
@@ -829,10 +1122,25 @@
       "highest": {
         "reasoning_effort": "xhigh"
       }
+    },
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
     }
   },
   "OpenRouter DeepSeek V4 Pro": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "OpenRouter DeepSeek V4 Pro",
     "provider": "openrouter",
     "apiInferenceType": "chat-completions",
@@ -847,7 +1155,6 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "reasoning_effort": "low"
@@ -858,10 +1165,25 @@
       "highest": {
         "reasoning_effort": "xhigh"
       }
+    },
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
     }
   },
   "OpenRouter GPT-OSS 120B": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "OpenRouter GPT-OSS 120B",
     "provider": "openrouter",
     "apiInferenceType": "chat-completions",
@@ -876,7 +1198,6 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "reasoning_effort": "low"
@@ -887,10 +1208,25 @@
       "highest": {
         "reasoning_effort": "high"
       }
+    },
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
     }
   },
   "OpenRouter GPT-OSS 20B": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "OpenRouter GPT-OSS 20B",
     "provider": "openrouter",
     "apiInferenceType": "chat-completions",
@@ -905,7 +1241,6 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
     "reasoningEffortMap": {
       "lowest": {
         "reasoning_effort": "low"
@@ -916,10 +1251,25 @@
       "highest": {
         "reasoning_effort": "high"
       }
+    },
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
     }
   },
   "Perplexity Sonar": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "Perplexity Sonar",
     "provider": "perplexity",
     "apiInferenceType": "chat-completions",
@@ -927,8 +1277,8 @@
     "baseUrl": "https://api.perplexity.ai",
     "modelId": "sonar",
     "pricing": {
-      "input_cost_per_token": 0.000001,
-      "output_cost_per_token": 0.000001,
+      "input_cost_per_token": 1e-06,
+      "output_cost_per_token": 1e-06,
       "cache_read_input_token_cost": 0,
       "cache_creation_input_token_cost": 0,
       "output_cost_per_reasoning_token": 0
@@ -940,11 +1290,25 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
-    "supportsWebSearch": true
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
   },
   "Perplexity Sonar Pro": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "Perplexity Sonar Pro",
     "provider": "perplexity",
     "apiInferenceType": "chat-completions",
@@ -952,8 +1316,8 @@
     "baseUrl": "https://api.perplexity.ai",
     "modelId": "sonar-pro",
     "pricing": {
-      "input_cost_per_token": 0.000003,
-      "output_cost_per_token": 0.000015,
+      "input_cost_per_token": 3e-06,
+      "output_cost_per_token": 1.5e-05,
       "cache_read_input_token_cost": 0,
       "cache_creation_input_token_cost": 0,
       "output_cost_per_reasoning_token": 0
@@ -965,11 +1329,25 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
-    "supportsWebSearch": true
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
   },
   "Perplexity Sonar Reasoning Pro": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "llmProfile": "Perplexity Sonar Reasoning Pro",
     "provider": "perplexity",
     "apiInferenceType": "chat-completions",
@@ -977,8 +1355,8 @@
     "baseUrl": "https://api.perplexity.ai",
     "modelId": "sonar-reasoning-pro",
     "pricing": {
-      "input_cost_per_token": 0.000002,
-      "output_cost_per_token": 0.000008,
+      "input_cost_per_token": 2e-06,
+      "output_cost_per_token": 8e-06,
       "cache_read_input_token_cost": 0,
       "cache_creation_input_token_cost": 0,
       "output_cost_per_reasoning_token": 0
@@ -990,7 +1368,21 @@
     "defaultOptions": {
       "max_tokens": 16000
     },
-    "backupProfiles": [],
-    "supportsWebSearch": true
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "repairInvalidOutput": true,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
   }
 }

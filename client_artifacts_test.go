@@ -20,9 +20,8 @@ import (
 func TestClientArtifactPersistenceIsRedactedAndNonFatal(t *testing.T) {
 	t.Parallel()
 	resultFixture := coreruntime.ProviderResult{
-		Output:              "ok",
-		Accounting:          testLedger(1, 0, 0, 1, 0, accounting.UnknownCost("missing_rate")),
-		RawProviderEnvelope: json.RawMessage(`{"authorization":"Bearer fixture-only-key","output_text":"fixture prompt echoed"}`),
+		Output:     "ok",
+		Accounting: testLedger(1, 0, 0, 1, 0, accounting.UnknownCost("missing_rate")),
 	}
 
 	t.Run("success", func(t *testing.T) {
@@ -36,8 +35,8 @@ func TestClientArtifactPersistenceIsRedactedAndNonFatal(t *testing.T) {
 		client.newID = func() (string, error) { id := ids[0]; ids = ids[1:]; return id, nil }
 		result, err := client.Call(context.Background(), Request{
 			ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "fixture prompt", CallType: CallTypeText,
-			Context:     ObservabilityContext{OrganizationID: "org-1", TaskID: "task-1"},
-			RetryPolicy: RetryPolicy{MaxAttempts: 1},
+			Context:        ObservabilityContext{OrganizationID: "org-1", TaskID: "task-1"},
+			RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -61,7 +60,7 @@ func TestClientArtifactPersistenceIsRedactedAndNonFatal(t *testing.T) {
 		client.newID = func() (string, error) { return "fixed", nil }
 		result, err := client.Call(context.Background(), Request{
 			ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "fixture", CallType: CallTypeText,
-			RetryPolicy: RetryPolicy{MaxAttempts: 1},
+			RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 		})
 		if err != nil || result.Output != "ok" || len(result.Artifacts) != 0 {
 			t.Fatalf("artifact failure changed provider result: %#v %v", result, err)
@@ -79,7 +78,7 @@ func TestClientArtifactPersistenceIsRedactedAndNonFatal(t *testing.T) {
 				Accounting: testLedger(4, 0, 0, 2, 0, accounting.ExactCost(0.000006, "profile")),
 			},
 			err: &retry.ProviderError{
-				Err: errors.New("structured parse failed"), Parse: true,
+				Err: errors.New("structured parse failed"), Category: retry.CategoryParse,
 				RawResponse: `{"answer":"fixture-only-key","unfinished":`,
 			},
 		}
@@ -87,8 +86,8 @@ func TestClientArtifactPersistenceIsRedactedAndNonFatal(t *testing.T) {
 		client.newID = func() (string, error) { id := ids[0]; ids = ids[1:]; return id, nil }
 		result, err := client.Call(context.Background(), Request{
 			ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "fixture", CallType: CallTypeText,
-			Context:     ObservabilityContext{OrganizationID: "org-1", TaskID: "task-1"},
-			RetryPolicy: RetryPolicy{MaxAttempts: 1},
+			Context:        ObservabilityContext{OrganizationID: "org-1", TaskID: "task-1"},
+			RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 		})
 		if err == nil || len(store.contents) != 2 || len(result.Artifacts) != 2 {
 			t.Fatalf("parse failure artifacts = %d/%d, error = %v", len(store.contents), len(result.Artifacts), err)

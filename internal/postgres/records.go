@@ -183,11 +183,7 @@ type CacheRecord struct {
 	OwnerID       string
 	Version       string
 	OperationHash string
-	Operation     json.RawMessage
 	Result        json.RawMessage
-	Usage         json.RawMessage
-	Cost          json.RawMessage
-	Envelope      json.RawMessage
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }

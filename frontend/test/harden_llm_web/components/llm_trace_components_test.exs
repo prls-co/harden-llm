@@ -37,6 +37,39 @@ defmodule HardenLlmWeb.LlmTraceComponentsTest do
     assert LazyHTML.text(LazyHTML.query(document, ".llm-trace-metrics")) =~ "📥 123456"
   end
 
+  # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 WEB-TEST-076
+  @tag :recovery_cache_write
+  test "renders cache save failure as an explicit result state" do
+    html =
+      render_component(&LlmTraceComponents.llm_trace/1,
+        id: "write-failed-trace",
+        summary: %{
+          "trace_id" => "trace-1",
+          "metrics" => [
+            %{
+              "key" => "cache-status",
+              "value" => "💾",
+              "class" => "ullm-cache-status ullm-cache-status-write_failed",
+              "title" =>
+                "The response completed successfully, but it could not be saved to cache.",
+              "aria_label" => "Harden-LLM cache: Cache save failed",
+              "data_cache_status" => "write_failed",
+              "role" => "img"
+            }
+          ]
+        }
+      )
+
+    assert html =~ ~s(data-cache-status="write_failed")
+    assert html =~ ~s(class="ullm-cache-status ullm-cache-status-write_failed")
+    assert html =~ ~s(aria-label="Harden-LLM cache: Cache save failed")
+
+    assert html =~
+             ~s(title="The response completed successfully, but it could not be saved to cache.")
+
+    refute html =~ "Unknown"
+  end
+
   test "shared trace controls expose available host-projected artifact links only once" do
     html =
       render_component(&LlmTraceComponents.llm_trace/1,

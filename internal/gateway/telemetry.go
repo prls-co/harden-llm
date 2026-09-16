@@ -195,7 +195,7 @@ func gatewayOutcome(err error) (string, string) {
 	if errors.Is(err, postgres.ErrNotFound) {
 		return "error", "not_found"
 	}
-	if errors.Is(err, ErrInvalidRequest) || errors.Is(err, ErrInvalidCursor) || errors.Is(err, ErrProfileConflict) {
+	if errors.Is(err, ErrInvalidRequest) || errors.Is(err, ErrInvalidCursor) {
 		return "error", "invalid_request"
 	}
 	return "error", "internal"

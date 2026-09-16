@@ -20,6 +20,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/prls-co/harden-llm/internal/retry"
 )
 
 const liveGatewayConfigEnvironment = "HARDEN_LLM_LIVE_GATEWAY_CONFIG"
@@ -100,7 +102,7 @@ func TestLiveGatewayLifecycle(t *testing.T) {
 
 	prompt := "Reply with exactly LIVE-CERTIFIED."
 	run := liveRequest(t, client, http.MethodPost, config.GatewayURL+"/api/v1/run", map[string]any{
-		"profileId": profileID, "userPrompt": prompt, "callType": "text", "cacheMode": "off", "maxAttempts": 1,
+		"profileId": profileID, "userPrompt": prompt, "callType": "text", "cacheMode": "off", "recoveryPolicy": retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}},
 	}, token, http.StatusOK)
 	runResult := liveObject(t, run.value["result"], "run result")
 	runID = liveText(t, runResult["runId"], "run ID")
@@ -205,15 +207,8 @@ func liveProfile(t *testing.T, raw json.RawMessage, profileID string) map[string
 	if err := json.Unmarshal(raw, &profile); err != nil || profile == nil {
 		t.Fatalf("decode live profile: %v", err)
 	}
-	if backups, exists := profile["backupProfiles"]; exists {
-		values, ok := backups.([]any)
-		if !ok || len(values) != 0 {
-			t.Fatal("live certification profile must have an empty backupProfiles array")
-		}
-	}
 	profile["llmProfile"] = profileID
 	profile["endpointCredentialScope"] = "user"
-	profile["backupProfiles"] = []any{}
 	delete(profile, "models")
 	delete(profile, "lastModelRefreshAt")
 	return profile

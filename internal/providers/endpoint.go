@@ -56,6 +56,16 @@ type resolvedEndpoint struct {
 	addresses []netip.Addr
 }
 
+type endpointPolicyError struct{ err error }
+
+func (err *endpointPolicyError) Error() string { return err.err.Error() }
+func (err *endpointPolicyError) Unwrap() error { return err.err }
+
+type endpointResolutionError struct{ err error }
+
+func (err *endpointResolutionError) Error() string { return err.err.Error() }
+func (err *endpointResolutionError) Unwrap() error { return err.err }
+
 func newEndpointGuard(policy EndpointPolicy) (*endpointGuard, error) {
 	allowed, err := normalizedHostSet(policy.AllowedHosts)
 	if err != nil {
@@ -122,57 +132,75 @@ func normalizeHost(value string) (string, error) {
 }
 
 func (guard *endpointGuard) resolve(ctx context.Context, rawURL string) (resolvedEndpoint, error) {
+	endpoint, err := guard.validateURL(rawURL)
+	if err != nil {
+		return resolvedEndpoint{}, err
+	}
+	var addresses []netip.Addr
+	if literal, parseErr := netip.ParseAddr(endpoint.host); parseErr == nil {
+		addresses = []netip.Addr{literal.Unmap()}
+	} else {
+		addresses, err = guard.resolver.LookupNetIP(ctx, "ip", endpoint.host)
+		if err != nil {
+			return resolvedEndpoint{}, &endpointResolutionError{err: fmt.Errorf("providers: resolve endpoint host: %w", err)}
+		}
+	}
+	if len(addresses) == 0 {
+		return resolvedEndpoint{}, &endpointPolicyError{err: errors.New("providers: endpoint host resolved to no addresses")}
+	}
+	addresses = normalizeAddresses(addresses)
+	if len(addresses) == 0 {
+		return resolvedEndpoint{}, &endpointPolicyError{err: errors.New("providers: endpoint host resolved only to invalid addresses")}
+	}
+	_, privateHostAllowed := guard.privateAllowedHosts[endpoint.host]
+	for _, address := range addresses {
+		if err := guard.validateAddress(address, privateHostAllowed); err != nil {
+			return resolvedEndpoint{}, &endpointPolicyError{err: fmt.Errorf("providers: endpoint address %s rejected: %w", address, err)}
+		}
+	}
+	endpoint.addresses = addresses
+	return endpoint, nil
+}
+
+// validateURL checks endpoint syntax and policy without doing DNS or other
+// network work. Resolution is intentionally owned by resolve inside the
+// guarded transport execution path.
+func (guard *endpointGuard) validateURL(rawURL string) (resolvedEndpoint, error) {
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
-		return resolvedEndpoint{}, fmt.Errorf("providers: invalid endpoint URL: %w", err)
+		return resolvedEndpoint{}, &endpointPolicyError{err: fmt.Errorf("providers: invalid endpoint URL: %w", err)}
 	}
 	if parsed.Scheme != "https" || parsed.Opaque != "" {
-		return resolvedEndpoint{}, errors.New("providers: endpoint must use HTTPS")
+		return resolvedEndpoint{}, &endpointPolicyError{err: errors.New("providers: endpoint must use HTTPS")}
 	}
 	if parsed.User != nil {
-		return resolvedEndpoint{}, errors.New("providers: endpoint userinfo is forbidden")
+		return resolvedEndpoint{}, &endpointPolicyError{err: errors.New("providers: endpoint userinfo is forbidden")}
 	}
 	if parsed.Fragment != "" {
-		return resolvedEndpoint{}, errors.New("providers: endpoint fragments are forbidden")
+		return resolvedEndpoint{}, &endpointPolicyError{err: errors.New("providers: endpoint fragments are forbidden")}
 	}
 	host, err := normalizeHost(parsed.Hostname())
 	if err != nil {
-		return resolvedEndpoint{}, fmt.Errorf("providers: invalid endpoint host: %w", err)
+		return resolvedEndpoint{}, &endpointPolicyError{err: fmt.Errorf("providers: invalid endpoint host: %w", err)}
 	}
 	if len(guard.allowedHosts) > 0 {
 		if _, ok := guard.allowedHosts[host]; !ok {
-			return resolvedEndpoint{}, fmt.Errorf("providers: endpoint host %q is not allowed", host)
+			return resolvedEndpoint{}, &endpointPolicyError{err: fmt.Errorf("providers: endpoint host %q is not allowed", host)}
+		}
+	}
+	if address, parseErr := netip.ParseAddr(host); parseErr == nil {
+		_, privateHostAllowed := guard.privateAllowedHosts[host]
+		if err := guard.validateAddress(address, privateHostAllowed); err != nil {
+			return resolvedEndpoint{}, &endpointPolicyError{err: fmt.Errorf("providers: endpoint address %s rejected: %w", address, err)}
 		}
 	}
 	port := parsed.Port()
 	if port == "" {
 		port = "443"
 	} else if number, portErr := strconv.Atoi(port); portErr != nil || number < 1 || number > 65535 {
-		return resolvedEndpoint{}, errors.New("providers: endpoint port is invalid")
+		return resolvedEndpoint{}, &endpointPolicyError{err: errors.New("providers: endpoint port is invalid")}
 	}
 
-	var addresses []netip.Addr
-	if literal, parseErr := netip.ParseAddr(host); parseErr == nil {
-		addresses = []netip.Addr{literal.Unmap()}
-	} else {
-		addresses, err = guard.resolver.LookupNetIP(ctx, "ip", host)
-		if err != nil {
-			return resolvedEndpoint{}, fmt.Errorf("providers: resolve endpoint host: %w", err)
-		}
-	}
-	if len(addresses) == 0 {
-		return resolvedEndpoint{}, errors.New("providers: endpoint host resolved to no addresses")
-	}
-	addresses = normalizeAddresses(addresses)
-	if len(addresses) == 0 {
-		return resolvedEndpoint{}, errors.New("providers: endpoint host resolved only to invalid addresses")
-	}
-	_, privateHostAllowed := guard.privateAllowedHosts[host]
-	for _, address := range addresses {
-		if err := guard.validateAddress(address, privateHostAllowed); err != nil {
-			return resolvedEndpoint{}, fmt.Errorf("providers: endpoint address %s rejected: %w", address, err)
-		}
-	}
 	originHost := host
 	if address, parseErr := netip.ParseAddr(host); parseErr == nil && address.Is6() {
 		originHost = "[" + host + "]"
@@ -181,7 +209,7 @@ func (guard *endpointGuard) resolve(ctx context.Context, rawURL string) (resolve
 	if port != "443" {
 		origin += ":" + port
 	}
-	return resolvedEndpoint{origin: origin, host: host, port: port, addresses: addresses}, nil
+	return resolvedEndpoint{origin: origin, host: host, port: port}, nil
 }
 
 func normalizeAddresses(input []netip.Addr) []netip.Addr {
@@ -264,6 +292,13 @@ func newSafeHTTPClient(policy EndpointPolicy) (*http.Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	return newSafeHTTPClientWithGuard(policy, guard)
+}
+
+func newSafeHTTPClientWithGuard(policy EndpointPolicy, guard *endpointGuard) (*http.Client, error) {
+	if guard == nil {
+		return nil, errors.New("providers: endpoint guard is required")
+	}
 	if policy.TLSConfig != nil && policy.TLSConfig.InsecureSkipVerify {
 		return nil, errors.New("providers: TLS verification cannot be disabled")
 	}
@@ -295,7 +330,7 @@ func newSafeHTTPClient(policy EndpointPolicy) (*http.Client, error) {
 	return &http.Client{
 		Transport: transport,
 		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-			return errors.New("providers: redirects are disabled")
+			return &endpointPolicyError{err: errors.New("providers: redirects are disabled")}
 		},
 	}, nil
 }

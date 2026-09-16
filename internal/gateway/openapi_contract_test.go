@@ -1,9 +1,10 @@
 package gateway_test
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-026 TEST-061
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-026 TEST-061 TEST-220
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"slices"
 	"strings"
@@ -157,5 +158,61 @@ func validateOperationExamples(t *testing.T, document *openapi3.T, operation *op
 	}
 	if operation.OperationID != "getArtifact" && !hasExample {
 		t.Fatalf("operation %s has no response example", operation.OperationID)
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-207
+func TestRecoveryContractOpenAPI(t *testing.T) {
+	contents, err := os.ReadFile("../../api/openapi.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	loader := openapi3.NewLoader()
+	document, err := loader.LoadFromData(contents)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = document.Validate(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	policy := document.Components.Schemas["RecoveryPolicy"]
+	if policy == nil || policy.Value == nil {
+		t.Error("complete recovery policy schema is absent")
+	} else {
+		for _, name := range []string{"maxAttempts", "retryOn", "repairInvalidOutput", "backoff"} {
+			if !slices.Contains(policy.Value.Required, name) {
+				t.Errorf("policy field %s is optional", name)
+			}
+		}
+	}
+	profiles := document.Components.Schemas["ProfilesEnvelope"].Value.Properties["result"].Value
+	if !slices.Contains(profiles.Required, "defaults") || profiles.Properties["defaults"] == nil {
+		t.Error("profiles response does not supply backend defaults")
+	}
+	for _, name := range []string{"Profile", "ClientState", "ProfileBundle"} {
+		ref := document.Components.Schemas[name]
+		if ref == nil || ref.Value == nil {
+			t.Errorf("schema %s absent", name)
+			continue
+		}
+		encoded, _ := json.Marshal(ref.Value.Properties["schemaVersion"])
+		if !strings.Contains(string(encoded), `"const":2`) {
+			t.Errorf("%s is not current version 2: %s", name, encoded)
+		}
+	}
+	attempt := document.Components.Schemas["Attempt"].Value
+	for _, name := range []string{"retryLocalNumber", "backupIndex"} {
+		if attempt.Properties[name] != nil || slices.Contains(attempt.Required, name) {
+			t.Errorf("retired attempt field %s remains", name)
+		}
+	}
+	encoded, _ := json.Marshal(document.Components.Schemas["RunResult"].Value.Properties["schemaVersion"])
+	if !strings.Contains(string(encoded), `"const":3`) {
+		t.Errorf("result is not current version 3: %s", encoded)
+	}
+	for name, field := range map[string]string{"HistoryItem": "result", "TraceView": "record"} {
+		if document.Components.Schemas[name].Value.Properties[field].Ref != "#/components/schemas/RunResult" {
+			t.Errorf("%s.%s does not use one result contract", name, field)
+		}
 	}
 }

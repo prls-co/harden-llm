@@ -133,3 +133,35 @@ func TestStableJSONDeterministic(t *testing.T) {
 		t.Fatalf("canonical JSON differs: %s != %s", left, right)
 	}
 }
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-217
+func TestRecoveryBoundaryAccountingCache(t *testing.T) {
+	t.Parallel()
+	base := Operation{
+		SchemaVersion: OperationSchemaVersion, Protocol: "openai.responses",
+		Endpoint: Endpoint{Identity: "https://provider.example", Method: "POST", Path: "/responses"},
+		Model:    "fixture", Payload: map[string]any{"input": "prompt"}, SemanticHeaders: map[string]any{},
+		ResponseProjection: ResponseProjection{Provider: "openai", Kind: "text", Version: "v3"},
+	}
+	currentHash, err := Hash(base, DefaultVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, oldVersion := range []string{"v1", "v2"} {
+		old := base
+		old.ResponseProjection.Version = oldVersion
+		oldHash, hashErr := Hash(old, DefaultVersion)
+		if hashErr != nil || oldHash == currentHash {
+			t.Fatalf("old projection %s was not separated: %s/%v", oldVersion, oldHash, hashErr)
+		}
+	}
+	if DefaultVersion != "operation-v2" {
+		t.Fatalf("outer cache namespace changed: %q", DefaultVersion)
+	}
+	structured := base
+	structured.ResponseProjection.Kind = "structured-output"
+	structuredHash, err := Hash(structured, DefaultVersion)
+	if err != nil || structuredHash == currentHash {
+		t.Fatalf("text and structured current projections collided: %s/%v", structuredHash, err)
+	}
+}

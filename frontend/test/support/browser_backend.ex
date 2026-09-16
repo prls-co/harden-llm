@@ -72,7 +72,7 @@ defmodule HardenLlmWeb.BrowserBackend do
 
   defp dispatch(%{method: "GET", path_info: ["api", "v1", "profiles"]} = conn, _body) do
     profiles = Agent.get(__MODULE__, &Map.values(&1.profiles))
-    json(conn, 200, success(%{"profiles" => profiles}))
+    json(conn, 200, HardenLlmWeb.APIFixtures.profiles(profiles))
   end
 
   defp dispatch(
@@ -80,7 +80,7 @@ defmodule HardenLlmWeb.BrowserBackend do
          _body
        ) do
     profiles = Agent.get(__MODULE__, &Map.values(&1.profiles))
-    json(conn, 200, success(%{"profiles" => profiles}))
+    json(conn, 200, HardenLlmWeb.APIFixtures.profiles(profiles))
   end
 
   defp dispatch(
@@ -88,7 +88,7 @@ defmodule HardenLlmWeb.BrowserBackend do
          _body
        ) do
     profiles = Agent.get(__MODULE__, &Map.values(&1.profiles))
-    json(conn, 200, success(%{"schemaVersion" => 1, "profiles" => profiles}))
+    json(conn, 200, success(%{"schemaVersion" => 2, "profiles" => profiles}))
   end
 
   defp dispatch(
@@ -227,13 +227,13 @@ defmodule HardenLlmWeb.BrowserBackend do
   defp initial_state do
     %{
       workspace: %{
-        "schemaVersion" => 1,
+        "schemaVersion" => 2,
         "selectedProfileId" => "",
         "modelId" => "",
         "systemPrompt" => "",
         "userPrompt" => "",
         "callType" => "text",
-        "structuredRepair" => false,
+        "recoveryPolicy" => HardenLlmWeb.APIFixtures.recovery_policy(),
         "cacheMode" => "off"
       },
       profiles: %{},
@@ -334,7 +334,6 @@ defmodule HardenLlmWeb.BrowserBackend do
         [
           %{
             "number" => 1,
-            "retryLocalNumber" => 1,
             "profileId" => request["profileId"],
             "target" => producer,
             "category" => "success",
@@ -343,14 +342,13 @@ defmodule HardenLlmWeb.BrowserBackend do
             "wait" => 0,
             "duration" => 1_000_000_000,
             "repair" => false,
-            "backupIndex" => 0,
             "providerUsed" => true
           }
         ]
       end
 
     result = %{
-      "schemaVersion" => 2,
+      "schemaVersion" => 3,
       "runId" => "run-browser",
       "status" => "succeeded",
       "callId" => "call-browser",

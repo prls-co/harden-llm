@@ -1,12 +1,19 @@
 defmodule HardenLlmWeb.ProfilesLive do
   use HardenLlmWeb, :live_view
 
-  alias HardenLlmWeb.{APIError, Auth, HardenAPI, Observability, ProfileDefaults}
+  alias HardenLlmWeb.{
+    APIError,
+    Auth,
+    HardenAPI,
+    Observability,
+    ProfileDefaults,
+    ProfileWidgetState
+  }
 
   @section_keys ~w(options_open retry_open pricing_open credential_open)
 
   @doc "Returns the blank profile editor shape used by reusable profile controls."
-  def empty_form, do: ProfileDefaults.empty_form()
+  def empty_form(policy), do: ProfileDefaults.empty_form(policy)
 
   @impl true
   def mount(_params, _session, socket) do
@@ -15,8 +22,9 @@ defmodule HardenLlmWeb.ProfilesLive do
       |> assign(:page_title, "Profiles")
       |> assign(:loading?, true)
       |> assign(:profiles_by_id, %{})
+      |> assign(:recovery_policy_default, %{})
       |> assign(:editing?, false)
-      |> assign(:form, to_form(empty_form(), as: :profile))
+      |> assign(:form, to_form(empty_form(%{}), as: :profile))
       |> assign(:field_errors, %{})
       |> assign(:operation_error, nil)
       |> assign(:pending, nil)
@@ -54,7 +62,7 @@ defmodule HardenLlmWeb.ProfilesLive do
     {:noreply,
      socket
      |> assign(:editing?, true)
-     |> assign(:form, to_form(empty_form(), as: :profile))
+     |> assign(:form, to_form(empty_form(socket.assigns.recovery_policy_default), as: :profile))
      |> assign(:field_errors, %{})
      |> assign(:operation_error, nil)
      |> assign(:requested_edit_id, nil)
@@ -77,7 +85,19 @@ defmodule HardenLlmWeb.ProfilesLive do
     {:noreply, Auth.expire_live(socket)}
   end
 
-  def handle_async(:load_profiles, {:ok, {:ok, %{"profiles" => profiles}, _state}}, socket) do
+  def handle_async(
+        :load_profiles,
+        {:ok,
+         {:ok, %{"profiles" => profiles, "defaults" => %{"recoveryPolicy" => policy}}, _state}},
+        socket
+      ) do
+    socket = assign(socket, :recovery_policy_default, policy)
+
+    socket =
+      if socket.assigns.editing? and socket.assigns.requested_edit_id == nil,
+        do: assign(socket, :form, to_form(empty_form(policy), as: :profile)),
+        else: socket
+
     {:noreply, socket |> put_profiles(profiles) |> maybe_open_requested_edit()}
   end
 
@@ -191,7 +211,7 @@ defmodule HardenLlmWeb.ProfilesLive do
     {:noreply,
      socket
      |> assign(:editing?, true)
-     |> assign(:form, to_form(empty_form(), as: :profile))
+     |> assign(:form, to_form(empty_form(socket.assigns.recovery_policy_default), as: :profile))
      |> assign(:field_errors, %{})
      |> assign(:operation_error, nil)
      |> assign(:requested_edit_id, nil)
@@ -214,33 +234,18 @@ defmodule HardenLlmWeb.ProfilesLive do
     do: {:noreply, assign(socket, :editing?, false)}
 
   def handle_event("draft-change", %{"profile" => params}, socket) when is_map(params) do
-    {:noreply, assign(socket, :form, to_form(params, as: :profile))}
+    {:noreply,
+     assign(
+       socket,
+       :form,
+       to_form(ProfileWidgetState.merge_draft(socket.assigns.form.params, params), as: :profile)
+     )}
   end
 
   def handle_event("toggle-section", %{"section" => section}, socket)
       when section in @section_keys do
     key = String.to_existing_atom(section)
     {:noreply, assign(socket, key, !Map.get(socket.assigns, key))}
-  end
-
-  def handle_event("add-backup", %{"id" => id}, socket) do
-    {:noreply, update_backup_form(socket, fn backups -> backups ++ [String.trim(id)] end)}
-  end
-
-  def handle_event("add-backup", %{"profile" => %{"backupProfile" => id}}, socket) do
-    {:noreply, update_backup_form(socket, fn backups -> backups ++ [String.trim(id)] end)}
-  end
-
-  def handle_event("remove-backup", %{"index" => index}, socket) do
-    {:noreply,
-     update_backup_form(socket, fn backups -> List.delete_at(backups, parse_index(index)) end)}
-  end
-
-  def handle_event("move-backup", %{"index" => index, "direction" => direction}, socket) do
-    {:noreply,
-     update_backup_form(socket, fn backups ->
-       move_backup(backups, parse_index(index), direction)
-     end)}
   end
 
   def handle_event("clear-staged-key", _params, socket) do
@@ -355,7 +360,12 @@ defmodule HardenLlmWeb.ProfilesLive do
     end
   end
 
-  def field_error(errors, name), do: errors[name] || errors["profile." <> name]
+  def field_error(errors, name) do
+    errors[name] ||
+      Enum.find_value(errors, fn {field, message} ->
+        if String.ends_with?(field, "." <> name), do: message
+      end)
+  end
 
   attr(:message, :string, default: nil)
 
@@ -392,8 +402,6 @@ defmodule HardenLlmWeb.ProfilesLive do
     |> Kernel.||([])
   end
 
-  def backup_names(profile_state), do: get_in(profile_state, ["profile", "backupProfiles"]) || []
-
   def option_present?(profile_state),
     do: map_size(get_in(profile_state, ["profile", "defaultOptions"]) || %{}) > 0
 
@@ -405,15 +413,6 @@ defmodule HardenLlmWeb.ProfilesLive do
       {:ok, _options} -> true
       {:error, _message} -> false
     end
-  end
-
-  def backup_list(value), do: parse_backups(value)
-
-  def available_backup_profiles(profiles_by_id, current_id) do
-    profiles_by_id
-    |> Map.keys()
-    |> Enum.reject(&(&1 == current_id))
-    |> Enum.sort()
   end
 
   defp put_profiles(socket, profiles) do
@@ -457,11 +456,9 @@ defmodule HardenLlmWeb.ProfilesLive do
     profile = profile_state["profile"] || %{}
     credential = profile_state["credential"] || %{}
     options = ProfileDefaults.normalize_options(profile["defaultOptions"])
-    retry = retry_form_options(options)
-    escalation = retry["escalation"] || %{}
     pricing = profile["pricing"] || %{}
 
-    Map.merge(ProfileDefaults.empty_form(), %{
+    Map.merge(ProfileDefaults.empty_form(Map.fetch!(profile, "recoveryPolicy")), %{
       "profileId" => profile["llmProfile"] || "",
       "provider" => profile["provider"] || "",
       "apiInferenceType" =>
@@ -472,7 +469,6 @@ defmodule HardenLlmWeb.ProfilesLive do
       "credentialConfigured" => to_string(credential["configured"] || false),
       "endpointCredentialScope" => profile["endpointCredentialScope"] || "user",
       "apiKey" => "",
-      "backupProfiles" => Enum.join(profile["backupProfiles"] || [], ", "),
       "supportsTemperature" => to_string(profile["supportsTemperature"] || false),
       "supportsContractedStructuredOutput" =>
         to_string(profile["supportsContractedStructuredOutput"] || false),
@@ -484,35 +480,6 @@ defmodule HardenLlmWeb.ProfilesLive do
       "topK" => option_text(options["top_k"] || options["topK"]),
       "stopSequences" => stop_text(options["stop"]),
       "defaultOptionsJson" => Jason.encode!(options, pretty: true),
-      "structuredRepairRetryEnabled" =>
-        to_string(ProfileDefaults.structured_repair_enabled?(options)),
-      "enableRetryOn429" => to_string(retry_option(options, retry, "enableRetryOn429", true)),
-      "enableRetryOn5xx" => to_string(retry_option(options, retry, "enableRetryOn5xx", true)),
-      "enableRetryOnNetworkError" =>
-        to_string(retry_option(options, retry, "enableRetryOnNetworkError", true)),
-      "enableRetryOnParseError" =>
-        to_string(retry_option(options, retry, "enableRetryOnParseError", true)),
-      "retryMaxAttempts" =>
-        option_text(
-          options["maxAttempts"] || retry["maxAttempts"] ||
-            ProfileDefaults.retry_default("maxAttempts")
-        ),
-      "retryBaseDelayMs" =>
-        option_text(
-          options["baseDelayMs"] || retry["baseDelayMs"] ||
-            ProfileDefaults.retry_default("baseDelayMs")
-        ),
-      "retryMaxDelayMs" =>
-        option_text(
-          options["maxDelayMs"] || retry["maxDelayMs"] ||
-            ProfileDefaults.retry_default("maxDelayMs")
-        ),
-      "escalationAttempt" =>
-        option_text(escalation["attempt"] || ProfileDefaults.retry_default("escalationAttempt")),
-      "escalationProfile" =>
-        escalation["llmProfile"] || ProfileDefaults.default_escalation_profile_id(),
-      "escalationReasoning" =>
-        escalation["reasoningEffort"] || ProfileDefaults.repair_reasoning_default(),
       "pricingInput" => pricing_text(pricing["input_cost_per_token"]),
       "pricingOutput" => pricing_text(pricing["output_cost_per_token"]),
       "pricingCacheRead" => pricing_text(pricing["cache_read_input_token_cost"]),
@@ -529,7 +496,7 @@ defmodule HardenLlmWeb.ProfilesLive do
 
       payload = %{
         "profile" => %{
-          "schemaVersion" => 1,
+          "schemaVersion" => 2,
           "llmProfile" => params["profileId"] || "",
           "provider" => params["provider"] || "",
           "apiInferenceType" =>
@@ -545,7 +512,8 @@ defmodule HardenLlmWeb.ProfilesLive do
           "tokensParam" => nil,
           "responsesTokensParam" => nil,
           "defaultOptions" => options,
-          "backupProfiles" => parse_backups(params["backupProfiles"])
+          "recoveryPolicy" =>
+            ProfileWidgetState.serialize_recovery_policy(params["recoveryPolicy"])
         },
         "credentialId" => params["credentialId"] || ""
       }
@@ -572,84 +540,8 @@ defmodule HardenLlmWeb.ProfilesLive do
            put_number_option(options, "temperature", params["temperature"], "Temperature", :float),
          {:ok, options} <- put_number_option(options, "top_p", params["topP"], "Top P", :float),
          {:ok, options} <- put_number_option(options, "top_k", params["topK"], "Top K", :integer),
-         {:ok, options} <- put_stop_option(options, params["stopSequences"]),
-         {:ok, options} <- retry_options(options, params) do
+         {:ok, options} <- put_stop_option(options, params["stopSequences"]) do
       {:ok, options}
-    end
-  end
-
-  defp retry_options(options, params) do
-    enabled = truthy?(params["structuredRepairRetryEnabled"])
-
-    with {:ok, max_attempts} <-
-           integer_value(
-             params["retryMaxAttempts"],
-             "Max Attempts",
-             1,
-             10,
-             ProfileDefaults.retry_default("maxAttempts")
-           ),
-         {:ok, base_delay} <-
-           integer_value(
-             params["retryBaseDelayMs"],
-             "Base Delay Ms",
-             0,
-             60_000,
-             ProfileDefaults.retry_default("baseDelayMs")
-           ),
-         {:ok, max_delay} <-
-           integer_value(
-             params["retryMaxDelayMs"],
-             "Max Delay Ms",
-             0,
-             600_000,
-             ProfileDefaults.retry_default("maxDelayMs")
-           ),
-         {:ok, escalation_attempt} <-
-           integer_value(
-             params["escalationAttempt"],
-             "Starting Attempt",
-             2,
-             10,
-             ProfileDefaults.retry_default("escalationAttempt")
-           ) do
-      options =
-        options
-        |> Map.put("maxAttempts", max_attempts)
-        |> Map.put("baseDelayMs", base_delay)
-        |> Map.put("maxDelayMs", max_delay)
-        |> Map.put("enableRetryOn429", boolean_value(params["enableRetryOn429"], true))
-        |> Map.put("enableRetryOn5xx", boolean_value(params["enableRetryOn5xx"], true))
-        |> Map.put(
-          "enableRetryOnNetworkError",
-          boolean_value(params["enableRetryOnNetworkError"], true)
-        )
-        |> Map.put(
-          "enableRetryOnParseError",
-          boolean_value(params["enableRetryOnParseError"], true)
-        )
-
-      if enabled do
-        escalation_profile =
-          case String.trim(params["escalationProfile"] || "") do
-            "" -> ProfileDefaults.default_escalation_profile_id()
-            value -> value
-          end
-
-        repair = %{
-          "enabled" => true,
-          "escalation" => %{
-            "attempt" => escalation_attempt,
-            "llmProfile" => escalation_profile,
-            "reasoningEffort" =>
-              params["escalationReasoning"] || ProfileDefaults.repair_reasoning_default()
-          }
-        }
-
-        {:ok, Map.put(options, "structuredRepairRetry", repair)}
-      else
-        {:ok, Map.put(options, "structuredRepairRetry", false)}
-      end
     end
   end
 
@@ -735,69 +627,11 @@ defmodule HardenLlmWeb.ProfilesLive do
     end
   end
 
-  defp integer_value(value, _label, _minimum, _maximum, default) when value in [nil, ""],
-    do: {:ok, default}
-
-  defp integer_value(value, label, minimum, maximum, _default) do
-    case Integer.parse(String.trim(to_string(value))) do
-      {number, ""} when number >= minimum and number <= maximum -> {:ok, number}
-      _ -> {:error, "#{label} must be between #{minimum} and #{maximum}."}
-    end
-  end
-
-  defp update_backup_form(socket, update) do
-    form = socket.assigns.form
-    backups = form.params |> Map.get("backupProfiles", "") |> parse_backups()
-    next = backups |> update.() |> Enum.reject(&(&1 == "")) |> Enum.uniq() |> Enum.join(", ")
-    assign(socket, :form, update_form_value(form, "backupProfiles", next))
-  end
-
-  defp move_backup(backups, index, direction) do
-    target = if direction == "up", do: index - 1, else: index + 1
-
-    if index < 0 or target < 0 or index >= length(backups) or target >= length(backups) do
-      backups
-    else
-      current = Enum.at(backups, index)
-      other = Enum.at(backups, target)
-
-      backups
-      |> List.replace_at(index, other)
-      |> List.replace_at(target, current)
-    end
-  end
-
   defp update_form_value(form, key, value),
     do: to_form(Map.put(form.params || %{}, key, value), as: :profile)
 
-  defp parse_index(value), do: String.to_integer(to_string(value))
-
-  defp parse_backups(value) when is_binary(value),
-    do:
-      value
-      |> String.split(",", trim: true)
-      |> Enum.map(&String.trim/1)
-      |> Enum.reject(&(&1 == ""))
-      |> Enum.uniq()
-
-  defp parse_backups(value) when is_list(value),
-    do: value |> Enum.map(&String.trim(to_string(&1))) |> Enum.reject(&(&1 == "")) |> Enum.uniq()
-
-  defp parse_backups(_value), do: []
-
   defp option_text(value) when is_nil(value), do: ""
   defp option_text(value), do: to_string(value)
-
-  defp retry_form_options(options) do
-    case options["structuredRepairRetry"] do
-      value when is_map(value) -> value
-      _ -> %{}
-    end
-  end
-
-  defp retry_option(options, retry, key, default) do
-    Map.get(options, key, Map.get(retry, key, default))
-  end
 
   defp normalize_base_url(value) do
     value
@@ -824,10 +658,6 @@ defmodule HardenLlmWeb.ProfilesLive do
       :error -> false
     end
   end
-
-  defp boolean_value(value, _default) when value in [true, "true", "on", "1"], do: true
-  defp boolean_value(value, _default) when value in [false, "false", "0"], do: false
-  defp boolean_value(_value, default), do: default
 
   defp reset_sections(socket),
     do:

@@ -30,6 +30,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/prls-co/harden-llm/internal/retry"
 )
 
 const (
@@ -138,18 +140,18 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 	providerSecret := "smoke-provider-key-must-remain-redacted"
 	profileDocument := map[string]any{
 		"profile": map[string]any{
-			"schemaVersion": 1, "llmProfile": "Smoke", "provider": "openai", "apiInferenceType": "responses",
+			"schemaVersion": 2, "llmProfile": "Smoke", "provider": "openai", "apiInferenceType": "responses",
 			"endpointCredentialScope": "user", "baseUrl": "https://fake-provider:8443/v1", "modelId": "smoke-model",
 			"pricing": nil, "supportsTemperature": false, "supportsContractedStructuredOutput": true,
 			"tokensParam": nil, "responsesTokensParam": "max_output_tokens", "defaultOptions": map[string]any{},
-			"backupProfiles": []any{},
+			"recoveryPolicy": retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}},
 		},
 		"credentialId": "smoke-provider", "credential": map[string]any{"apiKey": providerSecret},
 	}
 	requestJSON(t, client, http.MethodPut, "https://api.smoke.localhost/api/v1/profiles/Smoke", profileDocument, token, http.StatusOK)
 
 	runEnvelope := requestJSON(t, client, http.MethodPost, "https://api.smoke.localhost/api/v1/run", map[string]any{
-		"profileId": "Smoke", "userPrompt": "return the smoke response", "callType": "text", "cacheMode": "off", "maxAttempts": 1,
+		"profileId": "Smoke", "userPrompt": "return the smoke response", "callType": "text", "cacheMode": "off", "recoveryPolicy": retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}},
 	}, token, http.StatusOK)
 	runResult := object(t, runEnvelope["result"], "run result")
 	if runResult["output"] != "smoke-ok" {

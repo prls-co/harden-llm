@@ -11,6 +11,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/prls-co/harden-llm/internal/runtime"
 )
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-014
@@ -78,6 +80,36 @@ func TestEndpointPolicyRejectsUnsafeTargetsBeforeDial(t *testing.T) {
 			}
 		})
 	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-214
+func TestPrepareDoesNotResolveEndpoint(t *testing.T) {
+	resolver := &countingResolver{}
+	router, err := NewRouter(Config{EndpointPolicy: EndpointPolicy{Resolver: resolver, AllowedHosts: []string{"provider.example"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	transport, ok := router.client.Transport.(*safeRoundTripper)
+	if !ok || transport.guard != router.guard {
+		t.Fatal("router and model transport do not share one endpoint guard")
+	}
+	_, err = router.Prepare(context.Background(), runtime.Profile{
+		ID: "profile", Provider: "openai", APIInferenceType: "responses",
+		BaseURL: "https://provider.example/v1", ModelID: "fixture",
+	}, runtime.Credential{APIKey: "fixture"}, runtime.Call{CallType: "text", UserPrompt: "hello"})
+	if err != nil {
+		t.Fatalf("Prepare unexpectedly resolved endpoint: %v", err)
+	}
+	if resolver.calls != 0 {
+		t.Fatalf("Prepare performed %d DNS lookups, want zero", resolver.calls)
+	}
+}
+
+type countingResolver struct{ calls int }
+
+func (resolver *countingResolver) LookupNetIP(context.Context, string, string) ([]netip.Addr, error) {
+	resolver.calls++
+	return []netip.Addr{netip.MustParseAddr("93.184.216.34")}, nil
 }
 
 func TestEndpointPolicyUsesExactPrivateExceptions(t *testing.T) {

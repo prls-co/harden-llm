@@ -16,9 +16,7 @@ import (
 	"github.com/prls-co/harden-llm/internal/profiles"
 )
 
-const profileBundleSchemaVersion = 1
-
-var ErrProfileConflict = errors.New("gateway: profile conflict")
+const profileBundleSchemaVersion = 2
 
 type ModelRefresher interface {
 	RefreshModels(context.Context, profiles.Profile, profiles.CredentialPayload) ([]profiles.Model, error)
@@ -106,16 +104,8 @@ func (service *ProfileService) Profile(ctx context.Context, ownerID, profileID s
 }
 
 func (service *ProfileService) Delete(ctx context.Context, ownerID, profileID string) error {
-	catalog, err := service.catalog(ctx, ownerID)
-	if err != nil {
+	if err := service.ensureSeeded(ctx, ownerID); err != nil {
 		return err
-	}
-	if _, ok := catalog[profileID]; !ok {
-		return postgres.ErrNotFound
-	}
-	delete(catalog, profileID)
-	if err := profiles.ValidateCatalog(catalog); err != nil {
-		return fmt.Errorf("%w: profile is referenced by the remaining catalog", ErrProfileConflict)
 	}
 	return service.store.DeleteProfile(ctx, ownerID, profileID)
 }
@@ -214,7 +204,12 @@ func (service *ProfileService) ExportBundle(ctx context.Context, ownerID, bundle
 
 func (service *ProfileService) ReplaceBundle(ctx context.Context, ownerID string, bundle ProfileBundle) ([]ProfileState, error) {
 	ownerID = strings.TrimSpace(ownerID)
-	if bundle.SchemaVersion != profileBundleSchemaVersion || strings.TrimSpace(bundle.BundleID) == "" || bundle.CreatedAt.IsZero() || bundle.Profiles == nil || bundle.CredentialIDs == nil {
+	if bundle.SchemaVersion != profileBundleSchemaVersion {
+		return nil, &profiles.ValidationError{Code: "profile_invalid", FieldErrors: []profiles.FieldError{{
+			Field: "schemaVersion", Message: fmt.Sprintf("must be %d; prepare a current-format profile bundle", profileBundleSchemaVersion),
+		}}}
+	}
+	if strings.TrimSpace(bundle.BundleID) == "" || bundle.CreatedAt.IsZero() || bundle.Profiles == nil || bundle.CredentialIDs == nil {
 		return nil, errors.New("gateway: profile bundle is invalid")
 	}
 	normalizedCatalog := make(profiles.Catalog, len(bundle.Profiles))

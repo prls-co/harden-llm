@@ -359,13 +359,24 @@ components:
           examples:
             workspace:
               value:
-                schemaVersion: 1
+                schemaVersion: 2
                 selectedProfileId: Primary
                 modelId: gpt-example
                 userPrompt: Summarize the incident.
                 callType: text
-                structuredRepair: false
-                cacheMode: "off"
+                cacheMode: 'off'
+                recoveryPolicy:
+                  maxAttempts: 4
+                  retryOn:
+                  - network
+                  - rate_limit
+                  - server_error
+                  - empty_response
+                  - provider_retry
+                  repairInvalidOutput: false
+                  backoff:
+                    baseDelayMs: 500
+                    maxDelayMs: 8000
     ProfileSave:
       required: true
       description: Profile and write-only credential. Maximum encoded body size is 262144 bytes.
@@ -377,7 +388,7 @@ components:
             create:
               value:
                 profile:
-                  schemaVersion: 1
+                  schemaVersion: 2
                   llmProfile: Primary
                   provider: openai
                   apiInferenceType: responses
@@ -390,7 +401,18 @@ components:
                   tokensParam: max_output_tokens
                   responsesTokensParam: max_output_tokens
                   defaultOptions: {}
-                  backupProfiles: []
+                  recoveryPolicy:
+                    maxAttempts: 4
+                    retryOn:
+                    - network
+                    - rate_limit
+                    - server_error
+                    - empty_response
+                    - provider_retry
+                    repairInvalidOutput: true
+                    backoff:
+                      baseDelayMs: 500
+                      maxDelayMs: 8000
                 credentialId: primary-openai
                 credential:
                   apiKey: example-write-only-key
@@ -404,12 +426,12 @@ components:
           examples:
             replace:
               value:
-                schemaVersion: 1
+                schemaVersion: 2
                 bundleId: bundle-example
-                createdAt: "2026-07-13T12:00:00Z"
+                createdAt: '2026-07-13T12:00:00Z'
                 profiles:
                   Primary:
-                    schemaVersion: 1
+                    schemaVersion: 2
                     llmProfile: Primary
                     provider: openai
                     apiInferenceType: responses
@@ -422,25 +444,37 @@ components:
                     tokensParam: max_output_tokens
                     responsesTokensParam: max_output_tokens
                     defaultOptions: {}
-                    backupProfiles: []
+                    recoveryPolicy:
+                      maxAttempts: 4
+                      retryOn:
+                      - network
+                      - rate_limit
+                      - server_error
+                      - empty_response
+                      - provider_retry
+                      repairInvalidOutput: true
+                      backoff:
+                        baseDelayMs: 500
+                        maxDelayMs: 8000
                 credentialIds:
                   Primary: primary-openai
                 credentials:
-                  - schemaVersion: 1
-                    binding:
-                      ownerId: owner-example
-                      credentialId: primary-openai
-                      origin: https://api.openai.com
-                    scope: user
-                    apiInferenceTypes: [responses]
-                    encrypted:
-                      schemaVersion: 1
-                      algorithm: AES-256-GCM
-                      keyId: key-2026
-                      nonce: AAAAAAAAAAAAAAAA
-                      ciphertext: AAAAAAAAAAAAAAAAAAAAAA
-                    createdAt: "2026-07-13T12:00:00Z"
-                    updatedAt: "2026-07-13T12:00:00Z"
+                - schemaVersion: 1
+                  binding:
+                    ownerId: owner-example
+                    credentialId: primary-openai
+                    origin: https://api.openai.com
+                  scope: user
+                  apiInferenceTypes:
+                  - responses
+                  encrypted:
+                    schemaVersion: 1
+                    algorithm: AES-256-GCM
+                    keyId: key-2026
+                    nonce: AAAAAAAAAAAAAAAA
+                    ciphertext: AAAAAAAAAAAAAAAAAAAAAA
+                  createdAt: '2026-07-13T12:00:00Z'
+                  updatedAt: '2026-07-13T12:00:00Z'
     Run:
       required: true
       description: One synchronous run. Maximum encoded body size is 262144 bytes.
@@ -454,9 +488,20 @@ components:
                 profileId: Primary
                 userPrompt: Reply with OK.
                 callType: text
-                cacheMode: "off"
-                maxAttempts: 1
+                cacheMode: 'off'
                 timeoutMs: 60000
+                recoveryPolicy:
+                  maxAttempts: 1
+                  retryOn:
+                  - network
+                  - rate_limit
+                  - server_error
+                  - empty_response
+                  - provider_retry
+                  repairInvalidOutput: true
+                  backoff:
+                    baseDelayMs: 500
+                    maxDelayMs: 8000
   responses:
     HealthOK:
       description: The process or all required dependencies are ready.
@@ -547,13 +592,24 @@ components:
             workspace:
               value:
                 state:
-                  schemaVersion: 1
+                  schemaVersion: 2
                   selectedProfileId: Primary
                   modelId: gpt-example
                   userPrompt: Summarize the incident.
                   callType: text
-                  structuredRepair: false
-                  cacheMode: "off"
+                  cacheMode: 'off'
+                  recoveryPolicy:
+                    maxAttempts: 4
+                    retryOn:
+                    - network
+                    - rate_limit
+                    - server_error
+                    - empty_response
+                    - provider_retry
+                    repairInvalidOutput: false
+                    backoff:
+                      baseDelayMs: 500
+                      maxDelayMs: 8000
                 result: null
                 error: null
     ProfilesSuccess:
@@ -568,30 +624,55 @@ components:
                 state: {}
                 result:
                   profiles:
-                    - profile:
-                        schemaVersion: 1
-                        llmProfile: Primary
-                        provider: openai
-                        apiInferenceType: responses
-                        endpointCredentialScope: user
-                        baseUrl: https://api.openai.com/v1
-                        modelId: gpt-example
-                        pricing: null
-                        supportsTemperature: true
-                        supportsContractedStructuredOutput: true
-                        tokensParam: max_output_tokens
-                        responsesTokensParam: max_output_tokens
-                        defaultOptions: {}
-                        backupProfiles: []
-                      credential:
-                        schemaVersion: 1
-                        credentialId: primary-openai
-                        scope: user
-                        origin: https://api.openai.com
-                        apiInferenceTypes: [responses]
-                        configured: true
-                        createdAt: "2026-07-13T12:00:00Z"
-                        updatedAt: "2026-07-13T12:00:00Z"
+                  - profile:
+                      schemaVersion: 2
+                      llmProfile: Primary
+                      provider: openai
+                      apiInferenceType: responses
+                      endpointCredentialScope: user
+                      baseUrl: https://api.openai.com/v1
+                      modelId: gpt-example
+                      pricing: null
+                      supportsTemperature: true
+                      supportsContractedStructuredOutput: true
+                      tokensParam: max_output_tokens
+                      responsesTokensParam: max_output_tokens
+                      defaultOptions: {}
+                      recoveryPolicy:
+                        maxAttempts: 4
+                        retryOn:
+                        - network
+                        - rate_limit
+                        - server_error
+                        - empty_response
+                        - provider_retry
+                        repairInvalidOutput: true
+                        backoff:
+                          baseDelayMs: 500
+                          maxDelayMs: 8000
+                    credential:
+                      schemaVersion: 1
+                      credentialId: primary-openai
+                      scope: user
+                      origin: https://api.openai.com
+                      apiInferenceTypes:
+                      - responses
+                      configured: true
+                      createdAt: '2026-07-13T12:00:00Z'
+                      updatedAt: '2026-07-13T12:00:00Z'
+                  defaults:
+                    recoveryPolicy:
+                      maxAttempts: 4
+                      retryOn:
+                      - network
+                      - rate_limit
+                      - server_error
+                      - empty_response
+                      - provider_retry
+                      repairInvalidOutput: true
+                      backoff:
+                        baseDelayMs: 500
+                        maxDelayMs: 8000
                 error: null
     ProfileSuccess:
       description: One redacted profile and its write-only credential status.
@@ -605,7 +686,7 @@ components:
                 state: {}
                 result:
                   profile:
-                    schemaVersion: 1
+                    schemaVersion: 2
                     llmProfile: Primary
                     provider: openai
                     apiInferenceType: responses
@@ -618,16 +699,28 @@ components:
                     tokensParam: max_output_tokens
                     responsesTokensParam: max_output_tokens
                     defaultOptions: {}
-                    backupProfiles: []
+                    recoveryPolicy:
+                      maxAttempts: 4
+                      retryOn:
+                      - network
+                      - rate_limit
+                      - server_error
+                      - empty_response
+                      - provider_retry
+                      repairInvalidOutput: true
+                      backoff:
+                        baseDelayMs: 500
+                        maxDelayMs: 8000
                   credential:
                     schemaVersion: 1
                     credentialId: primary-openai
                     scope: user
                     origin: https://api.openai.com
-                    apiInferenceTypes: [responses]
+                    apiInferenceTypes:
+                    - responses
                     configured: true
-                    createdAt: "2026-07-13T12:00:00Z"
-                    updatedAt: "2026-07-13T12:00:00Z"
+                    createdAt: '2026-07-13T12:00:00Z'
+                    updatedAt: '2026-07-13T12:00:00Z'
                 error: null
     BundleSuccess:
       description: Complete profile catalog with authenticated encrypted credentials.
@@ -640,12 +733,12 @@ components:
               value:
                 state: {}
                 result:
-                  schemaVersion: 1
+                  schemaVersion: 2
                   bundleId: bundle-example
-                  createdAt: "2026-07-13T12:00:00Z"
+                  createdAt: '2026-07-13T12:00:00Z'
                   profiles:
                     Primary:
-                      schemaVersion: 1
+                      schemaVersion: 2
                       llmProfile: Primary
                       provider: openai
                       apiInferenceType: responses
@@ -658,24 +751,37 @@ components:
                       tokensParam: max_output_tokens
                       responsesTokensParam: max_output_tokens
                       defaultOptions: {}
-                      backupProfiles: []
-                  credentialIds: {Primary: primary-openai}
+                      recoveryPolicy:
+                        maxAttempts: 4
+                        retryOn:
+                        - network
+                        - rate_limit
+                        - server_error
+                        - empty_response
+                        - provider_retry
+                        repairInvalidOutput: true
+                        backoff:
+                          baseDelayMs: 500
+                          maxDelayMs: 8000
+                  credentialIds:
+                    Primary: primary-openai
                   credentials:
-                    - schemaVersion: 1
-                      binding:
-                        ownerId: owner-example
-                        credentialId: primary-openai
-                        origin: https://api.openai.com
-                      scope: user
-                      apiInferenceTypes: [responses]
-                      encrypted:
-                        schemaVersion: 1
-                        algorithm: AES-256-GCM
-                        keyId: key-2026
-                        nonce: AAAAAAAAAAAAAAAA
-                        ciphertext: AAAAAAAAAAAAAAAAAAAAAA
-                      createdAt: "2026-07-13T12:00:00Z"
-                      updatedAt: "2026-07-13T12:00:00Z"
+                  - schemaVersion: 1
+                    binding:
+                      ownerId: owner-example
+                      credentialId: primary-openai
+                      origin: https://api.openai.com
+                    scope: user
+                    apiInferenceTypes:
+                    - responses
+                    encrypted:
+                      schemaVersion: 1
+                      algorithm: AES-256-GCM
+                      keyId: key-2026
+                      nonce: AAAAAAAAAAAAAAAA
+                      ciphertext: AAAAAAAAAAAAAAAAAAAAAA
+                    createdAt: '2026-07-13T12:00:00Z'
+                    updatedAt: '2026-07-13T12:00:00Z'
                 error: null
     HistorySuccess:
       description: Stable cursor page of owned run history.
@@ -689,89 +795,116 @@ components:
                 state: {}
                 result:
                   items:
-                    - runId: run-example
+                  - runId: run-example
+                    profileId: Primary
+                    traceId: trace-example
+                    status: succeeded
+                    request:
                       profileId: Primary
-                      traceId: trace-example
+                      userPrompt: Reply with OK.
+                      callType: text
+                      recoveryPolicy:
+                        maxAttempts: 4
+                        retryOn:
+                        - network
+                        - rate_limit
+                        - server_error
+                        - empty_response
+                        - provider_retry
+                        repairInvalidOutput: true
+                        backoff:
+                          baseDelayMs: 500
+                          maxDelayMs: 8000
+                    result:
+                      schemaVersion: 3
+                      runId: run-example
                       status: succeeded
-                      request: {profileId: Primary, userPrompt: Reply with OK., callType: text}
-                      result: &runResultExample
-                        schemaVersion: 2
-                        runId: run-example
-                        status: succeeded
-                        output: OK
-                        callId: call-example
-                        traceId: trace-example
-                        selectedTarget:
+                      output: OK
+                      callId: call-example
+                      traceId: trace-example
+                      selectedTarget:
+                        profileId: Primary
+                        provider: openai
+                        protocol: responses
+                        endpoint: https://api.openai.com/v1
+                        modelId: gpt-example
+                      resultSource:
+                        kind: provider
+                        attemptNumber: 1
+                        producer:
                           profileId: Primary
                           provider: openai
-                          protocol: responses
-                          endpoint: https://api.openai.com/v1
+                          protocol: openai.responses
+                          endpoint: https://api.openai.com:443
                           modelId: gpt-example
-                        resultSource:
-                          kind: provider
-                          attemptNumber: 1
-                          producer:
-                            profileId: Primary
-                            provider: openai
-                            protocol: openai.responses
-                            endpoint: https://api.openai.com:443
-                            modelId: gpt-example
-                        accounting:
-                          result:
-                            usage:
-                              inputTokens: 8
-                              cacheReadTokens: 0
-                              cacheCreationTokens: 0
-                              outputTokens: 1
-                              reasoningTokens: 0
-                              promptTokens: 8
-                              completionTokens: 1
-                              totalTokens: 9
-                              status: complete
-                            cost: {knownSubtotalUsd: 0.00001, status: exact, source: profile, knownObservations: 1, unknownObservations: 0}
-                          provider:
-                            usage:
-                              inputTokens: 8
-                              cacheReadTokens: 0
-                              cacheCreationTokens: 0
-                              outputTokens: 1
-                              reasoningTokens: 0
-                              promptTokens: 8
-                              completionTokens: 1
-                              totalTokens: 9
-                              status: complete
-                            cost: {knownSubtotalUsd: 0.00001, status: exact, source: profile, knownObservations: 1, unknownObservations: 0}
-                        attempts:
-                          - number: 1
-                            retryLocalNumber: 1
-                            profileId: Primary
-                            target:
-                              profileId: Primary
-                              provider: openai
-                              protocol: openai.responses
-                              endpoint: https://api.openai.com:443
-                              modelId: gpt-example
-                            retryable: false
-                            wait: 0
-                            duration: 120000000
-                            repair: false
-                            backupIndex: 0
-                            providerUsed: true
-                        cache: {mode: "off", status: disabled, served: false, written: false}
-                        artifacts:
-                          - artifactId: call-example-trace
-                            kind: trace
-                            state: available
-                            sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-                            sizeBytes: 512
-                            contentType: application/json
-                        providerInvoked: true
-                        totalCallDurationMs: 120
-                        totalWaitMs: 0
-                        overBudgetMs: 0
-                        usedRepair: false
-                      startedAt: "2026-07-13T12:00:00Z"
-                      completedAt: "2026-07-13T12:00:01Z"
+                      accounting:
+                        result:
+                          usage:
+                            inputTokens: 8
+                            cacheReadTokens: 0
+                            cacheCreationTokens: 0
+                            outputTokens: 1
+                            reasoningTokens: 0
+                            promptTokens: 8
+                            completionTokens: 1
+                            totalTokens: 9
+                            status: complete
+                          cost:
+                            knownSubtotalUsd: 1.0e-05
+                            status: exact
+                            source: profile
+                            knownObservations: 1
+                            unknownObservations: 0
+                        provider:
+                          usage:
+                            inputTokens: 8
+                            cacheReadTokens: 0
+                            cacheCreationTokens: 0
+                            outputTokens: 1
+                            reasoningTokens: 0
+                            promptTokens: 8
+                            completionTokens: 1
+                            totalTokens: 9
+                            status: complete
+                          cost:
+                            knownSubtotalUsd: 1.0e-05
+                            status: exact
+                            source: profile
+                            knownObservations: 1
+                            unknownObservations: 0
+                      attempts:
+                      - number: 1
+                        profileId: Primary
+                        target:
+                          profileId: Primary
+                          provider: openai
+                          protocol: openai.responses
+                          endpoint: https://api.openai.com:443
+                          modelId: gpt-example
+                        retryable: false
+                        wait: 0
+                        duration: 120000000
+                        repair: false
+                        providerUsed: true
+                      cache:
+                        mode: 'off'
+                        status: disabled
+                        served: false
+                        written: false
+                      artifacts:
+                      - artifactId: call-example-trace
+                        kind: trace
+                        state: available
+                        sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                        sizeBytes: 512
+                        contentType: application/json
+                      providerInvoked: true
+                      totalCallDurationMs: 120
+                      totalWaitMs: 0
+                      overBudgetMs: 0
+                      usedRepair: false
+                    startedAt: '2026-07-13T12:00:00Z'
+                    completedAt: '2026-07-13T12:00:01Z'
                   nextCursor: eyJzdGFydGVkQXQiOiIyMDI2LTA3LTEzVDEyOjAwOjAwWiIsImlkIjoicnVuLWV4YW1wbGUifQ
                 error: null
     StatsSuccess:
@@ -869,8 +1002,97 @@ components:
           examples:
             text:
               value:
-                state: {lastRunId: run-example, lastTraceId: trace-example}
-                result: *runResultExample
+                state:
+                  lastRunId: run-example
+                  lastTraceId: trace-example
+                result:
+                  schemaVersion: 3
+                  runId: run-example
+                  status: succeeded
+                  output: OK
+                  callId: call-example
+                  traceId: trace-example
+                  selectedTarget:
+                    profileId: Primary
+                    provider: openai
+                    protocol: responses
+                    endpoint: https://api.openai.com/v1
+                    modelId: gpt-example
+                  resultSource:
+                    kind: provider
+                    attemptNumber: 1
+                    producer:
+                      profileId: Primary
+                      provider: openai
+                      protocol: openai.responses
+                      endpoint: https://api.openai.com:443
+                      modelId: gpt-example
+                  accounting:
+                    result:
+                      usage:
+                        inputTokens: 8
+                        cacheReadTokens: 0
+                        cacheCreationTokens: 0
+                        outputTokens: 1
+                        reasoningTokens: 0
+                        promptTokens: 8
+                        completionTokens: 1
+                        totalTokens: 9
+                        status: complete
+                      cost:
+                        knownSubtotalUsd: 1.0e-05
+                        status: exact
+                        source: profile
+                        knownObservations: 1
+                        unknownObservations: 0
+                    provider:
+                      usage:
+                        inputTokens: 8
+                        cacheReadTokens: 0
+                        cacheCreationTokens: 0
+                        outputTokens: 1
+                        reasoningTokens: 0
+                        promptTokens: 8
+                        completionTokens: 1
+                        totalTokens: 9
+                        status: complete
+                      cost:
+                        knownSubtotalUsd: 1.0e-05
+                        status: exact
+                        source: profile
+                        knownObservations: 1
+                        unknownObservations: 0
+                  attempts:
+                  - number: 1
+                    profileId: Primary
+                    target:
+                      profileId: Primary
+                      provider: openai
+                      protocol: openai.responses
+                      endpoint: https://api.openai.com:443
+                      modelId: gpt-example
+                    retryable: false
+                    wait: 0
+                    duration: 120000000
+                    repair: false
+                    providerUsed: true
+                  cache:
+                    mode: 'off'
+                    status: disabled
+                    served: false
+                    written: false
+                  artifacts:
+                  - artifactId: call-example-trace
+                    kind: trace
+                    state: available
+                    sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                    sizeBytes: 512
+                    contentType: application/json
+                  providerInvoked: true
+                  totalCallDurationMs: 120
+                  totalWaitMs: 0
+                  overBudgetMs: 0
+                  usedRepair: false
                 error: null
     RunTimeout:
       description: The effective synchronous deadline expired and the root call was canceled.
@@ -922,27 +1144,131 @@ components:
                 state: {}
                 result:
                   traceId: trace-example
-                  record: *runResultExample
-                  observations:
-                    - sequence: 0
-                      type: provider.attempt
-                      data: {number: 1, profileId: Primary}
-                      createdAt: "2026-07-13T12:00:01Z"
-                  artifacts:
+                  record: &id001
+                    schemaVersion: 3
+                    runId: run-example
+                    status: succeeded
+                    output: OK
+                    callId: call-example
+                    traceId: trace-example
+                    selectedTarget:
+                      profileId: Primary
+                      provider: openai
+                      protocol: responses
+                      endpoint: https://api.openai.com/v1
+                      modelId: gpt-example
+                    resultSource:
+                      kind: provider
+                      attemptNumber: 1
+                      producer:
+                        profileId: Primary
+                        provider: openai
+                        protocol: openai.responses
+                        endpoint: https://api.openai.com:443
+                        modelId: gpt-example
+                    accounting:
+                      result:
+                        usage:
+                          inputTokens: 8
+                          cacheReadTokens: 0
+                          cacheCreationTokens: 0
+                          outputTokens: 1
+                          reasoningTokens: 0
+                          promptTokens: 8
+                          completionTokens: 1
+                          totalTokens: 9
+                          status: complete
+                        cost:
+                          knownSubtotalUsd: 1.0e-05
+                          status: exact
+                          source: profile
+                          knownObservations: 1
+                          unknownObservations: 0
+                      provider:
+                        usage:
+                          inputTokens: 8
+                          cacheReadTokens: 0
+                          cacheCreationTokens: 0
+                          outputTokens: 1
+                          reasoningTokens: 0
+                          promptTokens: 8
+                          completionTokens: 1
+                          totalTokens: 9
+                          status: complete
+                        cost:
+                          knownSubtotalUsd: 1.0e-05
+                          status: exact
+                          source: profile
+                          knownObservations: 1
+                          unknownObservations: 0
+                    attempts:
+                    - number: 1
+                      profileId: Primary
+                      target:
+                        profileId: Primary
+                        provider: openai
+                        protocol: openai.responses
+                        endpoint: https://api.openai.com:443
+                        modelId: gpt-example
+                      retryable: false
+                      wait: 0
+                      duration: 120000000
+                      repair: false
+                      providerUsed: true
+                    cache:
+                      mode: 'off'
+                      status: disabled
+                      served: false
+                      written: false
+                    artifacts:
                     - artifactId: call-example-trace
                       kind: trace
                       state: available
                       sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
                       sizeBytes: 512
                       contentType: application/json
-                      createdAt: "2026-07-13T12:00:01Z"
+                    providerInvoked: true
+                    totalCallDurationMs: 120
+                    totalWaitMs: 0
+                    overBudgetMs: 0
+                    usedRepair: false
+                  observations:
+                  - sequence: 0
+                    type: provider.attempt
+                    data:
+                      number: 1
+                      profileId: Primary
+                    createdAt: '2026-07-13T12:00:01Z'
+                  artifacts:
+                  - artifactId: call-example-trace
+                    kind: trace
+                    state: available
+                    sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                    sizeBytes: 512
+                    contentType: application/json
+                    createdAt: '2026-07-13T12:00:01Z'
                   resources:
                     request:
                       available: true
-                      payload: {profileId: Primary, userPrompt: "say ok", callType: text}
+                      payload:
+                        profileId: Primary
+                        userPrompt: say ok
+                        callType: text
+                        recoveryPolicy:
+                          maxAttempts: 4
+                          retryOn:
+                          - network
+                          - rate_limit
+                          - server_error
+                          - empty_response
+                          - provider_retry
+                          repairInvalidOutput: true
+                          backoff:
+                            baseDelayMs: 500
+                            maxDelayMs: 8000
                     response:
                       available: true
-                      payload: *runResultExample
+                      payload: *id001
                 error: null
   schemas:
     Identifier:
@@ -1051,50 +1377,69 @@ components:
     ClientState:
       type: object
       additionalProperties: false
-      required: [schemaVersion, callType, structuredRepair, cacheMode]
+      required:
+      - schemaVersion
+      - callType
+      - cacheMode
+      - recoveryPolicy
       properties:
-        schemaVersion: {type: integer, const: 1}
-        selectedProfileId: {$ref: "#/components/schemas/ProfileID"}
-        modelId: {type: string, maxLength: 512}
-        systemPrompt: {type: string, maxLength: 32768}
-        userPrompt: {type: string, maxLength: 65536}
-        schemaShorthand: {type: string, maxLength: 65536}
-        callType: {type: string, enum: [text, structured]}
+        schemaVersion:
+          type: integer
+          const: 2
+        selectedProfileId:
+          $ref: '#/components/schemas/ProfileID'
+        modelId:
+          type: string
+          maxLength: 512
+        systemPrompt:
+          type: string
+          maxLength: 32768
+        userPrompt:
+          type: string
+          maxLength: 65536
+        schemaShorthand:
+          type: string
+          maxLength: 65536
+        callType:
+          type: string
+          enum:
+          - text
+          - structured
         schema:
           oneOf:
-            - {type: object}
-            - {type: "null"}
-        reasoningEffort: {type: string, enum: [lowest, middle, highest]}
+          - type: object
+          - type: 'null'
+        reasoningEffort:
+          type: string
+          enum:
+          - lowest
+          - middle
+          - highest
         reasoningByProfile:
           type: object
-          additionalProperties: {type: string, enum: [lowest, middle, highest]}
-        structuredRepair: {type: boolean}
-        cacheMode: {type: string, enum: ["off", cache, refresh]}
+          additionalProperties:
+            type: string
+            enum:
+            - lowest
+            - middle
+            - highest
+        cacheMode:
+          type: string
+          enum:
+          - 'off'
+          - cache
+          - refresh
         webSearch:
           type: boolean
           default: false
-          description: Use native provider web search when supported, otherwise the configured Jina fallback. Cache semantics remain unchanged.
-        providerOptions: {type: object}
-        maxAttempts: {type: integer, minimum: 0, maximum: 10}
-        initialBackoffMs: {type: integer, minimum: 0, maximum: 60000}
-        maximumBackoffMs: {type: integer, minimum: 0, maximum: 600000}
-        retryNetwork: {type: boolean}
-        retryRateLimit: {type: boolean}
-        retryServerError: {type: boolean}
-        retryEmpty: {type: boolean}
-        retryParse: {type: boolean}
-        repairEscalation:
-          oneOf:
-            - type: object
-              additionalProperties: false
-              required: [attempt, modelId]
-              properties:
-                attempt: {type: integer, minimum: 2, maximum: 10}
-                profileId: {$ref: "#/components/schemas/ProfileID"}
-                modelId: {type: string, minLength: 1, maxLength: 512}
-                reasoningEffort: {type: string, enum: [lowest, middle, highest]}
-            - {type: "null"}
-        ui: {type: object}
+          description: Use native provider web search when supported, otherwise the configured Jina fallback.
+            Cache semantics remain unchanged.
+        providerOptions:
+          type: object
+        ui:
+          type: object
+        recoveryPolicy:
+          $ref: '#/components/schemas/RecoveryPolicy'
     StateEnvelope:
       type: object
       additionalProperties: false
@@ -1127,69 +1472,98 @@ components:
       type: object
       additionalProperties: false
       required:
-        - schemaVersion
-        - llmProfile
-        - provider
-        - apiInferenceType
-        - endpointCredentialScope
-        - baseUrl
-        - modelId
-        - pricing
-        - supportsTemperature
-        - supportsContractedStructuredOutput
-        - tokensParam
-        - responsesTokensParam
-        - defaultOptions
-        - backupProfiles
+      - schemaVersion
+      - llmProfile
+      - provider
+      - apiInferenceType
+      - endpointCredentialScope
+      - baseUrl
+      - modelId
+      - pricing
+      - supportsTemperature
+      - supportsContractedStructuredOutput
+      - tokensParam
+      - responsesTokensParam
+      - defaultOptions
+      - recoveryPolicy
       properties:
-        schemaVersion: {type: integer, const: 1}
-        llmProfile: {$ref: "#/components/schemas/ProfileID"}
-        provider: {type: string, minLength: 1, maxLength: 128}
+        schemaVersion:
+          type: integer
+          const: 2
+        llmProfile:
+          $ref: '#/components/schemas/ProfileID'
+        provider:
+          type: string
+          minLength: 1
+          maxLength: 128
         apiInferenceType:
           type: string
-          enum: [chat-completions, responses, gemini-generate-content, anthropic-messages]
-        endpointCredentialScope: {type: string, enum: [global, user]}
-        baseUrl: {type: string, format: uri, pattern: "^https://", maxLength: 2048}
-        modelId: {type: string, minLength: 1, maxLength: 512}
+          enum:
+          - chat-completions
+          - responses
+          - gemini-generate-content
+          - anthropic-messages
+        endpointCredentialScope:
+          type: string
+          enum:
+          - global
+          - user
+        baseUrl:
+          type: string
+          format: uri
+          pattern: ^https://
+          maxLength: 2048
+        modelId:
+          type: string
+          minLength: 1
+          maxLength: 512
         pricing:
           oneOf:
-            - {$ref: "#/components/schemas/Pricing"}
-            - {type: "null"}
+          - $ref: '#/components/schemas/Pricing'
+          - type: 'null'
         supportsTemperature:
           oneOf:
-            - {type: boolean}
-            - {type: "null"}
-        supportsContractedStructuredOutput: {type: boolean}
+          - type: boolean
+          - type: 'null'
+        supportsContractedStructuredOutput:
+          type: boolean
         supportsWebSearch:
           type: boolean
           default: false
-          description: Explicit native-search capability for this profile's route and model. Omission is false. Supported adapters are Responses (including CPA), Gemini, Anthropic, and Perplexity Sonar.
+          description: Explicit native-search capability for this profile's route and model. Omission is false.
+            Supported adapters are Responses (including CPA), Gemini, Anthropic, and Perplexity Sonar.
         tokensParam:
           oneOf:
-            - {type: string, maxLength: 128}
-            - {type: "null"}
+          - type: string
+            maxLength: 128
+          - type: 'null'
         responsesTokensParam:
           oneOf:
-            - {type: string, maxLength: 128}
-            - {type: "null"}
-        defaultOptions: {type: object}
+          - type: string
+            maxLength: 128
+          - type: 'null'
+        defaultOptions:
+          type: object
         reasoningEffortMap:
           type: object
           additionalProperties: false
           properties:
-            lowest: {type: object}
-            middle: {type: object}
-            highest: {type: object}
-        backupProfiles:
-          type: array
-          maxItems: 100
-          uniqueItems: true
-          items: {$ref: "#/components/schemas/ProfileID"}
+            lowest:
+              type: object
+            middle:
+              type: object
+            highest:
+              type: object
         models:
           type: array
           maxItems: 5000
-          items: {$ref: "#/components/schemas/Model"}
-        lastModelRefreshAt: {type: string, format: date-time}
+          items:
+            $ref: '#/components/schemas/Model'
+        lastModelRefreshAt:
+          type: string
+          format: date-time
+        recoveryPolicy:
+          $ref: '#/components/schemas/RecoveryPolicy'
     CredentialPayload:
       type: object
       additionalProperties: false
@@ -1238,18 +1612,34 @@ components:
     ProfilesEnvelope:
       type: object
       additionalProperties: false
-      required: [state, result, error]
+      required:
+      - state
+      - result
+      - error
       properties:
-        state: {$ref: "#/components/schemas/EmptyState"}
+        state:
+          $ref: '#/components/schemas/EmptyState'
         result:
           type: object
           additionalProperties: false
-          required: [profiles]
+          required:
+          - profiles
+          - defaults
           properties:
             profiles:
               type: array
-              items: {$ref: "#/components/schemas/ProfileState"}
-        error: {type: "null"}
+              items:
+                $ref: '#/components/schemas/ProfileState'
+            defaults:
+              type: object
+              additionalProperties: false
+              required:
+              - recoveryPolicy
+              properties:
+                recoveryPolicy:
+                  $ref: '#/components/schemas/RecoveryPolicy'
+        error:
+          type: 'null'
     ProfileEnvelope:
       type: object
       additionalProperties: false
@@ -1297,20 +1687,34 @@ components:
     ProfileBundle:
       type: object
       additionalProperties: false
-      required: [schemaVersion, bundleId, createdAt, profiles, credentialIds, credentials]
+      required:
+      - schemaVersion
+      - bundleId
+      - createdAt
+      - profiles
+      - credentialIds
+      - credentials
       properties:
-        schemaVersion: {type: integer, const: 1}
-        bundleId: {$ref: "#/components/schemas/Identifier"}
-        createdAt: {type: string, format: date-time}
+        schemaVersion:
+          type: integer
+          const: 2
+        bundleId:
+          $ref: '#/components/schemas/Identifier'
+        createdAt:
+          type: string
+          format: date-time
         profiles:
           type: object
-          additionalProperties: {$ref: "#/components/schemas/Profile"}
+          additionalProperties:
+            $ref: '#/components/schemas/Profile'
         credentialIds:
           type: object
-          additionalProperties: {$ref: "#/components/schemas/Identifier"}
+          additionalProperties:
+            $ref: '#/components/schemas/Identifier'
         credentials:
           type: array
-          items: {$ref: "#/components/schemas/CredentialRecord"}
+          items:
+            $ref: '#/components/schemas/CredentialRecord'
     BundleEnvelope:
       type: object
       additionalProperties: false
@@ -1465,50 +1869,114 @@ components:
             deleted: {type: boolean, const: true}
             profileId: {$ref: "#/components/schemas/ProfileID"}
         error: {type: "null"}
+    RecoveryPolicy:
+      type: object
+      additionalProperties: false
+      description: Complete selected-target recovery policy. No execution defaults are inferred. Create new
+        settings from result.defaults.recoveryPolicy returned by listProfiles.
+      required:
+      - maxAttempts
+      - retryOn
+      - repairInvalidOutput
+      - backoff
+      properties:
+        maxAttempts:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Total provider-call budget including the first call, transport retries and semantic
+            repairs.
+        retryOn:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+            - network
+            - rate_limit
+            - server_error
+            - empty_response
+            - provider_retry
+          description: An empty array disables ordinary retries.
+        repairInvalidOutput:
+          type: boolean
+          description: Repair invalid structured output using its original schema and the remaining call budget.
+        backoff:
+          $ref: '#/components/schemas/RecoveryBackoff'
+    RecoveryBackoff:
+      type: object
+      additionalProperties: false
+      required:
+      - baseDelayMs
+      - maxDelayMs
+      properties:
+        baseDelayMs:
+          type: integer
+          minimum: 0
+          maximum: 60000
+        maxDelayMs:
+          type: integer
+          minimum: 0
+          maximum: 600000
+          description: Must be at least baseDelayMs. Limits calculated backoff; valid Retry-After on HTTP
+            429 or 503 remains a server minimum.
     RunRequest:
       type: object
       additionalProperties: false
-      required: [profileId, userPrompt, callType]
+      required:
+      - profileId
+      - userPrompt
+      - callType
+      - recoveryPolicy
       properties:
-        profileId: {$ref: "#/components/schemas/ProfileID"}
-        modelId: {type: string, maxLength: 512}
-        systemPrompt: {type: string, maxLength: 32768}
-        userPrompt: {type: string, minLength: 1, maxLength: 65536}
-        callType: {type: string, enum: [text, structured]}
-        schema: {type: object}
-        reasoningEffort: {type: string, enum: [lowest, middle, highest]}
-        providerOptions: {type: object}
-        cacheMode: {type: string, enum: ["off", cache, refresh]}
+        profileId:
+          $ref: '#/components/schemas/ProfileID'
+        modelId:
+          type: string
+          maxLength: 512
+        systemPrompt:
+          type: string
+          maxLength: 32768
+        userPrompt:
+          type: string
+          minLength: 1
+          maxLength: 65536
+        callType:
+          type: string
+          enum:
+          - text
+          - structured
+        schema:
+          type: object
+        reasoningEffort:
+          type: string
+          enum:
+          - lowest
+          - middle
+          - highest
+        providerOptions:
+          type: object
+        cacheMode:
+          type: string
+          enum:
+          - 'off'
+          - cache
+          - refresh
         webSearch:
           type: boolean
           default: false
-          description: Use native provider web search when supported, otherwise the configured Jina fallback. Cache semantics remain unchanged.
-        cacheVersion: {type: string, maxLength: 64}
-        maxAttempts: {type: integer, minimum: 0, maximum: 10}
-        structuredRepair: {type: boolean}
-        initialBackoffMs: {type: integer, minimum: 0, maximum: 60000}
-        maximumBackoffMs: {type: integer, minimum: 0, maximum: 600000}
-        retryNetwork: {type: boolean}
-        retryRateLimit: {type: boolean}
-        retryServerError: {type: boolean}
-        retryEmpty: {type: boolean}
-        retryParse: {type: boolean}
-        repairEscalation:
-          oneOf:
-            - type: object
-              additionalProperties: false
-              required: [attempt, modelId]
-              properties:
-                attempt: {type: integer, minimum: 2, maximum: 10}
-                profileId: {$ref: "#/components/schemas/ProfileID"}
-                modelId: {type: string, minLength: 1, maxLength: 512}
-                reasoningEffort: {type: string, enum: [lowest, middle, highest]}
-            - {type: "null"}
+          description: Use native provider web search when supported, otherwise the configured Jina fallback.
+            Cache semantics remain unchanged.
+        cacheVersion:
+          type: string
+          maxLength: 64
         timeoutMs:
           type: integer
           minimum: 0
           maximum: 60000
           description: Zero or omission selects the deployment maximum; a positive value may only lower it.
+        recoveryPolicy:
+          $ref: '#/components/schemas/RecoveryPolicy'
     Usage:
       type: object
       additionalProperties: false
@@ -1580,30 +2048,71 @@ components:
     Attempt:
       type: object
       additionalProperties: false
-      required: [number, retryLocalNumber, profileId, target, retryable, wait, duration, repair, backupIndex, providerUsed]
+      required:
+      - number
+      - profileId
+      - target
+      - retryable
+      - wait
+      - duration
+      - repair
+      - providerUsed
       properties:
-        number: {type: integer, minimum: 1, maximum: 10}
-        retryLocalNumber: {type: integer, minimum: 1, maximum: 10}
-        profileId: {$ref: "#/components/schemas/ProfileID"}
-        target: {$ref: "#/components/schemas/ExecutionTarget"}
-        category: {type: string, maxLength: 64}
-        httpStatus: {type: integer, minimum: 100, maximum: 599}
-        code: {type: string, maxLength: 80}
-        type: {type: string, maxLength: 80}
-        providerRequestId: {type: string, maxLength: 128, pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{7,127}$'}
-        retryable: {type: boolean}
-        wait: {type: integer, minimum: 0, description: Nanoseconds.}
-        duration: {type: integer, minimum: 0, description: Nanoseconds.}
-        repair: {type: boolean}
-        backupIndex: {type: integer, minimum: 0}
-        providerUsed: {type: boolean}
+        number:
+          type: integer
+          minimum: 1
+          maximum: 10
+        profileId:
+          $ref: '#/components/schemas/ProfileID'
+        target:
+          $ref: '#/components/schemas/ExecutionTarget'
+        category:
+          type: string
+          maxLength: 64
+        httpStatus:
+          type: integer
+          minimum: 100
+          maximum: 599
+        code:
+          type: string
+          maxLength: 80
+        type:
+          type: string
+          maxLength: 80
+        providerRequestId:
+          type: string
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9_-]{7,127}$
+        retryable:
+          type: boolean
+        wait:
+          type: integer
+          minimum: 0
+          description: Nanoseconds.
+        duration:
+          type: integer
+          minimum: 0
+          description: Nanoseconds.
+        repair:
+          type: boolean
+        providerUsed:
+          type: boolean
+          description: True only when the local model transport observed request headers being written; does not prove remote execution or billing.
     CacheResult:
       type: object
       additionalProperties: false
       required: [mode, status, served, written]
       properties:
         mode: {type: string, enum: ["off", cache, refresh]}
-        status: {type: string, minLength: 1, maxLength: 64}
+        status:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: >-
+            Cache outcome. A write_failed value means the accepted inference
+            succeeded but persisting its canonical cache projection failed;
+            served and written remain false and the run itself is still
+            successful. Lookup and integrity failures are returned as errors.
         operationHash: {type: string, maxLength: 128}
         version: {type: string, maxLength: 64}
         served: {type: boolean}
@@ -1622,31 +2131,78 @@ components:
     RunResult:
       type: object
       additionalProperties: false
-      required: [schemaVersion, runId, status, output, callId, traceId, selectedTarget, resultSource, accounting, attempts, cache, artifacts, providerInvoked, totalCallDurationMs, totalWaitMs, overBudgetMs, usedRepair]
+      required:
+      - schemaVersion
+      - runId
+      - status
+      - output
+      - callId
+      - traceId
+      - selectedTarget
+      - resultSource
+      - accounting
+      - attempts
+      - cache
+      - artifacts
+      - providerInvoked
+      - totalCallDurationMs
+      - totalWaitMs
+      - overBudgetMs
+      - usedRepair
       properties:
-        schemaVersion: {type: integer, const: 2}
-        runId: {$ref: "#/components/schemas/Identifier"}
-        status: {type: string, enum: [succeeded, failed, timeout]}
+        schemaVersion:
+          type: integer
+          const: 3
+        runId:
+          $ref: '#/components/schemas/Identifier'
+        status:
+          type: string
+          enum:
+          - succeeded
+          - failed
+          - timeout
         output: {}
-        search: {$ref: "#/components/schemas/WebSearchResult"}
-        callId: {$ref: "#/components/schemas/Identifier"}
-        traceId: {$ref: "#/components/schemas/Identifier"}
-        selectedTarget: {$ref: "#/components/schemas/ExecutionTarget"}
-        resultSource: {$ref: "#/components/schemas/ResultSource"}
-        accounting: {$ref: "#/components/schemas/Accounting"}
+        search:
+          $ref: '#/components/schemas/WebSearchResult'
+        callId:
+          $ref: '#/components/schemas/Identifier'
+        traceId:
+          $ref: '#/components/schemas/Identifier'
+        selectedTarget:
+          $ref: '#/components/schemas/ExecutionTarget'
+        resultSource:
+          $ref: '#/components/schemas/ResultSource'
+        accounting:
+          $ref: '#/components/schemas/Accounting'
         attempts:
           type: array
           maxItems: 10
-          items: {$ref: "#/components/schemas/Attempt"}
-        cache: {$ref: "#/components/schemas/CacheResult"}
+          items:
+            $ref: '#/components/schemas/Attempt'
+        cache:
+          $ref: '#/components/schemas/CacheResult'
         artifacts:
           type: array
-          items: {$ref: "#/components/schemas/RunArtifact"}
-        providerInvoked: {type: boolean}
-        totalCallDurationMs: {type: integer, minimum: 0, description: Elapsed runtime call duration in milliseconds.}
-        totalWaitMs: {type: integer, minimum: 0, description: Sum of retry waits in milliseconds.}
-        overBudgetMs: {type: integer, minimum: 0, description: Amount by which an explicit per-run timeout budget was exceeded.}
-        usedRepair: {type: boolean, description: Whether structured-output repair was used.}
+          items:
+            $ref: '#/components/schemas/RunArtifact'
+        providerInvoked:
+          type: boolean
+          description: True when at least one model attempt observed request headers being written; search-only and pre-dispatch failures remain false, and the value does not prove remote execution or billing.
+        totalCallDurationMs:
+          type: integer
+          minimum: 0
+          description: Elapsed runtime call duration in milliseconds.
+        totalWaitMs:
+          type: integer
+          minimum: 0
+          description: Sum of retry waits in milliseconds.
+        overBudgetMs:
+          type: integer
+          minimum: 0
+          description: Amount by which an explicit per-run timeout budget was exceeded.
+        usedRepair:
+          type: boolean
+          description: Whether structured-output repair was used.
     WebSearchResult:
       type: object
       additionalProperties: false

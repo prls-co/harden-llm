@@ -6,9 +6,9 @@
 - Target repository: `/home/kirill/harden-llm`
 - Go module: `github.com/prls-co/harden-llm`
 - Contract source repository: `/home/kirill/utility-llm`
-- Version: `1.3.0-backend-spec`
+- Version: `1.3.1-recovery-boundary-amendment`
 - Owners: package maintainers and self-hosted runtime implementers
-- Date: 2026-07-12
+- Date: 2026-09-15
 - Document ID: `SPEC-HARDEN-LLM-SELF-HOSTED-GO-001`
 - Summary: This specification defines the self-hosted, free, Go backend for `harden-llm`: one importable root library and one versioned REST API gateway. Application records live in Harden-LLM Postgres, while Harden-LLM-owned trace artifacts and diagnostic attachments replace Firebase Storage in Garage. OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana, and self-hosted Langfuse provide diagnostics. Langfuse retains its upstream default dependency graph, including its own Postgres, Redis, ClickHouse, and MinIO services; Harden-LLM neither substitutes Garage into Langfuse nor uses Langfuse's MinIO. This backend contains no browser UI, Phoenix, LiveView, React, or frontend asset pipeline. The separately specified Phoenix LiveView application consumes only the published REST/OpenAPI contract.
 
@@ -208,7 +208,7 @@ type Request struct {
   Context         ObservabilityContext
   CacheMode       CacheMode
   CacheVersion    string
-  RetryPolicy     RetryPolicy
+  RecoveryPolicy  RecoveryPolicy
 }
 
 type Result struct {
@@ -261,14 +261,12 @@ Contract requirements:
   Refresh recomputes and overwrites the same search-enabled operation key.
   Search evidence/citations remain attached to cached answers. Successful Jina
   results are memoized only within the logical call, including retries, repairs
-  and backups. No speculative native/Jina dual execution occurs (ADR-HLLM-019).
-- `maxAttempts` means the call-global total provider-invocation budget across
-  primary, retry, repair, and backup candidates.
-- Parse/schema retry and semantic repair consume the same attempt budget.
-- Backup profiles are resolved from flat `backupProfiles` references with current cycle, duplicate, missing-reference, and maximum-depth behavior preserved.
-- Candidate profiles retain retry classification and backoff policy, but cannot
-  reset or exceed the call-global attempt budget. The caller context remains the
-  final overall deadline.
+  on the same selected target. No speculative native/Jina dual execution occurs (ADR-HLLM-019).
+- ADR-HLLM-020 defines one required complete RecoveryPolicy shared by the public Go API, runtime, profiles, REST and client state. Go owns defaults/validation; the existing profiles response supplies defaults to the frontend.
+- `maxAttempts` bounds all execution slots/model invocations on one immutable selected target. Initial, retry and repair attempts share the caller context; no backup/escalation or retry-original execution path exists.
+- Strict structured parsing preserves JSON values and validates the original schema for initial and repair responses, without coercion, heuristic salvage or a repair envelope.
+- Explicit false/zero/empty controls survive; only listed transient categories repeat. Valid 429/503 Retry-After is a minimum over capped calculated backoff and cannot escape the caller deadline.
+- Profile/state/bundle documents use v2; current run/history/trace results share v3. The standard migration preserves original requests, output, target snapshots, accounting, ownership and credentials while removing retired controls/attempt metadata. No runtime old-format converter exists.
 - Provider payloads, errors, and diagnostic data pass through the shared redactor before persistence or emission.
 - `ArtifactStore` is optional for direct library callers. When configured, the library writes canonical redacted JSON trace artifacts and diagnostic attachments and returns immutable references; an artifact-store failure is recorded diagnostically but does not change an otherwise successful provider result.
 - The self-hosted gateway supplies the one Garage-backed `ArtifactStore`. The library has no MinIO or Langfuse storage configuration.
@@ -724,3 +722,63 @@ Minimum v1 verification:
 - Caddy: https://caddyserver.com/docs/
 - OWASP SSRF prevention: https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html
 - Phoenix LiveView frontend specification: `plans/from_utility-llm/phoenix-liveview-frontend-spec.md`
+
+## 20. Recovery boundary amendment
+
+The recovery-boundary implementation recorded in ADR-HLLM-021 keeps the
+existing one-library/one-gateway stack and does not add a service, queue or
+compatibility layer.
+
+- `Prepare` performs static provider endpoint checks only. The one guarded model
+  transport resolves and validates addresses during execution, after cache
+  lookup and within the call's attempt budget. Jina uses its own fixed-origin
+  guard while sharing HTTP status and `Retry-After` normalization.
+- Provider normalization assigns one category and bounded metadata at the
+  source. `httptrace.WroteHeaders` supplies a local `ProviderDispatched` fact
+  for model requests; it is not a billing or remote-completion guarantee.
+- Responses streaming admits only the terminal completed response object.
+  Chat, Gemini and Anthropic require their documented successful completion
+  markers. Limits, refusals, malformed envelopes and unsupported terminal
+  states cannot enter semantic repair. Usage/cost is validated before those
+  failures return, and known partial facts remain visible.
+- The internal response projection is `v3` for text and structured operations;
+  the outer `operation-v2` cache namespace remains unchanged. Old projection
+  keys are neither read nor migrated, and recovery policy remains outside
+  semantic operation identity.
+
+These rules are covered by TEST-212 through TEST-217 and TEST-220 through
+TEST-222 in the canonical backend test specification. The frontend consumes the
+same OpenAPI policy shape and owns its active draft/persistence lifecycle under
+WEB-TEST-074/075; no internal Go types cross that boundary.
+
+### Recovery integrity follow-up
+
+The follow-up keeps the same owners and contracts. The guarded transport
+normalizes Router and Jina failures against the original call parent, so an
+attempt-local or Jina-local timeout remains a network failure while the parent
+is active. HTTP status, endpoint policy and response-size precedence remain
+bounded and do not parse protocol completion or accounting.
+
+Provider normalization extracts independently valid usage and cost from
+complete JSON before completion/output errors return. Runtime sends every
+attempt's dispatch fact and normalized ledger to the single accounting
+accumulator; unavailable measurements remain uncertain and are never treated as
+an additive no-op after observed work. The result ledger still describes only
+the delivered output.
+
+Cache replay uses the existing response projection v3 and operation-v2 key
+namespace. Its typed decoder preserves JSON numbers, requires one complete
+value, checks canonical output/accounting/search metadata and compares the
+stored producer's semantic target. A malformed row is a bounded integrity
+failure with no provider fallback or semantic repair. The cache table retains
+one canonical result projection with owner/key/version/timestamps; migration
+0007 removes only the unused operation, raw envelope and duplicate usage/cost
+columns, preserving valid rows and identity.
+
+Once a result is admitted, cache persistence is best effort. A failed write
+returns the accepted result with `cache.status = "write_failed"` and no public
+call error; lookup/integrity failures and pre-admission failures remain
+terminal. The same bounded status is preserved in REST, history, traces,
+telemetry and Phoenix. These additions are verified by TEST-223 through
+TEST-228 and WEB-TEST-076; they add no service, provider fallback, legacy
+reader, public setting or browser requirement.

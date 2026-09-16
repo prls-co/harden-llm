@@ -15,7 +15,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+          Req.Test.json(conn, APIFixtures.profiles([APIFixtures.profile_state()]))
 
         {"POST", "/api/v1/profiles/Primary/models:refresh"} ->
           send(test_pid, :refreshed)
@@ -41,7 +41,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+          Req.Test.json(conn, APIFixtures.profiles([APIFixtures.profile_state()]))
       end
     end)
 
@@ -67,7 +67,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+          Req.Test.json(conn, APIFixtures.profiles([APIFixtures.profile_state()]))
 
         {"PUT", "/api/v1/profiles/Primary"} ->
           {:ok, body, conn} = Plug.Conn.read_body(conn)
@@ -96,7 +96,6 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
         "modelId" => "model-test",
         "credentialId" => "credential-test",
         "apiKey" => "replacement-fixture-secret",
-        "backupProfiles" => "Backup",
         "supportsTemperature" => "true",
         "supportsContractedStructuredOutput" => "true"
       }
@@ -106,7 +105,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     render_async(view, 1_000)
     assert_received {:saved, payload}
     assert get_in(payload, ["credential", "apiKey"]) == "replacement-fixture-secret"
-    assert get_in(payload, ["profile", "backupProfiles"]) == ["Backup"]
+    refute Map.has_key?(payload["profile"], "backupProfiles")
     refute render(view) =~ "replacement-fixture-secret"
   end
 
@@ -114,7 +113,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => []}))
+          Req.Test.json(conn, APIFixtures.profiles([]))
 
         {"PUT", "/api/v1/profiles/Unsafe"} ->
           {status, envelope} =
@@ -154,7 +153,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+          Req.Test.json(conn, APIFixtures.profiles([APIFixtures.profile_state()]))
 
         _ ->
           flunk("unexpected API call: #{conn.method} #{conn.request_path}")
@@ -184,14 +183,14 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     refute render(view) =~ "replacement-local-secret"
   end
 
-  test "delete confirmation preserves backend dependency errors", %{conn: conn} do
+  test "delete confirmation preserves backend service errors", %{conn: conn} do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+          Req.Test.json(conn, APIFixtures.profiles([APIFixtures.profile_state()]))
 
         {"DELETE", "/api/v1/profiles/Primary"} ->
-          {status, envelope} = APIFixtures.error(409, "profile_referenced")
+          {status, envelope} = APIFixtures.error(503, "service_unavailable")
           conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
       end
     end)
@@ -209,7 +208,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     render_async(view, 1_000)
 
     assert has_element?(view, "#profile-Primary")
-    assert has_element?(view, "#profiles-error", "conflicts with current backend state")
+    assert has_element?(view, "#profiles-error", "temporarily unavailable")
   end
 
   test "bundle import is bounded and replaces state only after backend success", %{conn: conn} do
@@ -218,12 +217,12 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => []}))
+          Req.Test.json(conn, APIFixtures.profiles([]))
 
         {"PUT", "/api/v1/profiles/bundle"} ->
           {:ok, body, conn} = Plug.Conn.read_body(conn)
           send(test_pid, {:bundle, Jason.decode!(body)})
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+          Req.Test.json(conn, APIFixtures.profiles([APIFixtures.profile_state()]))
       end
     end)
 
@@ -234,7 +233,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
       file_input(view, "#bundle-import-form", :bundle, [
         %{
           name: "bundle.json",
-          content: Jason.encode!(%{"schemaVersion" => 1}),
+          content: Jason.encode!(%{"schemaVersion" => 2}),
           type: "application/json"
         }
       ])
@@ -242,7 +241,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     render_upload(upload, "bundle.json")
     view |> form("#bundle-import-form", %{}) |> render_submit()
 
-    assert_received {:bundle, %{"schemaVersion" => 1}}
+    assert_received {:bundle, %{"schemaVersion" => 2}}
     assert has_element?(view, "#profile-Primary")
   end
 
@@ -251,7 +250,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+          Req.Test.json(conn, APIFixtures.profiles([APIFixtures.profile_state()]))
 
         _ ->
           flunk("unexpected API call: #{conn.method} #{conn.request_path}")
@@ -272,8 +271,6 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     assert has_element?(view, "#profile_modelId")
     assert has_element?(view, "#profile_baseUrl")
     assert has_element?(view, "#credential-fold-toggle")
-    assert has_element?(view, "#backup-profile-picker")
-    assert has_element?(view, "#profile_backupProfiles")
     assert has_element?(view, "#profile_supportsTemperature")
     assert has_element?(view, "#profile_supportsContractedStructuredOutput")
     assert has_element?(view, "#options-fold-toggle")
@@ -287,7 +284,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     view |> element("#pricing-fold-toggle") |> render_click()
 
     assert has_element?(view, "#profile-options")
-    assert has_element?(view, "#profile-retry-repair")
+    assert has_element?(view, "#profile-recovery-policy")
     assert has_element?(view, "#profile-pricing")
 
     assert has_element?(view, "#profile_maxTokens")
@@ -296,18 +293,13 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     assert has_element?(view, "#profile_topK")
     assert has_element?(view, "#profile_stopSequences")
     assert has_element?(view, "#profile_defaultOptionsJson")
-    assert has_element?(view, "#profile_structuredRepairRetryEnabled")
-    assert has_element?(view, "#profile_enableRetryOn429")
-    assert has_element?(view, "#profile_enableRetryOn5xx")
-    assert has_element?(view, "#profile_enableRetryOnNetworkError")
-    assert has_element?(view, "#profile_enableRetryOnParseError")
-    assert has_element?(view, "#profile_retryMaxAttempts")
-    assert has_element?(view, "#profile_retryBaseDelayMs")
-    assert has_element?(view, "#profile_retryMaxDelayMs")
-    assert has_element?(view, "#profile_escalationProfile")
-    assert has_element?(view, ~s(#profile_escalationProfile[value="CPA GPT-5.6 Sol"]))
-    assert has_element?(view, "#profile_escalationAttempt")
-    assert has_element?(view, "#profile_escalationReasoning")
+    assert has_element?(view, "#profile-repair-invalid-output")
+    assert has_element?(view, "#profile-retry-rate_limit")
+    assert has_element?(view, "#profile-retry-server_error")
+    assert has_element?(view, "#profile-retry-network")
+    assert has_element?(view, "#profile-recovery-maxAttempts")
+    assert has_element?(view, "#profile-recovery-baseDelayMs")
+    assert has_element?(view, "#profile-recovery-maxDelayMs")
     assert has_element?(view, "#profile_pricingInput")
     assert has_element?(view, "#profile_pricingOutput")
     assert has_element?(view, "#profile_pricingCacheRead")
@@ -327,10 +319,9 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
              ~s(#profile_defaultOptionsJson[placeholder='{"temperature":0,"max_tokens":16000}'])
            )
 
-    assert has_element?(view, ~s(#profile_retryMaxAttempts[placeholder="4"]))
-    assert has_element?(view, ~s(#profile_retryBaseDelayMs[placeholder="500"]))
-    assert has_element?(view, ~s(#profile_retryMaxDelayMs[placeholder="8000"]))
-    assert has_element?(view, ~s(#profile_escalationAttempt[placeholder="3"]))
+    assert has_element?(view, ~s(#profile-recovery-maxAttempts[value="4"]))
+    assert has_element?(view, ~s(#profile-recovery-baseDelayMs[value="500"]))
+    assert has_element?(view, ~s(#profile-recovery-maxDelayMs[value="8000"]))
     assert has_element?(view, ~s(#profile_pricingInput[placeholder="n/a"]))
     assert has_element?(view, ~s(#profile_pricingOutput[placeholder="n/a"]))
     assert has_element?(view, ~s(#profile_pricingCacheRead[placeholder="n/a"]))
@@ -348,7 +339,6 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
         "credentialId" => "credential-inline",
         "endpointCredentialScope" => "user",
         "apiKey" => "inline-secret",
-        "backupProfiles" => "Primary",
         "supportsTemperature" => "true",
         "supportsContractedStructuredOutput" => "true",
         "maxTokens" => "128",
@@ -357,17 +347,6 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
         "topK" => "40",
         "stopSequences" => "END",
         "defaultOptionsJson" => "{}",
-        "structuredRepairRetryEnabled" => "true",
-        "enableRetryOn429" => "true",
-        "enableRetryOn5xx" => "true",
-        "enableRetryOnNetworkError" => "true",
-        "enableRetryOnParseError" => "true",
-        "retryMaxAttempts" => "3",
-        "retryBaseDelayMs" => "100",
-        "retryMaxDelayMs" => "1000",
-        "escalationProfile" => "Primary",
-        "escalationAttempt" => "2",
-        "escalationReasoning" => "lowest",
         "pricingInput" => "1",
         "pricingOutput" => "2",
         "pricingCacheRead" => "0.1",
@@ -376,25 +355,6 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
       }
     })
     |> render_change()
-
-    assert has_element?(view, "#backup-profile-list", "Primary")
-
-    view
-    |> element("#backup-profile-picker")
-    |> render_change(%{"profile" => %{"backupProfile" => "Primary"}})
-
-    assert has_element?(view, "#backup-profile-list", "Primary")
-
-    view
-    |> element(~s(button[phx-click="move-backup"][phx-value-direction="down"]))
-    |> render_click()
-
-    view
-    |> element(~s(button[phx-click="move-backup"][phx-value-direction="up"]))
-    |> render_click()
-
-    view |> element(~s(button[phx-click="remove-backup"])) |> render_click()
-    assert has_element?(view, "#backup-profile-list")
 
     assert has_element?(view, "#credential-drawer")
     view |> element("#credential-fold-toggle") |> render_click()
@@ -416,7 +376,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+          Req.Test.json(conn, APIFixtures.profiles([APIFixtures.profile_state()]))
 
         {"POST", "/api/v1/profiles/Primary/models:refresh"} ->
           {status, envelope} = APIFixtures.error(401, "session_expired")
@@ -433,7 +393,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-032
-  test "profile editor translates options, ordered fallbacks, retry repair, and pricing", %{
+  test "profile editor translates options, recovery policy, and pricing", %{
     conn: conn
   } do
     test_pid = self()
@@ -441,7 +401,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [APIFixtures.profile_state()]}))
+          Req.Test.json(conn, APIFixtures.profiles([APIFixtures.profile_state()]))
 
         {"PUT", "/api/v1/profiles/Primary"} ->
           {:ok, body, conn} = Plug.Conn.read_body(conn)
@@ -476,20 +436,12 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
         "baseUrl" => "https://provider.example.test/v1",
         "modelId" => "model-test",
         "credentialId" => "credential-test",
-        "backupProfiles" => "Backup, Fallback",
         "maxTokens" => "2048",
         "temperature" => "0.2",
         "topP" => "0.9",
         "topK" => "40",
         "stopSequences" => "END\nDONE",
         "defaultOptionsJson" => "{}",
-        "structuredRepairRetryEnabled" => "true",
-        "retryMaxAttempts" => "4",
-        "retryBaseDelayMs" => "500",
-        "retryMaxDelayMs" => "8000",
-        "escalationAttempt" => "3",
-        "escalationProfile" => "Backup",
-        "escalationReasoning" => "highest",
         "pricingInput" => "1.5",
         "pricingOutput" => "3",
         "pricingCacheRead" => "0.2",
@@ -501,29 +453,12 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
 
     render_async(view, 1_000)
     assert_received {:profile_parity, payload}
-    assert get_in(payload, ["profile", "backupProfiles"]) == ["Backup", "Fallback"]
+    assert get_in(payload, ["profile", "recoveryPolicy"]) == APIFixtures.recovery_policy()
     assert get_in(payload, ["profile", "defaultOptions", "max_tokens"]) == 2048
     assert get_in(payload, ["profile", "defaultOptions", "stop"]) == ["END", "DONE"]
 
-    assert get_in(payload, [
-             "profile",
-             "defaultOptions",
-             "structuredRepairRetry",
-             "escalation",
-             "llmProfile"
-           ]) == "Backup"
-
-    options = get_in(payload, ["profile", "defaultOptions"])
-    assert options["maxAttempts"] == 4
-    assert options["baseDelayMs"] == 500
-    assert options["maxDelayMs"] == 8000
-    assert options["enableRetryOn429"] == true
-    assert options["enableRetryOn5xx"] == true
-    assert options["enableRetryOnNetworkError"] == true
-    assert options["enableRetryOnParseError"] == true
-    assert get_in(options, ["structuredRepairRetry", "enabled"]) == true
-    refute Map.has_key?(options["structuredRepairRetry"], "maxAttempts")
-    refute Map.has_key?(options["structuredRepairRetry"], "enableRetryOn429")
+    refute Map.has_key?(payload["profile"], "backupProfiles")
+    refute Map.has_key?(payload["profile"]["defaultOptions"], "structuredRepairRetry")
 
     assert get_in(payload, ["profile", "pricing", "input_cost_per_token"]) == 0.0000015
   end
@@ -544,5 +479,90 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     view
     |> element("#credential-fold-toggle")
     |> render_click()
+  end
+
+  # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-209
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-073
+  @tag :recovery
+  test "profile payload uses the complete policy serializer" do
+    policy = %{
+      "maxAttempts" => 1,
+      "retryOn" => [],
+      "repairInvalidOutput" => false,
+      "backoff" => %{"baseDelayMs" => 0, "maxDelayMs" => 0}
+    }
+
+    state = put_in(APIFixtures.profile_state(), ["profile", "recoveryPolicy"], policy)
+    form = HardenLlmWeb.ProfilesLive.profile_form(state)
+    assert form["recoveryPolicy"] == policy
+    assert {:ok, payload} = HardenLlmWeb.ProfilesLive.profile_payload(form)
+    assert payload["profile"]["schemaVersion"] == 2
+    assert payload["profile"]["recoveryPolicy"] == policy
+    refute Map.has_key?(payload["profile"], "backupProfiles")
+    refute Map.has_key?(payload["profile"]["defaultOptions"], "structuredRepairRetry")
+  end
+
+  @tag :recovery
+  test "new profiles receive server defaults after hydration", %{conn: conn} do
+    policy = %{
+      APIFixtures.recovery_policy()
+      | "maxAttempts" => 7,
+        "repairInvalidOutput" => false,
+        "retryOn" => [],
+        "backoff" => %{"baseDelayMs" => 0, "maxDelayMs" => 0}
+    }
+
+    install_stub(fn conn ->
+      assert conn.request_path == "/api/v1/profiles"
+
+      Req.Test.json(
+        conn,
+        put_in(APIFixtures.profiles([]), ["result", "defaults", "recoveryPolicy"], policy)
+      )
+    end)
+
+    {:ok, view, _} = live(conn, ~p"/profiles?new=1")
+    render_async(view, 1_000)
+    view |> element("#retry-fold-toggle") |> render_click()
+    assert has_element?(view, ~s(#profile-recovery-maxAttempts[value="7"]))
+    assert has_element?(view, ~s(#profile-recovery-baseDelayMs[value="0"]))
+    refute has_element?(view, "#profile-repair-invalid-output[checked]")
+    refute has_element?(view, "#profile-retry-network[checked]")
+  end
+
+  @tag :recovery
+  test "policy validation errors mark the field and retain the submitted draft", %{conn: conn} do
+    test_pid = self()
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/profiles"} ->
+          Req.Test.json(conn, APIFixtures.profiles([APIFixtures.profile_state()]))
+
+        {"PUT", "/api/v1/profiles/Primary"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          send(test_pid, {:invalid_policy, Jason.decode!(body)["profile"]["recoveryPolicy"]})
+
+          {status, envelope} =
+            APIFixtures.error(422, "validation_failed", %{
+              "Primary.recoveryPolicy.maxAttempts" => "must be between 1 and 10"
+            })
+
+          conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
+      end
+    end)
+
+    {:ok, view, _} = live(conn, ~p"/profiles?edit=Primary")
+    render_async(view, 1_000)
+    view |> element("#retry-fold-toggle") |> render_click()
+
+    view
+    |> form("#profile-form", %{"profile" => %{"recoveryPolicy" => %{"maxAttempts" => "11"}}})
+    |> render_submit()
+
+    render_async(view, 1_000)
+    assert_received {:invalid_policy, %{"maxAttempts" => 11}}
+    assert has_element?(view, ~s(#profile-recovery-maxAttempts[value="11"][aria-invalid="true"]))
+    assert has_element?(view, "#profile-recovery-policy", "must be between 1 and 10")
   end
 end

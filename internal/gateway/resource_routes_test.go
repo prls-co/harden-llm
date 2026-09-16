@@ -14,10 +14,12 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	hardenllm "github.com/prls-co/harden-llm"
 	"github.com/prls-co/harden-llm/internal/artifacts"
 	"github.com/prls-co/harden-llm/internal/gateway"
 	"github.com/prls-co/harden-llm/internal/gateway/auth"
@@ -106,7 +108,7 @@ func TestResourceRoutes(t *testing.T) {
 	authA := map[string][]string{"Authorization": {"Bearer " + loginA.AccessToken}}
 	authB := map[string][]string{"Authorization": {"Bearer " + loginB.AccessToken}}
 
-	stateBody := []byte(`{"schemaVersion":1,"selectedProfileId":"Backup","modelId":"gpt-backup","userPrompt":"draft","callType":"text","structuredRepair":false,"cacheMode":"off"}`)
+	stateBody := []byte(`{"schemaVersion":2,"selectedProfileId":"Backup","modelId":"gpt-backup","userPrompt":"draft","callType":"text","cacheMode":"off","recoveryPolicy":{"maxAttempts":1,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}}`)
 	response := apiRequest(t, server.Client(), http.MethodPost, server.URL+"/api/v1/state", stateBody, authA)
 	assertEnvelope(t, response, http.StatusOK, false)
 	if response.JSON["state"].(map[string]any)["userPrompt"] != "draft" {
@@ -133,6 +135,16 @@ func TestResourceRoutes(t *testing.T) {
 	}
 	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/profiles", nil, authA)
 	profilesResult := response.JSON["result"].(map[string]any)["profiles"].([]any)
+	// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-208
+	defaults := response.JSON["result"].(map[string]any)["defaults"].(map[string]any)
+	wantDefaults, _ := json.Marshal(hardenllm.DefaultRecoveryPolicy())
+	gotDefaults, _ := json.Marshal(defaults["recoveryPolicy"])
+	var gotPolicy, wantPolicy any
+	_ = json.Unmarshal(gotDefaults, &gotPolicy)
+	_ = json.Unmarshal(wantDefaults, &wantPolicy)
+	if !reflect.DeepEqual(gotPolicy, wantPolicy) {
+		t.Fatalf("profiles defaults = %s, want %s", gotDefaults, wantDefaults)
+	}
 	if len(profilesResult) != 1 || bytes.Contains(response.Body, []byte("ciphertext")) {
 		t.Fatalf("profile list = %s", response.Body)
 	}
@@ -170,7 +182,7 @@ func TestResourceRoutes(t *testing.T) {
 	invalidBundle := bundle
 	invalidBundle.Profiles = cloneProfileCatalog(bundle.Profiles)
 	invalidProfile := invalidBundle.Profiles["Backup"]
-	invalidProfile.BackupProfiles = []string{"Missing"}
+	invalidProfile.RecoveryPolicy.MaxAttempts = 0
 	invalidBundle.Profiles["Backup"] = invalidProfile
 	invalidBytes, _ := json.Marshal(invalidBundle)
 	response = apiRequest(t, server.Client(), http.MethodPut, server.URL+"/api/v1/profiles/bundle", invalidBytes, authA)
@@ -180,6 +192,14 @@ func TestResourceRoutes(t *testing.T) {
 		t.Fatal("invalid bundle partially replaced prior profiles")
 	}
 	validBytes, _ := json.Marshal(bundle)
+	oldBundle := bundle
+	oldBundle.SchemaVersion = 1
+	oldBytes, _ := json.Marshal(oldBundle)
+	response = apiRequest(t, server.Client(), http.MethodPut, server.URL+"/api/v1/profiles/bundle", oldBytes, authA)
+	assertEnvelope(t, response, http.StatusUnprocessableEntity, true)
+	if !bytes.Contains(response.Body, []byte(`"schemaVersion"`)) {
+		t.Fatalf("old bundle format error lacks field identity: %s", response.Body)
+	}
 	response = apiRequest(t, server.Client(), http.MethodPut, server.URL+"/api/v1/profiles/bundle", validBytes, authA)
 	assertEnvelope(t, response, http.StatusOK, false)
 
@@ -368,7 +388,7 @@ func apiRequest(t *testing.T, client *http.Client, method, target string, body [
 
 func loadGatewayFixtureProfile(t *testing.T, name string) profiles.Profile {
 	t.Helper()
-	contents, err := os.ReadFile("../../fixtures/parity/generated/profile-catalog.json")
+	contents, err := os.ReadFile("../../fixtures/contracts/profile-catalog.json")
 	if err != nil {
 		t.Fatal(err)
 	}

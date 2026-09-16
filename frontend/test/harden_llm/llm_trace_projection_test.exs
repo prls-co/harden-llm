@@ -49,6 +49,48 @@ defmodule HardenLlm.LlmTraceProjectionTest do
     assert LlmTraceProjection.cost(result) == "$0.00000002"
   end
 
+  # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 WEB-TEST-076
+  @tag :recovery_cache_write
+  test "reports a failed cache save while keeping the successful result visible" do
+    result =
+      APIFixtures.run_result()
+      |> put_in(["cache", "mode"], "cache")
+      |> put_in(["cache", "status"], "write_failed")
+      |> put_in(["cache", "written"], false)
+
+    assert LlmTraceProjection.cache_status(result) == "write_failed"
+    assert LlmTraceProjection.cache_status_label(result) == "Cache save failed"
+
+    assert LlmTraceProjection.cache_status_title(result) ==
+             "The response completed successfully, but it could not be saved to cache."
+
+    metric =
+      LlmTraceProjection.summary(result)["metrics"] |> Enum.find(&(&1["key"] == "cache-status"))
+
+    assert metric["data_cache_status"] == "write_failed"
+    assert metric["aria_label"] == "Harden-LLM cache: Cache save failed"
+    assert {:ok, ^result} = LlmDiagnosticsWire.decode("run", result)
+
+    history = APIFixtures.history_item()
+
+    history_result =
+      history["result"]
+      |> put_in(["cache", "mode"], "cache")
+      |> put_in(["cache", "status"], "write_failed")
+      |> put_in(["cache", "written"], false)
+
+    history = Map.put(history, "result", history_result)
+    history_document = %{"items" => [history]}
+    assert {:ok, ^history_document} = LlmDiagnosticsWire.decode("listHistory", history_document)
+
+    trace =
+      APIFixtures.trace()
+      |> Map.put("record", result)
+      |> put_in(["resources", "response", "payload"], result)
+
+    assert {:ok, ^trace} = LlmDiagnosticsWire.decode("getTrace", trace)
+  end
+
   test "projects local and restored resources without owning host routes" do
     result = APIFixtures.run_result()
     request = %{"profileId" => "Primary", "userPrompt" => "hello", "callType" => "text"}
@@ -207,8 +249,8 @@ defmodule HardenLlm.LlmTraceProjectionTest do
     assert {:error, :malformed_diagnostics} = LlmDiagnosticsWire.decode("listHistory", malformed)
   end
 
-  test "every execution read uses v2 and checks its enclosing identity" do
-    for version <- [nil, 1, 3] do
+  test "every execution read uses v3 and checks its enclosing identity" do
+    for version <- [nil, 1, 2, 4] do
       result = Map.put(APIFixtures.run_result(), "schemaVersion", version)
       history = %{"items" => [Map.put(APIFixtures.history_item(), "result", result)]}
       trace = Map.put(APIFixtures.trace(), "record", result)

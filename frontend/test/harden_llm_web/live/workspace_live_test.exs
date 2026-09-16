@@ -457,6 +457,71 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, ~s(#run_modelId[value="gpt-5.4"]))
   end
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-074
+  @tag :recovery_boundary_owner
+  test "profile selection keeps the active host recovery policy", %{conn: conn} do
+    test_pid = self()
+    primary_policy = Map.put(APIFixtures.recovery_policy(), "maxAttempts", 4)
+    secondary_policy = Map.put(APIFixtures.recovery_policy(), "maxAttempts", 9)
+
+    primary =
+      put_in(
+        widget_profile("Primary", "model-primary"),
+        ["profile", "recoveryPolicy"],
+        primary_policy
+      )
+
+    secondary =
+      put_in(
+        widget_profile("Secondary", "model-secondary"),
+        ["profile", "recoveryPolicy"],
+        secondary_policy
+      )
+
+    state =
+      APIFixtures.state()
+      |> Map.put("selectedProfileId", "Primary")
+      |> Map.put("modelId", "model-primary")
+      |> Map.put("recoveryPolicy", Map.put(primary_policy, "maxAttempts", 7))
+
+    install_stub(
+      fn conn ->
+        case {conn.method, conn.request_path} do
+          {"POST", "/api/v1/state"} ->
+            {:ok, body, conn} = Plug.Conn.read_body(conn)
+            saved = Jason.decode!(body)
+            send(test_pid, {:owner_state, saved})
+            Req.Test.json(conn, APIFixtures.success(nil, saved))
+
+          _ ->
+            unexpected(conn)
+        end
+      end,
+      profiles: [primary, secondary],
+      state: state
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    render_async(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
+    view |> element("#profile-retry-toggle") |> render_click()
+
+    assert has_element?(view, ~s(#profile-recovery-maxAttempts[value="7"]))
+
+    view
+    |> with_target("#workspace-llm-widget")
+    |> render_change("select-profile", %{"run" => %{"selectedProfileId" => "Secondary"}})
+
+    render_async(view, 1_000)
+    assert has_element?(view, ~s(#profile-recovery-maxAttempts[value="7"]))
+
+    assert_receive {:owner_state,
+                    %{"selectedProfileId" => "Secondary", "recoveryPolicy" => policy}}
+
+    assert policy["maxAttempts"] == 7
+  end
+
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-056
   test "renders utility input defaults and the utility control topology", %{conn: conn} do
     install_stub(
@@ -470,7 +535,12 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
             unexpected(conn)
         end
       end,
-      state: %{}
+      state: %{
+        "schemaVersion" => 2,
+        "callType" => "structured",
+        "cacheMode" => "cache",
+        "recoveryPolicy" => APIFixtures.recovery_policy()
+      }
     )
 
     {:ok, view, _html} = live(conn, ~p"/")
@@ -518,25 +588,21 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-052 WEB-TEST-059
-  for {label, options, enabled} <- [
-        {"omitted", %{}, true},
-        {"true", %{"structuredRepairRetry" => true}, true},
-        {"false", %{"structuredRepairRetry" => false}, false},
-        {"empty object", %{"structuredRepairRetry" => %{}}, true},
-        {"enabled object", %{"structuredRepairRetry" => %{"enabled" => true}}, true},
-        {"disabled object", %{"structuredRepairRetry" => %{"enabled" => false}}, false}
-      ] do
-    @tag repair_options: options, repair_enabled: enabled
-    test "repair setting #{label} survives loading, JSON edits, runs, and saving", %{
+  for enabled <- [true, false] do
+    @tag repair_enabled: enabled, recovery: true
+    test "repair setting #{enabled} survives loading, JSON edits, runs, and saving", %{
       conn: conn,
-      repair_options: options,
       repair_enabled: enabled
     } do
       test_pid = self()
 
+      options = %{"provider_native" => "keep"}
+      policy = Map.put(APIFixtures.recovery_policy(), "repairInvalidOutput", enabled)
+
       profile =
         widget_profile("Primary", "model-test")
         |> put_in(["profile", "defaultOptions"], options)
+        |> put_in(["profile", "recoveryPolicy"], policy)
 
       install_stub(
         fn conn ->
@@ -561,7 +627,8 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
               unexpected(conn)
           end
         end,
-        profiles: [profile]
+        profiles: [profile],
+        state: Map.put(APIFixtures.state(), "recoveryPolicy", policy)
       )
 
       {:ok, view, _html} = live(conn, ~p"/")
@@ -574,21 +641,21 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       view |> element("#profile-options-toggle") |> render_click()
       render_async(view, 1_000)
 
-      assert has_element?(view, "#profile_structuredRepairRetryEnabled[checked]") == enabled
-      assert has_element?(view, "#profile_enableRetryOnParseError[disabled]") == enabled
+      assert has_element?(view, "#profile-repair-invalid-output[checked]") == enabled
 
       view
-      |> element("#profile_structuredRepairRetryEnabled")
-      |> render_change(%{"profile" => %{"structuredRepairRetryEnabled" => to_string(!enabled)}})
+      |> element("#profile-repair-invalid-output")
+      |> render_change(%{
+        "profile" => %{"recoveryPolicy" => %{"repairInvalidOutput" => to_string(!enabled)}}
+      })
 
-      assert has_element?(view, "#profile_structuredRepairRetryEnabled[checked]") == !enabled
+      assert has_element?(view, "#profile-repair-invalid-output[checked]") == !enabled
 
       view
       |> element("#profile_defaultOptionsJson")
       |> render_change(%{"profile" => %{"defaultOptionsJson" => Jason.encode!(options)}})
 
-      assert has_element?(view, "#profile_structuredRepairRetryEnabled[checked]") == enabled
-      assert has_element?(view, "#profile_enableRetryOnParseError[disabled]") == enabled
+      assert has_element?(view, "#profile-repair-invalid-output[checked]") == !enabled
       assert has_element?(view, "#profile_defaultOptionsJson", Jason.encode!(options))
 
       view |> element("#input-advanced-toggle") |> render_click()
@@ -603,21 +670,23 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       submit_run(view, %{"callType" => "structured", "schema" => Jason.encode!(schema)})
       render_async(view, 1_000)
 
-      assert_received {:repair_run, %{"callType" => "structured", "structuredRepair" => ^enabled}}
+      changed_enabled = !enabled
+
+      assert_received {:repair_run,
+                       %{
+                         "callType" => "structured",
+                         "recoveryPolicy" => %{"repairInvalidOutput" => ^changed_enabled}
+                       }}
 
       view |> element("#profile-save") |> render_click()
       render_async(view, 1_000)
 
       assert_received {:repair_saved, payload}
-      repair = get_in(payload, ["profile", "defaultOptions", "structuredRepairRetry"])
+      assert get_in(payload, ["profile", "recoveryPolicy", "repairInvalidOutput"]) == !enabled
+      assert get_in(payload, ["profile", "defaultOptions", "provider_native"]) == "keep"
+      refute Map.has_key?(payload["profile"]["defaultOptions"], "structuredRepairRetry")
 
-      if enabled do
-        assert %{"enabled" => true} = repair
-      else
-        assert repair == false
-      end
-
-      assert has_element?(view, "#profile_structuredRepairRetryEnabled[checked]") == enabled
+      assert has_element?(view, "#profile-repair-invalid-output[checked]") == !enabled
     end
   end
 
@@ -629,7 +698,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     profile =
       widget_profile("Primary", "model-test")
-      |> put_in(["profile", "defaultOptions", "structuredRepairRetry"], false)
+      |> put_in(["profile", "recoveryPolicy", "repairInvalidOutput"], false)
 
     install_stub(
       fn conn ->
@@ -668,7 +737,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert_received {:mode_run_payload,
                      %{
                        "callType" => "structured",
-                       "structuredRepair" => false
+                       "recoveryPolicy" => %{"repairInvalidOutput" => false}
                      }}
 
     view
@@ -690,7 +759,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert_received {:mode_run_payload,
                      %{
                        "callType" => "text",
-                       "structuredRepair" => false
+                       "recoveryPolicy" => %{"repairInvalidOutput" => false}
                      }}
   end
 
@@ -845,7 +914,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     |> render_change()
 
     render_async(view, 1_000)
-    assert_received {:saved_state, %{"schemaVersion" => 1, "userPrompt" => "updated safe prompt"}}
+    assert_received {:saved_state, %{"schemaVersion" => 2, "userPrompt" => "updated safe prompt"}}
   end
 
   test "individual select changes preserve the rest of the workspace draft", %{conn: conn} do
@@ -1001,16 +1070,13 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           "#run_schemaShorthand",
           "#run_schema",
           "#profile-retry-repair",
-          "#profile_structuredRepairRetryEnabled",
-          "#profile_enableRetryOn429",
-          "#profile_enableRetryOn5xx",
-          "#profile_enableRetryOnNetworkError",
-          "#profile_enableRetryOnParseError",
-          "#profile_retryMaxAttempts",
-          "#profile_retryBaseDelayMs",
-          "#profile_retryMaxDelayMs",
-          "#profile_escalationAttempt",
-          "#profile-escalation-profile"
+          "#profile-repair-invalid-output",
+          "#profile-retry-rate_limit",
+          "#profile-retry-server_error",
+          "#profile-retry-network",
+          "#profile-recovery-maxAttempts",
+          "#profile-recovery-baseDelayMs",
+          "#profile-recovery-maxDelayMs"
         ] do
       assert has_element?(view, selector), "missing workspace control #{selector}"
     end
@@ -1065,7 +1131,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           Req.Test.json(conn, APIFixtures.success(nil, state))
 
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [primary, backup]}))
+          Req.Test.json(conn, APIFixtures.profiles([primary, backup]))
 
         {"GET", "/api/v1/history"} ->
           Req.Test.json(conn, APIFixtures.success(%{"items" => []}))
@@ -1103,8 +1169,6 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           "#profile-credential-toggle",
           "#profile-refresh-models",
           "#profile_modelId",
-          "#profile-fallback-toggle",
-          "#profile-fallback-list",
           "#profile-options-toggle",
           "#profile-retry-toggle",
           "#profile-pricing-toggle",
@@ -1126,15 +1190,6 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, "#profile-credential-drawer")
     view |> element("#profile-credential-toggle") |> render_click()
     refute has_element?(view, "#profile-credential-drawer")
-
-    view |> element("#profile-fallback-toggle") |> render_click()
-    assert has_element?(view, "#profile-fallback-options")
-
-    view
-    |> element("#profile-fallback-0")
-    |> render_change(%{"profile" => %{"backupProfiles" => "Backup LLM"}, "index" => "0"})
-
-    assert has_element?(view, "#profile-fallback-list", "Backup LLM")
 
     view |> element("#profile-options-toggle") |> render_click()
     render_async(view, 1_000)
@@ -1162,18 +1217,13 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     for selector <- [
           "#profile-retry-repair",
-          "#profile_structuredRepairRetryEnabled",
-          "#profile_enableRetryOn429",
-          "#profile_enableRetryOn5xx",
-          "#profile_enableRetryOnNetworkError",
-          "#profile_enableRetryOnParseError",
-          "#profile_retryMaxAttempts",
-          "#profile_retryBaseDelayMs",
-          "#profile_retryMaxDelayMs",
-          "#profile_escalationAttempt",
-          "#profile-escalation-profile",
-          "#profile-escalation-cache-toggle",
-          "#profile-escalation-config-toggle"
+          "#profile-repair-invalid-output",
+          "#profile-retry-rate_limit",
+          "#profile-retry-server_error",
+          "#profile-retry-network",
+          "#profile-recovery-maxAttempts",
+          "#profile-recovery-baseDelayMs",
+          "#profile-recovery-maxDelayMs"
         ] do
       assert has_element?(view, selector), "missing retry control #{selector}"
     end
@@ -1193,53 +1243,8 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       assert html =~ ~s(id="#{id}"), "missing pricing control #{selector}"
     end
 
-    view |> element("#profile-escalation-config-toggle") |> render_click()
-    html = render(view)
-    assert html =~ ~s(id="profile-escalation-config")
-
-    for selector <- [
-          "#escalation-config-fields",
-          "#escalation_apiInferenceType",
-          "#escalation_baseUrl",
-          "#escalation-credential-toggle",
-          "#escalation-refresh-models",
-          "#escalation_modelId",
-          "#escalation-fallback-toggle",
-          "#escalation-options-toggle",
-          "#escalation-pricing-toggle",
-          "#escalation-bundle-file",
-          "#escalation-export-bundle",
-          "#escalation-save",
-          "#escalation-delete"
-        ] do
-      id = String.trim_leading(selector, "#")
-      assert html =~ ~s(id="#{id}"), "missing nested profile control #{selector}"
-    end
-
-    assert has_element?(
-             view,
-             ~s(input[type="file"][name="escalation_profile_bundle"])
-           )
-
-    view
-    |> with_target("#workspace-llm-widget")
-    |> render_click("toggle-fold", %{"kind" => "escalation", "fold" => "options"})
-
-    html = render(view)
-    assert html =~ ~s(id="escalation-options")
-
-    view
-    |> with_target("#workspace-llm-widget")
-    |> render_click("toggle-fold", %{"kind" => "escalation", "fold" => "pricing"})
-
-    html = render(view)
-
-    for selector <- [
-          "#escalation-pricing"
-        ] do
-      id = String.trim_leading(selector, "#")
-      assert html =~ ~s(id="#{id}"), "missing pricing control #{selector}"
-    end
+    refute has_element?(view, "#profile-fallback-toggle")
+    refute has_element?(view, "#profile-escalation-config-toggle")
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-039
@@ -1263,7 +1268,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           Req.Test.json(conn, APIFixtures.success(nil, state))
 
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [primary, backup]}))
+          Req.Test.json(conn, APIFixtures.profiles([primary, backup]))
 
         {"POST", "/api/v1/state"} ->
           {:ok, body, conn} = Plug.Conn.read_body(conn)
@@ -1285,7 +1290,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         {"PUT", "/api/v1/profiles/bundle"} ->
           {:ok, body, conn} = Plug.Conn.read_body(conn)
           send(test_pid, {:widget_imported, Jason.decode!(body)})
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [primary, backup]}))
+          Req.Test.json(conn, APIFixtures.profiles([primary, backup]))
 
         _ ->
           unexpected(conn)
@@ -1301,7 +1306,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     view
     |> with_target("#workspace-llm-widget")
-    |> render_click("stage-key", %{"kind" => "main", "apiKey" => "widget-secret"})
+    |> render_click("stage-key", %{"apiKey" => "widget-secret"})
 
     assert has_element?(view, "#profile-credential-toggle", "Replace key")
     refute render(view) =~ "widget-secret"
@@ -1328,14 +1333,14 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       file_input(view, "#run-form", :profile_bundle, [
         %{
           name: "profiles.json",
-          content: Jason.encode!(%{"schemaVersion" => 1}),
+          content: Jason.encode!(%{"schemaVersion" => 2}),
           type: "application/json"
         }
       ])
 
     render_upload(upload, "profiles.json")
-    render_change(view, "import-bundle", %{"kind" => "main", "widget" => ""})
-    assert_received {:widget_imported, %{"schemaVersion" => 1}}
+    render_change(view, "import-bundle", %{})
+    assert_received {:widget_imported, %{"schemaVersion" => 2}}
     assert has_element?(view, ~s(#run_selectedProfileId-options [data-value="CPA GPT-5.6 Luna"]))
   end
 
@@ -1422,7 +1427,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           Req.Test.json(conn, APIFixtures.success(nil, state))
 
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => [custom]}))
+          Req.Test.json(conn, APIFixtures.profiles([custom]))
 
         {"POST", "/api/v1/state"} ->
           {:ok, body, conn} = Plug.Conn.read_body(conn)
@@ -1467,6 +1472,38 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, "#run-output", "fixture output")
   end
 
+  # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-209
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-073
+  @tag :recovery
+  test "old requests remain readable but cannot restore an inferred policy", %{conn: conn} do
+    item = update_in(APIFixtures.history_item(), ["request"], &Map.delete(&1, "recoveryPolicy"))
+
+    install_stub(&unexpected/1,
+      history: fn conn ->
+        Req.Test.json(conn, APIFixtures.success(%{"items" => [item]}))
+      end
+    )
+
+    {:ok, view, _} = live(conn, ~p"/")
+    render_async(view, 1_000)
+    view |> element("#history-fold-toggle") |> render_click()
+    render_async(view, 1_000)
+    assert has_element?(view, "#workspace-history-run-test")
+
+    view
+    |> element(~s(button[phx-click="restore-history"][phx-value-run-id="run-test"]))
+    |> render_click()
+
+    assert render(view) =~ "recorded request uses an unsupported format"
+
+    refute has_element?(
+             view,
+             ~s(#run-form textarea[name="run[userPrompt]"]),
+             "safe restored prompt"
+           )
+  end
+
+  @tag :recovery
   test "workspace history restores and deletes records through the self-hosted API", %{conn: conn} do
     test_pid = self()
     {:ok, history_calls} = Agent.start_link(fn -> 0 end)
@@ -1867,7 +1904,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
                        "profileId" => "Primary",
                        "userPrompt" => "run fixture",
                        "callType" => "text",
-                       "structuredRepair" => false
+                       "recoveryPolicy" => %{"repairInvalidOutput" => false}
                      }}
 
     assert has_element?(view, "#run-output", "fixture output")
@@ -2234,7 +2271,6 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       |> Map.put("attempts", [
         Map.merge(base_attempt, %{
           "number" => 1,
-          "retryLocalNumber" => 1,
           "category" => "rate_limit",
           "httpStatus" => 429,
           "retryable" => true,
@@ -2244,7 +2280,6 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         }),
         Map.merge(base_attempt, %{
           "number" => 2,
-          "retryLocalNumber" => 2,
           "category" => "success",
           "httpStatus" => 200,
           "wait" => 0,
@@ -2319,7 +2354,6 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert [
              %{
                "attempt" => 1,
-               "retry_local_attempt" => 1,
                "category" => "rate_limit",
                "status_code" => 429,
                "retryable" => true,
@@ -2329,7 +2363,6 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
              },
              %{
                "attempt" => 2,
-               "retry_local_attempt" => 2,
                "category" => "success",
                "status_code" => 200,
                "retryable" => false,
@@ -2518,6 +2551,342 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, "#profile-pricing-toggle:not([disabled])")
   end
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-075
+  @tag :recovery_boundary_persistence
+  test "workspace state saves serialize and retain the newest visible draft", %{conn: conn} do
+    test_pid = self()
+    {:ok, stored} = Agent.start_link(fn -> nil end)
+    {:ok, counter} = Agent.start_link(fn -> 0 end)
+
+    on_exit(fn ->
+      if Process.alive?(stored), do: Agent.stop(stored)
+      if Process.alive?(counter), do: Agent.stop(counter)
+    end)
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          state = Jason.decode!(body)
+          number = Agent.get_and_update(counter, fn value -> {value, value + 1} end)
+          Agent.update(stored, fn _ -> state end)
+          send(test_pid, {:state_save_started, number, self(), state})
+
+          if number == 0 do
+            receive do
+              :release_first_state_save -> :ok
+            end
+          end
+
+          Req.Test.json(conn, APIFixtures.success(nil, state))
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    render_async(view, 1_000)
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "first draft"}})
+    |> render_change()
+
+    assert_receive {:state_save_started, 0, first_process, %{"userPrompt" => "first draft"}},
+                   1_000
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "newest draft"}})
+    |> render_change()
+
+    refute_receive {:state_save_started, 1, _, _}, 100
+    send(first_process, :release_first_state_save)
+
+    assert_receive {:state_save_started, 1, second_process, %{"userPrompt" => "newest draft"}},
+                   1_000
+
+    send(second_process, :release_second_state_save)
+    render_async(view, 1_000)
+
+    assert Agent.get(stored, & &1)["userPrompt"] == "newest draft"
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-075
+  @tag :recovery_boundary_persistence
+  test "a failed state write keeps the draft and drains only a newer snapshot", %{conn: conn} do
+    test_pid = self()
+    {:ok, stored} = Agent.start_link(fn -> APIFixtures.state() end)
+    {:ok, counter} = Agent.start_link(fn -> 0 end)
+
+    on_exit(fn ->
+      if Process.alive?(stored), do: Agent.stop(stored)
+      if Process.alive?(counter), do: Agent.stop(counter)
+    end)
+
+    install_stub(
+      fn conn ->
+        case {conn.method, conn.request_path} do
+          {"POST", "/api/v1/state"} ->
+            {:ok, body, conn} = Plug.Conn.read_body(conn)
+            state = Jason.decode!(body)
+            number = Agent.get_and_update(counter, fn value -> {value, value + 1} end)
+            send(test_pid, {:failed_state_save_started, number, self(), state})
+
+            case number do
+              0 ->
+                receive do
+                  :release_failed_state_save -> :ok
+                end
+
+                {status, envelope} = APIFixtures.error(422, "state_rejected")
+                conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
+
+              1 ->
+                Agent.update(stored, fn _ -> state end)
+                Req.Test.json(conn, APIFixtures.success(nil, state))
+
+              _ ->
+                unexpected(conn)
+            end
+
+          _ ->
+            unexpected(conn)
+        end
+      end,
+      state: fn conn -> Req.Test.json(conn, APIFixtures.success(nil, Agent.get(stored, & &1))) end
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    render_async(view, 1_000)
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "failed draft"}})
+    |> render_change()
+
+    assert_receive {:failed_state_save_started, 0, first_process, first_state}, 1_000
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "newest saved draft"}})
+    |> render_change()
+
+    refute_receive {:failed_state_save_started, 1, _, _}, 100
+    send(first_process, :release_failed_state_save)
+
+    assert_receive {:failed_state_save_started, 1, _second_process, second_state}, 1_000
+    assert first_state["userPrompt"] == "failed draft"
+    assert second_state["userPrompt"] == "newest saved draft"
+    render_async(view, 1_000)
+
+    assert has_element?(view, "#run_userPrompt", "newest saved draft")
+    refute has_element?(view, "#draft-error")
+    assert Agent.get(stored, & &1)["userPrompt"] == "newest saved draft"
+
+    expected_keys =
+      ~w(callType cacheMode modelId reasoningByProfile reasoningEffort recoveryPolicy schema schemaShorthand schemaVersion selectedProfileId systemPrompt ui userPrompt webSearch)
+
+    assert second_state |> Map.keys() |> Enum.sort() == Enum.sort(expected_keys)
+
+    {:ok, reloaded, _html} = live(conn, ~p"/")
+    render_async(reloaded, 1_000)
+    assert has_element?(reloaded, "#run_userPrompt", "newest saved draft")
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-075
+  @tag :recovery_boundary_persistence
+  test "a task exit drains a newer state snapshot without replaying the exited one", %{conn: conn} do
+    test_pid = self()
+    counter = start_supervised!({Agent, fn -> 0 end})
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          state = Jason.decode!(body)
+          number = Agent.get_and_update(counter, fn value -> {value, value + 1} end)
+          send(test_pid, {:exited_state_save_started, number, self(), state})
+
+          if number == 0 do
+            receive do
+              :exit_first_state_save -> exit(:simulated_task_exit)
+            end
+          else
+            Req.Test.json(conn, APIFixtures.success(nil, state))
+          end
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    render_async(view, 1_000)
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "exited draft"}})
+    |> render_change()
+
+    assert_receive {:exited_state_save_started, 0, first_process, _}, 1_000
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "after exit"}})
+    |> render_change()
+
+    send(first_process, :exit_first_state_save)
+    assert_receive {:exited_state_save_started, 1, _second_process, second_state}, 1_000
+    assert second_state["userPrompt"] == "after exit"
+    render_async(view, 1_000)
+    refute has_element?(view, "#draft-error")
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-075
+  @tag :recovery_boundary_persistence
+  test "expired authentication drops a queued state write", %{conn: conn} do
+    test_pid = self()
+    counter = start_supervised!({Agent, fn -> 0 end})
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          state = Jason.decode!(body)
+          number = Agent.get_and_update(counter, fn value -> {value, value + 1} end)
+          send(test_pid, {:expired_state_save_started, number, self(), state})
+
+          if number == 0 do
+            receive do
+              :release_expired_state_save ->
+                {status, envelope} = APIFixtures.error(401, "session_expired")
+                conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
+            end
+          else
+            unexpected(conn)
+          end
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    render_async(view, 1_000)
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "expired draft"}})
+    |> render_change()
+
+    assert_receive {:expired_state_save_started, 0, first_process, _}, 1_000
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "must not dispatch"}})
+    |> render_change()
+
+    send(first_process, :release_expired_state_save)
+    assert_redirect(view, ~p"/session/expired", 1_000)
+    refute_receive {:expired_state_save_started, 1, _, _}, 100
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-075
+  @tag :recovery_boundary_persistence
+  test "a failed idle write is not retried until a new edit", %{conn: conn} do
+    test_pid = self()
+    {:ok, counter} = Agent.start_link(fn -> 0 end)
+    on_exit(fn -> if Process.alive?(counter), do: Agent.stop(counter) end)
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          state = Jason.decode!(body)
+          number = Agent.get_and_update(counter, fn value -> {value, value + 1} end)
+          send(test_pid, {:idle_failed_state_save_started, number, state})
+
+          if number == 0 do
+            {status, envelope} = APIFixtures.error(422, "state_rejected")
+            conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
+          else
+            Req.Test.json(conn, APIFixtures.success(nil, state))
+          end
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    render_async(view, 1_000)
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "retry only by edit"}})
+    |> render_change()
+
+    assert_receive {:idle_failed_state_save_started, 0, _}, 1_000
+    render_async(view, 1_000)
+    assert has_element?(view, "#draft-error", "Please correct the highlighted fields.")
+    refute_receive {:idle_failed_state_save_started, 1, _}, 100
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => "edited again"}})
+    |> render_change()
+
+    assert_receive {:idle_failed_state_save_started, 1, _}, 1_000
+    render_async(view, 1_000)
+    refute has_element?(view, "#draft-error")
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-074
+  @tag :recovery_boundary_owner
+  test "a profile save completion does not replace a newer host policy edit", %{conn: conn} do
+    test_pid = self()
+    primary = widget_profile("Primary", "model-test")
+
+    install_stub(
+      fn conn ->
+        case {conn.method, conn.request_path} do
+          {"POST", "/api/v1/state"} ->
+            {:ok, body, conn} = Plug.Conn.read_body(conn)
+            Req.Test.json(conn, APIFixtures.success(nil, Jason.decode!(body)))
+
+          {"PUT", "/api/v1/profiles/Primary"} ->
+            {:ok, body, conn} = Plug.Conn.read_body(conn)
+            send(test_pid, {:profile_save_started, self(), Jason.decode!(body)})
+
+            receive do
+              :release_profile_save ->
+                saved =
+                  update_in(primary, ["profile"], &Map.merge(&1, Jason.decode!(body)["profile"]))
+
+                Req.Test.json(conn, APIFixtures.success(saved))
+            end
+
+          _ ->
+            unexpected(conn)
+        end
+      end,
+      profiles: [primary]
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    render_async(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
+    view |> element("#profile-retry-toggle") |> render_click()
+
+    view
+    |> element("#profile_baseUrl")
+    |> render_change(%{"profile" => %{"baseUrl" => "https://changed.example.test/v1"}})
+
+    view |> element("#profile-save") |> render_click()
+    assert_receive {:profile_save_started, profile_save_process, _payload}, 1_000
+
+    view
+    |> element("#profile-recovery-maxAttempts")
+    |> render_change(%{"profile" => %{"recoveryPolicy" => %{"maxAttempts" => "7"}}})
+
+    send(profile_save_process, :release_profile_save)
+    render_async(view, 1_000)
+    assert has_element?(view, ~s(#profile-recovery-maxAttempts[value="7"]))
+  end
+
   test "duplicate active submits are ignored and the run button alone is disabled", %{conn: conn} do
     test_pid = self()
 
@@ -2660,6 +3029,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     })
     |> render_change()
 
+    render_async(view, 1_000)
     view |> element("#model-config-toggle") |> render_click()
     render_async(view, 1_000)
     view |> element("#profile-options-toggle") |> render_click()
@@ -2673,23 +3043,14 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     |> with_target("#workspace-llm-widget")
     |> render_change("profile-draft-change", %{
       "profile" => %{
-        "structuredRepairRetryEnabled" => "true",
-        "enableRetryOn429" => "true",
-        "enableRetryOn5xx" => "false",
-        "enableRetryOnNetworkError" => "true",
-        "enableRetryOnParseError" => "true",
-        "retryMaxAttempts" => "4",
-        "retryBaseDelayMs" => "500",
-        "retryMaxDelayMs" => "8000",
-        "escalationProfile" => "Backup",
-        "escalationAttempt" => "3",
-        "escalationReasoning" => "highest"
+        "recoveryPolicy" => %{
+          "maxAttempts" => "4",
+          "retryOn" => ["network", "rate_limit", "empty_response", "provider_retry"],
+          "repairInvalidOutput" => "true",
+          "backoff" => %{"baseDelayMs" => "500", "maxDelayMs" => "8000"}
+        }
       }
     })
-
-    view
-    |> with_target("#workspace-llm-widget")
-    |> render_change("profile-draft-change", %{"escalation" => %{"modelId" => "repair-model"}})
 
     view |> element("#generate-schema") |> render_click()
     render_async(view, 1_000)
@@ -2717,19 +3078,21 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert payload["profileId"] == "Primary"
     assert payload["modelId"] == "model-override"
     assert payload["callType"] == "structured"
-    assert payload["structuredRepair"] == true
+    assert payload["recoveryPolicy"]["repairInvalidOutput"] == true
     assert payload["reasoningEffort"] == "highest"
     assert payload["cacheMode"] == "cache"
     assert payload["webSearch"] == true
-    assert payload["maxAttempts"] == 4
-    assert payload["initialBackoffMs"] == 500
+    assert payload["recoveryPolicy"]["maxAttempts"] == 4
+    assert payload["recoveryPolicy"]["backoff"]["baseDelayMs"] == 500
 
-    assert payload["repairEscalation"] == %{
-             "attempt" => 3,
-             "profileId" => "Backup",
-             "modelId" => "repair-model",
-             "reasoningEffort" => "highest"
-           }
+    assert payload["recoveryPolicy"]["retryOn"] == [
+             "network",
+             "rate_limit",
+             "empty_response",
+             "provider_retry"
+           ]
+
+    refute Map.has_key?(payload, "repairEscalation")
 
     assert payload["providerOptions"]["max_tokens"] == 16_000
     refute Map.has_key?(payload["providerOptions"], "structuredRepairRetry")
@@ -2802,7 +3165,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(
              view,
              "#run-error",
-             "Save the LLM profile before running endpoint, credential, fallback, or identity changes."
+             "Save the LLM profile before running endpoint, credential, or identity changes."
            )
   end
 
@@ -2812,22 +3175,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       "temperature" => 0.2,
       "top_p" => 0.95,
       "top_k" => 40,
-      "stop" => ["DONE"],
-      "maxAttempts" => 4,
-      "baseDelayMs" => 500,
-      "maxDelayMs" => 8_000,
-      "enableRetryOn429" => true,
-      "enableRetryOn5xx" => true,
-      "enableRetryOnNetworkError" => true,
-      "enableRetryOnParseError" => true,
-      "structuredRepairRetry" => %{
-        "enabled" => true,
-        "escalation" => %{
-          "attempt" => 3,
-          "llmProfile" => profile_id,
-          "reasoningEffort" => "highest"
-        }
-      }
+      "stop" => ["DONE"]
     }
 
     APIFixtures.profile_state()
@@ -2906,12 +3254,17 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
 
         {"GET", "/api/v1/state"} ->
-          state = Keyword.get(options, :state, APIFixtures.state())
-          Req.Test.json(conn, APIFixtures.success(nil, state))
+          case Keyword.get(options, :state, APIFixtures.state()) do
+            state when is_function(state, 1) ->
+              state.(conn)
+
+            state ->
+              Req.Test.json(conn, APIFixtures.success(nil, state))
+          end
 
         {"GET", "/api/v1/profiles"} ->
           profiles = Keyword.get(options, :profiles, [APIFixtures.profile_state()])
-          Req.Test.json(conn, APIFixtures.success(%{"profiles" => profiles}))
+          Req.Test.json(conn, APIFixtures.profiles(profiles))
 
         {"GET", "/api/v1/stats"} ->
           case Keyword.get(options, :stats, APIFixtures.stats()) do

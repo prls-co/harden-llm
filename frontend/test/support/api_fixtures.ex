@@ -37,14 +37,26 @@ defmodule HardenLlmWeb.APIFixtures do
     %{"accessToken" => @token, "expiresAt" => @expiry, "principal" => principal()}
   end
 
+  def recovery_policy do
+    %{
+      "maxAttempts" => 4,
+      "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"],
+      "repairInvalidOutput" => true,
+      "backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}
+    }
+  end
+
+  def profiles(profiles),
+    do: success(%{"profiles" => profiles, "defaults" => %{"recoveryPolicy" => recovery_policy()}})
+
   def state do
     %{
-      "schemaVersion" => 1,
+      "schemaVersion" => 2,
       "selectedProfileId" => "Primary",
       "modelId" => "model-test",
       "userPrompt" => "safe fixture prompt",
       "callType" => "text",
-      "structuredRepair" => false,
+      "recoveryPolicy" => Map.put(recovery_policy(), "repairInvalidOutput", false),
       "cacheMode" => "cache"
     }
   end
@@ -52,7 +64,7 @@ defmodule HardenLlmWeb.APIFixtures do
   def profile_state do
     %{
       "profile" => %{
-        "schemaVersion" => 1,
+        "schemaVersion" => 2,
         "llmProfile" => "Primary",
         "provider" => "openai",
         "apiInferenceType" => "responses",
@@ -70,7 +82,7 @@ defmodule HardenLlmWeb.APIFixtures do
           "middle" => %{"reasoning" => %{"effort" => "medium"}},
           "highest" => %{"reasoning" => %{"effort" => "high"}}
         },
-        "backupProfiles" => [],
+        "recoveryPolicy" => recovery_policy(),
         "models" => [%{"id" => "model-test", "label" => "Model Test"}]
       },
       "credential" => %{
@@ -103,7 +115,8 @@ defmodule HardenLlmWeb.APIFixtures do
       "request" => %{
         "profileId" => "Primary",
         "userPrompt" => "safe restored prompt",
-        "callType" => "text"
+        "callType" => "text",
+        "recoveryPolicy" => recovery_policy()
       },
       "result" => result,
       "startedAt" => "2026-07-13T12:00:00Z",
@@ -143,7 +156,7 @@ defmodule HardenLlmWeb.APIFixtures do
     }
 
     %{
-      "schemaVersion" => 2,
+      "schemaVersion" => 3,
       "runId" => "run-test",
       "status" => "succeeded",
       "callId" => "call-test",
@@ -158,7 +171,6 @@ defmodule HardenLlmWeb.APIFixtures do
       "attempts" => [
         %{
           "number" => 1,
-          "retryLocalNumber" => 1,
           "profileId" => "Primary",
           "target" => producer,
           "category" => "success",
@@ -167,7 +179,6 @@ defmodule HardenLlmWeb.APIFixtures do
           "wait" => 0,
           "duration" => 120_000_000,
           "repair" => false,
-          "backupIndex" => 0,
           "providerUsed" => true
         }
       ],
@@ -271,7 +282,8 @@ defmodule HardenLlmWeb.APIFixtures do
           "payload" => %{
             "profileId" => "Primary",
             "userPrompt" => "safe restored prompt",
-            "callType" => "text"
+            "callType" => "text",
+            "recoveryPolicy" => recovery_policy()
           }
         },
         "response" => %{"available" => true, "payload" => run_result()}

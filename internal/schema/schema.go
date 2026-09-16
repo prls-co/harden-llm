@@ -7,24 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
+	"math/big"
 	"reflect"
-	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"unicode"
-
-	"github.com/kaptinlin/jsonrepair"
 )
 
 var ErrValueInvalid = errors.New("structured output value is invalid")
-
-var (
-	markdownFenceStart = regexp.MustCompile(`(?i)^\s*\x60\x60\x60(?:json)?\s*`)
-	markdownFenceEnd   = regexp.MustCompile(`(?i)\s*\x60\x60\x60\s*$`)
-	numericString      = regexp.MustCompile(`^-?\d+(?:\.\d+)?$`)
-)
 
 var schemaKeywords = map[string]struct{}{
 	"$schema": {}, "$defs": {}, "additionalProperties": {}, "allOf": {}, "anyOf": {}, "const": {},
@@ -256,7 +246,7 @@ func ParseAndValidate(raw string, contract json.RawMessage) (any, *Diagnostic, e
 	if err := ValidateContract(contract); err != nil {
 		return nil, nil, err
 	}
-	value, diagnostic, err := ParseProviderOutput(raw, "")
+	value, diagnostic, err := ParseProviderOutput(raw)
 	if err != nil {
 		return nil, diagnostic, err
 	}
@@ -264,64 +254,17 @@ func ParseAndValidate(raw string, contract json.RawMessage) (any, *Diagnostic, e
 		diagnostic := newDiagnostic("schema_validation", raw, err)
 		return nil, diagnostic, err
 	}
-	return normalizeParsedNumbers(value), nil, nil
+	return value, nil, nil
 }
 
-// ParseProviderOutput reproduces the source parser boundary. Contracted
-// structured output is repaired locally for every provider except Gemini,
-// whose source adapter only strips fences/prose and escapes literal controls.
-func ParseProviderOutput(raw, protocol string) (any, *Diagnostic, error) {
-	if protocol == "google.gemini.generateContent" {
-		value, err := parseGeminiJSON(raw)
-		if err != nil {
-			diagnostic := newDiagnostic("gemini_json_parse", raw, err)
-			return nil, diagnostic, fmt.Errorf("structured Gemini output parse: %w", err)
-		}
-		return NormalizeNumericStringsDeep(value), nil, nil
-	}
-
+// ParseProviderOutput decodes exactly one JSON value without changing its types.
+// Protocol envelopes are extracted by providers before this shared boundary.
+func ParseProviderOutput(raw string) (any, *Diagnostic, error) {
 	value, err := decodeOneJSON(raw)
-	if err == nil {
-		return NormalizeNumericStringsDeep(value), nil, nil
-	}
-	initialErr := err
-	repaired, repairErr := jsonrepair.Repair(raw)
-	if repairErr != nil {
-		diagnostic := newDiagnostic("json_repair", raw, repairErr)
-		return nil, diagnostic, fmt.Errorf("structured output repair: %w", repairErr)
-	}
-	value, err = decodeOneJSON(repaired)
 	if err != nil {
-		diagnostic := newDiagnostic("repaired_json_parse", raw, err)
-		return nil, diagnostic, fmt.Errorf("structured repaired output parse: %w (initial parse: %v)", err, initialErr)
+		return nil, newDiagnostic("json_parse", raw, err), fmt.Errorf("structured output parse: %w", err)
 	}
-	return NormalizeNumericStringsDeep(value), nil, nil
-}
-
-// NormalizeNumericStringsDeep matches the source schema-validation projection.
-func NormalizeNumericStringsDeep(value any) any {
-	switch typed := value.(type) {
-	case map[string]any:
-		result := make(map[string]any, len(typed))
-		for key, child := range typed {
-			result[key] = NormalizeNumericStringsDeep(child)
-		}
-		return result
-	case []any:
-		result := make([]any, len(typed))
-		for index, child := range typed {
-			result[index] = NormalizeNumericStringsDeep(child)
-		}
-		return result
-	case string:
-		trimmed := strings.TrimSpace(typed)
-		if numericString.MatchString(trimmed) {
-			if number, err := strconv.ParseFloat(trimmed, 64); err == nil {
-				return number
-			}
-		}
-	}
-	return value
+	return value, nil, nil
 }
 
 func decodeOneJSON(raw string) (any, error) {
@@ -335,69 +278,6 @@ func decodeOneJSON(raw string) (any, error) {
 		return nil, err
 	}
 	return value, nil
-}
-
-func parseGeminiJSON(raw string) (any, error) {
-	trimmed := strings.TrimSpace(markdownFenceEnd.ReplaceAllString(markdownFenceStart.ReplaceAllString(raw, ""), ""))
-	trimmed = extractTopLevelJSON(trimmed)
-	value, err := decodeOneJSON(trimmed)
-	if err == nil {
-		return value, nil
-	}
-	return decodeOneJSON(escapeControlsInsideStrings(trimmed))
-}
-
-func extractTopLevelJSON(value string) string {
-	trimmed := strings.TrimSpace(value)
-	if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[") {
-		return trimmed
-	}
-	if first, last := strings.Index(trimmed, "{"), strings.LastIndex(trimmed, "}"); first >= 0 && last > first {
-		return trimmed[first : last+1]
-	}
-	if first, last := strings.Index(trimmed, "["), strings.LastIndex(trimmed, "]"); first >= 0 && last > first {
-		return trimmed[first : last+1]
-	}
-	return trimmed
-}
-
-func escapeControlsInsideStrings(value string) string {
-	var output strings.Builder
-	output.Grow(len(value))
-	inString := false
-	escaped := false
-	for _, character := range value {
-		if escaped {
-			output.WriteRune(character)
-			escaped = false
-			continue
-		}
-		if character == '\\' {
-			output.WriteRune(character)
-			escaped = true
-			continue
-		}
-		if character == '"' {
-			inString = !inString
-			output.WriteRune(character)
-			continue
-		}
-		if inString {
-			switch character {
-			case '\n':
-				output.WriteString(`\n`)
-				continue
-			case '\r':
-				output.WriteString(`\r`)
-				continue
-			case '\t':
-				output.WriteString(`\t`)
-				continue
-			}
-		}
-		output.WriteRune(character)
-	}
-	return output.String()
 }
 
 func ValidateValue(contract json.RawMessage, value any) error {
@@ -418,7 +298,7 @@ func validateValueNode(node map[string]any, value any, path string) error {
 	if enum, ok := node["enum"].([]any); ok {
 		matched := false
 		for _, candidate := range enum {
-			if reflect.DeepEqual(normalizeParsedNumbers(candidate), normalizeParsedNumbers(value)) {
+			if equalJSONValue(candidate, value) {
 				matched = true
 				break
 			}
@@ -480,24 +360,82 @@ func validateValueNode(node map[string]any, value any, path string) error {
 }
 
 func isNumber(value any, integer bool) bool {
-	var number float64
-	switch typed := value.(type) {
-	case json.Number:
-		parsed, err := typed.Float64()
-		if err != nil {
+	number, ok := numericValue(value)
+	return ok && (!integer || number.exponent.Sign() >= 0)
+}
+
+type decimalValue struct {
+	digits   string
+	exponent *big.Int
+}
+
+// Compare canonical decimal digits and an exponent without expanding powers
+// of ten. Work stays proportional to the input, even for very large exponents.
+// This representation is only for validation; provider values remain intact.
+func numericValue(value any) (decimalValue, bool) {
+	switch value.(type) {
+	case json.Number, float64, float32, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+	default:
+		return decimalValue{}, false
+	}
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return decimalValue{}, false
+	}
+	text := strings.ToLower(string(encoded))
+	negative := strings.HasPrefix(text, "-")
+	mantissa, power, hasPower := strings.Cut(strings.TrimPrefix(text, "-"), "e")
+	whole, fraction, _ := strings.Cut(mantissa, ".")
+	digits := strings.TrimLeft(whole+fraction, "0")
+	exponent := new(big.Int)
+	if digits == "" {
+		return decimalValue{digits: "0", exponent: exponent}, true
+	}
+	if hasPower {
+		if _, ok := exponent.SetString(power, 10); !ok {
+			return decimalValue{}, false
+		}
+	}
+	trimmed := strings.TrimRight(digits, "0")
+	exponent.Add(exponent, big.NewInt(int64(len(digits)-len(trimmed)-len(fraction))))
+	if negative {
+		trimmed = "-" + trimmed
+	}
+	return decimalValue{digits: trimmed, exponent: exponent}, true
+}
+
+func equalJSONValue(left, right any) bool {
+	if number, ok := numericValue(left); ok {
+		other, ok := numericValue(right)
+		return ok && number.digits == other.digits && number.exponent.Cmp(other.exponent) == 0
+	}
+	switch left := left.(type) {
+	case map[string]any:
+		right, ok := right.(map[string]any)
+		if !ok || len(left) != len(right) {
 			return false
 		}
-		number = parsed
-	case float64:
-		number = typed
-	case float32:
-		number = float64(typed)
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		for key, value := range left {
+			other, exists := right[key]
+			if !exists || !equalJSONValue(value, other) {
+				return false
+			}
+		}
+		return true
+	case []any:
+		right, ok := right.([]any)
+		if !ok || len(left) != len(right) {
+			return false
+		}
+		for index, value := range left {
+			if !equalJSONValue(value, right[index]) {
+				return false
+			}
+		}
 		return true
 	default:
-		return false
+		return reflect.DeepEqual(left, right)
 	}
-	return !integer || math.Trunc(number) == number
 }
 
 func newDiagnostic(stage, raw string, err error) *Diagnostic {
@@ -557,26 +495,6 @@ func utf16Length(value string) int {
 		}
 	}
 	return length
-}
-
-func normalizeParsedNumbers(value any) any {
-	switch typed := value.(type) {
-	case json.Number:
-		if integer, err := typed.Int64(); err == nil {
-			return float64(integer)
-		}
-		number, _ := typed.Float64()
-		return number
-	case []any:
-		for index, item := range typed {
-			typed[index] = normalizeParsedNumbers(item)
-		}
-	case map[string]any:
-		for key, item := range typed {
-			typed[key] = normalizeParsedNumbers(item)
-		}
-	}
-	return value
 }
 
 func isSchemaObject(object map[string]any) bool {

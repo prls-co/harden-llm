@@ -1,5 +1,7 @@
 package traces
 
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-217
+
 import (
 	"encoding/json"
 	"reflect"
@@ -23,8 +25,8 @@ func TestParityTraceProjectionAndObservations(t *testing.T) {
 			Provider: traceLedger(10, 2, 0, 4, 1, accounting.ExactCost(0.125, "profile")),
 		},
 		Attempts: []runtime.AttemptRecord{
-			{Number: 1, RetryLocalNumber: 1, ProfileID: "Primary", ProviderUsed: true, Category: retry.CategoryParse, Retryable: true, Delay: 500 * time.Millisecond, Duration: 10 * time.Millisecond},
-			{Number: 2, RetryLocalNumber: 2, ProfileID: "Primary", ProviderUsed: true, Category: retry.CategorySuccess, Repair: true, Duration: 20 * time.Millisecond},
+			{Number: 1, ProfileID: "Primary", ProviderUsed: true, Category: retry.CategoryParse, Retryable: true, Delay: 500 * time.Millisecond, Duration: 10 * time.Millisecond},
+			{Number: 2, ProfileID: "Primary", ProviderUsed: true, Category: retry.CategorySuccess, Repair: true, Duration: 20 * time.Millisecond},
 		},
 		Cache: runtime.CacheFacts{Mode: cachekey.ModeCache, Status: "miss", OperationHash: "sha256:operation", Version: "v1", Written: true},
 	}
@@ -66,7 +68,7 @@ func TestParityTraceFailureAndCacheHit(t *testing.T) {
 	if failure.Status != StatusTimeout || failure.LastErrorCategory != string(retry.CategoryTimeout) {
 		t.Fatalf("unexpected failure trace: %#v", failure)
 	}
-	providerTimeout := Project(runtime.CallRecord{CallID: "failed-provider", TraceID: "trace-provider", Attempts: []runtime.AttemptRecord{{Number: 1, Category: retry.CategoryTimeout}}}, runtime.ObservabilityContext{}, started, started.Add(time.Second), &retry.ProviderError{Timeout: true})
+	providerTimeout := Project(runtime.CallRecord{CallID: "failed-provider", TraceID: "trace-provider", Attempts: []runtime.AttemptRecord{{Number: 1, Category: retry.CategoryTimeout}}}, runtime.ObservabilityContext{}, started, started.Add(time.Second), &retry.ProviderError{Category: retry.CategoryTimeout})
 	if providerTimeout.Status != StatusTimeout || providerTimeout.LastErrorCategory != string(retry.CategoryTimeout) {
 		t.Fatalf("provider timeout trace mismatch: %#v", providerTimeout)
 	}
@@ -88,6 +90,41 @@ func TestParityTraceFailureAndCacheHit(t *testing.T) {
 	cacheHit := Project(runtime.CallRecord{CallID: "cached", TraceID: "trace-cached", Cache: runtime.CacheFacts{Mode: cachekey.ModeCache, Status: "hit", Served: true}}, runtime.ObservabilityContext{}, started, started, nil)
 	if cacheHit.Status != StatusSuccess || !cacheHit.Cache.Served || cacheHit.ProviderInvoked {
 		t.Fatalf("unexpected cache-hit trace: %#v", cacheHit)
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-217
+func TestRecoveryBoundaryAccountingCache(t *testing.T) {
+	t.Parallel()
+	trace := Project(runtime.CallRecord{
+		CallID: "failed", TraceID: "trace-failed",
+		Accounting: runtime.Accounting{Provider: runtime.Ledger{
+			Usage: runtime.Usage{InputTokens: 11, OutputTokens: 3, Status: accounting.UsagePartial},
+			Cost:  accounting.UnknownCost("partial_usage"),
+		}},
+		Attempts: []runtime.AttemptRecord{{Number: 1, ProviderUsed: true, Category: retry.CategoryNetwork}},
+	}, runtime.ObservabilityContext{}, time.Unix(0, 0), time.Unix(1, 0), &retry.ProviderError{Category: retry.CategoryNetwork})
+	if trace.Accounting.Provider.Usage.Status != accounting.UsagePartial || trace.Accounting.Provider.Usage.InputTokens != 11 || trace.Accounting.Provider.Cost.Status != accounting.CostUnknown || !trace.ProviderInvoked {
+		t.Fatalf("partial failed-attempt accounting was not projected: %#v", trace.Accounting)
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-228
+func TestRecoveryIntegrityCacheWriteProjection(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		mode, lookup string
+	}{
+		{mode: string(cachekey.ModeCache), lookup: "miss"},
+		{mode: string(cachekey.ModeRefresh), lookup: "refresh"},
+	} {
+		trace := Project(runtime.CallRecord{
+			CallID: "call-write-failed", TraceID: "trace-write-failed", Output: "accepted",
+			Cache: runtime.CacheFacts{Mode: cachekey.Mode(test.mode), Status: "write_failed", Written: false},
+		}, runtime.ObservabilityContext{}, time.Unix(0, 0), time.Unix(1, 0), nil)
+		if trace.Status != StatusSuccess || trace.Cache.Status != "write_failed" || len(trace.Observations) != 2 || trace.Observations[0].Kind != "cache.lookup" || trace.Observations[0].Outcome != test.lookup || trace.Observations[1].Kind != "cache.write" || trace.Observations[1].Outcome != "failure" {
+			t.Fatalf("cache-write failure projection mode=%s = %#v", test.mode, trace)
+		}
 	}
 }
 
