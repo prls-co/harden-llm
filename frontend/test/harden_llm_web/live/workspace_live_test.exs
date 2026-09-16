@@ -3029,6 +3029,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     })
     |> render_change()
 
+    render_async(view, 1_000)
     view |> element("#model-config-toggle") |> render_click()
     render_async(view, 1_000)
     view |> element("#profile-options-toggle") |> render_click()
