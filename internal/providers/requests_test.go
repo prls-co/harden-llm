@@ -796,13 +796,36 @@ func TestRecoveryIntegrityTimeout(t *testing.T) {
 	})
 
 	t.Run("parent deadline takes precedence over attempt timeout", func(t *testing.T) {
-		searcher := &recoveryBlockingSearcher{}
+		searcher := &recoveryBlockingSearcher{started: make(chan struct{})}
 		router := newRouter(t, searcher)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+		// Start the provider work before the parent deadline begins to matter.
+		// This keeps the regression about deadline ownership rather than test
+		// scheduling under the race detector.
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
-		record, err := runtime.Execute(ctx, router, credentials, profile.ID, map[string]runtime.Profile{profile.ID: profile}, call(500), config(retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{retry.CategoryNetwork}, Backoff: retry.Backoff{}}), nil, cachekey.ModeOff, "operation-v2", "call", "trace")
-		if !errors.Is(err, context.DeadlineExceeded) || len(record.Attempts) != 1 || searcher.calls.Load() != 1 || retry.Classify(err, retry.DefaultPolicy()).Category != retry.CategoryTimeout {
-			t.Fatalf("parent deadline record=%#v calls=%d error=%v", record, searcher.calls.Load(), err)
+		resultCh := make(chan struct {
+			record runtime.CallRecord
+			err    error
+		}, 1)
+		go func() {
+			record, err := runtime.Execute(ctx, router, credentials, profile.ID, map[string]runtime.Profile{profile.ID: profile}, call(500), config(retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{retry.CategoryNetwork}, Backoff: retry.Backoff{}}), nil, cachekey.ModeOff, "operation-v2", "call", "trace")
+			resultCh <- struct {
+				record runtime.CallRecord
+				err    error
+			}{record, err}
+		}()
+		select {
+		case <-searcher.started:
+		case <-time.After(time.Second):
+			t.Fatal("search did not start before parent deadline")
+		}
+		select {
+		case result := <-resultCh:
+			if !errors.Is(result.err, context.DeadlineExceeded) || len(result.record.Attempts) != 1 || searcher.calls.Load() != 1 || retry.Classify(result.err, retry.DefaultPolicy()).Category != retry.CategoryTimeout {
+				t.Fatalf("parent deadline record=%#v calls=%d error=%v", result.record, searcher.calls.Load(), result.err)
+			}
+		case <-time.After(time.Second):
+			t.Fatal("parent deadline execution did not return")
 		}
 	})
 
