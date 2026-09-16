@@ -78,6 +78,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
            )
 
     view |> element("#workspace-cache-toggle") |> render_click()
+    render_async(view, 1_000)
 
     assert has_element?(
              view,
