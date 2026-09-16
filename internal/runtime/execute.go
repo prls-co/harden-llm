@@ -62,8 +62,11 @@ func Execute(
 		CallID: callID, TraceID: traceID, SelectedTarget: targetFromProfile(profile),
 		ResultSource: ResultSource{Kind: ResultSourceNone},
 		Accounting:   Accounting{Result: accounting.EmptyLedger(), Provider: accounting.EmptyLedger()},
-		Attempts:     make([]AttemptRecord, 0, config.Policy.MaxAttempts),
-		Cache:        CacheFacts{Mode: cacheMode, Status: "skipped", Version: cacheVersion},
+		// Keep the slice capacity independent of request data. Policy.Validate
+		// bounds MaxAttempts for execution, but a user-controlled value should
+		// never determine an allocation size.
+		Attempts: make([]AttemptRecord, 0),
+		Cache:    CacheFacts{Mode: cacheMode, Status: "skipped", Version: cacheVersion},
 	}
 	if err := executionContextError(ctx, config.Now()); err != nil {
 		return record, err
