@@ -559,11 +559,13 @@ No provider fallback/escalation, exactly-once guarantee, new timeout default, re
 - Cache-write failure preserves accepted inference and is represented consistently in API, UI, traces and bounded telemetry.
 - Every phase ends green. Final certification includes actual database integration and the browser-free release gate; deployment/browser/live-provider evidence is reported separately.
 
-The following execution log is the completion record for this revision. The tested
-implementation was a dirty worktree based on the source SHA below; the plan and
-the implementation files were reviewed together. The tracked patch digest and
-the explicit untracked-file list make that identity reproducible without treating
-the dirty worktree as a commit.
+The following execution log is the completion record for this revision. Phase R04
+was executed from the committed recovery source, the security-patched release was
+executed from its committed patch source, and the production images were built
+from the merged `main` application commit. The documentation and status record
+then moved to the current `main` checkpoint below. These fields keep each tested,
+deployed, and documented identity explicit; no result depends on a dirty worktree
+or untracked implementation files.
 
 ```yaml
 plan: PLAN-HLLM-RECOVERY-BOUNDARIES-002
@@ -574,12 +576,16 @@ tested_branch: feat/recovery-policy
 recovery_application_sha: 9b4a400bc8b47776134b2d181bb9b55e6292d852
 security_patch_sha: c52c438b887bec6f3be06bf13a867cda06b32f11
 application_source_sha: 60b74f7224ab8633acf8bb4ea7670307a1c15e18
+documentation_checkpoint_sha: b71374d4ef4b8c3ad11220403c5a3e9fdf86da1e
 branch: main
-worktree_diff_identity:
-  application_commit_sha: a34e797449d7f6d9fee27485b0855070cce80a47
-  merge_commit_sha: 9b4a400bc8b47776134b2d181bb9b55e6292d852
-  final_merge_commit_sha: 60b74f7224ab8633acf8bb4ea7670307a1c15e18
-  tracked_patch_sha256: none (clean committed source)
+source_identity:
+  phase_release_commit_sha: a34e797449d7f6d9fee27485b0855070cce80a47
+  phase_release_branch: feat/recovery-policy
+  security_release_commit_sha: c52c438b887bec6f3be06bf13a867cda06b32f11
+  recovery_merge_commit_sha: 9b4a400bc8b47776134b2d181bb9b55e6292d852
+  application_merge_commit_sha: 60b74f7224ab8633acf8bb4ea7670307a1c15e18
+  documentation_checkpoint_sha: b71374d4ef4b8c3ad11220403c5a3e9fdf86da1e
+  working_tree: clean
   untracked_files: []
 completed_phases:
   - phase: R01
