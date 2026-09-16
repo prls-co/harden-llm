@@ -216,6 +216,7 @@ defmodule HardenLlm.LlmTraceProjection do
     cache = result["cache"] || %{}
 
     cond do
+      cache["status"] == "write_failed" -> "write_failed"
       cache["served"] == true or cache["status"] == "hit" -> "hit"
       cache["mode"] == "off" or cache["status"] in ["disabled", "skipped"] -> "disabled"
       cache["status"] == "miss" -> "miss"
@@ -232,6 +233,7 @@ defmodule HardenLlm.LlmTraceProjection do
       "hit" -> "Hit"
       "miss" -> if(cache_written?(result), do: "Miss · saved", else: "Miss")
       "refresh" -> if(cache_written?(result), do: "Fresh run · saved", else: "Fresh run")
+      "write_failed" -> "Cache save failed"
       "written" -> "Saved"
       "disabled" -> "Disabled"
       _ -> "Unknown"
@@ -254,6 +256,9 @@ defmodule HardenLlm.LlmTraceProjection do
 
       {"refresh", false} ->
         "Harden-LLM fresh run: skipped the old cache."
+
+      {"write_failed", _} ->
+        "The response completed successfully, but it could not be saved to cache."
 
       {"disabled", _} ->
         "Harden-LLM cache was disabled for this run."

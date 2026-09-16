@@ -2104,7 +2104,15 @@ components:
       required: [mode, status, served, written]
       properties:
         mode: {type: string, enum: ["off", cache, refresh]}
-        status: {type: string, minLength: 1, maxLength: 64}
+        status:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: >-
+            Cache outcome. A write_failed value means the accepted inference
+            succeeded but persisting its canonical cache projection failed;
+            served and written remain false and the run itself is still
+            successful. Lookup and integrity failures are returned as errors.
         operationHash: {type: string, maxLength: 128}
         version: {type: string, maxLength: 64}
         served: {type: boolean}

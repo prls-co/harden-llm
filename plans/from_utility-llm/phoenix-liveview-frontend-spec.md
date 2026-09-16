@@ -563,3 +563,21 @@ expired session dispatches no pending write.
 These cases are deterministic LiveViewTest/Req.Test checks. They do not certify
 browser layout or cross-session last-write behavior; those remain under the
 existing explicit browser and deployment boundaries.
+
+## 20. Cache-write result reporting
+
+`write_failed` is a successful execution result whose accepted response could
+not be persisted. Phoenix consumes the bounded cache status from the Go
+OpenAPI result; it does not retry the write, infer accounting or turn the
+condition into a provider error. The shared trace projection owns the label,
+title, accessible name and CSS class used by live results, history and traces.
+
+### WEB-TEST-076: Cache-save failure remains visible and successful
+
+- Type / verifies: deterministic LiveView/component and API-wire unit; REQ-220, REQ-221, REQ-223.
+- Location: `frontend/test/harden_llm/llm_trace_projection_test.exs`, `frontend/test/harden_llm_web/components/llm_trace_components_test.exs`, `frontend/test/harden_llm_web/live/history_trace_test.exs`, `frontend/test/harden_llm_web/harden_api_contract_test.exs` and `frontend/test/support/api_fixtures.ex`.
+- Command: `(cd frontend && mix test --only recovery_cache_write --seed 104729)`.
+- Fixtures/data: One canonical `RunResult` fixture with `cache.status = "write_failed"`, `cache.written = false`, successful overall result/output and unchanged result/provider accounting. Derive run, history and trace fixtures from the same result; update both trace `record` and `resources.response.payload` when constructing a trace.
+- Deterministic controls: `async: true`, private Req ownership and no browser/DOM emulator. Keep the existing strict decoder required keys and nonempty status string.
+- Pass criteria: The API decoder accepts the status; live result/history/trace retain successful output and show label `Cache save failed` with title `The response completed successfully, but it could not be saved to cache.`; the badge has the existing accessible state and muted-accent class; no surface shows `Unknown`, failed overall execution or an additional retry/write event.
+- Expected runtime: within the existing deterministic frontend test envelope.

@@ -109,6 +109,25 @@ func TestRecoveryBoundaryAccountingCache(t *testing.T) {
 	}
 }
 
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-228
+func TestRecoveryIntegrityCacheWriteProjection(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		mode, lookup string
+	}{
+		{mode: string(cachekey.ModeCache), lookup: "miss"},
+		{mode: string(cachekey.ModeRefresh), lookup: "refresh"},
+	} {
+		trace := Project(runtime.CallRecord{
+			CallID: "call-write-failed", TraceID: "trace-write-failed", Output: "accepted",
+			Cache: runtime.CacheFacts{Mode: cachekey.Mode(test.mode), Status: "write_failed", Written: false},
+		}, runtime.ObservabilityContext{}, time.Unix(0, 0), time.Unix(1, 0), nil)
+		if trace.Status != StatusSuccess || trace.Cache.Status != "write_failed" || len(trace.Observations) != 2 || trace.Observations[0].Kind != "cache.lookup" || trace.Observations[0].Outcome != test.lookup || trace.Observations[1].Kind != "cache.write" || trace.Observations[1].Outcome != "failure" {
+			t.Fatalf("cache-write failure projection mode=%s = %#v", test.mode, trace)
+		}
+	}
+}
+
 func traceLedger(input, cacheRead, cacheCreation, output, reasoning int64, cost accounting.Cost) runtime.Ledger {
 	usage, err := accounting.CompleteUsage(input, cacheRead, cacheCreation, output, reasoning)
 	if err != nil {

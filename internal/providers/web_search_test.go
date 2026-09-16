@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prls-co/harden-llm/internal/accounting"
 	"github.com/prls-co/harden-llm/internal/cachekey"
 	"github.com/prls-co/harden-llm/internal/retry"
 	"github.com/prls-co/harden-llm/internal/runtime"
@@ -177,8 +178,8 @@ func TestWebSearchCacheHitSkipsJinaFallback(t *testing.T) {
 		SupportsWebSearch: false,
 	}
 	cache := &alwaysHitCache{result: runtime.CachedResult{
-		ProviderResult: runtime.ProviderResult{Output: "cached output"},
-		Producer:       runtime.ExecutionTarget{ProfileID: profile.ID, Provider: profile.Provider, ModelID: profile.ModelID},
+		ProviderResult: runtime.ProviderResult{Output: "cached output", Accounting: accounting.EmptyLedger()},
+		Producer:       runtime.ExecutionTarget{ProfileID: profile.ID, Provider: profile.Provider, Protocol: "openai.responses", Endpoint: provider.URL + "/v1", ModelID: profile.ModelID},
 	}}
 	record, err := runtime.Execute(
 		context.Background(), router,
@@ -308,7 +309,7 @@ func (cache *alwaysHitCache) Get(context.Context, string, string) (runtime.Cache
 	return cache.result, true, nil
 }
 
-func (cache *alwaysHitCache) Set(context.Context, string, string, cachekey.Operation, runtime.CachedResult) error {
+func (cache *alwaysHitCache) Set(context.Context, string, string, runtime.CachedResult) error {
 	cache.sets++
 	return errors.New("cache set should not run on a cache hit")
 }

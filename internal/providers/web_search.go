@@ -186,17 +186,18 @@ func (searcher *jinaSearcher) Search(ctx context.Context, query string) (string,
 	request.Header.Set("Authorization", "Bearer "+searcher.apiKey)
 	response, err := searcher.client.Do(request)
 	if err != nil {
-		if contextErr := ctx.Err(); contextErr != nil {
-			return "", contextErr
-		}
-		if requestContext.Err() != nil {
-			return "", &retry.ProviderError{Err: errors.New("web search request timed out"), Code: "WEB_SEARCH_TIMEOUT", Category: retry.CategoryNetwork}
-		}
-		return "", &retry.ProviderError{Err: errors.New("web search network request failed"), Code: "WEB_SEARCH_NETWORK", Category: retry.CategoryNetwork}
+		return "", normalizeTransportError(ctx, requestContext, err)
 	}
 	defer response.Body.Close()
 	body, err := readBounded(response.Body, searcher.maxResponseBytes)
 	if err != nil {
+		bodyFailure := normalizeTransportError(ctx, requestContext, err)
+		if errors.Is(bodyFailure, context.Canceled) || errors.Is(bodyFailure, context.DeadlineExceeded) {
+			return "", bodyFailure
+		}
+		if errors.Is(err, errResponseTooLarge) {
+			return "", &retry.ProviderError{Err: errors.New("provider response exceeded the size limit"), Code: "RESPONSE_TOO_LARGE", Category: retry.CategoryOther}
+		}
 		if response.StatusCode < 200 || response.StatusCode > 299 {
 			now := searcher.now
 			if now == nil {
@@ -204,10 +205,7 @@ func (searcher *jinaSearcher) Search(ctx context.Context, query string) (string,
 			}
 			return "", providerHTTPErrorAt(response, body, now())
 		}
-		if errors.Is(err, errResponseTooLarge) {
-			return "", &retry.ProviderError{Err: errors.New("provider response exceeded the size limit"), Code: "RESPONSE_TOO_LARGE", Category: retry.CategoryOther}
-		}
-		return "", &retry.ProviderError{Err: err, Code: "WEB_SEARCH_RESPONSE_READ", Category: retry.CategoryNetwork}
+		return "", bodyFailure
 	}
 	if response.StatusCode < 200 || response.StatusCode > 299 {
 		now := searcher.now

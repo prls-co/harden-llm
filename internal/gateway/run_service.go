@@ -379,32 +379,15 @@ func (cache *ownerCacheStore) Get(ctx context.Context, operationHash string) (ha
 	}
 	return hardenllm.CacheRecord{
 		SchemaVersion: 2, CacheVersion: record.Version, OperationHash: record.OperationHash,
-		Operation: record.Operation, RawProviderEnvelope: record.Envelope, ProviderResult: record.Result, CreatedAt: record.CreatedAt,
+		ProviderResult: record.Result, CreatedAt: record.CreatedAt,
 	}, true, nil
 }
 
 func (cache *ownerCacheStore) Set(ctx context.Context, operationHash string, record hardenllm.CacheRecord) error {
-	var projection struct {
-		Accounting struct {
-			Usage json.RawMessage `json:"usage"`
-			Cost  json.RawMessage `json:"cost"`
-		} `json:"accounting"`
-	}
-	if err := json.Unmarshal(record.ProviderResult, &projection); err != nil {
-		return errors.New("gateway: cached provider result is invalid")
-	}
-	if len(projection.Accounting.Usage) == 0 {
-		projection.Accounting.Usage = json.RawMessage(`{}`)
-	}
-	if len(projection.Accounting.Cost) == 0 {
-		projection.Accounting.Cost = json.RawMessage(`{}`)
-	}
 	now := cache.clock().UTC()
 	return cache.store.PutCache(ctx, postgres.CacheRecord{
 		OwnerID: cache.ownerID, Version: record.CacheVersion, OperationHash: operationHash,
-		Operation: record.Operation, Result: record.ProviderResult,
-		Usage: projection.Accounting.Usage, Cost: projection.Accounting.Cost,
-		Envelope: record.RawProviderEnvelope, CreatedAt: record.CreatedAt, UpdatedAt: now,
+		Result: record.ProviderResult, CreatedAt: record.CreatedAt, UpdatedAt: now,
 	})
 }
 

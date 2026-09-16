@@ -89,9 +89,6 @@ func TestProviderNormalization(t *testing.T) {
 			if !costNear(result.Accounting.Cost, test.wantCost) {
 				t.Fatalf("cost mismatch: got %#v want %#v", result.Accounting.Cost, test.wantCost)
 			}
-			if strings.Contains(string(result.RawProviderEnvelope), "authorization") {
-				t.Fatalf("raw envelope contains credential material: %s", result.RawProviderEnvelope)
-			}
 		})
 	}
 }

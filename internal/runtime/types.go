@@ -70,10 +70,9 @@ type Ledger = accounting.Ledger
 type Accounting = accounting.Accounting
 
 type ProviderResult struct {
-	Search              *SearchResult   `json:"search,omitempty"`
-	Output              any             `json:"output"`
-	Accounting          Ledger          `json:"accounting"`
-	RawProviderEnvelope json.RawMessage `json:"rawProviderEnvelope"`
+	Search     *SearchResult `json:"search,omitempty"`
+	Output     any           `json:"output"`
+	Accounting Ledger        `json:"accounting"`
 	// ProviderDispatched records the local transport's observed request-header
 	// write. It is internal and is never persisted on the wire.
 	ProviderDispatched bool `json:"-"`
@@ -133,7 +132,6 @@ type CallRecord struct {
 	ResultSource         ResultSource
 	Accounting           Accounting
 	Attempts             []AttemptRecord
-	RawProviderEnvelope  json.RawMessage
 	ParseFailureResponse json.RawMessage
 	PreparedOperation    PreparedOperation
 	Cache                CacheFacts

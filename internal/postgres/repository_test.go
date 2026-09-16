@@ -55,7 +55,7 @@ func TestRepositoryContract(t *testing.T) {
 	}
 	store := stores[0]
 	versions, err := store.AppliedMigrations(ctx)
-	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6}) {
+	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7}) {
 		t.Fatalf("migration versions = %v, %v", versions, err)
 	}
 	if err := store.Ready(ctx); err != nil {
@@ -477,7 +477,12 @@ func TestRecoveryMigration(t *testing.T) {
 		if err := store.SeedArtifactMetadataForTest(ctx, artifact); err != nil {
 			t.Fatal(err)
 		}
-		if err := store.PutCache(ctx, CacheRecord{OwnerID: owner, Version: "operation-v2", OperationHash: "retained", Operation: json.RawMessage(`{"responseProjectionVersion":"v1"}`), Result: json.RawMessage(`{"output":"0012"}`), Usage: json.RawMessage(`{}`), Cost: json.RawMessage(`{}`), Envelope: json.RawMessage(`{}`), CreatedAt: now, UpdatedAt: now}); err != nil {
+		if _, err := store.pool.Exec(ctx, `
+			INSERT INTO llm_operation_cache
+				(owner_id, cache_version, operation_hash, operation, result, usage, cost, provider_envelope, created_at, updated_at)
+			VALUES ($1,'operation-v2','retained','{"responseProjectionVersion":"v1"}',
+				'{"output":{"exact":9007199254740993,"numericString":"0012"},"accounting":{"usage":{"status":"complete","inputTokens":0,"cacheReadTokens":0,"cacheCreationTokens":0,"outputTokens":0,"reasoningTokens":0},"cost":{"status":"unavailable"}},"producer":{"profileId":"profile-a","provider":"fixture","protocol":"fixture","endpoint":"https://example.test","modelId":"model-a"}}',
+				'{"status":"complete"}','{"status":"unavailable"}','{"schemaVersion":"raw.v1"}', $2, $2)`, owner, now); err != nil {
 			t.Fatal(err)
 		}
 		if err := store.CreateSession(ctx, Session{ID: "session-" + owner, OwnerID: owner, TokenDigest: []byte(strings.Repeat(string(rune('a'+index)), 32)), CreatedAt: now, ExpiresAt: now.Add(time.Hour)}); err != nil {
@@ -495,7 +500,7 @@ func TestRecoveryMigration(t *testing.T) {
 		}
 	}
 	versions, err := store.AppliedMigrations(ctx)
-	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6}) {
+	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7}) {
 		t.Fatalf("migration versions = %v, %v", versions, err)
 	}
 	if after := recoverySnapshot(t, ctx, store, true); !reflect.DeepEqual(before, after) {
@@ -624,7 +629,80 @@ func TestRecoveryMigrationRejectsInvalidDocumentsAtomically(t *testing.T) {
 	}
 }
 
-func recoveryMigrationStore(t *testing.T) (*Store, context.Context) {
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-227
+func TestRecoveryIntegrityStorage(t *testing.T) {
+	store, ctx := recoveryMigrationStore(t, 6)
+	now := time.Date(2026, 9, 15, 10, 0, 0, 0, time.UTC)
+	if err := store.CreateUser(ctx, User{ID: "cache-owner", Email: "cache-owner@example.test", PasswordHash: "$argon2id$fixture", CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatal(err)
+	}
+	result := json.RawMessage(`{"output":{"exact":9007199254740993,"fraction":0.12345678901234567890123456789},"accounting":{"usage":{"inputTokens":0,"cacheReadTokens":0,"cacheCreationTokens":0,"outputTokens":0,"reasoningTokens":0,"status":"complete"},"cost":{"knownSubtotalUsd":0,"status":"unavailable","source":"","knownObservations":0,"unknownObservations":0}},"producer":{"profileId":"historical-profile","provider":"fixture","protocol":"fixture","endpoint":"https://example.test","modelId":"historical-model"}}`)
+	if _, err := store.pool.Exec(ctx, `
+		INSERT INTO llm_operation_cache
+			(owner_id, cache_version, operation_hash, operation, result, usage, cost, provider_envelope, created_at, updated_at)
+		VALUES ($1,'operation-v2','historical-hash','{"model":"historical"}',$2,'{"status":"complete"}','{"status":"unavailable"}','{"schemaVersion":"raw.v1"}',$3,$3)`, "cache-owner", result, now); err != nil {
+		t.Fatal(err)
+	}
+	type retained struct {
+		OwnerID, Version, Hash string
+		Result                 []byte
+		CreatedAt, UpdatedAt   time.Time
+	}
+	readRetained := func() retained {
+		var value retained
+		if err := store.pool.QueryRow(ctx, `SELECT owner_id, cache_version, operation_hash, result, created_at, updated_at FROM llm_operation_cache WHERE owner_id=$1 AND cache_version=$2 AND operation_hash=$3`, "cache-owner", "operation-v2", "historical-hash").Scan(&value.OwnerID, &value.Version, &value.Hash, &value.Result, &value.CreatedAt, &value.UpdatedAt); err != nil {
+			t.Fatal(err)
+		}
+		return value
+	}
+	before := readRetained()
+	if err := store.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	after := readRetained()
+	if before.OwnerID != after.OwnerID || before.Version != after.Version || before.Hash != after.Hash || before.CreatedAt != after.CreatedAt || before.UpdatedAt != after.UpdatedAt {
+		t.Fatalf("retained cache identity/timestamps changed: before=%#v after=%#v", before, after)
+	}
+	var equal bool
+	if err := store.pool.QueryRow(ctx, `SELECT $1::jsonb = $2::jsonb`, before.Result, after.Result).Scan(&equal); err != nil || !equal {
+		t.Fatalf("retained cache result changed: before=%s after=%s error=%v", before.Result, after.Result, err)
+	}
+	rows, err := store.pool.Query(ctx, `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='llm_operation_cache' ORDER BY ordinal_position`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	columns := make([]string, 0)
+	for rows.Next() {
+		var column string
+		if err := rows.Scan(&column); err != nil {
+			t.Fatal(err)
+		}
+		columns = append(columns, column)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	wantedColumns := []string{"owner_id", "cache_version", "operation_hash", "result", "created_at", "updated_at"}
+	if !reflect.DeepEqual(columns, wantedColumns) {
+		t.Fatalf("cache columns = %v, want %v", columns, wantedColumns)
+	}
+	versions, err := store.AppliedMigrations(ctx)
+	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7}) {
+		t.Fatalf("migration versions = %v, %v", versions, err)
+	}
+	if err := store.Ready(ctx); err != nil {
+		t.Fatalf("migrated store is not ready: %v", err)
+	}
+	if err := store.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if repeated := readRetained(); !reflect.DeepEqual(after, repeated) {
+		t.Fatalf("repeated migration changed retained cache: before=%#v after=%#v", after, repeated)
+	}
+}
+
+func recoveryMigrationStore(t *testing.T, through ...int) (*Store, context.Context) {
 	t.Helper()
 	_, dsn := integrationtest.PostgresLease(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
@@ -646,8 +724,12 @@ func recoveryMigrationStore(t *testing.T) (*Store, context.Context) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	limit := int64(5)
+	if len(through) > 0 {
+		limit = int64(through[0])
+	}
 	for _, entry := range entries {
-		if entry.version <= 5 {
+		if entry.version <= limit {
 			if _, err := tx.Exec(ctx, entry.sql); err != nil {
 				t.Fatal(err)
 			}
@@ -728,6 +810,8 @@ func recoverySnapshot(t *testing.T, ctx context.Context, store *Store, independe
 				expression += " - 'document'"
 			case "llm_runs":
 				expression += " - 'result' - 'result_schema_version'"
+			case "llm_operation_cache":
+				expression += " - 'operation' - 'provider_envelope' - 'usage' - 'cost'"
 			}
 		}
 		var snapshot string

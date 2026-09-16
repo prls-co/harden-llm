@@ -20,9 +20,13 @@ import (
 func normalizeResponse(prepared preparedRequest, body []byte) (runtime.ProviderResult, error) {
 	response, err := decodeJSONObject(body)
 	if err != nil {
-		return runtime.ProviderResult{}, &retry.ProviderError{Err: errors.New("provider returned malformed JSON"), Code: "MALFORMED_RESPONSE", Category: retry.CategoryOther}
+		return runtime.ProviderResult{Accounting: accounting.EmptyLedger()}, &retry.ProviderError{Err: errors.New("provider returned malformed JSON"), Code: "MALFORMED_RESPONSE", Category: retry.CategoryOther}
 	}
 	return normalizeDecodedResponse(prepared, response)
+}
+
+func emptyProviderLedger() runtime.Ledger {
+	return accounting.EmptyLedger()
 }
 
 func normalizeDecodedResponse(prepared preparedRequest, response map[string]any) (runtime.ProviderResult, error) {
@@ -34,15 +38,10 @@ func normalizeDecodedResponse(prepared preparedRequest, response map[string]any)
 		projection["output"] = finalResponseOutput(response)
 		delete(projection, "output_text")
 	}
-	usage, usageErr := normalizeUsage(prepared.protocol, response)
-	cost, costErr := normalizeCost(response, usage, prepared.pricing)
-	partial := runtime.ProviderResult{Accounting: accounting.Ledger{Usage: usage, Cost: cost}}
-	partial.RawProviderEnvelope, _ = rawProviderEnvelope(prepared, response)
-	if usageErr != nil {
-		return partial, accountingProviderError(usageErr)
-	}
-	if costErr != nil {
-		return partial, accountingProviderError(costErr)
+	ledger, accountingErr := normalizeResponseAccounting(prepared, response)
+	partial := runtime.ProviderResult{Accounting: ledger}
+	if accountingErr != nil {
+		return partial, accountingProviderError(accountingErr)
 	}
 	if completionErr := validateCompletion(prepared.protocol, response); completionErr != nil {
 		return partial, completionErr
@@ -81,23 +80,31 @@ func normalizeDecodedResponse(prepared preparedRequest, response map[string]any)
 	} else if output == nil {
 		output = text
 	}
-	envelope, err := rawProviderEnvelope(prepared, response)
-	if err != nil {
-		return partial, &retry.ProviderError{Err: errors.New("provider response normalization failed"), Code: "NORMALIZATION", Category: retry.CategoryOther}
-	}
 	return runtime.ProviderResult{
 		Search: normalizeSearch(prepared, response),
-		Output: output, Accounting: accounting.Ledger{Usage: usage, Cost: cost}, RawProviderEnvelope: envelope,
+		Output: output, Accounting: ledger,
 	}, nil
 }
 
-func rawProviderEnvelope(prepared preparedRequest, response map[string]any) ([]byte, error) {
-	return json.Marshal(map[string]any{
-		"schemaVersion": rawEnvelopeVersion,
-		"provider":      prepared.provider,
-		"protocol":      prepared.protocol,
-		"response":      response,
-	})
+// normalizeResponseAccounting is the single protocol accounting extraction
+// boundary. Each dimension is normalized independently so a valid reported
+// cost remains available when usage is malformed, and vice versa.
+func normalizeResponseAccounting(prepared preparedRequest, response map[string]any) (runtime.Ledger, error) {
+	usage, usageErr := normalizeUsage(prepared.protocol, response)
+	if usageErr != nil {
+		usage = accounting.UnavailableUsage()
+	}
+	cost, costErr := normalizeCost(response, usage, prepared.pricing)
+	if costErr != nil {
+		cost = accounting.UnavailableCost()
+	}
+	if usageErr != nil {
+		return accounting.Ledger{Usage: usage, Cost: cost}, usageErr
+	}
+	if costErr != nil {
+		return accounting.Ledger{Usage: usage, Cost: cost}, costErr
+	}
+	return accounting.Ledger{Usage: usage, Cost: cost}, nil
 }
 
 func mustJSON(value any) []byte {

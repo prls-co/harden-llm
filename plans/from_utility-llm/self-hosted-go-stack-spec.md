@@ -750,3 +750,35 @@ These rules are covered by TEST-212 through TEST-217 and TEST-220 through
 TEST-222 in the canonical backend test specification. The frontend consumes the
 same OpenAPI policy shape and owns its active draft/persistence lifecycle under
 WEB-TEST-074/075; no internal Go types cross that boundary.
+
+### Recovery integrity follow-up
+
+The follow-up keeps the same owners and contracts. The guarded transport
+normalizes Router and Jina failures against the original call parent, so an
+attempt-local or Jina-local timeout remains a network failure while the parent
+is active. HTTP status, endpoint policy and response-size precedence remain
+bounded and do not parse protocol completion or accounting.
+
+Provider normalization extracts independently valid usage and cost from
+complete JSON before completion/output errors return. Runtime sends every
+attempt's dispatch fact and normalized ledger to the single accounting
+accumulator; unavailable measurements remain uncertain and are never treated as
+an additive no-op after observed work. The result ledger still describes only
+the delivered output.
+
+Cache replay uses the existing response projection v3 and operation-v2 key
+namespace. Its typed decoder preserves JSON numbers, requires one complete
+value, checks canonical output/accounting/search metadata and compares the
+stored producer's semantic target. A malformed row is a bounded integrity
+failure with no provider fallback or semantic repair. The cache table retains
+one canonical result projection with owner/key/version/timestamps; migration
+0007 removes only the unused operation, raw envelope and duplicate usage/cost
+columns, preserving valid rows and identity.
+
+Once a result is admitted, cache persistence is best effort. A failed write
+returns the accepted result with `cache.status = "write_failed"` and no public
+call error; lookup/integrity failures and pre-admission failures remain
+terminal. The same bounded status is preserved in REST, history, traces,
+telemetry and Phoenix. These additions are verified by TEST-223 through
+TEST-228 and WEB-TEST-076; they add no service, provider fallback, legacy
+reader, public setting or browser requirement.

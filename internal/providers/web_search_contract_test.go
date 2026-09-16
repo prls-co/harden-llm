@@ -167,7 +167,7 @@ func (c *searchMemoryCache) Get(_ context.Context, key, version string) (runtime
 	v, ok := c.values[key+version]
 	return v, ok, nil
 }
-func (c *searchMemoryCache) Set(_ context.Context, key, version string, _ cachekey.Operation, v runtime.CachedResult) error {
+func (c *searchMemoryCache) Set(_ context.Context, key, version string, v runtime.CachedResult) error {
 	c.values[key+version] = v
 	return nil
 }

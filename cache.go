@@ -17,13 +17,11 @@ const (
 
 // CacheRecord is the portable operation-cache persistence envelope.
 type CacheRecord struct {
-	SchemaVersion       int             `json:"schemaVersion"`
-	CacheVersion        string          `json:"cacheVersion"`
-	OperationHash       string          `json:"operationHash"`
-	Operation           json.RawMessage `json:"operation"`
-	RawProviderEnvelope json.RawMessage `json:"rawProviderEnvelope"`
-	ProviderResult      json.RawMessage `json:"providerResult"`
-	CreatedAt           time.Time       `json:"createdAt"`
+	SchemaVersion  int             `json:"schemaVersion"`
+	CacheVersion   string          `json:"cacheVersion"`
+	OperationHash  string          `json:"operationHash"`
+	ProviderResult json.RawMessage `json:"providerResult"`
+	CreatedAt      time.Time       `json:"createdAt"`
 }
 
 // CacheStore persists operation records by their deterministic hash.

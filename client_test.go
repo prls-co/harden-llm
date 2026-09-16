@@ -83,9 +83,8 @@ func TestClientCallResult(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			executor := &fixedExecutor{result: coreruntime.ProviderResult{
-				Output:              test.output,
-				Accounting:          testLedger(12, 0, 0, 3, 0, accounting.ExactCost(0.0000225, "calculated")),
-				RawProviderEnvelope: json.RawMessage(`{"id":"fixture-response"}`),
+				Output:     test.output,
+				Accounting: testLedger(12, 0, 0, 3, 0, accounting.ExactCost(0.0000225, "calculated")),
 			}}
 			client, err := New(Options{Credentials: fixedCredentialResolver{}})
 			if err != nil {

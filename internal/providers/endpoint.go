@@ -330,7 +330,7 @@ func newSafeHTTPClientWithGuard(policy EndpointPolicy, guard *endpointGuard) (*h
 	return &http.Client{
 		Transport: transport,
 		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-			return errors.New("providers: redirects are disabled")
+			return &endpointPolicyError{err: errors.New("providers: redirects are disabled")}
 		},
 	}, nil
 }

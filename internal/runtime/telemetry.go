@@ -360,7 +360,7 @@ func boundedCallType(value string) string {
 
 func boundedCacheOutcome(value string) string {
 	switch value {
-	case "hit", "miss", "refresh", "skipped":
+	case "hit", "miss", "refresh", "skipped", "write_failed":
 		return value
 	default:
 		return "unknown"

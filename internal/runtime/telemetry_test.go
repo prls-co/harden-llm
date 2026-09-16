@@ -15,6 +15,7 @@ import (
 	"github.com/prls-co/harden-llm/internal/cachekey"
 	"github.com/prls-co/harden-llm/internal/retry"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -158,6 +159,81 @@ func TestSearchFailureDoesNotIncrementProviderMetrics(t *testing.T) {
 	}
 }
 
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-228
+func TestRecoveryIntegrityCacheWriteTelemetry(t *testing.T) {
+	t.Parallel()
+	spanExporter := tracetest.NewInMemoryExporter()
+	tracerProvider := sdktrace.NewTracerProvider(sdktrace.WithSyncer(spanExporter))
+	defer func() { _ = tracerProvider.Shutdown(context.Background()) }()
+	metricReader := sdkmetric.NewManualReader()
+	meterProvider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(metricReader))
+	defer func() { _ = meterProvider.Shutdown(context.Background()) }()
+	telemetry, err := NewTelemetry(tracerProvider, meterProvider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile := Profile{ID: "profile", Provider: "openai", APIInferenceType: "responses", BaseURL: "https://api.openai.com/v1", ModelID: "model"}
+	cache := &telemetryCache{err: errors.New("cache write failed: do-not-export")}
+	call := Call{CallType: "text", UserPrompt: "accepted", Telemetry: telemetry}
+	ctx, endCall := telemetry.StartCall(context.Background(), CallObservation{ProfileID: profile.ID, Provider: profile.Provider, ModelID: profile.ModelID, CallType: call.CallType})
+	record, callErr := Execute(ctx, &telemetryExecutor{}, func(context.Context, Profile) (Credential, error) {
+		return Credential{APIKey: "secret"}, nil
+	}, profile.ID, map[string]Profile{profile.ID: profile}, call, retry.Config{
+		Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}},
+		Random: func() float64 { return 0 }, Wait: func(context.Context, time.Duration) error { return nil },
+	}, cache, cachekey.ModeCache, "v1", "call-write-failed", "trace-write-failed")
+	endCall(record, callErr)
+	if callErr != nil || record.Output == nil || record.Cache.Status != "write_failed" || record.Cache.Written {
+		t.Fatalf("cache write telemetry result=%#v error=%v", record, callErr)
+	}
+
+	var writeSpan, callSpan *tracetest.SpanStub
+	spans := spanExporter.GetSpans()
+	for index := range spans {
+		span := &spans[index]
+		switch span.Name {
+		case SpanCacheWrite:
+			writeSpan = span
+		case SpanCall:
+			callSpan = span
+		}
+	}
+	if writeSpan == nil || writeSpan.Status.Code != codes.Error {
+		t.Fatalf("cache write span status = %#v, want error", writeSpan)
+	}
+	if callSpan == nil || callSpan.Status.Code != codes.Ok {
+		t.Fatalf("call span status = %#v, want success", callSpan)
+	}
+	if strings.Contains(fmt.Sprint(spans), "do-not-export") {
+		t.Fatal("cache write error leaked into spans")
+	}
+
+	var metrics metricdata.ResourceMetrics
+	if err := metricReader.Collect(context.Background(), &metrics); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, scope := range metrics.ScopeMetrics {
+		for _, metricValue := range scope.Metrics {
+			if metricValue.Name != "harden_llm.cache.operations" {
+				continue
+			}
+			for _, set := range metricAttributeSets(metricValue.Data) {
+				attributes := make(map[string]string)
+				for _, value := range set.ToSlice() {
+					attributes[string(value.Key)] = value.Value.AsString()
+				}
+				if attributes["operation"] == "write" && attributes["cache_outcome"] == "write_failed" && attributes["outcome"] == "error" {
+					found = true
+				}
+			}
+		}
+	}
+	if !found {
+		t.Fatal("cache write metric did not retain bounded write_failed outcome")
+	}
+}
+
 type telemetryExecutor struct{}
 
 func (*telemetryExecutor) Prepare(_ context.Context, profile Profile, _ Credential, call Call) (PreparedOperation, error) {
@@ -212,15 +288,16 @@ func (*telemetryExecutor) Execute(_ context.Context, operation PreparedOperation
 type telemetryCache struct {
 	record CachedResult
 	found  bool
+	err    error
 }
 
 func (cache *telemetryCache) Get(context.Context, string, string) (CachedResult, bool, error) {
 	return cache.record, cache.found, nil
 }
 
-func (cache *telemetryCache) Set(_ context.Context, _, _ string, _ cachekey.Operation, result CachedResult) error {
+func (cache *telemetryCache) Set(_ context.Context, _, _ string, result CachedResult) error {
 	cache.record = result
-	return nil
+	return cache.err
 }
 
 func hasSpan(spans tracetest.SpanStubs, name string) bool {

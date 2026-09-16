@@ -33,7 +33,7 @@ func TestCacheConcurrency(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	record := CacheRecord{OwnerID: "owner-a", Version: "operation-v2", OperationHash: "hash-a", Operation: json.RawMessage(`{"model":"fixture"}`), Result: json.RawMessage(`{"output":"ok"}`), Usage: json.RawMessage(`{"totalTokens":3}`), Cost: json.RawMessage(`{"known":true,"totalUsd":0.1}`), Envelope: json.RawMessage(`{"schemaVersion":"raw.v1"}`), CreatedAt: now, UpdatedAt: now}
+	record := CacheRecord{OwnerID: "owner-a", Version: "operation-v2", OperationHash: "hash-a", Result: json.RawMessage(`{"output":"ok"}`), CreatedAt: now, UpdatedAt: now}
 	if err := store.PutCache(ctx, record); err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func TestCacheConcurrency(t *testing.T) {
 		go func(index int) {
 			defer wait.Done()
 			got, err := store.Cache(ctx, "owner-a", "operation-v2", "hash-a")
-			if err == nil && (!json.Valid(got.Result) || !json.Valid(got.Operation)) {
+			if err == nil && !json.Valid(got.Result) {
 				err = fmt.Errorf("worker %d observed malformed JSON", index)
 			}
 			failures <- err

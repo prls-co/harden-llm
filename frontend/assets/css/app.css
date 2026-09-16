@@ -291,7 +291,8 @@ button, a, input, select, textarea { touch-action: manipulation; }
 }
 
 .ullm-cache-status-disabled,
-.ullm-cache-status-unknown {
+.ullm-cache-status-unknown,
+.ullm-cache-status-write_failed {
   color: var(--ullm-text-muted);
 }
 

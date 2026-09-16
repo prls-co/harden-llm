@@ -178,6 +178,15 @@ and optional suggestions live inside the response fold in both current Result
 and History. They expand with the existing input/output controls, without
 modifying copied text or structured output.
 
+When an accepted provider result cannot be persisted, the call still succeeds
+and returns `result.cache.status:"write_failed"` with the output, result and
+provider accounting intact. `served` and `written` remain false, and the
+runtime does not repeat the provider call or cache write. Cache lookup and
+integrity errors remain terminal. Cache records retain one canonical result
+projection (output, search metadata, accounting and producer) with its owner,
+version, hash and timestamps; prepared operations and raw provider envelopes
+are not part of the public cache contract.
+
 For production, the UI is `https://harden-llm.prls.co/` and the API base is
 `https://harden-llm-api.prls.co`. Use production's existing
 `HARDEN_LLM_STATIC_TOKEN` from its protected infrastructure environment file

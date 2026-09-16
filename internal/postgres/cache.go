@@ -13,11 +13,7 @@ func (store *Store) PutCache(ctx context.Context, record CacheRecord) error {
 		}
 	}
 	for name, value := range map[string][]byte{
-		"cache operation":   record.Operation,
-		"cache result":      record.Result,
-		"cache usage":       record.Usage,
-		"cache cost":        record.Cost,
-		"provider envelope": record.Envelope,
+		"cache result": record.Result,
 	} {
 		if err := validateJSONObject(name, value); err != nil {
 			return err
@@ -28,17 +24,12 @@ func (store *Store) PutCache(ctx context.Context, record CacheRecord) error {
 	}
 	_, err := store.pool.Exec(ctx, `
 		INSERT INTO llm_operation_cache
-			(owner_id, cache_version, operation_hash, operation, result, usage, cost, provider_envelope, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+			(owner_id, cache_version, operation_hash, result, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6)
 		ON CONFLICT (owner_id, cache_version, operation_hash) DO UPDATE SET
-			operation = EXCLUDED.operation,
 			result = EXCLUDED.result,
-			usage = EXCLUDED.usage,
-			cost = EXCLUDED.cost,
-			provider_envelope = EXCLUDED.provider_envelope,
 			updated_at = EXCLUDED.updated_at`,
-		record.OwnerID, record.Version, record.OperationHash, record.Operation, record.Result,
-		record.Usage, record.Cost, record.Envelope, record.CreatedAt, record.UpdatedAt,
+		record.OwnerID, record.Version, record.OperationHash, record.Result, record.CreatedAt, record.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("postgres: upsert cache record: %w", err)
@@ -49,11 +40,10 @@ func (store *Store) PutCache(ctx context.Context, record CacheRecord) error {
 func (store *Store) Cache(ctx context.Context, ownerID, version, operationHash string) (CacheRecord, error) {
 	var record CacheRecord
 	err := store.pool.QueryRow(ctx, `
-		SELECT owner_id, cache_version, operation_hash, operation, result, usage, cost, provider_envelope, created_at, updated_at
+		SELECT owner_id, cache_version, operation_hash, result, created_at, updated_at
 		FROM llm_operation_cache
 		WHERE owner_id = $1 AND cache_version = $2 AND operation_hash = $3`, ownerID, version, operationHash).Scan(
-		&record.OwnerID, &record.Version, &record.OperationHash, &record.Operation, &record.Result,
-		&record.Usage, &record.Cost, &record.Envelope, &record.CreatedAt, &record.UpdatedAt,
+		&record.OwnerID, &record.Version, &record.OperationHash, &record.Result, &record.CreatedAt, &record.UpdatedAt,
 	)
 	if err != nil {
 		return CacheRecord{}, notFound(err)

@@ -315,7 +315,7 @@ func (cache *diagnosticCache) Get(context.Context, string, string) (coreruntime.
 	return cache.record, cache.found, nil
 }
 
-func (cache *diagnosticCache) Set(_ context.Context, _, _ string, _ cachekey.Operation, result coreruntime.CachedResult) error {
+func (cache *diagnosticCache) Set(_ context.Context, _, _ string, result coreruntime.CachedResult) error {
 	cache.record = result
 	cache.found = true
 	return nil

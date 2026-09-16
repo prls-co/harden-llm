@@ -20,9 +20,8 @@ import (
 func TestClientArtifactPersistenceIsRedactedAndNonFatal(t *testing.T) {
 	t.Parallel()
 	resultFixture := coreruntime.ProviderResult{
-		Output:              "ok",
-		Accounting:          testLedger(1, 0, 0, 1, 0, accounting.UnknownCost("missing_rate")),
-		RawProviderEnvelope: json.RawMessage(`{"authorization":"Bearer fixture-only-key","output_text":"fixture prompt echoed"}`),
+		Output:     "ok",
+		Accounting: testLedger(1, 0, 0, 1, 0, accounting.UnknownCost("missing_rate")),
 	}
 
 	t.Run("success", func(t *testing.T) {

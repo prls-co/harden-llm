@@ -98,17 +98,15 @@ func Execute(
 				return record, cacheErr
 			}
 			if found {
-				cached.ProviderResult.Accounting = normalizedLedger(cached.ProviderResult.Accounting)
-				if accountingErr := validateLedger(cached.ProviderResult.Accounting); accountingErr != nil {
-					endCache("unknown", accountingErr)
-					return record, accountingErr
+				if admissionErr := admitCachedResult(cacheContext, profile, target, cached, call); admissionErr != nil {
+					endCache("unknown", admissionErr)
+					return record, NewCacheIntegrityError()
 				}
 				endCache("hit", nil)
 				record.Output, record.Search = cached.ProviderResult.Output, cached.ProviderResult.Search
 				record.Accounting.Result = cached.ProviderResult.Accounting
 				producer := cached.Producer
 				record.ResultSource = ResultSource{Kind: ResultSourceCache, Producer: &producer}
-				record.RawProviderEnvelope = append(json.RawMessage(nil), cached.ProviderResult.RawProviderEnvelope...)
 				record.Cache.Status, record.Cache.Served = "hit", true
 				return record, nil
 			}
@@ -125,6 +123,7 @@ func Execute(
 		call     Call
 		prepared PreparedOperation
 	}{call, prepared}
+	providerAccumulator := accounting.NewProviderAccumulator()
 	for number := 1; ; number++ {
 		if err := executionContextError(ctx, config.Now()); err != nil {
 			return record, err
@@ -143,48 +142,35 @@ func Execute(
 		result, failure := executor.Execute(providerContext, work.prepared)
 		providerUsed := result.ProviderDispatched
 		result.Accounting = normalizedLedger(result.Accounting)
-		if accountingErr := validateLedger(result.Accounting); accountingErr != nil {
-			if failure == nil {
-				failure = accountingErr
+		if accountingErr := providerAccumulator.Observe(providerUsed, result.Accounting); accountingErr != nil {
+			failure = combineAccountingFailure(failure)
+		}
+		record.Accounting.Provider = providerAccumulator.Ledger()
+		previousOutput := ""
+		if failure == nil {
+			validateStructured := func(value any) error {
+				return validateStructuredValue(attemptContext, call.Telemetry, profile, work.call.Repair != nil, call.ValidateStructured, value)
 			}
-		} else if hasProviderAccounting(result.Accounting) {
-			ledger, accountingErr := accounting.AddLedger(record.Accounting.Provider, result.Accounting)
-			if accountingErr != nil {
-				if failure == nil {
-					failure = accountingProviderError()
+			admissionErr := admitResult(result, work.call.CallType, validateStructured)
+			if admissionErr != nil {
+				var providerError *retry.ProviderError
+				if work.call.CallType == "structured" && !errors.As(admissionErr, &providerError) {
+					failure = &retry.ProviderError{Err: admissionErr, Category: retry.CategoryParse}
+					encoded, marshalErr := json.Marshal(result.Output)
+					if marshalErr != nil {
+						failure = marshalErr
+					} else {
+						previousOutput = string(encoded)
+						captureParseFailureResponse(&record, previousOutput)
+					}
+				} else {
+					failure = admissionErr
 				}
-			} else {
-				record.Accounting.Provider = ledger
 			}
-		}
-		if len(result.RawProviderEnvelope) > 0 {
-			record.RawProviderEnvelope = append(json.RawMessage(nil), result.RawProviderEnvelope...)
-		}
-		if failure == nil && !acceptedOutput(result.Output) {
-			failure = &retry.ProviderError{Err: errors.New("provider returned no accepted output"), Code: "OUTPUT_REQUIRED", Category: retry.CategoryOther}
 		}
 		endProvider(result.ProviderDispatched, failure)
-		previousOutput := ""
 		if failure != nil {
 			captureProviderParseFailure(&record, failure, &previousOutput)
-		}
-		if failure == nil && call.CallType == "structured" {
-			var validationErr error
-			if call.Telemetry == nil {
-				validationErr = call.ValidateStructured(result.Output)
-			} else {
-				validationErr = call.Telemetry.ValidateSchema(attemptContext, profile, work.call.Repair != nil, func(context.Context) error { return call.ValidateStructured(result.Output) })
-			}
-			if validationErr != nil {
-				failure = &retry.ProviderError{Err: validationErr, Category: retry.CategoryParse}
-				encoded, marshalErr := json.Marshal(result.Output)
-				if marshalErr != nil {
-					failure = marshalErr
-				} else {
-					previousOutput = string(encoded)
-					captureParseFailureResponse(&record, previousOutput)
-				}
-			}
 		}
 		if contextErr := executionContextError(ctx, config.Now()); contextErr != nil {
 			failure = contextErr
@@ -204,17 +190,17 @@ func Execute(
 			record.Accounting.Result = result.Accounting
 			producer := target
 			record.ResultSource = ResultSource{Kind: ResultSourceProvider, AttemptNumber: number, Producer: &producer}
-			record.RawProviderEnvelope = append(json.RawMessage(nil), result.RawProviderEnvelope...)
 			if cacheMode != cachekey.ModeOff {
 				cacheContext := ctx
 				endCache := func(string, error) {}
 				if call.Telemetry != nil {
 					cacheContext, endCache = call.Telemetry.StartCache(ctx, "write")
 				}
-				cacheErr := cache.Set(cacheContext, record.Cache.OperationHash, cacheVersion, prepared.Operation, CachedResult{ProviderResult: result, Producer: target})
+				cacheErr := cache.Set(cacheContext, record.Cache.OperationHash, cacheVersion, CachedResult{ProviderResult: result, Producer: target})
 				if cacheErr != nil {
-					endCache("unknown", cacheErr)
-					return record, cacheErr
+					record.Cache.Status = "write_failed"
+					endCache(record.Cache.Status, cacheErr)
+					return record, nil
 				}
 				endCache(record.Cache.Status, nil)
 				record.Cache.Written = true
@@ -261,10 +247,6 @@ func executionContextError(ctx context.Context, now time.Time) error {
 	}
 	return nil
 }
-func hasProviderAccounting(ledger Ledger) bool {
-	return ledger.Usage.Status != accounting.UsageUnavailable || ledger.Cost.Status != accounting.CostUnavailable
-}
-
 func normalizedLedger(ledger Ledger) Ledger {
 	if ledger.Usage.Status == "" {
 		ledger.Usage = accounting.UnavailableUsage()
@@ -273,6 +255,52 @@ func normalizedLedger(ledger Ledger) Ledger {
 		ledger.Cost = accounting.UnavailableCost()
 	}
 	return ledger
+}
+
+func admitResult(result ProviderResult, callType string, validateStructured func(any) error) error {
+	if accountingErr := validateLedger(result.Accounting); accountingErr != nil {
+		return accountingErr
+	}
+	if !acceptedOutput(result.Output) {
+		return &retry.ProviderError{Err: errors.New("provider returned no accepted output"), Code: "OUTPUT_REQUIRED", Category: retry.CategoryOther}
+	}
+	if searchErr := ValidateSearchResult(result.Search); searchErr != nil {
+		return &retry.ProviderError{Err: errors.New("provider search metadata is invalid"), Code: "SEARCH_INVALID", Category: retry.CategoryOther}
+	}
+	if callType == "structured" {
+		if validateStructured == nil {
+			return errors.New("runtime structured output validator is required")
+		}
+		return validateStructured(result.Output)
+	}
+	return nil
+}
+
+func admitCachedResult(ctx context.Context, profile Profile, target ExecutionTarget, cached CachedResult, call Call) error {
+	if err := validateCacheProducer(cached.Producer, target); err != nil {
+		return err
+	}
+	validateStructured := func(value any) error {
+		return validateStructuredValue(ctx, call.Telemetry, profile, false, call.ValidateStructured, value)
+	}
+	return admitResult(cached.ProviderResult, call.CallType, validateStructured)
+}
+
+func validateStructuredValue(ctx context.Context, telemetry *Telemetry, profile Profile, repair bool, validator func(any) error, value any) error {
+	if validator == nil {
+		return errors.New("runtime structured output validator is required")
+	}
+	if telemetry == nil {
+		return validator(value)
+	}
+	return telemetry.ValidateSchema(ctx, profile, repair, func(context.Context) error { return validator(value) })
+}
+
+func validateCacheProducer(producer, expected ExecutionTarget) error {
+	if strings.TrimSpace(producer.ProfileID) == "" || producer.Provider != expected.Provider || producer.Protocol != expected.Protocol || producer.Endpoint != expected.Endpoint || producer.ModelID != expected.ModelID {
+		return NewCacheIntegrityError()
+	}
+	return nil
 }
 
 func validateLedger(ledger Ledger) error {
@@ -297,6 +325,34 @@ func acceptedOutput(output any) bool {
 
 func accountingProviderError() error {
 	return &retry.ProviderError{Err: errors.New("provider accounting is invalid"), Code: "ACCOUNTING_INVALID", Category: retry.CategoryOther}
+}
+
+func combineAccountingFailure(existing error) error {
+	accountingFailure := accountingProviderError()
+	if existing == nil {
+		return accountingFailure
+	}
+	if errors.Is(existing, context.Canceled) || errors.Is(existing, context.DeadlineExceeded) {
+		return existing
+	}
+	var providerError *retry.ProviderError
+	if !errors.As(existing, &providerError) {
+		return accountingFailure
+	}
+	switch providerError.Code {
+	case "ENDPOINT_POLICY", "TLS_OR_TRANSPORT_CONFIGURATION", "RESPONSE_TOO_LARGE":
+		return existing
+	}
+	var accountingError *retry.ProviderError
+	if !errors.As(accountingFailure, &accountingError) {
+		return accountingFailure
+	}
+	merged := *accountingError
+	merged.Status = providerError.Status
+	merged.RetryAfter = providerError.RetryAfter
+	merged.ProviderRequestID = providerError.ProviderRequestID
+	merged.Type = providerError.Type
+	return &merged
 }
 
 func targetFromProfile(profile Profile) ExecutionTarget {

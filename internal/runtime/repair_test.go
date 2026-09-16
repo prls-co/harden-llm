@@ -449,6 +449,123 @@ func TestRecoveryBoundaryAccountingCache(t *testing.T) {
 	}
 }
 
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-226
+func TestRecoveryIntegrityAccounting(t *testing.T) {
+	t.Parallel()
+	profile := Profile{ID: "selected", Provider: "fixture", APIInferenceType: "responses", BaseURL: "https://example.test", ModelID: "selected-model"}
+	catalog := map[string]Profile{profile.ID: profile}
+	credentials := func(context.Context, Profile) (Credential, error) { return Credential{}, nil }
+	measuredUsage, err := accounting.CompleteUsage(2, 0, 0, 1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	measured := Ledger{Usage: measuredUsage, Cost: accounting.ExactCost(0.01, "reported")}
+	empty := accounting.EmptyLedger()
+	policy := retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{retry.CategoryNetwork}, Backoff: retry.Backoff{}}
+	run := func(t *testing.T, executor *accountingSequenceExecutor, call Call, selectedPolicy retry.Policy) (CallRecord, error) {
+		t.Helper()
+		return Execute(context.Background(), executor, credentials, profile.ID, catalog, call, retry.Config{Policy: selectedPolicy, Wait: func(context.Context, time.Duration) error { return nil }}, nil, cachekey.ModeOff, "operation-v2", "call", "trace")
+	}
+
+	t.Run("unknown dispatched work remains partial after measured success", func(t *testing.T) {
+		executor := &accountingSequenceExecutor{
+			results:  []ProviderResult{{ProviderDispatched: true, Accounting: empty}, {ProviderDispatched: true, Output: "accepted", Accounting: measured}},
+			failures: []error{&retry.ProviderError{Category: retry.CategoryNetwork}, nil},
+		}
+		record, err := run(t, executor, Call{CallType: "text"}, policy)
+		if err != nil {
+			t.Fatal(err)
+		}
+		provider := record.Accounting.Provider
+		if provider.Usage.Status != accounting.UsagePartial || provider.Usage.TotalTokens() != 3 || provider.Cost.Status != accounting.CostPartial || provider.Cost.KnownSubtotalUSD != 0.01 || provider.Cost.KnownObservations != 1 || provider.Cost.UnknownObservations != 1 {
+			t.Fatalf("unknown then measured provider ledger = %#v", provider)
+		}
+		if record.Accounting.Result != measured {
+			t.Fatalf("accepted result ledger changed = %#v", record.Accounting.Result)
+		}
+	})
+
+	t.Run("measured then unknown has the same aggregate coverage", func(t *testing.T) {
+		executor := &accountingSequenceExecutor{
+			results:  []ProviderResult{{ProviderDispatched: true, Accounting: measured}, {ProviderDispatched: true, Output: "accepted", Accounting: empty}},
+			failures: []error{&retry.ProviderError{Category: retry.CategoryNetwork}, nil},
+		}
+		record, err := run(t, executor, Call{CallType: "text"}, policy)
+		if err != nil {
+			t.Fatal(err)
+		}
+		provider := record.Accounting.Provider
+		if provider.Usage.Status != accounting.UsagePartial || provider.Usage.TotalTokens() != 3 || provider.Cost.Status != accounting.CostPartial || provider.Cost.KnownSubtotalUSD != 0.01 || provider.Cost.KnownObservations != 1 || provider.Cost.UnknownObservations != 1 {
+			t.Fatalf("measured then unknown provider ledger = %#v", provider)
+		}
+		if record.Accounting.Result != empty {
+			t.Fatalf("result ledger was inferred from prior attempt = %#v", record.Accounting.Result)
+		}
+	})
+
+	t.Run("all unknown dispatched work is represented without known amounts", func(t *testing.T) {
+		executor := &accountingSequenceExecutor{
+			results:  []ProviderResult{{ProviderDispatched: true, Accounting: empty}, {ProviderDispatched: true, Accounting: empty}},
+			failures: []error{&retry.ProviderError{Category: retry.CategoryNetwork}, &retry.ProviderError{Category: retry.CategoryNetwork}},
+		}
+		record, err := run(t, executor, Call{CallType: "text"}, policy)
+		if err == nil || record.Accounting.Provider.Usage.Status != accounting.UsageUnavailable || record.Accounting.Provider.Cost.Status != accounting.CostUnknown || record.Accounting.Provider.Cost.KnownSubtotalUSD != 0 || record.Accounting.Provider.Cost.KnownObservations != 0 || record.Accounting.Provider.Cost.UnknownObservations != 2 {
+			t.Fatalf("all unknown provider ledger=%#v error=%v", record.Accounting.Provider, err)
+		}
+	})
+
+	t.Run("pre-dispatch failure adds no unknown observation", func(t *testing.T) {
+		executor := &accountingSequenceExecutor{
+			results:  []ProviderResult{{Accounting: empty}, {ProviderDispatched: true, Output: "accepted", Accounting: measured}},
+			failures: []error{&retry.ProviderError{Category: retry.CategoryNetwork}, nil},
+		}
+		record, err := run(t, executor, Call{CallType: "text"}, policy)
+		if err != nil || record.Accounting.Provider != measured {
+			t.Fatalf("pre-dispatch provider ledger=%#v error=%v", record.Accounting.Provider, err)
+		}
+	})
+
+	t.Run("measured zero plus unknown preserves known zero", func(t *testing.T) {
+		zeroUsage, usageErr := accounting.CompleteUsage(0, 0, 0, 0, 0)
+		if usageErr != nil {
+			t.Fatal(usageErr)
+		}
+		zero := Ledger{Usage: zeroUsage, Cost: accounting.ExactCost(0, "reported")}
+		executor := &accountingSequenceExecutor{
+			results:  []ProviderResult{{ProviderDispatched: true, Accounting: zero}, {ProviderDispatched: true, Output: "accepted", Accounting: empty}},
+			failures: []error{&retry.ProviderError{Category: retry.CategoryNetwork}, nil},
+		}
+		record, err := run(t, executor, Call{CallType: "text"}, policy)
+		if err != nil || record.Accounting.Provider.Usage.Status != accounting.UsagePartial || record.Accounting.Provider.Usage.TotalTokens() != 0 || record.Accounting.Provider.Cost.KnownSubtotalUSD != 0 || record.Accounting.Provider.Cost.KnownObservations != 1 || record.Accounting.Provider.Cost.UnknownObservations != 1 {
+			t.Fatalf("zero plus unknown provider ledger=%#v error=%v", record.Accounting.Provider, err)
+		}
+	})
+
+	t.Run("usage and cost coverage are independent", func(t *testing.T) {
+		usageOnly := Ledger{Usage: measuredUsage, Cost: accounting.UnavailableCost()}
+		costOnly := Ledger{Usage: accounting.UnavailableUsage(), Cost: accounting.ExactCost(0.02, "reported")}
+		executor := &accountingSequenceExecutor{
+			results:  []ProviderResult{{ProviderDispatched: true, Accounting: usageOnly}, {ProviderDispatched: true, Output: "accepted", Accounting: costOnly}},
+			failures: []error{&retry.ProviderError{Category: retry.CategoryNetwork}, nil},
+		}
+		record, err := run(t, executor, Call{CallType: "text"}, policy)
+		provider := record.Accounting.Provider
+		if err != nil || provider.Usage.Status != accounting.UsagePartial || provider.Usage.TotalTokens() != 3 || provider.Cost.Status != accounting.CostPartial || provider.Cost.KnownSubtotalUSD != 0.02 || provider.Cost.KnownObservations != 1 || provider.Cost.UnknownObservations != 1 {
+			t.Fatalf("independent coverage provider ledger=%#v error=%v", provider, err)
+		}
+	})
+
+	t.Run("invalid dimension remains terminal while valid dimension is retained", func(t *testing.T) {
+		invalidUsage := Ledger{Usage: Usage{InputTokens: -1, Status: accounting.UsagePartial}, Cost: accounting.ExactCost(0.02, "reported")}
+		executor := &accountingSequenceExecutor{results: []ProviderResult{{ProviderDispatched: true, Accounting: invalidUsage}}, failures: []error{nil}}
+		record, err := run(t, executor, Call{CallType: "text"}, retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}})
+		var providerErr *retry.ProviderError
+		if err == nil || !errors.As(err, &providerErr) || providerErr.Code != "ACCOUNTING_INVALID" || record.Accounting.Provider.Cost != accounting.ExactCost(0.02, "reported") || record.Output != nil {
+			t.Fatalf("invalid dimension record=%#v error=%v", record, err)
+		}
+	})
+}
+
 type accountingSequenceExecutor struct {
 	results  []ProviderResult
 	failures []error

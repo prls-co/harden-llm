@@ -96,7 +96,16 @@ func Project(record runtime.CallRecord, callContext runtime.ObservabilityContext
 		Attempts: make([]Attempt, 0, len(record.Attempts)), Observations: make([]Observation, 0, len(record.Attempts)*3+2),
 	}
 	if record.Cache.Mode != "" {
-		trace.appendObservation("cache.lookup", record.Cache.Status, map[string]any{
+		lookupOutcome := record.Cache.Status
+		if record.Cache.Status == "write_failed" {
+			switch record.Cache.Mode {
+			case "cache":
+				lookupOutcome = "miss"
+			case "refresh":
+				lookupOutcome = "refresh"
+			}
+		}
+		trace.appendObservation("cache.lookup", lookupOutcome, map[string]any{
 			"mode": record.Cache.Mode, "served": record.Cache.Served, "version": record.Cache.Version,
 		})
 	}
@@ -125,6 +134,8 @@ func Project(record runtime.CallRecord, callContext runtime.ObservabilityContext
 	}
 	if record.Cache.Written {
 		trace.appendObservation("cache.write", "success", map[string]any{"version": record.Cache.Version})
+	} else if record.Cache.Status == "write_failed" {
+		trace.appendObservation("cache.write", "failure", map[string]any{"version": record.Cache.Version})
 	}
 	if terminalErr != nil {
 		if len(record.Attempts) > 0 {

@@ -260,6 +260,98 @@ func AddLedger(left, right Ledger) (Ledger, error) {
 	return Ledger{Usage: usage, Cost: cost}, nil
 }
 
+// ProviderAccumulator is the dispatch-aware accounting boundary for one
+// logical call. The generic Add* functions intentionally treat an unavailable
+// value as an identity; this type is where an observed provider attempt with
+// missing accounting becomes explicit uncertainty.
+type ProviderAccumulator struct {
+	ledger       Ledger
+	missingUsage bool
+}
+
+func NewProviderAccumulator() ProviderAccumulator {
+	return ProviderAccumulator{ledger: EmptyLedger()}
+}
+
+// Observe records one provider attempt. Usage and cost are validated and
+// committed independently so valid evidence in one dimension survives an
+// invalid value in the other. The first accounting error is returned after all
+// possible valid evidence has been committed.
+func (accumulator *ProviderAccumulator) Observe(dispatched bool, observation Ledger) error {
+	if accumulator == nil {
+		return errors.New("accounting: provider accumulator is nil")
+	}
+
+	usageErr := observation.Usage.Validate()
+	costErr := observation.Cost.Validate()
+	usageMeasured := usageErr == nil && observation.Usage.Status != UsageUnavailable
+	costMeasured := costErr == nil && observation.Cost.Status != CostUnavailable
+	observed := dispatched || usageMeasured || costMeasured
+	var firstErr error
+	if usageErr != nil {
+		firstErr = usageErr
+	} else if observation.Usage.Status == UsageUnavailable {
+		if observed {
+			accumulator.missingUsage = true
+		}
+	} else {
+		usage, err := AddUsage(accumulator.ledger.Usage, observation.Usage)
+		if err != nil {
+			firstErr = err
+			accumulator.missingUsage = true
+		} else {
+			accumulator.ledger.Usage = usage
+		}
+	}
+	if usageErr != nil && observed {
+		accumulator.missingUsage = true
+	}
+
+	if costErr != nil {
+		if firstErr == nil {
+			firstErr = costErr
+		}
+		if observed {
+			accumulator.addUnknownCost()
+		}
+	} else if observation.Cost.Status == CostUnavailable {
+		if observed {
+			accumulator.addUnknownCost()
+		}
+	} else {
+		cost, err := AddCost(accumulator.ledger.Cost, observation.Cost)
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			if observed {
+				accumulator.addUnknownCost()
+			}
+		} else {
+			accumulator.ledger.Cost = cost
+		}
+	}
+	return firstErr
+}
+
+func (accumulator *ProviderAccumulator) addUnknownCost() {
+	cost, err := AddCost(accumulator.ledger.Cost, UnknownCost("unknown"))
+	if err == nil {
+		accumulator.ledger.Cost = cost
+	}
+}
+
+// Ledger returns a value copy of the accumulated provider accounting. Missing
+// usage coverage makes measured totals partial, while a call with no measured
+// usage remains unavailable.
+func (accumulator ProviderAccumulator) Ledger() Ledger {
+	ledger := accumulator.ledger
+	if accumulator.missingUsage && ledger.Usage.Status != UsageUnavailable {
+		ledger.Usage.Status = UsagePartial
+	}
+	return ledger
+}
+
 type Accounting struct {
 	Result   Ledger `json:"result"`
 	Provider Ledger `json:"provider"`

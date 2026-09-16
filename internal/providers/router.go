@@ -35,7 +35,6 @@ const (
 	defaultMaxResponseBytes   = 16 << 20
 	defaultAnthropicVersion   = "2023-06-01"
 	defaultTemperature        = 0.3
-	rawEnvelopeVersion        = "utility-llm.raw-provider-envelope.v1"
 	responseProjectionVersion = "v3"
 )
 
@@ -192,7 +191,7 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 	if prepared.webSearch != nil {
 		searchResults, searchErr := prepared.webSearch.results(requestContext, router.webSearcher)
 		if searchErr != nil {
-			return runtime.ProviderResult{}, searchErr
+			return runtime.ProviderResult{}, normalizeTransportError(ctx, requestContext, searchErr)
 		}
 		searchCall := prepared.webSearch.call
 		searchCall.UserPrompt = appendWebSearchContext(searchCall.UserPrompt, searchResults)
@@ -219,66 +218,48 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 	}))
 	response, err := router.client.Do(request)
 	if err != nil {
-		if contextErr := ctx.Err(); contextErr != nil {
-			return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, contextErr
-		}
-		if contextErr := requestContext.Err(); contextErr != nil {
-			return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, &retry.ProviderError{Err: errors.New("provider request timed out"), Code: "ETIMEDOUT", Category: retry.CategoryNetwork}
-		}
-		var policyErr *endpointPolicyError
-		if errors.As(err, &policyErr) {
-			return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, &retry.ProviderError{Err: errors.New("provider endpoint policy rejected the request"), Code: "ENDPOINT_POLICY", Category: retry.CategoryOther}
-		}
-		var resolutionErr *endpointResolutionError
-		if errors.As(err, &resolutionErr) {
-			category, code := classifyResolutionError(resolutionErr)
-			return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, &retry.ProviderError{Err: errors.New("provider endpoint resolution failed"), Code: code, Category: category}
-		}
-		if permanentTransportError(err) {
-			return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, &retry.ProviderError{Err: errors.New("provider TLS or transport configuration failed"), Code: "TLS_OR_TRANSPORT_CONFIGURATION", Category: retry.CategoryOther}
-		}
-		var networkError net.Error
-		if errors.As(err, &networkError) && networkError.Timeout() {
-			return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, &retry.ProviderError{Err: errors.New("provider network request timed out"), Code: "ETIMEDOUT", Category: retry.CategoryNetwork}
-		}
-		return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, &retry.ProviderError{Err: errors.New("provider network request failed"), Code: "NETWORK_ERROR", Category: retry.CategoryNetwork}
+		return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load()}, normalizeTransportError(ctx, requestContext, err)
 	}
 	defer response.Body.Close()
 	body, err = readBounded(response.Body, router.maxResponseBytes)
 	if err != nil {
-		if response.StatusCode < 200 || response.StatusCode > 299 {
-			return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, providerHTTPErrorAt(response, body, router.now())
+		bodyFailure := normalizeTransportError(ctx, requestContext, err)
+		if errors.Is(bodyFailure, context.Canceled) || errors.Is(bodyFailure, context.DeadlineExceeded) {
+			return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load()}, bodyFailure
 		}
 		if errors.Is(err, errResponseTooLarge) {
-			return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, &retry.ProviderError{Err: errors.New("provider response exceeded the size limit"), Code: "RESPONSE_TOO_LARGE", Category: retry.CategoryOther}
+			return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load()}, &retry.ProviderError{Err: errors.New("provider response exceeded the size limit"), Code: "RESPONSE_TOO_LARGE", Category: retry.CategoryOther}
+		}
+		if response.StatusCode < 200 || response.StatusCode > 299 {
+			return providerResultForFailure(prepared, response, body, dispatched.Load(), providerHTTPErrorAt(response, body, router.now()))
 		}
 		if prepared.protocol == "openai.responses" {
 			if streamResponse, streamErr := collectResponsesEventStreamIfPresent(response.Header.Get("Content-Type"), body); streamResponse != nil {
-				partial, _ := normalizeDecodedResponse(prepared, streamResponse)
+				partial, normalizeErr := normalizeDecodedResponse(prepared, streamResponse)
 				partial.ProviderDispatched = dispatched.Load()
-				partial.Output, partial.Search = nil, nil
+				clearProviderOutput(&partial)
 				if directiveErr := normalizeResponsesStreamReadError(err); directiveErr != nil {
-					return partial, directiveErr
+					return partial, preferAccountingFailure(normalizeErr, directiveErr)
 				}
 				if streamErr != nil {
-					return partial, streamErr
+					return partial, preferAccountingFailure(normalizeErr, streamErr)
 				}
-				return partial, &retry.ProviderError{Err: errors.New("provider response could not be read"), Code: "PROVIDER_RESPONSE_READ", Category: retry.CategoryNetwork}
+				return partial, preferAccountingFailure(normalizeErr, bodyFailure)
 			}
 			if streamErr := normalizeResponsesStreamReadError(err); streamErr != nil {
-				return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, streamErr
+				return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load()}, streamErr
 			}
 		}
 		if decoded, decodeErr := decodeJSONObject(body); decodeErr == nil {
-			partial, _ := normalizeDecodedResponse(prepared, decoded)
+			partial, normalizeErr := normalizeDecodedResponse(prepared, decoded)
 			partial.ProviderDispatched = dispatched.Load()
-			partial.Output, partial.Search = nil, nil
-			return partial, &retry.ProviderError{Err: errors.New("provider response could not be read"), Code: "PROVIDER_RESPONSE_READ", Category: retry.CategoryNetwork}
+			clearProviderOutput(&partial)
+			return partial, preferAccountingFailure(normalizeErr, bodyFailure)
 		}
-		return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, &retry.ProviderError{Err: errors.New("provider response could not be read"), Code: "PROVIDER_RESPONSE_READ", Category: retry.CategoryNetwork}
+		return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load()}, bodyFailure
 	}
 	if response.StatusCode < 200 || response.StatusCode > 299 {
-		return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, providerHTTPErrorAt(response, body, router.now())
+		return providerResultForFailure(prepared, response, body, dispatched.Load(), providerHTTPErrorAt(response, body, router.now()))
 	}
 	if prepared.protocol == "openai.responses" && isEventStream(response.Header.Get("Content-Type"), body) {
 		streamResponse, streamErr := collectResponsesEventStream(body)
@@ -286,24 +267,76 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 			result, normalizeErr := normalizeDecodedResponse(prepared, streamResponse)
 			result.ProviderDispatched = dispatched.Load()
 			if streamErr != nil {
-				result.Output, result.Search = nil, nil
-				return result, streamErr
+				clearProviderOutput(&result)
+				return result, preferAccountingFailure(normalizeErr, streamErr)
 			}
 			if normalizeErr != nil {
+				clearProviderOutput(&result)
 				return result, normalizeErr
 			}
 			return result, nil
 		}
 		if streamErr != nil {
-			return runtime.ProviderResult{ProviderDispatched: dispatched.Load()}, streamErr
+			return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load()}, streamErr
 		}
 	}
 	result, err := normalizeResponse(prepared, body)
 	result.ProviderDispatched = dispatched.Load()
 	if err != nil {
+		clearProviderOutput(&result)
 		return result, err
 	}
 	return result, nil
+}
+
+func providerResultForFailure(prepared preparedRequest, response *http.Response, body []byte, dispatched bool, failure error) (runtime.ProviderResult, error) {
+	result := runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched}
+	if decoded, err := decodeJSONObject(body); err == nil {
+		result.Accounting, err = normalizeResponseAccounting(prepared, decoded)
+		if err != nil {
+			return result, preferAccountingFailure(accountingProviderError(err), failure)
+		}
+	}
+	return result, failure
+}
+
+func preferAccountingFailure(accountingFailure, fallback error) error {
+	if accountingFailure == nil {
+		return fallback
+	}
+	var providerError *retry.ProviderError
+	if !errors.As(accountingFailure, &providerError) || providerError.Code != "ACCOUNTING_INVALID" {
+		return fallback
+	}
+	var fallbackProviderError *retry.ProviderError
+	if !errors.As(fallback, &fallbackProviderError) {
+		return accountingFailure
+	}
+	merged := *providerError
+	if merged.Status == 0 {
+		merged.Status = fallbackProviderError.Status
+	}
+	if merged.RetryAfter == 0 {
+		merged.RetryAfter = fallbackProviderError.RetryAfter
+	}
+	if merged.ProviderRequestID == "" {
+		merged.ProviderRequestID = fallbackProviderError.ProviderRequestID
+	}
+	if merged.Type == "" {
+		merged.Type = fallbackProviderError.Type
+	}
+	return &merged
+}
+
+func providerResponseReadFailure() error {
+	return &retry.ProviderError{Err: errors.New("provider response could not be read"), Code: "PROVIDER_RESPONSE_READ", Category: retry.CategoryNetwork}
+}
+
+func clearProviderOutput(result *runtime.ProviderResult) {
+	if result == nil {
+		return
+	}
+	result.Output, result.Search = nil, nil
 }
 
 func collectResponsesEventStreamIfPresent(contentType string, body []byte) (map[string]any, error) {
@@ -325,6 +358,55 @@ func classifyResolutionError(err error) (retry.Category, string) {
 		return retry.CategoryOther, "DNS_PERMANENT"
 	}
 	return retry.CategoryOther, "DNS_ERROR"
+}
+
+// normalizeTransportError assigns transport facts at the shared HTTP boundary.
+// parent is the logical caller/attempt context; local is the narrower request
+// context. A local deadline must not unwrap as context.DeadlineExceeded because
+// retry.Classify treats that value as the terminal caller deadline.
+func normalizeTransportError(parent, local context.Context, err error) error {
+	if parent == nil {
+		parent = context.Background()
+	}
+	if local == nil {
+		local = parent
+	}
+	if contextErr := parent.Err(); contextErr != nil {
+		return contextErr
+	}
+	if err == nil {
+		if localErr := local.Err(); localErr != nil {
+			return &retry.ProviderError{Err: errors.New("provider request timed out"), Code: "ETIMEDOUT", Category: retry.CategoryNetwork}
+		}
+		return nil
+	}
+	// Preserve typed boundary facts even when a narrower request context was
+	// canceled concurrently. The original parent above still owns logical-call
+	// cancellation and deadline precedence.
+	var policyErr *endpointPolicyError
+	if errors.As(err, &policyErr) {
+		return &retry.ProviderError{Err: errors.New("provider endpoint policy rejected the request"), Code: "ENDPOINT_POLICY", Category: retry.CategoryOther}
+	}
+	var resolutionErr *endpointResolutionError
+	if errors.As(err, &resolutionErr) {
+		category, code := classifyResolutionError(resolutionErr)
+		return &retry.ProviderError{Err: errors.New("provider endpoint resolution failed"), Code: code, Category: category}
+	}
+	if permanentTransportError(err) {
+		return &retry.ProviderError{Err: errors.New("provider TLS or transport configuration failed"), Code: "TLS_OR_TRANSPORT_CONFIGURATION", Category: retry.CategoryOther}
+	}
+	var networkError net.Error
+	if errors.As(err, &networkError) && networkError.Timeout() {
+		return &retry.ProviderError{Err: errors.New("provider network request timed out"), Code: "ETIMEDOUT", Category: retry.CategoryNetwork}
+	}
+	var providerErr *retry.ProviderError
+	if errors.As(err, &providerErr) {
+		return err
+	}
+	if localErr := local.Err(); localErr != nil {
+		return &retry.ProviderError{Err: errors.New("provider request timed out"), Code: "ETIMEDOUT", Category: retry.CategoryNetwork}
+	}
+	return &retry.ProviderError{Err: errors.New("provider network request failed"), Code: "NETWORK_ERROR", Category: retry.CategoryNetwork}
 }
 
 func requestTimeout(options map[string]any) (time.Duration, error) {
@@ -619,11 +701,11 @@ func responseKind(callType string) string {
 func readBounded(reader io.Reader, maximum int64) ([]byte, error) {
 	limited := io.LimitReader(reader, maximum+1)
 	body, err := io.ReadAll(limited)
+	if int64(len(body)) > maximum {
+		return body, errResponseTooLarge
+	}
 	if err != nil {
 		return body, providerResponseReadError{err: err}
-	}
-	if int64(len(body)) > maximum {
-		return nil, errResponseTooLarge
 	}
 	return body, nil
 }
