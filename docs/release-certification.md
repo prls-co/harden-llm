@@ -1629,3 +1629,86 @@ the repository testing policy.
 
 The source documentation update after this deployment is a documentation-only
 checkpoint; it does not change the application images or require a rebuild.
+
+## Opt-in browser and live search canary — production (2026-09-16 UTC)
+
+The browser-free recovery release was followed by the explicitly authorized
+native-browser canary against the exact deployed application-bearing release
+`60b74f7224ab8633acf8bb4ea7670307a1c15e18`. The frontend container remained
+healthy at image `sha256:cbb385010d370fb70a2efaa0acaa07deccb350b8e58ec55a9b972dbf2709ddb6`;
+the gateway remained healthy at image
+`sha256:7d75ff7b3e923301183a44a61ae19d750db9b7ae87ea53eafe0eda91f4775844`.
+Web health/login and API health/readiness probes all returned HTTP 200.
+
+The real Chromium canary authenticated, selected `CPA GPT-5.6 Luna`, enabled
+web search, completed one bounded live provider request, verified returned
+search metadata and rendered search evidence, exercised result and trace
+controls, inspected request/response/cURL projections, deleted only matching
+canary history records, logged out, and left zero screenshots. The recovery
+policy contract was also checked: the removed escalation control is absent.
+
+The canary test was updated to match the intentional recovery topology and to
+make persisted search state and cleanup idempotent. This changed only the local
+certification harness; the deployed images and production configuration were
+not modified. The sanitized receipt is
+`plans/evidence/harden-llm/deployed-browser-search-60b74f7.json`.
+
+This is targeted native browser/provider evidence, not full visual-layout
+certification; `browserLayoutChecked` remains false. The broader browser suite
+and separate live structured-call workflow were not run.
+
+## Reusable numbered pagination — production (2026-09-17 UTC)
+
+Application source `2be0685214b3d16bee4c71abd40ca19837b8b16b` was pushed to
+`main` and deployed to <https://harden-llm.prls.co/> at
+`2026-09-17T03:23:13.496003586Z`. This release adds the additive numbered
+History contract (`page` plus the existing `limit`), strict wire decoding, the
+owner-scoped repeatable-read count/page query, and the reusable
+`PrlsUI.Pagination` controls. Legacy cursor History remains supported.
+
+The browser-free release selector accepted **24/24 tasks**, with zero failures
+and cleanup errors. Phoenix passed **210 tests**, with **4 opt-in tests
+excluded**. `make test-fast` accepted all 8 tasks, `make verify` passed, and
+the canonical PostgreSQL integration task passed, including the real pagination
+measurement and snapshot checks. GitHub's push hierarchy passed its exact-SHA
+fast gate in [run 35177508625](https://github.com/prls-co/harden-llm/actions/runs/35177508625).
+The bounded measurement receipt is
+`plans/evidence/harden-llm/reusable-pagination-test-232.json`; the sanitized
+deployment receipt is
+`plans/evidence/harden-llm/reusable-pagination-production-2be0685.json`.
+
+Images were built from the clean production checkout at the pushed source and
+only `harden-llm-gateway` and `harden-llm-web` were recreated with Compose
+`--no-build --no-deps --wait`. All sixteen Compose services remained running;
+the two application containers were healthy with zero restarts. The existing
+database, Garage, telemetry, and frontend session volumes were retained, and
+the database still reports migrations `1` through `7`; this release contains
+no schema or data migration.
+
+| Component | Runtime release | Immutable image | Container |
+| --- | --- | --- | --- |
+| Gateway | `2be0685214b3d16bee4c71abd40ca19837b8b16b` | `sha256:08959dbe7682cc93fb2163de043cafdadaf28f8c9c94eaa098b3308f3721c45d` | `59ac1004d0cdf6db8adbf39cbd640abc639592f6e4740af1e2eb91b78f6c5a02` |
+| Web | `2be0685214b3d16bee4c71abd40ca19837b8b16b` | `sha256:43a7c3db143023fd9f0e42fc6fef217006dfd186fcf73e0f406dc2ebd7fe562f` | `0f4ec8c957abc6bebbb16b170f801742df9bdbc09e880c2ed739bd575343ab39` |
+
+The public frontend `/healthz` and `/login`, API `/healthz` and `/readyz`,
+and authenticated read-only checks passed. Anonymous History remained
+protected with HTTP 401. The existing static token returned HTTP 200 for
+profiles and numbered History; the numbered response contained `pagination`
+and no `nextCursor`. Guest and operator cookie/CSRF login, authenticated
+workspace HTML, and logout each passed. No provider or search request was
+made, and all verification sessions were logged out.
+
+Rollback safeguards retain
+`harden-llm-web:rollback-pagination-2be0685` and
+`harden-llm-gateway:rollback-pagination-2be0685`, with the same named data and
+session volumes. The gateway rollback image is an exported filesystem snapshot
+of the healthy pre-deployment `60b74f7` container because Docker no longer
+exposed that container's original image as a local inspectable tag; its
+pre-deployment digest remains recorded in the prior recovery receipt. Rollback
+recreates only the two application services and does not rewind database
+migrations or synchronized configuration.
+
+No browser was launched and browser layout/native-event behavior was not
+checked. The reusable pagination implementation is production deployed, while
+the app-dev extraction and any future package split remain planned follow-up
+work.

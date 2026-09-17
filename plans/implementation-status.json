@@ -73,9 +73,9 @@
   "reusablePagination": {
     "plan": "plans/reusable-pagination-implementation-plan.md",
     "adr": "ADR-HLLM-023",
-    "status": "implementation-complete-release-pending",
-    "updatedAt": "2026-09-16",
-    "completedPhases": ["P0", "P1", "P2", "P3", "P4", "P5-local"],
+    "status": "complete",
+    "updatedAt": "2026-09-17",
+    "completedPhases": ["P0", "P1", "P2", "P3", "P4", "P5"],
     "tests": [
       "TEST-229", "TEST-230", "TEST-231", "TEST-232",
       "WEB-TEST-077", "WEB-TEST-078", "WEB-TEST-079", "WEB-TEST-080", "WEB-TEST-081"
@@ -90,12 +90,39 @@
       "releaseSelector": "24/24 tasks accepted, no failures or cleanup errors",
       "goIntegration": "canonical go-integration task passed, including real PostgreSQL pagination measurement",
       "measurementEvidence": "plans/evidence/harden-llm/reusable-pagination-test-232.json",
+      "localFast": "make test-fast accepted 8 tasks",
+      "localVerify": "make verify passed",
+      "hostedFast": "GitHub test hierarchy run 35177508625 passed for the exact application SHA",
       "browserLayout": "not run; explicit browser opt-in remains separate",
       "providerCalls": 0
     },
     "deployment": {
-      "status": "pending",
-      "note": "Do not interpret implementation or local gates as deployed behavior until the exact pushed SHA and deployment identity are recorded."
+      "status": "deployed",
+      "sourceSHA": "2be0685214b3d16bee4c71abd40ca19837b8b16b",
+      "deployedAt": "2026-09-17T03:23:13.496003586Z",
+      "webURL": "https://harden-llm.prls.co/",
+      "apiURL": "https://harden-llm-api.prls.co/",
+      "gatewayImage": "sha256:08959dbe7682cc93fb2163de043cafdadaf28f8c9c94eaa098b3308f3721c45d",
+      "frontendImage": "sha256:43a7c3db143023fd9f0e42fc6fef217006dfd186fcf73e0f406dc2ebd7fe562f",
+      "gatewayContainer": "59ac1004d0cdf6db8adbf39cbd640abc639592f6e4740af1e2eb91b78f6c5a02",
+      "frontendContainer": "0f4ec8c957abc6bebbb16b170f801742df9bdbc09e880c2ed739bd575343ab39",
+      "health": {
+        "frontendHealthz": 200,
+        "frontendLogin": 200,
+        "apiHealthz": 200,
+        "apiReadyz": 200,
+        "anonymousHistory": 401,
+        "staticTokenNumberedHistory": 200,
+        "guestAndOperatorCookieCSRF": "login/workspace/logout passed"
+      },
+      "browserLayoutChecked": false,
+      "providerCalls": 0,
+      "evidence": "plans/evidence/harden-llm/reusable-pagination-production-2be0685.json",
+      "rollback": {
+        "frontendTag": "harden-llm-web:rollback-pagination-2be0685",
+        "gatewayTag": "harden-llm-gateway:rollback-pagination-2be0685",
+        "volumesRetained": true
+      }
     }
   },
   "source": {

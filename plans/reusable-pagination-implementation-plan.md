@@ -4,8 +4,9 @@
 
 - Plan: `PLAN-HLLM-REUSABLE-PAGINATION-001`.
 - Date: 2026-09-16.
-- Status: implementation complete through local P5 evidence; pushed/deployed
-  release certification is pending.
+- Status: implementation and production deployment complete for the first
+  consumer; cross-project extraction and browser layout certification remain
+  explicit follow-ups.
 - Direction: Petal Components 4.16.1 was evaluated and not adopted because its
   locked `websock_adapter ~> 0.5.7` requirement conflicts with the pinned
   stack's `websock_adapter 0.6.0`. A small in-house Phoenix component/state
@@ -19,7 +20,7 @@ Deliver numbered pagination with arbitrary page access, suitable for cards,
 lists, tables, and editors. History must use the same reusable controls as
 future consumers, rather than retaining a separate Load more experience.
 
-This document records the requested implementation and its remaining release
+This document records the requested implementation and its production release
 handoff. It does not claim app-dev migration, browser layout certification, or
 provider behavior. The implementation changes stay in this repository and its
 existing Go/OpenAPI/Phoenix ownership boundaries.
@@ -514,7 +515,7 @@ Depends on P2-P4.
   measured stronger deep-offset guarantee.
 - [x] Run formatting and whitespace checks; update canonical specifications,
   requirements, ADR and implementation status with actual evidence.
-- [ ] Push the verified application checkpoint and complete the authorized
+- [x] Push the verified application checkpoint and complete the authorized
   browser-free release/deployment certification with exact SHA/image identity.
 - [x] Record what is locally verified, what remains unverified, and the
   cross-project extraction follow-up. Browser layout and app-dev migration are
@@ -583,4 +584,6 @@ The first implementation is complete when:
   extraction and app-dev migration remain future work; browser layout remains
   an explicit opt-in boundary. Deployment is complete only after the exact
   pushed SHA, image identities, health/authenticated read evidence and rollback
-  record are added to the release documents.
+  record are added to the release documents. Those facts are recorded in
+  `plans/evidence/harden-llm/reusable-pagination-production-2be0685.json` and
+  the production release journal.
