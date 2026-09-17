@@ -1819,19 +1819,46 @@ containers.
 | TEST-233 / TEST-234 | Passed in `make test-static`; source ownership, precedence, ambient isolation, semantic comparison, no-op, scoped apply, and redaction cases are green |
 | TEST-235 | Passed in `make test-production-config`; native Compose 2.40.3 `config` preserved JSON, dollar signs, intentional empties, defaults, and ordered file precedence without starting a container |
 | `make test-fast` | Accepted: 8 tasks, no failure or cleanup error |
-| Fresh-process production check | Resolved all three approved sources; runtime inspected; only `harden-llm-gateway.image-reference` reported |
-| No-op safety | All 16 Compose container IDs and restart counts were unchanged; no `up`, recreate, pull, build, or profile-sync operation was run |
+| Initial fresh-process production check | Resolved all three approved sources; runtime inspected; only `harden-llm-gateway.image-reference` reported |
+| Post-remediation production check | Equivalent after the scoped gateway image inventory repair |
+| Initial no-op safety | All 16 long-running Compose container IDs and restart counts were unchanged; no `up`, recreate, pull, build, or profile-sync operation was run |
 | Public browser-free probes | Frontend `/healthz`, `/login`; API `/healthz`, `/readyz`: HTTP 200 |
 
-The retained gateway container digest is not currently addressable by the
-Compose tag recorded in the descriptor; the local tag resolves to a different
-image. This is an explicit recovery/image-inventory prerequisite, so `apply`
-blocks before `up` rather than risking a downgrade. The descriptor records the
-running identity and the missing local reference; no service, credential source,
-mount, data volume, image, or application release was changed by this plan.
-The descriptor is `/home/kirill/.config/harden-llm/production.json` and is not
-committed. Its repository-safe schema is
+At the initial closeout, the retained gateway container digest was not
+addressable by the Compose tag recorded in the descriptor; the local tag
+resolved to a different image. The tool correctly blocked `apply` before
+`up`. The descriptor is `/home/kirill/.config/harden-llm/production.json` and
+is not committed. Its repository-safe schema is
 `config/production-config.example.json`.
+
+The missing image was not recoverable byte-for-byte from local Docker state or
+the retained filesystem snapshot. The exact recorded source
+`2be0685214b3d16bee4c71abd40ca19837b8b16b` was rebuilt with the pinned
+Dockerfile, producing the explicitly new image identity
+`sha256:92dca0ca12f26d3748cb94db935bc2fe6c5d68e7abe5844faf36841f467f09a3`
+under the never-reused tag `harden-llm-gateway:release-2be0685-r1`. Only the
+gateway was recreated through the scoped apply; it is healthy, reports the
+expected source release, and the post-apply preflight is equivalent. No
+credentials, volumes, migrations, provider calls, or browser checks were
+involved.
 
 No browser, provider, backup-restore, or profile-sync operation was authorized
 or run. The unrelated local browser-test edit remains preserved.
+
+## Gateway image inventory repair (2026-09-17 UTC)
+
+The production gateway was intentionally recreated only after the replacement
+image passed focused gateway tests and matched the recorded source release.
+The before/after runtime identities were:
+
+| State | Image | Container | Health | Restarts |
+| --- | --- | --- | --- | --- |
+| Before | `sha256:08959dbe...` | `59ac1004...` | healthy | 0 |
+| After | `sha256:92dca0ca...` | `b1d1016e...` | healthy | 0 |
+
+The new image is a source-equivalent rebuild, not a byte-identical recovery of
+the unavailable original. The production descriptor now points to
+`harden-llm-gateway:release-2be0685-r1`; a fresh check returned `equivalent`.
+All other long-running project services remained running, and frontend/API
+health and login probes returned HTTP 200. The temporary probe tag was removed
+after the release tag was verified.

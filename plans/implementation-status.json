@@ -195,16 +195,22 @@
       "nativeCompose": "TEST-235 passed with Compose 2.40.3",
       "fast": "make test-fast accepted 8 tasks",
       "releaseSelector": "make test-release accepted 26 tasks; no failures or cleanup errors",
-      "runtimeCheck": "fresh process resolved sources; only harden-llm-gateway.image-reference differs",
-      "containerIdentity": "16 project containers unchanged; IDs and restart counts unchanged",
+      "runtimeCheck": "fresh process resolved sources; equivalent after the gateway image inventory repair",
+      "containerIdentity": "gateway was intentionally recreated; the other 16 long-running project services and restart counts were unchanged",
       "publicProbes": "frontend healthz/login and API healthz/readyz returned 200",
       "browserLayout": "not run; explicit browser opt-in remains separate",
       "providerCalls": 0
     },
     "deployment": {
-      "status": "not_required_no_service_changed",
-      "reason": "tooling/docs/tests only; runtime check was read-only",
-      "imagePrerequisite": "running gateway digest is not addressable by the current Compose tag; apply blocks before up"
+      "status": "scoped_gateway_rebuild_deployed",
+      "reason": "the recorded gateway image was unavailable locally; the exact source was rebuilt as a new artifact and only the gateway was recreated",
+      "sourceSHA": "2be0685214b3d16bee4c71abd40ca19837b8b16b",
+      "deployedAt": "2026-09-17T21:31:20.913129021Z",
+      "gatewayTag": "harden-llm-gateway:release-2be0685-r1",
+      "gatewayImage": "sha256:92dca0ca12f26d3748cb94db935bc2fe6c5d68e7abe5844faf36841f467f09a3",
+      "previousGatewayImage": "sha256:08959dbe7682cc93fb2163de043cafdadaf28f8c9c94eaa098b3308f3721c45d",
+      "postApplyCheck": "equivalent; no further service recreation required",
+      "imagePrerequisite": "the original image was not recoverable byte-for-byte; the replacement is explicitly recorded as a new image identity"
     },
     "governance": {
       "adr": "none; accepted source ownership and service ownership did not change",

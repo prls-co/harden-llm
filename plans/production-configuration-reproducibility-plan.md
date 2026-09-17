@@ -243,9 +243,12 @@ release task.
 
 Exit: one tested invocation resolves approved configuration, reports drift
 without secrets, and changes only explicitly selected services when necessary.
-Implementation note: the current host gateway image-reference prerequisite is
-intentionally not auto-repaired; `apply` fails before `up` until an exact local
-image identity is restored in the approved descriptor/image inventory.
+Implementation note: at the initial plan closeout, the host gateway
+image-reference prerequisite was intentionally not auto-repaired; `apply`
+failed before `up` until an exact local image identity was restored in the
+approved descriptor/image inventory. A subsequent minimal remediation rebuilt
+the exact recorded source as a new image identity and performed a scoped
+gateway rollout; that follow-up is recorded below.
 
 ### P3 — Install the procedure and reconcile approved inputs
 
@@ -269,10 +272,10 @@ image identity is restored in the approved descriptor/image inventory.
 
 Exit: the production procedure works from its recorded sources. Any actual
 runtime changes are intentional, bounded and accounted for.
-Evidence: no production service was recreated. The one image-reference
-difference is recorded in the release journal as a pre-existing missing local
-image/tag prerequisite; no credential, mount, or service configuration was
-changed.
+Evidence at initial plan closeout: no production service was recreated. The
+image-reference difference was recorded in the release journal as a pre-existing
+missing local image/tag prerequisite; no credential, mount, or service
+configuration was changed by the plan itself.
 
 ### P4 — Verify the operational result
 
@@ -294,11 +297,12 @@ changed.
 
 Exit: the evidence matches the operation performed; no browser, provider,
 backup-restore, or export success is inferred from an unrelated health probe.
-Evidence: a fresh-process check returned only the known gateway image-reference
-difference; all sixteen Compose containers kept their IDs and restart counts.
-Public frontend `/healthz` and `/login`, API `/healthz` and `/readyz` returned
-HTTP 200. No service was recreated, so there was no affected-service rollout to
-certify and no infrastructure export claim to make.
+Evidence at initial plan closeout: a fresh-process check returned only the
+known gateway image-reference difference; all sixteen long-running Compose
+services kept their IDs and restart counts. Public frontend `/healthz` and
+`/login`, API `/healthz` and `/readyz` returned HTTP 200. No service was
+recreated, so there was no affected-service rollout to certify and no
+infrastructure export claim to make.
 
 ### P5 — Documentation and handoff
 
@@ -327,6 +331,27 @@ certify and no infrastructure export claim to make.
 
 Exit: operators can repeat the procedure from documentation and evidence,
 without using this conversation as an extra configuration source.
+
+### Post-plan gateway image inventory remediation — 2026-09-17 UTC
+
+The original running gateway image (`sha256:08959dbe...`) was no longer
+available as a local inspectable artifact, while the reused Compose tag
+`harden-llm-gateway:0.1.0` resolved to a different image. The rollback
+filesystem snapshot was not treated as the original image. The exact recorded
+source `2be0685214b3d16bee4c71abd40ca19837b8b16b` was rebuilt with the pinned
+Dockerfile, validated with focused gateway tests and the embedded release
+version, and retained as the new unique tag
+`harden-llm-gateway:release-2be0685-r1` with image ID
+`sha256:92dca0ca...`.
+
+Only `harden-llm-gateway` was applied with the production tool. The new
+container is healthy, reports the expected source release, and has zero
+restarts. The post-apply preflight is equivalent, and the public frontend/API
+health and login probes remain HTTP 200. The new image is explicitly recorded
+as a replacement identity; it is not claimed to be byte-identical to the
+unrecoverable original artifact. The host descriptor was updated with mode
+`0600`; no credentials, data volumes, database migrations, provider calls, or
+browser checks were involved.
 
 Implementation record: no ADR, KER, or issue was added because the accepted
 source ownership, timeout/retry budgets, provider policy, persistence, and
