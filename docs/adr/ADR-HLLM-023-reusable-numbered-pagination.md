@@ -6,7 +6,7 @@
 - Plan: `plans/reusable-pagination-implementation-plan.md`.
 - Follow-up: [pagination hardening and compact UX plan](../../plans/pagination-hardening-and-compact-ux-plan.md).
 - Usage: [reusable pagination guide](../reusable-pagination.md).
-- Verification: `TEST-229` through `TEST-232` and `WEB-TEST-077` through `WEB-TEST-081`.
+- Verification: `TEST-229` through `TEST-232` and `WEB-TEST-077` through `WEB-TEST-082`.
 - Related: ADR-HLLM-008, ADR-HLLM-012, ADR-HLLM-015, ADR-HLLM-020, and ADR-HLLM-021.
 
 ## 1. Context

@@ -1774,3 +1774,28 @@ delivery, native focus behavior, and LiveSocket browser behavior remain
 unverified. The unrelated local edit to
 `frontend/test/browser/deployed_canary_test.exs` was preserved and was not
 part of this release.
+
+### Pagination closeout and conformance audit
+
+The application implementation follows `PLAN-HLLM-REUSABLE-PAGINATION-002`
+without an application or design divergence. The verified checkpoint was
+pushed directly to trusted `main`; no feature branch or pull request remained
+to merge, so a separate merge operation was not applicable. This was the
+authorized production route. Only the web service was recreated; retaining the
+gateway, data/session volumes, and synchronized configuration was intentional.
+
+No KER was created because the checkpoint changes no timeout, retry budget,
+performance SLO, provider, persistence, or ownership contract. No dedicated
+pagination issue exists, and the closed utility-llm audit issue was not
+reopened because this release introduced no new utility-llm audit finding.
+The private production backup recorded above is an intentional recovery
+artifact. The transient local frontend build outputs used by `WEB-TEST-082`
+were removed after verification; unrelated ignored historical artifacts and
+the unrelated browser-test edit were preserved.
+
+One operational deployment note remains for follow-up: the clean production
+checkout did not contain every required observability environment value, so
+the deployment command supplied those already-running production values in
+memory without printing, changing, or committing them. This did not change
+the application plan or runtime configuration, but the deployment environment
+file should be reconciled separately for repeatability.

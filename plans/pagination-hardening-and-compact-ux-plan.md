@@ -459,3 +459,37 @@ This plan is complete for the authorized release. Each phase's new assertions
 and applicable gates passed without changing their purpose. Browser geometry,
 native-event behavior, and cross-project extraction remain explicitly bounded
 by the evidence above.
+
+## 8. Final conformance and closeout audit
+
+The implementation follows P0 through P6. There is no application or design
+divergence from this plan. The release-route details below are recorded because
+the requested delivery included merge and production operations:
+
+- The verified application checkpoint was pushed directly to the trusted
+  `main` branch. No feature branch or pull request remained to merge, so a
+  separate merge operation was not applicable. This is consistent with the
+  repository's trusted-branch production route and the explicit production
+  release authorization.
+- Only the web service was recreated. Retaining the unchanged gateway, named
+  data/session volumes, and synchronized configuration is the planned
+  frontend-only deployment boundary, not an omitted backend phase.
+- Browser/layout/native-event checks and provider calls were not run because
+  the repository policy requires separate browser authorization and forbids
+  provider probes in this release. App-dev migration and package extraction
+  remain outside this plan by design.
+- No KER was added: no timeout, retry budget, performance SLO, provider,
+  persistence, or ownership contract changed. No dedicated pagination issue
+  exists; the closed utility-llm audit issue was not reopened because this
+  checkpoint adds no new utility-llm audit finding.
+- The private production backup is an intentional rollback/recovery artifact,
+  not a temporary file. The transient local frontend build outputs created for
+  the fresh asset assertion were removed after verification; unrelated ignored
+  historical test/evidence files and the unrelated browser-test edit were
+  preserved.
+
+No work remains within this plan. The next work is cross-project validation:
+re-evaluate the app-dev use cases against this contract, extract/version the
+neutral modules only when a second real application adopts them, and authorize
+a focused browser canary if one-row geometry or native focus behavior needs
+certification.

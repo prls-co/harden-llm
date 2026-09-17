@@ -78,7 +78,7 @@
     "completedPhases": ["P0", "P1", "P2", "P3", "P4", "P5"],
     "tests": [
       "TEST-229", "TEST-230", "TEST-231", "TEST-232",
-      "WEB-TEST-077", "WEB-TEST-078", "WEB-TEST-079", "WEB-TEST-080", "WEB-TEST-081"
+      "WEB-TEST-077", "WEB-TEST-078", "WEB-TEST-079", "WEB-TEST-080", "WEB-TEST-081", "WEB-TEST-082"
     ],
     "petalEvaluation": {
       "version": "petal_components 4.16.1",
@@ -122,6 +122,57 @@
         "frontendTag": "harden-llm-web:rollback-pagination-2be0685",
         "gatewayTag": "harden-llm-gateway:rollback-pagination-2be0685",
         "volumesRetained": true
+      }
+    },
+    "correctiveHardening": {
+      "plan": "plans/pagination-hardening-and-compact-ux-plan.md",
+      "status": "complete",
+      "completedPhases": ["P0", "P1", "P2", "P3", "P4", "P5", "P6"],
+      "sourceSHA": "a4355386f6060a9594eb196ffbd9c1fb9221f2fe",
+      "tests": [
+        "WEB-TEST-077", "WEB-TEST-078", "WEB-TEST-079", "WEB-TEST-080",
+        "WEB-TEST-081", "WEB-TEST-082", "TEST-231"
+      ],
+      "verification": {
+        "frontendDeterministic": "222 passed, 5 opt-in/asset/Compose/deployed exclusions",
+        "releaseSelector": "25/25 tasks accepted, no failures or cleanup errors",
+        "localFast": "make test-fast accepted 8 tasks",
+        "localVerify": "make verify passed",
+        "hostedFast": "GitHub test hierarchy run 35235585902 passed for the exact application SHA",
+        "codeQL": "GitHub CodeQL run 35235585303 passed",
+        "browserLayout": "not run; explicit browser opt-in remains separate",
+        "providerCalls": 0
+      },
+      "deployment": {
+        "status": "deployed",
+        "sourceSHA": "a4355386f6060a9594eb196ffbd9c1fb9221f2fe",
+        "deployedAt": "2026-09-17T14:52:27.698443890Z",
+        "webURL": "https://harden-llm.prls.co/",
+        "apiURL": "https://harden-llm-api.prls.co/",
+        "gatewaySourceSHA": "2be0685214b3d16bee4c71abd40ca19837b8b16b",
+        "gatewayImage": "sha256:08959dbe7682cc93fb2163de043cafdadaf28f8c9c94eaa098b3308f3721c45d",
+        "frontendImage": "sha256:6353164955d4dfb7bf43edfd46437c572eb75236568a210ba191b828b6366ff5",
+        "gatewayContainer": "59ac1004d0cdf6db8adbf39cbd640abc639592f6e4740af1e2eb91b78f6c5a02",
+        "frontendContainer": "7e4daf54fca7d4e6dc3389c792605ed46e1f410a9fbb2a3094adb4c443fe8055",
+        "health": {
+          "frontendHealthz": 200,
+          "frontendLogin": 200,
+          "apiHealthz": 200,
+          "apiReadyz": 200,
+          "anonymousHistory": 401,
+          "staticTokenNumberedHistory": 200,
+          "staticTokenCursorHistory": 200,
+          "operatorCookieCSRF": "login/workspace/logout passed"
+        },
+        "browserLayoutChecked": false,
+        "providerCalls": 0,
+        "rollbackFrontendImage": "sha256:43a7c3db143023fd9f0e42fc6fef217006dfd186fcf73e0f406dc2ebd7fe562f",
+        "volumesRetained": true,
+        "mergeRoute": "direct push to trusted main; no separate PR merge was applicable"
+      },
+      "governance": {
+        "ker": "none; no timeout, budget, provider, persistence, or ownership contract changed",
+        "relatedIssue": "none; no dedicated pagination issue exists and the closed utility-llm audit issue was not reopened"
       }
     }
   },
