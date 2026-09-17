@@ -1804,6 +1804,8 @@ file should be reconciled separately for repeatability.
 
 `PLAN-HLLM-PRODUCTION-CONFIG-001` implemented the reusable
 `scripts/production-config.mjs` boundary and its host descriptor contract. The
+implementation checkpoint is `ac72817`; the documentation/status closeout is a
+separate commit so the code revision remains independently identifiable. The
 entrypoint parses the approved production, shared-observability, and shared
 application files; passes only the existing `sharedApplicationVariables()`
 allowlist as process environment; resolves the fixed Compose graph; compares

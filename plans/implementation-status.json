@@ -186,6 +186,7 @@
       "entrypoint": "scripts/production-config.mjs",
       "descriptorExample": "config/production-config.example.json",
       "hostDescriptor": "/home/kirill/.config/harden-llm/production.json",
+      "implementationCommit": "ac72817",
       "sourcePolicy": "observability --env-file, production --env-file, sharedApplicationVariables process allowlist",
       "applyPolicy": "explicit service scope; no-build; no-deps; pull never; wait; exact local image identity"
     },

@@ -5,6 +5,7 @@
 - Plan: `PLAN-HLLM-PRODUCTION-CONFIG-001`.
 - Date: 2026-09-17.
 - Status: complete; phases P0 through P5 are complete.
+- Implementation checkpoint: `ac72817` (`feat: add reproducible production config preflight`).
 - Reviewed checkout: `f31e16a05dea4fca5fa7441180957f8725544384`.
 - Production application checkout inspected:
   `a4355386f6060a9594eb196ffbd9c1fb9221f2fe`.
@@ -316,7 +317,7 @@ certify and no infrastructure export claim to make.
    release decision. No new architecture decision or timeout/budget KER is
    expected from this plan. Update an existing related issue if one owns the
    work; do not create bookkeeping issues or records solely for closeout.
-5. [ ] Commit/push verified implementation through the repository branch policy;
+5. [x] Commit/push verified implementation through the repository branch policy;
    merge the production tooling through its authorized release workflow and
    verify the final revision. Describe skipped docs-only CI accurately. Keep
    application image/source identities separate from the final tooling SHA.
@@ -335,6 +336,11 @@ by validating mutable image references against retained immutable IDs. This
 was required by the observed mixed checkout roots and the running gateway tag
 drift; it reduces the set of actions the tool can safely take and does not
 broaden deployment scope.
+
+The implementation checkpoint was committed directly to trusted `main`; no
+separate merge was applicable under the current repository policy. The final
+documentation/status closeout is intentionally a separate commit so the
+implementation SHA remains independently identifiable from the closeout SHA.
 
 ## 6. Verification matrix
 
