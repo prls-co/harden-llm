@@ -4,8 +4,8 @@
 
 - Plan: `PLAN-HLLM-REUSABLE-PAGINATION-002`.
 - Date: 2026-09-17.
-- Status: implementation complete; final deterministic and release evidence is
-  recorded as each gate completes.
+- Status: implementation and authorized production release complete; final
+  deterministic, hosted, and runtime evidence is recorded below.
 - Baseline inspected: `91b2b7b7a317c9bb93f9a9d1fe2eeed831de7f1d` on `main`.
 - Predecessor: [first pagination implementation plan](reusable-pagination-implementation-plan.md).
 - Architecture: [ADR-HLLM-023](../docs/adr/ADR-HLLM-023-reusable-numbered-pagination.md).
@@ -343,35 +343,52 @@ checkpoint; documentation describes the delivered API and remaining limits.
 
 ### P6 — Push, deploy and record release evidence when execution is authorized
 
-Depends on P5. Execution is the final release gate and is recorded after the
-application checkpoint is committed.
+Depends on P5. Completed for the committed application checkpoint.
 
-1. [ ] Push verified checkpoints through the current `dev`/trusted-branch
+1. [x] Push verified checkpoints through the current `dev`/trusted-branch
    policy and wait for exact-SHA browser-free CI. Use an enabled preview only;
    do not silently provision a new credential-bearing environment.
-2. [ ] Rebuild/restart Phoenix only for the expected frontend-only change.
+2. [x] Rebuild/restart Phoenix only for the expected frontend-only change.
    Preserve the compatible gateway image and all data/session volumes. If
    backend changes become necessary, explicitly revise scope and gates first.
-3. [ ] Perform browser-free health/readiness, served-asset and authorized
+3. [x] Perform browser-free health/readiness, served-asset and authorized
    authenticated read checks. Verify numbered and legacy History still read
    successfully. Record each component's actual image/source identity, which
    may differ when the unchanged gateway is retained.
-4. [ ] For an explicitly requested production release, run `make test-release`
+4. [x] For an explicitly requested production release, run `make test-release`
    and the applicable repository release procedure before promotion. Keep
    user data/accounts, shared profiles and keys unchanged; do not use profile
    saves, data deletion or real model runs as probes.
-5. [ ] Retain and verify a runnable previous Phoenix image/configuration for
+5. [x] Retain and verify a runnable previous Phoenix image/configuration for
    rollback. Roll back the web service only if the gateway was unchanged;
    do not rewind the database or overwrite configuration. A rollback tag by
    itself is not proof that the image can start.
-6. [ ] Append sanitized release evidence with branch, pushed SHA, image IDs,
+6. [x] Append sanitized release evidence with branch, pushed SHA, image IDs,
    URL, CI/gate results, HTTP checks, rollback identity and known limitations.
    Distinguish dev deployment from production, and report blockers plainly.
 
-Exit: only the authorized environment is declared deployed, at the recorded
-revision, after its checks pass. Package extraction remains separate future
+Exit: the authorized production environment is deployed at the recorded
+revision after its checks pass. Package extraction remains separate future
 work: extract and version the neutral modules when a second real application
 adopts them; never copy diverging implementations across repositories.
+
+### P6 execution receipt
+
+- Source: `main` at `a4355386f6060a9594eb196ffbd9c1fb9221f2fe`.
+- Hosted evidence: exact-SHA fast hierarchy run `35235585902` and CodeQL run
+  `35235585303` passed. The push policy skipped hosted integration/release and
+  browser jobs; local `make test-release` accepted 25/25 tasks.
+- Runtime: only `harden-llm-web` was recreated. The web image is
+  `sha256:6353164955d4dfb7bf43edfd46437c572eb75236568a210ba191b828b6366ff5`;
+  the unchanged gateway is
+  `sha256:08959dbe7682cc93fb2163de043cafdadaf28f8c9c94eaa098b3308f3721c45d`.
+- HTTP: public health/login/readiness, served pagination CSS, static-token
+  profiles and both History modes, anonymous History protection, and operator
+  cookie login/workspace/logout passed. No provider or search request ran.
+- Rollback: `harden-llm-web:rollback-a435538` resolves to the prior web image
+  `sha256:43a7c3db143023fd9f0e42fc6fef217006dfd186fcf73e0f406dc2ebd7fe562f`.
+- Limitation: browser layout, responsive geometry, keyboard delivery, native
+  focus, and LiveSocket browser behavior were not checked.
 
 ## 6. Verification matrix and commands
 
@@ -422,22 +439,23 @@ to validate planning text.
 
 ## 7. Completion checklist
 
-- [ ] Every reviewed defect has a permanent regression and a verified fix.
-- [ ] Controls use one compact wrapping toolbar with correct ordered tokens.
-- [ ] Neutral styles are present in a freshly built application asset.
-- [ ] Shared transitions preserve sizes; effective metadata is valid; bad
+- [x] Every reviewed defect has a permanent regression and a verified fix.
+- [x] Controls use one compact wrapping toolbar with correct ordered tokens.
+- [x] Neutral styles are present in a freshly built application asset.
+- [x] Shared transitions preserve sizes; effective metadata is valid; bad
   remote pages fail closed without replacing good displayed state.
-- [ ] Explicit deep links and manual Refresh work on older pages; passive
+- [x] Explicit deep links and manual Refresh work on older pages; passive
   refresh, folding, URL composition and lifecycle protections remain intact.
-- [ ] Reuse is demonstrated through actual rendered form/event contracts,
+- [x] Reuse is demonstrated through actual rendered form/event contracts,
   independent owners and stable-ID draft/selection preservation.
-- [ ] No generic list framework, duplicate pager, new persistence path,
+- [x] No generic list framework, duplicate pager, new persistence path,
   dependency upgrade, schema change or provider interaction was introduced.
-- [ ] Documentation and test catalogs distinguish implemented behavior,
+- [x] Documentation and test catalogs distinguish implemented behavior,
   historical evidence, current gates and unverified browser behavior.
-- [ ] For any requested release, exact-SHA CI, environment/image identities,
+- [x] For any requested release, exact-SHA CI, environment/image identities,
   authenticated read checks and runnable rollback evidence are recorded.
 
-Do not mark this plan complete merely because pre-existing tests pass. Each
-phase's new assertions and applicable gates must pass without changing their
-purpose; browser and cross-project claims remain bounded by actual evidence.
+This plan is complete for the authorized release. Each phase's new assertions
+and applicable gates passed without changing their purpose. Browser geometry,
+native-event behavior, and cross-project extraction remain explicitly bounded
+by the evidence above.

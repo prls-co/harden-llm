@@ -1712,3 +1712,65 @@ No browser was launched and browser layout/native-event behavior was not
 checked. The reusable pagination implementation is production deployed, while
 the app-dev extraction and any future package split remain planned follow-up
 work.
+
+## Pagination hardening and compact toolbar — production (2026-09-17 UTC)
+
+Application source `a4355386f6060a9594eb196ffbd9c1fb9221f2fe` was pushed to
+`main` after the corrective pagination implementation and deployed to
+<https://harden-llm.prls.co/>. The web container was recreated from the clean
+production checkout at `2026-09-17T14:52:27.698443890Z`; the gateway was not
+rebuilt or restarted.
+
+This follow-up hardens the reusable contract: explicit older-page Refresh now
+reloads the requested page while passive run completion preserves an older
+view and exposes the rendered changed banner; explicit History routes open
+folded state without making ordinary root navigation eager; the component is
+one wrapping toolbar with the complete First/Previous/numbered/Next/Last,
+jump, and page-size controls; ordered token rendering, native semantics,
+effective metadata, exact numbered item cardinality, cancellation, and two
+independent consumer owners are covered by deterministic regressions. The
+fresh asset gate verifies the component-owned Tailwind rules.
+
+| Gate or production check | Result |
+| --- | --- |
+| `make test-fast` | accepted: 8 tasks, no failure or cleanup error |
+| Pinned frontend deterministic suite | 222 passed, 5 opt-in/asset/Compose/deployed exclusions |
+| `make test-release` | accepted: 25 tasks, zero failures and cleanup errors; includes backend verify, Compose smoke, assets, and `WEB-TEST-082` |
+| Exact-SHA GitHub fast hierarchy | passed in [run 35235585902](https://github.com/prls-co/harden-llm/actions/runs/35235585902); browser, integration, and release jobs were skipped by the push policy |
+| Exact-SHA CodeQL | passed in [run 35235585303](https://github.com/prls-co/harden-llm/actions/runs/35235585303) |
+| Public probes | frontend `/healthz`, `/login`; API `/healthz`, `/readyz`: HTTP 200 |
+| Served asset | hashed login CSS returned the pagination width, spacing, jump-input, active, and focus selectors |
+| Authenticated read-only API | static-token profiles, numbered History, and legacy cursor History returned HTTP 200; numbered response had `pagination`, no `nextCursor`, and exact item cardinality |
+| Authenticated browser-session HTTP boundary | operator login/workspace HTML returned 200; direct CSRF logout returned 302 to `/login`; a separate login-page probe returned 200 |
+
+The local release selector supplied the integration/backend evidence omitted
+by the push workflow; no browser or provider task was started. No provider or
+search request was made. Anonymous History remained protected with HTTP 401.
+
+| Component | Runtime release | Immutable image | Container |
+| --- | --- | --- | --- |
+| Web | `a4355386f6060a9594eb196ffbd9c1fb9221f2fe` | `sha256:6353164955d4dfb7bf43edfd46437c572eb75236568a210ba191b828b6366ff5` | `7e4daf54fca7d4e6dc3389c792605ed46e1f410a9fbb2a3094adb4c443fe8055` |
+| Gateway | `2be0685214b3d16bee4c71abd40ca19837b8b16b` (unchanged) | `sha256:08959dbe7682cc93fb2163de043cafdadaf28f8c9c94eaa098b3308f3721c45d` | `59ac1004d0cdf6db8adbf39cbd640abc639592f6e4740af1e2eb91b78f6c5a02` |
+
+All sixteen Compose services remained running; the web and gateway were
+healthy with zero restarts. The existing Postgres, Garage, telemetry, and
+`harden-llm_harden-llm-web-sessions` volumes were retained. This release has
+no schema or data migration. A host-local custom-format Postgres checkpoint,
+its validated TOC, and a private environment checkpoint are retained under
+`/home/kirill/.local/state/harden-llm-pagination-a435538.3CRhxx`; the backup
+contains operational data and credentials and is not committed.
+
+The previous web image was the healthy running image immediately before this
+rollout and remains runnable as
+`harden-llm-web:rollback-a435538`, resolving to
+`sha256:43a7c3db143023fd9f0e42fc6fef217006dfd186fcf73e0f406dc2ebd7fe562f`.
+Rollback can recreate only the web service while retaining the unchanged
+gateway and named data/session volumes; it does not rewind database state or
+configuration. The gateway's running image remains the exact pre-deployment
+identity above and was not replaced.
+
+No browser was launched, so one-row geometry, responsive wrapping, keyboard
+delivery, native focus behavior, and LiveSocket browser behavior remain
+unverified. The unrelated local edit to
+`frontend/test/browser/deployed_canary_test.exs` was preserved and was not
+part of this release.
