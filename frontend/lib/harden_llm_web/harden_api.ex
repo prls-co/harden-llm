@@ -152,10 +152,11 @@ defmodule HardenLlmWeb.HardenAPI do
   def list_history(handle, options \\ []) do
     params =
       options
-      |> Keyword.take([:cursor, :limit])
+      |> Keyword.take([:cursor, :limit, :page])
       |> Enum.reject(fn {_key, value} -> is_nil(value) end)
 
-    request("listHistory", handle, params: params)
+    history_mode = if Keyword.get(options, :page) != nil, do: :numbered, else: :cursor
+    request("listHistory", handle, params: params, history_mode: history_mode)
   end
 
   def clear_history(handle), do: request("clearHistory", handle)
@@ -232,23 +233,23 @@ defmodule HardenLlmWeb.HardenAPI do
     request_options = Keyword.merge(request_options, request_adapter_options())
 
     case Req.request(request_options) do
-      {:ok, response} -> decode_response(operation, response)
+      {:ok, response} -> decode_response(operation, response, Keyword.get(options, :history_mode))
       {:error, _reason} -> transport_error(operation)
     end
   rescue
     _exception -> protocol_error(operation, "The backend response could not be processed.")
   end
 
-  defp decode_response(%{redirect: true}, %{status: 303} = response) do
+  defp decode_response(%{redirect: true}, %{status: 303} = response, _history_mode) do
     case Req.Response.get_header(response, "location") do
       [location] when is_binary(location) and location != "" -> {:ok, %{location: location}, %{}}
       _ -> protocol_error(nil, "The artifact response was malformed.")
     end
   end
 
-  defp decode_response(operation, response) do
+  defp decode_response(operation, response, history_mode) do
     with :ok <- require_json(response),
-         {:ok, result} <- decode_envelope(operation, response.status, response.body) do
+         {:ok, result} <- decode_envelope(operation, response.status, response.body, history_mode) do
       result
     else
       {:error, %APIError{} = error} -> {:error, error}
@@ -269,13 +270,18 @@ defmodule HardenLlmWeb.HardenAPI do
     end
   end
 
-  defp decode_envelope(operation, status, %{
-         "state" => state,
-         "result" => result,
-         "error" => nil
-       })
+  defp decode_envelope(
+         operation,
+         status,
+         %{
+           "state" => state,
+           "result" => result,
+           "error" => nil
+         },
+         history_mode
+       )
        when status in 200..299 and is_map(state) do
-    with {:ok, decoded} <- LlmDiagnosticsWire.decode(operation.id, result),
+    with {:ok, decoded} <- decode_wire(operation.id, result, history_mode),
          {:ok, decoded_state} <- LlmDiagnosticsWire.decode_state(operation.id, state) do
       {:ok, {:ok, decoded, decoded_state}}
     else
@@ -284,11 +290,16 @@ defmodule HardenLlmWeb.HardenAPI do
     end
   end
 
-  defp decode_envelope(operation, status, %{
-         "state" => state,
-         "result" => nil,
-         "error" => %{"code" => code, "message" => _message} = error
-       })
+  defp decode_envelope(
+         operation,
+         status,
+         %{
+           "state" => state,
+           "result" => nil,
+           "error" => %{"code" => code, "message" => _message} = error
+         },
+         _history_mode
+       )
        when is_map(state) and is_binary(code) do
     {:ok,
      {:error,
@@ -303,9 +314,12 @@ defmodule HardenLlmWeb.HardenAPI do
       }}}
   end
 
-  defp decode_envelope(operation, _status, _body) do
+  defp decode_envelope(operation, _status, _body, _history_mode) do
     {:error, protocol_error_value("The backend returned a malformed response.", operation)}
   end
+
+  defp decode_wire(operation, value, nil), do: LlmDiagnosticsWire.decode(operation, value)
+  defp decode_wire(operation, value, mode), do: LlmDiagnosticsWire.decode(operation, value, mode)
 
   defp resolve_token(%{auth: false}, nil), do: {:ok, nil}
 

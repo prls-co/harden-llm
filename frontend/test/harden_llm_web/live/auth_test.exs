@@ -53,7 +53,7 @@ defmodule HardenLlmWeb.AuthTest do
           Req.Test.json(conn, APIFixtures.profiles([APIFixtures.profile_state()]))
 
         {"GET", "/api/v1/history"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
+          Req.Test.json(conn, APIFixtures.history_page([APIFixtures.history_item()]))
       end
     end)
   end

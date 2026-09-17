@@ -20,6 +20,15 @@ defmodule HardenLlmWeb.APIFixtures do
 
   def success(result, state \\ %{}), do: %{"state" => state, "result" => result, "error" => nil}
 
+  def history_page(items, page \\ 1, page_size \\ 10, total_count \\ nil) do
+    total_count = if is_nil(total_count), do: length(items), else: total_count
+
+    success(%{
+      "items" => items,
+      "pagination" => %{"page" => page, "pageSize" => page_size, "totalCount" => total_count}
+    })
+  end
+
   def error(status, code \\ "request_failed", field_errors \\ %{}) do
     {status,
      %{

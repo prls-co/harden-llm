@@ -18,6 +18,8 @@ const (
 	maximumProfileBodyBytes = 256 << 10
 	maximumBundleBodyBytes  = 2 << 20
 	maximumRunBodyBytes     = 256 << 10
+	defaultHistoryPageSize  = 20
+	maximumHistoryPageSize  = 100
 )
 
 func (api *API) getState(writer http.ResponseWriter, request *http.Request) {
@@ -148,24 +150,60 @@ func (api *API) importProfileBundle(writer http.ResponseWriter, request *http.Re
 }
 
 func (api *API) listHistory(writer http.ResponseWriter, request *http.Request) {
-	if !api.requireResources(writer) {
+	query := request.URL.Query()
+	_, pagePresent := query["page"]
+	_, cursorPresent := query["cursor"]
+	if pagePresent && cursorPresent {
+		writeError(writer, http.StatusBadRequest, "invalid_request", "History page and cursor cannot be combined.")
 		return
 	}
 	limit := 0
-	if rawLimit := request.URL.Query().Get("limit"); rawLimit != "" {
-		parsed, err := strconv.Atoi(rawLimit)
+	if rawLimit, present := query["limit"]; present && (pagePresent || rawLimit[0] != "") {
+		parsed, err := strconv.ParseInt(rawLimit[0], 10, 64)
 		if err != nil {
 			writeError(writer, http.StatusBadRequest, "invalid_request", "The history limit is invalid.")
 			return
 		}
-		limit = parsed
+		if parsed < 1 || parsed > maximumHistoryPageSize {
+			writeError(writer, http.StatusBadRequest, "invalid_request", "The history limit is invalid.")
+			return
+		}
+		limit = int(parsed)
 	}
-	page, err := api.resources.History(request.Context(), mustPrincipal(request.Context()).OwnerID, request.URL.Query().Get("cursor"), limit)
+	var parsedPage int64
+	if pagePresent {
+		var err error
+		parsedPage, err = strconv.ParseInt(query["page"][0], 10, 64)
+		if err != nil || parsedPage < 1 {
+			writeError(writer, http.StatusBadRequest, "invalid_request", "The history page is invalid.")
+			return
+		}
+	}
+	if !api.requireResources(writer) {
+		return
+	}
+	if pagePresent {
+		page, err := api.resources.NumberedHistory(request.Context(), mustPrincipal(request.Context()).OwnerID, parsedPage, limitOrDefault(limit))
+		if err != nil {
+			api.writeServiceError(writer, err)
+			return
+		}
+		writeSuccess(writer, http.StatusOK, page, map[string]any{})
+		return
+	}
+	page, err := api.resources.History(request.Context(), mustPrincipal(request.Context()).OwnerID, query.Get("cursor"), limit)
 	if err != nil {
 		api.writeServiceError(writer, err)
 		return
 	}
 	writeSuccess(writer, http.StatusOK, page, map[string]any{})
+}
+
+func limitOrDefault(limit int) int {
+	if limit == 0 {
+		return defaultHistoryPageSize
+	}
+	return limit
 }
 
 func (api *API) getStats(writer http.ResponseWriter, request *http.Request) {

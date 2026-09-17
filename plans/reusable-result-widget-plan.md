@@ -4,7 +4,8 @@
 
 The workspace Output panel becomes Result. Current Result and each workspace
 History item use one presentation-only `LlmResultComponents.llm_result/1`.
-History is one cursor-paginated array of these cards inside the workspace.
+History is one numbered-paginated array of these cards inside the workspace;
+the existing cursor response remains available for legacy callers.
 The main UI is `/`, with `/?trace_id=...` selecting a stored result. The duplicate
 audit page, Domain trace dialog, `/history`, and `/workspace` are removed.
 Retired URLs return 404; there are no compatibility redirects.
@@ -42,13 +43,16 @@ start only on Details, avoid duplicate in-flight loads, and ignore completions
 for removed or superseded records. No backend/OpenAPI or storage change is
 needed.
 
-History loads ten cards per REST page and offers Load more only when a server
-cursor exists. One in-flight history read is allowed; pagination appends by
-unique run ID and preserves existing card disclosure state. Refresh after a
-run/deletion restarts from the first page; older pages can be loaded again.
-Failed page reads retain loaded cards and the cursor for an explicit retry.
-Clear-all invalidates the active read reference so late pages cannot resurrect
-deleted cards. WEB-TEST-069 covers this lifecycle and retired-page redirects.
+History loads one numbered page at a time through the reusable pagination
+controls, with 10/25/50/100 page sizes, direct jumps and server-owned totals.
+One in-flight history read is allowed; successful navigation replaces the
+displayed page and prunes departed card state while retaining state for IDs
+still displayed. Refresh after a run on page one reloads that page; on an older
+page it marks the collection changed until the user refreshes. Failed page
+reads retain displayed cards and retry the same requested target. Clear-all
+invalidates the active read reference so late pages cannot resurrect deleted
+cards. WEB-TEST-069 and WEB-TEST-077 through WEB-TEST-080 cover this lifecycle
+and the retired-page redirects.
 
 Rerun resolves the request by ID from server-owned current result/History data,
 never from client-submitted payloads or the edited form. It reuses the same

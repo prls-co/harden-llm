@@ -1,6 +1,6 @@
 package gateway_test
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-023
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-023 TEST-229 TEST-231
 
 import (
 	"bytes"
@@ -86,6 +86,15 @@ func TestHTTPContract(t *testing.T) {
 		{name: "malformed bearer", method: http.MethodGet, path: "/api/v1/auth/session", headers: map[string][]string{"Authorization": {"bearer valid-token"}}, status: 401, code: "unauthenticated"},
 		{name: "unknown query", method: http.MethodGet, path: "/api/v1/auth/session?debug=true", headers: map[string][]string{"Authorization": {"Bearer valid-token"}}, status: 400, code: "invalid_request"},
 		{name: "duplicate query", method: http.MethodGet, path: "/api/v1/history?limit=1&limit=2", headers: map[string][]string{"Authorization": {"Bearer valid-token"}}, status: 400, code: "invalid_request"},
+		{name: "history page and cursor", method: http.MethodGet, path: "/api/v1/history?page=2&cursor=", headers: map[string][]string{"Authorization": {"Bearer valid-token"}}, status: 400, code: "invalid_request"},
+		{name: "empty history page", method: http.MethodGet, path: "/api/v1/history?page=", headers: map[string][]string{"Authorization": {"Bearer valid-token"}}, status: 400, code: "invalid_request"},
+		{name: "overflow history page", method: http.MethodGet, path: "/api/v1/history?page=9223372036854775808", headers: map[string][]string{"Authorization": {"Bearer valid-token"}}, status: 400, code: "invalid_request"},
+		{name: "zero history page", method: http.MethodGet, path: "/api/v1/history?page=0", headers: map[string][]string{"Authorization": {"Bearer valid-token"}}, status: 400, code: "invalid_request"},
+		{name: "negative history page", method: http.MethodGet, path: "/api/v1/history?page=-1", headers: map[string][]string{"Authorization": {"Bearer valid-token"}}, status: 400, code: "invalid_request"},
+		{name: "fractional history page", method: http.MethodGet, path: "/api/v1/history?page=1.5", headers: map[string][]string{"Authorization": {"Bearer valid-token"}}, status: 400, code: "invalid_request"},
+		{name: "empty numbered history limit", method: http.MethodGet, path: "/api/v1/history?page=1&limit=", headers: map[string][]string{"Authorization": {"Bearer valid-token"}}, status: 400, code: "invalid_request"},
+		{name: "zero numbered history limit", method: http.MethodGet, path: "/api/v1/history?page=1&limit=0", headers: map[string][]string{"Authorization": {"Bearer valid-token"}}, status: 400, code: "invalid_request"},
+		{name: "large numbered history limit", method: http.MethodGet, path: "/api/v1/history?page=1&limit=101", headers: map[string][]string{"Authorization": {"Bearer valid-token"}}, status: 400, code: "invalid_request"},
 		{name: "unexpected body", method: http.MethodGet, path: "/api/v1/auth/session", body: []byte(`{}`), headers: map[string][]string{"Authorization": {"Bearer valid-token"}, "Content-Type": {"application/json"}}, status: 400, code: "invalid_request"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

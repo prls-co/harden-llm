@@ -4,7 +4,7 @@ defmodule HardenLlm.LlmTraceProjectionTest do
   alias HardenLlm.{LlmDiagnosticsWire, LlmTraceProjection}
   alias HardenLlmWeb.APIFixtures
 
-  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-036
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-036 WEB-TEST-080
 
   test "projects immutable trace identity and zero-token failures" do
     result =
@@ -147,6 +147,23 @@ defmodule HardenLlm.LlmTraceProjectionTest do
                "label" => "trace · 42 bytes · unavailable"
              }
            ]
+  end
+
+  test "numbered history wire metadata is bounded to the REST integer contract" do
+    document = APIFixtures.history_page([APIFixtures.history_item()], 7, 25, 151)["result"]
+    assert {:ok, ^document} = LlmDiagnosticsWire.decode("listHistory", document, :numbered)
+
+    for pagination <- [
+          %{"page" => 0, "pageSize" => 25, "totalCount" => 151},
+          %{"page" => 9_223_372_036_854_775_808, "pageSize" => 25, "totalCount" => 151},
+          %{"page" => 7, "pageSize" => 101, "totalCount" => 151},
+          %{"page" => 7, "pageSize" => 25, "totalCount" => 9_223_372_036_854_775_808}
+        ] do
+      malformed = Map.put(document, "pagination", pagination)
+
+      assert {:error, :malformed_diagnostics} =
+               LlmDiagnosticsWire.decode("listHistory", malformed, :numbered)
+    end
   end
 
   test "strict current run decoding rejects nonavailable artifact references" do

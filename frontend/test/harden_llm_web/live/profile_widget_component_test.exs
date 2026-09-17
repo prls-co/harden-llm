@@ -254,7 +254,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
           Req.Test.json(conn, APIFixtures.profiles(profiles))
 
         {"GET", "/api/v1/history"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"items" => []}))
+          Req.Test.json(conn, APIFixtures.history_page([]))
 
         {"POST", "/api/v1/state"} ->
           {:ok, body, conn} = Plug.Conn.read_body(conn)

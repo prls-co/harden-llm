@@ -3,11 +3,14 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   alias HardenLlm.LlmTraceProjection
   alias HardenLlmWeb.{APIError, Auth, HardenAPI, Observability, ProfileWidgetState}
+  alias PrlsUI.PaginationState
 
   @schema_keywords ~w($schema $defs additionalProperties allOf anyOf const default definitions description enum examples exclusiveMaximum exclusiveMinimum format items maxItems maxLength maximum minItems minLength minimum multipleOf not oneOf pattern prefixItems properties propertyOrdering required title type uniqueItems)
   @contracted_schema_keywords ~w(type properties required additionalProperties items description enum)
   @schema_types ~w(object array string number integer boolean)
   @reasoning_options [{"Lowest", "lowest"}, {"Middle", "middle"}, {"Highest", "highest"}]
+  @history_page_size_options [10, 25, 50, 100]
+  @maximum_history_page 9_223_372_036_854_775_807
   @ui_keys ~w(llmProfileConfigOpen modelOptionsOpen pricingOpen retryRepairOpen inputAdvancedOpen historyOpen outputDetailsOpen outputControlsOpen)
 
   @default_ui %{
@@ -67,7 +70,27 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:history_loaded?, false)
       |> assign(:history_loading?, false)
       |> assign(:history_load_ref, nil)
-      |> assign(:history_next_cursor, nil)
+      |> assign(:history_page, PaginationState.normalize_page(params["history_page"]))
+      |> assign(
+        :history_page_size,
+        PaginationState.normalize_page_size(
+          params["history_page_size"],
+          @history_page_size_options
+        )
+      )
+      |> assign(:history_requested_page, PaginationState.normalize_page(params["history_page"]))
+      |> assign(
+        :history_requested_page_size,
+        PaginationState.normalize_page_size(
+          params["history_page_size"],
+          @history_page_size_options
+        )
+      )
+      |> assign(:history_page_size_options, @history_page_size_options)
+      |> assign(:history_total_count, 0)
+      |> assign(:history_changed?, false)
+      |> assign(:history_retry_request, nil)
+      |> assign(:history_route_params, history_route_params(params))
       |> assign(:history_refresh_pending?, false)
       |> assign(:history_error, nil)
       |> assign(:history_pending, nil)
@@ -114,33 +137,16 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   @impl true
   def handle_params(params, _uri, socket) do
-    case normalize_trace_id(params["trace_id"]) do
-      nil ->
-        {:noreply, clear_conversation_selection(socket)}
+    pagination = history_route_pagination(params)
 
-      trace_id ->
-        current_trace_id = LlmTraceProjection.trace_id(socket.assigns.run_result)
-        route_changed? = trace_id != socket.assigns.conversation_trace_id
+    socket =
+      socket
+      |> sync_history_route(params, pagination)
+      |> sync_conversation_route(params)
+      |> maybe_start_conversation_load()
+      |> maybe_start_history_load()
 
-        socket =
-          cond do
-            not route_changed? ->
-              socket
-
-            trace_id == current_trace_id ->
-              socket
-              |> assign(:conversation_trace_id, trace_id)
-              |> assign(:conversation_trace_ref, nil)
-              |> assign(:diagnostic_ref, nil)
-
-            true ->
-              socket
-              |> assign(:conversation_trace_id, trace_id)
-              |> reset_conversation_selection()
-          end
-
-        {:noreply, maybe_start_conversation_load(socket)}
-    end
+    {:noreply, socket}
   end
 
   @impl true
@@ -262,6 +268,9 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:history_refresh_pending?, false)
       |> assign(:history_error, nil)
       |> assign(:history_delete_rollback, nil)
+      |> assign(:history_total_count, 0)
+      |> assign(:history_changed?, false)
+      |> assign(:history_retry_request, nil)
       |> assign(:ui, state["ui"])
       |> assign(:reasoning_by_profile, reasoning_by_profile)
       |> assign(:form, to_form(stringify_form(state), as: :run))
@@ -304,32 +313,43 @@ defmodule HardenLlmWeb.WorkspaceLive do
     do: {:noreply, socket}
 
   def handle_async(
-        {:load_history, reference, cursor},
-        {:ok, {:ok, %{"items" => items} = page, _state}},
+        {:load_history, reference, requested_page, requested_page_size},
+        {:ok, {:ok, %{"items" => items, "pagination" => pagination}, _state}},
         %{assigns: %{history_load_ref: reference}} = socket
       ) do
-    history =
-      if(is_nil(cursor), do: items, else: socket.assigns.history ++ items)
-      |> Enum.uniq_by(& &1["runId"])
-      |> suppress_pending_history_delete(socket.assigns.history_delete_rollback)
+    history = suppress_pending_history_delete(items, socket.assigns.history_delete_rollback)
+    effective_page = pagination["page"]
+    effective_page_size = pagination["pageSize"]
 
-    {:noreply,
-     socket
-     |> assign(:history, history)
-     |> assign(:history_next_cursor, page["nextCursor"])
-     |> assign(:history_load_ref, nil)
-     |> assign(:history_loaded?, true)
-     |> update(
-       :history_result_states,
-       &Map.take(&1, Enum.map(history, fn item -> item["runId"] end))
-     )
-     |> assign(:history_loading?, false)
-     |> assign(:history_error, nil)
-     |> maybe_continue_history_refresh()}
+    socket =
+      socket
+      |> assign(:history, history)
+      |> assign(:history_page, effective_page)
+      |> assign(:history_page_size, effective_page_size)
+      |> assign(:history_requested_page, effective_page)
+      |> assign(:history_requested_page_size, effective_page_size)
+      |> assign(:history_total_count, pagination["totalCount"])
+      |> assign(:history_load_ref, nil)
+      |> assign(:history_loaded?, true)
+      |> update(
+        :history_result_states,
+        &Map.take(&1, Enum.map(history, fn item -> item["runId"] end))
+      )
+      |> assign(:history_loading?, false)
+      |> assign(:history_error, nil)
+      |> assign(:history_retry_request, nil)
+      |> assign(:history_changed?, false)
+      |> maybe_continue_history_refresh()
+
+    if requested_page != effective_page or requested_page_size != effective_page_size do
+      {:noreply, push_history_url(socket, effective_page, effective_page_size)}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_async(
-        {:load_history, reference, _cursor},
+        {:load_history, reference, requested_page, requested_page_size},
         {:ok, {:error, %APIError{} = error}},
         %{assigns: %{history_load_ref: reference}} = socket
       ) do
@@ -338,11 +358,12 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:history_load_ref, nil)
      |> assign(:history_loading?, false)
      |> assign(:history_error, error.message)
+     |> assign(:history_retry_request, %{page: requested_page, page_size: requested_page_size})
      |> maybe_continue_history_refresh()}
   end
 
   def handle_async(
-        {:load_history, reference, _cursor},
+        {:load_history, reference, requested_page, requested_page_size},
         _result,
         %{assigns: %{history_load_ref: reference}} = socket
       ) do
@@ -351,10 +372,11 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:history_load_ref, nil)
      |> assign(:history_loading?, false)
      |> assign(:history_error, "History is temporarily unavailable.")
+     |> assign(:history_retry_request, %{page: requested_page, page_size: requested_page_size})
      |> maybe_continue_history_refresh()}
   end
 
-  def handle_async({:load_history, _reference, _cursor}, _result, socket),
+  def handle_async({:load_history, _reference, _page, _page_size}, _result, socket),
     do: {:noreply, socket}
 
   def handle_async(
@@ -646,11 +668,16 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:history, [])
      |> assign(:history_result_states, %{})
      |> assign(:history_load_ref, nil)
-     |> assign(:history_next_cursor, nil)
      |> assign(:history_loading?, false)
      |> assign(:history_loaded?, true)
+     |> assign(:history_page, 1)
+     |> assign(:history_requested_page, 1)
+     |> assign(:history_total_count, 0)
+     |> assign(:history_retry_request, nil)
+     |> assign(:history_changed?, false)
      |> assign(:history_refresh_pending?, false)
-     |> assign(:history_error, nil)}
+     |> assign(:history_error, nil)
+     |> then(&push_history_url(&1, 1, &1.assigns.history_page_size))}
   end
 
   def handle_async(
@@ -753,16 +780,47 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   def handle_event("restore-history", _params, socket), do: {:noreply, socket}
 
-  def handle_event("load-more-history", _params, socket) do
-    if socket.assigns.ui["historyOpen"] and not socket.assigns.history_loading? and
-         is_nil(socket.assigns.history_pending) and
-         not socket.assigns.history_refresh_pending? and
-         is_binary(socket.assigns.history_next_cursor) do
-      {:noreply, start_history_load(socket, socket.assigns.history_next_cursor)}
-    else
-      {:noreply, socket}
+  def handle_event(
+        "paginate-history",
+        %{"pagination-id" => "workspace-history-pagination"} = params,
+        socket
+      ) do
+    page_size_change? = Map.has_key?(params, "page-size")
+    page = if page_size_change?, do: 1, else: parse_history_page(params["page"])
+
+    cond do
+      not socket.assigns.ui["historyOpen"] or not is_nil(socket.assigns.history_pending) ->
+        {:noreply, socket}
+
+      is_integer(page) ->
+        target_page = page
+
+        page_size =
+          case params["page-size"] do
+            nil ->
+              socket.assigns.history_requested_page_size
+
+            value ->
+              PaginationState.normalize_page_size(
+                value,
+                @history_page_size_options,
+                socket.assigns.history_requested_page_size
+              )
+          end
+
+        if (target_page == socket.assigns.history_requested_page and socket.assigns.history_error) &&
+             not socket.assigns.history_loading? do
+          {:noreply, start_history_load(socket, target_page, page_size)}
+        else
+          {:noreply, push_history_url(socket, target_page, page_size)}
+        end
+
+      true ->
+        {:noreply, assign(socket, :history_error, "Enter a valid positive page number.")}
     end
   end
+
+  def handle_event("paginate-history", _params, socket), do: {:noreply, socket}
 
   def handle_event("refresh-history", _params, socket),
     do: {:noreply, maybe_refresh_history(socket)}
@@ -784,6 +842,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
         {:noreply,
          socket
          |> assign(:history_pending, reference)
+         |> assign(:history_load_ref, nil)
          |> assign(:history_delete_rollback, %{item: item, index: index, run_id: run_id})
          |> assign(:history, List.delete_at(socket.assigns.history, index))
          |> update(:history_result_states, &Map.delete(&1, run_id))
@@ -804,6 +863,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     {:noreply,
      socket
      |> assign(:history_pending, reference)
+     |> assign(:history_load_ref, nil)
      |> start_async(
        {:clear_history, reference},
        Observability.propagate(fn -> HardenAPI.clear_history(handle) end)
@@ -1155,11 +1215,134 @@ defmodule HardenLlmWeb.WorkspaceLive do
     end
   end
 
+  defp history_route_pagination(params) do
+    %{
+      page: normalize_history_page(params["history_page"]),
+      page_size:
+        PaginationState.normalize_page_size(
+          params["history_page_size"],
+          @history_page_size_options
+        )
+    }
+  end
+
+  defp normalize_history_page(value) do
+    case PaginationState.positive_integer(value) do
+      {:ok, page} when page <= @maximum_history_page -> page
+      _ -> PaginationState.default_page()
+    end
+  end
+
+  defp history_route_params(params) do
+    params
+    |> Enum.reduce(%{}, fn
+      {"trace_id", value}, route when is_binary(value) and value != "" ->
+        Map.put(route, "trace_id", value)
+
+      {"history_page", value}, route ->
+        case PaginationState.positive_integer(value) do
+          {:ok, page} when page <= @maximum_history_page ->
+            Map.put(route, "history_page", Integer.to_string(page))
+
+          _ ->
+            route
+        end
+
+      {"history_page_size", value}, route ->
+        page_size =
+          PaginationState.normalize_page_size(
+            value,
+            @history_page_size_options,
+            nil
+          )
+
+        if is_integer(page_size),
+          do: Map.put(route, "history_page_size", Integer.to_string(page_size)),
+          else: route
+
+      _entry, route ->
+        route
+    end)
+  end
+
+  defp sync_history_route(socket, params, %{page: page, page_size: page_size}) do
+    changed? =
+      page != socket.assigns.history_requested_page or
+        page_size != socket.assigns.history_requested_page_size
+
+    socket =
+      socket
+      |> assign(:history_route_params, history_route_params(params))
+      |> assign(:history_requested_page, page)
+      |> assign(:history_requested_page_size, page_size)
+
+    if changed? and connected?(socket) and socket.assigns.backend_state == :ready and
+         socket.assigns.ui["historyOpen"] and is_nil(socket.assigns.history_pending) do
+      start_history_load(socket, page, page_size)
+    else
+      socket
+    end
+  end
+
+  defp sync_conversation_route(socket, params) do
+    case normalize_trace_id(params["trace_id"]) do
+      nil ->
+        clear_conversation_selection(socket)
+
+      trace_id ->
+        current_trace_id = LlmTraceProjection.trace_id(socket.assigns.run_result)
+        route_changed? = trace_id != socket.assigns.conversation_trace_id
+
+        cond do
+          not route_changed? ->
+            socket
+
+          trace_id == current_trace_id ->
+            socket
+            |> assign(:conversation_trace_id, trace_id)
+            |> assign(:conversation_trace_ref, nil)
+            |> assign(:diagnostic_ref, nil)
+
+          true ->
+            socket
+            |> assign(:conversation_trace_id, trace_id)
+            |> reset_conversation_selection()
+        end
+    end
+  end
+
+  defp parse_history_page(value) do
+    case PaginationState.positive_integer(value) do
+      {:ok, page} when page <= @maximum_history_page -> page
+      _ -> nil
+    end
+  end
+
+  defp push_history_url(socket, page, page_size) do
+    params =
+      socket.assigns.history_route_params
+      |> Map.put("history_page", Integer.to_string(page))
+      |> Map.put("history_page_size", Integer.to_string(page_size))
+      |> workspace_query_params()
+
+    push_patch(socket, to: workspace_path(params))
+  end
+
+  defp workspace_query_params(params),
+    do: Map.reject(params, fn {_key, value} -> is_nil(value) end)
+
+  defp workspace_path(params) when map_size(params) == 0, do: ~p"/"
+  defp workspace_path(params), do: "/?" <> URI.encode_query(params)
+
   defp maybe_start_history_load(socket) do
     if socket.assigns.ui["historyOpen"] and
          (not socket.assigns.history_loaded? or socket.assigns.history_refresh_pending?) and
          not socket.assigns.history_loading? do
-      start_history_load(socket)
+      start_history_load(
+        socket,
+        socket.assigns.history_requested_page,
+        socket.assigns.history_requested_page_size
+      )
     else
       socket
     end
@@ -1167,11 +1350,21 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp maybe_refresh_history(socket) do
     cond do
+      not is_nil(socket.assigns.history_pending) ->
+        assign(socket, :history_refresh_pending?, true)
+
       socket.assigns.history_loading? ->
         assign(socket, :history_refresh_pending?, true)
 
+      is_map(socket.assigns.history_retry_request) ->
+        request = socket.assigns.history_retry_request
+        start_history_load(socket, request.page, request.page_size)
+
+      socket.assigns.history_page > 1 or socket.assigns.history_requested_page > 1 ->
+        assign(socket, :history_changed?, true)
+
       socket.assigns.ui["historyOpen"] ->
-        start_history_load(socket)
+        start_history_load(socket, socket.assigns.history_page, socket.assigns.history_page_size)
 
       true ->
         assign(socket, :history_refresh_pending?, true)
@@ -1179,8 +1372,13 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   defp maybe_continue_history_refresh(socket) do
-    if socket.assigns.history_refresh_pending? and socket.assigns.ui["historyOpen"] do
-      start_history_load(socket)
+    if socket.assigns.history_refresh_pending? and socket.assigns.ui["historyOpen"] and
+         is_nil(socket.assigns.history_pending) do
+      start_history_load(
+        socket,
+        socket.assigns.history_requested_page,
+        socket.assigns.history_requested_page_size
+      )
     else
       socket
     end
@@ -1359,22 +1557,31 @@ defmodule HardenLlmWeb.WorkspaceLive do
   defp push_conversation_url(socket, nil), do: socket
 
   defp push_conversation_url(socket, trace_id) do
-    push_patch(socket, to: ~p"/?trace_id=#{trace_id}")
+    params =
+      socket.assigns.history_route_params
+      |> Map.put("trace_id", trace_id)
+      |> workspace_query_params()
+
+    push_patch(socket, to: workspace_path(params))
   end
 
-  defp start_history_load(socket, cursor \\ nil) do
+  defp start_history_load(socket, page, page_size) do
     handle = socket.assigns.session_handle
     reference = System.unique_integer([:positive, :monotonic])
-    options = if is_nil(cursor), do: [limit: 10], else: [limit: 10, cursor: cursor]
 
     socket
     |> assign(:history_load_ref, reference)
     |> assign(:history_loading?, true)
     |> assign(:history_refresh_pending?, false)
     |> assign(:history_error, nil)
+    |> assign(:history_retry_request, %{page: page, page_size: page_size})
+    |> assign(:history_requested_page, page)
+    |> assign(:history_requested_page_size, page_size)
     |> start_async(
-      {:load_history, reference, cursor},
-      Observability.propagate(fn -> HardenAPI.list_history(handle, options) end)
+      {:load_history, reference, page, page_size},
+      Observability.propagate(fn ->
+        HardenAPI.list_history(handle, page: page, limit: page_size)
+      end)
     )
   end
 

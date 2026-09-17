@@ -127,6 +127,7 @@ paths:
       parameters:
         - $ref: "#/components/parameters/HistoryCursor"
         - $ref: "#/components/parameters/HistoryLimit"
+        - $ref: "#/components/parameters/HistoryPage"
       responses:
         "200":
           $ref: "#/components/responses/HistorySuccess"
@@ -308,6 +309,15 @@ components:
         minimum: 1
         maximum: 100
         default: 20
+    HistoryPage:
+      name: page
+      in: query
+      required: false
+      description: One-based numbered page. It is mutually exclusive with cursor.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
     HistoryID:
       name: historyID
       in: path
@@ -784,13 +794,15 @@ components:
                     updatedAt: '2026-07-13T12:00:00Z'
                 error: null
     HistorySuccess:
-      description: Stable cursor page of owned run history.
+      description: A stable cursor page or numbered page of owned run history.
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/HistoryEnvelope"
+            oneOf:
+              - $ref: "#/components/schemas/HistoryEnvelope"
+              - $ref: "#/components/schemas/HistoryNumberedEnvelope"
           examples:
-            page:
+            cursorPage:
               value:
                 state: {}
                 result:
@@ -906,6 +918,16 @@ components:
                     startedAt: '2026-07-13T12:00:00Z'
                     completedAt: '2026-07-13T12:00:01Z'
                   nextCursor: eyJzdGFydGVkQXQiOiIyMDI2LTA3LTEzVDEyOjAwOjAwWiIsImlkIjoicnVuLWV4YW1wbGUifQ
+                error: null
+            numberedEmpty:
+              value:
+                state: {}
+                result:
+                  items: []
+                  pagination:
+                    page: 1
+                    pageSize: 10
+                    totalCount: 0
                 error: null
     StatsSuccess:
       description: Authoritative aggregates for all owned run records.
@@ -1753,6 +1775,31 @@ components:
               items: {$ref: "#/components/schemas/HistoryItem"}
             nextCursor: {type: string, minLength: 1, maxLength: 512}
         error: {type: "null"}
+    HistoryNumberedEnvelope:
+      type: object
+      additionalProperties: false
+      required: [state, result, error]
+      properties:
+        state: {$ref: "#/components/schemas/EmptyState"}
+        result:
+          type: object
+          additionalProperties: false
+          required: [items, pagination]
+          properties:
+            items:
+              type: array
+              maxItems: 100
+              items: {$ref: "#/components/schemas/HistoryItem"}
+            pagination: {$ref: "#/components/schemas/HistoryPagination"}
+        error: {type: "null"}
+    HistoryPagination:
+      type: object
+      additionalProperties: false
+      required: [page, pageSize, totalCount]
+      properties:
+        page: {type: integer, format: int64, minimum: 1}
+        pageSize: {type: integer, minimum: 1, maximum: 100}
+        totalCount: {type: integer, format: int64, minimum: 0}
     DeleteHistoryEnvelope:
       type: object
       additionalProperties: false

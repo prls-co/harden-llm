@@ -133,7 +133,7 @@
     },
     {
       "id": "go-integration",
-      "testIds": ["TEST-007", "TEST-053"],
+      "testIds": ["TEST-007", "TEST-053", "TEST-230", "TEST-232"],
       "tier": "T3",
       "resourceClass": "service",
       "command": ["go", "test", "-p=${HARDEN_LLM_TEST_PACKAGE_SLOTS}", "./...", "-tags=integration", "-count=1"],
@@ -192,7 +192,7 @@
     },
     {
       "id": "go-api",
-      "testIds": ["TEST-009"],
+      "testIds": ["TEST-009", "TEST-229", "TEST-231"],
       "tier": "T1",
       "resourceClass": "cpu",
       "command": ["make", "test-api"],
@@ -323,7 +323,12 @@
         "TEST-111",
         "TEST-112",
         "TEST-113",
-        "TEST-115"
+        "TEST-115",
+        "WEB-TEST-077",
+        "WEB-TEST-078",
+        "WEB-TEST-079",
+        "WEB-TEST-080",
+        "WEB-TEST-081"
       ],
       "tier": "T1",
       "resourceClass": "cpu",

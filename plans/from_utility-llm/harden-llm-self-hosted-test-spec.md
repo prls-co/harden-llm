@@ -1162,3 +1162,44 @@ canonical `TEST-###` comment; the Phoenix cases use the separate
 - Deterministic controls: Exactly one provider request and one attempted write for accepted miss/refresh; no write for rejected output or read/integrity failure; no raw sentinel text in public errors, labels or UI.
 - Pass criteria: Accepted inference returns success with output, both ledgers and result source, `write_failed` and `Written=false`; it is not retried or redispatched. Reads/integrity failures remain errors. Trace lookup/write observations, write-span error, bounded telemetry, REST/history payloads and Phoenix projection agree. The integration report contains `TestRecoveryIntegrityCacheWriteStoredRun`.
 - Expected runtime: cheap cases less than 60 seconds; integration within the existing task envelope.
+
+## 21. Reusable numbered pagination
+
+These cases cover the reusable numbered-pagination contract introduced for the
+workspace History list. Cursor pagination remains a supported legacy REST
+mode and is tested separately; it is not silently converted to numbered mode.
+The frontend cases are registered in the separate Phoenix specification.
+
+### TEST-229: Numbered history request and arithmetic contract
+
+- Type / verifies: unit and HTTP contract; REQ-207, REQ-221, REQ-223.
+- Location: `internal/gateway/http_contract_test.go`, `internal/gateway/httpapi/resources.go`, `internal/gateway/resources.go`, and `internal/postgres/resources.go`.
+- Command: `go test ./internal/gateway -run 'TestHTTPContract|TestOpenAPIContract|TestRecoveryContractOpenAPI' -count=1`.
+- Assertions: positive signed-64-bit pages, limits from 1 through 100, mixed page/cursor rejection including an empty cursor, overflow/zero/empty rejection, one-based empty/exact-multiple arithmetic, above-range clamping, and unchanged cursor responses.
+- Pass criteria: invalid input has the existing `400 invalid_request` envelope; valid numbered requests select the numbered envelope and never expose cursor metadata; legacy requests retain their original shape and default behavior.
+
+### TEST-230: PostgreSQL numbered reads and snapshot ownership
+
+- Type / verifies: integration; REQ-207, REQ-208, REQ-220, REQ-223.
+- Location: `internal/postgres/pagination_integration_test.go` and `internal/gateway/resource_routes_test.go`.
+- Command: `make test-integration` through the canonical service-pool runner.
+- Fixtures/data: isolated real PostgreSQL, owner-scoped histories with identical timestamps, unseen middle/last pages, an owner with no rows, concurrent insert/delete mutations and a canceled read.
+- Assertions: `COUNT(*)` and ordered page rows use one owner predicate and one `REPEATABLE READ READ ONLY` transaction; `started_at DESC, run_id DESC` is stable; effective-page clamping, owner isolation, cancellation and pool cleanup are observable; a concurrent writer cannot produce a count/cardinality mismatch.
+- Pass criteria: real HTTP/API and direct store cases pass without a preceding cursor walk, cross-owner rows, leaked connections or a fake database boundary.
+
+### TEST-231: OpenAPI and strict numbered wire shapes
+
+- Type / verifies: unit and API client boundary; REQ-207, REQ-221.
+- Location: `api/openapi.yaml`, `internal/gateway/openapi_contract_test.go`, `frontend/lib/harden_llm/llm_diagnostics_wire.ex`, `frontend/lib/harden_llm_web/harden_api.ex`, and `frontend/test/harden_llm_web/harden_api_test.exs`.
+- Command: `go test ./internal/gateway -run 'TestOpenAPIContract|TestRecoveryContractOpenAPI' -count=1` plus `(cd frontend && mix test test/harden_llm_web/harden_api_test.exs)` with the pinned Elixir/OTP PATH.
+- Assertions: legacy and numbered result alternatives are exact and disjoint; mode-specific requests require the matching response; pagination bounds/cardinality and canonical HistoryItem/RunResult data are strict; malformed numbered metadata cannot fall back to cursor traversal.
+- Pass criteria: published examples and deterministic backend-validated fixtures decode successfully, while missing, extra, malformed or legacy-only numbered responses fail closed.
+
+### TEST-232: Bounded numbered-pagination measurement
+
+- Type / verifies: integration measurement; REQ-207, REQ-208, REQ-223.
+- Location: `internal/postgres/pagination_integration_test.go`; ignored evidence is written to `plans/evidence/harden-llm/reusable-pagination-test-232.json`.
+- Command: `make test-integration` through the canonical service-pool runner.
+- Fixtures/data: real PostgreSQL owner datasets of 1,000, 10,000 and 100,000 rows; page sizes 10, 25, 50 and 100; first, middle and last pages; response byte counts; `EXPLAIN (ANALYZE, BUFFERS)` for count and page queries.
+- Assertions: the report records source SHA, host/toolchain/PostgreSQL version, first-call and three warm-call microsecond timings, plans, buffer summaries, applied metadata and response sizes. It records that pooled execution could not provide a true shared-buffer eviction/cold-cache run rather than labeling the first call cold.
+- Pass criteria: all requested cardinalities and positions pass exact count/cardinality assertions, the existing owner-history index is used for page reads, the snapshot/concurrency and cancellation checks pass, and no latency threshold is invented from this single host observation.

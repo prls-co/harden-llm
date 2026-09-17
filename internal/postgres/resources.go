@@ -255,13 +255,98 @@ func (store *Store) Runs(ctx context.Context, ownerID string, limit int, cursor 
 	defer rows.Close()
 	var records []RunRecord
 	for rows.Next() {
-		var record RunRecord
-		if err := rows.Scan(&record.OwnerID, &record.ID, &record.ProfileID, &record.TraceID, &record.Status, &record.Request, &record.Result, &record.StartedAt, &record.CompletedAt); err != nil {
+		record, err := scanRunRecord(rows)
+		if err != nil {
 			return nil, fmt.Errorf("postgres: scan history: %w", err)
 		}
 		records = append(records, record)
 	}
 	return records, rows.Err()
+}
+
+// NumberedRunsPage is one owner-scoped, self-consistent numbered history
+// response. Count and records are read from the same transaction snapshot.
+type NumberedRunsPage struct {
+	Records    []RunRecord
+	TotalCount int64
+	Page       int64
+	PageSize   int
+}
+
+// RunsPage returns one numbered history page without walking preceding cursor
+// pages. The count and ordered records are selected in one read-only,
+// repeatable-read transaction so the response cannot combine two snapshots.
+func (store *Store) RunsPage(ctx context.Context, ownerID string, page int64, pageSize int) (NumberedRunsPage, error) {
+	if page < 1 || pageSize < 1 || pageSize > 100 {
+		return NumberedRunsPage{}, errors.New("postgres: numbered history page is invalid")
+	}
+
+	transaction, err := store.pool.BeginTx(ctx, pgx.TxOptions{
+		IsoLevel:   pgx.RepeatableRead,
+		AccessMode: pgx.ReadOnly,
+	})
+	if err != nil {
+		return NumberedRunsPage{}, fmt.Errorf("postgres: begin numbered history read: %w", err)
+	}
+	defer func() { _ = transaction.Rollback(ctx) }()
+
+	var totalCount int64
+	if err := transaction.QueryRow(ctx, `SELECT COUNT(*) FROM llm_runs WHERE owner_id = $1`, ownerID).Scan(&totalCount); err != nil {
+		return NumberedRunsPage{}, fmt.Errorf("postgres: count history: %w", err)
+	}
+
+	pageSize64 := int64(pageSize)
+	totalPages := totalCount / pageSize64
+	if totalCount%pageSize64 != 0 {
+		totalPages++
+	}
+	effectivePage := page
+	if totalPages == 0 {
+		effectivePage = 1
+	} else if effectivePage > totalPages {
+		effectivePage = totalPages
+	}
+	maxInt64 := int64(^uint64(0) >> 1)
+	if effectivePage-1 > maxInt64/pageSize64 {
+		return NumberedRunsPage{}, errors.New("postgres: numbered history offset overflows")
+	}
+	offset := (effectivePage - 1) * pageSize64
+
+	rows, err := transaction.Query(ctx, `
+		SELECT owner_id, run_id, profile_id, trace_id, status, request, result, started_at, completed_at
+		FROM llm_runs WHERE owner_id = $1
+		ORDER BY started_at DESC, run_id DESC LIMIT $2 OFFSET $3`, ownerID, pageSize64, offset)
+	if err != nil {
+		return NumberedRunsPage{}, fmt.Errorf("postgres: list numbered history: %w", err)
+	}
+	defer rows.Close()
+	var records []RunRecord
+	for rows.Next() {
+		record, scanErr := scanRunRecord(rows)
+		if scanErr != nil {
+			return NumberedRunsPage{}, fmt.Errorf("postgres: scan numbered history: %w", scanErr)
+		}
+		records = append(records, record)
+	}
+	if err := rows.Err(); err != nil {
+		return NumberedRunsPage{}, fmt.Errorf("postgres: read numbered history: %w", err)
+	}
+	if err := transaction.Commit(ctx); err != nil {
+		return NumberedRunsPage{}, fmt.Errorf("postgres: commit numbered history read: %w", err)
+	}
+	return NumberedRunsPage{Records: records, TotalCount: totalCount, Page: effectivePage, PageSize: pageSize}, nil
+}
+
+type rowScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanRunRecord(rows rowScanner) (RunRecord, error) {
+	var record RunRecord
+	if err := rows.Scan(&record.OwnerID, &record.ID, &record.ProfileID, &record.TraceID, &record.Status, &record.Request, &record.Result, &record.StartedAt, &record.CompletedAt); err != nil {
+		return RunRecord{}, err
+	}
+	return record, nil
 }
 
 // RunStats computes the authoritative owner-scoped aggregate directly from

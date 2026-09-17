@@ -191,13 +191,13 @@ successful read or included in rendered state.
 
 | Element/text | Type | Behavior |
 | --- | --- | --- |
-| `History (N loaded)` | Section heading | Shows the bounded number of rows currently loaded; the all-owner run count comes from the authoritative stats endpoint. |
+| `History (N total)` | Section heading | Shows the exact owner-scoped total returned with the displayed numbered page; the page itself remains bounded. |
 | `Delete all` | Danger button | Clears all history through the backend and resets the page/result expansion. The button is disabled for an empty history or in-flight clear. |
-| `Show history` / `Hide history` | Disclosure button | Persists visibility. The workspace hydrates a bounded recent page with its state request and keeps the history panel hidden by default; the dedicated History view loads pages over the cursor contract. |
+| `Show history` / `Hide history` | Disclosure button | Persists visibility. The workspace hydrates one bounded numbered page with its state request and keeps the history panel hidden by default; the retired dedicated History view is not restored. |
 | History item header | Expand/collapse button | Shows model and prompt preview; opening displays result and trace stats/resources. |
 | `Restore prompt` | Button | Restores user/system/schema fields and selected profile from one history entry, then persists the draft. |
 | `Delete` | Danger button | Deletes one history entry, refreshes the current page, and closes its expansion. |
-| History pagination | Pagination controls | Utility uses page/page-size callbacks and a quick-jump input. The self-hosted implementation provides ten-card cursor-based `Load more`; arbitrary page jumps are intentionally not reproduced because the current Go contract has no offset/page-number operation. |
+| History pagination | Pagination controls | Utility uses page/page-size callbacks and a quick-jump input. The self-hosted implementation now provides reusable First/Previous/numbered/Next/Last, direct jump and 10/25/50/100 page sizes over the numbered REST mode; the legacy cursor mode remains available to existing callers. |
 | `Loading history...` | Status text | Shown during lazy/page loads. |
 | `No runs yet in this session.` | Empty text | Shown for an empty history. |
 
@@ -303,10 +303,10 @@ passed, including 16 React/server test files and 147 Vitest tests.
 | Auth/shell | Phoenix session login/logout and protected LiveViews exist. | Preserve behavior while matching utility shell status/error semantics. |
 | Profiles | Dedicated Phoenix studio with compact profile cards, provider/interface/endpoint/model, write-only credential staging, ordered backups, options, retry/repair/escalation, pricing, refresh, CRUD, bundle actions, and deep-link editing. The full editor unfolds inline below the cards. | The utility’s compact row/fold language is preserved without creating a second profile-editor owner; Firebase-specific persistence and browser provider calls remain excluded. The embedded widget now uses the same searchable/custom-value interaction for profile, API type, base URL, model, and fallbacks, and namespaces the nested bundle upload. |
 | Workspace | One narrow vertical studio stack containing model, input, Result, and History; advanced prompt/schema controls, persisted UI folds, custom profile values, inline token/cache/cost stats and request/response/cURL, and canonical run payloads. | Keep the single Phoenix/Go path; no browser provider calls or second widget runtime. Cache is utility-compatible (`cache`/`refresh`), retry policy is projected into the gateway request boundary, and endpoint/credential/fallback identity edits require profile save before a run. |
-| History | One workspace list of reusable Result cards: expandable input/output, inline stats and trace observations, copy, rerun, artifact downloads, restore, delete, clear confirmation, and cursor Load more. | No separate audit page or Domain trace dialog; ten-card cursor pages replace page-size and arbitrary page-number/quick-jump controls. |
+| History | One workspace list of reusable Result cards: expandable input/output, inline stats and trace observations, copy, rerun, artifact downloads, restore, delete, clear confirmation, and numbered page replacement. | No separate audit page or Domain trace dialog; the shared numbered pager supports page-size selection and direct deep jumps while legacy cursor clients remain compatible. |
 | Backend state | Go/OpenAPI state carries prompt draft, selected profile, schema shorthand, reasoning map, cache mode, retry/repair controls, and fold visibility with strict validation. | Continue adding only behavior required by the inventory and keep credentials write-only. |
 | Profile schema | Go `Profile` already has pricing, default options, backups, models, reasoning map, and credential state. | Expose and test the existing fields through Phoenix; add only fields needed by utility behavior, not Firebase-specific copies. |
-| History API | Go contract is cursor/limit based and the LiveView preserves that boundary. | Keep cursor navigation deterministic; do not add an offset compatibility path solely for the utility quick-jump control. |
+| History API | Go contract supports additive numbered `page`/`limit` reads alongside cursor/limit compatibility. | Count and page rows use one owner-scoped repeatable-read snapshot; keep numbered and cursor response modes strict and mutually exclusive. |
 | Trace and stats APIs | Go returns immutable run identity, trace observations/artifacts, and authoritative owner aggregates; Phoenix authorizes artifact redirects. | Normalized LLM stats, zero-token diagnostics, availability, request/response, and executable credential-placeholder cURL behavior are exposed without raw provider credentials. |
 | Tests | Phoenix unit/live/browser and Go tests cover the translated self-hosted behavior. | Keep the utility test inventory as the regression checklist and add any newly discovered behavior to canonical `WEB-TEST-###`/`TEST-###` cases. |
 
@@ -366,7 +366,7 @@ harden-llm element, backend contract, or an explicit self-hosted boundary note.
 The parity implementation is present in the self-hosted checkout:
 
 - `WorkspaceLive` persists prompt drafts, schema shorthand, generated contracted schemas, reasoning, cache mode, retry controls, repair escalation model settings, and UI fold state through the Go state endpoint.
-- The workspace exposes advanced input, schema generation/check/clear actions, output copy, attempt/usage/cost/cache facts, inline per-result LLM stats, and a cursor-paginated History of the same Result cards. History is loaded lazily, supports restore/delete/clear, and preserves typed custom profile values.
+- The workspace exposes advanced input, schema generation/check/clear actions, output copy, attempt/usage/cost/cache facts, inline per-result LLM stats, and a lazily loaded numbered-paginated History of the same Result cards. History supports direct deep jumps, page-size changes, refresh, restore/delete/clear, and preserves typed custom profile values.
 - `ProfilesLive` exposes write-only credential staging, ordered backup editing, common provider options plus source JSON, retry/repair controls, escalation metadata, all five pricing rates, model refresh, bundle import/export, and the existing CRUD actions.
 - The 2026-08-22 UI pass replaces profile and delete overlays with in-flow `#profile-editor` / `#profile-delete-panel` folds, replaces the wide profile table with responsive compact cards, and applies the utility warm-card/emoji control language to both Profiles and the single-column Workspace stack.
 - The 2026-08-22 fold-event correction uses `phx-value-open` rather than the reserved `phx-value-value` key, and the real browser workflow verifies that model, advanced-input, retry, history, and output folds open through the LiveView socket.
@@ -400,7 +400,7 @@ unimplemented frontend behavior:
   nested editor in every fold. Its editor and delete confirmation are in-flow
   folds, and the profile list remains visible beside the expanded configuration
   in the same document.
-- The workspace and dedicated History views use the Go cursor/limit contract;
+- The workspace uses the Go numbered `page`/`limit` contract while legacy callers retain the cursor/limit contract;
   utility offset/page-number quick-jump controls are not reproduced because
   the self-hosted API has no offset operation.
 - Utility Firebase auth, Firestore persistence, browser provider calls, signed

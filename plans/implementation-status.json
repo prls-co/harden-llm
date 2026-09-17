@@ -70,6 +70,34 @@
       "tests": ["TEST-035", "TEST-036", "TEST-037", "TEST-038", "TEST-039", "TEST-040"]
     }
   },
+  "reusablePagination": {
+    "plan": "plans/reusable-pagination-implementation-plan.md",
+    "adr": "ADR-HLLM-023",
+    "status": "implementation-complete-release-pending",
+    "updatedAt": "2026-09-16",
+    "completedPhases": ["P0", "P1", "P2", "P3", "P4", "P5-local"],
+    "tests": [
+      "TEST-229", "TEST-230", "TEST-231", "TEST-232",
+      "WEB-TEST-077", "WEB-TEST-078", "WEB-TEST-079", "WEB-TEST-080", "WEB-TEST-081"
+    ],
+    "petalEvaluation": {
+      "version": "petal_components 4.16.1",
+      "result": "not-adopted",
+      "reason": "locked websock_adapter 0.6.0 conflicts with Petal's websock_adapter ~> 0.5.7; no transport override or downgrade was made"
+    },
+    "verification": {
+      "frontendDeterministic": "210 passed, 4 excluded",
+      "releaseSelector": "24/24 tasks accepted, no failures or cleanup errors",
+      "goIntegration": "canonical go-integration task passed, including real PostgreSQL pagination measurement",
+      "measurementEvidence": "plans/evidence/harden-llm/reusable-pagination-test-232.json",
+      "browserLayout": "not run; explicit browser opt-in remains separate",
+      "providerCalls": 0
+    },
+    "deployment": {
+      "status": "pending",
+      "note": "Do not interpret implementation or local gates as deployed behavior until the exact pushed SHA and deployment identity are recorded."
+    }
+  },
   "source": {
     "repository": "/home/kirill/utility-llm",
     "gitSHA": "09769424ca34b9d759e273a7e9dccf4fd00a5f6c",
@@ -605,7 +633,28 @@
       "infrastructureAndSessionVolumePreserved": true,
       "rollbackDirectory": "/home/kirill/.local/state/harden-llm-recovery-60b74f7",
       "browserLayoutChecked": false,
-      "providerCallsMade": 0
+      "providerCallsMade": 0,
+      "optInCanary": {
+        "executedAt": "2026-09-16T14:42:18.306Z",
+        "accepted": true,
+        "evidencePath": "docs/release-certification.md",
+        "receiptPath": "plans/evidence/harden-llm/deployed-browser-search-60b74f7.json",
+        "receiptSHA256": "4906424061df04625fa5335c50c17c0b32c36237ea8f232bdd0c5b874039930a",
+        "sourceRelease": "60b74f7224ab8633acf8bb4ea7670307a1c15e18",
+        "realBrowser": true,
+        "authenticated": true,
+        "profile": "CPA GPT-5.6 Luna",
+        "providerCalls": 1,
+        "webSearchRequested": true,
+        "webSearchExecuted": true,
+        "searchEvidenceRendered": true,
+        "traceRequestResponseCurlChecked": true,
+        "historyCleanup": true,
+        "logout": true,
+        "screenshots": 0,
+        "browserLayoutCertification": false,
+        "releaseImagesChanged": false
+      }
     },
     "previousProductionCertification": {
       "mergedMainSHA": "f285ccdcbf66a597c506491126c37e07b4100bb0",

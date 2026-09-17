@@ -63,6 +63,17 @@ type HistoryPage struct {
 	NextCursor string        `json:"nextCursor,omitempty"`
 }
 
+type HistoryPagination struct {
+	Page       int64 `json:"page"`
+	PageSize   int   `json:"pageSize"`
+	TotalCount int64 `json:"totalCount"`
+}
+
+type NumberedHistoryPage struct {
+	Items      []HistoryItem     `json:"items"`
+	Pagination HistoryPagination `json:"pagination"`
+}
+
 type StatsView struct {
 	SchemaVersion       int                 `json:"schemaVersion"`
 	TotalCount          int64               `json:"totalCount"`
@@ -312,6 +323,34 @@ func (service *ResourceService) History(ctx context.Context, ownerID, encodedCur
 		}
 	}
 	return page, nil
+}
+
+func (service *ResourceService) NumberedHistory(ctx context.Context, ownerID string, page int64, pageSize int) (NumberedHistoryPage, error) {
+	if page < 1 || pageSize < 1 || pageSize > maximumHistoryLimit {
+		return NumberedHistoryPage{}, fmt.Errorf("%w: numbered history page", ErrInvalidRequest)
+	}
+	records, err := service.store.RunsPage(ctx, ownerID, page, pageSize)
+	if err != nil {
+		return NumberedHistoryPage{}, err
+	}
+	items := make([]HistoryItem, 0, len(records.Records))
+	for _, record := range records.Records {
+		items = append(items, historyItem(record))
+	}
+	return NumberedHistoryPage{
+		Items: items,
+		Pagination: HistoryPagination{
+			Page: records.Page, PageSize: records.PageSize, TotalCount: records.TotalCount,
+		},
+	}, nil
+}
+
+func historyItem(record postgres.RunRecord) HistoryItem {
+	return HistoryItem{
+		RunID: record.ID, ProfileID: record.ProfileID, TraceID: record.TraceID, Status: record.Status,
+		Request: append(json.RawMessage(nil), record.Request...), Result: append(json.RawMessage(nil), record.Result...),
+		StartedAt: record.StartedAt, CompletedAt: record.CompletedAt,
+	}
 }
 
 func (service *ResourceService) Stats(ctx context.Context, ownerID string) (StatsView, error) {

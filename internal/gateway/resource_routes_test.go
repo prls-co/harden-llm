@@ -2,7 +2,7 @@
 
 package gateway_test
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-024 TEST-053
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-024 TEST-053 TEST-230 TEST-231
 // PLAN-HLLM-WIDGET-PARITY-001 TEST-108
 
 import (
@@ -215,6 +215,29 @@ func TestResourceRoutes(t *testing.T) {
 	items = response.JSON["result"].(map[string]any)["items"].([]any)
 	if len(items) != 1 || items[0].(map[string]any)["runId"] != "run-a" {
 		t.Fatalf("second history page = %#v", response.JSON)
+	}
+	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/history?page=2&limit=1", nil, authA)
+	numbered := response.JSON["result"].(map[string]any)
+	numberedItems := numbered["items"].([]any)
+	pagination := numbered["pagination"].(map[string]any)
+	if len(numberedItems) != 1 || numberedItems[0].(map[string]any)["runId"] != "run-b" ||
+		pagination["page"] != float64(2) || pagination["pageSize"] != float64(1) || pagination["totalCount"] != float64(3) {
+		t.Fatalf("numbered middle history page = %#v", response.JSON)
+	}
+	if _, exists := numbered["nextCursor"]; exists {
+		t.Fatalf("numbered history response leaked cursor metadata: %#v", numbered)
+	}
+	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/history?page=999&limit=1", nil, authA)
+	pagination = response.JSON["result"].(map[string]any)["pagination"].(map[string]any)
+	items = response.JSON["result"].(map[string]any)["items"].([]any)
+	if pagination["page"] != float64(3) || len(items) != 1 || items[0].(map[string]any)["runId"] != "run-a" {
+		t.Fatalf("numbered clamped history page = %#v", response.JSON)
+	}
+	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/history?page=1&limit=10", nil, authB)
+	numbered = response.JSON["result"].(map[string]any)
+	pagination = numbered["pagination"].(map[string]any)
+	if len(numbered["items"].([]any)) != 0 || pagination["page"] != float64(1) || pagination["totalCount"] != float64(0) {
+		t.Fatalf("cross-owner numbered history = %#v", response.JSON)
 	}
 	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/stats", nil, authA)
 	assertEnvelope(t, response, http.StatusOK, false)

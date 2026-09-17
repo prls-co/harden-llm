@@ -48,12 +48,13 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
               unexpected(conn)
           end
         end,
-        history: fn conn -> Req.Test.json(conn, APIFixtures.success(history)) end
+        history: fn conn -> Req.Test.json(conn, APIFixtures.history_page(history["items"])) end
       )
 
       {:ok, view, _} = live(conn, ~p"/")
       render_async(view, 1_000)
       view |> element("#workspace-web-search-toggle") |> render_click()
+      render_async(view, 1_000)
       submit_run(view, %{"userPrompt" => "search fixture"})
       render_async(view, 1_000)
       assert_received {:search_run, %{"webSearch" => true}}
@@ -106,12 +107,10 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       history: fn conn ->
         Req.Test.json(
           conn,
-          APIFixtures.success(%{
-            "items" => [
-              APIFixtures.history_item(),
-              APIFixtures.history_item("second-run", "second-trace")
-            ]
-          })
+          APIFixtures.history_page([
+            APIFixtures.history_item(),
+            APIFixtures.history_item("second-run", "second-trace")
+          ])
         )
       end
     )
@@ -268,7 +267,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       end,
       history: fn conn ->
         items = if Agent.get(present, & &1), do: [APIFixtures.history_item()], else: []
-        Req.Test.json(conn, APIFixtures.success(%{"items" => items}))
+        Req.Test.json(conn, APIFixtures.history_page(items))
       end
     )
 
@@ -1134,7 +1133,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           Req.Test.json(conn, APIFixtures.profiles([primary, backup]))
 
         {"GET", "/api/v1/history"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"items" => []}))
+          Req.Test.json(conn, APIFixtures.history_page([]))
 
         {"POST", "/api/v1/state"} ->
           {:ok, body, conn} = Plug.Conn.read_body(conn)
@@ -1480,7 +1479,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     install_stub(&unexpected/1,
       history: fn conn ->
-        Req.Test.json(conn, APIFixtures.success(%{"items" => [item]}))
+        Req.Test.json(conn, APIFixtures.history_page([item]))
       end
     )
 
@@ -1534,7 +1533,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           0 ->
             Req.Test.json(
               conn,
-              APIFixtures.success(%{"items" => [APIFixtures.history_item()]})
+              APIFixtures.history_page([APIFixtures.history_item()])
             )
 
           1 ->
@@ -1542,7 +1541,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
             receive do
               :release_workspace_history_refresh ->
-                Req.Test.json(conn, APIFixtures.success(%{"items" => []}))
+                Req.Test.json(conn, APIFixtures.history_page([]))
             end
 
           call ->
@@ -1705,7 +1704,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
               :release_loaded_history ->
                 Req.Test.json(
                   conn,
-                  APIFixtures.success(%{"items" => [APIFixtures.history_item()]})
+                  APIFixtures.history_page([APIFixtures.history_item()])
                 )
             end
 
@@ -1714,7 +1713,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
             receive do
               :release_loaded_history_refresh ->
-                Req.Test.json(conn, APIFixtures.success(%{"items" => [fresh_history]}))
+                Req.Test.json(conn, APIFixtures.history_page([fresh_history]))
             end
 
           call ->
@@ -1783,7 +1782,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
               :release_initial_history ->
                 Req.Test.json(
                   conn,
-                  APIFixtures.success(%{"items" => [APIFixtures.history_item()]})
+                  APIFixtures.history_page([APIFixtures.history_item()])
                 )
             end
 
@@ -1792,7 +1791,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
             receive do
               :release_history_refresh ->
-                Req.Test.json(conn, APIFixtures.success(%{"items" => [fresh_history]}))
+                Req.Test.json(conn, APIFixtures.history_page([fresh_history]))
             end
 
           call ->
@@ -3281,7 +3280,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
               history.(conn)
 
             _ ->
-              Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
+              Req.Test.json(conn, APIFixtures.history_page([APIFixtures.history_item()]))
           end
 
         _ ->

@@ -38,7 +38,7 @@ defmodule HardenLlmWeb.RenderingTest do
 
         {"GET", "/api/v1/history"} ->
           send(test_pid, :workspace_history_requested)
-          Req.Test.json(conn, APIFixtures.success(%{"items" => []}))
+          Req.Test.json(conn, APIFixtures.history_page([]))
 
         _ ->
           unexpected(conn)
@@ -53,7 +53,9 @@ defmodule HardenLlmWeb.RenderingTest do
     render_async(workspace, 1_000)
 
     assert has_element?(workspace, "main#workspace-page h1")
-    refute has_element?(workspace, "nav")
+    assert has_element?(workspace, "#workspace-history-pagination")
+    assert has_element?(workspace, "#workspace-history-pagination-summary", "0 items")
+    assert has_element?(workspace, "#workspace-history-pagination-first[disabled]")
     refute has_element?(workspace, ~s([role="tab"]))
     assert has_element?(workspace, ~s(label[for="run_selectedProfileId"]), "Profile")
     assert has_element?(workspace, ~s(label[for="run_userPrompt"]), "Prompt")
@@ -121,7 +123,7 @@ defmodule HardenLlmWeb.RenderingTest do
           Req.Test.json(conn, APIFixtures.profiles([profile]))
 
         {"GET", "/api/v1/history"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"items" => [history]}))
+          Req.Test.json(conn, APIFixtures.history_page([history]))
 
         {"POST", "/api/v1/run"} ->
           Req.Test.json(conn, APIFixtures.success(run_result))
@@ -221,7 +223,7 @@ defmodule HardenLlmWeb.RenderingTest do
           Req.Test.json(conn, APIFixtures.profiles([APIFixtures.profile_state()]))
 
         {"GET", "/api/v1/history"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
+          Req.Test.json(conn, APIFixtures.history_page([APIFixtures.history_item()]))
 
         {"GET", "/api/v1/traces/trace-test"} ->
           unavailable(conn)
@@ -255,7 +257,7 @@ defmodule HardenLlmWeb.RenderingTest do
           Req.Test.json(conn, APIFixtures.profiles([APIFixtures.profile_state()]))
 
         {"GET", "/api/v1/history"} ->
-          Req.Test.json(conn, APIFixtures.success(%{"items" => [APIFixtures.history_item()]}))
+          Req.Test.json(conn, APIFixtures.history_page([APIFixtures.history_item()]))
 
         {"GET", "/api/v1/traces/trace-test"} ->
           Req.Test.json(conn, APIFixtures.success(APIFixtures.trace()))

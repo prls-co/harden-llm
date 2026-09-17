@@ -78,6 +78,34 @@ defmodule HardenLlmWeb.HardenAPITest do
              HardenAPI.list_history(handle, limit: 20)
   end
 
+  test "numbered history sends page and size and rejects a legacy response" do
+    handle = APIFixtures.insert_session()
+
+    Req.Test.stub(HardenAPI, fn conn ->
+      assert URI.decode_query(conn.query_string) == %{"limit" => "25", "page" => "7"}
+
+      Req.Test.json(
+        conn,
+        APIFixtures.history_page([APIFixtures.history_item()], 7, 25, 151)
+      )
+    end)
+
+    assert {:ok, %{"items" => [_], "pagination" => pagination}, %{}} =
+             HardenAPI.list_history(handle, page: 7, limit: 25)
+
+    assert pagination == %{"page" => 7, "pageSize" => 25, "totalCount" => 151}
+
+    Req.Test.stub(HardenAPI, fn conn ->
+      Req.Test.json(
+        conn,
+        APIFixtures.success(%{"items" => [APIFixtures.history_item()], "nextCursor" => nil})
+      )
+    end)
+
+    assert {:error, %APIError{category: :protocol}} =
+             HardenAPI.list_history(handle, page: 7, limit: 25)
+  end
+
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-060
   test "history and trace never pass retired execution records to the UI" do
     handle = APIFixtures.insert_session()

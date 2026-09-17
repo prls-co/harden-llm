@@ -138,6 +138,7 @@ configuration to disable it.
 - [Release certification](docs/release-certification.md)
 - [Development and branch preview environments](docs/preview-environments.md)
 - [Parallel test feedback hierarchy plan](plans/from_utility-llm/harden-llm-parallel-test-feedback-plan.md)
+- [Reusable pagination implementation plan](plans/reusable-pagination-implementation-plan.md)
 - [utility-llm frontend parity inventory](docs/utility-llm-frontend-parity-inventory.md)
 - [Langfuse upstream provenance](deploy/langfuse/UPSTREAM.md)
 - [Architecture decisions](docs/adr/README.md)

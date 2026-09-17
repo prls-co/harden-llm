@@ -13,6 +13,7 @@ defmodule HardenLlm.LlmDiagnosticsWire do
   @cost_keys ~w(knownSubtotalUsd status source knownObservations unknownObservations)
   @cache_keys ~w(mode status operationHash version served written)
   @artifact_keys ~w(artifactId kind state sha256 sizeBytes contentType)
+  @maximum_int64 9_223_372_036_854_775_807
 
   def decode("run", value), do: decode_run(value)
   def decode("getStats", value), do: decode_stats(value)
@@ -30,6 +31,9 @@ defmodule HardenLlm.LlmDiagnosticsWire do
   end
 
   def decode(_operation, value), do: {:ok, value}
+
+  def decode("listHistory", value, :cursor), do: decode_cursor_history(value)
+  def decode("listHistory", value, :numbered), do: decode_numbered_history(value)
 
   def decode_state(operation, value) when operation in ["getState", "saveState"] do
     with %{"schemaVersion" => 2, "recoveryPolicy" => policy} <- value,
@@ -197,7 +201,11 @@ defmodule HardenLlm.LlmDiagnosticsWire do
 
   def decode_stats(_value), do: malformed()
 
-  def decode_history(%{"items" => items} = value) when is_list(items) and length(items) <= 100 do
+  def decode_history(%{"pagination" => _pagination} = value), do: decode_numbered_history(value)
+  def decode_history(value), do: decode_cursor_history(value)
+
+  defp decode_cursor_history(%{"items" => items} = value)
+       when is_list(items) and length(items) <= 100 do
     with :ok <- subset_keys(value, ~w(items nextCursor)),
          :ok <- optional(value, "nextCursor", &nullable_cursor/1),
          :ok <- each(items, &history_item/1) do
@@ -207,7 +215,39 @@ defmodule HardenLlm.LlmDiagnosticsWire do
     end
   end
 
-  def decode_history(_value), do: malformed()
+  defp decode_cursor_history(_value), do: malformed()
+
+  defp decode_numbered_history(%{"items" => items, "pagination" => pagination} = value)
+       when is_list(items) and length(items) <= 100 and is_map(pagination) do
+    with :ok <- exact_keys(value, ~w(items pagination)),
+         :ok <- numbered_pagination(pagination),
+         true <- length(items) <= pagination["pageSize"],
+         :ok <- each(items, &history_item/1) do
+      {:ok, value}
+    else
+      _ -> malformed()
+    end
+  end
+
+  defp decode_numbered_history(_value), do: malformed()
+
+  defp numbered_pagination(
+         %{"page" => page, "pageSize" => page_size, "totalCount" => total_count} = value
+       ) do
+    with :ok <- exact_keys(value, ~w(page pageSize totalCount)),
+         :ok <- positive_int64(page),
+         :ok <- positive_integer(page_size),
+         true <- page_size <= 100,
+         :ok <- nonnegative_int64(total_count),
+         total_pages <- div(total_count + page_size - 1, page_size),
+         true <- page <= max(total_pages, 1) do
+      :ok
+    else
+      _ -> :error
+    end
+  end
+
+  defp numbered_pagination(_value), do: :error
 
   def decode_trace(
         %{
@@ -637,6 +677,10 @@ defmodule HardenLlm.LlmDiagnosticsWire do
   defp nonnegative_integer(_value), do: :error
   defp positive_integer(value) when is_integer(value) and value > 0, do: :ok
   defp positive_integer(_value), do: :error
+  defp nonnegative_int64(value) when is_integer(value) and value in 0..@maximum_int64, do: :ok
+  defp nonnegative_int64(_value), do: :error
+  defp positive_int64(value) when is_integer(value) and value in 1..@maximum_int64, do: :ok
+  defp positive_int64(_value), do: :error
   defp nonnegative_number(value) when is_integer(value) and value >= 0, do: :ok
   defp nonnegative_number(value) when is_float(value) and value >= 0, do: :ok
   defp nonnegative_number(_value), do: :error

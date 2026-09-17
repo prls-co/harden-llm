@@ -141,7 +141,15 @@ defmodule HardenLlmWeb.BrowserBackend do
 
   defp dispatch(%{method: "GET", path_info: ["api", "v1", "history"]} = conn, _body) do
     history = Agent.get(__MODULE__, & &1.history)
-    json(conn, 200, success(%{"items" => history, "nextCursor" => nil}))
+
+    json(
+      conn,
+      200,
+      success(%{
+        "items" => history,
+        "pagination" => %{"page" => 1, "pageSize" => 10, "totalCount" => length(history)}
+      })
+    )
   end
 
   defp dispatch(%{method: "DELETE", path_info: ["api", "v1", "history"]} = conn, _body) do
