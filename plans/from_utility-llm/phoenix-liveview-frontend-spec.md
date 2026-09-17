@@ -587,32 +587,73 @@ title, accessible name and CSS class used by live results, history and traces.
 - Type / verifies: deterministic Phoenix component and LiveViewTest; REQ-207, REQ-221.
 - Location: `frontend/lib/prls_ui/pagination.ex`, `frontend/lib/prls_ui/pagination_state.ex`, `frontend/test/prls_ui/pagination_test.exs`, and `frontend/test/prls_ui/pagination_state_test.exs`.
 - Command: `(cd frontend && mix test test/prls_ui/pagination_test.exs test/prls_ui/pagination_state_test.exs)` with the pinned Elixir/OTP PATH.
-- Acceptance: First/Previous/numbered/Next/Last, bounded ellipses, direct jump, page-size options, summary ranges, labels, empty/single-page disabled controls, `aria-current`, stable IDs and independent instances render without a domain model, HTTP client, JavaScript framework or nested form submission.
+- Acceptance: First/Previous/numbered/Next/Last, bounded ellipses in exact
+  helper order, direct jump, page-size options, summary ranges, labels, empty
+  and single-page disabled controls, `aria-current`, stable IDs and
+  independent instances render without a domain model, HTTP client, JavaScript
+  framework or nested form submission. The complete control set is in one
+  wrapping toolbar; compact First/Last glyphs retain accessible names and
+  native button semantics.
 
 ### WEB-TEST-078: Requested/displayed state and routing
 
 - Type / verifies: deterministic LiveView state and URL boundary; REQ-207, REQ-208, REQ-219, REQ-221.
 - Location: `frontend/lib/harden_llm_web/live/workspace_live.ex`, `frontend/test/harden_llm_web/live/history_trace_test.exs`, and `frontend/test/harden_llm_web/live/workspace_live_test.exs`.
 - Command: `(cd frontend && mix test test/harden_llm_web/live/history_trace_test.exs test/harden_llm_web/live/workspace_live_test.exs)`.
-- Acceptance: Displayed records/metadata remain stable during navigation; page-size and result-set changes reset only the affected collection to page one; `trace_id` and allowed unrelated parameters survive patches; an effective server clamp updates the URL without a fetch loop; identical in-flight targets do not duplicate work; latest generations win; retry targets the same failed request.
+- Acceptance: Displayed records/metadata remain stable during navigation;
+  page-size and result-set changes reset only the affected collection to page
+  one; `trace_id` and allowed unrelated parameters survive patches; explicit
+  History page/size routes open folded History while a normal route preserves
+  lazy loading; an effective server clamp updates the URL without a fetch loop;
+  manual Refresh reloads the current requested page; identical in-flight
+  targets do not duplicate work; cancellation and reference guards prevent
+  stale completions; retry targets the same failed request.
 
 ### WEB-TEST-079: History numbered lifecycle and result isolation
 
 - Type / verifies: deterministic History LiveView boundary; REQ-208, REQ-219, REQ-220, REQ-221.
 - Location: `frontend/test/harden_llm_web/live/history_trace_test.exs` and Workspace LiveView tests.
 - Command: `(cd frontend && mix test test/harden_llm_web/live/history_trace_test.exs test/harden_llm_web/live/workspace_live_test.exs)`.
-- Acceptance: Numbered pages replace rather than append; old cursor and current Result behavior remain intact; completion/refresh policy differs correctly between page one and older pages; delete/clear success/failure, rollback, stale reads/trace loads and state pruning remain safe; current result, editor draft/profile and retained record actions are unchanged.
+- Acceptance: Numbered pages replace rather than append; old cursor and current
+  Result behavior remain intact; passive completion/refresh policy differs
+  correctly between page one and older pages while explicit Refresh reads the
+  displayed request; delete/clear success/failure, rollback, cancellation,
+  stale reads/trace loads and state pruning remain safe; current result, editor
+  draft/profile and retained record actions are unchanged.
 
 ### WEB-TEST-080: Strict numbered HardenAPI boundary
 
 - Type / verifies: deterministic Req.Test and strict wire decoding; REQ-207, REQ-221.
 - Location: `frontend/lib/harden_llm_web/harden_api.ex`, `frontend/lib/harden_llm/llm_diagnostics_wire.ex`, `frontend/test/harden_llm_web/harden_api_test.exs`, and `frontend/test/support/api_fixtures.ex`.
 - Command: `(cd frontend && mix test test/harden_llm_web/harden_api_test.exs)`.
-- Acceptance: Numbered requests send exact page/limit values and require exact `items`/`pagination` metadata; legacy responses are rejected for numbered calls; malformed bounds, cardinality and unknown fields fail closed; authentication/error behavior remains unchanged; there is no cursor fallback or fabricated count.
+- Acceptance: Numbered requests send exact page/limit values and require exact
+  `items`/`pagination` metadata plus the exact expected item cardinality for
+  the effective page; legacy responses are rejected for numbered calls;
+  malformed bounds, cardinality and unknown fields fail closed;
+  authentication/error behavior remains unchanged; there is no cursor fallback
+  or fabricated count.
 
 ### WEB-TEST-081: Reusable consumer isolation harness
 
 - Type / verifies: deterministic test-only LiveView reuse harness; REQ-207, REQ-219, REQ-221.
 - Location: `frontend/test/support/pagination_reuse_harness.ex`, `frontend/test/harden_llm_web/live/pagination_reuse_test.exs`, and the production `PrlsUI.Pagination`/`PaginationState` modules.
 - Command: `(cd frontend && mix test test/harden_llm_web/live/pagination_reuse_test.exs)`.
-- Acceptance: API-shaped and local editable/searchable collections use the same controls; independent batch navigation does not change the main list; filtering/page-size changes reset only their owner; stable-ID drafts and selection survive leaving/returning to a page; no pager event submits editor or batch commands. The harness is test-only and does not claim an app-dev production migration.
+- Acceptance: fixture-shaped and local editable/searchable collections use the
+  same controls; independent batch navigation does not change the main list;
+  filtering/page-size changes reset only their owner; size, Next, jump and
+  return paths work for both pagers; stable-ID drafts and selection survive
+  leaving/returning to a page; rendered editor forms receive edits; no pager
+  event submits editor or batch commands. The harness is test-only and does
+  not claim an app-dev production migration.
+
+### WEB-TEST-082: Fresh pagination asset coverage
+
+- Type / verifies: browser-free compiled-asset check; REQ-207, REQ-221.
+- Location: `frontend/test/prls_ui/pagination_asset_test.exs` and the
+  `frontend-assets-deploy` release task.
+- Command: `(cd frontend && mix assets.deploy && mix test test/prls_ui/pagination_asset_test.exs --only asset)`.
+- Acceptance: the source scan includes `lib/prls_ui`, and the freshly built
+  application stylesheet contains the pagination width, spacing, jump-input,
+  active, and focus utility rules. A missing compiled artifact fails the gate;
+  this check does not certify visual geometry, focus delivery, or browser
+  rendering.

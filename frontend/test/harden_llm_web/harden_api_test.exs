@@ -106,6 +106,20 @@ defmodule HardenLlmWeb.HardenAPITest do
              HardenAPI.list_history(handle, page: 7, limit: 25)
   end
 
+  test "numbered history rejects a page whose item count disagrees with its exact total" do
+    handle = APIFixtures.insert_session()
+
+    Req.Test.stub(HardenAPI, fn conn ->
+      Req.Test.json(
+        conn,
+        APIFixtures.history_page([APIFixtures.history_item()], 1, 10, 20)
+      )
+    end)
+
+    assert {:error, %APIError{category: :protocol}} =
+             HardenAPI.list_history(handle, page: 1, limit: 10)
+  end
+
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-060
   test "history and trace never pass retired execution records to the UI" do
     handle = APIFixtures.insert_session()

@@ -7,6 +7,7 @@
 @source "../css";
 @source "../js";
 @source "../../lib/harden_llm_web";
+@source "../../lib/prls_ui";
 /* Required for Tailwind to automatically pick up changes in colocated CSS files in dev */
 @source "../../_build/dev/phoenix-colocated/harden_llm/*/";
 

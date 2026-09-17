@@ -29,6 +29,15 @@ defmodule HardenLlmWeb.APIFixtures do
     })
   end
 
+  def history_items(count, prefix \\ "run")
+  def history_items(0, _prefix), do: []
+
+  def history_items(count, prefix) when is_integer(count) and count > 0 do
+    Enum.map(1..count, fn number ->
+      history_item("#{prefix}-#{number}", "#{prefix}-trace-#{number}")
+    end)
+  end
+
   def error(status, code \\ "request_failed", field_errors \\ %{}) do
     {status,
      %{

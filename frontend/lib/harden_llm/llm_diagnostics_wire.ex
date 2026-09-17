@@ -221,7 +221,7 @@ defmodule HardenLlm.LlmDiagnosticsWire do
        when is_list(items) and length(items) <= 100 and is_map(pagination) do
     with :ok <- exact_keys(value, ~w(items pagination)),
          :ok <- numbered_pagination(pagination),
-         true <- length(items) <= pagination["pageSize"],
+         true <- exact_numbered_item_count?(items, pagination),
          :ok <- each(items, &history_item/1) do
       {:ok, value}
     else
@@ -248,6 +248,20 @@ defmodule HardenLlm.LlmDiagnosticsWire do
   end
 
   defp numbered_pagination(_value), do: :error
+
+  defp exact_numbered_item_count?(items, %{
+         "page" => page,
+         "pageSize" => page_size,
+         "totalCount" => total_count
+       }) do
+    expected_count =
+      case total_count do
+        0 -> 0
+        _ -> min(page_size, total_count - (page - 1) * page_size)
+      end
+
+    length(items) == expected_count
+  end
 
   def decode_trace(
         %{

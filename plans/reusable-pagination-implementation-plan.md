@@ -4,9 +4,14 @@
 
 - Plan: `PLAN-HLLM-REUSABLE-PAGINATION-001`.
 - Date: 2026-09-16.
-- Status: implementation and production deployment complete for the first
-  consumer; cross-project extraction and browser layout certification remain
-  explicit follow-ups.
+- Status: first implementation production deployed; the 2026-09-17 review
+  identified correctness, reuse-proof and compact-layout gaps. The corrective
+  implementation is complete under the
+  [pagination hardening and compact UX plan](pagination-hardening-and-compact-ux-plan.md).
+  The checked phases below remain the original delivery record; the follow-up
+  plan and current release receipt contain the corrective checkpoint evidence.
+  Cross-project extraction and browser layout certification remain explicit
+  follow-ups.
 - Direction: Petal Components 4.16.1 was evaluated and not adopted because its
   locked `websock_adapter ~> 0.5.7` requirement conflicts with the pinned
   stack's `websock_adapter 0.6.0`. A small in-house Phoenix component/state

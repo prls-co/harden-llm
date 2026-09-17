@@ -53,7 +53,10 @@ WEB-TEST-069 covers numbered page replacement, direct deep jumps, page-size
 reset, retries, clear/read races, URL preservation, and retired audit-page
 redirects; WEB-TEST-036 retains legacy cursor compatibility. WEB-TEST-077
 through WEB-TEST-081 cover the reusable control/state layer, strict wire
-boundary, lifecycle isolation, and the test-only editable/batch reuse harness.
+boundary, lifecycle isolation, and the test-only editable/batch reuse harness;
+WEB-TEST-082 covers the fresh compiled pagination asset. The component tests
+remain structural and browser-free; they do not certify visual geometry or
+native event delivery.
 Shared stats/JSON components retain inline inspection and authorized downloads.
 Aggregate accounting and trace persistence remain backend contracts, not a
 second UI.

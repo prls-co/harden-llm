@@ -59,6 +59,9 @@ The canonical policy is [`test/test-tiers.json`](test/test-tiers.json), and the
 canonical scheduler is [`scripts/run-test-tier.mjs`](scripts/run-test-tier.mjs).
 Make and CI delegate to them rather than maintaining another task list.
 
+The reusable numbered pagination ownership and consumer contract is documented
+in [`docs/reusable-pagination.md`](docs/reusable-pagination.md).
+
 `make verify` intentionally excludes `frontend/` and live provider credentials.
 The frontend has its own pinned Mix gates in [frontend/README.md](frontend/README.md).
 
@@ -139,6 +142,7 @@ configuration to disable it.
 - [Development and branch preview environments](docs/preview-environments.md)
 - [Parallel test feedback hierarchy plan](plans/from_utility-llm/harden-llm-parallel-test-feedback-plan.md)
 - [Reusable pagination implementation plan](plans/reusable-pagination-implementation-plan.md)
+- [Pagination hardening and compact UX plan](plans/pagination-hardening-and-compact-ux-plan.md)
 - [utility-llm frontend parity inventory](docs/utility-llm-frontend-parity-inventory.md)
 - [Langfuse upstream provenance](deploy/langfuse/UPSTREAM.md)
 - [Architecture decisions](docs/adr/README.md)

@@ -56,6 +56,20 @@ defmodule HardenLlmWeb.BoundaryTest do
     assert req_users == ["lib/harden_llm_web/harden_api.ex"]
   end
 
+  test "pagination modules remain neutral and have no request or task ownership" do
+    source =
+      Path.wildcard("lib/prls_ui/**/*.ex")
+      |> Enum.map_join("\n", &File.read!/1)
+
+    refute source =~ "HardenAPI"
+    refute source =~ "WorkspaceLive"
+    refute source =~ "Req."
+    refute source =~ "start_async"
+    refute source =~ "Task."
+    refute source =~ "GenServer"
+    refute source =~ "SessionVault"
+  end
+
   test "production runtime consumes the specified frontend environment contract" do
     runtime = File.read!("config/runtime.exs")
     compose = File.read!("../deploy/frontend/compose.frontend.yml")

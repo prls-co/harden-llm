@@ -36,5 +36,47 @@ defmodule PrlsUI.PaginationStateTest do
     assert PaginationState.page_window(1, 20) == [1, 2, :ellipsis, 20]
     assert PaginationState.page_window(10, 20) == [1, :ellipsis, 9, 10, 11, :ellipsis, 20]
     assert PaginationState.page_window(1, 4) == [1, 2, 3, 4]
+
+    assert PaginationState.page_window(5, 20, sibling_count: 0) == [
+             1,
+             :ellipsis,
+             5,
+             :ellipsis,
+             20
+           ]
+
+    assert_raise ArgumentError, fn -> PaginationState.page_window(5, 20, sibling_count: -1) end
+  end
+
+  test "transitions preserve page size and reset only on a real size change" do
+    current = %{page: 4, page_size: 25}
+
+    assert {:ok, %{page: 7, page_size: 25}} =
+             PaginationState.transition(current, {:page, "7"}, page_size_options: [10, 25])
+
+    assert :unchanged =
+             PaginationState.transition(current, {:page_size, "25"}, page_size_options: [10, 25])
+
+    assert {:ok, %{page: 1, page_size: 10}} =
+             PaginationState.transition(current, {:page_size, "10"}, page_size_options: [10, 25])
+
+    assert {:ok, %{page: 1, page_size: 25}} =
+             PaginationState.transition(current, :reset, page_size_options: [10, 25])
+
+    assert {:error, :invalid_page} =
+             PaginationState.transition(current, {:page, "0"}, page_size_options: [10, 25])
+
+    assert {:error, :invalid_page_size} =
+             PaginationState.transition(current, {:page_size, "13"}, page_size_options: [10, 25])
+  end
+
+  test "rejects effective metadata whose page is outside the result" do
+    assert PaginationState.valid_metadata?(%{page: 1, page_size: 10, total_count: 0})
+    assert PaginationState.valid_metadata?(%{page: 2, page_size: 10, total_count: 20})
+    refute PaginationState.valid_metadata?(%{page: 2, page_size: 10, total_count: 1})
+
+    assert_raise ArgumentError, fn ->
+      PaginationState.range(%{page: 2, page_size: 10, total_count: 1})
+    end
   end
 end

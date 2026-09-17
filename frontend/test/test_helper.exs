@@ -32,4 +32,4 @@ if browser_gate? do
 end
 
 # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 TEST-056
-ExUnit.start(exclude: [:browser, :compose, :deployed])
+ExUnit.start(exclude: [:asset, :browser, :compose, :deployed])

@@ -45,10 +45,15 @@ defmodule PrlsUI.PaginationTest do
     assert LazyHTML.query(doc, "#history-pagination-first")
            |> LazyHTML.attribute("phx-value-page") == ["1"]
 
+    assert LazyHTML.query(doc, "#history-pagination-last")
+           |> LazyHTML.attribute("phx-value-page") == ["47"]
+
     assert LazyHTML.query(doc, "#history-pagination-next") |> LazyHTML.attribute("phx-value-page") ==
              ["4"]
 
     assert LazyHTML.query(doc, "#history-pagination-page-3[disabled]") |> Enum.count() == 1
+
+    assert LazyHTML.query(doc, "#history-pagination-jump") |> LazyHTML.attribute("value") == ["3"]
 
     assert LazyHTML.query(doc, "#history-pagination-page-2")
            |> LazyHTML.attribute("phx-value-pagination-id") == ["history-pagination"]
@@ -102,5 +107,105 @@ defmodule PrlsUI.PaginationTest do
 
     assert LazyHTML.query(doc, "#right-pagination-page-2")
            |> LazyHTML.attribute("phx-value-pagination-id") == ["right-pagination"]
+  end
+
+  test "renders page-window tokens in order and keeps the full control set" do
+    html =
+      render_component(&Pagination.pagination/1,
+        id: "ordered-pagination",
+        page: 10,
+        page_size: 10,
+        total_count: 200,
+        event: "paginate"
+      )
+
+    assert offset!(html, ~s(id="ordered-pagination-page-1")) <
+             offset!(html, ~s(id="ordered-pagination-ellipsis-1"))
+
+    assert offset!(html, ~s(id="ordered-pagination-ellipsis-1")) <
+             offset!(html, ~s(id="ordered-pagination-page-9"))
+
+    assert offset!(html, ~s(id="ordered-pagination-page-11")) <
+             offset!(html, ~s(id="ordered-pagination-ellipsis-5"))
+
+    assert offset!(html, ~s(id="ordered-pagination-ellipsis-5")) <
+             offset!(html, ~s(id="ordered-pagination-page-20"))
+
+    doc = LazyHTML.from_document(html)
+    assert LazyHTML.query(doc, "#ordered-pagination-first") |> Enum.count() == 1
+    assert LazyHTML.query(doc, "#ordered-pagination-previous") |> Enum.count() == 1
+    assert LazyHTML.query(doc, "#ordered-pagination-next") |> Enum.count() == 1
+    assert LazyHTML.query(doc, "#ordered-pagination-last") |> Enum.count() == 1
+    assert LazyHTML.query(doc, "#ordered-pagination-jump-form button") |> Enum.count() == 1
+    refute html =~ ~s(role="listitem")
+  end
+
+  test "uses one toolbar container for summary, controls, and navigation" do
+    doc =
+      render_component(&Pagination.pagination/1,
+        id: "toolbar-pagination",
+        page: 3,
+        page_size: 10,
+        total_count: 463,
+        event: "paginate"
+      )
+      |> LazyHTML.from_document()
+
+    assert LazyHTML.query(doc, "#toolbar-pagination > div") |> Enum.count() == 1
+  end
+
+  test "supports compact presentation options and fixed page sizes" do
+    doc =
+      render_component(&Pagination.pagination/1,
+        id: "compact-pagination",
+        page: 2,
+        page_size: 10,
+        page_size_options: [10],
+        total_count: 100,
+        sibling_count: 0,
+        show_jump?: false,
+        event: "paginate",
+        target: "#owner"
+      )
+      |> LazyHTML.from_document()
+
+    assert LazyHTML.query(doc, "#compact-pagination-page-size-form") |> Enum.count() == 0
+    assert LazyHTML.query(doc, "#compact-pagination-jump-form") |> Enum.count() == 0
+
+    assert LazyHTML.query(doc, "#compact-pagination-page-1") |> LazyHTML.attribute("phx-target") ==
+             ["#owner"]
+
+    assert LazyHTML.query(doc, "#compact-pagination-page-2[aria-current='page']")
+  end
+
+  test "exposes busy state and rejects impossible effective metadata" do
+    doc =
+      render_component(&Pagination.pagination/1,
+        id: "busy-pagination",
+        page: 2,
+        page_size: 10,
+        total_count: 30,
+        loading?: true,
+        event: "paginate"
+      )
+      |> LazyHTML.from_document()
+
+    assert LazyHTML.query(doc, "#busy-pagination[aria-busy='true']") |> Enum.count() == 1
+    assert LazyHTML.query(doc, "#busy-pagination-next[disabled]") |> Enum.count() == 1
+
+    assert_raise ArgumentError, fn ->
+      render_component(&Pagination.pagination/1,
+        id: "invalid-pagination",
+        page: 2,
+        page_size: 10,
+        total_count: 1,
+        event: "paginate"
+      )
+    end
+  end
+
+  defp offset!(html, token) do
+    {offset, _length} = :binary.match(html, token)
+    offset
   end
 end

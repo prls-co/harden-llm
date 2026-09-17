@@ -41,11 +41,19 @@ defmodule HardenLlmWeb.HistoryTraceTest do
       page =
         case page do
           1 ->
-            APIFixtures.history_page([APIFixtures.history_item()], 1, 10, 20)
+            APIFixtures.history_page(
+              [APIFixtures.history_item() | APIFixtures.history_items(9, "page-one")],
+              1,
+              10,
+              20
+            )
 
           2 ->
             APIFixtures.history_page(
-              [APIFixtures.history_item("run-second", "trace-second")],
+              [
+                APIFixtures.history_item("run-second", "trace-second")
+                | APIFixtures.history_items(9, "page-two")
+              ],
               2,
               10,
               20
@@ -84,14 +92,22 @@ defmodule HardenLlmWeb.HistoryTraceTest do
             {"1", "10"} ->
               Req.Test.json(
                 conn,
-                APIFixtures.history_page([APIFixtures.history_item()], 1, 10, 20)
+                APIFixtures.history_page(
+                  [APIFixtures.history_item() | APIFixtures.history_items(9, "size-one")],
+                  1,
+                  10,
+                  20
+                )
               )
 
             {"2", "10"} ->
               Req.Test.json(
                 conn,
                 APIFixtures.history_page(
-                  [APIFixtures.history_item("run-second", "trace-second")],
+                  [
+                    APIFixtures.history_item("run-second", "trace-second")
+                    | APIFixtures.history_items(9, "size-two")
+                  ],
                   2,
                   10,
                   20
@@ -101,7 +117,12 @@ defmodule HardenLlmWeb.HistoryTraceTest do
             {"1", "25"} ->
               Req.Test.json(
                 conn,
-                APIFixtures.history_page([APIFixtures.history_item("run-wide")], 1, 25, 20)
+                APIFixtures.history_page(
+                  [APIFixtures.history_item("run-wide") | APIFixtures.history_items(19, "wide")],
+                  1,
+                  25,
+                  20
+                )
               )
           end
 
@@ -149,6 +170,167 @@ defmodule HardenLlmWeb.HistoryTraceTest do
     refute has_element?(view, "#workspace-history-run-second")
   end
 
+  test "manual refresh reloads the currently displayed older page", %{conn: conn} do
+    test_pid = self()
+
+    install_stub(fn conn ->
+      query = URI.decode_query(conn.query_string)
+      send(test_pid, {:manual_refresh_history_request, query})
+
+      page = String.to_integer(query["page"])
+      items = APIFixtures.history_items(10, "manual-refresh-#{page}")
+      Req.Test.json(conn, APIFixtures.history_page(items, page, 10, 20))
+    end)
+
+    view = open_history(conn)
+    assert_receive {:manual_refresh_history_request, %{"page" => "1", "limit" => "10"}}
+
+    view |> element("#workspace-history-pagination-page-2") |> render_click()
+    render_async(view, 1_000)
+    assert_receive {:manual_refresh_history_request, %{"page" => "2", "limit" => "10"}}
+
+    render_click(view, "refresh-history", %{})
+    render_async(view, 1_000)
+
+    assert_receive {:manual_refresh_history_request, %{"page" => "2", "limit" => "10"}}
+    refute has_element?(view, "#workspace-history-refresh-changed")
+    assert has_element?(view, "#workspace-history-pagination-summary", "11-20 of 20")
+  end
+
+  test "passive completion shows the rendered older-page refresh control", %{conn: conn} do
+    test_pid = self()
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/history"} ->
+          query = URI.decode_query(conn.query_string)
+          send(test_pid, {:passive_history_request, query})
+          page = String.to_integer(query["page"])
+
+          Req.Test.json(
+            conn,
+            APIFixtures.history_page(
+              APIFixtures.history_items(10, "passive-#{page}"),
+              page,
+              10,
+              20
+            )
+          )
+
+        {"POST", "/api/v1/run"} ->
+          Req.Test.json(conn, APIFixtures.success(APIFixtures.run_result()))
+
+        {"POST", "/api/v1/state"} ->
+          Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+
+        _ ->
+          unexpected(conn)
+      end
+    end)
+
+    view = open_history(conn)
+    assert_receive {:passive_history_request, %{"page" => "1", "limit" => "10"}}
+
+    view |> element("#workspace-history-pagination-page-2") |> render_click()
+    render_async(view, 1_000)
+    assert_receive {:passive_history_request, %{"page" => "2", "limit" => "10"}}
+
+    view |> element("#input-advanced-toggle") |> render_click()
+    render_async(view, 1_000)
+
+    view
+    |> form("#run-form", %{
+      "run" => %{
+        "selectedProfileId" => "Primary",
+        "modelId" => "model-test",
+        "systemPrompt" => "",
+        "userPrompt" => "passive refresh fixture",
+        "callType" => "text",
+        "cacheMode" => "cache",
+        "schema" => ""
+      }
+    })
+    |> render_submit()
+
+    render_async(view, 1_000)
+    assert has_element?(view, "#workspace-history-refresh-changed")
+
+    view |> element("#workspace-history-refresh-changed") |> render_click()
+    render_async(view, 1_000)
+
+    assert_receive {:passive_history_request, %{"page" => "2", "limit" => "10"}}
+    refute has_element?(view, "#workspace-history-refresh-changed")
+  end
+
+  test "an explicit History URL opens the widget even when saved UI state is folded", %{
+    conn: conn
+  } do
+    test_pid = self()
+
+    install_stub(
+      fn conn ->
+        case {conn.method, conn.request_path} do
+          {"GET", "/api/v1/history"} ->
+            query = URI.decode_query(conn.query_string)
+            send(test_pid, {:deep_history_request, query})
+
+            page = String.to_integer(query["page"])
+
+            Req.Test.json(
+              conn,
+              APIFixtures.history_page(
+                APIFixtures.history_items(10, "deep-history"),
+                page,
+                10,
+                20
+              )
+            )
+
+          {"GET", "/api/v1/traces/trace-deep"} ->
+            trace =
+              APIFixtures.trace()
+              |> Map.put("traceId", "trace-deep")
+              |> Map.update!("record", &Map.put(&1, "traceId", "trace-deep"))
+
+            Req.Test.json(conn, APIFixtures.success(trace))
+
+          {"POST", "/api/v1/state"} ->
+            Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
+        end
+      end,
+      history_open: false
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/?history_page=2&history_page_size=10")
+    render_async(view, 1_000)
+    render_async(view, 1_000)
+
+    assert has_element?(view, "#workspace-history")
+    assert_receive {:deep_history_request, %{"page" => "2", "limit" => "10"}}
+
+    view |> element("#history-fold-toggle") |> render_click()
+    render_async(view, 1_000)
+    refute has_element?(view, "#workspace-history")
+
+    render_patch(view, ~p"/?trace_id=trace-deep&history_page=2&history_page_size=10")
+    refute has_element?(view, "#workspace-history")
+  end
+
+  test "a normal URL preserves saved folded History and lazy loading", %{conn: conn} do
+    install_stub(
+      fn _conn ->
+        flunk("folded History must not fetch /api/v1/history")
+      end,
+      history_open: false
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    render_async(view, 1_000)
+    render_async(view, 1_000)
+
+    refute has_element?(view, "#workspace-history")
+  end
+
   test "failed numbered navigation keeps the current page and retries the same target; duplicate clicks do not refetch",
        %{conn: conn} do
     test_pid = self()
@@ -159,7 +341,15 @@ defmodule HardenLlmWeb.HistoryTraceTest do
 
       case query["page"] do
         "1" ->
-          Req.Test.json(conn, APIFixtures.history_page([APIFixtures.history_item()], 1, 10, 20))
+          Req.Test.json(
+            conn,
+            APIFixtures.history_page(
+              [APIFixtures.history_item() | APIFixtures.history_items(9, "failed-one")],
+              1,
+              10,
+              20
+            )
+          )
 
         "2" ->
           number = Agent.get_and_update(counter, &{&1 + 1, &1 + 1})
@@ -175,7 +365,15 @@ defmodule HardenLlmWeb.HistoryTraceTest do
           else
             Req.Test.json(
               conn,
-              APIFixtures.history_page([APIFixtures.history_item("run-second")], 2, 10, 20)
+              APIFixtures.history_page(
+                [
+                  APIFixtures.history_item("run-second")
+                  | APIFixtures.history_items(9, "failed-two")
+                ],
+                2,
+                10,
+                20
+              )
             )
           end
       end
@@ -233,7 +431,15 @@ defmodule HardenLlmWeb.HistoryTraceTest do
     install_stub(fn conn ->
       case {conn.method, URI.decode_query(conn.query_string)["page"]} do
         {"GET", "1"} ->
-          Req.Test.json(conn, APIFixtures.history_page([APIFixtures.history_item()], 1, 10, 20))
+          Req.Test.json(
+            conn,
+            APIFixtures.history_page(
+              [APIFixtures.history_item() | APIFixtures.history_items(9, "clear-one")],
+              1,
+              10,
+              20
+            )
+          )
 
         {"GET", "2"} ->
           send(test_pid, {:page_started, self()})
@@ -242,7 +448,15 @@ defmodule HardenLlmWeb.HistoryTraceTest do
             :release_page ->
               Req.Test.json(
                 conn,
-                APIFixtures.history_page([APIFixtures.history_item("run-stale")], 2, 10, 20)
+                APIFixtures.history_page(
+                  [
+                    APIFixtures.history_item("run-stale")
+                    | APIFixtures.history_items(9, "clear-two")
+                  ],
+                  2,
+                  10,
+                  20
+                )
               )
           after
             2_000 -> flunk("pagination request was not released")
@@ -267,7 +481,7 @@ defmodule HardenLlmWeb.HistoryTraceTest do
     assert_receive {:clear_started, clear_pid}
     release_request(clear_pid, :release_clear)
     refute has_element?(view, "#workspace-history .llm-result")
-    release_request(page_pid, :release_page)
+    assert_request_cancelled(page_pid)
     render_async(view, 1_000)
     refute has_element?(view, "#workspace-history .llm-result")
     assert has_element?(view, "#workspace-history-pagination-summary", "0 items")
@@ -338,14 +552,23 @@ defmodule HardenLlmWeb.HistoryTraceTest do
     assert_receive {:DOWN, ^monitor, :process, ^process, :normal}, 1_000
   end
 
-  defp install_stub(handler) do
+  defp assert_request_cancelled(process) do
+    monitor = Process.monitor(process)
+
+    assert_receive {:DOWN, ^monitor, :process, ^process, reason}, 1_000
+    assert reason in [:killed, :noproc, :shutdown]
+  end
+
+  defp install_stub(handler, options \\ []) do
+    history_open = Keyword.get(options, :history_open, true)
+
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/auth/session"} ->
           Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
 
         {"GET", "/api/v1/state"} ->
-          state = Map.put(APIFixtures.state(), "ui", %{"historyOpen" => true})
+          state = Map.put(APIFixtures.state(), "ui", %{"historyOpen" => history_open})
           Req.Test.json(conn, APIFixtures.success(nil, state))
 
         {"GET", "/api/v1/profiles"} ->

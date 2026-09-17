@@ -518,6 +518,21 @@
       "pathSelectors": ["frontend/assets/**", "frontend/priv/**", "frontend/mix.exs"]
     },
     {
+      "id": "frontend-pagination-asset-check",
+      "testIds": ["WEB-TEST-082"],
+      "tier": "T2",
+      "resourceClass": "cpu",
+      "command": ["mix", "test", "test/prls_ui/pagination_asset_test.exs", "--only", "asset"],
+      "workingDirectory": "frontend",
+      "dependsOn": ["frontend-assets-deploy"],
+      "timeoutMs": 600000,
+      "cleanupOwner": "runner",
+      "network": "forbidden",
+      "credentialKeys": [],
+      "requiredFor": ["release"],
+      "pathSelectors": ["frontend/assets/**", "frontend/lib/prls_ui/**", "frontend/test/prls_ui/pagination_asset_test.exs", "frontend/mix.exs"]
+    },
+    {
       "id": "frontend-release",
       "testIds": ["TEST-023"],
       "tier": "T4",
