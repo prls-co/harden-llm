@@ -83,24 +83,47 @@ be reused for Harden LLM Postgres or Garage.
 
 The production `.env` may intentionally keep the shared-observability values in
 an approved, mode-0600 environment file instead of copying them into the
-checkout. Compose receives those values through the invoking process, which
-overrides the repository `.env` without writing or logging the secrets:
+checkout. Do not shell-source that file: dotenv values are data and can contain
+JSON, dollar signs, or shell-significant characters. The tested production
+entrypoint parses the three approved files, passes only the existing shared
+application allowlist through the child environment, and supplies the two
+ordered Compose environment files without printing their values:
 
 ```bash
-set -a
-. /path/to/approved/observability.env
-set +a
-docker compose --env-file .env ... config --quiet
+node scripts/production-config.mjs check \
+  --descriptor /home/kirill/.config/harden-llm/production.json
 ```
 
-The deployed browser launcher performs the same Compose inspection and must be
-run from a process that has the approved observability values injected; it does
-not read secret files or print them:
+The descriptor is nonsecret host metadata. It records the fixed Compose graph,
+the separate `composeRoot` and application checkout, Docker context, approved
+source paths, retained image/release identities, and service-specific nonsecret
+overrides. Copy the shape from
+[`config/production-config.example.json`](../config/production-config.example.json);
+do not put credentials, merged environment contents, or bearer values in it.
+The source files remain mode `0600`. The check is read-only, compares declared
+environment keys and managed mounts/identity in memory, and exits nonzero for
+unexplained drift. A scoped apply is explicit and uses the same fresh
+resolution:
 
 ```bash
-set -a
-. /path/to/approved/observability.env
-set +a
+node scripts/production-config.mjs apply \
+  --descriptor /home/kirill/.config/harden-llm/production.json \
+  --services harden-llm-web
+```
+
+Apply is blocked when the desired local image does not resolve to the exact
+descriptor digest, when a mount/configuration difference is outside the
+selected policy, or when the approved source files change during review. It
+uses `up -d --no-build --no-deps --pull never --wait`; it never runs `down`,
+deletes volumes, synchronizes profiles, or recovers missing values from a
+container. A no-op reports that no service recreation was required.
+
+The deployed browser launcher remains a separate, explicitly authorized
+browser boundary. It performs its own identity check and must be run from its
+documented release process; the production-config command is not a browser
+test and does not launch one:
+
+```bash
 HARDEN_LLM_EXPECTED_RELEASE=<merged-sha> node scripts/run-deployed-browser-test.mjs
 ```
 

@@ -78,13 +78,27 @@ running gateway image. Keys are supplied on stdin, never command-line arguments.
 Only the administrative container receives the three required local DB/vault
 variables; this does not connect development to production data.
 
-For a production runtime-variable change, pass
-`sharedApplicationVariables(parseEnv(sharedEnvContents))` from
-`scripts/shared-profiles.mjs` into the production Compose command's process
-environment. These values override infrastructure `.env` interpolation without
-copying its secrets. Recreate only the gateway/frontend services whose settings
-changed, retaining their pinned images. The profile-sync command itself does
-not recreate services or change runtime variables.
+For a production runtime-variable change, use
+`scripts/production-config.mjs`. It parses the approved shared application
+source with the existing `sharedApplicationVariables()` allowlist, combines it
+with the ordered observability and production `--env-file` sources, and checks
+the selected runtime identity before any recreation:
+
+```bash
+node scripts/production-config.mjs check \
+  --descriptor /home/kirill/.config/harden-llm/production.json
+node scripts/production-config.mjs apply \
+  --descriptor /home/kirill/.config/harden-llm/production.json \
+  --services harden-llm-gateway,harden-llm-web
+```
+
+These values override infrastructure `.env` interpolation without copying its
+secrets. The apply path is explicit, image-pinned, `--no-deps`, and refuses an
+unapproved mount/image/configuration difference. It recreates only selected
+services whose settings changed and retains their named volumes. A no-op does
+not invoke `up`. The profile-sync command remains a separate administrative
+step and does not recreate services or change runtime variables; it is never a
+validation side effect of the configuration command.
 
 Run this same command as part of a production configuration/release rollout.
 After editing `.env`, redeploy enabled previews (manual branch workflow from

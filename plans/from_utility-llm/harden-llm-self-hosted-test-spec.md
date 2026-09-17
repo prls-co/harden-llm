@@ -1203,3 +1203,39 @@ The frontend cases are registered in the separate Phoenix specification.
 - Fixtures/data: real PostgreSQL owner datasets of 1,000, 10,000 and 100,000 rows; page sizes 10, 25, 50 and 100; first, middle and last pages; response byte counts; `EXPLAIN (ANALYZE, BUFFERS)` for count and page queries.
 - Assertions: the report records source SHA, host/toolchain/PostgreSQL version, first-call and three warm-call microsecond timings, plans, buffer summaries, applied metadata and response sizes. It records that pooled execution could not provide a true shared-buffer eviction/cold-cache run rather than labeling the first call cold.
 - Pass criteria: all requested cardinalities and positions pass exact count/cardinality assertions, the existing owner-history index is used for page reads, the snapshot/concurrency and cancellation checks pass, and no latency threshold is invented from this single host observation.
+
+## 22. Production configuration reproducibility
+
+These cases cover the reusable production configuration boundary introduced by
+`PLAN-HLLM-PRODUCTION-CONFIG-001`. The command resolves approved dotenv files
+and explicit host metadata without sourcing them as shell code or recovering
+missing values from running containers. The native Compose case uses temporary
+synthetic files and `config` only; it does not start containers, pull images,
+or contact a provider.
+
+### TEST-233: Approved source ownership and resolution policy
+
+- Type / verifies: pure Node policy; REQ-019 and the source-ownership controls in `PLAN-HLLM-PRODUCTION-CONFIG-001`.
+- Location: `scripts/production-config.mjs` and `scripts/test/production_config_test.mjs`.
+- Command: `make test-static` through the canonical `go-static` task.
+- Fixtures/data: mode-0600 synthetic observability, production and shared-application files containing literal dollar signs, intentional empty values, duplicate/malformed assignments, and ambient application variables.
+- Assertions: only the six PRLS inputs are owned by the observability source; production wins permitted overlap; PRLS conflicts and invalid sources fail; shared application variables preserve intentional empties; arbitrary ambient application and Compose overrides do not enter the child environment; descriptor metadata rejects credential-shaped values.
+- Pass criteria: all values remain in process memory or the approved child environment, no supplied synthetic secret appears in diagnostics, and existing `TEST-062` preview/profile behavior remains unchanged.
+
+### TEST-234: Semantic comparison and scoped no-op/application policy
+
+- Type / verifies: pure Node comparison and recorded subprocess boundary; REQ-017 and REQ-019.
+- Location: `scripts/production-config.mjs` and `scripts/test/production_config_test.mjs`.
+- Command: `make test-static` through the canonical `go-static` task.
+- Fixtures/data: synthetic Compose models and runtime inspection objects with image IDs, release identity, command, health, network, mount path/content and environment fields.
+- Assertions: Compose serialization normalization does not hide real drift; release identity may be explicit and service-specific; equivalent configuration never invokes `up`; unapproved differences block selected application; command arguments and diagnostics contain no resolved values.
+- Pass criteria: runtime comparison is scoped to selected descriptor services, affected fields are named without values, and the same source snapshot is required immediately before application.
+
+### TEST-235: Native Compose interpolation and serialization boundary
+
+- Type / verifies: focused native Docker Compose CLI conformance; REQ-019.
+- Location: `scripts/test/production_config_compose_test.mjs` and `scripts/production-config.mjs`.
+- Command: `make test-production-config`.
+- Fixtures/data: temporary four-file Compose graph, two ordered env files, single-quoted bcrypt-like dollar text, JSON, an intentional empty, a precedence collision and a defaulted variable.
+- Assertions: native `docker compose config --format json` resolves the approved file order; production precedence wins the permitted collision; empty/default semantics remain distinct; serialized dollar escaping is normalized before comparison; no daemon operation is issued.
+- Pass criteria: the test passes with the installed Compose version and cannot pass by replacing native interpolation with a hand-written parser or by starting a container.

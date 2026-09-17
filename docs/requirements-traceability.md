@@ -34,6 +34,24 @@ certifies the real fifteen-service deployment. TEST-037 and TEST-038 are opt-in
 live evidence; absence of credentials is recorded explicitly and never weakens
 deterministic acceptance.
 
+## Production configuration reproducibility
+
+`PLAN-HLLM-PRODUCTION-CONFIG-001` is an operational configuration plan rather
+than a new public API requirement. Its acceptance is nevertheless routed
+through the canonical test catalog and release runner so source ownership and
+Compose behavior cannot drift independently from the implementation.
+
+| Control | Implementation | Acceptance tests |
+| --- | --- | --- |
+| Approved source ownership, precedence, and ambient-environment isolation | `scripts/production-config.mjs`, host descriptor contract | TEST-233 |
+| Semantic service comparison, no-op behavior, selected-service scope, and redacted diagnostics | `scripts/production-config.mjs` | TEST-234 |
+| Native Compose quoting, empty/default semantics, precedence, and serialization | `scripts/production-config.mjs`, focused Compose fixture | TEST-235 |
+
+TEST-233 and TEST-234 run in `make test-static` through the `go-static` task;
+TEST-235 is the release-required `production-config-compose` task and invokes
+only `docker compose config` against temporary synthetic files. None of these
+cases starts a service or uses a production credential.
+
 ## Frontend traceability
 
 The separate `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001` contract maps as follows:

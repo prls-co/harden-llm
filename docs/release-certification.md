@@ -1799,3 +1799,37 @@ the deployment command supplied those already-running production values in
 memory without printing, changing, or committing them. This did not change
 the application plan or runtime configuration, but the deployment environment
 file should be reconciled separately for repeatability.
+
+## Production configuration reproducibility tooling (2026-09-17 UTC)
+
+`PLAN-HLLM-PRODUCTION-CONFIG-001` implemented the reusable
+`scripts/production-config.mjs` boundary and its host descriptor contract. The
+entrypoint parses the approved production, shared-observability, and shared
+application files; passes only the existing `sharedApplicationVariables()`
+allowlist as process environment; resolves the fixed Compose graph; compares
+declared service configuration and retained image/release/mount identity; and
+keeps `apply` explicit and scoped. It never shell-sources dotenv data, prints
+resolved values, runs profile synchronization, or recovers missing values from
+containers.
+
+| Gate or operational check | Result |
+| --- | --- |
+| TEST-233 / TEST-234 | Passed in `make test-static`; source ownership, precedence, ambient isolation, semantic comparison, no-op, scoped apply, and redaction cases are green |
+| TEST-235 | Passed in `make test-production-config`; native Compose 2.40.3 `config` preserved JSON, dollar signs, intentional empties, defaults, and ordered file precedence without starting a container |
+| `make test-fast` | Accepted: 8 tasks, no failure or cleanup error |
+| Fresh-process production check | Resolved all three approved sources; runtime inspected; only `harden-llm-gateway.image-reference` reported |
+| No-op safety | All 16 Compose container IDs and restart counts were unchanged; no `up`, recreate, pull, build, or profile-sync operation was run |
+| Public browser-free probes | Frontend `/healthz`, `/login`; API `/healthz`, `/readyz`: HTTP 200 |
+
+The retained gateway container digest is not currently addressable by the
+Compose tag recorded in the descriptor; the local tag resolves to a different
+image. This is an explicit recovery/image-inventory prerequisite, so `apply`
+blocks before `up` rather than risking a downgrade. The descriptor records the
+running identity and the missing local reference; no service, credential source,
+mount, data volume, image, or application release was changed by this plan.
+The descriptor is `/home/kirill/.config/harden-llm/production.json` and is not
+committed. Its repository-safe schema is
+`config/production-config.example.json`.
+
+No browser, provider, backup-restore, or profile-sync operation was authorized
+or run. The unrelated local browser-test edit remains preserved.

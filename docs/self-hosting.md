@@ -16,6 +16,17 @@ Use a public ACME account email as `HARDEN_LLM_TLS_MODE` in production. `interna
 uses Caddy's private CA and is appropriate only when clients explicitly trust it.
 Keep `.env` outside backups that leave the encrypted backup boundary.
 
+For an existing production project, install the nonsecret descriptor described
+in [`docs/environment.md`](environment.md) and run the read-only check before
+any Compose operation. It loads the production, shared-observability, and
+shared-application sources from their approved paths; do not shell-source an
+environment file or use a running container as a missing-value source.
+
+```bash
+node scripts/production-config.mjs check \
+  --descriptor /home/kirill/.config/harden-llm/production.json
+```
+
 Do not reuse development routing values such as `*.harden.localhost` for a
 Cloudflare-tunneled production origin. Set the five `HARDEN_LLM_*_HOST` values
 to the public names configured by the tunnel. If the tunnel validates Caddy's
@@ -23,10 +34,14 @@ private CA, keep `HARDEN_LLM_TLS_MODE=internal`; otherwise use the documented
 public ACME email value and validate the resulting certificate path before
 starting the stack.
 
-For the full product, define the exact project once in Bash:
+For first-time bootstrap, after all approved source files and the descriptor
+are installed, define the exact project once in Bash:
 
 ```bash
+OBSERVABILITY_ENV_FILE=/path/to/approved/observability.env
 COMPOSE=(docker compose
+  --env-file "$OBSERVABILITY_ENV_FILE"
+  --env-file .env
   -f docker-compose.yml
   -f deploy/langfuse/docker-compose.upstream.yml
   -f deploy/langfuse/compose.private.yml
@@ -39,6 +54,9 @@ COMPOSE=(docker compose
 
 Omit the last file for the frontend-independent backend. Do not edit the pinned
 upstream Langfuse fragment; follow its [update procedure](../deploy/langfuse/UPSTREAM.md).
+For a running production project, do not substitute this generic bootstrap
+sequence for the reproducibility check or scoped apply; it has no service
+identity comparison and its `pull`/`build` behavior is intentionally broader.
 
 ## Bootstrap an operator
 
@@ -147,9 +165,12 @@ their dependencies are unchanged. Retain rollback images and named data/session
 volumes. Verify public health/readiness and authenticated read-only routes;
 report browser and live-provider checks as not run unless separately authorized.
 
-Inject shared provider settings through the approved process environment as
-described in [shared LLM configuration](shared-llm-configuration.md), then run
-the trusted `sync-profiles` command for the existing guest and operator accounts.
+Run the production-config check/apply for runtime settings, then inject shared
+provider settings through the approved process environment as described in
+[shared LLM configuration](shared-llm-configuration.md), and run the trusted
+`sync-profiles` command separately for the existing guest and operator accounts.
+The configuration check never runs profile synchronization as a validation
+side effect.
 Keep production's infrastructure credentials, bearer token, encryption keys,
 and sessions independent of development. Shared-observability variables may
 also require the injection described in [the environment reference](environment.md).

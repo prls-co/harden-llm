@@ -176,6 +176,41 @@
       }
     }
   },
+  "productionConfigurationReproducibility": {
+    "plan": "plans/production-configuration-reproducibility-plan.md",
+    "status": "complete",
+    "updatedAt": "2026-09-17",
+    "completedPhases": ["P0", "P1", "P2", "P3", "P4", "P5"],
+    "tests": ["TEST-233", "TEST-234", "TEST-235"],
+    "implementation": {
+      "entrypoint": "scripts/production-config.mjs",
+      "descriptorExample": "config/production-config.example.json",
+      "hostDescriptor": "/home/kirill/.config/harden-llm/production.json",
+      "sourcePolicy": "observability --env-file, production --env-file, sharedApplicationVariables process allowlist",
+      "applyPolicy": "explicit service scope; no-build; no-deps; pull never; wait; exact local image identity"
+    },
+    "verification": {
+      "testStatic": "TEST-233 and TEST-234 passed",
+      "nativeCompose": "TEST-235 passed with Compose 2.40.3",
+      "fast": "make test-fast accepted 8 tasks",
+      "releaseSelector": "make test-release accepted 26 tasks; no failures or cleanup errors",
+      "runtimeCheck": "fresh process resolved sources; only harden-llm-gateway.image-reference differs",
+      "containerIdentity": "16 project containers unchanged; IDs and restart counts unchanged",
+      "publicProbes": "frontend healthz/login and API healthz/readyz returned 200",
+      "browserLayout": "not run; explicit browser opt-in remains separate",
+      "providerCalls": 0
+    },
+    "deployment": {
+      "status": "not_required_no_service_changed",
+      "reason": "tooling/docs/tests only; runtime check was read-only",
+      "imagePrerequisite": "running gateway digest is not addressable by the current Compose tag; apply blocks before up"
+    },
+    "governance": {
+      "adr": "none; accepted source ownership and service ownership did not change",
+      "ker": "none; no timeout, retry, performance, provider, or persistence budget changed",
+      "relatedIssue": "none"
+    }
+  },
   "source": {
     "repository": "/home/kirill/utility-llm",
     "gitSHA": "09769424ca34b9d759e273a7e9dccf4fd00a5f6c",

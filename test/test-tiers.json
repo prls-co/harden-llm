@@ -66,7 +66,7 @@
     },
     {
       "id": "go-static",
-      "testIds": ["TEST-004", "TEST-062"],
+      "testIds": ["TEST-004", "TEST-062", "TEST-233", "TEST-234"],
       "tier": "T0",
       "resourceClass": "cpu",
       "command": ["make", "test-static"],
@@ -78,6 +78,20 @@
       "requiredFor": ["baseline", "fast", "release"],
       "benchmarkLanes": ["fast-candidates"],
       "pathSelectors": ["internal/testkit/**", "scripts/**", "go.mod", "go.sum"]
+    },
+    {
+      "id": "production-config-compose",
+      "testIds": ["TEST-235"],
+      "tier": "T1",
+      "resourceClass": "cpu",
+      "command": ["make", "test-production-config"],
+      "dependsOn": [],
+      "timeoutMs": 120000,
+      "cleanupOwner": "runner",
+      "network": "forbidden",
+      "credentialKeys": [],
+      "requiredFor": ["release"],
+      "pathSelectors": ["scripts/production-config.mjs", "scripts/test/production_config_compose_test.mjs", "Makefile", "test/test-tiers.json"]
     },
     {
       "id": "go-unit",

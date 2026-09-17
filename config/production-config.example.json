@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "project": "harden-llm",
+  "dockerContext": "default",
+  "composeRoot": "/srv/harden-llm",
+  "applicationRoot": "/srv/harden-llm-production",
+  "composeFiles": [
+    "docker-compose.yml",
+    "deploy/langfuse/docker-compose.upstream.yml",
+    "deploy/langfuse/compose.private.yml",
+    "deploy/frontend/compose.frontend.yml"
+  ],
+  "productionEnvFile": "/srv/harden-llm-production/.env",
+  "observabilityEnvFile": "/home/operator/.config/prls-agent-platform/observability/live.env",
+  "sharedApplicationEnvFile": "/srv/harden-llm/.env",
+  "requiredVariables": [
+    "PRLS_ALLURE_HOST",
+    "PRLS_TESTS_BASIC_AUTH_USER",
+    "PRLS_TESTS_BASIC_AUTH_HASH",
+    "PRLS_LAMINAR_PROJECT_API_KEY",
+    "PRLS_LOKI_S3_ACCESS_KEY",
+    "PRLS_LOKI_S3_SECRET_KEY",
+    "HARDEN_LLM_RELEASE"
+  ],
+  "services": {
+    "caddy": {
+      "container": "harden-llm-caddy-1",
+      "expectedImage": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "manageable": true,
+      "identityEnvironment": {},
+      "ignoredEnvironmentKeys": [],
+      "allowedDifferenceFields": ["environment"],
+      "compareMountContents": true
+    },
+    "harden-llm-gateway": {
+      "container": "harden-llm-harden-llm-gateway-1",
+      "expectedImage": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "manageable": true,
+      "identityEnvironment": {
+        "HARDEN_LLM_RELEASE": "<immutable-release-sha>"
+      },
+      "ignoredEnvironmentKeys": [],
+      "allowedDifferenceFields": ["environment", "image"],
+      "compareMountContents": false
+    }
+  },
+  "serviceEnvironmentOverrides": {
+    "harden-llm-gateway": {
+      "HARDEN_LLM_RELEASE": "<immutable-release-sha>"
+    }
+  },
+  "serviceImageOverrides": {
+    "harden-llm-gateway": "harden-llm-gateway:release-<immutable-release-sha>"
+  }
+}

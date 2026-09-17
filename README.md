@@ -143,6 +143,7 @@ configuration to disable it.
 - [Parallel test feedback hierarchy plan](plans/from_utility-llm/harden-llm-parallel-test-feedback-plan.md)
 - [Reusable pagination implementation plan](plans/reusable-pagination-implementation-plan.md)
 - [Pagination hardening and compact UX plan](plans/pagination-hardening-and-compact-ux-plan.md)
+- [Production configuration reproducibility plan](plans/production-configuration-reproducibility-plan.md)
 - [utility-llm frontend parity inventory](docs/utility-llm-frontend-parity-inventory.md)
 - [Langfuse upstream provenance](deploy/langfuse/UPSTREAM.md)
 - [Architecture decisions](docs/adr/README.md)
