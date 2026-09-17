@@ -158,7 +158,7 @@ so it can later become one small versioned Phoenix package.
 | `HardenAPI` and History decoder | REST request parameters, strict envelopes, session/error handling | Library-specific structs on the public API |
 | Go gateway and PostgreSQL store | Owner authorization, actual page/count queries, deterministic ordering | Rendering, per-widget UI state |
 
-Initial proposed files:
+Implemented files:
 
 - `frontend/lib/prls_ui/pagination.ex`
 - `frontend/lib/prls_ui/pagination_state.ex`
@@ -393,7 +393,7 @@ and now have executable owners. Backend cases reference
 `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`. The plan remains a design record; the
 listed test files and commands are the executable coverage.
 
-| Proposed ID | Boundary/tier | Required oracle |
+| Test ID | Boundary/tier | Required oracle |
 | --- | --- | --- |
 | `TEST-229` | Parsing and paging arithmetic, T0/T1 | Positive page/size validation; duplicate and mixed modes; overflow; zero/one/exact-multiple counts; clamp behavior; old cursor requests unchanged |
 | `TEST-230` | PostgreSQL and authorized reads, T3 | Correct unseen middle/last page; identical timestamp tie-breaks; exact count and owner isolation; concurrent insert/delete leaves count and rows in the same response snapshot; cancellation releases resources |
