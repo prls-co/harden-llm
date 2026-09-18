@@ -55,6 +55,10 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     assert search_index < cache_index
 
     view |> element("#workspace-web-search-toggle") |> render_click()
+    # The control update persists asynchronously. Wait before starting the
+    # cache update so the following fold interaction cannot observe a queued
+    # state save and remain disabled on a slower test runner.
+    render_async(view, 1_000)
 
     assert has_element?(
              view,

@@ -1862,3 +1862,59 @@ the unavailable original. The production descriptor now points to
 All other long-running project services remained running, and frontend/API
 health and login probes returned HTTP 200. The temporary probe tag was removed
 after the release tag was verified.
+
+## Bounded recovery diagnostics and progress — production (2026-09-18 UTC)
+
+Application source `12b0478af9ef59c36a08011c5556d8e37ff9625c` was pushed to
+`main` and deployed to <https://harden-llm.prls.co/> at
+`2026-09-18T20:46:24Z`. This release adds the bounded six-stage recovery
+topology, explicit JSON-repair and rerun targets, per-attempt diagnostics and
+trace origin, incremental provider-stream accounting, request-bound REST SSE,
+and client progress decisions. The gateway was applied at
+`2026-09-18T20:45:57Z`; the web service followed at `20:46:24Z`.
+
+| Gate or production check | Result |
+| --- | --- |
+| `make test-release` for the implementation checkpoint | Accepted: 27 tasks, zero failures and cleanup errors |
+| `make test-fast` after the CI-race fix | Accepted: 9 tasks, zero failures and cleanup errors |
+| Pinned Phoenix suite after the CI-race fix | 228 passed, 5 opt-in/asset/Compose/deployed exclusions |
+| Public probes | Frontend `/healthz`, `/login`; API `/healthz`, `/readyz`: HTTP 200 |
+| Authenticated read-only API | Profiles, state, and History returned HTTP 200; anonymous History remained HTTP 401 |
+| Database migration | Migrations `1` through `8` present; migration `0008_recovery_stages.sql` applied once |
+| Runtime health | Gateway and web healthy with zero restarts; all 16 Compose project services remained running |
+
+| Component | Runtime release | Immutable image | Container |
+| --- | --- | --- | --- |
+| Gateway | `12b0478af9ef59c36a08011c5556d8e37ff9625c` | `sha256:9395f2465e32a5f3b00802e5eff24ad7d98f5d717e63acd0a0aeba84f6618673` | `948843fb24d3` |
+| Web | `12b0478af9ef59c36a08011c5556d8e37ff9625c` | `sha256:8d9ad9c846cdcfe9971bd201ecc8aef9d3aec775659bd60ba34f6ae1c8067b1c` | `21a1532485ba` |
+
+The existing Postgres, Garage, telemetry, cache, and frontend-session
+volumes were retained. Before migration, a private custom-format Postgres
+checkpoint and environment/configuration copies were written under
+`/home/kirill/.local/state/harden-llm-recovery-12b0478`; the database dump is
+`application.dump` (SHA-256
+`f83a7de99d397f44967ef801555e5dc7532dcdfa620a9e604463461a78b85607`) and its
+validated `pg_restore --list` contained 87 entries. No backup contents or
+credentials are committed.
+
+The approved shared profile synchronization converted the existing 31-profile
+catalog to schema 3 and retained its 21 configured credential bindings. The
+read-only API confirmed all profiles at schema 3 and state schema 3, with the
+explicit `jsonRepair` and `rerun` branches. Existing profiles preserve their
+same-generation four-attempt repair policy. The default rerun target is
+`CPA GPT-6 Astra` with Astra-low then Astra-high JSON repair, but no Astra
+profile was invented: the current catalog contains zero Astra profiles. Until
+an approved Astra profile is provisioned, an Astra rerun fails with the
+explicit missing-profile diagnostic rather than silently selecting another
+model.
+
+The profile-widget CI failure was corrected by waiting for the first
+asynchronous state save before starting the queued cache update; this is a
+deterministic test synchronization, not a production timeout increase. The
+follow-up test/documentation commit does not change the deployed image.
+
+No provider or paid search call was made. No browser was launched, so visual
+layout, native browser events, LiveSocket proxy flushing, and browser SSE
+behavior remain unverified. The unrelated local edit to
+`frontend/test/browser/deployed_canary_test.exs` was preserved and was not
+part of this release.
