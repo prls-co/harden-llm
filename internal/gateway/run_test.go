@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -119,7 +120,7 @@ func TestRunRoute(t *testing.T) {
 		t.Fatalf("stored trace = %#v %#v, %v", trace, observations, err)
 	}
 	var traceDocument map[string]any
-	if err := json.Unmarshal(trace.Record, &traceDocument); err != nil || traceDocument["schemaVersion"] != float64(3) || traceDocument["runId"] != "run-1" {
+	if err := json.Unmarshal(trace.Record, &traceDocument); err != nil || traceDocument["schemaVersion"] != float64(4) || traceDocument["runId"] != "run-1" {
 		t.Fatalf("stored trace lost canonical execution identity: %#v %v", traceDocument, err)
 	}
 	if bytes.Contains(response.Body, []byte("llm-traces/")) {
@@ -162,6 +163,53 @@ func TestRunRoute(t *testing.T) {
 	assertEnvelope(t, response, http.StatusOK, false)
 	if response.JSON["result"].(map[string]any)["output"].(map[string]any)["ok"] != true || caller.calls != 2 {
 		t.Fatalf("structured run = %#v calls=%d", response.JSON, caller.calls)
+	}
+
+	// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-252 TEST-253
+	streamRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api/v1/run", bytes.NewReader(textBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+	streamRequest.Header.Set("Authorization", "Bearer valid-token")
+	streamRequest.Header.Set("Accept", "text/event-stream")
+	streamRequest.Header.Set("Content-Type", "application/json")
+	beforeStream := caller.calls
+	streamResponse, err := server.Client().Do(streamRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streamBody, readErr := io.ReadAll(streamResponse.Body)
+	_ = streamResponse.Body.Close()
+	if readErr != nil || streamResponse.StatusCode != http.StatusOK || !strings.Contains(streamResponse.Header.Get("Content-Type"), "text/event-stream") {
+		t.Fatalf("SSE response status/content = %d/%q err=%v", streamResponse.StatusCode, streamResponse.Header.Get("Content-Type"), readErr)
+	}
+	streamText := string(streamBody)
+	if !strings.Contains(streamText, "event: run.started") || !strings.Contains(streamText, "event: run.completed") {
+		t.Fatalf("SSE did not deliver progress before terminal: %s", streamText)
+	}
+	if caller.calls != beforeStream+1 {
+		t.Fatalf("SSE caused duplicate execution: before=%d after=%d", beforeStream, caller.calls)
+	}
+	resumeRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api/v1/run", bytes.NewReader(textBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resumeRequest.Header.Set("Authorization", "Bearer valid-token")
+	resumeRequest.Header.Set("Accept", "text/event-stream")
+	resumeRequest.Header.Set("Last-Event-ID", "1")
+	resumeRequest.Header.Set("Content-Type", "application/json")
+	beforeResume := caller.calls
+	resumeResponse, err := server.Client().Do(resumeRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resumeBody, readErr := io.ReadAll(resumeResponse.Body)
+	_ = resumeResponse.Body.Close()
+	if readErr != nil || resumeResponse.StatusCode != http.StatusBadRequest {
+		t.Fatalf("SSE resume response = %d body=%s err=%v", resumeResponse.StatusCode, resumeBody, readErr)
+	}
+	if caller.calls != beforeResume {
+		t.Fatal("SSE resume request reached the runtime")
 	}
 
 	beforeInvalid := caller.calls
@@ -450,6 +498,9 @@ func (caller *recordingRuntimeCaller) Call(_ context.Context, request hardenllm.
 	caller.last = request
 	callID := fmt.Sprintf("call-%d", caller.calls)
 	traceID := fmt.Sprintf("trace-%d", caller.calls)
+	if request.Progress != nil {
+		request.Progress <- hardenllm.ProgressEvent{SchemaVersion: 1, Sequence: 1, RunID: "run-progress", CallID: callID, TraceID: traceID, Type: "run.started", Stage: "original.generate", Branch: "original", ProfileID: request.ProfileID, AttemptsUsed: 0, AttemptsRemaining: request.RecoveryPolicy.MaxAttempts, ElapsedMs: 0, Terminal: false}
+	}
 	output := any("text-ok")
 	if request.CallType == hardenllm.CallTypeStructured {
 		output = map[string]any{"ok": true}

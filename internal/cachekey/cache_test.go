@@ -141,7 +141,7 @@ func TestRecoveryBoundaryAccountingCache(t *testing.T) {
 		SchemaVersion: OperationSchemaVersion, Protocol: "openai.responses",
 		Endpoint: Endpoint{Identity: "https://provider.example", Method: "POST", Path: "/responses"},
 		Model:    "fixture", Payload: map[string]any{"input": "prompt"}, SemanticHeaders: map[string]any{},
-		ResponseProjection: ResponseProjection{Provider: "openai", Kind: "text", Version: "v3"},
+		ResponseProjection: ResponseProjection{Provider: "openai", Kind: "text", Version: "v4"},
 	}
 	currentHash, err := Hash(base, DefaultVersion)
 	if err != nil {

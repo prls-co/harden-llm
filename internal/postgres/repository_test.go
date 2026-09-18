@@ -55,7 +55,7 @@ func TestRepositoryContract(t *testing.T) {
 	}
 	store := stores[0]
 	versions, err := store.AppliedMigrations(ctx)
-	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7}) {
+	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7, 8}) {
 		t.Fatalf("migration versions = %v, %v", versions, err)
 	}
 	if err := store.Ready(ctx); err != nil {
@@ -141,7 +141,7 @@ func TestRepositoryContract(t *testing.T) {
 	atomicRun := RunRecord{
 		OwnerID: "owner-a", ID: "run-atomic", ProfileID: "profile-a", TraceID: "trace-atomic",
 		Status: "succeeded", Request: json.RawMessage(`{"prompt":"redacted"}`),
-		Result:    json.RawMessage(`{"schemaVersion":3,"output":"ok"}`),
+		Result:    json.RawMessage(`{"schemaVersion":4,"output":"ok"}`),
 		Execution: providerExecutionFields(1, 0, 0, 1, 0, "exact", 0.001, 1, 0, 0, 0),
 		StartedAt: now, CompletedAt: now,
 	}
@@ -168,7 +168,7 @@ func TestRepositoryContract(t *testing.T) {
 	run := RunRecord{
 		OwnerID: "owner-a", ID: "run-a", ProfileID: "profile-a", TraceID: "trace-a", Status: "succeeded",
 		Request:   json.RawMessage(`{"prompt":"redacted"}`),
-		Result:    json.RawMessage(`{"schemaVersion":3,"output":"ok"}`),
+		Result:    json.RawMessage(`{"schemaVersion":4,"output":"ok"}`),
 		Execution: cachedExecutionFields(10, 2, 3, 4, 5, 0.125, 1000, 42),
 		StartedAt: now, CompletedAt: now.Add(time.Second),
 	}
@@ -207,7 +207,7 @@ func TestRepositoryContract(t *testing.T) {
 
 	failedRun := RunRecord{
 		OwnerID: "owner-a", ID: "run-b", ProfileID: "profile-a", TraceID: "trace-b", Status: "failed",
-		Request: json.RawMessage(`{"prompt":"redacted"}`), Result: json.RawMessage(`{"schemaVersion":3,"output":null}`),
+		Request: json.RawMessage(`{"prompt":"redacted"}`), Result: json.RawMessage(`{"schemaVersion":4,"output":null}`),
 		Execution: providerExecutionFields(1, 0, 0, 0, 0, "unknown", 0, 0, 1, 3000, 0),
 		StartedAt: now, CompletedAt: now.Add(3 * time.Second),
 	}
@@ -338,7 +338,7 @@ func providerExecutionFields(input, cacheRead, cacheCreation, output, reasoning 
 		KnownObservations: known, UnknownObservations: unknown,
 	}
 	return &ExecutionFields{
-		SchemaVersion:    3,
+		SchemaVersion:    4,
 		SelectedProvider: "openai", SelectedProtocol: "responses",
 		SelectedEndpoint: "https://provider.example", SelectedModelID: "model-a",
 		ResultSource: "provider", ProducerProfileID: "profile-a", ProducerProvider: "openai",
@@ -354,7 +354,7 @@ func cachedExecutionFields(input, cacheRead, cacheCreation, output, reasoning in
 		CacheCreationTokens: cacheCreation, OutputTokens: output, ReasoningTokens: reasoning,
 	}
 	return &ExecutionFields{
-		SchemaVersion:    3,
+		SchemaVersion:    4,
 		SelectedProvider: "openai", SelectedProtocol: "responses",
 		SelectedEndpoint: "https://provider.example", SelectedModelID: "model-a",
 		ResultSource: "cache", ProducerProfileID: "profile-a", ProducerProvider: "openai",
@@ -366,7 +366,7 @@ func cachedExecutionFields(input, cacheRead, cacheCreation, output, reasoning in
 	}
 }
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-208
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-208 TEST-251
 func TestRecoveryMigration(t *testing.T) {
 	store, ctx := recoveryMigrationStore(t)
 	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
@@ -403,8 +403,8 @@ func TestRecoveryMigration(t *testing.T) {
 				t.Fatal(err)
 			}
 			wanted := rawObject(t, recoveryMigrationProfile(t, test.id, `{}`))
-			wanted["schemaVersion"] = json.RawMessage(`2`)
-			wanted["recoveryPolicy"] = json.RawMessage(test.policy)
+			wanted["schemaVersion"] = json.RawMessage(`3`)
+			wanted["recoveryPolicy"] = recoveryMigrationPolicy(t, test.policy)
 			delete(wanted, "backupProfiles")
 			if test.id == "flat-wins" {
 				wanted["reasoningEffortMap"] = json.RawMessage(`{"lowest":{"temperature":0.4}}`)
@@ -426,7 +426,7 @@ func TestRecoveryMigration(t *testing.T) {
 		for _, key := range []string{"maxAttempts", "initialBackoffMs", "maximumBackoffMs", "retryNetwork", "retryRateLimit", "retryServerError", "retryEmpty", "retryParse", "repairEscalation", "structuredRepair"} {
 			delete(state, key)
 		}
-		state["schemaVersion"], state["recoveryPolicy"] = json.RawMessage(`2`), json.RawMessage(policy)
+		state["schemaVersion"], state["recoveryPolicy"] = json.RawMessage(`3`), recoveryMigrationPolicy(t, policy)
 		state["providerOptions"] = json.RawMessage(`{"max_tokens":32}`)
 		wantedStates[owner] = marshalRecovery(t, state)
 
@@ -435,6 +435,9 @@ func TestRecoveryMigration(t *testing.T) {
 		example := contract.Components.Responses["RunSuccess"].Value.Content["application/json"].Examples["text"].Value.Value.(map[string]any)["result"]
 		result := rawObject(t, marshalRecovery(t, example))
 		result["output"] = json.RawMessage(`{"exact":9007199254740993,"numericString":"0012","whitespace":"  keep  "}`)
+		// Historical v3 runs did not measure elapsed retry waits. The v4
+		// migration records that absence as JSON null rather than inventing zero.
+		result["totalActualWaitMs"] = json.RawMessage(`null`)
 		wantedResults[owner] = marshalRecovery(t, result)
 		result["schemaVersion"] = json.RawMessage(`2`)
 		var attempts []map[string]json.RawMessage
@@ -500,7 +503,7 @@ func TestRecoveryMigration(t *testing.T) {
 		}
 	}
 	versions, err := store.AppliedMigrations(ctx)
-	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7}) {
+	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7, 8}) {
 		t.Fatalf("migration versions = %v, %v", versions, err)
 	}
 	if after := recoverySnapshot(t, ctx, store, true); !reflect.DeepEqual(before, after) {
@@ -539,7 +542,7 @@ func TestRecoveryMigration(t *testing.T) {
 		}
 		assertRecoveryJSON(t, ctx, store, got.Result, wanted)
 		var version int
-		if err := store.pool.QueryRow(ctx, `SELECT result_schema_version FROM llm_runs WHERE owner_id=$1`, owner).Scan(&version); err != nil || version != 3 {
+		if err := store.pool.QueryRow(ctx, `SELECT result_schema_version FROM llm_runs WHERE owner_id=$1`, owner).Scan(&version); err != nil || version != 4 {
 			t.Fatalf("result projection version=%d %v", version, err)
 		}
 		var value any
@@ -629,6 +632,43 @@ func TestRecoveryMigrationRejectsInvalidDocumentsAtomically(t *testing.T) {
 	}
 }
 
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-251
+func TestRecoveryStagesMigrationRejectsMixedPolicyAtomically(t *testing.T) {
+	store, ctx := recoveryMigrationStore(t, 7)
+	now := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+	if err := store.CreateUser(ctx, User{ID: "owner", Email: "owner@example.test", PasswordHash: "$argon2id$fixture", CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile("../../fixtures/contracts/profile-catalog.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var catalog struct {
+		Input map[string]json.RawMessage `json:"input"`
+	}
+	if err := json.Unmarshal(data, &catalog); err != nil {
+		t.Fatal(err)
+	}
+	document := rawObject(t, catalog.Input["Primary"])
+	document["schemaVersion"] = json.RawMessage(`2`)
+	document["recoveryPolicy"] = json.RawMessage(`{"maxAttempts":4,"retryOn":["network"],"repairInvalidOutput":true,"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":500,"maxDelayMs":8000}}`)
+	if err := store.SaveProfile(ctx, ProfileRecord{
+		OwnerID: "owner", ID: "mixed", Document: marshalRecovery(t, document), CreatedAt: now, UpdatedAt: now,
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	before := recoverySnapshot(t, ctx, store, false)
+	err = store.Migrate(ctx)
+	if err == nil || !strings.Contains(err.Error(), "recoveryPolicy mixes") || !strings.Contains(err.Error(), "profile owner/mixed") {
+		t.Fatalf("expected mixed-policy migration rejection, got %v", err)
+	}
+	if !reflect.DeepEqual(before, recoverySnapshot(t, ctx, store, false)) {
+		t.Fatal("mixed-policy migration partially changed stored data or version")
+	}
+}
+
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-227
 func TestRecoveryIntegrityStorage(t *testing.T) {
 	store, ctx := recoveryMigrationStore(t, 6)
@@ -688,7 +728,7 @@ func TestRecoveryIntegrityStorage(t *testing.T) {
 		t.Fatalf("cache columns = %v, want %v", columns, wantedColumns)
 	}
 	versions, err := store.AppliedMigrations(ctx)
-	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7}) {
+	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7, 8}) {
 		t.Fatalf("migration versions = %v, %v", versions, err)
 	}
 	if err := store.Ready(ctx); err != nil {
@@ -784,6 +824,23 @@ func marshalRecovery(t *testing.T, value any) json.RawMessage {
 		t.Fatal(err)
 	}
 	return data
+}
+
+func recoveryMigrationPolicy(t *testing.T, legacy string) json.RawMessage {
+	t.Helper()
+	policy := rawObject(t, []byte(legacy))
+	var repairEnabled bool
+	if err := json.Unmarshal(policy["repairInvalidOutput"], &repairEnabled); err != nil {
+		t.Fatal(err)
+	}
+	delete(policy, "repairInvalidOutput")
+	if repairEnabled {
+		policy["jsonRepair"] = json.RawMessage(`{"initial":{"source":"generation"},"escalation":{"source":"generation"}}`)
+	} else {
+		policy["jsonRepair"] = json.RawMessage(`null`)
+	}
+	policy["rerun"] = json.RawMessage(`null`)
+	return marshalRecovery(t, policy)
 }
 
 func assertRecoveryJSON(t *testing.T, ctx context.Context, store *Store, got, want []byte) {

@@ -12,17 +12,20 @@ import (
 	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
 )
 
-const cacheRecordSchemaVersion = 2
+const cacheRecordSchemaVersion = 3
 
 type cacheAdapter struct {
 	store CacheStore
 }
 
 type cachedProviderProjection struct {
-	Search     *coreruntime.SearchResult   `json:"search,omitempty"`
-	Output     any                         `json:"output"`
-	Accounting coreruntime.Ledger          `json:"accounting"`
-	Producer   coreruntime.ExecutionTarget `json:"producer"`
+	Search           *coreruntime.SearchResult     `json:"search,omitempty"`
+	Output           any                           `json:"output"`
+	Accounting       coreruntime.Ledger            `json:"accounting"`
+	Stream           coreruntime.StreamDiagnostics `json:"stream,omitempty"`
+	Producer         coreruntime.ExecutionTarget   `json:"producer"`
+	GenerationTarget coreruntime.ExecutionTarget   `json:"generationTarget,omitempty"`
+	CompletedBy      string                        `json:"completedBy,omitempty"`
 }
 
 func (adapter *cacheAdapter) Get(ctx context.Context, operationHash, cacheVersion string) (coreruntime.CachedResult, bool, error) {
@@ -49,8 +52,9 @@ func (adapter *cacheAdapter) Get(ctx context.Context, operationHash, cacheVersio
 		ProviderResult: coreruntime.ProviderResult{
 			Search: projection.Search,
 			Output: projection.Output, Accounting: projection.Accounting,
+			Stream: projection.Stream,
 		},
-		Producer: projection.Producer,
+		Producer: projection.Producer, GenerationTarget: projection.GenerationTarget, CompletedBy: projection.CompletedBy,
 	}, true, nil
 }
 
@@ -61,6 +65,8 @@ func (adapter *cacheAdapter) Set(ctx context.Context, operationHash, cacheVersio
 	providerJSON, err := json.Marshal(cachedProviderProjection{
 		Search: result.ProviderResult.Search,
 		Output: result.ProviderResult.Output, Accounting: result.ProviderResult.Accounting, Producer: result.Producer,
+		Stream:           result.ProviderResult.Stream,
+		GenerationTarget: result.GenerationTarget, CompletedBy: result.CompletedBy,
 	})
 	if err != nil {
 		return fmt.Errorf("hardenllm: encode cached provider result: %w", err)

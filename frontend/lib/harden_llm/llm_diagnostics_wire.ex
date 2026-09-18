@@ -2,16 +2,17 @@ defmodule HardenLlm.LlmDiagnosticsWire do
   @moduledoc """
   Strict, operation-specific decoding for execution diagnostics at the REST boundary.
 
-  Run, history and trace records use schema v3; stats retain schema v2.
+  Run, history and trace records use schema v4; stats retain schema v2.
   Retired execution formats are rejected at this boundary before projection.
   """
 
-  @run_keys ~w(schemaVersion runId status output callId traceId selectedTarget resultSource accounting attempts cache artifacts providerInvoked totalCallDurationMs totalWaitMs overBudgetMs usedRepair)
-  @attempt_keys ~w(number profileId target category httpStatus code type providerRequestId retryable wait duration repair providerUsed)
+  @run_keys ~w(schemaVersion runId status output callId traceId origin selectedTarget resultSource accounting attempts cache artifacts providerInvoked totalCallDurationMs totalWaitMs totalActualWaitMs overBudgetMs usedRepair generationTarget stopReason diagnostics)
+  @run_required_keys ~w(schemaVersion runId status output callId traceId selectedTarget resultSource accounting attempts cache artifacts providerInvoked totalCallDurationMs totalWaitMs totalActualWaitMs overBudgetMs usedRepair)
+  @attempt_keys ~w(number profileId target category httpStatus code type providerRequestId retryable wait duration repair providerUsed stage branch triggerAttemptNumber inputAttemptNumbers transportRetryOfAttempt startedAt finishedAt reasoningEffort dispatchObserved stream waitDiagnostics)
   @target_keys ~w(profileId provider protocol endpoint modelId)
   @usage_keys ~w(inputTokens cacheReadTokens cacheCreationTokens outputTokens reasoningTokens promptTokens completionTokens totalTokens status)
   @cost_keys ~w(knownSubtotalUsd status source knownObservations unknownObservations)
-  @cache_keys ~w(mode status operationHash version served written)
+  @cache_keys ~w(mode status operationHash originalOperationHash rerunOperationHash version served written)
   @artifact_keys ~w(artifactId kind state sha256 sizeBytes contentType)
   @maximum_int64 9_223_372_036_854_775_807
 
@@ -19,6 +20,9 @@ defmodule HardenLlm.LlmDiagnosticsWire do
   def decode("getStats", value), do: decode_stats(value)
   def decode("getTrace", value), do: decode_trace(value)
   def decode("listHistory", value), do: decode_history(value)
+
+  def decode(operation, value) when operation in ["runProgress", "runStream"],
+    do: decode_progress(value)
 
   def decode(operation, value) when operation in ["listProfiles", "importProfileBundle"],
     do: decode_profiles(value)
@@ -32,11 +36,109 @@ defmodule HardenLlm.LlmDiagnosticsWire do
 
   def decode(_operation, value), do: {:ok, value}
 
+  @doc "Strictly decodes one request-bound REST SSE envelope."
+  def decode_progress(value) when is_map(value) do
+    with :ok <- subset_keys(value, ~w(schemaVersion sequence runId callId traceId type data)),
+         :ok <- required_keys(value, ~w(schemaVersion sequence type data)),
+         :ok <- enum(value["schemaVersion"], [1]),
+         :ok <- positive_int64(value["sequence"]),
+         :ok <- optional(value, "runId", &identifier/1),
+         :ok <- optional(value, "callId", &identifier/1),
+         :ok <- optional(value, "traceId", &identifier/1),
+         :ok <- enum(value["type"], ~w(run.started run.progress run.completed run.failed)),
+         :ok <- progress_data(value["type"], value["data"]) do
+      {:ok, value}
+    else
+      _ -> malformed()
+    end
+  end
+
+  def decode_progress(_value), do: malformed()
+
+  defp progress_data(type, value) when type in ["run.started", "run.progress"],
+    do: progress_snapshot(value)
+
+  defp progress_data(_type, %{"state" => state, "result" => result, "error" => error} = value) do
+    with :ok <- exact_keys(value, ~w(state result error)),
+         true <- is_map(state),
+         :ok <- decode_terminal_result(result),
+         :ok <- terminal_error(error) do
+      :ok
+    else
+      _ -> :error
+    end
+  end
+
+  defp progress_data(_type, _value), do: :error
+
+  defp progress_snapshot(value) when is_map(value) do
+    keys =
+      ~w(schemaVersion sequence runId callId traceId type stage branch profileId reasoningEffort attempt attemptsUsed attemptsRemaining elapsedMs deadlineRemainingMs receivedBytes eventCount outputBytes outputCodePoints lastActivity stopReason terminal maxAttempts effectiveTimeoutMs origin attempts accounting)
+
+    with :ok <- subset_keys(value, keys),
+         :ok <-
+           required_keys(
+             value,
+             ~w(schemaVersion sequence callId traceId type attemptsUsed attemptsRemaining elapsedMs terminal)
+           ),
+         :ok <- enum(value["schemaVersion"], [1]),
+         :ok <- positive_int64(value["sequence"]),
+         :ok <- optional(value, "runId", &identifier/1),
+         :ok <- identifier(value["callId"]),
+         :ok <- identifier(value["traceId"]),
+         :ok <- enum(value["type"], ~w(run.started run.progress run.terminal)),
+         :ok <-
+           optional_texts(
+             value,
+             ~w(stage branch profileId reasoningEffort stopReason lastActivity)
+           ),
+         :ok <- optional(value, "branch", &enum(&1, ~w(original rerun))),
+         :ok <- optional(value, "attempt", &positive_integer/1),
+         :ok <-
+           nonnegative_integers(
+             value,
+             ~w(attemptsUsed attemptsRemaining elapsedMs receivedBytes eventCount outputBytes outputCodePoints)
+           ),
+         :ok <- optional(value, "deadlineRemainingMs", &nonnegative_integer/1),
+         :ok <- optional(value, "maxAttempts", &positive_integer/1),
+         :ok <- optional(value, "effectiveTimeoutMs", &nonnegative_integer/1),
+         :ok <- optional(value, "origin", &origin/1),
+         :ok <- optional(value, "attempts", &attempts/1),
+         :ok <- optional(value, "accounting", &accounting/1),
+         :ok <- boolean(value["terminal"]) do
+      :ok
+    else
+      _ -> :error
+    end
+  end
+
+  defp progress_snapshot(_value), do: :error
+
+  defp decode_terminal_result(nil), do: :ok
+
+  defp decode_terminal_result(value) when is_map(value) do
+    case decode_run(value) do
+      {:ok, _decoded} -> :ok
+      _ -> :error
+    end
+  end
+
+  defp decode_terminal_result(_value), do: :error
+
+  defp terminal_error(nil), do: :ok
+
+  defp terminal_error(%{"code" => code, "message" => message} = value)
+       when is_binary(code) and is_binary(message),
+       do: subset_keys(value, ~w(code message fieldErrors))
+
+  defp terminal_error(_value), do: :error
+
   def decode("listHistory", value, :cursor), do: decode_cursor_history(value)
   def decode("listHistory", value, :numbered), do: decode_numbered_history(value)
 
   def decode_state(operation, value) when operation in ["getState", "saveState"] do
-    with %{"schemaVersion" => 2, "recoveryPolicy" => policy} <- value,
+    with %{"schemaVersion" => version, "recoveryPolicy" => policy} <- value,
+         true <- version in [2, 3],
          :ok <- recovery_policy(policy) do
       {:ok, value}
     else
@@ -45,6 +147,19 @@ defmodule HardenLlm.LlmDiagnosticsWire do
   end
 
   def decode_state(_operation, value), do: {:ok, value}
+
+  @doc "Strictly decodes the small run identity state carried by run results."
+  def decode_run_state(value) when is_map(value) do
+    with :ok <- exact_keys(value, ~w(lastRunId lastTraceId)),
+         :ok <- identifier(value["lastRunId"]),
+         :ok <- identifier(value["lastTraceId"]) do
+      {:ok, value}
+    else
+      _ -> malformed()
+    end
+  end
+
+  def decode_run_state(_value), do: malformed()
 
   defp decode_profiles(%{"profiles" => profiles, "defaults" => defaults} = value)
        when is_list(profiles) and is_map(defaults) do
@@ -60,18 +175,21 @@ defmodule HardenLlm.LlmDiagnosticsWire do
 
   defp decode_profiles(_value), do: malformed()
 
-  defp profile_state(%{"profile" => %{"schemaVersion" => 2, "recoveryPolicy" => policy}}),
-    do: recovery_policy(policy)
+  defp profile_state(%{"profile" => %{"schemaVersion" => version, "recoveryPolicy" => policy}})
+       when version in [2, 3],
+       do: recovery_policy(policy)
 
   defp profile_state(_value), do: :error
 
   # Check the required wire shape only. Go owns policy semantics and defaults.
   defp recovery_policy(value) when is_map(value) do
-    with :ok <- exact_keys(value, ~w(maxAttempts retryOn repairInvalidOutput backoff)),
+    with :ok <- recovery_policy_shape(value),
          true <- is_integer(value["maxAttempts"]),
          categories when is_list(categories) <- value["retryOn"],
          true <- Enum.all?(categories, &is_binary/1),
-         :ok <- boolean(value["repairInvalidOutput"]),
+         :ok <- optional(value, "repairInvalidOutput", &boolean/1),
+         :ok <- optional(value, "jsonRepair", &json_repair/1),
+         :ok <- optional(value, "rerun", &rerun/1),
          backoff when is_map(backoff) <- value["backoff"],
          :ok <- exact_keys(backoff, ~w(baseDelayMs maxDelayMs)),
          true <- is_integer(backoff["baseDelayMs"]),
@@ -84,15 +202,84 @@ defmodule HardenLlm.LlmDiagnosticsWire do
 
   defp recovery_policy(_value), do: :error
 
-  def decode_run(%{"schemaVersion" => 3} = value) do
+  defp recovery_policy_shape(value) do
+    cond do
+      Map.has_key?(value, "repairInvalidOutput") and not Map.has_key?(value, "jsonRepair") and
+          not Map.has_key?(value, "rerun") ->
+        exact_keys(value, ~w(maxAttempts retryOn repairInvalidOutput backoff))
+
+      Map.has_key?(value, "jsonRepair") and Map.has_key?(value, "rerun") and
+          not Map.has_key?(value, "repairInvalidOutput") ->
+        exact_keys(value, ~w(maxAttempts retryOn jsonRepair rerun backoff))
+
+      true ->
+        :error
+    end
+  end
+
+  defp json_repair(nil), do: :ok
+
+  defp json_repair(value) when is_map(value) do
+    with :ok <- exact_keys(value, ~w(initial escalation)),
+         :ok <- recovery_target(value["initial"]),
+         :ok <- optional(value, "escalation", &nullable_recovery_target/1) do
+      :ok
+    end
+  end
+
+  defp json_repair(_value), do: :error
+
+  defp rerun(nil), do: :ok
+
+  defp rerun(value) when is_map(value) do
+    with :ok <- exact_keys(value, ~w(target jsonRepair)),
+         :ok <- recovery_target(value["target"]),
+         :ok <- optional(value, "jsonRepair", &json_repair/1) do
+      :ok
+    end
+  end
+
+  defp rerun(_value), do: :error
+
+  defp nullable_recovery_target(nil), do: :ok
+  defp nullable_recovery_target(value), do: recovery_target(value)
+
+  defp recovery_target(value) when is_map(value) do
+    case value["source"] do
+      "profile" ->
+        with :ok <-
+               subset_keys(value, ~w(source profileId modelId reasoningEffort providerOptions)),
+             :ok <- required_keys(value, ~w(source profileId)),
+             :ok <- nonempty_text(value["profileId"]),
+             :ok <- optional(value, "modelId", &nonempty_text/1),
+             :ok <- optional(value, "reasoningEffort", &enum(&1, ~w(lowest middle highest))),
+             :ok <-
+               optional(value, "providerOptions", fn candidate ->
+                 if is_map(candidate), do: :ok, else: :error
+               end) do
+          :ok
+        end
+
+      "generation" ->
+        exact_keys(value, ["source"])
+
+      _ ->
+        :error
+    end
+  end
+
+  defp recovery_target(_value), do: :error
+
+  def decode_run(%{"schemaVersion" => 4} = value) do
     with :ok <- subset_keys(value, @run_keys ++ ~w(search)),
-         :ok <- required_keys(value, @run_keys),
+         :ok <- required_keys(value, @run_required_keys),
          :ok <- optional(value, "search", &search/1),
          :ok <- enum(value["status"], ~w(succeeded failed timeout)),
          :ok <- identifier(value["runId"]),
          :ok <- identifier(value["callId"]),
          :ok <- identifier(value["traceId"]),
          :ok <- target(value["selectedTarget"]),
+         :ok <- optional(value, "origin", &origin/1),
          :ok <- result_source(value["resultSource"]),
          :ok <- accounting(value["accounting"]),
          :ok <- attempts(value["attempts"]),
@@ -101,8 +288,12 @@ defmodule HardenLlm.LlmDiagnosticsWire do
          :ok <- boolean(value["providerInvoked"]),
          :ok <- nonnegative_integer(value["totalCallDurationMs"]),
          :ok <- nonnegative_integer(value["totalWaitMs"]),
+         :ok <- optional(value, "totalActualWaitMs", &nullable_nonnegative_integer/1),
          :ok <- nonnegative_integer(value["overBudgetMs"]),
          :ok <- boolean(value["usedRepair"]),
+         :ok <- optional(value, "generationTarget", &target/1),
+         :ok <- optional_texts(value, ~w(stopReason)),
+         :ok <- optional(value, "diagnostics", &diagnostics/1),
          :ok <- execution_invariants(value) do
       {:ok, value}
     else
@@ -111,6 +302,65 @@ defmodule HardenLlm.LlmDiagnosticsWire do
   end
 
   def decode_run(_value), do: malformed()
+
+  defp diagnostics(value) when is_map(value) do
+    with :ok <-
+           subset_keys(
+             value,
+             ~w(stage branch stopReason attemptsUsed attemptsRemaining elapsedMs totalActualWaitMs receivedBytes eventCount outputBytes outputCodePoints effectiveTimeoutMs deadlineAt branchCaches)
+           ),
+         :ok <-
+           required_keys(
+             value,
+             ~w(attemptsUsed attemptsRemaining elapsedMs totalActualWaitMs receivedBytes eventCount outputBytes outputCodePoints)
+           ),
+         :ok <- optional_texts(value, ~w(stage stopReason)),
+         :ok <- optional(value, "branch", &enum(&1, ~w(original rerun))),
+         :ok <- optional(value, "effectiveTimeoutMs", &nonnegative_integer/1),
+         :ok <- optional(value, "deadlineAt", &iso8601/1),
+         :ok <- optional(value, "branchCaches", &branch_caches/1),
+         :ok <-
+           nonnegative_integers(
+             value,
+             ~w(attemptsUsed attemptsRemaining elapsedMs totalActualWaitMs receivedBytes eventCount outputBytes outputCodePoints)
+           ) do
+      :ok
+    else
+      _ -> :error
+    end
+  end
+
+  defp diagnostics(_value), do: :error
+
+  defp branch_caches(values) when is_list(values) and length(values) <= 2 do
+    each(values, fn value ->
+      with :ok <- exact_keys(value, ~w(branch generationTarget cache)),
+           :ok <- enum(value["branch"], ~w(original rerun)),
+           :ok <- target(value["generationTarget"]),
+           :ok <- cache(value["cache"]) do
+        :ok
+      end
+    end)
+  end
+
+  defp branch_caches(_value), do: :error
+
+  defp origin(value) when is_map(value) do
+    keys = ~w(client component operationId parentRunId jobId testRunId testId sourceRevision)
+
+    with :ok <- subset_keys(value, keys),
+         :ok <- each(keys, fn key -> optional(value, key, &origin_text/1) end),
+         true <- byte_size(Jason.encode!(value)) <= 2_048 do
+      :ok
+    else
+      _ -> :error
+    end
+  end
+
+  defp origin(_value), do: :error
+
+  defp origin_text(value) when is_binary(value) and byte_size(value) <= 256, do: :ok
+  defp origin_text(_value), do: :error
 
   # Optional OpenAPI WebSearchResult, shared by live runs, history and traces.
   # executed describes the original answer, including when served from cache.
@@ -448,6 +698,18 @@ defmodule HardenLlm.LlmDiagnosticsWire do
          :ok <- nonempty_text(value["profileId"]),
          :ok <- target(value["target"]),
          :ok <- optional_texts(value, ~w(category code type providerRequestId)),
+         :ok <- optional_texts(value, ~w(stage)),
+         :ok <- optional(value, "branch", &enum(&1, ~w(original rerun))),
+         :ok <- optional(value, "triggerAttemptNumber", &positive_integer/1),
+         :ok <-
+           optional(value, "inputAttemptNumbers", fn values ->
+             if is_list(values), do: each(values, &positive_integer/1), else: :error
+           end),
+         :ok <- optional(value, "transportRetryOfAttempt", &positive_integer/1),
+         :ok <- optional_texts(value, ~w(startedAt finishedAt reasoningEffort)),
+         :ok <- optional(value, "dispatchObserved", &boolean/1),
+         :ok <- optional(value, "stream", &stream/1),
+         :ok <- optional(value, "waitDiagnostics", &wait_diagnostics/1),
          :ok <- optional(value, "httpStatus", &http_status/1),
          :ok <- booleans(value, ~w(retryable repair providerUsed)),
          :ok <- nonnegative_integers(value, ~w(wait duration)) do
@@ -459,13 +721,58 @@ defmodule HardenLlm.LlmDiagnosticsWire do
 
   defp attempt(_value, _expected), do: :error
 
+  defp stream(value) when is_map(value) do
+    with :ok <-
+           subset_keys(
+             value,
+             ~w(receivedBytes eventCount outputBytes outputCodePoints firstEventMs firstOutputMs lastEventAt lastOutputAt terminalState)
+           ),
+         :ok <- required_keys(value, ~w(receivedBytes eventCount outputBytes outputCodePoints)),
+         :ok <-
+           nonnegative_integers(value, ~w(receivedBytes eventCount outputBytes outputCodePoints)),
+         :ok <- optional(value, "firstEventMs", &nonnegative_integer/1),
+         :ok <- optional(value, "firstOutputMs", &nonnegative_integer/1),
+         :ok <- optional(value, "lastEventAt", &iso8601/1),
+         :ok <- optional(value, "lastOutputAt", &iso8601/1),
+         :ok <-
+           optional(
+             value,
+             "terminalState",
+             &enum(&1, ~w(not_streaming awaiting_terminal completed incomplete failed missing))
+           ) do
+      :ok
+    else
+      _ -> :error
+    end
+  end
+
+  defp stream(_value), do: :error
+
+  defp wait_diagnostics(value) when is_map(value) do
+    with :ok <- subset_keys(value, ~w(reason plannedMs actualMs retryAfterMs)),
+         :ok <- required_keys(value, ~w(plannedMs actualMs)),
+         :ok <- optional_texts(value, ~w(reason)),
+         :ok <- nonnegative_integers(value, ~w(plannedMs actualMs)),
+         :ok <- optional(value, "retryAfterMs", &nonnegative_integer/1) do
+      :ok
+    else
+      _ -> :error
+    end
+  end
+
+  defp wait_diagnostics(_value), do: :error
+
   defp cache(value) when is_map(value) do
     with :ok <- subset_keys(value, @cache_keys),
          :ok <- required_keys(value, ~w(mode status served written)),
          :ok <- enum(value["mode"], ~w(off cache refresh)),
          :ok <- nonempty_text(value["status"]),
          :ok <- booleans(value, ~w(served written)),
-         :ok <- optional_texts(value, ~w(operationHash version)) do
+         :ok <-
+           optional_texts(
+             value,
+             ~w(operationHash originalOperationHash rerunOperationHash version)
+           ) do
       :ok
     else
       _ -> :error
@@ -489,7 +796,7 @@ defmodule HardenLlm.LlmDiagnosticsWire do
     with :ok <- exact_keys(value, @artifact_keys),
          :ok <- identifier(value["artifactId"]),
          :ok <- enum(value["kind"], ~w(trace parse-failure-response diagnostic-event)),
-         :ok <- enum(value["state"], ~w(available deleting unavailable)),
+         :ok <- enum(value["state"], ~w(available)),
          true <- is_binary(value["sha256"]) and Regex.match?(~r/^[0-9a-f]{64}$/, value["sha256"]),
          :ok <- positive_integer(value["sizeBytes"]),
          :ok <- enum(value["contentType"], ["application/json"]) do
@@ -689,6 +996,8 @@ defmodule HardenLlm.LlmDiagnosticsWire do
   defp boolean(_value), do: :error
   defp nonnegative_integer(value) when is_integer(value) and value >= 0, do: :ok
   defp nonnegative_integer(_value), do: :error
+  defp nullable_nonnegative_integer(nil), do: :ok
+  defp nullable_nonnegative_integer(value), do: nonnegative_integer(value)
   defp positive_integer(value) when is_integer(value) and value > 0, do: :ok
   defp positive_integer(_value), do: :error
   defp nonnegative_int64(value) when is_integer(value) and value in 0..@maximum_int64, do: :ok

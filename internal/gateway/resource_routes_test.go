@@ -137,7 +137,7 @@ func TestResourceRoutes(t *testing.T) {
 	profilesResult := response.JSON["result"].(map[string]any)["profiles"].([]any)
 	// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-208
 	defaults := response.JSON["result"].(map[string]any)["defaults"].(map[string]any)
-	wantDefaults, _ := json.Marshal(hardenllm.DefaultRecoveryPolicy())
+	wantDefaults, _ := json.Marshal(hardenllm.DefaultStructuredRecoveryPolicy())
 	gotDefaults, _ := json.Marshal(defaults["recoveryPolicy"])
 	var gotPolicy, wantPolicy any
 	_ = json.Unmarshal(gotDefaults, &gotPolicy)

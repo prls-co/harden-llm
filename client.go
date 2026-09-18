@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"time"
+	"unicode/utf8"
 
 	"github.com/prls-co/harden-llm/internal/cachekey"
 	contractprofiles "github.com/prls-co/harden-llm/internal/profiles"
@@ -72,6 +73,9 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 	if request.ProfileID == "" {
 		return Result{}, errors.New("hardenllm: profile ID is required")
 	}
+	if err := validateOrigin(request.Origin); err != nil {
+		return Result{}, err
+	}
 	if _, ok := profiles[request.ProfileID]; !ok {
 		return Result{}, fmt.Errorf("hardenllm: profile %q was not found", request.ProfileID)
 	}
@@ -106,9 +110,47 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 	call := coreruntime.Call{
 		SystemPrompt: request.SystemPrompt, UserPrompt: request.UserPrompt, CallType: string(request.CallType),
 		Schema: append([]byte(nil), request.Schema...), ReasoningEffort: string(request.ReasoningEffort),
-		WebSearch:       request.WebSearch,
+		WebSearch: request.WebSearch,
+		Origin: coreruntime.Origin{
+			Client: request.Origin.Client, Component: request.Origin.Component, OperationID: request.Origin.OperationID,
+			ParentRunID: request.Origin.ParentRunID, JobID: request.Origin.JobID, TestRunID: request.Origin.TestRunID,
+			TestID: request.Origin.TestID, SourceRevision: request.Origin.SourceRevision,
+		},
 		ProviderOptions: cloneAnyMap(request.ProviderOptions), Context: runtimeContext(request.Context),
 		Telemetry: client.telemetry,
+	}
+	if request.Progress != nil {
+		call.Progress = func(snapshot coreruntime.ProgressSnapshot) {
+			progressAttempts := make([]Attempt, 0, len(snapshot.Attempts))
+			for _, item := range snapshot.Attempts {
+				progressAttempts = append(progressAttempts, publicAttempt(item))
+			}
+			var progressAccounting *Accounting
+			if snapshot.Accounting != nil {
+				value := Accounting{
+					Result: publicAccountingLedger(snapshot.Accounting.Result), Provider: publicAccountingLedger(snapshot.Accounting.Provider),
+				}
+				progressAccounting = &value
+			}
+			event := ProgressEvent{
+				SchemaVersion: 1, Sequence: snapshot.Sequence, RunID: snapshot.RunID,
+				CallID: snapshot.CallID, TraceID: snapshot.TraceID, Type: snapshot.Type,
+				Stage: snapshot.Stage, Branch: snapshot.Branch, ProfileID: snapshot.ProfileID,
+				ReasoningEffort: snapshot.ReasoningEffort, Attempt: snapshot.Attempt,
+				AttemptsUsed: snapshot.AttemptsUsed, AttemptsRemaining: snapshot.AttemptsRemaining,
+				ElapsedMs: snapshot.ElapsedMs, DeadlineRemainingMs: snapshot.DeadlineRemainingMs,
+				ReceivedBytes: snapshot.ReceivedBytes, EventCount: snapshot.EventCount,
+				OutputBytes: snapshot.OutputBytes, OutputCodePoints: snapshot.OutputCodePoints,
+				LastActivity: snapshot.LastActivity.UTC().Format(time.RFC3339Nano),
+				StopReason:   snapshot.StopReason, Terminal: snapshot.Terminal, MaxAttempts: snapshot.MaxAttempts,
+				EffectiveTimeoutMs: durationMillisecondsPointer(snapshot.EffectiveTimeout), Origin: publicOrigin(snapshot.Origin),
+				Attempts: progressAttempts, Accounting: progressAccounting,
+			}
+			select {
+			case request.Progress <- event:
+			default:
+			}
+		}
 	}
 	if request.CallType == CallTypeStructured {
 		if len(request.Schema) == 0 {
@@ -177,6 +219,23 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 		return result, err
 	}
 	return result, nil
+}
+
+func validateOrigin(origin Origin) error {
+	encoded, err := json.Marshal(origin)
+	if err != nil || len(encoded) > 2<<10 {
+		return errors.New("hardenllm: origin exceeds the 2 KiB limit")
+	}
+	for name, value := range map[string]string{
+		"client": origin.Client, "component": origin.Component, "operationId": origin.OperationID,
+		"parentRunId": origin.ParentRunID, "jobId": origin.JobID, "testRunId": origin.TestRunID,
+		"testId": origin.TestID, "sourceRevision": origin.SourceRevision,
+	} {
+		if !utf8.ValidString(value) || len(value) > 256 {
+			return fmt.Errorf("hardenllm: origin.%s exceeds the 256-byte limit", name)
+		}
+	}
+	return nil
 }
 
 func runtimeProfiles(catalog ProfileCatalog) (map[string]coreruntime.Profile, error) {
@@ -256,19 +315,16 @@ func runtimeContext(value ObservabilityContext) coreruntime.ObservabilityContext
 func resultFromRecord(record coreruntime.CallRecord) Result {
 	attempts := make([]Attempt, 0, len(record.Attempts))
 	for _, item := range record.Attempts {
-		attempts = append(attempts, Attempt{
-			Number:    item.Number,
-			ProfileID: item.ProfileID, Target: publicExecutionTarget(item.Target),
-			Category: string(item.Category), HTTPStatus: item.Status,
-			Code: item.Code, Type: item.Type, ProviderRequestID: item.ProviderRequestID,
-			Retryable: item.Retryable, Wait: item.Delay, Duration: item.Duration,
-			Repair: item.Repair, ProviderUsed: item.ProviderUsed,
-		})
+		attempts = append(attempts, publicAttempt(item))
 	}
 	return Result{
 		Search: record.Search,
 		Output: record.Output, CallID: record.CallID, TraceID: record.TraceID,
-		SelectedTarget: publicExecutionTarget(record.SelectedTarget),
+		Origin: Origin{Client: record.Origin.Client, Component: record.Origin.Component, OperationID: record.Origin.OperationID,
+			ParentRunID: record.Origin.ParentRunID, JobID: record.Origin.JobID, TestRunID: record.Origin.TestRunID,
+			TestID: record.Origin.TestID, SourceRevision: record.Origin.SourceRevision},
+		SelectedTarget:   publicExecutionTarget(record.SelectedTarget),
+		GenerationTarget: publicExecutionTarget(record.GenerationTarget),
 		ResultSource: ResultSource{
 			Kind: ResultSourceKind(record.ResultSource.Kind), AttemptNumber: record.ResultSource.AttemptNumber,
 			Producer: publicExecutionTargetPointer(record.ResultSource.Producer),
@@ -280,9 +336,76 @@ func resultFromRecord(record coreruntime.CallRecord) Result {
 		Attempts: attempts,
 		Cache: CacheResult{
 			Mode: CacheMode(record.Cache.Mode), Status: record.Cache.Status, OperationHash: record.Cache.OperationHash,
+			OriginalOperationHash: record.Cache.OriginalOperationHash, RerunOperationHash: record.Cache.RerunOperationHash,
 			Version: record.Cache.Version, Served: record.Cache.Served, Written: record.Cache.Written,
 		},
+		Diagnostics: Diagnostics{
+			Stage: record.Diagnostics.Stage, Branch: record.Diagnostics.Branch, StopReason: record.Diagnostics.StopReason,
+			AttemptsUsed: record.Diagnostics.AttemptsUsed, AttemptsRemaining: record.Diagnostics.AttemptsRemaining,
+			ElapsedMs: record.Diagnostics.Elapsed.Milliseconds(), TotalActualWaitMs: record.Diagnostics.TotalActualWait.Milliseconds(),
+			ReceivedBytes: record.Diagnostics.ReceivedBytes, EventCount: record.Diagnostics.EventCount,
+			OutputBytes: record.Diagnostics.OutputBytes, OutputCodePoints: record.Diagnostics.OutputCodePoints,
+			EffectiveTimeoutMs: durationMillisecondsPointer(record.Diagnostics.EffectiveTimeout), DeadlineAt: record.Diagnostics.DeadlineAt,
+			BranchCaches: publicBranchCaches(record.Diagnostics.BranchCaches),
+		},
 	}
+}
+
+func publicAttempt(item coreruntime.AttemptRecord) Attempt {
+	var stream *StreamDiagnostics
+	if item.Stream != nil {
+		value := StreamDiagnostics{ReceivedBytes: item.Stream.ReceivedBytes, EventCount: item.Stream.EventCount, OutputBytes: item.Stream.OutputBytes, OutputCodePoints: item.Stream.OutputCodePoints, TerminalState: item.Stream.TerminalState,
+			FirstEventMs: item.Stream.FirstEventMs, FirstOutputMs: item.Stream.FirstOutputMs, LastEventAt: item.Stream.LastEventAt, LastOutputAt: item.Stream.LastOutputAt}
+		stream = &value
+	}
+	var waitDiagnostics *WaitDiagnostics
+	if item.WaitDiagnostics != nil {
+		value := WaitDiagnostics{Reason: item.WaitDiagnostics.Reason, PlannedMs: item.WaitDiagnostics.Planned.Milliseconds(), ActualMs: item.WaitDiagnostics.Actual.Milliseconds(), RetryAfterMs: item.WaitDiagnostics.RetryAfter.Milliseconds()}
+		waitDiagnostics = &value
+	}
+	return Attempt{
+		Number: item.Number, ProfileID: item.ProfileID, Target: publicExecutionTarget(item.Target),
+		Category: string(item.Category), HTTPStatus: item.Status, Code: item.Code, Type: item.Type,
+		ProviderRequestID: item.ProviderRequestID, Retryable: item.Retryable, Wait: item.Delay,
+		Duration: item.Duration, Repair: item.Repair, ProviderUsed: item.ProviderUsed, Stage: item.Stage,
+		Branch: item.Branch, TriggerAttempt: item.TriggerAttempt, InputAttempts: append([]int(nil), item.InputAttempts...),
+		TransportRetryOf: item.TransportRetryOf, StartedAt: item.StartedAt, FinishedAt: item.FinishedAt,
+		ReasoningEffort: item.ReasoningEffort, DispatchObserved: item.DispatchObserved, Stream: stream,
+		WaitDiagnostics: waitDiagnostics,
+	}
+}
+
+func publicOrigin(origin coreruntime.Origin) *Origin {
+	if origin == (coreruntime.Origin{}) {
+		return nil
+	}
+	value := Origin{Client: origin.Client, Component: origin.Component, OperationID: origin.OperationID,
+		ParentRunID: origin.ParentRunID, JobID: origin.JobID, TestRunID: origin.TestRunID,
+		TestID: origin.TestID, SourceRevision: origin.SourceRevision}
+	return &value
+}
+
+func durationMillisecondsPointer(value *time.Duration) *int64 {
+	if value == nil {
+		return nil
+	}
+	milliseconds := value.Milliseconds()
+	return &milliseconds
+}
+
+func publicBranchCaches(values []coreruntime.BranchCache) []BranchCache {
+	if values == nil {
+		return nil
+	}
+	result := make([]BranchCache, 0, len(values))
+	for _, value := range values {
+		result = append(result, BranchCache{Branch: value.Branch, GenerationTarget: publicExecutionTarget(value.GenerationTarget), Cache: CacheResult{
+			Mode: CacheMode(value.Cache.Mode), Status: value.Cache.Status, OperationHash: value.Cache.OperationHash,
+			OriginalOperationHash: value.Cache.OriginalOperationHash, RerunOperationHash: value.Cache.RerunOperationHash,
+			Version: value.Cache.Version, Served: value.Cache.Served, Written: value.Cache.Written,
+		}})
+	}
+	return result
 }
 
 func publicExecutionTargetPointer(target *coreruntime.ExecutionTarget) *ExecutionTarget {

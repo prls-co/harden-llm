@@ -134,6 +134,7 @@ func (service *ProfileService) Save(ctx context.Context, request SaveProfileRequ
 	request.OwnerID = strings.TrimSpace(request.OwnerID)
 	request.ProfileID = strings.TrimSpace(request.ProfileID)
 	request.CredentialID = strings.TrimSpace(request.CredentialID)
+	request.Profile.SchemaVersion = profiles.SchemaVersion
 	if request.OwnerID == "" || request.ProfileID == "" || request.ProfileID != request.Profile.LLMProfile {
 		return ProfileState{}, errors.New("gateway: owner and profile identity are required")
 	}

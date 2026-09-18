@@ -106,6 +106,7 @@ defmodule HardenLlmWeb.HardenAPI do
   ]
 
   @operations_by_id Map.new(@operations, &{&1.id, &1})
+  @max_stream_bytes 2 * 1024 * 1024
 
   def operations, do: @operations
   def backend_only_operations, do: ["getHealth", "getReadiness"]
@@ -184,6 +185,19 @@ defmodule HardenLlmWeb.HardenAPI do
 
   def run(handle, payload), do: request("run", handle, json: payload, timeout: :run)
 
+  @doc """
+  Executes one authenticated request-bound SSE run.
+
+  `receiver` is called synchronously with each strictly decoded envelope. It
+  may return `:cont` (or `:ok`) to continue, or `:halt` to cancel the one POST.
+  The adapter never retries or reconnects. A completed stream has the same
+  `{:ok, result, state}` shape as `run/2`; a terminal failure is returned as a
+  redacted `APIError` after its final event has been delivered.
+  """
+  def run_stream(handle, payload, receiver) when is_function(receiver, 1) do
+    request_stream("run", handle, payload, receiver)
+  end
+
   def get_trace(handle, trace_id) do
     request("getTrace", handle, path: %{"traceID" => trace_id})
   end
@@ -238,6 +252,256 @@ defmodule HardenLlmWeb.HardenAPI do
     end
   rescue
     _exception -> protocol_error(operation, "The backend response could not be processed.")
+  end
+
+  defp request_stream(operation_id, handle, payload, receiver) do
+    operation = Map.fetch!(@operations_by_id, operation_id)
+
+    with {:ok, token} <- resolve_token(operation, handle) do
+      path = operation.path
+      timeout = timeout_for(:run)
+      started = System.monotonic_time()
+
+      Tracer.with_span "harden_llm.api.request",
+                       %{attributes: api_attributes(operation)} do
+        result = perform_stream_request(operation, path, token, timeout, payload, receiver)
+        record_result(operation, result, started)
+        result
+      end
+    end
+  end
+
+  defp perform_stream_request(operation, path, token, timeout, payload, receiver) do
+    key = {__MODULE__, make_ref()}
+    Process.put(key, %{buffer: <<>>, status: nil, terminal: nil, error_body: <<>>, reason: nil})
+
+    callback = fn {:data, data}, {request, response} ->
+      state = Process.get(key)
+      state = %{state | status: response.status}
+
+      case stream_data(IO.iodata_to_binary(data), state, receiver) do
+        {:cont, next_state} ->
+          Process.put(key, next_state)
+          {:cont, {request, response}}
+
+        {:halt, next_state} ->
+          Process.put(key, next_state)
+          {:halt, {request, response}}
+      end
+    end
+
+    headers = [{"accept", "text/event-stream"}] ++ authorization_header(token) ++ trace_headers()
+
+    request_options = [
+      method: operation.method,
+      base_url: config().base_url,
+      url: path,
+      headers: headers,
+      retry: false,
+      redirect: false,
+      receive_timeout: timeout,
+      pool_timeout: min(timeout, 5_000),
+      json: payload,
+      into: callback
+    ]
+
+    try do
+      case Req.request(Keyword.merge(request_options, request_adapter_options())) do
+        {:ok, response} ->
+          state = Process.get(key)
+          finish_stream(operation, response, state)
+
+        {:error, _reason} ->
+          transport_error(operation)
+      end
+    rescue
+      _exception -> protocol_error(operation, "The backend stream could not be processed.")
+    after
+      Process.delete(key)
+    end
+  end
+
+  defp stream_data(data, %{status: status} = state, _receiver) when status not in 200..299 do
+    if byte_size(state.error_body) + byte_size(data) > @max_stream_bytes do
+      {:halt, %{state | reason: :response_too_large}}
+    else
+      {:cont, %{state | error_body: state.error_body <> data}}
+    end
+  end
+
+  defp stream_data(data, state, receiver) do
+    buffer = state.buffer <> data
+
+    if byte_size(buffer) > @max_stream_bytes do
+      {:halt, %{state | buffer: <<>>, reason: :response_too_large}}
+    else
+      consume_sse_blocks(%{state | buffer: buffer}, receiver)
+    end
+  end
+
+  defp consume_sse_blocks(state, receiver) do
+    # Keep a trailing CR until the next Req chunk arrives. Normalizing it to a
+    # newline immediately would turn a CRLF split across chunks into an empty
+    # event and could deliver a truncated JSON envelope.
+    buffer = normalize_sse_line_endings(state.buffer)
+
+    case :binary.match(buffer, "\n\n") do
+      {index, 2} ->
+        block = binary_part(buffer, 0, index)
+        rest = binary_part(buffer, index + 2, byte_size(buffer) - index - 2)
+
+        case consume_sse_block(block, %{state | buffer: rest}, receiver) do
+          {:cont, next_state} -> consume_sse_blocks(next_state, receiver)
+          {:halt, next_state} -> {:halt, next_state}
+        end
+
+      :nomatch ->
+        {:cont, %{state | buffer: buffer}}
+    end
+  end
+
+  defp normalize_sse_line_endings(buffer) when is_binary(buffer) do
+    {body, suffix} =
+      if String.ends_with?(buffer, "\r") do
+        {binary_part(buffer, 0, byte_size(buffer) - 1), "\r"}
+      else
+        {buffer, ""}
+      end
+
+    :binary.replace(body, "\r\n", "\n", [:global])
+    |> :binary.replace("\r", "\n", [:global])
+    |> Kernel.<>(suffix)
+  end
+
+  defp consume_sse_block(block, state, receiver) do
+    lines = String.split(block, "\n")
+
+    event_name =
+      lines
+      |> Enum.find_value(fn
+        "event:" <> value -> String.trim(value)
+        _ -> nil
+      end)
+
+    data =
+      lines
+      |> Enum.filter(&String.starts_with?(&1, "data:"))
+      |> Enum.map(&(String.trim_leading(&1, "data:") |> String.trim_leading()))
+      |> Enum.join("\n")
+
+    if data == "" do
+      {:cont, state}
+    else
+      with {:ok, envelope} <- Jason.decode(data),
+           {:ok, ^envelope} <- LlmDiagnosticsWire.decode_progress(envelope),
+           :ok <- matching_event_name(event_name, envelope["type"]),
+           {:ok, next_state} <- deliver_stream_event(envelope, state, receiver) do
+        {:cont, next_state}
+      else
+        {:halt, next_state} -> {:halt, next_state}
+        _ -> {:halt, %{state | reason: :malformed}}
+      end
+    end
+  end
+
+  defp matching_event_name(nil, _type), do: :ok
+  defp matching_event_name(event_name, event_name), do: :ok
+  defp matching_event_name(_event_name, _type), do: :error
+
+  defp deliver_stream_event(envelope, state, receiver) do
+    case receiver.(envelope) do
+      value when value in [:ok, :cont] ->
+        next_state = %{
+          state
+          | terminal:
+              if(envelope["type"] in ["run.completed", "run.failed"],
+                do: envelope,
+                else: state.terminal
+              )
+        }
+
+        if next_state.terminal, do: {:halt, next_state}, else: {:ok, next_state}
+
+      :halt ->
+        {:halt, %{state | reason: :canceled}}
+
+      {:error, _reason} ->
+        {:halt, %{state | reason: :receiver}}
+
+      _other ->
+        {:halt, %{state | reason: :receiver}}
+    end
+  rescue
+    _exception -> {:halt, %{state | reason: :receiver}}
+  end
+
+  defp finish_stream(operation, response, state) do
+    cond do
+      state.reason == :canceled ->
+        {:error,
+         %APIError{category: :canceled, message: "The run stream was canceled.", ambiguous?: true}}
+
+      state.reason == :response_too_large ->
+        protocol_error(operation, "The backend stream exceeded the response limit.")
+
+      response.status not in 200..299 ->
+        decode_stream_error(operation, response.status, state.error_body)
+
+      state.reason != nil ->
+        protocol_error(operation, "The backend stream was malformed.")
+
+      state.terminal == nil ->
+        protocol_error(operation, "The backend stream ended without a terminal event.")
+
+      true ->
+        finish_terminal(state.terminal)
+    end
+  end
+
+  defp finish_terminal(%{"type" => "run.completed", "data" => data}) do
+    with %{"state" => state, "result" => result, "error" => nil} <- data,
+         {:ok, decoded_result} <- LlmDiagnosticsWire.decode("run", result),
+         {:ok, decoded_state} <- LlmDiagnosticsWire.decode_run_state(state) do
+      {:ok, decoded_result, decoded_state}
+    else
+      _ -> protocol_error(nil, "The backend completed stream was malformed.")
+    end
+  end
+
+  defp finish_terminal(%{
+         "type" => "run.failed",
+         "data" => %{"error" => error, "state" => state, "result" => result}
+       })
+       when is_map(error) and is_map(state) do
+    with {:ok, _decoded_result} <- LlmDiagnosticsWire.decode("run", result),
+         {:ok, decoded_state} <- LlmDiagnosticsWire.decode_run_state(state) do
+      {:error,
+       %APIError{
+         category: :backend,
+         code: safe_code(error["code"]),
+         message: "The run failed.",
+         trace_id: safe_trace_id(decoded_state),
+         ambiguous?: false
+       }}
+    else
+      _ -> protocol_error(nil, "The backend failed stream was malformed.")
+    end
+  end
+
+  defp finish_terminal(_terminal),
+    do: protocol_error(nil, "The backend terminal event was malformed.")
+
+  defp decode_stream_error(operation, status, body) do
+    case Jason.decode(body) do
+      {:ok, decoded} ->
+        case decode_envelope(operation, status, decoded, nil) do
+          {:ok, {:error, error}} -> {:error, error}
+          _ -> protocol_error(operation, "The backend response could not be processed.")
+        end
+
+      _ ->
+        protocol_error(operation, "The backend response could not be processed.")
+    end
   end
 
   defp decode_response(%{redirect: true}, %{status: 303} = response, _history_mode) do

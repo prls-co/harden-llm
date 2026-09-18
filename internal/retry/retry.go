@@ -39,10 +39,230 @@ const (
 // Policy is the complete provider-independent recovery contract. Runtime never
 // replaces explicit values with defaults; callers create policies explicitly.
 type Policy struct {
-	MaxAttempts         int        `json:"maxAttempts"`
-	RetryOn             []Category `json:"retryOn"`
-	RepairInvalidOutput bool       `json:"repairInvalidOutput"`
-	Backoff             Backoff    `json:"backoff"`
+	MaxAttempts int        `json:"maxAttempts"`
+	RetryOn     []Category `json:"retryOn"`
+	// RepairInvalidOutput is retained as a wire-compatible legacy setting. New
+	// callers should use JSONRepair and Rerun. Runtime treats a non-nil plan as
+	// authoritative and never combines it with this flag.
+	RepairInvalidOutput bool        `json:"repairInvalidOutput,omitempty"`
+	Backoff             Backoff     `json:"backoff"`
+	JSONRepair          *RepairPlan `json:"jsonRepair,omitempty"`
+	Rerun               *RerunPlan  `json:"rerun,omitempty"`
+	explicitPlan        bool
+}
+
+// UsesExplicitPlan reports whether the policy was decoded or constructed with
+// the structured recovery shape. It is intentionally distinct from the
+// pointers: a JSON document may explicitly disable both branches with null.
+func (policy Policy) UsesExplicitPlan() bool {
+	return policy.explicitPlan || policy.JSONRepair != nil || policy.Rerun != nil
+}
+
+// RecoveryTarget identifies one leaf provider target. A target never contains
+// another recovery policy; saved profile policies are intentionally not walked
+// when the profile is selected for a recovery stage.
+type RecoveryTarget struct {
+	Source          string         `json:"source"`
+	ProfileID       string         `json:"profileId,omitempty"`
+	ModelID         string         `json:"modelId,omitempty"`
+	ReasoningEffort string         `json:"reasoningEffort,omitempty"`
+	ProviderOptions map[string]any `json:"providerOptions,omitempty"`
+}
+
+// RepairPlan is shared by the original and rerun generation branches.
+type RepairPlan struct {
+	Initial    RecoveryTarget  `json:"initial"`
+	Escalation *RecoveryTarget `json:"escalation"`
+}
+
+// RerunPlan starts a fresh generation from the original request, then uses the
+// same RepairPlan shape for that branch's invalid structured output.
+type RerunPlan struct {
+	Target     RecoveryTarget `json:"target"`
+	JSONRepair *RepairPlan    `json:"jsonRepair"`
+}
+
+func (target *RecoveryTarget) UnmarshalJSON(data []byte) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil || fields == nil {
+		return &ValidationError{Field: "recoveryTarget", Message: "must be an object"}
+	}
+	if _, ok := fields["source"]; !ok {
+		return &ValidationError{Field: "recoveryTarget.source", Message: "is required"}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	var value struct {
+		Source          string         `json:"source"`
+		ProfileID       string         `json:"profileId"`
+		ModelID         string         `json:"modelId"`
+		ReasoningEffort string         `json:"reasoningEffort"`
+		ProviderOptions map[string]any `json:"providerOptions"`
+	}
+	if err := decoder.Decode(&value); err != nil {
+		return &ValidationError{Field: "recoveryTarget", Message: "has an unknown field or invalid value type"}
+	}
+	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
+		return &ValidationError{Field: "recoveryTarget", Message: "must contain one object"}
+	}
+	*target = RecoveryTarget{Source: value.Source, ProfileID: value.ProfileID, ModelID: value.ModelID, ReasoningEffort: value.ReasoningEffort, ProviderOptions: value.ProviderOptions}
+	return nil
+}
+
+func (plan *RepairPlan) UnmarshalJSON(data []byte) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil || fields == nil {
+		return &ValidationError{Field: "repairPlan", Message: "must be an object"}
+	}
+	for _, key := range []string{"initial", "escalation"} {
+		if _, ok := fields[key]; !ok {
+			return &ValidationError{Field: "repairPlan." + key, Message: "is required"}
+		}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	var value struct {
+		Initial    RecoveryTarget  `json:"initial"`
+		Escalation *RecoveryTarget `json:"escalation"`
+	}
+	if err := decoder.Decode(&value); err != nil {
+		return &ValidationError{Field: "repairPlan", Message: "has an unknown field or invalid value type"}
+	}
+	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
+		return &ValidationError{Field: "repairPlan", Message: "must contain one object"}
+	}
+	*plan = RepairPlan{Initial: value.Initial, Escalation: value.Escalation}
+	return nil
+}
+
+func (plan *RerunPlan) UnmarshalJSON(data []byte) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil || fields == nil {
+		return &ValidationError{Field: "rerun", Message: "must be an object or null"}
+	}
+	for _, key := range []string{"target", "jsonRepair"} {
+		if _, ok := fields[key]; !ok {
+			return &ValidationError{Field: "rerun." + key, Message: "is required"}
+		}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	var value struct {
+		Target     RecoveryTarget `json:"target"`
+		JSONRepair *RepairPlan    `json:"jsonRepair"`
+	}
+	if err := decoder.Decode(&value); err != nil {
+		return &ValidationError{Field: "rerun", Message: "has an unknown field or invalid value type"}
+	}
+	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
+		return &ValidationError{Field: "rerun", Message: "must contain one object"}
+	}
+	*plan = RerunPlan{Target: value.Target, JSONRepair: value.JSONRepair}
+	return nil
+}
+
+func (target RecoveryTarget) IsZero() bool {
+	return target.Source == "" && target.ProfileID == "" && target.ModelID == "" && target.ReasoningEffort == "" && len(target.ProviderOptions) == 0
+}
+
+func (target RecoveryTarget) Validate(field string, allowGeneration bool) error {
+	invalid := func(message string) error { return &ValidationError{Field: field, Message: message} }
+	if target.Source != "profile" && !(allowGeneration && target.Source == "generation") {
+		return invalid("source must be profile or generation")
+	}
+	if target.Source == "profile" && strings.TrimSpace(target.ProfileID) == "" {
+		return invalid("profileId is required for a profile target")
+	}
+	if target.Source == "profile" && target.ModelID != "" && strings.TrimSpace(target.ModelID) == "" {
+		return invalid("modelId must not be blank")
+	}
+	if target.Source == "generation" && (target.ProfileID != "" || target.ModelID != "" || target.ReasoningEffort != "" || len(target.ProviderOptions) != 0) {
+		return invalid("generation target cannot override profile settings")
+	}
+	if len(target.ProfileID) > 1500 || len(target.ModelID) > 512 || len(target.ReasoningEffort) > 32 {
+		return invalid("target identifiers exceed their limits")
+	}
+	if target.ReasoningEffort != "" && target.ReasoningEffort != "lowest" && target.ReasoningEffort != "middle" && target.ReasoningEffort != "highest" {
+		return invalid("reasoningEffort must be lowest, middle, or highest")
+	}
+	if target.ProviderOptions != nil {
+		if err := (Policy{}).ValidateProviderOptions(target.ProviderOptions); err != nil {
+			return invalid(err.Error())
+		}
+		if err := validateTargetProviderOptions(target.ProviderOptions); err != nil {
+			return invalid(err.Error())
+		}
+	}
+	return nil
+}
+
+func validateTargetProviderOptions(options map[string]any) error {
+	encoded, err := json.Marshal(options)
+	if err != nil {
+		return errors.New("providerOptions must contain JSON values only")
+	}
+	if len(encoded) > 32<<10 {
+		return errors.New("providerOptions exceeds the 32 KiB limit")
+	}
+	if containsRecoverySecretKey(options) {
+		return errors.New("providerOptions may not contain credential material")
+	}
+	return nil
+}
+
+func containsRecoverySecretKey(value any) bool {
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, nested := range typed {
+			normalized := strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(key, "-", ""), "_", ""))
+			for _, prefix := range []string{"authorization", "apikey", "credential", "password", "secret"} {
+				if strings.HasPrefix(normalized, prefix) {
+					return true
+				}
+			}
+			switch normalized {
+			case "token", "accesstoken", "authtoken", "bearertoken", "clienttoken", "idtoken", "refreshtoken", "sessiontoken":
+				return true
+			}
+			if containsRecoverySecretKey(nested) {
+				return true
+			}
+		}
+	case []any:
+		for _, nested := range typed {
+			if containsRecoverySecretKey(nested) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (plan RepairPlan) Validate(field string) error {
+	if err := plan.Initial.Validate(field+".initial", true); err != nil {
+		return err
+	}
+	if plan.Escalation != nil {
+		if err := plan.Escalation.Validate(field+".escalation", true); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (plan RerunPlan) Validate(field string) error {
+	if err := plan.Target.Validate(field+".target", false); err != nil {
+		return err
+	}
+	if plan.Target.Source != "profile" {
+		return &ValidationError{Field: field + ".target.source", Message: "rerun target must be a profile target"}
+	}
+	if plan.JSONRepair != nil {
+		if err := plan.JSONRepair.Validate(field + ".jsonRepair"); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type Backoff struct {
@@ -68,6 +288,9 @@ func (policy Policy) Validate() error {
 	invalid := func(field, message string) error {
 		return &ValidationError{Field: "recoveryPolicy." + field, Message: message}
 	}
+	if policy.RepairInvalidOutput && (policy.JSONRepair != nil || policy.Rerun != nil) {
+		return &ValidationError{Field: "recoveryPolicy", Message: "legacy repairInvalidOutput cannot be combined with jsonRepair or rerun"}
+	}
 	if policy.MaxAttempts < 1 || policy.MaxAttempts > 10 {
 		return invalid("maxAttempts", "must be an integer from 1 through 10")
 	}
@@ -90,23 +313,97 @@ func (policy Policy) Validate() error {
 	if policy.Backoff.MaxDelayMS < policy.Backoff.BaseDelayMS || policy.Backoff.MaxDelayMS > 600000 {
 		return invalid("backoff.maxDelayMs", "must be at least baseDelayMs and at most 600000")
 	}
+	if policy.JSONRepair != nil {
+		if err := policy.JSONRepair.Validate("recoveryPolicy.jsonRepair"); err != nil {
+			return err
+		}
+	}
+	if policy.Rerun != nil {
+		if err := policy.Rerun.Validate("recoveryPolicy.rerun"); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (policy Policy) Allows(category Category) bool { return slices.Contains(policy.RetryOn, category) }
 
 func (policy *Policy) UnmarshalJSON(data []byte) error {
-	type wire Policy
-	var decoded wire
-	if err := decodeRequired(data, &decoded, "recoveryPolicy", []string{"maxAttempts", "retryOn", "repairInvalidOutput", "backoff"}); err != nil {
-		return err
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil || fields == nil {
+		return &ValidationError{Field: "recoveryPolicy", Message: "must be an object"}
 	}
-	result := Policy(decoded)
+	for _, required := range []string{"maxAttempts", "retryOn", "backoff"} {
+		if value, ok := fields[required]; !ok || bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return &ValidationError{Field: "recoveryPolicy." + required, Message: "is required"}
+		}
+	}
+	_, oldPolicy := fields["repairInvalidOutput"]
+	_, newRepair := fields["jsonRepair"]
+	_, newRerun := fields["rerun"]
+	if oldPolicy && (newRepair || newRerun) {
+		return &ValidationError{Field: "recoveryPolicy", Message: "legacy repairInvalidOutput cannot be combined with jsonRepair or rerun"}
+	}
+	if !oldPolicy && !newRepair && !newRerun {
+		return &ValidationError{Field: "recoveryPolicy", Message: "repairInvalidOutput, jsonRepair, or rerun is required"}
+	}
+	if (newRepair || newRerun) && (!newRepair || !newRerun) {
+		return &ValidationError{Field: "recoveryPolicy", Message: "jsonRepair and rerun are required together; use null to disable a branch"}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	var decoded struct {
+		MaxAttempts         int         `json:"maxAttempts"`
+		RetryOn             []Category  `json:"retryOn"`
+		RepairInvalidOutput *bool       `json:"repairInvalidOutput"`
+		Backoff             Backoff     `json:"backoff"`
+		JSONRepair          *RepairPlan `json:"jsonRepair"`
+		Rerun               *RerunPlan  `json:"rerun"`
+	}
+	if err := decoder.Decode(&decoded); err != nil {
+		return &ValidationError{Field: "recoveryPolicy", Message: "has an unknown field or invalid value type"}
+	}
+	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
+		return &ValidationError{Field: "recoveryPolicy", Message: "must contain one object"}
+	}
+	result := Policy{MaxAttempts: decoded.MaxAttempts, RetryOn: decoded.RetryOn, Backoff: decoded.Backoff, JSONRepair: decoded.JSONRepair, Rerun: decoded.Rerun}
+	result.explicitPlan = newRepair || newRerun
+	if decoded.RepairInvalidOutput != nil {
+		result.RepairInvalidOutput = *decoded.RepairInvalidOutput
+	}
 	if err := result.Validate(); err != nil {
 		return err
 	}
 	*policy = result
 	return nil
+}
+
+// MarshalJSON always writes the current explicit shape. A legacy in-memory
+// policy is still executable by the compatibility runtime, but it is mapped
+// to the bounded generation-relative plan at a write boundary so current
+// profile/state/bundle writers never reintroduce the retired boolean.
+func (policy Policy) MarshalJSON() ([]byte, error) {
+	jsonRepair, rerun := policy.JSONRepair, policy.Rerun
+	if !policy.UsesExplicitPlan() {
+		if policy.RepairInvalidOutput {
+			generation := RecoveryTarget{Source: "generation"}
+			jsonRepair = &RepairPlan{Initial: generation, Escalation: &generation}
+		}
+		rerun = nil
+	}
+	return json.Marshal(struct {
+		MaxAttempts int         `json:"maxAttempts"`
+		RetryOn     []Category  `json:"retryOn"`
+		Backoff     Backoff     `json:"backoff"`
+		JSONRepair  *RepairPlan `json:"jsonRepair"`
+		Rerun       *RerunPlan  `json:"rerun"`
+	}{
+		MaxAttempts: policy.MaxAttempts,
+		RetryOn:     policy.RetryOn,
+		Backoff:     policy.Backoff,
+		JSONRepair:  jsonRepair,
+		Rerun:       rerun,
+	})
 }
 
 func (backoff *Backoff) UnmarshalJSON(data []byte) error {
@@ -312,7 +609,13 @@ func nonnegativeDuration(value time.Duration) time.Duration {
 // options. All boundaries use this one list; provider serialization cannot
 // silently interpret or discard an old recovery setting.
 func (Policy) ValidateProviderOptions(options map[string]any) error {
-	for _, key := range []string{"maxAttempts", "maxRetries", "max_retries", "baseDelayMs", "maxDelayMs", "initialBackoffMs", "maximumBackoffMs", "enableRetryOn429", "enableRetryOn5xx", "enableRetryOnNetworkError", "enableRetryOnParseError", "structuredRepairRetry", "structuredRepair", "retryNetwork", "retryRateLimit", "retryServerError", "retryEmpty", "retryParse", "repairEscalation", "backupProfiles", "retryPolicy", "recoveryPolicy"} {
+	for _, key := range []string{
+		"maxAttempts", "maxRetries", "max_retries", "baseDelayMs", "maxDelayMs", "initialBackoffMs", "maximumBackoffMs",
+		"enableRetryOn429", "enableRetryOn5xx", "enableRetryOnNetworkError", "enableRetryOnParseError", "structuredRepairRetry",
+		"structuredRepair", "retryNetwork", "retryRateLimit", "retryServerError", "retryEmpty", "retryParse", "repairEscalation",
+		"backupProfiles", "retryPolicy", "recoveryPolicy", "repairInvalidOutput", "jsonRepair", "rerun", "escalation",
+		"cache", "cacheMode", "cacheVersion", "search", "webSearch", "model", "modelId", "reasoningEffort",
+	} {
 		if _, present := options[key]; present {
 			return &ValidationError{Field: "providerOptions." + key, Message: "recovery controls belong in recoveryPolicy"}
 		}

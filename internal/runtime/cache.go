@@ -18,6 +18,8 @@ type Cache interface {
 }
 
 type CachedResult struct {
-	ProviderResult ProviderResult  `json:"providerResult"`
-	Producer       ExecutionTarget `json:"producer"`
+	ProviderResult   ProviderResult  `json:"providerResult"`
+	Producer         ExecutionTarget `json:"producer"`
+	GenerationTarget ExecutionTarget `json:"generationTarget,omitempty"`
+	CompletedBy      string          `json:"completedBy,omitempty"`
 }

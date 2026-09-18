@@ -31,7 +31,7 @@ func main() {
     policy := hardenllm.DefaultRecoveryPolicy()
     policy.MaxAttempts = 1
     profile := hardenllm.Profile{
-        SchemaVersion: 2,
+        SchemaVersion: 3,
         LLMProfile: "Primary",
         Provider: "openai",
         APIInferenceType: "responses",
@@ -69,13 +69,25 @@ func main() {
 
 Every profile and request supplies a complete `recoveryPolicy`. The public
 constructor creates defaults; execution never fills in omitted settings.
-`maxAttempts` counts the first provider call plus every retry and repair.
-`retryOn: []` disables ordinary retries; `repairInvalidOutput: false` stops on
-invalid structured output. Zero delays remain zero. Repair uses the selected
-profile/model and original schema. Text calls retain the preference but do not
-perform structured repair. Profile/state/bundle documents use schema version 2;
-run results use version 3. The profiles response supplies creation defaults at
-`result.defaults.recoveryPolicy`.
+`maxAttempts` counts the first provider call plus every retry and semantic
+repair across the one global recovery loop. `retryOn: []` disables ordinary
+transport retries. The current structured shape has `jsonRepair` and `rerun`
+keys; either may be `null` to disable that branch. A repair plan has an initial
+target and an optional escalation target. A rerun starts again from the
+original prompt/schema and owns an independent repair plan. Repair disables
+search and receives flat, bounded failed-output/validation history. Its target
+profile is a leaf: that profile's own recovery settings are never executed.
+Text calls do not resolve or run structured recovery targets.
+
+The six-stage preset is exposed by `DefaultRecoveryPolicy` (with the named
+`DefaultStructuredRecoveryPolicy` helper retained as an explicit alias) and by
+`result.defaults.recoveryPolicy`: CPA GPT-5.6 Luna lowest/highest for original
+JSON repair, then CPA GPT-6 Astra lowest for a fresh generation and Astra
+lowest/highest for its JSON repair. Astra metadata must be provisioned before
+enabling that preset operationally. Existing explicit attempt budgets are not
+raised automatically. Profile/client-state/bundle documents use schema version
+3 and run results use version 4; the ordinary database migration preserves
+historical unknown measurements as `null`.
 
 Credential resolution happens only after endpoint validation and is bound to
 the normalized origin. Inject OTel providers, cache, artifact store, and logger
@@ -126,13 +138,13 @@ without contacting a provider:
 ```bash
 printf '%s' "$OPENAI_API_KEY" | jq -Rs '{
   profile: {
-    schemaVersion:2, llmProfile:"Primary", provider:"openai",
+    schemaVersion:3, llmProfile:"Primary", provider:"openai",
     apiInferenceType:"responses", endpointCredentialScope:"user",
     baseUrl:"https://api.openai.com/v1", modelId:"replace-with-model-id",
     pricing:null, supportsTemperature:false,
     supportsContractedStructuredOutput:true, tokensParam:null,
     responsesTokensParam:"max_output_tokens", defaultOptions:{max_tokens:64},
-    recoveryPolicy:{"maxAttempts":1,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}
+    recoveryPolicy:{"maxAttempts":1,"retryOn":[],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}
   },
   credentialId:"primary-openai", credential:{apiKey:.}
 }' | curl --fail-with-body --silent --show-error \
@@ -146,12 +158,83 @@ failure; inspect history before deciding whether to submit another run.
 
 ```bash
 jq -n '{profileId:"Primary",userPrompt:"Reply with OK.",callType:"text",
-  cacheMode:"off",recoveryPolicy:{"maxAttempts":1,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}},timeoutMs:60000}' | \
+  cacheMode:"off",recoveryPolicy:{"maxAttempts":1,"retryOn":[],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0}},timeoutMs:60000}' | \
 curl --fail-with-body --silent --show-error \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' --data-binary @- \
-  "$API/api/v1/run" | jq
+"$API/api/v1/run" | jq
 ```
+
+### Structured recovery and live diagnostics
+
+The structured policy below exercises the complete finite flow. Each arrow is
+entered only after a completed response fails strict syntax/schema admission;
+transport retries repeat the same prepared operation and do not add history:
+
+```json
+{
+  "maxAttempts": 6,
+  "retryOn": ["network", "rate_limit", "server_error", "empty_response", "provider_retry"],
+  "backoff": {"baseDelayMs": 500, "maxDelayMs": 8000},
+  "jsonRepair": {
+    "initial": {"source": "profile", "profileId": "CPA GPT-5.6 Luna", "reasoningEffort": "lowest"},
+    "escalation": {"source": "profile", "profileId": "CPA GPT-5.6 Luna", "reasoningEffort": "highest"}
+  },
+  "rerun": {
+    "target": {"source": "profile", "profileId": "CPA GPT-6 Astra", "reasoningEffort": "lowest"},
+    "jsonRepair": {
+      "initial": {"source": "profile", "profileId": "CPA GPT-6 Astra", "reasoningEffort": "lowest"},
+      "escalation": {"source": "profile", "profileId": "CPA GPT-6 Astra", "reasoningEffort": "highest"}
+    }
+  }
+}
+```
+
+The original generation receives the caller's input/schema. Each repair receives
+that same input/schema plus a bounded flat list of completed failed outputs and
+validation diagnostics; repair search is disabled. The rerun starts with the
+original input/schema and a new branch history. A successful repair is reported
+with `generationTarget` set to the branch generation model and
+`resultSource.producer` set to the model that actually produced the accepted
+value. `totalWaitMs` is planned retry delay; `totalActualWaitMs` is measured
+elapsed delay. Stream diagnostics count received bytes, SSE events, output bytes,
+and Unicode code points—not guessed tokens.
+
+For an in-flight, request-bound status stream, send the same POST body with
+`Accept: text/event-stream`:
+
+```bash
+jq -n '{profileId:"Primary",userPrompt:"Reply with OK as JSON.",callType:"structured",
+  schema:{type:"object",properties:{ok:{type:"boolean"}},required:["ok"],additionalProperties:false},
+  recoveryPolicy:{maxAttempts:1,retryOn:[],jsonRepair:null,rerun:null,backoff:{baseDelayMs:0,maxDelayMs:0}}}' > /tmp/harden-run.json
+curl --no-buffer --fail-with-body -sS "$API/api/v1/run" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Accept: text/event-stream' -H 'Content-Type: application/json' \
+  --data-binary @/tmp/harden-run.json
+```
+
+SSE is Server-Sent Events: named, newline-delimited events in one HTTP
+response. This endpoint is authenticated and request-bound, so it uses POST;
+the browser `EventSource` API is not the client contract. Events are
+`run.started`, bounded `run.progress`, and exactly one `run.completed` or
+`run.failed`. A heartbeat only proves connection liveness. The stream is not a
+detached job, is not resumable, and never extends the deployment hard cap.
+JSON remains the default transport.
+
+For headless test clients, `scripts/run-progress.mjs` is a dependency-free
+reference implementation. Keep the request body in a file or stdin (never a
+command-line argument), optionally provide `HARDEN_LLM_TOKEN`, and set separate
+soft/case/suite budgets:
+
+```bash
+HARDEN_LLM_TOKEN="$TOKEN" node scripts/run-progress.mjs \
+  --url "$API/api/v1/run" --body-file /tmp/harden-run.json \
+  --soft-ms 10000 --case-hard-ms 60000 --suite-hard-ms 300000
+```
+
+It never resubmits a POST, treats EOF without a terminal event as failure,
+keeps functional failure separate from a soft performance overrun, and prints
+only bounded redacted IDs, stages, timings, counters, and stop reasons.
 
 Set `webSearch:true` to enable web evidence (the UI uses `🌐` after Reasoning).
 Explicitly capable CPA/OpenAI Responses profiles use native `web_search`;
@@ -207,7 +290,7 @@ curl --fail-with-body --silent --show-error --request POST "$API/api/v1/run" \
   --header 'Accept: application/json' \
   --header "Authorization: Bearer ${TOKEN}" \
   --header 'Content-Type: application/json' \
-  --data-raw '{"cacheMode":"cache","cacheVersion":"operation-v2","callType":"text","modelId":"gpt-5.6-luna","profileId":"CPA GPT-5.6 Luna","providerOptions":{"max_tokens":16000,"stream":true},"reasoningEffort":"lowest","systemPrompt":"You are a helpful assistant","userPrompt":"write 2 haiku joke about burning man","webSearch":true,"recoveryPolicy":{"maxAttempts":4,"retryOn":["network","rate_limit","server_error","empty_response","provider_retry"],"repairInvalidOutput":true,"backoff":{"baseDelayMs":500,"maxDelayMs":8000}}}' | jq
+  --data-raw '{"cacheMode":"cache","cacheVersion":"operation-v2","callType":"text","modelId":"gpt-5.6-luna","profileId":"CPA GPT-5.6 Luna","providerOptions":{"max_tokens":16000,"stream":true},"reasoningEffort":"lowest","systemPrompt":"You are a helpful assistant","userPrompt":"write 2 haiku joke about burning man","webSearch":true,"recoveryPolicy":{"maxAttempts":4,"retryOn":["network","rate_limit","server_error","empty_response","provider_retry"],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":500,"maxDelayMs":8000}}}' | jq
 unset TOKEN
 ```
 

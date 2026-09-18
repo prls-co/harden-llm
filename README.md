@@ -144,6 +144,7 @@ configuration to disable it.
 - [Reusable pagination implementation plan](plans/reusable-pagination-implementation-plan.md)
 - [Pagination hardening and compact UX plan](plans/pagination-hardening-and-compact-ux-plan.md)
 - [Production configuration reproducibility plan](plans/production-configuration-reproducibility-plan.md)
+- [REST-first recovery, progress, and diagnostics implementation plan](plans/rest-recovery-and-progress-implementation-plan.md)
 - [utility-llm frontend parity inventory](docs/utility-llm-frontend-parity-inventory.md)
 - [Langfuse upstream provenance](deploy/langfuse/UPSTREAM.md)
 - [Architecture decisions](docs/adr/README.md)

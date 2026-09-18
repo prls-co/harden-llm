@@ -174,7 +174,7 @@ defmodule HardenLlmWeb.APIFixtures do
     }
 
     %{
-      "schemaVersion" => 3,
+      "schemaVersion" => 4,
       "runId" => "run-test",
       "status" => "succeeded",
       "callId" => "call-test",
@@ -205,6 +205,7 @@ defmodule HardenLlmWeb.APIFixtures do
       "providerInvoked" => true,
       "totalCallDurationMs" => 120,
       "totalWaitMs" => 0,
+      "totalActualWaitMs" => 0,
       "overBudgetMs" => 0,
       "usedRepair" => false
     }

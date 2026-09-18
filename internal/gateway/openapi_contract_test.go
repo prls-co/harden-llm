@@ -179,10 +179,13 @@ func TestRecoveryContractOpenAPI(t *testing.T) {
 	if policy == nil || policy.Value == nil {
 		t.Error("complete recovery policy schema is absent")
 	} else {
-		for _, name := range []string{"maxAttempts", "retryOn", "repairInvalidOutput", "backoff"} {
+		for _, name := range []string{"maxAttempts", "retryOn", "backoff"} {
 			if !slices.Contains(policy.Value.Required, name) {
 				t.Errorf("policy field %s is optional", name)
 			}
+		}
+		if policy.Value.Properties["jsonRepair"] == nil || policy.Value.Properties["rerun"] == nil || len(policy.Value.OneOf) != 2 {
+			t.Error("policy does not expose the explicit repair/rerun alternatives")
 		}
 	}
 	profiles := document.Components.Schemas["ProfilesEnvelope"].Value.Properties["result"].Value
@@ -196,8 +199,8 @@ func TestRecoveryContractOpenAPI(t *testing.T) {
 			continue
 		}
 		encoded, _ := json.Marshal(ref.Value.Properties["schemaVersion"])
-		if !strings.Contains(string(encoded), `"const":2`) {
-			t.Errorf("%s is not current version 2: %s", name, encoded)
+		if !strings.Contains(string(encoded), `"const":3`) {
+			t.Errorf("%s is not current version 3: %s", name, encoded)
 		}
 	}
 	attempt := document.Components.Schemas["Attempt"].Value
@@ -207,8 +210,8 @@ func TestRecoveryContractOpenAPI(t *testing.T) {
 		}
 	}
 	encoded, _ := json.Marshal(document.Components.Schemas["RunResult"].Value.Properties["schemaVersion"])
-	if !strings.Contains(string(encoded), `"const":3`) {
-		t.Errorf("result is not current version 3: %s", encoded)
+	if !strings.Contains(string(encoded), `"const":4`) {
+		t.Errorf("result is not current version 4: %s", encoded)
 	}
 	for name, field := range map[string]string{"HistoryItem": "result", "TraceView": "record"} {
 		if document.Components.Schemas[name].Value.Properties[field].Ref != "#/components/schemas/RunResult" {

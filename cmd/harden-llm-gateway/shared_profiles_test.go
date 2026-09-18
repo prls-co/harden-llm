@@ -39,7 +39,7 @@ func TestSyncProfilesRejectsOldCatalogBeforeEnvironmentAccess(t *testing.T) {
 	}
 	reads := 0
 	err = runSyncProfiles(context.Background(), []string{"--email", "owner@example.test"}, strings.NewReader(string(raw)), io.Discard, func(string) string { reads++; return "" })
-	if err == nil || !strings.Contains(err.Error(), "schemaVersion 2") || reads != 0 {
+	if err == nil || !strings.Contains(err.Error(), "schemaVersion 3") || reads != 0 {
 		t.Fatalf("old configuration: %v, environment reads=%d", err, reads)
 	}
 }

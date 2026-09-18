@@ -28,6 +28,21 @@ routes each requirement to its implementation home and release gate.
 | REQ-019 release quality | Makefile, AST/static checks, pinned toolchain, catalog provenance | TEST-001 through TEST-003, TEST-017, TEST-036 |
 | REQ-020 Garage artifacts | `internal/artifacts/`, owner-authorized routes | TEST-024, TEST-034, TEST-038, TEST-040 |
 | REQ-021 canonical execution diagnostics | root execution record, accounting, execution aggregate, artifact journal, strict trace/stats frontend | TEST-057 through TEST-061; WEB-TEST-060 through WEB-TEST-063; ADR-HLLM-018 |
+| REQ-301..316 bounded recovery and progress | `internal/retry/`, `internal/runtime/`, `internal/providers/`, `internal/gateway/`, `api/openapi.yaml`, shared frontend wire/components | TEST-236 through TEST-259; WEB-TEST-083 through WEB-TEST-089; ADR-HLLM-024 |
+
+The bounded-recovery IDs are registered in `test/test-tiers.json` at the
+lowest sufficient tier. Their concrete ownership is:
+
+| IDs | Boundary and oracle | Owner |
+| --- | --- | --- |
+| TEST-236..243 | Strict policy/target validation, leaf resolution, six-stage order, flat repair history, search isolation, transient retry, and one global budget | `internal/retry/`, `internal/runtime/`, `internal/providers/`, `internal/gateway/` |
+| TEST-244..245 | Generation-key cache identity, repaired producer attribution, and accounting preservation | `internal/runtime/`, root cache adapters, `internal/cachekey/` |
+| TEST-246..249 | Nonblocking progress, incremental terminal-aware streams, byte bounds, ancestry, and redaction | `internal/runtime/`, `internal/providers/`, `internal/traces/` |
+| TEST-250..251 | Result/history/trace v4 projection and transactional PostgreSQL migration | `internal/gateway/`, `internal/postgres/` |
+| TEST-252..255 | JSON/SSE parity, admission/error transport, disconnect ownership, and origin/privacy boundaries | `internal/gateway/httpapi/`, integration run tests |
+| TEST-256..257 | Dependency-free SSE parser, soft/case/suite budget decisions, and redacted headless report | `scripts/run-progress*.mjs` |
+| TEST-258..259 | Cross-boundary scripted matrix and timeout/manifest/OpenAPI consistency | runtime/API tests, `test/test-tiers.json`, timeout policy |
+| WEB-TEST-083..089 | Strict wire round trips, target-only/shared repair widgets, embedding isolation, diagnostics reducer, and one authenticated no-retry stream | `frontend/lib/harden_llm/`, `frontend/lib/harden_llm_web/`, deterministic Mix tests |
 
 TEST-036 is the aggregate deterministic backend gate. TEST-034 separately
 certifies the real fifteen-service deployment. TEST-037 and TEST-038 are opt-in

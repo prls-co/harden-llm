@@ -356,7 +356,7 @@ defmodule HardenLlmWeb.BrowserBackend do
       end
 
     result = %{
-      "schemaVersion" => 3,
+      "schemaVersion" => 4,
       "runId" => "run-browser",
       "status" => "succeeded",
       "callId" => "call-browser",
@@ -378,6 +378,7 @@ defmodule HardenLlmWeb.BrowserBackend do
       "providerInvoked" => not cache_hit?,
       "totalCallDurationMs" => 1_000,
       "totalWaitMs" => 0,
+      "totalActualWaitMs" => 0,
       "overBudgetMs" => 0,
       "usedRepair" => false
     }

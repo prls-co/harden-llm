@@ -453,7 +453,12 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
 
     render_async(view, 1_000)
     assert_received {:profile_parity, payload}
-    assert get_in(payload, ["profile", "recoveryPolicy"]) == APIFixtures.recovery_policy()
+
+    assert get_in(payload, ["profile", "recoveryPolicy"]) ==
+             HardenLlmWeb.ProfileWidgetState.serialize_current_recovery_policy(
+               APIFixtures.recovery_policy()
+             )
+
     assert get_in(payload, ["profile", "defaultOptions", "max_tokens"]) == 2048
     assert get_in(payload, ["profile", "defaultOptions", "stop"]) == ["END", "DONE"]
 
@@ -496,8 +501,11 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     form = HardenLlmWeb.ProfilesLive.profile_form(state)
     assert form["recoveryPolicy"] == policy
     assert {:ok, payload} = HardenLlmWeb.ProfilesLive.profile_payload(form)
-    assert payload["profile"]["schemaVersion"] == 2
-    assert payload["profile"]["recoveryPolicy"] == policy
+    assert payload["profile"]["schemaVersion"] == 3
+
+    assert payload["profile"]["recoveryPolicy"] ==
+             HardenLlmWeb.ProfileWidgetState.serialize_current_recovery_policy(policy)
+
     refute Map.has_key?(payload["profile"], "backupProfiles")
     refute Map.has_key?(payload["profile"]["defaultOptions"], "structuredRepairRetry")
   end

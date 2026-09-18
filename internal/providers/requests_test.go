@@ -251,7 +251,7 @@ func TestProviderRequestParityCapturedSource(t *testing.T) {
 				t.Fatalf("Prepare: %v", prepareErr)
 			}
 			wantOperation := captured.Operation
-			wantOperation.ResponseProjection.Version = "v3"
+			wantOperation.ResponseProjection.Version = "v4"
 			if !jsonEquivalent(prepared.Operation, wantOperation) {
 				got, _ := json.MarshalIndent(prepared.Operation, "", "  ")
 				want, _ := json.MarshalIndent(wantOperation, "", "  ")
@@ -266,7 +266,7 @@ func TestProviderRequestParityCapturedSource(t *testing.T) {
 				t.Fatalf("Prepare structured: %v", structuredErr)
 			}
 			wantStructuredOperation := captured.StructuredOperation
-			wantStructuredOperation.ResponseProjection.Version = "v3"
+			wantStructuredOperation.ResponseProjection.Version = "v4"
 			if !jsonEquivalent(structured.Operation, wantStructuredOperation) {
 				got, _ := json.MarshalIndent(structured.Operation, "", "  ")
 				want, _ := json.MarshalIndent(wantStructuredOperation, "", "  ")
@@ -476,6 +476,51 @@ func TestReasoningEffortParityCapturedSource(t *testing.T) {
 		if _, err = mergedOptions(profile, call); err == nil {
 			t.Fatalf("%s reasoning contract violation was accepted", name)
 		}
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-240
+func TestRepairPayloadUsesFlatHistoryAndDisablesSearch(t *testing.T) {
+	t.Parallel()
+	profile := runtime.Profile{
+		ID: "repair", Provider: "openai", APIInferenceType: "responses", ModelID: "gpt-repair",
+		SupportsStructuredOutput: true, SupportsWebSearch: true,
+		ReasoningEffortMap: map[string]map[string]any{"lowest": {}, "highest": {}},
+	}
+	call := runtime.Call{
+		CallType: "structured", SystemPrompt: "system", UserPrompt: "original request", WebSearch: true,
+		Schema: []byte(`{"type":"object","required":["ok"]}`),
+		Repair: &runtime.RepairRequest{
+			Stage: "original.repair.escalation", Branch: "original", Attempt: 3, MaxAttempts: 6,
+			TargetSchema: []byte(`{"type":"object","required":["ok"]}`),
+			History: []runtime.RepairHistoryEntry{
+				{Stage: "original.generate", Attempt: 1, Output: `{"ok":"bad"}`, ValidationError: "ok must be boolean"},
+				{Stage: "original.repair.initial", Attempt: 2, Output: `{"ok":null}`, ValidationError: "ok is required"},
+			},
+		},
+	}
+	_, protocol, _, payload, _, err := buildPayload(profile, call)
+	if err != nil || protocol != "openai.responses" {
+		t.Fatalf("repair payload setup: protocol=%s error=%v", protocol, err)
+	}
+	input, ok := payload["input"].([]any)
+	if !ok || len(input) != 2 {
+		t.Fatalf("repair input=%#v", payload["input"])
+	}
+	userMessage, ok := input[1].(map[string]any)
+	if !ok {
+		t.Fatalf("user message=%#v", input[1])
+	}
+	content, ok := userMessage["content"].([]any)
+	if !ok || len(content) != 1 {
+		t.Fatalf("user content=%#v", userMessage["content"])
+	}
+	text, ok := content[0].(map[string]any)["text"].(string)
+	if !ok || strings.Count(text, "Original request:") != 1 || !strings.Contains(text, "Stage: original.generate") || !strings.Contains(text, "Stage: original.repair.initial") || !strings.Contains(text, "ok must be boolean") || !strings.Contains(text, "ok is required") {
+		t.Fatalf("repair prompt=%q", text)
+	}
+	if _, present := payload["tools"]; present {
+		t.Fatalf("repair unexpectedly retained search tools: %#v", payload["tools"])
 	}
 }
 

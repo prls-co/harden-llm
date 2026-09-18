@@ -13,7 +13,7 @@
       "pricing": null,
       "provider": "openai",
       "responsesTokensParam": "max_output_tokens",
-      "schemaVersion": 2,
+      "schemaVersion": 3,
       "supportsContractedStructuredOutput": true,
       "supportsTemperature": false,
       "tokensParam": null,
@@ -26,7 +26,11 @@
           "empty_response",
           "provider_retry"
         ],
-        "repairInvalidOutput": true,
+        "jsonRepair": {
+          "initial": {"source": "generation"},
+          "escalation": {"source": "generation"}
+        },
+        "rerun": null,
         "backoff": {
           "baseDelayMs": 500,
           "maxDelayMs": 8000

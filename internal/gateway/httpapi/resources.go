@@ -2,13 +2,15 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	hardenllm "github.com/prls-co/harden-llm"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	hardenllm "github.com/prls-co/harden-llm"
 	"github.com/prls-co/harden-llm/internal/gateway"
 	"github.com/prls-co/harden-llm/internal/postgres"
 	"github.com/prls-co/harden-llm/internal/profiles"
@@ -60,7 +62,7 @@ func (api *API) listProfiles(writer http.ResponseWriter, request *http.Request) 
 		api.writeServiceError(writer, err)
 		return
 	}
-	writeSuccess(writer, http.StatusOK, map[string]any{"profiles": states, "defaults": map[string]any{"recoveryPolicy": hardenllm.DefaultRecoveryPolicy()}}, map[string]any{})
+	writeSuccess(writer, http.StatusOK, map[string]any{"profiles": states, "defaults": map[string]any{"recoveryPolicy": hardenllm.DefaultStructuredRecoveryPolicy()}}, map[string]any{})
 }
 
 func (api *API) saveProfile(writer http.ResponseWriter, request *http.Request) {
@@ -146,7 +148,7 @@ func (api *API) importProfileBundle(writer http.ResponseWriter, request *http.Re
 		api.writeServiceError(writer, err)
 		return
 	}
-	writeSuccess(writer, http.StatusOK, map[string]any{"profiles": states, "defaults": map[string]any{"recoveryPolicy": hardenllm.DefaultRecoveryPolicy()}}, map[string]any{})
+	writeSuccess(writer, http.StatusOK, map[string]any{"profiles": states, "defaults": map[string]any{"recoveryPolicy": hardenllm.DefaultStructuredRecoveryPolicy()}}, map[string]any{})
 }
 
 func (api *API) listHistory(writer http.ResponseWriter, request *http.Request) {
@@ -280,6 +282,10 @@ func (api *API) run(writer http.ResponseWriter, request *http.Request) {
 		writeFailure(writer, *failure)
 		return
 	}
+	if strings.TrimSpace(request.Header.Get("Last-Event-ID")) != "" {
+		writeError(writer, http.StatusBadRequest, "invalid_request", "SSE resume is not supported for request-bound runs.")
+		return
+	}
 	duration := api.maxRunDuration
 	if input.TimeoutMS > 0 {
 		requested := time.Duration(input.TimeoutMS) * time.Millisecond
@@ -288,6 +294,10 @@ func (api *API) run(writer http.ResponseWriter, request *http.Request) {
 			return
 		}
 		duration = requested
+	}
+	if acceptsEventStream(request) {
+		api.runSSE(writer, request, input, duration)
+		return
 	}
 	ctx, cancel := context.WithTimeout(request.Context(), duration)
 	defer cancel()
@@ -317,6 +327,186 @@ func (api *API) run(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 	writeSuccess(writer, http.StatusOK, result, state)
+}
+
+type runOutcome struct {
+	result gateway.RunOutput
+	state  gateway.RunState
+	err    error
+}
+
+type streamEnvelope struct {
+	SchemaVersion int    `json:"schemaVersion"`
+	Sequence      uint64 `json:"sequence"`
+	RunID         string `json:"runId,omitempty"`
+	CallID        string `json:"callId,omitempty"`
+	TraceID       string `json:"traceId,omitempty"`
+	Type          string `json:"type"`
+	Data          any    `json:"data"`
+}
+
+func acceptsEventStream(request *http.Request) bool {
+	for _, value := range strings.Split(request.Header.Get("Accept"), ",") {
+		if strings.EqualFold(strings.TrimSpace(strings.SplitN(value, ";", 2)[0]), "text/event-stream") {
+			return true
+		}
+	}
+	return false
+}
+
+func (api *API) runSSE(writer http.ResponseWriter, request *http.Request, input gateway.RunInput, duration time.Duration) {
+	flusher, canFlush := writer.(http.Flusher)
+	if !canFlush {
+		writeError(writer, http.StatusNotImplemented, "streaming_unavailable", "The server cannot stream progress events.")
+		return
+	}
+	progress := make(chan hardenllm.ProgressEvent, 32)
+	ready := make(chan struct{}, 1)
+	input.Progress = progress
+	input.Ready = ready
+	ctx, cancel := context.WithTimeout(request.Context(), duration)
+	defer cancel()
+	outcomes := make(chan runOutcome, 1)
+	go func() {
+		result, state, err := api.runs.Run(ctx, mustPrincipal(request.Context()).OwnerID, input)
+		outcomes <- runOutcome{result: result, state: state, err: err}
+		close(progress)
+	}()
+	var outcome runOutcome
+	select {
+	case <-ready:
+		// Static admission succeeded. Only now commit the SSE representation.
+	case outcome = <-outcomes:
+		// A very fast run can make both the admission signal and the outcome
+		// ready at once. Prefer the signal if Run already admitted the call;
+		// otherwise validation/catalog/initialization failures retain the normal
+		// JSON transport because no stream contract was accepted.
+		select {
+		case <-ready:
+			// Continue with the request-bound stream and publish the outcome below.
+		default:
+			api.writeRunError(writer, ctx, outcome)
+			return
+		}
+	case <-request.Context().Done():
+		return
+	}
+	writer.Header().Set("Content-Type", "text/event-stream")
+	writer.Header().Set("Cache-Control", "no-cache, no-store")
+	writer.Header().Set("Connection", "keep-alive")
+	writer.WriteHeader(http.StatusOK)
+	var sequence uint64
+	lastRunID := ""
+	lastCallID := ""
+	lastTraceID := ""
+	writeEvent := func(eventType string, runID, callID, traceID string, data any) bool {
+		sequence++
+		if runID != "" {
+			lastRunID = runID
+		}
+		if callID != "" {
+			lastCallID = callID
+		}
+		if traceID != "" {
+			lastTraceID = traceID
+		}
+		envelope := streamEnvelope{SchemaVersion: 1, Sequence: sequence, RunID: lastRunID, CallID: lastCallID, TraceID: lastTraceID, Type: eventType, Data: data}
+		encoded, err := json.Marshal(envelope)
+		if err != nil {
+			return false
+		}
+		if _, err := writer.Write([]byte("id: " + strconv.FormatUint(sequence, 10) + "\nevent: " + eventType + "\ndata: " + string(encoded) + "\n\n")); err != nil {
+			return false
+		}
+		flusher.Flush()
+		return true
+	}
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case event, ok := <-progress:
+			if !ok {
+				progress = nil
+				continue
+			}
+			if event.Type == "run.terminal" {
+				continue
+			}
+			if !writeEvent(event.Type, event.RunID, event.CallID, event.TraceID, event) {
+				return
+			}
+		case outcome := <-outcomes:
+			// Drain snapshots that were already produced before publishing the
+			// terminal event. Dropped snapshots remain legal; the final result is
+			// authoritative.
+			for progress != nil {
+				select {
+				case event, ok := <-progress:
+					if !ok {
+						progress = nil
+						continue
+					}
+					if event.Type == "run.terminal" {
+						continue
+					}
+					if !writeEvent(event.Type, event.RunID, event.CallID, event.TraceID, event) {
+						return
+					}
+				default:
+					progress = nil
+				}
+			}
+			if outcome.err == nil {
+				writeEvent("run.completed", outcome.state.LastRunID, outcome.result.CallID, outcome.result.TraceID, envelopeForOutcome(outcome))
+			} else {
+				writeEvent("run.failed", outcome.state.LastRunID, outcome.result.CallID, outcome.result.TraceID, envelopeForOutcome(outcome))
+			}
+			return
+		case <-ticker.C:
+			if _, err := writer.Write([]byte(": heartbeat\n\n")); err != nil {
+				return
+			}
+			flusher.Flush()
+		case <-request.Context().Done():
+			return
+		}
+	}
+}
+
+func (api *API) writeRunError(writer http.ResponseWriter, executionContext context.Context, outcome runOutcome) {
+	if errors.Is(executionContext.Err(), context.DeadlineExceeded) || errors.Is(outcome.err, context.DeadlineExceeded) {
+		writeErrorState(writer, http.StatusGatewayTimeout, "run_timeout", "The run exceeded its deadline.", outcome.state)
+		return
+	}
+	if failure := requestValidationFailure(outcome.err); failure != nil {
+		writeFailure(writer, *failure)
+		return
+	}
+	if errors.Is(outcome.err, gateway.ErrInvalidRequest) {
+		writeError(writer, http.StatusUnprocessableEntity, "invalid_request", "The run request is invalid.")
+		return
+	}
+	if errors.Is(outcome.err, gateway.ErrCredentialNotConfigured) {
+		writeErrorState(writer, http.StatusUnprocessableEntity, "credential_required", "The selected profile has no configured endpoint credential.", outcome.state)
+		return
+	}
+	if errors.Is(outcome.err, postgres.ErrNotFound) {
+		writeError(writer, http.StatusNotFound, "not_found", "The selected profile was not found.")
+		return
+	}
+	writeErrorState(writer, http.StatusBadGateway, "run_failed", "The provider run failed.", outcome.state)
+}
+
+func envelopeForOutcome(outcome runOutcome) envelope {
+	if outcome.err == nil {
+		return envelope{State: outcome.state, Result: outcome.result}
+	}
+	code, message := "run_failed", "The provider run failed."
+	if errors.Is(outcome.err, context.DeadlineExceeded) {
+		code, message = "run_timeout", "The run exceeded its deadline."
+	}
+	return envelope{State: outcome.state, Result: outcome.result, Error: &Error{Code: code, Message: message}}
 }
 
 func (api *API) requireResources(writer http.ResponseWriter) bool {

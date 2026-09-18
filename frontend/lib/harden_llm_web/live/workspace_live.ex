@@ -40,7 +40,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
   })
 
   @default_state %{
-    "schemaVersion" => 2,
+    "schemaVersion" => 3,
     "selectedProfileId" => "",
     "modelId" => "",
     "systemPrompt" => "You are a helpful assistant",
@@ -1786,7 +1786,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     call_type = response_call_type(request)
 
     %{
-      "schemaVersion" => 2,
+      "schemaVersion" => 3,
       "selectedProfileId" => selected_profile_id,
       "modelId" => request["modelId"] || "",
       "systemPrompt" => request["systemPrompt"] || "",
@@ -1797,7 +1797,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
       "reasoningEffort" => reasoning,
       "reasoningByProfile" =>
         if(selected_profile_id == "", do: %{}, else: %{selected_profile_id => reasoning}),
-      "recoveryPolicy" => ProfileWidgetState.serialize_recovery_policy(request["recoveryPolicy"]),
+      "recoveryPolicy" =>
+        ProfileWidgetState.serialize_current_recovery_policy(request["recoveryPolicy"]),
       "cacheMode" => normalize_cache_mode(request["cacheMode"]),
       "webSearch" => truthy?(request["webSearch"]),
       "ui" => normalize_ui(ui)
@@ -1913,7 +1914,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
       "profileId" => profile_id,
       "userPrompt" => prompt,
       "callType" => call_type,
-      "recoveryPolicy" => ProfileWidgetState.serialize_recovery_policy(params["recoveryPolicy"]),
+      "recoveryPolicy" =>
+        ProfileWidgetState.serialize_current_recovery_policy(params["recoveryPolicy"]),
       "cacheMode" => normalize_cache_mode(params["cacheMode"]),
       "webSearch" => truthy?(params["webSearch"])
     }
@@ -1950,7 +1952,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       end
 
     %{
-      "schemaVersion" => 2,
+      "schemaVersion" => 3,
       "selectedProfileId" => params["selectedProfileId"] || "",
       "modelId" => params["modelId"] || "",
       "systemPrompt" => params["systemPrompt"] || "",
@@ -1960,7 +1962,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
       "schema" => schema,
       "reasoningEffort" => reasoning_effort,
       "reasoningByProfile" => reasoning_by_profile,
-      "recoveryPolicy" => ProfileWidgetState.serialize_recovery_policy(params["recoveryPolicy"]),
+      "recoveryPolicy" =>
+        ProfileWidgetState.serialize_current_recovery_policy(params["recoveryPolicy"]),
       "cacheMode" => normalize_cache_mode(params["cacheMode"]),
       "webSearch" => truthy?(params["webSearch"]),
       "ui" => normalize_ui(ui)

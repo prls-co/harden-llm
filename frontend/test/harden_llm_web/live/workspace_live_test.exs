@@ -7,7 +7,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
   alias HardenLlmWeb.{APIFixtures, HardenAPI}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-007
-  # PLAN-HLLM-WIDGET-PARITY-001 TEST-101 TEST-102 TEST-103 TEST-104 TEST-106 TEST-107 TEST-109 TEST-113
+  # PLAN-HLLM-WIDGET-PARITY-001 TEST-101 TEST-102 TEST-103 TEST-104 TEST-106 TEST-107 TEST-109 TEST-113 WEB-TEST-086
 
   setup %{conn: conn}, do: {:ok, conn: authenticated_conn(conn)}
 
@@ -671,17 +671,31 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
       changed_enabled = !enabled
 
+      expected_repair =
+        if changed_enabled do
+          %{
+            "initial" => %{"source" => "generation"},
+            "escalation" => %{"source" => "generation"}
+          }
+        else
+          nil
+        end
+
       assert_received {:repair_run,
                        %{
                          "callType" => "structured",
-                         "recoveryPolicy" => %{"repairInvalidOutput" => ^changed_enabled}
+                         "recoveryPolicy" => %{
+                           "jsonRepair" => ^expected_repair,
+                           "rerun" => nil
+                         }
                        }}
 
       view |> element("#profile-save") |> render_click()
       render_async(view, 1_000)
 
       assert_received {:repair_saved, payload}
-      assert get_in(payload, ["profile", "recoveryPolicy", "repairInvalidOutput"]) == !enabled
+      assert get_in(payload, ["profile", "recoveryPolicy", "jsonRepair"]) == expected_repair
+      assert get_in(payload, ["profile", "recoveryPolicy", "rerun"]) == nil
       assert get_in(payload, ["profile", "defaultOptions", "provider_native"]) == "keep"
       refute Map.has_key?(payload["profile"]["defaultOptions"], "structuredRepairRetry")
 
@@ -736,7 +750,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert_received {:mode_run_payload,
                      %{
                        "callType" => "structured",
-                       "recoveryPolicy" => %{"repairInvalidOutput" => false}
+                       "recoveryPolicy" => %{"jsonRepair" => nil, "rerun" => nil}
                      }}
 
     view
@@ -758,7 +772,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert_received {:mode_run_payload,
                      %{
                        "callType" => "text",
-                       "recoveryPolicy" => %{"repairInvalidOutput" => false}
+                       "recoveryPolicy" => %{"jsonRepair" => nil, "rerun" => nil}
                      }}
   end
 
@@ -913,7 +927,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     |> render_change()
 
     render_async(view, 1_000)
-    assert_received {:saved_state, %{"schemaVersion" => 2, "userPrompt" => "updated safe prompt"}}
+    assert_received {:saved_state, %{"schemaVersion" => 3, "userPrompt" => "updated safe prompt"}}
   end
 
   test "individual select changes preserve the rest of the workspace draft", %{conn: conn} do
@@ -1903,7 +1917,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
                        "profileId" => "Primary",
                        "userPrompt" => "run fixture",
                        "callType" => "text",
-                       "recoveryPolicy" => %{"repairInvalidOutput" => false}
+                       "recoveryPolicy" => %{"jsonRepair" => nil, "rerun" => nil}
                      }}
 
     assert has_element?(view, "#run-output", "fixture output")
@@ -3077,7 +3091,13 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert payload["profileId"] == "Primary"
     assert payload["modelId"] == "model-override"
     assert payload["callType"] == "structured"
-    assert payload["recoveryPolicy"]["repairInvalidOutput"] == true
+
+    assert payload["recoveryPolicy"]["jsonRepair"] == %{
+             "initial" => %{"source" => "generation"},
+             "escalation" => %{"source" => "generation"}
+           }
+
+    assert payload["recoveryPolicy"]["rerun"] == nil
     assert payload["reasoningEffort"] == "highest"
     assert payload["cacheMode"] == "cache"
     assert payload["webSearch"] == true

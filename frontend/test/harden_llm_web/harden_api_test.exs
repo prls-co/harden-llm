@@ -255,6 +255,119 @@ defmodule HardenLlmWeb.HardenAPITest do
     assert Agent.get(counter, & &1) == 1
   end
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-088 TEST-252 TEST-253
+  test "run_stream parses one request-bound SSE and stops at the terminal event" do
+    handle = APIFixtures.insert_session()
+    parent = self()
+    payload = %{"profileId" => "Primary", "userPrompt" => "fixture", "callType" => "text"}
+
+    progress = %{
+      "schemaVersion" => 1,
+      "sequence" => 1,
+      "runId" => "run-test",
+      "callId" => "call-test",
+      "traceId" => "trace-test",
+      "type" => "run.started",
+      "data" => %{
+        "schemaVersion" => 1,
+        "sequence" => 1,
+        "runId" => "run-test",
+        "callId" => "call-test",
+        "traceId" => "trace-test",
+        "type" => "run.started",
+        "stage" => "original.generate",
+        "branch" => "original",
+        "profileId" => "Primary",
+        "attemptsUsed" => 0,
+        "attemptsRemaining" => 1,
+        "elapsedMs" => 0,
+        "receivedBytes" => 0,
+        "eventCount" => 0,
+        "outputBytes" => 0,
+        "outputCodePoints" => 0,
+        "terminal" => false
+      }
+    }
+
+    terminal = %{
+      "schemaVersion" => 1,
+      "sequence" => 2,
+      "runId" => "run-test",
+      "callId" => "call-test",
+      "traceId" => "trace-test",
+      "type" => "run.completed",
+      "data" => %{
+        "state" => %{"lastRunId" => "run-test", "lastTraceId" => "trace-test"},
+        "result" => APIFixtures.run_result(),
+        "error" => nil
+      }
+    }
+
+    Req.Test.stub(HardenAPI, fn conn ->
+      assert Plug.Conn.get_req_header(conn, "accept") == ["text/event-stream"]
+      assert Plug.Conn.get_req_header(conn, "authorization") == ["Bearer " <> APIFixtures.token()]
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      assert Jason.decode!(body) == payload
+
+      body =
+        "event: run.started\ndata: " <>
+          Jason.encode!(progress) <>
+          "\n\n" <>
+          "event: run.completed\ndata: " <> Jason.encode!(terminal) <> "\n\n"
+
+      conn
+      |> Plug.Conn.put_resp_content_type("text/event-stream")
+      |> Plug.Conn.send_resp(200, body)
+    end)
+
+    assert {:ok, result, state} =
+             HardenAPI.run_stream(handle, payload, fn event ->
+               send(parent, {:stream_event, event["type"]})
+               :cont
+             end)
+
+    assert result["runId"] == "run-test"
+    assert state == %{"lastRunId" => "run-test", "lastTraceId" => "trace-test"}
+    assert_receive {:stream_event, "run.started"}
+    assert_receive {:stream_event, "run.completed"}
+  end
+
+  # WEB-TEST-088: a terminal failure is delivered once and never resubmitted.
+  test "run_stream exposes a redacted terminal failure without retrying" do
+    handle = APIFixtures.insert_session()
+    {:ok, counter} = Agent.start_link(fn -> 0 end)
+    result = APIFixtures.run_result() |> Map.put("status", "failed")
+
+    terminal = %{
+      "schemaVersion" => 1,
+      "sequence" => 1,
+      "runId" => "run-test",
+      "callId" => "call-test",
+      "traceId" => "trace-test",
+      "type" => "run.failed",
+      "data" => %{
+        "state" => %{"lastRunId" => "run-test", "lastTraceId" => "trace-test"},
+        "result" => result,
+        "error" => %{"code" => "run_failed", "message" => "private provider output"}
+      }
+    }
+
+    Req.Test.stub(HardenAPI, fn conn ->
+      Agent.update(counter, &(&1 + 1))
+      body = "event: run.failed\ndata: " <> Jason.encode!(terminal) <> "\n\n"
+
+      conn
+      |> Plug.Conn.put_resp_content_type("text/event-stream")
+      |> Plug.Conn.send_resp(200, body)
+    end)
+
+    assert {:error, %APIError{category: :backend, code: "run_failed", message: message}} =
+             HardenAPI.run_stream(handle, %{}, fn _event -> :cont end)
+
+    assert message == "The run failed."
+    assert Agent.get(counter, & &1) == 1
+  end
+
   test "missing endpoint credential is a non-ambiguous validation error" do
     handle = APIFixtures.insert_session()
 

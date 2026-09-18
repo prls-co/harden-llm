@@ -43,6 +43,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
      |> assign(:recovery_policy_default, %{})
      |> assign(:active_recovery_policy, %{})
      |> assign(:id_prefix, "")
+     |> assign(:target_only, false)
+     |> assign(:target_value, %{})
+     |> assign(:target_name, "recoveryTarget")
      |> assign(:loaded_profile_id, nil)
      |> assign(:profiles_revision, nil)
      |> assign(:main_form, to_form(ProfilesLive.empty_form(%{}), as: :profile))
@@ -80,6 +83,18 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       socket
       |> assign(component_assigns)
       |> assign(:id_prefix, Map.get(assigns, :id_prefix, socket.assigns.id_prefix))
+      |> assign(
+        :target_only,
+        Map.get(assigns, :target_only, Map.get(socket.assigns, :target_only, false))
+      )
+      |> assign(
+        :target_value,
+        Map.get(assigns, :target_value, Map.get(socket.assigns, :target_value, %{}))
+      )
+      |> assign(
+        :target_name,
+        Map.get(assigns, :target_name, Map.get(socket.assigns, :target_name, "recoveryTarget"))
+      )
       |> assign(:active_recovery_policy, active_recovery_policy)
 
     needs_profile_reset? =
@@ -225,6 +240,63 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     socket = notify_profile_runtime(socket, Map.get(params, "recoveryPolicy"))
     noreply(socket)
   end
+
+  def handle_event("recovery-target-change", params, socket) when is_map(params) do
+    target_params = Map.get(params, socket.assigns.target_name, %{})
+    target_params = if is_map(target_params), do: target_params, else: %{}
+
+    target =
+      socket.assigns.target_value
+      |> ProfileWidgetState.merge_draft(target_params)
+      |> ProfileWidgetState.serialize_recovery_target()
+
+    socket
+    |> assign(:target_value, target)
+    |> notify_parent({:profile_widget_target, socket.assigns.target_name, target})
+    |> noreply()
+  end
+
+  def handle_event("recovery-target-change", _params, socket), do: {:noreply, socket}
+
+  def handle_event("toggle-json-repair", _params, socket),
+    do:
+      toggle_recovery_branch(
+        socket,
+        ["jsonRepair"],
+        &ProfileWidgetState.default_recovery_repair_plan/0
+      )
+
+  def handle_event("toggle-rerun", _params, socket),
+    do:
+      toggle_recovery_branch(socket, ["rerun"], &ProfileWidgetState.default_recovery_rerun_plan/0)
+
+  def handle_event("toggle-rerun-json-repair", _params, socket),
+    do:
+      toggle_recovery_branch(
+        socket,
+        ["rerun", "jsonRepair"],
+        &ProfileWidgetState.default_recovery_repair_plan/0
+      )
+
+  def handle_event("toggle-repair-escalation", %{"path" => path}, socket)
+      when path in ["jsonRepair", "rerun.jsonRepair"] do
+    keys = String.split(path, ".", trim: true)
+
+    update_recovery_draft(socket, fn policy ->
+      update_in(policy, keys, fn
+        plan when is_map(plan) ->
+          Map.update!(plan, "escalation", fn
+            nil -> %{"source" => "generation"}
+            _target -> nil
+          end)
+
+        other ->
+          other
+      end)
+    end)
+  end
+
+  def handle_event("toggle-repair-escalation", _params, socket), do: {:noreply, socket}
 
   def handle_event("toggle-credential", _params, socket) do
     if socket.assigns.fold_disabled do
@@ -542,75 +614,86 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   def render(assigns) do
     ~H"""
     <section id={@id} class="ullm-widget ullm-model-config-widget" aria-label="LLM model config">
-      <.profile_row
-        category={@category_name}
-        profile_input_id={scope_id(@id_prefix, "run_selectedProfileId")}
-        profile_name="run[selectedProfileId]"
-        profile_value={@selected_profile_id}
-        profile_options={profile_combobox_options(@profiles)}
-        profile_required={true}
-        profile_class="ullm-input ullm-profile-select"
-        profile_change="select-profile"
-        reasoning_input_id={scope_id(@id_prefix, "workspace-reasoning")}
-        reasoning_name="run[reasoningEffort]"
-        reasoning_value={@reasoning_effort}
-        reasoning_options={reasoning_options(@profiles, @selected_profile_id)}
-        reasoning_change="workspace-control"
-        search_input_id={scope_id(@id_prefix, "workspace-web-search-toggle")}
-        search_field_id={scope_id(@id_prefix, "workspace-web-search")}
-        search_field_name="run[webSearch]"
-        search_enabled={@web_search}
-        cache_input_id={scope_id(@id_prefix, "workspace-cache-toggle")}
-        cache_field_id={scope_id(@id_prefix, "workspace-cache")}
-        cache_field_name="run[cacheMode]"
-        cache_mode={@cache_mode}
-        config_id={scope_id(@id_prefix, "model-config-toggle")}
-        config_event="toggle-config"
-        config_open={@main_config_open}
-        model_input_id={scope_id(@id_prefix, "run_modelId")}
-        model_input_name="run[modelId]"
-        model_value={@model_id}
-        target={@myself}
-        fold_disabled={@fold_disabled}
-      />
-
-      <div
-        :if={@operation_error}
-        id={scope_id(@id_prefix, "widget-error")}
-        role="alert"
-        class="ullm-widget-error"
-      >
-        {@operation_error}
-      </div>
-
-      <div
-        :if={@main_config_open}
-        id={scope_id(@id_prefix, "model-options")}
-        class="ullm-profile-config-body ullm-form-grid"
-      >
-        <.profile_editor
-          form={@main_form}
-          id_prefix={scope_id(@id_prefix, "profile")}
-          target={@myself}
+      <%= if @target_only do %>
+        <.recovery_target_fields
+          id_prefix={scope_id(@id_prefix, "target")}
+          name={@target_name}
+          target_value={@target_value}
           profiles={@profiles}
-          field_errors={Map.merge(@field_errors, @recovery_field_errors)}
-          api_inference_types={@api_inference_types}
-          model_catalog={@model_catalog}
-          model_options={@model_options}
-          requires_save={@main_requires_save?}
-          fold_disabled={@fold_disabled}
-          credential_open={@main_credential_open}
-          options_open={@main_options_open}
-          retry_open={@main_retry_open}
-          pricing_open={@main_pricing_open}
-          staged_key={@main_staged_key}
-          cache_mode={@cache_mode}
-          bundle_upload={@bundle_upload}
-          widget_id={@id_prefix}
-          pending={@pending}
-          delete_confirm={@delete_confirm}
+          target={@myself}
+          change="recovery-target-change"
         />
-      </div>
+      <% else %>
+        <.profile_row
+          category={@category_name}
+          profile_input_id={scope_id(@id_prefix, "run_selectedProfileId")}
+          profile_name="run[selectedProfileId]"
+          profile_value={@selected_profile_id}
+          profile_options={profile_combobox_options(@profiles)}
+          profile_required={true}
+          profile_class="ullm-input ullm-profile-select"
+          profile_change="select-profile"
+          reasoning_input_id={scope_id(@id_prefix, "workspace-reasoning")}
+          reasoning_name="run[reasoningEffort]"
+          reasoning_value={@reasoning_effort}
+          reasoning_options={reasoning_options(@profiles, @selected_profile_id)}
+          reasoning_change="workspace-control"
+          search_input_id={scope_id(@id_prefix, "workspace-web-search-toggle")}
+          search_field_id={scope_id(@id_prefix, "workspace-web-search")}
+          search_field_name="run[webSearch]"
+          search_enabled={@web_search}
+          cache_input_id={scope_id(@id_prefix, "workspace-cache-toggle")}
+          cache_field_id={scope_id(@id_prefix, "workspace-cache")}
+          cache_field_name="run[cacheMode]"
+          cache_mode={@cache_mode}
+          config_id={scope_id(@id_prefix, "model-config-toggle")}
+          config_event="toggle-config"
+          config_open={@main_config_open}
+          model_input_id={scope_id(@id_prefix, "run_modelId")}
+          model_input_name="run[modelId]"
+          model_value={@model_id}
+          target={@myself}
+          fold_disabled={@fold_disabled}
+        />
+
+        <div
+          :if={@operation_error}
+          id={scope_id(@id_prefix, "widget-error")}
+          role="alert"
+          class="ullm-widget-error"
+        >
+          {@operation_error}
+        </div>
+
+        <div
+          :if={@main_config_open}
+          id={scope_id(@id_prefix, "model-options")}
+          class="ullm-profile-config-body ullm-form-grid"
+        >
+          <.profile_editor
+            form={@main_form}
+            id_prefix={scope_id(@id_prefix, "profile")}
+            target={@myself}
+            profiles={@profiles}
+            field_errors={Map.merge(@field_errors, @recovery_field_errors)}
+            api_inference_types={@api_inference_types}
+            model_catalog={@model_catalog}
+            model_options={@model_options}
+            requires_save={@main_requires_save?}
+            fold_disabled={@fold_disabled}
+            credential_open={@main_credential_open}
+            options_open={@main_options_open}
+            retry_open={@main_retry_open}
+            pricing_open={@main_pricing_open}
+            staged_key={@main_staged_key}
+            cache_mode={@cache_mode}
+            bundle_upload={@bundle_upload}
+            widget_id={@id_prefix}
+            pending={@pending}
+            delete_confirm={@delete_confirm}
+          />
+        </div>
+      <% end %>
     </section>
     """
   end
@@ -842,6 +925,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:widget_id, :string, default: "")
   attr(:pending, :any, default: nil)
   attr(:delete_confirm, :boolean, default: false)
+  attr(:target_only, :boolean, default: false)
+  attr(:target_value, :map, default: %{})
+  attr(:target_name, :string, default: "recoveryTarget")
 
   def profile_editor(assigns) do
     ~H"""
@@ -1158,6 +1244,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             target={@target}
             change="profile-draft-change"
             field_errors={@field_errors}
+            profiles={@profiles}
           />
         </div>
       </section>
@@ -1313,6 +1400,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:target, :any, default: nil)
   attr(:change, :string, default: nil)
   attr(:field_errors, :map, default: %{})
+  attr(:profiles, :list, default: [])
 
   def recovery_fields(assigns) do
     assigns =
@@ -1333,10 +1421,16 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         {"maxDelayMs", "Max delay (ms)",
          "Caps calculated backoff. A valid Retry-After on HTTP 429 or 503 remains a minimum; the caller deadline still applies."}
       ])
+      |> assign(
+        :explicit?,
+        Map.has_key?(assigns.form.params["recoveryPolicy"] || %{}, "jsonRepair") or
+          Map.has_key?(assigns.form.params["recoveryPolicy"] || %{}, "rerun")
+      )
 
     ~H"""
     <div id={"#{@id_prefix}-recovery-policy"} class="recovery-policy">
       <.input
+        :if={not @explicit?}
         type="checkbox"
         id={"#{@id_prefix}-repair-invalid-output"}
         name={"#{@name}[repairInvalidOutput]"}
@@ -1349,6 +1443,49 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         phx-change={@change}
         phx-target={@target}
       />
+      <div :if={@explicit?} class="recovery-policy-plans">
+        <div class="recovery-policy-toggles">
+          <label class="ullm-checkbox-label">
+            <input
+              id={"#{@id_prefix}-json-repair-toggle"}
+              type="checkbox"
+              checked={is_map(@policy["jsonRepair"])}
+              phx-click="toggle-json-repair"
+              phx-target={@target}
+            /> Original JSON repair
+          </label>
+          <label class="ullm-checkbox-label">
+            <input
+              id={"#{@id_prefix}-rerun-toggle"}
+              type="checkbox"
+              checked={is_map(@policy["rerun"])}
+              phx-click="toggle-rerun"
+              phx-target={@target}
+            /> Fresh rerun
+          </label>
+        </div>
+        <.repair_plan_fields
+          :if={is_map(@policy["jsonRepair"])}
+          id_prefix={"#{@id_prefix}-original-repair"}
+          name={"#{@name}[jsonRepair]"}
+          plan={@policy["jsonRepair"]}
+          path="jsonRepair"
+          profiles={@profiles}
+          target={@target}
+          change={@change}
+          label="Original JSON repair"
+        />
+        <.rerun_plan_fields
+          :if={is_map(@policy["rerun"])}
+          id_prefix={"#{@id_prefix}-rerun"}
+          name={"#{@name}[rerun]"}
+          plan={@policy["rerun"]}
+          path="rerun"
+          profiles={@profiles}
+          target={@target}
+          change={@change}
+        />
+      </div>
       <div class="recovery-policy-categories">
         <.input
           :for={{category, label} <- @categories}
@@ -1396,6 +1533,203 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     """
   end
 
+  attr(:id_prefix, :string, required: true)
+  attr(:name, :string, required: true)
+  attr(:target_value, :map, default: %{})
+  attr(:profiles, :list, default: [])
+  attr(:target, :any, default: nil)
+  attr(:change, :string, default: "profile-draft-change")
+
+  @doc "Shared leaf target picker used by both generation branches and hosts."
+  def recovery_target_fields(assigns) do
+    target = ProfileWidgetState.serialize_recovery_target(assigns.target_value)
+    profile_id = target["profileId"] || ""
+    profile_options = profile_combobox_options(assigns.profiles)
+    model_options = target_model_options(assigns.profiles, profile_id, target["modelId"])
+
+    assigns =
+      assign(assigns,
+        leaf_target: target,
+        profile_options: profile_options,
+        model_options: model_options
+      )
+
+    ~H"""
+    <div id={@id_prefix} class="ullm-recovery-target" data-target-only>
+      <input type="hidden" name={"#{@name}[source]"} value={@leaf_target["source"] || "profile"} />
+      <p :if={@leaf_target["source"] == "generation"} class="ullm-recovery-generation-target">
+        Use this branch's generation model
+      </p>
+      <div :if={@leaf_target["source"] != "generation"} class="ullm-options-grid">
+        <div class="ullm-field">
+          <label for={"#{@id_prefix}-profile"}>LLM Profile</label>
+          <.searchable_input
+            id={"#{@id_prefix}-profile"}
+            name={"#{@name}[profileId]"}
+            value={@leaf_target["profileId"] || ""}
+            options={@profile_options}
+            allow_custom
+            required
+            aria_label="Recovery LLM Profile"
+            phx_change={@change}
+            phx_target={@target}
+          />
+        </div>
+        <div class="ullm-field">
+          <label for={"#{@id_prefix}-model"}>Model ID override</label>
+          <.searchable_input
+            id={"#{@id_prefix}-model"}
+            name={"#{@name}[modelId]"}
+            value={@leaf_target["modelId"] || ""}
+            options={@model_options}
+            allow_custom
+            aria_label="Recovery model override"
+            phx_change={@change}
+            phx_target={@target}
+          />
+        </div>
+        <div class="ullm-field">
+          <label for={"#{@id_prefix}-reasoning"}>Reasoning</label>
+          <select
+            id={"#{@id_prefix}-reasoning"}
+            name={"#{@name}[reasoningEffort]"}
+            phx-change={@change}
+            phx-target={@target}
+          >
+            <option
+              value=""
+              selected={
+                is_nil(@leaf_target["reasoningEffort"]) or @leaf_target["reasoningEffort"] == ""
+              }
+            >
+              Profile default
+            </option>
+            <option
+              :for={value <- ~w(lowest middle highest)}
+              value={value}
+              selected={@leaf_target["reasoningEffort"] == value}
+            >
+              {value}
+            </option>
+          </select>
+        </div>
+      </div>
+      <input
+        type="hidden"
+        name={"#{@name}[providerOptions]"}
+        value={encode_target_options(@leaf_target["providerOptions"])}
+      />
+    </div>
+    """
+  end
+
+  attr(:id_prefix, :string, required: true)
+  attr(:name, :string, required: true)
+  attr(:plan, :map, default: %{})
+  attr(:profiles, :list, default: [])
+  attr(:target, :any, default: nil)
+  attr(:change, :string, default: "profile-draft-change")
+  attr(:label, :string, default: "JSON repair")
+  attr(:path, :string, default: "jsonRepair")
+
+  def repair_plan_fields(assigns) do
+    plan = assigns.plan || %{}
+    assigns = assign(assigns, :plan, plan)
+
+    ~H"""
+    <fieldset id={@id_prefix} class="ullm-repair-plan">
+      <legend>{@label}</legend>
+      <.recovery_target_fields
+        id_prefix={"#{@id_prefix}-initial"}
+        name={"#{@name}[initial]"}
+        target_value={@plan["initial"] || %{}}
+        profiles={@profiles}
+        target={@target}
+        change={@change}
+      />
+      <label class="ullm-checkbox-label">
+        <input
+          id={"#{@id_prefix}-escalation-toggle"}
+          type="checkbox"
+          checked={is_map(@plan["escalation"])}
+          phx-click="toggle-repair-escalation"
+          phx-value-path={@path}
+          phx-target={@target}
+        /> Escalated JSON repair target
+      </label>
+      <.recovery_target_fields
+        :if={is_map(@plan["escalation"])}
+        id_prefix={"#{@id_prefix}-escalation"}
+        name={"#{@name}[escalation]"}
+        target_value={@plan["escalation"]}
+        profiles={@profiles}
+        target={@target}
+        change={@change}
+      />
+    </fieldset>
+    """
+  end
+
+  attr(:id_prefix, :string, required: true)
+  attr(:name, :string, required: true)
+  attr(:plan, :map, default: nil)
+  attr(:profiles, :list, default: [])
+  attr(:target, :any, default: nil)
+  attr(:change, :string, default: "profile-draft-change")
+  attr(:path, :string, default: "rerun")
+
+  def rerun_plan_fields(assigns) do
+    ~H"""
+    <fieldset id={@id_prefix} class="ullm-rerun-plan">
+      <legend>Fresh rerun</legend>
+      <%= if is_map(@plan) do %>
+        <.recovery_target_fields
+          id_prefix={"#{@id_prefix}-generation"}
+          name={"#{@name}[target]"}
+          target_value={@plan["target"] || %{}}
+          profiles={@profiles}
+          target={@target}
+          change={@change}
+        />
+        <label class="ullm-checkbox-label">
+          <input
+            id={"#{@id_prefix}-json-repair-toggle"}
+            type="checkbox"
+            checked={is_map(@plan["jsonRepair"])}
+            phx-click="toggle-rerun-json-repair"
+            phx-target={@target}
+          /> Rerun JSON repair
+        </label>
+        <.repair_plan_fields
+          :if={is_map(@plan["jsonRepair"])}
+          id_prefix={"#{@id_prefix}-repair"}
+          name={"#{@name}[jsonRepair]"}
+          plan={@plan["jsonRepair"]}
+          path={"#{@path}.jsonRepair"}
+          profiles={@profiles}
+          target={@target}
+          change={@change}
+          label="Rerun JSON repair"
+        />
+      <% end %>
+    </fieldset>
+    """
+  end
+
+  defp target_model_options(profiles, profile_id, current) do
+    models =
+      profiles
+      |> Enum.find(%{}, &(profile_id_from_state(&1) == profile_id))
+      |> get_in(["profile", "models"])
+      |> Kernel.||([])
+
+    ProfileWidgetState.model_options(nil, models, current)
+    |> model_combobox_options()
+  end
+
+  defp encode_target_options(options) when is_map(options), do: Jason.encode!(options)
+  defp encode_target_options(_options), do: ""
+
   defp reset_profile_forms(socket, profiles, selected_profile_id) do
     form = profile_form_for(profiles, selected_profile_id, socket.assigns.recovery_policy_default)
 
@@ -1422,6 +1756,35 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     if Map.has_key?(incoming, "modelId"),
       do: notify_parent(socket, {:profile_widget_control, "modelId", params["modelId"] || ""}),
       else: socket
+  end
+
+  defp toggle_recovery_branch(socket, path, default_fun) do
+    update_recovery_draft(socket, fn policy ->
+      case get_in(policy, path) do
+        value when is_map(value) -> put_in(policy, path, nil)
+        _ -> put_in(policy, path, default_fun.())
+      end
+    end)
+  end
+
+  defp update_recovery_draft(socket, update_fun) do
+    current = socket.assigns.main_form.params["recoveryPolicy"] || %{}
+
+    policy =
+      current
+      |> ProfileWidgetState.serialize_current_recovery_policy()
+      |> update_fun.()
+      |> ProfileWidgetState.serialize_recovery_policy()
+
+    params = Map.put(socket.assigns.main_form.params, "recoveryPolicy", policy)
+
+    socket
+    |> assign(:main_form, to_form(params, as: :profile))
+    |> assign(:active_recovery_policy, policy)
+    |> assign(:main_dirty?, true)
+    |> mark_main_edit()
+    |> notify_profile_runtime(policy)
+    |> noreply()
   end
 
   defp synchronize_profile_options(params, incoming) do

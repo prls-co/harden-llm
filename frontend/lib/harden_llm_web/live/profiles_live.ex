@@ -496,7 +496,7 @@ defmodule HardenLlmWeb.ProfilesLive do
 
       payload = %{
         "profile" => %{
-          "schemaVersion" => 2,
+          "schemaVersion" => 3,
           "llmProfile" => params["profileId"] || "",
           "provider" => params["provider"] || "",
           "apiInferenceType" =>
@@ -513,7 +513,7 @@ defmodule HardenLlmWeb.ProfilesLive do
           "responsesTokensParam" => nil,
           "defaultOptions" => options,
           "recoveryPolicy" =>
-            ProfileWidgetState.serialize_recovery_policy(params["recoveryPolicy"])
+            ProfileWidgetState.serialize_current_recovery_policy(params["recoveryPolicy"])
         },
         "credentialId" => params["credentialId"] || ""
       }

@@ -27,6 +27,7 @@ migration path.
 | [ADR-HLLM-021](ADR-HLLM-021-recovery-boundary-ownership.md) | Implemented and locally certified | Assign failure, dispatch, completion, accounting, cache, host-policy and ordered-persistence facts to one existing owner. |
 | [ADR-HLLM-022](ADR-HLLM-022-recovery-integrity-boundaries.md) | Accepted and implemented | Correct nested timeout and dispatched-accounting coverage, validate lossless cache replay, remove redundant cache sidecars, and preserve accepted inference after a cache-write failure. |
 | [ADR-HLLM-023](ADR-HLLM-023-reusable-numbered-pagination.md) | Accepted and implemented | Use a neutral in-house Phoenix pager/state layer after the Petal dependency gate failed; add strict numbered History reads without breaking cursor clients. |
+| [ADR-HLLM-024](ADR-HLLM-024-bounded-recovery-and-progress.md) | Accepted for implementation | Use one finite two-target repair shape per generation branch, one global budget/deadline, request-bound progress, and incremental provider terminal diagnostics; preserve existing accounting, cache, and ownership boundaries. |
 
 The remaining planned deviation triggers are ADR-HLLM-003 through ADR-HLLM-007
 in the canonical implementation plan. Create one of those records only when its

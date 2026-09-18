@@ -220,6 +220,15 @@ defmodule HardenLlmWeb.ProfileWidgetState do
       {"retryOn", values} when is_list(values) ->
         {"retryOn", Enum.reject(values, &(&1 == ""))}
 
+      {"jsonRepair", value} ->
+        {"jsonRepair", serialize_repair_plan(value)}
+
+      {"rerun", value} when is_map(value) ->
+        {"rerun",
+         value
+         |> Map.update("target", %{}, &serialize_recovery_target/1)
+         |> Map.update("jsonRepair", nil, &serialize_repair_plan/1)}
+
       {"repairInvalidOutput", "true"} ->
         {"repairInvalidOutput", true}
 
@@ -232,6 +241,69 @@ defmodule HardenLlmWeb.ProfileWidgetState do
   end
 
   def serialize_recovery_policy(policy), do: policy
+
+  @doc "Serializes the current v3 policy shape, mapping only historical boolean input."
+  def serialize_current_recovery_policy(policy) when is_map(policy) do
+    policy = serialize_recovery_policy(policy)
+
+    if Map.has_key?(policy, "repairInvalidOutput") and
+         not Map.has_key?(policy, "jsonRepair") and not Map.has_key?(policy, "rerun") do
+      enabled = policy["repairInvalidOutput"] == true
+
+      policy
+      |> Map.delete("repairInvalidOutput")
+      |> Map.put("jsonRepair", if(enabled, do: generation_repair_plan(), else: nil))
+      |> Map.put("rerun", nil)
+    else
+      policy
+    end
+  end
+
+  def serialize_current_recovery_policy(policy), do: policy
+
+  @doc "Returns the safe generation-relative repair defaults used when a branch is enabled in the editor."
+  def default_recovery_repair_plan do
+    %{
+      "initial" => %{"source" => "generation"},
+      "escalation" => %{"source" => "generation"}
+    }
+  end
+
+  @doc "Returns the safe fresh-rerun draft, including its shared repair shape."
+  def default_recovery_rerun_plan do
+    %{
+      "target" => %{"source" => "generation"},
+      "jsonRepair" => default_recovery_repair_plan()
+    }
+  end
+
+  @doc "Serializes one leaf target without introducing a nested recovery policy."
+  def serialize_recovery_target(target) when is_map(target) do
+    target
+    |> Map.take(~w(source profileId modelId reasoningEffort providerOptions))
+    |> Map.new(fn
+      {"providerOptions", value} when is_map(value) -> {"providerOptions", value}
+      entry -> entry
+    end)
+  end
+
+  def serialize_recovery_target(_target), do: %{}
+
+  @doc "Returns a policy branch in the shape consumed by the shared target picker."
+  def recovery_branch(policy, key) when is_map(policy) and key in ["jsonRepair", "rerun"] do
+    case policy[key] do
+      value when is_map(value) -> value
+      _ -> nil
+    end
+  end
+
+  def recovery_branch(_policy, _key), do: nil
+
+  @doc "Whether a target editor should hide cache, search, and recovery controls."
+  def target_only?(assigns) when is_map(assigns),
+    do: assigns[:target_only] == true or assigns["targetOnly"] == true
+
+  def target_only?(_assigns), do: false
 
   @doc "Applies one recovery-policy edit to the supplied host-owned policy."
   def merge_recovery_policy(current, incoming) when is_map(current) and is_map(incoming) do
@@ -258,4 +330,19 @@ defmodule HardenLlmWeb.ProfileWidgetState do
   end
 
   defp form_integer(value), do: value
+
+  defp serialize_repair_plan(nil), do: nil
+
+  defp serialize_repair_plan(value) when is_map(value) do
+    value
+    |> Map.update("initial", %{}, &serialize_recovery_target/1)
+    |> Map.update("escalation", nil, fn
+      nil -> nil
+      target -> serialize_recovery_target(target)
+    end)
+  end
+
+  defp serialize_repair_plan(value), do: value
+
+  defp generation_repair_plan, do: default_recovery_repair_plan()
 end

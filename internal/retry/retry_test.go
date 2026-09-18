@@ -3,6 +3,7 @@ package retry_test
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-008 TEST-009
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -367,6 +368,49 @@ func TestRecoveryBoundaryTiming(t *testing.T) {
 	}
 	if got := Delay(1, 0, backoff, math.Inf(1)); got != 0 {
 		t.Fatalf("non-finite randomness = %v, want 0", got)
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-236 TEST-238
+// The new plan is presence-aware and does not silently merge the legacy flag,
+// partial plans, executable nested policies, or runtime controls in a leaf.
+func TestExplicitRecoveryPolicyShape(t *testing.T) {
+	valid := []byte(`{"maxAttempts":6,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":{"initial":{"source":"profile","profileId":"A"},"escalation":null},"rerun":null}`)
+	var policy Policy
+	if err := json.Unmarshal(valid, &policy); err != nil {
+		t.Fatalf("valid explicit policy: %v", err)
+	}
+	if !policy.UsesExplicitPlan() || policy.JSONRepair == nil || policy.Rerun != nil {
+		t.Fatalf("decoded plan = %#v", policy)
+	}
+	encoded, err := json.Marshal(policy)
+	if err != nil || !bytes.Contains(encoded, []byte(`"jsonRepair"`)) || !bytes.Contains(encoded, []byte(`"rerun":null`)) {
+		t.Fatalf("round trip = %s (%v)", encoded, err)
+	}
+	legacy := DefaultPolicy()
+	legacyEncoded, err := json.Marshal(legacy)
+	if err != nil || bytes.Contains(legacyEncoded, []byte(`"repairInvalidOutput"`)) || !bytes.Contains(legacyEncoded, []byte(`"source":"generation"`)) {
+		t.Fatalf("legacy write was not normalized to the explicit shape: %s (%v)", legacyEncoded, err)
+	}
+	legacy.RepairInvalidOutput = false
+	disabledEncoded, err := json.Marshal(legacy)
+	if err != nil || bytes.Contains(disabledEncoded, []byte(`"repairInvalidOutput"`)) || !bytes.Contains(disabledEncoded, []byte(`"jsonRepair":null`)) || !bytes.Contains(disabledEncoded, []byte(`"rerun":null`)) {
+		t.Fatalf("disabled legacy write was not normalized: %s (%v)", disabledEncoded, err)
+	}
+
+	cases := []string{
+		`{"maxAttempts":1,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"repairInvalidOutput":true,"jsonRepair":null,"rerun":null}`,
+		`{"maxAttempts":1,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":{"initial":{"source":"profile","profileId":"A"}} ,"rerun":null}`,
+		`{"maxAttempts":1,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":null,"rerun":{"target":{"source":"profile","profileId":"A"},"jsonRepair":null,"extra":true}}`,
+		`{"maxAttempts":1,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":{"initial":{"source":"profile","profileId":"A","rerun":null},"escalation":null},"rerun":null}`,
+		`{"maxAttempts":1,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":{"initial":{"source":"profile","profileId":"A","providerOptions":{"webSearch":true}},"escalation":null},"rerun":null}`,
+		`{"maxAttempts":1,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":{"initial":{"source":"profile","profileId":"A","providerOptions":{"nested":{"authorization":"secret"}}},"escalation":null},"rerun":null}`,
+	}
+	for _, input := range cases {
+		var rejected Policy
+		if err := json.Unmarshal([]byte(input), &rejected); err == nil {
+			t.Errorf("policy unexpectedly accepted: %s", input)
+		}
 	}
 }
 

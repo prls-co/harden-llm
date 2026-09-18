@@ -400,7 +400,7 @@ func TestRecoveryPolicy(t *testing.T) {
 func TestRecoveryPolicyValues(t *testing.T) {
 	t.Parallel()
 	defaults := DefaultRecoveryPolicy()
-	expected := RecoveryPolicy{MaxAttempts: 4, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, RepairInvalidOutput: true, Backoff: RecoveryBackoff{BaseDelayMS: 500, MaxDelayMS: 8000}}
+	expected := DefaultStructuredRecoveryPolicy()
 	if !reflect.DeepEqual(defaults, expected) {
 		t.Fatalf("defaults=%#v", defaults)
 	}

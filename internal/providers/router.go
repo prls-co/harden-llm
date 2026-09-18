@@ -3,6 +3,7 @@
 package providers
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/tls"
@@ -35,7 +36,7 @@ const (
 	defaultMaxResponseBytes   = 16 << 20
 	defaultAnthropicVersion   = "2023-06-01"
 	defaultTemperature        = 0.3
-	responseProjectionVersion = "v3"
+	responseProjectionVersion = "v4"
 )
 
 var (
@@ -221,22 +222,44 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 		return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load()}, normalizeTransportError(ctx, requestContext, err)
 	}
 	defer response.Body.Close()
+	if response.StatusCode >= 200 && response.StatusCode <= 299 && prepared.protocol == "openai.responses" && isEventStreamContentType(response.Header.Get("Content-Type")) {
+		streamResponse, streamErr, streamDiagnostics := collectResponsesEventStreamReaderContextWithProgress(ctx, requestContext, response.Body, router.maxResponseBytes, operation.StreamProgress)
+		if streamResponse != nil {
+			result, normalizeErr := normalizeDecodedResponse(prepared, streamResponse)
+			result.ProviderDispatched = dispatched.Load()
+			result.Stream = streamDiagnostics
+			if streamErr != nil {
+				clearProviderOutput(&result)
+				return result, preferAccountingFailure(normalizeErr, streamErr)
+			}
+			if normalizeErr != nil {
+				clearProviderOutput(&result)
+				return result, normalizeErr
+			}
+			return result, nil
+		}
+		return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load(), Stream: streamDiagnostics}, streamErr
+	}
 	body, err = readBounded(response.Body, router.maxResponseBytes)
+	nonStreamingDiagnostics := runtime.StreamDiagnostics{ReceivedBytes: int64(len(body)), TerminalState: "not_streaming"}
 	if err != nil {
 		bodyFailure := normalizeTransportError(ctx, requestContext, err)
 		if errors.Is(bodyFailure, context.Canceled) || errors.Is(bodyFailure, context.DeadlineExceeded) {
-			return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load()}, bodyFailure
+			return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load(), Stream: nonStreamingDiagnostics}, bodyFailure
 		}
 		if errors.Is(err, errResponseTooLarge) {
-			return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load()}, &retry.ProviderError{Err: errors.New("provider response exceeded the size limit"), Code: "RESPONSE_TOO_LARGE", Category: retry.CategoryOther}
+			return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load(), Stream: nonStreamingDiagnostics}, &retry.ProviderError{Err: errors.New("provider response exceeded the size limit"), Code: "RESPONSE_TOO_LARGE", Category: retry.CategoryOther}
 		}
 		if response.StatusCode < 200 || response.StatusCode > 299 {
-			return providerResultForFailure(prepared, response, body, dispatched.Load(), providerHTTPErrorAt(response, body, router.now()))
+			result, failure := providerResultForFailure(prepared, response, body, dispatched.Load(), providerHTTPErrorAt(response, body, router.now()))
+			result.Stream = nonStreamingDiagnostics
+			return result, failure
 		}
 		if prepared.protocol == "openai.responses" {
 			if streamResponse, streamErr := collectResponsesEventStreamIfPresent(response.Header.Get("Content-Type"), body); streamResponse != nil {
 				partial, normalizeErr := normalizeDecodedResponse(prepared, streamResponse)
 				partial.ProviderDispatched = dispatched.Load()
+				partial.Stream = nonStreamingDiagnostics
 				clearProviderOutput(&partial)
 				if directiveErr := normalizeResponsesStreamReadError(err); directiveErr != nil {
 					return partial, preferAccountingFailure(normalizeErr, directiveErr)
@@ -247,19 +270,22 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 				return partial, preferAccountingFailure(normalizeErr, bodyFailure)
 			}
 			if streamErr := normalizeResponsesStreamReadError(err); streamErr != nil {
-				return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load()}, streamErr
+				return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load(), Stream: nonStreamingDiagnostics}, streamErr
 			}
 		}
 		if decoded, decodeErr := decodeJSONObject(body); decodeErr == nil {
 			partial, normalizeErr := normalizeDecodedResponse(prepared, decoded)
 			partial.ProviderDispatched = dispatched.Load()
+			partial.Stream = nonStreamingDiagnostics
 			clearProviderOutput(&partial)
 			return partial, preferAccountingFailure(normalizeErr, bodyFailure)
 		}
-		return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load()}, bodyFailure
+		return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load(), Stream: nonStreamingDiagnostics}, bodyFailure
 	}
 	if response.StatusCode < 200 || response.StatusCode > 299 {
-		return providerResultForFailure(prepared, response, body, dispatched.Load(), providerHTTPErrorAt(response, body, router.now()))
+		result, failure := providerResultForFailure(prepared, response, body, dispatched.Load(), providerHTTPErrorAt(response, body, router.now()))
+		result.Stream = nonStreamingDiagnostics
+		return result, failure
 	}
 	if prepared.protocol == "openai.responses" && isEventStream(response.Header.Get("Content-Type"), body) {
 		streamResponse, streamErr := collectResponsesEventStream(body)
@@ -277,11 +303,17 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 			return result, nil
 		}
 		if streamErr != nil {
-			return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load()}, streamErr
+			return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load(), Stream: nonStreamingDiagnostics}, streamErr
 		}
 	}
 	result, err := normalizeResponse(prepared, body)
 	result.ProviderDispatched = dispatched.Load()
+	nonStreamingDiagnostics.OutputBytes = outputByteCount(result.Output)
+	nonStreamingDiagnostics.OutputCodePoints = outputCodePointCount(result.Output)
+	result.Stream = nonStreamingDiagnostics
+	if operation.StreamProgress != nil {
+		operation.StreamProgress(nonStreamingDiagnostics)
+	}
 	if err != nil {
 		clearProviderOutput(&result)
 		return result, err
@@ -439,8 +471,195 @@ func requestTimeout(options map[string]any) (time.Duration, error) {
 }
 
 func isEventStream(contentType string, body []byte) bool {
-	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(contentType)), "text/event-stream") ||
+	return isEventStreamContentType(contentType) ||
 		bytes.HasPrefix(bytes.TrimSpace(body), []byte("data:"))
+}
+
+func isEventStreamContentType(contentType string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(contentType)), "text/event-stream")
+}
+
+// collectResponsesEventStreamReader consumes an upstream stream incrementally.
+// A valid terminal response is sufficient for success; the provider need not
+// close its socket. Deltas are measurements only and never become output.
+// collectResponsesEventStreamReader is retained as a small context-free helper
+// for protocol tests. Production execution uses the contextual variant below so
+// parent cancellation/deadlines keep their authoritative classification.
+func collectResponsesEventStreamReader(reader io.Reader, maximum int64) (map[string]any, error, runtime.StreamDiagnostics) {
+	return collectResponsesEventStreamReaderContext(context.Background(), context.Background(), reader, maximum)
+}
+
+func collectResponsesEventStreamReaderContext(parent, local context.Context, reader io.Reader, maximum int64) (map[string]any, error, runtime.StreamDiagnostics) {
+	return collectResponsesEventStreamReaderContextWithProgress(parent, local, reader, maximum, nil)
+}
+
+func collectResponsesEventStreamReaderContextWithProgress(parent, local context.Context, reader io.Reader, maximum int64, progress func(runtime.StreamDiagnostics)) (map[string]any, error, runtime.StreamDiagnostics) {
+	if parent == nil {
+		parent = context.Background()
+	}
+	if local == nil {
+		local = parent
+	}
+	if maximum <= 0 {
+		maximum = defaultMaxResponseBytes
+	}
+	var terminal map[string]any
+	var observed map[string]any
+	diagnostics := runtime.StreamDiagnostics{TerminalState: "awaiting_terminal"}
+	started := time.Now()
+	buffered := bufio.NewReaderSize(reader, 32<<10)
+	var block []byte
+	publish := func() {
+		if progress != nil {
+			progress(diagnostics)
+		}
+	}
+	process := func(raw []byte) (bool, error) {
+		if len(raw) == 0 {
+			return false, nil
+		}
+		dataLines := make([]string, 0, 1)
+		for _, line := range strings.Split(strings.ReplaceAll(string(raw), "\r\n", "\n"), "\n") {
+			if strings.HasPrefix(line, "data:") {
+				dataLines = append(dataLines, strings.TrimSpace(strings.TrimPrefix(line, "data:")))
+			}
+		}
+		data := strings.Join(dataLines, "\n")
+		if data == "" || data == "[DONE]" {
+			// SSE comments/heartbeats and the protocol sentinel are not parsed
+			// model events. They must not make a stalled stream look active.
+			return false, nil
+		}
+		diagnostics.EventCount++
+		now := time.Now().UTC()
+		if diagnostics.LastEventAt == nil {
+			first := maxDurationMilliseconds(now.Sub(started), 0)
+			diagnostics.FirstEventMs = &first
+		}
+		diagnostics.LastEventAt = &now
+		event, decodeErr := decodeJSONObject([]byte(data))
+		if decodeErr != nil {
+			return false, &retry.ProviderError{Err: errors.New("provider returned a malformed event stream"), Code: "MALFORMED_STREAM", Category: retry.CategoryOther}
+		}
+		switch stringValue(event["type"]) {
+		case "response.output_text.delta":
+			delta := stringValue(event["delta"])
+			diagnostics.OutputBytes += int64(len([]byte(delta)))
+			diagnostics.OutputCodePoints += int64(len([]rune(delta)))
+			if delta != "" {
+				if diagnostics.FirstOutputMs == nil {
+					first := maxDurationMilliseconds(now.Sub(started), 0)
+					diagnostics.FirstOutputMs = &first
+				}
+				diagnostics.LastOutputAt = &now
+			}
+		case "response.output_text.done":
+		case "response.completed":
+			responseValue, present := event["response"]
+			response, ok := responseValue.(map[string]any)
+			if !present || !ok || len(response) == 0 {
+				return false, &retry.ProviderError{Err: errors.New("provider completed event has no response object"), Code: "COMPLETION_MALFORMED", Category: retry.CategoryOther}
+			}
+			terminal = cloneMap(response)
+			observed = terminal
+			if _, present := terminal["status"]; !present {
+				terminal["status"] = "completed"
+			}
+			diagnostics.TerminalState = "completed"
+			publish()
+			return true, nil
+		case "response.incomplete":
+			if response := objectValue(event["response"]); len(response) > 0 {
+				observed = cloneMap(response)
+			}
+			diagnostics.TerminalState = "incomplete"
+			publish()
+			return true, validateCompletion("openai.responses", observedOrStatus(observed, "incomplete"))
+		case "response.failed", "error":
+			if response := objectValue(event["response"]); len(response) > 0 {
+				observed = cloneMap(response)
+			}
+			diagnostics.TerminalState = "failed"
+			publish()
+			return true, normalizeResponsesStreamError(event)
+		}
+		publish()
+		return false, nil
+	}
+	for {
+		if contextErr := parent.Err(); contextErr != nil {
+			diagnostics.TerminalState = "missing"
+			publish()
+			return observed, contextErr, diagnostics
+		}
+		line, readErr := buffered.ReadSlice('\n')
+		// ReadSlice may return ErrBufferFull for a long line. Process the
+		// partial line only after checking the cumulative hard byte bound; the
+		// pending event can never exceed that bound in memory.
+		diagnostics.ReceivedBytes += int64(len(line))
+		if diagnostics.ReceivedBytes > maximum {
+			diagnostics.ReceivedBytes = maximum
+			diagnostics.TerminalState = "missing"
+			publish()
+			return observed, &retry.ProviderError{Err: errors.New("provider response exceeded the size limit"), Code: "RESPONSE_TOO_LARGE", Category: retry.CategoryOther}, diagnostics
+		}
+		block = append(block, []byte(line)...)
+		if len(block) > int(maximum) {
+			diagnostics.TerminalState = "missing"
+			publish()
+			return observed, &retry.ProviderError{Err: errors.New("provider response event exceeded the size limit"), Code: "RESPONSE_TOO_LARGE", Category: retry.CategoryOther}, diagnostics
+		}
+		trimmed := strings.TrimSpace(strings.TrimSuffix(strings.TrimSuffix(string(line), "\n"), "\r"))
+		if trimmed == "" {
+			stop, processErr := process(block)
+			block = block[:0]
+			if processErr != nil {
+				diagnostics.TerminalState = "failed"
+				publish()
+				return observed, processErr, diagnostics
+			}
+			if stop {
+				return terminalOrObserved(terminal, observed), nil, diagnostics
+			}
+		}
+		if readErr != nil && !errors.Is(readErr, bufio.ErrBufferFull) {
+			if errors.Is(readErr, io.EOF) {
+				if len(block) > 0 {
+					stop, processErr := process(block)
+					if processErr != nil {
+						diagnostics.TerminalState = "failed"
+						publish()
+						return observed, processErr, diagnostics
+					}
+					if stop {
+						return terminalOrObserved(terminal, observed), nil, diagnostics
+					}
+				}
+				diagnostics.TerminalState = "missing"
+				publish()
+				return observed, &retry.ProviderError{Err: errors.New("provider response stream ended before completion"), Code: "STREAM_TERMINAL_REQUIRED", Category: retry.CategoryNetwork}, diagnostics
+			}
+			diagnostics.TerminalState = "missing"
+			publish()
+			if parentErr := parent.Err(); parentErr != nil {
+				return observed, parentErr, diagnostics
+			}
+			if localErr := local.Err(); localErr != nil {
+				return observed, normalizeTransportError(parent, local, localErr), diagnostics
+			}
+			if directiveErr := normalizeResponsesStreamReadError(readErr); directiveErr != nil {
+				return observed, directiveErr, diagnostics
+			}
+			return observed, normalizeTransportError(parent, local, readErr), diagnostics
+		}
+	}
+}
+
+func terminalOrObserved(terminal, observed map[string]any) map[string]any {
+	if terminal != nil {
+		return terminal
+	}
+	return observed
 }
 
 func collectResponsesEventStream(body []byte) (map[string]any, error) {
@@ -708,6 +927,38 @@ func readBounded(reader io.Reader, maximum int64) ([]byte, error) {
 		return body, providerResponseReadError{err: err}
 	}
 	return body, nil
+}
+
+func outputByteCount(output any) int64 {
+	if output == nil {
+		return 0
+	}
+	if text, ok := output.(string); ok {
+		return int64(len([]byte(text)))
+	}
+	encoded, err := json.Marshal(output)
+	if err != nil {
+		return 0
+	}
+	return int64(len(encoded))
+}
+
+func maxDurationMilliseconds(value time.Duration, floor int64) int64 {
+	milliseconds := value.Milliseconds()
+	if milliseconds < floor {
+		return floor
+	}
+	return milliseconds
+}
+
+func outputCodePointCount(output any) int64 {
+	if output == nil {
+		return 0
+	}
+	if text, ok := output.(string); ok {
+		return int64(len([]rune(text)))
+	}
+	return outputByteCount(output)
 }
 
 func permanentTransportError(err error) bool {

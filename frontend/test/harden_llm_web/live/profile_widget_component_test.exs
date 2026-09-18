@@ -3,10 +3,10 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
 
   import Phoenix.LiveViewTest, except: [live: 1, live: 2, live: 3]
 
-  alias HardenLlmWeb.{APIFixtures, HardenAPI}
+  alias HardenLlmWeb.{APIFixtures, HardenAPI, ProfileWidgetComponent}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-044 TEST-044
-  # PLAN-HLLM-WIDGET-PARITY-001 TEST-101 TEST-102 TEST-103 TEST-104 TEST-112
+  # PLAN-HLLM-WIDGET-PARITY-001 TEST-101 TEST-102 TEST-103 TEST-104 TEST-112 WEB-TEST-084
 
   setup %{conn: conn}, do: {:ok, conn: authenticated_conn(conn)}
 
@@ -234,6 +234,52 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
       |> List.flatten()
 
     assert length(ids) == length(Enum.uniq(ids)), "duplicate DOM ids found"
+  end
+
+  # WEB-TEST-084: target-only mode reuses the leaf picker and cannot expose
+  # generation-owned cache/search/recovery controls.
+  test "target-only picker renders only the shared leaf controls and emits namespaced edits" do
+    target = %{"source" => "profile", "profileId" => "Primary", "modelId" => "fixture"}
+
+    html =
+      render_component(&ProfileWidgetComponent.render/1,
+        id: "repair-target-widget",
+        id_prefix: "repair-target",
+        target_only: true,
+        target_name: "repairTarget",
+        target_value: target,
+        profiles: [profile("Primary", "fixture")],
+        myself: nil
+      )
+
+    assert html =~ "data-target-only"
+    assert html =~ ~s(name="repairTarget[profileId]")
+    assert html =~ ~s(name="repairTarget[modelId]")
+    refute html =~ "workspace-cache-toggle"
+    refute html =~ "toggle-json-repair"
+
+    socket = %Phoenix.LiveView.Socket{
+      assigns: %{
+        __changed__: %{},
+        id_prefix: "repair-target",
+        target_name: "repairTarget",
+        target_value: target
+      }
+    }
+
+    assert {:noreply, updated} =
+             ProfileWidgetComponent.handle_event(
+               "recovery-target-change",
+               %{"repairTarget" => %{"profileId" => "Escalated", "source" => "profile"}},
+               socket
+             )
+
+    assert updated.assigns.target_value["profileId"] == "Escalated"
+
+    assert_receive {:profile_widget, "repair-target",
+                    {:profile_widget_target, "repairTarget", emitted}}
+
+    assert emitted["profileId"] == "Escalated"
   end
 
   defp install_stub(profiles, state_profile, save_response \\ nil) do

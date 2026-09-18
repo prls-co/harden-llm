@@ -4,12 +4,13 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"github.com/prls-co/harden-llm/internal/retry"
-	"github.com/prls-co/harden-llm/internal/runtime"
 	"log/slog"
 	"net"
 	"net/netip"
 	"time"
+
+	"github.com/prls-co/harden-llm/internal/retry"
+	"github.com/prls-co/harden-llm/internal/runtime"
 
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -50,20 +51,96 @@ type Request struct {
 	CacheMode       CacheMode
 	CacheVersion    string
 	RecoveryPolicy  RecoveryPolicy
+	Origin          Origin
+	// Progress receives best-effort cumulative snapshots. The runtime never
+	// closes this caller-owned channel and never blocks provider execution on it.
+	Progress chan<- ProgressEvent
+}
+
+// ProgressEvent is a bounded diagnostic snapshot, not a token/output stream.
+// Counters are explicitly received bytes/code points/events; token usage stays
+// in the final accounting projection.
+type ProgressEvent struct {
+	SchemaVersion       int         `json:"schemaVersion"`
+	Sequence            uint64      `json:"sequence"`
+	RunID               string      `json:"runId,omitempty"`
+	CallID              string      `json:"callId"`
+	TraceID             string      `json:"traceId"`
+	Type                string      `json:"type"`
+	Stage               string      `json:"stage,omitempty"`
+	Branch              string      `json:"branch,omitempty"`
+	ProfileID           string      `json:"profileId,omitempty"`
+	ReasoningEffort     string      `json:"reasoningEffort,omitempty"`
+	Attempt             int         `json:"attempt,omitempty"`
+	AttemptsUsed        int         `json:"attemptsUsed"`
+	AttemptsRemaining   int         `json:"attemptsRemaining"`
+	ElapsedMs           int64       `json:"elapsedMs"`
+	DeadlineRemainingMs *int64      `json:"deadlineRemainingMs,omitempty"`
+	ReceivedBytes       int64       `json:"receivedBytes,omitempty"`
+	EventCount          int64       `json:"eventCount,omitempty"`
+	OutputBytes         int64       `json:"outputBytes,omitempty"`
+	OutputCodePoints    int64       `json:"outputCodePoints,omitempty"`
+	LastActivity        string      `json:"lastActivity,omitempty"`
+	StopReason          string      `json:"stopReason,omitempty"`
+	Terminal            bool        `json:"terminal"`
+	MaxAttempts         int         `json:"maxAttempts,omitempty"`
+	EffectiveTimeoutMs  *int64      `json:"effectiveTimeoutMs,omitempty"`
+	Origin              *Origin     `json:"origin,omitempty"`
+	Attempts            []Attempt   `json:"attempts,omitempty"`
+	Accounting          *Accounting `json:"accounting,omitempty"`
+}
+
+// Origin correlates a call with its originating client/agent/test without
+// becoming part of cache identity or authenticated ownership.
+type Origin struct {
+	Client         string `json:"client,omitempty"`
+	Component      string `json:"component,omitempty"`
+	OperationID    string `json:"operationId,omitempty"`
+	ParentRunID    string `json:"parentRunId,omitempty"`
+	JobID          string `json:"jobId,omitempty"`
+	TestRunID      string `json:"testRunId,omitempty"`
+	TestID         string `json:"testId,omitempty"`
+	SourceRevision string `json:"sourceRevision,omitempty"`
 }
 
 // Result is the single detailed result returned by Client.Call.
 type Result struct {
-	Search         *SearchResult
-	Output         any
-	CallID         string
-	TraceID        string
-	SelectedTarget ExecutionTarget
-	ResultSource   ResultSource
-	Accounting     Accounting
-	Attempts       []Attempt
-	Cache          CacheResult
-	Artifacts      []ArtifactRef
+	Search           *SearchResult
+	Output           any
+	CallID           string
+	TraceID          string
+	Origin           Origin
+	SelectedTarget   ExecutionTarget
+	GenerationTarget ExecutionTarget
+	ResultSource     ResultSource
+	Accounting       Accounting
+	Attempts         []Attempt
+	Cache            CacheResult
+	Artifacts        []ArtifactRef
+	Diagnostics      Diagnostics
+}
+
+type Diagnostics struct {
+	Stage              string        `json:"stage,omitempty"`
+	Branch             string        `json:"branch,omitempty"`
+	StopReason         string        `json:"stopReason,omitempty"`
+	AttemptsUsed       int           `json:"attemptsUsed"`
+	AttemptsRemaining  int           `json:"attemptsRemaining"`
+	ElapsedMs          int64         `json:"elapsedMs"`
+	TotalActualWaitMs  int64         `json:"totalActualWaitMs"`
+	ReceivedBytes      int64         `json:"receivedBytes"`
+	EventCount         int64         `json:"eventCount"`
+	OutputBytes        int64         `json:"outputBytes"`
+	OutputCodePoints   int64         `json:"outputCodePoints"`
+	EffectiveTimeoutMs *int64        `json:"effectiveTimeoutMs,omitempty"`
+	DeadlineAt         *time.Time    `json:"deadlineAt,omitempty"`
+	BranchCaches       []BranchCache `json:"branchCaches,omitempty"`
+}
+
+type BranchCache struct {
+	Branch           string          `json:"branch"`
+	GenerationTarget ExecutionTarget `json:"generationTarget"`
+	Cache            CacheResult     `json:"cache"`
 }
 
 type SearchResult = runtime.SearchResult
@@ -107,27 +184,84 @@ type RecoveryPolicy = retry.Policy
 type RecoveryBackoff = retry.Backoff
 type RecoveryCategory = retry.Category
 type RecoveryPolicyError = retry.ValidationError
+type RecoveryTarget = retry.RecoveryTarget
+type JSONRepairPlan = retry.RepairPlan
+type RerunPlan = retry.RerunPlan
 
-// DefaultRecoveryPolicy creates a new independent policy with backend defaults.
-func DefaultRecoveryPolicy() RecoveryPolicy { return retry.DefaultPolicy() }
+// DefaultRecoveryPolicy creates the explicit six-stage preset for new callers.
+// Deployments must provision the named CPA Astra profiles before enabling it;
+// existing stored policies are not changed implicitly.
+func DefaultRecoveryPolicy() RecoveryPolicy { return DefaultStructuredRecoveryPolicy() }
+
+// DefaultStructuredRecoveryPolicy is the explicit six-stage preset for new
+// structured callers. It remains named for callers that want to make the
+// structured-output requirement obvious at the call site.
+func DefaultStructuredRecoveryPolicy() RecoveryPolicy {
+	return RecoveryPolicy{
+		MaxAttempts: 6,
+		RetryOn:     []RecoveryCategory{retry.CategoryNetwork, retry.CategoryRateLimit, retry.CategoryServer, retry.CategoryEmpty, retry.CategoryProvider},
+		Backoff:     RecoveryBackoff{BaseDelayMS: 500, MaxDelayMS: 8000},
+		JSONRepair: &JSONRepairPlan{
+			Initial:    RecoveryTarget{Source: "profile", ProfileID: "CPA GPT-5.6 Luna", ReasoningEffort: string(ReasoningEffortLowest)},
+			Escalation: &RecoveryTarget{Source: "profile", ProfileID: "CPA GPT-5.6 Luna", ReasoningEffort: string(ReasoningEffortHighest)},
+		},
+		Rerun: &RerunPlan{
+			Target: RecoveryTarget{Source: "profile", ProfileID: "CPA GPT-6 Astra", ReasoningEffort: string(ReasoningEffortLowest)},
+			JSONRepair: &JSONRepairPlan{
+				Initial:    RecoveryTarget{Source: "profile", ProfileID: "CPA GPT-6 Astra", ReasoningEffort: string(ReasoningEffortLowest)},
+				Escalation: &RecoveryTarget{Source: "profile", ProfileID: "CPA GPT-6 Astra", ReasoningEffort: string(ReasoningEffortHighest)},
+			},
+		},
+	}
+}
 
 // Attempt is safe, normalized metadata for one execution attempt. ProviderUsed
 // is true only when the local model transport observed request headers being
 // written; it does not prove remote execution or billing.
 type Attempt struct {
-	Number            int             `json:"number"`
-	ProfileID         string          `json:"profileId"`
-	Target            ExecutionTarget `json:"target"`
-	Category          string          `json:"category,omitempty"`
-	HTTPStatus        int             `json:"httpStatus,omitempty"`
-	Code              string          `json:"code,omitempty"`
-	Type              string          `json:"type,omitempty"`
-	ProviderRequestID string          `json:"providerRequestId,omitempty"`
-	Retryable         bool            `json:"retryable"`
-	Wait              time.Duration   `json:"wait"`
-	Duration          time.Duration   `json:"duration"`
-	Repair            bool            `json:"repair"`
-	ProviderUsed      bool            `json:"providerUsed"`
+	Number            int                `json:"number"`
+	ProfileID         string             `json:"profileId"`
+	Target            ExecutionTarget    `json:"target"`
+	Category          string             `json:"category,omitempty"`
+	HTTPStatus        int                `json:"httpStatus,omitempty"`
+	Code              string             `json:"code,omitempty"`
+	Type              string             `json:"type,omitempty"`
+	ProviderRequestID string             `json:"providerRequestId,omitempty"`
+	Retryable         bool               `json:"retryable"`
+	Wait              time.Duration      `json:"wait"`
+	Duration          time.Duration      `json:"duration"`
+	Repair            bool               `json:"repair"`
+	ProviderUsed      bool               `json:"providerUsed"`
+	Stage             string             `json:"stage,omitempty"`
+	Branch            string             `json:"branch,omitempty"`
+	TriggerAttempt    int                `json:"triggerAttemptNumber,omitempty"`
+	InputAttempts     []int              `json:"inputAttemptNumbers,omitempty"`
+	TransportRetryOf  int                `json:"transportRetryOfAttempt,omitempty"`
+	StartedAt         *time.Time         `json:"startedAt,omitempty"`
+	FinishedAt        *time.Time         `json:"finishedAt,omitempty"`
+	ReasoningEffort   string             `json:"reasoningEffort,omitempty"`
+	DispatchObserved  bool               `json:"dispatchObserved"`
+	Stream            *StreamDiagnostics `json:"stream,omitempty"`
+	WaitDiagnostics   *WaitDiagnostics   `json:"waitDiagnostics,omitempty"`
+}
+
+type StreamDiagnostics struct {
+	ReceivedBytes    int64      `json:"receivedBytes"`
+	EventCount       int64      `json:"eventCount"`
+	OutputBytes      int64      `json:"outputBytes"`
+	OutputCodePoints int64      `json:"outputCodePoints"`
+	FirstEventMs     *int64     `json:"firstEventMs,omitempty"`
+	FirstOutputMs    *int64     `json:"firstOutputMs,omitempty"`
+	LastEventAt      *time.Time `json:"lastEventAt,omitempty"`
+	LastOutputAt     *time.Time `json:"lastOutputAt,omitempty"`
+	TerminalState    string     `json:"terminalState,omitempty"`
+}
+
+type WaitDiagnostics struct {
+	Reason       string `json:"reason,omitempty"`
+	PlannedMs    int64  `json:"plannedMs"`
+	ActualMs     int64  `json:"actualMs"`
+	RetryAfterMs int64  `json:"retryAfterMs,omitempty"`
 }
 
 // ExecutionTarget is the immutable prepared provider target for selection,

@@ -11,6 +11,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -189,6 +190,15 @@ func (writer *responseStatusWriter) Write(content []byte) (int, error) {
 	return writer.ResponseWriter.Write(content)
 }
 
+func (writer *responseStatusWriter) Flush() {
+	if !writer.wroteHeader {
+		writer.WriteHeader(http.StatusOK)
+	}
+	if flusher, ok := writer.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
 func (writer *responseStatusWriter) Unwrap() http.ResponseWriter { return writer.ResponseWriter }
 
 func (api *API) operationHandler(operationID string) http.HandlerFunc {
@@ -250,6 +260,13 @@ func (api *API) responsePolicy(next http.Handler) http.Handler {
 
 func (api *API) recoverPanic(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		// bufferedResponse intentionally protects ordinary JSON handlers, but it
+		// would defeat incremental SSE delivery. The stream writer has its own
+		// bounded terminal/error handling.
+		if strings.Contains(strings.ToLower(request.Header.Get("Accept")), "text/event-stream") {
+			next.ServeHTTP(writer, request)
+			return
+		}
 		buffer := newBufferedResponse()
 		defer func() {
 			if recover() != nil {

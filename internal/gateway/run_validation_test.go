@@ -53,7 +53,7 @@ func TestRecoveryContractImports(t *testing.T) {
 		Profiles: profiles.Catalog{}, CredentialIDs: map[string]string{},
 	})
 	var invalid *profiles.ValidationError
-	if !errors.As(err, &invalid) || len(invalid.FieldErrors) != 1 || invalid.FieldErrors[0].Field != "schemaVersion" || !strings.Contains(invalid.FieldErrors[0].Message, "2") {
+	if !errors.As(err, &invalid) || len(invalid.FieldErrors) != 1 || invalid.FieldErrors[0].Field != "schemaVersion" || !strings.Contains(invalid.FieldErrors[0].Message, "3") {
 		t.Fatalf("retired bundle must identify the current format, got %v", err)
 	}
 	catalog, err := profiles.DefaultCatalog()
@@ -121,8 +121,25 @@ func TestRecoveryContractInput(t *testing.T) {
 			}
 			if !test.invalid {
 				encoded, err := json.Marshal(input)
-				if err != nil || !strings.Contains(string(encoded), `"recoveryPolicy":`+test.policy) {
-					t.Fatalf("policy changed: %s/%v", encoded, err)
+				if err != nil {
+					t.Fatalf("marshal normalized input: %v", err)
+				}
+				var wire map[string]any
+				if err := json.Unmarshal(encoded, &wire); err != nil {
+					t.Fatalf("decode normalized input: %v", err)
+				}
+				policy, ok := wire["recoveryPolicy"].(map[string]any)
+				if !ok {
+					t.Fatalf("normalized recovery policy is not an object: %s", encoded)
+				}
+				if _, legacy := policy["repairInvalidOutput"]; legacy {
+					t.Fatalf("current run writer emitted legacy recovery policy: %s", encoded)
+				}
+				if _, present := policy["jsonRepair"]; !present {
+					t.Fatalf("normalized recovery policy omitted jsonRepair: %s", encoded)
+				}
+				if _, present := policy["rerun"]; !present {
+					t.Fatalf("normalized recovery policy omitted rerun: %s", encoded)
 				}
 			}
 		})

@@ -20,19 +20,25 @@ const (
 )
 
 type RunInput struct {
-	ProfileID       string                   `json:"profileId"`
-	ModelID         string                   `json:"modelId,omitempty"`
-	SystemPrompt    string                   `json:"systemPrompt,omitempty"`
-	UserPrompt      string                   `json:"userPrompt"`
-	CallType        hardenllm.CallType       `json:"callType"`
-	Schema          json.RawMessage          `json:"schema,omitempty"`
-	ReasoningEffort string                   `json:"reasoningEffort,omitempty"`
-	WebSearch       bool                     `json:"webSearch,omitempty"`
-	ProviderOptions map[string]any           `json:"providerOptions,omitempty"`
-	CacheMode       hardenllm.CacheMode      `json:"cacheMode,omitempty"`
-	CacheVersion    string                   `json:"cacheVersion,omitempty"`
-	TimeoutMS       int                      `json:"timeoutMs,omitempty"`
-	RecoveryPolicy  hardenllm.RecoveryPolicy `json:"recoveryPolicy"`
+	ProfileID       string                         `json:"profileId"`
+	ModelID         string                         `json:"modelId,omitempty"`
+	SystemPrompt    string                         `json:"systemPrompt,omitempty"`
+	UserPrompt      string                         `json:"userPrompt"`
+	CallType        hardenllm.CallType             `json:"callType"`
+	Schema          json.RawMessage                `json:"schema,omitempty"`
+	ReasoningEffort string                         `json:"reasoningEffort,omitempty"`
+	WebSearch       bool                           `json:"webSearch,omitempty"`
+	ProviderOptions map[string]any                 `json:"providerOptions,omitempty"`
+	CacheMode       hardenllm.CacheMode            `json:"cacheMode,omitempty"`
+	CacheVersion    string                         `json:"cacheVersion,omitempty"`
+	TimeoutMS       int                            `json:"timeoutMs,omitempty"`
+	RecoveryPolicy  hardenllm.RecoveryPolicy       `json:"recoveryPolicy"`
+	Origin          hardenllm.Origin               `json:"origin,omitempty"`
+	Progress        chan<- hardenllm.ProgressEvent `json:"-"`
+	// Ready is an internal admission signal used by the request-bound SSE
+	// writer. It is never serialized and is sent exactly once before provider
+	// execution/cache lookup begins.
+	Ready chan<- struct{} `json:"-"`
 }
 
 type RunArtifact struct {
@@ -45,24 +51,29 @@ type RunArtifact struct {
 }
 
 type RunOutput struct {
-	Search              *hardenllm.SearchResult   `json:"search,omitempty"`
-	SchemaVersion       int                       `json:"schemaVersion"`
-	RunID               string                    `json:"runId"`
-	Status              string                    `json:"status"`
-	Output              any                       `json:"output"`
-	CallID              string                    `json:"callId"`
-	TraceID             string                    `json:"traceId"`
-	SelectedTarget      hardenllm.ExecutionTarget `json:"selectedTarget"`
-	ResultSource        hardenllm.ResultSource    `json:"resultSource"`
-	Accounting          hardenllm.Accounting      `json:"accounting"`
-	Attempts            []hardenllm.Attempt       `json:"attempts"`
-	Cache               hardenllm.CacheResult     `json:"cache"`
-	Artifacts           []RunArtifact             `json:"artifacts"`
-	ProviderInvoked     bool                      `json:"providerInvoked"`
-	TotalCallDurationMs int64                     `json:"totalCallDurationMs"`
-	TotalWaitMs         int64                     `json:"totalWaitMs"`
-	OverBudgetMs        int64                     `json:"overBudgetMs"`
-	UsedRepair          bool                      `json:"usedRepair"`
+	Search              *hardenllm.SearchResult    `json:"search,omitempty"`
+	SchemaVersion       int                        `json:"schemaVersion"`
+	RunID               string                     `json:"runId"`
+	Status              string                     `json:"status"`
+	Output              any                        `json:"output"`
+	CallID              string                     `json:"callId"`
+	TraceID             string                     `json:"traceId"`
+	Origin              hardenllm.Origin           `json:"origin,omitempty"`
+	SelectedTarget      hardenllm.ExecutionTarget  `json:"selectedTarget"`
+	ResultSource        hardenllm.ResultSource     `json:"resultSource"`
+	Accounting          hardenllm.Accounting       `json:"accounting"`
+	Attempts            []hardenllm.Attempt        `json:"attempts"`
+	Cache               hardenllm.CacheResult      `json:"cache"`
+	Artifacts           []RunArtifact              `json:"artifacts"`
+	ProviderInvoked     bool                       `json:"providerInvoked"`
+	TotalCallDurationMs int64                      `json:"totalCallDurationMs"`
+	TotalWaitMs         int64                      `json:"totalWaitMs"`
+	TotalActualWaitMs   int64                      `json:"totalActualWaitMs"`
+	OverBudgetMs        int64                      `json:"overBudgetMs"`
+	UsedRepair          bool                       `json:"usedRepair"`
+	Diagnostics         *hardenllm.Diagnostics     `json:"diagnostics,omitempty"`
+	GenerationTarget    *hardenllm.ExecutionTarget `json:"generationTarget,omitempty"`
+	StopReason          string                     `json:"stopReason,omitempty"`
 }
 
 type RunState struct {
@@ -155,6 +166,14 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 		profile.ModelID = strings.TrimSpace(input.ModelID)
 		catalog[input.ProfileID] = profile
 	}
+	// Resolve every enabled structured-recovery profile against the one
+	// owner-scoped catalog snapshot before constructing the runtime caller or
+	// admitting an SSE response. This keeps ordinary configuration errors on
+	// the JSON error transport and guarantees that a missing leaf cannot cause
+	// the selected generation call to run first.
+	if err := validateRecoveryCatalog(input, catalog); err != nil {
+		return RunOutput{}, RunState{}, err
+	}
 	runStartedAt := service.clock()
 	ctx, endRun := service.telemetry.StartOperation(ctx, OperationRun)
 	defer func() {
@@ -178,6 +197,12 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 	if err != nil || caller == nil {
 		return RunOutput{}, RunState{}, errors.New("gateway: initialize runtime caller")
 	}
+	if input.Ready != nil {
+		select {
+		case input.Ready <- struct{}{}:
+		default:
+		}
+	}
 	startedAt := service.clock().UTC()
 	callContext := ctx
 	var cancelCall context.CancelFunc
@@ -185,14 +210,27 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 		callContext, cancelCall = context.WithTimeout(ctx, time.Duration(input.TimeoutMS)*time.Millisecond)
 		defer cancelCall()
 	}
+	originMetadata := map[string]string{}
+	for key, value := range map[string]string{
+		"origin.client": input.Origin.Client, "origin.component": input.Origin.Component,
+		"origin.operationId": input.Origin.OperationID, "origin.parentRunId": input.Origin.ParentRunID,
+		"origin.jobId": input.Origin.JobID, "origin.testRunId": input.Origin.TestRunID,
+		"origin.testId": input.Origin.TestID, "origin.sourceRevision": input.Origin.SourceRevision,
+	} {
+		if value != "" {
+			originMetadata[key] = value
+		}
+	}
 	result, callErr := caller.Call(callContext, hardenllm.Request{
 		ProfileID: input.ProfileID, Profiles: catalog, SystemPrompt: input.SystemPrompt, UserPrompt: input.UserPrompt,
 		CallType: input.CallType, Schema: append(json.RawMessage(nil), input.Schema...),
 		ReasoningEffort: hardenllm.ReasoningEffort(input.ReasoningEffort), ProviderOptions: cloneAnyMap(input.ProviderOptions),
 		WebSearch: input.WebSearch,
-		Context:   hardenllm.ObservabilityContext{TaskID: runID, RunID: runID, OrganizationID: ownerID},
+		Context:   hardenllm.ObservabilityContext{TaskID: runID, RunID: runID, OrganizationID: ownerID, Metadata: originMetadata},
+		Origin:    input.Origin,
 		CacheMode: input.CacheMode, CacheVersion: input.CacheVersion,
 		RecoveryPolicy: input.RecoveryPolicy,
+		Progress:       input.Progress,
 	})
 	completedAt := service.clock().UTC()
 	traceID := result.TraceID
@@ -215,18 +253,27 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 	}
 	usedRepair := attemptsUsedRepair(result.Attempts)
 	output = RunOutput{
-		SchemaVersion: 3, RunID: runID, Status: status,
+		SchemaVersion: 4, RunID: runID, Status: status,
 		Output: result.Output, CallID: result.CallID, TraceID: traceID,
+		Origin:         input.Origin,
 		SelectedTarget: result.SelectedTarget, ResultSource: result.ResultSource, Accounting: result.Accounting,
 		Attempts: cloneAttempts(result.Attempts),
 		Cache:    result.Cache, Artifacts: artifacts, TotalCallDurationMs: totalCallDurationMs,
 		Search: result.Search, ProviderInvoked: attemptsInvokedProvider(result.Attempts),
-		TotalWaitMs: totalWaitMs, OverBudgetMs: overBudgetMs, UsedRepair: usedRepair,
+		TotalWaitMs: totalWaitMs, TotalActualWaitMs: result.Diagnostics.TotalActualWaitMs, OverBudgetMs: overBudgetMs, UsedRepair: usedRepair,
+	}
+	if result.Diagnostics.StopReason != "" || result.Diagnostics.AttemptsUsed > 0 || result.Diagnostics.ReceivedBytes > 0 {
+		output.Diagnostics = &result.Diagnostics
+		generationTarget := result.GenerationTarget
+		output.GenerationTarget = &generationTarget
+		output.StopReason = result.Diagnostics.StopReason
 	}
 	requestDocument, _ := json.Marshal(input)
 	resultDocument, _ := json.Marshal(output)
 	traceDocument, _ := json.Marshal(map[string]any{
-		"schemaVersion": 3, "runId": runID, "traceId": traceID,
+		"schemaVersion": 4, "runId": runID, "traceId": traceID,
+		"origin": input.Origin, "attempts": result.Attempts, "resultSource": result.ResultSource,
+		"generationTarget": result.GenerationTarget, "diagnostics": result.Diagnostics,
 	})
 	observations := runObservations(ownerID, traceID, result.Attempts, completedAt)
 	persistContext, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), persistenceTimeout)
@@ -243,9 +290,66 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 		return output, state, callErr
 	}
 	if persistErr != nil {
-		return RunOutput{}, state, errors.New("gateway: persist completed run")
+		// Keep the canonical runtime result available to a request-bound SSE
+		// terminal event and to callers diagnosing a persistence failure. JSON
+		// callers still receive the same transport error, but the persisted
+		// execution identity and diagnostics are never discarded in memory.
+		return output, state, errors.New("gateway: persist completed run")
 	}
 	return output, state, nil
+}
+
+func validateRecoveryCatalog(input RunInput, catalog hardenllm.ProfileCatalog) error {
+	if input.CallType != hardenllm.CallTypeStructured || !input.RecoveryPolicy.UsesExplicitPlan() {
+		return nil
+	}
+	check := func(role string, target hardenllm.RecoveryTarget, allowGeneration bool) error {
+		if err := target.Validate("recoveryPolicy."+role, allowGeneration); err != nil {
+			return err
+		}
+		if target.Source == "generation" {
+			return nil
+		}
+		profile, ok := catalog[target.ProfileID]
+		if !ok || profile.LLMProfile != target.ProfileID {
+			return &hardenllm.RecoveryPolicyError{Field: "recoveryPolicy." + role + ".profileId", Message: fmt.Sprintf("profile %q was not found", target.ProfileID)}
+		}
+		return nil
+	}
+	policy := input.RecoveryPolicy
+	if policy.JSONRepair != nil {
+		if err := check("jsonRepair.initial", policy.JSONRepair.Initial, true); err != nil {
+			return err
+		}
+		if policy.JSONRepair.Escalation != nil {
+			if err := check("jsonRepair.escalation", *policy.JSONRepair.Escalation, true); err != nil {
+				return err
+			}
+		}
+	}
+	if policy.Rerun != nil {
+		if err := check("rerun.target", policy.Rerun.Target, false); err != nil {
+			return err
+		}
+		if policy.Rerun.JSONRepair != nil {
+			if err := check("rerun.jsonRepair.initial", policy.Rerun.JSONRepair.Initial, true); err != nil {
+				return err
+			}
+			if policy.Rerun.JSONRepair.Escalation != nil {
+				if err := check("rerun.jsonRepair.escalation", *policy.Rerun.JSONRepair.Escalation, true); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func nonblockingProgress(channel chan<- hardenllm.ProgressEvent, event hardenllm.ProgressEvent) {
+	select {
+	case channel <- event:
+	default:
+	}
 }
 
 func executionFields(result hardenllm.Result, output RunOutput) *postgres.ExecutionFields {
@@ -254,7 +358,7 @@ func executionFields(result hardenllm.Result, output RunOutput) *postgres.Execut
 		producer = *result.ResultSource.Producer
 	}
 	return &postgres.ExecutionFields{
-		SchemaVersion:    3,
+		SchemaVersion:    4,
 		SelectedProvider: result.SelectedTarget.Provider, SelectedProtocol: result.SelectedTarget.Protocol,
 		SelectedEndpoint: result.SelectedTarget.Endpoint, SelectedModelID: result.SelectedTarget.ModelID,
 		ResultSource:      string(result.ResultSource.Kind),
@@ -350,6 +454,9 @@ func validateRunInput(input RunInput) error {
 	if len(input.CacheVersion) > 64 || input.TimeoutMS < 0 || input.TimeoutMS > 60000 {
 		return fmt.Errorf("%w: run controls", ErrInvalidRequest)
 	}
+	if err := validateOrigin(input.Origin); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidRequest, err)
+	}
 	if err := input.RecoveryPolicy.Validate(); err != nil {
 		return fmt.Errorf("%w: %w", ErrInvalidRequest, err)
 	}
@@ -358,6 +465,23 @@ func validateRunInput(input RunInput) error {
 	}
 	if encoded, err := json.Marshal(input.ProviderOptions); err != nil || len(encoded) > 32<<10 || containsSecretKey(input.ProviderOptions) {
 		return fmt.Errorf("%w: provider options", ErrInvalidRequest)
+	}
+	return nil
+}
+
+func validateOrigin(origin hardenllm.Origin) error {
+	encoded, err := json.Marshal(origin)
+	if err != nil || len(encoded) > 2<<10 {
+		return errors.New("origin exceeds the 2 KiB limit")
+	}
+	for name, value := range map[string]string{
+		"client": origin.Client, "component": origin.Component, "operationId": origin.OperationID,
+		"parentRunId": origin.ParentRunID, "jobId": origin.JobID, "testRunId": origin.TestRunID,
+		"testId": origin.TestID, "sourceRevision": origin.SourceRevision,
+	} {
+		if !utf8.ValidString(value) || len(value) > 256 {
+			return fmt.Errorf("origin.%s exceeds the 256-byte limit", name)
+		}
 	}
 	return nil
 }
@@ -378,7 +502,7 @@ func (cache *ownerCacheStore) Get(ctx context.Context, operationHash string) (ha
 		return hardenllm.CacheRecord{}, false, err
 	}
 	return hardenllm.CacheRecord{
-		SchemaVersion: 2, CacheVersion: record.Version, OperationHash: record.OperationHash,
+		SchemaVersion: 3, CacheVersion: record.Version, OperationHash: record.OperationHash,
 		ProviderResult: record.Result, CreatedAt: record.CreatedAt,
 	}, true, nil
 }

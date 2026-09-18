@@ -4,7 +4,7 @@ defmodule HardenLlm.LlmTraceProjectionTest do
   alias HardenLlm.{LlmDiagnosticsWire, LlmTraceProjection}
   alias HardenLlmWeb.APIFixtures
 
-  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-036 WEB-TEST-080
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-036 WEB-TEST-080 WEB-TEST-087 WEB-TEST-089
 
   test "projects immutable trace identity and zero-token failures" do
     result =
@@ -26,6 +26,53 @@ defmodule HardenLlm.LlmTraceProjectionTest do
              "result_source" => "Provider attempt 1",
              "status" => "Rate Limit (429)"
            } = LlmTraceProjection.details(result)
+  end
+
+  @tag :recovery_progress
+  test "strictly decodes request-bound progress and terminal envelopes" do
+    progress = %{
+      "schemaVersion" => 1,
+      "sequence" => 1,
+      "callId" => "call-test",
+      "traceId" => "trace-test",
+      "type" => "run.started",
+      "stage" => "original.generate",
+      "branch" => "original",
+      "profileId" => "Primary",
+      "attemptsUsed" => 0,
+      "attemptsRemaining" => 6,
+      "elapsedMs" => 0,
+      "receivedBytes" => 0,
+      "eventCount" => 0,
+      "outputBytes" => 0,
+      "outputCodePoints" => 0,
+      "lastActivity" => "2026-09-18T12:00:00Z",
+      "terminal" => false
+    }
+
+    envelope = %{
+      "schemaVersion" => 1,
+      "sequence" => 1,
+      "type" => "run.started",
+      "data" => progress
+    }
+
+    assert {:ok, ^envelope} = LlmDiagnosticsWire.decode_progress(envelope)
+
+    assert {:error, :malformed_diagnostics} =
+             LlmDiagnosticsWire.decode_progress(Map.put(envelope, "sequence", 0))
+
+    terminal = %{
+      "schemaVersion" => 1,
+      "sequence" => 2,
+      "runId" => "run-test",
+      "callId" => "call-test",
+      "traceId" => "trace-test",
+      "type" => "run.completed",
+      "data" => %{"state" => %{}, "result" => APIFixtures.run_result(), "error" => nil}
+    }
+
+    assert {:ok, ^terminal} = LlmDiagnosticsWire.decode("runProgress", terminal)
   end
 
   test "builds an absolute credential-free and POSIX-safe replay command" do
@@ -266,8 +313,8 @@ defmodule HardenLlm.LlmTraceProjectionTest do
     assert {:error, :malformed_diagnostics} = LlmDiagnosticsWire.decode("listHistory", malformed)
   end
 
-  test "every execution read uses v3 and checks its enclosing identity" do
-    for version <- [nil, 1, 2, 4] do
+  test "every execution read uses v4 and checks its enclosing identity" do
+    for version <- [nil, 1, 2, 3] do
       result = Map.put(APIFixtures.run_result(), "schemaVersion", version)
       history = %{"items" => [Map.put(APIFixtures.history_item(), "result", result)]}
       trace = Map.put(APIFixtures.trace(), "record", result)

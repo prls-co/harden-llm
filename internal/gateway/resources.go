@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	clientStateSchemaVersion = 2
+	clientStateSchemaVersion = 3
 	defaultHistoryLimit      = 20
 	maximumHistoryLimit      = 100
 	defaultArtifactTTL       = time.Minute
@@ -230,10 +230,12 @@ func (service *ResourceService) State(ctx context.Context, ownerID string) (Clie
 	if err := decodeStrictJSON(record.Document, &state); err != nil || validateClientState(state) != nil {
 		return ClientState{}, errors.New("gateway: stored client state is invalid")
 	}
+	state.SchemaVersion = clientStateSchemaVersion
 	return state, nil
 }
 
 func (service *ResourceService) SaveState(ctx context.Context, ownerID string, state ClientState) (ClientState, error) {
+	state.SchemaVersion = clientStateSchemaVersion
 	if err := validateClientState(state); err != nil {
 		return ClientState{}, err
 	}
@@ -484,11 +486,11 @@ func (service *ResourceService) PresignArtifact(ctx context.Context, ownerID, tr
 }
 
 func defaultClientState() ClientState {
-	return ClientState{RecoveryPolicy: hardenllm.DefaultRecoveryPolicy(), SchemaVersion: clientStateSchemaVersion, CallType: string(hardenllm.CallTypeText), CacheMode: string(hardenllm.CacheModeOff), WebSearch: false}
+	return ClientState{RecoveryPolicy: hardenllm.DefaultStructuredRecoveryPolicy(), SchemaVersion: clientStateSchemaVersion, CallType: string(hardenllm.CallTypeText), CacheMode: string(hardenllm.CacheModeOff), WebSearch: false}
 }
 
 func validateClientState(state ClientState) error {
-	if state.SchemaVersion != clientStateSchemaVersion || !utf8.ValidString(state.SystemPrompt) || !utf8.ValidString(state.UserPrompt) ||
+	if (state.SchemaVersion != clientStateSchemaVersion && state.SchemaVersion != 2) || !utf8.ValidString(state.SystemPrompt) || !utf8.ValidString(state.UserPrompt) ||
 		!utf8.ValidString(state.SchemaShorthand) || len(state.SelectedProfileID) > 1500 || len(state.ModelID) > 512 ||
 		len(state.SystemPrompt) > 32<<10 || len(state.UserPrompt) > 64<<10 || len(state.SchemaShorthand) > 64<<10 {
 		return fmt.Errorf("%w: client state fields", ErrInvalidRequest)

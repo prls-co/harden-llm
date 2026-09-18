@@ -86,7 +86,7 @@ func TestProfileRejectsInvalidShapeAndRecovery(t *testing.T) {
 func fixtureProfile(name string) Profile {
 	noTemperature := false
 	return Profile{
-		RecoveryPolicy: retry.DefaultPolicy(), SchemaVersion: 2, LLMProfile: name, Provider: "openai", APIInferenceType: "responses",
+		RecoveryPolicy: retry.DefaultPolicy(), SchemaVersion: 3, LLMProfile: name, Provider: "openai", APIInferenceType: "responses",
 		EndpointCredentialScope: "global", BaseURL: "https://api.openai.com/v1", ModelID: "gpt-test",
 		Pricing: &Pricing{}, SupportsTemperature: &noTemperature, SupportsContractedStructuredOutput: true,
 		DefaultOptions: map[string]any{},

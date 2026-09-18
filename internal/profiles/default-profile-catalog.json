@@ -1,6 +1,6 @@
 {
   "Claude Haiku 4.5": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "Claude Haiku 4.5",
     "provider": "anthropic",
     "apiInferenceType": "anthropic-messages",
@@ -31,7 +31,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -39,7 +43,7 @@
     }
   },
   "Claude Opus 4.7": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "Claude Opus 4.7",
     "provider": "anthropic",
     "apiInferenceType": "anthropic-messages",
@@ -70,7 +74,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -78,7 +86,7 @@
     }
   },
   "Claude Opus 5": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "Claude Opus 5",
     "provider": "anthropic",
     "apiInferenceType": "anthropic-messages",
@@ -109,7 +117,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -117,7 +129,7 @@
     }
   },
   "Claude Sonnet 4.6": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "Claude Sonnet 4.6",
     "provider": "anthropic",
     "apiInferenceType": "anthropic-messages",
@@ -148,7 +160,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -156,7 +172,7 @@
     }
   },
   "Claude Sonnet 5": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "Claude Sonnet 5",
     "provider": "anthropic",
     "apiInferenceType": "anthropic-messages",
@@ -187,7 +203,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -195,7 +215,7 @@
     }
   },
   "CPA GPT-5.4": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "CPA GPT-5.4",
     "provider": "cpa",
     "apiInferenceType": "responses",
@@ -244,7 +264,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -252,7 +276,7 @@
     }
   },
   "CPA GPT-5.4 Mini": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "CPA GPT-5.4 Mini",
     "provider": "cpa",
     "apiInferenceType": "responses",
@@ -301,7 +325,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -309,7 +337,7 @@
     }
   },
   "CPA GPT-5.6 Luna": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "CPA GPT-5.6 Luna",
     "provider": "cpa",
     "apiInferenceType": "responses",
@@ -358,7 +386,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -366,7 +398,7 @@
     }
   },
   "CPA GPT-5.6 Sol": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "CPA GPT-5.6 Sol",
     "provider": "cpa",
     "apiInferenceType": "responses",
@@ -415,7 +447,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -423,7 +459,7 @@
     }
   },
   "Gemini 3.1 Flash Lite": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "Gemini 3.1 Flash Lite",
     "provider": "google",
     "apiInferenceType": "gemini-generate-content",
@@ -471,7 +507,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -479,7 +519,7 @@
     }
   },
   "Gemini 3.1 Pro Preview": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "Gemini 3.1 Pro Preview",
     "provider": "google",
     "apiInferenceType": "gemini-generate-content",
@@ -527,7 +567,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -535,7 +579,7 @@
     }
   },
   "Gemini 3.5 Flash": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "Gemini 3.5 Flash",
     "provider": "google",
     "apiInferenceType": "gemini-generate-content",
@@ -583,7 +627,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -591,7 +639,7 @@
     }
   },
   "Gemini 3.5 Flash Lite": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "Gemini 3.5 Flash Lite",
     "provider": "google",
     "apiInferenceType": "gemini-generate-content",
@@ -639,7 +687,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -647,7 +699,7 @@
     }
   },
   "Gemini 3.7 Flash": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "Gemini 3.7 Flash",
     "provider": "google",
     "apiInferenceType": "gemini-generate-content",
@@ -695,7 +747,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -703,7 +759,7 @@
     }
   },
   "Novita DeepSeek V4 Flash": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "Novita DeepSeek V4 Flash",
     "provider": "novita",
     "apiInferenceType": "chat-completions",
@@ -752,7 +808,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -760,7 +820,7 @@
     }
   },
   "Novita DeepSeek V4 Pro": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "Novita DeepSeek V4 Pro",
     "provider": "novita",
     "apiInferenceType": "chat-completions",
@@ -809,7 +869,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -817,7 +881,7 @@
     }
   },
   "OpenAI GPT-5.4": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "OpenAI GPT-5.4",
     "provider": "openai",
     "apiInferenceType": "responses",
@@ -865,7 +929,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -873,7 +941,7 @@
     }
   },
   "OpenAI GPT-5.4 Mini": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "OpenAI GPT-5.4 Mini",
     "provider": "openai",
     "apiInferenceType": "responses",
@@ -921,7 +989,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -929,7 +1001,7 @@
     }
   },
   "OpenAI GPT-5.5": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "OpenAI GPT-5.5",
     "provider": "openai",
     "apiInferenceType": "responses",
@@ -977,7 +1049,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -985,7 +1061,7 @@
     }
   },
   "OpenAI GPT-5.6 Luna": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "OpenAI GPT-5.6 Luna",
     "provider": "openai",
     "apiInferenceType": "responses",
@@ -1033,7 +1109,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -1041,7 +1121,7 @@
     }
   },
   "OpenAI GPT-5.6 Sol": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "OpenAI GPT-5.6 Sol",
     "provider": "openai",
     "apiInferenceType": "responses",
@@ -1089,7 +1169,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -1097,7 +1181,7 @@
     }
   },
   "OpenRouter DeepSeek V4 Flash": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "OpenRouter DeepSeek V4 Flash",
     "provider": "openrouter",
     "apiInferenceType": "chat-completions",
@@ -1132,7 +1216,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -1140,7 +1228,7 @@
     }
   },
   "OpenRouter DeepSeek V4 Pro": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "OpenRouter DeepSeek V4 Pro",
     "provider": "openrouter",
     "apiInferenceType": "chat-completions",
@@ -1175,7 +1263,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -1183,7 +1275,7 @@
     }
   },
   "OpenRouter GPT-OSS 120B": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "OpenRouter GPT-OSS 120B",
     "provider": "openrouter",
     "apiInferenceType": "chat-completions",
@@ -1218,7 +1310,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -1226,7 +1322,7 @@
     }
   },
   "OpenRouter GPT-OSS 20B": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "OpenRouter GPT-OSS 20B",
     "provider": "openrouter",
     "apiInferenceType": "chat-completions",
@@ -1261,7 +1357,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -1269,7 +1369,7 @@
     }
   },
   "Perplexity Sonar": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "Perplexity Sonar",
     "provider": "perplexity",
     "apiInferenceType": "chat-completions",
@@ -1300,7 +1400,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -1308,7 +1412,7 @@
     }
   },
   "Perplexity Sonar Pro": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "Perplexity Sonar Pro",
     "provider": "perplexity",
     "apiInferenceType": "chat-completions",
@@ -1339,7 +1443,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000
@@ -1347,7 +1455,7 @@
     }
   },
   "Perplexity Sonar Reasoning Pro": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "llmProfile": "Perplexity Sonar Reasoning Pro",
     "provider": "perplexity",
     "apiInferenceType": "chat-completions",
@@ -1378,7 +1486,11 @@
         "empty_response",
         "provider_retry"
       ],
-      "repairInvalidOutput": true,
+      "jsonRepair": {
+        "initial": {"source": "generation"},
+        "escalation": {"source": "generation"}
+      },
+      "rerun": null,
       "backoff": {
         "baseDelayMs": 500,
         "maxDelayMs": 8000

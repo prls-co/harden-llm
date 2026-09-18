@@ -1,6 +1,6 @@
 package traces
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-217
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-217 TEST-249
 
 import (
 	"encoding/json"

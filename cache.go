@@ -33,10 +33,12 @@ type CacheStore interface {
 
 // CacheResult describes the outcome of one cache interaction.
 type CacheResult struct {
-	Mode          CacheMode `json:"mode"`
-	Status        string    `json:"status"`
-	OperationHash string    `json:"operationHash,omitempty"`
-	Version       string    `json:"version,omitempty"`
-	Served        bool      `json:"served"`
-	Written       bool      `json:"written"`
+	Mode                  CacheMode `json:"mode"`
+	Status                string    `json:"status"`
+	OperationHash         string    `json:"operationHash,omitempty"`
+	OriginalOperationHash string    `json:"originalOperationHash,omitempty"`
+	RerunOperationHash    string    `json:"rerunOperationHash,omitempty"`
+	Version               string    `json:"version,omitempty"`
+	Served                bool      `json:"served"`
+	Written               bool      `json:"written"`
 }

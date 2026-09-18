@@ -39,6 +39,11 @@ type Trace struct {
 	CompletedAt         time.Time                    `json:"completedAt"`
 	TotalCallDurationMs int64                        `json:"totalCallDurationMs"`
 	TotalWaitMs         int64                        `json:"totalWaitMs"`
+	TotalActualWaitMs   int64                        `json:"totalActualWaitMs"`
+	StopReason          string                       `json:"stopReason,omitempty"`
+	GenerationTarget    runtime.ExecutionTarget      `json:"generationTarget"`
+	Origin              runtime.Origin               `json:"origin"`
+	Diagnostics         runtime.Diagnostics          `json:"diagnostics"`
 	LastErrorCategory   string                       `json:"lastErrorCategory,omitempty"`
 	LastErrorStatus     *int                         `json:"lastErrorStatus"`
 	SelectedTarget      runtime.ExecutionTarget      `json:"selectedTarget"`
@@ -53,19 +58,30 @@ type Trace struct {
 }
 
 type Attempt struct {
-	Number            int                     `json:"number"`
-	ProfileID         string                  `json:"profileId"`
-	Target            runtime.ExecutionTarget `json:"target"`
-	ProviderUsed      bool                    `json:"providerUsed"`
-	Category          retry.Category          `json:"category"`
-	Status            int                     `json:"status,omitempty"`
-	Code              string                  `json:"code,omitempty"`
-	Type              string                  `json:"type,omitempty"`
-	ProviderRequestID string                  `json:"providerRequestId,omitempty"`
-	Retryable         bool                    `json:"retryable"`
-	DelayMs           int64                   `json:"delayMs"`
-	DurationMs        int64                   `json:"durationMs"`
-	Repair            bool                    `json:"repair"`
+	Number            int                        `json:"number"`
+	ProfileID         string                     `json:"profileId"`
+	Target            runtime.ExecutionTarget    `json:"target"`
+	ProviderUsed      bool                       `json:"providerUsed"`
+	Category          retry.Category             `json:"category"`
+	Status            int                        `json:"status,omitempty"`
+	Code              string                     `json:"code,omitempty"`
+	Type              string                     `json:"type,omitempty"`
+	ProviderRequestID string                     `json:"providerRequestId,omitempty"`
+	Retryable         bool                       `json:"retryable"`
+	DelayMs           int64                      `json:"delayMs"`
+	DurationMs        int64                      `json:"durationMs"`
+	Repair            bool                       `json:"repair"`
+	Stage             string                     `json:"stage,omitempty"`
+	Branch            string                     `json:"branch,omitempty"`
+	TriggerAttempt    int                        `json:"triggerAttemptNumber,omitempty"`
+	InputAttempts     []int                      `json:"inputAttemptNumbers,omitempty"`
+	TransportRetryOf  int                        `json:"transportRetryOfAttempt,omitempty"`
+	StartedAt         *time.Time                 `json:"startedAt,omitempty"`
+	FinishedAt        *time.Time                 `json:"finishedAt,omitempty"`
+	ReasoningEffort   string                     `json:"reasoningEffort,omitempty"`
+	DispatchObserved  bool                       `json:"dispatchObserved"`
+	Stream            *runtime.StreamDiagnostics `json:"stream,omitempty"`
+	WaitDiagnostics   *runtime.WaitDiagnostics   `json:"wait,omitempty"`
 }
 
 type Observation struct {
@@ -88,10 +104,12 @@ func Project(record runtime.CallRecord, callContext runtime.ObservabilityContext
 		completed = started
 	}
 	trace := Trace{
-		SchemaVersion: "harden-llm.trace.v2", CallID: record.CallID, TraceID: record.TraceID,
+		SchemaVersion: "harden-llm.trace.v3", CallID: record.CallID, TraceID: record.TraceID,
 		Status: statusFor(terminalErr), StartedAt: started.UTC(), CompletedAt: completed.UTC(),
 		TotalCallDurationMs: completed.Sub(started).Milliseconds(),
-		SelectedTarget:      record.SelectedTarget, ResultSource: record.ResultSource, Accounting: record.Accounting,
+		TotalActualWaitMs:   record.Diagnostics.TotalActualWait.Milliseconds(), StopReason: record.StopReason,
+		GenerationTarget: record.GenerationTarget, Origin: record.Origin, Diagnostics: record.Diagnostics,
+		SelectedTarget: record.SelectedTarget, ResultSource: record.ResultSource, Accounting: record.Accounting,
 		Cache: record.Cache, ProviderInvoked: providerWasInvoked(record.Attempts), Context: cloneContext(callContext),
 		Attempts: make([]Attempt, 0, len(record.Attempts)), Observations: make([]Observation, 0, len(record.Attempts)*3+2),
 	}
@@ -117,6 +135,10 @@ func Project(record runtime.CallRecord, callContext runtime.ObservabilityContext
 			Category: source.Category, Status: source.Status, Retryable: source.Retryable,
 			Code: source.Code, Type: source.Type, ProviderRequestID: source.ProviderRequestID,
 			DelayMs: source.Delay.Milliseconds(), DurationMs: source.Duration.Milliseconds(), Repair: source.Repair,
+			Stage: source.Stage, Branch: source.Branch, TriggerAttempt: source.TriggerAttempt,
+			InputAttempts: append([]int(nil), source.InputAttempts...), TransportRetryOf: source.TransportRetryOf,
+			StartedAt: source.StartedAt, FinishedAt: source.FinishedAt, ReasoningEffort: source.ReasoningEffort,
+			DispatchObserved: source.DispatchObserved, Stream: source.Stream, WaitDiagnostics: source.WaitDiagnostics,
 		}
 		trace.Attempts = append(trace.Attempts, attempt)
 		trace.appendObservation("provider.attempt", string(source.Category), map[string]any{
@@ -126,6 +148,12 @@ func Project(record runtime.CallRecord, callContext runtime.ObservabilityContext
 		if source.Delay > 0 {
 			trace.TotalWaitMs += source.Delay.Milliseconds()
 			trace.appendObservation("retry.wait", "completed", map[string]any{"delayMs": source.Delay.Milliseconds()})
+		}
+		if source.WaitDiagnostics != nil {
+			trace.appendObservation("retry.wait", "measured", map[string]any{
+				"attempt": source.Number, "plannedMs": source.WaitDiagnostics.Planned.Milliseconds(),
+				"actualMs": source.WaitDiagnostics.Actual.Milliseconds(), "reason": source.WaitDiagnostics.Reason,
+			})
 		}
 		if source.Repair {
 			trace.UsedRepair = true

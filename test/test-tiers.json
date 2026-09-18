@@ -95,7 +95,25 @@
     },
     {
       "id": "go-unit",
-      "testIds": ["TEST-005"],
+      "testIds": [
+        "TEST-005",
+        "TEST-236",
+        "TEST-238",
+        "TEST-239",
+        "TEST-240",
+        "TEST-241",
+        "TEST-242",
+        "TEST-243",
+        "TEST-244",
+        "TEST-245",
+        "TEST-246",
+        "TEST-247",
+        "TEST-248",
+        "TEST-249",
+        "TEST-250",
+        "TEST-258",
+        "TEST-259"
+      ],
       "tier": "T1",
       "resourceClass": "cpu",
       "command": ["make", "test-unit"],
@@ -147,7 +165,7 @@
     },
     {
       "id": "go-integration",
-      "testIds": ["TEST-007", "TEST-053", "TEST-230", "TEST-232"],
+      "testIds": ["TEST-007", "TEST-053", "TEST-230", "TEST-232", "TEST-251", "TEST-252", "TEST-253", "TEST-254", "TEST-255"],
       "tier": "T3",
       "resourceClass": "service",
       "command": ["go", "test", "-p=${HARDEN_LLM_TEST_PACKAGE_SLOTS}", "./...", "-tags=integration", "-count=1"],
@@ -206,7 +224,7 @@
     },
     {
       "id": "go-api",
-      "testIds": ["TEST-009", "TEST-229", "TEST-231"],
+      "testIds": ["TEST-009", "TEST-229", "TEST-231", "TEST-237"],
       "tier": "T1",
       "resourceClass": "cpu",
       "command": ["make", "test-api"],
@@ -342,7 +360,14 @@
         "WEB-TEST-078",
         "WEB-TEST-079",
         "WEB-TEST-080",
-        "WEB-TEST-081"
+        "WEB-TEST-081",
+        "WEB-TEST-083",
+        "WEB-TEST-084",
+        "WEB-TEST-085",
+        "WEB-TEST-086",
+        "WEB-TEST-087",
+        "WEB-TEST-088",
+        "WEB-TEST-089"
       ],
       "tier": "T1",
       "resourceClass": "cpu",
@@ -390,6 +415,21 @@
       "credentialKeys": [],
       "requiredFor": ["baseline", "fast", "release"],
       "pathSelectors": ["frontend/assets/js/**", "frontend/assets/test/**"]
+    },
+    {
+      "id": "run-progress-client",
+      "testIds": ["TEST-256", "TEST-257"],
+      "tier": "T2",
+      "resourceClass": "cpu",
+      "command": ["node", "--test", "scripts/test/run_progress_test.mjs"],
+      "dependsOn": [],
+      "timeoutMs": 120000,
+      "cleanupOwner": "runner",
+      "network": "forbidden",
+      "credentialKeys": [],
+      "requiredFor": ["baseline", "fast", "release"],
+      "benchmarkLanes": ["fast-candidates"],
+      "pathSelectors": ["scripts/run-progress-core.mjs", "scripts/run-progress.mjs", "scripts/test/run_progress_test.mjs", "test/test-tiers.json"]
     },
     {
       "id": "widget-traceability",

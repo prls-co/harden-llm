@@ -305,6 +305,83 @@ func TestProviderNormalizationCollectsResponsesEventStream(t *testing.T) {
 	}
 }
 
+// TEST-247: a completed Responses event is authoritative even when the
+// upstream keeps the HTTP connection open after it.
+func TestProviderResponsesStreamReturnsBeforeEOF(t *testing.T) {
+	t.Parallel()
+	operation := cachekey.Operation{
+		Protocol: "openai.responses",
+		Endpoint: cachekey.Endpoint{Identity: "https://api.example", Method: http.MethodPost, Path: "/v1/responses"},
+	}
+	parsedURL, err := url.Parse("https://api.example/v1/responses")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := `data: {"type":"response.completed","response":{"status":"completed","output_text":"done","usage":{"input_tokens":1,"output_tokens":1}}}` + "\n\n"
+	router := &Router{client: &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"text/event-stream"}}, Body: &terminalThenOpenBody{first: []byte(body)}}, nil
+	})}, maxResponseBytes: defaultMaxResponseBytes}
+	started := time.Now()
+	var progress []runtime.StreamDiagnostics
+	result, err := router.Execute(context.Background(), runtime.PreparedOperation{
+		Operation:      operation,
+		Opaque:         preparedRequest{url: parsedURL, headers: http.Header{}, body: []byte(`{}`), protocol: operation.Protocol, operation: operation},
+		StreamProgress: func(snapshot runtime.StreamDiagnostics) { progress = append(progress, snapshot) },
+	})
+	if err != nil || result.Output != "done" || time.Since(started) > time.Second {
+		t.Fatalf("stream completion = %#v / %v elapsed=%s", result, err, time.Since(started))
+	}
+	if result.Stream.TerminalState != "completed" || result.Stream.EventCount != 1 {
+		t.Fatalf("stream diagnostics = %#v", result.Stream)
+	}
+	if len(progress) == 0 || progress[len(progress)-1].TerminalState != "completed" {
+		t.Fatalf("stream progress callback = %#v", progress)
+	}
+}
+
+// TEST-247: SSE comments, heartbeats, and the [DONE] sentinel are transport
+// activity, not parsed model events or progress timestamps.
+func TestProviderResponsesStreamIgnoresHeartbeatForEventDiagnostics(t *testing.T) {
+	t.Parallel()
+	body := strings.Join([]string{
+		": keep-alive",
+		`data: {"type":"response.completed","response":{"status":"completed","output_text":"done"}}`,
+		`data: [DONE]`,
+	}, "\n\n") + "\n\n"
+	_, err, diagnostics := collectResponsesEventStreamReader(strings.NewReader(body), defaultMaxResponseBytes)
+	if err != nil {
+		t.Fatalf("stream with heartbeat: %v", err)
+	}
+	if diagnostics.EventCount != 1 || diagnostics.FirstEventMs == nil || diagnostics.LastEventAt == nil || diagnostics.TerminalState != "completed" {
+		t.Fatalf("heartbeat affected stream diagnostics: %#v", diagnostics)
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-248
+func TestProviderResponsesStreamBoundsNeverEndingDeltas(t *testing.T) {
+	t.Parallel()
+	const maximum = int64(64 << 10)
+	started := time.Now()
+	_, err, diagnostics := collectResponsesEventStreamReader(continuousStreamReader{chunk: []byte(`data: {"type":"response.output_text.delta","delta":"x"}`)}, maximum)
+	if err == nil || time.Since(started) > time.Second {
+		t.Fatalf("never-ending stream did not terminate at the byte bound: err=%v elapsed=%s", err, time.Since(started))
+	}
+	var providerErr *retry.ProviderError
+	if !errors.As(err, &providerErr) || providerErr.Code != "RESPONSE_TOO_LARGE" || diagnostics.ReceivedBytes != maximum || diagnostics.OutputBytes != 0 || diagnostics.TerminalState != "missing" {
+		t.Fatalf("bounded stream diagnostics=%#v error=%v", diagnostics, err)
+	}
+}
+
+func TestProviderResponsesStreamCancellationPreservesParentContext(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err, diagnostics := collectResponsesEventStreamReaderContext(ctx, ctx, blockingStreamReader{ctx: ctx}, defaultMaxResponseBytes)
+	if !errors.Is(err, context.Canceled) || diagnostics.TerminalState != "missing" {
+		t.Fatalf("stream cancellation=%v diagnostics=%#v", err, diagnostics)
+	}
+}
+
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-216
 func TestRecoveryBoundaryCompletion(t *testing.T) {
 	t.Parallel()
@@ -519,6 +596,39 @@ type errorReadCloser struct {
 	reader *strings.Reader
 	err    error
 }
+
+type terminalThenOpenBody struct {
+	first []byte
+}
+
+type blockingStreamReader struct{ ctx context.Context }
+
+func (reader blockingStreamReader) Read([]byte) (int, error) {
+	<-reader.ctx.Done()
+	return 0, reader.ctx.Err()
+}
+
+func (blockingStreamReader) Close() error { return nil }
+
+type continuousStreamReader struct{ chunk []byte }
+
+func (reader continuousStreamReader) Read(target []byte) (int, error) {
+	for index := range target {
+		target[index] = reader.chunk[index%len(reader.chunk)]
+	}
+	return len(target), nil
+}
+
+func (body *terminalThenOpenBody) Read(target []byte) (int, error) {
+	if len(body.first) == 0 {
+		return 0, errors.New("upstream intentionally remains open")
+	}
+	count := copy(target, body.first)
+	body.first = body.first[count:]
+	return count, nil
+}
+
+func (body *terminalThenOpenBody) Close() error { return nil }
 
 func (reader *errorReadCloser) Read(buffer []byte) (int, error) {
 	count, err := reader.reader.Read(buffer)

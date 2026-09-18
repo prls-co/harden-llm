@@ -236,6 +236,8 @@ paths:
       description: >-
         Executes exactly one root runtime call. The effective deadline cannot exceed
         60000 milliseconds, and this HTTP operation is never retried by the gateway.
+        Send Accept: text/event-stream to receive authenticated, request-bound
+        progress events on the same POST; the default response remains JSON.
       requestBody:
         $ref: "#/components/requestBodies/Run"
       responses:
@@ -369,7 +371,7 @@ components:
           examples:
             workspace:
               value:
-                schemaVersion: 2
+                schemaVersion: 3
                 selectedProfileId: Primary
                 modelId: gpt-example
                 userPrompt: Summarize the incident.
@@ -383,7 +385,8 @@ components:
                   - server_error
                   - empty_response
                   - provider_retry
-                  repairInvalidOutput: false
+                  jsonRepair: null
+                  rerun: null
                   backoff:
                     baseDelayMs: 500
                     maxDelayMs: 8000
@@ -398,7 +401,7 @@ components:
             create:
               value:
                 profile:
-                  schemaVersion: 2
+                  schemaVersion: 3
                   llmProfile: Primary
                   provider: openai
                   apiInferenceType: responses
@@ -419,7 +422,12 @@ components:
                     - server_error
                     - empty_response
                     - provider_retry
-                    repairInvalidOutput: true
+                    jsonRepair:
+                      initial:
+                        source: generation
+                      escalation:
+                        source: generation
+                    rerun: null
                     backoff:
                       baseDelayMs: 500
                       maxDelayMs: 8000
@@ -436,12 +444,12 @@ components:
           examples:
             replace:
               value:
-                schemaVersion: 2
+                schemaVersion: 3
                 bundleId: bundle-example
                 createdAt: '2026-07-13T12:00:00Z'
                 profiles:
                   Primary:
-                    schemaVersion: 2
+                    schemaVersion: 3
                     llmProfile: Primary
                     provider: openai
                     apiInferenceType: responses
@@ -462,7 +470,12 @@ components:
                       - server_error
                       - empty_response
                       - provider_retry
-                      repairInvalidOutput: true
+                      jsonRepair:
+                        initial:
+                          source: generation
+                        escalation:
+                          source: generation
+                      rerun: null
                       backoff:
                         baseDelayMs: 500
                         maxDelayMs: 8000
@@ -508,7 +521,12 @@ components:
                   - server_error
                   - empty_response
                   - provider_retry
-                  repairInvalidOutput: true
+                  jsonRepair:
+                    initial:
+                      source: generation
+                    escalation:
+                      source: generation
+                  rerun: null
                   backoff:
                     baseDelayMs: 500
                     maxDelayMs: 8000
@@ -602,7 +620,7 @@ components:
             workspace:
               value:
                 state:
-                  schemaVersion: 2
+                  schemaVersion: 3
                   selectedProfileId: Primary
                   modelId: gpt-example
                   userPrompt: Summarize the incident.
@@ -616,7 +634,8 @@ components:
                     - server_error
                     - empty_response
                     - provider_retry
-                    repairInvalidOutput: false
+                    jsonRepair: null
+                    rerun: null
                     backoff:
                       baseDelayMs: 500
                       maxDelayMs: 8000
@@ -635,7 +654,7 @@ components:
                 result:
                   profiles:
                   - profile:
-                      schemaVersion: 2
+                      schemaVersion: 3
                       llmProfile: Primary
                       provider: openai
                       apiInferenceType: responses
@@ -656,7 +675,12 @@ components:
                         - server_error
                         - empty_response
                         - provider_retry
-                        repairInvalidOutput: true
+                        jsonRepair:
+                          initial:
+                            source: generation
+                          escalation:
+                            source: generation
+                        rerun: null
                         backoff:
                           baseDelayMs: 500
                           maxDelayMs: 8000
@@ -679,7 +703,12 @@ components:
                       - server_error
                       - empty_response
                       - provider_retry
-                      repairInvalidOutput: true
+                      jsonRepair:
+                        initial:
+                          source: generation
+                        escalation:
+                          source: generation
+                      rerun: null
                       backoff:
                         baseDelayMs: 500
                         maxDelayMs: 8000
@@ -696,7 +725,7 @@ components:
                 state: {}
                 result:
                   profile:
-                    schemaVersion: 2
+                    schemaVersion: 3
                     llmProfile: Primary
                     provider: openai
                     apiInferenceType: responses
@@ -717,7 +746,12 @@ components:
                       - server_error
                       - empty_response
                       - provider_retry
-                      repairInvalidOutput: true
+                      jsonRepair:
+                        initial:
+                          source: generation
+                        escalation:
+                          source: generation
+                      rerun: null
                       backoff:
                         baseDelayMs: 500
                         maxDelayMs: 8000
@@ -743,12 +777,12 @@ components:
               value:
                 state: {}
                 result:
-                  schemaVersion: 2
+                  schemaVersion: 3
                   bundleId: bundle-example
                   createdAt: '2026-07-13T12:00:00Z'
                   profiles:
                     Primary:
-                      schemaVersion: 2
+                      schemaVersion: 3
                       llmProfile: Primary
                       provider: openai
                       apiInferenceType: responses
@@ -769,7 +803,12 @@ components:
                         - server_error
                         - empty_response
                         - provider_retry
-                        repairInvalidOutput: true
+                        jsonRepair:
+                          initial:
+                            source: generation
+                          escalation:
+                            source: generation
+                        rerun: null
                         backoff:
                           baseDelayMs: 500
                           maxDelayMs: 8000
@@ -823,12 +862,17 @@ components:
                         - server_error
                         - empty_response
                         - provider_retry
-                        repairInvalidOutput: true
+                        jsonRepair:
+                          initial:
+                            source: generation
+                          escalation:
+                            source: generation
+                        rerun: null
                         backoff:
                           baseDelayMs: 500
                           maxDelayMs: 8000
                     result:
-                      schemaVersion: 3
+                      schemaVersion: 4
                       runId: run-example
                       status: succeeded
                       output: OK
@@ -913,6 +957,7 @@ components:
                       providerInvoked: true
                       totalCallDurationMs: 120
                       totalWaitMs: 0
+                      totalActualWaitMs: 0
                       overBudgetMs: 0
                       usedRepair: false
                     startedAt: '2026-07-13T12:00:00Z'
@@ -1028,7 +1073,7 @@ components:
                   lastRunId: run-example
                   lastTraceId: trace-example
                 result:
-                  schemaVersion: 3
+                  schemaVersion: 4
                   runId: run-example
                   status: succeeded
                   output: OK
@@ -1113,9 +1158,13 @@ components:
                   providerInvoked: true
                   totalCallDurationMs: 120
                   totalWaitMs: 0
+                  totalActualWaitMs: 0
                   overBudgetMs: 0
                   usedRepair: false
                 error: null
+        text/event-stream:
+          schema:
+            $ref: '#/components/schemas/RunProgressEvent'
     RunTimeout:
       description: The effective synchronous deadline expired and the root call was canceled.
       content:
@@ -1167,7 +1216,7 @@ components:
                 result:
                   traceId: trace-example
                   record: &id001
-                    schemaVersion: 3
+                    schemaVersion: 4
                     runId: run-example
                     status: succeeded
                     output: OK
@@ -1252,6 +1301,7 @@ components:
                     providerInvoked: true
                     totalCallDurationMs: 120
                     totalWaitMs: 0
+                    totalActualWaitMs: 0
                     overBudgetMs: 0
                     usedRepair: false
                   observations:
@@ -1284,7 +1334,12 @@ components:
                           - server_error
                           - empty_response
                           - provider_retry
-                          repairInvalidOutput: true
+                          jsonRepair:
+                            initial:
+                              source: generation
+                            escalation:
+                              source: generation
+                          rerun: null
                           backoff:
                             baseDelayMs: 500
                             maxDelayMs: 8000
@@ -1407,7 +1462,7 @@ components:
       properties:
         schemaVersion:
           type: integer
-          const: 2
+          const: 3
         selectedProfileId:
           $ref: '#/components/schemas/ProfileID'
         modelId:
@@ -1511,7 +1566,7 @@ components:
       properties:
         schemaVersion:
           type: integer
-          const: 2
+          const: 3
         llmProfile:
           $ref: '#/components/schemas/ProfileID'
         provider:
@@ -1719,7 +1774,7 @@ components:
       properties:
         schemaVersion:
           type: integer
-          const: 2
+          const: 3
         bundleId:
           $ref: '#/components/schemas/Identifier'
         createdAt:
@@ -1924,8 +1979,12 @@ components:
       required:
       - maxAttempts
       - retryOn
-      - repairInvalidOutput
       - backoff
+      oneOf:
+      - required: [repairInvalidOutput]
+        not: {required: [jsonRepair, rerun]}
+      - required: [jsonRepair, rerun]
+        not: {required: [repairInvalidOutput]}
       properties:
         maxAttempts:
           type: integer
@@ -1948,8 +2007,54 @@ components:
         repairInvalidOutput:
           type: boolean
           description: Repair invalid structured output using its original schema and the remaining call budget.
+          deprecated: true
+        jsonRepair:
+          oneOf:
+          - {$ref: '#/components/schemas/RepairPlan'}
+          - type: 'null'
+          description: Explicit two-target JSON repair plan. The initial target runs first, then optional escalation.
+        rerun:
+          oneOf:
+          - {$ref: '#/components/schemas/RerunPlan'}
+          - type: 'null'
+          description: Optional fresh generation from the original input, followed by its own JSON repair plan.
         backoff:
           $ref: '#/components/schemas/RecoveryBackoff'
+    RecoveryTarget:
+      type: object
+      oneOf:
+      - required: [source, profileId]
+        additionalProperties: false
+        properties:
+          source: {type: string, const: profile}
+          profileId: {$ref: '#/components/schemas/ProfileID'}
+          modelId: {type: string, maxLength: 512}
+          reasoningEffort: {type: string, enum: [lowest, middle, highest]}
+          providerOptions: {type: object, additionalProperties: true}
+      - required: [source]
+        additionalProperties: false
+        properties:
+          source: {type: string, const: generation}
+    RepairPlan:
+      type: object
+      additionalProperties: false
+      required: [initial, escalation]
+      properties:
+        initial: {$ref: '#/components/schemas/RecoveryTarget'}
+        escalation:
+          oneOf:
+          - {$ref: '#/components/schemas/RecoveryTarget'}
+          - type: 'null'
+    RerunPlan:
+      type: object
+      additionalProperties: false
+      required: [target, jsonRepair]
+      properties:
+        target: {$ref: '#/components/schemas/RecoveryTarget'}
+        jsonRepair:
+          oneOf:
+          - {$ref: '#/components/schemas/RepairPlan'}
+          - type: 'null'
     RecoveryBackoff:
       type: object
       additionalProperties: false
@@ -2024,6 +2129,20 @@ components:
           description: Zero or omission selects the deployment maximum; a positive value may only lower it.
         recoveryPolicy:
           $ref: '#/components/schemas/RecoveryPolicy'
+        origin:
+          $ref: '#/components/schemas/RunOrigin'
+    RunOrigin:
+      type: object
+      additionalProperties: false
+      properties:
+        client: {type: string, maxLength: 256}
+        component: {type: string, maxLength: 256}
+        operationId: {type: string, maxLength: 256}
+        parentRunId: {type: string, maxLength: 256}
+        jobId: {type: string, maxLength: 256}
+        testRunId: {type: string, maxLength: 256}
+        testId: {type: string, maxLength: 256}
+        sourceRevision: {type: string, maxLength: 256}
     Usage:
       type: object
       additionalProperties: false
@@ -2145,6 +2264,22 @@ components:
         providerUsed:
           type: boolean
           description: True only when the local model transport observed request headers being written; does not prove remote execution or billing.
+        stage: {type: string, maxLength: 64}
+        branch: {type: string, enum: [original, rerun]}
+        triggerAttemptNumber: {type: integer, minimum: 1, maximum: 10}
+        inputAttemptNumbers:
+          type: array
+          maxItems: 10
+          items: {type: integer, minimum: 1, maximum: 10}
+        transportRetryOfAttempt: {type: integer, minimum: 1, maximum: 10}
+        startedAt: {type: string, format: date-time}
+        finishedAt: {type: string, format: date-time}
+        reasoningEffort: {type: string, enum: [lowest, middle, highest]}
+        dispatchObserved: {type: boolean}
+        stream:
+          $ref: '#/components/schemas/StreamDiagnostics'
+        waitDiagnostics:
+          $ref: '#/components/schemas/WaitDiagnostics'
     CacheResult:
       type: object
       additionalProperties: false
@@ -2161,6 +2296,8 @@ components:
             served and written remain false and the run itself is still
             successful. Lookup and integrity failures are returned as errors.
         operationHash: {type: string, maxLength: 128}
+        originalOperationHash: {type: string, maxLength: 128}
+        rerunOperationHash: {type: string, maxLength: 128}
         version: {type: string, maxLength: 64}
         served: {type: boolean}
         written: {type: boolean}
@@ -2194,12 +2331,13 @@ components:
       - providerInvoked
       - totalCallDurationMs
       - totalWaitMs
+      - totalActualWaitMs
       - overBudgetMs
       - usedRepair
       properties:
         schemaVersion:
           type: integer
-          const: 3
+          const: 4
         runId:
           $ref: '#/components/schemas/Identifier'
         status:
@@ -2215,6 +2353,8 @@ components:
           $ref: '#/components/schemas/Identifier'
         traceId:
           $ref: '#/components/schemas/Identifier'
+        origin:
+          $ref: '#/components/schemas/RunOrigin'
         selectedTarget:
           $ref: '#/components/schemas/ExecutionTarget'
         resultSource:
@@ -2243,6 +2383,11 @@ components:
           type: integer
           minimum: 0
           description: Sum of retry waits in milliseconds.
+        totalActualWaitMs:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: Measured elapsed retry-wait time in milliseconds; planned wait remains totalWaitMs.
         overBudgetMs:
           type: integer
           minimum: 0
@@ -2250,6 +2395,77 @@ components:
         usedRepair:
           type: boolean
           description: Whether structured-output repair was used.
+        generationTarget:
+          $ref: '#/components/schemas/ExecutionTarget'
+        stopReason:
+          type: string
+          enum: [succeeded, attempts_exhausted, recovery_exhausted, deadline_exceeded, canceled, terminal_error, configuration_error, repair_input_limit_exceeded, response_limit_exceeded]
+        diagnostics:
+          $ref: '#/components/schemas/RunDiagnostics'
+    RunDiagnostics:
+      type: object
+      additionalProperties: false
+      required: [attemptsUsed, attemptsRemaining, elapsedMs, totalActualWaitMs, receivedBytes, eventCount, outputBytes, outputCodePoints]
+      properties:
+        stage: {type: string, maxLength: 64}
+        branch: {type: string, enum: [original, rerun]}
+        stopReason: {type: string, maxLength: 64}
+        attemptsUsed: {type: integer, minimum: 0, maximum: 10}
+        attemptsRemaining: {type: integer, minimum: 0, maximum: 10}
+        elapsedMs: {type: integer, minimum: 0}
+        totalActualWaitMs: {type: integer, minimum: 0}
+        receivedBytes: {type: integer, minimum: 0}
+        eventCount: {type: integer, minimum: 0}
+        outputBytes: {type: integer, minimum: 0}
+        outputCodePoints: {type: integer, minimum: 0}
+        effectiveTimeoutMs: {type: integer, minimum: 0, nullable: true}
+        deadlineAt: {type: string, format: date-time, nullable: true}
+        branchCaches:
+          type: array
+          maxItems: 2
+          items:
+            type: object
+            additionalProperties: false
+            required: [branch, generationTarget, cache]
+            properties:
+              branch: {type: string, enum: [original, rerun]}
+              generationTarget: {$ref: '#/components/schemas/ExecutionTarget'}
+              cache: {$ref: '#/components/schemas/CacheResult'}
+    StreamDiagnostics:
+      type: object
+      additionalProperties: false
+      required: [receivedBytes, eventCount, outputBytes, outputCodePoints]
+      properties:
+        receivedBytes: {type: integer, minimum: 0}
+        eventCount: {type: integer, minimum: 0}
+        outputBytes: {type: integer, minimum: 0}
+        outputCodePoints: {type: integer, minimum: 0}
+        firstEventMs: {type: integer, minimum: 0, nullable: true}
+        firstOutputMs: {type: integer, minimum: 0, nullable: true}
+        lastEventAt: {type: string, format: date-time, nullable: true}
+        lastOutputAt: {type: string, format: date-time, nullable: true}
+        terminalState: {type: string, enum: [not_streaming, awaiting_terminal, completed, incomplete, failed, missing]}
+    WaitDiagnostics:
+      type: object
+      additionalProperties: false
+      required: [plannedMs, actualMs]
+      properties:
+        reason: {type: string, maxLength: 64}
+        plannedMs: {type: integer, minimum: 0}
+        actualMs: {type: integer, minimum: 0}
+        retryAfterMs: {type: integer, minimum: 0}
+    RunProgressEvent:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, sequence, type, data]
+      properties:
+        schemaVersion: {type: integer, const: 1}
+        sequence: {type: integer, minimum: 1}
+        runId: {$ref: '#/components/schemas/Identifier'}
+        callId: {$ref: '#/components/schemas/Identifier'}
+        traceId: {$ref: '#/components/schemas/Identifier'}
+        type: {type: string, enum: [run.started, run.progress, run.completed, run.failed]}
+        data: {}
     WebSearchResult:
       type: object
       additionalProperties: false

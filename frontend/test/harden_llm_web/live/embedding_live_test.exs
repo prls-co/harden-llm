@@ -6,7 +6,7 @@ defmodule HardenLlmWeb.EmbeddingLiveTest do
   alias HardenLlmWeb.{APIFixtures, HardenAPI}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-043
-  # PLAN-HLLM-WIDGET-PARITY-001 TEST-110 TEST-113
+  # PLAN-HLLM-WIDGET-PARITY-001 TEST-110 TEST-113 WEB-TEST-086
   setup %{conn: conn}, do: {:ok, conn: authenticated_conn(conn)}
 
   test "host namespaces two widget instances and routes their controls independently", %{

@@ -3,7 +3,7 @@ defmodule HardenLlmWeb.ProfileWidgetStateTest do
 
   alias HardenLlmWeb.ProfileWidgetState
 
-  # PLAN-HLLM-WIDGET-PARITY-001 TEST-105 TEST-110
+  # PLAN-HLLM-WIDGET-PARITY-001 TEST-105 TEST-110 WEB-TEST-083 WEB-TEST-085
 
   test "options patches preserve unknown keys and canonicalize utility aliases" do
     options = %{"provider_option" => %{"keep" => true}, "topP" => 0.4}
@@ -152,6 +152,72 @@ defmodule HardenLlmWeb.ProfileWidgetStateTest do
 
     assert ProfileWidgetState.serialize_recovery_policy(%{"maxAttempts" => "11"}) == %{
              "maxAttempts" => 11
+           }
+  end
+
+  @tag :recovery
+  test "explicit repair and rerun targets round-trip without recursive policy fields" do
+    policy = %{
+      "maxAttempts" => "6",
+      "retryOn" => ["network", ""],
+      "backoff" => %{"baseDelayMs" => "0", "maxDelayMs" => "8000"},
+      "jsonRepair" => %{
+        "initial" => %{
+          "source" => "profile",
+          "profileId" => "CPA GPT-5.6 Luna",
+          "reasoningEffort" => "lowest",
+          "providerOptions" => %{"max_tokens" => 256},
+          "rerun" => %{"should" => "not survive"}
+        },
+        "escalation" => nil
+      },
+      "rerun" => %{
+        "target" => %{"source" => "generation"},
+        "jsonRepair" => nil
+      }
+    }
+
+    assert ProfileWidgetState.serialize_recovery_policy(policy) == %{
+             "maxAttempts" => 6,
+             "retryOn" => ["network"],
+             "backoff" => %{"baseDelayMs" => 0, "maxDelayMs" => 8000},
+             "jsonRepair" => %{
+               "initial" => %{
+                 "source" => "profile",
+                 "profileId" => "CPA GPT-5.6 Luna",
+                 "reasoningEffort" => "lowest",
+                 "providerOptions" => %{"max_tokens" => 256}
+               },
+               "escalation" => nil
+             },
+             "rerun" => %{
+               "target" => %{"source" => "generation"},
+               "jsonRepair" => nil
+             }
+           }
+  end
+
+  test "current policy conversion keeps disabled branches explicit and supplies bounded editor drafts" do
+    legacy = %{
+      "maxAttempts" => 4,
+      "retryOn" => [],
+      "repairInvalidOutput" => false,
+      "backoff" => %{"baseDelayMs" => 0, "maxDelayMs" => 0}
+    }
+
+    current = ProfileWidgetState.serialize_current_recovery_policy(legacy)
+    assert current["jsonRepair"] == nil
+    assert current["rerun"] == nil
+    assert current["repairInvalidOutput"] == nil
+
+    assert ProfileWidgetState.default_recovery_repair_plan() == %{
+             "initial" => %{"source" => "generation"},
+             "escalation" => %{"source" => "generation"}
+           }
+
+    assert ProfileWidgetState.default_recovery_rerun_plan() == %{
+             "target" => %{"source" => "generation"},
+             "jsonRepair" => ProfileWidgetState.default_recovery_repair_plan()
            }
   end
 end
