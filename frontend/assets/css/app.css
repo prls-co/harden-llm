@@ -937,3 +937,13 @@ button, a, input, select, textarea { touch-action: manipulation; }
   gap: 0.75rem;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
 }
+
+.ullm-recovery-default-preview {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin: 0.5rem 0 0.75rem;
+  color: var(--ullm-muted);
+  font-size: 0.82rem;
+}

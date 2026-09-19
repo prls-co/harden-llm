@@ -315,6 +315,20 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
   def handle_event("toggle-repair-escalation", _params, socket), do: {:noreply, socket}
 
+  def handle_event("use-recovery-default", %{"path" => path}, socket)
+      when path in ["jsonRepair", "rerun", "rerun.jsonRepair"] do
+    keys = String.split(path, ".", trim: true)
+
+    update_recovery_draft(socket, fn policy ->
+      case default_recovery_branch(socket, keys, fn -> nil end) do
+        plan when is_map(plan) -> put_in(policy, keys, plan)
+        _ -> policy
+      end
+    end)
+  end
+
+  def handle_event("use-recovery-default", _params, socket), do: {:noreply, socket}
+
   def handle_event("toggle-credential", _params, socket) do
     if socket.assigns.fold_disabled do
       {:noreply, socket}
@@ -693,6 +707,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             target={@myself}
             profiles={@profiles}
             field_errors={Map.merge(@field_errors, @recovery_field_errors)}
+            recovery_policy_default={@recovery_policy_default}
             api_inference_types={@api_inference_types}
             model_catalog={@model_catalog}
             model_options={@model_options}
@@ -927,6 +942,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:target, :any, required: true)
   attr(:profiles, :list, required: true)
   attr(:field_errors, :map, default: %{})
+  attr(:recovery_policy_default, :map, default: %{})
   attr(:api_inference_types, :list, default: @api_inference_types)
   attr(:model_catalog, :list, default: nil)
   attr(:model_options, :list, default: [])
@@ -1262,6 +1278,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             change="profile-draft-change"
             field_errors={@field_errors}
             profiles={@profiles}
+            recovery_policy_default={@recovery_policy_default}
           />
         </div>
       </section>
@@ -1418,11 +1435,35 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:change, :string, default: nil)
   attr(:field_errors, :map, default: %{})
   attr(:profiles, :list, default: [])
+  attr(:recovery_policy_default, :map, default: %{})
 
   def recovery_fields(assigns) do
+    policy = assigns.form.params["recoveryPolicy"] || %{}
+    default_policy = assigns[:recovery_policy_default] || %{}
+    json_repair_enabled? = is_map(policy["jsonRepair"])
+    rerun_enabled? = is_map(policy["rerun"])
+
+    json_repair_plan =
+      recovery_plan_for_display(policy["jsonRepair"], default_policy["jsonRepair"])
+
+    rerun_plan = recovery_plan_for_display(policy["rerun"], default_policy["rerun"])
+
     assigns =
       assigns
-      |> assign(:policy, assigns.form.params["recoveryPolicy"] || %{})
+      |> assign(:policy, policy)
+      |> assign(:json_repair_plan, json_repair_plan)
+      |> assign(:rerun_plan, rerun_plan)
+      |> assign(:json_repair_enabled?, json_repair_enabled?)
+      |> assign(:rerun_enabled?, rerun_enabled?)
+      |> assign(
+        :json_repair_preview?,
+        is_map(json_repair_plan) and
+          not same_recovery_plan?(policy["jsonRepair"], json_repair_plan)
+      )
+      |> assign(
+        :rerun_preview?,
+        is_map(rerun_plan) and not same_recovery_plan?(policy["rerun"], rerun_plan)
+      )
       |> assign(:name, "#{assigns.form.name}[recoveryPolicy]")
       |> assign(:categories, [
         {"network", "Network errors"},
@@ -1482,25 +1523,29 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           </label>
         </div>
         <.repair_plan_fields
-          :if={is_map(@policy["jsonRepair"])}
+          :if={is_map(@json_repair_plan)}
           id_prefix={"#{@id_prefix}-original-repair"}
           name={"#{@name}[jsonRepair]"}
-          plan={@policy["jsonRepair"]}
+          plan={@json_repair_plan}
           path="jsonRepair"
           profiles={@profiles}
           target={@target}
           change={@change}
+          enabled={@json_repair_enabled? and not @json_repair_preview?}
+          preview={@json_repair_preview? or not @json_repair_enabled?}
           label="Original JSON repair"
         />
         <.rerun_plan_fields
-          :if={is_map(@policy["rerun"])}
+          :if={is_map(@rerun_plan)}
           id_prefix={"#{@id_prefix}-rerun"}
           name={"#{@name}[rerun]"}
-          plan={@policy["rerun"]}
+          plan={@rerun_plan}
           path="rerun"
           profiles={@profiles}
           target={@target}
           change={@change}
+          enabled={@rerun_enabled? and not @rerun_preview?}
+          preview={@rerun_preview? or not @rerun_enabled?}
         />
       </div>
       <div class="recovery-policy-categories">
@@ -1556,6 +1601,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:profiles, :list, default: [])
   attr(:target, :any, default: nil)
   attr(:change, :string, default: "profile-draft-change")
+  attr(:disabled, :boolean, default: false)
 
   @doc "Shared leaf target picker used by both generation branches and hosts."
   def recovery_target_fields(assigns) do
@@ -1573,7 +1619,12 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
     ~H"""
     <div id={@id_prefix} class="ullm-recovery-target" data-target-only>
-      <input type="hidden" name={"#{@name}[source]"} value={@leaf_target["source"] || "profile"} />
+      <input
+        type="hidden"
+        name={"#{@name}[source]"}
+        value={@leaf_target["source"] || "profile"}
+        disabled={@disabled}
+      />
       <p :if={@leaf_target["source"] == "generation"} class="ullm-recovery-generation-target">
         Use this branch's generation model
       </p>
@@ -1587,6 +1638,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             options={@profile_options}
             allow_custom
             required
+            disabled={@disabled}
             aria_label="Recovery LLM Profile"
             phx_change={@change}
             phx_target={@target}
@@ -1600,6 +1652,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             value={@leaf_target["modelId"] || ""}
             options={@model_options}
             allow_custom
+            disabled={@disabled}
             aria_label="Recovery model override"
             phx_change={@change}
             phx_target={@target}
@@ -1610,6 +1663,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           <select
             id={"#{@id_prefix}-reasoning"}
             name={"#{@name}[reasoningEffort]"}
+            disabled={@disabled}
             phx-change={@change}
             phx-target={@target}
           >
@@ -1635,6 +1689,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         type="hidden"
         name={"#{@name}[providerOptions]"}
         value={encode_target_options(@leaf_target["providerOptions"])}
+        disabled={@disabled}
       />
     </div>
     """
@@ -1648,6 +1703,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:change, :string, default: "profile-draft-change")
   attr(:label, :string, default: "JSON repair")
   attr(:path, :string, default: "jsonRepair")
+  attr(:enabled, :boolean, default: true)
+  attr(:preview, :boolean, default: false)
 
   def repair_plan_fields(assigns) do
     plan = assigns.plan || %{}
@@ -1656,6 +1713,16 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     ~H"""
     <fieldset id={@id_prefix} class="ullm-repair-plan">
       <legend>{@label}</legend>
+      <div :if={@preview} class="ullm-recovery-default-preview">
+        <p>Configured profile targets are shown below.</p>
+        <button
+          type="button"
+          class="ullm-btn"
+          phx-click="use-recovery-default"
+          phx-value-path={@path}
+          phx-target={@target}
+        >Use configured profile targets</button>
+      </div>
       <.recovery_target_fields
         id_prefix={"#{@id_prefix}-initial"}
         name={"#{@name}[initial]"}
@@ -1663,6 +1730,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         profiles={@profiles}
         target={@target}
         change={@change}
+        disabled={not @enabled}
       />
       <label class="ullm-checkbox-label">
         <input
@@ -1672,6 +1740,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           phx-click="toggle-repair-escalation"
           phx-value-path={@path}
           phx-target={@target}
+          disabled={not @enabled}
         /> Escalated JSON repair target
       </label>
       <.recovery_target_fields
@@ -1682,6 +1751,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         profiles={@profiles}
         target={@target}
         change={@change}
+        disabled={not @enabled}
       />
     </fieldset>
     """
@@ -1694,12 +1764,24 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:target, :any, default: nil)
   attr(:change, :string, default: "profile-draft-change")
   attr(:path, :string, default: "rerun")
+  attr(:enabled, :boolean, default: true)
+  attr(:preview, :boolean, default: false)
 
   def rerun_plan_fields(assigns) do
     ~H"""
     <fieldset id={@id_prefix} class="ullm-rerun-plan">
       <legend>Fresh rerun</legend>
       <%= if is_map(@plan) do %>
+        <div :if={@preview} class="ullm-recovery-default-preview">
+          <p>Configured rerun and repair targets are shown below.</p>
+          <button
+            type="button"
+            class="ullm-btn"
+            phx-click="use-recovery-default"
+            phx-value-path={@path}
+            phx-target={@target}
+          >Use configured profile targets</button>
+        </div>
         <.recovery_target_fields
           id_prefix={"#{@id_prefix}-generation"}
           name={"#{@name}[target]"}
@@ -1707,6 +1789,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           profiles={@profiles}
           target={@target}
           change={@change}
+          disabled={not @enabled}
         />
         <label class="ullm-checkbox-label">
           <input
@@ -1715,6 +1798,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             checked={is_map(@plan["jsonRepair"])}
             phx-click="toggle-rerun-json-repair"
             phx-target={@target}
+            disabled={not @enabled}
           /> Rerun JSON repair
         </label>
         <.repair_plan_fields
@@ -1726,6 +1810,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           profiles={@profiles}
           target={@target}
           change={@change}
+          enabled={@enabled}
+          preview={@preview}
           label="Rerun JSON repair"
         />
       <% end %>
@@ -1790,6 +1876,42 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       _ -> fallback_fun.()
     end
   end
+
+  defp recovery_plan_for_display(current, default) do
+    cond do
+      is_map(current) and recovery_plan_is_generation_relative?(current) and is_map(default) ->
+        default
+
+      is_map(current) ->
+        current
+
+      is_map(default) ->
+        default
+
+      true ->
+        nil
+    end
+  end
+
+  defp same_recovery_plan?(left, right) when is_map(left) and is_map(right), do: left == right
+  defp same_recovery_plan?(_left, _right), do: false
+
+  defp recovery_plan_is_generation_relative?(plan) when is_map(plan) do
+    targets = Enum.reject(recovery_plan_targets(plan), &is_nil/1)
+
+    targets != [] and
+      Enum.all?(targets, fn target -> is_map(target) and target["source"] == "generation" end)
+  end
+
+  defp recovery_plan_targets(%{"initial" => initial, "escalation" => escalation}) do
+    [initial, escalation]
+  end
+
+  defp recovery_plan_targets(%{"target" => target, "jsonRepair" => repair}) do
+    [target | recovery_plan_targets(repair)]
+  end
+
+  defp recovery_plan_targets(_plan), do: []
 
   defp default_recovery_target(socket, path, fallback) do
     case get_in(socket.assigns.recovery_policy_default || %{}, path) do

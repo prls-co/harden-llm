@@ -457,6 +457,36 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     view |> element("#profile-retry-toggle") |> render_click()
     render_async(view, 1_000)
 
+    # Disabled legacy branches still expose the backend-owned profile preset so
+    # operators can see every target before enabling or adopting it.
+    assert has_element?(
+             view,
+             ~s(#profile-original-repair-initial-profile[value="CPA GPT-5.6 Luna"][disabled])
+           )
+
+    assert has_element?(
+             view,
+             ~s(#profile-original-repair-escalation-profile[value="CPA GPT-5.6 Luna"][disabled])
+           )
+
+    assert has_element?(
+             view,
+             ~s(#profile-rerun-generation-profile[value="CPA GPT-6 Astra"][disabled])
+           )
+
+    assert has_element?(
+             view,
+             ~s(#profile-rerun-repair-initial-profile[value="CPA GPT-6 Astra"][disabled])
+           )
+
+    assert has_element?(
+             view,
+             ~s(#profile-rerun-repair-escalation-profile[value="CPA GPT-6 Astra"][disabled])
+           )
+
+    assert has_element?(view, "#profile-original-repair .ullm-recovery-default-preview")
+    assert has_element?(view, "#profile-rerun .ullm-recovery-default-preview")
+
     view |> element("#profile-json-repair-toggle") |> render_click()
     render_async(view, 1_000)
 
