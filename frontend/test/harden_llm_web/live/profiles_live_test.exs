@@ -540,7 +540,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
 
   @tag :recovery
   test "profile editor exposes and adopts configured recovery targets", %{conn: conn} do
-    policy =
+    defaults =
       APIFixtures.recovery_policy()
       |> Map.delete("repairInvalidOutput")
       |> Map.put("jsonRepair", %{
@@ -575,16 +575,30 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
         }
       })
 
+    legacy_policy = %{
+      "maxAttempts" => 4,
+      "retryOn" => ["network"],
+      "backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000},
+      "jsonRepair" => nil,
+      "rerun" => nil
+    }
+
+    profile = put_in(APIFixtures.profile_state(), ["profile", "recoveryPolicy"], legacy_policy)
+
     install_stub(fn conn ->
       assert conn.request_path == "/api/v1/profiles"
 
       Req.Test.json(
         conn,
-        put_in(APIFixtures.profiles([]), ["result", "defaults", "recoveryPolicy"], policy)
+        put_in(
+          APIFixtures.profiles([profile]),
+          ["result", "defaults", "recoveryPolicy"],
+          defaults
+        )
       )
     end)
 
-    {:ok, view, _html} = live(conn, ~p"/profiles?new=1")
+    {:ok, view, _html} = live(conn, ~p"/profiles?edit=Primary")
     render_async(view, 1_000)
     view |> element("#retry-fold-toggle") |> render_click()
 
