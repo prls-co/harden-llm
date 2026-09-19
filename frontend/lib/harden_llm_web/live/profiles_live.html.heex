@@ -439,6 +439,8 @@
             :if={@retry_open}
             form={@form}
             id_prefix="profile"
+            profiles={Map.values(@profiles_by_id)}
+            change="draft-change"
             field_errors={@field_errors}
             recovery_policy_default={@recovery_policy_default}
           />

@@ -257,6 +257,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
       )
 
     assert html =~ "data-target-only"
+    assert html =~ "ullm-profile-row"
+    assert html =~ "ullm-profile-select"
+    refute html =~ "Model ID override"
     assert html =~ ~s(name="repairTarget[profileId]")
     assert html =~ ~s(name="repairTarget[modelId]")
     refute html =~ "workspace-cache-toggle"
@@ -284,6 +287,52 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
                     {:profile_widget_target, "repairTarget", emitted}}
 
     assert emitted["profileId"] == "Escalated"
+  end
+
+  test "recovery roles reuse the profile row and only rerun generation exposes search", %{
+    conn: conn
+  } do
+    primary = profile("CPA GPT-5.6 Luna", "gpt-5.6-luna")
+    astra = profile("CPA GPT-6 Astra", "gpt-6-astra")
+    defaults = full_recovery_policy()
+
+    state =
+      APIFixtures.state()
+      |> Map.put("recoveryPolicy", defaults)
+
+    install_stub_with([primary, astra], primary, state, defaults)
+
+    {:ok, view, _} = live(conn, ~p"/")
+    render_async(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
+    view |> element("#profile-retry-toggle") |> render_click()
+    render_async(view, 1_000)
+
+    for id <- [
+          "#profile-original-repair-initial",
+          "#profile-original-repair-escalation"
+        ] do
+      assert has_element?(view, "#{id} .ullm-profile-row")
+      assert has_element?(view, "#{id} .ullm-profile-select")
+      refute has_element?(view, "#{id} .ullm-profile-search-toggle")
+      refute has_element?(view, "#{id}", "Model ID override")
+    end
+
+    view |> element("#profile-rerun-toggle") |> render_click()
+    render_async(view, 1_000)
+
+    assert has_element?(view, "#profile-rerun-generation .ullm-profile-row")
+    assert has_element?(view, "#profile-rerun-generation .ullm-profile-select")
+    assert has_element?(view, "#profile-rerun-generation .ullm-profile-search-toggle")
+
+    for id <- [
+          "#profile-rerun-repair-initial",
+          "#profile-rerun-repair-escalation"
+        ] do
+      assert has_element?(view, "#{id} .ullm-profile-row")
+      refute has_element?(view, "#{id} .ullm-profile-search-toggle")
+    end
   end
 
   defp install_stub(profiles, state_profile, save_response \\ nil) do
@@ -472,6 +521,11 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     assert has_element?(
              view,
              ~s(#profile-rerun-generation-profile[value="CPA GPT-6 Astra"][disabled])
+           )
+
+    assert has_element?(
+             view,
+             ~s(#profile-rerun-generation-web-search-toggle[disabled])
            )
 
     assert has_element?(

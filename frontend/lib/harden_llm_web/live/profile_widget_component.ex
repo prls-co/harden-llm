@@ -719,6 +719,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             pricing_open={@main_pricing_open}
             staged_key={@main_staged_key}
             cache_mode={@cache_mode}
+            web_search={@web_search}
+            show_rerun_search={true}
             bundle_upload={@bundle_upload}
             widget_id={@id_prefix}
             pending={@pending}
@@ -808,20 +810,26 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:reasoning_value, :any, default: "")
   attr(:reasoning_options, :list, default: [])
   attr(:reasoning_change, :string, default: "profile-draft-change")
+  attr(:profile_disabled, :boolean, default: false)
+  attr(:profile_allow_custom, :boolean, default: true)
+  attr(:reasoning_disabled, :boolean, default: false)
   attr(:search_input_id, :string, default: nil)
   attr(:search_field_id, :string, default: nil)
   attr(:search_field_name, :string, default: nil)
   attr(:search_enabled, :boolean, default: false)
-  attr(:cache_input_id, :string, required: true)
-  attr(:cache_mode, :string, required: true)
+  attr(:search_event, :string, default: "toggle-web-search")
+  attr(:search_disabled, :boolean, default: false)
+  attr(:cache_input_id, :string, default: nil)
+  attr(:cache_mode, :string, default: "cache")
   attr(:cache_field_id, :string, default: nil)
   attr(:cache_field_name, :string, default: nil)
-  attr(:config_id, :string, required: true)
-  attr(:config_event, :string, required: true)
+  attr(:config_id, :string, default: nil)
+  attr(:config_event, :string, default: nil)
   attr(:config_open, :boolean, default: false)
   attr(:model_input_id, :string, default: nil)
   attr(:model_input_name, :string, default: nil)
   attr(:model_value, :any, default: "")
+  attr(:model_disabled, :boolean, default: false)
   attr(:target, :any, required: true)
   attr(:fold_disabled, :boolean, default: false)
   attr(:row_class, :string, default: "")
@@ -839,8 +847,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           name={@profile_name}
           value={@profile_value}
           options={@profile_options}
-          allow_custom
+          allow_custom={@profile_allow_custom}
           required={@profile_required}
+          disabled={@profile_disabled}
           placeholder={@profile_placeholder || ProfileDefaults.profile_placeholder()}
           aria_label="LLM Profile"
           class={@profile_class}
@@ -859,7 +868,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           class="ullm-input ullm-compact-select"
           phx-change={@reasoning_change}
           phx-target={@target}
-          disabled={@reasoning_options == []}
+          disabled={@reasoning_disabled or @reasoning_options == []}
         >
           <option :if={@reasoning_options == []} value="" selected>—</option>
           <option
@@ -876,8 +885,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         id={@search_input_id}
         type="button"
         class={["ullm-btn", "ullm-profile-search-toggle", @search_enabled && "is-enabled"]}
-        phx-click="toggle-web-search"
+        phx-click={@search_event}
         phx-target={@target}
+        disabled={@search_disabled}
         aria-label={web_search_label(@search_enabled)}
         aria-pressed={to_string(@search_enabled)}
         data-web-search={to_string(@search_enabled)}
@@ -893,6 +903,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         autocomplete="off"
       />
       <button
+        :if={@cache_input_id}
         id={@cache_input_id}
         type="button"
         class="ullm-btn ullm-profile-cache-toggle"
@@ -922,8 +933,10 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         value={@model_value}
         class="ullm-sr-only"
         autocomplete="off"
+        disabled={@model_disabled}
       />
       <button
+        :if={@config_id}
         id={@config_id}
         type="button"
         class="ullm-btn ullm-profile-config-toggle"
@@ -954,6 +967,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:pricing_open, :boolean, default: false)
   attr(:staged_key, :string, default: "")
   attr(:cache_mode, :string, default: "cache")
+  attr(:web_search, :boolean, default: false)
+  attr(:show_rerun_search, :boolean, default: false)
   attr(:bundle_upload, :any, default: nil)
   attr(:widget_id, :string, default: "")
   attr(:pending, :any, default: nil)
@@ -1279,6 +1294,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             field_errors={@field_errors}
             profiles={@profiles}
             recovery_policy_default={@recovery_policy_default}
+            web_search={@web_search}
+            show_rerun_search={@show_rerun_search}
           />
         </div>
       </section>
@@ -1436,6 +1453,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:field_errors, :map, default: %{})
   attr(:profiles, :list, default: [])
   attr(:recovery_policy_default, :map, default: %{})
+  attr(:web_search, :boolean, default: false)
+  attr(:show_rerun_search, :boolean, default: false)
 
   def recovery_fields(assigns) do
     policy = assigns.form.params["recoveryPolicy"] || %{}
@@ -1546,6 +1565,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           change={@change}
           enabled={@rerun_enabled? and not @rerun_preview?}
           preview={@rerun_preview? or not @rerun_enabled?}
+          search_enabled={@web_search}
+          show_generation_search={@show_rerun_search}
         />
       </div>
       <div class="recovery-policy-categories">
@@ -1602,19 +1623,20 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:target, :any, default: nil)
   attr(:change, :string, default: "profile-draft-change")
   attr(:disabled, :boolean, default: false)
+  attr(:show_search, :boolean, default: false)
+  attr(:search_enabled, :boolean, default: false)
 
   @doc "Shared leaf target picker used by both generation branches and hosts."
   def recovery_target_fields(assigns) do
     target = ProfileWidgetState.serialize_recovery_target(assigns.target_value)
     profile_id = target["profileId"] || ""
     profile_options = profile_combobox_options(assigns.profiles)
-    model_options = target_model_options(assigns.profiles, profile_id, target["modelId"])
 
     assigns =
       assign(assigns,
         leaf_target: target,
         profile_options: profile_options,
-        model_options: model_options
+        reasoning_options: reasoning_options(assigns.profiles, profile_id)
       )
 
     ~H"""
@@ -1629,61 +1651,32 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         Use this branch's generation model
       </p>
       <div :if={@leaf_target["source"] != "generation"} class="ullm-options-grid">
-        <div class="ullm-field">
-          <label for={"#{@id_prefix}-profile"}>LLM Profile</label>
-          <.searchable_input
-            id={"#{@id_prefix}-profile"}
-            name={"#{@name}[profileId]"}
-            value={@leaf_target["profileId"] || ""}
-            options={@profile_options}
-            allow_custom
-            required
-            disabled={@disabled}
-            aria_label="Recovery LLM Profile"
-            phx_change={@change}
-            phx_target={@target}
-          />
-        </div>
-        <div class="ullm-field">
-          <label for={"#{@id_prefix}-model"}>Model ID override</label>
-          <.searchable_input
-            id={"#{@id_prefix}-model"}
-            name={"#{@name}[modelId]"}
-            value={@leaf_target["modelId"] || ""}
-            options={@model_options}
-            allow_custom
-            disabled={@disabled}
-            aria_label="Recovery model override"
-            phx_change={@change}
-            phx_target={@target}
-          />
-        </div>
-        <div class="ullm-field">
-          <label for={"#{@id_prefix}-reasoning"}>Reasoning</label>
-          <select
-            id={"#{@id_prefix}-reasoning"}
-            name={"#{@name}[reasoningEffort]"}
-            disabled={@disabled}
-            phx-change={@change}
-            phx-target={@target}
-          >
-            <option
-              value=""
-              selected={
-                is_nil(@leaf_target["reasoningEffort"]) or @leaf_target["reasoningEffort"] == ""
-              }
-            >
-              Profile default
-            </option>
-            <option
-              :for={value <- ~w(lowest middle highest)}
-              value={value}
-              selected={@leaf_target["reasoningEffort"] == value}
-            >
-              {value}
-            </option>
-          </select>
-        </div>
+        <.profile_row
+          category="LLM"
+          profile_input_id={"#{@id_prefix}-profile"}
+          profile_name={"#{@name}[profileId]"}
+          profile_value={@leaf_target["profileId"] || ""}
+          profile_options={@profile_options}
+          profile_required={true}
+          profile_class="ullm-input ullm-profile-select"
+          profile_change={@change}
+          profile_disabled={@disabled}
+          reasoning_input_id={"#{@id_prefix}-reasoning"}
+          reasoning_name={"#{@name}[reasoningEffort]"}
+          reasoning_value={@leaf_target["reasoningEffort"] || ""}
+          reasoning_options={@reasoning_options}
+          reasoning_change={@change}
+          reasoning_disabled={@disabled}
+          search_input_id={if @show_search, do: "#{@id_prefix}-web-search-toggle"}
+          search_enabled={@search_enabled}
+          search_disabled={@disabled}
+          model_input_id={"#{@id_prefix}-model"}
+          model_input_name={"#{@name}[modelId]"}
+          model_value={@leaf_target["modelId"] || ""}
+          model_disabled={@disabled}
+          row_class="ullm-recovery-profile-row"
+          target={@target}
+        />
       </div>
       <input
         type="hidden"
@@ -1766,6 +1759,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:path, :string, default: "rerun")
   attr(:enabled, :boolean, default: true)
   attr(:preview, :boolean, default: false)
+  attr(:show_generation_search, :boolean, default: false)
+  attr(:search_enabled, :boolean, default: false)
 
   def rerun_plan_fields(assigns) do
     ~H"""
@@ -1790,6 +1785,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           target={@target}
           change={@change}
           disabled={not @enabled}
+          show_search={@show_generation_search}
+          search_enabled={@search_enabled}
         />
         <label class="ullm-checkbox-label">
           <input
@@ -1817,17 +1814,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       <% end %>
     </fieldset>
     """
-  end
-
-  defp target_model_options(profiles, profile_id, current) do
-    models =
-      profiles
-      |> Enum.find(%{}, &(profile_id_from_state(&1) == profile_id))
-      |> get_in(["profile", "models"])
-      |> Kernel.||([])
-
-    ProfileWidgetState.model_options(nil, models, current)
-    |> model_combobox_options()
   end
 
   defp encode_target_options(options) when is_map(options), do: Jason.encode!(options)
