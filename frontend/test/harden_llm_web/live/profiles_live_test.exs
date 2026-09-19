@@ -539,6 +539,76 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
   end
 
   @tag :recovery
+  test "profile editor exposes and adopts configured recovery targets", %{conn: conn} do
+    policy =
+      APIFixtures.recovery_policy()
+      |> Map.delete("repairInvalidOutput")
+      |> Map.put("jsonRepair", %{
+        "initial" => %{
+          "source" => "profile",
+          "profileId" => "CPA GPT-5.6 Luna",
+          "reasoningEffort" => "lowest"
+        },
+        "escalation" => %{
+          "source" => "profile",
+          "profileId" => "CPA GPT-5.6 Luna",
+          "reasoningEffort" => "highest"
+        }
+      })
+      |> Map.put("rerun", %{
+        "target" => %{
+          "source" => "profile",
+          "profileId" => "CPA GPT-6 Astra",
+          "reasoningEffort" => "lowest"
+        },
+        "jsonRepair" => %{
+          "initial" => %{
+            "source" => "profile",
+            "profileId" => "CPA GPT-6 Astra",
+            "reasoningEffort" => "lowest"
+          },
+          "escalation" => %{
+            "source" => "profile",
+            "profileId" => "CPA GPT-6 Astra",
+            "reasoningEffort" => "highest"
+          }
+        }
+      })
+
+    install_stub(fn conn ->
+      assert conn.request_path == "/api/v1/profiles"
+
+      Req.Test.json(
+        conn,
+        put_in(APIFixtures.profiles([]), ["result", "defaults", "recoveryPolicy"], policy)
+      )
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/profiles?new=1")
+    render_async(view, 1_000)
+    view |> element("#retry-fold-toggle") |> render_click()
+
+    assert has_element?(
+             view,
+             ~s(#profile-original-repair-initial-profile[value="CPA GPT-5.6 Luna"])
+           )
+
+    assert has_element?(view, ~s(#profile-rerun-generation-profile[value="CPA GPT-6 Astra"]))
+
+    view
+    |> element(~s(button[phx-click="use-recovery-default"][phx-value-path="jsonRepair"]))
+    |> render_click()
+
+    refute has_element?(view, "#profile-original-repair-initial-profile[disabled]")
+
+    view
+    |> element(~s(button[phx-click="use-recovery-default"][phx-value-path="rerun"]))
+    |> render_click()
+
+    refute has_element?(view, "#profile-rerun-generation-profile[disabled]")
+  end
+
+  @tag :recovery
   test "policy validation errors mark the field and retain the submitted draft", %{conn: conn} do
     test_pid = self()
 
