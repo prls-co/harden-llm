@@ -260,23 +260,33 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
   def handle_event("toggle-json-repair", _params, socket),
     do:
-      toggle_recovery_branch(
-        socket,
-        ["jsonRepair"],
-        &ProfileWidgetState.default_recovery_repair_plan/0
-      )
+      toggle_recovery_branch(socket, ["jsonRepair"], fn ->
+        default_recovery_branch(
+          socket,
+          ["jsonRepair"],
+          &ProfileWidgetState.default_recovery_repair_plan/0
+        )
+      end)
 
   def handle_event("toggle-rerun", _params, socket),
     do:
-      toggle_recovery_branch(socket, ["rerun"], &ProfileWidgetState.default_recovery_rerun_plan/0)
+      toggle_recovery_branch(socket, ["rerun"], fn ->
+        default_recovery_branch(
+          socket,
+          ["rerun"],
+          &ProfileWidgetState.default_recovery_rerun_plan/0
+        )
+      end)
 
   def handle_event("toggle-rerun-json-repair", _params, socket),
     do:
-      toggle_recovery_branch(
-        socket,
-        ["rerun", "jsonRepair"],
-        &ProfileWidgetState.default_recovery_repair_plan/0
-      )
+      toggle_recovery_branch(socket, ["rerun", "jsonRepair"], fn ->
+        default_recovery_branch(
+          socket,
+          ["rerun", "jsonRepair"],
+          &ProfileWidgetState.default_recovery_repair_plan/0
+        )
+      end)
 
   def handle_event("toggle-repair-escalation", %{"path" => path}, socket)
       when path in ["jsonRepair", "rerun.jsonRepair"] do
@@ -286,8 +296,15 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       update_in(policy, keys, fn
         plan when is_map(plan) ->
           Map.update!(plan, "escalation", fn
-            nil -> %{"source" => "generation"}
-            _target -> nil
+            nil ->
+              default_recovery_target(
+                socket,
+                keys ++ ["escalation"],
+                %{"source" => "generation"}
+              )
+
+            _target ->
+              nil
           end)
 
         other ->
@@ -1765,6 +1782,20 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         _ -> put_in(policy, path, default_fun.())
       end
     end)
+  end
+
+  defp default_recovery_branch(socket, path, fallback_fun) do
+    case get_in(socket.assigns.recovery_policy_default || %{}, path) do
+      plan when is_map(plan) -> plan
+      _ -> fallback_fun.()
+    end
+  end
+
+  defp default_recovery_target(socket, path, fallback) do
+    case get_in(socket.assigns.recovery_policy_default || %{}, path) do
+      target when is_map(target) -> target
+      _ -> fallback
+    end
   end
 
   defp update_recovery_draft(socket, update_fun) do

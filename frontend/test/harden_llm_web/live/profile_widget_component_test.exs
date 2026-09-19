@@ -292,6 +292,21 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
       |> Map.put("selectedProfileId", get_in(state_profile, ["profile", "llmProfile"]))
       |> Map.put("modelId", get_in(state_profile, ["profile", "modelId"]))
 
+    install_stub_with(
+      profiles,
+      state_profile,
+      state,
+      APIFixtures.recovery_policy(),
+      save_response
+    )
+  end
+
+  defp install_stub_with(profiles, state_profile, state, recovery_policy, save_response \\ nil) do
+    state =
+      state
+      |> Map.put("selectedProfileId", get_in(state_profile, ["profile", "llmProfile"]))
+      |> Map.put("modelId", get_in(state_profile, ["profile", "modelId"]))
+
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/api/v1/auth/session"} ->
@@ -301,7 +316,14 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
           Req.Test.json(conn, APIFixtures.success(nil, state))
 
         {"GET", "/api/v1/profiles"} ->
-          Req.Test.json(conn, APIFixtures.profiles(profiles))
+          Req.Test.json(
+            conn,
+            put_in(
+              APIFixtures.profiles(profiles),
+              ["result", "defaults", "recoveryPolicy"],
+              recovery_policy
+            )
+          )
 
         {"GET", "/api/v1/history"} ->
           Req.Test.json(conn, APIFixtures.history_page([]))
@@ -338,6 +360,45 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     |> update_in(["profile"], &Map.delete(&1, "reasoningEffortMap"))
   end
 
+  defp full_recovery_policy do
+    %{
+      "maxAttempts" => 6,
+      "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"],
+      "jsonRepair" => %{
+        "initial" => %{
+          "source" => "profile",
+          "profileId" => "CPA GPT-5.6 Luna",
+          "reasoningEffort" => "lowest"
+        },
+        "escalation" => %{
+          "source" => "profile",
+          "profileId" => "CPA GPT-5.6 Luna",
+          "reasoningEffort" => "highest"
+        }
+      },
+      "rerun" => %{
+        "target" => %{
+          "source" => "profile",
+          "profileId" => "CPA GPT-6 Astra",
+          "reasoningEffort" => "lowest"
+        },
+        "jsonRepair" => %{
+          "initial" => %{
+            "source" => "profile",
+            "profileId" => "CPA GPT-6 Astra",
+            "reasoningEffort" => "lowest"
+          },
+          "escalation" => %{
+            "source" => "profile",
+            "profileId" => "CPA GPT-6 Astra",
+            "reasoningEffort" => "highest"
+          }
+        }
+      },
+      "backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}
+    }
+  end
+
   # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-209
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-072
   @tag :recovery
@@ -368,6 +429,63 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     refute has_element?(view, "#profile-fallback-toggle")
     refute render(view) =~ "Escalation"
     refute render(view) =~ "enableRetryOnParseError"
+  end
+
+  # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-209 WEB-TEST-085
+  @tag :recovery
+  test "recovery branch toggles use backend profile targets", %{conn: conn} do
+    primary = profile("CPA GPT-5.6 Luna", "gpt-5.6-luna")
+    astra = profile("CPA GPT-6 Astra", "gpt-6-astra")
+    defaults = full_recovery_policy()
+
+    state =
+      APIFixtures.state()
+      |> Map.put("recoveryPolicy", %{
+        "maxAttempts" => 4,
+        "retryOn" => ["network"],
+        "jsonRepair" => nil,
+        "rerun" => nil,
+        "backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}
+      })
+
+    install_stub_with([primary, astra], primary, state, defaults)
+
+    {:ok, view, _} = live(conn, ~p"/")
+    render_async(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
+    view |> element("#profile-retry-toggle") |> render_click()
+    render_async(view, 1_000)
+
+    view |> element("#profile-json-repair-toggle") |> render_click()
+    render_async(view, 1_000)
+
+    assert has_element?(
+             view,
+             ~s(#profile-original-repair-initial-profile[value="CPA GPT-5.6 Luna"])
+           )
+
+    assert has_element?(
+             view,
+             ~s(#profile-original-repair-escalation-profile[value="CPA GPT-5.6 Luna"])
+           )
+
+    refute has_element?(
+             view,
+             ".ullm-recovery-generation-target",
+             "Use this branch's generation model"
+           )
+
+    view |> element("#profile-rerun-toggle") |> render_click()
+    render_async(view, 1_000)
+
+    assert has_element?(view, ~s(#profile-rerun-generation-profile[value="CPA GPT-6 Astra"]))
+    assert has_element?(view, ~s(#profile-rerun-repair-initial-profile[value="CPA GPT-6 Astra"]))
+
+    assert has_element?(
+             view,
+             ~s(#profile-rerun-repair-escalation-profile[value="CPA GPT-6 Astra"])
+           )
   end
 
   @tag :recovery
