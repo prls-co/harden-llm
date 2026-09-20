@@ -947,3 +947,27 @@ button, a, input, select, textarea { touch-action: manipulation; }
   color: var(--ullm-muted);
   font-size: 0.82rem;
 }
+
+.ullm-recovery-target-config {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin: 0.5rem 0 0.75rem;
+  border: 1px solid var(--ullm-border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: rgb(255 255 255 / 44%);
+}
+
+.ullm-recovery-target-config > .ullm-field-help {
+  margin: 0;
+  border-top: 0;
+  padding: 0;
+}
+
+.ullm-recovery-target-note {
+  margin: 0;
+  color: var(--ullm-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}

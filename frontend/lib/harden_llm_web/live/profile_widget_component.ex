@@ -46,6 +46,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
      |> assign(:target_only, false)
      |> assign(:target_value, %{})
      |> assign(:target_name, "recoveryTarget")
+     |> assign(:recovery_target_config_open, %{})
      |> assign(:loaded_profile_id, nil)
      |> assign(:profiles_revision, nil)
      |> assign(:main_form, to_form(ProfilesLive.empty_form(%{}), as: :profile))
@@ -278,6 +279,17 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         )
       end)
 
+  def handle_event("toggle-rerun-json-repair", %{"path" => path}, socket)
+      when path == "rerun.jsonRepair" do
+    toggle_recovery_branch(socket, ["rerun", "jsonRepair"], fn ->
+      default_recovery_branch(
+        socket,
+        ["rerun", "jsonRepair"],
+        &ProfileWidgetState.default_recovery_repair_plan/0
+      )
+    end)
+  end
+
   def handle_event("toggle-rerun-json-repair", _params, socket),
     do:
       toggle_recovery_branch(socket, ["rerun", "jsonRepair"], fn ->
@@ -287,6 +299,17 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           &ProfileWidgetState.default_recovery_repair_plan/0
         )
       end)
+
+  def handle_event("toggle-recovery-target-config", %{"path" => path}, socket)
+      when is_binary(path) and path != "" do
+    open? = not Map.get(socket.assigns.recovery_target_config_open, path, false)
+
+    socket
+    |> update(:recovery_target_config_open, &Map.put(&1, path, open?))
+    |> noreply()
+  end
+
+  def handle_event("toggle-recovery-target-config", _params, socket), do: {:noreply, socket}
 
   def handle_event("toggle-repair-escalation", %{"path" => path}, socket)
       when path in ["jsonRepair", "rerun.jsonRepair"] do
@@ -725,6 +748,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             widget_id={@id_prefix}
             pending={@pending}
             delete_confirm={@delete_confirm}
+            target_config_open={@recovery_target_config_open}
           />
         </div>
       <% end %>
@@ -825,6 +849,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:cache_field_name, :string, default: nil)
   attr(:config_id, :string, default: nil)
   attr(:config_event, :string, default: nil)
+  attr(:config_path, :string, default: nil)
   attr(:config_open, :boolean, default: false)
   attr(:model_input_id, :string, default: nil)
   attr(:model_input_name, :string, default: nil)
@@ -836,7 +861,12 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
   def profile_row(assigns) do
     ~H"""
-    <div class={"ullm-profile-row #{if @search_input_id, do: "ullm-profile-row-with-search", else: ""} #{@row_class}"}>
+    <div class={[
+      "ullm-profile-row",
+      @search_input_id && "ullm-profile-row-with-search",
+      (@config_id || @cache_input_id) && "ullm-profile-row-with-actions",
+      @row_class
+    ]}>
       <span class="ullm-profile-category" title={@category}>{@category}</span>
       <div class="ullm-profile-picker">
         <label for={@profile_input_id} class="ullm-profile-label">
@@ -942,6 +972,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         class="ullm-btn ullm-profile-config-toggle"
         phx-click={@config_event}
         phx-target={@target}
+        phx-value-path={@config_path}
         disabled={@fold_disabled}
         aria-expanded={to_string(@config_open)}
         aria-label="Profile config"
@@ -976,6 +1007,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:target_only, :boolean, default: false)
   attr(:target_value, :map, default: %{})
   attr(:target_name, :string, default: "recoveryTarget")
+  attr(:target_config_open, :map, default: %{})
 
   def profile_editor(assigns) do
     ~H"""
@@ -1296,6 +1328,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             recovery_policy_default={@recovery_policy_default}
             web_search={@web_search}
             show_rerun_search={@show_rerun_search}
+            target_config_open={@target_config_open}
           />
         </div>
       </section>
@@ -1455,6 +1488,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:recovery_policy_default, :map, default: %{})
   attr(:web_search, :boolean, default: false)
   attr(:show_rerun_search, :boolean, default: false)
+  attr(:target_config_open, :map, default: %{})
 
   def recovery_fields(assigns) do
     policy = assigns.form.params["recoveryPolicy"] || %{}
@@ -1463,9 +1497,14 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     rerun_enabled? = is_map(policy["rerun"])
 
     json_repair_plan =
-      recovery_plan_for_display(policy["jsonRepair"], default_policy["jsonRepair"])
+      if json_repair_enabled?,
+        do: recovery_plan_for_display(policy["jsonRepair"], default_policy["jsonRepair"]),
+        else: nil
 
-    rerun_plan = recovery_plan_for_display(policy["rerun"], default_policy["rerun"])
+    rerun_plan =
+      if rerun_enabled?,
+        do: recovery_plan_for_display(policy["rerun"], default_policy["rerun"]),
+        else: nil
 
     assigns =
       assigns
@@ -1515,7 +1554,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         errors={
           List.wrap(ProfilesLive.field_error(@field_errors, "recoveryPolicy.repairInvalidOutput"))
         }
-        label="Repair invalid structured output"
+        label="LLM JSON repair"
         info="Uses the original schema to repair invalid JSON or schema failures. Each repair uses the remaining call budget. Turn this off to stop on invalid output."
         phx-change={@change}
         phx-target={@target}
@@ -1529,7 +1568,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               checked={is_map(@policy["jsonRepair"])}
               phx-click="toggle-json-repair"
               phx-target={@target}
-            /> Original JSON repair
+            /> LLM JSON repair
           </label>
           <label class="ullm-checkbox-label">
             <input
@@ -1538,7 +1577,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               checked={is_map(@policy["rerun"])}
               phx-click="toggle-rerun"
               phx-target={@target}
-            /> Fresh rerun
+            /> Fresh generation rerun
           </label>
         </div>
         <.repair_plan_fields
@@ -1552,7 +1591,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           change={@change}
           enabled={@json_repair_enabled? and not @json_repair_preview?}
           preview={@json_repair_preview? or not @json_repair_enabled?}
-          label="Original JSON repair"
+          label="LLM JSON repair"
+          target_config_open={@target_config_open}
         />
         <.rerun_plan_fields
           :if={is_map(@rerun_plan)}
@@ -1567,6 +1607,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           preview={@rerun_preview? or not @rerun_enabled?}
           search_enabled={@web_search}
           show_generation_search={@show_rerun_search}
+          target_config_open={@target_config_open}
         />
       </div>
       <div class="recovery-policy-categories">
@@ -1625,6 +1666,12 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:disabled, :boolean, default: false)
   attr(:show_search, :boolean, default: false)
   attr(:search_enabled, :boolean, default: false)
+  attr(:config_path, :string, default: nil)
+  attr(:config_open, :boolean, default: false)
+  attr(:nested_repair_allowed, :boolean, default: false)
+  attr(:nested_repair_plan, :map, default: nil)
+  attr(:nested_repair_path, :string, default: "rerun.jsonRepair")
+  attr(:target_config_open, :map, default: %{})
 
   @doc "Shared leaf target picker used by both generation branches and hosts."
   def recovery_target_fields(assigns) do
@@ -1674,8 +1721,26 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           model_input_name={"#{@name}[modelId]"}
           model_value={@leaf_target["modelId"] || ""}
           model_disabled={@disabled}
+          config_id={if @config_path, do: "#{@id_prefix}-config-toggle"}
+          config_event="toggle-recovery-target-config"
+          config_path={@config_path}
+          config_open={@config_open}
           row_class="ullm-recovery-profile-row"
           target={@target}
+          fold_disabled={@disabled}
+        />
+        <.target_profile_config
+          :if={@config_open}
+          id_prefix={"#{@id_prefix}-config"}
+          target={@target}
+          profiles={@profiles}
+          change={@change}
+          enabled={not @disabled}
+          nested_repair_allowed={@nested_repair_allowed}
+          nested_repair_plan={@nested_repair_plan}
+          nested_repair_name={"#{@name}[jsonRepair]"}
+          nested_repair_path={@nested_repair_path}
+          target_config_open={@target_config_open}
         />
       </div>
       <input
@@ -1684,6 +1749,62 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         value={encode_target_options(@leaf_target["providerOptions"])}
         disabled={@disabled}
       />
+    </div>
+    """
+  end
+
+  attr(:id_prefix, :string, required: true)
+  attr(:target, :any, default: nil)
+  attr(:profiles, :list, default: [])
+  attr(:change, :string, default: "profile-draft-change")
+  attr(:enabled, :boolean, default: true)
+  attr(:nested_repair_allowed, :boolean, default: false)
+  attr(:nested_repair_plan, :map, default: nil)
+  attr(:nested_repair_name, :string, default: "recoveryPolicy[rerun][jsonRepair]")
+  attr(:nested_repair_path, :string, default: "rerun.jsonRepair")
+  attr(:target_config_open, :map, default: %{})
+
+  def target_profile_config(assigns) do
+    ~H"""
+    <div id={@id_prefix} class="ullm-recovery-target-config">
+      <%= if @nested_repair_allowed do %>
+        <p class="ullm-field-help">
+          This target reuses the selected profile. Its gear can configure the
+          JSON-repair branch, but it cannot start another fresh rerun.
+        </p>
+        <label class="ullm-checkbox-label">
+          <input
+            id={"#{@id_prefix}-json-repair-toggle"}
+            type="checkbox"
+            checked={is_map(@nested_repair_plan)}
+            phx-click="toggle-rerun-json-repair"
+            phx-value-path={@nested_repair_path}
+            phx-target={@target}
+            disabled={not @enabled}
+          /> JSON repair after rerun
+        </label>
+        <.repair_plan_fields
+          :if={is_map(@nested_repair_plan)}
+          id_prefix={"#{@id_prefix}-json-repair"}
+          name={@nested_repair_name}
+          plan={@nested_repair_plan}
+          path={@nested_repair_path}
+          profiles={@profiles}
+          target={@target}
+          change={@change}
+          enabled={@enabled}
+          target_config_open={@target_config_open}
+          label="JSON repair after rerun"
+        />
+      <% else %>
+        <p class="ullm-field-help">
+          This target reuses the selected profile. Recovery nesting is disabled
+          here so a repair cannot start another repair or rerun.
+        </p>
+        <p class="ullm-recovery-target-note">
+          JSON repair and fresh rerun are unavailable from a JSON-repair target.
+        </p>
+      <% end %>
     </div>
     """
   end
@@ -1698,6 +1819,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:path, :string, default: "jsonRepair")
   attr(:enabled, :boolean, default: true)
   attr(:preview, :boolean, default: false)
+  attr(:target_config_open, :map, default: %{})
 
   def repair_plan_fields(assigns) do
     plan = assigns.plan || %{}
@@ -1724,6 +1846,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         target={@target}
         change={@change}
         disabled={not @enabled}
+        config_path={"#{@path}.initial"}
+        config_open={Map.get(@target_config_open, "#{@path}.initial", false)}
+        target_config_open={@target_config_open}
       />
       <label class="ullm-checkbox-label">
         <input
@@ -1734,7 +1859,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           phx-value-path={@path}
           phx-target={@target}
           disabled={not @enabled}
-        /> Escalated JSON repair target
+        /> Escalated JSON repair
       </label>
       <.recovery_target_fields
         :if={is_map(@plan["escalation"])}
@@ -1745,6 +1870,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         target={@target}
         change={@change}
         disabled={not @enabled}
+        config_path={"#{@path}.escalation"}
+        config_open={Map.get(@target_config_open, "#{@path}.escalation", false)}
+        target_config_open={@target_config_open}
       />
     </fieldset>
     """
@@ -1761,11 +1889,12 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:preview, :boolean, default: false)
   attr(:show_generation_search, :boolean, default: false)
   attr(:search_enabled, :boolean, default: false)
+  attr(:target_config_open, :map, default: %{})
 
   def rerun_plan_fields(assigns) do
     ~H"""
     <fieldset id={@id_prefix} class="ullm-rerun-plan">
-      <legend>Fresh rerun</legend>
+      <legend>Fresh generation rerun</legend>
       <%= if is_map(@plan) do %>
         <div :if={@preview} class="ullm-recovery-default-preview">
           <p>Configured rerun and repair targets are shown below.</p>
@@ -1787,29 +1916,12 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           disabled={not @enabled}
           show_search={@show_generation_search}
           search_enabled={@search_enabled}
-        />
-        <label class="ullm-checkbox-label">
-          <input
-            id={"#{@id_prefix}-json-repair-toggle"}
-            type="checkbox"
-            checked={is_map(@plan["jsonRepair"])}
-            phx-click="toggle-rerun-json-repair"
-            phx-target={@target}
-            disabled={not @enabled}
-          /> Rerun JSON repair
-        </label>
-        <.repair_plan_fields
-          :if={is_map(@plan["jsonRepair"])}
-          id_prefix={"#{@id_prefix}-repair"}
-          name={"#{@name}[jsonRepair]"}
-          plan={@plan["jsonRepair"]}
-          path={"#{@path}.jsonRepair"}
-          profiles={@profiles}
-          target={@target}
-          change={@change}
-          enabled={@enabled}
-          preview={@preview}
-          label="Rerun JSON repair"
+          config_path={"#{@path}.target"}
+          config_open={Map.get(@target_config_open, "#{@path}.target", false)}
+          nested_repair_allowed={true}
+          nested_repair_plan={@plan["jsonRepair"]}
+          nested_repair_path={"#{@path}.jsonRepair"}
+          target_config_open={@target_config_open}
         />
       <% end %>
     </fieldset>
@@ -1825,6 +1937,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     socket
     |> assign(:selected_profile_id, selected_profile_id)
     |> assign(:main_form, form)
+    |> assign(:recovery_target_config_open, %{})
     |> assign(:main_staged_key, "")
     |> assign(:main_requires_save?, false)
     |> sync_active_recovery_policy()

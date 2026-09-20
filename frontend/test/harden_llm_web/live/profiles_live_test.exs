@@ -602,24 +602,24 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     render_async(view, 1_000)
     view |> element("#retry-fold-toggle") |> render_click()
 
+    refute has_element?(view, "#profile-original-repair-initial-profile")
+    refute has_element?(view, "#profile-rerun-generation-profile")
+
+    view |> element("#profile-json-repair-toggle") |> render_click()
+
     assert has_element?(
              view,
              ~s(#profile-original-repair-initial-profile[value="CPA GPT-5.6 Luna"])
            )
 
-    assert has_element?(view, ~s(#profile-rerun-generation-profile[value="CPA GPT-6 Astra"]))
-
-    view
-    |> element(~s(button[phx-click="use-recovery-default"][phx-value-path="jsonRepair"]))
-    |> render_click()
-
     refute has_element?(view, "#profile-original-repair-initial-profile[disabled]")
 
-    view
-    |> element(~s(button[phx-click="use-recovery-default"][phx-value-path="rerun"]))
-    |> render_click()
-
+    view |> element("#profile-rerun-toggle") |> render_click()
+    assert has_element?(view, ~s(#profile-rerun-generation-profile[value="CPA GPT-6 Astra"]))
     refute has_element?(view, "#profile-rerun-generation-profile[disabled]")
+
+    view |> element("#profile-rerun-generation-config-toggle") |> render_click()
+    assert has_element?(view, "#profile-rerun-generation-config-json-repair-toggle")
   end
 
   @tag :recovery

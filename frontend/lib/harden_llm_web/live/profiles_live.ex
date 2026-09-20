@@ -35,6 +35,7 @@ defmodule HardenLlmWeb.ProfilesLive do
       |> assign(:retry_open, false)
       |> assign(:pricing_open, false)
       |> assign(:credential_open, false)
+      |> assign(:recovery_target_config_open, %{})
       |> stream_configure(:profiles, dom_id: &profile_dom_id/1)
       |> stream(:profiles, [])
       |> allow_upload(:bundle,
@@ -271,6 +272,16 @@ defmodule HardenLlmWeb.ProfilesLive do
           &ProfileWidgetState.default_recovery_repair_plan/0
         )
       end)
+
+  def handle_event("toggle-recovery-target-config", %{"path" => path}, socket)
+      when is_binary(path) and path != "" do
+    {:noreply,
+     update(socket, :recovery_target_config_open, fn open ->
+       Map.put(open, path, not Map.get(open, path, false))
+     end)}
+  end
+
+  def handle_event("toggle-recovery-target-config", _params, socket), do: {:noreply, socket}
 
   def handle_event("toggle-repair-escalation", %{"path" => path}, socket)
       when path in ["jsonRepair", "rerun.jsonRepair"] do
@@ -772,7 +783,8 @@ defmodule HardenLlmWeb.ProfilesLive do
         options_open: false,
         retry_open: false,
         pricing_open: false,
-        credential_open: false
+        credential_open: false,
+        recovery_target_config_open: %{}
       )
 
   defp profile_dom_id(profile_state), do: "profile-#{profile_state["profile"]["llmProfile"]}"

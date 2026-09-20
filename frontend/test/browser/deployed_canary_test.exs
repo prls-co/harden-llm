@@ -91,13 +91,32 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       session
       |> click(Query.css("#profile-rerun-toggle"))
       |> assert_has(Query.css("#profile-rerun-generation-profile[value='CPA GPT-6 Astra']"))
-      |> assert_has(Query.css("#profile-rerun-repair-initial-profile[value='CPA GPT-6 Astra']"))
-      |> assert_has(
-        Query.css("#profile-rerun-repair-escalation-profile[value='CPA GPT-6 Astra']")
-      )
       |> assert_has(Query.css("#profile-rerun-generation-reasoning:not([disabled])"))
-      |> assert_has(Query.css("#profile-rerun-repair-initial-reasoning:not([disabled])"))
-      |> assert_has(Query.css("#profile-rerun-repair-escalation-reasoning:not([disabled])"))
+
+    session =
+      session
+      |> click(Query.css("#profile-rerun-generation-config-toggle"))
+      |> assert_has(Query.css("#profile-rerun-generation-config-json-repair-toggle"))
+      |> assert_has(
+        Query.css(
+          "#profile-rerun-generation-config-json-repair-initial-profile[value='CPA GPT-6 Astra']"
+        )
+      )
+      |> assert_has(
+        Query.css(
+          "#profile-rerun-generation-config-json-repair-escalation-profile[value='CPA GPT-6 Astra']"
+        )
+      )
+      |> assert_has(
+        Query.css(
+          "#profile-rerun-generation-config-json-repair-initial-reasoning:not([disabled])"
+        )
+      )
+      |> assert_has(
+        Query.css(
+          "#profile-rerun-generation-config-json-repair-escalation-reasoning:not([disabled])"
+        )
+      )
 
     astra_reasoning_values =
       javascript_value(

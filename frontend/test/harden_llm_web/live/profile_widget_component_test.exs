@@ -319,20 +319,40 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
       refute has_element?(view, "#{id}", "Model ID override")
     end
 
-    view |> element("#profile-rerun-toggle") |> render_click()
-    render_async(view, 1_000)
-
     assert has_element?(view, "#profile-rerun-generation .ullm-profile-row")
     assert has_element?(view, "#profile-rerun-generation .ullm-profile-select")
     assert has_element?(view, "#profile-rerun-generation .ullm-profile-search-toggle")
 
+    assert has_element?(view, "#profile-original-repair-initial-config-toggle")
+    refute has_element?(view, "#profile-original-repair-initial-config")
+
+    view |> element("#profile-original-repair-initial-config-toggle") |> render_click()
+
+    assert has_element?(view, "#profile-original-repair-initial-config")
+    refute has_element?(view, "#profile-original-repair-initial-config-json-repair-toggle")
+    refute has_element?(view, "#profile-original-repair-initial-config-rerun-toggle")
+
+    view |> element("#profile-rerun-generation-config-toggle") |> render_click()
+
+    assert has_element?(view, "#profile-rerun-generation-config")
+    assert has_element?(view, "#profile-rerun-generation-config-json-repair-toggle")
+    assert has_element?(view, "#profile-rerun-generation-config-json-repair-initial-profile")
+
     for id <- [
-          "#profile-rerun-repair-initial",
-          "#profile-rerun-repair-escalation"
+          "#profile-rerun-generation-config-json-repair-initial",
+          "#profile-rerun-generation-config-json-repair-escalation"
         ] do
       assert has_element?(view, "#{id} .ullm-profile-row")
       refute has_element?(view, "#{id} .ullm-profile-search-toggle")
     end
+
+    refute has_element?(view, "#profile-rerun-generation-config #profile-rerun-toggle")
+
+    view
+    |> element("#profile-rerun-generation-config-json-repair-toggle")
+    |> render_click()
+
+    refute has_element?(view, "#profile-rerun-generation-config-json-repair-initial")
   end
 
   defp install_stub(profiles, state_profile, save_response \\ nil) do
@@ -506,40 +526,10 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     view |> element("#profile-retry-toggle") |> render_click()
     render_async(view, 1_000)
 
-    # Disabled legacy branches still expose the backend-owned profile preset so
-    # operators can see every target before enabling or adopting it.
-    assert has_element?(
-             view,
-             ~s(#profile-original-repair-initial-profile[value="CPA GPT-5.6 Luna"][disabled])
-           )
-
-    assert has_element?(
-             view,
-             ~s(#profile-original-repair-escalation-profile[value="CPA GPT-5.6 Luna"][disabled])
-           )
-
-    assert has_element?(
-             view,
-             ~s(#profile-rerun-generation-profile[value="CPA GPT-6 Astra"][disabled])
-           )
-
-    assert has_element?(
-             view,
-             ~s(#profile-rerun-generation-web-search-toggle[disabled])
-           )
-
-    assert has_element?(
-             view,
-             ~s(#profile-rerun-repair-initial-profile[value="CPA GPT-6 Astra"][disabled])
-           )
-
-    assert has_element?(
-             view,
-             ~s(#profile-rerun-repair-escalation-profile[value="CPA GPT-6 Astra"][disabled])
-           )
-
-    assert has_element?(view, "#profile-original-repair .ullm-recovery-default-preview")
-    assert has_element?(view, "#profile-rerun .ullm-recovery-default-preview")
+    refute has_element?(view, "#profile-original-repair-initial-profile")
+    refute has_element?(view, "#profile-rerun-generation-profile")
+    assert has_element?(view, "#profile-json-repair-toggle")
+    assert has_element?(view, "#profile-rerun-toggle")
 
     view |> element("#profile-json-repair-toggle") |> render_click()
     render_async(view, 1_000)
@@ -554,6 +544,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
              ~s(#profile-original-repair-escalation-profile[value="CPA GPT-5.6 Luna"])
            )
 
+    assert has_element?(view, "#profile-original-repair-initial-config-toggle")
+
     refute has_element?(
              view,
              ".ullm-recovery-generation-target",
@@ -564,12 +556,66 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     render_async(view, 1_000)
 
     assert has_element?(view, ~s(#profile-rerun-generation-profile[value="CPA GPT-6 Astra"]))
-    assert has_element?(view, ~s(#profile-rerun-repair-initial-profile[value="CPA GPT-6 Astra"]))
+
+    view |> element("#profile-rerun-generation-config-toggle") |> render_click()
 
     assert has_element?(
              view,
-             ~s(#profile-rerun-repair-escalation-profile[value="CPA GPT-6 Astra"])
+             ~s(#profile-rerun-generation-config-json-repair-initial-profile[value="CPA GPT-6 Astra"])
            )
+
+    assert has_element?(
+             view,
+             ~s(#profile-rerun-generation-config-json-repair-escalation-profile[value="CPA GPT-6 Astra"])
+           )
+  end
+
+  @tag :recovery
+  test "enabled generation-relative branches offer configured target adoption", %{conn: conn} do
+    primary = profile("CPA GPT-5.6 Luna", "gpt-5.6-luna")
+    astra = profile("CPA GPT-6 Astra", "gpt-6-astra")
+    defaults = full_recovery_policy()
+
+    generation_repair = %{
+      "initial" => %{"source" => "generation"},
+      "escalation" => %{"source" => "generation"}
+    }
+
+    generation_rerun = %{
+      "target" => %{"source" => "generation"},
+      "jsonRepair" => generation_repair
+    }
+
+    policy =
+      defaults
+      |> Map.put("jsonRepair", generation_repair)
+      |> Map.put("rerun", generation_rerun)
+
+    state = APIFixtures.state() |> Map.put("recoveryPolicy", policy)
+    install_stub_with([primary, astra], primary, state, defaults)
+
+    {:ok, view, _} = live(conn, ~p"/")
+    render_async(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
+    view |> element("#profile-retry-toggle") |> render_click()
+    render_async(view, 1_000)
+
+    assert has_element?(view, "#profile-original-repair .ullm-recovery-default-preview")
+    assert has_element?(view, "#profile-rerun .ullm-recovery-default-preview")
+    assert has_element?(view, "#profile-original-repair-initial-profile[disabled]")
+
+    view
+    |> element(~s(button[phx-click="use-recovery-default"][phx-value-path="jsonRepair"]))
+    |> render_click()
+
+    refute has_element?(view, "#profile-original-repair-initial-profile[disabled]")
+
+    view
+    |> element(~s(button[phx-click="use-recovery-default"][phx-value-path="rerun"]))
+    |> render_click()
+
+    refute has_element?(view, "#profile-rerun-generation-profile[disabled]")
   end
 
   @tag :recovery
