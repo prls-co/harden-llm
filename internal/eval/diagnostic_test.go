@@ -26,7 +26,7 @@ import (
 	"github.com/prls-co/harden-llm/internal/redaction"
 	"github.com/prls-co/harden-llm/internal/retry"
 	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
-	otellog "go.opentelemetry.io/otel/log"
+	"go.opentelemetry.io/otel/attribute"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
@@ -227,8 +227,10 @@ func TestDiagnosticCompletenessEval(t *testing.T) {
 	exported.WriteString(configText)
 	for _, record := range logs {
 		exported.WriteString(record.Body().String())
-		record.WalkAttributes(func(value otellog.KeyValue) bool {
-			exported.WriteString(value.String())
+		record.WalkAttributes(func(value attribute.KeyValue) bool {
+			exported.WriteString(string(value.Key))
+			exported.WriteString("=")
+			exported.WriteString(value.Value.String())
 			return true
 		})
 	}

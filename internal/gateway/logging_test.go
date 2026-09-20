@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/prls-co/harden-llm/internal/redaction"
-	otellog "go.opentelemetry.io/otel/log"
+	"go.opentelemetry.io/otel/attribute"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -74,8 +74,10 @@ func TestStructuredLogging(t *testing.T) {
 	}
 	var exported strings.Builder
 	exported.WriteString(records[0].Body().String())
-	records[0].WalkAttributes(func(value otellog.KeyValue) bool {
-		exported.WriteString(value.String())
+	records[0].WalkAttributes(func(value attribute.KeyValue) bool {
+		exported.WriteString(string(value.Key))
+		exported.WriteString("=")
+		exported.WriteString(value.Value.String())
 		return true
 	})
 	for _, forbidden := range secrets {
