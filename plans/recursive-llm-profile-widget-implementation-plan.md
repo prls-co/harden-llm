@@ -667,14 +667,14 @@ The implementing model must not mark the task complete until all are true:
 
 | Phase | Status | Implementation SHA / evidence |
 | --- | --- | --- |
-| P00 baseline and specification | Complete | `566ff8a`; ADR/spec/plan updates |
-| P01 rerun repair path regression | Complete | `566ff8a`; WEB-TEST-090 rendered sibling-path regression passes |
-| P02 pure role/path/draft contract | Complete | `566ff8a`; WEB-TEST-091/092 plus fixed-node/capability serialization tests pass |
-| P03 complete root renderer extraction | Complete | `566ff8a`; canonical `profile_widget_node/1` and full editor coverage pass |
-| P04 recursive role integration | Complete | `566ff8a`; six-node rendering, correct bindings, node-id event guards, and nested option edits pass |
-| P05 profile actions and async isolation | Complete for applicable actions | `566ff8a`; explicit nested shared-profile Save/catalog isolation passes; target-only New/Delete/Refresh/credential mutations remain intentionally disabled by role |
-| P06 hosts and persistence parity | Complete | `566ff8a`; Workspace, Profiles, and two-instance Embedding suites pass |
-| P07 final validation and handoff | Complete locally | `566ff8a`; 89 focused ExUnit tests, `make test-fast`, Go contract suites, formatting, and diff checks pass; no browser/live-provider/deploy gate run |
+| P00 baseline and specification | Complete | `d16b1d1`; ADR/spec/plan updates |
+| P01 rerun repair path regression | Complete | `d16b1d1`; WEB-TEST-090 rendered sibling-path regression passes |
+| P02 pure role/path/draft contract | Complete | `d16b1d1`; WEB-TEST-091/092 plus fixed-node/capability serialization tests pass |
+| P03 complete root renderer extraction | Complete | `d16b1d1`; canonical `profile_widget_node/1` and full editor coverage pass |
+| P04 recursive role integration | Complete | `d16b1d1`; six-node rendering, correct bindings, node-id event guards, and nested option edits pass |
+| P05 profile actions and async isolation | Complete for applicable actions | `d16b1d1`; explicit nested shared-profile Save/catalog isolation passes; target-only New/Delete/Refresh/credential mutations remain intentionally disabled by role |
+| P06 hosts and persistence parity | Complete | `d16b1d1`; Workspace, Profiles, and two-instance Embedding suites pass |
+| P07 final validation and handoff | Complete locally | `d16b1d1`; 89 focused ExUnit tests, `make test-fast`, Go contract suites, formatting, and diff checks pass; no browser/live-provider/deploy gate run |
 
 If completion would require new REST capabilities, unsupported profile-save
 semantics, or materially broader infrastructure, stop that expansion, explain
