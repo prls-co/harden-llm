@@ -1918,3 +1918,40 @@ layout, native browser events, LiveSocket proxy flushing, and browser SSE
 behavior remain unverified. The unrelated local edit to
 `frontend/test/browser/deployed_canary_test.exs` was preserved and was not
 part of this release.
+
+## Astra profile and live recovery closeout (2026-09-19 UTC)
+
+The external CPA prerequisite is now provisioned and verified. CPA upstream
+commits `f375487d29a06bd4cb0ad204cc19dbcf6e7dfb6d` and
+`f447bf5cba7aa28f6a242284d166b338e37a4d47` are present on its remote `main`;
+the running CPA image is
+`sha256:99bedd436cf04530451aeff67b88d3e76dfff2f2c48691dbf68d07e0c27c7288`.
+The harden-llm production gateway remains
+`sha256:9395f2465e32a5f3b00802e5eff24ad7d98f5d717e63acd0a0aeba84f6618673`;
+the web service is release `0f7544f`, image
+`sha256:ff5503b38bbb01b4a326adaa5021e6bd53cb4e225c9fc6d69ecc7d88947b96de`.
+Both services were healthy during verification.
+
+The trusted profile synchronization read back **32 managed profiles and 22
+configured bindings** for both guest and operator accounts. `CPA GPT-6 Astra`
+is configured for `gpt-6-astra` over the Responses protocol, with the required
+lowest/middle/highest reasoning choices and the default rerun/recovery
+topology. Its Standard short-context pricing is $10/M input tokens, $1/M
+cached-input tokens, $12.50/M cache-write tokens, and $50/M output tokens;
+the profile stores the corresponding per-token values. These are the official
+OpenAI rates, not CPA's internal accounting values; see the [OpenAI API
+pricing](https://developers.openai.com/api/docs/pricing) page.
+
+| Gate or production check | Result |
+| --- | --- |
+| Deployed browser canary (`--allow-browser`) | Passed. Release identity, web/API health and login probes returned 200; the deployed retry/rerun UI exposed all three Astra pickers and `lowest`, `middle`, and `highest` reasoning options. The bounded Luna web-search smoke and history cleanup also passed. |
+| Bounded live Astra request | Passed with HTTP 200 through `https://harden-llm-api.prls.co/api/v1/run`; provider was invoked, the structured result succeeded on attempt 1, and the trace request/response resources were available. |
+| Live Astra usage/cost | 45 input tokens, 14 output tokens, 59 total; 2,884 ms total call duration; exact profile cost `$0.00115`; no over-budget time. |
+| History cleanup | Passed with HTTP 200; the smoke run was removed after trace readback. |
+| `mix format --check-formatted` and `git diff --check` | Passed. |
+
+The credential-free embedded 28-profile catalog was intentionally left
+unchanged. The approved external managed JSON catalog remains the source of
+production profile availability; a fresh environment must run the trusted
+profile synchronization before enabling the Astra defaults. No provider
+secret, response body, or bearer token is committed.

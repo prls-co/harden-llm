@@ -32,13 +32,17 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
      }}
   end
 
-  feature "deployed widget runs one bounded CPA GPT-5.6 Luna smoke with History cleanup", %{
-    session: session,
-    email: email,
-    password: password,
-    nonce: nonce
-  } do
-    prompt = "Tell me one short joke. Smoke nonce: #{nonce}"
+  feature "deployed widget runs one bounded CPA GPT-5.6 Luna search smoke with History cleanup",
+          %{
+            session: session,
+            email: email,
+            password: password,
+            nonce: nonce
+          } do
+    prompt_prefix = "Search the web for the official OpenAI website"
+
+    prompt =
+      "#{prompt_prefix} and reply with its domain only. Smoke nonce: #{nonce}"
 
     session =
       session
@@ -56,11 +60,59 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       |> assert_no_horizontal_overflow()
       |> commit_combobox("#run_selectedProfileId", "CPA GPT-5.6 Luna")
       |> assert_field_value("#run_selectedProfileId", "CPA GPT-5.6 Luna")
+
+    session =
+      if javascript_value(
+           session,
+           "return document.querySelector('#workspace-web-search-toggle')?.getAttribute('aria-pressed');"
+         ) == "true" do
+        session
+      else
+        click(session, Query.css("#workspace-web-search-toggle"))
+      end
+
+    session =
+      session
+      |> assert_has(Query.css("#workspace-web-search-toggle[aria-pressed='true']"))
+
+    assert javascript_value(
+             session,
+             "return document.querySelector('#workspace-web-search')?.value;"
+           ) == "true"
+
+    session =
+      session
       |> open_ui_fold("#model-config-toggle", "#profile-config-fields")
       |> open_fold("#profile-options-toggle", "#profile-options")
       |> open_fold("#profile-retry-toggle", "#profile-retry-repair")
-      |> open_fold("#profile-escalation-config-toggle", "#profile-escalation-config")
-      |> open_fold("#escalation-options-toggle", "#escalation-options")
+      |> assert_has(Query.css("#profile-escalation-config-toggle", count: 0, visible: :any))
+
+    session =
+      session
+      |> click(Query.css("#profile-rerun-toggle"))
+      |> assert_has(Query.css("#profile-rerun-generation-profile[value='CPA GPT-6 Astra']"))
+      |> assert_has(Query.css("#profile-rerun-repair-initial-profile[value='CPA GPT-6 Astra']"))
+      |> assert_has(
+        Query.css("#profile-rerun-repair-escalation-profile[value='CPA GPT-6 Astra']")
+      )
+      |> assert_has(Query.css("#profile-rerun-generation-reasoning:not([disabled])"))
+      |> assert_has(Query.css("#profile-rerun-repair-initial-reasoning:not([disabled])"))
+      |> assert_has(Query.css("#profile-rerun-repair-escalation-reasoning:not([disabled])"))
+
+    astra_reasoning_values =
+      javascript_value(
+        session,
+        """
+        return Array.from(document.querySelectorAll(
+          '#profile-rerun-generation-reasoning option'
+        )).map(option => option.value);
+        """
+      )
+
+    assert astra_reasoning_values == ["lowest", "middle", "highest"]
+
+    session =
+      session
       |> open_fold("#profile-pricing-toggle", "#profile-pricing")
       |> open_ui_fold("#input-advanced-toggle", "#advanced-input:not(.hidden)")
       |> fill_in(Query.css("#run_userPrompt"), with: prompt)
@@ -124,6 +176,25 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       |> assert_has(Query.css("#output-trace-request-content"))
       |> click(Query.css("#output-trace-show-response"))
       |> assert_has(Query.css("#output-trace-response-content"))
+
+    search_facts =
+      javascript_value(
+        session,
+        """
+        const request = document.querySelector('#output-trace-request-content')?.textContent || '';
+        const response = document.querySelector('#output-trace-response-content')?.textContent || '';
+        return {
+          requestWebSearch: /["']webSearch["'][^a-zA-Z0-9]+true/.test(request),
+          responseSearch: /["']search["'][^a-zA-Z0-9]+/.test(response),
+          responseExecuted: /["']executed["'][^a-zA-Z0-9]+true/.test(response)
+        };
+        """
+      )
+
+    assert search_facts["requestWebSearch"], "deployed request did not retain web search intent"
+
+    session =
+      session
       |> click(Query.css("#output-trace-summary"))
       |> assert_has(Query.css("#output-trace-content[hidden]", visible: :any))
       |> assert_dom_attribute("#output-trace-content", "hidden", "")
@@ -203,11 +274,47 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
 
     assert is_binary(run_id) and String.starts_with?(run_id, "workspace-history-")
 
+    matching_run_ids =
+      javascript_value(
+        session,
+        """
+        return Array.from(document.querySelectorAll('#workspace-history article'))
+          .filter(node => node.textContent.includes(arguments[0]))
+          .map(node => node.id);
+        """,
+        [prompt_prefix]
+      )
+
+    assert is_list(matching_run_ids) and run_id in matching_run_ids
+
+    session =
+      Enum.reduce(matching_run_ids, session, fn matching_run_id, session ->
+        session
+        |> scroll_to_selector("##{matching_run_id} button[phx-click='delete-history']")
+        |> click(Query.css("##{matching_run_id} button[phx-click='delete-history']"))
+        |> assert_has(Query.css("##{matching_run_id}", count: 0, visible: :any))
+      end)
+
+    assert search_facts["responseSearch"], "deployed response omitted search metadata"
+    assert search_facts["responseExecuted"], "deployed response did not report executed search"
+
+    session =
+      if javascript_value(
+           session,
+           "return Boolean(document.querySelector('#run-result-panel .llm-result.is-expanded'));"
+         ) do
+        session
+      else
+        send_keys(session, Query.css("#run-result-panel button[id$='-toggle-output']"), [:enter])
+      end
+
     session =
       session
-      |> scroll_to_selector("##{run_id} button[phx-click='delete-history']")
-      |> click(Query.css("##{run_id} button[phx-click='delete-history']"))
-      |> assert_has(Query.css("##{run_id}", count: 0, visible: :any))
+      |> assert_has(Query.css("#run-result-panel .llm-result.is-expanded"))
+      |> assert_has(Query.css("#run-result-panel .llm-result-search-details"))
+      |> assert_has(
+        Query.css("#run-result-panel .llm-result-search-details span", text: "searched")
+      )
       |> assert_no_horizontal_overflow()
       |> click(Query.css("#logout-button"))
       |> assert_has(Query.css("#login-page"))

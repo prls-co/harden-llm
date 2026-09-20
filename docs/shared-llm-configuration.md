@@ -217,3 +217,33 @@ were retained. The development `HARDEN_LLM_TOKEN` was not copied to production.
 Health/readiness, both web logins, static-token API access, and retained guest
 History/trace reads passed without a browser or paid provider request. This
 validates deployment/configuration, not upstream key acceptance or live search.
+
+## 6. Astra managed-profile rollout — 2026-09-19
+
+The approved external catalog now includes `CPA GPT-6 Astra` (`gpt-6-astra`,
+Responses protocol, CPA endpoint) and was synchronized with the trusted
+administrative command. Authenticated readback from both production accounts
+reported **32 managed profiles and 22 configured bindings**. Astra exposes
+`lowest`, `middle`, and `highest` reasoning options and is used by the default
+rerun/recovery topology as documented in the recovery plan.
+
+The profile uses the official OpenAI Standard short-context rates converted to
+per-token accounting: input `0.00001`, cached input `0.000001`, cache creation
+`0.0000125`, output `0.00005`, and reasoning `0`. The authoritative source is
+the [OpenAI API pricing](https://developers.openai.com/api/docs/pricing) page.
+The exact values are stored in the managed JSON catalog, not in `.env` and not
+in CPA's provider-side pricing metadata.
+
+The production readback and a bounded live structured request verified that
+CPA Astra is configured and callable through harden-llm. The request succeeded
+on its first attempt with exact profile accounting, complete trace resources,
+and a 2.884-second provider call; the temporary history row was then deleted.
+The authorized deployed browser canary also verified that all three Astra
+pickers render in the retries/rerun UI and that their reasoning controls expose
+the three supported choices.
+
+The credential-free embedded 28-profile seed remains unchanged by design. It
+is used for deterministic/local fixtures and does not contain provider keys.
+New environments must provision the approved external catalog with
+`sync-profiles` before relying on the Astra defaults; configuration sync and
+live provider acceptance remain separately evidenced boundaries.

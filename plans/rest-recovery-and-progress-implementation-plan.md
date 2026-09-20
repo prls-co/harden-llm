@@ -1283,6 +1283,32 @@ explicit release blocker for enabling the six-stage default operationally.
 The pre-existing `frontend/test/browser/deployed_canary_test.exs` working-tree
 edit was preserved and is not part of this implementation.
 
+### 15.3.1 Astra prerequisite closeout (2026-09-19)
+
+The historical verification above intentionally recorded the unverified
+boundary at that time. The prerequisite was subsequently closed through the
+approved external managed catalog, without changing the credential-free
+embedded seed:
+
+- CPA upstream `main` contains the Astra support commits
+  `f375487d29a06bd4cb0ad204cc19dbcf6e7dfb6d` and
+  `f447bf5cba7aa28f6a242284d166b338e37a4d47`; the running CPA image is
+  `sha256:99bedd436cf04530451aeff67b88d3e76dfff2f2c48691dbf68d07e0c27c7288`.
+- Trusted synchronization and authenticated readback passed for both accounts:
+  32 managed profiles, 22 configured bindings, and the `CPA GPT-6 Astra`
+  profile with lowest/middle/highest reasoning options.
+- The deployed browser canary passed the Astra picker/reasoning assertions,
+  release identity and health/login probes, bounded Luna web-search smoke, and
+  history cleanup.
+- One bounded live Astra structured request passed through the production REST
+  API (HTTP 200, provider invoked, exact profile accounting, trace
+  request/response resources available, and cleanup completed).
+
+The application image was not rebuilt for this configuration-only closeout.
+The external managed catalog remains required for a fresh environment; the
+embedded 28-profile catalog is deliberately unchanged and remains
+credential-free.
+
 ### 15.4 Definition of done
 
 - [x] P01 contracts and ADR recorded; strict examples and canonical IDs registered.
@@ -1295,7 +1321,7 @@ edit was preserved and is not part of this implementation.
 - [x] P08 existing UI hosts reuse picker/repair/results without policy duplication.
 - [x] P09 relevant regression matrix, fast gate, and required real integration evidence recorded.
 - [x] No timeout baseline increase, skipped required assertion, or unreported failed evidence.
-- [ ] Approved CPA Astra profile exists before the full default preset is enabled operationally (external configuration prerequisite; synthetic/local profiles only were verified).
+- [x] Approved CPA Astra profile exists before the full default preset is enabled operationally (closed by external managed-profile synchronization and live/browser evidence on 2026-09-19; the embedded 28-profile seed remains credential-free and unchanged).
 - [x] No deployment, visual layout, or paid-provider success claimed without corresponding evidence.
 
 ### 15.5 Copyable implementation handoff
