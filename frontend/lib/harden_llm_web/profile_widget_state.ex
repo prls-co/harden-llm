@@ -23,8 +23,138 @@ defmodule HardenLlmWeb.ProfileWidgetState do
     "topK" => {"top_k", :integer}
   }
 
+  @leaf_target_fields ~w(source profileId modelId reasoningEffort providerOptions)
+
+  @recovery_node_descriptors %{
+    "original" => %{
+      "role" => "original_generation",
+      "targetPath" => [],
+      "repairPath" => ["recoveryPolicy", "jsonRepair"]
+    },
+    "original-repair-initial" => %{
+      "role" => "json_repair",
+      "targetPath" => ["recoveryPolicy", "jsonRepair", "initial"],
+      "repairPath" => nil
+    },
+    "original-repair-escalation" => %{
+      "role" => "json_repair",
+      "targetPath" => ["recoveryPolicy", "jsonRepair", "escalation"],
+      "repairPath" => nil
+    },
+    "rerun" => %{
+      "role" => "rerun_generation",
+      "targetPath" => ["recoveryPolicy", "rerun", "target"],
+      "repairPath" => ["recoveryPolicy", "rerun", "jsonRepair"]
+    },
+    "rerun-repair-initial" => %{
+      "role" => "json_repair",
+      "targetPath" => ["recoveryPolicy", "rerun", "jsonRepair", "initial"],
+      "repairPath" => nil
+    },
+    "rerun-repair-escalation" => %{
+      "role" => "json_repair",
+      "targetPath" => ["recoveryPolicy", "rerun", "jsonRepair", "escalation"],
+      "repairPath" => nil
+    }
+  }
+
+  @role_capabilities %{
+    "original_generation" => %{
+      "jsonRepair" => true,
+      "rerun" => true,
+      "retryPolicy" => true,
+      "webSearch" => true,
+      "cache" => true
+    },
+    "rerun_generation" => %{
+      "jsonRepair" => true,
+      "rerun" => false,
+      "retryPolicy" => false,
+      "webSearch" => true,
+      "cache" => true
+    },
+    "json_repair" => %{
+      "jsonRepair" => false,
+      "rerun" => false,
+      "retryPolicy" => false,
+      "webSearch" => false,
+      "cache" => false
+    }
+  }
+
   @doc "Returns the small built-in catalog used only when a host supplies none."
   def default_model_options, do: @default_models
+
+  @doc "Returns the finite, server-owned recovery node identifiers."
+  def recovery_node_ids, do: Map.keys(@recovery_node_descriptors)
+
+  @doc "Returns a recovery node descriptor or nil for an unknown node."
+  def recovery_node_descriptor(node_id) when is_binary(node_id),
+    do: Map.get(@recovery_node_descriptors, node_id)
+
+  def recovery_node_descriptor(_node_id), do: nil
+
+  @doc "Returns role capabilities for a fixed recovery node and host context."
+  def recovery_node_capabilities(node_id, host_context \\ "workspace")
+
+  def recovery_node_capabilities(node_id, host_context) when is_binary(node_id) do
+    with %{"role" => role} <- recovery_node_descriptor(node_id),
+         capabilities when is_map(capabilities) <- capabilities(role, host_context) do
+      capabilities
+    else
+      _ -> %{}
+    end
+  end
+
+  def recovery_node_capabilities(_node_id, _host_context), do: %{}
+
+  @doc "Returns capabilities for a server-owned role; unknown roles have none."
+  def capabilities(role, host_context \\ "workspace")
+
+  def capabilities(role, host_context) when is_binary(role) do
+    case Map.get(@role_capabilities, role) do
+      capabilities when is_map(capabilities) and host_context == "profile_definition" ->
+        Map.drop(capabilities, ["webSearch", "cache"])
+
+      capabilities when is_map(capabilities) ->
+        capabilities
+
+      _ ->
+        %{}
+    end
+  end
+
+  def capabilities(_role, _host_context), do: %{}
+
+  @doc "Checks one capability without accepting arbitrary role input from a client."
+  def recovery_capability?(node_id, capability)
+      when is_binary(node_id) and is_binary(capability) do
+    recovery_capability?(node_id, "workspace", capability)
+  end
+
+  def recovery_capability?(_node_id, _capability), do: false
+
+  @doc "Checks one capability for a fixed node and host context."
+  def recovery_capability?(node_id, host_context, capability)
+      when is_binary(node_id) and is_binary(host_context) and is_binary(capability) do
+    Map.get(recovery_node_capabilities(node_id, host_context), capability, false) == true
+  end
+
+  def recovery_capability?(_node_id, _host_context, _capability), do: false
+
+  @doc "Returns the target path for a finite recovery node."
+  def recovery_node_target_path(node_id) do
+    case recovery_node_descriptor(node_id) do
+      %{"targetPath" => path} -> path
+      _ -> nil
+    end
+  end
+
+  @doc "Alias used by renderers and host adapters for the fixed descriptor lookup."
+  def node_descriptor(node_id), do: recovery_node_descriptor(node_id)
+
+  @doc "Returns a fixed node's canonical target path."
+  def node_path(node_id), do: recovery_node_target_path(node_id)
 
   @doc "Resolves the initial profile without hiding the backend-owned presets."
   def resolve_selected_profile_id(profiles, selected_id) when is_list(profiles) do
@@ -279,15 +409,74 @@ defmodule HardenLlmWeb.ProfileWidgetState do
 
   @doc "Serializes one leaf target without introducing a nested recovery policy."
   def serialize_recovery_target(target) when is_map(target) do
+    provider_options = target_provider_options(target)
+
     target
-    |> Map.take(~w(source profileId modelId reasoningEffort providerOptions))
+    |> Map.take(@leaf_target_fields)
     |> Map.new(fn
-      {"providerOptions", value} when is_map(value) -> {"providerOptions", value}
+      {"providerOptions", _value} -> {"providerOptions", provider_options}
       entry -> entry
     end)
+    |> maybe_put_provider_options(provider_options, target)
   end
 
   def serialize_recovery_target(_target), do: %{}
+
+  @doc "Patches one target while rejecting fields outside the leaf contract."
+  def patch_recovery_target(target, incoming) when is_map(target) and is_map(incoming) do
+    target
+    |> merge_draft(incoming)
+    |> serialize_recovery_target()
+  end
+
+  def patch_recovery_target(_target, _incoming), do: %{}
+
+  @doc "Patches one fixed node in a full draft and rejects unknown nodes."
+  def patch_node(draft, node_id, field_patch)
+      when is_map(draft) and is_binary(node_id) and is_map(field_patch) do
+    case recovery_node_target_path(node_id) do
+      path when is_list(path) and path != [] ->
+        current = get_in(draft, path) || %{}
+        {:ok, put_in(draft, path, patch_recovery_target(current, field_patch))}
+
+      _ ->
+        {:error, :unknown_or_non_target_node}
+    end
+  end
+
+  def patch_node(_draft, _node_id, _field_patch), do: {:error, :invalid_node_patch}
+
+  @doc "Serializes a full profile/run draft without UI-only node state."
+  def serialize_widget(draft) when is_map(draft) do
+    draft = Map.drop(draft, ["ui", "nodeState", "recoveryTargetConfigOpen"])
+
+    case Map.fetch(draft, "recoveryPolicy") do
+      {:ok, policy} -> Map.put(draft, "recoveryPolicy", serialize_current_recovery_policy(policy))
+      :error -> draft
+    end
+  end
+
+  def serialize_widget(draft), do: draft
+
+  @doc "Starts a selected profile target with no stale per-profile overrides."
+  def reset_recovery_target_for_profile(target, profiles)
+      when is_map(target) and is_list(profiles) do
+    profile_id = normalize_text(target["profileId"])
+
+    case Enum.find(profiles, &(get_in(&1, ["profile", "llmProfile"]) == profile_id)) do
+      nil ->
+        target
+
+      profile_state ->
+        %{
+          "source" => "profile",
+          "profileId" => profile_id,
+          "reasoningEffort" => profile_default_reasoning(profile_state)
+        }
+    end
+  end
+
+  def reset_recovery_target_for_profile(target, _profiles), do: target
 
   @doc "Returns a policy branch in the shape consumed by the shared target picker."
   def recovery_branch(policy, key) when is_map(policy) and key in ["jsonRepair", "rerun"] do
@@ -345,4 +534,79 @@ defmodule HardenLlmWeb.ProfileWidgetState do
   defp serialize_repair_plan(value), do: value
 
   defp generation_repair_plan, do: default_recovery_repair_plan()
+
+  defp target_provider_options(target) do
+    base = if is_map(target["providerOptions"]), do: target["providerOptions"], else: %{}
+
+    base =
+      case Map.get(target, "defaultOptionsJson") do
+        value when is_binary(value) ->
+          case Jason.decode(value) do
+            {:ok, decoded} when is_map(decoded) -> decoded
+            _ -> base
+          end
+
+        _ ->
+          base
+      end
+
+    base
+    |> patch_target_number("maxTokens", "max_tokens", :integer, target)
+    |> patch_target_number("temperature", "temperature", :float, target)
+    |> patch_target_number("topP", "top_p", :float, target)
+    |> patch_target_number("topK", "top_k", :integer, target)
+    |> patch_target_stop(target)
+  end
+
+  defp patch_target_number(options, field, option_key, kind, target) do
+    if Map.has_key?(target, field) do
+      value = target[field]
+
+      if blank?(value) do
+        Map.delete(options, option_key)
+      else
+        case parse_number(value, kind) do
+          {:ok, parsed} -> Map.put(options, option_key, parsed)
+          :error -> options
+        end
+      end
+    else
+      options
+    end
+  end
+
+  defp patch_target_stop(options, target) do
+    if Map.has_key?(target, "stopSequences") do
+      stops =
+        target["stopSequences"]
+        |> to_string()
+        |> String.split("\n")
+        |> Enum.map(&String.trim/1)
+        |> Enum.reject(&(&1 == ""))
+
+      if stops == [], do: Map.delete(options, "stop"), else: Map.put(options, "stop", stops)
+    else
+      options
+    end
+  end
+
+  defp maybe_put_provider_options(target, provider_options, original)
+       when is_map(provider_options) do
+    option_fields = ~w(defaultOptionsJson maxTokens temperature topP topK stopSequences)
+
+    if Map.has_key?(original, "providerOptions") or
+         Enum.any?(option_fields, &Map.has_key?(original, &1)),
+       do: Map.put(target, "providerOptions", provider_options),
+       else: target
+  end
+
+  defp profile_default_reasoning(profile_state) do
+    map = get_in(profile_state, ["profile", "reasoningEffortMap"])
+
+    cond do
+      is_map(map) and Map.has_key?(map, "lowest") -> "lowest"
+      is_map(map) -> map |> Map.keys() |> Enum.sort() |> List.first() || ""
+      true -> ""
+    end
+  end
 end

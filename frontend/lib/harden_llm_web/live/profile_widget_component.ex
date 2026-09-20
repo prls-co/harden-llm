@@ -17,8 +17,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     HardenAPI,
     Observability,
     ProfileDefaults,
-    ProfileWidgetState,
-    ProfilesLive
+    ProfileForm,
+    ProfileWidgetState
   }
 
   @api_inference_types [
@@ -29,6 +29,14 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   ]
 
   @reasoning_options [{"lowest", "L"}, {"middle", "M"}, {"highest", "H"}]
+
+  @recovery_target_paths [
+    ["jsonRepair", "initial"],
+    ["jsonRepair", "escalation"],
+    ["rerun", "target"],
+    ["rerun", "jsonRepair", "initial"],
+    ["rerun", "jsonRepair", "escalation"]
+  ]
 
   @fold_keys ~w(
     main_credential_open main_options_open main_retry_open main_pricing_open
@@ -43,13 +51,16 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
      |> assign(:recovery_policy_default, %{})
      |> assign(:active_recovery_policy, %{})
      |> assign(:id_prefix, "")
+     |> assign(:host_context, "workspace")
+     |> assign(:definition_form, nil)
+     |> assign(:definition_revision, nil)
      |> assign(:target_only, false)
      |> assign(:target_value, %{})
      |> assign(:target_name, "recoveryTarget")
      |> assign(:recovery_target_config_open, %{})
      |> assign(:loaded_profile_id, nil)
      |> assign(:profiles_revision, nil)
-     |> assign(:main_form, to_form(ProfilesLive.empty_form(%{}), as: :profile))
+     |> assign(:main_form, to_form(ProfileForm.empty_form(%{}), as: :profile))
      |> assign(:main_dirty?, false)
      |> assign(:main_revision, 0)
      |> assign(:main_requires_save?, false)
@@ -68,6 +79,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
      |> assign(:fold_disabled, false)
      |> assign(:pending, nil)
      |> assign(:pending_profile_revision, nil)
+     |> assign(:pending_target_path, nil)
      |> assign(:operation_error, nil)
      |> assign(:delete_confirm, false)}
   end
@@ -78,12 +90,21 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     selected_profile_id = Map.get(assigns, :selected_profile_id, "") || ""
     revision = :erlang.phash2(profiles)
     active_recovery_policy = active_recovery_policy(assigns, socket.assigns)
+    host_context = Map.get(assigns, :host_context, socket.assigns.host_context)
+    definition_form = Map.get(assigns, :definition_form)
+    definition_revision = Map.get(assigns, :definition_revision)
+
+    definition_changed? =
+      host_context == "profile_definition" and not is_nil(definition_form) and
+        definition_revision != socket.assigns.definition_revision
+
     component_assigns = Map.delete(assigns, :recovery_policy)
 
     socket =
       socket
       |> assign(component_assigns)
       |> assign(:id_prefix, Map.get(assigns, :id_prefix, socket.assigns.id_prefix))
+      |> assign(:host_context, Map.get(assigns, :host_context, socket.assigns.host_context))
       |> assign(
         :target_only,
         Map.get(assigns, :target_only, Map.get(socket.assigns, :target_only, false))
@@ -97,6 +118,17 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         Map.get(assigns, :target_name, Map.get(socket.assigns, :target_name, "recoveryTarget"))
       )
       |> assign(:active_recovery_policy, active_recovery_policy)
+
+    socket =
+      if definition_changed? do
+        socket
+        |> assign(:definition_form, definition_form)
+        |> assign(:definition_revision, definition_revision)
+        |> assign(:main_form, definition_form)
+        |> assign(:main_dirty?, false)
+      else
+        socket
+      end
 
     needs_profile_reset? =
       not socket.assigns.initialized? or
@@ -119,6 +151,11 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         )
         |> assign(:profiles_revision, revision)
       end
+
+    socket =
+      if definition_changed?,
+        do: assign(socket, :main_form, definition_form),
+        else: socket
 
     socket = sync_active_recovery_policy(socket)
 
@@ -236,9 +273,23 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     end
   end
 
+  def handle_event("toggle-section", %{"section" => section}, socket)
+      when section in ["options_open", "retry_open", "pricing_open", "credential_open"] do
+    fold = String.replace_suffix(section, "_open", "")
+    handle_event("toggle-fold", %{"fold" => fold}, socket)
+  end
+
+  def handle_event("toggle-section", _params, socket), do: {:noreply, socket}
+
   def handle_event("profile-draft-change", %{"profile" => params}, socket) do
     socket = update_profile_form(socket, params)
-    socket = notify_profile_runtime(socket, Map.get(params, "recoveryPolicy"))
+
+    recovery_intent =
+      if Map.has_key?(params, "recoveryPolicy"),
+        do: socket.assigns.active_recovery_policy,
+        else: nil
+
+    socket = notify_profile_runtime(socket, recovery_intent)
     noreply(socket)
   end
 
@@ -259,7 +310,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
   def handle_event("recovery-target-change", _params, socket), do: {:noreply, socket}
 
-  def handle_event("toggle-json-repair", _params, socket),
+  def handle_event("toggle-json-repair", %{"node-id" => "original"}, socket),
     do:
       toggle_recovery_branch(socket, ["jsonRepair"], fn ->
         default_recovery_branch(
@@ -269,7 +320,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         )
       end)
 
-  def handle_event("toggle-rerun", _params, socket),
+  def handle_event("toggle-json-repair", _params, socket), do: {:noreply, socket}
+
+  def handle_event("toggle-rerun", %{"node-id" => "original"}, socket),
     do:
       toggle_recovery_branch(socket, ["rerun"], fn ->
         default_recovery_branch(
@@ -279,8 +332,13 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         )
       end)
 
-  def handle_event("toggle-rerun-json-repair", %{"path" => path}, socket)
-      when path == "rerun.jsonRepair" do
+  def handle_event("toggle-rerun", _params, socket), do: {:noreply, socket}
+
+  def handle_event(
+        "toggle-rerun-json-repair",
+        %{"path" => "rerun.jsonRepair", "node-id" => "rerun"},
+        socket
+      ) do
     toggle_recovery_branch(socket, ["rerun", "jsonRepair"], fn ->
       default_recovery_branch(
         socket,
@@ -290,29 +348,47 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     end)
   end
 
-  def handle_event("toggle-rerun-json-repair", _params, socket),
-    do:
-      toggle_recovery_branch(socket, ["rerun", "jsonRepair"], fn ->
-        default_recovery_branch(
-          socket,
-          ["rerun", "jsonRepair"],
-          &ProfileWidgetState.default_recovery_repair_plan/0
-        )
-      end)
+  def handle_event("toggle-rerun-json-repair", _params, socket), do: {:noreply, socket}
 
   def handle_event("toggle-recovery-target-config", %{"path" => path}, socket)
       when is_binary(path) and path != "" do
-    open? = not Map.get(socket.assigns.recovery_target_config_open, path, false)
+    if not valid_target_config_path?(path) do
+      {:noreply, socket}
+    else
+      open? = not Map.get(socket.assigns.recovery_target_config_open, path, false)
 
-    socket
-    |> update(:recovery_target_config_open, &Map.put(&1, path, open?))
-    |> noreply()
+      socket
+      |> update(:recovery_target_config_open, &Map.put(&1, path, open?))
+      |> noreply()
+    end
   end
 
   def handle_event("toggle-recovery-target-config", _params, socket), do: {:noreply, socket}
 
-  def handle_event("toggle-repair-escalation", %{"path" => path}, socket)
-      when path in ["jsonRepair", "rerun.jsonRepair"] do
+  def handle_event("toggle-recovery-target-fold", %{"path" => path, "fold" => fold}, socket)
+      when is_binary(path) and path != "" and fold in ["options", "retry", "pricing"] do
+    if not valid_target_config_path?(path) do
+      {:noreply, socket}
+    else
+      key = "#{path}.#{fold}"
+
+      socket
+      |> update(:recovery_target_config_open, fn values ->
+        Map.update(values, key, true, fn open? -> not open? end)
+      end)
+      |> noreply()
+    end
+  end
+
+  def handle_event("toggle-recovery-target-fold", _params, socket), do: {:noreply, socket}
+
+  def handle_event(
+        "toggle-repair-escalation",
+        %{"path" => path, "node-id" => node_id},
+        socket
+      )
+      when (path == "jsonRepair" and node_id == "original") or
+             (path == "rerun.jsonRepair" and node_id == "rerun") do
     keys = String.split(path, ".", trim: true)
 
     update_recovery_draft(socket, fn policy ->
@@ -338,8 +414,13 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
   def handle_event("toggle-repair-escalation", _params, socket), do: {:noreply, socket}
 
-  def handle_event("use-recovery-default", %{"path" => path}, socket)
-      when path in ["jsonRepair", "rerun", "rerun.jsonRepair"] do
+  def handle_event(
+        "use-recovery-default",
+        %{"path" => path, "node-id" => node_id},
+        socket
+      )
+      when (path in ["jsonRepair", "rerun"] and node_id == "original") or
+             (path == "rerun.jsonRepair" and node_id == "rerun") do
     keys = String.split(path, ".", trim: true)
 
     update_recovery_draft(socket, fn policy ->
@@ -357,7 +438,12 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       {:noreply, socket}
     else
       key = :main_credential_open
-      {:noreply, update(socket, key, &(!&1))}
+      open = not truthy?(socket.assigns.main_credential_open)
+
+      socket
+      |> assign(key, open)
+      |> notify_parent({:profile_widget_ui, "credentialOpen", open})
+      |> noreply()
     end
   end
 
@@ -379,7 +465,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         |> assign(:operation_error, nil)
         |> mark_main_edit()
 
-      {:noreply, notify_profile_runtime(socket)}
+      socket = notify_profile_runtime(socket)
+      {:noreply, notify_parent(socket, {:profile_widget_ui, "credentialOpen", false})}
     end
   end
 
@@ -392,12 +479,14 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   end
 
   def handle_event("cancel-key", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:main_staged_key, "")
-     |> assign(:main_credential_open, false)
-     |> update_profile_form(%{"apiKey" => ""})
-     |> notify_profile_runtime()}
+    socket =
+      socket
+      |> assign(:main_staged_key, "")
+      |> assign(:main_credential_open, false)
+      |> update_profile_form(%{"apiKey" => ""})
+      |> notify_profile_runtime()
+
+    {:noreply, notify_parent(socket, {:profile_widget_ui, "credentialOpen", false})}
   end
 
   def handle_event("new-profile", _params, socket) do
@@ -420,6 +509,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     |> assign(:loaded_profile_id, selected_profile_id)
     |> assign(:main_config_open, true)
     |> assign(:main_dirty?, true)
+    |> maybe_notify_definition_draft(socket.assigns.main_form.params)
     |> notify_parent({:profile_widget_selection, selection})
     |> notify_profile_runtime()
     |> noreply()
@@ -454,6 +544,11 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     end
   end
 
+  def handle_event("profile-save", %{"node-path" => path}, socket)
+      when is_binary(path) and path != "" do
+    save_target_profile(socket, path)
+  end
+
   def handle_event("profile-save", _params, socket) do
     if socket.assigns.pending != nil do
       {:noreply, socket}
@@ -463,7 +558,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         |> params_with_staged_key()
         |> Map.put("recoveryPolicy", socket.assigns.active_recovery_policy)
 
-      case ProfilesLive.profile_payload(params) do
+      case ProfileForm.profile_payload(params) do
         {:ok, payload} ->
           reference = System.unique_integer([:positive, :monotonic])
           handle = socket.assigns.session_handle
@@ -591,14 +686,58 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       else
         socket
         |> assign(:main_dirty?, false)
-        |> assign(:main_form, to_form(ProfilesLive.profile_form(profile_state), as: :profile))
+        |> assign(:main_form, to_form(ProfileForm.profile_form(profile_state), as: :profile))
         |> assign(:main_staged_key, "")
         |> sync_active_recovery_policy()
         |> notify_profile_runtime()
       end
 
     socket
-    |> notify_parent({:profile_widget_profiles, profiles, socket.assigns.selected_profile_id})
+    |> notify_parent({:profile_widget_catalog, profiles})
+    |> noreply()
+  end
+
+  def handle_async(
+        {:profile_save_target, reference, path},
+        {:ok, {:ok, profile_state, _state}},
+        %{assigns: %{pending: reference, pending_target_path: pending_path}} = socket
+      )
+      when pending_path == path do
+    profiles = replace_profile(socket.assigns.profiles, profile_state)
+
+    socket
+    |> assign(:pending, nil)
+    |> assign(:pending_target_path, nil)
+    |> assign(:profiles, profiles)
+    |> assign(:profiles_revision, :erlang.phash2(profiles))
+    |> assign(:operation_error, nil)
+    |> notify_parent({:profile_widget_catalog, profiles})
+    |> noreply()
+  end
+
+  def handle_async(
+        {:profile_save_target, reference, path},
+        {:ok, {:error, %APIError{} = error}},
+        %{assigns: %{pending: reference, pending_target_path: pending_path}} = socket
+      )
+      when pending_path == path do
+    socket
+    |> assign(:pending, nil)
+    |> assign(:pending_target_path, nil)
+    |> assign(:operation_error, error.message)
+    |> noreply()
+  end
+
+  def handle_async(
+        {:profile_save_target, reference, path},
+        _result,
+        %{assigns: %{pending: reference, pending_target_path: pending_path}} = socket
+      )
+      when pending_path == path do
+    socket
+    |> assign(:pending, nil)
+    |> assign(:pending_target_path, nil)
+    |> assign(:operation_error, "The shared profile could not be saved.")
     |> noreply()
   end
 
@@ -611,9 +750,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     |> assign(:profiles_revision, :erlang.phash2(profiles))
     |> assign(:operation_error, nil)
     |> assign(:field_errors, %{})
-    |> assign(:main_form, to_form(ProfilesLive.profile_form(profile_state), as: :profile))
+    |> assign(:main_form, to_form(ProfileForm.profile_form(profile_state), as: :profile))
     |> put_flash(:info, "Model catalog refreshed.")
-    |> notify_parent({:profile_widget_profiles, profiles, profile_id_from_state(profile_state)})
+    |> notify_parent({:profile_widget_catalog, profiles})
     |> noreply()
   end
 
@@ -630,7 +769,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     |> assign(:field_errors, %{})
     |> reset_profile_forms(profiles, "")
     |> assign(:loaded_profile_id, "")
-    |> notify_parent({:profile_widget_profiles, profiles, ""})
+    |> notify_parent({:profile_widget_catalog, profiles})
     |> noreply()
   end
 
@@ -666,67 +805,66 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
   @impl true
   def render(assigns) do
+    assigns = Map.put_new(assigns, :host_context, "workspace")
+
     ~H"""
     <section id={@id} class="ullm-widget ullm-model-config-widget" aria-label="LLM model config">
-      <%= if @target_only do %>
-        <.recovery_target_fields
-          id_prefix={scope_id(@id_prefix, "target")}
-          name={@target_name}
-          target_value={@target_value}
-          profiles={@profiles}
+      <%= if @host_context == "profile_definition" do %>
+        <.profile_editor
+          form={@main_form}
+          id_prefix={@id_prefix}
           target={@myself}
-          change="recovery-target-change"
+          profiles={@profiles}
+          field_errors={@field_errors}
+          recovery_policy_default={@recovery_policy_default}
+          api_inference_types={@api_inference_types}
+          model_catalog={@model_catalog}
+          model_options={@model_options}
+          requires_save={@main_requires_save?}
+          fold_disabled={@fold_disabled}
+          credential_open={@main_credential_open}
+          options_open={@main_options_open}
+          retry_open={@main_retry_open}
+          pricing_open={@main_pricing_open}
+          staged_key={@main_staged_key}
+          cache_mode={@cache_mode}
+          web_search={false}
+          show_rerun_search={false}
+          bundle_upload={nil}
+          widget_id={@id_prefix}
+          pending={@pending}
+          delete_confirm={@delete_confirm}
+          target_config_open={@recovery_target_config_open}
+          host_context={@host_context}
+          show_identity_fields={true}
+          fold_event={
+            if @host_context == "profile_definition", do: "toggle-section", else: "toggle-fold"
+          }
         />
       <% else %>
-        <.profile_row
-          category={@category_name}
-          profile_input_id={scope_id(@id_prefix, "run_selectedProfileId")}
-          profile_name="run[selectedProfileId]"
-          profile_value={@selected_profile_id}
-          profile_options={profile_combobox_options(@profiles)}
-          profile_required={true}
-          profile_class="ullm-input ullm-profile-select"
-          profile_change="select-profile"
-          reasoning_input_id={scope_id(@id_prefix, "workspace-reasoning")}
-          reasoning_name="run[reasoningEffort]"
-          reasoning_value={@reasoning_effort}
-          reasoning_options={reasoning_options(@profiles, @selected_profile_id)}
-          reasoning_change="workspace-control"
-          search_input_id={scope_id(@id_prefix, "workspace-web-search-toggle")}
-          search_field_id={scope_id(@id_prefix, "workspace-web-search")}
-          search_field_name="run[webSearch]"
-          search_enabled={@web_search}
-          cache_input_id={scope_id(@id_prefix, "workspace-cache-toggle")}
-          cache_field_id={scope_id(@id_prefix, "workspace-cache")}
-          cache_field_name="run[cacheMode]"
-          cache_mode={@cache_mode}
-          config_id={scope_id(@id_prefix, "model-config-toggle")}
-          config_event="toggle-config"
-          config_open={@main_config_open}
-          model_input_id={scope_id(@id_prefix, "run_modelId")}
-          model_input_name="run[modelId]"
-          model_value={@model_id}
-          target={@myself}
-          fold_disabled={@fold_disabled}
-        />
-
-        <div
-          :if={@operation_error}
-          id={scope_id(@id_prefix, "widget-error")}
-          role="alert"
-          class="ullm-widget-error"
-        >
-          {@operation_error}
-        </div>
-
-        <div
-          :if={@main_config_open}
-          id={scope_id(@id_prefix, "model-options")}
-          class="ullm-profile-config-body ullm-form-grid"
-        >
-          <.profile_editor
+        <%= if @target_only do %>
+          <.recovery_target_fields
+            id_prefix={scope_id(@id_prefix, "target")}
+            name={@target_name}
+            target_value={@target_value}
+            profiles={@profiles}
+            target={@myself}
+            change="recovery-target-change"
+          />
+        <% else %>
+          <.profile_widget_node
+            mode="root"
+            category={@category_name}
+            id_prefix={@id_prefix}
+            profile_value={@selected_profile_id}
+            profile_options={profile_combobox_options(@profiles)}
+            reasoning_value={@reasoning_effort}
+            reasoning_options={reasoning_options(@profiles, @selected_profile_id)}
+            web_search={@web_search}
+            cache_mode={@cache_mode}
+            model_value={@model_id}
+            config_open={@main_config_open}
             form={@main_form}
-            id_prefix={scope_id(@id_prefix, "profile")}
             target={@myself}
             profiles={@profiles}
             field_errors={Map.merge(@field_errors, @recovery_field_errors)}
@@ -741,18 +879,190 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             retry_open={@main_retry_open}
             pricing_open={@main_pricing_open}
             staged_key={@main_staged_key}
-            cache_mode={@cache_mode}
-            web_search={@web_search}
-            show_rerun_search={true}
             bundle_upload={@bundle_upload}
             widget_id={@id_prefix}
             pending={@pending}
             delete_confirm={@delete_confirm}
             target_config_open={@recovery_target_config_open}
           />
-        </div>
+        <% end %>
       <% end %>
     </section>
+    """
+  end
+
+  # The row and its configuration drawer are one widget at every generation or
+  # recovery node. Recovery targets pass a namespaced form and role; the root
+  # passes the workspace form. Keeping this seam in one function component makes
+  # it difficult for a future target-specific picker to silently become a
+  # reduced copy of the root editor again.
+  attr(:mode, :string, required: true)
+  attr(:category, :string, default: "LLM")
+  attr(:id_prefix, :string, required: true)
+  attr(:profile_value, :any, default: "")
+  attr(:profile_options, :list, default: [])
+  attr(:reasoning_value, :any, default: "")
+  attr(:reasoning_options, :list, default: [])
+  attr(:web_search, :boolean, default: false)
+  attr(:cache_mode, :string, default: "cache")
+  attr(:model_value, :any, default: "")
+  attr(:config_open, :boolean, default: false)
+  attr(:form, :any, default: nil)
+  attr(:target, :any, default: nil)
+  attr(:profiles, :list, default: [])
+  attr(:field_errors, :map, default: %{})
+  attr(:recovery_policy_default, :map, default: %{})
+  attr(:api_inference_types, :list, default: @api_inference_types)
+  attr(:model_catalog, :list, default: [])
+  attr(:model_options, :list, default: [])
+  attr(:requires_save, :boolean, default: false)
+  attr(:fold_disabled, :boolean, default: false)
+  attr(:credential_open, :boolean, default: false)
+  attr(:options_open, :boolean, default: false)
+  attr(:retry_open, :boolean, default: false)
+  attr(:pricing_open, :boolean, default: false)
+  attr(:staged_key, :string, default: "")
+  attr(:bundle_upload, :any, default: nil)
+  attr(:widget_id, :string, default: "")
+  attr(:pending, :any, default: nil)
+  attr(:delete_confirm, :boolean, default: false)
+  attr(:target_config_open, :map, default: %{})
+  attr(:target_name, :string, default: "recoveryTarget")
+  attr(:disabled, :boolean, default: false)
+  attr(:change, :string, default: "profile-draft-change")
+  attr(:show_search, :boolean, default: false)
+  attr(:search_enabled, :boolean, default: false)
+  attr(:config_path, :string, default: nil)
+  attr(:nested_repair_allowed, :boolean, default: false)
+  attr(:nested_repair_plan, :map, default: nil)
+  attr(:nested_repair_name, :string, default: "recoveryPolicy[rerun][jsonRepair]")
+  attr(:nested_repair_path, :string, default: "rerun.jsonRepair")
+  attr(:target_form, :any, default: nil)
+  attr(:target_role, :string, default: "json_repair")
+  attr(:target_path, :string, default: nil)
+  attr(:host_context, :string, default: "workspace")
+
+  def profile_widget_node(assigns) do
+    ~H"""
+    <%= if @mode == "root" do %>
+      <.profile_row
+        category={@category}
+        profile_input_id={scope_id(@id_prefix, "run_selectedProfileId")}
+        profile_name="run[selectedProfileId]"
+        profile_value={@profile_value}
+        profile_options={@profile_options}
+        profile_required={true}
+        profile_class="ullm-input ullm-profile-select"
+        profile_change="select-profile"
+        reasoning_input_id={scope_id(@id_prefix, "workspace-reasoning")}
+        reasoning_name="run[reasoningEffort]"
+        reasoning_value={@reasoning_value}
+        reasoning_options={@reasoning_options}
+        reasoning_change="workspace-control"
+        search_input_id={scope_id(@id_prefix, "workspace-web-search-toggle")}
+        search_field_id={scope_id(@id_prefix, "workspace-web-search")}
+        search_field_name="run[webSearch]"
+        search_enabled={@web_search}
+        cache_input_id={scope_id(@id_prefix, "workspace-cache-toggle")}
+        cache_field_id={scope_id(@id_prefix, "workspace-cache")}
+        cache_field_name="run[cacheMode]"
+        cache_mode={@cache_mode}
+        config_id={scope_id(@id_prefix, "model-config-toggle")}
+        config_event="toggle-config"
+        config_open={@config_open}
+        model_input_id={scope_id(@id_prefix, "run_modelId")}
+        model_input_name="run[modelId]"
+        model_value={@model_value}
+        target={@target}
+        fold_disabled={@fold_disabled}
+      />
+      <div
+        :if={@config_open}
+        id={scope_id(@id_prefix, "model-options")}
+        class="ullm-profile-config-body ullm-form-grid"
+      >
+        <.profile_editor
+          form={@form}
+          id_prefix={scope_id(@id_prefix, "profile")}
+          target={@target}
+          profiles={@profiles}
+          field_errors={@field_errors}
+          recovery_policy_default={@recovery_policy_default}
+          api_inference_types={@api_inference_types}
+          model_catalog={@model_catalog}
+          model_options={@model_options}
+          requires_save={@requires_save}
+          fold_disabled={@fold_disabled}
+          credential_open={@credential_open}
+          options_open={@options_open}
+          retry_open={@retry_open}
+          pricing_open={@pricing_open}
+          staged_key={@staged_key}
+          cache_mode={@cache_mode}
+          web_search={@web_search}
+          show_rerun_search={true}
+          bundle_upload={@bundle_upload}
+          widget_id={@widget_id}
+          pending={@pending}
+          delete_confirm={@delete_confirm}
+          target_config_open={@target_config_open}
+          host_context={@host_context}
+          show_identity_fields={false}
+        />
+      </div>
+    <% else %>
+      <.profile_row
+        category="LLM"
+        profile_input_id={"#{@id_prefix}-profile"}
+        profile_name={"#{@target_name}[profileId]"}
+        profile_value={@profile_value}
+        profile_options={@profile_options}
+        profile_required={true}
+        profile_class="ullm-input ullm-profile-select"
+        profile_change={@change}
+        profile_disabled={@disabled}
+        reasoning_input_id={"#{@id_prefix}-reasoning"}
+        reasoning_name={"#{@target_name}[reasoningEffort]"}
+        reasoning_value={@reasoning_value}
+        reasoning_options={@reasoning_options}
+        reasoning_change={@change}
+        reasoning_disabled={@disabled}
+        search_input_id={if @show_search, do: "#{@id_prefix}-web-search-toggle"}
+        search_enabled={@search_enabled}
+        search_disabled={@disabled}
+        model_input_id={"#{@id_prefix}-model"}
+        model_input_name={"#{@target_name}[modelId]"}
+        model_value={@model_value}
+        model_disabled={@disabled}
+        config_id={if @config_path, do: "#{@id_prefix}-config-toggle"}
+        config_event="toggle-recovery-target-config"
+        config_path={@config_path}
+        config_open={@config_open}
+        row_class="ullm-recovery-profile-row"
+        target={@target}
+        fold_disabled={@disabled}
+      />
+      <.target_profile_config
+        :if={@config_open}
+        id_prefix={"#{@id_prefix}-config"}
+        target={@target}
+        profiles={@profiles}
+        change={@change}
+        enabled={not @disabled}
+        nested_repair_allowed={@nested_repair_allowed}
+        nested_repair_plan={@nested_repair_plan}
+        nested_repair_name={@nested_repair_name}
+        nested_repair_path={@nested_repair_path}
+        target_form={@target_form}
+        target_role={@target_role}
+        target_path={@target_path}
+        target_repair_plan={@nested_repair_plan}
+        target_repair_name={@nested_repair_name}
+        target_repair_path={@nested_repair_path}
+        api_inference_types={@api_inference_types}
+        target_config_open={@target_config_open}
+      />
+    <% end %>
     """
   end
 
@@ -1005,9 +1315,19 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:pending, :any, default: nil)
   attr(:delete_confirm, :boolean, default: false)
   attr(:target_only, :boolean, default: false)
+  attr(:target_mode, :boolean, default: false)
+  attr(:target_role, :string, default: nil)
+  attr(:target_path, :string, default: nil)
+  attr(:target_repair_plan, :map, default: nil)
+  attr(:target_repair_name, :string, default: nil)
+  attr(:target_repair_path, :string, default: nil)
   attr(:target_value, :map, default: %{})
   attr(:target_name, :string, default: "recoveryTarget")
   attr(:target_config_open, :map, default: %{})
+  attr(:host_context, :string, default: "workspace")
+  attr(:show_identity_fields, :boolean, default: false)
+  attr(:fold_event, :string, default: "toggle-fold")
+  attr(:fold_path, :string, default: nil)
 
   def profile_editor(assigns) do
     ~H"""
@@ -1024,7 +1344,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             class="ullm-input"
             phx_change="profile-draft-change"
             phx_target={@target}
+            disabled={@target_mode}
           />
+          <.field_error message={ProfileForm.field_error(@field_errors, "apiInferenceType")} />
         </div>
         <div class="ullm-field">
           <label for={field_id(@id_prefix, @form[:baseUrl].id)}>Base URL</label>
@@ -1040,13 +1362,21 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             class="ullm-input ullm-input-mono"
             phx_change="profile-draft-change"
             phx_target={@target}
+            disabled={@target_mode}
           />
+          <datalist :if={@host_context == "profile_definition"} id="profile-base-url-options">
+            <option :for={base_url <- base_url_values(@profiles)} value={base_url} />
+          </datalist>
+          <.field_error message={ProfileForm.field_error(@field_errors, "baseUrl")} />
         </div>
       </div>
 
       <section class="ullm-credential-block">
         <div class="ullm-credential-row">
-          <div class="ullm-credential-status">
+          <div
+            id={editor_control_id(@id_prefix, "credential-status", @host_context)}
+            class="ullm-credential-status"
+          >
             <span
               class={"ullm-key-dot #{if credential_available?(@form, @staged_key), do: "ullm-key-dot-on"}"}
               aria-hidden="true"
@@ -1058,11 +1388,11 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           </div>
           <button
             type="button"
-            id={"#{@id_prefix}-credential-toggle"}
+            id={editor_control_id(@id_prefix, "credential-toggle", @host_context)}
             class="ullm-btn ullm-btn-tiny"
             phx-click="toggle-credential"
             phx-target={@target}
-            disabled={@fold_disabled}
+            disabled={@fold_disabled or @target_mode}
             aria-expanded={to_string(@credential_open)}
           >{if @credential_open,
             do: "Hide key",
@@ -1070,10 +1400,33 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         </div>
         <div
           :if={@credential_open}
-          id={"#{@id_prefix}-credential-drawer"}
+          id={editor_control_id(@id_prefix, "credential-drawer", @host_context)}
           class="ullm-credential-drawer"
           phx-hook="SecretStager"
         >
+          <div class="ullm-options-grid">
+            <.input
+              field={@form[:credentialId]}
+              id={field_id(@id_prefix, @form[:credentialId].id)}
+              label="Credential ID"
+              required
+              class="ullm-input"
+              phx-change="profile-draft-change"
+              phx-target={@target}
+              disabled={@target_mode}
+            />
+            <.field_error message={ProfileForm.field_error(@field_errors, "credentialId")} />
+            <.input
+              field={@form[:endpointCredentialScope]}
+              id={field_id(@id_prefix, @form[:endpointCredentialScope].id)}
+              type="select"
+              label="Credential scope"
+              options={[{"User", "user"}, {"Global", "global"}]}
+              phx-change="profile-draft-change"
+              phx-target={@target}
+              disabled={@target_mode}
+            />
+          </div>
           <.input
             field={@form[:apiKey]}
             id={field_id(@id_prefix, @form[:apiKey].id)}
@@ -1083,24 +1436,25 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             class="ullm-input ullm-input-mono"
             data-secret-input
           />
+          <.field_error message={ProfileForm.field_error(@field_errors, "credential.apiKey")} />
           <div class="ullm-button-row ullm-button-row-end">
             <button
-              :if={@staged_key != ""}
-              id={"#{@id_prefix}-clear-staged-key"}
+              :if={@staged_key != "" or @host_context == "profile_definition"}
+              id={editor_control_id(@id_prefix, "clear-staged-key", @host_context)}
               type="button"
               class="ullm-btn ullm-btn-danger"
               phx-click="clear-staged-key"
               phx-target={@target}
             >Clear staged key</button>
             <button
-              id={"#{@id_prefix}-cancel-key"}
+              id={editor_control_id(@id_prefix, "cancel-key", @host_context)}
               type="button"
               class="ullm-btn"
               phx-click="cancel-key"
               phx-target={@target}
             >Cancel</button>
             <button
-              id={"#{@id_prefix}-stage-key"}
+              id={editor_control_id(@id_prefix, "stage-key", @host_context)}
               type="button"
               class="ullm-btn ullm-btn-primary"
               phx-click="stage-key"
@@ -1118,7 +1472,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           class="ullm-btn ullm-model-refresh-button"
           phx-click="profile-refresh"
           phx-target={@target}
-          disabled={@pending != nil or profile_id(@form) == "" or @requires_save}
+          disabled={@pending != nil or profile_id(@form) == "" or @requires_save or @target_mode}
         >Refresh Models</button>
         <div class="ullm-model-slot-field">
           <label for={field_id(@id_prefix, @form[:modelId].id)}>Model ID</label>
@@ -1144,6 +1498,24 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             phx_change="profile-draft-change"
             phx_target={@target}
           />
+          <datalist :if={@host_context == "profile_definition"} id="profile-model-options">
+            <option
+              :for={
+                model <-
+                  models_for(
+                    @profiles,
+                    profile_id(@form),
+                    @model_options,
+                    @model_catalog,
+                    @form[:modelId].value
+                  )
+              }
+              value={model["id"]}
+            >
+              {model["label"]}
+            </option>
+          </datalist>
+          <.field_error message={ProfileForm.field_error(@field_errors, "modelId")} />
           <p class="ullm-field-help">
             {length(
               models_for(
@@ -1167,7 +1539,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       </div>
 
       <div
-        :if={new_profile_fields_visible?(@form, @profiles)}
+        :if={@show_identity_fields or new_profile_fields_visible?(@form, @profiles)}
         class="ullm-new-profile-fields ullm-options-grid"
       >
         <.input
@@ -1179,6 +1551,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           phx-change="profile-draft-change"
           phx-target={@target}
         />
+        <.field_error message={ProfileForm.field_error(@field_errors, "llmProfile")} />
         <.input
           field={@form[:provider]}
           id={field_id(@id_prefix, @form[:provider].id)}
@@ -1188,6 +1561,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           phx-change="profile-draft-change"
           phx-target={@target}
         />
+        <.field_error message={ProfileForm.field_error(@field_errors, "provider")} />
         <.input
           field={@form[:supportsTemperature]}
           id={field_id(@id_prefix, @form[:supportsTemperature].id)}
@@ -1222,11 +1596,13 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
       <div class="ullm-options-fold">
         <button
-          id={"#{@id_prefix}-options-toggle"}
+          id={editor_control_id(@id_prefix, "options-toggle", @host_context)}
           type="button"
           class="ullm-btn ullm-options-summary"
-          phx-click="toggle-fold"
+          phx-click={@fold_event}
           phx-value-fold="options"
+          phx-value-section={if @host_context == "profile_definition", do: "options_open"}
+          phx-value-path={@fold_path}
           phx-target={@target}
           disabled={@fold_disabled}
           aria-expanded={to_string(@options_open)}
@@ -1308,38 +1684,57 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
       <section class="ullm-options-fold">
         <button
-          id={"#{@id_prefix}-retry-toggle"}
+          id={editor_control_id(@id_prefix, "retry-toggle", @host_context)}
           type="button"
           class="ullm-btn ullm-options-summary"
-          phx-click="toggle-fold"
+          phx-click={@fold_event}
           phx-value-fold="retry"
+          phx-value-section={if @host_context == "profile_definition", do: "retry_open"}
+          phx-value-path={@fold_path}
           phx-target={@target}
           disabled={@fold_disabled}
           aria-expanded={to_string(@retry_open)}
         >Retries &amp; Repair</button>
         <div :if={@retry_open} id={"#{@id_prefix}-retry-repair"} class="ullm-options-body">
-          <.recovery_fields
-            form={@form}
-            id_prefix={@id_prefix}
-            target={@target}
-            change="profile-draft-change"
-            field_errors={@field_errors}
-            profiles={@profiles}
-            recovery_policy_default={@recovery_policy_default}
-            web_search={@web_search}
-            show_rerun_search={@show_rerun_search}
-            target_config_open={@target_config_open}
-          />
+          <%= if @target_mode do %>
+            <.target_recovery_editor
+              id_prefix={@id_prefix}
+              target={@target}
+              role={@target_role}
+              plan={@target_repair_plan}
+              name={@target_repair_name}
+              path={@target_repair_path}
+              profiles={@profiles}
+              change="profile-draft-change"
+              enabled={not @fold_disabled}
+              target_config_open={@target_config_open}
+            />
+          <% else %>
+            <.recovery_fields
+              form={@form}
+              id_prefix={@id_prefix}
+              target={@target}
+              change="profile-draft-change"
+              field_errors={@field_errors}
+              profiles={@profiles}
+              recovery_policy_default={@recovery_policy_default}
+              web_search={@web_search}
+              show_rerun_search={@show_rerun_search}
+              target_config_open={@target_config_open}
+            />
+          <% end %>
         </div>
       </section>
 
       <div class="ullm-options-fold ullm-pricing-section">
         <button
-          id={"#{@id_prefix}-pricing-toggle"}
+          id={editor_control_id(@id_prefix, "pricing-toggle", @host_context)}
           type="button"
           class="ullm-btn ullm-options-summary"
-          phx-click="toggle-fold"
+          phx-click={@fold_event}
           phx-value-fold="pricing"
+          phx-value-section={if @host_context == "profile_definition", do: "pricing_open"}
+          phx-value-path={@fold_path}
           phx-target={@target}
           disabled={@fold_disabled}
           aria-expanded={to_string(@pricing_open)}
@@ -1360,6 +1755,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             class="ullm-input"
             phx-change="profile-draft-change"
             phx-target={@target}
+            disabled={@target_mode}
           />
           <.input
             field={@form[:pricingOutput]}
@@ -1372,6 +1768,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             class="ullm-input"
             phx-change="profile-draft-change"
             phx-target={@target}
+            disabled={@target_mode}
           />
           <.input
             field={@form[:pricingCacheRead]}
@@ -1384,6 +1781,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             class="ullm-input"
             phx-change="profile-draft-change"
             phx-target={@target}
+            disabled={@target_mode}
           />
           <.input
             field={@form[:pricingCacheWrite]}
@@ -1397,6 +1795,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             class="ullm-input"
             phx-change="profile-draft-change"
             phx-target={@target}
+            disabled={@target_mode}
           />
           <.input
             field={@form[:pricingReasoning]}
@@ -1410,17 +1809,26 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             class="ullm-input"
             phx-change="profile-draft-change"
             phx-target={@target}
+            disabled={@target_mode}
           />
         </div>
       </div>
 
       <div class="ullm-profile-actions ullm-button-row">
         <button
+          :if={@host_context == "profile_definition"}
+          id="profile-cancel"
+          type="button"
+          class="ullm-btn"
+          phx-click="cancel-edit"
+        >Cancel</button>
+        <button
           id={scope_id(@id_prefix, "new")}
           type="button"
           class="ullm-btn"
           phx-click="new-profile"
           phx-target={@target}
+          disabled={@target_mode}
         >+ New</button>
         <label id={scope_id(@id_prefix, "bundle-file")} class="ullm-btn ullm-file-button">
           Import Bundle
@@ -1429,6 +1837,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             upload={@bundle_upload}
             phx-change="import-bundle"
             phx-value-widget={@widget_id}
+            disabled={@target_mode}
           />
         </label>
         <a id={scope_id(@id_prefix, "export-bundle")} href={~p"/profiles/bundle"} class="ullm-btn">Export Bundle</a>
@@ -1438,11 +1847,14 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           class="ullm-btn ullm-btn-primary"
           phx-click="profile-save"
           phx-target={@target}
+          phx-value-node-path={@target_path}
           disabled={
             @pending != nil or profile_id(@form) == "" or
-              not ProfilesLive.options_valid?(@form[:defaultOptionsJson].value)
+              not ProfileForm.options_valid?(@form[:defaultOptionsJson].value)
           }
-        >{if @pending, do: "Saving…", else: "Save Profile"}</button>
+        >{if @target_mode,
+          do: "Save shared profile",
+          else: if(@pending, do: "Saving…", else: "Save Profile")}</button>
         <button
           :if={profile_id(@form) != ""}
           id={scope_id(@id_prefix, "delete")}
@@ -1450,6 +1862,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           class="ullm-btn ullm-btn-danger"
           phx-click="profile-confirm-delete"
           phx-target={@target}
+          phx-value-node-path={@target_path}
+          disabled={@target_mode}
         >Delete Profile</button>
       </div>
 
@@ -1475,6 +1889,61 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           phx-target={@target}
         >Confirm delete</button>
       </div>
+    </div>
+    """
+  end
+
+  attr(:id_prefix, :string, required: true)
+  attr(:target, :any, default: nil)
+  attr(:role, :string, default: "json_repair")
+  attr(:plan, :map, default: nil)
+  attr(:name, :string, default: nil)
+  attr(:path, :string, default: nil)
+  attr(:profiles, :list, default: [])
+  attr(:change, :string, default: "profile-draft-change")
+  attr(:enabled, :boolean, default: true)
+  attr(:target_config_open, :map, default: %{})
+
+  def target_recovery_editor(assigns) do
+    ~H"""
+    <div id={"#{@id_prefix}-target-recovery"} class="ullm-target-recovery-editor">
+      <%= if @role == "rerun_generation" do %>
+        <p class="ullm-field-help">
+          Recovery after this rerun uses the same two-target repair editor. A
+          repair target cannot start another fresh rerun.
+        </p>
+        <label class="ullm-checkbox-label">
+          <input
+            id={"#{@id_prefix}-json-repair-toggle"}
+            type="checkbox"
+            checked={is_map(@plan)}
+            phx-click="toggle-rerun-json-repair"
+            phx-value-path={@path && String.replace_suffix(@path, ".target", ".jsonRepair")}
+            phx-value-node-id="rerun"
+            phx-target={@target}
+            disabled={not @enabled}
+          /> LLM JSON repair after rerun
+        </label>
+        <.repair_plan_fields
+          :if={is_map(@plan)}
+          id_prefix={"#{@id_prefix}-json-repair"}
+          name={@name}
+          plan={@plan}
+          path={@path && String.replace_suffix(@path, ".target", ".jsonRepair")}
+          profiles={@profiles}
+          target={@target}
+          change={@change}
+          enabled={@enabled}
+          target_config_open={@target_config_open}
+          label="LLM JSON repair after rerun"
+        />
+      <% else %>
+        <p class="ullm-field-help">
+          JSON repair targets are terminal recovery stages. Their model,
+          reasoning, provider options, and saved-profile actions are configurable,
+          but they cannot start another repair or fresh rerun.
+        </p>
+      <% end %>
     </div>
     """
   end
@@ -1552,7 +2021,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         name={"#{@name}[repairInvalidOutput]"}
         value={@policy["repairInvalidOutput"]}
         errors={
-          List.wrap(ProfilesLive.field_error(@field_errors, "recoveryPolicy.repairInvalidOutput"))
+          List.wrap(ProfileForm.field_error(@field_errors, "recoveryPolicy.repairInvalidOutput"))
         }
         label="LLM JSON repair"
         info="Uses the original schema to repair invalid JSON or schema failures. Each repair uses the remaining call budget. Turn this off to stop on invalid output."
@@ -1567,6 +2036,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               type="checkbox"
               checked={is_map(@policy["jsonRepair"])}
               phx-click="toggle-json-repair"
+              phx-value-node-id="original"
               phx-target={@target}
             /> LLM JSON repair
           </label>
@@ -1576,6 +2046,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               type="checkbox"
               checked={is_map(@policy["rerun"])}
               phx-click="toggle-rerun"
+              phx-value-node-id="original"
               phx-target={@target}
             /> Fresh generation rerun
           </label>
@@ -1624,7 +2095,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           phx-target={@target}
         />
       </div>
-      <.field_error message={ProfilesLive.field_error(@field_errors, "recoveryPolicy.retryOn")} />
+      <.field_error message={ProfileForm.field_error(@field_errors, "recoveryPolicy.retryOn")} />
       <div class="recovery-policy-numbers">
         <.input
           :for={{key, label, info} <- @numbers}
@@ -1634,7 +2105,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           value={if key == "maxAttempts", do: @policy[key], else: get_in(@policy, ["backoff", key])}
           errors={
             List.wrap(
-              ProfilesLive.field_error(
+              ProfileForm.field_error(
                 @field_errors,
                 if(key == "maxAttempts",
                   do: "recoveryPolicy.#{key}",
@@ -1651,8 +2122,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           phx-target={@target}
         />
       </div>
-      <.field_error message={ProfilesLive.field_error(@field_errors, "recoveryPolicy")} />
-      <.field_error message={ProfilesLive.field_error(@field_errors, "recoveryPolicy.backoff")} />
+      <.field_error message={ProfileForm.field_error(@field_errors, "recoveryPolicy")} />
+      <.field_error message={ProfileForm.field_error(@field_errors, "recoveryPolicy.backoff")} />
     </div>
     """
   end
@@ -1670,20 +2141,25 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:config_open, :boolean, default: false)
   attr(:nested_repair_allowed, :boolean, default: false)
   attr(:nested_repair_plan, :map, default: nil)
+  attr(:nested_repair_name, :string, default: "recoveryPolicy[rerun][jsonRepair]")
   attr(:nested_repair_path, :string, default: "rerun.jsonRepair")
   attr(:target_config_open, :map, default: %{})
+  attr(:api_inference_types, :list, default: @api_inference_types)
 
   @doc "Shared leaf target picker used by both generation branches and hosts."
   def recovery_target_fields(assigns) do
     target = ProfileWidgetState.serialize_recovery_target(assigns.target_value)
     profile_id = target["profileId"] || ""
     profile_options = profile_combobox_options(assigns.profiles)
+    target_form = target_profile_form(assigns.profiles, target, assigns.name)
 
     assigns =
       assign(assigns,
         leaf_target: target,
         profile_options: profile_options,
-        reasoning_options: reasoning_options(assigns.profiles, profile_id)
+        reasoning_options: reasoning_options(assigns.profiles, profile_id),
+        target_form: target_form,
+        target_path: assigns.config_path || assigns.nested_repair_path
       )
 
     ~H"""
@@ -1698,48 +2174,31 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         Use this branch's generation model
       </p>
       <div :if={@leaf_target["source"] != "generation"} class="ullm-options-grid">
-        <.profile_row
-          category="LLM"
-          profile_input_id={"#{@id_prefix}-profile"}
-          profile_name={"#{@name}[profileId]"}
+        <.profile_widget_node
+          mode="target"
+          id_prefix={@id_prefix}
+          target_name={@name}
           profile_value={@leaf_target["profileId"] || ""}
           profile_options={@profile_options}
-          profile_required={true}
-          profile_class="ullm-input ullm-profile-select"
-          profile_change={@change}
-          profile_disabled={@disabled}
-          reasoning_input_id={"#{@id_prefix}-reasoning"}
-          reasoning_name={"#{@name}[reasoningEffort]"}
           reasoning_value={@leaf_target["reasoningEffort"] || ""}
           reasoning_options={@reasoning_options}
-          reasoning_change={@change}
-          reasoning_disabled={@disabled}
-          search_input_id={if @show_search, do: "#{@id_prefix}-web-search-toggle"}
-          search_enabled={@search_enabled}
-          search_disabled={@disabled}
-          model_input_id={"#{@id_prefix}-model"}
-          model_input_name={"#{@name}[modelId]"}
           model_value={@leaf_target["modelId"] || ""}
-          model_disabled={@disabled}
-          config_id={if @config_path, do: "#{@id_prefix}-config-toggle"}
-          config_event="toggle-recovery-target-config"
-          config_path={@config_path}
-          config_open={@config_open}
-          row_class="ullm-recovery-profile-row"
-          target={@target}
-          fold_disabled={@disabled}
-        />
-        <.target_profile_config
-          :if={@config_open}
-          id_prefix={"#{@id_prefix}-config"}
           target={@target}
           profiles={@profiles}
           change={@change}
-          enabled={not @disabled}
+          disabled={@disabled}
+          show_search={@show_search}
+          search_enabled={@search_enabled}
+          config_path={@config_path}
+          config_open={@config_open}
           nested_repair_allowed={@nested_repair_allowed}
           nested_repair_plan={@nested_repair_plan}
-          nested_repair_name={"#{@name}[jsonRepair]"}
+          nested_repair_name={@nested_repair_name}
           nested_repair_path={@nested_repair_path}
+          target_form={@target_form}
+          target_role={if @nested_repair_allowed, do: "rerun_generation", else: "json_repair"}
+          target_path={@target_path}
+          api_inference_types={@api_inference_types}
           target_config_open={@target_config_open}
         />
       </div>
@@ -1763,48 +2222,51 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:nested_repair_name, :string, default: "recoveryPolicy[rerun][jsonRepair]")
   attr(:nested_repair_path, :string, default: "rerun.jsonRepair")
   attr(:target_config_open, :map, default: %{})
+  attr(:target_form, :any, required: true)
+  attr(:target_role, :string, default: "json_repair")
+  attr(:target_path, :string, required: true)
+  attr(:target_repair_plan, :map, default: nil)
+  attr(:target_repair_name, :string, default: nil)
+  attr(:target_repair_path, :string, default: nil)
+  attr(:api_inference_types, :list, default: @api_inference_types)
 
   def target_profile_config(assigns) do
     ~H"""
     <div id={@id_prefix} class="ullm-recovery-target-config">
-      <%= if @nested_repair_allowed do %>
-        <p class="ullm-field-help">
-          This target reuses the selected profile. Its gear can configure the
-          JSON-repair branch, but it cannot start another fresh rerun.
-        </p>
-        <label class="ullm-checkbox-label">
-          <input
-            id={"#{@id_prefix}-json-repair-toggle"}
-            type="checkbox"
-            checked={is_map(@nested_repair_plan)}
-            phx-click="toggle-rerun-json-repair"
-            phx-value-path={@nested_repair_path}
-            phx-target={@target}
-            disabled={not @enabled}
-          /> JSON repair after rerun
-        </label>
-        <.repair_plan_fields
-          :if={is_map(@nested_repair_plan)}
-          id_prefix={"#{@id_prefix}-json-repair"}
-          name={@nested_repair_name}
-          plan={@nested_repair_plan}
-          path={@nested_repair_path}
-          profiles={@profiles}
-          target={@target}
-          change={@change}
-          enabled={@enabled}
-          target_config_open={@target_config_open}
-          label="JSON repair after rerun"
-        />
-      <% else %>
-        <p class="ullm-field-help">
-          This target reuses the selected profile. Recovery nesting is disabled
-          here so a repair cannot start another repair or rerun.
-        </p>
-        <p class="ullm-recovery-target-note">
-          JSON repair and fresh rerun are unavailable from a JSON-repair target.
-        </p>
-      <% end %>
+      <.profile_editor
+        form={@target_form}
+        id_prefix={@id_prefix}
+        target={@target}
+        profiles={@profiles}
+        field_errors={%{}}
+        recovery_policy_default={%{}}
+        api_inference_types={@api_inference_types}
+        model_catalog={[]}
+        model_options={[]}
+        requires_save={false}
+        fold_disabled={not @enabled}
+        credential_open={false}
+        options_open={Map.get(@target_config_open, "#{@target_path}.options", false)}
+        retry_open={Map.get(@target_config_open, "#{@target_path}.retry", true)}
+        pricing_open={Map.get(@target_config_open, "#{@target_path}.pricing", false)}
+        staged_key=""
+        cache_mode="cache"
+        web_search={false}
+        show_rerun_search={false}
+        bundle_upload={nil}
+        widget_id={@target_path}
+        pending={nil}
+        delete_confirm={false}
+        target_mode={true}
+        target_role={@target_role}
+        target_path={@target_path}
+        target_repair_plan={@nested_repair_plan}
+        target_repair_name={@nested_repair_name}
+        target_repair_path={@nested_repair_path}
+        target_config_open={@target_config_open}
+        fold_event="toggle-recovery-target-fold"
+        fold_path={@target_path}
+      />
     </div>
     """
   end
@@ -1835,6 +2297,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           class="ullm-btn"
           phx-click="use-recovery-default"
           phx-value-path={@path}
+          phx-value-node-id={recovery_node_for_path(@path)}
           phx-target={@target}
         >Use configured profile targets</button>
       </div>
@@ -1857,6 +2320,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           checked={is_map(@plan["escalation"])}
           phx-click="toggle-repair-escalation"
           phx-value-path={@path}
+          phx-value-node-id={recovery_node_for_path(@path)}
           phx-target={@target}
           disabled={not @enabled}
         /> Escalated JSON repair
@@ -1903,6 +2367,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             class="ullm-btn"
             phx-click="use-recovery-default"
             phx-value-path={@path}
+            phx-value-node-id={recovery_node_for_path(@path)}
             phx-target={@target}
           >Use configured profile targets</button>
         </div>
@@ -1920,6 +2385,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           config_open={Map.get(@target_config_open, "#{@path}.target", false)}
           nested_repair_allowed={true}
           nested_repair_plan={@plan["jsonRepair"]}
+          nested_repair_name={"#{@name}[jsonRepair]"}
           nested_repair_path={"#{@path}.jsonRepair"}
           target_config_open={@target_config_open}
         />
@@ -1927,6 +2393,62 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     </fieldset>
     """
   end
+
+  defp target_profile_form(profiles, target, name) do
+    profile_id = target["profileId"] || ""
+
+    params =
+      case Enum.find(profiles, &(profile_id_from_state(&1) == profile_id)) do
+        nil -> ProfileForm.empty_form(%{})
+        profile_state -> ProfileForm.profile_form(profile_state)
+      end
+
+    options =
+      case target["providerOptions"] do
+        value when is_map(value) -> value
+        _ -> runtime_options(params["defaultOptionsJson"])
+      end
+
+    params
+    |> Map.merge(%{
+      "profileId" => profile_id,
+      "modelId" => target["modelId"] || params["modelId"] || "",
+      "reasoningEffort" => target["reasoningEffort"] || ProfileDefaults.reasoning_default(),
+      "defaultOptionsJson" => Jason.encode!(options, pretty: true),
+      "maxTokens" => option_text(options["max_tokens"] || options["maxTokens"]),
+      "temperature" => option_text(options["temperature"]),
+      "topP" => option_text(options["top_p"] || options["topP"]),
+      "topK" => option_text(options["top_k"] || options["topK"]),
+      "stopSequences" => stop_text(options["stop"]),
+      "recoveryPolicy" => %{}
+    })
+    |> then(&to_form(&1, as: name))
+  end
+
+  defp runtime_options(value) when is_binary(value) do
+    case Jason.decode(value) do
+      {:ok, options} when is_map(options) -> options
+      _ -> %{}
+    end
+  end
+
+  defp runtime_options(value) when is_map(value), do: value
+  defp runtime_options(_value), do: %{}
+
+  defp valid_target_config_path?(path) do
+    path in [
+      "jsonRepair.initial",
+      "jsonRepair.escalation",
+      "rerun.target",
+      "rerun.jsonRepair.initial",
+      "rerun.jsonRepair.escalation"
+    ]
+  end
+
+  defp recovery_node_for_path("rerun.jsonRepair"), do: "rerun"
+  defp recovery_node_for_path("rerun"), do: "original"
+  defp recovery_node_for_path("jsonRepair"), do: "original"
+  defp recovery_node_for_path(_path), do: "original"
 
   defp encode_target_options(options) when is_map(options), do: Jason.encode!(options)
   defp encode_target_options(_options), do: ""
@@ -1944,20 +2466,53 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   end
 
   defp update_profile_form(socket, incoming) do
+    previous_params = socket.assigns.main_form.params
+
     params =
-      socket.assigns.main_form.params
+      previous_params
       |> ProfileWidgetState.merge_draft(incoming)
       |> synchronize_profile_options(incoming)
+      |> reset_changed_recovery_targets(previous_params, socket.assigns.profiles)
+      |> canonicalize_recovery_policy()
 
     socket =
       socket
       |> assign(:main_form, to_form(params, as: :profile))
+      |> assign(:active_recovery_policy, params["recoveryPolicy"] || %{})
       |> assign(:main_dirty?, true)
       |> mark_main_edit()
+      |> maybe_notify_definition_draft(params)
 
     if Map.has_key?(incoming, "modelId"),
       do: notify_parent(socket, {:profile_widget_control, "modelId", params["modelId"] || ""}),
       else: socket
+  end
+
+  defp canonicalize_recovery_policy(params) do
+    policy =
+      params["recoveryPolicy"]
+      |> ProfileWidgetState.serialize_recovery_policy()
+
+    Map.put(params, "recoveryPolicy", policy)
+  end
+
+  defp reset_changed_recovery_targets(params, previous_params, profiles) do
+    Enum.reduce(@recovery_target_paths, params, fn path, acc ->
+      previous = get_in(previous_params, ["recoveryPolicy" | path])
+      current = get_in(acc, ["recoveryPolicy" | path])
+
+      if is_map(previous) and is_map(current) and
+           Map.get(previous, "profileId") != Map.get(current, "profileId") and
+           is_binary(Map.get(current, "profileId")) and Map.get(current, "profileId") != "" do
+        put_in(
+          acc,
+          ["recoveryPolicy" | path],
+          ProfileWidgetState.reset_recovery_target_for_profile(current, profiles)
+        )
+      else
+        acc
+      end
+    end)
   end
 
   defp toggle_recovery_branch(socket, path, default_fun) do
@@ -2094,6 +2649,63 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   defp stop_text(value) when is_list(value), do: Enum.join(value, "\n")
   defp stop_text(_value), do: ""
 
+  defp save_target_profile(socket, path) do
+    keys = String.split(path, ".", trim: true)
+    policy = socket.assigns.main_form.params["recoveryPolicy"] || %{}
+    target = get_in(policy, keys) |> ProfileWidgetState.serialize_recovery_target()
+    profile_id = String.trim(target["profileId"] || "")
+
+    with false <-
+           is_nil(Enum.find(socket.assigns.profiles, &(profile_id_from_state(&1) == profile_id))),
+         profile_state <-
+           Enum.find(socket.assigns.profiles, &(profile_id_from_state(&1) == profile_id)),
+         params <- target_profile_save_params(ProfileForm.profile_form(profile_state), target),
+         {:ok, payload} <- ProfileForm.profile_payload(params) do
+      reference = System.unique_integer([:positive, :monotonic])
+      handle = socket.assigns.session_handle
+
+      {:noreply,
+       socket
+       |> assign(:pending, reference)
+       |> assign(:pending_target_path, path)
+       |> start_async(
+         {:profile_save_target, reference, path},
+         Observability.propagate(fn -> HardenAPI.save_profile(handle, profile_id, payload) end)
+       )}
+    else
+      true ->
+        {:noreply, assign(socket, :operation_error, "Select a saved profile before saving it.")}
+
+      nil ->
+        {:noreply, assign(socket, :operation_error, "Select a saved profile before saving it.")}
+
+      {:error, message} ->
+        {:noreply, assign(socket, :operation_error, message)}
+
+      _other ->
+        {:noreply, assign(socket, :operation_error, "The shared profile could not be saved.")}
+    end
+  end
+
+  defp target_profile_save_params(params, target) do
+    params =
+      case target["providerOptions"] do
+        options when is_map(options) ->
+          params
+          |> Map.put("defaultOptionsJson", Jason.encode!(options, pretty: true))
+          |> sync_option_fields_from_json()
+
+        _ ->
+          params
+      end
+
+    if is_binary(target["modelId"]) and target["modelId"] != "" do
+      Map.put(params, "modelId", target["modelId"])
+    else
+      params
+    end
+  end
+
   defp params_with_staged_key(socket) do
     form = socket.assigns.main_form
     staged = socket.assigns.main_staged_key
@@ -2104,8 +2716,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
   defp profile_form_for(profiles, id, recovery_policy_default) do
     case Enum.find(profiles, &(profile_id_from_state(&1) == id)) do
-      nil -> to_form(ProfilesLive.empty_form(recovery_policy_default), as: :profile)
-      state -> to_form(ProfilesLive.profile_form(state), as: :profile)
+      nil -> to_form(ProfileForm.empty_form(recovery_policy_default), as: :profile)
+      state -> to_form(ProfileForm.profile_form(state), as: :profile)
     end
   end
 
@@ -2129,27 +2741,79 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             String.replace_prefix(id, base, prefix)
 
           true ->
-            scope_id(prefix, id)
+            scope_id(prefix, safe_field_id(id))
         end
 
       _ ->
-        scope_id(prefix, id)
+        scope_id(prefix, safe_field_id(id))
     end
+  end
+
+  defp safe_field_id(id) do
+    id
+    |> String.replace(~r/[^A-Za-z0-9_-]+/u, "-")
+    |> String.trim("-")
+  end
+
+  defp editor_control_id(prefix, suffix, "profile_definition") do
+    legacy = %{
+      "credential-toggle" => "credential-fold-toggle",
+      "options-toggle" => "options-fold-toggle",
+      "retry-toggle" => "retry-fold-toggle",
+      "pricing-toggle" => "pricing-fold-toggle",
+      "credential-status" => "credential-status",
+      "credential-drawer" => "credential-drawer",
+      "clear-staged-key" => "clear-profile-key",
+      "cancel-key" => "cancel-profile-key",
+      "stage-key" => "stage-profile-key"
+    }
+
+    Map.get(legacy, suffix, scope_id(prefix, suffix))
+  end
+
+  defp editor_control_id(prefix, suffix, _context), do: scope_id(prefix, suffix)
+
+  defp base_url_values(profiles) do
+    profiles
+    |> Enum.map(&get_in(&1, ["profile", "baseUrl"]))
+    |> Enum.filter(&(is_binary(&1) and &1 != ""))
+    |> Enum.uniq()
+    |> Enum.sort()
   end
 
   defp assign_fold_state(socket, assigns) do
     socket
-    |> assign(:main_config_open, Map.get(assigns, :config_open, socket.assigns.main_config_open))
+    |> assign(
+      :main_config_open,
+      boolean_assign(assigns, :config_open, socket.assigns.main_config_open)
+    )
+    |> assign(
+      :main_credential_open,
+      boolean_assign(assigns, :credential_open, socket.assigns.main_credential_open)
+    )
     |> assign(
       :main_options_open,
-      Map.get(assigns, :options_open, socket.assigns.main_options_open)
+      boolean_assign(assigns, :options_open, socket.assigns.main_options_open)
     )
-    |> assign(:main_retry_open, Map.get(assigns, :retry_open, socket.assigns.main_retry_open))
+    |> assign(
+      :main_retry_open,
+      boolean_assign(assigns, :retry_open, socket.assigns.main_retry_open)
+    )
     |> assign(
       :main_pricing_open,
-      Map.get(assigns, :pricing_open, socket.assigns.main_pricing_open)
+      boolean_assign(assigns, :pricing_open, socket.assigns.main_pricing_open)
     )
-    |> assign(:fold_disabled, Map.get(assigns, :fold_disabled, socket.assigns.fold_disabled))
+    |> assign(
+      :fold_disabled,
+      boolean_assign(assigns, :fold_disabled, socket.assigns.fold_disabled)
+    )
+  end
+
+  defp boolean_assign(assigns, key, current) do
+    case Map.get(assigns, key) do
+      value when is_boolean(value) -> value
+      _ -> current
+    end
   end
 
   defp fold_ui_name("options"), do: "modelOptionsOpen"
@@ -2254,8 +2918,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   defp normalize_text(value), do: String.trim(to_string(value || ""))
 
   defp options_error(value, errors) do
-    ProfilesLive.field_error(errors, "defaultOptionsJson") ||
-      if(ProfilesLive.options_valid?(value),
+    ProfileForm.field_error(errors, "defaultOptionsJson") ||
+      if(ProfileForm.options_valid?(value),
         do: nil,
         else: "Default options JSON must be a valid object."
       )
@@ -2441,6 +3105,14 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   defp notify_parent(socket, message) do
     send(self(), {:profile_widget, socket.assigns.id_prefix, message})
     socket
+  end
+
+  defp maybe_notify_definition_draft(socket, params) do
+    if socket.assigns.host_context == "profile_definition" do
+      notify_parent(socket, {:profile_widget_draft, params})
+    else
+      socket
+    end
   end
 
   defp noreply(socket), do: {:noreply, socket}

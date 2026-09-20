@@ -766,6 +766,15 @@ An image rollback alone cannot revert a migrated database or synchronized config
 
 ## 11. Reusable UI and REST parity
 
+Planning follow-up (2026-09-20): the
+[complete recursive LLM profile widget plan](recursive-llm-profile-widget-implementation-plan.md)
+refines the target-only presentation described below and in P08 into reuse of
+the full row-plus-configuration widget with finite role restrictions. Its local
+implementation is complete and its deterministic frontend/backend gates pass.
+It preserves this plan's REST shapes, bounded execution, defaults, and
+search/cache ownership; it does not authorize recursive execution of selected
+profiles' recovery policies. Browser/deployment certification remains separate.
+
 Use the existing `ProfileWidgetState`, `ProfileWidgetComponent`, host event routing,
 `llm_result_components.ex`, and `llm_trace_components.ex`. Extend them; do not clone
 the picker for initial repair, escalation, and rerun.

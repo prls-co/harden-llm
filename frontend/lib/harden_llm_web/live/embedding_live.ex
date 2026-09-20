@@ -32,7 +32,8 @@ defmodule HardenLlmWeb.EmbeddingLive do
     "llmProfileConfigOpen" => :config_open,
     "modelOptionsOpen" => :options_open,
     "retryRepairOpen" => :retry_open,
-    "pricingOpen" => :pricing_open
+    "pricingOpen" => :pricing_open,
+    "credentialOpen" => :credential_open
   }
 
   @impl true
@@ -179,15 +180,9 @@ defmodule HardenLlmWeb.EmbeddingLive do
     update_instance(socket, key, &Map.put(&1, :requires_save?, requires_save?))
   end
 
-  defp route_widget_message(
-         socket,
-         key,
-         {:profile_widget_profiles, profiles, selected_profile_id}
-       ) do
-    socket
-    |> assign(:profiles, profiles)
-    |> update_instance(key, &Map.put(&1, :selected_profile_id, selected_profile_id))
-  end
+  defp route_widget_message(socket, _key, {:profile_widget_catalog, profiles})
+       when is_list(profiles),
+       do: {:noreply, assign(socket, :profiles, profiles)}
 
   defp route_widget_message(socket, _key, _message), do: {:noreply, socket}
 
@@ -240,6 +235,7 @@ defmodule HardenLlmWeb.EmbeddingLive do
          reasoning_effort: "lowest",
          cache_mode: "cache",
          config_open: false,
+         credential_open: false,
          options_open: false,
          retry_open: false,
          pricing_open: false,
@@ -330,6 +326,7 @@ defmodule HardenLlmWeb.EmbeddingLive do
               cache_mode={instance.cache_mode}
               model_id={instance.model_id}
               config_open={instance.config_open}
+              credential_open={instance.credential_open}
               options_open={instance.options_open}
               retry_open={instance.retry_open}
               recovery_policy={instance.recovery_policy}

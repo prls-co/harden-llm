@@ -289,6 +289,27 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     assert emitted["profileId"] == "Escalated"
   end
 
+  test "recovery branch events require the server-owned node identity" do
+    socket = %Phoenix.LiveView.Socket{assigns: %{__changed__: %{}}}
+
+    assert {:noreply, ^socket} =
+             ProfileWidgetComponent.handle_event("toggle-rerun", %{}, socket)
+
+    assert {:noreply, ^socket} =
+             ProfileWidgetComponent.handle_event(
+               "toggle-rerun-json-repair",
+               %{"path" => "rerun.jsonRepair", "node-id" => "original"},
+               socket
+             )
+
+    assert {:noreply, ^socket} =
+             ProfileWidgetComponent.handle_event(
+               "toggle-repair-escalation",
+               %{"path" => "rerun.jsonRepair", "node-id" => "unknown"},
+               socket
+             )
+  end
+
   test "recovery roles reuse the profile row and only rerun generation exposes search", %{
     conn: conn
   } do
@@ -353,6 +374,137 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     |> render_click()
 
     refute has_element?(view, "#profile-rerun-generation-config-json-repair-initial")
+  end
+
+  # WEB-TEST-090: rerun repair is a sibling of rerun.target in the REST policy,
+  # not a child of that leaf target. This is exercised through rendered form
+  # names so a pure serializer test cannot hide a binding regression.
+  @tag :recovery
+  test "rerun repair target fields use the canonical sibling policy path", %{conn: conn} do
+    primary = profile("CPA GPT-5.6 Luna", "gpt-5.6-luna")
+    astra = profile("CPA GPT-6 Astra", "gpt-6-astra")
+    defaults = full_recovery_policy()
+    state = APIFixtures.state() |> Map.put("recoveryPolicy", defaults)
+
+    install_stub_with([primary, astra], primary, state, defaults)
+
+    {:ok, view, _} = live(conn, ~p"/")
+    render_async(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
+    view |> element("#profile-retry-toggle") |> render_click()
+    render_async(view, 1_000)
+    view |> element("#profile-rerun-generation-config-toggle") |> render_click()
+
+    assert has_element?(
+             view,
+             ~s(#profile-rerun-generation-config-json-repair-initial-profile[name="profile[recoveryPolicy][rerun][jsonRepair][initial][profileId]"])
+           )
+
+    assert has_element?(
+             view,
+             ~s(#profile-rerun-generation-config-json-repair-escalation-profile[name="profile[recoveryPolicy][rerun][jsonRepair][escalation][profileId]"])
+           )
+
+    refute has_element?(
+             view,
+             ~s(input[name="profile[recoveryPolicy][rerun][target][jsonRepair][initial][profileId]"])
+           )
+
+    view
+    |> element("#profile-rerun-generation-config-options-toggle")
+    |> render_click()
+
+    assert has_element?(
+             view,
+             ~s(input[name="profile[recoveryPolicy][rerun][target][maxTokens]"])
+           )
+
+    view
+    |> element(~s(input[name="profile[recoveryPolicy][rerun][target][maxTokens]"]))
+    |> render_change(%{
+      "profile" => %{
+        "recoveryPolicy" => %{
+          "rerun" => %{"target" => %{"maxTokens" => "2048"}}
+        }
+      }
+    })
+
+    assert has_element?(
+             view,
+             ~s(input[name="profile[recoveryPolicy][rerun][target][providerOptions]"][value*="2048"])
+           )
+  end
+
+  # WEB-TEST-096: invocation edits and explicit shared-profile saves have
+  # separate destinations.
+  @tag :recovery
+  test "nested save explicitly updates the selected shared profile", %{conn: conn} do
+    test_pid = self()
+    primary = profile("CPA GPT-5.6 Luna", "gpt-5.6-luna")
+    astra = profile("CPA GPT-6 Astra", "gpt-6-astra")
+    defaults = full_recovery_policy()
+    state = APIFixtures.state() |> Map.put("recoveryPolicy", defaults)
+
+    Req.Test.stub(HardenAPI, fn request ->
+      case {request.method, request.request_path} do
+        {"GET", "/api/v1/auth/session"} ->
+          Req.Test.json(request, APIFixtures.success(APIFixtures.principal()))
+
+        {"GET", "/api/v1/state"} ->
+          Req.Test.json(request, APIFixtures.success(nil, state))
+
+        {"GET", "/api/v1/profiles"} ->
+          Req.Test.json(
+            request,
+            put_in(
+              APIFixtures.profiles([primary, astra]),
+              ["result", "defaults", "recoveryPolicy"],
+              defaults
+            )
+          )
+
+        {"GET", "/api/v1/history"} ->
+          Req.Test.json(request, APIFixtures.history_page([]))
+
+        {"POST", "/api/v1/state"} ->
+          {:ok, body, request} = Plug.Conn.read_body(request)
+          Req.Test.json(request, APIFixtures.success(nil, Jason.decode!(body)))
+
+        {"PUT", "/api/v1/profiles/CPA%20GPT-6%20Astra"} ->
+          {:ok, body, request} = Plug.Conn.read_body(request)
+          send(test_pid, {:nested_profile_saved, Jason.decode!(body)})
+          Req.Test.json(request, APIFixtures.success(astra))
+
+        _ ->
+          flunk("unexpected API call: #{request.method} #{request.request_path}")
+      end
+    end)
+
+    {:ok, view, _} = live(conn, ~p"/")
+    render_async(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
+    view |> element("#profile-retry-toggle") |> render_click()
+    render_async(view, 1_000)
+    view |> element("#profile-rerun-generation-config-toggle") |> render_click()
+    view |> element("#profile-rerun-generation-config-options-toggle") |> render_click()
+
+    view
+    |> element(~s(input[name="profile[recoveryPolicy][rerun][target][maxTokens]"]))
+    |> render_change(%{
+      "profile" => %{
+        "recoveryPolicy" => %{"rerun" => %{"target" => %{"maxTokens" => "2048"}}}
+      }
+    })
+
+    refute has_element?(view, "#profile-rerun-generation-config-save[disabled]")
+    view |> element("#profile-rerun-generation-config-save") |> render_click()
+    render_async(view, 1_000)
+
+    assert_receive {:nested_profile_saved, payload}, 1_000
+    assert payload["profile"]["llmProfile"] == "CPA GPT-6 Astra"
+    assert payload["profile"]["defaultOptions"]["max_tokens"] == 2048
   end
 
   defp install_stub(profiles, state_profile, save_response \\ nil) do

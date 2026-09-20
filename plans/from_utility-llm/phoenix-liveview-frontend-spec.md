@@ -657,3 +657,27 @@ title, accessible name and CSS class used by live results, history and traces.
   active, and focus utility rules. A missing compiled artifact fails the gate;
   this check does not certify visual geometry, focus delivery, or browser
   rendering.
+
+### WEB-TEST-090 through WEB-TEST-099: Complete recursive profile widget
+
+These tests are defined and implemented under
+[`PLAN-HLLM-RECURSIVE-WIDGET-001`](../../plans/recursive-llm-profile-widget-implementation-plan.md)
+for the finite full-widget recovery implementation. They belong to the existing
+deterministic LiveView/state suites; no browser or DOM emulator is implied. The
+plan is the source of truth for each test's exact oracle, phase, and command.
+
+- `WEB-TEST-090`: rendered rerun-repair fields use the sibling
+  `recoveryPolicy.rerun.jsonRepair` path and survive save/reload.
+- `WEB-TEST-091`: six fixed node descriptors, three roles, explicit bindings,
+  and rejection of unknown paths.
+- `WEB-TEST-092`: independent role overrides, inheritance, null/zero/false,
+  profile switching, and capability-aware reasoning.
+- `WEB-TEST-093`: root and all enabled recovery nodes expose the same
+  functional row-plus-configuration widget.
+- `WEB-TEST-094`: finite recovery capabilities, shared retry/search/cache
+  ownership, and forged-event guards.
+- `WEB-TEST-095`: disabled branches, dirty/error blocking, and no budget growth.
+- `WEB-TEST-096`: explicit shared-profile save scope and sibling preservation.
+- `WEB-TEST-097`: node-scoped actions, credentials, uploads, and async races.
+- `WEB-TEST-098`: independent nested trees in the two embedding instances.
+- `WEB-TEST-099`: run/state/profile/cURL/bundle round-trip parity.

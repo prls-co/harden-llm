@@ -7,10 +7,9 @@ defmodule HardenLlmWeb.ProfilesLive do
     HardenAPI,
     Observability,
     ProfileDefaults,
+    ProfileForm,
     ProfileWidgetState
   }
-
-  @section_keys ~w(options_open retry_open pricing_open credential_open)
 
   @doc "Returns the blank profile editor shape used by reusable profile controls."
   def empty_form(policy), do: ProfileDefaults.empty_form(policy)
@@ -30,6 +29,7 @@ defmodule HardenLlmWeb.ProfilesLive do
       |> assign(:pending, nil)
       |> assign(:delete_id, nil)
       |> assign(:requested_edit_id, nil)
+      |> assign(:editor_form_revision, 0)
       |> assign(:credential_staged?, false)
       |> assign(:options_open, false)
       |> assign(:retry_open, false)
@@ -64,6 +64,7 @@ defmodule HardenLlmWeb.ProfilesLive do
      socket
      |> assign(:editing?, true)
      |> assign(:form, to_form(empty_form(socket.assigns.recovery_policy_default), as: :profile))
+     |> update(:editor_form_revision, &(&1 + 1))
      |> assign(:field_errors, %{})
      |> assign(:operation_error, nil)
      |> assign(:requested_edit_id, nil)
@@ -208,11 +209,53 @@ defmodule HardenLlmWeb.ProfilesLive do
   def handle_async(_operation, _result, socket), do: {:noreply, socket}
 
   @impl true
+  def handle_info({:profile_widget, "profile", {:profile_widget_draft, params}}, socket)
+      when is_map(params) do
+    {:noreply, assign(socket, :form, to_form(params, as: :profile))}
+  end
+
+  def handle_info(
+        {:profile_widget, "profile", {:profile_widget_selection, %{profile_id: profile_id}}},
+        socket
+      )
+      when is_binary(profile_id) do
+    form =
+      case socket.assigns.profiles_by_id[profile_id] do
+        nil -> empty_form(socket.assigns.recovery_policy_default)
+        profile_state -> profile_form(profile_state)
+      end
+
+    {:noreply, assign(socket, :form, to_form(form, as: :profile))}
+  end
+
+  def handle_info({:profile_widget, "profile", {:profile_widget_ui, name, open}}, socket) do
+    field =
+      case name do
+        "modelOptionsOpen" -> :options_open
+        "retryRepairOpen" -> :retry_open
+        "pricingOpen" -> :pricing_open
+        "credentialOpen" -> :credential_open
+        "llmProfileConfigOpen" -> :editing?
+        _ -> nil
+      end
+
+    if field, do: {:noreply, assign(socket, field, truthy?(open))}, else: {:noreply, socket}
+  end
+
+  def handle_info({:profile_widget, "profile", {:profile_widget_catalog, profiles}}, socket)
+      when is_list(profiles) do
+    {:noreply, put_profiles(socket, profiles)}
+  end
+
+  def handle_info({:profile_widget, "profile", _message}, socket), do: {:noreply, socket}
+
+  @impl true
   def handle_event("new", _params, socket) do
     {:noreply,
      socket
      |> assign(:editing?, true)
      |> assign(:form, to_form(empty_form(socket.assigns.recovery_policy_default), as: :profile))
+     |> update(:editor_form_revision, &(&1 + 1))
      |> assign(:field_errors, %{})
      |> assign(:operation_error, nil)
      |> assign(:requested_edit_id, nil)
@@ -240,118 +283,8 @@ defmodule HardenLlmWeb.ProfilesLive do
        socket,
        :form,
        to_form(ProfileWidgetState.merge_draft(socket.assigns.form.params, params), as: :profile)
-     )}
-  end
-
-  def handle_event("toggle-json-repair", _params, socket),
-    do:
-      toggle_recovery_branch(socket, ["jsonRepair"], fn ->
-        default_recovery_branch(
-          socket,
-          ["jsonRepair"],
-          &ProfileWidgetState.default_recovery_repair_plan/0
-        )
-      end)
-
-  def handle_event("toggle-rerun", _params, socket),
-    do:
-      toggle_recovery_branch(socket, ["rerun"], fn ->
-        default_recovery_branch(
-          socket,
-          ["rerun"],
-          &ProfileWidgetState.default_recovery_rerun_plan/0
-        )
-      end)
-
-  def handle_event("toggle-rerun-json-repair", _params, socket),
-    do:
-      toggle_recovery_branch(socket, ["rerun", "jsonRepair"], fn ->
-        default_recovery_branch(
-          socket,
-          ["rerun", "jsonRepair"],
-          &ProfileWidgetState.default_recovery_repair_plan/0
-        )
-      end)
-
-  def handle_event("toggle-recovery-target-config", %{"path" => path}, socket)
-      when is_binary(path) and path != "" do
-    {:noreply,
-     update(socket, :recovery_target_config_open, fn open ->
-       Map.put(open, path, not Map.get(open, path, false))
-     end)}
-  end
-
-  def handle_event("toggle-recovery-target-config", _params, socket), do: {:noreply, socket}
-
-  def handle_event("toggle-repair-escalation", %{"path" => path}, socket)
-      when path in ["jsonRepair", "rerun.jsonRepair"] do
-    keys = String.split(path, ".", trim: true)
-
-    update_recovery_draft(socket, fn policy ->
-      update_in(policy, keys, fn
-        plan when is_map(plan) ->
-          Map.update!(plan, "escalation", fn
-            nil ->
-              default_recovery_target(socket, keys ++ ["escalation"], %{"source" => "generation"})
-
-            _target ->
-              nil
-          end)
-
-        other ->
-          other
-      end)
-    end)
-  end
-
-  def handle_event("toggle-repair-escalation", _params, socket), do: {:noreply, socket}
-
-  def handle_event("use-recovery-default", %{"path" => path}, socket)
-      when path in ["jsonRepair", "rerun", "rerun.jsonRepair"] do
-    keys = String.split(path, ".", trim: true)
-
-    update_recovery_draft(socket, fn policy ->
-      case default_recovery_branch(socket, keys, fn -> nil end) do
-        plan when is_map(plan) -> put_in(policy, keys, plan)
-        _ -> policy
-      end
-    end)
-  end
-
-  def handle_event("use-recovery-default", _params, socket), do: {:noreply, socket}
-
-  def handle_event("toggle-section", %{"section" => section}, socket)
-      when section in @section_keys do
-    key = String.to_existing_atom(section)
-    {:noreply, assign(socket, key, !Map.get(socket.assigns, key))}
-  end
-
-  def handle_event("clear-staged-key", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:form, update_form_value(socket.assigns.form, "apiKey", ""))
-     |> assign(:credential_staged?, false)}
-  end
-
-  def handle_event("stage-key", _params, socket) do
-    if String.trim(socket.assigns.form[:apiKey].value || "") == "" do
-      {:noreply,
-       assign(socket, :operation_error, "Enter a replacement API key before staging it.")}
-    else
-      {:noreply,
-       socket
-       |> assign(:credential_staged?, true)
-       |> assign(:credential_open, false)
-       |> assign(:operation_error, nil)}
-    end
-  end
-
-  def handle_event("cancel-key", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:form, update_form_value(socket.assigns.form, "apiKey", ""))
-     |> assign(:credential_staged?, false)
-     |> assign(:credential_open, false)}
+     )
+     |> update(:editor_form_revision, &(&1 + 1))}
   end
 
   def handle_event("save", %{"profile" => params}, %{assigns: %{pending: nil}} = socket) do
@@ -365,6 +298,7 @@ defmodule HardenLlmWeb.ProfilesLive do
          socket
          |> assign(:pending, reference)
          |> assign(:form, to_form(params, as: :profile))
+         |> update(:editor_form_revision, &(&1 + 1))
          |> start_async(
            {:save, reference},
            Observability.propagate(fn -> HardenAPI.save_profile(handle, id, payload) end)
@@ -374,6 +308,7 @@ defmodule HardenLlmWeb.ProfilesLive do
         {:noreply,
          socket
          |> assign(:form, to_form(params, as: :profile))
+         |> update(:editor_form_revision, &(&1 + 1))
          |> assign(:operation_error, message)}
     end
   end
@@ -438,12 +373,7 @@ defmodule HardenLlmWeb.ProfilesLive do
     end
   end
 
-  def field_error(errors, name) do
-    errors[name] ||
-      Enum.find_value(errors, fn {field, message} ->
-        if String.ends_with?(field, "." <> name), do: message
-      end)
-  end
+  defdelegate field_error(errors, name), to: ProfileForm
 
   attr(:message, :string, default: nil)
 
@@ -486,12 +416,9 @@ defmodule HardenLlmWeb.ProfilesLive do
   def pricing_present?(profile_state),
     do: not is_nil(get_in(profile_state, ["profile", "pricing"]))
 
-  def options_valid?(value) do
-    case decode_object(value, "Default options JSON") do
-      {:ok, _options} -> true
-      {:error, _message} -> false
-    end
-  end
+  defdelegate options_valid?(value), to: ProfileForm
+
+  defp truthy?(value), do: value in [true, "true", "on", "1"]
 
   defp put_profiles(socket, profiles) do
     profiles_by_id =
@@ -523,259 +450,15 @@ defmodule HardenLlmWeb.ProfilesLive do
     socket
     |> assign(:editing?, true)
     |> assign(:form, to_form(profile_form(profile_state), as: :profile))
+    |> update(:editor_form_revision, &(&1 + 1))
     |> assign(:field_errors, %{})
     |> assign(:operation_error, nil)
     |> assign(:credential_staged?, false)
     |> reset_sections()
   end
 
-  defp toggle_recovery_branch(socket, path, default_fun) do
-    update_recovery_draft(socket, fn policy ->
-      case get_in(policy, path) do
-        value when is_map(value) -> put_in(policy, path, nil)
-        _ -> put_in(policy, path, default_fun.())
-      end
-    end)
-  end
-
-  defp default_recovery_branch(socket, path, fallback_fun) do
-    case get_in(socket.assigns.recovery_policy_default || %{}, path) do
-      plan when is_map(plan) -> plan
-      _ -> fallback_fun.()
-    end
-  end
-
-  defp default_recovery_target(socket, path, fallback) do
-    case get_in(socket.assigns.recovery_policy_default || %{}, path) do
-      target when is_map(target) -> target
-      _ -> fallback
-    end
-  end
-
-  defp update_recovery_draft(socket, update_fun) do
-    current = socket.assigns.form.params["recoveryPolicy"] || %{}
-
-    policy =
-      current
-      |> ProfileWidgetState.serialize_current_recovery_policy()
-      |> update_fun.()
-      |> ProfileWidgetState.serialize_recovery_policy()
-
-    {:noreply,
-     assign(
-       socket,
-       :form,
-       to_form(Map.put(socket.assigns.form.params, "recoveryPolicy", policy), as: :profile)
-     )}
-  end
-
-  @doc "Converts a backend profile state into the editable profile form shape."
-  def profile_form(profile_state) do
-    profile = profile_state["profile"] || %{}
-    credential = profile_state["credential"] || %{}
-    options = ProfileDefaults.normalize_options(profile["defaultOptions"])
-    pricing = profile["pricing"] || %{}
-
-    Map.merge(ProfileDefaults.empty_form(Map.fetch!(profile, "recoveryPolicy")), %{
-      "profileId" => profile["llmProfile"] || "",
-      "provider" => profile["provider"] || "",
-      "apiInferenceType" =>
-        profile["apiInferenceType"] || ProfileDefaults.api_inference_type_default(),
-      "baseUrl" => normalize_base_url(profile["baseUrl"] || ""),
-      "modelId" => profile["modelId"] || "",
-      "credentialId" => credential["credentialId"] || "",
-      "credentialConfigured" => to_string(credential["configured"] || false),
-      "endpointCredentialScope" => profile["endpointCredentialScope"] || "user",
-      "apiKey" => "",
-      "supportsTemperature" => to_string(profile["supportsTemperature"] || false),
-      "supportsContractedStructuredOutput" =>
-        to_string(profile["supportsContractedStructuredOutput"] || false),
-      "supportsWebSearch" => to_string(supports_web_search?(profile)),
-      "maxTokens" =>
-        option_text(options["max_tokens"] || ProfileDefaults.default_options()["max_tokens"]),
-      "temperature" => option_text(options["temperature"]),
-      "topP" => option_text(options["top_p"] || options["topP"]),
-      "topK" => option_text(options["top_k"] || options["topK"]),
-      "stopSequences" => stop_text(options["stop"]),
-      "defaultOptionsJson" => Jason.encode!(options, pretty: true),
-      "pricingInput" => pricing_text(pricing["input_cost_per_token"]),
-      "pricingOutput" => pricing_text(pricing["output_cost_per_token"]),
-      "pricingCacheRead" => pricing_text(pricing["cache_read_input_token_cost"]),
-      "pricingCacheWrite" => pricing_text(pricing["cache_creation_input_token_cost"]),
-      "pricingReasoning" => pricing_text(pricing["output_cost_per_reasoning_token"])
-    })
-  end
-
-  @doc "Builds the backend profile payload while preserving credential safety."
-  def profile_payload(params) do
-    with {:ok, options} <- options_payload(params),
-         {:ok, pricing} <- pricing_payload(params) do
-      credential = String.trim(params["apiKey"] || "")
-
-      payload = %{
-        "profile" => %{
-          "schemaVersion" => 3,
-          "llmProfile" => params["profileId"] || "",
-          "provider" => params["provider"] || "",
-          "apiInferenceType" =>
-            params["apiInferenceType"] || ProfileDefaults.api_inference_type_default(),
-          "endpointCredentialScope" => params["endpointCredentialScope"] || "user",
-          "baseUrl" => normalize_base_url(params["baseUrl"] || ""),
-          "modelId" => params["modelId"] || "",
-          "pricing" => pricing,
-          "supportsTemperature" => truthy?(params["supportsTemperature"]),
-          "supportsContractedStructuredOutput" =>
-            truthy?(params["supportsContractedStructuredOutput"]),
-          "supportsWebSearch" => truthy?(params["supportsWebSearch"]),
-          "tokensParam" => nil,
-          "responsesTokensParam" => nil,
-          "defaultOptions" => options,
-          "recoveryPolicy" =>
-            ProfileWidgetState.serialize_current_recovery_policy(params["recoveryPolicy"])
-        },
-        "credentialId" => params["credentialId"] || ""
-      }
-
-      {:ok,
-       if(credential == "",
-         do: payload,
-         else: Map.put(payload, "credential", %{"apiKey" => credential})
-       )}
-    end
-  end
-
-  defp options_payload(params) do
-    with {:ok, options} <- decode_object(params["defaultOptionsJson"], "Default options JSON"),
-         {:ok, options} <-
-           put_number_option(
-             options,
-             "max_tokens",
-             params["maxTokens"],
-             "Max Output Tokens",
-             :integer
-           ),
-         {:ok, options} <-
-           put_number_option(options, "temperature", params["temperature"], "Temperature", :float),
-         {:ok, options} <- put_number_option(options, "top_p", params["topP"], "Top P", :float),
-         {:ok, options} <- put_number_option(options, "top_k", params["topK"], "Top K", :integer),
-         {:ok, options} <- put_stop_option(options, params["stopSequences"]) do
-      {:ok, options}
-    end
-  end
-
-  defp pricing_payload(params) do
-    fields = %{
-      "input_cost_per_token" => params["pricingInput"],
-      "output_cost_per_token" => params["pricingOutput"],
-      "cache_read_input_token_cost" => params["pricingCacheRead"],
-      "cache_creation_input_token_cost" => params["pricingCacheWrite"],
-      "output_cost_per_reasoning_token" => params["pricingReasoning"]
-    }
-
-    with {:ok, values} <-
-           Enum.reduce_while(fields, {:ok, %{}}, fn {key, value}, {:ok, acc} ->
-             case rate_value(value, key) do
-               {:ok, nil} -> {:cont, {:ok, Map.put(acc, key, nil)}}
-               {:ok, number} -> {:cont, {:ok, Map.put(acc, key, number / 1_000_000)}}
-               {:error, message} -> {:halt, {:error, message}}
-             end
-           end) do
-      if Enum.any?(values, fn {_key, value} -> not is_nil(value) end),
-        do: {:ok, values},
-        else: {:ok, nil}
-    end
-  end
-
-  defp put_number_option(options, key, value, _label, _kind) when value in [nil, ""] do
-    {:ok, Map.delete(options, option_alias(key))}
-  end
-
-  defp put_number_option(options, key, value, label, kind) do
-    case number_value(value, label, kind) do
-      {:ok, number} -> {:ok, options |> Map.put(key, number) |> Map.delete(option_alias(key))}
-      {:error, message} -> {:error, message}
-    end
-  end
-
-  defp option_alias("top_p"), do: "topP"
-  defp option_alias("top_k"), do: "topK"
-  defp option_alias(_key), do: nil
-
-  defp put_stop_option(options, value) when value in [nil, ""], do: {:ok, options}
-
-  defp put_stop_option(options, value) do
-    stops = value |> String.split("\n") |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == ""))
-    {:ok, Map.put(options, "stop", stops)}
-  end
-
-  defp decode_object(value, label) do
-    text = String.trim(value || "")
-
-    if text == "" do
-      {:ok, %{}}
-    else
-      case Jason.decode(text) do
-        {:ok, object} when is_map(object) -> {:ok, object}
-        {:ok, _} -> {:error, "#{label} must be a JSON object."}
-        {:error, _} -> {:error, "#{label} must be valid JSON."}
-      end
-    end
-  end
-
-  defp rate_value(value, _label) when value in [nil, ""], do: {:ok, nil}
-
-  defp rate_value(value, label) do
-    case Float.parse(String.trim(to_string(value))) do
-      {number, ""} when number >= 0 -> {:ok, number}
-      _ -> {:error, "#{label} must be a non-negative number."}
-    end
-  end
-
-  defp number_value(value, label, :integer) do
-    case Integer.parse(String.trim(to_string(value))) do
-      {number, ""} when number >= 0 -> {:ok, number}
-      _ -> {:error, "#{label} must be a non-negative integer."}
-    end
-  end
-
-  defp number_value(value, label, :float) do
-    case Float.parse(String.trim(to_string(value))) do
-      {number, ""} when number >= 0 -> {:ok, number}
-      _ -> {:error, "#{label} must be a non-negative number."}
-    end
-  end
-
-  defp update_form_value(form, key, value),
-    do: to_form(Map.put(form.params || %{}, key, value), as: :profile)
-
-  defp option_text(value) when is_nil(value), do: ""
-  defp option_text(value), do: to_string(value)
-
-  defp normalize_base_url(value) do
-    value
-    |> to_string()
-    |> String.trim()
-    |> String.trim_trailing("/")
-  end
-
-  defp stop_text(value) when is_list(value), do: Enum.join(value, "\n")
-  defp stop_text(_value), do: ""
-
-  defp pricing_text(value) when is_number(value),
-    do:
-      :erlang.float_to_binary(value * 1.0 * 1_000_000, decimals: 12)
-      |> String.trim_trailing("0")
-      |> String.trim_trailing(".")
-
-  defp pricing_text(_value), do: ""
-  defp truthy?(value), do: value in [true, "true", "on", "1"]
-
-  defp supports_web_search?(profile) do
-    case Map.fetch(profile, "supportsWebSearch") do
-      {:ok, value} -> truthy?(value)
-      :error -> false
-    end
-  end
+  defdelegate profile_form(profile_state), to: ProfileForm
+  defdelegate profile_payload(params), to: ProfileForm
 
   defp reset_sections(socket),
     do:

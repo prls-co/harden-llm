@@ -5,6 +5,147 @@ defmodule HardenLlmWeb.ProfileWidgetStateTest do
 
   # PLAN-HLLM-WIDGET-PARITY-001 TEST-105 TEST-110 WEB-TEST-083 WEB-TEST-085
 
+  # WEB-TEST-091: recovery composition is finite and server-owned.
+  test "exposes exactly the six recovery nodes and role capability matrix" do
+    assert Enum.sort(ProfileWidgetState.recovery_node_ids()) ==
+             Enum.sort([
+               "original",
+               "original-repair-initial",
+               "original-repair-escalation",
+               "rerun",
+               "rerun-repair-initial",
+               "rerun-repair-escalation"
+             ])
+
+    assert ProfileWidgetState.recovery_capability?("original", "jsonRepair")
+    assert ProfileWidgetState.recovery_capability?("rerun", "jsonRepair")
+    refute ProfileWidgetState.recovery_capability?("rerun", "rerun")
+    refute ProfileWidgetState.recovery_capability?("rerun-repair-initial", "webSearch")
+
+    refute ProfileWidgetState.recovery_capability?(
+             "original",
+             "profile_definition",
+             "webSearch"
+           )
+
+    refute ProfileWidgetState.recovery_capability?("unknown", "jsonRepair")
+
+    assert ProfileWidgetState.recovery_node_target_path("rerun-repair-initial") ==
+             ["recoveryPolicy", "rerun", "jsonRepair", "initial"]
+  end
+
+  # WEB-TEST-092: target option edits remain invocation-local provider options.
+  test "target option patches serialize into the leaf without nested recovery" do
+    target = %{
+      "source" => "profile",
+      "profileId" => "Luna",
+      "reasoningEffort" => "lowest",
+      "providerOptions" => %{"keep" => true}
+    }
+
+    patched =
+      ProfileWidgetState.patch_recovery_target(target, %{
+        "maxTokens" => "2048",
+        "temperature" => "0.2",
+        "topP" => "0.95",
+        "topK" => "40",
+        "stopSequences" => "DONE\nSTOP"
+      })
+
+    assert patched == %{
+             "source" => "profile",
+             "profileId" => "Luna",
+             "reasoningEffort" => "lowest",
+             "providerOptions" => %{
+               "keep" => true,
+               "max_tokens" => 2048,
+               "temperature" => 0.2,
+               "top_p" => 0.95,
+               "top_k" => 40,
+               "stop" => ["DONE", "STOP"]
+             }
+           }
+
+    refute Map.has_key?(patched, "jsonRepair")
+    refute Map.has_key?(patched, "rerun")
+  end
+
+  test "fixed node patches use the descriptor path and reject unknown nodes" do
+    draft = %{
+      "recoveryPolicy" => %{
+        "rerun" => %{
+          "target" => %{"source" => "profile", "profileId" => "A"},
+          "jsonRepair" => %{"initial" => %{"source" => "profile", "profileId" => "B"}}
+        }
+      }
+    }
+
+    assert {:ok, patched} =
+             ProfileWidgetState.patch_node(
+               draft,
+               "rerun-repair-initial",
+               %{"profileId" => "C", "jsonRepair" => %{"unexpected" => true}}
+             )
+
+    assert get_in(patched, ["recoveryPolicy", "rerun", "jsonRepair", "initial", "profileId"]) ==
+             "C"
+
+    refute get_in(patched, ["recoveryPolicy", "rerun", "jsonRepair", "initial", "jsonRepair"])
+
+    assert {:error, :unknown_or_non_target_node} =
+             ProfileWidgetState.patch_node(draft, "original", %{"profileId" => "A"})
+
+    assert {:error, :unknown_or_non_target_node} =
+             ProfileWidgetState.patch_node(draft, "not-a-node", %{"profileId" => "A"})
+  end
+
+  test "full draft serialization keeps the REST policy and strips UI-only target nesting" do
+    draft = %{
+      "ui" => %{"rerunConfigOpen" => true},
+      "recoveryPolicy" => %{
+        "rerun" => %{
+          "target" => %{
+            "source" => "profile",
+            "profileId" => "A",
+            "jsonRepair" => %{"initial" => %{"profileId" => "wrong"}}
+          }
+        }
+      }
+    }
+
+    serialized = ProfileWidgetState.serialize_widget(draft)
+    refute Map.has_key?(serialized, "ui")
+    refute get_in(serialized, ["recoveryPolicy", "rerun", "target", "jsonRepair"])
+  end
+
+  test "switching a recovery target profile clears stale leaf overrides" do
+    target = %{
+      "source" => "profile",
+      "profileId" => "Luna",
+      "modelId" => "old-model",
+      "reasoningEffort" => "highest",
+      "providerOptions" => %{"max_tokens" => 99}
+    }
+
+    profiles = [
+      %{
+        "profile" => %{
+          "llmProfile" => "Astra",
+          "reasoningEffortMap" => %{"lowest" => %{}, "highest" => %{}}
+        }
+      }
+    ]
+
+    assert ProfileWidgetState.reset_recovery_target_for_profile(
+             Map.put(target, "profileId", "Astra"),
+             profiles
+           ) == %{
+             "source" => "profile",
+             "profileId" => "Astra",
+             "reasoningEffort" => "lowest"
+           }
+  end
+
   test "options patches preserve unknown keys and canonicalize utility aliases" do
     options = %{"provider_option" => %{"keep" => true}, "topP" => 0.4}
 
@@ -93,6 +234,14 @@ defmodule HardenLlmWeb.ProfileWidgetStateTest do
     assert ProfileWidgetState.normalize_cache_mode("off") == "cache"
     assert ProfileWidgetState.normalize_cache_mode("refresh") == "refresh"
     assert ProfileWidgetState.normalize_cache_mode("unexpected") == "cache"
+  end
+
+  test "capability and node descriptors do not accept browser-supplied roles" do
+    assert ProfileWidgetState.capabilities("json_repair", "workspace")["webSearch"] == false
+    assert ProfileWidgetState.capabilities("rerun_generation", "workspace")["rerun"] == false
+    assert ProfileWidgetState.capabilities("not-a-role", "workspace") == %{}
+    assert ProfileWidgetState.node_descriptor("rerun")["role"] == "rerun_generation"
+    assert ProfileWidgetState.node_descriptor("not-a-node") == nil
   end
 
   test "dirty fields compare persisted identity values across form and API shapes" do

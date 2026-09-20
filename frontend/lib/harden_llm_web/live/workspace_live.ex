@@ -11,13 +11,17 @@ defmodule HardenLlmWeb.WorkspaceLive do
   @reasoning_options [{"Lowest", "lowest"}, {"Middle", "middle"}, {"Highest", "highest"}]
   @history_page_size_options [10, 25, 50, 100]
   @maximum_history_page 9_223_372_036_854_775_807
-  @ui_keys ~w(llmProfileConfigOpen modelOptionsOpen pricingOpen retryRepairOpen inputAdvancedOpen historyOpen outputDetailsOpen outputControlsOpen)
+  # Workspace keeps the historical empty prefix so existing DOM IDs remain
+  # stable; reject messages from any other top-level widget instance.
+  @profile_widget_prefix ""
+  @ui_keys ~w(llmProfileConfigOpen modelOptionsOpen pricingOpen retryRepairOpen credentialOpen inputAdvancedOpen historyOpen outputDetailsOpen outputControlsOpen)
 
   @default_ui %{
     "llmProfileConfigOpen" => false,
     "modelOptionsOpen" => false,
     "pricingOpen" => false,
     "retryRepairOpen" => false,
+    "credentialOpen" => false,
     "inputAdvancedOpen" => false,
     "historyOpen" => false,
     "outputDetailsOpen" => true,
@@ -152,26 +156,32 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   @impl true
-  def handle_info({:profile_widget, _prefix, {:profile_widget_ui, name, open}}, socket)
+  def handle_info(
+        {:profile_widget, @profile_widget_prefix, {:profile_widget_ui, name, open}},
+        socket
+      )
       when name in @ui_keys do
     toggle_ui(socket, name, to_string(open))
   end
 
   def handle_info(
-        {:profile_widget, _prefix, {:profile_widget_selection, selection}},
+        {:profile_widget, @profile_widget_prefix, {:profile_widget_selection, selection}},
         socket
       )
       when is_map(selection) do
     apply_profile_selection(socket, selection)
   end
 
-  def handle_info({:profile_widget, _prefix, {:profile_widget_control, key, value}}, socket)
+  def handle_info(
+        {:profile_widget, @profile_widget_prefix, {:profile_widget_control, key, value}},
+        socket
+      )
       when key in ["reasoningEffort", "cacheMode", "modelId", "webSearch"] do
     update_workspace_form(socket, key, value)
   end
 
   def handle_info(
-        {:profile_widget, _prefix, {:profile_widget_provider_options, options}},
+        {:profile_widget, @profile_widget_prefix, {:profile_widget_provider_options, options}},
         socket
       )
       when is_map(options) do
@@ -179,13 +189,17 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   def handle_info(
-        {:profile_widget, _prefix, {:profile_widget_profile_dirty, requires_save?}},
+        {:profile_widget, @profile_widget_prefix,
+         {:profile_widget_profile_dirty, requires_save?}},
         socket
       ) do
     {:noreply, assign(socket, :profile_requires_save?, requires_save?)}
   end
 
-  def handle_info({:profile_widget, _prefix, {:profile_widget_recovery, policy}}, socket) do
+  def handle_info(
+        {:profile_widget, @profile_widget_prefix, {:profile_widget_recovery, policy}},
+        socket
+      ) do
     current = get_in(socket.assigns.form.params || %{}, ["recoveryPolicy"]) || %{}
     policy = ProfileWidgetState.merge_recovery_policy(current, policy)
 
@@ -194,17 +208,11 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   def handle_info(
-        {:profile_widget, _prefix, {:profile_widget_profiles, profiles, selected_profile_id}},
+        {:profile_widget, @profile_widget_prefix, {:profile_widget_catalog, profiles}},
         socket
-      ) do
-    socket = assign(socket, :profiles, profiles)
-
-    if selected_profile_id == (socket.assigns.form.params || %{})["selectedProfileId"] do
-      {:noreply, socket}
-    else
-      update_workspace_form(socket, "selectedProfileId", selected_profile_id)
-    end
-  end
+      )
+      when is_list(profiles),
+      do: {:noreply, assign(socket, :profiles, profiles)}
 
   @impl true
   def handle_async(
