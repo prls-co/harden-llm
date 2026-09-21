@@ -1955,3 +1955,30 @@ unchanged. The approved external managed JSON catalog remains the source of
 production profile availability; a fresh environment must run the trusted
 profile synchronization before enabling the Astra defaults. No provider
 secret, response body, or bearer token is committed.
+
+## Recursive profile widget and Mint security patch — production (2026-09-21 UTC)
+
+The recursive LLM-profile widget release was promoted from `main` at
+application-bearing source SHA
+`fad2c0153583eba9a63e274038f7e736d06cfd55`. This checkpoint also upgrades
+the frontend lockfile from Mint `1.10.0` to `1.10.1`, resolving the release-gate
+HTTP/1 response-smuggling advisory. The prior Mint advisory was not waived:
+`mix hex.audit` passed with no retired or security-advisory packages.
+
+| Gate or production check | Result |
+| --- | --- |
+| `make test-fast` | Passed: 9 tasks, zero failures and cleanup errors |
+| `make test-release` | Passed: 27 tasks, zero failures and cleanup errors; browser-free release gate |
+| Focused recursive-widget/frontend suites | Passed: 106 tests |
+| Production configuration | `production-config apply` converged the selected web service; a subsequent full check was `equivalent` |
+| Web runtime | Healthy, source release `fad2c0153583eba9a63e274038f7e736d06cfd55`, image `sha256:6217ade53b3e70e421800d3d8ce28a51fe559da9c19e0349c123e993d65b5251`, container `3c7a52b238eb` |
+| Public probes | Frontend `/healthz` and `/login`, API `/healthz` and `/readyz`: HTTP 200 |
+| Authenticated read-only API | `/api/v1/profiles` and `/api/v1/history?limit=1`: HTTP 200 |
+
+The gateway and infrastructure services were not recreated. Existing Postgres,
+Garage, telemetry, cache, and frontend-session volumes were retained. The
+previous web image `harden-llm-web:release-0f7544f` remains available for
+rollback. No browser canary or paid-provider call was run in this deployment;
+those remain explicitly separate checks. The production descriptor and runtime
+identity are the authoritative deployment record; this documentation commit is
+not a new application image.
