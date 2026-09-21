@@ -648,11 +648,15 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         "profile" => %{"recoveryPolicy" => %{"repairInvalidOutput" => to_string(!enabled)}}
       })
 
+      render_async(view, 1_000)
+
       assert has_element?(view, "#profile-repair-invalid-output[checked]") == !enabled
 
       view
       |> element("#profile_defaultOptionsJson")
       |> render_change(%{"profile" => %{"defaultOptionsJson" => Jason.encode!(options)}})
+
+      render_async(view, 1_000)
 
       assert has_element?(view, "#profile-repair-invalid-output[checked]") == !enabled
       assert has_element?(view, "#profile_defaultOptionsJson", Jason.encode!(options))
