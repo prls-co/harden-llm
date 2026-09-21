@@ -1982,3 +1982,32 @@ rollback. No browser canary or paid-provider call was run in this deployment;
 those remain explicitly separate checks. The production descriptor and runtime
 identity are the authoritative deployment record; this documentation commit is
 not a new application image.
+
+## Inherited recovery-policy clarity and SSE lifecycle fix — production (2026-09-21 UTC)
+
+The follow-up recovery-policy UI and SSE lifecycle fix was promoted from `main`
+at application-bearing source SHA
+`3201fd249f86031292be1c47acf64e0eb8a4540b`. Terminal JSON-repair targets now
+identify their inherited retry policy instead of presenting an empty-looking
+retry editor. The REST SSE worker also closes the stable progress channel it
+passed to the run service; this prevents a fast completion from closing the
+handler's nilled drain variable. TEST-252/TEST-253 now exercise repeated fast
+SSE completions under the race detector.
+
+| Gate or production check | Result |
+| --- | --- |
+| `make test-fast` | Accepted: 9 tasks, zero failures and cleanup errors |
+| Managed integration race lane | Accepted: `go-integration-race`, zero failures and cleanup errors |
+| `make test-release` | Accepted: 27 tasks, zero failures and cleanup errors; browser-free release gate |
+| Production configuration | Web-only `production-config apply` completed; subsequent full check was `equivalent` |
+| Web runtime | Healthy, source release `3201fd249f86031292be1c47acf64e0eb8a4540b`, image `sha256:299439921295e6037a0cc01e1b1893e5bd1c2e441b740021479ca6666c1e5276`, container `23f8699349a6` |
+| Public probes | Frontend `/healthz` and `/login`, API `/healthz` and `/readyz`: HTTP 200 |
+| Authenticated read-only API | `/api/v1/profiles` and `/api/v1/history?limit=1`: HTTP 200 |
+| Runtime preservation | Gateway remained healthy at image `sha256:9395f2465e32a5f3b00802e5eff24ad7d98f5d717e63acd0a0aeba84f6618673`; all 16 Compose project services remained running |
+
+The previous web image `harden-llm-web:release-fad2c01` remains available as
+the rollback target. Existing Postgres, Garage, telemetry, cache, and
+frontend-session volumes were retained; no gateway or infrastructure service
+was recreated. No browser was launched and no paid-provider call was made, so
+visual layout, native browser events, and live-provider behavior remain outside
+this browser-free deployment check.
