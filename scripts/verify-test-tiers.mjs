@@ -96,8 +96,12 @@ function assertCheapTask(task) {
 async function main() {
   const manifest = await loadManifest(manifestPath);
   const makefile = await fs.readFile(makefilePath, "utf8");
-  const backendSpec = await fs.readFile(path.join(repositoryRoot, "plans", "from_utility-llm", "harden-llm-self-hosted-test-spec.md"), "utf8");
-  const frontendSpec = await fs.readFile(path.join(repositoryRoot, "plans", "from_utility-llm", "phoenix-liveview-frontend-spec.md"), "utf8");
+  const specificationDirectory = path.join(repositoryRoot, "plans", "from_utility-llm");
+  const specificationNames = await fs.readdir(specificationDirectory);
+  const backendSpec = await fs.readFile(path.join(specificationDirectory, "harden-llm-self-hosted-test-spec.md"), "utf8");
+  const frontendSpecName = specificationNames.find((name) => name.endsWith("-frontend-spec.md"));
+  if (!frontendSpecName) fail("frontend test specification is missing");
+  const frontendSpec = await fs.readFile(path.join(specificationDirectory, frontendSpecName), "utf8");
   const verifyLine = "verify: format lint build test-static test-unit test-parity test-integration test-integration-race test-api test-observability test-race test-vulnerability";
   if (!makefile.includes(verifyLine)) fail("make verify dependency contract changed");
 

@@ -1,6 +1,7 @@
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-233 TEST-234
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import {
   buildComposeEnvironment,
   compareResolvedConfiguration,
@@ -273,4 +274,147 @@ test("TEST-234 descriptor loading keeps the descriptor itself nonsecret", (t) =>
   const loaded = loadDescriptor(descriptorPath);
   assert.equal(loaded.descriptorPath, descriptorPath);
   assert(!JSON.stringify(loaded).includes("API_KEY"));
+});
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-260
+function candidateDescriptorFor(t, {
+  desiredRelease = "old-release",
+  desiredImageVersion = desiredRelease,
+  runtimeRelease = desiredRelease,
+  runtimeImageVersion = runtimeRelease,
+  runtimeHealth = "healthy",
+} = {}) {
+  const directory = fixtureDirectory(t);
+  const service = "harden-llm-gateway";
+  const image = "sha256:" + "a".repeat(64);
+  const descriptor = {
+    schemaVersion: 1,
+    project: "harden-llm",
+    dockerContext: "default",
+    composeRoot: directory,
+    applicationRoot: directory,
+    composeFiles: ["docker-compose.yml", "deploy/langfuse/docker-compose.upstream.yml", "deploy/langfuse/compose.private.yml", "deploy/frontend/compose.frontend.yml"],
+    productionEnvFile: privateFile(directory, "production.env", `HARDEN_LLM_RELEASE=${desiredRelease}\n`),
+    observabilityEnvFile: privateFile(directory, "observability.env", "PRLS_ALLURE_HOST=allure.example\n"),
+    sharedApplicationEnvFile: privateFile(directory, "shared.env", ""),
+    requiredVariables: ["PRLS_ALLURE_HOST", "HARDEN_LLM_RELEASE"],
+    services: {
+      [service]: {
+        container: "harden-llm-gateway-1",
+        expectedImage: image,
+        manageable: true,
+        identityEnvironment: { HARDEN_LLM_RELEASE: desiredRelease },
+        ignoredEnvironmentKeys: [],
+        allowedDifferenceFields: ["environment", "image", "identity"],
+        compareMountContents: false,
+      },
+    },
+    serviceEnvironmentOverrides: { [service]: { HARDEN_LLM_RELEASE: desiredRelease } },
+    serviceImageOverrides: { [service]: "harden-llm-gateway:fixture" },
+    __candidateFixture: { service, image, desiredImageVersion, runtimeRelease, runtimeImageVersion, runtimeHealth },
+  };
+  return validateDescriptor(descriptor);
+}
+
+function candidateComposeModel(directory, desiredRelease) {
+  return {
+    services: {
+      "harden-llm-gateway": {
+        environment: { HARDEN_LLM_RELEASE: desiredRelease },
+        image: "harden-llm-gateway:fixture",
+        command: ["gateway"],
+        entrypoint: ["/bin/gateway"],
+        volumes: [],
+        networks: { default: {} },
+        ports: [],
+        healthcheck: { test: ["CMD", "gateway", "health"], interval: "30s", timeout: "5s", retries: 3, start_period: "0s" },
+        restart: "unless-stopped",
+      },
+    },
+  };
+}
+
+function candidateRuntimeContainer({ image, runtimeRelease, runtimeImageVersion, runtimeHealth }) {
+  return {
+    Image: image,
+    Config: {
+      Labels: {
+        "com.docker.compose.project": "harden-llm",
+        "com.docker.compose.service": "harden-llm-gateway",
+        "org.opencontainers.image.version": runtimeImageVersion,
+      },
+      Env: [`HARDEN_LLM_RELEASE=${runtimeRelease}`],
+      Cmd: ["gateway"],
+      Entrypoint: ["/bin/gateway"],
+      Healthcheck: { Test: ["CMD", "gateway", "health"], Interval: 30_000_000_000, Timeout: 5_000_000_000, Retries: 3, StartPeriod: 0 },
+    },
+    State: { Status: "running", Health: { Status: runtimeHealth } },
+    Mounts: [],
+    NetworkSettings: { Networks: { "harden-llm_default": {} } },
+    HostConfig: { PortBindings: {}, RestartPolicy: { Name: "unless-stopped" } },
+  };
+}
+
+function candidateRunner(descriptor, { candidateRelease = null } = {}) {
+  const fixture = descriptor.__candidateFixture;
+  const model = candidateComposeModel(descriptor.composeRoot, descriptor.serviceEnvironmentOverrides[fixture.service].HARDEN_LLM_RELEASE);
+  const runtime = candidateRuntimeContainer(fixture);
+  return (_bin, args) => {
+    if (args.includes("config")) return { status: 0, stdout: JSON.stringify(model), stderr: "" };
+    if (args.includes("image")) {
+      const metadata = args.some((argument) => argument.includes("org.opencontainers.image.version"));
+      return { status: 0, stdout: metadata ? `${fixture.image}|${fixture.desiredImageVersion}\n` : `${fixture.image}\n`, stderr: "" };
+    }
+    if (args.includes("up")) {
+      runtime.Config.Labels["org.opencontainers.image.version"] = candidateRelease;
+      runtime.Config.Env = [`HARDEN_LLM_RELEASE=${candidateRelease}`];
+      runtime.State = { Status: "running", Health: { Status: "healthy" } };
+      return { status: 0, stdout: "", stderr: "" };
+    }
+    if (args.includes("inspect")) return { status: 0, stdout: JSON.stringify([runtime]), stderr: "" };
+    throw new Error(`unexpected fake Docker command: ${args.join(" ")}`);
+  };
+}
+
+test("TEST-260 candidate release rejects a stale but internally equivalent descriptor", (t) => {
+  const descriptor = candidateDescriptorFor(t, { runtimeRelease: "old-release", runtimeImageVersion: "old-release" });
+  const checked = runCheck(descriptor, { services: ["harden-llm-gateway"], expectedRelease: "b".repeat(40), run: candidateRunner(descriptor) });
+  assert.notDeepEqual(checked.differences, [], "candidate intent must not be ignored");
+  assert(checked.differences.some((difference) => difference.includes("candidate")), checked.differences);
+});
+
+test("TEST-260 candidate release rejects a wrong image label and unhealthy runtime", (t) => {
+  const expectedRelease = "b".repeat(40);
+  const wrongLabel = candidateDescriptorFor(t, { desiredRelease: expectedRelease, desiredImageVersion: "old-release", runtimeRelease: expectedRelease, runtimeImageVersion: "old-release" });
+  const wrongLabelResult = runCheck(wrongLabel, { services: ["harden-llm-gateway"], expectedRelease, run: candidateRunner(wrongLabel) });
+  assert(wrongLabelResult.differences.some((difference) => difference.includes("candidate")), wrongLabelResult.differences);
+
+  const unhealthy = candidateDescriptorFor(t, { desiredRelease: expectedRelease, runtimeRelease: expectedRelease, runtimeHealth: "starting" });
+  const unhealthyResult = runCheck(unhealthy, { services: ["harden-llm-gateway"], expectedRelease, run: candidateRunner(unhealthy) });
+  assert(unhealthyResult.differences.some((difference) => difference.includes("health")), unhealthyResult.differences);
+});
+
+test("TEST-260 candidate-aware apply permits an old runtime and requires convergence", (t) => {
+  const expectedRelease = "b".repeat(40);
+  const descriptor = candidateDescriptorFor(t, { desiredRelease: expectedRelease, runtimeRelease: "old-release", runtimeImageVersion: "old-release" });
+  const calls = [];
+  const fakeRunner = candidateRunner(descriptor, { candidateRelease: expectedRelease });
+  const result = runApply(descriptor, ["harden-llm-gateway"], (...args) => {
+    calls.push(args[1]);
+    return fakeRunner(...args);
+  }, { expectedRelease });
+  assert.equal(result.applied, true);
+  assert(calls.some((args) => args.includes("up")));
+  assert.equal(result.differences.length, 0);
+});
+
+test("TEST-260 candidate options reject invalid intent before Docker", (t) => {
+  const descriptor = candidateDescriptorFor(t);
+  assert.throws(() => runCheck(descriptor, { services: ["harden-llm-gateway"], expectedRelease: "not-a-sha", run: candidateRunner(descriptor) }), /40-character/);
+  assert.throws(() => runCheck(descriptor, { services: ["harden-llm-gateway"], expectedRelease: "b".repeat(40), resolveOnly: true, run: candidateRunner(descriptor) }), /resolve-only/);
+  assert.throws(() => runApply(descriptor, ["harden-llm-gateway"], candidateRunner(descriptor), { expectedRelease: "b".repeat(40) }), /desired application images/);
+
+  const cli = spawnSync(process.execPath, ["scripts/production-config.mjs", "check", "--expected-release", "not-a-sha"], { encoding: "utf8" });
+  assert.notEqual(cli.status, 0);
+  assert.match(`${cli.stdout}\n${cli.stderr}`, /40-character/);
 });

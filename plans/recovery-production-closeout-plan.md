@@ -3,7 +3,7 @@
 ## 1. Title and metadata
 
 - Project: Harden-LLM.
-- Version: 1.1; implementation status: In progress (P00 complete; P01-P04 pending).
+- Version: 1.2; implementation status: In progress (P00-P01 complete; P02-P04 pending).
 - Document ID: PLAN-HLLM-RECOVERY-CLOSEOUT-001.
 - Date: 2026-09-21 UTC.
 - Owners: repository maintainer for acceptance and production operation; implementing coding agent for code, tests, and release evidence.
@@ -904,6 +904,27 @@ Set `Phase Status: Done` only after its exit gates pass. Initial phase statuses:
 - ADR Updates: ADR-HLLM-026 created and indexed.
 - Things to check afterwards: before P04, re-observe the running service identities and verify the candidate gate rejects this mixed baseline; do not reuse the historical release receipt.
 - Next unlocked subtask: P01.S01.
+
+#### Phase P01
+
+- Phase Status: Done.
+- Completed Steps: P01.S01-P01.S04.
+- Requirement links: REQ-331, REQ-339, REQ-340.
+- Design/code surface evidence: `scripts/production-config.mjs` accepts `--expected-release`, validates a full lowercase SHA, limits candidate mode to the gateway/web application services, compares desired OCI image metadata and release values, and checks running labels, release environment, running state, and health. `docs/environment.md` and `docs/self-hosting.md` document the independent candidate check and scoped apply.
+- Verification method and exact commands: RED `node --test scripts/test/production_config_test.mjs` (stale intent assertions failed before implementation); GREEN same command (13/13 passed); `node scripts/run-test-tier.mjs --task go-static --output tmp/test-feedback/recovery-closeout-static.json`; real read-only candidate check with the current HEAD SHA; `node scripts/verify-test-tiers.mjs`; `git diff --check`.
+- Validation purpose: prevent an internally equivalent old descriptor/runtime from passing a newer release acceptance check while preserving ordinary check/apply behavior and secret redaction.
+- Configuration checkpoint / source SHA: P01 source is not yet committed; P00 checkpoint `677e7eb`; current production candidate check against `677e7eb` exited 2 and identified gateway/web desired and runtime candidate mismatches without mutating services.
+- Quantitative Results: focused Node sample 13 tests, 0 failures; static lane accepted 1 task, 0 cleanup errors; candidate host check exit 2 as expected; no timeout or retry budget changed. Mean/std and 95% CI not applicable.
+- Evidence paths / hashes: `tmp/test-feedback/recovery-closeout-static.json`; focused test output; candidate mismatch output contains only field names and approved source paths.
+- Issues/Resolutions: static lane first failed because the verifier’s direct frontend-spec filename exposed forbidden frontend vocabulary in the backend production surface scan. Resolution: discover the `*-frontend-spec.md` filename instead of embedding that path; static lane then passed.
+- Failed Attempts: the initial RED test used human-readable release labels and correctly failed the new SHA validator; fixtures were corrected to use 40-hex candidate values. No production mutation occurred.
+- Deviations: none. Candidate intent is an optional backward-compatible boundary; no deployment framework or new release task was added.
+- Risks and assumptions: candidate mode requires the desired image to already exist locally with an OCI version label; apply still permits stale runtime differences only for selected manageable services. The actual descriptor must be edited from a private checkpoint before P04, and its candidate image digests must be inspected before apply.
+- Unresolved decisions: none for P01.
+- Lessons Learned: candidate verification must separate desired metadata defects from stale runtime state; otherwise a safe old-runtime transition would be blocked or an invalid image could be applied.
+- ADR Updates: ADR-HLLM-026 now has executable release-intent evidence through TEST-260.
+- Things to check afterwards: run the candidate check once before descriptor changes and once after each scoped apply; confirm old infrastructure services and retained volumes are not selected; never use `--resolve-only` as candidate evidence.
+- Next unlocked subtask: P02.S01.
 
 ## 12. Appendix: ADR index
 

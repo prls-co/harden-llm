@@ -43,6 +43,7 @@ export const PRLS_REQUIRED_VARIABLES = Object.freeze([
   "PRLS_LOKI_S3_ACCESS_KEY",
   "PRLS_LOKI_S3_SECRET_KEY",
 ]);
+export const APPLICATION_SERVICES = Object.freeze(["harden-llm-gateway", "harden-llm-web"]);
 
 const DEFAULT_REQUIRED_VARIABLES = Object.freeze([...PRLS_REQUIRED_VARIABLES, "HARDEN_LLM_RELEASE"]);
 const HOST_ENVIRONMENT_KEYS = Object.freeze([
@@ -58,6 +59,7 @@ const SAFE_DESCRIPTOR_ENVIRONMENT_KEY = /^[A-Z][A-Z0-9_]*$/;
 const RELEASE_ENVIRONMENT_KEY = /(?:^|_)RELEASE$/;
 const SENSITIVE_KEY = /(password|secret|token|api[_-]?key|access[_-]?key|encryption|database|bearer)/i;
 const ALLOWED_DIFFERENCE_FIELDS = new Set(["environment", "image", "mounts", "mount-contents", "command", "entrypoint", "networks", "ports", "healthcheck", "restart", "identity", "runtime"]);
+const RELEASE_SHA_PATTERN = /^[0-9a-f]{40}$/;
 
 export class ProductionConfigError extends Error {
   constructor(message, code = "invalid_configuration") {
@@ -103,6 +105,22 @@ function normalizeSelectedServices(descriptor, services) {
     if (!descriptor.services[service]) fail(`service ${service} is not in the descriptor`, "scope_blocked");
   }
   return selected;
+}
+
+function normalizeExpectedRelease(expectedRelease) {
+  if (expectedRelease === undefined || expectedRelease === null) return null;
+  if (typeof expectedRelease !== "string" || !RELEASE_SHA_PATTERN.test(expectedRelease)) {
+    fail("expected release must be a 40-character lowercase hexadecimal SHA", "invalid_arguments");
+  }
+  return expectedRelease;
+}
+
+function validateCandidateScope(services, expectedRelease, resolveOnly) {
+  if (!expectedRelease) return;
+  if (resolveOnly) fail("--expected-release cannot be combined with --resolve-only", "invalid_arguments");
+  if (services.some((service) => !APPLICATION_SERVICES.includes(service))) {
+    fail("--expected-release is limited to harden-llm-gateway and harden-llm-web", "scope_blocked");
+  }
 }
 
 function validateDescriptorEnvironment(values, name) {
@@ -689,6 +707,84 @@ function inspectDesiredImages(resolved, services, run = defaultProcessRunner) {
   return results;
 }
 
+function inspectDesiredImageMetadata(resolved, services, run = defaultProcessRunner) {
+  const results = {};
+  for (const service of services) {
+    const desiredImage = resolved.model.services[service].image;
+    const args = ["--context", resolved.descriptor.dockerContext, "image", "inspect", "--format", "{{.Id}}|{{index .Config.Labels \"org.opencontainers.image.version\"}}", desiredImage];
+    let output;
+    try {
+      output = processResultOutput(run("docker", args, { env: buildComposeEnvironment(resolved) })).trim();
+    } catch {
+      results[service] = null;
+      continue;
+    }
+    const [imageId, version] = output.split("\n", 1)[0].split("|");
+    results[service] = { imageId: imageId || null, version: version && version !== "<no value>" ? version : null };
+  }
+  return results;
+}
+
+function candidateReleaseEnvironment(values) {
+  return Object.entries(values ?? {}).filter(([key]) => RELEASE_ENVIRONMENT_KEY.test(key));
+}
+
+function candidateDifferences(resolved, runtime, imageResults, imageMetadata, services, expectedRelease) {
+  const differences = [];
+  const desiredByName = new Map(resolved.model.services ? Object.entries(resolved.model.services) : []);
+  const runtimeByName = new Map(runtime.map(({ service, container }) => [service, container]));
+  for (const service of services) {
+    const desiredService = desiredByName.get(service);
+    const identity = resolved.descriptor.services[service];
+    const actual = runtimeByName.get(service);
+    const desiredReleases = [
+      ...candidateReleaseEnvironment(desiredService?.environment),
+      ...candidateReleaseEnvironment(identity?.identityEnvironment),
+      ...candidateReleaseEnvironment(resolved.descriptor.serviceEnvironmentOverrides?.[service]),
+    ];
+    if (desiredReleases.length === 0) {
+      differences.push(`${service}.candidate.release-environment`);
+    } else {
+      for (const [key, value] of desiredReleases) {
+        if (value !== expectedRelease) differences.push(`${service}.candidate.release-environment.${key}`);
+      }
+    }
+
+    const desiredImage = imageMetadata[service];
+    if (!desiredImage || desiredImage.imageId !== identity.expectedImage) {
+      differences.push(`${service}.candidate.image-unavailable`);
+    }
+    if (!desiredImage || desiredImage.version !== expectedRelease) {
+      differences.push(`${service}.candidate.image-version`);
+    }
+
+    if (!actual) {
+      differences.push(`${service}.candidate.runtime-missing`);
+      continue;
+    }
+    const actualLabels = actual.Config?.Labels ?? {};
+    if (actualLabels["org.opencontainers.image.version"] !== expectedRelease) {
+      differences.push(`${service}.candidate.runtime-label`);
+    }
+    const actualReleases = candidateReleaseEnvironment(environmentMap(actual.Config?.Env));
+    if (actualReleases.length === 0 || actualReleases.some(([, value]) => value !== expectedRelease)) {
+      differences.push(`${service}.candidate.runtime-release`);
+    }
+    if (actual.State?.Status !== "running") differences.push(`${service}.candidate.runtime-state`);
+    if (actual.State?.Health?.Status !== "healthy") differences.push(`${service}.candidate.runtime-health`);
+    if (imageResults[service] !== identity.expectedImage) differences.push(`${service}.candidate.runtime-image`);
+  }
+  return differences.sort();
+}
+
+function candidateDesiredDifferences(differences) {
+  return differences.filter((difference) => difference.includes("candidate.release-environment") || difference.includes("candidate.image-unavailable") || difference.includes("candidate.image-version"));
+}
+
+function candidateRuntimeDifferences(differences) {
+  return differences.filter((difference) => difference.includes("candidate.runtime-"));
+}
+
 function verifyDescriptorImages(resolved, services, run = defaultProcessRunner) {
   const results = inspectDesiredImages(resolved, services, run);
   for (const service of services) {
@@ -725,7 +821,7 @@ function printReport({ operation, resolved, differences, runtimeVerified, applie
 
 function parseArguments(argv) {
   const operation = argv[0] && !argv[0].startsWith("-") ? argv.shift() : "check";
-  const options = { operation, descriptorPath: DEFAULT_DESCRIPTOR_PATH, services: null, resolveOnly: false };
+  const options = { operation, descriptorPath: DEFAULT_DESCRIPTOR_PATH, services: null, resolveOnly: false, expectedRelease: null };
   while (argv.length > 0) {
     const argument = argv.shift();
     if (argument === "--descriptor") {
@@ -740,32 +836,57 @@ function parseArguments(argv) {
       options.resolveOnly = true;
       continue;
     }
+    if (argument === "--expected-release") {
+      options.expectedRelease = normalizeExpectedRelease(argv.shift());
+      continue;
+    }
     fail(`unknown argument ${argument}`, "invalid_arguments");
   }
   if (!["check", "apply"].includes(operation)) fail("operation must be check or apply", "invalid_arguments");
   if (operation === "apply" && (!options.services || options.services.length === 0)) fail("apply requires --services", "invalid_arguments");
+  if (options.expectedRelease && options.resolveOnly) fail("--expected-release cannot be combined with --resolve-only", "invalid_arguments");
   return options;
 }
 
-export function runCheck(descriptor, { services = descriptorServiceNames(descriptor), resolveOnly = false, run = defaultProcessRunner } = {}) {
+export function runCheck(descriptor, { services = descriptorServiceNames(descriptor), resolveOnly = false, expectedRelease = null, run = defaultProcessRunner } = {}) {
   services = normalizeSelectedServices(descriptor, services);
+  expectedRelease = normalizeExpectedRelease(expectedRelease);
+  validateCandidateScope(services, expectedRelease, resolveOnly);
   const resolved = resolveConfiguration(descriptor);
   resolved.model = renderComposeConfiguration(resolved, run);
   if (resolveOnly) return { resolved, differences: [], runtimeVerified: false, services };
   const runtime = inspectRuntime(resolved, services, run);
   const imageResults = inspectDesiredImages(resolved, services, run);
-  const differences = compareResolvedConfiguration(resolved.model, runtime, descriptor, services, imageResults);
-  return { resolved, runtime, differences, runtimeVerified: true, services };
+  const baseDifferences = compareResolvedConfiguration(resolved.model, runtime, descriptor, services, imageResults);
+  const imageMetadata = expectedRelease ? inspectDesiredImageMetadata(resolved, services, run) : {};
+  const candidate = expectedRelease
+    ? candidateDifferences(resolved, runtime, imageResults, imageMetadata, services, expectedRelease)
+    : [];
+  const differences = [...new Set([...baseDifferences, ...candidate])].sort();
+  return {
+    resolved,
+    runtime,
+    differences,
+    candidate: expectedRelease ? { expectedRelease, desiredDifferences: candidateDesiredDifferences(candidate), runtimeDifferences: candidateRuntimeDifferences(candidate) } : null,
+    runtimeVerified: true,
+    services,
+  };
 }
 
-export function runApply(descriptor, services, run = defaultProcessRunner) {
+export function runApply(descriptor, services, run = defaultProcessRunner, { expectedRelease = null } = {}) {
   services = normalizeSelectedServices(descriptor, services);
+  expectedRelease = normalizeExpectedRelease(expectedRelease);
+  validateCandidateScope(services, expectedRelease, false);
   for (const service of services) {
     if (!descriptor.services[service].manageable) fail(`service ${service} is not approved for application`, "scope_blocked");
   }
-  const first = runCheck(descriptor, { services, run });
+  const first = runCheck(descriptor, { services, expectedRelease, run });
+  if (first.candidate?.desiredDifferences.length > 0) {
+    fail("desired application images or release metadata do not match the expected release", "candidate_mismatch");
+  }
   if (first.differences.length === 0) return { ...first, applied: false };
   for (const field of first.differences) {
+    if (field.includes(".candidate.runtime-")) continue;
     const service = field.split(".")[0];
     const kind = differenceKind(field);
     if (!(descriptor.services[service].allowedDifferenceFields ?? ["environment"]).includes(kind)) {
@@ -773,14 +894,17 @@ export function runApply(descriptor, services, run = defaultProcessRunner) {
     }
   }
   verifyDescriptorImages(first.resolved, services, run);
-  const second = runCheck(descriptor, { services, run });
+  const second = runCheck(descriptor, { services, expectedRelease, run });
   ensureFreshResolution(first.resolved, second.resolved);
   if (!equalJSON(first.differences, second.differences)) fail("runtime changed during application review", "stale_resolution");
+  if (second.candidate?.desiredDifferences.length > 0) {
+    fail("desired application images or release metadata do not match the expected release", "candidate_mismatch");
+  }
   withOverrideFile(second.resolved, (overridePath) => {
     const upArgs = buildComposeArguments(descriptor, ["up", "-d", "--no-build", "--no-deps", "--pull", "never", "--wait", "--wait-timeout", "300", ...services], overridePath);
     processResultOutput(run("docker", upArgs, { env: buildComposeEnvironment(second.resolved) }));
   });
-  const final = runCheck(descriptor, { services, run });
+  const final = runCheck(descriptor, { services, expectedRelease, run });
   if (final.differences.length > 0) fail("selected services did not converge after application", "post_apply_mismatch");
   return { ...final, applied: true };
 }
@@ -790,8 +914,8 @@ async function main() {
     const options = parseArguments(process.argv.slice(2));
     const descriptor = loadDescriptor(options.descriptorPath);
     const result = options.operation === "apply"
-      ? runApply(descriptor, options.services)
-      : runCheck(descriptor, { services: options.services ?? descriptorServiceNames(descriptor), resolveOnly: options.resolveOnly });
+      ? runApply(descriptor, options.services, defaultProcessRunner, { expectedRelease: options.expectedRelease })
+      : runCheck(descriptor, { services: options.services ?? descriptorServiceNames(descriptor), resolveOnly: options.resolveOnly, expectedRelease: options.expectedRelease });
     printReport({ operation: options.operation, ...result });
     if (result.differences?.length > 0 && options.operation === "check") process.exitCode = 2;
   } catch (error) {

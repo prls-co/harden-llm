@@ -27,6 +27,17 @@ node scripts/production-config.mjs check \
   --descriptor /home/kirill/.config/harden-llm/production.json
 ```
 
+Before a release cutover, compare both application services with the exact
+candidate SHA. A descriptor that is internally equivalent at an older release
+must fail this check:
+
+```bash
+node scripts/production-config.mjs check \
+  --descriptor /home/kirill/.config/harden-llm/production.json \
+  --services harden-llm-gateway,harden-llm-web \
+  --expected-release <40-hex-commit-sha>
+```
+
 Do not reuse development routing values such as `*.harden.localhost` for a
 Cloudflare-tunneled production origin. Set the five `HARDEN_LLM_*_HOST` values
 to the public names configured by the tunnel. If the tunnel validates Caddy's

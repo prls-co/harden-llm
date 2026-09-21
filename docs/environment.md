@@ -94,6 +94,17 @@ node scripts/production-config.mjs check \
   --descriptor /home/kirill/.config/harden-llm/production.json
 ```
 
+For a release acceptance check, supply the certified candidate SHA explicitly
+and select both application services. Descriptor equivalence alone does not
+prove that the intended gateway and web images are running:
+
+```bash
+node scripts/production-config.mjs check \
+  --descriptor /home/kirill/.config/harden-llm/production.json \
+  --services harden-llm-gateway,harden-llm-web \
+  --expected-release <40-hex-commit-sha>
+```
+
 The descriptor is nonsecret host metadata. It records the fixed Compose graph,
 the separate `composeRoot` and application checkout, Docker context, approved
 source paths, retained image/release identities, and service-specific nonsecret
@@ -108,8 +119,16 @@ resolution:
 ```bash
 node scripts/production-config.mjs apply \
   --descriptor /home/kirill/.config/harden-llm/production.json \
-  --services harden-llm-web
+  --services harden-llm-web \
+  --expected-release <40-hex-commit-sha>
 ```
+
+`--expected-release` is restricted to the gateway and web application
+services, requires a full lowercase Git SHA, and compares desired image
+metadata plus the running image label, release environment, and healthy state.
+An old running application may be replaced by a matching desired candidate;
+the command never treats an old desired image or missing candidate metadata as
+ready to apply. It cannot be combined with `--resolve-only`.
 
 Apply is blocked when the desired local image does not resolve to the exact
 descriptor digest, when a mount/configuration difference is outside the
