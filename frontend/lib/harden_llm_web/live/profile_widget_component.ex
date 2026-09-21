@@ -835,6 +835,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           pending={@pending}
           delete_confirm={@delete_confirm}
           target_config_open={@recovery_target_config_open}
+          generation_profile_id={@main_form.params["profileId"] || ""}
+          generation_model_id={@main_form.params["modelId"] || ""}
+          generation_reasoning={@main_form.params["reasoningEffort"] || ""}
           host_context={@host_context}
           show_identity_fields={true}
           fold_event={
@@ -940,6 +943,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:target_form, :any, default: nil)
   attr(:target_role, :string, default: "json_repair")
   attr(:target_path, :string, default: nil)
+  attr(:inherited, :boolean, default: false)
   attr(:host_context, :string, default: "workspace")
 
   def profile_widget_node(assigns) do
@@ -1006,6 +1010,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           pending={@pending}
           delete_confirm={@delete_confirm}
           target_config_open={@target_config_open}
+          generation_profile_id={@profile_value}
+          generation_model_id={@model_value}
+          generation_reasoning={@reasoning_value}
           host_context={@host_context}
           show_identity_fields={false}
         />
@@ -1020,28 +1027,31 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         profile_required={true}
         profile_class="ullm-input ullm-profile-select"
         profile_change={@change}
-        profile_disabled={@disabled}
+        profile_disabled={@disabled and not @inherited}
         reasoning_input_id={"#{@id_prefix}-reasoning"}
         reasoning_name={"#{@target_name}[reasoningEffort]"}
         reasoning_value={@reasoning_value}
         reasoning_options={@reasoning_options}
         reasoning_change={@change}
-        reasoning_disabled={@disabled}
+        reasoning_disabled={@disabled or @inherited}
         search_input_id={if @show_search, do: "#{@id_prefix}-web-search-toggle"}
         search_enabled={@search_enabled}
-        search_disabled={@disabled}
+        search_disabled={@disabled or @inherited}
         model_input_id={"#{@id_prefix}-model"}
         model_input_name={"#{@target_name}[modelId]"}
         model_value={@model_value}
-        model_disabled={@disabled}
+        model_disabled={@disabled or @inherited}
         config_id={if @config_path, do: "#{@id_prefix}-config-toggle"}
         config_event="toggle-recovery-target-config"
         config_path={@config_path}
         config_open={@config_open}
         row_class="ullm-recovery-profile-row"
         target={@target}
-        fold_disabled={@disabled}
+        fold_disabled={@disabled or @inherited}
       />
+      <p :if={@inherited} class="ullm-field-help ullm-recovery-inherited">
+        Inherited from the generation model. Choose a profile to override it.
+      </p>
       <.target_profile_config
         :if={@config_open}
         id_prefix={"#{@id_prefix}-config"}
@@ -1061,6 +1071,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         target_repair_path={@nested_repair_path}
         api_inference_types={@api_inference_types}
         target_config_open={@target_config_open}
+        generation_profile_id={@profile_value}
+        generation_model_id={@model_value}
+        generation_reasoning={@reasoning_value}
       />
     <% end %>
     """
@@ -1324,6 +1337,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:target_value, :map, default: %{})
   attr(:target_name, :string, default: "recoveryTarget")
   attr(:target_config_open, :map, default: %{})
+  attr(:generation_profile_id, :string, default: "")
+  attr(:generation_model_id, :string, default: "")
+  attr(:generation_reasoning, :string, default: "")
   attr(:host_context, :string, default: "workspace")
   attr(:show_identity_fields, :boolean, default: false)
   attr(:fold_event, :string, default: "toggle-fold")
@@ -1708,6 +1724,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               change="profile-draft-change"
               enabled={not @fold_disabled}
               target_config_open={@target_config_open}
+              generation_profile_id={@generation_profile_id}
+              generation_model_id={@generation_model_id}
+              generation_reasoning={@generation_reasoning}
             />
           <% else %>
             <.recovery_fields
@@ -1721,6 +1740,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               web_search={@web_search}
               show_rerun_search={@show_rerun_search}
               target_config_open={@target_config_open}
+              generation_profile_id={@generation_profile_id}
+              generation_model_id={@generation_model_id}
+              generation_reasoning={@generation_reasoning}
             />
           <% end %>
         </div>
@@ -1903,6 +1925,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:change, :string, default: "profile-draft-change")
   attr(:enabled, :boolean, default: true)
   attr(:target_config_open, :map, default: %{})
+  attr(:generation_profile_id, :string, default: "")
+  attr(:generation_model_id, :string, default: "")
+  attr(:generation_reasoning, :string, default: "")
 
   def target_recovery_editor(assigns) do
     ~H"""
@@ -1936,6 +1961,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           enabled={@enabled}
           target_config_open={@target_config_open}
           label="LLM JSON repair after rerun"
+          generation_profile_id={@generation_profile_id}
+          generation_model_id={@generation_model_id}
+          generation_reasoning={@generation_reasoning}
         />
       <% else %>
         <p class="ullm-field-help">
@@ -1958,6 +1986,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:web_search, :boolean, default: false)
   attr(:show_rerun_search, :boolean, default: false)
   attr(:target_config_open, :map, default: %{})
+  attr(:generation_profile_id, :string, default: "")
+  attr(:generation_model_id, :string, default: "")
+  attr(:generation_reasoning, :string, default: "")
 
   def recovery_fields(assigns) do
     policy = assigns.form.params["recoveryPolicy"] || %{}
@@ -2064,6 +2095,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           preview={@json_repair_preview? or not @json_repair_enabled?}
           label="LLM JSON repair"
           target_config_open={@target_config_open}
+          generation_profile_id={@generation_profile_id}
+          generation_model_id={@generation_model_id}
+          generation_reasoning={@generation_reasoning}
         />
         <.rerun_plan_fields
           :if={is_map(@rerun_plan)}
@@ -2079,6 +2113,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           search_enabled={@web_search}
           show_generation_search={@show_rerun_search}
           target_config_open={@target_config_open}
+          generation_profile_id={@generation_profile_id}
+          generation_model_id={@generation_model_id}
+          generation_reasoning={@generation_reasoning}
         />
       </div>
       <div class="recovery-policy-categories">
@@ -2145,21 +2182,37 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:nested_repair_path, :string, default: "rerun.jsonRepair")
   attr(:target_config_open, :map, default: %{})
   attr(:api_inference_types, :list, default: @api_inference_types)
+  attr(:generation_profile_id, :string, default: "")
+  attr(:generation_model_id, :string, default: "")
+  attr(:generation_reasoning, :string, default: "")
 
   @doc "Shared leaf target picker used by both generation branches and hosts."
   def recovery_target_fields(assigns) do
     target = ProfileWidgetState.serialize_recovery_target(assigns.target_value)
-    profile_id = target["profileId"] || ""
+    inherited? = target["source"] == "generation"
+
+    display_target =
+      effective_recovery_target(
+        target,
+        assigns.generation_profile_id,
+        assigns.generation_model_id,
+        assigns.generation_reasoning
+      )
+
+    profile_id = display_target["profileId"] || ""
     profile_options = profile_combobox_options(assigns.profiles)
-    target_form = target_profile_form(assigns.profiles, target, assigns.name)
+    target_form = target_profile_form(assigns.profiles, display_target, assigns.name)
 
     assigns =
       assign(assigns,
-        leaf_target: target,
+        wire_target: target,
+        leaf_target: display_target,
+        inherited: inherited?,
         profile_options: profile_options,
         reasoning_options: reasoning_options(assigns.profiles, profile_id),
         target_form: target_form,
-        target_path: assigns.config_path || assigns.nested_repair_path
+        target_path: assigns.config_path || assigns.nested_repair_path,
+        target_config_visible?: assigns.config_open and not inherited?
       )
 
     ~H"""
@@ -2170,10 +2223,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         value={@leaf_target["source"] || "profile"}
         disabled={@disabled}
       />
-      <p :if={@leaf_target["source"] == "generation"} class="ullm-recovery-generation-target">
-        Use this branch's generation model
-      </p>
-      <div :if={@leaf_target["source"] != "generation"} class="ullm-options-grid">
+      <div class="ullm-options-grid">
         <.profile_widget_node
           mode="target"
           id_prefix={@id_prefix}
@@ -2190,7 +2240,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           show_search={@show_search}
           search_enabled={@search_enabled}
           config_path={@config_path}
-          config_open={@config_open}
+          config_open={@target_config_visible?}
           nested_repair_allowed={@nested_repair_allowed}
           nested_repair_plan={@nested_repair_plan}
           nested_repair_name={@nested_repair_name}
@@ -2200,12 +2250,13 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           target_path={@target_path}
           api_inference_types={@api_inference_types}
           target_config_open={@target_config_open}
+          inherited={@inherited}
         />
       </div>
       <input
         type="hidden"
         name={"#{@name}[providerOptions]"}
-        value={encode_target_options(@leaf_target["providerOptions"])}
+        value={encode_target_options(@wire_target["providerOptions"])}
         disabled={@disabled}
       />
     </div>
@@ -2229,6 +2280,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:target_repair_name, :string, default: nil)
   attr(:target_repair_path, :string, default: nil)
   attr(:api_inference_types, :list, default: @api_inference_types)
+  attr(:generation_profile_id, :string, default: "")
+  attr(:generation_model_id, :string, default: "")
+  attr(:generation_reasoning, :string, default: "")
 
   def target_profile_config(assigns) do
     ~H"""
@@ -2264,6 +2318,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         target_repair_name={@nested_repair_name}
         target_repair_path={@nested_repair_path}
         target_config_open={@target_config_open}
+        generation_profile_id={@generation_profile_id}
+        generation_model_id={@generation_model_id}
+        generation_reasoning={@generation_reasoning}
         fold_event="toggle-recovery-target-fold"
         fold_path={@target_path}
       />
@@ -2282,6 +2339,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:enabled, :boolean, default: true)
   attr(:preview, :boolean, default: false)
   attr(:target_config_open, :map, default: %{})
+  attr(:generation_profile_id, :string, default: "")
+  attr(:generation_model_id, :string, default: "")
+  attr(:generation_reasoning, :string, default: "")
 
   def repair_plan_fields(assigns) do
     plan = assigns.plan || %{}
@@ -2312,6 +2372,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         config_path={"#{@path}.initial"}
         config_open={Map.get(@target_config_open, "#{@path}.initial", false)}
         target_config_open={@target_config_open}
+        generation_profile_id={@generation_profile_id}
+        generation_model_id={@generation_model_id}
+        generation_reasoning={@generation_reasoning}
       />
       <label class="ullm-checkbox-label">
         <input
@@ -2337,6 +2400,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         config_path={"#{@path}.escalation"}
         config_open={Map.get(@target_config_open, "#{@path}.escalation", false)}
         target_config_open={@target_config_open}
+        generation_profile_id={@generation_profile_id}
+        generation_model_id={@generation_model_id}
+        generation_reasoning={@generation_reasoning}
       />
     </fieldset>
     """
@@ -2354,6 +2420,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:show_generation_search, :boolean, default: false)
   attr(:search_enabled, :boolean, default: false)
   attr(:target_config_open, :map, default: %{})
+  attr(:generation_profile_id, :string, default: "")
+  attr(:generation_model_id, :string, default: "")
+  attr(:generation_reasoning, :string, default: "")
 
   def rerun_plan_fields(assigns) do
     ~H"""
@@ -2388,6 +2457,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           nested_repair_name={"#{@name}[jsonRepair]"}
           nested_repair_path={"#{@path}.jsonRepair"}
           target_config_open={@target_config_open}
+          generation_profile_id={@generation_profile_id}
+          generation_model_id={@generation_model_id}
+          generation_reasoning={@generation_reasoning}
         />
       <% end %>
     </fieldset>
@@ -2424,6 +2496,21 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     })
     |> then(&to_form(&1, as: name))
   end
+
+  defp effective_recovery_target(target, profile_id, model_id, reasoning)
+       when is_map(target) do
+    if target["source"] == "generation" do
+      Map.merge(target, %{
+        "profileId" => to_string(profile_id || ""),
+        "modelId" => to_string(model_id || ""),
+        "reasoningEffort" => to_string(reasoning || "")
+      })
+    else
+      target
+    end
+  end
+
+  defp effective_recovery_target(target, _profile_id, _model_id, _reasoning), do: target
 
   defp runtime_options(value) when is_binary(value) do
     case Jason.decode(value) do

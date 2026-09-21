@@ -118,8 +118,10 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     refute has_element?(view, "#profile_endpointCredentialScope")
 
     view |> element("#profile-credential-toggle") |> render_click()
+    render_async(view, 1_000)
     assert has_element?(view, "#profile-credential-drawer")
     view |> element("#profile-credential-toggle") |> render_click()
+    render_async(view, 1_000)
     refute has_element?(view, "#profile-credential-drawer")
 
     view |> element("#profile-options-toggle") |> render_click()
@@ -768,6 +770,120 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     |> render_click()
 
     refute has_element?(view, "#profile-rerun-generation-profile[disabled]")
+  end
+
+  @tag :recovery
+  test "generation-relative targets render inherited values in the complete picker", %{
+    conn: conn
+  } do
+    primary = profile("Primary", "primary-model")
+    astra = profile("CPA GPT-6 Astra", "gpt-6-astra")
+
+    generation_repair = %{
+      "initial" => %{"source" => "generation"},
+      "escalation" => %{"source" => "generation"}
+    }
+
+    generation_policy = %{
+      "maxAttempts" => 4,
+      "retryOn" => ["network"],
+      "jsonRepair" => generation_repair,
+      "rerun" => %{
+        "target" => %{"source" => "generation"},
+        "jsonRepair" => generation_repair
+      },
+      "backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}
+    }
+
+    state = APIFixtures.state() |> Map.put("recoveryPolicy", generation_policy)
+    install_stub_with([primary, astra], primary, state, generation_policy)
+
+    {:ok, view, _} = live(conn, ~p"/")
+    render_async(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+    render_async(view, 1_000)
+    view |> element("#profile-retry-toggle") |> render_click()
+    render_async(view, 1_000)
+
+    assert has_element?(view, ~s(#profile-original-repair-initial-profile[value="Primary"]))
+
+    assert has_element?(
+             view,
+             ~s(#profile-original-repair-initial-model[value="primary-model"][disabled])
+           )
+
+    assert has_element?(view, "#profile-original-repair-initial-reasoning[disabled]")
+    assert has_element?(view, "#profile-original-repair-initial-config-toggle[disabled]")
+
+    assert has_element?(
+             view,
+             "#profile-original-repair-initial",
+             "Inherited from the generation model"
+           )
+
+    refute has_element?(view, "#profile-original-repair-initial-search-toggle")
+
+    assert has_element?(view, ~s(#profile-rerun-generation-profile[value="Primary"]))
+
+    assert has_element?(
+             view,
+             ~s(#profile-rerun-generation-model[value="primary-model"][disabled])
+           )
+
+    view
+    |> element("#profile-original-repair-initial-profile")
+    |> render_change(%{
+      "profile" => %{
+        "recoveryPolicy" => %{
+          "jsonRepair" => %{
+            "initial" => %{"profileId" => "CPA GPT-6 Astra"}
+          }
+        }
+      }
+    })
+
+    render_async(view, 1_000)
+
+    assert has_element?(
+             view,
+             ~s(#profile-original-repair-initial-profile[value="CPA GPT-6 Astra"])
+           )
+
+    refute has_element?(view, "#profile-original-repair-initial-profile[disabled]")
+    refute has_element?(view, "#profile-original-repair-initial-reasoning[disabled]")
+
+    assert has_element?(
+             view,
+             ~s(input[name="profile[recoveryPolicy][jsonRepair][initial][source]"][value="profile"])
+           )
+  end
+
+  test "the inherited leaf renderer keeps the wire source while showing the full row" do
+    html =
+      render_component(&ProfileWidgetComponent.recovery_target_fields/1,
+        id_prefix: "inherited-target",
+        name: "profile[recoveryPolicy][jsonRepair][initial]",
+        target_value: %{"source" => "generation"},
+        profiles: [profile("Primary", "primary-model")],
+        target: nil,
+        config_path: "jsonRepair.initial",
+        generation_profile_id: "Primary",
+        generation_model_id: "primary-model",
+        generation_reasoning: "middle"
+      )
+
+    assert html =~ ~s(id="inherited-target-profile")
+    assert html =~ ~s(value="Primary")
+    assert html =~ "Inherited from the generation model"
+    assert html =~ ~s(name="profile[recoveryPolicy][jsonRepair][initial][source]")
+    assert html =~ ~s(value="generation")
+    assert html =~ ~s(id="inherited-target-reasoning")
+    assert html =~ ~s(id="inherited-target-model")
+    assert html =~ ~s(id="inherited-target-config-toggle")
+    assert Regex.match?(~r/id="inherited-target-reasoning"[^>]*disabled/, html)
+    assert Regex.match?(~r/id="inherited-target-model"[^>]*disabled/, html)
+    assert Regex.match?(~r/id="inherited-target-config-toggle"[^>]*disabled/, html)
+    refute html =~ "target-recovery-editor"
   end
 
   @tag :recovery
