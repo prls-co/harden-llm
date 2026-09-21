@@ -681,3 +681,27 @@ plan is the source of truth for each test's exact oracle, phase, and command.
 - `WEB-TEST-097`: node-scoped actions, credentials, uploads, and async races.
 - `WEB-TEST-098`: independent nested trees in the two embedding instances.
 - `WEB-TEST-099`: run/state/profile/cURL/bundle round-trip parity.
+
+## 21. Recovery closeout inherited policy presentation
+
+These cases extend the finite recursive profile widget without introducing a
+second control implementation or per-target retry budget. They use the same
+Phoenix LiveView/state lanes as WEB-TEST-090 through WEB-TEST-099.
+
+### WEB-TEST-100: Inherited retry controls show the root draft
+
+- Owner: `ProfileWidgetComponent` and `ProfileWidgetState` tests; TEST-264.
+- Command: `(cd frontend && mix test test/harden_llm_web/live/profile_widget_component_test.exs test/harden_llm_web/live/profile_widget_state_test.exs test/harden_llm_web/live/embedding_live_test.exs --seed 104729)`.
+- Acceptance: all applicable nested target panels reuse the complete retry-control renderer in inherited/read-only mode, show the five categories plus max attempts/base delay/max delay from the current root draft including empty/zero values, and emit no submitting names or policy bindings.
+
+### WEB-TEST-101: Edit-shared-policy navigation is instance-local
+
+- Owner: profile widget and embedding LiveView tests; TEST-265.
+- Command: the WEB-TEST-100 command.
+- Acceptance: `Edit shared retry policy` opens the owning root retry section for the current widget instance, changes no policy/profile/run state, leaves other instances unchanged, and is omitted when no owner exists.
+
+### WEB-TEST-102: Inherited presentation cannot create nested policy
+
+- Owner: profile widget component/state tests; TEST-266.
+- Command: the WEB-TEST-100 command.
+- Acceptance: forged nested policy fields are rejected or ignored, disabled branches remain null, repair leaves cannot configure repair/rerun, and the full profile configuration remains available apart from those role capabilities.

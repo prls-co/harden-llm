@@ -1239,3 +1239,66 @@ or contact a provider.
 - Fixtures/data: temporary four-file Compose graph, two ordered env files, single-quoted bcrypt-like dollar text, JSON, an intentional empty, a precedence collision and a defaulted variable.
 - Assertions: native `docker compose config --format json` resolves the approved file order; production precedence wins the permitted collision; empty/default semantics remain distinct; serialized dollar escaping is normalized before comparison; no daemon operation is issued.
 - Pass criteria: the test passes with the installed Compose version and cannot pass by replacing native interpolation with a hand-written parser or by starting a container.
+
+## 23. Recovery production closeout
+
+These cases close the recovery stream, inherited-policy presentation, and
+two-application release evidence gaps recorded in
+`PLAN-HLLM-RECOVERY-CLOSEOUT-001`. They extend existing lanes and do not add a
+runner, provider, database, browser, or timeout budget.
+
+### TEST-260: Candidate identity is independent of descriptor consistency
+
+- Type / verifies: unit; REQ-331, REQ-339, REQ-340.
+- Location: `scripts/production-config.mjs` and `scripts/test/production_config_test.mjs`.
+- Command: `node --test scripts/test/production_config_test.mjs`.
+- Acceptance: an explicit 40-hex candidate rejects stale desired/runtime identity, missing labels, unhealthy candidates, invalid scope, and resolve-only use; a valid old runtime may transition to matching candidate images; no mutating subprocess runs on rejection and no diagnostic contains fixture secrets.
+
+### TEST-261: Pending and later outcomes each terminate once
+
+- Type / verifies: unit; REQ-332, REQ-334, REQ-335, REQ-340.
+- Location: `internal/gateway/httpapi/sse_test.go`.
+- Command: `go test ./internal/gateway/httpapi -run '^TestSSE' -count=1 -timeout=60s`.
+- Acceptance: a pre-consumed completion and a later completion each produce exactly one terminal envelope, preserve IDs/result/error data, drain bounded progress before terminal output, and return without waiting for another outcome.
+
+### TEST-262: Deadline and cancellation release the handler
+
+- Type / verifies: unit; REQ-333, REQ-334, REQ-335, REQ-340.
+- Location: `internal/gateway/httpapi/sse_test.go`.
+- Command: `go test ./internal/gateway/httpapi -run '^TestSSE' -count=1 -timeout=60s`.
+- Acceptance: pre-admission expiry retains JSON 504, post-admission expiry emits one `run_timeout` failure, client cancellation/write failure cancels execution, and cooperative workers are joined during bounded cleanup without fabricated accounting.
+
+### TEST-263: Channel and writer ownership survive termination
+
+- Type / verifies: unit; REQ-332, REQ-333, REQ-335, REQ-340.
+- Location: `internal/gateway/httpapi/sse_test.go`.
+- Command: `go test ./internal/gateway/httpapi -run '^TestSSE' -count=1 -timeout=60s`.
+- Acceptance: producer-owned channels have one close owner, late buffered results do not panic or block, no write occurs after handler completion, and all cooperative fixture workers exit.
+
+### TEST-267: Actual RunService preserves the SSE and persistence contract
+
+- Type / verifies: integration; REQ-332, REQ-333, REQ-334, REQ-335.
+- Location: `internal/gateway/run_test.go`.
+- Command: `make test-integration`.
+- Acceptance: authenticated progress, one terminal event, single execution, persistence, owner isolation, resume rejection, and cancellation behavior remain intact with bounded request contexts and closed response bodies.
+
+### TEST-268: Closeout verification remains discoverable and bounded
+
+- Type / verifies: static; REQ-335, REQ-340.
+- Location: `scripts/verify-test-tiers.mjs`.
+- Command: `node scripts/verify-test-tiers.mjs`.
+- Acceptance: TEST-260 through TEST-268 are registered exactly once in their existing lanes, TEST-269 and TEST-270 are documented operational exceptions, frontend companion IDs are present, and no fast/release/browser policy or timeout changed.
+
+### TEST-269: Both running applications match the intended candidate
+
+- Type / verifies: explicit operator acceptance; REQ-331, REQ-339, REQ-340.
+- Location: `scripts/production-config.mjs` CLI.
+- Command: `node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway,harden-llm-web --expected-release "$HLLM_RELEASE_SHA"`.
+- Acceptance: descriptor, desired image, OCI version, release environment, running image identity, and health match the same candidate for both application services; this is read-only and does not claim browser or provider success.
+
+### TEST-270: Complete candidate passes the browser-free release graph
+
+- Type / verifies: integration; REQ-332 through REQ-340.
+- Location: `test/test-tiers.json` and the existing release runner.
+- Command: `make test-release`.
+- Acceptance: every existing browser-free release task passes with zero failed tasks or cleanup errors and the unchanged manifest budgets; browser and paid-provider tasks remain opt-in.

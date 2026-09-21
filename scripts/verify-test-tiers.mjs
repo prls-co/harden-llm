@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// PLAN-HLLM-WIDGET-PARITY-001 TEST-117
+// PLAN-HLLM-WIDGET-PARITY-001 TEST-117 TEST-268
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -47,6 +47,22 @@ const requiredCommands = [
   ["node", "scripts/run-deployed-browser-test.mjs", "--allow-browser"],
 ];
 
+const closeoutRegistrations = Object.freeze({
+  "TEST-260": "go-static",
+  "TEST-261": "go-api",
+  "TEST-262": "go-api",
+  "TEST-263": "go-api",
+  "TEST-264": "frontend-deterministic",
+  "TEST-265": "frontend-deterministic",
+  "TEST-266": "frontend-deterministic",
+  "TEST-267": "go-integration",
+  "TEST-268": "go-static",
+});
+
+const closeoutOperationalIds = Object.freeze(["TEST-269", "TEST-270"]);
+const closeoutBackendIds = Object.freeze(["TEST-260", "TEST-261", "TEST-262", "TEST-263", "TEST-267", "TEST-268"]);
+const closeoutFrontendIds = Object.freeze(["WEB-TEST-100", "WEB-TEST-101", "WEB-TEST-102"]);
+
 function fail(message) {
   throw new Error(message);
 }
@@ -80,6 +96,8 @@ function assertCheapTask(task) {
 async function main() {
   const manifest = await loadManifest(manifestPath);
   const makefile = await fs.readFile(makefilePath, "utf8");
+  const backendSpec = await fs.readFile(path.join(repositoryRoot, "plans", "from_utility-llm", "harden-llm-self-hosted-test-spec.md"), "utf8");
+  const frontendSpec = await fs.readFile(path.join(repositoryRoot, "plans", "from_utility-llm", "phoenix-liveview-frontend-spec.md"), "utf8");
   const verifyLine = "verify: format lint build test-static test-unit test-parity test-integration test-integration-race test-api test-observability test-race test-vulnerability";
   if (!makefile.includes(verifyLine)) fail("make verify dependency contract changed");
 
@@ -136,6 +154,35 @@ async function main() {
     "TEST-116",
   ]) {
     if (!fastTestIds.has(testId)) fail(`cheap selection is missing widget test ${testId}`);
+  }
+
+  const taskById = new Map(manifest.tasks.map((task) => [task.id, task]));
+  const closeoutOccurrences = new Map();
+  for (const task of manifest.tasks) {
+    for (const testId of task.testIds ?? []) {
+      if (Object.hasOwn(closeoutRegistrations, testId)) {
+        closeoutOccurrences.set(testId, [...(closeoutOccurrences.get(testId) ?? []), task.id]);
+      }
+    }
+  }
+  for (const [testId, taskId] of Object.entries(closeoutRegistrations)) {
+    if (!taskById.has(taskId)) fail(`closeout registration names missing task ${taskId}`);
+    const occurrences = closeoutOccurrences.get(testId) ?? [];
+    if (occurrences.length !== 1 || occurrences[0] !== taskId) {
+      fail(`${testId} must be registered exactly once in ${taskId}`);
+    }
+    if (closeoutBackendIds.includes(testId) && !backendSpec.includes(testId)) fail(`backend specification is missing ${testId}`);
+  }
+  for (const testId of closeoutOperationalIds) {
+    if (!backendSpec.includes(testId)) fail(`backend specification is missing ${testId}`);
+    if (closeoutOccurrences.has(testId)) fail(`${testId} is an operational exception and must not be a manifest task`);
+  }
+  for (const testId of closeoutFrontendIds) {
+    if (!frontendSpec.includes(testId)) fail(`frontend specification is missing ${testId}`);
+    const occurrences = manifest.tasks.flatMap((task) => (task.testIds ?? []).filter((id) => id === testId).map(() => task.id));
+    if (occurrences.length !== 1 || occurrences[0] !== "frontend-deterministic") {
+      fail(`${testId} must be registered exactly once in frontend-deterministic`);
+    }
   }
 
   const deployed = manifest.tasks.find((task) => task.id === "frontend-deployed");
