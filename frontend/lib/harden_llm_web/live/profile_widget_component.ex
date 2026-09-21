@@ -1710,7 +1710,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           phx-target={@target}
           disabled={@fold_disabled}
           aria-expanded={to_string(@retry_open)}
-        >Retries &amp; Repair</button>
+        >{if @target_mode, do: "Retries & Repair (inherited)", else: "Retries & Repair"}</button>
         <div :if={@retry_open} id={"#{@id_prefix}-retry-repair"} class="ullm-options-body">
           <%= if @target_mode do %>
             <.target_recovery_editor
@@ -1932,6 +1932,10 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   def target_recovery_editor(assigns) do
     ~H"""
     <div id={"#{@id_prefix}-target-recovery"} class="ullm-target-recovery-editor">
+      <p class="ullm-field-help ullm-recovery-policy-inherited">
+        Retry categories, call budget, and backoff are inherited from the parent
+        recovery policy and are configured there.
+      </p>
       <%= if @role == "rerun_generation" do %>
         <p class="ullm-field-help">
           Recovery after this rerun uses the same two-target repair editor. A
@@ -2045,6 +2049,10 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
     ~H"""
     <div id={"#{@id_prefix}-recovery-policy"} class="recovery-policy">
+      <p class="ullm-field-help ullm-recovery-policy-scope">
+        Retry categories, call budget, and backoff apply to the generation and
+        all configured recovery stages.
+      </p>
       <.input
         :if={not @explicit?}
         type="checkbox"

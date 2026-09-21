@@ -155,6 +155,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     view |> element("#profile-retry-toggle") |> render_click()
     render_async(view, 1_000)
 
+    assert has_element?(view, "#profile-recovery-policy .ullm-recovery-policy-scope")
+
     for selector <- [
           "#profile-retry-repair",
           "#profile-retry-rate_limit",
@@ -352,8 +354,47 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     view |> element("#profile-original-repair-initial-config-toggle") |> render_click()
 
     assert has_element?(view, "#profile-original-repair-initial-config")
+
+    assert has_element?(
+             view,
+             "#profile-original-repair-initial-config-retry-toggle",
+             "Retries & Repair (inherited)"
+           )
+
+    assert has_element?(
+             view,
+             "#profile-original-repair-initial-config .ullm-recovery-policy-inherited",
+             "Retry categories, call budget, and backoff are inherited"
+           )
+
+    refute has_element?(
+             view,
+             "#profile-original-repair-initial-config .recovery-policy-categories"
+           )
+
+    refute has_element?(
+             view,
+             "#profile-original-repair-initial-config input[name*='retryOn']"
+           )
+
+    refute has_element?(
+             view,
+             "#profile-original-repair-initial-config input[name*='maxAttempts']"
+           )
+
     refute has_element?(view, "#profile-original-repair-initial-config-json-repair-toggle")
     refute has_element?(view, "#profile-original-repair-initial-config-rerun-toggle")
+
+    view |> element("#profile-original-repair-escalation-config-toggle") |> render_click()
+
+    for config_id <- [
+          "#profile-original-repair-initial-config",
+          "#profile-original-repair-escalation-config"
+        ] do
+      refute has_element?(view, "#{config_id} .recovery-policy-categories")
+      refute has_element?(view, "#{config_id} input[name*='retryOn']")
+      refute has_element?(view, "#{config_id} input[name*='maxAttempts']")
+    end
 
     view |> element("#profile-rerun-generation-config-toggle") |> render_click()
 
