@@ -355,8 +355,7 @@ func acceptsEventStream(request *http.Request) bool {
 }
 
 func (api *API) runSSE(writer http.ResponseWriter, request *http.Request, input gateway.RunInput, duration time.Duration) {
-	flusher, canFlush := writer.(http.Flusher)
-	if !canFlush {
+	if _, canFlush := writer.(http.Flusher); !canFlush {
 		writeError(writer, http.StatusNotImplemented, "streaming_unavailable", "The server cannot stream progress events.")
 		return
 	}
@@ -376,23 +375,93 @@ func (api *API) runSSE(writer http.ResponseWriter, request *http.Request, input 
 		outcomes <- runOutcome{result: result, state: state, err: err}
 		close(progressChannel)
 	}(progress)
-	var outcome runOutcome
-	select {
-	case <-ready:
-		// Static admission succeeded. Only now commit the SSE representation.
-	case outcome = <-outcomes:
-		// A very fast run can make both the admission signal and the outcome
-		// ready at once. Prefer the signal if Run already admitted the call;
-		// otherwise validation/catalog/initialization failures retain the normal
-		// JSON transport because no stream contract was accepted.
-		select {
-		case <-ready:
-			// Continue with the request-bound stream and publish the outcome below.
-		default:
-			api.writeRunError(writer, ctx, outcome)
+	admission := awaitSSEAdmission(request.Context(), ctx, ready, outcomes)
+	if !admission.admitted {
+		if admission.canceled {
 			return
 		}
-	case <-request.Context().Done():
+		if admission.outcome != nil {
+			api.writeRunError(writer, ctx, *admission.outcome)
+			return
+		}
+		api.writeRunError(writer, ctx, runOutcome{err: ctx.Err()})
+		return
+	}
+	streamSSE(writer, request.Context(), ctx, progress, outcomes, admission.pending, cancel)
+}
+
+type sseAdmission struct {
+	admitted bool
+	pending  *runOutcome
+	outcome  *runOutcome
+	timedOut bool
+	canceled bool
+}
+
+func pollSSEOutcome(outcomes <-chan runOutcome) (*runOutcome, bool) {
+	select {
+	case outcome, ok := <-outcomes:
+		if !ok {
+			return nil, false
+		}
+		return &outcome, true
+	default:
+		return nil, false
+	}
+}
+
+func awaitSSEAdmission(requestContext, executionContext context.Context, ready <-chan struct{}, outcomes <-chan runOutcome) sseAdmission {
+	var outcomeChannel <-chan runOutcome = outcomes
+	for {
+		select {
+		case <-requestContext.Done():
+			return sseAdmission{canceled: true}
+		case <-ready:
+			if requestContext.Err() != nil {
+				return sseAdmission{canceled: true}
+			}
+			if executionContext.Err() != nil {
+				if outcome, ok := pollSSEOutcome(outcomeChannel); ok {
+					return sseAdmission{admitted: true, pending: outcome}
+				}
+				return sseAdmission{timedOut: true}
+			}
+			return sseAdmission{admitted: true}
+		case outcome, ok := <-outcomeChannel:
+			if !ok {
+				outcomeChannel = nil
+				continue
+			}
+			if requestContext.Err() != nil {
+				return sseAdmission{canceled: true}
+			}
+			select {
+			case <-ready:
+				return sseAdmission{admitted: true, pending: &outcome}
+			default:
+				return sseAdmission{outcome: &outcome}
+			}
+		case <-executionContext.Done():
+			if requestContext.Err() != nil {
+				return sseAdmission{canceled: true}
+			}
+			if outcome, ok := pollSSEOutcome(outcomeChannel); ok {
+				select {
+				case <-ready:
+					return sseAdmission{admitted: true, pending: outcome}
+				default:
+					return sseAdmission{outcome: outcome}
+				}
+			}
+			return sseAdmission{timedOut: true}
+		}
+	}
+}
+
+func streamSSE(writer http.ResponseWriter, requestContext, executionContext context.Context, progress <-chan hardenllm.ProgressEvent, outcomes <-chan runOutcome, pending *runOutcome, cancel context.CancelFunc) {
+	flusher, canFlush := writer.(http.Flusher)
+	if !canFlush {
+		writeError(writer, http.StatusNotImplemented, "streaming_unavailable", "The server cannot stream progress events.")
 		return
 	}
 	writer.Header().Set("Content-Type", "text/event-stream")
@@ -425,54 +494,110 @@ func (api *API) runSSE(writer http.ResponseWriter, request *http.Request, input 
 		flusher.Flush()
 		return true
 	}
+	stop := func() {
+		if cancel != nil {
+			cancel()
+		}
+	}
+	drainProgress := func(progressChannel <-chan hardenllm.ProgressEvent) bool {
+		for progressChannel != nil {
+			if requestContext.Err() != nil {
+				stop()
+				return false
+			}
+			select {
+			case event, ok := <-progressChannel:
+				if !ok {
+					progressChannel = nil
+					continue
+				}
+				if event.Type == "run.terminal" {
+					continue
+				}
+				if !writeEvent(event.Type, event.RunID, event.CallID, event.TraceID, event) {
+					stop()
+					return false
+				}
+			default:
+				return true
+			}
+		}
+		return true
+	}
+	finishOutcome := func(outcome runOutcome) bool {
+		if !drainProgress(progress) {
+			return false
+		}
+		if requestContext.Err() != nil {
+			stop()
+			return false
+		}
+		if outcome.err == nil {
+			if !writeEvent("run.completed", outcome.state.LastRunID, outcome.result.CallID, outcome.result.TraceID, envelopeForOutcome(outcome)) {
+				stop()
+				return false
+			}
+		} else if !writeEvent("run.failed", outcome.state.LastRunID, outcome.result.CallID, outcome.result.TraceID, envelopeForOutcome(outcome)) {
+			stop()
+			return false
+		}
+		return true
+	}
+	if requestContext.Err() != nil {
+		stop()
+		return
+	}
+	if pending != nil {
+		finishOutcome(*pending)
+		return
+	}
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
+	var progressChannel <-chan hardenllm.ProgressEvent = progress
+	var outcomeChannel <-chan runOutcome = outcomes
 	for {
+		if requestContext.Err() != nil {
+			stop()
+			return
+		}
+		if executionContext.Err() != nil {
+			if outcome, ok := pollSSEOutcome(outcomeChannel); ok {
+				finishOutcome(*outcome)
+				return
+			}
+			if requestContext.Err() == nil {
+				finishOutcome(runOutcome{err: executionContext.Err()})
+			}
+			return
+		}
 		select {
-		case event, ok := <-progress:
+		case event, ok := <-progressChannel:
 			if !ok {
-				progress = nil
+				progressChannel = nil
 				continue
 			}
 			if event.Type == "run.terminal" {
 				continue
 			}
 			if !writeEvent(event.Type, event.RunID, event.CallID, event.TraceID, event) {
+				stop()
 				return
 			}
-		case outcome := <-outcomes:
-			// Drain snapshots that were already produced before publishing the
-			// terminal event. Dropped snapshots remain legal; the final result is
-			// authoritative.
-			for progress != nil {
-				select {
-				case event, ok := <-progress:
-					if !ok {
-						progress = nil
-						continue
-					}
-					if event.Type == "run.terminal" {
-						continue
-					}
-					if !writeEvent(event.Type, event.RunID, event.CallID, event.TraceID, event) {
-						return
-					}
-				default:
-					progress = nil
-				}
+		case outcome, ok := <-outcomeChannel:
+			if !ok {
+				outcomeChannel = nil
+				continue
 			}
-			if outcome.err == nil {
-				writeEvent("run.completed", outcome.state.LastRunID, outcome.result.CallID, outcome.result.TraceID, envelopeForOutcome(outcome))
-			} else {
-				writeEvent("run.failed", outcome.state.LastRunID, outcome.result.CallID, outcome.result.TraceID, envelopeForOutcome(outcome))
-			}
+			finishOutcome(outcome)
 			return
 		case <-ticker.C:
 			if _, err := writer.Write([]byte(": heartbeat\n\n")); err != nil {
+				stop()
 				return
 			}
 			flusher.Flush()
-		case <-request.Context().Done():
+		case <-requestContext.Done():
+			stop()
 			return
 		}
 	}

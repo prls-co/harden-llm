@@ -2,7 +2,7 @@
 
 package gateway_test
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-025 TEST-053
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-025 TEST-053 TEST-267
 
 import (
 	"bytes"
@@ -178,6 +178,7 @@ func TestRunRoute(t *testing.T) {
 		streamRequest.Header.Set("Authorization", "Bearer valid-token")
 		streamRequest.Header.Set("Accept", "text/event-stream")
 		streamRequest.Header.Set("Content-Type", "application/json")
+		streamRequest = streamRequest.WithContext(ctx)
 		beforeStream := caller.calls
 		streamResponse, err := server.Client().Do(streamRequest)
 		if err != nil {
@@ -204,6 +205,7 @@ func TestRunRoute(t *testing.T) {
 	resumeRequest.Header.Set("Accept", "text/event-stream")
 	resumeRequest.Header.Set("Last-Event-ID", "1")
 	resumeRequest.Header.Set("Content-Type", "application/json")
+	resumeRequest = resumeRequest.WithContext(ctx)
 	beforeResume := caller.calls
 	resumeResponse, err := server.Client().Do(resumeRequest)
 	if err != nil {

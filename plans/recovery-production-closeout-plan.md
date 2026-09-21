@@ -3,7 +3,7 @@
 ## 1. Title and metadata
 
 - Project: Harden-LLM.
-- Version: 1.2; implementation status: In progress (P00-P01 complete; P02-P04 pending).
+- Version: 1.3; implementation status: In progress (P00-P02 complete; P03-P04 pending).
 - Document ID: PLAN-HLLM-RECOVERY-CLOSEOUT-001.
 - Date: 2026-09-21 UTC.
 - Owners: repository maintainer for acceptance and production operation; implementing coding agent for code, tests, and release evidence.
@@ -925,6 +925,27 @@ Set `Phase Status: Done` only after its exit gates pass. Initial phase statuses:
 - ADR Updates: ADR-HLLM-026 now has executable release-intent evidence through TEST-260.
 - Things to check afterwards: run the candidate check once before descriptor changes and once after each scoped apply; confirm old infrastructure services and retained volumes are not selected; never use `--resolve-only` as candidate evidence.
 - Next unlocked subtask: P02.S01.
+
+#### Phase P02
+
+- Phase Status: Done.
+- Completed Steps: P02.S01-P02.S06.
+- Requirement links: REQ-332, REQ-333, REQ-334, REQ-335, REQ-340.
+- Design/code surface evidence: `runSSE` now delegates admission to `awaitSSEAdmission` and delivery to `streamSSE`; an already-consumed result is carried as `pending` into the single terminal finalizer. The existing buffered outcome slot and worker-owned progress-channel close remain unchanged. Admission and stream paths inspect the existing execution context and request cancellation; deadline outcomes use the existing `run_timeout` envelope; write failures cancel execution.
+- Verification method and exact commands: behavior-preserving extraction `make test-integration`; controlled RED `go test ./internal/gateway/httpapi -run '^TestSSEPendingAndLaterOutcomesTerminateOnce/pending_outcome_is_emitted_without_a_second_receive$' -count=1 -timeout=5s` (failed at the 2 s watchdog when pending was discarded); GREEN `go test ./internal/gateway/httpapi -run '^TestSSE' -count=1 -timeout=60s`; `go test -race ./internal/gateway/httpapi -run '^TestSSE' -count=20 -timeout=60s`; `make test-integration`; `make test-integration-race`; `node --test scripts/test/run_progress_test.mjs`; `git diff --check`.
+- Validation purpose: force pending-result, later-result, pre/post-admission deadline, cancellation, write-error, channel ownership, HTTP framing, persistence, and client EOF/error boundaries without sleeps or provider calls.
+- Configuration checkpoint / source SHA: P02 source is not yet committed; P01 checkpoint `42e856e`; integration service-pool reports accepted with zero cleanup errors; no database/schema or public REST envelope change.
+- Quantitative Results: focused stream suite passed 6 lifecycle subtests; race suite passed 20 repetitions with 0 reports; managed integration and integration-race each accepted one task with 0 failures/cleanup errors; lifecycle watchdog 2 s; command/test-process cap remains 60 s and manifest caps remain unchanged.
+- Evidence paths / hashes: `internal/gateway/httpapi/sse_test.go`; `internal/gateway/httpapi/resources.go`; `internal/gateway/run_test.go`; runner outputs from the two managed lanes; client parser output. No prompts, provider responses, credentials, or database contents were added.
+- Issues/Resolutions: the initial stream test used a canceled context for a deadline assertion, which correctly produced `run_failed`; it was changed to an already-expired deadline context so the expected `run_timeout` oracle is exact. The temporary RED mutation was reverted immediately and the final focused suite passed.
+- Failed Attempts: the temporary RED mutation intentionally discarded `pending` and reproduced the two-second watchdog failure; it was not retained. No arbitrary sleep or retry was added.
+- Deviations: extraction preceded the final controlled test file because the package had no existing test seam; the explicit temporary RED check then verified the behavioral regression at the new boundary. This is recorded rather than presented as a pre-extraction test run.
+- Risks and assumptions: a non-cooperative provider cannot be forcibly terminated by Go; the handler returns and cancellation is delivered, while the buffered result slot prevents a worker send from blocking. A non-reading client remains bounded by the existing HTTP write timeout; this plan does not claim a new hard delivery guarantee.
+- Unresolved decisions: none for P02.
+- Lessons Learned: terminal precedence must be represented as data (`pending`) rather than inferred from a second channel receive; force-order tests are materially stronger than repeated fast requests.
+- ADR Updates: ADR-HLLM-026 now has executable pending/deadline/channel evidence through TEST-261/262/263 and the existing RunService boundary TEST-267.
+- Things to check afterwards: when reviewing future SSE changes, assert exactly one terminal event and check the worker’s late buffered send; do not raise client/test/provider timeouts when a watchdog fires.
+- Next unlocked subtask: P03.S01.
 
 ## 12. Appendix: ADR index
 
