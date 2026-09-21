@@ -30,6 +30,22 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
   @reasoning_options [{"lowest", "L"}, {"middle", "M"}, {"highest", "H"}]
 
+  @recovery_categories [
+    {"network", "Network errors"},
+    {"rate_limit", "Rate limits"},
+    {"server_error", "Server errors"},
+    {"empty_response", "Empty responses"},
+    {"provider_retry", "Provider retry requests"}
+  ]
+
+  @recovery_numbers [
+    {"maxAttempts", "Max attempts",
+     "Total provider calls, including the first call, retries, repairs, escalations and fresh reruns."},
+    {"baseDelayMs", "Base delay (ms)", "Initial calculated backoff. Zero is allowed."},
+    {"maxDelayMs", "Max delay (ms)",
+     "Caps calculated backoff. A valid Retry-After on HTTP 429 or 503 remains a minimum; the caller deadline still applies."}
+  ]
+
   @recovery_target_paths [
     ["jsonRepair", "initial"],
     ["jsonRepair", "escalation"],
@@ -381,6 +397,22 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   end
 
   def handle_event("toggle-recovery-target-fold", _params, socket), do: {:noreply, socket}
+
+  def handle_event("edit-shared-retry-policy", %{"path" => path}, socket)
+      when is_binary(path) and path != "" do
+    if valid_target_config_path?(path) do
+      socket
+      |> assign(:main_config_open, true)
+      |> assign(:main_retry_open, true)
+      |> notify_parent({:profile_widget_ui, "llmProfileConfigOpen", true})
+      |> notify_parent({:profile_widget_ui, "retryRepairOpen", true})
+      |> noreply()
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("edit-shared-retry-policy", _params, socket), do: {:noreply, socket}
 
   def handle_event(
         "toggle-repair-escalation",
@@ -838,6 +870,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           generation_profile_id={@main_form.params["profileId"] || ""}
           generation_model_id={@main_form.params["modelId"] || ""}
           generation_reasoning={@main_form.params["reasoningEffort"] || ""}
+          shared_recovery_policy={@main_form.params["recoveryPolicy"] || %{}}
+          shared_recovery_owner={true}
           host_context={@host_context}
           show_identity_fields={true}
           fold_event={
@@ -887,6 +921,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             pending={@pending}
             delete_confirm={@delete_confirm}
             target_config_open={@recovery_target_config_open}
+            shared_recovery_policy={@main_form.params["recoveryPolicy"] || %{}}
+            shared_recovery_owner={true}
           />
         <% end %>
       <% end %>
@@ -944,6 +980,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:target_role, :string, default: "json_repair")
   attr(:target_path, :string, default: nil)
   attr(:inherited, :boolean, default: false)
+  attr(:shared_recovery_policy, :map, default: %{})
+  attr(:shared_recovery_owner, :boolean, default: false)
   attr(:host_context, :string, default: "workspace")
 
   def profile_widget_node(assigns) do
@@ -1013,6 +1051,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           generation_profile_id={@profile_value}
           generation_model_id={@model_value}
           generation_reasoning={@reasoning_value}
+          shared_recovery_policy={@shared_recovery_policy}
+          shared_recovery_owner={@shared_recovery_owner}
           host_context={@host_context}
           show_identity_fields={false}
         />
@@ -1068,13 +1108,15 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         target_path={@target_path}
         target_repair_plan={@nested_repair_plan}
         target_repair_name={@nested_repair_name}
-        target_repair_path={@nested_repair_path}
-        api_inference_types={@api_inference_types}
-        target_config_open={@target_config_open}
-        generation_profile_id={@profile_value}
-        generation_model_id={@model_value}
-        generation_reasoning={@reasoning_value}
-      />
+          target_repair_path={@nested_repair_path}
+          api_inference_types={@api_inference_types}
+          target_config_open={@target_config_open}
+          generation_profile_id={@profile_value}
+          generation_model_id={@model_value}
+          generation_reasoning={@reasoning_value}
+          shared_recovery_policy={@shared_recovery_policy}
+          shared_recovery_owner={@shared_recovery_owner}
+        />
     <% end %>
     """
   end
@@ -1340,6 +1382,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:generation_profile_id, :string, default: "")
   attr(:generation_model_id, :string, default: "")
   attr(:generation_reasoning, :string, default: "")
+  attr(:shared_recovery_policy, :map, default: %{})
+  attr(:shared_recovery_owner, :boolean, default: false)
   attr(:host_context, :string, default: "workspace")
   attr(:show_identity_fields, :boolean, default: false)
   attr(:fold_event, :string, default: "toggle-fold")
@@ -1727,6 +1771,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               generation_profile_id={@generation_profile_id}
               generation_model_id={@generation_model_id}
               generation_reasoning={@generation_reasoning}
+              shared_recovery_policy={@shared_recovery_policy}
+              shared_recovery_owner={@shared_recovery_owner}
             />
           <% else %>
             <.recovery_fields
@@ -1743,6 +1789,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
               generation_profile_id={@generation_profile_id}
               generation_model_id={@generation_model_id}
               generation_reasoning={@generation_reasoning}
+              shared_recovery_policy={@shared_recovery_policy}
+              shared_recovery_owner={@shared_recovery_owner}
             />
           <% end %>
         </div>
@@ -1916,6 +1964,94 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   end
 
   attr(:id_prefix, :string, required: true)
+  attr(:policy, :map, default: %{})
+  attr(:name, :any, default: nil)
+  attr(:categories, :list, default: [])
+  attr(:numbers, :list, default: [])
+  attr(:target, :any, default: nil)
+  attr(:change, :string, default: "profile-draft-change")
+  attr(:field_errors, :map, default: %{})
+  attr(:inherited, :boolean, default: false)
+  attr(:disabled, :boolean, default: false)
+
+  def retry_policy_controls(assigns) do
+    assigns = assign_new(assigns, :policy, fn -> %{} end)
+
+    ~H"""
+    <%= if @inherited do %>
+      <div class="recovery-policy-categories">
+        <label :for={{category, label} <- @categories} class="ullm-checkbox-label">
+          <input
+            id={"#{@id_prefix}-retry-#{category}"}
+            type="checkbox"
+            value={category}
+            checked={category in recovery_policy_retry_on(@policy)}
+            disabled
+          /> {label}
+        </label>
+      </div>
+      <div class="recovery-policy-numbers">
+        <label :for={{key, label, info} <- @numbers} class="ullm-field">
+          <span class="ullm-field-label">{label}</span>
+          <input
+            id={"#{@id_prefix}-recovery-#{key}"}
+            type="number"
+            value={recovery_policy_number(@policy, key)}
+            step="1"
+            disabled
+          />
+          <span :if={info != ""} class="ullm-field-help">{info}</span>
+        </label>
+      </div>
+    <% else %>
+      <div class="recovery-policy-categories">
+        <.input
+          :for={{category, label} <- @categories}
+          type="checkbox"
+          multiple
+          id={"#{@id_prefix}-retry-#{category}"}
+          name={"#{@name}[retryOn][]"}
+          value={category}
+          checked={category in recovery_policy_retry_on(@policy)}
+          label={label}
+          phx-change={@change}
+          phx-target={@target}
+          disabled={@disabled}
+        />
+      </div>
+      <.field_error message={ProfileForm.field_error(@field_errors, "recoveryPolicy.retryOn")} />
+      <div class="recovery-policy-numbers">
+        <.input
+          :for={{key, label, info} <- @numbers}
+          type="number"
+          id={"#{@id_prefix}-recovery-#{key}"}
+          name={if key == "maxAttempts", do: "#{@name}[#{key}]", else: "#{@name}[backoff][#{key}]"}
+          value={recovery_policy_number(@policy, key)}
+          errors={
+            List.wrap(
+              ProfileForm.field_error(
+                @field_errors,
+                if(key == "maxAttempts",
+                  do: "recoveryPolicy.#{key}",
+                  else: "recoveryPolicy.backoff.#{key}"
+                )
+              )
+            )
+          }
+          label={label}
+          info={info}
+          step="1"
+          required
+          phx-change={@change}
+          phx-target={@target}
+          disabled={@disabled}
+        />
+      </div>
+    <% end %>
+    """
+  end
+
+  attr(:id_prefix, :string, required: true)
   attr(:target, :any, default: nil)
   attr(:role, :string, default: "json_repair")
   attr(:plan, :map, default: nil)
@@ -1928,6 +2064,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:generation_profile_id, :string, default: "")
   attr(:generation_model_id, :string, default: "")
   attr(:generation_reasoning, :string, default: "")
+  attr(:shared_recovery_policy, :map, default: %{})
+  attr(:shared_recovery_owner, :boolean, default: false)
 
   def target_recovery_editor(assigns) do
     ~H"""
@@ -1936,6 +2074,24 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         Retry categories, call budget, and backoff are inherited from the parent
         recovery policy and are configured there.
       </p>
+      <.retry_policy_controls
+        id_prefix={@id_prefix}
+        policy={@shared_recovery_policy}
+        name={nil}
+        categories={recovery_categories()}
+        numbers={recovery_numbers()}
+        inherited={true}
+        target={@target}
+      />
+      <button
+        :if={@shared_recovery_owner}
+        id={"#{@id_prefix}-edit-shared-retry-policy"}
+        type="button"
+        class="ullm-btn"
+        phx-click="edit-shared-retry-policy"
+        phx-value-path={@path}
+        phx-target={@target}
+      >Edit shared retry policy</button>
       <%= if @role == "rerun_generation" do %>
         <p class="ullm-field-help">
           Recovery after this rerun uses the same two-target repair editor. A
@@ -1968,6 +2124,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           generation_profile_id={@generation_profile_id}
           generation_model_id={@generation_model_id}
           generation_reasoning={@generation_reasoning}
+          shared_recovery_policy={@shared_recovery_policy}
+          shared_recovery_owner={@shared_recovery_owner}
         />
       <% else %>
         <p class="ullm-field-help">
@@ -1993,10 +2151,19 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:generation_profile_id, :string, default: "")
   attr(:generation_model_id, :string, default: "")
   attr(:generation_reasoning, :string, default: "")
+  attr(:shared_recovery_policy, :map, default: %{})
+  attr(:shared_recovery_owner, :boolean, default: false)
 
   def recovery_fields(assigns) do
     policy = assigns.form.params["recoveryPolicy"] || %{}
     default_policy = assigns[:recovery_policy_default] || %{}
+
+    shared_recovery_policy =
+      case assigns[:shared_recovery_policy] do
+        value when is_map(value) and map_size(value) > 0 -> value
+        _ -> policy
+      end
+
     json_repair_enabled? = is_map(policy["jsonRepair"])
     rerun_enabled? = is_map(policy["rerun"])
 
@@ -2013,6 +2180,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     assigns =
       assigns
       |> assign(:policy, policy)
+      |> assign(:shared_recovery_policy, shared_recovery_policy)
       |> assign(:json_repair_plan, json_repair_plan)
       |> assign(:rerun_plan, rerun_plan)
       |> assign(:json_repair_enabled?, json_repair_enabled?)
@@ -2027,20 +2195,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         is_map(rerun_plan) and not same_recovery_plan?(policy["rerun"], rerun_plan)
       )
       |> assign(:name, "#{assigns.form.name}[recoveryPolicy]")
-      |> assign(:categories, [
-        {"network", "Network errors"},
-        {"rate_limit", "Rate limits"},
-        {"server_error", "Server errors"},
-        {"empty_response", "Empty responses"},
-        {"provider_retry", "Provider retry requests"}
-      ])
-      |> assign(:numbers, [
-        {"maxAttempts", "Max attempts",
-         "Total provider calls, including the first call, retries and repairs. The selected profile and model stay the same."},
-        {"baseDelayMs", "Base delay (ms)", "Initial calculated backoff. Zero is allowed."},
-        {"maxDelayMs", "Max delay (ms)",
-         "Caps calculated backoff. A valid Retry-After on HTTP 429 or 503 remains a minimum; the caller deadline still applies."}
-      ])
+      |> assign(:categories, recovery_categories())
+      |> assign(:numbers, recovery_numbers())
       |> assign(
         :explicit?,
         Map.has_key?(assigns.form.params["recoveryPolicy"] || %{}, "jsonRepair") or
@@ -2103,10 +2259,12 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           preview={@json_repair_preview? or not @json_repair_enabled?}
           label="LLM JSON repair"
           target_config_open={@target_config_open}
-          generation_profile_id={@generation_profile_id}
-          generation_model_id={@generation_model_id}
-          generation_reasoning={@generation_reasoning}
-        />
+              generation_profile_id={@generation_profile_id}
+              generation_model_id={@generation_model_id}
+              generation_reasoning={@generation_reasoning}
+              shared_recovery_policy={@shared_recovery_policy}
+              shared_recovery_owner={@shared_recovery_owner}
+            />
         <.rerun_plan_fields
           :if={is_map(@rerun_plan)}
           id_prefix={"#{@id_prefix}-rerun"}
@@ -2124,49 +2282,20 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           generation_profile_id={@generation_profile_id}
           generation_model_id={@generation_model_id}
           generation_reasoning={@generation_reasoning}
+          shared_recovery_policy={@shared_recovery_policy}
+          shared_recovery_owner={@shared_recovery_owner}
         />
       </div>
-      <div class="recovery-policy-categories">
-        <.input
-          :for={{category, label} <- @categories}
-          type="checkbox"
-          multiple
-          id={"#{@id_prefix}-retry-#{category}"}
-          name={"#{@name}[retryOn][]"}
-          value={category}
-          checked={category in (@policy["retryOn"] || [])}
-          label={label}
-          phx-change={@change}
-          phx-target={@target}
-        />
-      </div>
-      <.field_error message={ProfileForm.field_error(@field_errors, "recoveryPolicy.retryOn")} />
-      <div class="recovery-policy-numbers">
-        <.input
-          :for={{key, label, info} <- @numbers}
-          type="number"
-          id={"#{@id_prefix}-recovery-#{key}"}
-          name={if key == "maxAttempts", do: "#{@name}[#{key}]", else: "#{@name}[backoff][#{key}]"}
-          value={if key == "maxAttempts", do: @policy[key], else: get_in(@policy, ["backoff", key])}
-          errors={
-            List.wrap(
-              ProfileForm.field_error(
-                @field_errors,
-                if(key == "maxAttempts",
-                  do: "recoveryPolicy.#{key}",
-                  else: "recoveryPolicy.backoff.#{key}"
-                )
-              )
-            )
-          }
-          label={label}
-          info={info}
-          step="1"
-          required
-          phx-change={@change}
-          phx-target={@target}
-        />
-      </div>
+      <.retry_policy_controls
+        id_prefix={@id_prefix}
+        policy={@policy}
+        name={@name}
+        categories={@categories}
+        numbers={@numbers}
+        target={@target}
+        change={@change}
+        field_errors={@field_errors}
+      />
       <.field_error message={ProfileForm.field_error(@field_errors, "recoveryPolicy")} />
       <.field_error message={ProfileForm.field_error(@field_errors, "recoveryPolicy.backoff")} />
     </div>
@@ -2193,6 +2322,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:generation_profile_id, :string, default: "")
   attr(:generation_model_id, :string, default: "")
   attr(:generation_reasoning, :string, default: "")
+  attr(:shared_recovery_policy, :map, default: %{})
+  attr(:shared_recovery_owner, :boolean, default: false)
 
   @doc "Shared leaf target picker used by both generation branches and hosts."
   def recovery_target_fields(assigns) do
@@ -2259,6 +2390,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           api_inference_types={@api_inference_types}
           target_config_open={@target_config_open}
           inherited={@inherited}
+          shared_recovery_policy={@shared_recovery_policy}
+          shared_recovery_owner={@shared_recovery_owner}
         />
       </div>
       <input
@@ -2291,6 +2424,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:generation_profile_id, :string, default: "")
   attr(:generation_model_id, :string, default: "")
   attr(:generation_reasoning, :string, default: "")
+  attr(:shared_recovery_policy, :map, default: %{})
+  attr(:shared_recovery_owner, :boolean, default: false)
 
   def target_profile_config(assigns) do
     ~H"""
@@ -2329,6 +2464,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         generation_profile_id={@generation_profile_id}
         generation_model_id={@generation_model_id}
         generation_reasoning={@generation_reasoning}
+        shared_recovery_policy={@shared_recovery_policy}
+        shared_recovery_owner={@shared_recovery_owner}
         fold_event="toggle-recovery-target-fold"
         fold_path={@target_path}
       />
@@ -2350,6 +2487,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:generation_profile_id, :string, default: "")
   attr(:generation_model_id, :string, default: "")
   attr(:generation_reasoning, :string, default: "")
+  attr(:shared_recovery_policy, :map, default: %{})
+  attr(:shared_recovery_owner, :boolean, default: false)
 
   def repair_plan_fields(assigns) do
     plan = assigns.plan || %{}
@@ -2383,6 +2522,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         generation_profile_id={@generation_profile_id}
         generation_model_id={@generation_model_id}
         generation_reasoning={@generation_reasoning}
+        shared_recovery_policy={@shared_recovery_policy}
+        shared_recovery_owner={@shared_recovery_owner}
       />
       <label class="ullm-checkbox-label">
         <input
@@ -2411,6 +2552,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         generation_profile_id={@generation_profile_id}
         generation_model_id={@generation_model_id}
         generation_reasoning={@generation_reasoning}
+        shared_recovery_policy={@shared_recovery_policy}
+        shared_recovery_owner={@shared_recovery_owner}
       />
     </fieldset>
     """
@@ -2431,6 +2574,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:generation_profile_id, :string, default: "")
   attr(:generation_model_id, :string, default: "")
   attr(:generation_reasoning, :string, default: "")
+  attr(:shared_recovery_policy, :map, default: %{})
+  attr(:shared_recovery_owner, :boolean, default: false)
 
   def rerun_plan_fields(assigns) do
     ~H"""
@@ -2468,6 +2613,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           generation_profile_id={@generation_profile_id}
           generation_model_id={@generation_model_id}
           generation_reasoning={@generation_reasoning}
+          shared_recovery_policy={@shared_recovery_policy}
+          shared_recovery_owner={@shared_recovery_owner}
         />
       <% end %>
     </fieldset>
@@ -3129,6 +3276,39 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         end
     end
   end
+
+  defp recovery_categories, do: @recovery_categories
+
+  defp recovery_numbers, do: @recovery_numbers
+
+  defp recovery_policy_retry_on(policy) when is_map(policy) do
+    case policy["retryOn"] || policy[:retryOn] do
+      values when is_list(values) -> Enum.map(values, &to_string/1)
+      value when is_binary(value) -> [value]
+      _ -> []
+    end
+  end
+
+  defp recovery_policy_retry_on(_), do: []
+
+  defp recovery_policy_number(policy, "maxAttempts") when is_map(policy) do
+    policy["maxAttempts"] || policy[:maxAttempts] || ""
+  end
+
+  defp recovery_policy_number(policy, key) when is_map(policy) do
+    backoff = policy["backoff"] || policy[:backoff] || %{}
+
+    atom_key =
+      case key do
+        "baseDelayMs" -> :baseDelayMs
+        "maxDelayMs" -> :maxDelayMs
+        _ -> nil
+      end
+
+    backoff[key] || (atom_key && backoff[atom_key]) || ""
+  end
+
+  defp recovery_policy_number(_, _), do: ""
 
   defp normalize_reasoning_effort(profiles, selected_profile_id, current) do
     case reasoning_options(profiles, selected_profile_id) do

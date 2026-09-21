@@ -3,7 +3,7 @@
 ## 1. Title and metadata
 
 - Project: Harden-LLM.
-- Version: 1.3; implementation status: In progress (P00-P02 complete; P03-P04 pending).
+- Version: 1.4; implementation status: In progress (P00-P03 complete; P04 pending).
 - Document ID: PLAN-HLLM-RECOVERY-CLOSEOUT-001.
 - Date: 2026-09-21 UTC.
 - Owners: repository maintainer for acceptance and production operation; implementing coding agent for code, tests, and release evidence.
@@ -946,6 +946,27 @@ Set `Phase Status: Done` only after its exit gates pass. Initial phase statuses:
 - ADR Updates: ADR-HLLM-026 now has executable pending/deadline/channel evidence through TEST-261/262/263 and the existing RunService boundary TEST-267.
 - Things to check afterwards: when reviewing future SSE changes, assert exactly one terminal event and check the worker’s late buffered send; do not raise client/test/provider timeouts when a watchdog fires.
 - Next unlocked subtask: P03.S01.
+
+#### Phase P03
+
+- Phase Status: Done.
+- Completed Steps: P03.S01-P03.S04.
+- Requirement links: REQ-336, REQ-337, REQ-338, REQ-340.
+- Design/code surface evidence: `frontend/lib/harden_llm_web/live/profile_widget_component.ex` now uses one `retry_policy_controls/1` renderer in editable and inherited modes. The root policy is threaded through the complete recursive profile widget into target editors. Nested controls expose the five retry categories, `maxAttempts`, and both backoff values as disabled controls without `name` or change bindings; the owner-only edit action routes through the existing component/parent UI messages. Terminal repair leaves still render no nested repair/rerun controls, while rerun generation retains its nested repair editor. The max-attempts help text now covers the full call budget.
+- Verification method and exact commands: RED `(cd frontend && mix test test/harden_llm_web/live/profile_widget_component_test.exs test/harden_llm_web/live/profile_widget_state_test.exs test/harden_llm_web/live/embedding_live_test.exs --seed 104729)` after the P03.S01 assertions (31-case suite had 2 failures: inherited controls absent and stale tooltip); GREEN same command (31 passed); `mix format` and `git diff --check`; `node scripts/run-test-tier.mjs --task fast --output tmp/test-feedback/recovery-closeout-fast.json` was attempted once and stopped by the existing 120-second `go-static` task timeout under host-wide CPU/memory contention, not by a test assertion.
+- Validation purpose: prove recursive rendering, effective unsaved values, non-submitting inherited controls, terminal topology, and owner navigation without browser or provider execution.
+- Configuration checkpoint / source SHA: P03 source is not yet committed; P02 checkpoint `fcc98fc`; focused frontend suite green; broad fast report is `tmp/test-feedback/recovery-closeout-fast.json` with `go-static` `SIGTERM`/`timedOut=true` at 136599 ms and dependent tasks cancelled. No timeout or test assertion was changed.
+- Quantitative Results: focused suite 31 tests, 0 failures, 0 cleanup errors; RED had 2 deterministic assertion failures before implementation; broad fast attempt accepted=false with one causal timeout and no cleanup errors. Mean/std and 95% CI are not applicable. Host snapshot during the stopped run: 12 CPUs, load average approximately 161.94/79.93/34.66, available memory approximately 2.9 GiB; unrelated long-running processes were consuming the shared host.
+- Evidence paths / hashes: `frontend/lib/harden_llm_web/live/profile_widget_component.ex`; `frontend/test/harden_llm_web/live/profile_widget_component_test.exs`; `tmp/test-feedback/recovery-closeout-fast.json`. No browser, credentials, provider responses, or persisted data were used.
+- Issues/Resolutions: the first implementation propagated the shared policy but omitted the root-owner flag through `profile_editor/1`; the new owner-navigation assertion caught the missing button and the prop path was completed. A temporary diagnostic HTML dump was used to distinguish fixture value `6` from the default `4`, then removed; the test now checks the fixture's root draft value. The inherited renderer's `name` attribute was changed to an `:any` capability only so the intentional `nil` input is accepted; inherited inputs still omit the attribute.
+- Failed Attempts: the initial P03 RED suite failed as planned. The first broad fast attempt was terminated by the existing task watchdog because host contention prevented `go-static` from completing; it did not produce a code failure. Do not increase the task limit; rerun after contention subsides and retain this failed report.
+- Deviations: no new dependency, browser lane, provider call, REST field, retry budget, or timeout was added. P03.S04 remains evidence-complete only after an accepted fast-lane run; the recorded timeout is a diagnostic checkpoint, not acceptance.
+- Risks and assumptions: inherited values are read-only mirrors of the root form draft; the owner action depends on the existing parent UI message routing in each supported host. A standalone `recovery_target_fields/1` render has no owner and therefore no edit action. The broad fast lane must be rerun on a sufficiently available host before P04.
+- Unresolved decisions: none for P03; keep one root retry-policy owner and do not introduce per-target budgets.
+- Lessons Learned: recursive prop threading must carry both data and ownership capability; visible disabled fields are safe only when their names and event bindings are absent. Broad feedback is sensitive to shared-host contention, so its report must distinguish task timeout from assertion failure.
+- ADR Updates: ADR-HLLM-026 remains unchanged in policy; this phase supplies the TEST-264/265/266 evidence and records the host-contention diagnostic.
+- Things to check afterwards: rerun the fast selector without changing its timeout, inspect all nine task results for zero cleanup errors, and verify the owner action in both workspace and profile hosts through LiveViewTest. Before P04, confirm no browser/provider task was launched and re-observe production identities.
+- Next unlocked subtask: P04.S01.
 
 ## 12. Appendix: ADR index
 

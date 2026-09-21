@@ -6,7 +6,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
   alias HardenLlmWeb.{APIFixtures, HardenAPI, ProfileWidgetComponent}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-044 TEST-044
-  # PLAN-HLLM-WIDGET-PARITY-001 TEST-101 TEST-102 TEST-103 TEST-104 TEST-112 WEB-TEST-084
+  # PLAN-HLLM-WIDGET-PARITY-001 TEST-101 TEST-102 TEST-103 TEST-104 TEST-112 WEB-TEST-084 TEST-264 TEST-265 TEST-266 WEB-TEST-100 WEB-TEST-101 WEB-TEST-102
 
   setup %{conn: conn}, do: {:ok, conn: authenticated_conn(conn)}
 
@@ -174,7 +174,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     assert has_element?(
              view,
              "#profile-recovery-maxAttempts-help[hidden]",
-             "Total provider calls, including the first call, retries and repairs. The selected profile and model stay the same."
+             "Total provider calls, including the first call, retries, repairs, escalations and fresh reruns."
            )
 
     assert has_element?(view, ".ullm-field-info-text", "original schema")
@@ -367,9 +367,14 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
              "Retry categories, call budget, and backoff are inherited"
            )
 
-    refute has_element?(
+    assert has_element?(
              view,
              "#profile-original-repair-initial-config .recovery-policy-categories"
+           )
+
+    assert has_element?(
+             view,
+             "#profile-original-repair-initial-config input[type='checkbox'][disabled]"
            )
 
     refute has_element?(
@@ -391,9 +396,13 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
           "#profile-original-repair-initial-config",
           "#profile-original-repair-escalation-config"
         ] do
-      refute has_element?(view, "#{config_id} .recovery-policy-categories")
+      assert has_element?(view, "#{config_id} .recovery-policy-categories")
+      assert has_element?(view, "#{config_id} input[type='checkbox'][disabled]")
       refute has_element?(view, "#{config_id} input[name*='retryOn']")
-      refute has_element?(view, "#{config_id} input[name*='maxAttempts']")
+      assert has_element?(view, "#{config_id} input[type='number'][value='6'][disabled]")
+      assert has_element?(view, "#{config_id} input[type='number'][value='500'][disabled]")
+      assert has_element?(view, "#{config_id} input[type='number'][value='8000'][disabled]")
+      assert has_element?(view, "#{config_id} button", "Edit shared retry policy")
     end
 
     view |> element("#profile-rerun-generation-config-toggle") |> render_click()
@@ -924,6 +933,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     assert Regex.match?(~r/id="inherited-target-reasoning"[^>]*disabled/, html)
     assert Regex.match?(~r/id="inherited-target-model"[^>]*disabled/, html)
     assert Regex.match?(~r/id="inherited-target-config-toggle"[^>]*disabled/, html)
+    refute html =~ "Edit shared retry policy"
     refute html =~ "target-recovery-editor"
   end
 
