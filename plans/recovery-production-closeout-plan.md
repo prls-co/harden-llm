@@ -968,6 +968,27 @@ Set `Phase Status: Done` only after its exit gates pass. Initial phase statuses:
 - Things to check afterwards: rerun the fast selector without changing its timeout, inspect all nine task results for zero cleanup errors, and verify the owner action in both workspace and profile hosts through LiveViewTest. Before P04, confirm no browser/provider task was launched and re-observe production identities.
 - Next unlocked subtask: P04.S01.
 
+#### Phase P04 (in progress)
+
+- Phase Status: In progress; production has not been changed and the candidate has not been pushed.
+- Completed Steps: none; P04.S01 is blocked on an accepted browser-free release selector.
+- Requirement links: REQ-331 through REQ-340, especially REQ-339.
+- Design/code surface evidence: candidate source is clean at `40d19dc5bb5962e5e1c31905e4dbd5dc69fa7667`; migration diff from the recorded running gateway SHA is empty. No descriptor edits, image builds, push, or production apply have occurred.
+- Verification method and exact commands: `git fetch origin`; `git diff HEAD --check`; release RED `node scripts/run-test-tier.mjs --task release --candidate-slots 1 --output tmp/test-feedback/recovery-closeout-release.json` with pinned PATH, `GOMAXPROCS=1`, `GOFLAGS=-p=1`, `ERL_FLAGS=+S 2`; isolated RED `node scripts/run-test-tier.mjs --task go-compose --output tmp/test-feedback/recovery-closeout-go-compose.json`.
+- Validation purpose: ensure the complete release gate, including Compose readiness, is green before any source push or production mutation.
+- Configuration checkpoint / source SHA: `HEAD=40d19dc5bb5962e5e1c31905e4dbd5dc69fa7667`; `origin/main=faf7411e25a3c968a2dac7a473b41abfa74a612b`; production remains the recorded mixed web/gateway baseline. No private descriptor checkpoint has been written.
+- Quantitative Results: first release attempt stopped at `go-lint` because `/tmp` cgo writes hit a full 98% tmpfs; targeted removal of 53 stale `/tmp/go-build*` directories restored 2.4 GiB. Second release attempt accepted every task through Go vulnerability and failed only `go-compose` after 298.738 s readiness. Isolated retry failed with `Compose readiness = 5m48.615375561s, budget 5m0s`. No assertion, code, or cleanup-error waiver was used.
+- Evidence paths / hashes: `tmp/test-feedback/recovery-closeout-release.json`; `tmp/test-feedback/recovery-closeout-go-compose.json`; the source commit above. Reports contain only bounded/scrubbed output. The failed Compose run's isolated containers/volumes were explicitly removed; no production volumes were touched.
+- Issues/Resolutions: disk pressure was diagnosed from `/tmp` (`98%`) and only stale Go compiler artifacts were removed after confirming no active Go processes. The Compose failure is host-capacity/readiness contention, not a reason to raise the existing five-minute readiness budget; retain the failure and retry when the shared Docker/CPU host is available.
+- Failed Attempts: release RED due cgo disk quota; release RED due Compose readiness at 298.738 s; isolated Compose RED due readiness at 5m48.6 s. A prior fast-lane attempt also remains recorded under P03. No production mutation occurred in any attempt.
+- Deviations: candidate slots were set to 1 and Go/BEAM scheduler environment variables constrained only resource use; repository test commands, assertions, and timeout values were unchanged. The required `main` push and image publication are intentionally deferred until P04.S01 passes.
+- Risks and assumptions: shared-host saturation can recur and leave test-only Compose resources during an interrupted cleanup; recheck the exact project before every retry. Production authority, Docker space, and the private descriptor must be re-observed immediately before apply. Do not treat ordinary descriptor equivalence or container health as candidate acceptance.
+- Unresolved decisions: none; do not add polling, timeout increases, or release-framework changes to work around this gate.
+- Lessons Learned: the release runner's resource classes permit Compose and Go work to overlap, so CPU/Docker contention can exhaust the smoke readiness budget even when all service checks are otherwise valid. Disk cleanup must target only known temporary artifacts and preserve other jobs.
+- ADR Updates: ADR-HLLM-026 requires the existing readiness and task thresholds; this record adds the observed host-capacity failure without changing them.
+- Things to check afterwards: rerun the unchanged isolated Compose task after the host load falls; then rerun the full release selector and require every task, including frontend and backend verification, to be accepted before `git push`. Record exact source/image/digest/runtime evidence only after that point.
+- Next unlocked subtask: P04.S01 remains locked until an accepted release report exists.
+
 ## 12. Appendix: ADR index
 
 - ADR-HLLM-015, `docs/adr/ADR-HLLM-015-parallel-test-feedback-hierarchy.md`: cheap feedback by default; browser execution remains explicit.
