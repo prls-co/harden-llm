@@ -367,11 +367,15 @@ func (api *API) runSSE(writer http.ResponseWriter, request *http.Request, input 
 	ctx, cancel := context.WithTimeout(request.Context(), duration)
 	defer cancel()
 	outcomes := make(chan runOutcome, 1)
-	go func() {
+	// Keep the channel passed to Run stable in the worker closure. The stream
+	// loop deliberately sets its local progress variable to nil after draining
+	// the channel; capturing that mutable variable here would make a fast run
+	// close nil and panic under the race detector.
+	go func(progressChannel chan hardenllm.ProgressEvent) {
 		result, state, err := api.runs.Run(ctx, mustPrincipal(request.Context()).OwnerID, input)
 		outcomes <- runOutcome{result: result, state: state, err: err}
-		close(progress)
-	}()
+		close(progressChannel)
+	}(progress)
 	var outcome runOutcome
 	select {
 	case <-ready:

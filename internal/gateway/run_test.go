@@ -166,29 +166,35 @@ func TestRunRoute(t *testing.T) {
 	}
 
 	// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-252 TEST-253
-	streamRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api/v1/run", bytes.NewReader(textBody))
-	if err != nil {
-		t.Fatal(err)
-	}
-	streamRequest.Header.Set("Authorization", "Bearer valid-token")
-	streamRequest.Header.Set("Accept", "text/event-stream")
-	streamRequest.Header.Set("Content-Type", "application/json")
-	beforeStream := caller.calls
-	streamResponse, err := server.Client().Do(streamRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	streamBody, readErr := io.ReadAll(streamResponse.Body)
-	_ = streamResponse.Body.Close()
-	if readErr != nil || streamResponse.StatusCode != http.StatusOK || !strings.Contains(streamResponse.Header.Get("Content-Type"), "text/event-stream") {
-		t.Fatalf("SSE response status/content = %d/%q err=%v", streamResponse.StatusCode, streamResponse.Header.Get("Content-Type"), readErr)
-	}
-	streamText := string(streamBody)
-	if !strings.Contains(streamText, "event: run.started") || !strings.Contains(streamText, "event: run.completed") {
-		t.Fatalf("SSE did not deliver progress before terminal: %s", streamText)
-	}
-	if caller.calls != beforeStream+1 {
-		t.Fatalf("SSE caused duplicate execution: before=%d after=%d", beforeStream, caller.calls)
+	// Exercise several fast completions so the worker's channel-close ordering
+	// remains covered under -race; this is the lifecycle boundary that protects
+	// the request handler from closing a channel after the stream loop has
+	// drained it.
+	for streamAttempt := 0; streamAttempt < 4; streamAttempt++ {
+		streamRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api/v1/run", bytes.NewReader(textBody))
+		if err != nil {
+			t.Fatal(err)
+		}
+		streamRequest.Header.Set("Authorization", "Bearer valid-token")
+		streamRequest.Header.Set("Accept", "text/event-stream")
+		streamRequest.Header.Set("Content-Type", "application/json")
+		beforeStream := caller.calls
+		streamResponse, err := server.Client().Do(streamRequest)
+		if err != nil {
+			t.Fatal(err)
+		}
+		streamBody, readErr := io.ReadAll(streamResponse.Body)
+		_ = streamResponse.Body.Close()
+		if readErr != nil || streamResponse.StatusCode != http.StatusOK || !strings.Contains(streamResponse.Header.Get("Content-Type"), "text/event-stream") {
+			t.Fatalf("SSE response status/content = %d/%q err=%v", streamResponse.StatusCode, streamResponse.Header.Get("Content-Type"), readErr)
+		}
+		streamText := string(streamBody)
+		if !strings.Contains(streamText, "event: run.started") || !strings.Contains(streamText, "event: run.completed") {
+			t.Fatalf("SSE did not deliver progress before terminal: %s", streamText)
+		}
+		if caller.calls != beforeStream+1 {
+			t.Fatalf("SSE caused duplicate execution: before=%d after=%d", beforeStream, caller.calls)
+		}
 	}
 	resumeRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api/v1/run", bytes.NewReader(textBody))
 	if err != nil {
