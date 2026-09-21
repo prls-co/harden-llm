@@ -1108,15 +1108,15 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         target_path={@target_path}
         target_repair_plan={@nested_repair_plan}
         target_repair_name={@nested_repair_name}
-          target_repair_path={@nested_repair_path}
-          api_inference_types={@api_inference_types}
-          target_config_open={@target_config_open}
-          generation_profile_id={@profile_value}
-          generation_model_id={@model_value}
-          generation_reasoning={@reasoning_value}
-          shared_recovery_policy={@shared_recovery_policy}
-          shared_recovery_owner={@shared_recovery_owner}
-        />
+        target_repair_path={@nested_repair_path}
+        api_inference_types={@api_inference_types}
+        target_config_open={@target_config_open}
+        generation_profile_id={@profile_value}
+        generation_model_id={@model_value}
+        generation_reasoning={@reasoning_value}
+        shared_recovery_policy={@shared_recovery_policy}
+        shared_recovery_owner={@shared_recovery_owner}
+      />
     <% end %>
     """
   end
@@ -2259,12 +2259,12 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
           preview={@json_repair_preview? or not @json_repair_enabled?}
           label="LLM JSON repair"
           target_config_open={@target_config_open}
-              generation_profile_id={@generation_profile_id}
-              generation_model_id={@generation_model_id}
-              generation_reasoning={@generation_reasoning}
-              shared_recovery_policy={@shared_recovery_policy}
-              shared_recovery_owner={@shared_recovery_owner}
-            />
+          generation_profile_id={@generation_profile_id}
+          generation_model_id={@generation_model_id}
+          generation_reasoning={@generation_reasoning}
+          shared_recovery_policy={@shared_recovery_policy}
+          shared_recovery_owner={@shared_recovery_owner}
+        />
         <.rerun_plan_fields
           :if={is_map(@rerun_plan)}
           id_prefix={"#{@id_prefix}-rerun"}
