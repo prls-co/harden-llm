@@ -1258,12 +1258,13 @@ phase_entry:
 Known matters to carry forward:
 
 - The recovery production closeout remains separate; its failed acceptance is not changed to passing by this planning revision.
-- The P00-era ancestry had seven unpublished commits at that historical checkpoint. At the current implementation checkpoint eight commits are ahead of `origin/main`; review their exact scope before the explicitly requested push.
+- The P00-era ancestry count above is historical. The current candidate `aea1e42` has seven commits ahead of the unchanged `origin/main` base; the full source diff is limited to the listed artifact-publication and capacity-report changes with their tests/spec/ADR/plan registrations. Recount and compare the exact ancestry immediately before main promotion.
 - Historical abandoned projects have no new receipts. This plan does not authorize deleting them by prefix.
 - Resource “savings” are unmeasured until byte-correct equivalent runs and price provenance exist.
 - A missing production traffic/SLO definition limits capacity claims, not the usefulness of lifecycle fixes.
 - Operator follow-ups after applicable release: inspect the next failed/canceled hosted run's owned inventory; review cleanup-pending recovery after Docker returns; compare offered/completed throughput and stage amplification at actual load; review DB/queue/artifact pressure only for changed components. These observations are not retroactive certification.
 - Report browser layout not checked and live-provider behavior not checked unless separately authorized and actually exercised.
+- On candidate `aea1e42`, `PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH make test-fast` passed with `accepted:true`, all 10 tasks, no failure, timeout, cleanup error, or cleanup warning. Retained local report: `tmp/test-feedback/runner-1790074226522-3851758-cb069f0c797005e4.json`. Tier-policy and whitespace checks also pass. The exact-SHA hosted browser-free release/Compose smoke, main promotion, gateway image/deployment, and post-deploy inventory remain pending; do not infer them from this local result.
 
 ## 12. Appendix: ADR index
 
