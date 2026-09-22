@@ -99,13 +99,15 @@ gateway-only lifecycle change.
      echo "Release tag already exists; verify and reuse it, never overwrite it." >&2
      exit 1
    fi
-   docker build --context "$BUILD_ROOT" --file "$BUILD_ROOT/Dockerfile" \
+   docker build --file "$BUILD_ROOT/Dockerfile" \
      --platform linux/amd64 \
      --build-arg VERSION="$RELEASE_SHA" \
      --build-arg REVISION="$RELEASE_SHA" \
      --tag "$IMAGE_TAG" "$BUILD_ROOT"
    docker image inspect --format '{{.Id}} {{.Os}}/{{.Architecture}} {{index .Config.Labels "org.opencontainers.image.revision"}} {{index .Config.Labels "org.opencontainers.image.version"}}' "$IMAGE_TAG"
    docker run --rm --network none "$IMAGE_TAG" version
+   test -z "$(git -C "$BUILD_ROOT" status --porcelain)"
+   git worktree remove "$BUILD_ROOT"
    ~~~
 
    If a tag already exists, do not build over it. Validate its exact image ID,

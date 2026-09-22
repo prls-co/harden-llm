@@ -2181,3 +2181,41 @@ remained in place.
   publisher pins third-party actions to full commit SHAs; review the shared fast
   workflow's action upgrades separately. GitHub's announced `ubuntu-latest`
   migration to Ubuntu 26 on 2026-10-19 is another nonblocking maintenance item.
+
+## GHCR publisher retirement and local image transition — 2026-09-22
+
+ADR-HLLM-028 retires registry publishing from the active build/deployment
+path. This does not undo the completed private publication below: the
+published package remains private and is intentionally left untouched, but
+production and active source/test gates no longer depend on it. The specification
+and restoration details are in
+`plans/gateway-image-build-deployment-spec.md`,
+`plans/gateway-image-build-deployment-kers.md`, and
+`docs/archive/README.md`.
+
+| Gate or production check | Result |
+| --- | --- |
+| Main retirement commit | `250ea15cfe1172e0df3d3e23ab114f913e6d711c` was pushed to `main`. |
+| Local `make test-fast` | Passed 10/10 T0-T2 tasks; every result status was zero, `accepted:true`, `firstFailure:null`, and no cleanup errors or warnings. Report: `tmp/test-feedback/runner-1790084860714-3346015-b8dc2dd4e1572659.json`. |
+| Hosted main fast checks | Passed on the exact retirement commit. [Run 35736137087](https://github.com/prls-co/harden-llm/actions/runs/35736137087). Browser, T3 integration, lifecycle, capacity, and release suites were not selected; this change removes publisher code and changes documentation/test selection without modifying application code or the Dockerfile. |
+| CodeQL | Passed on the same exact source SHA. [Run 35736136108](https://github.com/prls-co/harden-llm/actions/runs/35736136108). |
+| Static/tier and archive validation | `node scripts/verify-test-tiers.mjs` accepted the manifest; TEST-283 and the publisher test/workflow are absent from active selections. The compressed source bundle lists exactly the historical workflow, contract test, and Dockerfile; SHA-256 `60b771ebdb807f306557f383208d6c2c30e6b6cb87ebfc0337f7f8001bb6c785`. `git diff --check` passed. |
+| Production image reference | Local tag `harden-llm-gateway:release-6887fcd8146961dc64598dd7a236e7a9fc522c9c` resolves to the already-deployed image ID `sha256:036d82749a1e5a29e36c848d5fca955c4b416858c9ea272f2cf1b4428210905b`, platform `linux/amd64`. OCI revision/version and isolated `version` output equal the application SHA. No image rebuild or application-image change was made. |
+| Descriptor transition | Original mode-`0600` descriptor SHA-256 `978deb24665dfa227caf4bcda443f0a4b63ab2f0330f7db0e46f72f34fb18d4a` was checkpointed at `/home/kirill/.config/harden-llm/rollout-image-retirement-O8EXjA/production.before.json` (directory mode `0700`, file mode `0600`). Only `serviceImageOverrides.harden-llm-gateway` changed to the local tag; current descriptor SHA-256 is `dee88bf4cae1d29c17202b949c27a492a0180beceb383f5042bd2fc198876a0f`, mode `0600`. |
+| Scoped production config | Gateway-only `check` and `apply` with expected SHA `6887fcd8146961dc64598dd7a236e7a9fc522c9c` both reported `equivalent`; the two-application check also reported `equivalent`. No container recreation was needed because the local tag is the exact image already running. The existing container's stored `Config.Image` remains the historical GHCR digest string; its immutable `.Image` ID matches the local tag. This is intentional and avoids a needless restart. |
+| Runtime and public probes | Gateway running/healthy, zero restarts, image ID/revision/version verified. Web remained healthy, zero restarts, and unchanged at image ID `sha256:299439921295e6037a0cc01e1b1893e5bd1c2e441b740021479ca6666c1e5276`. API `/healthz` and `/readyz`, web `/healthz` and `/login`: HTTP 200. |
+| Read-only artifact inventory | `healthy:true`; five objects and five metadata references; zero active operations, missing objects, or unreferenced objects; `truncated:false`. |
+| Browser/provider checks | Not run. No browser, provider call, data/config migration, volume change, or topology change was required or performed. |
+
+The live descriptor is now local-image based and the active publisher workflow
+and publisher-only TEST-283 implementation have been removed. The Dockerfile's
+OCI identity labels remain because production candidate checks use them. The
+container itself was not recreated: Docker reports its historical creation-time
+`Config.Image` as the old GHCR digest, while runtime and descriptor image IDs
+match the local tag. No GHCR pull is needed to keep that existing container
+running or to restart it while the local image remains present.
+
+The hosted run reported the existing `actions/checkout@v4` Node 20 deprecation
+and the announced `ubuntu-latest` migration to Ubuntu 26 as non-blocking
+warnings. They do not indicate a test failure and are not part of this
+publisher-retirement scope.
