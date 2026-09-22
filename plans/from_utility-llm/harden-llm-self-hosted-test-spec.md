@@ -1387,9 +1387,9 @@ synthetic credentials, isolated stores, and a local scripted provider.
 - Type / verifies: unit; REQ-346, REQ-350, REQ-351.
 - Location: `internal/capacity/report_test.go`.
 - Command: `go test ./internal/capacity -run '^TestCapacityReport' -count=1`.
-- Fixtures/data: Byte/token/price fixtures, mismatched fingerprints, unknown CPA actual price, missing SLO, host resource and exporter-drop records, short/large latency populations, and stream event/byte counts.
+- Fixtures/data: Byte/token/price fixtures, mismatched fingerprints, unknown CPA actual price, missing SLO, host resource and exporter-drop records, short/large latency populations, stream event/byte counts, and a maximum 2,000-request report population.
 - Deterministic controls: Fixed decimal inputs and seed 104729; no external price lookup or real provider.
-- Pass criteria: Denominators/unit math are exact; incomparable samples reject; unknown price/metrics remain null with reasons; p99 is absent below 1,000 samples; offered/launched/succeeded rates and SSE event/byte growth are summarized; no unsupported savings/SLO claims; only the four specified dispositions occur.
+- Pass criteria: Denominators/unit math are exact; incomparable samples reject; unknown price/metrics remain null with reasons; p99 is absent below 1,000 samples; offered/launched/succeeded rates and SSE event/byte growth are summarized; stage/model token counts are aggregated; at most 96 failure/outlier request diagnostics retain trace provenance for first-event latency, full latency, launch lag, stream bytes, and event counts plus omitted-count evidence, with no unbounded raw request arrays; a maximum-size scenario publishes a private `harden-llm-capacity.v2` report within 1 MiB; no unsupported savings/SLO claims; only the four specified dispositions occur.
 - Expected runtime: 5 seconds.
 
 ### TEST-279: Task policy and registration integrity
@@ -1420,4 +1420,14 @@ synthetic credentials, isolated stores, and a local scripted provider.
 - Fixtures/data: Synthetic invocation/task cleanup state and monotonic timestamps; no Docker or child process.
 - Deterministic controls: Injected clock values; existing per-task and invocation cancellation budgets; no sleeps or environmental timing dependency.
 - Pass criteria: A successful task's cleanup does not age later tasks' cleanup allowance; setup/final cleanup for a task share one bounded deadline; first failure or external cancellation establishes one bounded deadline for remaining cleanup.
+- Expected runtime: Under 1 second.
+
+### TEST-282: Capacity history cursor pagination
+
+- Type / verifies: unit; REQ-349.
+- Location: `cmd/harden-llm-gateway/capacity_history_test.go`.
+- Command: `go test ./cmd/harden-llm-gateway -run '^TestCapacityHistoryPagination' -count=1`.
+- Fixtures/data: Local HTTP history pages with an opaque cursor, expected run/trace pairs on separate pages, and repeated-cursor input.
+- Deterministic controls: `httptest` only; no gateway process, Docker, database, credentials, or timing sleeps.
+- Pass criteria: Verification follows the existing limit-100 REST cursor contract until all expected pairs are found; URL-encodes opaque cursors, rejects repeated/oversized cursors and oversized pages, and reports a missing pair only after the final page or bounded page limit.
 - Expected runtime: Under 1 second.

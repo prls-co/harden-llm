@@ -1245,7 +1245,7 @@ async function readCapacityReport(filename, expectedRunID) {
   }
   if (content.byteLength > MAX_CAPACITY_REPORT_BYTES) throw new Error("capacity report exceeds its byte limit");
   const report = JSON.parse(content.toString("utf8"));
-  if (!report || report.schemaVersion !== 1 || report.reportKind !== "harden-llm-capacity.v1" ||
+  if (!report || report.schemaVersion !== 2 || report.reportKind !== "harden-llm-capacity.v2" ||
       report.testRunId !== expectedRunID || !["correctness", "exploration", "holdout"].includes(report.caseSet) ||
       !Array.isArray(report.testIds) || !report.testIds.includes("TEST-277") || !Array.isArray(report.cases) || report.cases.length === 0) {
     throw new Error("capacity report identity or contents are invalid");

@@ -3,6 +3,8 @@
 package capacity
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -200,11 +202,109 @@ func TestCapacityReportSummarizesScheduledRateAndStreamingVolume(t *testing.T) {
 	}
 }
 
+func TestCapacityReportBoundsRequestDiagnosticsAtMaximumScenarioPopulation(t *testing.T) {
+	const requestCount = 2_000
+	base := time.Unix(1_800_000_000, 0).UTC()
+	requests := make([]RequestResult, requestCount)
+	providerCalls := make([]ProviderCall, requestCount)
+	for index := range requests {
+		requestID := index + 1
+		requests[index] = RequestResult{
+			ID: requestID, Population: "measurement", ScheduledAt: base.Add(time.Duration(index) * time.Millisecond),
+			LaunchedAt:  base.Add(time.Duration(index)*time.Millisecond + time.Millisecond),
+			CompletedAt: base.Add(time.Duration(index)*time.Millisecond + 10*time.Millisecond),
+			LaunchLag:   time.Duration(index) * time.Microsecond, Latency: time.Duration(index+1) * time.Millisecond,
+			Outcome: "succeeded", StatusCode: 200, ExecutionStatus: "succeeded",
+			CallID: fmt.Sprintf("call-%04d", requestID), RunID: fmt.Sprintf("run-%04d", requestID),
+			TraceID: fmt.Sprintf("trace-%04d", requestID),
+			Origin: RequestOrigin{
+				Client: "capacity-test", Component: "gateway", OperationID: fmt.Sprintf("operation-%04d", requestID),
+				JobID: fmt.Sprintf("measurement-request-%d", requestID), TestRunID: "capacity-run",
+				TestID: "TEST-277", SourceRevision: strings.Repeat("a", 40),
+			},
+			FirstEvent: time.Duration(index+1) * time.Millisecond, FirstEventKnown: true,
+			EventCount: int64(requestID), ReceivedBytes: int64(requestID * 100),
+			ProviderCalls: []ProviderCall{{Stage: "original.generate", Model: "synthetic-model", InputTokens: 1, OutputTokens: 1, TokenUsageKnown: true}},
+		}
+		providerCalls[index] = ProviderCall{Stage: "original.generate", Model: "synthetic-model", InputTokens: 1, OutputTokens: 1, TokenUsageKnown: true}
+	}
+	requests[0].Outcome = "failed"
+	requests[0].ExecutionStatus = "failed"
+	population := PopulationResult{
+		Offered: requestCount, Launched: requestCount, Succeeded: requestCount - 1, Failed: 1,
+		ProviderAttempts: requestCount, StageDispatches: map[string]int{"original.generate": requestCount},
+		ModelDispatches: map[string]int{"synthetic-model": requestCount}, TokenUsage: providerCalls, Requests: requests,
+	}
+	scenario := SummarizeScenario(ScenarioSpec{ID: "maximum-scenario", MeasurementSeconds: 60}, Result{PopulationResult: population}, requestCount, time.Minute)
+	report := ExecutionReport{
+		SchemaVersion: 2, ReportKind: "harden-llm-capacity.v2", TestRunID: "capacity-run",
+		TestIDs: []string{"TEST-277"}, CaseSet: "exploration", Cases: []ScenarioReport{scenario},
+	}
+	path := filepath.Join(t.TempDir(), "capacity-report.json")
+	if err := WriteExecutionReport(path, report); err != nil {
+		t.Fatalf("maximum bounded workload report should publish: %v", err)
+	}
+	metadata, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if metadata.Size() > maxExecutionReportBytes {
+		t.Fatalf("maximum workload report size = %d, limit = %d", metadata.Size(), maxExecutionReportBytes)
+	}
+	if len(scenario.RequestDiagnostics) > maxRequestDiagnostics || scenario.RequestDiagnosticsOmitted != requestCount-len(scenario.RequestDiagnostics) {
+		t.Fatalf("request diagnostic bound/count = %d/%d, omitted=%d", len(scenario.RequestDiagnostics), maxRequestDiagnostics, scenario.RequestDiagnosticsOmitted)
+	}
+	if len(scenario.Measurement.TokenUsage) != 1 || scenario.Measurement.TokenUsage[0].InputTokens != requestCount || scenario.Measurement.TokenUsage[0].OutputTokens != requestCount {
+		t.Fatalf("stage/model token usage was not exactly aggregated: %#v", scenario.Measurement.TokenUsage)
+	}
+	if !diagnosticHasReason(scenario.RequestDiagnostics, 1, "non_success_terminal") ||
+		!diagnosticHasReason(scenario.RequestDiagnostics, requestCount, "highest_latency") ||
+		!diagnosticHasReason(scenario.RequestDiagnostics, requestCount, "highest_first_event_latency") {
+		t.Fatalf("failure, latency, and stream-start trace diagnostics were not retained: %#v", scenario.RequestDiagnostics)
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var serialized struct {
+		Cases []struct {
+			Measurement json.RawMessage `json:"measurement"`
+		} `json:"cases"`
+	}
+	if err := json.Unmarshal(content, &serialized); err != nil {
+		t.Fatalf("decode compact capacity report: %v", err)
+	}
+	if len(serialized.Cases) != 1 {
+		t.Fatalf("serialized cases = %d, want 1", len(serialized.Cases))
+	}
+	var measured map[string]json.RawMessage
+	if err := json.Unmarshal(serialized.Cases[0].Measurement, &measured); err != nil {
+		t.Fatalf("decode summarized measurement: %v", err)
+	}
+	if _, exists := measured["requests"]; exists {
+		t.Fatal("report serialized the unbounded raw measurement request slice")
+	}
+}
+
+func diagnosticHasReason(diagnostics []RequestDiagnostic, requestID int, reason string) bool {
+	for _, diagnostic := range diagnostics {
+		if diagnostic.RequestID != requestID {
+			continue
+		}
+		for _, candidate := range diagnostic.Reasons {
+			if candidate == reason {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func TestCapacityReportPublicationIsPrivateAtomicAndDoesNotOverwrite(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "capacity-report.json")
 	report := ExecutionReport{
-		SchemaVersion: 1,
-		ReportKind:    "harden-llm-capacity.v1",
+		SchemaVersion: 2,
+		ReportKind:    "harden-llm-capacity.v2",
 		TestRunID:     "run-one",
 		Cases:         []ScenarioReport{{ScenarioID: "valid-text"}},
 	}
@@ -223,8 +323,8 @@ func TestCapacityReportPublicationIsPrivateAtomicAndDoesNotOverwrite(t *testing.
 		t.Fatal(err)
 	}
 	if err := WriteExecutionReport(path, ExecutionReport{
-		SchemaVersion: 1,
-		ReportKind:    "harden-llm-capacity.v1",
+		SchemaVersion: 2,
+		ReportKind:    "harden-llm-capacity.v2",
 		TestRunID:     "run-two",
 		Cases:         []ScenarioReport{{ScenarioID: "other"}},
 	}); err == nil {
@@ -242,8 +342,8 @@ func TestCapacityReportPublicationIsPrivateAtomicAndDoesNotOverwrite(t *testing.
 func TestCapacityReportRejectsOversizedPayloadBeforePublication(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "capacity-report.json")
 	report := ExecutionReport{
-		SchemaVersion: 1,
-		ReportKind:    "harden-llm-capacity.v1",
+		SchemaVersion: 2,
+		ReportKind:    "harden-llm-capacity.v2",
 		TestRunID:     "run-one",
 		Cases:         []ScenarioReport{{ScenarioID: "valid-text"}},
 		Limitations:   []string{strings.Repeat("x", maxExecutionReportBytes)},

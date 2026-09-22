@@ -4,7 +4,7 @@
 - Date: 2026-09-21.
 - Plan: `plans/production-scale-efficiency-plan.md`.
 - Requirements: REQ-341 through REQ-352.
-- Verification: TEST-271 through TEST-280; EVAL-008 through EVAL-012.
+- Verification: TEST-271 through TEST-282; EVAL-008 through EVAL-012.
 - Scope: local managed Docker lifecycle and opt-in synthetic capacity evidence.
 
 ## Context

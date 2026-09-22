@@ -42,7 +42,6 @@ const (
 	capacityModelID   = "synthetic-capacity-model"
 	capacityOwnerID   = "capacity-test-owner"
 	capacityAPIKey    = "synthetic-capacity-provider-key-not-a-secret"
-	capacityToken     = "synthetic-capacity-gateway-token-0123456789abcdef"
 )
 
 type capacityTelemetrySink struct {
@@ -213,7 +212,7 @@ func TestGatewayCapacityBaseline(t *testing.T) {
 		t.Fatalf("fingerprint exact source, worktree, scenario, and configuration: %v", err)
 	}
 	report := capacity.ExecutionReport{
-		SchemaVersion: 1, ReportKind: "harden-llm-capacity.v1", TestRunID: os.Getenv("HARDEN_LLM_TEST_RUN_ID"),
+		SchemaVersion: 2, ReportKind: "harden-llm-capacity.v2", TestRunID: os.Getenv("HARDEN_LLM_TEST_RUN_ID"),
 		CaseSet: caseSet, StartedAt: startedAt, TestIDs: []string{"TEST-277"}, Fingerprint: fingerprint,
 		Limitations: []string{
 			"The provider is synthetic; results measure gateway, Postgres, Garage, and test-driver overhead, not public-provider latency or model quality.",
@@ -620,47 +619,6 @@ func getCapacityTrace(ctx context.Context, client *http.Client, gatewayURL, trac
 		return gateway.TraceView{}, fmt.Errorf("decode REST trace envelope: %w", err)
 	}
 	return envelope.Result, nil
-}
-
-func assertCapacityHistory(ctx context.Context, client *http.Client, gatewayURL string, requests []capacity.RequestResult) error {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, gatewayURL+"/api/v1/history?limit=100", nil)
-	if err != nil {
-		return err
-	}
-	request.Header.Set("Authorization", "Bearer "+capacityToken)
-	response, err := client.Do(request)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-	content, err := io.ReadAll(io.LimitReader(response.Body, 2<<20))
-	if err != nil {
-		return err
-	}
-	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("REST history endpoint returned HTTP %d", response.StatusCode)
-	}
-	var envelope struct {
-		Result struct {
-			Items []struct {
-				RunID   string `json:"runId"`
-				TraceID string `json:"traceId"`
-			} `json:"items"`
-		} `json:"result"`
-	}
-	if err := json.Unmarshal(content, &envelope); err != nil {
-		return fmt.Errorf("decode REST history response: %w", err)
-	}
-	known := make(map[string]string, len(envelope.Result.Items))
-	for _, item := range envelope.Result.Items {
-		known[item.RunID] = item.TraceID
-	}
-	for _, expected := range requests {
-		if known[expected.RunID] != expected.TraceID {
-			return fmt.Errorf("REST history omitted persisted run/trace pair %s/%s", expected.RunID, expected.TraceID)
-		}
-	}
-	return nil
 }
 
 func sourceRevision(root string) (string, error) {

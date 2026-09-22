@@ -377,7 +377,7 @@ test("capacity child report is validated and included in the private runner resu
   const data = await fixture();
   const source = `
 import fs from "node:fs";
-const report = { schemaVersion: 1, reportKind: "harden-llm-capacity.v1", testRunId: process.env.HARDEN_LLM_TEST_RUN_ID, caseSet: "correctness", testIds: ["TEST-277"], cases: [{ scenarioId: "synthetic" }] };
+const report = { schemaVersion: 2, reportKind: "harden-llm-capacity.v2", testRunId: process.env.HARDEN_LLM_TEST_RUN_ID, caseSet: "correctness", testIds: ["TEST-277"], cases: [{ scenarioId: "synthetic" }] };
 fs.writeFileSync(process.env.HARDEN_LLM_CAPACITY_REPORT_PATH, JSON.stringify(report), { mode: 0o600 });
 `;
   const task = {
@@ -390,8 +390,28 @@ fs.writeFileSync(process.env.HARDEN_LLM_CAPACITY_REPORT_PATH, JSON.stringify(rep
     resourceClasses: { cpu: { slots: 1, exclusive: false } },
   });
   assert.equal(result.accepted, true);
-  assert.equal(result.results[0].capacityReport.reportKind, "harden-llm-capacity.v1");
+  assert.equal(result.results[0].capacityReport.reportKind, "harden-llm-capacity.v2");
   assert.equal(result.results[0].capacityReport.testRunId, "capacity-report-fixture");
+});
+
+test("rejects capacity report v1 after the bounded report schema cutover", async () => {
+  const data = await fixture();
+  const source = `
+import fs from "node:fs";
+const report = { schemaVersion: 1, reportKind: "harden-llm-capacity.v1", testRunId: process.env.HARDEN_LLM_TEST_RUN_ID, caseSet: "correctness", testIds: ["TEST-277"], cases: [{ scenarioId: "stale" }] };
+fs.writeFileSync(process.env.HARDEN_LLM_CAPACITY_REPORT_PATH, JSON.stringify(report), { mode: 0o600 });
+`;
+  const task = {
+    id: "capacity-report-v1", testIds: ["TEST-277"], tier: "T3", resourceClass: "cpu",
+    command: [process.execPath, "--input-type=module", "-e", source], dependsOn: [], timeoutMs: 5000,
+    cleanupOwner: "runner", network: "local-only", credentialKeys: [], requiredFor: [], pathSelectors: [], capacityReport: true,
+  };
+  const result = await runTasks([task], {
+    root: data.root, runDirectory: path.join(data.root, "run-capacity-report-v1"), runID: "capacity-report-v1",
+    resourceClasses: { cpu: { slots: 1, exclusive: false } },
+  });
+  assert.equal(result.accepted, false);
+  assert.match(result.results[0].failureSummary, /capacity report invalid or missing/);
 });
 
 test("a successful capacity task without its required report is rejected", async () => {
@@ -413,8 +433,8 @@ test("capacity reports cannot be supplied through a child-created symlink", asyn
   const data = await fixture();
   const target = path.join(data.root, "outside-capacity-report.json");
   await fs.writeFile(target, JSON.stringify({
-    schemaVersion: 1,
-    reportKind: "harden-llm-capacity.v1",
+    schemaVersion: 2,
+    reportKind: "harden-llm-capacity.v2",
     testRunId: "capacity-symlink-run",
     caseSet: "correctness",
     testIds: ["TEST-277"],

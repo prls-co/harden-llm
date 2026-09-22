@@ -383,7 +383,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Saving calculation assumes unpriced hardware is free or equates moving services with eliminating cost.
   - Unlocks: P02.S05
 - `P02.S05 Add failing real-application capacity acceptance`
-  - Progress: IMPLEMENTED; manifest/static policy, tagged compilation, local fast gate, and hosted correctness passed at `616ae92`. Hosted RED evidence for the earlier candidate is recorded below: profile setup returned HTTP 401 because the fresh leased database lacked the configured static-token owner. The fixture now uses the existing `bootstrap-user` path and shuts down the gateway before exporter dependencies. The correctness report exposed a fractional CPU aggregation bug; its focused TEST-275 RED/GREEN is recorded below and TEST-277 must be rerun on that fix before final acceptance.
+  - Progress: IMPLEMENTED; manifest/static policy, tagged compilation, local fast gate, and hosted correctness passed at `bffdf219`. Hosted RED evidence for earlier candidates remains below: owner setup first returned HTTP 401 and the Docker CPU report then exposed integer-only aggregation. The fixture uses existing `bootstrap-user`, shuts down the gateway before exporter dependencies, and TEST-275 now preserves exact unavailable-metric reasons and sums fractional CPU values. A later exploration revealed the history verifier and oversized-report issues recorded below; fresh correctness/exploration runs are required after those corrections.
   - Action: Create the capacity test and register capacity-baseline as explicit opt-in before invoking it. Use a minimal real application fixture and demand the missing workload/report/persistence integration. Register real-service ownership and capacity build tags, not a fake RunService. Extend static policy to exclude capacity from fast/default integration/release.
   - Why now: Pure instrument checks are green; the application and persistence boundary remains unproved.
   - Files/surfaces: `cmd/harden-llm-gateway/capacity_test.go` (proposed); `test/test-tiers.json`; `scripts/verify-test-tiers.mjs`; canonical catalog.
@@ -396,7 +396,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Task enters an automatic selector, uses recordingRuntimeCaller, or substitutes a mock store for the boundary under test.
   - Unlocks: P02.S06
 - `P02.S06 Connect the driver to real isolated application boundaries`
-  - Progress: IMPLEMENTED; hosted correctness passed on `616ae92ac0a8a3f28712ff6cf7cc387f97cb1a1e` after owner bootstrap, LIFO cleanup, and metric-reason changes. It exercised real auth, profile setup, six provider/runtime/cache/stream/export cases, persisted history/artifacts, and origin/stage accounting. Re-run on the newer fractional CPU aggregation change is required for the final checkpoint.
+  - Progress: IMPLEMENTED; hosted correctness passed on `bffdf219af837be511ede1aeb62d42a7d179a2fa` after owner bootstrap, LIFO cleanup, metric-reason preservation, and fractional CPU aggregation. It exercised real auth, profile setup, six provider/runtime/cache/stream/export cases, persisted history/artifacts, and origin/stage accounting. The 44-second run reports CPU percentages as finite decimals; exact Docker memory remains unknown for the documented CLI precision reason.
   - Action: Call runGatewayServer from the command-package test with an injected environment and existing bootstrap/auth/profile paths. Use the existing Postgres/Garage leases, real provider adapter, synthetic credentials, and local TLS fixture. Verify stored history/artifact digests and origin/stage IDs. Keep the existing full-stack smoke as its own boundary; do not duplicate it or create another stack owner.
   - Why now: All missing behavior has failing pure and real-boundary coverage.
   - Files/surfaces: `cmd/harden-llm-gateway/capacity_test.go`; `cmd/harden-llm-gateway/server.go` (reuse); `internal/integrationtest/pool.go` (reuse); `internal/smoke/harness_compose.go`; `internal/capacity/driver.go`.
@@ -422,7 +422,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Helper duplicates production decisions or removes a real-boundary assertion.
   - Unlocks: P02.S08
 - `P02.S08 Measure the bounded exploratory workloads`
-  - Progress: PENDING isolated hosted execution. No throughput, cost, SLO, or production-capacity result is claimed from local unit tests.
+  - Progress: First hosted exploration attempt on `bffdf219` failed in TEST-277 at the history assertion after `twelve-rps-short`. The REST verifier requested only the first 100-row page and ignored `nextCursor`; canonical store/run/trace/artifact checks for the scenario completed before that history assertion, so this was a verifier defect, not persistence loss. The partial report also exceeded its 1 MiB bound because it serialized full request results; the fallback report then failed to publish. No timeout, safety stop, or cleanup failure occurred. TEST-282 and TEST-278 now have regressions for cursor traversal and bounded v2 reporting. Fresh hosted correctness must pass before repeating exploration.
   - Action: Execute the Section 6 exploration set with project-level samples and a local telemetry sink. Keep full-stack smoke evidence separate and reuse it only for its distinct lifecycle/runtime assertion. Retain initial failures, generator lag, missing metrics, sample sizes, and bounded evidence. Record means, spread, and confidence limits only when supported.
   - Why now: Instrumentation and real integration now have verified oracles.
   - Files/surfaces: `test/capacity-scenarios.json`; `internal/capacity/report.go`; `tmp/test-feedback/capacity-baseline.json`; private retained lifecycle ledger.
@@ -751,7 +751,7 @@ Each proposed source file is created in its bootstrap step before execution. New
 - Bootstrap: P02.S05.
 - Fixtures/mocks/data: Real runGatewayServer, public REST/client, auth, disposable Postgres/Garage, scripted local TLS provider, and local export sink; existing full-stack Compose smoke remains a separate test owner.
 - Deterministic controls: Build tags `integration,capacity`; seed 104729; synthetic credentials; scenario/request/concurrency bounds from Section 6; no live or browser tags.
-- Pass criteria: Real persisted history/artifacts match successful/staged outcomes; local provider count matches runtime attempts; SSE terminal oracle holds; complete bounded report and zero owned leftovers.
+- Pass criteria: Paginated REST history and persisted artifacts match successful/staged outcomes; local provider count matches runtime attempts; SSE terminal oracle holds; `harden-llm-capacity.v2` report stays within 1 MiB with bounded diagnostics; zero owned leftovers.
 - Expected runtime: Correctness set up to 5 minutes; exploration up to 15 minutes; holdout up to 5 minutes, within the registered 40-minute task deadline.
 
 #### TEST-278: Comparable cost and decision reports
@@ -763,7 +763,7 @@ Each proposed source file is created in its bootstrap step before execution. New
 - Bootstrap: P02.S01.
 - Fixtures/mocks/data: Synthetic byte/token/price datasets, mismatched fingerprints, unknown actual CPA price, missing SLO, bounded-host resource and exporter-drop cases.
 - Deterministic controls: Fixed decimal inputs and seed 104729; no external pricing lookup or real calls.
-- Pass criteria: Exact denominator/unit arithmetic; incompatible samples not compared; missing prices/metrics are null with reason; no unsupported savings/SLO claim; only four allowed dispositions.
+- Pass criteria: Exact denominator/unit arithmetic; incompatible samples not compared; missing prices/metrics are null with reason; p99 is absent below 1,000 samples; SSE rates/volume are summarized; stage/model token totals aggregate exactly; maximum 2,000-request scenario publishes under 1 MiB with no raw request array, at most 96 traceable failure/outlier diagnostics (including first-event latency), and explicit omitted count; no unsupported savings/SLO claim; only four allowed dispositions.
 - Expected runtime: 5 seconds.
 
 #### TEST-279: Task policy and registration integrity
@@ -800,6 +800,18 @@ Each proposed source file is created in its bootstrap step before execution. New
 - Fixtures/mocks/data: Synthetic invocation/task cleanup state and monotonic timestamps; no Docker or child process.
 - Deterministic controls: Injected clock values; no sleeps or environment timing dependency; existing cleanup timeout values are unchanged.
 - Pass criteria: A successful earlier task cannot age a later task's allowance; repeated cleanup for one task shares its deadline; first failure or external cancellation caps remaining cleanup at one invocation-wide deadline.
+- Expected runtime: Under 1 second.
+
+#### TEST-282: Capacity history cursor pagination
+
+- Type: unit.
+- Verifies: REQ-349.
+- Location: `cmd/harden-llm-gateway/capacity_history_test.go`.
+- Command: `go test ./cmd/harden-llm-gateway -run '^TestCapacityHistoryPagination' -count=1`.
+- Bootstrap: P02.S05.
+- Fixtures/mocks/data: Local HTTP history pages with opaque cursors, expected run/trace pairs split across pages, and repeated-cursor input.
+- Deterministic controls: `httptest`; no gateway, Docker, database, credentials, or timing sleeps.
+- Pass criteria: Follow the REST limit-100 cursor contract until all expected pairs are found; reject repeated or oversized cursors/pages; a missing pair is reported only after the final page or page bound.
 - Expected runtime: Under 1 second.
 
 #### TEST-269: Candidate deployment identity matches source
@@ -855,7 +867,7 @@ These are test/evidence contracts, not additions to `api/openapi.yaml`.
 ### 8.2 Capacity scenario and report
 
 - Scenario fields: `schemaVersion`, `caseSet`, `seed`, `offeredRps`, `warmupSeconds`, `measurementSeconds`, `drainSeconds`, `maxRequests`, `maxInflight`, `providerScript`, `cacheMode`, `recoveryPolicy`, `telemetryMode`.
-- Report fields: source/dirty-state/config/scenario/image fingerprints; monotonic timing boundaries; wall-clock timestamps; synthetic origin/run/trace IDs; workload counters; provider stage/model/token counts; known/unknown costs; memory/CPU/disk/queue metrics; cleanup status; disposition and limitations.
+- Report fields: source/dirty-state/config/scenario/image fingerprints; monotonic timing boundaries; wall-clock timestamps; synthetic origin/run/trace IDs; workload counters; aggregated provider stage/model/token counts; bounded outlier trace diagnostics; known/unknown costs; memory/CPU/disk/queue metrics; cleanup status; disposition and limitations. The private report contract is `harden-llm-capacity.v2` and omits raw request arrays.
 - Per measurement window: `offered = launched + unsent`. Per launched request: exactly one of `succeeded, failed, rejected, canceled, unfinished`. Therefore `launched = succeeded + failed + rejected + canceled + unfinished`.
 - `admitted` is a separate server-observed fact, not a sixth terminal outcome. If admission cannot be observed reliably, record null; client HTTP send does not prove server admission.
 - Warmup and measured requests have separate IDs and counters; drain finishes already offered work without extending the measurement window. All timings and denominators state which population they cover.
@@ -863,7 +875,7 @@ These are test/evidence contracts, not additions to `api/openapi.yaml`.
 - Preserve canonical execution/token/artifact totals regardless of export sampling. The proposed report reuses existing `harden-llm.trace.v2` and `harden-llm.diagnostics.v1` facts rather than another production tracing schema.
 - Cost model includes input/cached-input/output tokens where known, model/stage prices with timestamp/source, storage retention/compression/index/replica assumptions, and infrastructure billing units. Report cost per client request and per successful final output separately.
 - Resource records use numeric bytes, timestamps, project identity, source of measurement, and `nullReason`. Docker CPU 100% is approximately one CPU core; do not sum percentages as host utilization without the host denominator.
-- Reports retain at most 2,000 request summaries per scenario, no bodies, and at most 2 MiB of redacted diagnostics per task; enforce bounded buffering before accumulation. Additional records become aggregate counts with an explicit truncation field.
+- The workload remains bounded at 2,000 requests per scenario. Its v2 report retains at most 96 body-free request diagnostics (non-success outcomes plus the highest full/first-event latency, launch lag, stream bytes, and event counts), exact aggregate counters/distributions and stage/model token totals, and an explicit omitted-request count. Raw per-request arrays are not serialized. Enforce bounded buffering before accumulation; a capacity report is capped at 1 MiB and the enclosing redacted runner report at 2 MiB.
 - Lifecycle bounds: 5 s Docker-context identity probe, 10 s Docker-daemon identity probe, 30 s daemon-lock wait, 15 s per inventory attempt, 20 s total diagnostic collection, 10 s graceful child stop, and a shared 120 s cleanup safety tail per runner invocation. The task/test child timeout is unchanged and cleanup never restarts or extends that child or any provider/LLM call. Because cleanup must still run after a child timeout or cancellation, the runner's wall-clock bound is the configured child budget plus its existing termination grace and at most one cleanup tail; cleanup that reaches its cap remains `cleanup-pending` and fails acceptance. This is not permission to extend a test timeout to make it pass.
 - `tmp/test-feedback/capacity-baseline.json` is a convenient aggregate output, not the sole crash-safe store. Write uniquely identified private per-invocation reports and upload only redacted report artifacts. A forcibly terminated hosted VM may prevent upload; record absence honestly.
 
@@ -954,6 +966,7 @@ Planned mappings below become execution evidence only when the defined command h
 | P02 | REQ-348 | TEST-277 | `cmd/harden-llm-gateway/capacity_test.go` | `node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline.json` |
 | P02 | REQ-349 | TEST-276 | `internal/capacity/driver_test.go` | `go test ./internal/capacity -run '^TestCapacityDriver' -count=1` |
 | P02 | REQ-349 | TEST-277 | `cmd/harden-llm-gateway/capacity_test.go` | `node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline.json` |
+| P02 | REQ-349 | TEST-282 | `cmd/harden-llm-gateway/capacity_history_test.go` | `go test ./cmd/harden-llm-gateway -run '^TestCapacityHistoryPagination' -count=1` |
 | P02 | REQ-350 | TEST-278 | `internal/capacity/report_test.go` | `go test ./internal/capacity -run '^TestCapacityReport' -count=1` |
 | P03 | REQ-351 | TEST-278 | `internal/capacity/report_test.go` | `go test ./internal/capacity -run '^TestCapacityReport' -count=1` |
 | P04 | REQ-352 | TEST-279 | `scripts/verify-test-tiers.mjs` | `node scripts/verify-test-tiers.mjs` |
@@ -967,7 +980,7 @@ This section is a blank implementation ledger. Planning validation is not implem
 | --- | --- | --- |
 | P00 | Done | Local P00 documentation checkpoint on `main` at source `67937729b4e5b0d58d2883bdd09155e49ac72612`; commit recorded below. |
 | P01 | Done | Exact-candidate isolated TEST-274 run [35701002741](https://github.com/prls-co/harden-llm/actions/runs/35701002741) passed all four scenarios; each receipt was cleaned, the sentinel remained, and cleanup warnings/errors were zero. |
-| P02 | Implemented; hosted confirmation pending | TEST-277 correctness passed at `616ae92`; diagnostics established that Docker CLI memory display cannot be converted to exact integer bytes and exposed an integer-only CPU sum. TEST-275 now fixes fractional CPU aggregation; repeat TEST-277 before exploration. |
+| P02 | Implemented; hosted exploration correction pending | TEST-277 correctness passed at `bffdf219`; diagnostics established the exact Docker-memory precision limitation, and TEST-275 fixes fractional CPU aggregation. Exploration [35706489518](https://github.com/prls-co/harden-llm/actions/runs/35706489518) exposed a first-page-only history oracle and unbounded report payload; TEST-282/TEST-278 now cover the fixes. Rerun correctness and exploration on the corrected exact SHA. |
 | P03 | Pending | None |
 | P04 | Pending | None |
 
@@ -1207,6 +1220,16 @@ phase_entry:
 - TEST-275 RED/GREEN used the same command: `node --test scripts/test/test_resource_measurement_test.mjs`. RED — 10/11 passed; fractional container CPU inputs `10.25 + 2.5` returned null instead of `12.75`. GREEN — 11/11 passed after adding a percent-specific finite decimal sum with precision normalization; byte metrics retain safe-integer checks. This does not relax byte accounting or any capacity threshold.
 - The focused TEST-275 rerun passed 11/11; `node --check` for the collector/test, `node scripts/verify-test-tiers.mjs`, and `git diff --check` passed. Pinned local `make test-fast` passed 10/10 with accepted=true, no timeouts, cleanup errors, or cleanup warnings; report `tmp/test-feedback/runner-1790065492985-759884-2bad9097517cc1ce.json`. `runner-contracts` took 106.534 s and Phoenix deterministic tests 186.098 s; these overlap. No per-task budget changed.
 - Next: publish the CPU fix, repeat the exact-SHA release and TEST-277 correctness. If correctness passes and safety remains clear, run the bounded exploration; record absent exact Docker memory as a limitation rather than adding rounding. Do not run holdout without a selected operating point and SLO.
+
+### Hosted exploration failure and report correction — 2026-09-22
+
+- Failed exploratory candidate: `bffdf219af837be511ede1aeb62d42a7d179a2fa`, run [35706489518](https://github.com/prls-co/harden-llm/actions/runs/35706489518). The capacity child ran 147.085 s (runner task 166.278 s), was not timed out, and left no cleanup errors/warnings. `twelve-rps-short` completed per-request canonical Postgres/trace/artifact checks; the following REST history assertion queried only `limit=100` and failed to walk the existing cursor, falsely reporting one expected run/trace as absent. Fix: extract an untagged pagination helper and TEST-282; follow opaque `nextCursor` values with bounded 100-row pages, repeated/oversized cursor checks, and a 128-page ceiling.
+- The same early-stop path could not write its partial evidence because v1 serialized every raw request, duplicating per-request origins, IDs, and provider records beyond the 1 MiB report limit. This was a second, independent evidence-path defect. Fix: v2 aggregates token totals by stage/model; serializes exact population counters/distributions plus at most 96 body-free trace-linked non-success/outlier summaries (full/first-event latency, launch lag, SSE bytes/events); explicitly counts omitted requests; removes unbounded request arrays; retains the 1 MiB cap. The runner rejects v1 after the format cutover.
+- TDD RED: `go test ./cmd/harden-llm-gateway -run '^TestCapacityHistory' -count=1` failed because only page one was read and repeated cursors were not detected. `go test ./internal/capacity -run '^TestCapacityReportBoundsRequestDiagnosticsAtMaximumScenarioPopulation$' -count=1` failed with `capacity report exceeds the 1048576-byte limit`. GREEN: both focused Go suites, runner report contracts (including v1 rejection), and tagged gateway compile pass after correction.
+- Resource evidence before the assertion failure: 32 samples at approximately five-second cadence; fractional CPU was available (sampled peak 69.25%); host available memory stayed around 90% and Docker data-root free space around 90 GB. Exact Docker memory remained unknown because CLI text loses byte precision; RSS/volume-used bytes are not collected. No pre-approved safety threshold triggered. This is not capacity certification.
+- Dispatch note: simultaneous release/capacity `workflow_dispatch` calls shared one top-level workflow concurrency key; capacity run [35704800612](https://github.com/prls-co/harden-llm/actions/runs/35704800612) was canceled before any suite job started. Subsequent gates are deliberately sequential. Follow up on whether suite-specific concurrency groups would improve operator ergonomics; no workflow behavior was changed here.
+- Final local regression gate: pinned `make test-fast` passed 10/10 with accepted=true, zero timeouts, cleanup errors, or cleanup warnings; report `tmp/test-feedback/runner-1790068421238-1809630-cb4f7bdf21aaa3b8.json`. `runner-contracts` took 116.342 s and Phoenix deterministic tests 181.378 s (overlapping); no budgets changed. `go test ./internal/capacity -run '^TestCapacity' -count=1`, the TEST-282 cursor suite, Node syntax checks, `node scripts/verify-test-tiers.mjs`, and `git diff --check` pass.
+- Next: publish the corrections, then run exact-SHA release, correctness, and exploration in sequence. Keep holdout unrun because there is no approved operating point/SLO; keep `insufficient_evidence` and no production topology change as the expected disposition.
 
 Known matters to carry forward:
 

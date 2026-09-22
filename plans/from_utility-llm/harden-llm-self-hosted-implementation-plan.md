@@ -1484,6 +1484,7 @@ Privacy and data-quality constraints:
 | P02 | REQ-347, REQ-348, REQ-349 | TEST-276 | `internal/capacity/driver_test.go` | `go test ./internal/capacity -run '^TestCapacityDriver' -count=1` |
 | P02 | REQ-347, REQ-348, REQ-349 | TEST-277 | `cmd/harden-llm-gateway/capacity_test.go` | `node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline.json` |
 | P02 | REQ-346, REQ-350, REQ-351 | TEST-278 | `internal/capacity/report_test.go` | `go test ./internal/capacity -run '^TestCapacityReport' -count=1` |
+| P02 | REQ-349 | TEST-282 | `cmd/harden-llm-gateway/capacity_history_test.go` | `go test ./cmd/harden-llm-gateway -run '^TestCapacityHistoryPagination' -count=1` |
 | P01 | REQ-344, REQ-352 | TEST-279 | `scripts/verify-test-tiers.mjs` | `node scripts/verify-test-tiers.mjs` |
 | P01 | REQ-341, REQ-345 | TEST-280 | `internal/integrationtest/resource_receipt_test.go` | `go test ./internal/integrationtest -run '^TestResourceReceipt' -count=1` |
 | P04 | REQ-352 | TEST-269 | `scripts/production-config.mjs` | `node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway,harden-llm-web --expected-release "$HLLM_RELEASE_SHA"` |
@@ -1705,7 +1706,7 @@ production topology by default.
 
 `ADR-HLLM-027` records the initial test-harness bounds and explicitly leaves
 production traffic/SLO targets unassigned. The detailed acceptance tests are
-TEST-271 through TEST-280 in the companion test specification.
+TEST-271 through TEST-282 in the companion test specification.
 
 ### Requirements traceability
 
@@ -1713,7 +1714,7 @@ TEST-271 through TEST-280 in the companion test specification.
 | --- | --- | --- | --- |
 | P01 | REQ-341, REQ-342, REQ-343, REQ-345 | `scripts/run-test-tier.mjs`, `scripts/test-resource-lifecycle.mjs`, `internal/integrationtest/` | TEST-271 through TEST-274, TEST-280 |
 | P01 | REQ-344, REQ-352 | tier manifest, CI workflow, release evidence | TEST-279, TEST-269 |
-| P02 | REQ-346, REQ-347, REQ-348, REQ-349, REQ-350 | `scripts/measure-test-resources.mjs`, `internal/capacity/`, gateway capacity fixture | TEST-275 through TEST-278 |
+| P02 | REQ-346, REQ-347, REQ-348, REQ-349, REQ-350 | `scripts/measure-test-resources.mjs`, `internal/capacity/`, gateway capacity fixture | TEST-275 through TEST-278, TEST-282 |
 | P03 | REQ-351 | capacity disposition report and ADR-HLLM-027 | TEST-278; EVAL-011 |
 
 ### ADR index amendment

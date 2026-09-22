@@ -127,9 +127,10 @@
         "TEST-249",
         "TEST-250",
         "TEST-258",
-        "TEST-259",
-        "TEST-276",
-        "TEST-278"
+      "TEST-259",
+      "TEST-276",
+      "TEST-278",
+      "TEST-282"
       ],
       "tier": "T1",
       "resourceClass": "cpu",
