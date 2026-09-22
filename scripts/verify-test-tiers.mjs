@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-279 PLAN-HLLM-SCALE-001
 // PLAN-HLLM-WIDGET-PARITY-001 TEST-117 TEST-268
 
 import { promises as fs } from "node:fs";

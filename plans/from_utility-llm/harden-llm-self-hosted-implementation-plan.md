@@ -1475,6 +1475,18 @@ Privacy and data-quality constraints:
 | P07 | REQ-004 | TEST-037 | `internal/providers/live_test.go` | `go test ./internal/providers/... -tags=live -run TestLiveProviders -count=1` |
 | P07 | REQ-015 | TEST-038 | `internal/smoke/live_gateway_test.go` | `go test ./internal/smoke/... -tags=live -run TestLiveGatewayLifecycle -count=1` |
 | P07 | REQ-014 | TEST-039 | `internal/testkit/timeout_policy_test.go` | `go test ./internal/testkit/... -run TestTimeoutPolicy -count=1` |
+| P00 | REQ-344 | TEST-279 | `scripts/verify-test-tiers.mjs` | `node scripts/verify-test-tiers.mjs` |
+| P01 | REQ-341, REQ-345 | TEST-271 | `scripts/test/test_resource_lifecycle_test.mjs` | `node --test --test-name-pattern=TEST-271 scripts/test/test_resource_lifecycle_test.mjs` |
+| P01 | REQ-342, REQ-345 | TEST-272 | `scripts/test/test_resource_lifecycle_test.mjs` | `node --test --test-name-pattern=TEST-272 scripts/test/test_resource_lifecycle_test.mjs` |
+| P01 | REQ-343, REQ-344 | TEST-273 | `scripts/test/test_resource_lifecycle_test.mjs` | `node --test --test-name-pattern=TEST-273 scripts/test/test_resource_lifecycle_test.mjs` |
+| P01 | REQ-341, REQ-342, REQ-343, REQ-345 | TEST-274 | `scripts/test/test_resource_lifecycle_docker_test.mjs` | `node scripts/run-test-tier.mjs --task test-resource-lifecycle-docker` |
+| P02 | REQ-346 | TEST-275 | `scripts/test/test_resource_measurement_test.mjs` | `node --test scripts/test/test_resource_measurement_test.mjs` |
+| P02 | REQ-347, REQ-348, REQ-349 | TEST-276 | `internal/capacity/driver_test.go` | `go test ./internal/capacity -run '^TestCapacityDriver' -count=1` |
+| P02 | REQ-347, REQ-348, REQ-349 | TEST-277 | `cmd/harden-llm-gateway/capacity_test.go` | `node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline.json` |
+| P02 | REQ-346, REQ-350, REQ-351 | TEST-278 | `internal/capacity/report_test.go` | `go test ./internal/capacity -run '^TestCapacityReport' -count=1` |
+| P01 | REQ-344, REQ-352 | TEST-279 | `scripts/verify-test-tiers.mjs` | `node scripts/verify-test-tiers.mjs` |
+| P01 | REQ-341, REQ-345 | TEST-280 | `internal/integrationtest/resource_receipt_test.go` | `go test ./internal/integrationtest -run '^TestResourceReceipt' -count=1` |
+| P04 | REQ-352 | TEST-269 | `scripts/production-config.mjs` | `node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway,harden-llm-web --expected-release "$HLLM_RELEASE_SHA"` |
 
 ### Frontend parity closeout amendment
 
@@ -1668,3 +1680,44 @@ Privacy and data-quality constraints:
 ## 13. Recovery architecture follow-up
 
 The accepted implementation sequence is `plans/retries-repair-architecture-implementation-plan.md` (PLAN-HARDEN-LLM-RECOVERY-001), with REQ-201 through REQ-212 and TEST-201 through TEST-211. ADR-HLLM-020 supersedes historical recovery/backup parity clauses in the completed original phases; their historical execution evidence is not rewritten. Follow the new phases for the current implementation and data transition.
+
+## 14. Resource lifecycle and measured capacity follow-up
+
+`plans/production-scale-efficiency-plan.md` is the implementation sequence for
+trustworthy owned test cleanup and bounded capacity evidence. These requirements
+extend the current system without changing its REST/OpenAPI contract or
+production topology by default.
+
+| Requirement | Type | Acceptance |
+| --- | --- | --- |
+| REQ-341 | func | Register the run, daemon, unique Compose project, source identity, and disposable resource IDs before managed Docker creation; invalid registration prevents mutation. Reconcile created resources using the receipt and exact existing Compose project labels. |
+| REQ-342 | reliability | The parent reaps its owned creation processes, cleans only proven-owned exact resources, inventories afterward, and fails task acceptance on leftovers or unknown state while preserving the first failure. |
+| REQ-343 | security | Coordinate independent local Docker invocations for the same daemon; recover only with process-start and host-boot evidence; preserve active, ambiguous, corrupt, and non-owned resources. |
+| REQ-344 | nfr | Preserve service-pool isolation, assertions, tier opt-ins, retry/recovery behavior, and all existing timeout budgets; fast remains offline and Docker-free. |
+| REQ-345 | reliability | Bound lifecycle work and diagnostics; retain redacted receipt/report evidence outside disposable runner scratch after failures and process interruption. |
+| REQ-346 | data | Attribute Docker resources to exact projects and represent memory in bytes; reject unknown units and distinguish snapshots, sampled peaks, RSS, and host pressure. |
+| REQ-347 | int | The capacity harness exercises real gateway assembly, auth, API client, provider adapter, Postgres, and Garage with isolated synthetic records and a local scripted provider. |
+| REQ-348 | perf | Bound offered work and concurrency; schedule arrivals independently of completions and reconcile sent, unsent, and terminal outcomes. A stream succeeds only on its terminal success event. |
+| REQ-349 | reliability | Canonical history, stage accounting, and artifacts remain correct under export failure; unknown provider outcomes are not invented or replayed automatically. |
+| REQ-350 | data | Cost comparisons use equivalent fingerprints, explicit denominators, retention assumptions, and price sources; unknown actual spend is not represented as zero. |
+| REQ-351 | func | Produce an evidence-backed topology disposition. Any runtime remedy needs an approved requirement, RED/GREEN tests, rollback, and bounded before/after evaluation. |
+| REQ-352 | int | Release evidence identifies tested source, hosted result, affected artifacts, deployment identity when applicable, rollback scope, and checks not performed. |
+
+`ADR-HLLM-027` records the initial test-harness bounds and explicitly leaves
+production traffic/SLO targets unassigned. The detailed acceptance tests are
+TEST-271 through TEST-280 in the companion test specification.
+
+### Requirements traceability
+
+| Phase | Requirement | Owner | Acceptance tests |
+| --- | --- | --- | --- |
+| P01 | REQ-341, REQ-342, REQ-343, REQ-345 | `scripts/run-test-tier.mjs`, `scripts/test-resource-lifecycle.mjs`, `internal/integrationtest/` | TEST-271 through TEST-274, TEST-280 |
+| P01 | REQ-344, REQ-352 | tier manifest, CI workflow, release evidence | TEST-279, TEST-269 |
+| P02 | REQ-346, REQ-347, REQ-348, REQ-349, REQ-350 | `scripts/measure-test-resources.mjs`, `internal/capacity/`, gateway capacity fixture | TEST-275 through TEST-278 |
+| P03 | REQ-351 | capacity disposition report and ADR-HLLM-027 | TEST-278; EVAL-011 |
+
+### ADR index amendment
+
+| ADR | Status | Decision trigger |
+| --- | --- | --- |
+| ADR-HLLM-027 | Accepted for test-harness implementation | Local daemon ownership, bounded test resource accounting, or an evidence-backed capacity remedy is introduced; production SLO and architecture migration remain separate decisions. |

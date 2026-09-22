@@ -30,6 +30,7 @@ migration path.
 | [ADR-HLLM-024](ADR-HLLM-024-bounded-recovery-and-progress.md) | Accepted for implementation | Use one finite two-target repair shape per generation branch, one global budget/deadline, request-bound progress, and incremental provider terminal diagnostics; preserve existing accounting, cache, and ownership boundaries. |
 | [ADR-HLLM-025](ADR-HLLM-025-recursive-profile-widget.md) | Accepted and implemented locally | Reuse the complete LLM profile widget for six fixed recovery nodes while keeping role capabilities, explicit bindings, and finite runtime execution. |
 | [ADR-HLLM-026](ADR-HLLM-026-recovery-closeout-verification.md) | Accepted and implemented | Require independent candidate-release intent, preserve pending SSE outcomes under the existing deadline, render inherited retry controls through the shared widget, and record two-application production evidence without increasing timeouts. |
+| [ADR-HLLM-027](ADR-HLLM-027-resource-ownership-and-measured-capacity.md) | Accepted for test-harness implementation | Add durable ownership and local-daemon coordination for managed test Docker resources, bounded redacted receipts, and opt-in capacity measurement; production SLO and architecture migration remain separate decisions. |
 
 The remaining planned deviation triggers are ADR-HLLM-003 through ADR-HLLM-007
 in the canonical implementation plan. Create one of those records only when its

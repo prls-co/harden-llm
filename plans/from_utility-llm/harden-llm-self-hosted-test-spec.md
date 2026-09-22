@@ -5,12 +5,13 @@
 - Project name: `harden-llm`
 - Target repository: `/home/kirill/harden-llm`
 - Contract source repository: `/home/kirill/utility-llm`
-- Version: `1.3.3-recovery-integrity-follow-up`
+- Version: `1.3.4-resource-scale-follow-up`
 - Owners: package maintainers and self-hosted runtime implementers
 - Date: 2026-09-15
 - Document ID: `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001`
 - Related stack specification: `plans/from_utility-llm/self-hosted-go-stack-spec.md`
 - Summary: This document is the canonical backend test catalog for building `harden-llm`. It defines one `TEST-###` namespace shared with the backend implementation plan. Tests guide the Go library, versioned REST/OpenAPI gateway, Harden-LLM Postgres records, Garage-backed trace artifacts and diagnostic attachments, provider endpoint security, OpenTelemetry/Grafana/Langfuse diagnostics, and full Docker Compose deployment. It contains no frontend, Phoenix, LiveView, React, browser-session, or asset tests. Langfuse retains its pinned upstream default Postgres, Redis, ClickHouse, and MinIO services; tests reject any local Garage substitution into Langfuse.
+- Resource-efficiency addendum date: `2026-09-21`; plan: `plans/production-scale-efficiency-plan.md`.
 
 ## 2. Test strategy
 
@@ -1302,3 +1303,111 @@ runner, provider, database, browser, or timeout budget.
 - Location: `test/test-tiers.json` and the existing release runner.
 - Command: `make test-release`.
 - Acceptance: every existing browser-free release task passes with zero failed tasks or cleanup errors and the unchanged manifest budgets; browser and paid-provider tasks remain opt-in.
+
+## 24. Resource lifecycle and measured capacity
+
+These deterministic and opt-in tests implement the test-resource and capacity
+requirements REQ-341 through REQ-352 in the backend implementation plan.
+Lifecycle receipts are test-only; no REST schema or production database is
+added. The test runner owns disposable Docker resources. Capacity tests use
+synthetic credentials, isolated stores, and a local scripted provider.
+
+### TEST-271: Ownership precedes mutation
+
+- Type / verifies: unit; REQ-341, REQ-345.
+- Location: `scripts/test/test_resource_lifecycle_test.mjs`.
+- Command: `node --test --test-name-pattern=TEST-271 scripts/test/test_resource_lifecycle_test.mjs`.
+- Fixtures/data: Fake Docker command recorder, private temporary ledger, invalid receipt, and atomic-write failure.
+- Deterministic controls: Injected clock and run IDs; no daemon/socket; 5-second per-case deadline.
+- Pass criteria: No create before valid durable registration; invalid registration prevents dispatch; private records survive scratch removal; secrets never appear.
+- Expected runtime: 10 seconds.
+
+### TEST-272: Parent teardown controls acceptance
+
+- Type / verifies: unit; REQ-342, REQ-345.
+- Location: `scripts/test/test_resource_lifecycle_test.mjs`.
+- Command: `node --test --test-name-pattern=TEST-272 scripts/test/test_resource_lifecycle_test.mjs`.
+- Fixtures/data: Fake child/process-group controller with partial creation, TERM, crash, hung inventory, and foreign-attachment cases.
+- Deterministic controls: Injected monotonic clock and fake Docker; 5-second per-case deadline; bounded output.
+- Pass criteria: Preserve the first failure; reap owned child before deletion; leftovers/unknown inventory fail acceptance; delete exact owned IDs only; retain pending evidence.
+- Expected runtime: 15 seconds.
+
+### TEST-273: Daemon guard and dead-owner recovery
+
+- Type / verifies: unit; REQ-343, REQ-344.
+- Location: `scripts/test/test_resource_lifecycle_test.mjs`.
+- Command: `node --test --test-name-pattern=TEST-273 scripts/test/test_resource_lifecycle_test.mjs`.
+- Fixtures/data: Two local processes and temporary flock directory; synthetic daemon, boot, active/dead/reused PID identities.
+- Deterministic controls: No Docker; ready/release IPC instead of sleeps; 5-second subprocess deadline.
+- Pass criteria: Same-daemon invocations exclude each other; other daemon identities do not collide; dead proof is required; active/corrupt/sentinel records survive; no nested-lock deadlock.
+- Expected runtime: 20 seconds.
+
+### TEST-274: Actual disposable Docker cancellation boundary
+
+- Type / verifies: integration; REQ-341, REQ-342, REQ-343, REQ-345.
+- Location: `scripts/test/test_resource_lifecycle_docker_test.mjs`.
+- Command: `node scripts/run-test-tier.mjs --task test-resource-lifecycle-docker`.
+- Fixtures/data: Tiny task-owned container/network/volume from an existing pinned fixture image plus independently identified sentinel resources.
+- Deterministic controls: One daemon guard, synthetic keys, pinned digest, controlled IPC, 300-second task deadline including cleanup.
+- Pass criteria: Success, partial create, child TERM/crash, and child-supervisor SIGKILL followed by next-owner recovery leave no owned resources; sentinel IDs remain; receipts account for outcomes.
+- Expected runtime: Up to 5 minutes.
+
+### TEST-275: Resource units and attribution
+
+- Type / verifies: unit; REQ-346.
+- Location: `scripts/test/test_resource_measurement_test.mjs`.
+- Command: `node --test scripts/test/test_resource_measurement_test.mjs`.
+- Fixtures/data: Numeric Docker API records; B/kB/MB/GB and KiB/MiB/GiB text; missing/malformed units; CPU; duplicate/project labels.
+- Deterministic controls: Frozen inputs, no daemon, integer-byte expected values, seed 104729.
+- Pass criteria: Convert recognized units correctly; unknown units are errors/unknown, never zero; project attribution is exact; snapshot, peak, and RSS remain distinct.
+- Expected runtime: 5 seconds.
+
+### TEST-276: Bounded load generation and streaming accounting
+
+- Type / verifies: unit; REQ-347, REQ-348, REQ-349.
+- Location: `internal/capacity/driver_test.go`.
+- Command: `go test ./internal/capacity -run '^TestCapacityDriver' -count=1`.
+- Fixtures/data: Fake clock/transport; scripted delay, 429, invalid JSON, recovery, cache hit, terminal stream success, and truncated EOF.
+- Deterministic controls: Seed 104729; finite queues; no Docker/internet; test contexts at most 5 seconds.
+- Pass criteria: Open-loop arrivals remain independent; accounting reconciles; concurrency/request bounds hold; EOF without terminal success fails; recovery dispatch equals script; production endpoints reject before dialing.
+- Expected runtime: 10 seconds.
+
+### TEST-277: Real application capacity boundary
+
+- Type / verifies: perf; REQ-347, REQ-348, REQ-349.
+- Location: `cmd/harden-llm-gateway/capacity_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline.json`.
+- Fixtures/data: Real command server assembly, REST/auth/client, disposable Postgres/Garage, local TLS scripted provider and export sink; selected full-stack case reuses the existing Compose smoke topology.
+- Deterministic controls: Explicit `integration,capacity,compose` tags; seed 104729; synthetic credentials; Section 6 bounds; no live/browser selector.
+- Pass criteria: Persisted history/artifacts agree with terminal outcomes; provider receive counts match runtime attempts; SSE terminal oracle holds; report is bounded and owned fixtures are cleaned.
+- Expected runtime: Correctness up to 5 minutes; exploration/holdout up to 15 minutes; full-stack up to 30 minutes.
+
+### TEST-278: Comparable cost and decision reports
+
+- Type / verifies: unit; REQ-346, REQ-350, REQ-351.
+- Location: `internal/capacity/report_test.go`.
+- Command: `go test ./internal/capacity -run '^TestCapacityReport' -count=1`.
+- Fixtures/data: Byte/token/price fixtures, mismatched fingerprints, unknown CPA actual price, missing SLO, host resource and exporter-drop records.
+- Deterministic controls: Fixed decimal inputs and seed 104729; no external price lookup or real provider.
+- Pass criteria: Denominators/unit math are exact; incomparable samples reject; unknown price/metrics remain null with reasons; no unsupported savings/SLO claims; only the four specified dispositions occur.
+- Expected runtime: 5 seconds.
+
+### TEST-279: Task policy and registration integrity
+
+- Type / verifies: static; REQ-344, REQ-352.
+- Location: `scripts/verify-test-tiers.mjs`.
+- Command: `node scripts/verify-test-tiers.mjs`.
+- Fixtures/data: Current Makefile, task manifest, canonical catalog, traceability and workflow source; existing timeout baseline.
+- Deterministic controls: Offline source reads; no Docker; existing tier/budget policy.
+- Pass criteria: Executable test registration is discoverable; cheap task is offline/container-free; Make and manifest do not recurse; capacity is opt-in; release is browser-free; failure artifact and candidate identity policy is present.
+- Expected runtime: 5 seconds.
+
+### TEST-280: Cross-language receipt contract
+
+- Type / verifies: unit; REQ-341, REQ-345.
+- Location: `internal/integrationtest/resource_receipt_test.go`.
+- Command: `go test ./internal/integrationtest -run '^TestResourceReceipt' -count=1`.
+- Fixtures/data: Temporary private receipt path, shared JSON vectors, invalid run/project/daemon/permissions, atomic-write failures.
+- Deterministic controls: Untagged standard-library-only test/helper; no Docker; fixed IDs/clock; 5-second test deadline.
+- Pass criteria: Go and Node fields/transitions agree; invalid ownership prevents fixture dispatch; receipts contain no credentials; writes are private and atomic.
+- Expected runtime: 5 seconds.
