@@ -99,11 +99,18 @@ export function capacitySafetyFailure(host) {
 
 function outputText(result, label) {
   if (!result || result.status !== 0 || (result.truncatedBytes ?? 0) > 0) {
-    throw new Error(`${label} did not produce a complete successful result`);
+    const exit = Number.isInteger(result?.status) ? `exit=${result.status}` : "exit=unknown";
+    const truncation = (result?.truncatedBytes ?? 0) > 0 ? `; truncatedBytes=${result.truncatedBytes}` : "";
+    const stderr = typeof result?.redactedStderr === "string"
+      ? result.redactedStderr.replace(/\s+/g, " ").trim().slice(-256)
+      : "";
+    throw new DockerSampleCommandError(`${label} did not produce a complete successful result (${exit}${truncation}${stderr ? `; stderr=${stderr}` : ""})`);
   }
   if (typeof result.stdout !== "string") throw new Error(`${label} output is unavailable`);
   return result.stdout;
 }
+
+class DockerSampleCommandError extends Error {}
 
 function outputLines(value) {
   return value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
@@ -119,7 +126,11 @@ function parseLabels(lines, label, expectedCount) {
   });
 }
 
-/** Collects one bounded local Docker sample without retaining inspect output. */
+/**
+ * Collects one bounded local Docker sample without retaining inspect output.
+ * An executor may supply a short, already-redacted `redactedStderr` preview for
+ * nonzero commands; raw stderr is never accepted into this diagnostic field.
+ */
 export async function collectDockerResourceSample(project, execute, { timestamp = new Date().toISOString(), host = {} } = {}) {
   if (typeof project !== "string" || !/^[A-Za-z0-9_.-]{1,128}$/.test(project)) throw new TypeError("project must be a safe exact Docker project label");
   if (typeof execute !== "function") throw new TypeError("Docker command executor is required");
@@ -175,8 +186,9 @@ export async function collectDockerResourceSample(project, execute, { timestamp 
         cpuPercent: resource.cpuPercent,
       };
     });
-  } catch {
-    sample.collectionNullReasons.containers = `${containerStage} failed`;
+  } catch (error) {
+    const detail = error instanceof DockerSampleCommandError ? `: ${error.message}` : "";
+    sample.collectionNullReasons.containers = `${containerStage} failed${detail}`;
   }
 
   try {

@@ -183,7 +183,13 @@ test("TEST-275 reports which bounded Docker container sampling stage was unavail
 
   for (const { failedCommand, expected } of cases) {
     const sample = await collectDockerResourceSample("owned-project", async (args) => {
-      if (args[0] === failedCommand) return { status: 1, stdout: "untrusted-secret-output" };
+      if (args[0] === failedCommand) {
+        return {
+          status: 1,
+          stdout: "untrusted-secret-output",
+          redactedStderr: "Error response from daemon: authorization=Bearer [redacted]",
+        };
+      }
       if (args[0] === "ps") return { status: 0, stdout: `${containerID}\n` };
       if (args[0] === "inspect") return { status: 0, stdout: identity };
       if (args[0] === "stats") return { status: 0, stdout: `${containerID}\t1 MiB / 1 GiB\t1.0%\n` };
@@ -191,7 +197,8 @@ test("TEST-275 reports which bounded Docker container sampling stage was unavail
       throw new Error(`unexpected Docker command ${args[0]}`);
     });
 
-    assert.equal(sample.collectionNullReasons.containers, expected);
+    assert.match(sample.collectionNullReasons.containers, new RegExp(`^${expected}: .*exit=1`));
+    assert.match(sample.collectionNullReasons.containers, /Bearer \[redacted\]/);
     assert.doesNotMatch(JSON.stringify(sample), /untrusted-secret-output/);
   }
 });

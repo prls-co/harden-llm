@@ -1359,7 +1359,7 @@ synthetic credentials, isolated stores, and a local scripted provider.
 - Command: `node --test scripts/test/test_resource_measurement_test.mjs`.
 - Fixtures/data: Numeric Docker API records; B/kB/MB/GB and KiB/MiB/GiB text; missing/malformed units; CPU; duplicate/project labels; host memory and Docker data-root headroom thresholds.
 - Deterministic controls: Frozen inputs, no daemon, integer-byte expected values, seed 104729.
-- Pass criteria: Convert recognized units correctly; unknown units are errors/unknown, never zero; project attribution is exact; Docker memory, RSS, sampled peak, host memory, and Docker data-root disk remain distinct; safety thresholds fail closed. Unavailable exact container measurements identify the bounded failing stage (inventory, identity inspection, or stats) without retaining raw Docker output.
+- Pass criteria: Convert recognized units correctly; unknown units are errors/unknown, never zero; project attribution is exact; Docker memory, RSS, sampled peak, host memory, and Docker data-root disk remain distinct; safety thresholds fail closed. Unavailable exact container measurements identify the bounded failing stage and exit status, with at most 256 characters of caller-redacted stderr and no raw Docker output.
 - Expected runtime: 5 seconds.
 
 ### TEST-276: Bounded load generation and streaming accounting

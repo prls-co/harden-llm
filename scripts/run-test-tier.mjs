@@ -282,6 +282,7 @@ function startDockerResourceSampler(project, environment, cwd, dockerDataRoot = 
         return {
           status: result.status,
           stdout: result.stdout.rawPreview,
+          redactedStderr: result.stderr.tailPreview,
           truncatedBytes: result.stdout.truncatedBytes,
         };
       }, { timestamp: new Date().toISOString(), host });
