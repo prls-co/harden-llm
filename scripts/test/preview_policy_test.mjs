@@ -52,8 +52,15 @@ test("pushes, PRs and schedules never authorize browser tests", () => {
       assert.equal(ciMode(event, suite).browserCompose, false);
     }
   }
-  assert.deepEqual(ciMode("push"), { fast: true, integration: false, release: false, browser: false, browserCompose: false });
+  assert.deepEqual(ciMode("push"), { fast: true, integration: false, lifecycle: false, capacity: false, release: false, browser: false, browserCompose: false });
+  assert.equal(ciMode("workflow_dispatch", "lifecycle").lifecycle, true);
+  assert.equal(ciMode("workflow_dispatch", "lifecycle").fast, false);
+  assert.equal(ciMode("workflow_dispatch", "lifecycle").release, false);
+  assert.equal(ciMode("workflow_dispatch", "lifecycle").browser, false);
   assert.equal(ciMode("workflow_dispatch", "release").browser, false);
+  assert.equal(ciMode("workflow_dispatch", "capacity").capacity, true);
+  assert.equal(ciMode("workflow_dispatch", "capacity").release, false);
+  assert.equal(ciMode("workflow_dispatch", "capacity").browser, false);
   assert.equal(ciMode("workflow_dispatch", "browser").browser, true);
   assert.equal(ciMode("workflow_dispatch", "full-with-browser").browserCompose, true);
   assert.throws(() => ciMode("workflow_dispatch", "typo"));

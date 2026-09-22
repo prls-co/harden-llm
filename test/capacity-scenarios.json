@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "caseSets": {
+    "correctness": [
+      {"id":"valid-text","seed":104729,"offeredRps":1,"warmupSeconds":0,"measurementSeconds":1,"drainSeconds":2,"maxRequests":1,"maxInflight":1,"providerScript":"success","expectedOutcome":"succeeded","cacheMode":"miss","recoveryPolicy":"default","telemetryMode":"local-sink"},
+      {"id":"cache-hit","seed":104729,"offeredRps":1,"warmupSeconds":1,"measurementSeconds":1,"drainSeconds":2,"maxRequests":2,"maxInflight":1,"providerScript":"success","expectedOutcome":"succeeded","cacheMode":"hit","recoveryPolicy":"default","telemetryMode":"local-sink"},
+      {"id":"rate-limit-retry","seed":104729,"offeredRps":1,"warmupSeconds":0,"measurementSeconds":1,"drainSeconds":2,"maxRequests":1,"maxInflight":1,"providerScript":"rate-limit-once","expectedOutcome":"succeeded","cacheMode":"miss","recoveryPolicy":"retry","telemetryMode":"local-sink"},
+      {"id":"malformed-json-repair","seed":104729,"offeredRps":1,"warmupSeconds":0,"measurementSeconds":1,"drainSeconds":2,"maxRequests":1,"maxInflight":1,"providerScript":"malformed-json","expectedOutcome":"succeeded","cacheMode":"miss","recoveryPolicy":"json-repair","telemetryMode":"local-sink"},
+      {"id":"truncated-stream","seed":104729,"offeredRps":1,"warmupSeconds":0,"measurementSeconds":1,"drainSeconds":2,"maxRequests":1,"maxInflight":1,"providerScript":"truncated-stream","expectedOutcome":"failed","cacheMode":"miss","recoveryPolicy":"off","telemetryMode":"local-sink"},
+      {"id":"blocked-exporter","seed":104729,"offeredRps":1,"warmupSeconds":0,"measurementSeconds":1,"drainSeconds":2,"maxRequests":1,"maxInflight":1,"providerScript":"success","expectedOutcome":"succeeded","cacheMode":"miss","recoveryPolicy":"default","telemetryMode":"blocked-exporter"}
+    ],
+    "exploration": [
+      {"id":"one-rps-short-provider","seed":104729,"offeredRps":1,"warmupSeconds":10,"measurementSeconds":60,"drainSeconds":60,"maxRequests":70,"maxInflight":256,"providerScript":"slow-success","providerDelayMs":100,"expectedOutcome":"succeeded","cacheMode":"miss","recoveryPolicy":"default","telemetryMode":"local-sink"},
+      {"id":"twelve-rps-short","seed":104729,"offeredRps":12,"warmupSeconds":10,"measurementSeconds":60,"drainSeconds":60,"maxRequests":840,"maxInflight":256,"providerScript":"slow-success","providerDelayMs":1000,"expectedOutcome":"succeeded","cacheMode":"miss","recoveryPolicy":"default","telemetryMode":"local-sink"},
+      {"id":"twenty-four-rps-short","seed":104729,"offeredRps":24,"warmupSeconds":10,"measurementSeconds":60,"drainSeconds":60,"maxRequests":1680,"maxInflight":256,"providerScript":"slow-success","providerDelayMs":1000,"expectedOutcome":"succeeded","cacheMode":"miss","recoveryPolicy":"default","telemetryMode":"local-sink"},
+      {"id":"twelve-rps-ten-second-provider","seed":104729,"offeredRps":12,"warmupSeconds":10,"measurementSeconds":60,"drainSeconds":60,"maxRequests":840,"maxInflight":256,"providerScript":"slow-success","providerDelayMs":10000,"expectedOutcome":"succeeded","cacheMode":"miss","recoveryPolicy":"default","telemetryMode":"local-sink"}
+    ],
+    "holdout": [
+      {"id":"twelve-rps-held-out","seed":130363,"offeredRps":12,"warmupSeconds":10,"measurementSeconds":60,"drainSeconds":60,"maxRequests":840,"maxInflight":256,"providerScript":"success","expectedOutcome":"succeeded","cacheMode":"miss","recoveryPolicy":"default","telemetryMode":"local-sink"}
+    ]
+  }
+}

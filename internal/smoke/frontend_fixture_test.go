@@ -15,6 +15,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/prls-co/harden-llm/internal/integrationtest"
 )
 
 // TestFrontendComposeFixture owns the real 16-service topology while
@@ -56,12 +58,33 @@ func TestFrontendComposeFixture(t *testing.T) {
 		filepath.Join(root, "deploy", "frontend", "compose.frontend.yml"),
 	}
 	runner := composeRunner{root: root, project: project, environment: environment, files: files}
-	_ = runner.run(context.Background(), nil, "down", "--volumes", "--remove-orphans", "--timeout", "10")
+	receiptPath, err := integrationtest.RegisterResourceReceipt(project, files)
+	if err != nil {
+		t.Fatalf("register frontend Compose ownership before Docker mutation: %v", err)
+	}
+	if err := integrationtest.AdvanceResourceReceipt(receiptPath, "creating"); err != nil {
+		t.Fatalf("record frontend Compose creation state before Docker mutation: %v", err)
+	}
 	t.Cleanup(func() {
+		stateErr := integrationtest.AdvanceResourceReceipt(receiptPath, "cleaning")
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
-		if err := runner.run(ctx, nil, "down", "--volumes", "--remove-orphans", "--timeout", "20"); err != nil {
-			t.Logf("frontend Compose cleanup: %v", err)
+		cleanupErr := runner.run(ctx, nil, "down", "--volumes", "--remove-orphans", "--timeout", "20")
+		if stateErr != nil {
+			_ = integrationtest.AdvanceResourceReceipt(receiptPath, "cleanup-pending")
+			t.Errorf("record frontend Compose cleanup state: %v", stateErr)
+			if cleanupErr != nil {
+				t.Errorf("frontend Compose cleanup: %v", cleanupErr)
+			}
+			return
+		}
+		if cleanupErr != nil {
+			_ = integrationtest.AdvanceResourceReceipt(receiptPath, "cleanup-pending")
+			t.Errorf("frontend Compose cleanup: %v", cleanupErr)
+			return
+		}
+		if err := integrationtest.AdvanceResourceReceipt(receiptPath, "cleaned"); err != nil {
+			t.Errorf("record frontend Compose cleanup completion: %v", err)
 		}
 	})
 
@@ -74,10 +97,13 @@ func TestFrontendComposeFixture(t *testing.T) {
 
 	started := time.Now()
 	startContext, cancelStart := context.WithTimeout(context.Background(), 7*time.Minute)
-	err := runner.run(startContext, nil, "up", "-d", "--build", "--wait", "--wait-timeout", "360")
+	err = runner.run(startContext, nil, "up", "-d", "--build", "--wait", "--wait-timeout", "360")
 	cancelStart()
 	if err != nil {
 		t.Fatalf("start frontend Compose stack: %v\n%s", err, runner.diagnostics())
+	}
+	if err := integrationtest.AdvanceResourceReceipt(receiptPath, "running"); err != nil {
+		t.Fatalf("record frontend Compose startup: %v", err)
 	}
 	readiness := time.Since(started)
 	if readiness > 6*time.Minute {

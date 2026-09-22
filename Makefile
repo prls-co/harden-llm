@@ -24,6 +24,7 @@ validate-loki-schema:
 
 test-static: validate-loki-schema
 	$(GO) test ./internal/testkit/... -count=1
+	$(GO) test ./internal/integrationtest -run '^TestResourceReceipt' -count=1
 	$(NODE) scripts/verify-parity-fixtures.mjs
 	$(NODE) --test scripts/test/preview_policy_test.mjs scripts/test/shared_profiles_test.mjs scripts/test/production_config_test.mjs
 
@@ -50,7 +51,7 @@ test-observability:
 	$(GO) test ./internal/runtime/... ./internal/gateway/... ./internal/artifacts/... ./internal/deploytest/... ./internal/eval/... -count=1
 
 test-compose:
-	$(GO) test ./internal/smoke/... -tags=compose -run TestComposeSmoke -count=1
+	$(NODE) scripts/run-test-tier.mjs --task go-compose
 
 test-race:
 	$(GO) test -race -p=$(RACE_PACKAGE_PARALLELISM) ./... -count=1

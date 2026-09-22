@@ -66,7 +66,7 @@
     },
     {
       "id": "go-static",
-      "testIds": ["TEST-004", "TEST-062", "TEST-233", "TEST-234", "TEST-260", "TEST-268"],
+      "testIds": ["TEST-004", "TEST-062", "TEST-233", "TEST-234", "TEST-260", "TEST-268", "TEST-280"],
       "tier": "T0",
       "resourceClass": "cpu",
       "command": ["make", "test-static"],
@@ -77,7 +77,22 @@
       "credentialKeys": [],
       "requiredFor": ["baseline", "fast", "release"],
       "benchmarkLanes": ["fast-candidates"],
-      "pathSelectors": ["internal/testkit/**", "scripts/**", "go.mod", "go.sum"]
+      "pathSelectors": ["internal/testkit/**", "internal/integrationtest/resource_receipt*", "scripts/**", "go.mod", "go.sum"]
+    },
+    {
+      "id": "runner-contracts",
+      "testIds": ["TEST-049", "TEST-271", "TEST-272", "TEST-273", "TEST-275"],
+      "tier": "T1",
+      "resourceClass": "cpu",
+      "command": ["node", "--test", "scripts/test/run_test_tier_test.mjs", "scripts/test/test_resource_lifecycle_test.mjs", "scripts/test/test_resource_measurement_test.mjs"],
+      "dependsOn": [],
+      "timeoutMs": 180000,
+      "cleanupOwner": "runner",
+      "network": "forbidden",
+      "credentialKeys": [],
+      "requiredFor": ["baseline", "fast", "release"],
+      "benchmarkLanes": ["fast-candidates"],
+      "pathSelectors": ["scripts/run-test-tier.mjs", "scripts/test-resource-lifecycle.mjs", "scripts/test/run_test_tier_test.mjs", "scripts/test/test_resource_lifecycle_test.mjs", "scripts/measure-test-resources.mjs", "scripts/test/test_resource_measurement_test.mjs", "test/test-tiers.json"]
     },
     {
       "id": "production-config-compose",
@@ -112,7 +127,9 @@
         "TEST-249",
         "TEST-250",
         "TEST-258",
-        "TEST-259"
+        "TEST-259",
+        "TEST-276",
+        "TEST-278"
       ],
       "tier": "T1",
       "resourceClass": "cpu",
@@ -187,6 +204,29 @@
       "pathSelectors": ["internal/**", "deploy/test/**", "go.mod", "go.sum"]
     },
     {
+      "id": "capacity-baseline",
+      "testIds": ["TEST-277"],
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": ["go", "test", "./cmd/harden-llm-gateway", "-tags=integration,capacity", "-run", "^TestGatewayCapacityBaseline$", "-count=1"],
+      "dependsOn": [],
+      "timeoutMs": 2400000,
+      "cleanupOwner": "integration-pool",
+      "network": "local-only",
+      "credentialKeys": [],
+      "requiredFor": [],
+      "capacityReport": true,
+      "sampleDockerResources": true,
+      "servicePool": {
+        "composeFile": "deploy/test/compose.integration.yml",
+        "services": [
+          {"name": "harden-postgres", "port": 5432},
+          {"name": "garage", "port": 3900}
+        ]
+      },
+      "pathSelectors": ["cmd/harden-llm-gateway/**", "internal/capacity/**", "internal/integrationtest/**", "test/capacity-scenarios.json", "deploy/test/compose.integration.yml", "scripts/run-test-tier.mjs", "test/test-tiers.json"]
+    },
+    {
       "id": "go-integration-race",
       "testIds": ["TEST-008"],
       "tier": "T3",
@@ -257,14 +297,30 @@
       "testIds": ["TEST-011"],
       "tier": "T4",
       "resourceClass": "release",
-      "command": ["make", "test-compose"],
+      "command": ["go", "test", "./internal/smoke/...", "-tags=compose", "-run", "TestComposeSmoke", "-count=1"],
       "dependsOn": [],
       "timeoutMs": 1800000,
       "cleanupOwner": "compose-smoke",
       "network": "local-only",
       "credentialKeys": [],
       "requiredFor": ["baseline", "release"],
+      "requiresDocker": true,
       "pathSelectors": ["internal/smoke/**", "deploy/test/**", "docker-compose.yml"]
+    },
+    {
+      "id": "test-resource-lifecycle-docker",
+      "testIds": ["TEST-274"],
+      "tier": "T3",
+      "resourceClass": "release",
+      "command": ["node", "scripts/test/test_resource_lifecycle_docker_test.mjs"],
+      "dependsOn": [],
+      "timeoutMs": 300000,
+      "cleanupOwner": "runner",
+      "network": "local-only",
+      "credentialKeys": [],
+      "requiredFor": [],
+      "requiresDocker": true,
+      "pathSelectors": ["scripts/run-test-tier.mjs", "scripts/test-resource-lifecycle.mjs", "scripts/test/test_resource_lifecycle_docker_test.mjs"]
     },
     {
       "id": "go-race",

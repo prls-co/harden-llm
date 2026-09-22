@@ -4,7 +4,7 @@
 - Document ID: `PLAN-HLLM-SCALE-001`.
 - Version: `3.0`; date: `2026-09-21`.
 - Owners: repository maintainer for scope and release approval; implementing coding agent for changes and evidence; deployment operator for private configuration and promotion.
-- Status: implementation active; P00 in progress, P01-P04 pending.
+- Status: implementation active; P00 complete, P01 in progress, P02-P04 pending.
 - Reviewed source: `67937729b4e5b0d58d2883bdd09155e49ac72612`; local `main` is seven commits ahead of its recorded `origin/main`. Refresh before execution.
 - Governing documents: [repository instructions](../AGENTS.md), [complete testing guidelines](../docs/liveview-go-testing-guidelines.md), [architecture](../docs/architecture.md), [OpenAPI](../api/openapi.yaml), and [canonical backend test catalog](from_utility-llm/harden-llm-self-hosted-test-spec.md).
 
@@ -70,7 +70,7 @@ The following IDs are proposed additions; P00 checks for allocation collisions. 
 | Requirement | Type | Acceptance criteria |
 | --- | --- | --- |
 | REQ-341 | func | Every managed Docker fixture records validated run/project/daemon ownership before creation; a missing or invalid receipt prevents mutation. |
-| REQ-342 | reliability | The parent terminates/reaps owned creation processes, removes only proven-owned disposable resources, and inventories leftovers. Cleanup failure or unknown state makes the task unaccepted without hiding its original failure. |
+| REQ-342 | reliability | The parent terminates/reaps owned creation processes, removes only proven-owned disposable resources, and inventories leftovers. Unknown state, failed exact cleanup, non-empty final inventory, or unpersisted ownership makes the task unaccepted without hiding its original failure. A failed best-effort Compose `down` may be a warning only when exact fallback cleanup, empty final inventory, and the `cleaned` receipt are all verified; the warning remains in the report. |
 | REQ-343 | security | Independent local Docker invocations share a daemon-specific lock. Recovery requires dead-owner proof; active, ambiguous, corrupt, or non-owned resources are not deleted. |
 | REQ-344 | nfr | Existing pools, isolation, timeout budgets, assertions, recovery policies, and opt-in tiers remain intact. Fast selection stays offline, Docker-free, and browser-free. |
 | REQ-345 | reliability | Setup, diagnostics, cleanup, and evidence are bounded. Redacted receipts and cleanup-pending reports survive child failure, supervisor death, and temporary-run-directory removal. |
@@ -84,7 +84,7 @@ The following IDs are proposed additions; P00 checks for allocation collisions. 
 
 ### 4.1 Errors and telemetry
 
-- Preserve first application failure plus separate cleanup failures; never convert unknown inventory into zero leftovers.
+- Preserve first application failure plus separate cleanup failures and warnings; never convert unknown inventory into zero leftovers. A Compose `down` warning is non-fatal only after exact fallback cleanup, an empty final inventory, and durable `cleaned` receipt are verified.
 - Emit structured phase timings: lock wait, registration, pull/build/start/readiness, request execution, diagnostics, child stop, cleanup, final inventory.
 - Keep receipts on failure with `cleanup_pending`; report unavailable Docker separately from failed assertions.
 - Retain existing trace/origin/run/stage IDs and persisted diagnostics; do not log tokens, prompts, credentials, connection strings, or unredacted Docker environment.
@@ -225,6 +225,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
 - Unresolved decision: remote multi-host daemon exclusion is outside this local-lock guarantee.
 
 - `P01.S01 Add failing ownership teardown and routing regressions`
+  - Progress: DONE — the new tests fail at the expected behavior assertions; no production implementation began before these RED observations.
   - Action: Create executable pure Node tests for receipt ordering, parent teardown, flock coordination, and fault cases; add untagged pure Go receipt coverage. Add static assertions for managed Make routing and cheap/expensive task isolation. Use minimal behavior-preserving seams to get assertion failures.
   - Why now: These failures bind every lifecycle behavior changed by the next steps.
   - Files/surfaces: `scripts/test/test_resource_lifecycle_test.mjs`; `internal/integrationtest/resource_receipt_test.go` (both proposed); `scripts/test/run_test_tier_test.mjs`; `scripts/verify-test-tiers.mjs`.
@@ -237,7 +238,8 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Failure is only import/compile failure, depends on real Docker, or requires weakening existing assertions.
   - Unlocks: P01.S02
 - `P01.S02 Register fixture ownership before Docker creation`
-- Action: Implement the private atomic Node/Go receipt contract. Allocate ownership before pool, smoke, frontend fixture, or exclusive Garage mutation. Bind each resource ID to the receipt's unique Compose project and run; require exact Docker project labels for Compose resources, and add a custom label only where the existing Compose resource definition supports it. Reject unmanaged fixture entrypoints with the managed command. Remove newly generated projects' unnecessary pre-start down.
+  - Progress: DONE — Node and Go use the version-1 shared receipt vector; managed pool and Go Compose paths register before create/pull/up.
+  - Action: Implement the private atomic Node/Go receipt contract. Allocate ownership before pool, smoke, frontend fixture, or exclusive Garage mutation. Bind each resource ID to the receipt's unique Compose project and run; require exact Docker project labels for Compose resources, and add a custom label only where the existing Compose resource definition supports it. Reject unmanaged fixture entrypoints with the managed command. Remove newly generated projects' unnecessary pre-start down.
   - Why now: Parent cleanup cannot safely act without durable ownership established before startup.
   - Files/surfaces: `scripts/test-resource-lifecycle.mjs`; `internal/integrationtest/resource_receipt.go` (proposed); `scripts/run-test-tier.mjs`; `internal/integrationtest/compose.go`; `internal/smoke/harness_compose.go`; `internal/smoke/frontend_fixture_test.go`.
   - Requirement link: REQ-341, REQ-345
@@ -249,6 +251,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Any creation path can bypass registration or requires persisting credentials.
   - Unlocks: P01.S03
 - `P01.S03 Make parent cleanup authoritative and bounded`
+  - Progress: DONE — unresolved cleanup failures fail acceptance; the runner reaps timed-out child groups before reconciliation and removes only exact project-labeled resources with no foreign attachments. A failed best-effort Compose `down` is reported as a warning only when exact fallback cleanup, empty final inventory, and durable `cleaned` receipt are all verified.
   - Action: Stop/reap owned child process groups; perform bounded diagnostics and exact-ID cleanup after validating labels/attachments. Re-inventory late creations; fail on leftovers or unknown state. Preserve original failure and cleanup error separately. Keep receipt/report outside deleted runner scratch.
   - Why now: Ownership now exists; teardown can become an acceptance condition.
   - Files/surfaces: `scripts/run-test-tier.mjs`; `scripts/test-resource-lifecycle.mjs`; existing smoke and frontend fixture cleanup callbacks.
@@ -256,24 +259,26 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Verification link: TEST-272
   - Verification mode: GREEN
   - Command/procedure: `node --test --test-name-pattern=TEST-272 scripts/test/test_resource_lifecycle_test.mjs`.
-  - Expected result: Success cannot mask cleanup failure; buffers and total cleanup work remain bounded.
+  - Expected result: Success cannot mask unresolved cleanup failure; a verified exact fallback after failed Compose `down` is visible as a warning, while unknown inventory, failed removal, attachments, remaining resources, or receipt-write failure still fails acceptance. Buffers and total cleanup work remain bounded.
   - Evidence produced: Fault-matrix output, redacted pending receipt examples, and phase timings.
   - Stop/escalate condition: Non-owned attachment, unavailable identity, or teardown exceeds its remaining budget.
   - Unlocks: P01.S04
 - `P01.S04 Coordinate independent local Docker invocations`
-  - Action: Acquire one shared daemon-keyed flock for Docker selections, including direct benchmark runTasks callers. Pass one owned lease through managed child paths to prevent nested deadlock. Recover stale receipts only with boot ID, PID, and process-start proof; TTL alone never authorizes deletion.
+  - Progress: DONE — Docker selections use a private daemon-keyed Linux flock, pass a verified lease through nested managed tasks, and recover only receipts whose prior supervisor is proven dead.
+  - Action: Acquire one shared daemon-keyed flock for Docker selections, including direct benchmark runTasks callers. Pass one owned lease through managed child paths to prevent nested deadlock. Recover stale receipts only with boot ID, PID, and process-start proof; TTL alone never authorizes deletion. Reject non-local Docker endpoints; cap lock wait at 30 s and report daemon-identification, lock-wait, and stale-recovery durations separately.
   - Why now: Now teardown is safe, independent invocations can coordinate creation and recovery.
   - Files/surfaces: `scripts/test-resource-lifecycle.mjs`; `scripts/run-test-tier.mjs`; `scripts/benchmark-test-feedback.mjs`.
   - Requirement link: REQ-343, REQ-344
   - Verification link: TEST-273
   - Verification mode: GREEN
   - Command/procedure: `node --test --test-name-pattern=TEST-273 scripts/test/test_resource_lifecycle_test.mjs`.
-  - Expected result: Same-daemon test invocations serialize; pure tasks avoid the real guard; active owners and unrelated resources survive.
+  - Expected result: Same-daemon test invocations serialize; different daemon IDs do not collide; pure tasks avoid Docker and the guard; active/corrupt owners and unrelated-daemon resources survive; dead/reused-PID/prior-boot receipts recover; lock timeout is bounded; nested execution reuses its lease.
   - Evidence produced: Two-process exclusion and dead-owner recovery evidence.
   - Stop/escalate condition: Remote shared daemon, untrusted lock directory, reused PID ambiguity, or lease recursion.
   - Unlocks: P01.S05
 - `P01.S05 Wire managed entrypoints and retained CI evidence`
-  - Action: Route make test-compose to the existing runner's go-compose task; make that task execute the original raw Go smoke command, avoiding recursion. Register runner-contracts in fast/release with existing runner tests and new pure Node files. Update static requiredCommands accordingly. Keep integration pools per task and Garage exclusivity. Add bounded always-upload reports to the existing release job.
+  - Progress: DONE — the public Compose target uses the manifest runner; bounded private reports are retained for fast/integration/release CI; focused and aggregate static checks pass.
+  - Action: Route make test-compose to the existing runner's go-compose task; make that task execute the original raw Go smoke command, avoiding recursion. Register runner-contracts in fast/release with existing runner tests and new pure Node files. Register the pure Go receipt contract in go-static. Update static requiredCommands accordingly. Keep integration pools per task and Garage exclusivity. Atomically persist private per-run reports capped at 2 MiB and add always-upload report steps to the existing fast, integration, and release jobs so routine timeout failures retain evidence.
   - Why now: Ownership must cover public entrypoints and reports must survive CI cancellation/failure.
   - Files/surfaces: `Makefile`; `test/test-tiers.json`; `scripts/verify-test-tiers.mjs`; `.github/workflows/test-hierarchy.yml`; `docs/requirements-traceability.md`.
   - Requirement link: REQ-344, REQ-352
@@ -285,6 +290,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Task registration changes existing release contents, permits browsers implicitly, or uploads unredacted records.
   - Unlocks: P01.S06
 - `P01.S06 Consolidate lifecycle helpers without changing assertions`
+  - Progress: DONE — focused review found no redundant lifecycle owner or duplicate cleanup implementation worth extracting; a no-op refactor avoided adding abstractions.
   - Action: Keep one Node lifecycle helper and one pure Go receipt adapter; remove duplicate ownership/cleanup logic. Preserve fixture assertions and budgets; compile Compose-tagged frontend fixtures without executing them.
   - Why now: Three lifecycle fixes must not leave competing owners or duplicated policy.
   - Files/surfaces: `scripts/test-resource-lifecycle.mjs`; `scripts/run-test-tier.mjs`; `internal/integrationtest/resource_receipt.go`; existing fixture files.
@@ -297,16 +303,18 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Coverage loses an assertion, helper adds a new scheduler, or existing timeouts change.
   - Unlocks: P01.S07
 - `P01.S07 Exercise owned cancellation against a real Docker daemon`
-  - Action: Create and register the opt-in test-resource-lifecycle-docker task and its test file before running it. Use a tiny pinned fixture, sentinel resources, and an owned child-supervisor tree. Exercise cleanup and next-owner recovery without killing the test controller or daemon. Run the existing full Compose smoke once for its distinct topology/correlation boundary.
+  - Progress: PARTIAL — deterministic policy and fast gates pass. The real Docker TEST-274 passed four scenarios (success, partial create, TERM, supervisor SIGKILL/next-owner recovery), preserved the independently receipted sentinel, left all receipts `cleaned`, and produced no cleanup warnings/errors. Adding a TERM trap to PID 1 eliminated the prior 30-second Compose stop warnings; no task timeout/readiness limit changed. The distinct full Compose smoke failed at the one-shot bootstrap command after 321.765 s; its original assertion is not waived. Diagnose/verify the retry path on an isolated runner before P01 exit.
+  - Action: Create and register the opt-in test-resource-lifecycle-docker task and its test file before running it. Use cached `alpine@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc` with pulls disabled, a separately receipted sentinel project, and an owned child-supervisor tree. Exercise success, partial create, TERM, SIGKILL, and next-owner recovery without killing the test controller or daemon. Run the existing full Compose smoke for its distinct topology/correlation boundary. After its full-stack readiness and topology checks, the one-shot bootstrap command must reuse running dependencies and the built image (`--no-deps --pull never`); it still performs the original bootstrap/login/run/correlation assertions.
   - Why now: Cheap root invariants are green; the remaining uncertainty is actual Docker/process behavior.
   - Files/surfaces: `scripts/test/test_resource_lifecycle_docker_test.mjs` (proposed); `test/test-tiers.json`; `scripts/verify-test-tiers.mjs`; `internal/smoke/harness_compose.go`.
   - Requirement link: REQ-341, REQ-342, REQ-343, REQ-344, REQ-345
   - Verification link: TEST-274, TEST-279; EVAL-009
   - Verification mode: MEASURE
   - Command/procedure: `node scripts/verify-test-tiers.mjs`; `node scripts/run-test-tier.mjs --task test-resource-lifecycle-docker`; `node scripts/run-test-tier.mjs --task go-compose --output tmp/test-feedback/scale-compose.json`.
-  - Expected result: Zero owned leftovers and zero sentinel deletions; full topology/readiness/correlation assertions unchanged; cleanup reports survive.
+  - Expected result: Zero owned leftovers and zero sentinel deletions; full topology/readiness/correlation assertions unchanged; cleanup reports survive. The one-shot bootstrap runs against the just-verified stack without dependency restart or image resolution.
   - Evidence produced: Daemon/image fingerprints, fault results, receipt inventory, and full-smoke report.
-  - Stop/escalate condition: Wrong-owner deletion attempt, Docker loss, changed readiness interval, or unresolved cleanup.
+  - Stop/escalate condition: Wrong-owner deletion attempt, Docker loss, missing cached digest, sentinel mutation, changed readiness interval, or unresolved cleanup. On ownership ambiguity, stop and preserve receipts and fixture Compose files.
+  - Risks/follow-ups: The real fault boundary was observed on one local daemon only. Keep warning reporting; if another daemon/Compose combination warns, capture exact command, container state, and daemon logs before attributing cause. This is not broad multi-host Docker certification. The shared reference host has 109 running containers, 99.9% swap used, and 8.8% 5-minute full I/O pressure; do not repeat the 15-service Compose stack there while pressure remains high. Use an isolated CI runner or wait for a verified lower-pressure window; never stop unrelated containers to manufacture headroom. Preserve explicit-only selection and existing cleanup bounds.
   - Unlocks: P01 exit
 
 - Exit: proceed after cheap and real boundaries pass with zero unaccounted resources; escalate daemon/ownership uncertainty; stop unapproved infrastructure expansion. Record the checkpoint and unblock independent recovery closeout.
@@ -323,6 +331,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
 - Unresolved decisions: paid-provider pricing and production traffic distribution remain unknown unless supplied with provenance.
 
 - `P02.S01 Add failing measurement driver and report oracles`
+  - Progress: DONE for the deterministic instrument oracles. Driver, report, unit/resource, safety-threshold, and runner report-contract tests are registered at their existing cheap tiers; the first intended RED transcript was not retained, so no RED result is claimed in this record.
   - Action: Create pure resource-parser, Go driver, and report tests before their implementations. Cover complete units, scheduled arrivals, stream EOF, call-stage counts, endpoint rejection, unknown costs, and incompatible fingerprints. Add minimal compilable interfaces where needed.
   - Why now: The measurement instrument must have independently known answers before it measures the application.
   - Files/surfaces: `scripts/test/test_resource_measurement_test.mjs`; `internal/capacity/driver_test.go`; `internal/capacity/report_test.go` (proposed).
@@ -335,6 +344,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Oracles duplicate implementation arithmetic, depend on real providers, or fail only to compile.
   - Unlocks: P02.S02
 - `P02.S02 Implement exact resource measurement and attribution`
+  - Progress: DONE for local deterministic checks. Exact project attribution, immutable image IDs, Docker memory vs RSS, host pressure, Docker data-root disk headroom, cadence gaps, and null reasons are covered; Docker-backed sampling still awaits the isolated hosted run.
   - Action: Extend current runner measurements with numeric Docker API bytes and exact labels; isolate new pure conversion logic in one helper. If CLI text is used, support all listed units and reject unknown units. Record sampled peaks, timestamps, sampling gaps, host pressure, and unavailable metrics distinctly.
   - Why now: Resource accounting is independently testable and required by cost reporting.
   - Files/surfaces: `scripts/measure-test-resources.mjs` (proposed helper, not a new daemon); `scripts/run-test-tier.mjs`; `scripts/test/test_resource_measurement_test.mjs`.
@@ -347,6 +357,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Implementation relabels Docker memory as RSS or treats a missing sample as zero.
   - Unlocks: P02.S03
 - `P02.S03 Implement bounded scheduling and terminal-outcome accounting`
+  - Progress: DONE for local deterministic checks. TEST-276 passes, including open-loop scheduling, recovery stages, stream terminal/EOF outcomes, accounting reconciliation, and exploration stop thresholds.
   - Action: Implement schema validation, open-loop arrival scheduling, bounded in-flight work, local scripted provider, and client outcome collection. Keep offered/sent/terminal counters and dispatch-stage counts distinct. Reject non-owned/non-local endpoints before dialing; represent unknown server admission honestly.
   - Why now: Correct scheduling and outcomes precede any real application measurement.
   - Files/surfaces: `internal/capacity/scenario.go`; `internal/capacity/driver.go`; `internal/capacity/provider.go`; `test/capacity-scenarios.json` (proposed).
@@ -359,6 +370,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Driver hides backlog by waiting for completions, retries an unknown outcome, or uses production credentials.
   - Unlocks: P02.S04
 - `P02.S04 Implement honest cost comparison and disposition output`
+  - Progress: DONE for local deterministic checks. Cost/null reasoning, denominators, fingerprints, disposition classes, nearest-rank latency, p99 sample floor, and stream event/byte summaries are tested; real capacity data remains uncollected.
   - Action: Compute per-client-request and per-successful-output costs, token costs by stage/model, storage bytes and retention scenarios. Separate official-equivalent prices from actual bills. Require comparable fingerprints and sample quality before improvement claims; emit one of the four dispositions.
   - Why now: The application harness needs a report that cannot accidentally certify incomplete evidence.
   - Files/surfaces: `internal/capacity/report.go`; `internal/capacity/report_test.go`.
@@ -371,6 +383,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Saving calculation assumes unpriced hardware is free or equates moving services with eliminating cost.
   - Unlocks: P02.S05
 - `P02.S05 Add failing real-application capacity acceptance`
+  - Progress: IMPLEMENTED; manifest/static policy and integration+capacity compile pass. The real Docker/Postgres/Garage acceptance has not run locally because of host pressure; it is wired to the manual, credential-free hosted capacity workflow before any completion claim.
   - Action: Create the capacity test and register capacity-baseline as explicit opt-in before invoking it. Use a minimal real application fixture and demand the missing workload/report/persistence integration. Register real-service ownership and capacity build tags, not a fake RunService. Extend static policy to exclude capacity from fast/default integration/release.
   - Why now: Pure instrument checks are green; the application and persistence boundary remains unproved.
   - Files/surfaces: `cmd/harden-llm-gateway/capacity_test.go` (proposed); `test/test-tiers.json`; `scripts/verify-test-tiers.mjs`; canonical catalog.
@@ -383,7 +396,8 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Task enters an automatic selector, uses recordingRuntimeCaller, or substitutes a mock store for the boundary under test.
   - Unlocks: P02.S06
 - `P02.S06 Connect the driver to real isolated application boundaries`
-  - Action: Call runGatewayServer from the command-package test with an injected environment and existing bootstrap/auth/profile paths. Use the existing Postgres/Garage leases, real provider adapter, synthetic credentials, and local TLS fixture. Verify stored history/artifact digests and origin/stage IDs. Add a bounded full-stack success mode by reusing the existing smoke fixture lifecycle and fake provider; do not create another stack owner.
+  - Progress: IMPLEMENTED, HOSTED EXECUTION PENDING. The test calls the real gateway assembly and verifies REST, auth, provider, storage, trace, origin, and artifact paths; compile-only checks do not substitute for TEST-277 execution.
+  - Action: Call runGatewayServer from the command-package test with an injected environment and existing bootstrap/auth/profile paths. Use the existing Postgres/Garage leases, real provider adapter, synthetic credentials, and local TLS fixture. Verify stored history/artifact digests and origin/stage IDs. Keep the existing full-stack smoke as its own boundary; do not duplicate it or create another stack owner.
   - Why now: All missing behavior has failing pure and real-boundary coverage.
   - Files/surfaces: `cmd/harden-llm-gateway/capacity_test.go`; `cmd/harden-llm-gateway/server.go` (reuse); `internal/integrationtest/pool.go` (reuse); `internal/smoke/harness_compose.go`; `internal/capacity/driver.go`.
   - Requirement link: REQ-347, REQ-348, REQ-349
@@ -395,6 +409,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Artifact isolation cannot be proven, existing smoke assertions change, or full-stack reuse requires a public-provider call.
   - Unlocks: P02.S07
 - `P02.S07 Consolidate the harness around existing owners`
+  - Progress: DONE for local code review/static checks. Capacity owns only scenario generation/reporting; existing service pools and Compose smoke retain their owners. Full fast selector and pure report/resource tests pass on the current candidate except that the last tagged-only fingerprint hardening received compile-only verification.
   - Action: Remove duplicated bootstrap, wire-shape, measurement, or cleanup logic; keep only capacity-specific scheduling/reporting in the new package. Register new pure tests in their existing cheap lanes; preserve a separate expensive boundary.
   - Why now: Keep the new instrument small and prevent tests from creating alternate application behavior.
   - Files/surfaces: `internal/capacity/`; `cmd/harden-llm-gateway/capacity_test.go`; `internal/smoke/harness_compose.go`; `test/test-tiers.json`.
@@ -407,13 +422,14 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Helper duplicates production decisions or removes a real-boundary assertion.
   - Unlocks: P02.S08
 - `P02.S08 Measure the bounded exploratory workloads`
-  - Action: Execute the Section 6 exploration set with project-level samples and a local telemetry sink; execute one separately labeled existing-full-stack success scenario. Retain initial failures, generator lag, missing metrics, sample sizes, and raw bounded evidence. Record means, spread, and confidence limits only when supported.
+  - Progress: PENDING isolated hosted execution. No throughput, cost, SLO, or production-capacity result is claimed from local unit tests.
+  - Action: Execute the Section 6 exploration set with project-level samples and a local telemetry sink. Keep full-stack smoke evidence separate and reuse it only for its distinct lifecycle/runtime assertion. Retain initial failures, generator lag, missing metrics, sample sizes, and bounded evidence. Record means, spread, and confidence limits only when supported.
   - Why now: Instrumentation and real integration now have verified oracles.
   - Files/surfaces: `test/capacity-scenarios.json`; `internal/capacity/report.go`; `tmp/test-feedback/capacity-baseline.json`; private retained lifecycle ledger.
   - Requirement link: REQ-346, REQ-347, REQ-348, REQ-349, REQ-350
   - Verification link: TEST-277; EVAL-010
   - Verification mode: MEASURE
-  - Command/procedure: `HARDEN_LLM_CAPACITY_CASE_SET=exploration node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline.json`; then `HARDEN_LLM_CAPACITY_CASE_SET=full-stack node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline.json`. Archive each uniquely keyed report before the next invocation updates the aggregate output.
+  - Command/procedure: `HARDEN_LLM_CAPACITY_CASE_SET=exploration node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline-exploration.json`; use a separately named `holdout` run for the selected operating point. Run `make test-compose` only when its distinct service lifecycle boundary is required, preserving its existing assertions and task owner.
   - Expected result: Valid bounded baseline or explicit insufficient-evidence with cause; zero owned leftovers.
   - Evidence produced: Fingerprint-matched resource, timing, accounting, and cost reports.
   - Stop/escalate condition: Any Section 6 safety/pressure stop; never increase rate after the first failing scenario.
@@ -493,7 +509,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Any required task failed, skipped, timed out, or has unknown cleanup; do not combine make verify and all its constituents redundantly.
   - Unlocks: P04.S02
 - `P04.S02 Publish only the approved source and artifact scope`
-  - Action: Use dev for normal iteration; promote the verified candidate to main only with explicit authority. Follow Section 9 publication procedures, reviewing the seven pre-existing commits. For test-only scope, publish source and redacted CI reports, with no application rebuild. For approved runtime/recovery scope, use the existing exact-image descriptor workflow and scoped read-only identity checks.
+  - Action: Use dev for normal iteration; promote the verified candidate to main only with explicit authority. Follow Section 9 publication procedures, reviewing every commit already ahead of `origin/main` plus this phase's candidate. For test-only scope, publish source and redacted CI reports, with no application rebuild. For approved runtime/recovery scope, use the existing exact-image descriptor workflow and scoped read-only identity checks.
   - Why now: Accepted local evidence now permits the explicitly authorized publication boundary.
   - Files/surfaces: Git remote; existing hosted workflow; `scripts/production-config.mjs`; private descriptor; `docs/release-certification.md`.
   - Requirement link: REQ-352
@@ -549,13 +565,12 @@ evaluations:
       readiness_seconds_max: 300
       backend_correlation_rate: 1.0
     seeds: [104729]
-    runtime_budget: 35m total; existing go-compose task remains at 30m
+    runtime_budget: 38m total, including the existing 30m go-compose deadline, new 5m lifecycle-test deadline, termination grace, and one bounded 120s cleanup tail; task deadlines themselves are unchanged
   - id: EVAL-010
     purpose: dev
     commands:
-      - HARDEN_LLM_CAPACITY_CASE_SET=exploration node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline.json
-      - HARDEN_LLM_CAPACITY_CASE_SET=full-stack node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline.json
-    metrics: [offered, launched, unsent, succeeded, failed, rejected, canceled, unfinished, launch_lag_ms, latency_p50_ms, latency_p95_ms, provider_attempts, memory_bytes, cpu_core_seconds, disk_bytes, canonical_artifact_bytes, export_drops]
+      - HARDEN_LLM_CAPACITY_CASE_SET=exploration node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline-exploration.json
+    metrics: [offered, launched, unsent, succeeded, failed, rejected, canceled, unfinished, launch_lag_ms, latency_p50_ms, latency_p95_ms, first_event_latency, sse_event_count, sse_events_per_request, response_bytes, provider_attempts, memory_bytes, cpu_core_seconds, disk_bytes, canonical_artifact_bytes, export_drops]
     thresholds:
       accounting_mismatches: 0
       production_endpoint_calls: 0
@@ -565,7 +580,7 @@ evaluations:
       max_inflight: 256
       latency_or_throughput_slo: not_assigned
     seeds: [104729]
-    runtime_budget: 15m exploration; 30m full-stack including existing startup and cleanup
+    runtime_budget: 15m exploration plus existing pool setup and bounded cleanup; no second full-stack scenario
   - id: EVAL-011
     purpose: holdout
     command: HARDEN_LLM_CAPACITY_CASE_SET=holdout node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline.json
@@ -595,13 +610,13 @@ evaluations:
 
 - Default `correctness` set: small valid-text, cache-hit, 429/retry, malformed-JSON recovery, stream-terminal/truncated-EOF, and blocked-exporter cases. Faults are expected only in their declared case; the oracle still checks the exact terminal outcome and canonical accounting.
 - `exploration`: four points, executed sequentially: 1 RPS/100 ms provider delay; 12 RPS/1 s; 24 RPS/1 s; 12 RPS/10 s. No Cartesian product. Each uses 10 s warmup, 60 s measured offered traffic, and at most 60 s drain within the remaining invocation budget.
-- `full-stack`: one bounded success workload through the existing isolated smoke topology and its fixed fake provider; report its actual provider timing separately. It measures the real telemetry backend boundary, not just an accepting local sink.
+- Existing `go-compose` remains the separately owned full-stack smoke/correlation boundary. Do not run it as a synthetic capacity case or conflate its fixed fake-provider timing with a load result.
 - `holdout`: one previously safe workload, three samples, seed 130363. Compare before/after only with equivalent latency, cache/recovery mix, topology, resources, and measurement boundaries.
 - Every scenario has at most 2,000 offered requests and 256 in-flight requests. Stop scheduling when its bound is reached; record unsent work rather than queueing unbounded tasks.
 - Read-only test credentials and production-like fixtures are not interchangeable: all workload credentials are synthetic with spending authority disabled. Real provider endpoints are rejected.
 - Recovery correctness may explicitly budget six provider stages in its fixture to exercise the full branch; do not change the production default attempt budget. Provider latency patterns and expected stage outputs are deterministic.
 - Preserve the existing smoke provider's five-second HTTP write timeout. Use the dedicated capacity-only local provider for the 10-second case, not a relaxed smoke timeout.
-- Reserve cleanup time inside every invocation. Stop scheduling on any OOM, failed ownership check, host available-memory ratio below 10%, less than 5 GiB disk free, or insufficient recorded image-unpack space. Ratify these new safety cutoffs in the ADR.
+- Reserve cleanup time inside every invocation. Stop scheduling on any OOM, failed ownership check, host available-memory ratio below 10%, less than 5 GiB free in Docker's configured data root, or insufficient recorded image-unpack space. The 5 GiB floor is not an image-size forecast; preserve this as a measurement limitation and verify selected image requirements before increasing load.
 - Stop escalation to a higher-rate scenario after more than 5% unexpected failures in at least 100 launched requests, or after generator launch lag exceeds 100 ms at p95. These are exploration validity/pressure stops, not a promised production SLO.
 - Safety failures stop immediately, without waiting for the 100-request diagnostic window.
 - Report p99 only with at least 1,000 observed completions and an explicit sample count; label shorter-run tails insufficient. Three throughput samples can produce descriptive spread and a stated-method interval, not a reliability guarantee.
@@ -630,11 +645,11 @@ Proposed executable registration order:
 | Phase | Created before first use | Task and policy |
 | --- | --- | --- |
 | P01 | `P01.S01` pure Node/Go tests; `P01.S05` task registration | `runner-contracts`, T1 CPU, offline, no credentials or actual Docker lock; selected by fast/release |
-| P01 | `P01.S07` Docker test file and selector | `test-resource-lifecycle-docker`, service-boundary opt-in, 300 s including cleanup |
+| P01 | `P01.S07` Docker test file and selector | `test-resource-lifecycle-docker`, explicit-only service-boundary task with a 300 s test deadline plus the existing bounded post-stop cleanup tail |
 | P02 | `P02.S01` pure instrument tests | Go default lane and existing `runner-contracts` extended when files exist |
-| P02 | `P02.S05` capacity test and selector | `capacity-baseline`, explicit only; child `go test ./cmd/harden-llm-gateway -tags=integration,capacity,compose -run '^TestGatewayCapacityBaseline$' -count=1`; no automatic fast/integration/release inclusion |
+| P02 | `P02.S05` capacity test and selector | `capacity-baseline`, explicit only; child `go test ./cmd/harden-llm-gateway -tags=integration,capacity -run '^TestGatewayCapacityBaseline$' -count=1`; no automatic fast/integration/release inclusion |
 
-The capacity selector has a 30-minute enclosing limit because full-stack mode retains the existing smoke boundary. Its correctness, exploration, and holdout modes enforce their tighter 5/15/15-minute internal limits. The added `capacity` tag prevents ordinary integration from selecting the harness; the explicit `compose` tag permits reuse of the existing smoke fixture. This is a test command, not a new production CLI.
+The capacity task has a 40-minute enclosing limit; correctness, exploration, and holdout use bounded scenario catalogs, while the inner gateway context is capped at 22 minutes. A manual GitHub Actions `capacity` suite selects only this task and accepts `correctness`, `exploration`, or `holdout`; no selector runs it by default. The added `capacity` tag prevents ordinary integration from selecting the harness. This is a test command, not a new production CLI.
 
 `TEST-279` reuses an existing executable static checker; its new lifecycle assertions are added RED in P01.S01 and made GREEN in P01.S05. P00 baseline output does not claim that those future assertions passed. No bare benchmark invocation is allowed because existing default lanes can include browsers.
 
@@ -643,7 +658,7 @@ The capacity selector has a 30-minute enclosing limit because full-stack mode re
 | Suite | Purpose | Runner and command | Runtime budget | When |
 | --- | --- | --- | --- | --- |
 | Unit | Lifecycle/instrument oracles | Node/Go commands in Section 7.3; `make test-fast` for broad feedback | Per-case limits below; existing fast task limits unchanged | Pre-commit and CI |
-| Integration | Real Docker ownership and real stores | `node scripts/run-test-tier.mjs --task test-resource-lifecycle-docker`; `make test-integration` | 5 min for new tiny boundary; existing integration limits | Focused change verification and relevant CI |
+| Integration | Real Docker ownership and real stores | `node scripts/run-test-tier.mjs --task test-resource-lifecycle-docker`; `make test-integration` | 300 s task deadline for new tiny boundary plus at most the shared 120 s cleanup tail; existing integration limits | Focused change verification and relevant CI |
 | E2E | Existing backend topology and correlation, not a browser | `node scripts/run-test-tier.mjs --task go-compose --output tmp/test-feedback/scale-compose.json` | Existing 30-minute task; unchanged 300-second readiness assertion | Explicit release certification |
 | Perf | Application capacity and costs | `node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline.json` | Case-set limits in Section 6 | Explicit operator measurement; not automatic nightly |
 | Data Drift | Detect incomparable scenario/configuration inputs, not semantic model drift | `go test ./internal/capacity -run '^TestCapacityReport' -count=1` | 5 s | Pre-commit and CI |
@@ -686,9 +701,9 @@ Each proposed source file is created in its bootstrap step before execution. New
 - Location: `scripts/test/test_resource_lifecycle_test.mjs`.
 - Command: `node --test --test-name-pattern=TEST-273 scripts/test/test_resource_lifecycle_test.mjs`.
 - Bootstrap: P01.S01.
-- Fixtures/mocks/data: Two real local processes with temporary flock directory and synthetic daemon identities; active/dead/reused PID and boot-ID fixtures.
+- Fixtures/mocks/data: Two real local processes with temporary flock directory and synthetic daemon identities; active/dead/reused PID and boot-ID fixtures; corrupt receipt, remote endpoint, pure task, bounded wait, and nested-run lease fixtures.
 - Deterministic controls: No real Docker; explicit ready/release IPC, no sleep-based ordering; 5-second subprocess deadline.
-- Pass criteria: Same-daemon invocations exclude each other; different identities do not collide; dead proof required; corrupt/active/sentinel records preserved; no nested-lock deadlock.
+- Pass criteria: Same-daemon invocations exclude each other; different identities do not collide; dead proof required; corrupt/active/sentinel records preserved; remote Docker is rejected before lock/mutation; lock wait is bounded; pure tasks never contact Docker; nested execution does not reacquire or deadlock.
 - Expected runtime: 20 seconds.
 
 #### TEST-274: Actual disposable Docker cancellation boundary
@@ -734,10 +749,10 @@ Each proposed source file is created in its bootstrap step before execution. New
 - Location: `cmd/harden-llm-gateway/capacity_test.go`.
 - Command: `node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline.json`.
 - Bootstrap: P02.S05.
-- Fixtures/mocks/data: Real runGatewayServer, public REST/client, auth, disposable Postgres/Garage, scripted local TLS provider, local export sink; selected full-stack mode uses existing isolated Compose topology.
-- Deterministic controls: Build tags integration,capacity; seed 104729; synthetic credentials; scenario/request/concurrency bounds from Section 6; no live or browser tags.
+- Fixtures/mocks/data: Real runGatewayServer, public REST/client, auth, disposable Postgres/Garage, scripted local TLS provider, and local export sink; existing full-stack Compose smoke remains a separate test owner.
+- Deterministic controls: Build tags `integration,capacity`; seed 104729; synthetic credentials; scenario/request/concurrency bounds from Section 6; no live or browser tags.
 - Pass criteria: Real persisted history/artifacts match successful/staged outcomes; local provider count matches runtime attempts; SSE terminal oracle holds; complete bounded report and zero owned leftovers.
-- Expected runtime: Correctness set up to 5 minutes; exploration or holdout up to 15 minutes; full-stack mode up to 30 minutes per invocation.
+- Expected runtime: Correctness set up to 5 minutes; exploration up to 15 minutes; holdout up to 5 minutes, within the registered 40-minute task deadline.
 
 #### TEST-278: Comparable cost and decision reports
 
@@ -837,7 +852,7 @@ These are test/evidence contracts, not additions to `api/openapi.yaml`.
 - Cost model includes input/cached-input/output tokens where known, model/stage prices with timestamp/source, storage retention/compression/index/replica assumptions, and infrastructure billing units. Report cost per client request and per successful final output separately.
 - Resource records use numeric bytes, timestamps, project identity, source of measurement, and `nullReason`. Docker CPU 100% is approximately one CPU core; do not sum percentages as host utilization without the host denominator.
 - Reports retain at most 2,000 request summaries per scenario, no bodies, and at most 2 MiB of redacted diagnostics per task; enforce bounded buffering before accumulation. Additional records become aggregate counts with an explicit truncation field.
-- Lifecycle defaults proposed for ratification: 15 s per inventory attempt, 20 s total diagnostic collection, 10 s graceful child stop, and 120 s total cleanup. Respect the remaining outer deadline; never add these after an expired task budget.
+- Lifecycle bounds: 5 s Docker-context identity probe, 10 s Docker-daemon identity probe, 30 s daemon-lock wait, 15 s per inventory attempt, 20 s total diagnostic collection, 10 s graceful child stop, and a shared 120 s cleanup safety tail per runner invocation. The task/test child timeout is unchanged and cleanup never restarts or extends that child or any provider/LLM call. Because cleanup must still run after a child timeout or cancellation, the runner's wall-clock bound is the configured child budget plus its existing termination grace and at most one cleanup tail; cleanup that reaches its cap remains `cleanup-pending` and fails acceptance. This is not permission to extend a test timeout to make it pass.
 - `tmp/test-feedback/capacity-baseline.json` is a convenient aggregate output, not the sole crash-safe store. Write uniquely identified private per-invocation reports and upload only redacted report artifacts. A forcibly terminated hosted VM may prevent upload; record absence honestly.
 
 
@@ -858,7 +873,7 @@ export PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3
 - Containers: use current pinned fixture definitions in `docker-compose.yml`, `deploy/test/compose.smoke.yml`, and `deploy/langfuse/`; record resolved digests. Do not replace pinned images with `latest` to make startup pass.
 - Seeds: 104729 development; 130363 holdout. Random resource suffixes isolate runs but do not change scripted provider outcomes.
 - Existing isolation variables: `HARDEN_LLM_TEST_POOL`, `HARDEN_LLM_TEST_RUN_ID`, `HARDEN_LLM_TEST_POSTGRES_ENDPOINT`, `HARDEN_LLM_TEST_GARAGE_ENDPOINT`. Keep their values private where credential-bearing.
-- Proposed test-only variables: `HARDEN_LLM_TEST_RESOURCE_DIR`, `HARDEN_LLM_TEST_RESOURCE_RECEIPT`, `HARDEN_LLM_CAPACITY_CASE_SET`. The last accepts only `correctness`, `exploration`, `full-stack`, `holdout`; unknown values fail before mutation.
+- Proposed test-only variables: `HARDEN_LLM_TEST_RESOURCE_DIR`, `HARDEN_LLM_TEST_RESOURCE_RECEIPT`, `HARDEN_LLM_CAPACITY_CASE_SET`. The last accepts only `correctness`, `exploration`, or `holdout`; unknown values fail before mutation.
 - Use existing leased databases and isolated Garage namespaces. If the real adapter cannot safely scope a benchmark workload, allocate a proven-owned disposable bucket/service through the same receipt protocol; never use production storage.
 - The local capacity provider has its own bounded request/response lifecycle for slow scenarios. No public DNS/provider endpoints, browser environment, or real API key is needed.
 - Compare independent command-level samples, not correlated individual requests as if they were independent trials. Report mean ± standard deviation, sample count, and the interval method. For insufficient sample count, CI is unavailable with a reason.
@@ -937,8 +952,8 @@ This section is a blank implementation ledger. Planning validation is not implem
 | Phase | Status | Accepted checkpoint |
 | --- | --- | --- |
 | P00 | Done | Local P00 documentation checkpoint on `main` at source `67937729b4e5b0d58d2883bdd09155e49ac72612`; commit recorded below. |
-| P01 | Pending | None |
-| P02 | Pending | None |
+| P01 | Partial | Local lifecycle suites passed; isolated hosted execution of TEST-274/full Compose smoke is required to close the Docker boundary. |
+| P02 | Implemented; hosted execution pending | Local instrument/report checks and tagged compilation passed; hosted TEST-277 correctness and bounded exploration remain. |
 | P03 | Pending | None |
 | P04 | Pending | None |
 
@@ -989,19 +1004,119 @@ phase_entry:
 - Quantitative results: static policy violations 0; current timeout-policy assertions pass; no test command was repeated to manufacture extra samples. A confidence interval is not meaningful for these single command checks.
 - Requirement/test evidence: REQ-341–REQ-352 allocated in the source implementation plan; TEST-271–TEST-280 registered in the canonical test catalog; traceability and ADR updated. TEST-279's new assertions remain unimplemented until P01.S01/P01.S05.
 - Configuration checkpoint: seven commits were already ahead of `origin/main`; none were pushed during P00. No runtime, Docker, provider, image, or production configuration was changed.
+- Accepted local checkpoint commit: `85cef82` (`docs: register resource capacity controls`).
 - Issues/resolutions: resource ownership is based on a valid receipt plus the unique Compose project and existing project labels. Custom labels are optional where supported; requiring identical labels on every volume/network would assume Compose features not established by the current stack.
 - Failed attempts: none that changed repository state. The `/dev/null` diff status above is an expected comparison result, not a failed check.
 - Deviations: none from P00 scope. The receipt label clarification is recorded above and in ADR-HLLM-027.
 - Lessons learned: static registration passes before the future lifecycle assertions exist, so that baseline is not evidence for P01 behavior. The Go traceability checker accepts the new canonical requirement/test entries.
 - ADR updates: ADR-HLLM-027 added with test-only caps and explicit statement that they are not production SLOs.
 - Risks and unresolved decisions: lock coordinates only client processes sharing one local daemon; remote multi-host daemon ownership needs a different contract. The seven existing commits still require ancestry review before production promotion. Performance/price/SLO remain unmeasured.
-- Next step: P01.S01 add failing lifecycle tests and policy assertions; do not start implementation until those assertion failures are observed.
+- Next step: P01.S01 red regressions have now been observed; proceed with P01.S02 only after recording and reviewing these results.
 - Operator follow-ups: after deployment, inspect one failed/canceled runner report and confirm its exact owned inventory; the production-capacity claim remains open pending representative traffic/SLO.
+
+### P01 execution record — 2026-09-21
+
+- Current step: P01.S05 complete; P01.S06 next. P01 lifecycle implementation remains uncommitted.
+- Exact source at start: `85cef82` (`docs: register resource capacity controls`), with the P00 checkpoint note still uncommitted.
+- Tests added before implementation: `scripts/test/test_resource_lifecycle_test.mjs` and `internal/integrationtest/resource_receipt_test.go`; the Go receipt type is an explicit RED seam, not accepted production behavior.
+- RED evidence:
+  - `node --test --test-name-pattern=TEST-271 scripts/test/test_resource_lifecycle_test.mjs` — fails at `a durable receipt must exist before Compose up`; fake Compose confirms no receipt was present at the create boundary.
+  - `node --test --test-name-pattern=TEST-272 scripts/test/test_resource_lifecycle_test.mjs` — both independent checks fail: a leaked/uncertain cleanup still returns `accepted: true`, and cleanup uncertainty is absent from top-level `cleanupErrors` while the original task failure is present.
+  - `node --test --test-name-pattern=TEST-273 scripts/test/test_resource_lifecycle_test.mjs` — bounded wait fails because the second same-daemon runner never attempts a shared lock; workers are terminated by the test cleanup hook.
+  - `node scripts/verify-test-tiers.mjs` — fails the new TEST-279 assertion because `make test-compose` bypasses the managed runner.
+  - `go test ./internal/integrationtest -run '^TestResourceReceipt' -count=1` — the valid ownership vector is rejected by the deliberately unimplemented receipt validator.
+- Harness correction: the first TEST-271 attempt produced an invalid fake-port diagnostic due to an escaped newline in the fake Docker output. Corrected the fixture encoding, reran the exact command, and observed the intended missing-receipt assertion. This was fixture setup, not evidence about the runner.
+- Issues/resolutions: split TEST-272 into two independent Node tests so one expected failure cannot hide the other; replaced polling sleeps with filesystem event watchers in the concurrency fixture; fixed event-stream newline encoding. No existing assertions or timeout budgets were changed.
+- Risks/follow-ups: current TEST-273 proves only same-daemon exclusion once implemented; before accepting P01.S04, expand it to cover different-daemon non-collision, live/dead/reused PID proof, corrupt receipt preservation, and no nested-lock deadlock. Current TEST-272 uses fake partial/leftover/unknown inventory; add child process-group termination and foreign-attachment cases before claiming the full canonical criteria.
+- Phase evidence: all five exact RED commands above exited nonzero at behavioral assertions (not compilation/import failures). No Docker daemon, browser, provider, application image, publication, or deployment was exercised.
+- Next: coordinate independent local Docker invocations and add dead-owner recovery in P01.S04.
+- P01.S02 result: DONE. Node runner service pools and Go-owned exclusive/smoke/frontend Compose fixtures now create receipts before resource mutation; pre-start Compose `down` calls were removed. The parent runner identity (PID plus `/proc` start field) is passed to Go fixtures on Linux so later recovery can verify the actual cleanup owner rather than a short-lived test child.
+- P01.S02 verification:
+  - `go test ./internal/integrationtest -run '^TestResourceReceipt' -count=1` — PASS, including the shared JSON vector, malformed ownership cases, private permissions, atomic writes, and state transitions.
+  - `go test -tags=integration ./internal/integrationtest -run '^$' -count=1` — PASS; compile-only, no fixture execution.
+  - `go test -tags=compose ./internal/smoke ./internal/eval -run '^$' -count=1` — PASS; compile-only, no Docker or browser.
+  - `node --test --test-name-pattern=TEST-271 scripts/test/test_resource_lifecycle_test.mjs` — PASS, 2 tests; durable-before-create, survival after scratch removal, private mode, invalid receipt, and unwritable ledger all covered.
+  - `node --check scripts/test-resource-lifecycle.mjs`; `node --check scripts/run-test-tier.mjs`; `git diff --check` — PASS.
+  - `PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH make test-fast` — PASS, accepted fast selector with 9 tasks, no task failures or cleanup errors. The same command without the pinned toolchain failed immediately because `mix` was not on PATH; it ran no frontend test and did not change assertions or budgets.
+- P01.S02 issues/resolutions: initial receipt test data used an escaped fake-port newline and failed before the target assertion; the fixture was corrected and the exact TEST-271 command then observed the intended missing receipt. Go's test temporary directory was mode `0775` on this host, so the security test now explicitly chmods only its own temp fixture to `0700`; production code continues to reject broad permissions rather than silently changing them.
+- P01.S02 risks/follow-ups: hard-link registration requires a same-filesystem private ledger; unsupported filesystems fail closed before Docker mutation. `sourceSHA` currently identifies `git rev-parse HEAD`, not uncommitted worktree contents; exact dirty-tree fingerprinting remains a recorded follow-up. Receipt retention/pruning must be bounded without deleting `cleanup-pending` or ambiguous records. Resource ID lists are intentionally empty at creation and are populated during P01.S03 inventory.
+- P01.S02 next: make the parent teardown authoritative in P01.S03. Preserve original failure and cleanup failure separately, bound inventory/removal, and test exact project attribution before moving to daemon locking.
+- P01.S03 result: DONE. Cleanup is owned by the parent runner; it reaps timed-out child process groups before Docker reconciliation, verifies daemon and project labels, checks volume/network attachments before removal, removes only exact owned IDs, inventories again, retains unresolved receipts as `cleanup-pending`, and makes any cleanup uncertainty fail acceptance without replacing the original test failure.
+- P01.S03 verification:
+  - `node --test --test-name-pattern=TEST-272 scripts/test/test_resource_lifecycle_test.mjs` — PASS, 6 cases including timeout process-group reaping, foreign volume/network attachments, bounded hung inventory, and parent reconciliation of a Go fixture receipt.
+  - `node --test scripts/test/run_test_tier_test.mjs` — PASS, 8 runner regression cases.
+  - `go test ./internal/integrationtest -run '^TestResourceReceipt' -count=1` — PASS.
+  - `go test -tags=integration ./internal/integrationtest -run '^$' -count=1` and `go test -tags=compose ./internal/smoke ./internal/eval -run '^$' -count=1` — PASS, compile-only; no fixtures started.
+  - `PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH make test-fast` — PASS, accepted fast selector, 9 tasks, no failures or cleanup errors.
+- P01.S03 bounded-time clarification: the child/test timeout remains unchanged. The parent permits one shared, hard-capped 120 s post-stop cleanup tail per `runTasks` invocation so cancellation does not abandon owned resources merely because the test budget expired. This can increase total runner wall time by at most the existing termination grace plus that cleanup cap; it cannot rerun/extend a test or LLM call. Exhaustion persists `cleanup-pending` and fails acceptance. This explicit bound replaces the earlier ambiguous wording that cleanup always consumes only the expired child budget.
+- P01.S03 issues/resolutions: a fake network-inspection assertion initially matched only an exact format argument while Docker passes a Go-template string; corrected the fixture matcher to inspect the actual argument value, then reran the unchanged attachment-order oracle successfully. Added a nested Go-owned receipt case after an implementation review showed that checking only the pool receipt would miss separate Compose projects created by Go fixtures.
+- P01.S03 risks/follow-ups: a cleanup cap can expire while reconciling multiple receipts/resources, leaving safe `cleanup-pending` evidence for a later owner; P01.S04 must recover only after proving the prior supervisor is dead. The 120 s tail is a cleanup safety bound, not a test timeout recommendation. Lock directory integrity, daemon identity collisions, host reboot, PID reuse, and remote Docker endpoints remain P01.S04 acceptance concerns. The source SHA still describes `HEAD`, not dirty files, and ledger retention remains unresolved.
+- P01.S03 infrastructure evidence: all cleanup tests used the fake Docker executable in private temporary fixture directories. No real Docker operation, browser, public provider, image build, publication, or deployment occurred.
+- P01.S04 result: DONE. A private lock file is keyed by SHA-256 of verified local Docker daemon identity; `flock` is mandatory (no unlocked fallback), its wait is capped at 30 s, same-process/nested-child lease inheritance validates daemon/path/token/boot/PID/start/holder identity, and pure selections do not query Docker. Before a new owner runs, the runner examines receipts for that exact daemon: live owners block, absent/reused-PID/prior-boot owners qualify as dead only through process-start/boot proof, and malformed/ambiguous receipts block while remaining untouched. It refuses `tcp://`, SSH, and other non-Unix endpoints before lock/resource mutation. Reports now distinguish Docker endpoint/daemon identification, lock wait, and stale-recovery durations.
+- P01.S04 RED evidence before implementation: the expanded `node --test --test-name-pattern=TEST-273 scripts/test/test_resource_lifecycle_test.mjs` failed at the missing same-daemon lock attempt, missing distinct daemon lock evidence, active-owner rejection, dead/reused owner reconciliation, corrupt-receipt rejection, and nested lease event. The different-daemon fixture initially hit a watcher API mismatch; it was corrected to callback-based `fs.watch`, then the exact scenario continued to fail at the intended missing-lock assertion. No Docker daemon was used.
+- P01.S04 verification:
+  - `node --test --test-name-pattern=TEST-273 scripts/test/test_resource_lifecycle_test.mjs` — PASS, 11 tests covering same/different daemon, bounded lock wait, active/dead/reused/prior-boot owners, corrupt receipts, remote endpoints, pure tasks, nested lease, and distinct lifecycle timings.
+  - `node --test scripts/test/run_test_tier_test.mjs` — PASS, 8 runner scheduling/timeout/output cases.
+  - `node --check scripts/test-resource-lifecycle.mjs`; `node --check scripts/run-test-tier.mjs`; `node --check scripts/test/test_resource_lifecycle_test.mjs` — PASS.
+  - The full lifecycle file was also run after lock/recovery integration: 19 tests PASS across TEST-271/272/273. It preceded the final timing-only report addition; TEST-273 was rerun after that addition and passed.
+- P01.S04 fixture corrections: the test's direct call to `runTasks` deliberately does not use a wrapper API, proving the benchmark/direct-caller boundary. A remote-endpoint case briefly leaked `DOCKER_HOST` into the next subtest because the fixture failed to restore it; added explicit environment restoration. The nested test observes a single wrapper flock event and verifies both pool creates under that lease. These corrections preserved the invariants and did not relax assertions.
+- P01.S04 risks/follow-ups: the local Unix-socket check cannot distinguish a deliberately configured local socket proxy that forwards remotely; lock guarantees remain limited to trusted, same-host local state and Docker processes using this runner. The 30 s acquisition cap may reject a second long-lived local test invocation rather than queue indefinitely. Lock files are intentionally retained to avoid inode replacement races; daemon-ID lock-file growth and completed receipt retention need bounded operational review. `sourceSHA` still fingerprints HEAD rather than dirty worktree content. Actual daemon cancellation/SIGKILL recovery remains unverified until P01.S07.
+- P01.S04 no-mutation evidence: all stale recovery and concurrency tests use isolated fake Docker executables, private temporary ledgers, and actual local `flock` subprocesses; tests assert no create event on active/corrupt/remote/timeout preflight failures. No real Docker, browser, provider, image, publication, or deployment activity occurred.
+- P01.S05 implementation: `make test-compose` now invokes the runner's `go-compose` task, whose manifest command remains the original raw `go test ./internal/smoke/... -tags=compose -run TestComposeSmoke -count=1`; no Make recursion. `runner-contracts` (pure Node runner/lifecycle tests) is registered in fast/release, the pure Go receipt contract is included in `go-static`, and static checks bind all three. Reports are atomic, mode `0600`, capped at 2 MiB, and written on each run; fast, integration, and release workflows upload them even after failure with 14-day retention. Report tests prove default unique-path output, private mode, measured task fields, and oversize rejection without a partial artifact.
+- P01.S05 red/failure evidence and resolution: before implementation, `node scripts/verify-test-tiers.mjs` rejected the unmanaged `make test-compose` route and the new runner report test found no default report. The first post-change `make test-fast` then correctly found a stale TEST-048 baseline expectation that still required `make test-compose` as the task command. Updated that contract to the actual raw Go command while preserving the static assertion that the public Make target delegates to the managed runner; `go test ./internal/testkit/... -count=1` then passed. This changes the represented command, not its test assertion oracle or runtime behavior.
+- P01.S05 verification:
+  - `node scripts/verify-test-tiers.mjs` — PASS, accepted manifest with 10 fast tasks and managed Make/no-recursion checks.
+  - `node --test --test-name-pattern='writes a unique private run report|refuses an oversized diagnostic' scripts/test/run_test_tier_test.mjs` — PASS, 2 focused report tests.
+  - `go test ./internal/integrationtest -run '^TestResourceReceipt' -count=1` — PASS.
+  - `go test ./internal/testkit/... -count=1` — PASS after updating the stale task-command expectation.
+  - `PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH make test-fast` — PASS, accepted selector with 10/10 tasks, no task failures or cleanup errors. The first run before the baseline expectation update failed only in `TestTestFeedbackBaselineContract` with `manifest is missing current command "make test-compose"`; this was recorded and resolved as described above, not rerun to manufacture a pass.
+  - Fast report `tmp/test-feedback/runner-1790041708941-652719-9c8f02778fa9af07.json` records task statuses, wall/CPU time, peak RSS, output byte counts/previews, timeout/signal, and cleanup status. Go-static took 6.946 s; reports contain no Docker lifecycle timings for this pure selector. The report is a local ignored artifact, not a committed result.
+- P01.S05 issues/resolutions: the baseline manifest test was intentionally left as a guard against command drift; updating it to assert the current raw task command plus separate public-route static policy retains both contracts. Fast task output is buffered by the runner and the deterministic Phoenix suite took about two minutes on this host; the existing task timeout and test purpose were not changed.
+- P01.S05 risks/follow-ups: artifacts are best-effort under hosted hard-kill/cancel semantics; an abrupt worker loss before upload can still leave no report. The 2 MiB bound intentionally fails report serialization rather than emitting partial evidence. Retention is 14 days and is not a durable analytics database. Existing unrelated `origin/main` ancestry remains unreviewed for promotion.
+- P01.S06 review result: the Node helper owns the shared receipt schema/validation, atomic ledger writes, host/process identity, and daemon-lock lease; the runner owns Docker inventory, exact project attribution, cleanup, scheduling, and invocation summaries. The Go code is a deliberately small cross-language receipt adapter because Go fixtures must register before their own Docker mutation. Fixture-local `compose down` is graceful normal-path cleanup; it does not compete with the parent runner, which remains authoritative after failure/cancellation. No duplicate implementation was found that could safely be removed without coupling the languages or weakening failure recovery, so this step is intentionally review-only.
+- P01.S06 verification:
+  - `node --test scripts/test/run_test_tier_test.mjs` — PASS, 10 tests including report output/size bounds.
+  - `node --test scripts/test/test_resource_lifecycle_test.mjs` — PASS, 17 tests across TEST-271/272/273, 57.099 s; no Docker service was started by this unit suite.
+  - `go test ./internal/integrationtest -run '^TestResourceReceipt' -count=1` — PASS (previously verified for S05); no Go receipt code changed during S06.
+  - `go test -tags=integration ./internal/integrationtest -run '^$' -count=1` and `go test -tags=compose ./internal/smoke ./internal/eval -run '^$' -count=1` — PASS, compile-only; no fixture ran.
+  - `make -n test-compose` — PASS; expands only to `node scripts/run-test-tier.mjs --task go-compose`.
+  - `node scripts/verify-test-tiers.mjs` — PASS; 10 fast tasks and task-boundary policy accepted. `git diff HEAD --check` — PASS.
+  - The full pinned-toolchain `make test-fast` passed after correcting the stale TEST-048 command inventory (recorded under S05); no source code changed after that result.
+- P01.S06 risks/follow-ups: shared receipt rules are mirrored in Node and Go and must remain aligned; the cross-language JSON fixture and both adapters are the change guard. Do not introduce a generated schema/codegen layer without demonstrated drift. `compose down` in a Go fixture may fail under cancellation, so the parent receipt reconciliation must remain the final acceptance owner.
+- P01.S06 exit evidence: real Docker endpoint identity was read-only verified as `unix:///var/run/docker.sock`, daemon ID `2758d8cf-d2a7-4223-b620-75d23efa27d5`; `docker image inspect alpine:3.20` confirms cached RepoDigest `alpine@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc`. Ten exact synthetic receipts from prior fake-Docker tests carry `fixture-daemon-identity`; all 30 exact project-label Docker inventories (containers/volumes/networks for each) were empty. The files were moved, without deletion, to private archive `/home/kirill/.local/state/harden-llm/test-resource-fixture-archive-20260921/` so fail-closed recovery sees only valid active-ledger entries.
+- P01.S07 execution issues/resolutions: the first full `make test-fast` attempt without pinned Elixir/OTP PATH stopped because `mix` was unavailable; this was environment setup, not a test result. The prescribed-path run then passed all suites except TEST-273 distinct-daemon progress, whose 2-second event readiness bound was exceeded under concurrent fast-tier load; the exact test passed in isolation. Bound was aligned to the documented 5-second per-case window without changing its decisive before-release ordering assertion, and a subsequent full fast run passed. Three initial real-Docker runs preserved the sentinel and ended with all four task receipts `cleaned` and project inventories empty, but showed 30-second stop warnings. Docker logs identified PID 1's default signal behavior; an explicit TERM trap fixed the fixture and final TEST-274 passed with zero warnings.
+- P01.S07 verification: `PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH make test-fast` — PASS, 10/10 tasks; `runner-contracts` 93.655 s and deterministic Phoenix 160.436 s, total runner cleanup/errors/warnings zero. `node scripts/verify-test-tiers.mjs` — PASS, 10 fast tasks. `git diff HEAD --check` — PASS. TEST-274 managed run `tmp/test-feedback/runner-1790045223688-1936473-79e2b4814007df38.json` — PASS, task wall 45.395 s under unchanged 300 s; scenario durations success 16.614 s, partial 12.249 s, TERM 7.385 s, SIGKILL/recovery 3.499 s; all receipts cleaned, sentinel preserved, no cleanup errors/warnings. Local endpoint was `unix:///var/run/docker.sock`, daemon ID `2758d8cf-d2a7-4223-b620-75d23efa27d5`; cached image digest was the pinned Alpine digest in TEST-274.
+- P01.S07 full Compose failure and recovery: managed `go-compose` report `tmp/test-feedback/scale-compose.json` — FAIL, task wall 331.355 s; `TestComposeSmoke` failed after 321.765 s while the one-shot `bootstrap-user` Docker Compose command exceeded its unchanged 45 s context. Stack topology/readiness completed; the assertion was not skipped. Fixture teardown then hit Docker stop/containerd-delete deadlines. The parent receipt became `cleanup-pending` with one exact project identity (16 recorded container IDs, 15 volumes, 2 networks); current project-filtered inventory showed 14 containers, all project labels matched. A separate issue made label JSON unparsable because URL redaction ran before parsing; TEST-272 now reproduces OCI `https://` labels, runner parses only bounded raw metadata internally, report output remains redacted, and focused regression/static checks pass. Proven-dead receipt recovery via the same managed runner then completed in 27.832 s: receipt `cleaned`, exact containers/volumes/networks empty, cleanup errors zero; Compose `down` emitted a visible warning because the intentionally unpersisted `PRLS_TESTS_BASIC_AUTH_USER` interpolation value was unavailable, while exact-ID fallback succeeded. Follow-up code makes the already-ready one-shot bootstrap use `--no-deps --pull never`; this preserves the bootstrap test and avoids re-resolving dependencies/images.
+- P01.S07 environment risk snapshot (2026-09-21 20:05 PDT, after cleanup): Docker had 109 running containers, 8.46 GB available RAM of 32.75 GB, 8.58 GB of 8.59 GB swap used, and `/proc/pressure/io` reported 8.83% full stall over 300 s. This is a current shared-host snapshot, not a measurement captured at test failure; the contemporaneous daemon journal independently recorded container stop/force/delete deadlines. Do not rerun the full stack on this host while pressure remains high; use an isolated CI runner or recheck the host before one controlled attempt. Do not increase the 45 s bootstrap or any Compose/test timeout without stage-level evidence.
+
+### P01/P02 implementation checkpoint — 2026-09-21
+
+- Source state: uncommitted implementation worktree based on `85cef82` on `main`; eight commits are currently ahead of `origin/main` before adding this implementation checkpoint. The ancestry includes previously authorized recovery/UI fixes as well as P00; review each commit and the complete resulting diff before pushing.
+- P01 status: local lifecycle behavior is implemented and tested, but exit remains PARTIAL because the distinct full-stack smoke failed once under a demonstrably pressured shared Docker host. The follow-up `--no-deps --pull never` change has only compile/static coverage so far; it must pass on isolated hosted CI before this failure is closed.
+- P02 status: all implementation steps S01–S07 are locally complete. S08 and S06's real application boundary remain hosted-only. No capacity, price, cost-savings, or production-SLO claim is made until those reports are retained and valid.
+- Hosted invocation correction: `test-resource-lifecycle-docker` was explicit-only in the manifest but initially had no GitHub workflow selector. Added manual `suite=lifecycle`, isolated from fast/release/browser. That job seeds only the exact pinned Alpine digest before starting the test (the fixture's Compose commands retain `--pull never`), pins Node, and always uploads its bounded runner report. The capacity job also pins Node because it invokes the Node runner. Static policy now checks both explicit routes and keeps TEST-274/TEST-277 out of routine selectors.
+- Failure diagnosis retained: the first complete `make test-fast` after runner scheduling edits failed the assertion that a CPU task overlapped the service task. The test inferred overlap from two 750 ms timers, which is not deterministic under observed host scheduling pressure. It was replaced with a ready/release barrier; the assertion still requires CPU task start before service-task completion and still checks the slot/exclusive-resource policy. This changes fixture synchronization only; it does not extend any production or test timeout.
+- Verification after that correction:
+  - `PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH make test-fast` — PASS twice after the scheduling-barrier fix; the latest candidate including manual workflow routing accepted all 10 selected tasks with no task failures or cleanup errors. Latest report: `tmp/test-feedback/runner-1790054848463-1141885-0584f6dbd696a348.json`.
+  - `node --test scripts/test/test_resource_measurement_test.mjs scripts/test/run_test_tier_test.mjs scripts/test/preview_policy_test.mjs` — PASS, 34 tests.
+  - `go test ./internal/capacity -count=1` and `go test -race ./internal/capacity -count=1` — PASS.
+  - `go test ./internal/integrationtest -run '^TestResourceReceipt' -count=1` — PASS.
+  - `go test -tags=integration,capacity ./cmd/harden-llm-gateway -run '^$' -count=1` — PASS compile-only, after the final tagged capacity fingerprint hardening.
+  - `go test -tags=compose ./internal/smoke ./internal/eval -run '^$' -count=1` — PASS compile-only; no Compose boundary is implied.
+  - `node scripts/verify-test-tiers.mjs` — PASS after adding the explicit lifecycle and capacity workflow checks; accepted manifest reports 10 fast tasks.
+  - `node --test scripts/test/preview_policy_test.mjs` — PASS, 12 tests after adding lifecycle suite selection and asserting it cannot invoke release/browser suites.
+  - `git diff HEAD --check` — PASS.
+- Failure history: the pre-barrier fast run failed one scheduling-contract test (38/39 subtests passed); the deterministic barrier resolved that exact race and the subsequent full fast run passed. Separately, the first full Compose smoke remains a real failed attempt as recorded above; no rerun has been represented as passing.
+- Shared-host restriction: Docker-backed release/capacity tests are deliberately not rerun on the reference host while host resource pressure remains unsafe. Hosted, isolated runner results are required. Browser and public-provider tests remain excluded and unrequested.
+- Risks/follow-ups: hosted runner artifact retention is 14 days, not a durable analytics database; abrupt VM loss may prevent upload. The 5 GiB Docker-root free-space floor is only a harness safety stop, not an image-size forecast. The capacity cases are synthetic-provider/load evidence, not customer traffic or production certification. No production traffic mix/SLO has been supplied. Review any `cleanup-pending` receipts and confirm their exact owned inventory before pruning. Keep the 45 s bootstrap/test limits unchanged unless an isolated run captures stage evidence that proves a specific operation exceeds them.
+- Runtime/publication boundary: current changes affect test orchestration, test-only measurement, docs, and CI. No production application code, API, database schema, provider behavior, or deployable image input changes; therefore app image publication and production deployment are not applicable. Publish the source and redacted CI reports only after hosted gates pass.
+- Next step: review the full diff and all eight unpublished commits; then push the reviewed candidate so the browser-free release, explicit TEST-274 lifecycle workflow, and manual TEST-277 correctness workload can run on isolated hosted workers.
+- Operator follow-ups: if CI reports a failure, preserve the first report and diagnose its owning phase; do not increase timeouts speculatively. Later production capacity work still needs a representative workload, explicit SLO, provider price provenance, and an approved measurement window.
 
 Known matters to carry forward:
 
 - The recovery production closeout remains separate; its failed acceptance is not changed to passing by this planning revision.
-- The current main ancestry includes seven unpublished local commits; inspect and authorize its actual scope before any promotion.
+- The P00-era ancestry had seven unpublished commits at that historical checkpoint. At the current implementation checkpoint eight commits are ahead of `origin/main`; review their exact scope before the explicitly requested push.
 - Historical abandoned projects have no new receipts. This plan does not authorize deleting them by prefix.
 - Resource “savings” are unmeasured until byte-correct equivalent runs and price provenance exist.
 - A missing production traffic/SLO definition limits capacity claims, not the usefulness of lifecycle fixes.

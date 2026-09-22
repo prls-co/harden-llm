@@ -2,12 +2,13 @@
 
 import assert from "node:assert/strict";
 import { afterEach, describe, test } from "node:test";
+import { spawnSync } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { resolvedCommand, runTasks } from "../run-test-tier.mjs";
+import { main, resolvedCommand, runTasks, writeRunReport } from "../run-test-tier.mjs";
 
 const TEST_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const fixtureSource = `
@@ -27,7 +28,14 @@ process.on("SIGTERM", () => finish(143));
 process.on("SIGINT", () => finish(130));
 
 if (mode === "output" || mode === "output-fail") process.stdout.write("x".repeat(20_000));
-if (mode === "fail" || mode === "output-fail") setTimeout(() => finish(7), duration);
+if (mode === "capacity-report-symlink") {
+  fs.symlinkSync(process.env.HARDEN_LLM_CAPACITY_REPORT_TARGET, process.env.HARDEN_LLM_CAPACITY_REPORT_PATH);
+}
+if (mode === "wait-for-release") {
+  const releasePath = process.env.HARDEN_LLM_FAKE_RELEASE;
+  const wait = () => fs.existsSync(releasePath) ? finish() : setTimeout(wait, 10);
+  wait();
+} else if (mode === "fail" || mode === "output-fail") setTimeout(() => finish(7), duration);
 else setTimeout(() => finish(0), duration);
 `;
 
@@ -79,12 +87,13 @@ function task(fixtureData, id, resourceClass = "cpu", mode = "ok", duration = 80
 }
 
 async function runFixture(fixtureData, tasks, options = {}) {
+  const { environment = {}, ...runnerOptions } = options;
   return runTasks(tasks, {
     root: fixtureData.root,
     resourceClasses: resources(),
-    environment: { HARDEN_LLM_FAKE_EVENTS: fixtureData.eventsPath },
+    environment: { HARDEN_LLM_FAKE_EVENTS: fixtureData.eventsPath, ...environment },
     runDirectory: path.join(fixtureData.root, "run"),
-    ...options,
+    ...runnerOptions,
   });
 }
 
@@ -101,6 +110,25 @@ async function waitForEvent(fixtureData, event, id, timeoutMs = 2_000) {
   }
   throw new Error(`timed out waiting for ${event}:${id}`);
 }
+
+test("TEST-049 refuses the real Docker lifecycle boundary without a managed lease", async () => {
+  const data = await fixture();
+  const environment = Object.fromEntries(Object.entries(process.env).filter(([key]) => (
+    !key.startsWith("HARDEN_LLM_TEST_DAEMON_LOCK_")
+    && key !== "HARDEN_LLM_TEST_RUN_ID"
+    && key !== "HARDEN_LLM_TEST_RESOURCE_DIR"
+  )));
+  environment.PATH = data.root;
+  const result = spawnSync(process.execPath, [path.join(TEST_ROOT, "scripts", "test", "test_resource_lifecycle_docker_test.mjs")], {
+    cwd: TEST_ROOT,
+    env: environment,
+    encoding: "utf8",
+    timeout: 5_000,
+  });
+  assert.equal(result.status, 1, result.stderr);
+  assert.match(result.stderr, /requires scripts\/run-test-tier\.mjs to supply a managed run ID and inherited Docker lease/);
+  assert.doesNotMatch(result.stderr, /ENOENT.*docker|spawn.*docker/i);
+});
 
 function interval(records, id) {
   const matching = records.filter((record) => record.id === id);
@@ -150,13 +178,36 @@ describe("resource-aware tier runner", () => {
 
   test("enforces resource slots while allowing independent resources to overlap", async () => {
     const data = await fixture();
+    const releasePath = path.join(data.root, "release-tasks");
     const tasks = [
-      task(data, "cpu-a", "cpu", "ok", 750),
-      task(data, "cpu-b", "cpu", "ok", 750),
-      task(data, "cpu-c", "cpu", "ok", 750),
-      task(data, "service-a", "service", "ok", 750),
+      task(data, "cpu-a", "cpu", "wait-for-release", 750, { timeoutMs: 30_000 }),
+      task(data, "cpu-b", "cpu", "wait-for-release", 750, { timeoutMs: 30_000 }),
+      task(data, "cpu-c", "cpu", "wait-for-release", 750, { timeoutMs: 30_000 }),
+      task(data, "service-a", "service", "wait-for-release", 750, { timeoutMs: 30_000 }),
     ];
-    const result = await runFixture(data, tasks);
+    const running = runFixture(data, tasks, { environment: { HARDEN_LLM_FAKE_RELEASE: releasePath } });
+    let result;
+    try {
+      await Promise.all([
+        waitForEvent(data, "start", "cpu-a", 10_000),
+        waitForEvent(data, "start", "cpu-b", 10_000),
+        waitForEvent(data, "start", "service-a", 10_000),
+      ]);
+      const beforeRelease = await events(data);
+      assert.equal(beforeRelease.some((record) => record.event === "end"), false, "barrier keeps launched tasks active until overlap is observed");
+      const cpuA = interval(beforeRelease, "cpu-a");
+      const cpuB = interval(beforeRelease, "cpu-b");
+      const service = interval(beforeRelease, "service-a");
+      assert.equal(cpuA.end, undefined);
+      assert.equal(cpuB.end, undefined);
+      assert.equal(service.end, undefined);
+      assert.ok(Number.isFinite(cpuA.start) && Number.isFinite(cpuB.start) && Number.isFinite(service.start), "both resource classes reached the barrier");
+      await fs.writeFile(releasePath, "release", { mode: 0o600 });
+      result = await running;
+    } finally {
+      await fs.writeFile(releasePath, "release", { mode: 0o600 }).catch(() => {});
+      result ??= await running;
+    }
     const records = await events(data);
     const cpuIntervals = tasks.filter((item) => item.resourceClass === "cpu").map((item) => interval(records, item.id));
     const maxCpuOverlap = cpuIntervals.reduce((maximum, current, index) => Math.max(maximum, cpuIntervals.filter((other, otherIndex) => otherIndex !== index && other.start < current.end && other.end > current.start).length + 1), 0);
@@ -233,4 +284,117 @@ describe("resource-aware tier runner", () => {
     assert.equal(result.firstFailure.failureDetail, noisy.failureDetail);
     assert.equal(result.cleanupErrors.length, 0);
   });
+});
+
+test("writes a unique private run report by default with task and lifecycle timings", async () => {
+  const data = await fixture();
+  const manifestPath = path.join(data.root, "report-manifest.json");
+  const manifest = {
+    schemaVersion: 1,
+    documentId: "TEST-049",
+    resourceClasses: { cpu: { slots: 1, exclusive: false } },
+    tasks: [{
+      id: "report-smoke",
+      testIds: ["TEST-049-report-smoke"],
+      tier: "T0",
+      resourceClass: "cpu",
+      command: [process.execPath, "-e", "process.exit(0)"],
+      dependsOn: [],
+      timeoutMs: 5_000,
+      cleanupOwner: "runner",
+      network: "forbidden",
+      credentialKeys: [],
+      requiredFor: ["report-smoke"],
+      pathSelectors: [],
+    }],
+  };
+  await fs.writeFile(manifestPath, JSON.stringify(manifest), { mode: 0o600 });
+  const originalLog = console.log;
+  const logLines = [];
+  console.log = (...values) => logLines.push(values.join(" "));
+  try {
+    assert.equal(await main(["--manifest", manifestPath, "--root", data.root, "--task", "report-smoke"]), 0);
+  } finally {
+    console.log = originalLog;
+  }
+  const summary = JSON.parse(logLines.at(-1));
+  assert.equal(typeof summary.output, "string", "the CLI must expose the durable report path when --output is omitted");
+  assert.deepEqual(summary.cleanupWarnings, []);
+  const reportPath = summary.output;
+  const metadata = await fs.stat(reportPath);
+  assert.equal(metadata.mode & 0o777, 0o600, "diagnostic report files are private");
+  const report = JSON.parse(await fs.readFile(reportPath, "utf8"));
+  assert.equal(report.accepted, true);
+  assert.equal(report.results[0].taskId, "report-smoke");
+  assert.equal(Number.isFinite(report.results[0].wallTimeMs), true);
+  assert.deepEqual(report.cleanupWarnings, []);
+  assert.deepEqual(report.results[0].cleanupWarnings, []);
+  assert.deepEqual(report.lifecycleTimings, { dockerIdentityMs: null, daemonLockWaitMs: null, staleReceiptRecoveryMs: null });
+});
+
+test("refuses an oversized diagnostic report without leaving a partial artifact", async () => {
+  const data = await fixture();
+  const reportPath = path.join(data.root, "oversized.json");
+  await assert.rejects(writeRunReport({ diagnostics: "x".repeat(2 * 1024 * 1024) }, reportPath), /exceeds the 2097152-byte limit/);
+  await assert.rejects(fs.stat(reportPath), { code: "ENOENT" });
+});
+
+test("capacity child report is validated and included in the private runner result", async () => {
+  const data = await fixture();
+  const source = `
+import fs from "node:fs";
+const report = { schemaVersion: 1, reportKind: "harden-llm-capacity.v1", testRunId: process.env.HARDEN_LLM_TEST_RUN_ID, caseSet: "correctness", testIds: ["TEST-277"], cases: [{ scenarioId: "synthetic" }] };
+fs.writeFileSync(process.env.HARDEN_LLM_CAPACITY_REPORT_PATH, JSON.stringify(report), { mode: 0o600 });
+`;
+  const task = {
+    id: "capacity-report-fixture", testIds: ["TEST-277"], tier: "T3", resourceClass: "cpu",
+    command: [process.execPath, "--input-type=module", "-e", source], dependsOn: [], timeoutMs: 5000,
+    cleanupOwner: "runner", network: "local-only", credentialKeys: [], requiredFor: [], pathSelectors: [], capacityReport: true,
+  };
+  const result = await runTasks([task], {
+    root: data.root, runDirectory: path.join(data.root, "run-capacity-report"), runID: "capacity-report-fixture",
+    resourceClasses: { cpu: { slots: 1, exclusive: false } },
+  });
+  assert.equal(result.accepted, true);
+  assert.equal(result.results[0].capacityReport.reportKind, "harden-llm-capacity.v1");
+  assert.equal(result.results[0].capacityReport.testRunId, "capacity-report-fixture");
+});
+
+test("a successful capacity task without its required report is rejected", async () => {
+  const data = await fixture();
+  const task = {
+    id: "capacity-report-missing", testIds: ["TEST-277"], tier: "T3", resourceClass: "cpu",
+    command: [process.execPath, "-e", "process.exit(0)"], dependsOn: [], timeoutMs: 5000,
+    cleanupOwner: "runner", network: "local-only", credentialKeys: [], requiredFor: [], pathSelectors: [], capacityReport: true,
+  };
+  const result = await runTasks([task], {
+    root: data.root, runDirectory: path.join(data.root, "run-capacity-report-missing"), runID: "capacity-report-missing",
+    resourceClasses: { cpu: { slots: 1, exclusive: false } },
+  });
+  assert.equal(result.accepted, false);
+  assert.match(result.results[0].failureSummary, /capacity report invalid or missing/);
+});
+
+test("capacity reports cannot be supplied through a child-created symlink", async () => {
+  const data = await fixture();
+  const target = path.join(data.root, "outside-capacity-report.json");
+  await fs.writeFile(target, JSON.stringify({
+    schemaVersion: 1,
+    reportKind: "harden-llm-capacity.v1",
+    testRunId: "capacity-symlink-run",
+    caseSet: "correctness",
+    testIds: ["TEST-277"],
+    cases: [{ scenarioId: "forged" }],
+  }), { mode: 0o600 });
+  const capacityTask = task(data, "capacity-symlink", "service", "capacity-report-symlink", 20, { capacityReport: true });
+  const result = await runFixture(data, [capacityTask], {
+    runID: "capacity-symlink-run",
+    environment: {
+      HARDEN_LLM_FAKE_EVENTS: data.eventsPath,
+      HARDEN_LLM_CAPACITY_REPORT_TARGET: target,
+    },
+  });
+
+  assert.equal(result.accepted, false);
+  assert.match(result.results[0].failureSummary, /capacity report invalid or missing/i);
 });

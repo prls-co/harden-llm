@@ -18,10 +18,12 @@ export function branchIdentity(branch) {
 
 export function ciMode(event, suite = "fast") {
   const manual = event === "workflow_dispatch";
-  if (manual && !["fast", "integration", "release", "browser", "full-with-browser"].includes(suite)) throw new Error("Unknown CI suite");
+  if (manual && !["fast", "integration", "lifecycle", "release", "capacity", "browser", "full-with-browser"].includes(suite)) throw new Error("Unknown CI suite");
   return {
     fast: ["push", "pull_request"].includes(event) || (manual && suite === "fast"),
     integration: manual && suite === "integration",
+    lifecycle: manual && suite === "lifecycle",
+    capacity: manual && suite === "capacity",
     release: event === "schedule" || (manual && ["release", "full-with-browser"].includes(suite)),
     browser: manual && ["browser", "full-with-browser"].includes(suite),
     browserCompose: manual && suite === "full-with-browser",

@@ -35,6 +35,31 @@ branch previews, not production; see [branch environments](preview-environments.
 The earlier measured checkpoints below retain their original evidence and
 must not be interpreted as authorization to repeat browser/provider checks.
 
+### Runner diagnostics and artifact retention
+
+As of the 2026-09-21 resource-lifecycle work, each CLI selection writes an
+atomic JSON report under ignored `tmp/test-feedback/runner-*.json` unless an
+explicit `--output` path is supplied. Files are mode `0600` and capped at 2 MiB.
+They retain task wall time, status/timeout, bounded redacted output previews,
+resource cleanup outcomes, and—when Docker is selected—separate endpoint/daemon
+identification, lock-wait, and stale-receipt-recovery timings. A pure selection
+records those Docker-only timings as `null` and makes no Docker call. Reports
+are diagnostic evidence, not a database or customer trace store.
+
+The existing fast, integration, and browser-free release workflow jobs upload
+matching reports with `if: always()` and a 14-day retention. If a hosted runner
+is forcibly terminated before the supervisor can write its report, an absent
+artifact is not a passing or complete report; durable resource receipts remain
+the separate cleanup-recovery evidence. Browser and live-provider checks are
+not enabled by this report change.
+
+The synthetic gateway capacity suite is a separate manual workflow choice. It
+accepts only `correctness`, `exploration`, or `holdout`, runs without provider
+credentials, and uploads the bounded capacity summary inside its private runner
+report. Its scripted-provider measurements are not production SLO or provider
+certification; test/docs-only changes do not rebuild or redeploy application
+images.
+
 ### Historical certification contract
 
 The implementation candidate is evaluated through the same manifest-owned

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "repository": "harden-llm",
+  "environment": "test",
+  "disposable": true,
+  "runId": "run-0123456789ab",
+  "project": "harden-llm-test-0123456789ab",
+  "sourceSHA": "67937729b4e5b0d58d2883bdd09155e49ac72612",
+  "daemonId": "fixture-daemon-identity",
+  "hostBootId": "fixture-host-boot",
+  "supervisorPid": 123,
+  "supervisorStart": "fixture-process-start",
+  "state": "registered",
+  "createdAt": "2026-09-21T00:00:00Z",
+  "composeFiles": ["/repo/deploy/test/compose.integration.yml"],
+  "resourceIds": {"containers": [], "volumes": [], "networks": []}
+}

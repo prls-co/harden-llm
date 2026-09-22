@@ -1329,7 +1329,7 @@ synthetic credentials, isolated stores, and a local scripted provider.
 - Command: `node --test --test-name-pattern=TEST-272 scripts/test/test_resource_lifecycle_test.mjs`.
 - Fixtures/data: Fake child/process-group controller with partial creation, TERM, crash, hung inventory, and foreign-attachment cases.
 - Deterministic controls: Injected monotonic clock and fake Docker; 5-second per-case deadline; bounded output.
-- Pass criteria: Preserve the first failure; reap owned child before deletion; leftovers/unknown inventory fail acceptance; delete exact owned IDs only; retain pending evidence.
+- Pass criteria: Preserve the first failure; reap owned child before deletion; unknown inventory, failed exact removal, foreign attachment, non-empty final inventory, or receipt persistence failure fail acceptance; delete exact owned IDs only; retain pending evidence. A failed best-effort Compose `down` is reported in `cleanupWarnings` and is non-fatal only when exact fallback cleanup completes, final inventory is empty, and the receipt is durably `cleaned`.
 - Expected runtime: 15 seconds.
 
 ### TEST-273: Daemon guard and dead-owner recovery
@@ -1337,29 +1337,29 @@ synthetic credentials, isolated stores, and a local scripted provider.
 - Type / verifies: unit; REQ-343, REQ-344.
 - Location: `scripts/test/test_resource_lifecycle_test.mjs`.
 - Command: `node --test --test-name-pattern=TEST-273 scripts/test/test_resource_lifecycle_test.mjs`.
-- Fixtures/data: Two local processes and temporary flock directory; synthetic daemon, boot, active/dead/reused PID identities.
+- Fixtures/data: Two local processes and temporary flock directory; synthetic daemon, boot, active/dead/reused PID identities; corrupt receipts, remote endpoints, pure tasks, bounded lock wait, and nested lease reuse.
 - Deterministic controls: No Docker; ready/release IPC instead of sleeps; 5-second subprocess deadline.
-- Pass criteria: Same-daemon invocations exclude each other; other daemon identities do not collide; dead proof is required; active/corrupt/sentinel records survive; no nested-lock deadlock.
-- Expected runtime: 20 seconds.
+- Pass criteria: Same-daemon invocations exclude each other; other daemon identities do not collide; dead proof is required; active/corrupt/sentinel records survive; remote Docker is rejected before mutation; lock wait is bounded; pure tasks avoid Docker; nested runs reuse the lease without deadlock.
+- Expected runtime: Up to 40 seconds on the reference host.
 
 ### TEST-274: Actual disposable Docker cancellation boundary
 
 - Type / verifies: integration; REQ-341, REQ-342, REQ-343, REQ-345.
 - Location: `scripts/test/test_resource_lifecycle_docker_test.mjs`.
 - Command: `node scripts/run-test-tier.mjs --task test-resource-lifecycle-docker`.
-- Fixtures/data: Tiny task-owned container/network/volume from an existing pinned fixture image plus independently identified sentinel resources.
-- Deterministic controls: One daemon guard, synthetic keys, pinned digest, controlled IPC, 300-second task deadline including cleanup.
-- Pass criteria: Success, partial create, child TERM/crash, and child-supervisor SIGKILL followed by next-owner recovery leave no owned resources; sentinel IDs remain; receipts account for outcomes.
-- Expected runtime: Up to 5 minutes.
+- Fixtures/data: Tiny task-owned container/network/volume using the cached `alpine@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc` image with pulls disabled, plus an independently receipted sentinel Compose project.
+- Deterministic controls: One inherited local-daemon guard, synthetic run/project IDs, controlled IPC, 300-second test-task deadline. After a stopped/failed task, the existing shared 120-second cleanup tail is bounded recovery work; it never re-runs or extends the test.
+- Pass criteria: Success, partial create, child SIGTERM, and child-supervisor SIGKILL followed by next-owner recovery leave no lifecycle-test project resources; sentinel resources survive each target recovery; receipts account for outcomes and finish cleaned.
+- Expected runtime: At most the 300-second task deadline plus only the existing bounded termination/cleanup tail when failure requires reconciliation.
 
 ### TEST-275: Resource units and attribution
 
 - Type / verifies: unit; REQ-346.
 - Location: `scripts/test/test_resource_measurement_test.mjs`.
 - Command: `node --test scripts/test/test_resource_measurement_test.mjs`.
-- Fixtures/data: Numeric Docker API records; B/kB/MB/GB and KiB/MiB/GiB text; missing/malformed units; CPU; duplicate/project labels.
+- Fixtures/data: Numeric Docker API records; B/kB/MB/GB and KiB/MiB/GiB text; missing/malformed units; CPU; duplicate/project labels; host memory and Docker data-root headroom thresholds.
 - Deterministic controls: Frozen inputs, no daemon, integer-byte expected values, seed 104729.
-- Pass criteria: Convert recognized units correctly; unknown units are errors/unknown, never zero; project attribution is exact; snapshot, peak, and RSS remain distinct.
+- Pass criteria: Convert recognized units correctly; unknown units are errors/unknown, never zero; project attribution is exact; Docker memory, RSS, sampled peak, host memory, and Docker data-root disk remain distinct; safety thresholds fail closed.
 - Expected runtime: 5 seconds.
 
 ### TEST-276: Bounded load generation and streaming accounting
@@ -1377,19 +1377,19 @@ synthetic credentials, isolated stores, and a local scripted provider.
 - Type / verifies: perf; REQ-347, REQ-348, REQ-349.
 - Location: `cmd/harden-llm-gateway/capacity_test.go`.
 - Command: `node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline.json`.
-- Fixtures/data: Real command server assembly, REST/auth/client, disposable Postgres/Garage, local TLS scripted provider and export sink; selected full-stack case reuses the existing Compose smoke topology.
-- Deterministic controls: Explicit `integration,capacity,compose` tags; seed 104729; synthetic credentials; Section 6 bounds; no live/browser selector.
+- Fixtures/data: Real command server assembly, REST/auth/client, disposable Postgres/Garage, local TLS scripted provider and export sink. The existing separately-owned Compose smoke remains its own boundary; TEST-277 does not start another application stack.
+- Deterministic controls: Explicit `integration,capacity` tags; seed 104729; synthetic credentials; Section 6 bounds; no live/browser selector. Capacity runs are explicit-only through workflow dispatch and accept only `correctness`, `exploration`, or `holdout`.
 - Pass criteria: Persisted history/artifacts agree with terminal outcomes; provider receive counts match runtime attempts; SSE terminal oracle holds; report is bounded and owned fixtures are cleaned.
-- Expected runtime: Correctness up to 5 minutes; exploration/holdout up to 15 minutes; full-stack up to 30 minutes.
+- Expected runtime: Correctness up to 5 minutes; exploration up to 15 minutes; holdout up to 5 minutes, within the registered 40-minute task deadline.
 
 ### TEST-278: Comparable cost and decision reports
 
 - Type / verifies: unit; REQ-346, REQ-350, REQ-351.
 - Location: `internal/capacity/report_test.go`.
 - Command: `go test ./internal/capacity -run '^TestCapacityReport' -count=1`.
-- Fixtures/data: Byte/token/price fixtures, mismatched fingerprints, unknown CPA actual price, missing SLO, host resource and exporter-drop records.
+- Fixtures/data: Byte/token/price fixtures, mismatched fingerprints, unknown CPA actual price, missing SLO, host resource and exporter-drop records, short/large latency populations, and stream event/byte counts.
 - Deterministic controls: Fixed decimal inputs and seed 104729; no external price lookup or real provider.
-- Pass criteria: Denominators/unit math are exact; incomparable samples reject; unknown price/metrics remain null with reasons; no unsupported savings/SLO claims; only the four specified dispositions occur.
+- Pass criteria: Denominators/unit math are exact; incomparable samples reject; unknown price/metrics remain null with reasons; p99 is absent below 1,000 samples; offered/launched/succeeded rates and SSE event/byte growth are summarized; no unsupported savings/SLO claims; only the four specified dispositions occur.
 - Expected runtime: 5 seconds.
 
 ### TEST-279: Task policy and registration integrity
@@ -1399,7 +1399,7 @@ synthetic credentials, isolated stores, and a local scripted provider.
 - Command: `node scripts/verify-test-tiers.mjs`.
 - Fixtures/data: Current Makefile, task manifest, canonical catalog, traceability and workflow source; existing timeout baseline.
 - Deterministic controls: Offline source reads; no Docker; existing tier/budget policy.
-- Pass criteria: Executable test registration is discoverable; cheap task is offline/container-free; Make and manifest do not recurse; capacity is opt-in; release is browser-free; failure artifact and candidate identity policy is present.
+- Pass criteria: Executable test registration is discoverable; cheap task is offline/container-free; Make and manifest do not recurse; capacity is opt-in; release is browser-free; bounded private per-run reports are written by default and fast/integration/release jobs upload them with `always()`; candidate identity policy is present.
 - Expected runtime: 5 seconds.
 
 ### TEST-280: Cross-language receipt contract

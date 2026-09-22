@@ -2,11 +2,14 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { promises as fs } from "node:fs";
+import { constants as fsConstants, promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
+
+import { capacitySafetyFailure, collectDockerResourceSample, hashImageIDs, summarizeResourceSamples } from "./measure-test-resources.mjs";
+import { acquireDaemonLock, classifyReceiptOwner, createResourceReceipt, daemonLockEnvironment, defaultResourceDirectory, inheritedDaemonLockLease, processStartIdentity, readHostBootID, readResourceReceipt, releaseDaemonLock, updateResourceReceipt } from "./test-resource-lifecycle.mjs";
 
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_RUN_ROOT = path.join(REPOSITORY_ROOT, "tmp", "test-feedback");
@@ -14,6 +17,10 @@ const DEFAULT_SEED = 104729;
 const MAX_CAPTURE_BYTES = 8192;
 const MAX_FAILURE_DETAIL_BYTES = 4096;
 const TASK_TIMEOUT_GRACE_MS = 2_000;
+const DEFAULT_RESOURCE_CLEANUP_MS = 120_000;
+const RESOURCE_INVENTORY_MS = 15_000;
+const MAX_PROJECT_RESOURCES = 1024;
+const MAX_RUN_REPORT_BYTES = 2 * 1024 * 1024;
 
 export async function loadManifest(manifestPath) {
   const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
@@ -111,7 +118,10 @@ function boundedCapture() {
     },
     get value() {
       const truncatedBytes = Math.max(0, bytes - MAX_CAPTURE_BYTES);
-      return { bytes, preview: scrub(first), tailPreview: scrub(tail), truncatedBytes };
+      // Structured Docker metadata must be parsed before redaction: replacing
+      // label URLs with [url] would corrupt JSON. Keep the bounded raw prefix
+      // internal; reports and diagnostics use only the redacted fields.
+      return { bytes, preview: scrub(first), rawPreview: first, tailPreview: scrub(tail), truncatedBytes };
     },
   };
 }
@@ -221,8 +231,111 @@ async function runExternal(executable, args, options = {}) {
   };
 }
 
+async function hostResourceSample(root = REPOSITORY_ROOT, dockerDataRoot = root) {
+  const host = {};
+  host.totalMemoryBytes = os.totalmem();
+  try {
+    const memory = await fs.readFile("/proc/meminfo", "utf8");
+    const available = memory.match(/^MemAvailable:\s+(\d+)\s+kB$/m);
+    if (available) host.availableMemoryBytes = Number(available[1]) * 1024;
+  } catch {
+    // The report records unavailable host metrics as null with provenance.
+  }
+  try {
+    const filesystem = await fs.statfs(dockerDataRoot, { bigint: true });
+    const freeBytes = filesystem.bavail * filesystem.bsize;
+    if (freeBytes >= 0n && freeBytes <= BigInt(Number.MAX_SAFE_INTEGER)) host.availableDiskBytes = Number(freeBytes);
+  } catch {
+    // Capacity runs fail closed if filesystem headroom cannot be measured.
+  }
+  const pressure = {};
+  for (const resource of ["cpu", "memory", "io"]) {
+    try {
+      const content = await fs.readFile(`/proc/pressure/${resource}`, "utf8");
+      for (const scope of ["some", "full"]) {
+        const line = content.split(/\r?\n/).find((entry) => entry.startsWith(`${scope} `));
+        const match = line?.match(/\bavg10=([0-9]+(?:\.[0-9]+)?)/);
+        if (match) pressure[`${resource}${scope[0].toUpperCase()}${scope.slice(1)}Avg10`] = Number(match[1]);
+      }
+    } catch {
+      // Per-resource PSI availability is independent.
+    }
+  }
+  host.pressure = pressure;
+  return host;
+}
+
+function startDockerResourceSampler(project, environment, cwd, dockerDataRoot = cwd) {
+  const samples = [];
+  let latestSample = null;
+  const expectedIntervalMs = 5_000;
+  let inFlight = null;
+  let stopped = false;
+  let timer = null;
+
+  const takeSample = async () => {
+    if (stopped || inFlight || samples.length >= 1_000) return latestSample;
+    inFlight = (async () => {
+      const host = await hostResourceSample(cwd, dockerDataRoot);
+      const sample = await collectDockerResourceSample(project, async (args) => {
+        const result = await runExternal("docker", args, { cwd, timeoutMs: 2_000, environment });
+        return {
+          status: result.status,
+          stdout: result.stdout.rawPreview,
+          truncatedBytes: result.stdout.truncatedBytes,
+        };
+      }, { timestamp: new Date().toISOString(), host });
+      latestSample = sample;
+      samples.push(sample);
+    })().catch(() => {
+      latestSample = {
+        timestamp: new Date().toISOString(),
+        host: {},
+        collectionNullReasons: {
+          containers: "resource sample failed unexpectedly",
+          volumes: "resource sample failed unexpectedly",
+        },
+      };
+      samples.push(latestSample);
+    }).finally(() => { inFlight = null; });
+    await inFlight;
+    return latestSample;
+  };
+
+  timer = setInterval(() => { void takeSample(); }, expectedIntervalMs);
+  timer.unref();
+  return {
+    sample: takeSample,
+    safetyFailure() {
+      return capacitySafetyFailure(latestSample?.host);
+    },
+    async stop() {
+      if (stopped) return summarizeResourceSamples(project, samples, { expectedIntervalMs });
+      stopped = true;
+      clearInterval(timer);
+      if (inFlight) await inFlight;
+      if (samples.length < 1_000) {
+        stopped = false;
+        await takeSample();
+        stopped = true;
+      }
+      return summarizeResourceSamples(project, samples, { expectedIntervalMs });
+    },
+  };
+}
+
 function poolFailure(pool, message) {
   return new Error(`${pool?.project ?? "integration service pool"}: ${message}`);
+}
+
+function resourceCleanupOptions(options) {
+  const budget = options.cleanupTimeoutMs ?? DEFAULT_RESOURCE_CLEANUP_MS;
+  const owner = options.lifecycleState;
+  if (owner) {
+    owner.cleanupDeadline ??= performance.now() + budget;
+    return { ...options, cleanupDeadline: owner.cleanupDeadline };
+  }
+  return { ...options, cleanupDeadline: options.cleanupDeadline ?? performance.now() + budget };
 }
 
 async function startServicePool(task, options) {
@@ -234,20 +347,46 @@ async function startServicePool(task, options) {
   const composeFile = path.resolve(options.root, definition.composeFile ?? "");
   if (!(await exists(composeFile))) throw new Error(`service pool Compose file is missing: ${composeFile}`);
   const base = composeBaseArguments(composeFile, project);
-  const pool = { project, composeFile, base, environment: {}, cleaned: false };
+  const resourceDirectory = options.resourceDirectory ?? defaultResourceDirectory();
+  const dockerEnvironment = { ...process.env, ...(options.environment ?? {}), ...daemonLockEnvironment(options.daemonLockLease) };
+  const identity = await runExternal("docker", ["info", "--format", "{{.ID}}"], { cwd: options.root, signal: options.signal, timeoutMs: 10_000, environment: dockerEnvironment });
+  const daemonId = identity.stdout.preview.trim();
+  if (identity.status !== 0 || !daemonId) throw poolFailure({ project }, "cannot establish Docker daemon identity before resource creation");
+  if (options.daemonLockLease && daemonId !== options.daemonLockLease.daemonId) throw poolFailure({ project }, "Docker daemon identity changed after acquiring the daemon guard");
+  const { receiptPath } = await createResourceReceipt({
+    directory: resourceDirectory,
+    runId: options.runID ?? path.basename(options.runDirectory),
+    project,
+    daemonId,
+    composeFiles: [composeFile],
+    sourceSHA: options.sourceSHA,
+  });
+  const childEnvironment = {
+    ...process.env,
+    ...(options.environment ?? {}),
+    ...daemonLockEnvironment(options.daemonLockLease),
+    HARDEN_LLM_TEST_RESOURCE_DIR: resourceDirectory,
+    HARDEN_LLM_TEST_RESOURCE_RECEIPT: receiptPath,
+    HARDEN_LLM_TEST_RUN_ID: options.runID ?? path.basename(options.runDirectory),
+  };
+  const pool = { project, composeFile, base, environment: {}, cleaned: false, receiptPath };
   try {
-    const up = await runExternal("docker", [...base, "up", "-d", "--wait", "--pull", "missing", ...definition.services.map((service) => service.name)], { cwd: options.root, signal: options.signal, timeoutMs: 120_000 });
+    await updateResourceReceipt(receiptPath, "creating");
+    const up = await runExternal("docker", [...base, "up", "-d", "--wait", "--pull", "missing", ...definition.services.map((service) => service.name)], { cwd: options.root, signal: options.signal, timeoutMs: 120_000, environment: childEnvironment });
     if (up.status !== 0) throw poolFailure(pool, `service startup failed: ${scrub(up.stderr.tailPreview || up.stdout.tailPreview)}`);
+    await updateResourceReceipt(receiptPath, "running");
     for (const service of definition.services) {
       if (!service.name || !Number.isInteger(service.port) || service.port <= 0) throw poolFailure(pool, "service definition is invalid");
-      const resolved = await runExternal("docker", [...base, "port", service.name, String(service.port)], { cwd: options.root, signal: options.signal, timeoutMs: 10_000 });
+      const resolved = await runExternal("docker", [...base, "port", service.name, String(service.port)], { cwd: options.root, signal: options.signal, timeoutMs: 10_000, environment: childEnvironment });
       if (resolved.status !== 0) throw poolFailure(pool, `cannot resolve ${service.name} port: ${scrub(resolved.stderr.tailPreview)}`);
       const endpoint = normalizePublishedEndpoint(resolved.stdout.preview);
       if (service.name === "harden-postgres") pool.environment.HARDEN_LLM_TEST_POSTGRES_ENDPOINT = endpoint;
       if (service.name === "garage") pool.environment.HARDEN_LLM_TEST_GARAGE_ENDPOINT = endpoint;
     }
   } catch (error) {
-    await cleanupServicePool(pool, options);
+    error.resourceReceiptPath = receiptPath;
+    const cleanupOptions = resourceCleanupOptions(options);
+    error.resourceCleanupErrors = await cleanupServicePool(pool, cleanupOptions);
     throw error;
   }
   pool.environment.HARDEN_LLM_TEST_POOL = "1";
@@ -258,15 +397,432 @@ async function startServicePool(task, options) {
 async function cleanupServicePool(pool, options) {
   if (!pool || pool.cleaned) return [];
   pool.cleaned = true;
-  const errors = [];
-  const down = await runExternal("docker", [...pool.base, "down", "-v", "--remove-orphans", "--timeout", "30"], { cwd: options.root, timeoutMs: 60_000 });
-  if (down.status !== 0 && !/no such project|no containers to stop|no resources found/i.test(down.stderr.tailPreview)) {
-    errors.push(scrub(down.stderr.tailPreview || down.stdout.tailPreview || `compose down exited ${down.status}`));
+  return cleanupResourceReceipt(pool.receiptPath, options);
+}
+
+function parseResourceIDs(output, kind) {
+  if (output.truncatedBytes > 0) throw new Error(`${kind} inventory was truncated`);
+  const ids = output.preview.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+  if (ids.length > MAX_PROJECT_RESOURCES) throw new Error(`${kind} inventory exceeded ${MAX_PROJECT_RESOURCES} resources`);
+  const pattern = kind === "volumes" ? /^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$/ : /^[a-f0-9]{12,64}$/i;
+  if (ids.some((id) => !pattern.test(id)) || new Set(ids).size !== ids.length) throw new Error(`${kind} inventory contains invalid or duplicate IDs`);
+  return ids.sort();
+}
+
+function receiptResourceIDs(receipt) {
+  return {
+    containers: [...(receipt.resourceIds?.containers ?? [])],
+    volumes: [...(receipt.resourceIds?.volumes ?? [])],
+    networks: [...(receipt.resourceIds?.networks ?? [])],
+  };
+}
+
+function mergeResourceIDs(...groups) {
+  return Object.fromEntries(["containers", "volumes", "networks"].map((kind) => [kind, [...new Set(groups.flatMap((group) => group[kind] ?? []))].sort()]));
+}
+
+async function cleanupResourceReceipt(receiptPath, options) {
+  let receipt;
+  try {
+    receipt = await readResourceReceipt(receiptPath);
+  } catch (error) {
+    return [`cannot validate resource receipt: ${scrub(error.message)}`];
   }
-  const containers = await runExternal("docker", ["ps", "-aq", "--filter", `label=com.docker.compose.project=${pool.project}`], { cwd: options.root, timeoutMs: 10_000 });
-  if (containers.status !== 0 || containers.stdout.preview.trim() !== "") errors.push(`service pool ${pool.project} retained containers`);
-  const volumes = await runExternal("docker", ["volume", "ls", "-q", "--filter", `label=com.docker.compose.project=${pool.project}`], { cwd: options.root, timeoutMs: 10_000 });
-  if (volumes.status !== 0 || volumes.stdout.preview.trim() !== "") errors.push(`service pool ${pool.project} retained volumes`);
+  const errors = [];
+  const composeDownWarnings = [];
+  const project = receipt.project;
+  const resourceDirectory = path.dirname(path.dirname(receiptPath));
+  const environment = {
+    ...process.env,
+    ...(options.environment ?? {}),
+    ...daemonLockEnvironment(options.daemonLockLease),
+    HARDEN_LLM_TEST_RUN_ID: receipt.runId,
+    HARDEN_LLM_TEST_RESOURCE_DIR: resourceDirectory,
+    HARDEN_LLM_TEST_RESOURCE_RECEIPT: receiptPath,
+  };
+  const deadline = options.cleanupDeadline ?? performance.now() + (options.cleanupTimeoutMs ?? DEFAULT_RESOURCE_CLEANUP_MS);
+  const runDocker = async (label, args, operationLimitMs = RESOURCE_INVENTORY_MS, failureSink = errors) => {
+    const remaining = deadline - performance.now();
+    if (remaining <= TASK_TIMEOUT_GRACE_MS + 10) {
+      failureSink.push(`${label}: total cleanup budget exhausted`);
+      return null;
+    }
+    const result = await runExternal("docker", args, {
+      cwd: options.root,
+      timeoutMs: Math.max(1, Math.min(operationLimitMs, remaining - TASK_TIMEOUT_GRACE_MS)),
+      environment,
+    });
+    if (result.status !== 0 || result.timedOut) {
+      failureSink.push(`${label}: ${scrub(result.stderr.tailPreview || result.stdout.tailPreview || `docker exited ${result.status}`)}`);
+      return null;
+    }
+    return result.stdout;
+  };
+  const inventory = async () => {
+    const filter = `label=com.docker.compose.project=${project}`;
+    const containersOutput = await runDocker("container inventory", ["ps", "-aq", "--filter", filter]);
+    if (!containersOutput) return null;
+    const volumesOutput = await runDocker("volume inventory", ["volume", "ls", "-q", "--filter", filter]);
+    if (!volumesOutput) return null;
+    const networksOutput = await runDocker("network inventory", ["network", "ls", "-q", "--filter", filter]);
+    if (!networksOutput) return null;
+    try {
+      return {
+        containers: parseResourceIDs(containersOutput, "containers"),
+        volumes: parseResourceIDs(volumesOutput, "volumes"),
+        networks: parseResourceIDs(networksOutput, "networks"),
+      };
+    } catch (error) {
+      errors.push(scrub(error.message));
+      return null;
+    }
+  };
+  const markPending = async (resourceIDs) => {
+    try {
+      receipt = await updateResourceReceipt(receiptPath, "cleanup-pending", { resourceIds: resourceIDs });
+    } catch (error) {
+      errors.push(`cannot persist cleanup-pending receipt: ${scrub(error.message)}`);
+    }
+  };
+  const daemonOutput = await runDocker("Docker daemon identity", ["info", "--format", "{{.ID}}"]);
+  if (!daemonOutput || daemonOutput.preview.trim() !== receipt.daemonId) {
+    errors.push(`resource ${project} is not being cleaned on its recorded Docker daemon`);
+    await markPending(receiptResourceIDs(receipt));
+    return errors;
+  }
+  let currentStart;
+  let currentBoot;
+  try {
+    currentStart = await processStartIdentity(process.pid);
+    currentBoot = await readHostBootID();
+  } catch (error) {
+    errors.push(`cannot establish cleanup owner identity: ${scrub(error.message)}`);
+    await markPending(receiptResourceIDs(receipt));
+    return errors;
+  }
+  const currentSupervisorOwnsReceipt = receipt.hostBootId === currentBoot
+    && receipt.supervisorPid === process.pid
+    && receipt.supervisorStart === currentStart;
+  if (!currentSupervisorOwnsReceipt) {
+    let owner = { status: "active", reason: "receipt belongs to another supervisor" };
+    if (options.recovery) {
+      try { owner = await classifyReceiptOwner(receipt); }
+      catch (error) { owner = { status: "ambiguous", reason: error.message }; }
+    }
+    if (!options.recovery || owner.status !== "dead") {
+      errors.push(`resource ${project} supervisor is not proven dead; recovery refused (${scrub(owner.reason)})`);
+      await markPending(receiptResourceIDs(receipt));
+      return errors;
+    }
+  }
+
+  const before = await inventory();
+  if (!before) {
+    await markPending(receiptResourceIDs(receipt));
+    return errors;
+  }
+  if (receipt.state === "cleaned" && before.containers.length + before.volumes.length + before.networks.length === 0) return errors;
+
+  for (const id of before.containers) {
+    if (!(await inspectProjectLabels("container", id, project, runDocker, errors))) {
+      await markPending(mergeResourceIDs(receiptResourceIDs(receipt), before));
+      return errors;
+    }
+  }
+  for (const id of before.volumes) {
+    if (!(await inspectProjectLabels("volume", id, project, runDocker, errors))) {
+      await markPending(mergeResourceIDs(receiptResourceIDs(receipt), before));
+      return errors;
+    }
+  }
+  for (const id of before.networks) {
+    if (!(await inspectProjectLabels("network", id, project, runDocker, errors))) {
+      await markPending(mergeResourceIDs(receiptResourceIDs(receipt), before));
+      return errors;
+    }
+  }
+
+  const foreignAttachedVolumes = new Set();
+  for (const id of before.volumes) {
+    const attachedOutput = await runDocker(`pre-cleanup volume attachment inventory ${id}`, ["ps", "-aq", "--filter", `volume=${id}`]);
+    if (!attachedOutput) {
+      await markPending(mergeResourceIDs(receiptResourceIDs(receipt), before));
+      return errors;
+    }
+    let attachedContainers;
+    try { attachedContainers = parseResourceIDs(attachedOutput, "containers"); }
+    catch (error) {
+      errors.push(scrub(error.message));
+      await markPending(mergeResourceIDs(receiptResourceIDs(receipt), before));
+      return errors;
+    }
+    for (const containerID of attachedContainers) {
+      if (!(await inspectProjectLabels("container", containerID, project, runDocker, errors))) foreignAttachedVolumes.add(id);
+    }
+  }
+  const foreignAttachedNetworks = new Set();
+  for (const id of before.networks) {
+    const attachmentOutput = await runDocker(`pre-cleanup network attachment inventory ${id}`, ["network", "inspect", "--format", "{{json .Containers}}", id]);
+    if (!attachmentOutput) {
+      await markPending(mergeResourceIDs(receiptResourceIDs(receipt), before));
+      return errors;
+    }
+    let attachmentIDs;
+    try {
+      if (attachmentOutput.truncatedBytes > 0) throw new Error("network attachment inventory was truncated");
+      const decoded = JSON.parse(attachmentOutput.rawPreview || "null");
+      attachmentIDs = decoded && typeof decoded === "object" ? Object.keys(decoded) : [];
+      if (attachmentIDs.some((containerID) => !/^[a-f0-9]{12,64}$/i.test(containerID))) throw new Error("network attachment inventory contains invalid IDs");
+    } catch (error) {
+      errors.push(`${scrub(error.message)} for network ${id}`);
+      await markPending(mergeResourceIDs(receiptResourceIDs(receipt), before));
+      return errors;
+    }
+    for (const containerID of attachmentIDs) {
+      if (!(await inspectProjectLabels("container", containerID, project, runDocker, errors))) foreignAttachedNetworks.add(id);
+    }
+  }
+
+  const currentIDs = mergeResourceIDs(receiptResourceIDs(receipt), before);
+  try {
+    if (receipt.state === "cleaned") receipt = await updateResourceReceipt(receiptPath, "cleanup-pending", { resourceIds: currentIDs });
+    receipt = await updateResourceReceipt(receiptPath, "cleaning", { resourceIds: currentIDs });
+  } catch (error) {
+    errors.push(`cannot record cleanup ownership before Docker removal: ${scrub(error.message)}`);
+    await markPending(currentIDs);
+    return errors;
+  }
+  if (before.containers.length + before.volumes.length + before.networks.length === 0) {
+    try { await updateResourceReceipt(receiptPath, "cleaned", { resourceIds: currentIDs }); }
+    catch (error) { errors.push(`cannot record empty resource inventory: ${scrub(error.message)}`); }
+    return errors;
+  }
+
+  const composeArgs = ["compose", "--project-name", project, ...receipt.composeFiles.flatMap((file) => ["-f", file]), "down", "--remove-orphans", "--timeout", "30"];
+  await runDocker("Compose down", composeArgs, 30_000, composeDownWarnings);
+  const reportComposeDownWarnings = (outcome) => {
+    if (composeDownWarnings.length === 0) return;
+    const diagnostics = composeDownWarnings.map((warning) => `resource ${project}: ${outcome}: ${warning}`);
+    if (Array.isArray(options.cleanupWarnings)) options.cleanupWarnings.push(...diagnostics);
+    else errors.push(...diagnostics);
+  };
+
+  const afterDown = await inventory();
+  if (!afterDown) {
+    reportComposeDownWarnings("Compose down failed; exact fallback cleanup could not be verified");
+    await markPending(currentIDs);
+    return errors;
+  }
+  for (const id of afterDown.containers) {
+    if (!(await inspectProjectLabels("container", id, project, runDocker, errors))) continue;
+    await runDocker(`remove owned container ${id}`, ["rm", "-f", id], 15_000);
+  }
+
+  const afterContainers = await inventory();
+  if (!afterContainers) {
+    reportComposeDownWarnings("Compose down failed; container fallback cleanup could not be verified");
+    await markPending(currentIDs);
+    return errors;
+  }
+  for (const id of afterContainers.volumes) {
+    if (!(await inspectProjectLabels("volume", id, project, runDocker, errors))) continue;
+    if (foreignAttachedVolumes.has(id)) {
+      errors.push(`volume ${id} had a foreign attachment before teardown; it was not removed`);
+      continue;
+    }
+    const attachedOutput = await runDocker(`volume attachment inventory ${id}`, ["ps", "-aq", "--filter", `volume=${id}`]);
+    if (!attachedOutput) continue;
+    let attachments;
+    try { attachments = parseResourceIDs(attachedOutput, "containers"); }
+    catch (error) { errors.push(scrub(error.message)); continue; }
+    let foreignAttachment = false;
+    for (const containerID of attachments) {
+      const owned = await inspectProjectLabels("container", containerID, project, runDocker, errors);
+      if (!owned) foreignAttachment = true;
+    }
+    if (foreignAttachment || attachments.length > 0) {
+      errors.push(`volume ${id} is still attached; it was not removed`);
+      continue;
+    }
+    await runDocker(`remove owned volume ${id}`, ["volume", "rm", id], 15_000);
+  }
+
+  const afterVolumes = await inventory();
+  if (!afterVolumes) {
+    reportComposeDownWarnings("Compose down failed; volume fallback cleanup could not be verified");
+    await markPending(currentIDs);
+    return errors;
+  }
+  for (const id of afterVolumes.networks) {
+    if (!(await inspectProjectLabels("network", id, project, runDocker, errors))) continue;
+    if (foreignAttachedNetworks.has(id)) {
+      errors.push(`network ${id} had a foreign attachment before teardown; it was not removed`);
+      continue;
+    }
+    const attachmentOutput = await runDocker(`network attachment inventory ${id}`, ["network", "inspect", "--format", "{{json .Containers}}", id]);
+    if (!attachmentOutput) continue;
+    let attachments;
+    try {
+      if (attachmentOutput.truncatedBytes > 0) throw new Error("network attachment inventory was truncated");
+      const decoded = JSON.parse(attachmentOutput.rawPreview || "null");
+      attachments = decoded && typeof decoded === "object" ? Object.keys(decoded) : [];
+    }
+    catch { errors.push(`network ${id} returned invalid attachment inventory`); continue; }
+    if (attachments.length > 0) {
+      for (const containerID of attachments) await inspectProjectLabels("container", containerID, project, runDocker, errors);
+      errors.push(`network ${id} remains attached; it was not removed`);
+      continue;
+    }
+    await runDocker(`remove owned network ${id}`, ["network", "rm", id], 15_000);
+  }
+
+  const afterCleanup = await inventory();
+  if (!afterCleanup) {
+    reportComposeDownWarnings("Compose down failed; final fallback inventory could not be verified");
+    await markPending(currentIDs);
+    return errors;
+  }
+  const remaining = afterCleanup.containers.length + afterCleanup.volumes.length + afterCleanup.networks.length;
+  const finalIDs = mergeResourceIDs(currentIDs, afterCleanup);
+  if (remaining > 0) errors.push(`resource ${project} retains ${afterCleanup.containers.length} containers, ${afterCleanup.volumes.length} volumes, and ${afterCleanup.networks.length} networks`);
+  try {
+    if (remaining > 0) await updateResourceReceipt(receiptPath, "cleanup-pending", { resourceIds: finalIDs });
+    else await updateResourceReceipt(receiptPath, "cleaned", { resourceIds: finalIDs });
+  } catch (error) {
+    errors.push(`cannot persist final resource inventory: ${scrub(error.message)}`);
+  }
+  const outcome = remaining === 0
+    ? "Compose down failed; exact project cleanup and empty final inventory succeeded"
+    : "Compose down failed and final project inventory is not empty";
+  reportComposeDownWarnings(outcome);
+  if (remaining > 0 && Array.isArray(options.cleanupWarnings)) {
+    errors.push(...composeDownWarnings.map((warning) => `resource ${project}: ${outcome}: ${warning}`));
+  }
+  return errors;
+}
+
+async function inspectProjectLabels(kind, id, project, runDocker, errors) {
+  const argumentsByKind = {
+    container: ["inspect", "--format", "{{json .Config.Labels}}", id],
+    volume: ["volume", "inspect", "--format", "{{json .Labels}}", id],
+    network: ["network", "inspect", "--format", "{{json .Labels}}", id],
+  };
+  const output = await runDocker(`${kind} label inspection ${id}`, argumentsByKind[kind]);
+  if (!output) return false;
+  if (output.truncatedBytes > 0) {
+    errors.push(`${kind} ${id} returned truncated label inventory`);
+    return false;
+  }
+  let labels;
+  try { labels = JSON.parse(output.rawPreview); }
+  catch { errors.push(`${kind} ${id} returned invalid label inventory`); return false; }
+  if (!labels || labels["com.docker.compose.project"] !== project) {
+    errors.push(`${kind} ${id} is not labeled for recorded project ${project}; it was not removed`);
+    return false;
+  }
+  return true;
+}
+
+async function cleanupRunResourceReceipts(options, excludedReceiptPath = null) {
+  const resourceDirectory = options.resourceDirectory ?? defaultResourceDirectory();
+  const runDirectory = path.join(resourceDirectory, options.runID ?? path.basename(options.runDirectory));
+  let names;
+  try { names = await fs.readdir(runDirectory); }
+  catch (error) { return error.code === "ENOENT" ? [] : [`cannot inventory run resource receipts: ${scrub(error.message)}`]; }
+  const errors = [];
+  for (const name of names.sort()) {
+    if (!/^resource-[A-Za-z0-9_.:-]{1,200}\.json$/.test(name)) {
+      errors.push(`run resource ledger contains an unexpected entry ${scrub(name)}`);
+      continue;
+    }
+    const receiptPath = path.join(runDirectory, name);
+    if (receiptPath === excludedReceiptPath) continue;
+    let receipt;
+    try { receipt = await readResourceReceipt(receiptPath); }
+    catch (error) { errors.push(`cannot validate run resource receipt ${scrub(name)}: ${scrub(error.message)}`); continue; }
+    if (receipt.runId !== (options.runID ?? path.basename(options.runDirectory))) {
+      errors.push(`resource receipt ${scrub(name)} has a mismatched run ID`);
+      continue;
+    }
+    if (receipt.state === "cleaned") continue;
+    errors.push(...await cleanupResourceReceipt(receiptPath, { ...options, recovery: true }));
+  }
+  return errors;
+}
+
+function isDockerManagedTask(task) {
+  return Boolean(task.servicePool || task.requiresDocker || task.usesDocker || task.container?.dockerSocket || path.basename(task.command?.[0] ?? "") === "docker");
+}
+
+async function establishLocalDockerIdentity(root, environment, signal) {
+  if (process.platform !== "linux") throw new Error("Docker-backed test selections require Linux and a local Docker daemon");
+  const context = String(environment.DOCKER_CONTEXT ?? "").trim();
+  const hostOverride = String(environment.DOCKER_HOST ?? "").trim();
+  let endpoint;
+  if (context) {
+    const result = await runExternal("docker", ["context", "inspect", context, "--format", '{{(index .Endpoints "docker").Host}}'], { cwd: root, timeoutMs: 5_000, environment, signal });
+    endpoint = result.stdout.preview.trim();
+    if (result.status !== 0 || !endpoint) throw new Error("cannot prove Docker context endpoint is local; refusing unlocked or remote Docker access");
+  } else if (hostOverride) {
+    endpoint = hostOverride;
+  } else {
+    const result = await runExternal("docker", ["context", "inspect", "--format", '{{(index .Endpoints "docker").Host}}'], { cwd: root, timeoutMs: 5_000, environment, signal });
+    endpoint = result.stdout.preview.trim();
+    if (result.status !== 0 || !endpoint) throw new Error("cannot prove current Docker context endpoint is local; refusing unlocked or remote Docker access");
+  }
+  if (!endpoint.startsWith("unix:///")) throw new Error(`Docker endpoint ${scrub(endpoint)} is not a supported local Unix socket; daemon-wide recovery is disabled for remote endpoints`);
+  const identity = await runExternal("docker", ["info", "--format", "{{.ID}}"], { cwd: root, timeoutMs: 10_000, environment, signal });
+  const daemonId = identity.stdout.preview.trim();
+  if (identity.status !== 0 || !daemonId) throw new Error(`cannot establish Docker daemon identity before resource mutation: ${scrub(identity.stderr.tailPreview || identity.stdout.tailPreview)}`);
+  return daemonId;
+}
+
+async function recoverStaleDaemonReceipts(daemonId, options) {
+  const root = options.resourceDirectory ?? defaultResourceDirectory();
+  let runEntries;
+  try { runEntries = await fs.readdir(root, { withFileTypes: true }); }
+  catch (error) { return error.code === "ENOENT" ? [] : [`cannot inventory Docker receipt ledger: ${scrub(error.message)}`]; }
+  const errors = [];
+  for (const runEntry of runEntries.sort((left, right) => left.name.localeCompare(right.name))) {
+    if (runEntry.name === "locks") continue;
+    if (!runEntry.isDirectory() || runEntry.isSymbolicLink() || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,190}$/.test(runEntry.name)) {
+      errors.push(`Docker receipt ledger contains an unexpected entry ${scrub(runEntry.name)}`);
+      continue;
+    }
+    const runDirectory = path.join(root, runEntry.name);
+    let receiptNames;
+    try { receiptNames = await fs.readdir(runDirectory); }
+    catch (error) { errors.push(`cannot inventory Docker receipt run ${scrub(runEntry.name)}: ${scrub(error.message)}`); continue; }
+    for (const name of receiptNames.sort()) {
+      if (!/^resource-[A-Za-z0-9_.:-]{1,200}\.json$/.test(name)) {
+        errors.push(`Docker receipt run ${scrub(runEntry.name)} contains an unexpected entry ${scrub(name)}`);
+        continue;
+      }
+      const receiptPath = path.join(runDirectory, name);
+      let receipt;
+      try { receipt = await readResourceReceipt(receiptPath); }
+      catch (error) { errors.push(`cannot validate Docker receipt ${scrub(runEntry.name)}/${scrub(name)}; record preserved: ${scrub(error.message)}`); continue; }
+      if (receipt.runId !== runEntry.name || name !== `resource-${receipt.project}.json`) {
+        errors.push(`Docker receipt ${scrub(runEntry.name)}/${scrub(name)} has mismatched run or project identity; record preserved`);
+        continue;
+      }
+      if (receipt.daemonId !== daemonId || receipt.state === "cleaned") continue;
+      let owner;
+      try { owner = await classifyReceiptOwner(receipt); }
+      catch (error) { errors.push(`cannot prove Docker receipt owner ${scrub(receipt.project)} dead; record preserved: ${scrub(error.message)}`); continue; }
+      if (owner.status === "active") {
+        errors.push(`Docker receipt ${scrub(receipt.project)} is still owned by an active supervisor (${scrub(owner.reason)}); no resource mutation started`);
+        continue;
+      }
+      if (owner.status !== "dead") {
+        errors.push(`Docker receipt ${scrub(receipt.project)} has an ambiguous supervisor (${scrub(owner.reason)}); record preserved`);
+        continue;
+      }
+      const cleanupOptions = resourceCleanupOptions(options);
+      const cleanupErrors = await cleanupResourceReceipt(receiptPath, { ...cleanupOptions, recovery: true });
+      errors.push(...cleanupErrors.map((error) => `recovery ${scrub(receipt.project)}: ${error}`));
+    }
+  }
   return errors;
 }
 
@@ -358,6 +914,7 @@ function resolvedEnvironment(task, options) {
     ...(task.environment ?? {}),
     HARDEN_LLM_TEST_SEED: String(options.seed ?? DEFAULT_SEED),
     HARDEN_LLM_TEST_RUN_ID: options.runID,
+    HARDEN_LLM_TEST_RESOURCE_DIR: options.resourceDirectory ?? defaultResourceDirectory(),
     HARDEN_LLM_BENCHMARK_COLD: options.cold ? "1" : "0",
   };
   if (task.network === "forbidden") {
@@ -396,6 +953,7 @@ export function resolvedCommand(task, options) {
   const containerEnvironment = {
     HARDEN_LLM_TEST_SEED: String(options.seed ?? DEFAULT_SEED),
     HARDEN_LLM_TEST_RUN_ID: options.runID ?? path.basename(options.runDirectory),
+    ...daemonLockEnvironment(options.daemonLockLease),
     ...(task.network === "forbidden" ? {
       HARDEN_LLM_TEST_NETWORK: "forbidden",
       HARDEN_LLM_TEST_OFFLINE: "1",
@@ -426,6 +984,7 @@ export async function runCommand(task, options) {
   const stdout = boundedCapture();
   const stderr = boundedCapture();
   const command = resolvedCommand(task, { ...options, taskDirectory });
+  command.environment = { ...command.environment, ...daemonLockEnvironment(options.daemonLockLease) };
   const startedAt = performance.now();
   let peakRSS = 0;
   let timedOut = false;
@@ -435,6 +994,9 @@ export async function runCommand(task, options) {
   let output = stdout.value;
   let errorOutput = stderr.value;
   let pool = null;
+  let resourceSampler = null;
+  let resourceSamplerStopped = false;
+  let failedReceiptPath = null;
   let timeMetrics = {};
   const result = {
     taskId: task.id,
@@ -457,18 +1019,61 @@ export async function runCommand(task, options) {
     failureSummary: null,
     failureDetail: null,
     cleanupError: null,
+    cleanupWarnings: [],
     servicePoolStarted: false,
     servicePoolProject: null,
     startedAtMs: null,
     endedAtMs: null,
   };
+  const taskOptions = { ...options, cleanupWarnings: result.cleanupWarnings };
   try {
+    if (process.platform === "linux" && command.environment) {
+      command.environment.HARDEN_LLM_TEST_SUPERVISOR_PID = String(process.pid);
+      command.environment.HARDEN_LLM_TEST_SUPERVISOR_START = await processStartIdentity(process.pid);
+    }
+    if (task.capacityReport && task.servicePool) {
+      const dataRootResult = await runExternal("docker", ["info", "--format", "{{.DockerRootDir}}"], {
+        cwd: options.root, signal: options.signal, timeoutMs: 5_000, environment: command.environment,
+      });
+      const dataRootLines = dataRootResult.stdout.preview.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      if (dataRootResult.status !== 0 || dataRootLines.length !== 1 || !path.isAbsolute(dataRootLines[0])) {
+        throw new Error("capacity safety stop: Docker data-root filesystem cannot be identified");
+      }
+      try {
+        taskOptions.capacityDockerDataRoot = await fs.realpath(dataRootLines[0]);
+        if (!(await fs.stat(taskOptions.capacityDockerDataRoot)).isDirectory()) throw new Error("not a directory");
+      } catch {
+        throw new Error("capacity safety stop: Docker data-root filesystem is not accessible for measurement");
+      }
+      const reason = capacitySafetyFailure(await hostResourceSample(options.root, taskOptions.capacityDockerDataRoot));
+      if (reason) throw new Error(reason);
+    }
     if (task.servicePool) {
-      pool = await startServicePool(task, options);
+      pool = await startServicePool(task, taskOptions);
       command.environment = {...command.environment, ...pool.environment};
       result.servicePoolStarted = true;
       result.servicePoolProject = pool.project;
     }
+    if (task.sampleDockerResources) {
+      if (!pool) throw new Error("Docker resource sampling requires the runner-owned service pool");
+      resourceSampler = startDockerResourceSampler(pool.project, command.environment, options.root, taskOptions.capacityDockerDataRoot ?? options.root);
+      const initialSample = await resourceSampler.sample();
+      if (task.capacityReport) {
+        const safetyFailure = capacitySafetyFailure(initialSample?.host);
+        if (safetyFailure) throw new Error(safetyFailure);
+        const imageIDs = initialSample?.containers?.map((container) => container.imageId) ?? [];
+        if (imageIDs.length !== task.servicePool.services.length || imageIDs.some((value) => !/^sha256:[a-f0-9]{64}$/i.test(value))) {
+          throw new Error("capacity fingerprint requires one exact immutable image identity per service-pool container");
+        }
+        const composeSHA256 = await sha256File(pool.composeFile);
+        const services = task.servicePool.services.map(({ name, port }) => ({ name, port })).sort((left, right) => left.name.localeCompare(right.name));
+        const topologySHA256 = createHash("sha256").update(JSON.stringify({ composeSHA256, services })).digest("hex");
+        command.environment.HARDEN_LLM_TEST_IMAGE_SET_SHA256 = hashImageIDs(imageIDs);
+        command.environment.HARDEN_LLM_TEST_TOPOLOGY_SHA256 = topologySHA256;
+      }
+    }
+    const capacityReportPath = task.capacityReport ? path.join(taskDirectory, "capacity-report.json") : null;
+    if (capacityReportPath) command.environment.HARDEN_LLM_CAPACITY_REPORT_PATH = capacityReportPath;
     const useGNUTime = process.platform === "linux" && await exists("/usr/bin/time");
     const executable = useGNUTime ? "/usr/bin/time" : command.executable;
     const args = useGNUTime ? ["-v", "-o", timePath, "--", command.executable, ...command.args] : command.args;
@@ -483,6 +1088,17 @@ export async function runCommand(task, options) {
 
     let sampling = true;
     let samplingInFlight = false;
+    let capacitySafetyStop = null;
+    let capacitySafetyKillTimer = null;
+    const safetyInterval = task.capacityReport && resourceSampler ? setInterval(() => {
+      if (capacitySafetyStop) return;
+      const reason = resourceSampler.safetyFailure();
+      if (!reason) return;
+      capacitySafetyStop = reason;
+      terminateProcessGroup(child, "SIGTERM");
+      capacitySafetyKillTimer = setTimeout(() => terminateProcessGroup(child, "SIGKILL"), TASK_TIMEOUT_GRACE_MS);
+      capacitySafetyKillTimer.unref();
+    }, 1_000) : null;
     const sampleRSS = async () => {
       if (!sampling || samplingInFlight || !child.pid) return;
       samplingInFlight = true;
@@ -506,11 +1122,18 @@ export async function runCommand(task, options) {
     });
     clearTimeout(timeoutTimer);
     if (killTimer) clearTimeout(killTimer);
+    if (capacitySafetyKillTimer) clearTimeout(capacitySafetyKillTimer);
+    if (safetyInterval) clearInterval(safetyInterval);
     options.signal?.removeEventListener("abort", abortHandler);
     sampling = false;
     clearInterval(interval);
     await sampleRSS();
+    if (resourceSampler && !resourceSamplerStopped) {
+      result.resourceMetrics = await resourceSampler.stop();
+      resourceSamplerStopped = true;
+    }
     status = outcome.error ? 1 : (outcome.exitCode ?? 1);
+    if (capacitySafetyStop) status = 1;
     signal = outcome.signal ?? null;
     try {
       timeMetrics = parseTimeFile(await fs.readFile(timePath, "utf8"));
@@ -520,16 +1143,43 @@ export async function runCommand(task, options) {
     output = stdout.value;
     errorOutput = stderr.value;
     const failureDiagnostic = `${errorOutput.tailPreview}\n${output.tailPreview}`;
-    failureSummary = status === 0 ? null : summarizeFailure(failureDiagnostic || `exit=${outcome.exitCode ?? "null"} signal=${outcome.signal ?? "none"}`);
+    failureSummary = status === 0 ? null : capacitySafetyStop ?? summarizeFailure(failureDiagnostic || `exit=${outcome.exitCode ?? "null"} signal=${outcome.signal ?? "none"}`);
   } catch (error) {
+    failedReceiptPath = error.resourceReceiptPath ?? null;
+    if (error.resourceCleanupErrors?.length) result.cleanupError = error.resourceCleanupErrors.join("; ");
     failureSummary = summarizeFailure(error?.message ?? String(error));
     errorOutput = { bytes: 0, preview: "", tailPreview: failureSummary, truncatedBytes: 0 };
   } finally {
+    if (resourceSampler && !resourceSamplerStopped) {
+      try {
+        result.resourceMetrics = await resourceSampler.stop();
+        resourceSamplerStopped = true;
+      } catch {
+        result.cleanupWarnings.push("capacity resource sampling did not finish; unavailable metrics remain unknown");
+      }
+    }
+    const cleanupOptions = resourceCleanupOptions(taskOptions);
     const containerError = await cleanupContainer(command.containerIDPath);
-    if (containerError) result.cleanupError = containerError;
+    if (containerError) result.cleanupError = [result.cleanupError, containerError].filter(Boolean).join("; ");
     if (pool) {
-      const poolErrors = await cleanupServicePool(pool, options);
-      if (poolErrors.length > 0) result.cleanupError = poolErrors.join("; ");
+      const poolErrors = await cleanupServicePool(pool, cleanupOptions);
+      if (poolErrors.length > 0) result.cleanupError = [result.cleanupError, ...poolErrors].filter(Boolean).join("; ");
+    }
+    if (pool || failedReceiptPath || task.servicePool || task.requiresDocker || task.usesDocker) {
+      const resourceErrors = await cleanupRunResourceReceipts(cleanupOptions, pool?.receiptPath ?? failedReceiptPath);
+      if (resourceErrors.length > 0) result.cleanupError = [result.cleanupError, ...resourceErrors].filter(Boolean).join("; ");
+    }
+  }
+  if (task.capacityReport) {
+    try {
+      result.capacityReport = await readCapacityReport(path.join(taskDirectory, "capacity-report.json"), options.runID ?? path.basename(options.runDirectory));
+    } catch (error) {
+      if (status === 0) {
+        status = 1;
+        failureSummary = `capacity report invalid or missing: ${scrub(error.message ?? String(error))}`;
+      } else {
+        result.capacityReportFailure = scrub(error.message ?? String(error));
+      }
     }
   }
   const endedAt = performance.now();
@@ -554,6 +1204,39 @@ export async function runCommand(task, options) {
     result.cleanupError = scrub(error.message);
   }
   return result;
+}
+
+const MAX_CAPACITY_REPORT_BYTES = 1 << 20;
+
+async function readCapacityReport(filename, expectedRunID) {
+  if (!Number.isInteger(fsConstants.O_NOFOLLOW) || typeof process.getuid !== "function") {
+    throw new Error("capacity report ownership and no-follow checks are unavailable on this platform");
+  }
+  const file = await fs.open(filename, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+  let content;
+  try {
+    const metadata = await file.stat();
+    if (!metadata.isFile() || metadata.uid !== process.getuid() || (metadata.mode & 0o077) !== 0 || metadata.size > MAX_CAPACITY_REPORT_BYTES) {
+      throw new Error("capacity report file type, ownership, permissions, or size is invalid");
+    }
+    const bounded = Buffer.alloc(MAX_CAPACITY_REPORT_BYTES + 1);
+    const { bytesRead } = await file.read(bounded, 0, bounded.length, 0);
+    const afterRead = await file.stat();
+    if (bytesRead !== metadata.size || afterRead.size !== metadata.size || bytesRead > MAX_CAPACITY_REPORT_BYTES) {
+      throw new Error("capacity report changed while being read or exceeded its byte limit");
+    }
+    content = bounded.subarray(0, bytesRead);
+  } finally {
+    await file.close();
+  }
+  if (content.byteLength > MAX_CAPACITY_REPORT_BYTES) throw new Error("capacity report exceeds its byte limit");
+  const report = JSON.parse(content.toString("utf8"));
+  if (!report || report.schemaVersion !== 1 || report.reportKind !== "harden-llm-capacity.v1" ||
+      report.testRunId !== expectedRunID || !["correctness", "exploration", "holdout"].includes(report.caseSet) ||
+      !Array.isArray(report.testIds) || !report.testIds.includes("TEST-277") || !Array.isArray(report.cases) || report.cases.length === 0) {
+    throw new Error("capacity report identity or contents are invalid");
+  }
+  return report;
 }
 
 function resourceAvailable(task, resourceClasses, state, candidateSlots) {
@@ -595,6 +1278,7 @@ function cancelledResult(task, reason) {
     failureSummary: reason,
     failureDetail: null,
     cleanupError: null,
+    cleanupWarnings: [],
     servicePoolStarted: false,
     servicePoolProject: null,
     startedAtMs: null,
@@ -610,6 +1294,62 @@ export async function runTasks(tasks, options) {
   validateTaskGraph(tasks, resourceClasses);
   const runDirectory = options.runDirectory ?? path.join(DEFAULT_RUN_ROOT, `run-${Date.now()}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`);
   await fs.mkdir(runDirectory, { recursive: true, mode: 0o700 });
+  const resourceDirectory = options.resourceDirectory
+    ?? options.environment?.HARDEN_LLM_TEST_RESOURCE_DIR
+    ?? defaultResourceDirectory();
+  const runOptions = { ...options, resourceDirectory, cleanupWarnings: [] };
+  const lifecycleState = { cleanupDeadline: null };
+  const lifecycleTimings = { dockerIdentityMs: null, daemonLockWaitMs: null, staleReceiptRecoveryMs: null };
+  let daemonLockLease = null;
+  let daemonLockCleanupError = null;
+  let preflightFailure = null;
+  if (!options.signal?.aborted && tasks.some(isDockerManagedTask)) {
+    try {
+      const dockerEnvironment = { ...process.env, ...(options.environment ?? {}) };
+      const identityStartedAt = performance.now();
+      let daemonId;
+      try { daemonId = await establishLocalDockerIdentity(options.root, dockerEnvironment, options.signal); }
+      finally { lifecycleTimings.dockerIdentityMs = Math.round(performance.now() - identityStartedAt); }
+      const lockWaitStartedAt = performance.now();
+      let needsRecovery = false;
+      try {
+        daemonLockLease = await inheritedDaemonLockLease({ daemonId, resourceDirectory, environment: dockerEnvironment });
+        if (!daemonLockLease) {
+          daemonLockLease = await acquireDaemonLock({
+            daemonId,
+            resourceDirectory,
+            waitMs: options.daemonLockWaitMs ?? 30_000,
+            environment: dockerEnvironment,
+            signal: options.signal,
+          });
+          needsRecovery = true;
+        }
+      } finally {
+        lifecycleTimings.daemonLockWaitMs = Math.round(performance.now() - lockWaitStartedAt);
+      }
+      if (needsRecovery) {
+        const recoveryStartedAt = performance.now();
+        let recoveryErrors;
+        try {
+          recoveryErrors = await recoverStaleDaemonReceipts(daemonId, {
+            ...runOptions,
+            daemonLockLease,
+            lifecycleState,
+          });
+        } finally {
+          lifecycleTimings.staleReceiptRecoveryMs = Math.round(performance.now() - recoveryStartedAt);
+        }
+        if (recoveryErrors.length > 0) throw new Error(`Docker resource recovery blocked before task execution: ${recoveryErrors.join("; ")}`);
+      }
+      runOptions.daemonLockLease = daemonLockLease;
+    } catch (error) {
+      if (lifecycleTimings.dockerIdentityMs === null) lifecycleTimings.dockerIdentityMs = 0;
+      preflightFailure = scrub(error.message ?? String(error));
+      try { await releaseDaemonLock(daemonLockLease); }
+      catch (releaseError) { preflightFailure += `; daemon lock release failed: ${scrub(releaseError.message)}`; }
+      daemonLockLease = null;
+    }
+  }
   const pending = new Set(tasks.map((task) => task.id));
   const byID = new Map(tasks.map((task) => [task.id, task]));
   const results = new Map();
@@ -617,8 +1357,18 @@ export async function runTasks(tasks, options) {
   const controller = new AbortController();
   const externalAbort = () => controller.abort();
   options.signal?.addEventListener("abort", externalAbort, { once: true });
-  let firstFailure = null;
+  let firstFailure = preflightFailure ? {
+    taskId: tasks[0]?.id ?? "docker-preflight",
+    status: 1,
+    failureSummary: `Docker preflight failed: ${preflightFailure}`,
+    failureDetail: null,
+  } : null;
   let graphError = null;
+
+  if (preflightFailure) {
+    for (const task of tasks) results.set(task.id, cancelledResult(task, `Docker preflight failed; task not started: ${preflightFailure}`));
+    pending.clear();
+  }
 
   try {
     while (pending.size > 0 || state.running.size > 0) {
@@ -626,7 +1376,7 @@ export async function runTasks(tasks, options) {
       for (const taskID of [...pending]) {
         const task = byID.get(taskID);
         const dependencyResults = (task.dependsOn ?? []).map((id) => results.get(id)).filter(Boolean);
-        if (dependencyResults.some((result) => result.status !== 0)) {
+        if (dependencyResults.some((result) => result.status !== 0 || result.cleanupError)) {
           results.set(task.id, cancelledResult(task, "dependency failed; task not started"));
           pending.delete(task.id);
           continue;
@@ -637,7 +1387,8 @@ export async function runTasks(tasks, options) {
         acquire(task, state);
         launched = true;
         runCommand(task, {
-          ...options,
+          ...runOptions,
+          lifecycleState,
           packageSlots: options.packageSlotsByTask?.[task.id] ?? options.packageSlots,
           runDirectory,
           runID: options.runID ?? path.basename(runDirectory),
@@ -645,8 +1396,12 @@ export async function runTasks(tasks, options) {
         }).then((result) => {
           results.set(task.id, result);
           release(task, state);
-          if (result.status !== 0 && !firstFailure) {
-            firstFailure = result;
+          if ((result.status !== 0 || result.cleanupError) && !firstFailure) {
+            firstFailure = result.status !== 0 ? result : {
+              ...result,
+              status: 1,
+              failureSummary: `cleanup failed: ${result.cleanupError}`,
+            };
             controller.abort();
           }
         }).catch((error) => {
@@ -675,18 +1430,28 @@ export async function runTasks(tasks, options) {
     options.signal?.removeEventListener("abort", externalAbort);
     if (state.running.size > 0) controller.abort();
     while (state.running.size > 0) await new Promise((resolve) => setTimeout(resolve, 10));
+    try { await releaseDaemonLock(daemonLockLease); }
+    catch (error) { daemonLockCleanupError = scrub(error.message); }
   }
 
   const orderedResults = tasks.map((task) => results.get(task.id) ?? cancelledResult(task, "task did not produce a result"));
   const cleanupErrors = [];
+  const cleanupWarnings = [
+    ...runOptions.cleanupWarnings,
+    ...orderedResults.flatMap((result) => result.cleanupWarnings ?? []),
+  ];
+  for (const result of orderedResults) {
+    if (result.cleanupError) cleanupErrors.push(`${result.taskId}: ${result.cleanupError}`);
+  }
   try {
     await fs.rm(runDirectory, { recursive: true, force: true });
   } catch (error) {
     cleanupErrors.push(scrub(error.message));
   }
   if (graphError) cleanupErrors.push(graphError.message);
+  if (daemonLockCleanupError) cleanupErrors.push(`daemon lock release: ${daemonLockCleanupError}`);
   return {
-    accepted: !graphError && firstFailure === null && orderedResults.every((result) => result.status === 0) && cleanupErrors.length === 0,
+    accepted: !graphError && firstFailure === null && orderedResults.every((result) => result.status === 0 && !result.cleanupError) && cleanupErrors.length === 0,
     runDirectory,
     results: orderedResults,
     firstFailure: firstFailure ? {
@@ -695,7 +1460,10 @@ export async function runTasks(tasks, options) {
       failureSummary: firstFailure.failureSummary,
       failureDetail: firstFailure.failureDetail,
     } : null,
+    preflightFailure,
+    lifecycleTimings,
     cleanupErrors,
+    cleanupWarnings,
   };
 }
 
@@ -716,6 +1484,40 @@ export async function runSelection({ manifest, selector, root = REPOSITORY_ROOT,
     runDirectory,
   });
   return { schemaVersion: 1, selector, seed, manifestSHA256: manifest.__manifestSHA256 ?? null, ...result };
+}
+
+export async function writeRunReport(report, reportPath) {
+  if (typeof reportPath !== "string" || reportPath.trim() === "") throw new Error("run report path is required");
+  const resolvedPath = path.resolve(reportPath);
+  const payload = `${JSON.stringify(report, null, 2)}\n`;
+  const payloadBytes = Buffer.byteLength(payload, "utf8");
+  if (payloadBytes > MAX_RUN_REPORT_BYTES) throw new Error(`run report exceeds the ${MAX_RUN_REPORT_BYTES}-byte limit (${payloadBytes} bytes)`);
+  const directory = path.dirname(resolvedPath);
+  await fs.mkdir(directory, { recursive: true, mode: 0o700 });
+  const temporaryPath = path.join(directory, `.${path.basename(resolvedPath)}.${process.pid}.${randomBytes(8).toString("hex")}.tmp`);
+  const handle = await fs.open(temporaryPath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY, 0o600);
+  let writeError = null;
+  try {
+    await handle.writeFile(payload, "utf8");
+    await handle.sync();
+  } catch (error) {
+    writeError = error;
+  }
+  try { await handle.close(); }
+  catch (error) { writeError ??= error; }
+  if (writeError) {
+    await fs.unlink(temporaryPath).catch(() => {});
+    throw writeError;
+  }
+  try {
+    await fs.rename(temporaryPath, resolvedPath);
+    const directoryHandle = await fs.open(directory, "r");
+    try { await directoryHandle.sync(); } finally { await directoryHandle.close(); }
+  } catch (error) {
+    await fs.unlink(temporaryPath).catch(() => {});
+    throw error;
+  }
+  return resolvedPath;
 }
 
 function parseArgs(argv) {
@@ -760,14 +1562,10 @@ export async function main(argv = process.argv.slice(2)) {
   process.once("SIGTERM", onSignal);
   try {
     const result = await runSelection({ ...args, manifest, signal: controller.signal });
-    const output = { ...result, generatedAt: new Date().toISOString() };
-    if (args.output) {
-      await fs.mkdir(path.dirname(args.output), { recursive: true });
-      const temporaryPath = `${args.output}.writing`;
-      await fs.writeFile(temporaryPath, `${JSON.stringify(output, null, 2)}\n`, { mode: 0o600 });
-      await fs.rename(temporaryPath, args.output);
-    }
-    console.log(JSON.stringify({ accepted: output.accepted, selector: output.selector, taskCount: output.results.length, failure: output.firstFailure, cleanupErrors: output.cleanupErrors, output: args.output ?? null }));
+    const reportPath = args.output ?? path.join(args.root, "tmp", "test-feedback", `runner-${Date.now()}-${process.pid}-${randomBytes(8).toString("hex")}.json`);
+    const output = { ...result, generatedAt: new Date().toISOString(), reportPath };
+    await writeRunReport(output, reportPath);
+    console.log(JSON.stringify({ accepted: output.accepted, selector: output.selector, taskCount: output.results.length, failure: output.firstFailure, cleanupErrors: output.cleanupErrors, cleanupWarnings: output.cleanupWarnings, output: reportPath }));
     return output.accepted ? 0 : 1;
   } finally {
     process.removeListener("SIGINT", onSignal);

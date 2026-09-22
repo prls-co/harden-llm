@@ -70,13 +70,17 @@ func start(t testing.TB, serviceName string, containerPort int) *Service {
 	root := repositoryRoot(t)
 	composeFile := filepath.Join(root, "deploy", "test", "compose.integration.yml")
 	project := "harden-llm-test-exclusive-" + randomSuffix(t)
+	receiptPath, err := RegisterResourceReceipt(project, []string{composeFile})
+	if err != nil {
+		t.Fatalf("register exclusive Compose ownership before Docker mutation: %v", err)
+	}
+	if err := AdvanceResourceReceipt(receiptPath, "creating"); err != nil {
+		t.Fatalf("record exclusive Compose creation state before Docker mutation: %v", err)
+	}
 	service := &Service{composeFile: composeFile, containerPort: containerPort, project: project, service: serviceName}
 	// Prefer the pinned local image and only contact the registry when it is
 	// missing. An unconditional pull makes otherwise-hermetic integration tests
 	// depend on registry availability and can hang before the test starts.
-	service.run(t, "up", "-d", "--wait", "--pull", "missing", serviceName)
-	service.refreshEndpoint(t)
-	waitTCP(t, service.Endpoint, 45*time.Second)
 	service.release = newLeaseState(func(ctx context.Context) error {
 		command := exec.CommandContext(ctx, "docker", "compose", "-f", composeFile, "-p", project, "down", "-v", "--remove-orphans")
 		if output, err := command.CombinedOutput(); err != nil {
@@ -85,12 +89,33 @@ func start(t testing.TB, serviceName string, containerPort int) *Service {
 		return nil
 	})
 	t.Cleanup(func() {
+		stateErr := AdvanceResourceReceipt(receiptPath, "cleaning")
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		if err := service.Release(ctx); err != nil {
-			t.Errorf("exclusive service cleanup: %v", err)
+		cleanupErr := service.Release(ctx)
+		if stateErr != nil {
+			_ = AdvanceResourceReceipt(receiptPath, "cleanup-pending")
+			t.Errorf("record exclusive service cleanup state: %v", stateErr)
+			if cleanupErr != nil {
+				t.Errorf("exclusive service cleanup: %v", cleanupErr)
+			}
+			return
+		}
+		if cleanupErr != nil {
+			_ = AdvanceResourceReceipt(receiptPath, "cleanup-pending")
+			t.Errorf("exclusive service cleanup: %v", cleanupErr)
+			return
+		}
+		if err := AdvanceResourceReceipt(receiptPath, "cleaned"); err != nil {
+			t.Errorf("record exclusive service cleanup completion: %v", err)
 		}
 	})
+	service.run(t, "up", "-d", "--wait", "--pull", "missing", serviceName)
+	if err := AdvanceResourceReceipt(receiptPath, "running"); err != nil {
+		t.Fatalf("record exclusive service startup: %v", err)
+	}
+	service.refreshEndpoint(t)
+	waitTCP(t, service.Endpoint, 45*time.Second)
 	return service
 }
 

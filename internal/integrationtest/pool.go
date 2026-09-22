@@ -198,6 +198,36 @@ func GetGarageObject(ctx context.Context, fixture Garage, relative string) ([]by
 	return io.ReadAll(output.Body)
 }
 
+// GetGarageOwnerTraceArtifact reads one exact canonical application artifact
+// key below the synthetic owner's trace prefix. Unlike GetGarageObject, this
+// deliberately does not prepend the fixture's scratch namespace because the
+// real gateway uses its production owner-scoped prefix inside the test bucket.
+func GetGarageOwnerTraceArtifact(ctx context.Context, fixture Garage, ownerID, objectKey string) ([]byte, error) {
+	prefix, err := ownerTracePrefix(ownerID)
+	if err != nil {
+		return nil, err
+	}
+	if !strings.HasPrefix(objectKey, prefix) || strings.Contains(objectKey, "..") || strings.ContainsAny(objectKey, "\\\\\x00") {
+		return nil, errors.New("Garage artifact key is outside the exact synthetic owner prefix")
+	}
+	client := newGarageClient(fixture)
+	requestContext, cancel := context.WithTimeout(ctx, leaseOperationTimeout)
+	defer cancel()
+	output, err := client.GetObject(requestContext, &s3.GetObjectInput{Bucket: aws.String(fixture.Bucket), Key: aws.String(objectKey)})
+	if err != nil {
+		return nil, err
+	}
+	defer output.Body.Close()
+	content, err := io.ReadAll(io.LimitReader(output.Body, (4<<20)+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(content) > 4<<20 {
+		return nil, errors.New("Garage trace artifact exceeded the 4 MiB test-read bound")
+	}
+	return content, nil
+}
+
 // DeleteGarageObject deletes one relative leased object.
 func DeleteGarageObject(ctx context.Context, fixture Garage, relative string) error {
 	key, err := fixtureKey(fixture, relative, false)
@@ -218,6 +248,61 @@ func ListGarageObjects(ctx context.Context, fixture Garage, relativePrefix strin
 		return nil, err
 	}
 	return listGarageKeys(ctx, fixture, keyPrefix)
+}
+
+// DeleteGarageOwnerTraceArtifacts removes only the canonical application trace
+// prefix for one validated synthetic test owner. It is intentionally separate
+// from the lease namespace: the real gateway scopes artifacts by owner ID.
+func DeleteGarageOwnerTraceArtifacts(ctx context.Context, fixture Garage, ownerID string) error {
+	prefix, err := ownerTracePrefix(ownerID)
+	if err != nil {
+		return err
+	}
+	keys, err := listGarageKeys(ctx, fixture, prefix)
+	if err != nil {
+		return fmt.Errorf("list owner-scoped Garage artifacts: %w", err)
+	}
+	for _, key := range keys {
+		if !strings.HasPrefix(key, prefix) {
+			return errors.New("Garage artifact inventory escaped the exact owner prefix")
+		}
+	}
+	client := newGarageClient(fixture)
+	requestContext, cancel := context.WithTimeout(ctx, leaseCleanupTimeout)
+	defer cancel()
+	for start := 0; start < len(keys); start += 1000 {
+		end := min(start+1000, len(keys))
+		objects := make([]types.ObjectIdentifier, 0, end-start)
+		for _, key := range keys[start:end] {
+			objects = append(objects, types.ObjectIdentifier{Key: aws.String(key)})
+		}
+		if _, err := client.DeleteObjects(requestContext, &s3.DeleteObjectsInput{
+			Bucket: aws.String(fixture.Bucket), Delete: &types.Delete{Objects: objects, Quiet: aws.Bool(true)},
+		}); err != nil {
+			return fmt.Errorf("delete owner-scoped Garage artifacts: %w", err)
+		}
+	}
+	remaining, err := listGarageKeys(requestContext, fixture, prefix)
+	if err != nil {
+		return fmt.Errorf("verify owner-scoped Garage artifact cleanup: %w", err)
+	}
+	if len(remaining) != 0 {
+		return fmt.Errorf("owner-scoped Garage artifact prefix retained %d objects", len(remaining))
+	}
+	return nil
+}
+
+func ownerTracePrefix(ownerID string) (string, error) {
+	if len(ownerID) == 0 || len(ownerID) > 100 {
+		return "", errors.New("Garage artifact owner ID is outside the bounded test format")
+	}
+	for _, character := range ownerID {
+		if (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '-' {
+			continue
+		}
+		return "", errors.New("Garage artifact owner ID contains unsupported characters")
+	}
+	return "llm-traces/" + ownerID + "/", nil
 }
 
 // DatabaseExists reports the exact lease inventory without failing the caller

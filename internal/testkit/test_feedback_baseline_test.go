@@ -113,7 +113,7 @@ func TestTestFeedbackBaselineContract(t *testing.T) {
 		"go test integration race":     {"go", "test", "-race", "-p=${HARDEN_LLM_TEST_PACKAGE_SLOTS}", "./...", "-tags=integration", "-count=1"},
 		"make test-api":                {"make", "test-api"},
 		"make test-observability":      {"make", "test-observability"},
-		"make test-compose":            {"make", "test-compose"},
+		"go compose":                   {"go", "test", "./internal/smoke/...", "-tags=compose", "-run", "TestComposeSmoke", "-count=1"},
 		"make test-race":               {"make", "test-race"},
 		"make test-vulnerability":      {"make", "test-vulnerability"},
 		"make live-structured-call":    {"make", "live-structured-call"},

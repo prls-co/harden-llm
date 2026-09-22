@@ -9,10 +9,15 @@ on:
   workflow_dispatch:
     inputs:
       suite:
-        description: 'Browser tests run ONLY when explicitly selected here'
+        description: 'Expensive service and browser suites run only when explicitly selected here'
         type: choice
         default: fast
-        options: [fast, integration, release, browser, full-with-browser]
+        options: [fast, integration, lifecycle, capacity, release, browser, full-with-browser]
+      capacityCaseSet:
+        description: 'Scenario set for the explicit synthetic capacity suite'
+        type: choice
+        default: correctness
+        options: [correctness, exploration, holdout]
   schedule:
     - cron: "17 5 * * *"
 
@@ -35,6 +40,8 @@ jobs:
     outputs:
       fast: ${{ steps.mode.outputs.fast }}
       integration: ${{ steps.mode.outputs.integration }}
+      lifecycle: ${{ steps.mode.outputs.lifecycle }}
+      capacity: ${{ steps.mode.outputs.capacity }}
       release: ${{ steps.mode.outputs.release }}
       browser: ${{ steps.mode.outputs.browser }}
       browserCompose: ${{ steps.mode.outputs.browserCompose }}
@@ -81,6 +88,14 @@ jobs:
       - working-directory: frontend
         run: mix deps.get
       - run: make test-fast
+      - name: Upload redacted runner reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harden-llm-runner-reports-${{ github.run_id }}-${{ github.run_attempt }}-fast
+          path: tmp/test-feedback/runner-*.json
+          if-no-files-found: warn
+          retention-days: 14
 
   integration:
     name: pooled T3 integration
@@ -99,6 +114,72 @@ jobs:
       - run: go mod download
       - run: make test-integration
       - run: make test-integration-race
+      - name: Upload redacted runner reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harden-llm-runner-reports-${{ github.run_id }}-${{ github.run_attempt }}-integration
+          path: tmp/test-feedback/runner-*.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  lifecycle:
+    name: explicit Docker lifecycle fault suite
+    needs: mode
+    if: needs.mode.outputs.lifecycle == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: harden-llm-lifecycle-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Fetch exact pinned lifecycle fixture image
+        run: docker pull alpine@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc
+      - name: Run owned Docker lifecycle fault suite
+        run: node scripts/run-test-tier.mjs --task test-resource-lifecycle-docker
+      - name: Upload lifecycle runner report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harden-llm-lifecycle-${{ github.run_id }}-${{ github.run_attempt }}
+          path: tmp/test-feedback/runner-*.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  capacity:
+    name: explicit synthetic capacity suite
+    needs: mode
+    if: needs.mode.outputs.capacity == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    concurrency:
+      group: harden-llm-capacity-${{ github.ref }}
+      cancel-in-progress: false
+    env:
+      HARDEN_LLM_CAPACITY_CASE_SET: ${{ inputs.capacityCaseSet }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: go mod download
+      - name: Run isolated real-gateway capacity suite
+        run: node scripts/run-test-tier.mjs --task capacity-baseline --output "tmp/test-feedback/runner-capacity-${{ github.run_id }}-${{ github.run_attempt }}.json"
+      - name: Upload redacted capacity and runner report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harden-llm-capacity-${{ github.run_id }}-${{ github.run_attempt }}
+          path: tmp/test-feedback/runner-capacity-*.json
+          if-no-files-found: warn
+          retention-days: 14
 
   browser:
     name: explicitly requested browser checks
@@ -153,3 +234,11 @@ jobs:
       - working-directory: frontend
         run: mix deps.get
       - run: make test-release
+      - name: Upload redacted runner reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harden-llm-runner-reports-${{ github.run_id }}-${{ github.run_attempt }}-release
+          path: tmp/test-feedback/runner-*.json
+          if-no-files-found: warn
+          retention-days: 14

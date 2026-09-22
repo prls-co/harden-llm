@@ -31,6 +31,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prls-co/harden-llm/internal/integrationtest"
 	"github.com/prls-co/harden-llm/internal/retry"
 )
 
@@ -72,24 +73,45 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 	}
 	project := fmt.Sprintf("harden-llm-smoke-%d-%d", os.Getpid(), time.Now().UnixNano())
 	secrets := smokeEnvironment(t, material, httpPort, httpsPort)
-	runner := composeRunner{
-		root: root, project: project, environment: secrets,
-		files: []string{
-			filepath.Join(root, "docker-compose.yml"),
-			filepath.Join(root, "deploy", "langfuse", "docker-compose.upstream.yml"),
-			filepath.Join(root, "deploy", "langfuse", "compose.private.yml"),
-			filepath.Join(root, "deploy", "test", "compose.smoke.yml"),
-		},
+	composeFiles := []string{
+		filepath.Join(root, "docker-compose.yml"),
+		filepath.Join(root, "deploy", "langfuse", "docker-compose.upstream.yml"),
+		filepath.Join(root, "deploy", "langfuse", "compose.private.yml"),
+		filepath.Join(root, "deploy", "test", "compose.smoke.yml"),
 	}
-	_ = runner.run(context.Background(), nil, "down", "--volumes", "--remove-orphans", "--timeout", "10")
+	runner := composeRunner{
+		root: root, project: project, environment: secrets, files: composeFiles,
+	}
+	receiptPath, err := integrationtest.RegisterResourceReceipt(project, composeFiles)
+	if err != nil {
+		t.Fatalf("register Compose smoke ownership before Docker mutation: %v", err)
+	}
+	if err := integrationtest.AdvanceResourceReceipt(receiptPath, "creating"); err != nil {
+		t.Fatalf("record Compose smoke creation state before Docker mutation: %v", err)
+	}
 	t.Cleanup(func() {
 		if t.Failed() {
 			t.Logf("Compose diagnostics before cleanup:\n%s", runner.diagnostics())
 		}
+		stateErr := integrationtest.AdvanceResourceReceipt(receiptPath, "cleaning")
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
-		if err := runner.run(ctx, nil, "down", "--volumes", "--remove-orphans", "--timeout", "20"); err != nil {
-			t.Logf("Compose cleanup: %v", err)
+		cleanupErr := runner.run(ctx, nil, "down", "--volumes", "--remove-orphans", "--timeout", "20")
+		if stateErr != nil {
+			_ = integrationtest.AdvanceResourceReceipt(receiptPath, "cleanup-pending")
+			t.Errorf("record Compose smoke cleanup state: %v", stateErr)
+			if cleanupErr != nil {
+				t.Errorf("Compose cleanup: %v", cleanupErr)
+			}
+			return
+		}
+		if cleanupErr != nil {
+			_ = integrationtest.AdvanceResourceReceipt(receiptPath, "cleanup-pending")
+			t.Errorf("Compose cleanup: %v", cleanupErr)
+			return
+		}
+		if err := integrationtest.AdvanceResourceReceipt(receiptPath, "cleaned"); err != nil {
+			t.Errorf("record Compose smoke cleanup completion: %v", err)
 		}
 	})
 
@@ -102,10 +124,13 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 
 	started := time.Now()
 	startContext, cancelStart := context.WithTimeout(context.Background(), 6*time.Minute)
-	err := runner.run(startContext, nil, "up", "-d", "--build", "--wait", "--wait-timeout", "300")
+	err = runner.run(startContext, nil, "up", "-d", "--build", "--wait", "--wait-timeout", "300")
 	cancelStart()
 	if err != nil {
 		t.Fatalf("start Compose stack: %v\n%s", err, runner.diagnostics())
+	}
+	if err := integrationtest.AdvanceResourceReceipt(receiptPath, "running"); err != nil {
+		t.Fatalf("record Compose smoke startup: %v", err)
 	}
 	readiness := time.Since(started)
 	if readiness > readinessBudget {
@@ -121,7 +146,10 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 
 	bootstrapPassword := "Smoke-user-password-7xQ2mV9p"
 	bootstrapContext, cancelBootstrap := context.WithTimeout(context.Background(), 45*time.Second)
-	if err := runner.run(bootstrapContext, strings.NewReader(bootstrapPassword+"\n"), "run", "--rm", "-T", "harden-llm-gateway",
+	// The full stack has already passed Compose readiness, topology, and HTTP
+	// health checks. Reuse those services and the just-built image for this
+	// one-shot command instead of resolving/restarting dependencies or pulling.
+	if err := runner.run(bootstrapContext, strings.NewReader(bootstrapPassword+"\n"), "run", "--rm", "--no-deps", "--pull", "never", "-T", "harden-llm-gateway",
 		"bootstrap-user", "--owner-id", "smoke-owner", "--email", "smoke@example.test", "--password-file", "-"); err != nil {
 		cancelBootstrap()
 		t.Fatalf("bootstrap smoke user: %v", err)

@@ -79,6 +79,21 @@ fast tier. TEST-269 remains the existing operator-only paired production check.
 EVAL-008 through EVAL-012 are bound to measured cleanup, bounded synthetic
 capacity, holdout and release evidence; they do not assign a production SLO.
 
+For TEST-272/274, a failed best-effort Compose `down` remains visible in the
+managed report's `cleanupWarnings`; it is non-fatal only after exact fallback
+cleanup, empty final inventory, and a durable `cleaned` receipt. Unknown or
+incomplete cleanup remains a failure.
+
+TEST-271 through TEST-273 run in the cheap, offline `runner-contracts` task;
+TEST-280 runs through `go-static` as an untagged receipt-contract test. The
+public `make test-compose` entrypoint delegates to the manifest-owned
+`go-compose` task, whose command is the original raw Go smoke invocation and is
+marked Docker-backed so the shared daemon guard applies without Make recursion.
+Runner CLI reports are atomic, private, and size-bounded under ignored
+`tmp/test-feedback/`; the fast, integration, and release workflow jobs upload
+them with always-run artifact steps. They contain bounded task diagnostics,
+not request bodies, and are not a persistence service for production traces.
+
 ## Frontend traceability
 
 The separate `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001` contract maps as follows:
