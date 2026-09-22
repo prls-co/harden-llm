@@ -2271,14 +2271,13 @@ scoped gateway release.
 | Documentation/configuration integrity | Sixteen Bash fences parsed after documented placeholder substitution; 42 local Markdown links resolved; `jq empty config/production-config.example.json` and `git diff --check` passed. |
 | Historical archive | Unchanged SHA-256 `60b771ebdb807f306557f383208d6c2c30e6b6cb87ebfc0337f7f8001bb6c785`; contents remain the retired publisher workflow, its contract test, and the historical Dockerfile. |
 
-The production observations in the preceding retirement record are retained
-evidence, not fresh probes from this correction. No release workflow was
-dispatched; no application build, image/package operation, descriptor write,
+During plan implementation, production observations in the preceding
+retirement record were retained evidence; no release workflow was dispatched,
+and no application build, image/package operation, descriptor write,
 deployment, browser test, paid-provider call, or production runtime probe was
 performed. The implementation and evidence commits were pushed non-force to
 `main`; the final record-only closeout commit changes only this documentation
-and the completed plan. Its exact remote identity remains session handoff
-evidence rather than a self-referential value in its own content.
+and the completed plan. Its exact remote identity is available in Git history.
 
 Remaining risks are unchanged: the host-local image is not off-host disaster
 recovery, a source rebuild is not certified byte-identical, package restoration
@@ -2286,3 +2285,24 @@ is conditional and untested, and the local tag procedure assumes one operator
 per release tag. The fast gate also captured existing compiler/dependency
 deprecation and type warnings; every task still exited zero, so warning cleanup
 is separate maintenance rather than evidence of a failed runbook correction.
+
+### Post-closeout production disposition — 2026-09-22
+
+After the follow-up request to deploy this closeout, production was checked
+read-only against the approved local descriptor. The change contains no
+application source or build input, so it has no new runtime artifact to
+promote. Both application services were already running their recorded
+application releases and matched their candidate metadata; the whole selected
+gateway/web configuration was equivalent. No apply, image build, restart, or
+deployment was performed.
+
+| Fresh check | Result |
+| --- | --- |
+| Gateway candidate | `production-config check --services harden-llm-gateway --expected-release 6887fcd8146961dc64598dd7a236e7a9fc522c9c`: `equivalent`, runtime verified. |
+| Web candidate | `production-config check --services harden-llm-web --expected-release 3201fd249f86031292be1c47acf64e0eb8a4540b`: `equivalent`, runtime verified. |
+| Combined gateway/web descriptor | Read-only `production-config check`: `equivalent`; no service recreation required. |
+| Public HTTP probes | Web `/healthz` and `/login`, API `/healthz` and `/readyz`: HTTP 200. |
+
+These checks confirm the already-deployed application state; they do not claim
+that the documentation is rendered by the application or that a new
+application revision was deployed. No browser or provider call was made.
