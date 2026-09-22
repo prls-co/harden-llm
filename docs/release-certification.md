@@ -2263,6 +2263,8 @@ scoped gateway release.
 | Repository check | Result |
 | --- | --- |
 | `make test-fast` | Accepted all 10 offline T0–T2 tasks with zero nonzero statuses, timeouts, cleanup errors, or cleanup warnings. Private report: `tmp/test-feedback/runner-1790104183595-1749921-543e678fee05d739.json`. |
+| Hosted `main` fast gate | Passed the mode and fast T0–T2 jobs on delivery checkpoint `eb770974c8112cdab125910d7c9e5e1d215c12c8`; the fast job completed in 2m18s. Higher-cost capacity, T3, lifecycle, release, and browser jobs were intentionally not selected. [Run 35772546786](https://github.com/prls-co/harden-llm/actions/runs/35772546786). |
+| CodeQL | Passed Actions, Go, and JavaScript/TypeScript analysis on the same delivery checkpoint. [Run 35772546559](https://github.com/prls-co/harden-llm/actions/runs/35772546559). |
 | Focused production-config tests | `node --test scripts/test/production_config_test.mjs`: 13/13 passed, including TEST-233, TEST-234, and TEST-260. |
 | Local build recipe | The marked documentation fence passed `bash -n` and 30 isolated fake-tool executions covering RB-01 through RB-11 and cleanup failures. No real Docker, Git worktree, network, or production operation was reachable. |
 | Release source selection | A disposable pure verifier passed 27/27 cases, including exact docs-after-app selection and rejection of moving-ref substitution, unmerged or fast-only evidence, absent/ambiguous dispatch URLs, API/view disagreement, and missing/failed/skipped release jobs or steps. |
@@ -2273,8 +2275,10 @@ The production observations in the preceding retirement record are retained
 evidence, not fresh probes from this correction. No release workflow was
 dispatched; no application build, image/package operation, descriptor write,
 deployment, browser test, paid-provider call, or production runtime probe was
-performed. Hosted `main` results and the final remote SHA are external delivery
-evidence and must be reported only after the non-force push completes.
+performed. The implementation and evidence commits were pushed non-force to
+`main`; the final record-only closeout commit changes only this documentation
+and the completed plan. Its exact remote identity remains session handoff
+evidence rather than a self-referential value in its own content.
 
 Remaining risks are unchanged: the host-local image is not off-host disaster
 recovery, a source rebuild is not certified byte-identical, package restoration
