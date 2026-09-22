@@ -4,7 +4,7 @@
 
 - Plan: `PLAN-HLLM-LOCAL-RELEASE-RUNBOOK-001`.
 - Date: 2026-09-22.
-- Status: implementation in progress; P00-P04 complete.
+- Status: implementation in progress; P00-P04 and P05.S01-P05.S02 complete.
 - Reviewed source: `30adad594ec3ed61b186a32a7b72636e0e01fb51`.
 - Audience: an implementer such as GPT-5.6 Luna running in Codex CLI.
 - Governing instructions: [AGENTS.md](../AGENTS.md) and the complete
@@ -387,7 +387,7 @@ administrative restoration option accurately.
   Confirm changes are confined to the declared documentation surface and that
   the verifier/temp artifacts have not been staged. Summarize all Section 6
   outcomes and any limitations.
-- [ ] **P05.S02 Record final evidence.** Update this plan and append a concise
+- [x] **P05.S02 Record final evidence.** Update this plan and append a concise
   release-record entry: source/documentation commit where known, changed
   files, syntax/probe/test results, and remaining risks. Label retained prior
   production observations as retained. State that no application build,
@@ -494,7 +494,7 @@ or a new unresolved boundary justifies them.
 | P02 | Complete | The spec contains one marked 105-line Bash recipe with fail-fast execution, exact source/worktree/image/version assertions, explicit context on every Docker command, diagnostic retention, and success-only cleanup. Disposable verifier `/tmp/hllm-runbook-verifier.dlJEUQ/verify.mjs` extracted the actual fence, passed `bash -n`, and passed 30 isolated executions covering RB-01 through RB-11 plus worktree-remove/rmdir failures. The success case had exactly 14 calls in order. No real Git worktree, Docker, network, package, or production command was reachable. Evidence directory: `/tmp/hllm-runbook-verifier.dlJEUQ/run-LQUXmT`. |
 | P03 | Complete | The spec and KER-IBD-005/006 now distinguish `check` exits 0/2/1 from `apply` exits 0/1, require field-by-field review, warn against blind retry after post-`up` failure, and restore only gateway fields. Environment/self-hosting examples now use service-specific candidate SHAs. The canonical descriptor example added `identity` to the gateway allowlist, matching the existing valid TEST-260 fixture and live policy. `jq empty` passed; focused TEST-233/234/260 passed 13/13 in 0.64 seconds; searches found no remaining combined gateway/web candidate command or blanket resolve-all instruction in the active guides. |
 | P04 | Complete | GitHub's current documentation still describes restoration within 30 days only when the same package namespace/version remains available and the operator has the required permission. The spec, ADR, latest cleanup record, and scale-plan lifecycle note now describe that as an untested administrative possibility rather than a backup. They preserve current pull unavailability, the retained local-image/source-rebuild path, the 2026-09-22 deletion fact, and the historical publication/deployment identities. The publisher archive remains unchanged at SHA-256 `60b771ebdb807f306557f383208d6c2c30e6b6cb87ebfc0337f7f8001bb6c785` with exactly the recorded workflow, test, and Dockerfile. No restoration or package operation ran. |
-| P05 | In progress; S01 complete | Complete-diff validation passed: 16 Bash fences parsed after substituting documented angle-bracket placeholders, 42 local Markdown links resolved, `jq empty` accepted the descriptor example, and `git diff --check` passed. RB-12's disposable pure verifier passed 27/27 exact-run acceptance/rejection cases. The final RB-01–RB-11 run passed all 30 isolated shell scenarios and retained evidence at `/tmp/hllm-runbook-verifier.dlJEUQ/run-ili8CJ`. The required focused test passed 13/13 in 0.52 seconds. The broader offline `make test-fast` gate also accepted all 10 tasks with zero nonzero statuses, timeouts, cleanup errors, or cleanup warnings; report `tmp/test-feedback/runner-1790104183595-1749921-543e678fee05d739.json`. No browser, provider, release suite, real Docker build, workflow dispatch, package operation, or production action ran. |
+| P05 | In progress; S01-S02 complete | Complete-diff validation passed: 16 Bash fences parsed after substituting documented angle-bracket placeholders, 42 local Markdown links resolved, `jq empty` accepted the descriptor example, and `git diff --check` passed. RB-12's disposable pure verifier passed 27/27 exact-run acceptance/rejection cases. The final RB-01–RB-11 run passed all 30 isolated shell scenarios and retained evidence at `/tmp/hllm-runbook-verifier.dlJEUQ/run-ili8CJ`. The required focused test passed 13/13 in 0.52 seconds. The broader offline `make test-fast` gate also accepted all 10 tasks with zero nonzero statuses, timeouts, cleanup errors, or cleanup warnings; report `tmp/test-feedback/runner-1790104183595-1749921-543e678fee05d739.json`. The release record names primary implementation commit `522aa778c6cc05c69aec6b2d80923cf47c496033`, all changed surfaces, fresh local checks, retained observations, limitations, and remaining risks. No browser, provider, release suite, real Docker build, workflow dispatch, package operation, or production action ran. |
 
 Planning validation on 2026-09-22 confirmed six phases, 18 ordered step IDs,
 12 acceptance-case labels, 17 valid local file links, balanced code fences,

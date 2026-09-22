@@ -2247,3 +2247,38 @@ The hosted run reported the existing `actions/checkout@v4` Node 20 deprecation
 and the announced `ubuntu-latest` migration to Ubuntu 26 as non-blocking
 warnings. They do not indicate a test failure and are not part of this
 publisher-retirement scope.
+
+## Local gateway release runbook hardening — repository closeout (2026-09-22)
+
+Primary implementation commit
+`522aa778c6cc05c69aec6b2d80923cf47c496033` corrects the future local-image
+runbook without building or deploying an application image. It binds a future
+build to one exact merged release-run SHA and attempt, replaces the unsafe
+shell example with a fail-fast recipe, documents the existing deployment
+check/apply boundary, makes gateway candidate checks service-specific, and
+records GitHub's conditional deleted-package restoration window. The nonsecret
+descriptor example now permits the already-tested `identity` difference for a
+scoped gateway release.
+
+| Repository check | Result |
+| --- | --- |
+| `make test-fast` | Accepted all 10 offline T0–T2 tasks with zero nonzero statuses, timeouts, cleanup errors, or cleanup warnings. Private report: `tmp/test-feedback/runner-1790104183595-1749921-543e678fee05d739.json`. |
+| Focused production-config tests | `node --test scripts/test/production_config_test.mjs`: 13/13 passed, including TEST-233, TEST-234, and TEST-260. |
+| Local build recipe | The marked documentation fence passed `bash -n` and 30 isolated fake-tool executions covering RB-01 through RB-11 and cleanup failures. No real Docker, Git worktree, network, or production operation was reachable. |
+| Release source selection | A disposable pure verifier passed 27/27 cases, including exact docs-after-app selection and rejection of moving-ref substitution, unmerged or fast-only evidence, absent/ambiguous dispatch URLs, API/view disagreement, and missing/failed/skipped release jobs or steps. |
+| Documentation/configuration integrity | Sixteen Bash fences parsed after documented placeholder substitution; 42 local Markdown links resolved; `jq empty config/production-config.example.json` and `git diff --check` passed. |
+| Historical archive | Unchanged SHA-256 `60b771ebdb807f306557f383208d6c2c30e6b6cb87ebfc0337f7f8001bb6c785`; contents remain the retired publisher workflow, its contract test, and the historical Dockerfile. |
+
+The production observations in the preceding retirement record are retained
+evidence, not fresh probes from this correction. No release workflow was
+dispatched; no application build, image/package operation, descriptor write,
+deployment, browser test, paid-provider call, or production runtime probe was
+performed. Hosted `main` results and the final remote SHA are external delivery
+evidence and must be reported only after the non-force push completes.
+
+Remaining risks are unchanged: the host-local image is not off-host disaster
+recovery, a source rebuild is not certified byte-identical, package restoration
+is conditional and untested, and the local tag procedure assumes one operator
+per release tag. The fast gate also captured existing compiler/dependency
+deprecation and type warnings; every task still exited zero, so warning cleanup
+is separate maintenance rather than evidence of a failed runbook correction.
