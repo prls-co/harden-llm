@@ -188,6 +188,7 @@ test("TEST-275 reports which bounded Docker container sampling stage was unavail
           status: 1,
           stdout: "untrusted-secret-output",
           redactedStderr: "Error response from daemon: authorization=Bearer [redacted]",
+          timedOut: args[0] === "stats",
         };
       }
       if (args[0] === "ps") return { status: 0, stdout: `${containerID}\n` };
@@ -199,6 +200,7 @@ test("TEST-275 reports which bounded Docker container sampling stage was unavail
 
     assert.match(sample.collectionNullReasons.containers, new RegExp(`^${expected}: .*exit=1`));
     assert.match(sample.collectionNullReasons.containers, /Bearer \[redacted\]/);
+    assert.equal(sample.collectionNullReasons.containers.includes("timedOut=true"), failedCommand === "stats");
     assert.doesNotMatch(JSON.stringify(sample), /untrusted-secret-output/);
   }
 });

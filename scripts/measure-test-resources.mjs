@@ -101,10 +101,11 @@ function outputText(result, label) {
   if (!result || result.status !== 0 || (result.truncatedBytes ?? 0) > 0) {
     const exit = Number.isInteger(result?.status) ? `exit=${result.status}` : "exit=unknown";
     const truncation = (result?.truncatedBytes ?? 0) > 0 ? `; truncatedBytes=${result.truncatedBytes}` : "";
+    const timeout = result?.timedOut ? "; timedOut=true" : "";
     const stderr = typeof result?.redactedStderr === "string"
       ? result.redactedStderr.replace(/\s+/g, " ").trim().slice(-256)
       : "";
-    throw new DockerSampleCommandError(`${label} did not produce a complete successful result (${exit}${truncation}${stderr ? `; stderr=${stderr}` : ""})`);
+    throw new DockerSampleCommandError(`${label} did not produce a complete successful result (${exit}${timeout}${truncation}${stderr ? `; stderr=${stderr}` : ""})`);
   }
   if (typeof result.stdout !== "string") throw new Error(`${label} output is unavailable`);
   return result.stdout;

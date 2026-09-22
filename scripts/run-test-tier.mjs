@@ -278,11 +278,13 @@ function startDockerResourceSampler(project, environment, cwd, dockerDataRoot = 
     inFlight = (async () => {
       const host = await hostResourceSample(cwd, dockerDataRoot);
       const sample = await collectDockerResourceSample(project, async (args) => {
-        const result = await runExternal("docker", args, { cwd, timeoutMs: 2_000, environment });
+        const timeoutMs = args[0] === "stats" ? 5_000 : 2_000;
+        const result = await runExternal("docker", args, { cwd, timeoutMs, environment });
         return {
           status: result.status,
           stdout: result.stdout.rawPreview,
           redactedStderr: result.stderr.tailPreview,
+          timedOut: result.timedOut,
           truncatedBytes: result.stdout.truncatedBytes,
         };
       }, { timestamp: new Date().toISOString(), host });
