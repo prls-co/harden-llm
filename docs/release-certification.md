@@ -2071,6 +2071,9 @@ inventory; recheck the production artifact backlog after meaningful traffic and
 verify orphan convergence without manual deletion; obtain representative
 traffic/SLO, invoice, process-memory, and storage-used data before capacity or
 cost claims; review the shared host's swap/I/O trend and cold-cache image-build
-cost. GitHub also reports an existing `actions/checkout@v4` Node deprecation
-notice and the scheduled `ubuntu-latest` migration to Ubuntu 26 on 2026-10-19;
-both are nonblocking maintenance items.
+cost. The read-only `docker system df` query did not return within 60 seconds
+and was stopped, so exact Docker image/cache/volume allocation remains unknown;
+repeat that inventory during a quieter maintenance window. GitHub also reports
+an existing `actions/checkout@v4` Node deprecation notice and the scheduled
+`ubuntu-latest` migration to Ubuntu 26 on 2026-10-19; both are nonblocking
+maintenance items.
