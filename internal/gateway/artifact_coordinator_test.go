@@ -108,6 +108,43 @@ func TestArtifactCoordinatorCrashConvergence(t *testing.T) {
 		}
 	})
 
+	t.Run("legacy immediately eligible publication is deferred while fresh", func(t *testing.T) {
+		publication := artifactPublication("legacy-run", "legacy-trace", "legacy-artifact")
+		createdAt := clock
+		digest := sha256.Sum256(publication.Content)
+		record := postgres.ArtifactRecord{
+			OwnerID: publication.OwnerID, RunID: publication.RunID, TraceID: publication.TraceID,
+			ID: publication.ArtifactID, Kind: publication.Kind, ObjectKey: publication.ObjectKey,
+			ContentType: publication.ContentType, SHA256: hex.EncodeToString(digest[:]),
+			SizeBytes: int64(len(publication.Content)), State: "available", CreatedAt: createdAt, UpdatedAt: createdAt,
+		}
+		operation := postgres.ArtifactOperation{
+			ID: postgres.ArtifactOperationID("publish", record), Action: "publish", State: "pending",
+			OwnerID: record.OwnerID, RunID: record.RunID, TraceID: record.TraceID,
+			ArtifactID: record.ID, Kind: record.Kind, ObjectKey: record.ObjectKey,
+			ContentType: record.ContentType, SHA256: record.SHA256, SizeBytes: record.SizeBytes,
+			NextAttemptAt: createdAt, CreatedAt: createdAt, UpdatedAt: createdAt,
+		}
+		if _, err := store.BeginArtifactPublication(ctx, operation); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := objects.Put(ctx, publication.ObjectKey, publication.Content, publication.ContentType); err != nil {
+			t.Fatal(err)
+		}
+		if err := store.MarkArtifactOperationApplied(ctx, operation.ID, createdAt, createdAt); err != nil {
+			t.Fatal(err)
+		}
+		summary, err := coordinator.Reconcile(ctx)
+		if err != nil || summary.Deferred != 1 || !objects.exists(publication.ObjectKey) {
+			t.Fatalf("legacy fresh publication reconciliation = %#v, %v, objectExists=%t", summary, err, objects.exists(publication.ObjectKey))
+		}
+		clock = clock.Add(time.Minute)
+		summary, err = coordinator.Reconcile(ctx)
+		if err != nil || summary.Completed != 1 || objects.exists(publication.ObjectKey) {
+			t.Fatalf("aged orphan reconciliation = %#v, %v, objectExists=%t", summary, err, objects.exists(publication.ObjectKey))
+		}
+	})
+
 	t.Run("execution save consumes publication and interrupted delete resumes", func(t *testing.T) {
 		publication := artifactPublication("saved-run", "saved-trace", "saved-artifact")
 		reference, err := coordinator.PublishArtifact(ctx, publication)

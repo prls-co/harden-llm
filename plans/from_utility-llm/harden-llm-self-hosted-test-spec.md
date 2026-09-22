@@ -773,8 +773,9 @@ runtime contract or the meaning of `make verify`.
 - Assertions:
   - Publish/delete intent precedes object mutation; identical retries are
     idempotent and integrity conflicts fail closed.
-  - A fresh publication survives reconciliation until its execution metadata
-    commits; abandoned publications still converge after the bounded grace.
+  - New and legacy immediately eligible publication rows survive reconciliation
+    until their execution metadata commits; abandoned publications still
+    converge after the bounded grace.
   - Ambiguous PUT, partial multi-delete, process-boundary failpoints, competing
     reconcilers, and restart converge; the second reconciliation is a no-op.
   - Shared save/exclusive clear/per-execution delete lock ordering preserves

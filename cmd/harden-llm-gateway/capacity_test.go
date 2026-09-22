@@ -542,7 +542,9 @@ func verifyPersistedCapacityExecutions(ctx context.Context, t *testing.T, client
 			}
 			content, err := integrationtest.GetGarageOwnerTraceArtifact(ctx, garage, capacityOwnerID, record.ObjectKey)
 			if err != nil {
-				return fmt.Errorf("read owner-scoped artifact object: %w", err)
+				objectKeyDigest := sha256.Sum256([]byte(record.ObjectKey))
+				return fmt.Errorf("request %d run %s trace %s artifact %s object_key_sha256 %s: read owner-scoped artifact object: %w",
+					request.ID, run.ID, request.TraceID, record.ID, hex.EncodeToString(objectKeyDigest[:]), err)
 			}
 			digest := sha256.Sum256(content)
 			if hex.EncodeToString(digest[:]) != record.SHA256 || int64(len(content)) != record.SizeBytes || record.SHA256 != artifact.SHA256 {

@@ -100,11 +100,17 @@ func (store *Store) ArtifactOperation(ctx context.Context, operationID string) (
 	return operation, nil
 }
 
-func (store *Store) MarkArtifactOperationApplied(ctx context.Context, operationID string, now time.Time) error {
+// MarkArtifactOperationApplied advances a journal operation after its object
+// mutation. nextAttemptAt is explicit so publication recovery can leave a
+// bounded window for the canonical execution transaction to commit.
+func (store *Store) MarkArtifactOperationApplied(ctx context.Context, operationID string, now, nextAttemptAt time.Time) error {
+	if nextAttemptAt.Before(now) {
+		return errors.New("postgres: artifact operation retry time precedes its update time")
+	}
 	result, err := store.pool.Exec(ctx, `
 		UPDATE llm_artifact_operations
-		SET state='object_applied', attempt_count=attempt_count+1, next_attempt_at=$2, error_category='', updated_at=$2
-		WHERE operation_id=$1 AND state IN ('pending','object_applied')`, operationID, now)
+		SET state='object_applied', attempt_count=attempt_count+1, next_attempt_at=$2, error_category='', updated_at=$3
+		WHERE operation_id=$1 AND state IN ('pending','object_applied')`, operationID, nextAttemptAt, now)
 	if err != nil {
 		return fmt.Errorf("postgres: mark artifact operation applied: %w", err)
 	}
@@ -112,6 +118,23 @@ func (store *Store) MarkArtifactOperationApplied(ctx context.Context, operationI
 		return errors.New("postgres: artifact operation is not applicable")
 	}
 	return nil
+}
+
+// DeferArtifactOperation reschedules an eligible journal operation without
+// recording a failed object mutation. It is used to let a just-published
+// artifact's canonical execution transaction commit before orphan recovery.
+func (store *Store) DeferArtifactOperation(ctx context.Context, operationID string, nextAttemptAt, now time.Time) (bool, error) {
+	if !nextAttemptAt.After(now) {
+		return false, errors.New("postgres: deferred artifact retry time must be in the future")
+	}
+	result, err := store.pool.Exec(ctx, `
+		UPDATE llm_artifact_operations
+		SET next_attempt_at=GREATEST(next_attempt_at,$2), updated_at=$3
+		WHERE operation_id=$1 AND state IN ('pending','object_applied')`, operationID, nextAttemptAt, now)
+	if err != nil {
+		return false, fmt.Errorf("postgres: defer artifact operation: %w", err)
+	}
+	return result.RowsAffected() == 1, nil
 }
 
 func (store *Store) RecordArtifactOperationFailure(ctx context.Context, operationID, category string, retryAt, now time.Time) error {

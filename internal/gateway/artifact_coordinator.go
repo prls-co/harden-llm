@@ -18,6 +18,7 @@ const (
 	artifactReconcileLimit         = 100
 	artifactReconcileInterval      = 30 * time.Second
 	artifactRetryDelay             = 30 * time.Second
+	artifactPublicationGracePeriod = artifactRetryDelay
 	artifactIntegrityAuditInterval = 15 * time.Minute
 )
 
@@ -57,6 +58,7 @@ type ArtifactReconcileSummary struct {
 	Inspected   int
 	Applied     int
 	Completed   int
+	Deferred    int
 	Failed      int
 	Audited     int
 	Unavailable int
@@ -126,7 +128,7 @@ func (coordinator *ArtifactCoordinator) PublishArtifact(ctx context.Context, pub
 		OwnerID: record.OwnerID, RunID: record.RunID, TraceID: record.TraceID,
 		ArtifactID: record.ID, Kind: record.Kind, ObjectKey: record.ObjectKey,
 		ContentType: record.ContentType, SHA256: record.SHA256, SizeBytes: record.SizeBytes,
-		NextAttemptAt: now, CreatedAt: now, UpdatedAt: now,
+		NextAttemptAt: now.Add(artifactPublicationGracePeriod), CreatedAt: now, UpdatedAt: now,
 	}
 	stored, err := coordinator.store.BeginArtifactPublication(ctx, operation)
 	if err != nil {
@@ -154,7 +156,8 @@ func (coordinator *ArtifactCoordinator) PublishArtifact(ctx context.Context, pub
 		coordinator.recordFailure(ctx, operation.ID, mismatch)
 		return hardenllm.ArtifactRef{}, mismatch
 	}
-	if err := coordinator.store.MarkArtifactOperationApplied(ctx, operation.ID, coordinator.clock().UTC()); err != nil {
+	operationAppliedAt := coordinator.clock().UTC()
+	if err := coordinator.store.MarkArtifactOperationApplied(ctx, operation.ID, operationAppliedAt, operationAppliedAt.Add(artifactPublicationGracePeriod)); err != nil {
 		return hardenllm.ArtifactRef{}, err
 	}
 	reference.ArtifactID, reference.Kind = record.ID, record.Kind
@@ -207,7 +210,8 @@ func (coordinator *ArtifactCoordinator) applyDeletionBatch(ctx context.Context, 
 			coordinator.recordFailure(ctx, operation.ID, err)
 			return 0, fmt.Errorf("gateway: artifact deletion failed: %w", err)
 		}
-		if err := coordinator.store.MarkArtifactOperationApplied(ctx, operation.ID, coordinator.clock().UTC()); err != nil {
+		operationAppliedAt := coordinator.clock().UTC()
+		if err := coordinator.store.MarkArtifactOperationApplied(ctx, operation.ID, operationAppliedAt, operationAppliedAt.Add(artifactRetryDelay)); err != nil {
 			return 0, err
 		}
 	}
@@ -225,6 +229,18 @@ func (coordinator *ArtifactCoordinator) Reconcile(ctx context.Context) (Artifact
 		for _, operation := range operations {
 			summary.Inspected++
 			if operation.Action == "publish" {
+				now := coordinator.clock().UTC()
+				if deferUntil := operation.CreatedAt.Add(artifactPublicationGracePeriod); now.Before(deferUntil) {
+					deferred, deferErr := coordinator.store.DeferArtifactOperation(lockContext, operation.ID, deferUntil, now)
+					if deferErr != nil {
+						summary.Failed++
+						continue
+					}
+					if deferred {
+						summary.Deferred++
+					}
+					continue
+				}
 				if err := coordinator.reconcilePublication(lockContext, operation, &summary); err != nil {
 					summary.Failed++
 					continue
@@ -246,7 +262,8 @@ func (coordinator *ArtifactCoordinator) Reconcile(ctx context.Context) (Artifact
 					summary.Failed++
 					continue
 				}
-				if err := coordinator.store.MarkArtifactOperationApplied(lockContext, operation.ID, coordinator.clock().UTC()); err != nil {
+				operationAppliedAt := coordinator.clock().UTC()
+				if err := coordinator.store.MarkArtifactOperationApplied(lockContext, operation.ID, operationAppliedAt, operationAppliedAt.Add(artifactRetryDelay)); err != nil {
 					summary.Failed++
 					continue
 				}
@@ -282,7 +299,7 @@ func (coordinator *ArtifactCoordinator) Reconcile(ctx context.Context) (Artifact
 	coordinator.telemetry.RecordArtifactReconciliation(ctx, backlog.Pending, backlog.OldestAge, outcome)
 	coordinator.logger.InfoContext(ctx, "artifact reconciliation completed",
 		"inspected", summary.Inspected, "applied", summary.Applied,
-		"completed", summary.Completed, "failed", summary.Failed,
+		"completed", summary.Completed, "deferred", summary.Deferred, "failed", summary.Failed,
 		"audited", summary.Audited, "unavailable", summary.Unavailable,
 		"pending", backlog.Pending, "oldest_pending_seconds", backlog.OldestAge.Seconds())
 	return summary, nil
@@ -349,7 +366,8 @@ func (coordinator *ArtifactCoordinator) reconcilePublication(ctx context.Context
 			summary.Completed++
 			return nil
 		}
-		if err := coordinator.store.MarkArtifactOperationApplied(ctx, operation.ID, coordinator.clock().UTC()); err != nil {
+		operationAppliedAt := coordinator.clock().UTC()
+		if err := coordinator.store.MarkArtifactOperationApplied(ctx, operation.ID, operationAppliedAt, operationAppliedAt.Add(artifactRetryDelay)); err != nil {
 			return err
 		}
 		summary.Applied++
