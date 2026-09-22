@@ -1435,13 +1435,10 @@ synthetic credentials, isolated stores, and a local scripted provider.
 - Pass criteria: Verification follows the existing limit-100 REST cursor contract until all expected pairs are found; URL-encodes opaque cursors, rejects repeated/oversized cursors and oversized pages, and reports a missing pair only after the final page or bounded page limit.
 - Expected runtime: Under 1 second.
 
-### TEST-283: Private gateway-image publication contract
+### TEST-283: Retired private gateway-image publication contract
 
-- Type: static.
-- Verifies: REQ-353.
-- Location: `scripts/test/gateway_image_publication_test.mjs`.
-- Command: `node --test scripts/test/gateway_image_publication_test.mjs`.
-- Fixtures/data: Checked-in publisher workflow and gateway Dockerfile; no registry mutation, credentials, GitHub API, Docker daemon, or network access.
-- Deterministic controls: Offline source assertions; full action commit-SHA pins; exact repository release-toolchain values; manual-only workflow trigger.
-- Pass criteria: Only `workflow_dispatch` can invoke publication and both jobs require `refs/heads/main`; the certification job runs `make test-release` on `github.sha`; only its dependent publish job grants `packages: write`; the image tag includes the full source SHA, run ID, and run attempt; the image declares repository source, revision, and version; BuildKit max-mode provenance and a bounded digest-only report are configured; package visibility must read back as private; no PAT, browser/provider command, deployment secret, or mutable latest tag is introduced.
-- Expected runtime: Under 1 second.
+- Status: Retired 2026-09-22 by ADR-HLLM-028; not registered in any active test tier or release gate. The identifier is retained and must not be reused.
+- Historical verification: REQ-353, the manual private-GHCR publisher contract implemented at source commit `6887fcd8146961dc64598dd7a236e7a9fc522c9c`.
+- Historical source: `docs/archive/harden-llm-ghcr-publisher-reference-6887fcd.tar.gz`, containing the workflow, publisher contract test, and exact Dockerfile from that commit.
+- Retirement rationale: active production uses an exact-SHA local image on one existing Docker host; there is no current distribution need justifying publisher-specific workflow permissions and tests. Current build/deployment acceptance is defined by `SPEC-HLLM-IMAGE-DEPLOYMENT-001` and KER-IBD-001 through KER-IBD-010.
+- Restoration: review the archived source against the current release, security, retention, and restore requirements; do not extract/run it automatically. Reusing TEST-283's source requires reactivating an explicitly approved publication design.

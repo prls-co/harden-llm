@@ -81,10 +81,10 @@
     },
     {
       "id": "runner-contracts",
-      "testIds": ["TEST-049", "TEST-271", "TEST-272", "TEST-273", "TEST-275", "TEST-283"],
+      "testIds": ["TEST-049", "TEST-271", "TEST-272", "TEST-273", "TEST-275"],
       "tier": "T1",
       "resourceClass": "cpu",
-      "command": ["node", "--test", "scripts/test/run_test_tier_test.mjs", "scripts/test/test_resource_lifecycle_test.mjs", "scripts/test/test_resource_measurement_test.mjs", "scripts/test/gateway_image_publication_test.mjs"],
+      "command": ["node", "--test", "scripts/test/run_test_tier_test.mjs", "scripts/test/test_resource_lifecycle_test.mjs", "scripts/test/test_resource_measurement_test.mjs"],
       "dependsOn": [],
       "timeoutMs": 180000,
       "cleanupOwner": "runner",
@@ -92,7 +92,7 @@
       "credentialKeys": [],
       "requiredFor": ["baseline", "fast", "release"],
       "benchmarkLanes": ["fast-candidates"],
-      "pathSelectors": ["scripts/run-test-tier.mjs", "scripts/test-resource-lifecycle.mjs", "scripts/test/run_test_tier_test.mjs", "scripts/test/test_resource_lifecycle_test.mjs", "scripts/measure-test-resources.mjs", "scripts/test/test_resource_measurement_test.mjs", "scripts/test/gateway_image_publication_test.mjs", ".github/workflows/publish-gateway-image.yml", "Dockerfile", "test/test-tiers.json"]
+      "pathSelectors": ["scripts/run-test-tier.mjs", "scripts/test-resource-lifecycle.mjs", "scripts/test/run_test_tier_test.mjs", "scripts/test/test_resource_lifecycle_test.mjs", "scripts/measure-test-resources.mjs", "scripts/test/test_resource_measurement_test.mjs", "test/test-tiers.json"]
     },
     {
       "id": "production-config-compose",

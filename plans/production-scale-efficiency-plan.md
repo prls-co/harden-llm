@@ -4,11 +4,11 @@
 - Document ID: `PLAN-HLLM-SCALE-001`.
 - Version: `3.3`; date: `2026-09-22`.
 - Owners: repository maintainer for scope and release approval; implementing coding agent for changes and evidence; deployment operator for private configuration and promotion.
-- Status: P00-P04 complete. Private image publication, exact-source certification, gateway-only production promotion, and record closeout are complete. Capacity remains explicitly uncertified.
+- Status: P00-P04 were completed historically. The GHCR publisher and publication requirement were retired on 2026-09-22 by ADR-HLLM-028; the active production image lifecycle is local-only. Capacity remains explicitly uncertified. See Section 14 for the superseding decision and deployment record.
 - Execution base: `81e9d1d59c4c1f264eb3f851eeaf550a42c38e69` was `origin/main` at implementation start. The prior application candidate `d85f7dbf3be7dccf2f5c8f21fd161d4bc91631ec` is already on `origin/main`; the publication workflow and OCI metadata amendment must be tested and recorded at their own exact source SHA.
 - Governing documents: [repository instructions](../AGENTS.md), [complete testing guidelines](../docs/liveview-go-testing-guidelines.md), [architecture](../docs/architecture.md), [OpenAPI](../api/openapi.yaml), and [canonical backend test catalog](from_utility-llm/harden-llm-self-hosted-test-spec.md).
 
-Make Docker-backed verification trustworthy, measure the existing application under bounded synthetic traffic, and select only evidence-backed capacity changes. Reuse the current runner, service pools, persistence, telemetry, release tooling, and the established PRLS private-GHCR publishing pattern. The default capacity disposition retains the production topology. This execution record documents authorization to promote the reviewed candidate to `main`, publish a private immutable gateway image, and deploy only the affected gateway runtime change after exact-SHA tests pass; it does not authorize browser/provider calls, unrelated commits/services, infrastructure changes, or database mutation.
+Make Docker-backed verification trustworthy, measure the existing application under bounded synthetic traffic, and select only evidence-backed capacity changes. Reuse the current runner, service pools, persistence, telemetry, and release tooling. The default capacity disposition retains the production topology. This historical execution record documents authorization to promote the reviewed candidate to `main`, publish a private immutable gateway image, and deploy only the affected gateway runtime change after exact-SHA tests pass. The later local-only retirement and current descriptor are documented in Section 14 and ADR-HLLM-028. It does not authorize browser/provider calls, unrelated commits/services, infrastructure changes, or database mutation.
 
 ## 2. Design consensus and trade-offs
 
@@ -81,7 +81,7 @@ The following IDs are proposed additions; P00 checks for allocation collisions. 
 | REQ-350 | data | Cost comparisons carry matching workload/configuration fingerprints, explicit retention assumptions, request/output denominators, and price provenance. Unknown actual cost stays unknown; official-equivalent CPA token pricing is labeled separately. |
 | REQ-351 | func | The report yields sufficient-current-topology, measured-bottleneck, availability-requirement, or insufficient-evidence. No production topology change proceeds without a concrete, approved requirement/test amendment. UI session scaling is independent. |
 | REQ-352 | int | Accepted release evidence identifies tested source, remote commit, affected artifacts, deployed identities when applicable, rollback boundary, and unperformed checks. Docs/test-only publication does not imply an application deployment. |
-| REQ-353 | security | Gateway image publication is manual and main-only; the exact tested source SHA is built once into a run-qualified immutable reference with source/revision labels, BuildKit provenance, and a bounded redacted digest report. Only the publishing job receives `packages: write`; it verifies GHCR package visibility is private before reporting success. |
+| REQ-353 | security | Retired 2026-09-22 by ADR-HLLM-028. This historical requirement covered private gateway-image publication; active local build/deployment is governed by KER-IBD-001 through KER-IBD-010. |
 
 ### 4.1 Errors and telemetry
 
@@ -1391,3 +1391,39 @@ If external telemetry policy becomes the selected remedy, its amendment must spe
 - No timeout increase, browser/provider authorization, infrastructure purchase, or database migration is authorized. The current user request explicitly authorizes pushing this reviewed candidate to `main` and deploying only the gateway runtime fix; no unrelated branch ancestry or service is included.
 - P00 documentation/baseline, P01 lifecycle and full Compose acceptance, P02 bounded capacity diagnostics (capacity still uncertified), P03 no-capacity-change plus the separate artifact-integrity correction, and P04 private publication and gateway-only production promotion are complete. Exact source `6887fcd8146961dc64598dd7a236e7a9fc522c9c` is on `origin/main`; TEST-283 RED/GREEN and hosted main fast/release checks passed. P03.S03/EVAL-011 remains conditional and unrun; no capacity topology change was justified.
 - Structural validation: 5 phases, 28 ordered steps, 13 requirements, 13 defined tests, 5 evaluations, and 7 repository links checked; TEST-283 RED/GREEN command pairs and RTM paths/commands match. Re-run tier-policy and whitespace checks after this closeout edit. Documentation closeout does not alter the published application image or require a rebuild.
+
+## 14. GHCR publisher retirement amendment — 2026-09-22
+
+ADR-HLLM-028 and `SPEC-HLLM-IMAGE-DEPLOYMENT-001` supersede the P04
+publication decision for all future releases. P04 remains a factual historical
+record: the manual publisher ran successfully once and its private image was
+deployed. It is not an active release step or a requirement to preserve.
+
+- The publisher workflow and publisher-only TEST-283 implementation were
+  removed from the active repository and runner. REQ-353 and TEST-283 remain
+  historical, retired identifiers; neither is selected by a routine or
+  release gate. The original code is retained in the checksummed bundle
+  `docs/archive/harden-llm-ghcr-publisher-reference-6887fcd.tar.gz`.
+- The Dockerfile's OCI source/revision/version labels remain active because
+  local candidate verification reads them. They do not require a registry.
+- Production image identity remains source
+  `6887fcd8146961dc64598dd7a236e7a9fc522c9c`, image ID
+  `sha256:036d82749a1e5a29e36c848d5fca955c4b416858c9ea272f2cf1b4428210905b`,
+  and tag
+  `harden-llm-gateway:release-6887fcd8146961dc64598dd7a236e7a9fc522c9c`.
+  The tag resolves to the exact image already running; no rebuild or
+  application change was made.
+- The host-local production descriptor was checkpointed at
+  `/home/kirill/.config/harden-llm/rollout-image-retirement-O8EXjA/production.before.json`
+  (directory mode `0700`, file mode `0600`), prior SHA-256
+  `978deb24665dfa227caf4bcda443f0a4b63ab2f0330f7db0e46f72f34fb18d4a`.
+  Only `serviceImageOverrides.harden-llm-gateway` changed. Current descriptor
+  SHA-256 is recorded in the release closeout; it remains mode `0600`.
+- `production-config check` and scoped `apply` with the expected release both
+  report `equivalent`; no container recreation was necessary because the new
+  local tag resolves to the same exact image ID. The GHCR package is left
+  private and unused; package deletion was not in scope.
+- See the release closeout for hosted checks, final `main` SHA, HTTP/runtime
+  probes, and the read-only artifact inventory. No capacity claim, browser
+  check, provider call, data migration, volume operation, or topology change is
+  implied by this amendment.

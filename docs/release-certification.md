@@ -60,7 +60,21 @@ report. Its scripted-provider measurements are not production SLO or provider
 certification; test/docs-only changes do not rebuild or redeploy application
 images.
 
-### Gateway image publication
+### Gateway image build and deployment (current lifecycle)
+
+The active gateway lifecycle builds locally on the existing production Docker
+host from an exact, release-gated application SHA, uses a never-reused
+full-SHA local tag, and promotes through a gateway-scoped
+`production-config` check/apply. There is no active GHCR publisher or registry
+pull dependency. See `plans/gateway-image-build-deployment-spec.md`, its
+KERs, and ADR-HLLM-028 for the specification, rollback, and retirement record.
+The Dockerfile's OCI identity labels remain active because local candidate
+checks consume them.
+
+#### Historical GHCR publisher (retired)
+
+The following records the one completed publisher implementation and
+deployment; it is not an active procedure.
 
 The gateway publisher is a separate manual, `main`-only workflow at
 `.github/workflows/publish-gateway-image.yml`. Its read-only certification job
