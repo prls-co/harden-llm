@@ -218,6 +218,9 @@ function baseEnvironment(data, additions = {}) {
     HARDEN_LLM_FAKE_DOCKER_RELEASE: data.releasePath,
     HARDEN_LLM_REAL_FLOCK: FLOCK_PATH,
     ...additions,
+    // Fixture runs target their own fake daemon and must not inherit the
+    // managed runner's real Docker lease from an enclosing release task.
+    HARDEN_LLM_TEST_DAEMON_LOCK_TOKEN: "",
   };
 }
 
@@ -698,6 +701,26 @@ test("TEST-273 pure task selection does not contact Docker or acquire the lock",
   assert.equal(result.accepted, true, JSON.stringify(result));
   assert.deepEqual(result.lifecycleTimings, { dockerIdentityMs: null, daemonLockWaitMs: null, staleReceiptRecoveryMs: null });
   assert.equal((await readEvents(data)).some((event) => event.kind === "flock-attempt" || event.kind === "daemon-info"), false);
+});
+
+test("TEST-273 fake-daemon fixtures do not inherit an unrelated parent lease", async (t) => {
+  if (process.platform !== "linux" || !FLOCK_PATH) return t.skip("Linux util-linux flock is required for this repository host");
+  const data = await fixture(t);
+  const result = await runTask(data, "isolated-parent-lease", {
+    environment: {
+      HARDEN_LLM_TEST_DAEMON_LOCK_TOKEN: "a".repeat(64),
+      HARDEN_LLM_TEST_DAEMON_LOCK_DAEMON_ID: "unrelated-parent-daemon",
+      HARDEN_LLM_TEST_DAEMON_LOCK_PATH: path.join(data.root, "parent-daemon.lock"),
+      HARDEN_LLM_TEST_DAEMON_LOCK_OWNER_PID: String(process.pid),
+      HARDEN_LLM_TEST_DAEMON_LOCK_OWNER_START: "123456",
+      HARDEN_LLM_TEST_DAEMON_LOCK_HOST_BOOT_ID: "parent-boot-id",
+      HARDEN_LLM_TEST_DAEMON_LOCK_HOLDER_PID: String(process.pid),
+      HARDEN_LLM_TEST_DAEMON_LOCK_HOLDER_START: "123456",
+    },
+  });
+
+  assert.equal(result.accepted, true, JSON.stringify(result));
+  assert.equal((await readEvents(data)).filter((event) => event.kind === "flock-attempt").length, 1, "the fake daemon must acquire its own lock rather than reuse the caller's lease");
 });
 
 test("TEST-273 parallel fake-daemon invocations keep fixture environments isolated", async (t) => {
