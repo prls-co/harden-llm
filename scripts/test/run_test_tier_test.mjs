@@ -1,4 +1,4 @@
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-049
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-049 TEST-281
 
 import assert from "node:assert/strict";
 import { afterEach, describe, test } from "node:test";
@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { main, resolvedCommand, runTasks, writeRunReport } from "../run-test-tier.mjs";
+import { main, resourceCleanupOptions, resolvedCommand, runTasks, writeRunReport } from "../run-test-tier.mjs";
 
 const TEST_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const fixtureSource = `
@@ -128,6 +128,40 @@ test("TEST-049 refuses the real Docker lifecycle boundary without a managed leas
   assert.equal(result.status, 1, result.stderr);
   assert.match(result.stderr, /requires scripts\/run-test-tier\.mjs to supply a managed run ID and inherited Docker lease/);
   assert.doesNotMatch(result.stderr, /ENOENT.*docker|spawn.*docker/i);
+});
+
+test("TEST-281 cleanup budgets are per task until an invocation-wide cancellation tail begins", () => {
+  const invocationState = { cleanupDeadline: null };
+  const firstTaskState = { cleanupDeadline: null };
+  const firstCleanup = resourceCleanupOptions({
+    cleanupTimeoutMs: 1_000,
+    lifecycleState: invocationState,
+    taskCleanupState: firstTaskState,
+  }, 100);
+  assert.equal(firstCleanup.cleanupDeadline, 1_100);
+  assert.equal(invocationState.cleanupDeadline, null, "normal cleanup must not start the whole-run cancellation tail");
+
+  const sameTaskCleanup = resourceCleanupOptions({
+    cleanupTimeoutMs: 1_000,
+    lifecycleState: invocationState,
+    taskCleanupState: firstTaskState,
+  }, 500);
+  assert.equal(sameTaskCleanup.cleanupDeadline, 1_100, "setup-failure and final cleanup for one task share its deadline");
+
+  const laterTask = resourceCleanupOptions({
+    cleanupTimeoutMs: 1_000,
+    lifecycleState: invocationState,
+    taskCleanupState: { cleanupDeadline: null },
+  }, 5_000);
+  assert.equal(laterTask.cleanupDeadline, 6_000, "a long earlier test cannot consume the next task's cleanup allowance");
+
+  invocationState.cleanupDeadline = 7_000;
+  const abortedSibling = resourceCleanupOptions({
+    cleanupTimeoutMs: 1_000,
+    lifecycleState: invocationState,
+    taskCleanupState: { cleanupDeadline: null },
+  }, 6_500);
+  assert.equal(abortedSibling.cleanupDeadline, 7_000, "after cancellation, all remaining task cleanup respects one invocation-wide cap");
 });
 
 function interval(records, id) {

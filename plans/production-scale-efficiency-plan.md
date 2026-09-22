@@ -251,14 +251,14 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Any creation path can bypass registration or requires persisting credentials.
   - Unlocks: P01.S03
 - `P01.S03 Make parent cleanup authoritative and bounded`
-  - Progress: DONE — unresolved cleanup failures fail acceptance; the runner reaps timed-out child groups before reconciliation and removes only exact project-labeled resources with no foreign attachments. A failed best-effort Compose `down` is reported as a warning only when exact fallback cleanup, empty final inventory, and durable `cleaned` receipt are all verified.
+  - Progress: DONE — unresolved cleanup failures fail acceptance; the runner reaps timed-out child groups before reconciliation and removes only exact project-labeled resources with no foreign attachments. A failed best-effort Compose `down` is reported as a warning only when exact fallback cleanup, empty final inventory, and durable `cleaned` receipt are all verified. New TEST-281 also proves ordinary task cleanup cannot age later tasks' bounded cleanup allowance; only failure/cancellation begins the shared bounded tail.
   - Action: Stop/reap owned child process groups; perform bounded diagnostics and exact-ID cleanup after validating labels/attachments. Re-inventory late creations; fail on leftovers or unknown state. Preserve original failure and cleanup error separately. Keep receipt/report outside deleted runner scratch.
   - Why now: Ownership now exists; teardown can become an acceptance condition.
   - Files/surfaces: `scripts/run-test-tier.mjs`; `scripts/test-resource-lifecycle.mjs`; existing smoke and frontend fixture cleanup callbacks.
   - Requirement link: REQ-342, REQ-345
-  - Verification link: TEST-272
+  - Verification link: TEST-272, TEST-281
   - Verification mode: GREEN
-  - Command/procedure: `node --test --test-name-pattern=TEST-272 scripts/test/test_resource_lifecycle_test.mjs`.
+  - Command/procedure: `node --test --test-name-pattern=TEST-272 scripts/test/test_resource_lifecycle_test.mjs`; `node --test --test-name-pattern='TEST-281 cleanup budgets' scripts/test/run_test_tier_test.mjs`.
   - Expected result: Success cannot mask unresolved cleanup failure; a verified exact fallback after failed Compose `down` is visible as a warning, while unknown inventory, failed removal, attachments, remaining resources, or receipt-write failure still fails acceptance. Buffers and total cleanup work remain bounded.
   - Evidence produced: Fault-matrix output, redacted pending receipt examples, and phase timings.
   - Stop/escalate condition: Non-owned attachment, unavailable identity, or teardown exceeds its remaining budget.
@@ -790,6 +790,18 @@ Each proposed source file is created in its bootstrap step before execution. New
 - Pass criteria: Go and Node agree on receipt fields and transitions; invalid ownership rejected before fixture creation; no credentials serialized; private atomic files.
 - Expected runtime: 5 seconds.
 
+#### TEST-281: Cleanup deadline scoping
+
+- Type: unit.
+- Verifies: REQ-342, REQ-345.
+- Location: `scripts/test/run_test_tier_test.mjs`.
+- Command: `node --test --test-name-pattern='TEST-281 cleanup budgets' scripts/test/run_test_tier_test.mjs`.
+- Bootstrap: Added during P01.S03 after hosted release evidence showed one normal task could consume a later task's cleanup budget.
+- Fixtures/mocks/data: Synthetic invocation/task cleanup state and monotonic timestamps; no Docker or child process.
+- Deterministic controls: Injected clock values; no sleeps or environment timing dependency; existing cleanup timeout values are unchanged.
+- Pass criteria: A successful earlier task cannot age a later task's allowance; repeated cleanup for one task shares its deadline; first failure or external cancellation caps remaining cleanup at one invocation-wide deadline.
+- Expected runtime: Under 1 second.
+
 #### TEST-269: Candidate deployment identity matches source
 
 - Type: integration.
@@ -932,6 +944,8 @@ Planned mappings below become execution evidence only when the defined command h
 | P01 | REQ-345 | TEST-271 | `scripts/test/test_resource_lifecycle_test.mjs` | `node --test --test-name-pattern=TEST-271 scripts/test/test_resource_lifecycle_test.mjs` |
 | P01 | REQ-345 | TEST-272 | `scripts/test/test_resource_lifecycle_test.mjs` | `node --test --test-name-pattern=TEST-272 scripts/test/test_resource_lifecycle_test.mjs` |
 | P01 | REQ-345 | TEST-280 | `internal/integrationtest/resource_receipt_test.go` | `go test ./internal/integrationtest -run '^TestResourceReceipt' -count=1` |
+| P01 | REQ-342 | TEST-281 | `scripts/test/run_test_tier_test.mjs` | `node --test --test-name-pattern='TEST-281 cleanup budgets' scripts/test/run_test_tier_test.mjs` |
+| P01 | REQ-345 | TEST-281 | `scripts/test/run_test_tier_test.mjs` | `node --test --test-name-pattern='TEST-281 cleanup budgets' scripts/test/run_test_tier_test.mjs` |
 | P02 | REQ-346 | TEST-275 | `scripts/test/test_resource_measurement_test.mjs` | `node --test scripts/test/test_resource_measurement_test.mjs` |
 | P02 | REQ-346 | TEST-278 | `internal/capacity/report_test.go` | `go test ./internal/capacity -run '^TestCapacityReport' -count=1` |
 | P02 | REQ-347 | TEST-276 | `internal/capacity/driver_test.go` | `go test ./internal/capacity -run '^TestCapacityDriver' -count=1` |
@@ -1129,6 +1143,17 @@ phase_entry:
 - Both failed hosted attempts remain failures, not converted passes. Required next checks are full `make test-fast`, then publish the lease-isolation correction and rerun hosted release before lifecycle/capacity acceptance.
 - Workflow annotations (non-test warnings): GitHub reported `actions/checkout@v4` currently runs on forced Node.js 24 despite its Node 20 metadata, and `ubuntu-latest` is scheduled to migrate to Ubuntu 26 on 2026-10-19. These are not the release failure cause. Keep them as environment-maintenance risks; do not mix an action-major or OS migration into this recovery unless a gate proves it necessary.
 
+### Hosted release cleanup-budget failure and correction — 2026-09-21
+
+- Candidate: `24c55b5f8fc0de86220b76731879ada4feb61ce7`, hosted release run [35692982655](https://github.com/prls-co/harden-llm/actions/runs/35692982655).
+- Result: `runner-contracts` passed and `make test-release` advanced through both `go-integration` and `go-integration-race`. Both Go commands returned status 0 (`69.799 s` and `187.391 s` respectively), but the runner then reported `Docker daemon identity: total cleanup budget exhausted` for the race task's one owned receipt. This is a runner cleanup-policy defect, not a failed Go assertion and not evidence that the Go test timeout is too short.
+- Root cause: `resourceCleanupOptions` lazily initialized one invocation-wide 120-second cleanup deadline on the first task's ordinary cleanup. The release selector then reused that already-aging deadline for all later Docker cleanup. A long earlier successful test therefore exhausted the allowance before a later task finished.
+- Regression evidence: the initially unallocated cleanup-budget case (then temporarily named `TEST-272 cleanup budgets`) failed before the correction because ordinary cleanup initialized the invocation-wide deadline. The behavior is now registered as the distinct canonical TEST-281, avoiding an overloaded TEST-272 ID; its exact selector passes. The oracle proves same-task cleanup shares one deadline, later successful tasks receive a fresh task budget, and a cancellation tail caps remaining task cleanups to one invocation-wide deadline.
+- Correction: cleanup deadlines are now task-local during normal execution, shared by setup/final cleanup for that task, and constrained by one invocation-wide bounded tail only after the first failure or external cancellation. Stale-receipt recovery receives its own bounded task budget. Existing test and command timeouts are unchanged; no cleanup budget was increased.
+- Validation completed: targeted TEST-281 passes; the synthetic parent-lease runner/lifecycle/measurement suite passes 42 tests with the hosted-equivalent lease environment injected; it performs no real Docker mutation. `PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH make test-fast` passes 10/10 tasks with no cleanup errors or warnings; `node scripts/verify-test-tiers.mjs` and `git diff HEAD --check` pass. A new hosted release is pending.
+- Risks/follow-ups: cancellation cleanup remains deliberately bounded, so a stuck owned resource can still leave a `cleanup-pending` receipt for the next proven-dead recovery pass; preserve that record and inspect exact project inventory. The deadline policy now distinguishes normal per-task cleanup from the cancellation tail; ensure future scheduler changes keep the first causal failure and external cancellation as the only events that start the shared tail. Do not respond to cleanup pressure by raising Go/test deadlines.
+- Follow-on work: rerun the browser-free fast selector and hosted release, then explicitly run TEST-274 lifecycle and TEST-277 capacity on isolated workers. Keep the prior release result as a failure in the record; only a new passing run can close the hosted gate.
+
 Known matters to carry forward:
 
 - The recovery production closeout remains separate; its failed acceptance is not changed to passing by this planning revision.
@@ -1165,4 +1190,4 @@ If external telemetry policy becomes the selected remedy, its amendment must spe
 - Human scope review is outside the RTM and cannot substitute for behavior verification.
 - No timeout increase, browser/provider authorization, infrastructure purchase, database migration, or production push is implied by editing this document.
 - P00 documentation and baseline validation are complete. No runtime implementation, Docker workload, application release, registry publication, or deployment is claimed.
-- Structural validation: 5 phases, 24 ordered steps, 12 requirements, 11 defined tests, 5 evaluations, and 7 repository links checked; RED/GREEN command pairs and RTM paths/commands matched. The existing tier-policy checker passed. New TEST-279 assertions and P01–P04 remain pending.
+- Structural validation: 5 phases, 24 ordered steps, 12 requirements, 12 defined tests, 5 evaluations, and 7 repository links checked; RED/GREEN command pairs and RTM paths/commands matched. The existing tier-policy checker passed. New TEST-279 assertions and P01–P04 remain pending.

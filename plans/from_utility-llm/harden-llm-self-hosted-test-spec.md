@@ -1411,3 +1411,13 @@ synthetic credentials, isolated stores, and a local scripted provider.
 - Deterministic controls: Untagged standard-library-only test/helper; no Docker; fixed IDs/clock; 5-second test deadline.
 - Pass criteria: Go and Node fields/transitions agree; invalid ownership prevents fixture dispatch; receipts contain no credentials; writes are private and atomic.
 - Expected runtime: 5 seconds.
+
+### TEST-281: Cleanup deadline scoping
+
+- Type / verifies: unit; REQ-342, REQ-345.
+- Location: `scripts/test/run_test_tier_test.mjs`.
+- Command: `node --test --test-name-pattern='TEST-281 cleanup budgets' scripts/test/run_test_tier_test.mjs`.
+- Fixtures/data: Synthetic invocation/task cleanup state and monotonic timestamps; no Docker or child process.
+- Deterministic controls: Injected clock values; existing per-task and invocation cancellation budgets; no sleeps or environmental timing dependency.
+- Pass criteria: A successful task's cleanup does not age later tasks' cleanup allowance; setup/final cleanup for a task share one bounded deadline; first failure or external cancellation establishes one bounded deadline for remaining cleanup.
+- Expected runtime: Under 1 second.

@@ -328,14 +328,19 @@ function poolFailure(pool, message) {
   return new Error(`${pool?.project ?? "integration service pool"}: ${message}`);
 }
 
-function resourceCleanupOptions(options) {
+export function resourceCleanupOptions(options, now = performance.now()) {
   const budget = options.cleanupTimeoutMs ?? DEFAULT_RESOURCE_CLEANUP_MS;
-  const owner = options.lifecycleState;
-  if (owner) {
-    owner.cleanupDeadline ??= performance.now() + budget;
-    return { ...options, cleanupDeadline: owner.cleanupDeadline };
-  }
-  return { ...options, cleanupDeadline: options.cleanupDeadline ?? performance.now() + budget };
+  const taskState = options.taskCleanupState;
+  const taskDeadline = taskState
+    ? (taskState.cleanupDeadline ??= options.cleanupDeadline ?? now + budget)
+    : (options.cleanupDeadline ?? now + budget);
+  const cancellationDeadline = options.lifecycleState?.cleanupDeadline;
+  return {
+    ...options,
+    cleanupDeadline: Number.isFinite(cancellationDeadline)
+      ? Math.min(taskDeadline, cancellationDeadline)
+      : taskDeadline,
+  };
 }
 
 async function startServicePool(task, options) {
@@ -1025,7 +1030,11 @@ export async function runCommand(task, options) {
     startedAtMs: null,
     endedAtMs: null,
   };
-  const taskOptions = { ...options, cleanupWarnings: result.cleanupWarnings };
+  const taskOptions = {
+    ...options,
+    taskCleanupState: options.taskCleanupState ?? { cleanupDeadline: null },
+    cleanupWarnings: result.cleanupWarnings,
+  };
   try {
     if (process.platform === "linux" && command.environment) {
       command.environment.HARDEN_LLM_TEST_SUPERVISOR_PID = String(process.pid);
@@ -1334,7 +1343,7 @@ export async function runTasks(tasks, options) {
           recoveryErrors = await recoverStaleDaemonReceipts(daemonId, {
             ...runOptions,
             daemonLockLease,
-            lifecycleState,
+            taskCleanupState: { cleanupDeadline: null },
           });
         } finally {
           lifecycleTimings.staleReceiptRecoveryMs = Math.round(performance.now() - recoveryStartedAt);
@@ -1355,8 +1364,13 @@ export async function runTasks(tasks, options) {
   const results = new Map();
   const state = { running: new Map(), used: new Map() };
   const controller = new AbortController();
-  const externalAbort = () => controller.abort();
+  const abortWithCleanupDeadline = () => {
+    lifecycleState.cleanupDeadline ??= performance.now() + DEFAULT_RESOURCE_CLEANUP_MS;
+    controller.abort();
+  };
+  const externalAbort = abortWithCleanupDeadline;
   options.signal?.addEventListener("abort", externalAbort, { once: true });
+  if (options.signal?.aborted) externalAbort();
   let firstFailure = preflightFailure ? {
     taskId: tasks[0]?.id ?? "docker-preflight",
     status: 1,
@@ -1402,7 +1416,7 @@ export async function runTasks(tasks, options) {
               status: 1,
               failureSummary: `cleanup failed: ${result.cleanupError}`,
             };
-            controller.abort();
+            abortWithCleanupDeadline();
           }
         }).catch((error) => {
           const result = cancelledResult(task, scrub(error.message));
@@ -1411,7 +1425,7 @@ export async function runTasks(tasks, options) {
           release(task, state);
           if (!firstFailure) {
             firstFailure = result;
-            controller.abort();
+            abortWithCleanupDeadline();
           }
         });
       }
@@ -1428,7 +1442,7 @@ export async function runTasks(tasks, options) {
     }
   } finally {
     options.signal?.removeEventListener("abort", externalAbort);
-    if (state.running.size > 0) controller.abort();
+    if (state.running.size > 0) abortWithCleanupDeadline();
     while (state.running.size > 0) await new Promise((resolve) => setTimeout(resolve, 10));
     try { await releaseDaemonLock(daemonLockLease); }
     catch (error) { daemonLockCleanupError = scrub(error.message); }
