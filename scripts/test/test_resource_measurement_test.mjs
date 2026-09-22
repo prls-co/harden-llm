@@ -81,6 +81,34 @@ test("TEST-275 attributes exact projects and keeps Docker memory, RSS, and sampl
   assert.equal(result.imageSet.imageCount, 1);
 });
 
+test("TEST-275 sums fractional Docker CPU percentages without applying integer-byte rules", () => {
+  const result = summarizeResourceSamples("owned-project", [{
+    timestamp: "2026-09-21T00:00:00Z",
+    containers: [
+      {
+        id: "owned-a",
+        imageId: `sha256:${"a".repeat(64)}`,
+        labels: { "com.docker.compose.project": "owned-project" },
+        memoryUsageBytes: 100,
+        processRssBytes: 80,
+        cpuPercent: 10.25,
+      },
+      {
+        id: "owned-b",
+        imageId: `sha256:${"a".repeat(64)}`,
+        labels: { "com.docker.compose.project": "owned-project" },
+        memoryUsageBytes: 200,
+        processRssBytes: 170,
+        cpuPercent: 2.5,
+      },
+    ],
+    volumes: [],
+  }]);
+
+  assert.equal(result.samples[0].metrics.cpuPercent.value, 12.75);
+  assert.equal(result.peaks.cpuPercent.value, 12.75);
+});
+
 test("TEST-275 malformed sample units are reported with provenance", () => {
   const result = summarizeResourceSamples("owned-project", [{
     timestamp: "2026-09-21T00:00:00Z",

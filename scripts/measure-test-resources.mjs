@@ -69,6 +69,20 @@ function sumMetric(resources, readValue, source, unit = "bytes") {
   return metric(total, source, null, unit);
 }
 
+function sumPercentMetric(resources, readValue, source) {
+  if (resources.length === 0) return metric(0, source, null, "percent");
+  let total = 0;
+  for (const resource of resources) {
+    const parsed = readValue(resource);
+    if (parsed.value === null) return unknown(source, parsed.nullReason, "percent");
+    total += parsed.value;
+    if (!Number.isFinite(total)) return unknown(source, "aggregate is not a finite number", "percent");
+  }
+  // Docker's CLI percentage is display-rounded; avoid leaking binary-float
+  // addition noise while retaining substantially more precision than it reports.
+  return metric(Number(total.toPrecision(12)), source, null, "percent");
+}
+
 function percentMetric(value, source, reason) {
   const normalized = typeof value === "string" && value.trim().endsWith("%")
     ? Number(value.trim().slice(0, -1))
@@ -310,7 +324,7 @@ export function summarizeResourceSamples(project, samples, { expectedIntervalMs 
       ),
       "process_rss_bytes",
     ) : unknown("process_rss_bytes", "container inventory sample is unavailable");
-    const cpuPercent = containersAvailable ? sumMetric(
+    const cpuPercent = containersAvailable ? sumPercentMetric(
       containers,
       (container) => measuredMetric(
         container.cpuPercent,
@@ -320,7 +334,6 @@ export function summarizeResourceSamples(project, samples, { expectedIntervalMs 
         "percent",
       ),
       "docker_container_cpu_percent",
-      "percent",
     ) : unknown("docker_container_cpu_percent", "container inventory sample is unavailable", "percent");
     const diskBytes = volumesAvailable
       ? sumMetric(volumes, (volume) => measuredMetric(
