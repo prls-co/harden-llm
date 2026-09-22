@@ -1113,6 +1113,19 @@ phase_entry:
 - Next step: review the full diff and all eight unpublished commits; then push the reviewed candidate so the browser-free release, explicit TEST-274 lifecycle workflow, and manual TEST-277 correctness workload can run on isolated hosted workers.
 - Operator follow-ups: if CI reports a failure, preserve the first report and diagnose its owning phase; do not increase timeouts speculatively. Later production capacity work still needs a representative workload, explicit SLO, provider price provenance, and an approved measurement window.
 
+### Hosted release failure and correction — 2026-09-21
+
+- Candidate: `f6fe5aab4264d7c27d8ceed28f1692809c761aa8`, run [35691044610](https://github.com/prls-co/harden-llm/actions/runs/35691044610), suite `release`.
+- Result: FAIL after 1m38s in `runner-contracts`; release did not reach the distinct full Compose smoke. The retained redacted runner report is under `tmp/test-feedback/gh-release-failure/` locally and in the workflow artifact. Eleven lifecycle assertions failed downstream of the same preflight condition: `inherited Docker daemon lock lease does not match this daemon or private lock path`.
+- Root cause: the Node fixture helper `runTask` wrote fake-daemon environment values into process-global `process.env` and restored them after awaiting the runner. Parallel fake-daemon tests therefore raced; a task could observe another fixture's resource ledger or Docker harness, making the inherited lease appear invalid. Lease validation was correct; weakening it would permit cross-daemon/resource cleanup.
+- RED evidence: new TEST-273 concurrent-isolation case, command `node --test --test-name-pattern='TEST-273 parallel fake-daemon invocations' scripts/test/test_resource_lifecycle_test.mjs` — FAIL before correction because the first fixture did not receive its own Docker event. The assertion checks independent environment routing, successful acceptance of both owned fixtures, and no mutation of the parent test process PATH.
+- Correction: `scripts/test/test_resource_lifecycle_test.mjs` now builds one explicit environment object for each `runTasks` invocation; it no longer mutates/restores global environment state. The parent's private daemon lease/path validation remains unchanged.
+- GREEN evidence:
+  - The exact TEST-273 command above — PASS after correction.
+  - `node --test scripts/test/run_test_tier_test.mjs scripts/test/test_resource_lifecycle_test.mjs scripts/test/test_resource_measurement_test.mjs` — PASS, 40 tests, 74.138 s.
+- First failed hosted evidence remains a real failure; it is not converted to a pass. Required next check is the full pinned-toolchain `make test-fast`, then publish the isolated fixture fix and rerun hosted release before lifecycle/capacity acceptance.
+- Workflow annotations (non-test warnings): GitHub reported `actions/checkout@v4` currently runs on forced Node.js 24 despite its Node 20 metadata, and `ubuntu-latest` is scheduled to migrate to Ubuntu 26 on 2026-10-19. These are not the release failure cause. Keep them as environment-maintenance risks; do not mix an action-major or OS migration into this recovery unless a gate proves it necessary.
+
 Known matters to carry forward:
 
 - The recovery production closeout remains separate; its failed acceptance is not changed to passing by this planning revision.

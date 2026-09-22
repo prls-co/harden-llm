@@ -192,13 +192,6 @@ const result = await runTasks([task], {
 process.stdout.write(JSON.stringify({ accepted: result.accepted, firstFailure: result.firstFailure, cleanupErrors: result.cleanupErrors, lifecycleTimings: result.lifecycleTimings }));
 `;
 
-function restoreEnvironment(previous) {
-  for (const [key, value] of Object.entries(previous)) {
-    if (value === undefined) delete process.env[key];
-    else process.env[key] = value;
-  }
-}
-
 async function fixture(t) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "harden-llm-resource-test-"));
   FIXTURES.add(root);
@@ -314,57 +307,28 @@ async function waitForFile(filePath, timeoutMs = PROCESS_READINESS_TIMEOUT_MS) {
 }
 
 async function runTask(data, runId, options = {}) {
-  const previous = {
-    PATH: process.env.PATH,
-    HARDEN_LLM_TEST_RUN_ID: process.env.HARDEN_LLM_TEST_RUN_ID,
-    HARDEN_LLM_FAKE_DOCKER_EVENTS: process.env.HARDEN_LLM_FAKE_DOCKER_EVENTS,
-    HARDEN_LLM_FAKE_DOCKER_GATE: process.env.HARDEN_LLM_FAKE_DOCKER_GATE,
-    HARDEN_LLM_FAKE_DOCKER_RELEASE: process.env.HARDEN_LLM_FAKE_DOCKER_RELEASE,
-    HARDEN_LLM_FAKE_DOCKER_DOWN_FAILURE_RUN_ID: process.env.HARDEN_LLM_FAKE_DOCKER_DOWN_FAILURE_RUN_ID,
-    HARDEN_LLM_FAKE_DOCKER_LEFTOVER_RUN_ID: process.env.HARDEN_LLM_FAKE_DOCKER_LEFTOVER_RUN_ID,
-    HARDEN_LLM_FAKE_DOCKER_STUBBORN_RUN_ID: process.env.HARDEN_LLM_FAKE_DOCKER_STUBBORN_RUN_ID,
-    HARDEN_LLM_FAKE_DOCKER_UNKNOWN_RUN_ID: process.env.HARDEN_LLM_FAKE_DOCKER_UNKNOWN_RUN_ID,
-    HARDEN_LLM_FAKE_DOCKER_UNKNOWN_AFTER_DOWN_RUN_ID: process.env.HARDEN_LLM_FAKE_DOCKER_UNKNOWN_AFTER_DOWN_RUN_ID,
-    HARDEN_LLM_FAKE_DOCKER_UP_FAILURE_RUN_ID: process.env.HARDEN_LLM_FAKE_DOCKER_UP_FAILURE_RUN_ID,
-    HARDEN_LLM_FAKE_DOCKER_TASK_PID_FILE: process.env.HARDEN_LLM_FAKE_DOCKER_TASK_PID_FILE,
-    HARDEN_LLM_FAKE_DOCKER_FOREIGN_VOLUME_RUN_ID: process.env.HARDEN_LLM_FAKE_DOCKER_FOREIGN_VOLUME_RUN_ID,
-    HARDEN_LLM_FAKE_DOCKER_FOREIGN_NETWORK_RUN_ID: process.env.HARDEN_LLM_FAKE_DOCKER_FOREIGN_NETWORK_RUN_ID,
-    HARDEN_LLM_FAKE_DOCKER_HANG_INVENTORY_RUN_ID: process.env.HARDEN_LLM_FAKE_DOCKER_HANG_INVENTORY_RUN_ID,
-    HARDEN_LLM_FAKE_DOCKER_BLOCK_RUN_ID: process.env.HARDEN_LLM_FAKE_DOCKER_BLOCK_RUN_ID,
-    HARDEN_LLM_FAKE_DOCKER_DAEMON_ID: process.env.HARDEN_LLM_FAKE_DOCKER_DAEMON_ID,
-    HARDEN_LLM_TEST_RESOURCE_DIR: process.env.HARDEN_LLM_TEST_RESOURCE_DIR,
-    HARDEN_LLM_TEST_SECRET: process.env.HARDEN_LLM_TEST_SECRET,
-    HARDEN_LLM_REAL_FLOCK: process.env.HARDEN_LLM_REAL_FLOCK,
-    HARDEN_LLM_FAKE_DOCKER_ENDPOINT: process.env.HARDEN_LLM_FAKE_DOCKER_ENDPOINT,
-    DOCKER_HOST: process.env.DOCKER_HOST,
-    DOCKER_CONTEXT: process.env.DOCKER_CONTEXT,
-  };
-  Object.assign(process.env, baseEnvironment(data, {
+  const environment = baseEnvironment(data, {
     HARDEN_LLM_TEST_RUN_ID: runId,
     HARDEN_LLM_TEST_RESOURCE_DIR: path.join(data.root, "receipts"),
     ...options.environment,
-  }));
-  try {
-    let command = options.command;
-    if (!command && options.additionalReceiptProjects?.length) {
-      const moduleURL = pathToFileURL(path.join(REPOSITORY_ROOT, "scripts/test-resource-lifecycle.mjs")).href;
-      const projects = JSON.stringify(options.additionalReceiptProjects);
-      const composeFile = JSON.stringify(data.composeFile);
-      const code = `const { createResourceReceipt, updateResourceReceipt } = await import(${JSON.stringify(moduleURL)}); for (const project of ${projects}) { const { receiptPath } = await createResourceReceipt({ directory: process.env.HARDEN_LLM_TEST_RESOURCE_DIR, runId: process.env.HARDEN_LLM_TEST_RUN_ID, project, daemonId: process.env.HARDEN_LLM_FAKE_DOCKER_DAEMON_ID ?? "fixture-daemon-identity", composeFiles: [${composeFile}], pid: Number(process.env.HARDEN_LLM_TEST_SUPERVISOR_PID), supervisorStart: process.env.HARDEN_LLM_TEST_SUPERVISOR_START }); await updateResourceReceipt(receiptPath, "creating"); await updateResourceReceipt(receiptPath, "running"); }`;
-      command = [process.execPath, "-e", code];
-    }
-    return await runTasks([serviceTask(data, runId, command, options.timeoutMs)], {
-      root: data.root,
-      runID: runId,
-      sourceSHA: options.sourceSHA,
-      cleanupTimeoutMs: options.cleanupTimeoutMs,
-      environment: options.environment,
-      runDirectory: path.join(data.root, `run-${runId}`),
-      resourceClasses: { service: { slots: 1, exclusive: false } },
-    });
-  } finally {
-    restoreEnvironment(previous);
+  });
+  let command = options.command;
+  if (!command && options.additionalReceiptProjects?.length) {
+    const moduleURL = pathToFileURL(path.join(REPOSITORY_ROOT, "scripts/test-resource-lifecycle.mjs")).href;
+    const projects = JSON.stringify(options.additionalReceiptProjects);
+    const composeFile = JSON.stringify(data.composeFile);
+    const code = `const { createResourceReceipt, updateResourceReceipt } = await import(${JSON.stringify(moduleURL)}); for (const project of ${projects}) { const { receiptPath } = await createResourceReceipt({ directory: process.env.HARDEN_LLM_TEST_RESOURCE_DIR, runId: process.env.HARDEN_LLM_TEST_RUN_ID, project, daemonId: process.env.HARDEN_LLM_FAKE_DOCKER_DAEMON_ID ?? "fixture-daemon-identity", composeFiles: [${composeFile}], pid: Number(process.env.HARDEN_LLM_TEST_SUPERVISOR_PID), supervisorStart: process.env.HARDEN_LLM_TEST_SUPERVISOR_START }); await updateResourceReceipt(receiptPath, "creating"); await updateResourceReceipt(receiptPath, "running"); }`;
+    command = [process.execPath, "-e", code];
   }
+  return runTasks([serviceTask(data, runId, command, options.timeoutMs)], {
+    root: data.root,
+    runID: runId,
+    sourceSHA: options.sourceSHA,
+    cleanupTimeoutMs: options.cleanupTimeoutMs,
+    environment,
+    runDirectory: path.join(data.root, `run-${runId}`),
+    resourceClasses: { service: { slots: 1, exclusive: false } },
+  });
 }
 
 function spawnWorker(data, runId, options = {}) {
@@ -734,6 +698,22 @@ test("TEST-273 pure task selection does not contact Docker or acquire the lock",
   assert.equal(result.accepted, true, JSON.stringify(result));
   assert.deepEqual(result.lifecycleTimings, { dockerIdentityMs: null, daemonLockWaitMs: null, staleReceiptRecoveryMs: null });
   assert.equal((await readEvents(data)).some((event) => event.kind === "flock-attempt" || event.kind === "daemon-info"), false);
+});
+
+test("TEST-273 parallel fake-daemon invocations keep fixture environments isolated", async (t) => {
+  const first = await fixture(t);
+  const second = await fixture(t);
+  const originalPath = process.env.PATH;
+  const [firstResult, secondResult] = await Promise.all([
+    runTask(first, "isolated-first", { environment: { HARDEN_LLM_FAKE_DOCKER_DAEMON_ID: "fixture-daemon-first" } }),
+    runTask(second, "isolated-second", { environment: { HARDEN_LLM_FAKE_DOCKER_DAEMON_ID: "fixture-daemon-second" } }),
+  ]);
+
+  assert.equal(firstResult.accepted, true, JSON.stringify(firstResult));
+  assert.equal(secondResult.accepted, true, JSON.stringify(secondResult));
+  assert.equal(process.env.PATH, originalPath, "fixture execution must not mutate the test process environment");
+  assert.ok((await readEvents(first)).some((event) => event.runId === "isolated-first"), "first fake daemon receives only its fixture-scoped environment");
+  assert.ok((await readEvents(second)).some((event) => event.runId === "isolated-second"), "second fake daemon receives only its fixture-scoped environment");
 });
 
 test("TEST-273 nested managed runner reuses its parent's daemon lease", async (t) => {
