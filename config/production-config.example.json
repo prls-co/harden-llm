@@ -40,7 +40,7 @@
         "HARDEN_LLM_RELEASE": "<immutable-release-sha>"
       },
       "ignoredEnvironmentKeys": [],
-      "allowedDifferenceFields": ["environment", "image"],
+      "allowedDifferenceFields": ["environment", "image", "identity"],
       "compareMountContents": false
     }
   },

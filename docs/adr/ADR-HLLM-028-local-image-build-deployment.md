@@ -13,9 +13,9 @@ P04 later added a manual GitHub Actions publisher, a publisher-only contract
 test, GHCR package permissions, provenance handling, and registry-specific
 release documentation. One private image from source
 `6887fcd8146961dc64598dd7a236e7a9fc522c9c` was published and deployed by
-digest. The live production descriptor consequently refers to that GHCR
-digest even though the same image is already present on the existing Docker
-host.
+digest. The production descriptor consequently referred to that GHCR digest
+until the later local-reference transition, while the same image was already
+present on the existing Docker host.
 
 The current deployment is one actively developed application on one existing
 Docker host. The operator is willing to build from source there. There is no
@@ -27,9 +27,13 @@ operating model changes.
 
 ## Decision
 
-1. Use the existing root Dockerfile to build the exact tested application
-   source on the target production Docker host. Tag the result
+1. Use the existing root Dockerfile to build the exact merged source SHA
+   checked out by a recorded successful release workflow run and attempt on
+   the target production Docker host. Tag the result
    `harden-llm-gateway:release-<full-source-sha>` and record its exact image ID.
+   A later documentation-only commit does not relabel an existing image; it is
+   used as image identity only when that exact commit is the accepted release
+   run's tested source and a new image is actually required.
 2. Use the existing scoped `production-config` commands to check and apply
    only `harden-llm-gateway`. Keep the target local image and a prior
    known-good local image through the rollback period. The release lifecycle
@@ -75,7 +79,8 @@ operating model changes.
   and platform, but byte-identical layers/digests have not been demonstrated.
 - The original GHCR publication remains a historical fact, but the package was
   deleted in the follow-up below. The production host's local image is now the
-  only retained copy of that image artifact.
+  only verified, immediately usable copy of that image artifact recorded by
+  the project.
 - Reconsider this decision if multiple hosts, independent build/deploy
   environments, image restore requirements, or build-resource constraints
   emerge. A change requires a new ADR amendment, not silently restoring the
@@ -102,7 +107,15 @@ preserves publisher source only; it is not a backup of the deleted image.
 The existing running container retains the historical GHCR string in its
 creation-time `Config.Image`, but its image object is local and its immutable
 image ID matches the production descriptor. Future recreation must use the
-local-image descriptor path; the deleted digest is no longer pullable.
+local-image descriptor path; the deleted digest is unavailable for pulls while
+deletion remains in effect.
+
+GitHub [documents a conditional restoration window](https://docs.github.com/en/packages/learn-github-packages/deleting-and-restoring-a-package):
+a deleted package or version can be restored within 30 days only if its
+namespace and version have not been reused and the operator has the required
+access. No restoration was attempted or certified here, and the exact deletion
+timestamp was not recorded. This possibility is not durable image retention or
+an active release path.
 
 ## Rollback and restoration
 
@@ -110,9 +123,13 @@ Operational rollback means restoring the prior host descriptor and verified
 local image using the scoped production-config procedure in the specification.
 It does not require registry access.
 
-To restore publication later, review the archived workflow and test rather
-than copying them blindly; restore their selectors and traceability entries
-from the archive's source context, add a new ADR/amendment for current security
-and retention requirements, and run current exact-source release certification
-before granting package-write permissions. The deleted package cannot be used
-for rollback or recovery; rebuild from source if the host-local image is lost.
+The deleted package is not a current rollback source. It could become available
+only if GitHub's time, namespace/version, and access conditions still hold and
+a restoration succeeds; no such restoration has been tested. Rebuild from
+tested source if the host-local image is lost.
+
+Reintroducing publication is a separate decision. Review the archived workflow
+and test rather than copying them blindly; restore their selectors and
+traceability entries from the archive's source context, add a new ADR/amendment
+for current security and retention requirements, and run current exact-source
+release certification before granting package-write permissions.

@@ -27,16 +27,22 @@ node scripts/production-config.mjs check \
   --descriptor /home/kirill/.config/harden-llm/production.json
 ```
 
-Before a release cutover, compare both application services with the exact
-candidate SHA. A descriptor that is internally equivalent at an older release
-must fail this check:
+Before a release cutover, compare the application service being promoted with
+its exact candidate SHA. A descriptor that is internally equivalent at an
+older release must fail this gateway example:
 
 ```bash
 node scripts/production-config.mjs check \
   --descriptor /home/kirill/.config/harden-llm/production.json \
-  --services harden-llm-gateway,harden-llm-web \
+  --services harden-llm-gateway \
   --expected-release <40-hex-commit-sha>
 ```
+
+Check `harden-llm-web` separately with its own candidate SHA when promoting the
+web application. Select both services under one `--expected-release` only when
+they intentionally share that exact release identity. An ordinary combined
+check without `--expected-release` still verifies overall descriptor/runtime
+equivalence when their release identities differ.
 
 Do not reuse development routing values such as `*.harden.localhost` for a
 Cloudflare-tunneled production origin. Set the five `HARDEN_LLM_*_HOST` values

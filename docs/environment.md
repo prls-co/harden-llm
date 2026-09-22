@@ -95,15 +95,22 @@ node scripts/production-config.mjs check \
 ```
 
 For a release acceptance check, supply the certified candidate SHA explicitly
-and select both application services. Descriptor equivalence alone does not
-prove that the intended gateway and web images are running:
+and select only the application service being promoted. Descriptor equivalence
+alone does not prove that the intended candidate image is running. For a
+gateway-only release:
 
 ```bash
 node scripts/production-config.mjs check \
   --descriptor /home/kirill/.config/harden-llm/production.json \
-  --services harden-llm-gateway,harden-llm-web \
+  --services harden-llm-gateway \
   --expected-release <40-hex-commit-sha>
 ```
+
+Run an analogous service-specific check for `harden-llm-web` when promoting
+the web application. A combined candidate check is valid only when both
+services intentionally use the same release SHA. Use the ordinary check
+without `--expected-release` to verify whole-descriptor equivalence when their
+release identities differ.
 
 The descriptor is nonsecret host metadata. It records the fixed Compose graph,
 the separate `composeRoot` and application checkout, Docker context, approved

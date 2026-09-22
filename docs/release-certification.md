@@ -76,32 +76,34 @@ checks consume them.
 The following records the one completed publisher implementation and
 deployment; it is not an active procedure.
 
-The gateway publisher is a separate manual, `main`-only workflow at
+The gateway publisher was a separate manual, `main`-only workflow at
 `.github/workflows/publish-gateway-image.yml`. Its read-only certification job
-checks out the exact dispatch SHA and runs the existing browser-free
-`make test-release`; only the dependent image job receives `packages: write`.
-The image is published to `ghcr.io/prls-co/harden-llm-gateway` with a unique
+checked out the exact dispatch SHA and ran the existing browser-free
+`make test-release`; only the dependent image job received `packages: write`.
+The image was published to `ghcr.io/prls-co/harden-llm-gateway` with a unique
 full-source-SHA/run/attempt tag, OCI source/revision/version labels, and
-BuildKit max-mode provenance. Authentication uses the job-scoped
-`GITHUB_TOKEN`; no stored registry PAT is permitted.
+BuildKit max-mode provenance. Authentication used the job-scoped
+`GITHUB_TOKEN`; no stored registry PAT was permitted.
 
-GHCR's [first-publish default is private](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry), but the workflow also reads back
-package visibility and fails unless it is `private`. The retained
-`gateway-image-publication.json` report contains the source SHA, unique tag,
+GHCR's [first-publish default is private](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry), but the workflow also read back
+package visibility and failed unless it was `private`. The retained
+`gateway-image-publication.json` report records the source SHA, unique tag,
 immutable digest, `linux/amd64` platform, provenance mode, run identity, and
 verified package visibility; it contains no credentials, build logs, or
-application data. Promote the exact `ghcr.io/prls-co/harden-llm-gateway@sha256:…`
-reference, never a mutable tag. In the private production descriptor,
-`serviceImageOverrides.harden-llm-gateway` is that digest reference while
-`services.harden-llm-gateway.expectedImage` remains the pulled Docker image ID;
-`HARDEN_LLM_RELEASE` carries the exact source SHA. Capture the prior descriptor
-and image before a gateway-only scoped apply. Registry publication, production
-deployment, and capacity certification remain separate evidence categories.
+application data. The production deployment promoted the exact
+`ghcr.io/prls-co/harden-llm-gateway@sha256:…` reference, not a mutable tag. In
+the private production descriptor, `serviceImageOverrides.harden-llm-gateway`
+selected that digest reference while `services.harden-llm-gateway.expectedImage`
+recorded the pulled Docker image ID; `HARDEN_LLM_RELEASE` carried the exact
+source SHA. The operator captured the prior descriptor and image before the
+gateway-only scoped apply. Registry publication, production deployment, and
+capacity certification remained separate evidence categories.
 
-The first execution of this workflow is recorded below only after its hosted
+The first execution of this workflow was recorded below only after its hosted
 release gate, private package, image digest/provenance, and production identity
-are independently observed. The `make test-release` gate remains browser-free;
-browser and real-provider checks are not implied by a green image publisher.
+were independently observed. The publisher's `make test-release` gate was
+browser-free; browser and real-provider checks were not implied by its green
+result.
 
 ### Historical certification contract
 
@@ -2224,6 +2226,14 @@ or data was changed, and there was no restart or deployment. The currently
 running container retains its historical GHCR `Config.Image` text, but its
 local image ID is intact. Future production recreation must use the local tag
 from the production descriptor; the deleted registry digest cannot be pulled.
+
+GitHub [documents restoration](https://docs.github.com/en/packages/learn-github-packages/deleting-and-restoring-a-package)
+within 30 days only while the same package namespace and version remain
+available and the operator has the required access. No restore was attempted
+or certified, and the exact deletion timestamp was not recorded, so this entry
+does not claim that the package is currently eligible. While deletion remains
+in effect, the package is unavailable for pulls. The supported durable path is
+the verified local image or a new build from tested source.
 
 The live descriptor is now local-image based and the active publisher workflow
 and publisher-only TEST-283 implementation have been removed. The Dockerfile's

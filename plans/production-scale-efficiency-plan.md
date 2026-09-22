@@ -1426,6 +1426,10 @@ deployed. It is not an active release step or a requirement to preserve.
   descriptor and running image ID; see the dated follow-up in
   `docs/adr/ADR-HLLM-028-local-image-build-deployment.md` and
   `docs/release-certification.md`.
+- GitHub documents a conditional package-restoration window of 30 days when
+  namespace/version availability and access requirements still hold. No restore
+  was attempted or certified. That administrative option is neither the active
+  release path nor durable recovery; ADR-HLLM-028 records the boundary.
 - See the release closeout for hosted checks, final `main` SHA, HTTP/runtime
   probes, and the read-only artifact inventory. No capacity claim, browser
   check, provider call, data migration, volume operation, or topology change is
