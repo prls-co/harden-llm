@@ -1072,7 +1072,9 @@ export async function runCommand(task, options) {
         if (safetyFailure) throw new Error(safetyFailure);
         const imageIDs = initialSample?.containers?.map((container) => container.imageId) ?? [];
         if (imageIDs.length !== task.servicePool.services.length || imageIDs.some((value) => !/^sha256:[a-f0-9]{64}$/i.test(value))) {
-          throw new Error("capacity fingerprint requires one exact immutable image identity per service-pool container");
+          const sampleFailure = initialSample?.collectionNullReasons?.containers;
+          const detail = sampleFailure ?? `observed ${imageIDs.length} exact service containers for ${task.servicePool.services.length} configured services`;
+          throw new Error(`capacity fingerprint requires one exact immutable image identity per service-pool container (${detail})`);
         }
         const composeSHA256 = await sha256File(pool.composeFile);
         const services = task.servicePool.services.map(({ name, port }) => ({ name, port })).sort((left, right) => left.name.localeCompare(right.name));

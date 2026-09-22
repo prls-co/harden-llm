@@ -172,6 +172,30 @@ test("TEST-275 samples exact project resources without inventing RSS or volume d
   assert.ok(!JSON.stringify(report).includes("docs.example.test"));
 });
 
+test("TEST-275 reports which bounded Docker container sampling stage was unavailable", async () => {
+  const containerID = "aaaaaaaaaaaa";
+  const identity = `${JSON.stringify({ "com.docker.compose.project": "owned-project" })}|sha256:${"a".repeat(64)}\n`;
+  const cases = [
+    { failedCommand: "ps", expected: "container inventory command failed" },
+    { failedCommand: "inspect", expected: "container identity inspection failed" },
+    { failedCommand: "stats", expected: "container stats command failed" },
+  ];
+
+  for (const { failedCommand, expected } of cases) {
+    const sample = await collectDockerResourceSample("owned-project", async (args) => {
+      if (args[0] === failedCommand) return { status: 1, stdout: "untrusted-secret-output" };
+      if (args[0] === "ps") return { status: 0, stdout: `${containerID}\n` };
+      if (args[0] === "inspect") return { status: 0, stdout: identity };
+      if (args[0] === "stats") return { status: 0, stdout: `${containerID}\t1 MiB / 1 GiB\t1.0%\n` };
+      if (args[0] === "volume" && args[1] === "ls") return { status: 0, stdout: "" };
+      throw new Error(`unexpected Docker command ${args[0]}`);
+    });
+
+    assert.equal(sample.collectionNullReasons.containers, expected);
+    assert.doesNotMatch(JSON.stringify(sample), /untrusted-secret-output/);
+  }
+});
+
 test("TEST-275 rejects mutable image tags from capacity fingerprints", () => {
   assert.throws(() => hashImageIDs(["postgres:17-alpine"]), /immutable Docker sha256 image IDs/);
 });

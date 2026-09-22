@@ -125,6 +125,7 @@ export async function collectDockerResourceSample(project, execute, { timestamp 
   if (typeof execute !== "function") throw new TypeError("Docker command executor is required");
   const sample = { timestamp, host, collectionNullReasons: {} };
 
+  let containerStage = "container inventory command";
   try {
     const ids = outputLines(outputText(await execute([
       "ps", "--all", "--filter", `label=com.docker.compose.project=${project}`,
@@ -133,6 +134,7 @@ export async function collectDockerResourceSample(project, execute, { timestamp 
     if (ids.length > 64 || ids.some((id) => !/^[a-f0-9]{12,64}$/i.test(id)) || new Set(ids).size !== ids.length) {
       throw new Error("container inventory exceeded bounds or contained invalid IDs");
     }
+    containerStage = "container identity inspection";
     const inspectRows = ids.length === 0 ? [] : outputLines(outputText(await execute([
       "inspect", "--format", "{{json .Config.Labels}}|{{.Image}}", ...ids,
     ]), "container identity inventory"));
@@ -151,6 +153,7 @@ export async function collectDockerResourceSample(project, execute, { timestamp 
       : []);
     const stats = new Map();
     if (exact.length > 0) {
+      containerStage = "container stats command";
       const rows = outputLines(outputText(await execute([
         "stats", "--no-stream", "--format", "{{.ID}}\t{{.MemUsage}}\t{{.CPUPerc}}", ...exact.map((container) => container.id),
       ]), "container resource sample"));
@@ -173,7 +176,7 @@ export async function collectDockerResourceSample(project, execute, { timestamp 
       };
     });
   } catch {
-    sample.collectionNullReasons.containers = "exact project container sample could not be collected";
+    sample.collectionNullReasons.containers = `${containerStage} failed`;
   }
 
   try {
