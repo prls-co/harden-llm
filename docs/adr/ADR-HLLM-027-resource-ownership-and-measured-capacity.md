@@ -63,6 +63,11 @@ themselves.
 7. A no-change decision and an insufficient-evidence result are valid. A
    runtime remedy needs its own concrete requirement, failing test, release and
    rollback procedure, and equivalent before/after workload evidence.
+8. Capacity reports retain at most 96 body-free stored-artifact metadata rows
+   per scenario, in line with the existing bounded request-diagnostic sample.
+   Exact artifact counts and byte totals remain untruncated, and each omitted
+   artifact row is counted. Keep the existing 1 MiB serialized-report ceiling;
+   do not expand it to accommodate larger runs.
 
 ## Receipt protocol
 
@@ -127,6 +132,10 @@ existing test/service timeout budgets:
 - Unknown provider prices, queue metrics, costs, or host measurements remain
   null with a reason. No minimum performance improvement is assigned without
   a production SLO and a valid baseline.
+- Each scenario retains at most 96 traceable stored-artifact metadata rows;
+  exact aggregate counts and bytes plus an omitted-row count preserve the
+  population evidence without allowing the bounded report to grow with every
+  request. The report remains capped at 1 MiB.
 
 The disk check reads Docker's configured data-root filesystem, not the
 repository checkout filesystem. The 5 GiB floor is not an image-size forecast;

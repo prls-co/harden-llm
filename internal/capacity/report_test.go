@@ -286,6 +286,109 @@ func TestCapacityReportBoundsRequestDiagnosticsAtMaximumScenarioPopulation(t *te
 	}
 }
 
+func TestCapacityReportBoundsStoredArtifactSamplesAtMaximumExplorationPopulation(t *testing.T) {
+	const requestsPerScenario = 2_000
+	caseIDs := []string{"one-rps-short-provider", "twelve-rps-short", "twenty-four-rps-short", "twelve-rps-ten-second-provider"}
+	report := ExecutionReport{
+		SchemaVersion: 2, ReportKind: "harden-llm-capacity.v2", TestRunID: "capacity-run",
+		TestIDs: []string{"TEST-277"}, CaseSet: "exploration",
+		Cases: make([]ScenarioReport, len(caseIDs)),
+	}
+	for caseIndex, caseID := range caseIDs {
+		scenario := ScenarioReport{
+			ScenarioID: caseID, ExpectedOutcome: "succeeded",
+			Measurement: PopulationSummary{
+				Offered: requestsPerScenario, Launched: requestsPerScenario, Succeeded: requestsPerScenario,
+				ProviderAttempts: requestsPerScenario, StageDispatches: map[string]int{"original.generate": requestsPerScenario},
+				ModelDispatches:    map[string]int{"synthetic-capacity-model": requestsPerScenario},
+				TokenUsage:         []ProviderCall{{Stage: "original.generate", Model: "synthetic-capacity-model", InputTokens: 10 * requestsPerScenario, OutputTokens: 5 * requestsPerScenario, TokenUsageKnown: true}},
+				TokenUsageComplete: true,
+			},
+			ArtifactCount: requestsPerScenario, ArtifactBytesProduced: 4_283 * requestsPerScenario,
+			StoredArtifacts:    make([]StoredArtifact, requestsPerScenario),
+			RequestDiagnostics: make([]RequestDiagnostic, maxRequestDiagnostics),
+		}
+		for requestIndex := range scenario.StoredArtifacts {
+			requestID := requestIndex + 1
+			scenario.StoredArtifacts[requestIndex] = StoredArtifact{
+				RequestID: requestID, ArtifactID: fmt.Sprintf("trace-%02d-%04d-artifact-trace", caseIndex, requestID),
+				Kind: "trace", SHA256: strings.Repeat("a", 64), SizeBytes: 4_283,
+			}
+		}
+		for diagnosticIndex := range scenario.RequestDiagnostics {
+			requestID := diagnosticIndex + 1
+			scenario.RequestDiagnostics[diagnosticIndex] = RequestDiagnostic{
+				RequestID: requestID, Population: "measurement", Outcome: "succeeded",
+				StatusCode: 200, ExecutionStatus: "succeeded",
+				CallID:  fmt.Sprintf("call-%02d-%04d", caseIndex, requestID),
+				RunID:   fmt.Sprintf("run-%02d-%04d", caseIndex, requestID),
+				TraceID: fmt.Sprintf("trace-%02d-%04d", caseIndex, requestID),
+				Origin: RequestOrigin{
+					Client: "harden-llm-capacity-test", Component: "capacity-baseline",
+					OperationID: fmt.Sprintf("%s-%04d", caseID, requestID), JobID: fmt.Sprintf("measurement-request-%d", requestID),
+					TestRunID: "capacity-run", TestID: "TEST-277", SourceRevision: strings.Repeat("a", 40),
+				},
+				StreamTerminal: "run.completed", LaunchLagNS: time.Millisecond, LatencyNS: time.Second,
+				FirstEventNS: 5 * time.Millisecond, EventCount: 5, ReceivedBytes: 9_284,
+				ProviderCalls: []ProviderCall{{Stage: "original.generate", Model: "synthetic-capacity-model", InputTokens: 10, OutputTokens: 5, TokenUsageKnown: true}},
+				Reasons:       []string{"highest_latency", "highest_first_event_latency", "largest_stream"},
+			}
+		}
+		report.Cases[caseIndex] = scenario
+	}
+
+	path := filepath.Join(t.TempDir(), "capacity-report.json")
+	if err := WriteExecutionReport(path, report); err != nil {
+		t.Fatalf("maximum exploration artifact report should publish within its bound: %v", err)
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(content) > maxExecutionReportBytes {
+		t.Fatalf("maximum exploration report size = %d, limit = %d", len(content), maxExecutionReportBytes)
+	}
+	var serialized struct {
+		Cases []struct {
+			ArtifactCount         int              `json:"artifactCount"`
+			ArtifactBytesProduced int64            `json:"artifactBytesProduced"`
+			StoredArtifacts       []StoredArtifact `json:"storedArtifacts"`
+			ArtifactsOmitted      int              `json:"storedArtifactsOmitted"`
+		} `json:"cases"`
+	}
+	if err := json.Unmarshal(content, &serialized); err != nil {
+		t.Fatalf("decode bounded artifact report: %v", err)
+	}
+	if len(serialized.Cases) != len(caseIDs) {
+		t.Fatalf("serialized cases = %d, want %d", len(serialized.Cases), len(caseIDs))
+	}
+	for index, scenario := range serialized.Cases {
+		if scenario.ArtifactCount != requestsPerScenario || scenario.ArtifactBytesProduced != 4_283*requestsPerScenario {
+			t.Fatalf("scenario %s artifact aggregates = count %d bytes %d", caseIDs[index], scenario.ArtifactCount, scenario.ArtifactBytesProduced)
+		}
+		if len(scenario.StoredArtifacts) != 96 || scenario.ArtifactsOmitted != requestsPerScenario-96 {
+			t.Fatalf("scenario %s retained %d artifact samples and omitted %d; want 96 and %d", caseIDs[index], len(scenario.StoredArtifacts), scenario.ArtifactsOmitted, requestsPerScenario-96)
+		}
+	}
+}
+
+func TestCapacityReportRecordVerifiedArtifactPreservesExactTotalsAndBoundsSamples(t *testing.T) {
+	const artifactCount = 2_000
+	report := ScenarioReport{}
+	for requestID := 1; requestID <= artifactCount; requestID++ {
+		RecordVerifiedArtifact(&report, StoredArtifact{
+			RequestID: requestID, ArtifactID: fmt.Sprintf("trace-%04d-artifact-trace", requestID),
+			Kind: "trace", SHA256: strings.Repeat("b", 64), SizeBytes: 4_283,
+		})
+	}
+	if report.ArtifactCount != artifactCount || report.ArtifactBytesProduced != 4_283*artifactCount {
+		t.Fatalf("verified artifact totals = count %d bytes %d", report.ArtifactCount, report.ArtifactBytesProduced)
+	}
+	if len(report.StoredArtifacts) != 96 || report.StoredArtifactsOmitted != artifactCount-96 {
+		t.Fatalf("verified artifact sample count = %d omitted=%d; want 96 and %d", len(report.StoredArtifacts), report.StoredArtifactsOmitted, artifactCount-96)
+	}
+}
+
 func diagnosticHasReason(diagnostics []RequestDiagnostic, requestID int, reason string) bool {
 	for _, diagnostic := range diagnostics {
 		if diagnostic.RequestID != requestID {

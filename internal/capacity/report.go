@@ -21,6 +21,7 @@ const (
 	maxRequestDiagnostics           = 96
 	maxNonSuccessRequestDiagnostics = 32
 	maxPerMetricRequestDiagnostics  = 12
+	maxStoredArtifactSamples        = 96
 )
 
 type Fingerprint struct {
@@ -132,9 +133,25 @@ type ScenarioReport struct {
 	DriverProviderDispatches  int64               `json:"driverProviderDispatches"`
 	ProviderAccountingMatches bool                `json:"providerAccountingMatches"`
 	StoredArtifacts           []StoredArtifact    `json:"storedArtifacts,omitempty"`
+	StoredArtifactsOmitted    int                 `json:"storedArtifactsOmitted"`
 	ArtifactCount             int                 `json:"artifactCount"`
 	ArtifactBytesProduced     int64               `json:"artifactBytesProduced"`
 	PersistedExecutions       int                 `json:"persistedExecutions"`
+}
+
+// RecordVerifiedArtifact preserves exact artifact totals while keeping only a
+// bounded body-free sample of per-object metadata in the report.
+func RecordVerifiedArtifact(report *ScenarioReport, artifact StoredArtifact) {
+	if report == nil {
+		return
+	}
+	report.ArtifactCount++
+	report.ArtifactBytesProduced += artifact.SizeBytes
+	if len(report.StoredArtifacts) >= maxStoredArtifactSamples {
+		report.StoredArtifactsOmitted++
+		return
+	}
+	report.StoredArtifacts = append(report.StoredArtifacts, artifact)
 }
 
 type ExecutionReport struct {
@@ -482,6 +499,9 @@ func WriteExecutionReport(filename string, report ExecutionReport) error {
 	if report.SchemaVersion != 2 || report.ReportKind != "harden-llm-capacity.v2" || report.TestRunID == "" || len(report.Cases) == 0 {
 		return errors.New("capacity report identity or case set is invalid")
 	}
+	if err := boundStoredArtifactSamples(&report); err != nil {
+		return err
+	}
 	content, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode capacity report: %w", err)
@@ -528,6 +548,29 @@ func WriteExecutionReport(filename string, report ExecutionReport) error {
 	defer directoryFile.Close()
 	if err := directoryFile.Sync(); err != nil {
 		return fmt.Errorf("sync capacity report directory: %w", err)
+	}
+	return nil
+}
+
+func boundStoredArtifactSamples(report *ExecutionReport) error {
+	if report == nil {
+		return errors.New("capacity report is required")
+	}
+	cases := make([]ScenarioReport, len(report.Cases))
+	copy(cases, report.Cases)
+	report.Cases = cases
+	maxInt := int(^uint(0) >> 1)
+	for index := range report.Cases {
+		scenario := &report.Cases[index]
+		if len(scenario.StoredArtifacts) <= maxStoredArtifactSamples {
+			continue
+		}
+		omitted := len(scenario.StoredArtifacts) - maxStoredArtifactSamples
+		if scenario.StoredArtifactsOmitted > maxInt-omitted {
+			return errors.New("capacity report omitted artifact count overflows")
+		}
+		scenario.StoredArtifactsOmitted += omitted
+		scenario.StoredArtifacts = append([]StoredArtifact(nil), scenario.StoredArtifacts[:maxStoredArtifactSamples]...)
 	}
 	return nil
 }

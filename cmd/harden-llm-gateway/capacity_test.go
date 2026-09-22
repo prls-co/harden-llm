@@ -550,9 +550,7 @@ func verifyPersistedCapacityExecutions(ctx context.Context, t *testing.T, client
 			if hex.EncodeToString(digest[:]) != record.SHA256 || int64(len(content)) != record.SizeBytes || record.SHA256 != artifact.SHA256 {
 				return fmt.Errorf("persisted artifact metadata/digest mismatch for request %d", request.ID)
 			}
-			report.ArtifactBytesProduced += int64(len(content))
-			report.ArtifactCount++
-			report.StoredArtifacts = append(report.StoredArtifacts, capacity.StoredArtifact{
+			capacity.RecordVerifiedArtifact(report, capacity.StoredArtifact{
 				RequestID: request.ID, ArtifactID: artifact.ArtifactID, Kind: artifact.Kind,
 				SHA256: artifact.SHA256, SizeBytes: artifact.SizeBytes,
 			})
