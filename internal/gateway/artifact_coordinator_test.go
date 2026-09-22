@@ -106,6 +106,9 @@ func TestArtifactCoordinatorCrashConvergence(t *testing.T) {
 		if _, err := coordinator.Reconcile(ctx); err != nil || !objects.exists(publication.ObjectKey) {
 			t.Fatalf("reconcile after execution commit removed its artifact: %v", err)
 		}
+		if err := coordinator.DeleteExecution(ctx, publication.OwnerID, publication.RunID, publication.TraceID); err != nil {
+			t.Fatalf("remove fresh-publication regression fixture: %v", err)
+		}
 	})
 
 	t.Run("legacy immediately eligible publication is deferred while fresh", func(t *testing.T) {
