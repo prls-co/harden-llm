@@ -188,6 +188,22 @@ type CacheRecord struct {
 	UpdatedAt     time.Time
 }
 
+type DurableOperationRecord struct {
+	AccountID    string
+	ServiceName  string
+	OperationID  string
+	InputDigest  string
+	Status       string
+	Request      json.RawMessage
+	Result       json.RawMessage
+	ErrorCode    string
+	ErrorMessage string
+	RunID        string
+	TraceID      string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
 type RunStats struct {
 	TotalCount   int64
 	SuccessCount int64

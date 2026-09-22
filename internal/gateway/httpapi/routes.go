@@ -5,12 +5,13 @@ import "net/http"
 // Route describes one canonical HTTP operation. It is the single routing
 // catalog consumed by the live router and OpenAPI conformance tests.
 type Route struct {
-	Method          string
-	Path            string
-	OperationID     string
-	Protected       bool
-	RequestBody     bool
-	QueryParameters []string
+	Method           string
+	Path             string
+	OperationID      string
+	Protected        bool
+	ServiceProtected bool
+	RequestBody      bool
+	QueryParameters  []string
 }
 
 var routeCatalog = []Route{
@@ -32,6 +33,9 @@ var routeCatalog = []Route{
 	{Method: http.MethodDelete, Path: "/api/v1/profiles/{profileID}", OperationID: "deleteProfile", Protected: true},
 	{Method: http.MethodPost, Path: "/api/v1/profiles/{profileID}/models:refresh", OperationID: "refreshProfileModels", Protected: true},
 	{Method: http.MethodPost, Path: "/api/v1/run", OperationID: "run", Protected: true, RequestBody: true},
+	{Method: http.MethodPost, Path: "/internal/v1/llm-operations", OperationID: "submitDurableOperation", ServiceProtected: true, RequestBody: true},
+	{Method: http.MethodGet, Path: "/internal/v1/llm-operations/{operationID}", OperationID: "getDurableOperation", ServiceProtected: true},
+	{Method: http.MethodPost, Path: "/internal/v1/llm-operations/{operationID}:cancel", OperationID: "cancelDurableOperation", ServiceProtected: true},
 	{Method: http.MethodGet, Path: "/api/v1/traces/{traceID}", OperationID: "getTrace", Protected: true},
 	{Method: http.MethodGet, Path: "/api/v1/traces/{traceID}/artifacts/{artifactID}", OperationID: "getArtifact", Protected: true},
 }

@@ -25,6 +25,8 @@ tags:
     description: Synchronous provider-neutral execution and history.
   - name: Traces
     description: Redacted domain traces and authorized artifacts.
+  - name: Durable operations
+    description: Internal service-to-service durable structured Harden operations.
 paths:
   /healthz:
     get:
@@ -249,6 +251,57 @@ paths:
           $ref: "#/components/responses/RunTimeout"
         default:
           $ref: "#/components/responses/RunError"
+  /internal/v1/llm-operations:
+    post:
+      operationId: submitDurableOperation
+      tags: [Durable operations]
+      summary: Submit one durable structured operation
+      description: >-
+        Accepts one account-scoped operation from an authenticated platform
+        service and starts the server-owned Harden Temporal workflow. The
+        caller must reconcile retries with the same operation ID and input
+        digest; changed input is a conflict.
+      security:
+        - serviceBearerAuth: []
+      requestBody:
+        $ref: "#/components/requestBodies/DurableOperation"
+      responses:
+        "202":
+          $ref: "#/components/responses/DurableOperationAccepted"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /internal/v1/llm-operations/{operationID}:
+    parameters:
+      - $ref: "#/components/parameters/OperationID"
+    get:
+      operationId: getDurableOperation
+      tags: [Durable operations]
+      summary: Read one durable structured operation
+      description: Returns the account-scoped status and published structured output.
+      security:
+        - serviceBearerAuth: []
+      responses:
+        "200":
+          $ref: "#/components/responses/DurableOperationSuccess"
+        default:
+          $ref: "#/components/responses/Error"
+  /internal/v1/llm-operations/{operationID}:cancel:
+    parameters:
+      - $ref: "#/components/parameters/OperationID"
+    post:
+      operationId: cancelDurableOperation
+      tags: [Durable operations]
+      summary: Cancel one durable structured operation
+      description: Cancels future work for an authorized operation; it does not revoke the caller token or undo a published result.
+      security:
+        - serviceBearerAuth: []
+      responses:
+        "200":
+          $ref: "#/components/responses/DurableOperationSuccess"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/traces/{traceID}:
     parameters:
       - $ref: "#/components/parameters/TraceID"
@@ -291,6 +344,11 @@ components:
       scheme: bearer
       bearerFormat: opaque
       description: A random opaque session token returned once by login, or the configured static CLI token.
+    serviceBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: A deployment-scoped service credential. Customer bearer tokens are not accepted on internal routes.
   parameters:
     HistoryCursor:
       name: cursor
@@ -346,6 +404,13 @@ components:
       in: path
       required: true
       description: Stable artifact identifier.
+      schema:
+        $ref: "#/components/schemas/Identifier"
+    OperationID:
+      name: operationID
+      in: path
+      required: true
+      description: Stable caller-supplied durable operation identifier.
       schema:
         $ref: "#/components/schemas/Identifier"
   requestBodies:
@@ -530,6 +595,39 @@ components:
                   backoff:
                     baseDelayMs: 500
                     maxDelayMs: 8000
+    DurableOperation:
+      required: true
+      description: Account-scoped durable structured operation input.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DurableOperationRequest"
+          examples:
+            structured:
+              value:
+                operationId: ner-op-example
+                accountId: account-example
+                inputDigest: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                profileId: Primary
+                userPrompt: Extract organizations from this response.
+                callType: structured
+                schema:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    mentions:
+                      type: array
+                  required: [mentions]
+                cacheMode: 'off'
+                timeoutMs: 120000
+                recoveryPolicy:
+                  maxAttempts: 1
+                  retryOn: []
+                  jsonRepair: null
+                  rerun: null
+                  backoff:
+                    baseDelayMs: 0
+                    maxDelayMs: 0
   responses:
     HealthOK:
       description: The process or all required dependencies are ready.
@@ -563,6 +661,42 @@ components:
                 error:
                   code: invalid_request
                   message: The request is invalid.
+    DurableOperationAccepted:
+      description: The operation was durably admitted to the Harden Temporal workflow.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DurableOperationView"
+          examples:
+            accepted:
+              value:
+                schemaVersion: harden-llm-operation.v1
+                operationId: ner-op-example
+                accountId: account-example
+                inputDigest: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                status: accepted
+                createdAt: '2026-07-13T12:00:00Z'
+                updatedAt: '2026-07-13T12:00:00Z'
+    DurableOperationSuccess:
+      description: The current durable operation state and any published structured output.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DurableOperationView"
+          examples:
+            completed:
+              value:
+                schemaVersion: harden-llm-operation.v1
+                operationId: ner-op-example
+                accountId: account-example
+                inputDigest: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                status: succeeded
+                output:
+                  mentions: []
+                runId: harden-run-example
+                traceId: harden-trace-example
+                createdAt: '2026-07-13T12:00:00Z'
+                updatedAt: '2026-07-13T12:00:02Z'
     LoginSuccess:
       description: Session token and redacted identity. The access token is returned only here.
       content:
@@ -1348,6 +1482,50 @@ components:
                       payload: *id001
                 error: null
   schemas:
+    DurableOperationRequest:
+      type: object
+      additionalProperties: false
+      required: [operationId, accountId, inputDigest, profileId, userPrompt, callType, schema]
+      properties:
+        operationId: {$ref: "#/components/schemas/Identifier"}
+        accountId: {$ref: "#/components/schemas/Identifier"}
+        inputDigest: {type: string, pattern: "^[a-f0-9]{64}$"}
+        profileId: {type: string, minLength: 1, maxLength: 1500}
+        modelId: {type: string, maxLength: 512}
+        systemPrompt: {type: string, maxLength: 32768}
+        userPrompt: {type: string, minLength: 1, maxLength: 65536}
+        callType: {type: string, enum: [text, structured]}
+        schema: {type: object}
+        reasoningEffort: {type: string, enum: [lowest, middle, highest]}
+        webSearch: {type: boolean}
+        providerOptions: {type: object}
+        cacheMode: {type: string, enum: [off, cache, refresh]}
+        cacheVersion: {type: string, maxLength: 64}
+        timeoutMs: {type: integer, minimum: 0, maximum: 7200000}
+        recoveryPolicy: {type: object}
+        origin: {type: object}
+    DurableOperationView:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, operationId, accountId, inputDigest, status, createdAt, updatedAt]
+      properties:
+        schemaVersion: {type: string, const: harden-llm-operation.v1}
+        operationId: {$ref: "#/components/schemas/Identifier"}
+        accountId: {$ref: "#/components/schemas/Identifier"}
+        inputDigest: {type: string, pattern: "^[a-f0-9]{64}$"}
+        status: {type: string, enum: [accepted, running, succeeded, failed, cancelled, unresolved]}
+        output: {}
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code: {type: string, minLength: 1}
+            message: {type: string, minLength: 1}
+        runId: {$ref: "#/components/schemas/Identifier"}
+        traceId: {$ref: "#/components/schemas/Identifier"}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
     Identifier:
       type: string
       minLength: 1

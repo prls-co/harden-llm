@@ -38,6 +38,9 @@ const (
 	releaseEnvironment               = "HARDEN_LLM_RELEASE"
 	otelEndpointEnvironment          = "HARDEN_LLM_OTEL_EXPORTER_OTLP_ENDPOINT"
 	serviceNameEnvironment           = "HARDEN_LLM_SERVICE_NAME"
+	temporalAddressEnvironment       = "HARDEN_LLM_TEMPORAL_ADDRESS"
+	temporalNamespaceEnvironment     = "HARDEN_LLM_TEMPORAL_NAMESPACE"
+	internalServiceKeysEnvironment   = "HARDEN_LLM_INTERNAL_SERVICE_KEYS"
 	defaultListenAddress             = ":8080"
 	defaultServiceName               = "harden-llm-gateway"
 	defaultSessionTTL                = 24 * time.Hour
@@ -69,6 +72,9 @@ type serverConfig struct {
 	release             string
 	otelEndpoint        string
 	serviceName         string
+	temporalAddress     string
+	temporalNamespace   string
+	internalServiceKeys map[string]string
 }
 
 func loadServerConfig(getenv func(string) string) (serverConfig, error) {
@@ -88,6 +94,8 @@ func loadServerConfig(getenv func(string) string) (serverConfig, error) {
 		release:             strings.TrimSpace(getenv(releaseEnvironment)),
 		otelEndpoint:        strings.TrimSpace(getenv(otelEndpointEnvironment)),
 		serviceName:         strings.TrimSpace(getenv(serviceNameEnvironment)),
+		temporalAddress:     strings.TrimSpace(getenv(temporalAddressEnvironment)),
+		temporalNamespace:   strings.TrimSpace(getenv(temporalNamespaceEnvironment)),
 		staticToken:         strings.TrimSpace(getenv(staticTokenEnvironment)),
 		staticTokenOwnerID:  strings.TrimSpace(getenv(staticTokenOwnerEnvironment)),
 		jinaAPIKey:          strings.TrimSpace(getenv(jinaAPIKeyEnvironment)),
@@ -98,6 +106,30 @@ func loadServerConfig(getenv func(string) string) (serverConfig, error) {
 	if config.serviceName == "" {
 		config.serviceName = defaultServiceName
 	}
+	if config.temporalAddress == "" {
+		config.temporalAddress = "127.0.0.1:7233"
+	}
+	if config.temporalNamespace == "" {
+		config.temporalNamespace = "default"
+	}
+	var serviceKeys map[string]string
+	if raw := strings.TrimSpace(getenv(internalServiceKeysEnvironment)); raw != "" {
+		decoder := json.NewDecoder(strings.NewReader(raw))
+		if err := decoder.Decode(&serviceKeys); err != nil || serviceKeys == nil || len(serviceKeys) > 16 {
+			return serverConfig{}, fmt.Errorf("configuration: %s must be a bounded JSON object", internalServiceKeysEnvironment)
+		}
+		if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+			return serverConfig{}, fmt.Errorf("configuration: %s must contain one JSON object", internalServiceKeysEnvironment)
+		}
+		for service, key := range serviceKeys {
+			if !validRuntimeLabel(service, 64) || strings.TrimSpace(key) != key || len(key) < 32 || len(key) > 512 {
+				return serverConfig{}, fmt.Errorf("configuration: %s contains an invalid service credential", internalServiceKeysEnvironment)
+			}
+		}
+	} else {
+		serviceKeys = map[string]string{}
+	}
+	config.internalServiceKeys = serviceKeys
 	if err := validateListenAddress(config.listenAddress); err != nil {
 		return serverConfig{}, err
 	}
