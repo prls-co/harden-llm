@@ -2106,3 +2106,64 @@ repeat that inventory during a quieter maintenance window. GitHub also reports
 an existing `actions/checkout@v4` Node deprecation notice and the scheduled
 `ubuntu-latest` migration to Ubuntu 26 on 2026-10-19; both are nonblocking
 maintenance items.
+
+## Private GHCR publication and gateway-only production promotion — production (2026-09-22 UTC)
+
+The publisher and OCI source metadata were promoted from `main` at
+application-bearing source SHA
+`6887fcd8146961dc64598dd7a236e7a9fc522c9c`. This follows the prior
+`d85f7db...` gateway deployment, which preceded the registry publisher. The
+image was built from the certified `main` SHA, published to the private GHCR
+package, and deployed by immutable digest. This documentation closeout is not a
+new application image.
+
+| Gate or production check | Result |
+| --- | --- |
+| Main `make test-fast` | Passed all 10 T0-T2 tasks, `accepted=true`, no failure or cleanup issue. [Run 35726127323](https://github.com/prls-co/harden-llm/actions/runs/35726127323) |
+| CodeQL | Passed on the exact source SHA. [Run 35726126610](https://github.com/prls-co/harden-llm/actions/runs/35726126610) |
+| Exact-source browser-free `make test-release` | Passed all 28 tasks in 13m34s; `accepted=true`, no task failure, timeout, cleanup error, or cleanup warning. Browser, explicit lifecycle-fault, and capacity jobs were not selected. [Publisher run 35726391122](https://github.com/prls-co/harden-llm/actions/runs/35726391122) |
+| GHCR artifact | Private package `ghcr.io/prls-co/harden-llm-gateway`; source/run-qualified tag `6887fcd8146961dc64598dd7a236e7a9fc522c9c-35726391122-1`; immutable digest `sha256:036d82749a1e5a29e36c848d5fca955c4b416858c9ea272f2cf1b4428210905b`; platform `linux/amd64`. Publisher report artifact: `harden-llm-gateway-6887fcd8146961dc64598dd7a236e7a9fc522c9c-35726391122-1`. |
+| Supply-chain metadata | OCI source is `https://github.com/prls-co/harden-llm`; revision and version labels equal the full SHA. Pulled binary `version` matches it. Attached BuildKit `mode=max` provenance identifies the VCS source/revision and build argument. Provenance is attached but unsigned. |
+| Production gateway | Healthy, zero restarts; container `7d8b8bb25e0576c20a3cb81c14d86fe90eedeffa1b8621a4b6ea2841cc03c457`; image ID/configured digest is `sha256:036d82749a1e5a29e36c848d5fca955c4b416858c9ea272f2cf1b4428210905b`; runtime OCI revision/version and `HARDEN_LLM_RELEASE` match the source SHA. |
+| Production configuration and scope | Gateway-only `production-config apply` completed; subsequent gateway+web check was `equivalent`. Web remained healthy and unchanged at image `sha256:299439921295e6037a0cc01e1b1893e5bd1c2e441b740021479ca6666c1e5276`, source `3201fd249f86031292be1c47acf64e0eb8a4540b`. No database, infrastructure, telemetry, session, or volume was changed. |
+| Public probes | API `/healthz` and `/readyz`, web `/healthz` and `/login`: HTTP 200. |
+| Read-only artifact inventory | `healthy:true`, five scanned objects and five metadata references, zero active operations, zero missing/unreferenced objects, and `truncated:false`. |
+| Rollback | Prior local gateway image `harden-llm-gateway:release-d85f7dbf3be7dccf2f5c8f21fd161d4bc91631ec` / `sha256:ac30bb305f9cd4711c15acf35eb6fb57b0c91c2e6d21d23a7c27ede403a864e9` remains available. Mode-600 pre-deploy descriptor backup is `/home/kirill/.config/harden-llm/rollout-6887fcd.ocJxGl/production.before.json` in a mode-700 directory; its SHA-256 is `16b9d8b99115eb195c40dc741d7aec095cec1706d1ebc9c387ceb3b369a6b780`. |
+| Browser/provider checks | Not run. No browser or paid provider call was authorized or needed for this browser-free image promotion. |
+
+The descriptor was updated atomically after recording its previous exact hash.
+A normalized before/after comparison, excluding only gateway expected image,
+image reference, identity release, and service release override, was identical.
+The live descriptor is mode 600 with SHA-256
+`978deb24665dfa227caf4bcda443f0a4b63ab2f0330f7db0e46f72f34fb18d4a`. The
+gateway was the only recreated service; the web and persistent dependencies
+remained in place.
+
+### Remaining risks and follow-up
+
+- Capacity and cost remain `insufficient_evidence`. The point-in-time host
+  sample had 12 CPUs, 32.75 GB RAM, about 5.97 GB available, root filesystem
+  70% used with about 291.5 GB free, and memory PSI at 0.00. Swap was nearly
+  full (about 8 GiB used), and the brief IO-PSI sample was nonzero. Monitor swap
+  and I/O under representative production traffic before any capacity claim or
+  topology change.
+- `docker system df` exceeded its 60-second observation bound earlier, so exact
+  image/cache/volume allocation remains unknown. Repeat during a quieter window;
+  do not prune production Docker data to obtain a measurement.
+- BuildKit provenance is unsigned. Decide whether signing is required before
+  claiming stronger supply-chain identity, and define GHCR retention/restore
+  and disaster-recovery expectations with a tested recovery path.
+- Obtain a production SLO/operating point, representative traffic, provider
+  invoice, process RSS, and storage-used measurements before running a capacity
+  holdout or making cost claims. EVAL-011 remains conditional and unrun.
+- The `ssh shaman` alias did not match a trusted host key. Host-key checking was
+  not bypassed; the active workspace and `default` Docker socket were on host
+  `shaman`, so local probes and deployment used that daemon. Establish trust
+  from a known channel before using remote SSH in the future.
+- Main fast CI reported that `actions/cache@v4`, `actions/checkout@v4`,
+  `actions/setup-go@v5`, `actions/setup-node@v4`, and
+  `actions/upload-artifact@v4` target Node 20 and were forced to run on Node 24;
+  dependency-level Node deprecations also appeared. The gate passed. The new
+  publisher pins third-party actions to full commit SHAs; review the shared fast
+  workflow's action upgrades separately. GitHub's announced `ubuntu-latest`
+  migration to Ubuntu 26 on 2026-10-19 is another nonblocking maintenance item.
