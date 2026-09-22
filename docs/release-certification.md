@@ -2036,3 +2036,41 @@ frontend-session volumes were retained; no gateway or infrastructure service
 was recreated. No browser was launched and no paid-provider call was made, so
 visual layout, native browser events, and live-provider behavior remain outside
 this browser-free deployment check.
+
+## Artifact publication grace and bounded capacity reports — production (2026-09-22)
+
+The gateway artifact reconciler now defers publication journal rows for the
+bounded 30-second publication-to-canonical-metadata window. TEST-060 reproduces
+the prior deletion race and verifies that fresh publication survives while
+aged uncommitted orphans still converge. TEST-278 bounds serialized artifact
+detail samples without changing the 1 MiB report ceiling. The changes were
+promoted from `main` at application source SHA
+`d85f7dbf3be7dccf2f5c8f21fd161d4bc91631ec`.
+
+| Gate or production check | Result |
+| --- | --- |
+| Exact-SHA browser-free `make test-release` | Passed all 28 tasks in 15m26s; integration 82.306 s, integration-race 205.498 s, Compose smoke 238.340 s, Go race 250.306 s; no task timeouts or cleanup errors/warnings. [Run 35718249789](https://github.com/prls-co/harden-llm/actions/runs/35718249789) |
+| Main-branch `make test-fast` | Passed in 1m45s. [Run 35719965824](https://github.com/prls-co/harden-llm/actions/runs/35719965824) |
+| Production gateway | Healthy, zero restarts; local immutable image ID `sha256:ac30bb305f9cd4711c15acf35eb6fb57b0c91c2e6d21d23a7c27ede403a864e9`, OCI version label matches the full source SHA. |
+| Production configuration | Scoped gateway apply and subsequent gateway candidate check passed; combined gateway/web configuration is `equivalent`. Web stayed at its prior release/image; no database, infrastructure, web, session, or volume change. |
+| Public probes | API `/healthz` and `/readyz`, web `/healthz` and `/login`: HTTP 200. |
+| Read-only artifact inventory | Healthy, complete scan: 5 objects/metadata references, zero missing or unreferenced objects, zero active operations, not truncated. |
+| Capacity disposition | `insufficient_evidence`; synthetic correctness and exploration are not production capacity/cost certification. No SLO, invoice, exact RSS, or storage-used measurements were supplied; no topology change was made. |
+| Browser/provider checks | Not run. This was a browser-free release and no paid provider call was made. |
+
+The repository has no configured remote container registry target or publishing
+workflow. Source and CI evidence are on GitHub `main`; the production image is
+the immutable local image on the existing Docker host, not a claimed registry
+publication. The prior gateway image `harden-llm-gateway:release-12b0478`
+(`sha256:9395f2465e32a5f3b00802e5eff24ad7d98f5d717e63acd0a0aeba84f6618673`)
+and a private descriptor checkpoint remain available for rollback. The
+checkpoint directory is mode 700 and its descriptor copy is mode 600.
+
+Follow-up risks: observe the next failed/canceled test's owned-resource
+inventory; recheck the production artifact backlog after meaningful traffic and
+verify orphan convergence without manual deletion; obtain representative
+traffic/SLO, invoice, process-memory, and storage-used data before capacity or
+cost claims; review the shared host's swap/I/O trend and cold-cache image-build
+cost. GitHub also reports an existing `actions/checkout@v4` Node deprecation
+notice and the scheduled `ubuntu-latest` migration to Ubuntu 26 on 2026-10-19;
+both are nonblocking maintenance items.
