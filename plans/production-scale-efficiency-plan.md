@@ -344,7 +344,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Oracles duplicate implementation arithmetic, depend on real providers, or fail only to compile.
   - Unlocks: P02.S02
 - `P02.S02 Implement exact resource measurement and attribution`
-  - Progress: Local deterministic checks pass and hosted identity/resource sampling succeeds. The latest hosted report attributes two containers/images exactly. TEST-275 now preserves parser reasons, explicitly reports RSS/volume-used bytes as uncollected, and sums fractional CPU percentages using finite decimal arithmetic. Docker memory remains null when the Docker CLI's human-readable binary-unit display would convert to a fractional byte; this avoids false exactness. The newer CPU aggregation requires one same-workload hosted correctness rerun before S02 is closed.
+  - Progress: DONE — TEST-275 deterministic checks and hosted identity/resource sampling pass. The latest hosted run attributes two containers/images exactly. Parser reasons remain explicit; RSS and volume-used bytes are uncollected; fractional CPU percentages use finite decimal arithmetic. Some Docker memory samples remain null when human-readable binary units cannot be converted to exact integer bytes. Exact-SHA hosted correctness [35716026712](https://github.com/prls-co/harden-llm/actions/runs/35716026712) closes the same-workload check.
   - Action: Extend current runner measurements with numeric Docker API bytes and exact labels; isolate new pure conversion logic in one helper. If CLI text is used, support all listed units and reject unknown units. Record sampled peaks, timestamps, sampling gaps, host pressure, and unavailable metrics distinctly.
   - Why now: Resource accounting is independently testable and required by cost reporting.
   - Files/surfaces: `scripts/measure-test-resources.mjs` (proposed helper, not a new daemon); `scripts/run-test-tier.mjs`; `scripts/test/test_resource_measurement_test.mjs`.
@@ -383,7 +383,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Saving calculation assumes unpriced hardware is free or equates moving services with eliminating cost.
   - Unlocks: P02.S05
 - `P02.S05 Add failing real-application capacity acceptance`
-  - Progress: IMPLEMENTED; manifest/static policy, tagged compilation, local fast gate, and hosted correctness passed at `bffdf219`. Hosted RED evidence for earlier candidates remains below: owner setup first returned HTTP 401 and the Docker CPU report then exposed integer-only aggregation. The fixture uses existing `bootstrap-user`, shuts down the gateway before exporter dependencies, and TEST-275 now preserves exact unavailable-metric reasons and sums fractional CPU values. A later exploration revealed the history verifier and oversized-report issues recorded below; fresh correctness/exploration runs are required after those corrections.
+  - Progress: DONE — manifest/static policy, tagged compilation, local fast gate, and exact-SHA hosted correctness pass. Earlier owner-setup 401, integer-only CPU aggregation, cursor-pagination, and oversized-report failures remain recorded below as failures, not waived. Correctness and exploration pass on `2380824dfd7b693df58f643d5b81019fe25e2edd`.
   - Action: Create the capacity test and register capacity-baseline as explicit opt-in before invoking it. Use a minimal real application fixture and demand the missing workload/report/persistence integration. Register real-service ownership and capacity build tags, not a fake RunService. Extend static policy to exclude capacity from fast/default integration/release.
   - Why now: Pure instrument checks are green; the application and persistence boundary remains unproved.
   - Files/surfaces: `cmd/harden-llm-gateway/capacity_test.go` (proposed); `test/test-tiers.json`; `scripts/verify-test-tiers.mjs`; canonical catalog.
@@ -396,7 +396,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Task enters an automatic selector, uses recordingRuntimeCaller, or substitutes a mock store for the boundary under test.
   - Unlocks: P02.S06
 - `P02.S06 Connect the driver to real isolated application boundaries`
-  - Progress: IMPLEMENTED; hosted correctness passed on `bffdf219af837be511ede1aeb62d42a7d179a2fa` after owner bootstrap, LIFO cleanup, metric-reason preservation, and fractional CPU aggregation. It exercised real auth, profile setup, six provider/runtime/cache/stream/export cases, persisted history/artifacts, and origin/stage accounting. The 44-second run reports CPU percentages as finite decimals; exact Docker memory remains unknown for the documented CLI precision reason.
+  - Progress: DONE — hosted correctness on `2380824dfd7b693df58f643d5b81019fe25e2edd` exercised real auth, profile setup, six provider/runtime/cache/stream/export cases, persisted history/artifacts, and origin/stage accounting. All outcomes and provider accounting matched; exact Docker-memory samples, process RSS, and Docker-volume-used bytes remain unavailable for the recorded reasons.
   - Action: Call runGatewayServer from the command-package test with an injected environment and existing bootstrap/auth/profile paths. Use the existing Postgres/Garage leases, real provider adapter, synthetic credentials, and local TLS fixture. Verify stored history/artifact digests and origin/stage IDs. Keep the existing full-stack smoke as its own boundary; do not duplicate it or create another stack owner.
   - Why now: All missing behavior has failing pure and real-boundary coverage.
   - Files/surfaces: `cmd/harden-llm-gateway/capacity_test.go`; `cmd/harden-llm-gateway/server.go` (reuse); `internal/integrationtest/pool.go` (reuse); `internal/smoke/harness_compose.go`; `internal/capacity/driver.go`.
@@ -409,7 +409,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Artifact isolation cannot be proven, existing smoke assertions change, or full-stack reuse requires a public-provider call.
   - Unlocks: P02.S07
 - `P02.S07 Consolidate the harness around existing owners`
-  - Progress: DONE for local code review/static checks. Capacity owns only scenario generation/reporting; existing service pools and Compose smoke retain their owners. Full fast selector and pure report/resource tests pass on the current candidate except that the last tagged-only fingerprint hardening received compile-only verification.
+  - Progress: DONE — capacity owns only scenario generation/reporting; existing service pools and Compose smoke retain their owners. Full fast selector passed 10/10 tasks on the report fix; pure report/resource tests, tier policy, whitespace, and tagged gateway compilation pass.
   - Action: Remove duplicated bootstrap, wire-shape, measurement, or cleanup logic; keep only capacity-specific scheduling/reporting in the new package. Register new pure tests in their existing cheap lanes; preserve a separate expensive boundary.
   - Why now: Keep the new instrument small and prevent tests from creating alternate application behavior.
   - Files/surfaces: `internal/capacity/`; `cmd/harden-llm-gateway/capacity_test.go`; `internal/smoke/harness_compose.go`; `test/test-tiers.json`.
@@ -422,7 +422,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Helper duplicates production decisions or removes a real-boundary assertion.
   - Unlocks: P02.S08
 - `P02.S08 Measure the bounded exploratory workloads`
-  - Progress: First hosted exploration attempt on `bffdf219` failed in TEST-277 at the history assertion after `twelve-rps-short`. The REST verifier requested only the first 100-row page and ignored `nextCursor`; canonical store/run/trace/artifact checks for the scenario completed before that history assertion, so this was a verifier defect, not persistence loss. The partial report also exceeded its 1 MiB bound because it serialized full request results; the fallback report then failed to publish. No timeout, safety stop, or cleanup failure occurred. TEST-282 and TEST-278 now have regressions for cursor traversal and bounded v2 reporting. Fresh hosted correctness must pass before repeating exploration.
+  - Progress: DONE — hosted correctness and exploration passed sequentially on `2380824dfd7b693df58f643d5b81019fe25e2edd`: [correctness 35716026712](https://github.com/prls-co/harden-llm/actions/runs/35716026712) and [exploration 35716212690](https://github.com/prls-co/harden-llm/actions/runs/35716212690). Exploration report size is 254,550 bytes and disposition is `insufficient_evidence`; task wall time was 347.039 s, no timeout, zero cleanup warnings/errors. Four cases matched: 60/60, 720/720, 1,440/1,440, and 720/720 launched/succeeded, with provider attempts equal to each population. The 24-rps p99 was 1.048 s; the intentionally slow-provider p95 was 10.043 s. Across cases, 3,430 artifacts and exact byte totals were retained; per-case detail samples capped at 96 and omitted counts were 744, 1,584, and 744 for the larger cases. Resource collection had 68 samples, a 5,005 ms maximum interval, 143.31% peak project CPU, two containers/three volumes, and about 15.35 GB host-available memory at the last sample. Process RSS and volume-used bytes are unavailable; some Docker-memory samples are null because display units do not provide exact bytes. Prices/bills, storage/infrastructure costs, and production SLO are absent, so no capacity or cost claim is made. Earlier pagination and report-bound failures remain in the log as corrected defects; no timeout or report ceiling changed.
   - Action: Execute the Section 6 exploration set with project-level samples and a local telemetry sink. Keep full-stack smoke evidence separate and reuse it only for its distinct lifecycle/runtime assertion. Retain initial failures, generator lag, missing metrics, sample sizes, and bounded evidence. Record means, spread, and confidence limits only when supported.
   - Why now: Instrumentation and real integration now have verified oracles.
   - Files/surfaces: `test/capacity-scenarios.json`; `internal/capacity/report.go`; `tmp/test-feedback/capacity-baseline.json`; private retained lifecycle ledger.
@@ -448,6 +448,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
 - Unresolved decision: a runtime remedy cannot be specified truthfully before the bottleneck is known. A selected remedy requires a same-file amendment with exact files, REQs, RED/GREEN commands, budgets, and rollback before coding.
 
 - `P03.S01 Select the smallest evidence-supported disposition`
+  - Progress: DONE — both current reports are valid but explicitly `insufficient_evidence`. Exploration succeeded at 24 requests/s with the synthetic provider, but the reports have no production SLO, actual invoices, storage-used bytes, process RSS, exact per-sample Docker memory, or real-provider latency. Do not add containers, move to ClickHouse, or change storage topology from this evidence.
   - Action: Read the baseline and inspect its accounting validity, driver lag, service pressure, and unknowns. Apply the existing tested report classification. If a bottleneck exists, rank only directly relevant remedies: admission/concurrency, DB pool sizing, cache behavior, existing telemetry configuration, or gateway replicas.
   - Why now: Capacity evidence must drive scope, not container count.
   - Files/surfaces: `internal/capacity/report.go`; `tmp/test-feedback/capacity-baseline.json`; this plan.
@@ -460,6 +461,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Insufficient or non-comparable data is being labeled a production-capacity success.
   - Unlocks: P03.S02
 - `P03.S02 Record the no-change result or concrete amendment boundary`
+  - Progress: DONE — retain the current service topology and make no capacity optimization. This means “no evidence-backed capacity change,” not “capacity proven sufficient.” The separate 30-second artifact-publication race correction is a data-integrity fix discovered at the real persistence boundary, not a throughput remedy.
   - Action: No refactor needed: this step records a decision, not runtime code. For sufficient current topology, close architecture work with no migration. For insufficient evidence, state capacity not certified. For a selected in-scope remedy, amend this same plan with a complete RED/GREEN implementation phase and revalidate traceability before executing it; request approval for expanded authority.
   - Why now: Unknown future remedies cannot receive blanket implementation permission.
   - Files/surfaces: This plan; `docs/adr/ADR-HLLM-027-resource-ownership-and-measured-capacity.md`.
@@ -472,6 +474,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: A selected remedy lacks exact invariants, tests, compatible data/rollback plan, or authority.
   - Unlocks: P03.S03, only for an approved measurable disposition
 - `P03.S03 Validate the selected operating point with holdout evidence`
+  - Progress: NOT APPLICABLE under the phase dependency: no operating point or measurable runtime remedy was approved because P02 reports `insufficient_evidence`. Do not run the holdout workload without a production SLO and a selected comparison target; EVAL-011 remains explicitly unrun and may be reopened only after those inputs exist.
   - Action: Repeat one selected safe workload using the held-out seed and three bounded samples. For an approved remedy, compare the identical before/after workload and fingerprints after its inserted RED/GREEN steps. Retain no-change if evidence supports it; otherwise report insufficient capacity evidence.
   - Why now: A single exploratory sample is not robust performance evidence.
   - Files/surfaces: `test/capacity-scenarios.json`; `cmd/harden-llm-gateway/capacity_test.go`; `internal/capacity/report.go`.
@@ -493,7 +496,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
 - Scope: REQ-344 and REQ-352; coordinate, but do not replace, the independent recovery release.
 - Impacted surfaces: Git branch/remote; `.github/workflows/test-hierarchy.yml`; `docs/release-certification.md`; this plan; production descriptor and images only for explicitly approved runtime changes.
 - Lifecycle evidence: final diff and task selection, exact release output, remote SHA, artifact/deployment identity when applicable, rollback record; purpose is preventing “local passed” from meaning “published and deployed.”
-- Risks/assumptions: main is already ahead; publishing all existing commits is not incidental; private descriptor secrets never enter Git; browser and real-provider checks remain unperformed unless separately authorized.
+- Risks/assumptions: review the feature-branch commits against the unchanged `origin/main` base before promotion; no unrelated commits are included. Private descriptor contents remain outside Git. Browser and live-provider tests remain unauthorized and unperformed.
 - Unresolved decision: exact runtime artifacts depend on accepted scope. No application rebuild for the default test-only changes.
 
 - `P04.S01 Certify the exact applicable candidate`
@@ -513,9 +516,9 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Why now: Accepted local evidence now permits the explicitly authorized publication boundary.
   - Files/surfaces: Git remote; existing hosted workflow; `scripts/production-config.mjs`; private descriptor; `docs/release-certification.md`.
   - Requirement link: REQ-352
-  - Verification link: TEST-279; TEST-269 only for the existing two-application recovery candidate; CHECK-001
+  - Verification link: TEST-279; TEST-269 for the scoped gateway candidate; CHECK-001
   - Verification mode: VERIFY
-  - Command/procedure: Execute the applicable Section 9.2 procedure; `node scripts/verify-test-tiers.mjs`. For the approved paired runtime candidate only: `node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway,harden-llm-web --expected-release "$HLLM_RELEASE_SHA"`.
+  - Command/procedure: Execute the applicable Section 9.2 procedure; `node scripts/verify-test-tiers.mjs`. For this gateway-only runtime candidate: `node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway --expected-release "$HLLM_RELEASE_SHA"`.
   - Expected result: Remote commit matches the authorized candidate; hosted evidence is retained; runtime identity or not-applicable is recorded honestly.
   - Evidence produced: Remote SHA, CI run URL, report location, and registry/runtime identities only if actually produced.
   - Stop/escalate condition: Non-fast-forward update, unapproved ancestry, missing registry contract, identity mismatch, or missing production authority.
@@ -814,16 +817,16 @@ Each proposed source file is created in its bootstrap step before execution. New
 - Pass criteria: Follow the REST limit-100 cursor contract until all expected pairs are found; reject repeated or oversized cursors/pages; a missing pair is reported only after the final page or page bound.
 - Expected runtime: Under 1 second.
 
-#### TEST-269: Candidate deployment identity matches source
+#### TEST-269: Gateway candidate deployment identity matches source
 
 - Type: integration.
 - Verifies: REQ-352.
 - Location: `scripts/production-config.mjs`.
-- Command: `node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway,harden-llm-web --expected-release "$HLLM_RELEASE_SHA"`.
-- Bootstrap: Existing operational check; only when both applications are in the approved candidate scope.
-- Fixtures/mocks/data: Private existing production descriptor and running applications; never copy secrets into evidence.
+- Command: `node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway --expected-release "$HLLM_RELEASE_SHA"`.
+- Bootstrap: Existing operational check scoped to gateway-only P03.A02; never part of fast or automatic release execution.
+- Fixtures/mocks/data: Private existing production descriptor and gateway container; never copy secrets into evidence.
 - Deterministic controls: HLLM_RELEASE_SHA is the verified immutable candidate; read-only check; existing tool deadlines; no inference calls.
-- Pass criteria: Both explicitly selected application identities match candidate and descriptor. For a one-service amendment, register its exact scoped command in this plan before use; do not force an unrelated service upgrade.
+- Pass criteria: The selected gateway identity matches the candidate and descriptor; web, infrastructure, and data identities remain unchanged.
 - Expected runtime: Up to 2 minutes.
 
 ### 7.4 Human scope check
@@ -869,6 +872,7 @@ These are test/evidence contracts, not additions to `api/openapi.yaml`.
 - Scenario fields: `schemaVersion`, `caseSet`, `seed`, `offeredRps`, `warmupSeconds`, `measurementSeconds`, `drainSeconds`, `maxRequests`, `maxInflight`, `providerScript`, `cacheMode`, `recoveryPolicy`, `telemetryMode`.
 - Report fields: source/dirty-state/config/scenario/image fingerprints; monotonic timing boundaries; wall-clock timestamps; synthetic origin/run/trace IDs; workload counters; aggregated provider stage/model/token counts; bounded outlier trace diagnostics; known/unknown costs; memory/CPU/disk/queue metrics; cleanup status; disposition and limitations. The private report contract is `harden-llm-capacity.v2` and omits raw request arrays.
 - Per measurement window: `offered = launched + unsent`. Per launched request: exactly one of `succeeded, failed, rejected, canceled, unfinished`. Therefore `launched = succeeded + failed + rejected + canceled + unfinished`.
+- Stored artifact details are sampled at most 96 rows per scenario; `artifactCount`, `artifactBytesProduced`, and `storedArtifactsOmitted` remain exact. This is report sampling only: it does not delete canonical artifacts or change the 1 MiB report limit.
 - `admitted` is a separate server-observed fact, not a sixth terminal outcome. If admission cannot be observed reliably, record null; client HTTP send does not prove server admission.
 - Warmup and measured requests have separate IDs and counters; drain finishes already offered work without extending the measurement window. All timings and denominators state which population they cover.
 - SSE success requires the actual terminal success contract; provider errors after HTTP 200 are failures. A disconnected client can leave an unknown server/provider outcome, which is recorded without automatic replay.
@@ -904,7 +908,7 @@ export PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3
 
 ### 9.2 Applicable publication procedures
 
-These are implementation-phase procedures, not actions taken by this plan revision. Execute commands individually and stop on failure. Record the reviewed candidate before a later documentation-only evidence commit.
+The current execution is authorized to promote its reviewed candidate and apply the scoped gateway image. Execute commands individually and stop on failure. Record the tested application source before later documentation-only evidence commits.
 
 ```bash
 git fetch origin
@@ -925,19 +929,20 @@ test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$HLLM_RELEASE_SHA"
 ```
 
 - Confirm the hosted browser-free workflow runs on that commit and retains redacted artifacts. A passing local gate is not a hosted result.
-- Default scope is runner/tests/docs: source publication and CI evidence are the artifacts. Application image publication and production deployment are not applicable.
-- If the existing two-application recovery candidate is also explicitly authorized, follow [its exact release procedure](recovery-production-closeout-plan.md#92-candidate-image-apply-and-rollback-procedure) with its unchanged acceptance gates. That separate release is not certified merely by this plan's cleanup checks.
-- If a capacity remedy changes runtime code, P03 must first amend this file with the exact changed service list, build/publish commands, registry target, digest capture, migration compatibility, descriptor fields, read-only probes, and rollback. Current local-image tooling does not by itself establish registry publication.
-- Existing paired-candidate read-only identity command, used only after the applicable rollout:
+- Current authorized scope includes source publication and CI evidence plus the gateway-only artifact-reconciliation runtime correction. Publish its immutable local image using the established production procedure; do not claim remote registry publication because no registry target/workflow exists here. No web image rebuild, provider call, profile sync, database migration, or volume change.
+- P03.A02 is the gateway-only runtime amendment. Refresh the exact production Docker context and gateway identity before mutation; inspect host headroom and stop if the production host is under pressure. Build only the gateway with the root `Dockerfile`, using the descriptor's Docker context, and tag `harden-llm-gateway:release-<full-source-sha>`. Refuse to overwrite a tag that already resolves to a different image. Record the local image ID and OCI source-version label separately; this repository has no configured registry target or publishing workflow, so do not invent a remote image destination or describe a local tag as a registry publication.
+- Create a private, mode-restricted checkpoint of the production descriptor before editing it. Change only the gateway's `expectedImage`, release identity environment, and gateway entries in `serviceImageOverrides` / `serviceEnvironmentOverrides`; preserve all web, shared infrastructure, secrets, and data/session settings. Use the existing scoped tool only after those desired values resolve to the candidate image and exact full release SHA:
 
 ```bash
-node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway,harden-llm-web --expected-release "$HLLM_RELEASE_SHA"
+node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway --expected-release "$HLLM_RELEASE_SHA"
+node scripts/production-config.mjs apply --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway --expected-release "$HLLM_RELEASE_SHA"
+node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway --expected-release "$HLLM_RELEASE_SHA"
 ```
 
-- Do not run that paired command to force a frontend update for a gateway-only remedy; register its exact scoped variant in the amendment.
-- Preserve each service's previous immutable image and private descriptor checkpoint. Revert only approved service/configuration changes through the existing scoped apply tool; no volume deletion or automatic data rollback.
+- Capture the previous gateway image ID and descriptor checkpoint before apply. Rollback may change only the gateway descriptor entries back to that exact prior image and source identity, then use the same scoped `apply` path. No web recreation, volume deletion, schema/data rollback, profile sync, or provider call is in scope.
+- After apply, verify TEST-269 for gateway only, gateway health/readiness and restart count, public gateway/web HTTP health endpoints, and the read-only bounded artifact inventory. The artifact inventory is count-only, capped at 10,000 references/objects, has a 10-minute deadline, and reports anomalies without mutating either store. If it reports truncation or an integrity anomaly, preserve the report and stop for diagnosis; do not delete objects or metadata to force green.
 - Production probes are HTTP health/readiness/authentication and existing read-only state checks only. No interactive profile-save mutation or real-provider call is an automatic smoke.
-- Record branch, source SHA, image ID and registry digest separately, URL, check results, and unperformed browser/provider verification. Do not call a local image “published” without registry evidence.
+- Record branch, source SHA, local image ID, registry digest only if one is actually published, URLs, checks, rollback checkpoint, and unperformed browser/provider verification. Source/CI publication and production deployment are separate evidence categories.
 
 ## 10. Requirements Traceability Matrix
 
@@ -970,7 +975,7 @@ Planned mappings below become execution evidence only when the defined command h
 | P02 | REQ-350 | TEST-278 | `internal/capacity/report_test.go` | `go test ./internal/capacity -run '^TestCapacityReport' -count=1` |
 | P03 | REQ-351 | TEST-278 | `internal/capacity/report_test.go` | `go test ./internal/capacity -run '^TestCapacityReport' -count=1` |
 | P04 | REQ-352 | TEST-279 | `scripts/verify-test-tiers.mjs` | `node scripts/verify-test-tiers.mjs` |
-| P04 | REQ-352 | TEST-269 | `scripts/production-config.mjs` | `node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway,harden-llm-web --expected-release "$HLLM_RELEASE_SHA"` |
+| P04 | REQ-352 | TEST-269 | `scripts/production-config.mjs` | `node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway --expected-release "$HLLM_RELEASE_SHA"` |
 
 ## 11. Execution log template
 
@@ -980,8 +985,8 @@ This section is a blank implementation ledger. Planning validation is not implem
 | --- | --- | --- |
 | P00 | Done | Local P00 documentation checkpoint on `main` at source `67937729b4e5b0d58d2883bdd09155e49ac72612`; commit recorded below. |
 | P01 | In progress | Exact-candidate isolated TEST-274 run [35701002741](https://github.com/prls-co/harden-llm/actions/runs/35701002741) passed all four scenarios; each receipt was cleaned, the sentinel remained, and cleanup warnings/errors were zero. The distinct full Compose smoke previously failed at the unchanged one-shot bootstrap deadline; rerun through exact-SHA release after `--no-deps --pull never` and accept only the unchanged bootstrap/login/run/correlation assertions. |
-| P02 | Implementation complete; hosted exploration pending | TEST-277 correctness on `132c0f6237b9f821b135d0030d6cf8089bc895ff` passed all six scenarios and artifact accounting; current bounded-exploration run [35714057787](https://github.com/prls-co/harden-llm/actions/runs/35714057787) reached final report writing without scenario/persistence failures, then exposed a second report-bound defect: four 2,000-artifact samples exceeded 1 MiB. TEST-278 now covers exact count/bytes with a 96-row per-scenario sample and omitted count; its RED, focused GREEN, tagged compile, tier policy, whitespace check, canonical report selector, and `make test-fast` pass locally. Fresh exact-SHA correctness and exploration remain mandatory after the report fix. |
-| P03 | Pending | None |
+| P02 | Done; capacity remains uncertified | TEST-277 exact-SHA correctness and exploration passed on `2380824dfd7b693df58f643d5b81019fe25e2edd`; reports accepted all ten scenarios across both runs with exact accounting and bounded size. Both reports retain `insufficient_evidence`, not a production capacity or cost claim. |
+| P03 | Done; no capacity change | The accepted disposition is `insufficient_evidence`, not “capacity sufficient.” No SLO, invoice, or complete host/storage metrics exist to select a measurable operating point; retain existing production topology. EVAL-011 holdout was not run because P03.S03 is conditional on an approved operating point/remedy. The separate artifact-publication race fix remains a data-integrity correction, not a capacity optimization. |
 | P04 | Pending | None |
 
 ```yaml
@@ -1245,7 +1250,8 @@ phase_entry:
 - Hosted TEST-277 correctness [35713792117](https://github.com/prls-co/harden-llm/actions/runs/35713792117), source `7a79af34bc35c5c2e8e955d63bb4f39bc5475027`, accepted in 20.501 s with six of six scenarios matching declared outcomes and provider/persistence/artifact accounting, zero cleanup errors/warnings, and disposition `insufficient_evidence`. Run ID: `run-1790071414406-2350-xwiq81`; report: `tmp/test-feedback/gh-correctness-artifact-grace/harden-llm-capacity-35713792117-1/runner-capacity-35713792117-1.json`. Sampled peak project CPU was 14.09%; three samples had a maximum observed interval of 5.008 s against the requested 5 s cadence (8 ms over); last sample reported 15,473,639,424 host-available-memory bytes and 90,154,663,936 Docker-root-available bytes. Exact container memory remains unavailable (`converted byte count is not an exact safe integer`), process RSS is not exposed by Docker stats, and Docker-volume-used bytes are not collected. These samples describe the short correctness fixture only and are not capacity certification.
 - Corrected artifact-grace exploration [35714057787](https://github.com/prls-co/harden-llm/actions/runs/35714057787), source `132c0f6237b9f821b135d0030d6cf8089bc895ff`, ran 326.445 s in the Go test and 345.203 s in the runner, was not timed out, and had zero cleanup errors/warnings. It reached final report publication, so no scenario, provider-accounting, history, run/trace/origin, or object-digest assertion had stopped the four-case loop; publication then failed because the v2 report still serialized every verified `storedArtifacts` row and exceeded 1 MiB. No completed capacity report or per-scenario measurements were retained from this attempt. This is an evidence-serialization defect, separate from the fixed runtime publication race.
 - TEST-278 RED/GREEN for the report defect: `go test ./internal/capacity -run '^TestCapacityReportBoundsStoredArtifactSamplesAtMaximumExplorationPopulation$' -count=1` failed before the cap with `capacity report exceeds the 1048576-byte limit`; the fixture covers four scenarios at 2,000 artifact records each. ADR-HLLM-027 now records the 96-per-scenario artifact metadata sample cap; the existing 1 MiB report ceiling remains unchanged. GREEN: the regression, the 2,000-request diagnostic report, `go test ./internal/capacity -run '^TestCapacity' -count=1`, integration+capacity tagged gateway compilation, canonical TEST-278 selector, tier policy, `git diff HEAD --check`, and `make test-fast` (10/10 tasks; report `tmp/test-feedback/runner-1790072573690-3270322-d5ebe0085590b5d9.json`) pass locally. Fresh hosted correctness and exploration are required on the updated source; no timeout or report-byte limit changed.
-- Required GREEN gates: run `go test -tags=integration ./internal/gateway -run '^TestArtifactCoordinatorCrashConvergence$' -count=1` through the repository-owned integration service pool; run `make test-fast`; run exact-SHA browser-free release; rerun capacity correctness and bounded exploration sequentially. Existing test deadlines remain unchanged. The shared reference host is currently at 109 Docker containers, ~204 KiB free swap, and 5.94% full I/O PSI over 10 s; do not start another local Docker-backed service pool while this pressure snapshot remains. Use isolated hosted runners for T3/TEST-277.
+- Corrected hosted TEST-277 reports on `2380824dfd7b693df58f643d5b81019fe25e2edd`: correctness [35716026712](https://github.com/prls-co/harden-llm/actions/runs/35716026712) accepted six cases; exploration [35716212690](https://github.com/prls-co/harden-llm/actions/runs/35716212690) accepted four cases in 347.039 s (321.380 s measured set), not timed out, with zero cleanup errors/warnings. The private capacity report serialized to 254,550 bytes (<1 MiB); the wrapper runner record was 659,492 bytes. Exploration offered/launched/succeeded 60/60/60, 720/720/720, 1,440/1,440/1,440, and 720/720/720; provider attempts matched. Artifact totals were 3,430 with exact bytes and bounded metadata samples. Resource observation: 68 samples; maximum interval 5,005 ms; peak project CPU 143.31%; two containers, three volumes, and two immutable images; about 15.35 GB host-available memory and 90.05 GB Docker-root-available space at the final sample. Docker memory is partially unknown from CLI precision; process RSS and volume-used bytes are not collected. Both reports leave prices, actual invoices, and the production capacity disposition unknown. No capacity/cost certification follows from this short synthetic run.
+- Required GREEN gates: run exact-SHA browser-free release, which includes the owned integration and race suites plus the existing full Compose smoke. Correctness and exploration already passed sequentially on `2380824dfd7b693df58f643d5b81019fe25e2edd`; rerun them only if behavior-changing source changes. Existing test deadlines remain unchanged. The shared reference host previously recorded 109 Docker containers, ~204 KiB free swap, and 5.94% full I/O PSI over 10 s; do not start another local Docker-backed service pool while current pressure remains. Use isolated hosted runners for T3/TEST-277.
 - Rollback: revert the narrow source commit; no data migration or artifact-key rewrite exists. Before a production rollout, capture current source/image identities and use the normal application-service rollback. Do not delete or rewrite artifacts to make the test pass.
 - Risks/follow-ups: the hosted partial report did not retain the failed request's exact trace/run IDs or object-key digest, so the precise missing request cannot be identified retroactively. Preserve that failure evidence when documenting it; the new TEST-060 regression deterministically covers the code interleaving. A 30-second grace delays crash-orphan cleanup by at most one existing reconciliation interval plus the bounded retry cadence. Recheck artifact integrity after deployment and confirm no pending publication backlog.
 
@@ -1283,6 +1289,6 @@ If external telemetry policy becomes the selected remedy, its amendment must spe
 - New test files/selectors are created in their stated bootstrap steps before use; commands not yet implemented are not reported as passing.
 - Phase metrics are estimates with rationale, not acceptance evidence.
 - Human scope review is outside the RTM and cannot substitute for behavior verification.
-- No timeout increase, browser/provider authorization, infrastructure purchase, database migration, or production push is implied by editing this document.
-- P00 documentation and baseline validation are complete. Runtime artifact-reconciliation code is implemented on the current candidate but is not yet certified for production; no application image publication or deployment is claimed until exact-SHA release and identity checks pass.
-- Structural validation: 5 phases, 24 ordered steps, 12 requirements, 12 defined tests, 5 evaluations, and 7 repository links checked; RED/GREEN command pairs and RTM paths/commands matched. The existing tier-policy checker passed. New TEST-279 assertions and P01–P04 remain pending.
+- No timeout increase, browser/provider authorization, infrastructure purchase, or database migration is authorized. The current user request explicitly authorizes pushing this reviewed candidate to `main` and deploying only the gateway runtime fix; no unrelated branch ancestry or service is included.
+- P00 documentation and baseline validation are complete. P02 capacity evidence and P03 no-change disposition are complete; P01's exact-SHA Compose smoke and P04 release/promotion/deployment remain pending until their recorded gates pass.
+- Structural validation: 5 phases, 24 ordered steps, 12 requirements, 12 defined tests, 5 evaluations, and 7 repository links checked; RED/GREEN command pairs and RTM paths/commands matched. Re-run the repository tier-policy checker and `git diff HEAD --check` after this execution-log amendment.
