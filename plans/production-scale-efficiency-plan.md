@@ -344,7 +344,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Oracles duplicate implementation arithmetic, depend on real providers, or fail only to compile.
   - Unlocks: P02.S02
 - `P02.S02 Implement exact resource measurement and attribution`
-  - Progress: DONE for local deterministic checks. Exact project attribution, immutable image IDs, Docker memory vs RSS, host pressure, Docker data-root disk headroom, cadence gaps, and null reasons are covered. First hosted capacity correctness run failed before the gateway test because exact container samples were unavailable; the report did not identify which Docker sample command failed. TEST-275 now requires bounded stage-specific reasons; the hosted rerun remains pending.
+  - Progress: DONE for local deterministic checks. Exact project attribution, immutable image IDs, Docker memory vs RSS, host pressure, Docker data-root disk headroom, cadence gaps, and null reasons are covered. The latest hosted correctness attempt successfully collected three samples for both exact service containers after the evidence-based `docker stats` bound change. Capacity acceptance remains pending because the real gateway test then exposed an authentication fixture failure.
   - Action: Extend current runner measurements with numeric Docker API bytes and exact labels; isolate new pure conversion logic in one helper. If CLI text is used, support all listed units and reject unknown units. Record sampled peaks, timestamps, sampling gaps, host pressure, and unavailable metrics distinctly.
   - Why now: Resource accounting is independently testable and required by cost reporting.
   - Files/surfaces: `scripts/measure-test-resources.mjs` (proposed helper, not a new daemon); `scripts/run-test-tier.mjs`; `scripts/test/test_resource_measurement_test.mjs`.
@@ -383,7 +383,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Saving calculation assumes unpriced hardware is free or equates moving services with eliminating cost.
   - Unlocks: P02.S05
 - `P02.S05 Add failing real-application capacity acceptance`
-  - Progress: IMPLEMENTED; manifest/static policy and integration+capacity compile pass. The first manual hosted correctness run started and cleaned its owned Postgres/Garage service pool but failed at the runner's immutable-image fingerprint precondition before invoking the gateway test. It remains unaccepted until the more precise measurement failure is diagnosed and correctness passes.
+  - Progress: IMPLEMENTED; manifest/static policy, tagged compilation, and local fast gate pass. Hosted RED evidence is recorded below: profile setup returned HTTP 401 because the fresh leased database had no user for the configured static-token owner. The fixture now bootstraps that owner through the existing `bootstrap-user` command and preserves exporter dependencies until gateway shutdown. TEST-277 remains unaccepted until the hosted correctness suite passes on this candidate.
   - Action: Create the capacity test and register capacity-baseline as explicit opt-in before invoking it. Use a minimal real application fixture and demand the missing workload/report/persistence integration. Register real-service ownership and capacity build tags, not a fake RunService. Extend static policy to exclude capacity from fast/default integration/release.
   - Why now: Pure instrument checks are green; the application and persistence boundary remains unproved.
   - Files/surfaces: `cmd/harden-llm-gateway/capacity_test.go` (proposed); `test/test-tiers.json`; `scripts/verify-test-tiers.mjs`; canonical catalog.
@@ -396,7 +396,7 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Stop/escalate condition: Task enters an automatic selector, uses recordingRuntimeCaller, or substitutes a mock store for the boundary under test.
   - Unlocks: P02.S06
 - `P02.S06 Connect the driver to real isolated application boundaries`
-  - Progress: IMPLEMENTED, HOSTED EXECUTION PENDING. The test calls the real gateway assembly and verifies REST, auth, provider, storage, trace, origin, and artifact paths; compile-only checks do not substitute for TEST-277 execution.
+  - Progress: IMPLEMENTED, HOSTED EXECUTION PENDING. Local compile-only tagged check passes, but it does not substitute for TEST-277 execution. The fixture correction seeds the static-token owner using the production bootstrap command path and changes local provider/export-sink teardown to LIFO `t.Cleanup`, so the gateway shuts down before those dependencies.
   - Action: Call runGatewayServer from the command-package test with an injected environment and existing bootstrap/auth/profile paths. Use the existing Postgres/Garage leases, real provider adapter, synthetic credentials, and local TLS fixture. Verify stored history/artifact digests and origin/stage IDs. Keep the existing full-stack smoke as its own boundary; do not duplicate it or create another stack owner.
   - Why now: All missing behavior has failing pure and real-boundary coverage.
   - Files/surfaces: `cmd/harden-llm-gateway/capacity_test.go`; `cmd/harden-llm-gateway/server.go` (reuse); `internal/integrationtest/pool.go` (reuse); `internal/smoke/harness_compose.go`; `internal/capacity/driver.go`.
@@ -966,8 +966,8 @@ This section is a blank implementation ledger. Planning validation is not implem
 | Phase | Status | Accepted checkpoint |
 | --- | --- | --- |
 | P00 | Done | Local P00 documentation checkpoint on `main` at source `67937729b4e5b0d58d2883bdd09155e49ac72612`; commit recorded below. |
-| P01 | Partial | Local lifecycle suites passed; isolated hosted execution of TEST-274/full Compose smoke is required to close the Docker boundary. |
-| P02 | Implemented; hosted execution pending | Local instrument/report checks and tagged compilation passed; hosted TEST-277 correctness and bounded exploration remain. |
+| P01 | Done | Isolated TEST-274 lifecycle run [35695976487](https://github.com/prls-co/harden-llm/actions/runs/35695976487) passed all four scenarios; each receipt was cleaned, the sentinel remained, and cleanup warnings/errors were zero. |
+| P02 | Implemented; hosted execution pending | Local TEST-275/276/278 checks and tagged compilation passed; hosted TEST-277 correctness and bounded exploration remain. |
 | P03 | Pending | None |
 | P04 | Pending | None |
 
@@ -1168,6 +1168,25 @@ phase_entry:
 - Timeout diagnosis/correction: `docker stats` is the only collector command now given a 5,000 ms command deadline, based on the repeated hosted `exit=143` at the exact sample stage under the previous 2,000 ms bound. `docker ps` and `docker inspect` remain at 2,000 ms. The report now also records `timedOut=true` when the runner timer fired. The correctness case, task ceiling, sample cadence, and assertions remain unchanged; this is a scoped command bound for a read-only Docker diagnostic, not an extension to test execution.
 - Regression evidence: TEST-275 synthetic inventory/inspect/stats failures require stage, exit status, timeout indicator when present, caller-redacted stderr capped at 256 characters, and omission of raw stdout. The new timeout oracle failed before the runner propagated `timedOut`; it passes after.
 - Follow-up: verify one more isolated correctness run on the new SHA. If `docker stats` still fails, use the retained timeout flag and redacted stderr to choose a fix; do not raise this bound again without new stage evidence. Exploration and holdout remain locked until correctness passes and a selected operating point/SLO makes holdout meaningful.
+
+### Hosted capacity authentication failure and fixture correction — 2026-09-22
+
+- Candidate: `144818e645d3b2cbd8fe6e74dcebd95d26a5850a`, correctness run [35698547460](https://github.com/prls-co/harden-llm/actions/runs/35698547460).
+- Measurement result: Docker sampling now succeeds on the isolated worker: three samples each reported both configured service containers and a stable two-image fingerprint; `collectionNullReasons` is empty. The 5,000 ms `docker stats` command bound did not fire. The gateway child actually ran and failed in 2.278 seconds at profile setup with HTTP 401. Runner-owned Postgres/Garage cleanup had no errors or warnings.
+- Authentication RCA: `capacityGatewayEnvironment` configures a static token whose owner is `capacity-test-owner`. Static-token authentication calls `UserByID` for that owner. `PostgresLease` creates a fresh empty application database, but the capacity fixture never bootstrapped the owner; therefore profile save is correctly unauthorized. This is a fixture initialization omission, not a gateway auth defect and not a reason to weaken authentication.
+- Teardown RCA: after the assertion failed, Go `defer` closed the local provider and OTLP sink before `t.Cleanup` canceled the gateway. Gateway telemetry shutdown then tried to export to the already-stopped local sink and returned `context deadline exceeded`. Docker teardown itself succeeded. Cleanup ordering is corrected by registering those dependencies with `t.Cleanup` before the gateway cleanup, so reverse-order cleanup stops the gateway first.
+- Correction: seed the capacity owner using the existing `bootstrap-user` command path with synthetic fixture credentials before starting the gateway; do not insert an incomplete user directly or bypass password hashing. Use LIFO test cleanup for provider/telemetry dependencies so exporter shutdown remains observable and clean. No production API/auth policy, workload, test timeout, or gateway deadline changes.
+- Regression evidence: run `35698547460` is the hosted RED for both the missing owner (401) and incorrect telemetry teardown ordering. The same named real boundary remains the GREEN oracle after this correction; local fake stores are not substituted.
+- Follow-up: compile the tagged capacity package, rerun `make test-fast`, push, then rerun hosted correctness. Do not start exploration/holdout until correctness passes. If telemetry shutdown still fails, inspect exporter flush and sink stop ordering; do not extend shutdown deadlines without separate timing evidence.
+
+### Local validation after capacity fixture correction — 2026-09-22
+
+- Candidate working tree: based on `144818e645d3b2cbd8fe6e74dcebd95d26a5850a`; fixture correction and canonical TEST-277 detail are not yet committed at this checkpoint.
+- `go test -tags=integration,capacity -run '^$' ./cmd/harden-llm-gateway` — PASS; tagged real-boundary fixture compiles without starting Docker.
+- `PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH make test-fast` — PASS; selector report `tmp/test-feedback/runner-1790061828901-3657566-0500644f1d00167f.json` says accepted=true, 10/10 task statuses 0, no timeout, cleanup error, or cleanup warning. The full selector took about 197 seconds; the two longest tasks were `frontend-deterministic` at 181.532 seconds and `runner-contracts` at 113.225 seconds (overlapped). This is measured duration, not a timeout increase or failed attempt.
+- `node scripts/verify-test-tiers.mjs` — PASS; 10 fast tasks registered. `git diff --check` — PASS.
+- Traceability update: canonical TEST-277 now explicitly requires fresh-DB owner creation through `bootstrap-user`, successful auth, and orderly gateway/exporter shutdown. The existing file-level `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-277` tag remains in place.
+- Next: review all changes, commit and push to `main`, run hosted release and TEST-277 correctness on the exact SHA, and start the separate bounded exploration only after correctness passes. Keep the observed ~197-second local fast duration as a follow-up for test-cost review; do not change test budgets based on this one observation.
 
 Known matters to carry forward:
 

@@ -1377,9 +1377,9 @@ synthetic credentials, isolated stores, and a local scripted provider.
 - Type / verifies: perf; REQ-347, REQ-348, REQ-349.
 - Location: `cmd/harden-llm-gateway/capacity_test.go`.
 - Command: `node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline.json`.
-- Fixtures/data: Real command server assembly, REST/auth/client, disposable Postgres/Garage, local TLS scripted provider and export sink. The existing separately-owned Compose smoke remains its own boundary; TEST-277 does not start another application stack.
+- Fixtures/data: Real command server assembly, REST/auth/client, disposable Postgres/Garage, local TLS scripted provider and export sink. Bootstrap the configured static-token owner in the fresh Postgres lease through the existing `bootstrap-user` command path before starting the gateway; do not bypass auth or insert a partial user. Keep provider/export dependencies alive until the gateway has completed shutdown. The existing separately-owned Compose smoke remains its own boundary; TEST-277 does not start another application stack.
 - Deterministic controls: Explicit `integration,capacity` tags; seed 104729; synthetic credentials; Section 6 bounds; no live/browser selector. Capacity runs are explicit-only through workflow dispatch and accept only `correctness`, `exploration`, or `holdout`.
-- Pass criteria: Persisted history/artifacts agree with terminal outcomes; provider receive counts match runtime attempts; SSE terminal oracle holds; report is bounded and owned fixtures are cleaned.
+- Pass criteria: Static-token profile setup succeeds only for the bootstrapped owner; persisted history/artifacts agree with terminal outcomes; provider receive counts match runtime attempts; SSE terminal oracle holds; report is bounded and owned fixtures are cleaned; gateway telemetry flush completes before its local export sink stops.
 - Expected runtime: Correctness up to 5 minutes; exploration up to 15 minutes; holdout up to 5 minutes, within the registered 40-minute task deadline.
 
 ### TEST-278: Comparable cost and decision reports

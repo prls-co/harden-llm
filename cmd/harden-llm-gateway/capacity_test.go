@@ -149,6 +149,9 @@ func TestGatewayCapacityBaseline(t *testing.T) {
 
 	_, databaseURL := integrationtest.PostgresLease(t)
 	_, garageFixture := integrationtest.GarageLease(t)
+	if err := bootstrapCapacityOwner(databaseURL); err != nil {
+		t.Fatalf("bootstrap static-token owner through the existing operator command: %v", err)
+	}
 	if err := integrationtest.DeleteGarageOwnerTraceArtifacts(context.Background(), garageFixture, capacityOwnerID); err != nil {
 		t.Fatalf("clear exact synthetic owner artifacts before the run: %v", err)
 	}
@@ -165,11 +168,11 @@ func TestGatewayCapacityBaseline(t *testing.T) {
 		t.Fatal(err)
 	}
 	providerServer := httptest.NewTLSServer(provider)
-	defer providerServer.Close()
+	t.Cleanup(providerServer.Close)
 	trustProviderCertificate(t, providerServer.Certificate())
 
 	telemetrySink, telemetryServer, telemetryEndpoint := startCapacityTelemetrySink(t)
-	defer telemetryServer.Stop()
+	t.Cleanup(telemetryServer.Stop)
 
 	listenAddress := reserveLoopbackAddress(t)
 	serverContext, cancelServer := context.WithCancel(context.Background())
@@ -332,6 +335,15 @@ func capacityGatewayEnvironment(databaseURL string, garage integrationtest.Garag
 		"HARDEN_LLM_TEST_GARAGE_ENDPOINT":        strings.TrimPrefix(garage.Endpoint, "http://"),
 		"HARDEN_LLM_OTEL_EXPORTER_OTLP_ENDPOINT": telemetryEndpoint,
 	}
+}
+
+func bootstrapCapacityOwner(databaseURL string) error {
+	environment := map[string]string{databaseURLEnvironment: databaseURL}
+	return run(context.Background(), []string{
+		"bootstrap-user", "--owner-id", capacityOwnerID, "--email", "capacity-test@example.test",
+	}, strings.NewReader("capacity-fixture-password-not-used\n"), io.Discard, io.Discard, func(key string) string {
+		return environment[key]
+	})
 }
 
 func saveCapacityProfile(ctx context.Context, client *http.Client, gatewayURL, providerBaseURL string) error {
