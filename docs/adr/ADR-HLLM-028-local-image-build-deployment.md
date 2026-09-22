@@ -45,9 +45,9 @@ operating model changes.
 5. Keep Dockerfile OCI source, revision, and version labels. The version/revision
    identity is used by existing candidate/deployment checks and supports
    source attribution independent of any registry.
-6. Leave the already-published private GHCR package untouched and unused. This
-   decision removes registry publication from the supported path; it does not
-   authorize deleting an external package or claiming the package is a
+6. At the initial 2026-09-22 retirement, leave the already-published private
+   GHCR package untouched and unused. A later owner-approved cleanup deleted
+   it; see the dated follow-up below. The package was never treated as a
    certified disaster-recovery system.
 7. Keep the production descriptor, credentials, image store, and service state
    on the host. Do not add cleanup, pruning, migration, new secrets, provider
@@ -59,7 +59,7 @@ operating model changes.
 | --- | --- |
 | Keep GHCR publisher as the default deployment path | Rejected for the current one-host active-development model; its distribution/recovery value does not justify an additional active release subsystem. |
 | Build locally but retain publisher workflow as a fallback | Rejected for now; a dormant path still carries permissions, tests, and maintenance. The exact source is kept in a compact archive and Git history. |
-| Delete the existing private GHCR package | Not selected; external package deletion is a separate destructive operation. It remains private and is no longer referenced by production. |
+| Delete the existing private GHCR package | Not selected in the initial retirement; subsequently authorized and completed on 2026-09-22 after verifying the local production image and descriptor. |
 | Add a generic OCI/registry abstraction or another build scheduler | Rejected; there is one image and one host, and existing Docker/Compose/config tools already own the lifecycle. |
 | Remove all OCI labels | Rejected; existing release checks consume image version/revision metadata, and labels are useful for local provenance. |
 
@@ -73,12 +73,36 @@ operating model changes.
   not improve disaster recovery or certify host capacity.
 - A same-source build is expected to carry matching version/revision labels
   and platform, but byte-identical layers/digests have not been demonstrated.
-- The one private GHCR artifact remains historical residue and must not be
-  described as the active deployment target after the descriptor transition.
+- The original GHCR publication remains a historical fact, but the package was
+  deleted in the follow-up below. The production host's local image is now the
+  only retained copy of that image artifact.
 - Reconsider this decision if multiple hosts, independent build/deploy
   environments, image restore requirements, or build-resource constraints
   emerge. A change requires a new ADR amendment, not silently restoring the
   old workflow.
+
+## Follow-up — GHCR package cleanup (2026-09-22)
+
+After the initial retirement, the owner explicitly approved deleting the
+dormant private package. Immediately before deletion, GitHub reported the
+package as private with three versions: one source/run-qualified tag and two
+untagged versions. The production descriptor selected the local tag
+`harden-llm-gateway:release-6887fcd8146961dc64598dd7a236e7a9fc522c9c`, whose
+image ID matched both the configured expected image and the running container.
+The gateway was healthy.
+
+The package `prls-co/harden-llm-gateway` was deleted through the GitHub Packages
+API. A subsequent package lookup returned HTTP 404 (`Package not found`). This
+removed the tagged GHCR digest
+`sha256:036d82749a1e5a29e36c848d5fca955c4b416858c9ea272f2cf1b4428210905b` and
+its two untagged versions. No production service, local image, descriptor,
+volume, or data was changed, and no restart was performed. The archive bundle
+preserves publisher source only; it is not a backup of the deleted image.
+
+The existing running container retains the historical GHCR string in its
+creation-time `Config.Image`, but its image object is local and its immutable
+image ID matches the production descriptor. Future recreation must use the
+local-image descriptor path; the deleted digest is no longer pullable.
 
 ## Rollback and restoration
 
@@ -90,5 +114,5 @@ To restore publication later, review the archived workflow and test rather
 than copying them blindly; restore their selectors and traceability entries
 from the archive's source context, add a new ADR/amendment for current security
 and retention requirements, and run current exact-source release certification
-before granting package-write permissions. The original private package is not
-a substitute for that review.
+before granting package-write permissions. The deleted package cannot be used
+for rollback or recovery; rebuild from source if the host-local image is lost.

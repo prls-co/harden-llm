@@ -2185,10 +2185,10 @@ remained in place.
 ## GHCR publisher retirement and local image transition — 2026-09-22
 
 ADR-HLLM-028 retires registry publishing from the active build/deployment
-path. This does not undo the completed private publication below: the
-published package remains private and is intentionally left untouched, but
-production and active source/test gates no longer depend on it. The specification
-and restoration details are in
+path. The private publication below remains a historical fact, but its package
+was subsequently deleted with owner approval; see the cleanup follow-up at the
+end of this section. Production and active source/test gates no longer depend
+on GHCR. The specification and restoration details are in
 `plans/gateway-image-build-deployment-spec.md`,
 `plans/gateway-image-build-deployment-kers.md`, and
 `docs/archive/README.md`.
@@ -2206,6 +2206,24 @@ and restoration details are in
 | Runtime and public probes | Gateway running/healthy, zero restarts, image ID/revision/version verified. Web remained healthy, zero restarts, and unchanged at image ID `sha256:299439921295e6037a0cc01e1b1893e5bd1c2e441b740021479ca6666c1e5276`. API `/healthz` and `/readyz`, web `/healthz` and `/login`: HTTP 200. |
 | Read-only artifact inventory | `healthy:true`; five objects and five metadata references; zero active operations, missing objects, or unreferenced objects; `truncated:false`. |
 | Browser/provider checks | Not run. No browser, provider call, data/config migration, volume change, or topology change was required or performed. |
+
+### GHCR package cleanup follow-up — 2026-09-22
+
+After the initial retirement, the owner approved deleting the dormant private
+package `prls-co/harden-llm-gateway`. Before deletion it had three versions:
+one release tag and two untagged versions. The production descriptor pointed
+to local tag `harden-llm-gateway:release-6887fcd8146961dc64598dd7a236e7a9fc522c9c`,
+and both its expected image ID and the running gateway image ID were
+`sha256:036d82749a1e5a29e36c848d5fca955c4b416858c9ea272f2cf1b4428210905b`.
+The gateway was healthy.
+
+The GitHub Packages delete request succeeded; a subsequent lookup returned
+HTTP 404. The package's tagged digest and two untagged versions are no longer
+available from GHCR. No local image, descriptor, container, service, volume,
+or data was changed, and there was no restart or deployment. The currently
+running container retains its historical GHCR `Config.Image` text, but its
+local image ID is intact. Future production recreation must use the local tag
+from the production descriptor; the deleted registry digest cannot be pulled.
 
 The live descriptor is now local-image based and the active publisher workflow
 and publisher-only TEST-283 implementation have been removed. The Dockerfile's

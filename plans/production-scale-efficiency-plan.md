@@ -1421,8 +1421,11 @@ deployed. It is not an active release step or a requirement to preserve.
   SHA-256 is recorded in the release closeout; it remains mode `0600`.
 - `production-config check` and scoped `apply` with the expected release both
   report `equivalent`; no container recreation was necessary because the new
-  local tag resolves to the same exact image ID. The GHCR package is left
-  private and unused; package deletion was not in scope.
+  local tag resolves to the same exact image ID. The GHCR package was
+  subsequently deleted by explicit owner approval after verifying the
+  descriptor and running image ID; see the dated follow-up in
+  `docs/adr/ADR-HLLM-028-local-image-build-deployment.md` and
+  `docs/release-certification.md`.
 - See the release closeout for hosted checks, final `main` SHA, HTTP/runtime
   probes, and the read-only artifact inventory. No capacity claim, browser
   check, provider call, data migration, volume operation, or topology change is

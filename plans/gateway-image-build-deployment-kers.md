@@ -23,4 +23,7 @@ All KERs must hold for the active local lifecycle. KER-IBD-008 is met by a
 non-executable compressed source bundle, not by leaving the retired workflow
 or its publisher-specific regression in routine CI. Existing records of the
 one completed private GHCR publication remain historical facts and are not
-rewritten as if the publication never occurred.
+rewritten as if the publication never occurred. The registry package itself
+was separately deleted with owner approval on 2026-09-22; the compressed bundle
+preserves source code, not the removed image artifact. See ADR-HLLM-028 for
+verification and operational implications.

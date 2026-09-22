@@ -197,9 +197,10 @@ gateway image.
 - The current Docker host is the only retained copy of local image layers.
   Losing the host or its Docker data can require a source rebuild; this is not
   off-host disaster recovery.
-- The prior GHCR package remains private but is not a supported build or
-  deployment dependency. Its deletion is a separate package-administration
-  decision and is not part of repository cleanup.
+- The prior private GHCR package was deleted on 2026-09-22 after owner approval
+  and verification that production used the matching local image. It is no
+  longer available for pulls or recovery. Keep the host-local immutable image
+  and use the protected production descriptor for all future recreations.
 - A single-host local image lifecycle is not a multi-host promotion system.
 - Registry publishing may be proposed again only with a concrete need such as
   multiple deploy targets, host/build separation, tested off-host image
