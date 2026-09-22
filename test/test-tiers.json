@@ -183,7 +183,7 @@
     },
     {
       "id": "go-integration",
-      "testIds": ["TEST-007", "TEST-053", "TEST-230", "TEST-232", "TEST-251", "TEST-252", "TEST-253", "TEST-254", "TEST-255", "TEST-267"],
+      "testIds": ["TEST-007", "TEST-053", "TEST-060", "TEST-230", "TEST-232", "TEST-251", "TEST-252", "TEST-253", "TEST-254", "TEST-255", "TEST-267"],
       "tier": "T3",
       "resourceClass": "service",
       "command": ["go", "test", "-p=${HARDEN_LLM_TEST_PACKAGE_SLOTS}", "./...", "-tags=integration", "-count=1"],

@@ -74,6 +74,40 @@ func TestArtifactCoordinatorCrashConvergence(t *testing.T) {
 		}
 	})
 
+	t.Run("fresh publication survives reconciliation until execution metadata commits", func(t *testing.T) {
+		publication := artifactPublication("racing-run", "racing-trace", "racing-artifact")
+		reference, err := coordinator.PublishArtifact(ctx, publication)
+		if err != nil || !objects.exists(publication.ObjectKey) {
+			t.Fatalf("fresh publication = %#v, %v", reference, err)
+		}
+		summary, err := coordinator.Reconcile(ctx)
+		if err != nil || summary != (gateway.ArtifactReconcileSummary{}) || !objects.exists(publication.ObjectKey) {
+			t.Fatalf("reconcile inside publication/metadata gap = %#v, %v, objectExists=%t", summary, err, objects.exists(publication.ObjectKey))
+		}
+
+		artifact := postgres.ArtifactRecord{
+			OwnerID: publication.OwnerID, RunID: publication.RunID, TraceID: publication.TraceID,
+			ID: publication.ArtifactID, Kind: publication.Kind, ObjectKey: publication.ObjectKey,
+			ContentType: reference.ContentType, SHA256: reference.SHA256, SizeBytes: reference.SizeBytes,
+			State: "available", CreatedAt: clock, UpdatedAt: clock,
+		}
+		if err := store.SaveExecution(ctx, postgres.RunRecord{
+			OwnerID: publication.OwnerID, ID: publication.RunID, ProfileID: "Profile",
+			TraceID: publication.TraceID, Status: "succeeded",
+			Request: json.RawMessage(`{"profileId":"Profile"}`), Result: json.RawMessage(`{"output":"ok"}`),
+			StartedAt: clock, CompletedAt: clock,
+		}, postgres.TraceRecord{
+			OwnerID: publication.OwnerID, RunID: publication.RunID, TraceID: publication.TraceID,
+			Record: json.RawMessage(`{"status":"success"}`), CreatedAt: clock, UpdatedAt: clock,
+		}, nil, []postgres.ArtifactRecord{artifact}); err != nil {
+			t.Fatal(err)
+		}
+		clock = clock.Add(time.Minute)
+		if _, err := coordinator.Reconcile(ctx); err != nil || !objects.exists(publication.ObjectKey) {
+			t.Fatalf("reconcile after execution commit removed its artifact: %v", err)
+		}
+	})
+
 	t.Run("execution save consumes publication and interrupted delete resumes", func(t *testing.T) {
 		publication := artifactPublication("saved-run", "saved-trace", "saved-artifact")
 		reference, err := coordinator.PublishArtifact(ctx, publication)
