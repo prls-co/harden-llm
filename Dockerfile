@@ -17,7 +17,10 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM scratch
 ARG VERSION=0.1.0
+ARG REVISION=unknown
 LABEL org.opencontainers.image.title="harden-llm-gateway" \
+      org.opencontainers.image.source="https://github.com/prls-co/harden-llm" \
+      org.opencontainers.image.revision="${REVISION}" \
       org.opencontainers.image.version="${VERSION}"
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build /out/harden-llm-gateway /harden-llm-gateway

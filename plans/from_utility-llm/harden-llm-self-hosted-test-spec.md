@@ -1434,3 +1434,14 @@ synthetic credentials, isolated stores, and a local scripted provider.
 - Deterministic controls: `httptest` only; no gateway process, Docker, database, credentials, or timing sleeps.
 - Pass criteria: Verification follows the existing limit-100 REST cursor contract until all expected pairs are found; URL-encodes opaque cursors, rejects repeated/oversized cursors and oversized pages, and reports a missing pair only after the final page or bounded page limit.
 - Expected runtime: Under 1 second.
+
+### TEST-283: Private gateway-image publication contract
+
+- Type: static.
+- Verifies: REQ-353.
+- Location: `scripts/test/gateway_image_publication_test.mjs`.
+- Command: `node --test scripts/test/gateway_image_publication_test.mjs`.
+- Fixtures/data: Checked-in publisher workflow and gateway Dockerfile; no registry mutation, credentials, GitHub API, Docker daemon, or network access.
+- Deterministic controls: Offline source assertions; full action commit-SHA pins; exact repository release-toolchain values; manual-only workflow trigger.
+- Pass criteria: Only `workflow_dispatch` can invoke publication and both jobs require `refs/heads/main`; the certification job runs `make test-release` on `github.sha`; only its dependent publish job grants `packages: write`; the image tag includes the full source SHA, run ID, and run attempt; the image declares repository source, revision, and version; BuildKit max-mode provenance and a bounded digest-only report are configured; package visibility must read back as private; no PAT, browser/provider command, deployment secret, or mutable latest tag is introduced.
+- Expected runtime: Under 1 second.

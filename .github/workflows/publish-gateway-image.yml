@@ -1,0 +1,118 @@
+name: Publish Harden-LLM gateway image
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.26.6"
+  NODE_VERSION: "22.22.1"
+  ELIXIR_VERSION: "1.20.2"
+  OTP_VERSION: "28.4.3"
+
+jobs:
+  certify:
+    name: browser-free exact-source release certification
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
+      - run: go mod download
+      - working-directory: frontend
+        run: mix deps.get
+      - run: make test-release
+
+  publish:
+    name: publish private gateway image by immutable digest
+    needs: certify
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+      - name: Authenticate to GHCR with the job-scoped token
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      - name: Build, publish, and record the immutable digest
+        env:
+          IMAGE: ghcr.io/prls-co/harden-llm-gateway
+        run: |
+          set -euo pipefail
+          IMAGE_TAG="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          METADATA_FILE="$RUNNER_TEMP/gateway-image-metadata.json"
+          REPORT_FILE="$RUNNER_TEMP/gateway-image-publication.json"
+          docker buildx build \
+            --file Dockerfile \
+            --platform linux/amd64 \
+            --build-arg VERSION="$GITHUB_SHA" \
+            --build-arg REVISION="$GITHUB_SHA" \
+            --tag "$IMAGE:$IMAGE_TAG" \
+            --provenance=mode=max \
+            --metadata-file "$METADATA_FILE" \
+            --push \
+            .
+          IMAGE_DIGEST="$(jq -er '."containerimage.digest" | select(test("^sha256:[0-9a-f]{64}$"))' "$METADATA_FILE")"
+          jq -n \
+            --arg sourceSHA "$GITHUB_SHA" \
+            --arg image "$IMAGE" \
+            --arg tag "$IMAGE_TAG" \
+            --arg digest "$IMAGE_DIGEST" \
+            --arg runID "$GITHUB_RUN_ID" \
+            --arg runAttempt "$GITHUB_RUN_ATTEMPT" \
+            '{schemaVersion: 1, sourceSHA: $sourceSHA, image: ($image + "@" + $digest), tag: $tag, digest: $digest, platform: "linux/amd64", provenance: "buildkit:mode=max", workflowRunID: $runID, workflowRunAttempt: $runAttempt}' \
+            > "$REPORT_FILE"
+          chmod 600 "$REPORT_FILE"
+      - name: Verify GHCR package remains private
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          visibility="$(gh api orgs/prls-co/packages/container/harden-llm-gateway --jq .visibility)"
+          if [ "$visibility" != "private" ]; then
+            echo "Refusing release: GHCR package visibility is not private."
+            exit 1
+          fi
+          jq --arg packageVisibility "$visibility" \
+            '. + {packageVisibility: $packageVisibility}' \
+            "$RUNNER_TEMP/gateway-image-publication.json" \
+            > "$RUNNER_TEMP/gateway-image-publication.updated.json"
+          mv "$RUNNER_TEMP/gateway-image-publication.updated.json" "$RUNNER_TEMP/gateway-image-publication.json"
+          chmod 600 "$RUNNER_TEMP/gateway-image-publication.json"
+          echo "GHCR package visibility verified: private"
+      - name: Upload the redacted image publication report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: harden-llm-gateway-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/gateway-image-publication.json
+          if-no-files-found: ignore
+          retention-days: 90
+      - name: Log out of GHCR
+        if: always()
+        run: docker logout ghcr.io

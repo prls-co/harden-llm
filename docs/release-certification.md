@@ -60,6 +60,35 @@ report. Its scripted-provider measurements are not production SLO or provider
 certification; test/docs-only changes do not rebuild or redeploy application
 images.
 
+### Gateway image publication
+
+The gateway publisher is a separate manual, `main`-only workflow at
+`.github/workflows/publish-gateway-image.yml`. Its read-only certification job
+checks out the exact dispatch SHA and runs the existing browser-free
+`make test-release`; only the dependent image job receives `packages: write`.
+The image is published to `ghcr.io/prls-co/harden-llm-gateway` with a unique
+full-source-SHA/run/attempt tag, OCI source/revision/version labels, and
+BuildKit max-mode provenance. Authentication uses the job-scoped
+`GITHUB_TOKEN`; no stored registry PAT is permitted.
+
+GHCR's [first-publish default is private](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry), but the workflow also reads back
+package visibility and fails unless it is `private`. The retained
+`gateway-image-publication.json` report contains the source SHA, unique tag,
+immutable digest, `linux/amd64` platform, provenance mode, run identity, and
+verified package visibility; it contains no credentials, build logs, or
+application data. Promote the exact `ghcr.io/prls-co/harden-llm-gateway@sha256:…`
+reference, never a mutable tag. In the private production descriptor,
+`serviceImageOverrides.harden-llm-gateway` is that digest reference while
+`services.harden-llm-gateway.expectedImage` remains the pulled Docker image ID;
+`HARDEN_LLM_RELEASE` carries the exact source SHA. Capture the prior descriptor
+and image before a gateway-only scoped apply. Registry publication, production
+deployment, and capacity certification remain separate evidence categories.
+
+The first execution of this workflow is recorded below only after its hosted
+release gate, private package, image digest/provenance, and production identity
+are independently observed. The `make test-release` gate remains browser-free;
+browser and real-provider checks are not implied by a green image publisher.
+
 ### Historical certification contract
 
 The implementation candidate is evaluated through the same manifest-owned

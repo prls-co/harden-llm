@@ -2,13 +2,13 @@
 
 - Project: Harden-LLM self-hosted REST gateway and test infrastructure.
 - Document ID: `PLAN-HLLM-SCALE-001`.
-- Version: `3.1`; date: `2026-09-22`.
+- Version: `3.2`; date: `2026-09-22`.
 - Owners: repository maintainer for scope and release approval; implementing coding agent for changes and evidence; deployment operator for private configuration and promotion.
-- Status: implementation active; P00 complete, P01 in progress, P02 in progress, P03-P04 pending.
-- Execution base: `81e9d1d59c4c1f264eb3f851eeaf550a42c38e69` was `origin/main` at implementation start; the current candidate is on `codex/artifact-publication-grace` and its exact source SHA must be recorded after the final report fix.
+- Status: P00-P03 complete; P04 source and local gateway deployment complete; private GHCR publication and digest-based production promotion in progress.
+- Execution base: `81e9d1d59c4c1f264eb3f851eeaf550a42c38e69` was `origin/main` at implementation start. The prior application candidate `d85f7dbf3be7dccf2f5c8f21fd161d4bc91631ec` is already on `origin/main`; the publication workflow and OCI metadata amendment must be tested and recorded at their own exact source SHA.
 - Governing documents: [repository instructions](../AGENTS.md), [complete testing guidelines](../docs/liveview-go-testing-guidelines.md), [architecture](../docs/architecture.md), [OpenAPI](../api/openapi.yaml), and [canonical backend test catalog](from_utility-llm/harden-llm-self-hosted-test-spec.md).
 
-Make Docker-backed verification trustworthy, measure the existing application under bounded synthetic traffic, and select only evidence-backed capacity changes. Reuse the current runner, service pools, persistence, telemetry, and release tooling. The default capacity disposition retains the production topology. This execution record documents authorization to promote the reviewed candidate to `main` and deploy only the affected gateway runtime change after exact-SHA tests pass; it does not authorize browser/provider calls, unrelated commits/services, infrastructure changes, or database mutation.
+Make Docker-backed verification trustworthy, measure the existing application under bounded synthetic traffic, and select only evidence-backed capacity changes. Reuse the current runner, service pools, persistence, telemetry, release tooling, and the established PRLS private-GHCR publishing pattern. The default capacity disposition retains the production topology. This execution record documents authorization to promote the reviewed candidate to `main`, publish a private immutable gateway image, and deploy only the affected gateway runtime change after exact-SHA tests pass; it does not authorize browser/provider calls, unrelated commits/services, infrastructure changes, or database mutation.
 
 ## 2. Design consensus and trade-offs
 
@@ -28,7 +28,7 @@ Make Docker-backed verification trustworthy, measure the existing application un
 | Immediate infrastructure expansion | AGAINST | No default Kubernetes, new broker/cache, managed-store migration, or application ClickHouse projection. Evidence and a concrete amendment come first. |
 | Separate release tracks | DECISION | After cleanup is trustworthy, [recovery production closeout](recovery-production-closeout-plan.md) can resume independently of capacity exploration. Its remaining acceptance does not become a benchmark dependency. |
 | Synthetic capacity evidence | DECISION | Local scripted providers exercise application overhead and recovery mechanics, not real-provider capacity or semantic quality. |
-| Production promotion | DECISION | This implementation request authorizes main promotion and production deployment of the approved artifact-reconciliation runtime fix. Reuse the existing local immutable-image and `production-config.mjs` scoped-apply path; this repository has no gateway registry-publish workflow, so do not claim remote registry publication. Build/deploy the gateway only and preserve all data volumes. |
+| Production promotion and image registry | DECISION | Use the established PRLS convention `ghcr.io/prls-co/<package>` and the existing private-package precedent. Add a manual, main-only workflow with exact-source browser-free release certification, least-privilege job-scoped `GITHUB_TOKEN`, immutable run-qualified tag, BuildKit provenance, and a redacted digest report. GHCR's documented first-publish default is private; the publisher must read back `visibility=private`, and production promotion uses the digest, never a mutable tag. Build/deploy the gateway only and preserve all data volumes. |
 
 ## 3. PRD: stakeholder and system needs
 
@@ -81,6 +81,7 @@ The following IDs are proposed additions; P00 checks for allocation collisions. 
 | REQ-350 | data | Cost comparisons carry matching workload/configuration fingerprints, explicit retention assumptions, request/output denominators, and price provenance. Unknown actual cost stays unknown; official-equivalent CPA token pricing is labeled separately. |
 | REQ-351 | func | The report yields sufficient-current-topology, measured-bottleneck, availability-requirement, or insufficient-evidence. No production topology change proceeds without a concrete, approved requirement/test amendment. UI session scaling is independent. |
 | REQ-352 | int | Accepted release evidence identifies tested source, remote commit, affected artifacts, deployed identities when applicable, rollback boundary, and unperformed checks. Docs/test-only publication does not imply an application deployment. |
+| REQ-353 | security | Gateway image publication is manual and main-only; the exact tested source SHA is built once into a run-qualified immutable reference with source/revision labels, BuildKit provenance, and a bounded redacted digest report. Only the publishing job receives `packages: write`; it verifies GHCR package visibility is private before reporting success. |
 
 ### 4.1 Errors and telemetry
 
@@ -493,11 +494,11 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
 ### Phase P04: Published scoped changes and complete evidence
 
 - Goal: applicable source and production work have verifiable identities, accepted checks, and a complete operator handoff.
-- Scope: REQ-344 and REQ-352; coordinate, but do not replace, the independent recovery release.
-- Impacted surfaces: Git branch/remote; `.github/workflows/test-hierarchy.yml`; `docs/release-certification.md`; this plan; production descriptor and images only for explicitly approved runtime changes.
-- Lifecycle evidence: final diff and task selection, exact release output, remote SHA, artifact/deployment identity when applicable, rollback record; purpose is preventing “local passed” from meaning “published and deployed.”
-- Risks/assumptions: review the feature-branch commits against the unchanged `origin/main` base before promotion; no unrelated commits are included. Private descriptor contents remain outside Git. Browser and live-provider tests remain unauthorized and unperformed.
-- Unresolved decision: none for the gateway-only correction. No remote image registry target or publishing workflow is configured; keep the local immutable-image boundary explicit and do not invent a registry destination.
+- Scope: REQ-344, REQ-352, and REQ-353; coordinate, but do not replace, the independent recovery release.
+- Impacted surfaces: `.github/workflows/publish-gateway-image.yml`; `.github/workflows/test-hierarchy.yml`; `Dockerfile`; `test/test-tiers.json`; `scripts/verify-test-tiers.mjs`; `scripts/test/gateway_image_publication_test.mjs`; canonical test catalog; `docs/requirements-traceability.md`; `docs/release-certification.md`; this plan; private production descriptor and gateway image only.
+- Lifecycle evidence: exact-source browser-free release output, remote SHA, private-package visibility, GHCR digest and attached BuildKit provenance, redacted build report, deployed digest/image ID/release identity, gateway-only health and artifact-integrity checks, rollback checkpoint, and explicit unperformed checks.
+- Risks/assumptions: GHCR package access must remain private despite the source repository's public visibility; the current production Docker credentials must already have package read permission; the target host remains Linux/amd64. The package visibility is checked before deployment. Private descriptor contents remain outside Git. Browser and live-provider tests remain unauthorized and unperformed.
+- Unresolved decision: none for the approved private `ghcr.io/prls-co/harden-llm-gateway` target. Use GitHub's documented private-by-default behavior for the first package publication, then verify actual package visibility and do not deploy if it is not private.
 
 - `P04.S01 Certify the exact applicable candidate`
   - Progress: DONE — browser-free release [35718249789](https://github.com/prls-co/harden-llm/actions/runs/35718249789) accepted exact source `d85f7dbf3be7dccf2f5c8f21fd161d4bc91631ec`; all 28 release tasks passed in 15m26s, including Compose, integration, race, frontend, and baseline suites, with zero timeouts or cleanup errors/warnings. The automatic `main` fast workflow [35719965824](https://github.com/prls-co/harden-llm/actions/runs/35719965824) also passed in 1m45s. Browser, explicit lifecycle-fault, and capacity suites were not selected; no browser or live-provider check is claimed.
@@ -512,35 +513,85 @@ Resume from the last accepted subtask after the trigger is resolved and recorded
   - Evidence produced: Candidate SHA, diff inventory, full release report, and exclusions.
   - Stop/escalate condition: Any required task failed, skipped, timed out, or has unknown cleanup; do not combine make verify and all its constituents redundantly.
   - Unlocks: P04.S02
-- `P04.S02 Publish only the approved source and artifact scope`
-  - Progress: PARTIAL for remote image publication — exact tested SHA is on `origin/main`; production gateway-only image `sha256:ac30bb305f9cd4711c15acf35eb6fb57b0c91c2e6d21d23a7c27ede403a864e9` carries the full `d85f7dbf3be7dccf2f5c8f21fd161d4bc91631ec` version label and is healthy in production. No web, infrastructure, schema, profile, or volume changes occurred. Read-only GitHub checks found no matching Harden/LLM organization container package and no repository release; therefore no remote registry artifact was published. Registry host/path and visibility need a user decision before adding a new publish workflow.
-  - Action: Use dev for normal iteration; promote the verified candidate to main only with explicit authority. Follow Section 9 publication procedures, reviewing every commit already ahead of `origin/main` plus this phase's candidate. For test-only scope, publish source and redacted CI reports, with no application rebuild. For approved runtime/recovery scope, use the existing exact-image descriptor workflow and scoped read-only identity checks.
-  - Why now: Accepted local evidence now permits the explicitly authorized publication boundary.
-  - Files/surfaces: Git remote; existing hosted workflow; `scripts/production-config.mjs`; private descriptor; `docs/release-certification.md`.
-  - Requirement link: REQ-352
-  - Verification link: TEST-279; TEST-269 for the scoped gateway candidate; CHECK-001
-  - Verification mode: VERIFY
-  - Command/procedure: Execute the applicable Section 9.2 procedure; `node scripts/verify-test-tiers.mjs`. For this gateway-only runtime candidate: `node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway --expected-release "$HLLM_RELEASE_SHA"`.
-  - Expected result: Remote commit matches the authorized candidate; hosted evidence is retained; runtime identity or not-applicable is recorded honestly.
-  - Evidence produced: Remote SHA, CI run URL, report location, and registry/runtime identities only if actually produced.
-  - Stop/escalate condition: Non-fast-forward update, unapproved ancestry, missing registry contract, identity mismatch, or missing production authority.
+- `P04.S02 Add failing coverage for private gateway-image publication`
+  - Progress: DONE — `node --test scripts/test/gateway_image_publication_test.mjs` ran as a real assertion-level RED: both cases failed because the minimal manual workflow had no `certify` or `publish` job. The test loaded successfully; this was not an import/setup failure.
+  - Action: Register TEST-283 in the canonical catalog and `runner-contracts`, then add static assertions for manual/main-only triggering, exact-source release certification, least-privilege publishing, full-SHA/run-qualified tags, provenance, private visibility verification, and redacted digest reporting.
+  - Why now: The publisher contract must fail on the absent behavior before the workflow or OCI labels change.
+  - Files/surfaces: `plans/from_utility-llm/harden-llm-self-hosted-test-spec.md`; `docs/requirements-traceability.md`; `test/test-tiers.json`; `scripts/verify-test-tiers.mjs`; `scripts/test/gateway_image_publication_test.mjs`; `.github/workflows/publish-gateway-image.yml` (minimal contract fixture only until S03).
+  - Requirement link: REQ-353
+  - Verification link: TEST-283
+  - Verification mode: RED
+  - Command/procedure: `node --test scripts/test/gateway_image_publication_test.mjs`.
+  - Expected result: The executable assertions fail because the skeleton workflow lacks the required gate/publication contract; the test itself loads and runs correctly.
+  - Evidence produced: Canonical test definition, manifest registration, traceability row, and assertion-level RED output.
+  - Stop/escalate condition: Failure is only a parse/import/environment error, or package scope/visibility differs from the recorded private GHCR decision.
   - Unlocks: P04.S03
-- `P04.S03 Close lifecycle records and operator follow-ups`
-  - Progress: PARTIAL for the full user objective — execution evidence, exact source/runtime identities, private rollback checkpoint, limitations, and operational follow-ups are recorded below and in `docs/release-certification.md`. Capacity remains uncertified; browser/provider behavior remains unverified by explicit policy. Remote image publication is unresolved pending the user-selected target/visibility.
-  - Action: No refactor needed: this step closes evidence and operational records. Record failures, risks, disposition, source versus runtime completion, and exact rollback boundary. List the next failed/canceled-run cleanup review and real-load observations without making them prerequisites for already accepted scope.
-  - Why now: The handoff must remain understandable after the session ends.
-  - Files/surfaces: This plan; `docs/release-certification.md`; `plans/recovery-production-closeout-plan.md` where affected; existing operational runbooks.
-  - Requirement link: REQ-344, REQ-352
-  - Verification link: TEST-279; EVAL-012; CHECK-001
+- `P04.S03 Implement the gated private GHCR publisher`
+  - Progress: DONE — the same `node --test scripts/test/gateway_image_publication_test.mjs` command now passes both cases against the manual main-only, least-privilege workflow and OCI labels.
+  - Action: Make the exact TEST-283 oracle pass; label the image with its repository source, full source revision, and version; add the manual main-only two-job workflow that runs `make test-release` before publishing to `ghcr.io/prls-co/harden-llm-gateway` with `packages: write` only in the publish job; use a unique source-SHA/run/attempt tag, `--provenance=mode=max`, and a bounded report containing the digest but no logs or credentials; read back and require `visibility=private`.
+  - Why now: The failing policy assertions establish the publication and supply-chain invariants before introducing registry-write authority.
+  - Files/surfaces: `.github/workflows/publish-gateway-image.yml`; `Dockerfile`; `scripts/test/gateway_image_publication_test.mjs`; `scripts/verify-test-tiers.mjs`; `test/test-tiers.json`.
+  - Requirement link: REQ-353
+  - Verification link: TEST-283
+  - Verification mode: GREEN
+  - Command/procedure: `node --test scripts/test/gateway_image_publication_test.mjs`.
+  - Expected result: The same static test command from S02 passes; the publisher cannot run for non-main refs and cannot publish until browser-free release certification succeeds.
+  - Evidence produced: Workflow and Dockerfile diff plus exact passing TEST-283 output.
+  - Stop/escalate condition: Any job beyond the publish job receives `packages: write`, package visibility cannot be read as private, a mutable tag is reused, or test certification is bypassable.
+  - Unlocks: P04.S04
+- `P04.S04 Review the publisher boundary for avoidable refactoring`
+  - Progress: DONE — TEST-283 and the tier verifier pass; inspection confirms one release scheduler, no PAT, no package-write permission outside the dependent publish job, and no new registry abstraction.
+  - Action: Compare the publisher against the existing CPA GHCR workflow and current Make release gate; retain one focused workflow and no new reusable publisher framework or package tool. No refactor is needed because there is one gateway image, one existing canonical release task, and an established buildx/GITHUB_TOKEN pattern.
+  - Why now: Review structure after the first green implementation and before spending a hosted release run or granting a job package-write authority.
+  - Files/surfaces: `.github/workflows/publish-gateway-image.yml`; `Dockerfile`; `/home/kirill/p/CLIProxyAPI-setup/.github/workflows/publish-patched-cpa.yml`; `Makefile`.
+  - Requirement link: REQ-344, REQ-353
+  - Verification link: TEST-283
+  - Verification mode: VERIFY
+  - Command/procedure: `node --test scripts/test/gateway_image_publication_test.mjs`; `node scripts/verify-test-tiers.mjs`; inspect that no duplicate test selector, PAT, package-write permission outside `publish`, or second build/release scheduler was added.
+  - Expected result: Static contracts pass and no refactor is needed; release testing remains owned by `make test-release`.
+  - Evidence produced: Reviewed diff and no-refactor rationale in this plan.
+  - Stop/escalate condition: A second release scheduler, duplicated task list, credential workaround, or mutable image alias is required to make publication work.
+  - Unlocks: P04.S05
+- `P04.S05 Certify and publish the exact main source`
+  - Action: Run the fast local gate, push only reviewed ancestry to `main`, wait for exact-SHA hosted fast CI, then manually dispatch the publisher from `main`; confirm the publisher's `make test-release` passed before recording the pushed image digest and provenance artifact.
+  - Why now: A remote registry write is allowed only after source review and the same exact-SHA release graph used for production acceptance.
+  - Files/surfaces: Git source/remote; publisher workflow; retained workflow and artifact records; `docs/release-certification.md`.
+  - Requirement link: REQ-344, REQ-352, REQ-353
+  - Verification link: TEST-279; TEST-283; EVAL-012; CHECK-002
+  - Verification mode: VERIFY
+  - Command/procedure: `make test-fast`; `git diff HEAD --check`; `git push origin HEAD:main`; `gh workflow run publish-gateway-image.yml --ref main`; read the exact run conclusion, package visibility, image digest, source/revision labels, and attached BuildKit provenance.
+  - Expected result: `origin/main` equals the certified SHA; all required release tasks pass without timeout or cleanup failures; GHCR contains one unique digest-qualified artifact visible only as a private package.
+  - Evidence produced: Full source SHA, hosted run URL, release report artifact, GHCR digest/tag, private visibility, and provenance metadata.
+  - Stop/escalate condition: Hosted gate is skipped/fails/times out, SHA drifts, package is not private, report lacks a valid digest, or provenance does not identify the source revision.
+  - Unlocks: P04.S06
+- `P04.S06 Deploy the published image by digest and verify the gateway boundary`
+  - Action: Pull the immutable digest reference from the verified publication report using the existing production Docker credentials; verify architecture, OCI source/revision/version and binary release; checkpoint the private descriptor and prior exact image; change only gateway image/release identity fields; apply through the existing scoped `production-config.mjs` path and verify health/readiness, restart count, public HTTP health, and bounded read-only artifact integrity.
+  - Why now: Production must run the exact artifact whose digest and provenance were produced by the successful main workflow, not a locally rebuilt tag.
+  - Files/surfaces: Private `/home/kirill/.config/harden-llm/production.json`; production Docker image/container; `scripts/production-config.mjs`; public gateway/web health endpoints; artifact stores read-only.
+  - Requirement link: REQ-352, REQ-353
+  - Verification link: TEST-269; CHECK-001; CHECK-003
+  - Verification mode: VERIFY
+  - Command/procedure: After downloading the publisher artifact, set `HLLM_PUBLICATION_REPORT` to its `gateway-image-publication.json` path; derive `HLLM_GATEWAY_IMAGE="$(jq -er '.image | select(test("^ghcr\\.io/prls-co/harden-llm-gateway@sha256:[0-9a-f]{64}$"))' "$HLLM_PUBLICATION_REPORT")"`; run `docker --context default pull "$HLLM_GATEWAY_IMAGE"`; inspect its OS/architecture/labels and run the isolated `version` command; then run `node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway --expected-release "$HLLM_RELEASE_SHA"`, the same command with `apply`, and the read-only gateway/web/API and artifact-integrity probes listed in Section 9.2.
+  - Expected result: Only the gateway is recreated; its configured registry reference is the published digest, its image ID/release match the report, gateway and public probes are healthy, and artifact inventory has no integrity anomaly.
+  - Evidence produced: Prior-image/descriptor rollback checkpoint, deployed registry digest and image ID, source/version labels, production-config output, health/restart results, and read-only artifact report.
+  - Stop/escalate condition: Existing credentials cannot pull the private package, source/revision/platform differs, descriptor comparison includes an unrelated service or mount, gateway is unhealthy, or artifact integrity/backlog is anomalous. Roll back only the gateway to its captured local immutable image.
+  - Unlocks: P04.S07
+- `P04.S07 Close lifecycle records and operator follow-ups`
+  - Progress: PENDING until S02-S06 complete; capacity remains uncertified and browser/provider behavior remains unverified by explicit policy.
+  - Action: Record exact source, CI, package visibility/digest/provenance, deployment identity, rollback location, failed attempts, exclusions, risks, and bounded follow-ups. Preserve the already-completed P00-P03 findings; do not relabel `insufficient_evidence` as adequate capacity.
+  - Why now: Final evidence must distinguish tested source, published package, and deployed runtime and retain unresolved post-deployment risks.
+  - Files/surfaces: This plan; `docs/release-certification.md`; `docs/requirements-traceability.md`; plan execution evidence directory.
+  - Requirement link: REQ-344, REQ-352, REQ-353
+  - Verification link: TEST-279; TEST-283; EVAL-012; CHECK-001
   - Verification mode: MEASURE
-  - Command/procedure: `node scripts/verify-test-tiers.mjs`; `git diff HEAD --check`; inspect the accepted `tmp/test-feedback/scale-release.json` and phase reports without re-executing the release graph.
-  - Expected result: All applicable phase gates and identity categories have evidence; no selected unfinished work is marked Done.
-  - Evidence produced: Completed execution ledger, retained metrics, unresolved external follow-ups, and deployment exclusions.
-  - Stop/escalate condition: Missing evidence is being presented as success or cleanup-pending records would be deleted.
+  - Command/procedure: `node scripts/verify-test-tiers.mjs`; `git diff HEAD --check`; inspect the accepted CI/build/deploy evidence without rerunning already accepted production mutations.
+  - Expected result: All applicable release and deployment identities have separate verifiable evidence; every remaining risk/follow-up has an owner or trigger and is not represented as a passing gate.
+  - Evidence produced: Complete P04 execution ledger and release-certification entry, including operational risks and next investigations.
+  - Stop/escalate condition: Missing evidence is presented as success, a live provider/browser boundary is implied to have run, or rollback evidence is discarded.
   - Unlocks: P04 exit
 
 - Exit: done only for fully accepted, published authorized scope; escalate publication/deployment identity blockers; stop if further completion needs new authority. Capacity, browser layout, and live-provider behavior remain explicitly uncertified where not exercised.
-- Estimates: confidence 90% (existing workflow); robustness 90% (identity-separated evidence); internal interactions 4 (Git/runner/records/descriptor); external interactions 2 (GitHub and conditional deployment host); complexity 40% (scope/ancestry); creep 5% (affected artifacts only); debt 5% (reuse release tools); YAGNI 5/5 (production integrity); MoSCoW Must when implementing; scope local plus authorized remote; architectural changes 0.
+- Estimates: confidence 90% (existing PRLS publisher precedent and exact release gates); robustness 90% (digest, private visibility, source labels, and production identity are separated); internal interactions 5 (Git/runner/registry/config/records); external interactions 2 (GitHub and production Docker host); complexity 45% (privileged workflow plus scoped promotion); creep 5% (only gateway publication/deployment); debt 5% (reuse buildx and production-config); YAGNI 5/5 (the requested production artifact handoff); MoSCoW Must; scope local plus authorized remote; architectural changes 0.
 
 
 ## 6. Evaluations
@@ -820,6 +871,18 @@ Each proposed source file is created in its bootstrap step before execution. New
 - Pass criteria: Follow the REST limit-100 cursor contract until all expected pairs are found; reject repeated or oversized cursors/pages; a missing pair is reported only after the final page or page bound.
 - Expected runtime: Under 1 second.
 
+#### TEST-283: Private gateway-image publication contract
+
+- Type: static.
+- Verifies: REQ-353.
+- Location: `scripts/test/gateway_image_publication_test.mjs`.
+- Command: `node --test scripts/test/gateway_image_publication_test.mjs`.
+- Bootstrap: P04.S02 registers the test in the canonical catalog, `test/test-tiers.json`, and the offline `runner-contracts` task before P04.S03 implements the publisher.
+- Fixtures/mocks/data: Checked-in publisher workflow and gateway Dockerfile; no registry mutation, credential, network, Docker daemon, or GitHub API call.
+- Deterministic controls: Static source assertions; actions must be pinned to full commit SHAs; current exact toolchain versions and unchanged release command are asserted.
+- Pass criteria: Workflow is manual and main-only; certification runs `make test-release` at `github.sha`; package-write authority exists only in the dependent publish job; tag contains full source SHA plus unique run/attempt identity; image carries source/revision/version labels; BuildKit provenance and redacted digest report are configured; GHCR visibility is required to be private; no browser, provider, PAT, or deploy secret is introduced.
+- Expected runtime: Under 1 second.
+
 #### TEST-269: Gateway candidate deployment identity matches source
 
 - Type: integration.
@@ -835,6 +898,8 @@ Each proposed source file is created in its bootstrap step before execution. New
 ### 7.4 Human scope check
 
 - CHECK-001: the maintainer/operator reviews the actual candidate ancestry, intended remote branch, affected artifact list, production authority, and any infrastructure purchase or migration. Compare the intended scope to Section 9 evidence; reject unrelated commits or services. Record approval/blocker without copying private configuration. This review does not replace automated identity, test, or cleanup checks and is not in the RTM.
+- CHECK-002: after the publisher succeeds, confirm its exact `github.sha` equals the reviewed `origin/main` SHA; inspect the retained publication report for the full source SHA, unique tag, `sha256:` digest, `linux/amd64`, max-mode BuildKit provenance, workflow run/attempt, and `packageVisibility: private`; query `gh api orgs/prls-co/packages/container/harden-llm-gateway --jq .visibility`; confirm the OCI source label identifies this repository and the existing production credential can pull the reported digest. Do not enable anonymous/public access or create a PAT to work around a failed pull. Record the run URL, artifact name, package visibility, tag, and digest without copying credentials. This check is not in the RTM.
+- CHECK-003: after the scoped gateway apply, read the running container's immutable image ID, repository digest, labels, version output, health state, and restart count; compare the exact source/revision with the publisher report. Request the existing gateway/web HTTP health endpoints and run the bounded read-only artifact-integrity inventory; require healthy results, no unplanned web/container change, no missing referenced objects, and no truncated report. If any comparison fails, stop and use the exact gateway-only rollback recorded in Section 9.2. Do not run browsers, save profiles, or call a real provider. Record non-secret counts and identities only. This check is not in the RTM.
 
 ## 8. Data contract
 
@@ -932,9 +997,10 @@ test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$HLLM_RELEASE_SHA"
 ```
 
 - Confirm the hosted browser-free workflow runs on that commit and retains redacted artifacts. A passing local gate is not a hosted result.
-- Current authorized scope includes source publication and CI evidence plus the gateway-only artifact-reconciliation runtime correction. Publish its immutable local image using the established production procedure; do not claim remote registry publication because no registry target/workflow exists here. No web image rebuild, provider call, profile sync, database migration, or volume change.
-- P03.A02 is the gateway-only runtime amendment. Refresh the exact production Docker context and gateway identity before mutation; inspect host headroom and stop if the production host is under pressure. Build only the gateway with the root `Dockerfile`, using the descriptor's Docker context, and tag `harden-llm-gateway:release-<full-source-sha>`. Refuse to overwrite a tag that already resolves to a different image. Record the local image ID and OCI source-version label separately; this repository has no configured registry target or publishing workflow, so do not invent a remote image destination or describe a local tag as a registry publication.
-- Create a private, mode-restricted checkpoint of the production descriptor before editing it. Change only the gateway's `expectedImage`, release identity environment, and gateway entries in `serviceImageOverrides` / `serviceEnvironmentOverrides`; preserve all web, shared infrastructure, secrets, and data/session settings. Use the existing scoped tool only after those desired values resolve to the candidate image and exact full release SHA:
+- The approved registry target is `ghcr.io/prls-co/harden-llm-gateway`. Its publisher uses GitHub's first-publish-private default, links the image to this source through `org.opencontainers.image.source`, and reads back package visibility before promotion. The PRLS precedent is the manual private-GHCR workflow in `/home/kirill/p/CLIProxyAPI-setup`; no PAT or stored registry secret is permitted. No web image rebuild, provider call, profile sync, database migration, or volume change.
+- P03.A02 is the gateway-only runtime amendment. The publisher checks out `github.sha`, runs the unchanged browser-free `make test-release`, and only its dependent package-write job builds `linux/amd64` with `VERSION` and `REVISION` set to the full source SHA. It publishes one never-reused `<source-sha>-<run-id>-<run-attempt>` tag with BuildKit max-mode provenance and writes a bounded report containing the immutable image digest. Do not promote a mutable tag or rebuild locally after publication.
+- Inspect production Docker host pressure and exact descriptor/context before mutation; stop if the host is under pressure. Pull the exact registry digest using existing private-package authentication. Verify the image's Linux/amd64 platform, OCI source/revision/version labels, and isolated `version` output against the certified SHA. Record its Docker image ID separately from the registry digest.
+- Create a private, mode-restricted checkpoint of the production descriptor before editing it. Change only the gateway's `expectedImage` (to the pulled Docker image ID), release identity environment, and gateway entry in `serviceImageOverrides` (to the immutable GHCR digest); preserve all web, shared infrastructure, secrets, and data/session settings. Use the existing scoped tool only after those desired values resolve to the pulled image and exact full release SHA:
 
 ```bash
 node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway --expected-release "$HLLM_RELEASE_SHA"
@@ -945,7 +1011,7 @@ node scripts/production-config.mjs check --descriptor /home/kirill/.config/harde
 - Capture the previous gateway image ID and descriptor checkpoint before apply. Rollback may change only the gateway descriptor entries back to that exact prior image and source identity, then use the same scoped `apply` path. No web recreation, volume deletion, schema/data rollback, profile sync, or provider call is in scope.
 - After apply, verify TEST-269 for gateway only, gateway health/readiness and restart count, public gateway/web HTTP health endpoints, and the read-only bounded artifact inventory. The artifact inventory is count-only, capped at 10,000 references/objects, has a 10-minute deadline, and reports anomalies without mutating either store. If it reports truncation or an integrity anomaly, preserve the report and stop for diagnosis; do not delete objects or metadata to force green.
 - Production probes are HTTP health/readiness/authentication and existing read-only state checks only. No interactive profile-save mutation or real-provider call is an automatic smoke.
-- Record branch, source SHA, local image ID, registry digest only if one is actually published, URLs, checks, rollback checkpoint, and unperformed browser/provider verification. Source/CI publication and production deployment are separate evidence categories.
+- Record branch, source SHA, CI run, private package visibility, unique tag, registry digest, provenance/report artifact, pulled Docker image ID, deployed source/release identity, URLs, checks, rollback checkpoint, and unperformed browser/provider verification. Source/CI publication, registry publication, and production deployment remain separate evidence categories.
 
 ## 10. Requirements Traceability Matrix
 
@@ -979,6 +1045,7 @@ Planned mappings below become execution evidence only when the defined command h
 | P03 | REQ-351 | TEST-278 | `internal/capacity/report_test.go` | `go test ./internal/capacity -run '^TestCapacityReport' -count=1` |
 | P04 | REQ-352 | TEST-279 | `scripts/verify-test-tiers.mjs` | `node scripts/verify-test-tiers.mjs` |
 | P04 | REQ-352 | TEST-269 | `scripts/production-config.mjs` | `node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway --expected-release "$HLLM_RELEASE_SHA"` |
+| P04 | REQ-353 | TEST-283 | `scripts/test/gateway_image_publication_test.mjs` | `node --test scripts/test/gateway_image_publication_test.mjs` |
 
 ## 11. Execution log and template
 
@@ -990,7 +1057,7 @@ This section is the implementation ledger. Planning validation is not implementa
 | P01 | Done | Exact-candidate isolated TEST-274 run [35701002741](https://github.com/prls-co/harden-llm/actions/runs/35701002741) passed all four scenarios. Full exact-SHA browser-free release [35718249789](https://github.com/prls-co/harden-llm/actions/runs/35718249789) subsequently passed the unchanged Compose bootstrap/login/run/correlation assertions (`go-compose` 238.340 s), with no timeout or cleanup warnings/errors. |
 | P02 | Done; capacity remains uncertified | TEST-277 exact-SHA correctness and exploration passed on `2380824dfd7b693df58f643d5b81019fe25e2edd`; reports accepted all ten scenarios across both runs with exact accounting and bounded size. Both reports retain `insufficient_evidence`, not a production capacity or cost claim. |
 | P03 | Done; no capacity change | The accepted disposition is `insufficient_evidence`, not “capacity sufficient.” No SLO, invoice, or complete host/storage metrics exist to select a measurable operating point; retain existing production topology. EVAL-011 holdout was not run because P03.S03 is conditional on an approved operating point/remedy. The separate artifact-publication race fix remains a data-integrity correction, not a capacity optimization. |
-| P04 | Partial; remote registry target required | Exact tested source `d85f7dbf3be7dccf2f5c8f21fd161d4bc91631ec` is on `origin/main`; the production gateway was updated only, exact identity/health checks passed, and the read-only artifact inventory was healthy. The immutable image is local to the existing production Docker host. Read-only GitHub package/release queries found no existing registry target; remote image publication awaits a user-selected host/path and visibility. |
+| P04 | In progress; local implementation and fast gate accepted, hosted publication/deployment pending | Prior source `d85f7dbf3be7dccf2f5c8f21fd161d4bc91631ec` is on `origin/main`; its gateway-only local image is healthy and the read-only artifact inventory was healthy. TEST-283 RED/GREEN, test registration, `node scripts/verify-test-tiers.mjs`, and pinned local `make test-fast` now pass on the amended working tree. Still required: reviewed exact-SHA push, hosted publisher release gate, private package/digest/provenance evidence, and gateway-only deployment of that digest. |
 
 ```yaml
 phase_entry:
@@ -1280,6 +1347,17 @@ Known matters to carry forward:
 - Deployment: scoped `production-config apply --services harden-llm-gateway --expected-release d85f7db...` converged. Post-apply TEST-269 candidate check and combined gateway/web configuration check both report `equivalent`. Gateway is running/healthy with image ID `sha256:ac30bb305f9cd4711c15acf35eb6fb57b0c91c2e6d21d23a7c27ede403a864e9` and zero restarts. Web remained unchanged at release `3201fd249f86031292be1c47acf64e0eb8a4540b`, image `sha256:299439921295e6037a0cc01e1b1893e5bd1c2e441b740021479ca6666c1e5276`, healthy, zero restarts. Read-only `audit-artifacts` inventory reported 5 scanned objects, 5 metadata references, 5 referenced objects, zero active-operation references, zero missing available objects, zero young/aged unreferenced objects, `truncated:false`, `healthy:true`. No database/schema, infrastructure, web, session, or artifact mutation occurred.
 - Risks/follow-ups: production-capacity/cost remains uncertified until representative traffic, SLO, invoices, exact memory/RSS and storage-used data exist; do not infer from the short synthetic tests or the point-in-time host sample. Recheck artifact inventory/backlog after the next meaningful production workload and confirm aged orphan convergence without manual deletion. Monitor the shared host's swap/I/O trend; collect Docker image/cache/volume allocation during a quieter window because `docker system df` did not complete; and obtain a cold-cache build estimate before future release builds. No remote registry copy means image recovery currently depends on the existing Docker host and its retained rollback image; choose an immutable registry/provenance workflow only through a separate explicit design decision. GitHub reported the existing `actions/checkout@v4` Node 20 deprecation/forced Node 24 notice and the `ubuntu-latest` Ubuntu 26 migration scheduled for 2026-10-19; these are nonblocking maintenance follow-ups. Browser layout and live-provider behavior remain unverified by policy.
 
+### P04 private image publication amendment — 2026-09-22
+
+- The approved target is `ghcr.io/prls-co/harden-llm-gateway`, following the existing PRLS GHCR convention. GitHub documents that first-published container packages default to private, recommends `org.opencontainers.image.source` for repository association, and supports pulling by digest. The publisher additionally reads back package visibility and refuses deployment unless it is `private`.
+- TEST-283 RED: `node --test scripts/test/gateway_image_publication_test.mjs` exited 1 with two assertion failures because the initial workflow skeleton had no `certify` or `publish` jobs. The test loaded and executed; no import/setup failure, Docker, registry, provider, or browser action occurred.
+- TEST-283 GREEN: the same command passed both tests after adding the manual main-only exact-source publisher, full-SHA/run-qualified unique tag, least-privilege job permissions, private-visibility verification, BuildKit provenance, redacted digest report, and OCI source/revision/version labels.
+- Final pinned local `make test-fast` after all workflow/action changes accepted all 10 T0-T2 tasks; every task status was zero; there were no timeouts, failures, cleanup errors, or cleanup warnings. `runner-contracts` took 89.043 s and frontend deterministic tests took 140.301 s. Retained report: `tmp/test-feedback/runner-1790078952533-1308745-1336c811dcf06625.json`. The preceding fast report before the action-pin refresh is retained at `tmp/test-feedback/runner-1790078745608-1232769-94209a28698d03ca.json`.
+- `node scripts/verify-test-tiers.mjs`, task-manifest JSON parsing, `git diff --check`, TEST-283, and YAML parsing with the system-installed Node `yaml` parser passed. An initial optional `ruby` YAML-parse command could not run because Ruby is not installed; this was a missing-tool issue, not an assertion failure, and the available Node parser then accepted the workflow.
+- P04.S04 review found no refactor necessary: one gateway artifact reuses the existing `make test-release`, Buildx, job-scoped GitHub token, and scoped production-config paths. A generic registry abstraction would add a second lifecycle without a second consumer. All third-party actions in the publisher use exact full commit SHA references.
+- This supersedes the earlier no-registry-target statement in the historical d85 deployment entry: that statement accurately described the state at that checkpoint. The amendment source is not yet pushed or published. Still pending are reviewed exact-SHA push, hosted main fast CI, publisher `make test-release`, private package/digest/provenance read-back, and gateway-only deployment by digest. No registry or production configuration was mutated during local checks.
+- Explicit post-release risks: actual GHCR visibility and access must be verified; architecture must remain `linux/amd64`; existing production Docker credentials must authorize this package; attached BuildKit provenance is currently unsigned; package retention/restore policy is not certified; and Docker image/cache/volume allocation remains incompletely measured because the earlier `docker system df` call exceeded its observation bound. Record these as bounded follow-ups rather than raising timeouts or using an unverified public fallback.
+
 ## 12. Appendix: ADR index
 
 | ADR | Status and decision |
@@ -1296,7 +1374,7 @@ If external telemetry policy becomes the selected remedy, its amendment must spe
 
 - One authoritative plan file: `plans/production-scale-efficiency-plan.md`, updated in place; no parallel replacement plan.
 - Five correctly formatted phase headers, P00–P04, with ordered atomic steps, requirement links, verification modes, commands, evidence, and stop conditions.
-- Twelve defined requirements, REQ-341–REQ-352, all represented in the RTM.
+- Thirteen defined requirements, REQ-341–REQ-353, all represented in the RTM.
 - Every referenced test has a Section 7.3 definition, exact executable scope, fixtures, controls, criteria, and runtime; every RTM path/command matches that definition.
 - New behavior follows named failing coverage; matching RED/GREEN steps use identical test commands. Existing preserved behavior is not deliberately broken to manufacture a RED result.
 - Refactor steps are explicit where shared implementation changes; documentation/decision-only work explicitly states why no refactor is needed.
@@ -1305,5 +1383,5 @@ If external telemetry policy becomes the selected remedy, its amendment must spe
 - Phase metrics are estimates with rationale, not acceptance evidence.
 - Human scope review is outside the RTM and cannot substitute for behavior verification.
 - No timeout increase, browser/provider authorization, infrastructure purchase, or database migration is authorized. The current user request explicitly authorizes pushing this reviewed candidate to `main` and deploying only the gateway runtime fix; no unrelated branch ancestry or service is included.
-- P00 documentation/baseline, P01 lifecycle and full Compose acceptance, P02 bounded capacity diagnostics (capacity still uncertified), P03 no-capacity-change plus the separate artifact-integrity correction, and P04 source/CI promotion plus gateway-only production deployment are complete. External image publication remains pending because no target/visibility is configured or established; do not claim the broader objective complete. P03.S03/EVAL-011 remains conditional and unrun; no capacity topology change was justified.
-- Structural validation: 5 phases, 24 ordered steps, 12 requirements, 12 defined tests, 5 evaluations, and 7 repository links checked; RED/GREEN command pairs and RTM paths/commands matched. Repository tier-policy and whitespace checks passed on the application candidate; rerun them after this documentation closeout.
+- P00 documentation/baseline, P01 lifecycle and full Compose acceptance, P02 bounded capacity diagnostics (capacity still uncertified), and P03 no-capacity-change plus the separate artifact-integrity correction are complete. P04's private GHCR publisher is implemented and its exact T0-T2 fast gate is accepted; exact main push, hosted full release/publication, and digest deployment remain pending. P03.S03/EVAL-011 remains conditional and unrun; no capacity topology change was justified.
+- Structural validation: 5 phases, 28 ordered steps, 13 requirements, 13 defined tests, 5 evaluations, and 7 repository links checked; TEST-283 RED/GREEN command pairs and RTM paths/commands match. The implementation candidate's pinned fast gate has passed; rerun tier-policy and whitespace checks after final evidence edits.

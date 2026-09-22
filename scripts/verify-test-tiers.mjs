@@ -200,8 +200,8 @@ async function main() {
 
   const runnerContracts = manifest.tasks.find((task) => task.id === "runner-contracts");
   if (!runnerContracts) fail("manifest is missing the runner-contracts task");
-  if (!runnerContracts.command.includes("scripts/test/run_test_tier_test.mjs") || !runnerContracts.command.includes("scripts/test/test_resource_lifecycle_test.mjs") || !runnerContracts.command.includes("scripts/test/test_resource_measurement_test.mjs")) {
-    fail("runner-contracts must execute the existing runner, lifecycle, and measurement regressions");
+  if (!runnerContracts.command.includes("scripts/test/run_test_tier_test.mjs") || !runnerContracts.command.includes("scripts/test/test_resource_lifecycle_test.mjs") || !runnerContracts.command.includes("scripts/test/test_resource_measurement_test.mjs") || !runnerContracts.command.includes("scripts/test/gateway_image_publication_test.mjs")) {
+    fail("runner-contracts must execute the runner, lifecycle, measurement, and private image-publication regressions");
   }
   if (!["T0", "T1", "T2"].includes(runnerContracts.tier) || runnerContracts.network !== "forbidden" || runnerContracts.servicePool || runnerContracts.container) {
     fail("runner-contracts must remain cheap, offline, and container-free");
@@ -209,7 +209,7 @@ async function main() {
   for (const selector of ["baseline", "fast", "release"]) {
     if (!(runnerContracts.requiredFor ?? []).includes(selector)) fail(`runner-contracts must be registered for ${selector}`);
   }
-  const expectedRunnerTestIDs = ["TEST-049", "TEST-271", "TEST-272", "TEST-273", "TEST-275"];
+  const expectedRunnerTestIDs = ["TEST-049", "TEST-271", "TEST-272", "TEST-273", "TEST-275", "TEST-283"];
   for (const testId of expectedRunnerTestIDs) {
     const occurrences = manifest.tasks.flatMap((task) => (task.testIds ?? []).filter((id) => id === testId).map(() => task.id));
     if (occurrences.length !== 1 || occurrences[0] !== "runner-contracts") fail(`${testId} must be registered exactly once in runner-contracts`);

@@ -30,6 +30,7 @@ routes each requirement to its implementation home and release gate.
 | REQ-021 canonical execution diagnostics | root execution record, accounting, execution aggregate, artifact journal, strict trace/stats frontend | TEST-057 through TEST-061; WEB-TEST-060 through WEB-TEST-063; ADR-HLLM-018 |
 | REQ-301..316 bounded recovery and progress | `internal/retry/`, `internal/runtime/`, `internal/providers/`, `internal/gateway/`, `api/openapi.yaml`, shared frontend wire/components | TEST-236 through TEST-259; WEB-TEST-083 through WEB-TEST-089; ADR-HLLM-024 |
 | REQ-341..352 test-resource ownership and measured capacity | `scripts/run-test-tier.mjs`, test-only resource receipt helper, `internal/capacity/`, real gateway capacity fixture | TEST-271 through TEST-282; TEST-269 for conditional deployed identity; EVAL-008 through EVAL-012; ADR-HLLM-027 |
+| REQ-353 private gateway-image publication | `.github/workflows/publish-gateway-image.yml`, `Dockerfile` | TEST-283; exact-source hosted `make test-release`; private-package visibility, digest/provenance and deployed-image evidence |
 
 The bounded-recovery IDs are registered in `test/test-tiers.json` at the
 lowest sufficient tier. Their concrete ownership is:
@@ -71,8 +72,8 @@ cases starts a service or uses a production credential.
 ## Resource lifecycle and capacity traceability
 
 The implementation sequence is `plans/production-scale-efficiency-plan.md`.
-The canonical requirements are REQ-341 through REQ-352 in the backend
-implementation plan. Tests TEST-271 through TEST-282 are defined in the backend
+The canonical requirements are REQ-341 through REQ-353 in the backend
+implementation plan. Tests TEST-271 through TEST-283 are defined in the backend
 test specification. TEST-279 is static policy, TEST-274 is Docker opt-in, and
 TEST-277 is an explicit capacity opt-in; neither expensive selector enters the
 fast tier. TEST-269 remains the existing operator-only paired production check.
@@ -84,7 +85,7 @@ managed report's `cleanupWarnings`; it is non-fatal only after exact fallback
 cleanup, empty final inventory, and a durable `cleaned` receipt. Unknown or
 incomplete cleanup remains a failure.
 
-TEST-271 through TEST-273 and TEST-281 run in the cheap, offline `runner-contracts` task;
+TEST-271 through TEST-273, TEST-281, and TEST-283 run in the cheap, offline `runner-contracts` task;
 TEST-280 runs through `go-static` as an untagged receipt-contract test. TEST-282
 is an untagged cursor-pagination oracle included in `go-unit`; it does not start
 the gateway or any service. The

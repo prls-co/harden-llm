@@ -1488,6 +1488,7 @@ Privacy and data-quality constraints:
 | P01 | REQ-344, REQ-352 | TEST-279 | `scripts/verify-test-tiers.mjs` | `node scripts/verify-test-tiers.mjs` |
 | P01 | REQ-341, REQ-345 | TEST-280 | `internal/integrationtest/resource_receipt_test.go` | `go test ./internal/integrationtest -run '^TestResourceReceipt' -count=1` |
 | P04 | REQ-352 | TEST-269 | `scripts/production-config.mjs` | `node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway,harden-llm-web --expected-release "$HLLM_RELEASE_SHA"` |
+| P04 | REQ-353 | TEST-283 | `scripts/test/gateway_image_publication_test.mjs` | `node --test scripts/test/gateway_image_publication_test.mjs` |
 
 ### Frontend parity closeout amendment
 
@@ -1703,10 +1704,11 @@ production topology by default.
 | REQ-350 | data | Cost comparisons use equivalent fingerprints, explicit denominators, retention assumptions, and price sources; unknown actual spend is not represented as zero. |
 | REQ-351 | func | Produce an evidence-backed topology disposition. Any runtime remedy needs an approved requirement, RED/GREEN tests, rollback, and bounded before/after evaluation. |
 | REQ-352 | int | Release evidence identifies tested source, hosted result, affected artifacts, deployment identity when applicable, rollback scope, and checks not performed. |
+| REQ-353 | security | Gateway image publication is manual and main-only; the exact tested source SHA is built once into a run-qualified immutable reference with source/revision labels, BuildKit provenance, and a bounded redacted digest report. Only the publishing job receives `packages: write`; it verifies GHCR package visibility is private before reporting success. |
 
 `ADR-HLLM-027` records the initial test-harness bounds and explicitly leaves
 production traffic/SLO targets unassigned. The detailed acceptance tests are
-TEST-271 through TEST-282 in the companion test specification.
+TEST-271 through TEST-283 in the companion test specification.
 
 ### Requirements traceability
 
