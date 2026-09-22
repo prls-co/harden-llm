@@ -172,6 +172,33 @@ test("TEST-275 samples exact project resources without inventing RSS or volume d
   assert.ok(!JSON.stringify(report).includes("docs.example.test"));
 });
 
+test("TEST-275 preserves precise unavailable-metric reasons without retaining Docker stats output", async () => {
+  const containerID = "aaaaaaaaaaaa";
+  const sample = await collectDockerResourceSample("owned-project", async (args) => {
+    if (args[0] === "ps") return { status: 0, stdout: `${containerID}\n` };
+    if (args[0] === "inspect") {
+      return { status: 0, stdout: `${JSON.stringify({ "com.docker.compose.project": "owned-project" })}|sha256:${"a".repeat(64)}\n` };
+    }
+    if (args[0] === "stats") return { status: 0, stdout: `${containerID}\tstats-output-must-not-be-retained\tNaN\n` };
+    if (args[0] === "volume" && args[1] === "ls") return { status: 0, stdout: "owned-volume\n" };
+    if (args[0] === "volume" && args[1] === "inspect") {
+      return { status: 0, stdout: `${JSON.stringify({ "com.docker.compose.project": "owned-project" })}\n` };
+    }
+    throw new Error(`unexpected Docker command ${args[0]}`);
+  });
+
+  const report = summarizeResourceSamples("owned-project", [sample]);
+  assert.equal(
+    report.samples[0].metrics.dockerMemoryUsage.nullReason,
+    "byte count does not include a supported numeric value and unit",
+  );
+  assert.equal(report.samples[0].metrics.processRSS.nullReason, "process RSS is not exposed by Docker stats");
+  assert.equal(report.samples[0].metrics.cpuPercent.nullReason, "CPU percentage is missing or invalid");
+  assert.equal(report.samples[0].metrics.diskBytes.nullReason, "Docker volume used bytes are not collected");
+  assert.doesNotMatch(JSON.stringify(sample), /stats-output-must-not-be-retained/);
+  assert.doesNotMatch(JSON.stringify(report), /stats-output-must-not-be-retained/);
+});
+
 test("TEST-275 reports which bounded Docker container sampling stage was unavailable", async () => {
   const containerID = "aaaaaaaaaaaa";
   const identity = `${JSON.stringify({ "com.docker.compose.project": "owned-project" })}|sha256:${"a".repeat(64)}\n`;

@@ -83,6 +83,13 @@ export function parseResourcePercent(value) {
   return percentMetric(value, "docker_cli_cpu_percent", "CPU percentage is missing or invalid");
 }
 
+function measuredMetric(value, unavailableReason, parse, source, unit = "bytes") {
+  const parsed = parse(value);
+  return parsed.value === null
+    ? unknown(source, unavailableReason ?? parsed.nullReason, unit)
+    : metric(parsed.value, source, null, unit);
+}
+
 export function capacitySafetyFailure(host) {
   const { availableMemoryBytes, totalMemoryBytes, availableDiskBytes } = host ?? {};
   for (const [name, value] of Object.entries({ availableMemoryBytes, totalMemoryBytes, availableDiskBytes })) {
@@ -173,7 +180,18 @@ export async function collectDockerResourceSample(project, execute, { timestamp 
         const [id, memory, cpu, ...extra] = row.split("\t");
         if (extra.length > 0 || !/^[a-f0-9]{12,64}$/i.test(id)) throw new Error("container stats row is malformed");
         const memoryValue = memory?.split("/")[0]?.trim();
-        stats.set(id, { memoryUsageBytes: parseResourceBytes(memoryValue).value, cpuPercent: parseResourcePercent(cpu).value });
+        const memoryMetric = parseResourceBytes(memoryValue);
+        const cpuMetric = parseResourcePercent(cpu);
+        stats.set(id, {
+          memoryUsageBytes: memoryMetric.value,
+          memoryUsageNullReason: memoryMetric.value === null
+            ? (memoryValue ? memoryMetric.nullReason : "Docker stats memory field is empty")
+            : null,
+          cpuPercent: cpuMetric.value,
+          cpuPercentNullReason: cpuMetric.value === null
+            ? (cpu?.trim() ? cpuMetric.nullReason : "Docker stats CPU field is empty")
+            : null,
+        });
       }
       if (stats.size !== exact.length || exact.some((container) => !stats.has(container.id))) throw new Error("container stats did not cover the exact running inventory");
     }
@@ -183,8 +201,11 @@ export async function collectDockerResourceSample(project, execute, { timestamp 
         ...container,
         imageId: container.imageId,
         memoryUsageBytes: resource.memoryUsageBytes,
+        memoryUsageNullReason: resource.memoryUsageNullReason,
         processRssBytes: null,
+        processRssNullReason: "process RSS is not exposed by Docker stats",
         cpuPercent: resource.cpuPercent,
+        cpuPercentNullReason: resource.cpuPercentNullReason,
       };
     });
   } catch (error) {
@@ -203,7 +224,7 @@ export async function collectDockerResourceSample(project, execute, { timestamp 
       "volume", "inspect", "--format", "{{json .Labels}}", ...names,
     ]), "volume label inventory")), "volume labels", names.length);
     sample.volumes = names.flatMap((name, index) => labels[index]?.["com.docker.compose.project"] === project
-      ? [{ name, labels: { "com.docker.compose.project": project }, size: null }]
+      ? [{ name, labels: { "com.docker.compose.project": project }, size: null, sizeNullReason: "Docker volume used bytes are not collected" }]
       : []);
   } catch {
     sample.collectionNullReasons.volumes = "exact project volume sample could not be collected";
@@ -271,22 +292,43 @@ export function summarizeResourceSamples(project, samples, { expectedIntervalMs 
     const volumes = exactProjectResources(volumesAvailable ? sample.volumes : [], project);
     const dockerMemoryUsage = containersAvailable ? sumMetric(
       containers,
-      (container) => parseResourceBytes(container.memoryUsageBytes),
+      (container) => measuredMetric(
+        container.memoryUsageBytes,
+        container.memoryUsageNullReason,
+        parseResourceBytes,
+        "docker_container_memory_usage_bytes",
+      ),
       "docker_container_memory_usage_bytes",
     ) : unknown("docker_container_memory_usage_bytes", "container inventory sample is unavailable");
     const processRSS = containersAvailable ? sumMetric(
       containers,
-      (container) => parseResourceBytes(container.processRssBytes),
+      (container) => measuredMetric(
+        container.processRssBytes,
+        container.processRssNullReason ?? "process RSS is not available in this sample",
+        parseResourceBytes,
+        "process_rss_bytes",
+      ),
       "process_rss_bytes",
     ) : unknown("process_rss_bytes", "container inventory sample is unavailable");
     const cpuPercent = containersAvailable ? sumMetric(
       containers,
-      (container) => percentMetric(container.cpuPercent, "docker_container_cpu_percent", "container CPU percentage is unavailable"),
+      (container) => measuredMetric(
+        container.cpuPercent,
+        container.cpuPercentNullReason ?? "container CPU percentage is unavailable",
+        (value) => percentMetric(value, "docker_container_cpu_percent", "container CPU percentage is unavailable"),
+        "docker_container_cpu_percent",
+        "percent",
+      ),
       "docker_container_cpu_percent",
       "percent",
     ) : unknown("docker_container_cpu_percent", "container inventory sample is unavailable", "percent");
     const diskBytes = volumesAvailable
-      ? sumMetric(volumes, (volume) => parseResourceBytes(volume.size), "docker_volume_size_bytes")
+      ? sumMetric(volumes, (volume) => measuredMetric(
+        volume.size,
+        volume.sizeNullReason ?? "Docker volume used bytes are not available in this sample",
+        parseResourceBytes,
+        "docker_volume_size_bytes",
+      ), "docker_volume_size_bytes")
       : unknown("docker_volume_size_bytes", "volume inventory sample is unavailable");
     const hostAvailableMemory = Number.isSafeInteger(sample?.host?.availableMemoryBytes) && sample.host.availableMemoryBytes >= 0
       ? metric(sample.host.availableMemoryBytes, "linux_proc_meminfo")
