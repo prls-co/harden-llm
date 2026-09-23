@@ -236,6 +236,29 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     assert_capability_checkbox_matrix(html)
   end
 
+  test "profile editor model consumers recompute from each current render" do
+    primary = profile("Primary", "primary-model")
+    secondary = profile("Secondary", "secondary-model")
+    profiles = [primary, secondary]
+    defaults = ["gpt-5.6-luna", "gpt-5.6-sol", "gpt-5.6-terra"]
+
+    cases = [
+      {primary, "primary-custom", nil, [%{"id" => "primary-extra", "label" => "Primary extra"}],
+       defaults ++ ["primary-model", "primary-extra", "primary-custom"]},
+      {secondary, "secondary-custom", nil, [],
+       defaults ++ ["secondary-model", "secondary-custom"]},
+      {primary, "refreshed-custom", [%{"id" => "refreshed-model", "label" => "Refreshed"}],
+       [%{"id" => "stale-extra", "label" => "Stale"}], ["refreshed-model", "refreshed-custom"]},
+      {secondary, "other-custom", [%{"id" => "other-instance-model", "label" => "Other"}], [],
+       ["other-instance-model", "other-custom"]}
+    ]
+
+    Enum.each(cases, fn {selected_profile, current_model, catalog, extras, expected} ->
+      html = render_profile_editor(selected_profile, profiles, current_model, catalog, extras)
+      assert_model_consumers(html, expected)
+    end)
+  end
+
   test "two widget instances retain independent IDs, folds, and controls", %{conn: conn} do
     primary = profile("Primary", "model-primary")
     secondary = profile("Secondary", "model-secondary")
@@ -1034,6 +1057,51 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
       end)
 
     assert Enum.uniq(targets) |> length() == 1
+  end
+
+  defp render_profile_editor(
+         profile_state,
+         profiles,
+         current_model_id,
+         model_catalog,
+         model_options
+       ) do
+    form_params =
+      profile_state
+      |> ProfileForm.profile_form()
+      |> Map.put("modelId", current_model_id)
+
+    render_component(&ProfileWidgetComponent.profile_editor/1,
+      form: Phoenix.Component.to_form(form_params, as: :profile),
+      id_prefix: "profile",
+      target: "#profile-widget",
+      profiles: profiles,
+      model_catalog: model_catalog,
+      model_options: model_options,
+      options_open: true,
+      host_context: "profile_definition"
+    )
+  end
+
+  defp assert_model_consumers(html, expected_ids) do
+    doc = LazyHTML.from_document(html)
+
+    combobox_ids =
+      LazyHTML.query(doc, "#profile_modelId-options [role='option']")
+      |> LazyHTML.attribute("data-value")
+
+    datalist_ids =
+      LazyHTML.query(doc, "#profile-model-options option")
+      |> LazyHTML.attribute("value")
+
+    count =
+      LazyHTML.query(doc, ".ullm-model-slot-field > .ullm-field-help")
+      |> LazyHTML.text()
+      |> String.trim()
+
+    assert combobox_ids == expected_ids
+    assert datalist_ids == expected_ids
+    assert count == "#{length(expected_ids)} options"
   end
 
   defp assert_capability_checkbox_matrix(html) do

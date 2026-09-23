@@ -158,7 +158,7 @@ missing observable contract before changing its owner.
 | Candidate / owner / exact repeated or unreachable symbols | Required behavior and intentional differences | Existing callers/tests / uncovered invariant | Proposed replacement / old code to delete | Expected size direction / dependency overhead | Focused check / distinct boundary | Disposition |
 | --- | --- | --- | --- | --- | --- | --- |
 | P04.1 `ProfileWidgetComponent.profile_editor/1`: four `.input` blocks for `maxTokens`, `temperature`, `topP`, `topK`; three capability checkbox blocks | Preserve field ID/name/label/order, number type, `min=0`, only decimal `temperature`/`topP` having `step=any`, placeholders, `profile-draft-change` target, and core checkbox hidden-false plus checked-true pair. Leave the saved-profile `supportsWebSearch` hidden control and all credential/recovery controls alone. | WEB-TEST-037 opens the editor and checks all four numeric IDs/placeholders. Before P04.1, no case asserted the exact matrix, ordering, number constraints/event target, or each hidden checkbox pair; WEB-TEST-044 and WEB-TEST-090 now cover the shared editor in profile-definition, workspace, and nested recovery render paths. | Fixed atom-keyed numeric and checkbox descriptors with local `:for` loops; remove duplicated control markup only. | Expected decrease: four numeric structures and three checkbox structures contain repeated HEEx/attrs. Descriptor literals/helper markup are added; measure combined component and any helper after implementation. No dependency. | F-WIDGET; F-WORKSPACE if the shared widget rendering changes. | Selected. |
-| P04.2 `ProfileWidgetComponent.profile_editor/1` and `models_for/5`: the same model list expression is evaluated for combobox options, definition datalist, and displayed count | Preserve host catalog precedence, default/profile values, ordering, custom current-model retention, and count. Recompute from current assigns on every render; no stateful cache. | `ProfileWidgetState.model_options/3` tests ordering/default/current inclusion; WEB-TEST-037 covers profile definition suggestions; WEB-TEST-043 covers distinct embedded widget model values; workspace cases cover catalog refresh. No rendered assertion currently binds all three consumers to the same latest model set after a parent update. | Compute one local `editor_model_options` value from the current assigns and pass it to all three render consumers; delete repeated `models_for/5` argument blocks. | Expected decrease from deleting two repeated multi-line call sites, offset by one local calculation. No dependency or persistent state. | F-WIDGET, with a rendered current-value/catalog update assertion; F-WORKSPACE if parent refresh behavior is touched. | Selected. |
+| P04.2 `ProfileWidgetComponent.profile_editor/1` and `models_for/5`: the same model list expression is evaluated for combobox options, definition datalist, and displayed count | Preserve host catalog precedence, default/profile values, ordering, custom current-model retention, and count. Recompute from current assigns on every render; no stateful cache. | `ProfileWidgetState.model_options/3` tests ordering/default/current inclusion; WEB-TEST-037 and WEB-TEST-043 cover their existing boundaries. WEB-TEST-044 now binds all three rendered consumers to the same ordered IDs across selected profiles, host-catalog changes, custom current models, and separate editor renders. | Compute one local `editor_model_options` value from current assigns and use it for all three consumers; remove repeated `models_for/5` argument blocks. | Production owner decreased 484 bytes / 22 lines. The required rendered matrix added 2,424 test bytes / 68 lines, so the frozen profile context grew 1,940 bytes / 46 lines in this phase. No dependency or persistent state. | F-WIDGET; component/profile-definition suites passed 31 tests. Full FAST needs a clean-host retry after unrelated runner-contract resource failures canceled the frontend task. | Implemented and retained for simpler single-source rendering; it does not reduce the complete context set on its own. |
 | P04.3 `ProfileWidgetComponent.assign_fold_state/2` and `boolean_assign/3`: six ordered socket assignments | An explicit boolean, including `false`, replaces its current value; absent, nil, or invalid input keeps the current value. Preserve six-field order, `fold_disabled`, main-vs-target state ownership, and event/notification behavior. | WEB-TEST-037, workspace parity and WEB-TEST-043 cover user toggles, parent UI persistence, and independent instances. No focused case currently isolates partial parent assigns, explicit false after true, nil/invalid values, and preservation of other folds together. | A fixed ordered incoming-key/socket-key mapping reduced through one assignment function, only if the mapping plus reducer is smaller and exact partial-update coverage can be added. | Small possible decrease; mapping/reducer may erase the savings. No dependency. | F-WIDGET and F-WORKSPACE. | Awaiting the P04.1/2 measured component diff and a low-friction parent-update regression; retain current code if net savings or exact coverage is poor. |
 | P04.4 `runtime.Execute` in `internal/runtime/execute.go` and `executeRecoveryPlan` in `internal/runtime/recovery_execute.go`: duplicated progress snapshot field construction | Preserve per-call sequence/callback guards, deep-enough attempt/accounting/timeout copies, live stream counter addition, origin, deadline facts, and every `config.Now()` observation order. Preserve simple-path `run.started` before preflight, explicit-path `run.started` only once work is prepared, and omitted events when explicit work is nil. | No `ProgressSnapshot` callback tests exist in `internal/runtime`; provider normalization covers only `PreparedOperation.StreamProgress`. G-STREAM/N-PROGRESS cover different HTTP/public boundaries. Explicit recovery has distinct stage/branch/profile/reasoning identity and early returns before a work-backed terminal event. | First add public `Execute` callback-boundary tests to both execution paths for absent callback, preflight failure, nil work, stream updates, completed attempts, cache hit, deadline, and terminal failure. Then extract only snapshot construction to a private helper, keeping sequence, guards, active stream, event transitions, and clock sampling with each caller. | Likely decrease from removing two duplicate builders, offset by one typed helper. Tests add coverage but no dependency. | G-RUNTIME, G-STREAM, N-PROGRESS, then G-RACE and FAST. | Selected for regression-first implementation; reject if a helper cannot reduce production bytes without merging the separate loops. |
 | P04.5 root `client.go`: public attempt and accounting-ledger conversions in progress and final result | Preserve empty attempts, optional progress accounting, copy behavior, wire field names, and progress nil-origin vs final zero-value origin semantics. | `publicAttempt` and `publicAccountingLedger` are already shared by both projections. `publicOrigin` is used by progress while final results inline the same eight-field mapping; this is the only material duplicate found in the selected symbols. | Compare a value-returning private origin mapper plus pointer wrapper against the current inline mapper and `publicOrigin`; retain only if exact tests and the combined helper/call sites are smaller. | At most a small source decrease; no dependency. Test additions may outweigh production deletion in total-maintained-code terms. | Root client tests, G-RUNTIME, and FAST wire/static checks. | Rejected: the shared attempt/accounting conversions already eliminate the major repetition; origin-only factoring has too little projected saving for the extra abstraction and test surface. |
@@ -196,6 +196,10 @@ missing observable contract before changing its owner.
   3,400 lines to 119,218 bytes / 3,371 lines (-1,208 bytes / -29 lines). Its
   baseline SHA-256 was `29dcc7bf2bfed45ec65d0926e2d4660eacfb96157c9f7de81edfd723123df12f`;
   the post-change SHA-256 is `8d3e2fee07842db8930b6d1c88a63d7a9bcf416c1104aa00ab2a459096149b54`.
+- **Measurement artifact:** canonical report for clean commit
+  `747cb977eb063ed313e94864ad126505739120a3` is ignored at
+  `tmp/codebase-reduction/after-p04.1.json`, SHA-256
+  `b46c3cba0b5576028d9ebb9cabd330c0e4d1f2ef342be2816ca89e84c6be9939`.
 - **Test/context cost:** `profile_widget_component_test.exs` grew by 3,464
   bytes / 99 lines. The frozen profile maintenance context therefore grew from
   252,359 bytes / 7,253 lines to 254,615 bytes / 7,323 lines (+2,256 bytes /
@@ -207,3 +211,42 @@ missing observable contract before changing its owner.
   The first FAST failure remains recorded as an unresolved transient Docker
   identity preflight, even though the isolated case and fresh complete gate
   passed.
+
+### P04.2 Calculate the model list once per render
+
+- **Change:** `profile_editor/1` calculates `editor_model_options` once from the
+  current profile form, profiles, extra options, and host catalog. The combobox,
+  profile-definition datalist, and displayed count use that same list. It is
+  render-local; there is no cross-render cache.
+- **Behavioral coverage:** WEB-TEST-044 checks exact ordered IDs and count in
+  all three consumers for two selected profiles, a refreshed host catalog,
+  retained custom current models, a stale extra option under host-catalog
+  precedence, and separate renders with different catalogs.
+- **Focused evidence:** pinned formatting completed. `mix test
+  test/harden_llm_web/live/profile_widget_component_test.exs
+  test/harden_llm_web/live/profiles_live_test.exs --seed 104729` passed 31
+  tests without warnings.
+- **Measured source:** `profile_widget_component.ex` fell from 119,218 bytes /
+  3,371 lines after P04.1 to 118,734 bytes / 3,349 lines (-484 bytes / -22
+  lines). Its hash changed from
+  `8d3e2fee07842db8930b6d1c88a63d7a9bcf416c1104aa00ab2a459096149b54` to
+  `fa107bb06ab0dee06882ee712d41a5b28b03efd15caf793b8e12c04a2c0c6d31`.
+- **Test/context cost:** the component test grew from 39,652 to 42,076 bytes
+  (+2,424) and from 1,070 to 1,138 lines (+68). The frozen profile context
+  grew from 254,615 to 256,555 bytes (+1,940) and from 7,323 to 7,369 lines
+  (+46). P04.2 reduces production source but is not a net context reduction.
+- **FAST trouble:** `make test-fast` report
+  `runner-1790127276857-928582-df8b1b601093fa7c.json` was not accepted. Go
+  static, unit, parity, API, observability, and client-core tasks passed. The
+  `runner-contracts` task had three failures among 46 Node tests: a synthetic
+  dependency-ordering child exceeded its timeout; TEST-271 timed out waiting
+  for the local Docker daemon lock after 32.5 seconds; and TEST-272's fallback
+  cleanup case was rejected. The coordinator then canceled the deterministic
+  frontend task with SIGTERM. The same focused frontend suites passed
+  separately. Afterward `docker info` succeeded with daemon ID
+  `2758d8cf-d2a7-4223-b620-75d23efa27d5`, Docker 29.1.3; host load averages
+  were `10.99, 45.40, 47.17`. Contention is plausible but not proven. No test
+  oracle was changed. A complete accepted FAST run is still required.
+- **Risks/follow-up:** reassess net bytes across all P04 changes at P05 and
+  report honestly if the selected work does not reduce the actual task
+  context. Rerun FAST after resource contention subsides and retain its report.

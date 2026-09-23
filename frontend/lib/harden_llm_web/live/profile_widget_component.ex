@@ -1403,8 +1403,18 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:fold_path, :string, default: nil)
 
   def profile_editor(assigns) do
+    editor_model_options =
+      models_for(
+        assigns.profiles,
+        profile_id(assigns.form),
+        assigns.model_options,
+        assigns.model_catalog,
+        assigns.form[:modelId].value
+      )
+
     assigns =
       assign(assigns,
+        editor_model_options: editor_model_options,
         profile_capability_fields: @profile_capability_fields,
         numeric_option_fields: @numeric_option_fields
       )
@@ -1559,17 +1569,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             id={field_id(@id_prefix, @form[:modelId].id)}
             name={@form[:modelId].name}
             value={@form[:modelId].value}
-            options={
-              model_combobox_options(
-                models_for(
-                  @profiles,
-                  profile_id(@form),
-                  @model_options,
-                  @model_catalog,
-                  @form[:modelId].value
-                )
-              )
-            }
+            options={model_combobox_options(@editor_model_options)}
             allow_custom
             placeholder={ProfileDefaults.model_placeholder()}
             aria_label="Model ID"
@@ -1578,34 +1578,12 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
             phx_target={@target}
           />
           <datalist :if={@host_context == "profile_definition"} id="profile-model-options">
-            <option
-              :for={
-                model <-
-                  models_for(
-                    @profiles,
-                    profile_id(@form),
-                    @model_options,
-                    @model_catalog,
-                    @form[:modelId].value
-                  )
-              }
-              value={model["id"]}
-            >
+            <option :for={model <- @editor_model_options} value={model["id"]}>
               {model["label"]}
             </option>
           </datalist>
           <.field_error message={ProfileForm.field_error(@field_errors, "modelId")} />
-          <p class="ullm-field-help">
-            {length(
-              models_for(
-                @profiles,
-                profile_id(@form),
-                @model_options,
-                @model_catalog,
-                @form[:modelId].value
-              )
-            )} options
-          </p>
+          <p class="ullm-field-help">{length(@editor_model_options)} options</p>
           <p
             :if={@requires_save}
             id={"#{@id_prefix}-save-required"}

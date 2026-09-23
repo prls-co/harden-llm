@@ -834,7 +834,7 @@ against its own intended candidate as in P01.
 | P03.2 context baseline | Complete | Three whole-file task sets and per-category byte/line totals are frozen in `docs/codebase-reduction-manifest.json`. |
 | P03.3 deletion inventory | Complete | All six P04 candidates, owners, contracts, coverage gaps, size direction, and disposition are recorded in `docs/codebase-reduction-results.md`. |
 | P04.1 option markup | Complete | WEB-TEST-044/090 pin exact numeric and checkbox matrices; F-WIDGET passed 32 and FAST passed all 10 tasks. Production owner shrank 1,208 bytes / 29 lines; full profile context grew 2,256 bytes from necessary tests. See P04.1 record in the results ledger. |
-| P04.2 model-list reuse | Pending | Recompute once per render. |
+| P04.2 model-list reuse | Complete | WEB-TEST-044 checks the three rendered consumers across profile/catalog/custom-model changes and separate renders; F-WIDGET/profile-definition passed 31. Production source fell 484 bytes / 22 lines, while the frozen profile context grew 1,940 bytes / 46 lines from test coverage. Full FAST is pending a resource-contention retry; see the results ledger. |
 | P04.3 fold assignments | Pending | Preserve missing/false update semantics. |
 | P04.4 progress construction | Pending | Preserve separate execution paths. |
 | P04.5 result projections | Rejected with evidence | Attempt/accounting conversions are already shared; origin-only factoring has too little projected saving for added abstraction/test surface. See inventory. |
