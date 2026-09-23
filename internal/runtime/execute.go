@@ -14,6 +14,57 @@ import (
 	"github.com/prls-co/harden-llm/internal/retry"
 )
 
+func buildProgressSnapshot(
+	ctx context.Context,
+	now func() time.Time,
+	startedAt time.Time,
+	record *CallRecord,
+	activeStream *StreamDiagnostics,
+	event ProgressSnapshot,
+) ProgressSnapshot {
+	var accountingSnapshot *Accounting
+	if len(record.Attempts) > 0 {
+		value := record.Accounting
+		accountingSnapshot = &value
+	}
+	var effectiveTimeout *time.Duration
+	if record.Diagnostics.EffectiveTimeout != nil {
+		value := *record.Diagnostics.EffectiveTimeout
+		effectiveTimeout = &value
+	}
+
+	receivedBytes := record.Diagnostics.ReceivedBytes
+	eventCount := record.Diagnostics.EventCount
+	outputBytes := record.Diagnostics.OutputBytes
+	outputCodePoints := record.Diagnostics.OutputCodePoints
+	if activeStream != nil {
+		receivedBytes += activeStream.ReceivedBytes
+		eventCount += activeStream.EventCount
+		outputBytes += activeStream.OutputBytes
+		outputCodePoints += activeStream.OutputCodePoints
+	}
+
+	event.AttemptsUsed = len(record.Attempts)
+	event.AttemptsRemaining = max(event.MaxAttempts-len(record.Attempts), 0)
+	event.ElapsedMs = max(now().Sub(startedAt).Milliseconds(), 0)
+	event.StopReason = record.StopReason
+	event.ReceivedBytes = receivedBytes
+	event.EventCount = eventCount
+	event.OutputBytes = outputBytes
+	event.OutputCodePoints = outputCodePoints
+	event.LastActivity = now()
+	event.EffectiveTimeout = effectiveTimeout
+	event.Origin = record.Origin
+	event.Attempts = append([]AttemptRecord(nil), record.Attempts...)
+	event.Accounting = accountingSnapshot
+
+	if deadline, ok := ctx.Deadline(); ok {
+		remaining := max(deadline.Sub(now()).Milliseconds(), 0)
+		event.DeadlineRemainingMs = &remaining
+	}
+	return event
+}
+
 func Execute(
 	ctx context.Context, executor Executor, credentials CredentialLookup,
 	selected string, profiles map[string]Profile, call Call, config retry.Config,
@@ -87,39 +138,12 @@ func Execute(
 			return
 		}
 		progressSequence++
-		var accountingSnapshot *Accounting
-		if len(record.Attempts) > 0 {
-			value := record.Accounting
-			accountingSnapshot = &value
-		}
-		var effectiveTimeout *time.Duration
-		if record.Diagnostics.EffectiveTimeout != nil {
-			value := *record.Diagnostics.EffectiveTimeout
-			effectiveTimeout = &value
-		}
-		receivedBytes := record.Diagnostics.ReceivedBytes
-		eventCount := record.Diagnostics.EventCount
-		outputBytes := record.Diagnostics.OutputBytes
-		outputCodePoints := record.Diagnostics.OutputCodePoints
-		if activeStream != nil {
-			receivedBytes += activeStream.ReceivedBytes
-			eventCount += activeStream.EventCount
-			outputBytes += activeStream.OutputBytes
-			outputCodePoints += activeStream.OutputCodePoints
-		}
-		event := ProgressSnapshot{Sequence: progressSequence, RunID: call.Context.RunID, CallID: callID, TraceID: traceID,
+		event := buildProgressSnapshot(ctx, config.Now, startedAt, &record, activeStream, ProgressSnapshot{
+			Sequence: progressSequence, RunID: call.Context.RunID, CallID: callID, TraceID: traceID,
 			Type: eventType, Stage: "original.generate", Branch: "original", ProfileID: profile.ID,
-			ReasoningEffort: call.ReasoningEffort, Attempt: attempt, AttemptsUsed: len(record.Attempts),
-			AttemptsRemaining: max(config.Policy.MaxAttempts-len(record.Attempts), 0),
-			ElapsedMs:         max(config.Now().Sub(startedAt).Milliseconds(), 0), StopReason: record.StopReason, Terminal: terminal,
-			ReceivedBytes: receivedBytes, EventCount: eventCount,
-			OutputBytes: outputBytes, OutputCodePoints: outputCodePoints,
-			LastActivity: config.Now(), MaxAttempts: config.Policy.MaxAttempts, EffectiveTimeout: effectiveTimeout,
-			Origin: record.Origin, Attempts: append([]AttemptRecord(nil), record.Attempts...), Accounting: accountingSnapshot}
-		if deadline, ok := ctx.Deadline(); ok {
-			remaining := max(deadline.Sub(config.Now()).Milliseconds(), 0)
-			event.DeadlineRemainingMs = &remaining
-		}
+			ReasoningEffort: call.ReasoningEffort, Attempt: attempt, Terminal: terminal,
+			MaxAttempts: config.Policy.MaxAttempts,
+		})
 		call.Progress(event)
 	}
 	defer func() {

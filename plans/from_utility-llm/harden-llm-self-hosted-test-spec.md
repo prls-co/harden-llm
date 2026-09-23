@@ -1443,3 +1443,13 @@ synthetic credentials, isolated stores, and a local scripted provider.
 - Historical source: `docs/archive/harden-llm-ghcr-publisher-reference-6887fcd.tar.gz`, containing the workflow, publisher contract test, and exact Dockerfile from that commit.
 - Retirement rationale: active production uses an exact-SHA local image on one existing Docker host; there is no current distribution need justifying publisher-specific workflow permissions and tests. Current build/deployment acceptance is defined by `SPEC-HLLM-IMAGE-DEPLOYMENT-001` and KER-IBD-001 through KER-IBD-010.
 - Restoration: review the archived source against the current release, security, retention, and restore requirements; do not extract/run it automatically. Reusing TEST-283's source requires reactivating an explicitly approved publication design.
+
+### TEST-284: Runtime progress snapshot callbacks
+
+- Type / verifies: unit; runtime `ProgressSnapshot` callback compatibility.
+- Location: `internal/runtime/repair_test.go`.
+- Command: `go test ./internal/runtime -run '^TestProgressSnapshotContracts$' -count=1`.
+- Fixtures/data: Synthetic executor results, stream counters, cache, origin, run IDs, and explicit repair work; no provider or persistence dependency.
+- Deterministic controls: Local executor and cache fakes, fixed advancing clock, bounded deadline, no sleeps or network.
+- Pass criteria: Public `Execute` callback observations preserve simple and explicit path event order, preflight and nil-work differences, active stream plus completed-attempt counters, recovery stage/profile/reasoning identity, cache-hit events, deadline facts, per-call sequencing, copied attempts/accounting/timeouts, and no-callback behavior. Intentional path differences remain explicit.
+- Expected runtime: Under 1 second.

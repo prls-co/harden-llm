@@ -109,39 +109,12 @@ func executeRecoveryPlan(
 			return
 		}
 		progressSequence++
-		var accountingSnapshot *Accounting
-		if len(record.Attempts) > 0 {
-			value := record.Accounting
-			accountingSnapshot = &value
-		}
-		var effectiveTimeout *time.Duration
-		if record.Diagnostics.EffectiveTimeout != nil {
-			value := *record.Diagnostics.EffectiveTimeout
-			effectiveTimeout = &value
-		}
-		receivedBytes := record.Diagnostics.ReceivedBytes
-		eventCount := record.Diagnostics.EventCount
-		outputBytes := record.Diagnostics.OutputBytes
-		outputCodePoints := record.Diagnostics.OutputCodePoints
-		if activeStream != nil {
-			receivedBytes += activeStream.ReceivedBytes
-			eventCount += activeStream.EventCount
-			outputBytes += activeStream.OutputBytes
-			outputCodePoints += activeStream.OutputCodePoints
-		}
-		event := ProgressSnapshot{Sequence: progressSequence, RunID: baseCall.Context.RunID, CallID: callID, TraceID: traceID,
+		event := buildProgressSnapshot(ctx, config.Now, startedAt, &record, activeStream, ProgressSnapshot{
+			Sequence: progressSequence, RunID: baseCall.Context.RunID, CallID: callID, TraceID: traceID,
 			Type: eventType, Stage: work.stage, Branch: work.branch, ProfileID: work.profile.ID,
-			ReasoningEffort: work.call.ReasoningEffort, Attempt: attempt, AttemptsUsed: len(record.Attempts),
-			AttemptsRemaining: max(config.Policy.MaxAttempts-len(record.Attempts), 0),
-			ElapsedMs:         max(config.Now().Sub(startedAt).Milliseconds(), 0), StopReason: record.StopReason, Terminal: terminal,
-			ReceivedBytes: receivedBytes, EventCount: eventCount,
-			OutputBytes: outputBytes, OutputCodePoints: outputCodePoints,
-			LastActivity: config.Now(), MaxAttempts: config.Policy.MaxAttempts, EffectiveTimeout: effectiveTimeout,
-			Origin: record.Origin, Attempts: append([]AttemptRecord(nil), record.Attempts...), Accounting: accountingSnapshot}
-		if deadline, ok := ctx.Deadline(); ok {
-			remaining := max(deadline.Sub(config.Now()).Milliseconds(), 0)
-			event.DeadlineRemainingMs = &remaining
-		}
+			ReasoningEffort: work.call.ReasoningEffort, Attempt: attempt, Terminal: terminal,
+			MaxAttempts: config.Policy.MaxAttempts,
+		})
 		baseCall.Progress(event)
 	}
 	defer func() {

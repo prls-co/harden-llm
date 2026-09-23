@@ -160,7 +160,7 @@ missing observable contract before changing its owner.
 | P04.1 `ProfileWidgetComponent.profile_editor/1`: four `.input` blocks for `maxTokens`, `temperature`, `topP`, `topK`; three capability checkbox blocks | Preserve field ID/name/label/order, number type, `min=0`, only decimal `temperature`/`topP` having `step=any`, placeholders, `profile-draft-change` target, and core checkbox hidden-false plus checked-true pair. Leave the saved-profile `supportsWebSearch` hidden control and all credential/recovery controls alone. | WEB-TEST-037 opens the editor and checks all four numeric IDs/placeholders. Before P04.1, no case asserted the exact matrix, ordering, number constraints/event target, or each hidden checkbox pair; WEB-TEST-044 and WEB-TEST-090 now cover the shared editor in profile-definition, workspace, and nested recovery render paths. | Fixed atom-keyed numeric and checkbox descriptors with local `:for` loops; remove duplicated control markup only. | Expected decrease: four numeric structures and three checkbox structures contain repeated HEEx/attrs. Descriptor literals/helper markup are added; measure combined component and any helper after implementation. No dependency. | F-WIDGET; F-WORKSPACE if the shared widget rendering changes. | Selected. |
 | P04.2 `ProfileWidgetComponent.profile_editor/1` and `models_for/5`: the same model list expression is evaluated for combobox options, definition datalist, and displayed count | Preserve host catalog precedence, default/profile values, ordering, custom current-model retention, and count. Recompute from current assigns on every render; no stateful cache. | `ProfileWidgetState.model_options/3` tests ordering/default/current inclusion; WEB-TEST-037 and WEB-TEST-043 cover their existing boundaries. WEB-TEST-044 now binds all three rendered consumers to the same ordered IDs across selected profiles, host-catalog changes, custom current models, and separate editor renders. | Compute one local `editor_model_options` value from current assigns and use it for all three consumers; remove repeated `models_for/5` argument blocks. | Production owner decreased 484 bytes / 22 lines. The required rendered matrix added 2,424 test bytes / 68 lines, so the frozen profile context grew 1,940 bytes / 46 lines in this phase. No dependency or persistent state. | F-WIDGET; component/profile-definition suites passed 31 tests. Full FAST needs a clean-host retry after unrelated runner-contract resource failures canceled the frontend task. | Implemented and retained for simpler single-source rendering; it does not reduce the complete context set on its own. |
 | P04.3 `ProfileWidgetComponent.assign_fold_state/2` and `boolean_assign/3`: six ordered socket assignments | Explicit booleans including `false` replace current values; absent, nil, or invalid input preserves them. Keep the existing assignment order, `fold_disabled`, separate target-config ownership, and event/notification behavior. | WEB-TEST-044 now directly calls the LiveComponent update callback twice: full initial booleans, then a partial update with false, nil, invalid, and omitted fields. It checks retained values and the separate target config map. | A fixed ordered incoming-key/socket-key mapping reduced through one assignment function; the old repeated calls and `boolean_assign/3` were removed. | Production owner decreased 418 bytes / 17 lines. The required direct update regression added 1,407 test bytes / 46 lines, so the frozen profile context grew 989 bytes / 29 lines in this phase. No dependency. | F-WIDGET and embedding/profile-definition suites passed 34 tests. Full FAST remains open after the P04.2 runner-contract contention failure. | Implemented; exact partial-update semantics are covered, but this phase also increases the full context set. |
-| P04.4 `runtime.Execute` in `internal/runtime/execute.go` and `executeRecoveryPlan` in `internal/runtime/recovery_execute.go`: duplicated progress snapshot field construction | Preserve per-call sequence/callback guards, deep-enough attempt/accounting/timeout copies, live stream counter addition, origin, deadline facts, and every `config.Now()` observation order. Preserve simple-path `run.started` before preflight, explicit-path `run.started` only once work is prepared, and omitted events when explicit work is nil. | No `ProgressSnapshot` callback tests exist in `internal/runtime`; provider normalization covers only `PreparedOperation.StreamProgress`. G-STREAM/N-PROGRESS cover different HTTP/public boundaries. Explicit recovery has distinct stage/branch/profile/reasoning identity and early returns before a work-backed terminal event. | First add public `Execute` callback-boundary tests to both execution paths for absent callback, preflight failure, nil work, stream updates, completed attempts, cache hit, deadline, and terminal failure. Then extract only snapshot construction to a private helper, keeping sequence, guards, active stream, event transitions, and clock sampling with each caller. | Likely decrease from removing two duplicate builders, offset by one typed helper. Tests add coverage but no dependency. | G-RUNTIME, G-STREAM, N-PROGRESS, then G-RACE and FAST. | Selected for regression-first implementation; reject if a helper cannot reduce production bytes without merging the separate loops. |
+| P04.4 `runtime.Execute` in `internal/runtime/execute.go` and `executeRecoveryPlan` in `internal/runtime/recovery_execute.go`: duplicated progress snapshot field construction | Preserve per-call sequence/callback guards, deep-enough attempt/accounting/timeout copies, live stream counter addition, origin, deadline facts, and every `config.Now()` observation order. Preserve simple-path `run.started` before preflight, explicit-path `run.started` only once work is prepared, and omitted events when explicit work is nil. | No `ProgressSnapshot` callback tests existed in `internal/runtime`; provider normalization covers only `PreparedOperation.StreamProgress`. G-STREAM/N-PROGRESS cover different HTTP/public boundaries. Explicit recovery has distinct stage/branch/profile/reasoning identity and early returns before a work-backed terminal event. | Added TEST-284 public `Execute` callback assertions, then extracted only snapshot construction to a private helper, keeping sequence, guards, active stream, event transitions, and clock sampling with each caller. | Production owners decreased by 1,005 bytes / 3 lines; TEST-284 added 20,459 bytes / 433 lines. The fixed runtime context grew 19,454 bytes. No dependency. | TEST-284, full runtime package, focused runtime race, N-PROGRESS, and accepted FAST all passed. | Implemented with exact event differences preserved; production source is smaller, but the complete runtime task context is larger. Do not count as a context-size win. |
 | P04.5 root `client.go`: public attempt and accounting-ledger conversions in progress and final result | Preserve empty attempts, optional progress accounting, copy behavior, wire field names, and progress nil-origin vs final zero-value origin semantics. | `publicAttempt` and `publicAccountingLedger` are already shared by both projections. `publicOrigin` is used by progress while final results inline the same eight-field mapping; this is the only material duplicate found in the selected symbols. | Compare a value-returning private origin mapper plus pointer wrapper against the current inline mapper and `publicOrigin`; retain only if exact tests and the combined helper/call sites are smaller. | At most a small source decrease; no dependency. Test additions may outweigh production deletion in total-maintained-code terms. | Root client tests, G-RUNTIME, and FAST wire/static checks. | Rejected: the shared attempt/accounting conversions already eliminate the major repetition; origin-only factoring has too little projected saving for the extra abstraction and test surface. |
 | P04.6 only a specific proven unreachable private symbol/dependency | Keep all exported APIs, runtime compatibility paths, migrations, provider branches, HEEx callbacks/hooks, build-tag paths, fixtures, and harness entrypoints. | No dead private symbol has been identified in the inspected P04.1–P04.4 owners. `staticcheck` is not installed in the pinned environment; no browser/provider-only reachability claim is inferred. | No deletion until a concrete candidate has complete static and dynamic-boundary evidence. | No justified size direction; broad automated deletion would risk supported entrypoints and does not establish reachability. | Owner-specific tests and FAST; broader boundary only if an exact candidate requires it. | Rejected: no proven unreachable residue is in the inventory. |
 
@@ -253,7 +253,8 @@ missing observable contract before changing its owner.
   oracle was changed. A complete accepted FAST run is still required.
 - **Risks/follow-up:** reassess net bytes across all P04 changes at P05 and
   report honestly if the selected work does not reduce the actual task
-  context. Rerun FAST after resource contention subsides and retain its report.
+  context. A later accepted FAST run covers this change and P04.1–P04.3; see
+  P04.4 for its exact report identity.
 
 ### P04.3 Reduce repeated fold assignments
 
@@ -281,6 +282,64 @@ missing observable contract before changing its owner.
   (+1,407) and from 1,138 to 1,184 lines (+46). The frozen profile context
   grew from 256,555 to 257,544 bytes (+989) and from 7,369 to 7,398 lines
   (+29). This phase reduces production source but not the full context.
-- **Risks/follow-up:** run the final accepted FAST gate when the runner's Docker
-  lock and host contention permit it. Compare the complete frozen contexts at
-  P05 before claiming that this work met the context-reduction objective.
+- **Risks/follow-up:** the final accepted FAST gate now covers the current
+  source. Compare complete frozen contexts at P05 before claiming that this
+  work met the context-reduction objective.
+
+### P04.4 Progress callback equivalence and outcome
+
+| Boundary | Simple `Execute` path | Explicit recovery path | Invariants for tests and extraction |
+| --- | --- | --- | --- |
+| No progress callback | Guard returns before sequence increment or callback. | Guard returns before sequence increment or callback. | No global sequence or observer; callbacks remain per call. |
+| Preflight failure / no planned work | `run.started` is emitted before context, credentials, prepare, and cache checks; deferred `run.terminal` still follows. | `emit` ignores nil `work`; prepare failure or initial expired context can produce no snapshots, including no terminal. | Preserve intentionally different start and terminal boundaries. |
+| Before first provider attempt | No extra pre-attempt progress event; `run.started` precedes preflight and cache lookup. | After planned work is ready, `run.started` precedes cache lookup and a `run.progress` event precedes each attempt. | Preserve event names, order, sequence, and active work identity. |
+| Stream and completed attempt | Stream callback adds its current counters to accumulated diagnostics; completed attempt is appended before the next progress snapshot. | Same counter rule; stage, branch, profile, and reasoning come from active planned work. | Snapshot attempt slices, optional accounting, and timeout values are copies; stream counters do not alias record totals. |
+| Cache hit | `run.started`, then deferred `run.terminal`; no attempts. | With prepared work, `run.started`, then deferred `run.terminal`; loop progress is skipped. | Preserve zero-attempt snapshots and cache event placement. |
+| Deadline | Expired context after start emits terminal through the defer. | Expired context detected before `startedAt` and defer emits no event; later expiry after planned work emits terminal. | Keep path-specific boundary and exact `config.Now` sampling order for elapsed, activity, and remaining time. |
+| Terminal failure | Deferred terminal is emitted after stop reason and diagnostics are finalized. | Deferred terminal is emitted only when planned work exists; otherwise nil-work guard suppresses it. | Keep sequence advancement, callback guards, transitions, scheduling, and error ownership in each loop. |
+
+**Baseline coverage record:** public `Execute` callers had no direct
+`ProgressSnapshot` callback assertions in `internal/runtime`. Existing provider
+normalization covers `PreparedOperation.StreamProgress`; SSE and Node progress
+tests cover later boundaries only. Do not infer callback parity from REST
+serialization tests.
+
+**Change and coverage:** introduced package-private
+`buildProgressSnapshot` and replaced only the two duplicated snapshot field
+builders. Both callers still own event guards, per-call sequence, active stream,
+event identity, and callback timing. TEST-284 observes public `Execute`
+callbacks for both paths, including their intentional preflight and nil-work
+differences, stream and completed-attempt counters, cache hits, terminal
+failure, deadline sampling, and copy isolation. The test is in
+`internal/runtime/repair_test.go`; no production API or wire contract changed.
+
+**Focused evidence:**
+
+- `go test ./internal/runtime -run '^TestProgressSnapshotContracts$' -count=1` — passed.
+- `go test ./internal/runtime -count=1` — passed.
+- `go test . ./internal/runtime ./internal/retry ./internal/cachekey -count=1`
+  (G-RUNTIME) — passed.
+- `go test ./internal/gateway/httpapi -run '^TestSSE' -count=1 -timeout=60s`
+  (G-STREAM) — passed.
+- `node --test scripts/test/run_progress_test.mjs` — 4/4 passed.
+- `go test -race ./internal/runtime ./internal/gateway/httpapi -count=1`
+  (G-RACE) — both packages passed.
+- Pinned-toolchain `make test-fast` — all 10 tasks passed, exit 0, with zero
+  cleanup errors or warnings. Report:
+  `tmp/test-feedback/runner-1790129522551-1696759-d18f83710c4b2523.json`,
+  SHA-256 `e613f1e85cd9486c0facdac55be87afa361dbaf7a8046b6e6943d833130aa984`.
+  It includes `go-static`, `runner-contracts`, `go-unit`, `go-parity`, `go-api`,
+  `go-observability`, `frontend-deterministic`, `client-core`,
+  `run-progress-client`, and `widget-traceability`.
+
+**Measured size direction:** from the P04.3 source, the two production owners
+fell by 1,005 bytes and 3 lines combined. TEST-284 added 20,459 bytes and 433
+lines to `repair_test.go`. The frozen runtime progress/accounting context grew
+from 278,837 to 298,291 bytes (+19,454): application source fell by 1,005
+bytes, while tests grew by 20,459. This phase reduces production code but
+increases the complete task context. CR-A04 cannot be claimed from this result.
+
+**Risk / follow-up:** preserve the exact path differences documented above.
+The sharing is a small production-source reduction and is not a context-size
+win when its regression tests are included. P05 must report this as a tradeoff;
+do not remove the regression coverage to manufacture a smaller context.
