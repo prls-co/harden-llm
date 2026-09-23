@@ -713,14 +713,18 @@ on the isolated feature branch in 2m17s. Browser-free RELEASE run
 also completed successfully on that same source; its `make test-release` step
 ran for 12m42s. Redacted report artifacts were uploaded by the workflows:
 
-- FAST report `runner-1790171831961-2645-f775719601ca3f16.json`: accepted,
-  all 10 tasks passed; SHA-256
+- FAST report
+  `tmp/test-feedback/hosted-p04.9/runner-1790171831961-2645-f775719601ca3f16.json`:
+  accepted, all 10 tasks passed; SHA-256
   `12ad352bb511700d0841bd40e6b886b8c175a5b558d99f64242ea0f15e14584c`.
-- RELEASE report `runner-1790172663629-2475-1551ef444807cfde.json`: accepted,
-  all 28 tasks passed; SHA-256
+- RELEASE report
+  `tmp/test-feedback/hosted-p04.9/runner-1790172663629-2475-1551ef444807cfde.json`:
+  accepted, all 28 tasks passed; SHA-256
   `24490f0c3262a513854ef0217844d2ba2cf5974c40cbf8ef7a6f12b0b80517d2`.
-- INTEGRATION report `runner-1790172568505-56196-3730f1a0dbc090ac.json` and
-  INTEGRATION-RACE report `runner-1790172613727-58687-2efcd1494d3b1f79.json`:
+- INTEGRATION report
+  `tmp/test-feedback/hosted-p04.9/runner-1790172568505-56196-3730f1a0dbc090ac.json`
+  and INTEGRATION-RACE report
+  `tmp/test-feedback/hosted-p04.9/runner-1790172613727-58687-2efcd1494d3b1f79.json`:
   each accepted its single task; SHA-256 values are respectively
   `2916ceaf68b06a340bde5b18c4992c9220906377c96cb25220875be9edddcda3` and
   `82bb3f977c0a2a03c48a77fc293d93c638050913573b3f93f55632dd609bfb85`.
@@ -923,12 +927,22 @@ unmet.
 
 - Current P04.9 application source:
   `cf14628eef80312fe0b03fefd3bed2d3e301860c` passed hosted FAST and
-  browser-free RELEASE on `feat/workspace-schema-context`; it has not yet been
-  promoted to `main`. The previous main application source is
-  `bafa62255d0a5b111253b3baf18d27d0091161b4` at documentation tip
-  `e988207a939d28087b888adddf69e2273aa63a5e`. No image publication is active
-  for this repository; the retired GHCR publisher is not used. The P04.9
-  refactor has not been deployed.
+  browser-free RELEASE on `feat/workspace-schema-context`; it is now included
+  on GitHub `main` (first promotion tip
+  `42c64d80e094a6c591eca3fc81ca30500f86f554`). Main FAST run
+  [35874387028](https://github.com/prls-co/harden-llm/actions/runs/35874387028)
+  passed all 10 tasks with no first/preflight failure or cleanup errors; its
+  redacted report
+  `tmp/test-feedback/hosted-main-42c64d8/runner-1790173835363-2556-1ef9701f382a2bb6.json`
+  has SHA-256
+  `4f73d95d7c532ec740ce918665310367e639b18f52027860a7effc966d817519`.
+  CodeQL run
+  [35874386762](https://github.com/prls-co/harden-llm/actions/runs/35874386762)
+  passed on the same main SHA. The main branch-environment workflow
+  [35874713324](https://github.com/prls-co/harden-llm/actions/runs/35874713324)
+  completed without deploying a branch preview or production service. No image
+  publication is active for this repository; the retired GHCR publisher is
+  not used. The P04.9 refactor has not been deployed.
 - The selected production backup procedure is a cold snapshot, since its
   maintenance window is acceptable. `docs/self-hosting.md` requires a tested
   restore on another host. No named Harden-LLM encrypted destination or
