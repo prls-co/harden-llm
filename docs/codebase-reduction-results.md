@@ -343,3 +343,80 @@ increases the complete task context. CR-A04 cannot be claimed from this result.
 The sharing is a small production-source reduction and is not a context-size
 win when its regression tests are included. P05 must report this as a tradeoff;
 do not remove the regression coverage to manufacture a smaller context.
+
+## P05 — Final verification and measured outcome
+
+### P05.1 Applicable gates and complete diff
+
+- The refactor source is at `c8d33d5ee3d1176cb62aa400044510d104764d6f`,
+  pushed to `origin/feat/codebase-reduction`. The full diff from the P03
+  refactor baseline is limited to the frozen size manifest, the result ledger,
+  the profile widget and its tests, the two runtime execution owners and their
+  callback regression, the plan/test catalog records, and test-tier
+  registration. No public Go export, OpenAPI, stored schema, migration,
+  provider behavior, or browser hook changed.
+- `git diff --check`, Go formatting, and the test-tier JSON parser passed.
+- The accepted FAST report recorded under P04.4 covers all 10 current T0–T2
+  tasks. G-RUNTIME, G-STREAM, N-PROGRESS, and G-RACE also passed on this source.
+- The required browser-free `make test-release` attempt was not accepted. Report
+  `tmp/test-feedback/runner-1790130239806-1960763-3097fd512a71ed97.json`,
+  SHA-256 `d5f5f6c68d26a0a83579ef737b3f5dc7bfdf6f12fa11db0456109b993d0caf7e`,
+  records one causal `runner-contracts` failure: TEST-272 cleanup-reporting and
+  process-group cases plus TEST-273 same-daemon serialization failed while
+  their child-process/event handling used 5-second bounds; an observed host
+  load sample reached 110.51. The
+  manager then canceled the race and frontend compile tasks with SIGTERM and
+  canceled later tasks. `go-integration`, `go-unit`, `go-api`, and other
+  completed tasks passed; cleanup errors/warnings were zero. The release gate
+  remains incomplete. No test assertion, timeout, or worker policy was changed.
+- **Follow-up:** rerun the exact `make test-release` gate after host pressure
+  has dropped and only one managed runner is active. If runner-contracts fails
+  again under a quiet sample, investigate the first concrete failure before
+  changing a test or resource limit.
+
+### P05.2 Frozen size and context result
+
+The official measurement is `tmp/codebase-reduction/after-p04.4.json`,
+SHA-256 `9aaff335c2cb36ab930c2c6996d68bd386f651a6b27fe122fa0e6f9980863878`.
+It measures clean refactor source `c8d33d5ee3d1176cb62aa400044510d104764d6f`
+against the P03 baseline `81206faa09d3da2289d956716475e20cccb9bd0a`, using the
+unchanged tracked-path classifier. Tokens remain unmeasured; these byte counts
+are a reproducible proxy, not an exact GPT-5.6 Luna token estimate.
+
+| Representative maintenance context | Baseline bytes / lines | P04.4 bytes / lines | Delta |
+| --- | ---: | ---: | ---: |
+| Profile option or recovery control | 252,359 / 7,253 | 257,544 / 7,398 | +5,185 / +145 |
+| Workspace draft or history behavior | 506,057 / 14,792 | 503,947 / 14,724 | -2,110 / -68 |
+| Runtime progress or accounting | 278,837 / 6,806 | 298,291 / 7,236 | +19,454 / +430 |
+
+The maintained application category fell from 1,317,088 bytes / 38,084 lines
+to 1,313,973 / 38,013 (-3,115 bytes / -71 lines). Tests grew by 27,782 bytes /
+647 lines and documents grew by 26,580 bytes / 243 lines; contracts and
+tooling were unchanged. Summed maintained categories therefore grew by 51,247
+bytes / 819 lines. These measurements do not establish a whole-codebase or
+context-window reduction.
+
+The workspace context is smaller because its shared profile component lost
+2,110 bytes. The profile context grew from its required WEB-TEST-044 assertions,
+and the runtime context grew from TEST-284. CR-A04 is **not met**: one context
+became smaller while two became larger through required tests. Keep those tests;
+do not mark the stated context objective achieved. The selected candidate
+inventory is exhausted, so any further work aimed at net task-context reduction
+needs a new high-yield candidate review rather than a claim that this plan met
+its size goal.
+
+### P05.3 Delivery state and remaining evidence
+
+- Current verified refactor checkpoint: `c8d33d5ee3d1176cb62aa400044510d104764d6f`
+  on `feat/codebase-reduction`, pushed to GitHub. It has not been promoted to
+  `main`, published, or deployed.
+- Production remains pending an approved encrypted off-host destination and
+  isolated restore host. The runbook in `docs/self-hosting.md` requires
+  failure-domain backups and an actual restore on another host before upgrade.
+- Browser layout and public-provider behavior were not run under repository
+  policy. No production component image or post-deployment identity exists for
+  this refactor.
+- No confirmed serious code defect was found in the five P02 review boundaries.
+  The current blockers are the unmet CR-A04 context criterion, incomplete
+  browser-free release certification, and missing off-host restore selection
+  and proof.
