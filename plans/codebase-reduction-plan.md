@@ -866,6 +866,86 @@ the original suite. For later changes that touch those host paths, run the
 profile component suite and the affected workspace/embedding suite in addition
 to the focused editor module.
 
+### P03.5 Re-review the remaining broad context misses
+
+Keep the original P03 manifest and before totals frozen. Review the P04.8
+workspace draft/history context for a concrete cross-concern block whose
+behavior and tests can move to a separate owner without weakening assertions.
+The selected candidate is the contracted JSON Schema shorthand conversion and
+validator currently embedded in `WorkspaceLive`, together with its schema-only
+LiveView cases. It occupies a distinct rendering/validation concern from draft
+serialization and History lifecycle. Do not move schema fields out of the
+workspace state, the generic schema decoder used by draft restore, or the
+run-gating owner.
+
+The candidate is accepted only if the after-context path set excludes the new
+schema module and schema-only test module for the frozen *draft/history*
+maintenance task with a written dependency rationale, and the measured context
+falls after every required draft/history helper and test remains included.
+Keep `state_schema/1` in `WorkspaceLive`; the new module handles only schema
+editing and structured-run validation, while draft restore/save parses a schema
+value as state data. Retain the module and tests in a separate schema
+maintenance context. If that dependency rationale is not accurate, or the
+frozen workspace context does not fall, revert P04.9 and record the result
+rather than changing P03's baseline.
+
+### P04.9 Give contracted schema conversion its own owner
+
+**Owner:** `WorkspaceLive` currently owns schema shorthand conversion,
+normalization, contracted-subset validation, status text, and schema gating.
+Move only shorthand conversion and validation plus their fixed keyword/type
+tables to a small `HardenLlmWeb.WorkspaceSchema` module. Keep defaults,
+workspace state decoding/normalization, event handling, form assignment,
+persistence, status presentation, and Run lifecycle in `WorkspaceLive`.
+Preserve all existing return tuples, error text, blank-input behavior,
+text-mode behavior, property ordering, recursive validation, JSON Pointer
+escaping, and schema form serialization.
+
+Move `WEB-TEST-057` and the separate invalid-local-JSON LiveView test, with
+their assertions unchanged, to a schema-focused test module. Keep combined
+workspace parity, draft persistence, default rendering, and run-payload tests
+in `workspace_live_test.exs`. Update the canonical test-spec path for
+`WEB-TEST-057`; do not change its ID or oracle. Add no browser, dependency, or
+second schema dialect.
+
+Implementation steps:
+
+1. Record the exact schema-owned definitions and callers, and run the current
+   focused workspace suite as a baseline. The pinned-toolchain
+   `mix test test/harden_llm_web/live/workspace_live_test.exs` baseline passed
+   all 57 tests. Confirm the schema cases selected for relocation are
+   behaviorally independent from draft/history assertions.
+2. Add a pure module API for the extracted operations and unit-level tests for
+   any behavior not already observable in the retained LiveView assertions.
+   Keep UI status maps and socket changes with `WorkspaceLive`.
+3. Route shorthand generation, contracted validation, and schema checks through
+   the new module. Leave HEEx status functions local to `WorkspaceLive`; preserve
+   exact HTML messages, run payloads, persistence, and request count.
+4. Relocate the two schema-only tests without removing or rewriting assertions.
+   Keep test IDs and canonical catalog references traceable. Do not duplicate
+   general workspace stub logic if the schema cases can use a small private
+   fixture setup.
+5. Format, run the schema-focused module and the remaining workspace LiveView
+   suite, then run `make test-fast`. Recompute all three frozen whole-file
+   contexts and category totals; include any helper actually needed by a
+   draft/history change. Run the hosted browser-free release gate on the exact
+   final source. Browser tests remain opt-in.
+
+**Acceptance:** workspace draft/history context is smaller after dependency
+accounting; all moved and retained test assertions pass; no event, wire,
+storage, schema, or UI contract changes; other frozen context totals do not
+increase from this phase. This is a task-context reduction and module-boundary
+change, not a claim that moving code alone shrinks total application bytes.
+
+**Risks / aftercare:** the schema module remains required for schema editing
+and structured-run validation, so it belongs in that focused task context.
+Draft restore keeps its state decoder in `WorkspaceLive`, avoiding a dependency
+from draft/history work to the validator. Keep `WEB-TEST-057` end-to-end
+coverage; a pure module test cannot prove Run gating or absence of backend
+mutation. If the extraction adds helper dependencies to draft/history work or
+causes a byte-neutral/larger context, revert the phase and keep the current
+implementation.
+
 ## 10. P05 — Final verification, measurement, and handoff
 
 ### P05.1 Review the complete change against the post-repair baseline
@@ -929,6 +1009,7 @@ against its own intended candidate as in P01.
 | P03.2 context baseline | Complete | Three whole-file task sets and per-category byte/line totals are frozen in `docs/codebase-reduction-manifest.json`. |
 | P03.3 deletion inventory | Complete | The six original candidates and their evidence are recorded in `docs/codebase-reduction-results.md`. |
 | P03.4 focused-context candidate review | Complete | CR-A04 missed; TEST-284's 433-line contract was appended to the broad repair suite. P04.7 is selected only as a test-context organization candidate; it preserves the existing oracle and must prove a net saving with required fixtures included. |
+| P03.5 post-P04.8 broad-context review | Complete | The contracted schema shorthand/validator block and schema-only LiveView cases form a separate owner from workspace draft/history. Draft schema decoding remains in `WorkspaceLive`; the schema helper and focused schema suite are not required to change draft/history behavior. P04.9 measured the frozen context after required files. |
 | P04.1 option markup | Complete | WEB-TEST-044/090 pin exact numeric and checkbox matrices; F-WIDGET passed 32 and FAST passed all 10 tasks. Production owner shrank 1,208 bytes / 29 lines; full profile context grew 2,256 bytes from necessary tests. See P04.1 record in the results ledger. |
 | P04.2 model-list reuse | Complete | WEB-TEST-044 checks the three rendered consumers across profile/catalog/custom-model changes and separate renders; F-WIDGET/profile-definition passed 31. Production source fell 484 bytes / 22 lines, while the frozen profile context grew 1,940 bytes / 46 lines from test coverage. The final accepted FAST report covers the current source; see results ledger. |
 | P04.3 fold assignments | Complete | WEB-TEST-044 exercises full and partial callback assigns, explicit false, nil, invalid, omitted values, and separate target config state. F-WIDGET/profile-definition/embedding passed 34. Production source fell 418 bytes / 17 lines; full profile context grew 989 bytes / 29 lines from regression coverage. The final accepted FAST report covers the current source; see results ledger. |
@@ -937,8 +1018,9 @@ against its own intended candidate as in P01.
 | P04.6 unreachable residue | Rejected with evidence | No exact unreachable private symbol has been proven; retain supported dynamic boundaries. See inventory. |
 | P04.7 progress test context | Complete | TEST-284 is isolated and its focused context fell 12,810 bytes / 120 lines. Focused Go and runtime race checks passed. After recording and correcting the 100 ms LiveView handshake failure, hosted FAST run 35818091415 passed all 10 tasks on `a6a7bdd` with 247 frontend tests; the stale-loading failure did not recur but remains unexplained. Browser-free hosted release run 35818416126 then passed all 28 tasks on that same source. |
 | P04.8 profile editor test context | Complete | Three editor contract tests moved with their exact test/helper bodies; all 17 old/new component tests pass and the focused task context fell 161,788 bytes / 4,737 lines. The frozen broad profile context grew 707 bytes / 19 lines against the P04.7 tree and 5,892 bytes / 164 lines against the P03 baseline; CR-A04 remains unmet. Hosted FAST run 35821407815 and browser-free release run 35821617071 passed on `bafa622` with 247 frontend tests. The local FAST timeout remains recorded. |
-| P05.1 final verification | Complete | Exact final application source `bafa622` passed hosted FAST run 35821407815 and browser-free release run 35821617071; release accepted all 28 tasks plus separate integration and integration-race selectors. Local shared-host timeouts remain recorded; browser/provider suites were not requested or run. |
-| P05.2 result/handoff | In progress | Final category/context measurements, failed local reports, and the unmet CR-A04 finding are recorded. Main promotion is complete at `e988207`. User selected cold snapshot, but no dedicated Harden-LLM encrypted destination or separate restore host is documented; production is deferred until provisioned and a restore passes. Exact production image and deployed component identities do not yet exist. |
+| P04.9 workspace schema ownership | In progress | `WorkspaceSchema` owns shorthand conversion and contracted-subset validation; state decoding, UI/status, persistence, and Run lifecycle remain in `WorkspaceLive`. WEB-TEST-057 and invalid-local-JSON coverage moved unchanged to the focused schema suite. Workspace draft/history context is 491,960 bytes / 14,336 lines (-14,097 / -456 from P03); all three contexts are in `contexts-after-p04.9.json`. The combined workspace/schema suite passed 57 tests, the canonical schema suite passed 2 tests, and formatting passed on the final code. Two full local `make test-fast` attempts failed in runner contracts; the latest passed 9/10 tasks and failed TEST-273 after its nested child timed out, with frontend artifact cleanup reporting `ENOTEMPTY`. A separate 10,000-item clustering cohort was active immediately afterward, which suggests but does not prove shared-host pressure. The same nested case passed in 5,515 ms on the earlier accepted FAST run. At the 06:21 PT readiness check the cohort was active and swap was full; at 06:43 load exceeded 400 and unrelated I/O-heavy processes were present. Details and report hashes are in the results ledger. Do not retry until host pressure settles; then require full local FAST and hosted browser-free release on exact final source. |
+| P05.1 final verification | In progress | Prior exact source `bafa622` passed hosted FAST/release (35821407815/35821617071), but P04.9 changes frontend code and needs new exact-source browser-free FAST/release certification. Local shared-host failure evidence and limits are recorded in P04.9. Browser/provider checks remain opt-in and unrun. |
+| P05.2 result/handoff | In progress | P04.9 adds a new focused context measurement; whole-source totals and final delivery evidence need refresh after P04.9 certification. Main promotion of `bafa622` is complete at `e0a235c`. User selected cold snapshot, but no dedicated Harden-LLM encrypted destination or separate restore host is documented; production is deferred until provisioned and a restore passes. Exact production image and deployed component identities do not yet exist. |
 
 Allowed status values: `Pending`, `In progress`, `Complete`, or `Rejected with
 evidence` for P04 candidates. A blocked prerequisite stays unfinished with the

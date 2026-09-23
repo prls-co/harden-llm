@@ -616,6 +616,97 @@ original suite. For later changes to those host paths, run the profile component
 suite and the affected workspace/embedding suite along with the focused editor
 module.
 
+### P04.9 Contracted schema owner and workspace context
+
+The post-P04.8 review found the contracted JSON Schema shorthand conversion and
+validator embedded in `WorkspaceLive`, separate from workspace draft and
+History ownership. The new `HardenLlmWeb.WorkspaceSchema` module owns
+shorthand conversion, contracted-subset validation, keyword/type tables, and
+schema-specific diagnostics. `WorkspaceLive` retains schema decoding for
+workspace state, status presentation, event handling, persistence, and Run
+lifecycle. This keeps draft restore/save independent of the new validator.
+
+`WEB-TEST-057` and the existing invalid-local-JSON LiveView test moved to
+`frontend/test/harden_llm_web/live/workspace_schema_live_test.exs`. Their test
+bodies and assertions are unchanged; only the stub helper name and minimal
+module-local fixture setup changed. The canonical frontend test spec now points
+WEB-TEST-057 to the focused module. The combined workspace plus schema command
+passed 57 tests after the final state-decoder ownership adjustment; the
+canonical schema-only command passed 2 tests. The pinned-toolchain formatter
+check passed after the final ownership adjustment.
+
+The workspace LiveView fell from 79,167 bytes / 2,427 lines to 69,655 bytes /
+2,132 lines (-9,512 bytes / -295 lines), with a new 9,651-byte / 308-line
+schema module. The application source in these files therefore grows by 139
+bytes / 13 lines. The general workspace test file fell from 115,192 bytes /
+3,323 lines to 112,205 bytes / 3,216 lines (-2,987 bytes / -107 lines), while
+the focused schema test file adds 4,488 bytes / 158 lines. These changed source
+and test files grow by 1,640 bytes / 64 lines combined. This phase improves
+task boundaries; it is not a whole-repository byte reduction.
+
+For the frozen draft/history task, the schema helper module and focused
+schema-only test module are excluded: state decoding, draft persistence, and
+History lifecycle stay in `WorkspaceLive`, and the moved LiveView assertions
+cover schema editing and Run gating as a separate maintenance concern. With
+that dependency rationale, the workspace context fell from 506,057 bytes /
+14,792 lines to 491,960 bytes / 14,336 lines (-14,097 bytes / -456 lines).
+The profile context remains +5,892 bytes and the runtime context +20,745 bytes
+from P03 because of required regression coverage. The full context artifact is
+`tmp/codebase-reduction/contexts-after-p04.9.json`, SHA-256
+`7f797a42164e2bc5f87fc7f17e9d022ea807933db763085e6a1154b48d7b84bf`; the P03
+manifest and baseline remain unchanged.
+CR-A04 is still not met.
+
+**Checks:** the original `mix test
+test/harden_llm_web/live/workspace_live_test.exs` baseline passed 57 tests. The
+final combined command
+`mix test test/harden_llm_web/live/workspace_schema_live_test.exs
+test/harden_llm_web/live/workspace_live_test.exs` passed 57 tests. The final
+`mix format --check-formatted` and `git diff --check` passed.
+
+A local `make test-fast` attempt on the first P04.9 candidate was rejected; it
+is not acceptance evidence for the final tree. Redacted report
+`tmp/test-feedback/runner-1790167851782-145909-aa51595e868c041e.json`, SHA-256
+`785e2eced0e1078abd20a7b00e3828696c92f6856c503a686b15564e9fe01bfd`, records
+`runner-contracts` failure/timeout after 181,144 ms. Its Node child tests had
+runner cancellation/abort timing failures and TEST-271 receipt cleanup could
+not establish the fake daemon identity; the coordinator then canceled
+`frontend-deterministic` with SIGTERM after 119,568 ms. The other eight fast
+tasks passed. During the run, a separate long `go test -p=1
+./internal/watch -run '^TestWatchMemoryEnvelope$'` was active; immediately after
+the run, host load was 608.57 / 385.57 / 164.38. This strongly suggests shared
+host contention but does not prove it caused every failure. No runner test was
+changed. A second full FAST attempt and its outcome are recorded below.
+Browser/provider checks remain unrun by policy.
+
+A second full P04.9 `make test-fast` attempt also failed and is not acceptance
+evidence. Report
+`tmp/test-feedback/runner-1790169118728-533565-858a8c432beb71c4.json`, SHA-256
+`1ca40eaf47f8f56c1aaf2bcf76d381bfa034fe9e7e4fea433382f2c97019a304`, records
+9 of 10 FAST tasks passing. `runner-contracts` passed 45 of 46 cases; TEST-273's
+nested managed-runner case timed out its child after 12,725 ms and then failed
+the unchanged `result.accepted` assertion. Cleanup also reported `ENOTEMPTY`
+while removing the canceled frontend Mix build's Hackney directory. At 06:14
+PT just after the run, load averages were 16.99 / 32.92 / 67.28 and a separate
+clustering 10,000-item resumed-pipeline capacity cohort was active. This is
+evidence of shared-host activity, not proof that it caused the nested timeout.
+The prior accepted local FAST report
+`tmp/test-feedback/runner-1790123518326-3801368-1d3470aa955088db.json` passed
+the same nested case in 5,515 ms, below its unchanged 10-second task deadline.
+No test assertion, timeout, or runner behavior was changed. Do not retry while
+that workload is active; rerun full FAST after a stable idle window, then
+require hosted FAST and browser-free release success on the exact final source.
+The 06:21 PT host-readiness recheck still showed 12 available CPUs, load
+averages 21.51 / 22.20 / 48.53, CPU PSI `some avg10=15.64`, only 2.8 GiB
+available memory, and all 8 GiB of swap in use. The clustering cohort was still
+running. Wait for that activity to clear and host pressure to settle before the
+next full run; do not kill or restart that separate workload.
+At the 06:43 PT recheck, load had climbed to 429.97 / 509.18 / 367.27. A
+read-only process sample showed the clustering cohort alongside unrelated
+dataset-host test-worker and service-probe activity, including I/O-waiting
+processes. No single cause is established; this is not a safe verification
+window.
+
 ## P05 — Final verification and measured outcome
 
 ### P05.1 Applicable gates and complete diff
