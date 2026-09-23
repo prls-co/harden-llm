@@ -432,8 +432,33 @@ gate predates the test move.
 **Post-change checks:** pinned-toolchain `mix format --check-formatted` passed.
 The four affected history/run tests passed with seed `104729`, and the complete
 `HistoryTraceTest` and `WorkspaceLiveTest` modules passed 69 tests with seed
-`104729` and `--max-cases 8`. Run the full hosted FAST selector on the updated
-tree; local broad verification remains deferred while shared-host load is high.
+`104729` and `--max-cases 8`. The updated tree then passed hosted FAST run
+[35818091415](https://github.com/prls-co/harden-llm/actions/runs/35818091415)
+at source SHA `a6a7bdd832d77644869feb0a0d27ef3061a5fa92`: all 10 tasks accepted,
+no first failure, and zero cleanup errors or warnings. The frontend suite passed
+247 tests with 5 excluded. Its redacted artifact
+`harden-llm-runner-reports-35818091415-1-fast` has digest
+`8d1e1f6c965ad1b6d22ae40bea9ac78e8f830d1396e329db00564e668ca33072`; report
+`tmp/codebase-reduction-fast-35818091415/runner-1790137514745-2622-3a03e82a101450e3.json`
+has SHA-256 `b1466daa58b23591482d4175c5467decf6dcf4144fcc8d60686845c4bbcae932`.
+The separate stale-loading failure did not recur. It remains recorded as an
+unexplained transient; this passing run does not establish its cause.
+
+After the FAST pass, browser-free hosted release certification completed
+successfully on source SHA `a6a7bdd832d77644869feb0a0d27ef3061a5fa92` in run
+[35818416126](https://github.com/prls-co/harden-llm/actions/runs/35818416126).
+The `release` selector accepted all 28 tasks; its separate `go-integration` and
+`go-integration-race` selectors were also accepted. There was no first failure,
+timeout, cleanup error, or cleanup warning. The browser-free frontend suite
+passed 247 tests with 5 excluded. The redacted artifact
+`harden-llm-runner-reports-35818416126-1-release` has digest
+`sha256:c2d332d6202c0127535805b3e58692abd4610d8e2550a00bf0ec9a26b1006384`.
+Release report `runner-1790138475446-2410-a321407d20a2c58e.json` has SHA-256
+`bc97bc894998ef3b5a687296624b039c7c6e8b2495b634bf522e93a0dab8a935`; the
+`go-integration` and `go-integration-race` reports have hashes
+`9675f78439af7a3e952c2fd0f0ffbb59360556272b25e298e676bc4311dbc6fc` and
+`699561cef6dd3de636d6f58ab92eb9a7765cd9de34f1941cbe47dc79acd307b6`.
+This certifies the P04.7 tree only; P04.8 began afterward.
 
 The receive-bound change is recorded in
 [`ker/timeouts/rca/2026-09-22-test-liveview-request-start.json`](../ker/timeouts/rca/2026-09-22-test-liveview-request-start.json).
@@ -443,6 +468,57 @@ sample was below the timer's microsecond resolution and was excluded. The
 explicit 1,000 ms bound therefore has measured local headroom, while the
 separate stale-loading failure remains unexplained and must be observed on the
 updated hosted run.
+
+
+### P04.8 Profile editor contract context
+
+The broad profile component test file had grown to 43,483 bytes. Three adjacent,
+self-contained component tests were moved to
+`frontend/test/harden_llm_web/live/profile_widget_editor_contract_test.exs`:
+rendered numeric/capability controls, model consumers across fresh renders,
+and partial parent fold assignments. The three test bodies, their editor-only
+helpers, and the numeric assertion matrix were compared with the pre-change
+`a6a7bdd` source. Test bodies and helper assertions are unchanged; the existing
+`APIFixtures.profile_state/0` data is still the source for the shared `profile/2`
+fixture. The assertion matrix now lives once in
+`frontend/test/support/profile_widget_test_assertions.ex`. The extracted module
+uses `ExUnit.Case, async: true` and no longer needs ConnCase or a Req stub.
+The old and new component modules together still contain 17 test cases.
+
+The focused task measurement includes the six production files from the frozen
+profile owner set plus actual fixture, test-helper, and module dependencies. It
+replaces the monolithic profile component suite and its host/test setup with the
+focused contract module and its assertion helper. The measured context fell from
+362,449 bytes / 10,551 lines / 14 files to 200,661 bytes / 5,814 lines / 10
+files: -161,788 bytes and -4,737 lines. Raw data is
+`tmp/codebase-reduction/focused-profile-editor-after-p04.8.json`, SHA-256
+`b43664ef0b49a9f16d4b5e76d97bf88621ba0e9cc1d665397a35a1168295df03`; the
+measurement script is `tmp/codebase-reduction/measure-focused-profile-editor.py`,
+SHA-256 `6d47efe2cdc1423c48d0591a86e0d7166a67599d06b2f51e1c4edaa93e7d37f4`.
+
+The frozen broad profile task was recomputed with both new files included. It
+increased from 257,544 bytes / 7,398 lines / 12 files at `a6a7bdd` to 258,251
+bytes / 7,417 lines / 14 files (+707 bytes / +19 lines). Raw data is
+`tmp/codebase-reduction/profile-broad-after-p04.8.json`, SHA-256
+`bb77c17fdd39bc1a085a8880e85e64096914c7d57bef86279ce641326cf8825a`; its
+script is `tmp/codebase-reduction/measure-profile-broad-after-p04.8.py`,
+SHA-256 `235c2bf824190d5e628e040b9087ad983ac5464d2202d59983fd38ed74d3b17b`.
+This phase improves the editor-specific task context but adds a small amount to
+the broad context; it is not a total code-size reduction and does not satisfy
+CR-A04.
+
+**Checks:** pinned-toolchain `mix format --check-formatted` passed. The focused
+component and editor modules passed 17/17 tests with seed `104729` and
+`--max-cases 8`, with no warnings. A local full `make test-fast` run was not
+accepted: after 311 seconds, `go-static`, `runner-contracts`, and `go-parity`
+timed out; `go-unit` was terminated and the remaining tasks were canceled after
+the first failure. At the failure, host load averages were 105.22 / 117.43 /
+65.21. The report recorded zero cleanup errors and warnings, and no test
+assertion failure. It is preserved at
+`tmp/test-feedback/runner-1790139495362-676242-872bdd2a0cd902a7.json`, SHA-256
+`167e653c918c48ddafb855e342cf0840040cf1d6df1a9a020b37635b9d491017`. This local
+run is a failure, not a pass. Hosted FAST and browser-free release validation
+are still required for the P04.8 source. Browser checks remain unrun by policy.
 
 ## P05 — Final verification and measured outcome
 
@@ -510,13 +586,21 @@ updated hosted run.
   10 tasks, but `frontend-deterministic` failed 2 of 247 included tests
   (`HistoryTraceTest` and `WorkspaceLiveTest`; 5 excluded). The detailed failure
   evidence, artifact/report hashes, and unresolved diagnosis are recorded under
-  P04.7 above. This means neither the P04.7 test layout nor P05.1 final
-  verification is complete; the earlier release pass remains valid only for
-  its recorded P04.4 application source.
-- This hosted pass establishes the browser-free release gate for the P04.4
-  application source and removes the need for another local service-backed
-  rerun under the shared host's continuing high load. Preserve the two failed
-  local reports as evidence; they are not retroactively passing. Do not change
+  P04.7 above. At that point the P04.7 test layout and final verification were still open;
+  the subsequent FAST and release runs below closed the P04.7 gates.
+- The updated tree then passed hosted FAST run
+  [35818091415](https://github.com/prls-co/harden-llm/actions/runs/35818091415)
+  at `a6a7bdd832d77644869feb0a0d27ef3061a5fa92`. All 10 tasks were accepted,
+  including 247 frontend tests with 5 excluded, and there were no cleanup
+  errors or warnings. The artifact and report hashes are recorded under P04.7.
+  The separate stale-loading failure did not recur; its cause remains unknown.
+- Browser-free hosted release certification completed on the P04.7 tree in
+  [run 35818416126](https://github.com/prls-co/harden-llm/actions/runs/35818416126)
+  at `a6a7bdd`; the accepted 28-task result and report hashes are recorded under
+  P04.7 above. P05.1 remains open because P04.8 subsequently changed tests and
+  test support; the final tree still needs hosted FAST and release gates.
+- The hosted release pass closes P04.7 and does not retroactively pass any
+  local failures. Preserve all failed local reports in the record. Do not change
   TEST-272/273 timing assertions, TEST-279 resource policy, or Garage timeouts
   based on those contaminated local runs. The hosted selector explicitly
   skipped browser and live-provider checks.

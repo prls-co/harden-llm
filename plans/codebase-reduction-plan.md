@@ -810,6 +810,41 @@ race boundary, and FAST pass. Keep the original frozen runtime-context result
 published unchanged and report this focused context separately. If measured
 dependencies erase the saving, revert this candidate and record that result.
 
+### P04.8 Isolate the profile editor contract context
+
+The profile component suite is a 43,483-byte whole-file context. Three adjacent
+tests that directly exercise the profile editor have a self-contained scope:
+the rendered numeric/capability matrix, model consumers across current renders,
+and partial parent fold assignments. Their test bodies and editor-only helpers
+occupy 5,656 bytes before module setup. Move those exact cases and private
+helpers to `frontend/test/harden_llm_web/live/profile_widget_editor_contract_test.exs`.
+Move the numeric matrix assertion helper to one shared test-support module so
+the existing live-render assertions and the extracted component test keep the
+same implementation and oracle. Reuse the existing canonical profile-state
+fixture rather than creating a narrower fake profile.
+
+The new module should use `ExUnit.Case, async: true`; it does not need the
+connection setup, Req stub, or other live-view integration helpers from the
+large suite. Preserve every assertion, test count, and test ID. Keep the
+relevant profile editor rendering and server-side update boundaries covered by
+their existing tests in the original suite.
+
+Measure the editor-contract task context before and after with production
+component/form dependencies and every needed test fixture/helper included. The
+baseline uses the full `profile_widget_component_test.exs`; the candidate uses
+the focused test module plus its actual helper dependencies. Also recompute the
+frozen broad profile context with all moved tests and helpers included. This is
+a context-boundary candidate: it is acceptable only if the focused task context
+falls materially without dropped test coverage. It does not claim a reduction
+in total repository bytes, and it cannot by itself satisfy CR-A04 if the frozen
+broad context grows. Keep P03's frozen manifest unchanged.
+
+**Checks:** run the focused module and the remaining component suite, then
+`make test-fast`; retain the browser-free release gate for the resulting exact
+tree. Browser checks remain opt-in. If the context measurement does not show a
+real task-context saving after helper dependencies, revert the split and
+record the rejection.
+
 ## 10. P05 — Final verification, measurement, and handoff
 
 ### P05.1 Review the complete change against the post-repair baseline
@@ -879,9 +914,10 @@ against its own intended candidate as in P01.
 | P04.4 progress construction | Complete | TEST-284 preserves both callback paths; runtime and focused race tests, N-PROGRESS, and FAST passed. Production source fell 1,005 bytes / 3 lines, but the full runtime context grew 19,454 bytes because the required regression added 20,459 bytes / 433 lines. See results ledger; this is not a context-size win. |
 | P04.5 result projections | Rejected with evidence | Attempt/accounting conversions are already shared; origin-only factoring has too little projected saving for added abstraction/test surface. See inventory. |
 | P04.6 unreachable residue | Rejected with evidence | No exact unreachable private symbol has been proven; retain supported dynamic boundaries. See inventory. |
-| P04.7 progress test context | In progress | TEST-284 is isolated and its focused context fell 12,810 bytes / 120 lines. Focused Go and runtime race checks passed. Hosted FAST run 35815208694 at `a843390` failed two Phoenix tests; blocked-request handshakes now have evidence-backed explicit 1,000 ms bounds (RCA under `ker/timeouts/rca/`) and the affected Phoenix modules passed locally (69/69), but the stale-loading failure has not reproduced locally or been cleared by hosted validation. Evidence and hashes are in the results ledger. |
-| P05.1 final verification | In progress | The P04.4 application source passed hosted browser-free `make test-release` (28/28 tasks) at run 35811904032 / SHA `1b75728`; report and artifact hashes are recorded. P04.7 test-layout source has not passed hosted FAST (run 35815208694); validate the updated tree and repeat applicable gates. Local failures remain recorded as failures under extreme shared-host load; browser/provider suites were not requested or run. |
-| P05.2 result/handoff | Complete | Frozen context measurements, category totals, rejected context-size claim, and delivery blockers are recorded in the P05 ledger. CR-A04 is not met; the overall plan remains in progress pending release certification, restore proof, and a new candidate review if net context reduction is still required. |
+| P04.7 progress test context | Complete | TEST-284 is isolated and its focused context fell 12,810 bytes / 120 lines. Focused Go and runtime race checks passed. After recording and correcting the 100 ms LiveView handshake failure, hosted FAST run 35818091415 passed all 10 tasks on `a6a7bdd` with 247 frontend tests; the stale-loading failure did not recur but remains unexplained. Browser-free hosted release run 35818416126 then passed all 28 tasks on that same source. |
+| P04.8 profile editor test context | In progress | Three editor contract tests moved with their exact test/helper bodies; all 17 old/new component tests pass and the focused task context fell 161,788 bytes / 4,737 lines. The frozen broad profile context grew 707 bytes / 19 lines after counting the moved tests and helper module, so CR-A04 remains unmet. Local FAST timed out under host load; hosted FAST and release on the P04.8 tree are still required. |
+| P05.1 final verification | In progress | The P04.7 tree passed hosted FAST and browser-free `make test-release` at run 35818416126 / SHA `a6a7bdd`, but P04.8 changed test/support files afterward. The current tree still needs hosted FAST and browser-free release gates. Local shared-host failures remain recorded; browser/provider suites were not requested or run. |
+| P05.2 result/handoff | In progress | Frozen and P04.8 focused-context measurements, category totals, rejected context-size claim, and delivery blockers are being recorded. CR-A04 is not met; production delivery remains pending a named off-host destination and tested restore. |
 
 Allowed status values: `Pending`, `In progress`, `Complete`, or `Rejected with
 evidence` for P04 candidates. A blocked prerequisite stays unfinished with the

@@ -115,6 +115,20 @@ defmodule HardenLlmWeb.APIFixtures do
     }
   end
 
+  def profile(profile_id, model_id) do
+    profile_state()
+    |> put_in(["profile", "llmProfile"], profile_id)
+    |> put_in(["profile", "modelId"], model_id)
+    |> put_in(["profile", "models"], [%{"id" => model_id, "label" => model_id}])
+    |> put_in(
+      ["profile", "defaultOptions"],
+      %{
+        "max_tokens" => 16_000
+      }
+    )
+    |> put_in(["credential", "credentialId"], "credential-#{profile_id}")
+  end
+
   def history_item(run_id \\ "run-test", trace_id \\ "trace-test", profile_id \\ "Primary") do
     result =
       run_result()
