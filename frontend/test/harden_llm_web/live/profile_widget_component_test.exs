@@ -3,7 +3,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
 
   import Phoenix.LiveViewTest, except: [live: 1, live: 2, live: 3]
 
-  alias HardenLlmWeb.{APIFixtures, HardenAPI, ProfileWidgetComponent}
+  alias HardenLlmWeb.{APIFixtures, HardenAPI, ProfileForm, ProfileWidgetComponent}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-044 TEST-044
   # PLAN-HLLM-WIDGET-PARITY-001 TEST-101 TEST-102 TEST-103 TEST-104 TEST-112 WEB-TEST-084 TEST-264 TEST-265 TEST-266 WEB-TEST-100 WEB-TEST-101 WEB-TEST-102
@@ -139,6 +139,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
       assert has_element?(view, selector), "missing options selector #{selector}"
     end
 
+    assert_numeric_option_matrix(render(view), "profile")
+
     assert has_element?(view, ~s(#profile_modelId[placeholder="gpt-5.6-luna"]))
     assert has_element?(view, ~s(#profile_baseUrl[placeholder="https://openrouter.ai/api/v1"]))
     assert has_element?(view, ~s(#profile_maxTokens[placeholder="16000"]))
@@ -214,6 +216,24 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     assert has_element?(view, "#profile-recovery-policy")
     refute render(view) =~ "Escalation"
     assert has_element?(view, ~s(#run_selectedProfileId[value="Primary"]))
+  end
+
+  test "profile editor option and capability controls keep their rendered contract" do
+    form = Phoenix.Component.to_form(ProfileForm.empty_form(%{}), as: :profile)
+
+    html =
+      render_component(&ProfileWidgetComponent.profile_editor/1,
+        form: form,
+        id_prefix: "profile",
+        target: "#profile-widget",
+        profiles: [],
+        options_open: true,
+        show_identity_fields: true,
+        host_context: "profile_definition"
+      )
+
+    assert_numeric_option_matrix(html, "profile")
+    assert_capability_checkbox_matrix(html)
   end
 
   test "two widget instances retain independent IDs, folds, and controls", %{conn: conn} do
@@ -471,6 +491,11 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
              view,
              ~s(input[name="profile[recoveryPolicy][rerun][target][maxTokens]"])
            )
+
+    assert_numeric_option_matrix(
+      render(view),
+      "profile[recoveryPolicy][rerun][target]"
+    )
 
     view
     |> element(~s(input[name="profile[recoveryPolicy][rerun][target][maxTokens]"]))
@@ -967,5 +992,79 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     render_async(view, 1_000)
     assert has_element?(view, ~s(#profile-recovery-maxAttempts[value="11"][aria-invalid="true"]))
     assert has_element?(view, "#profile-recovery-policy", "must be between 1 and 10")
+  end
+
+  defp assert_numeric_option_matrix(html, name_prefix) do
+    doc = LazyHTML.from_document(html)
+
+    expected = [
+      {"maxTokens", "Max Output Tokens", "16000", nil},
+      {"temperature", "Temperature", "0.2", "any"},
+      {"topP", "Top P", "0.95", "any"},
+      {"topK", "Top K", "40", nil}
+    ]
+
+    expected_names = Enum.map(expected, fn {field, _, _, _} -> "#{name_prefix}[#{field}]" end)
+
+    actual_names =
+      LazyHTML.query(doc, "input[type='number']")
+      |> LazyHTML.attribute("name")
+      |> Enum.filter(&String.starts_with?(&1, name_prefix <> "["))
+
+    assert actual_names == expected_names
+
+    targets =
+      Enum.map(expected, fn {field, label, placeholder, step} ->
+        name = "#{name_prefix}[#{field}]"
+        input = LazyHTML.query(doc, ~s(input[name="#{name}"][type="number"]))
+        assert Enum.count(input) == 1
+        assert LazyHTML.attribute(input, "min") == ["0"]
+        assert LazyHTML.attribute(input, "placeholder") == [placeholder]
+        assert LazyHTML.attribute(input, "phx-change") == ["profile-draft-change"]
+
+        assert LazyHTML.attribute(input, "step") == if(step, do: [step], else: [])
+
+        [id] = LazyHTML.attribute(input, "id")
+
+        assert LazyHTML.query(doc, ~s(label[for="#{id}"])) |> LazyHTML.text() |> String.trim() ==
+                 label
+
+        [target] = LazyHTML.attribute(input, "phx-target")
+        target
+      end)
+
+    assert Enum.uniq(targets) |> length() == 1
+  end
+
+  defp assert_capability_checkbox_matrix(html) do
+    doc = LazyHTML.from_document(html)
+
+    fields = [
+      {"supportsTemperature", "Supports temperature"},
+      {"supportsContractedStructuredOutput", "Supports contracted structured output"},
+      {"supportsWebSearch", "Supports native web search"}
+    ]
+
+    expected_names = Enum.map(fields, fn {field, _} -> "profile[#{field}]" end)
+    checkboxes = LazyHTML.query(doc, "input[type='checkbox']")
+
+    names =
+      LazyHTML.attribute(checkboxes, "name")
+      |> Enum.filter(&String.starts_with?(&1, "profile[supports"))
+
+    assert names == expected_names
+
+    Enum.each(fields, fn {field, label} ->
+      name = "profile[#{field}]"
+      pair = LazyHTML.query(doc, ~s(input[name="#{name}"]))
+      assert LazyHTML.attribute(pair, "type") == ["hidden", "checkbox"]
+      assert LazyHTML.attribute(pair, "value") == ["false", "true"]
+      assert LazyHTML.attribute(pair, "phx-change") == ["profile-draft-change"]
+      assert LazyHTML.attribute(pair, "phx-target") == ["#profile-widget"]
+      [id] = LazyHTML.attribute(pair, "id") |> Enum.reject(&(&1 == ""))
+
+      assert LazyHTML.query(doc, ~s(label[for="#{id}"])) |> LazyHTML.text() |> String.trim() ==
+               label
+    end)
   end
 end

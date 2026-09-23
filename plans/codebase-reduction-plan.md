@@ -833,7 +833,7 @@ against its own intended candidate as in P01.
 | P03.1 size baseline | Complete | Clean post-repair source `81206faa09d3da2289d956716475e20cccb9bd0a`; frozen tracked-path manifest and category totals are recorded in `docs/codebase-reduction-results.md`. |
 | P03.2 context baseline | Complete | Three whole-file task sets and per-category byte/line totals are frozen in `docs/codebase-reduction-manifest.json`. |
 | P03.3 deletion inventory | Complete | All six P04 candidates, owners, contracts, coverage gaps, size direction, and disposition are recorded in `docs/codebase-reduction-results.md`. |
-| P04.1 option markup | Pending | Literal field descriptors; same rendered contract. |
+| P04.1 option markup | Complete | WEB-TEST-044/090 pin exact numeric and checkbox matrices; F-WIDGET passed 32 and FAST passed all 10 tasks. Production owner shrank 1,208 bytes / 29 lines; full profile context grew 2,256 bytes from necessary tests. See P04.1 record in the results ledger. |
 | P04.2 model-list reuse | Pending | Recompute once per render. |
 | P04.3 fold assignments | Pending | Preserve missing/false update semantics. |
 | P04.4 progress construction | Pending | Preserve separate execution paths. |

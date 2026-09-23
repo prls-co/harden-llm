@@ -30,6 +30,19 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
   @reasoning_options [{"lowest", "L"}, {"middle", "M"}, {"highest", "H"}]
 
+  @profile_capability_fields [
+    {:supportsTemperature, "Supports temperature"},
+    {:supportsContractedStructuredOutput, "Supports contracted structured output"},
+    {:supportsWebSearch, "Supports native web search"}
+  ]
+
+  @numeric_option_fields [
+    {:maxTokens, "Max Output Tokens", nil},
+    {:temperature, "Temperature", "any"},
+    {:topP, "Top P", "any"},
+    {:topK, "Top K", nil}
+  ]
+
   @recovery_categories [
     {"network", "Network errors"},
     {"rate_limit", "Rate limits"},
@@ -1390,6 +1403,12 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   attr(:fold_path, :string, default: nil)
 
   def profile_editor(assigns) do
+    assigns =
+      assign(assigns,
+        profile_capability_fields: @profile_capability_fields,
+        numeric_option_fields: @numeric_option_fields
+      )
+
     ~H"""
     <div id={"#{@id_prefix}-config-fields"} class="ullm-form-grid">
       <div class="ullm-options-grid">
@@ -1623,26 +1642,11 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         />
         <.field_error message={ProfileForm.field_error(@field_errors, "provider")} />
         <.input
-          field={@form[:supportsTemperature]}
-          id={field_id(@id_prefix, @form[:supportsTemperature].id)}
+          :for={{field, label} <- @profile_capability_fields}
+          field={@form[field]}
+          id={field_id(@id_prefix, @form[field].id)}
           type="checkbox"
-          label="Supports temperature"
-          phx-change="profile-draft-change"
-          phx-target={@target}
-        />
-        <.input
-          field={@form[:supportsContractedStructuredOutput]}
-          id={field_id(@id_prefix, @form[:supportsContractedStructuredOutput].id)}
-          type="checkbox"
-          label="Supports contracted structured output"
-          phx-change="profile-draft-change"
-          phx-target={@target}
-        />
-        <.input
-          field={@form[:supportsWebSearch]}
-          id={field_id(@id_prefix, @form[:supportsWebSearch].id)}
-          type="checkbox"
-          label="Supports native web search"
+          label={label}
           phx-change="profile-draft-change"
           phx-target={@target}
         />
@@ -1670,47 +1674,14 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         <div :if={@options_open} id={"#{@id_prefix}-options"} class="ullm-options-body">
           <div class="ullm-options-grid">
             <.input
-              field={@form[:maxTokens]}
-              id={field_id(@id_prefix, @form[:maxTokens].id)}
+              :for={{field, label, step} <- @numeric_option_fields}
+              field={@form[field]}
+              id={field_id(@id_prefix, @form[field].id)}
               type="number"
-              label="Max Output Tokens"
+              label={label}
               min="0"
-              placeholder={ProfileDefaults.option_placeholder("maxTokens")}
-              class="ullm-input"
-              phx-change="profile-draft-change"
-              phx-target={@target}
-            />
-            <.input
-              field={@form[:temperature]}
-              id={field_id(@id_prefix, @form[:temperature].id)}
-              type="number"
-              label="Temperature"
-              min="0"
-              step="any"
-              placeholder={ProfileDefaults.option_placeholder("temperature")}
-              class="ullm-input"
-              phx-change="profile-draft-change"
-              phx-target={@target}
-            />
-            <.input
-              field={@form[:topP]}
-              id={field_id(@id_prefix, @form[:topP].id)}
-              type="number"
-              label="Top P"
-              min="0"
-              step="any"
-              placeholder={ProfileDefaults.option_placeholder("topP")}
-              class="ullm-input"
-              phx-change="profile-draft-change"
-              phx-target={@target}
-            />
-            <.input
-              field={@form[:topK]}
-              id={field_id(@id_prefix, @form[:topK].id)}
-              type="number"
-              label="Top K"
-              min="0"
-              placeholder={ProfileDefaults.option_placeholder("topK")}
+              step={step}
+              placeholder={ProfileDefaults.option_placeholder(to_string(field))}
               class="ullm-input"
               phx-change="profile-draft-change"
               phx-target={@target}

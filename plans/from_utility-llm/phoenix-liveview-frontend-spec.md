@@ -449,7 +449,7 @@ Compose, and deployed tags by default.
 
 | ID | Test | Target | Command | Pass criteria |
 | --- | --- | --- | --- | --- |
-| WEB-TEST-044 | Server-owned widget state matrix | `test/harden_llm_web/live/profile_widget_component_test.exs`, workspace/embedding tests | `mix test test/harden_llm_web/live/profile_widget_component_test.exs` | Public LiveView events and diffs cover compact no-tabs topology, all main/nested folds, profile/reasoning/web-search/cache/retry/repair transitions, uploads, tagged parent messages, capability-aware reasoning, and independent instances. |
+| WEB-TEST-044 | Server-owned widget state matrix | `test/harden_llm_web/live/profile_widget_component_test.exs`, workspace/embedding tests | `mix test test/harden_llm_web/live/profile_widget_component_test.exs` | Public LiveView events and diffs cover compact no-tabs topology, all main/nested folds, profile/reasoning/web-search/cache/retry/repair transitions, uploads, tagged parent messages, capability-aware reasoning, and independent instances. The profile editor's numeric options and capability checkboxes also retain exact ordering, names, labels, placeholders, number constraints, event targets, and hidden-false/checked-true checkbox pairs. |
 | WEB-TEST-045 | Async frontend ownership policy | `test/harden_llm_web/test_policy_test.exs`, `test/support/conn_case.ex`, affected deterministic tests | `mix test test/harden_llm_web/test_policy_test.exs` | Safe deterministic modules use `async: true` and private Req ownership; exactly the named SessionVault and observability global-state exceptions remain serial with rationale. |
 | WEB-TEST-046 | Pure client functional core | `frontend/assets/js/client_core.mjs`, `frontend/assets/test/client_core.test.mjs`, `test/harden_llm_web/boundary_test.exs` | `node --test frontend/assets/test/client_core.test.mjs` | Filtering, highlight wraparound, known/custom commit, Escape/blur, shortcut, and schema-pending decisions pass through the same production import; no package or DOM emulator is added. |
 | WEB-TEST-047 | Ordinary browser canaries | `test/browser/widget_canary_test.exs`, `test/browser/authenticated_workflow_canary_test.exs`, `test/browser/compose_smoke_test.exs` | `mix test --only browser --max-cases 1` | Exactly two ordinary canaries prove browser-owned event, hook, focus, overflow, authentication, run/reconnect/logout, and two-instance boundaries; Compose remains separate and release-only. |
@@ -667,7 +667,9 @@ deterministic LiveView/state suites; no browser or DOM emulator is implied. The
 plan is the source of truth for each test's exact oracle, phase, and command.
 
 - `WEB-TEST-090`: rendered rerun-repair fields use the sibling
-  `recoveryPolicy.rerun.jsonRepair` path and survive save/reload.
+  `recoveryPolicy.rerun.jsonRepair` path and survive save/reload; nested target
+  option fields preserve the same exact order, labels, names, placeholders,
+  number constraints, and event target as the workspace option editor.
 - `WEB-TEST-091`: six fixed node descriptors, three roles, explicit bindings,
   and rejection of unknown paths.
 - `WEB-TEST-092`: independent role overrides, inheritance, null/zero/false,
