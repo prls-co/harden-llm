@@ -385,13 +385,31 @@ do not remove the regression coverage to manufacture a smaller context.
   cross-class overlap. This run does not distinguish Garage behavior under
   load from a Garage defect; the focused integration-race check has not yet
   been repeated without the concurrent Go race task.
-- **Follow-up:** wait until the five-minute load average is near the observed
-  pre-release baseline (8.22) and no test runner is active, then run
-  `make test-integration-race` alone. If it passes, record the scheduler
-  interference and add a machine-checked TEST-279 policy assigning the two
-  expensive race suites to the existing exclusive `release` resource class;
-  then rerun full release certification. If it fails in isolation, diagnose
-  the first Garage operation error. Do not increase timeouts or weaken tests.
+- The isolated hosted browser-free release workflow then passed on
+  [`1b75728`](https://github.com/prls-co/harden-llm/commit/1b75728b374fef0dd664d8e66eb16af2479ef783)
+  (source code is unchanged from `c8d33d5`; the intervening commit contains
+  documentation only). Run [35811904032](https://github.com/prls-co/harden-llm/actions/runs/35811904032)
+  selected `suite=release`; its `browser-free release` job completed
+  `make test-release` with all 28 tasks accepted, exit status zero, no
+  timeouts, no first failure, and zero cleanup errors/warnings. The separately
+  emitted `go-integration` and `go-integration-race` selector reports were also
+  accepted, including the Garage-backed route test that timed out locally.
+  The redacted artifact `harden-llm-runner-reports-35811904032-1-release` has
+  GitHub SHA-256 digest
+  `5faafecbb5b737d4ab0d5fe9d63682ca6b3fa364392b2f2d256d0cc066053803`; its
+  release report is
+  `runner-1790132693667-2625-9c91943a20aa5825.json`, SHA-256
+  `0b3733892d59a196b73f551defc5134344f221a9cd7e976f3625fa479957c96d`. The
+  integration reports are recorded beside it with hashes
+  `65260b4e483c9858dd49ce3bf9a16b65ff0490bc21ab520bf0a257a86c3e6921` and
+  `b1b5e59f30573ceee3cdc15a6c45ced42e813b9d137eeb2e42bb6b8da5ba164b`.
+- This hosted pass establishes the browser-free release gate for the P04.4
+  application source and removes the need for another local service-backed
+  rerun under the shared host's continuing high load. Preserve the two failed
+  local reports as evidence; they are not retroactively passing. Do not change
+  TEST-272/273 timing assertions, TEST-279 resource policy, or Garage timeouts
+  based on those contaminated local runs. The hosted selector explicitly
+  skipped browser and live-provider checks.
 
 ### P05.2 Frozen size and context result
 
