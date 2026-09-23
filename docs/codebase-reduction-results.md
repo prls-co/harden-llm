@@ -984,6 +984,18 @@ guidance. No node backup command or service existed in the source inventory.
   `govulncheck`. The scanner found no vulnerabilities reachable by the code;
   it reported three vulnerabilities in required modules that the code does not
   call.
+- The browser-free release selector ultimately accepted all 28 tasks, with no
+  timeout, failure, cleanup error, or warning. It includes the Compose smoke,
+  frontend release checks, and a final `make verify`. The retained report is
+  `tmp/test-feedback/runner-1790207427332-3776603-5de85572d0348ab7.json`.
+- The release run needed lockfile-pinned Elixir dependencies in the isolated
+  worktree. Docker's pool was full because an empty, test-owned
+  `harden-llm-smoke-4167581-1790110522106137767_harden-private` network from
+  2026-09-22 remained without endpoints or containers; only that network was
+  removed. A first parallel retry hit the existing two-second `TEST-049`
+  fixture-start wait, which passed when run alone in 256 ms. The accepted full
+  release rerun used one CPU candidate slot and did not change test assertions,
+  deadlines, or coverage.
 - Test fixes preserved their assertions: current v3 fixtures replaced stale v2
   profile fixtures, and the embedding DOM-ID regex now matches the actual
   `id` attribute rather than the suffix of `phx-value-node-id`.

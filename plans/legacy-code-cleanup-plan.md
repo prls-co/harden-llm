@@ -169,7 +169,7 @@ instruction, so do not edit README unless a real reference is found.
 | Phase 1 | Complete | Removed Go runtime and Phoenix UI handling for `repairInvalidOutput`, kept current `jsonRepair`, and kept old saved trace requests readable as opaque historical data (`WEB-TEST-103`). Focused Go recovery/runtime/provider/gateway tests passed; focused Phoenix/API/widget suites passed (132 tests). |
 | Phase 2 | Complete | Removed v2 catalog and bundle normalization. New red tests failed against the old code, then passed after the change. `go test ./internal/profiles ./internal/gateway -count=1` passes; current catalog round trip is retained. `make verify` passed the Docker-backed `TestResourceRoutes` bundle export/import boundary. |
 | Phase 3 | Complete | Removed the self-hosted node snapshot/restore recipe and backup-dependent rollback steps; removed encrypted-host-backup wording from the environment reference and the restore-together/backup-domain wording from architecture. Updated preview rollback wording. Active setup/upgrade search found only explicit no-restore statements, image rollback behavior, and history-widget restoration. |
-| Phase 4 | Complete | `make test-fast` accepted all 10 tasks. `make verify` passed format, lint/build, static/unit/parity, Docker integration and race, API, observability, full Go race, and vulnerability checks. `git diff HEAD --check` passed. Browser and live-provider checks were not run under repository policy. Troubleshooting and remaining compatibility limits are recorded below. |
+| Phase 4 | Complete | `make test-fast` accepted all 10 tasks. `make verify` passed format, lint/build, static/unit/parity, Docker integration and race, API, observability, full Go race, and vulnerability checks. Browser-free `make test-release` accepted all 28 tasks with no timeout or cleanup warning. `git diff HEAD --check` passed. Browser and live-provider checks were not run under repository policy. Troubleshooting and remaining compatibility limits are recorded below. |
 
 ## 7. Verification and troubleshooting record
 
@@ -186,6 +186,22 @@ instruction, so do not edit README unless a real reference is found.
   or matching test-resource receipt. Removed only that orphaned test network;
   application networks and containers were untouched. The next complete
   `make verify` passed, including integration and integration-race tasks.
+- The first release-gate attempt stopped at frontend preflight because this
+  isolated worktree had no Mix dependencies. `mix deps.get` installed the
+  lockfile-pinned dependencies without changing tracked files. The first
+  Compose smoke then found Docker's predefined address pool full. Inventory
+  identified `harden-llm-smoke-4167581-1790110522106137767_harden-private`
+  (`192.168.224.0/20`), created on 2026-09-22 with zero endpoints and no
+  matching containers or active Compose project. Removed only this empty,
+  test-owned network; the older smoke project with 14 running containers was
+  left untouched.
+- A parallel release-gate retry passed Compose startup but exposed one
+  timing-sensitive `TEST-049` fixture-start wait (two-second start signal);
+  the same test passed in isolation in 256 ms. No test assertion or timeout
+  was changed. The complete browser-free release selector was then rerun with
+  one CPU candidate slot and accepted all 28 tasks, with zero timeouts,
+  failures, cleanup errors, or cleanup warnings. Its report is
+  `tmp/test-feedback/runner-1790207427332-3776603-5de85572d0348ab7.json`.
 - `govulncheck` reported no vulnerabilities reachable from this code and three
   vulnerabilities in required modules that the code does not call. The gate
   passed; revisit only if dependency usage or reachability changes.
