@@ -157,14 +157,15 @@ The complete web diff from running web release
 `3201fd249f86031292be1c47acf64e0eb8a4540b` to candidate `6887fcd` changes only
 `frontend/lib/harden_llm_web/live/profile_widget_component.ex` and its focused
 test file; `frontend/Dockerfile` and `frontend/mix.lock` are unchanged. The
-recovery policy and routes are present in the candidate's OpenAPI contract, and
-the deployed gateway source is that same `6887fcd` release. The additional P04
-production changes at `bafa622` are confined to the profile widget and the Go
-runtime snapshot helper; public OpenAPI and gateway production source have no
-change relative to `6887fcd`. Production scope for the final tree is therefore
-web plus gateway because both application images contain changed source. The
-current production release identities and rollback evidence are recorded in
-the P00 table above.
+recovery policy and routes are present in the candidate's OpenAPI contract,
+and the deployed gateway source is that same `6887fcd` release. The additional
+P04 production changes at `bafa622` include the profile widget and the Go
+runtime snapshot helper; public OpenAPI and `internal/gateway` source are
+unchanged relative to `6887fcd`. However, `go list -deps ./cmd/harden-llm-gateway`
+confirms the gateway binary transitively includes `internal/runtime` through
+the root package. Both web and gateway images therefore need the candidate
+release. The current production release identities and rollback images are
+recorded in the P00 table above.
 
 P01.1's exact-source, certification, and compatibility review is complete, and
 the candidate is promoted to `main`. On 2026-09-23, the user explicitly

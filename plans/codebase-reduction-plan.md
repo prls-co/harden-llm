@@ -264,7 +264,7 @@ the entire `frontend/` diff, including its Dockerfile and dependency lock.
 Do not substitute today's moving `main` SHA for a run's actual head SHA.
 Compare the candidate frontend's wire/configuration requirements with the
 running gateway contract. If newer inputs require an undelivered backend or
-migration, stop the web-only promotion and resolve that specific scope change.
+migration, stop the promotion and resolve that specific scope change.
 
 Reuse exact-source accepted evidence if available and applicable. If it is
 unavailable or source changes are needed, use the current workflow's explicit
@@ -277,33 +277,41 @@ run/attempt/report, relevant frontend tests, build inputs, and the deployment
 scope `harden-llm-web`. Distinguish any newly run F-WIDGET check from retained
 release evidence. Resolve an actual test gap before building.
 
-### P01.2 Prepare the web image and a concrete rollback
+### P01.2 Prepare web and gateway images and a concrete rollback
 
-**Read:** [frontend Dockerfile](../frontend/Dockerfile) and the
-service-specific check/apply behavior in [environment guidance](../docs/environment.md).
+**Read:** [frontend Dockerfile](../frontend/Dockerfile), the gateway local-build
+procedure in [ADR-HLLM-028](../docs/adr/ADR-HLLM-028-local-image-build-deployment.md),
+and the service-specific check/apply behavior in
+[environment guidance](../docs/environment.md).
 
 **Do, in this order:**
 
 1. Confirm deployment authorization covers P01. This release has no backup or
    restore prerequisite under the user's explicit data-loss policy; verify the
    deployed-to-candidate persisted-data compatibility recorded below.
-2. Record the current web image/release and prove the rollback image exists.
-   Record the gateway identity and retained session volume for comparison.
+2. Record both current application image IDs/releases and prove both rollback
+   images exist. Record the retained session volume for comparison.
 3. Use a clean detached worktree at the selected full candidate SHA. Verify its
    HEAD and status. Keep the build separate from later refactor changes.
-4. Use the frontend Dockerfile with **`frontend/` as the build context** and
-   **`VERSION` as the build argument**. Use the approved Docker context and
-   observed runtime platform. Do not copy the gateway build command unchanged.
+4. Build the web image with the frontend Dockerfile, **`frontend/` as the build
+   context**, and **`VERSION` as the build argument**. Use the approved Docker
+   context and observed runtime platform.
 5. Use tag `harden-llm-web:release-<full-candidate-sha>`. If it exists, inspect it;
    never replace an existing release tag with different content. Reuse only
    when its provenance/version/platform match; stop on ambiguous identity.
    Coordinate one release operator for this tag and descriptor update.
-6. Record the exact resulting image ID and OCI version. The frontend Dockerfile
+6. Build `harden-llm-gateway:release-<full-candidate-sha>` using the exact
+   accepted SHA, `linux/amd64`, `VERSION` and `REVISION` arguments, and the
+   local build/metadata verification in ADR-HLLM-028. Build the two images
+   sequentially on the shared host. Never replace an existing release tag.
+7. Record both exact image IDs and OCI versions. The frontend Dockerfile
    currently supplies a version label; do not require a nonexistent revision
-   label or modify the Dockerfile simply to mimic gateway metadata.
-7. Preserve a mode-0600 descriptor checkpoint in a private mode-0700 directory,
-   its hash, and the four prior web values listed below. This checkpoint stays
-   outside Git. Record nonsecret identifiers in the ledger.
+   label or modify the Dockerfile simply to mimic gateway metadata. The gateway
+   image must pass ADR-HLLM-028's source/platform/version-label and executable-
+   version checks.
+8. Preserve a mode-0600 descriptor checkpoint in a private mode-0700 directory,
+   its hash, and the prior web and gateway values listed below. This checkpoint
+   stays outside Git. Record nonsecret identifiers in the ledger.
 
 **Backup decision (2026-09-23):** at the user's direction, this release has no
 pre-upgrade backup or restore-rehearsal gate. The deployed-to-candidate source
@@ -321,7 +329,9 @@ the current history store in place, but a Postgres/Garage loss will remove
 widget history even if Langfuse still has its telemetry traces. Profile
 export/import remains the separate way to move profile configuration.
 
-Core build invocation, only after these prerequisites and variables are checked:
+Web build invocation, only after these prerequisites and variables are checked.
+Build the gateway image separately using ADR-HLLM-028's full-SHA local-build
+procedure and its metadata/version verification.
 
 ```bash
 set -euo pipefail
@@ -353,46 +363,54 @@ resources after success. Do not run image pruning.
 ### P01.3 Prepare and inspect the scoped descriptor change
 
 **Do:** compare the private descriptor hash with the checkpoint before editing.
-Atomically replace only these `harden-llm-web` fields while retaining permissions:
+Atomically replace only the web and gateway fields below while retaining
+permissions:
 
 - `services.harden-llm-web.expectedImage`;
 - `services.harden-llm-web.identityEnvironment.HARDEN_LLM_RELEASE`;
+- `services.harden-llm-web.identityEnvironment.HARDEN_LLM_WEB_RELEASE`;
 - `serviceEnvironmentOverrides.harden-llm-web.HARDEN_LLM_RELEASE`;
-- `serviceImageOverrides.harden-llm-web`.
+- `serviceEnvironmentOverrides.harden-llm-web.HARDEN_LLM_WEB_RELEASE`;
+- `serviceImageOverrides.harden-llm-web`;
+- `services.harden-llm-gateway.expectedImage`;
+- `services.harden-llm-gateway.identityEnvironment.HARDEN_LLM_RELEASE`;
+- `serviceEnvironmentOverrides.harden-llm-gateway.HARDEN_LLM_RELEASE`;
+- `serviceImageOverrides.harden-llm-gateway`.
 
 Review the redacted field diff and verify that all other values are identical.
-If the descriptor changed concurrently, reconcile its current web fields rather
-than writing the entire older checkpoint over it. Honor the existing service
-allowlist; do not broaden it to dismiss an unexplained difference.
+Both candidate images use the same tested source SHA. If the descriptor changed
+concurrently, reconcile its current fields rather than writing the entire older
+checkpoint over it. Honor the existing service allowlist; do not broaden it to
+dismiss an unexplained difference.
 
 ```bash
 node scripts/production-config.mjs check \
   --descriptor /home/kirill/.config/harden-llm/production.json \
-  --services harden-llm-web \
+  --services harden-llm-web,harden-llm-gateway \
   --expected-release "$HLLM_WEB_RELEASE_SHA"
 ```
 
-**Accept:** candidate image/version and desired configuration are correct;
-only expected old-runtime differences remain, or the service is already
+**Accept:** both candidate images/versions and desired configuration are correct;
+only expected old-runtime differences remain, or both services are already
 equivalent. `check` exits 0 for equivalence, 2 for differences, and 1 for failure.
 Review each difference; exit 2 alone is not permission to apply.
 
 ### P01.4 Apply, inspect, and handle failure
 
-After the authorized candidate is concrete and reviewed:
+After both authorized candidate images and the combined descriptor change are
+concrete and reviewed:
 
 ```bash
 node scripts/production-config.mjs apply \
   --descriptor /home/kirill/.config/harden-llm/production.json \
-  --services harden-llm-web \
+  --services harden-llm-web,harden-llm-gateway \
   --expected-release "$HLLM_WEB_RELEASE_SHA"
 ```
 
-**Accept:** the same service-specific `check` returns equivalent; the actual
-container image ID, OCI version, release environment, and healthy state match
-the web candidate. Run a whole-descriptor check without `--expected-release`
-when the two applications intentionally have different SHAs. Verify gateway
-identity and retained sessions/infrastructure against the before record.
+**Accept:** the same combined `check` returns equivalent; both actual container
+image IDs, OCI versions, release environments, and healthy states match their
+candidate images. Run a whole-descriptor check without `--expected-release`
+afterward and verify retained sessions/infrastructure against the before record.
 
 Run bounded public web `/healthz` and `/login`, API `/healthz` and `/readyz`,
 and the documented authenticated read-only routes using the approved login
@@ -403,10 +421,11 @@ availability and image identity do not establish browser layout.
 
 **Failure:** `apply` exits 0 or 1. A failure after service recreation may leave a
 partial transition. Inspect actual state before another action. If rollback is
-required, restore only the recorded web fields into the current descriptor,
-check the retained web image against its old release SHA, and apply web only.
-Keep current gateway fields, data, keys, and session volumes. Record failures
-and actual final disposition; never call a failed deployment complete.
+required, restore only the recorded web and gateway fields into the current
+descriptor, verify both retained images, and apply both services without
+`--expected-release` because their prior release SHAs differ. Keep data, keys,
+and session volumes in place. Record failures and actual final disposition;
+never call a failed deployment complete.
 
 ### P01.5 Close the real delivery gap
 
@@ -416,9 +435,9 @@ and actual final disposition; never call a failed deployment complete.
 **Do:** append dated evidence, retain earlier failed attempts as history, and
 correct the stale claim that nothing was pushed/deployed. Mark old P04 complete
 only after its required behavior, certification, component identities, rollback,
-and probe evidence are reconciled. Explain the web-only completion of a gateway
-portion already delivered; record per-component SHAs instead of claiming both
-were rebuilt. Record F-001 resolved only after P01.4 succeeds.
+and probe evidence are reconciled. Record both built component images and the
+unchanged persisted-data contract. Record F-001 resolved only after P01.4
+succeeds.
 
 **Exit:** production baseline is accurate and the intended UI change is delivered.
 Documentation changes do not require another application rebuild or a repeated
