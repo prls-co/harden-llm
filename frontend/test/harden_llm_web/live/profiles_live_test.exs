@@ -109,6 +109,46 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     refute render(view) =~ "replacement-fixture-secret"
   end
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-035
+  test "cancelled staged replacement is omitted from the next profile save", %{conn: conn} do
+    test_pid = self()
+
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/profiles"} ->
+          Req.Test.json(conn, APIFixtures.profiles([APIFixtures.profile_state()]))
+
+        {"PUT", "/api/v1/profiles/Primary"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          send(test_pid, {:saved_after_cancel, Jason.decode!(body)})
+          Req.Test.json(conn, APIFixtures.success(APIFixtures.profile_state()))
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/profiles")
+    render_async(view, 1_000)
+    view |> element(~s(button[phx-click="edit"][phx-value-id="Primary"])) |> render_click()
+    open_credential_drawer(view)
+
+    view
+    |> form("#profile-form", %{"profile" => %{"apiKey" => "cancelled-replacement-secret"}})
+    |> render_change()
+
+    view |> element(~s(button[phx-click="stage-key"])) |> render_click()
+    open_credential_drawer(view)
+    view |> element(~s(button[phx-click="cancel-key"])) |> render_click()
+    refute render(view) =~ "cancelled-replacement-secret"
+
+    view
+    |> form("#profile-form", %{"profile" => %{"modelId" => "model-after-cancel"}})
+    |> render_submit()
+
+    render_async(view, 1_000)
+    assert_received {:saved_after_cancel, payload}
+    refute Map.has_key?(payload, "credential")
+    refute Jason.encode!(payload) =~ "cancelled-replacement-secret"
+  end
+
   test "backend field errors remain beside the matching profile input", %{conn: conn} do
     install_stub(fn conn ->
       case {conn.method, conn.request_path} do

@@ -470,6 +470,7 @@ runtime contract or the meaning of `make verify`.
   - The backend sets no session cookie and has no CSRF or CORS wildcard path.
   - Users cannot read or mutate each other's profiles, history, traces, state, cache, or bundles.
   - Profile probe runs before the short database commit and failed probe leaves prior state unchanged.
+  - Saving an edited profile without a replacement credential preserves its existing owner-bound credential binding and secret.
   - Probe and model refresh use TEST-014 endpoint policy.
 - Pass criteria: auth/session/isolation and profile transaction tables pass.
 - Expected runtime: 60 seconds.

@@ -167,6 +167,17 @@ func TestAuthProfileContract(t *testing.T) {
 
 	probe.err = nil
 	probe.during = nil
+	retainedState, err := profileService.Save(ctx, SaveProfileRequest{
+		OwnerID: "owner-a", ProfileID: profile.LLMProfile, Profile: profile,
+	})
+	if err != nil || retainedState.Credential.CredentialID != "credential-a" || !retainedState.Credential.Configured {
+		t.Fatalf("save without a replacement credential did not retain the existing binding: state=%#v error=%v", retainedState, err)
+	}
+	retainedCredential, err := profileService.Credential(ctx, "owner-a", retainedState.Credential.CredentialID)
+	if err != nil || retainedCredential.APIKey != "fixture-provider-secret" || retainedCredential.Headers["X-Safe-Feature"] != "enabled" {
+		t.Fatalf("save without a replacement credential changed the stored secret: credential=%#v error=%v", retainedCredential, err)
+	}
+
 	chatTokensParam := "max_completion_tokens"
 	sharedProfile := profile
 	sharedProfile.LLMProfile = "SharedChat"

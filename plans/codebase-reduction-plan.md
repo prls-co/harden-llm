@@ -4,7 +4,7 @@
 
 - Document ID: `PLAN-HLLM-CODEBASE-REDUCTION-001`.
 - Date: 2026-09-22.
-- Status: **Planned; implementation has not started.**
+- Status: **In progress.**
 - Planning source: `004bf5042040c673c10b691bd57a3c384ef9b9ff` on `main`.
 - Objective: finish the missing frontend delivery, resolve confirmed serious
   defects in the reviewed boundaries, and reduce the amount of maintained code
@@ -12,13 +12,13 @@
 - Intended executor: a coding model working on one bounded task at a time,
   including a smaller model such as GPT-5.6 Luna. No delegation is required.
 
-The user's current request is to create this plan. It does not execute a
-deployment, run an application gate, or certify the implementation. A later
-instruction to execute the whole plan includes the explicitly scoped P01 web
-delivery. Honor any narrower instruction. Once that delivery is authorized,
-do not repeatedly ask permission for its already defined steps. A historical
-statement of authorization in another plan is not a substitute for the active
-user instruction.
+The user has since explicitly authorized execution of the complete plan,
+including tests, GitHub `main` delivery, publication where this repository has
+an active publication path, and production deployment. That authorization
+covers P01 web delivery and later exact-source release promotion after its
+required checks. Keep retired publication mechanisms retired; use the current
+local-image release process. Repository browser and provider boundaries remain
+governed by `AGENTS.md` and the testing guideline.
 
 ### 1.1 Start or resume here
 
@@ -817,19 +817,19 @@ against its own intended candidate as in P01.
 
 | Task | Status | Evidence / next action |
 | --- | --- | --- |
-| P00.1 source/runtime refresh | Pending | Start here; section 2 is dated evidence. |
-| P00.2 initial ledger | Pending | Record F-001 and unreviewed boundaries. |
+| P00.1 source/runtime refresh | Complete | Refreshed 2026-09-22; exact current identities and candidate evidence in `docs/codebase-reduction-results.md`. |
+| P00.2 initial ledger | Complete | F-001 and the five unreviewed boundaries recorded in `docs/codebase-reduction-results.md`. |
 | P01.1 certified candidate | Pending | Inspect exact release source/run/attempt. |
 | P01.2 image and rollback | Pending | Web only; no deployment during plan creation. |
 | P01.3 descriptor review | Pending | Four web fields; preserve concurrent changes. |
 | P01.4 delivery/checks | Pending | Required before F-001 is resolved. |
 | P01.5 old P04 closeout | Pending | Complete only from actual delivery evidence. |
-| P02.1 owner isolation | Pending | Source chain and real owner-boundary cases. |
-| P02.2 credential boundaries | Pending | Origin binding, staging, redaction, sessions. |
-| P02.3 runtime completion | Pending | Budgets, cancellation, terminal precedence. |
-| P02.4 cache/accounting | Pending | Isolation, admission, truthful accounting. |
-| P02.5 artifact lifecycle | Pending | Publication, deletion, crash convergence. |
-| P02.6 findings and repairs | Pending | Resolve confirmed serious findings. |
+| P02.1 owner isolation | Complete | Authenticated principal ownership traced to SQL/resource operations; G-AUTH, F-AUTH, and managed INTEGRATION passed. See results ledger. |
+| P02.2 credential boundaries | Complete | Origin/AAD, request-local owner binding, diagnostics, staged cancellation, and stored-binding retention reviewed; focused checks and managed TEST-022 passed. |
+| P02.3 runtime completion | Complete | Shared and explicit retry budgets, cancellation, and SSE terminal handling reviewed; G-RUNTIME, G-STREAM, N-PROGRESS, G-RACE, and INTEGRATION passed. |
+| P02.4 cache/accounting | Complete | Owner/version isolation, replay admission, concurrency, and provider/result accounting reviewed; G-RUNTIME and INTEGRATION passed. |
+| P02.5 artifact lifecycle | Complete | Publication/deletion journal, grace, crash convergence, Garage and inventory reviewed; managed TEST-060 and artifact integration cases passed. |
+| P02.6 findings and repairs | Complete | No confirmed serious defect in reviewed scope; no code repair required. Five bounded records and Docker network troubleshooting are in `docs/codebase-reduction-results.md`. |
 | P03.1 size baseline | Pending | Freeze after repairs. |
 | P03.2 context baseline | Pending | Freeze complete dependency/test sets. |
 | P03.3 deletion inventory | Pending | Evaluate all six P04 candidates. |
