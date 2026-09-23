@@ -113,6 +113,49 @@ No confirmed serious code defect was found in the five reviewed boundaries, and 
 
 P01 production delivery is still not eligible to apply: the repository's production-upgrade procedure requires a tested off-host restore, and no approved target/procedure has been identified in this checkout or the inspected host records. The user was asked which approved restore target to use and shown the available choices. Continue independent code reduction; keep production application/deployment and F-001 closure pending that answer and completed restore evidence.
 
+## P01.1 — Exact source and certification review (2026-09-23)
+
+The original web fix is present in
+`40d19dc5bb5962e5e1c31905e4dbd5dc69fa7667` and its formatting follow-up
+`2106948150513bac272c70f0c95487a7b61414b8`. Both are ancestors of the earlier
+certified candidate `6887fcd8146961dc64598dd7a236e7a9fc522c9c`, which is also an
+ancestor of the current `main`. Exact run
+[35726391122](https://github.com/prls-co/harden-llm/actions/runs/35726391122),
+attempt 1, used that candidate on `main`; the browser-free `make test-release`
+job succeeded and emitted `accepted=true`, 28 tasks, no failure, and no cleanup
+errors or warnings. Its runner JSON remained on the hosted runner; the run log
+records path `runner-1790080351197-2539-54823f5c30851e92.json`. The separate
+publisher artifact is not used as frontend evidence, and GHCR is retired from
+the current image path.
+
+The selected full-tree source for delivery is the later
+`bafa62255d0a5b111253b3baf18d27d0091161b4`, because it includes the web fix and
+the completed code reduction. It passed hosted FAST run
+[35821407815](https://github.com/prls-co/harden-llm/actions/runs/35821407815)
+and exact-source browser-free release run
+[35821617071](https://github.com/prls-co/harden-llm/actions/runs/35821617071).
+The latter accepted all 28 tasks and its separate integration and
+integration-race selectors. Browser tests remain excluded by repository
+policy. The source has not yet been promoted to `main` at this record's update.
+
+The complete web diff from running web release
+`3201fd249f86031292be1c47acf64e0eb8a4540b` to candidate `6887fcd` changes only
+`frontend/lib/harden_llm_web/live/profile_widget_component.ex` and its focused
+test file; `frontend/Dockerfile` and `frontend/mix.lock` are unchanged. The
+recovery policy and routes are present in the candidate's OpenAPI contract, and
+the deployed gateway source is that same `6887fcd` release. The additional P04
+production changes at `bafa622` are confined to the profile widget and the Go
+runtime snapshot helper; public OpenAPI and gateway production source have no
+change relative to `6887fcd`. Production scope for the final tree is therefore
+web plus gateway because both application images contain changed source. The
+current production release identities and rollback evidence are recorded in
+the P00 table above.
+
+P01.1's exact-source and compatibility review is complete. P01.2 has not
+started: the required organization-approved off-host destination and tested
+restore evidence are still missing. No production image was built and no
+descriptor or running service was changed.
+
 ## P03 — Frozen size and context baseline
 
 ### P03.1 Source and method
@@ -492,7 +535,7 @@ focused contract module and its assertion helper. The measured context fell from
 362,449 bytes / 10,551 lines / 14 files to 200,661 bytes / 5,814 lines / 10
 files: -161,788 bytes and -4,737 lines. Raw data is
 `tmp/codebase-reduction/focused-profile-editor-after-p04.8.json`, SHA-256
-`b43664ef0b49a9f16d4b5e76d97bf88621ba0e9cc1d665397a35a1168295df03`; the
+`43e20b9e07f58525559fedf07358cbf8500b46de5156195f82ecbdfdf8616bf2`; the
 measurement script is `tmp/codebase-reduction/measure-focused-profile-editor.py`,
 SHA-256 `6d47efe2cdc1423c48d0591a86e0d7166a67599d06b2f51e1c4edaa93e7d37f4`.
 
@@ -500,7 +543,7 @@ The frozen broad profile task was recomputed with both new files included. It
 increased from 257,544 bytes / 7,398 lines / 12 files at `a6a7bdd` to 258,251
 bytes / 7,417 lines / 14 files (+707 bytes / +19 lines). Raw data is
 `tmp/codebase-reduction/profile-broad-after-p04.8.json`, SHA-256
-`bb77c17fdd39bc1a085a8880e85e64096914c7d57bef86279ce641326cf8825a`; its
+`61cce754780d0c9d885beb7891262bc1283a5390be87e549d6981a6746fe3630`; its
 script is `tmp/codebase-reduction/measure-profile-broad-after-p04.8.py`,
 SHA-256 `235c2bf824190d5e628e040b9087ad983ac5464d2202d59983fd38ed74d3b17b`.
 This phase improves the editor-specific task context but adds a small amount to
@@ -517,14 +560,44 @@ the first failure. At the failure, host load averages were 105.22 / 117.43 /
 assertion failure. It is preserved at
 `tmp/test-feedback/runner-1790139495362-676242-872bdd2a0cd902a7.json`, SHA-256
 `167e653c918c48ddafb855e342cf0840040cf1d6df1a9a020b37635b9d491017`. This local
-run is a failure, not a pass. Hosted FAST and browser-free release validation
-are still required for the P04.8 source. Browser checks remain unrun by policy.
+run is a failure, not a pass. The exact P04.8 source
+`bafa62255d0a5b111253b3baf18d27d0091161b4` then passed hosted FAST run
+[35821407815](https://github.com/prls-co/harden-llm/actions/runs/35821407815):
+all 10 tasks accepted, no first failure, and zero cleanup errors or warnings.
+The frontend suite passed 247 tests with 5 excluded. Artifact
+`harden-llm-runner-reports-35821407815-1-fast` has digest
+`sha256:dceeeeaf7c1d1ff70af5b8a59bf093d682176df8e147a5b6fda3e961d8ea4d7e`;
+report `runner-1790140426802-2438-76307ac9c5d2bbdb.json` has SHA-256
+`f1c4cecd2ead0c6bb5254c1625cfb95f8e6f8a3ba3f76699d4979458aef9f35c`.
+Browser-free release run 35821617071 completed successfully on 2026-09-23.
+Hosted [run 35821617071](https://github.com/prls-co/harden-llm/actions/runs/35821617071)
+used exact source `bafa62255d0a5b111253b3baf18d27d0091161b4`. The browser-free
+`make test-release` selector accepted all 28 tasks; the separate
+`go-integration` and `go-integration-race` selectors were also accepted. There
+were no first or preflight failures, timed-out tasks, cleanup errors, or cleanup
+warnings. The frontend portion passed 247 tests with 5 excluded. Artifact
+`harden-llm-runner-reports-35821617071-1-release` has GitHub digest
+`sha256:600bfbbb4fb1fdf2ff5e80c66f6def3d13a7ce36640db9c1e677d5e6ff20fb0d`.
+The release report `runner-1790141408827-2707-7cc51fd45bc7c097.json` has
+SHA-256 `c3d8d20223cb79e625cdfd015b1fb1817df6e62127f13c093a47b4ad5bed0c8e`;
+the `go-integration` report has SHA-256
+`c2d5605550720da76224258db46890ac2ea8836ff52ece798ee6ff9cbb0d2dfa`, and the
+`go-integration-race` report has SHA-256
+`e9f5ee3379d77711bb1465cb9b711631882a05147d5c8da5562c2c07eb019ec8`. Browser
+checks remain unrun by policy.
+
+**Risk / aftercare:** the extracted module proves component rendering and direct
+server-side update semantics. It does not prove endpoint/session routing,
+LiveSocket behavior, or browser layout. Keep routed workspace/embed tests in the
+original suite. For later changes to those host paths, run the profile component
+suite and the affected workspace/embedding suite along with the focused editor
+module.
 
 ## P05 — Final verification and measured outcome
 
 ### P05.1 Applicable gates and complete diff
 
-- The refactor source is at `c8d33d5ee3d1176cb62aa400044510d104764d6f`,
+- The final refactor source is at `bafa62255d0a5b111253b3baf18d27d0091161b4`,
   pushed to `origin/feat/codebase-reduction`. The full diff from the P03
   refactor baseline is limited to the frozen size manifest, the result ledger,
   the profile widget and its tests, the two runtime execution owners and their
@@ -534,7 +607,8 @@ are still required for the P04.8 source. Browser checks remain unrun by policy.
 - `git diff --check`, Go formatting, and the test-tier JSON parser passed.
 - The accepted FAST report recorded under P04.4 covers all 10 T0–T2 tasks for
   the P04.4 source. G-RUNTIME, G-STREAM, N-PROGRESS, and G-RACE also passed on
-  that source. The later P04.7 test-layout source has not passed FAST yet.
+  that source. Later P04.7 and P04.8 source changes have since passed hosted
+  FAST and browser-free release gates as recorded below.
 - The required browser-free `make test-release` attempt was not accepted. Report
   `tmp/test-feedback/runner-1790130239806-1960763-3097fd512a71ed97.json`,
   SHA-256 `d5f5f6c68d26a0a83579ef737b3f5dc7bfdf6f12fa11db0456109b993d0caf7e`,
@@ -597,57 +671,84 @@ are still required for the P04.8 source. Browser checks remain unrun by policy.
 - Browser-free hosted release certification completed on the P04.7 tree in
   [run 35818416126](https://github.com/prls-co/harden-llm/actions/runs/35818416126)
   at `a6a7bdd`; the accepted 28-task result and report hashes are recorded under
-  P04.7 above. P05.1 remains open because P04.8 subsequently changed tests and
-  test support; the final tree still needs hosted FAST and release gates.
+  P04.7 above. At that point P05.1 remained open because P04.8 subsequently
+  changed tests and test support; the P04.8 gates now pass as recorded below.
 - The hosted release pass closes P04.7 and does not retroactively pass any
   local failures. Preserve all failed local reports in the record. Do not change
   TEST-272/273 timing assertions, TEST-279 resource policy, or Garage timeouts
   based on those contaminated local runs. The hosted selector explicitly
   skipped browser and live-provider checks.
+- The final P04.8 source passed hosted FAST run
+  [35821407815](https://github.com/prls-co/harden-llm/actions/runs/35821407815)
+  and browser-free release run
+  [35821617071](https://github.com/prls-co/harden-llm/actions/runs/35821617071).
+  The latter accepted all 28 release tasks and both separate integration
+  selectors. Exact artifact and report digests are recorded in the P04.8
+  section above. These passes close the required browser-free gates; they do
+  not erase the failed local contention reports. The hosted workflow skipped
+  browser and live-provider checks as required by repository policy.
 
 ### P05.2 Frozen size and context result
 
-The official measurement is `tmp/codebase-reduction/after-p04.4.json`,
-SHA-256 `9aaff335c2cb36ab930c2c6996d68bd386f651a6b27fe122fa0e6f9980863878`.
-It measures clean refactor source `c8d33d5ee3d1176cb62aa400044510d104764d6f`
-against the P03 baseline `81206faa09d3da2289d956716475e20cccb9bd0a`, using the
-unchanged tracked-path classifier. Tokens remain unmeasured; these byte counts
-are a reproducible proxy, not an exact GPT-5.6 Luna token estimate.
+The original P04.4 snapshot is preserved at
+`tmp/codebase-reduction/after-p04.4.json`, SHA-256
+`9aaff335c2cb36ab930c2c6996d68bd386f651a6b27fe122fa0e6f9980863878`. The
+updated P04.8 category snapshot is `tmp/codebase-reduction/after-p04.8-worktree.json`,
+SHA-256 `cec3d500ccbcd9a08190ece97c1bb782b0f353a2d6b7f566e458e0620828d5db`;
+it uses the unchanged tracked-path classifier against the P03 baseline
+`81206faa09d3da2289d956716475e20cccb9bd0a` and records source reference
+`bafa62255d0a5b111253b3baf18d27d0091161b4`. Its document category is a
+pre-final-reconciliation snapshot; the final hosted evidence recorded above
+adds more documentation. Tokens remain unmeasured; byte counts are a
+reproducible proxy, not an exact GPT-5.6 Luna token estimate.
 
-| Representative maintenance context | Baseline bytes / lines | P04.4 bytes / lines | Delta |
+| Representative maintenance context | P03 baseline bytes / lines | P04.8 bytes / lines | Delta |
 | --- | ---: | ---: | ---: |
-| Profile option or recovery control | 252,359 / 7,253 | 257,544 / 7,398 | +5,185 / +145 |
-| Workspace draft or history behavior | 506,057 / 14,792 | 503,947 / 14,724 | -2,110 / -68 |
-| Runtime progress or accounting | 278,837 / 6,806 | 298,291 / 7,236 | +19,454 / +430 |
+| Profile option or recovery control | 252,359 / 7,253 | 258,251 / 7,417 | +5,892 / +164 |
+| Workspace draft or history behavior | 506,057 / 14,792 | 504,459 / 14,738 | -1,598 / -54 |
+| Runtime progress or accounting | 278,837 / 6,806 | 299,582 / 7,281 | +20,745 / +475 |
 
-The maintained application category fell from 1,317,088 bytes / 38,084 lines
-to 1,313,973 / 38,013 (-3,115 bytes / -71 lines). Tests grew by 27,782 bytes /
-647 lines and documents grew by 26,580 bytes / 243 lines; contracts and
-tooling were unchanged. Summed maintained categories therefore grew by 51,247
-bytes / 819 lines. These measurements do not establish a whole-codebase or
-context-window reduction.
+At that snapshot, maintained application files fell from 1,317,088 bytes /
+38,084 lines to 1,313,973 / 38,013 (-3,115 bytes / -71 lines). Tests grew by
+29,864 bytes / 711 lines and documents grew by 56,299 bytes / 665 lines;
+contracts/configuration and tooling were unchanged. Summed maintained
+categories grew by 83,048 bytes / 1,305 lines before the final evidence entries
+were added. The updated category counts are 131 application files, 185 test
+files, 66 contract/configuration files, 33 tooling files, and 90 document
+files. These measurements do not establish a whole-codebase reduction.
 
-The workspace context is smaller because its shared profile component lost
-2,110 bytes. The profile context grew from its required WEB-TEST-044 assertions,
-and the runtime context grew from TEST-284. CR-A04 is **not met**: one context
-became smaller while two became larger through required tests. Keep those tests;
-do not mark the stated context objective achieved. The selected candidate
-inventory is exhausted, so any further work aimed at net task-context reduction
-needs a new high-yield candidate review rather than a claim that this plan met
-its size goal.
+The separately measured profile-editor task context fell from 362,449 bytes /
+10,551 lines / 14 files to 200,661 bytes / 5,814 lines / 10 files
+(-161,788 bytes / -4,737 lines). Its raw report and script hashes are recorded
+in the P04.8 section. The final frozen context comparison is also available at
+`tmp/codebase-reduction/contexts-after-p04.8.json`, SHA-256
+`e658e051014c3e9532337fda99a9fad51b8cb9c0ed8f1dbf3d615c7fb41a2237`.
+
+The workspace context is smaller because its shared profile component and test
+context changed. The profile and runtime contexts grew after required tests.
+CR-A04 is **not met**: one frozen context became smaller while two became
+larger through required dependencies. The editor-specific task context is much
+smaller, but it does not satisfy the frozen broad-context criterion. Keep the
+tests; do not claim that the plan achieved its broad context-size goal. The
+selected candidate inventory is exhausted, so further net reduction needs a
+new high-yield candidate review.
 
 ### P05.3 Delivery state and remaining evidence
 
-- Current verified refactor checkpoint: `c8d33d5ee3d1176cb62aa400044510d104764d6f`
-  on `feat/codebase-reduction`, pushed to GitHub. It has not been promoted to
-  `main`, published, or deployed.
-- Production remains pending an approved encrypted off-host destination and
-  isolated restore host. The runbook in `docs/self-hosting.md` requires
-  failure-domain backups and an actual restore on another host before upgrade.
+- Current verified refactor checkpoint: `bafa62255d0a5b111253b3baf18d27d0091161b4`
+  on `feat/codebase-reduction`, pushed to GitHub. It has not yet been promoted
+  to `main`, published, or deployed.
+- Production upgrade remains pending an organization-approved encrypted
+  off-host destination and an isolated restore host. The runbook in
+  `docs/self-hosting.md` requires failure-domain backups and an actual restore
+  on another host before upgrade. The documented options are a portable cold
+  snapshot of all Compose named volumes, or service-specific PostgreSQL,
+  quiesced Garage, Langfuse, and optional telemetry/session backups. No
+  destination or procedure has been approved or executed.
 - Browser layout and public-provider behavior were not run under repository
   policy. No production component image or post-deployment identity exists for
   this refactor.
 - No confirmed serious code defect was found in the five P02 review boundaries.
-  The current blockers are the unmet CR-A04 context criterion, incomplete
-  browser-free release certification, and missing off-host restore selection
-  and proof.
+  CR-A04 remains unmet. Browser-free gates passed on the final source. Delivery
+  blockers are the unmet broad-context criterion and the missing off-host
+  destination selection and restore proof.

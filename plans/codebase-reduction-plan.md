@@ -845,6 +845,13 @@ tree. Browser checks remain opt-in. If the context measurement does not show a
 real task-context saving after helper dependencies, revert the split and
 record the rejection.
 
+**Risk / aftercare:** the focused module tests component rendering and direct
+server-side update semantics; it does not prove endpoint/session routing,
+LiveSocket behavior, or browser layout. Keep routed workspace/embed tests in
+the original suite. For later changes that touch those host paths, run the
+profile component suite and the affected workspace/embedding suite in addition
+to the focused editor module.
+
 ## 10. P05 — Final verification, measurement, and handoff
 
 ### P05.1 Review the complete change against the post-repair baseline
@@ -893,11 +900,11 @@ against its own intended candidate as in P01.
 | --- | --- | --- |
 | P00.1 source/runtime refresh | Complete | Refreshed 2026-09-22; exact current identities and candidate evidence in `docs/codebase-reduction-results.md`. |
 | P00.2 initial ledger | Complete | F-001 and the five unreviewed boundaries recorded in `docs/codebase-reduction-results.md`. |
-| P01.1 certified candidate | Pending | Inspect exact release source/run/attempt. |
-| P01.2 image and rollback | Pending | Web only; no deployment during plan creation. |
-| P01.3 descriptor review | Pending | Four web fields; preserve concurrent changes. |
-| P01.4 delivery/checks | Pending | Required before F-001 is resolved. |
-| P01.5 old P04 closeout | Pending | Complete only from actual delivery evidence. |
+| P01.1 certified candidate | In progress | Historical `6887fcd` exact-source run 35726391122 and ancestry are verified. Final full-tree candidate `bafa622` passed hosted FAST/release (35821407815/35821617071), but still needs promotion to `main` before this task closes. See the dated P01.1 record in the results ledger. |
+| P01.2 image and rollback | Pending | Production image preparation must wait for an organization-approved off-host destination and a tested restore on another host; final source changes both web and gateway application images. |
+| P01.3 descriptor review | Pending | Review only the authorized service fields after source, image IDs, rollback images, and restore proof are recorded. |
+| P01.4 delivery/checks | Pending | Production apply and probes remain gated on restore evidence; required before F-001 is resolved. |
+| P01.5 old P04 closeout | Pending | Complete only after actual delivery, runtime identity, rollback, and probe evidence. |
 | P02.1 owner isolation | Complete | Authenticated principal ownership traced to SQL/resource operations; G-AUTH, F-AUTH, and managed INTEGRATION passed. See results ledger. |
 | P02.2 credential boundaries | Complete | Origin/AAD, request-local owner binding, diagnostics, staged cancellation, and stored-binding retention reviewed; focused checks and managed TEST-022 passed. |
 | P02.3 runtime completion | Complete | Shared and explicit retry budgets, cancellation, and SSE terminal handling reviewed; G-RUNTIME, G-STREAM, N-PROGRESS, G-RACE, and INTEGRATION passed. |
@@ -915,9 +922,9 @@ against its own intended candidate as in P01.
 | P04.5 result projections | Rejected with evidence | Attempt/accounting conversions are already shared; origin-only factoring has too little projected saving for added abstraction/test surface. See inventory. |
 | P04.6 unreachable residue | Rejected with evidence | No exact unreachable private symbol has been proven; retain supported dynamic boundaries. See inventory. |
 | P04.7 progress test context | Complete | TEST-284 is isolated and its focused context fell 12,810 bytes / 120 lines. Focused Go and runtime race checks passed. After recording and correcting the 100 ms LiveView handshake failure, hosted FAST run 35818091415 passed all 10 tasks on `a6a7bdd` with 247 frontend tests; the stale-loading failure did not recur but remains unexplained. Browser-free hosted release run 35818416126 then passed all 28 tasks on that same source. |
-| P04.8 profile editor test context | In progress | Three editor contract tests moved with their exact test/helper bodies; all 17 old/new component tests pass and the focused task context fell 161,788 bytes / 4,737 lines. The frozen broad profile context grew 707 bytes / 19 lines after counting the moved tests and helper module, so CR-A04 remains unmet. Local FAST timed out under host load; hosted FAST and release on the P04.8 tree are still required. |
-| P05.1 final verification | In progress | The P04.7 tree passed hosted FAST and browser-free `make test-release` at run 35818416126 / SHA `a6a7bdd`, but P04.8 changed test/support files afterward. The current tree still needs hosted FAST and browser-free release gates. Local shared-host failures remain recorded; browser/provider suites were not requested or run. |
-| P05.2 result/handoff | In progress | Frozen and P04.8 focused-context measurements, category totals, rejected context-size claim, and delivery blockers are being recorded. CR-A04 is not met; production delivery remains pending a named off-host destination and tested restore. |
+| P04.8 profile editor test context | Complete | Three editor contract tests moved with their exact test/helper bodies; all 17 old/new component tests pass and the focused task context fell 161,788 bytes / 4,737 lines. The frozen broad profile context grew 707 bytes / 19 lines against the P04.7 tree and 5,892 bytes / 164 lines against the P03 baseline; CR-A04 remains unmet. Hosted FAST run 35821407815 and browser-free release run 35821617071 passed on `bafa622` with 247 frontend tests. The local FAST timeout remains recorded. |
+| P05.1 final verification | Complete | Exact final application source `bafa622` passed hosted FAST run 35821407815 and browser-free release run 35821617071; release accepted all 28 tasks plus separate integration and integration-race selectors. Local shared-host timeouts remain recorded; browser/provider suites were not requested or run. |
+| P05.2 result/handoff | In progress | Final category/context measurements, failed local reports, and the unmet CR-A04 finding are recorded. Main promotion and production delivery remain pending final branch review, an approved off-host destination, and a tested restore; exact artifact and deployed component identities do not yet exist. |
 
 Allowed status values: `Pending`, `In progress`, `Complete`, or `Rejected with
 evidence` for P04 candidates. A blocked prerequisite stays unfinished with the
