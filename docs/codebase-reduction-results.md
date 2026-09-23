@@ -706,6 +706,27 @@ read-only process sample showed the clustering cohort alongside unrelated
 dataset-host test-worker and service-probe activity, including I/O-waiting
 processes. No single cause is established; this is not a safe verification
 window.
+The exact P04.9 commit `cf14628eef80312fe0b03fefd3bed2d3e301860c` then passed
+hosted FAST run [35870390854](https://github.com/prls-co/harden-llm/actions/runs/35870390854)
+on the isolated feature branch in 2m17s. Browser-free RELEASE run
+[35870717879](https://github.com/prls-co/harden-llm/actions/runs/35870717879)
+also completed successfully on that same source; its `make test-release` step
+ran for 12m42s. Redacted report artifacts were uploaded by the workflows:
+
+- FAST report `runner-1790171831961-2645-f775719601ca3f16.json`: accepted,
+  all 10 tasks passed; SHA-256
+  `12ad352bb511700d0841bd40e6b886b8c175a5b558d99f64242ea0f15e14584c`.
+- RELEASE report `runner-1790172663629-2475-1551ef444807cfde.json`: accepted,
+  all 28 tasks passed; SHA-256
+  `24490f0c3262a513854ef0217844d2ba2cf5974c40cbf8ef7a6f12b0b80517d2`.
+- INTEGRATION report `runner-1790172568505-56196-3730f1a0dbc090ac.json` and
+  INTEGRATION-RACE report `runner-1790172613727-58687-2efcd1494d3b1f79.json`:
+  each accepted its single task; SHA-256 values are respectively
+  `2916ceaf68b06a340bde5b18c4992c9220906377c96cb25220875be9edddcda3` and
+  `82bb3f977c0a2a03c48a77fc293d93c638050913573b3f93f55632dd609bfb85`.
+
+These are hosted validations; the two failed local runs remain recorded above
+and were not reclassified as passes. Browser tests and deployment have not run.
 
 ## P05 — Final verification and measured outcome
 
