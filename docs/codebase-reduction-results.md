@@ -388,9 +388,10 @@ The separate focused progress-task measurement includes the eight shared
 runtime/retry/accounting/cachekey source files plus the relevant test file. It
 replaces the 33,555-byte baseline `repair_test.go` with the dedicated test file.
 The measured set fell from 141,599 bytes / 3,629 lines to 128,789 bytes / 3,509
-lines (-12,810 bytes / -120 lines). Raw measurement:
+lines (-12,810 bytes / -120 lines) on source/test-layout commit `a843390`
+(`a8433900952a281774c32761e7905b9b34f6b66f`). Raw measurement:
 `tmp/codebase-reduction/focused-progress-after-p04.7.json`, SHA-256
-`9f39283dede982039082f64ce6182d5009abfc9ee6a2714ace9ff2145bef22e8`; the
+`808f3e441d1a5f4d8c04f3e3781afd7580fa78e5327c73d905771ef98902098f`; the
 reproducible measurement script is
 `tmp/codebase-reduction/measure-focused-progress.py`. This is a narrower
 progress-maintenance context result. The original frozen whole-runtime context
