@@ -1595,13 +1595,13 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     |> element(~s(button[phx-click="delete-history"][phx-value-run-id="run-test"]))
     |> render_click()
 
-    assert_receive {:workspace_delete_started, delete_process}
+    assert_receive {:workspace_delete_started, delete_process}, 1_000
     refute has_element?(view, "#workspace-history-run-test")
     release_request(delete_process, :release_workspace_delete)
     render(view)
     assert_received :workspace_deleted
 
-    assert_receive {:workspace_history_refresh_started, history_process}
+    assert_receive {:workspace_history_refresh_started, history_process}, 1_000
     release_request(history_process, :release_workspace_history_refresh)
     render_async(view, 1_000)
 
@@ -1658,13 +1658,13 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     view |> element("#history-trace-run-test-summary") |> render_click()
     view |> element("#history-trace-run-test-view-json") |> render_click()
-    assert_receive {:rollback_trace_started, trace_process}
+    assert_receive {:rollback_trace_started, trace_process}, 1_000
 
     view
     |> element(~s(button[phx-click="delete-history"][phx-value-run-id="run-test"]))
     |> render_click()
 
-    assert_receive {:failing_workspace_delete_started, delete_process}
+    assert_receive {:failing_workspace_delete_started, delete_process}, 1_000
     refute has_element?(view, "#workspace-history-run-test")
     release_request(trace_process, :release_rollback_trace)
     render(view)
@@ -1675,7 +1675,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, ~s(#workspace-history-error[role="alert"]))
     view |> element("#history-trace-run-test-summary") |> render_click()
     view |> element("#history-trace-run-test-view-json") |> render_click()
-    assert_receive {:rollback_trace_started, reloaded_process}
+    assert_receive {:rollback_trace_started, reloaded_process}, 1_000
     release_request(reloaded_process, :release_rollback_trace)
     render_async(view, 1_000)
     assert has_element?(view, "#history-trace-run-test-trace-json")
@@ -1741,17 +1741,17 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     )
 
     {:ok, view, _html} = live(conn, ~p"/")
-    assert_receive {:loaded_history_started, history_process}
+    assert_receive {:loaded_history_started, history_process}, 1_000
     release_request(history_process, :release_loaded_history)
     render_async(view, 1_000)
     assert has_element?(view, "#workspace-history-run-test")
 
     submit_run(view, %{"userPrompt" => "fresh run prompt"})
-    assert_receive {:refresh_run_started, run_process}
+    assert_receive {:refresh_run_started, run_process}, 1_000
     release_request(run_process, :release_refresh_run)
     render(view)
 
-    assert_receive {:loaded_history_refresh_started, refresh_process}
+    assert_receive {:loaded_history_refresh_started, refresh_process}, 1_000
     release_request(refresh_process, :release_loaded_history_refresh)
     render_async(view, 1_000)
 
@@ -1830,7 +1830,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     release_request(history_pid, :release_initial_history)
     render(view)
 
-    assert_receive {:history_refresh_started, refresh_pid}
+    assert_receive {:history_refresh_started, refresh_pid}, 1_000
     release_request(refresh_pid, :release_history_refresh)
     render_async(view, 1_000)
 

@@ -381,7 +381,7 @@ defmodule HardenLlmWeb.HistoryTraceTest do
 
     view = open_history(conn)
     view |> element("#workspace-history-pagination-page-2") |> render_click()
-    assert_receive {:page_started, page_pid}
+    assert_receive {:page_started, page_pid}, 1_000
     assert has_element?(view, "#workspace-history-pagination-page-2[disabled]")
 
     render_click(view, "paginate-history", %{
@@ -476,9 +476,9 @@ defmodule HardenLlmWeb.HistoryTraceTest do
 
     view = open_history(conn)
     view |> element("#workspace-history-pagination-page-2") |> render_click()
-    assert_receive {:page_started, page_pid}
+    assert_receive {:page_started, page_pid}, 1_000
     view |> element("#workspace-clear-history") |> render_click()
-    assert_receive {:clear_started, clear_pid}
+    assert_receive {:clear_started, clear_pid}, 1_000
     release_request(clear_pid, :release_clear)
     refute has_element?(view, "#workspace-history .llm-result")
     assert_request_cancelled(page_pid)

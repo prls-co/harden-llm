@@ -406,8 +406,43 @@ a runner-contract test's fake child timing out after 62.2 seconds and `go-static
 timing out after 188.2 seconds; the runner then canceled `go-unit`, `go-parity`,
 and remaining tasks. The observed host load was 245.37 / 155.46 / 70.82; cleanup
 errors/warnings were zero. No assertion, timeout, or runner policy changed.
-Use an isolated hosted FAST run to verify this test-file move; retain this local
-failure as a failure, not passing evidence.
+The isolated hosted FAST run also failed and is under diagnosis before P04.7
+can close. Run 35815208694 at source SHA
+`a8433900952a281774c32761e7905b9b34f6b66f` completed the 10-task FAST selector;
+`frontend-deterministic` reported 245/247 passed, 5 excluded, and 2 failures.
+The redacted artifact `harden-llm-runner-reports-35815208694-1-fast` has digest
+`87729ccaac63c4d239be7f42f997d71cea24c53835a43a6f9a6924ef7e8e4950`; local
+report `tmp/codebase-reduction-fast-35815208694/harden-llm-runner-reports-35815208694-1-fast/runner-1790134913998-2467-925e551546c9c7c9.json`
+has SHA-256 `b145ad603cabf743b6f21e72407f5a732ea88ce80602957766ce95c45aaa8ac5`.
+`HistoryTraceTest` failed waiting for the deliberately blocked page request's
+start signal at its default 100 ms receive timeout. The affected blocked-request
+handshakes in `history_trace_test.exs` and `workspace_live_test.exs` now use an
+explicit 1,000 ms bound, matching their existing bounded process-release
+helpers; no expected message, rendered state, or request-count assertion changed.
+`WorkspaceLiveTest` also failed to find the refreshed history row after a
+successful run; the captured HTML still showed the initial workspace loading
+state. The focused test passed alone and the two relevant Phoenix modules passed
+69/69 with `--max-cases 8` after the synchronization change, so that second
+failure has not reproduced locally. Keep its hosted failure recorded and do not
+claim the change fixed that symptom without another full hosted FAST result.
+The hosted commit changed only the TEST-284 Go test layout; neither Phoenix
+application code nor frontend tests changed in that commit. The earlier release
+gate predates the test move.
+
+**Post-change checks:** pinned-toolchain `mix format --check-formatted` passed.
+The four affected history/run tests passed with seed `104729`, and the complete
+`HistoryTraceTest` and `WorkspaceLiveTest` modules passed 69 tests with seed
+`104729` and `--max-cases 8`. Run the full hosted FAST selector on the updated
+tree; local broad verification remains deferred while shared-host load is high.
+
+The receive-bound change is recorded in
+[`ker/timeouts/rca/2026-09-22-test-liveview-request-start.json`](../ker/timeouts/rca/2026-09-22-test-liveview-request-start.json).
+The hosted failure expired at 100 ms. Eleven positive request-start samples
+from the local max-cases-8 run ranged from 0.001 to 0.593 ms; one additional
+sample was below the timer's microsecond resolution and was excluded. The
+explicit 1,000 ms bound therefore has measured local headroom, while the
+separate stale-loading failure remains unexplained and must be observed on the
+updated hosted run.
 
 ## P05 — Final verification and measured outcome
 
@@ -421,8 +456,9 @@ failure as a failure, not passing evidence.
   registration. No public Go export, OpenAPI, stored schema, migration,
   provider behavior, or browser hook changed.
 - `git diff --check`, Go formatting, and the test-tier JSON parser passed.
-- The accepted FAST report recorded under P04.4 covers all 10 current T0–T2
-  tasks. G-RUNTIME, G-STREAM, N-PROGRESS, and G-RACE also passed on this source.
+- The accepted FAST report recorded under P04.4 covers all 10 T0–T2 tasks for
+  the P04.4 source. G-RUNTIME, G-STREAM, N-PROGRESS, and G-RACE also passed on
+  that source. The later P04.7 test-layout source has not passed FAST yet.
 - The required browser-free `make test-release` attempt was not accepted. Report
   `tmp/test-feedback/runner-1790130239806-1960763-3097fd512a71ed97.json`,
   SHA-256 `d5f5f6c68d26a0a83579ef737b3f5dc7bfdf6f12fa11db0456109b993d0caf7e`,
@@ -468,6 +504,15 @@ failure as a failure, not passing evidence.
   integration reports are recorded beside it with hashes
   `65260b4e483c9858dd49ce3bf9a16b65ff0490bc21ab520bf0a257a86c3e6921` and
   `b1b5e59f30573ceee3cdc15a6c45ced42e813b9d137eeb2e42bb6b8da5ba164b`.
+- Pushing the P04.7 test-layout commit triggered hosted FAST run
+  [35815208694](https://github.com/prls-co/harden-llm/actions/runs/35815208694)
+  at source SHA `a8433900952a281774c32761e7905b9b34f6b66f`. The selector ran all
+  10 tasks, but `frontend-deterministic` failed 2 of 247 included tests
+  (`HistoryTraceTest` and `WorkspaceLiveTest`; 5 excluded). The detailed failure
+  evidence, artifact/report hashes, and unresolved diagnosis are recorded under
+  P04.7 above. This means neither the P04.7 test layout nor P05.1 final
+  verification is complete; the earlier release pass remains valid only for
+  its recorded P04.4 application source.
 - This hosted pass establishes the browser-free release gate for the P04.4
   application source and removes the need for another local service-backed
   rerun under the shared host's continuing high load. Preserve the two failed

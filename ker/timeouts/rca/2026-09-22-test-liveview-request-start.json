@@ -1,0 +1,14 @@
+{
+  "policyId": "test.liveview-request-start-handshake",
+  "phase": "P04.7 hosted FAST triage",
+  "startProof": "GitHub Actions run 35815208694 and redacted report tmp/codebase-reduction-fast-35815208694/harden-llm-runner-reports-35815208694-1-fast/runner-1790134913998-2467-925e551546c9c7c9.json (SHA-256 b145ad603cabf743b6f21e72407f5a732ea88ce80602957766ce95c45aaa8ac5) show the HistoryTraceTest request-start assertion expiring at the ExUnit default of 100 ms. Comparable observations came from the pinned-toolchain HistoryTraceTest and WorkspaceLiveTest module run with seed 104729 and --max-cases 8; 69 tests passed. One handshake completed below the microsecond timer resolution and is omitted from the positive sample.",
+  "failedTimingsMilliseconds": [100],
+  "comparableSuccessesMilliseconds": [0.001, 0.002, 0.002, 0.593, 0.001, 0.002, 0.001, 0.001, 0.001, 0.001, 0.001],
+  "p95Milliseconds": 0.593,
+  "maximumMilliseconds": 0.593,
+  "previousTimeoutMilliseconds": 100,
+  "configuredTimeoutMilliseconds": 1000,
+  "headroomMilliseconds": 999,
+  "rootCause": "The 100 ms default receive bound expired while a LiveView background request was being scheduled and entering its Req.Test handler under the parallel frontend suite. The hosted failure mailbox contained the initial HTTP response but no page_started signal. The request-start signal is sent only after the asynchronous task reaches the test stub; the local max-cases-8 measurements were 0.001 to 0.593 ms. This is a test-handoff scheduling bound, not evidence of a provider or application request timeout.",
+  "rationale": "An explicit 1,000 ms bound remains finite and below the fixture's 2,000 ms release guard. It gives the test-owned request process time to start under suite scheduling while preserving the same required signal, disabled-control assertion, duplicate-click behavior, request count, and response assertions. It does not serialize the suite or change a production timeout."
+}
