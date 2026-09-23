@@ -830,9 +830,9 @@ against its own intended candidate as in P01.
 | P02.4 cache/accounting | Complete | Owner/version isolation, replay admission, concurrency, and provider/result accounting reviewed; G-RUNTIME and INTEGRATION passed. |
 | P02.5 artifact lifecycle | Complete | Publication/deletion journal, grace, crash convergence, Garage and inventory reviewed; managed TEST-060 and artifact integration cases passed. |
 | P02.6 findings and repairs | Complete | No confirmed serious defect in reviewed scope; no code repair required. Five bounded records and Docker network troubleshooting are in `docs/codebase-reduction-results.md`. |
-| P03.1 size baseline | Pending | Freeze after repairs. |
-| P03.2 context baseline | Pending | Freeze complete dependency/test sets. |
-| P03.3 deletion inventory | Pending | Evaluate all six P04 candidates. |
+| P03.1 size baseline | Complete | Clean post-repair source `81206faa09d3da2289d956716475e20cccb9bd0a`; frozen tracked-path manifest and category totals are recorded in `docs/codebase-reduction-results.md`. |
+| P03.2 context baseline | Complete | Three whole-file task sets and per-category byte/line totals are frozen in `docs/codebase-reduction-manifest.json`. |
+| P03.3 deletion inventory | In progress | Evaluate all six P04 candidates against the frozen baseline before editing. |
 | P04.1 option markup | Pending | Literal field descriptors; same rendered contract. |
 | P04.2 model-list reuse | Pending | Recompute once per render. |
 | P04.3 fold assignments | Pending | Preserve missing/false update semantics. |

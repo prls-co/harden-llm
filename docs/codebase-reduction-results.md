@@ -112,3 +112,39 @@ rollback image and descriptor checkpoint before any production apply.
 No confirmed serious code defect was found in the five reviewed boundaries, and P02 can close. The review is limited to the source paths and named local cases above. Do not infer a whole-product security certification.
 
 P01 production delivery is still not eligible to apply: the repository's production-upgrade procedure requires a tested off-host restore, and no approved target/procedure has been identified in this checkout or the inspected host records. The user was asked which approved restore target to use and shown the available choices. Continue independent code reduction; keep production application/deployment and F-001 closure pending that answer and completed restore evidence.
+
+## P03 — Frozen size and context baseline
+
+### P03.1 Source and method
+
+- `refactor_base`: `81206faa09d3da2289d956716475e20cccb9bd0a` (the clean P02 checkpoint).
+- The baseline was measured from that committed snapshot before this measurement manifest was added. Tracked paths were read with `git ls-files -z`; each UTF-8 file has a raw-byte count, `str.splitlines()` physical-line count, nonblank-line count, and SHA-256. Binary files contribute exact bytes and a binary label.
+- The path manifest is [codebase-reduction-manifest.json](codebase-reduction-manifest.json). SHA-256: `a5894afa72340d7dbcfe75bb6958f422bc6449211006d851fe294f0cea8e0634`. It classifies 501 tracked files once across application, tooling, tests, contracts/configuration, and documents. It explicitly excludes only vendored `frontend/assets/vendor/heroicons.js` and `frontend/assets/vendor/topbar.js` from maintained totals. The later manifest itself is measurement metadata and is excluded from before/after totals; its 29,215 bytes / 595 lines are reported separately.
+- The dependency-free measurement helper is in ignored scratch at `tmp/codebase-reduction/measure.py`, SHA-256 `347c9bb4c24218eda09f594a57f665919678ef25ffcc89f302bf4a65c92b01f8`; it is 12,880 bytes / 298 lines and is not shipped. The complete per-file baseline is `tmp/codebase-reduction/baseline-81206fa.json`, SHA-256 `589a6894673ccf668d1cd7f6870b59cce2a4b3129f35bb34972a8207e11e3755`.
+- The pinned environment has no offline `tiktoken` installation. Token counts are unmeasured; bytes are a reproducible proxy, not an exact GPT-5.6 Luna context estimate. No tokenizer dependency or API call was added.
+
+### P03.1 Baseline totals
+
+| Category | Files | Bytes | Physical lines | Nonblank lines | Binary files |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Application | 131 | 1,317,088 | 38,084 | 34,768 | 1 |
+| Tooling | 33 | 463,193 | 10,688 | 10,020 | 0 |
+| Tests and fixtures | 182 | 1,659,176 | 40,598 | 37,007 | 0 |
+| Contracts/configuration | 66 | 301,023 | 7,317 | 7,082 | 0 |
+| Documents and archived evidence | 89 | 2,599,693 | 33,153 | 28,421 | 1 |
+
+### P03.2 Representative context sets
+
+The exact relative paths and their dependency notes are frozen in the manifest.
+After-snapshots must add any new helper, contract, or test file used by the same
+maintenance task.
+
+| Maintenance task | Files | Bytes | Physical lines | Nonblank lines | Source/tooling/tests bytes |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Profile option or recovery control | 12 | 252,359 | 7,253 | 6,331 | 184,354 / 0 / 68,005 |
+| Workspace draft or history behavior | 20 | 506,057 | 14,792 | 12,724 | 336,629 / 0 / 169,428 |
+| Runtime progress or accounting | 19 | 278,837 | 6,806 | 6,382 | 132,174 / 2,906 / 143,757 |
+
+Context totals are whole-file byte proxies. Overlapping files across tasks are
+counted in each task context because each set models an independent maintenance
+request.
