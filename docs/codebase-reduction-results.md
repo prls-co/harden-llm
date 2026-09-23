@@ -369,10 +369,29 @@ do not remove the regression coverage to manufacture a smaller context.
   canceled later tasks. `go-integration`, `go-unit`, `go-api`, and other
   completed tasks passed; cleanup errors/warnings were zero. The release gate
   remains incomplete. No test assertion, timeout, or worker policy was changed.
-- **Follow-up:** rerun the exact `make test-release` gate after host pressure
-  has dropped and only one managed runner is active. If runner-contracts fails
-  again under a quiet sample, investigate the first concrete failure before
-  changing a test or resource limit.
+- A second diagnostic full selector run used the runner's explicit
+  `--candidate-slots 1` option:
+  `node scripts/run-test-tier.mjs --task release --candidate-slots 1`.
+  Report `tmp/test-feedback/runner-1790131042644-2197525-72d1bc0350c5fcad.json`,
+  SHA-256 `941b9ce43f300579685bc59268bb25c5db44dbe2c346dadd437c6c87e24f70ba`.
+  It was also rejected. `runner-contracts` passed in 89.5 seconds and ordinary
+  integration passed, but `go-integration-race` failed in
+  `TestResourceRoutes` at `internal/gateway/resource_routes_test.go:256` when
+  `GarageStore.Put`'s existence `HEAD` request timed out. The runner canceled
+  `go-race` and later tasks; cleanup errors/warnings were zero. During that run,
+  `go-integration-race` (resource class `service`) and `go-race` (`cpu`) ran at
+  the same time, and the observed one-minute host load sample reached 248.20.
+  `--candidate-slots 1` limits CPU-class tasks only, so it does not prevent this
+  cross-class overlap. This run does not distinguish Garage behavior under
+  load from a Garage defect; the focused integration-race check has not yet
+  been repeated without the concurrent Go race task.
+- **Follow-up:** wait until the five-minute load average is near the observed
+  pre-release baseline (8.22) and no test runner is active, then run
+  `make test-integration-race` alone. If it passes, record the scheduler
+  interference and add a machine-checked TEST-279 policy assigning the two
+  expensive race suites to the existing exclusive `release` resource class;
+  then rerun full release certification. If it fails in isolation, diagnose
+  the first Garage operation error. Do not increase timeouts or weaken tests.
 
 ### P05.2 Frozen size and context result
 
