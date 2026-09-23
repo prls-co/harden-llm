@@ -832,13 +832,13 @@ against its own intended candidate as in P01.
 | P02.6 findings and repairs | Complete | No confirmed serious defect in reviewed scope; no code repair required. Five bounded records and Docker network troubleshooting are in `docs/codebase-reduction-results.md`. |
 | P03.1 size baseline | Complete | Clean post-repair source `81206faa09d3da2289d956716475e20cccb9bd0a`; frozen tracked-path manifest and category totals are recorded in `docs/codebase-reduction-results.md`. |
 | P03.2 context baseline | Complete | Three whole-file task sets and per-category byte/line totals are frozen in `docs/codebase-reduction-manifest.json`. |
-| P03.3 deletion inventory | In progress | Evaluate all six P04 candidates against the frozen baseline before editing. |
+| P03.3 deletion inventory | Complete | All six P04 candidates, owners, contracts, coverage gaps, size direction, and disposition are recorded in `docs/codebase-reduction-results.md`. |
 | P04.1 option markup | Pending | Literal field descriptors; same rendered contract. |
 | P04.2 model-list reuse | Pending | Recompute once per render. |
 | P04.3 fold assignments | Pending | Preserve missing/false update semantics. |
 | P04.4 progress construction | Pending | Preserve separate execution paths. |
-| P04.5 result projections | Pending | Retain only if total code becomes smaller. |
-| P04.6 unreachable residue | Pending | Delete only explicitly proven private paths. |
+| P04.5 result projections | Rejected with evidence | Attempt/accounting conversions are already shared; origin-only factoring has too little projected saving for added abstraction/test surface. See inventory. |
+| P04.6 unreachable residue | Rejected with evidence | No exact unreachable private symbol has been proven; retain supported dynamic boundaries. See inventory. |
 | P05.1 final verification | Pending | Full diff and final-source applicable checks. |
 | P05.2 result/handoff | Pending | Measurements and honest delivery status. |
 
