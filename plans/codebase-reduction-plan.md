@@ -306,6 +306,20 @@ check/apply behavior in [environment guidance](../docs/environment.md).
    its hash, and the four prior web values listed below. This checkpoint stays
    outside Git. Record nonsecret identifiers in the ledger.
 
+**Selected backup procedure (2026-09-23):** the user accepts a cold snapshot.
+Before any image build or apply, the operator must identify a dedicated,
+organization-approved encrypted destination and a separate restore host; neither
+is named in the available records. Once provisioned, stop the exact production
+Compose project without `--volumes`, snapshot all named volumes from the exact
+production Compose bundle together at the Docker volume-driver layer, restart
+the source stack and verify `/readyz`, then restore the snapshot on the separate
+host and verify application health and the recorded data/volume identities.
+Keep `.env` and `HARDEN_LLM_ENCRYPTION_KEYS` separately encrypted, outside Git
+and ordinary diagnostics. Do not reuse the unrelated observability target: its
+operations runbook says no off-host destination is configured and forbids
+reusing another product's bucket or credentials. Production remains deferred
+until the target and host are provisioned and the restore rehearsal passes.
+
 Core build invocation, only after these prerequisites and variables are checked:
 
 ```bash
@@ -901,7 +915,7 @@ against its own intended candidate as in P01.
 | P00.1 source/runtime refresh | Complete | Refreshed 2026-09-22; exact current identities and candidate evidence in `docs/codebase-reduction-results.md`. |
 | P00.2 initial ledger | Complete | F-001 and the five unreviewed boundaries recorded in `docs/codebase-reduction-results.md`. |
 | P01.1 certified candidate | Complete | Historical `6887fcd` exact-source run 35726391122 and ancestry are verified. Final full-tree candidate `bafa622` passed hosted FAST/release (35821407815/35821617071), was promoted to `main` by documentation-only tip `e988207`, and that tip passed main FAST/CodeQL (35823822733/35823822677). See the dated P01.1 record in the results ledger. |
-| P01.2 image and rollback | Pending | Production image preparation must wait for an organization-approved off-host destination and a tested restore on another host; final source changes both web and gateway application images. |
+| P01.2 image and rollback | Pending | User selected a cold snapshot to an existing approved store, but no Harden-LLM destination or separate restore host is named in the available records. The related infrastructure repo says its observability target is unconfigured and forbids reuse. Defer image preparation until a dedicated encrypted destination and restore host are provisioned and a restore rehearsal passes; final source changes both web and gateway images. |
 | P01.3 descriptor review | Pending | Review only the authorized service fields after source, image IDs, rollback images, and restore proof are recorded. |
 | P01.4 delivery/checks | Pending | Production apply and probes remain gated on restore evidence; required before F-001 is resolved. |
 | P01.5 old P04 closeout | Pending | Complete only after actual delivery, runtime identity, rollback, and probe evidence. |
@@ -924,7 +938,7 @@ against its own intended candidate as in P01.
 | P04.7 progress test context | Complete | TEST-284 is isolated and its focused context fell 12,810 bytes / 120 lines. Focused Go and runtime race checks passed. After recording and correcting the 100 ms LiveView handshake failure, hosted FAST run 35818091415 passed all 10 tasks on `a6a7bdd` with 247 frontend tests; the stale-loading failure did not recur but remains unexplained. Browser-free hosted release run 35818416126 then passed all 28 tasks on that same source. |
 | P04.8 profile editor test context | Complete | Three editor contract tests moved with their exact test/helper bodies; all 17 old/new component tests pass and the focused task context fell 161,788 bytes / 4,737 lines. The frozen broad profile context grew 707 bytes / 19 lines against the P04.7 tree and 5,892 bytes / 164 lines against the P03 baseline; CR-A04 remains unmet. Hosted FAST run 35821407815 and browser-free release run 35821617071 passed on `bafa622` with 247 frontend tests. The local FAST timeout remains recorded. |
 | P05.1 final verification | Complete | Exact final application source `bafa622` passed hosted FAST run 35821407815 and browser-free release run 35821617071; release accepted all 28 tasks plus separate integration and integration-race selectors. Local shared-host timeouts remain recorded; browser/provider suites were not requested or run. |
-| P05.2 result/handoff | In progress | Final category/context measurements, failed local reports, and the unmet CR-A04 finding are recorded. Main promotion is complete at `e988207`; production delivery remains pending an approved off-host destination and a tested restore. Exact production image and deployed component identities do not yet exist. |
+| P05.2 result/handoff | In progress | Final category/context measurements, failed local reports, and the unmet CR-A04 finding are recorded. Main promotion is complete at `e988207`. User selected cold snapshot, but no dedicated Harden-LLM encrypted destination or separate restore host is documented; production is deferred until provisioned and a restore passes. Exact production image and deployed component identities do not yet exist. |
 
 Allowed status values: `Pending`, `In progress`, `Complete`, or `Rejected with
 evidence` for P04 candidates. A blocked prerequisite stays unfinished with the
