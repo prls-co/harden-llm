@@ -126,6 +126,9 @@ the 300-second budget. Timeout increases require the RCA in
 
 ## Back up and restore
 
+These are optional manual recovery procedures. Compose does not install a backup
+service or schedule backups.
+
 Back up these failure domains independently:
 
 1. Application Postgres: logical dump plus roles, or a tested cold volume snapshot.
@@ -172,15 +175,20 @@ the durable operation backlog before taking any manual action.
 
 ## Upgrade, rotate, and roll back
 
-Before an explicit production upgrade, take a tested backup, review ADRs and
-image-lock changes, and run `make test-release`. This browser-free gate includes
-`make verify` and the backend Compose check; do not repeat them separately or
-launch a browser/live-provider canary automatically. Deploy only immutable
-release IDs and digests, validate the effective Compose project before `up -d`,
-and rebuild/recreate only affected application services with `--no-deps` when
-their dependencies are unchanged. Retain rollback images and named data/session
-volumes. Verify public health/readiness and authenticated read-only routes;
-report browser and live-provider checks as not run unless separately authorized.
+Backup and restore are optional recovery procedures; this deployment has no
+backup gate, at the owner's direction. The owner accepts loss of persistent
+application data. For the current codebase-reduction release, the deployed-to-
+candidate change contains no database migration or Postgres storage-code
+change. Review ADRs and image-lock changes, and run `make test-release`. This
+browser-free gate includes `make verify` and the backend Compose check; do not
+repeat them separately or launch a browser/live-provider canary automatically.
+Deploy only immutable release IDs and digests, validate the effective Compose
+project before `up -d`, and rebuild/recreate only affected application services
+with `--no-deps` when their dependencies are unchanged. Retain rollback images
+and named data/session volumes. Verify public health/readiness and authenticated
+read-only routes; report browser and live-provider checks as not run unless
+separately authorized. A loss of Postgres/Garage still loses HardLLM history;
+Langfuse observability traces do not restore the consumer widget's history.
 
 Run the production-config check/apply for runtime settings, then inject shared
 provider settings through the approved process environment as described in

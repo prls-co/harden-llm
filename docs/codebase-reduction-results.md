@@ -107,23 +107,17 @@ rollback image and descriptor checkpoint before any production apply.
 - The first managed integration attempt could not create its Compose network because Docker reported `all predefined address pools have been fully subnetted`. Inspection found an empty, week-old network with the exact `harden-llm-test` Compose project label and zero attached containers. Removed only `harden-llm-test-exclusive-b422909e3691_default`; no container, volume, or application data was removed. The managed lane then passed. Host follow-up: review Docker default address-pool capacity and stale empty test-network cleanup if this recurs; do not restart Docker or broadly prune resources as a test workaround.
 - During initial assertion development, the LiveView test briefly expected the credential ID from a closed drawer. The rendered form intentionally omits that field; the regression now asserts only that a canceled secret is absent from the save request. Backend preservation is separately asserted by TEST-022 against real Postgres.
 
-### Outcome and open production prerequisite
+### Outcome and production handoff
 
 No confirmed serious code defect was found in the five reviewed boundaries, and P02 can close. The review is limited to the source paths and named local cases above. Do not infer a whole-product security certification.
 
-The user initially accepted a cold snapshot, then asked whether it is needed
-and requested a lean setup. Follow-up inspection of this repository, the
-production checkout, and
-`/home/kirill/p/agent-platform-infra/runbooks/backup-restore.md` found no named
-Harden-LLM backup destination, backup coverage inventory, or restore evidence
-and host. Reuse the existing organization-approved encrypted procedure if it
-covers the application recovery boundary in P01.2; do not create a parallel
-snapshot system. The infrastructure runbook says its observability backup has
-no configured off-host target and explicitly prohibits reusing another
-product's bucket or credentials. This is not a valid Harden-LLM backup target.
-Production remains deferred until an adequate existing backup and its
-restore-on-another-host evidence are identified. A full Compose-volume snapshot
-is not required by the selected plan.
+The user explicitly declined pre-upgrade backups and restore rehearsals,
+accepting persistent-data loss. The deployed-to-candidate comparison
+(`6887fcd` to `cf14628`) has no application migration, OpenAPI, or Postgres
+storage-code change. No backup destination, snapshot system, or restore host is
+needed for this code release. Langfuse receives gateway observability traces;
+HardLLM's consumer history remains stored in Postgres/Garage and would be lost
+if those data stores are lost. Langfuse does not restore the widget history.
 
 ## P01.1 — Exact source and certification review (2026-09-23)
 
@@ -173,23 +167,21 @@ current production release identities and rollback evidence are recorded in
 the P00 table above.
 
 P01.1's exact-source, certification, and compatibility review is complete, and
-the candidate is promoted to `main`. On 2026-09-23, the user asked to reassess
-the cold-snapshot requirement and requested a leaner recovery path. The plan
-recommends reusing the existing approved encrypted backup/restore procedure if
-it covers the application Postgres dump plus roles, the matching
-Garage metadata/data when exact artifact rollback is needed, separately
-encrypted runtime configuration and historical/current encryption keys, and
-the component identities. The production runbook still requires restore
-evidence on another host because migration 6 transforms saved Postgres
-documents and the old image cannot run safely against migrated formats.
+the candidate is promoted to `main`. On 2026-09-23, the user explicitly
+declined pre-upgrade backups and restore rehearsals, accepting loss of
+persistent data. The exact deployed-to-candidate comparison (`6887fcd` to
+`cf14628`) shows no application migration, OpenAPI, or Postgres storage-code
+change; the earlier migration-based backup gate did not apply to this release.
+No dedicated snapshot system or restore host will be provisioned.
 
-No approved backup destination, coverage inventory, or restore evidence/host
-is named in the available operations material. The related infrastructure repo
-explicitly says no off-host observability target is configured and forbids
-reusing another product's storage. Therefore P01.2 remains deferred until an
-adequate existing backup and its restore evidence are identified; do not build
-a parallel full-volume snapshot workflow. No production image was built and no
-descriptor or running service was changed.
+HardLLM's consumer history/trace API reads product trace and run records from
+Postgres and artifact bodies from Garage. Langfuse receives gateway
+observability traces, but the consumer widget does not read its data. A normal
+code deployment leaves the current history store in place; a database/object
+store loss will also lose the widget history, even if Langfuse retains its
+telemetry traces. Profile export/import is separate and does not export run
+history. No production image was built and no descriptor or running service
+was changed.
 
 ## P03 — Frozen size and context baseline
 
@@ -955,21 +947,18 @@ unmet.
   completed without deploying a branch preview or production service. No image
   publication is active for this repository; the retired GHCR publisher is
   not used. The P04.9 refactor has not been deployed.
-- Backup recommendation, revised 2026-09-23: reuse the approved routine encrypted
-  backup/restore procedure if it covers the application Postgres dump plus
-  roles, matching Garage metadata/data when exact artifact rollback is needed,
-  separately encrypted runtime configuration and encryption keys, and matching
-  component identities. Do not create a duplicate all-volume cold snapshot.
-  `docs/self-hosting.md` still requires restore evidence on another host. The
-  exact approved destination, coverage, restore evidence, and host are not
-  documented, so production remains deferred until those existing details are
-  verified. The unrelated observability target is unconfigured and must not be
-  reused.
+- Backup policy, revised 2026-09-23: the user declined any pre-upgrade backup
+  or restore rehearsal and accepts loss of persistent data. The deployed-to-
+  candidate diff confirms no database migration or Postgres storage-code
+  change. Langfuse keeps observability traces; HardLLM's widget history remains
+  in Postgres/Garage and is not recoverable from Langfuse after data-store loss.
+  No backup destination or restore host is a release prerequisite.
 - Browser layout and public-provider behavior were not run under repository
   policy. No production component image or post-deployment identity exists for
   this refactor.
 - No confirmed serious code defect was found in the five P02 review boundaries.
   CR-A04 remains unmet, so the broad-context reduction goal is still an
   unresolved limitation. Browser-free gates passed on P04.9 application source.
-  Production blockers are the unnamed off-host destination and restore host,
-  plus the missing cold-snapshot restore proof.
+  Production still needs image preparation, descriptor review, authorized
+  apply, and runtime verification. No backup or restore proof is required under
+  the user's data-loss decision.

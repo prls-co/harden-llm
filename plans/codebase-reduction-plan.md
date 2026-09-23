@@ -279,15 +279,14 @@ release evidence. Resolve an actual test gap before building.
 
 ### P01.2 Prepare the web image and a concrete rollback
 
-**Read:** [frontend Dockerfile](../frontend/Dockerfile),
-[deployment/backup rules](../docs/self-hosting.md), and the service-specific
-check/apply behavior in [environment guidance](../docs/environment.md).
+**Read:** [frontend Dockerfile](../frontend/Dockerfile) and the
+service-specific check/apply behavior in [environment guidance](../docs/environment.md).
 
 **Do, in this order:**
 
-1. Confirm deployment authorization covers P01 and review the repository's
-   existing backup prerequisites. Verify required evidence; do not manufacture
-   a restore claim or start a new backup architecture project.
+1. Confirm deployment authorization covers P01. This release has no backup or
+   restore prerequisite under the user's explicit data-loss policy; verify the
+   deployed-to-candidate persisted-data compatibility recorded below.
 2. Record the current web image/release and prove the rollback image exists.
    Record the gateway identity and retained session volume for comparison.
 3. Use a clean detached worktree at the selected full candidate SHA. Verify its
@@ -306,36 +305,21 @@ check/apply behavior in [environment guidance](../docs/environment.md).
    its hash, and the four prior web values listed below. This checkpoint stays
    outside Git. Record nonsecret identifiers in the ledger.
 
-**Recommended backup procedure (2026-09-23, after the user questioned the cold
-snapshot and requested a lean setup):** do not create a new cold snapshot of
-every Compose volume. Before production apply, reuse the existing
-organization-approved, encrypted backup and restore procedure if its current
-backup covers the recovery boundary below and has restore evidence for another
-host. The migration changes saved
-Postgres documents, and the old application image cannot safely run against
-the migrated formats, so an image-only rollback is insufficient.
+**Backup decision (2026-09-23):** at the user's direction, this release has no
+pre-upgrade backup or restore-rehearsal gate. The deployed-to-candidate source
+comparison (`6887fcd` to `cf14628`) has no application migration, OpenAPI, or
+Postgres storage-code change, so the earlier migration-based justification did
+not apply to this rollout. Retain the existing immutable application images for
+code rollback; no new backup service, snapshot workflow, or restore host is
+being provisioned.
 
-Use the smallest coherent application checkpoint: Postgres logical dump plus
-roles; the matching Garage metadata and data captured together while application
-writes are quiesced if exact artifact rollback is needed; the private runtime
-configuration and current/historical `HARDEN_LLM_ENCRYPTION_KEYS`, kept
-separately encrypted; and the pre-upgrade gateway/web image identities. Reuse
-the routine backup's existing destination and restore process rather than
-creating a parallel snapshot system. Keep the live session volume attached
-through deployment; omit it from recovery copies when user reauthentication is
-acceptable. Monitoring/history volumes are outside this application rollback
-checkpoint. Follow the production runbook's restore test on another host.
-
-The available records still do not name the approved destination, establish
-that it covers these items, or identify restore evidence/host. Record those
-nonsecret inventory identifiers and confirm the exact backup scope before apply.
-If the routine backup already meets the criteria, reuse its evidence without a
-duplicate cold snapshot. If it does not, add only the missing application data
-coverage to that procedure. Keep `.env` and encryption keys encrypted and out of
-Git and diagnostics. Do not reuse the unrelated observability target; its
-operations runbook says no off-host destination is configured and forbids
-reusing another product's bucket or credentials. Production remains deferred
-until an adequate existing backup is identified and its restore is verified.
+The user accepts loss of persistent data if the database or object store is
+lost. HardLLM's consumer history/trace API reads product records from Postgres
+and artifact bodies from Garage; Langfuse receives gateway observability traces
+and is not a source for that widget history. A normal code deployment leaves
+the current history store in place, but a Postgres/Garage loss will remove
+widget history even if Langfuse still has its telemetry traces. Profile
+export/import remains the separate way to move profile configuration.
 
 Core build invocation, only after these prerequisites and variables are checked:
 
@@ -1012,9 +996,9 @@ against its own intended candidate as in P01.
 | P00.1 source/runtime refresh | Complete | Refreshed 2026-09-22; exact current identities and candidate evidence in `docs/codebase-reduction-results.md`. |
 | P00.2 initial ledger | Complete | F-001 and the five unreviewed boundaries recorded in `docs/codebase-reduction-results.md`. |
 | P01.1 certified candidate | Complete | Historical `6887fcd` exact-source run 35726391122 and ancestry are verified. Final full-tree candidate `bafa622` passed hosted FAST/release (35821407815/35821617071), was promoted to `main` by documentation-only tip `e988207`, and that tip passed main FAST/CodeQL (35823822733/35823822677). See the dated P01.1 record in the results ledger. |
-| P01.2 image and rollback | Pending | User questioned the cold-snapshot requirement and requested a lean setup. Recommended path: reuse the existing approved encrypted backup if it covers Postgres plus roles, matching Garage metadata/data where exact artifact rollback is needed, separate private configuration/encryption keys, and matching component identities; reuse valid restore-on-another-host evidence. No destination, scope, or restore evidence/host is named in the current records. Final source changes both web and gateway images, and migration 6 makes image-only rollback unsafe. |
-| P01.3 descriptor review | Pending | Review only the authorized service fields after source, image IDs, rollback images, and restore proof are recorded. |
-| P01.4 delivery/checks | Pending | Production apply and probes remain gated on restore evidence; required before F-001 is resolved. |
+| P01.2 image and rollback | Pending | User explicitly declined backups and accepts persistent-data loss. The deployed-to-candidate comparison (`6887fcd` to `cf14628`) shows no application migration, OpenAPI, or Postgres storage-code change; the migration-based backup gate was unnecessary for this release and is removed. Retain the current immutable web/gateway images for code rollback. HardLLM widget history remains in Postgres/Garage; Langfuse telemetry is not a replacement, and history is not recoverable after data-store loss. Prepare exact image identities; no backup destination or restore host is required. |
+| P01.3 descriptor review | Pending | Review only the authorized service fields after source, image IDs, and rollback image identities are recorded. |
+| P01.4 delivery/checks | Pending | Production apply and probes remain gated on image identity, descriptor review, and runtime checks; no backup or restore rehearsal is required under the user's accepted data-loss policy. |
 | P01.5 old P04 closeout | Pending | Complete only after actual delivery, runtime identity, rollback, and probe evidence. |
 | P02.1 owner isolation | Complete | Authenticated principal ownership traced to SQL/resource operations; G-AUTH, F-AUTH, and managed INTEGRATION passed. See results ledger. |
 | P02.2 credential boundaries | Complete | Origin/AAD, request-local owner binding, diagnostics, staged cancellation, and stored-binding retention reviewed; focused checks and managed TEST-022 passed. |
@@ -1037,7 +1021,7 @@ against its own intended candidate as in P01.
 | P04.8 profile editor test context | Complete | Three editor contract tests moved with their exact test/helper bodies; all 17 old/new component tests pass and the focused task context fell 161,788 bytes / 4,737 lines. The frozen broad profile context grew 707 bytes / 19 lines against the P04.7 tree and 5,892 bytes / 164 lines against the P03 baseline; CR-A04 remains unmet. Hosted FAST run 35821407815 and browser-free release run 35821617071 passed on `bafa622` with 247 frontend tests. The local FAST timeout remains recorded. |
 | P04.9 workspace schema ownership | Complete | `WorkspaceSchema` owns shorthand conversion and contracted-subset validation; state decoding, UI/status, persistence, and Run lifecycle remain in `WorkspaceLive`. WEB-TEST-057 and invalid-local-JSON coverage moved unchanged to the focused schema suite. Workspace draft/history context is 491,960 bytes / 14,336 lines (-14,097 / -456 from P03); all three contexts are in `contexts-after-p04.9.json`. The combined workspace/schema suite passed 57 tests, the canonical schema suite passed 2 tests, and formatting passed. Exact source `cf14628` passed hosted FAST run 35870390854 (10/10 tasks) and hosted browser-free RELEASE run 35870717879 (28 release tasks plus one integration and one integration-race task). Two failed local FAST attempts under heavy host load are retained in the results ledger; assertions and deadlines were not changed. |
 | P05.1 final verification | Complete | P04.9 exact source `cf14628` passed hosted FAST run 35870390854 and browser-free RELEASE run 35870717879. Release included the 28-task release selector and separate integration/integration-race selectors; runner report hashes are in the results ledger. The full changed-file diff was reviewed; no Go export, OpenAPI, stored schema, migration, provider behavior, or browser hook changed. Browser/provider checks remain opt-in and unrun. |
-| P05.2 result/handoff | Complete | Whole-source category totals and P04.9-adjusted contexts are recorded with clean-snapshot SHAs and artifact hashes. Application source `cf14628` is promoted to `main` at `42c64d8`; main FAST 35874387028 and CodeQL 35874386762 passed. CR-A04 remains unmet because two broad context sets grew from required regression coverage; selected candidates are exhausted, so keep that limitation explicit. The user asked to reassess the cold-snapshot requirement and requested a lean setup; the plan recommends reusing the existing encrypted backup procedure instead of a dedicated all-volume snapshot. Its destination, coverage, and restore evidence/host are not named in available records. Production remains deferred until an adequate backup and restore test are verified; no production image or deployed component identities exist. |
+| P05.2 result/handoff | Complete | Whole-source category totals and P04.9-adjusted contexts are recorded with clean-snapshot SHAs and artifact hashes. Application source `cf14628` is promoted to `main` at `42c64d8`; main FAST 35874387028 and CodeQL 35874386762 passed. CR-A04 remains unmet because two broad context sets grew from required regression coverage; selected candidates are exhausted, so keep that limitation explicit. User declined pre-upgrade backups and accepts persistent-data loss. The deployed-to-candidate diff shows no database migration or Postgres storage-code change; Langfuse telemetry is separate from HardLLM widget history. No backup gate or restore host is required for this release. No production image or deployed component identities exist. |
 
 Allowed status values: `Pending`, `In progress`, `Complete`, or `Rejected with
 evidence` for P04 candidates. A blocked prerequisite stays unfinished with the
