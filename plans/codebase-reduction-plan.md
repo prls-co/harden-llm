@@ -632,6 +632,22 @@ promise reductions for `router.go`, `WorkspaceLive`, or the strict wire decoder
 merely because they are large. Preserve strict decoding and intentional provider
 protocol differences.
 
+### P03.4 Re-review after the first measured context misses
+
+The first P04 measurement did not meet CR-A04. Keep the frozen P03 totals
+unchanged and re-review only exact task/file boundaries that caused the miss.
+The largest avoidable runtime context increase is TEST-284's 433-line callback
+contract appended to the general `repair_test.go` suite. Select one bounded
+organization candidate: move TEST-284 and its dedicated fixtures to
+`internal/runtime/progress_snapshot_test.go`, keeping every subtest, event and
+counter expectation, time/deadline check, failure case, cache case, and
+copy-isolation assertion. Do not reduce the oracle or delete cases. Make the
+focused progress-task context explicit and compare the whole `repair_test.go`
+baseline against the dedicated progress test plus any genuinely shared helper
+files after the move. This is a context-boundary candidate, not a claim that
+the complete repository becomes smaller. Reject it if additional helper
+dependencies erase the measured task-context saving.
+
 ## 9. P04 — Implement bounded reductions
 
 Each task uses the same sequence: inspect callers and assertions; fill its
@@ -771,6 +787,29 @@ unauthorized browser/provider call, retain the dependency and record the gap.
 required behavior remains covered, and reduction is measured. Do not expand into
 a broad dependency upgrade or test-runner rewrite.
 
+### P04.7 Split TEST-284 into a progress-focused test owner
+
+**Owner:** `internal/runtime/repair_test.go` and a new
+`internal/runtime/progress_snapshot_test.go`. **Tests:** TEST-284 and the full
+runtime package.
+
+The callback contract is a distinct progress concern appended to a broad retry
+repair suite. Move `TestProgressSnapshotContracts` and its fixture types and
+assertion helpers into the dedicated test file. Keep the TEST-284 traceability
+comment and preserve test names and assertion contents. If the old suite's
+`identityExecutor`, `planProfiles`, or telemetry cache would make the focused
+context depend on unrelated test files, replace only those fixtures with
+small local equivalents whose behavior is explicit; keep production paths and
+the assertion oracle unchanged. Do not duplicate a helper already needed by
+this focused suite.
+
+**Accept:** zero test cases or assertions are removed; the dedicated test runs
+within the runtime package; focused progress-task bytes decrease against the
+P03 baseline after required helper files are included; and the runtime suite,
+race boundary, and FAST pass. Keep the original frozen runtime-context result
+published unchanged and report this focused context separately. If measured
+dependencies erase the saving, revert this candidate and record that result.
+
 ## 10. P05 — Final verification, measurement, and handoff
 
 ### P05.1 Review the complete change against the post-repair baseline
@@ -832,14 +871,16 @@ against its own intended candidate as in P01.
 | P02.6 findings and repairs | Complete | No confirmed serious defect in reviewed scope; no code repair required. Five bounded records and Docker network troubleshooting are in `docs/codebase-reduction-results.md`. |
 | P03.1 size baseline | Complete | Clean post-repair source `81206faa09d3da2289d956716475e20cccb9bd0a`; frozen tracked-path manifest and category totals are recorded in `docs/codebase-reduction-results.md`. |
 | P03.2 context baseline | Complete | Three whole-file task sets and per-category byte/line totals are frozen in `docs/codebase-reduction-manifest.json`. |
-| P03.3 deletion inventory | Complete | All six P04 candidates, owners, contracts, coverage gaps, size direction, and disposition are recorded in `docs/codebase-reduction-results.md`. |
+| P03.3 deletion inventory | Complete | The six original candidates and their evidence are recorded in `docs/codebase-reduction-results.md`. |
+| P03.4 focused-context candidate review | Complete | CR-A04 missed; TEST-284's 433-line contract was appended to the broad repair suite. P04.7 is selected only as a test-context organization candidate; it preserves the existing oracle and must prove a net saving with required fixtures included. |
 | P04.1 option markup | Complete | WEB-TEST-044/090 pin exact numeric and checkbox matrices; F-WIDGET passed 32 and FAST passed all 10 tasks. Production owner shrank 1,208 bytes / 29 lines; full profile context grew 2,256 bytes from necessary tests. See P04.1 record in the results ledger. |
 | P04.2 model-list reuse | Complete | WEB-TEST-044 checks the three rendered consumers across profile/catalog/custom-model changes and separate renders; F-WIDGET/profile-definition passed 31. Production source fell 484 bytes / 22 lines, while the frozen profile context grew 1,940 bytes / 46 lines from test coverage. The final accepted FAST report covers the current source; see results ledger. |
 | P04.3 fold assignments | Complete | WEB-TEST-044 exercises full and partial callback assigns, explicit false, nil, invalid, omitted values, and separate target config state. F-WIDGET/profile-definition/embedding passed 34. Production source fell 418 bytes / 17 lines; full profile context grew 989 bytes / 29 lines from regression coverage. The final accepted FAST report covers the current source; see results ledger. |
 | P04.4 progress construction | Complete | TEST-284 preserves both callback paths; runtime and focused race tests, N-PROGRESS, and FAST passed. Production source fell 1,005 bytes / 3 lines, but the full runtime context grew 19,454 bytes because the required regression added 20,459 bytes / 433 lines. See results ledger; this is not a context-size win. |
 | P04.5 result projections | Rejected with evidence | Attempt/accounting conversions are already shared; origin-only factoring has too little projected saving for added abstraction/test surface. See inventory. |
 | P04.6 unreachable residue | Rejected with evidence | No exact unreachable private symbol has been proven; retain supported dynamic boundaries. See inventory. |
-| P05.1 final verification | Complete for P04.4 source | FAST and focused runtime boundaries passed; hosted browser-free `make test-release` passed all 28 tasks on the unchanged P04.4 application source at run 35811904032 / SHA `1b75728`. Hosted integration and integration-race selectors passed too. Two local attempts remain recorded as failures under extreme shared-host load; browser/provider suites were not requested or run. See report and artifact hashes in `docs/codebase-reduction-results.md`. If a further code candidate is accepted, repeat applicable gates on its final source. |
+| P04.7 progress test context | In progress | Isolate TEST-284 without reducing coverage; measure focused-context bytes and verify focused Go, race, FAST, and final release gates. |
+| P05.1 final verification | In progress | The P04.4 application source passed hosted browser-free `make test-release` (28/28 tasks) at run 35811904032 / SHA `1b75728`; report and artifact hashes are recorded. P04.7 changes test ownership, so repeat applicable gates on the final tree. Local failures remain recorded as failures under extreme shared-host load; browser/provider suites were not requested or run. |
 | P05.2 result/handoff | Complete | Frozen context measurements, category totals, rejected context-size claim, and delivery blockers are recorded in the P05 ledger. CR-A04 is not met; the overall plan remains in progress pending release certification, restore proof, and a new candidate review if net context reduction is still required. |
 
 Allowed status values: `Pending`, `In progress`, `Complete`, or `Rejected with

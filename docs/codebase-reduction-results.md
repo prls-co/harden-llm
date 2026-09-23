@@ -164,6 +164,19 @@ missing observable contract before changing its owner.
 | P04.5 root `client.go`: public attempt and accounting-ledger conversions in progress and final result | Preserve empty attempts, optional progress accounting, copy behavior, wire field names, and progress nil-origin vs final zero-value origin semantics. | `publicAttempt` and `publicAccountingLedger` are already shared by both projections. `publicOrigin` is used by progress while final results inline the same eight-field mapping; this is the only material duplicate found in the selected symbols. | Compare a value-returning private origin mapper plus pointer wrapper against the current inline mapper and `publicOrigin`; retain only if exact tests and the combined helper/call sites are smaller. | At most a small source decrease; no dependency. Test additions may outweigh production deletion in total-maintained-code terms. | Root client tests, G-RUNTIME, and FAST wire/static checks. | Rejected: the shared attempt/accounting conversions already eliminate the major repetition; origin-only factoring has too little projected saving for the extra abstraction and test surface. |
 | P04.6 only a specific proven unreachable private symbol/dependency | Keep all exported APIs, runtime compatibility paths, migrations, provider branches, HEEx callbacks/hooks, build-tag paths, fixtures, and harness entrypoints. | No dead private symbol has been identified in the inspected P04.1–P04.4 owners. `staticcheck` is not installed in the pinned environment; no browser/provider-only reachability claim is inferred. | No deletion until a concrete candidate has complete static and dynamic-boundary evidence. | No justified size direction; broad automated deletion would risk supported entrypoints and does not establish reachability. | Owner-specific tests and FAST; broader boundary only if an exact candidate requires it. | Rejected: no proven unreachable residue is in the inventory. |
 
+### P03.4 Focused-context re-review
+
+The P04.4 measurement missed CR-A04. Preserve its frozen measurements. The
+runtime context grew 19,454 bytes after TEST-284 added a 433-line callback
+contract to `internal/runtime/repair_test.go`; the production owners together
+shrank 1,005 bytes. A bounded follow-up candidate is to put TEST-284 and its
+fixture/assertion helpers in `internal/runtime/progress_snapshot_test.go`.
+This changes test ownership only. It is selected only as a task-context
+organization candidate: the assertion oracle, test count, and whole-repository
+size claim must remain honest, and the focused progress context must show a
+measured decrease after its helper dependencies are included. If it does not,
+revert and record the evidence.
+
 ## P04 — Bounded reductions
 
 ### P04.1 Profile option markup
@@ -343,6 +356,57 @@ increases the complete task context. CR-A04 cannot be claimed from this result.
 The sharing is a small production-source reduction and is not a context-size
 win when its regression tests are included. P05 must report this as a tradeoff;
 do not remove the regression coverage to manufacture a smaller context.
+
+### P04.7 Progress test context isolation
+
+**Selected after P03.4:** `TEST-284` has a dedicated, self-contained callback
+contract but currently shares `repair_test.go` with retry-repair behavior. The
+P03 baseline `repair_test.go` is 33,555 bytes; the P04.4 file is 54,014 bytes.
+Move the TEST-284 test and fixtures into `progress_snapshot_test.go` without
+removing test cases or assertions. Keep the original whole-context P03/P04.4
+measurement unchanged. Separately measure the focused progress task using the
+runtime production owners, baseline `repair_test.go` versus the dedicated
+progress test plus any required helper files. The candidate is useful only if
+that scoped byte total falls after dependencies are counted.
+
+**Risks:** Go test helpers are package-wide, so a standalone test file can
+silently depend on unrelated `repair_test.go`, recovery-plan, or telemetry
+fixtures. Make those dependencies explicit and keep local fixture behavior
+equivalent. Preserve TEST-284 and every subtest name/assertion. Re-run runtime,
+race, FAST, and release gates on the final tree; the prior release gate only
+certifies the P04.4 source layout.
+
+**Implementation and context result:** moved the test and its support types to
+`internal/runtime/progress_snapshot_test.go`. The test body is byte-for-byte
+identical after mapping the two fixture names (`planProfiles` to
+`progressProfiles`, `telemetryCache` to `progressContractCache`); all six named
+subtests and their assertions remain. The new executor, profiles, usage, and
+cache fixtures are local to the focused file, so it no longer depends on
+`repair_test.go`, `recovery_plan_test.go`, or `telemetry_test.go`.
+
+The separate focused progress-task measurement includes the eight shared
+runtime/retry/accounting/cachekey source files plus the relevant test file. It
+replaces the 33,555-byte baseline `repair_test.go` with the dedicated test file.
+The measured set fell from 141,599 bytes / 3,629 lines to 128,789 bytes / 3,509
+lines (-12,810 bytes / -120 lines). Raw measurement:
+`tmp/codebase-reduction/focused-progress-after-p04.7.json`, SHA-256
+`9f39283dede982039082f64ce6182d5009abfc9ee6a2714ace9ff2145bef22e8`; the
+reproducible measurement script is
+`tmp/codebase-reduction/measure-focused-progress.py`. This is a narrower
+progress-maintenance context result. The original frozen whole-runtime context
+still grew and remains reported as such.
+
+**Checks:** `gofmt`, the focused TEST-284 run, the full runtime package, and
+`go test -race ./internal/runtime -count=1` passed. The pinned-toolchain
+`make test-fast` attempt was rejected under shared-host load. Report
+`tmp/test-feedback/runner-1790134603183-3436339-c8c1d8dfd90dc031.json`, SHA-256
+`a047a8b79505ecbcfcc7a8ce08cdff75efecf34b0c12e12587da35e48c786b68`, records
+a runner-contract test's fake child timing out after 62.2 seconds and `go-static`
+timing out after 188.2 seconds; the runner then canceled `go-unit`, `go-parity`,
+and remaining tasks. The observed host load was 245.37 / 155.46 / 70.82; cleanup
+errors/warnings were zero. No assertion, timeout, or runner policy changed.
+Use an isolated hosted FAST run to verify this test-file move; retain this local
+failure as a failure, not passing evidence.
 
 ## P05 — Final verification and measured outcome
 
