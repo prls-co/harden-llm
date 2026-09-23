@@ -136,7 +136,16 @@ and exact-source browser-free release run
 [35821617071](https://github.com/prls-co/harden-llm/actions/runs/35821617071).
 The latter accepted all 28 tasks and its separate integration and
 integration-race selectors. Browser tests remain excluded by repository
-policy. The source has not yet been promoted to `main` at this record's update.
+policy. The source was promoted by fast-forward on 2026-09-23: `bafa622` is
+the application source ancestor of documentation-only main commit
+`e988207a939d28087b888adddf69e2273aa63a5e`. The main push then passed hosted
+FAST run [35823822733](https://github.com/prls-co/harden-llm/actions/runs/35823822733)
+at exact documentation tip `e988207`; all 10 tasks were accepted with no
+failure or cleanup issue. Its artifact
+`harden-llm-runner-reports-35823822733-1-fast` has digest
+`sha256:b9152679c520ebca286ab3fac776d044bdc16ba529d4a6c8e3cb0e76633f29d5`, and
+report `runner-1790142548649-2631-357b099f8eaf18f8.json` has SHA-256
+`a5af8a46c02924e1bd244ecab5997ea8c46fab0b424efb8b7235c8775e19fb31`.
 
 The complete web diff from running web release
 `3201fd249f86031292be1c47acf64e0eb8a4540b` to candidate `6887fcd` changes only
@@ -151,10 +160,11 @@ web plus gateway because both application images contain changed source. The
 current production release identities and rollback evidence are recorded in
 the P00 table above.
 
-P01.1's exact-source and compatibility review is complete. P01.2 has not
-started: the required organization-approved off-host destination and tested
-restore evidence are still missing. No production image was built and no
-descriptor or running service was changed.
+P01.1's exact-source, certification, and compatibility review is complete, and
+the candidate is promoted to `main`. P01.2 has not started: the required
+organization-approved off-host destination and tested restore evidence are
+still missing. No production image was built and no descriptor or running
+service was changed.
 
 ## P03 — Frozen size and context baseline
 
@@ -597,8 +607,11 @@ module.
 
 ### P05.1 Applicable gates and complete diff
 
-- The final refactor source is at `bafa62255d0a5b111253b3baf18d27d0091161b4`,
-  pushed to `origin/feat/codebase-reduction`. The full diff from the P03
+- The final refactor application source is
+  `bafa62255d0a5b111253b3baf18d27d0091161b4`, now on `main` and
+  `feat/codebase-reduction`; documentation-only commit
+  `e988207a939d28087b888adddf69e2273aa63a5e` is the current promotion tip. The
+  full diff from the P03
   refactor baseline is limited to the frozen size manifest, the result ledger,
   the profile widget and its tests, the two runtime execution owners and their
   callback regression, the plan/test catalog records, and test-tier
@@ -687,6 +700,14 @@ module.
   section above. These passes close the required browser-free gates; they do
   not erase the failed local contention reports. The hosted workflow skipped
   browser and live-provider checks as required by repository policy.
+- Documentation-only main tip `e988207a939d28087b888adddf69e2273aa63a5e`
+  then passed hosted FAST run
+  [35823822733](https://github.com/prls-co/harden-llm/actions/runs/35823822733):
+  all 10 tasks accepted, no first/preflight failure, and zero cleanup errors or
+  warnings. It contains the same application source `bafa622`; the exact-source
+  browser-free release pass above remains applicable. CodeQL also completed
+  successfully on `e988207` in run
+  [35823822677](https://github.com/prls-co/harden-llm/actions/runs/35823822677).
 
 ### P05.2 Frozen size and context result
 
@@ -735,9 +756,12 @@ new high-yield candidate review.
 
 ### P05.3 Delivery state and remaining evidence
 
-- Current verified refactor checkpoint: `bafa62255d0a5b111253b3baf18d27d0091161b4`
-  on `feat/codebase-reduction`, pushed to GitHub. It has not yet been promoted
-  to `main`, published, or deployed.
+- Current verified refactor application source:
+  `bafa62255d0a5b111253b3baf18d27d0091161b4`, promoted to `main` at
+  `e988207a939d28087b888adddf69e2273aa63a5e` and pushed to GitHub. No image
+  publication is active for this repository; the retired GHCR publisher is
+  not used. Main FAST and CodeQL passed at `e988207`; the refactor has not been
+  deployed.
 - Production upgrade remains pending an organization-approved encrypted
   off-host destination and an isolated restore host. The runbook in
   `docs/self-hosting.md` requires failure-domain backups and an actual restore
