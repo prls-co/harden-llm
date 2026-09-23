@@ -196,6 +196,29 @@ defmodule HardenLlm.LlmTraceProjectionTest do
            ]
   end
 
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-103
+  test "retained history and trace requests stay readable with the retired repair field" do
+    legacy_policy = %{
+      "maxAttempts" => 4,
+      "retryOn" => ["network"],
+      "repairInvalidOutput" => true,
+      "backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}
+    }
+
+    history_item =
+      APIFixtures.history_item()
+      |> put_in(["request", "recoveryPolicy"], legacy_policy)
+
+    history_document = %{"items" => [history_item]}
+    assert {:ok, ^history_document} = LlmDiagnosticsWire.decode("listHistory", history_document)
+
+    trace =
+      APIFixtures.trace()
+      |> put_in(["resources", "request", "payload", "recoveryPolicy"], legacy_policy)
+
+    assert {:ok, ^trace} = LlmDiagnosticsWire.decode("getTrace", trace)
+  end
+
   test "numbered history wire metadata is bounded to the REST integer contract" do
     document = APIFixtures.history_page([APIFixtures.history_item()], 7, 25, 151)["result"]
     assert {:ok, ^document} = LlmDiagnosticsWire.decode("listHistory", document, :numbered)

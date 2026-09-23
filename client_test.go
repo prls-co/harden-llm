@@ -226,7 +226,7 @@ func TestRuntimeProfilesEnforcesStrictCatalogContract(t *testing.T) {
 func testProfiles() ProfileCatalog {
 	return ProfileCatalog{
 		"primary": {
-			SchemaVersion: 2, LLMProfile: "primary", Provider: "openai",
+			SchemaVersion: 3, LLMProfile: "primary", Provider: "openai",
 			APIInferenceType: "responses", EndpointCredentialScope: "global",
 			BaseURL: "https://api.openai.com/v1", ModelID: "gpt-test",
 			DefaultOptions: map[string]any{}, RecoveryPolicy: DefaultRecoveryPolicy(),
@@ -301,7 +301,7 @@ func TestRecoveryRepairPayload(t *testing.T) {
 			result, callErr := client.Call(context.Background(), Request{
 				ProfileID: "primary", Profiles: catalog, SystemPrompt: "Preserve string values.", UserPrompt: "Extract the postal code.",
 				CallType: CallTypeStructured, Schema: contract, CacheMode: CacheModeOff,
-				RecoveryPolicy: RecoveryPolicy{MaxAttempts: 2, RetryOn: []RecoveryCategory{}, RepairInvalidOutput: true, Backoff: RecoveryBackoff{}},
+				RecoveryPolicy: generationRepairPolicy(2, []RecoveryCategory{}, RecoveryBackoff{}),
 			})
 			if callErr != nil || !reflect.DeepEqual(result.Output, map[string]any{"zip": "02139"}) {
 				t.Errorf("repair did not preserve direct schema value: output=%#v error=%v", result.Output, callErr)
@@ -416,7 +416,8 @@ func TestRecoveryPolicyValues(t *testing.T) {
 		{"minimum explicit disabled", func(p *RecoveryPolicy) {
 			p.MaxAttempts = 1
 			p.RetryOn = []RecoveryCategory{}
-			p.RepairInvalidOutput = false
+			p.JSONRepair = nil
+			p.Rerun = nil
 			p.Backoff = RecoveryBackoff{}
 		}, true},
 		{"maximum", func(p *RecoveryPolicy) {
@@ -449,7 +450,13 @@ func TestRecoveryPolicyValues(t *testing.T) {
 			}
 		})
 	}
-	for _, raw := range []string{"null", `{}`, `{"maxAttempts":4}`, `{"maxAttempts":4,"retryOn":null,"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`, `{"maxAttempts":4,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0}}`, `{"maxAttempts":4,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0},"extra":true}`} {
+	for _, raw := range []string{
+		"null", `{}`, `{"maxAttempts":4}`,
+		`{"maxAttempts":4,"retryOn":null,"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`,
+		`{"maxAttempts":4,"retryOn":[],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":0}}`,
+		`{"maxAttempts":4,"retryOn":[],"repairInvalidOutput":false,"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`,
+		`{"maxAttempts":4,"retryOn":[],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0},"extra":true}`,
+	} {
 		var policy RecoveryPolicy
 		if err := json.Unmarshal([]byte(raw), &policy); err == nil {
 			t.Errorf("incomplete policy accepted: %s", raw)
@@ -466,5 +473,16 @@ func TestRecoveryPolicyValues(t *testing.T) {
 		if err == nil || executor.prepared != 0 || executor.executed != 0 {
 			t.Errorf("retired option %s reached provider: %v", key, err)
 		}
+	}
+}
+
+func generationRepairPolicy(maxAttempts int, retryOn []RecoveryCategory, backoff RecoveryBackoff) RecoveryPolicy {
+	initial := RecoveryTarget{Source: "generation"}
+	escalation := initial
+	return RecoveryPolicy{
+		MaxAttempts: maxAttempts,
+		RetryOn:     retryOn,
+		Backoff:     backoff,
+		JSONRepair:  &JSONRepairPlan{Initial: initial, Escalation: &escalation},
 	}
 }

@@ -2155,11 +2155,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       |> assign(:name, "#{assigns.form.name}[recoveryPolicy]")
       |> assign(:categories, recovery_categories())
       |> assign(:numbers, recovery_numbers())
-      |> assign(
-        :explicit?,
-        Map.has_key?(assigns.form.params["recoveryPolicy"] || %{}, "jsonRepair") or
-          Map.has_key?(assigns.form.params["recoveryPolicy"] || %{}, "rerun")
-      )
 
     ~H"""
     <div id={"#{@id_prefix}-recovery-policy"} class="recovery-policy">
@@ -2167,21 +2162,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         Retry categories, call budget, and backoff apply to the generation and
         all configured recovery stages.
       </p>
-      <.input
-        :if={not @explicit?}
-        type="checkbox"
-        id={"#{@id_prefix}-repair-invalid-output"}
-        name={"#{@name}[repairInvalidOutput]"}
-        value={@policy["repairInvalidOutput"]}
-        errors={
-          List.wrap(ProfileForm.field_error(@field_errors, "recoveryPolicy.repairInvalidOutput"))
-        }
-        label="LLM JSON repair"
-        info="Uses the original schema to repair invalid JSON or schema failures. Each repair uses the remaining call budget. Turn this off to stop on invalid output."
-        phx-change={@change}
-        phx-target={@target}
-      />
-      <div :if={@explicit?} class="recovery-policy-plans">
+      <div class="recovery-policy-plans">
         <div class="recovery-policy-toggles">
           <label class="ullm-checkbox-label">
             <input
@@ -2698,8 +2679,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
   defp reset_changed_recovery_targets(params, previous_params, profiles) do
     Enum.reduce(@recovery_target_paths, params, fn path, acc ->
-      previous = get_in(previous_params, ["recoveryPolicy" | path])
-      current = get_in(acc, ["recoveryPolicy" | path])
+      previous = safe_get_in(previous_params, ["recoveryPolicy" | path])
+      current = safe_get_in(acc, ["recoveryPolicy" | path])
 
       if is_map(previous) and is_map(current) and
            Map.get(previous, "profileId") != Map.get(current, "profileId") and
@@ -2712,6 +2693,12 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       else
         acc
       end
+    end)
+  end
+
+  defp safe_get_in(value, path) do
+    Enum.reduce_while(path, value, fn key, current ->
+      if is_map(current), do: {:cont, Map.get(current, key)}, else: {:halt, nil}
     end)
   end
 
@@ -2779,7 +2766,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
     policy =
       current
-      |> ProfileWidgetState.serialize_current_recovery_policy()
+      |> ProfileWidgetState.serialize_recovery_policy()
       |> update_fun.()
       |> ProfileWidgetState.serialize_recovery_policy()
 

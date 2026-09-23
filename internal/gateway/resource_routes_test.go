@@ -108,7 +108,7 @@ func TestResourceRoutes(t *testing.T) {
 	authA := map[string][]string{"Authorization": {"Bearer " + loginA.AccessToken}}
 	authB := map[string][]string{"Authorization": {"Bearer " + loginB.AccessToken}}
 
-	stateBody := []byte(`{"schemaVersion":2,"selectedProfileId":"Backup","modelId":"gpt-backup","userPrompt":"draft","callType":"text","cacheMode":"off","recoveryPolicy":{"maxAttempts":1,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}}`)
+	stateBody := []byte(`{"schemaVersion":2,"selectedProfileId":"Backup","modelId":"gpt-backup","userPrompt":"draft","callType":"text","cacheMode":"off","recoveryPolicy":{"maxAttempts":1,"retryOn":[],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}}`)
 	response := apiRequest(t, server.Client(), http.MethodPost, server.URL+"/api/v1/state", stateBody, authA)
 	assertEnvelope(t, response, http.StatusOK, false)
 	if response.JSON["state"].(map[string]any)["userPrompt"] != "draft" {

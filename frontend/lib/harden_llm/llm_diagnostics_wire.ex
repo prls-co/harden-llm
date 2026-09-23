@@ -183,13 +183,12 @@ defmodule HardenLlm.LlmDiagnosticsWire do
 
   # Check the required wire shape only. Go owns policy semantics and defaults.
   defp recovery_policy(value) when is_map(value) do
-    with :ok <- recovery_policy_shape(value),
+    with :ok <- exact_keys(value, ~w(maxAttempts retryOn jsonRepair rerun backoff)),
          true <- is_integer(value["maxAttempts"]),
          categories when is_list(categories) <- value["retryOn"],
          true <- Enum.all?(categories, &is_binary/1),
-         :ok <- optional(value, "repairInvalidOutput", &boolean/1),
-         :ok <- optional(value, "jsonRepair", &json_repair/1),
-         :ok <- optional(value, "rerun", &rerun/1),
+         :ok <- json_repair(value["jsonRepair"]),
+         :ok <- rerun(value["rerun"]),
          backoff when is_map(backoff) <- value["backoff"],
          :ok <- exact_keys(backoff, ~w(baseDelayMs maxDelayMs)),
          true <- is_integer(backoff["baseDelayMs"]),
@@ -201,21 +200,6 @@ defmodule HardenLlm.LlmDiagnosticsWire do
   end
 
   defp recovery_policy(_value), do: :error
-
-  defp recovery_policy_shape(value) do
-    cond do
-      Map.has_key?(value, "repairInvalidOutput") and not Map.has_key?(value, "jsonRepair") and
-          not Map.has_key?(value, "rerun") ->
-        exact_keys(value, ~w(maxAttempts retryOn repairInvalidOutput backoff))
-
-      Map.has_key?(value, "jsonRepair") and Map.has_key?(value, "rerun") and
-          not Map.has_key?(value, "repairInvalidOutput") ->
-        exact_keys(value, ~w(maxAttempts retryOn jsonRepair rerun backoff))
-
-      true ->
-        :error
-    end
-  end
 
   defp json_repair(nil), do: :ok
 

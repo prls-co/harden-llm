@@ -37,8 +37,8 @@ type plannedWork struct {
 	generationHash      string
 }
 
-// hasExplicitRecoveryPlan intentionally excludes the legacy boolean. The old
-// execution path remains available for stored v2 callers and fixtures.
+// hasExplicitRecoveryPlan selects the staged executor when a current recovery
+// plan is present.
 func hasExplicitRecoveryPlan(policy retry.Policy) bool {
 	return policy.UsesExplicitPlan()
 }
@@ -308,14 +308,21 @@ func executeRecoveryPlan(
 				if cacheResult.Search == nil {
 					cacheResult.Search = record.Search
 				}
-				cacheErr := cache.Set(ctx, work.generationHash, cacheVersion, CachedResult{
+				cacheContext := ctx
+				endCache := func(string, error) {}
+				if call.Telemetry != nil {
+					cacheContext, endCache = call.Telemetry.StartCache(ctx, "write")
+				}
+				cacheErr := cache.Set(cacheContext, work.generationHash, cacheVersion, CachedResult{
 					ProviderResult: cacheResult, Producer: producer,
 					GenerationTarget: work.generationTarget, CompletedBy: map[bool]string{true: "repair", false: "generation"}[work.call.Repair != nil],
 				})
 				if cacheErr != nil {
 					record.Cache.Status = "write_failed"
+					endCache(record.Cache.Status, cacheErr)
 					return record, nil
 				}
+				endCache(record.Cache.Status, nil)
 				record.Cache.Written = true
 			}
 			record.StopReason = "succeeded"

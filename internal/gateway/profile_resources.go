@@ -16,10 +16,7 @@ import (
 	"github.com/prls-co/harden-llm/internal/profiles"
 )
 
-const (
-	profileBundleSchemaVersion       = 3
-	legacyProfileBundleSchemaVersion = 2
-)
+const profileBundleSchemaVersion = 3
 
 type ModelRefresher interface {
 	RefreshModels(context.Context, profiles.Profile, profiles.CredentialPayload) ([]profiles.Model, error)
@@ -207,7 +204,7 @@ func (service *ProfileService) ExportBundle(ctx context.Context, ownerID, bundle
 
 func (service *ProfileService) ReplaceBundle(ctx context.Context, ownerID string, bundle ProfileBundle) ([]ProfileState, error) {
 	ownerID = strings.TrimSpace(ownerID)
-	if bundle.SchemaVersion != profileBundleSchemaVersion && bundle.SchemaVersion != legacyProfileBundleSchemaVersion {
+	if bundle.SchemaVersion != profileBundleSchemaVersion {
 		return nil, &profiles.ValidationError{Code: "profile_invalid", FieldErrors: []profiles.FieldError{{
 			Field: "schemaVersion", Message: fmt.Sprintf("must be %d; prepare a current-format profile bundle", profileBundleSchemaVersion),
 		}}}
@@ -217,7 +214,6 @@ func (service *ProfileService) ReplaceBundle(ctx context.Context, ownerID string
 	}
 	normalizedCatalog := make(profiles.Catalog, len(bundle.Profiles))
 	for profileID, profile := range bundle.Profiles {
-		profile.SchemaVersion = profiles.SchemaVersion
 		profile.Models = profiles.NormalizeModels(profile.Models)
 		if profile.LastModelRefreshAt != nil {
 			refreshedAt := profile.LastModelRefreshAt.UTC()

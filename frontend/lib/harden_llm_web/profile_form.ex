@@ -87,7 +87,7 @@ defmodule HardenLlmWeb.ProfileForm do
           "responsesTokensParam" => nil,
           "defaultOptions" => options,
           "recoveryPolicy" =>
-            ProfileWidgetState.serialize_current_recovery_policy(params["recoveryPolicy"])
+            ProfileWidgetState.serialize_recovery_policy(params["recoveryPolicy"])
         },
         "credentialId" => params["credentialId"] || ""
       }

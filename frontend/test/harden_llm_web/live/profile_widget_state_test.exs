@@ -170,7 +170,8 @@ defmodule HardenLlmWeb.ProfileWidgetStateTest do
       "recoveryPolicy" => %{
         "maxAttempts" => 4,
         "retryOn" => [],
-        "repairInvalidOutput" => true,
+        "jsonRepair" => ProfileWidgetState.default_recovery_repair_plan(),
+        "rerun" => nil,
         "backoff" => %{"baseDelayMs" => 0, "maxDelayMs" => 8000}
       }
     }
@@ -178,7 +179,8 @@ defmodule HardenLlmWeb.ProfileWidgetStateTest do
     changed =
       ProfileWidgetState.merge_draft(current, %{
         "recoveryPolicy" => %{
-          "repairInvalidOutput" => "false",
+          "jsonRepair" => nil,
+          "rerun" => nil,
           "backoff" => %{"baseDelayMs" => ""}
         }
       })
@@ -187,7 +189,8 @@ defmodule HardenLlmWeb.ProfileWidgetStateTest do
     assert changed["recoveryPolicy"]["maxAttempts"] == 4
     assert changed["recoveryPolicy"]["retryOn"] == []
     policy = ProfileWidgetState.serialize_recovery_policy(changed["recoveryPolicy"])
-    assert policy["repairInvalidOutput"] == false
+    assert policy["jsonRepair"] == nil
+    assert policy["rerun"] == nil
     assert policy["backoff"] == %{"baseDelayMs" => "", "maxDelayMs" => 8000}
   end
 
@@ -278,20 +281,35 @@ defmodule HardenLlmWeb.ProfileWidgetStateTest do
     draft = %{
       "maxAttempts" => "1",
       "retryOn" => [""],
-      "repairInvalidOutput" => "false",
+      "jsonRepair" => nil,
+      "rerun" => nil,
       "backoff" => %{"baseDelayMs" => "0", "maxDelayMs" => "0"}
     }
 
     expected = %{
       "maxAttempts" => 1,
       "retryOn" => [],
-      "repairInvalidOutput" => false,
+      "jsonRepair" => nil,
+      "rerun" => nil,
       "backoff" => %{"baseDelayMs" => 0, "maxDelayMs" => 0}
     }
 
     assert ProfileWidgetState.serialize_recovery_policy(draft) == expected
     assert ProfileWidgetState.serialize_recovery_policy(expected) == expected
-    assert ProfileWidgetState.serialize_recovery_policy(%{}) == %{}
+
+    assert ProfileWidgetState.serialize_recovery_policy(%{}) == %{
+             "jsonRepair" => nil,
+             "rerun" => nil
+           }
+
+    blank_branches =
+      draft
+      |> Map.put("jsonRepair", "")
+      |> Map.put("rerun", "")
+
+    assert ProfileWidgetState.serialize_recovery_policy(blank_branches)["jsonRepair"] == nil
+    assert ProfileWidgetState.serialize_recovery_policy(blank_branches)["rerun"] == nil
+
     invalid = put_in(draft, ["backoff", "baseDelayMs"], "")
 
     assert get_in(ProfileWidgetState.serialize_recovery_policy(invalid), [
@@ -300,12 +318,20 @@ defmodule HardenLlmWeb.ProfileWidgetStateTest do
            ]) == ""
 
     assert ProfileWidgetState.serialize_recovery_policy(%{"maxAttempts" => "11"}) == %{
-             "maxAttempts" => 11
+             "maxAttempts" => 11,
+             "jsonRepair" => nil,
+             "rerun" => nil
            }
   end
 
   @tag :recovery
   test "explicit repair and rerun targets round-trip without recursive policy fields" do
+    assert ProfileWidgetState.serialize_recovery_target(%{
+             "source" => "generation",
+             "profileId" => "display-only-current-profile",
+             "providerOptions" => %{"temperature" => 0.2}
+           }) == %{"source" => "generation"}
+
     policy = %{
       "maxAttempts" => "6",
       "retryOn" => ["network", ""],
@@ -346,18 +372,19 @@ defmodule HardenLlmWeb.ProfileWidgetStateTest do
            }
   end
 
-  test "current policy conversion keeps disabled branches explicit and supplies bounded editor drafts" do
-    legacy = %{
+  test "current policy serialization keeps disabled branches explicit and supplies bounded editor drafts" do
+    current_policy = %{
       "maxAttempts" => 4,
       "retryOn" => [],
-      "repairInvalidOutput" => false,
+      "jsonRepair" => nil,
+      "rerun" => nil,
       "backoff" => %{"baseDelayMs" => 0, "maxDelayMs" => 0}
     }
 
-    current = ProfileWidgetState.serialize_current_recovery_policy(legacy)
+    current = ProfileWidgetState.serialize_recovery_policy(current_policy)
     assert current["jsonRepair"] == nil
     assert current["rerun"] == nil
-    assert current["repairInvalidOutput"] == nil
+    refute Map.has_key?(current, "repairInvalidOutput")
 
     assert ProfileWidgetState.default_recovery_repair_plan() == %{
              "initial" => %{"source" => "generation"},

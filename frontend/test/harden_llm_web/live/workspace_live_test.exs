@@ -596,7 +596,20 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       test_pid = self()
 
       options = %{"provider_native" => "keep"}
-      policy = Map.put(APIFixtures.recovery_policy(), "repairInvalidOutput", enabled)
+
+      policy =
+        APIFixtures.recovery_policy()
+        |> Map.put(
+          "jsonRepair",
+          if(enabled,
+            do: %{
+              "initial" => %{"source" => "generation"},
+              "escalation" => %{"source" => "generation"}
+            },
+            else: nil
+          )
+        )
+        |> Map.put("rerun", nil)
 
       profile =
         widget_profile("Primary", "model-test")
@@ -640,17 +653,13 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       view |> element("#profile-options-toggle") |> render_click()
       render_async(view, 1_000)
 
-      assert has_element?(view, "#profile-repair-invalid-output[checked]") == enabled
+      assert has_element?(view, "#profile-json-repair-toggle[checked]") == enabled
 
-      view
-      |> element("#profile-repair-invalid-output")
-      |> render_change(%{
-        "profile" => %{"recoveryPolicy" => %{"repairInvalidOutput" => to_string(!enabled)}}
-      })
+      view |> element("#profile-json-repair-toggle") |> render_click()
 
       render_async(view, 1_000)
 
-      assert has_element?(view, "#profile-repair-invalid-output[checked]") == !enabled
+      assert has_element?(view, "#profile-json-repair-toggle[checked]") == !enabled
 
       view
       |> element("#profile_defaultOptionsJson")
@@ -658,7 +667,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
       render_async(view, 1_000)
 
-      assert has_element?(view, "#profile-repair-invalid-output[checked]") == !enabled
+      assert has_element?(view, "#profile-json-repair-toggle[checked]") == !enabled
       assert has_element?(view, "#profile_defaultOptionsJson", Jason.encode!(options))
 
       view |> element("#input-advanced-toggle") |> render_click()
@@ -703,7 +712,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
       assert get_in(payload, ["profile", "defaultOptions", "provider_native"]) == "keep"
       refute Map.has_key?(payload["profile"]["defaultOptions"], "structuredRepairRetry")
 
-      assert has_element?(view, "#profile-repair-invalid-output[checked]") == !enabled
+      assert has_element?(view, "#profile-json-repair-toggle[checked]") == !enabled
     end
   end
 
@@ -715,7 +724,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     profile =
       widget_profile("Primary", "model-test")
-      |> put_in(["profile", "recoveryPolicy", "repairInvalidOutput"], false)
+      |> put_in(["profile", "recoveryPolicy", "jsonRepair"], nil)
 
     install_stub(
       fn conn ->
@@ -994,7 +1003,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
           "#run_schemaShorthand",
           "#run_schema",
           "#profile-retry-repair",
-          "#profile-repair-invalid-output",
+          "#profile-json-repair-toggle",
           "#profile-retry-rate_limit",
           "#profile-retry-server_error",
           "#profile-retry-network",
@@ -1141,7 +1150,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     for selector <- [
           "#profile-retry-repair",
-          "#profile-repair-invalid-output",
+          "#profile-json-repair-toggle",
           "#profile-retry-rate_limit",
           "#profile-retry-server_error",
           "#profile-retry-network",
@@ -2956,7 +2965,11 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
         "recoveryPolicy" => %{
           "maxAttempts" => "4",
           "retryOn" => ["network", "rate_limit", "empty_response", "provider_retry"],
-          "repairInvalidOutput" => "true",
+          "jsonRepair" => %{
+            "initial" => %{"source" => "generation"},
+            "escalation" => %{"source" => "generation"}
+          },
+          "rerun" => nil,
           "backoff" => %{"baseDelayMs" => "500", "maxDelayMs" => "8000"}
         }
       }

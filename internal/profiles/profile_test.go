@@ -44,6 +44,19 @@ func TestProfileParityRoundTripAndValidation(t *testing.T) {
 	}
 }
 
+func TestParseCatalogRejectsLegacyProfileSchema(t *testing.T) {
+	t.Parallel()
+	profile := fixtureProfile("Primary")
+	profile.SchemaVersion = 2
+	input, err := json.Marshal(Catalog{"Primary": profile})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ParseCatalog(input); err == nil || !strings.Contains(err.Error(), "Primary.schemaVersion") {
+		t.Fatalf("legacy profile schema should fail with a schemaVersion error, got %v", err)
+	}
+}
+
 func TestProfileRejectsInvalidShapeAndRecovery(t *testing.T) {
 	t.Parallel()
 	base := fixtureProfile("Primary")

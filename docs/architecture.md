@@ -31,7 +31,7 @@ transport failure is never automatically replayed by either layer.
 | Store | Owner and contents | Isolation rule |
 | --- | --- | --- |
 | `harden-postgres-data` | local users, token digests, state, encrypted profile credentials, runs, trace/artifact indexes | dedicated database, credentials, and migrations |
-| `garage-metadata` + `garage-data` | private redacted trace JSON and diagnostic attachments | gateway-only S3 credentials; restore both volumes together |
+| `garage-metadata` + `garage-data` | private redacted trace JSON and diagnostic attachments | gateway-only S3 credentials |
 | upstream `postgres` | Langfuse application records | unchanged upstream service |
 | upstream `clickhouse` | Langfuse analytics | unchanged upstream service |
 | upstream `minio` | Langfuse-owned objects | never receives Harden LLM artifacts |
@@ -39,9 +39,9 @@ transport failure is never automatically replayed by either layer.
 | `harden-llm-web-logs` | bounded, redacted Phoenix JSON logs | Collector reads it; no domain state |
 | `harden-llm-web-sessions` | encrypted Phoenix bearer-token vault records | single Phoenix replica only; losing it requires frontend reauthentication |
 
-The Harden LLM database and Garage pair are a separate failure and backup
-domain from Langfuse. Sharing endpoints, buckets, credentials, databases, or
-migrations across those domains is unsupported.
+The Harden LLM database and Garage pair are separate from Langfuse. Sharing
+endpoints, buckets, credentials, databases, or migrations across those domains
+is unsupported.
 
 `llm_runs` is the relational execution aggregate root. A mandatory exact
 owner/run/trace foreign key makes the trace, observations, and artifact metadata

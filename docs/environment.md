@@ -2,7 +2,7 @@
 
 Copy `.env.example` to `.env`; Compose reads it from the repository root. Keep
 the file mode 0600 and out of Git. Values marked secret must be generated
-independently and stored in a secrets manager or encrypted host backup.
+independently and stored in a secrets manager.
 
 ## Edge and release identity
 

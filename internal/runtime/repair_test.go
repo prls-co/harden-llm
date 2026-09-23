@@ -35,7 +35,7 @@ func TestStructuredRepair(t *testing.T) {
 					return nil
 				},
 			},
-			retry.Config{Policy: retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{"network", "rate_limit", "server_error", "empty_response"}, RepairInvalidOutput: true, Backoff: retry.Backoff{BaseDelayMS: 500, MaxDelayMS: 8000}}, Wait: func(context.Context, time.Duration) error { return nil }},
+			retry.Config{Policy: retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{"network", "rate_limit", "server_error", "empty_response"}, JSONRepair: retry.DefaultPolicy().JSONRepair, Backoff: retry.Backoff{BaseDelayMS: 500, MaxDelayMS: 8000}}, Wait: func(context.Context, time.Duration) error { return nil }},
 			nil, cachekey.ModeOff, "operation-v2", "call", "trace",
 		)
 		if err != nil {
@@ -77,7 +77,7 @@ func TestStructuredRepair(t *testing.T) {
 					return nil
 				},
 			},
-			retry.Config{Policy: retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{}, RepairInvalidOutput: true, Backoff: retry.Backoff{BaseDelayMS: 500, MaxDelayMS: 8000}}, Wait: func(context.Context, time.Duration) error { return nil }},
+			retry.Config{Policy: retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{}, JSONRepair: retry.DefaultPolicy().JSONRepair, Backoff: retry.Backoff{BaseDelayMS: 500, MaxDelayMS: 8000}}, Wait: func(context.Context, time.Duration) error { return nil }},
 			nil, cachekey.ModeOff, "operation-v2", "call", "trace",
 		)
 		if err != nil {
@@ -98,7 +98,7 @@ func TestStructuredRepair(t *testing.T) {
 			func(context.Context, Profile) (Credential, error) { return Credential{}, nil },
 			"primary", map[string]Profile{"primary": {ID: "primary"}},
 			Call{CallType: "structured", Schema: json.RawMessage(`{"type":"object"}`), ValidateStructured: func(any) error { return nil }},
-			retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, RepairInvalidOutput: true, Backoff: retry.Backoff{BaseDelayMS: 500, MaxDelayMS: 8000}}},
+			retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, JSONRepair: retry.DefaultPolicy().JSONRepair, Backoff: retry.Backoff{BaseDelayMS: 500, MaxDelayMS: 8000}}},
 			nil, cachekey.ModeOff, "operation-v2", "call", "trace",
 		)
 		if err == nil {
@@ -136,7 +136,7 @@ func TestExecutionIdentityAndGlobalAttemptBudget(t *testing.T) {
 			},
 		},
 		Call{CallType: "text"},
-		retry.Config{Policy: retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{"network"}, RepairInvalidOutput: true, Backoff: retry.Backoff{BaseDelayMS: 500, MaxDelayMS: 8000}}},
+		retry.Config{Policy: retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{"network"}, JSONRepair: retry.DefaultPolicy().JSONRepair, Backoff: retry.Backoff{BaseDelayMS: 500, MaxDelayMS: 8000}}},
 		nil, cachekey.ModeOff, "operation-v2", "call", "trace",
 	)
 	if err != nil {
@@ -274,7 +274,7 @@ func TestRecoveryExecution(t *testing.T) {
 					}
 					return nil
 				},
-			}, retry.Config{Policy: retry.Policy{MaxAttempts: 3, RetryOn: []retry.Category{"server_error"}, RepairInvalidOutput: true, Backoff: retry.Backoff{BaseDelayMS: 500, MaxDelayMS: 8000}}, Wait: func(context.Context, time.Duration) error { return nil }},
+			}, retry.Config{Policy: retry.Policy{MaxAttempts: 3, RetryOn: []retry.Category{"server_error"}, JSONRepair: retry.DefaultPolicy().JSONRepair, Backoff: retry.Backoff{BaseDelayMS: 500, MaxDelayMS: 8000}}, Wait: func(context.Context, time.Duration) error { return nil }},
 			nil, cachekey.ModeOff, "v1", "call", "trace")
 		if err != nil || len(record.Attempts) != 3 || executor.prepares != 2 {
 			t.Fatalf("recovery=%#v prepares=%d error=%v", record, executor.prepares, err)
@@ -295,7 +295,7 @@ func TestRecoveryExecution(t *testing.T) {
 		executor := &recoveryExecutor{failures: []error{&retry.ProviderError{Code: "ECONNRESET"}, nil}}
 		record, err := Execute(context.Background(), executor, func(context.Context, Profile) (Credential, error) { return Credential{}, nil }, "primary",
 			map[string]Profile{"primary": {ID: "primary", ModelID: "selected-model"}, "other": {ID: "other", ModelID: "other-model"}},
-			Call{CallType: "text"}, retry.Config{Policy: retry.Policy{MaxAttempts: 3, RetryOn: []retry.Category{}, RepairInvalidOutput: true, Backoff: retry.Backoff{BaseDelayMS: 500, MaxDelayMS: 8000}}, Wait: func(context.Context, time.Duration) error { return nil }}, nil, cachekey.ModeOff, "v1", "call", "trace")
+			Call{CallType: "text"}, retry.Config{Policy: retry.Policy{MaxAttempts: 3, RetryOn: []retry.Category{}, JSONRepair: retry.DefaultPolicy().JSONRepair, Backoff: retry.Backoff{BaseDelayMS: 500, MaxDelayMS: 8000}}, Wait: func(context.Context, time.Duration) error { return nil }}, nil, cachekey.ModeOff, "v1", "call", "trace")
 		if err == nil || len(executor.dispatched) != 1 || len(record.Attempts) != 1 {
 			t.Fatalf("disabled recovery routed elsewhere: record=%#v dispatched=%d error=%v", record, len(executor.dispatched), err)
 		}
@@ -306,7 +306,7 @@ func TestRecoveryExecution(t *testing.T) {
 		executor := &recoveryExecutor{failures: []error{&retry.ProviderError{Status: 503, RetryAfter: time.Hour}, nil}}
 		waits := 0
 		record, err := Execute(ctx, executor, func(context.Context, Profile) (Credential, error) { return Credential{}, nil }, "primary", map[string]Profile{"primary": {ID: "primary"}}, Call{CallType: "text"},
-			retry.Config{Policy: retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{"server_error"}, RepairInvalidOutput: false, Backoff: retry.Backoff{BaseDelayMS: 1, MaxDelayMS: 1}}, Wait: func(context.Context, time.Duration) error { waits++; return nil }}, nil, cachekey.ModeOff, "v1", "call", "trace")
+			retry.Config{Policy: retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{"server_error"}, Backoff: retry.Backoff{BaseDelayMS: 1, MaxDelayMS: 1}}, Wait: func(context.Context, time.Duration) error { waits++; return nil }}, nil, cachekey.ModeOff, "v1", "call", "trace")
 		if !errors.Is(err, context.DeadlineExceeded) || len(record.Attempts) != 1 || waits != 0 {
 			t.Fatalf("server deadline exceeded: record=%#v waits=%d error=%v", record, waits, err)
 		}
@@ -341,21 +341,22 @@ func TestRecoveryExecutionBounds(t *testing.T) {
 	profile := Profile{ID: "selected", Provider: "fixture", APIInferenceType: "responses", BaseURL: "https://example.test", ModelID: "selected-model"}
 	catalog := map[string]Profile{profile.ID: profile}
 	credentials := func(context.Context, Profile) (Credential, error) { return Credential{}, nil }
-	for _, budget := range []int{1, 2, 10} {
-		t.Run(fmt.Sprintf("repeated invalid repairs budget %d", budget), func(t *testing.T) {
+	for _, test := range []struct{ budget, wantAttempts int }{{1, 1}, {2, 2}, {10, 3}} {
+		t.Run(fmt.Sprintf("configured repair stages under budget %d", test.budget), func(t *testing.T) {
 			executor := &recoveryExecutor{}
 			policy := retry.DefaultPolicy()
-			policy.MaxAttempts = budget
+			policy.MaxAttempts = test.budget
 			policy.Backoff = retry.Backoff{}
 			record, err := Execute(context.Background(), executor, credentials, profile.ID, catalog, Call{CallType: "structured", Schema: []byte(`{"type":"object"}`), ValidateStructured: func(any) error { return errors.New("still invalid") }}, retry.Config{Policy: policy, Wait: func(context.Context, time.Duration) error { return nil }}, nil, cachekey.ModeOff, "v1", "call", "trace")
-			if err == nil || len(record.Attempts) != budget || len(executor.dispatched) != budget || executor.prepares != budget {
-				t.Fatalf("budget=%d record=%#v prepares=%d calls=%d error=%v", budget, record, executor.prepares, len(executor.dispatched), err)
+			if err == nil || len(record.Attempts) != test.wantAttempts || len(executor.dispatched) != test.wantAttempts || executor.prepares != test.wantAttempts {
+				t.Fatalf("budget=%d attempts=%d record=%#v prepares=%d calls=%d error=%v", test.budget, test.wantAttempts, record, executor.prepares, len(executor.dispatched), err)
 			}
 			if record.Output != nil || record.ResultSource.Kind != ResultSourceNone {
 				t.Fatalf("invalid output exposed: %#v", record)
 			}
+			wantStages := []string{stageOriginalGenerate, stageOriginalRepairInitial, stageOriginalRepairEscalate}
 			for i, a := range record.Attempts {
-				if a.Number != i+1 || a.Repair != (i > 0) || a.Target.ModelID != profile.ModelID {
+				if a.Number != i+1 || a.Repair != (i > 0) || a.Target.ModelID != profile.ModelID || a.Stage != wantStages[i] || a.Number > test.budget {
 					t.Fatalf("wrong attempt facts: %#v", a)
 				}
 			}

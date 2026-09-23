@@ -179,13 +179,13 @@ func TestRecoveryContractOpenAPI(t *testing.T) {
 	if policy == nil || policy.Value == nil {
 		t.Error("complete recovery policy schema is absent")
 	} else {
-		for _, name := range []string{"maxAttempts", "retryOn", "backoff"} {
+		for _, name := range []string{"maxAttempts", "retryOn", "jsonRepair", "rerun", "backoff"} {
 			if !slices.Contains(policy.Value.Required, name) {
 				t.Errorf("policy field %s is optional", name)
 			}
 		}
-		if policy.Value.Properties["jsonRepair"] == nil || policy.Value.Properties["rerun"] == nil || len(policy.Value.OneOf) != 2 {
-			t.Error("policy does not expose the explicit repair/rerun alternatives")
+		if policy.Value.Properties["jsonRepair"] == nil || policy.Value.Properties["rerun"] == nil || policy.Value.Properties["repairInvalidOutput"] != nil {
+			t.Error("policy does not expose only the current explicit repair/rerun shape")
 		}
 	}
 	profiles := document.Components.Schemas["ProfilesEnvelope"].Value.Properties["result"].Value

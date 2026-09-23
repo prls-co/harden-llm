@@ -59,7 +59,11 @@ defmodule HardenLlmWeb.APIFixtures do
     %{
       "maxAttempts" => 4,
       "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"],
-      "repairInvalidOutput" => true,
+      "jsonRepair" => %{
+        "initial" => %{"source" => "generation"},
+        "escalation" => %{"source" => "generation"}
+      },
+      "rerun" => nil,
       "backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}
     }
   end
@@ -74,7 +78,7 @@ defmodule HardenLlmWeb.APIFixtures do
       "modelId" => "model-test",
       "userPrompt" => "safe fixture prompt",
       "callType" => "text",
-      "recoveryPolicy" => Map.put(recovery_policy(), "repairInvalidOutput", false),
+      "recoveryPolicy" => Map.put(recovery_policy(), "jsonRepair", nil),
       "cacheMode" => "cache"
     }
   end

@@ -286,8 +286,6 @@ func Execute(
 			failure = contextErr
 		}
 		classification := retry.Classify(failure, config.Policy)
-		repairNext := classification.Category == retry.CategoryParse && call.CallType == "structured" && config.Policy.RepairInvalidOutput
-		classification.Retryable = classification.Retryable || repairNext
 		attemptRecord := AttemptRecord{
 			Number: number, ProfileID: profile.ID, Target: target, ProviderUsed: providerUsed,
 			Category: classification.Category, Status: classification.Status, Retryable: classification.Retryable,
@@ -354,15 +352,6 @@ func Execute(
 		}
 		if err := executionContextError(ctx, config.Now()); err != nil {
 			return record, err
-		}
-		if repairNext {
-			repairCall := call
-			repairCall.Repair = buildRepairRequest(number+1, config.Policy.MaxAttempts, previousOutput, failure, call)
-			repairPrepared, prepareErr := executor.Prepare(ctx, profile, credential, repairCall)
-			if prepareErr != nil {
-				return record, prepareErr
-			}
-			work.call, work.prepared = repairCall, repairPrepared
 		}
 	}
 }
