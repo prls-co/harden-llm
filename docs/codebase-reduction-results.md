@@ -111,16 +111,19 @@ rollback image and descriptor checkpoint before any production apply.
 
 No confirmed serious code defect was found in the five reviewed boundaries, and P02 can close. The review is limited to the source paths and named local cases above. Do not infer a whole-product security certification.
 
-The user selected a cold snapshot to an existing approved backup store. Follow-up
-inspection of this repository, the production checkout, and
+The user initially accepted a cold snapshot, then asked whether it is needed
+and requested a lean setup. Follow-up inspection of this repository, the
+production checkout, and
 `/home/kirill/p/agent-platform-infra/runbooks/backup-restore.md` found no named
-Harden-LLM off-host destination or separate restore host. The infrastructure
-runbook says its observability backup has no configured off-host target and
-explicitly prohibits reusing another product's bucket or credentials. That
-observability procedure is not a valid Harden-LLM backup target. Record the
-production path as **defer until a dedicated encrypted destination and separate
-restore host are provisioned**. Do not build or apply images before a successful
-restore rehearsal.
+Harden-LLM backup destination, backup coverage inventory, or restore evidence
+and host. Reuse the existing organization-approved encrypted procedure if it
+covers the application recovery boundary in P01.2; do not create a parallel
+snapshot system. The infrastructure runbook says its observability backup has
+no configured off-host target and explicitly prohibits reusing another
+product's bucket or credentials. This is not a valid Harden-LLM backup target.
+Production remains deferred until an adequate existing backup and its
+restore-on-another-host evidence are identified. A full Compose-volume snapshot
+is not required by the selected plan.
 
 ## P01.1 — Exact source and certification review (2026-09-23)
 
@@ -170,14 +173,23 @@ current production release identities and rollback evidence are recorded in
 the P00 table above.
 
 P01.1's exact-source, certification, and compatibility review is complete, and
-the candidate is promoted to `main`. The user selected the cold-snapshot
-procedure to an existing approved store, but no destination identity or
-separate restore host is recorded in the available operations material. The
-related infrastructure repo explicitly says no off-host observability target
-is configured and forbids reusing another product's storage. Therefore P01.2
-is deferred until a dedicated Harden-LLM destination and isolated restore host
-are provisioned and named. No production image was built and no descriptor or
-running service was changed.
+the candidate is promoted to `main`. On 2026-09-23, the user asked to reassess
+the cold-snapshot requirement and requested a leaner recovery path. The plan
+recommends reusing the existing approved encrypted backup/restore procedure if
+it covers the application Postgres dump plus roles, the matching
+Garage metadata/data when exact artifact rollback is needed, separately
+encrypted runtime configuration and historical/current encryption keys, and
+the component identities. The production runbook still requires restore
+evidence on another host because migration 6 transforms saved Postgres
+documents and the old image cannot run safely against migrated formats.
+
+No approved backup destination, coverage inventory, or restore evidence/host
+is named in the available operations material. The related infrastructure repo
+explicitly says no off-host observability target is configured and forbids
+reusing another product's storage. Therefore P01.2 remains deferred until an
+adequate existing backup and its restore evidence are identified; do not build
+a parallel full-volume snapshot workflow. No production image was built and no
+descriptor or running service was changed.
 
 ## P03 — Frozen size and context baseline
 
@@ -943,13 +955,16 @@ unmet.
   completed without deploying a branch preview or production service. No image
   publication is active for this repository; the retired GHCR publisher is
   not used. The P04.9 refactor has not been deployed.
-- The selected production backup procedure is a cold snapshot, since its
-  maintenance window is acceptable. `docs/self-hosting.md` requires a tested
-  restore on another host. No named Harden-LLM encrypted destination or
-  separate restore host is documented. The related infrastructure repo's
-  observability target is explicitly unconfigured and must not be reused.
-  Production is deferred until a dedicated destination and restore host are
-  provisioned and the cold snapshot is successfully restored there.
+- Backup recommendation, revised 2026-09-23: reuse the approved routine encrypted
+  backup/restore procedure if it covers the application Postgres dump plus
+  roles, matching Garage metadata/data when exact artifact rollback is needed,
+  separately encrypted runtime configuration and encryption keys, and matching
+  component identities. Do not create a duplicate all-volume cold snapshot.
+  `docs/self-hosting.md` still requires restore evidence on another host. The
+  exact approved destination, coverage, restore evidence, and host are not
+  documented, so production remains deferred until those existing details are
+  verified. The unrelated observability target is unconfigured and must not be
+  reused.
 - Browser layout and public-provider behavior were not run under repository
   policy. No production component image or post-deployment identity exists for
   this refactor.
