@@ -879,14 +879,56 @@ tests; do not claim that the plan achieved its broad context-size goal. The
 selected candidate inventory is exhausted, so further net reduction needs a
 new high-yield candidate review.
 
+#### P04.9 final application-source measurement
+
+The clean measurement tree is documentation-only descendant `4ab077810590e6270719235e3875302f3fdf91a6` of application commit
+`cf14628eef80312fe0b03fefd3bed2d3e301860c`. The tracked-file category snapshot
+is `tmp/codebase-reduction/after-p04.9-final.json`, SHA-256
+`90b5043cf1d20304e560f36bb8f22ca45f03561f57780c456dfd2fd86aebb3d9`; it uses
+the unchanged P03 manifest and standard-library measurement helper. Its
+document category predates this final P05.2/P05.3 reconciliation, as did the
+P04.8 snapshot above; the source and context measurements are unaffected by
+these later evidence notes.
+Tokens remain unmeasured.
+
+| Category | P03 files / bytes / lines | Snapshot files / bytes / lines | Delta bytes / lines |
+| --- | ---: | ---: | ---: |
+| Application | 131 / 1,317,088 / 38,084 | 132 / 1,314,112 / 38,026 | -2,976 / -58 |
+| Tooling | 33 / 463,193 / 10,688 | 33 / 463,193 / 10,688 | 0 / 0 |
+| Tests and fixtures | 182 / 1,659,176 / 40,598 | 186 / 1,690,541 / 41,360 | +31,365 / +762 |
+| Contracts/configuration | 66 / 301,023 / 7,317 | 66 / 301,023 / 7,317 | 0 / 0 |
+| Documents and archived evidence | 89 / 2,599,693 / 33,153 | 90 / 2,679,284 / 34,148 | +79,591 / +995 |
+| Total maintained | 501 / 6,340,173 / 129,840 | 507 / 6,448,153 / 131,539 | +107,980 / +1,699 |
+
+The P04.9-adjusted context comparison is
+`tmp/codebase-reduction/contexts-after-p04.9-final.json`, SHA-256
+`8ca5b0c61d8fd7b3a9efe994f0bcb5310b2aacf2ab0a5628eccf44ded132166b`; each
+after-file hash was rechecked against committed application source
+`cf14628`.
+
+| Representative maintenance context | P03 baseline bytes / lines | Final bytes / lines | Delta bytes / lines |
+| --- | ---: | ---: | ---: |
+| Profile option or recovery control | 252,359 / 7,253 | 258,251 / 7,417 | +5,892 / +164 |
+| Workspace draft or history behavior | 506,057 / 14,792 | 491,960 / 14,336 | -14,097 / -456 |
+| Runtime progress or accounting | 278,837 / 6,806 | 299,582 / 7,281 | +20,745 / +475 |
+
+P04.9 adds a 9,651-byte / 308-line application helper while removing 9,512
+bytes / 295 lines from `WorkspaceLive`; its source pair grows 139 bytes / 13
+lines. The moved test file and new focused schema suite together add 1,501
+bytes / 51 lines. Thus the phase narrows the workspace draft/history context
+through ownership separation, while the broad frozen-context goal remains
+unmet.
+
 ### P05.3 Delivery state and remaining evidence
 
-- Current verified refactor application source:
-  `bafa62255d0a5b111253b3baf18d27d0091161b4`, promoted to `main` at
-  `e988207a939d28087b888adddf69e2273aa63a5e` and pushed to GitHub. No image
-  publication is active for this repository; the retired GHCR publisher is
-  not used. Main FAST and CodeQL passed at `e988207`; the refactor has not been
-  deployed.
+- Current P04.9 application source:
+  `cf14628eef80312fe0b03fefd3bed2d3e301860c` passed hosted FAST and
+  browser-free RELEASE on `feat/workspace-schema-context`; it has not yet been
+  promoted to `main`. The previous main application source is
+  `bafa62255d0a5b111253b3baf18d27d0091161b4` at documentation tip
+  `e988207a939d28087b888adddf69e2273aa63a5e`. No image publication is active
+  for this repository; the retired GHCR publisher is not used. The P04.9
+  refactor has not been deployed.
 - The selected production backup procedure is a cold snapshot, since its
   maintenance window is acceptable. `docs/self-hosting.md` requires a tested
   restore on another host. No named Harden-LLM encrypted destination or
@@ -898,6 +940,7 @@ new high-yield candidate review.
   policy. No production component image or post-deployment identity exists for
   this refactor.
 - No confirmed serious code defect was found in the five P02 review boundaries.
-  CR-A04 remains unmet. Browser-free gates passed on the final source. Delivery
-  blockers are the unmet broad-context criterion and the missing off-host
-  destination selection and restore proof.
+  CR-A04 remains unmet, so the broad-context reduction goal is still an
+  unresolved limitation. Browser-free gates passed on P04.9 application source.
+  Production blockers are the unnamed off-host destination and restore host,
+  plus the missing cold-snapshot restore proof.
