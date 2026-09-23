@@ -1979,12 +1979,9 @@ components:
       required:
       - maxAttempts
       - retryOn
+      - jsonRepair
+      - rerun
       - backoff
-      oneOf:
-      - required: [repairInvalidOutput]
-        not: {required: [jsonRepair, rerun]}
-      - required: [jsonRepair, rerun]
-        not: {required: [repairInvalidOutput]}
       properties:
         maxAttempts:
           type: integer
@@ -2004,10 +2001,6 @@ components:
             - empty_response
             - provider_retry
           description: An empty array disables ordinary retries.
-        repairInvalidOutput:
-          type: boolean
-          description: Repair invalid structured output using its original schema and the remaining call budget.
-          deprecated: true
         jsonRepair:
           oneOf:
           - {$ref: '#/components/schemas/RepairPlan'}

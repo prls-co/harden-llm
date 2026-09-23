@@ -96,14 +96,12 @@ type ProgressSnapshot struct {
 }
 
 type RepairRequest struct {
-	Attempt            int
-	MaxAttempts        int
-	Stage              string
-	Branch             string
-	PreviousOutput     string
-	ValidationFeedback string
-	TargetSchema       json.RawMessage
-	History            []RepairHistoryEntry
+	Attempt      int
+	MaxAttempts  int
+	Stage        string
+	Branch       string
+	TargetSchema json.RawMessage
+	History      []RepairHistoryEntry
 }
 
 // RepairHistoryEntry is flat branch-local evidence supplied to a JSON repair

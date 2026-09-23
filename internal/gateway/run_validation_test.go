@@ -46,15 +46,37 @@ func TestRecoveryContractImports(t *testing.T) {
 	if err := profiles.ValidateCatalog(example.Profiles); err != nil {
 		t.Fatalf("current configuration example: %v", err)
 	}
-	// The old bundle fails before any vault, provider or store is needed.
+	// Retired bundle formats fail before any vault, provider, or store is needed.
 	service := &ProfileService{}
+	for _, version := range []int{1, 2} {
+		_, err = service.ReplaceBundle(context.Background(), "owner", ProfileBundle{
+			SchemaVersion: version, BundleID: "retired", CreatedAt: time.Date(2026, 9, 14, 0, 0, 0, 0, time.UTC),
+			Profiles: profiles.Catalog{}, CredentialIDs: map[string]string{},
+		})
+		var invalid *profiles.ValidationError
+		if !errors.As(err, &invalid) || len(invalid.FieldErrors) != 1 || invalid.FieldErrors[0].Field != "schemaVersion" || !strings.Contains(invalid.FieldErrors[0].Message, "3") {
+			t.Fatalf("bundle schema %d must identify the current format, got %v", version, err)
+		}
+	}
+
+	vault, err := profiles.NewCredentialVault("test-key", map[string][]byte{"test-key": make([]byte, 32)}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.vault = vault
+	legacyProfile := profiles.Profile{
+		SchemaVersion: 2, LLMProfile: "Legacy", Provider: "openai", APIInferenceType: "responses",
+		EndpointCredentialScope: "global", BaseURL: "https://api.openai.com/v1", ModelID: "gpt-test",
+		Pricing: &profiles.Pricing{}, SupportsTemperature: new(false), SupportsContractedStructuredOutput: true,
+		DefaultOptions: map[string]any{}, RecoveryPolicy: hardenllm.DefaultRecoveryPolicy(),
+	}
 	_, err = service.ReplaceBundle(context.Background(), "owner", ProfileBundle{
-		SchemaVersion: 1, BundleID: "retired", CreatedAt: time.Date(2026, 9, 14, 0, 0, 0, 0, time.UTC),
-		Profiles: profiles.Catalog{}, CredentialIDs: map[string]string{},
+		SchemaVersion: 3, BundleID: "current-bundle", CreatedAt: time.Date(2026, 9, 14, 0, 0, 0, 0, time.UTC),
+		Profiles: profiles.Catalog{"Legacy": legacyProfile}, CredentialIDs: map[string]string{},
 	})
 	var invalid *profiles.ValidationError
-	if !errors.As(err, &invalid) || len(invalid.FieldErrors) != 1 || invalid.FieldErrors[0].Field != "schemaVersion" || !strings.Contains(invalid.FieldErrors[0].Message, "3") {
-		t.Fatalf("retired bundle must identify the current format, got %v", err)
+	if !errors.As(err, &invalid) || len(invalid.FieldErrors) != 1 || invalid.FieldErrors[0].Field != "Legacy.schemaVersion" {
+		t.Fatalf("v3 bundle must reject a v2 profile before credential validation, got %v", err)
 	}
 	catalog, err := profiles.DefaultCatalog()
 	if err != nil {
@@ -91,17 +113,18 @@ func TestRecoveryContractInput(t *testing.T) {
 		name, policy string
 		invalid      bool
 	}{
-		{"complete", `{"maxAttempts":4,"retryOn":["network"],"repairInvalidOutput":true,"backoff":{"baseDelayMs":500,"maxDelayMs":8000}}`, false},
-		{"false empty zero", `{"maxAttempts":1,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`, false},
+		{"complete", `{"maxAttempts":4,"retryOn":["network"],"jsonRepair":{"initial":{"source":"generation"},"escalation":{"source":"generation"}},"rerun":null,"backoff":{"baseDelayMs":500,"maxDelayMs":8000}}`, false},
+		{"false empty zero", `{"maxAttempts":1,"retryOn":[],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`, false},
+		{"retired repair boolean", `{"maxAttempts":1,"retryOn":[],"repairInvalidOutput":false,"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`, true},
 		{"missing", "", true}, {"null", "null", true}, {"partial", `{"maxAttempts":4}`, true},
-		{"unknown category", `{"maxAttempts":4,"retryOn":["parse_error"],"repairInvalidOutput":true,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`, true},
-		{"duplicate category", `{"maxAttempts":4,"retryOn":["network","network"],"repairInvalidOutput":true,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`, true},
+		{"unknown category", `{"maxAttempts":4,"retryOn":["parse_error"],"jsonRepair":{"initial":{"source":"generation"},"escalation":{"source":"generation"}},"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`, true},
+		{"duplicate category", `{"maxAttempts":4,"retryOn":["network","network"],"jsonRepair":{"initial":{"source":"generation"},"escalation":{"source":"generation"}},"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`, true},
 		{"missing false", `{"maxAttempts":4,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`, true},
-		{"missing zero", `{"maxAttempts":4,"retryOn":[],"repairInvalidOutput":false,"backoff":{"maxDelayMs":0}}`, true},
-		{"negative delay", `{"maxAttempts":4,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":-1,"maxDelayMs":0}}`, true},
-		{"inverted delays", `{"maxAttempts":4,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":2,"maxDelayMs":1}}`, true},
-		{"zero budget", `{"maxAttempts":0,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`, true},
-		{"excess budget", `{"maxAttempts":11,"retryOn":[],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`, true},
+		{"missing zero", `{"maxAttempts":4,"retryOn":[],"jsonRepair":null,"rerun":null,"backoff":{"maxDelayMs":0}}`, true},
+		{"negative delay", `{"maxAttempts":4,"retryOn":[],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":-1,"maxDelayMs":0}}`, true},
+		{"inverted delays", `{"maxAttempts":4,"retryOn":[],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":2,"maxDelayMs":1}}`, true},
+		{"zero budget", `{"maxAttempts":0,"retryOn":[],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`, true},
+		{"excess budget", `{"maxAttempts":11,"retryOn":[],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			raw := `{"profileId":"fixture","userPrompt":"fixture","callType":"text"`

@@ -522,6 +522,10 @@ func TestRepairPayloadUsesFlatHistoryAndDisablesSearch(t *testing.T) {
 	if _, present := payload["tools"]; present {
 		t.Fatalf("repair unexpectedly retained search tools: %#v", payload["tools"])
 	}
+	call.Repair.History = nil
+	if _, _, _, _, _, err := buildPayload(profile, call); err == nil {
+		t.Fatal("repair payload accepted an empty history")
+	}
 }
 
 func TestProviderOptionEdgeParity(t *testing.T) {

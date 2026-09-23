@@ -84,7 +84,7 @@ func TestDiagnosticCompletenessEval(t *testing.T) {
 	repaired, err := coreruntime.Execute(
 		ctx, diagnosticRepairExecutor{}, diagnosticCredentials(secrets[3]), profile.ID,
 		map[string]coreruntime.Profile{profile.ID: profile}, call,
-		retry.Config{Policy: retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{}, RepairInvalidOutput: true, Backoff: retry.Backoff{BaseDelayMS: 0, MaxDelayMS: 0}}, Random: func() float64 { return 0.5 },
+		retry.Config{Policy: retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{}, JSONRepair: retry.DefaultPolicy().JSONRepair, Backoff: retry.Backoff{}}, Random: func() float64 { return 0.5 },
 			Wait: func(context.Context, time.Duration) error { return nil },
 		},
 		cache, cachekey.ModeRefresh, cachekey.DefaultVersion, "call-repaired", "trace-repaired",
@@ -92,6 +92,24 @@ func TestDiagnosticCompletenessEval(t *testing.T) {
 	endCall(repaired, err)
 	if err != nil {
 		t.Fatalf("repaired evaluation call: %v", err)
+	}
+
+	retryCall := call
+	retryCall.CallType = "text"
+	retryCall.Schema = nil
+	retryCall.ValidateStructured = nil
+	ctx, endCall = runtimeTelemetry.StartCall(context.Background(), coreruntime.CallObservation{
+		ProfileID: profile.ID, Provider: profile.Provider, ModelID: profile.ModelID, CallType: retryCall.CallType,
+	})
+	retried, retryErr := coreruntime.Execute(
+		ctx, &diagnosticRetryExecutor{}, diagnosticCredentials(secrets[3]), profile.ID,
+		map[string]coreruntime.Profile{profile.ID: profile}, retryCall,
+		retry.Config{Policy: retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{retry.CategoryServer}, Backoff: retry.Backoff{}}, Random: func() float64 { return 0.5 }},
+		nil, cachekey.ModeOff, cachekey.DefaultVersion, "call-retried", "trace-retried",
+	)
+	endCall(retried, retryErr)
+	if retryErr != nil || len(retried.Attempts) != 2 {
+		t.Fatalf("transport-retry evaluation call: attempts=%#v error=%v", retried.Attempts, retryErr)
 	}
 
 	ctx, endCall = runtimeTelemetry.StartCall(context.Background(), coreruntime.CallObservation{
@@ -249,7 +267,7 @@ func TestDiagnosticCompletenessEval(t *testing.T) {
 		SecretLeakCount:        leaks, DuplicateExportCount: duplicateExports,
 		CoveredSignals: covered, RequiredSignals: required,
 		Scenarios: map[string]bool{
-			"successful": err == nil, "retried": len(repaired.Attempts) == 2,
+			"successful": err == nil, "retried": len(retried.Attempts) == 2 && retried.Attempts[0].Retryable,
 			"repaired": len(repaired.Attempts) == 2 && repaired.Attempts[1].Repair,
 			"cached":   cached.Cache.Served, "failed": failedErr != nil,
 		},
@@ -271,6 +289,20 @@ func diagnosticCredentials(secret string) coreruntime.CredentialLookup {
 }
 
 type diagnosticRepairExecutor struct{}
+
+type diagnosticRetryExecutor struct{ calls int }
+
+func (*diagnosticRetryExecutor) Prepare(_ context.Context, _ coreruntime.Profile, _ coreruntime.Credential, _ coreruntime.Call) (coreruntime.PreparedOperation, error) {
+	return diagnosticOperation(false), nil
+}
+
+func (executor *diagnosticRetryExecutor) Execute(_ context.Context, _ coreruntime.PreparedOperation) (coreruntime.ProviderResult, error) {
+	executor.calls++
+	if executor.calls == 1 {
+		return coreruntime.ProviderResult{ProviderDispatched: true}, &retry.ProviderError{Status: http.StatusServiceUnavailable}
+	}
+	return coreruntime.ProviderResult{ProviderDispatched: true, Output: "ok", Accounting: diagnosticLedger(2, 1, 0.001)}, nil
+}
 
 func (diagnosticRepairExecutor) Prepare(_ context.Context, _ coreruntime.Profile, _ coreruntime.Credential, call coreruntime.Call) (coreruntime.PreparedOperation, error) {
 	return diagnosticOperation(call.Repair != nil), nil

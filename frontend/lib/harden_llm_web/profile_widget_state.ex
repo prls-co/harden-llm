@@ -338,9 +338,13 @@ defmodule HardenLlmWeb.ProfileWidgetState do
 
   defp blank?(value), do: normalize_text(value) == ""
   defp normalize_text(value), do: String.trim(to_string(value || ""))
-  @doc "Serializes form values without supplying defaults or validating backend policy semantics."
+
+  @doc "Serializes the current recovery form shape; backend policy validation remains authoritative."
   def serialize_recovery_policy(policy) when is_map(policy) do
-    Map.new(policy, fn
+    policy
+    |> Map.put_new("jsonRepair", nil)
+    |> Map.put_new("rerun", nil)
+    |> Map.new(fn
       {"maxAttempts", value} ->
         {"maxAttempts", form_integer(value)}
 
@@ -350,8 +354,14 @@ defmodule HardenLlmWeb.ProfileWidgetState do
       {"retryOn", values} when is_list(values) ->
         {"retryOn", Enum.reject(values, &(&1 == ""))}
 
+      {"jsonRepair", ""} ->
+        {"jsonRepair", nil}
+
       {"jsonRepair", value} ->
         {"jsonRepair", serialize_repair_plan(value)}
+
+      {"rerun", ""} ->
+        {"rerun", nil}
 
       {"rerun", value} when is_map(value) ->
         {"rerun",
@@ -359,37 +369,12 @@ defmodule HardenLlmWeb.ProfileWidgetState do
          |> Map.update("target", %{}, &serialize_recovery_target/1)
          |> Map.update("jsonRepair", nil, &serialize_repair_plan/1)}
 
-      {"repairInvalidOutput", "true"} ->
-        {"repairInvalidOutput", true}
-
-      {"repairInvalidOutput", "false"} ->
-        {"repairInvalidOutput", false}
-
       entry ->
         entry
     end)
   end
 
   def serialize_recovery_policy(policy), do: policy
-
-  @doc "Serializes the current v3 policy shape, mapping only historical boolean input."
-  def serialize_current_recovery_policy(policy) when is_map(policy) do
-    policy = serialize_recovery_policy(policy)
-
-    if Map.has_key?(policy, "repairInvalidOutput") and
-         not Map.has_key?(policy, "jsonRepair") and not Map.has_key?(policy, "rerun") do
-      enabled = policy["repairInvalidOutput"] == true
-
-      policy
-      |> Map.delete("repairInvalidOutput")
-      |> Map.put("jsonRepair", if(enabled, do: generation_repair_plan(), else: nil))
-      |> Map.put("rerun", nil)
-    else
-      policy
-    end
-  end
-
-  def serialize_current_recovery_policy(policy), do: policy
 
   @doc "Returns the safe generation-relative repair defaults used when a branch is enabled in the editor."
   def default_recovery_repair_plan do
@@ -408,6 +393,9 @@ defmodule HardenLlmWeb.ProfileWidgetState do
   end
 
   @doc "Serializes one leaf target without introducing a nested recovery policy."
+  def serialize_recovery_target(%{"source" => "generation"}),
+    do: %{"source" => "generation"}
+
   def serialize_recovery_target(target) when is_map(target) do
     provider_options = target_provider_options(target)
 
@@ -451,7 +439,7 @@ defmodule HardenLlmWeb.ProfileWidgetState do
     draft = Map.drop(draft, ["ui", "nodeState", "recoveryTargetConfigOpen"])
 
     case Map.fetch(draft, "recoveryPolicy") do
-      {:ok, policy} -> Map.put(draft, "recoveryPolicy", serialize_current_recovery_policy(policy))
+      {:ok, policy} -> Map.put(draft, "recoveryPolicy", serialize_recovery_policy(policy))
       :error -> draft
     end
   end
@@ -532,8 +520,6 @@ defmodule HardenLlmWeb.ProfileWidgetState do
   end
 
   defp serialize_repair_plan(value), do: value
-
-  defp generation_repair_plan, do: default_recovery_repair_plan()
 
   defp target_provider_options(target) do
     base = if is_map(target["providerOptions"]), do: target["providerOptions"], else: %{}

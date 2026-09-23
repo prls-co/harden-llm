@@ -39,16 +39,12 @@ const (
 // Policy is the complete provider-independent recovery contract. Runtime never
 // replaces explicit values with defaults; callers create policies explicitly.
 type Policy struct {
-	MaxAttempts int        `json:"maxAttempts"`
-	RetryOn     []Category `json:"retryOn"`
-	// RepairInvalidOutput is retained as a wire-compatible legacy setting. New
-	// callers should use JSONRepair and Rerun. Runtime treats a non-nil plan as
-	// authoritative and never combines it with this flag.
-	RepairInvalidOutput bool        `json:"repairInvalidOutput,omitempty"`
-	Backoff             Backoff     `json:"backoff"`
-	JSONRepair          *RepairPlan `json:"jsonRepair,omitempty"`
-	Rerun               *RerunPlan  `json:"rerun,omitempty"`
-	explicitPlan        bool
+	MaxAttempts  int         `json:"maxAttempts"`
+	RetryOn      []Category  `json:"retryOn"`
+	Backoff      Backoff     `json:"backoff"`
+	JSONRepair   *RepairPlan `json:"jsonRepair,omitempty"`
+	Rerun        *RerunPlan  `json:"rerun,omitempty"`
+	explicitPlan bool
 }
 
 // UsesExplicitPlan reports whether the policy was decoded or constructed with
@@ -278,18 +274,19 @@ type ValidationError struct {
 func (err *ValidationError) Error() string { return err.Field + ": " + err.Message }
 
 func DefaultPolicy() Policy {
+	generation := RecoveryTarget{Source: "generation"}
+	escalation := generation
 	return Policy{MaxAttempts: DefaultMaxAttempts,
-		RetryOn:             []Category{CategoryNetwork, CategoryRateLimit, CategoryServer, CategoryEmpty, CategoryProvider},
-		RepairInvalidOutput: true,
-		Backoff:             Backoff{BaseDelayMS: int(DefaultBaseDelay.Milliseconds()), MaxDelayMS: int(DefaultMaxDelay.Milliseconds())}}
+		RetryOn:      []Category{CategoryNetwork, CategoryRateLimit, CategoryServer, CategoryEmpty, CategoryProvider},
+		Backoff:      Backoff{BaseDelayMS: int(DefaultBaseDelay.Milliseconds()), MaxDelayMS: int(DefaultMaxDelay.Milliseconds())},
+		JSONRepair:   &RepairPlan{Initial: generation, Escalation: &escalation},
+		explicitPlan: true,
+	}
 }
 
 func (policy Policy) Validate() error {
 	invalid := func(field, message string) error {
 		return &ValidationError{Field: "recoveryPolicy." + field, Message: message}
-	}
-	if policy.RepairInvalidOutput && (policy.JSONRepair != nil || policy.Rerun != nil) {
-		return &ValidationError{Field: "recoveryPolicy", Message: "legacy repairInvalidOutput cannot be combined with jsonRepair or rerun"}
 	}
 	if policy.MaxAttempts < 1 || policy.MaxAttempts > 10 {
 		return invalid("maxAttempts", "must be an integer from 1 through 10")
@@ -333,32 +330,20 @@ func (policy *Policy) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &fields); err != nil || fields == nil {
 		return &ValidationError{Field: "recoveryPolicy", Message: "must be an object"}
 	}
-	for _, required := range []string{"maxAttempts", "retryOn", "backoff"} {
-		if value, ok := fields[required]; !ok || bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+	for _, required := range []string{"maxAttempts", "retryOn", "jsonRepair", "rerun", "backoff"} {
+		value, ok := fields[required]
+		if !ok || ((required != "jsonRepair" && required != "rerun") && bytes.Equal(bytes.TrimSpace(value), []byte("null"))) {
 			return &ValidationError{Field: "recoveryPolicy." + required, Message: "is required"}
 		}
-	}
-	_, oldPolicy := fields["repairInvalidOutput"]
-	_, newRepair := fields["jsonRepair"]
-	_, newRerun := fields["rerun"]
-	if oldPolicy && (newRepair || newRerun) {
-		return &ValidationError{Field: "recoveryPolicy", Message: "legacy repairInvalidOutput cannot be combined with jsonRepair or rerun"}
-	}
-	if !oldPolicy && !newRepair && !newRerun {
-		return &ValidationError{Field: "recoveryPolicy", Message: "repairInvalidOutput, jsonRepair, or rerun is required"}
-	}
-	if (newRepair || newRerun) && (!newRepair || !newRerun) {
-		return &ValidationError{Field: "recoveryPolicy", Message: "jsonRepair and rerun are required together; use null to disable a branch"}
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	var decoded struct {
-		MaxAttempts         int         `json:"maxAttempts"`
-		RetryOn             []Category  `json:"retryOn"`
-		RepairInvalidOutput *bool       `json:"repairInvalidOutput"`
-		Backoff             Backoff     `json:"backoff"`
-		JSONRepair          *RepairPlan `json:"jsonRepair"`
-		Rerun               *RerunPlan  `json:"rerun"`
+		MaxAttempts int         `json:"maxAttempts"`
+		RetryOn     []Category  `json:"retryOn"`
+		Backoff     Backoff     `json:"backoff"`
+		JSONRepair  *RepairPlan `json:"jsonRepair"`
+		Rerun       *RerunPlan  `json:"rerun"`
 	}
 	if err := decoder.Decode(&decoded); err != nil {
 		return &ValidationError{Field: "recoveryPolicy", Message: "has an unknown field or invalid value type"}
@@ -366,11 +351,7 @@ func (policy *Policy) UnmarshalJSON(data []byte) error {
 	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
 		return &ValidationError{Field: "recoveryPolicy", Message: "must contain one object"}
 	}
-	result := Policy{MaxAttempts: decoded.MaxAttempts, RetryOn: decoded.RetryOn, Backoff: decoded.Backoff, JSONRepair: decoded.JSONRepair, Rerun: decoded.Rerun}
-	result.explicitPlan = newRepair || newRerun
-	if decoded.RepairInvalidOutput != nil {
-		result.RepairInvalidOutput = *decoded.RepairInvalidOutput
-	}
+	result := Policy{MaxAttempts: decoded.MaxAttempts, RetryOn: decoded.RetryOn, Backoff: decoded.Backoff, JSONRepair: decoded.JSONRepair, Rerun: decoded.Rerun, explicitPlan: true}
 	if err := result.Validate(); err != nil {
 		return err
 	}
@@ -378,19 +359,8 @@ func (policy *Policy) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON always writes the current explicit shape. A legacy in-memory
-// policy is still executable by the compatibility runtime, but it is mapped
-// to the bounded generation-relative plan at a write boundary so current
-// profile/state/bundle writers never reintroduce the retired boolean.
+// MarshalJSON always writes the current explicit recovery shape.
 func (policy Policy) MarshalJSON() ([]byte, error) {
-	jsonRepair, rerun := policy.JSONRepair, policy.Rerun
-	if !policy.UsesExplicitPlan() {
-		if policy.RepairInvalidOutput {
-			generation := RecoveryTarget{Source: "generation"}
-			jsonRepair = &RepairPlan{Initial: generation, Escalation: &generation}
-		}
-		rerun = nil
-	}
 	return json.Marshal(struct {
 		MaxAttempts int         `json:"maxAttempts"`
 		RetryOn     []Category  `json:"retryOn"`
@@ -401,8 +371,8 @@ func (policy Policy) MarshalJSON() ([]byte, error) {
 		MaxAttempts: policy.MaxAttempts,
 		RetryOn:     policy.RetryOn,
 		Backoff:     policy.Backoff,
-		JSONRepair:  jsonRepair,
-		Rerun:       rerun,
+		JSONRepair:  policy.JSONRepair,
+		Rerun:       policy.Rerun,
 	})
 }
 

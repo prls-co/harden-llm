@@ -963,3 +963,48 @@ unmet.
   Production still needs image preparation, descriptor review, authorized
   apply, and runtime verification. No backup or restore proof is required under
   the user's data-loss decision.
+
+## Follow-up — Approved legacy cleanup (2026-09-23)
+
+Implementation and reasoning are recorded in
+[`plans/legacy-code-cleanup-plan.md`](../plans/legacy-code-cleanup-plan.md).
+The follow-up removes the obsolete `repairInvalidOutput` runtime/UI/API path
+while retaining bounded `jsonRepair`, requires schema v3 for profile catalog
+and bundle imports, and removes active node-data backup/snapshot instructions.
+It preserves historical database migrations, the v3 profile export/import
+round trip, Langfuse, the consumer history widget, and secret-config rollback
+guidance. No node backup command or service existed in the source inventory.
+
+- The changed application-source and OpenAPI files have 93 added and 215
+  removed lines (`git diff --numstat`), a net reduction of 122 lines. This is
+  not a whole-repository reduction count; regression tests and the requested
+  plan add lines.
+- `make test-fast` passed all 10 tasks. `make verify` passed, including Docker
+  integration, integration race, API, observability, full Go race, and
+  `govulncheck`. The scanner found no vulnerabilities reachable by the code;
+  it reported three vulnerabilities in required modules that the code does not
+  call.
+- The browser-free release selector ultimately accepted all 28 tasks, with no
+  timeout, failure, cleanup error, or warning. It includes the Compose smoke,
+  frontend release checks, and a final `make verify`. The retained report is
+  `tmp/test-feedback/runner-1790207427332-3776603-5de85572d0348ab7.json`.
+- The release run needed lockfile-pinned Elixir dependencies in the isolated
+  worktree. Docker's pool was full because an empty, test-owned
+  `harden-llm-smoke-4167581-1790110522106137767_harden-private` network from
+  2026-09-22 remained without endpoints or containers; only that network was
+  removed. A first parallel retry hit the existing two-second `TEST-049`
+  fixture-start wait, which passed when run alone in 256 ms. The accepted full
+  release rerun used one CPU candidate slot and did not change test assertions,
+  deadlines, or coverage.
+- Test fixes preserved their assertions: current v3 fixtures replaced stale v2
+  profile fixtures, and the embedding DOM-ID regex now matches the actual
+  `id` attribute rather than the suffix of `phx-value-node-id`.
+- The first integration setup could not allocate a Docker network. Host
+  inventory showed all observed default bridge ranges allocated and one empty,
+  old `harden-llm-test-*` network with no endpoints or matching resource
+  receipt. Only that test network was removed; application containers and
+  networks were not changed. The next complete `make verify` passed.
+- Browser and live-provider checks were not run under repository policy. This
+  follow-up did not change production, secrets, Langfuse configuration, or
+  persistent application data. V2 bundles needed after deployment must be
+  re-exported through the prior importer before the v3-only importer ships.

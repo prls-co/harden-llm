@@ -168,7 +168,7 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 	providerSecret := "smoke-provider-key-must-remain-redacted"
 	profileDocument := map[string]any{
 		"profile": map[string]any{
-			"schemaVersion": 2, "llmProfile": "Smoke", "provider": "openai", "apiInferenceType": "responses",
+			"schemaVersion": 3, "llmProfile": "Smoke", "provider": "openai", "apiInferenceType": "responses",
 			"endpointCredentialScope": "user", "baseUrl": "https://fake-provider:8443/v1", "modelId": "smoke-model",
 			"pricing": nil, "supportsTemperature": false, "supportsContractedStructuredOutput": true,
 			"tokensParam": nil, "responsesTokensParam": "max_output_tokens", "defaultOptions": map[string]any{},

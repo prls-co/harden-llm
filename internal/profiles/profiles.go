@@ -21,7 +21,6 @@ import (
 
 const (
 	SchemaVersion       = 3
-	legacySchemaVersion = 2
 	MaxProfileNameBytes = 1500
 	MaxModels           = 5000
 	MaxModelIDBytes     = 512
@@ -136,9 +135,6 @@ func ParseCatalog(input []byte) (Catalog, error) {
 			return nil, validationFailure(name, err.Error())
 		}
 		profile.LLMProfile = strings.TrimSpace(profile.LLMProfile)
-		// v2 documents are accepted only as an input compatibility shape and
-		// are normalized to the current in-memory/write schema immediately.
-		profile.SchemaVersion = SchemaVersion
 		profile.Provider = strings.TrimSpace(profile.Provider)
 		profile.APIInferenceType = strings.TrimSpace(profile.APIInferenceType)
 		profile.EndpointCredentialScope = strings.TrimSpace(profile.EndpointCredentialScope)
@@ -186,7 +182,7 @@ func ValidateCatalog(catalog Catalog) error {
 }
 
 func validateProfile(profile Profile, prefix string) error {
-	if profile.SchemaVersion != SchemaVersion && profile.SchemaVersion != legacySchemaVersion {
+	if profile.SchemaVersion != SchemaVersion {
 		return validationFailure(prefix+".schemaVersion", "schemaVersion must be 3.")
 	}
 	if err := validateProfileName(profile.LLMProfile); err != nil {

@@ -333,7 +333,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     assert has_element?(view, "#profile_topK")
     assert has_element?(view, "#profile_stopSequences")
     assert has_element?(view, "#profile_defaultOptionsJson")
-    assert has_element?(view, "#profile-repair-invalid-output")
+    assert has_element?(view, "#profile-json-repair-toggle")
     assert has_element?(view, "#profile-retry-rate_limit")
     assert has_element?(view, "#profile-retry-server_error")
     assert has_element?(view, "#profile-retry-network")
@@ -495,7 +495,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     assert_received {:profile_parity, payload}
 
     assert get_in(payload, ["profile", "recoveryPolicy"]) ==
-             HardenLlmWeb.ProfileWidgetState.serialize_current_recovery_policy(
+             HardenLlmWeb.ProfileWidgetState.serialize_recovery_policy(
                APIFixtures.recovery_policy()
              )
 
@@ -533,7 +533,8 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     policy = %{
       "maxAttempts" => 1,
       "retryOn" => [],
-      "repairInvalidOutput" => false,
+      "jsonRepair" => nil,
+      "rerun" => nil,
       "backoff" => %{"baseDelayMs" => 0, "maxDelayMs" => 0}
     }
 
@@ -544,7 +545,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     assert payload["profile"]["schemaVersion"] == 3
 
     assert payload["profile"]["recoveryPolicy"] ==
-             HardenLlmWeb.ProfileWidgetState.serialize_current_recovery_policy(policy)
+             HardenLlmWeb.ProfileWidgetState.serialize_recovery_policy(policy)
 
     refute Map.has_key?(payload["profile"], "backupProfiles")
     refute Map.has_key?(payload["profile"]["defaultOptions"], "structuredRepairRetry")
@@ -555,7 +556,8 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     policy = %{
       APIFixtures.recovery_policy()
       | "maxAttempts" => 7,
-        "repairInvalidOutput" => false,
+        "jsonRepair" => nil,
+        "rerun" => nil,
         "retryOn" => [],
         "backoff" => %{"baseDelayMs" => 0, "maxDelayMs" => 0}
     }
@@ -574,7 +576,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     view |> element("#retry-fold-toggle") |> render_click()
     assert has_element?(view, ~s(#profile-recovery-maxAttempts[value="7"]))
     assert has_element?(view, ~s(#profile-recovery-baseDelayMs[value="0"]))
-    refute has_element?(view, "#profile-repair-invalid-output[checked]")
+    refute has_element?(view, "#profile-json-repair-toggle[checked]")
     refute has_element?(view, "#profile-retry-network[checked]")
   end
 
@@ -582,7 +584,6 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
   test "profile editor exposes and adopts configured recovery targets", %{conn: conn} do
     defaults =
       APIFixtures.recovery_policy()
-      |> Map.delete("repairInvalidOutput")
       |> Map.put("jsonRepair", %{
         "initial" => %{
           "source" => "profile",

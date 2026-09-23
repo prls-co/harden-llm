@@ -14,7 +14,6 @@ reuse application, Garage, Grafana, or Langfuse credentials.
 
 Use a public ACME account email as `HARDEN_LLM_TLS_MODE` in production. `internal`
 uses Caddy's private CA and is appropriate only when clients explicitly trust it.
-Keep `.env` outside backups that leave the encrypted backup boundary.
 
 For an existing production project, install the nonsecret descriptor described
 in [`docs/environment.md`](environment.md) and run the read-only check before
@@ -124,31 +123,6 @@ If readiness fails, inspect the first unhealthy dependency instead of extending
 the 300-second budget. Timeout increases require the RCA in
 [`ker/timeouts/`](../ker/timeouts/README.md).
 
-## Back up and restore
-
-These are optional manual recovery procedures. Compose does not install a backup
-service or schedule backups.
-
-Back up these failure domains independently:
-
-1. Application Postgres: logical dump plus roles, or a tested cold volume snapshot.
-2. Garage: `garage-metadata` and `garage-data` in one quiesced snapshot.
-3. Langfuse: upstream Postgres, ClickHouse, Redis, and MinIO according to the
-   pinned Langfuse release's procedures.
-4. Prometheus, Loki, Tempo, and Grafana volumes when diagnostic retention matters.
-5. `harden-llm-web-sessions` when preserving active frontend logins across host
-   recovery matters; losing it requires frontend reauthentication.
-6. `.env` and Caddy data through a separate encrypted secrets/PKI backup.
-
-For a portable cold backup, run `"${COMPOSE[@]}" down` without `--volumes`,
-snapshot all named volumes at the Docker volume-driver layer, then restart and
-verify `/readyz`. Restore only while the project is down. Preserve the active
-and historical `HARDEN_LLM_ENCRYPTION_KEYS`; losing an old key makes credentials
-written with that key undecryptable. Never restore Garage data without its
-matching metadata, or mix Harden LLM Garage volumes with Langfuse MinIO.
-
-Test restoration on another host before treating a backup as valid.
-
 ## Execution data and artifact inventory
 
 Execution reads use schema v2 only. The retained-v1 decoder and the one-off
@@ -175,20 +149,21 @@ the durable operation backlog before taking any manual action.
 
 ## Upgrade, rotate, and roll back
 
-Backup and restore are optional recovery procedures; this deployment has no
-backup gate, at the owner's direction. The owner accepts loss of persistent
-application data. For the current codebase-reduction release, the deployed-to-
-candidate change contains no database migration or Postgres storage-code
-change. Review ADRs and image-lock changes, and run `make test-release`. This
-browser-free gate includes `make verify` and the backend Compose check; do not
-repeat them separately or launch a browser/live-provider canary automatically.
+This deployment has no node-data backup or restore procedure; the owner accepts
+loss of persistent application data. LLM observability traces are sent to
+Langfuse, but they cannot reconstruct the consumer widget's history.
+For the current codebase-reduction release, the deployed-to-candidate change
+contains no database migration or Postgres storage-code change. Review ADRs and
+image-lock changes, and run `make test-release`. This browser-free gate includes
+`make verify` and the backend Compose check; do not repeat them separately or
+launch a browser/live-provider canary automatically.
 Deploy only immutable release IDs and digests, validate the effective Compose
 project before `up -d`, and rebuild/recreate only affected application services
 with `--no-deps` when their dependencies are unchanged. Retain rollback images
-and named data/session volumes. Verify public health/readiness and authenticated
-read-only routes; report browser and live-provider checks as not run unless
-separately authorized. A loss of Postgres/Garage still loses HardLLM history;
-Langfuse observability traces do not restore the consumer widget's history.
+and keep existing data/session volumes attached during image rollbacks. Verify
+public health/readiness and authenticated read-only routes; report browser and
+live-provider checks as not run unless
+separately authorized. A loss of Postgres/Garage still loses HardLLM history.
 
 Run the production-config check/apply for runtime settings, then inject shared
 provider settings through the approved process environment as described in
@@ -226,8 +201,9 @@ migration proves no row references it.
 
 Rollback the gateway/frontend images only to a version compatible with the
 deployed schema, retaining `harden-llm-web-sessions` for the current session
-contract. Database migrations are forward-only; if compatibility is uncertain,
-stop writes and restore the pre-upgrade failure-domain backups.
+contract. Database migrations are forward-only. If compatibility is uncertain,
+keep writes stopped and deploy a compatible forward fix; this deployment has no
+data restore path.
 After any recovery, verify login, profile probe, one deterministic run, artifact
 download, and correlated Tempo/Loki/Prometheus/Langfuse diagnostics.
 

@@ -98,11 +98,26 @@ defmodule HardenLlmWeb.EmbeddingLiveTest do
     assert has_element?(view, ~s(#embed-primary-run_selectedProfileId[value="Secondary"]))
     assert has_element?(view, ~s(#embed-secondary-run_selectedProfileId[value="Primary"]))
 
+    html = render(view)
+
     ids =
-      Regex.scan(~r/\bid="([^"]+)"/, render(view), capture: :all_but_first)
+      Regex.scan(~r/\sid="([^"]+)"/, html, capture: :all_but_first)
       |> List.flatten()
 
-    assert length(ids) == length(Enum.uniq(ids)), "duplicate DOM ids found"
+    duplicates =
+      ids
+      |> Enum.frequencies()
+      |> Enum.filter(fn {_id, count} -> count > 1 end)
+      |> Enum.sort()
+
+    duplicate_tags =
+      Enum.flat_map(duplicates, fn {id, _count} ->
+        Regex.scan(~r/<[^>]+\sid="#{Regex.escape(id)}"[^>]*>/, html, capture: :first)
+        |> List.flatten()
+      end)
+
+    assert duplicates == [],
+           "duplicate DOM ids found: #{inspect(duplicates)} in #{inspect(duplicate_tags)}"
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-074

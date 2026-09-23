@@ -54,11 +54,11 @@ func TestOTelContract(t *testing.T) {
 	ctx, endCall := telemetry.StartCall(context.Background(), CallObservation{
 		ProfileID: profile.ID, Provider: profile.Provider, ModelID: profile.ModelID, CallType: call.CallType,
 	})
-	record, err := Execute(ctx, &telemetryExecutor{}, func(context.Context, Profile) (Credential, error) {
+	record, err := Execute(ctx, &telemetryExecutor{failFirst: true}, func(context.Context, Profile) (Credential, error) {
 		return Credential{APIKey: "super-secret-api-key"}, nil
-	}, profile.ID, map[string]Profile{profile.ID: profile}, call, retry.Config{Policy: retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{}, RepairInvalidOutput: true, Backoff: retry.Backoff{BaseDelayMS: 0, MaxDelayMS: 0}}, Random: func() float64 { return 0 }, Wait: func(context.Context, time.Duration) error { return nil }}, cache, cachekey.ModeRefresh, "v1", "call-fixture", "trace-fixture")
+	}, profile.ID, map[string]Profile{profile.ID: profile}, call, retry.Config{Policy: retry.Policy{MaxAttempts: 3, RetryOn: []retry.Category{retry.CategoryServer}, JSONRepair: retry.DefaultPolicy().JSONRepair, Backoff: retry.Backoff{}}, Random: func() float64 { return 0 }, Wait: func(context.Context, time.Duration) error { return nil }}, cache, cachekey.ModeRefresh, "v1", "call-fixture", "trace-fixture")
 	endCall(record, err)
-	if err != nil || len(record.Attempts) != 2 || !record.Cache.Written {
+	if err != nil || len(record.Attempts) != 3 || !record.Cache.Written {
 		t.Fatalf("instrumented repaired call = %#v, %v", record, err)
 	}
 
@@ -90,7 +90,7 @@ func TestOTelContract(t *testing.T) {
 	}
 	assertSpanParent(t, spans, SpanProvider, SpanAttempt)
 	assertSpanParent(t, spans, SpanSchema, SpanAttempt)
-	assertAttemptTargets(t, spans, []string{profile.ID, profile.ID}, []string{profile.ModelID, profile.ModelID})
+	assertAttemptTargets(t, spans, []string{profile.ID, profile.ID, profile.ID}, []string{profile.ModelID, profile.ModelID, profile.ModelID})
 	encodedSpans := fmt.Sprint(spans)
 	for _, forbidden := range []string{"super-secret-api-key", "adversarial system prompt", "adversarial user prompt", "adversarial response"} {
 		if strings.Contains(encodedSpans, forbidden) {
@@ -234,7 +234,10 @@ func TestRecoveryIntegrityCacheWriteTelemetry(t *testing.T) {
 	}
 }
 
-type telemetryExecutor struct{}
+type telemetryExecutor struct {
+	attempts  int
+	failFirst bool
+}
 
 func (*telemetryExecutor) Prepare(_ context.Context, profile Profile, _ Credential, call Call) (PreparedOperation, error) {
 	return PreparedOperation{Operation: cachekey.Operation{
@@ -268,7 +271,11 @@ func assertAttemptTargets(t *testing.T, spans tracetest.SpanStubs, profiles, mod
 	}
 }
 
-func (*telemetryExecutor) Execute(_ context.Context, operation PreparedOperation) (ProviderResult, error) {
+func (executor *telemetryExecutor) Execute(_ context.Context, operation PreparedOperation) (ProviderResult, error) {
+	executor.attempts++
+	if executor.failFirst && executor.attempts == 1 {
+		return ProviderResult{ProviderDispatched: true}, &retry.ProviderError{Category: retry.CategoryServer, Status: 503}
+	}
 	if repair, _ := operation.Opaque.(bool); repair {
 		return ProviderResult{ProviderDispatched: true,
 			Output: map[string]any{"answer": "ok"},

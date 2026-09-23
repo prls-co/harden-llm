@@ -185,7 +185,7 @@ func TestRecoveryIntegrityCacheAdmission(t *testing.T) {
 		return Request{
 			ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "cache admission",
 			CallType: CallTypeText, CacheMode: CacheModeCache, CacheVersion: "operation-v2",
-			RecoveryPolicy: RecoveryPolicy{MaxAttempts: 2, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, RepairInvalidOutput: true, Backoff: RecoveryBackoff{}},
+			RecoveryPolicy: generationRepairPolicy(2, []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, RecoveryBackoff{}),
 		}
 	}
 	newClient := func(t *testing.T, cache CacheStore, result coreruntime.ProviderResult) (*Client, *fixedExecutor) {

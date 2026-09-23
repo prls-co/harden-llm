@@ -132,7 +132,7 @@ containers in place.
 
 Postgres and Garage are deliberately not shared between previews yet. Sharing
 them would reduce idle memory but would add database/schema ownership,
-per-branch bucket prefixes and credentials, cleanup, backup, and noisy-neighbor
+per-branch bucket prefixes and credentials, cleanup, and noisy-neighbor
 coordination. Revisit that tradeoff when concurrent preview count and measured
 resource pressure justify the additional operational surface.
 
@@ -239,10 +239,11 @@ mapped values are rejected even when another value would override them.
 Original run requests, observations, artifacts and credentials are retained.
 Old requests remain evidence and cannot be rerun by inventing a current policy.
 
-An old binary cannot roll back migrated formats. Restore the matching database,
-private configuration and component checkpoint together. Structured cache keys
-use response projection v2; old structured entries are not read on a miss.
-Text cache semantics remain unchanged.
+An old binary cannot roll back migrated formats. Keep the deployment on an image
+compatible with the current database and fix incompatible changes forward;
+there is no database restore path. Structured cache keys use response
+projection v2; old structured entries are not read on a miss. Text cache
+semantics remain unchanged.
 
 ## 7. Initial verification (2026-09-11 UTC)
 

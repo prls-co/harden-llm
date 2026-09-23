@@ -467,9 +467,15 @@ defmodule HardenLlmWeb.HardenAPITest do
     policy = %{
       "maxAttempts" => 1,
       "retryOn" => [],
-      "repairInvalidOutput" => false,
+      "jsonRepair" => nil,
+      "rerun" => nil,
       "backoff" => %{"baseDelayMs" => 0, "maxDelayMs" => 0}
     }
+
+    legacy_policy =
+      policy
+      |> Map.drop(["jsonRepair", "rerun"])
+      |> Map.put("repairInvalidOutput", true)
 
     result = put_in(result, ["defaults", "recoveryPolicy"], policy)
     Req.Test.stub(HardenAPI, fn conn -> Req.Test.json(conn, APIFixtures.success(result)) end)
@@ -478,6 +484,13 @@ defmodule HardenLlmWeb.HardenAPITest do
     for invalid <- [
           Map.delete(result, "defaults"),
           put_in(result, ["defaults", "recoveryPolicy"], nil),
+          put_in(result, ["defaults", "recoveryPolicy"], legacy_policy),
+          put_in(
+            result,
+            ["defaults", "recoveryPolicy"],
+            Map.put(policy, "repairInvalidOutput", false)
+          ),
+          put_in(result, ["profiles", Access.at(0), "profile", "recoveryPolicy"], legacy_policy),
           put_in(result, ["defaults", "recoveryPolicy", "backoff"], %{}),
           put_in(result, ["profiles", Access.at(0), "profile", "schemaVersion"], 1)
         ] do
@@ -491,9 +504,15 @@ defmodule HardenLlmWeb.HardenAPITest do
     handle = APIFixtures.insert_session()
     state = APIFixtures.state()
 
+    legacy_policy =
+      state["recoveryPolicy"]
+      |> Map.drop(["jsonRepair", "rerun"])
+      |> Map.put("repairInvalidOutput", true)
+
     for invalid <- [
           Map.put(state, "schemaVersion", 1),
           Map.delete(state, "recoveryPolicy"),
+          put_in(state, ["recoveryPolicy"], legacy_policy),
           put_in(state, ["recoveryPolicy", "backoff"], %{})
         ] do
       Req.Test.stub(HardenAPI, fn conn ->

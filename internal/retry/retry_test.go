@@ -44,7 +44,10 @@ func TestCurrentSourceRetryDecisionMatrixParity(t *testing.T) {
 			policy := DefaultPolicy()
 			enabled := row.Policy == "enabled"
 			policy.RetryOn = []Category{}
-			policy.RepairInvalidOutput = row.Outcome == "parse_error" && enabled
+			policy.JSONRepair = nil
+			if row.Outcome == "parse_error" && enabled {
+				policy.JSONRepair = generationRepairPlan()
+			}
 			if enabled && row.Outcome != "parse_error" && row.Outcome != "refusal" {
 				policy.RetryOn = []Category{Category(row.Outcome)}
 			}
@@ -116,7 +119,7 @@ func TestRetryClassificationParityCapturedSource(t *testing.T) {
 		testCase := testCase
 		t.Run(testCase.Name, func(t *testing.T) {
 			policy := DefaultPolicy()
-			policy.RepairInvalidOutput = testCase.Policy.ParseError
+			policy.JSONRepair = nil
 			// ADR-HLLM-020: parse recovery belongs to the runtime repair path.
 			if testCase.Classification.Category == CategoryParse {
 				testCase.Classification.Retryable = false
@@ -288,7 +291,7 @@ func TestRecoveryBackoff(t *testing.T) {
 	}
 	t.Run("zero calculated delay", func(t *testing.T) {
 		var delays []time.Duration
-		_, err := executeSequence(context.Background(), Config{Policy: Policy{MaxAttempts: 2, RetryOn: []Category{"network"}, RepairInvalidOutput: false, Backoff: Backoff{BaseDelayMS: 0, MaxDelayMS: 0}}, Random: func() float64 { return 0.5 }, Wait: func(_ context.Context, delay time.Duration) error { delays = append(delays, delay); return nil }}, func(_ context.Context, number int) error {
+		_, err := executeSequence(context.Background(), Config{Policy: Policy{MaxAttempts: 2, RetryOn: []Category{"network"}, Backoff: Backoff{BaseDelayMS: 0, MaxDelayMS: 0}}, Random: func() float64 { return 0.5 }, Wait: func(_ context.Context, delay time.Duration) error { delays = append(delays, delay); return nil }}, func(_ context.Context, number int) error {
 			if number == 1 {
 				return &ProviderError{Code: "ECONNRESET"}
 			}
@@ -372,8 +375,8 @@ func TestRecoveryBoundaryTiming(t *testing.T) {
 }
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-236 TEST-238
-// The new plan is presence-aware and does not silently merge the legacy flag,
-// partial plans, executable nested policies, or runtime controls in a leaf.
+// The current plan is presence-aware and rejects the retired boolean,
+// partial plans, executable nested policies, and runtime controls in a leaf.
 func TestExplicitRecoveryPolicyShape(t *testing.T) {
 	valid := []byte(`{"maxAttempts":6,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":{"initial":{"source":"profile","profileId":"A"},"escalation":null},"rerun":null}`)
 	var policy Policy
@@ -387,15 +390,15 @@ func TestExplicitRecoveryPolicyShape(t *testing.T) {
 	if err != nil || !bytes.Contains(encoded, []byte(`"jsonRepair"`)) || !bytes.Contains(encoded, []byte(`"rerun":null`)) {
 		t.Fatalf("round trip = %s (%v)", encoded, err)
 	}
-	legacy := DefaultPolicy()
-	legacyEncoded, err := json.Marshal(legacy)
-	if err != nil || bytes.Contains(legacyEncoded, []byte(`"repairInvalidOutput"`)) || !bytes.Contains(legacyEncoded, []byte(`"source":"generation"`)) {
-		t.Fatalf("legacy write was not normalized to the explicit shape: %s (%v)", legacyEncoded, err)
+	defaults := DefaultPolicy()
+	defaultEncoded, err := json.Marshal(defaults)
+	if err != nil || bytes.Contains(defaultEncoded, []byte(`"repairInvalidOutput"`)) || !bytes.Contains(defaultEncoded, []byte(`"source":"generation"`)) {
+		t.Fatalf("default policy did not use the current explicit shape: %s (%v)", defaultEncoded, err)
 	}
-	legacy.RepairInvalidOutput = false
-	disabledEncoded, err := json.Marshal(legacy)
+	disabled := Policy{MaxAttempts: 1, RetryOn: []Category{}, Backoff: Backoff{BaseDelayMS: 0, MaxDelayMS: 0}}
+	disabledEncoded, err := json.Marshal(disabled)
 	if err != nil || bytes.Contains(disabledEncoded, []byte(`"repairInvalidOutput"`)) || !bytes.Contains(disabledEncoded, []byte(`"jsonRepair":null`)) || !bytes.Contains(disabledEncoded, []byte(`"rerun":null`)) {
-		t.Fatalf("disabled legacy write was not normalized: %s (%v)", disabledEncoded, err)
+		t.Fatalf("disabled current policy shape was not serialized: %s (%v)", disabledEncoded, err)
 	}
 
 	cases := []string{
@@ -412,6 +415,12 @@ func TestExplicitRecoveryPolicyShape(t *testing.T) {
 			t.Errorf("policy unexpectedly accepted: %s", input)
 		}
 	}
+}
+
+func generationRepairPlan() *RepairPlan {
+	initial := RecoveryTarget{Source: "generation"}
+	escalation := initial
+	return &RepairPlan{Initial: initial, Escalation: &escalation}
 }
 
 // A test-owned executor exercises the production loop; it never implements retries.

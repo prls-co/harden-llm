@@ -181,12 +181,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
              "Total provider calls, including the first call, retries, repairs, escalations and fresh reruns."
            )
 
-    assert has_element?(view, ".ullm-field-info-text", "original schema")
+    assert has_element?(view, ".ullm-recovery-policy-scope", "all configured recovery stages")
 
-    assert has_element?(
-             view,
-             ~s(button.ullm-field-label-info[type="button"][aria-controls="profile-repair-invalid-output-help"][aria-expanded="false"])
-           )
+    assert has_element?(view, "#profile-json-repair-toggle")
 
     view |> element("#profile-pricing-toggle") |> render_click()
     assert has_element?(view, "#profile-pricing")
@@ -688,10 +685,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
 
     assert has_element?(view, ~s(input[name="profile[recoveryPolicy][maxAttempts]"]))
 
-    assert has_element?(
-             view,
-             ~s(input[name="profile[recoveryPolicy][repairInvalidOutput]"][type="checkbox"])
-           )
+    assert has_element?(view, "#profile-json-repair-toggle")
 
     assert has_element?(view, "#profile-recovery-policy [phx-click][aria-expanded]")
     refute has_element?(view, "#profile-fallback-toggle")
