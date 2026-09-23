@@ -259,6 +259,52 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
     end)
   end
 
+  test "partial parent fold assigns replace only supplied booleans" do
+    primary = profile("Primary", "primary-model")
+
+    {:ok, socket} =
+      ProfileWidgetComponent.mount(%Phoenix.LiveView.Socket{assigns: %{__changed__: %{}}})
+
+    {:ok, socket} =
+      ProfileWidgetComponent.update(
+        %{
+          id_prefix: "widget",
+          profiles: [primary],
+          selected_profile_id: "Primary",
+          config_open: true,
+          credential_open: true,
+          options_open: true,
+          retry_open: true,
+          pricing_open: true,
+          fold_disabled: true,
+          target_config_open: %{"target.options" => true}
+        },
+        socket
+      )
+
+    {:ok, socket} =
+      ProfileWidgetComponent.update(
+        %{
+          profiles: [primary],
+          selected_profile_id: "Primary",
+          config_open: false,
+          credential_open: nil,
+          options_open: "invalid",
+          retry_open: false,
+          fold_disabled: false
+        },
+        socket
+      )
+
+    assert socket.assigns.main_config_open == false
+    assert socket.assigns.main_credential_open == true
+    assert socket.assigns.main_options_open == true
+    assert socket.assigns.main_retry_open == false
+    assert socket.assigns.main_pricing_open == true
+    assert socket.assigns.fold_disabled == false
+    assert socket.assigns.target_config_open == %{"target.options" => true}
+  end
+
   test "two widget instances retain independent IDs, folds, and controls", %{conn: conn} do
     primary = profile("Primary", "model-primary")
     secondary = profile("Secondary", "model-secondary")

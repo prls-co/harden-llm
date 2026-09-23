@@ -71,6 +71,15 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
     main_credential_open main_options_open main_retry_open main_pricing_open
   )
 
+  @fold_assignments [
+    {:config_open, :main_config_open},
+    {:credential_open, :main_credential_open},
+    {:options_open, :main_options_open},
+    {:retry_open, :main_retry_open},
+    {:pricing_open, :main_pricing_open},
+    {:fold_disabled, :fold_disabled}
+  ]
+
   @impl true
   def mount(socket) do
     {:ok,
@@ -2973,38 +2982,12 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
   end
 
   defp assign_fold_state(socket, assigns) do
-    socket
-    |> assign(
-      :main_config_open,
-      boolean_assign(assigns, :config_open, socket.assigns.main_config_open)
-    )
-    |> assign(
-      :main_credential_open,
-      boolean_assign(assigns, :credential_open, socket.assigns.main_credential_open)
-    )
-    |> assign(
-      :main_options_open,
-      boolean_assign(assigns, :options_open, socket.assigns.main_options_open)
-    )
-    |> assign(
-      :main_retry_open,
-      boolean_assign(assigns, :retry_open, socket.assigns.main_retry_open)
-    )
-    |> assign(
-      :main_pricing_open,
-      boolean_assign(assigns, :pricing_open, socket.assigns.main_pricing_open)
-    )
-    |> assign(
-      :fold_disabled,
-      boolean_assign(assigns, :fold_disabled, socket.assigns.fold_disabled)
-    )
-  end
-
-  defp boolean_assign(assigns, key, current) do
-    case Map.get(assigns, key) do
-      value when is_boolean(value) -> value
-      _ -> current
-    end
+    Enum.reduce(@fold_assignments, socket, fn {incoming_key, socket_key}, acc ->
+      case Map.get(assigns, incoming_key) do
+        value when is_boolean(value) -> assign(acc, socket_key, value)
+        _ -> acc
+      end
+    end)
   end
 
   defp fold_ui_name("options"), do: "modelOptionsOpen"
