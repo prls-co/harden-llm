@@ -4,7 +4,7 @@
 
 - ID: `PLAN-HLLM-SHARED-GARAGE-001`.
 - Updated: 2026-09-24.
-- Status: H0-H3 are complete. The production source is on `main` at `a4308caf4d52326f33d29bb4070842e23992703f`; local focused checks and `make test-fast` passed, and hosted browser-free `make test-release` run `36064129358` passed. H4 moved the existing Garage volumes to the shared owner at `a572e183b448b0492f7980e833da0eabbe5926ac`; the owner and HLLM services are healthy, production configuration is equivalent, and the read-only artifact inventory is healthy. Public HTTPS probes still receive Cloudflare 530 / error 1033, so public-route acceptance remains open. Each other consumer follows independently through its existing repository issue.
+- Status: H0-H3 are complete. The deployed HLLM source/configuration revision is `a4308caf4d52326f33d29bb4070842e23992703f`; PR #64 later advanced `main` to `0a0349a2c826434dedc5fb4cbe5b91480a77ee85` with plan documentation only. Local focused checks and `make test-fast` passed; hosted browser-free `make test-release` run `36064129358` passed. H4 moved the existing Garage volumes to shared-owner `main` `a572e183b448b0492f7980e833da0eabbe5926ac`; owner and HLLM services are healthy, production configuration is equivalent, and the artifact inventory is healthy. Public HTTPS probes still receive Cloudflare 530 / error 1033, so public-route acceptance remains open. Each other consumer follows independently through its existing repository issue.
 - Issue: [Harden-LLM #53](https://github.com/prls-co/harden-llm/issues/53).
 - Canonical cross-repository order: [shared Garage transition plan](https://github.com/prls-co/garage-shared/blob/main/plans/shared-garage-transition-plan.md), tracked in [garage-shared #1](https://github.com/prls-co/garage-shared/issues/1).
 
@@ -77,7 +77,7 @@ Gate: fixtures boot from private empty volumes; smoke exercises production routi
 
 ## 7. Phase H3 — verify and prepare deployment
 
-Status: verification and preparation complete. Focused Go/Compose/Node checks and local `make test-fast` passed; hosted browser-free `make test-release` run `36064129358` passed. The local release attempt passed 24 tasks but could not allocate the smoke network because Docker address pools were exhausted; no assertion failed or was weakened. HLLM source is on `main` at `a4308caf4d52326f33d29bb4070842e23992703f`, and the production descriptor is equivalent after the runtime change. No app image was rebuilt or pulled. This execution record is being updated in PR #64.
+Status: verification and preparation complete. Focused Go/Compose/Node checks and local `make test-fast` passed; hosted browser-free `make test-release` run `36064129358` passed. The local release attempt passed 24 tasks but could not allocate the smoke network because Docker address pools were exhausted; no assertion failed or was weakened. Runtime configuration was applied from main `a4308caf4d52326f33d29bb4070842e23992703f`; the production descriptor is equivalent. No app image was rebuilt or pulled. The current main includes the completed plan record from PR #64; CodeQL checks passed in run `36068924182`.
 
 1. Run focused checks for changed ownership/preview/configuration code, then the broad fast gate:
 
@@ -103,7 +103,7 @@ Status: verification and preparation complete. Focused Go/Compose/Node checks an
 
    The release selector already includes integration, exclusive Garage restart, backend Compose smoke, and `make verify`. Do not prepend separate full integration/verify runs merely to duplicate certification. Focused reruns while fixing failures are appropriate. Never drop a gate, weaken assertions, or retry ambiguous operations to obtain green output.
 4. Confirmed the private descriptor has no HLLM Garage entry and the only production differences are the planned gateway endpoint/network changes. Its final post-apply check reports `equivalent`; application image identities and provider/profile/account settings remain pinned.
-5. Advanced the production bind-mounted checkout to `main` only after confirming the HLLM core services were stopped. Started the shared owner before HLLM clients and retained a same-volume rollback procedure. The source config was already merged in PR #54; this plan's execution record is in PR #64.
+5. Advanced the production bind-mounted checkout to `main` only after confirming the HLLM core services were stopped. Started the shared owner before HLLM clients and retained a same-volume rollback procedure. Source config was merged in PR #54; execution records are merged in PR #64. The production checkout was later fast-forwarded to `0a0349a2c826434dedc5fb4cbe5b91480a77ee85`, a plan-only update.
 
 Gate: passed for source, hosted browser-free release, production config, and local storage/readiness checks. Public edge acceptance remains in H4. No browser or real-provider test was added; configuration-only deployment reused the approved images.
 
@@ -127,7 +127,7 @@ Gate: on-host Harden-LLM health and retained artifact/Loki reads pass; Garage us
 Status: partially complete; operational findings are recorded here and in issues #53 and `garage-shared#1`. External route verification and post-cutover monitoring remain.
 
 1. Record source/owner SHAs, pinned HLLM image identities, environment URLs, Compose state, and HTTP/storage results. A documentation SHA is not an application image SHA.
-2. The production source cleanup, private RPC-variable cleanup, and old HLLM container removal are complete. Keep isolated fixtures and historical certification records. Merge this execution-plan update and post the same evidence to HLLM issue #53 and owner issue #1.
+2. The production source cleanup, private RPC-variable cleanup, and old HLLM container removal are complete. Keep isolated fixtures and historical certification records. Execution records are merged in PR #64, and current evidence is posted to HLLM issue #53 and owner issue #1.
 3. Resolve Cloudflare error 1033, then recheck public HLLM web/API health, API readiness, and a signed artifact download. At the next normal log/trace write, confirm Loki retention/continuity and Langfuse trace ingestion; review disk use without adding backup or migration tooling.
 4. Keep other consumer issues open until each consumer completes its own deployment and checks. Do not claim the overall multi-repo transition is complete.
 
