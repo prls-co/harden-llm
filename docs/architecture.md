@@ -8,7 +8,7 @@ browser -> Caddy -> Phoenix LiveView -> Go REST gateway -> hardenllm.Client.Call
                                            |                  |
                                            |                  `-> LLM provider
                                            |-> app Postgres
-                                           |-> Garage
+                                           |-> shared Garage (`garage-shared`)
                                            `-> OTel Collector -> Tempo / Loki / Prometheus / Langfuse
 ```
 
@@ -31,7 +31,7 @@ transport failure is never automatically replayed by either layer.
 | Store | Owner and contents | Isolation rule |
 | --- | --- | --- |
 | `harden-postgres-data` | local users, token digests, state, encrypted profile credentials, runs, trace/artifact indexes | dedicated database, credentials, and migrations |
-| `garage-metadata` + `garage-data` | private redacted trace JSON and diagnostic attachments | gateway-only S3 credentials |
+| `garage-shared` service and its retained metadata/data volumes | private redacted trace JSON and diagnostic attachments for adopted clients | separate bucket-scoped credentials per client |
 | upstream `postgres` | Langfuse application records | unchanged upstream service |
 | upstream `clickhouse` | Langfuse analytics | unchanged upstream service |
 | upstream `minio` | Langfuse-owned objects | never receives Harden LLM artifacts |
@@ -39,9 +39,11 @@ transport failure is never automatically replayed by either layer.
 | `harden-llm-web-logs` | bounded, redacted Phoenix JSON logs | Collector reads it; no domain state |
 | `harden-llm-web-sessions` | encrypted Phoenix bearer-token vault records | single Phoenix replica only; losing it requires frontend reauthentication |
 
-The Harden LLM database and Garage pair are separate from Langfuse. Sharing
-endpoints, buckets, credentials, databases, or migrations across those domains
-is unsupported.
+The Harden-LLM database remains product-owned. Garage runs in the separate
+`garage-shared` repository on the existing `prls-observability` network; this
+repository owns only Harden-LLM's bucket and client credentials. Sharing a
+Langfuse endpoint, bucket, credential, database, or migration with Harden-LLM is
+unsupported.
 
 `llm_runs` is the relational execution aggregate root. A mandatory exact
 owner/run/trace foreign key makes the trace, observations, and artifact metadata
@@ -66,8 +68,9 @@ stores a credential.
 
 ## Deployment scope
 
-The certified topology is one Linux Docker host: fifteen backend services, or
-sixteen with the Phoenix overlay. Caddy is the only public-port owner. The
+The certified topology is one Linux Docker host: fourteen services in the
+Harden-LLM Compose project plus the separately managed shared Garage service,
+or sixteen services with the optional Phoenix overlay. Caddy is the only public-port owner. The
 gateway and Phoenix release images run non-root; the Phoenix image uses the
 retained `harden-llm-web-sessions` volume for one encrypted single-replica token
 vault. Horizontal or multi-host deployment requires a later ADR with a shared

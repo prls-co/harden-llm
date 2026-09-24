@@ -15,7 +15,7 @@ routes each requirement to its implementation home and release gate.
 | REQ-006 schema/cache parity | `internal/schema/`, `internal/cachekey/` | TEST-010, TEST-011, TEST-035 |
 | REQ-007 canonical projections | `internal/pricing/`, `profiles/`, `traces/`, `stats/` | TEST-015, TEST-016, TEST-017, TEST-035 |
 | REQ-008 encrypted credentials | `internal/profiles/credentials.go`, seeded credential state | TEST-017, TEST-018, TEST-022, TEST-038 |
-| REQ-009 isolated persistence | `internal/postgres/`, `deploy/garage/`, first-use profile seed | TEST-017, TEST-020, TEST-021, TEST-033, TEST-034, TEST-040 |
+| REQ-009 isolated persistence | `internal/postgres/`, shared `garage-shared` runtime, `deploy/test/garage.toml`, first-use profile seed | TEST-017, TEST-020, TEST-021, TEST-033, TEST-034, TEST-040 |
 | REQ-010 local auth/owners | `internal/gateway/auth/`, bearer middleware, owner-locked profile seed | TEST-017, TEST-022, TEST-023, TEST-024, TEST-038 |
 | REQ-011 REST resources | `internal/gateway/httpapi/`, `api/openapi.yaml` | TEST-017, TEST-023 through TEST-026, TEST-038 |
 | REQ-012 frontend-independent contract | `api/openapi.yaml`, backend static boundaries | TEST-026, TEST-027 |
@@ -23,7 +23,7 @@ routes each requirement to its implementation home and release gate.
 | REQ-014 failure isolation | telemetry queues/shutdown, timeout policy | TEST-031, TEST-039 |
 | REQ-015 single Collector fanout | `deploy/otel/collector.yaml` | TEST-030, TEST-034 |
 | REQ-016 Grafana provisioning | `deploy/grafana/` | TEST-032, TEST-034 |
-| REQ-017 fifteen-service deployment | Compose, Caddy, image lock, Langfuse fragment | TEST-033, TEST-034, TEST-039 |
+| REQ-017 fourteen-service production deployment | Compose, Caddy, image lock, Langfuse fragment; Garage is externally owned by `garage-shared` | TEST-033, TEST-034, TEST-039 |
 | REQ-018 migration independence | `fixtures/parity/`, static dependency scans | TEST-003, TEST-004, TEST-027, TEST-035 |
 | REQ-019 release quality | Makefile, AST/static checks, pinned toolchain, catalog provenance | TEST-001 through TEST-003, TEST-017, TEST-036 |
 | REQ-020 Garage artifacts | `internal/artifacts/`, owner-authorized routes | TEST-024, TEST-034, TEST-038, TEST-040 |
@@ -47,7 +47,8 @@ lowest sufficient tier. Their concrete ownership is:
 | WEB-TEST-083..089 | Strict wire round trips, target-only/shared repair widgets, embedding isolation, diagnostics reducer, and one authenticated no-retry stream | `frontend/lib/harden_llm/`, `frontend/lib/harden_llm_web/`, deterministic Mix tests |
 
 TEST-036 is the aggregate deterministic backend gate. TEST-034 separately
-certifies the real fifteen-service deployment. TEST-037 and TEST-038 are opt-in
+certifies the fourteen-service production Compose topology using a fifteenth,
+isolated Garage fixture in its smoke project. TEST-037 and TEST-038 are opt-in
 live evidence; absence of credentials is recorded explicitly and never weakens
 deterministic acceptance.
 

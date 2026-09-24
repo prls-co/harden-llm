@@ -33,7 +33,7 @@ func TestPRLSComposeSharedOwner(t *testing.T) {
 
 	services := objectField(t, config, "services")
 	wantServices := []string{
-		"caddy", "garage", "grafana", "harden-llm-gateway", "harden-postgres",
+		"caddy", "grafana", "harden-llm-gateway", "harden-postgres",
 		"loki", "otel-collector", "otel-collector-state-init", "prometheus", "tempo",
 	}
 	if got := sortedKeys(services); !reflect.DeepEqual(got, wantServices) {
@@ -45,7 +45,7 @@ func TestPRLSComposeSharedOwner(t *testing.T) {
 		}
 	}
 
-	sharedServices := []string{"caddy", "garage", "grafana", "loki", "otel-collector", "prometheus"}
+	sharedServices := []string{"caddy", "grafana", "harden-llm-gateway", "loki", "otel-collector", "prometheus"}
 	for _, name := range sharedServices {
 		service := asObject(t, services[name], name)
 		if !prlsValueContains(service["networks"], prlsSharedNetwork) {
@@ -284,7 +284,7 @@ func TestPRLSLokiTenancyAndStorage(t *testing.T) {
 	}
 	aws := objectField(t, storage, "aws")
 	wantAWS := map[string]string{
-		"endpoint": "garage:3900", "region": "garage", "bucketnames": "prls-loki",
+		"endpoint": "garage-shared:3900", "region": "garage", "bucketnames": "prls-loki",
 		"access_key_id": "${PRLS_LOKI_S3_ACCESS_KEY}", "secret_access_key": "${PRLS_LOKI_S3_SECRET_KEY}",
 	}
 	for key, want := range wantAWS {

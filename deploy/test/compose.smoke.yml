@@ -1,8 +1,33 @@
 services:
   garage:
-    # The smoke project owns fresh volumes, so it must create its isolated
-    # single-node layout and bucket before the gateway readiness probe.
+    image: dxflrs/garage:v2.3.0@sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690
     command: ["/garage", "server", "--single-node", "--default-bucket"]
+    restart: "no"
+    environment:
+      GARAGE_CONFIG_FILE: /etc/garage.toml
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?set the generated smoke Garage RPC secret}
+      GARAGE_DEFAULT_ACCESS_KEY: ${HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID:?set the generated smoke artifact key}
+      GARAGE_DEFAULT_SECRET_KEY: ${HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY:?set the generated smoke artifact secret}
+      GARAGE_DEFAULT_BUCKET: ${HARDEN_LLM_ARTIFACT_BUCKET:-harden-llm-artifacts-smoke}
+    volumes:
+      - ./deploy/test/garage.toml:/etc/garage.toml:ro
+      - garage-metadata:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    networks:
+      harden-private: {}
+      prls-observability:
+        aliases: [garage-shared]
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 1s
+      timeout: 3s
+      retries: 45
+    stop_grace_period: 10s
+
+  caddy:
+    depends_on:
+      garage:
+        condition: service_healthy
 
   harden-llm-gateway:
     environment:
@@ -12,6 +37,8 @@ services:
     volumes:
       - ${SMOKE_CA_CERT:?set the generated smoke CA path}:/run/smoke/provider-ca.crt:ro
     depends_on:
+      garage:
+        condition: service_healthy
       fake-provider:
         condition: service_healthy
 
@@ -27,8 +54,8 @@ services:
     security_opt:
       - no-new-privileges:true
     volumes:
-      - ${SMOKE_PROVIDER_CERT:?set the generated provider certificate path}:/run/smoke/provider.crt:ro
-      - ${SMOKE_PROVIDER_KEY:?set the generated provider key path}:/run/smoke/provider.key:ro
+      - ${SMOKE_PROVIDER_CERT:?set the generated smoke provider certificate path}:/run/smoke/provider.crt:ro
+      - ${SMOKE_PROVIDER_KEY:?set the generated smoke provider key path}:/run/smoke/provider.key:ro
     healthcheck:
       test: ["CMD", "/fake-provider", "healthcheck"]
       interval: 2s
@@ -42,9 +69,16 @@ services:
         max-file: "2"
 
   loki:
+    depends_on:
+      garage:
+        condition: service_healthy
     volumes:
       - ./deploy/test/loki.smoke.yaml:/etc/loki/local-config.yaml:ro
       - loki-data:/loki
+
+volumes:
+  garage-metadata:
+  garage-data:
 
 networks:
   prls-observability:

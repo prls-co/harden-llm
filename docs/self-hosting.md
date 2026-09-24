@@ -1,8 +1,10 @@
 # Self-Hosting and Operations
 
-The certified deployment is one Linux Docker host. The backend has fifteen
-services; the optional Phoenix overlay adds the sixteenth. Run commands from
-the repository root with Docker 29+ and Compose 2.40+.
+The certified deployment is one Linux Docker host. Harden-LLM production Compose
+has fourteen services and expects the separately managed `garage-shared`
+service on the existing `prls-observability` network. The optional Phoenix
+overlay adds one service. Run commands from the repository root with Docker
+29+ and Compose 2.40+.
 
 ## Prepare the host
 
@@ -11,6 +13,11 @@ Allocate persistent storage for Docker volumes, including the retained
 inbound TCP 80/443. Copy `.env.example` to `.env`, set mode 0600, and replace
 every placeholder. Generate every secret independently; do not
 reuse application, Garage, Grafana, or Langfuse credentials.
+
+Provision `garage-shared` from the `prls-co/garage-shared` repository on the
+same Docker host before starting Harden-LLM. Its owner creates and operates the
+external `prls-observability` network and keeps the existing Garage data and
+metadata volumes. Do not start a repository-local production Garage service.
 
 Use a public ACME account email as `HARDEN_LLM_TLS_MODE` in production. `internal`
 uses Caddy's private CA and is appropriate only when clients explicitly trust it.

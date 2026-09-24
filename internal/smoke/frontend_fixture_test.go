@@ -110,8 +110,8 @@ func TestFrontendComposeFixture(t *testing.T) {
 		t.Fatalf("frontend Compose readiness = %s, budget 6m", readiness)
 	}
 
-	if ready := assertContainerTopology(t, runner); ready != len(requiredProductionServices) {
-		t.Fatalf("base topology ready = %d/%d", ready, len(requiredProductionServices))
+	if ready := assertContainerTopology(t, runner); ready != len(requiredSmokeStackServices) {
+		t.Fatalf("base topology ready = %d/%d", ready, len(requiredSmokeStackServices))
 	}
 	assertFrontendService(t, runner)
 
