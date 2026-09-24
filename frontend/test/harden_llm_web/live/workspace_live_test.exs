@@ -2949,6 +2949,8 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     |> render_change()
 
     render_async(view, 1_000)
+    # The input fold and run-form change can leave a coalesced state save active.
+    wait_for_enabled_control(view, "#model-config-toggle")
     view |> element("#model-config-toggle") |> render_click()
     render_async(view, 1_000)
     view |> element("#profile-options-toggle") |> render_click()
@@ -3223,6 +3225,24 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     monitor = Process.monitor(process)
     send(process, message)
     assert_receive {:DOWN, ^monitor, :process, ^process, :normal}, 1_000
+  end
+
+  defp wait_for_enabled_control(view, selector) do
+    deadline = System.monotonic_time(:millisecond) + 5_000
+    wait_for_enabled_control(view, selector, deadline)
+  end
+
+  defp wait_for_enabled_control(view, selector, deadline) do
+    unless has_element?(view, "#{selector}:not([disabled])") do
+      remaining = deadline - System.monotonic_time(:millisecond)
+
+      if remaining <= 0 do
+        flunk("expected #{selector} to become enabled after workspace state saves finish")
+      end
+
+      render_async(view, remaining)
+      wait_for_enabled_control(view, selector, deadline)
+    end
   end
 
   defp unexpected(conn), do: flunk("unexpected API call: #{conn.method} #{conn.request_path}")
