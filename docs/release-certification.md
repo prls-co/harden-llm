@@ -2306,3 +2306,33 @@ deployment was performed.
 These checks confirm the already-deployed application state; they do not claim
 that the documentation is rendered by the application or that a new
 application revision was deployed. No browser or provider call was made.
+
+## Legacy compatibility cleanup — production (2026-09-23)
+
+The approved cleanup retired the `repairInvalidOutput` compatibility path,
+retained bounded `jsonRepair`, made profile catalog and bundle imports v3-only,
+and removed active node-data backup instructions. It preserved database
+migrations, Langfuse, consumer History, stats, and profile portability.
+
+| Gate or runtime evidence | Result |
+| --- | --- |
+| Merged application source | GitHub `main`, `d581942634b7197cea2d09069f73ebc89ff75bce`; cleanup PR [#50](https://github.com/prls-co/harden-llm/pull/50), test-race correction PR [#51](https://github.com/prls-co/harden-llm/pull/51). |
+| Exact-main hosted release | [Workflow run 35940427921](https://github.com/prls-co/harden-llm/actions/runs/35940427921), attempt 1; browser-free `make test-release` passed. The full local browser-free selector accepted 28 tasks. |
+| Local checks | `make test-fast` accepted all 10 tasks; `make verify` passed. PR #51 required checks and CodeQL passed. |
+| Web image | `harden-llm-web:release-d581942634b7197cea2d09069f73ebc89ff75bce`, `sha256:f989a6fdca2b27aa008d4b70100d9911bd6a4278dda3d0e1b71f7e889fd83d38`, `linux/amd64`. |
+| Gateway image | `harden-llm-gateway:release-d581942634b7197cea2d09069f73ebc89ff75bce`, `sha256:75f237ed40ec23ddc31b14ddcff78f008e2630a22fc9bd4debc8c99ff33bb01a`, `linux/amd64`. |
+| Deployment scope | Applied only `harden-llm-web` and `harden-llm-gateway`; candidate-scoped and full five-service `production-config check` are `equivalent`. Both app containers are healthy with zero restarts. The previous app release `cf14628eef80312fe0b03fefd3bed2d3e301860c` and images remain available. |
+| Public HTTP | Web `/healthz` and `/login`, API `/healthz` and `/readyz`: HTTP 200. |
+| Read-only authenticated API | Login, state, profiles, history, stats, and logout returned HTTP 200; unauthenticated profiles returned the expected HTTP 401. State schema is v3 without `repairInvalidOutput`; 32 profiles use schema v3; History returned an item; stats schema is v2. |
+| Artifact inventory | Read-only `audit-artifacts`: 5 scanned, 5 referenced, zero active-operation references, zero missing or unreferenced objects, `truncated=false`, `healthy=true`. |
+| Production descriptor | SHA-256 changed from `ca4f52b2cfeac5cf1357ae006883b0a86d3db7827260121610842b5b50f17dab` to `8ca1993d56c8ae468982dc472e0f67a93e8b8718c67d560855e5f5dc78063263`; mode remains `0600`. A private descriptor-only pre-deploy copy is `/home/kirill/.config/harden-llm/rollout-d581942/production.before.json` (parent mode `0700`, file mode `0600`). |
+| Data and external services | No application-data snapshot or restore rehearsal; no database migration or storage-code change. Langfuse configuration and trace retention were unchanged. |
+
+The first exact-main hosted attempt, [run 35936283153](https://github.com/prls-co/harden-llm/actions/runs/35936283153), failed one frontend test because a coalesced save left a UI control correctly disabled after `render_async/2` returned. PR #51 changed only the test synchronization: it waits for the coalesced save chain and retains the original click and assertions. The corrected source passed the hosted release gate above.
+
+The release intentionally breaks v2 profile catalog/bundle import; production's
+32 configured profiles are already v3. History remains node-persisted and may
+be lost if that store is lost; the owner accepts this. Browser layout and real
+provider behavior were not exercised. `jsonRepair` remains in application
+code, but deployment did not make a real provider call to exercise generated
+repair behavior. Routine monitoring is the remaining operational follow-up.
