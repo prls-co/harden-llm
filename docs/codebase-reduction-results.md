@@ -930,6 +930,10 @@ unmet.
 
 ### P05.3 Delivery state and remaining evidence
 
+The entries below record the state when P05.3 was first closed. Its pending
+production items were superseded by the 2026-09-23 release recorded in
+[Production deployment closeout](#production-deployment-closeout--2026-09-23).
+
 - Current P04.9 application source:
   `cf14628eef80312fe0b03fefd3bed2d3e301860c` passed hosted FAST and
   browser-free RELEASE on `feat/workspace-schema-context`; it is now included
@@ -1039,7 +1043,54 @@ product save behavior nor relaxes the test oracle.
   1`; all 28 tasks passed with no timeouts, failures, cleanup errors, or
   warnings. Report:
   `tmp/test-feedback/runner-1790210903236-814076-372cf4620d82df8c.json`.
-- The cleanup is not yet production-deployed. Repeat the browser-free release
-  workflow on the corrected exact-main SHA after PR merge, then follow the
-  local-image ADR and verify production health and runtime identities. No
-  browser or provider request was made.
+- The test correction changes only synchronization in the flaky test; its
+  assertions and application behavior are unchanged. Exact-main hosted release
+  and production results are recorded below.
+
+### Production deployment closeout — 2026-09-23
+
+PR #50 delivered the approved cleanup. PR #51 fixed the test-only coalesced
+save race discovered by the first exact-main release attempt. Final production
+source is `main` at
+`d581942634b7197cea2d09069f73ebc89ff75bce`, merged through
+[PR #51](https://github.com/prls-co/harden-llm/pull/51). The exact-main
+browser-free `make test-release` workflow passed on attempt 1 in
+[run 35940427921](https://github.com/prls-co/harden-llm/actions/runs/35940427921).
+
+- Local verification passed `make test-fast` (10 tasks), `make verify`, and the
+  full 28-task browser-free release selector. The hosted exact-main release
+  passed the same browser-free release gate. PR #51 checks, including CodeQL,
+  passed before merge.
+- Immutable local images built from the tested source:
+  - Web: `harden-llm-web:release-d581942634b7197cea2d09069f73ebc89ff75bce`,
+    ID `sha256:f989a6fdca2b27aa008d4b70100d9911bd6a4278dda3d0e1b71f7e889fd83d38`.
+  - Gateway:
+    `harden-llm-gateway:release-d581942634b7197cea2d09069f73ebc89ff75bce`,
+    ID `sha256:75f237ed40ec23ddc31b14ddcff78f008e2630a22fc9bd4debc8c99ff33bb01a`.
+  Both images are `linux/amd64`; the previous app images remain available.
+- Scoped `production-config apply` changed only web and gateway image, image
+  override, and release-identity fields. Candidate-scoped and full
+  five-service checks report `equivalent`. Both app containers are healthy
+  with zero restarts. Previous rollback image IDs remain available: web
+  `sha256:e9073dc42e47131fdd4336557a801f4f268f5f0f115e6c09309f67864ce8a5af`,
+  gateway `sha256:99bb8fc0f5b26a83fa9b735545df2eb976f033479537c6d725a2343be02719ff`.
+- Public web `/healthz` and `/login`, API `/healthz` and `/readyz`: HTTP 200.
+  Read-only guest API checks for login, state, profiles, history, stats, and
+  logout: HTTP 200; unauthenticated profiles: expected HTTP 401. Production
+  state is schema v3 with no `repairInvalidOutput`; all 32 configured profiles
+  are v3; history returned a record; stats used schema v2.
+- Read-only `audit-artifacts`: five objects scanned, five referenced, zero
+  active-operation references, zero missing or unreferenced objects,
+  `truncated=false`, `healthy=true`.
+- Production descriptor digest changed from
+  `ca4f52b2cfeac5cf1357ae006883b0a86d3db7827260121610842b5b50f17dab` to
+  `8ca1993d56c8ae468982dc472e0f67a93e8b8718c67d560855e5f5dc78063263`;
+  descriptor mode is `0600`. The private pre-deploy copy contains deployment
+  metadata only; it is not an application-data backup. No Postgres/Garage
+  snapshot or restore rehearsal was made.
+- No database migration or storage-code change was deployed. Langfuse
+  configuration and trace retention were unchanged. History remains in the
+  node data store and can be lost with that store, as accepted by the owner.
+- Browser layout and real-provider behavior were not checked. Keep routine
+  post-release observation; v2 profile exports require conversion with a
+  v2-capable importer before this release's v3-only importer can read them.
