@@ -1008,3 +1008,38 @@ guidance. No node backup command or service existed in the source inventory.
   follow-up did not change production, secrets, Langfuse configuration, or
   persistent application data. V2 bundles needed after deployment must be
   re-exported through the prior importer before the v3-only importer ships.
+
+### Exact-source release correction — 2026-09-23
+
+The first exact-main hosted release attempt, [workflow run
+35936283153](https://github.com/prls-co/harden-llm/actions/runs/35936283153),
+failed `frontend-deterministic` on cleanup merge SHA
+`8ee2dc89136163ea6525193ea049881e6363cb40`: 247/248 tests passed. The failed
+test clicked `#model-config-toggle` while the control was disabled by
+`state_save_in_flight`. In the pinned Phoenix LiveView 1.2.9 helper,
+`render_async/2` snapshots the currently registered async PIDs when invoked.
+Finishing one state save can start a coalesced pending save in
+`WorkspaceLive.handle_async/3`, so the original wait did not cover that second
+save. The UI's lock is correct; the test had assumed one `render_async/2` call
+drained the entire chain.
+
+The follow-up changes only the test: it waits up to five seconds for the fold
+control to become enabled, waiting for each current async save, then performs
+the same click and keeps its existing assertions. It neither changes the
+product save behavior nor relaxes the test oracle.
+
+- Focused failing test, `ERL_FLAGS='+S 4:4'` / `max_cases: 8`: 1 passed.
+- Full deterministic Phoenix suite at the same scheduler setting: 248 passed,
+  five opt-in cases excluded.
+- `make test-fast`: all 10 tasks accepted, with no runner cleanup errors or
+  warnings. Report:
+  `tmp/test-feedback/runner-1790209557973-658548-92c13938231ce1fd.json`.
+- The corrected source then passed the complete local browser-free release
+  selector: `node scripts/run-test-tier.mjs --task release --candidate-slots
+  1`; all 28 tasks passed with no timeouts, failures, cleanup errors, or
+  warnings. Report:
+  `tmp/test-feedback/runner-1790210903236-814076-372cf4620d82df8c.json`.
+- The cleanup is not yet production-deployed. Repeat the browser-free release
+  workflow on the corrected exact-main SHA after PR merge, then follow the
+  local-image ADR and verify production health and runtime identities. No
+  browser or provider request was made.

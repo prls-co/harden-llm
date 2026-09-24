@@ -169,7 +169,8 @@ instruction, so do not edit README unless a real reference is found.
 | Phase 1 | Complete | Removed Go runtime and Phoenix UI handling for `repairInvalidOutput`, kept current `jsonRepair`, and kept old saved trace requests readable as opaque historical data (`WEB-TEST-103`). Focused Go recovery/runtime/provider/gateway tests passed; focused Phoenix/API/widget suites passed (132 tests). |
 | Phase 2 | Complete | Removed v2 catalog and bundle normalization. New red tests failed against the old code, then passed after the change. `go test ./internal/profiles ./internal/gateway -count=1` passes; current catalog round trip is retained. `make verify` passed the Docker-backed `TestResourceRoutes` bundle export/import boundary. |
 | Phase 3 | Complete | Removed the self-hosted node snapshot/restore recipe and backup-dependent rollback steps; removed encrypted-host-backup wording from the environment reference and the restore-together/backup-domain wording from architecture. Updated preview rollback wording. Active setup/upgrade search found only explicit no-restore statements, image rollback behavior, and history-widget restoration. |
-| Phase 4 | Complete | `make test-fast` accepted all 10 tasks. `make verify` passed format, lint/build, static/unit/parity, Docker integration and race, API, observability, full Go race, and vulnerability checks. Browser-free `make test-release` accepted all 28 tasks with no timeout or cleanup warning. `git diff HEAD --check` passed. Browser and live-provider checks were not run under repository policy. Troubleshooting and remaining compatibility limits are recorded below. |
+| Phase 4 | Local certification complete; hosted gate pending | Local `make test-fast`, `make verify`, and the corrected-source browser-free release selector passed. The first exact-main hosted release failed one frontend test because a coalesced state save left a correctly disabled fold control locked when clicked. The test now waits for the save lock to clear without changing its click or assertions; focused and full frontend tests plus `make test-fast` pass on the follow-up branch. Repeat hosted browser-free release certification on the corrected exact-main SHA before production. See the exact-source follow-up below. |
+| Exact-source release correction | Local certification complete; PR and hosted gate pending | GitHub run [35936283153](https://github.com/prls-co/harden-llm/actions/runs/35936283153) failed at `frontend-deterministic` on merged cleanup SHA `8ee2dc89136163ea6525193ea049881e6363cb40` (247/248 passed). The bounded readiness wait is in `frontend/test/harden_llm_web/live/workspace_live_test.exs`; focused test, full frontend suite (248 passed), all 10 `make test-fast` tasks, and the full 28-task local browser-free release selector pass on the follow-up source. The corrected source still needs PR checks and exact-main hosted release certification before production. |
 
 ## 7. Verification and troubleshooting record
 
@@ -224,6 +225,35 @@ instruction, so do not edit README unless a real reference is found.
   profile bundle must be opened and re-exported through the current importer
   before the v3-only importer is deployed. After deployment, check that v3
   import/export and configured JSON repair behave normally.
+
+### Exact-source release follow-up — 2026-09-23
+
+The first hosted release workflow on the merged cleanup SHA failed in
+`frontend-deterministic`, with 247 of 248 tests passing. The failure was in
+`WorkspaceLiveTest` (`translates shorthand schemas, persists folds, and sends
+bounded retry controls`): `render_async/2` waited for the async state-save PIDs
+that existed when called, while completion of one save started the coalesced
+pending save. The test then clicked `#model-config-toggle` while
+`state_save_in_flight` correctly kept it disabled. The HEEx lock and application
+save behavior were left unchanged.
+
+The test now waits up to five seconds for the control to become enabled, using
+`render_async/2` to wait for each in-flight save. It retains the original click
+and all subsequent assertions. Evidence on the follow-up source:
+
+- Focused test with the hosted scheduler setting (`ERL_FLAGS='+S 4:4'`,
+  `max_cases: 8`): 1 passed.
+- Full deterministic Phoenix suite with that scheduler setting: 248 passed,
+  five opt-in tests excluded.
+- `make test-fast`: all 10 tasks accepted with no cleanup error or warning.
+- `node scripts/run-test-tier.mjs --task release --candidate-slots 1`: all 28
+  tasks accepted, with no timeout, failure, cleanup error, or warning. Report:
+  `tmp/test-feedback/runner-1790210903236-814076-372cf4620d82df8c.json`.
+
+The correction changes a test only. It does not weaken assertions or alter
+product behavior. Phase 4 and deployment remain open until PR checks and
+browser-free hosted release certification succeed on the corrected exact-main
+SHA; browser and live provider checks remain outside authorization.
 
 ## 8. Post-change checks for the operator
 
