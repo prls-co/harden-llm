@@ -50,7 +50,7 @@ Gate: expected failures describe changed ownership/endpoint; unaffected storage/
 
 ## 5. Phase H1 — remove production ownership
 
-Status: source implementation complete and pushed in PR #54 at `411552c`. The exact production topology, final S3 endpoint, explicit gateway networks, and unchanged artifact/Loki behavior are covered by hosted checks.
+Status: implementation merged to `main` in PR #54 as `73fc73584a7095ba95538c9a7291553e0d8ca2c5`. Smoke now supplies a pinned fixture Garage with generated credentials, project-owned metadata/data volumes, and an isolated network alias for the production endpoint. Integration and preview fixture paths remain local. Focused topology/fixture checks and browser-free release verification passed; no persistent shared storage was started.
 
 1. Remove root `garage` service and `garage-metadata`/`garage-data` declarations. This is a source change; never delete physical Docker volumes. Remove gateway/Caddy dependencies on `garage`.
 2. Set gateway endpoint to `http://garage-shared:3900`. Explicitly list both `harden-private` and `prls-observability`; overriding inherited networks must not disconnect Postgres. Keep client bucket/credential settings.
@@ -62,7 +62,7 @@ Gate: production resolves without local Garage, gateway networking is explicit, 
 
 ## 6. Phase H2 — make isolated fixtures complete
 
-Status: source implementation complete and pushed in PR #54 at `411552c`. The isolated smoke Garage has its own pinned image, fixture credentials, volumes, and unique network. Hosted browser-free release verification passed; no production Garage or shared volume was started by these checks.
+Status: implementation merged to `main` in PR #54 as `73fc73584a7095ba95538c9a7291553e0d8ca2c5`. Exact production topology, final S3 endpoint, explicit gateway networks, and unchanged artifact/Loki behavior passed the browser-free source/release checks recorded under H3. Runtime descriptor/apply remains separate.
 
 1. Move configuration to `deploy/test/garage.toml`; update integration mounts and preview-copy code/fixtures. Keep local fixtures so testing does not require the shared repo checkout.
 2. Give smoke service `garage` its own pinned image, empty-layout initialization command, generated fixture key/bucket/RPC settings, config mount, health check, and project-owned metadata/data volumes. No live credentials or external persistent volumes.
@@ -75,7 +75,7 @@ Gate: fixtures boot from private empty volumes; smoke exercises production routi
 
 ## 7. Phase H3 — verify and prepare deployment
 
-Status: source verification complete; production apply preparation remains pending. Hosted fast T0-T2 and browser-free release checks passed on implementation commit `411552c` (runs `35973663949`, `35973668157`, `35974172600`); post-merge main fast T0-T2 and CodeQL checks passed after PR #54 merged as `73fc735` (runs `35994817092`, `35994816817`). Code source/config changes are merged, but private production descriptor edits, exact apply/rollback commands, and final live inventory recheck belong to the coordinated cutover and have not been performed.
+Status: source verification complete; production apply preparation remains pending. Hosted fast T0-T2 and browser-free release checks passed on implementation commit `411552c` (runs `35973663949`, `35973668157`, `35974172600`); post-merge main fast T0-T2 and CodeQL checks passed after PR #54 merged as `73fc735` (runs `35994817092`, `35994816817`). Plan/status PR #55 merged as `3925377`; its CodeQL run `35995455079` passed. Code source/config changes are merged, but private production descriptor edits, exact apply/rollback commands, and final live inventory recheck belong to the coordinated cutover and have not been performed.
 
 1. Run focused checks for changed ownership/preview/configuration code, then the broad fast gate:
 
@@ -107,7 +107,7 @@ Gate: checks pass and runtime apply/rollback inputs are concrete. No browser or 
 
 ## 8. Phase H4 — participate in the shared cutover
 
-Status: pending. Execute only within central Phase 3; do not operate the storage volumes independently.
+Status: blocked until central Phase 3 inventory, consumer, credential, and acceptance gates pass. The user has already accepted breaking endpoint changes and interruption; no second authorization is required. The shared owner is not running and no retained volume or client configuration has been changed.
 
 1. Stop affected writers and coordinate Caddy/Loki interruption using the central consumer list, including Analytics preparation producer/worker. The central sequence alone removes/replaces the daemon.
 2. After shared Garage is healthy, apply prepared gateway/Caddy/Loki configuration using the existing trusted `production-config` procedure and service-scoped checks. Preserve descriptor/identity protections; do not edit rendered secret-filled Compose.
@@ -128,7 +128,7 @@ Status: pending.
 
 Rollback uses central Section 10: stop new Garage before restoring the old owner from its recorded revision, then restore clients. No compatibility endpoint remains in the accepted configuration. Missing objects, unresolved credentials, a second writer, or failed release/storage checks stop the affected cutover; accepted downtime does not justify masking failures.
 
-Preparation evidence from 2026-09-23: source, pinned CLI startup help, and selected live Docker identities were reviewed. Source implementation and checks are recorded below. No production runtime change, data copy, or deployment has occurred.
+Preparation evidence: source, pinned CLI startup help, and selected live Docker identities were reviewed. H0-H2 source implementation is merged and browser-free checks are recorded below. On 2026-09-24 read-only Docker inventory still showed the old Harden-LLM, Bin Eval, and Analytics persistent Garage containers; `garage-shared` is not running. No production runtime change, data copy, or deployment has occurred.
 
 ### Execution log
 
@@ -141,6 +141,7 @@ Preparation evidence from 2026-09-23: source, pinned CLI startup help, and selec
 - 2026-09-24 — H1/H2 source is pushed in Harden-LLM PR #54 at `411552c2aea4a2e45018f19aff0279dabba96ee1`. Exact-head hosted fast T0-T2 and browser-free release gates passed (runs `35973663949`, `35973668157`, `35974172600`). The current shared-owner candidate is `garage-shared` PR #2 at `e0b507c`, replacing the earlier owner candidate recorded above; its hosted Compose config check passed in run `35990868197`. Source checks do not establish production deployment.
 - 2026-09-24 — The canonical plan identified one concrete production blocker outside Harden-LLM: Bin Eval's active default Garage key matches a value in its public `.env.example`. No value was copied or changed. The coordinated transfer needs the user's decision on replacing only that exposed key; no blanket key rotation is proposed.
 - 2026-09-24 — Harden-LLM PR #54 was merged to `main` as `73fc73584a7095ba95538c9a7291553e0d8ca2c5`. Its implementation commit passed the recorded browser-free release gate; post-merge fast T0-T2 and CodeQL checks passed. The merge did not apply the production descriptor, start Garage, copy data, or deploy containers.
+- 2026-09-24 — Harden-LLM phase-status checkpoint: H0-H2 are complete and merged. H3 source gates passed, including the exact service/image topology checks and browser-free release selector; private production descriptor cleanup, clean rollback inputs, and immediate preflight remain pending. H4 is blocked on the central cutover. Plan/status PR #55 merged at `3925377` after all CodeQL checks passed (`35995455079`). Ops documentation PR #5 merged at `d96f74b`. Read-only Docker inventory still shows the old three persistent owners and no `garage-shared`; no runtime was changed.
 
 Risks and follow-up checks:
 
@@ -149,6 +150,7 @@ Risks and follow-up checks:
 - Keep the original public artifact origin/signature behavior. Verify a known object and a fresh signed download after transfer; no URLs or tokens belong in evidence.
 - The local full gate is sensitive to shared-host pressure (`/tmp` nearly full; high load during isolated Phoenix dependency compilation). Do not clear shared files/caches or weaken tests; use hosted CI or rerun after host capacity recovers, and label the source of any green result.
 - Analytics' separate `analytics-evidence` Garage remains active until its own Phase 4 inventory/copy/read acceptance. The cutover must not stop or remove it prematurely.
+- Bin Eval's default-branch deterministic job passed, but its live provider/public-ingress job remains queued on offline runner `shaman-bin-eval-live`. Its fixed ports `18080` and `55433` currently collide with active Product Opportunity Agent and Analytics test Postgres services; do not stop those services to run the job. Resolve a safe runner/port arrangement before treating that post-merge job as complete.
 - No backup, snapshot, compatibility alias, second daemon, browser, or provider call is part of this transition.
 
-Next: resolve the Analytics PR's failed integration status from evidence; the corrected Masked Recall full-flow checks pass and exercise the same Analytics test. Merge Analytics before the dependent Masked Recall revision once required checks are green. The user decision is pending for replacing the one exposed Bin Eval key with a fresh bucket-scoped key or deferring Bin Eval's cutover. Recheck the private production descriptor and live container, volume, bucket, and key identities immediately before the coordinated interruption. Leave affected clients stopped if any object, permission, readiness, or signed-route check fails.
+Next: resolve the Analytics PR's failed integration status from evidence; the corrected Masked Recall full-flow checks pass and exercise the same Analytics test. Merge Analytics before the dependent Masked Recall revision once required checks are green. Resolve Bin Eval's queued live job only on a safe runner with collision-free ports, then resolve the focused decision about its one exposed active key. Recheck the private production descriptor and live container, volume, bucket, and key identities immediately before the coordinated interruption. Leave affected clients stopped if any object, permission, readiness, or signed-route check fails.
