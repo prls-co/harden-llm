@@ -10,16 +10,16 @@
 
 Remove production Garage ownership from Harden-LLM and consume `http://garage-shared:3900`. The user explicitly accepts breaking configuration changes and interruptions to prioritize cleanliness, robustness, and maintainability. This revision supersedes the earlier compatibility-alias and simultaneous Analytics migration proposal.
 
-The shared repository owns the daemon, server configuration, runtime RPC secret, and adopted volumes. Harden-LLM owns artifact behavior, client credentials, Caddy artifact routing, Loki configuration, and isolated test/preview fixtures. No Go API, OpenAPI schema, frontend feature, backup subsystem, secret rotation, or provider integration is required.
+The shared repository owns the daemon, server configuration, runtime RPC secret, and adopted volumes. Harden-LLM owns artifact behavior, client credentials, Caddy artifact routing, Loki configuration, and isolated test/preview fixtures. Analytics preparation producer/worker already use the shared `prls-agent-artifacts` store and must switch endpoint in the coordinated cutover; its distinct `analytics-evidence` store migrates later. No Go API, OpenAPI schema, frontend feature, backup subsystem, secret rotation, or provider integration is required.
 
 ## 2. Decisions and reasons
 
 1. Use only `garage-shared:3900` in persistent runtime configuration. No old alias, endpoint fallback, or parallel deployment path remains. A controlled interruption removes the need for compatibility machinery.
 2. Keep the image/configuration and physical volume names during transfer. `harden-llm_garage-metadata` and `harden-llm_garage-data` identify retained data; renaming them creates an unnecessary data migration.
-3. Add the gateway to `prls-observability` while retaining its private network. Caddy and Loki already join the shared network. Final networking must be declarative, not a manual connection.
+3. Add the gateway to `prls-observability` while retaining its private network. Caddy and Loki already join the shared network. Final networking must be declarative, not a manual connection. The same cutover updates Analytics preparation producer/worker endpoints and network membership; they currently use `masked-recall-artifacts` on the old shared daemon.
 4. Preserve public artifact origin, bucket/object keys, region, signatures, TTLs, Loki schema/retention, and credentials. Internal ownership changes must not silently invalidate stored references.
 5. Retain isolated integration, smoke, and previews. The smoke overlay currently supplies only initialization flags and inherits the rest of Garage from production; it must become self-contained before the root service is removed.
-6. Analytics migrates after current shared consumers work. Langfuse keeps its upstream storage; this plan does not replace MinIO or move traces.
+6. Analytics preparation producer/worker switch with existing shared consumers because they already use the shared daemon and `masked-recall-artifacts`. Its separate `analytics-evidence` Garage migrates later. Langfuse keeps its upstream storage; this plan does not replace MinIO or move traces.
 
 ## 3. File map
 
@@ -109,7 +109,7 @@ Gate: checks pass and runtime apply/rollback inputs are concrete. No browser or 
 
 Status: pending. Execute only within central Phase 3; do not operate the storage volumes independently.
 
-1. Stop affected writers and coordinate Caddy/Loki interruption using the central consumer list. The central sequence alone removes/replaces the daemon.
+1. Stop affected writers and coordinate Caddy/Loki interruption using the central consumer list, including Analytics preparation producer/worker. The central sequence alone removes/replaces the daemon.
 2. After shared Garage is healthy, apply prepared gateway/Caddy/Loki configuration using the existing trusted `production-config` procedure and service-scoped checks. Preserve descriptor/identity protections; do not edit rendered secret-filled Compose.
 3. Verify gateway/Caddy resolve `garage-shared`, readiness succeeds, and scoped artifact operations work. Read a pre-cutover artifact and a new signed download through the public artifact route without recording secret URLs/tokens.
 4. Check Loki writes/queries with its own key and unchanged retention/schema. Participate in central restart/reconnect acceptance. Observe Langfuse health separately; do not manufacture an LLM call to test storage.
