@@ -10,7 +10,7 @@
 
 Remove production Garage ownership from Harden-LLM and consume `http://garage-shared:3900`. The user explicitly accepts breaking configuration changes and interruptions to prioritize cleanliness, robustness, and maintainability. This revision supersedes the earlier compatibility-alias and simultaneous Analytics migration proposal.
 
-The shared repository owns the daemon, server configuration, runtime RPC secret, and adopted volumes. Harden-LLM owns artifact behavior, client credentials, Caddy artifact routing, Loki configuration, and isolated test/preview fixtures. Analytics preparation producer/worker already use the shared `prls-agent-artifacts` store and must switch endpoint in the coordinated cutover; its distinct `analytics-evidence` store migrates later. No Go API, OpenAPI schema, frontend feature, backup subsystem, secret rotation, or provider integration is required.
+The shared repository owns the daemon, server configuration, runtime RPC secret, and adopted volumes. Harden-LLM owns artifact behavior, client credentials, Caddy artifact routing, Loki configuration, and isolated test/preview fixtures. Analytics preparation producer/worker already use the shared `prls-agent-artifacts` store and must switch endpoint in the coordinated cutover; its distinct `analytics-evidence` store migrates later. No Go API, OpenAPI schema, frontend feature, backup subsystem, blanket secret rotation, or provider integration is required. The canonical transition plan records one separate user decision because a Bin Eval runtime key was found published in that public repository's example configuration.
 
 ## 2. Decisions and reasons
 
