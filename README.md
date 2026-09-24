@@ -4,7 +4,7 @@ Harden LLM is a provider-neutral Go library plus a thin, self-hosted REST
 gateway and optional Phoenix LiveView operations console. It preserves the
 certified `utility-llm` retry, schema, cache, provider, usage, and diagnostic
 contracts while replacing Firebase persistence with dedicated Postgres and
-Garage services.
+shared Garage object storage.
 
 ## Repository map
 
@@ -30,7 +30,7 @@ make build                 # compile every Go package
 make test-unit             # deterministic Go tests
 make test-parity           # fixture integrity and compatibility contracts
 make test-integration      # isolated Postgres and Garage integration tests
-make test-compose          # real fifteen-service correlated smoke test
+make test-compose          # correlated smoke using isolated Garage fixtures
 make verify                # format, vet, build, tests, race, and govulncheck
 ```
 

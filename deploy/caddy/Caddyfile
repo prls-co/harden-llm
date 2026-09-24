@@ -54,7 +54,7 @@
 	request_body {
 		max_size 64MB
 	}
-	reverse_proxy garage:3900
+	reverse_proxy garage-shared:3900
 }
 
 import /etc/caddy/conf.d/*.caddy

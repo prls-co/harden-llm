@@ -3,8 +3,8 @@
 ## 1. Status and objective
 
 - ID: `PLAN-HLLM-SHARED-GARAGE-001`.
-- Updated: 2026-09-23.
-- Status: implementation planned; this document changes no runtime configuration.
+- Updated: 2026-09-24.
+- Status: source implementation in progress; production runtime has not moved.
 - Issue: [Harden-LLM #53](https://github.com/prls-co/harden-llm/issues/53).
 - Canonical cross-repository order: [shared Garage transition plan](https://github.com/prls-co/garage-shared/blob/main/plans/shared-garage-transition-plan.md), tracked in [garage-shared #1](https://github.com/prls-co/garage-shared/issues/1).
 
@@ -34,23 +34,23 @@ The shared repository owns the daemon, server configuration, runtime RPC secret,
 | `internal/deploytest/compose_caddy_test.go`, `internal/deploytest/prls_observability_test.go` | Exact production topology/image checks reflect external ownership and final client endpoint/network. |
 | `internal/smoke/harness_compose.go` and smoke fixture assertions | Final DNS name resolves to test-owned Garage, with network/mount isolation. |
 | `scripts/production-config.mjs`, `scripts/test/production_config_test.mjs`, `config/production-config.example.json` | Inspect for affected assumptions; change only actual local-Garage dependencies. Preserve descriptor/scope validation. |
-| `plans/from_utility-llm/harden-llm-self-hosted-test-spec.md`, `docs/requirements-traceability.md`, active deploy docs | Update current TEST-030/033/034 ownership/fixture descriptions; retain historical evidence. |
+| `plans/from_utility-llm/harden-llm-self-hosted-test-spec.md`, `docs/requirements-traceability.md`, active deploy docs | Update current TEST-033/034 ownership/fixture descriptions; retain historical evidence. |
 | Private `/home/kirill/.config/harden-llm/production.json` and effective host environment | Remove managed Garage identity/overrides, use approved updated Compose root, retain actual application identities. Never print/commit private values. |
 
 ## 4. Phase H0 — inspect and define regressions
 
-Status: pending. Read `AGENTS.md` and `docs/liveview-go-testing-guidelines.md` before implementation.
+Status: complete. Read `AGENTS.md` and `docs/liveview-go-testing-guidelines.md`; implementation is isolated from the live bind-mounted checkout.
 
 1. Confirm branch, actual production Compose source/descriptor, image identities, and Garage mounts/networks in central Phase 0's execution record. Source HEAD does not establish live configuration. If this checkout supplies live bind-mounted files, implement in a separate worktree and apply configuration only during the central interruption.
 2. Search active source for `garage:3900`, `harden-llm-garage-1`, `deploy/garage`, and production service/image/volume lists. Classify as persistent runtime, isolated test/preview, or historical documentation. Do not globally replace `garage`.
-3. Identify TEST-030 topology, TEST-033 effective Compose contract, TEST-034 smoke, TEST-043 exclusive restart, and TEST-233/234/235 production-config coverage. Keep canonical `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001` references and assertion purposes.
+3. Identify TEST-033 effective Compose contract, TEST-034 smoke, TEST-043 exclusive restart, and TEST-233/234/235 production-config coverage. Keep canonical `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001` references and assertion purposes.
 4. Add cheap regressions before implementation: no production-owned Garage/volumes/dependency; gateway/Caddy/Loki use final endpoint; gateway has both networks; no Garage/admin host port; tests/previews cannot use persistent shared storage. Use existing Go/static and Node tests.
 
 Gate: expected failures describe changed ownership/endpoint; unaffected storage/API assertions remain intact.
 
 ## 5. Phase H1 — remove production ownership
 
-Status: pending.
+Status: source implementation complete locally; focused tests pass, with broad gates pending.
 
 1. Remove root `garage` service and `garage-metadata`/`garage-data` declarations. This is a source change; never delete physical Docker volumes. Remove gateway/Caddy dependencies on `garage`.
 2. Set gateway endpoint to `http://garage-shared:3900`. Explicitly list both `harden-private` and `prls-observability`; overriding inherited networks must not disconnect Postgres. Keep client bucket/credential settings.
@@ -62,13 +62,13 @@ Gate: production resolves without local Garage, gateway networking is explicit, 
 
 ## 6. Phase H2 — make isolated fixtures complete
 
-Status: pending. Required because smoke currently inherits its Garage definition from production.
+Status: source implementation complete locally; the isolated smoke Garage has its own pinned image, fixture credentials, volumes, and unique network. Full smoke runtime verification remains pending.
 
 1. Move configuration to `deploy/test/garage.toml`; update integration mounts and preview-copy code/fixtures. Keep local fixtures so testing does not require the shared repo checkout.
 2. Give smoke service `garage` its own pinned image, empty-layout initialization command, generated fixture key/bucket/RPC settings, config mount, health check, and project-owned metadata/data volumes. No live credentials or external persistent volumes.
 3. Give isolated smoke Garage alias `garage-shared` on the smoke network so production gateway/Caddy resolve to the fixture. Its service identifier `garage` can remain for existing lifecycle discovery. Smoke's logical `prls-observability` must still have a unique generated name and `external: false`, never the live network.
 4. Add smoke-only healthy-Garage dependencies for gateway/Caddy where fixture startup needs them. Ensure smoke Loki targets its fixture. Inspect the merged Compose model, not only overlay text.
-5. Update `assertLiveStorageOwnership` in `internal/smoke/harness_compose.go` to require the final endpoint, map it to the smoke Garage, and assert network/mount isolation. Keep artifact and Langfuse separation checks; do not accept any hostname merely containing `garage`.
+5. Update `assertSmokeStorageOwnership` in `internal/smoke/harness_compose.go` to require the final endpoint, map it to the smoke Garage, and assert network/mount isolation. Keep artifact and Langfuse separation checks; do not accept any hostname merely containing `garage`.
 6. Keep preview and standalone integration endpoints local (`garage:3900` where appropriate). Keep TEST-043 on its exclusive fixture; it must never restart shared Garage. Retain explicit fixture image pins without cross-repo runtime dependencies.
 
 Gate: fixtures boot from private empty volumes; smoke exercises production routing with isolated storage; previews keep independent endpoints/data.
@@ -128,4 +128,24 @@ Status: pending.
 
 Rollback uses central Section 10: stop new Garage before restoring the old owner from its recorded revision, then restore clients. No compatibility endpoint remains in the accepted configuration. Missing objects, unresolved credentials, a second writer, or failed release/storage checks stop the affected cutover; accepted downtime does not justify masking failures.
 
-Preparation evidence: source, pinned CLI startup help, and selected live Docker identities reviewed. No implementation, application test, runtime change, data copy, or deployment occurred while writing this plan. Documentation validation is recorded in its PR; H0–H5 implementation gates remain pending.
+Preparation evidence from 2026-09-23: source, pinned CLI startup help, and selected live Docker identities were reviewed. Source implementation and checks are recorded below. No production runtime change, data copy, or deployment has occurred.
+
+### Execution log
+
+- 2026-09-24 — H0 complete: read repository instructions and the full test feedback policy. The production checkout is a bind-mounted source, so all implementation remains in `/home/kirill/p/harden-llm-shared-garage` until the coordinated cutover.
+- 2026-09-24 — H1 source changes: removed the production Garage service, root Garage volumes, dependencies, image-lock entry, and obsolete HLLM RPC environment variable. Gateway, Caddy, and Loki now target `garage-shared:3900`; the gateway retains its private network and explicitly joins `prls-observability`. The production test still asserts an exact service list and image manifest.
+- 2026-09-24 — H2 source changes: moved Garage configuration under `deploy/test/garage.toml`, updated integration/preview references, and made smoke provide a fresh isolated Garage fixture that owns the `garage-shared` alias on a unique non-external observability network. Smoke assertions now inspect the endpoint, image/command, aliases, ports, named volumes, and network identity.
+- 2026-09-24 — H1/H2 checks passed: `go test ./internal/deploytest ./internal/testkit -count=1`; `go test ./internal/deploytest/... -tags=compose -run TestComposeCaddyContract -count=1`; and a synthetic full smoke Compose render with disposable values (no containers started). `git diff HEAD --check` passed.
+- 2026-09-24 — `make test-fast` was attempted twice. The first run hit `disk quota exceeded` because `/tmp` was 97% full; the second moved Go's temp directory to the persistent filesystem and passed nine of ten tasks, with `frontend-deterministic` failing during isolated `quic` dependency compilation. A direct `MIX_ENV=test mix deps.compile quic --force` using the same pinned Elixir/OTP and task build path passed after that failure, so no test assertion or source code was changed. Hosted CI is required for a clean full-gate result; `make test-release` remains pending. A temporary dependency symlink to the clean main checkout was used because `mix.lock` hashes matched and must be removed before commit.
+- 2026-09-24 — shared owner source is pushed at `garage-shared/dd5d1ece1bee5a8075878e0d5fc656913e95a63d`; its GitHub Actions config check passed. This does not establish a production runtime change.
+
+Risks and follow-up checks:
+
+- Confirm the existing `masked-recall-artifacts` bucket and its scoped key against the actual shared daemon; the earlier bucket listing did not show this bucket. Complete a real preparation-client write before traffic resumes.
+- The private production descriptor still names the original Compose checkout. Update it only as part of the planned apply, keep its credential sources private, and verify the resulting effective model before changing containers.
+- Keep the original public artifact origin/signature behavior. Verify a known object and a fresh signed download after transfer; no URLs or tokens belong in evidence.
+- The local full gate is sensitive to shared-host pressure (`/tmp` nearly full; high load during isolated Phoenix dependency compilation). Do not clear shared files/caches or weaken tests; use hosted CI or rerun after host capacity recovers, and label the source of any green result.
+- Analytics' separate `analytics-evidence` Garage remains active until its own Phase 4 inventory/copy/read acceptance. The cutover must not stop or remove it prematurely.
+- No backup, snapshot, compatibility alias, second daemon, browser, or provider call is part of this transition.
+
+Next: finish the Agent Platform and Analytics source gates, run the focused smoke and broad browser-free gates once, merge prepared revisions, recheck live container/volume/bucket/key identities, and perform the single-owner interruption in central Phase 3. Leave affected clients stopped if any object, permission, readiness, or signed-route check fails.

@@ -342,7 +342,7 @@ Contract synchronization:
 
 ## 14. Deployment contract
 
-The backend remains independently runnable with its canonical fifteen services. The optional frontend overlay adds one service:
+The Harden-LLM Compose project defines fourteen services and depends on the externally managed `garage-shared` service, for fifteen backend runtime services total. The optional frontend overlay adds one service, for sixteen services across the two Compose projects:
 
 ```text
 internet
@@ -364,7 +364,7 @@ Rules:
 - `deploy/frontend/compose.frontend.yml` extends the base Compose project and adds `harden-llm-web`; it does not copy or modify the pinned Langfuse fragment.
 - The overlay mounts `Caddyfile.frontend` into the base Caddy `conf.d` extension directory. It does not replace or duplicate the base Caddyfile.
 - The overlay passes the base Collector file and `otel.frontend.yaml` as two supported `--config=file:...` inputs. The frontend file adds uniquely named `filelog/harden_llm_web` and `prometheus/harden_llm_web` receivers plus separate `logs/frontend` and `metrics/frontend` pipelines that reference base processors/exporters; it does not replace lists, copy base configuration, or enable experimental merge flags.
-- The overlay mounts one read-only frontend log volume into the existing Collector. The full topology remains sixteen services.
+- The overlay mounts one read-only frontend log volume into the existing Collector. The full runtime remains sixteen services, including the separately managed shared Garage service.
 - The overlay extends the Collector with one private PromEx scrape target; it does not change the base Prometheus service or expose the frontend metrics endpoint through Caddy.
 - The release image is a multi-stage Elixir build containing one OTP release and compiled assets. It contains no Hex/Rebar caches, source secrets, Node runtime, or Go toolchain.
 - Caddy remains the only service with public host ports.

@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -40,7 +41,7 @@ const (
 	correlationWait = 150 * time.Second
 )
 
-var requiredProductionServices = []string{
+var requiredSmokeStackServices = []string{
 	"caddy", "harden-llm-gateway", "harden-postgres", "garage", "otel-collector",
 	"prometheus", "loki", "tempo", "grafana", "langfuse-web", "langfuse-worker",
 	"postgres", "clickhouse", "redis", "minio",
@@ -137,7 +138,7 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 		t.Fatalf("Compose readiness = %s, budget %s", readiness, readinessBudget)
 	}
 
-	report := ComposeReport{TotalServices: len(requiredProductionServices), Readiness: readiness, CorrelationBackends: 5}
+	report := ComposeReport{TotalServices: len(requiredSmokeStackServices), Readiness: readiness, CorrelationBackends: 5}
 	report.ReadyServices = assertContainerTopology(t, runner)
 	client := caddyClient(httpsPort, false)
 	waitHTTPStatus(t, client, "https://api.smoke.localhost/readyz", http.StatusOK, 45*time.Second, nil)
@@ -225,7 +226,7 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 		t.Fatalf("backend correlation = %d/%d", correlation, report.CorrelationBackends)
 	}
 	assertGrafanaDatasources(t, client, secrets["GRAFANA_ADMIN_USER"], secrets["GRAFANA_ADMIN_PASSWORD"])
-	assertLiveStorageOwnership(t, runner)
+	assertSmokeStorageOwnership(t, runner)
 
 	t.Logf("Compose evidence: ready=%d/%d readiness=%s correlation=%d/%d run=%s trace=%s",
 		report.ReadyServices, report.TotalServices, report.Readiness.Round(time.Millisecond),
@@ -419,7 +420,7 @@ func smokeEnvironment(t *testing.T, material tlsMaterial, httpPort, httpsPort in
 		"HARDEN_LLM_POSTGRES_PASSWORD":        textSecret("db"),
 		"HARDEN_LLM_ENCRYPTION_KEYS":          fmt.Sprintf(`{"primary":"%s"}`, base64.RawURLEncoding.EncodeToString(randomBytes(32))),
 		"HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID": "primary",
-		"HARDEN_LLM_GARAGE_RPC_SECRET":        hexSecret(32), "HARDEN_LLM_ARTIFACT_BUCKET": "harden-llm-artifacts-smoke",
+		"GARAGE_RPC_SECRET":                   hexSecret(32), "HARDEN_LLM_ARTIFACT_BUCKET": "harden-llm-artifacts-smoke",
 		"HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID":     "GK" + strings.ToUpper(hexSecret(16)),
 		"HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY": hexSecret(32), "HARDEN_LLM_ARTIFACT_PRESIGN_TTL": "2m",
 		"PRLS_LOKI_S3_ACCESS_KEY": "GK" + strings.ToUpper(hexSecret(16)), "PRLS_LOKI_S3_SECRET_KEY": hexSecret(32),
@@ -490,10 +491,10 @@ func assertContainerTopology(t *testing.T, runner composeRunner) int {
 		byService[process.Service] = process
 	}
 	ready := 0
-	for _, service := range requiredProductionServices {
+	for _, service := range requiredSmokeStackServices {
 		process, ok := byService[service]
 		if !ok {
-			t.Errorf("Compose service %s has no running container", service)
+			t.Errorf("Compose smoke stack service %s has no running container", service)
 			continue
 		}
 		if process.State != "running" || (process.Health != "" && process.Health != "healthy") {
@@ -512,8 +513,8 @@ func assertContainerTopology(t *testing.T, runner composeRunner) int {
 			}
 		}
 	}
-	if ready != len(requiredProductionServices) {
-		t.Fatalf("ready production services = %d/%d", ready, len(requiredProductionServices))
+	if ready != len(requiredSmokeStackServices) {
+		t.Fatalf("ready smoke stack services = %d/%d", ready, len(requiredSmokeStackServices))
 	}
 	return ready
 }
@@ -801,7 +802,7 @@ func assertGrafanaDatasources(t *testing.T, client *http.Client, username, passw
 	}
 }
 
-func assertLiveStorageOwnership(t *testing.T, runner composeRunner) {
+func assertSmokeStorageOwnership(t *testing.T, runner composeRunner) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
@@ -811,15 +812,72 @@ func assertLiveStorageOwnership(t *testing.T, runner composeRunner) {
 	}
 	var effective struct {
 		Services map[string]struct {
+			Image       string            `json:"image"`
+			Command     []string          `json:"command"`
 			Environment map[string]string `json:"environment"`
+			Networks    map[string]struct {
+				Aliases []string `json:"aliases"`
+			} `json:"networks"`
+			Ports   []any `json:"ports"`
+			Volumes []struct {
+				Type   string `json:"type"`
+				Source string `json:"source"`
+				Target string `json:"target"`
+			} `json:"volumes"`
 		} `json:"services"`
+		Networks map[string]struct {
+			Name     string `json:"name"`
+			External bool   `json:"external"`
+		} `json:"networks"`
+		Volumes map[string]struct {
+			Name     string `json:"name"`
+			External bool   `json:"external"`
+		} `json:"volumes"`
 	}
 	if err := json.Unmarshal(config, &effective); err != nil {
 		t.Fatal(err)
 	}
-	gateway := strings.ToLower(mustJSON(effective.Services["harden-llm-gateway"].Environment))
-	if !strings.Contains(gateway, "garage:3900") || strings.Contains(gateway, "minio") {
+	gateway := effective.Services["harden-llm-gateway"]
+	if gateway.Environment["HARDEN_LLM_ARTIFACT_ENDPOINT"] != "http://garage-shared:3900" {
 		t.Fatal("live gateway storage environment is not Garage-only")
+	}
+	if _, ok := gateway.Networks["prls-observability"]; !ok {
+		t.Fatal("live gateway is not attached to the smoke observability network")
+	}
+	garage, ok := effective.Services["garage"]
+	if !ok {
+		t.Fatal("smoke Compose has no isolated Garage fixture")
+	}
+	if garage.Image != "dxflrs/garage:v2.3.0@sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690" ||
+		!slices.Equal(garage.Command, []string{"/garage", "server", "--single-node", "--default-bucket"}) {
+		t.Fatalf("smoke Garage image/startup = %q %v, want pinned fresh single-node bootstrap", garage.Image, garage.Command)
+	}
+	if len(garage.Networks["harden-private"].Aliases) != 0 {
+		t.Fatalf("smoke Garage has unexpected private-network aliases: %v", garage.Networks["harden-private"].Aliases)
+	}
+	if aliases := garage.Networks["prls-observability"].Aliases; len(aliases) != 1 || aliases[0] != "garage-shared" {
+		t.Fatalf("smoke Garage observability aliases = %v, want only garage-shared", aliases)
+	}
+	if len(garage.Ports) != 0 {
+		t.Fatal("smoke Garage publishes a host port")
+	}
+	for _, target := range []string{"/var/lib/garage/meta", "/var/lib/garage/data"} {
+		found := false
+		for _, volume := range garage.Volumes {
+			if volume.Type == "volume" && volume.Target == target && volume.Source != "" {
+				found = true
+				if owner := effective.Volumes[volume.Source]; owner.External || owner.Name == "harden-llm_garage-metadata" || owner.Name == "harden-llm_garage-data" {
+					t.Fatalf("smoke Garage volume %s is not project-owned: %#v", target, owner)
+				}
+			}
+		}
+		if !found {
+			t.Errorf("smoke Garage has no named project-owned volume at %s", target)
+		}
+	}
+	observability, ok := effective.Networks["prls-observability"]
+	if !ok || observability.External || observability.Name != runner.environment["PRLS_SMOKE_OBSERVABILITY_NETWORK"] {
+		t.Fatalf("smoke observability network is not isolated: %#v", observability)
 	}
 	for _, service := range []string{"langfuse-web", "langfuse-worker"} {
 		encoded := strings.ToLower(mustJSON(effective.Services[service].Environment))

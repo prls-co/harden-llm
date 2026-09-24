@@ -148,7 +148,6 @@ The following tree is the backend-owned build and release scope. The separately 
 │   ├── loki/
 │   ├── tempo/
 │   ├── grafana/
-│   ├── garage/
 │   ├── langfuse/
 │   │   ├── docker-compose.upstream.yml
 │   │   ├── compose.private.yml
@@ -549,11 +548,11 @@ caddy :80/:443
   |-- api host      -> harden-llm-gateway:8080
   |-- grafana host  -> grafana:3000
   |-- langfuse host -> langfuse-web:3000
-  `-- artifact host -> garage:3900 S3 API only
+  `-- artifact host -> garage-shared:3900 S3 API only on external `prls-observability`
 
 harden-llm-gateway
   |-- harden-postgres:5432 / harden_llm database
-  |-- garage:3900 / private harden-llm-artifacts bucket
+  |-- garage-shared:3900 / private harden-llm-artifacts bucket
   `-- otel-collector:4317
 
 otel-collector
@@ -578,12 +577,11 @@ The pinned `deploy/langfuse/docker-compose.upstream.yml` is copied byte-for-byte
 
 Required Compose services:
 
-The production topology contains fifteen services: nine Harden-LLM/observability services and the six services in the pinned upstream Langfuse fragment.
+The production Compose topology contains fourteen services: eight Harden-LLM/observability services and the six services in the pinned upstream Langfuse fragment. The backend runtime has one additional external dependency, `garage-shared`, which is managed in a separate repository and joins the external `prls-observability` network.
 
 - `caddy`
 - `harden-llm-gateway`
 - `harden-postgres`
-- `garage`
 - `otel-collector`
 - `prometheus`
 - `loki`
@@ -596,13 +594,13 @@ The production topology contains fifteen services: nine Harden-LLM/observability
 - `redis`
 - `minio`
 
-`deploy/test/compose.smoke.yml` adds one private `fake-provider` service only for TEST-034. It is not included in the production Compose file, receives no host port, and is the sole private endpoint entry in the smoke gateway allowlist.
+`deploy/test/compose.smoke.yml` adds a project-owned Garage fixture and one private `fake-provider` service only for TEST-034. The Garage fixture uses the production DNS name `garage-shared` on a unique non-external smoke network. Neither service is included in the production Compose file or publishes a host port; the fake provider is the sole private endpoint entry in the smoke gateway allowlist.
 
-Named volumes are required for Caddy state, Harden-LLM Postgres, Garage metadata/data, Prometheus, Loki, Tempo, Grafana, and every volume in the pinned upstream Langfuse Compose fragment. Harden-LLM-owned images use explicit release tags or digests and never `latest`. The upstream Langfuse fragment is pinned by release commit and content hash; its dependency image selections are preserved rather than locally substituted.
+Harden-LLM production named volumes are required for Caddy state, Harden-LLM Postgres, Prometheus, Loki, Tempo, Grafana, and every volume in the pinned upstream Langfuse Compose fragment. The separate `garage-shared` project retains the existing Garage metadata/data volumes. Harden-LLM-owned images use explicit release tags or digests and never `latest`. The upstream Langfuse fragment is pinned by release commit and content hash; its dependency image selections are preserved rather than locally substituted.
 
 Fresh v1 Garage fixtures use the pinned `dxflrs/garage:v2.3.0` image and Garage's supported `/garage server --single-node --default-bucket` startup path. Compose maps the existing Harden-LLM artifact key, secret, and bucket values to `GARAGE_DEFAULT_ACCESS_KEY`, `GARAGE_DEFAULT_SECRET_KEY`, and `GARAGE_DEFAULT_BUCKET`; the gateway receives the same bucket-scoped values under the `HARDEN_LLM_ARTIFACT_*` names. Metadata and object data use persistent named volumes. No custom layout script, bootstrap container, or application-held Garage administration credential is required for v1.
 
-The production Compose service starts retained Garage metadata with `/garage server` and does not repeat the single-node/default-bucket bootstrap flags. Garage refuses those flags once the persisted cluster layout has advanced beyond its initial version, while the existing bucket and key state remain owned by the retained metadata. The isolated integration fixture keeps the fresh-volume bootstrap path above.
+The shared owner Compose service starts retained Garage metadata with `/garage server` and does not repeat the single-node/default-bucket bootstrap flags. Garage refuses those flags once the persisted cluster layout has advanced beyond its initial version, while the existing bucket and key state remain owned by the retained metadata. Harden-LLM integration, preview, and smoke fixtures keep their fresh-volume bootstrap path above.
 
 The v1 Garage profile uses the pinned `dxflrs/garage:v2.3.0` image, persistent metadata/data volumes, `db_engine = "sqlite"`, `replication_factor = 1`, and `consistency_mode = "consistent"`. It is a single-host, non-HA baseline intended to get the service running without inventing a cluster. The risk and lack of host-failure tolerance are explicit; multi-node Garage, automated backups, and restore orchestration remain future work.
 
@@ -678,7 +676,7 @@ Minimum v1 verification:
 - Static backend scans proving there is no Firebase, React/Vite, Phoenix/LiveView, HTML-template, or frontend-asset implementation path.
 - OTel trace/metric, `slog` correlation, Collector fanout, telemetry-outage, and bounded-shutdown tests.
 - Garage integration tests for canonical redacted bytes, object metadata, short-lived presigning, owner-scoped Postgres references, and non-fatal storage failure behavior.
-- Compose artifact and smoke tests for all fifteen required services and the strict MinIO/Langfuse versus Garage/Harden-LLM ownership boundary.
+- Compose artifact and smoke tests for the fourteen production-owned services, external shared Garage contract, isolated Garage fixture, and strict MinIO/Langfuse versus Garage/Harden-LLM client ownership boundary.
 - Static scans for duplicate implementation paths, direct Langfuse exporters, Firebase, application SQLite, Sentry, Temporal, application MinIO use, and Langfuse Garage substitution.
 - `go test -race` for deterministic unit and Postgres/gateway integration suites.
 - `go vet`, formatting, build, and vulnerability checks.

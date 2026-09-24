@@ -29,9 +29,8 @@ independently and stored in a secrets manager.
 | `HARDEN_LLM_POSTGRES_PASSWORD` | secret, required | Dedicated application role password. |
 | `HARDEN_LLM_ENCRYPTION_KEYS` | secret JSON, required | Key-ID to unpadded base64url 32-byte key mapping, for example `{"primary":"..."}`. Keep retired keys while rows reference them. |
 | `HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID` | required | Key ID used for new credential writes. |
-| `HARDEN_LLM_GARAGE_RPC_SECRET` | secret 64-char hex | Garage node RPC secret. |
 | `HARDEN_LLM_ARTIFACT_BUCKET` | `harden-llm-artifacts` | Dedicated Garage bucket. |
-| `HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID` / `HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY` | secret, required | Bucket-scoped S3 credentials supplied only to Garage and the gateway. |
+| `HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID` / `HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY` | secret, required | Existing bucket-scoped S3 credentials supplied only to the gateway. |
 | `PRLS_LOKI_S3_ACCESS_KEY` / `PRLS_LOKI_S3_SECRET_KEY` | secret, required by the shared-observability release | Dedicated Garage key restricted to the `prls-loki` bucket; supplied only to Loki. |
 | `HARDEN_LLM_ARTIFACT_PRESIGN_TTL` | `1m`, max `5m` | Lifetime of an authorized artifact redirect. |
 | `HARDEN_LLM_SESSION_TTL` | `24h` | Opaque bearer-session lifetime. |
@@ -44,9 +43,11 @@ independently and stored in a secrets manager.
 | `HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST` | empty | Explicit comma-separated private hostnames/CIDRs; never use broad ranges casually. |
 | `HARDEN_LLM_METRICS_RETENTION` | `30d` | Prometheus local retention. |
 
-Compose constructs `HARDEN_LLM_DATABASE_URL`, private/external Garage endpoints,
-gateway service identity, and the Collector endpoint. Do not override those to
-point at Langfuse-owned stores.
+Compose constructs `HARDEN_LLM_DATABASE_URL`, the public Garage signing origin,
+gateway service identity, and the Collector endpoint. The gateway's fixed S3
+endpoint is `http://garage-shared:3900` on the existing `prls-observability`
+network. Keep the shared service healthy before starting the gateway. Do not
+override these to point at Langfuse-owned stores.
 
 ## Phoenix frontend
 

@@ -132,12 +132,12 @@ test("preview control files and image reuse are idempotent", async () => {
   try {
     const repositoryRoot = path.join(root, "repository");
     await mkdir(path.join(repositoryRoot, "deploy/preview"), { recursive: true });
-    await mkdir(path.join(repositoryRoot, "deploy/garage"), { recursive: true });
+    await mkdir(path.join(repositoryRoot, "deploy/test"), { recursive: true });
     for (const [relative, contents] of [
       ["deploy/preview/compose.yml", "compose\n"],
       ["deploy/preview/host.compose.yml", "host\n"],
       ["deploy/preview/Caddyfile", "caddy\n"],
-      ["deploy/garage/garage.toml", "garage\n"],
+      ["deploy/test/garage.toml", "garage\n"],
     ]) await writeFile(path.join(repositoryRoot, relative), contents);
     const c = { root };
     assert.deepEqual(await syncControl(c, repositoryRoot), ["compose.yml", "host.compose.yml", "Caddyfile", "garage.toml"]);

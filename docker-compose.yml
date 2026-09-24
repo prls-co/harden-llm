@@ -30,8 +30,6 @@ services:
         condition: service_healthy
       langfuse-web:
         condition: service_started
-      garage:
-        condition: service_healthy
     ports:
       - "${HARDEN_LLM_BIND_ADDRESS:-0.0.0.0}:${HARDEN_LLM_HTTP_PORT:-80}:80"
       - "${HARDEN_LLM_BIND_ADDRESS:-0.0.0.0}:${HARDEN_LLM_HTTPS_PORT:-443}:443"
@@ -68,7 +66,7 @@ services:
       HARDEN_LLM_DATABASE_URL: postgresql://harden_llm:${HARDEN_LLM_POSTGRES_PASSWORD:?set the application database password}@harden-postgres:5432/harden_llm?sslmode=disable
       HARDEN_LLM_ENCRYPTION_KEYS: ${HARDEN_LLM_ENCRYPTION_KEYS:?set a JSON key-ID to base64url key mapping}
       HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID: ${HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID:?set the active encryption key ID}
-      HARDEN_LLM_ARTIFACT_ENDPOINT: http://garage:3900
+      HARDEN_LLM_ARTIFACT_ENDPOINT: http://garage-shared:3900
       HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT: ${HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT:?set the public HTTPS artifact origin}
       HARDEN_LLM_ARTIFACT_BUCKET: ${HARDEN_LLM_ARTIFACT_BUCKET:-harden-llm-artifacts}
       HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID: ${HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID:?set the Garage bucket access key}
@@ -85,10 +83,11 @@ services:
       HARDEN_LLM_SERVICE_NAME: harden-llm-gateway
       HARDEN_LLM_ENVIRONMENT: ${HARDEN_LLM_ENVIRONMENT:-production}
       HARDEN_LLM_RELEASE: ${HARDEN_LLM_RELEASE:?set an immutable release identifier}
+    networks:
+      - harden-private
+      - prls-observability
     depends_on:
       harden-postgres:
-        condition: service_healthy
-      garage:
         condition: service_healthy
       otel-collector:
         condition: service_started
@@ -117,34 +116,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
-      start_period: 10s
-    stop_grace_period: 60s
-
-  garage:
-    <<: *service-defaults
-    image: dxflrs/garage:v2.3.0@sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690
-    # Production metadata may already contain a post-v1 cluster layout. The
-    # bootstrap flags are only valid while creating the initial single-node
-    # layout and make Garage refuse to start against that retained metadata.
-    command: ["/garage", "server"]
-    environment:
-      GARAGE_CONFIG_FILE: /etc/garage.toml
-      GARAGE_RPC_SECRET: ${HARDEN_LLM_GARAGE_RPC_SECRET:?set a 64-character hex Garage RPC secret}
-      GARAGE_DEFAULT_ACCESS_KEY: ${HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID:?set the Garage bucket access key}
-      GARAGE_DEFAULT_SECRET_KEY: ${HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY:?set the Garage bucket secret key}
-      GARAGE_DEFAULT_BUCKET: ${HARDEN_LLM_ARTIFACT_BUCKET:-harden-llm-artifacts}
-    volumes:
-      - ./deploy/garage/garage.toml:/etc/garage.toml:ro
-      - garage-metadata:/var/lib/garage/meta
-      - garage-data:/var/lib/garage/data
-    networks:
-      - harden-private
-      - prls-observability
-    healthcheck:
-      test: ["CMD", "/garage", "status"]
-      interval: 5s
-      timeout: 5s
-      retries: 24
       start_period: 10s
     stop_grace_period: 60s
 
@@ -299,8 +270,6 @@ volumes:
   caddy-data:
   caddy-config:
   harden-postgres-data:
-  garage-metadata:
-  garage-data:
   prometheus-data:
   loki-data:
   tempo-data:

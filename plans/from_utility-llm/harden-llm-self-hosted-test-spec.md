@@ -545,7 +545,7 @@ runtime contract or the meaning of `make verify`.
   - No backend dependency, import, environment name, configuration, deploy script, server, emulator, or production code calls Firebase Auth, Firestore, Functions, Hosting, or Storage.
   - No backend package contains Phoenix, LiveView, React, Vite, JSX, HEEx, HTML-template, frontend asset, browser-cookie, or browser-CSRF implementation code.
   - Backend tests and release commands do not build or test any frontend application.
-  - The base fifteen-service Compose topology and base Caddy configuration do not depend on or route a frontend service; the optional frontend overlay is tested under the frontend specification.
+  - The base fourteen-service Compose topology and base Caddy configuration do not depend on or route a frontend service; the optional frontend overlay is tested under the frontend specification.
   - Fixture provenance may name the source repository but cannot create a runtime dependency.
 - Pass criteria: the scoped backend dependency/AST/filesystem scan exits zero.
 - Expected runtime: 10 seconds.
@@ -627,18 +627,18 @@ runtime contract or the meaning of `make verify`.
 - Command: `go test ./internal/deploytest/... -tags=compose -run TestComposeCaddyContract -count=1`
 - Setup: effective `docker compose config`, Caddyfile, Harden-LLM image manifest, `deploy/langfuse/docker-compose.upstream.yml`, and `deploy/langfuse/UPSTREAM.md` provenance record.
 - Assertions:
-  - All fifteen required services exist: Caddy, gateway, Harden-LLM Postgres, Garage, Collector, Prometheus, Loki, Tempo, Grafana, Langfuse web/worker, upstream Langfuse Postgres, ClickHouse, Redis, and MinIO.
+  - All fourteen production-owned services exist: Caddy, gateway, Harden-LLM Postgres, Collector, Prometheus, Loki, Tempo, Grafana, Langfuse web/worker, upstream Langfuse Postgres, ClickHouse, Redis, and MinIO. Garage is managed by `garage-shared` and is not part of this Compose project.
   - `docker-compose.upstream.yml` matches the recorded released Langfuse commit and SHA-256 byte for byte and retains its default Postgres, Redis, ClickHouse, and MinIO dependency graph.
   - The Langfuse integration overlay changes only generated secrets, public URL, shared private network membership, and host-port exposure; it does not replace or share a Langfuse dependency.
   - Named volumes and health checks exist; Harden-LLM-owned image tags/digests are pinned and upstream Langfuse image choices match the pinned fragment.
-  - Garage uses the pinned v2.3 single-node/default-bucket startup path with persistent metadata/data volumes and maps one bucket-scoped credential into Garage and gateway environment names without a custom bootstrap service.
+  - Production Compose has no Garage service, Garage-owned volume, RPC secret, bootstrap command, or dependency edge. The gateway, Caddy, and Loki join the existing external `prls-observability` network and use `garage-shared:3900` for their Garage clients.
   - Only Caddy publishes externally reachable host ports in the effective production topology.
   - Caddy routes API, Grafana, and Langfuse hostnames and applies TLS, body limits, and security headers without serving frontend assets.
   - The base Caddyfile has one trusted `conf.d` import extension point, no frontend fragment, and no duplicated backend route definitions.
-  - Caddy routes the Garage S3 API on the configured artifact hostname while Garage administration/RPC routes remain private.
-  - No Phoenix/LiveView or other frontend service is part of the fifteen-service backend topology.
+  - Caddy routes the Garage S3 API on the configured artifact hostname while Garage administration/RPC routes remain private to the shared service owner.
+  - No Phoenix/LiveView or other frontend service is part of the fourteen-service production Compose topology.
   - Langfuse headless user/organization/project/key initialization supplies the Collector ingestion credentials without a setup step.
-  - Harden-LLM uses only Garage for artifacts; Langfuse uses only its upstream MinIO. Their endpoints, buckets, and credentials do not cross.
+  - Harden-LLM uses only the shared Garage endpoint for artifacts; Langfuse uses only its upstream MinIO. Their endpoints, buckets, and credentials do not cross.
   - No Firebase, application SQLite, Sentry, Temporal, or locally substituted Langfuse dependency exists.
 - Pass criteria: parser tests and `docker compose config --quiet` pass.
 - Expected runtime: 20 seconds.
@@ -647,9 +647,9 @@ runtime contract or the meaning of `make verify`.
 
 - Target: `internal/smoke/compose_smoke_test.go`
 - Command: `go test ./internal/smoke/... -tags=compose -run TestComposeSmoke -count=1`
-- Setup: clean named test project, production Compose plus pinned upstream Langfuse fragment, private integration overlay, and `deploy/test/compose.smoke.yml`; reference hardware; images already available; generated non-production secrets.
+- Setup: clean named test project, production Compose plus pinned upstream Langfuse fragment, private integration overlay, and `deploy/test/compose.smoke.yml`; reference hardware; images already available; generated non-production secrets. The smoke overlay owns an isolated Garage fixture with fresh project-scoped volumes and a unique non-external observability network.
 - Assertions:
-  - All fifteen services become healthy within 300 seconds.
+  - All fifteen services in the effective backend smoke stack (fourteen production services plus its isolated Garage fixture) become healthy within 300 seconds.
   - The test-only private `fake-provider` service is reachable only by the gateway and publishes no host port.
   - API routes through Caddy and gateway readiness reaches Harden-LLM Postgres and Garage.
   - Login returns an opaque bearer token that authenticates the smoke lifecycle without a browser cookie or CSRF path.
@@ -658,7 +658,7 @@ runtime contract or the meaning of `make verify`.
   - Its trace reaches Tempo and Langfuse exactly once, metric reaches Prometheus, and correlated log reaches Loki.
   - Langfuse event ingestion succeeds with the unchanged upstream MinIO endpoint and no Garage setting in Langfuse.
   - Grafana datasources are healthy.
-  - MinIO is used only by Langfuse, and Garage is used only by Harden-LLM.
+  - MinIO is used only by Langfuse, and Harden-LLM artifact traffic resolves to the isolated smoke Garage fixture through the same `garage-shared` service name used in production.
 - Pass criteria: end-to-end correlation IDs are found in every intended backend with zero public non-Caddy ports.
 - Expected runtime: 360 seconds.
 
@@ -678,7 +678,7 @@ runtime contract or the meaning of `make verify`.
 
 ### TEST-036: full deterministic certification
 
-- Target: all backend-owned paths and the base fifteen-service deployment; `frontend/` and `deploy/frontend/` are excluded
+- Target: all backend-owned paths and the base fourteen-service Compose topology; `frontend/` and `deploy/frontend/` are excluded
 - Command: `make verify`
 - Setup: Go and Node dependencies installed, isolated Harden-LLM Postgres and Garage, pinned Harden-LLM images, and recorded upstream Langfuse fragment/images.
 - Assertions:

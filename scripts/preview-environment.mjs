@@ -195,7 +195,7 @@ export async function syncControl(c, repositoryRoot) {
   for (const name of ["compose.yml", "host.compose.yml", "Caddyfile"]) {
     if (await writePrivateIfChanged(path.join(c.root, "control", name), await fs.readFile(path.join(repositoryRoot, "deploy/preview", name), "utf8"))) changed.push(name);
   }
-  if (await writePrivateIfChanged(path.join(c.root, "control/garage.toml"), await fs.readFile(path.join(repositoryRoot, "deploy/garage/garage.toml"), "utf8"))) changed.push("garage.toml");
+  if (await writePrivateIfChanged(path.join(c.root, "control/garage.toml"), await fs.readFile(path.join(repositoryRoot, "deploy/test/garage.toml"), "utf8"))) changed.push("garage.toml");
   return changed;
 }
 

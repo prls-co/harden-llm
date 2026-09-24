@@ -25,7 +25,7 @@ const (
 )
 
 var productionServices = []string{
-	"caddy", "harden-llm-gateway", "harden-postgres", "garage", "otel-collector",
+	"caddy", "harden-llm-gateway", "harden-postgres", "otel-collector",
 	"prometheus", "loki", "tempo", "grafana", "langfuse-web", "langfuse-worker",
 	"postgres", "clickhouse", "redis", "minio",
 }
@@ -207,7 +207,7 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 		}
 	}
 
-	baseOwned := []string{"caddy", "harden-llm-gateway", "harden-postgres", "garage", "otel-collector", "prometheus", "loki", "tempo", "grafana"}
+	baseOwned := []string{"caddy", "harden-llm-gateway", "harden-postgres", "otel-collector", "prometheus", "loki", "tempo", "grafana"}
 	for _, name := range baseOwned {
 		service := asObject(t, services[name], name)
 		image := stringField(t, service, "image")
@@ -216,24 +216,19 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 		}
 	}
 
-	garage := asObject(t, services["garage"], "garage")
-	command := stringListValue(t, garage["command"], "garage command")
-	if !equalStrings(command, []string{"/garage", "server"}) {
-		t.Errorf("Garage command = %v", command)
-	}
-	garageEnv := environmentValueMap(t, garage["environment"])
 	gatewayEnv := environmentValueMap(t, asObject(t, services["harden-llm-gateway"], "gateway")["environment"])
-	for garageName, gatewayName := range map[string]string{
-		"GARAGE_DEFAULT_ACCESS_KEY": "HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID",
-		"GARAGE_DEFAULT_SECRET_KEY": "HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY",
-		"GARAGE_DEFAULT_BUCKET":     "HARDEN_LLM_ARTIFACT_BUCKET",
-	} {
-		if garageEnv[garageName] == "" || garageEnv[garageName] != gatewayEnv[gatewayName] {
-			t.Errorf("Garage/gateway credential mapping differs for %s/%s", garageName, gatewayName)
-		}
-	}
-	if endpoint := strings.ToLower(gatewayEnv["HARDEN_LLM_ARTIFACT_ENDPOINT"]); !strings.Contains(endpoint, "garage:3900") || strings.Contains(endpoint, "minio") {
+	if endpoint := gatewayEnv["HARDEN_LLM_ARTIFACT_ENDPOINT"]; endpoint != "http://garage-shared:3900" {
 		t.Errorf("gateway artifact endpoint = %q", endpoint)
+	}
+	gateway := asObject(t, services["harden-llm-gateway"], "gateway")
+	if !valueContains(gateway["networks"], "harden-private") || !valueContains(gateway["networks"], "prls-observability") {
+		t.Errorf("gateway networks = %#v, want private and shared networks", gateway["networks"])
+	}
+	for _, name := range []string{"caddy", "loki"} {
+		service := asObject(t, services[name], name)
+		if !valueContains(service["networks"], "prls-observability") {
+			t.Errorf("%s is not attached to the shared Garage client network", name)
+		}
 	}
 	for _, name := range []string{"langfuse-web", "langfuse-worker"} {
 		env := environmentValueMap(t, asObject(t, services[name], name)["environment"])
@@ -250,14 +245,24 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 	}
 
 	volumes := objectField(t, config, "volumes")
+	for name := range volumes {
+		if strings.Contains(strings.ToLower(name), "garage") {
+			t.Errorf("production Compose owns Garage volume %s", name)
+		}
+	}
 	for _, name := range []string{
-		"caddy-data", "caddy-config", "harden-postgres-data", "garage-metadata", "garage-data",
+		"caddy-data", "caddy-config", "harden-postgres-data",
 		"prometheus-data", "loki-data", "tempo-data", "grafana-data", "langfuse_postgres_data",
 		"langfuse_clickhouse_data", "langfuse_clickhouse_logs", "langfuse_minio_data", "langfuse_redis_data",
 	} {
 		if _, ok := volumes[name]; !ok {
 			t.Errorf("effective Compose omits named volume %s", name)
 		}
+	}
+	networks := objectField(t, config, "networks")
+	observability := asObject(t, networks["prls-observability"], "shared observability network")
+	if !boolField(t, observability, "external") || stringField(t, observability, "name") != "prls-observability" {
+		t.Errorf("shared observability network = %#v, want the existing external network", observability)
 	}
 }
 
@@ -272,7 +277,7 @@ func assertCaddyContract(t *testing.T, path, extensionDir string) {
 		"{$HARDEN_LLM_API_HOST}", "reverse_proxy harden-llm-gateway:8080",
 		"{$HARDEN_LLM_GRAFANA_HOST}", "reverse_proxy grafana:3000",
 		"{$HARDEN_LLM_LANGFUSE_HOST}", "reverse_proxy langfuse-web:3000",
-		"{$HARDEN_LLM_ARTIFACT_HOST}", "reverse_proxy garage:3900",
+		"{$HARDEN_LLM_ARTIFACT_HOST}", "reverse_proxy garage-shared:3900",
 		"Strict-Transport-Security", "X-Content-Type-Options", "Referrer-Policy", "Content-Security-Policy",
 		"request_body", "max_size", "tls {$HARDEN_LLM_TLS_MODE}",
 	} {
@@ -358,7 +363,6 @@ func composeContractEnvironment() []string {
 		"HARDEN_LLM_TLS_MODE=internal", "HARDEN_LLM_POSTGRES_PASSWORD=contract-harden-db-7Y2qN5",
 		"HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID=GKCONTRACT000000000000000000000001",
 		"HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY=contractGarageKey_4Ys8zQ1xN7pV9kM2rT6wE3aB5cD0fH",
-		"HARDEN_LLM_GARAGE_RPC_SECRET=6e9ec8720db72c83cf0e33928113fb09bfd42c9e0f9a35b04b12a1673cd78f1a",
 		`HARDEN_LLM_ENCRYPTION_KEYS={"primary":"R1BKT3pKV0M1akY2WnlYYU45Sm5UTW82dzBuXzJ4bTk"}`,
 		"HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID=primary",
 		"HARDEN_LLM_RELEASE=contract-1", "GRAFANA_ADMIN_PASSWORD=contract-grafana-8Zt4pW",

@@ -152,7 +152,7 @@
       "deploy/frontend/compose.frontend.yml",
       "deploy/frontend/grafana-dashboard.json",
       "deploy/frontend/otel.frontend.yaml",
-      "deploy/garage/garage.toml",
+      "deploy/test/garage.toml",
       "deploy/grafana/dashboards/harden-llm-overview.json",
       "deploy/grafana/dashboards/prls-test-observability.json",
       "deploy/grafana/provisioning/alerting/.gitkeep",
