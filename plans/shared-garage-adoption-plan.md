@@ -4,7 +4,7 @@
 
 - ID: `PLAN-HLLM-SHARED-GARAGE-001`.
 - Updated: 2026-09-24.
-- Status: H0-H2 implementation is complete and pushed in Harden-LLM PR #54 (`411552c`). Exact-head hosted fast and browser-free release gates pass. H3 source verification is complete, but private production descriptor/rollback preparation and coordinated runtime cutover remain pending. No production runtime or data has moved.
+- Status: H0-H2 implementation is complete and merged to `main` in Harden-LLM PR #54 (`73fc735`). The implementation commit passed hosted fast and browser-free release gates; post-merge main fast T0-T2 and CodeQL checks passed. H3 source verification is complete, but private production descriptor/rollback preparation and coordinated runtime cutover remain pending. No production runtime or data has moved.
 - Issue: [Harden-LLM #53](https://github.com/prls-co/harden-llm/issues/53).
 - Canonical cross-repository order: [shared Garage transition plan](https://github.com/prls-co/garage-shared/blob/main/plans/shared-garage-transition-plan.md), tracked in [garage-shared #1](https://github.com/prls-co/garage-shared/issues/1).
 
@@ -75,7 +75,7 @@ Gate: fixtures boot from private empty volumes; smoke exercises production routi
 
 ## 7. Phase H3 — verify and prepare deployment
 
-Status: source verification complete; production apply preparation remains pending. Hosted fast T0-T2 and browser-free release checks passed on the PR head (runs `35973663949`, `35973668157`, `35974172600`). Code source/config changes are reviewable, but private production descriptor edits, exact apply/rollback commands, and final live inventory recheck belong to the coordinated cutover and have not been performed.
+Status: source verification complete; production apply preparation remains pending. Hosted fast T0-T2 and browser-free release checks passed on implementation commit `411552c` (runs `35973663949`, `35973668157`, `35974172600`); post-merge main fast T0-T2 and CodeQL checks passed after PR #54 merged as `73fc735` (runs `35994817092`, `35994816817`). Code source/config changes are merged, but private production descriptor edits, exact apply/rollback commands, and final live inventory recheck belong to the coordinated cutover and have not been performed.
 
 1. Run focused checks for changed ownership/preview/configuration code, then the broad fast gate:
 
@@ -140,6 +140,7 @@ Preparation evidence from 2026-09-23: source, pinned CLI startup help, and selec
 - 2026-09-24 — shared owner source is pushed at `garage-shared/dd5d1ece1bee5a8075878e0d5fc656913e95a63d`; its GitHub Actions config check passed. This does not establish a production runtime change.
 - 2026-09-24 — H1/H2 source is pushed in Harden-LLM PR #54 at `411552c2aea4a2e45018f19aff0279dabba96ee1`. Exact-head hosted fast T0-T2 and browser-free release gates passed (runs `35973663949`, `35973668157`, `35974172600`). The current shared-owner candidate is `garage-shared` PR #2 at `e0b507c`, replacing the earlier owner candidate recorded above; its hosted Compose config check passed in run `35990868197`. Source checks do not establish production deployment.
 - 2026-09-24 — The canonical plan identified one concrete production blocker outside Harden-LLM: Bin Eval's active default Garage key matches a value in its public `.env.example`. No value was copied or changed. The coordinated transfer needs the user's decision on replacing only that exposed key; no blanket key rotation is proposed.
+- 2026-09-24 — Harden-LLM PR #54 was merged to `main` as `73fc73584a7095ba95538c9a7291553e0d8ca2c5`. Its implementation commit passed the recorded browser-free release gate; post-merge fast T0-T2 and CodeQL checks passed. The merge did not apply the production descriptor, start Garage, copy data, or deploy containers.
 
 Risks and follow-up checks:
 
@@ -150,4 +151,4 @@ Risks and follow-up checks:
 - Analytics' separate `analytics-evidence` Garage remains active until its own Phase 4 inventory/copy/read acceptance. The cutover must not stop or remove it prematurely.
 - No backup, snapshot, compatibility alias, second daemon, browser, or provider call is part of this transition.
 
-Next: finish the remaining Analytics and Masked Recall hosted checks in the central plan, then merge prepared revisions under repository policy without applying client configuration before the shared owner is ready. Before data copy/cutover, obtain the user's decision about replacing the one exposed Bin Eval key. Recheck the private production descriptor and live container, volume, bucket, and key identities immediately before the coordinated interruption. Leave affected clients stopped if any object, permission, readiness, or signed-route check fails.
+Next: resolve the Analytics PR's failed integration status from evidence; the corrected Masked Recall full-flow checks pass and exercise the same Analytics test. Merge Analytics before the dependent Masked Recall revision once required checks are green. The user decision is pending for replacing the one exposed Bin Eval key with a fresh bucket-scoped key or deferring Bin Eval's cutover. Recheck the private production descriptor and live container, volume, bucket, and key identities immediately before the coordinated interruption. Leave affected clients stopped if any object, permission, readiness, or signed-route check fails.
