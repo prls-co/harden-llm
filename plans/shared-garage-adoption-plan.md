@@ -2,114 +2,130 @@
 
 ## 1. Status and objective
 
-- Plan: `PLAN-HLLM-SHARED-GARAGE-001`.
-- Status: planned; no consumer configuration or live service was changed in this pass.
-- Date: 2026-09-23.
-- Target service owner: private repository [`prls-co/garage-shared`](https://github.com/prls-co/garage-shared).
-- Objective: remove physical ownership of the shared Garage daemon from this application repository while preserving the current S3 service contract and its existing data volumes.
+- ID: `PLAN-HLLM-SHARED-GARAGE-001`.
+- Updated: 2026-09-23.
+- Status: implementation planned; this document changes no runtime configuration.
+- Issue: [Harden-LLM #53](https://github.com/prls-co/harden-llm/issues/53).
+- Canonical cross-repository order: [shared Garage transition plan](https://github.com/prls-co/garage-shared/blob/main/plans/shared-garage-transition-plan.md), tracked in [garage-shared #1](https://github.com/prls-co/garage-shared/issues/1).
 
-The service already is shared: Agent Platform containers on `prls-observability` use the Garage instance currently declared in this repository. The new repository centralizes ownership of that existing daemon; it must not launch a second Garage against the same volumes. PRLS Analytics currently defines a separate Garage instance and needs its own consumer migration.
+Remove production Garage ownership from Harden-LLM and consume `http://garage-shared:3900`. The user explicitly accepts breaking configuration changes and interruptions to prioritize cleanliness, robustness, and maintainability. This revision supersedes the earlier compatibility-alias and simultaneous Analytics migration proposal.
 
-This plan does not add backup or restore tooling. The ownership cutover reuses the existing local volumes so the repository change itself does not discard objects. This Hardening-LLM decision does not change recovery requirements owned by other consumers.
+The shared repository owns the daemon, server configuration, runtime RPC secret, and adopted volumes. Harden-LLM owns artifact behavior, client credentials, Caddy artifact routing, Loki configuration, and isolated test/preview fixtures. No Go API, OpenAPI schema, frontend feature, backup subsystem, secret rotation, or provider integration is required.
 
-## 2. Evidence and current boundaries
+## 2. Decisions and reasons
 
-Recheck live state before the cutover; these observations are specific to 2026-09-23.
+1. Use only `garage-shared:3900` in persistent runtime configuration. No old alias, endpoint fallback, or parallel deployment path remains. A controlled interruption removes the need for compatibility machinery.
+2. Keep the image/configuration and physical volume names during transfer. `harden-llm_garage-metadata` and `harden-llm_garage-data` identify retained data; renaming them creates an unnecessary data migration.
+3. Add the gateway to `prls-observability` while retaining its private network. Caddy and Loki already join the shared network. Final networking must be declarative, not a manual connection.
+4. Preserve public artifact origin, bucket/object keys, region, signatures, TTLs, Loki schema/retention, and credentials. Internal ownership changes must not silently invalidate stored references.
+5. Retain isolated integration, smoke, and previews. The smoke overlay currently supplies only initialization flags and inherits the rest of Garage from production; it must become self-contained before the root service is removed.
+6. Analytics migrates after current shared consumers work. Langfuse keeps its upstream storage; this plan does not replace MinIO or move traces.
 
-| Finding | Evidence | Consequence |
-| --- | --- | --- |
-| Production Compose defines Garage in this repository and the gateway uses `http://garage:3900`. | `docker-compose.yml` | Replace the local service dependency with the shared endpoint and network. |
-| Caddy proxies artifact requests to `garage:3900`; Loki stores S3 chunks in bucket `prls-loki`. | `deploy/caddy/Caddyfile`, `deploy/loki/loki.yaml` | Caddy and Loki also need to reach the shared service. |
-| The running Garage mounts Docker volumes `harden-llm_garage-metadata` and `harden-llm_garage-data` and is attached to `prls-observability`. | Docker inspection | Declare those existing volumes external in the new owner Compose file. Never run old and new Garage processes against them at once. |
-| Current Garage metadata contains buckets `harden-llm-artifacts`, `prls-allure-reports`, `prls-loki`, and `prls-agent-artifacts`. | `/garage bucket list` in the running v2.3.0 container | Preserve the service data and all current bucket/key permissions through cutover. Do not print key secret material. |
-| Agent Platform config uses Garage for agent artifacts and Allure reports; its service lock currently identifies this repository as the physical Garage owner. | `prls-co/agent-platform-infra` `compose/shared/compose.yaml` and `shared-services.lock.yaml` | Update the consumer endpoint and ownership lock as part of the coordinated change. |
-| PRLS Analytics declares an additional Garage instance. | `prls-analytics/deploy/compose.service.yaml` | Give Analytics a distinct bucket and key on the shared endpoint, then remove its long-lived Garage service. |
-| Hardening-LLM test and preview Compose files create their own Garage containers. | `deploy/test/compose.integration.yml`, `deploy/test/compose.smoke.yml`, `deploy/preview/compose.yml` | Keep these isolated; tests and previews must not write to shared runtime buckets. |
+## 3. File map
 
-## 3. Design decisions
+| Files | Required result |
+| --- | --- |
+| `docker-compose.yml` | No production `garage` service, its volumes, or `depends_on: garage`; final gateway endpoint; gateway joins private and shared networks. |
+| `deploy/caddy/Caddyfile`, `deploy/loki/loki.yaml` | Upstream `garage-shared:3900`; signing/public routes and Loki data layout preserved. |
+| `deploy/images.lock.json` | Remove Garage from production image map. Retain explicit pins in fixtures; no new lock schema. |
+| `deploy/garage/garage.toml` → `deploy/test/garage.toml` | Make remaining test/preview ownership explicit; production server config belongs to `garage-shared`. Update all references. |
+| `deploy/test/compose.integration.yml`, `deploy/test/compose.smoke.yml` | Self-contained pinned fixture Garage, fresh project-owned data, no persistent shared dependency. |
+| `scripts/preview-environment.mjs`, `scripts/test/preview_policy_test.mjs` | Reference new fixture path; preserve each preview's Garage/network/routing/data. |
+| `internal/deploytest/compose_caddy_test.go`, `internal/deploytest/prls_observability_test.go` | Exact production topology/image checks reflect external ownership and final client endpoint/network. |
+| `internal/smoke/harness_compose.go` and smoke fixture assertions | Final DNS name resolves to test-owned Garage, with network/mount isolation. |
+| `scripts/production-config.mjs`, `scripts/test/production_config_test.mjs`, `config/production-config.example.json` | Inspect for affected assumptions; change only actual local-Garage dependencies. Preserve descriptor/scope validation. |
+| `plans/from_utility-llm/harden-llm-self-hosted-test-spec.md`, `docs/requirements-traceability.md`, active deploy docs | Update current TEST-030/033/034 ownership/fixture descriptions; retain historical evidence. |
+| Private `/home/kirill/.config/harden-llm/production.json` and effective host environment | Remove managed Garage identity/overrides, use approved updated Compose root, retain actual application identities. Never print/commit private values. |
 
-1. `garage-shared` owns the one long-lived Garage process, its pinned image, Garage configuration, and deployment runbook.
-2. Keep the current S3 service on the existing private `prls-observability` Docker network during this ownership transfer. Publish no Garage host ports. The service advertises `garage-shared:3900`; retain the `garage` alias only until every existing consumer has moved.
-3. Reuse the existing named metadata and data volumes by declaring them external in `garage-shared`. This avoids copying data and avoids two Garage daemons sharing writable state.
-4. Keep a separate bucket and least-privilege S3 key for every consumer. Do not share an application key across projects. Record bucket names and key identifiers only; never put secrets in Git, issues, or logs.
-5. Preserve ephemeral integration-test and preview Garage instances. They exercise the real S3 boundary without coupling tests to persistent shared data.
-6. Do not add backup jobs, snapshot tools, restore automation, a second Garage instance, or an application storage abstraction.
+## 4. Phase H0 — inspect and define regressions
 
-## 4. Phased implementation
+Status: pending. Read `AGENTS.md` and `docs/liveview-go-testing-guidelines.md` before implementation.
 
-### Phase 0: inventory and cutover preflight
+1. Confirm branch, actual production Compose source/descriptor, image identities, and Garage mounts/networks in central Phase 0's execution record. Source HEAD does not establish live configuration. If this checkout supplies live bind-mounted files, implement in a separate worktree and apply configuration only during the central interruption.
+2. Search active source for `garage:3900`, `harden-llm-garage-1`, `deploy/garage`, and production service/image/volume lists. Classify as persistent runtime, isolated test/preview, or historical documentation. Do not globally replace `garage`.
+3. Identify TEST-030 topology, TEST-033 effective Compose contract, TEST-034 smoke, TEST-043 exclusive restart, and TEST-233/234/235 production-config coverage. Keep canonical `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001` references and assertion purposes.
+4. Add cheap regressions before implementation: no production-owned Garage/volumes/dependency; gateway/Caddy/Loki use final endpoint; gateway has both networks; no Garage/admin host port; tests/previews cannot use persistent shared storage. Use existing Go/static and Node tests.
 
-1. Confirm the current `harden-llm-garage-1` image digest, volume names, network membership, health, and Compose project at execution time.
-2. Record bucket names, owning application, expected read/write operations, and the existing key identifier for each bucket. Keep secret values out of the record.
-3. Confirm the endpoint and network owner for every persistent consumer: Hardening-LLM, Agent Platform/Allure, Loki, and PRLS Analytics.
-4. Confirm each integration and preview Garage remains test-owned and isolated.
-5. Stop if any client still relies on a bucket without an identified owner/key or if the current volume names differ from the external volume names declared in `garage-shared`.
+Gate: expected failures describe changed ownership/endpoint; unaffected storage/API assertions remain intact.
 
-### Phase 1: make the shared service repository deployable
+## 5. Phase H1 — remove production ownership
 
-1. In `prls-co/garage-shared`, pin the current Garage image digest and copy the current production `garage.toml` without changing its data layout or S3 region.
-2. Define a single `garage` service with the existing metadata/data volumes as external volumes and attach it to external network `prls-observability` with DNS alias `garage-shared`.
-3. Keep the current RPC secret and default key/bucket values in the approved private runtime environment. No rotation is part of this migration.
-4. Confirm the Compose file publishes no host ports and does not create a replacement Garage volume.
-5. Run `docker compose --env-file <private-runtime-env> config --quiet`; do not print rendered environment values.
+Status: pending.
 
-### Phase 2: switch Hardening-LLM configuration to the shared DNS name
+1. Remove root `garage` service and `garage-metadata`/`garage-data` declarations. This is a source change; never delete physical Docker volumes. Remove gateway/Caddy dependencies on `garage`.
+2. Set gateway endpoint to `http://garage-shared:3900`. Explicitly list both `harden-private` and `prls-observability`; overriding inherited networks must not disconnect Postgres. Keep client bucket/credential settings.
+3. Update Caddy/Loki upstreams. Preserve artifact hostname, request host/path/query behavior, authentication, path-style S3 settings, region, Loki schema periods, and retention.
+4. Remove Garage from the production image map. Update exact service/volume/image-count assertions precisely; do not weaken them to exists-only checks. Keep Langfuse provenance and MinIO separation checks.
+5. Update TEST-033's current specification to external Garage consumption rather than local production bootstrap. Retain equivalent initialization/lifecycle coverage in isolated TEST-034/043 and shared-owner checks. Update TEST-030 and traceability; do not rewrite historical certification.
 
-1. In root `docker-compose.yml`, change `HARDEN_LLM_ARTIFACT_ENDPOINT` to `http://garage-shared:3900`.
-2. Attach `harden-llm-gateway` to `prls-observability` so it can resolve the shared service. Keep its application-private network.
-3. Remove production `depends_on: garage` entries from the gateway and Caddy. Cross-project service health is checked by the shared service and app health checks, not Compose `depends_on` across projects.
-4. Change the Caddy artifact upstream in `deploy/caddy/Caddyfile` and the Loki S3 endpoint in `deploy/loki/loki.yaml` to `garage-shared:3900`.
-5. Remove the production Garage service and its volume declarations from root `docker-compose.yml`. Do not delete the Docker volumes; `garage-shared` references the existing names as external volumes. The isolated test Compose files define their own volumes.
-6. Keep `deploy/garage/garage.toml`, the image pin, and isolated Garage services needed by integration, smoke, and preview Compose. Do not accidentally point these test/preview services at production.
-7. Update static configuration assertions without weakening their checks: production clients must use the shared DNS name; test/preview stacks must retain their isolated Garage service.
+Gate: production resolves without local Garage, gateway networking is explicit, and topology assertions remain exact.
 
-### Phase 3: coordinated consumer cutover
+## 6. Phase H2 — make isolated fixtures complete
 
-1. Merge and prepare the `garage-shared` service configuration and consumer changes in Harden-LLM, Agent Platform, and PRLS Analytics.
-2. Ensure the private environment source supplies all required Garage values to the new Compose project. Do not copy values into repository files or shell command output.
-3. Ensure the four existing buckets and their permissions are present before switching clients. Add the Analytics bucket and key only if the Analytics issue confirms its required name and operations.
-4. Confirm no second Garage process is using the shared volumes. Stop the old Hardening-LLM Garage service gracefully.
-5. Start Garage from `garage-shared`, mounting the same existing volumes. Confirm service health and `/garage status` before restarting or moving any consumer.
-6. Verify an S3 read/write operation with each application’s own scoped credentials, then check Hardening-LLM, Loki, Agent Platform/Allure, and Analytics readiness and an application-owned artifact read.
-7. Verify production health routes and review logs for S3 authorization, DNS, or object-not-found errors. Do not run browser tests or real provider calls for this storage cutover.
-8. Update `prls-co/agent-platform-infra/shared-services.lock.yaml` to name `prls-co/garage-shared` as the physical owner and record the observed image, endpoint, and source revision.
+Status: pending. Required because smoke currently inherits its Garage definition from production.
 
-### Phase 4: remove stale ownership and close out
+1. Move configuration to `deploy/test/garage.toml`; update integration mounts and preview-copy code/fixtures. Keep local fixtures so testing does not require the shared repo checkout.
+2. Give smoke service `garage` its own pinned image, empty-layout initialization command, generated fixture key/bucket/RPC settings, config mount, health check, and project-owned metadata/data volumes. No live credentials or external persistent volumes.
+3. Give isolated smoke Garage alias `garage-shared` on the smoke network so production gateway/Caddy resolve to the fixture. Its service identifier `garage` can remain for existing lifecycle discovery. Smoke's logical `prls-observability` must still have a unique generated name and `external: false`, never the live network.
+4. Add smoke-only healthy-Garage dependencies for gateway/Caddy where fixture startup needs them. Ensure smoke Loki targets its fixture. Inspect the merged Compose model, not only overlay text.
+5. Update `assertLiveStorageOwnership` in `internal/smoke/harness_compose.go` to require the final endpoint, map it to the smoke Garage, and assert network/mount isolation. Keep artifact and Langfuse separation checks; do not accept any hostname merely containing `garage`.
+6. Keep preview and standalone integration endpoints local (`garage:3900` where appropriate). Keep TEST-043 on its exclusive fixture; it must never restart shared Garage. Retain explicit fixture image pins without cross-repo runtime dependencies.
 
-1. Confirm the old Hardening-LLM Garage service is absent and exactly one long-lived Garage container is healthy.
-2. Remove stale documentation that describes Garage as owned solely by Hardening-LLM. Keep the isolated test/preview service docs and configs.
-3. Record the deployed source SHA, image digest, host, network, external volume names, buckets, and browser-free acceptance results in the relevant release/operations records. Do not record credential values.
-4. Keep this plan updated with actual test results, any cutover interruption, unresolved consumers, risks, and follow-up checks.
+Gate: fixtures boot from private empty volumes; smoke exercises production routing with isolated storage; previews keep independent endpoints/data.
 
-## 5. Verification and acceptance gates
+## 7. Phase H3 — verify and prepare deployment
 
-Run these in the affected repositories after implementing their issues:
+Status: pending. Record actual commands/results, not planned tests as passing.
 
-1. Hardening-LLM: `git diff HEAD --check`, `make test-fast`, `make test-integration`, then `make verify` and `make test-release` for the cross-system release. The Garage restart/persistence test must continue to use its test-owned Garage container.
-2. Hardening-LLM Compose: validate production config with the approved private environment; validate test and preview Compose independently. No command output may expose resolved secrets.
-3. PRLS Analytics and Agent Platform: run each repository's documented browser-free unit/integration and deployment-config gates; retain their isolated integration storage.
-4. Live checks: shared Garage healthy, all application S3 operations succeed with dedicated keys, Hardening-LLM readiness succeeds, Loki writes and reads its configured bucket, and Allure/Agent Platform artifacts resolve. Record actual observations; a passing local Compose check is not deployment evidence.
-5. Browser tests, browser canaries, and public LLM provider calls remain opt-in and are not part of this plan.
+1. Run focused checks for changed ownership/preview/configuration code, then the broad fast gate:
 
-The migration is complete only when all persistent consumers use the shared DNS name, no long-lived consumer-owned Garage remains, test/preview Garage instances remain isolated, no public host port is exposed, and the above checks pass.
+   ```sh
+   go test ./internal/deploytest ./internal/testkit -count=1
+   node --test scripts/test/preview_policy_test.mjs scripts/test/production_config_test.mjs
+   PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH make test-fast
+   ```
 
-## 6. Rollback, risks, and aftercare
+2. Run TEST-033 with fixture values through real Compose rendering:
 
-- **Rollback:** if the new service fails before consumer validation, stop it first and restart the old Hardening-LLM Garage service with the same image and volumes. Never run both processes against the same volumes concurrently. Revert consumer endpoints only if the shared alias is unavailable.
-- **Shared outage:** one Garage outage affects Hardening-LLM artifact access, Loki's S3-backed logs, Agent Platform artifacts/Allure, and Analytics after migration. The host is already a single-node service; sharing reduces duplicate daemons but does not add availability.
-- **Credentials:** separate buckets are not sufficient without key-level permissions. Verify every app key can access only its intended bucket and operations.
-- **Retention:** confirm Loki's configured 2880-hour retention and each artifact consumer's own cleanup policy after cutover; do not add a second generic retention/backup subsystem.
-- **Recovery ownership:** this plan adds no backup or restore tooling. The Hardening-LLM decision to avoid backups for its data does not revise recovery policy for Analytics or Agent Platform. Preserve each consumer's existing policy until its owner decides. A single-node Garage can lose data with host or volume failure; do not claim that every consumer has accepted that loss.
-- **Aftercare:** inspect Garage health, S3 error counts, volume growth, Loki retention, and artifact links after the first application release and again after normal use. Investigate a real consumer failure before changing bucket policy or restarting the shared service.
+   ```sh
+   go test ./internal/deploytest/... -tags=compose -run TestComposeCaddyContract -count=1
+   make test-production-config
+   ```
 
-## 7. Stop conditions
+3. Run the browser-free cross-system gate on the final implementation candidate:
 
-Stop before production cutover if any of these is true:
+   ```sh
+   PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH make test-release
+   git diff HEAD --check
+   ```
 
-- The old Garage process cannot be stopped cleanly or its mounted volumes cannot be identified.
-- A consumer’s bucket/key ownership or permissions are unknown.
-- The shared network or private runtime environment is unavailable to the new owner project.
-- The new configuration would start two daemons on the same Garage volumes.
-- Required repository gates fail or any consumer cannot complete an S3 read/write check.
+   The release selector already includes integration, exclusive Garage restart, backend Compose smoke, and `make verify`. Do not prepend separate full integration/verify runs merely to duplicate certification. Focused reruns while fixing failures are appropriate. Never drop a gate, weaken assertions, or retry ambiguous operations to obtain green output.
+4. Resolve production configuration privately; expected differences are Garage removal, final endpoints/config mounts, and gateway networking. Remove obsolete Garage descriptor service/overrides. Do not relax validation to allow unknown services. Keep application image identities, provider/profile/account settings, and unrelated services intact.
+5. Prepare clean deployable and rollback revisions, including Caddy/Loki files and private descriptor inputs. Commit/push/merge under repository policy with runtime apply coordinated by central Phase 3; prevent an automatic endpoint switch before storage is ready.
 
-Do not work around a stop condition by making the service public, sharing an administrator key, dropping test assertions, or creating a second persistent Garage instance.
+Gate: checks pass and runtime apply/rollback inputs are concrete. No browser or real provider test is added. Configuration-only deployment reuses unchanged application images; rebuild only if application code changed.
+
+## 8. Phase H4 — participate in the shared cutover
+
+Status: pending. Execute only within central Phase 3; do not operate the storage volumes independently.
+
+1. Stop affected writers and coordinate Caddy/Loki interruption using the central consumer list. The central sequence alone removes/replaces the daemon.
+2. After shared Garage is healthy, apply prepared gateway/Caddy/Loki configuration using the existing trusted `production-config` procedure and service-scoped checks. Preserve descriptor/identity protections; do not edit rendered secret-filled Compose.
+3. Verify gateway/Caddy resolve `garage-shared`, readiness succeeds, and scoped artifact operations work. Read a pre-cutover artifact and a new signed download through the public artifact route without recording secret URLs/tokens.
+4. Check Loki writes/queries with its own key and unchanged retention/schema. Participate in central restart/reconnect acceptance. Observe Langfuse health separately; do not manufacture an LLM call to test storage.
+5. Confirm ordinary Harden-LLM deploy cannot recreate production Garage. Inspect active source, descriptor, and service labels. Test/preview Garage remains confined to its own projects.
+
+Gate: storage works through shared ownership, old/new artifact checks pass, and actual deployed identities are recorded.
+
+## 9. Phase H5 — close out
+
+Status: pending.
+
+1. Record branch, merged configuration SHA, component image identities, environment URLs, shared-owner revision/image, and HTTP/storage results. A documentation SHA is not an application image SHA.
+2. Remove obsolete active production instructions and empty `deploy/garage/`. Keep fixtures and historical evidence. Update both plans, issue #53, and Ops records.
+3. Record problems/fixes and aftercare: artifact links, S3 errors, readiness, Loki continuity/retention, and disk usage after the next normal run/release. Analytics follow-up stays on its own issue.
+4. Verify task changes are pushed/merged and deployed configuration matches acceptance. Record unresolved task-owned files/gates. Cross-repository completion follows the central plan's criteria.
+
+Rollback uses central Section 10: stop new Garage before restoring the old owner from its recorded revision, then restore clients. No compatibility endpoint remains in the accepted configuration. Missing objects, unresolved credentials, a second writer, or failed release/storage checks stop the affected cutover; accepted downtime does not justify masking failures.
+
+Preparation evidence: source, pinned CLI startup help, and selected live Docker identities reviewed. No implementation, application test, runtime change, data copy, or deployment occurred while writing this plan. Documentation validation is recorded in its PR; H0–H5 implementation gates remain pending.
