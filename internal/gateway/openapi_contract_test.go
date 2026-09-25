@@ -85,6 +85,13 @@ func TestOpenAPIContract(t *testing.T) {
 			if _, ok := security[0]["bearerAuth"]; !ok {
 				t.Fatalf("protected operation %s does not require bearerAuth", route.OperationID)
 			}
+		} else if route.ServiceProtected {
+			if len(security) != 1 || len(security[0]) != 1 {
+				t.Fatalf("service-protected operation %s security = %#v", route.OperationID, security)
+			}
+			if _, ok := security[0]["serviceBearerAuth"]; !ok {
+				t.Fatalf("service-protected operation %s does not require serviceBearerAuth", route.OperationID)
+			}
 		} else if len(security) != 0 {
 			t.Fatalf("public operation %s security = %#v", route.OperationID, security)
 		}

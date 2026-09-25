@@ -22,6 +22,10 @@ import (
 	"github.com/prls-co/harden-llm/internal/providers"
 	"github.com/prls-co/harden-llm/internal/redaction"
 	"github.com/prls-co/harden-llm/internal/traces"
+	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/worker"
+	"go.temporal.io/sdk/workflow"
 )
 
 const (
@@ -177,6 +181,23 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 	if err != nil {
 		return safeStartupError(redactor, "configure run service", err)
 	}
+	temporalClient, err := client.Dial(client.Options{HostPort: config.temporalAddress, Namespace: config.temporalNamespace})
+	if err != nil {
+		return safeStartupError(redactor, "connect Temporal", err)
+	}
+	defer temporalClient.Close()
+	durableOperations, err := gateway.NewDurableOperationService(store, runService, temporalClient)
+	if err != nil {
+		return safeStartupError(redactor, "configure durable operations", err)
+	}
+	durableWorker := worker.New(temporalClient, gateway.DurableOperationTaskQueue, worker.Options{})
+	durableActivities := &gateway.DurableOperationActivities{Store: store, Runs: runService}
+	durableWorker.RegisterWorkflowWithOptions(gateway.DurableOperationWorkflow, workflow.RegisterOptions{Name: gateway.DurableOperationWorkflowName})
+	durableWorker.RegisterActivityWithOptions(durableActivities.Execute, activity.RegisterOptions{Name: gateway.DurableOperationActivity})
+	if err := durableWorker.Start(); err != nil {
+		return safeStartupError(redactor, "start durable operation worker", err)
+	}
+	defer durableWorker.Stop()
 	identity, err := auth.NewService(auth.Config{
 		Store: store, SessionTTL: config.sessionTTL,
 		StaticToken: config.staticToken, StaticTokenOwnerID: config.staticTokenOwnerID,
@@ -188,6 +209,7 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 	accepting.Store(true)
 	api, err := httpapi.New(httpapi.Config{
 		Auth: identity, Resources: resourceService, Runs: runService, MaxRunDuration: config.maxRunDuration,
+		DurableOperations: durableOperations, InternalServiceKeys: config.internalServiceKeys,
 		Telemetry: gatewayTelemetry, Logger: logger,
 		Readiness: []httpapi.ReadinessCheck{
 			func(context.Context) error {

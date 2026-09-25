@@ -22,6 +22,8 @@ import (
 	"github.com/prls-co/harden-llm/internal/profiles"
 )
 
+var expectedMigrationVersions = []int64{1, 2, 3, 4, 5, 6, 7, 8, 9}
+
 func TestRepositoryContract(t *testing.T) {
 	_, dsn := integrationtest.PostgresLease(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -55,7 +57,7 @@ func TestRepositoryContract(t *testing.T) {
 	}
 	store := stores[0]
 	versions, err := store.AppliedMigrations(ctx)
-	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7, 8}) {
+	if err != nil || !reflect.DeepEqual(versions, expectedMigrationVersions) {
 		t.Fatalf("migration versions = %v, %v", versions, err)
 	}
 	if err := store.Ready(ctx); err != nil {
@@ -503,7 +505,7 @@ func TestRecoveryMigration(t *testing.T) {
 		}
 	}
 	versions, err := store.AppliedMigrations(ctx)
-	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7, 8}) {
+	if err != nil || !reflect.DeepEqual(versions, expectedMigrationVersions) {
 		t.Fatalf("migration versions = %v, %v", versions, err)
 	}
 	if after := recoverySnapshot(t, ctx, store, true); !reflect.DeepEqual(before, after) {
@@ -728,7 +730,7 @@ func TestRecoveryIntegrityStorage(t *testing.T) {
 		t.Fatalf("cache columns = %v, want %v", columns, wantedColumns)
 	}
 	versions, err := store.AppliedMigrations(ctx)
-	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7, 8}) {
+	if err != nil || !reflect.DeepEqual(versions, expectedMigrationVersions) {
 		t.Fatalf("migration versions = %v, %v", versions, err)
 	}
 	if err := store.Ready(ctx); err != nil {

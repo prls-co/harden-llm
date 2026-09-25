@@ -17,6 +17,7 @@ import (
 const (
 	defaultCacheVersion = "operation-v2"
 	persistenceTimeout  = 5 * time.Second
+	maximumDurableRunMS = 2 * 60 * 60 * 1000
 )
 
 type RunInput struct {
@@ -141,6 +142,17 @@ func NewRunService(config RunServiceConfig) (*RunService, error) {
 }
 
 func (service *RunService) Run(ctx context.Context, ownerID string, input RunInput) (output RunOutput, state RunState, err error) {
+	return service.run(ctx, ownerID, input, "")
+}
+
+// RunWithID executes one provider operation under a caller-owned durable run
+// identity. Durable Harden workflows use this entry point so an activity retry
+// reconciles the same persisted execution instead of allocating another run.
+func (service *RunService) RunWithID(ctx context.Context, ownerID string, input RunInput, runID string) (output RunOutput, state RunState, err error) {
+	return service.run(ctx, ownerID, input, runID)
+}
+
+func (service *RunService) run(ctx context.Context, ownerID string, input RunInput, requestedRunID string) (output RunOutput, state RunState, err error) {
 	if err := validateRunInput(input); err != nil {
 		return RunOutput{}, RunState{}, err
 	}
@@ -150,9 +162,17 @@ func (service *RunService) Run(ctx context.Context, ownerID string, input RunInp
 	if input.CacheMode == "" {
 		input.CacheMode = hardenllm.CacheModeOff
 	}
-	runID, err := service.newID()
-	if err != nil {
-		return RunOutput{}, RunState{}, errors.New("gateway: generate run ID")
+	runID := strings.TrimSpace(requestedRunID)
+	if runID == "" {
+		runID, err = service.newID()
+		if err != nil {
+			return RunOutput{}, RunState{}, errors.New("gateway: generate run ID")
+		}
+	}
+	if strings.TrimSpace(runID) != runID || len(runID) > 128 || strings.IndexFunc(runID, func(value rune) bool {
+		return !(value >= 'a' && value <= 'z') && !(value >= 'A' && value <= 'Z') && !(value >= '0' && value <= '9') && value != '_' && value != '-' && value != '.'
+	}) >= 0 {
+		return RunOutput{}, RunState{}, errors.New("gateway: requested run ID is invalid")
 	}
 	catalog, credentials, err := service.profiles.RuntimeProfiles(ctx, ownerID)
 	if err != nil {
@@ -451,7 +471,7 @@ func validateRunInput(input RunInput) error {
 	if input.CacheMode != "" && input.CacheMode != hardenllm.CacheModeOff && input.CacheMode != hardenllm.CacheModeCache && input.CacheMode != hardenllm.CacheModeRefresh {
 		return fmt.Errorf("%w: cache mode", ErrInvalidRequest)
 	}
-	if len(input.CacheVersion) > 64 || input.TimeoutMS < 0 || input.TimeoutMS > 60000 {
+	if len(input.CacheVersion) > 64 || input.TimeoutMS < 0 || input.TimeoutMS > maximumDurableRunMS {
 		return fmt.Errorf("%w: run controls", ErrInvalidRequest)
 	}
 	if err := validateOrigin(input.Origin); err != nil {

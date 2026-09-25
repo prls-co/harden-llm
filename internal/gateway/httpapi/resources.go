@@ -329,6 +329,90 @@ func (api *API) run(writer http.ResponseWriter, request *http.Request) {
 	writeSuccess(writer, http.StatusOK, result, state)
 }
 
+func (api *API) submitDurableOperation(writer http.ResponseWriter, request *http.Request) {
+	if !api.authenticateInternal(writer, request) {
+		return
+	}
+	if api.durableOperations == nil {
+		writeError(writer, http.StatusServiceUnavailable, "durable_operations_unavailable", "Durable Harden operations are not configured.")
+		return
+	}
+	var input gateway.DurableOperationInput
+	if failure := decodeJSON(writer, request, maximumRunBodyBytes, &input); failure != nil {
+		writeFailure(writer, *failure)
+		return
+	}
+	input.ServiceName = strings.TrimSpace(request.Header.Get("X-PRLS-Service"))
+	if input.ServiceName == "" {
+		writeError(writer, http.StatusUnauthorized, "unauthenticated", "A service audience is required.")
+		return
+	}
+	view, err := api.durableOperations.Submit(request.Context(), input)
+	if err != nil {
+		api.writeDurableOperationError(writer, err)
+		return
+	}
+	writeJSON(writer, http.StatusAccepted, view)
+}
+
+func (api *API) getDurableOperation(writer http.ResponseWriter, request *http.Request) {
+	if !api.authenticateInternal(writer, request) {
+		return
+	}
+	if api.durableOperations == nil {
+		writeError(writer, http.StatusServiceUnavailable, "durable_operations_unavailable", "Durable Harden operations are not configured.")
+		return
+	}
+	accountID := strings.TrimSpace(request.Header.Get("X-PRLS-Account-ID"))
+	serviceName := strings.TrimSpace(request.Header.Get("X-PRLS-Service"))
+	view, err := api.durableOperations.Get(request.Context(), accountID, serviceName, chi.URLParam(request, "operationID"))
+	if err != nil {
+		api.writeDurableOperationError(writer, err)
+		return
+	}
+	writeJSON(writer, http.StatusOK, view)
+}
+
+func (api *API) cancelDurableOperation(writer http.ResponseWriter, request *http.Request) {
+	if !api.authenticateInternal(writer, request) {
+		return
+	}
+	if api.durableOperations == nil {
+		writeError(writer, http.StatusServiceUnavailable, "durable_operations_unavailable", "Durable Harden operations are not configured.")
+		return
+	}
+	view, err := api.durableOperations.Cancel(request.Context(), strings.TrimSpace(request.Header.Get("X-PRLS-Account-ID")), strings.TrimSpace(request.Header.Get("X-PRLS-Service")), chi.URLParam(request, "operationID"))
+	if err != nil {
+		api.writeDurableOperationError(writer, err)
+		return
+	}
+	writeJSON(writer, http.StatusOK, view)
+}
+
+func (api *API) authenticateInternal(writer http.ResponseWriter, request *http.Request) bool {
+	service := strings.TrimSpace(request.Header.Get("X-PRLS-Service"))
+	expected := api.internalServiceKeys[service]
+	provided := strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")
+	if expected == "" || provided == "" || provided != expected || strings.TrimSpace(request.Header.Get("X-PRLS-Account-ID")) == "" {
+		writeError(writer, http.StatusUnauthorized, "unauthenticated", "Service authentication is required.")
+		return false
+	}
+	return true
+}
+
+func (api *API) writeDurableOperationError(writer http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, postgres.ErrDurableOperationConflict):
+		writeError(writer, http.StatusConflict, "operation_identity_conflict", "The operation ID is already bound to different input.")
+	case errors.Is(err, postgres.ErrNotFound):
+		writeError(writer, http.StatusNotFound, "not_found", "The durable operation was not found.")
+	case errors.Is(err, gateway.ErrInvalidRequest):
+		writeError(writer, http.StatusUnprocessableEntity, "invalid_request", "The durable operation request is invalid.")
+	default:
+		writeError(writer, http.StatusServiceUnavailable, "durable_operation_unavailable", "The durable operation could not be completed.")
+	}
+}
+
 type runOutcome struct {
 	result gateway.RunOutput
 	state  gateway.RunState

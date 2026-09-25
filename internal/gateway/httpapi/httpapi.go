@@ -37,27 +37,31 @@ type IdentityService interface {
 }
 
 type Config struct {
-	Auth             IdentityService
-	Readiness        []ReadinessCheck
-	Resources        *gateway.ResourceService
-	Runs             *gateway.RunService
-	MaxRunDuration   time.Duration
-	OperationTimeout time.Duration
-	Telemetry        *gateway.Telemetry
-	Logger           *slog.Logger
+	Auth                IdentityService
+	Readiness           []ReadinessCheck
+	Resources           *gateway.ResourceService
+	Runs                *gateway.RunService
+	DurableOperations   *gateway.DurableOperationService
+	InternalServiceKeys map[string]string
+	MaxRunDuration      time.Duration
+	OperationTimeout    time.Duration
+	Telemetry           *gateway.Telemetry
+	Logger              *slog.Logger
 }
 
 type API struct {
-	auth             IdentityService
-	readiness        []ReadinessCheck
-	resources        *gateway.ResourceService
-	runs             *gateway.RunService
-	maxRunDuration   time.Duration
-	operationTimeout time.Duration
-	telemetry        *gateway.Telemetry
-	propagator       propagation.TextMapPropagator
-	logger           *slog.Logger
-	handler          http.Handler
+	auth                IdentityService
+	readiness           []ReadinessCheck
+	resources           *gateway.ResourceService
+	runs                *gateway.RunService
+	durableOperations   *gateway.DurableOperationService
+	internalServiceKeys map[string]string
+	maxRunDuration      time.Duration
+	operationTimeout    time.Duration
+	telemetry           *gateway.Telemetry
+	propagator          propagation.TextMapPropagator
+	logger              *slog.Logger
+	handler             http.Handler
 }
 
 type Error struct {
@@ -108,6 +112,7 @@ func New(config Config) (*API, error) {
 	api := &API{
 		auth: config.Auth, readiness: append([]ReadinessCheck(nil), config.Readiness...),
 		resources: config.Resources, runs: config.Runs, maxRunDuration: config.MaxRunDuration,
+		durableOperations: config.DurableOperations, internalServiceKeys: cloneServiceKeys(config.InternalServiceKeys),
 		operationTimeout: config.OperationTimeout,
 		telemetry:        config.Telemetry,
 		propagator:       propagation.TraceContext{},
@@ -243,9 +248,23 @@ func (api *API) operationHandler(operationID string) http.HandlerFunc {
 		return api.getArtifact
 	case "run":
 		return api.run
+	case "submitDurableOperation":
+		return api.submitDurableOperation
+	case "getDurableOperation":
+		return api.getDurableOperation
+	case "cancelDurableOperation":
+		return api.cancelDurableOperation
 	default:
 		return api.notImplemented
 	}
+}
+
+func cloneServiceKeys(values map[string]string) map[string]string {
+	result := make(map[string]string, len(values))
+	for key, value := range values {
+		result[key] = value
+	}
+	return result
 }
 
 func (api *API) responsePolicy(next http.Handler) http.Handler {

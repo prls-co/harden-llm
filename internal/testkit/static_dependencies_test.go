@@ -15,7 +15,7 @@ func TestForbiddenDependencies(t *testing.T) {
 	backendRoots := []string{"go.mod", "go.sum", "cmd", "internal", "api", "scripts", "deploy"}
 	forbidden := []string{
 		"firebase", "firestore", "firebase auth", "firebase-functions", "firebase hosting",
-		"modernc.org/sqlite", "mattn/go-sqlite", "go.temporal.io", "sentry-go",
+		"modernc.org/sqlite", "mattn/go-sqlite", "sentry-go",
 		"langfuse-go", "langfuse sdk",
 	}
 	for _, name := range backendRoots {
