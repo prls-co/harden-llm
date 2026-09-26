@@ -18,7 +18,10 @@ services:
     init: true
     restart: unless-stopped
     networks:
-      - harden-private
+      harden-private: {}
+      prls-observability:
+        aliases:
+          - hllm-prod-web
     security_opt:
       - no-new-privileges:true
     read_only: true
