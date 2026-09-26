@@ -14,24 +14,12 @@
   "observabilityEnvFile": "/home/operator/.config/prls-agent-platform/observability/live.env",
   "sharedApplicationEnvFile": "/srv/harden-llm/.env",
   "requiredVariables": [
-    "PRLS_ALLURE_HOST",
-    "PRLS_TESTS_BASIC_AUTH_USER",
-    "PRLS_TESTS_BASIC_AUTH_HASH",
     "PRLS_LAMINAR_PROJECT_API_KEY",
     "PRLS_LOKI_S3_ACCESS_KEY",
     "PRLS_LOKI_S3_SECRET_KEY",
     "HARDEN_LLM_RELEASE"
   ],
   "services": {
-    "caddy": {
-      "container": "harden-llm-caddy-1",
-      "expectedImage": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-      "manageable": true,
-      "identityEnvironment": {},
-      "ignoredEnvironmentKeys": [],
-      "allowedDifferenceFields": ["environment"],
-      "compareMountContents": true
-    },
     "harden-llm-gateway": {
       "container": "harden-llm-harden-llm-gateway-1",
       "expectedImage": "sha256:0000000000000000000000000000000000000000000000000000000000000000",

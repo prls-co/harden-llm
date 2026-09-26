@@ -1108,7 +1108,7 @@ Plan-and-Solve subtasks:
   - Verification link: TEST-034.
   - Verification mode: VERIFY
   - Command/procedure: `go test ./internal/smoke/... -tags=compose -run TestComposeSmoke -count=1`.
-  - Expected result: All fifteen services become healthy and one fake run correlates across Postgres, Garage, telemetry backends, and Langfuse without crossing object-store credentials or endpoints.
+  - Expected result: The effective backend smoke stack has seventeen services (thirteen production HLLM services plus test-only Caddy, Garage, fake provider, and Collector state initializer); one fake run correlates across Postgres, Garage, telemetry backends, and Langfuse without crossing object-store credentials or endpoints.
   - Evidence produced: final smoke correlation and readiness evidence.
   - Stop/escalate condition: Stop on any missing or duplicate diagnostic record, unavailable artifact, or Garage/MinIO ownership violation.
   - Unlocks: P07.S06.
@@ -1410,7 +1410,6 @@ Privacy and data-quality constraints:
   - `HARDEN_LLM_API_HOST`
   - `HARDEN_LLM_GRAFANA_HOST`
   - `HARDEN_LLM_LANGFUSE_HOST`
-  - `HARDEN_LLM_ARTIFACT_HOST`
   - `HARDEN_LLM_ARTIFACT_ENDPOINT`
   - `HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT`
   - `HARDEN_LLM_ARTIFACT_BUCKET`

@@ -33,7 +33,7 @@ func TestPRLSComposeSharedOwner(t *testing.T) {
 
 	services := objectField(t, config, "services")
 	wantServices := []string{
-		"caddy", "grafana", "harden-llm-gateway", "harden-postgres",
+		"grafana", "harden-llm-gateway", "harden-postgres",
 		"loki", "otel-collector", "otel-collector-state-init", "prometheus", "tempo",
 	}
 	if got := sortedKeys(services); !reflect.DeepEqual(got, wantServices) {
@@ -45,7 +45,7 @@ func TestPRLSComposeSharedOwner(t *testing.T) {
 		}
 	}
 
-	sharedServices := []string{"caddy", "grafana", "harden-llm-gateway", "loki", "otel-collector", "prometheus"}
+	sharedServices := []string{"grafana", "harden-llm-gateway", "loki", "otel-collector", "prometheus"}
 	for _, name := range sharedServices {
 		service := asObject(t, services[name], name)
 		if !prlsValueContains(service["networks"], prlsSharedNetwork) {
@@ -55,17 +55,11 @@ func TestPRLSComposeSharedOwner(t *testing.T) {
 	for name, raw := range services {
 		service := asObject(t, raw, name)
 		ports, _ := service["ports"].([]any)
-		if name != "caddy" && len(ports) != 0 {
+		if len(ports) != 0 {
 			t.Errorf("backend service %s publishes host ports: %#v", name, ports)
 		}
 	}
 
-	caddyEnv := prlsEnvironmentMap(t, asObject(t, services["caddy"], "caddy"))
-	for _, key := range []string{"PRLS_ALLURE_HOST", "PRLS_TESTS_BASIC_AUTH_USER", "PRLS_TESTS_BASIC_AUTH_HASH"} {
-		if strings.TrimSpace(caddyEnv[key]) == "" {
-			t.Errorf("Caddy environment omits %s", key)
-		}
-	}
 	collectorEnv := prlsEnvironmentMap(t, asObject(t, services["otel-collector"], "otel-collector"))
 	if strings.TrimSpace(collectorEnv["PRLS_LAMINAR_PROJECT_API_KEY"]) == "" {
 		t.Error("Collector environment omits PRLS_LAMINAR_PROJECT_API_KEY")
@@ -333,7 +327,7 @@ func TestPRLSLokiTenancyAndStorage(t *testing.T) {
 	}
 }
 
-func TestPRLSGrafanaPrometheusAndCaddy(t *testing.T) {
+func TestPRLSGrafanaPrometheusAndObservability(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	for _, name := range []string{"alerting", "plugins"} {
 		path := filepath.Join(root, "deploy", "grafana", "provisioning", name)
@@ -429,54 +423,6 @@ func TestPRLSGrafanaPrometheusAndCaddy(t *testing.T) {
 		t.Errorf("Allure availability alert does not use the Collector HTTP check: %q", expression)
 	}
 
-	caddyPath := filepath.Join(root, "deploy", "caddy", "conf.d", "prls-tests.caddy")
-	caddy, err := os.ReadFile(caddyPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	caddyText := string(caddy)
-	for _, required := range []string{
-		"{$PRLS_ALLURE_HOST}", "tls {$HARDEN_LLM_TLS_MODE}", "basic_auth",
-		"{$PRLS_TESTS_BASIC_AUTH_USER}", "{$PRLS_TESTS_BASIC_AUTH_HASH}",
-		"@allure_ci_reports path /api/reports/*", "handle @allure_ci_reports",
-		"reverse_proxy allure:3000", "import security_headers",
-	} {
-		if !strings.Contains(caddyText, required) {
-			t.Errorf("authenticated PRLS Caddy include omits %q", required)
-		}
-	}
-	for _, forbidden := range []string{"file_server", "root *", "garage:3901", "garage:3903", "password "} {
-		if strings.Contains(strings.ToLower(caddyText), forbidden) {
-			t.Errorf("PRLS Caddy include contains forbidden directive %q", forbidden)
-		}
-	}
-	if strings.Contains(caddyText, "path /api/*") {
-		t.Error("PRLS Caddy include exposes a broader Allure API route than report writes")
-	}
-	if strings.Count(caddyText, "basic_auth") != 1 || strings.Count(caddyText, "handle {") != 1 {
-		t.Error("PRLS Caddy include must retain one Basic-authenticated UI/history fallback")
-	}
-
-	agentCaddyPath := filepath.Join(root, "deploy", "caddy", "conf.d", "prls-agents.caddy")
-	agentCaddy, err := os.ReadFile(agentCaddyPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	agentCaddyText := string(agentCaddy)
-	for _, required := range []string{
-		"platform.prls.co", "reverse_proxy platform-web:4000",
-		"masked-recall-api.prls.co", "reverse_proxy prls-agent-platform-shared-masked-recall-api-1:8080",
-		"product-opportunity-api.prls.co", "reverse_proxy product-opportunity-api:8080",
-		"synthetic-product-dataset-api.prls.co", "reverse_proxy synthetic-product-dataset-api:8080",
-		"import security_headers", "tls {$HARDEN_LLM_TLS_MODE}",
-	} {
-		if !strings.Contains(agentCaddyText, required) {
-			t.Errorf("agent Caddy include omits %q", required)
-		}
-	}
-	if strings.Contains(agentCaddyText, "basic_auth") || strings.Contains(agentCaddyText, "file_server") {
-		t.Error("agent Caddy include must only proxy the authenticated upstreams")
-	}
 }
 
 func prlsEnvironmentMap(t *testing.T, service map[string]any) map[string]string {

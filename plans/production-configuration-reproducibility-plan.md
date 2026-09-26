@@ -25,6 +25,19 @@ does not require an application rebuild or an artificial deployment.
 This document records the implementation plan only. Creating it changes no
 private configuration, production service, credential, image, or data.
 
+
+### Current ownership note (2026-09-26)
+
+This completed plan records the environment contract as it existed on 2026-09-17.
+The shared-Caddy transition removes `PRLS_ALLURE_HOST`,
+`PRLS_TESTS_BASIC_AUTH_USER`, and `PRLS_TESTS_BASIC_AUTH_HASH` from HLLM
+production inputs because those routes and authentication belong to
+`prls-co/caddy-shared`. The retained Laminar and Loki inputs remain HLLM or
+shared-observability configuration as documented. Do not treat the historical
+six-variable inventory below as the current HLLM required-variable list. The
+cutover and its runtime acceptance are tracked in
+[`shared-caddy-adoption-plan.md`](shared-caddy-adoption-plan.md).
+
 ## 2. Confirmed findings and corrections to the initial proposal
 
 The read-only review established the following on the reference host. Recheck

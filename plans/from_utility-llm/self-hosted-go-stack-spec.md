@@ -21,7 +21,7 @@
 | REST gateway | `cmd/harden-llm-gateway` | Thin HTTP application over the root library for Phoenix LiveView and other non-Go clients. |
 | HTTP routing | Go `net/http` with `chi` | API routes, auth, request decoding, limits, and middleware. |
 | REST contract | OpenAPI 3.1 in `api/openapi.yaml` | Canonical machine-readable paths, schemas, bearer authentication, envelopes, errors, and examples for every non-health endpoint. |
-| Public edge | Caddy | TLS, security headers, request-body limits, and reverse proxy for the API, Grafana, Langfuse, and Harden-LLM artifact hostnames. |
+| Shared public edge | `prls-co/caddy-shared` | TLS, security headers, request-body limits, and reverse proxy for the API, Grafana, Langfuse, and Harden-LLM artifact hostnames. It is deployed independently; HLLM only joins its approved external origin network. |
 | Application database | Postgres | Users, sessions, profiles, encrypted credentials, client state, runs, domain trace records, observations, cache records, stats, and migrations. |
 | Application object storage | Garage | Private Harden-LLM JSON trace artifacts and diagnostic attachments migrated from Firebase Storage. Garage is not a Langfuse dependency. |
 | Langfuse relational database | Upstream default dedicated Postgres service | Langfuse transactional state, credentials, migrations, and lifecycle remain owned by the upstream Langfuse Compose topology. |
@@ -53,7 +53,7 @@
 | Use `slog` JSON as the logging API | DECISION | OTel Go logs remain less mature than traces and metrics. Application code logs once through `slog`; one composed handler writes JSON to stdout and mirrors the same record through a pinned OTel slog bridge to the Collector. |
 | Keep Postgres domain traces distinct from OTel traces | DECISION | Postgres stores the redacted domain record needed by REST clients. Tempo stores operational spans. Langfuse stores a derived LLM diagnostic view. Their ownership and schemas do not overlap. |
 | Publish one frontend-independent REST contract | DECISION | `api/openapi.yaml` and conformance tests are the only backend/frontend contract. The backend does not render HTML, own LiveView state, or import frontend code. |
-| Use Caddy | DECISION | One edge process provides automatic TLS, security headers, and private upstream routing for the API and diagnostic UIs. |
+| Consume the shared Caddy owner | DECISION | One separately deployed edge serves multiple applications. HLLM owns neither its routes nor listener/state lifecycle, so HLLM deployment and cleanup cannot remove the shared ingress process. |
 | Use local bearer auth | DECISION | The gateway owns bootstrap-created email/password users, Argon2id hashes, and opaque hashed server-side sessions. Login returns the opaque token once for `Authorization: Bearer`; the backend does not issue browser cookies or implement browser CSRF. |
 | Enforce outbound endpoint safety | DECISION | Profiles can contain provider base URLs. The gateway must prevent SSRF, metadata-service access, unsafe redirects, DNS rebinding, and credential forwarding to unintended hosts. |
 | Do not add request idempotency infrastructure in v1 | DECISION | The initial gateway executes synchronous calls without a distributed idempotency ledger or run queue. The API documents that clients must not automatically retry an ambiguous `/api/v1/run` response. |
@@ -142,7 +142,6 @@ The following tree is the backend-owned build and release scope. The separately 
 │   │   └── phoenix-liveview-frontend-spec.md
 │   └── implementation-status.json
 ├── deploy/
-│   ├── caddy/
 │   ├── otel/
 │   ├── prometheus/
 │   ├── loki/
@@ -371,29 +370,25 @@ The same endpoint-security implementation is used by profile probes, model refre
 - Apply connection, TLS-handshake, response-header, and overall call deadlines through the shared provider HTTP client.
 - Emit only normalized host metadata; never log query strings, userinfo, credentials, or raw authorization headers.
 
-## 9. Reverse proxy contract
+## 9. Shared ingress integration
 
-Caddy is the only service publishing host ports by default.
+Production public ingress is owned by `prls-co/caddy-shared`, outside this repository and Compose project. HLLM exposes no host ports and does not own Caddy routes, TLS state, listeners, or route source files. Shared route policy and public behavior are tested in the shared owner repository.
 
-Canonical hostnames:
+HLLM application configuration supplies its API, Grafana, and Langfuse hostnames for generated links and upstream URLs. The shared ingress owner configures matching public routes independently. The artifact hostname is the origin in `HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT`; HLLM does not define a separate `HARDEN_LLM_ARTIFACT_HOST` setting. Shared routes are:
 
-- `HARDEN_LLM_API_HOST`: `/api/v1`, `/healthz`, and `/readyz`.
-- `HARDEN_LLM_GRAFANA_HOST`: Grafana UI.
-- `HARDEN_LLM_LANGFUSE_HOST`: Langfuse UI and internal browser-facing API.
-- `HARDEN_LLM_ARTIFACT_HOST`: TLS endpoint for short-lived presigned Garage artifact reads; Garage administration endpoints are not routed.
+- API hostname: `/api/v1`, `/healthz`, and `/readyz` to the gateway.
+- Grafana hostname: Grafana UI.
+- Langfuse hostname: Langfuse UI and internal browser-facing API.
+- Artifact hostname: short-lived presigned Garage artifact reads; Garage administration endpoints are not routed.
 
-Caddy must:
+Harden-LLM requirements at this boundary:
 
-- Terminate TLS and persist certificate state in named volumes.
-- Reverse proxy the API hostname to `harden-llm-gateway:8080` without serving HTML or frontend assets.
-- Import trusted route fragments from `/etc/caddy/conf.d/*.caddy`. The base image/configuration supplies no frontend fragment; the separately tested frontend overlay may mount one without replacing backend routes.
-- Reverse proxy Grafana, Langfuse, and the Garage S3 artifact hostname without exposing their container ports on the host.
-- Never expose Garage administration or RPC routes. The backend artifact endpoint remains the authorization boundary for presigned reads.
-- Do not route Harden-LLM artifact requests to MinIO. Langfuse's MinIO service and S3 configuration remain owned by the pinned upstream Langfuse Compose fragment.
-- Apply request-body limits before the gateway.
-- Set CSP, HSTS, `X-Content-Type-Options`, `Referrer-Policy`, and frame restrictions appropriate to each hostname.
-- Preserve WebSocket/streaming behavior required by Grafana or Langfuse.
-- Ignore untrusted incoming forwarded headers unless an explicitly configured upstream proxy is trusted.
+- The gateway, Grafana, Langfuse, and artifact services join only the approved shared private network needed by the shared ingress routes.
+- No HLLM production service publishes a host port.
+- The gateway creates short-lived presigned artifact URLs using `HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT`; this origin must match the shared owner's artifact route.
+- Garage administration/RPC endpoints remain unrouted; only the S3 artifact endpoint is reachable through the shared route. The authenticated gateway remains the authorization boundary for presigned reads.
+- Harden-LLM artifacts never route to MinIO. Langfuse's MinIO service and S3 configuration remain owned by the pinned upstream Langfuse Compose fragment.
+- Route TLS, body limits, headers, forwarded-client handling, and WebSocket behavior are owned and tested by `caddy-shared`, not duplicated here.
 
 ## 10. Postgres application data contract
 
@@ -474,7 +469,7 @@ Rules:
   objects, and never performs blind deletion.
 - Reads authorize the Postgres owner/trace relationship before requesting a presigned Garage URL. URLs expire in at most five minutes and are not stored.
 - Garage timeouts and failures are bounded. Artifact persistence failure cannot change a completed provider result, cache result, or normalized usage/cost; it creates a redacted persistence-failure observation and metric.
-- Garage S3 and administration credentials are different. Only the S3 API is reachable through Caddy, and only the gateway receives bucket credentials.
+- Garage S3 and administration credentials are different. Only the S3 API is reachable through the shared Caddy owner, and only the gateway receives bucket credentials.
 
 ## 11. Observability and diagnostics contract
 
@@ -524,7 +519,7 @@ Rules:
 
 ## 12. Security contract
 
-- Public traffic reaches only Caddy over HTTPS.
+- Public traffic reaches the shared Caddy owner over HTTPS.
 - Internal service ports have no host bindings by default.
 - Passwords use fixed documented Argon2id parameters.
 - Session values are opaque random bearer tokens returned only at login; only SHA-256 token digests are stored.
@@ -536,7 +531,7 @@ Rules:
 - Garage and MinIO use separate buckets, credentials, endpoints, and owners. Harden-LLM receives no Langfuse MinIO credentials, and Langfuse receives no Garage credentials.
 - Provider endpoint safety follows Section 8.
 - Request sizes are bounded for prompts, schemas, provider options, headers, state, and bundle imports.
-- Diagnostic UIs retain their own authentication and are reached only through Caddy.
+- Diagnostic UIs retain their own authentication and are reached through the separately owned shared ingress.
 
 ## 13. Deployment topology
 
@@ -544,11 +539,12 @@ Rules:
 internet
   |
   v
-caddy :80/:443
+caddy-shared (separate repository and Compose project)
   |-- api host      -> harden-llm-gateway:8080
   |-- grafana host  -> grafana:3000
   |-- langfuse host -> langfuse-web:3000
-  `-- artifact host -> garage-shared:3900 S3 API only on external `prls-observability`
+  `-- artifact host -> garage-shared:3900 S3 API only
+       `-- shared external network: `prls-observability`
 
 harden-llm-gateway
   |-- harden-postgres:5432 / harden_llm database
@@ -577,9 +573,8 @@ The pinned `deploy/langfuse/docker-compose.upstream.yml` is copied byte-for-byte
 
 Required Compose services:
 
-The production Compose topology contains fourteen services: eight Harden-LLM/observability services and the six services in the pinned upstream Langfuse fragment. The backend runtime has one additional external dependency, `garage-shared`, which is managed in a separate repository and joins the external `prls-observability` network.
+The production Compose topology contains thirteen HLLM-owned services: seven gateway/observability services and the six services in the pinned upstream Langfuse fragment. The runtime also consumes two separately owned shared services: `garage-shared` for application artifacts and `caddy-shared` for public ingress. Both connect through the external `prls-observability` network; neither is declared by HLLM Compose.
 
-- `caddy`
 - `harden-llm-gateway`
 - `harden-postgres`
 - `otel-collector`
@@ -596,7 +591,7 @@ The production Compose topology contains fourteen services: eight Harden-LLM/obs
 
 `deploy/test/compose.smoke.yml` adds a project-owned Garage fixture and one private `fake-provider` service only for TEST-034. The Garage fixture uses the production DNS name `garage-shared` on a unique non-external smoke network. Neither service is included in the production Compose file or publishes a host port; the fake provider is the sole private endpoint entry in the smoke gateway allowlist.
 
-Harden-LLM production named volumes are required for Caddy state, Harden-LLM Postgres, Prometheus, Loki, Tempo, Grafana, and every volume in the pinned upstream Langfuse Compose fragment. The separate `garage-shared` project retains the existing Garage metadata/data volumes. Harden-LLM-owned images use explicit release tags or digests and never `latest`. The upstream Langfuse fragment is pinned by release commit and content hash; its dependency image selections are preserved rather than locally substituted.
+Harden-LLM production named volumes are required for Harden-LLM Postgres, Prometheus, Loki, Tempo, Grafana, and every volume in the pinned upstream Langfuse Compose fragment. The separate `caddy-shared` project owns Caddy state; the separate `garage-shared` project owns Garage metadata/data volumes. Harden-LLM-owned images use explicit release tags or digests and never `latest`. The upstream Langfuse fragment is pinned by release commit and content hash; its dependency image selections are preserved rather than locally substituted.
 
 Fresh v1 Garage fixtures use the pinned `dxflrs/garage:v2.3.0` image and Garage's supported `/garage server --single-node --default-bucket` startup path. Compose maps the existing Harden-LLM artifact key, secret, and bucket values to `GARAGE_DEFAULT_ACCESS_KEY`, `GARAGE_DEFAULT_SECRET_KEY`, and `GARAGE_DEFAULT_BUCKET`; the gateway receives the same bucket-scoped values under the `HARDEN_LLM_ARTIFACT_*` names. Metadata and object data use persistent named volumes. No custom layout script, bootstrap container, or application-held Garage administration credential is required for v1.
 
@@ -621,9 +616,9 @@ Application variables:
 | `HARDEN_LLM_API_HOST` | Public REST API hostname. |
 | `HARDEN_LLM_GRAFANA_HOST` | Public Grafana hostname. |
 | `HARDEN_LLM_LANGFUSE_HOST` | Public Langfuse hostname. |
-| `HARDEN_LLM_ARTIFACT_HOST` | Public TLS hostname used by short-lived Garage presigned artifact URLs. |
+| `HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT` | Public HTTPS origin used by short-lived Garage presigned artifact URLs; it must match the artifact route configured in `caddy-shared`. |
 | `HARDEN_LLM_ARTIFACT_ENDPOINT` | Private Garage S3 endpoint used by the gateway. |
-| `HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT` | Caddy Garage S3 endpoint used when generating client-reachable presigned URLs. |
+
 | `HARDEN_LLM_ARTIFACT_BUCKET` | Private Garage bucket for Harden-LLM trace artifacts and diagnostic attachments. |
 | `HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID` | Garage key ID scoped to the Harden-LLM artifact bucket. |
 | `HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY` | Garage secret supplied only to the gateway. |
@@ -641,7 +636,7 @@ Application variables:
 | `HARDEN_LLM_PROVIDER_ALLOWED_HOSTS` | Optional restriction for public provider hosts. |
 | `HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST` | Exact private hosts/CIDRs allowed by the administrator. |
 
-Deployment configuration also supplies separate generated secrets for the application DB role, Garage RPC/admin/bucket access, Langfuse upstream Postgres, Langfuse auth/encryption, ClickHouse, Redis, MinIO, Grafana, and Caddy hostnames. Langfuse headless initialization uses its supported environment variables to create one initial user, organization, project, public key, and secret key; the Collector receives those project keys only through its deployment environment. `.env.example` contains names and safe examples only. Production startup rejects documented default secret values without changing the Langfuse-owned service graph.
+Deployment configuration also supplies separate generated secrets for the application DB role, Garage RPC/admin/bucket access, Langfuse upstream Postgres, Langfuse auth/encryption, ClickHouse, Redis, MinIO, and Grafana. Public route hostnames and TLS configuration belong to `caddy-shared`. Langfuse headless initialization uses its supported environment variables to create one initial user, organization, project, public key, and secret key; the Collector receives those project keys only through its deployment environment. `.env.example` contains names and safe examples only. Production startup rejects documented default secret values without changing the Langfuse-owned service graph.
 
 ## 15. Temporal boundary
 
@@ -676,7 +671,7 @@ Minimum v1 verification:
 - Static backend scans proving there is no Firebase, React/Vite, Phoenix/LiveView, HTML-template, or frontend-asset implementation path.
 - OTel trace/metric, `slog` correlation, Collector fanout, telemetry-outage, and bounded-shutdown tests.
 - Garage integration tests for canonical redacted bytes, object metadata, short-lived presigning, owner-scoped Postgres references, and non-fatal storage failure behavior.
-- Compose artifact and smoke tests for the fourteen production-owned services, external shared Garage contract, isolated Garage fixture, and strict MinIO/Langfuse versus Garage/Harden-LLM client ownership boundary.
+- Compose artifact and smoke tests for the thirteen production-owned HLLM services, shared Caddy and Garage contracts, isolated Caddy/Garage test fixtures, and strict MinIO/Langfuse versus Garage/Harden-LLM client ownership boundary.
 - Static scans for duplicate implementation paths, direct Langfuse exporters, Firebase, application SQLite, Sentry, Temporal, application MinIO use, and Langfuse Garage substitution.
 - `go test -race` for deterministic unit and Postgres/gateway integration suites.
 - `go vet`, formatting, build, and vulnerability checks.
@@ -690,7 +685,7 @@ Minimum v1 verification:
 - Execution API: one `Client.Call` method returning one detailed `Result`.
 - Application database: dedicated Harden-LLM Postgres only; Garage's internal SQLite metadata engine is not an application database contract.
 - Harden-LLM object storage: Garage for redacted JSON trace artifacts and diagnostic attachments, indexed by Postgres.
-- Reverse proxy: Caddy.
+- Shared public ingress: `prls-co/caddy-shared`.
 - General diagnostics: OTel Collector, Prometheus, Loki, Tempo, and Grafana.
 - LLM diagnostics: required self-hosted Langfuse OSS.
 - Langfuse dependencies: the pinned upstream default services, including its own Postgres, Redis, ClickHouse, and MinIO. Harden-LLM does not substitute, share, or migrate them.

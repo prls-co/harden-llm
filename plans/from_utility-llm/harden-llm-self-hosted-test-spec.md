@@ -22,7 +22,7 @@
 - JS-to-Go parity is tested in the phase that ports each behavior. Final parity is an aggregate gate, not the first parity check.
 - Provider tests use local `httptest` servers. Public internet and provider credentials are allowed only under the `live` build tag.
 - Postgres and Garage tests use isolated projects and never reuse developer data.
-- Compose tests use pinned Harden-LLM images, a release/SHA/hash-pinned upstream Langfuse Compose fragment, and an integration overlay that leaves only Caddy externally reachable.
+- Compose tests use pinned Harden-LLM images, a release/SHA/hash-pinned upstream Langfuse Compose fragment, and explicit loopback-bound test Caddy; production HLLM services publish no host ports.
 - Langfuse is required in the Compose smoke and retains its upstream default Postgres, Redis, ClickHouse, and MinIO services.
 - Garage is required only for Harden-LLM-owned trace artifacts and diagnostic attachments migrated from Firebase Storage. Harden-LLM never uses Langfuse's MinIO.
 - Application code emits no direct Langfuse request. Collector fanout is the only Langfuse ingestion path.
@@ -158,7 +158,7 @@ runtime contract or the meaning of `make verify`.
 
 - Target: `internal/testkit/static_dependencies_test.go`
 - Command: `go test ./internal/testkit/... -run TestForbiddenDependencies -count=1`
-- Setup: backend-owned source and test paths, `go.mod`, backend build manifests, base Compose config, and base Caddy config. `frontend/` and `deploy/frontend/` are owned by the separate frontend specification and are excluded from content scans.
+- Setup: backend-owned source and test paths, `go.mod`, backend build manifests, and base Compose config. Shared public route policy is owned by `prls-co/caddy-shared`. `frontend/` and `deploy/frontend/` are owned by the separate frontend specification and are excluded from content scans.
 - Assertions:
   - Backend production/test/deploy code contains no Firebase, Firestore, Firebase Auth, Functions, Hosting, or Storage dependency.
   - Backend code contains no Phoenix, LiveView, React, Vite, HTML-template, browser-session, or frontend-asset implementation.
@@ -540,12 +540,12 @@ runtime contract or the meaning of `make verify`.
 
 - Target: `internal/testkit/firebase_frontend_absence_test.go`
 - Command: `go test ./internal/testkit/... -run TestFirebaseFrontendAbsent -count=1`
-- Setup: root Go files, `cmd/`, `internal/`, `api/`, backend fixture/scripts, `go.mod`, the backend `Makefile` gates, base deployment files, and base Compose/Caddy manifests. Planning documents, `frontend/`, and `deploy/frontend/` are excluded from literal-name scans.
+- Setup: root Go files, `cmd/`, `internal/`, `api/`, backend fixture/scripts, `go.mod`, the backend `Makefile` gates, base deployment files, and base Compose manifests. Planning documents, `frontend/`, and `deploy/frontend/` are excluded from literal-name scans.
 - Assertions:
   - No backend dependency, import, environment name, configuration, deploy script, server, emulator, or production code calls Firebase Auth, Firestore, Functions, Hosting, or Storage.
   - No backend package contains Phoenix, LiveView, React, Vite, JSX, HEEx, HTML-template, frontend asset, browser-cookie, or browser-CSRF implementation code.
   - Backend tests and release commands do not build or test any frontend application.
-  - The base fourteen-service Compose topology and base Caddy configuration do not depend on or route a frontend service; the optional frontend overlay is tested under the frontend specification.
+  - The thirteen-service production Compose topology contains no Caddy and does not depend on or route a frontend service; the optional frontend overlay is tested under the frontend specification, with explicit test-only Caddy fixtures.
   - Fixture provenance may name the source repository but cannot create a runtime dependency.
 - Pass criteria: the scoped backend dependency/AST/filesystem scan exits zero.
 - Expected runtime: 10 seconds.
@@ -621,45 +621,54 @@ runtime contract or the meaning of `make verify`.
 
 ## 12. Deployment tests
 
-### TEST-033: Compose, Langfuse dependencies, and Caddy artifacts
+### TEST-033: Production Compose ownership and pinned Langfuse dependencies
 
 - Target: `internal/deploytest/compose_caddy_test.go`
-- Command: `go test ./internal/deploytest/... -tags=compose -run TestComposeCaddyContract -count=1`
-- Setup: effective `docker compose config`, Caddyfile, Harden-LLM image manifest, `deploy/langfuse/docker-compose.upstream.yml`, and `deploy/langfuse/UPSTREAM.md` provenance record.
+- Command: `go test -tags=compose ./internal/deploytest/... -run '^TestComposeDeploymentContract$' -count=1`
+- Setup: effective production `docker compose config`, Harden-LLM image manifest, `deploy/langfuse/docker-compose.upstream.yml`, and `deploy/langfuse/UPSTREAM.md` provenance record. Shared ingress routes are owned and tested in `prls-co/caddy-shared`; HLLM production Compose must not define Caddy.
 - Assertions:
-  - All fourteen production-owned services exist: Caddy, gateway, Harden-LLM Postgres, Collector, Prometheus, Loki, Tempo, Grafana, Langfuse web/worker, upstream Langfuse Postgres, ClickHouse, Redis, and MinIO. Garage is managed by `garage-shared` and is not part of this Compose project.
+  - All thirteen HLLM backend services exist: gateway, Harden-LLM Postgres, Collector, Prometheus, Loki, Tempo, Grafana, Langfuse web/worker, upstream Langfuse Postgres, ClickHouse, Redis, and MinIO. Optional Phoenix web is tested through its fixture overlay. Caddy and Garage are separate shared service owners and are not part of this Compose project.
   - `docker-compose.upstream.yml` matches the recorded released Langfuse commit and SHA-256 byte for byte and retains its default Postgres, Redis, ClickHouse, and MinIO dependency graph.
   - The Langfuse integration overlay changes only generated secrets, public URL, shared private network membership, and host-port exposure; it does not replace or share a Langfuse dependency.
   - Named volumes and health checks exist; Harden-LLM-owned image tags/digests are pinned and upstream Langfuse image choices match the pinned fragment.
-  - Production Compose has no Garage service, Garage-owned volume, RPC secret, bootstrap command, or dependency edge. The gateway, Caddy, and Loki join the existing external `prls-observability` network and use `garage-shared:3900` for their Garage clients.
-  - Only Caddy publishes externally reachable host ports in the effective production topology.
-  - Caddy routes API, Grafana, and Langfuse hostnames and applies TLS, body limits, and security headers without serving frontend assets.
-  - The base Caddyfile has one trusted `conf.d` import extension point, no frontend fragment, and no duplicated backend route definitions.
-  - Caddy routes the Garage S3 API on the configured artifact hostname while Garage administration/RPC routes remain private to the shared service owner.
-  - No Phoenix/LiveView or other frontend service is part of the fourteen-service production Compose topology.
+  - Production Compose has no Caddy service, Caddy volumes, Garage service, Garage-owned volume, RPC secret, bootstrap command, or dependency edge. The gateway and Loki join the existing external `prls-observability` network and use `garage-shared:3900` for their Garage clients.
+  - No HLLM-owned service publishes a host port in the effective production topology.
+  - Caddy route/TLS/auth/body-limit policy is tested in the shared owner's TEST-286 and deployed-path TEST-291; this test does not duplicate those route assertions.
+  - The thirteen-service backend model does not include Phoenix/LiveView; the optional web service stays in its dedicated overlay and explicit frontend smoke fixture.
   - Langfuse headless user/organization/project/key initialization supplies the Collector ingestion credentials without a setup step.
   - Harden-LLM uses only the shared Garage endpoint for artifacts; Langfuse uses only its upstream MinIO. Their endpoints, buckets, and credentials do not cross.
   - No Firebase, application SQLite, Sentry, Temporal, or locally substituted Langfuse dependency exists.
-- Pass criteria: parser tests and `docker compose config --quiet` pass.
+- Pass criteria: parser tests and `docker compose config --quiet` pass with thirteen backend services and no edge owner in HLLM production.
 - Expected runtime: 20 seconds.
+
+### TEST-289: HLLM and shared-ingress ownership boundaries
+
+- Type / verifies: static source ownership, isolated fixture retention, and cleanup ownership for the one-shot frontend Caddy validation container; REQ-017 and REQ-019.
+- Location: `internal/deploytest/shared_caddy_test.go`.
+- Command: `go test ./internal/deploytest/... -run '^TestSharedIngressOwnership$' -count=1`.
+- Fixtures/data: HLLM production Compose, image lock, example production descriptor, smoke/preview Compose sources.
+- Deterministic controls: standard Go test tools; no Docker daemon, provider credentials, network or deployed resources.
+- Assertions: production service/volume/image/descriptor selections omit Caddy; shared-edge environment variables are not mandatory HLLM inputs; backend/frontend smoke owns explicit test Caddy and reserved isolated subnets; the disposable frontend-config validation container carries the exact smoke project label so the existing resource receipt can clean it if interrupted; preview retains its separate Caddy.
+- Pass criteria: ownership separation holds, each retained isolated edge fixture has its own reviewed source, and the one-shot validation container is discoverable by exact project cleanup.
+- Expected runtime: 1–15 seconds.
 
 ### TEST-034: full Compose signal and application smoke
 
 - Target: `internal/smoke/compose_smoke_test.go`
 - Command: `go test ./internal/smoke/... -tags=compose -run TestComposeSmoke -count=1`
-- Setup: clean named test project, production Compose plus pinned upstream Langfuse fragment, private integration overlay, and `deploy/test/compose.smoke.yml`; reference hardware; images already available; generated non-production secrets. The smoke overlay owns an isolated Garage fixture with fresh project-scoped volumes and a unique non-external observability network.
+- Setup: clean named test project, production Compose plus pinned upstream Langfuse fragment, private integration overlay, and `deploy/test/compose.smoke.yml`; reference hardware; images already available; generated non-production secrets. The smoke overlay owns an isolated Garage fixture with fresh project-scoped volumes, unique non-external networks, and reserved test-only CIDRs so tests do not consume the host default address pools.
 - Assertions:
-  - All fifteen services in the effective backend smoke stack (fourteen production services plus its isolated Garage fixture) become healthy within 300 seconds.
+  - All seventeen services in the effective backend smoke stack (thirteen HLLM production services plus explicit test-only Caddy, Garage, fake provider, and Collector state initializer) become healthy within 300 seconds.
   - The test-only private `fake-provider` service is reachable only by the gateway and publishes no host port.
-  - API routes through Caddy and gateway readiness reaches Harden-LLM Postgres and Garage.
+  - API routes through the explicit test-only Caddy fixture; gateway readiness reaches Harden-LLM Postgres and the isolated Garage fixture.
   - Login returns an opaque bearer token that authenticates the smoke lifecycle without a browser cookie or CSRF path.
   - One fake-provider run creates application state and an available artifact index in Harden-LLM Postgres.
-  - The linked canonical redacted trace artifact is fetched from Garage through an authenticated gateway route and short-lived Caddy artifact-host URL; its SHA-256 and byte length match Postgres.
+  - The linked canonical redacted trace artifact is fetched from the isolated Garage fixture through an authenticated gateway route and short-lived test-Caddy artifact-host URL; its SHA-256 and byte length match Postgres.
   - Its trace reaches Tempo and Langfuse exactly once, metric reaches Prometheus, and correlated log reaches Loki.
   - Langfuse event ingestion succeeds with the unchanged upstream MinIO endpoint and no Garage setting in Langfuse.
   - Grafana datasources are healthy.
   - MinIO is used only by Langfuse, and Harden-LLM artifact traffic resolves to the isolated smoke Garage fixture through the same `garage-shared` service name used in production.
-- Pass criteria: end-to-end correlation IDs are found in every intended backend with zero public non-Caddy ports.
+- Pass criteria: end-to-end correlation IDs are found in every intended backend with only the loopback-bound test Caddy ports published.
 - Expected runtime: 360 seconds.
 
 ## 13. Aggregate and live tests
@@ -678,7 +687,7 @@ runtime contract or the meaning of `make verify`.
 
 ### TEST-036: full deterministic certification
 
-- Target: all backend-owned paths and the base fourteen-service Compose topology; `frontend/` and `deploy/frontend/` are excluded
+- Target: all backend-owned paths and the base thirteen-service Compose topology without Caddy; `frontend/` and `deploy/frontend/` are excluded
 - Command: `make verify`
 - Setup: Go and Node dependencies installed, isolated Harden-LLM Postgres and Garage, pinned Harden-LLM images, and recorded upstream Langfuse fragment/images.
 - Assertions:
@@ -1334,10 +1343,10 @@ synthetic credentials, isolated stores, and a local scripted provider.
 - Type / verifies: unit; REQ-342, REQ-345.
 - Location: `scripts/test/test_resource_lifecycle_test.mjs`.
 - Command: `node --test --test-name-pattern=TEST-272 scripts/test/test_resource_lifecycle_test.mjs`.
-- Fixtures/data: Fake child/process-group controller with partial creation, TERM, crash, hung inventory, and foreign-attachment cases.
-- Deterministic controls: Injected monotonic clock and fake Docker; 5-second per-case deadline; bounded output.
-- Pass criteria: Preserve the first failure; reap owned child before deletion; unknown inventory, failed exact removal, foreign attachment, non-empty final inventory, or receipt persistence failure fail acceptance; delete exact owned IDs only; retain pending evidence. A failed best-effort Compose `down` is reported in `cleanupWarnings` and is non-fatal only when exact fallback cleanup completes, final inventory is empty, and the receipt is durably `cleaned`.
-- Expected runtime: 15 seconds.
+- Fixtures/data: Fake child/process-group controller with partial creation, TERM, crash, hung inventory, foreign-attachment, and asynchronous container-removal cases.
+- Deterministic controls: Scripted fake Docker state transitions, file gates for blocking child cases, bounded cleanup deadline, 5-second process-readiness deadline, and bounded output; no daemon/socket.
+- Pass criteria: Preserve the first failure; reap owned child before deletion; unknown inventory, failed exact removal, foreign attachment, non-empty final inventory, or receipt persistence failure fail acceptance; delete exact owned IDs only; retain pending evidence. When Docker reports that an exact container removal is already in progress, wait within the cleanup deadline and accept only after the exact project inventory confirms that container is gone; otherwise retain pending evidence and fail. A failed best-effort Compose `down` is reported in `cleanupWarnings` and is non-fatal only when exact fallback cleanup completes, final inventory is empty, and the receipt is durably `cleaned`.
+- Expected runtime: 45 seconds.
 
 ### TEST-273: Daemon guard and dead-owner recovery
 

@@ -86,7 +86,7 @@
       "resourceClass": "cpu",
       "command": ["node", "--test", "scripts/test/run_test_tier_test.mjs", "scripts/test/test_resource_lifecycle_test.mjs", "scripts/test/test_resource_measurement_test.mjs"],
       "dependsOn": [],
-      "timeoutMs": 180000,
+      "timeoutMs": 240000,
       "cleanupOwner": "runner",
       "network": "forbidden",
       "credentialKeys": [],
@@ -131,7 +131,8 @@
         "TEST-276",
         "TEST-278",
         "TEST-282",
-        "TEST-284"
+        "TEST-284",
+        "TEST-289"
       ],
       "tier": "T1",
       "resourceClass": "cpu",
@@ -308,6 +309,20 @@
       "requiredFor": ["baseline", "release"],
       "requiresDocker": true,
       "pathSelectors": ["internal/smoke/**", "deploy/test/**", "docker-compose.yml"]
+    },
+    {
+      "id": "go-compose-contract",
+      "testIds": ["TEST-033"],
+      "tier": "T1",
+      "resourceClass": "cpu",
+      "command": ["go", "test", "./internal/deploytest/...", "-tags=compose", "-run", "TestComposeDeploymentContract", "-count=1"],
+      "dependsOn": [],
+      "timeoutMs": 120000,
+      "cleanupOwner": "runner",
+      "network": "forbidden",
+      "credentialKeys": [],
+      "requiredFor": ["release"],
+      "pathSelectors": ["internal/deploytest/compose_caddy_test.go", "docker-compose.yml", "deploy/**", "deploy/images.lock.json", "config/production-config.example.json", "scripts/production-config.mjs", "plans/from_utility-llm/harden-llm-self-hosted-test-spec.md", "test/test-tiers.json"]
     },
     {
       "id": "test-resource-lifecycle-docker",

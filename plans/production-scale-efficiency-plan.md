@@ -1434,3 +1434,35 @@ deployed. It is not an active release step or a requirement to preserve.
   probes, and the read-only artifact inventory. No capacity claim, browser
   check, provider call, data migration, volume operation, or topology change is
   implied by this amendment.
+
+## 15. TEST-272 asynchronous Docker removal follow-up — 2026-09-26
+
+- Failure mechanism: after `docker compose down`, the daemon can still be
+  removing an owned container. The cleanup fallback's immediate `docker rm
+  -f` may then return the specific “removal ... already in progress” response.
+  Treating that transient response as final caused a false cleanup failure and
+  left the receipt pending while the daemon completed its work.
+- Correction: `scripts/run-test-tier.mjs` now polls only the exact Compose
+  project inventory for that container ID. It accepts removal only after the
+  ID disappears; if the deadline expires or inventory fails, cleanup remains
+  failed and attached volumes remain protected. No global resource scan,
+  retry of test assertions, or cleanup-budget extension was added.
+- Regression coverage: canonical TEST-272 now covers both a deterministic
+  in-progress removal that settles and a stuck removal that must remain
+  `cleanup-pending`. The accepted assertion oracle is unchanged. The pinned
+  `make test-fast` run passed all 10 tasks with zero cleanup errors/warnings;
+  report `tmp/test-feedback/runner-1790449170650-3877765-892581245704e455.json`
+  (`runner-contracts` 124.525 s; deterministic frontend 111.982 s).
+- Runner budget note: the `runner-contracts` task deadline changed from 180 s
+  to 240 s after a release run exceeded 180 s while the lifecycle suite was
+  expanded and the shared host was under load. This changes no case timeout,
+  assertion, retry policy, or smoke command. Recheck the measured hosted
+  runtime and restore 180 s if the supported CI runner consistently completes
+  with adequate margin.
+- Separate release risk: a subsequent shared-Caddy release certification
+  reached Compose readiness but its one-shot smoke bootstrap was killed at the
+  existing 45 s deadline during a host-wide OOM event. Kernel evidence names a
+  Chrome process, not the bootstrap process, so the cause is unresolved. The
+  exact smoke project was cleaned; a pre-existing old smoke project was left
+  untouched. See `plans/shared-caddy-adoption-plan.md` for the exact report and
+  hosted rerun gate. Do not infer a production-capacity result from this run.

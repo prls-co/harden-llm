@@ -2,7 +2,6 @@
   "schemaVersion": 1,
   "resolvedAt": "2026-09-01T20:15:00Z",
   "images": {
-    "caddy": "caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
     "harden-llm-gateway": "harden-llm-gateway:0.1.0",
     "harden-postgres": "postgres:17.9-alpine@sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609",
     "otel-collector": "otel/opentelemetry-collector-contrib:0.156.0@sha256:125bdbeb7590cc1952c5b3430ecf14063568980c2c93d5b38676cc0446ed8108",

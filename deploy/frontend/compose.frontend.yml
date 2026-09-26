@@ -1,13 +1,4 @@
 services:
-  caddy:
-    environment:
-      HARDEN_LLM_WEB_HOST: ${HARDEN_LLM_WEB_HOST:?set the web hostname}
-    volumes:
-      - ./deploy/frontend:/etc/caddy/overlays:ro
-    depends_on:
-      harden-llm-web:
-        condition: service_healthy
-
   harden-llm-web:
     image: harden-llm-web:1.0.0
     build:

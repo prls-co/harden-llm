@@ -11,44 +11,6 @@ x-service-defaults: &service-defaults
       max-file: "5"
 
 services:
-  caddy:
-    <<: *service-defaults
-    image: caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
-    environment:
-      HARDEN_LLM_API_HOST: ${HARDEN_LLM_API_HOST:?set the API hostname}
-      HARDEN_LLM_ARTIFACT_HOST: ${HARDEN_LLM_ARTIFACT_HOST:?set the artifact hostname}
-      HARDEN_LLM_GRAFANA_HOST: ${HARDEN_LLM_GRAFANA_HOST:?set the Grafana hostname}
-      HARDEN_LLM_LANGFUSE_HOST: ${HARDEN_LLM_LANGFUSE_HOST:?set the Langfuse hostname}
-      HARDEN_LLM_TLS_MODE: ${HARDEN_LLM_TLS_MODE:-internal}
-      PRLS_ALLURE_HOST: ${PRLS_ALLURE_HOST:?set the Allure hostname}
-      PRLS_TESTS_BASIC_AUTH_USER: ${PRLS_TESTS_BASIC_AUTH_USER:?set the PRLS tests edge user}
-      PRLS_TESTS_BASIC_AUTH_HASH: ${PRLS_TESTS_BASIC_AUTH_HASH:?set the PRLS tests bcrypt hash}
-    depends_on:
-      harden-llm-gateway:
-        condition: service_healthy
-      grafana:
-        condition: service_healthy
-      langfuse-web:
-        condition: service_started
-    ports:
-      - "${HARDEN_LLM_BIND_ADDRESS:-0.0.0.0}:${HARDEN_LLM_HTTP_PORT:-80}:80"
-      - "${HARDEN_LLM_BIND_ADDRESS:-0.0.0.0}:${HARDEN_LLM_HTTPS_PORT:-443}:443"
-    volumes:
-      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./deploy/caddy/conf.d:/etc/caddy/conf.d:ro
-      - caddy-data:/data
-      - caddy-config:/config
-    networks:
-      - harden-private
-      - prls-observability
-    healthcheck:
-      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
-      interval: 15s
-      timeout: 5s
-      retries: 6
-      start_period: 10s
-    stop_grace_period: 15s
-
   harden-llm-gateway:
     <<: *service-defaults
     image: harden-llm-gateway:0.1.0
@@ -267,8 +229,6 @@ networks:
     external: true
 
 volumes:
-  caddy-data:
-  caddy-config:
   harden-postgres-data:
   prometheus-data:
   loki-data:

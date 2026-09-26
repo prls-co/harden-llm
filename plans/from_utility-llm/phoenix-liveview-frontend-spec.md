@@ -65,7 +65,7 @@ Runtime feature dependencies are limited to the Phoenix-generated HTTP/asset pac
 - Paginated history, restore-to-workspace, single deletion, and clear-all with confirmation.
 - Inline execution details and ordered trace observations plus authorized artifact download; no separate Domain trace dialog.
 - Correlated frontend traces and redacted structured logs.
-- An optional Compose overlay and Caddy route for self-hosted deployment.
+- An optional Compose overlay, with public ingress configured in the external shared Caddy owner.
 - Deterministic controller, LiveView, REST-client, security, observability, and real-browser tests.
 
 ### Out of scope
@@ -151,7 +151,6 @@ Boundary rules:
 │   └── README.md
 └── deploy/frontend/
     ├── compose.frontend.yml
-    ├── Caddyfile.frontend
     ├── otel.frontend.yaml
     └── grafana-dashboard.json
 ```
@@ -312,11 +311,11 @@ Contract synchronization:
 
 ## 12. Security contract
 
-- Production traffic reaches Phoenix only through Caddy HTTPS.
+- Production traffic reaches Phoenix through the shared Caddy owner over HTTPS.
 - Phoenix checks the configured public host, trusted proxy boundary, origin, and WebSocket origin.
 - State-changing browser forms and controller actions use Phoenix CSRF protection.
 - The Content Security Policy permits only same-origin scripts/styles/connect/WebSocket plus explicitly configured diagnostic navigation targets; no inline remote scripts or third-party analytics are required.
-- Response headers include HSTS at Caddy, `X-Content-Type-Options: nosniff`, restrictive `Referrer-Policy`, and frame denial.
+- The shared Caddy owner supplies HSTS, `X-Content-Type-Options: nosniff`, restrictive `Referrer-Policy`, and frame denial.
 - Backend access tokens, passwords, provider credentials, bundle contents, artifact URLs, prompt/response bodies, and raw errors are classified as sensitive.
 - Logger and telemetry metadata pass through a frontend redaction allowlist. Arbitrary maps and form params are never attached to logs or spans.
 - Phoenix never accepts an API base URL, diagnostic URL, or artifact origin from a browser parameter.
@@ -336,19 +335,19 @@ Contract synchronization:
 - The frontend Compose overlay mounts that path on a private named volume and mounts it read-only into the existing Collector. `otel.frontend.yaml` adds one `filelog` receiver with a JSON parser, batches records, and exports them through the existing Loki exporter. It does not add another log agent or service.
 - File-handler or Collector failure is reported safely to stderr and cannot fail login, navigation, API calls, or LiveView rendering. Rotation bounds retained local bytes.
 - PromEx exposes a private `/metrics` endpoint for Phoenix request/latency/error, LiveView mount/event/exception, BEAM memory/run-queue/process, token-vault count, and REST-client operation/latency/outcome series. Prometheus labels are limited to bounded route, LiveView module, operation ID, status class, and outcome values.
-- `otel.frontend.yaml` adds a private Collector Prometheus receiver for that endpoint and a separate `metrics/frontend` pipeline using the base processors/exporter that the existing Prometheus service scrapes. The overlay adds a Grafana dashboard band for the frontend. Caddy never routes `/metrics` publicly.
+- `otel.frontend.yaml` adds a private Collector Prometheus receiver for that endpoint and a separate `metrics/frontend` pipeline using the base processors/exporter that the existing Prometheus service scrapes. The overlay adds a Grafana dashboard band for the frontend. The shared Caddy route returns 404 for `/metrics`; that public behavior is checked in the shared owner.
 - Frontend traces export to the existing Collector and Tempo. The Collector must not export `service.name=harden-llm-web` traces to Langfuse.
 - Telemetry export failure cannot fail login, navigation, API calls, or LiveView rendering.
 
 ## 14. Deployment contract
 
-The Harden-LLM Compose project defines fourteen services and depends on the externally managed `garage-shared` service, for fifteen backend runtime services total. The optional frontend overlay adds one service, for sixteen services across the two Compose projects:
+The Harden-LLM backend Compose project defines thirteen services. The optional frontend overlay adds `harden-llm-web` and its one-shot Collector state initializer. Production ingress (`caddy-shared`) and object storage (`garage-shared`) run in separate Compose projects, for fifteen HLLM-owned services and two separately owned shared services in the complete production runtime:
 
 ```text
 internet
   |
   v
-caddy
+caddy-shared (separate repository and Compose project)
   |-- web host -> harden-llm-web:4000
   `-- api host -> harden-llm-gateway:8080
 
@@ -362,12 +361,12 @@ harden-llm-web
 Rules:
 
 - `deploy/frontend/compose.frontend.yml` extends the base Compose project and adds `harden-llm-web`; it does not copy or modify the pinned Langfuse fragment.
-- The overlay mounts `Caddyfile.frontend` into the base Caddy `conf.d` extension directory. It does not replace or duplicate the base Caddyfile.
+- The overlay does not define Caddy or mount route files. The `caddy-shared` owner routes the web and API hostnames over the approved external network.
 - The overlay passes the base Collector file and `otel.frontend.yaml` as two supported `--config=file:...` inputs. The frontend file adds uniquely named `filelog/harden_llm_web` and `prometheus/harden_llm_web` receivers plus separate `logs/frontend` and `metrics/frontend` pipelines that reference base processors/exporters; it does not replace lists, copy base configuration, or enable experimental merge flags.
-- The overlay mounts one read-only frontend log volume into the existing Collector. The full runtime remains sixteen services, including the separately managed shared Garage service.
-- The overlay extends the Collector with one private PromEx scrape target; it does not change the base Prometheus service or expose the frontend metrics endpoint through Caddy.
+- The overlay mounts one read-only frontend log volume into the existing Collector. The full runtime has fifteen HLLM-owned services, plus the separately managed Caddy and Garage services.
+- The overlay extends the Collector with one private PromEx scrape target; it does not change the base Prometheus service or expose the frontend metrics endpoint through shared ingress.
 - The release image is a multi-stage Elixir build containing one OTP release and compiled assets. It contains no Hex/Rebar caches, source secrets, Node runtime, or Go toolchain.
-- Caddy remains the only service with public host ports.
+- `caddy-shared` alone owns public host ports. No HLLM-owned Compose service publishes one.
 - Phoenix exposes `/healthz` for process health. Readiness verifies endpoint startup and static configuration only; backend readiness remains the Go `/readyz` contract.
 - The frontend starts when the backend is temporarily unavailable and renders a bounded unavailable state rather than crash-looping.
 - V1 deploys exactly one Phoenix replica. The encrypted session vault is retained across normal image replacement; intentionally deleting its volume or changing its encryption root requires users to log in again.
@@ -409,7 +408,7 @@ All tests are free, self-hosted, deterministic, and isolated from live LLM provi
 | WEB-TEST-009 | Security and diagnostics | `test/harden_llm_web/security_observability_test.exs`, `test/harden_llm_web/telemetry_startup_test.exs` | `mix test test/harden_llm_web/security_observability_test.exs test/harden_llm_web/telemetry_startup_test.exs` | CSRF/CSP/origin rules, secret scans, exporter-before-SDK release/dependency order, async trace propagation, safe attributes, bounded PromEx series, private scrape config, JSON Logger correlation/rotation, merged Collector validation with separate frontend pipelines, failure isolation, and no Langfuse frontend export pass. The Compose boundary also verifies the generated boot-script order and no exporter initialization failure. | 20s |
 | WEB-TEST-010 | Responsive component rendering | `test/harden_llm_web/live/rendering_test.exs` | `mix test test/harden_llm_web/live/rendering_test.exs` | Every loading/empty/success/error state renders valid landmarks, labels, focus targets, stable action controls, compact profile cards, bounded long values, and the primary Run Prompt submitter's `formnovalidate` boundary for optional nested profile fields. | 15s |
 | WEB-TEST-011 | Real-browser workflow | `test/browser/full_workflow_test.exs` | `mix test --only browser test/browser/full_workflow_test.exs` | Headless Chromium completes login, profile save, model refresh, run, history restore, trace view, artifact redirect, logout, and reconnect at desktop/mobile sizes. | 120s |
-| WEB-TEST-012 | Frontend Compose smoke | `test/browser/compose_smoke_test.exs` | `mix test --only compose test/browser/compose_smoke_test.exs` | Caddy HTTPS, LiveView WebSocket, private REST routing, backend-unavailable recovery, cross-service Tempo trace, correlated Loki log, Prometheus series, Grafana query, and secret absence pass in the 16-service topology. | 180s |
+| WEB-TEST-012 | Frontend Compose smoke | `test/browser/compose_smoke_test.exs` | `mix test --only compose test/browser/compose_smoke_test.exs` | Shared Caddy HTTPS, LiveView WebSocket, private REST routing, backend-unavailable recovery, cross-service Tempo trace, correlated Loki log, Prometheus series, Grafana query, and secret absence pass in the isolated frontend smoke topology with explicit test-only Caddy. | 180s |
 
 ### Source-derived frontend parity extension
 
@@ -512,7 +511,7 @@ The frontend v1 is complete when:
 - Login tokens remain confined to the encrypted server-side token vault and server-side REST calls; browser and LiveView session payloads contain only a random handle.
 - No mutation, especially `/api/v1/run`, is retried automatically.
 - One Tempo trace correlates Phoenix request/LiveView work with the Go gateway and downstream spans.
-- The base backend remains runnable without `frontend/`, while the overlay produces a healthy 16-service full product.
+- The base backend remains runnable without `frontend/`, while the optional overlay adds the web service without owning shared ingress.
 - No React, Firebase, Ecto, second domain persistence path, or duplicated backend domain logic remains in the frontend.
 
 ## 17. References

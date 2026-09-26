@@ -212,7 +212,7 @@ Langfuse image digests and resolution time are in `deploy/images.lock.json`.
 | TEST-038 live gateway lifecycle | pass in 82.838s against the public production origins: login, profile/model refresh, OpenAI Responses run, signed Garage artifact integrity/redaction, bundle export, Tempo/Prometheus/Loki/Langfuse correlation, and cleanup |
 | Frontend format/compile/unit/audits | pass in the exact Elixir `1.20.2` / OTP `28.4.3` container with LiveView `1.2.9`: 68 tests, 3 excluded; format, warnings-as-errors, dependency, and Hex audits clean |
 | WEB-TEST-011 browser | pass: two desktop/mobile Chromium workflows in 64.0s |
-| WEB-TEST-012 Compose browser | pass: sixteen services, browser/recovery checks, runtime-image contract, and cross-runtime diagnostics in 285.3s |
+| WEB-TEST-012 Compose browser | historical pre-split pass: sixteen services, browser/recovery checks, runtime-image contract, and cross-runtime diagnostics in 285.3s |
 | Production gateway image | pass: Docker-reported 28,319,041-byte image at `sha256:a3045cfb779751db762a79251118e4fe5e7f8eed4920a228b58d9d7a56b8338e`; embedded/OCI release `df69d93` |
 | Production frontend image | pass: Docker-reported 47,625,486-byte OTP release at `sha256:4773e3eb086dea97c1f3e1fbfce46f9e09780e477cc7099b3c744501d8c1311c`; OCI release `df69d93`, runtime UID `10001`, and no Mix/Hex/Rebar/Node/npm/Go toolchain |
 | Public frontend browser acceptance | pass: Chromium reached `/login`, rendered the operator form, and produced zero console errors after the hostname-scoped Cloudflare edge rule disabled Zaraz and RUM injection |
@@ -456,7 +456,7 @@ Final P07.S15 deployment evidence:
 - The Collector is the only Langfuse exporter and excludes Phoenix traces from
   Langfuse while retaining cross-runtime traces in Tempo.
 - Telemetry and artifact failures cannot change a completed provider result.
-- Caddy is the only public-port owner in both effective Compose projects.
+- At the time of this recorded certification, Caddy was the only public-port owner in the effective Compose projects. The separate shared-owner transition is tracked in [`shared-caddy-adoption-plan.md`](../plans/shared-caddy-adoption-plan.md); until its production handoff is accepted, the production owner remains the deployed one.
 - Phoenix stores bearer tokens only in its encrypted server-side vault on the
   retained frontend-session volume and never retries runs.
 

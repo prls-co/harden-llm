@@ -4,7 +4,7 @@ Harden LLM separates portable execution semantics from transport, UI, and
 infrastructure. There is one implementation home for each concern.
 
 ```text
-browser -> Caddy -> Phoenix LiveView -> Go REST gateway -> hardenllm.Client.Call
+browser -> shared Caddy (`caddy-shared`) -> Phoenix LiveView -> Go REST gateway -> hardenllm.Client.Call
                                            |                  |
                                            |                  `-> LLM provider
                                            |-> app Postgres
@@ -19,7 +19,7 @@ browser -> Caddy -> Phoenix LiveView -> Go REST gateway -> hardenllm.Client.Call
 | Root Go library | provider payloads, retries, repair, schema, cache identity, usage/cost, domain projections | environment loading, exporters, auth, SQL, HTTP routes |
 | Go gateway | bearer auth, owner isolation, REST envelopes, profile catalog backfill, local profiles, persistence adapters, process telemetry | browser cookies, CSRF, HTML, duplicate provider logic |
 | Phoenix frontend | encrypted browser session, encrypted durable token vault, CSRF, presentation, REST calls | database, durable jobs, provider SDKs, pricing, retries, domain storage |
-| Caddy | TLS, public host routing, security headers, request-size limits | application authorization |
+| Shared Caddy (`prls-co/caddy-shared`) | TLS, public host routing, security headers, request-size limits | application authorization; HLLM Compose ownership |
 | Collector | the single telemetry fanout and redaction pipeline | application or provider results |
 
 `api/openapi.yaml` is the only Go-to-Phoenix contract. Phoenix calls the gateway
@@ -68,10 +68,13 @@ stores a credential.
 
 ## Deployment scope
 
-The certified topology is one Linux Docker host: fourteen services in the
-Harden-LLM Compose project plus the separately managed shared Garage service,
-or sixteen services with the optional Phoenix overlay. Caddy is the only public-port owner. The
-gateway and Phoenix release images run non-root; the Phoenix image uses the
+The certified topology is one Linux Docker host. Harden-LLM Compose has thirteen
+backend services plus its one-shot Collector volume initializer; the optional
+Phoenix overlay adds one application service. Caddy and Garage are separately managed shared services. Only shared Caddy
+publishes public ports. This is the target owner layout; production ingress
+remains on the old owner until P05 acceptance in the [shared-Caddy transition
+plan](../plans/shared-caddy-adoption-plan.md). The gateway and Phoenix release
+images run non-root; the Phoenix image uses the
 retained `harden-llm-web-sessions` volume for one encrypted single-replica token
 vault. Horizontal or multi-host deployment requires a later ADR with a shared
 vault design.

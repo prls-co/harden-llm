@@ -1,4 +1,47 @@
 services:
+  caddy:
+    image: caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: "5"
+    environment:
+      HARDEN_LLM_API_HOST: ${HARDEN_LLM_API_HOST:?set the API hostname}
+      HARDEN_LLM_ARTIFACT_HOST: ${HARDEN_LLM_ARTIFACT_HOST:?set the artifact hostname}
+      HARDEN_LLM_GRAFANA_HOST: ${HARDEN_LLM_GRAFANA_HOST:?set the Grafana hostname}
+      HARDEN_LLM_LANGFUSE_HOST: ${HARDEN_LLM_LANGFUSE_HOST:?set the Langfuse hostname}
+      HARDEN_LLM_TLS_MODE: ${HARDEN_LLM_TLS_MODE:-internal}
+    depends_on:
+      harden-llm-gateway:
+        condition: service_healthy
+      grafana:
+        condition: service_healthy
+      langfuse-web:
+        condition: service_started
+      garage:
+        condition: service_healthy
+    ports:
+      - "${HARDEN_LLM_BIND_ADDRESS:-127.0.0.1}:${HARDEN_LLM_HTTP_PORT:-18080}:80"
+      - "${HARDEN_LLM_BIND_ADDRESS:-127.0.0.1}:${HARDEN_LLM_HTTPS_PORT:-18443}:443"
+    volumes:
+      - ./deploy/test/Caddyfile.smoke:/etc/caddy/Caddyfile:ro
+      - caddy-smoke-data:/data
+      - caddy-smoke-config:/config
+    networks:
+      harden-private: {}
+      prls-observability: {}
+    healthcheck:
+      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    stop_grace_period: 15s
+
   garage:
     image: dxflrs/garage:v2.3.0@sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690
     command: ["/garage", "server", "--single-node", "--default-bucket"]
@@ -23,11 +66,6 @@ services:
       timeout: 3s
       retries: 45
     stop_grace_period: 10s
-
-  caddy:
-    depends_on:
-      garage:
-        condition: service_healthy
 
   harden-llm-gateway:
     environment:
@@ -77,11 +115,21 @@ services:
       - loki-data:/loki
 
 volumes:
+  caddy-smoke-data:
+  caddy-smoke-config:
   garage-metadata:
   garage-data:
 
 networks:
+  harden-private:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 203.0.113.0/24
   prls-observability:
     name: ${PRLS_SMOKE_OBSERVABILITY_NETWORK:?set the unique smoke observability network}
     external: false
     driver: bridge
+    ipam:
+      config:
+        - subnet: 198.18.0.0/24

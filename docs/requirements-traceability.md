@@ -23,7 +23,7 @@ routes each requirement to its implementation home and release gate.
 | REQ-014 failure isolation | telemetry queues/shutdown, timeout policy | TEST-031, TEST-039 |
 | REQ-015 single Collector fanout | `deploy/otel/collector.yaml` | TEST-030, TEST-034 |
 | REQ-016 Grafana provisioning | `deploy/grafana/` | TEST-032, TEST-034 |
-| REQ-017 fourteen-service production deployment | Compose, Caddy, image lock, Langfuse fragment; Garage is externally owned by `garage-shared` | TEST-033, TEST-034, TEST-039 |
+| REQ-017 thirteen-service HLLM production deployment with shared ingress | HLLM Compose/image lock and pinned Langfuse fragment; Caddy and Garage are owned by `caddy-shared` and `garage-shared` | TEST-033, TEST-034, TEST-039, TEST-289 |
 | REQ-018 migration independence | `fixtures/parity/`, static dependency scans | TEST-003, TEST-004, TEST-027, TEST-035 |
 | REQ-019 release quality | Makefile, AST/static checks, pinned toolchain, catalog provenance | TEST-001 through TEST-003, TEST-017, TEST-036 |
 | REQ-020 Garage artifacts | `internal/artifacts/`, owner-authorized routes | TEST-024, TEST-034, TEST-038, TEST-040 |
@@ -87,6 +87,12 @@ For TEST-272/274, a failed best-effort Compose `down` remains visible in the
 managed report's `cleanupWarnings`; it is non-fatal only after exact fallback
 cleanup, empty final inventory, and a durable `cleaned` receipt. Unknown or
 incomplete cleanup remains a failure.
+
+If Docker reports that removal of a specific owned container is already in
+progress, TEST-272 permits bounded waiting only while querying the exact
+Compose project inventory. Cleanup proceeds to volume checks only after that
+container disappears; expiry or an unverifiable inventory leaves the receipt
+pending and fails acceptance.
 
 TEST-271 through TEST-273 and TEST-281 run in the cheap, offline `runner-contracts` task;
 TEST-280 runs through `go-static` as an untagged receipt-contract test. TEST-282
