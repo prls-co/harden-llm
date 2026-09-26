@@ -1,12 +1,12 @@
 # 1. Shared Caddy and Shaman access ownership transition
 
-- Project: Harden-LLM / proposed private `prls-co/caddy-shared`.
-- Version: 3.0, implementation handoff.
+- Project: Harden-LLM / private `prls-co/caddy-shared`.
+- Version: 3.1, independent preparation and cutover dependencies.
 - Document ID: `PLAN-HLLM-SHARED-CADDY-001`.
 - Date: 2026-09-26.
 - Owners: Kirill (scope and remote-device SSH acceptance); implementing agent (HLLM/shared ingress); Analytics maintainer (network attachment); Kirill (unversioned host SSH source and remote acceptance); Ops maintainer (inventory).
-- Status: implementation in progress; P00/P01 complete. HLLM origin changes are on `main` at `65fe4be931fd2788ce0215a033f84a90d10362fd` (PRs #70/#71); shared Caddy probe correction is on `main` at `d612c423fbe868a4aa12e74ede4573a03b1b90a7` (caddy-shared PR #1). Both HLLM origins now pass direct shared-network health checks. P02 is blocked only by Analytics issue #15 and its missing shared attachment; TEST-288 is 5/6 with zero wrong-origin owners. Production Caddy/tunnel/DNS ownership has not changed.
-- Source reviewed: Harden-LLM `main`, `65fe4be931fd2788ce0215a033f84a90d10362fd`. Runtime facts below are dated inspection evidence to refresh again before P05; SSH inventory was refreshed at P00.
+- Status: implementation in progress; P00/P01 complete. HLLM origin changes are on `main` at `65fe4be931fd2788ce0215a033f84a90d10362fd` (PRs #70/#71); shared Caddy probe correction is on `main` at `d612c423fbe868a4aa12e74ede4573a03b1b90a7` (caddy-shared PR #1). The last recorded TEST-288 run passed 5/6 origin checks with zero wrong-origin owners; both HLLM origins passed. Kirill has started a separate Codex CLI session in `prls-analytics` for issue #15; deployment completion has not been verified here. P02 remains open pending owner evidence, the probe-contract review and a fresh full origin check. P03 isolated cleanup preparation and P04 candidate preparation may proceed independently. P05 production handoff requires P02, P03 and P04 acceptance. This revision changes the plan only; runtime results below are retained evidence.
+- Source reviewed: Harden-LLM `main`, `3962bfbab9816545f0b274a0f6071ca7bbb84d14`. Runtime facts below are dated inspection evidence to refresh again before P05; SSH inventory was refreshed at P00.
 
 Move production Caddy and its existing web Cloudflare Tunnel connector into an independent repository, preserve routing, complete Harden-LLM cleanup, then add a duplicate native SSH address. Transfer SSH/Mosh maintenance source last, only after Kirill confirms successful login and fresh reconnect from a remote device. Retain both SSH names permanently. The result separates deployment ownership while keeping ordinary GitHub/Compose workflows and the current single-host architecture.
 
@@ -24,7 +24,7 @@ Move production Caddy and its existing web Cloudflare Tunnel connector into an i
 | SSH transport migration | AGAINST | Host sshd stays outside Caddy and cloudflared. Keep TCP/2222 to host22 and Mosh UDP60000–60020, keys and authentication. Only maintenance ownership moves. |
 | SSH user gate | DECISION | No installed maintenance changes until Kirill personally logs in and reconnects through the duplicate from a remote device. Both names remain afterward. |
 | HLLM test/preview edge | FOR | Local smoke and preview Caddy/tunnels are needed isolated fixtures, not obsolete production ownership. Make inherited test Caddy explicit before root removal. |
-| Other repositories | DECISION | Create focused GitHub issues; their owners change code. Analytics shared connectivity is a web-cutover prerequisite. The local SSH source has no GitHub owner; record and retire it after the remote-device gate. Unrelated consumer cleanup does not block web completion. |
+| Other repositories | DECISION | Create focused GitHub issues; their owners change code. The separate Analytics session owns issue #15. Analytics shared connectivity gates P02 acceptance and P05 connector handoff; P03 isolated cleanup and P04 candidate preparation can proceed while it is pending. The local SSH source has no GitHub owner; record and retire it after the remote-device gate. Unrelated consumer cleanup does not block web completion. |
 | Lean verification | DECISION | Use existing Go/Node gates and standard-library Python for new owner checks. No browser or paid provider calls. Tests observe changed boundaries without adding a production control plane. |
 
 Compose merges may retain ports/mounts and resolve paths against the first file. Therefore the candidate is a standalone model, and HLLM merged fixtures are rendered explicitly. [Docker merge rules](https://docs.docker.com/compose/how-tos/multiple-compose-files/merge/).
@@ -43,7 +43,7 @@ Cloudflare proxy status changes the addresses returned by DNS; the native SSH na
 - Dependencies: Docker/Compose and pinned tools; GitHub rights; exact-zone DNS and temporary-tunnel rights; private runtime inputs; existing authorized HTTP account/artifact; Analytics owner adding the gateway to `prls-observability`; Kirill's SSH confirmation; exact local source/install inventory and later source retirement.
 - Risks: merged fixture inheritance, old live mounts, mistaken aliases, state double writers, inherited unhealthy neighbors, conflicting `shaman1` record/wildcard, missing management permissions, SSH timer duplication.
 - Assumptions: brief web interruptions acceptable; no credential rotation requested; private state is retained in place without a backup project; current production app images can remain while infrastructure source changes.
-- Execution boundary: a future instruction must start implementation. Phases may be scheduled separately. Web completion is P06; SSH ownership completion is P08; overall closeout is P09.
+- Execution boundary: prior implementation authorization remains recorded; this revision executes documentation changes only. The next implementation step is P03.S01 in the isolated worktree. Phase dependencies are defined in section 5.2. Web completion is P06; SSH ownership completion is P08; overall closeout is P09.
 
 ### 3.1 Reviewed inventory and prerequisites
 
@@ -127,7 +127,7 @@ Compute controls: `branch_limits=2` candidate approaches per blocked design; `re
 | Risk | Trigger | Mitigation / suspension |
 | --- | --- | --- |
 | SSH loss | Canonical DNS/port/auth drift, missing external session | Stop handoff; preserve canonical and existing session; no sshd/router restart. |
-| Wrong origin | Duplicate alias, Analytics absent from shared network | Block P02 exit/P05; issue #15 and deployed alias evidence, no IP workaround. |
+| Wrong origin | Duplicate alias, Analytics absent from shared network | Block P02 acceptance and P05 handoff; continue independent P03/P04 preparation. Require issue #15 deployment evidence and unique alias; no IP workaround. |
 | Concurrent state writers | Old and new production Caddy active | Stop candidate immediately; retain old owner until controlled P05 sequence. |
 | Live source removal | Planned edit touches running bind mount | Prepare isolated worktree; promote removal only in P06. |
 | Fixture regression | Root Caddy removed while smoke still inherits it | Explicit fixture service/config, merged-model regression, existing smoke gate. |
@@ -140,6 +140,25 @@ Compute controls: `branch_limits=2` candidate approaches per blocked design; `re
 Resume by refreshing relevant Git heads, dirty state, container/DNS identities, prior gate and private inputs. Re-run evidence invalidated by drift. Never pause mid-handoff with unknown serving ownership: accept or roll back first. Unrelated consumer issues may remain open with owners; Analytics connectivity, user SSH confirmation and old SSH source retirement are mandatory for their dependent completion claims.
 
 Phase metrics below are heuristic planning estimates, not measured availability or certification. Percentages describe expected confidence, durability, effort/risk and avoidable scope/debt; YAGNI is 0–10, where 0 means all work is immediately necessary. Interaction counts estimate touched component/owner boundaries. Configuration checkpoints are phase-boundary records, not implementation subtasks.
+
+### 5.2 Scheduling, ownership and acceptance boundaries
+
+Phase numbers identify outcomes; independent preparation does not require every lower-numbered phase to be complete. Follow each phase's ordered subtasks and record blocked steps without reporting that phase as passed.
+
+| Phase | Entry dependency and permitted work | Completion / publication boundary |
+| --- | --- | --- |
+| P02 | HLLM additive changes are deployed. Analytics issue #15 is handled by the separate `prls-analytics` session. Review the probe contract before fresh origin acceptance. | Obtain owner main SHA, deployed service identity, network/alias and public-route results; independently verify TEST-288. Pending Analytics blocks P02 acceptance and P05 handoff. |
+| P03 | P01 source/route evidence and completed HLLM attachments are sufficient. Begin P03.S01 in `/home/kirill/p/harden-llm-shared-caddy` even while P02 awaits Analytics. | Test and push the cleanup branch; retain exact-SHA CI/release evidence. Merge final removal into main and update the live-mounted checkout only in P06, after P05 acceptance. |
+| P04 | P01 shared-owner source and the candidate's actual HLLM origin are available; verify exact DNS/tunnel permissions before creating candidate resources. Analytics and final HLLM removal are not candidate dependencies. | Pass isolated HTTPS candidate checks with separate state/identity. Missing permissions block only this dependent work; P03 can continue. |
+| P05 | P02, P03 and P04 have passed; refresh runtime/route evidence, rollback identities and CHECK-001 external canonical SSH session. | Transfer production ingress and accept or roll back within existing deadlines. A user report that Analytics work started does not satisfy this gate. |
+| P06 | P05 public-route and owner acceptance passed. | Merge/deploy HLLM cleanup, retire old ingress ownership and update Ops records. This finishes web migration without waiting for duplicate SSH acceptance. |
+| P07 | P06 complete; duplicate DNS name is available and its server-side checks pass. | Keep canonical `shaman.prls.co`; await Kirill's explicit remote-device login and fresh reconnect via the duplicate. Both names use the same host/path, not separate failover infrastructure. |
+| P08 | P07 and CHECK-002 user confirmation passed. | Transfer installed maintenance ownership, preserve both names and exactly one updater, then retire old source authority. |
+| P09 | Required web and SSH acceptance records exist. | Record exact main heads, runtime owners and remaining non-blocking owner follow-ups. |
+
+Analytics handoff: the other session owns its code, tests, main publication and gateway deployment. Request its deployed commit, container identity, preserved original networks, `prls-observability` attachment with alias `analytics-gateway`, and existing public-route result. Do not edit that checkout or change its ingress from this session. Recheck topology and bounded origin behavior here before P05; do not rerun Analytics's entire suite.
+
+Evidence limits: TEST-288 checks unique origin ownership, connectivity and route-specific HTTP behavior. Its saved 5/6 result is incomplete and is not public-route acceptance. TEST-286 exercises real Caddy policy with synthetic origins; TEST-290 exercises the temporary public candidate; TEST-291 proves deployed ownership and required public route/auth/artifact behavior. A Garage root 403 does not prove signed artifact access. Caddy's current container healthcheck runs `caddy validate`; require serving HTTP/TLS evidence for handoff. No new framework, health service or control plane is required.
 
 ### Phase P00: A current route and access baseline exists
 
@@ -263,7 +282,7 @@ Phase metrics below are heuristic planning estimates, not measured availability 
 - Impacted surfaces: `deploy/frontend/compose.frontend.yml`, `deploy/langfuse/compose.private.yml`, `internal/deploytest/shared_caddy_test.go`, private HLLM descriptor, Analytics owner issue.
 - Lifecycle evidence: listed requirements/surfaces; diff and command results; goal acceptance; checkpoint and unresolved risks below.
 - Configuration checkpoint: Promote additive HLLM commit after checks; record two-service apply and deployed Analytics alias; no production Caddy removal.
-- Risks/assumptions: Analytics is a real external prerequisite; do not substitute another gateway/IP.
+- Risks/assumptions: Analytics is a prerequisite for this phase acceptance and P05 connector handoff, not for independent P03/P04 preparation; do not substitute another gateway/IP.
 - Estimated metrics: Confidence 82% (known contracts); long-term robustness 93% (explicit gates); internal interactions 4 (components); external interactions 3 (owners); complexity 40% (coordination); feature creep 8% (bounded scope); technical debt 8% (simple contracts); YAGNI 1/10 (needed); MoSCoW Must (dependency); non-local scope (surfaces above); architectural changes 1 (ownership/connectivity).
 
 - P02.S01 Add failing additive attachment assertions
@@ -293,29 +312,29 @@ Phase metrics below are heuristic planning estimates, not measured availability 
   - Unlocks: P02.S03.
 
 - P02.S03 Add failing live origin acceptance
-  - Action: Add TestOrigins with baseline-driven unique target identity and response assertions. Create/update focused Analytics GitHub issue after remote/duplicate inspection; owner adds shared alias while retaining current attachments
+  - Action: Add TestOrigins with baseline-driven unique target identity and response assertions. Review/reopen this step for the current probe: extend TestProbeContract to execute the actual HTTP_PROBE against a local recording HTTP server, covering transmitted Host, scheme headers, path and redirect handling. Define Caddy-origin and direct-cloudflared Analytics cases from their actual route contracts; do not infer universal headers/status equality from the public baseline. Keep existing standard-library fixtures and timeouts. Add failing coverage before any probe behavior change; a correct existing path can pass its new coverage without manufacturing a failure. Issue #15 already exists; its owner session adds the shared alias while retaining current attachments
   - Why now: Source correctness is insufficient for production origin reachability
-  - Files/surfaces: ../caddy-shared/tests/test_live.py; ../prls-analytics/deploy/compose.service.yaml via owner issue.
+  - Files/surfaces: ../caddy-shared/tests/test_live.py; existing route fixture in ../caddy-shared/tests/test_routes.py as needed; ../prls-analytics/deploy/compose.service.yaml via owner issue.
   - Requirement link: REQ-003, REQ-013.
   - Verification link: TEST-288.
   - Verification mode: RED.
-  - Command/procedure: `CSH_LIVE_READS=1 python3 ../caddy-shared/tests/test_live.py TestOrigins`.
-  - Expected result: Fails on current missing deployed origins with selected metadata evidence.
+  - Command/procedure: `python3 ../caddy-shared/tests/test_live.py TestProbeContract`; `CSH_LIVE_READS=1 python3 ../caddy-shared/tests/test_live.py TestOrigins`.
+  - Expected result: Reports actual missing origins; regression executes the HTTP client, not only a generated dictionary. Preserve original failed-origin evidence if Analytics has already fixed the runtime.
   - Evidence produced: Diff and dated, redacted results at the tested SHA.
   - Stop/escalate condition: Unknown target identity or an unrelated live mutation in the probe.
   - Unlocks: P02.S04.
 
 - P02.S04 Deploy the additive source and accept Analytics connectivity
-  - Action: Run make test-fast with pinned PATH, publish verified source through main checks, then apply the two approved network attachments using section 8. The initial two-service network apply is complete. For the required Langfuse bind correction, retain its existing network allowance, add only `environment`, recheck `langfuse-web` alone, and apply only that service if the sole difference is `langfuse-web.environment.HOSTNAME`. HLLM web remains networks-only. Retain all other descriptor identities/allowances. Analytics owner deploys its change; do not modify that checkout.
+  - Action: Retain the completed HLLM main/CI and scoped-apply evidence in section 11; do not repeat those deployments. Descriptor categories are HLLM web `[environment, image, identity, networks]` and Langfuse web `[networks, environment]`; exact difference review still controls each apply. Fix any probe defect demonstrated by P02.S03 coverage, obtain the Analytics owner's deployed SHA/topology/public-route evidence, and accept the fresh shared-origin result. Other owners deploy their own services. Any new HLLM drift requires diagnosis and a separately reviewed change before section 8.3 apply.
   - Why now: Both source and live failing checks exist; old ingress stays serving
-  - Files/surfaces: HLLM overlays/private descriptor; Analytics issue/runtime.
+  - Files/surfaces: ../caddy-shared/tests/test_live.py; retained HLLM overlays/private descriptor evidence; Analytics issue/runtime.
   - Requirement link: REQ-003, REQ-011, REQ-013.
   - Verification link: TEST-288.
   - Verification mode: GREEN.
-  - Command/procedure: `make test-fast`; section 8.3 scoped check/apply; then `CSH_LIVE_READS=1 python3 ../caddy-shared/tests/test_live.py TestOrigins`.
+  - Command/procedure: Retain completed HLLM `make test-fast` and section 8.3 apply results unless relevant source/runtime drift invalidates them; run `python3 ../caddy-shared/tests/test_live.py TestProbeContract`; `CSH_LIVE_READS=1 python3 ../caddy-shared/tests/test_live.py TestOrigins`.
   - Expected result: All running origins respond from shared network; existing public HLLM path unchanged.
   - Evidence produced: Diff and dated, redacted results at the tested SHA.
-  - Stop/escalate condition: Unreviewed config difference, missing Analytics owner deployment or failed hosted check.
+  - Stop/escalate condition: Unreviewed config difference, missing Analytics owner deployment or failed hosted check blocks this acceptance and P05; P03/P04 preparation may continue.
   - Unlocks: P02.S05.
 
 - P02.S05 Measure shared-network reachability
@@ -344,11 +363,12 @@ Phase metrics below are heuristic planning estimates, not measured availability 
   - Stop/escalate condition: Runtime/source mismatch or missing baseline comparison.
   - Unlocks: phase exit.
 
-- Exit gates: proceed when additive source/CI and all running shared origins pass; known stopped neighbors have dated contracts and owner issues; record blockers and stop on scope expansion.
+- Exit gates: mark P02 complete only when probe-contract checks, additive source/CI and all running shared origins pass; known stopped neighbors have dated contracts and owner issues. Its pending status does not block isolated P03/P04 preparation. P05 remains blocked until this gate passes.
 
 ### Phase P03: HLLM removal and isolated fixtures are release-ready
 
 - Phase goal: Prepare a fully tested final HLLM tree without altering live edge mounts
+- Entry dependency: P01 passed and HLLM additive changes deployed; Analytics deployment/P02 completion is not required. Start in the isolated worktree, retain the cleanup branch until P06 and follow section 5.2.
 - Scope/objectives: REQ-001, REQ-002, REQ-006, REQ-012, REQ-014.
 - Impacted surfaces: `docker-compose.yml`, production-config and descriptors, `deploy/images.lock.json`, smoke fixtures, deploy tests, test tier manifest, current docs.
 - Lifecycle evidence: listed requirements/surfaces; diff and command results; goal acceptance; checkpoint and unresolved risks below.
@@ -413,6 +433,7 @@ Phase metrics below are heuristic planning estimates, not measured availability 
 ### Phase P04: A temporary public HTTPS path proves the candidate
 
 - Phase goal: Exercise candidate public TLS and origin forwarding before production ownership changes
+- Entry dependency: P01 source and the candidate HLLM origin are available; exact DNS/tunnel permissions and name availability must pass. P02 Analytics completion and P03 cleanup publication are not required for this isolated candidate.
 - Scope/objectives: REQ-004, REQ-005, REQ-007.
 - Impacted surfaces: `../caddy-shared/compose.canary.yaml`, `cloudflared/config.canary.yml`, candidate DNS/tunnel, scratch state.
 - Lifecycle evidence: listed requirements/surfaces; diff and command results; goal acceptance; checkpoint and unresolved risks below.
@@ -472,11 +493,12 @@ Phase metrics below are heuristic planning estimates, not measured availability 
   - Stop/escalate condition: Ambiguous process identity or shared production volume.
   - Unlocks: phase exit.
 
-- Exit gates: proceed when public candidate and shared main CI pass and the HLLM final tree has release evidence; record blockers and stop on scope expansion.
+- Exit gates: mark P04 complete when the isolated public candidate and shared main CI pass. P05 additionally requires completed P02 origin acceptance and P03 final-tree release evidence. Record missing permissions against this phase; continue independent preparation.
 
 ### Phase P05: Production web ingress runs under the shared owner
 
 - Phase goal: Transfer the existing entire production connector route set and accept or roll back
+- Entry dependency: P02, P03 and P04 passed; Analytics deployment and all origin checks are verified. CHECK-001 protects current canonical access; duplicate-address CHECK-002 belongs to P07/P08 and does not gate web completion.
 - Scope/objectives: REQ-001, REQ-002, REQ-004, REQ-005, REQ-007, REQ-011.
 - Impacted surfaces: Production Caddy/web connector, retained volumes, shared main, route baseline, external SSH session.
 - Lifecycle evidence: listed requirements/surfaces; diff and command results; goal acceptance; checkpoint and unresolved risks below.
@@ -985,9 +1007,9 @@ Paths are relative to the HLLM worktree root, including explicit sibling prefixe
   - Type: integration; verifies: REQ-003, REQ-011, REQ-013.
   - Location: `../caddy-shared/tests/test_live.py`. P02.S03.
   - Command: `CSH_LIVE_READS=1 python3 ../caddy-shared/tests/test_live.py TestOrigins`.
-  - Fixtures/mocks/data: P00 baseline, selected Docker metadata and bounded diagnostic client on prls-observability.
-  - Deterministic controls: Explicit live opt-in; preserve public `Host` and HTTPS forwarding headers; 5s connect/15s request; 90s total; bounded read-only app requests.
-  - Pass criteria: Every running retained origin resolves uniquely to intended container and responds as baselined, including direct Analytics; recorded stopped origins retain contracts; forwarded request semantics match the existing HTTPS edge.
+  - Fixtures/mocks/data: P00 baseline, selected Docker metadata, bounded diagnostic client on prls-observability, and a process-owned local recording HTTP server for TestProbeContract. The offline companion command is `python3 ../caddy-shared/tests/test_live.py TestProbeContract`, exercised in matching P02 RED/GREEN steps.
+  - Deterministic controls: Offline companion executes the actual HTTP_PROBE with synthetic requests. Live origins require explicit opt-in; per-route Host/scheme expectations derived from Caddy or direct-cloudflared configuration; 5s connect/15s request; 90s total; bounded read-only app requests. Record public and direct-origin outcomes separately when their route semantics differ.
+  - Pass criteria: Every running retained origin resolves uniquely to the intended container and meets its reviewed origin contract, including direct Analytics; recorded stopped origins retain contracts. The local recorder observes actual transmitted headers/path and status/redirect handling. A dictionary-shape assertion alone is insufficient. Keep public-route/auth/signed-artifact acceptance in TEST-291; a status discrepancy requires diagnosis and evidence, not a weakened expected status.
   - Expected runtime: 10–90s.
 
 - **TEST-289: HLLM final ownership**
@@ -1126,7 +1148,7 @@ Record every actual connector rule; the reviewed baseline has fifteen named HTTP
 
 ### 8.3 Additive HLLM deployment interface
 
-Keep the production descriptor's existing four-file order: root Compose, pinned Langfuse upstream, private Langfuse overlay, frontend overlay. The private descriptor was extended with the running `langfuse-web` identity and networks allowance for the completed attachment apply. The correction added `environment` to that service's existing `allowedDifferenceFields`; HLLM web remains networks-only, and all prior identity/allowance/image entries were preserved. A candidate check against the feature source and an actual check after merge each reported only `langfuse-web.environment.HOSTNAME`; the scoped Langfuse apply and post-check are complete. Do not pass `--expected-release` for this infrastructure-only change.
+Keep the production descriptor's existing four-file order: root Compose, pinned Langfuse upstream, private Langfuse overlay, frontend overlay. The private descriptor was extended with the running `langfuse-web` identity and networks allowance for the completed attachment apply. The correction added `environment` to that service's existing `allowedDifferenceFields`. Verified descriptor categories are HLLM web `[environment, image, identity, networks]` and Langfuse web `[networks, environment]`; prior allowances were preserved. These categories do not constrain changes to a single environment key. The applied web delta was networks only; each apply still requires review of its exact comparison output. A candidate check against the feature source and an actual check after merge each reported only `langfuse-web.environment.HOSTNAME`; the scoped Langfuse apply and post-check are complete. Do not pass `--expected-release` for this infrastructure-only change.
 
 ```bash
 node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services langfuse-web
@@ -1359,14 +1381,24 @@ For one observation, record its value and explain that standard deviation/95% CI
 
 - HLLM publication: PR [#70](https://github.com/prls-co/harden-llm/pull/70) merged to `main` as `4acde9bfa97c59b2ea0cb66448e929d8c63130f0`; PR [#71](https://github.com/prls-co/harden-llm/pull/71) merged as `65fe4be931fd2788ce0215a033f84a90d10362fd`. The final source adds `HOSTNAME: 0.0.0.0` only to `langfuse-web` and asserts it in TEST-287. The pinned-path local `make test-fast` passed all 10 tasks; the focused TEST-287 RED showed the missing setting and GREEN passed. Both hosted `fast T0-T2` runs for PR #71 passed (`36230421558`, `36230442985`); Go/JavaScript Actions analysis and CodeQL passed. Browser and release jobs remained skipped by repository policy. The production source checkout is at the final main commit.
 - Shared owner test correction: Caddy-shared PR [#1](https://github.com/prls-co/caddy-shared/pull/1) merged as `d612c423fbe868a4aa12e74ede4573a03b1b90a7`; hosted owner CI run `36230442861` passed. Its TEST-288 request contract now carries `Host`, `X-Forwarded-Host`, and `X-Forwarded-Proto: https`, matching the public reverse-proxy context. The pure contract test is CI-checked without live services.
-- Descriptor update: the private mode-`0600` production descriptor now includes the exact running Langfuse container/image identity, preserves all previous allowances, and allows only `networks` for HLLM web plus `networks` and `environment` for Langfuse web. Before the second apply, a candidate and then the actual descriptor both reported exactly `langfuse-web.environment.HOSTNAME`. The descriptor contains no application credential values from this transition.
+- Descriptor update: the private mode-`0600` production descriptor now includes the exact running Langfuse container/image identity, preserves all previous allowances: HLLM web allows `environment`, `image`, `identity`, `networks`; Langfuse web allows `networks`, `environment`. The web apply changed only networks; category-level environment permission does not restrict Langfuse to HOSTNAME alone. Before the second apply, a candidate and then the actual descriptor both reported exactly `langfuse-web.environment.HOSTNAME`. The descriptor contains no application credential values from this transition.
 - Scoped deployment: the first apply added only the web and Langfuse web network attachments; its post-apply check returned equivalent. After TEST-288 proved Langfuse bound only to `eth0`, a second selected-service apply changed only Langfuse `HOSTNAME`. It returned `runtime: verified; applied: yes`; checks of Langfuse alone and both web services then returned equivalent with no recreation required.
 - Runtime evidence after correction: Docker metadata confirms Langfuse retains `harden-llm_harden-private` and now also `prls-observability` with the unique `hllm-prod-langfuse` alias. The container has `HOSTNAME=0.0.0.0`; `/proc/net/tcp` confirms port 3000 has a wildcard listener. Shared-network TEST-288 returned web `/healthz`=200 and Langfuse `/api/public/health`=200. Public HTTPS checks for both routes also returned 200. No app images were pulled or rebuilt; no private worker/store joined the shared network.
 - TEST-288 outcome after correction: 5/6 required running origins matched with `wrong_origin_count=0`; gateway=200, Grafana=200, HLLM web=200, Langfuse=200, Garage=403. Analytics alone fails: `gateway` is not attached to `prls-observability`, the `analytics-gateway` alias has zero owners, and the shared-network lookup is unresolved. Existing stopped-route classifications remained unchanged. The temporary `--rm` probe exited and no probe container remained.
 - RCA corrections remain recorded: the first direct web result 301 was a probe defect caused by omitted HTTPS forwarding headers; its Caddy-equivalent request returned 200. The first Langfuse refusal was a real bind-address gap, and `HOSTNAME=0.0.0.0` corrected it. `production-config --wait` alone does not prove Langfuse HTTP readiness because the pinned service defines no healthcheck; require direct shared-network health before phase exit.
 - Failed command record: a PR-body shell command accidentally interpreted backticked commands and invoked an unpinned `make test-fast`; that attempt did not provide validation evidence. The PR body was replaced via a file, and the correctly pinned local gate plus hosted gates passed. No source or runtime state was changed by the failed attempt.
-- Current production state: additive HLLM origins are proven reachable; production still uses the original HLLM Caddy, connector and route configuration. DNS and tunnel identity are unchanged. Analytics issue [#15](https://github.com/prls-co/prls-analytics/issues/15) is still open with no owner response; the Analytics gateway was not modified. P02 cannot exit and P03 must not start until the owner deploys its additive alias and TEST-288 passes 6/6.
-- Next permitted action: wait for the Analytics owner to implement/deploy issue #15, verify its exact alias/container identity, and run TEST-288 once against the changed runtime. If Analytics behavior or route status differs from the baseline, diagnose it before proceeding. Do not substitute an IP, join Analytics private networks, or begin Caddy cutover while the issue remains unresolved.
+- Retained production state at the correction: additive HLLM origins were proven reachable; production still uses the original HLLM Caddy, connector and route configuration. DNS and tunnel identity are unchanged. At that observation, Analytics issue [#15](https://github.com/prls-co/prls-analytics/issues/15) was open without owner response; this session did not modify the Analytics gateway. The earlier instruction blocking P03 was too broad and is superseded by section 5.2. P02 acceptance and P05 handoff still require the owner deployment and successful full origin check.
+- Next permitted action (revised): begin P03.S01 in the isolated worktree while the separate Analytics session implements issue #15. P04 candidate preparation may proceed with its own permissions and origin prerequisites. Complete the P02 probe-contract review, obtain owner deployment evidence, verify the exact alias/container identity and perform fresh TEST-288 acceptance before P05. Diagnose any route/status discrepancy; do not substitute an IP or join Analytics private networks.
+
+#### Scheduling and evidence revision — 2026-09-26
+
+- User direction: the Analytics Codex CLI session has started; this turn updates the plan only. No Analytics deployment result is assumed from that report.
+- Reasoning correction: the direct Analytics route is a dependency of the production connector handoff. It does not prevent isolated HLLM removal/fixture work or the HLLM HTTPS candidate. Section 5.2 replaces blanket phase serialization with explicit entry gates; main removal remains deferred until P06.
+- Evidence correction: descriptor permission categories were re-read without credential output. Updated the networks-only claim; exact reviewed deployment differences remain the acceptance boundary. Existing runtime results are retained evidence, not new checks.
+- Verification gap to close during implementation: exercise the actual probe client with the existing standard-library test tools and distinguish Caddy-origin from direct-cloudflared request contracts. Preserve public-route, authentication and signed-artifact gates; configuration validation and origin health alone do not certify production cutover.
+- Risks/follow-up: obtain Analytics deployed SHA and topology evidence; refresh origin/route observations before P05; keep live HLLM bind mounts intact until shared ingress acceptance; await Kirill's duplicate-address remote login/reconnect only for SSH maintenance adoption.
+- ADR update: ADR-CSH-006 records preparation dependencies. Acceptance thresholds and existing behavioral assertions are unchanged. Documentation validation passed: 42 ordered steps, 18 test definitions, 14 mapped requirements, nine YAML evaluations, RED/GREEN command parity, Bash syntax and whitespace; no application test, deployment, DNS or SSH operation is part of this update.
+- Next implementation step: P03.S01, then its ordered cleanup/testing subtasks and a pushed branch. P05 remains gated by P02/P03/P04 acceptance; P08 remains gated by CHECK-002.
 
 ## 12. Appendix: ADR index
 
@@ -1378,7 +1410,8 @@ These decisions are defined by this plan; execution may add concise repository A
 | ADR-CSH-002 | HLLM removes production ownership but retains explicit isolated smoke/frontend and preview edge fixtures with their original assertions. |
 | ADR-CSH-003 | Native SSH remains independent; add DNS-only duplicate, retain canonical permanently, wait for Kirill's login/reconnect, then adopt one existing maintainer. |
 | ADR-CSH-004 | Use lowest-sufficient bounded verification and section 6 thresholds; no browsers/providers or invented statistical assurance; amend ADR before changing thresholds. |
-| ADR-CSH-005 | Other repositories own their code changes; Analytics connectivity and evidence-backed local SSH source retirement are explicit prerequisites; ordinary consumer follow-ups remain separate. |
+| ADR-CSH-005 | Other repositories own their code changes; Analytics connectivity gates production connector handoff and evidence-backed local SSH source retirement gates SSH completion; ordinary consumer follow-ups remain separate. |
+| ADR-CSH-006 | P03 isolated cleanup and P04 candidate preparation may proceed while Analytics completes P02; P05 requires all three phases accepted. Merge HLLM removal only at P06; user duplicate SSH acceptance gates P08, not web completion. |
 
 ## 13. Consistency check
 
@@ -1387,7 +1420,7 @@ These decisions are defined by this plan; execution may add concise repository A
 - Behavior-changing steps follow failing coverage using the same targeted command/ID; human acceptance supplements executable checks and controls the explicit SSH pause.
 - New test commands become executable in their specified creation step. Existing tagged deployment test is renamed before its new selector is invoked; it is added to release registration before certification.
 - Every phase includes a VERIFY review of refactor need; if unnecessary structure is found, perform the refactor and repeat affected tests before exit. Thresholded phases include measured evaluations.
-- Exact operational order is baseline, shared source, origin attachments, prepared HLLM removal, isolated HTTPS candidate, production handoff, HLLM cleanup, duplicate SSH/user wait, SSH source adoption, closeout.
+- Dependencies follow section 5.2: after baseline/shared source and HLLM attachments, prepare HLLM cleanup and the isolated HTTPS candidate while Analytics finishes independently. P02/P03/P04 acceptance precedes production handoff; HLLM cleanup publication follows acceptance; duplicate SSH/user wait, SSH source adoption and overall closeout follow web completion.
 - Original SSH remains live throughout and afterward. Temporary HTTPS cleanup never includes either SSH record. User silence cannot advance P07.
 - Documentation validation: 42 ordered steps, 18 defined tests, 14 mapped requirements, nine parseable YAML evaluations, matching RED/GREEN commands, valid Bash syntax and clean whitespace. The plan validator checks documentation structure only; application test results are recorded above.
-- Production DNS, Caddy, tunnel and edge routes remain unchanged. P02 applied only the two HLLM web network attachments and Langfuse's `HOSTNAME` setting; direct shared-origin acceptance now passes for both HLLM origins and remains blocked only until Analytics joins the shared network.
+- This revision changes documentation only. The last recorded deployment applied the two HLLM web network attachments and Langfuse's `HOSTNAME` setting; HLLM origin checks passed. Analytics work is assigned to its separate session; deployment completion and fresh full origin/public-route acceptance remain required before P05.
