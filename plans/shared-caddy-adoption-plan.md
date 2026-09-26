@@ -5,8 +5,8 @@
 - Document ID: `PLAN-HLLM-SHARED-CADDY-001`.
 - Date: 2026-09-26.
 - Owners: Kirill (scope and remote-device SSH acceptance); implementing agent (HLLM/shared ingress); Analytics maintainer (network attachment); Kirill (unversioned host SSH source and remote acceptance); Ops maintainer (inventory).
-- Status: implementation in progress; P00 and P01 complete. Shared owner `main` is at `85c89cacb010383e1b810deca85c3f713cc24b3f`, and hosted CI run `36228832161` passes with guarded live-origin coverage included. P02 is in progress on an HLLM feature branch based on current `main` `435fc62a0870b14c9c7dad9d248ef982e72b9bf0`. Production ownership has not changed.
-- Source reviewed: Harden-LLM `main`, `435fc62a0870b14c9c7dad9d248ef982e72b9bf0`. Runtime facts below are dated inspection evidence to refresh again before P05; SSH inventory was refreshed at P00.
+- Status: implementation in progress; P00/P01 complete and additive origin source merged to HLLM `main` as `4acde9bfa97c59b2ea0cb66448e929d8c63130f0` (PR #70). P02 remains in progress: the scoped network attachment is deployed, but live checks found a Langfuse bind-address requirement and Analytics issue #15 remains open. Source correction is in branch `codex/shared-caddy-langfuse-bind-20260926`; production Caddy ownership has not changed.
+- Source reviewed: Harden-LLM `main`, `4acde9bfa97c59b2ea0cb66448e929d8c63130f0`. Runtime facts below are dated inspection evidence to refresh again before P05; SSH inventory was refreshed at P00.
 
 Move production Caddy and its existing web Cloudflare Tunnel connector into an independent repository, preserve routing, complete Harden-LLM cleanup, then add a duplicate native SSH address. Transfer SSH/Mosh maintenance source last, only after Kirill confirms successful login and fresh reconnect from a remote device. Retain both SSH names permanently. The result separates deployment ownership while keeping ordinary GitHub/Compose workflows and the current single-host architecture.
 
@@ -279,15 +279,15 @@ Phase metrics below are heuristic planning estimates, not measured availability 
   - Stop/escalate condition: Test passes without proving current missing attachments.
   - Unlocks: P02.S02.
 
-- P02.S02 Add the two HLLM origin attachments
-  - Action: Use mapping networks with existing harden-private plus prls-observability aliases hllm-prod-web and hllm-prod-langfuse. Retain image, URLs and all other service attachments
+- P02.S02 Add the HLLM origin attachments and bind Langfuse on both interfaces
+  - Action: Use mapping networks with existing harden-private plus prls-observability aliases hllm-prod-web and hllm-prod-langfuse. Set only `langfuse-web` `HOSTNAME: 0.0.0.0`; preserve its image/URLs and every existing attachment. Keep Langfuse worker and stores private. This bind is required because the live image was listening only on `eth0` after the second network was attached.
   - Why now: Cheap failure identifies the bounded source edit
   - Files/surfaces: deploy/frontend/compose.frontend.yml; deploy/langfuse/compose.private.yml.
   - Requirement link: REQ-003, REQ-012.
   - Verification link: TEST-287.
   - Verification mode: GREEN.
   - Command/procedure: `go test ./internal/deploytest/... -run ^TestSharedIngressAttachments$ -count=1`.
-  - Expected result: Same assertions pass; only two intended service network definitions change.
+  - Expected result: Same assertions pass; only the two intended service network definitions and Langfuse web's required bind setting change.
   - Evidence produced: Diff and dated, redacted results at the tested SHA.
   - Stop/escalate condition: Alias conflict or unintended store/worker/public URL change.
   - Unlocks: P02.S03.
@@ -306,7 +306,7 @@ Phase metrics below are heuristic planning estimates, not measured availability 
   - Unlocks: P02.S04.
 
 - P02.S04 Deploy the additive source and accept Analytics connectivity
-  - Action: Run make test-fast with pinned PATH, publish verified additive source through main checks, then section 8 scoped two-service production-config apply. Before applying, add `langfuse-web` to the private descriptor using its current container/image identity and permit only the `networks` difference; retain all existing identities/allowances. Analytics owner deploys its change; do not modify that checkout
+  - Action: Run make test-fast with pinned PATH, publish verified source through main checks, then section 8 scoped two-service production-config apply. Add `langfuse-web` to the private descriptor using its current container/image identity; allow `networks` and the exact required `HOSTNAME` environment difference only. HLLM web remains networks-only. Retain all other descriptor identities/allowances. Analytics owner deploys its change; do not modify that checkout.
   - Why now: Both source and live failing checks exist; old ingress stays serving
   - Files/surfaces: HLLM overlays/private descriptor; Analytics issue/runtime.
   - Requirement link: REQ-003, REQ-011, REQ-013.
@@ -1126,7 +1126,7 @@ Record every actual connector rule; the reviewed baseline has fifteen named HTTP
 
 ### 8.3 Additive HLLM deployment interface
 
-Keep the production descriptor's existing four-file order: root Compose, pinned Langfuse upstream, private Langfuse overlay, frontend overlay. The current private descriptor manages `harden-llm-web` but omits the running `langfuse-web` service; before this scoped apply, add an explicit `langfuse-web` service identity (current container `harden-llm-langfuse-web-1`, image ID read from Docker at apply time) so the trusted tool can check and select it. Permit only `networks` for that entry. Add `networks` to `harden-llm-web.allowedDifferenceFields`, preserving all its existing allowances. Do not add environment/image/release allowances to Langfuse, change `serviceImageOverrides`, or pass `--expected-release` for this infrastructure-only change. Apply only after a fresh check reports exactly the two intended network differences.
+Keep the production descriptor's existing four-file order: root Compose, pinned Langfuse upstream, private Langfuse overlay, frontend overlay. The private descriptor manages `harden-llm-web` but omits the running `langfuse-web` service, so add an explicit Langfuse service identity using its current container and image. Add only `networks` to `harden-llm-web.allowedDifferenceFields`; allow only `networks` and the exact `HOSTNAME=0.0.0.0` environment difference for `langfuse-web`. Preserve all other descriptor allowances and image/release identities; do not change `serviceImageOverrides` or pass `--expected-release`. Apply only after a fresh check reports exactly `harden-llm-web.networks`, `langfuse-web.networks`, and `langfuse-web.environment.HOSTNAME`.
 
 ```bash
 node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-web,langfuse-web
@@ -1134,7 +1134,7 @@ node scripts/production-config.mjs apply --descriptor /home/kirill/.config/harde
 node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-web,langfuse-web
 ```
 
-Execute lines individually: check exits 0 when equivalent, 2 for differences requiring review, 1 for an error. Apply only after the difference is precisely the approved networks change. The existing implementation uses selected-service `--no-build --no-deps --pull never --wait`; no broad Compose recreation or image rebuild is needed. Inspect post-apply IDs and public baseline.
+Execute lines individually: check exits 0 when equivalent, 2 for differences requiring review, 1 for an error. Apply only after the differences are exactly those listed above. The existing implementation uses selected-service `--no-build --no-deps --pull never --wait`; no broad Compose recreation or image rebuild is needed. The pinned Langfuse service has no container healthcheck, so `--wait` proves only that its container is running. Require a successful shared-network `/api/public/health` response before phase exit. This matches Langfuse's [upstream Compose guidance](https://github.com/langfuse/langfuse/blob/main/docker-compose.build.yml); the listener inspection below is the version-specific evidence.
 
 ### 8.4 Exact HLLM removal and fixture checklist
 
@@ -1353,7 +1353,20 @@ For one observation, record its value and explain that standard deviation/95% CI
 - Fast gate: first `make test-fast` attempt stopped before frontend assertions because locked Elixir dependencies were absent in the new worktree. Fetched the existing locked dependencies with pinned Elixir/OTP and reran unchanged: exit 0, all 10 registered fast tasks passed. `mix deps.get` reported `lazy_html 0.1.11` as LOW advisory `EEF-CVE-2026-92106`; `frontend/mix.exs` declares it `only: :test`, so it is not part of the production runtime. No dependency version/lockfile was changed in this transition; keep this as a separate test-tooling follow-up.
 - Descriptor discovery: a read-only scoped `production-config check` for `harden-llm-web,langfuse-web` stopped with `service langfuse-web is not in the descriptor`. The mode-0600 private descriptor currently lists Caddy, Collector, Loki, web and gateway, but not Langfuse. Its `composeRoot` is the existing `/home/kirill/p/harden-llm` main checkout, not this worktree. No production apply or file change occurred. Section 8.3 now requires adding only an explicit current-image Langfuse service identity and a networks-only allowance before the main-based source is checked/applied; a check must show exactly the intended network changes.
 - Blocker/risk: Analytics issue [#15](https://github.com/prls-co/prls-analytics/issues/15) remains open. After our two selected HLLM services are deployed, TEST-288 must reach at least 5/6; P02 cannot exit until Analytics owner deploys the additive shared alias and all six origins pass. Agent Platform owner issue [#21](https://github.com/prls-co/agent-platform-infra/issues/21) updates the ingress ownership lock after production acceptance; it does not ask that stopped neighbors be started.
-- Next permitted action: inspect/verify the additive descriptor delta, run required HLLM gates, publish the main-based change through CI, and apply only the two approved service overlays. Then rerun TEST-288; do not proceed past P02 until Analytics is deployed and proven.
+- Next permitted action: see the P02 correction record below. P02 cannot exit until both HLLM origins and Analytics pass TEST-288.
+
+#### P02 production attachment correction — in progress, 2026-09-26
+
+- HLLM source publication: PR [#70](https://github.com/prls-co/harden-llm/pull/70) merged to `main` as `4acde9bfa97c59b2ea0cb66448e929d8c63130f0`. TEST-287, local `make test-fast` (all 10 registered tasks), two hosted `fast T0-T2` runs, Go/JavaScript Actions analysis and CodeQL passed. Browser and release jobs were skipped according to repository policy; this change does not authorize browser testing. The production checkout was fast-forwarded to this SHA. Its pre-existing untracked plan draft was preserved under `/home/kirill/.cache/hllm-shared-caddy-transition/pre-main-plan.md`; its content differences are superseded by the tracked, dated plan.
+- Descriptor preparation: retained file mode `0600`; the private descriptor was extended with the exact running Langfuse container/image identity. A candidate read-only `production-config check` reported only `harden-llm-web.networks` and `langfuse-web.networks`. The actual descriptor then permitted networks for web and Langfuse while preserving every previous allowance. Fresh check repeated the same exact delta. No environment, image, mount or release differences were permitted at this point.
+- Scoped deployment: `production-config apply --services harden-llm-web,langfuse-web` completed with `runtime: verified; applied: yes`; the post-apply scoped check returned `equivalent` and `action: no service recreation required`. This attached only those two services to `prls-observability`; Caddy, tunnel, DNS and every private Langfuse worker/store were untouched. No app image was pulled or rebuilt.
+- First live TEST-288 result after the attachment: failed, 3/6 matched and zero wrong-origin owners. Gateway `/readyz`=200, Grafana `/api/health`=200, Garage `/`=403 as baselined, and Allure remained stopped with edge challenge 401. The web origin returned 301 versus public-route baseline 200; Langfuse shared alias refused TCP; Analytics had no shared attachment/alias. The temporary `--rm` probe exited and no probe container remained.
+- RCA, web oracle: TEST-288 sent the public Host header but omitted `X-Forwarded-Host` and `X-Forwarded-Proto`. A Caddy-equivalent HTTPS request with both headers returned web `/healthz`=200, matching the public baseline; the unforwarded 301 was a probe contract defect. `TestProbeContract` now checks that generated live requests preserve this context, and CI runs it without touching live services.
+- RCA, Langfuse runtime: current Langfuse image had no HTTP healthcheck. Docker reported the container running while its server listened on `eth0` only; the `hllm-prod-langfuse` shared-network endpoint refused TCP, while the existing private-network `langfuse-web:3000` and public HTTPS health endpoint returned 200. The official [Langfuse Compose example](https://github.com/langfuse/langfuse/blob/main/docker-compose.build.yml) sets `HOSTNAME: 0.0.0.0` because Docker's generated `HOSTNAME` otherwise binds the server to one interface. A new failing TEST-287 assertion confirmed the HLLM overlay lacked this setting.
+- Correction in progress: HLLM branch `codex/shared-caddy-langfuse-bind-20260926` adds only `HOSTNAME: 0.0.0.0` to `langfuse-web` and extends TEST-287. Caddy owner branch `codex/caddy-live-origin-context-20260926` adds the HTTPS forwarding contract and its fast unit check. These source changes must pass local and hosted gates before merge. Then update the private descriptor to allow only the additional `langfuse-web.environment.HOSTNAME` change, require a fresh scoped diff containing exactly that plus the two network deltas, apply only the selected web services, and verify direct shared health plus public health before TEST-288.
+- Risk/failure behavior: `production-config --wait` only proved that the Langfuse container was running because the pinned image has no healthcheck; it did not prove the HTTP listener was ready. Do not proceed to P03 or cut over Caddy until TEST-288 reports all six required origins reachable with unique correct owners and no unexplained status changes. Analytics issue [#15](https://github.com/prls-co/prls-analytics/issues/15) remains open and blocks P02 after HLLM's fix.
+- Current production state: both HLLM services are attached to `prls-observability`; Langfuse requires the source/environment correction above for shared-network listening. Independent public HTTPS checks for HLLM `/healthz` and Langfuse `/api/public/health` each returned 200 through the old Caddy. Production Caddy/tunnel/routes/DNS remain unchanged. No Analytics container or network was modified.
+- Next permitted action: finish the focused tests on both source branches, publish each through hosted CI, apply Langfuse's exact `HOSTNAME` setting through the updated production descriptor, then rerun shared-origin acceptance. Do not treat the prior 3/6 result as green or close P02 before Analytics is deployed.
 
 ## 12. Appendix: ADR index
 
@@ -1377,4 +1390,4 @@ These decisions are defined by this plan; execution may add concise repository A
 - Exact operational order is baseline, shared source, origin attachments, prepared HLLM removal, isolated HTTPS candidate, production handoff, HLLM cleanup, duplicate SSH/user wait, SSH source adoption, closeout.
 - Original SSH remains live throughout and afterward. Temporary HTTPS cleanup never includes either SSH record. User silence cannot advance P07.
 - Documentation validation: 42 ordered steps, 18 defined tests, 14 mapped requirements, nine parseable YAML evaluations, matching RED/GREEN commands, valid Bash syntax and clean whitespace. Application tests were not executed.
-- This execution has not changed production DNS, containers, network attachments or deployed configuration. The production descriptor/config and documented tests were read-only checks.
+- Production DNS, Caddy, tunnel and edge routes remain unchanged. The scoped P02 apply did change only the network attachments of `harden-llm-web` and `langfuse-web`; direct shared-origin acceptance is still blocked until Langfuse binds on all interfaces and Analytics joins the shared network.

@@ -16,7 +16,12 @@ func TestSharedIngressAttachments(t *testing.T) {
 
 	langfuse := readYAMLObject(t, filepath.Join(root, "deploy", "langfuse", "compose.private.yml"))
 	langfuseServices := objectField(t, langfuse, "services")
-	assertPrivateAndSharedAlias(t, "langfuse-web", asObject(t, langfuseServices["langfuse-web"], "langfuse-web"), "hllm-prod-langfuse")
+	langfuseWeb := asObject(t, langfuseServices["langfuse-web"], "langfuse-web")
+	assertPrivateAndSharedAlias(t, "langfuse-web", langfuseWeb, "hllm-prod-langfuse")
+	langfuseWebEnvironment := objectField(t, langfuseWeb, "environment")
+	if host, ok := langfuseWebEnvironment["HOSTNAME"].(string); !ok || host != "0.0.0.0" {
+		t.Errorf("langfuse-web HOSTNAME = %#v, want 0.0.0.0 so it listens on both attached networks", langfuseWebEnvironment["HOSTNAME"])
+	}
 
 	for _, name := range []string{"langfuse-worker", "clickhouse", "minio", "redis", "postgres"} {
 		assertPrivateOnly(t, name, asObject(t, langfuseServices[name], name))
