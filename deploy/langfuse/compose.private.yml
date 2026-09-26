@@ -33,6 +33,7 @@ services:
           - hllm-prod-langfuse
     environment:
       <<: *harden-langfuse-environment
+      HOSTNAME: 0.0.0.0
       NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:?set the Langfuse auth secret}
       LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-harden-llm}
       LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME:-Harden LLM}
