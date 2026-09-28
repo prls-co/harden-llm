@@ -1,7 +1,7 @@
 # Shared production web ingress transition
 
 - Plan: `PLAN-HLLM-SHARED-CADDY-001`
-- Version: 5.3
+- Version: 5.4
 - Updated: 2026-09-28
 - Status: implementation in progress
 - Owners: Harden-LLM for application-origin configuration and retirement; `prls-co/caddy-shared` for production Caddy and its web Tunnel connector; Ops for the shared-service record.
@@ -35,11 +35,18 @@ logs, and bounded public route checks.
   the merged candidate (10 tasks, zero failures or cleanup warnings); the
   runner report is
   `tmp/test-feedback/runner-1790636446468-67079-17116cd8163c1f7a.json`. Hosted
-  checks on the earlier source commit
-  `d9fd490484b817b3bbc52ac090e444c75ae0760a` included:
-  `make test-fast` run `36266841961` and browser-free release run
-  `36266872024`. The updated candidate still needs exact-SHA hosted fast and
-  browser-free release checks. A previous separate release attempt had a
+  fast T0–T2 and CodeQL pass on plan head
+  `d8d12b35f9b22059cedda074ddccb8407d45237b` (runs `36495946012`,
+  `36495987890`, CodeQL run `36495985015`). Its browser-free release run
+  `36496018663` failed the unchanged audit task on Mint 1.10.1's three
+  advisories. The base-branch security follow-up is isolated in Harden-LLM
+  draft PR #77: commit `f6461ff402aece718c0afa1b68cf7cee33220691` updates Mint
+  to patched 1.11.0, HPAX to its required 1.1.0, and test-only `lazy_html` to
+  patched 0.1.13. The first PR #77 attempt correctly failed because main still
+  had vulnerable `lazy_html` 0.1.11. Exact-SHA fast and browser-free release
+  checks for the corrected PR #77 head are running as of this update. Do not
+  merge PR #76 or start P05 until those checks pass, PR #77 is merged, and PR
+  #76 is rebased on that main. A previous separate release attempt had a
   45-second frontend smoke-config bootstrap timeout during a host-wide OOM;
   the smoke project was cleaned and the cause was unresolved. Do not count
   that run as passing acceptance or attribute its failure to the current
@@ -93,10 +100,47 @@ logs, and bounded public route checks.
   of those credential/config files is a separate audit and is not authorized
   by this transition.
 - No Ops shared-Caddy record has been published yet.
-- Current dependency resolution reports locked `mint` 1.10.1 advisories in the
-  HLLM frontend dependency audit data. This ingress transition does not modify
-  application dependency/runtime versions; track and resolve the Mint finding
-  through the HLLM dependency owner before a future application release.
+- A read-only owner-scoped API request to
+  `GET /api/v1/history?limit=1` returned no history items for the configured
+  static-token owner. No trace IDs or user content were retained. The public
+  unsigned artifact root still denies access with HTTP 403, but no existing
+  owner artifact was available to test its authorized 303 redirect and
+  signed-object byte/hash contract. Do not create a production run, call a
+  provider, or invent object metadata to fill this gap. P05 signed-artifact
+  acceptance is blocked until a suitable existing owner artifact or a
+  separately approved non-production acceptance method is available.
+- The public pre-cutover route responses below were collected on 2026-09-28
+  with one TLS-verified unauthenticated GET per route; redirects were not
+  followed and bodies were not retained. Refresh every row immediately before
+  P05. Existing 502s, failed agent-alias TLS handshakes, and the admin redirect
+  mismatch are pre-existing route-owner follow-ups, not successful application
+  health checks.
+
+### Pre-cutover public route baseline (2026-09-28)
+
+| Tunnel hostname | Probe | Current public result | Interpretation / P05 comparison |
+| --- | --- | --- | --- |
+| `harden-llm.prls.co` | `GET /` | 302 `/login` | Expected unauthenticated web redirect. |
+| `harden-llm-api.prls.co` | `GET /readyz` | 200 | Gateway readiness. |
+| `harden-llm-artifacts.prls.co` | `GET /` | 403 | Expected denial for unsigned artifact access; not signed-download proof. |
+| `harden-llm-grafana.prls.co` | `GET /api/health` | 200 | Grafana health. |
+| `harden-llm-langfuse.prls.co` | `GET /api/public/health` | 200 | Langfuse health. |
+| `allure.prls.co` | `GET /` | 401 | Expected unauthenticated denial. |
+| `platform.prod.agents.prls.co` | `GET /` | TLS handshake failure | Pre-existing failed alias route; require unchanged comparison and owner follow-up. |
+| `masked-recall-api.prod.agents.prls.co` | `GET /` | TLS handshake failure | Pre-existing failed alias route; require unchanged comparison and owner follow-up. |
+| `product-opportunity-api.prod.agents.prls.co` | `GET /` | TLS handshake failure | Pre-existing failed alias route; require unchanged comparison and owner follow-up. |
+| `synthetic-product-dataset-api.prod.agents.prls.co` | `GET /` | TLS handshake failure | Pre-existing failed alias route; require unchanged comparison and owner follow-up. |
+| `platform.prls.co` | `GET /` | 502 | Matching origin container was exited at the prior inventory; refresh before cutover and notify its owner. |
+| `masked-recall-api.prls.co` | `GET /` | 502 | Matching origin container was exited at the prior inventory; refresh before cutover and notify its owner. |
+| `product-opportunity-api.prls.co` | `GET /` | 502 | Matching origin container was exited at the prior inventory; refresh before cutover and notify its owner. |
+| `synthetic-product-dataset-api.prls.co` | `GET /` | 502 | Matching origin container was exited at the prior inventory; refresh before cutover and notify its owner. |
+| `analytics.prls.co` | `GET /` | 302 `/overview` | Expected Analytics Gateway redirect. |
+| `admin-aiknowledge.prls.co` | `GET /` | 307 `/login` | Public response showed Cloudflare's server header on the prior check; Caddy source expects 308 to Analytics. Treat the edge-layer explanation as an inference and verify the same public result before/after. |
+
+This table is a compatibility baseline, not a claim that every route is
+healthy. Do not accept a newly failing route, changed auth denial, TLS
+regression, or changed origin response as equivalent. The already failing
+origins and aliases remain explicitly visible in the cutover report.
 
 ## Owner phases
 
@@ -108,10 +152,11 @@ logs, and bounded public route checks.
 2. Review the full branch diff by file. Keep only removal of Harden-LLM's
    production Caddy configuration/ownership and the necessary affected
    application, deployment, documentation, and test updates. Preserve the
-   existing gateway, web, shared-service consumers, and data.
-   The test-only `lazy_html` constraint/lock update is retained because current
-   Hex advisory data flags the old locked version; the unrelated `mint`
-   advisory is recorded above rather than silently changing app dependencies.
+   existing gateway, web, shared-service consumers, and data. Drop unrelated
+   dependency edits rather than bundling them. The Mint/HPAX and test-only
+   `lazy_html` audit fixes are tracked in separate HLLM PR #77 and must be
+   merged first; after rebasing, remove their duplicate dependency hunks from
+   PR #76. Do not silently change application dependencies in this ingress PR.
 3. Run `make test-fast` and the required browser-free release gate at the exact
    candidate SHA. Require hosted CI on that same SHA. Do not run browser tests,
    Docker application deployment, provider calls, or a preview deployment for
