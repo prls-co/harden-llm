@@ -807,7 +807,10 @@ runtime contract or the meaning of `make verify`.
 - T0/T1: branch identities are stable and collision-resistant; production/dev
   cleanup boundaries are enforced; current same-repository passing revisions
   alone qualify; changed paths select only affected images; automatic fast,
-  baseline, and release selectors cannot launch browsers. Browser assertions
+  baseline, and release selectors cannot launch browsers. Initial preview-host
+  setup requires the explicit preview Cloudflare token, trims it, and rejects
+  missing/blank values even when a generic Cloudflare variable is present; the
+  bootstrap has no Shaman SSH credential-file dependency. Browser assertions
   remain explicit opt-ins (amends TEST-055 selection, not its assertion oracles).
 - T5, browser-free: dedicated preview tunnel/router, isolated application/data
   services, healthy exact image identity, public HTTP readiness and initial

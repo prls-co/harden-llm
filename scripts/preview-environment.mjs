@@ -112,6 +112,12 @@ export function testCredentials(contents) {
   return { email, password };
 }
 
+export function initialPreviewCloudflareToken(env = process.env) {
+  const token = env.HARDEN_LLM_PREVIEW_CLOUDFLARE_API_TOKEN?.trim();
+  if (!token) throw new Error("HARDEN_LLM_PREVIEW_CLOUDFLARE_API_TOKEN is required for initial preview host setup");
+  return token;
+}
+
 export function ensureTestLogin(c, state, guest, run = command) {
   if (state.project !== branchIdentity(state.branch).project) throw new Error("Preview ownership mismatch");
   const base = ["compose", "--env-file", path.join(environmentDirectory(c, state.branch), ".env"), "-p", state.project, "-f", path.join(c.root, "control/compose.yml"), "exec", "-T"];

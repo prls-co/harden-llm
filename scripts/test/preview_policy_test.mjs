@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { branchIdentity, ciMode, changedServices, deploymentAllowed } from "../preview-policy.mjs";
 import { loadManifest, selectTasks, runSelection } from "../run-test-tier.mjs";
-import { dotenv, routeFor, stateFor, destroyEnvironment, operatorCredentials, testCredentials, ensureTestLogin, syncControl, writePrivateIfChanged, reusableImage } from "../preview-environment.mjs";
+import { dotenv, routeFor, stateFor, destroyEnvironment, operatorCredentials, testCredentials, ensureTestLogin, syncControl, writePrivateIfChanged, reusableImage, initialPreviewCloudflareToken } from "../preview-environment.mjs";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -31,6 +31,30 @@ test("operator login parsing never imports provider or infrastructure secrets", 
   });
   assert.throws(() => operatorCredentials("HARDEN_LLM_LOCAL_OPERATOR_EMAIL=operator@example.test"), /missing/);
   assert.throws(() => operatorCredentials('HARDEN_LLM_LOCAL_OPERATOR_EMAIL=a@b.test\nHARDEN_LLM_LOCAL_OPERATOR_PASSWORD="line\nbreak"'), /invalid/);
+});
+
+test("initial preview bootstrap requires its explicit Cloudflare token", () => {
+  const message = /HARDEN_LLM_PREVIEW_CLOUDFLARE_API_TOKEN is required for initial preview host setup/;
+  assert.throws(() => initialPreviewCloudflareToken({}), message);
+  assert.throws(() => initialPreviewCloudflareToken({ CLOUDFLARE_API_TOKEN: "generic-token" }), message);
+  assert.throws(() => initialPreviewCloudflareToken({
+    HARDEN_LLM_PREVIEW_CLOUDFLARE_API_TOKEN: " \t\n",
+    CLOUDFLARE_API_TOKEN: "generic-token",
+  }), message);
+});
+
+test("initial preview bootstrap trims and selects only its explicit Cloudflare token", () => {
+  assert.equal(initialPreviewCloudflareToken({
+    HARDEN_LLM_PREVIEW_CLOUDFLARE_API_TOKEN: " \t synthetic-preview-token \n",
+    CLOUDFLARE_API_TOKEN: "unrelated-generic-token",
+    SHAMAN_PUBLIC_SSH_CLOUDFLARE_TOKEN: "unrelated-ssh-token",
+  }), "synthetic-preview-token");
+});
+
+test("preview bootstrap is wired to the explicit token helper and has no SSH credential-file dependency", async () => {
+  const bootstrap = await readFile(new URL("../setup-preview-host.mjs", import.meta.url), "utf8");
+  assert(bootstrap.includes("initialPreviewCloudflareToken(process.env)"));
+  assert.doesNotMatch(bootstrap, /shaman-public-ssh/);
 });
 
 test("branch identities are stable, bounded, distinct and cannot target production", () => {
