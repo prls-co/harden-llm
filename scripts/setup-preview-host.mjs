@@ -4,14 +4,13 @@ import path from "node:path";
 import os from "node:os";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { cf, command, configPath, dotenv, hostCompose, readJSON, repo, syncControl, writePrivate } from "./preview-environment.mjs";
+import { cf, command, configPath, dotenv, hostCompose, initialPreviewCloudflareToken, readJSON, repo, syncControl, writePrivate } from "./preview-environment.mjs";
 
 const root = path.join(os.homedir(), ".local/share/harden-llm-previews");
 const sourceRepository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 let config = await readJSON(configPath, null);
 if (!config) {
-  const cloudflareToken = process.env.HARDEN_LLM_PREVIEW_CLOUDFLARE_API_TOKEN?.trim();
-  if (!cloudflareToken) throw new Error("HARDEN_LLM_PREVIEW_CLOUDFLARE_API_TOKEN is required for initial preview host setup");
+  const cloudflareToken = initialPreviewCloudflareToken(process.env);
   const [zone] = await cf({ cloudflareToken }, "zones?name=prls.co");
   if (!zone || zone.name !== "prls.co") throw new Error("Expected prls.co zone");
   config = { repository: repo, root, sourceRepository, cloudflareToken, zoneID: zone.id, accountID: zone.account.id };
