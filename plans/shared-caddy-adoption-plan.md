@@ -28,34 +28,75 @@ logs, and bounded public route checks.
 - Production still uses Harden-LLM Caddy and the current web connector. No
   production container, DNS record, tunnel, credential, or application service
   was changed in this work.
-- Harden-LLM removal branch `fix/remove-hllm-production-caddy-20260926` is at
-  `2055b05d5f6655d10db2300c1654399c5109f22d`. Its source commit
-  `d9fd490484b817b3bbc52ac090e444c75ae0760a` passed hosted `make test-fast`
-  run `36266841961` and browser-free release run `36266872024`. Later commits
-  on that branch only changed this plan. The branch has no PR yet and predates
-  the merged main commit `b2bbdad0d8627ed6aa3ab410e670f3f60d188ddd`; refresh
-  and review the complete diff against current main before opening a PR.
+- Harden-LLM removal branch `fix/remove-hllm-production-caddy-20260926` now
+  includes current `main` through merge commit
+  `f8a9c99de8e3013c639935c4e0fc5a751734058a`; the full P03 source commit is
+  `d9fd490484b817b3bbc52ac090e444c75ae0760a`. Local `make test-fast` passed on
+  the merged candidate (10 tasks, zero failures or cleanup warnings); the
+  runner report is
+  `tmp/test-feedback/runner-1790636446468-67079-17116cd8163c1f7a.json`. Hosted
+  checks on the earlier source commit
+  `d9fd490484b817b3bbc52ac090e444c75ae0760a` included:
+  `make test-fast` run `36266841961` and browser-free release run
+  `36266872024`. The updated candidate still needs exact-SHA hosted fast and
+  browser-free release checks. A previous separate release attempt had a
+  45-second frontend smoke-config bootstrap timeout during a host-wide OOM;
+  the smoke project was cleaned and the cause was unresolved. Do not count
+  that run as passing acceptance or attribute its failure to the current
+  candidate without reproducing it.
 - The Harden-LLM removal diff is broad (43 files at the recorded source
   comparison). Verify every file is required by removing production Caddy and
   preserving the affected app/test contracts. Drop unrelated changes rather
   than bundling them.
-- `caddy-shared` PR #3 is an existing draft on
-  `feat/https-canary-transition-20260926`, based at
-  `c05dfe9efc26ad7f9826ba51acabbd1e2b01fa97`. The pending local change removes
-  its unused canary files, route, tests, and instructions. The production
-  `runtime.env` is mode 0600, ignored by Git, and
-  `docker compose --env-file ./runtime.env -f compose.yaml config --quiet`
-  passes.
-- Caddy owner checks pass locally after the canary removal:
+- `caddy-shared` PR #3 was merged as
+  `4ddf02c72a76f2010f7112d09a3390650b182ff4` (source head
+  `81ae0f712492871051abf79b71a2f17490263435`). Its net diff retains the
+  production least-privilege UID/GID fix and removes the temporary canary
+  machinery; no new tunnel, hostname, or token was provisioned. The hosted
+  `shared-ingress` job passed on that exact source head.
+- Caddy owner checks pass locally on the merged source:
   `python3 tests/test_config.py TestOwner`,
   `python3 tests/test_live.py TestProbeContract`, and
   `python3 tests/test_routes.py`. The last check creates only uniquely named,
   isolated test containers/network and cleans them up; a post-test label query
   found no leftovers.
+- The protected shared-owner `runtime.env` remains ignored and mode 0600;
+  `docker compose --env-file ./runtime.env -f compose.yaml config --quiet`
+  passes against the merged source. No production Caddy/tunnel service was
+  started or changed.
 - The current Harden-LLM production configuration is read-only `equivalent`;
   no apply has run. Refresh this and all container identities immediately
   before cutover.
+- Recorded live web-owner containers (refresh immediately before P05): old
+  production Caddy is `harden-llm-caddy-1`, container ID
+  `69ae2df941e5f68322a729eb26128491f1f519fa5f9b457963c9b77b117a017c`, image
+  `caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648`,
+  running with restart policy `unless-stopped` on `harden-llm_harden-private`
+  and `prls-observability`. It mounts the existing `harden-llm_caddy-config`
+  and `harden-llm_caddy-data` volumes at `/config` and `/data`, plus read-only
+  HLLM Caddyfile, route directory, and frontend overlay binds. Its web
+  connector is
+  `shaman-harden-llm-cloudflared-1`, container ID
+  `207f876e7dc12cf061bee3496369e230c0673290d70379d97396bf127aa7c622`, image
+  `cloudflare/cloudflared@sha256:e39ee8da81ad5e05d77f38d2f51c60ca51bf2a8450ac3abab50c17fdb91d91bf`,
+  running with restart policy `unless-stopped` on `harden-llm_harden-private`.
+  Compose project `shaman-harden-llm` is sourced under
+  `/home/kirill/.config/cloudflared/shaman-harden-llm/`; its configuration,
+  tunnel credential, and origin CA are read-only bind mounts. Refresh and record
+  the full exact mount sources, image IDs, networks, restart policy, and state
+  immediately before P05; never copy environment values or credential contents
+  into this record. The unrelated `shaman-api-cloudflared-1` is explicitly
+  excluded.
+- Preserve the old connector's protected config, tunnel credential, origin CA,
+  and backups through cutover and acceptance. P06 retires only its exact
+  container/startup owner after shared-route acceptance; deletion or rotation
+  of those credential/config files is a separate audit and is not authorized
+  by this transition.
 - No Ops shared-Caddy record has been published yet.
+- Current dependency resolution reports locked `mint` 1.10.1 advisories in the
+  HLLM frontend dependency audit data. This ingress transition does not modify
+  application dependency/runtime versions; track and resolve the Mint finding
+  through the HLLM dependency owner before a future application release.
 
 ## Owner phases
 
@@ -68,6 +109,9 @@ logs, and bounded public route checks.
    production Caddy configuration/ownership and the necessary affected
    application, deployment, documentation, and test updates. Preserve the
    existing gateway, web, shared-service consumers, and data.
+   The test-only `lazy_html` constraint/lock update is retained because current
+   Hex advisory data flags the old locked version; the unrelated `mint`
+   advisory is recorded above rather than silently changing app dependencies.
 3. Run `make test-fast` and the required browser-free release gate at the exact
    candidate SHA. Require hosted CI on that same SHA. Do not run browser tests,
    Docker application deployment, provider calls, or a preview deployment for
@@ -138,24 +182,28 @@ containers needed to restore the last accepted owner.
 
 Only after P05 succeeds:
 
-1. Merge the reviewed P03 PR and deploy the exact candidate with the existing
-   Harden-LLM production-config path. Limit the apply to the intended
-   application services; do not rebuild application images or mutate data,
-   shared infrastructure, or unrelated services.
-2. Verify the exact gateway/web release and health are unchanged and the full
-   Harden-LLM production-config check is equivalent. Confirm shared Caddy
-   continues to serve the accepted public routes.
-3. Update the protected production descriptor to remove only the retired Caddy
-   service after checking its current schema and backup/restore path. Preserve
-   the source and rollback record before changing this host-owned file.
-4. Remove only the exact stopped old Caddy and web-connector containers after
-   verifying they are no longer needed. Retain the existing Caddy volumes,
-   production tunnel credential, origin CA, DNS records, and unrelated
-   containers.
+1. Merge the reviewed P03 PR. Do not run a broad production-config apply for
+   this Caddy-only retirement: it can recreate or replace unrelated app
+   services. The shared owner already serves production routes, and P06 changes
+   only the HLLM descriptor and the exact obsolete containers.
+2. Before editing the protected production descriptor, verify its current
+   schema, mode/owner, backup/restore path, and the exact running gateway/web
+   release identities. Back it up privately, remove only the `caddy` service
+   entry, and run the read-only `production-config check`. Require `equivalent`
+   for the remaining configured services. Do not apply/reconcile app services.
+3. Confirm the shared Caddy owner continues serving every accepted P05 public
+   route and that the HLLM gateway/web release and health are unchanged.
+4. Remove only the exact stopped old Caddy and old web-connector containers
+   after verifying their Compose startup owner can no longer recreate them.
+   Retain the Caddy volumes, tunnel credential, origin CA, protected connector
+   config/backups, DNS records, and unrelated containers. Do not use Compose
+   `down`, prune, or remove resources by project/name pattern.
 
 Record the point at which restart of the old containers ceases to be a valid
-rollback. Do not prune, use `down -v`, delete shared volumes, or revoke any
-credential as part of P06.
+rollback. The old connector's protected files under
+`/home/kirill/.config/cloudflared/shaman-harden-llm/` remain for a separately
+reviewed credential/configuration-retirement decision. Do not prune, use
+`down -v`, delete shared volumes, or revoke any credential as part of P06.
 
 **Stop:** app image/release changes, non-equivalent descriptor check, an
 unreviewed host descriptor, wrong container identity, or any attempted volume
