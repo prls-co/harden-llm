@@ -1,7 +1,7 @@
 # Shared production web ingress transition
 
 - Plan: `PLAN-HLLM-SHARED-CADDY-001`
-- Version: 5.5
+- Version: 5.6
 - Updated: 2026-09-28
 - Status: implementation in progress
 - Owners: Harden-LLM for application-origin configuration and retirement; `prls-co/caddy-shared` for production Caddy and its web Tunnel connector; Ops for the shared-service record.
@@ -30,27 +30,28 @@ logs, and bounded public route checks.
   was changed in this work.
 - Harden-LLM removal branch `fix/remove-hllm-production-caddy-20260926` has
   P03 source commit `d9fd490484b817b3bbc52ac090e444c75ae0760a`. Local
-  `make test-fast` passed on the merged candidate (10 tasks, zero failures or
+  `make test-fast` passed on the merged source candidate (10 tasks, zero failures or
   cleanup warnings); the runner report is
   `tmp/test-feedback/runner-1790636446468-67079-17116cd8163c1f7a.json`. On the
-  current PR #76 head `404068ff2949984641b6575f04544bb2aa9e4b3a`, hosted fast
-  T0–T2 and CodeQL pass (run `36499411922`, CodeQL run `36499407321`). Its
-  browser-free release remains required on the final rebased candidate; an
+  PR #76 plan head `65e881338d948a5c1142695e91a11d9525483980`, hosted fast
+  T0–T2 and CodeQL passed (run `36500108503`, CodeQL run `36500103612`). The
+  browser-free release remains required on the final rebased P03 candidate; an
   earlier candidate's release run `36496018663` failed the unchanged audit
   task on Mint 1.10.1's three advisories. The base-branch security follow-up is
-  isolated in Harden-LLM draft PR #77: commit
+  isolated in Harden-LLM PR #77: commit
   `f6461ff402aece718c0afa1b68cf7cee33220691` updates Mint to patched 1.11.0,
   HPAX to its required 1.1.0, and test-only `lazy_html` to patched 0.1.13.
   The first PR #77 attempt correctly failed because main still had vulnerable
-  `lazy_html` 0.1.11. On exact PR #77 head
-  `f6461ff402aece718c0afa1b68cf7cee33220691`, hosted fast T0–T2 and CodeQL
-  pass; browser-free release run
-  [36498851507](https://github.com/prls-co/harden-llm/actions/runs/36498851507)
-  is still in progress at `make test-release`. Do not merge PR #77 until that
-  exact release gate passes. Then rebase PR #76 on the merged main and rerun
-  hosted fast, CodeQL, and browser-free release on its exact final SHA. Do not
-  merge PR #76 or start P05 until those gates pass, PR #77 is merged, and PR
-  #76 is rebased on that main. A previous separate release attempt had a
+  `lazy_html` 0.1.11. PR #77 merged as
+  `eb4bfe5966a9f24e876e279a860e9a15a2aff8ad` after hosted fast T0–T2, CodeQL,
+  and browser-free `make test-release` passed on exact head
+  `f6461ff402aece718c0afa1b68cf7cee33220691` (runs `36498836561`,
+  `36498841906`, CodeQL `36498836969`, release
+  [36498851507](https://github.com/prls-co/harden-llm/actions/runs/36498851507)).
+  Rebase PR #76 on the merged main, remove the now-duplicate `lazy_html`
+  dependency hunk from PR #76, then rerun hosted fast, CodeQL, and browser-free
+  release on its exact final SHA. Do not merge PR #76 or start P05 until those
+  gates pass and the rebase is complete. A previous separate release attempt had a
   45-second frontend smoke-config bootstrap timeout during a host-wide OOM;
   the smoke project was cleaned and the cause was unresolved. Do not count
   that run as passing acceptance or attribute its failure to the current
