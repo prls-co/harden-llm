@@ -10,10 +10,8 @@ const root = path.join(os.homedir(), ".local/share/harden-llm-previews");
 const sourceRepository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 let config = await readJSON(configPath, null);
 if (!config) {
-  const tokenFile = await fs.readFile(path.join(os.homedir(), ".config/shaman-public-ssh/cloudflare.env"), "utf8");
-  const match = tokenFile.match(/^(?:export )?CLOUDFLARE_API_TOKEN=(.+)$/m);
-  if (!match) throw new Error("Cloudflare operator token is missing");
-  const cloudflareToken = match[1].trim().replace(/^['"]|['"]$/g, "");
+  const cloudflareToken = process.env.HARDEN_LLM_PREVIEW_CLOUDFLARE_API_TOKEN?.trim();
+  if (!cloudflareToken) throw new Error("HARDEN_LLM_PREVIEW_CLOUDFLARE_API_TOKEN is required for initial preview host setup");
   const [zone] = await cf({ cloudflareToken }, "zones?name=prls.co");
   if (!zone || zone.name !== "prls.co") throw new Error("Expected prls.co zone");
   config = { repository: repo, root, sourceRepository, cloudflareToken, zoneID: zone.id, accountID: zone.account.id };

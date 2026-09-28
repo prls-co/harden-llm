@@ -151,20 +151,40 @@ See GitHub's [self-hosted runner security guidance](https://docs.github.com/en/a
 
 Initial setup on the reference Linux host:
 
+For the first setup, supply a Harden-LLM-owned Cloudflare token through
+`HARDEN_LLM_PREVIEW_CLOUDFLARE_API_TOKEN`. A non-echoing prompt in Bash avoids
+putting the token value in shell history:
+
+```bash
+read -r -s -p 'Harden-LLM preview Cloudflare token: ' HARDEN_LLM_PREVIEW_CLOUDFLARE_API_TOKEN
+export HARDEN_LLM_PREVIEW_CLOUDFLARE_API_TOKEN
+node scripts/setup-preview-host.mjs
+unset HARDEN_LLM_PREVIEW_CLOUDFLARE_API_TOKEN
+```
+
+Once host configuration exists, setup reuses its stored credential:
+
 ```sh
 node scripts/setup-preview-host.mjs
 systemctl --user status github-actions-harden-llm-preview.service
 ```
 
 Requires Docker, Node, Git, `flock`, authenticated `gh` with runner registration
-authority, and the protected operator Cloudflare token at
-`~/.config/shaman-public-ssh/cloudflare.env`. The setup creates a **new** tunnel
+authority, and a Cloudflare token allowed to read the `prls.co` zone, edit its
+DNS records, and manage Cloudflare Tunnels in its account. Bootstrap requires
+the explicit environment variable when `host.json` does not exist; it never
+imports host SSH credentials. The setup creates a **new** tunnel
 named `shaman-harden-llm-preview`; it does not change the production tunnel.
 It installs the checksum-verified GitHub runner and a persistent user service.
 User lingering must be enabled for operation after logout (already enabled on
 the reference host). Runner auto-updates remain GitHub-managed.
 
 Host credentials/config live in `~/.config/harden-llm-preview/host.json` (0600).
+The bootstrap token is stored there for subsequent operations. Supplying the
+environment variable to an already configured host does not rotate that stored
+token. Manage its rotation separately from host SSH DNS credentials, preserving
+all other host configuration fields. Before revoking a legacy shared token,
+confirm that every former consumer has migrated to its own credential.
 State lives in `~/.local/share/harden-llm-previews` (private). Cloudflare is
 configured through its [remote tunnel API](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/get-started/create-remote-tunnel-api/).
 DNS writes refuse existing records without the expected ownership marker.
