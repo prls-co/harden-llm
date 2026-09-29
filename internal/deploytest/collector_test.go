@@ -52,7 +52,7 @@ func TestCollectorPipelines(t *testing.T) {
 	for name, endpoint := range map[string]string{
 		"otlp/tempo":              "tempo:4317",
 		"otlphttp/loki":           "http://loki:3100/otlp",
-		"otlp/harden_llm_laminar": "laminar:8001",
+		"otlp/harden_llm_laminar": "${env:HARDEN_LLM_LAMINAR_ENDPOINT}",
 		"prometheus":              "0.0.0.0:9464",
 	} {
 		if got := stringField(t, objectField(t, exporters, name), "endpoint"); got != endpoint {

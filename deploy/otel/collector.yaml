@@ -195,7 +195,7 @@ exporters:
       max_interval: 5s
       max_elapsed_time: 30s
   otlp/harden_llm_laminar:
-    endpoint: laminar:8001
+    endpoint: ${env:HARDEN_LLM_LAMINAR_ENDPOINT}
     headers:
       authorization: Bearer ${env:HARDEN_LLM_LAMINAR_PROJECT_API_KEY}
     compression: gzip
