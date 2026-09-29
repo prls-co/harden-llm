@@ -101,6 +101,7 @@ services:
     environment:
       PRLS_LAMINAR_PROJECT_API_KEY: ${PRLS_LAMINAR_PROJECT_API_KEY:?set the Laminar PRLS project API key}
       HARDEN_LLM_LAMINAR_PROJECT_API_KEY: ${HARDEN_LLM_LAMINAR_PROJECT_API_KEY:?set the dedicated Harden LLM Laminar ingest key}
+      HARDEN_LLM_LAMINAR_ENDPOINT: ${HARDEN_LLM_LAMINAR_ENDPOINT:-laminar:8001}
     volumes:
       - ./deploy/otel/collector.yaml:/etc/otelcol-contrib/config.yaml:ro
       - otel-collector-state:/var/lib/otelcol

@@ -466,6 +466,7 @@ func smokeEnvironment(t *testing.T, material tlsMaterial, httpPort, httpsPort in
 		"PRLS_SMOKE_OBSERVABILITY_NETWORK":      "prls-observability-smoke-" + hexSecret(8),
 		"PRLS_LAMINAR_PROJECT_API_KEY":          textSecret("lmnr"),
 		"HARDEN_LLM_LAMINAR_PROJECT_API_KEY":    textSecret("lmnr-harden"),
+		"HARDEN_LLM_LAMINAR_ENDPOINT":           "laminar:8001",
 		"HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT": fmt.Sprintf("https://artifacts.smoke.localhost:%d", httpsPort),
 		"HARDEN_LLM_BIND_ADDRESS":               "127.0.0.1", "HARDEN_LLM_HTTP_PORT": strconv.Itoa(httpPort),
 		"HARDEN_LLM_HTTPS_PORT": strconv.Itoa(httpsPort), "HARDEN_LLM_TLS_MODE": "internal",

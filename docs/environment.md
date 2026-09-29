@@ -87,6 +87,11 @@ requires it separately from the PRLS-owned observability variables. Only the
 existing redacted Harden LLM gateway trace pipeline exports to Laminar. Its
 durable queue is byte-sized and capped at 512 MiB, retries across restarts, and
 can reject new spans once full; monitor queue capacity and failed-send metrics.
+`HARDEN_LLM_LAMINAR_ENDPOINT` defaults to `laminar:8001`. Keep that production
+default; the variable exists so a planned recovery test can make only the HLLM
+exporter unreachable without interrupting the shared Laminar service or other
+Collector pipelines. Restore the default as soon as the queue-retention check
+is complete.
 The Langfuse application and its history are retained independently while
 remaining route and consumer needs are reviewed.
 These variables belong to the unchanged upstream service graph documented in

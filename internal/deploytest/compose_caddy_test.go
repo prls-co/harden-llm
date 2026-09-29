@@ -163,6 +163,10 @@ func assertNarrowLangfuseOverlay(t *testing.T, path string) {
 }
 
 func renderCompose(t *testing.T, root string, files ...string) map[string]any {
+	return renderComposeWithEnvironment(t, root, composeContractEnvironment(), files...)
+}
+
+func renderComposeWithEnvironment(t *testing.T, root string, environment []string, files ...string) map[string]any {
 	t.Helper()
 	args := []string{"compose", "--project-name", "harden-llm-contract"}
 	for _, file := range files {
@@ -175,7 +179,7 @@ func renderCompose(t *testing.T, root string, files ...string) map[string]any {
 	args = append(args, "config", "--format", "json")
 	command := exec.Command("docker", args...)
 	command.Dir = root
-	command.Env = append(os.Environ(), composeContractEnvironment()...)
+	command.Env = mergeEnvironment(os.Environ(), environment)
 	output, err := command.CombinedOutput()
 	if err != nil {
 		t.Fatalf("docker compose config: %v\n%s", err, output)
@@ -185,6 +189,24 @@ func renderCompose(t *testing.T, root string, files ...string) map[string]any {
 		t.Fatalf("parse effective Compose JSON: %v\n%s", err, output)
 	}
 	return config
+}
+
+func TestCollectorLaminarEndpointOverride(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", ".."))
+	endpoint := "127.0.0.1:18001"
+	environment := append(composeContractEnvironment(), "HARDEN_LLM_LAMINAR_ENDPOINT="+endpoint)
+	config := renderComposeWithEnvironment(t, root, environment,
+		filepath.Join(root, "docker-compose.yml"),
+		filepath.Join(root, "deploy", "langfuse", "docker-compose.upstream.yml"),
+		filepath.Join(root, "deploy", "langfuse", "compose.private.yml"),
+		filepath.Join(root, "deploy", "frontend", "compose.frontend.yml"),
+	)
+	services := objectField(t, config, "services")
+	collector := asObject(t, services["otel-collector"], "otel-collector")
+	collectorEnv := environmentValueMap(t, collector["environment"])
+	if got := collectorEnv["HARDEN_LLM_LAMINAR_ENDPOINT"]; got != endpoint {
+		t.Fatalf("Collector Laminar endpoint = %q, want the explicit test endpoint", got)
+	}
 }
 
 func assertEffectiveTopology(t *testing.T, config map[string]any) {
@@ -248,6 +270,9 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 		}
 	}
 	collectorEnv := environmentValueMap(t, asObject(t, services["otel-collector"], "otel-collector")["environment"])
+	if collectorEnv["HARDEN_LLM_LAMINAR_ENDPOINT"] != "laminar:8001" {
+		t.Errorf("Collector Laminar endpoint default = %q, want laminar:8001", collectorEnv["HARDEN_LLM_LAMINAR_ENDPOINT"])
+	}
 	for _, key := range []string{"LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"} {
 		if _, exists := collectorEnv[key]; exists {
 			t.Errorf("Collector still receives Langfuse credential %s after the Laminar-only cutover", key)
@@ -483,6 +508,7 @@ func assertImageManifest(t *testing.T, path string, effective map[string]any) {
 
 func composeContractEnvironment() []string {
 	return []string{
+		"HARDEN_LLM_LAMINAR_ENDPOINT=",
 		"HARDEN_LLM_API_HOST=api.harden.test", "HARDEN_LLM_GRAFANA_HOST=grafana.harden.test",
 		"HARDEN_LLM_LANGFUSE_HOST=langfuse.harden.test", "HARDEN_LLM_ARTIFACT_HOST=artifacts.harden.test",
 		"HARDEN_LLM_WEB_HOST=app.harden.test",
@@ -515,6 +541,32 @@ func composeContractEnvironment() []string {
 		"PRLS_LOKI_S3_SECRET_KEY=contractLokiGarageKey_7Jt3sM9qP2vW6xN8cR4aD1fH5kB0zE",
 		"LANGFUSE_INIT_USER_PASSWORD=contract-user-9mQ2vN7p", "COMPOSE_PROJECT_NAME=harden-llm-contract",
 	}
+}
+
+func mergeEnvironment(base, overrides []string) []string {
+	values := make(map[string]string, len(overrides))
+	order := make([]string, 0, len(overrides))
+	for _, item := range overrides {
+		name, value, ok := strings.Cut(item, "=")
+		if !ok || name == "" {
+			continue
+		}
+		if _, exists := values[name]; !exists {
+			order = append(order, name)
+		}
+		values[name] = value
+	}
+	filtered := make([]string, 0, len(base)+len(order))
+	for _, item := range base {
+		name, _, _ := strings.Cut(item, "=")
+		if _, overridden := values[name]; !overridden {
+			filtered = append(filtered, item)
+		}
+	}
+	for _, name := range order {
+		filtered = append(filtered, name+"="+values[name])
+	}
+	return filtered
 }
 
 func environmentMap(t *testing.T, service map[string]any) map[string]string {
