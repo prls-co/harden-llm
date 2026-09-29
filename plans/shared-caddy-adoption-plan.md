@@ -1,7 +1,7 @@
 # Shared production web ingress transition
 
 - Plan: `PLAN-HLLM-SHARED-CADDY-001`
-- Version: 5.7
+- Version: 5.8
 - Updated: 2026-09-28
 - Status: implementation in progress
 - Owners: Harden-LLM for application-origin configuration and retirement; `prls-co/caddy-shared` for production Caddy and its web Tunnel connector; Ops for the shared-service record.
@@ -39,8 +39,12 @@ logs, and bounded public route checks.
   `tmp/test-feedback/runner-1790636446468-67079-17116cd8163c1f7a.json`. On the
   pre-rebase PR #76 head `65e881338d948a5c1142695e91a11d9525483980`, hosted
   fast T0–T2 and CodeQL passed (run `36500108503`, CodeQL run `36500103612`);
-  these checks are historical and do not certify the rebased candidate. The
-  browser-free release remains required on the final rebased P03 candidate.
+  these checks are historical and do not certify the rebased candidate. On
+  rebased head `b6976309d803e3b174497d03c4d9ba794223930b`, hosted fast T0–T2
+  (`36501229374`), CodeQL (`36501225913`), and browser-free release
+  (`36501587908`) all passed. That release's `runner-contracts` task took
+  140.492 s. After restoring its manifest budget from 240 s to 180 s, rerun
+  every exact-head hosted gate before promoting this PR.
   An earlier candidate's release run `36496018663` failed the unchanged audit
   task on Mint 1.10.1's three advisories. The base-branch security follow-up was
   isolated in Harden-LLM PR #77: commit

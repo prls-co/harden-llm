@@ -86,7 +86,7 @@
       "resourceClass": "cpu",
       "command": ["node", "--test", "scripts/test/run_test_tier_test.mjs", "scripts/test/test_resource_lifecycle_test.mjs", "scripts/test/test_resource_measurement_test.mjs"],
       "dependsOn": [],
-      "timeoutMs": 240000,
+      "timeoutMs": 180000,
       "cleanupOwner": "runner",
       "network": "forbidden",
       "credentialKeys": [],

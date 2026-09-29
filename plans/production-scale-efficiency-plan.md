@@ -1259,6 +1259,25 @@ phase_entry:
 - Regression evidence: TEST-275 synthetic inventory/inspect/stats failures require stage, exit status, timeout indicator when present, caller-redacted stderr capped at 256 characters, and omission of raw stdout. The new timeout oracle failed before the runner propagated `timedOut`; it passes after.
 - Follow-up: verify one more isolated correctness run on the new SHA. If `docker stats` still fails, use the retained timeout flag and redacted stderr to choose a fix; do not raise this bound again without new stage evidence. Exploration and holdout remain locked until correctness passes and a selected operating point/SLO makes holdout meaningful.
 
+## 16. TEST-272 runner budget reassessment — 2026-09-28
+
+- The earlier 240 s `runner-contracts` task budget was introduced after one
+  release run exceeded 180 s while the reference host was under load. That host
+  is not the supported location for Docker/release suites; it has since been
+  recorded with full swap and a 98% full `/tmp` tmpfs.
+- On exact rebased PR #76 head `b6976309d803e3b174497d03c4d9ba794223930b`,
+  the hosted fast report from run `36501229374` measured `runner-contracts` at
+  85.445 s. The hosted browser-free release report from run `36501587908`
+  measured it at 140.492 s, 39.508 s below the original 180 s task budget. The
+  latter report is `runner-1790641516880-2681-ed7eeb7d60188f1f.json`.
+- Restore `runner-contracts.timeoutMs` to 180000 on the prepared branch. The
+  test cases, assertion oracle, case timeouts, retries, and cleanup policy are
+  unchanged. This avoids extending a task's hang window to accommodate an
+  unsupported pressured-host run. Rerun hosted fast, CodeQL, and browser-free
+  release on the exact resulting SHA; if the 180 s deadline fails on a healthy
+  supported runner, investigate that task's stage before proposing another
+  budget change.
+
 ### Hosted capacity authentication failure and fixture correction — 2026-09-22
 
 - Candidate: `144818e645d3b2cbd8fe6e74dcebd95d26a5850a`, correctness run [35698547460](https://github.com/prls-co/harden-llm/actions/runs/35698547460).
