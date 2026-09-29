@@ -1,7 +1,7 @@
 # Shared production web ingress transition
 
 - Plan: `PLAN-HLLM-SHARED-CADDY-001`
-- Version: 5.6
+- Version: 5.7
 - Updated: 2026-09-28
 - Status: implementation in progress
 - Owners: Harden-LLM for application-origin configuration and retirement; `prls-co/caddy-shared` for production Caddy and its web Tunnel connector; Ops for the shared-service record.
@@ -29,15 +29,20 @@ logs, and bounded public route checks.
   production container, DNS record, tunnel, credential, or application service
   was changed in this work.
 - Harden-LLM removal branch `fix/remove-hllm-production-caddy-20260926` has
-  P03 source commit `d9fd490484b817b3bbc52ac090e444c75ae0760a`. Local
-  `make test-fast` passed on the merged source candidate (10 tasks, zero failures or
-  cleanup warnings); the runner report is
+  rebased P03 source commit `2ae83ba9713c345ef4a8930dbdcbddfd6243b6ce`, based
+  on PR #77 merge `eb4bfe5966a9f24e876e279a860e9a15a2aff8ad`. Rebase review
+  matched all 14 commits with `git range-diff`; the P03 source changes and
+  their separate follow-up commits remain represented. PR #76 now has no
+  frontend dependency diff against main; Mint, HPAX, and `lazy_html` are owned
+  by PR #77. Earlier local `make test-fast` passed on the pre-rebase source
+  candidate (10 tasks, zero failures or cleanup warnings); its runner report is
   `tmp/test-feedback/runner-1790636446468-67079-17116cd8163c1f7a.json`. On the
-  PR #76 plan head `65e881338d948a5c1142695e91a11d9525483980`, hosted fast
-  T0–T2 and CodeQL passed (run `36500108503`, CodeQL run `36500103612`). The
-  browser-free release remains required on the final rebased P03 candidate; an
-  earlier candidate's release run `36496018663` failed the unchanged audit
-  task on Mint 1.10.1's three advisories. The base-branch security follow-up is
+  pre-rebase PR #76 head `65e881338d948a5c1142695e91a11d9525483980`, hosted
+  fast T0–T2 and CodeQL passed (run `36500108503`, CodeQL run `36500103612`);
+  these checks are historical and do not certify the rebased candidate. The
+  browser-free release remains required on the final rebased P03 candidate.
+  An earlier candidate's release run `36496018663` failed the unchanged audit
+  task on Mint 1.10.1's three advisories. The base-branch security follow-up was
   isolated in Harden-LLM PR #77: commit
   `f6461ff402aece718c0afa1b68cf7cee33220691` updates Mint to patched 1.11.0,
   HPAX to its required 1.1.0, and test-only `lazy_html` to patched 0.1.13.
@@ -48,10 +53,12 @@ logs, and bounded public route checks.
   `f6461ff402aece718c0afa1b68cf7cee33220691` (runs `36498836561`,
   `36498841906`, CodeQL `36498836969`, release
   [36498851507](https://github.com/prls-co/harden-llm/actions/runs/36498851507)).
-  Rebase PR #76 on the merged main, remove the now-duplicate `lazy_html`
-  dependency hunk from PR #76, then rerun hosted fast, CodeQL, and browser-free
-  release on its exact final SHA. Do not merge PR #76 or start P05 until those
-  gates pass and the rebase is complete. A previous separate release attempt had a
+  The current host `shaman` has 6.8 GiB reported available, all 8 GiB swap used,
+  `/tmp` 98% full, and 52 running containers (observed 2026-09-28). Do not run
+  Docker/release suites on this production host; use isolated GitHub runners.
+  After publishing the rebase, require hosted fast T0–T2, CodeQL, and
+  browser-free release on the exact rebased PR #76 head. Do not merge PR #76 or
+  start P05 until those gates pass. A previous separate release attempt had a
   45-second frontend smoke-config bootstrap timeout during a host-wide OOM;
   the smoke project was cleaned and the cause was unresolved. Do not count
   that run as passing acceptance or attribute its failure to the current
