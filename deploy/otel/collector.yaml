@@ -8,6 +8,18 @@ extensions:
   file_storage/harden_llm_web:
     directory: /var/lib/otelcol
     create_directory: true
+  file_storage/harden_llm_laminar:
+    directory: /var/lib/otelcol/laminar
+    directory_permissions: "0700"
+    create_directory: true
+    fsync: true
+    max_size: 1073741824
+    compaction:
+      on_start: true
+      on_rebound: true
+      directory: /var/lib/otelcol/laminar-compaction
+      rebound_needed_threshold_mib: 128
+      rebound_trigger_threshold_mib: 16
 
 receivers:
   otlp:
@@ -109,12 +121,12 @@ processors:
       - key: service.namespace
         value: prls-agents
         action: upsert
-  filter/langfuse:
+  filter/harden_llm_gateway:
     error_mode: ignore
     traces:
       span:
         - 'resource.attributes["service.name"] != "harden-llm-gateway"'
-  tail_sampling/langfuse:
+  tail_sampling/harden_llm_gateway:
     decision_wait: 75s
     num_traces: 20000
     expected_new_traces_per_sec: 200
@@ -130,7 +142,7 @@ processors:
     timeout: 2s
     send_batch_size: 512
     send_batch_max_size: 1024
-  batch/langfuse:
+  batch/harden_llm_gateway:
     timeout: 2s
     send_batch_size: 512
     send_batch_max_size: 1024
@@ -203,6 +215,27 @@ exporters:
       initial_interval: 1s
       max_interval: 5s
       max_elapsed_time: 30s
+  otlp/harden_llm_laminar:
+    endpoint: laminar:8001
+    headers:
+      authorization: Bearer ${env:HARDEN_LLM_LAMINAR_PROJECT_API_KEY}
+    compression: gzip
+    timeout: 10s
+    tls:
+      insecure: true
+    sending_queue:
+      enabled: true
+      storage: file_storage/harden_llm_laminar
+      sizer: bytes
+      queue_size: 536870912
+      num_consumers: 2
+      block_on_overflow: false
+      wait_for_result: false
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 0s
   otlphttp/loki_prls_prod:
     endpoint: http://loki:3100/otlp
     headers:
@@ -277,6 +310,7 @@ service:
     - health_check
     - basicauth/langfuse
     - file_storage/harden_llm_web
+    - file_storage/harden_llm_laminar
   telemetry:
     logs:
       level: info
@@ -301,17 +335,18 @@ service:
         - batch/tempo
       exporters:
         - otlp/tempo
-    traces/langfuse:
+    traces/harden_llm_gateway:
       receivers:
         - otlp
       processors:
         - memory_limiter
         - attributes/redact
-        - filter/langfuse
-        - tail_sampling/langfuse
-        - batch/langfuse
+        - filter/harden_llm_gateway
+        - tail_sampling/harden_llm_gateway
+        - batch/harden_llm_gateway
       exporters:
         - otlphttp/langfuse
+        - otlp/harden_llm_laminar
     metrics:
       receivers:
         - otlp

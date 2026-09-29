@@ -93,11 +93,11 @@
     {
       "id": "telemetry.tail-sampling-decision-wait",
       "path": "deploy/otel/collector.yaml",
-      "pattern": "(?s)tail_sampling/langfuse:.*?decision_wait:\\s*(\\d+)s",
+      "pattern": "(?s)tail_sampling/harden_llm_gateway:.*?decision_wait:\\s*(\\d+)s",
       "unitMultiplierMilliseconds": 1000,
       "baselineMilliseconds": 75000,
       "initialBaseline": true,
-      "basis": "Waits beyond the 60-second gateway cap so complete gateway traces reach Langfuse."
+      "basis": "Waits beyond the 60-second gateway cap so complete gateway traces reach each configured observability destination."
     },
     {
       "id": "telemetry.prometheus-scrape-timeout",

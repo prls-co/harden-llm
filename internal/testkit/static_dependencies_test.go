@@ -50,6 +50,10 @@ func TestForbiddenDependencies(t *testing.T) {
 		if count != 1 {
 			t.Errorf("Collector must own exactly one Langfuse OTLP/HTTP exporter, found %d", count)
 		}
+		laminarCount := strings.Count(strings.ToLower(string(contents)), "otlp/harden_llm_laminar:")
+		if laminarCount != 1 {
+			t.Errorf("Collector must own exactly one dedicated Harden LLM Laminar exporter, found %d", laminarCount)
+		}
 	}
 }
 

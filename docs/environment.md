@@ -77,6 +77,17 @@ project public/secret keys.
 The separate secret `PRLS_LAMINAR_PROJECT_API_KEY` authorizes the dedicated
 full-content PRLS trace exporter to the existing Laminar deployment; it is not
 shared with the harden-LLM Langfuse path.
+`HARDEN_LLM_LAMINAR_PROJECT_API_KEY` is a different, ingest-only key for the
+Harden LLM project. It is read only by the Harden LLM gateway trace exporter and
+must not be copied from the PRLS project or another consumer. The Collector
+temporarily dual-writes eligible Harden LLM gateway traces to Laminar and
+Langfuse during the R7 acceptance window. It is owned by Harden LLM and belongs
+in its private production environment file; the production descriptor requires
+it separately from the PRLS-owned observability variables. The durable Laminar
+queue is byte-sized and capped at 512 MiB, retries across restarts, and can
+reject new spans once full; monitor queue capacity and failed-send metrics during
+the acceptance window. Only the existing redacted gateway trace pipeline is
+dual-written, so both systems receive the same selected and redacted spans.
 These variables belong to the unchanged upstream service graph documented in
 [`deploy/langfuse/UPSTREAM.md`](../deploy/langfuse/UPSTREAM.md); they must never
 be reused for Harden LLM Postgres or Garage.
@@ -153,10 +164,11 @@ test and does not launch one:
 HARDEN_LLM_EXPECTED_RELEASE=<merged-sha> node scripts/run-deployed-browser-test.mjs
 ```
 
-The same injection is required for `PRLS_LOKI_S3_ACCESS_KEY`,
-`PRLS_LOKI_S3_SECRET_KEY`, and `PRLS_LAMINAR_PROJECT_API_KEY` when they are
-managed by the shared observability host. Never commit a merged environment
-file or place its values in a release command, plan, log, or KER.
+Inject `PRLS_LOKI_S3_ACCESS_KEY`, `PRLS_LOKI_S3_SECRET_KEY`, and
+`PRLS_LAMINAR_PROJECT_API_KEY` from the shared observability host, and
+`HARDEN_LLM_LAMINAR_PROJECT_API_KEY` from the private Harden LLM production
+environment file. Never commit a merged environment file or place values in a
+release command, plan, log, or KER.
 
 When Loki authentication is enabled, the existing harden-LLM log path retains
 the canonical `fake` tenant used by Loki while authentication was disabled.
