@@ -58,5 +58,5 @@ if (!registered) {
 const unit = `[Unit]\nDescription=Harden-LLM trusted branch preview runner\nAfter=network-online.target\n\n[Service]\nWorkingDirectory=${runner}\nExecStart=/usr/bin/sg docker -c ${runner}/run.sh\nRestart=always\nRestartSec=5\nEnvironment=PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:/usr/local/bin:/usr/bin:/bin\n\n[Install]\nWantedBy=default.target\n`;
 await writePrivate(path.join(os.homedir(), ".config/systemd/user/github-actions-harden-llm-preview.service"), unit);
 command("systemctl", ["--user", "daemon-reload"]);
-command("systemctl", ["--user", "enable", "--now", "github-actions-harden-llm-preview.service"]);
-console.log(JSON.stringify({ configured: true, tunnelID: config.tunnelID, root, runner: "harden-llm-preview", productionChanged: false }));
+command("systemctl", ["--user", "disable", "github-actions-harden-llm-preview.service"]);
+console.log(JSON.stringify({ configured: true, tunnelID: config.tunnelID, root, runner: "harden-llm-preview", runnerMode: "on-demand", productionChanged: false }));

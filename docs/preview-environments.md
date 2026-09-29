@@ -166,7 +166,10 @@ Once host configuration exists, setup reuses its stored credential:
 
 ```sh
 node scripts/setup-preview-host.mjs
+systemctl --user start github-actions-harden-llm-preview.service
 systemctl --user status github-actions-harden-llm-preview.service
+# After the trusted preview workflow has finished:
+systemctl --user stop github-actions-harden-llm-preview.service
 ```
 
 Requires Docker, Node, Git, `flock`, authenticated `gh` with runner registration
@@ -176,8 +179,14 @@ the explicit environment variable when `host.json` does not exist; it never
 imports host SSH credentials. The setup creates a **new** tunnel
 named `shaman-harden-llm-preview`; it does not change the production tunnel.
 It installs the checksum-verified GitHub runner and a persistent user service.
-User lingering must be enabled for operation after logout (already enabled on
-the reference host). Runner auto-updates remain GitHub-managed.
+The service is disabled for automatic startup so it does not consume RAM while
+idle. Start it before a trusted preview workflow; jobs requiring the
+`harden-llm-preview` label remain queued while it is offline. Setup disables the
+unit but leaves an already-running runner alone. To keep the runner online at
+all times, explicitly run `systemctl --user enable --now
+github-actions-harden-llm-preview.service`. User lingering must be enabled for
+operation after logout (already enabled on the reference host). Runner
+auto-updates remain GitHub-managed.
 
 Host credentials/config live in `~/.config/harden-llm-preview/host.json` (0600).
 The bootstrap token is stored there for subsequent operations. Supplying the
