@@ -193,13 +193,17 @@ defmodule HardenLlmWeb.SecurityObservabilityTest do
     refute Enum.any?(collector_command, &String.contains?(&1, "merge"))
     refute get_in(overlay, ["services", "harden-llm-web"]) |> Map.has_key?("ports")
 
-    langfuse_processors = get_in(base, ["service", "pipelines", "traces/langfuse", "processors"])
-    filter_index = Enum.find_index(langfuse_processors, &(&1 == "filter/langfuse"))
-    sampler_index = Enum.find_index(langfuse_processors, &(&1 == "tail_sampling/langfuse"))
+    gateway_processors =
+      get_in(base, ["service", "pipelines", "traces/harden_llm_gateway", "processors"])
+
+    filter_index = Enum.find_index(gateway_processors, &(&1 == "filter/harden_llm_gateway"))
+
+    sampler_index =
+      Enum.find_index(gateway_processors, &(&1 == "tail_sampling/harden_llm_gateway"))
 
     assert is_integer(filter_index) and filter_index < sampler_index
 
-    assert get_in(base, ["processors", "filter/langfuse", "traces", "span"]) == [
+    assert get_in(base, ["processors", "filter/harden_llm_gateway", "traces", "span"]) == [
              ~s(resource.attributes["service.name"] != "harden-llm-gateway")
            ]
 

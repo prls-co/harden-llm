@@ -50,10 +50,11 @@ func TestCollectorPipelines(t *testing.T) {
 
 	exporters := objectField(t, config, "exporters")
 	for name, endpoint := range map[string]string{
-		"otlp/tempo":        "tempo:4317",
-		"otlphttp/loki":     "http://loki:3100/otlp",
-		"otlphttp/langfuse": "http://langfuse-web:3000/api/public/otel",
-		"prometheus":        "0.0.0.0:9464",
+		"otlp/tempo":              "tempo:4317",
+		"otlphttp/loki":           "http://loki:3100/otlp",
+		"otlphttp/langfuse":       "http://langfuse-web:3000/api/public/otel",
+		"otlp/harden_llm_laminar": "laminar:8001",
+		"prometheus":              "0.0.0.0:9464",
 	} {
 		if got := stringField(t, objectField(t, exporters, name), "endpoint"); got != endpoint {
 			t.Errorf("exporter %s endpoint = %q, want %q", name, got, endpoint)
@@ -69,16 +70,47 @@ func TestCollectorPipelines(t *testing.T) {
 	if stringField(t, objectField(t, langfuseExporter, "headers"), "x-langfuse-ingestion-version") != "4" {
 		t.Error("Langfuse exporter does not pin ingestion version 4")
 	}
+	laminarExporter := objectField(t, exporters, "otlp/harden_llm_laminar")
+	if stringField(t, objectField(t, laminarExporter, "headers"), "authorization") != "Bearer ${env:HARDEN_LLM_LAMINAR_PROJECT_API_KEY}" {
+		t.Error("Harden LLM Laminar exporter does not use its dedicated project key")
+	}
+	laminarQueue := objectField(t, laminarExporter, "sending_queue")
+	if !boolField(t, laminarQueue, "enabled") ||
+		stringField(t, laminarQueue, "storage") != "file_storage/harden_llm_laminar" ||
+		stringField(t, laminarQueue, "sizer") != "bytes" ||
+		intField(t, laminarQueue, "queue_size") != 536870912 ||
+		intField(t, laminarQueue, "num_consumers") != 2 ||
+		boolField(t, laminarQueue, "block_on_overflow") || boolField(t, laminarQueue, "wait_for_result") {
+		t.Errorf("Harden LLM Laminar queue is not byte-bounded, persistent, and non-blocking: %#v", laminarQueue)
+	}
+	if !boolField(t, objectField(t, laminarExporter, "retry_on_failure"), "enabled") ||
+		durationField(t, objectField(t, laminarExporter, "retry_on_failure"), "max_elapsed_time") != 0 {
+		t.Error("Harden LLM Laminar exporter must retry indefinitely while the bounded durable queue has capacity")
+	}
+	laminarStorage := objectField(t, objectField(t, config, "extensions"), "file_storage/harden_llm_laminar")
+	if stringField(t, laminarStorage, "directory") != "/var/lib/otelcol/laminar" ||
+		stringField(t, laminarStorage, "directory_permissions") != "0700" ||
+		!boolField(t, laminarStorage, "create_directory") || !boolField(t, laminarStorage, "fsync") ||
+		intField(t, laminarStorage, "max_size") != 1073741824 {
+		t.Errorf("Harden LLM Laminar storage is not isolated, durable, and capped: %#v", laminarStorage)
+	}
+	compaction := objectField(t, laminarStorage, "compaction")
+	if !boolField(t, compaction, "on_start") || !boolField(t, compaction, "on_rebound") ||
+		stringField(t, compaction, "directory") != "/var/lib/otelcol/laminar-compaction" ||
+		intField(t, compaction, "rebound_needed_threshold_mib") != 128 ||
+		intField(t, compaction, "rebound_trigger_threshold_mib") != 16 {
+		t.Errorf("Harden LLM Laminar storage compaction is not bounded and enabled: %#v", compaction)
+	}
 
 	service := objectField(t, config, "service")
-	assertStringSliceEqual(t, "service extensions", stringSliceField(t, service, "extensions"), []string{"health_check", "basicauth/langfuse", "file_storage/harden_llm_web"})
+	assertStringSliceEqual(t, "service extensions", stringSliceField(t, service, "extensions"), []string{"health_check", "basicauth/langfuse", "file_storage/harden_llm_web", "file_storage/harden_llm_laminar"})
 	pipelines := objectField(t, service, "pipelines")
 	wantPipelines := map[string]pipelineContract{
 		"traces/tempo": {
 			receivers: []string{"otlp"}, processors: []string{"memory_limiter", "attributes/redact", "batch/tempo"}, exporters: []string{"otlp/tempo"},
 		},
-		"traces/langfuse": {
-			receivers: []string{"otlp"}, processors: []string{"memory_limiter", "attributes/redact", "filter/langfuse", "tail_sampling/langfuse", "batch/langfuse"}, exporters: []string{"otlphttp/langfuse"},
+		"traces/harden_llm_gateway": {
+			receivers: []string{"otlp"}, processors: []string{"memory_limiter", "attributes/redact", "filter/harden_llm_gateway", "tail_sampling/harden_llm_gateway", "batch/harden_llm_gateway"}, exporters: []string{"otlphttp/langfuse", "otlp/harden_llm_laminar"},
 		},
 		"metrics": {
 			receivers: []string{"otlp"}, processors: []string{"memory_limiter", "attributes/redact", "batch/metrics"}, exporters: []string{"prometheus"},
@@ -106,19 +138,19 @@ func TestCollectorPipelines(t *testing.T) {
 		t.Errorf("Langfuse exporter path count = %d, want 1", langfuseReferences)
 	}
 
-	tailSampler := objectField(t, processors, "tail_sampling/langfuse")
+	tailSampler := objectField(t, processors, "tail_sampling/harden_llm_gateway")
 	if durationField(t, tailSampler, "decision_wait") < 65*time.Second {
-		t.Error("Langfuse tail sampler can decide before the longest gateway trace completes")
+		t.Error("Gateway tail sampler can decide before the longest gateway trace completes")
 	}
 	policies := sliceField(t, tailSampler, "policies")
 	if len(policies) != 1 {
-		t.Fatalf("Langfuse sampling policy count = %d, want 1", len(policies))
+		t.Fatalf("Gateway sampling policy count = %d, want 1", len(policies))
 	}
-	policy := asObject(t, policies[0], "Langfuse sampling policy")
+	policy := asObject(t, policies[0], "Gateway sampling policy")
 	attributePolicy := objectField(t, policy, "string_attribute")
 	if stringField(t, policy, "type") != "string_attribute" || stringField(t, attributePolicy, "key") != "service.name" ||
 		!reflect.DeepEqual(stringSliceField(t, attributePolicy, "values"), []string{"harden-llm-gateway"}) {
-		t.Fatalf("Langfuse complete-trace policy = %#v", policy)
+		t.Fatalf("Gateway complete-trace policy = %#v", policy)
 	}
 
 	assertCollectorTelemetry(t, service)
@@ -160,8 +192,8 @@ func assertCollectorRouting(t *testing.T, pipelines, processors map[string]any) 
 			switch signal {
 			case "traces":
 				selected := append([]fakeSpan(nil), spans...)
-				if contains(stringSliceField(t, pipeline, "processors"), "tail_sampling/langfuse") {
-					selected = sampleCompleteGatewayTraces(t, selected, objectField(t, processors, "tail_sampling/langfuse"))
+				if contains(stringSliceField(t, pipeline, "processors"), "tail_sampling/harden_llm_gateway") {
+					selected = sampleCompleteGatewayTraces(t, selected, objectField(t, processors, "tail_sampling/harden_llm_gateway"))
 				}
 				routedSpans[exporter] = append(routedSpans[exporter], selected...)
 			case "metrics", "logs":
@@ -172,20 +204,22 @@ func assertCollectorRouting(t *testing.T, pipelines, processors map[string]any) 
 	if len(routedSpans["otlp/tempo"]) != len(spans) {
 		t.Errorf("Tempo received %d/%d operational spans", len(routedSpans["otlp/tempo"]), len(spans))
 	}
-	langfuse := routedSpans["otlphttp/langfuse"]
-	if len(langfuse) != 4 {
-		t.Fatalf("Langfuse received %d gateway spans, want complete 4-span trace", len(langfuse))
-	}
-	seen := make(map[string]int)
-	for _, span := range langfuse {
-		if span.traceID != "gateway-trace" || span.service != "harden-llm-gateway" {
-			t.Errorf("Langfuse loop/filter failure: %#v", span)
+	for _, exporter := range []string{"otlphttp/langfuse", "otlp/harden_llm_laminar"} {
+		gateway := routedSpans[exporter]
+		if len(gateway) != 4 {
+			t.Fatalf("%s received %d gateway spans, want complete 4-span trace", exporter, len(gateway))
 		}
-		seen[span.spanID]++
-	}
-	for _, spanID := range []string{"root", "provider", "database", "artifact"} {
-		if seen[spanID] != 1 {
-			t.Errorf("Langfuse span %s export count = %d, want 1", spanID, seen[spanID])
+		seen := make(map[string]int)
+		for _, span := range gateway {
+			if span.traceID != "gateway-trace" || span.service != "harden-llm-gateway" {
+				t.Errorf("%s loop/filter failure: %#v", exporter, span)
+			}
+			seen[span.spanID]++
+		}
+		for _, spanID := range []string{"root", "provider", "database", "artifact"} {
+			if seen[spanID] != 1 {
+				t.Errorf("%s span %s export count = %d, want 1", exporter, spanID, seen[spanID])
+			}
 		}
 	}
 	if routedSignals["prometheus"] != 1 || routedSignals["otlphttp/loki"] != 1 {

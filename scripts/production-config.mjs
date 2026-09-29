@@ -40,9 +40,16 @@ export const PRLS_REQUIRED_VARIABLES = Object.freeze([
   "PRLS_LOKI_S3_ACCESS_KEY",
   "PRLS_LOKI_S3_SECRET_KEY",
 ]);
+export const HARDEN_LLM_REQUIRED_VARIABLES = Object.freeze([
+  "HARDEN_LLM_LAMINAR_PROJECT_API_KEY",
+]);
 export const APPLICATION_SERVICES = Object.freeze(["harden-llm-gateway", "harden-llm-web"]);
 
-const DEFAULT_REQUIRED_VARIABLES = Object.freeze([...PRLS_REQUIRED_VARIABLES, "HARDEN_LLM_RELEASE"]);
+const DEFAULT_REQUIRED_VARIABLES = Object.freeze([
+  ...PRLS_REQUIRED_VARIABLES,
+  ...HARDEN_LLM_REQUIRED_VARIABLES,
+  "HARDEN_LLM_RELEASE",
+]);
 const HOST_ENVIRONMENT_KEYS = Object.freeze([
   "PATH",
   "HOME",

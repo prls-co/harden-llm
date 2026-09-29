@@ -64,6 +64,10 @@ func TestPRLSComposeSharedOwner(t *testing.T) {
 	if strings.TrimSpace(collectorEnv["PRLS_LAMINAR_PROJECT_API_KEY"]) == "" {
 		t.Error("Collector environment omits PRLS_LAMINAR_PROJECT_API_KEY")
 	}
+	if strings.TrimSpace(collectorEnv["HARDEN_LLM_LAMINAR_PROJECT_API_KEY"]) == "" ||
+		collectorEnv["HARDEN_LLM_LAMINAR_PROJECT_API_KEY"] == collectorEnv["PRLS_LAMINAR_PROJECT_API_KEY"] {
+		t.Error("Collector must receive a separate Harden LLM Laminar project key")
+	}
 	collector := asObject(t, services["otel-collector"], "otel-collector")
 	if !prlsValueContains(collector["volumes"], "otel-collector-state:/var/lib/otelcol") {
 		t.Error("Collector does not persist file-log offsets in a named volume")
@@ -254,7 +258,7 @@ func TestPRLSCollectorIsolation(t *testing.T) {
 		assertStringSliceEqual(t, name+" processors", stringSliceField(t, pipeline, "processors"), want.processors)
 		assertStringSliceEqual(t, name+" exporters", stringSliceField(t, pipeline, "exporters"), want.exporters)
 	}
-	for _, protected := range []string{"traces/tempo", "traces/langfuse", "metrics", "logs"} {
+	for _, protected := range []string{"traces/tempo", "traces/harden_llm_gateway", "metrics", "logs"} {
 		if _, exists := pipelines[protected]; !exists {
 			t.Errorf("protected harden-LLM pipeline %s is missing", protected)
 		}

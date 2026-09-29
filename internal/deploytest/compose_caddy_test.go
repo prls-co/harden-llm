@@ -252,6 +252,10 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 		collectorEnv["LANGFUSE_SECRET_KEY"] != environmentValueMap(t, asObject(t, services["langfuse-web"], "langfuse-web")["environment"])["LANGFUSE_INIT_PROJECT_SECRET_KEY"] {
 		t.Error("Collector does not receive the headlessly initialized Langfuse project keys")
 	}
+	if collectorEnv["HARDEN_LLM_LAMINAR_PROJECT_API_KEY"] != "contract-harden-laminar-project-key" ||
+		collectorEnv["HARDEN_LLM_LAMINAR_PROJECT_API_KEY"] == collectorEnv["PRLS_LAMINAR_PROJECT_API_KEY"] {
+		t.Error("Collector does not resolve a distinct Harden LLM Laminar project key")
+	}
 
 	volumes := objectField(t, config, "volumes")
 	for name := range volumes {
@@ -471,6 +475,7 @@ func composeContractEnvironment() []string {
 		"LANGFUSE_INIT_PROJECT_PUBLIC_KEY=pk-lf-contract000000000000000000000000",
 		"LANGFUSE_INIT_PROJECT_SECRET_KEY=sk-lf-contract000000000000000000000000",
 		"PRLS_LAMINAR_PROJECT_API_KEY=contract-laminar-project-key",
+		"HARDEN_LLM_LAMINAR_PROJECT_API_KEY=contract-harden-laminar-project-key",
 		"PRLS_LOKI_S3_ACCESS_KEY=GKCONTRACT000000000000000000000002",
 		"PRLS_LOKI_S3_SECRET_KEY=contractLokiGarageKey_7Jt3sM9qP2vW6xN8cR4aD1fH5kB0zE",
 		"LANGFUSE_INIT_USER_PASSWORD=contract-user-9mQ2vN7p", "COMPOSE_PROJECT_NAME=harden-llm-contract",

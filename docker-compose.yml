@@ -102,6 +102,7 @@ services:
       LANGFUSE_PUBLIC_KEY: ${LANGFUSE_INIT_PROJECT_PUBLIC_KEY:?set the Langfuse project public key}
       LANGFUSE_SECRET_KEY: ${LANGFUSE_INIT_PROJECT_SECRET_KEY:?set the Langfuse project secret key}
       PRLS_LAMINAR_PROJECT_API_KEY: ${PRLS_LAMINAR_PROJECT_API_KEY:?set the Laminar PRLS project API key}
+      HARDEN_LLM_LAMINAR_PROJECT_API_KEY: ${HARDEN_LLM_LAMINAR_PROJECT_API_KEY:?set the dedicated Harden LLM Laminar ingest key}
     volumes:
       - ./deploy/otel/collector.yaml:/etc/otelcol-contrib/config.yaml:ro
       - otel-collector-state:/var/lib/otelcol

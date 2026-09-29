@@ -6,6 +6,7 @@ import {
   buildComposeEnvironment,
   compareResolvedConfiguration,
   loadDescriptor,
+  HARDEN_LLM_REQUIRED_VARIABLES,
   PRLS_REQUIRED_VARIABLES,
   readEnvironmentSource,
   resolveConfiguration,
@@ -40,10 +41,10 @@ function descriptorFor(t, { shared = "", observability, production, serviceEnvir
     composeRoot: directory,
     applicationRoot: directory,
     composeFiles: ["docker-compose.yml", "deploy/langfuse/docker-compose.upstream.yml", "deploy/langfuse/compose.private.yml", "deploy/frontend/compose.frontend.yml"],
-    productionEnvFile: privateFile(directory, "production.env", production ?? "HARDEN_LLM_RELEASE=fixture-release\n"),
+    productionEnvFile: privateFile(directory, "production.env", production ?? "HARDEN_LLM_LAMINAR_PROJECT_API_KEY=fixture-harden-laminar-key\nHARDEN_LLM_RELEASE=fixture-release\n"),
     observabilityEnvFile: privateFile(directory, "observability.env", observability ?? "PRLS_LAMINAR_PROJECT_API_KEY=fixture-laminar-key\n"),
     sharedApplicationEnvFile: privateFile(directory, "shared.env", shared),
-    requiredVariables: ["PRLS_LAMINAR_PROJECT_API_KEY", "HARDEN_LLM_RELEASE"],
+    requiredVariables: ["PRLS_LAMINAR_PROJECT_API_KEY", "HARDEN_LLM_LAMINAR_PROJECT_API_KEY", "HARDEN_LLM_RELEASE"],
     services: {
       probe: {
         container: "harden-llm-probe-1",
@@ -104,7 +105,7 @@ test("TEST-233 resolves approved ownership and excludes ambient application vari
   const descriptor = descriptorFor(t, {
     shared,
     observability: "PRLS_LAMINAR_PROJECT_API_KEY=observability-laminar-key\nGF_SERVER_DOMAIN=observability.example\n",
-    production: "HARDEN_LLM_RELEASE=fixture-release\nGF_SERVER_DOMAIN=grafana.example\n",
+    production: "HARDEN_LLM_LAMINAR_PROJECT_API_KEY=production-harden-laminar-key\nHARDEN_LLM_RELEASE=fixture-release\nGF_SERVER_DOMAIN=grafana.example\n",
   });
 
   const resolved = resolveConfiguration(descriptor);
@@ -112,6 +113,7 @@ test("TEST-233 resolves approved ownership and excludes ambient application vari
   assert.equal(resolved.sharedValues.HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST, "");
   assert.equal(resolved.effective.GF_SERVER_DOMAIN, "grafana.example");
   assert.equal(resolved.effective.PRLS_LAMINAR_PROJECT_API_KEY, "observability-laminar-key");
+  assert.equal(resolved.effective.HARDEN_LLM_LAMINAR_PROJECT_API_KEY, "production-harden-laminar-key");
   const environment = buildComposeEnvironment(resolved, {
     PATH: "/fixture/bin",
     HOME: "/fixture/home",
@@ -129,6 +131,8 @@ test("TEST-233 resolves approved ownership and excludes ambient application vari
   assert.equal(environment.DOCKER_HOST, undefined);
   assert.equal(environment.DOCKER_CONTEXT, undefined);
   assert.equal(environment.DOCKER_CONFIG, undefined);
+  assert.equal(environment.PRLS_LAMINAR_PROJECT_API_KEY, undefined);
+  assert.equal(environment.HARDEN_LLM_LAMINAR_PROJECT_API_KEY, undefined);
   assert.equal(environment.PATH, "/fixture/bin");
   assert(!JSON.stringify({ resolved: { ...resolved, sources: resolved.sources.map(({ values, ...source }) => source) }, environment }).includes("ambient-secret"));
 
@@ -138,10 +142,20 @@ test("TEST-233 resolves approved ownership and excludes ambient application vari
   assert.throws(() => readEnvironmentSource(malformed, "malformed"), /malformed assignment/);
 });
 
+test("TEST-233 requires the consumer-owned Harden LLM Laminar key", (t) => {
+  const descriptor = descriptorFor(t, {
+    production: "HARDEN_LLM_RELEASE=fixture-release\n",
+  });
+  assert.throws(
+    () => resolveConfiguration(descriptor),
+    /required environment variable HARDEN_LLM_LAMINAR_PROJECT_API_KEY is missing or empty/,
+  );
+});
+
 test("TEST-233 rejects a conflicting PRLS owner and credential-shaped descriptor data", (t) => {
   const descriptor = descriptorFor(t, {
     observability: "PRLS_LAMINAR_PROJECT_API_KEY=observability-laminar-key\n",
-    production: "PRLS_LAMINAR_PROJECT_API_KEY=production-laminar-key\nHARDEN_LLM_RELEASE=fixture-release\n",
+    production: "PRLS_LAMINAR_PROJECT_API_KEY=production-laminar-key\nHARDEN_LLM_LAMINAR_PROJECT_API_KEY=production-harden-laminar-key\nHARDEN_LLM_RELEASE=fixture-release\n",
   });
   assert.throws(() => resolveConfiguration(descriptor), /conflict/);
   assert.throws(() => validateDescriptor({ ...descriptor, serviceEnvironmentOverrides: { probe: { PROBE_PASSWORD: "fixture" } } }), /credential-shaped/);
@@ -199,6 +213,9 @@ test("TEST-234 example production descriptor no longer manages the shared Caddy 
     assert.equal(descriptor.requiredVariables.includes(name), false, `${name} remains an HLLM production requirement`);
     assert.equal(PRLS_REQUIRED_VARIABLES.includes(name), false, `${name} remains in the default PRLS production requirements`);
   }
+  assert.equal(descriptor.requiredVariables.includes("HARDEN_LLM_LAMINAR_PROJECT_API_KEY"), true);
+  assert.equal(HARDEN_LLM_REQUIRED_VARIABLES.includes("HARDEN_LLM_LAMINAR_PROJECT_API_KEY"), true);
+  assert.equal(PRLS_REQUIRED_VARIABLES.includes("HARDEN_LLM_LAMINAR_PROJECT_API_KEY"), false);
   assert.throws(
     () => runCheck(descriptor, { services: ["caddy"], run: () => assert.fail("unowned Caddy must not reach Docker") }),
     /service caddy is not in the descriptor/,
@@ -311,10 +328,10 @@ function candidateDescriptorFor(t, {
     composeRoot: directory,
     applicationRoot: directory,
     composeFiles: ["docker-compose.yml", "deploy/langfuse/docker-compose.upstream.yml", "deploy/langfuse/compose.private.yml", "deploy/frontend/compose.frontend.yml"],
-    productionEnvFile: privateFile(directory, "production.env", `HARDEN_LLM_RELEASE=${desiredRelease}\n`),
+    productionEnvFile: privateFile(directory, "production.env", `HARDEN_LLM_LAMINAR_PROJECT_API_KEY=fixture-harden-laminar-key\nHARDEN_LLM_RELEASE=${desiredRelease}\n`),
     observabilityEnvFile: privateFile(directory, "observability.env", "PRLS_LAMINAR_PROJECT_API_KEY=fixture-laminar-key\n"),
     sharedApplicationEnvFile: privateFile(directory, "shared.env", ""),
-    requiredVariables: ["PRLS_LAMINAR_PROJECT_API_KEY", "HARDEN_LLM_RELEASE"],
+    requiredVariables: ["PRLS_LAMINAR_PROJECT_API_KEY", "HARDEN_LLM_LAMINAR_PROJECT_API_KEY", "HARDEN_LLM_RELEASE"],
     services: {
       [service]: {
         container: "harden-llm-gateway-1",
