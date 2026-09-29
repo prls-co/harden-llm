@@ -82,13 +82,13 @@
       "basis": "Upper bound for Garage operations so artifact persistence cannot hang a completed provider call."
     },
     {
-      "id": "telemetry.langfuse-export-timeout",
+      "id": "telemetry.laminar-export-timeout",
       "path": "deploy/otel/collector.yaml",
-      "pattern": "(?s)otlphttp/langfuse:.*?timeout:\\s*(\\d+)s",
+      "pattern": "(?s)otlp/harden_llm_laminar:.*?timeout:\\s*(\\d+)s",
       "unitMultiplierMilliseconds": 1000,
-      "baselineMilliseconds": 5000,
+      "baselineMilliseconds": 10000,
       "initialBaseline": true,
-      "basis": "Bounded Collector export attempt; queue and retry policy absorb transient Langfuse delay."
+      "basis": "Bounded Laminar export attempt; the durable byte-capped queue absorbs transient delay."
     },
     {
       "id": "telemetry.tail-sampling-decision-wait",

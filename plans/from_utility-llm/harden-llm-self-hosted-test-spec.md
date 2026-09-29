@@ -10,7 +10,7 @@
 - Date: 2026-09-15
 - Document ID: `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001`
 - Related stack specification: `plans/from_utility-llm/self-hosted-go-stack-spec.md`
-- Summary: This document is the canonical backend test catalog for building `harden-llm`. It defines one `TEST-###` namespace shared with the backend implementation plan. Tests guide the Go library, versioned REST/OpenAPI gateway, Harden-LLM Postgres records, Garage-backed trace artifacts and diagnostic attachments, provider endpoint security, OpenTelemetry/Grafana/Langfuse diagnostics, and full Docker Compose deployment. It contains no frontend, Phoenix, LiveView, React, browser-session, or asset tests. Langfuse retains its pinned upstream default Postgres, Redis, ClickHouse, and MinIO services; tests reject any local Garage substitution into Langfuse.
+- Summary: This document is the canonical backend test catalog for building `harden-llm`. It defines one `TEST-###` namespace shared with the backend implementation plan. Tests guide the Go library, versioned REST/OpenAPI gateway, Harden-LLM Postgres records, Garage-backed trace artifacts and diagnostic attachments, provider endpoint security, OpenTelemetry/Grafana/Laminar diagnostics, retained Langfuse services, and full Docker Compose deployment. It contains no frontend, Phoenix, LiveView, React, browser-session, or asset tests. Langfuse retains its pinned upstream default Postgres, Redis, ClickHouse, and MinIO services; tests reject any local Garage substitution into Langfuse.
 - Resource-efficiency addendum date: `2026-09-21`; plan: `plans/production-scale-efficiency-plan.md`.
 
 ## 2. Test strategy
@@ -23,9 +23,9 @@
 - Provider tests use local `httptest` servers. Public internet and provider credentials are allowed only under the `live` build tag.
 - Postgres and Garage tests use isolated projects and never reuse developer data.
 - Compose tests use pinned Harden-LLM images, a release/SHA/hash-pinned upstream Langfuse Compose fragment, and explicit loopback-bound test Caddy; production HLLM services publish no host ports.
-- Langfuse is required in the Compose smoke and retains its upstream default Postgres, Redis, ClickHouse, and MinIO services.
+- Langfuse remains in the Compose smoke for its UI and health contract and retains its upstream default Postgres, Redis, ClickHouse, and MinIO services. A separate test-only OTLP sink named `laminar` receives HLLM traces using the configured bearer token; it is absent from production Compose.
 - Garage is required only for Harden-LLM-owned trace artifacts and diagnostic attachments migrated from Firebase Storage. Harden-LLM never uses Langfuse's MinIO.
-- Application code emits no direct Langfuse request. Collector fanout is the only Langfuse ingestion path.
+- Application code emits no direct Langfuse request. The HLLM Collector exports gateway traces to Laminar only; Langfuse remains a separate retained UI/history service pending consumer and retention review.
 - Every created test file contains `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001` and one or more canonical `TEST-###` comments.
 - Phoenix/browser cases use the separate `WEB-TEST-###` namespace from
   `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`. Backend traceability scans exclude
@@ -163,11 +163,11 @@ runtime contract or the meaning of `make verify`.
   - Backend production/test/deploy code contains no Firebase, Firestore, Firebase Auth, Functions, Hosting, or Storage dependency.
   - Backend code contains no Phoenix, LiveView, React, Vite, HTML-template, browser-session, or frontend-asset implementation.
   - Go production dependencies contain no application SQLite, Temporal, Sentry, MinIO-specific client, or Langfuse SDK/client.
-  - Collector configuration contains exactly one Langfuse OTLP/HTTP exporter.
+  - Collector configuration contains no Langfuse exporter, authenticator, credential, or dependency and exactly one dedicated HLLM Laminar exporter.
   - Application code has no direct Langfuse host/key configuration or ingestion request.
   - Garage appears only in the Harden-LLM artifact implementation/deployment, while MinIO appears only in the byte-for-byte pinned upstream Langfuse fragment and its deployment secrets.
   - Harden-LLM application configuration contains no MinIO endpoint or credential; Langfuse configuration contains no Garage endpoint or credential.
-- Pass criteria: scan reports zero forbidden paths and one Collector-owned Langfuse path.
+- Pass criteria: scan reports zero forbidden paths, zero Collector-owned Langfuse paths, and one dedicated HLLM Laminar exporter.
 - Expected runtime: 10 seconds.
 
 ### TEST-004: source fixture provenance and integrity
@@ -578,18 +578,18 @@ runtime contract or the meaning of `make verify`.
 - Pass criteria: schema and secret scans pass for every captured log line.
 - Expected runtime: 10 seconds.
 
-### TEST-030: Collector pipelines and single Langfuse fanout
+### TEST-030: Collector pipelines and Laminar-only HLLM trace export
 
 - Target: `internal/deploytest/collector_test.go`
 - Command: `go test ./internal/deploytest/... -run TestCollectorPipelines -count=1`
 - Setup: parsed `deploy/otel/collector.yaml` and fake OTLP endpoints for traces, metrics, and logs.
 - Assertions:
-  - Traces export to Tempo.
-  - Complete `service.name=harden-llm-gateway` traces export once to Langfuse over OTLP/HTTP with root and children preserved.
+  - Traces export to Tempo and complete `service.name=harden-llm-gateway` traces export once to the dedicated HLLM Laminar project with root and children preserved.
+  - The HLLM trace pipeline contains no Langfuse exporter and the Collector has no Langfuse authentication extension.
   - Metrics expose one Prometheus scrape endpoint.
   - OTel log records mirrored from the composed `slog` handler export to Loki OTLP/HTTP.
   - Memory limiter, batch, bounded queues, retry limits, and redaction processors are present.
-  - Langfuse's own service spans do not loop back into Langfuse ingestion.
+  - Langfuse service spans do not enter the HLLM gateway trace pipeline.
 - Pass criteria: configuration parse and fake-endpoint signal counts match expectations.
 - Expected runtime: 20 seconds.
 
@@ -635,7 +635,7 @@ runtime contract or the meaning of `make verify`.
   - No HLLM-owned service publishes a host port in the effective production topology.
   - Caddy route/TLS/auth/body-limit policy is tested in the shared owner's TEST-286 and deployed-path TEST-291; this test does not duplicate those route assertions.
   - The thirteen-service backend model does not include Phoenix/LiveView; the optional web service stays in its dedicated overlay and explicit frontend smoke fixture.
-  - Langfuse headless user/organization/project/key initialization supplies the Collector ingestion credentials without a setup step.
+  - Langfuse headless user/organization/project/key initialization is isolated to the retained Langfuse service; the HLLM Collector receives no Langfuse project credentials.
   - Harden-LLM uses only the shared Garage endpoint for artifacts; Langfuse uses only its upstream MinIO. Their endpoints, buckets, and credentials do not cross.
   - No Firebase, application SQLite, Sentry, Temporal, or locally substituted Langfuse dependency exists.
 - Pass criteria: parser tests and `docker compose config --quiet` pass with thirteen backend services and no edge owner in HLLM production.
@@ -658,17 +658,17 @@ runtime contract or the meaning of `make verify`.
 - Command: `go test ./internal/smoke/... -tags=compose -run TestComposeSmoke -count=1`
 - Setup: clean named test project, production Compose plus pinned upstream Langfuse fragment, private integration overlay, and `deploy/test/compose.smoke.yml`; reference hardware; images already available; generated non-production secrets. The smoke overlay owns an isolated Garage fixture with fresh project-scoped volumes, unique non-external networks, and reserved test-only CIDRs so tests do not consume the host default address pools.
 - Assertions:
-  - All seventeen services in the effective backend smoke stack (thirteen HLLM production services plus explicit test-only Caddy, Garage, fake provider, and Collector state initializer) become healthy within 300 seconds.
+  - All eighteen services in the effective backend smoke stack (thirteen HLLM production services plus explicit test-only Caddy, Garage, fake provider, Collector state initializer, and Laminar OTLP sink) become healthy within 300 seconds.
   - The test-only private `fake-provider` service is reachable only by the gateway and publishes no host port.
   - API routes through the explicit test-only Caddy fixture; gateway readiness reaches Harden-LLM Postgres and the isolated Garage fixture.
   - Login returns an opaque bearer token that authenticates the smoke lifecycle without a browser cookie or CSRF path.
   - One fake-provider run creates application state and an available artifact index in Harden-LLM Postgres.
   - The linked canonical redacted trace artifact is fetched from the isolated Garage fixture through an authenticated gateway route and short-lived test-Caddy artifact-host URL; its SHA-256 and byte length match Postgres.
-  - Its trace reaches Tempo and Langfuse exactly once, metric reaches Prometheus, and correlated log reaches Loki.
-  - Langfuse event ingestion succeeds with the unchanged upstream MinIO endpoint and no Garage setting in Langfuse.
+  - Its trace reaches Tempo and the authenticated test-only Laminar OTLP sink; both the OTel trace ID and application trace ID are read from the sink output. Its metric reaches Prometheus and correlated log reaches Loki.
+  - The retained Langfuse UI health route succeeds, but the Collector receives no Langfuse project keys and sends no HLLM traces to Langfuse. Langfuse keeps its unchanged upstream MinIO endpoint and no Garage setting.
   - Grafana datasources are healthy.
   - MinIO is used only by Langfuse, and Harden-LLM artifact traffic resolves to the isolated smoke Garage fixture through the same `garage-shared` service name used in production.
-- Pass criteria: end-to-end correlation IDs are found in every intended backend with only the loopback-bound test Caddy ports published.
+- Pass criteria: end-to-end correlation IDs are found in Tempo, the test Laminar sink, and application trace artifacts; metric/log correlation passes; only the loopback-bound test Caddy ports are published.
 - Expected runtime: 360 seconds.
 
 ## 13. Aggregate and live tests
@@ -716,7 +716,7 @@ runtime contract or the meaning of `make verify`.
 - Setup: running full stack, bootstrap test user, explicit provider credential.
 - Assertions:
   - Login, profile save/probe, model refresh, run, trace retrieval, authenticated Garage artifact retrieval, bundle export, profile deletion, and test-data cleanup pass.
-  - Correlated diagnostics appear in Grafana backends and Langfuse without secret leakage.
+  - The live trace ID appears in Tempo; Prometheus confirms the HLLM Laminar exporter span counter increased after the run; correlated metrics and logs appear in Grafana without secret leakage. No Langfuse query credential is required.
 - Pass criteria: lifecycle completes and cleanup removes test application records.
 - Expected runtime: 360 seconds.
 
@@ -866,8 +866,9 @@ TEST-040, and TEST-057 through TEST-061 pass; TEST-037 and TEST-038 pass when
 explicit live certification is required; all backend target test files use the
 single `TEST-###` namespace; OpenAPI and router behavior conform; backend-owned
 paths have no Firebase or frontend implementation surface; backend gates do not
-invoke `frontend/`; Collector fanout is the only Langfuse export path; Garage is
-the only Harden-LLM artifact store; Langfuse retains its pinned upstream MinIO
+invoke `frontend/`; the HLLM Collector has no Langfuse export path and sends
+gateway traces only to the dedicated Laminar project; Garage is the only
+Harden-LLM artifact store; Langfuse retains its pinned upstream MinIO
 dependency; and the full Compose smoke proves correlated application and
 diagnostic behavior.
 

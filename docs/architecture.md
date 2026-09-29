@@ -5,11 +5,11 @@ infrastructure. There is one implementation home for each concern.
 
 ```text
 browser -> shared Caddy (`caddy-shared`) -> Phoenix LiveView -> Go REST gateway -> hardenllm.Client.Call
-                                           |                  |
-                                           |                  `-> LLM provider
-                                           |-> app Postgres
-                                           |-> shared Garage (`garage-shared`)
-                                           `-> OTel Collector -> Tempo / Loki / Prometheus / Langfuse
+                                           |                  |                    `-> LLM provider
+                                           |                  |                    `-> app Postgres
+                                           |                  `-> shared Garage (`garage-shared`)
+Phoenix and gateway telemetry -> OTel Collector -> Tempo / Loki / Prometheus
+Gateway traces only          -> OTel Collector -> Laminar
 ```
 
 ## Component boundaries
@@ -41,8 +41,10 @@ transport failure is never automatically replayed by either layer.
 
 The Harden-LLM database remains product-owned. Garage runs in the separate
 `garage-shared` repository on the existing `prls-observability` network; this
-repository owns only Harden-LLM's bucket and client credentials. Sharing a
-Langfuse endpoint, bucket, credential, database, or migration with Harden-LLM is
+repository owns only Harden-LLM's bucket and client credentials. The Collector
+exports new HLLM gateway traces to Laminar. The retained Langfuse stack and its
+existing trace history remain separate pending consumer and retention review.
+Sharing a Langfuse bucket, credential, database, or migration with Harden-LLM is
 unsupported.
 
 `llm_runs` is the relational execution aggregate root. A mandatory exact

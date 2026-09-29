@@ -125,7 +125,8 @@ The Go REST API routes are independent and unchanged.
 - `https://<api-host>/readyz` checks migrations and the Garage bucket.
 - `https://<web-host>/healthz` checks Phoenix startup.
 - Grafana is the operational entry point for Prometheus, Loki, and Tempo.
-- Langfuse receives complete Go gateway traces only through the Collector.
+- New HLLM gateway traces go from the Collector to Laminar. The separately
+  retained Langfuse UI/history stack is not an HLLM trace-export destination.
 
 Use `"${COMPOSE[@]}" logs --since 15m <service>` sparingly. Logs are redacted by
 contract, but still treat them as operational data. The API never exposes
@@ -163,7 +164,8 @@ the durable operation backlog before taking any manual action.
 
 This deployment has no node-data backup or restore procedure; the owner accepts
 loss of persistent application data. LLM observability traces are sent to
-Langfuse, but they cannot reconstruct the consumer widget's history.
+Laminar, but they cannot reconstruct the consumer widget's history. Existing
+Langfuse history remains separate.
 For the current codebase-reduction release, the deployed-to-candidate change
 contains no database migration or Postgres storage-code change. Review ADRs and
 image-lock changes, and run `make test-release`. This browser-free gate includes
@@ -217,7 +219,7 @@ contract. Database migrations are forward-only. If compatibility is uncertain,
 keep writes stopped and deploy a compatible forward fix; this deployment has no
 data restore path.
 After any recovery, verify login, profile probe, one deterministic run, artifact
-download, and correlated Tempo/Loki/Prometheus/Langfuse diagnostics.
+download, and correlated Tempo/Loki/Prometheus/Laminar diagnostics.
 
 ## Shutdown
 

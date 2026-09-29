@@ -1,10 +1,6 @@
 extensions:
   health_check:
     endpoint: 0.0.0.0:13133
-  basicauth/langfuse:
-    client_auth:
-      username: ${env:LANGFUSE_PUBLIC_KEY}
-      password: ${env:LANGFUSE_SECRET_KEY}
   file_storage/harden_llm_web:
     directory: /var/lib/otelcol
     create_directory: true
@@ -198,23 +194,6 @@ exporters:
       initial_interval: 1s
       max_interval: 5s
       max_elapsed_time: 30s
-  otlphttp/langfuse:
-    endpoint: http://langfuse-web:3000/api/public/otel
-    auth:
-      authenticator: basicauth/langfuse
-    headers:
-      x-langfuse-ingestion-version: "4"
-    compression: gzip
-    timeout: 5s
-    sending_queue:
-      enabled: true
-      num_consumers: 4
-      queue_size: 4096
-    retry_on_failure:
-      enabled: true
-      initial_interval: 1s
-      max_interval: 5s
-      max_elapsed_time: 30s
   otlp/harden_llm_laminar:
     endpoint: laminar:8001
     headers:
@@ -308,7 +287,6 @@ exporters:
 service:
   extensions:
     - health_check
-    - basicauth/langfuse
     - file_storage/harden_llm_web
     - file_storage/harden_llm_laminar
   telemetry:
@@ -345,7 +323,6 @@ service:
         - tail_sampling/harden_llm_gateway
         - batch/harden_llm_gateway
       exporters:
-        - otlphttp/langfuse
         - otlp/harden_llm_laminar
     metrics:
       receivers:

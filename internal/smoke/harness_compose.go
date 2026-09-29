@@ -43,7 +43,7 @@ const (
 
 var requiredSmokeStackServices = []string{
 	"caddy", "harden-llm-gateway", "harden-postgres", "garage", "otel-collector",
-	"prometheus", "loki", "tempo", "grafana", "langfuse-web", "langfuse-worker",
+	"laminar", "prometheus", "loki", "tempo", "grafana", "langfuse-web", "langfuse-worker",
 	"postgres", "clickhouse", "redis", "minio",
 }
 
@@ -221,7 +221,7 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 	}
 
 	assertPostgresState(t, runner)
-	correlation := correlateBackends(t, runner, client, report, secrets)
+	correlation := correlateBackends(t, runner, report)
 	report.CorrelatedBackends = correlation
 	if correlation != report.CorrelationBackends {
 		t.Fatalf("backend correlation = %d/%d", correlation, report.CorrelationBackends)
@@ -707,7 +707,7 @@ func assertPostgresState(t *testing.T, runner composeRunner) {
 	}
 }
 
-func correlateBackends(t *testing.T, runner composeRunner, client *http.Client, report ComposeReport, environment map[string]string) int {
+func correlateBackends(t *testing.T, runner composeRunner, report ComposeReport) int {
 	t.Helper()
 	var otelTraceID string
 	type probe struct {
@@ -732,15 +732,20 @@ func correlateBackends(t *testing.T, runner composeRunner, client *http.Client, 
 			body, err := internalFetch(runner, "http://loki:3100/loki/api/v1/query_range?limit=100&direction=backward&query="+url.QueryEscape(query))
 			return err == nil && bytes.Contains(body, []byte(report.RunID)), boundedProbeDetail(body, err)
 		}},
-		{name: "Langfuse", try: func() (bool, string) {
+		{name: "Laminar", try: func() (bool, string) {
 			if otelTraceID == "" {
 				return false, "waiting for Tempo OTel trace identity"
 			}
-			list, listErr := publicGET(client, "https://langfuse.smoke.localhost/api/public/traces?limit=100", environment["LANGFUSE_INIT_PROJECT_PUBLIC_KEY"], environment["LANGFUSE_INIT_PROJECT_SECRET_KEY"])
-			matches := langfuseTraceIDMatches(list, otelTraceID)
-			trace, traceErr := publicGET(client, "https://langfuse.smoke.localhost/api/public/traces/"+url.PathEscape(otelTraceID), environment["LANGFUSE_INIT_PROJECT_PUBLIC_KEY"], environment["LANGFUSE_INIT_PROJECT_SECRET_KEY"])
-			ok := listErr == nil && traceErr == nil && matches == 1 && bytes.Contains(trace, []byte(report.TraceID))
-			return ok, fmt.Sprintf("otel_trace_id=%s matches=%d list=%s trace=%s", otelTraceID, matches, boundedProbeDetail(list, listErr), boundedProbeDetail(trace, traceErr))
+			ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+			defer cancel()
+			body, err := runner.output(ctx, "logs", "--no-log-prefix", "--tail", "3000", "laminar")
+			if err != nil {
+				return false, "Laminar test sink log query failed"
+			}
+			lowerBody := bytes.ToLower(body)
+			otelTracePresent := bytes.Contains(lowerBody, bytes.ToLower([]byte(otelTraceID)))
+			domainTracePresent := bytes.Contains(lowerBody, bytes.ToLower([]byte(report.TraceID)))
+			return otelTracePresent && domainTracePresent, fmt.Sprintf("otel_trace_id_present=%t application_trace_id_present=%t", otelTracePresent, domainTracePresent)
 		}},
 		{name: "Garage", try: func() (bool, string) { return true, "artifact bytes and metadata matched" }},
 	}
@@ -803,24 +808,6 @@ func prometheusHasSample(body []byte) bool {
 		} `json:"data"`
 	}
 	return json.Unmarshal(body, &response) == nil && response.Status == "success" && len(response.Data.Result) > 0
-}
-
-func langfuseTraceIDMatches(body []byte, otelTraceID string) int {
-	var response struct {
-		Data []struct {
-			ID string `json:"id"`
-		} `json:"data"`
-	}
-	if json.Unmarshal(body, &response) != nil {
-		return 0
-	}
-	matches := 0
-	for _, trace := range response.Data {
-		if trace.ID == otelTraceID {
-			matches++
-		}
-	}
-	return matches
 }
 
 func tempoTraceID(body []byte) string {

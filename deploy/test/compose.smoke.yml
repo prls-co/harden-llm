@@ -1,4 +1,29 @@
 services:
+  laminar:
+    image: otel/opentelemetry-collector-contrib:0.156.0@sha256:125bdbeb7590cc1952c5b3430ecf14063568980c2c93d5b38676cc0446ed8108
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      HARDEN_LLM_LAMINAR_PROJECT_API_KEY: ${HARDEN_LLM_LAMINAR_PROJECT_API_KEY:?set the generated smoke Laminar token}
+    volumes:
+      - ./deploy/test/laminar-sink.yaml:/etc/otelcol-contrib/config.yaml:ro
+    networks:
+      prls-observability:
+        aliases: [laminar]
+    healthcheck:
+      test: ["CMD", "/otelcol-contrib", "validate", "--config=/etc/otelcol-contrib/config.yaml"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "2"
+
   caddy:
     image: caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
     restart: "no"
@@ -113,6 +138,11 @@ services:
     volumes:
       - ./deploy/test/loki.smoke.yaml:/etc/loki/local-config.yaml:ro
       - loki-data:/loki
+
+  otel-collector:
+    depends_on:
+      laminar:
+        condition: service_healthy
 
 volumes:
   caddy-smoke-data:

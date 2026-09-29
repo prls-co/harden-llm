@@ -248,13 +248,18 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 		}
 	}
 	collectorEnv := environmentValueMap(t, asObject(t, services["otel-collector"], "otel-collector")["environment"])
-	if collectorEnv["LANGFUSE_PUBLIC_KEY"] != environmentValueMap(t, asObject(t, services["langfuse-web"], "langfuse-web")["environment"])["LANGFUSE_INIT_PROJECT_PUBLIC_KEY"] ||
-		collectorEnv["LANGFUSE_SECRET_KEY"] != environmentValueMap(t, asObject(t, services["langfuse-web"], "langfuse-web")["environment"])["LANGFUSE_INIT_PROJECT_SECRET_KEY"] {
-		t.Error("Collector does not receive the headlessly initialized Langfuse project keys")
+	for _, key := range []string{"LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"} {
+		if _, exists := collectorEnv[key]; exists {
+			t.Errorf("Collector still receives Langfuse credential %s after the Laminar-only cutover", key)
+		}
 	}
 	if collectorEnv["HARDEN_LLM_LAMINAR_PROJECT_API_KEY"] != "contract-harden-laminar-project-key" ||
 		collectorEnv["HARDEN_LLM_LAMINAR_PROJECT_API_KEY"] == collectorEnv["PRLS_LAMINAR_PROJECT_API_KEY"] {
 		t.Error("Collector does not resolve a distinct Harden LLM Laminar project key")
+	}
+	collectorDependencies := objectField(t, asObject(t, services["otel-collector"], "otel-collector"), "depends_on")
+	if _, exists := collectorDependencies["langfuse-web"]; exists {
+		t.Error("Collector still depends on Langfuse after the Laminar-only cutover")
 	}
 
 	volumes := objectField(t, config, "volumes")
@@ -309,7 +314,7 @@ func assertSmokeTopology(t *testing.T, root string, config map[string]any, front
 	}
 	wanted := append(
 		append([]string(nil), productionServices...),
-		"caddy", "fake-provider", "garage", "otel-collector-state-init",
+		"caddy", "fake-provider", "garage", "laminar", "otel-collector-state-init",
 	)
 	model := "backend smoke"
 	if frontend {
@@ -355,6 +360,36 @@ func assertSmokeTopology(t *testing.T, root string, config map[string]any, front
 	}
 	assertNetworkSubnet(t, config, "harden-private", "203.0.113.0/24")
 	assertNetworkSubnet(t, config, "prls-observability", "198.18.0.0/24")
+
+	laminar := asObject(t, services["laminar"], model+" Laminar test sink")
+	if image := stringField(t, laminar, "image"); image != "otel/opentelemetry-collector-contrib:0.156.0@sha256:125bdbeb7590cc1952c5b3430ecf14063568980c2c93d5b38676cc0446ed8108" {
+		t.Errorf("%s Laminar sink image = %q, want the pinned Collector image", model, image)
+	}
+	if _, exists := laminar["build"]; exists {
+		t.Errorf("%s Laminar sink unexpectedly has a build context", model)
+	}
+	if ports, ok := laminar["ports"].([]any); ok && len(ports) != 0 {
+		t.Errorf("%s Laminar sink publishes host ports: %#v", model, ports)
+	}
+	if got := sortedKeys(objectField(t, laminar, "networks")); !equalStrings(got, []string{"prls-observability"}) ||
+		!valueContains(objectField(t, laminar, "networks")["prls-observability"], "laminar") {
+		t.Errorf("%s Laminar sink network/alias = %#v, want only the isolated test network with alias laminar", model, laminar["networks"])
+	}
+	laminarVolumes := laminar["volumes"].([]any)
+	if len(laminarVolumes) != 1 {
+		t.Fatalf("%s Laminar sink volumes = %#v, want one read-only test config", model, laminar["volumes"])
+	}
+	laminarConfig := asObject(t, laminarVolumes[0], model+" Laminar sink config mount")
+	if stringField(t, laminarConfig, "source") != filepath.Join(absoluteRoot, "deploy", "test", "laminar-sink.yaml") ||
+		stringField(t, laminarConfig, "target") != "/etc/otelcol-contrib/config.yaml" || !boolField(t, laminarConfig, "read_only") {
+		t.Errorf("%s Laminar sink config mount = %#v", model, laminarConfig)
+	}
+	collector := asObject(t, services["otel-collector"], model+" Collector")
+	collectorDependencies := objectField(t, collector, "depends_on")
+	laminarDependency := objectField(t, collectorDependencies, "laminar")
+	if stringField(t, laminarDependency, "condition") != "service_healthy" {
+		t.Errorf("%s Collector Laminar dependency = %#v, want service_healthy", model, laminarDependency)
+	}
 
 	ports, ok := caddy["ports"].([]any)
 	if !ok || len(ports) != 2 {

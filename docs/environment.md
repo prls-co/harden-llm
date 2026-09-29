@@ -72,22 +72,23 @@ Garage, provider, Grafana, or Langfuse credential.
 `GRAFANA_ADMIN_USER` and secret `GRAFANA_ADMIN_PASSWORD` secure Grafana.
 Langfuse requires independent Postgres, salt, encryption, NextAuth, ClickHouse,
 Redis, and MinIO secrets plus `LANGFUSE_INIT_*` organization/project/user values.
-The protected harden-LLM exporter receives only the initialized Langfuse
-project public/secret keys.
+Those credentials stay within the Langfuse application stack. The Harden LLM
+Collector no longer receives Langfuse project keys or exports gateway traces
+there; the existing Langfuse services and stored history remain available for
+the UI and any separately verified consumers.
 The separate secret `PRLS_LAMINAR_PROJECT_API_KEY` authorizes the dedicated
 full-content PRLS trace exporter to the existing Laminar deployment; it is not
-shared with the harden-LLM Langfuse path.
+shared with the Harden LLM Laminar project.
 `HARDEN_LLM_LAMINAR_PROJECT_API_KEY` is a different, ingest-only key for the
-Harden LLM project. It is read only by the Harden LLM gateway trace exporter and
-must not be copied from the PRLS project or another consumer. The Collector
-temporarily dual-writes eligible Harden LLM gateway traces to Laminar and
-Langfuse during the R7 acceptance window. It is owned by Harden LLM and belongs
-in its private production environment file; the production descriptor requires
-it separately from the PRLS-owned observability variables. The durable Laminar
-queue is byte-sized and capped at 512 MiB, retries across restarts, and can
-reject new spans once full; monitor queue capacity and failed-send metrics during
-the acceptance window. Only the existing redacted gateway trace pipeline is
-dual-written, so both systems receive the same selected and redacted spans.
+Harden LLM project. It is read only by the HLLM Collector's gateway trace
+exporter and must not be copied from the PRLS project or another consumer. Keep
+it in the private production environment file; the production descriptor
+requires it separately from the PRLS-owned observability variables. Only the
+existing redacted Harden LLM gateway trace pipeline exports to Laminar. Its
+durable queue is byte-sized and capped at 512 MiB, retries across restarts, and
+can reject new spans once full; monitor queue capacity and failed-send metrics.
+The Langfuse application and its history are retained independently while
+remaining route and consumer needs are reviewed.
 These variables belong to the unchanged upstream service graph documented in
 [`deploy/langfuse/UPSTREAM.md`](../deploy/langfuse/UPSTREAM.md); they must never
 be reused for Harden LLM Postgres or Garage.
@@ -240,9 +241,6 @@ unique profile/run records and deletes them before logout.
   "artifactAllowedHosts": ["artifacts.example.net"],
   "grafanaUrl": "https://grafana.example.net",
   "grafanaUserEnv": "HARDEN_LLM_LIVE_GRAFANA_USER",
-  "grafanaPasswordEnv": "HARDEN_LLM_LIVE_GRAFANA_PASSWORD",
-  "langfuseUrl": "https://langfuse.example.net",
-  "langfusePublicKeyEnv": "HARDEN_LLM_LIVE_LANGFUSE_PUBLIC_KEY",
-  "langfuseSecretKeyEnv": "HARDEN_LLM_LIVE_LANGFUSE_SECRET_KEY"
+  "grafanaPasswordEnv": "HARDEN_LLM_LIVE_GRAFANA_PASSWORD"
 }
 ```

@@ -13,10 +13,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -36,9 +38,6 @@ type liveGatewayConfig struct {
 	GrafanaURL           string          `json:"grafanaUrl"`
 	GrafanaUserEnv       string          `json:"grafanaUserEnv"`
 	GrafanaPasswordEnv   string          `json:"grafanaPasswordEnv"`
-	LangfuseURL          string          `json:"langfuseUrl"`
-	LangfusePublicKeyEnv string          `json:"langfusePublicKeyEnv"`
-	LangfuseSecretKeyEnv string          `json:"langfuseSecretKeyEnv"`
 }
 
 type liveSecrets struct {
@@ -46,8 +45,6 @@ type liveSecrets struct {
 	providerAPIKey  string
 	grafanaUser     string
 	grafanaPassword string
-	langfusePublic  string
-	langfuseSecret  string
 }
 
 type liveResponse struct {
@@ -99,6 +96,7 @@ func TestLiveGatewayLifecycle(t *testing.T) {
 	if models, ok := refreshedProfile["models"].([]any); !ok || len(models) == 0 {
 		t.Fatal("live model refresh returned no models")
 	}
+	laminarSentSpansBefore := liveLaminarSentSpans(t, config, secrets)
 
 	prompt := "Reply with exactly LIVE-CERTIFIED."
 	run := liveRequest(t, client, http.MethodPost, config.GatewayURL+"/api/v1/run", map[string]any{
@@ -143,7 +141,7 @@ func TestLiveGatewayLifecycle(t *testing.T) {
 		t.Fatal("profile bundle does not include the live certification profile")
 	}
 
-	assertLiveDiagnostics(t, config, secrets, runID, traceID)
+	assertLiveDiagnostics(t, config, secrets, runID, traceID, laminarSentSpansBefore)
 
 	liveRequest(t, client, http.MethodDelete, config.GatewayURL+"/api/v1/history/"+url.PathEscape(runID), nil, token, http.StatusOK)
 	runID = ""
@@ -170,7 +168,6 @@ func loadLiveGatewayConfig(t *testing.T, path string) (liveGatewayConfig, liveSe
 	}
 	config.GatewayURL = validateLiveOrigin(t, config.GatewayURL, "gateway")
 	config.GrafanaURL = validateLiveOrigin(t, config.GrafanaURL, "Grafana")
-	config.LangfuseURL = validateLiveOrigin(t, config.LangfuseURL, "Langfuse")
 	if strings.TrimSpace(config.Email) == "" || len(config.Profile) == 0 || len(config.ArtifactAllowedHosts) == 0 {
 		t.Fatal("live gateway email, profile, and artifact host allowlist are required")
 	}
@@ -187,8 +184,6 @@ func loadLiveGatewayConfig(t *testing.T, path string) (liveGatewayConfig, liveSe
 		providerAPIKey:  secret(config.ProviderAPIKeyEnv, "provider API key"),
 		grafanaUser:     secret(config.GrafanaUserEnv, "Grafana user"),
 		grafanaPassword: secret(config.GrafanaPasswordEnv, "Grafana password"),
-		langfusePublic:  secret(config.LangfusePublicKeyEnv, "Langfuse public key"),
-		langfuseSecret:  secret(config.LangfuseSecretKeyEnv, "Langfuse secret key"),
 	}
 }
 
@@ -310,7 +305,7 @@ func liveArtifact(t *testing.T, location string) []byte {
 	return contents
 }
 
-func assertLiveDiagnostics(t *testing.T, config liveGatewayConfig, secrets liveSecrets, runID, domainTraceID string) {
+func assertLiveDiagnostics(t *testing.T, config liveGatewayConfig, secrets liveSecrets, runID, domainTraceID string, laminarSentSpansBefore float64) {
 	t.Helper()
 	deadline := time.Now().Add(180 * time.Second)
 	var tempoID string
@@ -333,16 +328,33 @@ func assertLiveDiagnostics(t *testing.T, config liveGatewayConfig, secrets liveS
 			body, ok := liveBasicGET(config.GrafanaURL+"/api/datasources/proxy/uid/harden-loki/loki/api/v1/query_range?limit=100&direction=backward&query="+url.QueryEscape(query), secrets.grafanaUser, secrets.grafanaPassword)
 			complete["loki"] = ok && bytes.Contains(body, []byte(runID)) && !liveContainsSecret(body, secrets)
 		}
-		if !complete["langfuse"] && tempoID != "" {
-			body, ok := liveBasicGET(config.LangfuseURL+"/api/public/traces/"+url.PathEscape(tempoID), secrets.langfusePublic, secrets.langfuseSecret)
-			complete["langfuse"] = ok && bytes.Contains(body, []byte(domainTraceID)) && !liveContainsSecret(body, secrets)
+		if !complete["laminar"] && tempoID != "" {
+			body, ok := liveLaminarSentSpansQuery(config, secrets)
+			current, parsed := livePrometheusCounter(body)
+			complete["laminar"] = ok && parsed && current > laminarSentSpansBefore && !liveContainsSecret(body, secrets)
 		}
-		if len(complete) == 4 && complete["tempo"] && complete["prometheus"] && complete["loki"] && complete["langfuse"] {
+		if len(complete) == 4 && complete["tempo"] && complete["prometheus"] && complete["loki"] && complete["laminar"] {
 			return
 		}
 		time.Sleep(2 * time.Second)
 	}
-	t.Fatalf("live diagnostics correlation incomplete: tempo=%t prometheus=%t loki=%t langfuse=%t", complete["tempo"], complete["prometheus"], complete["loki"], complete["langfuse"])
+	t.Fatalf("live diagnostics correlation incomplete: tempo=%t prometheus=%t loki=%t laminar_exported_spans_increased=%t", complete["tempo"], complete["prometheus"], complete["loki"], complete["laminar"])
+}
+
+func liveLaminarSentSpans(t *testing.T, config liveGatewayConfig, secrets liveSecrets) float64 {
+	t.Helper()
+	body, ok := liveLaminarSentSpansQuery(config, secrets)
+	value, parsed := livePrometheusCounter(body)
+	if !ok || !parsed || liveContainsSecret(body, secrets) {
+		t.Fatal("Grafana did not return the Laminar exporter span counter")
+	}
+	return value
+}
+
+func liveLaminarSentSpansQuery(config liveGatewayConfig, secrets liveSecrets) ([]byte, bool) {
+	query := `sum(otelcol_exporter_sent_spans{exporter="otlp/harden_llm_laminar"}) or vector(0)`
+	target := config.GrafanaURL + "/api/datasources/proxy/uid/harden-prometheus/api/v1/query?query=" + url.QueryEscape(query)
+	return liveBasicGET(target, secrets.grafanaUser, secrets.grafanaPassword)
 }
 
 func liveBasicGET(target, username, password string) ([]byte, bool) {
@@ -382,8 +394,54 @@ func livePrometheusSample(body []byte) bool {
 	return json.Unmarshal(body, &response) == nil && response.Status == "success" && len(response.Data.Result) > 0
 }
 
+func livePrometheusCounter(body []byte) (float64, bool) {
+	var response struct {
+		Status string `json:"status"`
+		Data   struct {
+			Result []struct {
+				Value []json.RawMessage `json:"value"`
+			} `json:"result"`
+		} `json:"data"`
+	}
+	if json.Unmarshal(body, &response) != nil || response.Status != "success" || len(response.Data.Result) != 1 || len(response.Data.Result[0].Value) != 2 {
+		return 0, false
+	}
+	var raw string
+	if json.Unmarshal(response.Data.Result[0].Value[1], &raw) != nil {
+		return 0, false
+	}
+	value, err := strconv.ParseFloat(raw, 64)
+	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
+		return 0, false
+	}
+	return value, true
+}
+
+func TestLivePrometheusCounter(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want float64
+		ok   bool
+	}{
+		{name: "counter", body: `{"status":"success","data":{"result":[{"value":[1710000000,"5316"]}]}}`, want: 5316, ok: true},
+		{name: "zero", body: `{"status":"success","data":{"result":[{"value":[1710000000,"0"]}]}}`, want: 0, ok: true},
+		{name: "empty result", body: `{"status":"success","data":{"result":[]}}`},
+		{name: "error", body: `{"status":"error","data":{"result":[]}}`},
+		{name: "malformed value", body: `{"status":"success","data":{"result":[{"value":[1710000000,"NaN"]}]}}`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, ok := livePrometheusCounter([]byte(test.body))
+			if got != test.want || ok != test.ok {
+				t.Fatalf("livePrometheusCounter() = (%v, %t), want (%v, %t)", got, ok, test.want, test.ok)
+			}
+		})
+	}
+}
+
 func liveContainsSecret(body []byte, secrets liveSecrets) bool {
-	for _, secret := range []string{secrets.password, secrets.providerAPIKey, secrets.grafanaPassword, secrets.langfuseSecret} {
+	for _, secret := range []string{secrets.password, secrets.providerAPIKey, secrets.grafanaPassword} {
 		if secret != "" && bytes.Contains(body, []byte(secret)) {
 			return true
 		}
