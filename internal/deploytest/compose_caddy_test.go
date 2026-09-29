@@ -25,25 +25,40 @@ const (
 )
 
 var productionServices = []string{
-	"caddy", "harden-llm-gateway", "harden-postgres", "otel-collector",
+	"harden-llm-gateway", "harden-postgres", "otel-collector",
 	"prometheus", "loki", "tempo", "grafana", "langfuse-web", "langfuse-worker",
 	"postgres", "clickhouse", "redis", "minio",
 }
 
-func TestComposeCaddyContract(t *testing.T) {
+func TestComposeDeploymentContract(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	upstreamPath := filepath.Join(root, "deploy", "langfuse", "docker-compose.upstream.yml")
 	basePath := filepath.Join(root, "docker-compose.yml")
 	overlayPath := filepath.Join(root, "deploy", "langfuse", "compose.private.yml")
+	frontendPath := filepath.Join(root, "deploy", "frontend", "compose.frontend.yml")
+	smokePath := filepath.Join(root, "deploy", "test", "compose.smoke.yml")
+	frontendSmokePath := filepath.Join(root, "deploy", "test", "compose.frontend-smoke.yml")
 
 	assertLangfuseProvenance(t, upstreamPath, filepath.Join(root, "deploy", "langfuse", "UPSTREAM.md"))
 	assertUpstreamLangfuseGraph(t, upstreamPath)
 	assertNarrowLangfuseOverlay(t, overlayPath)
 
-	effective := renderCompose(t, root, basePath, upstreamPath, overlayPath)
-	assertEffectiveTopology(t, effective)
-	assertCaddyContract(t, filepath.Join(root, "deploy", "caddy", "Caddyfile"), filepath.Join(root, "deploy", "caddy", "conf.d"))
-	assertImageManifest(t, filepath.Join(root, "deploy", "images.lock.json"), effective)
+	backend := renderCompose(t, root, basePath, upstreamPath, overlayPath)
+	assertEffectiveTopology(t, backend)
+	assertImageManifest(t, filepath.Join(root, "deploy", "images.lock.json"), backend)
+	production := renderCompose(t, root, basePath, upstreamPath, overlayPath, frontendPath)
+	assertServiceNames(
+		t,
+		production,
+		append(append([]string(nil), productionServices...), "harden-llm-web", "otel-collector-state-init"),
+		"four-file production",
+	)
+	assertProductionFrontend(t, production)
+
+	smoke := renderCompose(t, root, basePath, upstreamPath, overlayPath, smokePath)
+	assertSmokeTopology(t, root, smoke, false)
+	frontendSmoke := renderCompose(t, root, basePath, upstreamPath, overlayPath, smokePath, frontendPath, frontendSmokePath)
+	assertSmokeTopology(t, root, frontendSmoke, true)
 }
 
 func assertLangfuseProvenance(t *testing.T, composePath, provenancePath string) {
@@ -195,11 +210,7 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 		}
 		service := asObject(t, raw, "effective service "+name)
 		ports, _ := service["ports"].([]any)
-		if name == "caddy" {
-			if len(ports) != 2 {
-				t.Errorf("Caddy published port count = %d, want 2", len(ports))
-			}
-		} else if len(ports) != 0 {
+		if len(ports) != 0 {
 			t.Errorf("non-edge service %s publishes host ports: %#v", name, ports)
 		}
 		if !valueContains(service["networks"], "harden-private") {
@@ -207,7 +218,7 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 		}
 	}
 
-	baseOwned := []string{"caddy", "harden-llm-gateway", "harden-postgres", "otel-collector", "prometheus", "loki", "tempo", "grafana"}
+	baseOwned := []string{"harden-llm-gateway", "harden-postgres", "otel-collector", "prometheus", "loki", "tempo", "grafana"}
 	for _, name := range baseOwned {
 		service := asObject(t, services[name], name)
 		image := stringField(t, service, "image")
@@ -224,11 +235,9 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 	if !valueContains(gateway["networks"], "harden-private") || !valueContains(gateway["networks"], "prls-observability") {
 		t.Errorf("gateway networks = %#v, want private and shared networks", gateway["networks"])
 	}
-	for _, name := range []string{"caddy", "loki"} {
-		service := asObject(t, services[name], name)
-		if !valueContains(service["networks"], "prls-observability") {
-			t.Errorf("%s is not attached to the shared Garage client network", name)
-		}
+	service := asObject(t, services["loki"], "loki")
+	if !valueContains(service["networks"], "prls-observability") {
+		t.Error("loki is not attached to the shared Garage client network")
 	}
 	for _, name := range []string{"langfuse-web", "langfuse-worker"} {
 		env := environmentValueMap(t, asObject(t, services[name], name)["environment"])
@@ -251,7 +260,7 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 		}
 	}
 	for _, name := range []string{
-		"caddy-data", "caddy-config", "harden-postgres-data",
+		"harden-postgres-data",
 		"prometheus-data", "loki-data", "tempo-data", "grafana-data", "langfuse_postgres_data",
 		"langfuse_clickhouse_data", "langfuse_clickhouse_logs", "langfuse_minio_data", "langfuse_redis_data",
 	} {
@@ -266,57 +275,137 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 	}
 }
 
-func assertCaddyContract(t *testing.T, path, extensionDir string) {
+func assertServiceNames(t *testing.T, config map[string]any, wanted []string, model string) {
 	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
+	services := objectField(t, config, "services")
+	got := sortedKeys(services)
+	wanted = append([]string(nil), wanted...)
+	sort.Strings(wanted)
+	if !equalStrings(got, wanted) {
+		t.Fatalf("%s services = %v, want %v", model, got, wanted)
 	}
-	text := string(data)
-	for _, required := range []string{
-		"{$HARDEN_LLM_API_HOST}", "reverse_proxy harden-llm-gateway:8080",
-		"{$HARDEN_LLM_GRAFANA_HOST}", "reverse_proxy grafana:3000",
-		"{$HARDEN_LLM_LANGFUSE_HOST}", "reverse_proxy langfuse-web:3000",
-		"{$HARDEN_LLM_ARTIFACT_HOST}", "reverse_proxy garage-shared:3900",
-		"Strict-Transport-Security", "X-Content-Type-Options", "Referrer-Policy", "Content-Security-Policy",
-		"request_body", "max_size", "tls {$HARDEN_LLM_TLS_MODE}",
-	} {
-		if !strings.Contains(text, required) {
-			t.Errorf("Caddyfile omits %q", required)
+}
+
+func assertProductionFrontend(t *testing.T, config map[string]any) {
+	t.Helper()
+	services := objectField(t, config, "services")
+	web := asObject(t, services["harden-llm-web"], "production harden-llm-web")
+	ports, _ := web["ports"].([]any)
+	if len(ports) != 0 {
+		t.Errorf("production web service publishes host ports: %#v", ports)
+	}
+	assertPrivateAndSharedAlias(t, "production harden-llm-web", web, "hllm-prod-web")
+}
+
+func assertSmokeTopology(t *testing.T, root string, config map[string]any, frontend bool) {
+	t.Helper()
+	absoluteRoot, err := filepath.Abs(root)
+	if err != nil {
+		t.Fatalf("resolve HLLM root %q: %v", root, err)
+	}
+	wanted := append(
+		append([]string(nil), productionServices...),
+		"caddy", "fake-provider", "garage", "otel-collector-state-init",
+	)
+	model := "backend smoke"
+	if frontend {
+		wanted = append(wanted, "harden-llm-web")
+		model = "frontend smoke"
+	}
+	assertServiceNames(t, config, wanted, model)
+
+	services := objectField(t, config, "services")
+	caddy := asObject(t, services["caddy"], model+" caddy")
+	if image := stringField(t, caddy, "image"); image != "caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648" {
+		t.Errorf("%s Caddy image = %q, want the pinned isolated test image", model, image)
+	}
+	if _, exists := caddy["build"]; exists {
+		t.Errorf("%s Caddy unexpectedly has a build context", model)
+	}
+
+	environment := environmentValueMap(t, caddy["environment"])
+	for _, name := range []string{"HARDEN_LLM_API_HOST", "HARDEN_LLM_ARTIFACT_HOST", "HARDEN_LLM_GRAFANA_HOST", "HARDEN_LLM_LANGFUSE_HOST"} {
+		if strings.TrimSpace(environment[name]) == "" {
+			t.Errorf("%s Caddy environment omits %s", model, name)
 		}
 	}
-	if count := strings.Count(text, "import /etc/caddy/conf.d/*.caddy"); count != 1 {
-		t.Errorf("trusted conf.d import count = %d, want 1", count)
-	}
-	if count := strings.Count(text, "import /etc/caddy/overlays/*.frontend"); count != 1 {
-		t.Errorf("trusted frontend overlay import count = %d, want 1", count)
-	}
-	for _, forbidden := range []string{"file_server", "root *", "php_fastcgi", "garage:3901", "garage:3903"} {
-		if strings.Contains(strings.ToLower(text), forbidden) {
-			t.Errorf("Caddyfile contains forbidden route/directive %q", forbidden)
+	for _, name := range []string{"PRLS_ALLURE_HOST", "PRLS_TESTS_BASIC_AUTH_USER", "PRLS_TESTS_BASIC_AUTH_HASH"} {
+		if _, exists := environment[name]; exists {
+			t.Errorf("%s Caddy unexpectedly retains shared-edge variable %s", model, name)
 		}
 	}
-	entries, err := os.ReadDir(extensionDir)
-	if err != nil {
-		t.Fatal(err)
+	if frontend && environment["HARDEN_LLM_WEB_HOST"] != "app.harden.test" {
+		t.Errorf("frontend smoke Caddy web host = %q, want app.harden.test", environment["HARDEN_LLM_WEB_HOST"])
 	}
-	wantEntries := map[string]bool{
-		".gitkeep":             false,
-		"prls-agents.caddy":    false,
-		"prls-analytics.caddy": false,
-		"prls-tests.caddy":     false,
+
+	wantedDependencies := []string{"garage", "grafana", "harden-llm-gateway", "langfuse-web"}
+	if frontend {
+		wantedDependencies = append(wantedDependencies, "harden-llm-web")
 	}
-	for _, entry := range entries {
-		if _, ok := wantEntries[entry.Name()]; !ok {
-			t.Errorf("trusted conf.d contains unreviewed entry %s", entry.Name())
+	sort.Strings(wantedDependencies)
+	if got := sortedKeys(objectField(t, caddy, "depends_on")); !equalStrings(got, wantedDependencies) {
+		t.Errorf("%s Caddy dependencies = %v, want %v", model, got, wantedDependencies)
+	}
+	if got := sortedKeys(objectField(t, caddy, "networks")); !equalStrings(got, []string{"harden-private", "prls-observability"}) {
+		t.Errorf("%s Caddy networks = %v, want its isolated backend and artifact networks", model, got)
+	}
+	assertNetworkSubnet(t, config, "harden-private", "203.0.113.0/24")
+	assertNetworkSubnet(t, config, "prls-observability", "198.18.0.0/24")
+
+	ports, ok := caddy["ports"].([]any)
+	if !ok || len(ports) != 2 {
+		t.Fatalf("%s Caddy ports = %#v, want loopback HTTP and HTTPS ports", model, caddy["ports"])
+	}
+	wantPorts := map[string]bool{"127.0.0.1:18080:80": false, "127.0.0.1:18443:443": false}
+	for _, raw := range ports {
+		port := asObject(t, raw, model+" Caddy port")
+		key := fmt.Sprintf("%s:%s:%s", fmt.Sprint(port["host_ip"]), fmt.Sprint(port["published"]), fmt.Sprint(port["target"]))
+		if _, exists := wantPorts[key]; !exists {
+			t.Errorf("%s Caddy has unexpected published port %s", model, key)
 			continue
 		}
-		wantEntries[entry.Name()] = true
+		wantPorts[key] = true
 	}
-	for name, found := range wantEntries {
+	for port, found := range wantPorts {
 		if !found {
-			t.Errorf("trusted conf.d omits reviewed entry %s", name)
+			t.Errorf("%s Caddy is missing loopback binding %s", model, port)
 		}
+	}
+
+	wantedTargets := map[string]string{
+		"/etc/caddy/Caddyfile": filepath.Join(absoluteRoot, "deploy", "test", "Caddyfile.smoke"),
+		"/data":                "caddy-smoke-data",
+		"/config":              "caddy-smoke-config",
+	}
+	if frontend {
+		wantedTargets["/etc/caddy/Caddyfile"] = filepath.Join(absoluteRoot, "deploy", "test", "Caddyfile.frontend-smoke")
+		wantedTargets["/etc/caddy/test"] = filepath.Join(absoluteRoot, "deploy", "test")
+	}
+	volumes, ok := caddy["volumes"].([]any)
+	if !ok {
+		t.Fatalf("%s Caddy volumes = %#v, want explicit mounts", model, caddy["volumes"])
+	}
+	for _, raw := range volumes {
+		volume := asObject(t, raw, model+" Caddy volume")
+		target := stringField(t, volume, "target")
+		source, expected := wantedTargets[target]
+		if !expected {
+			t.Errorf("%s Caddy has unexpected mount target %s", model, target)
+			continue
+		}
+		delete(wantedTargets, target)
+		if target == "/data" || target == "/config" {
+			if stringField(t, volume, "type") != "volume" || !strings.HasSuffix(stringField(t, volume, "source"), source) {
+				t.Errorf("%s Caddy state at %s is not project-owned volume %s", model, target, source)
+			}
+		} else {
+			if stringField(t, volume, "source") != source || !boolField(t, volume, "read_only") {
+				t.Errorf("%s Caddy config mount at %s is not the expected read-only source", model, target)
+			}
+		}
+	}
+	for target := range wantedTargets {
+		t.Errorf("%s Caddy is missing explicit mount target %s", model, target)
 	}
 }
 
@@ -357,15 +446,23 @@ func composeContractEnvironment() []string {
 	return []string{
 		"HARDEN_LLM_API_HOST=api.harden.test", "HARDEN_LLM_GRAFANA_HOST=grafana.harden.test",
 		"HARDEN_LLM_LANGFUSE_HOST=langfuse.harden.test", "HARDEN_LLM_ARTIFACT_HOST=artifacts.harden.test",
-		"PRLS_ALLURE_HOST=allure.harden.test", "PRLS_TESTS_BASIC_AUTH_USER=contract-operator",
-		"PRLS_TESTS_BASIC_AUTH_HASH=$2a$14$contractOnlyNotAProductionHash0000000000000000000000",
+		"HARDEN_LLM_WEB_HOST=app.harden.test",
 		"HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT=https://artifacts.harden.test",
+		"HARDEN_LLM_BIND_ADDRESS=127.0.0.1", "HARDEN_LLM_HTTP_PORT=18080", "HARDEN_LLM_HTTPS_PORT=18443",
+		"PRLS_SMOKE_OBSERVABILITY_NETWORK=harden-llm-contract-observability",
+		"SMOKE_CA_CERT=/tmp/harden-llm-contract/ca.crt",
+		"SMOKE_PROVIDER_CERT=/tmp/harden-llm-contract/provider.crt",
+		"SMOKE_PROVIDER_KEY=/tmp/harden-llm-contract/provider.key",
 		"HARDEN_LLM_TLS_MODE=internal", "HARDEN_LLM_POSTGRES_PASSWORD=contract-harden-db-7Y2qN5",
 		"HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID=GKCONTRACT000000000000000000000001",
 		"HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY=contractGarageKey_4Ys8zQ1xN7pV9kM2rT6wE3aB5cD0fH",
+		"GARAGE_RPC_SECRET=contractGarageRPCSecret_6mN4vQ8zR2pT5xK9aC1dF7hJ3wE0yB",
 		`HARDEN_LLM_ENCRYPTION_KEYS={"primary":"R1BKT3pKV0M1akY2WnlYYU45Sm5UTW82dzBuXzJ4bTk"}`,
 		"HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID=primary",
-		"HARDEN_LLM_RELEASE=contract-1", "GRAFANA_ADMIN_PASSWORD=contract-grafana-8Zt4pW",
+		"HARDEN_LLM_RELEASE=contract-1", "HARDEN_LLM_WEB_SECRET_KEY_BASE=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		"HARDEN_LLM_WEB_SESSION_SIGNING_SALT=contract-signing-salt",
+		"HARDEN_LLM_WEB_SESSION_ENCRYPTION_SALT=contract-encryption-salt",
+		"GRAFANA_ADMIN_PASSWORD=contract-grafana-8Zt4pW",
 		"LANGFUSE_POSTGRES_PASSWORD=contract-langfuse-db-8bQ2mK", "LANGFUSE_SALT=contractSalt9aZ5nC2",
 		"LANGFUSE_ENCRYPTION_KEY=3ff4a321a56028d03b26d90c2e5adeba6702dc1c3f267b603884e3c1f959fcb4",
 		"LANGFUSE_NEXTAUTH_SECRET=contractNextAuth4sY9kQ2nP7wX",

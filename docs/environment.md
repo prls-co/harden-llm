@@ -4,7 +4,7 @@ Copy `.env.example` to `.env`; Compose reads it from the repository root. Keep
 the file mode 0600 and out of Git. Values marked secret must be generated
 independently and stored in a secrets manager.
 
-## Edge and release identity
+## Application endpoints and release identity
 
 | Variable | Required/default | Purpose |
 | --- | --- | --- |
@@ -12,15 +12,14 @@ independently and stored in a secrets manager.
 | `HARDEN_LLM_WEB_HOST` | frontend overlay | Public Phoenix hostname. |
 | `HARDEN_LLM_GRAFANA_HOST` | required | Public Grafana hostname. |
 | `HARDEN_LLM_LANGFUSE_HOST` | required | Public Langfuse hostname. |
-| `HARDEN_LLM_ARTIFACT_HOST` | required | Public Garage presign hostname. |
-| `PRLS_ALLURE_HOST` | required by the shared-observability release | Authenticated Allure Storage hostname routed by the existing Caddy edge. |
-| `PRLS_TESTS_BASIC_AUTH_USER` / `PRLS_TESTS_BASIC_AUTH_HASH` | required by the shared-observability release | Edge user and bcrypt hash for the Allure route. Generate the hash with `caddy hash-password` and single-quote it in `.env`. |
 | `HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT` | required HTTPS origin | Origin embedded in presigned URLs; must match the artifact host. |
-| `HARDEN_LLM_TLS_MODE` | required | Caddy `tls` argument: ACME email in production or `internal` for private-PKI environments. |
-| `HARDEN_LLM_BIND_ADDRESS` | `0.0.0.0` | Address for Caddy's only published ports. |
-| `HARDEN_LLM_HTTP_PORT` / `HARDEN_LLM_HTTPS_PORT` | `80` / `443` | Caddy host ports. |
 | `HARDEN_LLM_RELEASE` | required | Immutable release/version label used by images and telemetry. |
 | `HARDEN_LLM_ENVIRONMENT` | `production` | Bounded deployment identity. |
+
+Production ingress, TLS, listener ports, and shared Allure authentication are
+owned by the separate `caddy-shared` repository. They are not HLLM Compose
+inputs. Configure the public artifact route to match
+`HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT`.
 
 ## Gateway and application storage
 

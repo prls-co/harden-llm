@@ -36,9 +36,6 @@ export const COMPOSE_FILE_ORDER = Object.freeze([
   "deploy/frontend/compose.frontend.yml",
 ]);
 export const PRLS_REQUIRED_VARIABLES = Object.freeze([
-  "PRLS_ALLURE_HOST",
-  "PRLS_TESTS_BASIC_AUTH_USER",
-  "PRLS_TESTS_BASIC_AUTH_HASH",
   "PRLS_LAMINAR_PROJECT_API_KEY",
   "PRLS_LOKI_S3_ACCESS_KEY",
   "PRLS_LOKI_S3_SECRET_KEY",

@@ -1,26 +1,32 @@
 # Self-Hosting and Operations
 
 The certified deployment is one Linux Docker host. Harden-LLM production Compose
-has fourteen services and expects the separately managed `garage-shared`
-service on the existing `prls-observability` network. The optional Phoenix
-overlay adds one service. Run commands from the repository root with Docker
+has thirteen backend services and a one-shot Collector volume initializer; the
+optional Phoenix overlay adds one application service. Shared `caddy-shared` and
+`garage-shared` projects own ingress and object storage on the existing
+`prls-observability` network. Run commands from the repository root with Docker
 29+ and Compose 2.40+.
+
+These instructions describe the target topology after the shared-Caddy handoff.
+Production still uses its existing ingress owner until P05 is accepted in
+[`shared-caddy-adoption-plan.md`](../plans/shared-caddy-adoption-plan.md). Do not
+remove or redeploy the current production ingress while that phase is open.
 
 ## Prepare the host
 
 Allocate persistent storage for Docker volumes, including the retained
-`harden-llm-web-sessions` volume, working DNS for the five public hostnames, and
-inbound TCP 80/443. Copy `.env.example` to `.env`, set mode 0600, and replace
-every placeholder. Generate every secret independently; do not
-reuse application, Garage, Grafana, or Langfuse credentials.
+`harden-llm-web-sessions` volume, and working DNS for the public hostnames.
+Shared Caddy owns inbound TCP 80/443. Copy `.env.example` to `.env`, set mode
+0600, and replace every placeholder. Generate every secret independently; do
+not reuse application, Garage, Grafana, or Langfuse credentials.
 
 Provision `garage-shared` from the `prls-co/garage-shared` repository on the
 same Docker host before starting Harden-LLM. Its owner creates and operates the
 external `prls-observability` network and keeps the existing Garage data and
 metadata volumes. Do not start a repository-local production Garage service.
 
-Use a public ACME account email as `HARDEN_LLM_TLS_MODE` in production. `internal`
-uses Caddy's private CA and is appropriate only when clients explicitly trust it.
+Configure TLS and Caddy listener bindings in the `caddy-shared` repository; they
+are not Harden-LLM environment inputs.
 
 For an existing production project, install the nonsecret descriptor described
 in [`docs/environment.md`](environment.md) and run the read-only check before
@@ -51,11 +57,10 @@ check without `--expected-release` still verifies overall descriptor/runtime
 equivalence when their release identities differ.
 
 Do not reuse development routing values such as `*.harden.localhost` for a
-Cloudflare-tunneled production origin. Set the five `HARDEN_LLM_*_HOST` values
-to the public names configured by the tunnel. If the tunnel validates Caddy's
-private CA, keep `HARDEN_LLM_TLS_MODE=internal`; otherwise use the documented
-public ACME email value and validate the resulting certificate path before
-starting the stack.
+Cloudflare-tunneled production origin. Set application host variables to the
+public names used by the shared Caddy routes. Configure the public artifact
+route to match `HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT` and the Caddy TLS policy
+in `caddy-shared`.
 
 For first-time bootstrap, after all approved source files and the descriptor
 are installed, define the exact project once in Bash:

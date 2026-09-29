@@ -113,7 +113,24 @@ if (args[0] === "context" && args.includes("inspect")) {
   process.stdout.write("0123456789abcdef\n");
 } else if (args[0] === "ps" && process.env.HARDEN_LLM_FAKE_DOCKER_LEFTOVER_RUN_ID === runId) {
   const events = (await readFile(eventPath, "utf8")).split("\n").filter(Boolean).map((line) => JSON.parse(line));
-  if (!events.some((item) => item.kind === "container-remove" && item.runId === runId)) {
+  const runEvents = events.filter((item) => item.runId === runId);
+  const removalStarted = runEvents.some((item) => item.kind === "container-removal-in-progress");
+  const removalCompleted = runEvents.some((item) => item.kind === "container-removal-complete");
+  const projectInventory = args.includes("label=com.docker.compose.project=" + project);
+  if (removalStarted && !removalCompleted && projectInventory) {
+    const pollCount = runEvents.filter((item) => item.kind === "container-removal-wait-poll").length + 1;
+    await event("container-removal-wait-poll", { pollCount });
+    if (runId !== process.env.HARDEN_LLM_FAKE_DOCKER_REMOVE_IN_PROGRESS_STUCK_RUN_ID && pollCount >= 2) {
+      await event("container-removal-complete");
+    }
+    if (runId === process.env.HARDEN_LLM_FAKE_DOCKER_REMOVE_IN_PROGRESS_STUCK_RUN_ID || pollCount < 2) {
+      await event("leftover");
+      process.stdout.write("0123456789abcdef\n");
+    }
+  } else if (removalStarted && !removalCompleted) {
+    await event("leftover");
+    process.stdout.write("0123456789abcdef\n");
+  } else if (!runEvents.some((item) => item.kind === "container-remove") && !removalCompleted) {
     await event("leftover");
     process.stdout.write("0123456789abcdef\n");
   }
@@ -125,7 +142,10 @@ if (args[0] === "context" && args.includes("inspect")) {
     "org.opencontainers.image.documentation": "https://example.test/docs",
   };
   process.stdout.write(JSON.stringify(labels) + "\n");
-} else if (args[0] === "volume" && args.includes("ls") && runId === process.env.HARDEN_LLM_FAKE_DOCKER_FOREIGN_VOLUME_RUN_ID) {
+} else if (args[0] === "volume" && args.includes("ls") && (
+  runId === process.env.HARDEN_LLM_FAKE_DOCKER_FOREIGN_VOLUME_RUN_ID
+  || runId === process.env.HARDEN_LLM_FAKE_DOCKER_REMOVE_IN_PROGRESS_RUN_ID
+)) {
   const events = (await readFile(eventPath, "utf8")).split("\n").filter(Boolean).map((line) => JSON.parse(line));
   if (!events.some((item) => item.kind === "volume-remove" && item.runId === runId)) process.stdout.write("test-owned-volume\n");
 } else if (args[0] === "volume" && args.includes("inspect")) {
@@ -140,7 +160,13 @@ if (args[0] === "context" && args.includes("inspect")) {
 } else if (args[0] === "network" && args.includes("inspect")) {
   process.stdout.write(JSON.stringify({ "com.docker.compose.project": project }) + "\n");
 } else if (args[0] === "rm" && args.includes("-f")) {
-  await event("container-remove", { resourceId: args.at(-1) });
+  if (runId === process.env.HARDEN_LLM_FAKE_DOCKER_REMOVE_IN_PROGRESS_RUN_ID) {
+    await event("container-removal-in-progress", { resourceId: args.at(-1) });
+    process.stderr.write("Error response from daemon: removal of container " + args.at(-1) + " is already in progress\n");
+    process.exitCode = 1;
+  } else {
+    await event("container-remove", { resourceId: args.at(-1) });
+  }
 } else if (args[0] === "volume" && args.includes("rm")) {
   await event("volume-remove", { resourceId: args.at(-1) });
 } else if (args[0] === "network" && args.includes("rm")) {
@@ -421,6 +447,48 @@ test("TEST-272 cleanup failures fail acceptance", async (t) => {
   assert.ok(leftover.results[0].cleanupError);
   assert.ok(leftover.cleanupErrors.some((error) => /cleanup-leftover|service pool/i.test(error)));
   assert.ok(leftover.cleanupWarnings.some((warning) => /Compose down failed/i.test(warning)));
+});
+
+test("TEST-272 waits for a Docker container removal already in progress", async (t) => {
+  const data = await fixture(t);
+  const runId = "container-removal-in-progress";
+  const result = await runTask(data, runId, { environment: {
+    HARDEN_LLM_FAKE_DOCKER_DOWN_FAILURE_RUN_ID: runId,
+    HARDEN_LLM_FAKE_DOCKER_LEFTOVER_RUN_ID: runId,
+    HARDEN_LLM_FAKE_DOCKER_REMOVE_IN_PROGRESS_RUN_ID: runId,
+  } });
+
+  assert.equal(result.accepted, true, JSON.stringify(result));
+  assert.equal(result.results[0].cleanupError, null);
+  assert.deepEqual(result.cleanupErrors, []);
+  assert.ok(result.cleanupWarnings.some((warning) => /Compose down failed.*exact project cleanup.*empty final inventory/i.test(warning)));
+  const events = await readEvents(data);
+  const removalStart = events.findIndex((event) => event.runId === runId && event.kind === "container-removal-in-progress");
+  const waitPolls = events.filter((event) => event.runId === runId && event.kind === "container-removal-wait-poll");
+  const removalComplete = events.findIndex((event) => event.runId === runId && event.kind === "container-removal-complete");
+  assert.ok(removalStart >= 0 && waitPolls.length >= 2 && removalComplete > events.findIndex((event) => event === waitPolls[1]), "exact inventory first observes the in-progress container and then its completion");
+  assert.equal(events.some((event) => event.runId === runId && event.kind === "volume-remove" && event.resourceId === "test-owned-volume"), true, "the project volume is removed only after its container detaches");
+});
+
+test("TEST-272 keeps cleanup pending when an in-progress Docker removal does not settle", async (t) => {
+  const data = await fixture(t);
+  const runId = "container-removal-stuck";
+  const result = await runTask(data, runId, {
+    cleanupTimeoutMs: 10_000,
+    environment: {
+      HARDEN_LLM_FAKE_DOCKER_DOWN_FAILURE_RUN_ID: runId,
+      HARDEN_LLM_FAKE_DOCKER_LEFTOVER_RUN_ID: runId,
+      HARDEN_LLM_FAKE_DOCKER_REMOVE_IN_PROGRESS_RUN_ID: runId,
+      HARDEN_LLM_FAKE_DOCKER_REMOVE_IN_PROGRESS_STUCK_RUN_ID: runId,
+    },
+  });
+
+  assert.equal(result.accepted, false);
+  assert.match(result.results[0].cleanupError, /removal already in progress|cleanup budget/i);
+  assert.equal((await readEvents(data)).some((event) => event.runId === runId && event.kind === "volume-remove"), false, "an attached volume is preserved while container removal is unconfirmed");
+  const receiptDirectory = path.join(data.root, "receipts", runId);
+  const [receiptName] = await fs.readdir(receiptDirectory);
+  assert.equal((await readResourceReceipt(path.join(receiptDirectory, receiptName))).state, "cleanup-pending");
 });
 
 test("TEST-272 cleanup reporting preserves the first task failure and Compose warning", async (t) => {

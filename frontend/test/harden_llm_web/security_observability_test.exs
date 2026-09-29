@@ -168,7 +168,6 @@ defmodule HardenLlmWeb.SecurityObservabilityTest do
     frontend = yaml!(Path.join(@repo_root, "deploy/frontend/otel.frontend.yaml"))
     base = yaml!(Path.join(@repo_root, "deploy/otel/collector.yaml"))
     overlay = yaml!(Path.join(@repo_root, "deploy/frontend/compose.frontend.yml"))
-    caddy = File.read!(Path.join(@repo_root, "deploy/frontend/Caddyfile.frontend"))
 
     assert Map.has_key?(frontend["receivers"], "filelog/harden_llm_web")
     assert Map.has_key?(frontend["receivers"], "prometheus/harden_llm_web")
@@ -192,8 +191,6 @@ defmodule HardenLlmWeb.SecurityObservabilityTest do
            ]
 
     refute Enum.any?(collector_command, &String.contains?(&1, "merge"))
-    assert caddy =~ "@private_metrics path /metrics"
-    assert caddy =~ "respond @private_metrics 404"
     refute get_in(overlay, ["services", "harden-llm-web"]) |> Map.has_key?("ports")
 
     langfuse_processors = get_in(base, ["service", "pipelines", "traces/langfuse", "processors"])

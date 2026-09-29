@@ -485,6 +485,24 @@ async function cleanupResourceReceipt(receiptPath, options) {
       return null;
     }
   };
+  const waitForContainerRemoval = async (containerID) => {
+    const filter = `label=com.docker.compose.project=${project}`;
+    while (deadline - performance.now() > TASK_TIMEOUT_GRACE_MS + 10) {
+      const output = await runDocker("container removal inventory", ["ps", "-aq", "--filter", filter]);
+      if (!output) return false;
+      let containerIDs;
+      try { containerIDs = parseResourceIDs(output, "containers"); }
+      catch (error) {
+        errors.push(scrub(error.message));
+        return false;
+      }
+      if (!containerIDs.includes(containerID)) return true;
+      const remainingMs = deadline - performance.now() - TASK_TIMEOUT_GRACE_MS - 10;
+      if (remainingMs <= 0) return false;
+      await new Promise((resolve) => setTimeout(resolve, Math.min(500, remainingMs)));
+    }
+    return false;
+  };
   const markPending = async (resourceIDs) => {
     try {
       receipt = await updateResourceReceipt(receiptPath, "cleanup-pending", { resourceIds: resourceIDs });
@@ -623,7 +641,21 @@ async function cleanupResourceReceipt(receiptPath, options) {
   }
   for (const id of afterDown.containers) {
     if (!(await inspectProjectLabels("container", id, project, runDocker, errors))) continue;
-    await runDocker(`remove owned container ${id}`, ["rm", "-f", id], 15_000);
+    const removalErrors = [];
+    const removal = await runDocker(`remove owned container ${id}`, ["rm", "-f", id], 15_000, removalErrors);
+    if (removal) continue;
+    const removalFailure = removalErrors.join("; ");
+    if (!/\bremoval of container\b.*\balready in progress\b/i.test(removalFailure)) {
+      errors.push(...removalErrors);
+      continue;
+    }
+    if (!(await waitForContainerRemoval(id))) {
+      errors.push(`remove owned container ${id}: Docker reported removal already in progress, but exact project inventory did not confirm completion before the cleanup deadline`);
+      continue;
+    }
+    const confirmation = `resource ${project}: Docker removal already in progress for container ${id}; exact project inventory confirmed completion`;
+    if (Array.isArray(options.cleanupWarnings)) options.cleanupWarnings.push(confirmation);
+    else errors.push(confirmation);
   }
 
   const afterContainers = await inventory();

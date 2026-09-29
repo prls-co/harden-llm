@@ -56,6 +56,7 @@ func TestFrontendComposeFixture(t *testing.T) {
 		filepath.Join(root, "deploy", "langfuse", "compose.private.yml"),
 		filepath.Join(root, "deploy", "test", "compose.smoke.yml"),
 		filepath.Join(root, "deploy", "frontend", "compose.frontend.yml"),
+		filepath.Join(root, "deploy", "test", "compose.frontend-smoke.yml"),
 	}
 	runner := composeRunner{root: root, project: project, environment: environment, files: files}
 	receiptPath, err := integrationtest.RegisterResourceReceipt(project, files)

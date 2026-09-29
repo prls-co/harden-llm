@@ -122,6 +122,7 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 		t.Fatalf("pre-pull pinned images: %v", err)
 	}
 	cancelPull()
+	validateFrontendSmokeCaddyfile(t, runner)
 
 	started := time.Now()
 	startContext, cancelStart := context.WithTimeout(context.Background(), 6*time.Minute)
@@ -232,6 +233,59 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 		report.ReadyServices, report.TotalServices, report.Readiness.Round(time.Millisecond),
 		report.CorrelatedBackends, report.CorrelationBackends, report.RunID, report.TraceID)
 	return report
+}
+
+func validateFrontendSmokeCaddyfile(t *testing.T, runner composeRunner) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+
+	config, err := runner.output(ctx, "config", "--format", "json")
+	if err != nil {
+		t.Fatalf("render smoke Compose before validating frontend Caddy config: %v", err)
+	}
+	var model struct {
+		Services map[string]struct {
+			Image string `json:"image"`
+		} `json:"services"`
+	}
+	if err := json.Unmarshal(config, &model); err != nil {
+		t.Fatalf("decode smoke Compose image for Caddy config validation: %v", err)
+	}
+	caddy, exists := model.Services["caddy"]
+	if !exists || caddy.Image == "" {
+		t.Fatalf("smoke Compose has no pinned Caddy image for frontend config validation")
+	}
+
+	environment := make(map[string]string, len(runner.environment)+1)
+	for name, value := range runner.environment {
+		environment[name] = value
+	}
+	environment["HARDEN_LLM_WEB_HOST"] = "app.smoke.localhost"
+	arguments := []string{
+		"run", "--rm", "--network", "none",
+		"--label", "com.docker.compose.project=" + runner.project,
+		"--mount", fmt.Sprintf("type=bind,source=%s,target=/etc/caddy/Caddyfile,readonly", filepath.Join(runner.root, "deploy", "test", "Caddyfile.frontend-smoke")),
+		"--mount", fmt.Sprintf("type=bind,source=%s,target=/etc/caddy/test,readonly", filepath.Join(runner.root, "deploy", "test")),
+	}
+	for _, name := range []string{
+		"HARDEN_LLM_API_HOST", "HARDEN_LLM_ARTIFACT_HOST", "HARDEN_LLM_GRAFANA_HOST",
+		"HARDEN_LLM_LANGFUSE_HOST", "HARDEN_LLM_TLS_MODE", "HARDEN_LLM_WEB_HOST",
+	} {
+		value, exists := environment[name]
+		if !exists || value == "" {
+			t.Fatalf("synthetic smoke Caddy configuration omits %s", name)
+		}
+		arguments = append(arguments, "--env", name+"="+value)
+	}
+	arguments = append(arguments, caddy.Image, "caddy", "validate", "--config", "/etc/caddy/Caddyfile")
+	command := exec.CommandContext(ctx, "docker", arguments...)
+	command.Dir = runner.root
+	command.Env = append(os.Environ(), sortedEnvironment(environment)...)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("validate frontend smoke Caddyfile with the pinned image: %v: %s", err, runner.redact(string(output)))
+	}
 }
 
 type composeRunner struct {
@@ -409,8 +463,6 @@ func smokeEnvironment(t *testing.T, material tlsMaterial, httpPort, httpsPort in
 	return map[string]string{
 		"HARDEN_LLM_API_HOST": "api.smoke.localhost", "HARDEN_LLM_GRAFANA_HOST": "grafana.smoke.localhost",
 		"HARDEN_LLM_LANGFUSE_HOST": "langfuse.smoke.localhost", "HARDEN_LLM_ARTIFACT_HOST": "artifacts.smoke.localhost",
-		"PRLS_ALLURE_HOST": "allure.smoke.localhost", "PRLS_TESTS_BASIC_AUTH_USER": "smoke-operator",
-		"PRLS_TESTS_BASIC_AUTH_HASH":            "$2a$14$5Fp.WGvCHKPhc3F2aALXlezzw1EKDwB5HyTTXd.vCT43XAhkGCmqG",
 		"PRLS_SMOKE_OBSERVABILITY_NETWORK":      "prls-observability-smoke-" + hexSecret(8),
 		"PRLS_LAMINAR_PROJECT_API_KEY":          textSecret("lmnr"),
 		"HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT": fmt.Sprintf("https://artifacts.smoke.localhost:%d", httpsPort),

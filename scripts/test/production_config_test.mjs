@@ -6,6 +6,7 @@ import {
   buildComposeEnvironment,
   compareResolvedConfiguration,
   loadDescriptor,
+  PRLS_REQUIRED_VARIABLES,
   readEnvironmentSource,
   resolveConfiguration,
   runApply,
@@ -40,9 +41,9 @@ function descriptorFor(t, { shared = "", observability, production, serviceEnvir
     applicationRoot: directory,
     composeFiles: ["docker-compose.yml", "deploy/langfuse/docker-compose.upstream.yml", "deploy/langfuse/compose.private.yml", "deploy/frontend/compose.frontend.yml"],
     productionEnvFile: privateFile(directory, "production.env", production ?? "HARDEN_LLM_RELEASE=fixture-release\n"),
-    observabilityEnvFile: privateFile(directory, "observability.env", observability ?? "PRLS_ALLURE_HOST=allure.example\n"),
+    observabilityEnvFile: privateFile(directory, "observability.env", observability ?? "PRLS_LAMINAR_PROJECT_API_KEY=fixture-laminar-key\n"),
     sharedApplicationEnvFile: privateFile(directory, "shared.env", shared),
-    requiredVariables: ["PRLS_ALLURE_HOST", "HARDEN_LLM_RELEASE"],
+    requiredVariables: ["PRLS_LAMINAR_PROJECT_API_KEY", "HARDEN_LLM_RELEASE"],
     services: {
       probe: {
         container: "harden-llm-probe-1",
@@ -102,7 +103,7 @@ test("TEST-233 resolves approved ownership and excludes ambient application vari
   const shared = "JINA_API_KEY='fixture$literal'\nHARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST=''\nHARDEN_LLM_STATIC_TOKEN=must-not-escape\n";
   const descriptor = descriptorFor(t, {
     shared,
-    observability: "PRLS_ALLURE_HOST=allure.example\nPRLS_TESTS_BASIC_AUTH_HASH='$2a$12$fixture'\n",
+    observability: "PRLS_LAMINAR_PROJECT_API_KEY=observability-laminar-key\nGF_SERVER_DOMAIN=observability.example\n",
     production: "HARDEN_LLM_RELEASE=fixture-release\nGF_SERVER_DOMAIN=grafana.example\n",
   });
 
@@ -110,6 +111,7 @@ test("TEST-233 resolves approved ownership and excludes ambient application vari
   assert.equal(resolved.sharedValues.JINA_API_KEY, "fixture$literal");
   assert.equal(resolved.sharedValues.HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST, "");
   assert.equal(resolved.effective.GF_SERVER_DOMAIN, "grafana.example");
+  assert.equal(resolved.effective.PRLS_LAMINAR_PROJECT_API_KEY, "observability-laminar-key");
   const environment = buildComposeEnvironment(resolved, {
     PATH: "/fixture/bin",
     HOME: "/fixture/home",
@@ -138,8 +140,8 @@ test("TEST-233 resolves approved ownership and excludes ambient application vari
 
 test("TEST-233 rejects a conflicting PRLS owner and credential-shaped descriptor data", (t) => {
   const descriptor = descriptorFor(t, {
-    observability: "PRLS_ALLURE_HOST=observability.example\n",
-    production: "PRLS_ALLURE_HOST=production.example\nHARDEN_LLM_RELEASE=fixture-release\n",
+    observability: "PRLS_LAMINAR_PROJECT_API_KEY=observability-laminar-key\n",
+    production: "PRLS_LAMINAR_PROJECT_API_KEY=production-laminar-key\nHARDEN_LLM_RELEASE=fixture-release\n",
   });
   assert.throws(() => resolveConfiguration(descriptor), /conflict/);
   assert.throws(() => validateDescriptor({ ...descriptor, serviceEnvironmentOverrides: { probe: { PROBE_PASSWORD: "fixture" } } }), /credential-shaped/);
@@ -187,6 +189,20 @@ test("TEST-234 check is read-only and equivalent apply never invokes up", (t) =>
   assert(calls.every(({ environmentKeys }) => !environmentKeys.includes("HARDEN_LLM_STATIC_TOKEN")));
   assert(!JSON.stringify(calls).includes("fixture$literal"));
   assert(!readFileSync(descriptor.sharedApplicationEnvFile, "utf8").includes("ambient"));
+});
+
+test("TEST-234 example production descriptor no longer manages the shared Caddy owner", () => {
+  const examplePath = path.resolve("config/production-config.example.json");
+  const descriptor = validateDescriptor(JSON.parse(readFileSync(examplePath, "utf8")));
+  assert.equal(Object.hasOwn(descriptor.services, "caddy"), false);
+  for (const name of ["PRLS_ALLURE_HOST", "PRLS_TESTS_BASIC_AUTH_USER", "PRLS_TESTS_BASIC_AUTH_HASH"]) {
+    assert.equal(descriptor.requiredVariables.includes(name), false, `${name} remains an HLLM production requirement`);
+    assert.equal(PRLS_REQUIRED_VARIABLES.includes(name), false, `${name} remains in the default PRLS production requirements`);
+  }
+  assert.throws(
+    () => runCheck(descriptor, { services: ["caddy"], run: () => assert.fail("unowned Caddy must not reach Docker") }),
+    /service caddy is not in the descriptor/,
+  );
 });
 
 test("TEST-234 blocks an unapproved runtime difference before application", (t) => {
@@ -269,11 +285,12 @@ test("TEST-234 applies only the selected service with the reviewed nonsecret ove
 });
 
 test("TEST-234 descriptor loading keeps the descriptor itself nonsecret", (t) => {
-  const descriptor = descriptorFor(t);
+  const secret = "descriptor-must-not-contain-this-laminar-secret";
+  const descriptor = descriptorFor(t, { observability: `PRLS_LAMINAR_PROJECT_API_KEY=${secret}\n` });
   const descriptorPath = privateFile(fixtureDirectory(t), "descriptor.json", JSON.stringify(descriptor));
   const loaded = loadDescriptor(descriptorPath);
   assert.equal(loaded.descriptorPath, descriptorPath);
-  assert(!JSON.stringify(loaded).includes("API_KEY"));
+  assert(!JSON.stringify(loaded).includes(secret));
 });
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-260
@@ -295,9 +312,9 @@ function candidateDescriptorFor(t, {
     applicationRoot: directory,
     composeFiles: ["docker-compose.yml", "deploy/langfuse/docker-compose.upstream.yml", "deploy/langfuse/compose.private.yml", "deploy/frontend/compose.frontend.yml"],
     productionEnvFile: privateFile(directory, "production.env", `HARDEN_LLM_RELEASE=${desiredRelease}\n`),
-    observabilityEnvFile: privateFile(directory, "observability.env", "PRLS_ALLURE_HOST=allure.example\n"),
+    observabilityEnvFile: privateFile(directory, "observability.env", "PRLS_LAMINAR_PROJECT_API_KEY=fixture-laminar-key\n"),
     sharedApplicationEnvFile: privateFile(directory, "shared.env", ""),
-    requiredVariables: ["PRLS_ALLURE_HOST", "HARDEN_LLM_RELEASE"],
+    requiredVariables: ["PRLS_LAMINAR_PROJECT_API_KEY", "HARDEN_LLM_RELEASE"],
     services: {
       [service]: {
         container: "harden-llm-gateway-1",

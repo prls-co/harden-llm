@@ -79,7 +79,7 @@ func TestReleaseTaskComposition(t *testing.T) {
 	required := []string{
 		"go-format", "go-lint", "go-build", "go-static", "go-unit", "go-parity",
 		"go-integration", "go-integration-race", "garage-restart-exclusive", "go-api",
-		"go-observability", "go-compose", "go-race", "go-vulnerability",
+		"go-observability", "go-compose-contract", "go-compose", "go-race", "go-vulnerability",
 		"frontend-format", "frontend-compile", "frontend-deterministic", "client-core",
 		"frontend-deps-audit", "frontend-hex-audit",
 		"frontend-assets-deploy", "frontend-release", "backend-verify-baseline",

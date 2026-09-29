@@ -39,3 +39,10 @@ volumes:
   harden-postgres-data:
   garage-metadata:
   garage-data:
+
+networks:
+  default:
+    # RFC 5737 test-only space avoids consuming an exhausted host default pool.
+    ipam:
+      config:
+        - subnet: 198.51.100.0/24

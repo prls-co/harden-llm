@@ -56,6 +56,3 @@
 	}
 	reverse_proxy garage-shared:3900
 }
-
-import /etc/caddy/conf.d/*.caddy
-import /etc/caddy/overlays/*.frontend

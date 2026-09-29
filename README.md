@@ -67,8 +67,9 @@ The frontend has its own pinned Mix gates in [frontend/README.md](frontend/READM
 
 ## Self-hosted quick start
 
-1. Copy `.env.example` to `.env`, replace every placeholder independently, and
-   point the five hostnames at the Docker host.
+1. Copy `.env.example` to `.env`, replace each placeholder independently, and
+   point the API, web, Grafana, and Langfuse hostnames at the Docker host. Set
+   the artifact external endpoint to the matching route owned by shared Caddy.
 2. Validate and start the full product:
 
 ```bash
@@ -90,10 +91,11 @@ docker compose \
    place it in shell arguments. Follow the exact command in the
    [self-hosting guide](docs/self-hosting.md#bootstrap-an-operator).
 
-Only Caddy publishes host ports. The Go API, Phoenix app, data stores, and
-telemetry services remain on the private Compose network. Review the
-[environment reference](docs/environment.md) and back up every owned volume
-before upgrades.
+The shared Caddy deployment in `prls-co/caddy-shared` owns public HTTP/S
+ports. Harden-LLM Compose publishes no host ports; its APIs, data stores, and
+telemetry stay on their private/shared Docker networks. Review the
+[environment reference](docs/environment.md) when configuring the application
+and keep the public artifact origin aligned with the shared Caddy route.
 
 ## Structured CLI smoke test
 

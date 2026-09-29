@@ -1259,6 +1259,25 @@ phase_entry:
 - Regression evidence: TEST-275 synthetic inventory/inspect/stats failures require stage, exit status, timeout indicator when present, caller-redacted stderr capped at 256 characters, and omission of raw stdout. The new timeout oracle failed before the runner propagated `timedOut`; it passes after.
 - Follow-up: verify one more isolated correctness run on the new SHA. If `docker stats` still fails, use the retained timeout flag and redacted stderr to choose a fix; do not raise this bound again without new stage evidence. Exploration and holdout remain locked until correctness passes and a selected operating point/SLO makes holdout meaningful.
 
+## 16. TEST-272 runner budget reassessment — 2026-09-28
+
+- The earlier 240 s `runner-contracts` task budget was introduced after one
+  release run exceeded 180 s while the reference host was under load. That host
+  is not the supported location for Docker/release suites; it has since been
+  recorded with full swap and a 98% full `/tmp` tmpfs.
+- On exact rebased PR #76 head `b6976309d803e3b174497d03c4d9ba794223930b`,
+  the hosted fast report from run `36501229374` measured `runner-contracts` at
+  85.445 s. The hosted browser-free release report from run `36501587908`
+  measured it at 140.492 s, 39.508 s below the original 180 s task budget. The
+  latter report is `runner-1790641516880-2681-ed7eeb7d60188f1f.json`.
+- Restore `runner-contracts.timeoutMs` to 180000 on the prepared branch. The
+  test cases, assertion oracle, case timeouts, retries, and cleanup policy are
+  unchanged. This avoids extending a task's hang window to accommodate an
+  unsupported pressured-host run. Rerun hosted fast, CodeQL, and browser-free
+  release on the exact resulting SHA; if the 180 s deadline fails on a healthy
+  supported runner, investigate that task's stage before proposing another
+  budget change.
+
 ### Hosted capacity authentication failure and fixture correction — 2026-09-22
 
 - Candidate: `144818e645d3b2cbd8fe6e74dcebd95d26a5850a`, correctness run [35698547460](https://github.com/prls-co/harden-llm/actions/runs/35698547460).
@@ -1434,3 +1453,35 @@ deployed. It is not an active release step or a requirement to preserve.
   probes, and the read-only artifact inventory. No capacity claim, browser
   check, provider call, data migration, volume operation, or topology change is
   implied by this amendment.
+
+## 15. TEST-272 asynchronous Docker removal follow-up — 2026-09-26
+
+- Failure mechanism: after `docker compose down`, the daemon can still be
+  removing an owned container. The cleanup fallback's immediate `docker rm
+  -f` may then return the specific “removal ... already in progress” response.
+  Treating that transient response as final caused a false cleanup failure and
+  left the receipt pending while the daemon completed its work.
+- Correction: `scripts/run-test-tier.mjs` now polls only the exact Compose
+  project inventory for that container ID. It accepts removal only after the
+  ID disappears; if the deadline expires or inventory fails, cleanup remains
+  failed and attached volumes remain protected. No global resource scan,
+  retry of test assertions, or cleanup-budget extension was added.
+- Regression coverage: canonical TEST-272 now covers both a deterministic
+  in-progress removal that settles and a stuck removal that must remain
+  `cleanup-pending`. The accepted assertion oracle is unchanged. The pinned
+  `make test-fast` run passed all 10 tasks with zero cleanup errors/warnings;
+  report `tmp/test-feedback/runner-1790449170650-3877765-892581245704e455.json`
+  (`runner-contracts` 124.525 s; deterministic frontend 111.982 s).
+- Runner budget note: the `runner-contracts` task deadline changed from 180 s
+  to 240 s after a release run exceeded 180 s while the lifecycle suite was
+  expanded and the shared host was under load. This changes no case timeout,
+  assertion, retry policy, or smoke command. Recheck the measured hosted
+  runtime and restore 180 s if the supported CI runner consistently completes
+  with adequate margin.
+- Separate release risk: a subsequent shared-Caddy release certification
+  reached Compose readiness but its one-shot smoke bootstrap was killed at the
+  existing 45 s deadline during a host-wide OOM event. Kernel evidence names a
+  Chrome process, not the bootstrap process, so the cause is unresolved. The
+  exact smoke project was cleaned; a pre-existing old smoke project was left
+  untouched. See `plans/shared-caddy-adoption-plan.md` for the exact report and
+  hosted rerun gate. Do not infer a production-capacity result from this run.

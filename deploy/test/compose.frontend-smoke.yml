@@ -1,0 +1,10 @@
+services:
+  caddy:
+    environment:
+      HARDEN_LLM_WEB_HOST: ${HARDEN_LLM_WEB_HOST:?set the web hostname}
+    volumes:
+      - ./deploy/test:/etc/caddy/test:ro
+      - ./deploy/test/Caddyfile.frontend-smoke:/etc/caddy/Caddyfile:ro
+    depends_on:
+      harden-llm-web:
+        condition: service_healthy

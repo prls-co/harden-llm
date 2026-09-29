@@ -1,3 +1,5 @@
+import /etc/caddy/test/Caddyfile.smoke
+
 {$HARDEN_LLM_WEB_HOST} {
 	tls {$HARDEN_LLM_TLS_MODE}
 	import security_headers
