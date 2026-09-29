@@ -99,8 +99,6 @@ services:
     image: otel/opentelemetry-collector-contrib:0.156.0@sha256:125bdbeb7590cc1952c5b3430ecf14063568980c2c93d5b38676cc0446ed8108
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
     environment:
-      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_INIT_PROJECT_PUBLIC_KEY:?set the Langfuse project public key}
-      LANGFUSE_SECRET_KEY: ${LANGFUSE_INIT_PROJECT_SECRET_KEY:?set the Langfuse project secret key}
       PRLS_LAMINAR_PROJECT_API_KEY: ${PRLS_LAMINAR_PROJECT_API_KEY:?set the Laminar PRLS project API key}
       HARDEN_LLM_LAMINAR_PROJECT_API_KEY: ${HARDEN_LLM_LAMINAR_PROJECT_API_KEY:?set the dedicated Harden LLM Laminar ingest key}
     volumes:
@@ -118,8 +116,6 @@ services:
         condition: service_healthy
       prometheus:
         condition: service_healthy
-      langfuse-web:
-        condition: service_started
     healthcheck:
       test: ["CMD", "/otelcol-contrib", "validate", "--config=/etc/otelcol-contrib/config.yaml"]
       interval: 15s

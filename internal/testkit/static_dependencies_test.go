@@ -46,11 +46,11 @@ func TestForbiddenDependencies(t *testing.T) {
 
 	collector := filepath.Join(root, "deploy", "otel", "collector.yaml")
 	if contents, err := os.ReadFile(collector); err == nil {
-		count := strings.Count(strings.ToLower(string(contents)), "otlphttp/langfuse:")
-		if count != 1 {
-			t.Errorf("Collector must own exactly one Langfuse OTLP/HTTP exporter, found %d", count)
+		lower := strings.ToLower(string(contents))
+		if strings.Contains(lower, "langfuse") {
+			t.Error("Collector configuration still references Langfuse after the Laminar-only cutover")
 		}
-		laminarCount := strings.Count(strings.ToLower(string(contents)), "otlp/harden_llm_laminar:")
+		laminarCount := strings.Count(lower, "otlp/harden_llm_laminar:")
 		if laminarCount != 1 {
 			t.Errorf("Collector must own exactly one dedicated Harden LLM Laminar exporter, found %d", laminarCount)
 		}

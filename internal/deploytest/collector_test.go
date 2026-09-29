@@ -52,7 +52,6 @@ func TestCollectorPipelines(t *testing.T) {
 	for name, endpoint := range map[string]string{
 		"otlp/tempo":              "tempo:4317",
 		"otlphttp/loki":           "http://loki:3100/otlp",
-		"otlphttp/langfuse":       "http://langfuse-web:3000/api/public/otel",
 		"otlp/harden_llm_laminar": "laminar:8001",
 		"prometheus":              "0.0.0.0:9464",
 	} {
@@ -60,15 +59,14 @@ func TestCollectorPipelines(t *testing.T) {
 			t.Errorf("exporter %s endpoint = %q, want %q", name, got, endpoint)
 		}
 	}
-	for _, name := range []string{"otlp/tempo", "otlphttp/loki", "otlphttp/langfuse"} {
+	for _, name := range []string{"otlp/tempo", "otlphttp/loki"} {
 		assertBoundedExporter(t, name, objectField(t, exporters, name))
 	}
-	langfuseExporter := objectField(t, exporters, "otlphttp/langfuse")
-	if stringField(t, objectField(t, langfuseExporter, "auth"), "authenticator") != "basicauth/langfuse" {
-		t.Error("Langfuse OTLP/HTTP exporter does not use the Basic Auth extension")
+	if _, exists := exporters["otlphttp/langfuse"]; exists {
+		t.Error("Harden LLM Collector retains a Langfuse exporter after the Laminar-only cutover")
 	}
-	if stringField(t, objectField(t, langfuseExporter, "headers"), "x-langfuse-ingestion-version") != "4" {
-		t.Error("Langfuse exporter does not pin ingestion version 4")
+	if _, exists := objectField(t, config, "extensions")["basicauth/langfuse"]; exists {
+		t.Error("Harden LLM Collector retains Langfuse authentication after the Laminar-only cutover")
 	}
 	laminarExporter := objectField(t, exporters, "otlp/harden_llm_laminar")
 	if stringField(t, objectField(t, laminarExporter, "headers"), "authorization") != "Bearer ${env:HARDEN_LLM_LAMINAR_PROJECT_API_KEY}" {
@@ -103,14 +101,14 @@ func TestCollectorPipelines(t *testing.T) {
 	}
 
 	service := objectField(t, config, "service")
-	assertStringSliceEqual(t, "service extensions", stringSliceField(t, service, "extensions"), []string{"health_check", "basicauth/langfuse", "file_storage/harden_llm_web", "file_storage/harden_llm_laminar"})
+	assertStringSliceEqual(t, "service extensions", stringSliceField(t, service, "extensions"), []string{"health_check", "file_storage/harden_llm_web", "file_storage/harden_llm_laminar"})
 	pipelines := objectField(t, service, "pipelines")
 	wantPipelines := map[string]pipelineContract{
 		"traces/tempo": {
 			receivers: []string{"otlp"}, processors: []string{"memory_limiter", "attributes/redact", "batch/tempo"}, exporters: []string{"otlp/tempo"},
 		},
 		"traces/harden_llm_gateway": {
-			receivers: []string{"otlp"}, processors: []string{"memory_limiter", "attributes/redact", "filter/harden_llm_gateway", "tail_sampling/harden_llm_gateway", "batch/harden_llm_gateway"}, exporters: []string{"otlphttp/langfuse", "otlp/harden_llm_laminar"},
+			receivers: []string{"otlp"}, processors: []string{"memory_limiter", "attributes/redact", "filter/harden_llm_gateway", "tail_sampling/harden_llm_gateway", "batch/harden_llm_gateway"}, exporters: []string{"otlp/harden_llm_laminar"},
 		},
 		"metrics": {
 			receivers: []string{"otlp"}, processors: []string{"memory_limiter", "attributes/redact", "batch/metrics"}, exporters: []string{"prometheus"},
@@ -122,20 +120,11 @@ func TestCollectorPipelines(t *testing.T) {
 	if len(pipelines) != len(wantPipelines)+10 {
 		t.Errorf("pipeline count = %d, want %d protected + 9 isolated PRLS + 1 Allure health", len(pipelines), len(wantPipelines))
 	}
-	langfuseReferences := 0
 	for name, want := range wantPipelines {
 		pipeline := objectField(t, pipelines, name)
 		assertStringSliceEqual(t, name+" receivers", stringSliceField(t, pipeline, "receivers"), want.receivers)
 		assertStringSliceEqual(t, name+" processors", stringSliceField(t, pipeline, "processors"), want.processors)
 		assertStringSliceEqual(t, name+" exporters", stringSliceField(t, pipeline, "exporters"), want.exporters)
-		for _, exporter := range stringSliceField(t, pipeline, "exporters") {
-			if strings.Contains(exporter, "langfuse") {
-				langfuseReferences++
-			}
-		}
-	}
-	if langfuseReferences != 1 {
-		t.Errorf("Langfuse exporter path count = %d, want 1", langfuseReferences)
 	}
 
 	tailSampler := objectField(t, processors, "tail_sampling/harden_llm_gateway")
@@ -204,7 +193,7 @@ func assertCollectorRouting(t *testing.T, pipelines, processors map[string]any) 
 	if len(routedSpans["otlp/tempo"]) != len(spans) {
 		t.Errorf("Tempo received %d/%d operational spans", len(routedSpans["otlp/tempo"]), len(spans))
 	}
-	for _, exporter := range []string{"otlphttp/langfuse", "otlp/harden_llm_laminar"} {
+	for _, exporter := range []string{"otlp/harden_llm_laminar"} {
 		gateway := routedSpans[exporter]
 		if len(gateway) != 4 {
 			t.Fatalf("%s received %d gateway spans, want complete 4-span trace", exporter, len(gateway))
@@ -212,7 +201,7 @@ func assertCollectorRouting(t *testing.T, pipelines, processors map[string]any) 
 		seen := make(map[string]int)
 		for _, span := range gateway {
 			if span.traceID != "gateway-trace" || span.service != "harden-llm-gateway" {
-				t.Errorf("%s loop/filter failure: %#v", exporter, span)
+				t.Errorf("%s filter failure: %#v", exporter, span)
 			}
 			seen[span.spanID]++
 		}

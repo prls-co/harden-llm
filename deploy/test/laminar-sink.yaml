@@ -1,0 +1,29 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  bearertokenauth/laminar:
+    token: ${env:HARDEN_LLM_LAMINAR_PROJECT_API_KEY}
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:8001
+        auth:
+          authenticator: bearertokenauth/laminar
+
+exporters:
+  debug:
+    verbosity: detailed
+
+service:
+  extensions:
+    - health_check
+    - bearertokenauth/laminar
+  pipelines:
+    traces:
+      receivers:
+        - otlp
+      processors: []
+      exporters:
+        - debug

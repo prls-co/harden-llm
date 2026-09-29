@@ -232,8 +232,8 @@ func TestDiagnosticCompletenessEval(t *testing.T) {
 	if len(logs) == 1 && bytes.Count(bytes.TrimSpace(stdout.Bytes()), []byte("\n")) == 0 && json.Valid(bytes.TrimSpace(stdout.Bytes())) {
 		covered++
 	}
-	langfusePaths, configText := diagnosticLangfusePathCount(t)
-	if langfusePaths == 1 {
+	laminarPaths, configText := diagnosticLaminarPathCount(t)
+	if laminarPaths == 1 {
 		covered++
 	}
 	required := len(requiredSpans) + len(requiredMetrics) + 2
@@ -259,8 +259,8 @@ func TestDiagnosticCompletenessEval(t *testing.T) {
 		}
 	}
 	duplicateExports := diagnosticDuplicateSpanIDs(spans)
-	if langfusePaths > 1 {
-		duplicateExports += langfusePaths - 1
+	if laminarPaths > 1 {
+		duplicateExports += laminarPaths - 1
 	}
 	report := diagnosticEvalReport{
 		RequiredSignalCoverage: float64(covered) / float64(required),
@@ -437,7 +437,7 @@ func diagnosticDuplicateSpanIDs(spans tracetest.SpanStubs) int {
 	return duplicates
 }
 
-func diagnosticLangfusePathCount(t *testing.T) (int, string) {
+func diagnosticLaminarPathCount(t *testing.T) (int, string) {
 	t.Helper()
 	path := filepath.Join("..", "..", "deploy", "otel", "collector.yaml")
 	data, err := os.ReadFile(path)
@@ -457,7 +457,7 @@ func diagnosticLangfusePathCount(t *testing.T) (int, string) {
 	count := 0
 	for _, pipeline := range config.Service.Pipelines {
 		for _, exporter := range pipeline.Exporters {
-			if exporter == "otlphttp/langfuse" {
+			if exporter == "otlp/harden_llm_laminar" {
 				count++
 			}
 		}
