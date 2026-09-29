@@ -1,9 +1,9 @@
 # Shared production web ingress transition
 
 - Plan: `PLAN-HLLM-SHARED-CADDY-001`
-- Version: 5.8
+- Version: 6.0
 - Updated: 2026-09-28
-- Status: implementation in progress
+- Status: implementation in progress; P05 accepted, P06 and P09 pending
 - Owners: Harden-LLM for application-origin configuration and retirement; `prls-co/caddy-shared` for production Caddy and its web Tunnel connector; Ops for the shared-service record.
 
 ## Goal and boundaries
@@ -25,9 +25,12 @@ logs, and bounded public route checks.
 
 ## Current evidence (2026-09-28)
 
-- Production still uses Harden-LLM Caddy and the current web connector. No
-  production container, DNS record, tunnel, credential, or application service
-  was changed in this work.
+- P05 transferred the live web edge to `caddy-shared` on 2026-09-28 PDT.
+  Public routes, login/artifact authorization, signed download integrity, and
+  unsigned denial passed against the pre-cutover contract. The old HLLM Caddy
+  and connector containers remain stopped and intact for rollback until P06.
+  SSH/Mosh, DNS, tunnel identity/credential, application services, and shared
+  Caddy volumes were not changed or deleted.
 - Harden-LLM removal branch `fix/remove-hllm-production-caddy-20260926` has
   rebased P03 source commit `2ae83ba9713c345ef4a8930dbdcbddfd6243b6ce`, based
   on PR #77 merge `eb4bfe5966a9f24e876e279a860e9a15a2aff8ad`. Rebase review
@@ -43,8 +46,18 @@ logs, and bounded public route checks.
   rebased head `b6976309d803e3b174497d03c4d9ba794223930b`, hosted fast T0–T2
   (`36501229374`), CodeQL (`36501225913`), and browser-free release
   (`36501587908`) all passed. That release's `runner-contracts` task took
-  140.492 s. After restoring its manifest budget from 240 s to 180 s, rerun
-  every exact-head hosted gate before promoting this PR.
+  140.492 s. The manifest budget was restored from 240 s to its original
+  180 s without changing test assertions, retries, or cleanup. The current
+  exact PR #76 head is `1086358d4a7894ab1c28f712356d331167d29c29`; hosted fast
+  T0–T2, CodeQL, and browser-free release all passed on that head (runs
+  `36503548987`, `36503549535`/`109199878733`, and
+  [36504493543](https://github.com/prls-co/harden-llm/actions/runs/36504493543)).
+  Release accepted all 29 tasks with zero failures or cleanup errors/warnings.
+  `runner-contracts` took 143.035 s against the original 180 s budget and did
+  not time out. This is 36.965 s of remaining margin, so keep hosted isolated
+  runners as the execution environment and do not increase the budget without
+  new source-backed measurements. P05 proceeded only after refreshing its
+  immediate live preflight; the accepted cutover evidence is recorded below.
   An earlier candidate's release run `36496018663` failed the unchanged audit
   task on Mint 1.10.1's three advisories. The base-branch security follow-up was
   isolated in Harden-LLM PR #77: commit
@@ -61,8 +74,8 @@ logs, and bounded public route checks.
   `/tmp` 98% full, and 52 running containers (observed 2026-09-28). Do not run
   Docker/release suites on this production host; use isolated GitHub runners.
   After publishing the rebase, require hosted fast T0–T2, CodeQL, and
-  browser-free release on the exact rebased PR #76 head. Do not merge PR #76 or
-  start P05 until those gates pass. A previous separate release attempt had a
+  browser-free release on the exact rebased PR #76 head. Do not merge PR #76
+  until P05 passes. A previous separate release attempt had a
   45-second frontend smoke-config bootstrap timeout during a host-wide OOM;
   the smoke project was cleaned and the cause was unresolved. Do not count
   that run as passing acceptance or attribute its failure to the current
@@ -85,12 +98,14 @@ logs, and bounded public route checks.
   found no leftovers.
 - The protected shared-owner `runtime.env` remains ignored and mode 0600;
   `docker compose --env-file ./runtime.env -f compose.yaml config --quiet`
-  passes against the merged source. No production Caddy/tunnel service was
-  started or changed.
-- The current Harden-LLM production configuration is read-only `equivalent`;
-  no apply has run. Refresh this and all container identities immediately
-  before cutover.
-- Recorded live web-owner containers (refresh immediately before P05): old
+  passes against the merged source. These source checks did not start or
+  change production services; the separate live P05 transfer is recorded
+  below.
+- The pre-cutover Harden-LLM production configuration check was read-only
+  `equivalent` for six scoped services; no apply ran. P06 must repeat the
+  read-only check after removing only the `caddy` descriptor entry.
+- Recorded pre-cutover web-owner containers (both are now retained and
+  stopped): old
   production Caddy is `harden-llm-caddy-1`, container ID
   `69ae2df941e5f68322a729eb26128491f1f519fa5f9b457963c9b77b117a017c`, image
   `caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648`,
@@ -116,21 +131,58 @@ logs, and bounded public route checks.
   of those credential/config files is a separate audit and is not authorized
   by this transition.
 - No Ops shared-Caddy record has been published yet.
-- A read-only owner-scoped API request to
-  `GET /api/v1/history?limit=1` returned no history items for the configured
-  static-token owner. No trace IDs or user content were retained. The public
-  unsigned artifact root still denies access with HTTP 403, but no existing
-  owner artifact was available to test its authorized 303 redirect and
-  signed-object byte/hash contract. Do not create a production run, call a
-  provider, or invent object metadata to fill this gap. P05 signed-artifact
-  acceptance is blocked until a suitable existing owner artifact or a
-  separately approved non-production acceptance method is available.
+- The configured static-token owner's history is empty; this is not the
+  acceptance identity. The separate existing test guest had five history
+  items. Before and after cutover, the same existing artifact passed the
+  owner-scoped authorization/download check: anonymous API access returned
+  401, authorization returned 303, signed download returned 200, and all
+  2,252 bytes matched stored size and SHA-256 metadata; unsigned object access
+  returned 403. The temporary session was logged out (200) and a subsequent
+  anonymous session check returned 401. No session, token, signed URL, body,
+  object hash, or trace ID was retained. No run was created and no provider
+  was called.
+- Fresh read-only P05 preflight (2026-09-28): the Harden-LLM production
+  descriptor check returned `equivalent` for six scoped services and applied
+  nothing. The merged `caddy-shared` source and Compose model rendered
+  successfully; both pinned images were present locally, ports 80/443 were
+  loopback-only, the existing Caddy config/data volumes and
+  `prls-observability` network were reused, and the protected tunnel
+  credential's owner/mode matched the new connector. A volume-writer scan
+  found only the old HLLM Caddy writing the two shared volumes. The old
+  Cloudflare route table was read in memory and compared with the new one:
+  same tunnel and 16 hostnames/origins, with only the expected Caddy service
+  alias changing from `caddy` to `caddy-shared`. No private configuration or
+  credential value was retained.
 - The public pre-cutover route responses below were collected on 2026-09-28
   with one TLS-verified unauthenticated GET per route; redirects were not
   followed and bodies were not retained. Refresh every row immediately before
-  P05. Existing 502s, failed agent-alias TLS handshakes, and the admin redirect
-  mismatch are pre-existing route-owner follow-ups, not successful application
-  health checks.
+  P05. In the immediate preflight, one Grafana health request timed out
+  (`curl` 28); three immediate retries returned 200 in under 100 ms each, and
+  the subsequent complete 16-route comparison reproduced every recorded
+  result. No service had been changed. Treat another Grafana timeout or any
+  unmatched result as a stop condition. Existing 502s, failed agent-alias TLS
+  handshakes, and the admin redirect mismatch remain pre-existing route-owner
+  follow-ups, not successful application health checks.
+- Accepted P05 runtime after cutover: shared Caddy is container
+  `8b5cfc3ff2acfb1aca1fcc2c66b65d87738fe32be0c004fa02bbb80aa88772a7`, using
+  the pinned Caddy digest, healthy with restart policy `unless-stopped`,
+  `prls-observability` alias `caddy-shared`, the existing
+  `harden-llm_caddy-config` and `harden-llm_caddy-data` volumes, and only
+  loopback host bindings on 127.0.0.1:80/443. Its Cloudflare connector is
+  `9bba250e239edacd0b6c044faa780fde324a915aae60e775b627567a99bb3bea`, using
+  the pinned cloudflared digest, running on the same network with read-only
+  config/credential/CA mounts. Both old HLLM container IDs above remain
+  stopped; an active-writer scan found only the new Caddy writing the two
+  existing volumes. The exact HLLM web/gateway containers remain healthy at
+  IDs `ac17eafff405d6334e20c9da1ad618daaf72b1ad98d3392469918aaf9a4665a1`
+  and `cf580302a2e6dc82cad4586335171988c4a0f0bdc8e2b73456bc3dfb6cc6057e`.
+  The Caddy startup owner is the `caddy-shared` Compose project at
+  `/home/kirill/p/caddy-shared/compose.yaml`; no matching systemd service
+  unit was present. Connector registration and public API readiness passed
+  within the 120-second budget. All 16 public route results and redirects
+  exactly matched the pre-cutover table within the 300-second budget.
+  `ssh.service`, `ssh.socket`, Tailscale, Fail2ban, and the enabled/waiting
+  `shaman-public-ssh.timer` remained active; the reconciler reported success.
 
 ### Pre-cutover public route baseline (2026-09-28)
 
@@ -146,17 +198,17 @@ logs, and bounded public route checks.
 | `masked-recall-api.prod.agents.prls.co` | `GET /` | TLS handshake failure | Pre-existing failed alias route; require unchanged comparison and owner follow-up. |
 | `product-opportunity-api.prod.agents.prls.co` | `GET /` | TLS handshake failure | Pre-existing failed alias route; require unchanged comparison and owner follow-up. |
 | `synthetic-product-dataset-api.prod.agents.prls.co` | `GET /` | TLS handshake failure | Pre-existing failed alias route; require unchanged comparison and owner follow-up. |
-| `platform.prls.co` | `GET /` | 502 | Matching origin container was exited at the prior inventory; refresh before cutover and notify its owner. |
-| `masked-recall-api.prls.co` | `GET /` | 502 | Matching origin container was exited at the prior inventory; refresh before cutover and notify its owner. |
-| `product-opportunity-api.prls.co` | `GET /` | 502 | Matching origin container was exited at the prior inventory; refresh before cutover and notify its owner. |
-| `synthetic-product-dataset-api.prls.co` | `GET /` | 502 | Matching origin container was exited at the prior inventory; refresh before cutover and notify its owner. |
+| `platform.prls.co` | `GET /` | 502 | The same pre-existing 502 was reproduced during P05; origin-owner follow-up remains. |
+| `masked-recall-api.prls.co` | `GET /` | 502 | The same pre-existing 502 was reproduced during P05; origin-owner follow-up remains. |
+| `product-opportunity-api.prls.co` | `GET /` | 502 | The same pre-existing 502 was reproduced during P05; origin-owner follow-up remains. |
+| `synthetic-product-dataset-api.prls.co` | `GET /` | 502 | The same pre-existing 502 was reproduced during P05; origin-owner follow-up remains. |
 | `analytics.prls.co` | `GET /` | 302 `/overview` | Expected Analytics Gateway redirect. |
 | `admin-aiknowledge.prls.co` | `GET /` | 307 `/login` | Public response showed Cloudflare's server header on the prior check; Caddy source expects 308 to Analytics. Treat the edge-layer explanation as an inference and verify the same public result before/after. |
 
-This table is a compatibility baseline, not a claim that every route is
-healthy. Do not accept a newly failing route, changed auth denial, TLS
-regression, or changed origin response as equivalent. The already failing
-origins and aliases remain explicitly visible in the cutover report.
+This table is the captured pre-cutover compatibility baseline; P05 reproduced
+all 16 outcomes and redirects exactly. It is not a claim that every route is
+healthy. The already failing origins and aliases remain explicit owner
+follow-ups.
 
 ## Owner phases
 
@@ -203,7 +255,9 @@ credential, network, or volume.
 ### P05 — Transfer the live web route set
 
 This is a bounded production change with a short expected web interruption.
-Keep an authenticated SSH session and the exact rollback commands available.
+Keep an authenticated host shell/console and exact rollback commands
+available. The current operator shell is already on Shaman; no SSH agent
+restoration or SSH configuration change is required for this cutover.
 Do not alter SSH or stop any unrelated connector, including
 `shaman-api-cloudflared-1`.
 
@@ -238,6 +292,15 @@ Do not alter SSH or stop any unrelated connector, including
 Caddy data/config volumes, route drift, failed old-owner restoration, missing
 runtime input, or a verification budget overrun. Keep the source and exact
 containers needed to restore the last accepted owner.
+
+**P05 accepted (2026-09-28 PDT):** the exact PR #76 source head
+`1086358d4a7894ab1c28f712356d331167d29c29` passed fast T0–T2, CodeQL, and
+browser-free release before cutover. The live transfer retained the existing
+tunnel/DNS/volumes, started and health-checked Caddy before its connector,
+confirmed connector registration and public API readiness, matched all 16
+public responses, and repeated the test-guest signed-artifact contract. No
+rollback was needed. Both prior containers remain available but stopped; do
+not delete them before P06 confirms the old Compose owner cannot recreate them.
 
 ### P06 — Retire the old Harden-LLM owner
 
@@ -288,15 +351,16 @@ separate. Validate edited XML and run the required Ops index checks.
 - Public web access will be briefly interrupted while the connector changes
   ownership. The 120/300-second limits and exact old-container rollback are
   operational gates, not test retries.
-- A local Compose render or green CI does not prove the live route, TLS, auth,
-  artifact, runtime identity, or rollback behavior. P05 evidence is still
-  required.
+- P05 live acceptance passed, but the old HLLM startup owner and protected
+  connector files remain until P06. Keep those rollback resources intact until
+  the descriptor and startup-owner checks pass.
 - A protected runtime descriptor or credential path may differ from source;
   inspect metadata and permissions immediately before use, without exposing
   values. Stop if they differ.
 - Do not change Cloudflare DNS, tunnel identity, credentials, SSH, or Mosh to
   solve a web-route problem. The current SSH setup remains independently owned
   and unaffected.
-- After cutover, investigate whether any HLLM runbook or automation still
-  expects the retired Caddy service. Remove only verified stale references;
-  do not delete shared services or infrastructure by name pattern.
+- Before old-container deletion, verify no HLLM runbook, descriptor, or startup
+  automation will recreate the retired Caddy service. Remove only exact,
+  verified stale references; do not delete shared services or infrastructure
+  by name pattern.
