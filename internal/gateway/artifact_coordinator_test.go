@@ -34,12 +34,6 @@ func TestArtifactCoordinatorCrashConvergence(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
-	if err := store.CreateUser(ctx, postgres.User{
-		ID: "artifact-owner", Email: "artifact@example.test", PasswordHash: "$argon2id$v=19$fixture",
-		CreatedAt: now, UpdatedAt: now,
-	}); err != nil {
-		t.Fatal(err)
-	}
 	clock := now
 	objects := &journalObjectStore{objects: make(map[string]objectFixture)}
 	nextBatch := 0

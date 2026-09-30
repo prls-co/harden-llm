@@ -5,7 +5,7 @@ defmodule HardenLlmWeb.ArtifactController do
 
   def show(conn, %{"trace_id" => trace_id, "artifact_id" => artifact_id}) do
     with {:ok, %{location: location}, _state} <-
-           HardenAPI.get_artifact(conn.assigns.session_handle, trace_id, artifact_id),
+           HardenAPI.get_artifact(conn.assigns.access_context.session_ref, trace_id, artifact_id),
          true <- exact_origin?(location) do
       conn
       |> put_resp_header("location", location)
@@ -14,7 +14,7 @@ defmodule HardenLlmWeb.ArtifactController do
       |> send_resp(303, "")
     else
       {:error, %APIError{status: 401}} ->
-        redirect(conn, to: ~p"/session/expired")
+        redirect(conn, to: ~p"/login")
 
       _ ->
         conn |> put_status(:bad_gateway) |> text("Artifact download is temporarily unavailable.")

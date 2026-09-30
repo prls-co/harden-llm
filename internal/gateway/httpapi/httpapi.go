@@ -31,9 +31,7 @@ const (
 type ReadinessCheck func(context.Context) error
 
 type IdentityService interface {
-	Login(context.Context, string, string) (auth.LoginResult, error)
-	AuthenticateHeader(context.Context, []string) (auth.Principal, error)
-	LogoutPrincipal(context.Context, auth.Principal) error
+	AuthenticateRequest(*http.Request) (auth.Principal, error)
 }
 
 type Config struct {
@@ -207,12 +205,6 @@ func (api *API) operationHandler(operationID string) http.HandlerFunc {
 		return api.health
 	case "getReadiness":
 		return api.ready
-	case "login":
-		return api.login
-	case "logout":
-		return api.logout
-	case "getSession":
-		return api.session
 	case "getState":
 		return api.getState
 	case "saveState":
@@ -317,11 +309,13 @@ func (api *API) validateRequestShape(route Route, next http.Handler) http.Handle
 func (api *API) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		authContext, endAuth := api.telemetry.StartOperation(request.Context(), gateway.OperationAuthAuthenticate)
-		principal, err := api.auth.AuthenticateHeader(authContext, request.Header.Values("Authorization"))
+		principal, err := api.auth.AuthenticateRequest(request.WithContext(authContext))
 		endAuth(err)
 		if err != nil {
 			if errors.Is(err, auth.ErrUnauthenticated) {
 				writeError(writer, http.StatusUnauthorized, "unauthenticated", "Authentication is required.")
+			} else if errors.Is(err, auth.ErrForbidden) {
+				writeError(writer, http.StatusForbidden, "forbidden", "Product access is required.")
 			} else {
 				writeError(writer, http.StatusServiceUnavailable, "service_unavailable", "Authentication is temporarily unavailable.")
 			}
@@ -354,59 +348,6 @@ func (api *API) ready(writer http.ResponseWriter, request *http.Request) {
 		}
 	}
 	writeHealth(writer, http.StatusOK, "ok")
-}
-
-func (api *API) login(writer http.ResponseWriter, request *http.Request) {
-	var input struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-	if failure := decodeJSON(writer, request, maximumJSONBodyBytes, &input); failure != nil {
-		writeFailure(writer, *failure)
-		return
-	}
-	if len(input.Email) == 0 || len(input.Email) > 320 || len(input.Password) < 12 || len(input.Password) > 1024 {
-		writeError(writer, http.StatusBadRequest, "invalid_request", "Email and password are required.")
-		return
-	}
-	authContext, endAuth := api.telemetry.StartOperation(request.Context(), gateway.OperationAuthLogin)
-	result, err := api.auth.Login(authContext, input.Email, input.Password)
-	endAuth(err)
-	if err != nil {
-		if errors.Is(err, auth.ErrUnauthenticated) {
-			writeError(writer, http.StatusUnauthorized, "unauthenticated", "Authentication failed.")
-			return
-		}
-		writeError(writer, http.StatusServiceUnavailable, "service_unavailable", "Authentication is temporarily unavailable.")
-		return
-	}
-	writeSuccess(writer, http.StatusOK, result, map[string]any{})
-}
-
-func (api *API) logout(writer http.ResponseWriter, request *http.Request) {
-	principal, ok := principalFrom(request.Context())
-	authContext, endAuth := api.telemetry.StartOperation(request.Context(), gateway.OperationAuthLogout)
-	var logoutErr error
-	if ok {
-		logoutErr = api.auth.LogoutPrincipal(authContext, principal)
-	} else {
-		logoutErr = auth.ErrUnauthenticated
-	}
-	endAuth(logoutErr)
-	if logoutErr != nil {
-		writeError(writer, http.StatusUnauthorized, "unauthenticated", "Authentication is required.")
-		return
-	}
-	writeSuccess(writer, http.StatusOK, map[string]any{"revoked": true}, map[string]any{})
-}
-
-func (api *API) session(writer http.ResponseWriter, request *http.Request) {
-	principal, ok := principalFrom(request.Context())
-	if !ok {
-		writeError(writer, http.StatusUnauthorized, "unauthenticated", "Authentication is required.")
-		return
-	}
-	writeSuccess(writer, http.StatusOK, principal, map[string]any{})
 }
 
 func (api *API) notImplemented(writer http.ResponseWriter, _ *http.Request) {

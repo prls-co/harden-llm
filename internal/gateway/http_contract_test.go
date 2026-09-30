@@ -21,10 +21,7 @@ import (
 )
 
 func TestHTTPContract(t *testing.T) {
-	fixedExpiry := time.Date(2026, 7, 13, 13, 0, 0, 0, time.UTC)
-	identity := &fakeHTTPAuth{
-		login: auth.LoginResult{AccessToken: "one-time-token", ExpiresAt: fixedExpiry, Principal: auth.Principal{OwnerID: "owner-a", Email: "a@example.test", SessionID: "session-a", ExpiresAt: fixedExpiry}},
-	}
+	identity := &fakeHTTPAuth{}
 	postgresReadyCalls, artifactReadyCalls := 0, 0
 	api, err := httpapi.New(httpapi.Config{
 		Auth: identity,
@@ -58,13 +55,8 @@ func TestHTTPContract(t *testing.T) {
 		t.Fatalf("unready response = %d %s", unreadyRecorder.Code, unreadyRecorder.Body.String())
 	}
 
-	validLogin := []byte(`{"email":"a@example.test","password":"correct horse battery staple"}`)
-	response = request(t, server.Client(), http.MethodPost, server.URL+"/api/v1/auth/login", validLogin, map[string][]string{"Content-Type": {"application/json"}})
-	assertEnvelope(t, response, http.StatusOK, false)
-	result := response.JSON["result"].(map[string]any)
-	if result["accessToken"] != "one-time-token" || response.Headers.Get("Set-Cookie") != "" || response.Headers.Get("Access-Control-Allow-Origin") != "" {
-		t.Fatalf("login response = %#v headers=%v", response.JSON, response.Headers)
-	}
+	response = request(t, server.Client(), http.MethodPost, server.URL+"/api/v1/auth/login", []byte(`{"email":"a@example.test","password":"not-accepted-here"}`), jsonHeaders())
+	assertEnvelope(t, response, http.StatusNotFound, true)
 
 	for _, test := range []struct {
 		name    string
@@ -75,16 +67,16 @@ func TestHTTPContract(t *testing.T) {
 		status  int
 		code    string
 	}{
-		{name: "unknown field", method: http.MethodPost, path: "/api/v1/auth/login", body: []byte(`{"email":"a@example.test","password":"correct horse battery staple","admin":true}`), headers: jsonHeaders(), status: 400, code: "invalid_request"},
-		{name: "trailing JSON", method: http.MethodPost, path: "/api/v1/auth/login", body: append(validLogin, []byte(` {}`)...), headers: jsonHeaders(), status: 400, code: "invalid_request"},
-		{name: "wrong content type", method: http.MethodPost, path: "/api/v1/auth/login", body: validLogin, status: 415, code: "unsupported_media_type"},
-		{name: "oversized body", method: http.MethodPost, path: "/api/v1/auth/login", body: []byte(`{"email":"a@example.test","password":"` + strings.Repeat("x", 70<<10) + `"}`), headers: jsonHeaders(), status: 413, code: "request_too_large"},
+		{name: "unknown field", method: http.MethodPut, path: "/api/v1/profiles/profile-a", body: []byte(`{"profile":{},"admin":true}`), headers: jsonHeaders(), status: 400, code: "invalid_request"},
+		{name: "trailing JSON", method: http.MethodPut, path: "/api/v1/profiles/profile-a", body: append([]byte(`{"profile":{}}`), []byte(` {}`)...), headers: jsonHeaders(), status: 400, code: "invalid_request"},
+		{name: "wrong content type", method: http.MethodPut, path: "/api/v1/profiles/profile-a", body: []byte(`{"profile":{}}`), status: 415, code: "unsupported_media_type"},
+		{name: "oversized body", method: http.MethodPut, path: "/api/v1/profiles/profile-a", body: []byte(`{"profile":{"defaultOptions":{"value":"` + strings.Repeat("x", 300<<10) + `"}}}`), headers: jsonHeaders(), status: 413, code: "request_too_large"},
 		{name: "unknown route", method: http.MethodGet, path: "/api/v1/unknown", status: 404, code: "not_found"},
 		{name: "wrong method", method: http.MethodPatch, path: "/api/v1/state", status: 405, code: "method_not_allowed"},
-		{name: "missing bearer", method: http.MethodGet, path: "/api/v1/auth/session", status: 401, code: "unauthenticated"},
-		{name: "duplicate bearer", method: http.MethodGet, path: "/api/v1/auth/session", headers: map[string][]string{"Authorization": {"Bearer valid-token", "Bearer second-token"}}, status: 401, code: "unauthenticated"},
-		{name: "malformed bearer", method: http.MethodGet, path: "/api/v1/auth/session", headers: map[string][]string{"Authorization": {"bearer valid-token"}}, status: 401, code: "unauthenticated"},
-		{name: "unknown query", method: http.MethodGet, path: "/api/v1/auth/session?debug=true", headers: map[string][]string{"Authorization": {"Bearer valid-token"}}, status: 400, code: "invalid_request"},
+		{name: "missing bearer", method: http.MethodGet, path: "/api/v1/state", headers: map[string][]string{}, status: 401, code: "unauthenticated"},
+		{name: "duplicate bearer", method: http.MethodGet, path: "/api/v1/state", headers: map[string][]string{"Authorization": {"Bearer valid-token", "Bearer second-token"}}, status: 401, code: "unauthenticated"},
+		{name: "malformed bearer", method: http.MethodGet, path: "/api/v1/state", headers: map[string][]string{"Authorization": {"bearer valid-token"}}, status: 401, code: "unauthenticated"},
+		{name: "unknown query", method: http.MethodGet, path: "/api/v1/history?debug=true", headers: map[string][]string{"Authorization": {"Bearer valid-token"}}, status: 400, code: "invalid_request"},
 		{name: "duplicate query", method: http.MethodGet, path: "/api/v1/history?limit=1&limit=2", headers: map[string][]string{"Authorization": {"Bearer valid-token"}}, status: 400, code: "invalid_request"},
 		{name: "history page and cursor", method: http.MethodGet, path: "/api/v1/history?page=2&cursor=", headers: map[string][]string{"Authorization": {"Bearer valid-token"}}, status: 400, code: "invalid_request"},
 		{name: "empty history page", method: http.MethodGet, path: "/api/v1/history?page=", headers: map[string][]string{"Authorization": {"Bearer valid-token"}}, status: 400, code: "invalid_request"},
@@ -95,24 +87,23 @@ func TestHTTPContract(t *testing.T) {
 		{name: "empty numbered history limit", method: http.MethodGet, path: "/api/v1/history?page=1&limit=", headers: map[string][]string{"Authorization": {"Bearer valid-token"}}, status: 400, code: "invalid_request"},
 		{name: "zero numbered history limit", method: http.MethodGet, path: "/api/v1/history?page=1&limit=0", headers: map[string][]string{"Authorization": {"Bearer valid-token"}}, status: 400, code: "invalid_request"},
 		{name: "large numbered history limit", method: http.MethodGet, path: "/api/v1/history?page=1&limit=101", headers: map[string][]string{"Authorization": {"Bearer valid-token"}}, status: 400, code: "invalid_request"},
-		{name: "unexpected body", method: http.MethodGet, path: "/api/v1/auth/session", body: []byte(`{}`), headers: map[string][]string{"Authorization": {"Bearer valid-token"}, "Content-Type": {"application/json"}}, status: 400, code: "invalid_request"},
+		{name: "unexpected body", method: http.MethodGet, path: "/api/v1/history", body: []byte(`{}`), headers: map[string][]string{"Authorization": {"Bearer valid-token"}, "Content-Type": {"application/json"}}, status: 400, code: "invalid_request"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			response := request(t, server.Client(), test.method, server.URL+test.path, test.body, test.headers)
+			headers := test.headers
+			if headers == nil {
+				headers = map[string][]string{"Authorization": {"Bearer valid-token"}}
+			} else if _, ok := headers["Authorization"]; !ok && test.name != "missing bearer" {
+				headers = cloneHeaders(headers)
+				headers["Authorization"] = []string{"Bearer valid-token"}
+			}
+			response := request(t, server.Client(), test.method, server.URL+test.path, test.body, headers)
 			assertEnvelope(t, response, test.status, true)
 			apiError := response.JSON["error"].(map[string]any)
 			if apiError["code"] != test.code || strings.Contains(string(response.Body), "correct horse") || response.Headers.Get("Cache-Control") != "no-store" {
 				t.Fatalf("response = %#v headers=%v body=%s", response.JSON, response.Headers, response.Body)
 			}
 		})
-	}
-
-	response = request(t, server.Client(), http.MethodGet, server.URL+"/api/v1/auth/session", nil, map[string][]string{
-		"Authorization": {"Bearer valid-token"}, "Forwarded": {"host=attacker.example;proto=http"}, "X-Forwarded-Host": {"attacker.example"},
-	})
-	assertEnvelope(t, response, http.StatusOK, false)
-	if response.JSON["result"].(map[string]any)["ownerId"] != "owner-a" || identity.lastAuthorization != "Bearer valid-token" {
-		t.Fatalf("session response = %#v auth=%q", response.JSON, identity.lastAuthorization)
 	}
 
 	panicking, err := httpapi.New(httpapi.Config{
@@ -130,6 +121,14 @@ func TestHTTPContract(t *testing.T) {
 	if panicRecorder.Code != http.StatusInternalServerError || panicBody["error"].(map[string]any)["code"] != "internal_error" || strings.Contains(panicRecorder.Body.String(), "panic-secret") {
 		t.Fatalf("panic response = %d %s", panicRecorder.Code, panicRecorder.Body.String())
 	}
+}
+
+func cloneHeaders(source map[string][]string) map[string][]string {
+	result := make(map[string][]string, len(source)+1)
+	for name, values := range source {
+		result[name] = append([]string(nil), values...)
+	}
+	return result
 }
 
 func TestHTTPTraceContextPropagation(t *testing.T) {
@@ -184,23 +183,22 @@ func TestHTTPRunDurationLimit(t *testing.T) {
 }
 
 type fakeHTTPAuth struct {
-	login             auth.LoginResult
 	lastAuthorization string
+	ownerID           string
 }
 
-func (identity *fakeHTTPAuth) Login(context.Context, string, string) (auth.LoginResult, error) {
-	return identity.login, nil
-}
-
-func (identity *fakeHTTPAuth) AuthenticateHeader(_ context.Context, values []string) (auth.Principal, error) {
+func (identity *fakeHTTPAuth) AuthenticateRequest(request *http.Request) (auth.Principal, error) {
+	values := request.Header.Values("Authorization")
 	if len(values) != 1 || values[0] != "Bearer valid-token" {
 		return auth.Principal{}, auth.ErrUnauthenticated
 	}
 	identity.lastAuthorization = values[0]
-	return identity.login.Principal, nil
+	ownerID := identity.ownerID
+	if ownerID == "" {
+		ownerID = "owner-a"
+	}
+	return auth.Principal{OwnerID: ownerID}, nil
 }
-
-func (identity *fakeHTTPAuth) LogoutPrincipal(context.Context, auth.Principal) error { return nil }
 
 type recordedResponse struct {
 	Code    int

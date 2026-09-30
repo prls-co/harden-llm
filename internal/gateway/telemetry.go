@@ -20,8 +20,6 @@ const (
 	gatewayInstrumentationName = "github.com/prls-co/harden-llm/internal/gateway"
 
 	OperationAuthAuthenticate = "auth.authenticate"
-	OperationAuthLogin        = "auth.login"
-	OperationAuthLogout       = "auth.logout"
 	OperationProfileSave      = "profile.save"
 	OperationModelRefresh     = "profile.models.refresh"
 	OperationRun              = "run.execute"
@@ -244,7 +242,7 @@ func boundedRoute(route string) string {
 
 func boundedGatewayOperation(operation string) string {
 	switch operation {
-	case OperationAuthAuthenticate, OperationAuthLogin, OperationAuthLogout, OperationProfileSave, OperationModelRefresh, OperationRun:
+	case OperationAuthAuthenticate, OperationProfileSave, OperationModelRefresh, OperationRun:
 		return operation
 	default:
 		return "gateway.other"

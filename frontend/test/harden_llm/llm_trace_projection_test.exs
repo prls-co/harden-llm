@@ -83,7 +83,7 @@ defmodule HardenLlm.LlmTraceProjectionTest do
       )
 
     assert command =~ "curl --fail-with-body --request POST 'https://api.example.test/api/v1/run'"
-    assert command =~ ~s(--header "authorization: Bearer ${HARDEN_LLM_TOKEN}")
+    assert command =~ ~s(--header "authorization: Bearer ${HARDEN_LLM_API_TOKEN}")
     assert command =~ ~s(it'"'"'s safe)
     refute command =~ APIFixtures.token()
   end

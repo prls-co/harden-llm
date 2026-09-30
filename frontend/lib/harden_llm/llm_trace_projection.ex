@@ -147,7 +147,7 @@ defmodule HardenLlm.LlmTraceProjection do
 
     "curl --fail-with-body --request POST #{shell_quote(endpoint)} " <>
       "--header 'accept: application/json' " <>
-      "--header \"authorization: Bearer ${HARDEN_LLM_TOKEN}\" " <>
+      "--header \"authorization: Bearer ${HARDEN_LLM_API_TOKEN}\" " <>
       "--header 'content-type: application/json' --data-raw #{body}"
   end
 

@@ -22,6 +22,7 @@ import (
 	"github.com/prls-co/harden-llm/internal/providers"
 	"github.com/prls-co/harden-llm/internal/redaction"
 	"github.com/prls-co/harden-llm/internal/traces"
+	"github.com/prls-co/prls-control-plane/go/access"
 )
 
 const (
@@ -66,6 +67,10 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 		stderr = io.Discard
 	}
 	redactor := configurationRedactor(config)
+	controlPlane, err := access.New(config.controlPlaneURL, config.controlPlaneToken)
+	if err != nil {
+		return safeStartupError(redactor, "configure Control Plane access", err)
+	}
 	startupContext, cancelStartup := context.WithTimeout(ctx, startupTimeout)
 	defer cancelStartup()
 	telemetryRuntime, err := gateway.NewTelemetryRuntime(startupContext, gateway.TelemetryRuntimeConfig{
@@ -178,8 +183,8 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 		return safeStartupError(redactor, "configure run service", err)
 	}
 	identity, err := auth.NewService(auth.Config{
-		Store: store, SessionTTL: config.sessionTTL,
-		StaticToken: config.staticToken, StaticTokenOwnerID: config.staticTokenOwnerID,
+		ControlPlane: controlPlane, ServiceToken: config.staticToken,
+		StaticAccountID: config.staticTokenAccountID,
 	})
 	if err != nil {
 		return safeStartupError(redactor, "configure identity service", err)
@@ -251,7 +256,7 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 }
 
 func configurationRedactor(config serverConfig) *redaction.Redactor {
-	secrets := []string{config.databaseURL, config.artifactAccessKey, config.artifactSecretKey, config.staticToken, config.jinaAPIKey}
+	secrets := []string{config.databaseURL, config.artifactAccessKey, config.artifactSecretKey, config.controlPlaneToken, config.staticToken, config.jinaAPIKey}
 	if parsed, err := url.Parse(config.databaseURL); err == nil && parsed.User != nil {
 		if password, ok := parsed.User.Password(); ok {
 			secrets = append(secrets, password)

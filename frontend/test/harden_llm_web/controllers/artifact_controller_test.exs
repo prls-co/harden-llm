@@ -1,13 +1,12 @@
 defmodule HardenLlmWeb.ArtifactControllerTest do
   use HardenLlmWeb.ConnCase, async: true
 
-  alias HardenLlmWeb.{APIFixtures, ArtifactController, HardenAPI, SessionVault}
+  alias HardenLlmWeb.{APIFixtures, ArtifactController, HardenAPI}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-008
 
   setup %{conn: conn} do
-    handle = APIFixtures.insert_session()
-    {:ok, conn: init_test_session(conn, APIFixtures.session_map(handle)), handle: handle}
+    {:ok, conn: authenticated_conn(conn)}
   end
 
   test "accepts only an exact configured origin and emits a no-store 303", %{conn: conn} do
@@ -49,32 +48,18 @@ defmodule HardenLlmWeb.ArtifactControllerTest do
     refute conn.resp_body =~ "evil.example.test"
   end
 
-  test "artifact 401 redirects through the session-revocation endpoint", %{
-    conn: conn,
-    handle: handle
-  } do
+  test "artifact 401 redirects to shared sign-in", %{conn: conn} do
     stub_unauthorized()
 
     response = get(conn, ~p"/traces/trace-test/artifacts/artifact-test")
-    assert redirected_to(response) == ~p"/session/expired"
-
-    expired = get(conn, ~p"/session/expired")
-    assert redirected_to(expired) == ~p"/login"
-    assert SessionVault.lookup(handle) == :error
+    assert redirected_to(response) == ~p"/login"
   end
 
-  test "bundle 401 redirects through the session-revocation endpoint", %{
-    conn: conn,
-    handle: handle
-  } do
+  test "bundle 401 redirects to shared sign-in", %{conn: conn} do
     stub_unauthorized()
 
     response = get(conn, ~p"/profiles/bundle")
-    assert redirected_to(response) == ~p"/session/expired"
-
-    expired = get(conn, ~p"/session/expired")
-    assert redirected_to(expired) == ~p"/login"
-    assert SessionVault.lookup(handle) == :error
+    assert redirected_to(response) == ~p"/login"
   end
 
   defp stub_unauthorized do

@@ -247,7 +247,7 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
              "curl --fail-with-body --request POST 'https://api.example.test/api/v1/run'"
            )
 
-    assert curl =~ ~s(authorization: Bearer ${HARDEN_LLM_TOKEN})
+    assert curl =~ ~s(authorization: Bearer ${HARDEN_LLM_API_TOKEN})
     refute curl =~ "browser-fixture-token-that-never-leaves-the-server"
 
     session =

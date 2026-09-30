@@ -15,8 +15,6 @@ security:
 tags:
   - name: Health
     description: Process and dependency health.
-  - name: Authentication
-    description: Opaque local bearer sessions and optional static CLI bearer authentication.
   - name: State
     description: Owner-scoped client workspace state.
   - name: Profiles
@@ -48,42 +46,6 @@ paths:
           $ref: "#/components/responses/HealthOK"
         "503":
           $ref: "#/components/responses/HealthUnavailable"
-  /api/v1/auth/login:
-    post:
-      operationId: login
-      tags: [Authentication]
-      summary: Create a bearer session
-      description: Verifies local credentials and returns the opaque token exactly once.
-      security: []
-      requestBody:
-        $ref: "#/components/requestBodies/Login"
-      responses:
-        "200":
-          $ref: "#/components/responses/LoginSuccess"
-        default:
-          $ref: "#/components/responses/Error"
-  /api/v1/auth/logout:
-    post:
-      operationId: logout
-      tags: [Authentication]
-      summary: Revoke the active session
-      description: Revokes the bearer session used to authorize this request. A configured static CLI token is not revocable here; rotate or remove it in deployment configuration.
-      responses:
-        "200":
-          $ref: "#/components/responses/LogoutSuccess"
-        default:
-          $ref: "#/components/responses/Error"
-  /api/v1/auth/session:
-    get:
-      operationId: getSession
-      tags: [Authentication]
-      summary: Read the active session
-      description: Returns redacted owner and expiry metadata without the bearer token.
-      responses:
-        "200":
-          $ref: "#/components/responses/SessionSuccess"
-        default:
-          $ref: "#/components/responses/Error"
   /api/v1/state:
     get:
       operationId: getState
@@ -290,7 +252,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: opaque
-      description: A random opaque session token returned once by login, or the configured static CLI token.
+      description: Configured machine credential used by CLI clients and the internal server-to-server boundary. Human requests also include the host-local Control Plane session reference; the gateway resolves its current account and product access on every request.
   parameters:
     HistoryCursor:
       name: cursor
@@ -349,18 +311,6 @@ components:
       schema:
         $ref: "#/components/schemas/Identifier"
   requestBodies:
-    Login:
-      required: true
-      description: Local user credentials. Maximum encoded body size is 65536 bytes.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/LoginRequest"
-          examples:
-            valid:
-              value:
-                email: operator@example.test
-                password: correct horse battery staple
     ClientState:
       required: true
       description: Complete client-owned state. Maximum encoded body size is 65536 bytes.
@@ -563,53 +513,6 @@ components:
                 error:
                   code: invalid_request
                   message: The request is invalid.
-    LoginSuccess:
-      description: Session token and redacted identity. The access token is returned only here.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/LoginEnvelope"
-          examples:
-            authenticated:
-              value:
-                state: {}
-                result:
-                  accessToken: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-                  expiresAt: "2026-07-13T13:00:00Z"
-                  principal:
-                    ownerId: owner-example
-                    email: operator@example.test
-                    sessionId: session-example
-                    expiresAt: "2026-07-13T13:00:00Z"
-                error: null
-    LogoutSuccess:
-      description: The active bearer session was revoked.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/LogoutEnvelope"
-          examples:
-            revoked:
-              value:
-                state: {}
-                result: {revoked: true}
-                error: null
-    SessionSuccess:
-      description: Redacted current session metadata.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/SessionEnvelope"
-          examples:
-            current:
-              value:
-                state: {}
-                result:
-                  ownerId: owner-example
-                  email: operator@example.test
-                  sessionId: session-example
-                  expiresAt: "2026-07-13T13:00:00Z"
-                error: null
     StateSuccess:
       description: The canonical current client state is carried in the state field.
       content:
@@ -1390,67 +1293,6 @@ components:
         state: {$ref: "#/components/schemas/EmptyState"}
         result: {type: "null"}
         error: {$ref: "#/components/schemas/Error"}
-    Principal:
-      type: object
-      additionalProperties: false
-      required: [ownerId, email, sessionId, expiresAt]
-      properties:
-        ownerId: {$ref: "#/components/schemas/Identifier"}
-        email:
-          type: string
-          format: email
-          maxLength: 320
-        sessionId: {$ref: "#/components/schemas/Identifier"}
-        expiresAt: {type: string, format: date-time}
-    LoginRequest:
-      type: object
-      additionalProperties: false
-      required: [email, password]
-      properties:
-        email: {type: string, format: email, minLength: 1, maxLength: 320}
-        password: {type: string, minLength: 12, maxLength: 1024, writeOnly: true}
-    LoginResult:
-      type: object
-      additionalProperties: false
-      required: [accessToken, expiresAt, principal]
-      properties:
-        accessToken:
-          type: string
-          minLength: 43
-          maxLength: 43
-          pattern: "^[A-Za-z0-9_-]{43}$"
-          description: Sensitive one-time response value; never returned by later operations.
-        expiresAt: {type: string, format: date-time}
-        principal: {$ref: "#/components/schemas/Principal"}
-    LoginEnvelope:
-      type: object
-      additionalProperties: false
-      required: [state, result, error]
-      properties:
-        state: {$ref: "#/components/schemas/EmptyState"}
-        result: {$ref: "#/components/schemas/LoginResult"}
-        error: {type: "null"}
-    LogoutEnvelope:
-      type: object
-      additionalProperties: false
-      required: [state, result, error]
-      properties:
-        state: {$ref: "#/components/schemas/EmptyState"}
-        result:
-          type: object
-          additionalProperties: false
-          required: [revoked]
-          properties:
-            revoked: {type: boolean, const: true}
-        error: {type: "null"}
-    SessionEnvelope:
-      type: object
-      additionalProperties: false
-      required: [state, result, error]
-      properties:
-        state: {$ref: "#/components/schemas/EmptyState"}
-        result: {$ref: "#/components/schemas/Principal"}
-        error: {type: "null"}
     ClientState:
       type: object
       additionalProperties: false

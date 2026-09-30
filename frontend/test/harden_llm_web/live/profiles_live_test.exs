@@ -429,7 +429,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
 
     view |> element(~s(button[phx-click="refresh"][phx-value-id="Primary"])) |> render_click()
 
-    assert_redirect(view, ~p"/session/expired", 1_000)
+    assert_redirect(view, ~p"/login", 1_000)
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-032
@@ -511,9 +511,6 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
   defp install_stub(handler) do
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do
-        {"GET", "/api/v1/auth/session"} ->
-          Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
-
         _ ->
           handler.(conn)
       end

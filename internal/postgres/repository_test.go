@@ -55,7 +55,7 @@ func TestRepositoryContract(t *testing.T) {
 	}
 	store := stores[0]
 	versions, err := store.AppliedMigrations(ctx)
-	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7, 8}) {
+	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}) {
 		t.Fatalf("migration versions = %v, %v", versions, err)
 	}
 	if err := store.Ready(ctx); err != nil {
@@ -76,18 +76,6 @@ func TestRepositoryContract(t *testing.T) {
 	assertSchema(t, ctx, store)
 
 	now := time.Date(2026, 7, 13, 10, 0, 0, 0, time.UTC)
-	users := []User{
-		{ID: "owner-a", Email: "a@example.test", PasswordHash: "$argon2id$v=19$fixture-a", CreatedAt: now, UpdatedAt: now},
-		{ID: "owner-b", Email: "b@example.test", PasswordHash: "$argon2id$v=19$fixture-b", CreatedAt: now, UpdatedAt: now},
-	}
-	for _, user := range users {
-		if err := store.CreateUser(ctx, user); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if user, err := store.UserByEmail(ctx, "A@EXAMPLE.TEST"); err != nil || user.ID != "owner-a" || user.Email != "a@example.test" {
-		t.Fatalf("user round trip = %#v, %v", user, err)
-	}
 
 	credential := CredentialRecord{
 		OwnerID: "owner-a", ID: "credential-a", KeyID: "key-2026", Nonce: []byte("0123456789ab"),
@@ -262,18 +250,56 @@ func TestRepositoryContract(t *testing.T) {
 		t.Fatalf("aggregate root clear left a trace: %v", err)
 	}
 
-	session := Session{ID: "session-a", OwnerID: "owner-a", TokenDigest: []byte(strings.Repeat("d", 32)), ExpiresAt: now.Add(time.Hour), CreatedAt: now}
-	if err := store.CreateSession(ctx, session); err != nil {
+}
+
+func TestLocalIdentityRemovalRequiresRehomeAndCascadesAccountID(t *testing.T) {
+	store, ctx := recoveryMigrationStore(t, 8)
+	legacyID := "operator-local"
+	accountID := "11111111-1111-4111-8111-111111111111"
+	now := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	if _, err := store.pool.Exec(ctx, `INSERT INTO users(id,email,password_hash,created_at,updated_at) VALUES($1,'operator@example.test','$argon2id$fixture',$2,$2)`, legacyID, now); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := store.SessionByDigest(ctx, session.TokenDigest); err != nil || got.ID != session.ID || got.OwnerID != session.OwnerID {
-		t.Fatalf("session round trip = %#v, %v", got, err)
-	}
-	if err := store.RevokeSession(ctx, "owner-a", session.TokenDigest, now.Add(time.Minute)); err != nil {
+	if err := store.MigrateThrough(ctx, 9); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := store.SessionByDigest(ctx, session.TokenDigest); err != nil || got.RevokedAt == nil {
-		t.Fatalf("session revocation = %#v, %v", got, err)
+	if err := store.Migrate(ctx); err == nil || !strings.Contains(err.Error(), "rehome-identities") {
+		t.Fatalf("release migration did not require identity rehome: %v", err)
+	}
+	if _, err := store.pool.Exec(ctx, `INSERT INTO llm_endpoint_credentials
+		(owner_id,credential_id,key_id,nonce,ciphertext,normalized_origin,metadata,created_at,updated_at)
+		VALUES($1,'provider','key',decode('000102030405060708090a0b','hex'),decode('000102030405060708090a0b0c0d0e0f','hex'),'https://api.example.test','{}',$2,$2)`, legacyID, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.pool.Exec(ctx, `INSERT INTO llm_profiles(owner_id,profile_id,credential_id,document,created_at,updated_at)
+		VALUES($1,'Primary','provider','{}',$2,$2)`, legacyID, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.pool.Exec(ctx, `INSERT INTO llm_client_state(owner_id,document,updated_at) VALUES($1,'{}',$2)`, legacyID, now); err != nil {
+		t.Fatal(err)
+	}
+	credential := CredentialRecord{
+		OwnerID: accountID, ID: "provider", KeyID: "key", Nonce: make([]byte, 12), Ciphertext: make([]byte, 16),
+		Origin: "https://api.example.test", Metadata: json.RawMessage(`{}`), CreatedAt: now,
+	}
+	if err := store.RehomeOwnerIDs(ctx, map[string]string{legacyID: accountID}, map[string][]CredentialRecord{legacyID: {credential}}); err != nil {
+		t.Fatal(err)
+	}
+	for _, table := range []string{"llm_endpoint_credentials", "llm_profiles", "llm_client_state"} {
+		var got string
+		if err := store.pool.QueryRow(ctx, `SELECT owner_id FROM `+table+` LIMIT 1`).Scan(&got); err != nil || got != accountID {
+			t.Fatalf("%s account owner = %q, %v", table, got, err)
+		}
+	}
+	if err := store.MigrateThrough(ctx, 10); err != nil {
+		t.Fatal(err)
+	}
+	var localTables int
+	if err := store.pool.QueryRow(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('users','user_sessions')`).Scan(&localTables); err != nil || localTables != 0 {
+		t.Fatalf("local identity tables remain = %d, %v", localTables, err)
+	}
+	if err := store.Ready(ctx); err != nil {
+		t.Fatalf("re-homed store is not ready: %v", err)
 	}
 }
 
@@ -293,13 +319,16 @@ func assertSchema(t *testing.T, ctx context.Context, store *Store) {
 		tables = append(tables, table)
 	}
 	sort.Strings(tables)
-	for _, required := range []string{"users", "user_sessions", "llm_profiles", "llm_endpoint_credentials", "llm_client_state", "llm_runs", "llm_traces", "llm_trace_observations", "llm_artifacts", "llm_artifact_operations", "llm_artifact_delete_batches", "llm_operation_cache", "schema_migrations"} {
+	for _, required := range []string{"llm_profiles", "llm_endpoint_credentials", "llm_client_state", "llm_runs", "llm_traces", "llm_trace_observations", "llm_artifacts", "llm_artifact_operations", "llm_artifact_delete_batches", "llm_operation_cache", "schema_migrations"} {
 		if !contains(tables, required) {
 			t.Errorf("required table %s missing from %v", required, tables)
 		}
 	}
 	if contains(tables, "llm_stats_totals") {
 		t.Fatal("unused mutable stats projection table remains in the application schema")
+	}
+	if contains(tables, "users") || contains(tables, "user_sessions") {
+		t.Fatal("local identity tables remain in the application schema")
 	}
 	if strings.Contains(strings.ToLower(string(migrationSource())), "langfuse") {
 		t.Fatal("application migration names an external diagnostics database")
@@ -388,7 +417,7 @@ func TestRecoveryMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	for index, owner := range []string{"owner-a", "owner-b"} {
-		if err := store.CreateUser(ctx, User{ID: owner, Email: owner + "@example.test", PasswordHash: "$argon2id$fixture", CreatedAt: now, UpdatedAt: now}); err != nil {
+		if _, err := store.pool.Exec(ctx, `INSERT INTO users(id,email,password_hash,created_at,updated_at) VALUES($1,$2,$3,$4,$4)`, owner, owner+"@example.test", "$argon2id$fixture", now); err != nil {
 			t.Fatal(err)
 		}
 		credential := CredentialRecord{OwnerID: owner, ID: "credential", KeyID: "key", Nonce: []byte("0123456789ab"), Ciphertext: []byte("synthetic-ciphertext-and-auth-tag"), Origin: "https://api.openai.com", Metadata: json.RawMessage(`{"schemaVersion":1,"scope":"global","apiInferenceTypes":["responses"],"custom":"retained"}`), CreatedAt: now, UpdatedAt: now}
@@ -488,14 +517,14 @@ func TestRecoveryMigration(t *testing.T) {
 				'{"status":"complete"}','{"status":"unavailable"}','{"schemaVersion":"raw.v1"}', $2, $2)`, owner, now); err != nil {
 			t.Fatal(err)
 		}
-		if err := store.CreateSession(ctx, Session{ID: "session-" + owner, OwnerID: owner, TokenDigest: []byte(strings.Repeat(string(rune('a'+index)), 32)), CreatedAt: now, ExpiresAt: now.Add(time.Hour)}); err != nil {
+		if _, err := store.pool.Exec(ctx, `INSERT INTO user_sessions(id,owner_id,token_digest,created_at,expires_at) VALUES($1,$2,$3,$4,$5)`, "session-"+owner, owner, []byte(strings.Repeat(string(rune('a'+index)), 32)), now, now.Add(time.Hour)); err != nil {
 			t.Fatal(err)
 		}
 	}
 	before := recoverySnapshot(t, ctx, store, true)
 	errorsByRunner := make(chan error, 4)
 	for range 4 {
-		go func() { errorsByRunner <- store.Migrate(ctx) }()
+		go func() { errorsByRunner <- store.MigrateThrough(ctx, 9) }()
 	}
 	for range 4 {
 		if err := <-errorsByRunner; err != nil {
@@ -503,7 +532,7 @@ func TestRecoveryMigration(t *testing.T) {
 		}
 	}
 	versions, err := store.AppliedMigrations(ctx)
-	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7, 8}) {
+	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7, 8, 9}) {
 		t.Fatalf("migration versions = %v, %v", versions, err)
 	}
 	if after := recoverySnapshot(t, ctx, store, true); !reflect.DeepEqual(before, after) {
@@ -554,7 +583,7 @@ func TestRecoveryMigration(t *testing.T) {
 		}
 	}
 	all := recoverySnapshot(t, ctx, store, false)
-	if err := store.Migrate(ctx); err != nil {
+	if err := store.MigrateThrough(ctx, 9); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(all, recoverySnapshot(t, ctx, store, false)) {
@@ -588,7 +617,7 @@ func TestRecoveryMigrationRejectsInvalidDocumentsAtomically(t *testing.T) {
 		t.Run(test.kind+"/"+test.fields, func(t *testing.T) {
 			store, ctx := recoveryMigrationStore(t)
 			now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
-			if err := store.CreateUser(ctx, User{ID: "owner", Email: "owner@example.test", PasswordHash: "$argon2id$fixture", CreatedAt: now, UpdatedAt: now}); err != nil {
+			if _, err := store.pool.Exec(ctx, `INSERT INTO users(id,email,password_hash,created_at,updated_at) VALUES('owner','owner@example.test','$argon2id$fixture',$1,$1)`, now); err != nil {
 				t.Fatal(err)
 			}
 			// A valid row is eligible before the invalid one. Any failed mapping
@@ -636,7 +665,7 @@ func TestRecoveryMigrationRejectsInvalidDocumentsAtomically(t *testing.T) {
 func TestRecoveryStagesMigrationRejectsMixedPolicyAtomically(t *testing.T) {
 	store, ctx := recoveryMigrationStore(t, 7)
 	now := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
-	if err := store.CreateUser(ctx, User{ID: "owner", Email: "owner@example.test", PasswordHash: "$argon2id$fixture", CreatedAt: now, UpdatedAt: now}); err != nil {
+	if _, err := store.pool.Exec(ctx, `INSERT INTO users(id,email,password_hash,created_at,updated_at) VALUES('owner','owner@example.test','$argon2id$fixture',$1,$1)`, now); err != nil {
 		t.Fatal(err)
 	}
 
@@ -673,7 +702,7 @@ func TestRecoveryStagesMigrationRejectsMixedPolicyAtomically(t *testing.T) {
 func TestRecoveryIntegrityStorage(t *testing.T) {
 	store, ctx := recoveryMigrationStore(t, 6)
 	now := time.Date(2026, 9, 15, 10, 0, 0, 0, time.UTC)
-	if err := store.CreateUser(ctx, User{ID: "cache-owner", Email: "cache-owner@example.test", PasswordHash: "$argon2id$fixture", CreatedAt: now, UpdatedAt: now}); err != nil {
+	if _, err := store.pool.Exec(ctx, `INSERT INTO users(id,email,password_hash,created_at,updated_at) VALUES('cache-owner','cache-owner@example.test','$argon2id$fixture',$1,$1)`, now); err != nil {
 		t.Fatal(err)
 	}
 	result := json.RawMessage(`{"output":{"exact":9007199254740993,"fraction":0.12345678901234567890123456789},"accounting":{"usage":{"inputTokens":0,"cacheReadTokens":0,"cacheCreationTokens":0,"outputTokens":0,"reasoningTokens":0,"status":"complete"},"cost":{"knownSubtotalUsd":0,"status":"unavailable","source":"","knownObservations":0,"unknownObservations":0}},"producer":{"profileId":"historical-profile","provider":"fixture","protocol":"fixture","endpoint":"https://example.test","modelId":"historical-model"}}`)
@@ -696,7 +725,7 @@ func TestRecoveryIntegrityStorage(t *testing.T) {
 		return value
 	}
 	before := readRetained()
-	if err := store.Migrate(ctx); err != nil {
+	if err := store.MigrateThrough(ctx, 9); err != nil {
 		t.Fatal(err)
 	}
 	after := readRetained()
@@ -728,13 +757,13 @@ func TestRecoveryIntegrityStorage(t *testing.T) {
 		t.Fatalf("cache columns = %v, want %v", columns, wantedColumns)
 	}
 	versions, err := store.AppliedMigrations(ctx)
-	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7, 8}) {
+	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7, 8, 9}) {
 		t.Fatalf("migration versions = %v, %v", versions, err)
 	}
-	if err := store.Ready(ctx); err != nil {
-		t.Fatalf("migrated store is not ready: %v", err)
+	if err := store.Ready(ctx); err == nil {
+		t.Fatal("database with local identities reported ready before rehome")
 	}
-	if err := store.Migrate(ctx); err != nil {
+	if err := store.MigrateThrough(ctx, 9); err != nil {
 		t.Fatal(err)
 	}
 	if repeated := readRetained(); !reflect.DeepEqual(after, repeated) {

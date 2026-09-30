@@ -27,18 +27,14 @@ defmodule HardenLlmWeb.Layouts do
   """
   attr :flash, :map, required: true, doc: "the map of flash messages"
 
-  attr :current_scope, :any,
-    default: nil,
-    doc: "the current [scope](https://phoenix.hexdocs.pm/scopes.html)"
-
-  attr :current_identity, :map, default: nil
+  attr :current_user, :map, default: nil
 
   slot :inner_block, required: true
 
   def app(assigns) do
     ~H"""
     <header
-      :if={@current_scope}
+      :if={@current_user}
       id="app-header"
       class="sticky top-0 z-40 border-b border-slate-200/90 bg-white/95 backdrop-blur"
     >
@@ -57,9 +53,9 @@ defmodule HardenLlmWeb.Layouts do
         <div class="flex items-center gap-3">
           <span
             class="hidden max-w-48 truncate text-xs text-slate-500 md:block"
-            title={identity_email(@current_identity)}
+            title={identity_email(@current_user)}
           >
-            {identity_email(@current_identity)}
+            {identity_email(@current_user)}
           </span>
           <form action={~p"/logout"} method="post">
             <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
@@ -81,7 +77,7 @@ defmodule HardenLlmWeb.Layouts do
     """
   end
 
-  defp identity_email(%{"email" => email}) when is_binary(email), do: email
+  defp identity_email(%{email: email}) when is_binary(email), do: email
   defp identity_email(_identity), do: "Operator"
 
   @doc """

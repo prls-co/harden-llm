@@ -58,8 +58,13 @@ func serve(args []string) error {
 		_, _ = io.WriteString(writer, `{"status":"ok"}`)
 	})
 	mux.HandleFunc("POST /v1/responses", providerResponse)
+	handler := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		matched, pattern := mux.Handler(request)
+		log.Printf("request method=%s path=%s route=%s", request.Method, request.URL.Path, pattern)
+		matched.ServeHTTP(writer, request)
+	})
 	server := &http.Server{
-		Addr: *address, Handler: mux, ReadHeaderTimeout: 2 * time.Second,
+		Addr: *address, Handler: handler, ReadHeaderTimeout: 2 * time.Second,
 		ReadTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second,
 		MaxHeaderBytes: 16 << 10, TLSConfig: &tls.Config{MinVersion: tls.VersionTLS12},
 	}

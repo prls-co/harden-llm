@@ -94,9 +94,8 @@ native events, CSS, focus, and LiveSocket patching remain browser-owned facts.
 Deterministic LiveView tests use private Req ownership by default. The shared
 test boundary explicitly allows each spawned LiveView process to access its
 test stub and stops the LiveView/proxy during teardown, so async work does not
-outlive the Req owner. Exactly two deterministic modules remain serial: the
-SessionVault lifecycle/clock case and global observability application
-configuration. EVAL-003 passed all ten fixed seeds with zero ownership or
+outlive the Req owner. One deterministic module remains serial for global
+observability application configuration. EVAL-003 passed all ten fixed seeds with zero ownership or
 cleanup failures and warm p95 of 4125 ms against the 10033 ms sequential
 frontend reference.
 
@@ -202,8 +201,8 @@ cost is isolated from ordinary coding feedback. The runner and KER must keep
 bounded logs and cleanup evidence, and unlike hosts must report rather than
 silently enforce reference-host budgets.
 
-The two named frontend serial exceptions are the SessionVault lifecycle/clock
-case and global observability application configuration. A third exception,
+The one named frontend serial exception is global observability application
+configuration. A second exception,
 additional browser feature, changing the separate Compose ownership, DOM
 emulator, threshold relaxation, or pooling fidelity change requires a new
 decision record or an amendment before merge.

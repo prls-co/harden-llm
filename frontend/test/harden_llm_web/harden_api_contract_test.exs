@@ -13,10 +13,9 @@ defmodule HardenLlmWeb.HardenAPIContractTest do
              MapSet.new(Map.keys(registry) ++ HardenAPI.backend_only_operations())
 
     for {id, operation} <- registry do
-      assert %{method: method, path: path, auth: auth} = Map.fetch!(openapi, id)
+      assert %{method: method, path: path, auth: true} = Map.fetch!(openapi, id)
       assert method == operation.method
       assert path == operation.path
-      assert auth == operation.auth
       assert function_exported?(HardenAPI, operation.function, operation_arity(operation))
     end
 
@@ -26,7 +25,7 @@ defmodule HardenLlmWeb.HardenAPIContractTest do
 
   test "OpenAPI examples remain the fixture source" do
     source = File.read!(Path.expand("../../../api/openapi.yaml", __DIR__))
-    assert source =~ "operator@example.test"
+    assert source =~ "host-local Control Plane session reference"
     assert source =~ "Summarize the incident."
     assert source =~ "example-write-only-key"
     assert source =~ "X-Amz-Expires=60"

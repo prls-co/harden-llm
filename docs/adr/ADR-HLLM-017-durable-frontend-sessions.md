@@ -1,6 +1,9 @@
 # ADR-HLLM-017: Durable Single-Replica Frontend Sessions
 
-- Status: Accepted
+> Historical decision. ADR-HLLM-029 supersedes this token-vault design with
+> Control Plane session references and a host-only encrypted product cookie.
+
+- Status: Superseded by [ADR-HLLM-029](ADR-HLLM-029-control-plane-identity.md)
 - Date: 2026-08-28
 - Requirements: REQ-010, `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`
 - Verification: WEB-TEST-004, WEB-TEST-005, Compose configuration, and hosted health probes

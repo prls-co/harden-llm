@@ -254,6 +254,13 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 		t.Errorf("gateway artifact endpoint = %q", endpoint)
 	}
 	gateway := asObject(t, services["harden-llm-gateway"], "gateway")
+	build := asObject(t, gateway["build"], "gateway build")
+	if !valueContains(build["secrets"], "private_module_token") {
+		t.Errorf("gateway build secrets = %#v, want private_module_token", build["secrets"])
+	}
+	if _, exists := gatewayEnv["PRIVATE_MODULE_TOKEN"]; exists {
+		t.Error("private module token is exposed to the gateway runtime")
+	}
 	if !valueContains(gateway["networks"], "harden-private") || !valueContains(gateway["networks"], "prls-observability") {
 		t.Errorf("gateway networks = %#v, want private and shared networks", gateway["networks"])
 	}
@@ -513,6 +520,9 @@ func composeContractEnvironment() []string {
 		"HARDEN_LLM_LANGFUSE_HOST=langfuse.harden.test", "HARDEN_LLM_ARTIFACT_HOST=artifacts.harden.test",
 		"HARDEN_LLM_WEB_HOST=app.harden.test",
 		"HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT=https://artifacts.harden.test",
+		"HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN=contract-control-plane-internal-token",
+		"PRIVATE_MODULE_TOKEN=contract-private-module-token",
+		"HARDEN_LLM_STATIC_TOKEN=contract-harden-static-token-0123456789",
 		"HARDEN_LLM_BIND_ADDRESS=127.0.0.1", "HARDEN_LLM_HTTP_PORT=18080", "HARDEN_LLM_HTTPS_PORT=18443",
 		"PRLS_SMOKE_OBSERVABILITY_NETWORK=harden-llm-contract-observability",
 		"SMOKE_CA_CERT=/tmp/harden-llm-contract/ca.crt",

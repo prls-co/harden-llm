@@ -6,8 +6,7 @@ defmodule HardenLlmWeb.TraceControllerTest do
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-036
 
   setup %{conn: conn} do
-    handle = APIFixtures.insert_session()
-    {:ok, conn: init_test_session(conn, APIFixtures.session_map(handle))}
+    {:ok, conn: authenticated_conn(conn)}
   end
 
   test "serves the authenticated trace result as no-store JSON", %{conn: conn} do

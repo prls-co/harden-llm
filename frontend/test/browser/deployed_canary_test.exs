@@ -277,7 +277,7 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
              "curl --fail-with-body --request POST '#{public_api_origin}/api/v1/run'"
            )
 
-    assert widget_facts["curl"] =~ ~s(authorization: Bearer ${HARDEN_LLM_TOKEN})
+    assert widget_facts["curl"] =~ ~s(authorization: Bearer ${HARDEN_LLM_API_TOKEN})
     refute widget_facts["curl"] =~ password
 
     run_id =

@@ -5,7 +5,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   alias HardenLlmWeb.{
     APIError,
-    Auth,
     HardenAPI,
     Observability,
     ProfileWidgetState,
@@ -139,9 +138,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
       )
 
     if connected?(socket) do
-      handle = socket.assigns.session_handle
+      session_ref = socket.assigns.access_context.session_ref
 
-      {:ok, start_async(socket, :hydrate, Observability.propagate(fn -> hydrate(handle) end))}
+      {:ok,
+       start_async(socket, :hydrate, Observability.propagate(fn -> hydrate(session_ref) end))}
     else
       {:ok, socket}
     end
@@ -231,11 +231,11 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> clear_state_save()
      |> assign(:state_save_pending, nil)
      |> assign(:history_pending, nil)
-     |> Auth.expire_live()}
+     |> Phoenix.LiveView.redirect(to: "/login")}
   end
 
   def handle_async(_operation, {:ok, {:error, %APIError{status: 401}}}, socket) do
-    {:noreply, Auth.expire_live(socket)}
+    {:noreply, Phoenix.LiveView.redirect(socket, to: "/login")}
   end
 
   def handle_async(:hydrate, {:ok, {:ok, hydration}}, socket) do
@@ -763,14 +763,17 @@ defmodule HardenLlmWeb.WorkspaceLive do
          {:ok, bundle} <- Jason.decode(bytes),
          true <- is_map(bundle),
          {:ok, %{"profiles" => profiles}, _state} <-
-           HardenAPI.import_profile_bundle(socket.assigns.session_handle, bundle) do
+           HardenAPI.import_profile_bundle(socket.assigns.access_context.session_ref, bundle) do
       {:noreply,
        socket
        |> assign(:profiles, profiles)
        |> put_flash(:info, "Profile bundle imported atomically.")}
     else
-      {:error, %APIError{status: 401}} -> {:noreply, Auth.expire_live(socket)}
-      _ -> {:noreply, assign(socket, :draft_error, "The selected bundle was rejected.")}
+      {:error, %APIError{status: 401}} ->
+        {:noreply, Phoenix.LiveView.redirect(socket, to: "/login")}
+
+      _ ->
+        {:noreply, assign(socket, :draft_error, "The selected bundle was rejected.")}
     end
   end
 
@@ -876,7 +879,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
       index ->
         reference = System.unique_integer([:positive, :monotonic])
-        handle = socket.assigns.session_handle
+        session_ref = socket.assigns.access_context.session_ref
         item = Enum.at(socket.assigns.history, index)
 
         {:noreply,
@@ -890,7 +893,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
          |> assign(:history_error, nil)
          |> start_async(
            {:delete_history, reference, run_id},
-           Observability.propagate(fn -> HardenAPI.delete_history(handle, run_id) end)
+           Observability.propagate(fn -> HardenAPI.delete_history(session_ref, run_id) end)
          )}
     end
   end
@@ -899,7 +902,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   def handle_event("clear-history", _params, %{assigns: %{history_pending: nil}} = socket) do
     reference = System.unique_integer([:positive, :monotonic])
-    handle = socket.assigns.session_handle
+    session_ref = socket.assigns.access_context.session_ref
 
     {:noreply,
      socket
@@ -908,7 +911,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:history_load_ref, nil)
      |> start_async(
        {:clear_history, reference},
-       Observability.propagate(fn -> HardenAPI.clear_history(handle) end)
+       Observability.propagate(fn -> HardenAPI.clear_history(session_ref) end)
      )}
   end
 
@@ -1081,7 +1084,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
       if kind == "trace" && state.trace_open && is_nil(state.trace_data) && is_nil(state.load_ref) do
         reference = System.unique_integer([:positive, :monotonic])
-        handle = socket.assigns.session_handle
+        session_ref = socket.assigns.access_context.session_ref
         trace_id = item["traceId"]
         state = %{state | trace_loading?: true, trace_error: nil, load_ref: reference}
 
@@ -1090,7 +1093,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
          |> put_history_result_state(run_id, state)
          |> start_async(
            {:history_result_trace, run_id, reference},
-           Observability.propagate(fn -> HardenAPI.get_trace(handle, trace_id) end)
+           Observability.propagate(fn -> HardenAPI.get_trace(session_ref, trace_id) end)
          )}
       else
         {:noreply, put_history_result_state(socket, run_id, state)}
@@ -1129,7 +1132,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     case LlmTraceProjection.trace_id(socket.assigns.run_result) do
       trace_id when is_binary(trace_id) and trace_id != "" ->
         reference = System.unique_integer([:positive, :monotonic])
-        handle = socket.assigns.session_handle
+        session_ref = socket.assigns.access_context.session_ref
 
         socket
         |> assign(:output_trace_ref, reference)
@@ -1138,7 +1141,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
         |> assign(:output_trace_error, nil)
         |> start_async(
           {:load_output_trace, reference, trace_id},
-          Observability.propagate(fn -> HardenAPI.get_trace(handle, trace_id) end)
+          Observability.propagate(fn -> HardenAPI.get_trace(session_ref, trace_id) end)
         )
 
       _ ->
@@ -1249,10 +1252,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
   def schema_status_class(%{status: :valid}), do: "text-emerald-700"
   def schema_status_class(_), do: "text-slate-500"
 
-  defp hydrate(handle) do
-    with {:ok, _result, state} <- HardenAPI.get_state(handle),
+  defp hydrate(session_ref) do
+    with {:ok, _result, state} <- HardenAPI.get_state(session_ref),
          {:ok, %{"profiles" => profiles, "defaults" => %{"recoveryPolicy" => policy}}, _} <-
-           HardenAPI.list_profiles(handle),
+           HardenAPI.list_profiles(session_ref),
          true <- is_list(profiles) do
       {:ok, %{state: state, profiles: profiles, recovery_policy_default: policy}}
     end
@@ -1468,13 +1471,13 @@ defmodule HardenLlmWeb.WorkspaceLive do
   defp maybe_load_run_diagnostics(socket, trace_id)
        when is_binary(trace_id) and trace_id != "" do
     reference = System.unique_integer([:positive, :monotonic])
-    handle = socket.assigns.session_handle
+    session_ref = socket.assigns.access_context.session_ref
 
     socket
     |> assign(:diagnostic_ref, reference)
     |> start_async(
       {:load_run_diagnostics, reference, trace_id},
-      Observability.propagate(fn -> HardenAPI.get_trace(handle, trace_id) end)
+      Observability.propagate(fn -> HardenAPI.get_trace(session_ref, trace_id) end)
     )
   end
 
@@ -1488,13 +1491,13 @@ defmodule HardenLlmWeb.WorkspaceLive do
          is_nil(socket.assigns.conversation_trace_ref) and
          LlmTraceProjection.trace_id(socket.assigns.run_result) != trace_id do
       reference = System.unique_integer([:positive, :monotonic])
-      handle = socket.assigns.session_handle
+      session_ref = socket.assigns.access_context.session_ref
 
       socket
       |> assign(:conversation_trace_ref, reference)
       |> start_async(
         {:load_conversation, reference, trace_id},
-        Observability.propagate(fn -> HardenAPI.get_trace(handle, trace_id) end)
+        Observability.propagate(fn -> HardenAPI.get_trace(session_ref, trace_id) end)
       )
     else
       socket
@@ -1534,7 +1537,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp start_run(socket, payload) do
     reference = System.unique_integer([:positive, :monotonic])
-    handle = socket.assigns.session_handle
+    session_ref = socket.assigns.access_context.session_ref
 
     socket
     |> assign(:run_ref, reference)
@@ -1549,7 +1552,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     |> reset_output_trace()
     |> start_async(
       {:run, reference},
-      Observability.propagate(fn -> HardenAPI.run(handle, payload) end)
+      Observability.propagate(fn -> HardenAPI.run(session_ref, payload) end)
     )
   end
 
@@ -1647,7 +1650,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   defp start_history_load(socket, page, page_size) do
-    handle = socket.assigns.session_handle
+    session_ref = socket.assigns.access_context.session_ref
     reference = System.unique_integer([:positive, :monotonic])
     operation = {:load_history, reference, page, page_size}
 
@@ -1665,7 +1668,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     |> start_async(
       operation,
       Observability.propagate(fn ->
-        HardenAPI.list_history(handle, page: page, limit: page_size)
+        HardenAPI.list_history(session_ref, page: page, limit: page_size)
       end)
     )
   end
@@ -1733,7 +1736,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp start_state_save(socket, snapshot) do
     reference = System.unique_integer([:positive, :monotonic])
-    handle = socket.assigns.session_handle
+    session_ref = socket.assigns.access_context.session_ref
     operation = {:save_state, reference, snapshot.sequence}
 
     socket
@@ -1743,7 +1746,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     |> maybe_clear_restore_error(snapshot.context)
     |> start_async(
       operation,
-      Observability.propagate(fn -> HardenAPI.save_state(handle, snapshot.state) end)
+      Observability.propagate(fn -> HardenAPI.save_state(session_ref, snapshot.state) end)
     )
   end
 

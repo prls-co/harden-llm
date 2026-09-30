@@ -4,7 +4,7 @@ defmodule HardenLlmWeb.BundleController do
   alias HardenLlmWeb.{APIError, HardenAPI}
 
   def show(conn, _params) do
-    case HardenAPI.export_profile_bundle(conn.assigns.session_handle) do
+    case HardenAPI.export_profile_bundle(conn.assigns.access_context.session_ref) do
       {:ok, bundle, _state} ->
         send_download(conn, {:binary, Jason.encode!(bundle)},
           filename: "harden-llm-profile-bundle.json",
@@ -13,7 +13,7 @@ defmodule HardenLlmWeb.BundleController do
         )
 
       {:error, %APIError{status: 401}} ->
-        redirect(conn, to: ~p"/session/expired")
+        redirect(conn, to: ~p"/login")
 
       {:error, %APIError{}} ->
         conn |> put_status(:bad_gateway) |> text("Profile bundle is temporarily unavailable.")

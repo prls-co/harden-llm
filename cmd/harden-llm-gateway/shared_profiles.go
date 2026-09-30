@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/prls-co/harden-llm/internal/gateway"
+	"github.com/prls-co/harden-llm/internal/gateway/auth"
 	"github.com/prls-co/harden-llm/internal/postgres"
 	"github.com/prls-co/harden-llm/internal/profiles"
 )
@@ -17,9 +18,9 @@ import (
 func runSyncProfiles(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer, getenv func(string) string) error {
 	flags := flag.NewFlagSet("sync-profiles", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
-	email := flags.String("email", "", "local account email")
-	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || *email == "" {
-		return errors.New("sync-profiles: --email is required")
+	accountID := flags.String("account-id", "", "Control Plane account UUID")
+	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || auth.ValidateAccountID(*accountID) != nil {
+		return errors.New("sync-profiles: --account-id must be a Control Plane account UUID")
 	}
 	decoder := json.NewDecoder(io.LimitReader(stdin, 2<<20))
 	decoder.DisallowUnknownFields()
@@ -48,11 +49,7 @@ func runSyncProfiles(ctx context.Context, args []string, stdin io.Reader, stdout
 		return errors.New("sync-profiles: database unavailable")
 	}
 	defer store.Close()
-	user, err := store.UserByEmail(ctx, *email)
-	if err != nil {
-		return errors.New("sync-profiles: local account not found")
-	}
-	result, err := gateway.ApplySharedProfilesWithResult(ctx, store, vault, user.ID, config)
+	result, err := gateway.ApplySharedProfilesWithResult(ctx, store, vault, *accountID, config)
 	if err != nil {
 		return errors.New("sync-profiles: configuration could not be applied")
 	}

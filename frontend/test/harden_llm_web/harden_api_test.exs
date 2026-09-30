@@ -1,7 +1,7 @@
 defmodule HardenLlmWeb.HardenAPITest do
   use ExUnit.Case, async: true
 
-  alias HardenLlmWeb.{APIError, APIFixtures, HardenAPI, SessionVault}
+  alias HardenLlmWeb.{APIError, APIFixtures, HardenAPI}
 
   require OpenTelemetry.Tracer, as: Tracer
 
@@ -13,42 +13,34 @@ defmodule HardenLlmWeb.HardenAPITest do
     :ok
   end
 
-  test "login sends JSON and never sends bearer credentials" do
-    Req.Test.stub(HardenAPI, fn conn ->
-      assert conn.method == "POST"
-      assert conn.request_path == "/api/v1/auth/login"
-      assert Plug.Conn.get_req_header(conn, "accept") == ["application/json"]
-      assert Plug.Conn.get_req_header(conn, "authorization") == []
-      {:ok, body, conn} = Plug.Conn.read_body(conn)
-
-      assert Jason.decode!(body) == %{
-               "email" => "operator@example.test",
-               "password" => "fixture-password-123"
-             }
-
-      Req.Test.json(conn, APIFixtures.success(APIFixtures.login_result()))
-    end)
-
-    assert {:ok, result, %{}} = HardenAPI.login("operator@example.test", "fixture-password-123")
-    assert result["accessToken"] == APIFixtures.token()
-  end
-
-  test "authenticated requests resolve the vault token and use one bearer header" do
-    handle = APIFixtures.insert_session()
+  test "authenticated backend requests use the service credential and current Control Plane reference" do
+    session_ref = APIFixtures.session_ref()
+    parent = self()
 
     Req.Test.stub(HardenAPI, fn conn ->
-      assert conn.method == "GET"
-      assert conn.request_path == "/api/v1/auth/session"
-      assert Plug.Conn.get_req_header(conn, "authorization") == ["Bearer " <> APIFixtures.token()]
-      assert length(Plug.Conn.get_req_header(conn, "authorization")) == 1
-      Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
+      send(parent, {
+        :backend_request,
+        conn.method,
+        conn.request_path,
+        Plug.Conn.get_req_header(conn, "authorization"),
+        Plug.Conn.get_req_header(conn, "x-prls-session-reference"),
+        Plug.Conn.get_req_header(conn, "cookie")
+      })
+
+      Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
     end)
 
-    assert {:ok, %{"ownerId" => "owner-test"}, %{}} = HardenAPI.get_session(handle)
+    result = HardenAPI.get_state(session_ref)
+
+    assert_received {:backend_request, "GET", "/api/v1/state", authorization, references, cookies}
+    assert authorization == ["Bearer " <> APIFixtures.token()]
+    assert references == [session_ref]
+    assert cookies == []
+    assert {:ok, nil, %{"userPrompt" => "safe fixture prompt"}} = result
   end
 
   test "stats use the authenticated authoritative aggregate endpoint" do
-    handle = APIFixtures.insert_session()
+    session_ref = APIFixtures.session_ref()
 
     Req.Test.stub(HardenAPI, fn conn ->
       assert conn.method == "GET"
@@ -58,11 +50,11 @@ defmodule HardenLlmWeb.HardenAPITest do
     end)
 
     assert {:ok, %{"totalCount" => 3, "cached" => %{"count" => 1}}, %{}} =
-             HardenAPI.get_stats(handle)
+             HardenAPI.get_stats(session_ref)
   end
 
   test "history accepts the terminal page's null cursor" do
-    handle = APIFixtures.insert_session()
+    session_ref = APIFixtures.session_ref()
 
     Req.Test.stub(HardenAPI, fn conn ->
       assert conn.method == "GET"
@@ -75,11 +67,11 @@ defmodule HardenLlmWeb.HardenAPITest do
     end)
 
     assert {:ok, %{"items" => [%{"runId" => "run-test"}], "nextCursor" => nil}, %{}} =
-             HardenAPI.list_history(handle, limit: 20)
+             HardenAPI.list_history(session_ref, limit: 20)
   end
 
   test "numbered history sends page and size and rejects a legacy response" do
-    handle = APIFixtures.insert_session()
+    session_ref = APIFixtures.session_ref()
 
     Req.Test.stub(HardenAPI, fn conn ->
       assert URI.decode_query(conn.query_string) == %{"limit" => "25", "page" => "7"}
@@ -91,7 +83,7 @@ defmodule HardenLlmWeb.HardenAPITest do
     end)
 
     assert {:ok, %{"items" => [_], "pagination" => pagination}, %{}} =
-             HardenAPI.list_history(handle, page: 7, limit: 25)
+             HardenAPI.list_history(session_ref, page: 7, limit: 25)
 
     assert pagination == %{"page" => 7, "pageSize" => 25, "totalCount" => 151}
 
@@ -103,11 +95,11 @@ defmodule HardenLlmWeb.HardenAPITest do
     end)
 
     assert {:error, %APIError{category: :protocol}} =
-             HardenAPI.list_history(handle, page: 7, limit: 25)
+             HardenAPI.list_history(session_ref, page: 7, limit: 25)
   end
 
   test "numbered history rejects a page whose item count disagrees with its exact total" do
-    handle = APIFixtures.insert_session()
+    session_ref = APIFixtures.session_ref()
 
     Req.Test.stub(HardenAPI, fn conn ->
       Req.Test.json(
@@ -117,12 +109,12 @@ defmodule HardenLlmWeb.HardenAPITest do
     end)
 
     assert {:error, %APIError{category: :protocol}} =
-             HardenAPI.list_history(handle, page: 1, limit: 10)
+             HardenAPI.list_history(session_ref, page: 1, limit: 10)
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-060
   test "history and trace never pass retired execution records to the UI" do
-    handle = APIFixtures.insert_session()
+    session_ref = APIFixtures.session_ref()
     old = %{"runId" => "run-test", "traceId" => "trace-test", "status" => "succeeded"}
 
     Req.Test.stub(HardenAPI, fn conn ->
@@ -135,12 +127,14 @@ defmodule HardenLlmWeb.HardenAPITest do
       Req.Test.json(conn, APIFixtures.success(payload))
     end)
 
-    assert {:error, %APIError{category: :protocol}} = HardenAPI.list_history(handle)
-    assert {:error, %APIError{category: :protocol}} = HardenAPI.get_trace(handle, "trace-test")
+    assert {:error, %APIError{category: :protocol}} = HardenAPI.list_history(session_ref)
+
+    assert {:error, %APIError{category: :protocol}} =
+             HardenAPI.get_trace(session_ref, "trace-test")
   end
 
   test "diagnostics operations reject malformed identities, equations, and coverage" do
-    handle = APIFixtures.insert_session()
+    session_ref = APIFixtures.session_ref()
 
     malformed = [
       {"/api/v1/run", :post,
@@ -160,9 +154,9 @@ defmodule HardenLlmWeb.HardenAPITest do
 
       response =
         case path do
-          "/api/v1/run" -> HardenAPI.run(handle, %{})
-          "/api/v1/stats" -> HardenAPI.get_stats(handle)
-          _ -> HardenAPI.get_trace(handle, "trace-test")
+          "/api/v1/run" -> HardenAPI.run(session_ref, %{})
+          "/api/v1/stats" -> HardenAPI.get_stats(session_ref)
+          _ -> HardenAPI.get_trace(session_ref, "trace-test")
         end
 
       assert {:error, %APIError{category: :protocol}} = response
@@ -171,7 +165,7 @@ defmodule HardenLlmWeb.HardenAPITest do
   end
 
   test "saved-profile model refresh sends only the profile ID path" do
-    handle = APIFixtures.insert_session()
+    session_ref = APIFixtures.session_ref()
 
     Req.Test.stub(HardenAPI, fn conn ->
       assert conn.method == "POST"
@@ -187,11 +181,11 @@ defmodule HardenLlmWeb.HardenAPITest do
     end)
 
     assert {:ok, %{"profile" => %{"models" => []}}, %{}} =
-             HardenAPI.refresh_profile_models(handle, "Primary")
+             HardenAPI.refresh_profile_models(session_ref, "Primary")
   end
 
   test "active W3C trace context is injected into backend requests" do
-    handle = APIFixtures.insert_session()
+    session_ref = APIFixtures.session_ref()
     parent = self()
 
     Tracer.with_span "harden-api-propagation-test" do
@@ -203,16 +197,20 @@ defmodule HardenLlmWeb.HardenAPITest do
         |> String.pad_leading(32, "0")
 
       Req.Test.stub(HardenAPI, fn conn ->
-        [traceparent] = Plug.Conn.get_req_header(conn, "traceparent")
-        assert traceparent =~ ~r/^00-[0-9a-f]{32}-[0-9a-f]{16}-0[01]$/
-        refute traceparent =~ "00000000000000000000000000000000"
+        traceparent = Plug.Conn.get_req_header(conn, "traceparent")
         send(parent, {:traceparent, traceparent})
-        Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
+        assert conn.request_path == "/api/v1/state"
+        Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
       end)
 
-      assert {:ok, %{"ownerId" => "owner-test"}, %{}} = HardenAPI.get_session(handle)
-      assert_receive {:traceparent, "00-" <> rest}, 1_000
+      result = HardenAPI.get_state(session_ref)
+
+      assert_receive {:traceparent, ["00-" <> rest]}, 1_000
+      traceparent = "00-" <> rest
+      assert traceparent =~ ~r/^00-[0-9a-f]{32}-[0-9a-f]{16}-0[01]$/
+      refute traceparent =~ "00000000000000000000000000000000"
       assert String.starts_with?(rest, expected_trace_id <> "-")
+      assert {:ok, nil, %{"userPrompt" => "safe fixture prompt"}} = result
     end
   end
 
@@ -223,7 +221,7 @@ defmodule HardenLlmWeb.HardenAPITest do
     assert source =~ "run_timeout_ms"
     assert source =~ "api_timeout_ms"
 
-    handle = APIFixtures.insert_session()
+    session_ref = APIFixtures.session_ref()
     {:ok, counter} = Agent.start_link(fn -> 0 end)
 
     Req.Test.stub(HardenAPI, fn conn ->
@@ -232,12 +230,12 @@ defmodule HardenLlmWeb.HardenAPITest do
       conn |> Plug.Conn.put_status(status) |> Req.Test.json(envelope)
     end)
 
-    assert {:error, %APIError{category: :unavailable}} = HardenAPI.get_session(handle)
+    assert {:error, %APIError{category: :unavailable}} = HardenAPI.get_state(session_ref)
     assert Agent.get(counter, & &1) == 1
   end
 
   test "run transport failure is ambiguous and is never retried" do
-    handle = APIFixtures.insert_session()
+    session_ref = APIFixtures.session_ref()
     {:ok, counter} = Agent.start_link(fn -> 0 end)
 
     Req.Test.stub(HardenAPI, fn conn ->
@@ -246,7 +244,7 @@ defmodule HardenLlmWeb.HardenAPITest do
     end)
 
     assert {:error, %APIError{category: :transport, ambiguous?: true}} =
-             HardenAPI.run(handle, %{
+             HardenAPI.run(session_ref, %{
                "profileId" => "Primary",
                "userPrompt" => "fixture",
                "callType" => "text"
@@ -257,7 +255,7 @@ defmodule HardenLlmWeb.HardenAPITest do
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-088 TEST-252 TEST-253
   test "run_stream parses one request-bound SSE and stops at the terminal event" do
-    handle = APIFixtures.insert_session()
+    session_ref = APIFixtures.session_ref()
     parent = self()
     payload = %{"profileId" => "Primary", "userPrompt" => "fixture", "callType" => "text"}
 
@@ -321,7 +319,7 @@ defmodule HardenLlmWeb.HardenAPITest do
     end)
 
     assert {:ok, result, state} =
-             HardenAPI.run_stream(handle, payload, fn event ->
+             HardenAPI.run_stream(session_ref, payload, fn event ->
                send(parent, {:stream_event, event["type"]})
                :cont
              end)
@@ -334,7 +332,7 @@ defmodule HardenLlmWeb.HardenAPITest do
 
   # WEB-TEST-088: a terminal failure is delivered once and never resubmitted.
   test "run_stream exposes a redacted terminal failure without retrying" do
-    handle = APIFixtures.insert_session()
+    session_ref = APIFixtures.session_ref()
     {:ok, counter} = Agent.start_link(fn -> 0 end)
     result = APIFixtures.run_result() |> Map.put("status", "failed")
 
@@ -362,14 +360,14 @@ defmodule HardenLlmWeb.HardenAPITest do
     end)
 
     assert {:error, %APIError{category: :backend, code: "run_failed", message: message}} =
-             HardenAPI.run_stream(handle, %{}, fn _event -> :cont end)
+             HardenAPI.run_stream(session_ref, %{}, fn _event -> :cont end)
 
     assert message == "The run failed."
     assert Agent.get(counter, & &1) == 1
   end
 
   test "missing endpoint credential is a non-ambiguous validation error" do
-    handle = APIFixtures.insert_session()
+    session_ref = APIFixtures.session_ref()
 
     Req.Test.stub(HardenAPI, fn conn ->
       {status, envelope} = APIFixtures.error(422, "credential_required")
@@ -384,7 +382,7 @@ defmodule HardenLlmWeb.HardenAPITest do
               message: "The selected profile has no configured endpoint credential.",
               ambiguous?: false
             }} =
-             HardenAPI.run(handle, %{
+             HardenAPI.run(session_ref, %{
                "profileId" => "CPA GPT-5.6 Luna",
                "userPrompt" => "fixture",
                "callType" => "text"
@@ -392,7 +390,7 @@ defmodule HardenLlmWeb.HardenAPITest do
   end
 
   test "malformed envelopes, JSON, and content types become redacted protocol errors" do
-    handle = APIFixtures.insert_session()
+    session_ref = APIFixtures.session_ref()
 
     responses = [
       fn conn -> Req.Test.json(conn, %{"result" => %{}}) end,
@@ -406,7 +404,7 @@ defmodule HardenLlmWeb.HardenAPITest do
 
     for response <- responses do
       Req.Test.stub(HardenAPI, response)
-      assert {:error, %APIError{category: :protocol} = error} = HardenAPI.get_session(handle)
+      assert {:error, %APIError{category: :protocol} = error} = HardenAPI.get_state(session_ref)
       refute inspect(error) =~ "secret-response-body"
       refute inspect(error) =~ "private"
       Req.Test.verify!()
@@ -414,7 +412,7 @@ defmodule HardenLlmWeb.HardenAPITest do
   end
 
   test "backend field errors are bounded while raw backend detail is discarded" do
-    handle = APIFixtures.insert_session()
+    session_ref = APIFixtures.session_ref()
 
     Req.Test.stub(HardenAPI, fn conn ->
       {status, envelope} =
@@ -428,14 +426,14 @@ defmodule HardenLlmWeb.HardenAPITest do
     assert {:error,
             %APIError{category: :validation, message: "Please correct the highlighted fields."} =
               error} =
-             HardenAPI.save_profile(handle, "Primary", %{})
+             HardenAPI.save_profile(session_ref, "Primary", %{})
 
     assert error.field_errors == %{"profile.baseUrl" => "Use an approved HTTPS origin."}
     refute inspect(error) =~ "sensitive backend detail"
   end
 
   test "artifact redirects are returned without following them" do
-    handle = APIFixtures.insert_session()
+    session_ref = APIFixtures.session_ref()
 
     Req.Test.stub(HardenAPI, fn conn ->
       conn
@@ -447,21 +445,20 @@ defmodule HardenLlmWeb.HardenAPITest do
     end)
 
     assert {:ok, %{location: location}, %{}} =
-             HardenAPI.get_artifact(handle, "trace-test", "artifact-test")
+             HardenAPI.get_artifact(session_ref, "trace-test", "artifact-test")
 
     assert URI.parse(location).host == "artifacts.example.test"
   end
 
-  test "missing vault entry fails before any request" do
-    assert {:error, %APIError{category: :unauthorized}} = HardenAPI.get_state("missing-handle")
-    assert SessionVault.count() >= 0
+  test "missing Control Plane reference fails before any request" do
+    assert {:error, %APIError{category: :unauthorized}} = HardenAPI.get_state(nil)
   end
 
   # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-209
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-073
   @tag :recovery
   test "profile responses require backend defaults and current policy shape" do
-    handle = APIFixtures.insert_session()
+    session_ref = APIFixtures.session_ref()
     result = APIFixtures.profiles([APIFixtures.profile_state()])["result"]
 
     policy = %{
@@ -479,7 +476,7 @@ defmodule HardenLlmWeb.HardenAPITest do
 
     result = put_in(result, ["defaults", "recoveryPolicy"], policy)
     Req.Test.stub(HardenAPI, fn conn -> Req.Test.json(conn, APIFixtures.success(result)) end)
-    assert {:ok, ^result, %{}} = HardenAPI.list_profiles(handle)
+    assert {:ok, ^result, %{}} = HardenAPI.list_profiles(session_ref)
 
     for invalid <- [
           Map.delete(result, "defaults"),
@@ -495,13 +492,13 @@ defmodule HardenLlmWeb.HardenAPITest do
           put_in(result, ["profiles", Access.at(0), "profile", "schemaVersion"], 1)
         ] do
       Req.Test.stub(HardenAPI, fn conn -> Req.Test.json(conn, APIFixtures.success(invalid)) end)
-      assert {:error, %APIError{category: :protocol}} = HardenAPI.list_profiles(handle)
+      assert {:error, %APIError{category: :protocol}} = HardenAPI.list_profiles(session_ref)
     end
   end
 
   @tag :recovery
   test "state and individual profile responses require the current policy contract" do
-    handle = APIFixtures.insert_session()
+    session_ref = APIFixtures.session_ref()
     state = APIFixtures.state()
 
     legacy_policy =
@@ -519,12 +516,12 @@ defmodule HardenLlmWeb.HardenAPITest do
         Req.Test.json(conn, APIFixtures.success(nil, invalid))
       end)
 
-      assert {:error, %APIError{category: :protocol}} = HardenAPI.get_state(handle)
-      assert {:error, %APIError{category: :protocol}} = HardenAPI.save_state(handle, state)
+      assert {:error, %APIError{category: :protocol}} = HardenAPI.get_state(session_ref)
+      assert {:error, %APIError{category: :protocol}} = HardenAPI.save_state(session_ref, state)
     end
 
     Req.Test.stub(HardenAPI, fn conn -> Req.Test.json(conn, APIFixtures.success(nil, state)) end)
-    assert {:ok, nil, ^state} = HardenAPI.get_state(handle)
+    assert {:ok, nil, ^state} = HardenAPI.get_state(session_ref)
 
     invalid =
       update_in(APIFixtures.profile_state(), ["profile"], &Map.delete(&1, "recoveryPolicy"))
@@ -532,9 +529,9 @@ defmodule HardenLlmWeb.HardenAPITest do
     Req.Test.stub(HardenAPI, fn conn -> Req.Test.json(conn, APIFixtures.success(invalid)) end)
 
     assert {:error, %APIError{category: :protocol}} =
-             HardenAPI.save_profile(handle, "Primary", %{})
+             HardenAPI.save_profile(session_ref, "Primary", %{})
 
     assert {:error, %APIError{category: :protocol}} =
-             HardenAPI.refresh_profile_models(handle, "Primary")
+             HardenAPI.refresh_profile_models(session_ref, "Primary")
   end
 end

@@ -74,6 +74,10 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 	}
 	project := fmt.Sprintf("harden-llm-smoke-%d-%d", os.Getpid(), time.Now().UnixNano())
 	secrets := smokeEnvironment(t, material, httpPort, httpsPort)
+	if strings.TrimSpace(os.Getenv("PRIVATE_MODULE_TOKEN")) == "" {
+		t.Fatal("PRIVATE_MODULE_TOKEN is required to build the private Control Plane Go module")
+	}
+	secrets["PRIVATE_MODULE_TOKEN"] = os.Getenv("PRIVATE_MODULE_TOKEN")
 	composeFiles := []string{
 		filepath.Join(root, "docker-compose.yml"),
 		filepath.Join(root, "deploy", "langfuse", "docker-compose.upstream.yml"),
@@ -146,26 +150,10 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 	waitHTTPStatus(t, client, "https://grafana.smoke.localhost/api/health", http.StatusOK, 45*time.Second, nil)
 	waitHTTPStatus(t, client, "https://langfuse.smoke.localhost/api/public/health", http.StatusOK, 90*time.Second, nil)
 
-	bootstrapPassword := "Smoke-user-password-7xQ2mV9p"
-	bootstrapContext, cancelBootstrap := context.WithTimeout(context.Background(), 45*time.Second)
-	// The full stack has already passed Compose readiness, topology, and HTTP
-	// health checks. Reuse those services and the just-built image for this
-	// one-shot command instead of resolving/restarting dependencies or pulling.
-	if err := runner.run(bootstrapContext, strings.NewReader(bootstrapPassword+"\n"), "run", "--rm", "--no-deps", "--pull", "never", "-T", "harden-llm-gateway",
-		"bootstrap-user", "--owner-id", "smoke-owner", "--email", "smoke@example.test", "--password-file", "-"); err != nil {
-		cancelBootstrap()
-		t.Fatalf("bootstrap smoke user: %v", err)
-	}
-	cancelBootstrap()
-
-	login := requestJSON(t, client, http.MethodPost, "https://api.smoke.localhost/api/v1/auth/login", map[string]any{
-		"email": "smoke@example.test", "password": bootstrapPassword,
-	}, "", http.StatusOK)
-	loginResult := object(t, login["result"], "login result")
-	token := text(t, loginResult["accessToken"], "access token")
-	if token == "" || strings.Contains(token, "smoke") {
-		t.Fatal("login did not return an opaque bearer token")
-	}
+	// The machine path is scoped to one synthetic Control Plane account UUID.
+	// Human sessions are covered at the browser-facing BFF/access boundary.
+	token := secrets["HARDEN_LLM_STATIC_TOKEN"]
+	ownerID := secrets["HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID"]
 
 	providerSecret := "smoke-provider-key-must-remain-redacted"
 	profileDocument := map[string]any{
@@ -220,7 +208,7 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 		t.Fatal("redacted trace artifact contains provider credentials or prompt text")
 	}
 
-	assertPostgresState(t, runner)
+	assertPostgresState(t, runner, ownerID)
 	correlation := correlateBackends(t, runner, report)
 	report.CorrelatedBackends = correlation
 	if correlation != report.CorrelationBackends {
@@ -471,10 +459,14 @@ func smokeEnvironment(t *testing.T, material tlsMaterial, httpPort, httpsPort in
 		"HARDEN_LLM_BIND_ADDRESS":               "127.0.0.1", "HARDEN_LLM_HTTP_PORT": strconv.Itoa(httpPort),
 		"HARDEN_LLM_HTTPS_PORT": strconv.Itoa(httpsPort), "HARDEN_LLM_TLS_MODE": "internal",
 		"HARDEN_LLM_RELEASE": "compose-smoke-0.1.0", "HARDEN_LLM_ENVIRONMENT": "test",
-		"HARDEN_LLM_POSTGRES_PASSWORD":        textSecret("db"),
-		"HARDEN_LLM_ENCRYPTION_KEYS":          fmt.Sprintf(`{"primary":"%s"}`, base64.RawURLEncoding.EncodeToString(randomBytes(32))),
-		"HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID": "primary",
-		"GARAGE_RPC_SECRET":                   hexSecret(32), "HARDEN_LLM_ARTIFACT_BUCKET": "harden-llm-artifacts-smoke",
+		"HARDEN_LLM_CONTROL_PLANE_URL":            "http://control-plane:4310",
+		"HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN": textSecret("control-plane-smoke-"),
+		"HARDEN_LLM_STATIC_TOKEN":                 textSecret("harden-llm-smoke-"),
+		"HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID":      randomAccountID(randomBytes),
+		"HARDEN_LLM_POSTGRES_PASSWORD":            textSecret("db"),
+		"HARDEN_LLM_ENCRYPTION_KEYS":              fmt.Sprintf(`{"primary":"%s"}`, base64.RawURLEncoding.EncodeToString(randomBytes(32))),
+		"HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID":     "primary",
+		"GARAGE_RPC_SECRET":                       hexSecret(32), "HARDEN_LLM_ARTIFACT_BUCKET": "harden-llm-artifacts-smoke",
 		"HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID":     "GK" + strings.ToUpper(hexSecret(16)),
 		"HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY": hexSecret(32), "HARDEN_LLM_ARTIFACT_PRESIGN_TTL": "2m",
 		"PRLS_LOKI_S3_ACCESS_KEY": "GK" + strings.ToUpper(hexSecret(16)), "PRLS_LOKI_S3_SECRET_KEY": hexSecret(32),
@@ -489,6 +481,13 @@ func smokeEnvironment(t *testing.T, material tlsMaterial, httpPort, httpsPort in
 		"REDIS_AUTH": textSecret("redis"), "MINIO_ROOT_USER": "smokeminio", "MINIO_ROOT_PASSWORD": textSecret("minio"),
 		"SMOKE_CA_CERT": material.ca, "SMOKE_PROVIDER_CERT": material.certificate, "SMOKE_PROVIDER_KEY": material.key,
 	}
+}
+
+func randomAccountID(randomBytes func(int) []byte) string {
+	value := randomBytes(16)
+	value[6] = (value[6] & 0x0f) | 0x40
+	value[8] = (value[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%x-%x-%x-%x-%x", value[:4], value[4:6], value[6:8], value[8:10], value[10:])
 }
 
 func sortedEnvironment(environment map[string]string) []string {
@@ -506,7 +505,7 @@ func sortedEnvironment(environment map[string]string) []string {
 
 func isSensitiveEnvironment(name string) bool {
 	upper := strings.ToUpper(name)
-	return strings.Contains(upper, "PASSWORD") || strings.Contains(upper, "SECRET") || strings.Contains(upper, "KEY") || strings.Contains(upper, "SALT")
+	return strings.Contains(upper, "PASSWORD") || strings.Contains(upper, "SECRET") || strings.Contains(upper, "KEY") || strings.Contains(upper, "SALT") || strings.Contains(upper, "TOKEN")
 }
 
 type composeProcess struct {
@@ -693,9 +692,9 @@ func fetchArtifact(t *testing.T, client *http.Client, location string) []byte {
 	return contents
 }
 
-func assertPostgresState(t *testing.T, runner composeRunner) {
+func assertPostgresState(t *testing.T, runner composeRunner, ownerID string) {
 	t.Helper()
-	query := `SELECT (SELECT count(*) FROM llm_runs WHERE owner_id='smoke-owner'), (SELECT count(*) FROM llm_traces WHERE owner_id='smoke-owner'), (SELECT count(*) FROM llm_artifacts WHERE owner_id='smoke-owner' AND state='available');`
+	query := fmt.Sprintf(`SELECT (SELECT count(*) FROM llm_runs WHERE owner_id='%s'), (SELECT count(*) FROM llm_traces WHERE owner_id='%s'), (SELECT count(*) FROM llm_artifacts WHERE owner_id='%s' AND state='available');`, ownerID, ownerID, ownerID)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	output, err := runner.output(ctx, "exec", "-T", "-e", "PGPASSWORD="+runner.environment["HARDEN_LLM_POSTGRES_PASSWORD"],

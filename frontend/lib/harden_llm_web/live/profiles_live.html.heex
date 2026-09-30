@@ -1,4 +1,4 @@
-<Layouts.app flash={@flash} current_scope={@current_scope} current_identity={@current_identity}>
+<Layouts.app flash={@flash} current_user={@current_user}>
   <main id="profiles-page" class="studio-page mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
     <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
@@ -216,7 +216,7 @@
           recovery_policy_default={@recovery_policy_default}
           pricing_open={@pricing_open}
           fold_disabled={false}
-          session_handle={@session_handle}
+          session_ref={@access_context.session_ref}
           field_errors={@field_errors}
           definition_form={@form}
           definition_revision={@editor_form_revision}

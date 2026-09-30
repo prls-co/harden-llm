@@ -27,11 +27,11 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 	if args[0] == "serve" && len(args) == 1 {
 		return runGatewayServer(ctx, stdout, stderr, getenv)
 	}
-	if args[0] == "bootstrap-user" {
-		return runBootstrapUser(ctx, args[1:], stdin, stdout, getenv)
-	}
 	if args[0] == "sync-profiles" {
 		return runSyncProfiles(ctx, args[1:], stdin, stdout, getenv)
+	}
+	if args[0] == "rehome-identities" {
+		return runRehomeIdentities(ctx, args[1:], stdout, getenv)
 	}
 	if args[0] == "healthcheck" {
 		return runHealthcheck(ctx, args[1:], stdout)

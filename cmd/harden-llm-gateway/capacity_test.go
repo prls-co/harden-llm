@@ -40,7 +40,7 @@ import (
 const (
 	capacityProfileID = "Capacity-Fixture"
 	capacityModelID   = "synthetic-capacity-model"
-	capacityOwnerID   = "capacity-test-owner"
+	capacityOwnerID   = "33333333-3333-4333-8333-333333333333"
 	capacityAPIKey    = "synthetic-capacity-provider-key-not-a-secret"
 )
 
@@ -148,9 +148,6 @@ func TestGatewayCapacityBaseline(t *testing.T) {
 
 	_, databaseURL := integrationtest.PostgresLease(t)
 	_, garageFixture := integrationtest.GarageLease(t)
-	if err := bootstrapCapacityOwner(databaseURL); err != nil {
-		t.Fatalf("bootstrap static-token owner through the existing operator command: %v", err)
-	}
 	if err := integrationtest.DeleteGarageOwnerTraceArtifacts(context.Background(), garageFixture, capacityOwnerID); err != nil {
 		t.Fatalf("clear exact synthetic owner artifacts before the run: %v", err)
 	}
@@ -315,34 +312,27 @@ func requireCapacityFingerprints(imageSHA, topologySHA string) error {
 func capacityGatewayEnvironment(databaseURL string, garage integrationtest.Garage, listenAddress, telemetryEndpoint string) map[string]string {
 	key := base64.RawURLEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef"))
 	return map[string]string{
-		"HARDEN_LLM_LISTEN_ADDRESS":              listenAddress,
-		"HARDEN_LLM_DATABASE_URL":                databaseURL,
-		"HARDEN_LLM_ENCRYPTION_KEYS":             fmt.Sprintf(`{"capacity-test":"%s"}`, key),
-		"HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID":    "capacity-test",
-		"HARDEN_LLM_ARTIFACT_ENDPOINT":           garage.Endpoint,
-		"HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT":  garage.Endpoint,
-		"HARDEN_LLM_ARTIFACT_BUCKET":             garage.Bucket,
-		"HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID":      garage.AccessKeyID,
-		"HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY":  garage.SecretAccessKey,
-		"HARDEN_LLM_ENVIRONMENT":                 "test",
-		"HARDEN_LLM_RELEASE":                     "capacity-test",
-		"HARDEN_LLM_SERVICE_NAME":                "harden-llm-capacity-test",
-		"HARDEN_LLM_STATIC_TOKEN":                capacityToken,
-		"HARDEN_LLM_STATIC_TOKEN_OWNER_ID":       capacityOwnerID,
-		"HARDEN_LLM_MAX_RUN_DURATION_MS":         "60000",
-		"HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST":  "127.0.0.1/32",
-		"HARDEN_LLM_TEST_GARAGE_ENDPOINT":        strings.TrimPrefix(garage.Endpoint, "http://"),
-		"HARDEN_LLM_OTEL_EXPORTER_OTLP_ENDPOINT": telemetryEndpoint,
+		"HARDEN_LLM_LISTEN_ADDRESS":               listenAddress,
+		"HARDEN_LLM_DATABASE_URL":                 databaseURL,
+		"HARDEN_LLM_ENCRYPTION_KEYS":              fmt.Sprintf(`{"capacity-test":"%s"}`, key),
+		"HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID":     "capacity-test",
+		"HARDEN_LLM_ARTIFACT_ENDPOINT":            garage.Endpoint,
+		"HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT":   garage.Endpoint,
+		"HARDEN_LLM_ARTIFACT_BUCKET":              garage.Bucket,
+		"HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID":       garage.AccessKeyID,
+		"HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY":   garage.SecretAccessKey,
+		"HARDEN_LLM_ENVIRONMENT":                  "test",
+		"HARDEN_LLM_RELEASE":                      "capacity-test",
+		"HARDEN_LLM_SERVICE_NAME":                 "harden-llm-capacity-test",
+		"HARDEN_LLM_STATIC_TOKEN":                 capacityToken,
+		"HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID":      capacityOwnerID,
+		"HARDEN_LLM_CONTROL_PLANE_URL":            "http://127.0.0.1:1",
+		"HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN": "capacity-control-plane-token",
+		"HARDEN_LLM_MAX_RUN_DURATION_MS":          "60000",
+		"HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST":   "127.0.0.1/32",
+		"HARDEN_LLM_TEST_GARAGE_ENDPOINT":         strings.TrimPrefix(garage.Endpoint, "http://"),
+		"HARDEN_LLM_OTEL_EXPORTER_OTLP_ENDPOINT":  telemetryEndpoint,
 	}
-}
-
-func bootstrapCapacityOwner(databaseURL string) error {
-	environment := map[string]string{databaseURLEnvironment: databaseURL}
-	return run(context.Background(), []string{
-		"bootstrap-user", "--owner-id", capacityOwnerID, "--email", "capacity-test@example.test",
-	}, strings.NewReader("capacity-fixture-password-not-used\n"), io.Discard, io.Discard, func(key string) string {
-		return environment[key]
-	})
 }
 
 func saveCapacityProfile(ctx context.Context, client *http.Client, gatewayURL, providerBaseURL string) error {

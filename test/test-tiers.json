@@ -13,10 +13,6 @@
   "benchmarkLaneOrder": ["fast-candidates", "integration", "browser", "full-system"],
   "frontendSerialExceptions": [
     {
-      "path": "frontend/test/harden_llm_web/session_vault_test.exs",
-      "resource": "global_session_vault_clock_and_restart"
-    },
-    {
       "path": "frontend/test/harden_llm_web/security_observability_test.exs",
       "resource": "global_observability_application_configuration"
     }

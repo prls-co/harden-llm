@@ -16,37 +16,34 @@ func TestServerConfiguration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if config.listenAddress != defaultListenAddress || config.maxRunDuration != 60*time.Second || config.sessionTTL != 24*time.Hour ||
+	if config.listenAddress != defaultListenAddress || config.maxRunDuration != 60*time.Second || config.controlPlaneURL != "http://control-plane:8080" ||
 		len(config.encryptionKeys) != 1 || len(config.privateAllowedHosts) != 1 || len(config.privateAllowlist) != 2 {
 		t.Fatalf("configuration = %#v", config)
 	}
 
 	environment[staticTokenEnvironment] = strings.Repeat("s", 43)
-	environment[staticTokenOwnerEnvironment] = "operator-01"
+	environment[staticTokenAccountEnvironment] = "11111111-1111-4111-8111-111111111111"
 	environment[jinaAPIKeyEnvironment] = "fixture-jina-key"
 	config, err = loadServerConfig(mapEnvironment(environment))
-	if err != nil || config.staticToken != strings.Repeat("s", 43) || config.staticTokenOwnerID != "operator-01" || config.jinaAPIKey != "fixture-jina-key" {
+	if err != nil || config.staticToken != strings.Repeat("s", 43) || config.staticTokenAccountID != "11111111-1111-4111-8111-111111111111" || config.jinaAPIKey != "fixture-jina-key" {
 		t.Fatalf("static token configuration = %#v, %v", config, err)
 	}
 
-	for name, values := range map[string]string{
-		"missing owner": staticTokenEnvironment,
-		"missing token": staticTokenOwnerEnvironment,
-	} {
-		environment = validServerEnvironment()
-		if name == "missing owner" {
-			environment[staticTokenEnvironment] = strings.Repeat("s", 43)
-		} else {
-			environment[staticTokenOwnerEnvironment] = "operator-01"
-		}
-		if _, err := loadServerConfig(mapEnvironment(environment)); err == nil || !strings.Contains(err.Error(), values) {
-			t.Fatalf("%s configuration error = %v", name, err)
-		}
+	environment = validServerEnvironment()
+	environment[staticTokenEnvironment] = strings.Repeat("s", 43)
+	if _, err := loadServerConfig(mapEnvironment(environment)); err != nil {
+		t.Fatalf("BFF service credential without machine account = %v", err)
+	}
+	environment = validServerEnvironment()
+	delete(environment, staticTokenEnvironment)
+	environment[staticTokenAccountEnvironment] = "11111111-1111-4111-8111-111111111111"
+	if _, err := loadServerConfig(mapEnvironment(environment)); err == nil || !strings.Contains(err.Error(), staticTokenEnvironment) {
+		t.Fatalf("machine account without service credential = %v", err)
 	}
 
 	environment = validServerEnvironment()
 	environment[staticTokenEnvironment] = strings.Repeat("s", 31)
-	environment[staticTokenOwnerEnvironment] = "operator-01"
+	environment[staticTokenAccountEnvironment] = "11111111-1111-4111-8111-111111111111"
 	if _, err := loadServerConfig(mapEnvironment(environment)); err == nil || !strings.Contains(err.Error(), staticTokenEnvironment) {
 		t.Fatalf("short static token configuration error = %v", err)
 	}
@@ -60,6 +57,12 @@ func TestServerConfiguration(t *testing.T) {
 	environment[encryptionKeysEnvironment] = `{"key-1":"secret-key-material-must-not-leak"}`
 	if _, err := loadServerConfig(mapEnvironment(environment)); err == nil || strings.Contains(err.Error(), "secret-key-material") {
 		t.Fatalf("invalid key error leaked configuration: %v", err)
+	}
+	environment = validServerEnvironment()
+	environment[environmentEnvironment] = "production"
+	delete(environment, staticTokenEnvironment)
+	if _, err := loadServerConfig(mapEnvironment(environment)); err == nil || !strings.Contains(err.Error(), staticTokenEnvironment) {
+		t.Fatalf("missing production service credential = %v", err)
 	}
 	environment = validServerEnvironment()
 	environment[environmentEnvironment] = "production"
@@ -108,6 +111,9 @@ func validServerEnvironment() map[string]string {
 		artifactBucketEnvironment:      "harden-llm-artifacts",
 		artifactAccessKeyEnvironment:   "GK12345678901234567890123456789012",
 		artifactSecretKeyEnvironment:   "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ01",
+		controlPlaneURLEnvironment:     "http://control-plane:8080",
+		controlPlaneTokenEnvironment:   "control-plane-internal-token",
+		staticTokenEnvironment:         "fixture-harden-llm-service-token-0123456789",
 		environmentEnvironment:         "development",
 		releaseEnvironment:             "v0.1.0-test",
 		otelEndpointEnvironment:        "http://otel-collector:4317",

@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prls-co/harden-llm/internal/gateway/auth"
 	"github.com/prls-co/harden-llm/internal/retry"
 )
 
@@ -30,8 +31,8 @@ const liveGatewayConfigEnvironment = "HARDEN_LLM_LIVE_GATEWAY_CONFIG"
 
 type liveGatewayConfig struct {
 	GatewayURL           string          `json:"gatewayUrl"`
-	Email                string          `json:"email"`
-	PasswordEnv          string          `json:"passwordEnv"`
+	AccountID            string          `json:"accountId"`
+	ServiceTokenEnv      string          `json:"serviceTokenEnv"`
 	ProviderAPIKeyEnv    string          `json:"providerApiKeyEnv"`
 	Profile              json.RawMessage `json:"profile"`
 	ArtifactAllowedHosts []string        `json:"artifactAllowedHosts"`
@@ -41,7 +42,7 @@ type liveGatewayConfig struct {
 }
 
 type liveSecrets struct {
-	password        string
+	serviceToken    string
 	providerAPIKey  string
 	grafanaUser     string
 	grafanaPassword string
@@ -65,13 +66,7 @@ func TestLiveGatewayLifecycle(t *testing.T) {
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
 
-	login := liveRequest(t, client, http.MethodPost, config.GatewayURL+"/api/v1/auth/login", map[string]any{
-		"email": config.Email, "password": secrets.password,
-	}, "", http.StatusOK)
-	token := liveText(t, liveObject(t, login.value["result"], "login result")["accessToken"], "access token")
-	if token == "" {
-		t.Fatal("login returned an empty access token")
-	}
+	token := secrets.serviceToken
 
 	unique := fmt.Sprintf("live-%d", time.Now().UTC().UnixNano())
 	profile := liveProfile(t, config.Profile, unique)
@@ -84,7 +79,6 @@ func TestLiveGatewayLifecycle(t *testing.T) {
 			liveCleanupRequest(t, cleanupClient, http.MethodDelete, config.GatewayURL+"/api/v1/history/"+url.PathEscape(runID), token)
 		}
 		liveCleanupRequest(t, cleanupClient, http.MethodDelete, config.GatewayURL+"/api/v1/profiles/"+url.PathEscape(profileID), token)
-		liveCleanupRequest(t, cleanupClient, http.MethodPost, config.GatewayURL+"/api/v1/auth/logout", token)
 	})
 
 	liveRequest(t, client, http.MethodPut, config.GatewayURL+"/api/v1/profiles/"+url.PathEscape(profileID), map[string]any{
@@ -147,8 +141,6 @@ func TestLiveGatewayLifecycle(t *testing.T) {
 	runID = ""
 	liveRequest(t, client, http.MethodDelete, config.GatewayURL+"/api/v1/profiles/"+url.PathEscape(profileID), nil, token, http.StatusOK)
 	profileID = ""
-	liveRequest(t, client, http.MethodPost, config.GatewayURL+"/api/v1/auth/logout", nil, token, http.StatusOK)
-	token = ""
 }
 
 func loadLiveGatewayConfig(t *testing.T, path string) (liveGatewayConfig, liveSecrets) {
@@ -168,8 +160,8 @@ func loadLiveGatewayConfig(t *testing.T, path string) (liveGatewayConfig, liveSe
 	}
 	config.GatewayURL = validateLiveOrigin(t, config.GatewayURL, "gateway")
 	config.GrafanaURL = validateLiveOrigin(t, config.GrafanaURL, "Grafana")
-	if strings.TrimSpace(config.Email) == "" || len(config.Profile) == 0 || len(config.ArtifactAllowedHosts) == 0 {
-		t.Fatal("live gateway email, profile, and artifact host allowlist are required")
+	if auth.ValidateAccountID(config.AccountID) != nil || len(config.Profile) == 0 || len(config.ArtifactAllowedHosts) == 0 {
+		t.Fatal("live gateway account UUID, profile, and artifact host allowlist are required")
 	}
 	secret := func(name, purpose string) string {
 		name = strings.TrimSpace(name)
@@ -180,7 +172,7 @@ func loadLiveGatewayConfig(t *testing.T, path string) (liveGatewayConfig, liveSe
 		return value
 	}
 	return config, liveSecrets{
-		password:        secret(config.PasswordEnv, "user password"),
+		serviceToken:    secret(config.ServiceTokenEnv, "gateway service token"),
 		providerAPIKey:  secret(config.ProviderAPIKeyEnv, "provider API key"),
 		grafanaUser:     secret(config.GrafanaUserEnv, "Grafana user"),
 		grafanaPassword: secret(config.GrafanaPasswordEnv, "Grafana password"),
@@ -441,7 +433,7 @@ func TestLivePrometheusCounter(t *testing.T) {
 }
 
 func liveContainsSecret(body []byte, secrets liveSecrets) bool {
-	for _, secret := range []string{secrets.password, secrets.providerAPIKey, secrets.grafanaPassword} {
+	for _, secret := range []string{secrets.serviceToken, secrets.providerAPIKey, secrets.grafanaPassword} {
 		if secret != "" && bytes.Contains(body, []byte(secret)) {
 			return true
 		}

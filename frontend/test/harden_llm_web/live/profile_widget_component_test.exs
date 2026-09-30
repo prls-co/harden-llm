@@ -506,9 +506,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
 
     Req.Test.stub(HardenAPI, fn request ->
       case {request.method, request.request_path} do
-        {"GET", "/api/v1/auth/session"} ->
-          Req.Test.json(request, APIFixtures.success(APIFixtures.principal()))
-
         {"GET", "/api/v1/state"} ->
           Req.Test.json(request, APIFixtures.success(nil, state))
 
@@ -588,9 +585,6 @@ defmodule HardenLlmWeb.ProfileWidgetComponentTest do
 
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do
-        {"GET", "/api/v1/auth/session"} ->
-          Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
-
         {"GET", "/api/v1/state"} ->
           Req.Test.json(conn, APIFixtures.success(nil, state))
 

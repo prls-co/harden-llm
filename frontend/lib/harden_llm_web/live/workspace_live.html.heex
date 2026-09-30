@@ -1,4 +1,4 @@
-<Layouts.app flash={@flash} current_scope={@current_scope} current_identity={@current_identity}>
+<Layouts.app flash={@flash} current_user={@current_user}>
   <main id="workspace-page" class="studio-page mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
     <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
@@ -76,7 +76,7 @@
               recovery_field_errors={@recovery_field_errors}
               pricing_open={@ui["pricingOpen"]}
               fold_disabled={not is_nil(@state_save_in_flight)}
-              session_handle={@session_handle}
+              session_ref={@access_context.session_ref}
               bundle_upload={@uploads.profile_bundle}
             />
           </section>

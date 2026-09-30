@@ -27,6 +27,13 @@ import (
 	"github.com/prls-co/harden-llm/internal/integrationtest"
 	"github.com/prls-co/harden-llm/internal/postgres"
 	"github.com/prls-co/harden-llm/internal/profiles"
+	"github.com/prls-co/prls-control-plane/go/access"
+)
+
+const (
+	accountAID = "11111111-1111-4111-8111-111111111111"
+	accountBID = "22222222-2222-4222-8222-222222222222"
+	serviceKey = "harden-llm-test-service-token-0123456789"
 )
 
 func TestResourceRoutes(t *testing.T) {
@@ -44,23 +51,28 @@ func TestResourceRoutes(t *testing.T) {
 	}
 	now := time.Date(2026, 7, 13, 14, 0, 0, 0, time.UTC)
 	clock := func() time.Time { return now }
-	identity, err := auth.NewService(auth.Config{Store: store, SessionTTL: time.Hour, Clock: clock})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, user := range []struct{ id, email, password string }{
-		{"owner-a", "a@example.test", "correct horse battery staple A"},
-		{"owner-b", "b@example.test", "correct horse battery staple B"},
-	} {
-		if _, err := identity.BootstrapUser(ctx, user.id, user.email, user.password); err != nil {
-			t.Fatal(err)
+	controlPlane := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodGet || request.URL.Path != "/internal/v1/access-context" ||
+			request.Header.Get("Authorization") != "Bearer control-plane-internal-token" {
+			http.Error(writer, "unexpected identity request", http.StatusBadRequest)
+			return
 		}
-	}
-	loginA, err := identity.Login(ctx, "a@example.test", "correct horse battery staple A")
+		accountID := map[string]string{"session-a": accountAID, "session-b": accountBID}[request.Header.Get("X-PRLS-Session-Reference")]
+		if accountID == "" {
+			writer.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"user_id":"user-1","email":"user@example.test","name":"Test User","role":"member","session_ref":"` + request.Header.Get("X-PRLS-Session-Reference") + `","account":{"account_id":"` + accountID + `","name":"Test Account","products":["harden-llm"]}}`))
+	}))
+	defer controlPlane.Close()
+	controlPlaneClient, err := access.New(controlPlane.URL, "control-plane-internal-token")
 	if err != nil {
 		t.Fatal(err)
 	}
-	loginB, err := identity.Login(ctx, "b@example.test", "correct horse battery staple B")
+	identity, err := auth.NewService(auth.Config{
+		ControlPlane: controlPlaneClient, ServiceToken: serviceKey, StaticAccountID: accountAID,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,8 +117,8 @@ func TestResourceRoutes(t *testing.T) {
 	}
 	server := httptest.NewServer(api.Handler())
 	defer server.Close()
-	authA := map[string][]string{"Authorization": {"Bearer " + loginA.AccessToken}}
-	authB := map[string][]string{"Authorization": {"Bearer " + loginB.AccessToken}}
+	authA := map[string][]string{"Authorization": {"Bearer " + serviceKey}, "X-PRLS-Session-Reference": {"session-a"}}
+	authB := map[string][]string{"Authorization": {"Bearer " + serviceKey}, "X-PRLS-Session-Reference": {"session-b"}}
 
 	stateBody := []byte(`{"schemaVersion":2,"selectedProfileId":"Backup","modelId":"gpt-backup","userPrompt":"draft","callType":"text","cacheMode":"off","recoveryPolicy":{"maxAttempts":1,"retryOn":[],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}}`)
 	response := apiRequest(t, server.Client(), http.MethodPost, server.URL+"/api/v1/state", stateBody, authA)
@@ -159,11 +171,11 @@ func TestResourceRoutes(t *testing.T) {
 	if len(models) != 2 || models[0].(map[string]any)["id"] != "model-a" {
 		t.Fatalf("normalized models = %#v", models)
 	}
-	beforeFailure, _ := store.Profile(ctx, "owner-a", "Backup")
+	beforeFailure, _ := store.Profile(ctx, accountAID, "Backup")
 	modelRefresher.err = errors.New("provider unavailable")
 	response = apiRequest(t, server.Client(), http.MethodPost, server.URL+"/api/v1/profiles/Backup/models:refresh", nil, authA)
 	assertEnvelope(t, response, http.StatusServiceUnavailable, true)
-	afterFailure, _ := store.Profile(ctx, "owner-a", "Backup")
+	afterFailure, _ := store.Profile(ctx, accountAID, "Backup")
 	if !bytes.Equal(beforeFailure.Document, afterFailure.Document) {
 		t.Fatal("failed model refresh replaced prior model list")
 	}
@@ -187,7 +199,7 @@ func TestResourceRoutes(t *testing.T) {
 	invalidBytes, _ := json.Marshal(invalidBundle)
 	response = apiRequest(t, server.Client(), http.MethodPut, server.URL+"/api/v1/profiles/bundle", invalidBytes, authA)
 	assertEnvelope(t, response, http.StatusUnprocessableEntity, true)
-	unchanged, _ := store.Profile(ctx, "owner-a", "Backup")
+	unchanged, _ := store.Profile(ctx, accountAID, "Backup")
 	if !bytes.Equal(unchanged.Document, beforeFailure.Document) {
 		t.Fatal("invalid bundle partially replaced prior profiles")
 	}
@@ -246,17 +258,17 @@ func TestResourceRoutes(t *testing.T) {
 		t.Fatalf("owner stats = %#v", stats)
 	}
 
-	ownerStore, err := garageStore.Scoped(garageFixture.Scope("llm-traces/owner-a/"))
+	ownerStore, err := garageStore.Scoped(garageFixture.Scope("llm-traces/" + accountAID + "/"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	objectKey := garageFixture.Key("llm-traces/owner-a/run-a/trace-a/artifact-a-trace.json")
+	objectKey := garageFixture.Key("llm-traces/" + accountAID + "/run-a/trace-a/artifact-a-trace.json")
 	reference, err := ownerStore.Put(ctx, objectKey, []byte(`{"safe":true}`), "application/json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := store.SeedArtifactMetadataForTest(ctx, postgres.ArtifactRecord{
-		OwnerID: "owner-a", RunID: "run-a", TraceID: "trace-a", ID: "artifact-a", Kind: "trace", ObjectKey: objectKey,
+		OwnerID: accountAID, RunID: "run-a", TraceID: "trace-a", ID: "artifact-a", Kind: "trace", ObjectKey: objectKey,
 		ContentType: reference.ContentType, SHA256: reference.SHA256, SizeBytes: reference.SizeBytes,
 		State: "available", CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
@@ -286,7 +298,8 @@ func TestResourceRoutes(t *testing.T) {
 	noRedirect := *server.Client()
 	noRedirect.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	redirectRequest, _ := http.NewRequest(http.MethodGet, server.URL+"/api/v1/traces/trace-a/artifacts/artifact-a", nil)
-	redirectRequest.Header.Set("Authorization", "Bearer "+loginA.AccessToken)
+	redirectRequest.Header.Set("Authorization", "Bearer "+serviceKey)
+	redirectRequest.Header.Set("X-PRLS-Session-Reference", "session-a")
 	redirect, err := noRedirect.Do(redirectRequest)
 	if err != nil {
 		t.Fatal(err)
@@ -298,7 +311,8 @@ func TestResourceRoutes(t *testing.T) {
 		t.Fatalf("artifact redirect = %d %q", redirect.StatusCode, location)
 	}
 	redirectRequest, _ = http.NewRequest(http.MethodGet, server.URL+"/api/v1/traces/trace-a/artifacts/artifact-a", nil)
-	redirectRequest.Header.Set("Authorization", "Bearer "+loginB.AccessToken)
+	redirectRequest.Header.Set("Authorization", "Bearer "+serviceKey)
+	redirectRequest.Header.Set("X-PRLS-Session-Reference", "session-b")
 	redirect, err = noRedirect.Do(redirectRequest)
 	if err != nil {
 		t.Fatal(err)
@@ -309,16 +323,16 @@ func TestResourceRoutes(t *testing.T) {
 	}
 
 	if err := store.SaveExecution(ctx, postgres.RunRecord{
-		OwnerID: "owner-a", ID: "run-delete-failure", ProfileID: "Backup", TraceID: "trace-delete-failure", Status: "failed",
+		OwnerID: accountAID, ID: "run-delete-failure", ProfileID: "Backup", TraceID: "trace-delete-failure", Status: "failed",
 		Request: json.RawMessage(`{"profileId":"Backup"}`), Result: json.RawMessage(`{"output":null}`), StartedAt: now, CompletedAt: now,
 	}, postgres.TraceRecord{
-		OwnerID: "owner-a", TraceID: "trace-delete-failure", RunID: "run-delete-failure", Record: json.RawMessage(`{"status":"failed"}`), CreatedAt: now, UpdatedAt: now,
+		OwnerID: accountAID, TraceID: "trace-delete-failure", RunID: "run-delete-failure", Record: json.RawMessage(`{"status":"failed"}`), CreatedAt: now, UpdatedAt: now,
 	}, nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	failureObjectKey := garageFixture.Key("llm-traces/owner-a/run-delete-failure/trace-delete-failure/artifact-delete-failure-trace.json")
+	failureObjectKey := garageFixture.Key("llm-traces/" + accountAID + "/run-delete-failure/trace-delete-failure/artifact-delete-failure-trace.json")
 	if err := store.SeedArtifactMetadataForTest(ctx, postgres.ArtifactRecord{
-		OwnerID: "owner-a", RunID: "run-delete-failure", TraceID: "trace-delete-failure", ID: "artifact-delete-failure", Kind: "trace", ObjectKey: failureObjectKey,
+		OwnerID: accountAID, RunID: "run-delete-failure", TraceID: "trace-delete-failure", ID: "artifact-delete-failure", Kind: "trace", ObjectKey: failureObjectKey,
 		ContentType: "application/json", SHA256: strings.Repeat("b", 64), SizeBytes: 1,
 		State: "available", CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
@@ -331,25 +345,25 @@ func TestResourceRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := failingService.DeleteHistory(ctx, "owner-a", "run-delete-failure"); err == nil {
+	if err := failingService.DeleteHistory(ctx, accountAID, "run-delete-failure"); err == nil {
 		t.Fatal("artifact deletion failure did not fail closed")
 	}
-	if _, err := store.Run(ctx, "owner-a", "run-delete-failure"); err != nil {
+	if _, err := store.Run(ctx, accountAID, "run-delete-failure"); err != nil {
 		t.Fatalf("artifact deletion failure removed run metadata: %v", err)
 	}
-	if _, _, err := store.Trace(ctx, "owner-a", "trace-delete-failure"); err != nil {
+	if _, _, err := store.Trace(ctx, accountAID, "trace-delete-failure"); err != nil {
 		t.Fatalf("artifact deletion failure removed trace metadata: %v", err)
 	}
 
 	response = apiRequest(t, server.Client(), http.MethodDelete, server.URL+"/api/v1/history/run-a", nil, authA)
 	assertEnvelope(t, response, http.StatusOK, false)
-	if _, err := store.Run(ctx, "owner-a", "run-a"); !errors.Is(err, postgres.ErrNotFound) {
+	if _, err := store.Run(ctx, accountAID, "run-a"); !errors.Is(err, postgres.ErrNotFound) {
 		t.Fatalf("history record was not deleted: %v", err)
 	}
-	if _, _, err := store.Trace(ctx, "owner-a", "trace-a"); !errors.Is(err, postgres.ErrNotFound) {
+	if _, _, err := store.Trace(ctx, accountAID, "trace-a"); !errors.Is(err, postgres.ErrNotFound) {
 		t.Fatalf("trace metadata was not deleted: %v", err)
 	}
-	if _, err := store.Artifact(ctx, "owner-a", "trace-a", "artifact-a"); !errors.Is(err, postgres.ErrNotFound) {
+	if _, err := store.Artifact(ctx, accountAID, "trace-a", "artifact-a"); !errors.Is(err, postgres.ErrNotFound) {
 		t.Fatalf("artifact metadata was not deleted: %v", err)
 	}
 	if _, _, err := ownerStore.Get(ctx, objectKey); !artifacts.IsKind(err, artifacts.KindNotFound) {
@@ -357,7 +371,7 @@ func TestResourceRoutes(t *testing.T) {
 	}
 	response = apiRequest(t, server.Client(), http.MethodDelete, server.URL+"/api/v1/history", nil, authA)
 	assertEnvelope(t, response, http.StatusOK, false)
-	if _, _, err := store.Trace(ctx, "owner-a", "trace-orphan"); !errors.Is(err, postgres.ErrNotFound) {
+	if _, _, err := store.Trace(ctx, accountAID, "trace-orphan"); !errors.Is(err, postgres.ErrNotFound) {
 		t.Fatalf("orphan trace was not cleared: %v", err)
 	}
 	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/stats", nil, authA)
@@ -441,13 +455,13 @@ func seedResourceHistory(t *testing.T, ctx context.Context, store *postgres.Stor
 		traceID := strings.Replace(id, "run", "trace", 1)
 		var observations []postgres.ObservationRecord
 		if id == "run-a" {
-			observations = []postgres.ObservationRecord{{OwnerID: "owner-a", TraceID: traceID, Sequence: 0, Type: "provider.attempt", Data: json.RawMessage(`{"number":1}`), CreatedAt: now}}
+			observations = []postgres.ObservationRecord{{OwnerID: accountAID, TraceID: traceID, Sequence: 0, Type: "provider.attempt", Data: json.RawMessage(`{"number":1}`), CreatedAt: now}}
 		}
 		if err := store.SaveExecution(ctx, postgres.RunRecord{
-			OwnerID: "owner-a", ID: id, ProfileID: "Backup", TraceID: traceID, Status: "succeeded",
+			OwnerID: accountAID, ID: id, ProfileID: "Backup", TraceID: traceID, Status: "succeeded",
 			Request: json.RawMessage(`{"profileId":"Backup"}`), Result: json.RawMessage(`{"output":"ok"}`), StartedAt: now, CompletedAt: now,
 		}, postgres.TraceRecord{
-			OwnerID: "owner-a", TraceID: traceID, RunID: id, Record: json.RawMessage(`{"status":"success"}`), CreatedAt: now, UpdatedAt: now,
+			OwnerID: accountAID, TraceID: traceID, RunID: id, Record: json.RawMessage(`{"status":"success"}`), CreatedAt: now, UpdatedAt: now,
 		}, observations, nil); err != nil {
 			t.Fatal(err)
 		}

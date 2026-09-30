@@ -151,7 +151,7 @@ func TestDiagnosticCompletenessEval(t *testing.T) {
 	}
 	httpContext, endHTTP := gatewayTelemetry.StartHTTP(context.Background(), http.MethodPost)
 	for _, operation := range []string{
-		gateway.OperationAuthAuthenticate, gateway.OperationAuthLogin, gateway.OperationProfileSave,
+		gateway.OperationAuthAuthenticate, gateway.OperationProfileSave,
 		gateway.OperationModelRefresh, gateway.OperationRun,
 	} {
 		_, endOperation := gatewayTelemetry.StartOperation(httpContext, operation)
@@ -200,7 +200,7 @@ func TestDiagnosticCompletenessEval(t *testing.T) {
 		coreruntime.SpanCall, coreruntime.SpanRuntime, coreruntime.SpanProvider, coreruntime.SpanAttempt,
 		coreruntime.SpanRetryWait, coreruntime.SpanSchema, coreruntime.SpanCacheLookup,
 		coreruntime.SpanCacheWrite, coreruntime.SpanArtifact,
-		"hardenllm.http.request", "hardenllm.auth.authenticate", "hardenllm.auth.login",
+		"hardenllm.http.request", "hardenllm.auth.authenticate",
 		"hardenllm.profile.save", "hardenllm.profile.models.refresh", "hardenllm.run.execute",
 		"hardenllm.trace.persist", "hardenllm.artifact.index", "hardenllm.postgres.query", "hardenllm.garage.put",
 	}

@@ -3,9 +3,16 @@ FROM --platform=$BUILDPLATFORM golang:1.26.6-alpine3.23@sha256:5978cc992ad5ef96a
 
 ARG TARGETOS
 ARG TARGETARCH
+RUN apk add --no-cache git=2.52.0-r0
+ENV GOPRIVATE=github.com/prls-co/prls-control-plane
 WORKDIR /src
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod \
+RUN --mount=type=secret,id=private_module_token,required=true \
+    --mount=type=cache,target=/go/pkg/mod \
+    token="$(cat /run/secrets/private_module_token)" && \
+    GIT_CONFIG_COUNT=1 \
+    GIT_CONFIG_KEY_0="url.https://x-access-token:${token}@github.com/prls-co/prls-control-plane.insteadOf" \
+    GIT_CONFIG_VALUE_0="https://github.com/prls-co/prls-control-plane" \
     go mod download
 COPY . .
 ARG VERSION=0.1.0

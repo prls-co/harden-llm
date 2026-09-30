@@ -5,7 +5,9 @@
 > the Collector no longer exports to Langfuse. See the current decisions and
 > assertions in `harden-llm-self-hosted-test-spec.md` and
 > `self-hosted-go-stack-spec.md`. The retained Langfuse stack and history are
-> pending separate consumer and retention review.
+> pending separate consumer and retention review. Its original local-user
+> identity design was superseded on 2026-09-30 by ADR-HLLM-029; the current
+> requirements and migration gate are recorded in the amendment below.
 
 ## 1. Title and metadata
 
@@ -64,7 +66,7 @@
   - All fifteen Compose services ready within 300 seconds on the reference host.
   - Zero Firebase, frontend implementation, or direct Langfuse exporter paths in backend-owned code, builds, and the base deployment.
 - Scope:
-  - Root Go library, built-in providers, retry/repair/backup behavior, cache, schema, usage/pricing, profiles, traces/stats, diagnostics, Harden-LLM Postgres, Garage artifacts, local bearer auth, REST/OpenAPI gateway, OTel/Grafana/Langfuse stack, Caddy, and Compose.
+  - Root Go library, built-in providers, retry/repair/backup behavior, cache, schema, usage/pricing, profiles, traces/stats, diagnostics, Harden-LLM Postgres, Garage artifacts, Control Plane-backed human authorization, REST/OpenAPI gateway, OTel/Grafana/Langfuse stack, Caddy, and Compose.
 - Non-goals:
   - Frontend implementation, Phoenix/LiveView runtime, browser auth/session/CSRF, application SQLite, Sentry, Temporal, Kubernetes, OIDC, public registration, async run queues, distributed idempotency, scheduled retention, automated backup/restore, multi-node Garage, and local substitution of any Langfuse-owned dependency.
 - Dependencies:
@@ -103,8 +105,8 @@
 | REQ-007 | data | Usage, pricing, profiles, domain traces, observations, stats, and diagnostics shall preserve canonical semantic fields. | Canonicalized Go projections match source fixtures or carry an ADR annotation. |
 | REQ-008 | security | Endpoint credentials shall use versioned AES-256-GCM records with key ID, nonce, and owner/credential/origin AAD. | Tamper, wrong-key, wrong-owner, and wrong-origin tests fail; API state is redacted. |
 | REQ-009 | data | Dedicated Harden-LLM Postgres shall own application records and Garage artifact indexes without sharing credentials, databases, or migrations with Langfuse's upstream Postgres service. | Migrations, constraints, indexes, advisory locking, repository round trips, artifact references, and cross-service configuration isolation pass. |
-| REQ-010 | security | The gateway shall own bootstrap local users, Argon2id verification, opaque hashed bearer sessions, and owner isolation without browser-cookie or CSRF behavior. | Login returns the token once, protected routes require one valid bearer credential, only token digests persist, and two-user isolation passes for every user-owned resource. |
-| REQ-011 | int | The gateway shall expose the versioned `/api/v1` resource routes defined by the stack specification. | Health, auth, state, profile, bundle, model, history, run, trace, and owner-authorized artifact routes use stable envelopes and root library calls. |
+| REQ-010 | security | Control Plane owns human identity and current product access; the gateway resolves them for every request and scopes HLLM data by account UUID. A separate machine bearer is allowed only with an explicit account UUID. | Current access, denial, revocation, unavailable-authority failure, host-only Phoenix session, and account-scoped machine tests pass; HLLM stores no human passwords, local sessions, or duplicate account records. |
+| REQ-011 | int | The gateway shall expose versioned `/api/v1` product-resource routes without local login/session endpoints. | State, profile, bundle, model, history, run, trace, and owner-authorized artifact routes use stable envelopes and resolve owners from current Control Plane context or explicit machine scope. |
 | REQ-012 | int | The backend shall publish a frontend-independent OpenAPI 3.1 contract and contain no Firebase or frontend implementation surface. | OpenAPI/router/request/response conformance passes; scoped static scans find no Firebase, Phoenix/LiveView, React/Vite, HTML-template, browser-session, or asset implementation. |
 | REQ-013 | nfr | The application shall emit OTel traces/metrics and correlated `slog` JSON with bounded, redacted attributes. | Required signal coverage is complete, metric labels are bounded, and secret scans pass. |
 | REQ-014 | reliability | Telemetry backend failures shall not alter provider results and process shutdown shall be bounded. | Collector outage tests preserve results, bound queues, report safely, and finish shutdown within the configured budget. |
@@ -116,6 +118,19 @@
 | REQ-020 | data | Harden-LLM shall replace Firebase Storage with one Garage-backed artifact store for private redacted trace JSON and diagnostic attachments, indexed by owner in Postgres. | Real-Garage tests prove canonical bytes, hashes, sizes, short-lived presigning, owner authorization, non-fatal bounded failures, and strict separation from Langfuse MinIO. |
 
 Deployment ownership amendment (2026-09-24): REQ-017 describes current ownership. The original Phase P08 action and its fifteen-service checks are historical implementation evidence; this shared-Garage transition supersedes their local Garage ownership assumption and changes the current repo-owned service count to fourteen. The cross-repository transition plan owns the shared daemon and cutover acceptance.
+
+Identity ownership amendment (2026-09-30): ADR-HLLM-029 replaces local email/password users and gateway bearer sessions with Control Plane identity/access. Product data remains in HLLM Postgres/Garage under Control Plane account UUIDs. The one-time `rehome-identities` command re-encrypts owner-bound credentials and verifies Garage artifact relocation before schema migration 0010 removes local identity tables. Production and persistent preview migrations are forward-only and remain blocked until every legacy owner has an explicit, one-to-one Control Plane account mapping; no data consolidation or fallback identity path is allowed.
+
+Identity implementation checkpoint (2026-09-30): source implementation is in
+the visible `codex/issue-18-control-plane-identity` worktree. Its local
+`make test-release` run passed all 29 tasks with no failures, cleanup errors, or
+cleanup warnings. This check preceded the final plan edits below; the HLLM
+source diff is unchanged. Hosted checks and PR publication follow this local
+gate. Production rehome remains blocked until `operator-local` and `guest` each
+have an explicitly selected Control Plane account mapping and current
+`harden-llm` entitlement. Do not stop the production gateway or frontend before
+the approved rehome window; no production data or schema has been changed. The
+suite is browser-free; no real browser verification was requested or run.
 
 ### Error handling and telemetry expectations
 

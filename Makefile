@@ -1,6 +1,7 @@
 GO ?= go
 GOFMT ?= gofmt
 NODE ?= node
+export GOPRIVATE ?= github.com/prls-co/prls-control-plane
 # The canonical runner owns the integration service pool and selects the
 # measured package caps; these variables remain available to downstream local
 # wrappers but are not an independent scheduler.

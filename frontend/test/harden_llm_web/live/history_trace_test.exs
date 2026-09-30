@@ -536,7 +536,7 @@ defmodule HardenLlmWeb.HistoryTraceTest do
     view = open_history(conn)
     view |> element("#history-trace-run-test-summary") |> render_click()
     view |> element("#history-trace-run-test-view-json") |> render_click()
-    assert_redirect(view, ~p"/session/expired", 1_000)
+    assert_redirect(view, ~p"/login", 1_000)
   end
 
   defp open_history(conn) do
@@ -564,9 +564,6 @@ defmodule HardenLlmWeb.HistoryTraceTest do
 
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do
-        {"GET", "/api/v1/auth/session"} ->
-          Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
-
         {"GET", "/api/v1/state"} ->
           state = Map.put(APIFixtures.state(), "ui", %{"historyOpen" => history_open})
           Req.Test.json(conn, APIFixtures.success(nil, state))
