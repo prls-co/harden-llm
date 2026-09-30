@@ -61,6 +61,41 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
     refute has_element?(view, "#credential-drawer")
   end
 
+  test "new profile identity survives edits to other fields", %{conn: conn} do
+    install_stub(fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", "/api/v1/profiles"} ->
+          Req.Test.json(conn, APIFixtures.profiles([APIFixtures.profile_state()]))
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/profiles")
+    render_async(view, 1_000)
+    view |> element("#new-profile") |> render_click()
+
+    view
+    |> element("#profile_profileId")
+    |> render_change(%{"profile" => %{"profileId" => "InlineProfile"}})
+
+    view
+    |> element("#profile_provider")
+    |> render_change(%{"profile" => %{"provider" => "openai"}})
+
+    assert has_element?(view, ~s(#profile_profileId[value="InlineProfile"]))
+
+    view
+    |> element("#profile_modelId")
+    |> render_change(%{"profile" => %{"modelId" => "model-inline"}})
+
+    view
+    |> element("#profile_baseUrl")
+    |> render_change(%{"profile" => %{"baseUrl" => "https://provider.example.test/v1"}})
+
+    assert has_element?(view, ~s(#profile_profileId[value="InlineProfile"]))
+    assert has_element?(view, ~s(#profile_provider[value="openai"]))
+    assert has_element?(view, ~s(#profile_modelId[value="model-inline"]))
+  end
+
   test "create and edit use one mutation and never repopulate credential", %{conn: conn} do
     test_pid = self()
 

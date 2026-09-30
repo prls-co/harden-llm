@@ -17,6 +17,8 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
 
   alias Wallaby.Query
 
+  import HardenLlmWeb.BrowserFeatureCase, only: [stage_secret: 4]
+
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-012 TEST-055
 
   setup do
@@ -76,13 +78,14 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
       |> visit(fixture["web_url"] <> "/profiles")
       |> assert_has(Query.css("#profiles-page"))
       |> click(Query.css("#new-profile"))
-      |> fill_in(Query.text_field("Profile name"), with: "Smoke")
+      |> fill_in(Query.css("#profile_profileId"), with: "Smoke")
       |> fill_in(Query.text_field("Provider family"), with: "openai")
       |> choose_option("#profile_apiInferenceType", "responses")
-      |> fill_in(Query.text_field("Default model"), with: "smoke-model")
-      |> fill_in(Query.fillable_field("HTTPS base URL"), with: "https://fake-provider:8443/v1")
+      |> fill_in(Query.text_field("Model ID"), with: "smoke-model")
+      |> fill_in(Query.fillable_field("Base URL"), with: "https://fake-provider:8443/v1")
       |> fill_in(Query.text_field("Credential ID"), with: "compose-smoke-provider")
-      |> fill_in(Query.css("#profile_apiKey"), with: provider_secret)
+      |> stage_secret("#profile_apiKey", "#stage-profile-key", provider_secret)
+      |> assert_text("New key staged for save")
       |> click(Query.css("#profile-save"))
       |> assert_has(Query.css("#profile-Smoke", text: "Smoke"))
       |> visit(fixture["web_url"] <> "/")
@@ -91,8 +94,7 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
       |> assert_has(Query.css("#model-options"))
       |> click(Query.css("#profile-retry-toggle"))
       |> assert_has(Query.css("#profile-retry-repair"))
-      |> click(Query.css("#profile-escalation-config-toggle"))
-      |> assert_has(Query.css("#profile-escalation-config"))
+      |> assert_has(Query.css("#profile-escalation-config-toggle", count: 0, visible: :any))
       |> choose_option("#run_selectedProfileId", "Smoke")
       |> fill_in(Query.css("#run_userPrompt"), with: "return the compose smoke response")
       |> click(Query.css("#run-submit"))
