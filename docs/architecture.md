@@ -44,8 +44,11 @@ The Harden-LLM database remains product-owned. Garage runs in the separate
 repository owns only Harden-LLM's bucket and client credentials. The Collector
 exports new HLLM gateway traces to Laminar. The retained Langfuse stack and its
 existing trace history remain separate pending consumer and retention review.
-Sharing a Langfuse bucket, credential, database, or migration with Harden-LLM is
-unsupported.
+The HLLM-owned consumer, retention, and route decision is tracked in
+[issue #83](https://github.com/prls-co/harden-llm/issues/83); this source status
+does not establish the current deployed identity or prove that the UI/API has
+no readers. Sharing a Langfuse bucket, credential, database, or migration with
+Harden-LLM is unsupported.
 
 `llm_runs` is the relational execution aggregate root. A mandatory exact
 owner/run/trace foreign key makes the trace, observations, and artifact metadata

@@ -689,7 +689,7 @@ Minimum v1 verification:
 - Shared public ingress: `prls-co/caddy-shared`.
 - General diagnostics: OTel Collector, Prometheus, Loki, Tempo, and Grafana.
 - Current LLM diagnostics: Laminar receives HLLM gateway traces through the Collector.
-- Retained Langfuse OSS: its UI, dependencies, and existing history remain intact pending consumer and retention review; it receives no new HLLM traces.
+- Retained Langfuse OSS: its UI, dependencies, and existing history remain intact pending consumer and retention review; it receives no new HLLM traces. HLLM issue [#83](https://github.com/prls-co/harden-llm/issues/83) owns the remaining reader, retention, route, and lifecycle decision; this source contract does not prove current runtime state or absence of UI/API readers.
 - Langfuse dependencies: the pinned upstream default services, including its own Postgres, Redis, ClickHouse, and MinIO. Harden-LLM does not substitute, share, or migrate them.
 - Langfuse bootstrap: headless initial user/organization/project/API keys for retained Langfuse service use; no HLLM Collector export credentials are provisioned.
 - Laminar export: Collector OTLP exporter only, through the dedicated HLLM project and persistent queue.
