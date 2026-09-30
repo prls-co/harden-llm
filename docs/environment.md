@@ -25,7 +25,8 @@ Building the gateway fetches the private Control Plane Go module. Supply
 `PRIVATE_MODULE_TOKEN` in the process environment for `docker compose` or the
 production-config command that builds it. The command forwards it only so
 Compose can resolve the BuildKit secret; it is not stored in a descriptor or
-`.env`, and it is not passed to a running container.
+`.env`, and it is not passed to a running container. GitHub Actions mints a
+short-lived, contents-read-only token for the Control Plane repository.
 
 ## Gateway and application storage
 

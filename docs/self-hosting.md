@@ -32,8 +32,9 @@ Building the gateway image requires a GitHub token with read access to the
 private `prls-control-plane` Go module. Set `PRIVATE_MODULE_TOKEN` in the build
 environment; Docker Compose passes it only as a BuildKit secret while fetching
 modules. It is not a runtime setting and is not copied into the image. CI and
-the trusted preview runner use the repository's protected secret of the same
-name.
+the trusted preview runner mint a short-lived GitHub App token scoped to read
+the Control Plane repository. For local builds, use a read-only token with that
+same repository scope and keep it in the invoking process environment only.
 
 For an existing production project, install the nonsecret descriptor described
 in [`docs/environment.md`](environment.md) and run the read-only check before

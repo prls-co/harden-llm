@@ -193,7 +193,13 @@ test("preview templates expose no host ports or production telemetry and protect
   const workflow = await readFile(new URL("../../.github/workflows/test-hierarchy.yml", import.meta.url), "utf8");
   assert.match(workflow, /actions\/cache@v4/);
   const previewWorkflow = await readFile(new URL("../../.github/workflows/preview-environments.yml", import.meta.url), "utf8");
-  assert.match(previewWorkflow, /PRIVATE_MODULE_TOKEN: \$\{\{ secrets\.PRIVATE_MODULE_TOKEN \}\}/);
+  for (const configuredWorkflow of [workflow, previewWorkflow]) {
+    assert.match(configuredWorkflow, /actions\/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1/);
+    assert.match(configuredWorkflow, /secrets\.CI_APP_PRIVATE_KEY/);
+    assert.match(configuredWorkflow, /repositories: prls-control-plane[\s\S]*permission-contents: read/);
+    assert.match(configuredWorkflow, /PRIVATE_MODULE_TOKEN: \$\{\{ steps\.cp_module\.outputs\.token \}\}/);
+    assert.doesNotMatch(configuredWorkflow, /secrets\.PRIVATE_MODULE_TOKEN/);
+  }
   const gatewayDockerfile = await readFile(new URL("../../Dockerfile", import.meta.url), "utf8");
   assert.match(gatewayDockerfile, /RUN --mount=type=cache,target=\/go\/pkg\/mod/);
   assert.match(gatewayDockerfile, /type=secret,id=private_module_token,required=true/);

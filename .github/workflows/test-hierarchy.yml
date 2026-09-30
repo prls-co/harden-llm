@@ -74,6 +74,15 @@ jobs:
         with:
           elixir-version: ${{ env.ELIXIR_VERSION }}
           otp-version: ${{ env.OTP_VERSION }}
+      - name: Create short-lived private module token
+        id: cp_module
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          client-id: ${{ vars.CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: prls-control-plane
+          permission-contents: read
       - name: Restore Phoenix dependency and compile caches
         uses: actions/cache@v4
         with:
@@ -87,9 +96,9 @@ jobs:
             beam-${{ runner.os }}-${{ runner.arch }}-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-
       - run: go mod download
         env:
-          PRIVATE_MODULE_TOKEN: ${{ secrets.PRIVATE_MODULE_TOKEN }}
+          PRIVATE_MODULE_TOKEN: ${{ steps.cp_module.outputs.token }}
           GIT_CONFIG_COUNT: "1"
-          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ secrets.PRIVATE_MODULE_TOKEN }}@github.com/prls-co/prls-control-plane.insteadOf
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.cp_module.outputs.token }}@github.com/prls-co/prls-control-plane.insteadOf
           GIT_CONFIG_VALUE_0: https://github.com/prls-co/prls-control-plane
       - working-directory: frontend
         run: mix deps.get
@@ -117,11 +126,20 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+      - name: Create short-lived private module token
+        id: cp_module
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          client-id: ${{ vars.CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: prls-control-plane
+          permission-contents: read
       - run: go mod download
         env:
-          PRIVATE_MODULE_TOKEN: ${{ secrets.PRIVATE_MODULE_TOKEN }}
+          PRIVATE_MODULE_TOKEN: ${{ steps.cp_module.outputs.token }}
           GIT_CONFIG_COUNT: "1"
-          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ secrets.PRIVATE_MODULE_TOKEN }}@github.com/prls-co/prls-control-plane.insteadOf
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.cp_module.outputs.token }}@github.com/prls-co/prls-control-plane.insteadOf
           GIT_CONFIG_VALUE_0: https://github.com/prls-co/prls-control-plane
       - run: make test-integration
       - run: make test-integration-race
@@ -180,11 +198,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+      - name: Create short-lived private module token
+        id: cp_module
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          client-id: ${{ vars.CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: prls-control-plane
+          permission-contents: read
       - run: go mod download
         env:
-          PRIVATE_MODULE_TOKEN: ${{ secrets.PRIVATE_MODULE_TOKEN }}
+          PRIVATE_MODULE_TOKEN: ${{ steps.cp_module.outputs.token }}
           GIT_CONFIG_COUNT: "1"
-          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ secrets.PRIVATE_MODULE_TOKEN }}@github.com/prls-co/prls-control-plane.insteadOf
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.cp_module.outputs.token }}@github.com/prls-co/prls-control-plane.insteadOf
           GIT_CONFIG_VALUE_0: https://github.com/prls-co/prls-control-plane
       - name: Run isolated real-gateway capacity suite
         run: node scripts/run-test-tier.mjs --task capacity-baseline --output "tmp/test-feedback/runner-capacity-${{ github.run_id }}-${{ github.run_attempt }}.json"
@@ -246,17 +273,26 @@ jobs:
         with:
           elixir-version: ${{ env.ELIXIR_VERSION }}
           otp-version: ${{ env.OTP_VERSION }}
+      - name: Create short-lived private module token
+        id: cp_module
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          client-id: ${{ vars.CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: prls-control-plane
+          permission-contents: read
       - run: go mod download
         env:
-          PRIVATE_MODULE_TOKEN: ${{ secrets.PRIVATE_MODULE_TOKEN }}
+          PRIVATE_MODULE_TOKEN: ${{ steps.cp_module.outputs.token }}
           GIT_CONFIG_COUNT: "1"
-          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ secrets.PRIVATE_MODULE_TOKEN }}@github.com/prls-co/prls-control-plane.insteadOf
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.cp_module.outputs.token }}@github.com/prls-co/prls-control-plane.insteadOf
           GIT_CONFIG_VALUE_0: https://github.com/prls-co/prls-control-plane
       - working-directory: frontend
         run: mix deps.get
       - run: make test-release
         env:
-          PRIVATE_MODULE_TOKEN: ${{ secrets.PRIVATE_MODULE_TOKEN }}
+          PRIVATE_MODULE_TOKEN: ${{ steps.cp_module.outputs.token }}
       - name: Upload redacted runner reports
         if: always()
         uses: actions/upload-artifact@v4

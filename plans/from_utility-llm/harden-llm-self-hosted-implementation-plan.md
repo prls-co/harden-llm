@@ -125,12 +125,18 @@ Identity implementation checkpoint (2026-09-30): source implementation is in
 the visible `codex/issue-18-control-plane-identity` worktree. Its local
 `make test-release` run passed all 29 tasks with no failures, cleanup errors, or
 cleanup warnings. This check preceded the final plan edits below; the HLLM
-source diff is unchanged. Hosted checks and PR publication follow this local
-gate. Production rehome remains blocked until `operator-local` and `guest` each
-have an explicitly selected Control Plane account mapping and current
-`harden-llm` entitlement. Do not stop the production gateway or frontend before
-the approved rehome window; no production data or schema has been changed. The
-suite is browser-free; no real browser verification was requested or run.
+source diff is unchanged. Initial hosted fast checks then failed because the
+assumed `PRIVATE_MODULE_TOKEN` repository secret was not configured. CI now
+mints a short-lived contents-read token for only `prls-control-plane` with the
+existing PRLS CI GitHub App; the existing organization secret and client-ID
+variable were made available to this repository. No long-lived module token
+was added. Hosted retest is pending. Builds still fail closed if the app loses
+access to Control Plane. Production rehome remains blocked until
+`operator-local` and `guest` each have an explicitly selected Control Plane
+account mapping and current `harden-llm` entitlement. Do not stop the production
+gateway or frontend before the approved rehome window; no production data or
+schema has been changed. The suite is browser-free; no real browser
+verification was requested or run.
 
 ### Error handling and telemetry expectations
 
