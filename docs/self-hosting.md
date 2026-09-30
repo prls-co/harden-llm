@@ -127,6 +127,9 @@ The Go REST API routes are independent and unchanged.
 - Grafana is the operational entry point for Prometheus, Loki, and Tempo.
 - New HLLM gateway traces go from the Collector to Laminar. The separately
   retained Langfuse UI/history stack is not an HLLM trace-export destination.
+  Issue [#83](https://github.com/prls-co/harden-llm/issues/83) tracks its reader,
+  retention, and route review. Do not stop the stack or delete its data before
+  that owner review records the chosen disposition and recovery requirements.
 
 Use `"${COMPOSE[@]}" logs --since 15m <service>` sparingly. Logs are redacted by
 contract, but still treat them as operational data. The API never exposes
