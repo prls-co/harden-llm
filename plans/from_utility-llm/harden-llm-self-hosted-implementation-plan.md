@@ -152,7 +152,12 @@ the deployed browser launcher no longer accepts them. The alias and fallback
 lookup were removed, and the traceability test now rejects their presence in
 that launcher. The local HLLM `.env` has the canonical variable names (values
 were not read); `make test-fast` passed 10/10 with clean cleanup on this change.
-The hosted browser-free release suite must be rerun on the updated branch head.
+Hosted fast T0-T2 and CodeQL passed on branch head `751ce96`. Hosted
+browser-free `make test-release` also passed on that exact head in
+[run 36859042586](https://github.com/prls-co/harden-llm/actions/runs/36859042586),
+including private module fetch and the production frontend image build. The
+explicit browser gates remain skipped under the repository's user-request
+policy.
 
 The first hosted release attempt, [36853231080](https://github.com/prls-co/harden-llm/actions/runs/36853231080),
 found stale exact runtime APK pins after Alpine updated packages in its pinned
