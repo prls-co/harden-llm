@@ -6,8 +6,6 @@
   "applicationRoot": "/srv/harden-llm-production",
   "composeFiles": [
     "docker-compose.yml",
-    "deploy/langfuse/docker-compose.upstream.yml",
-    "deploy/langfuse/compose.private.yml",
     "deploy/frontend/compose.frontend.yml"
   ],
   "productionEnvFile": "/srv/harden-llm-production/.env",

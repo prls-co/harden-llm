@@ -166,8 +166,6 @@ func assertCollectorRouting(t *testing.T, pipelines, processors map[string]any) 
 		{traceID: "gateway-trace", spanID: "provider", service: "harden-llm-gateway"},
 		{traceID: "gateway-trace", spanID: "database", service: "harden-llm-gateway"},
 		{traceID: "gateway-trace", spanID: "artifact", service: "harden-llm-gateway"},
-		{traceID: "langfuse-internal", spanID: "root", service: "langfuse-web"},
-		{traceID: "langfuse-internal", spanID: "database", service: "langfuse-web"},
 	}
 	routedSpans := make(map[string][]fakeSpan)
 	routedSignals := map[string]int{}

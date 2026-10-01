@@ -37,15 +37,6 @@
 	reverse_proxy grafana:3000
 }
 
-{$HARDEN_LLM_LANGFUSE_HOST} {
-	tls {$HARDEN_LLM_TLS_MODE}
-	import security_headers
-	request_body {
-		max_size 16MB
-	}
-	reverse_proxy langfuse-web:3000
-}
-
 {$HARDEN_LLM_ARTIFACT_HOST} {
 	tls {$HARDEN_LLM_TLS_MODE}
 	import security_headers

@@ -43,8 +43,7 @@ const (
 
 var requiredSmokeStackServices = []string{
 	"caddy", "harden-llm-gateway", "harden-postgres", "garage", "otel-collector",
-	"laminar", "prometheus", "loki", "tempo", "grafana", "langfuse-web", "langfuse-worker",
-	"postgres", "clickhouse", "redis", "minio",
+	"laminar", "prometheus", "loki", "tempo", "grafana",
 }
 
 // ComposeReport is the threshold evidence shared by TEST-034 and EVAL-004.
@@ -76,8 +75,6 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 	secrets := smokeEnvironment(t, material, httpPort, httpsPort)
 	composeFiles := []string{
 		filepath.Join(root, "docker-compose.yml"),
-		filepath.Join(root, "deploy", "langfuse", "docker-compose.upstream.yml"),
-		filepath.Join(root, "deploy", "langfuse", "compose.private.yml"),
 		filepath.Join(root, "deploy", "test", "compose.smoke.yml"),
 	}
 	runner := composeRunner{
@@ -144,7 +141,6 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 	client := caddyClient(httpsPort, false)
 	waitHTTPStatus(t, client, "https://api.smoke.localhost/readyz", http.StatusOK, 45*time.Second, nil)
 	waitHTTPStatus(t, client, "https://grafana.smoke.localhost/api/health", http.StatusOK, 45*time.Second, nil)
-	waitHTTPStatus(t, client, "https://langfuse.smoke.localhost/api/public/health", http.StatusOK, 90*time.Second, nil)
 
 	bootstrapPassword := "Smoke-user-password-7xQ2mV9p"
 	bootstrapContext, cancelBootstrap := context.WithTimeout(context.Background(), 45*time.Second)
@@ -270,7 +266,7 @@ func validateFrontendSmokeCaddyfile(t *testing.T, runner composeRunner) {
 	}
 	for _, name := range []string{
 		"HARDEN_LLM_API_HOST", "HARDEN_LLM_ARTIFACT_HOST", "HARDEN_LLM_GRAFANA_HOST",
-		"HARDEN_LLM_LANGFUSE_HOST", "HARDEN_LLM_TLS_MODE", "HARDEN_LLM_WEB_HOST",
+		"HARDEN_LLM_TLS_MODE", "HARDEN_LLM_WEB_HOST",
 	} {
 		value, exists := environment[name]
 		if !exists || value == "" {
@@ -462,7 +458,7 @@ func smokeEnvironment(t *testing.T, material tlsMaterial, httpPort, httpsPort in
 	textSecret := func(prefix string) string { return prefix + base64.RawURLEncoding.EncodeToString(randomBytes(24)) }
 	return map[string]string{
 		"HARDEN_LLM_API_HOST": "api.smoke.localhost", "HARDEN_LLM_GRAFANA_HOST": "grafana.smoke.localhost",
-		"HARDEN_LLM_LANGFUSE_HOST": "langfuse.smoke.localhost", "HARDEN_LLM_ARTIFACT_HOST": "artifacts.smoke.localhost",
+		"HARDEN_LLM_ARTIFACT_HOST":              "artifacts.smoke.localhost",
 		"PRLS_SMOKE_OBSERVABILITY_NETWORK":      "prls-observability-smoke-" + hexSecret(8),
 		"PRLS_LAMINAR_PROJECT_API_KEY":          textSecret("lmnr"),
 		"HARDEN_LLM_LAMINAR_PROJECT_API_KEY":    textSecret("lmnr-harden"),
@@ -479,14 +475,6 @@ func smokeEnvironment(t *testing.T, material tlsMaterial, httpPort, httpsPort in
 		"HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY": hexSecret(32), "HARDEN_LLM_ARTIFACT_PRESIGN_TTL": "2m",
 		"PRLS_LOKI_S3_ACCESS_KEY": "GK" + strings.ToUpper(hexSecret(16)), "PRLS_LOKI_S3_SECRET_KEY": hexSecret(32),
 		"GRAFANA_ADMIN_USER": "smoke-admin", "GRAFANA_ADMIN_PASSWORD": textSecret("grafana"),
-		"LANGFUSE_POSTGRES_PASSWORD": textSecret("lfdb"), "LANGFUSE_SALT": textSecret("salt"),
-		"LANGFUSE_ENCRYPTION_KEY": hexSecret(32), "LANGFUSE_NEXTAUTH_SECRET": textSecret("auth"),
-		"LANGFUSE_INIT_ORG_ID": "harden-llm-smoke", "LANGFUSE_INIT_ORG_NAME": "Harden LLM Smoke",
-		"LANGFUSE_INIT_PROJECT_ID": "harden-llm-smoke", "LANGFUSE_INIT_PROJECT_NAME": "Harden LLM Smoke",
-		"LANGFUSE_INIT_PROJECT_PUBLIC_KEY": textSecret("pk-lf-"), "LANGFUSE_INIT_PROJECT_SECRET_KEY": textSecret("sk-lf-"),
-		"LANGFUSE_INIT_USER_EMAIL": "smoke@localhost.invalid", "LANGFUSE_INIT_USER_NAME": "Smoke Administrator",
-		"LANGFUSE_INIT_USER_PASSWORD": textSecret("user"), "CLICKHOUSE_PASSWORD": textSecret("clickhouse"),
-		"REDIS_AUTH": textSecret("redis"), "MINIO_ROOT_USER": "smokeminio", "MINIO_ROOT_PASSWORD": textSecret("minio"),
 		"SMOKE_CA_CERT": material.ca, "SMOKE_PROVIDER_CERT": material.certificate, "SMOKE_PROVIDER_KEY": material.key,
 	}
 }
@@ -920,17 +908,6 @@ func assertSmokeStorageOwnership(t *testing.T, runner composeRunner) {
 	if !ok || observability.External || observability.Name != runner.environment["PRLS_SMOKE_OBSERVABILITY_NETWORK"] {
 		t.Fatalf("smoke observability network is not isolated: %#v", observability)
 	}
-	for _, service := range []string{"langfuse-web", "langfuse-worker"} {
-		encoded := strings.ToLower(mustJSON(effective.Services[service].Environment))
-		if !strings.Contains(encoded, "minio:9000") || strings.Contains(encoded, "garage") {
-			t.Fatalf("live %s storage environment is not MinIO-only", service)
-		}
-	}
-}
-
-func mustJSON(value any) string {
-	encoded, _ := json.Marshal(value)
-	return string(encoded)
 }
 
 func object(t *testing.T, value any, label string) map[string]any {

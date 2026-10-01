@@ -1,16 +1,15 @@
 # Self-Hosting and Operations
 
 The certified deployment is one Linux Docker host. Harden-LLM production Compose
-has thirteen backend services and a one-shot Collector volume initializer; the
+has seven backend services and a one-shot Collector volume initializer; the
 optional Phoenix overlay adds one application service. Shared `caddy-shared` and
 `garage-shared` projects own ingress and object storage on the existing
 `prls-observability` network. Run commands from the repository root with Docker
 29+ and Compose 2.40+.
 
-These instructions describe the target topology after the shared-Caddy handoff.
-Production still uses its existing ingress owner until P05 is accepted in
-[`shared-caddy-adoption-plan.md`](../plans/shared-caddy-adoption-plan.md). Do not
-remove or redeploy the current production ingress while that phase is open.
+Production ingress and its Cloudflare Tunnel route are owned by the separate
+`caddy-shared` repository. Harden-LLM Compose does not publish public ports or
+manage the shared ingress services.
 
 ## Prepare the host
 
@@ -18,7 +17,7 @@ Allocate persistent storage for Docker volumes, including the retained
 `harden-llm-web-sessions` volume, and working DNS for the public hostnames.
 Shared Caddy owns inbound TCP 80/443. Copy `.env.example` to `.env`, set mode
 0600, and replace every placeholder. Generate every secret independently; do
-not reuse application, Garage, Grafana, or Langfuse credentials.
+not reuse application, Garage, or Grafana credentials.
 
 Provision `garage-shared` from the `prls-co/garage-shared` repository on the
 same Docker host before starting Harden-LLM. Its owner creates and operates the
@@ -71,8 +70,6 @@ COMPOSE=(docker compose
   --env-file "$OBSERVABILITY_ENV_FILE"
   --env-file .env
   -f docker-compose.yml
-  -f deploy/langfuse/docker-compose.upstream.yml
-  -f deploy/langfuse/compose.private.yml
   -f deploy/frontend/compose.frontend.yml)
 "${COMPOSE[@]}" config --quiet
 "${COMPOSE[@]}" pull --ignore-buildable
@@ -80,9 +77,8 @@ COMPOSE=(docker compose
 "${COMPOSE[@]}" ps
 ```
 
-Omit the last file for the frontend-independent backend. Do not edit the pinned
-upstream Langfuse fragment; follow its [update procedure](../deploy/langfuse/UPSTREAM.md).
-For a running production project, do not substitute this generic bootstrap
+Omit the last file for the frontend-independent backend. For a running
+production project, do not substitute this generic bootstrap
 sequence for the reproducibility check or scoped apply; it has no service
 identity comparison and its `pull`/`build` behavior is intentionally broader.
 
@@ -125,11 +121,9 @@ The Go REST API routes are independent and unchanged.
 - `https://<api-host>/readyz` checks migrations and the Garage bucket.
 - `https://<web-host>/healthz` checks Phoenix startup.
 - Grafana is the operational entry point for Prometheus, Loki, and Tempo.
-- New HLLM gateway traces go from the Collector to Laminar. The separately
-  retained Langfuse UI/history stack is not an HLLM trace-export destination.
-  Issue [#83](https://github.com/prls-co/harden-llm/issues/83) tracks its reader,
-  retention, and route review. Do not stop the stack or delete its data before
-  that owner review records the chosen disposition and recovery requirements.
+- New HLLM gateway traces go from the Collector to Laminar. Langfuse has been
+  retired, including its separately stored trace history; product history and
+  redacted artifacts remain in HLLM Postgres and Garage.
 
 Use `"${COMPOSE[@]}" logs --since 15m <service>` sparingly. Logs are redacted by
 contract, but still treat them as operational data. The API never exposes
@@ -167,8 +161,7 @@ the durable operation backlog before taking any manual action.
 
 This deployment has no node-data backup or restore procedure; the owner accepts
 loss of persistent application data. LLM observability traces are sent to
-Laminar, but they cannot reconstruct the consumer widget's history. Existing
-Langfuse history remains separate.
+Laminar, but they cannot reconstruct the consumer widget's history.
 For the current codebase-reduction release, the deployed-to-candidate change
 contains no database migration or Postgres storage-code change. Review ADRs and
 image-lock changes, and run `make test-release`. This browser-free gate includes
@@ -227,5 +220,6 @@ download, and correlated Tempo/Loki/Prometheus/Laminar diagnostics.
 ## Shutdown
 
 `"${COMPOSE[@]}" down` preserves named volumes. Adding `--volumes` permanently
-deletes application, artifact, telemetry, Langfuse, and frontend-session data;
-it is reserved for disposable test projects and forces frontend reauthentication.
+deletes application, artifact, telemetry, and frontend-session data; it is
+reserved for disposable test projects and forces frontend reauthentication.
+Langfuse data was separately deleted as part of its retirement.
