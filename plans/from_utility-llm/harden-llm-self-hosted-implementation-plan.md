@@ -121,22 +121,45 @@ Deployment ownership amendment (2026-09-24): REQ-017 describes current ownership
 
 Identity ownership amendment (2026-09-30): ADR-HLLM-029 replaces local email/password users and gateway bearer sessions with Control Plane identity/access. Product data remains in HLLM Postgres/Garage under Control Plane account UUIDs. The one-time `rehome-identities` command re-encrypts owner-bound credentials and verifies Garage artifact relocation before schema migration 0010 removes local identity tables. Production and persistent preview migrations are forward-only and remain blocked until every legacy owner has an explicit, one-to-one Control Plane account mapping; no data consolidation or fallback identity path is allowed.
 
-Identity implementation checkpoint (2026-09-30): source implementation is in
-the visible `codex/issue-18-control-plane-identity` worktree. Its local
-`make test-release` run passed all 29 tasks with no failures, cleanup errors, or
-cleanup warnings. This check preceded the final plan edits below; the HLLM
-source diff is unchanged. Initial hosted fast checks then failed because the
-assumed `PRIVATE_MODULE_TOKEN` repository secret was not configured. CI now
-mints a short-lived contents-read token for only `prls-control-plane` with the
-existing PRLS CI GitHub App; the existing organization secret and client-ID
-variable were made available to this repository. No long-lived module token
-was added. Hosted retest is pending. Builds still fail closed if the app loses
-access to Control Plane. Production rehome remains blocked until
-`operator-local` and `guest` each have an explicitly selected Control Plane
-account mapping and current `harden-llm` entitlement. Do not stop the production
-gateway or frontend before the approved rehome window; no production data or
-schema has been changed. The suite is browser-free; no real browser
-verification was requested or run.
+Identity implementation checkpoint (2026-10-01): source implementation is in
+the visible `codex/issue-18-control-plane-identity` worktree and PR #86 is open
+at `dc00fcfd7a8fe66091520698bd7fe784223c90fe`. Local `make test-fast` passed
+10/10 tasks, `make test-static` passed 33/33, and `make test-release` passed
+29/29 on implementation commit `b26337b2ed4e88f4aaf32bfa1ad3d66293b4354e`
+without failures, cleanup errors, or warnings. The explicit `make test-browser`
+run passed 4/4. `make test-browser-compose` passed once, then a later run failed
+at the Tempo correlation lookup (`trace_found:false`) after its 150-second
+budget; cleanup reported no errors or warnings. Keep that assertion intact and
+do not mark the browser Compose gate green. `AGENTS.md` requires a specific user
+request for browser tests, so another run needs that request. Hosted run
+[36840294607](https://github.com/prls-co/harden-llm/actions/runs/36840294607)
+passed fast T0-T2 and CodeQL on the PR head; its short-lived GitHub App token
+fetched both private dependencies. No long-lived module token was added.
+
+Production identity inventory (2026-10-01): read-only SQL transactions against
+the production PostgreSQL services on Docker daemon `shaman` found one unique
+Control Plane user/account candidate for legacy owner `guest`
+(`7d677c59-aac7-4cdd-8416-317b99ffa11c`), but that account has no
+`harden-llm` entitlement. `operator-local` has no matching Control Plane user;
+no Control Plane account currently has `harden-llm` in its product list. This
+is inventory evidence only, not an approved mapping. No membership, product,
+credential, or HLLM data was changed. The current production owner-bound row
+counts are:
+
+| Legacy owner | Profiles | Runs | Traces / observations | Artifacts | Endpoint credentials | Operation cache | Artifact operations | Delete batches | Client state | Existing sessions |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `guest` | 32 | 5 | 5 / 5 | 5 | 24 | 2 | 41 | 5 | 1 | 167 |
+| `operator-local` | 32 | 14 | 14 / 14 | 14 | 22 | 11 | 173 | 85 | 1 | 196 |
+
+Thus 46 encrypted endpoint credentials and all account-owned product history
+must be preserved/rebound before schema migration 0010 removes the local
+identity tables; 363 old sessions are retired. Production and persistent
+preview cutovers remain blocked until each legacy owner has an explicitly
+approved, distinct Control Plane account mapping with current `harden-llm`
+entitlement. Do not consolidate owners, stop the production gateway/frontend,
+or run the forward-only rehome before that decision and the approved cutover
+window. Existing production `/healthz` and `/login` return 200, but this branch
+is not deployed and those responses do not verify the new identity behavior.
 
 ### Error handling and telemetry expectations
 
