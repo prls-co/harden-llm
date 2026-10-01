@@ -135,8 +135,8 @@ request for browser tests, so another run needs that request. Hosted run
 [36840294607](https://github.com/prls-co/harden-llm/actions/runs/36840294607)
 passed fast T0-T2 on the implementation-bearing head `dc00fcf`; its short-lived
 GitHub App token fetched both private dependencies. On latest docs head
-`19af72d`, [CodeQL analysis](https://github.com/prls-co/harden-llm/actions/runs/36844928841)
-and the [CodeQL check](https://github.com/prls-co/harden-llm/runs/110312915906)
+`0709079`, [CodeQL analysis](https://github.com/prls-co/harden-llm/actions/runs/36845301953)
+and the [CodeQL check](https://github.com/prls-co/harden-llm/runs/110314075747)
 passed. The later commits only update plans; no long-lived module token was
 added.
 
