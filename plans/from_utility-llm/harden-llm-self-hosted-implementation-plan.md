@@ -129,9 +129,14 @@ state fix. The identity decision is ADR-HLLM-030 because upstream main owns
 ADR-HLLM-029 for Langfuse retirement. After this integration, local
 `make test-fast` passed 10/10, `make test-static` passed 33/33, and the focused
 `TestComposeDeploymentContract` passed with explicit synthetic Laminar and Loki
-test values. Local `make test-release` could not complete its Compose smoke
-build because this checkout has no scoped `PRIVATE_MODULE_TOKEN`. Do not bypass
-BuildKit secret handling or substitute production credentials. Hosted run
+test values. Local `make test-release` first stopped before tests because the
+shell lacked the repository-pinned Elixir toolchain. Rerunning with Elixir
+1.20.2/OTP 28.4.3 and the existing classic `GITHUB_TOKEN` from a local `.env`
+supplied only to the test process as `PRIVATE_MODULE_TOKEN` passed all 29
+release tasks; every task exited 0, with no timeout or cleanup errors/warnings.
+No credential value appeared in the test reports/temp artifacts, was printed,
+or was committed; no second token path was added. Keep the BuildKit secret
+boundary. Hosted run
 [36854238974](https://github.com/prls-co/harden-llm/actions/runs/36854238974)
 uses the existing GitHub App to mint a short-lived contents-read token; private
 module download, dependency fetch, and production frontend image build passed,
@@ -155,9 +160,9 @@ were not read); `make test-fast` passed 10/10 with clean cleanup on this change.
 Hosted fast T0-T2 and CodeQL passed on branch head `751ce96`. Hosted
 browser-free `make test-release` also passed on that exact head in
 [run 36859042586](https://github.com/prls-co/harden-llm/actions/runs/36859042586),
-including private module fetch and the production frontend image build. The
-explicit browser gates remain skipped under the repository's user-request
-policy.
+including private module fetch and the production frontend image build. Hosted
+browser jobs remain opt-in; the local user-requested browser run is recorded
+below.
 
 The first hosted release attempt, [36853231080](https://github.com/prls-co/harden-llm/actions/runs/36853231080),
 found stale exact runtime APK pins after Alpine updated packages in its pinned
@@ -169,12 +174,17 @@ This tracks the moving package repository; use a repository snapshot if exact
 binary reproducibility becomes a requirement instead of reintroducing stale
 pins.
 
-The explicit earlier `make test-browser` run passed 4/4.
-`make test-browser-compose` passed once, then a later run failed at the Tempo
-correlation lookup (`trace_found:false`) after its 150-second budget; cleanup
-reported no errors or warnings. Keep that assertion intact and do not mark the
-browser Compose gate green. `AGENTS.md` requires a specific user request for
-browser tests, so another run needs that request. Hosted run
+The earlier `make test-browser` run passed 4/4. `make test-browser-compose`
+previously passed once, then a later run failed at the Tempo correlation lookup
+(`trace_found:false`) after its 150-second budget. On the user's full-test
+request, a new run at HLLM head `91ec047` passed in 167 seconds with status 0;
+the runner reported no cleanup errors or warnings and removed its own container.
+The gate passes on this revision, while the earlier trace miss remains a
+flakiness risk. Keep the assertion and timeout unchanged; collect bounded
+Tempo/collector evidence if it recurs. Twenty pre-existing
+`harden-llm-browser-test:local` containers dated 2026-09-30 remained running
+before and after this run. Their ownership is unverified, so leave them untouched
+until identified and record cleanup as follow-up. Hosted run
 [36840294607](https://github.com/prls-co/harden-llm/actions/runs/36840294607)
 passed fast T0-T2 on the earlier code-bearing head `dc00fcf`; the current-head
 checks above supersede it. No long-lived module token was added.
