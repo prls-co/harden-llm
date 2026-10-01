@@ -98,8 +98,9 @@ func TestTimeoutPolicy(t *testing.T) {
 		t.Fatal("baseline must record the 60-second gateway maximum run duration")
 	}
 	compose, ok := policyByID(manifest.Policies, "compose.readiness-budget")
-	if !ok || compose.BaselineMilliseconds != 300_000 || !strings.Contains(strings.ToLower(compose.Basis), "langfuse") || !strings.Contains(strings.ToLower(compose.Basis), "two-to-three-minute") {
-		t.Fatal("initial 300-second Compose baseline must record its Langfuse startup basis")
+	basis := strings.ToLower(compose.Basis)
+	if !ok || compose.BaselineMilliseconds != 300_000 || !strings.Contains(basis, "former topology") || !strings.Contains(basis, "retained for continuity") || !strings.Contains(basis, "not evidence for a timeout increase") || strings.Contains(basis, "langfuse") {
+		t.Fatal("legacy 300-second Compose baseline must retain its timeout rationale without a retired service dependency")
 	}
 }
 

@@ -124,7 +124,7 @@
       "unitMultiplierMilliseconds": 1000,
       "baselineMilliseconds": 300000,
       "initialBaseline": true,
-      "basis": "Legacy 300-second Compose readiness cap from the former topology; Langfuse is retired and this value is not evidence for a timeout increase."
+      "basis": "Legacy 300-second Compose readiness cap from the former topology; this value is retained for continuity and is not evidence for a timeout increase."
     }
   ]
 }
