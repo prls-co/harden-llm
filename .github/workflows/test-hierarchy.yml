@@ -311,6 +311,16 @@ jobs:
           GIT_CONFIG_COUNT: "1"
           GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.cp_module.outputs.token }}@github.com/prls-co/prls-web.insteadOf
           GIT_CONFIG_VALUE_0: https://github.com/prls-co/prls-web
+      - name: Build Phoenix production image with the private dependency secret
+        run: docker build --build-arg VERSION=${{ github.sha }} --secret=id=private_module_token,env=PRIVATE_MODULE_TOKEN --tag harden-llm-web-buildcheck:${{ github.sha }} --file frontend/Dockerfile frontend
+        env:
+          PRIVATE_MODULE_TOKEN: ${{ steps.cp_module.outputs.token }}
+      - name: Remove Phoenix validation image
+        if: always()
+        run: |
+          if docker image inspect harden-llm-web-buildcheck:${{ github.sha }} >/dev/null 2>&1; then
+            docker image rm --force harden-llm-web-buildcheck:${{ github.sha }}
+          fi
       - run: make test-release
         env:
           PRIVATE_MODULE_TOKEN: ${{ steps.cp_module.outputs.token }}
