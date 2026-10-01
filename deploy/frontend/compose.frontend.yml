@@ -4,6 +4,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      secrets:
+        - private_module_token
       args:
         VERSION: ${HARDEN_LLM_RELEASE:?set an immutable release identifier}
     init: true

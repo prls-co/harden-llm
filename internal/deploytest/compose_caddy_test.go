@@ -331,6 +331,14 @@ func assertProductionFrontend(t *testing.T, config map[string]any) {
 	t.Helper()
 	services := objectField(t, config, "services")
 	web := asObject(t, services["harden-llm-web"], "production harden-llm-web")
+	webBuild := asObject(t, web["build"], "production web build")
+	if !valueContains(webBuild["secrets"], "private_module_token") {
+		t.Errorf("production web build secrets = %#v, want private_module_token", webBuild["secrets"])
+	}
+	webEnv := environmentValueMap(t, web["environment"])
+	if _, exists := webEnv["PRIVATE_MODULE_TOKEN"]; exists {
+		t.Error("private module token is exposed to the web runtime")
+	}
 	ports, _ := web["ports"].([]any)
 	if len(ports) != 0 {
 		t.Errorf("production web service publishes host ports: %#v", ports)

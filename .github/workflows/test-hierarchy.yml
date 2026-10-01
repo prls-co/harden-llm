@@ -81,7 +81,7 @@ jobs:
           client-id: ${{ vars.CI_APP_CLIENT_ID }}
           private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-          repositories: prls-control-plane
+          repositories: prls-control-plane,prls-web
           permission-contents: read
       - name: Restore Phoenix dependency and compile caches
         uses: actions/cache@v4
@@ -102,6 +102,10 @@ jobs:
           GIT_CONFIG_VALUE_0: https://github.com/prls-co/prls-control-plane
       - working-directory: frontend
         run: mix deps.get
+        env:
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.cp_module.outputs.token }}@github.com/prls-co/prls-web.insteadOf
+          GIT_CONFIG_VALUE_0: https://github.com/prls-co/prls-web
       - run: make test-fast
       - name: Upload redacted runner reports
         if: always()
@@ -245,8 +249,21 @@ jobs:
         with:
           elixir-version: ${{ env.ELIXIR_VERSION }}
           otp-version: ${{ env.OTP_VERSION }}
+      - name: Create short-lived private module token
+        id: cp_module
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          client-id: ${{ vars.CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: prls-control-plane,prls-web
+          permission-contents: read
       - working-directory: frontend
         run: mix deps.get
+        env:
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.cp_module.outputs.token }}@github.com/prls-co/prls-web.insteadOf
+          GIT_CONFIG_VALUE_0: https://github.com/prls-co/prls-web
       - run: docker build --tag harden-llm-browser-test:local --file frontend/Dockerfile.browser .
       - run: make test-browser
       - if: needs.mode.outputs.browserCompose == 'true'
@@ -280,7 +297,7 @@ jobs:
           client-id: ${{ vars.CI_APP_CLIENT_ID }}
           private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-          repositories: prls-control-plane
+          repositories: prls-control-plane,prls-web
           permission-contents: read
       - run: go mod download
         env:
@@ -290,6 +307,10 @@ jobs:
           GIT_CONFIG_VALUE_0: https://github.com/prls-co/prls-control-plane
       - working-directory: frontend
         run: mix deps.get
+        env:
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.cp_module.outputs.token }}@github.com/prls-co/prls-web.insteadOf
+          GIT_CONFIG_VALUE_0: https://github.com/prls-co/prls-web
       - run: make test-release
         env:
           PRIVATE_MODULE_TOKEN: ${{ steps.cp_module.outputs.token }}

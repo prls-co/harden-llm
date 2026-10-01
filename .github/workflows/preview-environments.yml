@@ -52,7 +52,7 @@ jobs:
           client-id: ${{ vars.CI_APP_CLIENT_ID }}
           private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-          repositories: prls-control-plane
+          repositories: prls-control-plane,prls-web
           permission-contents: read
       - name: Reconcile branch environment
         env:

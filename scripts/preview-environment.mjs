@@ -206,7 +206,7 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
     else {
       console.log(`Building preview ${service} at ${sha.slice(0, 12)}`);
       const buildArgs = ["build"];
-      if (service === "gateway") buildArgs.push("--secret=id=private_module_token,env=PRIVATE_MODULE_TOKEN");
+      buildArgs.push("--secret=id=private_module_token,env=PRIVATE_MODULE_TOKEN");
       buildArgs.push("--label", `co.prls.harden.preview-image=${service}`, "--build-arg", `VERSION=${sha}`, "--tag", image, "--file", path.join(source, service === "web" ? "frontend/Dockerfile" : "Dockerfile"), service === "web" ? path.join(source, "frontend") : source);
       command("docker", buildArgs);
       [info] = JSON.parse(command("docker", ["image", "inspect", image]));

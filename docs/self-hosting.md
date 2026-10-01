@@ -28,13 +28,14 @@ metadata volumes. Do not start a repository-local production Garage service.
 Configure TLS and Caddy listener bindings in the `caddy-shared` repository; they
 are not Harden-LLM environment inputs.
 
-Building the gateway image requires a GitHub token with read access to the
-private `prls-control-plane` Go module. Set `PRIVATE_MODULE_TOKEN` in the build
-environment; Docker Compose passes it only as a BuildKit secret while fetching
-modules. It is not a runtime setting and is not copied into the image. CI and
-the trusted preview runner mint a short-lived GitHub App token scoped to read
-the Control Plane repository. For local builds, use a read-only token with that
-same repository scope and keep it in the invoking process environment only.
+Building the gateway and Phoenix frontend requires a GitHub token with read
+access to the private `prls-control-plane` Go module and `prls-web` dependency.
+Set `PRIVATE_MODULE_TOKEN` in the build environment; Docker Compose passes it
+only as a BuildKit secret while fetching dependencies. It is not a runtime
+setting and is not copied into either image. CI and the trusted preview runner
+mint a short-lived GitHub App token scoped to read those two repositories. For
+local builds, use a read-only token with those repository scopes and keep it in
+the invoking process environment only.
 
 For an existing production project, install the nonsecret descriptor described
 in [`docs/environment.md`](environment.md) and run the read-only check before

@@ -13,7 +13,13 @@ WORKDIR /build
 RUN mix local.hex --force && mix local.rebar --force
 
 COPY mix.exs mix.lock ./
-RUN mix deps.get --only prod && mix deps.compile
+RUN --mount=type=secret,id=private_module_token,required=true \
+    token="$(cat /run/secrets/private_module_token)" && \
+    GIT_CONFIG_COUNT=1 \
+    GIT_CONFIG_KEY_0="url.https://x-access-token:${token}@github.com/prls-co/prls-web.insteadOf" \
+    GIT_CONFIG_VALUE_0="https://github.com/prls-co/prls-web" \
+    mix deps.get --only prod && \
+    mix deps.compile
 
 COPY config config
 COPY assets assets
