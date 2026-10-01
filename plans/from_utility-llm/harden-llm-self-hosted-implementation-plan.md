@@ -1,13 +1,14 @@
 # Harden-LLM Backend and REST API Implementation Plan
 
-> Historical implementation plan: this July 2026 baseline describes the initial
-> Langfuse export design. The current HLLM gateway trace destination is Laminar;
-> the Collector no longer exports to Langfuse. See the current decisions and
-> assertions in `harden-llm-self-hosted-test-spec.md` and
-> `self-hosted-go-stack-spec.md`. The retained Langfuse stack and history are
-> pending separate consumer and retention review. Its original local-user
-> identity design was superseded on 2026-09-30 by ADR-HLLM-029; the current
-> requirements and migration gate are recorded in the amendment below.
+> Historical implementation plan: its initial deployment included Langfuse.
+> ADR-HLLM-029 retired the service, routes, credentials, images, and persistent
+> data on 2026-09-30. Langfuse-related phase descriptions below document that
+> original implementation only; they are not current deployment or retention
+> requirements. Current topology and test requirements are in
+> `harden-llm-self-hosted-test-spec.md` and `self-hosted-go-stack-spec.md`.
+> HLLM's original local-user identity design was superseded on 2026-09-30 by
+> ADR-HLLM-030; current identity requirements and the migration gate are in the
+> amendment below.
 
 ## 1. Title and metadata
 
@@ -119,25 +120,34 @@
 
 Deployment ownership amendment (2026-09-24): REQ-017 describes current ownership. The original Phase P08 action and its fifteen-service checks are historical implementation evidence; this shared-Garage transition supersedes their local Garage ownership assumption and changes the current repo-owned service count to fourteen. The cross-repository transition plan owns the shared daemon and cutover acceptance.
 
-Identity ownership amendment (2026-09-30): ADR-HLLM-029 replaces local email/password users and gateway bearer sessions with Control Plane identity/access. Product data remains in HLLM Postgres/Garage under Control Plane account UUIDs. The one-time `rehome-identities` command re-encrypts owner-bound credentials and verifies Garage artifact relocation before schema migration 0010 removes local identity tables. Production and persistent preview migrations are forward-only and remain blocked until every legacy owner has an explicit, one-to-one Control Plane account mapping; no data consolidation or fallback identity path is allowed.
+Identity ownership amendment (2026-09-30): ADR-HLLM-030 replaces local email/password users and gateway bearer sessions with Control Plane identity/access. Product data remains in HLLM Postgres/Garage under Control Plane account UUIDs. The one-time `rehome-identities` command re-encrypts owner-bound credentials and verifies Garage artifact relocation before schema migration 0010 removes local identity tables. Production and persistent preview migrations are forward-only and remain blocked until every legacy owner has an explicit, one-to-one Control Plane account mapping; no data consolidation or fallback identity path is allowed.
 
-Identity implementation checkpoint (2026-10-01): source implementation is in
-the visible `codex/issue-18-control-plane-identity` worktree and PR #86 is open
-at `dc00fcfd7a8fe66091520698bd7fe784223c90fe`. Local `make test-fast` passed
-10/10 tasks, `make test-static` passed 33/33, and `make test-release` passed
-29/29 on implementation commit `b26337b2ed4e88f4aaf32bfa1ad3d66293b4354e`
-without failures, cleanup errors, or warnings. The explicit `make test-browser`
-run passed 4/4. `make test-browser-compose` passed once, then a later run failed
-at the Tempo correlation lookup (`trace_found:false`) after its 150-second
-budget; cleanup reported no errors or warnings. Keep that assertion intact and
-do not mark the browser Compose gate green. `AGENTS.md` requires a specific user
-request for browser tests, so another run needs that request. Hosted run
+Identity implementation checkpoint (2026-10-01): PR #86 remains open on the
+visible `codex/issue-18-control-plane-identity` branch. It now incorporates
+upstream main `cf72777`, including Langfuse retirement and the profile dirty
+state fix. The identity decision is ADR-HLLM-030 because upstream main owns
+ADR-HLLM-029 for Langfuse retirement. After this integration, local
+`make test-fast` passed 10/10, `make test-static` passed 33/33, and the focused
+`TestComposeDeploymentContract` passed with explicit synthetic Laminar and Loki
+test values. The local `make test-release` run is not green: its Compose smoke
+task requires the scoped `PRIVATE_MODULE_TOKEN` to build the private Control
+Plane Go module, and no such token is configured in this local environment.
+Do not bypass BuildKit secret handling or substitute production credentials;
+run the hosted release suite, whose workflow mints a short-lived contents-read
+GitHub App token, and record its exact result before release.
+
+The explicit earlier `make test-browser` run passed 4/4.
+`make test-browser-compose` passed once, then a later run failed at the Tempo
+correlation lookup (`trace_found:false`) after its 150-second budget; cleanup
+reported no errors or warnings. Keep that assertion intact and do not mark the
+browser Compose gate green. `AGENTS.md` requires a specific user request for
+browser tests, so another run needs that request. Hosted run
 [36840294607](https://github.com/prls-co/harden-llm/actions/runs/36840294607)
-passed fast T0-T2 on code-bearing head `dc00fcf`; its short-lived GitHub App
-token fetched both private dependencies. [CodeQL analysis](https://github.com/prls-co/harden-llm/actions/runs/36840294540)
+passed fast T0-T2 on the earlier code-bearing head `dc00fcf`; its short-lived
+GitHub App token fetched both private dependencies. [CodeQL analysis](https://github.com/prls-co/harden-llm/actions/runs/36840294540)
 and the [CodeQL check](https://github.com/prls-co/harden-llm/runs/110297795060)
-also passed on that code-bearing head. Subsequent commits only update plans; no
-long-lived module token was added.
+also passed on that earlier code-bearing head. Re-run hosted checks against the
+integrated head; no long-lived module token was added.
 
 Production identity inventory (2026-10-01): read-only SQL transactions against
 the production PostgreSQL services on Docker daemon `shaman` found one unique

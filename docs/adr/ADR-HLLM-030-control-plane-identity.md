@@ -1,4 +1,4 @@
-# ADR-HLLM-029: Control Plane Human Identity
+# ADR-HLLM-030: Control Plane Human Identity
 
 - Status: Accepted for implementation; production data cutover pending explicit account mapping
 - Date: 2026-09-30

@@ -38,15 +38,12 @@ services:
       HARDEN_LLM_API_HOST: ${HARDEN_LLM_API_HOST:?set the API hostname}
       HARDEN_LLM_ARTIFACT_HOST: ${HARDEN_LLM_ARTIFACT_HOST:?set the artifact hostname}
       HARDEN_LLM_GRAFANA_HOST: ${HARDEN_LLM_GRAFANA_HOST:?set the Grafana hostname}
-      HARDEN_LLM_LANGFUSE_HOST: ${HARDEN_LLM_LANGFUSE_HOST:?set the Langfuse hostname}
       HARDEN_LLM_TLS_MODE: ${HARDEN_LLM_TLS_MODE:-internal}
     depends_on:
       harden-llm-gateway:
         condition: service_healthy
       grafana:
         condition: service_healthy
-      langfuse-web:
-        condition: service_started
       garage:
         condition: service_healthy
     ports:

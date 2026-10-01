@@ -19,7 +19,7 @@ import (
 	"github.com/prls-co/harden-llm/internal/integrationtest"
 )
 
-// TestFrontendComposeFixture owns the real 16-service topology while
+// TestFrontendComposeFixture owns the real telemetry-enabled topology while
 // WEB-TEST-012 drives Chromium and probes telemetry from the Elixir test.
 // It is inert outside that coordinated gate.
 func TestFrontendComposeFixture(t *testing.T) {
@@ -62,8 +62,6 @@ func TestFrontendComposeFixture(t *testing.T) {
 
 	files := []string{
 		filepath.Join(root, "docker-compose.yml"),
-		filepath.Join(root, "deploy", "langfuse", "docker-compose.upstream.yml"),
-		filepath.Join(root, "deploy", "langfuse", "compose.private.yml"),
 		filepath.Join(root, "deploy", "test", "compose.smoke.yml"),
 		filepath.Join(root, "deploy", "frontend", "compose.frontend.yml"),
 		filepath.Join(root, "deploy", "test", "compose.frontend-smoke.yml"),
@@ -130,7 +128,6 @@ func TestFrontendComposeFixture(t *testing.T) {
 	waitHTTPStatus(t, client, "https://app.smoke.localhost/healthz", 200, 45*time.Second, nil)
 	waitHTTPStatus(t, client, "https://api.smoke.localhost/readyz", 200, 45*time.Second, nil)
 	waitHTTPStatus(t, client, "https://grafana.smoke.localhost/api/health", 200, 45*time.Second, nil)
-	waitHTTPStatus(t, client, "https://langfuse.smoke.localhost/api/public/health", 200, 90*time.Second, nil)
 
 	envFile := filepath.Join(workDir, "compose.env")
 	if err := writeEnvironmentFile(envFile, environment); err != nil {
@@ -155,7 +152,7 @@ func TestFrontendComposeFixture(t *testing.T) {
 	deadline := time.Now().Add(12 * time.Minute)
 	for time.Now().Before(deadline) {
 		if _, err := os.Stat(donePath); err == nil {
-			t.Logf("Frontend Compose fixture released: ready=16/16 readiness=%s", readiness.Round(time.Millisecond))
+			t.Logf("Frontend Compose fixture released: readiness=%s", readiness.Round(time.Millisecond))
 			return
 		}
 		time.Sleep(200 * time.Millisecond)

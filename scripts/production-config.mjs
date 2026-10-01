@@ -31,8 +31,6 @@ export const SPECIFICATION_ID = "SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001";
 export const DEFAULT_DESCRIPTOR_PATH = "/home/kirill/.config/harden-llm/production.json";
 export const COMPOSE_FILE_ORDER = Object.freeze([
   "docker-compose.yml",
-  "deploy/langfuse/docker-compose.upstream.yml",
-  "deploy/langfuse/compose.private.yml",
   "deploy/frontend/compose.frontend.yml",
 ]);
 export const PRLS_REQUIRED_VARIABLES = Object.freeze([

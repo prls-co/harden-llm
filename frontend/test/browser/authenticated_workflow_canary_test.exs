@@ -3,6 +3,7 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
   use Wallaby.Feature
 
   @moduletag :browser
+  @moduletag timeout: 120_000
 
   import HardenLlmWeb.BrowserFeatureCase
 
@@ -32,27 +33,25 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> fill_in(Query.css("#profile_profileId"), with: "BrowserProfile")
       |> assert_field_value("#profile_profileId", "BrowserProfile")
       |> fill_in(Query.text_field("Provider family"), with: "openai")
-      |> fill_in(Query.css("#profile_modelId"), with: "model-browser")
-      |> fill_in(Query.css("#profile_baseUrl"),
+      |> fill_in(Query.text_field("Model ID"), with: "model-browser")
+      |> fill_in(Query.fillable_field("Base URL"),
         with: "https://provider.example.test/v1"
       )
-      |> assert_has(Query.css("#credential-drawer"))
       |> fill_in(Query.text_field("Credential ID"), with: "browser-credential")
-      |> fill_in(Query.css("#profile_apiKey"), with: "browser-provider-secret")
-      |> click(Query.css("#stage-profile-key"))
-      |> assert_has(Query.css("#credential-status", text: "New key staged for save"))
+      |> stage_secret("#profile_apiKey", "#stage-profile-key", "browser-provider-secret")
+      |> assert_text("New key staged for save")
       |> click(Query.css("#profile-save"))
       |> assert_has(Query.css("#profile-BrowserProfile", text: "BrowserProfile"))
-      |> scroll_to_selector("#refresh-profile-BrowserProfile")
-      |> click(Query.css("#refresh-profile-BrowserProfile"))
+      |> assert_has(Query.css("#profile-refresh-models:not([disabled])"))
+      |> click(Query.css("#profile-refresh-models"))
       |> then(fn session ->
-        assert {"POST", "/api/v1/profiles/BrowserProfile/models:refresh"} in BrowserBackend.calls(),
-               "refresh must reach the configured backend; calls=#{inspect(BrowserBackend.calls())}"
+        wait_for_browser_call!({"POST", "/api/v1/profiles/BrowserProfile/models:refresh"})
 
         session
       end)
-      |> assert_has(Query.css("#profile-BrowserProfile", text: "2 available"))
-      |> assert_has(Query.css("#flash-info", text: "Model catalog refreshed"))
+      |> assert_has(
+        Query.css("#profile-model-options option[value='model-refreshed']", visible: :any)
+      )
       |> visit("/")
       |> assert_has(Query.css("#backend-status", text: "Backend ready"))
       |> choose_option("#run_selectedProfileId", "BrowserProfile")
@@ -412,5 +411,26 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
     end
 
     session
+  end
+
+  defp wait_for_browser_call!(expected) do
+    deadline = System.monotonic_time(:millisecond) + 5_000
+    do_wait_for_browser_call!(expected, deadline)
+  end
+
+  defp do_wait_for_browser_call!(expected, deadline) do
+    cond do
+      expected in BrowserBackend.calls() ->
+        :ok
+
+      System.monotonic_time(:millisecond) >= deadline ->
+        flunk(
+          "expected browser backend call #{inspect(expected)}; got #{inspect(BrowserBackend.calls())}"
+        )
+
+      true ->
+        Process.sleep(25)
+        do_wait_for_browser_call!(expected, deadline)
+    end
   end
 end

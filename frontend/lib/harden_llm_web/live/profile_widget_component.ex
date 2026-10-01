@@ -173,7 +173,8 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         socket.assigns.loaded_profile_id != selected_profile_id
 
     needs_profile_reset? =
-      not socket.assigns.initialized? or profile_selection_changed? or
+      not socket.assigns.initialized? or
+        (profile_selection_changed? and not socket.assigns.main_dirty?) or
         (socket.assigns.profiles_revision != revision and not socket.assigns.main_dirty?)
 
     socket =

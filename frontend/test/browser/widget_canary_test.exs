@@ -49,6 +49,7 @@ defmodule HardenLlmWeb.WidgetCanaryTest do
       |> assert_has(Query.css("#profile-options"))
       |> click(Query.css("#profile-retry-toggle"))
       |> assert_has(Query.css("#profile-retry-repair"))
+      |> refute_dom_element("#profile-escalation-config-toggle")
       |> click(Query.css("#profile-pricing-toggle"))
       |> assert_has(Query.css("#profile-pricing"))
       |> scroll_to_selector("#workspace-cache-toggle")

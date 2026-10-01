@@ -17,12 +17,7 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
 
   alias Wallaby.Query
 
-  import HardenLlmWeb.BrowserFeatureCase,
-    only: [
-      assert_field_value: 3,
-      commit_combobox: 3,
-      sign_in_shared_login: 3
-    ]
+  import HardenLlmWeb.BrowserFeatureCase, only: [sign_in_shared_login: 3, stage_secret: 4]
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-012 TEST-055
 
@@ -56,7 +51,7 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
     {:ok, fixture: fixture, root: root}
   end
 
-  feature "16-service product preserves browser, routing, recovery, and telemetry invariants", %{
+  feature "HLLM product preserves browser, routing, recovery, and telemetry invariants", %{
     session: session,
     fixture: fixture,
     root: root
@@ -82,15 +77,12 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
       |> click(Query.css("#new-profile"))
       |> fill_in(Query.css("#profile_profileId"), with: "Smoke")
       |> fill_in(Query.text_field("Provider family"), with: "openai")
-      |> commit_combobox("#profile_apiInferenceType", "responses")
-      |> assert_field_value("#profile_apiInferenceType", "responses")
-      |> fill_in(Query.css("#profile_modelId"), with: "smoke-model")
-      |> fill_in(Query.css("#profile_baseUrl"), with: "https://fake-provider:8443/v1")
-      |> assert_has(Query.css("#credential-drawer"))
+      |> choose_option("#profile_apiInferenceType", "responses")
+      |> fill_in(Query.text_field("Model ID"), with: "smoke-model")
+      |> fill_in(Query.fillable_field("Base URL"), with: "https://fake-provider:8443/v1")
       |> fill_in(Query.text_field("Credential ID"), with: "compose-smoke-provider")
-      |> fill_in(Query.css("#profile_apiKey"), with: provider_secret)
-      |> click(Query.css("#stage-profile-key"))
-      |> assert_has(Query.css("#credential-status", text: "New key staged for save"))
+      |> stage_secret("#profile_apiKey", "#stage-profile-key", provider_secret)
+      |> assert_text("New key staged for save")
       |> click(Query.css("#profile-save"))
       |> assert_has(Query.css("#profile-Smoke", text: "Smoke"))
       |> visit(fixture["web_url"] <> "/")
@@ -99,6 +91,7 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
       |> assert_has(Query.css("#model-options"))
       |> click(Query.css("#profile-retry-toggle"))
       |> assert_has(Query.css("#profile-retry-repair"))
+      |> assert_has(Query.css("#profile-escalation-config-toggle", count: 0, visible: :any))
       |> choose_option("#run_selectedProfileId", "Smoke")
       |> fill_in(Query.css("#run_userPrompt"), with: "return the compose smoke response")
       |> click(Query.css("#run-submit"))

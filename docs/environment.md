@@ -11,7 +11,6 @@ independently and stored in a secrets manager.
 | `HARDEN_LLM_API_HOST` | required | Public REST hostname. |
 | `HARDEN_LLM_WEB_HOST` | frontend overlay | Public Phoenix hostname. |
 | `HARDEN_LLM_GRAFANA_HOST` | required | Public Grafana hostname. |
-| `HARDEN_LLM_LANGFUSE_HOST` | required | Public Langfuse hostname. |
 | `HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT` | required HTTPS origin | Origin embedded in presigned URLs; must match the artifact host. |
 | `HARDEN_LLM_RELEASE` | required | Immutable release/version label used by images and telemetry. |
 | `HARDEN_LLM_ENVIRONMENT` | `production` | Bounded deployment identity. |
@@ -55,8 +54,7 @@ contents-read-only token scoped to those two repositories.
 Compose constructs `HARDEN_LLM_DATABASE_URL`, the public Garage signing origin,
 gateway service identity, and the Collector endpoint. The gateway's fixed S3
 endpoint is `http://garage-shared:3900` on the existing `prls-observability`
-network. Keep the shared service healthy before starting the gateway. Do not
-override these to point at Langfuse-owned stores.
+network. Keep the shared service healthy before starting the gateway.
 
 ## Phoenix frontend
 
@@ -79,17 +77,11 @@ The overlay supplies `HARDEN_LLM_API_BASE_URL`,
 `HARDEN_LLM_WEB_OTEL_EXPORTER_OTLP_ENDPOINT`, `HARDEN_LLM_WEB_SERVICE_NAME`,
 `HARDEN_LLM_WEB_ENVIRONMENT`, and `HARDEN_LLM_WEB_RELEASE` from the private
 topology and shared release identity. The frontend receives no Postgres,
-Garage, provider, Grafana, or Langfuse credential.
+Garage, provider, or Grafana credential.
 
-## Grafana and pinned Langfuse
+## Grafana and Laminar
 
 `GRAFANA_ADMIN_USER` and secret `GRAFANA_ADMIN_PASSWORD` secure Grafana.
-Langfuse requires independent Postgres, salt, encryption, NextAuth, ClickHouse,
-Redis, and MinIO secrets plus `LANGFUSE_INIT_*` organization/project/user values.
-Those credentials stay within the Langfuse application stack. The Harden LLM
-Collector no longer receives Langfuse project keys or exports gateway traces
-there; the existing Langfuse services and stored history remain available for
-the UI and any separately verified consumers.
 The separate secret `PRLS_LAMINAR_PROJECT_API_KEY` authorizes the dedicated
 full-content PRLS trace exporter to the existing Laminar deployment; it is not
 shared with the Harden LLM Laminar project.
@@ -106,11 +98,10 @@ default; the variable exists so a planned recovery test can make only the HLLM
 exporter unreachable without interrupting the shared Laminar service or other
 Collector pipelines. Restore the default as soon as the queue-retention check
 is complete.
-The Langfuse application and its history are retained independently while
-remaining route and consumer needs are reviewed.
-These variables belong to the unchanged upstream service graph documented in
-[`deploy/langfuse/UPSTREAM.md`](../deploy/langfuse/UPSTREAM.md); they must never
-be reused for Harden LLM Postgres or Garage.
+Langfuse is not part of the deployment. Its host, credentials, service graph,
+and data stores have been removed. New HLLM gateway traces go to Laminar; the
+product run history and redacted trace artifacts remain in application Postgres
+and Garage.
 
 The production `.env` may intentionally keep the shared-observability values in
 an approved, mode-0600 environment file instead of copying them into the
@@ -231,7 +222,7 @@ variable containing its key; never put a key in the JSON:
 TEST-038 reads the path in `HARDEN_LLM_LIVE_GATEWAY_CONFIG`. The mode-0600 JSON
 file contains HTTPS origins, a dedicated test-user email, a profile, artifact
 host allowlist, and the names—not values—of user password, provider key,
-Grafana, and Langfuse credential environment variables. Partial configuration
+Grafana credential environment variables. Partial configuration
 fails; an absent config records `not run: credentials absent`. The test creates
 unique profile/run records and deletes them before logout.
 

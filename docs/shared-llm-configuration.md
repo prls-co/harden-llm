@@ -1,6 +1,6 @@
 # Shared LLM configuration
 
-Identity ownership was changed by ADR-HLLM-029 on 2026-09-30. The current
+Identity ownership was changed by ADR-HLLM-030 on 2026-09-30. The current
 sections use explicit Control Plane account UUIDs and do not provision local
 guest/operator accounts. Dated rollout sections below preserve the evidence for
 the prior local-account deployments; they are historical and are not a current

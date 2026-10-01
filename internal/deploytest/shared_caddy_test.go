@@ -154,18 +154,6 @@ func TestSharedIngressAttachments(t *testing.T) {
 	frontendServices := objectField(t, frontend, "services")
 	assertPrivateAndSharedAlias(t, "harden-llm-web", asObject(t, frontendServices["harden-llm-web"], "harden-llm-web"), "hllm-prod-web")
 
-	langfuse := readYAMLObject(t, filepath.Join(root, "deploy", "langfuse", "compose.private.yml"))
-	langfuseServices := objectField(t, langfuse, "services")
-	langfuseWeb := asObject(t, langfuseServices["langfuse-web"], "langfuse-web")
-	assertPrivateAndSharedAlias(t, "langfuse-web", langfuseWeb, "hllm-prod-langfuse")
-	langfuseWebEnvironment := objectField(t, langfuseWeb, "environment")
-	if host, ok := langfuseWebEnvironment["HOSTNAME"].(string); !ok || host != "0.0.0.0" {
-		t.Errorf("langfuse-web HOSTNAME = %#v, want 0.0.0.0 so it listens on both attached networks", langfuseWebEnvironment["HOSTNAME"])
-	}
-
-	for _, name := range []string{"langfuse-worker", "clickhouse", "minio", "redis", "postgres"} {
-		assertPrivateOnly(t, name, asObject(t, langfuseServices[name], name))
-	}
 }
 
 func assertPrivateAndSharedAlias(t *testing.T, name string, service map[string]any, alias string) {
@@ -179,20 +167,6 @@ func assertPrivateAndSharedAlias(t *testing.T, name string, service map[string]a
 	}
 	if aliases, ok := got["prls-observability"]; !ok || !reflect.DeepEqual(aliases, []string{alias}) {
 		t.Errorf("%s prls-observability aliases = %v, want [%s]", name, aliases, alias)
-	}
-}
-
-func assertPrivateOnly(t *testing.T, name string, service map[string]any) {
-	t.Helper()
-	got := sharedIngressNetworks(t, service)
-	if len(got) != 1 {
-		t.Errorf("%s networks = %v, want only harden-private", name, got)
-	}
-	if _, ok := got["harden-private"]; !ok {
-		t.Errorf("%s lost its existing harden-private attachment", name)
-	}
-	if _, ok := got["prls-observability"]; ok {
-		t.Errorf("%s must not join prls-observability", name)
 	}
 }
 

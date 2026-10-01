@@ -68,21 +68,17 @@ The frontend has its own pinned Mix gates in [frontend/README.md](frontend/READM
 ## Self-hosted quick start
 
 1. Copy `.env.example` to `.env`, replace each placeholder independently, and
-   point the API, web, Grafana, and Langfuse hostnames at the Docker host. Set
+   point the API, web, and Grafana hostnames at the Docker host. Set
    the artifact external endpoint to the matching route owned by shared Caddy.
 2. Validate and start the full product:
 
 ```bash
 docker compose \
   -f docker-compose.yml \
-  -f deploy/langfuse/docker-compose.upstream.yml \
-  -f deploy/langfuse/compose.private.yml \
   -f deploy/frontend/compose.frontend.yml \
   config --quiet
 docker compose \
   -f docker-compose.yml \
-  -f deploy/langfuse/docker-compose.upstream.yml \
-  -f deploy/langfuse/compose.private.yml \
   -f deploy/frontend/compose.frontend.yml \
   up -d --build --wait --wait-timeout 300
 ```
@@ -150,7 +146,7 @@ Control Plane account. Rotate the token to revoke that machine credential.
 - [Production configuration reproducibility plan](plans/production-configuration-reproducibility-plan.md)
 - [REST-first recovery, progress, and diagnostics implementation plan](plans/rest-recovery-and-progress-implementation-plan.md)
 - [utility-llm frontend parity inventory](docs/utility-llm-frontend-parity-inventory.md)
-- [Langfuse upstream provenance](deploy/langfuse/UPSTREAM.md)
+- [Langfuse retirement decision](docs/adr/ADR-HLLM-029-retire-langfuse.md)
 - [Architecture decisions](docs/adr/README.md)
 
 Live provider calls are opt-in release evidence only. Deterministic acceptance

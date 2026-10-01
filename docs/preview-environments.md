@@ -1,7 +1,7 @@
 # Branch development environments
 
 Identity and login sections dated before 2026-09-30 describe the former local
-guest/operator design. ADR-HLLM-029 and section 3 below define the current
+guest/operator design. ADR-HLLM-030 and section 3 below define the current
 Control Plane authority and host-only product sessions; the old credentials and
 `login.txt` workflow have been removed.
 
@@ -93,9 +93,10 @@ Each branch owns a Compose project containing Phoenix, Go gateway, Postgres,
 and Garage, with a private network and separate persistent volumes. The
 existing OpenAPI boundary is unchanged. Application history, profiles, traces,
 and stats remain in branch Postgres; artifact payloads remain in branch Garage.
-Diagnostic logs are bounded.
-OTLP exports are disabled in previews: no preview Langfuse, Luminar, ClickHouse,
-or production telemetry dependency is introduced.
+Diagnostic logs are bounded. The encrypted Control Plane session reference
+stays in the host-only cookie; previews do not need a separate session-vault
+volume. OTLP exports are disabled in previews; no production telemetry
+dependency is introduced.
 
 ## 4. Iteration efficiency and isolation boundaries
 

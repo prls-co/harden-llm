@@ -23,7 +23,7 @@ routes each requirement to its implementation home and release gate.
 | REQ-014 failure isolation | telemetry queues/shutdown, timeout policy | TEST-031, TEST-039 |
 | REQ-015 single Collector fanout | `deploy/otel/collector.yaml` | TEST-030, TEST-034 |
 | REQ-016 Grafana provisioning | `deploy/grafana/` | TEST-032, TEST-034 |
-| REQ-017 thirteen-service HLLM production deployment with shared ingress | HLLM Compose/image lock and pinned Langfuse fragment; Caddy and Garage are owned by `caddy-shared` and `garage-shared` | TEST-033, TEST-034, TEST-039, TEST-289 |
+| REQ-017 seven-service HLLM backend deployment with shared ingress | HLLM Compose/image lock; Caddy and Garage are owned by `caddy-shared` and `garage-shared` | TEST-033, TEST-034, TEST-039, TEST-289 |
 | REQ-018 migration independence | `fixtures/parity/`, static dependency scans | TEST-003, TEST-004, TEST-027, TEST-035 |
 | REQ-019 release quality | Makefile, AST/static checks, pinned toolchain, catalog provenance | TEST-001 through TEST-003, TEST-017, TEST-036 |
 | REQ-020 Garage artifacts | `internal/artifacts/`, owner-authorized routes | TEST-024, TEST-034, TEST-038, TEST-040 |

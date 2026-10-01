@@ -164,7 +164,7 @@ defmodule HardenLlmWeb.SecurityObservabilityTest do
     refute inspect(records) =~ "must-not-appear"
   end
 
-  test "frontend Collector extension is additive, private, validatable, and excluded from Langfuse" do
+  test "frontend Collector extension is additive, private, validatable, and uses approved exporters" do
     frontend = yaml!(Path.join(@repo_root, "deploy/frontend/otel.frontend.yaml"))
     base = yaml!(Path.join(@repo_root, "deploy/otel/collector.yaml"))
     overlay = yaml!(Path.join(@repo_root, "deploy/frontend/compose.frontend.yml"))
