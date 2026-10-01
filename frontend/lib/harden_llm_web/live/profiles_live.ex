@@ -3,7 +3,6 @@ defmodule HardenLlmWeb.ProfilesLive do
 
   alias HardenLlmWeb.{
     APIError,
-    Auth,
     HardenAPI,
     Observability,
     ProfileDefaults,
@@ -45,13 +44,13 @@ defmodule HardenLlmWeb.ProfilesLive do
       )
 
     if connected?(socket) do
-      handle = socket.assigns.session_handle
+      session_ref = socket.assigns.access_context.session_ref
 
       {:ok,
        start_async(
          socket,
          :load_profiles,
-         Observability.propagate(fn -> HardenAPI.list_profiles(handle) end)
+         Observability.propagate(fn -> HardenAPI.list_profiles(session_ref) end)
        )}
     else
       {:ok, socket}
@@ -84,7 +83,7 @@ defmodule HardenLlmWeb.ProfilesLive do
 
   @impl true
   def handle_async(_operation, {:ok, {:error, %APIError{status: 401}}}, socket) do
-    {:noreply, Auth.expire_live(socket)}
+    {:noreply, Phoenix.LiveView.redirect(socket, to: "/login")}
   end
 
   def handle_async(
@@ -291,7 +290,7 @@ defmodule HardenLlmWeb.ProfilesLive do
     case profile_payload(params) do
       {:ok, payload} ->
         reference = System.unique_integer([:positive, :monotonic])
-        handle = socket.assigns.session_handle
+        session_ref = socket.assigns.access_context.session_ref
         id = params["profileId"] || ""
 
         {:noreply,
@@ -301,7 +300,7 @@ defmodule HardenLlmWeb.ProfilesLive do
          |> update(:editor_form_revision, &(&1 + 1))
          |> start_async(
            {:save, reference},
-           Observability.propagate(fn -> HardenAPI.save_profile(handle, id, payload) end)
+           Observability.propagate(fn -> HardenAPI.save_profile(session_ref, id, payload) end)
          )}
 
       {:error, message} ->
@@ -317,14 +316,14 @@ defmodule HardenLlmWeb.ProfilesLive do
 
   def handle_event("refresh", %{"id" => id}, %{assigns: %{pending: nil}} = socket) do
     reference = System.unique_integer([:positive, :monotonic])
-    handle = socket.assigns.session_handle
+    session_ref = socket.assigns.access_context.session_ref
 
     {:noreply,
      socket
      |> assign(:pending, reference)
      |> start_async(
        {:refresh, reference, id},
-       Observability.propagate(fn -> HardenAPI.refresh_profile_models(handle, id) end)
+       Observability.propagate(fn -> HardenAPI.refresh_profile_models(session_ref, id) end)
      )}
   end
 
@@ -337,14 +336,14 @@ defmodule HardenLlmWeb.ProfilesLive do
   def handle_event("delete", _params, %{assigns: %{pending: nil, delete_id: id}} = socket)
       when is_binary(id) do
     reference = System.unique_integer([:positive, :monotonic])
-    handle = socket.assigns.session_handle
+    session_ref = socket.assigns.access_context.session_ref
 
     {:noreply,
      socket
      |> assign(:pending, reference)
      |> start_async(
        {:delete, reference, id},
-       Observability.propagate(fn -> HardenAPI.delete_profile(handle, id) end)
+       Observability.propagate(fn -> HardenAPI.delete_profile(session_ref, id) end)
      )}
   end
 
@@ -364,12 +363,15 @@ defmodule HardenLlmWeb.ProfilesLive do
          {:ok, bundle} <- Jason.decode(bytes),
          true <- is_map(bundle),
          {:ok, %{"profiles" => profiles}, _state} <-
-           HardenAPI.import_profile_bundle(socket.assigns.session_handle, bundle) do
+           HardenAPI.import_profile_bundle(socket.assigns.access_context.session_ref, bundle) do
       {:noreply,
        socket |> put_profiles(profiles) |> put_flash(:info, "Profile bundle imported atomically.")}
     else
-      {:error, %APIError{status: 401}} -> {:noreply, Auth.expire_live(socket)}
-      _ -> {:noreply, assign(socket, :operation_error, "The selected bundle was rejected.")}
+      {:error, %APIError{status: 401}} ->
+        {:noreply, Phoenix.LiveView.redirect(socket, to: "/login")}
+
+      _ ->
+        {:noreply, assign(socket, :operation_error, "The selected bundle was rejected.")}
     end
   end
 

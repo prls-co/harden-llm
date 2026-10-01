@@ -123,6 +123,7 @@ test("TEST-233 resolves approved ownership and excludes ambient application vari
     DOCKER_HOST: "tcp://ambient.example:2376",
     DOCKER_CONTEXT: "ambient-context",
     DOCKER_CONFIG: "/ambient/docker",
+    PRIVATE_MODULE_TOKEN: "ambient-build-secret",
   });
   assert.equal(environment.JINA_API_KEY, "fixture$literal");
   assert.equal(environment.HARDEN_LLM_STATIC_TOKEN, undefined);
@@ -134,6 +135,7 @@ test("TEST-233 resolves approved ownership and excludes ambient application vari
   assert.equal(environment.PRLS_LAMINAR_PROJECT_API_KEY, undefined);
   assert.equal(environment.HARDEN_LLM_LAMINAR_PROJECT_API_KEY, undefined);
   assert.equal(environment.PATH, "/fixture/bin");
+  assert.equal(environment.PRIVATE_MODULE_TOKEN, "ambient-build-secret");
   assert(!JSON.stringify({ resolved: { ...resolved, sources: resolved.sources.map(({ values, ...source }) => source) }, environment }).includes("ambient-secret"));
 
   const duplicate = privateFile(directory, "duplicate.env", "A=one\nA=two\n");

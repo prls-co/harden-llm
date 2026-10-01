@@ -139,9 +139,6 @@ defmodule HardenLlmWeb.WorkspaceSchemaLiveTest do
   defp install_schema_stub(handler) do
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do
-        {"GET", "/api/v1/auth/session"} ->
-          Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
-
         {"GET", "/api/v1/state"} ->
           Req.Test.json(conn, APIFixtures.success(nil, APIFixtures.state()))
 

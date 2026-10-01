@@ -9,19 +9,23 @@ defmodule HardenLlmWeb.RenderingTest do
 
   setup %{conn: conn}, do: {:ok, conn: authenticated_conn(conn), anonymous_conn: build_conn()}
 
-  test "login has a responsive landmark and explicitly labelled focus targets", %{
+  test "shared sign-in page has a landmark and explicitly labelled credentials", %{
     anonymous_conn: conn
   } do
     html = conn |> get(~p"/login") |> html_response(200)
 
     assert html =~ ~s(<meta name="viewport" content="width=device-width, initial-scale=1")
-    assert html =~ ~s(id="login-page")
-    assert html =~ ~s(<h1 class="text-3xl)
-    assert html =~ ~s(for="session_email")
-    assert html =~ ~s(for="session_password")
-    assert html =~ ~s(id="login-submit")
-    assert html =~ "max-w-md"
-    assert html =~ "w-full"
+    assert html =~ ~s(<main class="prls-auth">)
+    assert html =~ "<h1>Welcome back</h1>"
+    assert html =~ ~s(action="/login" method="post" class="prls-form")
+
+    assert html =~
+             ~s(<label>Email<input type="email" name="email" autocomplete="username" required></label>)
+
+    assert html =~
+             ~s(<label>Password<input type="password" name="password" autocomplete="current-password" required></label>)
+
+    assert html =~ ~s(<button type="submit" class="prls-button">Sign in</button>)
   end
 
   test "loading and empty states retain landmarks, labels, and stable controls", %{conn: conn} do
@@ -305,9 +309,6 @@ defmodule HardenLlmWeb.RenderingTest do
   defp install_stub(handler) do
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do
-        {"GET", "/api/v1/auth/session"} ->
-          Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
-
         _ ->
           handler.(conn)
       end

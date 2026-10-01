@@ -168,7 +168,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         socket
       end
 
-    profile_selection_changed? = socket.assigns.loaded_profile_id != selected_profile_id
+    profile_selection_changed? =
+      host_context != "profile_definition" and
+        socket.assigns.loaded_profile_id != selected_profile_id
 
     needs_profile_reset? =
       not socket.assigns.initialized? or
@@ -587,14 +589,14 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
         {:noreply, assign(socket, :delete_confirm, false)}
       else
         reference = System.unique_integer([:positive, :monotonic])
-        handle = socket.assigns.session_handle
+        session_ref = socket.assigns.session_ref
 
         {:noreply,
          socket
          |> assign(:pending, reference)
          |> start_async(
            {:profile_delete, reference},
-           Observability.propagate(fn -> HardenAPI.delete_profile(handle, id) end)
+           Observability.propagate(fn -> HardenAPI.delete_profile(session_ref, id) end)
          )}
       end
     end
@@ -617,7 +619,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
       case ProfileForm.profile_payload(params) do
         {:ok, payload} ->
           reference = System.unique_integer([:positive, :monotonic])
-          handle = socket.assigns.session_handle
+          session_ref = socket.assigns.session_ref
           id = params["profileId"] || ""
           save_revision = socket.assigns.main_revision
 
@@ -628,7 +630,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
            |> assign(:main_form, to_form(params, as: :profile))
            |> start_async(
              {:profile_save, reference},
-             Observability.propagate(fn -> HardenAPI.save_profile(handle, id, payload) end)
+             Observability.propagate(fn -> HardenAPI.save_profile(session_ref, id, payload) end)
            )}
 
         {:error, message} ->
@@ -652,14 +654,14 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
 
       true ->
         reference = System.unique_integer([:positive, :monotonic])
-        handle = socket.assigns.session_handle
+        session_ref = socket.assigns.session_ref
 
         {:noreply,
          socket
          |> assign(:pending, reference)
          |> start_async(
            {:profile_refresh, reference},
-           Observability.propagate(fn -> HardenAPI.refresh_profile_models(handle, id) end)
+           Observability.propagate(fn -> HardenAPI.refresh_profile_models(session_ref, id) end)
          )}
     end
   end
@@ -2851,7 +2853,7 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
          params <- target_profile_save_params(ProfileForm.profile_form(profile_state), target),
          {:ok, payload} <- ProfileForm.profile_payload(params) do
       reference = System.unique_integer([:positive, :monotonic])
-      handle = socket.assigns.session_handle
+      session_ref = socket.assigns.session_ref
 
       {:noreply,
        socket
@@ -2859,7 +2861,9 @@ defmodule HardenLlmWeb.ProfileWidgetComponent do
        |> assign(:pending_target_path, path)
        |> start_async(
          {:profile_save_target, reference, path},
-         Observability.propagate(fn -> HardenAPI.save_profile(handle, profile_id, payload) end)
+         Observability.propagate(fn ->
+           HardenAPI.save_profile(session_ref, profile_id, payload)
+         end)
        )}
     else
       true ->

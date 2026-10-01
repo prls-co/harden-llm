@@ -3,20 +3,12 @@ defmodule HardenLlmWeb.APIFixtures do
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-044 WEB-TEST-045 TEST-044 TEST-045
 
-  @token String.duplicate("t", 43)
-  @expiry "2099-07-13T12:00:00Z"
+  @token "harden-llm-development-service-token-0123456789"
+  @session_ref "fixture-control-plane-session-reference"
 
   def token, do: @token
-  def expiry, do: @expiry
-
-  def principal do
-    %{
-      "ownerId" => "owner-test",
-      "email" => "operator@example.test",
-      "sessionId" => "session-test",
-      "expiresAt" => @expiry
-    }
-  end
+  def session_ref, do: @session_ref
+  def cookie, do: HardenLlmWeb.AccessFixtures.cookie()
 
   def success(result, state \\ %{}), do: %{"state" => state, "result" => result, "error" => nil}
 
@@ -49,10 +41,6 @@ defmodule HardenLlmWeb.APIFixtures do
          "fieldErrors" => field_errors
        }
      }}
-  end
-
-  def login_result do
-    %{"accessToken" => @token, "expiresAt" => @expiry, "principal" => principal()}
   end
 
   def recovery_policy do
@@ -325,19 +313,6 @@ defmodule HardenLlmWeb.APIFixtures do
         },
         "response" => %{"available" => true, "payload" => run_result()}
       }
-    }
-  end
-
-  def insert_session do
-    {:ok, handle} = HardenLlmWeb.SessionVault.insert(@token, @expiry)
-    handle
-  end
-
-  def session_map(handle) do
-    %{
-      "session_handle" => handle,
-      "session_expiry" => @expiry,
-      "identity" => %{"email" => "operator@example.test", "ownerId" => "owner-test"}
     }
   end
 end

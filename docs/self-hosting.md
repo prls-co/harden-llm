@@ -13,8 +13,8 @@ manage the shared ingress services.
 
 ## Prepare the host
 
-Allocate persistent storage for Docker volumes, including the retained
-`harden-llm-web-sessions` volume, and working DNS for the public hostnames.
+Allocate persistent storage for Docker volumes and working DNS for the public
+hostnames.
 Shared Caddy owns inbound TCP 80/443. Copy `.env.example` to `.env`, set mode
 0600, and replace every placeholder. Generate every secret independently; do
 not reuse application, Garage, or Grafana credentials.
@@ -26,6 +26,15 @@ metadata volumes. Do not start a repository-local production Garage service.
 
 Configure TLS and Caddy listener bindings in the `caddy-shared` repository; they
 are not Harden-LLM environment inputs.
+
+Building the gateway and Phoenix frontend requires a GitHub token with read
+access to the private `prls-control-plane` Go module and `prls-web` dependency.
+Set `PRIVATE_MODULE_TOKEN` in the build environment; Docker Compose passes it
+only as a BuildKit secret while fetching dependencies. It is not a runtime
+setting and is not copied into either image. CI and the trusted preview runner
+mint a short-lived GitHub App token scoped to read those two repositories. For
+local builds, use a read-only token with those repository scopes and keep it in
+the invoking process environment only.
 
 For an existing production project, install the nonsecret descriptor described
 in [`docs/environment.md`](environment.md) and run the read-only check before
@@ -82,22 +91,60 @@ production project, do not substitute this generic bootstrap
 sequence for the reproducibility check or scoped apply; it has no service
 identity comparison and its `pull`/`build` behavior is intentionally broader.
 
-## Bootstrap an operator
+## Human identity and product access
 
-There is no public registration. Use a stable, non-email owner ID and provide
-the password through standard input so it never appears in process arguments:
+Create human accounts and grant Harden LLM product access in the PRLS Control
+Plane. HLLM has no local registration, user bootstrap, or password-reset path.
+Configure `HARDEN_LLM_CONTROL_PLANE_URL` and the protected
+`HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN`; the gateway checks current account
+and product access for every human request. Phoenix keeps an encrypted
+host-only `__Host-harden_llm_web` cookie; sessions are not shared across product
+subdomains. Set `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID` only when a machine client
+needs direct API access as one explicit Control Plane account.
 
-```bash
-read -rsp 'Initial password: ' BOOTSTRAP_PASSWORD; echo
-printf '%s\n' "$BOOTSTRAP_PASSWORD" | "${COMPOSE[@]}" run --rm -T \
-  harden-llm-gateway bootstrap-user \
-  --owner-id operator-01 --email operator@example.net --password-file -
-unset BOOTSTRAP_PASSWORD
+## Rehome existing product data
+
+An existing database with local `users` rows cannot start the new gateway until
+each old owner maps one-to-one to a real Control Plane account UUID. Grant
+Harden LLM access to each target account first. The mapping must not merge
+owners; combining histories, profiles, credentials, or artifacts is not
+supported by this migration.
+
+Stop the HLLM gateway and frontend while leaving Postgres and Garage available.
+Write a mode-0600 JSON mapping file containing every legacy `localOwnerId` and
+its verified `accountId`, then run the one-shot command using the candidate
+gateway image and production Compose environment:
+
+```json
+{"owners":[{"localOwnerId":"old-owner-id-from-database","accountId":"00000000-0000-4000-8000-000000000000"}]}
 ```
 
-The command is create-only and fails for an existing owner or email; it is not
-a password-reset path. Restrict Docker access: it is equivalent to root and can
-read service configuration.
+```bash
+IDENTITY_MAP=/path/to/identity-map.json
+docker compose run --rm -T --no-deps \
+  -v "$IDENTITY_MAP:/run/identity-map.json:ro" \
+  harden-llm-gateway rehome-identities \
+  --mapping-file /run/identity-map.json
+```
+
+The command migrates through owner-reference cascade version 9, re-encrypts
+provider credentials with the new account UUID in their authenticated binding,
+copies and verifies Garage objects, updates relational owner/object keys,
+checks that no legacy owner references remain, removes old object prefixes, and
+then applies migration 10 to drop the HLLM `users` and `user_sessions` tables.
+It prints counts and readiness only. An already-committed target state can be
+retried before migration 10 completes. Do not restart gateway or web writes
+until the command and post-migration readiness both pass.
+
+Afterward, configure `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID` and
+`HARDEN_LLM_PROFILE_ACCOUNT_IDS` with the intended Control Plane UUIDs, run the
+trusted profile sync for those explicit accounts, and verify current sign-in,
+product access, profile/run ownership, and retained trace/artifact reads. This
+schema change is forward-only: older images that expect local identity tables
+cannot be used after migration 10. Retain an independent pre-cutover database
+and Garage copy until release acceptance; recovery requires restoring the whole
+pre-cutover environment rather than running an older image against migrated
+data.
 
 ## Profile presets
 
@@ -115,7 +162,9 @@ There are no `/workspace` or `/history` routes or legacy redirects. Separate
 frontend routes remain for `/login`, `/logout`, `/session/expired`, `/profiles`,
 `/profiles/bundle`, `/embed/llm`, `/traces/:trace_id`, and artifact downloads at
 `/traces/:trace_id/artifacts/:artifact_id`. `/healthz` is the frontend health probe.
-The Go REST API routes are independent and unchanged.
+The Go REST resource routes remain independent; the former HLLM-owned human
+login, session, and logout API routes have been removed. Browser sign-in is
+handled through the PRLS Control Plane.
 
 - `https://<api-host>/healthz` checks process liveness.
 - `https://<api-host>/readyz` checks migrations and the Garage bucket.
@@ -177,10 +226,10 @@ separately authorized. A loss of Postgres/Garage still loses HardLLM history.
 
 Run the production-config check/apply for runtime settings, then inject shared
 provider settings through the approved process environment as described in
-[shared LLM configuration](shared-llm-configuration.md), and run the trusted
-`sync-profiles` command separately for the existing guest and operator accounts.
-The configuration check never runs profile synchronization as a validation
-side effect.
+[shared LLM configuration](shared-llm-configuration.md). Run the trusted
+`sync-profiles --account-id <uuid>` command for each explicitly selected
+Control Plane account. The configuration check never runs profile
+synchronization as a validation side effect.
 Keep production's infrastructure credentials, bearer token, encryption keys,
 and sessions independent of development. Shared-observability variables may
 also require the injection described in [the environment reference](environment.md).
@@ -210,8 +259,9 @@ records remain readable. Remove an old key only after a deliberate re-encryption
 migration proves no row references it.
 
 Rollback the gateway/frontend images only to a version compatible with the
-deployed schema, retaining `harden-llm-web-sessions` for the current session
-contract. Database migrations are forward-only. If compatibility is uncertain,
+deployed schema. The account-UUID owner migration and local-identity removal are
+forward-only; after that migration, do not restore an image that expects the old
+user/session tables. If compatibility is uncertain,
 keep writes stopped and deploy a compatible forward fix; this deployment has no
 data restore path.
 After any recovery, verify login, profile probe, one deterministic run, artifact

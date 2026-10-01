@@ -1,5 +1,10 @@
 # Branch development environments
 
+Identity and login sections dated before 2026-09-30 describe the former local
+guest/operator design. ADR-HLLM-030 and section 3 below define the current
+Control Plane authority and host-only product sessions; the old credentials and
+`login.txt` workflow have been removed.
+
 ## 1. Daily workflow
 
 Use `dev` for normal iteration. Its persistent URL is
@@ -60,47 +65,44 @@ network, volumes, and clean deployment worktree. Its disposable history,
 credentials, and artifacts have **no automatic recovery**. Shared cached build
 images remain reusable; do not run broad Docker prune commands on this host.
 
-## 3. Login and data ownership
+## 3. Identity and data ownership
 
-For the guest login, use `TEST_LOGIN` (`guest@guest.com`) and `TEST_PASSWORD`
-from `.env`. This is a separate account from the operator described below.
-The guest credentials have been verified on both production and dev. Do not
-substitute `HARDEN_LLM_LOCAL_OPERATOR_*` when asked for the guest/test login.
+Human accounts, passwords, memberships, and product access are owned by the
+PRLS Control Plane. HLLM has no guest/operator users, local login/password
+store, or `login.txt`. Each HLLM host keeps an encrypted `__Host-harden_llm_web`
+cookie with no `Domain` attribute; Control Plane sessions are not shared across
+`*.prls.co`. Product access is checked against current Control Plane state on
+each gateway request.
 
-Each environment has its own data, with the same guest/operator login and shared
-provider/model setup as production (user-requested policy). The local login reference is at:
+The trusted preview host reads one protected `.env` through `sharedEnvFile`
+(reference host: `/home/kirill/p/harden-llm/.env`). Profile JSON and
+credential-variable references come from the absolute `HARDEN_LLM_CONFIG_FILE`
+path. `HARDEN_LLM_PROFILE_ACCOUNT_IDS` explicitly names which Control Plane
+accounts receive synchronized profile configuration; no email lookup or local
+account creation occurs. Provider keys/profile settings are shared only across
+trusted deployments. Infrastructure credentials, encryption keys, databases,
+machine tokens, and artifacts remain deployment-specific. See [shared
+configuration](shared-llm-configuration.md) for updates and rotation.
 
-```text
-/home/kirill/.local/share/harden-llm-previews/environments/<id>/login.txt
-```
-
-Read that private file on the host; never put its password in Git, workflow
-logs, or chat. All previews read one protected `.env` from host configuration
-`sharedEnvFile` (reference host: `/home/kirill/p/harden-llm/.env`). Profile JSON
-and credential-variable references are loaded from the absolute
-`HARDEN_LLM_CONFIG_FILE` path; keys and scalar settings remain in `.env`. This is also
-the source used to apply production's shared model/key configuration; branch
-checkouts are not alternative configuration sources. See
-[shared configuration](shared-llm-configuration.md) for updates and rotation.
-Provider keys and profile/model settings are shared. Infrastructure credentials,
-encryption keys, databases and artifacts are not. Accounts and bearer sessions remain local to each database,
-not SSO. A later password rotation must also update existing preview accounts;
-deployment does not silently reset an existing account. Automated checks never submit
-an LLM run or incur provider charges.
+Each preview owns its product data: branch Postgres, Garage objects, application
+network, and disposable volumes. The browser cookie is host-only and does not
+need a separate session-vault volume. Automated health/configuration checks do
+not submit an LLM run or incur provider charges.
 
 Each branch owns a Compose project containing Phoenix, Go gateway, Postgres,
 and Garage, with a private network and separate persistent volumes. The
 existing OpenAPI boundary is unchanged. Application history, profiles, traces,
-and stats remain in branch Postgres; artifact payloads remain in branch Garage;
-Phoenix session material remains in its own volume. Diagnostic logs are bounded.
-OTLP exports are disabled in previews; no production telemetry dependency is introduced.
+and stats remain in branch Postgres; artifact payloads remain in branch Garage.
+Diagnostic logs are bounded. The encrypted Control Plane session reference
+stays in the host-only cookie; previews do not need a separate session-vault
+volume. OTLP exports are disabled in previews; no production telemetry
+dependency is introduced.
 
 ## 4. Iteration efficiency and isolation boundaries
 
-The fast loop keeps isolation where it protects correctness and shares only
-the host-level control plane. Caddy, its Cloudflare tunnel, and the deployment
-runner are shared; each preview still owns its Postgres database, Garage
-layout, application network, volumes, session material, and disposable data.
+The fast loop shares Caddy, its Cloudflare tunnel, the Control Plane identity
+service, and deployment runner. Each preview still owns its Postgres database,
+Garage layout, application network, volumes, and disposable product data.
 
 Application images use BuildKit Go module/build caches and stable dependency
 layers. CI caches the pinned Phoenix dependencies and compile output. For a
@@ -116,11 +118,10 @@ preview services have conservative memory and CPU limits to prevent idle
 branches from consuming unbounded host resources.
 
 The gateway has a 256 MiB container limit and `GOMEMLIMIT=192MiB`, leaving
-headroom for native/container overhead. Password verification allocates 64 MiB
-per Argon2 check; the former 128 MiB limit caused kernel OOM kills and public
-502 responses during consecutive guest/operator login checks. Do not reduce
-the limit based only on idle usage. The persistent API token avoids password
-verification on inference requests; this change does not alter authentication.
+headroom for native/container overhead. These limits originally accounted for
+local Argon2 password checks, which have since moved to Control Plane and were
+removed from HLLM. Keep the runtime limits until fresh deployment measurements
+justify a change; idle usage alone is not evidence for reducing them.
 
 The measured dev baseline before these changes was approximately 199 MiB for
 the four idle containers (gateway 11 MiB, web 142 MiB, Postgres 33 MiB, and
@@ -208,9 +209,11 @@ Compose pins immutable local image IDs, so a shared tag rebuilt for another
 branch cannot change this environment's next restart or rollback.
 
 Deployment checks healthy container/image identity and public `/healthz`,
-`/readyz`, and `/login`. Initial setup also checks API login, session, profiles,
-history, and logout with the configured operator. These are HTTP checks, not a
-claim of browser layout or LiveSocket certification.
+`/readyz`, and login-page delivery. Those HTTP probes do not authenticate a
+user. Separate release acceptance must verify PRLS Control Plane sign-in,
+current HLLM product access, and host-local logout/session revocation. HLLM no
+longer has a product-owned API password login or session endpoint. These checks
+are not a claim of browser layout or LiveSocket certification.
 First-time hostname creation allows up to five minutes for Cloudflare route
 propagation; updates to an existing hostname use a 90-second readiness budget.
 

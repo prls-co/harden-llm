@@ -20,12 +20,8 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
     session =
       session
       |> resize_window(1_440, 900)
-      |> visit("/login")
-      |> assert_has(Query.css("#login-page"))
-      |> fill_in(Query.text_field("Email address"), with: "browser@example.test")
-      |> fill_in(Query.css("#session_password"), with: "browser-password-123")
-      |> click(Query.css("#login-submit"))
-      |> assert_has(Query.css("#workspace-page"))
+      |> visit("/")
+      |> sign_in_shared_login("browser@example.test", "browser-password-123")
       |> visit("/")
       |> assert_has(Query.css("#workspace-page"))
       |> assert_has(Query.css("#backend-status", text: "Backend ready"))
@@ -258,7 +254,7 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
              "curl --fail-with-body --request POST 'https://api.example.test/api/v1/run'"
            )
 
-    assert curl =~ ~s(authorization: Bearer ${HARDEN_LLM_TOKEN})
+    assert curl =~ ~s(authorization: Bearer ${HARDEN_LLM_API_TOKEN})
     refute curl =~ "browser-fixture-token-that-never-leaves-the-server"
 
     session =
@@ -346,12 +342,15 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> assert_has(Query.css("#workspace-history-run-browser", count: 0, visible: :any))
       |> assert_no_horizontal_overflow()
       |> click(Query.css("#logout-button"))
-      |> assert_has(Query.css("#login-page"))
+      |> assert_shared_login_page()
       |> visit("/")
-      |> assert_has(Query.css("#login-page"))
+      |> assert_shared_login_page()
 
-    assert Enum.count(BrowserBackend.calls(), &(&1 == {"POST", "/api/v1/run"})) == 4
-    refute {"GET", "/api/v1/stats"} in BrowserBackend.calls()
+    calls = BrowserBackend.calls()
+    assert Enum.count(calls, &(&1 == {"POST", "/api/auth/sign-in/email"})) == 1
+    assert Enum.count(calls, &(&1 == {"POST", "/api/auth/sign-out"})) == 1
+    assert Enum.count(calls, &(&1 == {"POST", "/api/v1/run"})) == 4
+    refute {"GET", "/api/v1/stats"} in calls
 
     assert Enum.map(BrowserBackend.run_requests(), & &1["cacheMode"]) == [
              "cache",
@@ -361,7 +360,7 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
            ]
 
     refute page_source(session) =~ "browser-provider-secret"
-    refute inspect(cookies(session)) =~ "browser-fixture-token-that-never-leaves-the-server"
+    refute inspect(cookies(session)) =~ HardenLlmWeb.APIFixtures.token()
   end
 
   # Real layout boundary only; markup/full-value invariants live in WEB-TEST-036.

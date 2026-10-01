@@ -49,6 +49,16 @@ func TestFrontendComposeFixture(t *testing.T) {
 	environment["HARDEN_LLM_WEB_SESSION_ENCRYPTION_SALT"] = fixtureSecret(t, "encrypt-", 24)
 	environment["HARDEN_LLM_WEB_INSTANCE_ID"] = "harden-llm-web-smoke-1"
 	environment["HARDEN_LLM_WEB_API_TIMEOUT_MS"] = "3000"
+	loginEmail := "web-smoke@example.test"
+	loginPassword := fixtureSecret(t, "Web-smoke-password-", 24)
+	environment["HARDEN_LLM_CONTROL_PLANE_URL"] = startFrontendControlPlaneFixture(
+		t,
+		environment["HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN"],
+		"https://"+environment["HARDEN_LLM_WEB_HOST"],
+		loginEmail,
+		loginPassword,
+		environment["HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID"],
+	)
 
 	files := []string{
 		filepath.Join(root, "docker-compose.yml"),
@@ -119,28 +129,6 @@ func TestFrontendComposeFixture(t *testing.T) {
 	waitHTTPStatus(t, client, "https://api.smoke.localhost/readyz", 200, 45*time.Second, nil)
 	waitHTTPStatus(t, client, "https://grafana.smoke.localhost/api/health", 200, 45*time.Second, nil)
 
-	bootstrapPassword := fixtureSecret(t, "Web-smoke-password-", 24)
-	bootstrapContext, cancelBootstrap := context.WithTimeout(context.Background(), 45*time.Second)
-	if err := runner.run(
-		bootstrapContext,
-		strings.NewReader(bootstrapPassword+"\n"),
-		"run",
-		"--rm",
-		"-T",
-		"harden-llm-gateway",
-		"bootstrap-user",
-		"--owner-id",
-		"web-smoke-owner",
-		"--email",
-		"web-smoke@example.test",
-		"--password-file",
-		"-",
-	); err != nil {
-		cancelBootstrap()
-		t.Fatalf("bootstrap frontend smoke user: %v", err)
-	}
-	cancelBootstrap()
-
 	envFile := filepath.Join(workDir, "compose.env")
 	if err := writeEnvironmentFile(envFile, environment); err != nil {
 		t.Fatal(err)
@@ -153,8 +141,8 @@ func TestFrontendComposeFixture(t *testing.T) {
 		GrafanaURL:      fmt.Sprintf("https://grafana.smoke.localhost:%d", httpsPort),
 		GrafanaUser:     environment["GRAFANA_ADMIN_USER"],
 		GrafanaPassword: environment["GRAFANA_ADMIN_PASSWORD"],
-		LoginEmail:      "web-smoke@example.test",
-		LoginPassword:   bootstrapPassword,
+		LoginEmail:      loginEmail,
+		LoginPassword:   loginPassword,
 		EnvironmentFile: envFile,
 		ComposeFiles:    files,
 		ReadinessMS:     readiness.Milliseconds(),

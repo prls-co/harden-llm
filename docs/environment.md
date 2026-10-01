@@ -20,6 +20,14 @@ owned by the separate `caddy-shared` repository. They are not HLLM Compose
 inputs. Configure the public artifact route to match
 `HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT`.
 
+Building the gateway and Phoenix frontend fetches private dependencies from
+`prls-control-plane` and `prls-web`. Supply `PRIVATE_MODULE_TOKEN` in the
+process environment for `docker compose` or the production-config command that
+builds either image. The command forwards it only so Compose can resolve the
+BuildKit secret; it is not stored in a descriptor or `.env`, and it is not
+passed to a running container. GitHub Actions mints a short-lived,
+contents-read-only token scoped to those two repositories.
+
 ## Gateway and application storage
 
 | Variable | Required/default | Purpose |
@@ -31,11 +39,13 @@ inputs. Configure the public artifact route to match
 | `HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID` / `HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY` | secret, required | Existing bucket-scoped S3 credentials supplied only to the gateway. |
 | `PRLS_LOKI_S3_ACCESS_KEY` / `PRLS_LOKI_S3_SECRET_KEY` | secret, required by the shared-observability release | Dedicated Garage key restricted to the `prls-loki` bucket; supplied only to Loki. |
 | `HARDEN_LLM_ARTIFACT_PRESIGN_TTL` | `1m`, max `5m` | Lifetime of an authorized artifact redirect. |
-| `HARDEN_LLM_SESSION_TTL` | `24h` | Opaque bearer-session lifetime. |
-| `HARDEN_LLM_STATIC_TOKEN` / `HARDEN_LLM_STATIC_TOKEN_OWNER_ID` | optional pair | Direct CLI bearer token and the existing owner ID it may access. The token is never persisted or returned; remove or rotate it to disable access. Static-token logout is not a revocation path. |
+| `HARDEN_LLM_CONTROL_PLANE_URL` | internal Control Plane URL | Human identity and current product-access authority. |
+| `HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN` | secret, required | HLLM service credential used for Control Plane access checks. |
+| `HARDEN_LLM_STATIC_TOKEN` | secret, required | HLLM server-to-server bearer credential. |
+| `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID` | optional UUID | Enables direct machine API requests and scopes them to one Control Plane account. Leave unset when only the Phoenix-to-gateway boundary needs the service token. |
+| `HARDEN_LLM_PROFILE_ACCOUNT_IDS` | explicit comma-separated UUIDs | Control Plane accounts whose profiles receive the shared host catalog and credentials. No email/local-user lookup is performed. |
 | `JINA_API_KEY` | optional server secret | Jina Search API credential used only when a run requests web search and its selected profile does not advertise native web-search support. A cache hit does not call Jina. |
 | `HARDEN_LLM_CONFIG_FILE` | shared host scalar | Absolute path to profile/credential-reference JSON; large catalogs do not belong in `.env`. |
-| `HARDEN_LLM_TOKEN` | dev API credential | Persistent bearer token used directly by cURL, bound at dev deployment to the existing operator through the static-token mechanism. No refresh or expiry flow. |
 | `HARDEN_LLM_MAX_RUN_DURATION_MS` | `60000`, range `1..60000` | Deployment and request ceiling for synchronous runs. Requests may lower it. |
 | `HARDEN_LLM_PROVIDER_ALLOWED_HOSTS` | empty | Optional comma-separated restriction for public provider hostnames. |
 | `HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST` | empty | Explicit comma-separated private hostnames/CIDRs; never use broad ranges casually. |
@@ -52,11 +62,15 @@ network. Keep the shared service healthy before starting the gateway.
 | --- | --- | --- |
 | `HARDEN_LLM_WEB_SECRET_KEY_BASE` | secret, 64+ random bytes | Phoenix signing/encryption root. |
 | `HARDEN_LLM_WEB_SESSION_SIGNING_SALT` / `HARDEN_LLM_WEB_SESSION_ENCRYPTION_SALT` | independent secrets | Separate cookie signing and encryption salts. |
-| `HARDEN_LLM_WEB_SESSION_VAULT_PATH` | `/var/lib/harden-llm-web/session-vault.dets` | Encrypted single-replica Phoenix bearer-token vault file; keep its named Docker volume across releases. |
 | `HARDEN_LLM_WEB_INSTANCE_ID` | `harden-llm-web-1` | Bounded OTel instance identity. |
 | `HARDEN_LLM_WEB_API_TIMEOUT_MS` | `15000` | Normal server-to-server REST timeout. |
 | `HARDEN_LLM_WEB_RUN_TIMEOUT_MS` | `65000` | Run transport timeout; startup requires it to exceed the gateway cap. |
 | `HARDEN_LLM_WEB_LOG_MAX_BYTES` / `HARDEN_LLM_WEB_LOG_MAX_FILES` | `10485760` / `5` | Bounded JSON log rotation. |
+
+The Phoenix cookie is encrypted and host-only (`__Host-harden_llm_web`, path
+`/`, no `Domain` attribute). Each product host keeps its own browser session;
+the Control Plane remains the authority for account identity and current
+product access.
 
 The overlay supplies `HARDEN_LLM_API_BASE_URL`,
 `HARDEN_LLM_ARTIFACT_PUBLIC_ORIGIN`, `HARDEN_LLM_WEB_PORT`,

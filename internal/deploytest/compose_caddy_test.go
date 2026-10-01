@@ -137,6 +137,13 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 		t.Errorf("gateway artifact endpoint = %q", endpoint)
 	}
 	gateway := asObject(t, services["harden-llm-gateway"], "gateway")
+	build := asObject(t, gateway["build"], "gateway build")
+	if !valueContains(build["secrets"], "private_module_token") {
+		t.Errorf("gateway build secrets = %#v, want private_module_token", build["secrets"])
+	}
+	if _, exists := gatewayEnv["PRIVATE_MODULE_TOKEN"]; exists {
+		t.Error("private module token is exposed to the gateway runtime")
+	}
 	if !valueContains(gateway["networks"], "harden-private") || !valueContains(gateway["networks"], "prls-observability") {
 		t.Errorf("gateway networks = %#v, want private and shared networks", gateway["networks"])
 	}
@@ -189,6 +196,14 @@ func assertProductionFrontend(t *testing.T, config map[string]any) {
 	t.Helper()
 	services := objectField(t, config, "services")
 	web := asObject(t, services["harden-llm-web"], "production harden-llm-web")
+	webBuild := asObject(t, web["build"], "production web build")
+	if !valueContains(webBuild["secrets"], "private_module_token") {
+		t.Errorf("production web build secrets = %#v, want private_module_token", webBuild["secrets"])
+	}
+	webEnv := environmentValueMap(t, web["environment"])
+	if _, exists := webEnv["PRIVATE_MODULE_TOKEN"]; exists {
+		t.Error("private module token is exposed to the web runtime")
+	}
 	ports, _ := web["ports"].([]any)
 	if len(ports) != 0 {
 		t.Errorf("production web service publishes host ports: %#v", ports)
@@ -374,10 +389,17 @@ func assertImageManifest(t *testing.T, path string, effective map[string]any) {
 func composeContractEnvironment() []string {
 	return []string{
 		"HARDEN_LLM_LAMINAR_ENDPOINT=",
+		"PRLS_LAMINAR_PROJECT_API_KEY=contract-shared-laminar-project-key",
+		"HARDEN_LLM_LAMINAR_PROJECT_API_KEY=contract-harden-laminar-project-key",
+		"PRLS_LOKI_S3_ACCESS_KEY=contract-prls-loki-access-key",
+		"PRLS_LOKI_S3_SECRET_KEY=contract-prls-loki-secret-key",
 		"HARDEN_LLM_API_HOST=api.harden.test", "HARDEN_LLM_GRAFANA_HOST=grafana.harden.test",
 		"HARDEN_LLM_ARTIFACT_HOST=artifacts.harden.test",
 		"HARDEN_LLM_WEB_HOST=app.harden.test",
 		"HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT=https://artifacts.harden.test",
+		"HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN=contract-control-plane-internal-token",
+		"PRIVATE_MODULE_TOKEN=contract-private-module-token",
+		"HARDEN_LLM_STATIC_TOKEN=contract-harden-static-token-0123456789",
 		"HARDEN_LLM_BIND_ADDRESS=127.0.0.1", "HARDEN_LLM_HTTP_PORT=18080", "HARDEN_LLM_HTTPS_PORT=18443",
 		"PRLS_SMOKE_OBSERVABILITY_NETWORK=harden-llm-contract-observability",
 		"SMOKE_CA_CERT=/tmp/harden-llm-contract/ca.crt",

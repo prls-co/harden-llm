@@ -14,7 +14,6 @@ defmodule HardenLlm.Application do
       HardenLlmWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:harden_llm, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: HardenLlm.PubSub},
-      HardenLlmWeb.SessionVault,
       HardenLlmWeb.PromEx,
       # Start to serve requests, typically the last entry
       HardenLlmWeb.Endpoint

@@ -229,7 +229,7 @@ without paying for Chromium.
 | `make test-integration` | Pooled Postgres/Garage setup, parallel isolated Go integration cases, exclusive Garage lifecycle case, contamination check, teardown. | T3 measured service pool. |
 | `make test-browser` | Two ordinary Wallaby canaries only. | T4; one worker until evidence supports more. |
 | `make test-compose` | Existing backend full-Compose smoke. | T5 exclusive. |
-| `make test-release` | `make verify`, frontend format/compile/audit/deterministic tests, client-core tests, two browser canaries, backend Compose smoke, and frontend Compose browser smoke. | T3-T5 scheduled in bounded lanes; no implicit live provider call. |
+| `make test-release` | `make verify`, frontend format/compile/audit/deterministic tests, client-core tests, backend Compose smoke, and release build. Browser checks remain separate explicit opt-ins through `make test-browser` or `make test-browser-compose`. | Browser-free release certification; run browser checks only after the user specifically requests them. No implicit live provider call. |
 | `make test-live` | Existing live provider and live gateway commands selected explicitly. | T5 exclusive; requires explicit credentials/authorization. |
 | `make benchmark-test-feedback` | Repeated warm/cold measurements for each tier and resource class. | Exclusive measurement mode; no concurrent unrelated workload. |
 | `make verify` | Existing comprehensive deterministic backend gate. | Semantics remain unchanged. |

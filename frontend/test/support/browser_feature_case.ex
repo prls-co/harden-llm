@@ -16,9 +16,11 @@ defmodule HardenLlmWeb.BrowserFeatureCase do
 
     previous_req_options = Application.fetch_env!(:harden_llm, :harden_api_req_options)
     previous_artifact_origin = Application.fetch_env!(:harden_llm, :artifact_public_origin)
+    previous_prls_client_options = Application.get_env(:prls_web, :client_options)
 
     Application.put_env(:harden_llm, :harden_api_req_options, plug: BrowserBackend)
     Application.put_env(:harden_llm, :artifact_public_origin, "http://127.0.0.1:4003")
+    Application.put_env(:prls_web, :client_options, request_options: [plug: BrowserBackend])
 
     ExUnit.Callbacks.start_supervised!(
       {Bandit, plug: BrowserArtifactServer, ip: {127, 0, 0, 1}, port: 4003, startup_log: false}
@@ -28,9 +30,50 @@ defmodule HardenLlmWeb.BrowserFeatureCase do
       BrowserBackend.stop()
       Application.put_env(:harden_llm, :harden_api_req_options, previous_req_options)
       Application.put_env(:harden_llm, :artifact_public_origin, previous_artifact_origin)
+
+      if previous_prls_client_options do
+        Application.put_env(:prls_web, :client_options, previous_prls_client_options)
+      else
+        Application.delete_env(:prls_web, :client_options)
+      end
     end)
 
     :ok
+  end
+
+  def assert_shared_login_page(session) do
+    session
+    |> assert_has(Query.css("main.prls-auth h1", text: "Welcome back"))
+    |> assert_has(Query.css("form.prls-form input[name='email']"))
+    |> assert_has(Query.css("form.prls-form input[name='password']"))
+    |> assert_has(Query.css("form.prls-form button.prls-button", text: "Sign in"))
+    |> assert_shared_login_styles()
+  end
+
+  def sign_in_shared_login(session, email, password) do
+    session
+    |> submit_shared_login(email, password)
+    |> assert_has(Query.css("#workspace-page"))
+  end
+
+  defp submit_shared_login(session, email, password) do
+    session
+    |> assert_shared_login_page()
+    |> then(fn session ->
+      return_to =
+        javascript_value(
+          session,
+          "return document.querySelector('form.prls-form input[name=return_to]')?.value;"
+        )
+
+      assert return_to == "/",
+             "sign-in must preserve the protected return path, got #{inspect(return_to)}"
+
+      session
+    end)
+    |> fill_in(Query.css("form.prls-form input[name='email']"), with: email)
+    |> fill_in(Query.css("form.prls-form input[name='password']"), with: password)
+    |> click(Query.css("form.prls-form button[type='submit']"))
   end
 
   def commit_combobox(session, selector, value) do
@@ -262,6 +305,28 @@ defmodule HardenLlmWeb.BrowserFeatureCase do
 
     assert_receive {^reference, value}, 2_000
     value
+  end
+
+  defp assert_shared_login_styles(session) do
+    styles =
+      javascript_value(session, """
+      const stylesheet = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+        .find(link => new URL(link.href).pathname === "/assets/prls.css");
+      const login = document.querySelector("main.prls-auth");
+      return {
+        stylesheetLoaded: Boolean(stylesheet?.sheet),
+        pageBackground: getComputedStyle(document.documentElement).backgroundColor,
+        buttonBackground: getComputedStyle(login.querySelector("button.prls-button")).backgroundColor
+      };
+      """)
+
+    assert styles == %{
+             "stylesheetLoaded" => true,
+             "pageBackground" => "rgb(245, 241, 232)",
+             "buttonBackground" => "rgb(36, 76, 59)"
+           }
+
+    session
   end
 
   defp maybe_click_fold(session, toggle_selector) do

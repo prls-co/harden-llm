@@ -19,11 +19,8 @@ defmodule HardenLlmWeb.WidgetCanaryTest do
     session =
       session
       |> resize_window(390, 844)
-      |> visit("/login")
-      |> fill_in(Query.text_field("Email address"), with: "browser@example.test")
-      |> fill_in(Query.css("#session_password"), with: "browser-password-123")
-      |> click(Query.css("#login-submit"))
-      |> assert_has(Query.css("#workspace-page"))
+      |> visit("/")
+      |> sign_in_shared_login("browser@example.test", "browser-password-123")
       |> assert_has(Query.css("#workspace-llm-widget"))
       |> assert_live_socket_connected()
       |> assert_no_horizontal_overflow()

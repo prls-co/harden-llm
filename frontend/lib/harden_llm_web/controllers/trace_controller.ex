@@ -5,7 +5,7 @@ defmodule HardenLlmWeb.TraceController do
 
   @doc "Returns the authenticated, redacted trace JSON for the reusable trace widget."
   def show(conn, %{"trace_id" => trace_id}) do
-    case HardenAPI.get_trace(conn.assigns.session_handle, trace_id) do
+    case HardenAPI.get_trace(conn.assigns.access_context.session_ref, trace_id) do
       {:ok, trace, _state} ->
         conn
         |> put_resp_header("cache-control", "no-store")
@@ -13,7 +13,7 @@ defmodule HardenLlmWeb.TraceController do
         |> json(trace)
 
       {:error, %APIError{status: 401}} ->
-        redirect(conn, to: ~p"/session/expired")
+        redirect(conn, to: ~p"/login")
 
       {:error, %APIError{status: 404}} ->
         conn

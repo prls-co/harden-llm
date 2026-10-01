@@ -15,9 +15,12 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/prls-co/harden-llm/internal/gateway/auth"
 )
 
 const (
+	databaseURLEnvironment           = "HARDEN_LLM_DATABASE_URL"
 	listenAddressEnvironment         = "HARDEN_LLM_LISTEN_ADDRESS"
 	encryptionKeysEnvironment        = "HARDEN_LLM_ENCRYPTION_KEYS"
 	activeEncryptionKeyEnvironment   = "HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID"
@@ -27,9 +30,10 @@ const (
 	artifactAccessKeyEnvironment     = "HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID"
 	artifactSecretKeyEnvironment     = "HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY"
 	artifactPresignTTLEnvironment    = "HARDEN_LLM_ARTIFACT_PRESIGN_TTL"
-	sessionTTLEnvironment            = "HARDEN_LLM_SESSION_TTL"
+	controlPlaneURLEnvironment       = "HARDEN_LLM_CONTROL_PLANE_URL"
+	controlPlaneTokenEnvironment     = "HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN"
 	staticTokenEnvironment           = "HARDEN_LLM_STATIC_TOKEN"
-	staticTokenOwnerEnvironment      = "HARDEN_LLM_STATIC_TOKEN_OWNER_ID"
+	staticTokenAccountEnvironment    = "HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID"
 	jinaAPIKeyEnvironment            = "JINA_API_KEY"
 	maxRunDurationEnvironment        = "HARDEN_LLM_MAX_RUN_DURATION_MS"
 	allowedHostsEnvironment          = "HARDEN_LLM_PROVIDER_ALLOWED_HOSTS"
@@ -40,35 +44,35 @@ const (
 	serviceNameEnvironment           = "HARDEN_LLM_SERVICE_NAME"
 	defaultListenAddress             = ":8080"
 	defaultServiceName               = "harden-llm-gateway"
-	defaultSessionTTL                = 24 * time.Hour
 	defaultArtifactPresignTTL        = time.Minute
 	defaultMaximumRunDuration        = 60 * time.Second
 	maximumConfigurationDocumentSize = 64 << 10
 )
 
 type serverConfig struct {
-	listenAddress       string
-	databaseURL         string
-	encryptionKeys      map[string][]byte
-	activeEncryptionKey string
-	artifactEndpoint    string
-	artifactExternal    string
-	artifactBucket      string
-	artifactAccessKey   string
-	artifactSecretKey   string
-	artifactPresignTTL  time.Duration
-	sessionTTL          time.Duration
-	staticToken         string
-	staticTokenOwnerID  string
-	jinaAPIKey          string
-	maxRunDuration      time.Duration
-	allowedHosts        []string
-	privateAllowedHosts []string
-	privateAllowlist    []netip.Prefix
-	environment         string
-	release             string
-	otelEndpoint        string
-	serviceName         string
+	listenAddress        string
+	databaseURL          string
+	encryptionKeys       map[string][]byte
+	activeEncryptionKey  string
+	artifactEndpoint     string
+	artifactExternal     string
+	artifactBucket       string
+	artifactAccessKey    string
+	artifactSecretKey    string
+	artifactPresignTTL   time.Duration
+	controlPlaneURL      string
+	controlPlaneToken    string
+	staticToken          string
+	staticTokenAccountID string
+	jinaAPIKey           string
+	maxRunDuration       time.Duration
+	allowedHosts         []string
+	privateAllowedHosts  []string
+	privateAllowlist     []netip.Prefix
+	environment          string
+	release              string
+	otelEndpoint         string
+	serviceName          string
 }
 
 func loadServerConfig(getenv func(string) string) (serverConfig, error) {
@@ -76,21 +80,23 @@ func loadServerConfig(getenv func(string) string) (serverConfig, error) {
 		return serverConfig{}, errors.New("configuration: environment reader is required")
 	}
 	config := serverConfig{
-		listenAddress:       strings.TrimSpace(getenv(listenAddressEnvironment)),
-		databaseURL:         requiredEnvironment(getenv, databaseURLEnvironment),
-		activeEncryptionKey: requiredEnvironment(getenv, activeEncryptionKeyEnvironment),
-		artifactEndpoint:    requiredEnvironment(getenv, artifactEndpointEnvironment),
-		artifactExternal:    requiredEnvironment(getenv, artifactExternalEnvironment),
-		artifactBucket:      requiredEnvironment(getenv, artifactBucketEnvironment),
-		artifactAccessKey:   requiredEnvironment(getenv, artifactAccessKeyEnvironment),
-		artifactSecretKey:   requiredEnvironment(getenv, artifactSecretKeyEnvironment),
-		environment:         requiredEnvironment(getenv, environmentEnvironment),
-		release:             strings.TrimSpace(getenv(releaseEnvironment)),
-		otelEndpoint:        strings.TrimSpace(getenv(otelEndpointEnvironment)),
-		serviceName:         strings.TrimSpace(getenv(serviceNameEnvironment)),
-		staticToken:         strings.TrimSpace(getenv(staticTokenEnvironment)),
-		staticTokenOwnerID:  strings.TrimSpace(getenv(staticTokenOwnerEnvironment)),
-		jinaAPIKey:          strings.TrimSpace(getenv(jinaAPIKeyEnvironment)),
+		listenAddress:        strings.TrimSpace(getenv(listenAddressEnvironment)),
+		databaseURL:          requiredEnvironment(getenv, databaseURLEnvironment),
+		activeEncryptionKey:  requiredEnvironment(getenv, activeEncryptionKeyEnvironment),
+		artifactEndpoint:     requiredEnvironment(getenv, artifactEndpointEnvironment),
+		artifactExternal:     requiredEnvironment(getenv, artifactExternalEnvironment),
+		artifactBucket:       requiredEnvironment(getenv, artifactBucketEnvironment),
+		artifactAccessKey:    requiredEnvironment(getenv, artifactAccessKeyEnvironment),
+		artifactSecretKey:    requiredEnvironment(getenv, artifactSecretKeyEnvironment),
+		controlPlaneURL:      requiredEnvironment(getenv, controlPlaneURLEnvironment),
+		controlPlaneToken:    requiredEnvironment(getenv, controlPlaneTokenEnvironment),
+		environment:          requiredEnvironment(getenv, environmentEnvironment),
+		release:              strings.TrimSpace(getenv(releaseEnvironment)),
+		otelEndpoint:         strings.TrimSpace(getenv(otelEndpointEnvironment)),
+		serviceName:          strings.TrimSpace(getenv(serviceNameEnvironment)),
+		staticToken:          strings.TrimSpace(getenv(staticTokenEnvironment)),
+		staticTokenAccountID: strings.TrimSpace(getenv(staticTokenAccountEnvironment)),
+		jinaAPIKey:           strings.TrimSpace(getenv(jinaAPIKeyEnvironment)),
 	}
 	if config.listenAddress == "" {
 		config.listenAddress = defaultListenAddress
@@ -105,7 +111,8 @@ func loadServerConfig(getenv func(string) string) (serverConfig, error) {
 		{databaseURLEnvironment, config.databaseURL}, {activeEncryptionKeyEnvironment, config.activeEncryptionKey},
 		{artifactEndpointEnvironment, config.artifactEndpoint}, {artifactExternalEnvironment, config.artifactExternal},
 		{artifactBucketEnvironment, config.artifactBucket}, {artifactAccessKeyEnvironment, config.artifactAccessKey},
-		{artifactSecretKeyEnvironment, config.artifactSecretKey}, {environmentEnvironment, config.environment},
+		{artifactSecretKeyEnvironment, config.artifactSecretKey}, {controlPlaneURLEnvironment, config.controlPlaneURL},
+		{controlPlaneTokenEnvironment, config.controlPlaneToken}, {environmentEnvironment, config.environment},
 	} {
 		if item.value == "" {
 			return serverConfig{}, fmt.Errorf("configuration: %s is required", item.name)
@@ -119,21 +126,8 @@ func loadServerConfig(getenv func(string) string) (serverConfig, error) {
 	if _, ok := keys[config.activeEncryptionKey]; !ok {
 		return serverConfig{}, fmt.Errorf("configuration: %s is not present in %s", activeEncryptionKeyEnvironment, encryptionKeysEnvironment)
 	}
-	config.sessionTTL, err = parseDurationEnvironment(getenv(sessionTTLEnvironment), sessionTTLEnvironment, defaultSessionTTL)
-	if err != nil {
-		return serverConfig{}, err
-	}
-	if config.sessionTTL < time.Minute || config.sessionTTL > 30*24*time.Hour {
-		return serverConfig{}, fmt.Errorf("configuration: %s is outside the supported range", sessionTTLEnvironment)
-	}
-	if (config.staticToken == "") != (config.staticTokenOwnerID == "") {
-		return serverConfig{}, fmt.Errorf("configuration: %s and %s are required together", staticTokenEnvironment, staticTokenOwnerEnvironment)
-	}
-	if config.staticToken != "" && !validStaticTokenConfiguration(config.staticToken) {
-		return serverConfig{}, fmt.Errorf("configuration: %s must contain 32 to 512 printable non-whitespace bytes", staticTokenEnvironment)
-	}
-	if config.staticTokenOwnerID != "" && !validOwnerIDConfiguration(config.staticTokenOwnerID) {
-		return serverConfig{}, fmt.Errorf("configuration: %s is invalid", staticTokenOwnerEnvironment)
+	if err := auth.ValidateServiceToken(config.staticToken, config.staticTokenAccountID); err != nil {
+		return serverConfig{}, fmt.Errorf("configuration: %s or %s is invalid", staticTokenEnvironment, staticTokenAccountEnvironment)
 	}
 	config.artifactPresignTTL, err = parseDurationEnvironment(getenv(artifactPresignTTLEnvironment), artifactPresignTTLEnvironment, defaultArtifactPresignTTL)
 	if err != nil {
@@ -340,6 +334,9 @@ func validRuntimeLabel(value string, maximumBytes int) bool {
 }
 
 func validateProductionSecrets(config serverConfig) error {
+	if config.staticToken == "" {
+		return fmt.Errorf("configuration: %s is required in production", staticTokenEnvironment)
+	}
 	if insecureSecret(config.artifactAccessKey) || insecureSecret(config.artifactSecretKey) || allZero(config.artifactAccessKey) || allZero(config.artifactSecretKey) {
 		return errors.New("configuration: documented default artifact credentials are forbidden in production")
 	}
@@ -391,20 +388,6 @@ func validStaticTokenConfiguration(value string) bool {
 		if character < 0x21 || character == 0x7f || character > 0x7e {
 			return false
 		}
-	}
-	return true
-}
-
-func validOwnerIDConfiguration(value string) bool {
-	if value == "" || len(value) > 128 || strings.TrimSpace(value) != value {
-		return false
-	}
-	for index, character := range value {
-		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
-			(character >= '0' && character <= '9') || character == '_' || character == '-' || (index > 0 && character == '.') {
-			continue
-		}
-		return false
 	}
 	return true
 }

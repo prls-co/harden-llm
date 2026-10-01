@@ -2,105 +2,85 @@ defmodule HardenLlmWeb.HardenAPI do
   @moduledoc """
   The only Phoenix-to-Go REST boundary.
 
-  It owns bearer resolution, trace propagation, timeout policy, envelope
+  It owns service authentication, trace propagation, timeout policy, envelope
   validation, and safe error normalization. Callers never receive Req structs.
   """
 
   alias HardenLlm.LlmDiagnosticsWire
-  alias HardenLlmWeb.{APIError, SessionVault}
+  alias HardenLlmWeb.APIError
   require Logger
   require OpenTelemetry.Tracer, as: Tracer
 
   @operations [
-    %{id: "login", function: :login, method: :post, path: "/api/v1/auth/login", auth: false},
-    %{id: "logout", function: :logout, method: :post, path: "/api/v1/auth/logout", auth: true},
-    %{
-      id: "getSession",
-      function: :get_session,
-      method: :get,
-      path: "/api/v1/auth/session",
-      auth: true
-    },
-    %{id: "getState", function: :get_state, method: :get, path: "/api/v1/state", auth: true},
-    %{id: "saveState", function: :save_state, method: :post, path: "/api/v1/state", auth: true},
+    %{id: "getState", function: :get_state, method: :get, path: "/api/v1/state"},
+    %{id: "saveState", function: :save_state, method: :post, path: "/api/v1/state"},
     %{
       id: "listProfiles",
       function: :list_profiles,
       method: :get,
-      path: "/api/v1/profiles",
-      auth: true
+      path: "/api/v1/profiles"
     },
     %{
       id: "listHistory",
       function: :list_history,
       method: :get,
-      path: "/api/v1/history",
-      auth: true
+      path: "/api/v1/history"
     },
-    %{id: "getStats", function: :get_stats, method: :get, path: "/api/v1/stats", auth: true},
+    %{id: "getStats", function: :get_stats, method: :get, path: "/api/v1/stats"},
     %{
       id: "clearHistory",
       function: :clear_history,
       method: :delete,
-      path: "/api/v1/history",
-      auth: true
+      path: "/api/v1/history"
     },
     %{
       id: "deleteHistory",
       function: :delete_history,
       method: :delete,
-      path: "/api/v1/history/{historyID}",
-      auth: true
+      path: "/api/v1/history/{historyID}"
     },
     %{
       id: "exportProfileBundle",
       function: :export_profile_bundle,
       method: :get,
-      path: "/api/v1/profiles/bundle",
-      auth: true
+      path: "/api/v1/profiles/bundle"
     },
     %{
       id: "importProfileBundle",
       function: :import_profile_bundle,
       method: :put,
-      path: "/api/v1/profiles/bundle",
-      auth: true
+      path: "/api/v1/profiles/bundle"
     },
     %{
       id: "saveProfile",
       function: :save_profile,
       method: :put,
-      path: "/api/v1/profiles/{profileID}",
-      auth: true
+      path: "/api/v1/profiles/{profileID}"
     },
     %{
       id: "deleteProfile",
       function: :delete_profile,
       method: :delete,
-      path: "/api/v1/profiles/{profileID}",
-      auth: true
+      path: "/api/v1/profiles/{profileID}"
     },
     %{
       id: "refreshProfileModels",
       function: :refresh_profile_models,
       method: :post,
-      path: "/api/v1/profiles/{profileID}/models:refresh",
-      auth: true
+      path: "/api/v1/profiles/{profileID}/models:refresh"
     },
-    %{id: "run", function: :run, method: :post, path: "/api/v1/run", auth: true},
+    %{id: "run", function: :run, method: :post, path: "/api/v1/run"},
     %{
       id: "getTrace",
       function: :get_trace,
       method: :get,
-      path: "/api/v1/traces/{traceID}",
-      auth: true
+      path: "/api/v1/traces/{traceID}"
     },
     %{
       id: "getArtifact",
       function: :get_artifact,
       method: :get,
       path: "/api/v1/traces/{traceID}/artifacts/{artifactID}",
-      auth: true,
       redirect: true
     }
   ]
@@ -135,55 +115,55 @@ defmodule HardenLlmWeb.HardenAPI do
       raise "HARDEN_LLM_WEB_RUN_TIMEOUT_MS must exceed HARDEN_LLM_MAX_RUN_DURATION_MS"
     end
 
+    unless is_binary(config.service_token) and byte_size(config.service_token) in 32..512 and
+             String.trim(config.service_token) == config.service_token and
+             String.match?(config.service_token, ~r/^[!-~]+$/) do
+      raise "HARDEN_LLM_STATIC_TOKEN must be configured for the server-to-server boundary"
+    end
+
     :ok
   end
 
-  def login(email, password) do
-    request("login", nil, json: %{"email" => email, "password" => password})
-  end
-
-  def logout(handle), do: request("logout", handle)
-  def get_session(handle), do: request("getSession", handle)
-  def get_state(handle), do: request("getState", handle)
-  def save_state(handle, state), do: request("saveState", handle, json: state)
-  def list_profiles(handle), do: request("listProfiles", handle)
-  def get_stats(handle), do: request("getStats", handle)
+  def get_state(session_ref), do: request("getState", session_ref)
+  def save_state(session_ref, state), do: request("saveState", session_ref, json: state)
+  def list_profiles(session_ref), do: request("listProfiles", session_ref)
+  def get_stats(session_ref), do: request("getStats", session_ref)
   def public_base_url, do: config().public_base_url
 
-  def list_history(handle, options \\ []) do
+  def list_history(session_ref, options \\ []) do
     params =
       options
       |> Keyword.take([:cursor, :limit, :page])
       |> Enum.reject(fn {_key, value} -> is_nil(value) end)
 
     history_mode = if Keyword.get(options, :page) != nil, do: :numbered, else: :cursor
-    request("listHistory", handle, params: params, history_mode: history_mode)
+    request("listHistory", session_ref, params: params, history_mode: history_mode)
   end
 
-  def clear_history(handle), do: request("clearHistory", handle)
+  def clear_history(session_ref), do: request("clearHistory", session_ref)
 
-  def delete_history(handle, history_id) do
-    request("deleteHistory", handle, path: %{"historyID" => history_id})
+  def delete_history(session_ref, history_id) do
+    request("deleteHistory", session_ref, path: %{"historyID" => history_id})
   end
 
-  def export_profile_bundle(handle), do: request("exportProfileBundle", handle)
+  def export_profile_bundle(session_ref), do: request("exportProfileBundle", session_ref)
 
-  def import_profile_bundle(handle, bundle),
-    do: request("importProfileBundle", handle, json: bundle)
+  def import_profile_bundle(session_ref, bundle),
+    do: request("importProfileBundle", session_ref, json: bundle)
 
-  def save_profile(handle, profile_id, payload) do
-    request("saveProfile", handle, path: %{"profileID" => profile_id}, json: payload)
+  def save_profile(session_ref, profile_id, payload) do
+    request("saveProfile", session_ref, path: %{"profileID" => profile_id}, json: payload)
   end
 
-  def delete_profile(handle, profile_id) do
-    request("deleteProfile", handle, path: %{"profileID" => profile_id})
+  def delete_profile(session_ref, profile_id) do
+    request("deleteProfile", session_ref, path: %{"profileID" => profile_id})
   end
 
-  def refresh_profile_models(handle, profile_id) do
-    request("refreshProfileModels", handle, path: %{"profileID" => profile_id})
+  def refresh_profile_models(session_ref, profile_id) do
+    request("refreshProfileModels", session_ref, path: %{"profileID" => profile_id})
   end
 
-  def run(handle, payload), do: request("run", handle, json: payload, timeout: :run)
+  def run(session_ref, payload), do: request("run", session_ref, json: payload, timeout: :run)
 
   @doc """
   Executes one authenticated request-bound SSE run.
@@ -194,37 +174,46 @@ defmodule HardenLlmWeb.HardenAPI do
   `{:ok, result, state}` shape as `run/2`; a terminal failure is returned as a
   redacted `APIError` after its final event has been delivered.
   """
-  def run_stream(handle, payload, receiver) when is_function(receiver, 1) do
-    request_stream("run", handle, payload, receiver)
+  def run_stream(session_ref, payload, receiver) when is_function(receiver, 1) do
+    request_stream("run", session_ref, payload, receiver)
   end
 
-  def get_trace(handle, trace_id) do
-    request("getTrace", handle, path: %{"traceID" => trace_id})
+  def get_trace(session_ref, trace_id) do
+    request("getTrace", session_ref, path: %{"traceID" => trace_id})
   end
 
-  def get_artifact(handle, trace_id, artifact_id) do
-    request("getArtifact", handle, path: %{"traceID" => trace_id, "artifactID" => artifact_id})
+  def get_artifact(session_ref, trace_id, artifact_id) do
+    request("getArtifact", session_ref,
+      path: %{"traceID" => trace_id, "artifactID" => artifact_id}
+    )
   end
 
-  defp request(operation_id, handle, options \\ []) do
+  defp request(operation_id, session_ref, options \\ [])
+
+  defp request(operation_id, session_ref, options)
+       when is_binary(session_ref) and session_ref != "" do
     operation = Map.fetch!(@operations_by_id, operation_id)
 
-    with {:ok, token} <- resolve_token(operation, handle) do
-      path = expand_path(operation.path, Keyword.get(options, :path, %{}))
-      timeout = timeout_for(Keyword.get(options, :timeout, :normal))
-      started = System.monotonic_time()
+    path = expand_path(operation.path, Keyword.get(options, :path, %{}))
+    timeout = timeout_for(Keyword.get(options, :timeout, :normal))
+    started = System.monotonic_time()
 
-      Tracer.with_span "harden_llm.api.request",
-                       %{attributes: api_attributes(operation)} do
-        result = perform_request(operation, path, token, timeout, options)
-        record_result(operation, result, started)
-        result
-      end
+    Tracer.with_span "harden_llm.api.request",
+                     %{attributes: api_attributes(operation)} do
+      result = perform_request(operation, path, session_ref, timeout, options)
+      record_result(operation, result, started)
+      result
     end
   end
 
-  defp perform_request(operation, path, token, timeout, options) do
-    headers = [{"accept", "application/json"}] ++ authorization_header(token) ++ trace_headers()
+  defp request(_operation_id, _session_ref, _options) do
+    {:error,
+     %APIError{category: :unauthorized, status: 401, message: "Your session has expired."}}
+  end
+
+  defp perform_request(operation, path, session_ref, timeout, options) do
+    headers =
+      [{"accept", "application/json"}] ++ authorization_headers(session_ref) ++ trace_headers()
 
     request_options = [
       method: operation.method,
@@ -254,24 +243,28 @@ defmodule HardenLlmWeb.HardenAPI do
     _exception -> protocol_error(operation, "The backend response could not be processed.")
   end
 
-  defp request_stream(operation_id, handle, payload, receiver) do
+  defp request_stream(operation_id, session_ref, payload, receiver)
+       when is_binary(session_ref) and session_ref != "" do
     operation = Map.fetch!(@operations_by_id, operation_id)
 
-    with {:ok, token} <- resolve_token(operation, handle) do
-      path = operation.path
-      timeout = timeout_for(:run)
-      started = System.monotonic_time()
+    path = operation.path
+    timeout = timeout_for(:run)
+    started = System.monotonic_time()
 
-      Tracer.with_span "harden_llm.api.request",
-                       %{attributes: api_attributes(operation)} do
-        result = perform_stream_request(operation, path, token, timeout, payload, receiver)
-        record_result(operation, result, started)
-        result
-      end
+    Tracer.with_span "harden_llm.api.request",
+                     %{attributes: api_attributes(operation)} do
+      result = perform_stream_request(operation, path, session_ref, timeout, payload, receiver)
+      record_result(operation, result, started)
+      result
     end
   end
 
-  defp perform_stream_request(operation, path, token, timeout, payload, receiver) do
+  defp request_stream(_operation_id, _session_ref, _payload, _receiver) do
+    {:error,
+     %APIError{category: :unauthorized, status: 401, message: "Your session has expired."}}
+  end
+
+  defp perform_stream_request(operation, path, session_ref, timeout, payload, receiver) do
     key = {__MODULE__, make_ref()}
     Process.put(key, %{buffer: <<>>, status: nil, terminal: nil, error_body: <<>>, reason: nil})
 
@@ -290,7 +283,8 @@ defmodule HardenLlmWeb.HardenAPI do
       end
     end
 
-    headers = [{"accept", "text/event-stream"}] ++ authorization_header(token) ++ trace_headers()
+    headers =
+      [{"accept", "text/event-stream"}] ++ authorization_headers(session_ref) ++ trace_headers()
 
     request_options = [
       method: operation.method,
@@ -585,26 +579,12 @@ defmodule HardenLlmWeb.HardenAPI do
   defp decode_wire(operation, value, nil), do: LlmDiagnosticsWire.decode(operation, value)
   defp decode_wire(operation, value, mode), do: LlmDiagnosticsWire.decode(operation, value, mode)
 
-  defp resolve_token(%{auth: false}, nil), do: {:ok, nil}
-
-  defp resolve_token(%{auth: true}, handle) when is_binary(handle) do
-    case SessionVault.lookup(handle) do
-      {:ok, token, _expiry_ms} ->
-        {:ok, token}
-
-      :error ->
-        {:error,
-         %APIError{category: :unauthorized, status: 401, message: "Your session has expired."}}
-    end
+  defp authorization_headers(session_ref) do
+    [
+      {"authorization", "Bearer " <> config().service_token},
+      {"x-prls-session-reference", session_ref}
+    ]
   end
-
-  defp resolve_token(_operation, _handle) do
-    {:error,
-     %APIError{category: :unauthorized, status: 401, message: "Your session has expired."}}
-  end
-
-  defp authorization_header(nil), do: []
-  defp authorization_header(token), do: [{"authorization", "Bearer " <> token}]
 
   defp trace_headers do
     :otel_propagator_text_map.inject([])
@@ -637,7 +617,8 @@ defmodule HardenLlmWeb.HardenAPI do
       public_base_url: Keyword.fetch!(config, :public_base_url),
       api_timeout_ms: Keyword.fetch!(config, :api_timeout_ms),
       run_timeout_ms: Keyword.fetch!(config, :run_timeout_ms),
-      max_run_duration_ms: Keyword.fetch!(config, :max_run_duration_ms)
+      max_run_duration_ms: Keyword.fetch!(config, :max_run_duration_ms),
+      service_token: Keyword.fetch!(config, :service_token)
     }
   end
 

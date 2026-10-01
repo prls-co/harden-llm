@@ -9,7 +9,7 @@ defmodule HardenLlmWeb.EmbeddingLive do
 
   use HardenLlmWeb, :live_view
 
-  alias HardenLlmWeb.{APIError, Auth, HardenAPI, Observability, ProfileWidgetState}
+  alias HardenLlmWeb.{APIError, HardenAPI, Observability, ProfileWidgetState}
 
   @instance_specs [
     %{
@@ -52,8 +52,10 @@ defmodule HardenLlmWeb.EmbeddingLive do
       |> allow_upload(:embed_secondary_profile_bundle, bundle_upload_options())
 
     if connected?(socket) do
-      handle = socket.assigns.session_handle
-      {:ok, start_async(socket, :hydrate, Observability.propagate(fn -> hydrate(handle) end))}
+      session_ref = socket.assigns.access_context.session_ref
+
+      {:ok,
+       start_async(socket, :hydrate, Observability.propagate(fn -> hydrate(session_ref) end))}
     else
       {:ok, socket}
     end
@@ -61,7 +63,7 @@ defmodule HardenLlmWeb.EmbeddingLive do
 
   @impl true
   def handle_async(_operation, {:ok, {:error, %APIError{status: 401}}}, socket) do
-    {:noreply, Auth.expire_live(socket)}
+    {:noreply, Phoenix.LiveView.redirect(socket, to: "/login")}
   end
 
   def handle_async(:hydrate, {:ok, {:ok, hydration}}, socket) do
@@ -115,15 +117,18 @@ defmodule HardenLlmWeb.EmbeddingLive do
          {:ok, bundle} <- Jason.decode(bytes),
          true <- is_map(bundle),
          {:ok, %{"profiles" => profiles}, _state} <-
-           HardenAPI.import_profile_bundle(socket.assigns.session_handle, bundle) do
+           HardenAPI.import_profile_bundle(socket.assigns.access_context.session_ref, bundle) do
       {:noreply,
        socket
        |> assign(:profiles, profiles)
        |> assign(:upload_error, nil)
        |> put_flash(:info, "Profile bundle imported atomically.")}
     else
-      {:error, %APIError{status: 401}} -> {:noreply, Auth.expire_live(socket)}
-      _ -> {:noreply, assign(socket, :upload_error, "The selected bundle was rejected.")}
+      {:error, %APIError{status: 401}} ->
+        {:noreply, Phoenix.LiveView.redirect(socket, to: "/login")}
+
+      _ ->
+        {:noreply, assign(socket, :upload_error, "The selected bundle was rejected.")}
     end
   end
 
@@ -190,10 +195,10 @@ defmodule HardenLlmWeb.EmbeddingLive do
     {:noreply, update(socket, :instances, &Map.update!(&1, key, update))}
   end
 
-  defp hydrate(handle) do
-    with {:ok, _result, state} <- HardenAPI.get_state(handle),
+  defp hydrate(session_ref) do
+    with {:ok, _result, state} <- HardenAPI.get_state(session_ref),
          {:ok, %{"profiles" => profiles, "defaults" => %{"recoveryPolicy" => policy}}, _} <-
-           HardenAPI.list_profiles(handle),
+           HardenAPI.list_profiles(session_ref),
          true <- is_list(profiles) do
       state = state || %{}
 
@@ -272,7 +277,7 @@ defmodule HardenLlmWeb.EmbeddingLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} current_identity={@current_identity}>
+    <Layouts.app flash={@flash} current_user={@current_user}>
       <main id="embedding-page" class="studio-page mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
         <div class="mb-6">
           <p class="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">
@@ -333,7 +338,7 @@ defmodule HardenLlmWeb.EmbeddingLive do
               recovery_policy_default={@recovery_policy_default}
               pricing_open={instance.pricing_open}
               fold_disabled={false}
-              session_handle={@session_handle}
+              session_ref={@access_context.session_ref}
               bundle_upload={Map.fetch!(@uploads, spec.bundle_upload)}
             />
           </section>

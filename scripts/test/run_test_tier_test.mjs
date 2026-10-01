@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { main, resourceCleanupOptions, resolvedCommand, runTasks, writeRunReport } from "../run-test-tier.mjs";
+import { main, resourceCleanupOptions, resolvedCommand, runCommand, runTasks, writeRunReport } from "../run-test-tier.mjs";
 
 const TEST_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const fixtureSource = `
@@ -28,6 +28,14 @@ process.on("SIGTERM", () => finish(143));
 process.on("SIGINT", () => finish(130));
 
 if (mode === "output" || mode === "output-fail") process.stdout.write("x".repeat(20_000));
+if (mode === "credential") process.stdout.write(process.env.PRIVATE_MODULE_TOKEN ?? "");
+if (mode === "resource-identity") process.stdout.write(JSON.stringify({
+  runID: process.env.HARDEN_LLM_TEST_RUN_ID ?? null,
+  resourceDirectory: process.env.HARDEN_LLM_TEST_RESOURCE_DIR ?? null,
+  sourceSHA: process.env.HARDEN_LLM_TEST_SOURCE_SHA ?? null,
+  supervisorPID: process.env.HARDEN_LLM_TEST_SUPERVISOR_PID ?? null,
+  supervisorStart: process.env.HARDEN_LLM_TEST_SUPERVISOR_START ?? null,
+}));
 if (mode === "capacity-report-symlink") {
   fs.symlinkSync(process.env.HARDEN_LLM_CAPACITY_REPORT_TARGET, process.env.HARDEN_LLM_CAPACITY_REPORT_PATH);
 }
@@ -170,6 +178,141 @@ function interval(records, id) {
 }
 
 describe("resource-aware tier runner", () => {
+  test("Docker-backed host tasks inherit managed resource identity", async () => {
+    const data = await fixture();
+    const runDirectory = path.join(data.root, "managed-run");
+    const resourceDirectory = path.join(data.root, "resource-ledger");
+    const sourceSHA = "a".repeat(40);
+    const managedTask = task(data, "garage-restart", "release", "resource-identity", 1, {
+      requiresDocker: true,
+    });
+    const result = await runCommand(managedTask, {
+      root: TEST_ROOT,
+      runID: "managed-resource-identity-test",
+      runDirectory,
+      resourceDirectory,
+      sourceSHA,
+      seed: 104729,
+      environment: { HARDEN_LLM_FAKE_EVENTS: data.eventsPath },
+    });
+
+    assert.equal(result.status, 0, JSON.stringify(result));
+    const identity = JSON.parse(result.stdoutPreview);
+    assert.equal(identity.runID, "managed-resource-identity-test");
+    assert.equal(identity.resourceDirectory, resourceDirectory);
+    assert.equal(identity.sourceSHA, sourceSHA);
+    assert.equal(identity.supervisorPID, String(process.pid));
+    assert.match(identity.supervisorStart, /^\d+$/);
+  });
+
+  test("container Compose fixtures inherit exact host resource ownership", () => {
+    const sourceSHA = "a".repeat(40);
+    const resourceDirectory = "/tmp/harden-llm-test-resources";
+    const dockerSocketGID = 116;
+    const taskDirectory = "/tmp/harden-llm-run/tasks/frontend-compose";
+    const task = {
+      id: "frontend-compose",
+      command: ["mix", "test", "--only", "compose"],
+      workingDirectory: "frontend",
+      credentialKeys: ["PRIVATE_MODULE_TOKEN"],
+      container: {
+        image: "harden-llm-browser-test:local",
+        network: "host",
+        dockerSocket: true,
+        mountAtHostPath: true,
+        hostResourceIdentity: true,
+      },
+    };
+    const command = resolvedCommand(task, {
+      root: TEST_ROOT,
+      runID: "host-resource-identity-test",
+      resourceDirectory,
+      taskDirectory,
+      dockerSocketGID,
+      environment: {
+        PRIVATE_MODULE_TOKEN: "test-private-module-token-value",
+        HARDEN_LLM_TEST_RESOURCE_DIR: resourceDirectory,
+        HARDEN_LLM_TEST_SOURCE_SHA: sourceSHA,
+        HARDEN_LLM_TEST_SUPERVISOR_PID: "1234",
+        HARDEN_LLM_TEST_SUPERVISOR_START: "123456789",
+      },
+    });
+
+    assert.ok(command.args.includes("--pid=host"));
+    assert.ok(command.args.includes("--user"));
+    assert.equal(
+      command.args[command.args.indexOf("--user") + 1],
+      `${process.getuid()}:${process.getgid()}`,
+    );
+    assert.ok(command.args.includes("--group-add"));
+    assert.equal(command.args[command.args.indexOf("--group-add") + 1], String(dockerSocketGID));
+    assert.ok(command.args.includes(`type=bind,src=${resourceDirectory},dst=${resourceDirectory}`));
+    assert.ok(command.args.includes(`HARDEN_LLM_TEST_SOURCE_SHA=${sourceSHA}`));
+    assert.ok(command.args.includes(`HARDEN_LLM_TEST_COMPOSE_WORK_ROOT=${taskDirectory}`));
+    assert.ok(command.args.includes("PRIVATE_MODULE_TOKEN"));
+    assert.ok(!command.args.some((argument) => argument.includes("test-private-module-token-value")));
+    assert.ok(command.args.includes("HARDEN_LLM_TEST_SUPERVISOR_PID=1234"));
+    assert.ok(command.args.includes("HARDEN_LLM_TEST_SUPERVISOR_START=123456789"));
+
+    assert.throws(
+      () => resolvedCommand(task, {
+        root: TEST_ROOT,
+        runID: "missing-host-resource-identity",
+        resourceDirectory,
+        taskDirectory,
+        dockerSocketGID,
+        environment: {
+          HARDEN_LLM_TEST_RESOURCE_DIR: resourceDirectory,
+          HARDEN_LLM_TEST_SOURCE_SHA: sourceSHA,
+        },
+      }),
+      /managed runner supervisor identity/,
+    );
+
+    assert.throws(
+      () => resolvedCommand(task, {
+        root: TEST_ROOT,
+        runID: "missing-host-resource-ledger",
+        taskDirectory,
+        dockerSocketGID,
+        environment: {
+          HARDEN_LLM_TEST_SUPERVISOR_PID: "1234",
+          HARDEN_LLM_TEST_SUPERVISOR_START: "123456789",
+        },
+      }),
+      /managed runner resource directory and source revision/,
+    );
+
+    assert.throws(
+      () => resolvedCommand(task, {
+        root: TEST_ROOT,
+        runID: "missing-private-module-token",
+        resourceDirectory,
+        taskDirectory,
+        dockerSocketGID,
+        environment: {
+          HARDEN_LLM_TEST_RESOURCE_DIR: resourceDirectory,
+          HARDEN_LLM_TEST_SOURCE_SHA: sourceSHA,
+          HARDEN_LLM_TEST_SUPERVISOR_PID: "1234",
+          HARDEN_LLM_TEST_SUPERVISOR_START: "123456789",
+        },
+      }),
+      /container task frontend-compose requires credential PRIVATE_MODULE_TOKEN/,
+    );
+  });
+
+  test("host resource identity requires Docker socket and host checkout access", async () => {
+    const data = await fixture();
+    const composeTask = task(data, "frontend-compose", "release", "ok", 50, {
+      container: { hostResourceIdentity: true },
+    });
+    await assert.rejects(runTasks([composeTask], {
+      root: data.root,
+      resourceClasses: resources(),
+      runDirectory: path.join(data.root, "run"),
+    }), /hostResourceIdentity requires Docker access and the host checkout mount/);
+  });
+
   test("isolates parallel Mix build output in runner-owned task directories", async () => {
     const data = await fixture();
     const firstDirectory = path.join(data.root, "run", "tasks", "frontend-compile");
@@ -194,6 +337,23 @@ describe("resource-aware tier runner", () => {
     assert.equal(first.environment.MIX_BUILD_PATH, path.join(firstDirectory, "mix-build"));
     assert.equal(second.environment.MIX_BUILD_PATH, path.join(secondDirectory, "mix-build"));
     assert.notEqual(first.environment.MIX_BUILD_PATH, second.environment.MIX_BUILD_PATH);
+  });
+
+  test("redacts explicitly declared credentials from task output and reports", async () => {
+    const data = await fixture();
+    const token = "private-module-token-fixture-value";
+    const credentialTask = task(data, "credential-output", "cpu", "credential", 20, {
+      tier: "T3",
+      network: "dependency-cache",
+      credentialKeys: ["PRIVATE_MODULE_TOKEN"],
+    });
+    const result = await runFixture(data, [credentialTask], {
+      environment: { PRIVATE_MODULE_TOKEN: token },
+    });
+
+    assert.equal(result.accepted, true, JSON.stringify(result.results));
+    assert.equal(result.results[0].stdoutPreview, "[redacted]");
+    assert.doesNotMatch(JSON.stringify(result), /private-module-token-fixture-value/);
   });
 
   test("honors dependency ordering and exposes a stable result record", async () => {

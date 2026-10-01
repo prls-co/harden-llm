@@ -36,7 +36,7 @@ func TestGatewayOTelContract(t *testing.T) {
 
 	ctx, endHTTP := telemetry.StartHTTP(context.Background(), http.MethodGet)
 	for _, operation := range []string{
-		OperationAuthAuthenticate, OperationAuthLogin, OperationProfileSave, OperationModelRefresh, OperationRun,
+		OperationAuthAuthenticate, OperationProfileSave, OperationModelRefresh, OperationRun,
 	} {
 		_, endOperation := telemetry.StartOperation(ctx, operation)
 		endOperation(nil)
@@ -69,7 +69,7 @@ func TestGatewayOTelContract(t *testing.T) {
 
 	spans := spanExporter.GetSpans()
 	for _, required := range []string{
-		"hardenllm.http.request", "hardenllm.auth.authenticate", "hardenllm.auth.login",
+		"hardenllm.http.request", "hardenllm.auth.authenticate",
 		"hardenllm.profile.save", "hardenllm.profile.models.refresh", "hardenllm.run.execute",
 		"hardenllm.trace.persist", "hardenllm.artifact.index", "hardenllm.postgres.query", "hardenllm.garage.put",
 	} {

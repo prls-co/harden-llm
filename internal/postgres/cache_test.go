@@ -28,11 +28,6 @@ func TestCacheConcurrency(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 7, 13, 10, 0, 0, 0, time.UTC)
-	for _, owner := range []string{"owner-a", "owner-b"} {
-		if err := store.CreateUser(ctx, User{ID: owner, Email: owner + "@example.test", PasswordHash: "$argon2id$v=19$fixture", CreatedAt: now, UpdatedAt: now}); err != nil {
-			t.Fatal(err)
-		}
-	}
 	record := CacheRecord{OwnerID: "owner-a", Version: "operation-v2", OperationHash: "hash-a", Result: json.RawMessage(`{"output":"ok"}`), CreatedAt: now, UpdatedAt: now}
 	if err := store.PutCache(ctx, record); err != nil {
 		t.Fatal(err)

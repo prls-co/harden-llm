@@ -8,11 +8,11 @@
 - Target application directory: `/home/kirill/harden-llm/frontend`
 - Backend contract: `/home/kirill/harden-llm/api/openapi.yaml`
 - Source UX reference: `/home/kirill/utility-llm/examples/react-trace-studio`
-- Version: `1.0.5-recovery-boundary-amendment`
+- Version: `1.1.0-control-plane-identity-amendment`
 - Owners: frontend and self-hosted runtime maintainers
-- Date: 2026-09-15
+- Date: 2026-09-30
 - Document ID: `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`
-- Summary: This specification defines the separate Elixir/Phoenix LiveView frontend for Harden-LLM. Phoenix renders HTML, owns the browser session and CSRF boundary, and calls the Go gateway server to server through its published REST/OpenAPI contract. The frontend owns no application database, provider integration, retry policy, object storage, pricing, schema validation, cache identity, or domain persistence. The 2026-08-18 parity amendment incorporates the source-derived controls and explicit self-hosted adaptations recorded in `docs/utility-llm-frontend-parity-inventory.md` and ADR-HLLM-012; the 2026-08-22 embedding amendment makes the Workspace and Profiles visual surfaces single-column, stable-root components that can sit inside a host shell; the 2026-08-23 multi-instance amendment makes `id_prefix` a complete DOM, parent-message, and upload namespace contract; the 2026-08-28 durable-session amendment retains encrypted server-side bearer mappings across single-replica frontend releases as recorded in ADR-HLLM-017.
+- Summary: This specification defines the separate Elixir/Phoenix LiveView frontend for Harden-LLM. Phoenix renders HTML, owns the browser session and CSRF boundary, and calls the Go gateway through its published REST/OpenAPI contract. The frontend owns no human identity/account authority, application database, provider integration, retry policy, object storage, pricing, schema validation, cache identity, or domain persistence. The 2026-08-18 parity amendment incorporates the source-derived controls and explicit self-hosted adaptations recorded in `docs/utility-llm-frontend-parity-inventory.md` and ADR-HLLM-012; the 2026-08-22 embedding amendment makes the Workspace and Profiles visual surfaces single-column, stable-root components that can sit inside a host shell; the 2026-08-23 multi-instance amendment makes `id_prefix` a complete DOM, parent-message, and upload namespace contract. The 2026-09-30 Control Plane identity amendment in ADR-HLLM-030 supersedes the local login and token-vault contract in earlier sections and defines the current browser session boundary in section 22.
 
 ## 2. Canonical stack
 
@@ -25,8 +25,8 @@
 | API contract | Backend OpenAPI 3.1 document at `api/openapi.yaml` | Canonical operations, bearer security, request/response schemas, errors, and examples. |
 | Components | Phoenix function components and generated core components | Shared forms, compact profile cards, in-flow folds, focused trace views, status displays, and icons. |
 | Assets | Phoenix-generated esbuild and Tailwind wrappers | Compile static assets; no Node.js runtime service is deployed. |
-| Browser auth | Encrypted and signed Phoenix cookie plus supervised encrypted DETS token vault | The cookie carries a random frontend session handle; the server-side vault holds the Go bearer token encrypted at rest. |
-| Frontend persistence | Retained session-vault volume only | The vault preserves active frontend sessions across a single-replica release; durable user, profile, state, run, trace, and artifact data remain in the Go REST service. |
+| Browser auth | Shared PRLS Web and Control Plane identity/access client | Phoenix uses shared sign-in/account-selection components and an encrypted host-only product cookie. |
+| Frontend persistence | No domain or identity database | The host-only cookie carries a Control Plane session reference; product data remains in the Go REST service. |
 | Tracing | OpenTelemetry Erlang plus Phoenix instrumentation | Export server-side HTTP and REST-client spans to the existing Collector. |
 | Metrics | PromEx 1.12.0 | Expose bounded Phoenix, LiveView, BEAM, and REST-client metrics for the existing Prometheus service to scrape privately. |
 | Logs | `LoggerJSON` 7.0.4, `opentelemetry_logger_metadata` 0.2.0, and OTP `:logger_std_h` | Emit redacted correlated JSON to stdout and a bounded named volume that the existing Collector tails into Loki, without relying on the unstable OTel Erlang logs API. |
@@ -191,6 +191,10 @@ Contract synchronization:
 - Request and success/error fixtures are copied from OpenAPI examples into test assertions at test time; they are not maintained as a second hand-authored schema catalog.
 
 ## 8. Authentication and session contract
+
+> Historical local-identity design, superseded on 2026-09-30 by section 22 and
+> ADR-HLLM-030. Do not implement the local login, backend session, or DETS vault
+> described below.
 
 ### Login
 
@@ -400,8 +404,8 @@ All tests are free, self-hosted, deterministic, and isolated from live LLM provi
 | WEB-TEST-001 | Project boundary | `test/harden_llm_web/boundary_test.exs` | `mix test test/harden_llm_web/boundary_test.exs` | No Ecto/domain-database/provider/Garage/Firebase/React dependency; only `HardenAPI` uses Req; runtime pins match the spec. | 10s |
 | WEB-TEST-002 | OpenAPI/client parity | `test/harden_llm_web/harden_api_contract_test.exs` | `mix test test/harden_llm_web/harden_api_contract_test.exs` | Operation IDs, methods, paths, bearer requirements, examples, and backend-only allowlist match `api/openapi.yaml`. | 10s |
 | WEB-TEST-003 | REST client behavior | `test/harden_llm_web/harden_api_test.exs` | `mix test test/harden_llm_web/harden_api_test.exs` | Req.Test proves headers, trace propagation, no redirects/retries, timeouts, envelopes, safe `credential_required` classification, malformed responses, and redaction. | 15s |
-| WEB-TEST-004 | Browser auth/session and token vault | `test/harden_llm_web/controllers/session_controller_test.exs`, `test/harden_llm_web/session_vault_test.exs` | `mix test test/harden_llm_web/controllers/session_controller_test.exs test/harden_llm_web/session_vault_test.exs` | Login rotates the handle; only its digest indexes the encrypted DETS vault; cookie flags pass; token is absent from cookie/HTML/LiveView session and vault file; expiry/restart/logout behavior is correct; CSRF rejects invalid submits. | 15s |
-| WEB-TEST-005 | LiveView authorization | `test/harden_llm_web/live/auth_test.exs` | `mix test test/harden_llm_web/live/auth_test.exs` | Initial mount/reconnect validates backend session; 401 clears session; unauthenticated routes redirect; token never appears in rendered HTML/diffs. | 15s |
+| WEB-TEST-004 | Retired local login/session vault | Retired by ADR-HLLM-030 on 2026-09-30; no current implementation | None | Historical test ID. Local login/password/session endpoints and the DETS token vault were removed. |
+| WEB-TEST-005 | Retired backend bearer-session hook | Retired by ADR-HLLM-030 on 2026-09-30; no current implementation | None | Historical test ID. Current Control Plane authorization coverage is WEB-TEST-104 through WEB-TEST-108. |
 | WEB-TEST-006 | Profile workflows | `test/harden_llm_web/live/profiles_live_test.exs` | `mix test test/harden_llm_web/live/profiles_live_test.exs` | Create/edit/delete, write-only credentials, field errors, model refresh, complete recovery policy, and bundle import/export use only expected REST operations. | 20s |
 | WEB-TEST-007 | Workspace/run workflows | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | State hydration/save, validation, web-search toggle/run projection, one run submit, async state, trace-addressed result restoration, distinct new/prompt/system reset actions, non-ambiguous missing-credential guidance, ambiguous failure, no automatic retry, and stale-response rejection pass. | 25s |
 | WEB-TEST-008 | History/trace/artifacts | `test/harden_llm_web/live/history_trace_test.exs`, `test/harden_llm_web/controllers/artifact_controller_test.exs` | `mix test test/harden_llm_web/live/history_trace_test.exs test/harden_llm_web/controllers/artifact_controller_test.exs` | Workspace numbered page replacement/retry/clear races, legacy cursor compatibility, inline trace rendering and authorization, artifact authorization, exact-origin redirect validation, and no-store headers pass; restore/delete/clear also remain covered by Workspace LiveView tests. | 20s |
@@ -706,3 +710,58 @@ Phoenix LiveView/state lanes as WEB-TEST-090 through WEB-TEST-099.
 - Owner: profile widget component/state tests; TEST-266.
 - Command: the WEB-TEST-100 command.
 - Acceptance: forged nested policy fields are rejected or ignored, disabled branches remain null, repair leaves cannot configure repair/rerun, and the full profile configuration remains available apart from those role capabilities.
+
+## 22. Control Plane identity and host-only product sessions
+
+This amendment is the current identity contract and supersedes sections 3, 8,
+and 9 where they describe local email/password accounts, gateway login sessions,
+the DETS token vault, or browser access to a backend bearer. ADR-HLLM-030 is the
+HLLM decision record; `prls-control-plane` owns human identity and current
+product access, and `prls-web` owns the shared sign-in/account-selection
+components.
+
+- The shared `PrlsWeb.AuthController`, account controller, access Plug, and
+  LiveAuth hook are reused directly. HLLM contains no duplicate login forms,
+  password handling, user tables, session APIs, or token vault.
+- `HardenLlmWeb.SessionOptions` uses the encrypted `__Host-harden_llm_web`
+  cookie with `Path=/`, `Secure`, `HttpOnly`, `SameSite=Lax`, and no `Domain`.
+  This gives each product its own cookie and host-only session; no parent-domain
+  cookie or cross-host session is configured.
+- The shared access context supplies an opaque Control Plane session reference
+  and current account. Phoenix passes the reference only to the Go gateway in
+  `X-PRLS-Session-Reference`, together with the service bearer. The gateway
+  resolves current account and `harden-llm` access on each request and uses the
+  account UUID as the product-data owner key. Denied, revoked, or unavailable
+  Control Plane access fails closed.
+- The static service credential is a separate machine path and only authorizes
+  direct API use when deployment configuration binds it to one explicit
+  `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID`. Shared profile provisioning also uses
+  explicit account UUIDs; it does not infer accounts from email or usernames.
+- Product data remains local to HLLM: profiles/provider credentials, workspace
+  state, runs, traces, artifacts, and retention. Account records, authentication,
+  memberships, and product grants remain in Control Plane.
+- Before schema migration 0010 removes `users` and `user_sessions`, an operator
+  must map every legacy local owner one-to-one to a Control Plane account UUID.
+  The rehome command re-encrypts owner-bound provider credentials, updates
+  cascading owner references, copies and verifies Garage artifact objects,
+  removes old object prefixes, then applies the forward-only schema migration.
+  Missing, duplicate, consolidated, or cyclic mappings fail closed. Keep writes
+  stopped during this cutover; old images that require the user tables cannot
+  be used after migration 0010.
+
+### Identity regression cases
+
+| ID | Boundary and oracle | Test |
+| --- | --- | --- |
+| WEB-TEST-104 | Shared PRLS sign-in controller renders the product's sign-in page. | `test/harden_llm_web/shared_identity_test.exs` |
+| WEB-TEST-105 | Unauthenticated product pages redirect through shared sign-in while preserving the product return path. | `test/harden_llm_web/shared_identity_test.exs` |
+| WEB-TEST-106 | A Control Plane session without current HLLM access redirects to account selection/product grant. | `test/harden_llm_web/shared_identity_test.exs`; `internal/gateway/auth/service_test.go` |
+| WEB-TEST-107 | The shared selector lists only accounts carrying HLLM access. | `test/harden_llm_web/shared_identity_test.exs` |
+| WEB-TEST-108 | The HLLM cookie remains encrypted, secure, HttpOnly, SameSite Lax, host-only, and scoped to `/`. | `test/harden_llm_web/shared_identity_test.exs` |
+
+Run the Phoenix tests with `mix test test/harden_llm_web/shared_identity_test.exs`
+and the gateway owner tests with `go test ./internal/gateway/auth ./internal/gateway`.
+PostgreSQL/Garage rehome behavior is verified in the integration tier. Production
+acceptance additionally proves account selection, current product access,
+revocation, account-owned profile/run reads, and retained trace/artifact access;
+source tests and healthy containers alone do not prove those live behaviors.

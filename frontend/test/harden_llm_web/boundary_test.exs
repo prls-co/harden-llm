@@ -14,7 +14,7 @@ defmodule HardenLlmWeb.BoundaryTest do
 
     for {name, version} <- %{
           phoenix: "1.8.9",
-          phoenix_live_view: "1.2.9",
+          phoenix_live_view: "1.2.10",
           req: "0.6.1",
           prom_ex: "1.12.0",
           logger_json: "7.0.4",
@@ -24,6 +24,14 @@ defmodule HardenLlmWeb.BoundaryTest do
               _outer_checksum} =
                Map.fetch!(lock, name)
     end
+
+    assert {:git, "https://github.com/phoenixframework/phoenix_template.git",
+            "a5dd67cee1190bca4b7662ec3553373b5d67a0e6", _options} =
+             Map.fetch!(lock, :phoenix_template)
+
+    assert {:git, "https://github.com/prls-co/prls-web.git",
+            "e9af6a37ae6f459ff5dc2314491f90385c557f54", _options} =
+             Map.fetch!(lock, :prls_web)
   end
 
   test "patched LiveView rejects browser-normalized unsafe URL schemes" do
@@ -79,7 +87,9 @@ defmodule HardenLlmWeb.BoundaryTest do
       HARDEN_LLM_WEB_SERVICE_NAME
       HARDEN_LLM_WEB_ENVIRONMENT
       HARDEN_LLM_WEB_RELEASE
-      HARDEN_LLM_WEB_SESSION_VAULT_PATH
+      HARDEN_LLM_WEB_HOST
+      HARDEN_LLM_CONTROL_PLANE_URL
+      HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN
     ) do
       assert runtime =~ name
       assert compose =~ name

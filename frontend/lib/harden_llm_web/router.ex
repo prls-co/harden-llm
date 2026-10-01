@@ -15,20 +15,18 @@ defmodule HardenLlmWeb.Router do
       "permissions-policy" => "camera=(), microphone=(), geolocation=()",
       "x-frame-options" => "DENY"
     }
-
-    plug HardenLlmWeb.Auth, :fetch_session_handle
   end
 
   pipeline :health do
     plug :accepts, ["json"]
   end
 
-  pipeline :redirect_if_authenticated do
-    plug HardenLlmWeb.Auth, :redirect_if_authenticated
+  pipeline :require_product_access do
+    plug PrlsWeb.Access.Plug, requirement: {:product, "harden-llm"}
   end
 
-  pipeline :require_authenticated do
-    plug HardenLlmWeb.Auth, :require_authenticated
+  pipeline :require_account_access do
+    plug PrlsWeb.Access.Plug, requirement: :require_access
   end
 
   scope "/", HardenLlmWeb do
@@ -37,34 +35,31 @@ defmodule HardenLlmWeb.Router do
     get "/healthz", HealthController, :show
   end
 
-  scope "/", HardenLlmWeb do
+  scope "/", PrlsWeb do
     pipe_through :browser
 
-    get "/session/expired", SessionController, :expired
+    get "/login", AuthController, :new
+    post "/login", AuthController, :create
+    post "/logout", AuthController, :delete
+    get "/session/unavailable", AuthController, :unavailable
+  end
+
+  scope "/", PrlsWeb do
+    pipe_through [:browser, :require_account_access]
+
+    get "/accounts", AccountController, :index
+    post "/accounts", AccountController, :select
   end
 
   scope "/", HardenLlmWeb do
-    pipe_through [:browser, :redirect_if_authenticated]
+    pipe_through [:browser, :require_product_access]
 
-    get "/login", SessionController, :new
-  end
-
-  scope "/", HardenLlmWeb do
-    pipe_through :browser
-
-    post "/login", SessionController, :create
-  end
-
-  scope "/", HardenLlmWeb do
-    pipe_through [:browser, :require_authenticated]
-
-    post "/logout", SessionController, :delete
     get "/profiles/bundle", BundleController, :show
     get "/traces/:trace_id", TraceController, :show
     get "/traces/:trace_id/artifacts/:artifact_id", ArtifactController, :show
 
     live_session :authenticated,
-      on_mount: [{HardenLlmWeb.Auth, :require_authenticated}] do
+      on_mount: [{PrlsWeb.Access.LiveAuth, {:product, "harden-llm"}}] do
       live "/", WorkspaceLive
       live "/embed/llm", EmbeddingLive
       live "/profiles", ProfilesLive
@@ -81,7 +76,7 @@ defmodule HardenLlmWeb.Router do
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
-      pipe_through :browser
+      pipe_through [:browser, :require_product_access]
 
       live_dashboard "/dashboard", metrics: HardenLlmWeb.Telemetry
     end

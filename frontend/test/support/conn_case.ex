@@ -80,9 +80,7 @@ defmodule HardenLlmWeb.ConnCase do
   end
 
   def authenticated_conn(conn) do
-    handle = HardenLlmWeb.APIFixtures.insert_session()
-    ExUnit.Callbacks.on_exit(fn -> HardenLlmWeb.SessionVault.revoke(handle) end)
-    Phoenix.ConnTest.init_test_session(conn, HardenLlmWeb.APIFixtures.session_map(handle))
+    Plug.Conn.put_req_header(conn, "cookie", HardenLlmWeb.APIFixtures.cookie())
   end
 
   defp stop_live_view(%{pid: pid}) do

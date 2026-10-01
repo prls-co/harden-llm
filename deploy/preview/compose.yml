@@ -68,6 +68,7 @@ services:
     networks:
       private:
         aliases: ['${PREVIEW_PROJECT}-gateway']
+      prls-observability: {}
     environment:
       GOMEMLIMIT: 192MiB
       HARDEN_LLM_LISTEN_ADDRESS: :8080
@@ -80,9 +81,10 @@ services:
       HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID: ${ARTIFACT_ACCESS_KEY}
       HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY: ${ARTIFACT_SECRET_KEY}
       HARDEN_LLM_ARTIFACT_PRESIGN_TTL: ${HARDEN_LLM_ARTIFACT_PRESIGN_TTL:-1m}
-      HARDEN_LLM_SESSION_TTL: ${HARDEN_LLM_SESSION_TTL:-24h}
-      HARDEN_LLM_STATIC_TOKEN: ${HARDEN_LLM_STATIC_TOKEN:-}
-      HARDEN_LLM_STATIC_TOKEN_OWNER_ID: ${HARDEN_LLM_STATIC_TOKEN_OWNER_ID:-}
+      HARDEN_LLM_CONTROL_PLANE_URL: ${HARDEN_LLM_CONTROL_PLANE_URL:-http://control-plane:4310}
+      HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN: ${HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN:?}
+      HARDEN_LLM_STATIC_TOKEN: ${HARDEN_LLM_STATIC_TOKEN:?}
+      HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID: ${HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID:-}
       JINA_API_KEY: ${JINA_API_KEY:-}
       HARDEN_LLM_MAX_RUN_DURATION_MS: ${HARDEN_LLM_MAX_RUN_DURATION_MS:-60000}
       HARDEN_LLM_PROVIDER_ALLOWED_HOSTS: ${HARDEN_LLM_PROVIDER_ALLOWED_HOSTS:-}
@@ -115,6 +117,7 @@ services:
     networks:
       private:
         aliases: ['${PREVIEW_PROJECT}-web']
+      prls-observability: {}
     environment:
       PHX_SERVER: 'true'
       HARDEN_LLM_WEB_HOST: ${PREVIEW_HOST}
@@ -122,9 +125,11 @@ services:
       HARDEN_LLM_WEB_SECRET_KEY_BASE: ${WEB_SECRET:?}
       HARDEN_LLM_WEB_SESSION_SIGNING_SALT: ${WEB_SIGNING_SALT:?}
       HARDEN_LLM_WEB_SESSION_ENCRYPTION_SALT: ${WEB_ENCRYPTION_SALT:?}
-      HARDEN_LLM_WEB_SESSION_VAULT_PATH: /var/lib/harden-llm-web/session-vault.dets
       HARDEN_LLM_API_BASE_URL: http://gateway:8080
       HARDEN_LLM_PUBLIC_API_BASE_URL: https://${PREVIEW_HOST}
+      HARDEN_LLM_CONTROL_PLANE_URL: ${HARDEN_LLM_CONTROL_PLANE_URL:-http://control-plane:4310}
+      HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN: ${HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN:?}
+      HARDEN_LLM_STATIC_TOKEN: ${HARDEN_LLM_STATIC_TOKEN:?}
       HARDEN_LLM_ARTIFACT_PUBLIC_ORIGIN: https://${PREVIEW_HOST}
       HARDEN_LLM_WEB_INSTANCE_ID: ${PREVIEW_PROJECT}
       HARDEN_LLM_WEB_API_TIMEOUT_MS: ${HARDEN_LLM_WEB_API_TIMEOUT_MS:-15000}
@@ -137,7 +142,6 @@ services:
       OTEL_SDK_DISABLED: 'true'
     volumes:
       - web-logs:/var/log/harden-llm-web
-      - web-sessions:/var/lib/harden-llm-web
     depends_on:
       gateway: {condition: service_healthy}
     healthcheck:
@@ -151,9 +155,11 @@ services:
 networks:
   private:
     name: ${PREVIEW_PROJECT}-private
+  prls-observability:
+    external: true
+    name: prls-observability
 volumes:
   postgres-data:
   garage-metadata:
   garage-data:
   web-logs:
-  web-sessions:

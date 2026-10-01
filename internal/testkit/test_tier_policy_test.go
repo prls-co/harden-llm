@@ -168,29 +168,35 @@ func TestExclusiveGarageResourcePolicy(t *testing.T) {
 	manifestPath := filepath.Join(root, "test", "test-tiers.json")
 	var manifest struct {
 		Tasks []struct {
-			ID            string          `json:"id"`
-			ResourceClass string          `json:"resourceClass"`
-			Command       []string        `json:"command"`
-			ServicePool   json.RawMessage `json:"servicePool"`
+			ID             string          `json:"id"`
+			ResourceClass  string          `json:"resourceClass"`
+			Command        []string        `json:"command"`
+			ServicePool    json.RawMessage `json:"servicePool"`
+			RequiresDocker bool            `json:"requiresDocker"`
 		} `json:"tasks"`
 	}
 	if err := json.Unmarshal(readFile(t, manifestPath), &manifest); err != nil {
 		t.Fatalf("parse %s: %v", manifestPath, err)
 	}
 	var exclusive []struct {
-		ID      string
-		Command []string
+		ID             string
+		Command        []string
+		RequiresDocker bool
 	}
 	for _, task := range manifest.Tasks {
 		if task.ResourceClass == "service_garage_exclusive" {
 			exclusive = append(exclusive, struct {
-				ID      string
-				Command []string
-			}{task.ID, task.Command})
+				ID             string
+				Command        []string
+				RequiresDocker bool
+			}{task.ID, task.Command, task.RequiresDocker})
 		}
 	}
 	if len(exclusive) != 1 {
 		t.Fatalf("exclusive Garage task count = %d, want exactly one", len(exclusive))
+	}
+	if !exclusive[0].RequiresDocker {
+		t.Fatalf("exclusive Garage task %q must acquire the managed Docker lifecycle guard", exclusive[0].ID)
 	}
 	command := strings.Join(exclusive[0].Command, " ")
 	if !strings.Contains(command, "garageexclusive") || !strings.Contains(command, "TestGarageRestartPersistence") {

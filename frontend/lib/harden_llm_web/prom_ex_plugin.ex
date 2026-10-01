@@ -11,7 +11,8 @@ defmodule HardenLlmWeb.PromExPlugin do
     "/logout",
     "/profiles",
     "/profiles/bundle",
-    "/session/expired",
+    "/accounts",
+    "/session/unavailable",
     "/traces/:trace_id",
     "/traces/:trace_id/artifacts/:artifact_id"
   ]
@@ -32,31 +33,6 @@ defmodule HardenLlmWeb.PromExPlugin do
       live_view_metrics(),
       api_metrics()
     ]
-  end
-
-  @impl true
-  def polling_metrics(_opts) do
-    Polling.build(
-      :harden_llm_web_vault_polling_metrics,
-      10_000,
-      {__MODULE__, :execute_vault_count, []},
-      [
-        last_value([:harden_llm_web, :session_vault, :entries],
-          event_name: [:harden_llm_web, :session_vault, :count],
-          description: "Number of backend tokens held by the encrypted frontend vault.",
-          measurement: :count
-        )
-      ],
-      detach_on_error: false
-    )
-  end
-
-  def execute_vault_count do
-    count = HardenLlmWeb.SessionVault.count()
-    :telemetry.execute([:harden_llm_web, :session_vault, :count], %{count: count}, %{})
-  catch
-    :exit, _reason ->
-      :telemetry.execute([:harden_llm_web, :session_vault, :count], %{count: 0}, %{})
   end
 
   def http_tags(metadata) do

@@ -1,6 +1,6 @@
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-062
 // The shared .env is trusted host configuration, never branch-supplied input.
-import { parseEnv, isDeepStrictEqual } from 'node:util';
+import { parseEnv } from 'node:util';
 import { readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -24,12 +24,15 @@ export function sharedProfiles(values) {
   return { profiles, credentials: Object.fromEntries(credentials) };
 }
 
-// One persistent dev API token, bound to the existing operator account. Other
-// previews retain their own sessions; no production bearer is copied.
-export function previewTokenVariables(branch, values) {
-  if (branch !== 'dev' || !values.HARDEN_LLM_TOKEN) return {};
-  if (!/^[!-~]{32,512}$/.test(values.HARDEN_LLM_TOKEN)) throw new Error('invalid HARDEN_LLM_TOKEN');
-  return { HARDEN_LLM_STATIC_TOKEN: values.HARDEN_LLM_TOKEN, HARDEN_LLM_STATIC_TOKEN_OWNER_ID: 'preview-local' };
+// Profile synchronization is account-scoped through explicit Control Plane UUIDs.
+export function profileAccountIDs(values) {
+  const raw = values.HARDEN_LLM_PROFILE_ACCOUNT_IDS?.trim();
+  if (!raw) throw new Error('HARDEN_LLM_PROFILE_ACCOUNT_IDS must name the Control Plane accounts to provision');
+  const ids = raw.split(',').map(value => value.trim());
+  if (ids.some(value => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) || new Set(ids).size !== ids.length) {
+    throw new Error('HARDEN_LLM_PROFILE_ACCOUNT_IDS must contain unique Control Plane account UUIDs');
+  }
+  return ids;
 }
 
 // Explicit application settings only. Never propagate deployment identities,
@@ -38,43 +41,17 @@ export function sharedApplicationVariables(values) {
   return Object.fromEntries([
     'HARDEN_LLM_MAX_RUN_DURATION_MS', 'HARDEN_LLM_PROVIDER_ALLOWED_HOSTS',
     'HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST',
-    'HARDEN_LLM_ARTIFACT_PRESIGN_TTL', 'HARDEN_LLM_SESSION_TTL',
+    'HARDEN_LLM_ARTIFACT_PRESIGN_TTL',
+    'HARDEN_LLM_CONTROL_PLANE_URL', 'HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN',
     'JINA_API_KEY',
     'HARDEN_LLM_WEB_API_TIMEOUT_MS', 'HARDEN_LLM_WEB_RUN_TIMEOUT_MS',
     'HARDEN_LLM_WEB_LOG_MAX_BYTES', 'HARDEN_LLM_WEB_LOG_MAX_FILES',
   ].filter(key => values[key] !== undefined).map(key => [key, values[key]]));
 }
 
-export async function verifySharedProfiles(url, values, request = fetch) {
-  const expected = sharedProfiles(values);
-  const accounts = [[values.TEST_LOGIN, values.TEST_PASSWORD], [values.HARDEN_LLM_LOCAL_OPERATOR_EMAIL, values.HARDEN_LLM_LOCAL_OPERATOR_PASSWORD]];
-  for (const [email,password] of accounts) {
-    const login = await request(url + '/api/v1/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,password}), signal:AbortSignal.timeout(15000) });
-    const token = (await login.json()).result?.accessToken;
-    if (login.status !== 200 || !token) throw new Error('Shared profile verification login failed');
-    const headers = {Authorization:`Bearer ${token}`};
-    try {
-      const response = await request(url + '/api/v1/profiles', {headers,signal:AbortSignal.timeout(15000)});
-      const body = await response.json();
-      if (response.status !== 200 || !Array.isArray(body.result?.profiles)) throw new Error('Shared profile readback failed');
-      const actual = new Map(body.result.profiles.map(p => [p.profile.llmProfile,p]));
-      for (const [name,profile] of Object.entries(expected.profiles)) {
-        const stored=actual.get(name);
-        if (!stored || !isDeepStrictEqual(stored.profile,profile) || stored.credential.configured !== Object.hasOwn(expected.credentials,name)) throw new Error('Shared profile/model/credential readback mismatch');
-      }
-    } finally {
-      const logout = await request(url + '/api/v1/auth/logout', {method:'POST',headers,signal:AbortSignal.timeout(15000)});
-      await logout.body?.cancel();
-      if (logout.status !== 200) throw new Error('Shared verification session logout failed');
-    }
-  }
-  return {accounts:accounts.length, profiles:Object.keys(expected.profiles).length, configured:Object.keys(expected.credentials).length};
-}
-
 export function syncSharedProfiles(container, image, values, run = command) {
   const config = sharedProfiles(values);
-  const emails = [...new Set([values.TEST_LOGIN, values.HARDEN_LLM_LOCAL_OPERATOR_EMAIL].map(v => v?.trim().toLowerCase()))];
-  if (emails.some(v => !v)) throw new Error('Shared guest and operator emails are required');
+  const accounts = profileAccountIDs(values);
   const [info] = JSON.parse(run('docker', ['inspect', container]));
   const project = info.Config.Labels?.['com.docker.compose.project'];
   const service = info.Config.Labels?.['com.docker.compose.service'];
@@ -84,11 +61,11 @@ export function syncSharedProfiles(container, image, values, run = command) {
   if (keys.some(k => !environment[k])) throw new Error('Gateway provisioning environment is incomplete');
   const env = { ...process.env, ...Object.fromEntries(keys.map(k => [k, environment[k]])) };
   let changed = false;
-  for (const email of emails) {
-    const output = run('docker', ['run', '--rm', '-i', '--read-only', '--cap-drop=ALL', '--security-opt=no-new-privileges', '--network', `container:${info.Id}`, ...keys.flatMap(k => ['--env', k]), image, 'sync-profiles', '--email', email], { env, input: JSON.stringify(config) });
+  for (const accountID of accounts) {
+    const output = run('docker', ['run', '--rm', '-i', '--read-only', '--cap-drop=ALL', '--security-opt=no-new-privileges', '--network', `container:${info.Id}`, ...keys.flatMap(k => ['--env', k]), image, 'sync-profiles', '--account-id', accountID], { env, input: JSON.stringify(config) });
     try { changed ||= Boolean(JSON.parse(output).changed); } catch { throw new Error('Shared profile synchronization returned invalid status'); }
   }
-  return { accounts: emails.length, profiles: Object.keys(config.profiles).length, configured: Object.keys(config.credentials).length, changed };
+  return { accounts: accounts.length, profiles: Object.keys(config.profiles).length, configured: Object.keys(config.credentials).length, changed };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

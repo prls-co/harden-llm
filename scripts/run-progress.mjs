@@ -14,8 +14,10 @@ const readStdin = process.argv.includes("--body-stdin");
 const caseHardMs = Number(option("--case-hard-ms", 60_000));
 const suiteHardMs = Number(option("--suite-hard-ms", 0));
 const softMs = Number(option("--soft-ms", 0));
-if (!endpoint || (!bodyFile && !readStdin) || (bodyFile && readStdin) || process.argv.includes("--body")) {
+const apiToken = process.env.HARDEN_LLM_API_TOKEN;
+if (!endpoint || (!bodyFile && !readStdin) || (bodyFile && readStdin) || process.argv.includes("--body") || !apiToken) {
   console.error("usage: run-progress.mjs --url URL --body-file PATH|--body-stdin [--soft-ms N] [--case-hard-ms N] [--suite-hard-ms N]");
+  if (!apiToken) console.error("HARDEN_LLM_API_TOKEN is required for the configured machine account");
   process.exit(2);
 }
 if (!Number.isSafeInteger(caseHardMs) || caseHardMs <= 0 || !Number.isSafeInteger(suiteHardMs) || suiteHardMs < 0 || !Number.isSafeInteger(softMs) || softMs < 0) {
@@ -47,7 +49,7 @@ try {
     method: "POST",
     headers: {
       Accept: "text/event-stream", "Content-Type": "application/json",
-      ...(process.env.HARDEN_LLM_TOKEN ? { Authorization: `Bearer ${process.env.HARDEN_LLM_TOKEN}` } : {}),
+      Authorization: `Bearer ${apiToken}`,
     },
     body: JSON.stringify(body), signal: controller.signal,
   });

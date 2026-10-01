@@ -22,9 +22,6 @@ defmodule HardenLlmWeb.EmbeddingLiveTest do
 
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do
-        {"GET", "/api/v1/auth/session"} ->
-          Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
-
         {"GET", "/api/v1/state"} ->
           Req.Test.json(conn, APIFixtures.success(nil, state))
 
@@ -129,9 +126,6 @@ defmodule HardenLlmWeb.EmbeddingLiveTest do
 
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do
-        {"GET", "/api/v1/auth/session"} ->
-          Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
-
         {"GET", "/api/v1/state"} ->
           Req.Test.json(conn, APIFixtures.success(nil, state))
 

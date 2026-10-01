@@ -152,12 +152,6 @@ type paginationSnapshotMeasurement struct {
 
 func seedPaginationOwner(ctx context.Context, store *Store, ownerID string, cardinality int) error {
 	now := time.Now().UTC()
-	if err := store.CreateUser(ctx, User{
-		ID: ownerID, Email: ownerID + "@example.test", PasswordHash: "$argon2id$benchmark",
-		CreatedAt: now, UpdatedAt: now,
-	}); err != nil {
-		return err
-	}
 	_, err := store.pool.Exec(ctx, `
 		INSERT INTO llm_runs
 			(owner_id, run_id, profile_id, trace_id, status, request, result, started_at, completed_at)

@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"slices"
 	"testing"
-	"time"
 
 	hardenllm "github.com/prls-co/harden-llm"
 	"github.com/prls-co/harden-llm/internal/integrationtest"
@@ -29,11 +28,6 @@ func TestSharedProfilesProvisionAndRotate(t *testing.T) {
 	defer store.Close()
 	if err := store.Migrate(ctx); err != nil {
 		t.Fatal(err)
-	}
-	for _, owner := range []string{"shared-a", "shared-b", "shared-c"} {
-		if err := store.CreateUser(ctx, postgres.User{ID: owner, Email: owner + "@example.test", PasswordHash: "$argon2id$v=19$fixture", CreatedAt: time.Now(), UpdatedAt: time.Now()}); err != nil {
-			t.Fatal(err)
-		}
 	}
 	vault, _ := profiles.NewCredentialVault("test", map[string][]byte{"test": bytes.Repeat([]byte{9}, 32)}, nil)
 	catalog, _ := profiles.DefaultCatalog()

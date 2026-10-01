@@ -33,18 +33,6 @@ func TestDefaultProfileSeedParity(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC)
-	if err := store.CreateUser(ctx, postgres.User{
-		ID: "seed-owner", Email: "seed@example.test", PasswordHash: "$argon2id$v=19$fixture",
-		CreatedAt: now, UpdatedAt: now,
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.CreateUser(ctx, postgres.User{
-		ID: "existing-owner", Email: "existing@example.test", PasswordHash: "$argon2id$v=19$fixture",
-		CreatedAt: now, UpdatedAt: now,
-	}); err != nil {
-		t.Fatal(err)
-	}
 	seed, err := profiles.DefaultCatalog()
 	if err != nil {
 		t.Fatal(err)

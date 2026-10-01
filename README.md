@@ -9,8 +9,8 @@ shared Garage object storage.
 ## Repository map
 
 - Root `*.go`: public `hardenllm` library and its single `Client.Call` path.
-- `cmd/harden-llm-gateway/`: production process, healthcheck, user bootstrap,
-  and read-only artifact inventory auditing.
+- `cmd/harden-llm-gateway/`: production process, healthcheck, and explicit
+  local-owner rehoming before removing the retired identity tables.
 - `internal/`: providers, runtime, persistence, gateway, telemetry, and tests.
 - `internal/profiles/default-profile-catalog.json`: current 28-profile utility-llm preset seed; credentials are never included.
 - `api/openapi.yaml`: authoritative OpenAPI 3.1 REST contract.
@@ -83,9 +83,10 @@ docker compose \
   up -d --build --wait --wait-timeout 300
 ```
 
-3. Bootstrap the first local user with the password on standard input; never
-   place it in shell arguments. Follow the exact command in the
-   [self-hosting guide](docs/self-hosting.md#bootstrap-an-operator).
+3. Create the operator account and grant Harden LLM access in the shared PRLS
+   Control Plane. Harden LLM does not create or store human accounts or
+   passwords. Its Phoenix frontend keeps a separate encrypted host-only
+   session cookie and asks the Control Plane to resolve current access.
 
 The shared Caddy deployment in `prls-co/caddy-shared` owns public HTTP/S
 ports. Harden-LLM Compose publishes no host ports; its APIs, data stores, and
@@ -96,13 +97,14 @@ and keep the public artifact origin aligned with the shared Caddy route.
 ## Structured CLI smoke test
 
 The current production `CurlStructured` profile routes through CPA at
-`https://cpa.prls.co/v1` with model `gpt-5.6-luna`. In fish, load the static
-token from the ignored `.env` file and construct the JSON body separately so
-line breaks cannot corrupt the request:
+`https://cpa.prls.co/v1` with model `gpt-5.6-luna`. For an authorized machine
+request, use a protected service token whose configured account UUID is the
+intended owner. Construct the JSON body separately so line breaks cannot
+corrupt the request:
 
 ```fish
 set API https://harden-llm-api.prls.co
-set HARDEN_TOKEN (sed -n 's/^HARDEN_LLM_STATIC_TOKEN=//p' .env)
+set HARDEN_API_TOKEN (sed -n 's/^HARDEN_LLM_STATIC_TOKEN=//p' .env)
 
 set REQUEST_BODY (jq -nc '
   {
@@ -122,15 +124,15 @@ set REQUEST_BODY (jq -nc '
 ')
 
 curl --fail-with-body -sS "$API/api/v1/run" \
-  -H "Authorization: Bearer $HARDEN_TOKEN" \
+  -H "Authorization: Bearer $HARDEN_API_TOKEN" \
   -H 'Content-Type: application/json' \
   -d "$REQUEST_BODY" \
   | jq -c '.result.output'
 ```
 
-Replace `API` when testing another deployment. The static token is not
-revoked by logout; rotate or remove `HARDEN_LLM_STATIC_TOKEN` in deployment
-configuration to disable it.
+Replace `API` when testing another deployment. Machine API access is enabled
+only when `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID` is configured to the intended
+Control Plane account. Rotate the token to revoke that machine credential.
 
 ## Contracts and provenance
 

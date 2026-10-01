@@ -1,17 +1,27 @@
 # Shared LLM configuration
 
+Identity ownership was changed by ADR-HLLM-030 on 2026-09-30. The current
+sections use explicit Control Plane account UUIDs and do not provision local
+guest/operator accounts. Dated rollout sections below preserve the evidence for
+the prior local-account deployments; they are historical and are not a current
+login or migration procedure.
+
 ## 1. Source and boundaries
 
 The operator-owned `/home/kirill/p/harden-llm/.env` is the source of shared
-provider keys, credentials and portable scalar application settings. Model
-catalogs live in a separate JSON configuration file. Preview host
-`sharedEnvFile` points to this file. Production's infrastructure `.env` remains
-separate; do not copy database passwords, encryption keys, artifact credentials,
-bearer tokens, session secrets, URLs or environment identity across deployments.
+provider keys, the Control Plane service credential used by trusted HLLM
+deployments, and portable application settings. It does not own human account
+passwords or login identity. Model catalogs live in a separate JSON
+configuration file. Preview host `sharedEnvFile` points to this file.
+Production's infrastructure `.env` remains separate; do not copy database
+passwords, encryption keys, artifact credentials, machine bearer tokens,
+session secrets, or environment identity across deployments.
 
-Every enabled **trusted** branch receives the same configured profiles for both
-`TEST_LOGIN` and `HARDEN_LLM_LOCAL_OPERATOR_EMAIL`. These provider keys grant real
-provider access and spending authority. Never enable previews for untrusted code.
+Every enabled **trusted** branch receives the same configured profiles for
+each explicit Control Plane account UUID in `HARDEN_LLM_PROFILE_ACCOUNT_IDS`.
+The deployment does not resolve accounts by email and does not create local
+guest/operator users. These provider keys grant real provider access and
+spending authority. Never enable previews for untrusted code.
 
 The configuration uses profile schema version 2. A complete synthetic example is
 [`config/llm-profiles.example.json`](../config/llm-profiles.example.json). Each
@@ -33,14 +43,19 @@ The configuration uses the existing catalog boundary:
 - `HARDEN_LLM_MAX_RUN_DURATION_MS`, `HARDEN_LLM_PROVIDER_ALLOWED_HOSTS`, and
   `HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST`: shared gateway settings. The private
   allowlist must be reviewed before allowing internal endpoints in branch code.
+- `HARDEN_LLM_PROFILE_ACCOUNT_IDS`: comma-separated Control Plane account UUIDs
+  whose HLLM profiles are synchronized. Keep the list explicit; it is not an
+  email/password or account-discovery mechanism.
+- `HARDEN_LLM_CONTROL_PLANE_URL` and `HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN`:
+  endpoint and service credential used by HLLM's shared identity client. Keep
+  the token in the protected host environment and pass it only to HLLM services.
 - `JINA_API_KEY`: optional server-side credential for the web-search fallback;
   keep it in the protected environment file and never expose it to Phoenix or
   browser clients.
-- `HARDEN_LLM_TOKEN`: the persistent dev API bearer token, used directly by cURL.
-  Dev binds it to its existing `preview-local` operator using the existing static
-  token implementation. No refresh interval or extra client auth flow. Changing
-  this variable and redeploying dev rotates it. Browser login sessions remain
-  independent; this token is not propagated to other previews or production.
+- `HARDEN_LLM_STATIC_TOKEN`: HLLM server-to-server bearer credential. A separate
+  `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID` is set only in a deployment that needs a
+  direct machine API client; the account UUID scopes that machine path. Browser
+  users authenticate through Control Plane and keep a host-only HLLM cookie.
 - Artifact presign/session TTLs and frontend API/run timeout and log-size limits
   are also shared; encryption/session **secrets** are not.
 
@@ -133,8 +148,8 @@ endpoint reuse that endpoint's shared key (same origin, scope and inference
 type), so key rotation cannot leave contradictory credentials in one catalog.
 
 Configuration sync is not evidence that an upstream provider is currently
-accepting calls. Browser-free checks cover guest/operator login, full profile
-configuration equality, credential binding, and gateway readiness. Deterministic
+accepting calls. Browser-free checks cover exact account UUID provisioning,
+profile configuration, credential binding, and gateway readiness. Deterministic
 tests cover actual runtime credential resolution, rotation, isolation and retained
 custom profiles. Real paid calls and browser tests remain separate opt-ins.
 

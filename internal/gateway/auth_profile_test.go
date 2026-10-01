@@ -15,16 +15,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	hardenllm "github.com/prls-co/harden-llm"
-	"github.com/prls-co/harden-llm/internal/gateway/auth"
-	"github.com/prls-co/harden-llm/internal/gateway/command"
 	"github.com/prls-co/harden-llm/internal/integrationtest"
 	"github.com/prls-co/harden-llm/internal/postgres"
 	"github.com/prls-co/harden-llm/internal/profiles"
 )
 
-func TestAuthProfileContract(t *testing.T) {
+func TestProfileCredentialContract(t *testing.T) {
 	_, dsn := integrationtest.PostgresLease(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
@@ -38,69 +35,6 @@ func TestAuthProfileContract(t *testing.T) {
 	}
 	now := time.Date(2026, 7, 13, 11, 0, 0, 0, time.UTC)
 	clock := func() time.Time { return now }
-	authService, err := auth.NewService(auth.Config{Store: store, SessionTTL: time.Hour, Clock: clock})
-	if err != nil {
-		t.Fatal(err)
-	}
-	bootstrapUser, err := command.BootstrapUser(ctx, command.BootstrapUserConfig{
-		DatabaseURL: dsn, OwnerID: "owner-a", Email: "a@example.test",
-		Password: "correct horse battery staple A", Clock: clock,
-	})
-	if err != nil || bootstrapUser.ID != "owner-a" || bootstrapUser.PasswordHash != "" {
-		t.Fatalf("bootstrap command = %#v, %v", bootstrapUser, err)
-	}
-	if _, err := authService.BootstrapUser(ctx, "owner-b", "b@example.test", "correct horse battery staple B"); err != nil {
-		t.Fatalf("bootstrap owner-b: %v", err)
-	}
-	if _, err := authService.Login(ctx, "a@example.test", "wrong password value"); !errors.Is(err, auth.ErrUnauthenticated) {
-		t.Fatalf("wrong password did not use stable auth failure: %v", err)
-	}
-	loginA, err := authService.Login(ctx, "A@EXAMPLE.TEST", "correct horse battery staple A")
-	if err != nil {
-		t.Fatal(err)
-	}
-	loginB, err := authService.Login(ctx, "b@example.test", "correct horse battery staple B")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if loginA.AccessToken == "" || loginA.AccessToken == loginB.AccessToken || loginA.Principal.OwnerID != "owner-a" || loginA.ExpiresAt != now.Add(time.Hour) {
-		t.Fatalf("invalid login results: %#v %#v", loginA, loginB)
-	}
-	principal, err := authService.AuthenticateHeader(ctx, []string{"Bearer " + loginA.AccessToken})
-	if err != nil || principal.OwnerID != "owner-a" || principal.SessionID == "" {
-		t.Fatalf("authenticate = %#v, %v", principal, err)
-	}
-	encodedPrincipal, _ := json.Marshal(principal)
-	if bytes.Contains(encodedPrincipal, []byte(loginA.AccessToken)) {
-		t.Fatalf("principal retained bearer token: %s", encodedPrincipal)
-	}
-	for _, headers := range [][]string{
-		nil,
-		{},
-		{"bearer " + loginA.AccessToken},
-		{"Bearer  " + loginA.AccessToken},
-		{"Bearer " + loginA.AccessToken + " extra"},
-		{"Bearer " + loginA.AccessToken, "Bearer " + loginB.AccessToken},
-		{"Basic " + loginA.AccessToken},
-		{"Bearer unknown-token"},
-	} {
-		if _, err := authService.AuthenticateHeader(ctx, headers); !errors.Is(err, auth.ErrUnauthenticated) {
-			t.Errorf("malformed header %#v returned %v", headers, err)
-		}
-	}
-	assertTokenNotPersisted(t, ctx, dsn, loginA.AccessToken, loginB.AccessToken)
-
-	if err := authService.Logout(ctx, loginA.AccessToken); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := authService.AuthenticateHeader(ctx, []string{"Bearer " + loginA.AccessToken}); !errors.Is(err, auth.ErrUnauthenticated) {
-		t.Fatalf("revoked token authenticated: %v", err)
-	}
-	now = now.Add(2 * time.Hour)
-	if _, err := authService.AuthenticateHeader(ctx, []string{"Bearer " + loginB.AccessToken}); !errors.Is(err, auth.ErrUnauthenticated) {
-		t.Fatalf("expired token authenticated: %v", err)
-	}
-	now = now.Add(-2 * time.Hour)
 
 	profile := sourceProfile(t)
 	vault, err := profiles.NewCredentialVault("key-2026", map[string][]byte{"key-2026": bytes.Repeat([]byte{0x44}, 32)}, nil)
@@ -319,31 +253,6 @@ func sourceProfile(t *testing.T) profiles.Profile {
 		t.Fatal(err)
 	}
 	return catalog["Backup"]
-}
-
-func assertTokenNotPersisted(t *testing.T, ctx context.Context, dsn string, tokens ...string) {
-	t.Helper()
-	connection, err := pgx.Connect(ctx, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer connection.Close(ctx)
-	rows, err := connection.Query(ctx, `SELECT token_digest FROM user_sessions`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var digest []byte
-		if err := rows.Scan(&digest); err != nil {
-			t.Fatal(err)
-		}
-		for _, token := range tokens {
-			if bytes.Contains(digest, []byte(token)) || strings.Contains(string(digest), token) {
-				t.Fatalf("raw token persisted: %q", token)
-			}
-		}
-	}
 }
 
 func jsonBytesEqual(left, right []byte) bool {

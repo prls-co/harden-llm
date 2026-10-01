@@ -17,6 +17,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      secrets:
+        - private_module_token
       args:
         VERSION: ${HARDEN_LLM_RELEASE:?set an immutable release identifier}
     init: true
@@ -34,9 +36,10 @@ services:
       HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID: ${HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID:?set the Garage bucket access key}
       HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY: ${HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY:?set the Garage bucket secret key}
       HARDEN_LLM_ARTIFACT_PRESIGN_TTL: ${HARDEN_LLM_ARTIFACT_PRESIGN_TTL:-1m}
-      HARDEN_LLM_SESSION_TTL: ${HARDEN_LLM_SESSION_TTL:-24h}
-      HARDEN_LLM_STATIC_TOKEN: ${HARDEN_LLM_STATIC_TOKEN:-}
-      HARDEN_LLM_STATIC_TOKEN_OWNER_ID: ${HARDEN_LLM_STATIC_TOKEN_OWNER_ID:-}
+      HARDEN_LLM_CONTROL_PLANE_URL: ${HARDEN_LLM_CONTROL_PLANE_URL:-http://control-plane:4310}
+      HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN: ${HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN:?set the Control Plane internal API token}
+      HARDEN_LLM_STATIC_TOKEN: ${HARDEN_LLM_STATIC_TOKEN:?set the gateway service token}
+      HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID: ${HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID:-}
       JINA_API_KEY: ${JINA_API_KEY:-}
       HARDEN_LLM_MAX_RUN_DURATION_MS: ${HARDEN_LLM_MAX_RUN_DURATION_MS:-60000}
       HARDEN_LLM_PROVIDER_ALLOWED_HOSTS: ${HARDEN_LLM_PROVIDER_ALLOWED_HOSTS:-}
@@ -225,6 +228,10 @@ networks:
   prls-observability:
     name: prls-observability
     external: true
+
+secrets:
+  private_module_token:
+    environment: PRIVATE_MODULE_TOKEN
 
 volumes:
   harden-postgres-data:

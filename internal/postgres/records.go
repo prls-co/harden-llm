@@ -5,23 +5,6 @@ import (
 	"time"
 )
 
-type User struct {
-	ID           string
-	Email        string
-	PasswordHash string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-}
-
-type Session struct {
-	ID          string
-	OwnerID     string
-	TokenDigest []byte
-	ExpiresAt   time.Time
-	RevokedAt   *time.Time
-	CreatedAt   time.Time
-}
-
 type ProfileRecord struct {
 	OwnerID      string
 	ID           string

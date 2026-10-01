@@ -1,4 +1,12 @@
 services:
+  harden-llm-gateway:
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+  harden-llm-web:
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
   caddy:
     environment:
       HARDEN_LLM_WEB_HOST: ${HARDEN_LLM_WEB_HOST:?set the web hostname}

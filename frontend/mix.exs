@@ -48,7 +48,11 @@ defmodule HardenLlm.MixProject do
       {:phoenix, "== 1.8.9"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
-      {:phoenix_live_view, "== 1.2.9"},
+      {:phoenix_live_view, "== 1.2.10"},
+      {:phoenix_template,
+       git: "https://github.com/phoenixframework/phoenix_template.git",
+       ref: "a5dd67cee1190bca4b7662ec3553373b5d67a0e6",
+       override: true},
       {:lazy_html, "~> 0.1.13", only: :test},
       {:phoenix_live_dashboard, "~> 0.8.3"},
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
@@ -67,6 +71,9 @@ defmodule HardenLlm.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
       {:req, "== 0.6.1"},
+      {:prls_web,
+       git: "https://github.com/prls-co/prls-web.git",
+       ref: "e9af6a37ae6f459ff5dc2314491f90385c557f54"},
       {:opentelemetry_exporter, "== 1.10.0"},
       {:opentelemetry, "== 1.7.0"},
       {:opentelemetry_api, "== 1.5.0"},
@@ -89,8 +96,14 @@ defmodule HardenLlm.MixProject do
     [
       setup: ["deps.get", "assets.setup", "assets.build"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["compile", "tailwind harden_llm", "esbuild harden_llm"],
+      "assets.build": [
+        &install_prls_assets/1,
+        "compile",
+        "tailwind harden_llm",
+        "esbuild harden_llm"
+      ],
       "assets.deploy": [
+        &install_prls_assets/1,
         "compile --warnings-as-errors",
         "tailwind harden_llm --minify",
         "esbuild harden_llm --minify",
@@ -98,5 +111,17 @@ defmodule HardenLlm.MixProject do
       ],
       precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]
     ]
+  end
+
+  defp install_prls_assets(_args) do
+    source = Path.join(__DIR__, "deps/prls_web/assets/prls.css")
+    public = Path.join(__DIR__, "priv/static/assets/prls.css")
+
+    unless File.regular?(source) do
+      Mix.raise("missing pinned PRLS stylesheet: #{source}")
+    end
+
+    File.mkdir_p!(Path.dirname(public))
+    File.cp!(source, public)
   end
 end

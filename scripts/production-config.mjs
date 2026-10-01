@@ -55,6 +55,8 @@ const HOST_ENVIRONMENT_KEYS = Object.freeze([
   "LC_ALL",
   "TMPDIR",
   "XDG_RUNTIME_DIR",
+  // Docker Compose resolves this BuildKit secret; it is never a service variable.
+  "PRIVATE_MODULE_TOKEN",
 ]);
 const DOCKER_TRANSPORT_KEYS = new Set(["DOCKER_CONFIG", "DOCKER_HOST", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH"]);
 const SAFE_DESCRIPTOR_ENVIRONMENT_KEY = /^[A-Z][A-Z0-9_]*$/;

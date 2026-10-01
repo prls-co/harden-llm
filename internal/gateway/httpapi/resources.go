@@ -66,9 +66,6 @@ func (api *API) listProfiles(writer http.ResponseWriter, request *http.Request) 
 }
 
 func (api *API) saveProfile(writer http.ResponseWriter, request *http.Request) {
-	if !api.requireResources(writer) {
-		return
-	}
 	var input struct {
 		Profile      profiles.Profile            `json:"profile"`
 		CredentialID string                      `json:"credentialId"`
@@ -76,6 +73,9 @@ func (api *API) saveProfile(writer http.ResponseWriter, request *http.Request) {
 	}
 	if failure := decodeJSON(writer, request, maximumProfileBodyBytes, &input); failure != nil {
 		writeFailure(writer, *failure)
+		return
+	}
+	if !api.requireResources(writer) {
 		return
 	}
 	profileID := chi.URLParam(request, "profileID")

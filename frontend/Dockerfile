@@ -13,7 +13,13 @@ WORKDIR /build
 RUN mix local.hex --force && mix local.rebar --force
 
 COPY mix.exs mix.lock ./
-RUN mix deps.get --only prod && mix deps.compile
+RUN --mount=type=secret,id=private_module_token,required=true \
+    token="$(cat /run/secrets/private_module_token)" && \
+    GIT_CONFIG_COUNT=1 \
+    GIT_CONFIG_KEY_0="url.https://x-access-token:${token}@github.com/prls-co/prls-web.insteadOf" \
+    GIT_CONFIG_VALUE_0="https://github.com/prls-co/prls-web" \
+    mix deps.get --only prod && \
+    mix deps.compile
 
 COPY config config
 COPY assets assets
@@ -24,12 +30,13 @@ RUN mix assets.deploy && mix release --path /release
 
 FROM ${RUNTIME_IMAGE} AS runtime
 
-RUN apk add --no-cache \
-      ca-certificates=20260611-r0 \
-      libgcc=15.2.0-r2 \
-      libstdc++=15.2.0-r2 \
-      ncurses-libs=6.5_p20251123-r0 \
-      openssl=3.5.8-r0 \
+RUN apk add --no-cache --upgrade \
+      ca-certificates \
+      libcrypto3 \
+      libgcc \
+      libssl3 \
+      libstdc++ \
+      ncurses-libs \
     && addgroup -S -g 10001 harden_llm \
     && adduser -S -D -H -u 10001 -G harden_llm harden_llm \
     && mkdir -p /app /var/log/harden-llm-web /var/lib/harden-llm-web \

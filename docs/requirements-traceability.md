@@ -16,8 +16,8 @@ routes each requirement to its implementation home and release gate.
 | REQ-007 canonical projections | `internal/pricing/`, `profiles/`, `traces/`, `stats/` | TEST-015, TEST-016, TEST-017, TEST-035 |
 | REQ-008 encrypted credentials | `internal/profiles/credentials.go`, seeded credential state | TEST-017, TEST-018, TEST-022, TEST-038 |
 | REQ-009 isolated persistence | `internal/postgres/`, shared `garage-shared` runtime, `deploy/test/garage.toml`, first-use profile seed | TEST-017, TEST-020, TEST-021, TEST-033, TEST-034, TEST-040 |
-| REQ-010 local auth/owners | `internal/gateway/auth/`, bearer middleware, owner-locked profile seed | TEST-017, TEST-022, TEST-023, TEST-024, TEST-038 |
-| REQ-011 REST resources | `internal/gateway/httpapi/`, `api/openapi.yaml` | TEST-017, TEST-023 through TEST-026, TEST-038 |
+| REQ-010 Control Plane identity/access and account owners | `internal/gateway/auth/`, shared `@prls/access`, host-only Phoenix session | TEST-022; WEB-TEST-104 through WEB-TEST-108; PostgreSQL/Garage integration migration tests |
+| REQ-011 account-owned REST resources | `internal/gateway/httpapi/`, `api/openapi.yaml` | TEST-017, TEST-022 through TEST-026, TEST-038 |
 | REQ-012 frontend-independent contract | `api/openapi.yaml`, backend static boundaries | TEST-026, TEST-027 |
 | REQ-013 bounded diagnostics | gateway/runtime telemetry and logging | TEST-028, TEST-029, TEST-034 |
 | REQ-014 failure isolation | telemetry queues/shutdown, timeout policy | TEST-031, TEST-039 |
@@ -113,7 +113,7 @@ The separate `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001` contract maps as follows:
 | Surface | Implementation | Tests |
 | --- | --- | --- |
 | package/runtime boundary and OpenAPI client | `frontend/mix.exs`, `HardenAPI` | WEB-TEST-001 through WEB-TEST-003 |
-| cookie session and durable encrypted token vault | session controller, auth hook, `SessionVault` | WEB-TEST-004, WEB-TEST-005 |
+| Control Plane sign-in/account selection and host-only product cookie | shared PRLS Web controllers, current access hook, encrypted `__Host-harden_llm_web` cookie | WEB-TEST-104 through WEB-TEST-108; Go auth tests |
 | profiles, workspace, history, traces, artifacts | LiveViews and narrow controllers | WEB-TEST-006 through WEB-TEST-008 |
 | security, telemetry, responsive UI | endpoint/config, observability, components | WEB-TEST-009, WEB-TEST-010 |
 | real user and deployment workflows | Wallaby browser tests | WEB-TEST-011, WEB-TEST-012 |

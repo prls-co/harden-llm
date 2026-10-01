@@ -96,7 +96,7 @@ defmodule HardenLlmWeb.SecurityObservabilityTest do
            }) == %{route: "other", status_class: "2xx", outcome: "success"}
 
     body = conn |> get("/metrics") |> response(200)
-    assert body =~ "harden_llm_web_session_vault_entries"
+    refute body =~ "harden_llm_web_session_vault_entries"
     assert body =~ "harden_llm_prom_ex_beam_stats_process_count"
   end
 

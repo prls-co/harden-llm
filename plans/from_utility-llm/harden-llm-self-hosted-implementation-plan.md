@@ -6,6 +6,9 @@
 > original implementation only; they are not current deployment or retention
 > requirements. Current topology and test requirements are in
 > `harden-llm-self-hosted-test-spec.md` and `self-hosted-go-stack-spec.md`.
+> HLLM's original local-user identity design was superseded on 2026-09-30 by
+> ADR-HLLM-030; current identity requirements and the migration gate are in the
+> amendment below.
 
 ## 1. Title and metadata
 
@@ -64,7 +67,7 @@
   - All fifteen Compose services ready within 300 seconds on the reference host.
   - Zero Firebase, frontend implementation, or direct Langfuse exporter paths in backend-owned code, builds, and the base deployment.
 - Scope:
-  - Root Go library, built-in providers, retry/repair/backup behavior, cache, schema, usage/pricing, profiles, traces/stats, diagnostics, Harden-LLM Postgres, Garage artifacts, local bearer auth, REST/OpenAPI gateway, OTel/Grafana/Langfuse stack, Caddy, and Compose.
+  - Root Go library, built-in providers, retry/repair/backup behavior, cache, schema, usage/pricing, profiles, traces/stats, diagnostics, Harden-LLM Postgres, Garage artifacts, Control Plane-backed human authorization, REST/OpenAPI gateway, OTel/Grafana/Langfuse stack, Caddy, and Compose.
 - Non-goals:
   - Frontend implementation, Phoenix/LiveView runtime, browser auth/session/CSRF, application SQLite, Sentry, Temporal, Kubernetes, OIDC, public registration, async run queues, distributed idempotency, scheduled retention, automated backup/restore, multi-node Garage, and local substitution of any Langfuse-owned dependency.
 - Dependencies:
@@ -103,8 +106,8 @@
 | REQ-007 | data | Usage, pricing, profiles, domain traces, observations, stats, and diagnostics shall preserve canonical semantic fields. | Canonicalized Go projections match source fixtures or carry an ADR annotation. |
 | REQ-008 | security | Endpoint credentials shall use versioned AES-256-GCM records with key ID, nonce, and owner/credential/origin AAD. | Tamper, wrong-key, wrong-owner, and wrong-origin tests fail; API state is redacted. |
 | REQ-009 | data | Dedicated Harden-LLM Postgres shall own application records and Garage artifact indexes without sharing credentials, databases, or migrations with Langfuse's upstream Postgres service. | Migrations, constraints, indexes, advisory locking, repository round trips, artifact references, and cross-service configuration isolation pass. |
-| REQ-010 | security | The gateway shall own bootstrap local users, Argon2id verification, opaque hashed bearer sessions, and owner isolation without browser-cookie or CSRF behavior. | Login returns the token once, protected routes require one valid bearer credential, only token digests persist, and two-user isolation passes for every user-owned resource. |
-| REQ-011 | int | The gateway shall expose the versioned `/api/v1` resource routes defined by the stack specification. | Health, auth, state, profile, bundle, model, history, run, trace, and owner-authorized artifact routes use stable envelopes and root library calls. |
+| REQ-010 | security | Control Plane owns human identity and current product access; the gateway resolves them for every request and scopes HLLM data by account UUID. A separate machine bearer is allowed only with an explicit account UUID. | Current access, denial, revocation, unavailable-authority failure, host-only Phoenix session, and account-scoped machine tests pass; HLLM stores no human passwords, local sessions, or duplicate account records. |
+| REQ-011 | int | The gateway shall expose versioned `/api/v1` product-resource routes without local login/session endpoints. | State, profile, bundle, model, history, run, trace, and owner-authorized artifact routes use stable envelopes and resolve owners from current Control Plane context or explicit machine scope. |
 | REQ-012 | int | The backend shall publish a frontend-independent OpenAPI 3.1 contract and contain no Firebase or frontend implementation surface. | OpenAPI/router/request/response conformance passes; scoped static scans find no Firebase, Phoenix/LiveView, React/Vite, HTML-template, browser-session, or asset implementation. |
 | REQ-013 | nfr | The application shall emit OTel traces/metrics and correlated `slog` JSON with bounded, redacted attributes. | Required signal coverage is complete, metric labels are bounded, and secret scans pass. |
 | REQ-014 | reliability | Telemetry backend failures shall not alter provider results and process shutdown shall be bounded. | Collector outage tests preserve results, bound queues, report safely, and finish shutdown within the configured budget. |
@@ -116,6 +119,107 @@
 | REQ-020 | data | Harden-LLM shall replace Firebase Storage with one Garage-backed artifact store for private redacted trace JSON and diagnostic attachments, indexed by owner in Postgres. | Real-Garage tests prove canonical bytes, hashes, sizes, short-lived presigning, owner authorization, non-fatal bounded failures, and strict separation from Langfuse MinIO. |
 
 Deployment ownership amendment (2026-09-24): REQ-017 describes current ownership. The original Phase P08 action and its fifteen-service checks are historical implementation evidence; this shared-Garage transition supersedes their local Garage ownership assumption and changes the current repo-owned service count to fourteen. The cross-repository transition plan owns the shared daemon and cutover acceptance.
+
+Identity ownership amendment (2026-09-30): ADR-HLLM-030 replaces local email/password users and gateway bearer sessions with Control Plane identity/access. Product data remains in HLLM Postgres/Garage under Control Plane account UUIDs. The one-time `rehome-identities` command re-encrypts owner-bound credentials and verifies Garage artifact relocation before schema migration 0010 removes local identity tables. Production and persistent preview migrations are forward-only and remain blocked until every legacy owner has an explicit, one-to-one Control Plane account mapping; no data consolidation or fallback identity path is allowed.
+
+Identity implementation checkpoint (2026-10-01): PR #86 remains open on the
+visible `codex/issue-18-control-plane-identity` branch. It now incorporates
+upstream main `cf72777`, including Langfuse retirement and the profile dirty
+state fix. The identity decision is ADR-HLLM-030 because upstream main owns
+ADR-HLLM-029 for Langfuse retirement. After this integration, local
+`make test-fast` passed 10/10, `make test-static` passed 33/33, and the focused
+`TestComposeDeploymentContract` passed with explicit synthetic Laminar and Loki
+test values. Local `make test-release` first stopped before tests because the
+shell lacked the repository-pinned Elixir toolchain. Rerunning with Elixir
+1.20.2/OTP 28.4.3 and the existing classic `GITHUB_TOKEN` from a local `.env`
+supplied only to the test process as `PRIVATE_MODULE_TOKEN` passed all 29
+release tasks; every task exited 0, with no timeout or cleanup errors/warnings.
+No credential value appeared in the test reports/temp artifacts, was printed,
+or was committed; no second token path was added. Keep the BuildKit secret
+boundary. Hosted run
+[36854238974](https://github.com/prls-co/harden-llm/actions/runs/36854238974)
+uses the existing GitHub App to mint a short-lived contents-read token; private
+module download, dependency fetch, and production frontend image build passed,
+and the browser-free `make test-release` suite passed on `5fb45c7` with clean
+runner cleanup. Hosted fast T0-T2 checks passed in runs
+[36854223150](https://github.com/prls-co/harden-llm/actions/runs/36854223150)
+and
+[36854227951](https://github.com/prls-co/harden-llm/actions/runs/36854227951).
+Current CodeQL analysis [36854224408](https://github.com/prls-co/harden-llm/actions/runs/36854224408)
+and check [110343024645](https://github.com/prls-co/harden-llm/runs/110343024645)
+passed on this head.
+
+No-fallback cleanup (2026-10-01): source audit found that
+`scripts/run-deployed-browser-test.mjs` accepted `HARDEN_LLM_LIVE_USER_*` as
+secondary names for the canonical `HARDEN_LLM_LOCAL_OPERATOR_*` login values.
+Those `LIVE_USER` values remain input to the separate live-gateway test config;
+the deployed browser launcher no longer accepts them. The alias and fallback
+lookup were removed, and the traceability test now rejects their presence in
+that launcher. The local HLLM `.env` has the canonical variable names (values
+were not read); `make test-fast` passed 10/10 with clean cleanup on this change.
+Hosted fast T0-T2 and CodeQL passed on branch head `751ce96`. Hosted
+browser-free `make test-release` also passed on that exact head in
+[run 36859042586](https://github.com/prls-co/harden-llm/actions/runs/36859042586),
+including private module fetch and the production frontend image build. Hosted
+browser jobs remain opt-in; the local user-requested browser run is recorded
+below.
+
+The first hosted release attempt, [36853231080](https://github.com/prls-co/harden-llm/actions/runs/36853231080),
+found stale exact runtime APK pins after Alpine updated packages in its pinned
+3.23 branch. The runtime Dockerfile now installs only its required shared
+libraries and certificates with `apk --upgrade`, dropping stale version pins
+and the unused `openssl` CLI. The revised install passed locally against the
+pinned Alpine 3.23.5 base digest, and the hosted frontend image build passed.
+This tracks the moving package repository; use a repository snapshot if exact
+binary reproducibility becomes a requirement instead of reintroducing stale
+pins.
+
+The earlier `make test-browser` run passed 4/4. `make test-browser-compose`
+previously passed once, then a later run failed at the Tempo correlation lookup
+(`trace_found:false`) after its 150-second budget. On the user's full-test
+request, a new run at HLLM head `91ec047` passed in 167 seconds with status 0;
+the runner reported no cleanup errors or warnings and removed its own container.
+The gate passes on this revision, while the earlier trace miss remains a
+flakiness risk. Keep the assertion and timeout unchanged; collect bounded
+Tempo/collector evidence if it recurs. Twenty pre-existing
+`harden-llm-browser-test:local` containers dated 2026-09-30 remained running
+before and after this run. Their ownership is unverified, so leave them untouched
+until identified and record cleanup as follow-up. Hosted run
+[36840294607](https://github.com/prls-co/harden-llm/actions/runs/36840294607)
+passed fast T0-T2 on the earlier code-bearing head `dc00fcf`; the current-head
+checks above supersede it. No long-lived module token was added.
+
+Production identity inventory (2026-10-01): read-only SQL transactions against
+the production PostgreSQL services on Docker daemon `shaman` found one unique
+Control Plane user/account candidate for legacy owner `guest`
+(`7d677c59-aac7-4cdd-8416-317b99ffa11c`), but that account has no
+`harden-llm` entitlement. `operator-local` has no matching Control Plane user;
+no Control Plane account currently has `harden-llm` in its product list. This
+is inventory evidence only, not an approved mapping. No membership, product,
+credential, or HLLM data was changed. The current production owner-bound row
+counts are:
+
+| Legacy owner | Profiles | Runs | Traces / observations | Artifacts | Endpoint credentials | Operation cache | Artifact operations | Delete batches | Client state | Existing sessions |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `guest` | 32 | 5 | 5 / 5 | 5 | 24 | 2 | 41 | 5 | 1 | 167 |
+| `operator-local` | 32 | 14 | 14 / 14 | 14 | 22 | 11 | 173 | 85 | 1 | 196 |
+
+Thus 46 encrypted endpoint credentials and all account-owned product history
+must be preserved/rebound before schema migration 0010 removes the local
+identity tables; 363 old sessions are retired. Production and persistent
+preview cutovers remain blocked until each legacy owner has an explicitly
+approved, distinct Control Plane account mapping with current `harden-llm`
+entitlement. Do not consolidate owners, stop the production gateway/frontend,
+or run the forward-only rehome before that decision and the approved cutover
+window. Existing production `/healthz` and `/login` return 200, but this branch
+is not deployed and those responses do not verify the new identity behavior.
+
+Operational security follow-up: a diagnostic on 2026-10-01 accidentally emitted
+the production HLLM PostgreSQL password from `/home/kirill/p/harden-llm/.env`
+into tool output. The value is not recorded in source, docs, or GitHub. Rotate it
+through the HLLM production configuration owner before the next release, with
+the database role and every consuming app configuration updated together. No
+rotation was performed in this session.
 
 ### Error handling and telemetry expectations
 

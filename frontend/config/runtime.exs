@@ -21,6 +21,8 @@ if System.get_env("PHX_SERVER") do
 end
 
 default_http_port = if config_env() == :test, do: "4002", else: "4000"
+web_host = System.get_env("HARDEN_LLM_WEB_HOST", "localhost")
+web_origin = if web_host == "localhost", do: "http://localhost:4000", else: "https://#{web_host}"
 
 config :harden_llm, HardenLlmWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", default_http_port))]
@@ -39,7 +41,35 @@ config :harden_llm, :harden_api,
   public_base_url: System.get_env("HARDEN_LLM_PUBLIC_API_BASE_URL", "https://api.example.test"),
   api_timeout_ms: parse_positive_integer.("HARDEN_LLM_WEB_API_TIMEOUT_MS", "15000"),
   run_timeout_ms: parse_positive_integer.("HARDEN_LLM_WEB_RUN_TIMEOUT_MS", "65000"),
-  max_run_duration_ms: parse_positive_integer.("HARDEN_LLM_MAX_RUN_DURATION_MS", "60000")
+  max_run_duration_ms: parse_positive_integer.("HARDEN_LLM_MAX_RUN_DURATION_MS", "60000"),
+  service_token:
+    if(config_env() == :test,
+      do: "harden-llm-development-service-token-0123456789",
+      else:
+        System.get_env(
+          "HARDEN_LLM_STATIC_TOKEN",
+          if(config_env() == :prod,
+            do: "",
+            else: "harden-llm-development-service-token-0123456789"
+          )
+        )
+    )
+
+if config_env() == :prod do
+  config :prls_web,
+    control_plane_url: System.fetch_env!("HARDEN_LLM_CONTROL_PLANE_URL"),
+    internal_token: System.fetch_env!("HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN"),
+    public_origin: web_origin
+else
+  config :prls_web,
+    control_plane_url: System.get_env("HARDEN_LLM_CONTROL_PLANE_URL", "http://127.0.0.1:4310"),
+    internal_token:
+      System.get_env(
+        "HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN",
+        "harden-llm-development-control-plane-token"
+      ),
+    public_origin: web_origin
+end
 
 config :harden_llm,
   artifact_public_origin:
@@ -116,13 +146,6 @@ if config_env() == :prod do
     signing_salt: signing_salt,
     encryption_salt: encryption_salt,
     secure: true
-
-  config :harden_llm, :session_vault,
-    path:
-      System.get_env(
-        "HARDEN_LLM_WEB_SESSION_VAULT_PATH",
-        "/var/lib/harden-llm-web/session-vault.dets"
-      )
 
   config :harden_llm, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 

@@ -30,6 +30,7 @@ concurrency:
 
 env:
   GO_VERSION: "1.26.6"
+  GOPRIVATE: github.com/prls-co/prls-control-plane
   NODE_VERSION: "22.22.1"
   ELIXIR_VERSION: "1.20.2"
   OTP_VERSION: "28.4.3"
@@ -73,6 +74,15 @@ jobs:
         with:
           elixir-version: ${{ env.ELIXIR_VERSION }}
           otp-version: ${{ env.OTP_VERSION }}
+      - name: Create short-lived private module token
+        id: cp_module
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          client-id: ${{ vars.CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: prls-control-plane,prls-web
+          permission-contents: read
       - name: Restore Phoenix dependency and compile caches
         uses: actions/cache@v4
         with:
@@ -85,8 +95,17 @@ jobs:
           restore-keys: |
             beam-${{ runner.os }}-${{ runner.arch }}-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-
       - run: go mod download
+        env:
+          PRIVATE_MODULE_TOKEN: ${{ steps.cp_module.outputs.token }}
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.cp_module.outputs.token }}@github.com/prls-co/prls-control-plane.insteadOf
+          GIT_CONFIG_VALUE_0: https://github.com/prls-co/prls-control-plane
       - working-directory: frontend
         run: mix deps.get
+        env:
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.cp_module.outputs.token }}@github.com/prls-co/prls-web.insteadOf
+          GIT_CONFIG_VALUE_0: https://github.com/prls-co/prls-web
       - run: make test-fast
       - name: Upload redacted runner reports
         if: always()
@@ -111,7 +130,21 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+      - name: Create short-lived private module token
+        id: cp_module
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          client-id: ${{ vars.CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: prls-control-plane
+          permission-contents: read
       - run: go mod download
+        env:
+          PRIVATE_MODULE_TOKEN: ${{ steps.cp_module.outputs.token }}
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.cp_module.outputs.token }}@github.com/prls-co/prls-control-plane.insteadOf
+          GIT_CONFIG_VALUE_0: https://github.com/prls-co/prls-control-plane
       - run: make test-integration
       - run: make test-integration-race
       - name: Upload redacted runner reports
@@ -169,7 +202,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+      - name: Create short-lived private module token
+        id: cp_module
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          client-id: ${{ vars.CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: prls-control-plane
+          permission-contents: read
       - run: go mod download
+        env:
+          PRIVATE_MODULE_TOKEN: ${{ steps.cp_module.outputs.token }}
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.cp_module.outputs.token }}@github.com/prls-co/prls-control-plane.insteadOf
+          GIT_CONFIG_VALUE_0: https://github.com/prls-co/prls-control-plane
       - name: Run isolated real-gateway capacity suite
         run: node scripts/run-test-tier.mjs --task capacity-baseline --output "tmp/test-feedback/runner-capacity-${{ github.run_id }}-${{ github.run_attempt }}.json"
       - name: Upload redacted capacity and runner report
@@ -202,12 +249,27 @@ jobs:
         with:
           elixir-version: ${{ env.ELIXIR_VERSION }}
           otp-version: ${{ env.OTP_VERSION }}
+      - name: Create short-lived private module token
+        id: cp_module
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          client-id: ${{ vars.CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: prls-control-plane,prls-web
+          permission-contents: read
       - working-directory: frontend
         run: mix deps.get
+        env:
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.cp_module.outputs.token }}@github.com/prls-co/prls-web.insteadOf
+          GIT_CONFIG_VALUE_0: https://github.com/prls-co/prls-web
       - run: docker build --tag harden-llm-browser-test:local --file frontend/Dockerfile.browser .
       - run: make test-browser
       - if: needs.mode.outputs.browserCompose == 'true'
         run: make test-browser-compose
+        env:
+          PRIVATE_MODULE_TOKEN: ${{ steps.cp_module.outputs.token }}
 
   release:
     name: browser-free release
@@ -230,10 +292,40 @@ jobs:
         with:
           elixir-version: ${{ env.ELIXIR_VERSION }}
           otp-version: ${{ env.OTP_VERSION }}
+      - name: Create short-lived private module token
+        id: cp_module
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          client-id: ${{ vars.CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: prls-control-plane,prls-web
+          permission-contents: read
       - run: go mod download
+        env:
+          PRIVATE_MODULE_TOKEN: ${{ steps.cp_module.outputs.token }}
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.cp_module.outputs.token }}@github.com/prls-co/prls-control-plane.insteadOf
+          GIT_CONFIG_VALUE_0: https://github.com/prls-co/prls-control-plane
       - working-directory: frontend
         run: mix deps.get
+        env:
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.cp_module.outputs.token }}@github.com/prls-co/prls-web.insteadOf
+          GIT_CONFIG_VALUE_0: https://github.com/prls-co/prls-web
+      - name: Build production frontend image with the private dependency secret
+        run: docker build --build-arg VERSION=${{ github.sha }} --secret=id=private_module_token,env=PRIVATE_MODULE_TOKEN --tag harden-llm-web-buildcheck:${{ github.sha }} --file frontend/Dockerfile frontend
+        env:
+          PRIVATE_MODULE_TOKEN: ${{ steps.cp_module.outputs.token }}
+      - name: Remove frontend validation image
+        if: always()
+        run: |
+          if docker image inspect harden-llm-web-buildcheck:${{ github.sha }} >/dev/null 2>&1; then
+            docker image rm --force harden-llm-web-buildcheck:${{ github.sha }}
+          fi
       - run: make test-release
+        env:
+          PRIVATE_MODULE_TOKEN: ${{ steps.cp_module.outputs.token }}
       - name: Upload redacted runner reports
         if: always()
         uses: actions/upload-artifact@v4

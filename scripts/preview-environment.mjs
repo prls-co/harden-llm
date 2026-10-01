@@ -8,7 +8,7 @@ import path from "node:path";
 import os from "node:os";
 import { parseEnv } from "node:util";
 import { branchIdentity, changedServices } from "./preview-policy.mjs";
-import { sharedProfiles, sharedApplicationVariables, previewTokenVariables, syncSharedProfiles, verifySharedProfiles } from "./shared-profiles.mjs";
+import { sharedProfiles, profileAccountIDs, sharedApplicationVariables, syncSharedProfiles } from "./shared-profiles.mjs";
 
 export const configPath = path.join(os.homedir(), ".config/harden-llm-preview/host.json");
 export const repo = "prls-co/harden-llm";
@@ -96,36 +96,10 @@ export function reusableImage(image, service, sha, run = command) {
   }
 }
 
-export function operatorCredentials(contents) {
-  const values = parseEnv(contents);
-  const email = values.HARDEN_LLM_LOCAL_OPERATOR_EMAIL?.trim().toLowerCase();
-  const password = values.HARDEN_LLM_LOCAL_OPERATOR_PASSWORD;
-  if (!email || !password || /[\r\n]/.test(password)) throw new Error("Shared operator email/password are missing or invalid");
-  return { OPERATOR_EMAIL: email, OPERATOR_PASSWORD: password };
-}
-
-export function testCredentials(contents) {
-  const values = parseEnv(contents);
-  const email = values.TEST_LOGIN?.trim().toLowerCase();
-  const password = values.TEST_PASSWORD;
-  if (!email || !password || /[\r\n]/.test(password)) throw new Error("TEST_LOGIN/TEST_PASSWORD are missing or invalid");
-  return { email, password };
-}
-
 export function initialPreviewCloudflareToken(env = process.env) {
   const token = env.HARDEN_LLM_PREVIEW_CLOUDFLARE_API_TOKEN?.trim();
   if (!token) throw new Error("HARDEN_LLM_PREVIEW_CLOUDFLARE_API_TOKEN is required for initial preview host setup");
   return token;
-}
-
-export function ensureTestLogin(c, state, guest, run = command) {
-  if (state.project !== branchIdentity(state.branch).project) throw new Error("Preview ownership mismatch");
-  const base = ["compose", "--env-file", path.join(environmentDirectory(c, state.branch), ".env"), "-p", state.project, "-f", path.join(c.root, "control/compose.yml"), "exec", "-T"];
-  const email = run("docker", [...base, "postgres", "sh", "-c", 'PGPASSWORD="$POSTGRES_PASSWORD" psql -X -qAt -v ON_ERROR_STOP=1 -U harden_llm -d harden_llm -c "SELECT email FROM users WHERE id=\'guest\'"']);
-  if (email === guest.email) return false;
-  if (email) throw new Error("Guest owner ID belongs to a different account; refusing overwrite");
-  run("docker", [...base, "gateway", "/harden-llm-gateway", "bootstrap-user", "--owner-id", "guest", "--email", guest.email, "--password-file", "-"], { input: guest.password + "\n" });
-  return true;
 }
 
 function secrets() {
@@ -135,6 +109,7 @@ function secrets() {
     ARTIFACT_ACCESS_KEY: `GK${randomBytes(16).toString("hex")}`, ARTIFACT_SECRET_KEY: randomBytes(32).toString("hex"),
     ENCRYPTION_KEYS: JSON.stringify({ preview: secret(32) }), WEB_SECRET: secret(64),
     WEB_SIGNING_SALT: secret(16), WEB_ENCRYPTION_SALT: secret(16),
+    HARDEN_LLM_STATIC_TOKEN: secret(48),
   };
 }
 
@@ -172,28 +147,6 @@ export async function healthCheck(url, timeoutMs = 90_000) {
     await delay(1000);
   }
   throw new Error("Preview HTTP health/login/readiness did not become ready within the deployment budget");
-}
-
-export async function authCheck(url, credentials) {
-  const login = await fetch(`${url}/api/v1/auth/login`, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: credentials.OPERATOR_EMAIL, password: credentials.OPERATOR_PASSWORD }), signal: AbortSignal.timeout(15_000),
-  });
-  const body = await login.json();
-  const token = body.result?.accessToken;
-  if (login.status !== 200 || !token) throw new Error("Preview API login failed");
-  const headers = { Authorization: `Bearer ${token}` };
-  try {
-    for (const endpoint of ["/api/v1/auth/session", "/api/v1/profiles", "/api/v1/history"]) {
-      const response = await fetch(url + endpoint, { headers, signal: AbortSignal.timeout(15_000) });
-      await response.body?.cancel();
-      if (response.status !== 200) throw new Error(`Preview authenticated ${endpoint} failed`);
-    }
-  } finally {
-    const response = await fetch(`${url}/api/v1/auth/logout`, { method: "POST", headers, signal: AbortSignal.timeout(15_000) });
-    await response.body?.cancel();
-    if (response.status !== 200) throw new Error("Preview smoke session logout failed");
-  }
 }
 
 export async function syncControl(c, repositoryRoot) {
@@ -237,12 +190,14 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
   const sharedEnv = await fs.readFile(c.sharedEnvFile, "utf8");
   const sharedValues = parseEnv(sharedEnv);
   sharedProfiles(sharedValues); // Fail before changing services if keys/config are incomplete.
-  const guest = testCredentials(sharedEnv);
-  const credentials = await readJSON(path.join(directory, "secrets.json"), null) ?? {
-    ...secrets(), ...operatorCredentials(sharedEnv),
-  };
+  profileAccountIDs(sharedValues);
+  if (!sharedValues.HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN?.trim()) throw new Error("HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN is required for preview identity checks");
+  const credentials = await readJSON(path.join(directory, "secrets.json"), secrets());
+  delete credentials.OPERATOR_EMAIL;
+  delete credentials.OPERATOR_PASSWORD;
+  credentials.HARDEN_LLM_STATIC_TOKEN ??= randomBytes(48).toString("base64url");
   await writePrivateIfChanged(path.join(directory, "secrets.json"), JSON.stringify(credentials, null, 2) + "\n");
-  await writePrivateIfChanged(path.join(directory, "login.txt"), `URL: ${state.url}\nGuest email: ${guest.email}\nGuest password: ${guest.password}\nOperator email: ${credentials.OPERATOR_EMAIL}\nOperator password: ${credentials.OPERATOR_PASSWORD}\n`);
+  await fs.rm(path.join(directory, "login.txt"), { force: true });
   const components = structuredClone(state.components);
   for (const service of services) {
     const image = `harden-llm-preview-${service}:${sha}`;
@@ -250,7 +205,10 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
     if (info) console.log(`Reusing preview ${service} at ${sha.slice(0, 12)}`);
     else {
       console.log(`Building preview ${service} at ${sha.slice(0, 12)}`);
-      command("docker", ["build", "--label", `co.prls.harden.preview-image=${service}`, "--build-arg", `VERSION=${sha}`, "--tag", image, "--file", path.join(source, service === "web" ? "frontend/Dockerfile" : "Dockerfile"), service === "web" ? path.join(source, "frontend") : source]);
+      const buildArgs = ["build"];
+      buildArgs.push("--secret=id=private_module_token,env=PRIVATE_MODULE_TOKEN");
+      buildArgs.push("--label", `co.prls.harden.preview-image=${service}`, "--build-arg", `VERSION=${sha}`, "--tag", image, "--file", path.join(source, service === "web" ? "frontend/Dockerfile" : "Dockerfile"), service === "web" ? path.join(source, "frontend") : source);
+      command("docker", buildArgs);
       [info] = JSON.parse(command("docker", ["image", "inspect", image]));
     }
     if (info.Config.Labels["org.opencontainers.image.version"] !== sha) throw new Error("Preview image release label mismatch");
@@ -261,7 +219,7 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
   if (command("git", ["-C", c.sourceRepository, "rev-parse", `refs/remotes/origin/${branch}`]) !== sha) throw new Error("Branch advanced during build; nothing promoted");
   let previousEnv = null;
   try { previousEnv = await fs.readFile(envPath); } catch (e) { if (e.code !== "ENOENT") throw e; }
-  const values = { ...credentials, ...sharedApplicationVariables(sharedValues), ...previewTokenVariables(branch, sharedValues), PREVIEW_ID: state.id, PREVIEW_PROJECT: state.project, PREVIEW_HOST: state.host,
+  const values = { ...credentials, ...sharedApplicationVariables(sharedValues), PREVIEW_ID: state.id, PREVIEW_PROJECT: state.project, PREVIEW_HOST: state.host,
     PREVIEW_CONTROL: path.join(c.root, "control"), GATEWAY_IMAGE: components.gateway.imageID, WEB_IMAGE: components.web.imageID,
     GATEWAY_RELEASE: components.gateway.release, WEB_RELEASE: components.web.release };
   await writePrivateIfChanged(envPath, dotenv(values));
@@ -272,11 +230,6 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
       // Bootstrap flags never remain on a retained Garage layout.
       compose(c, state, ["up", "-d", "--wait", "--wait-timeout", "180", "garage"]);
       compose(c, state, ["up", "-d", "--wait", "--wait-timeout", "180", "gateway"]);
-      const exists = compose(c, state, ["exec", "-T", "postgres", "sh", "-c", 'PGPASSWORD="$POSTGRES_PASSWORD" psql -U harden_llm -d harden_llm -tAc "SELECT count(*) FROM users WHERE id=\'preview-local\'"']);
-      if (exists !== "1") {
-        const args = ["compose", "--env-file", envPath, "-p", state.project, "-f", path.join(c.root, "control/compose.yml"), "exec", "-T", "gateway", "/harden-llm-gateway", "bootstrap-user", "--owner-id", "preview-local", "--email", credentials.OPERATOR_EMAIL, "--password-file", "-"];
-        command("docker", args, { input: credentials.OPERATOR_PASSWORD + "\n" });
-      }
     }
     // Compose recreates only changed image/config services; .env-only changes
     // must apply even when neither application needed rebuilding. Reconcile
@@ -284,7 +237,6 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
     // by a later code-only checkpoint; unchanged containers remain untouched.
     const runtimeServices = ["postgres", "garage", "gateway", "web"];
     compose(c, state, ["up", "-d", "--no-build", "--wait", "--wait-timeout", "180", ...runtimeServices]);
-    const guestCreated = ensureTestLogin(c, state, guest);
     syncSharedProfiles(compose(c, state, ["ps", "-q", "gateway"]), components.gateway.imageID, sharedValues);
     const edge = hostCompose(c, ["ps", "-q", "edge"]);
     const [edgeInfo] = JSON.parse(command("docker", ["inspect", edge]));
@@ -298,9 +250,6 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
     const dnsID = await ensureDNS(c, state);
     // New Cloudflare hostnames can take several minutes to reach every edge.
     await healthCheck(state.url, state.initialized ? 90_000 : 300_000);
-    if (!state.initialized) await authCheck(state.url, credentials);
-    if (!state.initialized || guestCreated) await authCheck(state.url, { OPERATOR_EMAIL: guest.email, OPERATOR_PASSWORD: guest.password });
-    await verifySharedProfiles(state.url, sharedValues);
     for (const service of ["gateway", "web"]) {
       const id = compose(c, state, ["ps", "-q", service]);
       const [info] = JSON.parse(command("docker", ["inspect", id]));
@@ -308,7 +257,7 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
     }
     const result = { ...state, components, sha, dnsID, initialized: true, deployedAt: new Date().toISOString(), rebuiltServices: services };
     await saveState(c, result);
-    console.log(JSON.stringify({ deployed: true, branch, sha, url: state.url, rebuiltServices: services, loginFile: path.join(directory, "login.txt") }));
+    console.log(JSON.stringify({ deployed: true, branch, sha, url: state.url, rebuiltServices: services }));
     return result;
   } catch (error) {
     if (state.initialized && previousEnv) {

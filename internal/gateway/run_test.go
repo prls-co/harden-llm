@@ -24,7 +24,6 @@ import (
 
 	hardenllm "github.com/prls-co/harden-llm"
 	"github.com/prls-co/harden-llm/internal/gateway"
-	"github.com/prls-co/harden-llm/internal/gateway/auth"
 	"github.com/prls-co/harden-llm/internal/gateway/httpapi"
 	"github.com/prls-co/harden-llm/internal/integrationtest"
 	"github.com/prls-co/harden-llm/internal/postgres"
@@ -44,9 +43,6 @@ func TestRunRoute(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 7, 13, 15, 0, 0, 0, time.UTC)
-	if err := store.CreateUser(ctx, postgres.User{ID: "owner-a", Email: "a@example.test", PasswordHash: "$argon2id$v=19$fixture", CreatedAt: now, UpdatedAt: now}); err != nil {
-		t.Fatal(err)
-	}
 	vault, err := profiles.NewCredentialVault("key-2026", map[string][]byte{"key-2026": bytes.Repeat([]byte{0x66}, 32)}, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -63,7 +59,7 @@ func TestRunRoute(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	identity := &fakeHTTPAuth{login: auth.LoginResult{Principal: auth.Principal{OwnerID: "owner-a", Email: "a@example.test", SessionID: "session-a", ExpiresAt: now.Add(time.Hour)}}}
+	identity := &fakeHTTPAuth{ownerID: "owner-a"}
 	caller := &recordingRuntimeCaller{}
 	nextID := 0
 	runService, err := gateway.NewRunService(gateway.RunServiceConfig{
@@ -367,9 +363,6 @@ func TestRecoveryIntegrityCacheWriteStoredRun(t *testing.T) {
 	}
 	now := time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
 	ownerID := "cache-write-owner"
-	if err := store.CreateUser(ctx, postgres.User{ID: ownerID, Email: "cache-write@example.test", PasswordHash: "$argon2id$v=19$fixture", CreatedAt: now, UpdatedAt: now}); err != nil {
-		t.Fatal(err)
-	}
 
 	providerRequests := atomic.Int32{}
 	provider := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -429,7 +422,7 @@ func TestRecoveryIntegrityCacheWriteStoredRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	identity := &fakeHTTPAuth{login: auth.LoginResult{Principal: auth.Principal{OwnerID: ownerID, Email: "cache-write@example.test", SessionID: "session-cache-write", ExpiresAt: now.Add(time.Hour)}}}
+	identity := &fakeHTTPAuth{ownerID: ownerID}
 	api, err := httpapi.New(httpapi.Config{Auth: identity, Runs: runService, Resources: resources})
 	if err != nil {
 		t.Fatal(err)

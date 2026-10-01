@@ -4,34 +4,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { branchIdentity, ciMode, changedServices, deploymentAllowed } from "../preview-policy.mjs";
 import { loadManifest, selectTasks, runSelection } from "../run-test-tier.mjs";
-import { dotenv, routeFor, stateFor, destroyEnvironment, operatorCredentials, testCredentials, ensureTestLogin, syncControl, writePrivateIfChanged, reusableImage, initialPreviewCloudflareToken } from "../preview-environment.mjs";
+import { dotenv, routeFor, stateFor, destroyEnvironment, syncControl, writePrivateIfChanged, reusableImage, initialPreviewCloudflareToken } from "../preview-environment.mjs";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-
-test("guest login provisioning uses TEST variables and never replaces an existing account", () => {
-  const guest = testCredentials('TEST_LOGIN="guest@guest.com"\nTEST_PASSWORD=\'fixture$guest\'\nHARDEN_LLM_LOCAL_OPERATOR_EMAIL=operator@example.test');
-  assert.deepEqual(guest, { email: "guest@guest.com", password: "fixture$guest" });
-  assert.throws(() => testCredentials("TEST_LOGIN=guest@guest.com"), /missing/);
-  const calls = [];
-  const run = (...args) => { calls.push(args); return ""; };
-  assert.equal(ensureTestLogin({root:"/tmp/preview-test"}, branchIdentity("dev"), guest, run), true);
-  assert.equal(calls.length, 2);
-  assert(calls[1][1].includes("bootstrap-user"));
-  assert(calls[1][1].includes("guest"));
-  assert(!calls[1][1].includes(guest.password));
-  assert.equal(calls[1][2].input, guest.password + "\n");
-  assert.equal(ensureTestLogin({root:"/tmp/preview-test"}, branchIdentity("dev"), guest, () => guest.email), false);
-  assert.throws(() => ensureTestLogin({root:"/tmp/preview-test"}, branchIdentity("dev"), guest, () => "different@example.test"), /different account/);
-});
-
-test("operator login parsing never imports provider or infrastructure secrets", () => {
-  assert.deepEqual(operatorCredentials('HARDEN_LLM_LOCAL_OPERATOR_EMAIL="Operator@Example.test"\nHARDEN_LLM_LOCAL_OPERATOR_PASSWORD=\'fixture$only\'\nPROVIDER_API_KEY=must-not-copy\nHARDEN_LLM_WEB_SECRET_KEY_BASE=must-not-copy'), {
-    OPERATOR_EMAIL: "operator@example.test", OPERATOR_PASSWORD: "fixture$only",
-  });
-  assert.throws(() => operatorCredentials("HARDEN_LLM_LOCAL_OPERATOR_EMAIL=operator@example.test"), /missing/);
-  assert.throws(() => operatorCredentials('HARDEN_LLM_LOCAL_OPERATOR_EMAIL=a@b.test\nHARDEN_LLM_LOCAL_OPERATOR_PASSWORD="line\nbreak"'), /invalid/);
-});
 
 test("initial preview bootstrap requires its explicit Cloudflare token", () => {
   const message = /HARDEN_LLM_PREVIEW_CLOUDFLARE_API_TOKEN is required for initial preview host setup/;
@@ -179,19 +155,23 @@ test("preview control files and image reuse are idempotent", async () => {
   } finally { await rm(root, { recursive: true }); }
 });
 
-test("preview gateway leaves room for consecutive 64 MiB password checks and bounded Go GC", async () => {
+test("preview gateway bounds Go memory and uses the shared identity contract", async () => {
   const compose = await readFile(new URL("../../deploy/preview/compose.yml", import.meta.url), "utf8");
   const gateway = compose.split("\n  gateway:\n")[1]?.split("\n  web:\n")[0];
   assert.ok(gateway, "gateway service must exist");
   assert.match(gateway, /mem_limit: 256m\n/);
   assert.match(gateway, /GOMEMLIMIT: 192MiB\n/);
-  const password = await readFile(new URL("../../internal/gateway/auth/password.go", import.meta.url), "utf8");
-  assert.match(password, /argonMemory\s+uint32 = 64 \* 1024/);
+  const launcher = await readFile(new URL("../preview-environment.mjs", import.meta.url), "utf8");
+  assert.match(launcher, /profileAccountIDs\(sharedValues\)/);
+  assert.doesNotMatch(launcher, /bootstrap-user|TEST_PASSWORD|api\/v1\/auth\/login/);
+  assert.match(launcher, /delete credentials\.OPERATOR_PASSWORD/); // Remove credentials from preview state written by the retired flow.
 });
 
 test("preview templates expose no host ports or production telemetry and protect generated dotenv", async () => {
   const compose = await readFile(new URL("../../deploy/preview/compose.yml", import.meta.url), "utf8");
-  assert.doesNotMatch(compose, /\bports:|external: true|docker\.sock/);
+  assert.doesNotMatch(compose, /\bports:|docker\.sock/);
+  const externalNetworks = [...compose.matchAll(/^  ([a-z0-9-]+):\n    external: true$/gm)].map(match => match[1]);
+  assert.deepEqual(externalNetworks, ["prls-observability"]);
   assert.match(compose, /OTEL_SDK_DISABLED: 'true'/);
   assert.match(compose, /HARDEN_LLM_OTEL_EXPORTER_OTLP_ENDPOINT: ''/);
   assert.match(compose, /HARDEN_LLM_ENVIRONMENT: development/);
@@ -212,7 +192,26 @@ test("preview templates expose no host ports or production telemetry and protect
   assert.match(launcher, /"postgres", "garage", "gateway", "web"/);
   const workflow = await readFile(new URL("../../.github/workflows/test-hierarchy.yml", import.meta.url), "utf8");
   assert.match(workflow, /actions\/cache@v4/);
+  const previewWorkflow = await readFile(new URL("../../.github/workflows/preview-environments.yml", import.meta.url), "utf8");
+  for (const configuredWorkflow of [workflow, previewWorkflow]) {
+    assert.match(configuredWorkflow, /actions\/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1/);
+    assert.match(configuredWorkflow, /secrets\.CI_APP_PRIVATE_KEY/);
+    assert.match(configuredWorkflow, /repositories: prls-control-plane,prls-web[\s\S]*permission-contents: read/);
+    assert.match(configuredWorkflow, /PRIVATE_MODULE_TOKEN: \$\{\{ steps\.cp_module\.outputs\.token \}\}/);
+    assert.doesNotMatch(configuredWorkflow, /secrets\.PRIVATE_MODULE_TOKEN/);
+  }
   const gatewayDockerfile = await readFile(new URL("../../Dockerfile", import.meta.url), "utf8");
+  const frontendDockerfile = await readFile(new URL("../../frontend/Dockerfile", import.meta.url), "utf8");
   assert.match(gatewayDockerfile, /RUN --mount=type=cache,target=\/go\/pkg\/mod/);
+  assert.match(gatewayDockerfile, /type=secret,id=private_module_token,required=true/);
+  assert.match(frontendDockerfile, /type=secret,id=private_module_token,required=true/);
+  assert.match(launcher, /--secret=id=private_module_token,env=PRIVATE_MODULE_TOKEN/);
   assert.match(gatewayDockerfile, /target=\/root\/.cache\/go-build/);
+});
+
+test("release CI builds the production frontend image through its private BuildKit secret", async () => {
+  const workflow = await readFile(new URL("../../.github/workflows/test-hierarchy.yml", import.meta.url), "utf8");
+  assert.match(workflow, /Build production frontend image with the private dependency secret/);
+  assert.match(workflow, /docker build[\s\S]*--secret=id=private_module_token,env=PRIVATE_MODULE_TOKEN[\s\S]*frontend\/Dockerfile frontend/);
+  assert.match(workflow, /Remove frontend validation image[\s\S]*docker image inspect harden-llm-web-buildcheck[\s\S]*docker image rm --force harden-llm-web-buildcheck/);
 });

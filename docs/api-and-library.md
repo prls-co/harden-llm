@@ -96,10 +96,13 @@ environment variables.
 
 ## REST gateway
 
-Health probes are the only unenveloped non-auth responses. Login returns an
-opaque token once; store it only in process memory. For a machine-only CLI,
-configure `HARDEN_LLM_STATIC_TOKEN` and its
-`HARDEN_LLM_STATIC_TOKEN_OWNER_ID`, then use the token directly:
+Health probes are the only unenveloped non-auth responses. HLLM has no local
+login, logout, or password-reset API. The Phoenix frontend uses the shared PRLS
+sign-in/account-selection UI and sends its host-local Control Plane session
+reference to the gateway; the gateway resolves current account and product
+access on every request. For a machine client, configure
+`HARDEN_LLM_STATIC_TOKEN` and `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID`, then use the
+token directly:
 
 ```bash
 API=https://api.example.net
@@ -109,21 +112,10 @@ curl "$API/api/v1/run" \
   -d '{"profileId":"CurlStructured","userPrompt":"Tell me a joke about yourself.","callType":"text"}' | jq
 ```
 
-The static token is not revocable through `/api/v1/auth/logout`; rotate or
-remove it in deployment configuration. Without a static token, login returns
-an opaque session token. The following keeps the password off the curl
-argument list:
-
-```bash
-API=https://api.example.net
-read -rsp 'Password: ' PASSWORD; echo
-TOKEN="$(printf '%s' "$PASSWORD" | \
-  jq -Rs --arg email operator@example.net '{email:$email,password:.}' | \
-  curl --fail-with-body --silent --show-error \
-    -H 'Content-Type: application/json' --data-binary @- \
-    "$API/api/v1/auth/login" | jq -er '.result.accessToken')"
-unset PASSWORD
-```
+The machine token is scoped to the configured Control Plane account UUID.
+Rotating `HARDEN_LLM_STATIC_TOKEN` revokes that machine credential. Human
+sessions are host-only Phoenix cookies and are revalidated through Control
+Plane; they are never returned as gateway bearer tokens to browser code.
 
 On an owner's first `GET /api/v1/profiles`, the gateway inserts any missing
 entries and returns the current 28 utility-llm preset profiles alongside the
@@ -221,13 +213,13 @@ the browser `EventSource` API is not the client contract. Events are
 detached job, is not resumable, and never extends the deployment hard cap.
 JSON remains the default transport.
 
-For headless test clients, `scripts/run-progress.mjs` is a dependency-free
+For headless machine clients, `scripts/run-progress.mjs` is a dependency-free
 reference implementation. Keep the request body in a file or stdin (never a
-command-line argument), optionally provide `HARDEN_LLM_TOKEN`, and set separate
+command-line argument), provide `HARDEN_LLM_API_TOKEN`, and set separate
 soft/case/suite budgets:
 
 ```bash
-HARDEN_LLM_TOKEN="$TOKEN" node scripts/run-progress.mjs \
+HARDEN_LLM_API_TOKEN="$TOKEN" node scripts/run-progress.mjs \
   --url "$API/api/v1/run" --body-file /tmp/harden-run.json \
   --soft-ms 10000 --case-hard-ms 60000 --suite-hard-ms 300000
 ```
@@ -274,18 +266,20 @@ For production, the UI is `https://harden-llm.prls.co/` and the API base is
 `https://harden-llm-api.prls.co`. Use production's existing
 `HARDEN_LLM_STATIC_TOKEN` from its protected infrastructure environment file
 (reference host: `/home/kirill/p/harden-llm-production/.env`). Production retains
-its own token; the development `HARDEN_LLM_TOKEN` below is not a production
-credential. The `webSearch` and cache contracts are the same in both environments.
+its own machine credential; the dev credential below is not copied to
+production. The `webSearch` and cache contracts are the same in both environments.
 
-For the development gateway, keep the bearer token and optional Jina key in
-the ignored mode-0600 `.env` as `HARDEN_LLM_TOKEN` and `JINA_API_KEY`. Read the
-token directly; it is bound to the existing dev operator and does not expire
-or need refreshing. Browser login sessions remain independent. No production
-token is copied. Changing `HARDEN_LLM_TOKEN` and redeploying dev rotates it:
+For a development machine request, keep the API token in the ignored mode-0600
+`.env` as `HARDEN_LLM_STATIC_TOKEN`; the protected deployment config must also
+set `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID` to the intended Control Plane account.
+The optional `JINA_API_KEY` remains a server-side search credential. Browser
+sessions use Control Plane and stay separate from this machine credential. No
+production token is copied. Rotating `HARDEN_LLM_STATIC_TOKEN` and redeploying
+dev revokes existing machine requests:
 
 ```bash
 API=https://harden-llm-dev.prls.co
-TOKEN="$(sed -n 's/^HARDEN_LLM_TOKEN=//p' .env)"
+TOKEN="$(sed -n 's/^HARDEN_LLM_STATIC_TOKEN=//p' .env)"
 curl --fail-with-body --silent --show-error --request POST "$API/api/v1/run" \
   --header 'Accept: application/json' \
   --header "Authorization: Bearer ${TOKEN}" \
@@ -295,10 +289,8 @@ unset TOKEN
 ```
 
 For the deployed structured smoke call, `scripts/harden-structured-call.sh`
-uses `HARDEN_LLM_STATIC_TOKEN` from the local ignored `.env` when configured;
-otherwise it reads `HARDEN_LLM_LIVE_USER_EMAIL` and
-`HARDEN_LLM_LIVE_USER_PASSWORD`, logs in, submits the `CurlStructured` request,
-prints the JSON response, and logs out:
+uses the configured machine credential and account UUID from the local ignored
+`.env`, submits the `CurlStructured` request, and prints the JSON response:
 
 ```bash
 make live-structured-call

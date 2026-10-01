@@ -209,6 +209,7 @@ const task = {
 };
 const result = await runTasks([task], {
   root: config.root,
+  sourceSHA: config.sourceSHA,
   runID: config.runId,
   runDirectory: config.runDirectory,
   environment: config.environment ?? {},
@@ -352,7 +353,7 @@ async function runTask(data, runId, options = {}) {
   return runTasks([serviceTask(data, runId, command, options.timeoutMs)], {
     root: data.root,
     runID: runId,
-    sourceSHA: options.sourceSHA,
+    sourceSHA: options.sourceSHA ?? "a".repeat(40),
     cleanupTimeoutMs: options.cleanupTimeoutMs,
     environment,
     runDirectory: path.join(data.root, `run-${runId}`),
@@ -363,7 +364,7 @@ async function runTask(data, runId, options = {}) {
 function spawnWorker(data, runId, options = {}) {
   const configPath = path.join(data.root, `${runId}.json`);
   const workerPath = path.join(data.root, "resource-worker.mjs");
-  const config = { root: data.root, runId, composeFile: data.composeFile, runDirectory: path.join(data.root, `run-${runId}`), environment: options.environment ?? {}, daemonLockWaitMs: options.daemonLockWaitMs };
+  const config = { root: data.root, runId, composeFile: data.composeFile, runDirectory: path.join(data.root, `run-${runId}`), sourceSHA: options.sourceSHA ?? "a".repeat(40), environment: options.environment ?? {}, daemonLockWaitMs: options.daemonLockWaitMs };
   return Promise.all([
     fs.writeFile(configPath, JSON.stringify(config), { mode: 0o600 }),
     fs.writeFile(workerPath, WORKER, { mode: 0o600 }),
@@ -412,6 +413,23 @@ test("TEST-271 registers a private durable receipt before service creation", asy
   assert.deepEqual({ ...persisted, state: create.receipt.state }, create.receipt);
   assert.equal(await fs.stat(result.runDirectory).then(() => true, () => false), false, "runner scratch was removed");
   assert.equal((await fs.readFile(receiptPath, "utf8")).includes("test-only-secret-value"), false);
+});
+
+test("TEST-271 refuses managed Docker work without a source revision", async (t) => {
+  const data = await fixture(t);
+  const runId = "missing-source-revision";
+  const result = await runTasks([serviceTask(data, runId)], {
+    root: data.root,
+    runID: runId,
+    runDirectory: path.join(data.root, `run-${runId}`),
+    resourceDirectory: path.join(data.root, "receipts"),
+    environment: baseEnvironment(data, { HARDEN_LLM_TEST_RUN_ID: runId }),
+    resourceClasses: { service: { slots: 1, exclusive: false } },
+  });
+
+  assert.equal(result.accepted, false);
+  assert.match(result.preflightFailure, /source revision/);
+  assert.deepEqual(await readEvents(data), [], "source identity must be established before Docker access");
 });
 
 test("TEST-271 receipt validation or atomic-write failure prevents Docker mutation", async (t) => {

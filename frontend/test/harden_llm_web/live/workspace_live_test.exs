@@ -1057,9 +1057,6 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do
-        {"GET", "/api/v1/auth/session"} ->
-          Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
-
         {"GET", "/api/v1/state"} ->
           Req.Test.json(conn, APIFixtures.success(nil, state))
 
@@ -1194,9 +1191,6 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do
-        {"GET", "/api/v1/auth/session"} ->
-          Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
-
         {"GET", "/api/v1/state"} ->
           Req.Test.json(conn, APIFixtures.success(nil, state))
 
@@ -1353,9 +1347,6 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
 
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do
-        {"GET", "/api/v1/auth/session"} ->
-          Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
-
         {"GET", "/api/v1/state"} ->
           Req.Test.json(conn, APIFixtures.success(nil, state))
 
@@ -2700,7 +2691,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     |> render_change()
 
     send(first_process, :release_expired_state_save)
-    assert_redirect(view, ~p"/session/expired", 1_000)
+    assert_redirect(view, ~p"/login", 1_000)
     refute_receive {:expired_state_save_started, 1, _, _}, 100
   end
 
@@ -2899,7 +2890,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     render_async(view, 1_000)
     submit_run(view, %{"userPrompt" => "expired session"})
 
-    assert_redirect(view, ~p"/session/expired", 1_000)
+    assert_redirect(view, ~p"/login", 1_000)
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-031
@@ -3181,9 +3172,6 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
   defp install_stub(handler, options \\ []) do
     Req.Test.stub(HardenAPI, fn conn ->
       case {conn.method, conn.request_path} do
-        {"GET", "/api/v1/auth/session"} ->
-          Req.Test.json(conn, APIFixtures.success(APIFixtures.principal()))
-
         {"GET", "/api/v1/state"} ->
           case Keyword.get(options, :state, APIFixtures.state()) do
             state when is_function(state, 1) ->
