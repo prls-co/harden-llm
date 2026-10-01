@@ -209,9 +209,9 @@ test("preview templates expose no host ports or production telemetry and protect
   assert.match(gatewayDockerfile, /target=\/root\/.cache\/go-build/);
 });
 
-test("release CI builds the Phoenix production image through its private BuildKit secret", async () => {
+test("release CI builds the production frontend image through its private BuildKit secret", async () => {
   const workflow = await readFile(new URL("../../.github/workflows/test-hierarchy.yml", import.meta.url), "utf8");
-  assert.match(workflow, /Build Phoenix production image with the private dependency secret/);
+  assert.match(workflow, /Build production frontend image with the private dependency secret/);
   assert.match(workflow, /docker build[\s\S]*--secret=id=private_module_token,env=PRIVATE_MODULE_TOKEN[\s\S]*frontend\/Dockerfile frontend/);
-  assert.match(workflow, /Remove Phoenix validation image[\s\S]*docker image inspect harden-llm-web-buildcheck[\s\S]*docker image rm --force harden-llm-web-buildcheck/);
+  assert.match(workflow, /Remove frontend validation image[\s\S]*docker image inspect harden-llm-web-buildcheck[\s\S]*docker image rm --force harden-llm-web-buildcheck/);
 });
