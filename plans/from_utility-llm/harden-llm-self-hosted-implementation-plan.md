@@ -129,12 +129,30 @@ state fix. The identity decision is ADR-HLLM-030 because upstream main owns
 ADR-HLLM-029 for Langfuse retirement. After this integration, local
 `make test-fast` passed 10/10, `make test-static` passed 33/33, and the focused
 `TestComposeDeploymentContract` passed with explicit synthetic Laminar and Loki
-test values. The local `make test-release` run is not green: its Compose smoke
-task requires the scoped `PRIVATE_MODULE_TOKEN` to build the private Control
-Plane Go module, and no such token is configured in this local environment.
-Do not bypass BuildKit secret handling or substitute production credentials;
-run the hosted release suite, whose workflow mints a short-lived contents-read
-GitHub App token, and record its exact result before release.
+test values. Local `make test-release` could not complete its Compose smoke
+build because this checkout has no scoped `PRIVATE_MODULE_TOKEN`. Do not bypass
+BuildKit secret handling or substitute production credentials. Hosted run
+[36854238974](https://github.com/prls-co/harden-llm/actions/runs/36854238974)
+uses the existing GitHub App to mint a short-lived contents-read token; private
+module download, dependency fetch, and production frontend image build passed,
+and the browser-free `make test-release` suite passed on `5fb45c7` with clean
+runner cleanup. Hosted fast T0-T2 checks passed in runs
+[36854223150](https://github.com/prls-co/harden-llm/actions/runs/36854223150)
+and
+[36854227951](https://github.com/prls-co/harden-llm/actions/runs/36854227951).
+Current CodeQL analysis [36854224408](https://github.com/prls-co/harden-llm/actions/runs/36854224408)
+and check [110343024645](https://github.com/prls-co/harden-llm/runs/110343024645)
+passed on this head.
+
+The first hosted release attempt, [36853231080](https://github.com/prls-co/harden-llm/actions/runs/36853231080),
+found stale exact runtime APK pins after Alpine updated packages in its pinned
+3.23 branch. The runtime Dockerfile now installs only its required shared
+libraries and certificates with `apk --upgrade`, dropping stale version pins
+and the unused `openssl` CLI. The revised install passed locally against the
+pinned Alpine 3.23.5 base digest, and the hosted frontend image build passed.
+This tracks the moving package repository; use a repository snapshot if exact
+binary reproducibility becomes a requirement instead of reintroducing stale
+pins.
 
 The explicit earlier `make test-browser` run passed 4/4.
 `make test-browser-compose` passed once, then a later run failed at the Tempo
@@ -143,11 +161,8 @@ reported no errors or warnings. Keep that assertion intact and do not mark the
 browser Compose gate green. `AGENTS.md` requires a specific user request for
 browser tests, so another run needs that request. Hosted run
 [36840294607](https://github.com/prls-co/harden-llm/actions/runs/36840294607)
-passed fast T0-T2 on the earlier code-bearing head `dc00fcf`; its short-lived
-GitHub App token fetched both private dependencies. [CodeQL analysis](https://github.com/prls-co/harden-llm/actions/runs/36840294540)
-and the [CodeQL check](https://github.com/prls-co/harden-llm/runs/110297795060)
-also passed on that earlier code-bearing head. Re-run hosted checks against the
-integrated head; no long-lived module token was added.
+passed fast T0-T2 on the earlier code-bearing head `dc00fcf`; the current-head
+checks above supersede it. No long-lived module token was added.
 
 Production identity inventory (2026-10-01): read-only SQL transactions against
 the production PostgreSQL services on Docker daemon `shaman` found one unique
