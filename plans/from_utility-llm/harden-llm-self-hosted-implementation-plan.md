@@ -144,6 +144,16 @@ Current CodeQL analysis [36854224408](https://github.com/prls-co/harden-llm/acti
 and check [110343024645](https://github.com/prls-co/harden-llm/runs/110343024645)
 passed on this head.
 
+No-fallback cleanup (2026-10-01): source audit found that
+`scripts/run-deployed-browser-test.mjs` accepted `HARDEN_LLM_LIVE_USER_*` as
+secondary names for the canonical `HARDEN_LLM_LOCAL_OPERATOR_*` login values.
+Those `LIVE_USER` values remain input to the separate live-gateway test config;
+the deployed browser launcher no longer accepts them. The alias and fallback
+lookup were removed, and the traceability test now rejects their presence in
+that launcher. The local HLLM `.env` has the canonical variable names (values
+were not read); `make test-fast` passed 10/10 with clean cleanup on this change.
+The hosted browser-free release suite must be rerun on the updated branch head.
+
 The first hosted release attempt, [36853231080](https://github.com/prls-co/harden-llm/actions/runs/36853231080),
 found stale exact runtime APK pins after Alpine updated packages in its pinned
 3.23 branch. The runtime Dockerfile now installs only its required shared

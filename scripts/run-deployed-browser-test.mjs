@@ -16,8 +16,6 @@ const composeFiles = [
 const dotEnvKeys = new Set([
   "HARDEN_LLM_LOCAL_OPERATOR_EMAIL",
   "HARDEN_LLM_LOCAL_OPERATOR_PASSWORD",
-  "HARDEN_LLM_LIVE_USER_EMAIL",
-  "HARDEN_LLM_LIVE_USER_PASSWORD",
   "HARDEN_LLM_WEB_HOST",
   "HARDEN_LLM_API_HOST",
   "HARDEN_LLM_EXPECTED_RELEASE",
@@ -242,18 +240,10 @@ export async function main() {
   if (!process.argv.includes("--allow-browser")) throw new Error("Explicit browser authorization required: --allow-browser");
   const fileEnvironment = await loadDotEnv();
   const environment = { ...fileEnvironment, ...process.env };
-  environment.HARDEN_LLM_LOCAL_OPERATOR_EMAIL = firstValue(environment, [
-    "HARDEN_LLM_LOCAL_OPERATOR_EMAIL",
-    "HARDEN_LLM_LIVE_USER_EMAIL",
-  ]) ?? "";
-  environment.HARDEN_LLM_LOCAL_OPERATOR_PASSWORD = firstValue(environment, [
-    "HARDEN_LLM_LOCAL_OPERATOR_PASSWORD",
-    "HARDEN_LLM_LIVE_USER_PASSWORD",
-  ]) ?? "";
   const webOrigin = hostOrigin(firstValue(environment, ["HARDEN_LLM_WEB_HOST"]), "HARDEN_LLM_WEB_HOST");
   const apiOrigin = hostOrigin(firstValue(environment, ["HARDEN_LLM_API_HOST"]), "HARDEN_LLM_API_HOST");
   if (!environment.HARDEN_LLM_LOCAL_OPERATOR_EMAIL || !environment.HARDEN_LLM_LOCAL_OPERATOR_PASSWORD) {
-    throw new Error("operator credentials are missing from approved environment names");
+    throw new Error("HARDEN_LLM_LOCAL_OPERATOR_EMAIL and HARDEN_LLM_LOCAL_OPERATOR_PASSWORD are required");
   }
   const expected = await expectedRelease(environment);
   const identity = inspectFrontendContainer(environment, expected.value);
