@@ -22,9 +22,9 @@ production-certification evidence.
 
 Telemetry is deliberately not a widget data source. Product history and stats
 come from application PostgreSQL, artifact bodies come from Garage, and the
-OpenTelemetry pipeline remains a diagnostic side channel to Tempo, Langfuse,
-Prometheus, and Loki. Separate PRLS receivers export traces to Laminar;
-ClickHouse is internal to Langfuse.
+OpenTelemetry pipeline remains a diagnostic side channel to Tempo, Prometheus,
+and Loki. The HLLM Collector exports gateway traces to Laminar. None of these
+systems owns or reconstructs product history.
 
 ## Shared target architecture
 

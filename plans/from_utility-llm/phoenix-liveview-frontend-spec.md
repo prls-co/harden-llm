@@ -49,7 +49,7 @@ Runtime feature dependencies are limited to the Phoenix-generated HTTP/asset pac
 | Keep browser-to-Go traffic disabled | DECISION | The browser talks only to Phoenix over same-origin HTTP/WebSocket. The Go API needs no CORS or browser CSRF behavior. |
 | Do not generate an API client in v1 | DECISION | One small hand-written client boundary is simpler than committing generated code. Contract tests compare its operation registry to OpenAPI so route drift still fails. |
 | Do not retry REST calls automatically | DECISION | A hidden retry could duplicate an ambiguous synchronous `/api/v1/run`. Provider retries remain owned by the Go library. Users may explicitly submit a new run after an ambiguous result. |
-| Keep frontend observability operational | DECISION | Frontend traces go to Tempo through the existing Collector. The Collector exports HLLM gateway traces to Laminar and does not send frontend traces to Langfuse. |
+| Keep frontend observability operational | DECISION | Frontend traces go to Tempo through the existing Collector. HLLM gateway traces go to Laminar; no Langfuse service is deployed. |
 
 ## 4. Scope
 
@@ -336,12 +336,12 @@ Contract synchronization:
 - File-handler or Collector failure is reported safely to stderr and cannot fail login, navigation, API calls, or LiveView rendering. Rotation bounds retained local bytes.
 - PromEx exposes a private `/metrics` endpoint for Phoenix request/latency/error, LiveView mount/event/exception, BEAM memory/run-queue/process, token-vault count, and REST-client operation/latency/outcome series. Prometheus labels are limited to bounded route, LiveView module, operation ID, status class, and outcome values.
 - `otel.frontend.yaml` adds a private Collector Prometheus receiver for that endpoint and a separate `metrics/frontend` pipeline using the base processors/exporter that the existing Prometheus service scrapes. The overlay adds a Grafana dashboard band for the frontend. The shared Caddy route returns 404 for `/metrics`; that public behavior is checked in the shared owner.
-- Frontend traces export to the existing Collector and Tempo. The Collector must not export `service.name=harden-llm-web` traces to Laminar or Langfuse.
+- Frontend traces export to the existing Collector and Tempo; they are not exported to Laminar.
 - Telemetry export failure cannot fail login, navigation, API calls, or LiveView rendering.
 
 ## 14. Deployment contract
 
-The Harden-LLM backend Compose project defines thirteen services. The optional frontend overlay adds `harden-llm-web` and its one-shot Collector state initializer. Production ingress (`caddy-shared`) and object storage (`garage-shared`) run in separate Compose projects, for fifteen HLLM-owned services and two separately owned shared services in the complete production runtime:
+The Harden-LLM backend Compose project defines seven long-running services and one one-shot Collector state initializer. The optional frontend overlay adds `harden-llm-web`. Production ingress (`caddy-shared`) and object storage (`garage-shared`) run in separate Compose projects, for eight HLLM-owned long-running services, one initializer, and two separately owned shared services in the complete production runtime:
 
 ```text
 internet
@@ -360,10 +360,10 @@ harden-llm-web
 
 Rules:
 
-- `deploy/frontend/compose.frontend.yml` extends the base Compose project and adds `harden-llm-web`; it does not copy or modify the pinned Langfuse fragment.
+- `deploy/frontend/compose.frontend.yml` extends the base Compose project and adds `harden-llm-web`; the base project has no Langfuse fragment or service.
 - The overlay does not define Caddy or mount route files. The `caddy-shared` owner routes the web and API hostnames over the approved external network.
 - The overlay passes the base Collector file and `otel.frontend.yaml` as two supported `--config=file:...` inputs. The frontend file adds uniquely named `filelog/harden_llm_web` and `prometheus/harden_llm_web` receivers plus separate `logs/frontend` and `metrics/frontend` pipelines that reference base processors/exporters; it does not replace lists, copy base configuration, or enable experimental merge flags.
-- The overlay mounts one read-only frontend log volume into the existing Collector. The full runtime has fifteen HLLM-owned services, plus the separately managed Caddy and Garage services.
+- The overlay mounts one read-only frontend log volume into the existing Collector. The full runtime has eight HLLM-owned long-running services and one one-shot initializer, plus the separately managed Caddy and Garage services.
 - The overlay extends the Collector with one private PromEx scrape target; it does not change the base Prometheus service or expose the frontend metrics endpoint through shared ingress.
 - The release image is a multi-stage Elixir build containing one OTP release and compiled assets. It contains no Hex/Rebar caches, source secrets, Node runtime, or Go toolchain.
 - `caddy-shared` alone owns public host ports. No HLLM-owned Compose service publishes one.
@@ -405,7 +405,7 @@ All tests are free, self-hosted, deterministic, and isolated from live LLM provi
 | WEB-TEST-006 | Profile workflows | `test/harden_llm_web/live/profiles_live_test.exs` | `mix test test/harden_llm_web/live/profiles_live_test.exs` | Create/edit/delete, write-only credentials, field errors, model refresh, complete recovery policy, and bundle import/export use only expected REST operations. | 20s |
 | WEB-TEST-007 | Workspace/run workflows | `test/harden_llm_web/live/workspace_live_test.exs` | `mix test test/harden_llm_web/live/workspace_live_test.exs` | State hydration/save, validation, web-search toggle/run projection, one run submit, async state, trace-addressed result restoration, distinct new/prompt/system reset actions, non-ambiguous missing-credential guidance, ambiguous failure, no automatic retry, and stale-response rejection pass. | 25s |
 | WEB-TEST-008 | History/trace/artifacts | `test/harden_llm_web/live/history_trace_test.exs`, `test/harden_llm_web/controllers/artifact_controller_test.exs` | `mix test test/harden_llm_web/live/history_trace_test.exs test/harden_llm_web/controllers/artifact_controller_test.exs` | Workspace numbered page replacement/retry/clear races, legacy cursor compatibility, inline trace rendering and authorization, artifact authorization, exact-origin redirect validation, and no-store headers pass; restore/delete/clear also remain covered by Workspace LiveView tests. | 20s |
-| WEB-TEST-009 | Security and diagnostics | `test/harden_llm_web/security_observability_test.exs`, `test/harden_llm_web/telemetry_startup_test.exs` | `mix test test/harden_llm_web/security_observability_test.exs test/harden_llm_web/telemetry_startup_test.exs` | CSRF/CSP/origin rules, secret scans, exporter-before-SDK release/dependency order, async trace propagation, safe attributes, bounded PromEx series, private scrape config, JSON Logger correlation/rotation, merged Collector validation with separate frontend pipelines, failure isolation, and no frontend export to Laminar or Langfuse. The Compose boundary also verifies the generated boot-script order and no exporter initialization failure. | 20s |
+| WEB-TEST-009 | Security and diagnostics | `test/harden_llm_web/security_observability_test.exs`, `test/harden_llm_web/telemetry_startup_test.exs` | `mix test test/harden_llm_web/security_observability_test.exs test/harden_llm_web/telemetry_startup_test.exs` | CSRF/CSP/origin rules, secret scans, exporter-before-SDK release/dependency order, async trace propagation, safe attributes, bounded PromEx series, private scrape config, JSON Logger correlation/rotation, merged Collector validation with separate frontend pipelines, failure isolation, and no frontend export to Laminar. The Compose boundary also verifies the generated boot-script order and no exporter initialization failure. | 20s |
 | WEB-TEST-010 | Responsive component rendering | `test/harden_llm_web/live/rendering_test.exs` | `mix test test/harden_llm_web/live/rendering_test.exs` | Every loading/empty/success/error state renders valid landmarks, labels, focus targets, stable action controls, compact profile cards, bounded long values, and the primary Run Prompt submitter's `formnovalidate` boundary for optional nested profile fields. | 15s |
 | WEB-TEST-011 | Real-browser workflow | `test/browser/full_workflow_test.exs` | `mix test --only browser test/browser/full_workflow_test.exs` | Headless Chromium completes login, profile save, model refresh, run, history restore, trace view, artifact redirect, logout, and reconnect at desktop/mobile sizes. | 120s |
 | WEB-TEST-012 | Frontend Compose smoke | `test/browser/compose_smoke_test.exs` | `mix test --only compose test/browser/compose_smoke_test.exs` | Shared Caddy HTTPS, LiveView WebSocket, private REST routing, backend-unavailable recovery, cross-service Tempo trace, correlated Loki log, Prometheus series, Grafana query, and secret absence pass in the isolated frontend smoke topology with explicit test-only Caddy. | 180s |

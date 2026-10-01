@@ -124,7 +124,7 @@
       "unitMultiplierMilliseconds": 1000,
       "baselineMilliseconds": 300000,
       "initialBaseline": true,
-      "basis": "Initial 300-second budget based on Langfuse's documented two-to-three-minute startup plus health-check margin; this is not a later increase."
+      "basis": "Legacy 300-second Compose readiness cap from the former topology; Langfuse is retired and this value is not evidence for a timeout increase."
     }
   ]
 }

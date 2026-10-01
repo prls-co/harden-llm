@@ -1,11 +1,11 @@
 # Harden-LLM Backend and REST API Implementation Plan
 
-> Historical implementation plan: this July 2026 baseline describes the initial
-> Langfuse export design. The current HLLM gateway trace destination is Laminar;
-> the Collector no longer exports to Langfuse. See the current decisions and
-> assertions in `harden-llm-self-hosted-test-spec.md` and
-> `self-hosted-go-stack-spec.md`. The retained Langfuse stack and history are
-> pending separate consumer and retention review.
+> Historical implementation plan: its initial deployment included Langfuse.
+> ADR-HLLM-029 retired the service, routes, credentials, images, and persistent
+> data on 2026-09-30. Langfuse-related phase descriptions below document that
+> original implementation only; they are not current deployment or retention
+> requirements. Current topology and test requirements are in
+> `harden-llm-self-hosted-test-spec.md` and `self-hosted-go-stack-spec.md`.
 
 ## 1. Title and metadata
 
