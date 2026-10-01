@@ -3,8 +3,6 @@ defmodule HardenLlmWeb.BrowserBackend do
 
   import Plug.Conn
 
-  @token "browser-fixture-token-that-never-leaves-the-server"
-  @expiry "2099-07-13T12:00:00Z"
   @artifact_origin "http://127.0.0.1:4003"
 
   def init(options), do: options
@@ -44,20 +42,26 @@ defmodule HardenLlmWeb.BrowserBackend do
     end
   end
 
-  defp dispatch(%{method: "POST", path_info: ["api", "v1", "auth", "login"]} = conn, body) do
+  defp dispatch(%{method: "POST", path_info: ["api", "auth", "sign-in", "email"]} = conn, body) do
     if body["email"] == "browser@example.test" and body["password"] == "browser-password-123" do
-      json(conn, 200, success(login_result()))
+      conn
+      |> put_resp_header(
+        "set-cookie",
+        "prls.session_token=fixture; Path=/; HttpOnly; SameSite=Lax"
+      )
+      |> json(200, %{"ok" => true})
     else
       error(conn, 401, "invalid_credentials")
     end
   end
 
-  defp dispatch(%{method: "GET", path_info: ["api", "v1", "auth", "session"]} = conn, _body) do
-    json(conn, 200, success(principal()))
-  end
-
-  defp dispatch(%{method: "POST", path_info: ["api", "v1", "auth", "logout"]} = conn, _body) do
-    json(conn, 200, success(%{"loggedOut" => true}))
+  defp dispatch(%{method: "POST", path_info: ["api", "auth", "sign-out"]} = conn, _body) do
+    conn
+    |> put_resp_header(
+      "set-cookie",
+      "prls.session_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"
+    )
+    |> json(200, %{"ok" => true})
   end
 
   defp dispatch(%{method: "GET", path_info: ["api", "v1", "state"]} = conn, _body) do
@@ -452,23 +456,24 @@ defmodule HardenLlmWeb.BrowserBackend do
     }
   end
 
-  defp login_result do
-    %{"accessToken" => @token, "expiresAt" => @expiry, "principal" => principal()}
-  end
+  defp public_route?(%{method: "POST", path_info: ["api", "auth", "sign-in", "email"]}),
+    do: true
 
-  defp principal do
-    %{
-      "ownerId" => "owner-browser",
-      "email" => "browser@example.test",
-      "sessionId" => "session-browser",
-      "expiresAt" => @expiry
-    }
-  end
-
-  defp public_route?(%{method: "POST", path_info: ["api", "v1", "auth", "login"]}), do: true
   defp public_route?(_conn), do: false
 
-  defp authorized?(conn), do: get_req_header(conn, "authorization") == ["Bearer " <> @token]
+  defp authorized?(%{method: "POST", path_info: ["api", "auth", "sign-out"]} = conn),
+    do: has_fixture_session_cookie?(conn)
+
+  defp authorized?(conn),
+    do: get_req_header(conn, "authorization") == ["Bearer " <> HardenLlmWeb.APIFixtures.token()]
+
+  defp has_fixture_session_cookie?(conn) do
+    conn
+    |> get_req_header("cookie")
+    |> Enum.any?(fn header ->
+      Enum.any?(String.split(header, ";"), &(String.trim(&1) == "prls.session_token=fixture"))
+    end)
+  end
 
   defp record_call(conn) do
     Agent.update(__MODULE__, fn state ->

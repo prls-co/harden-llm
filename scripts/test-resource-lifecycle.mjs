@@ -161,10 +161,12 @@ async function assertPrivateDirectory(directory, create = false) {
   }
 }
 
-function currentSourceSHA() {
-  const result = spawnSync("git", ["rev-parse", "HEAD"], { cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."), encoding: "utf8" });
+export function currentSourceSHA(cwd = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")) {
+  const result = spawnSync("git", ["-C", cwd, "rev-parse", "HEAD"], { encoding: "utf8" });
   if (result.status !== 0) throw new Error("cannot identify source revision for resource receipt");
-  return result.stdout.trim();
+  const sourceSHA = result.stdout.trim();
+  if (!SAFE_SHA.test(sourceSHA)) throw new Error("source revision for resource receipt is invalid");
+  return sourceSHA;
 }
 
 export async function readHostBootID() {

@@ -96,8 +96,14 @@ defmodule HardenLlm.MixProject do
     [
       setup: ["deps.get", "assets.setup", "assets.build"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["compile", "tailwind harden_llm", "esbuild harden_llm"],
+      "assets.build": [
+        &install_prls_assets/1,
+        "compile",
+        "tailwind harden_llm",
+        "esbuild harden_llm"
+      ],
       "assets.deploy": [
+        &install_prls_assets/1,
         "compile --warnings-as-errors",
         "tailwind harden_llm --minify",
         "esbuild harden_llm --minify",
@@ -105,5 +111,17 @@ defmodule HardenLlm.MixProject do
       ],
       precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]
     ]
+  end
+
+  defp install_prls_assets(_args) do
+    source = Path.join(__DIR__, "deps/prls_web/assets/prls.css")
+    public = Path.join(__DIR__, "priv/static/assets/prls.css")
+
+    unless File.regular?(source) do
+      Mix.raise("missing pinned PRLS stylesheet: #{source}")
+    end
+
+    File.mkdir_p!(Path.dirname(public))
+    File.cp!(source, public)
   end
 end

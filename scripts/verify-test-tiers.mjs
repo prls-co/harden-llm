@@ -131,6 +131,9 @@ async function main() {
     fail("go-compose must remain an explicit browser-free local service boundary");
   }
   if (composeTask.requiresDocker !== true) fail("go-compose must acquire the local Docker lifecycle guard");
+  if (!(composeTask.credentialKeys ?? []).includes("PRIVATE_MODULE_TOKEN")) {
+    fail("go-compose must declare the private module token required by its BuildKit dependency secret");
+  }
 
   const dockerLifecycle = manifest.tasks.find((task) => task.id === "test-resource-lifecycle-docker");
   if (!dockerLifecycle) fail("manifest is missing the opt-in test-resource-lifecycle-docker task");

@@ -7,27 +7,42 @@ defmodule HardenLlmWeb.AccessFixtures do
   @knowledge_account_id "22222222-2222-4222-8222-222222222222"
   @session_ref "fixture-control-plane-session-reference"
   @no_product_ref "fixture-control-plane-session-without-harden-access"
-  @no_product_cookie "prls_session=no-product"
+  @no_product_cookie "prls.session_token=no-product"
 
-  def cookie, do: "prls_session=fixture"
+  def cookie, do: "prls.session_token=fixture"
   def no_product_cookie, do: @no_product_cookie
   def session_ref, do: @session_ref
 
-  def resolve({:cookie, @no_product_cookie}, _options) do
-    {:ok, context(@no_product_ref, ["knowledge"])}
+  def resolve({:cookie, cookie_header}, _options) when is_binary(cookie_header) do
+    value = cookie_value(cookie_header, "prls.session_token")
+
+    case value do
+      "no-product" ->
+        {:ok, context(@no_product_ref, ["knowledge"])}
+
+      "fixture" ->
+        {:ok, context(@session_ref, ["harden-llm"])}
+
+      _ ->
+        {:error, :unauthenticated}
+    end
   end
 
-  def resolve({:cookie, "prls_session=fixture"}, _options) do
+  def resolve({:reference, @session_ref}, _options) do
     {:ok, context(@session_ref, ["harden-llm"])}
   end
 
-  def resolve({:reference, @session_ref}, _options),
-    do: {:ok, context(@session_ref, ["harden-llm"])}
+  def resolve({:reference, @no_product_ref}, _options) do
+    {:ok, context(@no_product_ref, ["knowledge"])}
+  end
 
-  def resolve({:reference, @no_product_ref}, _options),
-    do: {:ok, context(@no_product_ref, ["knowledge"])}
+  def resolve({:reference, _reference}, _options) do
+    {:error, :unauthenticated}
+  end
 
-  def resolve(_credential, _options), do: {:error, :unauthenticated}
+  def resolve(_credential, _options) do
+    {:error, :unauthenticated}
+  end
 
   def control(:get, "/accounts", reference, nil, _options)
       when reference in [@session_ref, @no_product_ref] do
@@ -45,6 +60,17 @@ defmodule HardenLlmWeb.AccessFixtures do
 
   def control(_method, _path, _reference, _body, _options),
     do: {:error, :unavailable}
+
+  defp cookie_value(cookie_header, name) do
+    cookie_header
+    |> String.split(";")
+    |> Enum.find_value(fn pair ->
+      case String.split(String.trim(pair), "=", parts: 2) do
+        [^name, value] -> value
+        _ -> nil
+      end
+    end)
+  end
 
   defp context(reference, products) do
     %Context{

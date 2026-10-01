@@ -94,13 +94,28 @@ validated and state writes are atomic.
 
 The Node runner gives child fixture processes
 `HARDEN_LLM_TEST_RUN_ID`, `HARDEN_LLM_TEST_RESOURCE_DIR`, and on Linux the
-supervisor PID/start identity. Go Compose fixtures reject direct unmanaged
-entrypoints when these ownership values are absent. `HARDEN_LLM_TEST_RESOURCE_RECEIPT`
-is the per-pool path passed to the runner's fake/real Docker subprocess boundary;
-Go-owned Compose projects register separate receipts under the same ledger.
-Source identity is the checked-out `git rev-parse HEAD`; because it does not
-hash uncommitted contents, a dirty-worktree flag/fingerprint remains an
-explicit follow-up before local receipts can be treated as exact code snapshots.
+supervisor PID/start identity. For the containerized Compose fixture, it passes
+the host-resolved source commit and ledger path, uses the host PID namespace and
+matching host UID plus Docker-socket group, and mounts the private ledger at the
+same path. Its temporary Compose work directory is inside the runner-owned task
+directory in that host checkout mount, so fixture files stay writable by the
+host user and visible to the Docker daemon. This lets the Go fixture validate
+the original runner and write its receipt into the same owner-checked ledger
+without mounting Git worktree metadata. The container task requires both the
+host checkout mount and Docker socket; the runner rejects missing managed
+identity rather than deriving a container-local fallback. Go Compose fixtures
+reject direct unmanaged entrypoints when these ownership values are absent.
+The container forwards only credential names declared by the task, such as
+`PRIVATE_MODULE_TOKEN`, so Compose can pass the value to BuildKit as a build
+secret without placing it in Docker command arguments. The Go fixture redacts
+that value from Compose diagnostics, and the Node runner redacts declared
+secret values from task output and reports.
+`HARDEN_LLM_TEST_RESOURCE_RECEIPT` is the per-pool path passed to the runner's
+fake/real Docker subprocess boundary; Go-owned Compose projects register
+separate receipts under the same ledger. Source identity is the checked-out
+`git rev-parse HEAD`; because it does not hash uncommitted contents, a
+dirty-worktree flag/fingerprint remains an explicit follow-up before local
+receipts can be treated as exact code snapshots.
 
 ## Initial test-harness controls
 

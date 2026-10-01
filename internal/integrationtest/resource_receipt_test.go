@@ -8,6 +8,31 @@ import (
 )
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-280
+func TestResourceReceiptRequiresRunnerSourceRevision(t *testing.T) {
+	tests := []struct {
+		name    string
+		source  string
+		wantErr bool
+	}{
+		{name: "valid commit", source: "0123456789abcdef0123456789abcdef01234567"},
+		{name: "missing", wantErr: true},
+		{name: "invalid", source: "not-a-commit", wantErr: true},
+	}
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Setenv(resourceSourceSHAEnv, testCase.source)
+			got, err := sourceRevisionFromRunner()
+			if (err != nil) != testCase.wantErr {
+				t.Fatalf("sourceRevisionFromRunner() error = %v, wantErr %v", err, testCase.wantErr)
+			}
+			if err == nil && got != testCase.source {
+				t.Fatalf("source revision = %q, want %q", got, testCase.source)
+			}
+		})
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-280
 func TestResourceReceiptAcceptsValidOwnershipRecord(t *testing.T) {
 	if err := ValidateResourceReceipt(validResourceReceipt(t)); err != nil {
 		t.Fatalf("valid receipt was rejected: %v", err)

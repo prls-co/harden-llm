@@ -259,6 +259,7 @@
       "network": "local-only",
       "credentialKeys": [],
       "requiredFor": ["integration-pool", "release"],
+      "requiresDocker": true,
       "pathSelectors": ["internal/artifacts/**", "internal/integrationtest/**", "deploy/test/compose.integration.yml"]
     },
     {
@@ -301,10 +302,10 @@
       "timeoutMs": 1800000,
       "cleanupOwner": "compose-smoke",
       "network": "local-only",
-      "credentialKeys": [],
+      "credentialKeys": ["PRIVATE_MODULE_TOKEN"],
       "requiredFor": ["baseline", "release"],
       "requiresDocker": true,
-      "pathSelectors": ["internal/smoke/**", "deploy/test/**", "docker-compose.yml"]
+      "pathSelectors": ["internal/smoke/**", "internal/integrationtest/**", "deploy/test/**", "Dockerfile", "docker-compose.yml", "go.mod", "go.sum", "scripts/run-test-tier.mjs"]
     },
     {
       "id": "go-compose-contract",
@@ -567,15 +568,30 @@
         "dockerSocket": true,
         "bootstrap": true,
         "shmSize": "2g",
-        "mountAtHostPath": true
+        "mountAtHostPath": true,
+        "hostResourceIdentity": true
       },
       "dependsOn": [],
       "timeoutMs": 1800000,
       "cleanupOwner": "compose-browser",
       "network": "local-only",
-      "credentialKeys": [],
+      "credentialKeys": ["PRIVATE_MODULE_TOKEN"],
       "requiredFor": ["browser-compose"],
-      "pathSelectors": ["frontend/test/browser/compose_smoke_test.exs", "deploy/test/**"]
+      "pathSelectors": [
+        "frontend/test/browser/compose_smoke_test.exs",
+        "frontend/Dockerfile",
+        "Dockerfile",
+        "docker-compose.yml",
+        "internal/integrationtest/**",
+        "internal/smoke/**",
+        "deploy/langfuse/**",
+        "deploy/test/**",
+        "scripts/run-test-tier.mjs",
+        "scripts/test-resource-lifecycle.mjs",
+        "scripts/test/run_test_tier_test.mjs",
+        "test/test-tiers.json",
+        ".github/workflows/test-hierarchy.yml"
+      ]
     },
     {
       "id": "frontend-deployed",

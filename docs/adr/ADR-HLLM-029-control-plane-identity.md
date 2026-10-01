@@ -68,3 +68,11 @@ PostgreSQL migration tests prove that schema removal refuses unmapped local
 users and that rehoming cascades account UUIDs through dependent rows. Release
 acceptance separately verifies Control Plane sign-in, current product access,
 revocation, profile/run ownership, and retained artifact reads.
+
+The full Compose browser test supplies a minimal synthetic Control Plane HTTP
+boundary for sign-in/sign-out, access-context resolution, and account listing
+and selection. It uses a synthetic account and no Control Plane database or
+HLLM-owned human account. This verifies that the Phoenix and gateway consumers
+use the shared contract through the real stack; it does not certify Control
+Plane authentication or persistence, which remain covered by Control Plane's
+own tests and production release evidence.

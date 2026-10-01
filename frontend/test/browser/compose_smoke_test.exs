@@ -17,12 +17,20 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
 
   alias Wallaby.Query
 
+  import HardenLlmWeb.BrowserFeatureCase,
+    only: [
+      assert_field_value: 3,
+      commit_combobox: 3,
+      sign_in_shared_login: 3
+    ]
+
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-012 TEST-055
 
   setup do
     root = Path.expand("../../..", __DIR__)
+    work_root = System.fetch_env!("HARDEN_LLM_TEST_COMPOSE_WORK_ROOT")
     nonce = "#{System.os_time(:millisecond)}-#{System.unique_integer([:positive])}"
-    work_dir = Path.join(root, "frontend/tmp/compose/#{nonce}")
+    work_dir = Path.join(work_root, nonce)
     state_path = Path.join(work_dir, "state.json")
     done_path = Path.join(work_dir, "done")
     File.mkdir_p!(work_dir)
@@ -58,12 +66,8 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
     session =
       session
       |> resize_window(1_440, 900)
-      |> visit(fixture["web_url"] <> "/login")
-      |> assert_has(Query.css("#login-page"))
-      |> fill_in(Query.text_field("Email address"), with: fixture["login_email"])
-      |> fill_in(Query.css("#session_password"), with: fixture["login_password"])
-      |> click(Query.css("#login-submit"))
-      |> assert_has(Query.css("#workspace-page"))
+      |> visit(fixture["web_url"] <> "/")
+      |> sign_in_shared_login(fixture["login_email"], fixture["login_password"])
       |> assert_has(Query.css("#backend-status", text: "Backend ready"))
       |> assert_live_socket_connected()
 
@@ -76,13 +80,17 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
       |> visit(fixture["web_url"] <> "/profiles")
       |> assert_has(Query.css("#profiles-page"))
       |> click(Query.css("#new-profile"))
-      |> fill_in(Query.text_field("Profile name"), with: "Smoke")
+      |> fill_in(Query.css("#profile_profileId"), with: "Smoke")
       |> fill_in(Query.text_field("Provider family"), with: "openai")
-      |> choose_option("#profile_apiInferenceType", "responses")
-      |> fill_in(Query.text_field("Default model"), with: "smoke-model")
-      |> fill_in(Query.fillable_field("HTTPS base URL"), with: "https://fake-provider:8443/v1")
+      |> commit_combobox("#profile_apiInferenceType", "responses")
+      |> assert_field_value("#profile_apiInferenceType", "responses")
+      |> fill_in(Query.css("#profile_modelId"), with: "smoke-model")
+      |> fill_in(Query.css("#profile_baseUrl"), with: "https://fake-provider:8443/v1")
+      |> assert_has(Query.css("#credential-drawer"))
       |> fill_in(Query.text_field("Credential ID"), with: "compose-smoke-provider")
       |> fill_in(Query.css("#profile_apiKey"), with: provider_secret)
+      |> click(Query.css("#stage-profile-key"))
+      |> assert_has(Query.css("#credential-status", text: "New key staged for save"))
       |> click(Query.css("#profile-save"))
       |> assert_has(Query.css("#profile-Smoke", text: "Smoke"))
       |> visit(fixture["web_url"] <> "/")
@@ -91,8 +99,6 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
       |> assert_has(Query.css("#model-options"))
       |> click(Query.css("#profile-retry-toggle"))
       |> assert_has(Query.css("#profile-retry-repair"))
-      |> click(Query.css("#profile-escalation-config-toggle"))
-      |> assert_has(Query.css("#profile-escalation-config"))
       |> choose_option("#run_selectedProfileId", "Smoke")
       |> fill_in(Query.css("#run_userPrompt"), with: "return the compose smoke response")
       |> click(Query.css("#run-submit"))
@@ -148,7 +154,8 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
     session =
       session
       |> visit(fixture["web_url"] <> "/")
-      |> assert_has(Query.css("#login-page"))
+      |> assert_has(Query.css("#workspace-page"))
+      |> assert_has(Query.css("#backend-status", text: "Backend unavailable"))
 
     _output =
       compose!(fixture, root, [
@@ -162,10 +169,7 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
       ])
 
     session
-    |> fill_in(Query.text_field("Email address"), with: fixture["login_email"])
-    |> fill_in(Query.css("#session_password"), with: fixture["login_password"])
-    |> click(Query.css("#login-submit"))
-    |> assert_has(Query.css("#workspace-page"))
+    |> visit(fixture["web_url"] <> "/")
     |> assert_has(Query.css("#backend-status", text: "Backend ready"))
     |> assert_live_socket_connected()
   end

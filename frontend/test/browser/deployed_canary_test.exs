@@ -9,12 +9,14 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       assert_field_value: 3,
       assert_dom_attribute: 4,
       assert_live_socket_connected: 1,
+      assert_shared_login_page: 1,
       assert_no_horizontal_overflow: 1,
       commit_combobox: 3,
       javascript_value: 2,
       javascript_value: 3,
       open_fold: 3,
       open_ui_fold: 3,
+      sign_in_shared_login: 3,
       scroll_to_selector: 2
     ]
 
@@ -47,11 +49,8 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
     session =
       session
       |> resize_window(1_440, 900)
-      |> visit("/login")
-      |> fill_in(Query.text_field("Email address"), with: email)
-      |> fill_in(Query.css("#session_password"), with: password)
-      |> click(Query.css("#login-submit"))
-      |> assert_has(Query.css("#workspace-page"))
+      |> visit("/")
+      |> sign_in_shared_login(email, password)
       |> visit("/")
       |> assert_has(Query.css("#workspace-page"))
       |> assert_has(Query.css("#workspace-llm-widget"))
@@ -336,7 +335,7 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       )
       |> assert_no_horizontal_overflow()
       |> click(Query.css("#logout-button"))
-      |> assert_has(Query.css("#login-page"))
+      |> assert_shared_login_page()
 
     refute page_source(session) =~ System.fetch_env!("HARDEN_LLM_LOCAL_OPERATOR_PASSWORD")
     refute page_source(session) =~ "CPA GPT-5.6 Luna"

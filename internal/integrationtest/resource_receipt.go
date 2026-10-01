@@ -45,6 +45,11 @@ type ResourceIDs struct {
 	Networks   []string `json:"networks"`
 }
 
+const (
+	resourceDirectoryEnv = "HARDEN_LLM_TEST_RESOURCE_DIR"
+	resourceSourceSHAEnv = "HARDEN_LLM_TEST_SOURCE_SHA"
+)
+
 var (
 	resourceIDPattern  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:-]{0,190}$`)
 	resourceSHAPattern = regexp.MustCompile(`^(?:[a-fA-F0-9]{40}|[a-fA-F0-9]{64})$`)
@@ -181,28 +186,22 @@ func UpdateResourceReceipt(receiptPath, state string) (ResourceReceipt, error) {
 // already established by the managed runner environment. It resolves the
 // actual daemon/source/process identities before returning to the caller.
 func RegisterResourceReceipt(project string, composeFiles []string) (string, error) {
-	directory := strings.TrimSpace(os.Getenv("HARDEN_LLM_TEST_RESOURCE_DIR"))
+	directory := strings.TrimSpace(os.Getenv(resourceDirectoryEnv))
 	if directory == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("resolve private resource receipt directory: %w", err)
-		}
-		directory = filepath.Join(home, ".local", "state", "harden-llm", "test-resources")
+		return "", errors.New("Compose fixtures must inherit a managed runner resource directory")
 	}
 	runID := strings.TrimSpace(os.Getenv("HARDEN_LLM_TEST_RUN_ID"))
 	if runID == "" {
 		return "", errors.New("Compose fixtures must run through scripts/run-test-tier.mjs so ownership is recorded")
 	}
+	sourceSHA, err := sourceRevisionFromRunner()
+	if err != nil {
+		return "", err
+	}
 	daemonID, err := dockerDaemonIdentity()
 	if err != nil {
 		return "", err
 	}
-	command := exec.Command("git", "rev-parse", "HEAD")
-	output, commandErr := command.Output()
-	if commandErr != nil {
-		return "", fmt.Errorf("identify source revision for Compose receipt: %w", commandErr)
-	}
-	sourceSHA := strings.TrimSpace(string(output))
 	hostBootID, err := os.ReadFile("/proc/sys/kernel/random/boot_id")
 	if err != nil {
 		return "", fmt.Errorf("read host boot identity for Compose receipt: %w", err)
@@ -239,6 +238,14 @@ func RegisterResourceReceipt(project string, composeFiles []string) (string, err
 		ResourceIDs:  ResourceIDs{Containers: []string{}, Volumes: []string{}, Networks: []string{}},
 	}
 	return WriteResourceReceipt(directory, receipt)
+}
+
+func sourceRevisionFromRunner() (string, error) {
+	sourceSHA := strings.TrimSpace(os.Getenv(resourceSourceSHAEnv))
+	if !resourceSHAPattern.MatchString(sourceSHA) {
+		return "", errors.New("Compose fixtures must inherit a valid managed runner source revision")
+	}
+	return sourceSHA, nil
 }
 
 // AdvanceResourceReceipt is the fixture-facing state transition helper.

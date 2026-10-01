@@ -9,7 +9,7 @@ import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 
 import { capacitySafetyFailure, collectDockerResourceSample, hashImageIDs, summarizeResourceSamples } from "./measure-test-resources.mjs";
-import { acquireDaemonLock, classifyReceiptOwner, createResourceReceipt, daemonLockEnvironment, defaultResourceDirectory, inheritedDaemonLockLease, processStartIdentity, readHostBootID, readResourceReceipt, releaseDaemonLock, updateResourceReceipt } from "./test-resource-lifecycle.mjs";
+import { acquireDaemonLock, classifyReceiptOwner, createResourceReceipt, currentSourceSHA, daemonLockEnvironment, defaultResourceDirectory, inheritedDaemonLockLease, processStartIdentity, readHostBootID, readResourceReceipt, releaseDaemonLock, updateResourceReceipt } from "./test-resource-lifecycle.mjs";
 
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_RUN_ROOT = path.join(REPOSITORY_ROOT, "tmp", "test-feedback");
@@ -21,6 +21,7 @@ const DEFAULT_RESOURCE_CLEANUP_MS = 120_000;
 const RESOURCE_INVENTORY_MS = 15_000;
 const MAX_PROJECT_RESOURCES = 1024;
 const MAX_RUN_REPORT_BYTES = 2 * 1024 * 1024;
+const REDACTED_SECRET_VALUES = new Set();
 
 export async function loadManifest(manifestPath) {
   const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
@@ -69,6 +70,9 @@ function validateTaskGraph(tasks, resourceClasses) {
     if (!task.cleanupOwner) throw new Error(`task ${task.id} has no cleanupOwner`);
     if (!task.network) throw new Error(`task ${task.id} has no network policy`);
     if (!Array.isArray(task.dependsOn)) throw new Error(`task ${task.id} dependsOn must be an array`);
+    if (task.container?.hostResourceIdentity && (!task.container.dockerSocket || !task.container.mountAtHostPath)) {
+      throw new Error(`task ${task.id} hostResourceIdentity requires Docker access and the host checkout mount`);
+    }
     byID.set(task.id, task);
   }
   for (const task of tasks) {
@@ -127,7 +131,9 @@ function boundedCapture() {
 }
 
 function scrub(value) {
-  return String(value)
+  let redacted = String(value);
+  for (const secret of REDACTED_SECRET_VALUES) redacted = redacted.replaceAll(secret, "[redacted]");
+  return redacted
     .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [redacted]")
     .replace(/sk-[A-Za-z0-9]+/g, "sk-[redacted]")
     .replace(/([?&](?:key|token|secret|password|authorization)=[^&\s]+)/gi, "$1=[redacted]")
@@ -794,6 +800,13 @@ function isDockerManagedTask(task) {
   return Boolean(task.servicePool || task.requiresDocker || task.usesDocker || task.container?.dockerSocket || path.basename(task.command?.[0] ?? "") === "docker");
 }
 
+function managedSourceSHA(options) {
+  return options.sourceSHA
+    ?? options.environment?.HARDEN_LLM_TEST_SOURCE_SHA
+    ?? process.env.HARDEN_LLM_TEST_SOURCE_SHA
+    ?? currentSourceSHA(options.root);
+}
+
 async function establishLocalDockerIdentity(root, environment, signal) {
   if (process.platform !== "linux") throw new Error("Docker-backed test selections require Linux and a local Docker daemon");
   const context = String(environment.DOCKER_CONTEXT ?? "").trim();
@@ -990,9 +1003,30 @@ export function resolvedCommand(task, options) {
   const bootstrap = task.container.bootstrap
     ? "mix local.hex --force >/dev/null 2>&1 && mix local.rebar --force >/dev/null 2>&1 && mix deps.get >/dev/null && "
     : "";
+  const hostResourceIdentity = task.container.hostResourceIdentity === true;
+  const hostResourceDirectory = options.environment?.HARDEN_LLM_TEST_RESOURCE_DIR;
+  const hostResourceSHA = options.environment?.HARDEN_LLM_TEST_SOURCE_SHA;
+  const supervisorPID = options.environment?.HARDEN_LLM_TEST_SUPERVISOR_PID;
+  const supervisorStart = options.environment?.HARDEN_LLM_TEST_SUPERVISOR_START;
+  if (hostResourceIdentity && (!path.isAbsolute(hostResourceDirectory ?? "") || !hostResourceSHA)) {
+    throw new Error("hostResourceIdentity requires the managed runner resource directory and source revision");
+  }
+  if (hostResourceIdentity && (!supervisorPID || !supervisorStart)) {
+    throw new Error("hostResourceIdentity requires a managed runner supervisor identity");
+  }
   const containerEnvironment = {
     HARDEN_LLM_TEST_SEED: String(options.seed ?? DEFAULT_SEED),
     HARDEN_LLM_TEST_RUN_ID: options.runID ?? path.basename(options.runDirectory),
+    ...(hostResourceIdentity
+      ? {
+        HOME: "/tmp/harden-llm-test-home",
+        HARDEN_LLM_TEST_RESOURCE_DIR: hostResourceDirectory,
+        HARDEN_LLM_TEST_SOURCE_SHA: hostResourceSHA,
+        HARDEN_LLM_TEST_SUPERVISOR_PID: supervisorPID,
+        HARDEN_LLM_TEST_SUPERVISOR_START: supervisorStart,
+        HARDEN_LLM_TEST_COMPOSE_WORK_ROOT: options.taskDirectory,
+      }
+      : {}),
     ...daemonLockEnvironment(options.daemonLockLease),
     ...(task.network === "forbidden" ? {
       HARDEN_LLM_TEST_NETWORK: "forbidden",
@@ -1001,9 +1035,30 @@ export function resolvedCommand(task, options) {
     ...(task.environment ?? {}),
   };
   const args = ["run", "--rm", "--network", task.container.network ?? "none"];
+  if (hostResourceIdentity) {
+    if (!Number.isInteger(options.dockerSocketGID) || typeof process.getuid !== "function" || typeof process.getgid !== "function") {
+      throw new Error("hostResourceIdentity requires the local Linux Docker socket and user identity");
+    }
+    args.push(
+      "--pid=host",
+      "--user",
+      `${process.getuid()}:${process.getgid()}`,
+      "--group-add",
+      String(options.dockerSocketGID),
+    );
+  }
   for (const [key, value] of Object.entries(containerEnvironment)) args.push("-e", `${key}=${value}`);
+  for (const key of task.credentialKeys ?? []) {
+    if (typeof options.environment?.[key] !== "string" || !options.environment[key].trim()) {
+      throw new Error(`container task ${task.id} requires credential ${key}`);
+    }
+    args.push("-e", key);
+  }
   if (task.container.shmSize) args.push("--shm-size", task.container.shmSize);
   if (task.container.dockerSocket) args.push("-v", "/var/run/docker.sock:/var/run/docker.sock");
+  if (hostResourceIdentity) {
+    args.push("--mount", `type=bind,src=${hostResourceDirectory},dst=${hostResourceDirectory}`);
+  }
   // A login shell rewrites PATH from the image's profile and can hide pinned
   // tools such as the copied Go binary. Keep the image environment intact.
   const mountPath = task.container.mountAtHostPath ? options.root : "/workspace";
@@ -1023,8 +1078,7 @@ export async function runCommand(task, options) {
   const timePath = path.join(taskDirectory, "time.txt");
   const stdout = boundedCapture();
   const stderr = boundedCapture();
-  const command = resolvedCommand(task, { ...options, taskDirectory });
-  command.environment = { ...command.environment, ...daemonLockEnvironment(options.daemonLockLease) };
+  let command = null;
   const startedAt = performance.now();
   let peakRSS = 0;
   let timedOut = false;
@@ -1042,7 +1096,7 @@ export async function runCommand(task, options) {
     taskId: task.id,
     tier: task.tier,
     resourceClass: task.resourceClass,
-    command: [command.executable, ...command.args].map((part) => scrub(part)),
+    command: [],
     status: 1,
     seed: options.seed ?? DEFAULT_SEED,
     cold: Boolean(options.cold),
@@ -1071,10 +1125,32 @@ export async function runCommand(task, options) {
     cleanupWarnings: result.cleanupWarnings,
   };
   try {
-    if (process.platform === "linux" && command.environment) {
-      command.environment.HARDEN_LLM_TEST_SUPERVISOR_PID = String(process.pid);
-      command.environment.HARDEN_LLM_TEST_SUPERVISOR_START = await processStartIdentity(process.pid);
+    const childEnvironment = { ...process.env, ...(options.environment ?? {}) };
+    for (const key of task.credentialKeys ?? []) {
+      const value = childEnvironment[key];
+      if (/(?:token|password|secret|(?:api|access)[_-]?key|private[_-]?key)/i.test(key) && value) {
+        REDACTED_SECRET_VALUES.add(value);
+      }
     }
+    if (process.platform === "linux") {
+      childEnvironment.HARDEN_LLM_TEST_SUPERVISOR_PID = String(process.pid);
+      childEnvironment.HARDEN_LLM_TEST_SUPERVISOR_START = await processStartIdentity(process.pid);
+    }
+    if (isDockerManagedTask(task)) {
+      childEnvironment.HARDEN_LLM_TEST_RESOURCE_DIR = options.resourceDirectory ?? defaultResourceDirectory();
+      childEnvironment.HARDEN_LLM_TEST_SOURCE_SHA = managedSourceSHA(options);
+    }
+    const dockerSocketGID = task.container?.hostResourceIdentity
+      ? (await fs.stat("/var/run/docker.sock")).gid
+      : undefined;
+    command = resolvedCommand(task, {
+      ...options,
+      environment: childEnvironment,
+      dockerSocketGID,
+      taskDirectory,
+    });
+    command.environment = { ...command.environment, ...daemonLockEnvironment(options.daemonLockLease) };
+    result.command = [command.executable, ...command.args].map((part) => scrub(part));
     if (task.capacityReport && task.servicePool) {
       const dataRootResult = await runExternal("docker", ["info", "--format", "{{.DockerRootDir}}"], {
         cwd: options.root, signal: options.signal, timeoutMs: 5_000, environment: command.environment,
@@ -1205,7 +1281,7 @@ export async function runCommand(task, options) {
       }
     }
     const cleanupOptions = resourceCleanupOptions(taskOptions);
-    const containerError = await cleanupContainer(command.containerIDPath);
+    const containerError = await cleanupContainer(command?.containerIDPath);
     if (containerError) result.cleanupError = [result.cleanupError, containerError].filter(Boolean).join("; ");
     if (pool) {
       const poolErrors = await cleanupServicePool(pool, cleanupOptions);
@@ -1351,6 +1427,7 @@ export async function runTasks(tasks, options) {
   let preflightFailure = null;
   if (!options.signal?.aborted && tasks.some(isDockerManagedTask)) {
     try {
+      runOptions.sourceSHA = managedSourceSHA(options);
       const dockerEnvironment = { ...process.env, ...(options.environment ?? {}) };
       const identityStartedAt = performance.now();
       let daemonId;
