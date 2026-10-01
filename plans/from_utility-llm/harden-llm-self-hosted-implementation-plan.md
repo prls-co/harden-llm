@@ -221,6 +221,26 @@ through the HLLM production configuration owner before the next release, with
 the database role and every consuming app configuration updated together. No
 rotation was performed in this session.
 
+Production deployment provenance follow-up (2026-10-01): read-only Docker
+inspection shows the live web container still runs image
+`harden-llm-web:release-c17ba70f88d440c0a936df0bd6de50688949e12f`, not the
+Issue #18 identity implementation on `main` (`b5407bf`). Its Compose project
+working directory is `/home/kirill/.cache/shaman-ram-cleanup/worktrees/harden-llm-deploy-pr82`
+at commit `009b923` (the PR #87 merge, also present in `main`). Docker's
+Compose-file labels additionally reference a generated
+`/home/kirill/.cache/harden-llm-tmp/harden-llm-production-config-*/service-overrides.yml`
+path that is no longer present. The web container remains healthy, but its
+recorded deployment inputs are incomplete for a repeatable restart or rollback.
+The live gateway and PostgreSQL containers report different Compose working
+directories (`/home/kirill/p/harden-llm` and
+`/home/kirill/p/harden-llm-production`). Do not remove the active worktree or
+restart production from reconstructed defaults. As part of the approved HLLM
+identity cutover, establish one durable, visible deployment source with complete
+Compose inputs and the existing external credential source; verify the exact
+image, database, networks, volumes, and credentials before switching, then
+remove obsolete worktree paths only after no running service refers to them.
+Do not deploy unchanged services solely to normalize their checkout paths.
+
 ### Error handling and telemetry expectations
 
 - API errors use stable safe codes and field keys inside `{ state, result, error }`.
