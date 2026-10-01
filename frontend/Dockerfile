@@ -30,12 +30,13 @@ RUN mix assets.deploy && mix release --path /release
 
 FROM ${RUNTIME_IMAGE} AS runtime
 
-RUN apk add --no-cache \
-      ca-certificates=20260611-r0 \
-      libgcc=15.2.0-r2 \
-      libstdc++=15.2.0-r2 \
-      ncurses-libs=6.5_p20251123-r0 \
-      openssl=3.5.8-r0 \
+RUN apk add --no-cache --upgrade \
+      ca-certificates \
+      libcrypto3 \
+      libgcc \
+      libssl3 \
+      libstdc++ \
+      ncurses-libs \
     && addgroup -S -g 10001 harden_llm \
     && adduser -S -D -H -u 10001 -G harden_llm harden_llm \
     && mkdir -p /app /var/log/harden-llm-web /var/lib/harden-llm-web \
