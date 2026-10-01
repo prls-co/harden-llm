@@ -133,12 +133,11 @@ budget; cleanup reported no errors or warnings. Keep that assertion intact and
 do not mark the browser Compose gate green. `AGENTS.md` requires a specific user
 request for browser tests, so another run needs that request. Hosted run
 [36840294607](https://github.com/prls-co/harden-llm/actions/runs/36840294607)
-passed fast T0-T2 on the implementation-bearing head `dc00fcf`; its short-lived
-GitHub App token fetched both private dependencies. On latest docs head
-`0709079`, [CodeQL analysis](https://github.com/prls-co/harden-llm/actions/runs/36845301953)
-and the [CodeQL check](https://github.com/prls-co/harden-llm/runs/110314075747)
-passed. The later commits only update plans; no long-lived module token was
-added.
+passed fast T0-T2 on code-bearing head `dc00fcf`; its short-lived GitHub App
+token fetched both private dependencies. [CodeQL analysis](https://github.com/prls-co/harden-llm/actions/runs/36840294540)
+and the [CodeQL check](https://github.com/prls-co/harden-llm/runs/110297795060)
+also passed on that code-bearing head. Subsequent commits only update plans; no
+long-lived module token was added.
 
 Production identity inventory (2026-10-01): read-only SQL transactions against
 the production PostgreSQL services on Docker daemon `shaman` found one unique
