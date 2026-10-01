@@ -93,8 +93,7 @@ and Garage, with a private network and separate persistent volumes. The
 existing OpenAPI boundary is unchanged. Application history, profiles, traces,
 and stats remain in branch Postgres; artifact payloads remain in branch Garage;
 Phoenix session material remains in its own volume. Diagnostic logs are bounded.
-OTLP exports are disabled in previews: no preview Langfuse, Luminar, ClickHouse,
-or production telemetry dependency is introduced.
+OTLP exports are disabled in previews; no production telemetry dependency is introduced.
 
 ## 4. Iteration efficiency and isolation boundaries
 

@@ -15,10 +15,10 @@ function privateFile(filePath, contents) {
 test("TEST-235 native Compose resolution preserves quoting, empties, precedence, and escaped dollars", (t) => {
   const directory = mkdtempSync(path.join(tmpdir(), "harden-llm-compose-conformance-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
-  for (const relative of ["deploy/langfuse", "deploy/frontend"]) {
+  for (const relative of ["deploy/frontend"]) {
     const nested = path.join(directory, relative);
     // The fixture is intentionally small; the production module still passes
-    // the repository's fixed four-file order to the native Compose CLI.
+    // the repository's fixed two-file order to the native Compose CLI.
     mkdirSync(nested, { recursive: true });
   }
   writeFileSync(path.join(directory, "docker-compose.yml"), `services:
@@ -31,11 +31,7 @@ test("TEST-235 native Compose resolution preserves quoting, empties, precedence,
       PRECEDENCE: \${PRECEDENCE:?set PRECEDENCE}
       DEFAULT_VALUE: \${UNSET_VALUE:-default-value}
 `);
-  for (const relative of [
-    "deploy/langfuse/docker-compose.upstream.yml",
-    "deploy/langfuse/compose.private.yml",
-    "deploy/frontend/compose.frontend.yml",
-  ]) writeFileSync(path.join(directory, relative), "services: {}\n");
+  writeFileSync(path.join(directory, "deploy/frontend/compose.frontend.yml"), "services: {}\n");
 
   const descriptor = validateDescriptor({
     schemaVersion: 1,
@@ -43,7 +39,7 @@ test("TEST-235 native Compose resolution preserves quoting, empties, precedence,
     dockerContext: "default",
     composeRoot: directory,
     applicationRoot: directory,
-    composeFiles: ["docker-compose.yml", "deploy/langfuse/docker-compose.upstream.yml", "deploy/langfuse/compose.private.yml", "deploy/frontend/compose.frontend.yml"],
+    composeFiles: ["docker-compose.yml", "deploy/frontend/compose.frontend.yml"],
     productionEnvFile: privateFile(path.join(directory, "production.env"), "PRECEDENCE=production\n"),
     observabilityEnvFile: privateFile(path.join(directory, "observability.env"), [
       "HASH='$2a$12$literal-bcrypt-hash'",

@@ -11,8 +11,6 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const browserImage = "harden-llm-browser-test:local";
 const composeFiles = [
   "docker-compose.yml",
-  "deploy/langfuse/docker-compose.upstream.yml",
-  "deploy/langfuse/compose.private.yml",
   "deploy/frontend/compose.frontend.yml",
 ];
 const dotEnvKeys = new Set([
@@ -96,7 +94,7 @@ function composeInspectionEnvironment(environment, expectedRelease) {
   const result = { ...environment };
   if (firstValue(environment, ["HARDEN_LLM_COMPOSE_ENV_FILE"])) {
     for (const name of Object.keys(result)) {
-      if (name.startsWith("HARDEN_LLM_") || name.startsWith("LANGFUSE_") || name.startsWith("MINIO_") || name.startsWith("CLICKHOUSE_") || name.startsWith("REDIS_") || name.startsWith("GRAFANA_")) {
+      if (name.startsWith("HARDEN_LLM_") || name.startsWith("GRAFANA_")) {
         delete result[name];
       }
     }

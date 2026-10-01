@@ -6,8 +6,6 @@ package deploytest
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -19,147 +17,34 @@ import (
 	"testing"
 )
 
-const (
-	langfuseComposeSHA256 = "26510ab5cc9163bf2212d5dfb991b3a71e1ce5cf7d032b595e7eee122bec1687"
-	langfuseCommit        = "a914a47f357f5d1cf5611e1387ea68678410c671"
-)
-
 var productionServices = []string{
 	"harden-llm-gateway", "harden-postgres", "otel-collector",
-	"prometheus", "loki", "tempo", "grafana", "langfuse-web", "langfuse-worker",
-	"postgres", "clickhouse", "redis", "minio",
+	"prometheus", "loki", "tempo", "grafana",
 }
 
 func TestComposeDeploymentContract(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
-	upstreamPath := filepath.Join(root, "deploy", "langfuse", "docker-compose.upstream.yml")
 	basePath := filepath.Join(root, "docker-compose.yml")
-	overlayPath := filepath.Join(root, "deploy", "langfuse", "compose.private.yml")
 	frontendPath := filepath.Join(root, "deploy", "frontend", "compose.frontend.yml")
 	smokePath := filepath.Join(root, "deploy", "test", "compose.smoke.yml")
 	frontendSmokePath := filepath.Join(root, "deploy", "test", "compose.frontend-smoke.yml")
 
-	assertLangfuseProvenance(t, upstreamPath, filepath.Join(root, "deploy", "langfuse", "UPSTREAM.md"))
-	assertUpstreamLangfuseGraph(t, upstreamPath)
-	assertNarrowLangfuseOverlay(t, overlayPath)
-
-	backend := renderCompose(t, root, basePath, upstreamPath, overlayPath)
+	backend := renderCompose(t, root, basePath)
 	assertEffectiveTopology(t, backend)
 	assertImageManifest(t, filepath.Join(root, "deploy", "images.lock.json"), backend)
-	production := renderCompose(t, root, basePath, upstreamPath, overlayPath, frontendPath)
+	production := renderCompose(t, root, basePath, frontendPath)
 	assertServiceNames(
 		t,
 		production,
 		append(append([]string(nil), productionServices...), "harden-llm-web", "otel-collector-state-init"),
-		"four-file production",
+		"production",
 	)
 	assertProductionFrontend(t, production)
 
-	smoke := renderCompose(t, root, basePath, upstreamPath, overlayPath, smokePath)
+	smoke := renderCompose(t, root, basePath, smokePath)
 	assertSmokeTopology(t, root, smoke, false)
-	frontendSmoke := renderCompose(t, root, basePath, upstreamPath, overlayPath, smokePath, frontendPath, frontendSmokePath)
+	frontendSmoke := renderCompose(t, root, basePath, smokePath, frontendPath, frontendSmokePath)
 	assertSmokeTopology(t, root, frontendSmoke, true)
-}
-
-func assertLangfuseProvenance(t *testing.T, composePath, provenancePath string) {
-	t.Helper()
-	data, err := os.ReadFile(composePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	digest := sha256.Sum256(data)
-	if got := hex.EncodeToString(digest[:]); got != langfuseComposeSHA256 {
-		t.Fatalf("upstream Langfuse Compose SHA-256 = %s, want %s", got, langfuseComposeSHA256)
-	}
-	provenance, err := os.ReadFile(provenancePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := string(provenance)
-	for _, required := range []string{
-		"v3.225.5", langfuseCommit, langfuseComposeSHA256,
-		"https://raw.githubusercontent.com/langfuse/langfuse/" + langfuseCommit + "/docker-compose.yml",
-		"Apache-2.0",
-	} {
-		if !strings.Contains(text, required) {
-			t.Errorf("Langfuse provenance omits %q", required)
-		}
-	}
-}
-
-func assertUpstreamLangfuseGraph(t *testing.T, path string) {
-	t.Helper()
-	config := readYAMLObject(t, path)
-	services := objectField(t, config, "services")
-	wantServices := []string{"clickhouse", "langfuse-web", "langfuse-worker", "minio", "postgres", "redis"}
-	if got := sortedKeys(services); !equalStrings(got, wantServices) {
-		t.Fatalf("upstream services = %v, want %v", got, wantServices)
-	}
-	wantImages := map[string]string{
-		"langfuse-web": "docker.io/langfuse/langfuse:3", "langfuse-worker": "docker.io/langfuse/langfuse-worker:3",
-		"clickhouse": "docker.io/clickhouse/clickhouse-server", "minio": "cgr.dev/chainguard/minio",
-		"redis": "docker.io/redis:7", "postgres": "docker.io/postgres:${POSTGRES_VERSION:-17}",
-	}
-	for service, image := range wantImages {
-		if got := stringField(t, asObject(t, services[service], service), "image"); got != image {
-			t.Errorf("upstream %s image = %q, want %q", service, got, image)
-		}
-	}
-	for _, service := range []string{"langfuse-web", "langfuse-worker"} {
-		dependencies := objectField(t, asObject(t, services[service], service), "depends_on")
-		if got := sortedKeys(dependencies); !equalStrings(got, []string{"clickhouse", "minio", "postgres", "redis"}) {
-			t.Errorf("upstream %s dependencies = %v", service, got)
-		}
-	}
-	wantVolumes := []string{
-		"langfuse_clickhouse_data", "langfuse_clickhouse_logs", "langfuse_minio_data",
-		"langfuse_postgres_data", "langfuse_redis_data",
-	}
-	if got := sortedKeys(objectField(t, config, "volumes")); !equalStrings(got, wantVolumes) {
-		t.Errorf("upstream volumes = %v, want %v", got, wantVolumes)
-	}
-}
-
-func assertNarrowLangfuseOverlay(t *testing.T, path string) {
-	t.Helper()
-	config := readYAMLObject(t, path)
-	services := objectField(t, config, "services")
-	want := []string{"clickhouse", "langfuse-web", "langfuse-worker", "minio", "postgres", "redis"}
-	if got := sortedKeys(services); !equalStrings(got, want) {
-		t.Fatalf("Langfuse overlay services = %v, want %v", got, want)
-	}
-	allowedFields := map[string]bool{"environment": true, "image": true, "networks": true, "ports": true}
-	for name, raw := range services {
-		service := asObject(t, raw, "overlay service "+name)
-		for field := range service {
-			if !allowedFields[field] {
-				t.Errorf("Langfuse overlay changes forbidden %s.%s", name, field)
-			}
-		}
-		if _, ok := service["ports"]; !ok {
-			t.Errorf("Langfuse overlay does not explicitly reset %s host ports", name)
-		}
-		if !valueContains(service["networks"], "harden-private") {
-			t.Errorf("Langfuse overlay does not attach %s to harden-private", name)
-		}
-	}
-	webEnv := environmentMap(t, asObject(t, services["langfuse-web"], "langfuse-web"))
-	for _, name := range []string{
-		"LANGFUSE_INIT_ORG_ID", "LANGFUSE_INIT_ORG_NAME", "LANGFUSE_INIT_PROJECT_ID", "LANGFUSE_INIT_PROJECT_NAME",
-		"LANGFUSE_INIT_PROJECT_PUBLIC_KEY", "LANGFUSE_INIT_PROJECT_SECRET_KEY", "LANGFUSE_INIT_USER_EMAIL",
-		"LANGFUSE_INIT_USER_NAME", "LANGFUSE_INIT_USER_PASSWORD", "NEXTAUTH_URL",
-	} {
-		if strings.TrimSpace(webEnv[name]) == "" {
-			t.Errorf("Langfuse headless initialization omits %s", name)
-		}
-	}
-	for name, raw := range services {
-		encoded, _ := json.Marshal(raw)
-		lower := strings.ToLower(string(encoded))
-		if strings.Contains(lower, "garage") {
-			t.Errorf("Langfuse overlay service %s contains a Garage setting", name)
-		}
-	}
 }
 
 func renderCompose(t *testing.T, root string, files ...string) map[string]any {
@@ -197,8 +82,6 @@ func TestCollectorLaminarEndpointOverride(t *testing.T) {
 	environment := append(composeContractEnvironment(), "HARDEN_LLM_LAMINAR_ENDPOINT="+endpoint)
 	config := renderComposeWithEnvironment(t, root, environment,
 		filepath.Join(root, "docker-compose.yml"),
-		filepath.Join(root, "deploy", "langfuse", "docker-compose.upstream.yml"),
-		filepath.Join(root, "deploy", "langfuse", "compose.private.yml"),
 		filepath.Join(root, "deploy", "frontend", "compose.frontend.yml"),
 	)
 	services := objectField(t, config, "services")
@@ -261,30 +144,13 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 	if !valueContains(service["networks"], "prls-observability") {
 		t.Error("loki is not attached to the shared Garage client network")
 	}
-	for _, name := range []string{"langfuse-web", "langfuse-worker"} {
-		env := environmentValueMap(t, asObject(t, services[name], name)["environment"])
-		encoded, _ := json.Marshal(env)
-		lower := strings.ToLower(string(encoded))
-		if !strings.Contains(lower, "minio") || strings.Contains(lower, "garage") {
-			t.Errorf("%s object storage ownership is invalid", name)
-		}
-	}
 	collectorEnv := environmentValueMap(t, asObject(t, services["otel-collector"], "otel-collector")["environment"])
 	if collectorEnv["HARDEN_LLM_LAMINAR_ENDPOINT"] != "laminar:8001" {
 		t.Errorf("Collector Laminar endpoint default = %q, want laminar:8001", collectorEnv["HARDEN_LLM_LAMINAR_ENDPOINT"])
 	}
-	for _, key := range []string{"LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"} {
-		if _, exists := collectorEnv[key]; exists {
-			t.Errorf("Collector still receives Langfuse credential %s after the Laminar-only cutover", key)
-		}
-	}
 	if collectorEnv["HARDEN_LLM_LAMINAR_PROJECT_API_KEY"] != "contract-harden-laminar-project-key" ||
 		collectorEnv["HARDEN_LLM_LAMINAR_PROJECT_API_KEY"] == collectorEnv["PRLS_LAMINAR_PROJECT_API_KEY"] {
 		t.Error("Collector does not resolve a distinct Harden LLM Laminar project key")
-	}
-	collectorDependencies := objectField(t, asObject(t, services["otel-collector"], "otel-collector"), "depends_on")
-	if _, exists := collectorDependencies["langfuse-web"]; exists {
-		t.Error("Collector still depends on Langfuse after the Laminar-only cutover")
 	}
 
 	volumes := objectField(t, config, "volumes")
@@ -295,8 +161,7 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 	}
 	for _, name := range []string{
 		"harden-postgres-data",
-		"prometheus-data", "loki-data", "tempo-data", "grafana-data", "langfuse_postgres_data",
-		"langfuse_clickhouse_data", "langfuse_clickhouse_logs", "langfuse_minio_data", "langfuse_redis_data",
+		"prometheus-data", "loki-data", "tempo-data", "grafana-data",
 	} {
 		if _, ok := volumes[name]; !ok {
 			t.Errorf("effective Compose omits named volume %s", name)
@@ -358,7 +223,7 @@ func assertSmokeTopology(t *testing.T, root string, config map[string]any, front
 	}
 
 	environment := environmentValueMap(t, caddy["environment"])
-	for _, name := range []string{"HARDEN_LLM_API_HOST", "HARDEN_LLM_ARTIFACT_HOST", "HARDEN_LLM_GRAFANA_HOST", "HARDEN_LLM_LANGFUSE_HOST"} {
+	for _, name := range []string{"HARDEN_LLM_API_HOST", "HARDEN_LLM_ARTIFACT_HOST", "HARDEN_LLM_GRAFANA_HOST"} {
 		if strings.TrimSpace(environment[name]) == "" {
 			t.Errorf("%s Caddy environment omits %s", model, name)
 		}
@@ -372,7 +237,7 @@ func assertSmokeTopology(t *testing.T, root string, config map[string]any, front
 		t.Errorf("frontend smoke Caddy web host = %q, want app.harden.test", environment["HARDEN_LLM_WEB_HOST"])
 	}
 
-	wantedDependencies := []string{"garage", "grafana", "harden-llm-gateway", "langfuse-web"}
+	wantedDependencies := []string{"garage", "grafana", "harden-llm-gateway"}
 	if frontend {
 		wantedDependencies = append(wantedDependencies, "harden-llm-web")
 	}
@@ -510,7 +375,7 @@ func composeContractEnvironment() []string {
 	return []string{
 		"HARDEN_LLM_LAMINAR_ENDPOINT=",
 		"HARDEN_LLM_API_HOST=api.harden.test", "HARDEN_LLM_GRAFANA_HOST=grafana.harden.test",
-		"HARDEN_LLM_LANGFUSE_HOST=langfuse.harden.test", "HARDEN_LLM_ARTIFACT_HOST=artifacts.harden.test",
+		"HARDEN_LLM_ARTIFACT_HOST=artifacts.harden.test",
 		"HARDEN_LLM_WEB_HOST=app.harden.test",
 		"HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT=https://artifacts.harden.test",
 		"HARDEN_LLM_BIND_ADDRESS=127.0.0.1", "HARDEN_LLM_HTTP_PORT=18080", "HARDEN_LLM_HTTPS_PORT=18443",
@@ -528,18 +393,7 @@ func composeContractEnvironment() []string {
 		"HARDEN_LLM_WEB_SESSION_SIGNING_SALT=contract-signing-salt",
 		"HARDEN_LLM_WEB_SESSION_ENCRYPTION_SALT=contract-encryption-salt",
 		"GRAFANA_ADMIN_PASSWORD=contract-grafana-8Zt4pW",
-		"LANGFUSE_POSTGRES_PASSWORD=contract-langfuse-db-8bQ2mK", "LANGFUSE_SALT=contractSalt9aZ5nC2",
-		"LANGFUSE_ENCRYPTION_KEY=3ff4a321a56028d03b26d90c2e5adeba6702dc1c3f267b603884e3c1f959fcb4",
-		"LANGFUSE_NEXTAUTH_SECRET=contractNextAuth4sY9kQ2nP7wX",
-		"CLICKHOUSE_PASSWORD=contract-clickhouse-9aR3pV", "REDIS_AUTH=contract-redis-2mW8qT",
-		"MINIO_ROOT_USER=contractminio", "MINIO_ROOT_PASSWORD=contract-minio-8bQ4pT2z",
-		"LANGFUSE_INIT_PROJECT_PUBLIC_KEY=pk-lf-contract000000000000000000000000",
-		"LANGFUSE_INIT_PROJECT_SECRET_KEY=sk-lf-contract000000000000000000000000",
-		"PRLS_LAMINAR_PROJECT_API_KEY=contract-laminar-project-key",
-		"HARDEN_LLM_LAMINAR_PROJECT_API_KEY=contract-harden-laminar-project-key",
-		"PRLS_LOKI_S3_ACCESS_KEY=GKCONTRACT000000000000000000000002",
-		"PRLS_LOKI_S3_SECRET_KEY=contractLokiGarageKey_7Jt3sM9qP2vW6xN8cR4aD1fH5kB0zE",
-		"LANGFUSE_INIT_USER_PASSWORD=contract-user-9mQ2vN7p", "COMPOSE_PROJECT_NAME=harden-llm-contract",
+		"COMPOSE_PROJECT_NAME=harden-llm-contract",
 	}
 }
 
@@ -567,11 +421,6 @@ func mergeEnvironment(base, overrides []string) []string {
 		filtered = append(filtered, name+"="+values[name])
 	}
 	return filtered
-}
-
-func environmentMap(t *testing.T, service map[string]any) map[string]string {
-	t.Helper()
-	return environmentValueMap(t, service["environment"])
 }
 
 func environmentValueMap(t *testing.T, value any) map[string]string {

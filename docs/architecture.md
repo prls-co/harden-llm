@@ -32,9 +32,6 @@ transport failure is never automatically replayed by either layer.
 | --- | --- | --- |
 | `harden-postgres-data` | local users, token digests, state, encrypted profile credentials, runs, trace/artifact indexes | dedicated database, credentials, and migrations |
 | `garage-shared` service and its retained metadata/data volumes | private redacted trace JSON and diagnostic attachments for adopted clients | separate bucket-scoped credentials per client |
-| upstream `postgres` | Langfuse application records | unchanged upstream service |
-| upstream `clickhouse` | Langfuse analytics | unchanged upstream service |
-| upstream `minio` | Langfuse-owned objects | never receives Harden LLM artifacts |
 | Prometheus/Loki/Tempo/Grafana volumes | operational diagnostics | no provider credentials or raw request/response bodies |
 | `harden-llm-web-logs` | bounded, redacted Phoenix JSON logs | Collector reads it; no domain state |
 | `harden-llm-web-sessions` | encrypted Phoenix bearer-token vault records | single Phoenix replica only; losing it requires frontend reauthentication |
@@ -42,20 +39,17 @@ transport failure is never automatically replayed by either layer.
 The Harden-LLM database remains product-owned. Garage runs in the separate
 `garage-shared` repository on the existing `prls-observability` network; this
 repository owns only Harden-LLM's bucket and client credentials. The Collector
-exports new HLLM gateway traces to Laminar. The retained Langfuse stack and its
-existing trace history remain separate pending consumer and retention review.
-The HLLM-owned consumer, retention, and route decision is tracked in
-[issue #83](https://github.com/prls-co/harden-llm/issues/83); this source status
-does not establish the current deployed identity or prove that the UI/API has
-no readers. Sharing a Langfuse bucket, credential, database, or migration with
-Harden-LLM is unsupported.
+exports new HLLM gateway traces to Laminar. Langfuse and its separately stored
+trace history have been retired; its service containers, route, credentials, and
+data volumes are removed. This does not affect product history in HLLM Postgres
+or trace artifacts in Garage.
 
 `llm_runs` is the relational execution aggregate root. A mandatory exact
 owner/run/trace foreign key makes the trace, observations, and artifact metadata
 one cascade-owned subtree. The gateway persists that subtree only through
 `SaveExecution`; Garage bytes cross the transaction boundary through the
 PostgreSQL artifact journal and one bounded reconciler. Product reads and stats
-never depend on Tempo, Loki, Prometheus, Langfuse, Laminar, or ClickHouse.
+never depend on external telemetry systems.
 
 ## Profile catalog ownership
 
@@ -73,7 +67,7 @@ stores a credential.
 
 ## Deployment scope
 
-The certified topology is one Linux Docker host. Harden-LLM Compose has thirteen
+The certified topology is one Linux Docker host. Harden-LLM Compose has seven
 backend services plus its one-shot Collector volume initializer; the optional
 Phoenix overlay adds one application service. Caddy and Garage are separately managed shared services. Only shared Caddy
 publishes public ports. This is the target owner layout; production ingress
@@ -81,8 +75,9 @@ remains on the old owner until P05 acceptance in the [shared-Caddy transition
 plan](../plans/shared-caddy-adoption-plan.md). The gateway and Phoenix release
 images run non-root; the Phoenix image uses the
 retained `harden-llm-web-sessions` volume for one encrypted single-replica token
-vault. Horizontal or multi-host deployment requires a later ADR with a shared
-vault design.
+vault. Production Caddy and tunnel routes are managed by `caddy-shared`.
+Horizontal or multi-host deployment requires a later ADR with a shared vault
+design.
 
 ## Test feedback architecture
 
