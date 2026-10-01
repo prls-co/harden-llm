@@ -164,7 +164,7 @@ func TestFrontendComposeFixture(t *testing.T) {
 	deadline := time.Now().Add(12 * time.Minute)
 	for time.Now().Before(deadline) {
 		if _, err := os.Stat(donePath); err == nil {
-			t.Logf("Frontend Compose fixture released: ready=16/16 readiness=%s", readiness.Round(time.Millisecond))
+			t.Logf("Frontend Compose fixture released: readiness=%s", readiness.Round(time.Millisecond))
 			return
 		}
 		time.Sleep(200 * time.Millisecond)
