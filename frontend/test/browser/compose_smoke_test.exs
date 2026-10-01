@@ -50,7 +50,7 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
     {:ok, fixture: fixture, root: root}
   end
 
-  feature "16-service product preserves browser, routing, recovery, and telemetry invariants", %{
+  feature "HLLM product preserves browser, routing, recovery, and telemetry invariants", %{
     session: session,
     fixture: fixture,
     root: root

@@ -103,8 +103,8 @@ credential-shaped option names.
 The authenticated `/embed/llm` fixture mounts two instances with distinct
 `id_prefix` and upload namespaces; downstream hosts can copy that mounting
 pattern without adopting tabs or page-level navigation.
-WEB-TEST-012 is the release-only sixteen-service test and additionally requires
-Go, Docker, and Compose:
+WEB-TEST-012 is the release-only full Compose/browser certification and
+additionally requires Go, Docker, and Compose:
 
 ```bash
 mix test --only compose test/browser/compose_smoke_test.exs
@@ -124,9 +124,8 @@ container preserves valid browser sessions. Removing that volume or rotating
 the Phoenix secret requires users to sign in again. V1 supports one frontend
 replica.
 
-Deploy with `../deploy/frontend/compose.frontend.yml` layered over the backend
-and pinned Langfuse files. The overlay supplies the private API/Collector
-origins and the variables documented in
+Deploy with `../deploy/frontend/compose.frontend.yml` layered over the backend.
+The overlay supplies the private API/Collector origins and the variables documented in
 [`../docs/environment.md`](../docs/environment.md). Caddy remains the only
 public-port owner, and the browser never talks directly to the Go API.
 
