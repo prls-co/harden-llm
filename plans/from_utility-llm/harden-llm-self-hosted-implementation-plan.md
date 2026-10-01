@@ -161,6 +161,13 @@ or run the forward-only rehome before that decision and the approved cutover
 window. Existing production `/healthz` and `/login` return 200, but this branch
 is not deployed and those responses do not verify the new identity behavior.
 
+Operational security follow-up: a diagnostic on 2026-10-01 accidentally emitted
+the production HLLM PostgreSQL password from `/home/kirill/p/harden-llm/.env`
+into tool output. The value is not recorded in source, docs, or GitHub. Rotate it
+through the HLLM production configuration owner before the next release, with
+the database role and every consuming app configuration updated together. No
+rotation was performed in this session.
+
 ### Error handling and telemetry expectations
 
 - API errors use stable safe codes and field keys inside `{ state, result, error }`.
