@@ -166,7 +166,9 @@ There are no `/workspace` or `/history` routes or legacy redirects. Separate
 frontend routes remain for `/login`, `/logout`, `/session/expired`, `/profiles`,
 `/profiles/bundle`, `/embed/llm`, `/traces/:trace_id`, and artifact downloads at
 `/traces/:trace_id/artifacts/:artifact_id`. `/healthz` is the frontend health probe.
-The Go REST API routes are independent and unchanged.
+The Go REST resource routes remain independent; the former HLLM-owned human
+login, session, and logout API routes have been removed. Browser sign-in is
+handled through the PRLS Control Plane.
 
 - `https://<api-host>/healthz` checks process liveness.
 - `https://<api-host>/readyz` checks migrations and the Garage bucket.

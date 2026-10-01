@@ -208,9 +208,11 @@ Compose pins immutable local image IDs, so a shared tag rebuilt for another
 branch cannot change this environment's next restart or rollback.
 
 Deployment checks healthy container/image identity and public `/healthz`,
-`/readyz`, and `/login`. Initial setup also checks API login, session, profiles,
-history, and logout with the configured operator. These are HTTP checks, not a
-claim of browser layout or LiveSocket certification.
+`/readyz`, and login-page delivery. Those HTTP probes do not authenticate a
+user. Separate release acceptance must verify PRLS Control Plane sign-in,
+current HLLM product access, and host-local logout/session revocation. HLLM no
+longer has a product-owned API password login or session endpoint. These checks
+are not a claim of browser layout or LiveSocket certification.
 First-time hostname creation allows up to five minutes for Cloudflare route
 propagation; updates to an existing hostname use a 90-second readiness budget.
 
