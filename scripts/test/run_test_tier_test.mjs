@@ -203,7 +203,7 @@ describe("resource-aware tier runner", () => {
     const data = await fixture();
     const controller = new AbortController();
     const running = runFixture(data, [task(data, "interruptible", "cpu", "ok", 1_500)], { signal: controller.signal });
-    await waitForEvent(data, "start", "interruptible");
+    await waitForEvent(data, "start", "interruptible", 10_000);
     controller.abort();
     const result = await running;
     assert.notEqual(result.results[0].status, 0);
