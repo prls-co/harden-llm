@@ -2366,3 +2366,34 @@ contains only nonsecret identifiers, counts, gate hashes and outcomes. This
 release intentionally does not preserve legacy HLLM data and cannot serve old
 local-identity schemas. No browser or real-provider call ran; browser layout
 and provider behavior were not checked. No GHCR publication path was added.
+
+## Login-owned private data — production (2026-10-04)
+
+Every enabled Control Plane login now enters HLLM directly and owns private
+product data by stable `user_id`. There is no company selector or HLLM grant
+requirement. The existing deployment-managed API token accesses only the
+verification/test login's dataset. This supersedes the earlier same-date
+shared-company decision above; its release evidence remains historical.
+
+| Boundary | Current evidence |
+| --- | --- |
+| Application source | `main`, `07a7781cf735764c1cb31b02a75df7d647b78a18`; [PR 91](https://github.com/prls-co/harden-llm/pull/91) merged. Later documentation-only closeout does not change the image source. |
+| Shared login library | Immutable `7e013b376811a58db2348856c1e5932ebc446e40`, [prls-web PR 11](https://github.com/prls-co/prls-web/pull/11), merged as `3281ae59fab6a415daa43e6ae3bb39a7c8392fdc`; 34 local tests and hosted verification passed. |
+| Local checks | P2/P3/P4 fast gates passed; focused Go/Node/Phoenix checks, all 11 frontend identity cases, real Postgres/Garage integration with a local TLS provider, and `make test-api` passed. The final `make test-release` passed 29/29 tasks, including integration/race, restart, Compose, aggregate backend verification and vulnerability checks; no cleanup errors/warnings. |
+| Hosted exact-main checks | [Fast 37220955393](https://github.com/prls-co/harden-llm/actions/runs/37220955393) and [CodeQL 37220955092](https://github.com/prls-co/harden-llm/actions/runs/37220955092) passed. Branch and PR checks also passed. |
+| Gateway image | `harden-llm-gateway:release-07a7781cf735764c1cb31b02a75df7d647b78a18`, `sha256:1b6cb6a895753e856db37d669288e5e3f2a7fee73055d24b3a7d6ed1b7a56042`. OCI version/revision match the certified application source. |
+| Web image | `harden-llm-web:release-07a7781cf735764c1cb31b02a75df7d647b78a18`, `sha256:1839588e651d24d5bb757c4138e80cf9c75bf17f14bc093cf0dfee4e493bf2e6`. OCI version/revision match the certified application source. |
+| Scoped deployment | Gateway/web alone recreated through the approved descriptor. All six support container IDs/images retained. Full eight-service and exact-source application checks are equivalent; private inputs/descriptor remain mode 0600. |
+| Authorized reset | Dedicated HLLM database reset and schema 11 initialized. `harden-llm-artifacts` is empty; zero existing objects needed deletion. Initial `psql` lacked a password and failed before SQL; the existing approved credential was then supplied through the process environment. Shared Garage, Control Plane, other products and observability data were unchanged. |
+| Fresh owners and credentials | Administrator and verification login each have 32 profiles and 22 owner-bound encrypted credentials. No legacy company-owned product rows or matching cross-user ciphertext pairs remain. Trusted source readback returns two users, 32 profiles, 22 configured bindings, `changed: false`. No local identity tables; runs/traces/cache/artifacts are empty. |
+| Public HTTP | [UI](https://harden-llm.prls.co/) health and actual login forms, and [API](https://harden-llm-api.prls.co/readyz) health/readiness pass. Login defaults directly to `/`; safe `/profiles` return is preserved. Profile/bundle reads pass for both enabled logins without company selection. |
+| Private state and token scope | Distinct temporary markers remain private to each login. The token reads and changes only verification state; a second fresh verification session shares that dataset. Original state documents were restored with exact readback. All three probe sessions logged out; each rejected human reference returns 401 despite a valid service bearer and token owner. Anonymous/wrong-token API calls return 401; the independent direct token remains valid after human logout. |
+| Preview source contract | The configured shared source names the two actual user IDs, provides the current private identity endpoint/credential, and contains no retired account-scope inputs. No preview deployment is claimed. |
+
+[Bounded evidence](../plans/evidence/harden-llm/login-owned-production-20261004.json)
+contains only nonsecret source/image identifiers, counts, ownership, gate results
+and cleanup outcomes. Disabled-user and unavailable-authority behavior passed
+deterministic regressions; production users and the shared authority were not
+interrupted for probes. Browser layout and paid-provider behavior were not
+checked. No GHCR publication path was added; production uses the recorded local
+immutable image tags and IDs.

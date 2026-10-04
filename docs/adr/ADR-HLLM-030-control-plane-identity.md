@@ -1,6 +1,6 @@
 # ADR-HLLM-030: Control Plane Human Identity
 
-- Status: Accepted; login-owned implementation verified, production acceptance pending
+- Status: Accepted; implemented and accepted in production on 2026-10-04
 - Date: 2026-09-30; ownership amended 2026-10-04
 - Requirements: REQ-010, REQ-011, REQ-012, `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`
 - Verification: TEST-022, TEST-024, WEB-TEST-104/105/108 through WEB-TEST-113
@@ -73,3 +73,15 @@ Production HTTP checks must prove private state with distinct markers, equality
 between the verification user's data and token data, and logout revocation.
 Identical seeded profiles or HTTP health alone do not prove data ownership.
 Browser and live-provider checks remain explicit opt-ins.
+
+## Production acceptance
+
+All phases of the approved plan are complete. Source `07a7781` is published on
+main and deployed. The browser-free release gate passed 29/29 tasks with clean
+cleanup, hosted main fast/CodeQL checks passed, and fresh Phoenix-form/HTTP
+acceptance proved distinct login-owned state and verification-token equivalence.
+Two users were provisioned separately; legacy company product rows are absent.
+Original state documents were restored and all probe sessions logged out.
+See the [release record](../release-certification.md#login-owned-private-data--production-2026-10-04)
+and [bounded evidence](../../plans/evidence/harden-llm/login-owned-production-20261004.json).
+Browser layout and paid-provider behavior were not checked.

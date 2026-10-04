@@ -4,13 +4,13 @@
 
 - Plan: `PLAN-HLLM-LOGIN-OWNERS-001`.
 - Date: 2026-10-04.
-- Status: implementation in progress; P0-P4 complete; P5-P6 pending.
+- Status: complete; P0-P6 implemented, certified, deployed and accepted.
 - Reviewed HLLM source: `b18eb341d2a98411c849d06f50fbe2552b5d6e75`.
 - Policy: [AGENTS.md](../AGENTS.md) and the full
   [testing guidelines](../docs/liveview-go-testing-guidelines.md).
 
 The user selected private data per login, replacing the shared-company-account
-decision in [the previous cutover record](../ask_me/harden-llm-production-cutover-decisions.md).
+decision in [the previous cutover record](../docs/release-certification.md#clean-control-plane-account-cutover--production-2026-10-04).
 The user also confirmed both remaining product decisions:
 
 1. Every enabled Control Plane login may enter HLLM. No separate HLLM grant is
@@ -428,16 +428,11 @@ The source review found and resolved these weaknesses in a naive implementation:
    acceptance matrix includes bundles, cache, presigns, deletion, statistics,
    and persistence, using existing boundaries rather than new frameworks.
 
-Confidence is high in the ownership change because source already implements
-owner-scoped persistence and identity resolution. The remaining uncertainty is
-verification of the shared-library connected-session behavior and actual
-production acceptance; neither is represented as proven until its phase passes.
-Current build credentials and deployment access must be rechecked during P5;
-the plan does not claim they were exercised in this read-only review.
-
-Completion requires every phase's exit condition, not simply removal of the
-account-selection screen. There are no unresolved product-choice questions in
-this plan.
+The completed verification confirms the existing owner-scoped persistence and
+fresh identity resolution support the accepted model. Shared-library session
+revalidation, build credentials, hosted checks and production acceptance have
+all been exercised. No product-choice or deployment blocker remains. Browser
+layout and paid-provider behavior remain outside the accepted release scope.
 
 ## 9. Execution record
 
@@ -463,4 +458,29 @@ this plan.
   `runner-1791134348657-3951782-087615247e4e3f93.json`. Receipts report no cleanup
   errors or warnings. Actual administrator and verification IDs were resolved
   using fresh owned Control Plane sessions, then those sessions were logged out.
-- P5-P6: release certification, production cutover and fresh HTTP acceptance pending.
+- P5: browser-free `make test-release` passed 29/29 on application SHA
+  `07a7781cf735764c1cb31b02a75df7d647b78a18`; report
+  `runner-1791135157154-3982905-59561a8de490fb7b.json` has no cleanup errors or
+  warnings. The exact commit was fast-forwarded to main; PR 91 merged and hosted
+  main fast/CodeQL passed. Gateway/web images were built with matching OCI
+  version/revision labels. The dedicated database was reset to schema 11 and
+  both actual users received 32 profiles and 22 owner-bound credentials each.
+  The dedicated bucket is empty (zero objects needed deleting). The initial
+  password-less `psql` connection failed before any data change; supplying the
+  existing approved credential through its environment completed the reset.
+  All six support containers/images stayed unchanged and descriptor checks are
+  equivalent. Preview shared inputs match both user IDs; old scope names are gone.
+- P6: nine public authenticated HTTP acceptance groups passed using actual
+  Phoenix forms, independent markers, a second same-user session, and fresh
+  logout revocation. Token access matched only the verification user. Original
+  state documents were restored and all probe sessions logged out. Trusted
+  profile readback returned `changed: false` for both owners, proving the
+  existing encrypted credentials match the authoritative source without a
+  provider call. Schema/owner audit found no legacy company rows, no shared
+  ciphertext pairs, and empty history/traces/cache/artifacts. No open HLLM
+  issues remain. Final source closeout is documentation/evidence only; running
+  images continue to use the certified application SHA.
+
+The final [release record](../docs/release-certification.md#login-owned-private-data--production-2026-10-04)
+and [bounded evidence](evidence/harden-llm/login-owned-production-20261004.json)
+record image identities, gate results, ownership, public URLs and probe cleanup.
