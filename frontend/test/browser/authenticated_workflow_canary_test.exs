@@ -120,6 +120,8 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> assert_dom_attribute("#output-trace-content", "hidden", "")
       |> click(Query.css("#output-trace-summary"))
       |> assert_dom_attribute("#output-trace-content", "hidden", nil)
+      |> scroll_to_selector("#history-fold-toggle")
+      |> scroll_to_selector("#output-trace-show-request")
       |> click(Query.css("#output-trace-show-request"))
       |> assert_has(Query.css("#output-trace-show-request[aria-expanded='false']"))
       |> assert_has(Query.css("#output-trace-request[hidden]", visible: :any))

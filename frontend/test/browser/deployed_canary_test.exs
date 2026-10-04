@@ -237,6 +237,7 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
         session
         |> assert_has(Query.css("#output-trace-details-toggle[aria-expanded='true']"))
         |> assert_has(Query.css("#output-trace-show-request[aria-expanded='true']"))
+        |> scroll_to_selector("#output-trace-show-request")
         |> click(Query.css("#output-trace-show-request"))
         |> assert_has(Query.css("#output-trace-show-request[aria-expanded='false']"))
 
