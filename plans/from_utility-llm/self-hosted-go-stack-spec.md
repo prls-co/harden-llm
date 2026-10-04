@@ -6,11 +6,11 @@
 - Target repository: `/home/kirill/harden-llm`
 - Go module: `github.com/prls-co/harden-llm`
 - Contract source repository: `/home/kirill/utility-llm`
-- Version: `1.4.0-clean-account-cutover`
+- Version: `1.5.0-login-owned-data`
 - Owners: package maintainers and self-hosted runtime implementers
 - Date: 2026-10-04
 - Document ID: `SPEC-HARDEN-LLM-SELF-HOSTED-GO-001`
-- Summary: This specification defines the self-hosted, free, Go backend for `harden-llm`: one importable root library and one versioned REST API gateway. Application records live in Harden-LLM Postgres, while Harden-LLM-owned trace artifacts and diagnostic attachments replace Firebase Storage in Garage. OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana, and Laminar provide current diagnostics. Langfuse and its data stores are retired under ADR-HLLM-029. Control Plane owns human identity, sessions, memberships and product grants under ADR-HLLM-030; HLLM owns account-scoped product data only. This backend contains no browser UI, Phoenix, LiveView, React, or frontend asset pipeline. The separately specified Phoenix LiveView application consumes only the published REST/OpenAPI contract.
+- Summary: This specification defines the self-hosted, free, Go backend for `harden-llm`: one importable root library and one versioned REST API gateway. Application records live in Harden-LLM Postgres, while Harden-LLM-owned trace artifacts and diagnostic attachments replace Firebase Storage in Garage. OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana, and Laminar provide current diagnostics. Langfuse and its data stores are retired under ADR-HLLM-029. Control Plane owns human identity, sessions, memberships and product grants under ADR-HLLM-030; HLLM owns user-scoped product data only. This backend contains no browser UI, Phoenix, LiveView, React, or frontend asset pipeline. The separately specified Phoenix LiveView application consumes only the published REST/OpenAPI contract.
 
 ## 2. Canonical stack
 
@@ -49,7 +49,7 @@
 | Keep Postgres domain traces distinct from OTel traces | DECISION | Postgres stores the redacted domain record needed by REST clients. Tempo stores operational spans. Laminar receives current HLLM gateway traces; retired Langfuse data is not retained. Their ownership and schemas do not overlap. |
 | Publish one frontend-independent REST contract | DECISION | `api/openapi.yaml` and conformance tests are the only backend/frontend contract. The backend does not render HTML, own LiveView state, or import frontend code. |
 | Consume the shared Caddy owner | DECISION | One separately deployed edge serves multiple applications. HLLM owns neither its routes nor listener/state lifecycle, so HLLM deployment and cleanup cannot remove the shared ingress process. |
-| Use Control Plane identity and account ownership | DECISION | Control Plane owns credentials, sessions, membership and product access. The gateway resolves a human session reference on every request; its explicit machine token scope can use the same account UUID. HLLM has no local users, password authority or human sessions. |
+| Use Control Plane identity and private user ownership | DECISION | Control Plane owns credentials, enabled identities and sessions. The gateway resolves each human request to its stable user ID; direct API token scope names one user. HLLM has no local users, password authority or human sessions. |
 | Enforce outbound endpoint safety | DECISION | Profiles can contain provider base URLs. The gateway must prevent SSRF, metadata-service access, unsafe redirects, DNS rebinding, and credential forwarding to unintended hosts. |
 | Do not add request idempotency infrastructure in v1 | DECISION | The initial gateway executes synchronous calls without a distributed idempotency ledger or run queue. The API documents that clients must not automatically retry an ambiguous `/api/v1/run` response. |
 | Do not add scheduled retention or backup automation in v1 | DECISION | Retention schedulers, backup orchestration, restore drills, and Temporal workflows are deferred. The v1 schema includes timestamps needed for future policies. |
@@ -315,11 +315,12 @@ Authentication contract:
 
 - Every `/api/v1` request requires exactly one valid service bearer credential.
 - Human requests also carry `X-PRLS-Session-Reference`. The shared Control Plane
-  client resolves the current selected account and `harden-llm` grant on every
-  request. Denial, revocation and an unavailable authority fail closed.
+  client resolves the current enabled identity on every request. Every enabled
+  login may enter HLLM without company selection or product grants. Revocation,
+  malformed identity and an unavailable authority fail closed.
 - Without a human reference, direct token access requires an explicit
-  `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID`. This can be the same data account used
-  by multiple human logins. A denied human request never falls back to it.
+  `HARDEN_LLM_STATIC_TOKEN_USER_ID`. Production binds it to the verification/test
+  user. A denied human request never falls back to this direct-token scope.
 - Tokens and session references never appear in URLs, logs, traces or errors.
 - HLLM stores no human passwords, membership records or local human sessions.
   The backend rejects cookies; Phoenix owns its encrypted host-only cookie and
@@ -512,7 +513,7 @@ Rules:
 - Public traffic reaches the shared Caddy owner over HTTPS.
 - Internal service ports have no host bindings by default.
 - Human credentials and sessions are owned exclusively by Control Plane.
-- Human requests resolve current access, while the machine token is explicitly account-scoped.
+- Human requests resolve current access, while the machine token is explicitly user-scoped.
 - Protected routes reject missing, malformed, expired, revoked, unknown, or ambiguous bearer credentials with one non-enumerating response shape.
 - The backend sets no browser session cookie and has no CSRF bypass or CORS wildcard. Browser protections belong to the Phoenix frontend.
 - Provider credentials use AES-256-GCM with a random nonce, key identifier, and AAD containing owner ID, credential ID, and normalized endpoint origin.
@@ -595,9 +596,10 @@ Application variables:
 
 Control Plane integration uses `HARDEN_LLM_CONTROL_PLANE_URL` and the protected
 `HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN`. `HARDEN_LLM_STATIC_TOKEN` is the service
-bearer; `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID` enables direct token access as one
-account, and `HARDEN_LLM_PROFILE_ACCOUNT_IDS` names explicit profile-provisioning
-accounts. Production binds both to one company account UUID.
+bearer; `HARDEN_LLM_STATIC_TOKEN_USER_ID` enables direct token access as one
+user, and `HARDEN_LLM_PROFILE_USER_IDS` names explicit user IDs for provisioning.
+User IDs are opaque, not company UUIDs. Production provisions administrator and
+verification/test datasets separately; the direct token uses the latter.
 
 Deployment configuration supplies independent HLLM database, encryption, bucket,
 Phoenix and Grafana secrets. Shared Garage administration, Laminar and ingress
@@ -656,7 +658,7 @@ Minimum v1 verification:
 - Current LLM diagnostics: Laminar receives HLLM gateway traces through the Collector.
 - Laminar export: Collector OTLP exporter only, through the dedicated HLLM project and persistent queue.
 - Logging: `slog` JSON collected by OTel Collector Contrib and stored in Loki.
-- Auth: Control Plane owns human identity and access. Multiple logins and the explicit API token share one production data account; HLLM has no local human identity database.
+- Auth: Control Plane owns human identity and access. Each enabled login owns private data by stable user ID; the API token names one login; HLLM has no local human identity database.
 - Frontend boundary: OpenAPI 3.1 REST only. Phoenix LiveView is specified separately and is not part of the backend plan or Compose service count.
 - Provider endpoint policy: public HTTPS by default; private access only by exact administrator allowlist.
 - Firebase: absent from the target repository and deployment.

@@ -3,31 +3,28 @@ package auth
 import (
 	"errors"
 	"net/http"
-	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/prls-co/prls-control-plane/go/access"
 )
-
-const productID = "harden-llm"
 
 var (
 	ErrUnauthenticated = errors.New("auth: unauthenticated")
 	ErrForbidden       = errors.New("auth: forbidden")
 	ErrUnavailable     = errors.New("auth: identity unavailable")
-	accountIDPattern   = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 )
 
 type Config struct {
-	ControlPlane    *access.Client
-	ServiceToken    string
-	StaticAccountID string
+	ControlPlane *access.Client
+	ServiceToken string
+	StaticUserID string
 }
 
 type Service struct {
-	controlPlane    *access.Client
-	serviceToken    string
-	staticAccountID string
+	controlPlane *access.Client
+	serviceToken string
+	staticUserID string
 }
 
 // Principal contains only the resource scope established for this request.
@@ -35,9 +32,9 @@ type Principal struct {
 	OwnerID string
 }
 
-func ValidateServiceToken(token, accountID string) error {
-	if accountID != "" && (token == "" || ValidateAccountID(accountID) != nil) {
-		return errors.New("auth: static account ID requires a valid service token")
+func ValidateServiceToken(token, userID string) error {
+	if userID != "" && (token == "" || ValidateUserID(userID) != nil) {
+		return errors.New("auth: static user ID requires a valid service token")
 	}
 	if token != "" && !validServiceToken(token) {
 		return errors.New("auth: service token configuration is invalid")
@@ -45,10 +42,10 @@ func ValidateServiceToken(token, accountID string) error {
 	return nil
 }
 
-// ValidateAccountID accepts the UUID identity used by Control Plane accounts.
-func ValidateAccountID(accountID string) error {
-	if !accountIDPattern.MatchString(accountID) {
-		return errors.New("auth: account ID must be a UUID")
+// ValidateUserID preserves the opaque Control Plane identity used by product data.
+func ValidateUserID(userID string) error {
+	if userID == "" || len(userID) > 128 || strings.TrimSpace(userID) != userID || strings.ContainsFunc(userID, unicode.IsControl) {
+		return errors.New("auth: user ID must be nonempty, bounded and unpadded")
 	}
 	return nil
 }
@@ -57,18 +54,18 @@ func NewService(config Config) (*Service, error) {
 	if config.ControlPlane == nil {
 		return nil, errors.New("auth: Control Plane client is required")
 	}
-	if err := ValidateServiceToken(config.ServiceToken, config.StaticAccountID); err != nil {
+	if err := ValidateServiceToken(config.ServiceToken, config.StaticUserID); err != nil {
 		return nil, err
 	}
 	return &Service{
 		controlPlane: config.ControlPlane, serviceToken: config.ServiceToken,
-		staticAccountID: config.StaticAccountID,
+		staticUserID: config.StaticUserID,
 	}, nil
 }
 
 // AuthenticateRequest resolves every human request against the current Control
 // Plane session. A token without a session reference is the separate machine
-// credential path and is scoped to its configured account.
+// credential path and is scoped to its configured user.
 func (service *Service) AuthenticateRequest(request *http.Request) (Principal, error) {
 	if service == nil || request == nil || len(request.Header.Values("Authorization")) != 1 ||
 		len(request.Header.Values("Cookie")) != 0 {
@@ -91,7 +88,7 @@ func (service *Service) AuthenticateRequest(request *http.Request) (Principal, e
 		if len(sessionReferences) != 1 || strings.TrimSpace(sessionReferences[0]) != sessionReferences[0] || sessionReferences[0] == "" {
 			return Principal{}, ErrUnauthenticated
 		}
-		context, err := service.controlPlane.Authorize(request, service.serviceToken, productID)
+		context, err := service.controlPlane.Resolve(request.Context(), sessionReferences[0])
 		if err != nil {
 			switch {
 			case errors.Is(err, access.ErrUnauthenticated):
@@ -102,16 +99,16 @@ func (service *Service) AuthenticateRequest(request *http.Request) (Principal, e
 				return Principal{}, ErrUnavailable
 			}
 		}
-		if context.Account == nil {
-			return Principal{}, ErrForbidden
+		if ValidateUserID(context.UserID) != nil {
+			return Principal{}, ErrUnavailable
 		}
-		return Principal{OwnerID: context.Account.ID}, nil
+		return Principal{OwnerID: context.UserID}, nil
 	}
 
-	if service.staticAccountID == "" {
+	if service.staticUserID == "" {
 		return Principal{}, ErrUnauthenticated
 	}
-	return Principal{OwnerID: service.staticAccountID}, nil
+	return Principal{OwnerID: service.staticUserID}, nil
 }
 
 func validServiceToken(token string) bool {

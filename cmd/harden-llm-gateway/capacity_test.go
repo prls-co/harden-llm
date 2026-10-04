@@ -325,7 +325,7 @@ func capacityGatewayEnvironment(databaseURL string, garage integrationtest.Garag
 		"HARDEN_LLM_RELEASE":                      "capacity-test",
 		"HARDEN_LLM_SERVICE_NAME":                 "harden-llm-capacity-test",
 		"HARDEN_LLM_STATIC_TOKEN":                 capacityToken,
-		"HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID":      capacityOwnerID,
+		"HARDEN_LLM_STATIC_TOKEN_USER_ID":         capacityOwnerID,
 		"HARDEN_LLM_CONTROL_PLANE_URL":            "http://127.0.0.1:1",
 		"HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN": "capacity-control-plane-token",
 		"HARDEN_LLM_MAX_RUN_DURATION_MS":          "60000",

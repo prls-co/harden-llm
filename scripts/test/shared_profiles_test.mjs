@@ -1,7 +1,7 @@
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-062
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sharedProfiles, profileAccountIDs, sharedApplicationVariables, syncSharedProfiles } from '../shared-profiles.mjs';
+import { sharedProfiles, profileUserIDs, sharedApplicationVariables, syncSharedProfiles } from '../shared-profiles.mjs';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -35,22 +35,22 @@ test('only portable application variables are shared', () => {
   assert.deepEqual(sharedApplicationVariables({ HARDEN_LLM_MAX_RUN_DURATION_MS:'45000', HARDEN_LLM_PROVIDER_ALLOWED_HOSTS:'example.test', HARDEN_LLM_CONTROL_PLANE_URL:'http://control-plane:4310', HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN:'fixture-internal-token', JINA_API_KEY:'fixture-jina-key', HARDEN_LLM_DATABASE_URL:'not-shared', HARDEN_LLM_STATIC_TOKEN:'not-shared', HARDEN_LLM_WEB_SECRET_KEY_BASE:'not-shared' }), { HARDEN_LLM_MAX_RUN_DURATION_MS:'45000', HARDEN_LLM_PROVIDER_ALLOWED_HOSTS:'example.test', HARDEN_LLM_CONTROL_PLANE_URL:'http://control-plane:4310', HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN:'fixture-internal-token', JINA_API_KEY:'fixture-jina-key' });
 });
 
-test('profile provisioning uses only explicit Control Plane account IDs', () => {
-  const first='11111111-1111-4111-8111-111111111111';
-  const second='22222222-2222-4222-8222-222222222222';
-  assert.deepEqual(profileAccountIDs({HARDEN_LLM_PROFILE_ACCOUNT_IDS:`${first}, ${second}`}),[first,second]);
-  for(const value of [undefined,'', 'operator-local', `${first},${first}`, `${first},bad`]) {
-    assert.throws(()=>profileAccountIDs({HARDEN_LLM_PROFILE_ACCOUNT_IDS:value}),/HARDEN_LLM_PROFILE_ACCOUNT_IDS/);
+test('profile provisioning uses only explicit Control Plane user IDs', () => {
+  const first='User_Alpha';
+  const second='User_Beta';
+  assert.deepEqual(profileUserIDs({HARDEN_LLM_PROFILE_USER_IDS:`${first}, ${second}`}),[first,second]);
+  for(const value of [undefined,'', 'user\nunsafe', 'x'.repeat(129), `${first},${first}`, `${first},`, `${first},,${second}`]) {
+    assert.throws(()=>profileUserIDs({HARDEN_LLM_PROFILE_USER_IDS:value}),/HARDEN_LLM_PROFILE_USER_IDS/);
   }
 });
 
-test('sync uses local encryption and DB, stdin keys, explicit accounts and no provider call', t => {
-  const first='11111111-1111-4111-8111-111111111111';
-  const second='22222222-2222-4222-8222-222222222222';
-  const values = { HARDEN_LLM_CONFIG_FILE:configFile(t,{Example:example}), EXAMPLE_API_KEY:'fixture-private', HARDEN_LLM_PROFILE_ACCOUNT_IDS:`${first},${second}` };
+test('sync uses local encryption and DB, stdin keys, explicit users and no provider call', t => {
+  const first='User_Alpha';
+  const second='User_Beta';
+  const values = { HARDEN_LLM_CONFIG_FILE:configFile(t,{Example:example}), EXAMPLE_API_KEY:'fixture-private', HARDEN_LLM_PROFILE_USER_IDS:`${first},${second}` };
   const calls=[];
   const run=(bin,args,options)=>{calls.push({bin,args,options});return args[0]==='inspect'?JSON.stringify([{Id:'target-id',Config:{Labels:{'com.docker.compose.project':'hllm-preview-dev','com.docker.compose.service':'gateway'},Env:['HARDEN_LLM_DATABASE_URL=local-db','HARDEN_LLM_ENCRYPTION_KEYS=local-keys','HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID=local','UNRELATED_SECRET=excluded']}}]):'{"changed":false}';};
-  assert.deepEqual(syncSharedProfiles('target','image',values,run),{accounts:2,profiles:1,configured:1,changed:false});
+  assert.deepEqual(syncSharedProfiles('target','image',values,run),{users:2,profiles:1,configured:1,changed:false});
   assert.equal(calls.length,3);
   for(const [index,call] of calls.slice(1).entries()){
     assert(call.args.includes('container:target-id'));

@@ -227,7 +227,9 @@ func (service *ProfileService) ReplaceBundle(ctx context.Context, ownerID string
 	}
 	credentials, err := service.vault.ValidateRecords(bundle.Credentials, ownerID)
 	if err != nil {
-		return nil, err
+		return nil, &profiles.ValidationError{Code: "profile_invalid", FieldErrors: []profiles.FieldError{{
+			Field: "credentials", Message: "bundle credentials must be valid and belong to the authenticated user",
+		}}}
 	}
 	credentialByID := make(map[string]profiles.CredentialRecord, len(credentials))
 	for _, credential := range credentials {

@@ -105,8 +105,8 @@
 | REQ-006 | func | Contracted schema handling and operation-cache identity/replay shall preserve current behavior. | Schema/parse/repair fixtures and cache hash/mode/replay fixtures match source behavior. |
 | REQ-007 | data | Usage, pricing, profiles, domain traces, observations, stats, and diagnostics shall preserve canonical semantic fields. | Canonicalized Go projections match source fixtures or carry an ADR annotation. |
 | REQ-008 | security | Endpoint credentials shall use versioned AES-256-GCM records with key ID, nonce, and owner/credential/origin AAD. | Tamper, wrong-key, wrong-owner, and wrong-origin tests fail; API state is redacted. |
-| REQ-009 | data | Dedicated HLLM Postgres owns account-scoped product records and Garage indexes; Control Plane owns identity in its separate database. | Constraints, indexes, advisory locking, repository round trips, artifact references and ownership isolation pass. |
-| REQ-010 | security | Control Plane owns human identity and current product access; the gateway resolves them for every request and scopes HLLM data by account UUID. A separate machine bearer is allowed only with an explicit account UUID. | Current access, denial, revocation, unavailable-authority failure, host-only Phoenix session, and account-scoped machine tests pass; HLLM stores no human passwords, local sessions, or duplicate account records. |
+| REQ-009 | data | Dedicated HLLM Postgres owns user-scoped product records and Garage indexes; Control Plane owns identity in its separate database. | Constraints, indexes, advisory locking, repository round trips, artifact references and ownership isolation pass. |
+| REQ-010 | security | Control Plane owns enabled human identities and sessions; the gateway resolves them for every human request and scopes HLLM data by stable user ID. Every enabled login may enter without company selection or HLLM grants. Direct API use requires explicit user scope. | Current access, denial, revocation, unavailable-authority failure, host-only Phoenix session, and user-scoped token tests pass; HLLM stores no human passwords, local sessions, or duplicate account records. |
 | REQ-011 | int | The gateway shall expose versioned `/api/v1` product-resource routes without local login/session endpoints. | State, profile, bundle, model, history, run, trace, and owner-authorized artifact routes use stable envelopes and resolve owners from current Control Plane context or explicit machine scope. |
 | REQ-012 | int | The backend shall publish a frontend-independent OpenAPI 3.1 contract and contain no Firebase or frontend implementation surface. | OpenAPI/router/request/response conformance passes; scoped static scans find no Firebase, Phoenix/LiveView, React/Vite, HTML-template, browser-session, or asset implementation. |
 | REQ-013 | nfr | The application shall emit OTel traces/metrics and correlated `slog` JSON with bounded, redacted attributes. | Required signal coverage is complete, metric labels are bounded, and secret scans pass. |
@@ -116,7 +116,7 @@
 | REQ-017 | reliability | HLLM Compose owns its backend and optional Phoenix service, using shared Caddy and Garage through the private external network. | Seven backend services plus the Collector state initializer, and optional frontend, pass health/smoke gates; HLLM publishes no host ports and provisions no Langfuse services or data stores. |
 | REQ-018 | reliability | Migration shall use source-SHA-pinned fixtures and remove Firebase from the target. | Fixture integrity passes, parity is phase-local, and the target has no source runtime/build/test dependency. |
 | REQ-019 | nfr | The target shall keep one implementation home and pass formatting, build, race, vet, and vulnerability gates. | Static dependency/AST checks and `make verify` pass without wrappers or duplicate exporters. |
-| REQ-020 | data | One Garage-backed store holds private redacted HLLM artifacts, indexed by account in Postgres. | Real-Garage tests prove canonical bytes, hashes, sizes, presigning, account authorization and bounded non-fatal failures. |
+| REQ-020 | data | One Garage-backed store holds private redacted HLLM artifacts, indexed by user in Postgres. | Real-Garage tests prove canonical bytes, hashes, sizes, presigning, user authorization and bounded non-fatal failures. |
 
 Deployment ownership amendment (2026-10-04): REQ-017 describes current ownership.
 Original Phase P08 service counts and Langfuse startup checks are historical
@@ -127,8 +127,8 @@ remain separately owned. Current Compose tests certify the smaller graph.
 Identity ownership amendment (2026-10-04): ADR-HLLM-030 centralizes credentials,
 sessions, memberships and product access in Control Plane. The approved clean
 cut clears legacy HLLM database rows and dedicated artifact objects, initializes
-schema version 11, and provisions one company account. Multiple logins and the
-scoped API token share that account's data. Owner mapping/rehome is removed;
+schema version 11, and provisions separate user-owned datasets. The direct API
+token is bound to the verification/test user. Owner mapping/rehome is removed;
 old local-identity schemas cannot be served. Cut over when browser-free release
 and authenticated HTTP gates pass; no browser or live-provider call is required.
 
@@ -218,7 +218,7 @@ counts are:
 The above is historical inventory. On 2026-10-04 the user authorized discarding
 these legacy HLLM datasets and sessions. Distinct owner mappings, credential
 re-encryption and retained-artifact relocation are no longer cutover gates.
-The single production company account is the data owner for all enabled HLLM
+Each stable Control Plane user ID owns a private HLLM dataset for enabled
 logins and the configured API token.
 
 Operational security follow-up: a diagnostic on 2026-10-01 accidentally emitted

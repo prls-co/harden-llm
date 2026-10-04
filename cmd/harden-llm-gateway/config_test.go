@@ -22,10 +22,10 @@ func TestServerConfiguration(t *testing.T) {
 	}
 
 	environment[staticTokenEnvironment] = strings.Repeat("s", 43)
-	environment[staticTokenAccountEnvironment] = "11111111-1111-4111-8111-111111111111"
+	environment[staticTokenUserEnvironment] = "verification-user"
 	environment[jinaAPIKeyEnvironment] = "fixture-jina-key"
 	config, err = loadServerConfig(mapEnvironment(environment))
-	if err != nil || config.staticToken != strings.Repeat("s", 43) || config.staticTokenAccountID != "11111111-1111-4111-8111-111111111111" || config.jinaAPIKey != "fixture-jina-key" {
+	if err != nil || config.staticToken != strings.Repeat("s", 43) || config.staticTokenUserID != "verification-user" || config.jinaAPIKey != "fixture-jina-key" {
 		t.Fatalf("static token configuration = %#v, %v", config, err)
 	}
 
@@ -36,14 +36,14 @@ func TestServerConfiguration(t *testing.T) {
 	}
 	environment = validServerEnvironment()
 	delete(environment, staticTokenEnvironment)
-	environment[staticTokenAccountEnvironment] = "11111111-1111-4111-8111-111111111111"
+	environment[staticTokenUserEnvironment] = "verification-user"
 	if _, err := loadServerConfig(mapEnvironment(environment)); err == nil || !strings.Contains(err.Error(), staticTokenEnvironment) {
 		t.Fatalf("machine account without service credential = %v", err)
 	}
 
 	environment = validServerEnvironment()
 	environment[staticTokenEnvironment] = strings.Repeat("s", 31)
-	environment[staticTokenAccountEnvironment] = "11111111-1111-4111-8111-111111111111"
+	environment[staticTokenUserEnvironment] = "verification-user"
 	if _, err := loadServerConfig(mapEnvironment(environment)); err == nil || !strings.Contains(err.Error(), staticTokenEnvironment) {
 		t.Fatalf("short static token configuration error = %v", err)
 	}
@@ -123,4 +123,17 @@ func validServerEnvironment() map[string]string {
 
 func mapEnvironment(values map[string]string) func(string) string {
 	return func(name string) string { return values[name] }
+}
+
+func TestRetiredCompanyTokenScopeCannotEnableDirectAccess(t *testing.T) {
+	env := validServerEnvironment()
+	env["HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID"] = "11111111-1111-4111-8111-111111111111"
+	config, err := loadServerConfig(mapEnvironment(env))
+	if err != nil || config.staticTokenUserID != "" {
+		t.Fatalf("retired scope accepted: %v", err)
+	}
+	env[staticTokenUserEnvironment] = " padded"
+	if _, err := loadServerConfig(mapEnvironment(env)); err == nil {
+		t.Fatal("padded identity was normalized instead of rejected")
+	}
 }

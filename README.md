@@ -98,7 +98,7 @@ and keep the public artifact origin aligned with the shared Caddy route.
 
 The current production `CurlStructured` profile routes through CPA at
 `https://cpa.prls.co/v1` with model `gpt-5.6-luna`. For an authorized machine
-request, use a protected service token whose configured account UUID is the
+request, use a protected service token whose configured user ID is the
 intended owner. Construct the JSON body separately so line breaks cannot
 corrupt the request:
 
@@ -131,8 +131,8 @@ curl --fail-with-body -sS "$API/api/v1/run" \
 ```
 
 Replace `API` when testing another deployment. Machine API access is enabled
-only when `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID` is configured to the intended
-Control Plane account. Rotate the token to revoke that machine credential.
+only when `HARDEN_LLM_STATIC_TOKEN_USER_ID` is configured to the intended
+Control Plane user. Rotate the token to revoke that machine credential.
 
 ## Contracts and provenance
 

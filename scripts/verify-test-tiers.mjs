@@ -63,7 +63,7 @@ const closeoutRegistrations = Object.freeze({
 
 const closeoutOperationalIds = Object.freeze(["TEST-269", "TEST-270"]);
 const closeoutBackendIds = Object.freeze(["TEST-260", "TEST-261", "TEST-262", "TEST-263", "TEST-267", "TEST-268"]);
-const closeoutFrontendIds = Object.freeze(["WEB-TEST-100", "WEB-TEST-101", "WEB-TEST-102"]);
+const closeoutFrontendIds = Object.freeze(["WEB-TEST-100", "WEB-TEST-101", "WEB-TEST-102", "WEB-TEST-104", "WEB-TEST-105", "WEB-TEST-108", "WEB-TEST-109", "WEB-TEST-110", "WEB-TEST-111", "WEB-TEST-112", "WEB-TEST-113"]);
 
 function fail(message) {
   throw new Error(message);
@@ -298,6 +298,11 @@ async function main() {
   for (const testId of closeoutOperationalIds) {
     if (!backendSpec.includes(testId)) fail(`backend specification is missing ${testId}`);
     if (closeoutOccurrences.has(testId)) fail(`${testId} is an operational exception and must not be a manifest task`);
+  }
+  for (const retiredId of ["WEB-TEST-106", "WEB-TEST-107"]) {
+    if (manifest.tasks.some((task) => task.testIds.includes(retiredId))) {
+      fail(`${retiredId} is a retired HLLM company-selector case and cannot be active`);
+    }
   }
   for (const testId of closeoutFrontendIds) {
     if (!frontendSpec.includes(testId)) fail(`frontend specification is missing ${testId}`);

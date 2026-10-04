@@ -18,9 +18,9 @@ import (
 func runSyncProfiles(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer, getenv func(string) string) error {
 	flags := flag.NewFlagSet("sync-profiles", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
-	accountID := flags.String("account-id", "", "Control Plane account UUID")
-	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || auth.ValidateAccountID(*accountID) != nil {
-		return errors.New("sync-profiles: --account-id must be a Control Plane account UUID")
+	userID := flags.String("user-id", "", "Control Plane user ID")
+	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || auth.ValidateUserID(*userID) != nil {
+		return errors.New("sync-profiles: --user-id must be a Control Plane user ID")
 	}
 	decoder := json.NewDecoder(io.LimitReader(stdin, 2<<20))
 	decoder.DisallowUnknownFields()
@@ -49,7 +49,7 @@ func runSyncProfiles(ctx context.Context, args []string, stdin io.Reader, stdout
 		return errors.New("sync-profiles: database unavailable")
 	}
 	defer store.Close()
-	result, err := gateway.ApplySharedProfilesWithResult(ctx, store, vault, *accountID, config)
+	result, err := gateway.ApplySharedProfilesWithResult(ctx, store, vault, *userID, config)
 	if err != nil {
 		return errors.New("sync-profiles: configuration could not be applied")
 	}

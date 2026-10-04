@@ -252,7 +252,15 @@ components:
       type: http
       scheme: bearer
       bearerFormat: opaque
-      description: Configured machine credential used by CLI clients and the internal server-to-server boundary. Human requests also include the host-local Control Plane session reference; the gateway resolves its current account and product access on every request.
+      description: >-
+        Configured service bearer used by CLI clients and the internal server-to-server
+        boundary. Human requests also include the host-local Control Plane session reference
+        in X-PRLS-Session-Reference; the gateway
+        freshly resolves an enabled Control Plane login and scopes all product data
+        by its stable user_id. Company selection and product grants are irrelevant.
+        Without that header, direct API use requires HARDEN_LLM_STATIC_TOKEN_USER_ID
+        and accesses only that user's data. A present rejected reference never falls
+        back to direct token access. Clients cannot choose an owner in request data.
   parameters:
     HistoryCursor:
       name: cursor

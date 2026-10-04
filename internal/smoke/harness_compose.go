@@ -149,7 +149,7 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 	// The machine path is scoped to one synthetic Control Plane account UUID.
 	// Human sessions are covered at the browser-facing BFF/access boundary.
 	token := secrets["HARDEN_LLM_STATIC_TOKEN"]
-	ownerID := secrets["HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID"]
+	ownerID := secrets["HARDEN_LLM_STATIC_TOKEN_USER_ID"]
 
 	providerSecret := "smoke-provider-key-must-remain-redacted"
 	profileDocument := map[string]any{
@@ -458,7 +458,7 @@ func smokeEnvironment(t *testing.T, material tlsMaterial, httpPort, httpsPort in
 		"HARDEN_LLM_CONTROL_PLANE_URL":            "http://control-plane:4310",
 		"HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN": textSecret("control-plane-smoke-"),
 		"HARDEN_LLM_STATIC_TOKEN":                 textSecret("harden-llm-smoke-"),
-		"HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID":      randomAccountID(randomBytes),
+		"HARDEN_LLM_STATIC_TOKEN_USER_ID":         "smoke-user-" + base64.RawURLEncoding.EncodeToString(randomBytes(16)),
 		"HARDEN_LLM_POSTGRES_PASSWORD":            textSecret("db"),
 		"HARDEN_LLM_ENCRYPTION_KEYS":              fmt.Sprintf(`{"primary":"%s"}`, base64.RawURLEncoding.EncodeToString(randomBytes(32))),
 		"HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID":     "primary",
@@ -469,13 +469,6 @@ func smokeEnvironment(t *testing.T, material tlsMaterial, httpPort, httpsPort in
 		"GRAFANA_ADMIN_USER": "smoke-admin", "GRAFANA_ADMIN_PASSWORD": textSecret("grafana"),
 		"SMOKE_CA_CERT": material.ca, "SMOKE_PROVIDER_CERT": material.certificate, "SMOKE_PROVIDER_KEY": material.key,
 	}
-}
-
-func randomAccountID(randomBytes func(int) []byte) string {
-	value := randomBytes(16)
-	value[6] = (value[6] & 0x0f) | 0x40
-	value[8] = (value[8] & 0x3f) | 0x80
-	return fmt.Sprintf("%x-%x-%x-%x-%x", value[:4], value[4:6], value[6:8], value[8:10], value[10:])
 }
 
 func sortedEnvironment(environment map[string]string) []string {

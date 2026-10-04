@@ -98,11 +98,11 @@ environment variables.
 
 Health probes are the only unenveloped non-auth responses. HLLM has no local
 login, logout, or password-reset API. The Phoenix frontend uses the shared PRLS
-sign-in/account-selection UI and sends its host-local Control Plane session
-reference to the gateway; the gateway resolves current account and product
-access on every request. For a machine client, configure
-`HARDEN_LLM_STATIC_TOKEN` and `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID`, then use the
-token directly:
+sign-in UI and sends its host-local Control Plane session
+reference to the gateway; the gateway resolves the enabled login and uses its
+stable `user_id` as owner on every request. For a machine client, configure
+`HARDEN_LLM_STATIC_TOKEN` and `HARDEN_LLM_STATIC_TOKEN_USER_ID`, then use the
+token directly (production binds it to the verification/test login):
 
 ```bash
 API=https://api.example.net
@@ -112,7 +112,7 @@ curl "$API/api/v1/run" \
   -d '{"profileId":"CurlStructured","userPrompt":"Tell me a joke about yourself.","callType":"text"}' | jq
 ```
 
-The machine token is scoped to the configured Control Plane account UUID.
+The machine token is scoped to the configured Control Plane user ID.
 Rotating `HARDEN_LLM_STATIC_TOKEN` revokes that machine credential. Human
 sessions are host-only Phoenix cookies and are revalidated through Control
 Plane; they are never returned as gateway bearer tokens to browser code.
@@ -271,7 +271,7 @@ production. The `webSearch` and cache contracts are the same in both environment
 
 For a development machine request, keep the API token in the ignored mode-0600
 `.env` as `HARDEN_LLM_STATIC_TOKEN`; the protected deployment config must also
-set `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID` to the intended Control Plane account.
+set `HARDEN_LLM_STATIC_TOKEN_USER_ID` to the intended Control Plane user.
 The optional `JINA_API_KEY` remains a server-side search credential. Browser
 sessions use Control Plane and stay separate from this machine credential. No
 production token is copied. Rotating `HARDEN_LLM_STATIC_TOKEN` and redeploying
@@ -289,7 +289,7 @@ unset TOKEN
 ```
 
 For the deployed structured smoke call, `scripts/harden-structured-call.sh`
-uses the configured machine credential and account UUID from the local ignored
+uses the configured machine credential from the local ignored
 `.env`, submits the `CurlStructured` request, and prints the JSON response:
 
 ```bash

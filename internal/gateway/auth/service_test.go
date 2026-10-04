@@ -4,6 +4,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -14,43 +15,45 @@ import (
 )
 
 const (
-	serviceToken  = "test-harden-llm-service-token-0123456789"
-	staticAccount = "11111111-1111-4111-8111-111111111111"
-	otherAccount  = "22222222-2222-4222-8222-222222222222"
+	serviceToken = "test-harden-llm-service-token-0123456789"
+	staticUser   = "verification-user"
+	otherAccount = "22222222-2222-4222-8222-222222222222"
 )
 
-func TestDifferentLoginsAndTokenShareOneAccount(t *testing.T) {
-	owner := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		ref := request.Header.Get("X-PRLS-Session-Reference")
-		if ref != "alice" && ref != "bob" {
-			t.Errorf("unexpected session reference %q", ref)
+// PLAN-HLLM-LOGIN-OWNERS-001 supersedes the company-sharing assertion.
+func TestLoginIdentityDefinesOwner(t *testing.T) {
+	refs := map[string]string{"alice": "User_Alpha", "alice-second-session": "User_Alpha", "bob": staticUser}
+	for _, account := range []any{nil, map[string]any{"account_id": "11111111-1111-4111-8111-111111111111", "name": "Shared company", "products": []string{"knowledge"}}} {
+		owner := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ref := r.Header.Get("X-PRLS-Session-Reference")
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"user_id": refs[ref], "email": "user@example.test", "name": "User", "role": "member", "session_ref": ref, "account": account})
+		}))
+		client, err := access.New(owner.URL, "control-plane-internal-token")
+		if err != nil {
+			t.Fatal(err)
 		}
-		writer.Header().Set("Content-Type", "application/json")
-		_, _ = writer.Write([]byte(`{"user_id":"` + ref + `","email":"` + ref + `@example.test","name":"Member","role":"member","session_ref":"` + ref + `","account":{"account_id":"` + staticAccount + `","name":"Shared Account","products":["harden-llm"]}}`))
-	}))
-	defer owner.Close()
-	client, err := access.New(owner.URL, "control-plane-internal-token")
-	if err != nil {
-		t.Fatal(err)
-	}
-	service, err := NewService(Config{ControlPlane: client, ServiceToken: serviceToken, StaticAccountID: staticAccount})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, reference := range []string{"alice", "bob", ""} {
-		request := httptest.NewRequest(http.MethodGet, "/api/v1/profiles", nil)
-		request.Header.Set("Authorization", "Bearer "+serviceToken)
-		if reference != "" {
-			request.Header.Set("X-PRLS-Session-Reference", reference)
+		service, err := NewService(Config{ControlPlane: client, ServiceToken: serviceToken, StaticUserID: staticUser})
+		if err != nil {
+			t.Fatal(err)
 		}
-		principal, err := service.AuthenticateRequest(request)
-		if err != nil || principal.OwnerID != staticAccount {
-			t.Fatalf("login %q: principal=%#v err=%v", reference, principal, err)
+		wants := map[string]string{"alice": "User_Alpha", "alice-second-session": "User_Alpha", "bob": staticUser, "": staticUser}
+		for ref, want := range wants {
+			request := httptest.NewRequest(http.MethodGet, "/api/v1/profiles", nil)
+			request.Header.Set("Authorization", "Bearer "+serviceToken)
+			if ref != "" {
+				request.Header.Set("X-PRLS-Session-Reference", ref)
+			}
+			principal, err := service.AuthenticateRequest(request)
+			if err != nil || principal.OwnerID != want {
+				t.Errorf("reference=%q owner=%q want=%q err=%v", ref, principal.OwnerID, want, err)
+			}
 		}
+		owner.Close()
 	}
 }
 
-func TestAuthenticateHumanRequestUsesCurrentControlPlaneAccount(t *testing.T) {
+func TestAuthenticateHumanRequestUsesCurrentControlPlaneUser(t *testing.T) {
 	var requests int
 	owner := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		requests++
@@ -68,7 +71,7 @@ func TestAuthenticateHumanRequestUsesCurrentControlPlaneAccount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service, err := NewService(Config{ControlPlane: client, ServiceToken: serviceToken, StaticAccountID: staticAccount})
+	service, err := NewService(Config{ControlPlane: client, ServiceToken: serviceToken, StaticUserID: staticUser})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,30 +80,8 @@ func TestAuthenticateHumanRequestUsesCurrentControlPlaneAccount(t *testing.T) {
 	request.Header.Set("X-PRLS-Session-Reference", "current-reference")
 
 	principal, err := service.AuthenticateRequest(request)
-	if err != nil || principal.OwnerID != otherAccount || requests != 1 {
+	if err != nil || principal.OwnerID != "user-1" || requests != 1 {
 		t.Fatalf("principal = %#v, err = %v, Control Plane requests = %d", principal, err, requests)
-	}
-}
-
-func TestAuthenticateRejectsProductDenialAndDoesNotUseMachineScope(t *testing.T) {
-	owner := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		writer.Header().Set("Content-Type", "application/json")
-		_, _ = writer.Write([]byte(`{"user_id":"user-1","email":"user@example.test","name":"Test User","role":"member","session_ref":"current-reference","account":{"account_id":"` + otherAccount + `","name":"Other Account","products":["knowledge"]}}`))
-	}))
-	defer owner.Close()
-	client, err := access.New(owner.URL, "control-plane-internal-token")
-	if err != nil {
-		t.Fatal(err)
-	}
-	service, err := NewService(Config{ControlPlane: client, ServiceToken: serviceToken, StaticAccountID: staticAccount})
-	if err != nil {
-		t.Fatal(err)
-	}
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/profiles", nil)
-	request.Header.Set("Authorization", "Bearer "+serviceToken)
-	request.Header.Set("X-PRLS-Session-Reference", "current-reference")
-	if principal, err := service.AuthenticateRequest(request); !errors.Is(err, ErrForbidden) || principal.OwnerID != "" {
-		t.Fatalf("denied request principal = %#v, err = %v", principal, err)
 	}
 }
 
@@ -122,7 +103,7 @@ func TestAuthenticateMapsRevocationAndControlPlaneFailure(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			service, err := NewService(Config{ControlPlane: client, ServiceToken: serviceToken, StaticAccountID: staticAccount})
+			service, err := NewService(Config{ControlPlane: client, ServiceToken: serviceToken, StaticUserID: staticUser})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -136,7 +117,7 @@ func TestAuthenticateMapsRevocationAndControlPlaneFailure(t *testing.T) {
 	}
 }
 
-func TestAuthenticateMachineCredentialIsAccountScoped(t *testing.T) {
+func TestAuthenticateMachineCredentialIsUserScoped(t *testing.T) {
 	owner := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		t.Fatal("machine credential must not resolve a human session")
 	}))
@@ -145,14 +126,14 @@ func TestAuthenticateMachineCredentialIsAccountScoped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service, err := NewService(Config{ControlPlane: client, ServiceToken: serviceToken, StaticAccountID: staticAccount})
+	service, err := NewService(Config{ControlPlane: client, ServiceToken: serviceToken, StaticUserID: staticUser})
 	if err != nil {
 		t.Fatal(err)
 	}
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/profiles", nil)
 	request.Header.Set("Authorization", "Bearer "+serviceToken)
 	principal, err := service.AuthenticateRequest(request)
-	if err != nil || principal.OwnerID != staticAccount {
+	if err != nil || principal.OwnerID != staticUser {
 		t.Fatalf("principal = %#v, err = %v", principal, err)
 	}
 }
@@ -168,7 +149,7 @@ func TestAuthenticateRejectsMalformedOrMissingAuthority(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service, err := NewService(Config{ControlPlane: client, ServiceToken: serviceToken, StaticAccountID: staticAccount})
+	service, err := NewService(Config{ControlPlane: client, ServiceToken: serviceToken, StaticUserID: staticUser})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,11 +194,13 @@ func TestValidateServiceToken(t *testing.T) {
 		valid                bool
 	}{
 		{name: "disabled", valid: true},
-		{name: "account without token", account: staticAccount},
+		{name: "account without token", account: staticUser},
 		{name: "token without machine account", token: serviceToken, valid: true},
-		{name: "invalid account", token: serviceToken, account: "operator-local"},
-		{name: "valid", token: serviceToken, account: staticAccount, valid: true},
-		{name: "short token", token: strings.Repeat("x", 31), account: staticAccount},
+		{name: "invalid account", token: serviceToken, account: " padded"},
+		{name: "opaque user", token: serviceToken, account: "CaseSensitive-user_1", valid: true},
+		{name: "long user", token: serviceToken, account: strings.Repeat("x", 129)},
+		{name: "valid", token: serviceToken, account: staticUser, valid: true},
+		{name: "short token", token: strings.Repeat("x", 31), account: staticUser},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			got := ValidateServiceToken(testCase.token, testCase.account) == nil
@@ -241,7 +224,7 @@ func TestControlPlaneClientUsesRequestContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service, err := NewService(Config{ControlPlane: client, ServiceToken: serviceToken, StaticAccountID: staticAccount})
+	service, err := NewService(Config{ControlPlane: client, ServiceToken: serviceToken, StaticUserID: staticUser})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,5 +233,30 @@ func TestControlPlaneClientUsesRequestContext(t *testing.T) {
 	request.Header.Set("X-PRLS-Session-Reference", "current-reference")
 	if _, err := service.AuthenticateRequest(request); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestMalformedIdentityNeverUsesConfiguredTokenOwner(t *testing.T) {
+	for _, userID := range []string{"", " padded", "control\ncharacter"} {
+		owner := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"user_id": userID, "email": "user@example.test", "name": "User", "role": "member", "session_ref": "current-reference", "account": nil})
+		}))
+		client, err := access.New(owner.URL, "control-plane-internal-token")
+		if err != nil {
+			t.Fatal(err)
+		}
+		service, err := NewService(Config{ControlPlane: client, ServiceToken: serviceToken, StaticUserID: staticUser})
+		if err != nil {
+			t.Fatal(err)
+		}
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/profiles", nil)
+		request.Header.Set("Authorization", "Bearer "+serviceToken)
+		request.Header.Set("X-PRLS-Session-Reference", "current-reference")
+		principal, err := service.AuthenticateRequest(request)
+		if !errors.Is(err, ErrUnavailable) || principal.OwnerID != "" {
+			t.Errorf("malformed user owner=%q err=%v", principal.OwnerID, err)
+		}
+		owner.Close()
 	}
 }

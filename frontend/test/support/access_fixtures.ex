@@ -1,107 +1,69 @@
 defmodule HardenLlmWeb.AccessFixtures do
   @moduledoc false
+  alias PrlsWeb.Access.{Client, Context}
 
-  alias PrlsWeb.Access.Context
-
-  @account_id "11111111-1111-4111-8111-111111111111"
-  @knowledge_account_id "22222222-2222-4222-8222-222222222222"
   @session_ref "fixture-control-plane-session-reference"
-  @no_product_ref "fixture-control-plane-session-without-harden-access"
-  @no_product_cookie "prls.session_token=no-product"
+  @company_ref "fixture-company-session-reference"
+  @second_ref "fixture-second-user-session-reference"
+  @dynamic_ref "fixture-dynamic-session-reference"
 
   def cookie, do: "prls.session_token=fixture"
-  def no_product_cookie, do: @no_product_cookie
+  def company_cookie, do: "prls.session_token=company"
+  def second_cookie, do: "prls.session_token=second"
+  def dynamic_cookie, do: "prls.session_token=dynamic"
   def session_ref, do: @session_ref
+  def second_ref, do: @second_ref
+  def dynamic_ref, do: @dynamic_ref
 
-  def resolve({:cookie, cookie_header}, _options) when is_binary(cookie_header) do
-    value = cookie_value(cookie_header, "prls.session_token")
-
-    case value do
-      "no-product" ->
-        {:ok, context(@no_product_ref, ["knowledge"])}
-
-      "fixture" ->
-        {:ok, context(@session_ref, ["harden-llm"])}
-
-      _ ->
-        {:error, :unauthenticated}
+  def resolve({:cookie, header} = credential, options) when is_binary(header) do
+    case cookie_value(header) do
+      "fixture" -> {:ok, context(@session_ref)}
+      "company" -> {:ok, %{context(@company_ref) | account: company("knowledge")}}
+      "second" -> {:ok, %{context(@second_ref) | user_id: "fixture-second-user"}}
+      "dynamic" -> Client.resolve(credential, options)
+      _ -> {:error, :unauthenticated}
     end
   end
 
-  def resolve({:reference, @session_ref}, _options) do
-    {:ok, context(@session_ref, ["harden-llm"])}
-  end
+  def resolve({:reference, @dynamic_ref} = credential, options),
+    do: Client.resolve(credential, options)
 
-  def resolve({:reference, @no_product_ref}, _options) do
-    {:ok, context(@no_product_ref, ["knowledge"])}
-  end
+  def resolve({:reference, @session_ref}, _options), do: {:ok, context(@session_ref)}
 
-  def resolve({:reference, _reference}, _options) do
-    {:error, :unauthenticated}
-  end
+  def resolve({:reference, @company_ref}, _options),
+    do: {:ok, %{context(@company_ref) | account: company("knowledge")}}
 
-  def resolve(_credential, _options) do
-    {:error, :unauthenticated}
-  end
+  def resolve({:reference, @second_ref}, _options),
+    do: {:ok, %{context(@second_ref) | user_id: "fixture-second-user"}}
 
-  def control(:get, "/accounts", reference, nil, _options)
-      when reference in [@session_ref, @no_product_ref] do
-    current = if reference == @session_ref, do: ["harden-llm"], else: ["knowledge"]
+  def resolve(_credential, _options), do: {:error, :unauthenticated}
 
-    {:ok,
-     %{
-       "context" => context_map(reference, current),
-       "accounts" => [
-         account_map(@account_id, "Harden Test Account", ["harden-llm"]),
-         account_map(@knowledge_account_id, "Knowledge Test Account", ["knowledge"])
-       ]
-     }}
-  end
-
-  def control(_method, _path, _reference, _body, _options),
-    do: {:error, :unavailable}
-
-  defp cookie_value(cookie_header, name) do
-    cookie_header
+  defp cookie_value(header) do
+    header
     |> String.split(";")
     |> Enum.find_value(fn pair ->
       case String.split(String.trim(pair), "=", parts: 2) do
-        [^name, value] -> value
+        ["prls.session_token", value] -> value
         _ -> nil
       end
     end)
   end
 
-  defp context(reference, products) do
+  defp context(reference) do
     %Context{
       user_id: "fixture-user",
       email: "operator@example.test",
       name: "Test Operator",
       role: "operator",
       session_ref: reference,
-      account: current_account(reference, products)
+      account: nil
     }
   end
 
-  defp context_map(reference, products) do
-    %{
-      "user_id" => "fixture-user",
-      "email" => "operator@example.test",
-      "name" => "Test Operator",
-      "role" => "operator",
-      "session_ref" => reference,
-      "account" => account_map(account_id(reference), "Test Account", products)
+  defp company(product),
+    do: %{
+      account_id: "11111111-1111-4111-8111-111111111111",
+      name: "Other product company",
+      products: [product]
     }
-  end
-
-  defp current_account(reference, products) do
-    %{account_id: account_id(reference), name: "Test Account", products: products}
-  end
-
-  defp account_id(@no_product_ref), do: @knowledge_account_id
-  defp account_id(_reference), do: @account_id
-
-  defp account_map(id, name, products) do
-    %{"account_id" => id, "name" => name, "products" => products}
-  end
 end

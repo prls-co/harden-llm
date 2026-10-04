@@ -55,6 +55,8 @@ config :harden_llm, :harden_api,
         )
     )
 
+config :prls_web, default_return_to: "/"
+
 if config_env() == :prod do
   config :prls_web,
     control_plane_url: System.fetch_env!("HARDEN_LLM_CONTROL_PLANE_URL"),

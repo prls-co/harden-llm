@@ -8,7 +8,7 @@ import path from "node:path";
 import os from "node:os";
 import { parseEnv } from "node:util";
 import { branchIdentity, changedServices } from "./preview-policy.mjs";
-import { sharedProfiles, profileAccountIDs, sharedApplicationVariables, syncSharedProfiles } from "./shared-profiles.mjs";
+import { sharedProfiles, profileUserIDs, sharedApplicationVariables, syncSharedProfiles } from "./shared-profiles.mjs";
 
 export const configPath = path.join(os.homedir(), ".config/harden-llm-preview/host.json");
 export const repo = "prls-co/harden-llm";
@@ -190,7 +190,7 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
   const sharedEnv = await fs.readFile(c.sharedEnvFile, "utf8");
   const sharedValues = parseEnv(sharedEnv);
   sharedProfiles(sharedValues); // Fail before changing services if keys/config are incomplete.
-  profileAccountIDs(sharedValues);
+  profileUserIDs(sharedValues);
   if (!sharedValues.HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN?.trim()) throw new Error("HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN is required for preview identity checks");
   const credentials = await readJSON(path.join(directory, "secrets.json"), secrets());
   delete credentials.OPERATOR_EMAIL;

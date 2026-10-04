@@ -11,6 +11,8 @@ config :harden_llm, :browser_session,
   encryption_salt: "test-encryption-salt",
   secure: true
 
+config :prls_web, :client_options, request_options: [plug: {Req.Test, PrlsWeb.Access.Client}]
+
 config :harden_llm, :harden_api_req_options, plug: {Req.Test, HardenLlmWeb.HardenAPI}
 
 config :wallaby,

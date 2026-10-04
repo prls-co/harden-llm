@@ -31,7 +31,7 @@ const liveGatewayConfigEnvironment = "HARDEN_LLM_LIVE_GATEWAY_CONFIG"
 
 type liveGatewayConfig struct {
 	GatewayURL           string          `json:"gatewayUrl"`
-	AccountID            string          `json:"accountId"`
+	UserID               string          `json:"userId"`
 	ServiceTokenEnv      string          `json:"serviceTokenEnv"`
 	ProviderAPIKeyEnv    string          `json:"providerApiKeyEnv"`
 	Profile              json.RawMessage `json:"profile"`
@@ -160,8 +160,8 @@ func loadLiveGatewayConfig(t *testing.T, path string) (liveGatewayConfig, liveSe
 	}
 	config.GatewayURL = validateLiveOrigin(t, config.GatewayURL, "gateway")
 	config.GrafanaURL = validateLiveOrigin(t, config.GrafanaURL, "Grafana")
-	if auth.ValidateAccountID(config.AccountID) != nil || len(config.Profile) == 0 || len(config.ArtifactAllowedHosts) == 0 {
-		t.Fatal("live gateway account UUID, profile, and artifact host allowlist are required")
+	if auth.ValidateUserID(config.UserID) != nil || len(config.Profile) == 0 || len(config.ArtifactAllowedHosts) == 0 {
+		t.Fatal("live gateway user ID, profile, and artifact host allowlist are required")
 	}
 	secret := func(name, purpose string) string {
 		name = strings.TrimSpace(name)

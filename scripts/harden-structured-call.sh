@@ -20,17 +20,16 @@ dotenv_value() {
 }
 
 static_token="$(dotenv_value HARDEN_LLM_STATIC_TOKEN)"
-account_id="$(dotenv_value HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID)"
 
-if [[ -z "$static_token" || ! "$account_id" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
-  printf 'HARDEN_LLM_STATIC_TOKEN and HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID are required in %s\n' "$env_file" >&2
+if [[ -z "$static_token" ]]; then
+  printf 'HARDEN_LLM_STATIC_TOKEN is required in %s\n' "$env_file" >&2
   exit 1
 fi
 
 run_response=""
 cleanup() {
   [[ -z "$run_response" ]] || rm -f "$run_response"
-  unset static_token account_id request_body run_response
+  unset static_token request_body run_response
 }
 trap cleanup EXIT
 

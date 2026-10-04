@@ -29,7 +29,7 @@ type frontendControlPlaneFixture struct {
 	active        bool
 }
 
-func startFrontendControlPlaneFixture(t *testing.T, internalToken, origin, email, password, accountID string) string {
+func startFrontendControlPlaneFixture(t *testing.T, internalToken, origin, email, password, userID string) string {
 	t.Helper()
 	listener, err := net.Listen("tcp", "0.0.0.0:0")
 	if err != nil {
@@ -41,16 +41,12 @@ func startFrontendControlPlaneFixture(t *testing.T, internalToken, origin, email
 		email:         email,
 		password:      password,
 		context: map[string]any{
-			"user_id":     "frontend-smoke-user",
+			"user_id":     userID,
 			"email":       email,
 			"name":        "Frontend Smoke User",
 			"role":        "member",
 			"session_ref": "frontend-smoke-session-reference",
-			"account": map[string]any{
-				"account_id": accountID,
-				"name":       "Frontend Smoke Account",
-				"products":   []string{"harden-llm"},
-			},
+			"account":     nil,
 		},
 	}
 	server := &http.Server{Handler: fixture}
@@ -80,29 +76,6 @@ func (fixture *frontendControlPlaneFixture) ServeHTTP(writer http.ResponseWriter
 	case request.URL.Path == "/internal/v1/access-context" && request.Method == http.MethodGet:
 		if !fixture.internalAuthorized(request) || !fixture.sessionActive(request) {
 			writeFrontendControlPlaneJSON(writer, http.StatusUnauthorized, map[string]string{"error": "unauthenticated"})
-			return
-		}
-		writeFrontendControlPlaneJSON(writer, http.StatusOK, fixture.context)
-	case request.URL.Path == "/api/control/accounts" && request.Method == http.MethodGet:
-		if !fixture.internalAuthorized(request) || !fixture.sessionActive(request) {
-			writeFrontendControlPlaneJSON(writer, http.StatusUnauthorized, map[string]string{"error": "unauthenticated"})
-			return
-		}
-		writeFrontendControlPlaneJSON(writer, http.StatusOK, map[string]any{
-			"context":  fixture.context,
-			"accounts": []any{fixture.context["account"]},
-		})
-	case request.URL.Path == "/api/control/account" && request.Method == http.MethodPost:
-		if !fixture.internalAuthorized(request) || !fixture.sessionActive(request) {
-			writeFrontendControlPlaneJSON(writer, http.StatusUnauthorized, map[string]string{"error": "unauthenticated"})
-			return
-		}
-		var selection struct {
-			AccountID string `json:"account_id"`
-		}
-		if json.NewDecoder(http.MaxBytesReader(writer, request.Body, 4096)).Decode(&selection) != nil ||
-			selection.AccountID != fixture.context["account"].(map[string]any)["account_id"] {
-			writeFrontendControlPlaneJSON(writer, http.StatusForbidden, map[string]string{"error": "forbidden"})
 			return
 		}
 		writeFrontendControlPlaneJSON(writer, http.StatusOK, fixture.context)

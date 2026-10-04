@@ -1,7 +1,7 @@
 # Shared LLM configuration
 
 Identity ownership was changed by ADR-HLLM-030 on 2026-09-30. The current
-sections use explicit Control Plane account UUIDs and do not provision local
+sections use explicit Control Plane user IDs and do not provision local
 guest/operator accounts. Dated rollout sections below preserve the evidence for
 the prior local-account deployments; they are historical and are not a current
 login or migration procedure.
@@ -18,7 +18,7 @@ passwords, encryption keys, artifact credentials, machine bearer tokens,
 session secrets, or environment identity across deployments.
 
 Every enabled **trusted** branch receives the same configured profiles for
-each explicit Control Plane account UUID in `HARDEN_LLM_PROFILE_ACCOUNT_IDS`.
+each explicit Control Plane user ID in `HARDEN_LLM_PROFILE_USER_IDS`.
 The deployment does not resolve accounts by email and does not create local
 guest/operator users. These provider keys grant real provider access and
 spending authority. Never enable previews for untrusted code.
@@ -43,9 +43,9 @@ The configuration uses the existing catalog boundary:
 - `HARDEN_LLM_MAX_RUN_DURATION_MS`, `HARDEN_LLM_PROVIDER_ALLOWED_HOSTS`, and
   `HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST`: shared gateway settings. The private
   allowlist must be reviewed before allowing internal endpoints in branch code.
-- `HARDEN_LLM_PROFILE_ACCOUNT_IDS`: comma-separated Control Plane account UUIDs
+- `HARDEN_LLM_PROFILE_USER_IDS`: comma-separated Control Plane user IDs
   whose HLLM profiles are synchronized. Keep the list explicit; it is not an
-  email/password or account-discovery mechanism.
+  email/password or identity-discovery mechanism.
 - `HARDEN_LLM_CONTROL_PLANE_URL` and `HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN`:
   endpoint and service credential used by HLLM's shared identity client. Keep
   the token in the protected host environment and pass it only to HLLM services.
@@ -53,8 +53,8 @@ The configuration uses the existing catalog boundary:
   keep it in the protected environment file and never expose it to Phoenix or
   browser clients.
 - `HARDEN_LLM_STATIC_TOKEN`: HLLM server-to-server bearer credential. A separate
-  `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID` is set only in a deployment that needs a
-  direct machine API client; the account UUID scopes that machine path. Browser
+  `HARDEN_LLM_STATIC_TOKEN_USER_ID` is set only in a deployment that needs a
+  direct machine API client; the user ID scopes that machine path. Browser
   users authenticate through Control Plane and keep a host-only HLLM cookie.
 - Artifact presign/session TTLs and frontend API/run timeout and log-size limits
   are also shared; encryption/session **secrets** are not.
@@ -72,7 +72,7 @@ credentials. Configuration sync alone does not validate those upstream keys.
 ## 2. Application and verification
 
 Every preview deployment resolves the shared config, applies gateway settings
-even when no image changed, provisions both accounts, and invokes the trusted
+even when no image changed, provisions the explicit users, and invokes the trusted
 `sync-profiles` command. Config-only updates need no application image builds.
 Application settings take effect on container recreation; profiles and provider
 keys take effect immediately after synchronization, without restarting the app.
@@ -122,10 +122,10 @@ background watcher or cross-environment database link. Future enabled branches
 are configured automatically. Previously enabled branches must incorporate the
 current administrative command before deploying with this control version.
 
-The command validates and encrypts before an atomic upsert **per account**. It
+The command validates and encrypts before an atomic upsert **per user**. It
 never calls an LLM, probes a provider, deletes history, or deletes unrelated
 custom profiles. Each environment encrypts identical provider keys with its own
-vault key and fresh nonces. A multi-account or multi-environment failure is
+vault key and fresh nonces. A multi-user or multi-environment failure is
 reported, not disguised as a globally atomic operation; fix the cause and rerun.
 
 When the persisted managed profiles, bindings, decrypted key payloads, and
@@ -134,7 +134,7 @@ command returns `changed: false` and performs no profile or credential write.
 The deployment still runs this local comparison because a user may have
 changed a profile through the UI since the previous deployment. A configuration
 change returns `changed: true`; the subsequent readback remains the source of
-truth for all accounts.
+truth for all provisioned users.
 
 Managed profile names are authoritative: deployment overwrites edits to those
 profiles. Removing a credential mapping explicitly unbinds that managed profile;
@@ -148,7 +148,7 @@ endpoint reuse that endpoint's shared key (same origin, scope and inference
 type), so key rotation cannot leave contradictory credentials in one catalog.
 
 Configuration sync is not evidence that an upstream provider is currently
-accepting calls. Browser-free checks cover exact account UUID provisioning,
+accepting calls. Browser-free checks cover exact user ID provisioning,
 profile configuration, credential binding, and gateway readiness. Deterministic
 tests cover actual runtime credential resolution, rotation, isolation and retained
 custom profiles. Real paid calls and browser tests remain separate opt-ins.

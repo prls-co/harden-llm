@@ -113,7 +113,7 @@ The separate `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001` contract maps as follows:
 | Surface | Implementation | Tests |
 | --- | --- | --- |
 | package/runtime boundary and OpenAPI client | `frontend/mix.exs`, `HardenAPI` | WEB-TEST-001 through WEB-TEST-003 |
-| Control Plane sign-in/account selection and host-only product cookie | shared PRLS Web controllers, current access hook, encrypted `__Host-harden_llm_web` cookie | WEB-TEST-104 through WEB-TEST-108; Go auth tests |
+| Control Plane sign-in, private user data and host-only product cookie | shared PRLS Web controllers, current access hook, encrypted `__Host-harden_llm_web` cookie | WEB-TEST-104, WEB-TEST-105, WEB-TEST-108 through WEB-TEST-113; TEST-022/024 auth and storage tests |
 | profiles, workspace, history, traces, artifacts | LiveViews and narrow controllers | WEB-TEST-006 through WEB-TEST-008 |
 | security, telemetry, responsive UI | endpoint/config, observability, components | WEB-TEST-009, WEB-TEST-010 |
 | real user and deployment workflows | Wallaby browser tests | WEB-TEST-011, WEB-TEST-012 |

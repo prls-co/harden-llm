@@ -2,12 +2,14 @@
 
 package gateway_test
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-024 TEST-053 TEST-230 TEST-231
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-011 TEST-022 TEST-024 TEST-053 TEST-230 TEST-231
 // PLAN-HLLM-WIDGET-PARITY-001 TEST-108
 
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -16,6 +18,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -31,8 +34,8 @@ import (
 )
 
 const (
-	accountAID = "11111111-1111-4111-8111-111111111111"
-	accountBID = "22222222-2222-4222-8222-222222222222"
+	userAID    = "User_Alpha"
+	userBID    = "User_Beta"
 	serviceKey = "harden-llm-test-service-token-0123456789"
 )
 
@@ -51,31 +54,7 @@ func TestResourceRoutes(t *testing.T) {
 	}
 	now := time.Date(2026, 7, 13, 14, 0, 0, 0, time.UTC)
 	clock := func() time.Time { return now }
-	controlPlane := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if request.Method != http.MethodGet || request.URL.Path != "/internal/v1/access-context" ||
-			request.Header.Get("Authorization") != "Bearer control-plane-internal-token" {
-			http.Error(writer, "unexpected identity request", http.StatusBadRequest)
-			return
-		}
-		accountID := map[string]string{"session-a": accountAID, "session-b": accountBID}[request.Header.Get("X-PRLS-Session-Reference")]
-		if accountID == "" {
-			writer.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-		writer.Header().Set("Content-Type", "application/json")
-		_, _ = writer.Write([]byte(`{"user_id":"user-1","email":"user@example.test","name":"Test User","role":"member","session_ref":"` + request.Header.Get("X-PRLS-Session-Reference") + `","account":{"account_id":"` + accountID + `","name":"Test Account","products":["harden-llm"]}}`))
-	}))
-	defer controlPlane.Close()
-	controlPlaneClient, err := access.New(controlPlane.URL, "control-plane-internal-token")
-	if err != nil {
-		t.Fatal(err)
-	}
-	identity, err := auth.NewService(auth.Config{
-		ControlPlane: controlPlaneClient, ServiceToken: serviceKey, StaticAccountID: accountAID,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	identity := loginIdentityFixture(t)
 	vault, err := profiles.NewCredentialVault("key-2026", map[string][]byte{"key-2026": bytes.Repeat([]byte{0x55}, 32)}, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -120,6 +99,9 @@ func TestResourceRoutes(t *testing.T) {
 	authA := map[string][]string{"Authorization": {"Bearer " + serviceKey}, "X-PRLS-Session-Reference": {"session-a"}}
 	authB := map[string][]string{"Authorization": {"Bearer " + serviceKey}, "X-PRLS-Session-Reference": {"session-b"}}
 
+	secondSessionA := map[string][]string{"Authorization": {"Bearer " + serviceKey}, "X-PRLS-Session-Reference": {"session-a2"}}
+	machine := map[string][]string{"Authorization": {"Bearer " + serviceKey}}
+
 	stateBody := []byte(`{"schemaVersion":2,"selectedProfileId":"Backup","modelId":"gpt-backup","userPrompt":"draft","callType":"text","cacheMode":"off","recoveryPolicy":{"maxAttempts":1,"retryOn":[],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}}`)
 	response := apiRequest(t, server.Client(), http.MethodPost, server.URL+"/api/v1/state", stateBody, authA)
 	assertEnvelope(t, response, http.StatusOK, false)
@@ -133,6 +115,23 @@ func TestResourceRoutes(t *testing.T) {
 	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/state", nil, authB)
 	if response.JSON["state"].(map[string]any)["userPrompt"] != nil {
 		t.Fatalf("cross-owner state leaked: %#v", response.JSON)
+	}
+
+	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/state", nil, secondSessionA)
+	if response.JSON["state"].(map[string]any)["userPrompt"] != "draft" {
+		t.Fatal("second session lost same-user state")
+	}
+	stateB := bytes.Replace(stateBody, []byte("draft"), []byte("private-b"), 1)
+	assertEnvelope(t, apiRequest(t, server.Client(), http.MethodPost, server.URL+"/api/v1/state", stateB, machine), http.StatusOK, false)
+	for _, headers := range []map[string][]string{authB, machine} {
+		response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/state", nil, headers)
+		if response.JSON["state"].(map[string]any)["userPrompt"] != "private-b" {
+			t.Fatal("token and verification login have different state")
+		}
+	}
+	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/state", nil, authA)
+	if response.JSON["state"].(map[string]any)["userPrompt"] != "draft" {
+		t.Fatal("token changed another user's state")
 	}
 
 	profile := loadGatewayFixtureProfile(t, "Backup")
@@ -171,11 +170,11 @@ func TestResourceRoutes(t *testing.T) {
 	if len(models) != 2 || models[0].(map[string]any)["id"] != "model-a" {
 		t.Fatalf("normalized models = %#v", models)
 	}
-	beforeFailure, _ := store.Profile(ctx, accountAID, "Backup")
+	beforeFailure, _ := store.Profile(ctx, userAID, "Backup")
 	modelRefresher.err = errors.New("provider unavailable")
 	response = apiRequest(t, server.Client(), http.MethodPost, server.URL+"/api/v1/profiles/Backup/models:refresh", nil, authA)
 	assertEnvelope(t, response, http.StatusServiceUnavailable, true)
-	afterFailure, _ := store.Profile(ctx, accountAID, "Backup")
+	afterFailure, _ := store.Profile(ctx, userAID, "Backup")
 	if !bytes.Equal(beforeFailure.Document, afterFailure.Document) {
 		t.Fatal("failed model refresh replaced prior model list")
 	}
@@ -199,11 +198,26 @@ func TestResourceRoutes(t *testing.T) {
 	invalidBytes, _ := json.Marshal(invalidBundle)
 	response = apiRequest(t, server.Client(), http.MethodPut, server.URL+"/api/v1/profiles/bundle", invalidBytes, authA)
 	assertEnvelope(t, response, http.StatusUnprocessableEntity, true)
-	unchanged, _ := store.Profile(ctx, accountAID, "Backup")
+	unchanged, _ := store.Profile(ctx, userAID, "Backup")
 	if !bytes.Equal(unchanged.Document, beforeFailure.Document) {
 		t.Fatal("invalid bundle partially replaced prior profiles")
 	}
 	validBytes, _ := json.Marshal(bundle)
+	probesBefore := probe.calls.Load()
+	response = apiRequest(t, server.Client(), http.MethodPut, server.URL+"/api/v1/profiles/bundle", validBytes, authB)
+	assertEnvelope(t, response, http.StatusUnprocessableEntity, true)
+	if probe.calls.Load() != probesBefore {
+		t.Fatal("foreign credential bundle reached provider probe")
+	}
+	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/profiles", nil, authB)
+	if len(response.JSON["result"].(map[string]any)["profiles"].([]any)) != 0 {
+		t.Fatal("foreign bundle wrote another user's profiles")
+	}
+	profileB := profile
+	profileB.ModelID = "private-b-model"
+	requestB, _ := json.Marshal(map[string]any{"profile": profileB, "credentialId": "credential-a", "credential": map[string]any{"apiKey": "private-b-provider-secret"}})
+	assertEnvelope(t, apiRequest(t, server.Client(), http.MethodPut, server.URL+"/api/v1/profiles/Backup", requestB, authB), http.StatusOK, false)
+
 	oldBundle := bundle
 	oldBundle.SchemaVersion = 1
 	oldBytes, _ := json.Marshal(oldBundle)
@@ -258,17 +272,17 @@ func TestResourceRoutes(t *testing.T) {
 		t.Fatalf("owner stats = %#v", stats)
 	}
 
-	ownerStore, err := garageStore.Scoped(garageFixture.Scope("llm-traces/" + accountAID + "/"))
+	ownerStore, err := garageStore.Scoped(garageFixture.Scope("llm-traces/" + userAID + "/"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	objectKey := garageFixture.Key("llm-traces/" + accountAID + "/run-a/trace-a/artifact-a-trace.json")
+	objectKey := garageFixture.Key("llm-traces/" + userAID + "/run-a/trace-a/artifact-a-trace.json")
 	reference, err := ownerStore.Put(ctx, objectKey, []byte(`{"safe":true}`), "application/json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := store.SeedArtifactMetadataForTest(ctx, postgres.ArtifactRecord{
-		OwnerID: accountAID, RunID: "run-a", TraceID: "trace-a", ID: "artifact-a", Kind: "trace", ObjectKey: objectKey,
+		OwnerID: userAID, RunID: "run-a", TraceID: "trace-a", ID: "artifact-a", Kind: "trace", ObjectKey: objectKey,
 		ContentType: reference.ContentType, SHA256: reference.SHA256, SizeBytes: reference.SizeBytes,
 		State: "available", CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
@@ -323,16 +337,38 @@ func TestResourceRoutes(t *testing.T) {
 	}
 
 	if err := store.SaveExecution(ctx, postgres.RunRecord{
-		OwnerID: accountAID, ID: "run-delete-failure", ProfileID: "Backup", TraceID: "trace-delete-failure", Status: "failed",
+		OwnerID: userBID, ID: "run-a", ProfileID: "Backup", TraceID: "trace-a", Status: "succeeded",
+		Request: json.RawMessage(`{"profileId":"Backup"}`), Result: json.RawMessage(`{"output":"private-b"}`), StartedAt: now, CompletedAt: now,
+	}, postgres.TraceRecord{OwnerID: userBID, TraceID: "trace-a", RunID: "run-a", Record: json.RawMessage(`{"status":"succeeded"}`), CreatedAt: now, UpdatedAt: now}, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	bObjects, err := garageStore.Scoped(garageFixture.Scope("llm-traces/" + userBID + "/"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bKey := garageFixture.Key("llm-traces/" + userBID + "/run-a/trace-a/artifact-a-trace.json")
+	bRef, err := bObjects.Put(ctx, bKey, []byte(`{"private":"b"}`), "application/json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SeedArtifactMetadataForTest(ctx, postgres.ArtifactRecord{
+		OwnerID: userBID, RunID: "run-a", TraceID: "trace-a", ID: "artifact-a", Kind: "trace", ObjectKey: bKey,
+		ContentType: bRef.ContentType, SHA256: bRef.SHA256, SizeBytes: bRef.SizeBytes, State: "available", CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := store.SaveExecution(ctx, postgres.RunRecord{
+		OwnerID: userAID, ID: "run-delete-failure", ProfileID: "Backup", TraceID: "trace-delete-failure", Status: "failed",
 		Request: json.RawMessage(`{"profileId":"Backup"}`), Result: json.RawMessage(`{"output":null}`), StartedAt: now, CompletedAt: now,
 	}, postgres.TraceRecord{
-		OwnerID: accountAID, TraceID: "trace-delete-failure", RunID: "run-delete-failure", Record: json.RawMessage(`{"status":"failed"}`), CreatedAt: now, UpdatedAt: now,
+		OwnerID: userAID, TraceID: "trace-delete-failure", RunID: "run-delete-failure", Record: json.RawMessage(`{"status":"failed"}`), CreatedAt: now, UpdatedAt: now,
 	}, nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	failureObjectKey := garageFixture.Key("llm-traces/" + accountAID + "/run-delete-failure/trace-delete-failure/artifact-delete-failure-trace.json")
+	failureObjectKey := garageFixture.Key("llm-traces/" + userAID + "/run-delete-failure/trace-delete-failure/artifact-delete-failure-trace.json")
 	if err := store.SeedArtifactMetadataForTest(ctx, postgres.ArtifactRecord{
-		OwnerID: accountAID, RunID: "run-delete-failure", TraceID: "trace-delete-failure", ID: "artifact-delete-failure", Kind: "trace", ObjectKey: failureObjectKey,
+		OwnerID: userAID, RunID: "run-delete-failure", TraceID: "trace-delete-failure", ID: "artifact-delete-failure", Kind: "trace", ObjectKey: failureObjectKey,
 		ContentType: "application/json", SHA256: strings.Repeat("b", 64), SizeBytes: 1,
 		State: "available", CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
@@ -345,25 +381,25 @@ func TestResourceRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := failingService.DeleteHistory(ctx, accountAID, "run-delete-failure"); err == nil {
+	if err := failingService.DeleteHistory(ctx, userAID, "run-delete-failure"); err == nil {
 		t.Fatal("artifact deletion failure did not fail closed")
 	}
-	if _, err := store.Run(ctx, accountAID, "run-delete-failure"); err != nil {
+	if _, err := store.Run(ctx, userAID, "run-delete-failure"); err != nil {
 		t.Fatalf("artifact deletion failure removed run metadata: %v", err)
 	}
-	if _, _, err := store.Trace(ctx, accountAID, "trace-delete-failure"); err != nil {
+	if _, _, err := store.Trace(ctx, userAID, "trace-delete-failure"); err != nil {
 		t.Fatalf("artifact deletion failure removed trace metadata: %v", err)
 	}
 
 	response = apiRequest(t, server.Client(), http.MethodDelete, server.URL+"/api/v1/history/run-a", nil, authA)
 	assertEnvelope(t, response, http.StatusOK, false)
-	if _, err := store.Run(ctx, accountAID, "run-a"); !errors.Is(err, postgres.ErrNotFound) {
+	if _, err := store.Run(ctx, userAID, "run-a"); !errors.Is(err, postgres.ErrNotFound) {
 		t.Fatalf("history record was not deleted: %v", err)
 	}
-	if _, _, err := store.Trace(ctx, accountAID, "trace-a"); !errors.Is(err, postgres.ErrNotFound) {
+	if _, _, err := store.Trace(ctx, userAID, "trace-a"); !errors.Is(err, postgres.ErrNotFound) {
 		t.Fatalf("trace metadata was not deleted: %v", err)
 	}
-	if _, err := store.Artifact(ctx, accountAID, "trace-a", "artifact-a"); !errors.Is(err, postgres.ErrNotFound) {
+	if _, err := store.Artifact(ctx, userAID, "trace-a", "artifact-a"); !errors.Is(err, postgres.ErrNotFound) {
 		t.Fatalf("artifact metadata was not deleted: %v", err)
 	}
 	if _, _, err := ownerStore.Get(ctx, objectKey); !artifacts.IsKind(err, artifacts.KindNotFound) {
@@ -371,7 +407,7 @@ func TestResourceRoutes(t *testing.T) {
 	}
 	response = apiRequest(t, server.Client(), http.MethodDelete, server.URL+"/api/v1/history", nil, authA)
 	assertEnvelope(t, response, http.StatusOK, false)
-	if _, _, err := store.Trace(ctx, accountAID, "trace-orphan"); !errors.Is(err, postgres.ErrNotFound) {
+	if _, _, err := store.Trace(ctx, userAID, "trace-orphan"); !errors.Is(err, postgres.ErrNotFound) {
 		t.Fatalf("orphan trace was not cleared: %v", err)
 	}
 	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/stats", nil, authA)
@@ -380,11 +416,30 @@ func TestResourceRoutes(t *testing.T) {
 	}
 	response = apiRequest(t, server.Client(), http.MethodDelete, server.URL+"/api/v1/profiles/Backup", nil, authA)
 	assertEnvelope(t, response, http.StatusOK, false)
+	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/profiles", nil, authB)
+	remaining := response.JSON["result"].(map[string]any)["profiles"].([]any)
+	if len(remaining) != 1 || remaining[0].(map[string]any)["profile"].(map[string]any)["modelId"] != "private-b-model" {
+		t.Fatal("profile deletion changed another user's same-ID profile")
+	}
+	response = apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/stats", nil, authB)
+	if response.JSON["result"].(map[string]any)["totalCount"] != float64(1) {
+		t.Fatal("history deletion changed another user's statistics")
+	}
+	if _, _, err := store.Trace(ctx, userBID, "trace-a"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := bObjects.Get(ctx, bKey); err != nil {
+		t.Fatalf("deletion removed another user's artifact: %v", err)
+	}
 }
 
-type testProfileProber struct{ err error }
+type testProfileProber struct {
+	err   error
+	calls atomic.Int32
+}
 
 func (prober *testProfileProber) Probe(context.Context, profiles.Profile, profiles.CredentialPayload) error {
+	prober.calls.Add(1)
 	return prober.err
 }
 
@@ -455,15 +510,140 @@ func seedResourceHistory(t *testing.T, ctx context.Context, store *postgres.Stor
 		traceID := strings.Replace(id, "run", "trace", 1)
 		var observations []postgres.ObservationRecord
 		if id == "run-a" {
-			observations = []postgres.ObservationRecord{{OwnerID: accountAID, TraceID: traceID, Sequence: 0, Type: "provider.attempt", Data: json.RawMessage(`{"number":1}`), CreatedAt: now}}
+			observations = []postgres.ObservationRecord{{OwnerID: userAID, TraceID: traceID, Sequence: 0, Type: "provider.attempt", Data: json.RawMessage(`{"number":1}`), CreatedAt: now}}
 		}
 		if err := store.SaveExecution(ctx, postgres.RunRecord{
-			OwnerID: accountAID, ID: id, ProfileID: "Backup", TraceID: traceID, Status: "succeeded",
+			OwnerID: userAID, ID: id, ProfileID: "Backup", TraceID: traceID, Status: "succeeded",
 			Request: json.RawMessage(`{"profileId":"Backup"}`), Result: json.RawMessage(`{"output":"ok"}`), StartedAt: now, CompletedAt: now,
 		}, postgres.TraceRecord{
-			OwnerID: accountAID, TraceID: traceID, RunID: id, Record: json.RawMessage(`{"status":"success"}`), CreatedAt: now, UpdatedAt: now,
+			OwnerID: userAID, TraceID: traceID, RunID: id, Record: json.RawMessage(`{"status":"success"}`), CreatedAt: now, UpdatedAt: now,
 		}, observations, nil); err != nil {
 			t.Fatal(err)
+		}
+	}
+}
+
+// Real authentication is shared by the resource and runtime storage boundaries.
+func loginIdentityFixture(t *testing.T) *auth.Service {
+	t.Helper()
+	controlPlane := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/internal/v1/access-context" || r.Header.Get("Authorization") != "Bearer control-plane-internal-token" {
+			http.Error(w, "unexpected identity request", 400)
+			return
+		}
+		userID := map[string]string{"session-a": userAID, "session-a2": userAID, "session-b": userBID}[r.Header.Get("X-PRLS-Session-Reference")]
+		if userID == "" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"user_id": userID, "email": "user@example.test", "name": "User", "role": "member", "session_ref": r.Header.Get("X-PRLS-Session-Reference"), "account": map[string]any{"account_id": "11111111-1111-4111-8111-111111111111", "name": "Same Company", "products": []string{"knowledge"}}})
+	}))
+	t.Cleanup(controlPlane.Close)
+	client, err := access.New(controlPlane.URL, "control-plane-internal-token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, err := auth.NewService(auth.Config{ControlPlane: client, ServiceToken: serviceKey, StaticUserID: userBID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return identity
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-011 TEST-022 TEST-024
+func TestLoginOwnedRuntimeCacheAndHistory(t *testing.T) {
+	_, dsn := integrationtest.PostgresLease(t)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	store, err := postgres.Open(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	if err := store.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	calls := atomic.Int32{}
+	provider := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/responses" || r.Header.Get("Authorization") != "Bearer local-provider-secret" {
+			http.Error(w, "unexpected provider request", 400)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"completed","output_text":"local-provider-ok","usage":{"input_tokens":2,"output_tokens":3}}`))
+	}))
+	defer provider.Close()
+	roots := x509.NewCertPool()
+	roots.AddCert(provider.Certificate())
+	vault, err := profiles.NewCredentialVault("test", map[string][]byte{"test": bytes.Repeat([]byte{0x44}, 32)}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profileService, err := gateway.NewProfileService(gateway.ProfileServiceConfig{Store: store, Vault: vault, Prober: &testProfileProber{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile := loadGatewayFixtureProfile(t, "Backup")
+	profile.LLMProfile = "Local"
+	profile.BaseURL = provider.URL + "/v1"
+	for _, user := range []string{userAID, userBID} {
+		if _, err := profileService.Save(ctx, gateway.SaveProfileRequest{OwnerID: user, ProfileID: "Local", Profile: profile, CredentialID: "same-id", Credential: &profiles.CredentialPayload{APIKey: "local-provider-secret"}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	runs, err := gateway.NewRunService(gateway.RunServiceConfig{Store: store, Profiles: profileService, CallerFactory: func(c gateway.RuntimeClientConfig) (gateway.RuntimeCaller, error) {
+		return hardenllm.New(hardenllm.Options{Credentials: c.Credentials, Cache: c.Cache, EndpointPolicy: hardenllm.EndpointPolicy{PrivateAllowedHosts: []string{"127.0.0.1"}, TLSConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}})
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resources, err := gateway.NewResourceService(gateway.ResourceServiceConfig{Store: store, Profiles: profileService})
+	if err != nil {
+		t.Fatal(err)
+	}
+	api, err := httpapi.New(httpapi.Config{Auth: loginIdentityFixture(t), Runs: runs, Resources: resources})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(api.Handler())
+	defer server.Close()
+	body := []byte(`{"profileId":"Local","userPrompt":"same request","callType":"text","cacheMode":"cache","recoveryPolicy":{"maxAttempts":1,"retryOn":[],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}}`)
+	for i, reference := range []string{"session-a", "session-b", "session-a2", ""} {
+		headers := map[string][]string{"Authorization": {"Bearer " + serviceKey}}
+		if reference != "" {
+			headers["X-PRLS-Session-Reference"] = []string{reference}
+		}
+		response := apiRequest(t, server.Client(), http.MethodPost, server.URL+"/api/v1/run", body, headers)
+		assertEnvelope(t, response, http.StatusOK, false)
+		result := response.JSON["result"].(map[string]any)
+		if result["cache"].(map[string]any)["served"] != (i >= 2) || result["output"] != "local-provider-ok" {
+			t.Fatalf("run %d cache/output = %#v", i, result)
+		}
+		if calls.Load() != int32(min(i+1, 2)) {
+			t.Fatalf("run %d provider calls = %d", i, calls.Load())
+		}
+		other := userBID
+		if reference == "session-b" || reference == "" {
+			other = userAID
+		}
+		if _, err := store.Run(ctx, other, result["runId"].(string)); !errors.Is(err, postgres.ErrNotFound) {
+			t.Fatalf("run crosses users: %v", err)
+		}
+		if _, _, err := store.Trace(ctx, other, result["traceId"].(string)); !errors.Is(err, postgres.ErrNotFound) {
+			t.Fatalf("trace crosses users: %v", err)
+		}
+	}
+	for _, user := range []string{userAID, userBID} {
+		reference := "session-a"
+		if user == userBID {
+			reference = "session-b"
+		}
+		r := apiRequest(t, server.Client(), http.MethodGet, server.URL+"/api/v1/history?page=1&limit=10", nil, map[string][]string{"Authorization": {"Bearer " + serviceKey}, "X-PRLS-Session-Reference": {reference}})
+		assertEnvelope(t, r, http.StatusOK, false)
+		if len(r.JSON["result"].(map[string]any)["items"].([]any)) != 2 {
+			t.Fatal("history includes another user's runs")
 		}
 	}
 }

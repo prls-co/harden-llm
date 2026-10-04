@@ -18,8 +18,8 @@ Gateway traces only          -> OTel Collector -> Laminar
 | Component | Owns | Must not own |
 | --- | --- | --- |
 | Root Go library | provider payloads, retries, repair, schema, cache identity, usage/cost, domain projections | environment loading, exporters, auth, SQL, HTTP routes |
-| Go gateway | Control Plane-backed human authorization, UUID owner isolation, machine-token scope, REST envelopes, profile catalog backfill, product resources and persistence adapters | human accounts/passwords, browser cookies, CSRF, HTML, duplicate provider logic |
-| Phoenix frontend | shared PRLS sign-in/account-selection UI, encrypted host-only product session, CSRF, presentation, REST calls | identity/account authority, shared-domain cookies, database, provider SDKs, pricing, retries, domain storage |
+| Go gateway | Control Plane-backed human authorization, stable user ID owner isolation, machine-token scope, REST envelopes, profile catalog backfill, product resources and persistence adapters | human accounts/passwords, browser cookies, CSRF, HTML, duplicate provider logic |
+| Phoenix frontend | shared PRLS sign-in UI, encrypted host-only product session, CSRF, presentation, REST calls | identity/account authority, shared-domain cookies, database, provider SDKs, pricing, retries, domain storage |
 | Control Plane (`prls-control-plane`) | human accounts, authentication, current memberships and product access decisions | HLLM profiles, prompts, runs, traces, artifacts, or product data |
 | Shared Caddy (`prls-co/caddy-shared`) | TLS, public host routing, security headers, request-size limits | application authorization; HLLM Compose ownership |
 | Collector | the single telemetry fanout and redaction pipeline | application or provider results |
@@ -27,9 +27,10 @@ Gateway traces only          -> OTel Collector -> Laminar
 `api/openapi.yaml` is the only Go-to-Phoenix data contract; the shared
 `@prls/access` client is the identity/access contract. Phoenix calls the gateway
 server to server with its service bearer and the current Control Plane session
-reference. The gateway checks current account/product access on every human
-request. The encrypted `__Host-harden_llm_web` cookie has no `Domain` attribute,
-so each product keeps a host-only browser session. No HLLM login/password store
+reference. The gateway checks current enabled identity on every human
+request, then uses its stable `user_id` as owner. Every enabled login can enter;
+company selection and company product grants do not affect HLLM. The encrypted `__Host-harden_llm_web` cookie has no `Domain` attribute,
+so HLLM keeps a host-only browser session. No HLLM login/password store
 or cross-subdomain cookie exists. An ambiguous `/api/v1/run` transport failure
 is never automatically replayed by either layer.
 
@@ -37,11 +38,11 @@ is never automatically replayed by either layer.
 
 | Store | Owner and contents | Isolation rule |
 | --- | --- | --- |
-| `harden-postgres-data` | product-owned state, encrypted profile credentials, runs, trace/artifact indexes, and account UUID owner keys | dedicated database, credentials, and migrations; Control Plane owns account records |
+| `harden-postgres-data` | product-owned state, encrypted profile credentials, runs, trace/artifact indexes, and stable Control Plane user ID owner keys | dedicated database, credentials, and migrations; Control Plane owns user identities |
 | `garage-shared` service and its retained metadata/data volumes | private redacted trace JSON and diagnostic attachments for adopted clients | separate bucket-scoped credentials per client |
 | Prometheus/Loki/Tempo/Grafana volumes | operational diagnostics | no provider credentials or raw request/response bodies |
 | `harden-llm-web-logs` | bounded, redacted Phoenix JSON logs | Collector reads it; no domain state |
-| `harden-llm-web` browser cookie | encrypted host-only Control Plane session reference and selected account context | browser sends it only to the HLLM host; the gateway revalidates current access with Control Plane |
+| `harden-llm-web` browser cookie | encrypted host-only Control Plane session reference and login identity | browser sends it only to the HLLM host; the gateway revalidates current access with Control Plane |
 
 The Harden-LLM database remains product-owned. Garage runs in the separate
 `garage-shared` repository on the existing `prls-observability` network; this

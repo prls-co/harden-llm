@@ -21,11 +21,7 @@ defmodule HardenLlmWeb.Router do
     plug :accepts, ["json"]
   end
 
-  pipeline :require_product_access do
-    plug PrlsWeb.Access.Plug, requirement: {:product, "harden-llm"}
-  end
-
-  pipeline :require_account_access do
+  pipeline :require_identity do
     plug PrlsWeb.Access.Plug, requirement: :require_access
   end
 
@@ -44,22 +40,15 @@ defmodule HardenLlmWeb.Router do
     get "/session/unavailable", AuthController, :unavailable
   end
 
-  scope "/", PrlsWeb do
-    pipe_through [:browser, :require_account_access]
-
-    get "/accounts", AccountController, :index
-    post "/accounts", AccountController, :select
-  end
-
   scope "/", HardenLlmWeb do
-    pipe_through [:browser, :require_product_access]
+    pipe_through [:browser, :require_identity]
 
     get "/profiles/bundle", BundleController, :show
     get "/traces/:trace_id", TraceController, :show
     get "/traces/:trace_id/artifacts/:artifact_id", ArtifactController, :show
 
     live_session :authenticated,
-      on_mount: [{PrlsWeb.Access.LiveAuth, {:product, "harden-llm"}}] do
+      on_mount: [{PrlsWeb.Access.LiveAuth, :require_access}] do
       live "/", WorkspaceLive
       live "/embed/llm", EmbeddingLive
       live "/profiles", ProfilesLive
@@ -76,7 +65,7 @@ defmodule HardenLlmWeb.Router do
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
-      pipe_through [:browser, :require_product_access]
+      pipe_through [:browser, :require_identity]
 
       live_dashboard "/dashboard", metrics: HardenLlmWeb.Telemetry
     end

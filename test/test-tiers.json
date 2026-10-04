@@ -443,7 +443,15 @@
         "TEST-266",
         "WEB-TEST-100",
         "WEB-TEST-101",
-        "WEB-TEST-102"
+        "WEB-TEST-102",
+        "WEB-TEST-104",
+        "WEB-TEST-105",
+        "WEB-TEST-108",
+        "WEB-TEST-109",
+        "WEB-TEST-110",
+        "WEB-TEST-111",
+        "WEB-TEST-112",
+        "WEB-TEST-113"
       ],
       "tier": "T1",
       "resourceClass": "cpu",

@@ -22,7 +22,7 @@ func TestComposeHarnessUsesMachineAccountAndCurrentArtifactLifecycle(t *testing.
 	if strings.Contains(text, "llm_artifacts WHERE owner_id='smoke-owner' AND available") {
 		t.Fatal("Compose cleanup still queries the removed artifact availability column")
 	}
-	if !strings.Contains(text, "HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID") || !strings.Contains(text, "HARDEN_LLM_STATIC_TOKEN") {
+	if !strings.Contains(text, "HARDEN_LLM_STATIC_TOKEN_USER_ID") || !strings.Contains(text, "HARDEN_LLM_STATIC_TOKEN") {
 		t.Fatal("Compose smoke does not use the scoped machine credential path")
 	}
 	if strings.Contains(text+frontendText, "bootstrap-user") || strings.Contains(text, "/api/v1/auth/login") {

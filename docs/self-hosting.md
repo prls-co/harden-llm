@@ -93,44 +93,48 @@ identity comparison and its `pull`/`build` behavior is intentionally broader.
 
 ## Human identity and product access
 
-Create human accounts and grant Harden LLM product access in the PRLS Control
-Plane. HLLM has no local registration, user bootstrap, or password-reset path.
+Create and enable human logins in the PRLS Control Plane. Every enabled login
+can enter HLLM with private data; no company selection or HLLM grant is needed. HLLM has no local registration, user bootstrap, or password-reset path.
 Configure `HARDEN_LLM_CONTROL_PLANE_URL` and the protected
-`HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN`; the gateway checks current account
-and product access for every human request. Phoenix keeps an encrypted
+`HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN`; the gateway checks current enabled identity for every human request. Phoenix keeps an encrypted
 host-only `__Host-harden_llm_web` cookie; sessions are not shared across product
-subdomains. Set `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID` only when a machine client
-needs direct API access as one explicit Control Plane account.
+subdomains. Set `HARDEN_LLM_STATIC_TOKEN_USER_ID` only when a machine client
+needs direct API access as one explicit Control Plane user.
 
 ## Clean identity cutover
 
-The 2026-10-04 cutover intentionally discards legacy HLLM data. There is one
-production data account, with multiple Control Plane logins and an optional
-API token scoped to the same UUID. HLLM has no guest/operator account types.
-Use an existing Control Plane company account, grant `harden-llm`, and configure
-its UUID in `HARDEN_LLM_PROFILE_ACCOUNT_IDS` and
-`HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID`. Add the production frontend origin to
-Control Plane's trusted origins and configure the private Control Plane URL
-and internal token in HLLM production configuration.
+The login-owned cutover discards HLLM's previous shared-company dataset. Each
+stable Control Plane `user_id` owns private product data. Set
+`HARDEN_LLM_STATIC_TOKEN_USER_ID` to the verification/test login's ID and
+`HARDEN_LLM_PROFILE_USER_IDS` to the explicit administrator and verification
+IDs. Other enabled logins receive unconfigured defaults. Keep the existing
+Control Plane credentials, trusted frontend origin, private URL and internal
+service token. No company-account mapping or compatibility mode is supported.
 
-1. Certify the source with `make test-fast` and browser-free `make test-release`.
-   Build immutable gateway and web images for that source SHA.
-2. Stop the HLLM gateway and frontend. Clear the dedicated HLLM database and
-   all objects in its dedicated artifact bucket. Never clear shared Garage
-   volumes, other buckets, Control Plane identity data or observability data.
-3. Rotate the HLLM database role password and update the canonical production
-   database URL together. Initialize the fresh product-only schema (version 11).
-   Old migration ledgers are rejected; no migration mapping file is supported.
-4. Set the approved immutable image identities and environment in the private
-   production descriptor. Use the existing scoped `production-config.mjs apply`
-   path, then the trusted `sync-profiles --account-id <uuid>` command.
-5. Verify health/readiness, fresh Control Plane sign-in, authenticated profile
-   reads through two logins and the token, empty legacy history, logout
-   revocation and denial for accounts without HLLM access. Record source SHA,
-   image IDs and public URLs. No provider call or browser is part of this check.
+1. Certify the completed source with browser-free `make test-release`, publish
+   the verified source, and build immutable gateway/web images for that SHA.
+2. Prepare the production descriptor and renamed inputs before the outage.
+   Stop HLLM gateway/web. Clear only the dedicated HLLM database and the
+   `harden-llm-artifacts` bucket's objects. Leave shared Garage, other buckets,
+   Control Plane and observability data intact.
+3. Initialize unchanged schema version 11 and run trusted
+   `sync-profiles --user-id <id>` for each explicit user with fresh owner-bound
+   encryption. Resume the candidate services through the approved scoped
+   production descriptor; retain supporting service images and durable mounts.
+4. Verify health/readiness and descriptor equivalence. Use fresh probe-owned
+   human sessions to prove private state with distinct temporary markers,
+   token/verification-user equivalence, a second session's persistence, empty
+   legacy history, and human logout rejection. Restore states and log out probes.
+   Deterministic fixtures cover disabled users and authority outages.
+5. Record application SHA, shared-library revision, exact component images,
+   public HTTP acceptance and cleanup in the release journal. No browser or
+   paid provider call is part of this acceptance.
 
-Perform the cutover as soon as these prerequisites pass. No scheduled window,
-legacy account conversion or retained-data recovery bridge is required.
+The approved step-by-step procedure is the
+[login-owned implementation plan](../plans/login-owned-data-implementation-plan.md).
+The earlier shared-company cutover and completed database-password rotation
+remain historical evidence in [release certification](release-certification.md).
+A stop/reset/start outage is accepted; there is no legacy-data recovery bridge.
 
 ## Profile presets
 
@@ -213,7 +217,7 @@ separately authorized. A loss of Postgres/Garage still loses HardLLM history.
 Run the production-config check/apply for runtime settings, then inject shared
 provider settings through the approved process environment as described in
 [shared LLM configuration](shared-llm-configuration.md). Run the trusted
-`sync-profiles --account-id <uuid>` command for each explicitly selected
+`sync-profiles --user-id <id>` command for each explicitly selected
 Control Plane account. The configuration check never runs profile
 synchronization as a validation side effect.
 Keep production's infrastructure credentials, bearer token, encryption keys,
@@ -245,8 +249,8 @@ records remain readable. Remove an old key only after a deliberate re-encryption
 migration proves no row references it.
 
 Rollback the gateway/frontend images only to a version compatible with the
-deployed schema. The account-UUID owner migration and local-identity removal are
-forward-only; after that migration, do not restore an image that expects the old
+deployed schema. The login-owned clean cut and prior local-identity removal are
+forward-only; do not restore an image that expects company ownership or local
 user/session tables. If compatibility is uncertain,
 keep writes stopped and deploy a compatible forward fix; this deployment has no
 data restore path.

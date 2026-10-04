@@ -457,18 +457,19 @@ runtime contract or the meaning of `make verify`.
 - Pass criteria: all real-Garage round trips, restart persistence, expiry, isolation, ownership-boundary, and failure tables pass.
 - Expected runtime: 90 seconds.
 
-### TEST-022: Current account auth, isolation and transactional profile save
+### TEST-022: Current identity auth, isolation and transactional profile save
 
 - Targets: `internal/gateway/auth/service_test.go`, `internal/gateway/resource_routes_test.go` and real Postgres profile/storage integration tests.
 - Commands: `go test ./internal/gateway/auth -count=1`; `make test-integration`.
-- Setup: private Control Plane HTTP fixture, two accounts, two session identities sharing one account, explicit account-scoped service token, isolated Postgres and local provider fixture.
+- Setup: private Control Plane HTTP fixture, two non-UUID user IDs, two sessions for one user, both users sharing a company and account-less contexts, explicit token scope for the second user, isolated Postgres and local provider fixture.
 - Assertions:
   - Exactly one valid service bearer is required; malformed/duplicate auth, session references and unexpected cookies are rejected.
-  - Human requests resolve current Control Plane account/product access; revocation, denial and unavailable authority fail closed without a machine-account fallback.
-  - Two logins and the scoped token resolve the same account owner; other accounts remain isolated across profiles/history/traces/state/cache/bundles.
+  - Human requests resolve current enabled Control Plane identity. Company selection and company product grants do not gate HLLM. Revocation, malformed identity and unavailable authority fail closed without a machine-user fallback.
+  - Different users are different owners even in the same company; two sessions for one user share an owner; the scoped token shares only its configured user's data. Owners remain isolated across profiles/history/stats/traces/artifacts/state/cache/bundles/deletion.
   - HLLM stores no local credentials or human sessions. Phoenix sign-in/out and secure host-only cookies use the shared identity components.
-  - Profile probing precedes the short database commit; failed probes preserve prior state. Credential-free edits preserve owner-bound credentials. Probe/model refresh use TEST-014 endpoint policy.
-- Pass criteria: auth/account-isolation and profile transaction assertions pass.
+  - Profile probing precedes the short database commit; failed probes preserve prior state. Credential-free edits preserve owner-bound credentials. Foreign-owner bundles fail before probing/writes. Probe/model refresh use TEST-014 endpoint policy.
+- Decision change: PLAN-HLLM-LOGIN-OWNERS-001 explicitly supersedes the previous assertion that different logins share a company's data; authentication and isolation oracles remain mandatory.
+- Pass criteria: identity/isolation and profile transaction assertions pass.
 - Expected runtime: within the existing integration task envelope.
 
 ### TEST-023: gateway health, envelope, decoding, and limits
@@ -707,7 +708,7 @@ runtime contract or the meaning of `make verify`.
 
 - Target: `internal/smoke/live_gateway_test.go`
 - Command: `go test ./internal/smoke/... -tags=live -run TestLiveGatewayLifecycle -count=1`
-- Setup: running full stack, explicit account-scoped service token and provider credential.
+- Setup: running full stack, explicit user-scoped service token and provider credential.
 - Assertions:
   - Authenticated profile save/probe, model refresh, run, trace retrieval, authenticated Garage artifact retrieval, bundle export, profile deletion, and test-data cleanup pass.
   - The live trace ID appears in Tempo; Prometheus confirms the HLLM Laminar exporter span counter increased after the run; correlated metrics and logs appear in Grafana without secret leakage. No observability query credential is required.
@@ -1159,7 +1160,7 @@ canonical `TEST-###` comment; the Phoenix cases use the separate
 - Type / verifies: integration; REQ-217, REQ-218, REQ-221, REQ-223.
 - Location: `internal/postgres/cache_test.go`, `internal/postgres/repository_test.go` and `internal/gateway/run_test.go`.
 - Command: `make test-integration`.
-- Fixtures/data: Runner-owned `PostgresLease`, fresh schema version 11, account-scoped rows, exact large-number/decimal JSON, upsert timestamps and independent owners.
+- Fixtures/data: Runner-owned `PostgresLease`, fresh schema version 11, user-scoped rows, exact large-number/decimal JSON, upsert timestamps and independent owners.
 - Deterministic controls: Existing service-pool runner and lease cleanup; real `Store.Migrate`; no application database or per-test Compose fallback.
 - Pass criteria: The six cache projection columns, exact values and producer identity survive repeat migration; readiness/idempotency/concurrent initialization pass; retired schema ledgers fail before product writes; owner isolation/upsert/concurrency and rollback/locking checks remain intact. The report contains executed `TestRecoveryIntegrityStorage` cases. Historical document-conversion tests retire with migrations 1–10 after the authorized clean cut; no legacy-data conversion is supported.
 - Expected runtime: within the existing integration task envelope.

@@ -162,7 +162,7 @@ test("preview gateway bounds Go memory and uses the shared identity contract", a
   assert.match(gateway, /mem_limit: 256m\n/);
   assert.match(gateway, /GOMEMLIMIT: 192MiB\n/);
   const launcher = await readFile(new URL("../preview-environment.mjs", import.meta.url), "utf8");
-  assert.match(launcher, /profileAccountIDs\(sharedValues\)/);
+  assert.match(launcher, /profileUserIDs\(sharedValues\)/);
   assert.doesNotMatch(launcher, /bootstrap-user|TEST_PASSWORD|api\/v1\/auth\/login/);
   assert.match(launcher, /delete credentials\.OPERATOR_PASSWORD/); // Remove credentials from preview state written by the retired flow.
 });

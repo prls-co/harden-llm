@@ -71,14 +71,14 @@ Human accounts, passwords, memberships, and product access are owned by the
 PRLS Control Plane. HLLM has no guest/operator users, local login/password
 store, or `login.txt`. Each HLLM host keeps an encrypted `__Host-harden_llm_web`
 cookie with no `Domain` attribute; Control Plane sessions are not shared across
-`*.prls.co`. Product access is checked against current Control Plane state on
-each gateway request.
+`*.prls.co`. The enabled login is resolved through Control Plane on each gateway request;
+its stable user ID owns private data, independent of selected company.
 
 The trusted preview host reads one protected `.env` through `sharedEnvFile`
 (reference host: `/home/kirill/p/harden-llm/.env`). Profile JSON and
 credential-variable references come from the absolute `HARDEN_LLM_CONFIG_FILE`
-path. `HARDEN_LLM_PROFILE_ACCOUNT_IDS` explicitly names which Control Plane
-accounts receive synchronized profile configuration; no email lookup or local
+path. `HARDEN_LLM_PROFILE_USER_IDS` explicitly names which Control Plane
+users receive synchronized profile configuration; no email lookup or local
 account creation occurs. Provider keys/profile settings are shared only across
 trusted deployments. Infrastructure credentials, encryption keys, databases,
 machine tokens, and artifacts remain deployment-specific. See [shared
@@ -211,7 +211,7 @@ branch cannot change this environment's next restart or rollback.
 Deployment checks healthy container/image identity and public `/healthz`,
 `/readyz`, and login-page delivery. Those HTTP probes do not authenticate a
 user. Separate release acceptance must verify PRLS Control Plane sign-in,
-current HLLM product access, and host-local logout/session revocation. HLLM no
+current enabled user identity, and host-local logout/session revocation. HLLM no
 longer has a product-owned API password login or session endpoint. These checks
 are not a claim of browser layout or LiveSocket certification.
 First-time hostname creation allows up to five minutes for Cloudflare route
@@ -233,7 +233,7 @@ Preview profiles, workspace state and run requests use the current contracts
 and complete `recoveryPolicy` values. Use the
 [current configuration example](../config/llm-profiles.example.json) and
 [API examples](api-and-library.md). Provision profiles with the trusted
-`sync-profiles --account-id <uuid>` command for explicit Control Plane accounts.
+`sync-profiles --user-id <id>` command for explicit Control Plane users.
 
 ADR-HLLM-030's authorized 2026-10-04 clean cut retires migrations 1–10 and old
 HLLM identity/data formats. Persistent preview instances with retired schema

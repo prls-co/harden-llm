@@ -39,11 +39,11 @@ contents-read-only token scoped to those two repositories.
 | `HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID` / `HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY` | secret, required | Existing bucket-scoped S3 credentials supplied only to the gateway. |
 | `PRLS_LOKI_S3_ACCESS_KEY` / `PRLS_LOKI_S3_SECRET_KEY` | secret, required by the shared-observability release | Dedicated Garage key restricted to the `prls-loki` bucket; supplied only to Loki. |
 | `HARDEN_LLM_ARTIFACT_PRESIGN_TTL` | `1m`, max `5m` | Lifetime of an authorized artifact redirect. |
-| `HARDEN_LLM_CONTROL_PLANE_URL` | internal Control Plane URL | Human identity and current product-access authority. |
+| `HARDEN_LLM_CONTROL_PLANE_URL` | internal Control Plane URL | Enabled human identity and session authority. |
 | `HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN` | secret, required | HLLM service credential used for Control Plane access checks. |
 | `HARDEN_LLM_STATIC_TOKEN` | secret, required | HLLM server-to-server bearer credential. |
-| `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID` | optional UUID | Enables direct machine API requests and scopes them to one Control Plane account. Leave unset when only the Phoenix-to-gateway boundary needs the service token. |
-| `HARDEN_LLM_PROFILE_ACCOUNT_IDS` | explicit comma-separated UUIDs | Control Plane accounts whose profiles receive the shared host catalog and credentials. No email/local-user lookup is performed. |
+| `HARDEN_LLM_STATIC_TOKEN_USER_ID` | optional bounded user ID | Enables direct machine API requests as one Control Plane user; production uses the verification/test login. Leave unset when only the Phoenix-to-gateway boundary needs the service token. |
+| `HARDEN_LLM_PROFILE_USER_IDS` | explicit comma-separated user IDs | Control Plane users whose profiles receive the shared host catalog and credentials. No email/local-user lookup is performed. |
 | `JINA_API_KEY` | optional server secret | Jina Search API credential used only when a run requests web search and its selected profile does not advertise native web-search support. A cache hit does not call Jina. |
 | `HARDEN_LLM_CONFIG_FILE` | shared host scalar | Absolute path to profile/credential-reference JSON; large catalogs do not belong in `.env`. |
 | `HARDEN_LLM_MAX_RUN_DURATION_MS` | `60000`, range `1..60000` | Deployment and request ceiling for synchronous runs. Requests may lower it. |
@@ -69,8 +69,7 @@ network. Keep the shared service healthy before starting the gateway.
 
 The Phoenix cookie is encrypted and host-only (`__Host-harden_llm_web`, path
 `/`, no `Domain` attribute). Each product host keeps its own browser session;
-the Control Plane remains the authority for account identity and current
-product access.
+the Control Plane remains the authority for enabled login identity and sessions.
 
 The overlay supplies `HARDEN_LLM_API_BASE_URL`,
 `HARDEN_LLM_ARTIFACT_PUBLIC_ORIGIN`, `HARDEN_LLM_WEB_PORT`,

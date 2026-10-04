@@ -117,11 +117,13 @@ Apply them with the trusted `sync-profiles` administrative command; never use
 interactive profile-save probes as deployment checks. Keep infrastructure
 credentials, encryption keys, data, sessions, and networks separate; never copy
 production datasets or bearer sessions. Only trusted branches may receive shared
-provider credentials (they have real production-provider spending authority). Human login credentials are owned by Control Plane. Production has one HLLM
-data account, with multiple login identities and an optional token bound to that
-same account UUID. Do not bootstrap guest/operator users or separate product
-datasets. The authorized 2026-10-04 clean cut removes incompatible HLLM data;
-other products and shared identity/storage data remain outside that reset. Before
+provider credentials (they have real production-provider spending authority). Human login credentials are owned by Control Plane. HLLM data is private to each stable Control Plane user ID; every enabled login
+may enter directly without company selection or an HLLM grant. The deployment
+API token is bound to the verification/test user's ID. Provision profiles for
+explicit user IDs; new users receive unconfigured defaults. Do not bootstrap
+HLLM users, duplicate credentials, or retain company-owned compatibility data.
+The authorized clean cut removes incompatible HLLM data; other products and
+shared identity/storage data remain outside that reset. Before
 reporting a deployed change, record the branch, source SHA,
 component image identities, environment URL, and browser-free checks. Report
 deployment blockers rather than implying that an undeployed change is live.

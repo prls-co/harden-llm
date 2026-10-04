@@ -24,13 +24,13 @@ export function sharedProfiles(values) {
   return { profiles, credentials: Object.fromEntries(credentials) };
 }
 
-// Profile synchronization is account-scoped through explicit Control Plane UUIDs.
-export function profileAccountIDs(values) {
-  const raw = values.HARDEN_LLM_PROFILE_ACCOUNT_IDS?.trim();
-  if (!raw) throw new Error('HARDEN_LLM_PROFILE_ACCOUNT_IDS must name the Control Plane accounts to provision');
+// Profile synchronization is user-scoped through explicit Control Plane identities.
+export function profileUserIDs(values) {
+  const raw = values.HARDEN_LLM_PROFILE_USER_IDS?.trim();
+  if (!raw) throw new Error('HARDEN_LLM_PROFILE_USER_IDS must name the Control Plane users to provision');
   const ids = raw.split(',').map(value => value.trim());
-  if (ids.some(value => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) || new Set(ids).size !== ids.length) {
-    throw new Error('HARDEN_LLM_PROFILE_ACCOUNT_IDS must contain unique Control Plane account UUIDs');
+  if (ids.some(value => !value || Buffer.byteLength(value) > 128 || /\p{Cc}/u.test(value)) || new Set(ids).size !== ids.length) {
+    throw new Error('HARDEN_LLM_PROFILE_USER_IDS must contain unique bounded Control Plane user IDs');
   }
   return ids;
 }
@@ -51,7 +51,7 @@ export function sharedApplicationVariables(values) {
 
 export function syncSharedProfiles(container, image, values, run = command) {
   const config = sharedProfiles(values);
-  const accounts = profileAccountIDs(values);
+  const users = profileUserIDs(values);
   const [info] = JSON.parse(run('docker', ['inspect', container]));
   const project = info.Config.Labels?.['com.docker.compose.project'];
   const service = info.Config.Labels?.['com.docker.compose.service'];
@@ -61,11 +61,11 @@ export function syncSharedProfiles(container, image, values, run = command) {
   if (keys.some(k => !environment[k])) throw new Error('Gateway provisioning environment is incomplete');
   const env = { ...process.env, ...Object.fromEntries(keys.map(k => [k, environment[k]])) };
   let changed = false;
-  for (const accountID of accounts) {
-    const output = run('docker', ['run', '--rm', '-i', '--read-only', '--cap-drop=ALL', '--security-opt=no-new-privileges', '--network', `container:${info.Id}`, ...keys.flatMap(k => ['--env', k]), image, 'sync-profiles', '--account-id', accountID], { env, input: JSON.stringify(config) });
+  for (const userID of users) {
+    const output = run('docker', ['run', '--rm', '-i', '--read-only', '--cap-drop=ALL', '--security-opt=no-new-privileges', '--network', `container:${info.Id}`, ...keys.flatMap(k => ['--env', k]), image, 'sync-profiles', '--user-id', userID], { env, input: JSON.stringify(config) });
     try { changed ||= Boolean(JSON.parse(output).changed); } catch { throw new Error('Shared profile synchronization returned invalid status'); }
   }
-  return { accounts: accounts.length, profiles: Object.keys(config.profiles).length, configured: Object.keys(config.credentials).length, changed };
+  return { users: users.length, profiles: Object.keys(config.profiles).length, configured: Object.keys(config.credentials).length, changed };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

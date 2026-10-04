@@ -33,7 +33,7 @@ const (
 	controlPlaneURLEnvironment       = "HARDEN_LLM_CONTROL_PLANE_URL"
 	controlPlaneTokenEnvironment     = "HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN"
 	staticTokenEnvironment           = "HARDEN_LLM_STATIC_TOKEN"
-	staticTokenAccountEnvironment    = "HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID"
+	staticTokenUserEnvironment       = "HARDEN_LLM_STATIC_TOKEN_USER_ID"
 	jinaAPIKeyEnvironment            = "JINA_API_KEY"
 	maxRunDurationEnvironment        = "HARDEN_LLM_MAX_RUN_DURATION_MS"
 	allowedHostsEnvironment          = "HARDEN_LLM_PROVIDER_ALLOWED_HOSTS"
@@ -50,29 +50,29 @@ const (
 )
 
 type serverConfig struct {
-	listenAddress        string
-	databaseURL          string
-	encryptionKeys       map[string][]byte
-	activeEncryptionKey  string
-	artifactEndpoint     string
-	artifactExternal     string
-	artifactBucket       string
-	artifactAccessKey    string
-	artifactSecretKey    string
-	artifactPresignTTL   time.Duration
-	controlPlaneURL      string
-	controlPlaneToken    string
-	staticToken          string
-	staticTokenAccountID string
-	jinaAPIKey           string
-	maxRunDuration       time.Duration
-	allowedHosts         []string
-	privateAllowedHosts  []string
-	privateAllowlist     []netip.Prefix
-	environment          string
-	release              string
-	otelEndpoint         string
-	serviceName          string
+	listenAddress       string
+	databaseURL         string
+	encryptionKeys      map[string][]byte
+	activeEncryptionKey string
+	artifactEndpoint    string
+	artifactExternal    string
+	artifactBucket      string
+	artifactAccessKey   string
+	artifactSecretKey   string
+	artifactPresignTTL  time.Duration
+	controlPlaneURL     string
+	controlPlaneToken   string
+	staticToken         string
+	staticTokenUserID   string
+	jinaAPIKey          string
+	maxRunDuration      time.Duration
+	allowedHosts        []string
+	privateAllowedHosts []string
+	privateAllowlist    []netip.Prefix
+	environment         string
+	release             string
+	otelEndpoint        string
+	serviceName         string
 }
 
 func loadServerConfig(getenv func(string) string) (serverConfig, error) {
@@ -80,23 +80,23 @@ func loadServerConfig(getenv func(string) string) (serverConfig, error) {
 		return serverConfig{}, errors.New("configuration: environment reader is required")
 	}
 	config := serverConfig{
-		listenAddress:        strings.TrimSpace(getenv(listenAddressEnvironment)),
-		databaseURL:          requiredEnvironment(getenv, databaseURLEnvironment),
-		activeEncryptionKey:  requiredEnvironment(getenv, activeEncryptionKeyEnvironment),
-		artifactEndpoint:     requiredEnvironment(getenv, artifactEndpointEnvironment),
-		artifactExternal:     requiredEnvironment(getenv, artifactExternalEnvironment),
-		artifactBucket:       requiredEnvironment(getenv, artifactBucketEnvironment),
-		artifactAccessKey:    requiredEnvironment(getenv, artifactAccessKeyEnvironment),
-		artifactSecretKey:    requiredEnvironment(getenv, artifactSecretKeyEnvironment),
-		controlPlaneURL:      requiredEnvironment(getenv, controlPlaneURLEnvironment),
-		controlPlaneToken:    requiredEnvironment(getenv, controlPlaneTokenEnvironment),
-		environment:          requiredEnvironment(getenv, environmentEnvironment),
-		release:              strings.TrimSpace(getenv(releaseEnvironment)),
-		otelEndpoint:         strings.TrimSpace(getenv(otelEndpointEnvironment)),
-		serviceName:          strings.TrimSpace(getenv(serviceNameEnvironment)),
-		staticToken:          strings.TrimSpace(getenv(staticTokenEnvironment)),
-		staticTokenAccountID: strings.TrimSpace(getenv(staticTokenAccountEnvironment)),
-		jinaAPIKey:           strings.TrimSpace(getenv(jinaAPIKeyEnvironment)),
+		listenAddress:       strings.TrimSpace(getenv(listenAddressEnvironment)),
+		databaseURL:         requiredEnvironment(getenv, databaseURLEnvironment),
+		activeEncryptionKey: requiredEnvironment(getenv, activeEncryptionKeyEnvironment),
+		artifactEndpoint:    requiredEnvironment(getenv, artifactEndpointEnvironment),
+		artifactExternal:    requiredEnvironment(getenv, artifactExternalEnvironment),
+		artifactBucket:      requiredEnvironment(getenv, artifactBucketEnvironment),
+		artifactAccessKey:   requiredEnvironment(getenv, artifactAccessKeyEnvironment),
+		artifactSecretKey:   requiredEnvironment(getenv, artifactSecretKeyEnvironment),
+		controlPlaneURL:     requiredEnvironment(getenv, controlPlaneURLEnvironment),
+		controlPlaneToken:   requiredEnvironment(getenv, controlPlaneTokenEnvironment),
+		environment:         requiredEnvironment(getenv, environmentEnvironment),
+		release:             strings.TrimSpace(getenv(releaseEnvironment)),
+		otelEndpoint:        strings.TrimSpace(getenv(otelEndpointEnvironment)),
+		serviceName:         strings.TrimSpace(getenv(serviceNameEnvironment)),
+		staticToken:         strings.TrimSpace(getenv(staticTokenEnvironment)),
+		staticTokenUserID:   getenv(staticTokenUserEnvironment),
+		jinaAPIKey:          strings.TrimSpace(getenv(jinaAPIKeyEnvironment)),
 	}
 	if config.listenAddress == "" {
 		config.listenAddress = defaultListenAddress
@@ -126,8 +126,8 @@ func loadServerConfig(getenv func(string) string) (serverConfig, error) {
 	if _, ok := keys[config.activeEncryptionKey]; !ok {
 		return serverConfig{}, fmt.Errorf("configuration: %s is not present in %s", activeEncryptionKeyEnvironment, encryptionKeysEnvironment)
 	}
-	if err := auth.ValidateServiceToken(config.staticToken, config.staticTokenAccountID); err != nil {
-		return serverConfig{}, fmt.Errorf("configuration: %s or %s is invalid", staticTokenEnvironment, staticTokenAccountEnvironment)
+	if err := auth.ValidateServiceToken(config.staticToken, config.staticTokenUserID); err != nil {
+		return serverConfig{}, fmt.Errorf("configuration: %s or %s is invalid", staticTokenEnvironment, staticTokenUserEnvironment)
 	}
 	config.artifactPresignTTL, err = parseDurationEnvironment(getenv(artifactPresignTTLEnvironment), artifactPresignTTLEnvironment, defaultArtifactPresignTTL)
 	if err != nil {

@@ -57,7 +57,7 @@ func TestFrontendComposeFixture(t *testing.T) {
 		"https://"+environment["HARDEN_LLM_WEB_HOST"],
 		loginEmail,
 		loginPassword,
-		environment["HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID"],
+		environment["HARDEN_LLM_STATIC_TOKEN_USER_ID"],
 	)
 
 	files := []string{

@@ -184,7 +184,7 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 	}
 	identity, err := auth.NewService(auth.Config{
 		ControlPlane: controlPlane, ServiceToken: config.staticToken,
-		StaticAccountID: config.staticTokenAccountID,
+		StaticUserID: config.staticTokenUserID,
 	})
 	if err != nil {
 		return safeStartupError(redactor, "configure identity service", err)
