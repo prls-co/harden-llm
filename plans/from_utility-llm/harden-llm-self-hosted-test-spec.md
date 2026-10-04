@@ -5,9 +5,9 @@
 - Project name: `harden-llm`
 - Target repository: `/home/kirill/harden-llm`
 - Contract source repository: `/home/kirill/utility-llm`
-- Version: `1.3.5-langfuse-retirement`
+- Version: `1.4.0-clean-account-cutover`
 - Owners: package maintainers and self-hosted runtime implementers
-- Date: 2026-09-30
+- Date: 2026-10-04
 - Document ID: `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001`
 - Related stack specification: `plans/from_utility-llm/self-hosted-go-stack-spec.md`
 - Summary: This document is the canonical backend test catalog for building `harden-llm`. It defines one `TEST-###` namespace shared with the backend implementation plan. Tests guide the Go library, versioned REST/OpenAPI gateway, Harden-LLM Postgres records, Garage-backed trace artifacts and diagnostic attachments, provider endpoint security, OpenTelemetry/Grafana/Laminar diagnostics, and the Langfuse-free Docker Compose deployment. It contains no frontend, Phoenix, LiveView, React, browser-session, or asset tests. ADR-HLLM-029 retires Langfuse services, routes, credentials, images, and data stores; active tests must not provision them.
@@ -457,23 +457,19 @@ runtime contract or the meaning of `make verify`.
 - Pass criteria: all real-Garage round trips, restart persistence, expiry, isolation, ownership-boundary, and failure tables pass.
 - Expected runtime: 90 seconds.
 
-### TEST-022: auth, owner isolation, and transactional profile save
+### TEST-022: Current account auth, isolation and transactional profile save
 
-- Target: `internal/gateway/auth_profile_test.go`
-- Command: `go test ./internal/gateway/... -tags=integration -run TestAuthProfileContract -count=1`
-- Setup: two bootstrap users, isolated Postgres, fake safe provider endpoint, fixed session clock.
+- Targets: `internal/gateway/auth/service_test.go`, `internal/gateway/resource_routes_test.go` and real Postgres profile/storage integration tests.
+- Commands: `go test ./internal/gateway/auth -count=1`; `make test-integration`.
+- Setup: private Control Plane HTTP fixture, two accounts, two session identities sharing one account, explicit account-scoped service token, isolated Postgres and local provider fixture.
 - Assertions:
-  - Argon2id login returns one opaque bearer token once and stores only its SHA-256 digest with expiry and owner metadata.
-  - Protected routes require exactly one valid `Authorization: Bearer` credential.
-  - Logout, expiry, revocation, malformed schemes, duplicated authorization headers, and unknown tokens fail with one non-enumerating envelope.
-  - Login/session responses, logs, traces, and database rows do not disclose the token after initial login.
-  - The backend sets no session cookie and has no CSRF or CORS wildcard path.
-  - Users cannot read or mutate each other's profiles, history, traces, state, cache, or bundles.
-  - Profile probe runs before the short database commit and failed probe leaves prior state unchanged.
-  - Saving an edited profile without a replacement credential preserves its existing owner-bound credential binding and secret.
-  - Probe and model refresh use TEST-014 endpoint policy.
-- Pass criteria: auth/session/isolation and profile transaction tables pass.
-- Expected runtime: 60 seconds.
+  - Exactly one valid service bearer is required; malformed/duplicate auth, session references and unexpected cookies are rejected.
+  - Human requests resolve current Control Plane account/product access; revocation, denial and unavailable authority fail closed without a machine-account fallback.
+  - Two logins and the scoped token resolve the same account owner; other accounts remain isolated across profiles/history/traces/state/cache/bundles.
+  - HLLM stores no local credentials or human sessions. Phoenix sign-in/out and secure host-only cookies use the shared identity components.
+  - Profile probing precedes the short database commit; failed probes preserve prior state. Credential-free edits preserve owner-bound credentials. Probe/model refresh use TEST-014 endpoint policy.
+- Pass criteria: auth/account-isolation and profile transaction assertions pass.
+- Expected runtime: within the existing integration task envelope.
 
 ### TEST-023: gateway health, envelope, decoding, and limits
 
@@ -711,9 +707,9 @@ runtime contract or the meaning of `make verify`.
 
 - Target: `internal/smoke/live_gateway_test.go`
 - Command: `go test ./internal/smoke/... -tags=live -run TestLiveGatewayLifecycle -count=1`
-- Setup: running full stack, bootstrap test user, explicit provider credential.
+- Setup: running full stack, explicit account-scoped service token and provider credential.
 - Assertions:
-  - Login, profile save/probe, model refresh, run, trace retrieval, authenticated Garage artifact retrieval, bundle export, profile deletion, and test-data cleanup pass.
+  - Authenticated profile save/probe, model refresh, run, trace retrieval, authenticated Garage artifact retrieval, bundle export, profile deletion, and test-data cleanup pass.
   - The live trace ID appears in Tempo; Prometheus confirms the HLLM Laminar exporter span counter increased after the run; correlated metrics and logs appear in Grafana without secret leakage. No observability query credential is required.
 - Pass criteria: lifecycle completes and cleanup removes test application records.
 - Expected runtime: 360 seconds.
@@ -1391,9 +1387,9 @@ synthetic credentials, isolated stores, and a local scripted provider.
 - Type / verifies: perf; REQ-347, REQ-348, REQ-349.
 - Location: `cmd/harden-llm-gateway/capacity_test.go`.
 - Command: `node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline.json`.
-- Fixtures/data: Real command server assembly, REST/auth/client, disposable Postgres/Garage, local TLS scripted provider and export sink. Bootstrap the configured static-token owner in the fresh Postgres lease through the existing `bootstrap-user` command path before starting the gateway; do not bypass auth or insert a partial user. Keep provider/export dependencies alive until the gateway has completed shutdown. The existing separately-owned Compose smoke remains its own boundary; TEST-277 does not start another application stack.
+- Fixtures/data: Real command server assembly, REST/auth/client, disposable Postgres/Garage, local TLS scripted provider and export sink. Configure the explicit static-token account UUID in the fresh product-only Postgres lease before starting the gateway; no HLLM identity bootstrap exists. Keep provider/export dependencies alive until the gateway has completed shutdown. The existing separately-owned Compose smoke remains its own boundary; TEST-277 does not start another application stack.
 - Deterministic controls: Explicit `integration,capacity` tags; seed 104729; synthetic credentials; Section 6 bounds; no live/browser selector. Capacity runs are explicit-only through workflow dispatch and accept only `correctness`, `exploration`, or `holdout`.
-- Pass criteria: Static-token profile setup succeeds only for the bootstrapped owner; persisted history/artifacts agree with terminal outcomes; provider receive counts match runtime attempts; SSE terminal oracle holds; report is bounded and owned fixtures are cleaned; gateway telemetry flush completes before its local export sink stops.
+- Pass criteria: Static-token profile setup is scoped only to the configured account; persisted history/artifacts agree with terminal outcomes; provider receive counts match runtime attempts; SSE terminal oracle holds; report is bounded and owned fixtures are cleaned; gateway telemetry flush completes before its local export sink stops.
 - Expected runtime: Correctness up to 5 minutes; exploration up to 15 minutes; holdout up to 5 minutes, within the registered 40-minute task deadline.
 
 ### TEST-278: Comparable cost and decision reports

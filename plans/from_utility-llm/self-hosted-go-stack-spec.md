@@ -6,11 +6,11 @@
 - Target repository: `/home/kirill/harden-llm`
 - Go module: `github.com/prls-co/harden-llm`
 - Contract source repository: `/home/kirill/utility-llm`
-- Version: `1.3.1-recovery-boundary-amendment`
+- Version: `1.4.0-clean-account-cutover`
 - Owners: package maintainers and self-hosted runtime implementers
-- Date: 2026-09-15
+- Date: 2026-10-04
 - Document ID: `SPEC-HARDEN-LLM-SELF-HOSTED-GO-001`
-- Summary: This specification defines the self-hosted, free, Go backend for `harden-llm`: one importable root library and one versioned REST API gateway. Application records live in Harden-LLM Postgres, while Harden-LLM-owned trace artifacts and diagnostic attachments replace Firebase Storage in Garage. OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana, and Laminar provide current diagnostics. The retained Langfuse stack keeps its upstream default dependency graph, including its own Postgres, Redis, ClickHouse, and MinIO services; it is not a current HLLM trace-export destination. Harden-LLM neither substitutes Garage into Langfuse nor uses Langfuse's MinIO. This backend contains no browser UI, Phoenix, LiveView, React, or frontend asset pipeline. The separately specified Phoenix LiveView application consumes only the published REST/OpenAPI contract.
+- Summary: This specification defines the self-hosted, free, Go backend for `harden-llm`: one importable root library and one versioned REST API gateway. Application records live in Harden-LLM Postgres, while Harden-LLM-owned trace artifacts and diagnostic attachments replace Firebase Storage in Garage. OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana, and Laminar provide current diagnostics. Langfuse and its data stores are retired under ADR-HLLM-029. Control Plane owns human identity, sessions, memberships and product grants under ADR-HLLM-030; HLLM owns account-scoped product data only. This backend contains no browser UI, Phoenix, LiveView, React, or frontend asset pipeline. The separately specified Phoenix LiveView application consumes only the published REST/OpenAPI contract.
 
 ## 2. Canonical stack
 
@@ -21,20 +21,15 @@
 | REST gateway | `cmd/harden-llm-gateway` | Thin HTTP application over the root library for Phoenix LiveView and other non-Go clients. |
 | HTTP routing | Go `net/http` with `chi` | API routes, auth, request decoding, limits, and middleware. |
 | REST contract | OpenAPI 3.1 in `api/openapi.yaml` | Canonical machine-readable paths, schemas, bearer authentication, envelopes, errors, and examples for every non-health endpoint. |
-| Shared public edge | `prls-co/caddy-shared` | TLS, security headers, request-body limits, and reverse proxy for the API, Grafana, Langfuse, and Harden-LLM artifact hostnames. It is deployed independently; HLLM only joins its approved external origin network. |
-| Application database | Postgres | Users, sessions, profiles, encrypted credentials, client state, runs, domain trace records, observations, cache records, stats, and migrations. |
-| Application object storage | Garage | Private Harden-LLM JSON trace artifacts and diagnostic attachments migrated from Firebase Storage. Garage is not a Langfuse dependency. |
-| Langfuse relational database | Upstream default dedicated Postgres service | Langfuse transactional state, credentials, migrations, and lifecycle remain owned by the upstream Langfuse Compose topology. |
-| Langfuse analytics | ClickHouse | Langfuse traces, observations, scores, and analytical queries. |
-| Langfuse queue/cache | Redis | Upstream default Langfuse queue and cache dependency. |
-| Langfuse object storage | MinIO | Upstream default Langfuse event and media blob storage. Harden-LLM application code and credentials never use it. |
+| Shared public edge | `prls-co/caddy-shared` | TLS, security headers, request-body limits, and reverse proxy for the frontend, API, Grafana, and Harden-LLM artifact hostnames. It is deployed independently; HLLM only joins its approved external origin network. |
+| Application database | Postgres | Account-owned profiles, encrypted provider credentials, client state, runs, domain trace records, observations, cache records, stats, and migrations. |
+| Application object storage | Garage | Private Harden-LLM JSON trace artifacts and diagnostic attachments migrated from Firebase Storage. The shared Garage owner manages the daemon; HLLM uses its dedicated bucket. |
 | Telemetry pipeline | OpenTelemetry Collector Contrib | Receive OTLP traces, metrics, and logs; redact/process/batch signals; and export them to the canonical backends. |
 | Metrics | Prometheus | Scrape Collector and service metrics for operational dashboards and alerts. |
 | Logs | Loki | Store structured `slog` JSON records with trace/span correlation. |
 | Traces | Tempo | Store operational distributed traces. |
 | Dashboards | Grafana | Explore and correlate Prometheus metrics, Loki logs, and Tempo traces. |
 | Current LLM diagnostics | Laminar | Current gateway trace ingestion and LLM-specific run inspection. |
-| Retained diagnostics history | Langfuse OSS | Existing Langfuse history and UI remain available while consumers and retention are reviewed; the HLLM Collector no longer exports new traces there. |
 | Background workflows | None in v1 | Provider retries stay in the library. Temporal is not installed for v1. |
 
 ## 3. Design decisions
@@ -46,16 +41,15 @@
 | Expose one root Go package | DECISION | A small root API prevents every internal provider, retry, schema, and telemetry package from becoming a permanent public contract. |
 | Return one detailed result type | DECISION | `Client.Call` returns output plus normalized usage, cost, cache, attempt, and trace metadata. There is no simple/detailed mode split and no expanded-result option. JS direct output parity is asserted against `Result.Output`. |
 | Keep the gateway thin | DECISION | HTTP handlers own transport, auth, authorization, and persistence orchestration. They call the root library and do not construct provider payloads or reimplement retries, schema behavior, pricing, cache identity, or redaction. |
-| Use Postgres for application records | DECISION | Concurrent profile, session, trace, artifact-index, history, stats, and cache writes require transactions, indexes, JSONB, and migrations. SQLite is not an application database in v1. Garage may use its upstream-supported SQLite metadata engine internally without creating a Harden-LLM application persistence contract. |
+| Use Postgres for application records | DECISION | Concurrent profile, trace, artifact-index, history, stats, and cache writes require transactions, indexes, JSONB, and migrations. SQLite is not an application database in v1. Garage may use its upstream-supported SQLite metadata engine internally without creating a Harden-LLM application persistence contract. |
 | Seed the current profile catalog on first use | DECISION | Embed the credential-free 28-profile utility-llm catalog and insert missing entries under an owner advisory lock; preserve any existing/custom row and never seed credentials. |
-| Keep the upstream Langfuse dependency graph | DECISION | The first release runs the pinned official Langfuse Compose topology instead of replacing or tuning its owned dependencies. Langfuse retains its own Postgres, Redis, ClickHouse, and MinIO services. Dependency migration is accepted only after upstream Langfuse makes and supports that migration. |
-| Use Garage only for Harden-LLM artifacts | DECISION | Firebase Storage currently owns linked JSON traces and diagnostic attachments. Garage replaces that application-owned surface. MinIO remains opaque to Harden-LLM and is used only by Langfuse. |
+| Use Garage only for Harden-LLM artifacts | DECISION | Firebase Storage currently owns linked JSON traces and diagnostic attachments. Garage replaces that application-owned surface. HLLM uses no MinIO service. |
 | Use one OTel export path | DECISION | The application emits OTel once to the Collector. The Collector exports operational traces to Tempo and HLLM gateway traces to Laminar over OTLP. The library and gateway do not contain a direct trace exporter. |
 | Use `slog` JSON as the logging API | DECISION | OTel Go logs remain less mature than traces and metrics. Application code logs once through `slog`; one composed handler writes JSON to stdout and mirrors the same record through a pinned OTel slog bridge to the Collector. |
-| Keep Postgres domain traces distinct from OTel traces | DECISION | Postgres stores the redacted domain record needed by REST clients. Tempo stores operational spans. Laminar receives current HLLM gateway traces; retained Langfuse history remains separate. Their ownership and schemas do not overlap. |
+| Keep Postgres domain traces distinct from OTel traces | DECISION | Postgres stores the redacted domain record needed by REST clients. Tempo stores operational spans. Laminar receives current HLLM gateway traces; retired Langfuse data is not retained. Their ownership and schemas do not overlap. |
 | Publish one frontend-independent REST contract | DECISION | `api/openapi.yaml` and conformance tests are the only backend/frontend contract. The backend does not render HTML, own LiveView state, or import frontend code. |
 | Consume the shared Caddy owner | DECISION | One separately deployed edge serves multiple applications. HLLM owns neither its routes nor listener/state lifecycle, so HLLM deployment and cleanup cannot remove the shared ingress process. |
-| Use local bearer auth | DECISION | The gateway owns bootstrap-created email/password users, Argon2id hashes, and opaque hashed server-side sessions. Login returns the opaque token once for `Authorization: Bearer`; the backend does not issue browser cookies or implement browser CSRF. |
+| Use Control Plane identity and account ownership | DECISION | Control Plane owns credentials, sessions, membership and product access. The gateway resolves a human session reference on every request; its explicit machine token scope can use the same account UUID. HLLM has no local users, password authority or human sessions. |
 | Enforce outbound endpoint safety | DECISION | Profiles can contain provider base URLs. The gateway must prevent SSRF, metadata-service access, unsafe redirects, DNS rebinding, and credential forwarding to unintended hosts. |
 | Do not add request idempotency infrastructure in v1 | DECISION | The initial gateway executes synchronous calls without a distributed idempotency ledger or run queue. The API documents that clients must not automatically retry an ambiguous `/api/v1/run` response. |
 | Do not add scheduled retention or backup automation in v1 | DECISION | Retention schedulers, backup orchestration, restore drills, and Temporal workflows are deferred. The v1 schema includes timestamps needed for future policies. |
@@ -67,9 +61,9 @@
 - Port current provider routing, retries, schema validation/repair, cache identity, usage, pricing, profiles, traces, stats, diagnostics, and redaction behavior into Go.
 - Produce one importable root Go package and one REST gateway.
 - Publish and enforce an OpenAPI 3.1 contract for every REST route, envelope, authentication requirement, and error shape.
-- Replace Firebase Auth, Firestore, Functions, and Storage backend responsibilities with local bearer auth, Harden-LLM Postgres, Garage, and Go HTTP handlers.
+- Replace Firebase Auth, Firestore, Functions, and Storage backend responsibilities with Control Plane identity, Harden-LLM Postgres, Garage, and Go HTTP handlers.
 - Store redacted linked JSON trace artifacts and diagnostic attachments in a private Garage bucket and their owner-scoped indexes in Harden-LLM Postgres.
-- Run the pinned upstream Langfuse OSS Compose topology with its own Postgres, Redis, ClickHouse, and MinIO services without dependency substitution.
+- Use the current product-only schema; discard incompatible legacy HLLM data at the authorized clean cut.
 - Emit OTel traces and metrics and correlated `slog` JSON logs.
 - Fan out HLLM gateway OTel traces from the Collector to Tempo and Laminar.
 - Provide one Docker Compose topology for a Linux host or VM.
@@ -79,8 +73,7 @@
 
 - Firebase runtime or deployment compatibility in `harden-llm`.
 - An application SQLite database, Sentry, Temporal, Kubernetes, Nomad, or managed cloud variants.
-- Replacing, patching, or locally migrating any Langfuse-owned Postgres, Redis, ClickHouse, or MinIO dependency.
-- A second Langfuse exporter in Go code.
+- Retired Langfuse services, exporter, storage, credentials or compatibility paths.
 - A generic pass-through LLM proxy that bypasses the library contracts.
 - Distributed request idempotency, asynchronous run queues, and global scheduling.
 - Automated retention, backup, restore, or disaster-recovery workflows.
@@ -265,7 +258,7 @@ Contract requirements:
 - `maxAttempts` bounds all execution slots/model invocations on one immutable selected target. Initial, retry and repair attempts share the caller context; no backup/escalation or retry-original execution path exists.
 - Strict structured parsing preserves JSON values and validates the original schema for initial and repair responses, without coercion, heuristic salvage or a repair envelope.
 - Explicit false/zero/empty controls survive; only listed transient categories repeat. Valid 429/503 Retry-After is a minimum over capped calculated backoff and cannot escape the caller deadline.
-- Profile/state/bundle documents use v2; current run/history/trace results share v3. The standard migration preserves original requests, output, target snapshots, accounting, ownership and credentials while removing retired controls/attempt metadata. No runtime old-format converter exists.
+- Profile/state/bundle documents use v3; current run/history/trace results share v4. There is no runtime old-format converter or legacy-data migration path.
 - Provider payloads, errors, and diagnostic data pass through the shared redactor before persistence or emission.
 - `ArtifactStore` is optional for direct library callers. When configured, the library writes canonical redacted JSON trace artifacts and diagnostic attachments and returns immutable references; an artifact-store failure is recorded diagnostically but does not change an otherwise successful provider result.
 - The self-hosted gateway supplies the one Garage-backed `ArtifactStore`. The library has no MinIO or Langfuse storage configuration.
@@ -280,9 +273,6 @@ All application routes are versioned under `/api/v1`.
 | --- | --- | --- |
 | `GET` | `/healthz` | Process liveness without downstream dependencies. |
 | `GET` | `/readyz` | Postgres migration state and Garage artifact-bucket connectivity readiness. |
-| `POST` | `/api/v1/auth/login` | Verify local credentials and return a new opaque bearer session token once. |
-| `POST` | `/api/v1/auth/logout` | Revoke the active session. |
-| `GET` | `/api/v1/auth/session` | Return redacted current-user/session state. |
 | `GET` | `/api/v1/state` | Return owner-scoped client preference and prompt-draft state. |
 | `POST` | `/api/v1/state` | Persist validated client-owned state fields. |
 | `GET` | `/api/v1/history` | Return owner-scoped paginated run history. |
@@ -323,15 +313,17 @@ Errors use:
 
 Authentication contract:
 
-- `POST /api/v1/auth/login` is the only unauthenticated non-health operation. A successful response returns the opaque session token once as `result.accessToken`, plus its expiry and redacted user/session data.
-- The gateway stores only a SHA-256 token digest with owner, creation, expiry, and revocation metadata.
-- Every other `/api/v1` operation requires `Authorization: Bearer <opaque-token>`.
-- Tokens never appear in URLs, response state after login, logs, traces, metrics, diagnostics, or error messages.
-- Logout revokes the current token. Expired, revoked, malformed, duplicated-header, or unknown tokens return the same stable unauthenticated envelope.
-- The REST API does not issue browser cookies and does not implement CSRF. Browser session and CSRF controls belong to the separately specified Phoenix frontend, which calls the REST API server to server.
-- CORS is disabled by default. A future direct-browser client requires an explicit origin allowlist and ADR; wildcard origins are forbidden.
-- The gateway's default and contract maximum synchronous `/api/v1/run` duration is 60 seconds, preserving the source default. Deployment may lower the cap, and a request or saved profile may select a shorter duration, but neither may exceed 60 seconds.
-- When that deadline expires, the gateway cancels the root call and returns the documented `run_timeout` error with HTTP 504. The gateway never retries an ambiguous run request.
+- Every `/api/v1` request requires exactly one valid service bearer credential.
+- Human requests also carry `X-PRLS-Session-Reference`. The shared Control Plane
+  client resolves the current selected account and `harden-llm` grant on every
+  request. Denial, revocation and an unavailable authority fail closed.
+- Without a human reference, direct token access requires an explicit
+  `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID`. This can be the same data account used
+  by multiple human logins. A denied human request never falls back to it.
+- Tokens and session references never appear in URLs, logs, traces or errors.
+- HLLM stores no human passwords, membership records or local human sessions.
+  The backend rejects cookies; Phoenix owns its encrypted host-only cookie and
+  CSRF protection, and proxies sign-in/sign-out to Control Plane.
 
 Gateway responsibilities:
 
@@ -375,20 +367,19 @@ The same endpoint-security implementation is used by profile probes, model refre
 
 Production public ingress is owned by `prls-co/caddy-shared`, outside this repository and Compose project. HLLM exposes no host ports and does not own Caddy routes, TLS state, listeners, or route source files. Shared route policy and public behavior are tested in the shared owner repository.
 
-HLLM application configuration supplies its API, Grafana, and Langfuse hostnames for generated links and upstream URLs. The shared ingress owner configures matching public routes independently. The artifact hostname is the origin in `HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT`; HLLM does not define a separate `HARDEN_LLM_ARTIFACT_HOST` setting. Shared routes are:
+HLLM application configuration supplies its frontend, API and Grafana hostnames for generated links and upstream URLs. The shared ingress owner configures matching public routes independently. The artifact hostname is the origin in `HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT`; HLLM does not define a separate `HARDEN_LLM_ARTIFACT_HOST` setting. Shared routes are:
 
 - API hostname: `/api/v1`, `/healthz`, and `/readyz` to the gateway.
 - Grafana hostname: Grafana UI.
-- Langfuse hostname: Langfuse UI and internal browser-facing API.
 - Artifact hostname: short-lived presigned Garage artifact reads; Garage administration endpoints are not routed.
 
 Harden-LLM requirements at this boundary:
 
-- The gateway, Grafana, Langfuse, and artifact services join only the approved shared private network needed by the shared ingress routes.
+- The gateway, frontend, Grafana and artifact services join only the approved shared private network needed by the shared ingress routes.
 - No HLLM production service publishes a host port.
 - The gateway creates short-lived presigned artifact URLs using `HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT`; this origin must match the shared owner's artifact route.
 - Garage administration/RPC endpoints remain unrouted; only the S3 artifact endpoint is reachable through the shared route. The authenticated gateway remains the authorization boundary for presigned reads.
-- Harden-LLM artifacts never route to MinIO. Langfuse's MinIO service and S3 configuration remain owned by the pinned upstream Langfuse Compose fragment.
+- Harden-LLM artifacts use only the dedicated Garage bucket. Shared Garage administration remains outside the product.
 - Route TLS, body limits, headers, forwarded-client handling, and WebSocket behavior are owned and tested by `caddy-shared`, not duplicated here.
 
 ## 10. Postgres application data contract
@@ -397,11 +388,9 @@ The `harden_llm` database is the source of truth for application state.
 
 | Table | Purpose |
 | --- | --- |
-| `users` | Local identities and Argon2id password metadata. |
-| `user_sessions` | Hashed opaque session tokens, expiry, and revocation. |
 | `llm_profiles` | Redacted profile configuration, backup references, and credential-free preset rows inserted by catalog backfill. |
 | `llm_endpoint_credentials` | Versioned AES-GCM credential ciphertext and metadata. |
-| `llm_client_state` | Per-user client preferences and prompt drafts exposed by `/api/v1/state`. |
+| `llm_client_state` | Per-account client preferences and prompt drafts exposed by `/api/v1/state`. |
 | `llm_runs` | Run history and result summary. |
 | `llm_traces` | Redacted domain trace and normalized call metadata. |
 | `llm_trace_observations` | Domain observations for cache, attempt, retry, and persistence events. |
@@ -413,8 +402,9 @@ The `harden_llm` database is the source of truth for application state.
 
 Rules:
 
-- Harden-LLM migrations and credentials apply only to the application Postgres service. Langfuse runs its own upstream Postgres service and migration lifecycle.
-- Owner ID is mandatory on every user-owned application row.
+- Harden-LLM migrations and credentials apply only to its dedicated product database. Control Plane owns a separate identity database.
+- The fresh baseline is migration 11. Retired ledgers 1–10 are rejected; cutover resets old HLLM data rather than converting owners. Normal transactional/advisory-lock migration and exact readiness checks remain.
+- Owner ID is mandatory on every account-owned application row.
 - Credential ciphertext is separate from profile JSON.
 - JSONB payloads are normalized and redacted before persistence.
 - `llm_runs` is the execution aggregate root. New execution facts are stored
@@ -483,7 +473,7 @@ Rules:
 | Operational traces | Tempo | HTTP, database, provider, retry, cache, and shutdown diagnostics. |
 | Structured logs | Loki | Correlated events and failure context. |
 | Operational metrics | Prometheus | Rates, latency, errors, saturation, and alert inputs. |
-| LLM diagnostic view | Langfuse | Sessions, generations, prompts, usage, cost, scores, and human investigation. |
+| LLM diagnostic view | Laminar | Current HLLM gateway traces through the dedicated Collector exporter. |
 
 ### Application instrumentation
 
@@ -493,18 +483,17 @@ Rules:
 - One `slog` call produces a JSON stdout record and one OTel log record through a composed handler. Both carry the same trace/span correlation and safe fields.
 - The OTel slog bridge is pinned and isolated behind gateway logging setup so its beta API is not part of the public library contract.
 - Prompt and response content is excluded from Tempo, Loki, and Prometheus by default.
-- Redacted prompt/response projections may be attached to Langfuse generation spans because Langfuse is the designated LLM diagnostic store.
+- Redacted prompt/response projections may be attached to HLLM spans sent to the dedicated Laminar project.
 
 ### Collector pipelines
 
-- OTLP gRPC/HTTP receivers accept application traces and metrics.
 - OTLP gRPC/HTTP receivers accept application traces, metrics, and mirrored `slog` log records.
 - All operational traces export to Tempo.
-- Complete traces with `service.name=harden-llm-gateway` export to Langfuse over OTLP/HTTP. The filter must preserve the root span and all children for those traces.
-- Metrics export through a Prometheus scrape endpoint.
+- Complete traces with `service.name=harden-llm-gateway` export to Laminar over OTLP. The filter must preserve the root span and all children for those traces.
+- Metrics export to Prometheus.
 - Logs export to Loki through its native OTLP HTTP endpoint.
 - Memory limiting, batching, bounded queues, retry limits, and redaction processors are configured in the Collector.
-- Collector, Tempo, Loki, Prometheus, Grafana, or Langfuse failures never change a provider call result.
+- Collector, Tempo, Loki, Prometheus, Grafana, or Laminar failures never change a provider call result.
 - The gateway records exporter/flush failures to stderr and performs bounded OTel shutdown on process termination.
 
 ### Required dashboards
@@ -522,14 +511,14 @@ Rules:
 
 - Public traffic reaches the shared Caddy owner over HTTPS.
 - Internal service ports have no host bindings by default.
-- Passwords use fixed documented Argon2id parameters.
-- Session values are opaque random bearer tokens returned only at login; only SHA-256 token digests are stored.
+- Human credentials and sessions are owned exclusively by Control Plane.
+- Human requests resolve current access, while the machine token is explicitly account-scoped.
 - Protected routes reject missing, malformed, expired, revoked, unknown, or ambiguous bearer credentials with one non-enumerating response shape.
 - The backend sets no browser session cookie and has no CSRF bypass or CORS wildcard. Browser protections belong to the Phoenix frontend.
 - Provider credentials use AES-256-GCM with a random nonce, key identifier, and AAD containing owner ID, credential ID, and normalized endpoint origin.
 - The active encryption key is supplied by a mounted secret or environment variable and never stored in Postgres.
-- Logs, OTel signals, Langfuse spans, diagnostics bundles, API responses, and test evidence use the same internal redaction package.
-- Garage and MinIO use separate buckets, credentials, endpoints, and owners. Harden-LLM receives no Langfuse MinIO credentials, and Langfuse receives no Garage credentials.
+- Logs, OTel signals, Laminar spans, diagnostics bundles, API responses, and test evidence use the same internal redaction package.
+- HLLM receives only its dedicated Garage bucket credentials; shared Garage administration and other products' buckets are outside the application.
 - Provider endpoint safety follows Section 8.
 - Request sizes are bounded for prompts, schemas, provider options, headers, state, and bundle imports.
 - Diagnostic UIs retain their own authentication and are reached through the separately owned shared ingress.
@@ -537,62 +526,31 @@ Rules:
 ## 13. Deployment topology
 
 ```text
-internet
-  |
-  v
-caddy-shared (separate repository and Compose project)
-  |-- api host      -> harden-llm-gateway:8080
-  |-- grafana host  -> grafana:3000
-  |-- langfuse host -> langfuse-web:3000
-  `-- artifact host -> garage-shared:3900 S3 API only
-       `-- shared external network: `prls-observability`
+internet -> caddy-shared (separate owner)
+  |-- frontend host -> harden-llm-web:4000 -> private Control Plane
+  |-- API host -> harden-llm-gateway:8080 -> private Control Plane
+  |-- Grafana host -> grafana:3000
+  `-- artifact host -> garage-shared:3900 (S3 only)
 
-harden-llm-gateway
-  |-- harden-postgres:5432 / harden_llm database
-  |-- garage-shared:3900 / private harden-llm-artifacts bucket
-  `-- otel-collector:4317
-
-otel-collector
-  |-- tempo:4317
-  |-- loki:3100/otlp
-  |-- prometheus scrape endpoint
-  `-- langfuse-web OTLP/HTTP endpoint
-
-grafana
-  |-- prometheus
-  |-- loki
-  `-- tempo
-
-langfuse-web + langfuse-worker
-  |-- postgres:5432 / upstream Langfuse database
-  |-- clickhouse
-  |-- redis
-  `-- minio
+gateway -> dedicated harden-postgres, HLLM Garage bucket, otel-collector
+collector -> Tempo, Loki, Prometheus, dedicated Laminar project
+grafana -> Prometheus, Loki, Tempo
 ```
 
-The pinned `deploy/langfuse/docker-compose.upstream.yml` is copied byte-for-byte from one released Langfuse revision. `deploy/langfuse/UPSTREAM.md` records the release, commit, source URL, and SHA-256. `compose.private.yml` may set generated secrets, attach the shared private network, remove direct public port exposure, and set the public Langfuse URL; it cannot replace, reconfigure, or share Langfuse-owned Postgres, Redis, ClickHouse, or MinIO dependencies. A future upstream Langfuse release may migrate those dependencies; Harden-LLM adopts that migration only by updating the pinned upstream fragment and rerunning the full smoke.
+The backend has seven long-running HLLM services: gateway, Postgres, Collector,
+Prometheus, Loki, Tempo and Grafana, plus the one-shot Collector state initializer.
+The separately specified Phoenix overlay adds the web service. Shared Caddy,
+Garage, Control Plane and Laminar remain outside this Compose project's ownership.
+Only the shared edge publishes public ingress; HLLM has no host port bindings.
 
-Required Compose services:
+The smoke overlay adds isolated Caddy, Garage, fake-provider and Laminar sink
+fixtures. These test-only services never use production data or real providers.
 
-The production Compose topology contains thirteen HLLM-owned services: seven gateway/observability services and the six services in the pinned upstream Langfuse fragment. The runtime also consumes two separately owned shared services: `garage-shared` for application artifacts and `caddy-shared` for public ingress. Both connect through the external `prls-observability` network; neither is declared by HLLM Compose.
-
-- `harden-llm-gateway`
-- `harden-postgres`
-- `otel-collector`
-- `prometheus`
-- `loki`
-- `tempo`
-- `grafana`
-- `langfuse-web`
-- `langfuse-worker`
-- `postgres`
-- `clickhouse`
-- `redis`
-- `minio`
-
-`deploy/test/compose.smoke.yml` adds a project-owned Garage fixture and one private `fake-provider` service only for TEST-034. The Garage fixture uses the production DNS name `garage-shared` on a unique non-external smoke network. Neither service is included in the production Compose file or publishes a host port; the fake provider is the sole private endpoint entry in the smoke gateway allowlist.
-
-Harden-LLM production named volumes are required for Harden-LLM Postgres, Prometheus, Loki, Tempo, Grafana, and every volume in the pinned upstream Langfuse Compose fragment. The separate `caddy-shared` project owns Caddy state; the separate `garage-shared` project owns Garage metadata/data volumes. Harden-LLM-owned images use explicit release tags or digests and never `latest`. The upstream Langfuse fragment is pinned by release commit and content hash; its dependency image selections are preserved rather than locally substituted.
+Product and observability named volumes persist within their existing owners.
+The retired frontend bearer-vault volume is removed at clean cutover. Immutable
+application tags and image IDs, approved private environment files and the
+production descriptor define the deployed configuration. The durable production
+checkout supplies every HLLM configuration mount; no cache-worktree mount remains.
 
 Fresh v1 Garage fixtures use the pinned `dxflrs/garage:v2.3.0` image and Garage's supported `/garage server --single-node --default-bucket` startup path. Compose maps the existing Harden-LLM artifact key, secret, and bucket values to `GARAGE_DEFAULT_ACCESS_KEY`, `GARAGE_DEFAULT_SECRET_KEY`, and `GARAGE_DEFAULT_BUCKET`; the gateway receives the same bucket-scoped values under the `HARDEN_LLM_ARTIFACT_*` names. Metadata and object data use persistent named volumes. No custom layout script, bootstrap container, or application-held Garage administration credential is required for v1.
 
@@ -606,7 +564,7 @@ Reference host for the full stack:
 - 8 vCPU.
 - 24 GiB RAM.
 - At least 100 GiB persistent disk for initial use.
-- Compose readiness budget: 300 seconds, based on Langfuse's documented two-to-three-minute startup plus health-check margin.
+- Compose readiness budget: the existing 300-second service-health cap; timeout changes require the repository RCA policy.
 
 ## 14. Configuration contract
 
@@ -616,7 +574,6 @@ Application variables:
 | --- | --- |
 | `HARDEN_LLM_API_HOST` | Public REST API hostname. |
 | `HARDEN_LLM_GRAFANA_HOST` | Public Grafana hostname. |
-| `HARDEN_LLM_LANGFUSE_HOST` | Public Langfuse hostname. |
 | `HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT` | Public HTTPS origin used by short-lived Garage presigned artifact URLs; it must match the artifact route configured in `caddy-shared`. |
 | `HARDEN_LLM_ARTIFACT_ENDPOINT` | Private Garage S3 endpoint used by the gateway. |
 
@@ -631,13 +588,21 @@ Application variables:
 | `HARDEN_LLM_SERVICE_NAME` | OTel service name; default `harden-llm-gateway`. |
 | `HARDEN_LLM_ENVIRONMENT` | Deployment environment. |
 | `HARDEN_LLM_RELEASE` | Release identifier. |
-| `HARDEN_LLM_SESSION_TTL` | Session lifetime. |
 | `JINA_API_KEY` | Optional protected Jina Search credential for requested web-search fallback calls. Cache hits do not call Jina. |
 | `HARDEN_LLM_MAX_RUN_DURATION_MS` | Effective synchronous `/api/v1/run` cap in milliseconds; default `60000`, required range `1..60000`. Requests may lower but not raise it. |
 | `HARDEN_LLM_PROVIDER_ALLOWED_HOSTS` | Optional restriction for public provider hosts. |
 | `HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST` | Exact private hosts/CIDRs allowed by the administrator. |
 
-Deployment configuration also supplies separate generated secrets for the application DB role, Garage RPC/admin/bucket access, Langfuse upstream Postgres, Langfuse auth/encryption, ClickHouse, Redis, MinIO, and Grafana. Public route hostnames and TLS configuration belong to `caddy-shared`. Langfuse headless initialization uses its supported environment variables to create one initial user, organization, project, public key, and secret key. Those project keys stay within Langfuse administration; the HLLM Collector receives no Langfuse credentials. `.env.example` contains names and safe examples only. Production startup rejects documented default secret values without changing the Langfuse-owned service graph.
+Control Plane integration uses `HARDEN_LLM_CONTROL_PLANE_URL` and the protected
+`HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN`. `HARDEN_LLM_STATIC_TOKEN` is the service
+bearer; `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID` enables direct token access as one
+account, and `HARDEN_LLM_PROFILE_ACCOUNT_IDS` names explicit profile-provisioning
+accounts. Production binds both to one company account UUID.
+
+Deployment configuration supplies independent HLLM database, encryption, bucket,
+Phoenix and Grafana secrets. Shared Garage administration, Laminar and ingress
+remain owned by their repositories. `.env.example` contains safe names/examples;
+private production credentials are never committed.
 
 ## 15. Temporal boundary
 
@@ -672,8 +637,8 @@ Minimum v1 verification:
 - Static backend scans proving there is no Firebase, React/Vite, Phoenix/LiveView, HTML-template, or frontend-asset implementation path.
 - OTel trace/metric, `slog` correlation, Collector fanout, telemetry-outage, and bounded-shutdown tests.
 - Garage integration tests for canonical redacted bytes, object metadata, short-lived presigning, owner-scoped Postgres references, and non-fatal storage failure behavior.
-- Compose artifact and smoke tests for the thirteen production-owned HLLM services, shared Caddy and Garage contracts, isolated Caddy/Garage test fixtures, and strict MinIO/Langfuse versus Garage/Harden-LLM client ownership boundary.
-- Static scans for duplicate implementation paths, direct Langfuse exporters, Firebase, application SQLite, Sentry, Temporal, application MinIO use, and Langfuse Garage substitution.
+- Compose artifact/smoke tests for the current HLLM backend, shared-owner boundaries and isolated Caddy/Garage/Laminar-sink fixtures.
+- Static scans for duplicate implementation paths, direct Langfuse exporters, Firebase, application SQLite, Sentry, Temporal, application MinIO use, and retired Langfuse deployment surfaces.
 - `go test -race` for deterministic unit and Postgres/gateway integration suites.
 - `go vet`, formatting, build, and vulnerability checks.
 - Optional live provider smoke only with explicit local credentials.
@@ -689,16 +654,13 @@ Minimum v1 verification:
 - Shared public ingress: `prls-co/caddy-shared`.
 - General diagnostics: OTel Collector, Prometheus, Loki, Tempo, and Grafana.
 - Current LLM diagnostics: Laminar receives HLLM gateway traces through the Collector.
-- Retained Langfuse OSS: its UI, dependencies, and existing history remain intact pending consumer and retention review; it receives no new HLLM traces. HLLM issue [#83](https://github.com/prls-co/harden-llm/issues/83) owns the remaining reader, retention, route, and lifecycle decision; this source contract does not prove current runtime state or absence of UI/API readers.
-- Langfuse dependencies: the pinned upstream default services, including its own Postgres, Redis, ClickHouse, and MinIO. Harden-LLM does not substitute, share, or migrate them.
-- Langfuse bootstrap: headless initial user/organization/project/API keys for retained Langfuse service use; no HLLM Collector export credentials are provisioned.
 - Laminar export: Collector OTLP exporter only, through the dedicated HLLM project and persistent queue.
 - Logging: `slog` JSON collected by OTel Collector Contrib and stored in Loki.
-- Auth: bootstrap-created local users with opaque bearer sessions; only token digests are persisted.
+- Auth: Control Plane owns human identity and access. Multiple logins and the explicit API token share one production data account; HLLM has no local human identity database.
 - Frontend boundary: OpenAPI 3.1 REST only. Phoenix LiveView is specified separately and is not part of the backend plan or Compose service count.
 - Provider endpoint policy: public HTTPS by default; private access only by exact administrator allowlist.
 - Firebase: absent from the target repository and deployment.
-- Temporal, application SQLite, Sentry, request idempotency infrastructure, scheduled retention, backup automation, multi-node Garage, and local Langfuse dependency migration: out of v1 scope.
+- Temporal, application SQLite, Sentry, request idempotency infrastructure, scheduled retention, backup automation, multi-node Garage, and legacy data conversion: out of v1 scope.
 
 ## 19. References
 
@@ -706,10 +668,6 @@ Minimum v1 verification:
 - OpenTelemetry Go: https://opentelemetry.io/docs/languages/go/
 - OpenTelemetry Collector: https://opentelemetry.io/docs/collector/
 - OpenTelemetry GenAI conventions: https://opentelemetry.io/docs/specs/semconv/gen-ai/
-- Langfuse self-hosting: https://langfuse.com/self-hosting
-- Langfuse infrastructure requirements: https://langfuse.com/self-hosting/configuration/scaling
-- Langfuse OpenTelemetry integration: https://langfuse.com/integrations/native/opentelemetry
-- Langfuse upstream Compose: https://github.com/langfuse/langfuse/blob/main/docker-compose.yml
 - Garage documentation: https://garagehq.deuxfleurs.fr/documentation/
 - Grafana Loki: https://grafana.com/docs/loki/latest/
 - Grafana Tempo: https://grafana.com/docs/tempo/latest/

@@ -2336,3 +2336,33 @@ be lost if that store is lost; the owner accepts this. Browser layout and real
 provider behavior were not exercised. `jsonRepair` remains in application
 code, but deployment did not make a real provider call to exercise generated
 repair behavior. Routine monitoring is the remaining operational follow-up.
+
+## Clean Control Plane account cutover — production (2026-10-04)
+
+Production now uses one company-account dataset, multiple Control Plane logins
+and an API token scoped to that same account. The user explicitly accepted a
+stop/reset/start outage and deletion of incompatible HLLM product data. Legacy
+owner rehome, local login/session tables and migrations 1–10 are removed.
+The current schema baseline (11) reproduces the previous final product schema
+exactly, including constraints/indexes, and rejects retired migration ledgers.
+
+| Gate or runtime evidence | Result |
+| --- | --- |
+| Application source | GitHub `main`, `b6dd422c88dc825e4cf39d0f9407365f6c6afa1a`. Later documentation closeout does not require application rebuilds. |
+| Fast certification | Local `make test-fast`: 10/10 passed after installing pinned dependencies in the fresh worktree. [Exact-main hosted fast run 37186802612](https://github.com/prls-co/harden-llm/actions/runs/37186802612) passed. |
+| Release certification | Local browser-free `make test-release`: 29/29 passed, including real Postgres/Garage integration, integration race, Compose, aggregate `make verify` and vulnerability checks; zero cleanup errors/warnings. |
+| Trace correlation defect | Cheap regression first failed, then passed. The shared normalizer restores every leading zero removed by [Tempo's trace-ID serializer](https://github.com/grafana/tempo/blob/v2.10.5/pkg/util/traceid.go), preserving the same trace identity. The Compose correlation oracle passed unchanged. |
+| Gateway image | `harden-llm-gateway:release-b6dd422c88dc825e4cf39d0f9407365f6c6afa1a`, `sha256:1bc0a52ebfb7b3bcadd958853503f5a3d2bc7c10d7537fa6e0e438a56fac4374`. OCI version/revision both match source. |
+| Web image | `harden-llm-web:release-b6dd422c88dc825e4cf39d0f9407365f6c6afa1a`, `sha256:9ca237949b3dc5a07c848bb9efea746754c885f040bf60062559f82cb2ad8415`. OCI version/revision both match source. |
+| Deployment configuration | Existing scoped `production-config.mjs apply` converged. Full eight-service check and exact-source application check both report equivalent. All HLLM configuration bind mounts now use `/home/kirill/p/harden-llm-production`; support image identities are preserved. Private environment/descriptor files remain mode 0600. |
+| Authorized data reset | Dedicated `harden_llm` database recreated; database role password rotated with canonical consuming configuration. All 19 objects in `harden-llm-artifacts` deleted; retired frontend bearer-vault volume removed. Shared Garage/Control Plane/Laminar and other products' data were not cleared. |
+| Account provisioning | Existing `PRLS verification` account granted HLLM; existing administrator added as member. Other product grants preserved. Trusted HLLM origin added without a Control Plane image/code upgrade. Existing administrator/member credentials work unchanged. |
+| Fresh database | Migration ledger `[11]`; zero local identity tables; one account owner; 32 profiles and 22 encrypted credentials; zero runs, traces, artifacts or cache entries. Trusted profile sync used the canonical host catalog. |
+| Public HTTP | [Production UI](https://harden-llm.prls.co): `/healthz` and `/login` HTTP 200. API `/healthz` and `/readyz` HTTP 200. |
+| Authenticated HTTP acceptance | Both logins sign in and select the shared account through the frontend, export their account's bundle through Phoenix/gateway, and read the exact same profile set as the token. Anonymous API access is 401, unentitled-account access is 403 with no token fallback, and both logouts revoke gateway access (401). Legacy history is empty. |
+
+[Bounded acceptance evidence](../plans/evidence/harden-llm/production-cutover-20261004.json)
+contains only nonsecret identifiers, counts, gate hashes and outcomes. This
+release intentionally does not preserve legacy HLLM data and cannot serve old
+local-identity schemas. No browser or real-provider call ran; browser layout
+and provider behavior were not checked. No GHCR publication path was added.
