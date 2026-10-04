@@ -477,10 +477,39 @@ layout and paid-provider behavior remain outside the accepted release scope.
   profile readback returned `changed: false` for both owners, proving the
   existing encrypted credentials match the authoritative source without a
   provider call. Schema/owner audit found no legacy company rows, no shared
-  ciphertext pairs, and empty history/traces/cache/artifacts. No open HLLM
-  issues remain. Final source closeout is documentation/evidence only; running
+  ciphertext pairs, and empty history/traces/cache/artifacts. At that closeout, no open HLLM
+  issues remained; later paid-provider failures are tracked by issue #92. Final source closeout is documentation/evidence only; running
   images continue to use the certified application SHA.
 
 The final [release record](../docs/release-certification.md#login-owned-private-data--production-2026-10-04)
 and [bounded evidence](evidence/harden-llm/login-owned-production-20261004.json)
 record image identities, gate results, ownership, public URLs and probe cleanup.
+
+
+## 10. Authorized post-closeout checks (2026-10-04)
+
+P0–P6 remain complete. The subsequently authorized browser checks exposed a
+combobox Enter submission defect; the shared client core now consumes Enter
+and the native browser oracle verifies no unintended Run. Application source
+`1e20dbaa1d8b259ec922665ac4799063f3a6149f` passed all 29 release tasks, was
+pushed to `main`, and was deployed through the approved frontend-only path.
+The gateway remains at the certified login-owned source `07a7781`.
+
+Final fast checks passed 10/10, local browser tasks 4/4, full Compose browser
+1/1 and the authenticated production canary 1/1. Native disclosure state,
+viewport positioning, computed styles, paid web-search evidence, nonce-only
+History deletion and logout were checked. Fresh public HTTP acceptance passed
+all nine groups; saved profiles and original workspace state were preserved.
+Earlier failed-probe records/sessions and obsolete preview jobs are cleaned
+up. Main preview jobs skip before runner allocation; existing `dev` is retained.
+
+TEST-037 ran the complete 22-profile credential-bound matrix: seven passed and
+15 failed; ten unconfigured catalog profiles were not included. This expanded
+provider gate remains unaccepted and is tracked independently by
+[issue #92](https://github.com/prls-co/harden-llm/issues/92). It does not reopen
+the completed login-owned data implementation. No failed provider was dropped
+or treated as passing.
+
+The [current release record](../docs/release-certification.md#authorized-browser-and-paid-provider-checks--production-2026-10-04)
+and [bounded evidence](evidence/harden-llm/production-checks-20261004.json) record
+component source/image identities, all gate outcomes, ownership and cleanup.

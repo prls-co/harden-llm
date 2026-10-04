@@ -2397,3 +2397,50 @@ deterministic regressions; production users and the shared authority were not
 interrupted for probes. Browser layout and paid-provider behavior were not
 checked. No GHCR publication path was added; production uses the recorded local
 immutable image tags and IDs.
+
+## Authorized browser and paid-provider checks — production (2026-10-04)
+
+Native Enter on an already committed profile combobox could submit the Run
+form and start an unintended provider call. The shared client decision core
+now consumes every combobox Enter. A Node regression and native browser
+checks prove that editing controls does not submit a run.
+
+The deployed canary explicitly establishes its rerun and disclosure state,
+brings Request into view after visiting History, and waits for the rendered
+state and native CSS transitions before inspecting computed styles. The
+viewport defect was reproduced with the local backend before correcting the
+test's positioning. Cleanup runs inside the browser-owning feature process:
+it waits for History loading/deletion, removes only its nonce-owned run and
+logs out on success or failure. The visual and provider assertions remain
+unchanged. No sleep, assertion relaxation, synthetic click or provider retry
+was introduced.
+
+| Boundary | Verified result |
+| --- | --- |
+| Source | Application `1e20dbaa1d8b259ec922665ac4799063f3a6149f`, [PR 93](https://github.com/prls-co/harden-llm/pull/93) merged to `main`. Final test-only source `f1c3ec873e9c20ff61182622bf5f46bf3e1c3f2e`; subsequent closeout is documentation only. |
+| Deterministic gates | Application `make test-release`: 29/29 tasks, including Compose, real Postgres/Garage, integration/race, backend verification and vulnerability checks. Final `make test-fast`: 10/10. No cleanup errors/warnings. Live-tag TEST-037/038 now compile in the static gate without executing provider calls. |
+| Hosted checks | Application [fast](https://github.com/prls-co/harden-llm/actions/runs/37235261855) and [CodeQL](https://github.com/prls-co/harden-llm/actions/runs/37235261559) passed. Final test-only [fast](https://github.com/prls-co/harden-llm/actions/runs/37237692663) and [CodeQL](https://github.com/prls-co/harden-llm/actions/runs/37237692483) passed. |
+| Opt-in local browser | Browser selector 4/4 tasks and full Compose browser 1/1 task passed; zero cleanup errors/warnings. Native Request open/close and the viewport-change regression passed. |
+| Production browser | WEB-TEST-048 / TEST-118 passed against [production](https://harden-llm.prls.co/): native controls, computed selected/closed styles, trace/request/response/cURL, executed CPA GPT-5.6 Luna web search, History cleanup, expansion, overflow and shared logout. Saved profiles, unrelated History and the original workspace state were preserved. No production screenshot/live response is published. |
+| Frontend deployment | Web image `sha256:0671d3a2ee2647dc900559332605e66585890b9e2e6f24c1acee2b7dddba67d5`, OCI version/revision `1e20dbaa1d8b259ec922665ac4799063f3a6149f`. The approved descriptor recreated only the frontend. |
+| Backend and support | Gateway remains `07a7781cf735764c1cb31b02a75df7d647b78a18`, image `sha256:1b6cb6a895753e856db37d669288e5e3f2a7fee73055d24b3a7d6ed1b7a56042`. Gateway plus six support container IDs/images were retained. Full eight-service equivalence and separate exact-source component checks pass; application containers are healthy with zero restarts. |
+| Ownership/configuration | All nine fresh public HTTP acceptance groups passed, including independent login data, verification-token ownership and logout revocation. Trusted profile readback: two users, 32 profiles and 22 configured credentials each, `changed: false`. Temporary workspace state was restored. |
+| Preview cleanup | Production does not require a preview. Nine obsolete/no-environment jobs were canceled; [main now skips before runner allocation](https://github.com/prls-co/harden-llm/actions/runs/37237850921). Existing `dev` workflow/state is retained. This release has no branch preview environment. |
+| Earlier failed-probe cleanup | Five owned History records and six precisely identified owned sessions were removed. Final canary cleanup passed; zero verification probe sessions remain. The temporary flattened credential file was removed. |
+| Authorized paid providers | TEST-037 ran all 22 credential-bound profiles with cache off, maxAttempts=1, four concurrent subtests and tiny text plus supported structured output. **7 passed, 15 failed, zero skipped.** Ten catalog profiles have no credential binding and were not configured. No failed case was removed, substituted or classified as passing. |
+
+The paid matrix remains **unaccepted**, tracked by
+[issue 92](https://github.com/prls-co/harden-llm/issues/92). Failures comprise two
+CPA `model_not_found` responses, five Gemini HTTP 404s, three Perplexity
+`invalid_request` responses, two LiteLLM HTTP 400s and three
+`ACCOUNTING_INVALID` results. Seven passing profiles are CPA GPT-5.6 Luna,
+CPA GPT-5.6 Sol, CPA GPT-6 Astra, CurlStructured, OpenRouter DeepSeek V4 Flash,
+OpenRouter GPT-OSS 20B and OpenRouter GPT-OSS 120B. Endpoint/model/options and
+accounting root causes need investigation; this record does not claim every
+configured provider is production-ready.
+
+[Bounded evidence](../plans/evidence/harden-llm/production-checks-20261004.json)
+records each matrix result and distinguishes the passing release/browser gates
+from the failing paid-provider gate. The authoritative current frontend source
+in `plans/implementation-status.json` is also updated. Test/document changes
+after the application release do not require an application image rebuild.

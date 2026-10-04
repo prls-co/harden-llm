@@ -1,0 +1,520 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-04",
+  "generatedAt": "2026-10-04T21:55:55.235775Z",
+  "branch": "main",
+  "applicationSource": "1e20dbaa1d8b259ec922665ac4799063f3a6149f",
+  "testSource": "f1c3ec873e9c20ff61182622bf5f46bf3e1c3f2e",
+  "pr": "https://github.com/prls-co/harden-llm/pull/93",
+  "accepted": false,
+  "acceptance": {
+    "deterministicRelease": true,
+    "browserChecks": true,
+    "configuredPaidProviders": false
+  },
+  "images": {
+    "harden-llm-web": {
+      "containerID": "7cd6b5efcccc",
+      "imageID": "sha256:0671d3a2ee2647dc900559332605e66585890b9e2e6f24c1acee2b7dddba67d5",
+      "revision": "1e20dbaa1d8b259ec922665ac4799063f3a6149f",
+      "version": "1e20dbaa1d8b259ec922665ac4799063f3a6149f",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "harden-llm-gateway": {
+      "containerID": "d82eefaa86d7",
+      "imageID": "sha256:1b6cb6a895753e856db37d669288e5e3f2a7fee73055d24b3a7d6ed1b7a56042",
+      "revision": "07a7781cf735764c1cb31b02a75df7d647b78a18",
+      "version": "07a7781cf735764c1cb31b02a75df7d647b78a18",
+      "health": "healthy",
+      "restarts": 0
+    }
+  },
+  "localGates": {
+    "release": {
+      "accepted": true,
+      "sourceSHA": "1e20dbaa1d8b259ec922665ac4799063f3a6149f",
+      "report": "tmp/test-feedback/runner-1791148413816-1185896-17b9cd01cfb92ee0.json",
+      "reportSHA256": "91ba9c4eee76438fb9dca77a209f66142f35e01fa03a3724271330250f1a51c6",
+      "taskCount": 29,
+      "tasks": [
+        {
+          "id": "go-format",
+          "status": 0
+        },
+        {
+          "id": "go-lint",
+          "status": 0
+        },
+        {
+          "id": "go-build",
+          "status": 0
+        },
+        {
+          "id": "go-static",
+          "status": 0
+        },
+        {
+          "id": "runner-contracts",
+          "status": 0
+        },
+        {
+          "id": "production-config-compose",
+          "status": 0
+        },
+        {
+          "id": "go-unit",
+          "status": 0
+        },
+        {
+          "id": "go-parity",
+          "status": 0
+        },
+        {
+          "id": "go-integration",
+          "status": 0
+        },
+        {
+          "id": "go-integration-race",
+          "status": 0
+        },
+        {
+          "id": "garage-restart-exclusive",
+          "status": 0
+        },
+        {
+          "id": "go-api",
+          "status": 0
+        },
+        {
+          "id": "go-observability",
+          "status": 0
+        },
+        {
+          "id": "go-compose",
+          "status": 0
+        },
+        {
+          "id": "go-compose-contract",
+          "status": 0
+        },
+        {
+          "id": "go-race",
+          "status": 0
+        },
+        {
+          "id": "go-vulnerability",
+          "status": 0
+        },
+        {
+          "id": "frontend-format",
+          "status": 0
+        },
+        {
+          "id": "frontend-compile",
+          "status": 0
+        },
+        {
+          "id": "frontend-deterministic",
+          "status": 0
+        },
+        {
+          "id": "client-core",
+          "status": 0
+        },
+        {
+          "id": "run-progress-client",
+          "status": 0
+        },
+        {
+          "id": "widget-traceability",
+          "status": 0
+        },
+        {
+          "id": "frontend-deps-audit",
+          "status": 0
+        },
+        {
+          "id": "frontend-hex-audit",
+          "status": 0
+        },
+        {
+          "id": "frontend-assets-deploy",
+          "status": 0
+        },
+        {
+          "id": "frontend-pagination-asset-check",
+          "status": 0
+        },
+        {
+          "id": "frontend-release",
+          "status": 0
+        },
+        {
+          "id": "backend-verify-baseline",
+          "status": 0
+        }
+      ],
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "fast": {
+      "accepted": true,
+      "sourceSHA": "f1c3ec873e9c20ff61182622bf5f46bf3e1c3f2e",
+      "report": "tmp/test-feedback/runner-1791150751575-1540057-0a6db7de585e1f55.json",
+      "reportSHA256": "5a405b270e89f1303264d3ab0710c1e0a8d820073b86126129ed88c0bb09edaf",
+      "taskCount": 10,
+      "tasks": [
+        {
+          "id": "go-static",
+          "status": 0
+        },
+        {
+          "id": "runner-contracts",
+          "status": 0
+        },
+        {
+          "id": "go-unit",
+          "status": 0
+        },
+        {
+          "id": "go-parity",
+          "status": 0
+        },
+        {
+          "id": "go-api",
+          "status": 0
+        },
+        {
+          "id": "go-observability",
+          "status": 0
+        },
+        {
+          "id": "frontend-deterministic",
+          "status": 0
+        },
+        {
+          "id": "client-core",
+          "status": 0
+        },
+        {
+          "id": "run-progress-client",
+          "status": 0
+        },
+        {
+          "id": "widget-traceability",
+          "status": 0
+        }
+      ],
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "browser": {
+      "accepted": true,
+      "sourceSHA": "f1c3ec873e9c20ff61182622bf5f46bf3e1c3f2e",
+      "report": "tmp/test-feedback/runner-1791150530401-1505346-8bee0c4fe9e13a72.json",
+      "reportSHA256": "922a88006d8e9e18a2174652d6dbcc26fd89d82ddbdbd0d66f09cae757d97307",
+      "taskCount": 4,
+      "tasks": [
+        {
+          "id": "frontend-compile",
+          "status": 0
+        },
+        {
+          "id": "frontend-deterministic",
+          "status": 0
+        },
+        {
+          "id": "frontend-browser",
+          "status": 0
+        },
+        {
+          "id": "frontend-assets-deploy",
+          "status": 0
+        }
+      ],
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "composeBrowser": {
+      "accepted": true,
+      "sourceSHA": "1e20dbaa1d8b259ec922665ac4799063f3a6149f",
+      "report": "tmp/test-feedback/runner-1791147258501-1093053-d81a4b237832b517.json",
+      "reportSHA256": "21e0cf569fbd0b05a539cb09d20fa61792c3c3a922d48254a1c1faf0f963516f",
+      "taskCount": 1,
+      "tasks": [
+        {
+          "id": "frontend-compose",
+          "status": 0
+        }
+      ],
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    }
+  },
+  "hosted": {
+    "applicationFast": "https://github.com/prls-co/harden-llm/actions/runs/37235261855",
+    "applicationCodeQL": "https://github.com/prls-co/harden-llm/actions/runs/37235261559",
+    "finalTestFast": "https://github.com/prls-co/harden-llm/actions/runs/37237692663",
+    "finalTestCodeQL": "https://github.com/prls-co/harden-llm/actions/runs/37237692483",
+    "accepted": true
+  },
+  "deployment": {
+    "webOnly": true,
+    "sevenOtherContainersUnchanged": true,
+    "descriptorEquivalent": true,
+    "servicesChecked": 8,
+    "webURL": "https://harden-llm.prls.co",
+    "apiURL": "https://harden-llm-api.prls.co",
+    "healthy": true,
+    "restarts": 0
+  },
+  "httpAcceptance": {
+    "accepted": true,
+    "checks": [
+      "public application health and readiness",
+      "anonymous and incorrect bearer denied",
+      "actual Phoenix forms enter workspace and safe deep link without company selection",
+      "both users read explicitly provisioned profiles and bundles; legacy history is empty and provider secrets are absent",
+      "different human logins have private persisted state; token reads verification state",
+      "token changes only verification data",
+      "second session for one login reads the same persisted owner data",
+      "temporary state markers removed and original documents restored",
+      "owned human sessions revoked with no token fallback; independent API token remains valid"
+    ],
+    "probeSessionsLoggedOut": true,
+    "originalStateRestored": true
+  },
+  "productionBrowser": {
+    "source": "1e20dbaa1d8b259ec922665ac4799063f3a6149f",
+    "testSource": "f1c3ec873e9c20ff61182622bf5f46bf3e1c3f2e",
+    "test": "WEB-TEST-048 / TEST-118",
+    "exitCode": 0,
+    "signal": null,
+    "accepted": true,
+    "originalStateRestored": true,
+    "historyUnchangedAfterOwnedCleanup": true,
+    "profilesUnchanged": true
+  },
+  "profileReadback": {
+    "users": 2,
+    "profilesPerUser": 32,
+    "configuredCredentialsPerUser": 22,
+    "changed": false
+  },
+  "previewCleanup": {
+    "productionRequiresPreview": false,
+    "devRetained": true,
+    "branchPreviewExists": false,
+    "obsoleteRunsCancelled": [
+      37221100260,
+      37220957354,
+      37220239320,
+      37186281518,
+      37185693503,
+      37110062527,
+      37233939306,
+      37233928466,
+      37235264394
+    ],
+    "mainJobSkippedBeforeRunnerAllocation": "https://github.com/prls-co/harden-llm/actions/runs/37237850921"
+  },
+  "paidProviders": {
+    "test": "TEST-037",
+    "accepted": false,
+    "librarySource": "07a7781cf735764c1cb31b02a75df7d647b78a18",
+    "testAccountingAssertionRepairedBeforeExecution": true,
+    "liveTestSHA256": "213ffbd7f779ab4caafa43969d17f215c91e48766b90c3b3c782c5a3fc38a8bd",
+    "command": "go test -json -tags=live ./internal/providers -run '^TestLiveProviders$' -count=1 -parallel=4 -timeout=15m",
+    "configurationConversion": "existing gateway rootProfile function; temporary export test removed",
+    "cacheMode": "off",
+    "maxAttempts": 1,
+    "configuredCount": 22,
+    "passed": 7,
+    "failed": 15,
+    "skipped": 0,
+    "unconfiguredProfiles": [
+      "Claude Haiku 4.5",
+      "Claude Opus 4.7",
+      "Claude Opus 5",
+      "Claude Sonnet 4.6",
+      "Claude Sonnet 5",
+      "OpenAI GPT-5.4",
+      "OpenAI GPT-5.4 Mini",
+      "OpenAI GPT-5.5",
+      "OpenAI GPT-5.6 Luna",
+      "OpenAI GPT-5.6 Sol"
+    ],
+    "configuredProfiles": [
+      "CPA GPT-5.4",
+      "CPA GPT-5.4 Mini",
+      "CPA GPT-5.6 Luna",
+      "CPA GPT-5.6 Sol",
+      "CPA GPT-6 Astra",
+      "CurlStructured",
+      "Gemini 3.1 Flash Lite",
+      "Gemini 3.1 Pro Preview",
+      "Gemini 3.5 Flash",
+      "Gemini 3.5 Flash Lite",
+      "Gemini 3.7 Flash",
+      "Novita DeepSeek V4 Flash",
+      "Novita DeepSeek V4 Pro",
+      "OpenRouter DeepSeek V4 Flash",
+      "OpenRouter DeepSeek V4 Pro",
+      "OpenRouter GPT-OSS 120B",
+      "OpenRouter GPT-OSS 20B",
+      "Perplexity Sonar",
+      "Perplexity Sonar Pro",
+      "Perplexity Sonar Reasoning Pro",
+      "Shaman LiteLLM GPT-5.4 Mini",
+      "ShamanLiteLLM"
+    ],
+    "results": [
+      {
+        "test": "TestLiveProviders/CPA_GPT-5.4",
+        "status": "fail",
+        "elapsedSeconds": 0.08
+      },
+      {
+        "test": "TestLiveProviders/Gemini_3.5_Flash_Lite",
+        "status": "fail",
+        "elapsedSeconds": 0.1
+      },
+      {
+        "test": "TestLiveProviders/Perplexity_Sonar_Reasoning_Pro",
+        "status": "fail",
+        "elapsedSeconds": 0.12
+      },
+      {
+        "test": "TestLiveProviders/Perplexity_Sonar_Pro",
+        "status": "fail",
+        "elapsedSeconds": 0.11
+      },
+      {
+        "test": "TestLiveProviders/Perplexity_Sonar",
+        "status": "fail",
+        "elapsedSeconds": 0.12
+      },
+      {
+        "test": "TestLiveProviders/OpenRouter_GPT-OSS_20B",
+        "status": "pass",
+        "elapsedSeconds": 0.96
+      },
+      {
+        "test": "TestLiveProviders/Novita_DeepSeek_V4_Flash",
+        "status": "fail",
+        "elapsedSeconds": 1.68
+      },
+      {
+        "test": "TestLiveProviders/Shaman_LiteLLM_GPT-5.4_Mini",
+        "status": "fail",
+        "elapsedSeconds": 1.65
+      },
+      {
+        "test": "TestLiveProviders/OpenRouter_GPT-OSS_120B",
+        "status": "pass",
+        "elapsedSeconds": 0.4
+      },
+      {
+        "test": "TestLiveProviders/ShamanLiteLLM",
+        "status": "fail",
+        "elapsedSeconds": 1.82
+      },
+      {
+        "test": "TestLiveProviders/Gemini_3.7_Flash",
+        "status": "fail",
+        "elapsedSeconds": 0.07
+      },
+      {
+        "test": "TestLiveProviders/Gemini_3.5_Flash",
+        "status": "fail",
+        "elapsedSeconds": 0.07
+      },
+      {
+        "test": "TestLiveProviders/Gemini_3.1_Pro_Preview",
+        "status": "fail",
+        "elapsedSeconds": 0.07
+      },
+      {
+        "test": "TestLiveProviders/OpenRouter_DeepSeek_V4_Pro",
+        "status": "fail",
+        "elapsedSeconds": 0.52
+      },
+      {
+        "test": "TestLiveProviders/OpenRouter_DeepSeek_V4_Flash",
+        "status": "pass",
+        "elapsedSeconds": 2.29
+      },
+      {
+        "test": "TestLiveProviders/Novita_DeepSeek_V4_Pro",
+        "status": "fail",
+        "elapsedSeconds": 3.1
+      },
+      {
+        "test": "TestLiveProviders/CurlStructured",
+        "status": "pass",
+        "elapsedSeconds": 2.94
+      },
+      {
+        "test": "TestLiveProviders/CPA_GPT-5.4_Mini",
+        "status": "fail",
+        "elapsedSeconds": 0.04
+      },
+      {
+        "test": "TestLiveProviders/Gemini_3.1_Flash_Lite",
+        "status": "fail",
+        "elapsedSeconds": 0.08
+      },
+      {
+        "test": "TestLiveProviders/CPA_GPT-5.6_Sol",
+        "status": "pass",
+        "elapsedSeconds": 5.52
+      },
+      {
+        "test": "TestLiveProviders/CPA_GPT-6_Astra",
+        "status": "pass",
+        "elapsedSeconds": 3.75
+      },
+      {
+        "test": "TestLiveProviders/CPA_GPT-5.6_Luna",
+        "status": "pass",
+        "elapsedSeconds": 4.36
+      }
+    ],
+    "failureGroups": [
+      {
+        "boundary": "CPA text HTTP 400 model_not_found",
+        "count": 2
+      },
+      {
+        "boundary": "Gemini text HTTP 404",
+        "count": 5
+      },
+      {
+        "boundary": "Perplexity text HTTP 400 invalid_request",
+        "count": 3
+      },
+      {
+        "boundary": "LiteLLM text HTTP 400",
+        "count": 2
+      },
+      {
+        "boundary": "ACCOUNTING_INVALID",
+        "count": 3
+      }
+    ],
+    "issue": "https://github.com/prls-co/harden-llm/issues/92",
+    "exitCode": 1
+  },
+  "cleanup": {
+    "ownedHistoryRecordsFromEarlierFailuresRemoved": 5,
+    "ownedSessionsFromEarlierFailuresRemoved": 6,
+    "remainingVerificationProbeSessions": 0,
+    "finalCanaryHistoryDeletedAndLogoutAsserted": true,
+    "originalStateRestored": true,
+    "unrelatedHistoryAndProfilesUnchanged": true,
+    "temporaryFlattenedCredentialFileRemoved": true,
+    "productionScreenshotsPersisted": 0
+  },
+  "qualification": "The login-owned production release and browser checks pass. The paid provider matrix fails and remains tracked by issue 92. No provider case was removed or classified as passing."
+}
