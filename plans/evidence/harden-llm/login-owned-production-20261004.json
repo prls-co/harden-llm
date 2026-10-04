@@ -1,0 +1,248 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-04",
+  "applicationSource": "07a7781cf735764c1cb31b02a75df7d647b78a18",
+  "branch": "main",
+  "pr": "https://github.com/prls-co/harden-llm/pull/91",
+  "sharedLibraryRevision": "7e013b376811a58db2348856c1e5932ebc446e40",
+  "sharedLibraryPR": "https://github.com/prls-co/prls-web/pull/11",
+  "images": {
+    "gateway": {
+      "tag": "harden-llm-gateway:release-07a7781cf735764c1cb31b02a75df7d647b78a18",
+      "id": "sha256:1b6cb6a895753e856db37d669288e5e3f2a7fee73055d24b3a7d6ed1b7a56042",
+      "version": "07a7781cf735764c1cb31b02a75df7d647b78a18",
+      "revision": "07a7781cf735764c1cb31b02a75df7d647b78a18"
+    },
+    "web": {
+      "tag": "harden-llm-web:release-07a7781cf735764c1cb31b02a75df7d647b78a18",
+      "id": "sha256:1839588e651d24d5bb757c4138e80cf9c75bf17f14bc093cf0dfee4e493bf2e6",
+      "version": "07a7781cf735764c1cb31b02a75df7d647b78a18",
+      "revision": "07a7781cf735764c1cb31b02a75df7d647b78a18"
+    }
+  },
+  "localRelease": {
+    "sourceSHA": "07a7781cf735764c1cb31b02a75df7d647b78a18",
+    "accepted": true,
+    "report": "tmp/test-feedback/runner-1791135157154-3982905-59561a8de490fb7b.json",
+    "taskCount": 29,
+    "cleanupErrors": [],
+    "cleanupWarnings": [],
+    "tasks": [
+      {
+        "id": "go-format",
+        "status": 0
+      },
+      {
+        "id": "go-lint",
+        "status": 0
+      },
+      {
+        "id": "go-build",
+        "status": 0
+      },
+      {
+        "id": "go-static",
+        "status": 0
+      },
+      {
+        "id": "runner-contracts",
+        "status": 0
+      },
+      {
+        "id": "production-config-compose",
+        "status": 0
+      },
+      {
+        "id": "go-unit",
+        "status": 0
+      },
+      {
+        "id": "go-parity",
+        "status": 0
+      },
+      {
+        "id": "go-integration",
+        "status": 0
+      },
+      {
+        "id": "go-integration-race",
+        "status": 0
+      },
+      {
+        "id": "garage-restart-exclusive",
+        "status": 0
+      },
+      {
+        "id": "go-api",
+        "status": 0
+      },
+      {
+        "id": "go-observability",
+        "status": 0
+      },
+      {
+        "id": "go-compose",
+        "status": 0
+      },
+      {
+        "id": "go-compose-contract",
+        "status": 0
+      },
+      {
+        "id": "go-race",
+        "status": 0
+      },
+      {
+        "id": "go-vulnerability",
+        "status": 0
+      },
+      {
+        "id": "frontend-format",
+        "status": 0
+      },
+      {
+        "id": "frontend-compile",
+        "status": 0
+      },
+      {
+        "id": "frontend-deterministic",
+        "status": 0
+      },
+      {
+        "id": "client-core",
+        "status": 0
+      },
+      {
+        "id": "run-progress-client",
+        "status": 0
+      },
+      {
+        "id": "widget-traceability",
+        "status": 0
+      },
+      {
+        "id": "frontend-deps-audit",
+        "status": 0
+      },
+      {
+        "id": "frontend-hex-audit",
+        "status": 0
+      },
+      {
+        "id": "frontend-assets-deploy",
+        "status": 0
+      },
+      {
+        "id": "frontend-pagination-asset-check",
+        "status": 0
+      },
+      {
+        "id": "frontend-release",
+        "status": 0
+      },
+      {
+        "id": "backend-verify-baseline",
+        "status": 0
+      }
+    ]
+  },
+  "hostedChecks": {
+    "mainFast": "https://github.com/prls-co/harden-llm/actions/runs/37220955393",
+    "mainCodeQL": "https://github.com/prls-co/harden-llm/actions/runs/37220955092",
+    "branchFast": "https://github.com/prls-co/harden-llm/actions/runs/37220122192",
+    "prFast": "https://github.com/prls-co/harden-llm/actions/runs/37220162774",
+    "prCodeQL": "https://github.com/prls-co/harden-llm/actions/runs/37220160919",
+    "sharedLibraryMain": "https://github.com/prls-co/prls-web/actions/runs/37218572044"
+  },
+  "cutover": {
+    "sourceSHA": "07a7781cf735764c1cb31b02a75df7d647b78a18",
+    "accepted": true,
+    "bucket": {
+      "bucket": "harden-llm-artifacts",
+      "deleted": 0,
+      "remaining": 0
+    },
+    "usersProvisioned": [
+      {
+        "userID": "abF9A7CSjmdbrLTIkWDoiOfa4WdrsOBX",
+        "profiles": 32,
+        "configured": 22,
+        "changed": true
+      },
+      {
+        "userID": "tj5K2mQ6QZZnp9m2k6VGoKnAfjHA9t5T",
+        "profiles": 32,
+        "configured": 22,
+        "changed": true
+      }
+    ],
+    "supportContainersUnchanged": true,
+    "descriptorEquivalent": true
+  },
+  "databaseAudit": {
+    "schemaVersions": [
+      11
+    ],
+    "owners": {
+      "administrator": {
+        "profiles": 32,
+        "credentials": 22
+      },
+      "verification": {
+        "profiles": 32,
+        "credentials": 22
+      }
+    },
+    "legacyCompanyRows": 0,
+    "runs": 0,
+    "traces": 0,
+    "cacheEntries": 0,
+    "artifacts": 0,
+    "sameCiphertextPairs": 0,
+    "publicTableCount": 11,
+    "accepted": true
+  },
+  "publicHTTP": {
+    "applicationSHA": "07a7781cf735764c1cb31b02a75df7d647b78a18",
+    "web": "https://harden-llm.prls.co",
+    "api": "https://harden-llm-api.prls.co",
+    "users": {
+      "administrator": "abF9A7CSjmdbrLTIkWDoiOfa4WdrsOBX",
+      "verification": "tj5K2mQ6QZZnp9m2k6VGoKnAfjHA9t5T"
+    },
+    "tokenOwner": "tj5K2mQ6QZZnp9m2k6VGoKnAfjHA9t5T",
+    "checks": [
+      "public application health and readiness",
+      "anonymous and incorrect bearer denied",
+      "actual Phoenix forms enter workspace and safe deep link without company selection",
+      "both users read explicitly provisioned profiles and bundles; legacy history is empty and provider secrets are absent",
+      "different human logins have private persisted state; token reads verification state",
+      "token changes only verification data",
+      "second session for one login reads the same persisted owner data",
+      "temporary state markers removed and original documents restored",
+      "owned human sessions revoked with no token fallback; independent API token remains valid"
+    ],
+    "browserRun": false,
+    "liveProviderRun": false,
+    "accepted": true,
+    "probeSessionsLoggedOut": true,
+    "originalStateRestored": true
+  },
+  "profileSyncReadback": {
+    "users": 2,
+    "profiles": 32,
+    "configured": 22,
+    "changed": false
+  },
+  "previewInput": {
+    "sharedEnvFile": "/home/kirill/p/harden-llm/.env",
+    "explicitUsersMatch": true,
+    "retiredScopeVariablesAbsent": true,
+    "identityCredentialConfigured": true
+  },
+  "privateFileModes": "0600",
+  "productionDescriptorSHA256": "55ffe699f3352d27a2b66a7c147057e9a5797cadc750e71c71834f9ba2035360",
+  "browserLayoutChecked": false,
+  "paidProviderCallsRun": false,
+  "accepted": true
+}
