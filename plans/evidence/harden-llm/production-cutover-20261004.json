@@ -1,0 +1,41 @@
+{
+  "source": "b6dd422c88dc825e4cf39d0f9407365f6c6afa1a",
+  "web": "https://harden-llm.prls.co",
+  "api": "https://harden-llm-api.prls.co",
+  "account": "7d677c59-aac7-4cdd-8416-317b99ffa11c",
+  "checks": [
+    "anonymous API denied",
+    "token reads configured shared profiles without credential disclosure",
+    "legacy run history absent",
+    "administrator signs in through frontend and reads same account data as token",
+    "unentitled account denied without token-account fallback",
+    "administrator logout revokes gateway access",
+    "existing member signs in through frontend and reads same account data as token",
+    "existing member logout revokes gateway access"
+  ],
+  "profileCount": 32,
+  "accepted": true,
+  "browserRun": false,
+  "liveProviderRun": false,
+  "images": {
+    "gateway": "sha256:1bc0a52ebfb7b3bcadd958853503f5a3d2bc7c10d7537fa6e0e438a56fac4374",
+    "web": "sha256:9ca237949b3dc5a07c848bb9efea746754c885f040bf60062559f82cb2ad8415"
+  },
+  "schemaVersion": 11,
+  "configuredCredentials": 22,
+  "legacyObjectsDeleted": 19,
+  "legacySessionVolumeRemoved": true,
+  "gates": {
+    "fast": {
+      "accepted": true,
+      "tasks": 10,
+      "reportSHA256": "eebf38897753c23accb11288b93a7feff73c565102bee864945222421b875c8d"
+    },
+    "release": {
+      "accepted": true,
+      "tasks": 29,
+      "reportSHA256": "7395068f04fa717813bb53b413475cfa17c0f48b86e1ac956bc801e4b10611ad"
+    }
+  },
+  "hostedFastRun": 37186802612
+}
