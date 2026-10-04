@@ -193,6 +193,8 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
         |> click(Query.css("#output-trace-view-json"))
         |> assert_has(Query.css("#output-trace-trace-json .json-viewer-node", text: "traceId"))
         |> click(Query.css("#output-trace-show-request"))
+        |> assert_has(Query.css("#output-trace-show-request[aria-expanded='true']"))
+        |> assert_has(Query.css("#output-trace-request:not([hidden])"))
         |> assert_has(Query.css("#output-trace-request-content"))
         |> click(Query.css("#output-trace-show-response"))
         |> assert_has(Query.css("#output-trace-response-content"))
@@ -232,18 +234,10 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
         |> open_fold("#output-trace-details-toggle", "#output-trace-details")
 
       session =
-        if javascript_value(
-             session,
-             "return document.querySelector('#output-trace-show-request')?.getAttribute('aria-expanded');"
-           ) == "true" do
-          click(session, Query.css("#output-trace-show-request"))
-        else
-          session
-        end
-
-      session =
         session
         |> assert_has(Query.css("#output-trace-details-toggle[aria-expanded='true']"))
+        |> assert_has(Query.css("#output-trace-show-request[aria-expanded='true']"))
+        |> click(Query.css("#output-trace-show-request"))
         |> assert_has(Query.css("#output-trace-show-request[aria-expanded='false']"))
 
       widget_facts =

@@ -2351,6 +2351,13 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     assert has_element?(view, "#output-trace-request-content", "profileId")
     assert has_element?(view, "#output-trace-response-content", "fixture output")
 
+    view |> element("#output-trace-show-request") |> render_click()
+    assert has_element?(view, "#output-trace-show-request[aria-expanded=\"false\"]")
+    assert has_element?(view, "#output-trace-request[hidden]")
+    view |> element("#output-trace-show-request") |> render_click()
+    assert has_element?(view, "#output-trace-show-request[aria-expanded=\"true\"]")
+    assert has_element?(view, "#output-trace-request:not([hidden])")
+
     view |> element("#output-trace-summary") |> render_click()
     assert has_element?(view, "#output-trace-content[hidden]")
     refute has_element?(view, "#output-trace-content:not([hidden]) #output-trace-request-content")

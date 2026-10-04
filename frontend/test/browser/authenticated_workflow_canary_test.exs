@@ -111,6 +111,8 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> assert_has(Query.css("#output-trace-trace-json .json-viewer-node", text: "traceId"))
       |> refute_has(Query.css("#output-trace-artifact-0"))
       |> click(Query.css("#output-trace-show-request"))
+      |> assert_has(Query.css("#output-trace-show-request[aria-expanded='true']"))
+      |> assert_has(Query.css("#output-trace-request:not([hidden])"))
       |> assert_has(Query.css("#output-trace-request-content"))
       |> click(Query.css("#output-trace-show-response"))
       |> assert_has(Query.css("#output-trace-response-content"))
@@ -119,6 +121,8 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> click(Query.css("#output-trace-summary"))
       |> assert_dom_attribute("#output-trace-content", "hidden", nil)
       |> click(Query.css("#output-trace-show-request"))
+      |> assert_has(Query.css("#output-trace-show-request[aria-expanded='false']"))
+      |> assert_has(Query.css("#output-trace-request[hidden]", visible: :any))
 
     nested_json_id =
       javascript_value(
