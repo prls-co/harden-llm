@@ -697,9 +697,12 @@ runtime contract or the meaning of `make verify`.
 - Target: `internal/providers/live_test.go`
 - Command: `go test ./internal/providers/... -tags=live -run TestLiveProviders -count=1`
 - Setup: explicit local provider credentials and model IDs; endpoint policy enabled.
+- Compile coverage: `make test-static` compiles TEST-037/038 with the `live` tag
+  and `-run '^$'`, without running tests or making provider calls.
 - Assertions:
   - Configured providers return tiny text and supported structured output.
-  - Usage/cost contract is valid where provider data is available.
+  - Result and provider accounting ledgers have nonnegative usage and known
+    cost subtotals; observed known cost retains its source.
   - No live output enters committed fixtures or evidence without redaction.
 - Pass criteria: every explicitly configured provider passes.
 - Expected runtime: 240 seconds.

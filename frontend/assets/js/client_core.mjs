@@ -25,6 +25,18 @@ export function highlightIndex(current, direction, count) {
   return ((current + direction) % count + count) % count;
 }
 
+export function comboboxKeyAction({key, highlighted = -1, allowCustom = false, value, committed}) {
+  if (key === "ArrowDown") return "next";
+  if (key === "ArrowUp") return "previous";
+  if (key === "Escape") return "escape";
+  if (key === "Enter") {
+    if (highlighted >= 0) return "select";
+    if (allowCustom && value !== committed) return "commit";
+    return "consume";
+  }
+  return "ignore";
+}
+
 function knownValue(value, knownValues) {
   return knownValues.some(candidate => text(candidate) === value);
 }

@@ -18,6 +18,10 @@ checks on `main` remain independent. Application builds use Docker layer caching
 frontend-only changes rebuild/restart only Phoenix, backend-only changes only
 the Go gateway. Initial environment creation builds both.
 
+Successful `main` checks skip the preview job before allocating the dedicated
+runner. Production promotion uses the production descriptor and does not need
+the preview runner.
+
 No browser or real LLM provider is launched by automatic CI or deployment.
 `make test-release` and the scheduled broader check are also browser-free.
 Existing browser assertions remain available through `make test-browser`,

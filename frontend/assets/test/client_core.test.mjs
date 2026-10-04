@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   blurValue,
   commitValue,
+  comboboxKeyAction,
   emptyStateVisible,
   escapeValue,
   focusValue,
@@ -17,6 +18,19 @@ import {
 
 // SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-046 TEST-046
 // PLAN-HLLM-WIDGET-PARITY-001 TEST-111
+
+test("Enter is consumed in a combobox even when its committed selection is unchanged", () => {
+  for (const state of [
+    {value: "Luna", committed: "Luna", allowCustom: true},
+    {value: "Luna", committed: "Luna", allowCustom: false},
+    {value: "invalid", committed: "Luna", allowCustom: false},
+  ]) {
+    assert.equal(comboboxKeyAction({key: "Enter", ...state}), "consume");
+  }
+  assert.equal(comboboxKeyAction({key: "Enter", highlighted: 0}), "select");
+  assert.equal(comboboxKeyAction({key: "Enter", value: "Astra", committed: "Luna", allowCustom: true}), "commit");
+  assert.equal(comboboxKeyAction({key: "a"}), "ignore");
+});
 
 test("focus selects the committed value without requiring a DOM", () => {
   assert.deepEqual(focusValue({value: "gpt-5.6-luna"}), {

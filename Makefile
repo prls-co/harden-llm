@@ -24,6 +24,7 @@ validate-loki-schema:
 	$(GO) run ./cmd/loki-schema-guard
 
 test-static: validate-loki-schema
+	$(GO) test -tags=live ./internal/providers/... ./internal/smoke/... -run '^$$'
 	$(GO) test ./internal/testkit/... -count=1
 	$(GO) test ./internal/integrationtest -run '^TestResourceReceipt' -count=1
 	$(NODE) scripts/verify-parity-fixtures.mjs

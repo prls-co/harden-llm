@@ -27,6 +27,7 @@ import topbar from "../vendor/topbar"
 import {
   blurValue,
   commitValue,
+  comboboxKeyAction,
   emptyStateVisible,
   escapeValue,
   focusValue,
@@ -159,19 +160,16 @@ const SearchableCombobox = {
       this.openMenu()
     }
     this.onKeydown = event => {
-      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        event.preventDefault()
-        this.moveHighlight(event.key === "ArrowDown" ? 1 : -1)
-      } else if (event.key === "Enter") {
-        if (this.highlighted >= 0) {
-          event.preventDefault()
-          this.selectOption(this.visibleOptions()[this.highlighted])
-        } else if (this.allowCustom && this.input.value !== this.committed) {
-          event.preventDefault()
-          this.commitCustomValue()
-        }
-      } else if (event.key === "Escape") {
-        event.preventDefault()
+      const action = comboboxKeyAction({key: event.key, highlighted: this.highlighted,
+        allowCustom: this.allowCustom, value: this.input.value, committed: this.committed})
+      if (action !== "ignore") event.preventDefault()
+      if (action === "next" || action === "previous") {
+        this.moveHighlight(action === "next" ? 1 : -1)
+      } else if (action === "select") {
+        this.selectOption(this.visibleOptions()[this.highlighted])
+      } else if (action === "commit") {
+        this.commitCustomValue()
+      } else if (action === "escape") {
         this.input.value = escapeValue({committed: this.committed}).value
         this.closeMenu()
       }

@@ -97,6 +97,7 @@ test("automatic task graphs are browser-free; browser tasks require explicit aut
 test("preview workflows use the policy and never check out fork code on the deployment runner", async () => {
   const workflow = await readFile(new URL("../../.github/workflows/preview-environments.yml", import.meta.url), "utf8");
   assert.match(workflow, /workflow_run:/);
+  assert.match(workflow, /github\.event\.workflow_run\.head_branch != 'main'/);
   assert.match(workflow, /ref: main/);
   assert.match(workflow, /persist-credentials: false/);
   assert.match(workflow, /head\.repo\.full_name == github\.repository/);

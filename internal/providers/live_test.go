@@ -120,11 +120,16 @@ func TestLiveProviders(t *testing.T) {
 
 func assertLiveAccounting(t *testing.T, provider string, result hardenllm.Result) {
 	t.Helper()
-	usage := result.Usage
-	if usage.InputTokens < 0 || usage.CacheReadTokens < 0 || usage.CacheCreationTokens < 0 || usage.OutputTokens < 0 || usage.ReasoningTokens < 0 || usage.TotalTokens < 0 {
-		t.Fatalf("provider %s returned negative usage", provider)
-	}
-	if result.Cost.Known && (result.Cost.TotalUSD < 0 || strings.TrimSpace(result.Cost.Source) == "") {
-		t.Fatalf("provider %s returned invalid known cost", provider)
+	for name, ledger := range map[string]hardenllm.AccountingLedger{
+		"result": result.Accounting.Result, "provider": result.Accounting.Provider,
+	} {
+		usage := ledger.Usage
+		if usage.InputTokens < 0 || usage.CacheReadTokens < 0 || usage.CacheCreationTokens < 0 || usage.OutputTokens < 0 || usage.ReasoningTokens < 0 || usage.TotalTokens < 0 {
+			t.Fatalf("provider %s returned negative %s usage", provider, name)
+		}
+		cost := ledger.Cost
+		if cost.KnownSubtotalUSD < 0 || (cost.KnownObservations > 0 && strings.TrimSpace(cost.Source) == "") {
+			t.Fatalf("provider %s returned invalid known %s cost", provider, name)
+		}
 	}
 }

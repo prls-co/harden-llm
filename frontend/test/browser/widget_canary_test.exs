@@ -76,5 +76,6 @@ defmodule HardenLlmWeb.WidgetCanaryTest do
       |> assert_no_horizontal_overflow()
 
     assert page_source(session) =~ "embed-secondary-profile-options"
+    refute {"POST", "/api/v1/run"} in HardenLlmWeb.BrowserBackend.calls()
   end
 end

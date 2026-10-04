@@ -34,7 +34,7 @@ jobs:
   preview:
     if: >-
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository) ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.head_branch != 'main' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository) ||
       (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name == github.repository && (github.event.action == 'closed' || github.event.label.name == 'deploy:preview')) ||
       (github.event_name == 'delete' && github.event.ref_type == 'branch')
     runs-on: [self-hosted, linux, x64, harden-llm-preview]

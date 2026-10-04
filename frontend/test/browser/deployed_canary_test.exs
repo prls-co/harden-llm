@@ -25,7 +25,18 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-048 TEST-056
   # PLAN-HLLM-WIDGET-PARITY-001 TEST-118
 
-  setup do
+  setup %{session: session} do
+    on_exit(fn ->
+      session = visit(session, "/")
+
+      if Wallaby.Browser.has?(session, Query.css("#logout-button")) do
+        session
+        |> delete_smoke_history(System.fetch_env!("HARDEN_LLM_SMOKE_NONCE"))
+        |> click(Query.css("#logout-button"))
+        |> assert_shared_login_page()
+      end
+    end)
+
     {:ok,
      %{
        email: System.fetch_env!("HARDEN_LLM_LOCAL_OPERATOR_EMAIL"),
@@ -88,8 +99,9 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
 
     session =
       session
-      |> click(Query.css("#profile-rerun-toggle"))
-      |> assert_has(Query.css("#profile-rerun-generation-profile[value='CPA GPT-6 Astra']"))
+      |> set_value(Query.css("#profile-rerun-toggle"), :selected)
+      |> commit_combobox("#profile-rerun-generation-profile", "CPA GPT-6 Astra")
+      |> assert_field_value("#profile-rerun-generation-profile", "CPA GPT-6 Astra")
       |> assert_has(Query.css("#profile-rerun-generation-reasoning:not([disabled])"))
 
     session =
@@ -225,7 +237,17 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
       |> assert_has(Query.css("a[href='/history']", count: 0, visible: :any))
       |> assert_has(Query.css("#trace-dialog", count: 0, visible: :any))
       |> assert_has(Query.css("[aria-label='Inspect in audit history']", count: 0, visible: :any))
-      |> click(Query.css("#output-trace-show-request"))
+      |> open_fold("#output-trace-details-toggle", "#output-trace-details")
+
+    session =
+      if javascript_value(
+           session,
+           "return document.querySelector('#output-trace-show-request')?.getAttribute('aria-expanded');"
+         ) == "true" do
+        click(session, Query.css("#output-trace-show-request"))
+      else
+        session
+      end
 
     widget_facts =
       javascript_value(
@@ -279,39 +301,11 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
     assert widget_facts["curl"] =~ ~s(authorization: Bearer ${HARDEN_LLM_API_TOKEN})
     refute widget_facts["curl"] =~ password
 
-    run_id =
-      javascript_value(
-        session,
-        """
-        const article = Array.from(document.querySelectorAll('#workspace-history article'))
-          .find(node => node.textContent.includes(arguments[0]));
-        return article?.id || '';
-        """,
-        [nonce]
-      )
+    [run_id] = smoke_run_ids(session, nonce)
 
     assert is_binary(run_id) and String.starts_with?(run_id, "workspace-history-")
 
-    matching_run_ids =
-      javascript_value(
-        session,
-        """
-        return Array.from(document.querySelectorAll('#workspace-history article'))
-          .filter(node => node.textContent.includes(arguments[0]))
-          .map(node => node.id);
-        """,
-        [prompt_prefix]
-      )
-
-    assert is_list(matching_run_ids) and run_id in matching_run_ids
-
-    session =
-      Enum.reduce(matching_run_ids, session, fn matching_run_id, session ->
-        session
-        |> scroll_to_selector("##{matching_run_id} button[phx-click='delete-history']")
-        |> click(Query.css("##{matching_run_id} button[phx-click='delete-history']"))
-        |> assert_has(Query.css("##{matching_run_id}", count: 0, visible: :any))
-      end)
+    session = delete_smoke_history(session, nonce)
 
     assert search_facts["responseSearch"], "deployed response omitted search metadata"
     assert search_facts["responseExecuted"], "deployed response did not report executed search"
@@ -339,5 +333,28 @@ defmodule HardenLlmWeb.DeployedCanaryTest do
 
     refute page_source(session) =~ System.fetch_env!("HARDEN_LLM_LOCAL_OPERATOR_PASSWORD")
     refute page_source(session) =~ "CPA GPT-5.6 Luna"
+  end
+
+  defp delete_smoke_history(session, nonce) do
+    session = open_ui_fold(session, "#history-fold-toggle", "#workspace-history")
+
+    Enum.reduce(smoke_run_ids(session, nonce), session, fn run_id, session ->
+      session
+      |> scroll_to_selector("##{run_id} button[phx-click='delete-history']")
+      |> click(Query.css("##{run_id} button[phx-click='delete-history']"))
+      |> assert_has(Query.css("##{run_id}", count: 0, visible: :any))
+    end)
+  end
+
+  defp smoke_run_ids(session, nonce) do
+    javascript_value(
+      session,
+      """
+      return Array.from(document.querySelectorAll('#workspace-history article'))
+        .filter(node => node.textContent.includes(arguments[0]))
+        .map(node => node.id);
+      """,
+      [nonce]
+    )
   end
 end

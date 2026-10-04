@@ -77,17 +77,9 @@ defmodule HardenLlmWeb.BrowserFeatureCase do
   end
 
   def commit_combobox(session, selector, value) do
-    Browser.execute_script(
-      session,
-      """
-      const input = document.querySelector(arguments[0]);
-      input.focus();
-      input.value = arguments[1];
-      input.dispatchEvent(new Event("input", {bubbles: true}));
-      input.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
-      """,
-      [selector, value]
-    )
+    session
+    |> fill_in(Query.css(selector), with: value)
+    |> send_keys(Query.css(selector), [:enter, :tab])
   end
 
   def stage_secret(session, input_selector, button_selector, secret) do
