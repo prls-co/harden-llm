@@ -5,11 +5,11 @@ import (
 	"strings"
 )
 
-// normalizeTempoTraceID restores one leading zero nibble omitted by some Tempo
-// JSON responses while retaining the canonical 16-byte OTel trace-ID form.
+// normalizeTempoTraceID restores the leading zeros removed by Tempo's
+// TraceIDToHexString, retaining the canonical nonzero 16-byte OTel trace ID.
 func normalizeTempoTraceID(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
-	if len(value) != 31 && len(value) != 32 {
+	if len(value) < 1 || len(value) > 32 || strings.Trim(value, "0") == "" {
 		return ""
 	}
 	value = strings.Repeat("0", 32-len(value)) + value

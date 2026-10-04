@@ -87,8 +87,9 @@ TEST-223 and TEST-225 cover transport precedence and nested timeout ownership
 with local request counters and synchronized contexts. TEST-226 covers ordered
 and independent accounting, rejected/interrupted response facts and result
 ledger separation. TEST-224 covers exact JSON replay, shared admission and
-producer identity. TEST-227 covers the real forward migration and retained
-rows through the runner-owned Postgres service. TEST-228 and WEB-TEST-076 cover
+producer identity. TEST-227 covers current schema/cache persistence through the runner-owned
+Postgres service. The 2026-10-04 clean cut in ADR-HLLM-030 retires the historical
+document-upgrade cases with migrations 1–10. TEST-228 and WEB-TEST-076 cover
 the accepted-inference/cache-write boundary through library, API, traces,
 telemetry and Phoenix projections.
 

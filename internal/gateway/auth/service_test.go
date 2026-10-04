@@ -19,6 +19,37 @@ const (
 	otherAccount  = "22222222-2222-4222-8222-222222222222"
 )
 
+func TestDifferentLoginsAndTokenShareOneAccount(t *testing.T) {
+	owner := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		ref := request.Header.Get("X-PRLS-Session-Reference")
+		if ref != "alice" && ref != "bob" {
+			t.Errorf("unexpected session reference %q", ref)
+		}
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"user_id":"` + ref + `","email":"` + ref + `@example.test","name":"Member","role":"member","session_ref":"` + ref + `","account":{"account_id":"` + staticAccount + `","name":"Shared Account","products":["harden-llm"]}}`))
+	}))
+	defer owner.Close()
+	client, err := access.New(owner.URL, "control-plane-internal-token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	service, err := NewService(Config{ControlPlane: client, ServiceToken: serviceToken, StaticAccountID: staticAccount})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, reference := range []string{"alice", "bob", ""} {
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/profiles", nil)
+		request.Header.Set("Authorization", "Bearer "+serviceToken)
+		if reference != "" {
+			request.Header.Set("X-PRLS-Session-Reference", reference)
+		}
+		principal, err := service.AuthenticateRequest(request)
+		if err != nil || principal.OwnerID != staticAccount {
+			t.Fatalf("login %q: principal=%#v err=%v", reference, principal, err)
+		}
+	}
+}
+
 func TestAuthenticateHumanRequestUsesCurrentControlPlaneAccount(t *testing.T) {
 	var requests int
 	owner := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {

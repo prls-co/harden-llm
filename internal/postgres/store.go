@@ -125,24 +125,6 @@ func (store *Store) Ready(ctx context.Context) error {
 
 // Migrate applies embedded migrations once under a session-scoped advisory lock.
 func (store *Store) Migrate(ctx context.Context) error {
-	entries, err := migrationEntries()
-	if err != nil {
-		return err
-	}
-	if len(entries) == 0 {
-		return errors.New("postgres: no migrations are embedded")
-	}
-	return store.migrateThrough(ctx, entries[len(entries)-1].version, false)
-}
-
-// MigrateThrough applies migrations through an explicit version. It is used by
-// the one-shot owner rehome command to stop between cascade preparation and
-// removal of the former local identity tables.
-func (store *Store) MigrateThrough(ctx context.Context, version int64) error {
-	return store.migrateThrough(ctx, version, true)
-}
-
-func (store *Store) migrateThrough(ctx context.Context, target int64, allowIdentityRemoval bool) error {
 	if store == nil || store.pool == nil {
 		return errors.New("postgres: store is not initialized")
 	}
@@ -171,14 +153,12 @@ func (store *Store) migrateThrough(ctx context.Context, target int64, allowIdent
 	if err != nil {
 		return err
 	}
-	knownTarget := false
+	if len(entries) == 0 {
+		return errors.New("postgres: no migrations are embedded")
+	}
 	knownVersions := make(map[int64]struct{}, len(entries))
 	for _, entry := range entries {
 		knownVersions[entry.version] = struct{}{}
-		knownTarget = knownTarget || entry.version == target
-	}
-	if !knownTarget {
-		return fmt.Errorf("postgres: migration target %d is unknown", target)
 	}
 	appliedRows, err := connection.Query(ctx, `SELECT version FROM schema_migrations ORDER BY version`)
 	if err != nil {
@@ -207,18 +187,6 @@ func (store *Store) migrateThrough(ctx context.Context, target int64, allowIdent
 		}
 		if applied {
 			continue
-		}
-		if entry.version > target {
-			break
-		}
-		if entry.version == 10 && !allowIdentityRemoval {
-			var hasLocalIdentities bool
-			if err := connection.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM users)`).Scan(&hasLocalIdentities); err != nil {
-				return fmt.Errorf("postgres: inspect local identities before migration 10: %w", err)
-			}
-			if hasLocalIdentities {
-				return errors.New("postgres: local identities require the rehome-identities command before this release can serve")
-			}
 		}
 		transaction, err := connection.BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {

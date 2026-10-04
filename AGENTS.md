@@ -117,10 +117,11 @@ Apply them with the trusted `sync-profiles` administrative command; never use
 interactive profile-save probes as deployment checks. Keep infrastructure
 credentials, encryption keys, data, sessions, and networks separate; never copy
 production datasets or bearer sessions. Only trusted branches may receive shared
-provider credentials (they have real production-provider spending authority). Before
-provisioning login access, distinguish the guest `TEST_LOGIN`/`TEST_PASSWORD`
-pair from `HARDEN_LLM_LOCAL_OPERATOR_*`; syncing the operator alone does not
-provide guest access. Preserve both accounts and their independent data. Before
+provider credentials (they have real production-provider spending authority). Human login credentials are owned by Control Plane. Production has one HLLM
+data account, with multiple login identities and an optional token bound to that
+same account UUID. Do not bootstrap guest/operator users or separate product
+datasets. The authorized 2026-10-04 clean cut removes incompatible HLLM data;
+other products and shared identity/storage data remain outside that reset. Before
 reporting a deployed change, record the branch, source SHA,
 component image identities, environment URL, and browser-free checks. Report
 deployment blockers rather than implying that an undeployed change is live.

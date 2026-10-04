@@ -1158,14 +1158,14 @@ canonical `TEST-###` comment; the Phoenix cases use the separate
 - Pass criteria: Unknown dispatched work remains uncertain; known subtotals are retained; observation order is commutative; measured zero is known; invalid accounting is terminal while independent valid dimensions remain; complete facts in rejected/interrupted responses survive; truncated data is not guessed; accepted result accounting remains separate from provider totals; cache hits add no provider observation.
 - Expected runtime: less than 60 seconds.
 
-### TEST-227: Forward cache migration and persistence
+### TEST-227: Current cache persistence and schema integrity
 
 - Type / verifies: integration; REQ-217, REQ-218, REQ-221, REQ-223.
-- Location: `internal/postgres/cache_test.go`, `internal/postgres/repository_test.go`, new migration test coverage and `internal/gateway/run_test.go`.
+- Location: `internal/postgres/cache_test.go`, `internal/postgres/repository_test.go` and `internal/gateway/run_test.go`.
 - Command: `make test-integration`.
-- Fixtures/data: Runner-owned `PostgresLease`; historical schema version 0006 rows seeded with SQL in a test-only fixture, two owners, retained result JSON with exact large-number/decimal values, upsert timestamps, owner isolation and concurrent migration/read/write cases.
-- Deterministic controls: Existing service-pool runner and lease cleanup; real `Store.Migrate`; no application database, per-test Compose fallback or manually executed migration.
-- Pass criteria: Migration 0007 drops only `operation`, `provider_envelope`, `usage` and `cost`; six retained cache columns, keys, timestamps and rows remain byte/value equivalent; readiness and idempotency pass; current root client replays the migrated row with zero provider work; owner isolation/upsert/concurrency and the pre-existing rollback/locking assertions remain intact. The report contains executed `TestRecoveryIntegrityStorage*` cases.
+- Fixtures/data: Runner-owned `PostgresLease`, fresh schema version 11, account-scoped rows, exact large-number/decimal JSON, upsert timestamps and independent owners.
+- Deterministic controls: Existing service-pool runner and lease cleanup; real `Store.Migrate`; no application database or per-test Compose fallback.
+- Pass criteria: The six cache projection columns, exact values and producer identity survive repeat migration; readiness/idempotency/concurrent initialization pass; retired schema ledgers fail before product writes; owner isolation/upsert/concurrency and rollback/locking checks remain intact. The report contains executed `TestRecoveryIntegrityStorage` cases. Historical document-conversion tests retire with migrations 1–10 after the authorized clean cut; no legacy-data conversion is supported.
 - Expected runtime: within the existing integration task envelope.
 
 ### TEST-228: Cache-write failure success boundary

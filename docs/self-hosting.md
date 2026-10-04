@@ -102,49 +102,35 @@ host-only `__Host-harden_llm_web` cookie; sessions are not shared across product
 subdomains. Set `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID` only when a machine client
 needs direct API access as one explicit Control Plane account.
 
-## Rehome existing product data
+## Clean identity cutover
 
-An existing database with local `users` rows cannot start the new gateway until
-each old owner maps one-to-one to a real Control Plane account UUID. Grant
-Harden LLM access to each target account first. The mapping must not merge
-owners; combining histories, profiles, credentials, or artifacts is not
-supported by this migration.
+The 2026-10-04 cutover intentionally discards legacy HLLM data. There is one
+production data account, with multiple Control Plane logins and an optional
+API token scoped to the same UUID. HLLM has no guest/operator account types.
+Use an existing Control Plane company account, grant `harden-llm`, and configure
+its UUID in `HARDEN_LLM_PROFILE_ACCOUNT_IDS` and
+`HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID`. Add the production frontend origin to
+Control Plane's trusted origins and configure the private Control Plane URL
+and internal token in HLLM production configuration.
 
-Stop the HLLM gateway and frontend while leaving Postgres and Garage available.
-Write a mode-0600 JSON mapping file containing every legacy `localOwnerId` and
-its verified `accountId`, then run the one-shot command using the candidate
-gateway image and production Compose environment:
+1. Certify the source with `make test-fast` and browser-free `make test-release`.
+   Build immutable gateway and web images for that source SHA.
+2. Stop the HLLM gateway and frontend. Clear the dedicated HLLM database and
+   all objects in its dedicated artifact bucket. Never clear shared Garage
+   volumes, other buckets, Control Plane identity data or observability data.
+3. Rotate the HLLM database role password and update the canonical production
+   database URL together. Initialize the fresh product-only schema (version 11).
+   Old migration ledgers are rejected; no migration mapping file is supported.
+4. Set the approved immutable image identities and environment in the private
+   production descriptor. Use the existing scoped `production-config.mjs apply`
+   path, then the trusted `sync-profiles --account-id <uuid>` command.
+5. Verify health/readiness, fresh Control Plane sign-in, authenticated profile
+   reads through two logins and the token, empty legacy history, logout
+   revocation and denial for accounts without HLLM access. Record source SHA,
+   image IDs and public URLs. No provider call or browser is part of this check.
 
-```json
-{"owners":[{"localOwnerId":"old-owner-id-from-database","accountId":"00000000-0000-4000-8000-000000000000"}]}
-```
-
-```bash
-IDENTITY_MAP=/path/to/identity-map.json
-docker compose run --rm -T --no-deps \
-  -v "$IDENTITY_MAP:/run/identity-map.json:ro" \
-  harden-llm-gateway rehome-identities \
-  --mapping-file /run/identity-map.json
-```
-
-The command migrates through owner-reference cascade version 9, re-encrypts
-provider credentials with the new account UUID in their authenticated binding,
-copies and verifies Garage objects, updates relational owner/object keys,
-checks that no legacy owner references remain, removes old object prefixes, and
-then applies migration 10 to drop the HLLM `users` and `user_sessions` tables.
-It prints counts and readiness only. An already-committed target state can be
-retried before migration 10 completes. Do not restart gateway or web writes
-until the command and post-migration readiness both pass.
-
-Afterward, configure `HARDEN_LLM_STATIC_TOKEN_ACCOUNT_ID` and
-`HARDEN_LLM_PROFILE_ACCOUNT_IDS` with the intended Control Plane UUIDs, run the
-trusted profile sync for those explicit accounts, and verify current sign-in,
-product access, profile/run ownership, and retained trace/artifact reads. This
-schema change is forward-only: older images that expect local identity tables
-cannot be used after migration 10. Retain an independent pre-cutover database
-and Garage copy until release acceptance; recovery requires restoring the whole
-pre-cutover environment rather than running an older image against migrated
-data.
+Perform the cutover as soon as these prerequisites pass. No scheduled window,
+legacy account conversion or retained-data recovery bridge is required.
 
 ## Profile presets
 

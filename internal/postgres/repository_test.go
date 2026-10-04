@@ -8,8 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -17,9 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prls-co/harden-llm/internal/integrationtest"
-	"github.com/prls-co/harden-llm/internal/profiles"
 )
 
 func TestRepositoryContract(t *testing.T) {
@@ -55,7 +51,7 @@ func TestRepositoryContract(t *testing.T) {
 	}
 	store := stores[0]
 	versions, err := store.AppliedMigrations(ctx)
-	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}) {
+	if err != nil || !reflect.DeepEqual(versions, []int64{11}) {
 		t.Fatalf("migration versions = %v, %v", versions, err)
 	}
 	if err := store.Ready(ctx); err != nil {
@@ -252,57 +248,6 @@ func TestRepositoryContract(t *testing.T) {
 
 }
 
-func TestLocalIdentityRemovalRequiresRehomeAndCascadesAccountID(t *testing.T) {
-	store, ctx := recoveryMigrationStore(t, 8)
-	legacyID := "operator-local"
-	accountID := "11111111-1111-4111-8111-111111111111"
-	now := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
-	if _, err := store.pool.Exec(ctx, `INSERT INTO users(id,email,password_hash,created_at,updated_at) VALUES($1,'operator@example.test','$argon2id$fixture',$2,$2)`, legacyID, now); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.MigrateThrough(ctx, 9); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.Migrate(ctx); err == nil || !strings.Contains(err.Error(), "rehome-identities") {
-		t.Fatalf("release migration did not require identity rehome: %v", err)
-	}
-	if _, err := store.pool.Exec(ctx, `INSERT INTO llm_endpoint_credentials
-		(owner_id,credential_id,key_id,nonce,ciphertext,normalized_origin,metadata,created_at,updated_at)
-		VALUES($1,'provider','key',decode('000102030405060708090a0b','hex'),decode('000102030405060708090a0b0c0d0e0f','hex'),'https://api.example.test','{}',$2,$2)`, legacyID, now); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.pool.Exec(ctx, `INSERT INTO llm_profiles(owner_id,profile_id,credential_id,document,created_at,updated_at)
-		VALUES($1,'Primary','provider','{}',$2,$2)`, legacyID, now); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.pool.Exec(ctx, `INSERT INTO llm_client_state(owner_id,document,updated_at) VALUES($1,'{}',$2)`, legacyID, now); err != nil {
-		t.Fatal(err)
-	}
-	credential := CredentialRecord{
-		OwnerID: accountID, ID: "provider", KeyID: "key", Nonce: make([]byte, 12), Ciphertext: make([]byte, 16),
-		Origin: "https://api.example.test", Metadata: json.RawMessage(`{}`), CreatedAt: now,
-	}
-	if err := store.RehomeOwnerIDs(ctx, map[string]string{legacyID: accountID}, map[string][]CredentialRecord{legacyID: {credential}}); err != nil {
-		t.Fatal(err)
-	}
-	for _, table := range []string{"llm_endpoint_credentials", "llm_profiles", "llm_client_state"} {
-		var got string
-		if err := store.pool.QueryRow(ctx, `SELECT owner_id FROM `+table+` LIMIT 1`).Scan(&got); err != nil || got != accountID {
-			t.Fatalf("%s account owner = %q, %v", table, got, err)
-		}
-	}
-	if err := store.MigrateThrough(ctx, 10); err != nil {
-		t.Fatal(err)
-	}
-	var localTables int
-	if err := store.pool.QueryRow(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('users','user_sessions')`).Scan(&localTables); err != nil || localTables != 0 {
-		t.Fatalf("local identity tables remain = %d, %v", localTables, err)
-	}
-	if err := store.Ready(ctx); err != nil {
-		t.Fatalf("re-homed store is not ready: %v", err)
-	}
-}
-
 func assertSchema(t *testing.T, ctx context.Context, store *Store) {
 	t.Helper()
 	rows, err := store.pool.Query(ctx, `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'`)
@@ -396,352 +341,56 @@ func cachedExecutionFields(input, cacheRead, cacheCreation, output, reasoning in
 }
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-208 TEST-251
-func TestRecoveryMigration(t *testing.T) {
-	store, ctx := recoveryMigrationStore(t)
-	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
-	defaults := `{"maxAttempts":4,"retryOn":["network","rate_limit","server_error","empty_response","provider_retry"],"repairInvalidOutput":true,"backoff":{"baseDelayMs":500,"maxDelayMs":8000}}`
-	noRepair := strings.Replace(defaults, `"repairInvalidOutput":true`, `"repairInvalidOutput":false`, 1)
-	zero := `{"maxAttempts":1,"retryOn":["empty_response","provider_retry"],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`
-	cases := []struct{ id, options, policy string }{
-		{"absent", `{}`, defaults},
-		{"disabled", `{"structuredRepairRetry":false}`, noRepair},
-		{"nested-disabled", `{"structuredRepairRetry":{"enabled":false}}`, noRepair},
-		{"nested-zero", `{"structuredRepairRetry":{"enabled":false,"maxAttempts":1,"baseDelayMs":0,"maxDelayMs":0,"enableRetryOn429":false,"enableRetryOn5xx":false,"enableRetryOnNetworkError":false}}`, zero},
-		{"flat-wins", `{"maxAttempts":1,"baseDelayMs":0,"maxDelayMs":0,"enableRetryOn429":false,"enableRetryOn5xx":false,"enableRetryOnNetworkError":false,"enableRetryOnParseError":true,"structuredRepairRetry":{"enabled":false,"maxAttempts":9,"baseDelayMs":1000,"maxDelayMs":9000,"enableRetryOn429":true,"enableRetryOn5xx":true,"enableRetryOnNetworkError":true,"escalation":{"llmProfile":"retired"}}}`, zero},
-	}
-	wantedProfiles := map[string]json.RawMessage{}
-	wantedStates := map[string]json.RawMessage{}
-	wantedResults := map[string]json.RawMessage{}
-	contract, err := openapi3.NewLoader().LoadFromFile("../../api/openapi.yaml")
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-020 TEST-227
+func TestFreshSchemaRejectsRetiredMigrationLedger(t *testing.T) {
+	_, dsn := integrationtest.PostgresLease(t)
+	ctx := t.Context()
+	store, err := Open(ctx, dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for index, owner := range []string{"owner-a", "owner-b"} {
-		if _, err := store.pool.Exec(ctx, `INSERT INTO users(id,email,password_hash,created_at,updated_at) VALUES($1,$2,$3,$4,$4)`, owner, owner+"@example.test", "$argon2id$fixture", now); err != nil {
-			t.Fatal(err)
-		}
-		credential := CredentialRecord{OwnerID: owner, ID: "credential", KeyID: "key", Nonce: []byte("0123456789ab"), Ciphertext: []byte("synthetic-ciphertext-and-auth-tag"), Origin: "https://api.openai.com", Metadata: json.RawMessage(`{"schemaVersion":1,"scope":"global","apiInferenceTypes":["responses"],"custom":"retained"}`), CreatedAt: now, UpdatedAt: now}
-		for _, test := range cases {
-			document := recoveryMigrationProfile(t, test.id, test.options)
-			if test.id == "flat-wins" {
-				profile := rawObject(t, document)
-				profile["reasoningEffortMap"] = json.RawMessage(`{"lowest":{"maxAttempts":7,"temperature":0.4}}`)
-				document = marshalRecovery(t, profile)
-			}
-			if err := store.SaveProfile(ctx, ProfileRecord{OwnerID: owner, ID: test.id, CredentialID: credential.ID, Document: document, CreatedAt: now, UpdatedAt: now}, &credential); err != nil {
-				t.Fatal(err)
-			}
-			wanted := rawObject(t, recoveryMigrationProfile(t, test.id, `{}`))
-			wanted["schemaVersion"] = json.RawMessage(`3`)
-			wanted["recoveryPolicy"] = recoveryMigrationPolicy(t, test.policy)
-			delete(wanted, "backupProfiles")
-			if test.id == "flat-wins" {
-				wanted["reasoningEffortMap"] = json.RawMessage(`{"lowest":{"temperature":0.4}}`)
-			}
-			wantedProfiles[owner+"/"+test.id] = marshalRecovery(t, wanted)
-		}
-		state := rawObject(t, []byte(`{"schemaVersion":1,"selectedProfileId":"absent","userPrompt":"retain task 0012","callType":"structured","structuredRepair":false,"schema":{"type":"object"},"ui":{"historyOpen":true},"cacheMode":"cache","webSearch":true,"reasoningByProfile":{"absent":"highest"}}`))
-		policy := noRepair
-		state["providerOptions"] = json.RawMessage(`{"max_tokens":32,"structuredRepairRetry":false}`)
-		if index == 1 {
-			for key, value := range rawObject(t, []byte(`{"maxAttempts":10,"initialBackoffMs":0,"maximumBackoffMs":0,"retryNetwork":false,"retryRateLimit":false,"retryServerError":false,"retryEmpty":false,"retryParse":true,"repairEscalation":{"attempt":3}}`)) {
-				state[key] = value
-			}
-			policy = `{"maxAttempts":10,"retryOn":["provider_retry"],"repairInvalidOutput":false,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`
-		}
-		if err := store.SaveClientState(ctx, ClientState{OwnerID: owner, Document: marshalRecovery(t, state), UpdatedAt: now}); err != nil {
-			t.Fatal(err)
-		}
-		for _, key := range []string{"maxAttempts", "initialBackoffMs", "maximumBackoffMs", "retryNetwork", "retryRateLimit", "retryServerError", "retryEmpty", "retryParse", "repairEscalation", "structuredRepair"} {
-			delete(state, key)
-		}
-		state["schemaVersion"], state["recoveryPolicy"] = json.RawMessage(`3`), recoveryMigrationPolicy(t, policy)
-		state["providerOptions"] = json.RawMessage(`{"max_tokens":32}`)
-		wantedStates[owner] = marshalRecovery(t, state)
-
-		// Use the public current example, then seed the two historical attempt
-		// fields. A large exact output value detects numeric corruption.
-		example := contract.Components.Responses["RunSuccess"].Value.Content["application/json"].Examples["text"].Value.Value.(map[string]any)["result"]
-		result := rawObject(t, marshalRecovery(t, example))
-		result["output"] = json.RawMessage(`{"exact":9007199254740993,"numericString":"0012","whitespace":"  keep  "}`)
-		// Historical v3 runs did not measure elapsed retry waits. The v4
-		// migration records that absence as JSON null rather than inventing zero.
-		result["totalActualWaitMs"] = json.RawMessage(`null`)
-		wantedResults[owner] = marshalRecovery(t, result)
-		result["schemaVersion"] = json.RawMessage(`2`)
-		var attempts []map[string]json.RawMessage
-		if err := json.Unmarshal(result["attempts"], &attempts); err != nil {
-			t.Fatal(err)
-		}
-		for _, attempt := range attempts {
-			attempt["retryLocalNumber"], attempt["backupIndex"] = json.RawMessage(`1`), json.RawMessage(`0`)
-		}
-		result["attempts"] = marshalRecovery(t, attempts)
-		if index == 1 {
-			result["attempts"] = json.RawMessage(`null`)
-			wanted := rawObject(t, wantedResults[owner])
-			wanted["attempts"] = json.RawMessage(`[]`)
-			wantedResults[owner] = marshalRecovery(t, wanted)
-		}
-		run := RunRecord{OwnerID: owner, ID: "run-example", ProfileID: "Primary", TraceID: "trace-example", Status: "succeeded", Request: json.RawMessage(`{"profileId":"Primary","maxAttempts":0,"structuredRepair":false,"userPrompt":"original evidence"}`), Result: marshalRecovery(t, result), Execution: providerExecutionFields(8, 0, 0, 1, 0, "exact", 0.00001, 1, 0, 120, 0), StartedAt: now, CompletedAt: now}
-		run.Execution.SchemaVersion = 2
-		// Fixture creation targets schema 5 directly, before the current writer
-		// exists. The migration itself always runs through Store.Migrate.
-		tx, err := store.pool.Begin(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := insertExecutionRun(ctx, tx, run); err != nil {
-			_ = tx.Rollback(ctx)
-			t.Fatal(err)
-		}
-		if _, err := tx.Exec(ctx, `INSERT INTO llm_traces(owner_id,trace_id,run_id,record,created_at,updated_at) VALUES($1,'trace-example','run-example','{"schemaVersion":2,"runId":"run-example","traceId":"trace-example"}',$2,$2)`, owner, now); err != nil {
-			_ = tx.Rollback(ctx)
-			t.Fatal(err)
-		}
-		if err := tx.Commit(ctx); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := store.pool.Exec(ctx, `INSERT INTO llm_trace_observations VALUES($1,'trace-example',0,'attempt','{"number":1,"retryLocalNumber":1,"backupIndex":0}',$2)`, owner, now); err != nil {
-			t.Fatal(err)
-		}
-		artifact := ArtifactRecord{OwnerID: owner, RunID: "run-example", TraceID: "trace-example", ID: "artifact", Kind: "trace", ObjectKey: "owners/" + owner + "/immutable.json", ContentType: "application/json", SHA256: strings.Repeat("a", 64), SizeBytes: 17, State: "available", CreatedAt: now, UpdatedAt: now}
-		if err := store.SeedArtifactMetadataForTest(ctx, artifact); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := store.pool.Exec(ctx, `
-			INSERT INTO llm_operation_cache
-				(owner_id, cache_version, operation_hash, operation, result, usage, cost, provider_envelope, created_at, updated_at)
-			VALUES ($1,'operation-v2','retained','{"responseProjectionVersion":"v1"}',
-				'{"output":{"exact":9007199254740993,"numericString":"0012"},"accounting":{"usage":{"status":"complete","inputTokens":0,"cacheReadTokens":0,"cacheCreationTokens":0,"outputTokens":0,"reasoningTokens":0},"cost":{"status":"unavailable"}},"producer":{"profileId":"profile-a","provider":"fixture","protocol":"fixture","endpoint":"https://example.test","modelId":"model-a"}}',
-				'{"status":"complete"}','{"status":"unavailable"}','{"schemaVersion":"raw.v1"}', $2, $2)`, owner, now); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := store.pool.Exec(ctx, `INSERT INTO user_sessions(id,owner_id,token_digest,created_at,expires_at) VALUES($1,$2,$3,$4,$5)`, "session-"+owner, owner, []byte(strings.Repeat(string(rune('a'+index)), 32)), now, now.Add(time.Hour)); err != nil {
-			t.Fatal(err)
-		}
-	}
-	before := recoverySnapshot(t, ctx, store, true)
-	errorsByRunner := make(chan error, 4)
-	for range 4 {
-		go func() { errorsByRunner <- store.MigrateThrough(ctx, 9) }()
-	}
-	for range 4 {
-		if err := <-errorsByRunner; err != nil {
-			t.Fatal(err)
-		}
-	}
-	versions, err := store.AppliedMigrations(ctx)
-	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7, 8, 9}) {
-		t.Fatalf("migration versions = %v, %v", versions, err)
-	}
-	if after := recoverySnapshot(t, ctx, store, true); !reflect.DeepEqual(before, after) {
-		t.Fatal("migration changed independent rows, credentials, requests, execution values or ownership")
-	}
-	for identity, wanted := range wantedProfiles {
-		owner, id, _ := strings.Cut(identity, "/")
-		got, err := store.Profile(ctx, owner, id)
-		if err != nil {
-			t.Fatal(err)
-		}
-		assertRecoveryJSON(t, ctx, store, got.Document, wanted)
-		catalog := marshalRecovery(t, map[string]json.RawMessage{id: got.Document})
-		if _, err := profiles.ParseCatalog(catalog); err != nil {
-			t.Fatalf("migrated profile violates current contract: %v", err)
-		}
-	}
-	for owner, wanted := range wantedStates {
-		got, err := store.ClientState(ctx, owner)
-		if err != nil {
-			t.Fatal(err)
-		}
-		assertRecoveryJSON(t, ctx, store, got.Document, wanted)
-		var value any
-		if err := json.Unmarshal(got.Document, &value); err != nil {
-			t.Fatal(err)
-		}
-		if err := contract.Components.Schemas["ClientState"].Value.VisitJSON(value); err != nil {
-			t.Fatalf("migrated state contract: %v", err)
-		}
-	}
-	for owner, wanted := range wantedResults {
-		got, err := store.Run(ctx, owner, "run-example")
-		if err != nil {
-			t.Fatal(err)
-		}
-		assertRecoveryJSON(t, ctx, store, got.Result, wanted)
-		var version int
-		if err := store.pool.QueryRow(ctx, `SELECT result_schema_version FROM llm_runs WHERE owner_id=$1`, owner).Scan(&version); err != nil || version != 4 {
-			t.Fatalf("result projection version=%d %v", version, err)
-		}
-		var value any
-		if err := json.Unmarshal(got.Result, &value); err != nil {
-			t.Fatal(err)
-		}
-		if err := contract.Components.Schemas["RunResult"].Value.VisitJSON(value); err != nil {
-			t.Fatalf("migrated result contract: %v", err)
-		}
-	}
-	all := recoverySnapshot(t, ctx, store, false)
-	if err := store.MigrateThrough(ctx, 9); err != nil {
+	t.Cleanup(store.Close)
+	if _, err := store.pool.Exec(ctx, `CREATE TABLE schema_migrations(version bigint PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now()); INSERT INTO schema_migrations(version) VALUES(9)`); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(all, recoverySnapshot(t, ctx, store, false)) {
-		t.Fatal("repeated migration changed data")
+	if err := store.Migrate(ctx); err == nil || !strings.Contains(err.Error(), "unknown migration 9") {
+		t.Fatalf("retired database accepted: %v", err)
 	}
-}
-
-func TestRecoveryMigrationRejectsInvalidDocumentsAtomically(t *testing.T) {
-	for _, test := range []struct{ kind, fields, field string }{
-		{"profile", `{"maxAttempts":0}`, "maxAttempts"},
-		{"profile", `{"maxAttempts":11}`, "maxAttempts"},
-		{"profile", `{"maxAttempts":"4"}`, "maxAttempts"},
-		{"profile", `{"maxAttempts":1.5}`, "maxAttempts"},
-		{"profile", `{"baseDelayMs":-1}`, "baseDelayMs"},
-		{"profile", `{"baseDelayMs":60001}`, "baseDelayMs"},
-		{"profile", `{"maxDelayMs":600001}`, "maxDelayMs"},
-		{"profile", `{"baseDelayMs":10,"maxDelayMs":0}`, "maxDelayMs"},
-		{"profile", `{"enableRetryOn429":null}`, "enableRetryOn429"},
-		{"profile", `{"structuredRepairRetry":null}`, "structuredRepairRetry"},
-		{"profile", `{"structuredRepairRetry":{"enabled":"false"}}`, "enabled"},
-		{"profile", `{"maxAttempts":4,"structuredRepairRetry":{"maxAttempts":0}}`, "maxAttempts"},
-		{"state", `{}`, "structuredRepair"},
-		{"state", `{"structuredRepair":null}`, "structuredRepair"},
-		{"state", `{"structuredRepair":false,"retryEmpty":"false"}`, "retryEmpty"},
-		{"state", `{"structuredRepair":true,"maxAttempts":0}`, "maxAttempts"},
-		{"state", `{"structuredRepair":true,"initialBackoffMs":20,"maximumBackoffMs":0}`, "maximumBackoffMs"},
-		{"run", `{"schemaVersion":2,"attempts":{}}`, "attempts"},
-		{"run", `{"schemaVersion":2,"attempts":[null]}`, "attempts"},
-		{"run", `{"schemaVersion":1,"attempts":[]}`, "schemaVersion"},
-	} {
-		t.Run(test.kind+"/"+test.fields, func(t *testing.T) {
-			store, ctx := recoveryMigrationStore(t)
-			now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
-			if _, err := store.pool.Exec(ctx, `INSERT INTO users(id,email,password_hash,created_at,updated_at) VALUES('owner','owner@example.test','$argon2id$fixture',$1,$1)`, now); err != nil {
-				t.Fatal(err)
-			}
-			// A valid row is eligible before the invalid one. Any failed mapping
-			// must roll back its changes as well as the migration version.
-			for _, id := range []string{"a-valid", "z-invalid"} {
-				options := `{}`
-				if test.kind == "profile" && id == "z-invalid" {
-					options = test.fields
-				}
-				if err := store.SaveProfile(ctx, ProfileRecord{OwnerID: "owner", ID: id, Document: recoveryMigrationProfile(t, id, options), CreatedAt: now, UpdatedAt: now}, nil); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if test.kind == "state" {
-				state := rawObject(t, []byte(test.fields))
-				state["schemaVersion"] = json.RawMessage(`1`)
-				if err := store.SaveClientState(ctx, ClientState{OwnerID: "owner", Document: marshalRecovery(t, state), UpdatedAt: now}); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if test.kind == "run" {
-				err := store.SaveExecution(ctx,
-					RunRecord{OwnerID: "owner", ID: "invalid-run", ProfileID: "a-valid", TraceID: "invalid-trace", Status: "failed", Request: json.RawMessage(`{}`), Result: json.RawMessage(test.fields), StartedAt: now, CompletedAt: now},
-					TraceRecord{OwnerID: "owner", TraceID: "invalid-trace", RunID: "invalid-run", Record: json.RawMessage(`{}`), CreatedAt: now, UpdatedAt: now}, nil, nil)
-				if err != nil {
-					t.Fatal(err)
-				}
-			}
-			before := recoverySnapshot(t, ctx, store, false)
-			err := store.Migrate(ctx)
-			if err == nil || !strings.Contains(err.Error(), "owner") || !strings.Contains(err.Error(), test.field) {
-				t.Fatalf("expected document identity and field %s, got %v", test.field, err)
-			}
-			if !reflect.DeepEqual(before, recoverySnapshot(t, ctx, store, false)) {
-				t.Fatal("failed migration partially changed stored data or version")
-			}
-			if err := store.Ready(ctx); err == nil {
-				t.Fatal("unmigrated database reported ready")
-			}
-		})
-	}
-}
-
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-251
-func TestRecoveryStagesMigrationRejectsMixedPolicyAtomically(t *testing.T) {
-	store, ctx := recoveryMigrationStore(t, 7)
-	now := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
-	if _, err := store.pool.Exec(ctx, `INSERT INTO users(id,email,password_hash,created_at,updated_at) VALUES('owner','owner@example.test','$argon2id$fixture',$1,$1)`, now); err != nil {
-		t.Fatal(err)
-	}
-
-	data, err := os.ReadFile("../../fixtures/contracts/profile-catalog.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var catalog struct {
-		Input map[string]json.RawMessage `json:"input"`
-	}
-	if err := json.Unmarshal(data, &catalog); err != nil {
-		t.Fatal(err)
-	}
-	document := rawObject(t, catalog.Input["Primary"])
-	document["schemaVersion"] = json.RawMessage(`2`)
-	document["recoveryPolicy"] = json.RawMessage(`{"maxAttempts":4,"retryOn":["network"],"repairInvalidOutput":true,"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":500,"maxDelayMs":8000}}`)
-	if err := store.SaveProfile(ctx, ProfileRecord{
-		OwnerID: "owner", ID: "mixed", Document: marshalRecovery(t, document), CreatedAt: now, UpdatedAt: now,
-	}, nil); err != nil {
-		t.Fatal(err)
-	}
-
-	before := recoverySnapshot(t, ctx, store, false)
-	err = store.Migrate(ctx)
-	if err == nil || !strings.Contains(err.Error(), "recoveryPolicy mixes") || !strings.Contains(err.Error(), "profile owner/mixed") {
-		t.Fatalf("expected mixed-policy migration rejection, got %v", err)
-	}
-	if !reflect.DeepEqual(before, recoverySnapshot(t, ctx, store, false)) {
-		t.Fatal("mixed-policy migration partially changed stored data or version")
+	var productTables int
+	if err := store.pool.QueryRow(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name LIKE 'llm_%'`).Scan(&productTables); err != nil || productTables != 0 {
+		t.Fatalf("rejected migration changed database: product tables=%d err=%v", productTables, err)
 	}
 }
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-227
 func TestRecoveryIntegrityStorage(t *testing.T) {
-	store, ctx := recoveryMigrationStore(t, 6)
-	now := time.Date(2026, 9, 15, 10, 0, 0, 0, time.UTC)
-	if _, err := store.pool.Exec(ctx, `INSERT INTO users(id,email,password_hash,created_at,updated_at) VALUES('cache-owner','cache-owner@example.test','$argon2id$fixture',$1,$1)`, now); err != nil {
+	_, dsn := integrationtest.PostgresLease(t)
+	ctx := t.Context()
+	store, err := Open(ctx, dsn)
+	if err != nil {
 		t.Fatal(err)
 	}
-	result := json.RawMessage(`{"output":{"exact":9007199254740993,"fraction":0.12345678901234567890123456789},"accounting":{"usage":{"inputTokens":0,"cacheReadTokens":0,"cacheCreationTokens":0,"outputTokens":0,"reasoningTokens":0,"status":"complete"},"cost":{"knownSubtotalUsd":0,"status":"unavailable","source":"","knownObservations":0,"unknownObservations":0}},"producer":{"profileId":"historical-profile","provider":"fixture","protocol":"fixture","endpoint":"https://example.test","modelId":"historical-model"}}`)
-	if _, err := store.pool.Exec(ctx, `
-		INSERT INTO llm_operation_cache
-			(owner_id, cache_version, operation_hash, operation, result, usage, cost, provider_envelope, created_at, updated_at)
-		VALUES ($1,'operation-v2','historical-hash','{"model":"historical"}',$2,'{"status":"complete"}','{"status":"unavailable"}','{"schemaVersion":"raw.v1"}',$3,$3)`, "cache-owner", result, now); err != nil {
+	t.Cleanup(store.Close)
+	if err := store.Migrate(ctx); err != nil {
 		t.Fatal(err)
 	}
-	type retained struct {
-		OwnerID, Version, Hash string
-		Result                 []byte
-		CreatedAt, UpdatedAt   time.Time
-	}
-	readRetained := func() retained {
-		var value retained
-		if err := store.pool.QueryRow(ctx, `SELECT owner_id, cache_version, operation_hash, result, created_at, updated_at FROM llm_operation_cache WHERE owner_id=$1 AND cache_version=$2 AND operation_hash=$3`, "cache-owner", "operation-v2", "historical-hash").Scan(&value.OwnerID, &value.Version, &value.Hash, &value.Result, &value.CreatedAt, &value.UpdatedAt); err != nil {
-			t.Fatal(err)
-		}
-		return value
-	}
-	before := readRetained()
-	if err := store.MigrateThrough(ctx, 9); err != nil {
+	const result = `{"output":{"exact":9007199254740993,"fraction":0.12345678901234567890123456789},"accounting":{"usage":{"status":"complete"},"cost":{"status":"unavailable"}},"producer":{"profileId":"fixture","modelId":"fixture"}}`
+	if _, err := store.pool.Exec(ctx, `INSERT INTO llm_operation_cache(owner_id,cache_version,operation_hash,result,created_at,updated_at) VALUES('account','operation-v2','hash',$1,now(),now())`, result); err != nil {
 		t.Fatal(err)
 	}
-	after := readRetained()
-	if before.OwnerID != after.OwnerID || before.Version != after.Version || before.Hash != after.Hash || before.CreatedAt != after.CreatedAt || before.UpdatedAt != after.UpdatedAt {
-		t.Fatalf("retained cache identity/timestamps changed: before=%#v after=%#v", before, after)
+	if err := store.Migrate(ctx); err != nil {
+		t.Fatal(err)
 	}
 	var equal bool
-	if err := store.pool.QueryRow(ctx, `SELECT $1::jsonb = $2::jsonb`, before.Result, after.Result).Scan(&equal); err != nil || !equal {
-		t.Fatalf("retained cache result changed: before=%s after=%s error=%v", before.Result, after.Result, err)
+	if err := store.pool.QueryRow(ctx, `SELECT result=$1::jsonb FROM llm_operation_cache WHERE owner_id='account' AND operation_hash='hash'`, result).Scan(&equal); err != nil || !equal {
+		t.Fatalf("cache precision or producer changed: equal=%v err=%v", equal, err)
 	}
 	rows, err := store.pool.Query(ctx, `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='llm_operation_cache' ORDER BY ordinal_position`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer rows.Close()
-	columns := make([]string, 0)
+	var columns []string
 	for rows.Next() {
 		var column string
 		if err := rows.Scan(&column); err != nil {
@@ -752,160 +401,7 @@ func TestRecoveryIntegrityStorage(t *testing.T) {
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
 	}
-	wantedColumns := []string{"owner_id", "cache_version", "operation_hash", "result", "created_at", "updated_at"}
-	if !reflect.DeepEqual(columns, wantedColumns) {
-		t.Fatalf("cache columns = %v, want %v", columns, wantedColumns)
+	if want := []string{"owner_id", "cache_version", "operation_hash", "result", "created_at", "updated_at"}; !reflect.DeepEqual(columns, want) {
+		t.Fatalf("cache projection columns=%v want=%v", columns, want)
 	}
-	versions, err := store.AppliedMigrations(ctx)
-	if err != nil || !reflect.DeepEqual(versions, []int64{1, 2, 3, 4, 5, 6, 7, 8, 9}) {
-		t.Fatalf("migration versions = %v, %v", versions, err)
-	}
-	if err := store.Ready(ctx); err == nil {
-		t.Fatal("database with local identities reported ready before rehome")
-	}
-	if err := store.MigrateThrough(ctx, 9); err != nil {
-		t.Fatal(err)
-	}
-	if repeated := readRetained(); !reflect.DeepEqual(after, repeated) {
-		t.Fatalf("repeated migration changed retained cache: before=%#v after=%#v", after, repeated)
-	}
-}
-
-func recoveryMigrationStore(t *testing.T, through ...int) (*Store, context.Context) {
-	t.Helper()
-	_, dsn := integrationtest.PostgresLease(t)
-	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
-	t.Cleanup(cancel)
-	store, err := Open(ctx, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(store.Close)
-	tx, err := store.pool.Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := tx.Exec(ctx, `CREATE TABLE schema_migrations(version bigint PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())`); err != nil {
-		t.Fatal(err)
-	}
-	entries, err := migrationEntries()
-	if err != nil {
-		t.Fatal(err)
-	}
-	limit := int64(5)
-	if len(through) > 0 {
-		limit = int64(through[0])
-	}
-	for _, entry := range entries {
-		if entry.version <= limit {
-			if _, err := tx.Exec(ctx, entry.sql); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := tx.Exec(ctx, `INSERT INTO schema_migrations(version) VALUES($1)`, entry.version); err != nil {
-				t.Fatal(err)
-			}
-		}
-	}
-	if err := tx.Commit(ctx); err != nil {
-		t.Fatal(err)
-	}
-	return store, ctx
-}
-
-func recoveryMigrationProfile(t *testing.T, id, extra string) json.RawMessage {
-	t.Helper()
-	data, err := os.ReadFile("../../fixtures/contracts/profile-catalog.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var fixture struct {
-		Input map[string]json.RawMessage `json:"input"`
-	}
-	if err := json.Unmarshal(data, &fixture); err != nil {
-		t.Fatal(err)
-	}
-	profile := rawObject(t, fixture.Input["Backup"])
-	profile["schemaVersion"], profile["llmProfile"] = json.RawMessage(`1`), marshalRecovery(t, id)
-	delete(profile, "recoveryPolicy")
-	profile["backupProfiles"] = json.RawMessage(`["retired"]`)
-	options := rawObject(t, []byte(`{"temperature":0.25,"max_tokens":512}`))
-	for key, value := range rawObject(t, []byte(extra)) {
-		options[key] = value
-	}
-	profile["defaultOptions"] = marshalRecovery(t, options)
-	return marshalRecovery(t, profile)
-}
-
-func rawObject(t *testing.T, data []byte) map[string]json.RawMessage {
-	t.Helper()
-	var object map[string]json.RawMessage
-	if err := json.Unmarshal(data, &object); err != nil {
-		t.Fatal(err)
-	}
-	return object
-}
-
-func marshalRecovery(t *testing.T, value any) json.RawMessage {
-	t.Helper()
-	data, err := json.Marshal(value)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return data
-}
-
-func recoveryMigrationPolicy(t *testing.T, legacy string) json.RawMessage {
-	t.Helper()
-	policy := rawObject(t, []byte(legacy))
-	var repairEnabled bool
-	if err := json.Unmarshal(policy["repairInvalidOutput"], &repairEnabled); err != nil {
-		t.Fatal(err)
-	}
-	delete(policy, "repairInvalidOutput")
-	if repairEnabled {
-		policy["jsonRepair"] = json.RawMessage(`{"initial":{"source":"generation"},"escalation":{"source":"generation"}}`)
-	} else {
-		policy["jsonRepair"] = json.RawMessage(`null`)
-	}
-	policy["rerun"] = json.RawMessage(`null`)
-	return marshalRecovery(t, policy)
-}
-
-func assertRecoveryJSON(t *testing.T, ctx context.Context, store *Store, got, want []byte) {
-	t.Helper()
-	var equal bool
-	if err := store.pool.QueryRow(ctx, `SELECT $1::jsonb = $2::jsonb`, got, want).Scan(&equal); err != nil {
-		t.Fatal(err)
-	}
-	if !equal {
-		t.Fatalf("migration document mismatch\ngot: %s\nwant: %s", got, want)
-	}
-}
-
-func recoverySnapshot(t *testing.T, ctx context.Context, store *Store, independentOnly bool) map[string]string {
-	t.Helper()
-	result := map[string]string{}
-	for _, table := range []string{"users", "user_sessions", "llm_endpoint_credentials", "llm_profiles", "llm_client_state", "llm_runs", "llm_traces", "llm_trace_observations", "llm_artifacts", "llm_artifact_operations", "llm_artifact_delete_batches", "llm_operation_cache", "schema_migrations"} {
-		expression := "to_jsonb(row)"
-		if independentOnly {
-			switch table {
-			case "schema_migrations":
-				continue
-			case "llm_profiles", "llm_client_state":
-				expression += " - 'document'"
-			case "llm_runs":
-				expression += " - 'result' - 'result_schema_version'"
-			case "llm_operation_cache":
-				expression += " - 'operation' - 'provider_envelope' - 'usage' - 'cost'"
-			}
-		}
-		var snapshot string
-		query := fmt.Sprintf(`SELECT COALESCE(jsonb_agg(value ORDER BY value::text),'[]'::jsonb)::text FROM (SELECT %s AS value FROM %s AS row) AS snapshots`, expression, table)
-		if err := store.pool.QueryRow(ctx, query).Scan(&snapshot); err != nil {
-			t.Fatal(err)
-		}
-		result[table] = snapshot
-	}
-	return result
 }

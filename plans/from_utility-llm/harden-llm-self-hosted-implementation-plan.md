@@ -120,7 +120,14 @@
 
 Deployment ownership amendment (2026-09-24): REQ-017 describes current ownership. The original Phase P08 action and its fifteen-service checks are historical implementation evidence; this shared-Garage transition supersedes their local Garage ownership assumption and changes the current repo-owned service count to fourteen. The cross-repository transition plan owns the shared daemon and cutover acceptance.
 
-Identity ownership amendment (2026-09-30): ADR-HLLM-030 replaces local email/password users and gateway bearer sessions with Control Plane identity/access. Product data remains in HLLM Postgres/Garage under Control Plane account UUIDs. The one-time `rehome-identities` command re-encrypts owner-bound credentials and verifies Garage artifact relocation before schema migration 0010 removes local identity tables. Production and persistent preview migrations are forward-only and remain blocked until every legacy owner has an explicit, one-to-one Control Plane account mapping; no data consolidation or fallback identity path is allowed.
+Identity ownership amendment (2026-10-04): ADR-HLLM-030 centralizes credentials,
+sessions, memberships and product access in Control Plane. The approved clean
+cut clears legacy HLLM database rows and dedicated artifact objects, initializes
+schema version 11, and provisions one company account. Multiple logins and the
+scoped API token share that account's data. Owner mapping/rehome is removed;
+old local-identity schemas cannot be served. Cut over when browser-free release
+and authenticated HTTP gates pass; no browser or live-provider call is required.
+
 
 Identity implementation checkpoint (2026-10-01): PR #86 remains open on the
 visible `codex/issue-18-control-plane-identity` branch. It now incorporates
@@ -204,15 +211,11 @@ counts are:
 | `guest` | 32 | 5 | 5 / 5 | 5 | 24 | 2 | 41 | 5 | 1 | 167 |
 | `operator-local` | 32 | 14 | 14 / 14 | 14 | 22 | 11 | 173 | 85 | 1 | 196 |
 
-Thus 46 encrypted endpoint credentials and all account-owned product history
-must be preserved/rebound before schema migration 0010 removes the local
-identity tables; 363 old sessions are retired. Production and persistent
-preview cutovers remain blocked until each legacy owner has an explicitly
-approved, distinct Control Plane account mapping with current `harden-llm`
-entitlement. Do not consolidate owners, stop the production gateway/frontend,
-or run the forward-only rehome before that decision and the approved cutover
-window. Existing production `/healthz` and `/login` return 200, but this branch
-is not deployed and those responses do not verify the new identity behavior.
+The above is historical inventory. On 2026-10-04 the user authorized discarding
+these legacy HLLM datasets and sessions. Distinct owner mappings, credential
+re-encryption and retained-artifact relocation are no longer cutover gates.
+The single production company account is the data owner for all enabled HLLM
+logins and the configured API token.
 
 Operational security follow-up: a diagnostic on 2026-10-01 accidentally emitted
 the production HLLM PostgreSQL password from `/home/kirill/p/harden-llm/.env`

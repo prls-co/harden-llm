@@ -227,54 +227,21 @@ never collect complete environment dumps into issue/workflow logs.
 `AGENTS.md`, ADR-HLLM-015, and TEST-062 define this policy. Production deployment
 procedures remain separate; this feature does not promote or restart production.
 
-### 6.1 Recovery policy cutover (ADR-HLLM-020)
+### 6.1 Current-format configuration and data
 
-This change requires matching callers, gateway, Phoenix and configuration.
-It is not an ordinary image-only update. Implementation tests do not authorize
-an operational cutover. Use this sequence for an explicitly approved environment:
+Preview profiles, workspace state and run requests use the current contracts
+and complete `recoveryPolicy` values. Use the
+[current configuration example](../config/llm-profiles.example.json) and
+[API examples](api-and-library.md). Provision profiles with the trusted
+`sync-profiles --account-id <uuid>` command for explicit Control Plane accounts.
 
-1. Prepare every maintained caller and the configuration named by
-   `HARDEN_LLM_CONFIG_FILE` for profile/state/bundle version 2 and RunResult
-   version 3. Every profile and run request carries a complete `recoveryPolicy`.
-   Use the [current configuration example](../config/llm-profiles.example.json)
-   and [API examples](api-and-library.md). External files and exported bundles
-   are not database rows and are not converted by migration 6. Do not modify the
-   shared active file while other environments still run the old contract.
-2. Stop old writers, including old gateway/frontend instances and administrative
-   jobs. Take the normal recoverable database, private configuration and component
-   checkpoint; record source SHA and both component image identities. Preserve
-   each environment's own encryption keys, data and account bindings.
-3. Run the matching gateway's normal embedded migration/startup path. Migration
-   `0006_recovery_policy.sql` is one transaction under the existing advisory lock
-   and applied-version record. The prior canonical-history cutover must already
-   have produced RunResult version 2. Unsupported/invalid documents fail with
-   their owner/document identity and field; the transaction remains unapplied.
-   Correct the identified source preference before trying again; do not reset
-   histories or suppress the validation.
-4. Start the matching gateway/Phoenix and select the prepared current-format
-   configuration. The existing trusted `sync-profiles` command provisions it
-   for both guest and operator accounts. It never acts as a database converter.
-   Migration preserves credential bytes; a later provisioning/rotation command
-   has its existing separate credential semantics.
-5. Check HTTP readiness, guest/operator authentication, profile configuration
-   read-back and required `result.defaults.recoveryPolicy`, current saved state,
-   history and traces. Record branch, source SHA, component images, environment
-   URL and results. Use existing administrative read-back checks, with no
-   interactive profile-save probes, automatic provider call or browser test.
-
-The mapping preserves explicit false flags and zero delays. Missing historical
-settings use the fixed mapping in ADR-HLLM-020, including four attempts and
-500/8000 ms backoff; invalid attempt counts/types/ranges abort. A valid flat
-profile setting takes precedence over its nested repair counterpart. Invalid
-mapped values are rejected even when another value would override them.
-Original run requests, observations, artifacts and credentials are retained.
-Old requests remain evidence and cannot be rerun by inventing a current policy.
-
-An old binary cannot roll back migrated formats. Keep the deployment on an image
-compatible with the current database and fix incompatible changes forward;
-there is no database restore path. Structured cache keys use response
-projection v2; old structured entries are not read on a miss. Text cache
-semantics remain unchanged.
+ADR-HLLM-030's authorized 2026-10-04 clean cut retires migrations 1–10 and old
+HLLM identity/data formats. Persistent preview instances with retired schema
+ledgers must stop and reset their own dedicated product database and artifact
+objects before deploying the current product-only schema. Never copy production
+data or sessions into previews. There is no legacy converter or auth fallback.
+For the production procedure use
+[`Clean identity cutover`](self-hosting.md#clean-identity-cutover).
 
 ## 7. Initial verification (2026-09-11 UTC)
 

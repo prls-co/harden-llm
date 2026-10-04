@@ -740,14 +740,10 @@ components.
 - Product data remains local to HLLM: profiles/provider credentials, workspace
   state, runs, traces, artifacts, and retention. Account records, authentication,
   memberships, and product grants remain in Control Plane.
-- Before schema migration 0010 removes `users` and `user_sessions`, an operator
-  must map every legacy local owner one-to-one to a Control Plane account UUID.
-  The rehome command re-encrypts owner-bound provider credentials, updates
-  cascading owner references, copies and verifies Garage artifact objects,
-  removes old object prefixes, then applies the forward-only schema migration.
-  Missing, duplicate, consolidated, or cyclic mappings fail closed. Keep writes
-  stopped during this cutover; old images that require the user tables cannot
-  be used after migration 0010.
+- The authorized 2026-10-04 clean cut clears old HLLM product data and artifacts,
+  initializes the product-only schema, and provisions one entitled Control Plane
+  account. Multiple logins and the scoped API token share that account's data.
+  There are no HLLM guest/operator types, owner rehome or local identity fallback.
 
 ### Identity regression cases
 
@@ -761,7 +757,7 @@ components.
 
 Run the Phoenix tests with `mix test test/harden_llm_web/shared_identity_test.exs`
 and the gateway owner tests with `go test ./internal/gateway/auth ./internal/gateway`.
-PostgreSQL/Garage rehome behavior is verified in the integration tier. Production
+PostgreSQL/Garage product persistence is verified in the integration tier. Production
 acceptance additionally proves account selection, current product access,
-revocation, account-owned profile/run reads, and retained trace/artifact access;
+revocation, shared account-owned profile reads and absence of legacy history;
 source tests and healthy containers alone do not prove those live behaviors.

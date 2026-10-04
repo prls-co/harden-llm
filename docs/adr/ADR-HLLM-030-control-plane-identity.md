@@ -38,10 +38,12 @@ would allow these authorities to drift.
   Profile provisioning likewise takes explicit account UUIDs; it never looks
   up guest/operator users by email.
 - Remove HLLM's local login, password reset, bootstrap command, session tables,
-  and DETS bearer vault. Existing local owner records are rehomed once to
-  explicitly mapped account UUIDs, with encrypted credentials rebound to the
-  new UUID and artifact objects verified before old object prefixes are
-  deleted. The final schema migration removes the local identity tables.
+  and DETS bearer vault. The authorized 2026-10-04 clean cut discards legacy
+  HLLM product data and artifact objects. One fresh product-only schema replaces
+  migrations 1–10; there is no owner-rehome command or compatibility path.
+- The production HLLM account owns one dataset. Multiple Control Plane logins
+  and the account-scoped API token use that same account UUID. Guest/operator
+  are neither HLLM account types nor separate product owners.
 
 ## Consequences
 
@@ -52,22 +54,23 @@ and are intentionally not cached, so stale product sessions cannot keep access
 after membership removal. Machine tokens remain explicit, account-scoped
 deployment credentials and are rotated through deployment configuration.
 
-The schema cutover is forward-only. The gateway must stay stopped while every
-old owner is mapped and its product data is rehomed. Consolidating multiple old
-owners into one account is rejected. Existing images that expect local user
-tables cannot be rolled back after the final migration; recovery uses a
-compatible forward release. Production and persistent preview cutovers remain
-blocked until each local owner has an explicit Control Plane account mapping.
+Stop gateway and web, reset the dedicated HLLM database and its artifact bucket,
+rotate the HLLM database credential, and deploy the certified images. Provision
+profiles for the single entitled Control Plane account, then resume service.
+Other products' databases, buckets, users, sessions and grants are outside this
+reset. Old HLLM sessions retire; people sign in using Control Plane credentials.
+An old schema ledger is rejected, rather than silently upgraded or served.
 
 ## Verification
 
 Go auth tests cover current-session resolution, product denial, unavailable
 identity service, and the separate scoped machine path. Phoenix tests cover the
 shared sign-in/account-selection components and exact host-only cookie options.
-PostgreSQL migration tests prove that schema removal refuses unmapped local
-users and that rehoming cascades account UUIDs through dependent rows. Release
-acceptance separately verifies Control Plane sign-in, current product access,
-revocation, profile/run ownership, and retained artifact reads.
+PostgreSQL tests prove fresh schema creation, concurrent/idempotent migration,
+rejection of retired ledgers, account isolation and cache precision. Auth tests
+prove two logins and the configured token resolve the same product owner. Release
+acceptance verifies Control Plane sign-in, current product access, logout
+revocation, shared account-owned profile reads and empty legacy history.
 
 The full Compose browser test supplies a minimal synthetic Control Plane HTTP
 boundary for sign-in/sign-out, access-context resolution, and account listing
