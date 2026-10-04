@@ -69,3 +69,26 @@ self-hosted verification adaptation, not a compatibility or fallback path.
 Rollback is stateless: removing the seed wiring prevents future preset
 backfills but does not delete existing rows. No production or test timeout
 changed, so no new KER timeout record is required.
+
+## Catalog update — 2026-10-04
+
+The original 28-entry import above records source provenance. The maintained
+Harden-LLM seed now contains 26 profiles: `CPA GPT-5.4` and
+`CPA GPT-5.4 Mini` are retired. An authenticated read of CPA's
+`https://cpa.prls.co/v1/models` confirmed that neither model is available;
+the authorized live smoke also returned `model_not_found` for both. The
+independent OpenAI GPT-5.4 presets remain part of the catalog.
+
+The trusted host configuration removes the same two profiles and their
+credential references, and refreshes retained CPA profiles' model lists from
+that endpoint. Model discovery metadata does not establish inference,
+pricing, or reasoning capabilities for a new preset, so the discovered models
+are available as editor choices without inventing full profile definitions.
+
+Deploy the updated seed before deleting saved copies through the existing
+profile DELETE endpoint; otherwise incremental seeding would recreate them.
+Profile deletion already removes an unreferenced credential. Shared profile
+sync remains an upsert that preserves custom profiles; retirement does not
+introduce a second synchronization or migration path. `TEST-017` checks the
+exact retained catalog and prepares every retained profile offline. Read-only
+utility-llm evidence and the original failed live matrix remain unchanged.

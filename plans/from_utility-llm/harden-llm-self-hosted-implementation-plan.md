@@ -1788,6 +1788,15 @@ Privacy and data-quality constraints:
 
 ### Post-certification profile catalog amendment
 
+Current catalog update (2026-10-04): ADR-HLLM-013 retires `CPA GPT-5.4` and
+`CPA GPT-5.4 Mini` after authenticated CPA discovery confirmed their removal.
+The seed now contains 26 profiles. `TEST-017` and `WEB-TEST-054` retain exact
+catalog/preparation/rendering assertions for these 26 entries; the deployment
+sequence is updated seed, existing profile DELETE operations, then trusted
+profile sync with freshly discovered model lists. Issue #92 tracks the other
+provider failures. The 28-entry import and its verification below are the
+original provenance record.
+
 - Amendment: `P07.S10 Reconcile the current utility-llm profile catalog and all-profile tests`
 - Status: Complete in the current worktree; deterministic verification and the tagged Postgres seed verification passed.
 - Source: `/home/kirill/p/utility-llm` revision `5c0309e2508dc5b7a87d0880c8d794123353c5b0` (`0.15.0`), `examples/react-trace-studio/llm-profile-catalog.json`.

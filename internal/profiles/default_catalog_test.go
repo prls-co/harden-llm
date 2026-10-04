@@ -27,8 +27,6 @@ func TestDefaultCatalogParity(t *testing.T) {
 		"Claude Opus 5":                  {"anthropic", "anthropic-messages", "https://api.anthropic.com/v1", "claude-opus-5"},
 		"Claude Sonnet 4.6":              {"anthropic", "anthropic-messages", "https://api.anthropic.com/v1", "claude-sonnet-4-6"},
 		"Claude Sonnet 5":                {"anthropic", "anthropic-messages", "https://api.anthropic.com/v1", "claude-sonnet-5"},
-		"CPA GPT-5.4":                    {"cpa", "responses", "https://cpa.prls.co/v1", "gpt-5.4"},
-		"CPA GPT-5.4 Mini":               {"cpa", "responses", "https://cpa.prls.co/v1", "gpt-5.4-mini"},
 		"CPA GPT-5.6 Luna":               {"cpa", "responses", "https://cpa.prls.co/v1", "gpt-5.6-luna"},
 		"CPA GPT-5.6 Sol":                {"cpa", "responses", "https://cpa.prls.co/v1", "gpt-5.6-sol"},
 		"Gemini 3.1 Flash Lite":          {"google", "gemini-generate-content", "https://generativelanguage.googleapis.com", "gemini-3.1-flash-lite"},
@@ -65,8 +63,8 @@ func TestDefaultCatalogParity(t *testing.T) {
 	if !slices.Equal(gotNames, wantNames) {
 		t.Fatalf("default profile names = %v, want %v", gotNames, wantNames)
 	}
-	if len(catalog) != 28 {
-		t.Fatalf("default profile count = %d, want 28", len(catalog))
+	if len(catalog) != 26 {
+		t.Fatalf("default profile count = %d, want 26", len(catalog))
 	}
 
 	for _, name := range gotNames {

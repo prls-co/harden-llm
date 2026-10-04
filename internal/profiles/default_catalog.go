@@ -5,7 +5,7 @@ import (
 	_ "embed"
 )
 
-// defaultProfileCatalogJSON is the credential-free utility-llm profile seed.
+// defaultProfileCatalogJSON is the credential-free Harden-LLM profile seed.
 // It is embedded so the gateway has one immutable catalog source and does not
 // depend on the source checkout or a second runtime configuration file.
 //

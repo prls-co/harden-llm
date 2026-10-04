@@ -359,11 +359,13 @@ runtime contract or the meaning of `make verify`.
 - Commands:
   - `go test ./internal/profiles/... ./internal/providers/... -run 'Test(DefaultCatalogParity|ProfileParity|DefaultProfileCatalogParity)' -count=1`
   - `go test ./internal/gateway/... -tags=integration -run TestDefaultProfileSeedParity -count=1`
-- Setup: current source catalog at utility-llm revision `5c0309e` / `0.15.0`,
-  the 28 credential-free preset entries, invalid names/endpoints/defaults,
+- Setup: source catalog at utility-llm revision `5c0309e` / `0.15.0`, with
+  the two unavailable CPA GPT-5.4 profiles retired under ADR-HLLM-013;
+  26 credential-free preset entries, invalid names/endpoints/defaults,
   removed-control rejection, fixed endpoint resolver, and isolated owner-scoped Postgres.
 - Assertions:
-  - The embedded seed contains exactly the current 28 profile names and
+  - The embedded seed contains exactly the current 26 profile names, excludes
+    CPA GPT-5.4 and CPA GPT-5.4 Mini, retains the independent OpenAI presets, and
     matches provider, API inference type, base URL, model ID, pricing,
     reasoning, defaults, and structured-output capability.
   - Seed rows contain no credentials or runtime discovery state, OpenRouter
@@ -373,7 +375,7 @@ runtime contract or the meaning of `make verify`.
   - Concurrent first use inserts every missing preset for an owner with an
     existing custom row, exposes seeded rows as unconfigured, and never
     overwrites the existing operator profile; an empty owner receives exactly
-    the 28 presets.
+    the 26 presets.
   - Runtime catalog assembly accepts credential-free seed rows without
     blocking configured profiles; every seeded profile's missing-credential
     boundary returns `ErrCredentialNotConfigured`, while an attempted run
@@ -383,7 +385,7 @@ runtime contract or the meaning of `make verify`.
     complete recovery policies follow ADR-HLLM-020; independent profile data retain source parity.
   - Backup/escalation fields are rejected; each profile selects exactly one target.
   - No alternate or old recovery-policy shape is accepted.
-- Pass criteria: the current 28-profile seed and all-profile deterministic
+- Pass criteria: the current 26-profile seed and all-profile deterministic
   preparation matrix pass; invalid fixtures fail with stable fields; the
   tagged seed test passes with isolated Postgres.
 - Expected runtime: 10 seconds unit; 90 seconds integration.

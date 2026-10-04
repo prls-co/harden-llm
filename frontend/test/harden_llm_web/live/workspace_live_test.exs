@@ -401,7 +401,11 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
-    assert length(profiles) == 28
+    assert length(profiles) == 26
+
+    for retired <- ["CPA GPT-5.4", "CPA GPT-5.4 Mini"] do
+      refute has_element?(view, ~s(#run_selectedProfileId-options [data-value="#{retired}"]))
+    end
 
     for profile <- profiles do
       profile_id = get_in(profile, ["profile", "llmProfile"])

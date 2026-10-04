@@ -42,7 +42,7 @@
 | Return one detailed result type | DECISION | `Client.Call` returns output plus normalized usage, cost, cache, attempt, and trace metadata. There is no simple/detailed mode split and no expanded-result option. JS direct output parity is asserted against `Result.Output`. |
 | Keep the gateway thin | DECISION | HTTP handlers own transport, auth, authorization, and persistence orchestration. They call the root library and do not construct provider payloads or reimplement retries, schema behavior, pricing, cache identity, or redaction. |
 | Use Postgres for application records | DECISION | Concurrent profile, trace, artifact-index, history, stats, and cache writes require transactions, indexes, JSONB, and migrations. SQLite is not an application database in v1. Garage may use its upstream-supported SQLite metadata engine internally without creating a Harden-LLM application persistence contract. |
-| Seed the current profile catalog on first use | DECISION | Embed the credential-free 28-profile utility-llm catalog and insert missing entries under an owner advisory lock; preserve any existing/custom row and never seed credentials. |
+| Seed the current profile catalog on first use | DECISION | Embed the credential-free 26-profile source-derived catalog maintained under ADR-HLLM-013 and insert missing entries under an owner advisory lock; preserve any existing/custom row and never seed credentials. |
 | Use Garage only for Harden-LLM artifacts | DECISION | Firebase Storage currently owns linked JSON traces and diagnostic attachments. Garage replaces that application-owned surface. HLLM uses no MinIO service. |
 | Use one OTel export path | DECISION | The application emits OTel once to the Collector. The Collector exports operational traces to Tempo and HLLM gateway traces to Laminar over OTLP. The library and gateway do not contain a direct trace exporter. |
 | Use `slog` JSON as the logging API | DECISION | OTel Go logs remain less mature than traces and metrics. Application code logs once through `slog`; one composed handler writes JSON to stdout and mirrors the same record through a pinned OTel slog bridge to the Collector. |
@@ -237,7 +237,7 @@ Contract requirements:
 - `Call` is the only execution method.
 - Built-in provider selection comes from `Profile.APIInferenceType`; callers never construct internal provider adapters.
 - Direct Go callers supply a one-or-more-entry `ProfileCatalog` and a `CredentialResolver`. The gateway supplies owner-scoped saved profiles and an in-memory resolver backed by encrypted Postgres records.
-- An owner receives any missing current 28-profile source-derived presets on the first profile/catalog/runtime operation. Seeding is one owner-locked Postgres transaction, credential-free, and never overwrites an existing row.
+- An owner receives any missing current 26-profile source-derived presets on the first profile/catalog/runtime operation. The unavailable CPA GPT-5.4 presets are retired under ADR-HLLM-013. Seeding is one owner-locked Postgres transaction, credential-free, and never overwrites an existing row.
 - `Result.Output` matches the current JS direct return for equivalent deterministic inputs.
 - Result metadata and emitted telemetry derive from the same internal normalized call record.
 - That normalized record includes the immutable selected target, every
