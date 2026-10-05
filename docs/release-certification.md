@@ -2475,3 +2475,36 @@ has not been rerun. Ten catalog profiles remain unconfigured.
 records the discovery IDs, component identities, task results and readback.
 Documentation-only closeout after the gateway source does not require another
 application image build.
+
+### LiteLLM preset retirement — production (2026-10-04)
+
+The user retired `Shaman LiteLLM GPT-5.4 Mini` and `ShamanLiteLLM`. Both
+provisioned users now have 28 profiles and 18 configured credentials, with zero
+LiteLLM profiles and orphan credentials. The host JSON and credential references
+match authenticated readback; repeated reads do not recreate retired profiles,
+workspace state is unchanged, and trusted sync returned `changed: false`.
+
+This was a configuration-only rollout from source
+`a13416047a6a6613a2d23aa362a12fa588a8b6a7`, completed on `main` without
+rebuilding or recreating application services. Gateway and web retain the
+source/image identities recorded in the preceding CPA rollout. Both are healthy
+with zero restarts, and the eight-service production configuration check reports
+no differences. Public web/API health, API readiness, both actual logins and
+owner-scoped readback passed; anonymous profile access returns HTTP 401.
+
+Fresh `make test-fast` passed all ten tasks with zero cleanup errors/warnings.
+Results and component identities are recorded in the
+[bounded cleanup/RCA evidence](../plans/evidence/harden-llm/litellm-retirement-gemini-rca-20261004.json).
+Unrelated frontend/dependency edits in the shared checkout were preserved;
+verification ran in an isolated checkout of the published source with its exact
+pinned dependencies. No application source or test assertion changed.
+
+Browser and paid inference checks were not rerun. The historical paid matrix
+remains failed. Retiring the two LiteLLM profiles leaves 18 configured profiles
+and eleven unresolved historical failures in
+[issue 92](https://github.com/prls-co/harden-llm/issues/92). The retained matrix
+has not been rerun. Gemini's 404 cause is confirmed but the routing fix is not
+implemented: HLLM omits the required `models/` resource segment. All five models
+appear in authenticated discovery; empty-request probes return 404 for the
+current path and HTTP 400 `INVALID_ARGUMENT` for the documented path. Those
+probes generated no content and do not certify inference or accounting.

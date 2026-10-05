@@ -1,0 +1,345 @@
+{
+  "recordedAt": "2026-10-05T00:32:13.617Z",
+  "configuration": {
+    "branch": "main",
+    "sourceSHA": "a13416047a6a6613a2d23aa362a12fa588a8b6a7",
+    "configurationOnly": true,
+    "applicationRebuilt": false,
+    "serviceRecreated": false,
+    "seedProfiles": 26,
+    "managedProfiles": 28,
+    "configuredBindings": 18,
+    "retiredProfiles": [
+      "Shaman LiteLLM GPT-5.4 Mini",
+      "ShamanLiteLLM"
+    ],
+    "unusedEncryptedCredentialsPruned": true,
+    "orphanCredentialsPerUser": 0,
+    "workspaceStateUnchanged": true,
+    "sync": {
+      "users": 2,
+      "profiles": 28,
+      "configured": 18,
+      "changed": false
+    }
+  },
+  "components": [
+    {
+      "component": "harden-llm-harden-llm-gateway-1",
+      "containerID": "63767e1727cb5ea90ad8b64cb7d8cf6d106911f1690928bcfeb2b32c2e294981",
+      "imageID": "sha256:23b10e3b9ddb92c9225fb98e03de6223085e9e1a6ef20b44ee1a3eac22a2551d",
+      "sourceSHA": "38b56fd3900175a6507e4e96a955eabddf20d01a",
+      "health": "healthy",
+      "restartCount": 0
+    },
+    {
+      "component": "harden-llm-harden-llm-web-1",
+      "containerID": "7cd6b5efcccc612755223be53cce88627e88c2e113b096d74496f1f088a4916b",
+      "imageID": "sha256:0671d3a2ee2647dc900559332605e66585890b9e2e6f24c1acee2b7dddba67d5",
+      "sourceSHA": "1e20dbaa1d8b259ec922665ac4799063f3a6149f",
+      "health": "healthy",
+      "restartCount": 0
+    }
+  ],
+  "publicHTTP": {
+    "checkedAt": "2026-10-05T00:31:04.598Z",
+    "accepted": true,
+    "checks": [
+      {
+        "url": "https://harden-llm.prls.co/healthz",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "url": "https://harden-llm-api.prls.co/healthz",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "url": "https://harden-llm-api.prls.co/readyz",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "url": "https://harden-llm-api.prls.co/api/v1/profiles",
+        "status": 401,
+        "expected": 401
+      }
+    ]
+  },
+  "authenticatedRetirement": {
+    "checkedAt": "2026-10-05T00:29:31.882Z",
+    "retired": [
+      "Shaman LiteLLM GPT-5.4 Mini",
+      "ShamanLiteLLM"
+    ],
+    "users": [
+      {
+        "label": "administrator",
+        "before": 30,
+        "after": 28,
+        "configured": 18,
+        "deleted": [
+          "Shaman LiteLLM GPT-5.4 Mini",
+          "ShamanLiteLLM"
+        ],
+        "retiredSelection": false,
+        "retiredEndpointAbsent": false
+      },
+      {
+        "label": "verification",
+        "before": 30,
+        "after": 28,
+        "configured": 18,
+        "deleted": [
+          "Shaman LiteLLM GPT-5.4 Mini",
+          "ShamanLiteLLM"
+        ],
+        "retiredSelection": false,
+        "retiredEndpointAbsent": false
+      }
+    ],
+    "inferenceCalls": 0,
+    "accepted": true
+  },
+  "authenticatedReadback": {
+    "checkedAt": "2026-10-05T00:30:42.760Z",
+    "retired": [
+      "Shaman LiteLLM GPT-5.4 Mini",
+      "ShamanLiteLLM"
+    ],
+    "users": [
+      {
+        "label": "administrator",
+        "before": 28,
+        "after": 28,
+        "configured": 18,
+        "deleted": [],
+        "retiredSelection": false,
+        "retiredEndpointAbsent": true
+      },
+      {
+        "label": "verification",
+        "before": 28,
+        "after": 28,
+        "configured": 18,
+        "deleted": [],
+        "retiredSelection": false,
+        "retiredEndpointAbsent": true
+      }
+    ],
+    "inferenceCalls": 0,
+    "accepted": true
+  },
+  "productionConfiguration": {
+    "services": 8,
+    "equivalent": true,
+    "recreationRequired": false
+  },
+  "geminiRCA": {
+    "sourceSHA": "a13416047a6a6613a2d23aa362a12fa588a8b6a7",
+    "rootCause": "Gemini request construction omits the models/ resource segment for bare model IDs used by presets and discovery.",
+    "requestConstruction": "internal/providers/payload.go:48",
+    "maskedByTest": "internal/providers/requests_test.go:104 supplies models/gemini-2.5-flash; the real preset matrix checks identity/protocol but not the provider path.",
+    "officialContract": "https://ai.google.dev/api/generate-content",
+    "modelDiscovery": {
+      "checkedAt": "2026-10-05T00:19:32.719Z",
+      "url": "https://generativelanguage.googleapis.com/v1beta/models",
+      "listedModels": 61,
+      "configured": [
+        {
+          "profile": "Gemini 3.1 Flash Lite",
+          "model": "gemini-3.1-flash-lite",
+          "listed": true,
+          "generateContent": true
+        },
+        {
+          "profile": "Gemini 3.1 Pro Preview",
+          "model": "gemini-3.1-pro-preview",
+          "listed": true,
+          "generateContent": true
+        },
+        {
+          "profile": "Gemini 3.5 Flash",
+          "model": "gemini-3.5-flash",
+          "listed": true,
+          "generateContent": true
+        },
+        {
+          "profile": "Gemini 3.5 Flash Lite",
+          "model": "gemini-3.5-flash-lite",
+          "listed": true,
+          "generateContent": true
+        },
+        {
+          "profile": "Gemini 3.7 Flash",
+          "model": "gemini-3.7-flash",
+          "listed": true,
+          "generateContent": true
+        }
+      ]
+    },
+    "routingProbes": {
+      "checkedAt": "2026-10-05T00:20:09.963Z",
+      "inferenceCalls": 0,
+      "probes": [
+        {
+          "profile": "Gemini 3.1 Flash Lite",
+          "path": "/v1beta/gemini-3.1-flash-lite:generateContent",
+          "httpStatus": 404
+        },
+        {
+          "profile": "Gemini 3.1 Flash Lite",
+          "path": "/v1beta/models/gemini-3.1-flash-lite:generateContent",
+          "httpStatus": 400,
+          "providerCode": "INVALID_ARGUMENT",
+          "validationMessage": "* GenerateContentRequest.contents: contents is not specified\n"
+        },
+        {
+          "profile": "Gemini 3.1 Pro Preview",
+          "path": "/v1beta/gemini-3.1-pro-preview:generateContent",
+          "httpStatus": 404
+        },
+        {
+          "profile": "Gemini 3.1 Pro Preview",
+          "path": "/v1beta/models/gemini-3.1-pro-preview:generateContent",
+          "httpStatus": 400,
+          "providerCode": "INVALID_ARGUMENT",
+          "validationMessage": "* GenerateContentRequest.contents: contents is not specified\n"
+        },
+        {
+          "profile": "Gemini 3.5 Flash",
+          "path": "/v1beta/gemini-3.5-flash:generateContent",
+          "httpStatus": 404
+        },
+        {
+          "profile": "Gemini 3.5 Flash",
+          "path": "/v1beta/models/gemini-3.5-flash:generateContent",
+          "httpStatus": 400,
+          "providerCode": "INVALID_ARGUMENT",
+          "validationMessage": "* GenerateContentRequest.contents: contents is not specified\n"
+        },
+        {
+          "profile": "Gemini 3.5 Flash Lite",
+          "path": "/v1beta/gemini-3.5-flash-lite:generateContent",
+          "httpStatus": 404
+        },
+        {
+          "profile": "Gemini 3.5 Flash Lite",
+          "path": "/v1beta/models/gemini-3.5-flash-lite:generateContent",
+          "httpStatus": 400,
+          "providerCode": "INVALID_ARGUMENT",
+          "validationMessage": "* GenerateContentRequest.contents: contents is not specified\n"
+        },
+        {
+          "profile": "Gemini 3.7 Flash",
+          "path": "/v1beta/gemini-3.7-flash:generateContent",
+          "httpStatus": 404
+        },
+        {
+          "profile": "Gemini 3.7 Flash",
+          "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+          "httpStatus": 400,
+          "providerCode": "INVALID_ARGUMENT",
+          "validationMessage": "* GenerateContentRequest.contents: contents is not specified\n"
+        }
+      ],
+      "accepted": true
+    },
+    "fixImplemented": false,
+    "recommendedCorrection": "Construct the canonical Gemini resource path from the model ID. Add exact path assertions for real bare preset and discovery IDs while retaining the existing resource-name fixture oracle. Validate supported text/structured calls for all five models after the correction."
+  },
+  "acceptanceLimits": {
+    "browserRun": false,
+    "paidInferenceCalls": 0,
+    "paidMatrixRerun": false,
+    "unresolvedHistoricalFailures": 11,
+    "issue": "https://github.com/prls-co/harden-llm/issues/92",
+    "retainedFailedMatrix": "plans/evidence/harden-llm/production-checks-20261004.json"
+  },
+  "deterministicGate": {
+    "command": "make test-fast",
+    "sourceSHA": "a13416047a6a6613a2d23aa362a12fa588a8b6a7",
+    "selector": "fast",
+    "accepted": true,
+    "tasks": 10,
+    "cleanupErrors": [],
+    "cleanupWarnings": [],
+    "receiptFile": "runner-1791160333617-2576079-dc81d86b1d77b60e.json",
+    "isolatedCheckout": true,
+    "frontendDependencySHA": "7e013b376811a58db2348856c1e5932ebc446e40",
+    "priorSharedCheckoutAttempt": "Mix stopped before frontend tests after unrelated concurrent edits changed the dependency pin. No application change or assertion relaxation was made; published source passed in an isolated checkout with its pinned dependencies.",
+    "results": [
+      {
+        "taskID": "go-static",
+        "tier": "T0",
+        "status": 0,
+        "timedOut": false,
+        "signal": null
+      },
+      {
+        "taskID": "runner-contracts",
+        "tier": "T1",
+        "status": 0,
+        "timedOut": false,
+        "signal": null
+      },
+      {
+        "taskID": "go-unit",
+        "tier": "T1",
+        "status": 0,
+        "timedOut": false,
+        "signal": null
+      },
+      {
+        "taskID": "go-parity",
+        "tier": "T0",
+        "status": 0,
+        "timedOut": false,
+        "signal": null
+      },
+      {
+        "taskID": "go-api",
+        "tier": "T1",
+        "status": 0,
+        "timedOut": false,
+        "signal": null
+      },
+      {
+        "taskID": "go-observability",
+        "tier": "T1",
+        "status": 0,
+        "timedOut": false,
+        "signal": null
+      },
+      {
+        "taskID": "frontend-deterministic",
+        "tier": "T1",
+        "status": 0,
+        "timedOut": false,
+        "signal": null
+      },
+      {
+        "taskID": "client-core",
+        "tier": "T0",
+        "status": 0,
+        "timedOut": false,
+        "signal": null
+      },
+      {
+        "taskID": "run-progress-client",
+        "tier": "T2",
+        "status": 0,
+        "timedOut": false,
+        "signal": null
+      },
+      {
+        "taskID": "widget-traceability",
+        "tier": "T0",
+        "status": 0,
+        "timedOut": false,
+        "signal": null
+      }
+    ]
+  }
+}

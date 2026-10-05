@@ -265,8 +265,8 @@ live provider acceptance remain separately evidenced boundaries.
 
 ## 7. CPA catalog refresh and preset retirement — 2026-10-04
 
-The current shared catalog has **30 managed profiles and 20 configured
-bindings per provisioned user**. An authenticated read of
+After this dated rollout, the shared catalog had **30 managed profiles and
+20 configured bindings per provisioned user**. An authenticated read of
 `https://cpa.prls.co/v1/models` confirmed 32 available model IDs, excluding
 `gpt-5.4` and `gpt-5.4-mini`. The `CPA GPT-5.4` and `CPA GPT-5.4 Mini`
 profiles and credential references are removed from the trusted host JSON;
@@ -286,3 +286,26 @@ for exact source/image identities and fresh deterministic, release and HTTP
 checks. Model listing establishes availability metadata, not paid inference
 acceptance; the remaining provider failures are tracked in
 [issue 92](https://github.com/prls-co/harden-llm/issues/92).
+
+## 8. LiteLLM preset retirement — 2026-10-04
+
+The current trusted host catalog has **28 profiles and 18 configured bindings
+per provisioned user**. The user retired `Shaman LiteLLM GPT-5.4 Mini` and
+`ShamanLiteLLM` because LiteLLM is no longer used. Both profiles and their
+credential references were removed from the host JSON. Neither profile belongs
+to the embedded seed, which remains at 26 profiles.
+
+The existing DELETE endpoint removed both saved profiles for each explicitly
+provisioned user and pruned their unused encrypted endpoint credentials. Trusted
+`sync-profiles` then returned `changed: false`; authenticated readback verified
+the exact retained catalog, unchanged workspace state, and no LiteLLM endpoint
+or orphan credential. This configuration-only change needed no application
+build or service recreation.
+
+The [release record](release-certification.md#litellm-preset-retirement--production-2026-10-04)
+links bounded configuration and HTTP evidence. The original paid matrix remains
+failed; [issue 92](https://github.com/prls-co/harden-llm/issues/92) tracks eleven
+unresolved failures. Its Gemini RCA confirms a missing `models/` path segment
+in request construction; all five configured model IDs are listed by Google.
+Routing probes used empty JSON and generated no content. They establish the
+404 cause, not successful inference; the Gemini fix remains outstanding.
