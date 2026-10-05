@@ -2508,3 +2508,47 @@ implemented: HLLM omits the required `models/` resource segment. All five models
 appear in authenticated discovery; empty-request probes return 404 for the
 current path and HTTP 400 `INVALID_ARGUMENT` for the documented path. Those
 probes generated no content and do not certify inference or accounting.
+
+### Gemini provider routing correction — production (2026-10-04)
+
+All five retained Gemini profiles now pass text and supported structured-output
+calls through both the public Go library and the deployed production API.
+The request builder now owns the required `models/` segment; presets/discovery
+use their existing bare IDs and the captured Google resource-name fixture
+remains unchanged. No stored profile, provider credential, or pricing changed.
+
+The gateway-only application release is `f3d3142dbc7f15e36148b6c7f0b8f1790d8062eb` on `main`, with image
+`sha256:6461de9bbfb4028021fa21d0c90f8ed756247f50082280ba6337c738bb184aa5` and matching OCI revision/version and isolated `version`
+output. The web retains source `1e20dbaa1d8b259ec922665ac4799063f3a6149f`
+and its existing image/container; every support container also retains its
+identity. The production descriptor converged after a gateway-only apply,
+and the gateway is healthy with zero restarts.
+
+New cheap regressions first reproduced the missing path for bare request IDs,
+all five real presets, and discovered IDs. They passed after the correction.
+Fresh fast checks passed 10/10 locally and in hosted CI. The exact-source
+[release workflow](https://github.com/prls-co/harden-llm/actions/runs/37250788117) passed 29/29 browser-free tasks,
+including real Postgres/Garage, integration/race, Compose and backend aggregate
+checks, with zero cleanup errors/warnings. Hosted CodeQL also passed.
+
+The unchanged `TEST-037` live assertions passed all five profiles and their ten
+text/structured calls, with cache disabled and one attempt. The final production
+API check passed the same ten call types, exact target metadata and accounting;
+its ten history records were deleted and saved workspace state is unchanged.
+Both actual logins and owner-scoped profile reads passed, with 28 profiles and
+18 configured bindings each. Public HTTP health/readiness and anonymous denial
+passed. Read-only artifact inventory is healthy, complete and has zero missing,
+unreferenced or active-operation objects.
+
+The first operator production check completed all ten inference calls, then its
+cleanup helper mistakenly collected IDs echoed by DELETE responses and attempted
+to delete them again. A separate inspector also assumed support-image labels
+were mandatory. These operator errors were corrected without changing the
+application or weakening assertions; the final verification and cleanup passed.
+[Bounded evidence](../plans/evidence/harden-llm/gemini-provider-fix-20261004.json) preserves these failures and the final results;
+provider output and secrets are excluded.
+
+Browser checks and the complete retained 18-profile paid matrix were not rerun.
+[Issue 92](https://github.com/prls-co/harden-llm/issues/92) now tracks six
+unresolved Perplexity/accounting profile failures; the original failed matrix
+remains preserved. This release certifies the five Gemini profiles.

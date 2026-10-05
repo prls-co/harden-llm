@@ -709,26 +709,30 @@
       }
     },
     "applicationRelease": {
-      "applicationBearingSHA": "38b56fd3900175a6507e4e96a955eabddf20d01a",
+      "applicationBearingSHA": "f3d3142dbc7f15e36148b6c7f0b8f1790d8062eb",
       "frontendRelease": "1e20dbaa1d8b259ec922665ac4799063f3a6149f",
-      "gatewayRelease": "38b56fd3900175a6507e4e96a955eabddf20d01a",
+      "gatewayRelease": "f3d3142dbc7f15e36148b6c7f0b8f1790d8062eb",
       "project": "harden-llm",
-      "evidencePath": "plans/evidence/harden-llm/cpa-preset-update-20261004.json"
+      "evidencePath": "plans/evidence/harden-llm/gemini-provider-fix-20261004.json"
     },
     "latestProductionCertification": {
-      "mergedApplicationSHA": "38b56fd3900175a6507e4e96a955eabddf20d01a",
-      "testSourceSHA": "38b56fd3900175a6507e4e96a955eabddf20d01a",
-      "certifiedAt": "2026-10-04T23:57:09.046Z",
-      "evidencePath": "plans/evidence/harden-llm/cpa-preset-update-20261004.json",
-      "releaseTier": "29 browser-free release tasks and 10 fast tasks passed with zero failures or cleanup errors",
+      "mergedApplicationSHA": "f3d3142dbc7f15e36148b6c7f0b8f1790d8062eb",
+      "testSourceSHA": "f3d3142dbc7f15e36148b6c7f0b8f1790d8062eb",
+      "certifiedAt": "2026-10-05T01:35:17.559Z",
+      "evidencePath": "plans/evidence/harden-llm/gemini-provider-fix-20261004.json",
+      "releaseTier": "29 hosted browser-free release tasks and 10 local/hosted fast tasks passed with zero failures or cleanup errors",
       "frontendOnly": false,
       "gatewayOnly": true,
       "browserLayoutChecked": false,
       "httpVerificationAccepted": true,
       "paidProvidersAccepted": false,
-      "paidProvidersRun": false,
+      "paidProvidersRun": true,
       "retainedBrowserProviderEvidence": "plans/evidence/harden-llm/production-checks-20261004.json",
-      "providerFollowupIssue": "https://github.com/prls-co/harden-llm/issues/92"
+      "providerFollowupIssue": "https://github.com/prls-co/harden-llm/issues/92",
+      "geminiProvidersAccepted": true,
+      "paidProviderScope": "Five Gemini profiles: text and structured library/production API calls",
+      "fullConfiguredMatrixRerun": false,
+      "unresolvedOtherProviderFailures": 6
     },
     "latestManagedProfileConfiguration": {
       "updatedAt": "2026-10-04",
@@ -736,12 +740,13 @@
       "evidencePath": "plans/evidence/harden-llm/litellm-retirement-gemini-rca-20261004.json",
       "profilesPerProvisionedUser": 28,
       "configuredBindingsPerProvisionedUser": 18,
-      "retiredProfiles": ["Shaman LiteLLM GPT-5.4 Mini", "ShamanLiteLLM"],
+      "retiredProfiles": [
+        "Shaman LiteLLM GPT-5.4 Mini",
+        "ShamanLiteLLM"
+      ],
       "configurationOnly": true,
       "httpVerificationAccepted": true,
       "paidMatrixRerun": false,
-      "unresolvedHistoricalProviderFailures": 11,
-      "geminiRoutingFixImplemented": false,
       "providerFollowupIssue": "https://github.com/prls-co/harden-llm/issues/92"
     },
     "previousProductionCertification": {

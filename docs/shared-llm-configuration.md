@@ -309,3 +309,18 @@ unresolved failures. Its Gemini RCA confirms a missing `models/` path segment
 in request construction; all five configured model IDs are listed by Google.
 Routing probes used empty JSON and generated no content. They establish the
 404 cause, not successful inference; the Gemini fix remains outstanding.
+
+## 9. Gemini routing correction — 2026-10-04
+
+The five retained Gemini profiles are verified for text and structured output
+in production at gateway source `f3d3142dbc7f15e36148b6c7f0b8f1790d8062eb`. Their existing bare model IDs,
+credentials and capabilities remain unchanged. The provider request builder
+constructs `/v1beta/models/{id}:generateContent`; Google resource-name input
+uses that same canonical route.
+
+See the [release record](release-certification.md#gemini-provider-routing-correction--production-2026-10-04)
+for fresh deterministic, release, live-provider and production API checks.
+The catalog remains at 28 profiles and 18 configured bindings per provisioned
+user. Six other historical provider failures remain in
+[issue 92](https://github.com/prls-co/harden-llm/issues/92); the full retained
+paid matrix has not been rerun.
