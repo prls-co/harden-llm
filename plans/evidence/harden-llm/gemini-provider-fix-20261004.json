@@ -1,0 +1,453 @@
+{
+  "certifiedAt": "2026-10-05T01:35:17.559Z",
+  "branch": "main",
+  "applicationBearingSHA": "f3d3142dbc7f15e36148b6c7f0b8f1790d8062eb",
+  "gatewayImage": {
+    "sourceSHA": "f3d3142dbc7f15e36148b6c7f0b8f1790d8062eb",
+    "tag": "harden-llm-gateway:release-f3d3142dbc7f15e36148b6c7f0b8f1790d8062eb",
+    "imageID": "sha256:6461de9bbfb4028021fa21d0c90f8ed756247f50082280ba6337c738bb184aa5",
+    "platform": "linux/amd64",
+    "version": "f3d3142dbc7f15e36148b6c7f0b8f1790d8062eb",
+    "labels": {
+      "org.opencontainers.image.revision": "f3d3142dbc7f15e36148b6c7f0b8f1790d8062eb",
+      "org.opencontainers.image.source": "https://github.com/prls-co/harden-llm",
+      "org.opencontainers.image.title": "harden-llm-gateway",
+      "org.opencontainers.image.version": "f3d3142dbc7f15e36148b6c7f0b8f1790d8062eb"
+    },
+    "releaseWorkflowURL": "https://github.com/prls-co/harden-llm/actions/runs/37250788117",
+    "releaseAttempt": 1
+  },
+  "change": {
+    "requestBuilder": "internal/providers/payload.go:48",
+    "canonicalPath": "/v1beta/models/{id}:generateContent",
+    "storedProfilesChanged": false,
+    "sourceFixturesChanged": false,
+    "liveAssertionsChanged": false,
+    "regressionsObservedFailingBeforeFix": [
+      "TEST-012 bare-ID request",
+      "TEST-017 all five Gemini preset paths",
+      "TEST-024 discovered-model request paths"
+    ],
+    "regressionsPassingAfterFix": true
+  },
+  "tests": {
+    "sourceSHA": "f3d3142dbc7f15e36148b6c7f0b8f1790d8062eb",
+    "sourceBinding": "Live tests ran before commit; unchanged application and test files were verified against the committed release.",
+    "testedFiles": {
+      "internal/providers/payload.go": "7f740fbecdffd7f74630af3d1a0c97439eb88b442fe4d721dae3aaffa2f81dfe",
+      "internal/providers/requests_test.go": "d73ce2c222b29011a7d2fe1bfee19d8c05d59a5b5a788a307ffb6c4748ec1a5c",
+      "internal/providers/default_profile_catalog_test.go": "064e6ff511a80263c6daa9b6d5d64f322ef2422bdb940503312a5ac607ccacdb",
+      "internal/providers/models_test.go": "11c543cb998e40f05e3cc5c006097fa24f2cdadd6e502c16331bd5d2856a3c18",
+      "internal/providers/live_test.go": "213ffbd7f779ab4caafa43969d17f215c91e48766b90c3b3c782c5a3fc38a8bd"
+    },
+    "fast": {
+      "accepted": true,
+      "tasks": 10,
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "results": {
+        "go-static": 0,
+        "runner-contracts": 0,
+        "go-unit": 0,
+        "go-parity": 0,
+        "go-api": 0,
+        "go-observability": 0,
+        "frontend-deterministic": 0,
+        "client-core": 0,
+        "run-progress-client": 0,
+        "widget-traceability": 0
+      }
+    },
+    "release": {
+      "accepted": true,
+      "tasks": 29,
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "results": {
+        "go-format": 0,
+        "go-lint": 0,
+        "go-build": 0,
+        "go-static": 0,
+        "runner-contracts": 0,
+        "production-config-compose": 0,
+        "go-unit": 0,
+        "go-parity": 0,
+        "go-integration": 0,
+        "go-integration-race": 0,
+        "garage-restart-exclusive": 0,
+        "go-api": 0,
+        "go-observability": 0,
+        "go-compose": 0,
+        "go-compose-contract": 0,
+        "go-race": 0,
+        "go-vulnerability": 0,
+        "frontend-format": 0,
+        "frontend-compile": 0,
+        "frontend-deterministic": 0,
+        "client-core": 0,
+        "run-progress-client": 0,
+        "widget-traceability": 0,
+        "frontend-deps-audit": 0,
+        "frontend-hex-audit": 0,
+        "frontend-assets-deploy": 0,
+        "frontend-pagination-asset-check": 0,
+        "frontend-release": 0,
+        "backend-verify-baseline": 0
+      }
+    },
+    "hosted": {
+      "fast": "https://github.com/prls-co/harden-llm/actions/runs/37250777205",
+      "codeQL": "https://github.com/prls-co/harden-llm/actions/runs/37250777190",
+      "release": "https://github.com/prls-co/harden-llm/actions/runs/37250788117",
+      "releaseAttempt": 1
+    }
+  },
+  "paidGeminiLibrary": {
+    "test": "TEST-037",
+    "command": "go test -json -tags=live ./internal/providers -run '^TestLiveProviders$' -count=1 -parallel=4 -timeout=15m",
+    "sourceSHA": "f3d3142dbc7f15e36148b6c7f0b8f1790d8062eb",
+    "accepted": true,
+    "profiles": [
+      "Gemini 3.1 Flash Lite",
+      "Gemini 3.1 Pro Preview",
+      "Gemini 3.5 Flash",
+      "Gemini 3.5 Flash Lite",
+      "Gemini 3.7 Flash"
+    ],
+    "callTypes": [
+      "text",
+      "structured"
+    ],
+    "calls": 10,
+    "cacheMode": "off",
+    "maxAttempts": 1,
+    "liveTestSHA256": "213ffbd7f779ab4caafa43969d17f215c91e48766b90c3b3c782c5a3fc38a8bd",
+    "configurationConversion": "Existing gateway rootProfile function; temporary export removed before fast checks.",
+    "results": [
+      {
+        "test": "TestLiveProviders/Gemini_3.5_Flash_Lite",
+        "status": "pass",
+        "elapsedSeconds": 1.46
+      },
+      {
+        "test": "TestLiveProviders/Gemini_3.1_Flash_Lite",
+        "status": "pass",
+        "elapsedSeconds": 2
+      },
+      {
+        "test": "TestLiveProviders/Gemini_3.5_Flash",
+        "status": "pass",
+        "elapsedSeconds": 2.98
+      },
+      {
+        "test": "TestLiveProviders/Gemini_3.7_Flash",
+        "status": "pass",
+        "elapsedSeconds": 3.04
+      },
+      {
+        "test": "TestLiveProviders/Gemini_3.1_Pro_Preview",
+        "status": "pass",
+        "elapsedSeconds": 6.85
+      },
+      {
+        "test": "TestLiveProviders",
+        "status": "pass",
+        "elapsedSeconds": 0.02
+      },
+      {
+        "test": "package",
+        "status": "pass",
+        "elapsedSeconds": 6.916
+      }
+    ]
+  },
+  "productionGeminiAPI": {
+    "checkedAt": "2026-10-05T01:34:15.298Z",
+    "environmentURL": "https://harden-llm-api.prls.co",
+    "cacheMode": "off",
+    "maxAttempts": 1,
+    "calls": [
+      {
+        "profile": "Gemini 3.1 Flash Lite",
+        "modelID": "gemini-3.1-flash-lite",
+        "callType": "text",
+        "status": "succeeded",
+        "providerInvoked": true,
+        "attempts": 1,
+        "usedRepair": false,
+        "accountingAccepted": true,
+        "durationMs": 535
+      },
+      {
+        "profile": "Gemini 3.1 Flash Lite",
+        "modelID": "gemini-3.1-flash-lite",
+        "callType": "structured",
+        "status": "succeeded",
+        "providerInvoked": true,
+        "attempts": 1,
+        "usedRepair": false,
+        "accountingAccepted": true,
+        "durationMs": 767
+      },
+      {
+        "profile": "Gemini 3.1 Pro Preview",
+        "modelID": "gemini-3.1-pro-preview",
+        "callType": "text",
+        "status": "succeeded",
+        "providerInvoked": true,
+        "attempts": 1,
+        "usedRepair": false,
+        "accountingAccepted": true,
+        "durationMs": 3835
+      },
+      {
+        "profile": "Gemini 3.1 Pro Preview",
+        "modelID": "gemini-3.1-pro-preview",
+        "callType": "structured",
+        "status": "succeeded",
+        "providerInvoked": true,
+        "attempts": 1,
+        "usedRepair": false,
+        "accountingAccepted": true,
+        "durationMs": 3047
+      },
+      {
+        "profile": "Gemini 3.5 Flash",
+        "modelID": "gemini-3.5-flash",
+        "callType": "text",
+        "status": "succeeded",
+        "providerInvoked": true,
+        "attempts": 1,
+        "usedRepair": false,
+        "accountingAccepted": true,
+        "durationMs": 2321
+      },
+      {
+        "profile": "Gemini 3.5 Flash",
+        "modelID": "gemini-3.5-flash",
+        "callType": "structured",
+        "status": "succeeded",
+        "providerInvoked": true,
+        "attempts": 1,
+        "usedRepair": false,
+        "accountingAccepted": true,
+        "durationMs": 1282
+      },
+      {
+        "profile": "Gemini 3.5 Flash Lite",
+        "modelID": "gemini-3.5-flash-lite",
+        "callType": "text",
+        "status": "succeeded",
+        "providerInvoked": true,
+        "attempts": 1,
+        "usedRepair": false,
+        "accountingAccepted": true,
+        "durationMs": 625
+      },
+      {
+        "profile": "Gemini 3.5 Flash Lite",
+        "modelID": "gemini-3.5-flash-lite",
+        "callType": "structured",
+        "status": "succeeded",
+        "providerInvoked": true,
+        "attempts": 1,
+        "usedRepair": false,
+        "accountingAccepted": true,
+        "durationMs": 686
+      },
+      {
+        "profile": "Gemini 3.7 Flash",
+        "modelID": "gemini-3.7-flash",
+        "callType": "text",
+        "status": "succeeded",
+        "providerInvoked": true,
+        "attempts": 1,
+        "usedRepair": false,
+        "accountingAccepted": true,
+        "durationMs": 1602
+      },
+      {
+        "profile": "Gemini 3.7 Flash",
+        "modelID": "gemini-3.7-flash",
+        "callType": "structured",
+        "status": "succeeded",
+        "providerInvoked": true,
+        "attempts": 1,
+        "usedRepair": false,
+        "accountingAccepted": true,
+        "durationMs": 3634
+      }
+    ],
+    "accepted": true,
+    "workspaceStateUnchanged": true,
+    "cleanupComplete": true,
+    "deletedHistoryCount": 10
+  },
+  "operatorVerificationCorrection": {
+    "status": "failed",
+    "boundary": "operator verification harness",
+    "providerCallsSucceededBeforeFailure": 10,
+    "cleanupFailure": "DELETE responses echo runId. The helper appended those IDs to its mutable cleanup list, deleted the ten original records, then received 404 on the first repeated deletion.",
+    "componentInspectionFailure": "An unlabeled support image omitted Config.Labels, which the operator inspector treated as required.",
+    "applicationCodeChangedForTheseFailures": false,
+    "correction": "Record IDs only from POST /api/v1/run; treat Docker image labels as optional for support images. Preserve assertions and run the corrected verification explicitly."
+  },
+  "deployment": {
+    "descriptorSHA256": "5f560bc9c546f459aa992ab964c6332e40fb30118ae39859490b5d7c0ab9125a",
+    "gatewayOnly": true,
+    "otherComponentsRetained": true,
+    "components": [
+      {
+        "service": "otel-collector",
+        "containerID": "32daddb31bd7018423b62b1ee1ad270b2241fc777489b89bb33d005d7b73c1d3",
+        "imageID": "sha256:125bdbeb7590cc1952c5b3430ecf14063568980c2c93d5b38676cc0446ed8108",
+        "restartCount": 0,
+        "state": "running",
+        "sourceSHA": "aa158b23c8f89d795b21a05a49b3978565dfebd4",
+        "health": "healthy"
+      },
+      {
+        "service": "loki",
+        "containerID": "8398992c73d5fc0872c236e31c6d9bb18aea7d7ab601296694f6ed95751b59b3",
+        "imageID": "sha256:191d4fdfb7264f16989f0a57f320872620a5a7c2ceeec6229212c4190ec49b86",
+        "restartCount": 0,
+        "state": "running",
+        "sourceSHA": null,
+        "health": "healthy"
+      },
+      {
+        "service": "harden-llm-web",
+        "containerID": "7cd6b5efcccc612755223be53cce88627e88c2e113b096d74496f1f088a4916b",
+        "imageID": "sha256:0671d3a2ee2647dc900559332605e66585890b9e2e6f24c1acee2b7dddba67d5",
+        "restartCount": 0,
+        "state": "running",
+        "sourceSHA": "1e20dbaa1d8b259ec922665ac4799063f3a6149f",
+        "health": "healthy"
+      },
+      {
+        "service": "harden-llm-gateway",
+        "containerID": "407e65d7af3ede10b4d7e507123b4f8033d37d56c1a5428e00f67a3085277f3f",
+        "imageID": "sha256:6461de9bbfb4028021fa21d0c90f8ed756247f50082280ba6337c738bb184aa5",
+        "restartCount": 0,
+        "state": "running",
+        "sourceSHA": "f3d3142dbc7f15e36148b6c7f0b8f1790d8062eb",
+        "health": "healthy"
+      },
+      {
+        "service": "harden-postgres",
+        "containerID": "34f1946622fac65ea5d89eabe825140bc9e225d3dd75d4a33051f413bdf5b546",
+        "imageID": "sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609",
+        "restartCount": 0,
+        "state": "running",
+        "sourceSHA": null,
+        "health": "healthy"
+      },
+      {
+        "service": "prometheus",
+        "containerID": "4122d08a7710d0466c98671073133b9d1e85cc060f11345bc589f16ccfdd2bfb",
+        "imageID": "sha256:69f5241418838263316593f7274a304b095c40bcf22e57272865da91bd60a8ac",
+        "restartCount": 0,
+        "state": "running",
+        "sourceSHA": null,
+        "health": "healthy"
+      },
+      {
+        "service": "tempo",
+        "containerID": "3a3d4416cbea42537c684220d5ae6f59910bfc8632ee234b0c349fa6df67eefc",
+        "imageID": "sha256:ee21727732c7a7199cb71c3eee9153bbf23f9b0b87619f0555a0cf21a67f1a33",
+        "restartCount": 0,
+        "state": "running",
+        "sourceSHA": null,
+        "health": "healthy"
+      },
+      {
+        "service": "grafana",
+        "containerID": "93c87fe0939c4bd5bc0099cd97101209d96f32f2f9d0ef6e6663129c861dc571",
+        "imageID": "sha256:5dad0df181cb644a14e13617b913b261a54f7d4fd4510721dba420929f35bea2",
+        "restartCount": 0,
+        "state": "running",
+        "sourceSHA": null,
+        "health": "healthy"
+      }
+    ]
+  },
+  "publicHTTP": {
+    "checkedAt": "2026-10-05T01:35:17.559Z",
+    "accepted": true,
+    "checks": [
+      {
+        "url": "https://harden-llm.prls.co/healthz",
+        "status": 200
+      },
+      {
+        "url": "https://harden-llm.prls.co/login",
+        "status": 200
+      },
+      {
+        "url": "https://harden-llm-api.prls.co/healthz",
+        "status": 200
+      },
+      {
+        "url": "https://harden-llm-api.prls.co/readyz",
+        "status": 200
+      },
+      {
+        "url": "https://harden-llm-api.prls.co/api/v1/profiles",
+        "status": 401
+      }
+    ]
+  },
+  "artifactInventory": {
+    "schemaVersion": 1,
+    "scannedObjects": 0,
+    "metadataReferences": 0,
+    "activeOperationReferences": 0,
+    "referencedObjects": 0,
+    "activeOperationObjects": 0,
+    "missingAvailableObjects": 0,
+    "unreferencedYoungObjects": 0,
+    "unreferencedAgedObjects": 0,
+    "truncated": false,
+    "healthy": true
+  },
+  "authenticatedProfileReadback": {
+    "checkedAt": "2026-10-05T01:32:37.608Z",
+    "retired": [
+      "Shaman LiteLLM GPT-5.4 Mini",
+      "ShamanLiteLLM"
+    ],
+    "users": [
+      {
+        "label": "administrator",
+        "before": 28,
+        "after": 28,
+        "configured": 18,
+        "deleted": [],
+        "retiredSelection": false,
+        "retiredEndpointAbsent": true
+      },
+      {
+        "label": "verification",
+        "before": 28,
+        "after": 28,
+        "configured": 18,
+        "deleted": [],
+        "retiredSelection": false,
+        "retiredEndpointAbsent": true
+      }
+    ],
+    "inferenceCalls": 0,
+    "accepted": true
+  },
+  "acceptanceLimits": {
+    "browserRun": false,
+    "fullConfiguredMatrixRerun": false,
+    "configuredProfiles": 18,
+    "managedProfiles": 28,
+    "unconfiguredProfiles": 10,
+    "unresolvedOtherProfileFailures": 6,
+    "originalFailedMatrix": "plans/evidence/harden-llm/production-checks-20261004.json",
+    "issue": "https://github.com/prls-co/harden-llm/issues/92",
+    "additionalSuccessfulProductionCallsBeforeOperatorCleanupFailure": 10
+  }
+}
