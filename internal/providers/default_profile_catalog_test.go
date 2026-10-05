@@ -103,6 +103,18 @@ func TestDefaultProfileCatalogParity(t *testing.T) {
 						}
 					}
 				}
+				if name == "OpenRouter DeepSeek V4 Pro" {
+					request := prepared.Opaque.(preparedRequest)
+					var body map[string]any
+					if err := json.Unmarshal(request.body, &body); err != nil {
+						t.Fatal(err)
+					}
+					want := map[string]any{"order": []string{"deepinfra/fp8"}, "allow_fallbacks": false}
+					operationPayload := objectValue(prepared.Operation.Payload)
+					if !deepEqualJSON(body["provider"], want) || !deepEqualJSON(operationPayload["provider"], want) {
+						t.Fatalf("%s routing must target one DeepInfra endpoint without fallbacks: body=%#v operation=%#v", callType, body["provider"], operationPayload["provider"])
+					}
+				}
 				encoded, err := json.Marshal(prepared.Operation)
 				if err != nil {
 					t.Fatal(err)

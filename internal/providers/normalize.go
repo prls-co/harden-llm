@@ -652,7 +652,7 @@ func optionalObjectStrict(object map[string]any, keys ...string) (map[string]any
 			continue
 		}
 		if value == nil {
-			return nil, true, errors.New("usage detail is null")
+			continue
 		}
 		nested, ok := value.(map[string]any)
 		if !ok {

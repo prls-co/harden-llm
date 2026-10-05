@@ -60,6 +60,24 @@ func TestProviderNormalization(t *testing.T) {
 			wantCost: accounting.ExactCost(0.125, "reported"),
 		},
 		{
+			name: "Nullable prompt details", protocol: "openai-compatible.chat.completions", callType: "text",
+			body:       `{"choices":[{"message":{"content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":9,"prompt_tokens_details":null,"completion_tokens":27,"completion_tokens_details":{"reasoning_tokens":24},"total_tokens":36}}`,
+			wantOutput: "ok", wantUsage: completeProviderUsage(9, 0, 0, 3, 24),
+			wantCost: accounting.ExactCost(0.087, "profile"),
+		},
+		{
+			name: "Nullable completion details", protocol: "openai-compatible.chat.completions", callType: "structured",
+			body:       `{"choices":[{"message":{"content":"{\"ok\":true}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2,"completion_tokens_details":null,"cost":0.125}}`,
+			wantOutput: map[string]any{"ok": true}, wantUsage: completeProviderUsage(3, 0, 0, 2, 0),
+			wantCost: accounting.ExactCost(0.125, "reported"),
+		},
+		{
+			name: "Responses nullable details", protocol: "openai.responses", callType: "text",
+			body:       `{"status":"completed","output_text":"ok","usage":{"input_tokens":10,"input_tokens_details":null,"cached_tokens":2,"output_tokens":4,"output_tokens_details":null,"reasoning_tokens":1}}`,
+			wantOutput: "ok", wantUsage: completeProviderUsage(8, 2, 0, 3, 1),
+			wantCost: accounting.ExactCost(0.0172, "profile"),
+		},
+		{
 			name: "Gemini", protocol: "google.gemini.generateContent", callType: "text",
 			body:       `{"candidates":[{"content":{"parts":[{"text":"gemini-"},{"text":"ok"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":10,"cachedContentTokenCount":2,"candidatesTokenCount":4,"thoughtsTokenCount":1}}`,
 			wantOutput: "gemini-", wantUsage: completeProviderUsage(8, 2, 0, 4, 1),
@@ -117,6 +135,16 @@ func TestReportedCostObjectsRejectInvalidTotals(t *testing.T) {
 				t.Fatalf("invalid reported cost accepted or valid usage lost: %#v %v", result, err)
 			}
 		})
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-013
+func TestProviderNormalizationRejectsInconsistentReasoning(t *testing.T) {
+	t.Parallel()
+	result, err := normalizeResponse(preparedRequest{protocol: "openai-compatible.chat.completions", callType: "text"}, []byte(`{"choices":[{"message":{"content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":24,"completion_tokens":34,"completion_tokens_details":{"reasoning_tokens":37},"total_tokens":58,"cost":0.0001477608}}`))
+	var providerError *retry.ProviderError
+	if !errors.As(err, &providerError) || providerError.Code != "ACCOUNTING_INVALID" || result.Output != nil || result.Accounting.Usage.Status != accounting.UsageUnavailable || result.Accounting.Cost != accounting.ExactCost(0.0001477608, "reported") {
+		t.Fatalf("contradictory usage accepted or valid reported cost lost: %#v %v", result, err)
 	}
 }
 
@@ -506,6 +534,8 @@ func TestRecoveryBoundaryAccountingCache(t *testing.T) {
 		`{"status":"completed","output_text":"ok","usage":{"input_tokens":1.5,"output_tokens":2}}`,
 		`{"status":"completed","output_text":"ok","usage":{"input_tokens":2,"input_tokens_details":{"cached_tokens":3},"output_tokens":2}}`,
 		`{"status":"completed","output_text":"ok","usage":{"input_tokens":2,"input_tokens_details":123,"output_tokens":2}}`,
+		`{"status":"completed","output_text":"ok","usage":{"input_tokens":2,"input_tokens_details":{"cached_tokens":null},"output_tokens":2}}`,
+		`{"status":"completed","output_text":"ok","usage":{"input_tokens":2,"output_tokens":2,"output_tokens_details":{"reasoning_tokens":null}}}`,
 		`{"status":"completed","output_text":"ok","usage":{"input_tokens":null,"output_tokens":2}}`,
 		`{"status":"completed","output_text":"ok","usage":null}`,
 	} {

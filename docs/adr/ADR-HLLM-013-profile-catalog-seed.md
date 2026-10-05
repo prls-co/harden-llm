@@ -104,3 +104,22 @@ search flags, and their provider-specific chat-search path are retired.
 Historical utility fixtures remain source evidence; they do not define the
 current managed catalog. Router API preview access and research presets are
 not required by this model catalog.
+
+## Novita accounting and OpenRouter Pro routing amendment — 2026-10-04
+
+Authenticated Novita discovery confirms USD-per-million input/output/cache-read
+rates of 0.14/0.28/0.028 for Flash and 1.60/3.20/0.135 for Pro. Both presets now
+price reasoning at the paid completion rate. `OpenRouter DeepSeek V4 Pro` uses
+one `deepinfra/fp8` endpoint with `allow_fallbacks: false` through existing
+native `defaultOptions`; provider-reported costs remain authoritative. This
+preserves all 29 seed names and the existing structured-output contract.
+
+The shared usage parser accepts nullable optional breakdown containers while
+retaining strict actual-count, component and cost validation. Contradictory
+Relace reasoning totals remain rejected; they are not clamped or discarded.
+TEST-013 and TEST-017 cover the parser, rates, wire route and cache identity.
+Existing saved presets receive these same values through trusted profile sync;
+no profile, credential, owner, workspace state or historical accounting is
+reconstructed. See [issue 92](https://github.com/prls-co/harden-llm/issues/92#issuecomment-5988967325)
+for the RCA and [OpenRouter provider selection](https://openrouter.ai/docs/guides/routing/provider-selection)
+for the native routing contract.

@@ -143,3 +143,28 @@ func assertCompletePricing(t *testing.T, name string, pricing *Pricing) {
 		}
 	}
 }
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-017
+func TestDefaultCatalogParityNovitaPricing(t *testing.T) {
+	t.Parallel()
+	catalog, err := DefaultCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name                  string
+		input, output, cached float64
+	}{
+		{"Novita DeepSeek V4 Flash", 0.14e-6, 0.28e-6, 0.028e-6},
+		{"Novita DeepSeek V4 Pro", 1.60e-6, 3.20e-6, 0.135e-6},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			pricing := catalog[test.name].Pricing
+			assertCompletePricing(t, test.name, pricing)
+			if *pricing.Input != test.input || *pricing.Output != test.output || *pricing.CacheRead != test.cached || *pricing.Reasoning != test.output {
+				t.Fatalf("pricing differs from discovered rates: input=%g output=%g cached=%g reasoning=%g", *pricing.Input, *pricing.Output, *pricing.CacheRead, *pricing.Reasoning)
+			}
+		})
+	}
+}

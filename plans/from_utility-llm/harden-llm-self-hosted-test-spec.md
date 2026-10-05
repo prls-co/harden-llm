@@ -315,6 +315,11 @@ runtime contract or the meaning of `make verify`.
   - Scalar reported costs and USD objects containing `total_cost` normalize
     as provider-reported exact totals. Missing/invalid totals and non-USD
     currency remain `ACCOUNTING_INVALID`; valid usage remains available.
+  - Null optional prompt/completion detail containers are absent breakdowns;
+    valid aggregate counts and remaining reported details are preserved. Actual
+    null/negative/fractional counts and malformed containers remain invalid.
+  - Reasoning tokens exceeding the completion total remain `ACCOUNTING_INVALID`;
+    the valid provider-reported cost survives that failure and output is withheld.
   - Secrets and raw authorization values do not appear in results or errors.
 - Pass criteria: all provider tables match normalized goldens.
 - Expected runtime: 15 seconds.
@@ -382,6 +387,10 @@ runtime contract or the meaning of `make verify`.
     reasoning, defaults, and structured-output capability.
   - Seed rows contain no credentials or runtime discovery state, OpenRouter
     pricing remains provider-reported, and catalog serialization round-trips.
+  - Novita Flash/Pro use the authenticated 2026-10-04 token rates, including
+    paid reasoning at the completion rate. OpenRouter Pro targets only
+    `deepinfra/fp8` with fallbacks disabled in both the wire request and cache
+    operation; its existing structured-output contract is unchanged.
   - Every seeded profile prepares both text and structured operations through
     the shared endpoint policy without serializing the fixture credential.
     Each Gemini preset also asserts the exact provider resource path in both
