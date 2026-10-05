@@ -288,6 +288,8 @@ runtime contract or the meaning of `make verify`.
 - Setup: local HTTP servers and request goldens for OpenAI-compatible Chat, OpenAI Responses, Gemini GenerateContent, Anthropic Messages, and generic OpenAI-compatible endpoints.
 - Assertions:
   - Paths, methods, headers, model IDs, prompts, schemas, tools, reasoning options, token limits, and native options match source fixtures.
+  - Gemini bare model IDs and Google resource names both construct the exact
+    `/v1beta/models/{id}:generateContent` path; the captured source oracle remains unchanged.
   - Contracted-only options never leak into native mode.
   - Unknown native options follow the current provider-specific contract.
   - Utility-compatible request option names such as `max_tokens` and
@@ -372,6 +374,8 @@ runtime contract or the meaning of `make verify`.
     pricing remains provider-reported, and catalog serialization round-trips.
   - Every seeded profile prepares both text and structured operations through
     the shared endpoint policy without serializing the fixture credential.
+    Each Gemini preset also asserts the exact provider resource path in both
+    the canonical operation and actual prepared HTTP request.
   - Concurrent first use inserts every missing preset for an owner with an
     existing custom row, exposes seeded rows as unconfigured, and never
     overwrites the existing operator profile; an empty owner receives exactly
@@ -496,6 +500,8 @@ runtime contract or the meaning of `make verify`.
   - Every resource route in the stack specification uses `/api/v1` and owner authorization.
   - Bundle replacement is atomic.
   - Model refresh preserves the previous list on provider failure.
+  - Provider model discovery returns Gemini bare IDs that prepare the exact
+    `models/{id}:generateContent` resource path (`internal/providers/models_test.go`).
   - History pagination is stable by timestamp and ID.
   - `/api/v1/traces/{traceID}` and `/api/v1/traces/{traceID}/artifacts/{artifactID}` use the authenticated owner.
   - Artifact access returns a short-lived Garage presigned redirect only after authorization; object keys and durable public URLs are absent from API state.

@@ -45,7 +45,7 @@ func buildPayload(profile runtime.Profile, call runtime.Call) (string, string, s
 	case "chat-completions":
 		return profile.Provider, "openai-compatible.chat.completions", "/chat/completions", buildChatPayload(profile, call, options, schema), map[string]any{}, nil
 	case "gemini-generate-content":
-		path := "/v1beta/" + strings.TrimLeft(profile.ModelID, "/") + ":generateContent"
+		path := "/v1beta/models/" + strings.TrimPrefix(strings.TrimLeft(profile.ModelID, "/"), "models/") + ":generateContent"
 		return "google", "google.gemini.generateContent", path, buildGeminiPayload(profile, call, options, schema), map[string]any{}, nil
 	case "anthropic-messages":
 		return "anthropic", "anthropic.messages", "/messages", buildAnthropicPayload(profile, call, options, schema), map[string]any{"anthropic-version": defaultAnthropicVersion}, nil

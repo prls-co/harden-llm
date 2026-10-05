@@ -12,6 +12,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/prls-co/harden-llm/internal/runtime"
 )
 
 func TestModelDiscovery(t *testing.T) {
@@ -88,6 +90,17 @@ func TestModelDiscovery(t *testing.T) {
 			})
 			if err != nil || len(models) != 2 || !strings.HasSuffix(models[0].ID, "a") || !strings.HasSuffix(models[1].ID, "b") {
 				t.Fatalf("models = %#v, %v", models, err)
+			}
+			if test.inferenceType == "gemini-generate-content" {
+				for _, model := range models {
+					_, _, path, _, _, err := buildPayload(runtime.Profile{
+						APIInferenceType: test.inferenceType, ModelID: model.ID,
+					}, runtime.Call{CallType: "text", UserPrompt: "OK"})
+					wantPath := "/v1beta/models/" + model.ID + ":generateContent"
+					if err != nil || path != wantPath {
+						t.Fatalf("discovered model %q request path = %q, %v; want %q", model.ID, path, err, wantPath)
+					}
+				}
 			}
 		})
 	}
