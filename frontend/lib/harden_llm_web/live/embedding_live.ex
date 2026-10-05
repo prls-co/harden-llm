@@ -63,7 +63,10 @@ defmodule HardenLlmWeb.EmbeddingLive do
 
   @impl true
   def handle_async(_operation, {:ok, {:error, %APIError{status: 401}}}, socket) do
-    {:noreply, Phoenix.LiveView.redirect(socket, to: "/login")}
+    {:noreply,
+     Phoenix.LiveView.redirect(socket,
+       external: PrlsWeb.SessionNavigation.login_url(socket.assigns.prls_return_to)
+     )}
   end
 
   def handle_async(:hydrate, {:ok, {:ok, hydration}}, socket) do
@@ -125,7 +128,10 @@ defmodule HardenLlmWeb.EmbeddingLive do
        |> put_flash(:info, "Profile bundle imported atomically.")}
     else
       {:error, %APIError{status: 401}} ->
-        {:noreply, Phoenix.LiveView.redirect(socket, to: "/login")}
+        {:noreply,
+         Phoenix.LiveView.redirect(socket,
+           external: PrlsWeb.SessionNavigation.login_url(socket.assigns.prls_return_to)
+         )}
 
       _ ->
         {:noreply, assign(socket, :upload_error, "The selected bundle was rejected.")}

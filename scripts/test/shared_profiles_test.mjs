@@ -32,7 +32,7 @@ test('shared configuration resolves only explicitly bound env keys, without inte
 });
 
 test('only portable application variables are shared', () => {
-  assert.deepEqual(sharedApplicationVariables({ HARDEN_LLM_MAX_RUN_DURATION_MS:'45000', HARDEN_LLM_PROVIDER_ALLOWED_HOSTS:'example.test', HARDEN_LLM_CONTROL_PLANE_URL:'http://control-plane:4310', HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN:'fixture-internal-token', JINA_API_KEY:'fixture-jina-key', HARDEN_LLM_DATABASE_URL:'not-shared', HARDEN_LLM_STATIC_TOKEN:'not-shared', HARDEN_LLM_WEB_SECRET_KEY_BASE:'not-shared' }), { HARDEN_LLM_MAX_RUN_DURATION_MS:'45000', HARDEN_LLM_PROVIDER_ALLOWED_HOSTS:'example.test', HARDEN_LLM_CONTROL_PLANE_URL:'http://control-plane:4310', HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN:'fixture-internal-token', JINA_API_KEY:'fixture-jina-key' });
+  assert.deepEqual(sharedApplicationVariables({ HARDEN_LLM_MAX_RUN_DURATION_MS:'45000', HARDEN_LLM_PROVIDER_ALLOWED_HOSTS:'example.test', HARDEN_LLM_CONTROL_PLANE_URL:'http://control-plane:4310', HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN:'fixture-internal-token', PRLS_PORTAL_URL:'https://a.prls.co', JINA_API_KEY:'fixture-jina-key', HARDEN_LLM_DATABASE_URL:'not-shared', HARDEN_LLM_STATIC_TOKEN:'not-shared', HARDEN_LLM_WEB_SECRET_KEY_BASE:'not-shared' }), { HARDEN_LLM_MAX_RUN_DURATION_MS:'45000', HARDEN_LLM_PROVIDER_ALLOWED_HOSTS:'example.test', HARDEN_LLM_CONTROL_PLANE_URL:'http://control-plane:4310', HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN:'fixture-internal-token', PRLS_PORTAL_URL:'https://a.prls.co', JINA_API_KEY:'fixture-jina-key' });
 });
 
 test('profile provisioning uses only explicit Control Plane user IDs', () => {

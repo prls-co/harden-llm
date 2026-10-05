@@ -120,6 +120,7 @@ services:
       prls-observability: {}
     environment:
       PHX_SERVER: 'true'
+      PRLS_PORTAL_URL: ${PRLS_PORTAL_URL:?set the canonical Portal origin}
       HARDEN_LLM_WEB_HOST: ${PREVIEW_HOST}
       HARDEN_LLM_WEB_PORT: '4000'
       HARDEN_LLM_WEB_SECRET_KEY_BASE: ${WEB_SECRET:?}

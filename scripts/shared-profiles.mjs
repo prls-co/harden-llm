@@ -43,7 +43,7 @@ export function sharedApplicationVariables(values) {
     'HARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST',
     'HARDEN_LLM_ARTIFACT_PRESIGN_TTL',
     'HARDEN_LLM_CONTROL_PLANE_URL', 'HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN',
-    'JINA_API_KEY',
+    'PRLS_PORTAL_URL', 'JINA_API_KEY',
     'HARDEN_LLM_WEB_API_TIMEOUT_MS', 'HARDEN_LLM_WEB_RUN_TIMEOUT_MS',
     'HARDEN_LLM_WEB_LOG_MAX_BYTES', 'HARDEN_LLM_WEB_LOG_MAX_FILES',
   ].filter(key => values[key] !== undefined).map(key => [key, values[key]]));

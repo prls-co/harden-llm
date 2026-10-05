@@ -464,7 +464,7 @@ defmodule HardenLlmWeb.ProfilesLiveTest do
 
     view |> element(~s(button[phx-click="refresh"][phx-value-id="Primary"])) |> render_click()
 
-    assert_redirect(view, ~p"/login", 1_000)
+    assert_redirect(view, PrlsWeb.SessionNavigation.login_url("/profiles"), 1_000)
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-032

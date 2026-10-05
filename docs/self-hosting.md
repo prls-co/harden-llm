@@ -97,8 +97,10 @@ Create and enable human logins in the PRLS Control Plane. Every enabled login
 can enter HLLM with private data; no company selection or HLLM grant is needed. HLLM has no local registration, user bootstrap, or password-reset path.
 Configure `HARDEN_LLM_CONTROL_PLANE_URL` and the protected
 `HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN`; the gateway checks current enabled identity for every human request. Phoenix keeps an encrypted
-host-only `__Host-harden_llm_web` cookie; sessions are not shared across product
-subdomains. Set `HARDEN_LLM_STATIC_TOKEN_USER_ID` only when a machine client
+host-only `__Host-harden_llm_web` mount cookie. Control Plane owns the shared
+PRLS session cookie across the trusted product subdomains; Portal owns password
+entry. Configure `PRLS_PORTAL_URL` and `HARDEN_LLM_WEB_PUBLIC_URL` to build trusted
+return URLs. Set `HARDEN_LLM_STATIC_TOKEN_USER_ID` only when a machine client
 needs direct API access as one explicit Control Plane user.
 
 ## Clean identity cutover
@@ -149,12 +151,15 @@ run; the API never returns the stored secret.
 
 The authenticated application lives at `/`; `/?trace_id=<id>` restores a result.
 There are no `/workspace` or `/history` routes or legacy redirects. Separate
-frontend routes remain for `/login`, `/logout`, `/session/expired`, `/profiles`,
+frontend routes remain for POST `/logout`, `/session/unavailable`, `/profiles`,
 `/profiles/bundle`, `/embed/llm`, `/traces/:trace_id`, and artifact downloads at
 `/traces/:trace_id/artifacts/:artifact_id`. `/healthz` is the frontend health probe.
 The Go REST resource routes remain independent; the former HLLM-owned human
 login, session, and logout API routes have been removed. Browser sign-in is
-handled through the PRLS Control Plane.
+handled by the shared Portal at `https://a.prls.co/login`, using the existing
+Control Plane cookie. Set `PRLS_PORTAL_URL` to that canonical origin. The product
+has no password or account picker route. Browser policy permits the logout
+response to redirect to Portal; normal same-origin CSRF protection remains.
 
 - `https://<api-host>/healthz` checks process liveness.
 - `https://<api-host>/readyz` checks migrations and the Garage bucket.

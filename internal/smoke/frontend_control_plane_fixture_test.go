@@ -11,6 +11,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"slices"
 	"strconv"
 	"sync"
 	"testing"
@@ -21,7 +22,7 @@ const frontendSmokeSessionCookie = "frontend-smoke-session"
 
 type frontendControlPlaneFixture struct {
 	internalToken string
-	origin        string
+	origins       []string
 	email         string
 	password      string
 	context       map[string]any
@@ -29,7 +30,7 @@ type frontendControlPlaneFixture struct {
 	active        bool
 }
 
-func startFrontendControlPlaneFixture(t *testing.T, internalToken, origin, email, password, userID string) string {
+func startFrontendControlPlaneFixture(t *testing.T, internalToken string, origins []string, email, password, userID string) string {
 	t.Helper()
 	listener, err := net.Listen("tcp", "0.0.0.0:0")
 	if err != nil {
@@ -37,7 +38,7 @@ func startFrontendControlPlaneFixture(t *testing.T, internalToken, origin, email
 	}
 	fixture := &frontendControlPlaneFixture{
 		internalToken: internalToken,
-		origin:        origin,
+		origins:       origins,
 		email:         email,
 		password:      password,
 		context: map[string]any{
@@ -85,7 +86,7 @@ func (fixture *frontendControlPlaneFixture) ServeHTTP(writer http.ResponseWriter
 }
 
 func (fixture *frontendControlPlaneFixture) signIn(writer http.ResponseWriter, request *http.Request) {
-	if !fixture.internalAuthorized(request) || request.Header.Get("Origin") != fixture.origin {
+	if !fixture.internalAuthorized(request) || !slices.Contains(fixture.origins, request.Header.Get("Origin")) {
 		writeFrontendControlPlaneJSON(writer, http.StatusUnauthorized, map[string]string{"error": "unauthenticated"})
 		return
 	}
@@ -102,14 +103,14 @@ func (fixture *frontendControlPlaneFixture) signIn(writer http.ResponseWriter, r
 	fixture.active = true
 	fixture.mu.Unlock()
 	http.SetCookie(writer, &http.Cookie{
-		Name: "prls.session_token", Value: frontendSmokeSessionCookie, Path: "/",
+		Domain: "smoke.localhost", Name: "prls.session_token", Value: frontendSmokeSessionCookie, Path: "/",
 		HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode,
 	})
 	writeFrontendControlPlaneJSON(writer, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func (fixture *frontendControlPlaneFixture) signOut(writer http.ResponseWriter, request *http.Request) {
-	if !fixture.internalAuthorized(request) || request.Header.Get("Origin") != fixture.origin || !fixture.sessionActive(request) {
+	if !fixture.internalAuthorized(request) || !slices.Contains(fixture.origins, request.Header.Get("Origin")) || !fixture.sessionActive(request) {
 		writeFrontendControlPlaneJSON(writer, http.StatusUnauthorized, map[string]string{"error": "unauthenticated"})
 		return
 	}
@@ -117,7 +118,7 @@ func (fixture *frontendControlPlaneFixture) signOut(writer http.ResponseWriter, 
 	fixture.active = false
 	fixture.mu.Unlock()
 	http.SetCookie(writer, &http.Cookie{
-		Name: "prls.session_token", Value: "", Path: "/", MaxAge: -1,
+		Domain: "smoke.localhost", Name: "prls.session_token", Value: "", Path: "/", MaxAge: -1,
 		HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode,
 	})
 	writeFrontendControlPlaneJSON(writer, http.StatusOK, map[string]bool{"ok": true})

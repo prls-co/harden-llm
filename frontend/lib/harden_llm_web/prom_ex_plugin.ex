@@ -7,11 +7,9 @@ defmodule HardenLlmWeb.PromExPlugin do
     "/",
     "/healthz",
     "/embed/llm",
-    "/login",
     "/logout",
     "/profiles",
     "/profiles/bundle",
-    "/accounts",
     "/session/unavailable",
     "/traces/:trace_id",
     "/traces/:trace_id/artifacts/:artifact_id"

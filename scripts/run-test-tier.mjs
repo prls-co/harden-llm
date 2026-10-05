@@ -1014,12 +1014,13 @@ export function resolvedCommand(task, options) {
   if (hostResourceIdentity && (!supervisorPID || !supervisorStart)) {
     throw new Error("hostResourceIdentity requires a managed runner supervisor identity");
   }
+  const mountPath = task.container.mountAtHostPath ? options.root : "/workspace";
   const containerEnvironment = {
     HARDEN_LLM_TEST_SEED: String(options.seed ?? DEFAULT_SEED),
     HARDEN_LLM_TEST_RUN_ID: options.runID ?? path.basename(options.runDirectory),
+    HOME: "/tmp/harden-llm-test-home",
     ...(hostResourceIdentity
       ? {
-        HOME: "/tmp/harden-llm-test-home",
         HARDEN_LLM_TEST_RESOURCE_DIR: hostResourceDirectory,
         HARDEN_LLM_TEST_SOURCE_SHA: hostResourceSHA,
         HARDEN_LLM_TEST_SUPERVISOR_PID: supervisorPID,
@@ -1033,19 +1034,20 @@ export function resolvedCommand(task, options) {
       HARDEN_LLM_TEST_OFFLINE: "1",
     } : {}),
     ...(task.environment ?? {}),
+    ...(path.basename(interpolated[0]) === "mix" ? {
+      MIX_BUILD_PATH: path.join(mountPath, path.relative(options.root, options.taskDirectory), "mix-build"),
+    } : {}),
   };
-  const args = ["run", "--rm", "--network", task.container.network ?? "none"];
-  if (hostResourceIdentity) {
-    if (!Number.isInteger(options.dockerSocketGID) || typeof process.getuid !== "function" || typeof process.getgid !== "function") {
-      throw new Error("hostResourceIdentity requires the local Linux Docker socket and user identity");
+  if (typeof process.getuid !== "function" || typeof process.getgid !== "function") {
+    throw new Error("container tasks require the local Linux user identity");
+  }
+  const args = ["run", "--rm", "--network", task.container.network ?? "none", "--user", `${process.getuid()}:${process.getgid()}`];
+  if (hostResourceIdentity) args.push("--pid=host");
+  if (task.container.dockerSocket) {
+    if (!Number.isInteger(options.dockerSocketGID)) {
+      throw new Error("container Docker access requires the local socket group");
     }
-    args.push(
-      "--pid=host",
-      "--user",
-      `${process.getuid()}:${process.getgid()}`,
-      "--group-add",
-      String(options.dockerSocketGID),
-    );
+    args.push("--group-add", String(options.dockerSocketGID));
   }
   for (const [key, value] of Object.entries(containerEnvironment)) args.push("-e", `${key}=${value}`);
   for (const key of task.credentialKeys ?? []) {
@@ -1061,7 +1063,6 @@ export function resolvedCommand(task, options) {
   }
   // A login shell rewrites PATH from the image's profile and can hide pinned
   // tools such as the copied Go binary. Keep the image environment intact.
-  const mountPath = task.container.mountAtHostPath ? options.root : "/workspace";
   args.push("--cidfile", containerIDPath, "-v", `${options.root}:${mountPath}`, "-w", path.join(mountPath, task.workingDirectory ?? "."), task.container.image, "sh", "-c", `${bootstrap}${commandText}`);
   return {
     executable: "docker",
@@ -1140,7 +1141,7 @@ export async function runCommand(task, options) {
       childEnvironment.HARDEN_LLM_TEST_RESOURCE_DIR = options.resourceDirectory ?? defaultResourceDirectory();
       childEnvironment.HARDEN_LLM_TEST_SOURCE_SHA = managedSourceSHA(options);
     }
-    const dockerSocketGID = task.container?.hostResourceIdentity
+    const dockerSocketGID = task.container?.dockerSocket
       ? (await fs.stat("/var/run/docker.sock")).gid
       : undefined;
     command = resolvedCommand(task, {

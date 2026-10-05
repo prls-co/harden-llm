@@ -396,6 +396,8 @@ func composeContractEnvironment() []string {
 		"HARDEN_LLM_API_HOST=api.harden.test", "HARDEN_LLM_GRAFANA_HOST=grafana.harden.test",
 		"HARDEN_LLM_ARTIFACT_HOST=artifacts.harden.test",
 		"HARDEN_LLM_WEB_HOST=app.harden.test",
+		"PRLS_PORTAL_URL=https://portal.harden.test",
+		"PRLS_PORTAL_HOST=portal.harden.test",
 		"HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT=https://artifacts.harden.test",
 		"HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN=contract-control-plane-internal-token",
 		"PRIVATE_MODULE_TOKEN=contract-private-module-token",

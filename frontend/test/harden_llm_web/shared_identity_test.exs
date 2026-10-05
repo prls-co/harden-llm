@@ -6,13 +6,31 @@ defmodule HardenLlmWeb.SharedIdentityTest do
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001
 
   # WEB-TEST-104
-  test "sign-in is rendered by the shared PRLS Web controller", %{conn: conn} do
-    assert conn |> get("/login") |> response(200) =~ "Sign in"
+  test "only Portal hosts password and account routes", %{conn: conn} do
+    for path <- ["/login", "/accounts"], method <- [:get, :post] do
+      assert dispatch(conn, HardenLlmWeb.Endpoint, method, path) |> response(404)
+
+      assert Phoenix.Router.route_info(
+               HardenLlmWeb.Router,
+               String.upcase(to_string(method)),
+               path,
+               "localhost"
+             ) == :error
+    end
   end
 
   # WEB-TEST-105
   test "unauthenticated requests preserve their return path", %{conn: conn} do
-    assert conn |> get("/") |> redirected_to() == "/login?return_to=%2F"
+    assert conn |> get("/") |> redirected_to() ==
+             "https://portal.test/login?return_to=http%3A%2F%2Flocalhost%3A4000%2F"
+  end
+
+  test "browser policy permits the Portal redirect after same-origin logout", %{conn: conn} do
+    response = get(conn, "/")
+    [policy] = get_resp_header(response, "content-security-policy")
+    assert policy =~ "default-src 'self'"
+    assert policy =~ "frame-ancestors 'none'"
+    refute policy =~ "form-action"
   end
 
   # WEB-TEST-109 WEB-TEST-112
@@ -33,66 +51,17 @@ defmodule HardenLlmWeb.SharedIdentityTest do
   end
 
   # WEB-TEST-110
-  test "shared sign-in defaults to workspace, preserves deep links and rejects unsafe paths", %{
-    conn: conn
-  } do
-    Req.Test.stub(Client, fn request ->
-      assert request.method == "POST"
-      assert request.request_path == "/api/auth/sign-in/email"
-      assert get_req_header(request, "origin") == ["http://localhost:4000"]
-
-      request
-      |> put_resp_header("set-cookie", "prls.session_token=fixture; Path=/; HttpOnly; Secure")
-      |> Req.Test.json(%{"ok" => true})
-    end)
-
-    for {path, target} <- [
-          {nil, "/"},
-          {"/profiles?new=1", "/profiles?new=1"},
-          {"//outside.test", "/"},
-          {"https://outside.test", "/"}
-        ] do
-      params = if path, do: %{"return_to" => path}, else: %{}
-      page = get(conn, "/login", params)
-      assert html_response(page, 200) =~ ~s(value="#{target}")
-
-      signed_in =
-        page
-        |> recycle()
-        |> post(
-          "/login",
-          Map.merge(params, %{
-            "email" => "test@example.test",
-            "password" => "test-password",
-            "_csrf_token" => Plug.CSRFProtection.get_csrf_token()
-          })
-        )
-
-      assert redirected_to(signed_in) == target
-
-      assert Enum.any?(
-               get_resp_header(signed_in, "set-cookie"),
-               &String.starts_with?(&1, "prls.session_token=fixture;")
-             )
-    end
-
-    for method <- [:get, :post] do
-      assert dispatch(conn, HardenLlmWeb.Endpoint, method, "/accounts") |> response(404)
-
-      assert Phoenix.Router.route_info(
-               HardenLlmWeb.Router,
-               String.upcase(to_string(method)),
-               "/accounts",
-               "localhost"
-             ) == :error
-    end
+  test "Portal entry preserves product deep links and query strings", %{conn: conn} do
+    assert conn |> get("/profiles?new=1") |> redirected_to() ==
+             "https://portal.test/login?return_to=http%3A%2F%2Flocalhost%3A4000%2Fprofiles%3Fnew%3D1"
   end
 
   # WEB-TEST-111
   for {change, redirect} <- [
         {:company, nil},
         {:user, "/"},
-        {:revoked, "/login"},
+        {:revoked,
+         "https://portal.test/login?return_to=http%3A%2F%2Flocalhost%3A4000%2Fprofiles"},
         {:unavailable, "/session/unavailable"}
       ] do
     test "connected identity #{change} is enforced before a profile event", %{conn: conn} do
@@ -136,7 +105,8 @@ defmodule HardenLlmWeb.SharedIdentityTest do
     assert conn
            |> put_req_header("cookie", AccessFixtures.cookie())
            |> get("/traces/trace-test")
-           |> redirected_to() == "/login"
+           |> redirected_to() ==
+             "https://portal.test/login?return_to=http%3A%2F%2Flocalhost%3A4000%2Ftraces%2Ftrace-test"
   end
 
   # WEB-TEST-113
@@ -160,6 +130,41 @@ defmodule HardenLlmWeb.SharedIdentityTest do
       refute response =~ APIFixtures.token()
       assert_received {:reference, [^reference]}
     end
+  end
+
+  test "product logout preserves owner cookies and returns to Portal", %{conn: conn} do
+    Req.Test.expect(Client, 1, fn request ->
+      assert request.method == "POST"
+      assert request.request_path == "/api/auth/sign-out"
+      assert get_req_header(request, "cookie") == [AccessFixtures.cookie()]
+      assert get_req_header(request, "origin") == ["http://localhost:4000"]
+
+      request
+      |> prepend_resp_headers([
+        {"set-cookie",
+         "prls.session_token=; Domain=prls.co; Path=/; Max-Age=0; Secure; HttpOnly"},
+        {"set-cookie", "prls.session_data=; Domain=prls.co; Path=/; Max-Age=0; Secure; HttpOnly"}
+      ])
+      |> Req.Test.json(%{"ok" => true})
+    end)
+
+    response = conn |> put_req_header("cookie", AccessFixtures.cookie()) |> post("/logout")
+    assert redirected_to(response) == "https://portal.test/login"
+
+    assert Enum.count(
+             get_resp_header(response, "set-cookie"),
+             &String.contains?(&1, "Domain=prls.co")
+           ) == 2
+  end
+
+  test "logout authority failure is unavailable without a success redirect", %{conn: conn} do
+    Req.Test.expect(Client, 1, fn request ->
+      request |> put_status(503) |> Req.Test.json(%{"error" => "unavailable"})
+    end)
+
+    response = conn |> put_req_header("cookie", AccessFixtures.cookie()) |> post("/logout")
+    assert response.status == 503
+    assert get_resp_header(response, "location") == []
   end
 
   # WEB-TEST-108

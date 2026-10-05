@@ -14,7 +14,9 @@ defmodule HardenLlmWeb.ArtifactController do
       |> send_resp(303, "")
     else
       {:error, %APIError{status: 401}} ->
-        redirect(conn, to: ~p"/login")
+        redirect(conn,
+          external: PrlsWeb.SessionNavigation.login_url(PrlsWeb.Access.Plug.return_to(conn))
+        )
 
       _ ->
         conn |> put_status(:bad_gateway) |> text("Artifact download is temporarily unavailable.")

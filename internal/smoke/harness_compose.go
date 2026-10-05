@@ -246,6 +246,7 @@ func validateFrontendSmokeCaddyfile(t *testing.T, runner composeRunner) {
 		environment[name] = value
 	}
 	environment["HARDEN_LLM_WEB_HOST"] = "app.smoke.localhost"
+	environment["PRLS_PORTAL_HOST"] = "portal.smoke.localhost"
 	arguments := []string{
 		"run", "--rm", "--network", "none",
 		"--label", "com.docker.compose.project=" + runner.project,
@@ -254,7 +255,7 @@ func validateFrontendSmokeCaddyfile(t *testing.T, runner composeRunner) {
 	}
 	for _, name := range []string{
 		"HARDEN_LLM_API_HOST", "HARDEN_LLM_ARTIFACT_HOST", "HARDEN_LLM_GRAFANA_HOST",
-		"HARDEN_LLM_TLS_MODE", "HARDEN_LLM_WEB_HOST",
+		"HARDEN_LLM_TLS_MODE", "HARDEN_LLM_WEB_HOST", "PRLS_PORTAL_HOST",
 	} {
 		value, exists := environment[name]
 		if !exists || value == "" {
@@ -455,6 +456,7 @@ func smokeEnvironment(t *testing.T, material tlsMaterial, httpPort, httpsPort in
 		"HARDEN_LLM_BIND_ADDRESS":               "127.0.0.1", "HARDEN_LLM_HTTP_PORT": strconv.Itoa(httpPort),
 		"HARDEN_LLM_HTTPS_PORT": strconv.Itoa(httpsPort), "HARDEN_LLM_TLS_MODE": "internal",
 		"HARDEN_LLM_RELEASE": "compose-smoke-0.1.0", "HARDEN_LLM_ENVIRONMENT": "test",
+		"PRLS_PORTAL_URL":                         "https://a.prls.co",
 		"HARDEN_LLM_CONTROL_PLANE_URL":            "http://control-plane:4310",
 		"HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN": textSecret("control-plane-smoke-"),
 		"HARDEN_LLM_STATIC_TOKEN":                 textSecret("harden-llm-smoke-"),

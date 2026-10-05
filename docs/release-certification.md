@@ -2549,9 +2549,64 @@ application or weakening assertions; the final verification and cleanup passed.
 provider output and secrets are excluded.
 
 Browser checks and the complete retained 18-profile paid matrix were not rerun.
-[Issue 92](https://github.com/prls-co/harden-llm/issues/92) now tracks six
+At that point, [issue 92](https://github.com/prls-co/harden-llm/issues/92) tracked six
 unresolved Perplexity/accounting profile failures; the original failed matrix
-remains preserved. This release certifies the five Gemini profiles.
+remains preserved. The later release below records their final disposition. This release certifies the five Gemini profiles.
+
+### Shared Portal login — production (2026-10-04)
+
+Harden LLM now redirects unauthenticated browser navigation directly to PRLS
+Portal at `https://a.prls.co`. It consumes the existing Control Plane session
+through shared-web `6ef26c2e50ae5ca3a4e21e8d2c6b57386a546758`; its local
+password/account-picker routes are removed. Enabled identities still enter
+without company selection or an HLLM grant, and stable user IDs own resources.
+The host-only Phoenix mount cookie is distinct from the shared PRLS auth cookie.
+Same-origin POST logout revokes the central session and returns to Portal.
+
+The frontend-only application release is
+`61e249c7f642ae13a02442ae416a06b2f6d3ffb6`, with matching OCI version and
+image `sha256:c8f5dd73e1c792f321ed76c2aa06e010951c5508d06c4cc0c7393dc4b6c8028a`.
+At that rollout, the gateway retained Gemini source `f3d3142dbc7f15e36148b6c7f0b8f1790d8062eb`
+and image `sha256:6461de9bbfb4028021fa21d0c90f8ed756247f50082280ba6337c738bb184aa5`;
+its container and every support service remain unchanged. The existing
+production descriptor converges after scoped frontend apply. Operator profile
+and history fingerprints match before/after; no saved resource was reset.
+
+All ten fast tasks, four browser tasks and the full Compose browser fixture
+pass. The unchanged final release gate passes 29/29 with zero cleanup errors
+or warnings. A real logout browser failure exposed CSP blocking the Portal
+redirect; the cheap policy regression and browser checks pass after the fix,
+with normal CSRF/origin checks intact. Test-runner source
+`45658fabc53a8fd150773366176e0aeae458d15b` also fixes the reproduced container
+Mix cache-permission failure through existing per-task build isolation. Both
+container mount layouts have cheap regression coverage. The subsequent native
+browser rerun exposed root-owned isolated output preventing host cleanup.
+Runner `5d2d33f088f50b06e056ecd10dd5415e5bf8a635` maps all test containers to
+the host UID/GID and writable container home, adding the existing Docker socket
+group where required. Both ownership/socket regressions reproduced failures;
+all 22 focused runner cases and [hosted fast verification](https://github.com/prls-co/harden-llm/actions/runs/37257024723)
+pass. Final native and Compose browser acceptance passes with clean teardown on
+this correction; the final sequential release gate also passes 29/29 with
+zero cleanup errors or warnings. An earlier overlapping invocation was refused
+by the unchanged daemon lock before test execution; its report is retained.
+No tests or timeout assertions were weakened. Later tool/docs source does not
+relabel images.
+
+All seven selected deployed public browser journeys pass. One Portal password
+entry opens Model Recall, HLLM profiles and Portal; HLLM logout denies the next
+protected request in all three. Model Recall logout is verified separately.
+The temporary test-only identity is disabled with zero sessions/memberships,
+owned sessions are revoked and private fixtures restored. Test services are
+stopped with volumes retained. Existing private rollback environments/descriptor
+and previous images remain under
+`/home/kirill/.local/state/prls-shared-login/2026-10-04`.
+
+No paid provider call, credential rotation or product data reset was part of
+this release. The user's subsequent scope clarification accepts Laminar's
+independent infrastructure login and excludes P05 from required product SSO.
+Harden LLM retains this deployed Portal integration and shared-web code; the
+required selected-product acceptance is complete in
+[the canonical integration plan](https://github.com/prls-co/laminar-shared/blob/codex/shared-portal-login/plans/shared-login-implementation.md).
 
 ### Perplexity Agent API and model catalog — production (2026-10-04)
 
@@ -2621,9 +2676,10 @@ without credentials or generated provider output.
 
 Browser checks and the complete 21-profile configured matrix were not rerun.
 The prior Gemini certification is retained as dated evidence.
-[Issue 92](https://github.com/prls-co/harden-llm/issues/92) now retains three
-Novita/OpenRouter accounting failures. Documentation-only closeout after the
-application release does not require another image build.
+At that point, [issue 92](https://github.com/prls-co/harden-llm/issues/92) retained three
+Novita/OpenRouter accounting failures. The provider-accounting release below
+records their resolution and issue closure. Documentation-only closeout after
+the application release does not require another image build.
 
 ## Provider accounting and GPT-6.1 Sol — production (2026-10-05)
 
@@ -2686,8 +2742,8 @@ The original 21-profile accounting attempt remains **19 passing, 2 failing**
 at source `618c5d99a9ef3f41606165a89ba8cc022e85e092`; its failed result is
 preserved. The earlier Novita Pro structured error did not reproduce, so its
 exact original cause remains unproven. The intermittent CPA GPT-5.6 Sol stream
-failure passed the fresh full matrix, but its earlier upstream cause is still
-unknown and remains in [issue 94](https://github.com/prls-co/harden-llm/issues/94).
+failure passed the fresh full matrix, but its earlier upstream cause remains
+unknown and is recorded in closed [issue 94](https://github.com/prls-co/harden-llm/issues/94).
 The Kimi K3 timeout remains historical after the user's decision to retire every
 Perplexity model other than GPT-6.1 Sol. The original 7/22 matrix is retained at
 [its production record](../plans/evidence/harden-llm/production-checks-20261004.json).
