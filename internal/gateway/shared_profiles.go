@@ -145,6 +145,17 @@ func sharedProfilesMatch(ctx context.Context, store *postgres.Store, vault *prof
 	for _, record := range existing {
 		profilesByID[record.ID] = record
 	}
+	// A matching document catalog is not converged while unused credentials
+	// remain. Reapply the bundle so transaction-scoped cleanup removes them.
+	referenced := make(map[string]bool, len(credentialRecords))
+	for _, record := range existing {
+		referenced[record.CredentialID] = true
+	}
+	for _, record := range credentialRecords {
+		if !referenced[record.ID] {
+			return false, nil
+		}
+	}
 	sharedBindingByKey := make(map[runtimeCredentialKey]string)
 	for _, name := range slices.Sorted(maps.Keys(config.Profiles)) {
 		profile := config.Profiles[name]

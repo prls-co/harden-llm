@@ -11,6 +11,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
 	hardenllm "github.com/prls-co/harden-llm"
 	"github.com/prls-co/harden-llm/internal/integrationtest"
 	"github.com/prls-co/harden-llm/internal/postgres"
@@ -155,5 +156,116 @@ func TestSharedProfilesProvisionAndRotate(t *testing.T) {
 	}
 	if prober.calls != 1 {
 		t.Fatal("provisioning contacted a provider")
+	}
+}
+
+func TestSharedProfilesRetireEndpointPresets(t *testing.T) {
+	t.Parallel()
+	_, dsn := integrationtest.PostgresLease(t)
+	ctx := context.Background()
+	store, err := postgres.Open(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	if err := store.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	vault, _ := profiles.NewCredentialVault("test", map[string][]byte{"test": bytes.Repeat([]byte{9}, 32)}, nil)
+	service, err := NewProfileService(ProfileServiceConfig{Store: store, Vault: vault, Prober: &recordingProber{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog, _ := profiles.DefaultCatalog()
+	old := SharedProfiles{Profiles: profiles.Catalog{}, Credentials: map[string]profiles.CredentialPayload{}}
+	for _, name := range []string{"Retired A", "Retired B"} {
+		p := catalog["Perplexity GPT-6.1 Sol"]
+		p.LLMProfile = name
+		old.Profiles[name] = p
+		old.Credentials[name] = profiles.CredentialPayload{APIKey: "fixture-endpoint-key"}
+	}
+	for _, owner := range []string{"retire-a", "retire-b"} {
+		if err := ApplySharedProfiles(ctx, store, vault, owner, old); err != nil {
+			t.Fatal(err)
+		}
+	}
+	otherProfiles, _ := store.Profiles(ctx, "retire-b")
+	otherCredentials, _ := store.Credentials(ctx, "retire-b")
+	current := SharedProfiles{Profiles: profiles.Catalog{"Perplexity GPT-6.1 Sol": catalog["Perplexity GPT-6.1 Sol"]}, Credentials: map[string]profiles.CredentialPayload{"Perplexity GPT-6.1 Sol": {APIKey: "fixture-endpoint-key"}}}
+	if err := ApplySharedProfiles(ctx, store, vault, "retire-a", current); err != nil {
+		t.Fatal(err)
+	}
+	// The retained endpoint presets now share the current credential. Their old
+	// encrypted credential records must be deleted in the same transaction.
+	credentials, err := store.Credentials(ctx, "retire-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(credentials) != 1 {
+		t.Fatalf("endpoint rebinding retained unused credentials: got %d, want 1", len(credentials))
+	}
+	for _, name := range []string{"Retired A", "Retired B"} {
+		if err := service.Delete(ctx, "retire-a", name); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for range 2 {
+		states, err := service.Profiles(ctx, "retire-a")
+		if err != nil {
+			t.Fatal("profile read after retirement", err)
+		}
+		if len(states) != 1 || states[0].Profile.LLMProfile != "Perplexity GPT-6.1 Sol" || !states[0].Credential.Configured {
+			t.Fatalf("unexpected retained profile: %+v", states)
+		}
+	}
+	if _, _, err := service.RuntimeProfiles(ctx, "retire-a"); err != nil {
+		t.Fatal("runtime profiles after retirement", err)
+	}
+	if result, err := ApplySharedProfilesWithResult(ctx, store, vault, "retire-a", current); err != nil || result.Changed {
+		t.Fatalf("retired catalog sync is not idempotent: %+v %v", result, err)
+	}
+	// A previous deployment may already have left invalid, unreferenced
+	// metadata. Unchanged provisioning must repair that storage state too.
+	connection, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer connection.Close(ctx)
+	if _, err := connection.Exec(ctx, `
+		INSERT INTO llm_endpoint_credentials
+		SELECT $1, credential_id, key_id, nonce, ciphertext, normalized_origin,
+			jsonb_set(metadata, '{apiInferenceTypes}', '[]'::jsonb), created_at, updated_at
+		FROM llm_endpoint_credentials WHERE owner_id=$2`, "retire-a", "retire-b"); err != nil {
+		t.Fatal(err)
+	}
+	if result, err := ApplySharedProfilesWithResult(ctx, store, vault, "retire-a", current); err != nil || !result.Changed {
+		t.Fatalf("unchanged sync did not remove preexisting unused credentials: %+v %v", result, err)
+	}
+	if states, err := service.Profiles(ctx, "retire-a"); err != nil || len(states) != 1 {
+		t.Fatalf("profile read after preexisting credential cleanup: %d %v", len(states), err)
+	}
+	if credentials, err := store.Credentials(ctx, "retire-a"); err != nil || len(credentials) != 1 {
+		t.Fatalf("preexisting unused credentials remain: %d %v", len(credentials), err)
+	}
+	if result, err := ApplySharedProfilesWithResult(ctx, store, vault, "retire-a", current); err != nil || result.Changed {
+		t.Fatalf("repaired sync is not idempotent: %+v %v", result, err)
+	}
+	if err := service.Delete(ctx, "retire-a", "Perplexity GPT-6.1 Sol"); err != nil {
+		t.Fatal(err)
+	}
+	credentials, err = store.Credentials(ctx, "retire-a")
+	if err != nil || len(credentials) != 0 {
+		t.Fatalf("last profile left credentials: %d %v", len(credentials), err)
+	}
+	profilesAfter, err := store.Profiles(ctx, "retire-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	credentialsAfter, err := store.Credentials(ctx, "retire-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(otherProfiles, profilesAfter) || !reflect.DeepEqual(otherCredentials, credentialsAfter) {
+		t.Fatal("retirement changed the other owner")
 	}
 }

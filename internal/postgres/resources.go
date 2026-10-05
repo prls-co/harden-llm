@@ -87,7 +87,6 @@ func (store *Store) writeProfileBundle(ctx context.Context, ownerID string, prof
 		profileSeen[record.ID] = struct{}{}
 		profileIDs = append(profileIDs, record.ID)
 	}
-	credentialIDs := make([]string, 0, len(credentialRecords))
 	credentialSeen := make(map[string]struct{}, len(credentialRecords))
 	for _, record := range credentialRecords {
 		if record.OwnerID != ownerID {
@@ -100,7 +99,6 @@ func (store *Store) writeProfileBundle(ctx context.Context, ownerID string, prof
 			return errors.New("postgres: duplicate bundle credential")
 		}
 		credentialSeen[record.ID] = struct{}{}
-		credentialIDs = append(credentialIDs, record.ID)
 	}
 	for _, record := range profileRecords {
 		if record.CredentialID != "" {
@@ -155,29 +153,9 @@ func (store *Store) writeProfileBundle(ctx context.Context, ownerID string, prof
 		} else if _, err := transaction.Exec(ctx, `DELETE FROM llm_profiles WHERE owner_id = $1 AND NOT (profile_id = ANY($2))`, ownerID, profileIDs); err != nil {
 			return fmt.Errorf("postgres: delete replaced profiles: %w", err)
 		}
-		if len(credentialIDs) == 0 {
-			if _, err := transaction.Exec(ctx, `DELETE FROM llm_endpoint_credentials WHERE owner_id = $1`, ownerID); err != nil {
-				return fmt.Errorf("postgres: delete replaced credentials: %w", err)
-			}
-		} else if _, err := transaction.Exec(ctx, `DELETE FROM llm_endpoint_credentials WHERE owner_id = $1 AND NOT (credential_id = ANY($2))`, ownerID, credentialIDs); err != nil {
-			return fmt.Errorf("postgres: delete replaced credentials: %w", err)
-		}
 	}
-	if _, err := transaction.Exec(ctx, `
-		UPDATE llm_endpoint_credentials c SET metadata = jsonb_set(
-			c.metadata, '{apiInferenceTypes}',
-			COALESCE((
-				SELECT jsonb_agg(value ORDER BY value) FROM (
-					SELECT DISTINCT p.document->>'apiInferenceType' AS value
-					FROM llm_profiles p
-					WHERE p.owner_id=c.owner_id AND p.credential_id=c.credential_id
-				) inference_types WHERE value IS NOT NULL AND value <> ''
-			), '[]'::jsonb), true
-		)
-		WHERE c.owner_id=$1 AND EXISTS (
-			SELECT 1 FROM llm_profiles p WHERE p.owner_id=c.owner_id AND p.credential_id=c.credential_id
-		)`, ownerID); err != nil {
-		return fmt.Errorf("postgres: reconcile bundled credential inference types: %w", err)
+	if err := reconcileProfileCredentials(ctx, transaction, ownerID); err != nil {
+		return err
 	}
 	if err := transaction.Commit(ctx); err != nil {
 		return fmt.Errorf("postgres: commit profile bundle replacement: %w", err)
@@ -200,16 +178,31 @@ func (store *Store) DeleteProfile(ctx context.Context, ownerID, profileID string
 	if _, err := transaction.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 1212968013))`, ownerID); err != nil {
 		return fmt.Errorf("postgres: lock profile owner: %w", err)
 	}
-	var credentialID *string
-	if err := transaction.QueryRow(ctx, `DELETE FROM llm_profiles WHERE owner_id=$1 AND profile_id=$2 RETURNING credential_id`, ownerID, profileID).Scan(&credentialID); err != nil {
-		return notFound(err)
+	deleted, err := transaction.Exec(ctx, `DELETE FROM llm_profiles WHERE owner_id=$1 AND profile_id=$2`, ownerID, profileID)
+	if err != nil {
+		return fmt.Errorf("postgres: delete profile: %w", err)
 	}
-	if credentialID != nil {
-		if _, err := transaction.Exec(ctx, `
-			DELETE FROM llm_endpoint_credentials c WHERE c.owner_id=$1 AND c.credential_id=$2
-			AND NOT EXISTS (SELECT 1 FROM llm_profiles p WHERE p.owner_id=c.owner_id AND p.credential_id=c.credential_id)`, ownerID, *credentialID); err != nil {
-			return fmt.Errorf("postgres: delete orphan credential: %w", err)
-		}
+	if deleted.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	if err := reconcileProfileCredentials(ctx, transaction, ownerID); err != nil {
+		return err
+	}
+	if err := transaction.Commit(ctx); err != nil {
+		return fmt.Errorf("postgres: commit profile deletion: %w", err)
+	}
+	return nil
+}
+
+// Profile mutations share one transaction-scoped cleanup: remove unused
+// credentials first, then derive inference types from their current profiles.
+func reconcileProfileCredentials(ctx context.Context, transaction pgx.Tx, ownerID string) error {
+	if _, err := transaction.Exec(ctx, `
+		DELETE FROM llm_endpoint_credentials c WHERE c.owner_id=$1
+		AND NOT EXISTS (
+			SELECT 1 FROM llm_profiles p WHERE p.owner_id=c.owner_id AND p.credential_id=c.credential_id
+		)`, ownerID); err != nil {
+		return fmt.Errorf("postgres: delete orphan credentials: %w", err)
 	}
 	if _, err := transaction.Exec(ctx, `
 		UPDATE llm_endpoint_credentials c SET metadata = jsonb_set(
@@ -223,10 +216,7 @@ func (store *Store) DeleteProfile(ctx context.Context, ownerID, profileID string
 			), '[]'::jsonb), true
 		)
 		WHERE c.owner_id=$1`, ownerID); err != nil {
-		return fmt.Errorf("postgres: reconcile credential inference types after profile deletion: %w", err)
-	}
-	if err := transaction.Commit(ctx); err != nil {
-		return fmt.Errorf("postgres: commit profile deletion: %w", err)
+		return fmt.Errorf("postgres: reconcile credential inference types: %w", err)
 	}
 	return nil
 }

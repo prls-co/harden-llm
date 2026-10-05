@@ -28,3 +28,16 @@ func TestForeignBundleRejectedBeforeProbeOrStorage(t *testing.T) {
 		t.Fatalf("expected credential validation error before probe/write, got %T: %v", err, err)
 	}
 }
+
+// A credential without supported inference types must remain invalid. Profile
+// mutations must remove unused credentials, not relax metadata validation.
+func TestCredentialMetadataRequiresInferenceTypes(t *testing.T) {
+	for _, types := range []string{`[]`, `null`} {
+		t.Run(types, func(t *testing.T) {
+			_, err := decodeCredentialMetadata([]byte(`{"schemaVersion":1,"algorithm":"AES-256-GCM","scope":"global","apiInferenceTypes":` + types + `}`))
+			if err == nil {
+				t.Fatal("accepted a credential without inference types")
+			}
+		})
+	}
+}

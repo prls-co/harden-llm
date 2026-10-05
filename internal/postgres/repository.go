@@ -90,26 +90,8 @@ func (store *Store) SaveProfile(ctx context.Context, profile ProfileRecord, cred
 	if err != nil {
 		return fmt.Errorf("postgres: save profile: %w", err)
 	}
-	if _, err := transaction.Exec(ctx, `
-		UPDATE llm_endpoint_credentials c SET metadata = jsonb_set(
-			c.metadata, '{apiInferenceTypes}',
-			COALESCE((
-				SELECT jsonb_agg(value ORDER BY value) FROM (
-					SELECT DISTINCT p.document->>'apiInferenceType' AS value
-					FROM llm_profiles p
-					WHERE p.owner_id=c.owner_id AND p.credential_id=c.credential_id
-				) inference_types WHERE value IS NOT NULL AND value <> ''
-			), '[]'::jsonb), true
-		)
-		WHERE c.owner_id=$1`, profile.OwnerID); err != nil {
-		return fmt.Errorf("postgres: reconcile credential inference types: %w", err)
-	}
-	if _, err := transaction.Exec(ctx, `
-		DELETE FROM llm_endpoint_credentials c WHERE c.owner_id=$1
-		AND NOT EXISTS (
-			SELECT 1 FROM llm_profiles p WHERE p.owner_id=c.owner_id AND p.credential_id=c.credential_id
-		)`, profile.OwnerID); err != nil {
-		return fmt.Errorf("postgres: delete orphan credentials: %w", err)
+	if err := reconcileProfileCredentials(ctx, transaction, profile.OwnerID); err != nil {
+		return err
 	}
 	if err := transaction.Commit(ctx); err != nil {
 		return fmt.Errorf("postgres: commit profile save: %w", err)

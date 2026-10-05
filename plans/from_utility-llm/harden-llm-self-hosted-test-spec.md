@@ -371,10 +371,11 @@ runtime contract or the meaning of `make verify`.
 - Target: `internal/profiles/default_catalog_test.go`,
   `internal/profiles/profile_test.go`,
   `internal/providers/default_profile_catalog_test.go`, and the tagged
-  `internal/gateway/profile_seed_test.go`
+  `internal/gateway/profile_seed_test.go` and
+  `internal/gateway/shared_profiles_integration_test.go`
 - Commands:
   - `go test ./internal/profiles/... ./internal/providers/... -run 'Test(DefaultCatalogParity|ProfileParity|DefaultProfileCatalogParity)' -count=1`
-  - `go test ./internal/gateway/... -tags=integration -run TestDefaultProfileSeedParity -count=1`
+  - `go test ./internal/gateway/... -tags=integration -run 'Test(DefaultProfileSeedParity|SharedProfilesRetireEndpointPresets)' -count=1`
 - Setup: source catalog at utility-llm revision `5c0309e` / `0.15.0`, with
   the unavailable CPA GPT-5.4 profiles retired under ADR-HLLM-013 and
   all earlier Perplexity presets replaced with GPT-6.1 Sol through Agent API;
@@ -400,30 +401,39 @@ runtime contract or the meaning of `make verify`.
   - Concurrent first use inserts every missing preset for an owner with an
     existing custom row, exposes seeded rows as unconfigured, and never
     overwrites the existing operator profile; an empty owner receives exactly
-    the 29 presets.
+    the 24 presets.
   - Runtime catalog assembly accepts credential-free seed rows without
     blocking configured profiles; every seeded profile's missing-credential
     boundary returns `ErrCredentialNotConfigured`, while an attempted run
     without the matching endpoint credential returns `credential_required`,
     persists a failed history item, and never dials the provider.
+  - Synchronizing replacement presets rebinds retained endpoint profiles and
+    removes their obsolete credentials atomically. Deleting the retired profiles
+    preserves a valid configured catalog and runtime resolver; deleting the last
+    profile removes its credential. Repeat synchronization is idempotent and
+    another owner's rows remain unchanged.
   - Profile shape, API inference types, pricing, model list, defaults, and
     complete recovery policies follow ADR-HLLM-020; independent profile data retain source parity.
   - Backup/escalation fields are rejected; each profile selects exactly one target.
   - No alternate or old recovery-policy shape is accepted.
-- Pass criteria: the current 26-profile seed and all-profile deterministic
+- Pass criteria: the current 24-profile seed and all-profile deterministic
   preparation matrix pass; invalid fixtures fail with stable fields; the
   tagged seed test passes with isolated Postgres.
 - Expected runtime: 10 seconds unit; 90 seconds integration.
 
 ### TEST-018: credential encryption and bundle contract
 
-- Target: `internal/profiles/credentials_test.go`
-- Command: `go test ./internal/profiles/... -run TestCredentialBundle -count=1`
+- Target: `internal/profiles/credentials_test.go` and
+  `internal/gateway/profile_bundle_validation_test.go`
+- Command: `go test ./internal/profiles/... ./internal/gateway/... -run 'Test(CredentialBundle|CredentialMetadataRequiresInferenceTypes)' -count=1`
 - Setup: deterministic test key IDs, fixed nonces through injected random reader, fake credentials, and source bundle fixtures.
 - Assertions:
   - AES-256-GCM uses random production nonces, key IDs, and owner/credential/origin AAD.
   - Wrong key, wrong AAD, or modified ciphertext fails.
   - API state never exposes raw keys or ciphertext internals.
+  - Stored credential metadata with empty or null inference types remains
+    invalid; storage cleanup must remove unused records rather than relaxing
+    validation or skipping corrupt metadata.
   - Canonical encrypted bundles round-trip only with the required key.
 - Pass criteria: crypto tamper tables and bundle parity pass.
 - Expected runtime: 10 seconds.
