@@ -1014,6 +1014,7 @@ export function resolvedCommand(task, options) {
   if (hostResourceIdentity && (!supervisorPID || !supervisorStart)) {
     throw new Error("hostResourceIdentity requires a managed runner supervisor identity");
   }
+  const mountPath = task.container.mountAtHostPath ? options.root : "/workspace";
   const containerEnvironment = {
     HARDEN_LLM_TEST_SEED: String(options.seed ?? DEFAULT_SEED),
     HARDEN_LLM_TEST_RUN_ID: options.runID ?? path.basename(options.runDirectory),
@@ -1033,6 +1034,9 @@ export function resolvedCommand(task, options) {
       HARDEN_LLM_TEST_OFFLINE: "1",
     } : {}),
     ...(task.environment ?? {}),
+    ...(path.basename(interpolated[0]) === "mix" ? {
+      MIX_BUILD_PATH: path.join(mountPath, path.relative(options.root, options.taskDirectory), "mix-build"),
+    } : {}),
   };
   const args = ["run", "--rm", "--network", task.container.network ?? "none"];
   if (hostResourceIdentity) {
@@ -1061,7 +1065,6 @@ export function resolvedCommand(task, options) {
   }
   // A login shell rewrites PATH from the image's profile and can hide pinned
   // tools such as the copied Go binary. Keep the image environment intact.
-  const mountPath = task.container.mountAtHostPath ? options.root : "/workspace";
   args.push("--cidfile", containerIDPath, "-v", `${options.root}:${mountPath}`, "-w", path.join(mountPath, task.workingDirectory ?? "."), task.container.image, "sh", "-c", `${bootstrap}${commandText}`);
   return {
     executable: "docker",

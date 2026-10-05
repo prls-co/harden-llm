@@ -313,6 +313,19 @@ describe("resource-aware tier runner", () => {
     }), /hostResourceIdentity requires Docker access and the host checkout mount/);
   });
 
+  test("container Mix builds use their own writable task directory for both mount layouts", () => {
+    const root = "/host/harden-llm";
+    const taskDirectory = root + "/tmp/test-feedback/run/tasks/browser";
+    for (const mountAtHostPath of [false, true]) {
+      const command = resolvedCommand({
+        id: "browser", command: ["mix", "test"], workingDirectory: "frontend",
+        network: "local-only", container: { image: "browser-test", mountAtHostPath },
+      }, { root, taskDirectory, runDirectory: root + "/tmp/test-feedback/run", runID: "test" });
+      const mount = mountAtHostPath ? root : "/workspace";
+      assert.ok(command.args.includes("MIX_BUILD_PATH=" + mount + "/tmp/test-feedback/run/tasks/browser/mix-build"));
+    }
+  });
+
   test("isolates parallel Mix build output in runner-owned task directories", async () => {
     const data = await fixture();
     const firstDirectory = path.join(data.root, "run", "tasks", "frontend-compile");
