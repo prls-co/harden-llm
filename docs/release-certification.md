@@ -2602,6 +2602,8 @@ and previous images remain under
 `/home/kirill/.local/state/prls-shared-login/2026-10-04`.
 
 No paid provider call, credential rotation or product data reset was part of
-this release. This is first-party acceptance: stock Laminar's native session,
-operator authorization and both logout directions remain the explicit P05
-dependency in [the canonical integration plan](https://github.com/prls-co/laminar-shared/blob/codex/shared-portal-login/plans/shared-login-implementation.md).
+this release. The user's subsequent scope clarification accepts Laminar's
+independent infrastructure login and excludes P05 from required product SSO.
+Harden LLM retains this deployed Portal integration and shared-web code; the
+required selected-product acceptance is complete in
+[the canonical integration plan](https://github.com/prls-co/laminar-shared/blob/codex/shared-portal-login/plans/shared-login-implementation.md).
