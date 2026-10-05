@@ -23,7 +23,7 @@ The deployment does not resolve accounts by email and does not create local
 guest/operator users. These provider keys grant real provider access and
 spending authority. Never enable previews for untrusted code.
 
-The configuration uses profile schema version 2. A complete synthetic example is
+The configuration uses profile schema version 3. A complete synthetic example is
 [`config/llm-profiles.example.json`](../config/llm-profiles.example.json). Each
 profile requires its own complete `recoveryPolicy`; old catalogs and bundles
 are rejected. Recovery settings do not belong in provider `defaultOptions`.
@@ -55,7 +55,8 @@ The configuration uses the existing catalog boundary:
 - `HARDEN_LLM_STATIC_TOKEN`: HLLM server-to-server bearer credential. A separate
   `HARDEN_LLM_STATIC_TOKEN_USER_ID` is set only in a deployment that needs a
   direct machine API client; the user ID scopes that machine path. Browser
-  users authenticate through Control Plane and keep a host-only HLLM cookie.
+  users authenticate through the shared Control Plane Portal session; HLLM
+  data stays private to each stable Control Plane user ID.
 - Artifact presign/session TTLs and frontend API/run timeout and log-size limits
   are also shared; encryption/session **secrets** are not.
 
@@ -359,3 +360,33 @@ records source/image identity, 10 fast tasks, 29 hosted release tasks and probe
 cleanup. Browser checks and the complete configured matrix were not rerun;
 [issue 92](https://github.com/prls-co/harden-llm/issues/92) retains three
 unrelated accounting failures.
+
+## 11. Accounting corrections and Perplexity GPT-6.1 Sol — 2026-10-05
+
+The current catalog has 26 profiles and 16 configured bindings for each of two
+provisioned users. Its 24 credential-free presets contain exactly one
+Perplexity profile: **Perplexity GPT-6.1 Sol**, model `openai/gpt-6.1-sol`,
+using the existing Responses path at `https://api.perplexity.ai/v1/agent`.
+Six earlier Perplexity presets and their unused credentials were deleted from
+both users. Retained workspace state does not select any retired profile.
+
+Accounting now treats null optional usage-detail containers as absent, while
+actual counts, consistency and USD-cost checks stay strict. Novita Flash and
+Pro reasoning costs use the paid completion rate, and Pro's input/output rates
+reflect current discovery. OpenRouter DeepSeek V4 Pro routes only through
+`deepinfra/fp8` with provider fallbacks disabled.
+
+A real Postgres regression found that sync could leave unused endpoint
+credentials, which profile deletion then marked with invalid empty inference
+types. One transaction-scoped cleanup now removes unused credentials and
+reconciles supported types for saves, profile bundle changes and deletions.
+Trusted sync detects and removes preexisting unused credentials even when the
+profile documents already match; strict credential validation is unchanged.
+
+The exact-source [production record](release-certification.md#provider-accounting-and-gpt-61-sol--production-2026-10-05)
+contains tests, database cleanup and component identities. The sixteen
+credential-configured providers passed text and structured calls. Ten
+unconfigured presets are outside that paid matrix. Browser layout was not
+checked. An intermittent historical CPA Sol stream failure is tracked in
+[issue 94](https://github.com/prls-co/harden-llm/issues/94); a fresh pass does
+not identify its original upstream cause.

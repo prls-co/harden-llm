@@ -140,3 +140,14 @@ the existing owner-scoped DELETE endpoint. Keep the new endpoint credential,
 preserve other products and saved workspace state, and verify that subsequent
 reads and idempotent sync do not recreate retired profiles. TEST-017 and
 WEB-TEST-054 retain exact catalog/preparation/rendering assertions.
+
+
+## Accounting and Perplexity catalog amendment — 2026-10-05
+
+The current embedded catalog has 24 presets and the trusted host configuration
+has 26 profiles with 16 configured bindings for each of two provisioned users.
+Perplexity is reduced to the single GPT-6.1 Sol Agent API preset. The six former
+Perplexity models and their unused endpoint credentials are removed from
+persisted user data; historical model discoveries above remain dated evidence.
+The 16 configured profiles pass current text and structured acceptance. See
+[production certification](../release-certification.md#provider-accounting-and-gpt-61-sol--production-2026-10-05).

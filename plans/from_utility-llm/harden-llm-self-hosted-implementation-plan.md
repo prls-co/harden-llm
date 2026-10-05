@@ -1780,6 +1780,8 @@ Privacy and data-quality constraints:
 
 ### ADR Updates
 
+A 2026-10-05 production amendment corrects nullable optional provider usage details, Novita V4 pricing, and OpenRouter DeepInfra routing. Perplexity now has only GPT-6.1 Sol. Sync, bundle mutation and deletion share transaction-scoped unused-credential cleanup; the strict metadata validation contract remains unchanged. See the [current production certification](../../docs/release-certification.md#provider-accounting-and-gpt-61-sol--production-2026-10-05) and bounded evidence.
+
 | ADR | Status | Decision |
 | --- | --- | --- |
 | ADR-HLLM-012 | Accepted | Complete the utility frontend behavior through one self-hosted Phoenix/Go path with explicit editor, pagination, infrastructure, and in-flow layout adaptations. |

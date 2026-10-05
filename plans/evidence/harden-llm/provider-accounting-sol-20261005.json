@@ -1,0 +1,863 @@
+{
+  "certifiedAt": "2026-10-05T07:56:54.681Z",
+  "branch": "main",
+  "applicationBearingSHA": "ca52aff8fa3342238289be322888fca43dcdd7b3",
+  "gatewayImage": {
+    "sourceSHA": "ca52aff8fa3342238289be322888fca43dcdd7b3",
+    "tag": "harden-llm-gateway:release-ca52aff8fa3342238289be322888fca43dcdd7b3",
+    "imageID": "sha256:55c64a95bfb810304e2f1b86c23817223dd7774007b533900a617584e22ff109",
+    "platform": "linux/amd64",
+    "version": "ca52aff8fa3342238289be322888fca43dcdd7b3",
+    "labels": {
+      "org.opencontainers.image.revision": "ca52aff8fa3342238289be322888fca43dcdd7b3",
+      "org.opencontainers.image.source": "https://github.com/prls-co/harden-llm",
+      "org.opencontainers.image.title": "harden-llm-gateway",
+      "org.opencontainers.image.version": "ca52aff8fa3342238289be322888fca43dcdd7b3"
+    },
+    "releaseWorkflowURL": "https://github.com/prls-co/harden-llm/actions/runs/37278373703",
+    "releaseAttempt": 1
+  },
+  "changes": {
+    "accounting": "Null optional usage-detail containers are absent breakdowns. Actual counts, component consistency, USD cost and currency validation remain strict.",
+    "novitaPricing": "Authenticated Flash/Pro rates; reasoning priced at the completion rate. Pro rates refreshed to 1.60 input, 3.20 completion and 0.135 cache-read USD per million.",
+    "openRouterProRouting": {
+      "order": [
+        "deepinfra/fp8"
+      ],
+      "allow_fallbacks": false,
+      "reportedCostPreserved": true
+    },
+    "perplexity": "Only Perplexity GPT-6.1 Sol / openai/gpt-6.1-sol uses the existing canonical Responses path through https://api.perplexity.ai/v1/agent.",
+    "retiredPerplexityProfiles": [
+      "Perplexity DeepSeek V4 Pro 0813",
+      "Perplexity GLM 5.3",
+      "Perplexity GLM 5.3 Flash",
+      "Perplexity Kimi K3",
+      "Perplexity Nemotron 3 Ultra",
+      "Perplexity Sonar"
+    ],
+    "seedProfiles": 24,
+    "managedProfilesPerUser": 26,
+    "configuredBindingsPerUser": 16,
+    "credentialLifecycle": "One transaction-scoped reconciliation function for save, bundle upsert/replacement and delete; remove unused credentials before deriving inference types. Unchanged sync repairs preexisting unused records.",
+    "sourceFixturesChanged": false,
+    "liveAssertionOracleChanged": false,
+    "browserLayoutChecked": false
+  },
+  "rootCauseQualifications": [
+    "Novita Flash null optional container rejection was reproduced from captured valid totals.",
+    "OpenRouter Relace native reasoning counts exceeded native completion totals; strict rejection is retained and Pro now uses the explicitly tested DeepInfra route.",
+    "The exact original Novita Pro structured failure did not reproduce and remains unproven; its separate stale/zero-reasoning pricing defect is corrected and fresh acceptance passes."
+  ],
+  "discovery": {
+    "perplexity": {
+      "url": "https://api.perplexity.ai/v1/models",
+      "status": 200,
+      "checkedAt": "2026-10-05T06:35:05.293Z",
+      "models": [
+        {
+          "id": "openai/gpt-6.1-sol",
+          "object": "model",
+          "created": 0,
+          "owned_by": "openai",
+          "pricing": {
+            "input": 2,
+            "output": 10,
+            "cache_write": 2.5,
+            "cache_read": 0.1,
+            "unit": "usd_per_1m_tokens"
+          }
+        }
+      ]
+    },
+    "novita": {
+      "url": "https://api.novita.ai/openai/v1/models",
+      "checkedAt": "2026-10-05T06:07:23.133Z",
+      "status": 200,
+      "models": [
+        {
+          "id": "deepseek/deepseek-v4-flash",
+          "pricing": {
+            "prompt": {
+              "origin_price_per_m": 1400,
+              "price_per_m": 1400,
+              "origin_price_per_m_decimal": "0.14",
+              "price_per_m_decimal": "0.14"
+            },
+            "completion": {
+              "origin_price_per_m": 2800,
+              "price_per_m": 2800,
+              "origin_price_per_m_decimal": "0.28",
+              "price_per_m_decimal": "0.28"
+            },
+            "input_cache_read": {
+              "origin_price_per_m": 280,
+              "price_per_m": 280,
+              "origin_price_per_m_decimal": "0.028",
+              "price_per_m_decimal": "0.028"
+            }
+          },
+          "features": [
+            "serverless",
+            "function-calling",
+            "structured-outputs",
+            "reasoning"
+          ]
+        },
+        {
+          "id": "deepseek/deepseek-v4-pro",
+          "pricing": {
+            "prompt": {
+              "origin_price_per_m": 16000,
+              "price_per_m": 16000,
+              "origin_price_per_m_decimal": "1.6",
+              "price_per_m_decimal": "1.6"
+            },
+            "completion": {
+              "origin_price_per_m": 32000,
+              "price_per_m": 32000,
+              "origin_price_per_m_decimal": "3.2",
+              "price_per_m_decimal": "3.2"
+            },
+            "input_cache_read": {
+              "origin_price_per_m": 1350,
+              "price_per_m": 1350,
+              "origin_price_per_m_decimal": "0.135",
+              "price_per_m_decimal": "0.135"
+            }
+          },
+          "features": [
+            "serverless",
+            "function-calling",
+            "structured-outputs",
+            "reasoning"
+          ]
+        }
+      ]
+    }
+  },
+  "validation": {
+    "fast": {
+      "accepted": true,
+      "manifestSHA256": "23743ffafb41250f81bd84eb1b11cd639dd23b87248ecf943bbe251ecc411bc5",
+      "generatedAt": "2026-10-05T07:32:19.208Z",
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "tasks": 10,
+      "results": {
+        "go-static": 0,
+        "runner-contracts": 0,
+        "go-unit": 0,
+        "go-parity": 0,
+        "go-api": 0,
+        "go-observability": 0,
+        "frontend-deterministic": 0,
+        "client-core": 0,
+        "run-progress-client": 0,
+        "widget-traceability": 0
+      }
+    },
+    "release": {
+      "accepted": true,
+      "manifestSHA256": "23743ffafb41250f81bd84eb1b11cd639dd23b87248ecf943bbe251ecc411bc5",
+      "generatedAt": "2026-10-05T07:46:55.944Z",
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "tasks": 29,
+      "results": {
+        "go-format": 0,
+        "go-lint": 0,
+        "go-build": 0,
+        "go-static": 0,
+        "runner-contracts": 0,
+        "production-config-compose": 0,
+        "go-unit": 0,
+        "go-parity": 0,
+        "go-integration": 0,
+        "go-integration-race": 0,
+        "garage-restart-exclusive": 0,
+        "go-api": 0,
+        "go-observability": 0,
+        "go-compose": 0,
+        "go-compose-contract": 0,
+        "go-race": 0,
+        "go-vulnerability": 0,
+        "frontend-format": 0,
+        "frontend-compile": 0,
+        "frontend-deterministic": 0,
+        "client-core": 0,
+        "run-progress-client": 0,
+        "widget-traceability": 0,
+        "frontend-deps-audit": 0,
+        "frontend-hex-audit": 0,
+        "frontend-assets-deploy": 0,
+        "frontend-pagination-asset-check": 0,
+        "frontend-release": 0,
+        "backend-verify-baseline": 0
+      }
+    },
+    "releaseWorkflow": "https://github.com/prls-co/harden-llm/actions/runs/37278373703",
+    "releaseAttempt": 1,
+    "hostedFastWorkflow": "https://github.com/prls-co/harden-llm/actions/runs/37278334546",
+    "codeQLWorkflow": "https://github.com/prls-co/harden-llm/actions/runs/37278335094",
+    "paidMatrix": {
+      "test": "TEST-037",
+      "source": "ca52aff8fa3342238289be322888fca43dcdd7b3",
+      "configuredProfiles": [
+        "CPA GPT-5.6 Luna",
+        "CPA GPT-5.6 Sol",
+        "CPA GPT-6 Astra",
+        "CurlStructured",
+        "Gemini 3.1 Flash Lite",
+        "Gemini 3.1 Pro Preview",
+        "Gemini 3.5 Flash",
+        "Gemini 3.5 Flash Lite",
+        "Gemini 3.7 Flash",
+        "Novita DeepSeek V4 Flash",
+        "Novita DeepSeek V4 Pro",
+        "OpenRouter DeepSeek V4 Flash",
+        "OpenRouter DeepSeek V4 Pro",
+        "OpenRouter GPT-OSS 120B",
+        "OpenRouter GPT-OSS 20B",
+        "Perplexity GPT-6.1 Sol"
+      ],
+      "unconfiguredProfiles": [
+        "Claude Haiku 4.5",
+        "Claude Opus 4.7",
+        "Claude Opus 5",
+        "Claude Sonnet 4.6",
+        "Claude Sonnet 5",
+        "OpenAI GPT-5.4",
+        "OpenAI GPT-5.4 Mini",
+        "OpenAI GPT-5.5",
+        "OpenAI GPT-5.6 Luna",
+        "OpenAI GPT-5.6 Sol"
+      ],
+      "results": [
+        {
+          "test": "TestLiveProviders/CPA_GPT-5.6_Luna",
+          "status": "pass",
+          "elapsedSeconds": 13.4
+        },
+        {
+          "test": "TestLiveProviders/OpenRouter_GPT-OSS_20B",
+          "status": "pass",
+          "elapsedSeconds": 1.45
+        },
+        {
+          "test": "TestLiveProviders/Perplexity_GPT-6.1_Sol",
+          "status": "pass",
+          "elapsedSeconds": 5.66
+        },
+        {
+          "test": "TestLiveProviders/Gemini_3.5_Flash_Lite",
+          "status": "pass",
+          "elapsedSeconds": 1.9
+        },
+        {
+          "test": "TestLiveProviders/OpenRouter_GPT-OSS_120B",
+          "status": "pass",
+          "elapsedSeconds": 1.97
+        },
+        {
+          "test": "TestLiveProviders/OpenRouter_DeepSeek_V4_Pro",
+          "status": "pass",
+          "elapsedSeconds": 2.51
+        },
+        {
+          "test": "TestLiveProviders/OpenRouter_DeepSeek_V4_Flash",
+          "status": "pass",
+          "elapsedSeconds": 3.5
+        },
+        {
+          "test": "TestLiveProviders/Novita_DeepSeek_V4_Pro",
+          "status": "pass",
+          "elapsedSeconds": 3.24
+        },
+        {
+          "test": "TestLiveProviders/Novita_DeepSeek_V4_Flash",
+          "status": "pass",
+          "elapsedSeconds": 3.52
+        },
+        {
+          "test": "TestLiveProviders/Gemini_3.7_Flash",
+          "status": "pass",
+          "elapsedSeconds": 3.97
+        },
+        {
+          "test": "TestLiveProviders/Gemini_3.1_Flash_Lite",
+          "status": "pass",
+          "elapsedSeconds": 2.14
+        },
+        {
+          "test": "TestLiveProviders/Gemini_3.5_Flash",
+          "status": "pass",
+          "elapsedSeconds": 3.4
+        },
+        {
+          "test": "TestLiveProviders/Gemini_3.1_Pro_Preview",
+          "status": "pass",
+          "elapsedSeconds": 5.72
+        },
+        {
+          "test": "TestLiveProviders/CPA_GPT-6_Astra",
+          "status": "pass",
+          "elapsedSeconds": 14.22
+        },
+        {
+          "test": "TestLiveProviders/CurlStructured",
+          "status": "pass",
+          "elapsedSeconds": 9.83
+        },
+        {
+          "test": "TestLiveProviders/CPA_GPT-5.6_Sol",
+          "status": "pass",
+          "elapsedSeconds": 21.87
+        },
+        {
+          "test": "TestLiveProviders",
+          "status": "pass",
+          "elapsedSeconds": 0
+        },
+        {
+          "test": "package",
+          "status": "pass",
+          "elapsedSeconds": 98.317
+        }
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "accepted": true,
+      "textAndStructuredCalls": 32,
+      "cacheMode": "off",
+      "maxAttempts": 1,
+      "repairUsed": false,
+      "productionBoundary": false
+    },
+    "libraryNativeSearch": {
+      "accepted": true,
+      "accounting": {
+        "result": {
+          "usage": {
+            "inputTokens": 1235,
+            "cacheReadTokens": 0,
+            "cacheCreationTokens": 0,
+            "outputTokens": 100,
+            "reasoningTokens": 0,
+            "promptTokens": 1235,
+            "completionTokens": 100,
+            "totalTokens": 1335,
+            "status": "complete"
+          },
+          "cost": {
+            "knownSubtotalUsd": 0.00597,
+            "status": "exact",
+            "source": "reported",
+            "knownObservations": 1,
+            "unknownObservations": 0
+          }
+        },
+        "provider": {
+          "usage": {
+            "inputTokens": 1235,
+            "cacheReadTokens": 0,
+            "cacheCreationTokens": 0,
+            "outputTokens": 100,
+            "reasoningTokens": 0,
+            "promptTokens": 1235,
+            "completionTokens": 100,
+            "totalTokens": 1335,
+            "status": "complete"
+          },
+          "cost": {
+            "knownSubtotalUsd": 0.00597,
+            "status": "exact",
+            "source": "reported",
+            "knownObservations": 1,
+            "unknownObservations": 0
+          }
+        }
+      },
+      "attempts": 1,
+      "executed": true,
+      "mode": "native",
+      "modelID": "openai/gpt-6.1-sol",
+      "outputPresent": true,
+      "profile": "Perplexity GPT-6.1 Sol",
+      "sourceCount": 1
+    },
+    "productionAffectedProfiles": {
+      "checkedAt": "2026-10-05T07:55:06.126Z",
+      "environmentURL": "https://harden-llm-api.prls.co",
+      "cacheMode": "off",
+      "maxAttempts": 1,
+      "calls": [
+        {
+          "profile": "Novita DeepSeek V4 Flash",
+          "modelID": "deepseek/deepseek-v4-flash",
+          "callType": "text",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 1494
+        },
+        {
+          "profile": "Novita DeepSeek V4 Flash",
+          "modelID": "deepseek/deepseek-v4-flash",
+          "callType": "structured",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 1180
+        },
+        {
+          "profile": "Novita DeepSeek V4 Pro",
+          "modelID": "deepseek/deepseek-v4-pro",
+          "callType": "text",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 1048
+        },
+        {
+          "profile": "Novita DeepSeek V4 Pro",
+          "modelID": "deepseek/deepseek-v4-pro",
+          "callType": "structured",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 1805
+        },
+        {
+          "profile": "OpenRouter DeepSeek V4 Pro",
+          "modelID": "deepseek/deepseek-v4-pro",
+          "callType": "text",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 1317
+        },
+        {
+          "profile": "OpenRouter DeepSeek V4 Pro",
+          "modelID": "deepseek/deepseek-v4-pro",
+          "callType": "structured",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 862
+        },
+        {
+          "profile": "Perplexity GPT-6.1 Sol",
+          "modelID": "openai/gpt-6.1-sol",
+          "callType": "text",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 2205
+        },
+        {
+          "profile": "Perplexity GPT-6.1 Sol",
+          "modelID": "openai/gpt-6.1-sol",
+          "callType": "structured",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 2677
+        }
+      ],
+      "accepted": true,
+      "workspaceStateUnchanged": true,
+      "cleanupComplete": true,
+      "deletedHistoryCount": 8
+    },
+    "productionSolNativeSearch": {
+      "checkedAt": "2026-10-05T07:55:59.277Z",
+      "environmentURL": "https://harden-llm-api.prls.co",
+      "cacheMode": "off",
+      "maxAttempts": 1,
+      "calls": [
+        {
+          "searchExecuted": true,
+          "sourceCount": 15,
+          "profile": "Perplexity GPT-6.1 Sol",
+          "modelID": "openai/gpt-6.1-sol",
+          "callType": "text",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 7388
+        },
+        {
+          "searchExecuted": true,
+          "sourceCount": 15,
+          "profile": "Perplexity GPT-6.1 Sol",
+          "modelID": "openai/gpt-6.1-sol",
+          "callType": "structured",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 4029
+        }
+      ],
+      "accepted": true,
+      "workspaceStateUnchanged": true,
+      "cleanupComplete": true,
+      "deletedHistoryCount": 2
+    },
+    "publicHTTP": {
+      "checkedAt": "2026-10-05T07:56:54.681Z",
+      "accepted": true,
+      "checks": [
+        {
+          "url": "https://harden-llm.prls.co/healthz",
+          "status": 200
+        },
+        {
+          "url": "https://a.prls.co/login",
+          "status": 200
+        },
+        {
+          "url": "https://harden-llm.prls.co/",
+          "status": 302
+        },
+        {
+          "url": "https://harden-llm-api.prls.co/healthz",
+          "status": 200
+        },
+        {
+          "url": "https://harden-llm-api.prls.co/readyz",
+          "status": 200
+        },
+        {
+          "url": "https://harden-llm-api.prls.co/api/v1/profiles",
+          "status": 401
+        }
+      ]
+    },
+    "ownerScopedReadback": {
+      "checkedAt": "2026-10-05T07:54:48.871Z",
+      "retired": [
+        "Perplexity DeepSeek V4 Pro 0813",
+        "Perplexity GLM 5.3",
+        "Perplexity GLM 5.3 Flash",
+        "Perplexity Kimi K3",
+        "Perplexity Nemotron 3 Ultra",
+        "Perplexity Sonar"
+      ],
+      "users": [
+        {
+          "label": "administrator",
+          "before": 26,
+          "after": 26,
+          "configured": 16,
+          "deleted": [],
+          "retiredSelection": false,
+          "retiredEndpointAbsent": true
+        },
+        {
+          "label": "verification",
+          "before": 26,
+          "after": 26,
+          "configured": 16,
+          "deleted": [],
+          "retiredSelection": false,
+          "retiredEndpointAbsent": true
+        }
+      ],
+      "inferenceCalls": 0,
+      "accepted": true
+    },
+    "profileSyncIdempotence": {
+      "users": 2,
+      "profiles": 26,
+      "configured": 16,
+      "changed": false
+    },
+    "database": {
+      "owners": 2,
+      "profiles": 52,
+      "configuredBindings": 32,
+      "perplexityProfiles": 2,
+      "perplexityModelIDs": [
+        "openai/gpt-6.1-sol"
+      ],
+      "orphanCredentials": 0,
+      "runs": 0
+    },
+    "artifacts": {
+      "schemaVersion": 1,
+      "scannedObjects": 0,
+      "metadataReferences": 0,
+      "activeOperationReferences": 0,
+      "referencedObjects": 0,
+      "activeOperationObjects": 0,
+      "missingAvailableObjects": 0,
+      "unreferencedYoungObjects": 0,
+      "unreferencedAgedObjects": 0,
+      "truncated": false,
+      "healthy": true
+    },
+    "configuration": {
+      "accepted": true,
+      "allServices": [
+        "grafana",
+        "harden-llm-gateway",
+        "harden-llm-web",
+        "harden-postgres",
+        "loki",
+        "otel-collector",
+        "prometheus",
+        "tempo"
+      ],
+      "selectedServiceExpectedRuntimeDifferences": [
+        "harden-llm-gateway.environment.HARDEN_LLM_RELEASE",
+        "harden-llm-gateway.identity.HARDEN_LLM_RELEASE",
+        "harden-llm-gateway.image"
+      ],
+      "candidate": {
+        "expectedRelease": "ca52aff8fa3342238289be322888fca43dcdd7b3",
+        "desiredDifferences": [],
+        "runtimeDifferences": []
+      }
+    },
+    "protectedFiles": {
+      "accepted": true,
+      "files": [
+        {
+          "path": "/home/kirill/.config/harden-llm/production.json",
+          "mode": "600"
+        },
+        {
+          "path": "/home/kirill/p/harden-llm/.env",
+          "mode": "600"
+        },
+        {
+          "path": "/home/kirill/p/harden-llm/config/llm-profiles.local.json",
+          "mode": "600"
+        }
+      ],
+      "productionCheckoutPreserved": true
+    },
+    "sourceFiles": {
+      "sourceSHA": "ca52aff8fa3342238289be322888fca43dcdd7b3",
+      "files": {
+        "docs/adr/ADR-HLLM-013-profile-catalog-seed.md": "8fe55af0a223ff843231e1631ddda3cf65b8669a73eb1aea829b41f51f2dda6e",
+        "frontend/test/harden_llm_web/live/workspace_live_test.exs": "708c36951dedcb5877a4395a67bef233a5563f81b8ce13342e9d2fd526fd7156",
+        "internal/gateway/profile_bundle_validation_test.go": "6bb86abbd072592f3f9febdd8165b43b479f81b5f0c6bd77363f82bdc9cea2fe",
+        "internal/gateway/shared_profiles.go": "4f41e25b7a5eaed91d97538599ed4c76453a56b484627b33483d7998ee5b77cf",
+        "internal/gateway/shared_profiles_integration_test.go": "fceb1d1541deac488238f4009f8d1414fa7d72642025a1c32d920ef22036a0b9",
+        "internal/postgres/repository.go": "e87f44bd8abe3be28afc8e7bf18031b380ba56d0053ff8a26f94e60f3e2fc8bc",
+        "internal/postgres/resources.go": "ce98a065a10a59636e410d66c2c36bb7eae8d29615795a00de646c9e390d1298",
+        "internal/profiles/default-profile-catalog.json": "3e694327cd98c613ce380e0965df2a886e5f979aaf32ceaaf68aa2f5c3efd5bc",
+        "internal/profiles/default_catalog_test.go": "b85c73be1739cdb1c3a02109172ece9e19e6ff280d8b95055718333517cb0d5f",
+        "internal/providers/default_profile_catalog_test.go": "17ec90834d6459b597dbcc9f248835c927e61a71ee03d827be8d137763a36928",
+        "internal/providers/normalization_test.go": "09ef937c5fba2380eb8f9e11e8aa4cfe2cc53db0ce67ddbaeb9c62d304ab0c9b",
+        "internal/providers/normalize.go": "890c9bc8c14fd3853dab0eacd6b03e2d6fda43a919c2544104782e2886ee5ef5",
+        "internal/providers/optional_system_prompt_test.go": "066653386fd8c9e03d1116734bf984d90f72ca9e34a4223c3107c7746e5164eb",
+        "plans/from_utility-llm/harden-llm-self-hosted-test-spec.md": "c53ad9756a120696e2dcbe962b061ffc2baf74870e4bd92c6b545a47e9e6e4fe"
+      },
+      "applicationAndTestFilesUnchangedSinceAcceptance": true
+    }
+  },
+  "deployment": {
+    "components": [
+      {
+        "service": "otel-collector",
+        "container": "harden-llm-otel-collector-1",
+        "containerID": "32daddb31bd7018423b62b1ee1ad270b2241fc777489b89bb33d005d7b73c1d3",
+        "imageID": "sha256:125bdbeb7590cc1952c5b3430ecf14063568980c2c93d5b38676cc0446ed8108",
+        "sourceLabel": "aa158b23c8f89d795b21a05a49b3978565dfebd4",
+        "releaseEnvironment": {
+          "HARDEN_LLM_RELEASE": "729804cdfab9ff5c2e9dd75c64609cddd6773557"
+        },
+        "startedAt": "2026-10-04T07:49:27.031036814Z",
+        "restartCount": 0,
+        "health": "healthy",
+        "status": "running"
+      },
+      {
+        "service": "loki",
+        "container": "harden-llm-loki-1",
+        "containerID": "8398992c73d5fc0872c236e31c6d9bb18aea7d7ab601296694f6ed95751b59b3",
+        "imageID": "sha256:191d4fdfb7264f16989f0a57f320872620a5a7c2ceeec6229212c4190ec49b86",
+        "sourceLabel": null,
+        "releaseEnvironment": {},
+        "startedAt": "2026-10-04T07:49:11.10491943Z",
+        "restartCount": 0,
+        "health": "healthy",
+        "status": "running"
+      },
+      {
+        "service": "harden-llm-web",
+        "container": "harden-llm-harden-llm-web-1",
+        "containerID": "390dfc5d3f9dfb6df325edec84434bc0828a7052e911257b95f0d4c2382c1d67",
+        "imageID": "sha256:c8f5dd73e1c792f321ed76c2aa06e010951c5508d06c4cc0c7393dc4b6c8028a",
+        "sourceLabel": null,
+        "releaseEnvironment": {
+          "HARDEN_LLM_WEB_RELEASE": "61e249c7f642ae13a02442ae416a06b2f6d3ffb6",
+          "HARDEN_LLM_RELEASE": "61e249c7f642ae13a02442ae416a06b2f6d3ffb6"
+        },
+        "startedAt": "2026-10-05T02:05:09.28971328Z",
+        "restartCount": 0,
+        "health": "healthy",
+        "status": "running"
+      },
+      {
+        "service": "harden-llm-gateway",
+        "container": "harden-llm-harden-llm-gateway-1",
+        "containerID": "1d64eb12ce798aa0a75e65dcac577fd927336009e2c66bec66a0cfdd2571f6ac",
+        "imageID": "sha256:55c64a95bfb810304e2f1b86c23817223dd7774007b533900a617584e22ff109",
+        "sourceLabel": "ca52aff8fa3342238289be322888fca43dcdd7b3",
+        "releaseEnvironment": {
+          "HARDEN_LLM_RELEASE": "ca52aff8fa3342238289be322888fca43dcdd7b3"
+        },
+        "startedAt": "2026-10-05T07:54:06.340873449Z",
+        "restartCount": 0,
+        "health": "healthy",
+        "status": "running"
+      },
+      {
+        "service": "harden-postgres",
+        "container": "harden-llm-harden-postgres-1",
+        "containerID": "34f1946622fac65ea5d89eabe825140bc9e225d3dd75d4a33051f413bdf5b546",
+        "imageID": "sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609",
+        "sourceLabel": null,
+        "releaseEnvironment": {},
+        "startedAt": "2026-10-04T07:49:11.121109115Z",
+        "restartCount": 0,
+        "health": "healthy",
+        "status": "running"
+      },
+      {
+        "service": "prometheus",
+        "container": "harden-llm-prometheus-1",
+        "containerID": "4122d08a7710d0466c98671073133b9d1e85cc060f11345bc589f16ccfdd2bfb",
+        "imageID": "sha256:69f5241418838263316593f7274a304b095c40bcf22e57272865da91bd60a8ac",
+        "sourceLabel": null,
+        "releaseEnvironment": {},
+        "startedAt": "2026-10-04T07:49:11.102670424Z",
+        "restartCount": 0,
+        "health": "healthy",
+        "status": "running"
+      },
+      {
+        "service": "tempo",
+        "container": "harden-llm-tempo-1",
+        "containerID": "3a3d4416cbea42537c684220d5ae6f59910bfc8632ee234b0c349fa6df67eefc",
+        "imageID": "sha256:ee21727732c7a7199cb71c3eee9153bbf23f9b0b87619f0555a0cf21a67f1a33",
+        "sourceLabel": null,
+        "releaseEnvironment": {},
+        "startedAt": "2026-10-04T07:49:11.126304095Z",
+        "restartCount": 0,
+        "health": "healthy",
+        "status": "running"
+      },
+      {
+        "service": "grafana",
+        "container": "harden-llm-grafana-1",
+        "containerID": "93c87fe0939c4bd5bc0099cd97101209d96f32f2f9d0ef6e6663129c861dc571",
+        "imageID": "sha256:5dad0df181cb644a14e13617b913b261a54f7d4fd4510721dba420929f35bea2",
+        "sourceLabel": null,
+        "releaseEnvironment": {},
+        "startedAt": "2026-10-04T07:49:27.028578566Z",
+        "restartCount": 0,
+        "health": "healthy",
+        "status": "running"
+      }
+    ],
+    "otherSevenContainersAndImagesRetained": true,
+    "configurationHashes": {
+      "descriptorBefore": "3b4568dabcd24d9a70abd7d47ab76d245cb595432081ec6cf7de448ea86a7007",
+      "descriptorIntermediate": "5408d941c2843214286e9b476f3ee4f60d5aeee88930305b3cda0216726b65a6",
+      "descriptorAfter": "5408d941c2843214286e9b476f3ee4f60d5aeee88930305b3cda0216726b65a6",
+      "sharedBefore": "f3c67272ab13afef7f5ffc831b12905491ac9a17e30658e9c7c00a5161a002b1",
+      "sharedAfter": "3f205e5eb806ab371f073574f2c46f7b0c226a1cc8e38e649d0a1d22ec3a82f7"
+    },
+    "productionComposeCheckoutPreserved": "cc57b9ac7ba4ed525e103bcca32ca0ecdc07496c",
+    "frontendSourceQualification": "Retained Portal frontend declares release 61e249c7f642ae13a02442ae416a06b2f6d3ffb6; it has no source/revision label, so that declaration does not establish build source."
+  },
+  "retainedFailures": {
+    "originalMatrix": {
+      "source": "07a7781cf735764c1cb31b02a75df7d647b78a18",
+      "passedProfiles": 7,
+      "totalProfiles": 22,
+      "evidencePath": "plans/evidence/harden-llm/production-checks-20261004.json"
+    },
+    "initialAccountingMatrix": {
+      "source": "618c5d99a9ef3f41606165a89ba8cc022e85e092",
+      "passedProfiles": 19,
+      "totalProfiles": 21,
+      "failedProfiles": [
+        "Perplexity Kimi K3",
+        "CPA GPT-5.6 Sol"
+      ],
+      "accepted": false
+    },
+    "rolloutProfileReadFailure": {
+      "supersededSource": "f094bdce5aa17f408b50e705004554d90b5cd072",
+      "administratorRetiredProfilesDeletedBeforeFailure": 6,
+      "readStatus": 503,
+      "cause": "Upsert retained old unused credentials. Delete reconciled all metadata to empty inference types for those records, causing strict reads to fail.",
+      "cheapGuard": "TestCredentialMetadataRequiresInferenceTypes preserves rejection of empty/null types.",
+      "realPostgresRegression": {
+        "test": "TestSharedProfilesRetireEndpointPresets",
+        "failedBefore": true,
+        "failure": "got 3 credentials, want 1",
+        "passedAfter": true,
+        "assertionsChanged": false,
+        "cleanupErrors": []
+      },
+      "resolvedBySource": "ca52aff8fa3342238289be322888fca43dcdd7b3",
+      "operatorBlindRetryUsed": false
+    },
+    "novitaRoutingCandidate": {
+      "order": [
+        "novita/fp8"
+      ],
+      "text": "passed",
+      "structuredHTTPStatus": 404,
+      "used": false
+    },
+    "solPricePreparation": "An initial exact-pricing regression rejected binary float conversion of 0.1 per million; decimal conversion fixed the value before release. Assertions were not loosened."
+  },
+  "followup": {
+    "issue": "https://github.com/prls-co/harden-llm/issues/94",
+    "scope": "Intermittent CPA GPT-5.6 Sol upstream Responses stream failure",
+    "currentMatrixPassed": true,
+    "causalFixConfirmed": false,
+    "kimiK3": "Retired by explicit user decision; historical timeout is not claimed fixed."
+  },
+  "unconfiguredProfilesOutsidePaidMatrix": [
+    "Claude Haiku 4.5",
+    "Claude Opus 4.7",
+    "Claude Opus 5",
+    "Claude Sonnet 4.6",
+    "Claude Sonnet 5",
+    "OpenAI GPT-5.4",
+    "OpenAI GPT-5.4 Mini",
+    "OpenAI GPT-5.5",
+    "OpenAI GPT-5.6 Luna",
+    "OpenAI GPT-5.6 Sol"
+  ],
+  "credentialsAndGeneratedOutputExcluded": true
+}

@@ -359,7 +359,7 @@ already-built or already-deployed image.
 6. Re-run `check`; require `equivalent`. Verify the gateway is running and
    healthy with zero unexpected restarts, its container image ID and release
    environment match the selected build, API `/healthz` and `/readyz` return
-   HTTP 200, and web `/healthz` and `/login` remain HTTP 200.
+   HTTP 200, and the Control Plane Portal `/login` remains HTTP 200. The HLLM web root redirects to the Portal login.
 7. Run only the documented read-only artifact inventory probe for the
    post-deploy integrity boundary. Do not invoke browser or paid-provider
    checks automatically.

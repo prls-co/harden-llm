@@ -2624,3 +2624,78 @@ The prior Gemini certification is retained as dated evidence.
 [Issue 92](https://github.com/prls-co/harden-llm/issues/92) now retains three
 Novita/OpenRouter accounting failures. Documentation-only closeout after the
 application release does not require another image build.
+
+## Provider accounting and GPT-6.1 Sol — production (2026-10-05)
+
+Gateway source `ca52aff8fa3342238289be322888fca43dcdd7b3` is on `main` and
+deployed as `harden-llm-gateway:release-ca52aff8fa3342238289be322888fca43dcdd7b3`,
+image `sha256:55c64a95bfb810304e2f1b86c23817223dd7774007b533900a617584e22ff109`.
+The OCI revision/version and running binary match the source SHA. The production
+application candidate has no desired image or release metadata differences.
+The protected base descriptor still records the prior gateway in its image and
+release fields; the reviewed candidate applies those three scoped values. All
+seven other service IDs/images stayed unchanged, and all eight production
+services are healthy. The independent production Compose checkout and the
+existing Portal image were preserved. The Portal image's declared release is
+`61e249c7f642ae13a02442ae416a06b2f6d3ffb6`, but it carries no source/revision
+label. No frontend image was built.
+
+The update accepts null optional provider usage-detail containers as missing
+breakdowns; actual token counts, component sums and USD accounting stay strict.
+Novita V4 Flash and Pro reasoning costs use the completion rate. Pro's input,
+completion and cache-read rates now match authenticated discovery. OpenRouter
+DeepSeek V4 Pro uses only the tested `deepinfra/fp8` endpoint, with provider
+fallbacks disabled. The six earlier Perplexity presets were removed; **Perplexity
+GPT-6.1 Sol** (`openai/gpt-6.1-sol`) is now the only Perplexity model, using the
+existing `/v1/agent` operation through the Responses contract.
+
+Profile retirement exposed a Postgres lifecycle defect. Trusted sync could
+leave unused endpoint credentials, and deleting a profile reconciled all
+remaining credential metadata to empty inference types on those unused rows.
+Strict catalog reads then returned 503. A real Postgres regression reproduced
+the failure before the fix. Profile save, bundle update and deletion now use
+one transaction-scoped cleanup: remove unused credentials, then reconcile
+inference types for the remaining profiles. Trusted sync detects existing
+unused credentials even if profile documents already match. Strict stored
+metadata validation remains intact. Regression coverage proves replacement,
+retirement, repeated reads, idempotent repair, last-profile deletion and
+cross-owner isolation.
+
+Local and hosted fast checks passed 10/10. The exact-source [hosted
+browser-free release](https://github.com/prls-co/harden-llm/actions/runs/37278373703)
+passed all 29 tasks with zero failures or cleanup errors; hosted CodeQL also
+passed. The final `TEST-037` paid matrix passed all **16 configured profiles**
+for text and structured output, 32 one-attempt calls, with cache off and no
+repair. Production passed text and structured calls for the three accounting
+profiles and Perplexity GPT-6.1 Sol, plus text and structured native-search calls
+for GPT-6.1 Sol. Each search call reported 15 safe sources. The complete
+unconfigured catalog was outside paid acceptance.
+
+Both actual Portal logins and their owner-scoped profile reads passed. Each user
+now has 26 profiles and 16 configured bindings; the embedded seed has 24
+presets. The six retired Perplexity profiles and their unused endpoint
+credentials are absent. A second trusted sync returned `changed: false`, and
+repeated reads did not recreate retired entries. The deployment API token
+continues to resolve to the verification user's dataset. Public web/API health,
+readiness and anonymous profile denial returned the expected HTTP statuses.
+All ten production probe histories were deleted and saved workspace state is
+unchanged. Database audit found 52 profile rows, 32 configured bindings, exactly
+two GPT-6.1 Sol profiles, zero orphan credentials and zero runs. Artifact audit
+found zero objects or metadata references, no active operations, and no missing
+or unreferenced objects. Protected configuration files remain mode `0600`.
+
+The original 21-profile accounting attempt remains **19 passing, 2 failing**
+at source `618c5d99a9ef3f41606165a89ba8cc022e85e092`; its failed result is
+preserved. The earlier Novita Pro structured error did not reproduce, so its
+exact original cause remains unproven. The intermittent CPA GPT-5.6 Sol stream
+failure passed the fresh full matrix, but its earlier upstream cause is still
+unknown and remains in [issue 94](https://github.com/prls-co/harden-llm/issues/94).
+The Kimi K3 timeout remains historical after the user's decision to retire every
+Perplexity model other than GPT-6.1 Sol. The original 7/22 matrix is retained at
+[its production record](../plans/evidence/harden-llm/production-checks-20261004.json).
+
+[Bounded evidence](../plans/evidence/harden-llm/provider-accounting-sol-20261005.json)
+records the exact application/image identity, catalog discovery, deterministic
+and live test results, Postgres regression, deployed checks, cleanup and
+retained failure history. It contains no credentials, sessions or generated
+provider answers. Browser layout was not checked.
