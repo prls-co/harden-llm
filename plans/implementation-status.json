@@ -16,58 +16,191 @@
     "P00": {
       "status": "complete",
       "completedAt": "2026-07-13T08:15:03Z",
-      "requirements": ["REQ-001", "REQ-018", "REQ-019"],
-      "tests": ["TEST-001", "TEST-002", "TEST-003", "TEST-004", "TEST-005"]
+      "requirements": [
+        "REQ-001",
+        "REQ-018",
+        "REQ-019"
+      ],
+      "tests": [
+        "TEST-001",
+        "TEST-002",
+        "TEST-003",
+        "TEST-004",
+        "TEST-005"
+      ]
     },
     "P01": {
       "status": "complete",
       "completedAt": "2026-07-13T09:01:27Z",
-      "requirements": ["REQ-002", "REQ-003", "REQ-006", "REQ-007", "REQ-019"],
-      "tests": ["TEST-006", "TEST-007", "TEST-008", "TEST-009", "TEST-010", "TEST-011"]
+      "requirements": [
+        "REQ-002",
+        "REQ-003",
+        "REQ-006",
+        "REQ-007",
+        "REQ-019"
+      ],
+      "tests": [
+        "TEST-006",
+        "TEST-007",
+        "TEST-008",
+        "TEST-009",
+        "TEST-010",
+        "TEST-011"
+      ]
     },
     "P02": {
       "status": "complete",
       "completedAt": "2026-07-13T10:30:13Z",
-      "requirements": ["REQ-004", "REQ-005", "REQ-007", "REQ-008", "REQ-015", "REQ-018", "REQ-019", "REQ-020"],
-      "tests": ["TEST-012", "TEST-013", "TEST-014", "TEST-015", "TEST-016", "TEST-017", "TEST-018", "TEST-019"],
-      "evaluations": ["EVAL-001", "EVAL-002"]
+      "requirements": [
+        "REQ-004",
+        "REQ-005",
+        "REQ-007",
+        "REQ-008",
+        "REQ-015",
+        "REQ-018",
+        "REQ-019",
+        "REQ-020"
+      ],
+      "tests": [
+        "TEST-012",
+        "TEST-013",
+        "TEST-014",
+        "TEST-015",
+        "TEST-016",
+        "TEST-017",
+        "TEST-018",
+        "TEST-019"
+      ],
+      "evaluations": [
+        "EVAL-001",
+        "EVAL-002"
+      ]
     },
     "P03": {
       "status": "complete",
       "completedAt": "2026-07-13T11:29:38Z",
-      "requirements": ["REQ-005", "REQ-008", "REQ-009", "REQ-010", "REQ-019", "REQ-020"],
-      "tests": ["TEST-002", "TEST-005", "TEST-020", "TEST-021", "TEST-022", "TEST-040"]
+      "requirements": [
+        "REQ-005",
+        "REQ-008",
+        "REQ-009",
+        "REQ-010",
+        "REQ-019",
+        "REQ-020"
+      ],
+      "tests": [
+        "TEST-002",
+        "TEST-005",
+        "TEST-020",
+        "TEST-021",
+        "TEST-022",
+        "TEST-040"
+      ]
     },
     "P04": {
       "status": "complete",
       "completedAt": "2026-07-13T13:23:17Z",
-      "requirements": ["REQ-005", "REQ-007", "REQ-009", "REQ-010", "REQ-011", "REQ-012", "REQ-018", "REQ-019", "REQ-020"],
-      "tests": ["TEST-002", "TEST-003", "TEST-005", "TEST-023", "TEST-024", "TEST-025", "TEST-026", "TEST-027"]
+      "requirements": [
+        "REQ-005",
+        "REQ-007",
+        "REQ-009",
+        "REQ-010",
+        "REQ-011",
+        "REQ-012",
+        "REQ-018",
+        "REQ-019",
+        "REQ-020"
+      ],
+      "tests": [
+        "TEST-002",
+        "TEST-003",
+        "TEST-005",
+        "TEST-023",
+        "TEST-024",
+        "TEST-025",
+        "TEST-026",
+        "TEST-027"
+      ]
     },
     "P05": {
       "status": "complete",
       "completedAt": "2026-07-13T14:13:39Z",
-      "requirements": ["REQ-013", "REQ-014", "REQ-015", "REQ-016", "REQ-019", "REQ-020"],
-      "tests": ["TEST-002", "TEST-003", "TEST-005", "TEST-028", "TEST-029", "TEST-030", "TEST-031", "TEST-032"],
-      "evaluations": ["EVAL-003"]
+      "requirements": [
+        "REQ-013",
+        "REQ-014",
+        "REQ-015",
+        "REQ-016",
+        "REQ-019",
+        "REQ-020"
+      ],
+      "tests": [
+        "TEST-002",
+        "TEST-003",
+        "TEST-005",
+        "TEST-028",
+        "TEST-029",
+        "TEST-030",
+        "TEST-031",
+        "TEST-032"
+      ],
+      "evaluations": [
+        "EVAL-003"
+      ]
     },
     "P06": {
       "status": "complete",
       "completedAt": "2026-07-13T15:41:09Z",
-      "requirements": ["REQ-009", "REQ-015", "REQ-016", "REQ-017", "REQ-019", "REQ-020"],
-      "tests": ["TEST-003", "TEST-005", "TEST-030", "TEST-033", "TEST-034"],
-      "evaluations": ["EVAL-004"]
+      "requirements": [
+        "REQ-009",
+        "REQ-015",
+        "REQ-016",
+        "REQ-017",
+        "REQ-019",
+        "REQ-020"
+      ],
+      "tests": [
+        "TEST-003",
+        "TEST-005",
+        "TEST-030",
+        "TEST-033",
+        "TEST-034"
+      ],
+      "evaluations": [
+        "EVAL-004"
+      ]
     },
     "P07": {
       "status": "complete",
       "completedAt": "2026-07-13T23:57:47Z",
       "requirements": [
-        "REQ-001", "REQ-002", "REQ-003", "REQ-004", "REQ-005",
-        "REQ-006", "REQ-007", "REQ-008", "REQ-009", "REQ-010",
-        "REQ-011", "REQ-012", "REQ-013", "REQ-014", "REQ-015",
-        "REQ-016", "REQ-017", "REQ-018", "REQ-019", "REQ-020"
+        "REQ-001",
+        "REQ-002",
+        "REQ-003",
+        "REQ-004",
+        "REQ-005",
+        "REQ-006",
+        "REQ-007",
+        "REQ-008",
+        "REQ-009",
+        "REQ-010",
+        "REQ-011",
+        "REQ-012",
+        "REQ-013",
+        "REQ-014",
+        "REQ-015",
+        "REQ-016",
+        "REQ-017",
+        "REQ-018",
+        "REQ-019",
+        "REQ-020"
       ],
-      "tests": ["TEST-035", "TEST-036", "TEST-037", "TEST-038", "TEST-039", "TEST-040"]
+      "tests": [
+        "TEST-035",
+        "TEST-036",
+        "TEST-037",
+        "TEST-038",
+        "TEST-039",
+        "TEST-040"
+      ]
     }
   },
   "reusablePagination": {
@@ -75,10 +208,25 @@
     "adr": "ADR-HLLM-023",
     "status": "complete",
     "updatedAt": "2026-09-17",
-    "completedPhases": ["P0", "P1", "P2", "P3", "P4", "P5"],
+    "completedPhases": [
+      "P0",
+      "P1",
+      "P2",
+      "P3",
+      "P4",
+      "P5"
+    ],
     "tests": [
-      "TEST-229", "TEST-230", "TEST-231", "TEST-232",
-      "WEB-TEST-077", "WEB-TEST-078", "WEB-TEST-079", "WEB-TEST-080", "WEB-TEST-081", "WEB-TEST-082"
+      "TEST-229",
+      "TEST-230",
+      "TEST-231",
+      "TEST-232",
+      "WEB-TEST-077",
+      "WEB-TEST-078",
+      "WEB-TEST-079",
+      "WEB-TEST-080",
+      "WEB-TEST-081",
+      "WEB-TEST-082"
     ],
     "petalEvaluation": {
       "version": "petal_components 4.16.1",
@@ -127,11 +275,24 @@
     "correctiveHardening": {
       "plan": "plans/pagination-hardening-and-compact-ux-plan.md",
       "status": "complete",
-      "completedPhases": ["P0", "P1", "P2", "P3", "P4", "P5", "P6"],
+      "completedPhases": [
+        "P0",
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5",
+        "P6"
+      ],
       "sourceSHA": "a4355386f6060a9594eb196ffbd9c1fb9221f2fe",
       "tests": [
-        "WEB-TEST-077", "WEB-TEST-078", "WEB-TEST-079", "WEB-TEST-080",
-        "WEB-TEST-081", "WEB-TEST-082", "TEST-231"
+        "WEB-TEST-077",
+        "WEB-TEST-078",
+        "WEB-TEST-079",
+        "WEB-TEST-080",
+        "WEB-TEST-081",
+        "WEB-TEST-082",
+        "TEST-231"
       ],
       "verification": {
         "frontendDeterministic": "222 passed, 5 opt-in/asset/Compose/deployed exclusions",
@@ -180,8 +341,19 @@
     "plan": "plans/production-configuration-reproducibility-plan.md",
     "status": "complete",
     "updatedAt": "2026-09-17",
-    "completedPhases": ["P0", "P1", "P2", "P3", "P4", "P5"],
-    "tests": ["TEST-233", "TEST-234", "TEST-235"],
+    "completedPhases": [
+      "P0",
+      "P1",
+      "P2",
+      "P3",
+      "P4",
+      "P5"
+    ],
+    "tests": [
+      "TEST-233",
+      "TEST-234",
+      "TEST-235"
+    ],
     "implementation": {
       "entrypoint": "scripts/production-config.mjs",
       "descriptorExample": "config/production-config.example.json",
@@ -223,12 +395,19 @@
     "gitSHA": "09769424ca34b9d759e273a7e9dccf4fd00a5f6c",
     "packageVersion": "0.14.6",
     "workingTreeDirty": false,
-    "dirtyPathsExcludedFromCapture": ["README.md", "specs/"]
+    "dirtyPathsExcludedFromCapture": [
+      "README.md",
+      "specs/"
+    ]
   },
   "sourceVerification": {
     "snapshot": "git archive 09769424ca34b9d759e273a7e9dccf4fd00a5f6c",
     "install": "npm ci --omit=dev --ignore-scripts --no-audit --no-fund",
-    "commands": ["npm run test:contract", "npm run test:core", "npm run test:behavior"],
+    "commands": [
+      "npm run test:contract",
+      "npm run test:core",
+      "npm run test:behavior"
+    ],
     "result": "partial: contract pass; focused retry/provider behavior pass; full core gate blocked",
     "note": "The source checkout was clean at capture and the capture script verified that its HEAD matched the recorded SHA. The full core manifest currently requires the unavailable dev dependency typescript/bin/tsc; no source files were modified."
   },
@@ -246,10 +425,15 @@
     "seedSHA256": "7301c07b31e9a8856b0cc7f6fa561038fd579e63e37cbd4c1a6102f3886baefa",
     "profileCount": 26,
     "updatedAt": "2026-10-04",
-    "retiredProfiles": ["CPA GPT-5.4", "CPA GPT-5.4 Mini"],
+    "retiredProfiles": [
+      "CPA GPT-5.4",
+      "CPA GPT-5.4 Mini"
+    ],
     "catalogUpdate": "CPA /v1/models confirms both unavailable; original source and certification evidence retained. See ADR-HLLM-013 and issue #92.",
     "seedPolicy": "First profile/catalog/runtime use backfills every missing preset for the owner; credential-free; owner-locked; never overwrites existing rows.",
-    "tests": ["TEST-017"],
+    "tests": [
+      "TEST-017"
+    ],
     "adr": "ADR-HLLM-013",
     "verification": {
       "deterministicGo": "go test ./... -count=1 passed",
@@ -334,12 +518,31 @@
     "status": "complete",
     "completedAt": "2026-07-13T23:57:47Z",
     "tests": [
-      "WEB-TEST-001", "WEB-TEST-002", "WEB-TEST-003", "WEB-TEST-004",
-      "WEB-TEST-005", "WEB-TEST-006", "WEB-TEST-007", "WEB-TEST-008",
-      "WEB-TEST-009", "WEB-TEST-010", "WEB-TEST-011", "WEB-TEST-012",
-      "WEB-TEST-031", "WEB-TEST-032", "WEB-TEST-033", "WEB-TEST-034",
-      "WEB-TEST-035", "WEB-TEST-036", "WEB-TEST-037", "WEB-TEST-038",
-      "WEB-TEST-039", "WEB-TEST-040", "WEB-TEST-041", "WEB-TEST-042", "WEB-TEST-043"
+      "WEB-TEST-001",
+      "WEB-TEST-002",
+      "WEB-TEST-003",
+      "WEB-TEST-004",
+      "WEB-TEST-005",
+      "WEB-TEST-006",
+      "WEB-TEST-007",
+      "WEB-TEST-008",
+      "WEB-TEST-009",
+      "WEB-TEST-010",
+      "WEB-TEST-011",
+      "WEB-TEST-012",
+      "WEB-TEST-031",
+      "WEB-TEST-032",
+      "WEB-TEST-033",
+      "WEB-TEST-034",
+      "WEB-TEST-035",
+      "WEB-TEST-036",
+      "WEB-TEST-037",
+      "WEB-TEST-038",
+      "WEB-TEST-039",
+      "WEB-TEST-040",
+      "WEB-TEST-041",
+      "WEB-TEST-042",
+      "WEB-TEST-043"
     ],
     "parityInventory": "docs/utility-llm-frontend-parity-inventory.md",
     "paritySource": {
@@ -380,7 +583,11 @@
         "rows": 30,
         "configured": 3,
         "unconfiguredPresets": 27,
-        "liveSmokeProfiles": ["CurlStructured", "ShamanLiteLLM", "CPA GPT-5.6 Luna"]
+        "liveSmokeProfiles": [
+          "CurlStructured",
+          "ShamanLiteLLM",
+          "CPA GPT-5.6 Luna"
+        ]
       },
       "probes": {
         "apiHealthz": 200,
@@ -428,10 +635,24 @@
     "status": "complete_with_documented_p05_deviation",
     "requirements": 18,
     "tests": [
-      "TEST-101", "TEST-102", "TEST-103", "TEST-104", "TEST-105",
-      "TEST-106", "TEST-107", "TEST-108", "TEST-109", "TEST-110",
-      "TEST-111", "TEST-112", "TEST-113", "TEST-114", "TEST-115",
-      "TEST-116", "TEST-117", "TEST-118"
+      "TEST-101",
+      "TEST-102",
+      "TEST-103",
+      "TEST-104",
+      "TEST-105",
+      "TEST-106",
+      "TEST-107",
+      "TEST-108",
+      "TEST-109",
+      "TEST-110",
+      "TEST-111",
+      "TEST-112",
+      "TEST-113",
+      "TEST-114",
+      "TEST-115",
+      "TEST-116",
+      "TEST-117",
+      "TEST-118"
     ],
     "utilitySource": {
       "repository": "/home/kirill/p/utility-llm",
@@ -468,7 +689,16 @@
     "checkpointCommit": "40083fd980a4c88c344dfa884c90a2edbbcc7111",
     "status": "P07-complete",
     "currentPhase": "P07",
-    "completedPhases": ["P00", "P01", "P02", "P03", "P04", "P05", "P06", "P07"],
+    "completedPhases": [
+      "P00",
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "P05",
+      "P06",
+      "P07"
+    ],
     "evaluations": {
       "EVAL-001": {
         "accepted": true,
@@ -511,7 +741,14 @@
         "rawEvidenceSha256": "8a70d8dab2ad801a670969147e7fc2094d4bfcf0ee7ef7ca1b3b6be0122133e3",
         "manifestSha256": "9256c998aaa9a80d3cd82fa92bcd1a907fccc4c9a6439e2df2113dd5c7ecda6f",
         "cpuSlots": 4,
-        "selectedTaskIds": ["go-static", "go-unit", "go-parity", "go-api", "go-observability", "frontend-deterministic"],
+        "selectedTaskIds": [
+          "go-static",
+          "go-unit",
+          "go-parity",
+          "go-api",
+          "go-observability",
+          "frontend-deterministic"
+        ],
         "allSamplesSelectedSameTasks": true,
         "maxCoefficientOfVariation": 0.0905,
         "warmP95WallTimeMs": 8078,
@@ -538,8 +775,21 @@
         "rawEvidencePath": "plans/evidence/harden-llm/p02-phoenix-async-eval.json",
         "rawEvidenceSha256": "582282d778cca0e19da803a3eed7eee4cd51fa23864df0466a73c8f92c478271",
         "manifestSha256": "86ac58bc384021eb1e064dc794412dd9896ceef7922bcbd1b07678cb90394599",
-        "seeds": [104729, 130363, 155921, 181081, 206369, 231709, 257053, 282437, 307969, 333269],
-        "selectedTaskIds": ["frontend-async"],
+        "seeds": [
+          104729,
+          130363,
+          155921,
+          181081,
+          206369,
+          231709,
+          257053,
+          282437,
+          307969,
+          333269
+        ],
+        "selectedTaskIds": [
+          "frontend-async"
+        ],
         "serialExceptions": [
           "frontend/test/harden_llm_web/session_vault_test.exs",
           "frontend/test/harden_llm_web/security_observability_test.exs"
@@ -569,7 +819,9 @@
         "rawEvidencePath": "plans/evidence/harden-llm/client-core-eval.json",
         "rawEvidenceSha256": "18d5145ab24007a32da0a67c8128756b02f787306ef94c0ddfc4291ce82d5885",
         "manifestSha256": "82fa6a792f45022125f8cdbe6008a3219dc84d709f2efb59f8d0b8d9275b46f5",
-        "selectedTaskIds": ["client-core"],
+        "selectedTaskIds": [
+          "client-core"
+        ],
         "warmP50WallTimeMs": 416,
         "warmP95WallTimeMs": 495,
         "warmWallTimeMsMax": 522,
@@ -598,9 +850,15 @@
         "rawEvidencePath": "plans/evidence/harden-llm/browser-canary-eval.json",
         "rawEvidenceSha256": "11d7ed867aac8e73e9501c44b1a720539849e1060c1ee4ef2d54e3f9a9c295f2",
         "manifestSha256": "53e31dc061da4bf5ace6d8b3f3c6fe3ac68cb87442d8b7f05570ca6240088f38",
-        "selectedTaskIds": ["frontend-deterministic", "frontend-browser"],
+        "selectedTaskIds": [
+          "frontend-deterministic",
+          "frontend-browser"
+        ],
         "ordinaryFeatureCount": 2,
-        "ordinaryFiles": ["authenticated_workflow_canary_test.exs", "widget_canary_test.exs"],
+        "ordinaryFiles": [
+          "authenticated_workflow_canary_test.exs",
+          "widget_canary_test.exs"
+        ],
         "chromiumSessionCountPerSample": 2,
         "warmP50WallTimeMs": 39589,
         "warmP95WallTimeMs": 39621,
@@ -635,8 +893,15 @@
         "rawEvidencePath": "plans/evidence/harden-llm/integration-pool-eval.json",
         "rawEvidenceSha256": "bc7371b53497467754a1897deac27ca425b3638019eda343cf503563f46922a4",
         "manifestSha256": "6e3e8fd3ee4056cd715226ac24e252d02135c7de870b111e3c1de14ddfb7257a",
-        "candidatePackageSlots": [1, 2, 3],
-        "candidateRaceSlots": [1, 2],
+        "candidatePackageSlots": [
+          1,
+          2,
+          3
+        ],
+        "candidateRaceSlots": [
+          1,
+          2
+        ],
         "selectedPackageSlots": 3,
         "selectedRaceSlots": 2,
         "normalWarmP95WallTimeMs": 14159,
@@ -697,7 +962,10 @@
       "selectedTaskCount": 25,
       "criticalPathWallTimeMs": 244253,
       "peakRssMiBMax": 1194.3046875,
-      "cpuMs": {"p50": 4650, "max": 142340},
+      "cpuMs": {
+        "p50": 4650,
+        "max": 142340
+      },
       "failureCount": 0,
       "leakedResourceCount": 0,
       "serviceStartCount": 2,
@@ -709,67 +977,67 @@
       }
     },
     "applicationRelease": {
-  "applicationBearingSHA": "a55315ee4e3a5953eee898847ce481ec4a83930f",
-  "gatewayImage": "sha256:55c64a95bfb810304e2f1b86c23817223dd7774007b533900a617584e22ff109",
-  "gatewayRelease": "a55315ee4e3a5953eee898847ce481ec4a83930f",
-  "gatewayTag": "harden-llm-gateway:release-ca52aff8fa3342238289be322888fca43dcdd7b3",
-  "frontendImage": "sha256:c8f5dd73e1c792f321ed76c2aa06e010951c5508d06c4cc0c7393dc4b6c8028a",
-  "frontendDeclaredRelease": "61e249c7f642ae13a02442ae416a06b2f6d3ffb6",
-  "frontendSourceQualified": false,
-  "project": "harden-llm",
-  "evidencePath": "plans/evidence/harden-llm/provider-accounting-sol-20261005.json",
-  "gatewayOnly": true
-},
+      "applicationBearingSHA": "ca52aff8fa3342238289be322888fca43dcdd7b3",
+      "gatewayImage": "sha256:55c64a95bfb810304e2f1b86c23817223dd7774007b533900a617584e22ff109",
+      "gatewayRelease": "a55315ee4e3a5953eee898847ce481ec4a83930f",
+      "gatewayTag": "harden-llm-gateway:release-ca52aff8fa3342238289be322888fca43dcdd7b3",
+      "frontendImage": "sha256:c8f5dd73e1c792f321ed76c2aa06e010951c5508d06c4cc0c7393dc4b6c8028a",
+      "frontendDeclaredRelease": "61e249c7f642ae13a02442ae416a06b2f6d3ffb6",
+      "frontendSourceQualified": false,
+      "project": "harden-llm",
+      "evidencePath": "plans/evidence/harden-llm/provider-accounting-sol-20261005.json",
+      "gatewayOnly": true
+    },
     "latestProductionCertification": {
-  "mergedApplicationSHA": "a55315ee4e3a5953eee898847ce481ec4a83930f",
-  "testSourceSHA": "a55315ee4e3a5953eee898847ce481ec4a83930f",
-  "certifiedAt": "2026-10-05T08:02:49Z",
-  "evidencePath": "plans/evidence/harden-llm/provider-accounting-sol-20261005.json",
-  "releaseTier": "29 hosted browser-free tasks and 10 local/hosted fast tasks passed; hosted Postgres regression, 16-profile paid matrix (32 calls), production 10 calls and CodeQL passed; zero failures or cleanup errors",
-  "hostedReleaseWorkflow": "https://github.com/prls-co/harden-llm/actions/runs/37278373703",
-  "hostedCodeQLWorkflow": "https://github.com/prls-co/harden-llm/actions/runs/37278335094",
-  "frontendOnly": false,
-  "gatewayOnly": true,
-  "browserLayoutChecked": false,
-  "httpVerificationAccepted": true,
-  "paidProvidersAccepted": true,
-  "paidProvidersRun": true,
-  "providerFollowupIssue": "https://github.com/prls-co/harden-llm/issues/94",
-  "paidProviderScope": "All 16 credential-configured providers, text and structured (32 calls); production 8 affected text/structured calls and 2 GPT-6.1 Sol native-search calls",
-  "fullConfiguredMatrixRerun": true,
-  "unresolvedOtherProviderFailures": 1,
-  "geminiProvidersAccepted": true,
-  "perplexityProvidersAccepted": true,
-  "perplexitySoleModel": "openai/gpt-6.1-sol",
-  "initialAccountingFailuresPreserved": "19 passing, 2 failing at source 618c5d99a9ef3f41606165a89ba8cc022e85e092",
-  "novitaProHistoricalRootCause": "unproven; separate pricing correction and current acceptance passed"
-},
+      "mergedApplicationSHA": "ca52aff8fa3342238289be322888fca43dcdd7b3",
+      "testSourceSHA": "ca52aff8fa3342238289be322888fca43dcdd7b3",
+      "certifiedAt": "2026-10-05T08:02:49Z",
+      "evidencePath": "plans/evidence/harden-llm/provider-accounting-sol-20261005.json",
+      "releaseTier": "29 hosted browser-free tasks and 10 local/hosted fast tasks passed; hosted Postgres regression, 16-profile paid matrix (32 calls), production 10 calls and CodeQL passed; zero failures or cleanup errors",
+      "hostedReleaseWorkflow": "https://github.com/prls-co/harden-llm/actions/runs/37278373703",
+      "hostedCodeQLWorkflow": "https://github.com/prls-co/harden-llm/actions/runs/37278335094",
+      "frontendOnly": false,
+      "gatewayOnly": true,
+      "browserLayoutChecked": false,
+      "httpVerificationAccepted": true,
+      "paidProvidersAccepted": true,
+      "paidProvidersRun": true,
+      "providerFollowupIssue": "https://github.com/prls-co/harden-llm/issues/94",
+      "paidProviderScope": "All 16 credential-configured providers, text and structured (32 calls); production 8 affected text/structured calls and 2 GPT-6.1 Sol native-search calls",
+      "fullConfiguredMatrixRerun": true,
+      "unresolvedOtherProviderFailures": 1,
+      "geminiProvidersAccepted": true,
+      "perplexityProvidersAccepted": true,
+      "perplexitySoleModel": "openai/gpt-6.1-sol",
+      "initialAccountingFailuresPreserved": "19 passing, 2 failing at source 618c5d99a9ef3f41606165a89ba8cc022e85e092",
+      "novitaProHistoricalRootCause": "unproven; separate pricing correction and current acceptance passed"
+    },
     "latestManagedProfileConfiguration": {
-  "updatedAt": "2026-10-05T08:02:49Z",
-  "applicationBearingSHA": "a55315ee4e3a5953eee898847ce481ec4a83930f",
-  "evidencePath": "plans/evidence/harden-llm/provider-accounting-sol-20261005.json",
-  "profilesPerProvisionedUser": 26,
-  "configuredBindingsPerProvisionedUser": 16,
-  "retiredProfiles": [
-    "Perplexity DeepSeek V4 Pro 0813",
-    "Perplexity GLM 5.3",
-    "Perplexity GLM 5.3 Flash",
-    "Perplexity Kimi K3",
-    "Perplexity Nemotron 3 Ultra",
-    "Perplexity Sonar"
-  ],
-  "configurationOnly": false,
-  "httpVerificationAccepted": true,
-  "paidMatrixRerun": true,
-  "providerFollowupIssue": "https://github.com/prls-co/harden-llm/issues/94",
-  "embeddedSeedProfiles": 24,
-  "perplexityModels": [
-    "openai/gpt-6.1-sol"
-  ],
-  "gatewayDeployed": true,
-  "orphanCredentials": 0,
-  "runsAfterCleanup": 0
-},
+      "updatedAt": "2026-10-05T08:02:49Z",
+      "applicationBearingSHA": "ca52aff8fa3342238289be322888fca43dcdd7b3",
+      "evidencePath": "plans/evidence/harden-llm/provider-accounting-sol-20261005.json",
+      "profilesPerProvisionedUser": 26,
+      "configuredBindingsPerProvisionedUser": 16,
+      "retiredProfiles": [
+        "Perplexity DeepSeek V4 Pro 0813",
+        "Perplexity GLM 5.3",
+        "Perplexity GLM 5.3 Flash",
+        "Perplexity Kimi K3",
+        "Perplexity Nemotron 3 Ultra",
+        "Perplexity Sonar"
+      ],
+      "configurationOnly": false,
+      "httpVerificationAccepted": true,
+      "paidMatrixRerun": true,
+      "providerFollowupIssue": "https://github.com/prls-co/harden-llm/issues/94",
+      "embeddedSeedProfiles": 24,
+      "perplexityModels": [
+        "openai/gpt-6.1-sol"
+      ],
+      "gatewayDeployed": true,
+      "orphanCredentials": 0,
+      "runsAfterCleanup": 0
+    },
     "previousProductionCertification": {
       "mergedMainSHA": "f285ccdcbf66a597c506491126c37e07b4100bb0",
       "certifiedAt": "2026-09-15T01:01:47.058Z",
@@ -808,7 +1076,13 @@
       "providerCallsMade": 0
     },
     "deploymentCertification": {
-      "implementationPRs": [33, 34, 35, 36, 37],
+      "implementationPRs": [
+        33,
+        34,
+        35,
+        36,
+        37
+      ],
       "latestMergedMainSHA": "40083fd980a4c88c344dfa884c90a2edbbcc7111",
       "finalMainSHA": "62b9b2386346fd3eaba7f0784aa1f19f42418e",
       "hostedFullRun": "32716112245",
@@ -825,7 +1099,12 @@
         "command": "node scripts/run-deployed-browser-test.mjs",
         "expectedRelease": "761f5f76d0262ca29973fda2ca3d5214dfa920c0",
         "identityHealth": "healthy",
-        "probes": {"webHealthz": 200, "login": 200, "apiHealthz": 200, "apiReadyz": 200},
+        "probes": {
+          "webHealthz": 200,
+          "login": 200,
+          "apiHealthz": 200,
+          "apiReadyz": 200
+        },
         "authenticatedCanary": "passed: CPA GPT-5.6 Luna, all nested folds, output, request/response details, nonce history deletion, logout",
         "smokeHistoryCleanup": true
       },
