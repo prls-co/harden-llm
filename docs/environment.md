@@ -253,3 +253,12 @@ unique profile/run records and deletes them before logout.
   "grafanaPasswordEnv": "HARDEN_LLM_LIVE_GRAFANA_PASSWORD"
 }
 ```
+
+## Central browser entry
+
+`PRLS_PORTAL_URL` is required for production/preview frontend deployments and
+is propagated by the existing shared application configuration. Set it to the
+canonical Portal origin. Harden LLM derives its HTTPS public origin from
+`HARDEN_LLM_WEB_HOST`; `HARDEN_LLM_WEB_PUBLIC_URL` supplies an explicit origin
+when a deployment uses a non-default port, including the isolated Compose
+fixture. Both origins are validated at startup. No local password mode exists.

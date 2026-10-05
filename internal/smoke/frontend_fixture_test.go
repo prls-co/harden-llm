@@ -44,6 +44,9 @@ func TestFrontendComposeFixture(t *testing.T) {
 	project := fmt.Sprintf("harden-llm-web-smoke-%d-%d", os.Getpid(), time.Now().UnixNano())
 	environment := smokeEnvironment(t, material, httpPort, httpsPort)
 	environment["HARDEN_LLM_WEB_HOST"] = "app.smoke.localhost"
+	environment["PRLS_PORTAL_HOST"] = "portal.smoke.localhost"
+	environment["PRLS_PORTAL_URL"] = fmt.Sprintf("https://portal.smoke.localhost:%d", httpsPort)
+	environment["HARDEN_LLM_WEB_PUBLIC_URL"] = fmt.Sprintf("https://app.smoke.localhost:%d", httpsPort)
 	environment["HARDEN_LLM_WEB_SECRET_KEY_BASE"] = fixtureSecret(t, "web-secret-", 64)
 	environment["HARDEN_LLM_WEB_SESSION_SIGNING_SALT"] = fixtureSecret(t, "sign-", 24)
 	environment["HARDEN_LLM_WEB_SESSION_ENCRYPTION_SALT"] = fixtureSecret(t, "encrypt-", 24)
@@ -54,7 +57,7 @@ func TestFrontendComposeFixture(t *testing.T) {
 	environment["HARDEN_LLM_CONTROL_PLANE_URL"] = startFrontendControlPlaneFixture(
 		t,
 		environment["HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN"],
-		"https://"+environment["HARDEN_LLM_WEB_HOST"],
+		[]string{environment["PRLS_PORTAL_URL"], environment["HARDEN_LLM_WEB_PUBLIC_URL"]},
 		loginEmail,
 		loginPassword,
 		environment["HARDEN_LLM_STATIC_TOKEN_USER_ID"],
@@ -135,17 +138,20 @@ func TestFrontendComposeFixture(t *testing.T) {
 	}
 
 	state := frontendFixtureState{
-		Project:         project,
-		HTTPSPort:       httpsPort,
-		WebURL:          fmt.Sprintf("https://app.smoke.localhost:%d", httpsPort),
-		GrafanaURL:      fmt.Sprintf("https://grafana.smoke.localhost:%d", httpsPort),
-		GrafanaUser:     environment["GRAFANA_ADMIN_USER"],
-		GrafanaPassword: environment["GRAFANA_ADMIN_PASSWORD"],
-		LoginEmail:      loginEmail,
-		LoginPassword:   loginPassword,
-		EnvironmentFile: envFile,
-		ComposeFiles:    files,
-		ReadinessMS:     readiness.Milliseconds(),
+		Project:                   project,
+		PortalURL:                 environment["PRLS_PORTAL_URL"],
+		ControlPlaneURL:           environment["HARDEN_LLM_CONTROL_PLANE_URL"],
+		ControlPlaneInternalToken: environment["HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN"],
+		HTTPSPort:                 httpsPort,
+		WebURL:                    fmt.Sprintf("https://app.smoke.localhost:%d", httpsPort),
+		GrafanaURL:                fmt.Sprintf("https://grafana.smoke.localhost:%d", httpsPort),
+		GrafanaUser:               environment["GRAFANA_ADMIN_USER"],
+		GrafanaPassword:           environment["GRAFANA_ADMIN_PASSWORD"],
+		LoginEmail:                loginEmail,
+		LoginPassword:             loginPassword,
+		EnvironmentFile:           envFile,
+		ComposeFiles:              files,
+		ReadinessMS:               readiness.Milliseconds(),
 	}
 	writeFrontendFixtureState(t, statePath, state)
 
@@ -161,17 +167,20 @@ func TestFrontendComposeFixture(t *testing.T) {
 }
 
 type frontendFixtureState struct {
-	Project         string   `json:"project"`
-	HTTPSPort       int      `json:"https_port"`
-	WebURL          string   `json:"web_url"`
-	GrafanaURL      string   `json:"grafana_url"`
-	GrafanaUser     string   `json:"grafana_user"`
-	GrafanaPassword string   `json:"grafana_password"`
-	LoginEmail      string   `json:"login_email"`
-	LoginPassword   string   `json:"login_password"`
-	EnvironmentFile string   `json:"environment_file"`
-	ComposeFiles    []string `json:"compose_files"`
-	ReadinessMS     int64    `json:"readiness_ms"`
+	PortalURL                 string   `json:"portal_url"`
+	ControlPlaneURL           string   `json:"control_plane_url"`
+	ControlPlaneInternalToken string   `json:"control_plane_internal_token"`
+	Project                   string   `json:"project"`
+	HTTPSPort                 int      `json:"https_port"`
+	WebURL                    string   `json:"web_url"`
+	GrafanaURL                string   `json:"grafana_url"`
+	GrafanaUser               string   `json:"grafana_user"`
+	GrafanaPassword           string   `json:"grafana_password"`
+	LoginEmail                string   `json:"login_email"`
+	LoginPassword             string   `json:"login_password"`
+	EnvironmentFile           string   `json:"environment_file"`
+	ComposeFiles              []string `json:"compose_files"`
+	ReadinessMS               int64    `json:"readiness_ms"`
 }
 
 func assertFrontendService(t *testing.T, runner composeRunner) {

@@ -2702,7 +2702,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     |> render_change()
 
     send(first_process, :release_expired_state_save)
-    assert_redirect(view, ~p"/login", 1_000)
+    assert_redirect(view, PrlsWeb.SessionNavigation.login_url("/"), 1_000)
     refute_receive {:expired_state_save_started, 1, _, _}, 100
   end
 
@@ -2901,7 +2901,7 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     render_async(view, 1_000)
     submit_run(view, %{"userPrompt" => "expired session"})
 
-    assert_redirect(view, ~p"/login", 1_000)
+    assert_redirect(view, PrlsWeb.SessionNavigation.login_url("/"), 1_000)
   end
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-031

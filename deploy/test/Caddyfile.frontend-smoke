@@ -13,3 +13,9 @@ import /etc/caddy/test/Caddyfile.smoke
 
 	reverse_proxy harden-llm-web:4000
 }
+
+{$PRLS_PORTAL_HOST} {
+    tls {$HARDEN_LLM_TLS_MODE}
+    import security_headers
+    reverse_proxy host.docker.internal:4004
+}

@@ -34,8 +34,6 @@ defmodule HardenLlmWeb.Router do
   scope "/", PrlsWeb do
     pipe_through :browser
 
-    get "/login", AuthController, :new
-    post "/login", AuthController, :create
     post "/logout", AuthController, :delete
     get "/session/unavailable", AuthController, :unavailable
   end

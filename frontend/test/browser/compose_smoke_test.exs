@@ -10,7 +10,7 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
                           arguments ++
                             [
                               "--ignore-certificate-errors",
-                              "--host-resolver-rules=MAP app.smoke.localhost 127.0.0.1, MAP api.smoke.localhost 127.0.0.1, MAP grafana.smoke.localhost 127.0.0.1, MAP artifacts.smoke.localhost 127.0.0.1"
+                              "--host-resolver-rules=MAP app.smoke.localhost 127.0.0.1, MAP portal.smoke.localhost 127.0.0.1, MAP api.smoke.localhost 127.0.0.1, MAP grafana.smoke.localhost 127.0.0.1, MAP artifacts.smoke.localhost 127.0.0.1"
                             ]
                         end)
   @sessions [[capabilities: @compose_capabilities]]
@@ -48,6 +48,20 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
     end)
 
     fixture = HardenLlmWeb.ComposeFixture.await_state!(coordinator, state_path, 480_000)
+
+    HardenLlmWeb.BrowserFeatureCase.start_portal(
+      %{
+        portal_origin: fixture["portal_url"],
+        public_origin: fixture["portal_url"],
+        login_return_origins: [fixture["web_url"], fixture["portal_url"]],
+        control_plane_url:
+          String.replace(fixture["control_plane_url"], "host.docker.internal", "127.0.0.1"),
+        internal_token: fixture["control_plane_internal_token"],
+        client_options: []
+      },
+      {0, 0, 0, 0}
+    )
+
     {:ok, fixture: fixture, root: root}
   end
 

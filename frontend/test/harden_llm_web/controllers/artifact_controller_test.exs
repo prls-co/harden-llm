@@ -52,14 +52,16 @@ defmodule HardenLlmWeb.ArtifactControllerTest do
     stub_unauthorized()
 
     response = get(conn, ~p"/traces/trace-test/artifacts/artifact-test")
-    assert redirected_to(response) == ~p"/login"
+
+    assert redirected_to(response) ==
+             PrlsWeb.SessionNavigation.login_url("/traces/trace-test/artifacts/artifact-test")
   end
 
   test "bundle 401 redirects to shared sign-in", %{conn: conn} do
     stub_unauthorized()
 
     response = get(conn, ~p"/profiles/bundle")
-    assert redirected_to(response) == ~p"/login"
+    assert redirected_to(response) == PrlsWeb.SessionNavigation.login_url("/profiles/bundle")
   end
 
   defp stub_unauthorized do

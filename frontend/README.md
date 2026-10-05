@@ -7,6 +7,19 @@ CSRF, and an encrypted host-only session cookie. It does not own human identity,
 account access, a database, provider integration, retry policy, cache identity,
 pricing, Garage access, or domain persistence.
 
+## Shared login
+
+Only PRLS Portal hosts password and company selection forms. Unauthenticated
+HTML requests and gateway denials go directly to `PRLS_PORTAL_URL`, preserving
+this product's full public path and query. Harden LLM keeps same-origin POST
+`/logout` with CSRF protection; it calls Control Plane and forwards its cookie
+expiry headers unchanged before returning to Portal. An authority outage returns
+503. There are no product-local `/login` or `/accounts` routes.
+
+Each enabled identity enters without selecting a company or receiving an HLLM
+grant. Company changes do not change the stable user ID that owns resources.
+The frontend consumes shared-web `6570ce2cd0286a7c9a47dde516349a3718a3bd9e`.
+
 ## Local development
 
 Use Elixir 1.20.2 on Erlang/OTP 28.4.3. Start the Go gateway separately on
@@ -17,7 +30,9 @@ mix setup
 mix phx.server
 ```
 
-Visit `http://localhost:4000`. Development sessions are intentionally
+Visit `http://localhost:4000`. Run Portal at the configured `PRLS_PORTAL_URL`
+(default local origin `http://localhost:4200`) with Control Plane; passwords
+are submitted there. Development sessions are intentionally
 non-production; production requires independent signing/encryption salts, a
 64-byte secret key base, HTTPS, and the Compose topology.
 

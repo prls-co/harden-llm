@@ -32,5 +32,12 @@ if browser_gate? do
 end
 
 # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 TEST-056
+Application.put_env(:prls_web, :portal_origin, "https://portal.test")
+
+Application.put_env(:prls_web, :login_return_origins, [
+  "http://localhost:4000",
+  "https://portal.test"
+])
+
 Application.put_env(:prls_web, :access_client, HardenLlmWeb.AccessFixtures)
 ExUnit.start(exclude: [:asset, :browser, :compose, :deployed])

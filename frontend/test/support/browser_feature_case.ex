@@ -18,6 +18,11 @@ defmodule HardenLlmWeb.BrowserFeatureCase do
     previous_artifact_origin = Application.fetch_env!(:harden_llm, :artifact_public_origin)
     previous_prls_client_options = Application.get_env(:prls_web, :client_options)
 
+    start_portal(%{
+      portal_origin: "http://localhost:4004",
+      login_return_origins: ["http://localhost:4000", "http://localhost:4004"]
+    })
+
     Application.put_env(:harden_llm, :harden_api_req_options, plug: BrowserBackend)
     Application.put_env(:harden_llm, :artifact_public_origin, "http://127.0.0.1:4003")
     Application.put_env(:prls_web, :client_options, request_options: [plug: BrowserBackend])
@@ -28,6 +33,7 @@ defmodule HardenLlmWeb.BrowserFeatureCase do
 
     ExUnit.Callbacks.on_exit(fn ->
       BrowserBackend.stop()
+
       Application.put_env(:harden_llm, :harden_api_req_options, previous_req_options)
       Application.put_env(:harden_llm, :artifact_public_origin, previous_artifact_origin)
 
@@ -39,6 +45,26 @@ defmodule HardenLlmWeb.BrowserFeatureCase do
     end)
 
     :ok
+  end
+
+  def start_portal(settings, ip \\ {127, 0, 0, 1}) do
+    previous = for {key, _} <- settings, into: %{}, do: {key, Application.get_env(:prls_web, key)}
+    for {key, value} <- settings, do: Application.put_env(:prls_web, key, value)
+
+    ExUnit.Callbacks.on_exit(fn ->
+      for {key, value} <- previous do
+        if value,
+          do: Application.put_env(:prls_web, key, value),
+          else: Application.delete_env(:prls_web, key)
+      end
+    end)
+
+    ExUnit.Callbacks.start_supervised!(
+      Supervisor.child_spec(
+        {Bandit, plug: HardenLlmWeb.BrowserPortal, ip: ip, port: 4004, startup_log: false},
+        id: HardenLlmWeb.BrowserPortal
+      )
+    )
   end
 
   def assert_shared_login_page(session) do
@@ -66,8 +92,18 @@ defmodule HardenLlmWeb.BrowserFeatureCase do
           "return document.querySelector('form.prls-form input[name=return_to]')?.value;"
         )
 
-      assert return_to == "/",
-             "sign-in must preserve the protected return path, got #{inspect(return_to)}"
+      expected =
+        session
+        |> current_url()
+        |> URI.parse()
+        |> Map.fetch!(:query)
+        |> URI.decode_query()
+        |> Map.fetch!("return_to")
+
+      assert return_to == expected,
+             "Portal sign-in must preserve the protected return URL, got #{inspect(return_to)}"
+
+      assert URI.parse(return_to).path == "/"
 
       session
     end)

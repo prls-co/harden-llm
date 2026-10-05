@@ -13,7 +13,9 @@ defmodule HardenLlmWeb.TraceController do
         |> json(trace)
 
       {:error, %APIError{status: 401}} ->
-        redirect(conn, to: ~p"/login")
+        redirect(conn,
+          external: PrlsWeb.SessionNavigation.login_url(PrlsWeb.Access.Plug.return_to(conn))
+        )
 
       {:error, %APIError{status: 404}} ->
         conn

@@ -12,7 +12,7 @@ defmodule HardenLlmWeb.SecurityObservabilityTest do
   @frontend_root Path.join(@repo_root, "frontend")
 
   test "browser security headers, CSRF, and production origin rules stay strict", %{conn: conn} do
-    conn = get(conn, ~p"/login")
+    conn = get(conn, ~p"/session/unavailable")
     csp = conn |> get_resp_header("content-security-policy") |> List.first()
 
     assert csp =~ "default-src 'self'"
@@ -21,7 +21,11 @@ defmodule HardenLlmWeb.SecurityObservabilityTest do
     refute csp =~ "'unsafe-eval'"
     assert get_resp_header(conn, "x-frame-options") == ["DENY"]
     assert get_resp_header(conn, "referrer-policy") == ["no-referrer"]
-    assert html_response(conn, 200) =~ ~s(name="_csrf_token")
+    assert html_response(conn, 503) =~ "unavailable"
+
+    assert_error_sent 403, fn ->
+      conn |> recycle() |> put_private(:plug_skip_csrf_protection, false) |> post("/logout", %{})
+    end
 
     endpoint = File.read!(Path.join(@frontend_root, "lib/harden_llm_web/endpoint.ex"))
     runtime = File.read!(Path.join(@frontend_root, "config/runtime.exs"))
