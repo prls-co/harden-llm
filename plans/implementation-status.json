@@ -709,9 +709,9 @@
       }
     },
     "applicationRelease": {
-  "applicationBearingSHA": "ca52aff8fa3342238289be322888fca43dcdd7b3",
+  "applicationBearingSHA": "a55315ee4e3a5953eee898847ce481ec4a83930f",
   "gatewayImage": "sha256:55c64a95bfb810304e2f1b86c23817223dd7774007b533900a617584e22ff109",
-  "gatewayRelease": "ca52aff8fa3342238289be322888fca43dcdd7b3",
+  "gatewayRelease": "a55315ee4e3a5953eee898847ce481ec4a83930f",
   "gatewayTag": "harden-llm-gateway:release-ca52aff8fa3342238289be322888fca43dcdd7b3",
   "frontendImage": "sha256:c8f5dd73e1c792f321ed76c2aa06e010951c5508d06c4cc0c7393dc4b6c8028a",
   "frontendDeclaredRelease": "61e249c7f642ae13a02442ae416a06b2f6d3ffb6",
@@ -721,9 +721,9 @@
   "gatewayOnly": true
 },
     "latestProductionCertification": {
-  "mergedApplicationSHA": "ca52aff8fa3342238289be322888fca43dcdd7b3",
-  "testSourceSHA": "ca52aff8fa3342238289be322888fca43dcdd7b3",
-  "certifiedAt": "2026-10-05T07:59:24Z",
+  "mergedApplicationSHA": "a55315ee4e3a5953eee898847ce481ec4a83930f",
+  "testSourceSHA": "a55315ee4e3a5953eee898847ce481ec4a83930f",
+  "certifiedAt": "2026-10-05T08:02:49Z",
   "evidencePath": "plans/evidence/harden-llm/provider-accounting-sol-20261005.json",
   "releaseTier": "29 hosted browser-free tasks and 10 local/hosted fast tasks passed; hosted Postgres regression, 16-profile paid matrix (32 calls), production 10 calls and CodeQL passed; zero failures or cleanup errors",
   "hostedReleaseWorkflow": "https://github.com/prls-co/harden-llm/actions/runs/37278373703",
@@ -745,8 +745,8 @@
   "novitaProHistoricalRootCause": "unproven; separate pricing correction and current acceptance passed"
 },
     "latestManagedProfileConfiguration": {
-  "updatedAt": "2026-10-05T07:59:24Z",
-  "applicationBearingSHA": "ca52aff8fa3342238289be322888fca43dcdd7b3",
+  "updatedAt": "2026-10-05T08:02:49Z",
+  "applicationBearingSHA": "a55315ee4e3a5953eee898847ce481ec4a83930f",
   "evidencePath": "plans/evidence/harden-llm/provider-accounting-sol-20261005.json",
   "profilesPerProvisionedUser": 26,
   "configuredBindingsPerProvisionedUser": 16,

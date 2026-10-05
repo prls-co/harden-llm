@@ -629,11 +629,7 @@
         "prometheus",
         "tempo"
       ],
-      "selectedServiceExpectedRuntimeDifferences": [
-        "harden-llm-gateway.environment.HARDEN_LLM_RELEASE",
-        "harden-llm-gateway.identity.HARDEN_LLM_RELEASE",
-        "harden-llm-gateway.image"
-      ],
+      "differences": [],
       "candidate": {
         "expectedRelease": "ca52aff8fa3342238289be322888fca43dcdd7b3",
         "desiredDifferences": [],
@@ -789,7 +785,7 @@
     "configurationHashes": {
       "descriptorBefore": "3b4568dabcd24d9a70abd7d47ab76d245cb595432081ec6cf7de448ea86a7007",
       "descriptorIntermediate": "5408d941c2843214286e9b476f3ee4f60d5aeee88930305b3cda0216726b65a6",
-      "descriptorAfter": "5408d941c2843214286e9b476f3ee4f60d5aeee88930305b3cda0216726b65a6",
+      "descriptorAfter": "f6e4d0b2df07eb06c7bbd27004ce6d52f855ebfad0472dce66448a659544bbd6",
       "sharedBefore": "f3c67272ab13afef7f5ffc831b12905491ac9a17e30658e9c7c00a5161a002b1",
       "sharedAfter": "3f205e5eb806ab371f073574f2c46f7b0c226a1cc8e38e649d0a1d22ec3a82f7"
     },

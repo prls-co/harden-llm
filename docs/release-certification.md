@@ -2630,12 +2630,10 @@ application release does not require another image build.
 Gateway source `ca52aff8fa3342238289be322888fca43dcdd7b3` is on `main` and
 deployed as `harden-llm-gateway:release-ca52aff8fa3342238289be322888fca43dcdd7b3`,
 image `sha256:55c64a95bfb810304e2f1b86c23817223dd7774007b533900a617584e22ff109`.
-The OCI revision/version and running binary match the source SHA. The production
-application candidate has no desired image or release metadata differences.
-The protected base descriptor still records the prior gateway in its image and
-release fields; the reviewed candidate applies those three scoped values. All
-seven other service IDs/images stayed unchanged, and all eight production
-services are healthy. The independent production Compose checkout and the
+The OCI revision/version and running binary match the source SHA. The protected production descriptor and live runtime match the exact gateway
+image and release identity. The full eight-service configuration check has zero
+differences; all eight production services are healthy. The gateway alone was
+recreated, and all seven other service IDs/images stayed unchanged. The independent production Compose checkout and the
 existing Portal image were preserved. The Portal image's declared release is
 `61e249c7f642ae13a02442ae416a06b2f6d3ffb6`, but it carries no source/revision
 label. No frontend image was built.
