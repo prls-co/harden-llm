@@ -77,6 +77,13 @@ func TestDefaultProfileCatalogParity(t *testing.T) {
 				if prepared.Operation.Endpoint.Identity == "" || prepared.Operation.Protocol == "" {
 					t.Fatalf("%s operation lacks endpoint/protocol: %#v", callType, prepared.Operation)
 				}
+				if profile.APIInferenceType == "gemini-generate-content" {
+					wantPath := "/v1beta/models/" + profile.ModelID + ":generateContent"
+					request := prepared.Opaque.(preparedRequest)
+					if prepared.Operation.Endpoint.Path != wantPath || request.url.Path != wantPath {
+						t.Fatalf("%s Gemini path: operation=%q request=%q want=%q", callType, prepared.Operation.Endpoint.Path, request.url.Path, wantPath)
+					}
+				}
 				encoded, err := json.Marshal(prepared.Operation)
 				if err != nil {
 					t.Fatal(err)

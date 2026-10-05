@@ -236,6 +236,9 @@ Contract requirements:
 
 - `Call` is the only execution method.
 - Built-in provider selection comes from `Profile.APIInferenceType`; callers never construct internal provider adapters.
+- Gemini request construction owns the `models/` resource segment. Bare model
+  IDs from presets/discovery and Google resource names resolve to one canonical
+  `/v1beta/models/{id}:generateContent` endpoint; profile storage is unchanged.
 - Direct Go callers supply a one-or-more-entry `ProfileCatalog` and a `CredentialResolver`. The gateway supplies owner-scoped saved profiles and an in-memory resolver backed by encrypted Postgres records.
 - An owner receives any missing current 26-profile source-derived presets on the first profile/catalog/runtime operation. The unavailable CPA GPT-5.4 presets are retired under ADR-HLLM-013. Seeding is one owner-locked Postgres transaction, credential-free, and never overwrites an existing row.
 - `Result.Output` matches the current JS direct return for equivalent deterministic inputs.

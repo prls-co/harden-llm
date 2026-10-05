@@ -101,7 +101,7 @@ func TestProviderRequestParity(t *testing.T) {
 		},
 		{
 			name:         "Gemini GenerateContent",
-			profile:      runtime.Profile{ID: "gemini", Provider: "google", APIInferenceType: "gemini-generate-content", BaseURL: "https://generativelanguage.googleapis.com", ModelID: "models/gemini-2.5-flash", SupportsStructuredOutput: true, SupportsTemperature: true, ReasoningEffortMap: map[string]map[string]any{"highest": {}}},
+			profile:      runtime.Profile{ID: "gemini", Provider: "google", APIInferenceType: "gemini-generate-content", BaseURL: "https://generativelanguage.googleapis.com", ModelID: "gemini-2.5-flash", SupportsStructuredOutput: true, SupportsTemperature: true, ReasoningEffortMap: map[string]map[string]any{"highest": {}}},
 			wantProtocol: "google.gemini.generateContent", wantPath: "/v1beta/models/gemini-2.5-flash:generateContent", wantProvider: "google",
 			assertPayload: func(t *testing.T, payload map[string]any) {
 				t.Helper()
