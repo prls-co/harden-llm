@@ -18,7 +18,7 @@ expiry headers unchanged before returning to Portal. An authority outage returns
 
 Each enabled identity enters without selecting a company or receiving an HLLM
 grant. Company changes do not change the stable user ID that owns resources.
-The frontend consumes shared-web `6570ce2cd0286a7c9a47dde516349a3718a3bd9e`.
+The frontend consumes shared-web `6ef26c2e50ae5ca3a4e21e8d2c6b57386a546758`.
 
 ## Local development
 
