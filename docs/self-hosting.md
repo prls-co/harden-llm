@@ -97,8 +97,10 @@ Create and enable human logins in the PRLS Control Plane. Every enabled login
 can enter HLLM with private data; no company selection or HLLM grant is needed. HLLM has no local registration, user bootstrap, or password-reset path.
 Configure `HARDEN_LLM_CONTROL_PLANE_URL` and the protected
 `HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN`; the gateway checks current enabled identity for every human request. Phoenix keeps an encrypted
-host-only `__Host-harden_llm_web` cookie; sessions are not shared across product
-subdomains. Set `HARDEN_LLM_STATIC_TOKEN_USER_ID` only when a machine client
+host-only `__Host-harden_llm_web` mount cookie. Control Plane owns the shared
+PRLS session cookie across the trusted product subdomains; Portal owns password
+entry. Configure `PRLS_PORTAL_URL` and `HARDEN_LLM_WEB_PUBLIC_URL` to build trusted
+return URLs. Set `HARDEN_LLM_STATIC_TOKEN_USER_ID` only when a machine client
 needs direct API access as one explicit Control Plane user.
 
 ## Clean identity cutover
