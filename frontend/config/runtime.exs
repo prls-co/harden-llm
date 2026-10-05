@@ -22,7 +22,10 @@ end
 
 default_http_port = if config_env() == :test, do: "4002", else: "4000"
 web_host = System.get_env("HARDEN_LLM_WEB_HOST", "localhost")
-web_origin = if web_host == "localhost", do: "http://localhost:4000", else: "https://#{web_host}"
+
+web_origin =
+  System.get_env("HARDEN_LLM_WEB_PUBLIC_URL") ||
+    if web_host == "localhost", do: "http://localhost:4000", else: "https://#{web_host}"
 
 config :harden_llm, HardenLlmWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", default_http_port))]
@@ -55,13 +58,22 @@ config :harden_llm, :harden_api,
         )
     )
 
-config :prls_web, default_return_to: "/"
+portal_origin =
+  if config_env() == :prod do
+    System.fetch_env!("PRLS_PORTAL_URL")
+  else
+    System.get_env("PRLS_PORTAL_URL", "http://localhost:4200")
+  end
+
+config :prls_web,
+  default_return_to: "/",
+  portal_origin: PrlsWeb.SessionNavigation.validate_origin!(portal_origin, config_env() == :prod)
 
 if config_env() == :prod do
   config :prls_web,
     control_plane_url: System.fetch_env!("HARDEN_LLM_CONTROL_PLANE_URL"),
     internal_token: System.fetch_env!("HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN"),
-    public_origin: web_origin
+    public_origin: PrlsWeb.SessionNavigation.validate_origin!(web_origin, config_env() == :prod)
 else
   config :prls_web,
     control_plane_url: System.get_env("HARDEN_LLM_CONTROL_PLANE_URL", "http://127.0.0.1:4310"),
@@ -70,7 +82,7 @@ else
         "HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN",
         "harden-llm-development-control-plane-token"
       ),
-    public_origin: web_origin
+    public_origin: PrlsWeb.SessionNavigation.validate_origin!(web_origin, config_env() == :prod)
 end
 
 config :harden_llm,

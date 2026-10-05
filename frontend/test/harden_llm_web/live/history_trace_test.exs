@@ -536,7 +536,7 @@ defmodule HardenLlmWeb.HistoryTraceTest do
     view = open_history(conn)
     view |> element("#history-trace-run-test-summary") |> render_click()
     view |> element("#history-trace-run-test-view-json") |> render_click()
-    assert_redirect(view, ~p"/login", 1_000)
+    assert_redirect(view, PrlsWeb.SessionNavigation.login_url("/"), 1_000)
   end
 
   defp open_history(conn) do

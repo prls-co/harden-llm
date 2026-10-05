@@ -30,7 +30,7 @@ defmodule HardenLlmWeb.BoundaryTest do
              Map.fetch!(lock, :phoenix_template)
 
     assert {:git, "https://github.com/prls-co/prls-web.git",
-            "7e013b376811a58db2348856c1e5932ebc446e40", _options} =
+            "6ef26c2e50ae5ca3a4e21e8d2c6b57386a546758", _options} =
              Map.fetch!(lock, :prls_web)
   end
 

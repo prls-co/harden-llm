@@ -5,6 +5,6 @@ defmodule HardenLlmWeb.RootRouteTest do
 
   test "GET /", %{conn: conn} do
     conn = get(conn, ~p"/")
-    assert redirected_to(conn) == ~p"/login?return_to=%2F"
+    assert redirected_to(conn) == PrlsWeb.SessionNavigation.login_url("/")
   end
 end

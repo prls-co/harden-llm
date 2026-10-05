@@ -73,7 +73,7 @@ defmodule HardenLlm.MixProject do
       {:req, "== 0.6.1"},
       {:prls_web,
        git: "https://github.com/prls-co/prls-web.git",
-       ref: "7e013b376811a58db2348856c1e5932ebc446e40"},
+       ref: "6ef26c2e50ae5ca3a4e21e8d2c6b57386a546758"},
       {:opentelemetry_exporter, "== 1.10.0"},
       {:opentelemetry, "== 1.7.0"},
       {:opentelemetry_api, "== 1.5.0"},

@@ -13,7 +13,9 @@ defmodule HardenLlmWeb.BundleController do
         )
 
       {:error, %APIError{status: 401}} ->
-        redirect(conn, to: ~p"/login")
+        redirect(conn,
+          external: PrlsWeb.SessionNavigation.login_url(PrlsWeb.Access.Plug.return_to(conn))
+        )
 
       {:error, %APIError{}} ->
         conn |> put_status(:bad_gateway) |> text("Profile bundle is temporarily unavailable.")

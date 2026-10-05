@@ -42,6 +42,16 @@ defmodule HardenLlmWeb.BrowserBackend do
     end
   end
 
+  defp dispatch(%{method: "GET", path_info: ["internal", "v1", "access-context"]} = conn, _body) do
+    case HardenLlmWeb.AccessFixtures.resolve(
+           {:cookie, Enum.join(get_req_header(conn, "cookie"), "; ")},
+           []
+         ) do
+      {:ok, context} -> json(conn, 200, Map.from_struct(context))
+      {:error, _} -> error(conn, 401, "unauthenticated")
+    end
+  end
+
   defp dispatch(%{method: "POST", path_info: ["api", "auth", "sign-in", "email"]} = conn, body) do
     if body["email"] == "browser@example.test" and body["password"] == "browser-password-123" do
       conn
@@ -463,6 +473,12 @@ defmodule HardenLlmWeb.BrowserBackend do
 
   defp authorized?(%{method: "POST", path_info: ["api", "auth", "sign-out"]} = conn),
     do: has_fixture_session_cookie?(conn)
+
+  defp authorized?(%{method: "GET", path_info: ["internal", "v1", "access-context"]} = conn),
+    do:
+      get_req_header(conn, "authorization") == [
+        "Bearer " <> Application.fetch_env!(:prls_web, :internal_token)
+      ]
 
   defp authorized?(conn),
     do: get_req_header(conn, "authorization") == ["Bearer " <> HardenLlmWeb.APIFixtures.token()]

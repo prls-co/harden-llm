@@ -21,7 +21,9 @@ services:
     tmpfs:
       - /tmp:size=32m,mode=1777
     environment:
+      PRLS_PORTAL_URL: ${PRLS_PORTAL_URL:?set the canonical Portal origin}
       PHX_SERVER: "true"
+      HARDEN_LLM_WEB_PUBLIC_URL: ${HARDEN_LLM_WEB_PUBLIC_URL:-}
       HARDEN_LLM_WEB_HOST: ${HARDEN_LLM_WEB_HOST:?set the web hostname}
       HARDEN_LLM_WEB_PORT: "4000"
       HARDEN_LLM_WEB_SECRET_KEY_BASE: ${HARDEN_LLM_WEB_SECRET_KEY_BASE:?set the Phoenix secret key base}

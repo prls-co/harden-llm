@@ -8,7 +8,10 @@ services:
       - host.docker.internal:host-gateway
 
   caddy:
+    extra_hosts:
+      - host.docker.internal:host-gateway
     environment:
+      PRLS_PORTAL_HOST: ${PRLS_PORTAL_HOST:?set the Portal hostname}
       HARDEN_LLM_WEB_HOST: ${HARDEN_LLM_WEB_HOST:?set the web hostname}
     volumes:
       - ./deploy/test:/etc/caddy/test:ro
