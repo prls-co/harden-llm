@@ -18,9 +18,12 @@ defmodule HardenLlmWeb.BrowserFeatureCase do
     previous_artifact_origin = Application.fetch_env!(:harden_llm, :artifact_public_origin)
     previous_prls_client_options = Application.get_env(:prls_web, :client_options)
 
+    product_origin = HardenLlmWeb.Endpoint.url()
+
     start_portal(%{
+      public_origin: product_origin,
       portal_origin: "http://localhost:4004",
-      login_return_origins: ["http://localhost:4000", "http://localhost:4004"]
+      login_return_origins: [product_origin, "http://localhost:4004"]
     })
 
     Application.put_env(:harden_llm, :harden_api_req_options, plug: BrowserBackend)

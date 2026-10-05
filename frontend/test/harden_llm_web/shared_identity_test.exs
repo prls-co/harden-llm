@@ -25,6 +25,14 @@ defmodule HardenLlmWeb.SharedIdentityTest do
              "https://portal.test/login?return_to=http%3A%2F%2Flocalhost%3A4000%2F"
   end
 
+  test "browser policy permits the Portal redirect after same-origin logout", %{conn: conn} do
+    response = get(conn, "/")
+    [policy] = get_resp_header(response, "content-security-policy")
+    assert policy =~ "default-src 'self'"
+    assert policy =~ "frame-ancestors 'none'"
+    refute policy =~ "form-action"
+  end
+
   # WEB-TEST-109 WEB-TEST-112
   test "enabled logins enter without company selection or an HLLM grant", %{conn: conn} do
     Req.Test.stub(HardenAPI, fn request ->

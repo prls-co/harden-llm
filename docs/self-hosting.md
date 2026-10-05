@@ -149,12 +149,15 @@ run; the API never returns the stored secret.
 
 The authenticated application lives at `/`; `/?trace_id=<id>` restores a result.
 There are no `/workspace` or `/history` routes or legacy redirects. Separate
-frontend routes remain for `/login`, `/logout`, `/session/expired`, `/profiles`,
+frontend routes remain for POST `/logout`, `/session/unavailable`, `/profiles`,
 `/profiles/bundle`, `/embed/llm`, `/traces/:trace_id`, and artifact downloads at
 `/traces/:trace_id/artifacts/:artifact_id`. `/healthz` is the frontend health probe.
 The Go REST resource routes remain independent; the former HLLM-owned human
 login, session, and logout API routes have been removed. Browser sign-in is
-handled through the PRLS Control Plane.
+handled by the shared Portal at `https://a.prls.co/login`, using the existing
+Control Plane cookie. Set `PRLS_PORTAL_URL` to that canonical origin. The product
+has no password or account picker route. Browser policy permits the logout
+response to redirect to Portal; normal same-origin CSRF protection remains.
 
 - `https://<api-host>/healthz` checks process liveness.
 - `https://<api-host>/readyz` checks migrations and the Garage bucket.

@@ -10,7 +10,7 @@ defmodule HardenLlmWeb.Router do
 
     plug :put_secure_browser_headers, %{
       "content-security-policy" =>
-        "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' ws: wss:",
+        "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' ws: wss:",
       "referrer-policy" => "no-referrer",
       "permissions-policy" => "camera=(), microphone=(), geolocation=()",
       "x-frame-options" => "DENY"
