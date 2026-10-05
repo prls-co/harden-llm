@@ -55,6 +55,7 @@ func TestDefaultProfileCatalogParity(t *testing.T) {
 				CredentialScope: profile.EndpointCredentialScope, BaseURL: profile.BaseURL, ModelID: profile.ModelID,
 				DefaultOptions: profile.DefaultOptions, ReasoningEffortMap: profile.ReasoningEffortMap,
 				SupportsStructuredOutput: profile.SupportsContractedStructuredOutput,
+				SupportsWebSearch:        profiles.NativeWebSearchSupported(profile),
 				TokensParam:              profileStringValue(profile.TokensParam), ResponsesTokensParam: profileStringValue(profile.ResponsesTokensParam),
 			}
 			if profile.SupportsTemperature != nil {
@@ -82,6 +83,24 @@ func TestDefaultProfileCatalogParity(t *testing.T) {
 					request := prepared.Opaque.(preparedRequest)
 					if prepared.Operation.Endpoint.Path != wantPath || request.url.Path != wantPath {
 						t.Fatalf("%s Gemini path: operation=%q request=%q want=%q", callType, prepared.Operation.Endpoint.Path, request.url.Path, wantPath)
+					}
+				}
+				if profile.Provider == "perplexity" {
+					request := prepared.Opaque.(preparedRequest)
+					if prepared.Operation.Endpoint.Path != "/agent" || request.url.Path != "/v1/agent" {
+						t.Fatalf("%s Perplexity path: operation=%q request=%q", callType, prepared.Operation.Endpoint.Path, request.url.Path)
+					}
+					var body map[string]any
+					if err := json.Unmarshal(request.body, &body); err != nil {
+						t.Fatal(err)
+					}
+					if body["model"] != profile.ModelID || body["max_output_tokens"] != float64(32) {
+						t.Fatalf("Agent payload: %#v", body)
+					}
+					for _, key := range []string{"messages", "disable_search", "enable_search_classifier", "max_tokens"} {
+						if _, exists := body[key]; exists {
+							t.Fatalf("Agent request retained %s", key)
+						}
 					}
 				}
 				encoded, err := json.Marshal(prepared.Operation)

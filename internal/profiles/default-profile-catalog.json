@@ -1246,25 +1246,260 @@
       }
     }
   },
+  "Perplexity DeepSeek V4 Pro 0813": {
+    "schemaVersion": 3,
+    "llmProfile": "Perplexity DeepSeek V4 Pro 0813",
+    "provider": "perplexity",
+    "apiInferenceType": "responses",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.perplexity.ai/v1",
+    "modelId": "perplexity/deepseek-v4-pro-0813",
+    "pricing": {
+      "input_cost_per_token": 1.32e-06,
+      "output_cost_per_token": 3.96e-06,
+      "cache_read_input_token_cost": 4.4e-08,
+      "cache_creation_input_token_cost": 1.32e-06,
+      "output_cost_per_reasoning_token": 3.96e-06
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": "max_output_tokens",
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "jsonRepair": {
+        "initial": {
+          "source": "generation"
+        },
+        "escalation": {
+          "source": "generation"
+        }
+      },
+      "rerun": null,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
+  },
+  "Perplexity GLM 5.3": {
+    "schemaVersion": 3,
+    "llmProfile": "Perplexity GLM 5.3",
+    "provider": "perplexity",
+    "apiInferenceType": "responses",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.perplexity.ai/v1",
+    "modelId": "perplexity/glm-5.3",
+    "pricing": {
+      "input_cost_per_token": 1.4e-06,
+      "output_cost_per_token": 4.4e-06,
+      "cache_read_input_token_cost": 2.6e-07,
+      "cache_creation_input_token_cost": 1.4e-06,
+      "output_cost_per_reasoning_token": 4.4e-06
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": "max_output_tokens",
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "jsonRepair": {
+        "initial": {
+          "source": "generation"
+        },
+        "escalation": {
+          "source": "generation"
+        }
+      },
+      "rerun": null,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
+  },
+  "Perplexity GLM 5.3 Flash": {
+    "schemaVersion": 3,
+    "llmProfile": "Perplexity GLM 5.3 Flash",
+    "provider": "perplexity",
+    "apiInferenceType": "responses",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.perplexity.ai/v1",
+    "modelId": "perplexity/glm-5.3-flash",
+    "pricing": {
+      "input_cost_per_token": 1.5e-07,
+      "output_cost_per_token": 5e-07,
+      "cache_read_input_token_cost": 3e-08,
+      "cache_creation_input_token_cost": 1.5e-07,
+      "output_cost_per_reasoning_token": 5e-07
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": "max_output_tokens",
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "jsonRepair": {
+        "initial": {
+          "source": "generation"
+        },
+        "escalation": {
+          "source": "generation"
+        }
+      },
+      "rerun": null,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
+  },
+  "Perplexity Kimi K3": {
+    "schemaVersion": 3,
+    "llmProfile": "Perplexity Kimi K3",
+    "provider": "perplexity",
+    "apiInferenceType": "responses",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.perplexity.ai/v1",
+    "modelId": "perplexity/kimi-k3",
+    "pricing": {
+      "input_cost_per_token": 3e-06,
+      "output_cost_per_token": 1.5e-05,
+      "cache_read_input_token_cost": 3e-07,
+      "cache_creation_input_token_cost": 3e-06,
+      "output_cost_per_reasoning_token": 1.5e-05
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": "max_output_tokens",
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "jsonRepair": {
+        "initial": {
+          "source": "generation"
+        },
+        "escalation": {
+          "source": "generation"
+        }
+      },
+      "rerun": null,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
+  },
+  "Perplexity Nemotron 3 Ultra": {
+    "schemaVersion": 3,
+    "llmProfile": "Perplexity Nemotron 3 Ultra",
+    "provider": "perplexity",
+    "apiInferenceType": "responses",
+    "endpointCredentialScope": "global",
+    "baseUrl": "https://api.perplexity.ai/v1",
+    "modelId": "perplexity/nemotron-3-ultra-550b-a55b",
+    "pricing": {
+      "input_cost_per_token": 2.5e-07,
+      "output_cost_per_token": 2.5e-06,
+      "cache_read_input_token_cost": 2.5e-07,
+      "cache_creation_input_token_cost": 2.5e-07,
+      "output_cost_per_reasoning_token": 2.5e-06
+    },
+    "supportsTemperature": false,
+    "supportsContractedStructuredOutput": true,
+    "tokensParam": null,
+    "responsesTokensParam": "max_output_tokens",
+    "defaultOptions": {
+      "max_tokens": 16000
+    },
+    "supportsWebSearch": true,
+    "recoveryPolicy": {
+      "maxAttempts": 4,
+      "retryOn": [
+        "network",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "provider_retry"
+      ],
+      "jsonRepair": {
+        "initial": {
+          "source": "generation"
+        },
+        "escalation": {
+          "source": "generation"
+        }
+      },
+      "rerun": null,
+      "backoff": {
+        "baseDelayMs": 500,
+        "maxDelayMs": 8000
+      }
+    }
+  },
   "Perplexity Sonar": {
     "schemaVersion": 3,
     "llmProfile": "Perplexity Sonar",
     "provider": "perplexity",
-    "apiInferenceType": "chat-completions",
+    "apiInferenceType": "responses",
     "endpointCredentialScope": "global",
-    "baseUrl": "https://api.perplexity.ai",
-    "modelId": "sonar",
+    "baseUrl": "https://api.perplexity.ai/v1",
+    "modelId": "perplexity/sonar",
     "pricing": {
-      "input_cost_per_token": 1e-06,
-      "output_cost_per_token": 1e-06,
-      "cache_read_input_token_cost": 0,
-      "cache_creation_input_token_cost": 0,
-      "output_cost_per_reasoning_token": 0
+      "input_cost_per_token": 2.5e-07,
+      "output_cost_per_token": 2.5e-06,
+      "cache_read_input_token_cost": 6.25e-08,
+      "cache_creation_input_token_cost": 2.5e-07,
+      "output_cost_per_reasoning_token": 2.5e-06
     },
-    "supportsTemperature": null,
+    "supportsTemperature": false,
     "supportsContractedStructuredOutput": true,
     "tokensParam": null,
-    "responsesTokensParam": null,
+    "responsesTokensParam": "max_output_tokens",
     "defaultOptions": {
       "max_tokens": 16000
     },
@@ -1279,94 +1514,12 @@
         "provider_retry"
       ],
       "jsonRepair": {
-        "initial": {"source": "generation"},
-        "escalation": {"source": "generation"}
-      },
-      "rerun": null,
-      "backoff": {
-        "baseDelayMs": 500,
-        "maxDelayMs": 8000
-      }
-    }
-  },
-  "Perplexity Sonar Pro": {
-    "schemaVersion": 3,
-    "llmProfile": "Perplexity Sonar Pro",
-    "provider": "perplexity",
-    "apiInferenceType": "chat-completions",
-    "endpointCredentialScope": "global",
-    "baseUrl": "https://api.perplexity.ai",
-    "modelId": "sonar-pro",
-    "pricing": {
-      "input_cost_per_token": 3e-06,
-      "output_cost_per_token": 1.5e-05,
-      "cache_read_input_token_cost": 0,
-      "cache_creation_input_token_cost": 0,
-      "output_cost_per_reasoning_token": 0
-    },
-    "supportsTemperature": null,
-    "supportsContractedStructuredOutput": true,
-    "tokensParam": null,
-    "responsesTokensParam": null,
-    "defaultOptions": {
-      "max_tokens": 16000
-    },
-    "supportsWebSearch": true,
-    "recoveryPolicy": {
-      "maxAttempts": 4,
-      "retryOn": [
-        "network",
-        "rate_limit",
-        "server_error",
-        "empty_response",
-        "provider_retry"
-      ],
-      "jsonRepair": {
-        "initial": {"source": "generation"},
-        "escalation": {"source": "generation"}
-      },
-      "rerun": null,
-      "backoff": {
-        "baseDelayMs": 500,
-        "maxDelayMs": 8000
-      }
-    }
-  },
-  "Perplexity Sonar Reasoning Pro": {
-    "schemaVersion": 3,
-    "llmProfile": "Perplexity Sonar Reasoning Pro",
-    "provider": "perplexity",
-    "apiInferenceType": "chat-completions",
-    "endpointCredentialScope": "global",
-    "baseUrl": "https://api.perplexity.ai",
-    "modelId": "sonar-reasoning-pro",
-    "pricing": {
-      "input_cost_per_token": 2e-06,
-      "output_cost_per_token": 8e-06,
-      "cache_read_input_token_cost": 0,
-      "cache_creation_input_token_cost": 0,
-      "output_cost_per_reasoning_token": 0
-    },
-    "supportsTemperature": null,
-    "supportsContractedStructuredOutput": true,
-    "tokensParam": null,
-    "responsesTokensParam": null,
-    "defaultOptions": {
-      "max_tokens": 16000
-    },
-    "supportsWebSearch": true,
-    "recoveryPolicy": {
-      "maxAttempts": 4,
-      "retryOn": [
-        "network",
-        "rate_limit",
-        "server_error",
-        "empty_response",
-        "provider_retry"
-      ],
-      "jsonRepair": {
-        "initial": {"source": "generation"},
-        "escalation": {"source": "generation"}
+        "initial": {
+          "source": "generation"
+        },
+        "escalation": {
+          "source": "generation"
+        }
       },
       "rerun": null,
       "backoff": {

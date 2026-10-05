@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -28,10 +29,18 @@ type liveProviderConfig struct {
 	Profile   hardenllm.Profile `json:"profile"`
 }
 
-type liveCredential string
+type liveCredential struct {
+	key  string
+	pace func(context.Context) error
+}
 
-func (credential liveCredential) ResolveCredential(context.Context, hardenllm.CredentialRequest) (hardenllm.Credential, error) {
-	return hardenllm.Credential{APIKey: string(credential)}, nil
+func (credential liveCredential) ResolveCredential(ctx context.Context, _ hardenllm.CredentialRequest) (hardenllm.Credential, error) {
+	if credential.pace != nil {
+		if err := credential.pace(ctx); err != nil {
+			return hardenllm.Credential{}, err
+		}
+	}
+	return hardenllm.Credential{APIKey: credential.key}, nil
 }
 
 func TestLiveProviders(t *testing.T) {
@@ -47,6 +56,33 @@ func TestLiveProviders(t *testing.T) {
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		t.Fatalf("%s must contain exactly one JSON value", liveProvidersEnvironment)
+	}
+	var pace func(context.Context) error
+	if value := os.Getenv("HARDEN_LLM_LIVE_PROVIDER_INTERVAL"); value != "" {
+		interval, err := time.ParseDuration(value)
+		if err != nil || interval <= 0 {
+			t.Fatal("HARDEN_LLM_LIVE_PROVIDER_INTERVAL must be a positive duration")
+		}
+		// One process-wide provider spending account is the named shared
+		// resource. Pace credential resolution; never retry or weaken the
+		// one-attempt assertions to hide a provider rate-limit rejection.
+		var mu sync.Mutex
+		var next time.Time
+		pace = func(ctx context.Context) error {
+			mu.Lock()
+			defer mu.Unlock()
+			if delay := time.Until(next); delay > 0 {
+				timer := time.NewTimer(delay)
+				defer timer.Stop()
+				select {
+				case <-timer.C:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
+			next = time.Now().Add(interval)
+			return nil
+		}
 	}
 
 	for _, item := range configured {
@@ -67,7 +103,7 @@ func TestLiveProviders(t *testing.T) {
 				t.Fatalf("provider %s has an invalid HTTPS base URL", name)
 			}
 			client, err := hardenllm.New(hardenllm.Options{
-				Credentials:    liveCredential(credential),
+				Credentials:    liveCredential{key: credential, pace: pace},
 				EndpointPolicy: hardenllm.EndpointPolicy{AllowedHosts: []string{base.Hostname()}},
 			})
 			if err != nil {

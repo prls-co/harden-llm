@@ -22,32 +22,35 @@ func TestDefaultCatalogParity(t *testing.T) {
 		baseURL   string
 		modelID   string
 	}{
-		"Claude Haiku 4.5":               {"anthropic", "anthropic-messages", "https://api.anthropic.com/v1", "claude-haiku-4-5-20251001"},
-		"Claude Opus 4.7":                {"anthropic", "anthropic-messages", "https://api.anthropic.com/v1", "claude-opus-4-7"},
-		"Claude Opus 5":                  {"anthropic", "anthropic-messages", "https://api.anthropic.com/v1", "claude-opus-5"},
-		"Claude Sonnet 4.6":              {"anthropic", "anthropic-messages", "https://api.anthropic.com/v1", "claude-sonnet-4-6"},
-		"Claude Sonnet 5":                {"anthropic", "anthropic-messages", "https://api.anthropic.com/v1", "claude-sonnet-5"},
-		"CPA GPT-5.6 Luna":               {"cpa", "responses", "https://cpa.prls.co/v1", "gpt-5.6-luna"},
-		"CPA GPT-5.6 Sol":                {"cpa", "responses", "https://cpa.prls.co/v1", "gpt-5.6-sol"},
-		"Gemini 3.1 Flash Lite":          {"google", "gemini-generate-content", "https://generativelanguage.googleapis.com", "gemini-3.1-flash-lite"},
-		"Gemini 3.1 Pro Preview":         {"google", "gemini-generate-content", "https://generativelanguage.googleapis.com", "gemini-3.1-pro-preview"},
-		"Gemini 3.5 Flash":               {"google", "gemini-generate-content", "https://generativelanguage.googleapis.com", "gemini-3.5-flash"},
-		"Gemini 3.5 Flash Lite":          {"google", "gemini-generate-content", "https://generativelanguage.googleapis.com", "gemini-3.5-flash-lite"},
-		"Gemini 3.7 Flash":               {"google", "gemini-generate-content", "https://generativelanguage.googleapis.com", "gemini-3.7-flash"},
-		"Novita DeepSeek V4 Flash":       {"novita", "chat-completions", "https://api.novita.ai/openai/v1", "deepseek/deepseek-v4-flash"},
-		"Novita DeepSeek V4 Pro":         {"novita", "chat-completions", "https://api.novita.ai/openai/v1", "deepseek/deepseek-v4-pro"},
-		"OpenAI GPT-5.4":                 {"openai", "responses", "https://api.openai.com/v1", "gpt-5.4"},
-		"OpenAI GPT-5.4 Mini":            {"openai", "responses", "https://api.openai.com/v1", "gpt-5.4-mini"},
-		"OpenAI GPT-5.5":                 {"openai", "responses", "https://api.openai.com/v1", "gpt-5.5"},
-		"OpenAI GPT-5.6 Luna":            {"openai", "responses", "https://api.openai.com/v1", "gpt-5.6-luna"},
-		"OpenAI GPT-5.6 Sol":             {"openai", "responses", "https://api.openai.com/v1", "gpt-5.6-sol"},
-		"OpenRouter DeepSeek V4 Flash":   {"openrouter", "chat-completions", "https://openrouter.ai/api/v1", "deepseek/deepseek-v4-flash"},
-		"OpenRouter DeepSeek V4 Pro":     {"openrouter", "chat-completions", "https://openrouter.ai/api/v1", "deepseek/deepseek-v4-pro"},
-		"OpenRouter GPT-OSS 120B":        {"openrouter", "chat-completions", "https://openrouter.ai/api/v1", "openai/gpt-oss-120b"},
-		"OpenRouter GPT-OSS 20B":         {"openrouter", "chat-completions", "https://openrouter.ai/api/v1", "openai/gpt-oss-20b"},
-		"Perplexity Sonar":               {"perplexity", "chat-completions", "https://api.perplexity.ai", "sonar"},
-		"Perplexity Sonar Pro":           {"perplexity", "chat-completions", "https://api.perplexity.ai", "sonar-pro"},
-		"Perplexity Sonar Reasoning Pro": {"perplexity", "chat-completions", "https://api.perplexity.ai", "sonar-reasoning-pro"},
+		"Claude Haiku 4.5":                {"anthropic", "anthropic-messages", "https://api.anthropic.com/v1", "claude-haiku-4-5-20251001"},
+		"Claude Opus 4.7":                 {"anthropic", "anthropic-messages", "https://api.anthropic.com/v1", "claude-opus-4-7"},
+		"Claude Opus 5":                   {"anthropic", "anthropic-messages", "https://api.anthropic.com/v1", "claude-opus-5"},
+		"Claude Sonnet 4.6":               {"anthropic", "anthropic-messages", "https://api.anthropic.com/v1", "claude-sonnet-4-6"},
+		"Claude Sonnet 5":                 {"anthropic", "anthropic-messages", "https://api.anthropic.com/v1", "claude-sonnet-5"},
+		"CPA GPT-5.6 Luna":                {"cpa", "responses", "https://cpa.prls.co/v1", "gpt-5.6-luna"},
+		"CPA GPT-5.6 Sol":                 {"cpa", "responses", "https://cpa.prls.co/v1", "gpt-5.6-sol"},
+		"Gemini 3.1 Flash Lite":           {"google", "gemini-generate-content", "https://generativelanguage.googleapis.com", "gemini-3.1-flash-lite"},
+		"Gemini 3.1 Pro Preview":          {"google", "gemini-generate-content", "https://generativelanguage.googleapis.com", "gemini-3.1-pro-preview"},
+		"Gemini 3.5 Flash":                {"google", "gemini-generate-content", "https://generativelanguage.googleapis.com", "gemini-3.5-flash"},
+		"Gemini 3.5 Flash Lite":           {"google", "gemini-generate-content", "https://generativelanguage.googleapis.com", "gemini-3.5-flash-lite"},
+		"Gemini 3.7 Flash":                {"google", "gemini-generate-content", "https://generativelanguage.googleapis.com", "gemini-3.7-flash"},
+		"Novita DeepSeek V4 Flash":        {"novita", "chat-completions", "https://api.novita.ai/openai/v1", "deepseek/deepseek-v4-flash"},
+		"Novita DeepSeek V4 Pro":          {"novita", "chat-completions", "https://api.novita.ai/openai/v1", "deepseek/deepseek-v4-pro"},
+		"OpenAI GPT-5.4":                  {"openai", "responses", "https://api.openai.com/v1", "gpt-5.4"},
+		"OpenAI GPT-5.4 Mini":             {"openai", "responses", "https://api.openai.com/v1", "gpt-5.4-mini"},
+		"OpenAI GPT-5.5":                  {"openai", "responses", "https://api.openai.com/v1", "gpt-5.5"},
+		"OpenAI GPT-5.6 Luna":             {"openai", "responses", "https://api.openai.com/v1", "gpt-5.6-luna"},
+		"OpenAI GPT-5.6 Sol":              {"openai", "responses", "https://api.openai.com/v1", "gpt-5.6-sol"},
+		"OpenRouter DeepSeek V4 Flash":    {"openrouter", "chat-completions", "https://openrouter.ai/api/v1", "deepseek/deepseek-v4-flash"},
+		"OpenRouter DeepSeek V4 Pro":      {"openrouter", "chat-completions", "https://openrouter.ai/api/v1", "deepseek/deepseek-v4-pro"},
+		"OpenRouter GPT-OSS 120B":         {"openrouter", "chat-completions", "https://openrouter.ai/api/v1", "openai/gpt-oss-120b"},
+		"OpenRouter GPT-OSS 20B":          {"openrouter", "chat-completions", "https://openrouter.ai/api/v1", "openai/gpt-oss-20b"},
+		"Perplexity DeepSeek V4 Pro 0813": {"perplexity", "responses", "https://api.perplexity.ai/v1", "perplexity/deepseek-v4-pro-0813"},
+		"Perplexity GLM 5.3":              {"perplexity", "responses", "https://api.perplexity.ai/v1", "perplexity/glm-5.3"},
+		"Perplexity GLM 5.3 Flash":        {"perplexity", "responses", "https://api.perplexity.ai/v1", "perplexity/glm-5.3-flash"},
+		"Perplexity Kimi K3":              {"perplexity", "responses", "https://api.perplexity.ai/v1", "perplexity/kimi-k3"},
+		"Perplexity Nemotron 3 Ultra":     {"perplexity", "responses", "https://api.perplexity.ai/v1", "perplexity/nemotron-3-ultra-550b-a55b"},
+		"Perplexity Sonar":                {"perplexity", "responses", "https://api.perplexity.ai/v1", "perplexity/sonar"},
 	}
 
 	gotNames := make([]string, 0, len(catalog))
@@ -63,8 +66,8 @@ func TestDefaultCatalogParity(t *testing.T) {
 	if !slices.Equal(gotNames, wantNames) {
 		t.Fatalf("default profile names = %v, want %v", gotNames, wantNames)
 	}
-	if len(catalog) != 26 {
-		t.Fatalf("default profile count = %d, want 26", len(catalog))
+	if len(catalog) != len(want) {
+		t.Fatalf("default profile count = %d, want %d", len(catalog), len(want))
 	}
 
 	for _, name := range gotNames {

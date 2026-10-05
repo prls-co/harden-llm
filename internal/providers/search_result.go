@@ -50,6 +50,13 @@ func normalizeSearch(prepared preparedRequest, response map[string]any) *runtime
 				add(stringValue(s["url"]), stringValue(s["title"]))
 			}
 		}
+		if item["type"] == "search_results" {
+			result.Executed = true
+			for _, source := range arrayValue(item["results"]) {
+				s := objectValue(source)
+				add(stringValue(s["url"]), stringValue(s["title"]))
+			}
+		}
 		for _, content := range arrayValue(item["content"]) {
 			part := objectValue(content)
 			firstText := !citationTextSeen && reflect.DeepEqual(item, finalItem) && strings.TrimSpace(stringValue(part["text"])) != ""
@@ -93,9 +100,6 @@ func normalizeSearch(prepared preparedRequest, response map[string]any) *runtime
 	}
 	for _, source := range arrayValue(response["citations"]) {
 		add(stringValue(source), "")
-	}
-	if strings.EqualFold(prepared.provider, "perplexity") {
-		result.Executed = len(result.Sources) > 0
 	}
 	return result
 }

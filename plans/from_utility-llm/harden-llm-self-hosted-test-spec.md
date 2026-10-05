@@ -283,13 +283,19 @@ runtime contract or the meaning of `make verify`.
 
 ### TEST-012: provider request payload parity
 
-- Target: `internal/providers/requests_test.go`, `internal/gateway/run_validation_test.go`
-- Command: `go test ./internal/providers/... -run TestProviderRequestParity -count=1`; `go test ./internal/gateway/... -run 'TestValidateRunInput' -count=1`
+- Target: `internal/providers/requests_test.go`, `internal/providers/optional_system_prompt_test.go`, `internal/gateway/run_validation_test.go`
+- Command: `go test ./internal/providers/... -run 'TestProviderRequestParity|TestOptionalSystemPrompt|TestPerplexityUsesAgentEndpoint' -count=1`; `go test ./internal/gateway/... -run 'TestValidateRunInput' -count=1`
 - Setup: local HTTP servers and request goldens for OpenAI-compatible Chat, OpenAI Responses, Gemini GenerateContent, Anthropic Messages, and generic OpenAI-compatible endpoints.
 - Assertions:
   - Paths, methods, headers, model IDs, prompts, schemas, tools, reasoning options, token limits, and native options match source fixtures.
   - Gemini bare model IDs and Google resource names both construct the exact
     `/v1beta/models/{id}:generateContent` path; the captured source oracle remains unchanged.
+  - Chat and Responses requests omit an absent system prompt for both text and
+    structured calls; nonempty prompt contents and message order are preserved.
+  - Perplexity Responses requests use the canonical `/v1/agent` endpoint and
+    reject a legacy chat override. Native search uses the shared `web_search`
+    tool; Agent `search_results` retain execution and safe source evidence,
+    including executed searches with no results.
   - Contracted-only options never leak into native mode.
   - Unknown native options follow the current provider-specific contract.
   - Utility-compatible request option names such as `max_tokens` and
@@ -306,6 +312,9 @@ runtime contract or the meaning of `make verify`.
 - Assertions:
   - Output, usage, cost, finish/refusal status, and safe raw hashes normalize consistently.
   - Error status, category, retryability, and safe metadata match source fixtures.
+  - Scalar reported costs and USD objects containing `total_cost` normalize
+    as provider-reported exact totals. Missing/invalid totals and non-USD
+    currency remain `ACCOUNTING_INVALID`; valid usage remains available.
   - Secrets and raw authorization values do not appear in results or errors.
 - Pass criteria: all provider tables match normalized goldens.
 - Expected runtime: 15 seconds.
@@ -362,12 +371,13 @@ runtime contract or the meaning of `make verify`.
   - `go test ./internal/profiles/... ./internal/providers/... -run 'Test(DefaultCatalogParity|ProfileParity|DefaultProfileCatalogParity)' -count=1`
   - `go test ./internal/gateway/... -tags=integration -run TestDefaultProfileSeedParity -count=1`
 - Setup: source catalog at utility-llm revision `5c0309e` / `0.15.0`, with
-  the two unavailable CPA GPT-5.4 profiles retired under ADR-HLLM-013;
-  26 credential-free preset entries, invalid names/endpoints/defaults,
+  the unavailable CPA GPT-5.4 profiles retired under ADR-HLLM-013 and
+  the legacy Sonar trio replaced with six current Perplexity Agent models;
+  29 credential-free preset entries, invalid names/endpoints/defaults,
   removed-control rejection, fixed endpoint resolver, and isolated owner-scoped Postgres.
 - Assertions:
-  - The embedded seed contains exactly the current 26 profile names, excludes
-    CPA GPT-5.4 and CPA GPT-5.4 Mini, retains the independent OpenAI presets, and
+  - The embedded seed contains exactly the current 29 profile names, excludes
+    CPA GPT-5.4, CPA GPT-5.4 Mini, Sonar Pro and Sonar Reasoning Pro, retains the independent OpenAI presets, and
     matches provider, API inference type, base URL, model ID, pricing,
     reasoning, defaults, and structured-output capability.
   - Seed rows contain no credentials or runtime discovery state, OpenRouter
@@ -375,11 +385,13 @@ runtime contract or the meaning of `make verify`.
   - Every seeded profile prepares both text and structured operations through
     the shared endpoint policy without serializing the fixture credential.
     Each Gemini preset also asserts the exact provider resource path in both
-    the canonical operation and actual prepared HTTP request.
+    the canonical operation and actual prepared HTTP request. Each Perplexity
+    preset asserts `/v1/agent`, its discovered model ID, token remapping, and
+    the absence of legacy Sonar request fields.
   - Concurrent first use inserts every missing preset for an owner with an
     existing custom row, exposes seeded rows as unconfigured, and never
     overwrites the existing operator profile; an empty owner receives exactly
-    the 26 presets.
+    the 29 presets.
   - Runtime catalog assembly accepts credential-free seed rows without
     blocking configured profiles; every seeded profile's missing-credential
     boundary returns `ErrCredentialNotConfigured`, while an attempted run
@@ -705,6 +717,11 @@ runtime contract or the meaning of `make verify`.
 - Target: `internal/providers/live_test.go`
 - Command: `go test ./internal/providers/... -tags=live -run TestLiveProviders -count=1`
 - Setup: explicit local provider credentials and model IDs; endpoint policy enabled.
+  For one shared provider account with a request-rate budget, set
+  `HARDEN_LLM_LIVE_PROVIDER_INTERVAL` to its minimum request-start interval
+  (Perplexity Tier 0: `1200ms`). One process-owned gate spaces credential
+  resolution across the configured profiles and both call types. This does not
+  add retries, change prompts, or relax single-attempt and accounting assertions.
 - Compile coverage: `make test-static` compiles TEST-037/038 with the `live` tag
   and `-run '^$'`, without running tests or making provider calls.
 - Assertions:

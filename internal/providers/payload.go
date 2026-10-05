@@ -38,10 +38,17 @@ func buildPayload(profile runtime.Profile, call runtime.Call) (string, string, s
 	}
 	switch profile.APIInferenceType {
 	case "responses":
+		path := "/responses"
+		if strings.EqualFold(profile.Provider, "perplexity") {
+			path = "/agent"
+		}
 		if useResponses, configured := call.ProviderOptions["useResponsesApi"].(bool); configured && !useResponses {
+			if strings.EqualFold(profile.Provider, "perplexity") {
+				return "", "", "", nil, nil, errors.New("providers: Perplexity Agent API requires Responses")
+			}
 			return profile.Provider, "openai.chat.completions", "/chat/completions", buildChatPayload(profile, call, options, schema), map[string]any{}, nil
 		}
-		return profile.Provider, "openai.responses", "/responses", buildResponsesPayload(profile, call, options, schema), map[string]any{}, nil
+		return profile.Provider, "openai.responses", path, buildResponsesPayload(profile, call, options, schema), map[string]any{}, nil
 	case "chat-completions":
 		return profile.Provider, "openai-compatible.chat.completions", "/chat/completions", buildChatPayload(profile, call, options, schema), map[string]any{}, nil
 	case "gemini-generate-content":
@@ -207,8 +214,6 @@ func nativeWebSearchEnabled(profile runtime.Profile, call runtime.Call) bool {
 		// Claude's search citations and strict structured output cannot be
 		// combined. Jina provides context without changing the output contract.
 		return call.CallType != "structured"
-	case "chat-completions":
-		return strings.EqualFold(profile.Provider, "perplexity")
 	default:
 		return false
 	}
@@ -264,12 +269,11 @@ func buildChatPayload(profile runtime.Profile, call runtime.Call, options map[st
 			map[string]any{"role": "user", "content": call.UserPrompt},
 		},
 	}
+	if call.SystemPrompt == "" {
+		payload["messages"] = payload["messages"].([]any)[1:]
+	}
 	for key, value := range normalized {
 		payload[key] = value
-	}
-	if strings.EqualFold(profile.Provider, "perplexity") {
-		payload["disable_search"] = !nativeWebSearchEnabled(profile, call)
-		payload["enable_search_classifier"] = false
 	}
 	if call.CallType == "structured" {
 		if strings.EqualFold(profile.Provider, "novita") {

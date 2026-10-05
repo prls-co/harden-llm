@@ -92,3 +92,15 @@ sync remains an upsert that preserves custom profiles; retirement does not
 introduce a second synchronization or migration path. `TEST-017` checks the
 exact retained catalog and prepares every retained profile offline. Read-only
 utility-llm evidence and the original failed live matrix remain unchanged.
+
+## Perplexity Agent catalog update — 2026-10-04
+
+Authenticated `GET https://api.perplexity.ai/v1/models` replaces the three
+legacy Sonar presets with six current `perplexity/` models. The embedded seed
+contains 29 profiles. Perplexity uses the existing Responses payload and
+normalization contract at its canonical `/v1/agent` endpoint, with explicit
+model selection and discovery pricing. Sonar Pro, Sonar Reasoning Pro, their
+search flags, and their provider-specific chat-search path are retired.
+Historical utility fixtures remain source evidence; they do not define the
+current managed catalog. Router API preview access and research presets are
+not required by this model catalog.

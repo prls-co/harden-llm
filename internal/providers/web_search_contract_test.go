@@ -28,6 +28,7 @@ func TestNativeSearchProtocols(t *testing.T) {
 		tool               map[string]any
 	}{
 		{"cpa", "responses", map[string]any{"type": "web_search"}, map[string]any{"type": "web_search"}},
+		{"perplexity", "responses", map[string]any{"type": "web_search"}, map[string]any{"type": "web_search"}},
 		{"openai", "responses", map[string]any{"type": "web_search"}, map[string]any{"type": "web_search"}},
 		{"google", "gemini-generate-content", nil, map[string]any{"google_search": map[string]any{}}},
 		{"anthropic", "anthropic-messages", map[string]any{"type": "auto"}, map[string]any{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}},
@@ -136,18 +137,24 @@ func TestJinaBoundsCancellationAndMissingKey(t *testing.T) {
 	}
 }
 
-func TestSonarToggleAndUnrelatedTools(t *testing.T) {
+func TestNativeSearchPreservesUnrelatedTools(t *testing.T) {
 	t.Parallel()
-	for _, on := range []bool{false, true} {
-		_, _, _, body, _, err := buildPayload(runtime.Profile{Provider: "perplexity", APIInferenceType: "chat-completions", SupportsWebSearch: true}, runtime.Call{WebSearch: on, CallType: "text", ProviderOptions: map[string]any{"disable_search": on, "enable_search_classifier": true}})
-		if err != nil || body["disable_search"] != !on || body["enable_search_classifier"] != false {
-			t.Fatalf("Sonar toggle %#v %v", body, err)
-		}
-	}
 	fn := map[string]any{"type": "function", "name": "custom"}
 	_, _, _, body, _, err := buildPayload(runtime.Profile{Provider: "cpa", APIInferenceType: "responses", SupportsWebSearch: true}, runtime.Call{WebSearch: true, CallType: "text", ProviderOptions: map[string]any{"tools": []any{fn, map[string]any{"type": "web_search_preview"}}, "tool_choice": "none"}})
 	if err != nil || len(arrayValue(body["tools"])) != 2 || !reflect.DeepEqual(arrayValue(body["tools"])[0], fn) || objectValue(body["tool_choice"])["type"] != "web_search" {
 		t.Fatalf("specific native choice %#v %v", body, err)
+	}
+}
+
+func TestPerplexityAgentSearchResults(t *testing.T) {
+	t.Parallel()
+	result, err := normalizeResponse(preparedRequest{provider: "perplexity", protocol: "openai.responses", callType: "text", searchMode: "native"}, []byte(`{"status":"completed","output":[{"type":"search_results","results":[{"url":"https://example.test","title":"Source"},{"url":"javascript:alert(1)"}]},{"type":"message","content":[{"type":"output_text","text":"Grounded answer.","annotations":[{"type":"url_citation","url":"https://example.test","title":"Source"}]}]}]}`))
+	if err != nil || result.Output != "Grounded answer." || result.Search == nil || !result.Search.Executed || len(result.Search.Sources) != 1 || result.Search.Sources[0].URL != "https://example.test" {
+		t.Fatalf("Agent search evidence: %#v %v", result, err)
+	}
+	result, err = normalizeResponse(preparedRequest{provider: "perplexity", protocol: "openai.responses", callType: "text", searchMode: "native"}, []byte(`{"status":"completed","output":[{"type":"search_results","results":[]},{"type":"message","content":[{"type":"output_text","text":"No relevant sources."}]}]}`))
+	if err != nil || result.Search == nil || !result.Search.Executed || len(result.Search.Sources) != 0 {
+		t.Fatalf("An executed search without results was lost: %#v %v", result, err)
 	}
 }
 

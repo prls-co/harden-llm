@@ -773,6 +773,12 @@ func normalizeCost(response map[string]any, usage runtime.Usage, pricing runtime
 }
 
 func parseCost(value any) (float64, error) {
+	if cost, ok := value.(map[string]any); ok {
+		if cost["currency"] != "USD" {
+			return 0, errors.New("reported cost currency must be USD")
+		}
+		value = cost["total_cost"]
+	}
 	parsed, ok := nonnegativeFloat(value)
 	if !ok {
 		return 0, errors.New("reported cost is invalid")

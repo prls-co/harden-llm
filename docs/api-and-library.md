@@ -229,9 +229,9 @@ keeps functional failure separate from a soft performance overrun, and prints
 only bounded redacted IDs, stages, timings, counters, and stop reasons.
 
 Set `webSearch:true` to enable web evidence (the UI uses `🌐` after Reasoning).
-Explicitly capable CPA/OpenAI Responses profiles use native `web_search`;
-Gemini uses Google Search, Claude uses its server search tool for text, and
-Perplexity Sonar uses its built-in search. Unsupported profiles/routes and
+Explicitly capable CPA/OpenAI/Perplexity Responses profiles use native `web_search`;
+Gemini uses Google Search and Claude uses its server search tool for text.
+Perplexity uses the canonical Agent API at `/v1/agent`. Unsupported profiles/routes and
 Claude strict structured output use Jina. Capability omission means false,
 consistently in REST and Go. The toggle owns search tools; conflicting raw
 search-tool options cannot turn search on while it is off. `cacheMode:"cache"` still looks up the exact

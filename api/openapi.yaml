@@ -1458,7 +1458,7 @@ components:
           type: boolean
           default: false
           description: Explicit native-search capability for this profile's route and model. Omission is false.
-            Supported adapters are Responses (including CPA), Gemini, Anthropic, and Perplexity Sonar.
+            Supported adapters are Responses (including CPA and Perplexity Agent API), Gemini, and Anthropic.
         tokensParam:
           oneOf:
           - type: string

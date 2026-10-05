@@ -48,6 +48,12 @@ func TestProviderNormalization(t *testing.T) {
 			wantCost: accounting.ExactCost(0.0354, "profile"),
 		},
 		{
+			name: "Perplexity Agent USD cost", protocol: "openai.responses", callType: "text",
+			body:       `{"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"agent-ok"}]}],"usage":{"input_tokens":30,"input_tokens_details":{"cached_tokens":0},"output_tokens":5,"output_tokens_details":{"reasoning_tokens":0},"cost":{"currency":"USD","input_cost":0.00001,"output_cost":0.00001,"total_cost":0.00002}}}`,
+			wantOutput: "agent-ok", wantUsage: completeProviderUsage(30, 0, 0, 5, 0),
+			wantCost: accounting.ExactCost(0.00002, "reported"),
+		},
+		{
 			name: "OpenAI-compatible structured", protocol: "openai-compatible.chat.completions", callType: "structured",
 			body:       `{"choices":[{"message":{"content":"{\"answer\":\"chat-ok\"}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2,"cost":0.125}}`,
 			wantOutput: map[string]any{"answer": "chat-ok"}, wantUsage: completeProviderUsage(3, 0, 0, 2, 0),
@@ -88,6 +94,27 @@ func TestProviderNormalization(t *testing.T) {
 			}
 			if !costNear(result.Accounting.Cost, test.wantCost) {
 				t.Fatalf("cost mismatch: got %#v want %#v", result.Accounting.Cost, test.wantCost)
+			}
+		})
+	}
+}
+
+func TestReportedCostObjectsRejectInvalidTotals(t *testing.T) {
+	t.Parallel()
+	for _, cost := range []string{
+		`{"currency":"EUR","total_cost":1}`,
+		`{"total_cost":1}`,
+		`{"currency":"USD"}`,
+		`{"currency":"USD","total_cost":null}`,
+		`{"currency":"USD","total_cost":-1}`,
+		`{"currency":"USD","total_cost":"invalid"}`,
+	} {
+		t.Run(cost, func(t *testing.T) {
+			t.Parallel()
+			result, err := normalizeResponse(preparedRequest{protocol: "openai.responses", callType: "text"}, []byte(`{"status":"completed","output_text":"ok","usage":{"input_tokens":1,"output_tokens":1,"cost":`+cost+`}}`))
+			var providerError *retry.ProviderError
+			if !errors.As(err, &providerError) || providerError.Code != "ACCOUNTING_INVALID" || result.Accounting.Usage.Status != accounting.UsageComplete || result.Accounting.Cost.Status != accounting.CostUnavailable {
+				t.Fatalf("invalid reported cost accepted or valid usage lost: %#v %v", result, err)
 			}
 		})
 	}
