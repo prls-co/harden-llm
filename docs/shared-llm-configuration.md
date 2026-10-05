@@ -289,8 +289,8 @@ acceptance; the remaining provider failures are tracked in
 
 ## 8. LiteLLM preset retirement — 2026-10-04
 
-The current trusted host catalog has **28 profiles and 18 configured bindings
-per provisioned user**. The user retired `Shaman LiteLLM GPT-5.4 Mini` and
+After this dated rollout, the trusted host catalog had **28 profiles and
+18 configured bindings per provisioned user**. The user retired `Shaman LiteLLM GPT-5.4 Mini` and
 `ShamanLiteLLM` because LiteLLM is no longer used. Both profiles and their
 credential references were removed from the host JSON. Neither profile belongs
 to the embedded seed, which remains at 26 profiles.
@@ -324,3 +324,38 @@ The catalog remains at 28 profiles and 18 configured bindings per provisioned
 user. Six other historical provider failures remain in
 [issue 92](https://github.com/prls-co/harden-llm/issues/92); the full retained
 paid matrix has not been rerun.
+
+## 10. Perplexity Agent API catalog — 2026-10-04
+
+The current trusted host catalog has **31 profiles and 21 configured bindings
+per provisioned user**, with 29 credential-free embedded presets. Six current
+Perplexity models replace the three legacy Sonar presets. All six use
+`apiInferenceType: responses`, `baseUrl: https://api.perplexity.ai/v1`, and the
+canonical `/agent` operation. The profile names and exact discovered IDs are
+listed in the
+[release record](release-certification.md#perplexity-agent-api-and-model-catalog--production-2026-10-04).
+
+Authenticated `/v1/models` discovery supplies the Perplexity-owned model list
+and USD-per-million token rates. The catalog converts those rates to per-token
+pricing, uses input for an absent separate cache-write rate and output for
+reasoning, and preserves provider-reported USD totals when supplied. Model
+lists and refresh timestamps are verified through owner-scoped readback.
+The Router preview endpoint is not part of this configuration.
+
+Deploy the updated gateway seed before trusted `sync-profiles` reconfigures
+`Perplexity Sonar` and provisions the five additional presets. The existing
+DELETE endpoint removes `Perplexity Sonar Pro` and
+`Perplexity Sonar Reasoning Pro` for each explicitly provisioned user and prunes
+their unused endpoint credentials. Both Portal logins and the verification
+token read back the exact current configuration. Repeated reads do not recreate
+retired profiles, trusted sync returns `changed: false`, and the database has
+zero legacy Perplexity chat profiles or orphan credentials. Workspace state
+and unrelated identity/storage data are preserved.
+
+Fresh library and production checks pass text and structured calls for all six
+profiles; Sonar native search also passes in both boundaries. The
+[bounded evidence](../plans/evidence/harden-llm/perplexity-agent-update-20261004.json)
+records source/image identity, 10 fast tasks, 29 hosted release tasks and probe
+cleanup. Browser checks and the complete configured matrix were not rerun;
+[issue 92](https://github.com/prls-co/harden-llm/issues/92) retains three
+unrelated accounting failures.

@@ -240,8 +240,9 @@ search-enabled operation first, so a hit skips both the search and model call;
 cache bypass or expiry is added for search. A cached answer may be stale by design.
 
 `result.search` records `mode`, actual `executed`, `sources`, optional inline
-`citations`, and `costStatus:"unavailable"` (search fees are not included in model
-token accounting). These describe the original answer and survive cache replay;
+`citations`, and `costStatus:"unavailable"` (HLLM does not separately itemize
+search fees; provider-reported USD totals are preserved in cost accounting).
+These describe the original answer and survive cache replay;
 use `result.cache.served` and `result.providerInvoked` for this invocation.
 `providerInvoked` (and each attempt's `providerUsed`) means the local model
 transport observed its request headers being written. It does not prove the

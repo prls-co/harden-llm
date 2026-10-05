@@ -2552,3 +2552,75 @@ Browser checks and the complete retained 18-profile paid matrix were not rerun.
 [Issue 92](https://github.com/prls-co/harden-llm/issues/92) now tracks six
 unresolved Perplexity/accounting profile failures; the original failed matrix
 remains preserved. This release certifies the five Gemini profiles.
+
+### Perplexity Agent API and model catalog — production (2026-10-04)
+
+The six current Perplexity presets now pass text and structured calls in the
+public Go library and production API. HLLM uses the canonical
+`https://api.perplexity.ai/v1/agent` route through its existing Responses path.
+Authenticated `/v1/models` discovery supplies the six Perplexity-owned model IDs
+and their prices; the Router preview endpoint is not used.
+
+| Preset | Model ID |
+| --- | --- |
+| Perplexity DeepSeek V4 Pro 0813 | `perplexity/deepseek-v4-pro-0813` |
+| Perplexity GLM 5.3 | `perplexity/glm-5.3` |
+| Perplexity GLM 5.3 Flash | `perplexity/glm-5.3-flash` |
+| Perplexity Kimi K3 | `perplexity/kimi-k3` |
+| Perplexity Nemotron 3 Ultra | `perplexity/nemotron-3-ultra-550b-a55b` |
+| Perplexity Sonar | `perplexity/sonar` |
+
+The shared chat builder omits empty optional system messages, which caused the
+original three HTTP 400 errors. Nonempty prompts are preserved. Perplexity's
+legacy chat route and search toggles are removed. Responses `search_results`
+proves search execution even with zero results, while shared URL filtering
+retains safe citations. USD `usage.cost.total_cost` objects are normalized
+without accepting malformed, negative or non-USD accounting. Cheap regressions
+failed before these corrections and passed afterward; captured source fixtures
+and live-test assertion purposes are unchanged.
+
+The gateway-only application release is
+`5bb83fbf1e3a917649b4eef59c37a9f383a36eb4` on `main`, image
+`sha256:865d3b3f134b6e3bfbbeadd545cb014a0b11ab795678506d5cde3ef96a5a46f9`.
+Its OCI labels, running binary version and release environment match. The
+eight-service production descriptor converged after applying only the gateway;
+all seven other containers retained their IDs and images. The already deployed
+Portal frontend image is
+`sha256:c8f5dd73e1c792f321ed76c2aa06e010951c5508d06c4cc0c7393dc4b6c8028a`.
+Its declared release environment is `61e249c7f642ae13a02442ae416a06b2f6d3ffb6`;
+it has no source/revision image label, so that declaration does not establish
+its build source. No frontend was built or deployed for this change. The
+unrelated production checkout and shared identity/storage data were preserved.
+
+Local and hosted fast checks passed 10/10. The exact-source
+[release workflow](https://github.com/prls-co/harden-llm/actions/runs/37257531794)
+passed all 29 browser-free tasks with zero cleanup errors/warnings; hosted
+CodeQL passed. `TEST-037` passed all six profiles and 12 text/structured calls,
+with cache off and one attempt. Its optional process-owned pacing gate respects
+the provider's shared account request budget without adding a production limiter
+or changing assertions. Sonar native search also passed through the library.
+
+Production passed the same 12 text/structured calls and two additional Sonar
+native-search calls, with exact selected models, one attempt, valid accounting
+and no repair. All 14 probe histories were deleted; saved workspace state is
+unchanged. Both Portal logins and owner-scoped reads passed, including the
+verification token's owner binding. Public web/API health, readiness and
+anonymous profile denial passed. Both users now have 31 profiles and 21
+configured bindings; the seed has 29 entries. The two retired Sonar profiles
+and unused credentials are absent, repeated reads do not recreate them, and
+trusted sync returned `changed: false`. Read-only database and artifact audits
+show zero probe runs, orphan credentials, missing/unreferenced objects or
+active operations. Configuration files remain mode `0600`.
+
+Initial live accounting failures and explicit rate-limit failures remain in
+private evidence. A stale-tick pacing defect and operator harness assumptions
+were corrected before final acceptance; no retry or weaker oracle was used.
+[Bounded evidence](../plans/evidence/harden-llm/perplexity-agent-update-20261004.json)
+records the source, model/pricing discovery, component identities and checks
+without credentials or generated provider output.
+
+Browser checks and the complete 21-profile configured matrix were not rerun.
+The prior Gemini certification is retained as dated evidence.
+[Issue 92](https://github.com/prls-co/harden-llm/issues/92) now retains three
+Novita/OpenRouter accounting failures. Documentation-only closeout after the
+application release does not require another image build.

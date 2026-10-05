@@ -1,0 +1,845 @@
+{
+  "certifiedAt": "2026-10-05T03:22:31.573Z",
+  "branch": "main",
+  "applicationBearingSHA": "5bb83fbf1e3a917649b4eef59c37a9f383a36eb4",
+  "gatewayImage": {
+    "sourceSHA": "5bb83fbf1e3a917649b4eef59c37a9f383a36eb4",
+    "tag": "harden-llm-gateway:release-5bb83fbf1e3a917649b4eef59c37a9f383a36eb4",
+    "imageID": "sha256:865d3b3f134b6e3bfbbeadd545cb014a0b11ab795678506d5cde3ef96a5a46f9",
+    "platform": "linux/amd64",
+    "version": "5bb83fbf1e3a917649b4eef59c37a9f383a36eb4",
+    "labels": {
+      "org.opencontainers.image.revision": "5bb83fbf1e3a917649b4eef59c37a9f383a36eb4",
+      "org.opencontainers.image.source": "https://github.com/prls-co/harden-llm",
+      "org.opencontainers.image.title": "harden-llm-gateway",
+      "org.opencontainers.image.version": "5bb83fbf1e3a917649b4eef59c37a9f383a36eb4"
+    },
+    "releaseWorkflowURL": "https://github.com/prls-co/harden-llm/actions/runs/37257531794",
+    "releaseAttempt": 1
+  },
+  "change": {
+    "canonicalRoute": "https://api.perplexity.ai/v1/agent",
+    "transport": "Existing Responses request and normalization path",
+    "emptySystemPrompt": "Shared chat builder omits only the empty optional system message; nonempty prompts are preserved.",
+    "reportedCost": "Accept usage.cost.total_cost only with currency USD and strict nonnegative numeric validation; retain ACCOUNTING_INVALID for malformed accounting.",
+    "search": "Responses search_results proves execution, including zero results; sources retain shared safe-URL filtering.",
+    "legacyRemoved": [
+      "Perplexity chat-completions route",
+      "disable_search",
+      "enable_search_classifier",
+      "Perplexity citation-count execution heuristic"
+    ],
+    "retiredProfiles": [
+      "Perplexity Sonar Pro",
+      "Perplexity Sonar Reasoning Pro"
+    ],
+    "reconfiguredProfile": "Perplexity Sonar",
+    "sourceFixturesChanged": false,
+    "liveAssertionOracleChanged": false,
+    "cheapRegressionsObservedFailingBeforeFix": [
+      "TEST-012 empty system prompt and Agent route",
+      "TEST-017 current Perplexity catalog",
+      "TEST-013 USD cost object",
+      "Responses search execution with zero results"
+    ],
+    "cheapRegressionsPassingAfterFix": true
+  },
+  "modelDiscovery": {
+    "url": "https://api.perplexity.ai/v1/models",
+    "status": 200,
+    "totalListedModels": 51,
+    "selectedOwner": "perplexity",
+    "models": [
+      {
+        "id": "perplexity/deepseek-v4-pro-0813",
+        "object": "model",
+        "created": 0,
+        "owned_by": "perplexity",
+        "pricing": {
+          "input": 1.32,
+          "output": 3.96,
+          "cache_read": 0.044,
+          "unit": "usd_per_1m_tokens"
+        }
+      },
+      {
+        "id": "perplexity/glm-5.3",
+        "object": "model",
+        "created": 0,
+        "owned_by": "perplexity",
+        "pricing": {
+          "input": 1.4,
+          "output": 4.4,
+          "cache_read": 0.26,
+          "unit": "usd_per_1m_tokens"
+        }
+      },
+      {
+        "id": "perplexity/glm-5.3-flash",
+        "object": "model",
+        "created": 0,
+        "owned_by": "perplexity",
+        "pricing": {
+          "input": 0.15,
+          "output": 0.5,
+          "cache_read": 0.03,
+          "unit": "usd_per_1m_tokens"
+        }
+      },
+      {
+        "id": "perplexity/kimi-k3",
+        "object": "model",
+        "created": 0,
+        "owned_by": "perplexity",
+        "pricing": {
+          "input": 3,
+          "output": 15,
+          "cache_read": 0.3,
+          "unit": "usd_per_1m_tokens"
+        }
+      },
+      {
+        "id": "perplexity/nemotron-3-ultra-550b-a55b",
+        "object": "model",
+        "created": 0,
+        "owned_by": "perplexity",
+        "pricing": {
+          "input": 0.25,
+          "output": 2.5,
+          "cache_read": 0.25,
+          "unit": "usd_per_1m_tokens"
+        }
+      },
+      {
+        "id": "perplexity/sonar",
+        "object": "model",
+        "created": 0,
+        "owned_by": "perplexity",
+        "pricing": {
+          "input": 0.25,
+          "output": 2.5,
+          "cache_read": 0.0625,
+          "unit": "usd_per_1m_tokens"
+        }
+      }
+    ],
+    "routerPreviewProbe": {
+      "url": "https://api.perplexity.ai/router/v1/models",
+      "status": 403,
+      "used": false
+    },
+    "profiles": {
+      "Perplexity DeepSeek V4 Pro 0813": {
+        "modelId": "perplexity/deepseek-v4-pro-0813",
+        "apiInferenceType": "responses",
+        "baseUrl": "https://api.perplexity.ai/v1",
+        "pricing": {
+          "input_cost_per_token": 1.32e-06,
+          "output_cost_per_token": 3.96e-06,
+          "cache_read_input_token_cost": 4.4e-08,
+          "cache_creation_input_token_cost": 1.32e-06,
+          "output_cost_per_reasoning_token": 3.96e-06
+        },
+        "supportsContractedStructuredOutput": true,
+        "supportsWebSearch": true,
+        "supportsTemperature": false,
+        "defaultOptions": {
+          "max_tokens": 16000
+        },
+        "responsesTokensParam": "max_output_tokens"
+      },
+      "Perplexity GLM 5.3": {
+        "modelId": "perplexity/glm-5.3",
+        "apiInferenceType": "responses",
+        "baseUrl": "https://api.perplexity.ai/v1",
+        "pricing": {
+          "input_cost_per_token": 1.4e-06,
+          "output_cost_per_token": 4.4e-06,
+          "cache_read_input_token_cost": 2.6e-07,
+          "cache_creation_input_token_cost": 1.4e-06,
+          "output_cost_per_reasoning_token": 4.4e-06
+        },
+        "supportsContractedStructuredOutput": true,
+        "supportsWebSearch": true,
+        "supportsTemperature": false,
+        "defaultOptions": {
+          "max_tokens": 16000
+        },
+        "responsesTokensParam": "max_output_tokens"
+      },
+      "Perplexity GLM 5.3 Flash": {
+        "modelId": "perplexity/glm-5.3-flash",
+        "apiInferenceType": "responses",
+        "baseUrl": "https://api.perplexity.ai/v1",
+        "pricing": {
+          "input_cost_per_token": 1.5e-07,
+          "output_cost_per_token": 5e-07,
+          "cache_read_input_token_cost": 3e-08,
+          "cache_creation_input_token_cost": 1.5e-07,
+          "output_cost_per_reasoning_token": 5e-07
+        },
+        "supportsContractedStructuredOutput": true,
+        "supportsWebSearch": true,
+        "supportsTemperature": false,
+        "defaultOptions": {
+          "max_tokens": 16000
+        },
+        "responsesTokensParam": "max_output_tokens"
+      },
+      "Perplexity Kimi K3": {
+        "modelId": "perplexity/kimi-k3",
+        "apiInferenceType": "responses",
+        "baseUrl": "https://api.perplexity.ai/v1",
+        "pricing": {
+          "input_cost_per_token": 3e-06,
+          "output_cost_per_token": 1.5e-05,
+          "cache_read_input_token_cost": 3e-07,
+          "cache_creation_input_token_cost": 3e-06,
+          "output_cost_per_reasoning_token": 1.5e-05
+        },
+        "supportsContractedStructuredOutput": true,
+        "supportsWebSearch": true,
+        "supportsTemperature": false,
+        "defaultOptions": {
+          "max_tokens": 16000
+        },
+        "responsesTokensParam": "max_output_tokens"
+      },
+      "Perplexity Nemotron 3 Ultra": {
+        "modelId": "perplexity/nemotron-3-ultra-550b-a55b",
+        "apiInferenceType": "responses",
+        "baseUrl": "https://api.perplexity.ai/v1",
+        "pricing": {
+          "input_cost_per_token": 2.5e-07,
+          "output_cost_per_token": 2.5e-06,
+          "cache_read_input_token_cost": 2.5e-07,
+          "cache_creation_input_token_cost": 2.5e-07,
+          "output_cost_per_reasoning_token": 2.5e-06
+        },
+        "supportsContractedStructuredOutput": true,
+        "supportsWebSearch": true,
+        "supportsTemperature": false,
+        "defaultOptions": {
+          "max_tokens": 16000
+        },
+        "responsesTokensParam": "max_output_tokens"
+      },
+      "Perplexity Sonar": {
+        "modelId": "perplexity/sonar",
+        "apiInferenceType": "responses",
+        "baseUrl": "https://api.perplexity.ai/v1",
+        "pricing": {
+          "input_cost_per_token": 2.5e-07,
+          "output_cost_per_token": 2.5e-06,
+          "cache_read_input_token_cost": 6.25e-08,
+          "cache_creation_input_token_cost": 2.5e-07,
+          "output_cost_per_reasoning_token": 2.5e-06
+        },
+        "supportsContractedStructuredOutput": true,
+        "supportsWebSearch": true,
+        "supportsTemperature": false,
+        "defaultOptions": {
+          "max_tokens": 16000
+        },
+        "responsesTokensParam": "max_output_tokens"
+      }
+    },
+    "pricingTranslation": "Discovery USD-per-million rates divided by 1000000; absent cache-write rate uses input and reasoning uses output. Provider-reported USD totals remain authoritative when present.",
+    "documentation": [
+      "https://docs.perplexity.ai/docs/agent-api/quickstart",
+      "https://docs.perplexity.ai/docs/agent-api/openai-compatibility",
+      "https://docs.perplexity.ai/docs/agent-api/models",
+      "https://docs.perplexity.ai/docs/agent-api/migrate-from-sonar/overview",
+      "https://docs.perplexity.ai/docs/admin/rate-limits-usage-tiers"
+    ]
+  },
+  "tests": {
+    "sourceSHA": "5bb83fbf1e3a917649b4eef59c37a9f383a36eb4",
+    "testedFiles": {
+      "api/openapi.yaml": "c6512a159878fa2ff725f6f746a887682aafe3c89053f93f5e3f998b0113f83d",
+      "docs/adr/ADR-HLLM-013-profile-catalog-seed.md": "82570c82efaeaf2cc11bf037d32fd3db0d1c146733398071455ae6d6fe2cf46b",
+      "docs/api-and-library.md": "c47f793cd0298d1e3cf4a913941ddacfbbccdf76660cbf8daac41f737138376d",
+      "frontend/test/harden_llm_web/live/workspace_live_test.exs": "a51502660c9d65d6f307baa8f9df4f644e99638b76ff4ea61a53f6365f164eb4",
+      "internal/profiles/default-profile-catalog.json": "e90d4c8551a742e936d33317902715376ed5394ded233259d2c10758490a4ad3",
+      "internal/profiles/default_catalog_test.go": "1fe2bac6125ca21f60c2013b5d5a7d2d896d3e77cdf8b6c5b9a872bd5d9ca205",
+      "internal/providers/default_profile_catalog_test.go": "28eaa4658ee797bf3db88e48161e0341b1f0240bf8b23f0cc962ace193ec6361",
+      "internal/providers/live_test.go": "b45b69c539bd426a9119652f891e807f6bc241657c3f99321641f1d17bf27172",
+      "internal/providers/normalization_test.go": "b292da14a3f36805d42364a9f430be716809d6eedb8475a169f5e4303d9a25ba",
+      "internal/providers/normalize.go": "dfb6482626b90e9e59f535afe4bf5ba08e2c06cffe6feeaf9dba930ce50deb29",
+      "internal/providers/optional_system_prompt_test.go": "b427b1061917e17651bcb37781a099d0eb8181c9eca27b95e0f161122a458274",
+      "internal/providers/payload.go": "2b076d05a89fbb3613706d440e728515319614992b80428551a7e5cd00971e41",
+      "internal/providers/search_result.go": "8da25efb524ada3bc714b1db207c700705cf696022e16320618665b44e435788",
+      "internal/providers/web_search_contract_test.go": "1aeea8b3dac3f990e7f658eb5c5c5817ae8f2e6161bf0788196e01bb6579d2ac",
+      "plans/from_utility-llm/harden-llm-self-hosted-test-spec.md": "0b19fd7d5126548d688b6a2016a17db3b2e0ee7163ae579f795e5d6097a282ab"
+    },
+    "sourceBinding": "Local/live acceptance preceded commit; committed application/test bytes equal the tested bytes. Hosted release tested the exact merged SHA. Subsequent closeout changes are documentation only.",
+    "fast": {
+      "accepted": true,
+      "manifestSHA256": "23743ffafb41250f81bd84eb1b11cd639dd23b87248ecf943bbe251ecc411bc5",
+      "generatedAt": "2026-10-05T02:56:55.635Z",
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "tasks": 10,
+      "results": {
+        "go-static": 0,
+        "runner-contracts": 0,
+        "go-unit": 0,
+        "go-parity": 0,
+        "go-api": 0,
+        "go-observability": 0,
+        "frontend-deterministic": 0,
+        "client-core": 0,
+        "run-progress-client": 0,
+        "widget-traceability": 0
+      }
+    },
+    "release": {
+      "accepted": true,
+      "manifestSHA256": "23743ffafb41250f81bd84eb1b11cd639dd23b87248ecf943bbe251ecc411bc5",
+      "generatedAt": "2026-10-05T03:12:03.610Z",
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "tasks": 29,
+      "results": {
+        "go-format": 0,
+        "go-lint": 0,
+        "go-build": 0,
+        "go-static": 0,
+        "runner-contracts": 0,
+        "production-config-compose": 0,
+        "go-unit": 0,
+        "go-parity": 0,
+        "go-integration": 0,
+        "go-integration-race": 0,
+        "garage-restart-exclusive": 0,
+        "go-api": 0,
+        "go-observability": 0,
+        "go-compose": 0,
+        "go-compose-contract": 0,
+        "go-race": 0,
+        "go-vulnerability": 0,
+        "frontend-format": 0,
+        "frontend-compile": 0,
+        "frontend-deterministic": 0,
+        "client-core": 0,
+        "run-progress-client": 0,
+        "widget-traceability": 0,
+        "frontend-deps-audit": 0,
+        "frontend-hex-audit": 0,
+        "frontend-assets-deploy": 0,
+        "frontend-pagination-asset-check": 0,
+        "frontend-release": 0,
+        "backend-verify-baseline": 0
+      }
+    },
+    "hosted": {
+      "fast": "https://github.com/prls-co/harden-llm/actions/runs/37257529718",
+      "codeQL": "https://github.com/prls-co/harden-llm/actions/runs/37257529654",
+      "release": "https://github.com/prls-co/harden-llm/actions/runs/37257531794",
+      "releaseAttempt": 1
+    },
+    "liveProviders": {
+      "test": "TEST-037",
+      "accepted": true,
+      "configuredProfiles": [
+        "Perplexity DeepSeek V4 Pro 0813",
+        "Perplexity GLM 5.3",
+        "Perplexity GLM 5.3 Flash",
+        "Perplexity Kimi K3",
+        "Perplexity Nemotron 3 Ultra",
+        "Perplexity Sonar"
+      ],
+      "profileCount": 6,
+      "inferenceCalls": 12,
+      "callTypes": [
+        "text",
+        "structured"
+      ],
+      "cacheMode": "off",
+      "maxAttempts": 1,
+      "assertionOracleUnchanged": true,
+      "providerIntervalMs": 1200,
+      "parallel": 1,
+      "pacing": "Optional process-owned test gate spaces credential admission from the previous actual admission; no production limiter or retry added."
+    },
+    "libraryNativeSearch": {
+      "accepted": true,
+      "accounting": {
+        "result": {
+          "usage": {
+            "inputTokens": 1184,
+            "cacheReadTokens": 0,
+            "cacheCreationTokens": 0,
+            "outputTokens": 89,
+            "reasoningTokens": 0,
+            "promptTokens": 1184,
+            "completionTokens": 89,
+            "totalTokens": 1273,
+            "status": "complete"
+          },
+          "cost": {
+            "knownSubtotalUsd": 0.00302,
+            "status": "exact",
+            "source": "reported",
+            "knownObservations": 1,
+            "unknownObservations": 0
+          }
+        },
+        "provider": {
+          "usage": {
+            "inputTokens": 1184,
+            "cacheReadTokens": 0,
+            "cacheCreationTokens": 0,
+            "outputTokens": 89,
+            "reasoningTokens": 0,
+            "promptTokens": 1184,
+            "completionTokens": 89,
+            "totalTokens": 1273,
+            "status": "complete"
+          },
+          "cost": {
+            "knownSubtotalUsd": 0.00302,
+            "status": "exact",
+            "source": "reported",
+            "knownObservations": 1,
+            "unknownObservations": 0
+          }
+        }
+      },
+      "attempts": 1,
+      "executed": true,
+      "mode": "native",
+      "modelID": "perplexity/sonar",
+      "outputPresent": true,
+      "profile": "Perplexity Sonar",
+      "sourceCount": 1
+    },
+    "browserRun": false,
+    "fullConfiguredMatrixRerun": false
+  },
+  "production": {
+    "environmentURL": "https://harden-llm.prls.co/",
+    "apiURL": "https://harden-llm-api.prls.co/",
+    "portalLoginURL": "https://a.prls.co/login",
+    "deployedServices": [
+      "harden-llm-gateway"
+    ],
+    "sourceCheck": "Running gateway version, OCI revision/version, release environment and image ID all match the exact application SHA.",
+    "descriptorEquivalent": true,
+    "descriptorChangedFields": [
+      "serviceImageOverrides.harden-llm-gateway",
+      "services.harden-llm-gateway.expectedImage",
+      "services.harden-llm-gateway.identityEnvironment.HARDEN_LLM_RELEASE",
+      "serviceEnvironmentOverrides.harden-llm-gateway.HARDEN_LLM_RELEASE"
+    ],
+    "descriptorAndSharedConfigurationMode": "0600",
+    "containers": [
+      {
+        "service": "otel-collector",
+        "container": "harden-llm-otel-collector-1",
+        "containerID": "32daddb31bd7018423b62b1ee1ad270b2241fc777489b89bb33d005d7b73c1d3",
+        "imageID": "sha256:125bdbeb7590cc1952c5b3430ecf14063568980c2c93d5b38676cc0446ed8108",
+        "sourceLabel": "aa158b23c8f89d795b21a05a49b3978565dfebd4",
+        "releaseEnvironment": {
+          "HARDEN_LLM_RELEASE": "729804cdfab9ff5c2e9dd75c64609cddd6773557"
+        },
+        "startedAt": "2026-10-04T07:49:27.031036814Z",
+        "restartCount": 0,
+        "health": "healthy",
+        "status": "running"
+      },
+      {
+        "service": "loki",
+        "container": "harden-llm-loki-1",
+        "containerID": "8398992c73d5fc0872c236e31c6d9bb18aea7d7ab601296694f6ed95751b59b3",
+        "imageID": "sha256:191d4fdfb7264f16989f0a57f320872620a5a7c2ceeec6229212c4190ec49b86",
+        "sourceLabel": null,
+        "releaseEnvironment": {},
+        "startedAt": "2026-10-04T07:49:11.10491943Z",
+        "restartCount": 0,
+        "health": "healthy",
+        "status": "running"
+      },
+      {
+        "service": "harden-llm-web",
+        "container": "harden-llm-harden-llm-web-1",
+        "containerID": "390dfc5d3f9dfb6df325edec84434bc0828a7052e911257b95f0d4c2382c1d67",
+        "imageID": "sha256:c8f5dd73e1c792f321ed76c2aa06e010951c5508d06c4cc0c7393dc4b6c8028a",
+        "sourceLabel": null,
+        "releaseEnvironment": {
+          "HARDEN_LLM_WEB_RELEASE": "61e249c7f642ae13a02442ae416a06b2f6d3ffb6",
+          "HARDEN_LLM_RELEASE": "61e249c7f642ae13a02442ae416a06b2f6d3ffb6"
+        },
+        "startedAt": "2026-10-05T02:05:09.28971328Z",
+        "restartCount": 0,
+        "health": "healthy",
+        "status": "running"
+      },
+      {
+        "service": "harden-llm-gateway",
+        "container": "harden-llm-harden-llm-gateway-1",
+        "containerID": "3cda50dfeb292fad8e5a2469017aa62c2b31aeee15cad7e42b564359f102fd04",
+        "imageID": "sha256:865d3b3f134b6e3bfbbeadd545cb014a0b11ab795678506d5cde3ef96a5a46f9",
+        "sourceLabel": "5bb83fbf1e3a917649b4eef59c37a9f383a36eb4",
+        "releaseEnvironment": {
+          "HARDEN_LLM_RELEASE": "5bb83fbf1e3a917649b4eef59c37a9f383a36eb4"
+        },
+        "startedAt": "2026-10-05T03:16:59.057523574Z",
+        "restartCount": 0,
+        "health": "healthy",
+        "status": "running"
+      },
+      {
+        "service": "harden-postgres",
+        "container": "harden-llm-harden-postgres-1",
+        "containerID": "34f1946622fac65ea5d89eabe825140bc9e225d3dd75d4a33051f413bdf5b546",
+        "imageID": "sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609",
+        "sourceLabel": null,
+        "releaseEnvironment": {},
+        "startedAt": "2026-10-04T07:49:11.121109115Z",
+        "restartCount": 0,
+        "health": "healthy",
+        "status": "running"
+      },
+      {
+        "service": "prometheus",
+        "container": "harden-llm-prometheus-1",
+        "containerID": "4122d08a7710d0466c98671073133b9d1e85cc060f11345bc589f16ccfdd2bfb",
+        "imageID": "sha256:69f5241418838263316593f7274a304b095c40bcf22e57272865da91bd60a8ac",
+        "sourceLabel": null,
+        "releaseEnvironment": {},
+        "startedAt": "2026-10-04T07:49:11.102670424Z",
+        "restartCount": 0,
+        "health": "healthy",
+        "status": "running"
+      },
+      {
+        "service": "tempo",
+        "container": "harden-llm-tempo-1",
+        "containerID": "3a3d4416cbea42537c684220d5ae6f59910bfc8632ee234b0c349fa6df67eefc",
+        "imageID": "sha256:ee21727732c7a7199cb71c3eee9153bbf23f9b0b87619f0555a0cf21a67f1a33",
+        "sourceLabel": null,
+        "releaseEnvironment": {},
+        "startedAt": "2026-10-04T07:49:11.126304095Z",
+        "restartCount": 0,
+        "health": "healthy",
+        "status": "running"
+      },
+      {
+        "service": "grafana",
+        "container": "harden-llm-grafana-1",
+        "containerID": "93c87fe0939c4bd5bc0099cd97101209d96f32f2f9d0ef6e6663129c861dc571",
+        "imageID": "sha256:5dad0df181cb644a14e13617b913b261a54f7d4fd4510721dba420929f35bea2",
+        "sourceLabel": null,
+        "releaseEnvironment": {},
+        "startedAt": "2026-10-04T07:49:27.028578566Z",
+        "restartCount": 0,
+        "health": "healthy",
+        "status": "running"
+      }
+    ],
+    "retainedServiceCount": 7,
+    "otherContainerIDsAndImagesUnchanged": true,
+    "frontendSourceQualification": "Retained Portal frontend image has no source/revision label. Its declared release environment 61e249c7f642ae13a02442ae416a06b2f6d3ffb6 is recorded separately and does not prove its build source. No frontend was built or deployed for this change.",
+    "composeSourcePreserved": "Unrelated clean production checkout cc57b9ac7ba4ed525e103bcca32ca0ecdc07496c was preserved; gateway image was built from an isolated exact-SHA checkout.",
+    "publicHTTP": {
+      "checkedAt": "2026-10-05T03:22:31.573Z",
+      "accepted": true,
+      "checks": [
+        {
+          "url": "https://harden-llm.prls.co/healthz",
+          "status": 200
+        },
+        {
+          "url": "https://a.prls.co/login",
+          "status": 200
+        },
+        {
+          "url": "https://harden-llm.prls.co/",
+          "status": 302
+        },
+        {
+          "url": "https://harden-llm-api.prls.co/healthz",
+          "status": 200
+        },
+        {
+          "url": "https://harden-llm-api.prls.co/readyz",
+          "status": 200
+        },
+        {
+          "url": "https://harden-llm-api.prls.co/api/v1/profiles",
+          "status": 401
+        }
+      ]
+    },
+    "profileReadback": {
+      "checkedAt": "2026-10-05T03:21:10.531Z",
+      "retired": [
+        "Perplexity Sonar Pro",
+        "Perplexity Sonar Reasoning Pro"
+      ],
+      "users": [
+        {
+          "label": "administrator",
+          "before": 31,
+          "after": 31,
+          "configured": 21,
+          "deleted": [],
+          "retiredSelection": false,
+          "retiredEndpointAbsent": true
+        },
+        {
+          "label": "verification",
+          "before": 31,
+          "after": 31,
+          "configured": 21,
+          "deleted": [],
+          "retiredSelection": false,
+          "retiredEndpointAbsent": true
+        }
+      ],
+      "inferenceCalls": 0,
+      "accepted": true
+    },
+    "profileSyncIdempotence": {
+      "users": 2,
+      "profiles": 31,
+      "configured": 21,
+      "changed": false
+    },
+    "embeddedSeedProfiles": 29,
+    "profilesPerProvisionedUser": 31,
+    "configuredBindingsPerProvisionedUser": 21,
+    "retirementMethod": "Trusted sync reconfigures Sonar and adds five presets; existing profile DELETE removes the two retired presets per explicit user and prunes unused endpoint credentials. Repeated reads do not recreate them.",
+    "database": {
+      "owners": 2,
+      "profiles": 62,
+      "configuredBindings": 42,
+      "legacyPerplexityProfiles": 0,
+      "orphanCredentials": 0,
+      "runs": 0
+    },
+    "artifactInventory": {
+      "schemaVersion": 1,
+      "scannedObjects": 0,
+      "metadataReferences": 0,
+      "activeOperationReferences": 0,
+      "referencedObjects": 0,
+      "activeOperationObjects": 0,
+      "missingAvailableObjects": 0,
+      "unreferencedYoungObjects": 0,
+      "unreferencedAgedObjects": 0,
+      "truncated": false,
+      "healthy": true
+    },
+    "paidProviderCalls": {
+      "checkedAt": "2026-10-05T03:19:50.264Z",
+      "environmentURL": "https://harden-llm-api.prls.co",
+      "cacheMode": "off",
+      "maxAttempts": 1,
+      "calls": [
+        {
+          "profile": "Perplexity DeepSeek V4 Pro 0813",
+          "modelID": "perplexity/deepseek-v4-pro-0813",
+          "callType": "text",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 1328
+        },
+        {
+          "profile": "Perplexity DeepSeek V4 Pro 0813",
+          "modelID": "perplexity/deepseek-v4-pro-0813",
+          "callType": "structured",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 965
+        },
+        {
+          "profile": "Perplexity GLM 5.3",
+          "modelID": "perplexity/glm-5.3",
+          "callType": "text",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 1004
+        },
+        {
+          "profile": "Perplexity GLM 5.3",
+          "modelID": "perplexity/glm-5.3",
+          "callType": "structured",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 3111
+        },
+        {
+          "profile": "Perplexity GLM 5.3 Flash",
+          "modelID": "perplexity/glm-5.3-flash",
+          "callType": "text",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 952
+        },
+        {
+          "profile": "Perplexity GLM 5.3 Flash",
+          "modelID": "perplexity/glm-5.3-flash",
+          "callType": "structured",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 1423
+        },
+        {
+          "profile": "Perplexity Kimi K3",
+          "modelID": "perplexity/kimi-k3",
+          "callType": "text",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 944
+        },
+        {
+          "profile": "Perplexity Kimi K3",
+          "modelID": "perplexity/kimi-k3",
+          "callType": "structured",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 1462
+        },
+        {
+          "profile": "Perplexity Nemotron 3 Ultra",
+          "modelID": "perplexity/nemotron-3-ultra-550b-a55b",
+          "callType": "text",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 957
+        },
+        {
+          "profile": "Perplexity Nemotron 3 Ultra",
+          "modelID": "perplexity/nemotron-3-ultra-550b-a55b",
+          "callType": "structured",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 1052
+        },
+        {
+          "profile": "Perplexity Sonar",
+          "modelID": "perplexity/sonar",
+          "callType": "text",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 5968
+        },
+        {
+          "profile": "Perplexity Sonar",
+          "modelID": "perplexity/sonar",
+          "callType": "structured",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 1538
+        }
+      ],
+      "accepted": true,
+      "workspaceStateUnchanged": true,
+      "cleanupComplete": true,
+      "deletedHistoryCount": 12
+    },
+    "nativeSearchCalls": {
+      "checkedAt": "2026-10-05T03:21:39.899Z",
+      "environmentURL": "https://harden-llm-api.prls.co",
+      "cacheMode": "off",
+      "maxAttempts": 1,
+      "calls": [
+        {
+          "searchExecuted": true,
+          "sourceCount": 15,
+          "profile": "Perplexity Sonar",
+          "modelID": "perplexity/sonar",
+          "callType": "text",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 3411
+        },
+        {
+          "searchExecuted": true,
+          "sourceCount": 15,
+          "profile": "Perplexity Sonar",
+          "modelID": "perplexity/sonar",
+          "callType": "structured",
+          "status": "succeeded",
+          "providerInvoked": true,
+          "attempts": 1,
+          "usedRepair": false,
+          "accountingAccepted": true,
+          "durationMs": 3815
+        }
+      ],
+      "accepted": true,
+      "workspaceStateUnchanged": true,
+      "cleanupComplete": true,
+      "deletedHistoryCount": 2
+    }
+  },
+  "failedAttemptsRetained": {
+    "originalRCA": "All three legacy Perplexity text requests returned HTTP 400: validation failed: message 0: content cannot be empty. Removing only the empty message gave HTTP 200 for all three; two separate explicit HTTP 429 results were not accepted as inference proof.",
+    "newAgentAccounting": "Initial run exposed five invalid-accounting failures from USD cost objects and one HTTP 429; cheap accounting regression preceded the strict parser correction.",
+    "pacing": "An intermediate ticker allowed stale ticks to release consecutive requests; four profiles passed and two structured requests returned HTTP 429. Replaced stale-tick pacing with actual-admission spacing without changing one-attempt assertions.",
+    "operatorHarness": [
+      "Native-search harness initially omitted required explicit retryOn; corrected before inference.",
+      "Readback comparison initially differed only in RFC3339 fractional trailing zero padding; canonicalization preserves the exact nanosecond instant.",
+      "HTTP inspector used old HLLM login and guessed an unsupported version route; final checks use the configured Portal and published health/auth routes, with binary version for source identity.",
+      "Descriptor CLI output and Postgres service/auth assumptions were corrected to the actual interfaces before final inspection."
+    ],
+    "privateEvidenceRetained": true,
+    "providerOutputPublished": false,
+    "credentialsPublished": false
+  },
+  "remainingProviderScope": {
+    "issue": "https://github.com/prls-co/harden-llm/issues/92",
+    "unresolvedHistoricalFailures": 3,
+    "profiles": [
+      "Novita DeepSeek V4 Flash (text)",
+      "OpenRouter DeepSeek V4 Pro (text)",
+      "Novita DeepSeek V4 Pro (structured)"
+    ],
+    "error": "ACCOUNTING_INVALID",
+    "completeMatrixAccepted": false,
+    "retainedGeminiEvidence": "plans/evidence/harden-llm/gemini-provider-fix-20261004.json",
+    "geminiRerun": false
+  }
+}

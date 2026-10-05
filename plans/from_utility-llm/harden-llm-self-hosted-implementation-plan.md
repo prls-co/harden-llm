@@ -1451,7 +1451,7 @@ Target locations:
 | TEST-014 | Endpoint policy | unit | REQ-005 | `internal/providers/endpoint_policy_test.go` | `go test ./internal/providers/... -run TestEndpointPolicy -count=1` | DNS/IP/TLS/header fixtures | injected resolver/dialer | Adversarial cases cause zero unintended dials | 15s |
 | TEST-015 | Usage and pricing | unit | REQ-007, REQ-018 | `internal/pricing/usage_cost_test.go` | `go test ./internal/pricing/... -run TestUsageCostParity -count=1` | usage/pricing goldens | fixed catalog | Usage/cost parity passes | 10s |
 | TEST-016 | Trace and stats | unit | REQ-007, REQ-018, REQ-020 | `internal/traces/parity_test.go`, `internal/stats/parity_test.go` | `go test ./internal/traces/... ./internal/stats/... -run TestParity -count=1` | trace/stats/artifact goldens | fixed time/IDs | Domain and artifact projections match source semantics | 10s |
-| TEST-017 | Profiles and current catalog seed | unit/integration | REQ-003, REQ-004, REQ-007, REQ-008, REQ-009, REQ-010, REQ-018, REQ-019 | `internal/profiles/default_catalog_test.go`, `internal/profiles/profile_test.go`, `internal/providers/default_profile_catalog_test.go`, `internal/gateway/profile_seed_test.go` | `go test ./internal/profiles/... ./internal/providers/... -run 'Test(DefaultCatalogParity\|ProfileParity\|DefaultProfileCatalogParity)' -count=1`; tagged Postgres seed command | current 26-profile source-derived catalog under ADR-HLLM-013, graph fixtures, fixed endpoint resolver, isolated Postgres | no credentials/network for unit; owner advisory lock for seed | Current source catalog, every-profile preparation, credential non-disclosure, graph rules, concurrent missing-row backfill, and custom-row preservation pass | 10s unit; 90s integration |
+| TEST-017 | Profiles and current catalog seed | unit/integration | REQ-003, REQ-004, REQ-007, REQ-008, REQ-009, REQ-010, REQ-018, REQ-019 | `internal/profiles/default_catalog_test.go`, `internal/profiles/profile_test.go`, `internal/providers/default_profile_catalog_test.go`, `internal/gateway/profile_seed_test.go` | `go test ./internal/profiles/... ./internal/providers/... -run 'Test(DefaultCatalogParity\|ProfileParity\|DefaultProfileCatalogParity)' -count=1`; tagged Postgres seed command | current 29-profile amended catalog under ADR-HLLM-013, graph fixtures, fixed endpoint resolver, isolated Postgres | no credentials/network for unit; owner advisory lock for seed | Current source catalog, every-profile preparation, credential non-disclosure, graph rules, concurrent missing-row backfill, and custom-row preservation pass | 10s unit; 90s integration |
 | TEST-018 | Credential bundle | unit | REQ-008, REQ-018 | `internal/profiles/credentials_test.go` | `go test ./internal/profiles/... -run TestCredentialBundle -count=1` | test keys/bundles | injected random reader | Encryption, tamper, AAD, and bundle cases pass | 10s |
 | TEST-019 | Diagnostics bundle | unit | REQ-007, REQ-013, REQ-020 | `internal/diagnostics/bundle_test.go` | `go test ./internal/diagnostics/... -run TestDiagnosticsBundle -count=1` | adversarial secrets and artifact failures | fixed identity | Bundle/artifact references validate with zero leaks and non-fatal storage failure | 10s |
 | TEST-020 | Postgres repositories | integration | REQ-009, REQ-020 | `internal/postgres/repository_test.go` | `go test ./internal/postgres/... -tags=integration -run TestRepositoryContract -count=1` | isolated Harden-LLM Postgres | concurrent runners | Migrations, schema, artifact indexes, and round trips pass without Langfuse access | 90s |
@@ -1788,14 +1788,21 @@ Privacy and data-quality constraints:
 
 ### Post-certification profile catalog amendment
 
-Current catalog update (2026-10-04): ADR-HLLM-013 retires `CPA GPT-5.4` and
-`CPA GPT-5.4 Mini` after authenticated CPA discovery confirmed their removal.
-The seed now contains 26 profiles. `TEST-017` and `WEB-TEST-054` retain exact
-catalog/preparation/rendering assertions for these 26 entries; the deployment
-sequence is updated seed, existing profile DELETE operations, then trusted
-profile sync with freshly discovered model lists. Issue #92 tracks the other
-provider failures. The 28-entry import and its verification below are the
-original provenance record.
+Current catalog update (2026-10-04): ADR-HLLM-013 first retired `CPA GPT-5.4`
+and `CPA GPT-5.4 Mini` after authenticated CPA discovery confirmed their removal,
+reducing the seed to 26. The subsequent Perplexity update replaces three legacy
+Sonar presets with six current Agent API models, bringing the seed to 29.
+`TEST-017` and `WEB-TEST-054` retain exact catalog/preparation/rendering assertions
+for all current entries. Production received the updated gateway, trusted sync
+applied the current profiles, and existing profile DELETE operations removed
+the two retired Sonar presets per provisioned user. Both users now have 31
+profiles and 21 configured bindings, with idempotent sync and no orphan
+credentials. Six Perplexity profiles passed library/production text and
+structured calls; Sonar native search also passed. See the
+[release record](../../docs/release-certification.md#perplexity-agent-api-and-model-catalog--production-2026-10-04).
+Issue #92 retains three unrelated accounting failures; the complete configured
+paid matrix was not rerun. The 28-entry import and its verification below are
+the original provenance record.
 
 - Amendment: `P07.S10 Reconcile the current utility-llm profile catalog and all-profile tests`
 - Status: Complete in the current worktree; deterministic verification and the tagged Postgres seed verification passed.
