@@ -262,3 +262,27 @@ is used for deterministic/local fixtures and does not contain provider keys.
 New environments must provision the approved external catalog with
 `sync-profiles` before relying on the Astra defaults; configuration sync and
 live provider acceptance remain separately evidenced boundaries.
+
+## 7. CPA catalog refresh and preset retirement — 2026-10-04
+
+The current shared catalog has **30 managed profiles and 20 configured
+bindings per provisioned user**. An authenticated read of
+`https://cpa.prls.co/v1/models` confirmed 32 available model IDs, excluding
+`gpt-5.4` and `gpt-5.4-mini`. The `CPA GPT-5.4` and `CPA GPT-5.4 Mini`
+profiles and credential references are removed from the trusted host JSON;
+retained CPA profiles carry the freshly discovered model list, including
+GPT-6 Astra, Luna, Sol and GPT-6.1 Sol. Other providers retain their profiles.
+
+The embedded seed now has 26 profiles under ADR-HLLM-013. Production first
+received that seed, then the existing profile DELETE endpoint removed both
+retired profiles for each of the two provisioned users. Trusted `sync-profiles`
+applied the refreshed lists; a second sync returned `changed: false`.
+Authenticated readback verified 30 profiles and 20 configured bindings for
+both users. Postgres has no retired profile or orphan credential rows, and
+saved workspace state is unchanged.
+
+See the [release record](release-certification.md#cpa-preset-retirement-and-model-list-refresh--production-2026-10-04)
+for exact source/image identities and fresh deterministic, release and HTTP
+checks. Model listing establishes availability metadata, not paid inference
+acceptance; the remaining provider failures are tracked in
+[issue 92](https://github.com/prls-co/harden-llm/issues/92).

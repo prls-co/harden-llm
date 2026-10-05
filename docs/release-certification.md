@@ -2444,3 +2444,34 @@ records each matrix result and distinguishes the passing release/browser gates
 from the failing paid-provider gate. The authoritative current frontend source
 in `plans/implementation-status.json` is also updated. Test/document changes
 after the application release do not require an application image rebuild.
+
+### CPA preset retirement and model-list refresh — production (2026-10-04)
+
+An authenticated CPA `/v1/models` read at `2026-10-04T23:33:10.792Z`
+confirmed that `gpt-5.4` and `gpt-5.4-mini` are unavailable. Their two CPA
+presets are retired from the embedded seed and trusted host configuration.
+Retained CPA profiles now carry the fresh 32-model list, including GPT-6
+Astra, Luna, Sol and GPT-6.1 Sol. Other providers' profiles remain unchanged;
+new inference/pricing/reasoning presets were not invented from discovery
+metadata.
+
+| Boundary | Verified result |
+| --- | --- |
+| Source and deployment | Branch `main`; gateway source/OCI revision `38b56fd3900175a6507e4e96a955eabddf20d01a`; gateway image `sha256:23b10e3b9ddb92c9225fb98e03de6223085e9e1a6ef20b44ee1a3eac22a2551d`. |
+| Retained components | Web source `1e20dbaa1d8b259ec922665ac4799063f3a6149f`, image `sha256:0671d3a2ee2647dc900559332605e66585890b9e2e6f24c1acee2b7dddba67d5`. Its container and all six support containers retained their IDs and images. The eight-service descriptor check passed. |
+| Deterministic and release gates | `make test-fast`: 10/10; `make test-release`: 29/29, including real Postgres seed/concurrency, integration/race, Garage, Compose, asset, backend aggregate and vulnerability checks. Zero cleanup errors/warnings. `TEST-017` retains exact catalog and every-profile preparation assertions; `WEB-TEST-054` checks all 26 retained presets and absence of both retired CPA profiles. |
+| Hosted checks | Application [fast](https://github.com/prls-co/harden-llm/actions/runs/37245442612) and [CodeQL](https://github.com/prls-co/harden-llm/actions/runs/37245442149) passed for the exact gateway source. The [main preview workflow](https://github.com/prls-co/harden-llm/actions/runs/37245594901) skipped before runner allocation. |
+| Saved profiles and credentials | Updated seed deployed before deletion. Existing DELETE operations removed two profiles per user; trusted profile sync refreshed the model lists. Both provisioned users now have 30 profiles and 20 credentials, zero retired profiles, and zero orphan credentials. Repeated profile reads did not recreate the retired seeds. Second sync returned `changed: false`. Original workspace state was retained and probe sessions logged out. |
+| Public HTTP | [Web](https://harden-llm.prls.co/) health, [API](https://harden-llm-api.prls.co/) health/readiness, both actual logins, owner-scoped profile readback and verification-token reads passed. Anonymous profiles returned HTTP 401. Each retained CPA list exactly matches the discovery result. |
+
+Browser and paid inference checks were not rerun for this catalog change.
+The prior 7/22 passing matrix remains failed and preserved as original
+evidence. After explicitly retiring its two unavailable CPA profiles,
+[issue 92](https://github.com/prls-co/harden-llm/issues/92) has 13 unresolved
+profile failures; the retained paid matrix has 20 configured profiles and
+has not been rerun. Ten catalog profiles remain unconfigured.
+
+[Bounded catalog/deployment evidence](../plans/evidence/harden-llm/cpa-preset-update-20261004.json)
+records the discovery IDs, component identities, task results and readback.
+Documentation-only closeout after the gateway source does not require another
+application image build.

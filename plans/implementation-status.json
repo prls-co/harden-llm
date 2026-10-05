@@ -709,22 +709,25 @@
       }
     },
     "applicationRelease": {
-      "applicationBearingSHA": "1e20dbaa1d8b259ec922665ac4799063f3a6149f",
+      "applicationBearingSHA": "38b56fd3900175a6507e4e96a955eabddf20d01a",
       "frontendRelease": "1e20dbaa1d8b259ec922665ac4799063f3a6149f",
-      "gatewayRelease": "07a7781cf735764c1cb31b02a75df7d647b78a18",
+      "gatewayRelease": "38b56fd3900175a6507e4e96a955eabddf20d01a",
       "project": "harden-llm",
-      "evidencePath": "plans/evidence/harden-llm/production-checks-20261004.json"
+      "evidencePath": "plans/evidence/harden-llm/cpa-preset-update-20261004.json"
     },
     "latestProductionCertification": {
-      "mergedApplicationSHA": "1e20dbaa1d8b259ec922665ac4799063f3a6149f",
-      "testSourceSHA": "f1c3ec873e9c20ff61182622bf5f46bf3e1c3f2e",
-      "certifiedAt": "2026-10-04T21:55:55.235775Z",
-      "evidencePath": "plans/evidence/harden-llm/production-checks-20261004.json",
-      "releaseTier": "29 browser-free tasks passed at the application source; final fast gate 10/10; local browser 4/4, Compose browser 1/1 and production browser 1/1 passed",
-      "frontendOnly": true,
-      "browserLayoutChecked": true,
+      "mergedApplicationSHA": "38b56fd3900175a6507e4e96a955eabddf20d01a",
+      "testSourceSHA": "38b56fd3900175a6507e4e96a955eabddf20d01a",
+      "certifiedAt": "2026-10-04T23:57:09.046Z",
+      "evidencePath": "plans/evidence/harden-llm/cpa-preset-update-20261004.json",
+      "releaseTier": "29 browser-free release tasks and 10 fast tasks passed with zero failures or cleanup errors",
+      "frontendOnly": false,
+      "gatewayOnly": true,
+      "browserLayoutChecked": false,
       "httpVerificationAccepted": true,
       "paidProvidersAccepted": false,
+      "paidProvidersRun": false,
+      "retainedBrowserProviderEvidence": "plans/evidence/harden-llm/production-checks-20261004.json",
       "providerFollowupIssue": "https://github.com/prls-co/harden-llm/issues/92"
     },
     "previousProductionCertification": {

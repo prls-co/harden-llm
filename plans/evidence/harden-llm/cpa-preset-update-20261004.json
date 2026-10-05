@@ -1,0 +1,371 @@
+{
+  "schemaVersion": 1,
+  "accepted": true,
+  "scope": "CPA preset retirement and model-list refresh",
+  "recordedAt": "2026-10-04T23:57:09.046Z",
+  "catalog": {
+    "endpoint": "https://cpa.prls.co/v1/models",
+    "checkedAt": "2026-10-04T23:33:10.792Z",
+    "models": [
+      "claude-3-5-haiku-20241022",
+      "claude-3-7-sonnet-20250219",
+      "claude-fable-5",
+      "claude-fable-5-1",
+      "claude-haiku-4-5-20251001",
+      "claude-opus-4-1-20250805",
+      "claude-opus-4-20250514",
+      "claude-opus-4-5-20251101",
+      "claude-opus-4-6",
+      "claude-opus-4-7",
+      "claude-opus-4-8",
+      "claude-opus-5",
+      "claude-opus-5-5",
+      "claude-sonnet-4-20250514",
+      "claude-sonnet-4-5-20250929",
+      "claude-sonnet-4-6",
+      "claude-sonnet-5",
+      "claude-sonnet-5-5",
+      "codex-auto-review",
+      "gpt-5.5",
+      "gpt-5.6-luna",
+      "gpt-5.6-sol",
+      "gpt-5.6-terra",
+      "gpt-6-astra",
+      "gpt-6-luna",
+      "gpt-6-sol",
+      "gpt-6.1-sol",
+      "gpt-image-1.5",
+      "gpt-image-2",
+      "gpt-image-2.5",
+      "gpt-image-2.5-flare",
+      "gpt-image-2.5-sunburst"
+    ],
+    "retiredProfiles": [
+      "CPA GPT-5.4",
+      "CPA GPT-5.4 Mini"
+    ],
+    "embeddedPresets": 26,
+    "managedProfiles": 30,
+    "configuredProfiles": 20,
+    "cpaProfilesRefreshed": 4
+  },
+  "deployment": {
+    "accepted": true,
+    "sourceBranch": "main",
+    "gatewaySource": "38b56fd3900175a6507e4e96a955eabddf20d01a",
+    "gatewayImage": {
+      "tag": "harden-llm-gateway:release-38b56fd3900175a6507e4e96a955eabddf20d01a",
+      "id": "sha256:23b10e3b9ddb92c9225fb98e03de6223085e9e1a6ef20b44ee1a3eac22a2551d"
+    },
+    "webSource": "1e20dbaa1d8b259ec922665ac4799063f3a6149f",
+    "webImage": "sha256:0671d3a2ee2647dc900559332605e66585890b9e2e6f24c1acee2b7dddba67d5",
+    "sevenOtherContainersUnchanged": true,
+    "descriptorEquivalent": true,
+    "servicesChecked": 8
+  },
+  "tests": {
+    "fast": {
+      "command": "make test-fast",
+      "accepted": true,
+      "tasks": 10,
+      "reportPath": "tmp/test-feedback/runner-1791157261414-2185134-7b83ac6c8c0cf82e.json",
+      "reportSHA256": "f0a9a2e6689dc0fa118941f8d24a10debd8355c3b4b77595e86223fbac92fe97",
+      "taskResults": [
+        {
+          "taskId": "go-static",
+          "status": 0
+        },
+        {
+          "taskId": "runner-contracts",
+          "status": 0
+        },
+        {
+          "taskId": "go-unit",
+          "status": 0
+        },
+        {
+          "taskId": "go-parity",
+          "status": 0
+        },
+        {
+          "taskId": "go-api",
+          "status": 0
+        },
+        {
+          "taskId": "go-observability",
+          "status": 0
+        },
+        {
+          "taskId": "frontend-deterministic",
+          "status": 0
+        },
+        {
+          "taskId": "client-core",
+          "status": 0
+        },
+        {
+          "taskId": "run-progress-client",
+          "status": 0
+        },
+        {
+          "taskId": "widget-traceability",
+          "status": 0
+        }
+      ],
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "release": {
+      "command": "make test-release",
+      "accepted": true,
+      "tasks": 29,
+      "reportPath": "tmp/test-feedback/runner-1791158048965-2208460-09c03b3195fea56b.json",
+      "reportSHA256": "1b6a5d0e4b5a6e1d71f21c1a51a9cd8bf83227f91d7594c1ba4ad26b85fac5af",
+      "taskResults": [
+        {
+          "taskId": "go-format",
+          "status": 0
+        },
+        {
+          "taskId": "go-lint",
+          "status": 0
+        },
+        {
+          "taskId": "go-build",
+          "status": 0
+        },
+        {
+          "taskId": "go-static",
+          "status": 0
+        },
+        {
+          "taskId": "runner-contracts",
+          "status": 0
+        },
+        {
+          "taskId": "production-config-compose",
+          "status": 0
+        },
+        {
+          "taskId": "go-unit",
+          "status": 0
+        },
+        {
+          "taskId": "go-parity",
+          "status": 0
+        },
+        {
+          "taskId": "go-integration",
+          "status": 0
+        },
+        {
+          "taskId": "go-integration-race",
+          "status": 0
+        },
+        {
+          "taskId": "garage-restart-exclusive",
+          "status": 0
+        },
+        {
+          "taskId": "go-api",
+          "status": 0
+        },
+        {
+          "taskId": "go-observability",
+          "status": 0
+        },
+        {
+          "taskId": "go-compose",
+          "status": 0
+        },
+        {
+          "taskId": "go-compose-contract",
+          "status": 0
+        },
+        {
+          "taskId": "go-race",
+          "status": 0
+        },
+        {
+          "taskId": "go-vulnerability",
+          "status": 0
+        },
+        {
+          "taskId": "frontend-format",
+          "status": 0
+        },
+        {
+          "taskId": "frontend-compile",
+          "status": 0
+        },
+        {
+          "taskId": "frontend-deterministic",
+          "status": 0
+        },
+        {
+          "taskId": "client-core",
+          "status": 0
+        },
+        {
+          "taskId": "run-progress-client",
+          "status": 0
+        },
+        {
+          "taskId": "widget-traceability",
+          "status": 0
+        },
+        {
+          "taskId": "frontend-deps-audit",
+          "status": 0
+        },
+        {
+          "taskId": "frontend-hex-audit",
+          "status": 0
+        },
+        {
+          "taskId": "frontend-assets-deploy",
+          "status": 0
+        },
+        {
+          "taskId": "frontend-pagination-asset-check",
+          "status": 0
+        },
+        {
+          "taskId": "frontend-release",
+          "status": 0
+        },
+        {
+          "taskId": "backend-verify-baseline",
+          "status": 0
+        }
+      ],
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    }
+  },
+  "readback": {
+    "users": [
+      {
+        "label": "administrator",
+        "before": 30,
+        "after": 30,
+        "configured": 20,
+        "deleted": [],
+        "retiredSelection": false,
+        "refreshedListsVerified": true
+      },
+      {
+        "label": "verification",
+        "before": 30,
+        "after": 30,
+        "configured": 20,
+        "deleted": [],
+        "retiredSelection": false,
+        "refreshedListsVerified": true
+      }
+    ],
+    "retiredProfilesRemaining": 0,
+    "orphanCredentials": 0,
+    "workspaceStateUnchanged": true,
+    "probeSessionsLoggedOut": true
+  },
+  "http": {
+    "accepted": true,
+    "checkedAt": "2026-10-04T23:56:10.617Z",
+    "web": "https://harden-llm.prls.co",
+    "api": "https://harden-llm-api.prls.co",
+    "checks": [
+      {
+        "url": "https://harden-llm.prls.co/healthz",
+        "status": 200
+      },
+      {
+        "url": "https://harden-llm-api.prls.co/healthz",
+        "status": 200
+      },
+      {
+        "url": "https://harden-llm-api.prls.co/readyz",
+        "status": 200
+      },
+      {
+        "url": "https://harden-llm-api.prls.co/api/v1/profiles",
+        "status": 401
+      },
+      {
+        "url": "https://harden-llm-api.prls.co/api/v1/profiles",
+        "authentication": "verification API token",
+        "status": 200,
+        "profiles": 30,
+        "configured": 20
+      }
+    ],
+    "browserRun": false,
+    "inferenceCalls": 0
+  },
+  "checksNotRerun": {
+    "browser": true,
+    "paidInference": true
+  },
+  "remainingProviderFailures": {
+    "issue": "https://github.com/prls-co/harden-llm/issues/92",
+    "historicalUnresolvedProfiles": 13,
+    "evidence": "plans/evidence/harden-llm/production-checks-20261004.json",
+    "note": "Original 7/22 passing paid matrix remains failed; two failed CPA profiles explicitly retired. No new paid matrix executed."
+  },
+  "retirement": {
+    "checkedAt": "2026-10-04T23:55:11.414Z",
+    "retired": [
+      "CPA GPT-5.4",
+      "CPA GPT-5.4 Mini"
+    ],
+    "users": [
+      {
+        "label": "administrator",
+        "before": 32,
+        "after": 30,
+        "configured": 20,
+        "deleted": [
+          "CPA GPT-5.4",
+          "CPA GPT-5.4 Mini"
+        ],
+        "retiredSelection": false,
+        "refreshedListsVerified": false
+      },
+      {
+        "label": "verification",
+        "before": 32,
+        "after": 30,
+        "configured": 20,
+        "deleted": [
+          "CPA GPT-5.4",
+          "CPA GPT-5.4 Mini"
+        ],
+        "retiredSelection": false,
+        "refreshedListsVerified": false
+      }
+    ],
+    "inferenceCalls": 0,
+    "accepted": true
+  },
+  "sync": {
+    "users": 2,
+    "profiles": 30,
+    "configured": 20,
+    "firstChanged": true,
+    "secondChanged": false
+  },
+  "hostedChecks": {
+    "fast": {
+      "accepted": true,
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/37245442612"
+    },
+    "codeQL": {
+      "accepted": true,
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/37245442149"
+    },
+    "preview": {
+      "conclusion": "skipped",
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/37245594901"
+    }
+  }
+}
