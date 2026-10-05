@@ -123,3 +123,20 @@ no profile, credential, owner, workspace state or historical accounting is
 reconstructed. See [issue 92](https://github.com/prls-co/harden-llm/issues/92#issuecomment-5988967325)
 for the RCA and [OpenRouter provider selection](https://openrouter.ai/docs/guides/routing/provider-selection)
 for the native routing contract.
+
+## Perplexity GPT-6.1 Sol only — 2026-10-04
+
+The user's catalog adjustment replaces all six Perplexity presets with
+`Perplexity GPT-6.1 Sol`, model `openai/gpt-6.1-sol`. It uses the same canonical
+Agent API operation and the existing Responses contract. Authenticated model
+discovery supplies input/output/cache-write/cache-read rates of
+2/10/2.5/0.1 USD per million tokens; reasoning uses the output rate. No other
+Perplexity model is offered or provisioned.
+
+The seed now has 24 profiles. The canonical host catalog has 26 profiles and
+16 configured bindings per provisioned user. Deploy the new seed, trusted-sync
+the replacement profile, then delete the six retired saved profiles through
+the existing owner-scoped DELETE endpoint. Keep the new endpoint credential,
+preserve other products and saved workspace state, and verify that subsequent
+reads and idempotent sync do not recreate retired profiles. TEST-017 and
+WEB-TEST-054 retain exact catalog/preparation/rendering assertions.

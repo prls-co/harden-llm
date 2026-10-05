@@ -51,7 +51,7 @@ func TestOptionalSystemPrompt(t *testing.T) {
 
 func TestPerplexityUsesAgentEndpoint(t *testing.T) {
 	t.Parallel()
-	profile := runtime.Profile{Provider: "perplexity", APIInferenceType: "responses", ModelID: "perplexity/sonar"}
+	profile := runtime.Profile{Provider: "perplexity", APIInferenceType: "responses", ModelID: "openai/gpt-6.1-sol"}
 	_, protocol, path, _, _, err := buildPayload(profile, runtime.Call{CallType: "text", UserPrompt: "Answer."})
 	if err != nil || protocol != "openai.responses" || path != "/agent" {
 		t.Fatalf("Agent route: protocol=%q path=%q error=%v", protocol, path, err)

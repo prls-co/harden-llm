@@ -401,13 +401,19 @@ defmodule HardenLlmWeb.WorkspaceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/")
     render_async(view, 1_000)
 
-    assert length(profiles) == 29
+    assert length(profiles) == 24
 
     for retired <- [
           "CPA GPT-5.4",
           "CPA GPT-5.4 Mini",
           "Perplexity Sonar Pro",
-          "Perplexity Sonar Reasoning Pro"
+          "Perplexity Sonar Reasoning Pro",
+          "Perplexity DeepSeek V4 Pro 0813",
+          "Perplexity GLM 5.3",
+          "Perplexity GLM 5.3 Flash",
+          "Perplexity Kimi K3",
+          "Perplexity Nemotron 3 Ultra",
+          "Perplexity Sonar"
         ] do
       refute has_element?(view, ~s(#run_selectedProfileId-options [data-value="#{retired}"]))
     end

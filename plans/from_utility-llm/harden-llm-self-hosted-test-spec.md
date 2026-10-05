@@ -377,12 +377,12 @@ runtime contract or the meaning of `make verify`.
   - `go test ./internal/gateway/... -tags=integration -run TestDefaultProfileSeedParity -count=1`
 - Setup: source catalog at utility-llm revision `5c0309e` / `0.15.0`, with
   the unavailable CPA GPT-5.4 profiles retired under ADR-HLLM-013 and
-  the legacy Sonar trio replaced with six current Perplexity Agent models;
-  29 credential-free preset entries, invalid names/endpoints/defaults,
+  all earlier Perplexity presets replaced with GPT-6.1 Sol through Agent API;
+  24 credential-free preset entries, invalid names/endpoints/defaults,
   removed-control rejection, fixed endpoint resolver, and isolated owner-scoped Postgres.
 - Assertions:
-  - The embedded seed contains exactly the current 29 profile names, excludes
-    CPA GPT-5.4, CPA GPT-5.4 Mini, Sonar Pro and Sonar Reasoning Pro, retains the independent OpenAI presets, and
+  - The embedded seed contains exactly the current 24 profile names, excludes
+    CPA GPT-5.4, CPA GPT-5.4 Mini, all earlier Perplexity presets, retains the independent OpenAI presets, and
     matches provider, API inference type, base URL, model ID, pricing,
     reasoning, defaults, and structured-output capability.
   - Seed rows contain no credentials or runtime discovery state, OpenRouter
