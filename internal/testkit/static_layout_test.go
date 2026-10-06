@@ -23,7 +23,7 @@ func TestTargetLayout(t *testing.T) {
 		"cmd/harden-llm-gateway/main.go",
 		"api/openapi.yaml",
 		"internal/testkit",
-		"internal/artifacts",
+		"internal/gateway/httpapi",
 		"scripts",
 		"fixtures/parity",
 		"plans/implementation-status.json",

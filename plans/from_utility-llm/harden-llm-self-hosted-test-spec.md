@@ -137,7 +137,7 @@ runtime contract or the meaning of `make verify`.
 - Assertions:
   - `go.mod` declares `github.com/prls-co/harden-llm`.
   - Root package files declare `package hardenllm`.
-  - P00 foundation paths exist: `cmd/harden-llm-gateway/main.go`, `api/openapi.yaml`, `internal/testkit`, `internal/artifacts`, `scripts`, `fixtures/parity`, and `plans/implementation-status.json`.
+  - Current foundation paths exist: `cmd/harden-llm-gateway/main.go`, `api/openapi.yaml`, `internal/testkit`, `internal/gateway/httpapi`, `scripts`, `fixtures/parity`, and `plans/implementation-status.json`.
   - The root package is importable without importing `internal` packages.
 - Pass criteria: command exits zero and reports one canonical target layout.
 - Expected runtime: 5 seconds.
@@ -164,10 +164,9 @@ runtime contract or the meaning of `make verify`.
 - Assertions:
   - Backend production/test/deploy code contains no Firebase, Firestore, Firebase Auth, Functions, Hosting, or Storage dependency.
   - Backend code contains no Phoenix, LiveView, React, Vite, HTML-template, browser-session, or frontend-asset implementation.
-  - Go production dependencies contain no application SQLite, Temporal, Sentry, MinIO-specific client, or Langfuse SDK/client.
+  - Go production dependencies contain no application SQLite, Temporal, Sentry, or Langfuse SDK/client.
   - Collector configuration contains no Langfuse exporter, authenticator, credential, or dependency and exactly one dedicated HLLM Laminar exporter.
   - Application code has no direct Langfuse host/key configuration or ingestion request.
-  - Garage appears only in the Harden-LLM artifact implementation/deployment; active HLLM manifests contain no MinIO service, endpoint, volume, or credential.
   - Active deployment manifests, descriptors, and image locks contain no Langfuse service, route, image, secret, or persistent volume.
 - Pass criteria: the forbidden-dependency scan passes, retired Langfuse deployment surfaces are absent, and the Collector retains one dedicated HLLM Laminar exporter.
 - Expected runtime: 10 seconds.
@@ -619,11 +618,11 @@ runtime contract or the meaning of `make verify`.
   - The seven HLLM backend services exist: gateway, Harden-LLM Postgres, Collector, Prometheus, Loki, Tempo, and Grafana. Optional Phoenix web is tested through its dedicated overlay; in the merged topology it depends on the healthy gateway only and does not gate startup on Postgres health. Caddy and Garage remain separate shared service owners.
   - Production topology, descriptors, and image locks contain no Langfuse service, ClickHouse, Redis, MinIO, retired image, or Langfuse-owned persistent volume.
   - Named HLLM volumes and health checks exist, and all HLLM-owned image tags/digests are pinned.
-  - Production Compose has no Caddy service, Caddy volumes, Garage service, Garage-owned volume, RPC secret, bootstrap command, or dependency edge. The gateway and Loki join the existing external `prls-observability` network and use `garage-shared:3900` for their Garage clients.
+  - Production Compose has no Caddy service, Caddy volumes, Garage service, Garage-owned volume, RPC secret, bootstrap command, or dependency edge. The gateway and Loki join the existing external `prls-observability` network; the gateway remains reachable through the shared edge, and Loki uses `garage-shared:3900` for observability storage.
   - No HLLM-owned service publishes a host port in the effective production topology.
   - Caddy route/TLS/auth/body-limit policy is tested by the shared owner; this test does not duplicate those route assertions.
   - The seven-service backend model does not include Phoenix/LiveView; the optional web service stays in its dedicated overlay and explicit frontend smoke fixture.
-  - Garage remains the sole Harden-LLM artifact store.
+  - Production Compose owns no Harden-LLM artifact store or artifact bucket; shared Garage remains external infrastructure used by Loki.
   - No Firebase, application SQLite, Sentry, Temporal, or retired Langfuse deployment dependency exists.
 - Pass criteria: parser tests and `docker compose config --quiet` pass with seven backend services and no edge owner in HLLM production.
 - Expected runtime: 20 seconds.
