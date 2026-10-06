@@ -2753,3 +2753,58 @@ records the exact application/image identity, catalog discovery, deterministic
 and live test results, Postgres regression, deployed checks, cleanup and
 retained failure history. It contains no credentials, sessions or generated
 provider answers. Browser layout was not checked.
+
+## OpenAI-compatible proxy and shared history — production (2026-10-06)
+
+The profile-free proxy/reference split is merged and deployed from
+`main` at `9a21f8da8adcd60ddb8a8ef18e9c3f9694eb99f0`. The public contract includes
+`GET /v1/models`, `POST /v1/chat/completions`, and `POST /v1/responses`, with
+the documented hardening extensions. [PR #97](https://github.com/prls-co/harden-llm/pull/97)
+introduced the OpenAI-compatible inference API and frontend-owned shared
+history. [PR #98](https://github.com/prls-co/harden-llm/pull/98) fixed a release
+migration failure when the application was already loaded and added the
+TEST-411 / WEB-TEST-117 regression.
+
+Local `make test-fast` passed 9/9 and `make test-release` passed 28/28 with no
+cleanup errors or warnings. The targeted
+`node scripts/run-test-tier.mjs --task frontend-reference-integration` passed
+6/6. On the exact merged SHA, [main CI](https://github.com/prls-co/harden-llm/actions/runs/37541848393),
+[CodeQL](https://github.com/prls-co/harden-llm/actions/runs/37541847295), and
+the [browser-free release gate](https://github.com/prls-co/harden-llm/actions/runs/37541927798)
+passed. The fix branch's hosted release run [37540170608](https://github.com/prls-co/harden-llm/actions/runs/37540170608)
+also passed. Browser checks were not run under the repository's explicit
+opt-in policy.
+
+The production web and gateway containers both run healthy with zero restarts
+from the exact release. The web image is
+`sha256:a10270d12103e7934a26e5fd2c878c5517e973f203e4a0eb010bc7c1daf31589`; the
+gateway image is
+`sha256:ddd22c1be65cf2d46be7bcc9654164f64462ab13eed02c685cd93d0ae5c25249`.
+Both were built for `linux/amd64` with release identity
+`9a21f8da8adcd60ddb8a8ef18e9c3f9694eb99f0`. The new Phoenix release-cookie
+fingerprint differs from the prior running image. The scoped application
+configuration check and the full production configuration check are
+equivalent; only the web and gateway services were applied.
+
+The incoming API bearer is the same `HARDEN_LLM_TOKEN` value held in the local
+`./.env`; its value is not recorded here. The CPA credential remains an
+environment-backed upstream connection. A deliberately malformed request to
+`POST /v1/chat/completions` returned `401` with an incorrect bearer and `400`
+with the `.env` bearer, confirming the auth/parser boundary without dispatching
+inference. The retired `POST /api/v1/run` route returned `404`. This check does
+not certify a live provider call.
+
+The authorized clean cut removed exactly 11 HLLM-owned legacy tables containing
+268 rows after table ownership and unrelated-data sentinels were checked. The
+new migration is `20261006000000`; `reference_drafts` and `reference_history`
+both start at zero rows. The HLLM-only Garage bucket was empty; its key and
+bucket were removed, while the four unrelated bucket aliases remained. The
+Control Plane sentinel remained at 6 migration rows and 16 accounts.
+
+Public API `/healthz` and `/readyz`, web `/healthz`, and the Portal login page
+returned `200`. Unauthenticated web root navigation returned `302` to
+`https://a.prls.co/login`. HLLM intentionally has no local `/login` route;
+Portal owns human login. No interactive Portal login or browser layout was
+checked. The old artifact hostname still returns `403` through shared ingress.
+Its bucket and HLLM key are gone, but the shared Caddy/Cloudflare Tunnel route
+is externally owned and was not removed by this release.
