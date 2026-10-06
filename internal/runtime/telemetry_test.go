@@ -34,13 +34,16 @@ func TestOTelContract(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	profile := Profile{
-		ID: "adversarial-profile", Provider: "openai", APIInferenceType: "responses",
-		BaseURL: "https://api.openai.com/v1", ModelID: "gpt-fixture",
+	connection := Connection{
+		ID: "adversarial-connection", Provider: "openai", APIInferenceType: "responses",
+		BaseURL: "https://api.openai.com/v1",
 	}
 	call := Call{
-		SystemPrompt: "adversarial system prompt", UserPrompt: "adversarial user prompt",
-		CallType: "structured", Schema: json.RawMessage(`{"type":"object"}`),
+		Messages: []Message{
+			{Role: "system", Content: json.RawMessage(`"adversarial system prompt"`)},
+			{Role: "user", Content: json.RawMessage(`"adversarial user prompt"`)},
+		},
+		ModelID: "gpt-fixture", CallType: "structured", Schema: json.RawMessage(`{"type":"object"}`),
 		Telemetry: telemetry,
 		ValidateStructured: func(value any) error {
 			object, ok := value.(map[string]any)
@@ -52,11 +55,9 @@ func TestOTelContract(t *testing.T) {
 	}
 	cache := &telemetryCache{}
 	ctx, endCall := telemetry.StartCall(context.Background(), CallObservation{
-		ProfileID: profile.ID, Provider: profile.Provider, ModelID: profile.ModelID, CallType: call.CallType,
+		ConnectionID: connection.ID, Provider: connection.Provider, ModelID: call.ModelID, CallType: call.CallType,
 	})
-	record, err := Execute(ctx, &telemetryExecutor{failFirst: true}, func(context.Context, Profile) (Credential, error) {
-		return Credential{APIKey: "super-secret-api-key"}, nil
-	}, profile.ID, map[string]Profile{profile.ID: profile}, call, retry.Config{Policy: retry.Policy{MaxAttempts: 3, RetryOn: []retry.Category{retry.CategoryServer}, JSONRepair: retry.DefaultPolicy().JSONRepair, Backoff: retry.Backoff{}}, Random: func() float64 { return 0 }, Wait: func(context.Context, time.Duration) error { return nil }}, cache, cachekey.ModeRefresh, "v1", "call-fixture", "trace-fixture")
+	record, err := Execute(ctx, &telemetryExecutor{failFirst: true}, connection, Credential{APIKey: "super-secret-api-key"}, call, retry.Config{Policy: retry.Policy{MaxAttempts: 3, RetryOn: []retry.Category{retry.CategoryServer}, JSONRepair: retry.DefaultPolicy().JSONRepair, Backoff: retry.Backoff{}}, Random: func() float64 { return 0 }, Wait: func(context.Context, time.Duration) error { return nil }}, cache, cachekey.ModeRefresh, "v1", "call-fixture", "trace-fixture")
 	endCall(record, err)
 	if err != nil || len(record.Attempts) != 3 || !record.Cache.Written {
 		t.Fatalf("instrumented repaired call = %#v, %v", record, err)
@@ -64,24 +65,19 @@ func TestOTelContract(t *testing.T) {
 
 	cache.found = true
 	ctx, endCall = telemetry.StartCall(context.Background(), CallObservation{
-		ProfileID: profile.ID, Provider: profile.Provider, ModelID: profile.ModelID, CallType: call.CallType,
+		ConnectionID: connection.ID, Provider: connection.Provider, ModelID: call.ModelID, CallType: call.CallType,
 	})
-	cached, cacheErr := Execute(ctx, &telemetryExecutor{}, func(context.Context, Profile) (Credential, error) {
-		return Credential{APIKey: "super-secret-api-key"}, nil
-	}, profile.ID, map[string]Profile{profile.ID: profile}, call, retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, cache,
+	cached, cacheErr := Execute(ctx, &telemetryExecutor{}, connection, Credential{APIKey: "super-secret-api-key"}, call, retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, cache,
 		cachekey.ModeCache, "v1", "call-cache", "trace-cache")
 	endCall(cached, cacheErr)
 	if cacheErr != nil || !cached.Cache.Served {
 		t.Fatalf("instrumented cache hit = %#v, %v", cached, cacheErr)
 	}
 
-	_, endArtifact := telemetry.StartArtifact(context.Background(), "trace")
-	endArtifact(errors.New("artifact backend unavailable with super-secret-api-key"))
-
 	spans := spanExporter.GetSpans()
 	requiredSpans := []string{
 		SpanCall, SpanRuntime, SpanProvider, SpanAttempt, SpanRetryWait,
-		SpanSchema, SpanCacheLookup, SpanCacheWrite, SpanArtifact,
+		SpanSchema, SpanCacheLookup, SpanCacheWrite,
 	}
 	for _, required := range requiredSpans {
 		if !hasSpan(spans, required) {
@@ -90,7 +86,7 @@ func TestOTelContract(t *testing.T) {
 	}
 	assertSpanParent(t, spans, SpanProvider, SpanAttempt)
 	assertSpanParent(t, spans, SpanSchema, SpanAttempt)
-	assertAttemptTargets(t, spans, []string{profile.ID, profile.ID, profile.ID}, []string{profile.ModelID, profile.ModelID, profile.ModelID})
+	assertAttemptTargets(t, spans, []string{connection.ID, connection.ID, connection.ID}, []string{call.ModelID, call.ModelID, call.ModelID})
 	encodedSpans := fmt.Sprint(spans)
 	for _, forbidden := range []string{"super-secret-api-key", "adversarial system prompt", "adversarial user prompt", "adversarial response"} {
 		if strings.Contains(encodedSpans, forbidden) {
@@ -107,12 +103,11 @@ func TestOTelContract(t *testing.T) {
 		"harden_llm.provider.attempts": false, "harden_llm.provider.duration": false,
 		"harden_llm.retries": false, "harden_llm.cache.operations": false,
 		"harden_llm.schema.operations": false, "harden_llm.tokens": false, "harden_llm.cost.usd": false,
-		"harden_llm.artifact.operations": false, "harden_llm.persistence.failures": false,
 	}
 	allowedLabels := map[string]bool{
 		"provider": true, "call_type": true, "outcome": true, "category": true,
 		"cache_outcome": true, "operation": true, "repair": true, "token_type": true,
-		"source": true, "coverage": true, "store": true, "kind": true, "scope": true,
+		"source": true, "coverage": true, "scope": true,
 	}
 	for _, scope := range metrics.ScopeMetrics {
 		for _, observed := range scope.Metrics {
@@ -172,13 +167,11 @@ func TestRecoveryIntegrityCacheWriteTelemetry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	profile := Profile{ID: "profile", Provider: "openai", APIInferenceType: "responses", BaseURL: "https://api.openai.com/v1", ModelID: "model"}
+	connection := Connection{ID: "connection", Provider: "openai", APIInferenceType: "responses", BaseURL: "https://api.openai.com/v1"}
 	cache := &telemetryCache{err: errors.New("cache write failed: do-not-export")}
-	call := Call{CallType: "text", UserPrompt: "accepted", Telemetry: telemetry}
-	ctx, endCall := telemetry.StartCall(context.Background(), CallObservation{ProfileID: profile.ID, Provider: profile.Provider, ModelID: profile.ModelID, CallType: call.CallType})
-	record, callErr := Execute(ctx, &telemetryExecutor{}, func(context.Context, Profile) (Credential, error) {
-		return Credential{APIKey: "secret"}, nil
-	}, profile.ID, map[string]Profile{profile.ID: profile}, call, retry.Config{
+	call := Call{CallType: "text", ModelID: "model", Messages: []Message{{Role: "user", Content: json.RawMessage(`"accepted"`)}}, Telemetry: telemetry}
+	ctx, endCall := telemetry.StartCall(context.Background(), CallObservation{ConnectionID: connection.ID, Provider: connection.Provider, ModelID: call.ModelID, CallType: call.CallType})
+	record, callErr := Execute(ctx, &telemetryExecutor{}, connection, Credential{APIKey: "secret"}, call, retry.Config{
 		Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}},
 		Random: func() float64 { return 0 }, Wait: func(context.Context, time.Duration) error { return nil },
 	}, cache, cachekey.ModeCache, "v1", "call-write-failed", "trace-write-failed")
@@ -239,17 +232,17 @@ type telemetryExecutor struct {
 	failFirst bool
 }
 
-func (*telemetryExecutor) Prepare(_ context.Context, profile Profile, _ Credential, call Call) (PreparedOperation, error) {
+func (*telemetryExecutor) Prepare(_ context.Context, connection Connection, _ Credential, call Call) (PreparedOperation, error) {
 	return PreparedOperation{Operation: cachekey.Operation{
 		SchemaVersion: cachekey.OperationSchemaVersion, Protocol: "fixture",
-		Endpoint: cachekey.Endpoint{Identity: profile.BaseURL, Method: "POST", Path: "/run"},
-		Model:    profile.ModelID, Payload: map[string]any{"repair": call.Repair != nil},
+		Endpoint: cachekey.Endpoint{Identity: connection.BaseURL, Method: "POST", Path: "/run"},
+		Model:    call.ModelID, Payload: map[string]any{"repair": call.Repair != nil},
 		SemanticHeaders:    map[string]any{},
 		ResponseProjection: cachekey.ResponseProjection{Provider: "openai", Kind: "fixture", Version: "v1"},
 	}, Opaque: call.Repair != nil}, nil
 }
 
-func assertAttemptTargets(t *testing.T, spans tracetest.SpanStubs, profiles, models []string) {
+func assertAttemptTargets(t *testing.T, spans tracetest.SpanStubs, connections, models []string) {
 	t.Helper()
 	var attempts []tracetest.SpanStub
 	for _, span := range spans {
@@ -257,16 +250,16 @@ func assertAttemptTargets(t *testing.T, spans tracetest.SpanStubs, profiles, mod
 			attempts = append(attempts, span)
 		}
 	}
-	if len(attempts) != len(profiles) {
-		t.Fatalf("attempt spans = %d, want exactly %d", len(attempts), len(profiles))
+	if len(attempts) != len(connections) {
+		t.Fatalf("attempt spans = %d, want exactly %d", len(attempts), len(connections))
 	}
-	for index := range profiles {
+	for index := range connections {
 		attributes := make(map[string]string)
 		for _, value := range attempts[index].Attributes {
 			attributes[string(value.Key)] = value.Value.AsString()
 		}
-		if attributes["harden_llm.profile.id"] != profiles[index] || attributes["gen_ai.request.model"] != models[index] {
-			t.Fatalf("attempt %d target = %#v, want profile=%q model=%q", index+1, attributes, profiles[index], models[index])
+		if attributes["harden_llm.connection.id"] != connections[index] || attributes["gen_ai.request.model"] != models[index] {
+			t.Fatalf("attempt %d target = %#v, want connection=%q model=%q", index+1, attributes, connections[index], models[index])
 		}
 	}
 }

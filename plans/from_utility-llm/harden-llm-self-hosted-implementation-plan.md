@@ -1621,9 +1621,9 @@ Privacy and data-quality constraints:
 | P01 | REQ-341, REQ-342, REQ-343, REQ-345 | TEST-274 | `scripts/test/test_resource_lifecycle_docker_test.mjs` | `node scripts/run-test-tier.mjs --task test-resource-lifecycle-docker` |
 | P02 | REQ-346 | TEST-275 | `scripts/test/test_resource_measurement_test.mjs` | `node --test scripts/test/test_resource_measurement_test.mjs` |
 | P02 | REQ-347, REQ-348, REQ-349 | TEST-276 | `internal/capacity/driver_test.go` | `go test ./internal/capacity -run '^TestCapacityDriver' -count=1` |
-| P02 | REQ-347, REQ-348, REQ-349 | TEST-277 | `cmd/harden-llm-gateway/capacity_test.go` | `node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline.json` |
+| P02 | REQ-347, REQ-348, REQ-349 | TEST-277 (retired 2026-10-06) | Retired profile-backed real-gateway capacity test; see the OpenAI proxy/reference-history cutover in the canonical test specification. | Not registered or run. |
 | P02 | REQ-346, REQ-350, REQ-351 | TEST-278 | `internal/capacity/report_test.go` | `go test ./internal/capacity -run '^TestCapacityReport' -count=1` |
-| P02 | REQ-349 | TEST-282 | `cmd/harden-llm-gateway/capacity_history_test.go` | `go test ./cmd/harden-llm-gateway -run '^TestCapacityHistoryPagination' -count=1` |
+| P02 | REQ-349 | TEST-282 (retired 2026-10-06) | Retired proxy-owned capacity-history API pagination test; see the canonical test specification. | Not registered or run. |
 | P01 | REQ-344, REQ-352 | TEST-279 | `scripts/verify-test-tiers.mjs` | `node scripts/verify-test-tiers.mjs` |
 | P01 | REQ-341, REQ-345 | TEST-280 | `internal/integrationtest/resource_receipt_test.go` | `go test ./internal/integrationtest -run '^TestResourceReceipt' -count=1` |
 | P04 | REQ-352 | TEST-269 | `scripts/production-config.mjs` | `node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway,harden-llm-web --expected-release "$HLLM_RELEASE_SHA"` |
@@ -1864,9 +1864,10 @@ production topology by default.
 | REQ-353 | security | Retired 2026-09-22 by ADR-HLLM-028. Historical requirement: manual/main-only private GHCR publication with exact-source identity and provenance. Do not treat it as an active release requirement; current gateway build/deploy controls are KER-IBD-001 through KER-IBD-010. |
 
 `ADR-HLLM-027` records the initial test-harness bounds and explicitly leaves
-production traffic/SLO targets unassigned. TEST-271 through TEST-282 remain
-active acceptance tests in the companion test specification. TEST-283 is a
-retired historical publisher check; ADR-HLLM-028 and
+production traffic/SLO targets unassigned. TEST-277 and TEST-282 have since
+been retired by the OpenAI proxy/reference-history cutover; the other active
+resource and driver tests are listed in the companion test specification.
+TEST-283 is a retired historical publisher check; ADR-HLLM-028 and
 `SPEC-HLLM-IMAGE-DEPLOYMENT-001` define the current local-image lifecycle.
 
 ### Requirements traceability
@@ -1875,7 +1876,7 @@ retired historical publisher check; ADR-HLLM-028 and
 | --- | --- | --- | --- |
 | P01 | REQ-341, REQ-342, REQ-343, REQ-345 | `scripts/run-test-tier.mjs`, `scripts/test-resource-lifecycle.mjs`, `internal/integrationtest/` | TEST-271 through TEST-274, TEST-280 |
 | P01 | REQ-344, REQ-352 | tier manifest, CI workflow, release evidence | TEST-279, TEST-269 |
-| P02 | REQ-346, REQ-347, REQ-348, REQ-349, REQ-350 | `scripts/measure-test-resources.mjs`, `internal/capacity/`, gateway capacity fixture | TEST-275 through TEST-278, TEST-282 |
+| P02 | REQ-346, REQ-347, REQ-348, REQ-349, REQ-350 | `scripts/measure-test-resources.mjs`, standalone `internal/capacity/` driver | TEST-275, TEST-276, TEST-278 |
 | P03 | REQ-351 | capacity disposition report and ADR-HLLM-027 | TEST-278; EVAL-011 |
 
 ### ADR index amendment

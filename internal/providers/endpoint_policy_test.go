@@ -93,10 +93,10 @@ func TestPrepareDoesNotResolveEndpoint(t *testing.T) {
 	if !ok || transport.guard != router.guard {
 		t.Fatal("router and model transport do not share one endpoint guard")
 	}
-	_, err = router.Prepare(context.Background(), runtime.Profile{
-		ID: "profile", Provider: "openai", APIInferenceType: "responses",
-		BaseURL: "https://provider.example/v1", ModelID: "fixture",
-	}, runtime.Credential{APIKey: "fixture"}, runtime.Call{CallType: "text", UserPrompt: "hello"})
+	_, err = router.Prepare(context.Background(), runtime.Connection{
+		ID: "connection", Provider: "openai", APIInferenceType: "responses",
+		BaseURL: "https://provider.example/v1",
+	}, runtime.Credential{APIKey: "fixture"}, runtime.Call{ModelID: "fixture", CallType: "text", Messages: providerMessages("", "hello")})
 	if err != nil {
 		t.Fatalf("Prepare unexpectedly resolved endpoint: %v", err)
 	}

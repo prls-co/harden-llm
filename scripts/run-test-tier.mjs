@@ -8,7 +8,7 @@ import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 
-import { capacitySafetyFailure, collectDockerResourceSample, hashImageIDs, summarizeResourceSamples } from "./measure-test-resources.mjs";
+import { collectDockerResourceSample, summarizeResourceSamples } from "./measure-test-resources.mjs";
 import { acquireDaemonLock, classifyReceiptOwner, createResourceReceipt, currentSourceSHA, daemonLockEnvironment, defaultResourceDirectory, inheritedDaemonLockLease, processStartIdentity, readHostBootID, readResourceReceipt, releaseDaemonLock, updateResourceReceipt } from "./test-resource-lifecycle.mjs";
 
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -54,6 +54,21 @@ export function validateManifest(manifest) {
     if (task.environment && typeof task.environment !== "object") throw new Error(`task ${task.id} environment must be an object`);
     if (Object.keys(task.environment ?? {}).some((key) => /(password|secret|token|api[_-]?key|access[_-]?key)/i.test(key))) {
       throw new Error(`task ${task.id} environment contains a credential-shaped key`);
+    }
+    if (task.servicePool !== undefined) {
+      const pool = task.servicePool;
+      if (!pool || typeof pool.composeFile !== "string" || pool.composeFile.trim() === "") {
+        throw new Error(`task ${task.id} servicePool requires composeFile`);
+      }
+      if (!Array.isArray(pool.services) || pool.services.length === 0) {
+        throw new Error(`task ${task.id} servicePool requires services`);
+      }
+      for (const service of pool.services) {
+        if (!service || typeof service.name !== "string" || service.name.trim() === "" ||
+            !Number.isInteger(service.port) || service.port <= 0) {
+          throw new Error(`task ${task.id} servicePool services require a name and positive port`);
+        }
+      }
     }
   }
   return manifest;
@@ -315,9 +330,6 @@ function startDockerResourceSampler(project, environment, cwd, dockerDataRoot = 
   timer.unref();
   return {
     sample: takeSample,
-    safetyFailure() {
-      return capacitySafetyFailure(latestSample?.host);
-    },
     async stop() {
       if (stopped) return summarizeResourceSamples(project, samples, { expectedIntervalMs });
       stopped = true;
@@ -355,10 +367,11 @@ export function resourceCleanupOptions(options, now = performance.now()) {
 async function startServicePool(task, options) {
   const definition = task.servicePool;
   if (!definition || typeof definition !== "object") throw new Error(`task ${task.id} has no servicePool definition`);
+  if (typeof definition.composeFile !== "string" || definition.composeFile.trim() === "") throw new Error(`task ${task.id} servicePool has no composeFile`);
   if (!Array.isArray(definition.services) || definition.services.length === 0) throw new Error(`task ${task.id} servicePool has no services`);
   const project = servicePoolProjectName();
   if (!/^harden-llm-test-[0-9a-f]{12}$/.test(project)) throw new Error(`invalid service pool project ${project}`);
-  const composeFile = path.resolve(options.root, definition.composeFile ?? "");
+  const composeFile = path.resolve(options.root, definition.composeFile);
   if (!(await exists(composeFile))) throw new Error(`service pool Compose file is missing: ${composeFile}`);
   const base = composeBaseArguments(composeFile, project);
   const resourceDirectory = options.resourceDirectory ?? defaultResourceDirectory();
@@ -1152,23 +1165,6 @@ export async function runCommand(task, options) {
     });
     command.environment = { ...command.environment, ...daemonLockEnvironment(options.daemonLockLease) };
     result.command = [command.executable, ...command.args].map((part) => scrub(part));
-    if (task.capacityReport && task.servicePool) {
-      const dataRootResult = await runExternal("docker", ["info", "--format", "{{.DockerRootDir}}"], {
-        cwd: options.root, signal: options.signal, timeoutMs: 5_000, environment: command.environment,
-      });
-      const dataRootLines = dataRootResult.stdout.preview.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-      if (dataRootResult.status !== 0 || dataRootLines.length !== 1 || !path.isAbsolute(dataRootLines[0])) {
-        throw new Error("capacity safety stop: Docker data-root filesystem cannot be identified");
-      }
-      try {
-        taskOptions.capacityDockerDataRoot = await fs.realpath(dataRootLines[0]);
-        if (!(await fs.stat(taskOptions.capacityDockerDataRoot)).isDirectory()) throw new Error("not a directory");
-      } catch {
-        throw new Error("capacity safety stop: Docker data-root filesystem is not accessible for measurement");
-      }
-      const reason = capacitySafetyFailure(await hostResourceSample(options.root, taskOptions.capacityDockerDataRoot));
-      if (reason) throw new Error(reason);
-    }
     if (task.servicePool) {
       pool = await startServicePool(task, taskOptions);
       command.environment = {...command.environment, ...pool.environment};
@@ -1177,26 +1173,9 @@ export async function runCommand(task, options) {
     }
     if (task.sampleDockerResources) {
       if (!pool) throw new Error("Docker resource sampling requires the runner-owned service pool");
-      resourceSampler = startDockerResourceSampler(pool.project, command.environment, options.root, taskOptions.capacityDockerDataRoot ?? options.root);
-      const initialSample = await resourceSampler.sample();
-      if (task.capacityReport) {
-        const safetyFailure = capacitySafetyFailure(initialSample?.host);
-        if (safetyFailure) throw new Error(safetyFailure);
-        const imageIDs = initialSample?.containers?.map((container) => container.imageId) ?? [];
-        if (imageIDs.length !== task.servicePool.services.length || imageIDs.some((value) => !/^sha256:[a-f0-9]{64}$/i.test(value))) {
-          const sampleFailure = initialSample?.collectionNullReasons?.containers;
-          const detail = sampleFailure ?? `observed ${imageIDs.length} exact service containers for ${task.servicePool.services.length} configured services`;
-          throw new Error(`capacity fingerprint requires one exact immutable image identity per service-pool container (${detail})`);
-        }
-        const composeSHA256 = await sha256File(pool.composeFile);
-        const services = task.servicePool.services.map(({ name, port }) => ({ name, port })).sort((left, right) => left.name.localeCompare(right.name));
-        const topologySHA256 = createHash("sha256").update(JSON.stringify({ composeSHA256, services })).digest("hex");
-        command.environment.HARDEN_LLM_TEST_IMAGE_SET_SHA256 = hashImageIDs(imageIDs);
-        command.environment.HARDEN_LLM_TEST_TOPOLOGY_SHA256 = topologySHA256;
-      }
+      resourceSampler = startDockerResourceSampler(pool.project, command.environment, options.root);
+      await resourceSampler.sample();
     }
-    const capacityReportPath = task.capacityReport ? path.join(taskDirectory, "capacity-report.json") : null;
-    if (capacityReportPath) command.environment.HARDEN_LLM_CAPACITY_REPORT_PATH = capacityReportPath;
     const useGNUTime = process.platform === "linux" && await exists("/usr/bin/time");
     const executable = useGNUTime ? "/usr/bin/time" : command.executable;
     const args = useGNUTime ? ["-v", "-o", timePath, "--", command.executable, ...command.args] : command.args;
@@ -1211,17 +1190,6 @@ export async function runCommand(task, options) {
 
     let sampling = true;
     let samplingInFlight = false;
-    let capacitySafetyStop = null;
-    let capacitySafetyKillTimer = null;
-    const safetyInterval = task.capacityReport && resourceSampler ? setInterval(() => {
-      if (capacitySafetyStop) return;
-      const reason = resourceSampler.safetyFailure();
-      if (!reason) return;
-      capacitySafetyStop = reason;
-      terminateProcessGroup(child, "SIGTERM");
-      capacitySafetyKillTimer = setTimeout(() => terminateProcessGroup(child, "SIGKILL"), TASK_TIMEOUT_GRACE_MS);
-      capacitySafetyKillTimer.unref();
-    }, 1_000) : null;
     const sampleRSS = async () => {
       if (!sampling || samplingInFlight || !child.pid) return;
       samplingInFlight = true;
@@ -1245,8 +1213,6 @@ export async function runCommand(task, options) {
     });
     clearTimeout(timeoutTimer);
     if (killTimer) clearTimeout(killTimer);
-    if (capacitySafetyKillTimer) clearTimeout(capacitySafetyKillTimer);
-    if (safetyInterval) clearInterval(safetyInterval);
     options.signal?.removeEventListener("abort", abortHandler);
     sampling = false;
     clearInterval(interval);
@@ -1256,7 +1222,6 @@ export async function runCommand(task, options) {
       resourceSamplerStopped = true;
     }
     status = outcome.error ? 1 : (outcome.exitCode ?? 1);
-    if (capacitySafetyStop) status = 1;
     signal = outcome.signal ?? null;
     try {
       timeMetrics = parseTimeFile(await fs.readFile(timePath, "utf8"));
@@ -1266,7 +1231,7 @@ export async function runCommand(task, options) {
     output = stdout.value;
     errorOutput = stderr.value;
     const failureDiagnostic = `${errorOutput.tailPreview}\n${output.tailPreview}`;
-    failureSummary = status === 0 ? null : capacitySafetyStop ?? summarizeFailure(failureDiagnostic || `exit=${outcome.exitCode ?? "null"} signal=${outcome.signal ?? "none"}`);
+    failureSummary = status === 0 ? null : summarizeFailure(failureDiagnostic || `exit=${outcome.exitCode ?? "null"} signal=${outcome.signal ?? "none"}`);
   } catch (error) {
     failedReceiptPath = error.resourceReceiptPath ?? null;
     if (error.resourceCleanupErrors?.length) result.cleanupError = error.resourceCleanupErrors.join("; ");
@@ -1278,7 +1243,7 @@ export async function runCommand(task, options) {
         result.resourceMetrics = await resourceSampler.stop();
         resourceSamplerStopped = true;
       } catch {
-        result.cleanupWarnings.push("capacity resource sampling did not finish; unavailable metrics remain unknown");
+        result.cleanupWarnings.push("Docker resource sampling did not finish; unavailable metrics remain unknown");
       }
     }
     const cleanupOptions = resourceCleanupOptions(taskOptions);
@@ -1291,18 +1256,6 @@ export async function runCommand(task, options) {
     if (pool || failedReceiptPath || task.servicePool || task.requiresDocker || task.usesDocker) {
       const resourceErrors = await cleanupRunResourceReceipts(cleanupOptions, pool?.receiptPath ?? failedReceiptPath);
       if (resourceErrors.length > 0) result.cleanupError = [result.cleanupError, ...resourceErrors].filter(Boolean).join("; ");
-    }
-  }
-  if (task.capacityReport) {
-    try {
-      result.capacityReport = await readCapacityReport(path.join(taskDirectory, "capacity-report.json"), options.runID ?? path.basename(options.runDirectory));
-    } catch (error) {
-      if (status === 0) {
-        status = 1;
-        failureSummary = `capacity report invalid or missing: ${scrub(error.message ?? String(error))}`;
-      } else {
-        result.capacityReportFailure = scrub(error.message ?? String(error));
-      }
     }
   }
   const endedAt = performance.now();
@@ -1327,39 +1280,6 @@ export async function runCommand(task, options) {
     result.cleanupError = scrub(error.message);
   }
   return result;
-}
-
-const MAX_CAPACITY_REPORT_BYTES = 1 << 20;
-
-async function readCapacityReport(filename, expectedRunID) {
-  if (!Number.isInteger(fsConstants.O_NOFOLLOW) || typeof process.getuid !== "function") {
-    throw new Error("capacity report ownership and no-follow checks are unavailable on this platform");
-  }
-  const file = await fs.open(filename, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
-  let content;
-  try {
-    const metadata = await file.stat();
-    if (!metadata.isFile() || metadata.uid !== process.getuid() || (metadata.mode & 0o077) !== 0 || metadata.size > MAX_CAPACITY_REPORT_BYTES) {
-      throw new Error("capacity report file type, ownership, permissions, or size is invalid");
-    }
-    const bounded = Buffer.alloc(MAX_CAPACITY_REPORT_BYTES + 1);
-    const { bytesRead } = await file.read(bounded, 0, bounded.length, 0);
-    const afterRead = await file.stat();
-    if (bytesRead !== metadata.size || afterRead.size !== metadata.size || bytesRead > MAX_CAPACITY_REPORT_BYTES) {
-      throw new Error("capacity report changed while being read or exceeded its byte limit");
-    }
-    content = bounded.subarray(0, bytesRead);
-  } finally {
-    await file.close();
-  }
-  if (content.byteLength > MAX_CAPACITY_REPORT_BYTES) throw new Error("capacity report exceeds its byte limit");
-  const report = JSON.parse(content.toString("utf8"));
-  if (!report || report.schemaVersion !== 2 || report.reportKind !== "harden-llm-capacity.v2" ||
-      report.testRunId !== expectedRunID || !["correctness", "exploration", "holdout"].includes(report.caseSet) ||
-      !Array.isArray(report.testIds) || !report.testIds.includes("TEST-277") || !Array.isArray(report.cases) || report.cases.length === 0) {
-    throw new Error("capacity report identity or contents are invalid");
-  }
-  return report;
 }
 
 function resourceAvailable(task, resourceClasses, state, candidateSlots) {

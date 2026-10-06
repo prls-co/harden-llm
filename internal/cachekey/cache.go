@@ -44,6 +44,7 @@ func Normalize(operation Operation) (Operation, error) {
 	}
 	normalized := Operation{
 		SchemaVersion: OperationSchemaVersion,
+		CacheDomain:   strings.TrimSpace(operation.CacheDomain),
 		Protocol:      strings.TrimSpace(operation.Protocol),
 		Endpoint: Endpoint{
 			Identity: strings.TrimSpace(operation.Endpoint.Identity),

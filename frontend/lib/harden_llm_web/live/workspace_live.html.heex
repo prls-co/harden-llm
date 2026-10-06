@@ -1,423 +1,314 @@
 <Layouts.app flash={@flash} current_user={@current_user}>
-  <main id="workspace-page" class="studio-page mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
-    <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+  <main id="workspace-page" class="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+    <header class="mb-8 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">
-          🧪 Trace Studio
-        </p>
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700">Harden-LLM</p>
         <h1 class="mt-1 text-3xl font-semibold tracking-tight text-slate-950">
-          Shape one reliable call
+          OpenAI reference workspace
         </h1>
-        <p class="mt-2 max-w-3xl text-sm text-slate-600">
-          Configure a provider-neutral profile, validate structured output before it leaves the browser, and inspect redacted execution facts.
+        <p class="mt-2 max-w-2xl text-sm text-slate-600">
+          Send a stateless Responses request through the hardening proxy. Signed-in users share this reference history.
         </p>
       </div>
       <span
-        id="backend-status"
-        class="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600"
+        id="proxy-status"
+        role="status"
+        class="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700"
       >
-        {status_label(@backend_state)}
+        {HardenLlmWeb.WorkspaceLive.status_text(@models_status)}
       </span>
-    </div>
+    </header>
 
-    <div
-      :if={@loading?}
-      id="workspace-loading"
-      role="status"
-      class="rounded-2xl border border-slate-200 bg-white p-8 text-slate-600"
-    >
-      Loading the canonical workspace…
-    </div>
-
-    <div
-      :if={@backend_state == :unavailable}
-      id="workspace-unavailable"
-      role="alert"
-      class="rounded-2xl border border-amber-300 bg-amber-50 p-6 text-amber-950"
-    >
-      The backend is unavailable. The console will remain online; refresh when the service recovers.
-    </div>
-
-    <.form
-      :if={@backend_state == :ready}
-      for={@form}
-      id="run-form"
-      phx-change="save-draft"
-      phx-submit="run"
-      class="contents"
-    >
-      <div
-        :if={@draft_error}
-        id="draft-error"
-        role="alert"
-        class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900"
+    <.form for={@form} id="run-form" phx-change="save-draft" phx-submit="run" class="space-y-6">
+      <section
+        aria-labelledby="request-title"
+        class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7"
       >
-        {@draft_error}
-      </div>
-      <div :if={@backend_state == :ready} class="studio-stack">
-        <section class="studio-stack">
-          <section id="model-config" aria-label="LLM model config" class="studio-card p-0">
-            <.live_component
-              module={HardenLlmWeb.ProfileWidgetComponent}
-              id="workspace-llm-widget"
-              profiles={@profiles}
-              model_catalog={host_model_catalog(@profiles)}
-              selected_profile_id={@form[:selectedProfileId].value || ""}
-              reasoning_effort={@form[:reasoningEffort].value || "lowest"}
-              cache_mode={@form[:cacheMode].value || "cache"}
-              web_search={@form[:webSearch].value in [true, "true", "on", "1"]}
-              model_id={@form[:modelId].value || ""}
-              config_open={@ui["llmProfileConfigOpen"]}
-              credential_open={@ui["credentialOpen"]}
-              options_open={@ui["modelOptionsOpen"]}
-              retry_open={@ui["retryRepairOpen"]}
-              recovery_policy_default={@recovery_policy_default}
-              recovery_policy={@form.params["recoveryPolicy"]}
-              recovery_field_errors={@recovery_field_errors}
-              pricing_open={@ui["pricingOpen"]}
-              fold_disabled={not is_nil(@state_save_in_flight)}
-              session_ref={@access_context.session_ref}
-              bundle_upload={@uploads.profile_bundle}
-            />
-          </section>
+        <div class="mb-5 flex items-center justify-between gap-3">
+          <div>
+            <h2 id="request-title" class="text-lg font-semibold text-slate-950">Request</h2>
+            <p class="text-sm text-slate-600">Choose a native model ID and enter your prompt.</p>
+          </div>
+          <span :if={@draft_saving?} id="draft-saving" class="text-xs text-slate-500">Saving draft…</span>
+          <span
+            :if={not @draft_saving? and is_nil(@draft_error)}
+            id="draft-saved"
+            class="text-xs text-slate-500"
+          >Draft autosaved</span>
+        </div>
 
-          <section aria-label="Input" class="ullm-widget ullm-input-widget">
-            <div class="ullm-widget-header">
-              <h2>Input</h2>
+        <p
+          :if={@draft_error}
+          id="draft-error"
+          role="alert"
+          class="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"
+        >
+          {@draft_error}
+        </p>
+        <label for="run_model" class="mb-1 block text-sm font-medium text-slate-800">Model</label>
+        <input
+          id="run_model"
+          name={@form[:model].name}
+          list="available-models"
+          value={@form[:model].value}
+          autocomplete="off"
+          required
+          class="mb-5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          placeholder="model ID from your configured upstream"
+        />
+        <datalist id="available-models">
+          <option :for={model <- @models} value={model["id"]}>
+            {model["name"] || model["id"]}
+          </option>
+        </datalist>
+
+        <label for="run_userPrompt" class="mb-1 block text-sm font-medium text-slate-800">Prompt</label>
+        <textarea
+          id="run_userPrompt"
+          name={@form[:userPrompt].name}
+          rows="7"
+          required
+          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          placeholder="Ask a question or give the model a task."
+        >{@form[:userPrompt].value}</textarea>
+
+        <details class="mt-5 rounded-lg border border-slate-200 p-4">
+          <summary class="cursor-pointer text-sm font-medium text-slate-800">
+            Advanced request options
+          </summary>
+          <div class="mt-4 space-y-4">
+            <div>
+              <label for="run_systemPrompt" class="mb-1 block text-sm font-medium text-slate-800">Instructions</label>
+              <textarea
+                id="run_systemPrompt"
+                name={@form[:systemPrompt].name}
+                rows="3"
+                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                placeholder="Optional system instructions."
+              >{@form[:systemPrompt].value}</textarea>
             </div>
-            <.input
-              field={@form[:userPrompt]}
-              type="textarea"
-              label="Prompt"
-              rows="8"
-              placeholder="Ask the selected model to produce a concise answer."
-              class="ullm-input"
-              phx-debounce="blur"
-              required
-              phx-hook="PromptShortcut"
-              data-form-id="run-form"
-            />
-            <div class="ullm-options-fold">
-              <button
-                id="input-advanced-toggle"
-                type="button"
-                phx-click="toggle-ui"
-                phx-value-name="inputAdvancedOpen"
-                phx-value-open={if @ui["inputAdvancedOpen"], do: "false", else: "true"}
-                aria-expanded={to_string(@ui["inputAdvancedOpen"])}
-                disabled={not is_nil(@state_save_in_flight)}
-                class="ullm-btn ullm-options-summary"
-              >Advanced input</button>
-              <div :if={@ui["inputAdvancedOpen"]} id="advanced-input" class="ullm-options-body">
-                <.input
-                  field={@form[:systemPrompt]}
-                  type="textarea"
-                  label="System Prompt"
-                  rows="3"
-                  placeholder="Optional system instruction."
-                  class="ullm-input"
-                  phx-debounce="blur"
-                />
-                <div class="ullm-button-row ullm-button-row-end">
-                  <button
-                    id="clear-system-prompt"
-                    type="button"
-                    phx-click="clear-system-prompt"
-                    disabled={String.trim(@form[:systemPrompt].value || "") == ""}
-                    class="ullm-btn"
-                  >Clear System Prompt</button>
-                </div>
-                <.input
-                  field={@form[:callType]}
-                  type="select"
-                  label="Structured output"
-                  options={[{"Off", "text"}, {"On", "structured"}]}
-                  phx-debounce="blur"
-                />
-                <.input
-                  field={@form[:schemaShorthand]}
-                  type="textarea"
-                  label="Schema shorthand"
-                  placeholder={~s({"answer":"string"})}
-                  rows="4"
-                  class="ullm-input ullm-input-mono"
-                  phx-debounce="blur"
-                />
-                <div class="ullm-button-row ullm-button-row-end">
-                  <button
-                    id="generate-schema"
-                    type="button"
-                    phx-click="generate-schema"
-                    disabled={String.trim(@form[:schemaShorthand].value || "") == ""}
-                    class="ullm-btn"
-                  >Generate JSON Schema</button>
-                </div>
-                <.input
-                  field={@form[:schema]}
-                  type="textarea"
-                  label="Structured Output Schema"
-                  rows="6"
-                  placeholder={~s({"type":"object","properties":{"answer":{"type":"string"}}})}
-                  class="ullm-input ullm-input-mono"
-                  hint_id="schema-status"
-                  hint={schema_status_text(@schema_check)}
-                  hint_tone={if @schema_check.status == :error, do: "error", else: "neutral"}
-                  aria-invalid={if @schema_check.status == :error, do: "true"}
-                  phx-debounce="5000"
-                  phx-hook="SchemaPending"
-                  data-status-id="schema-status"
-                  data-run-submit-id="run-submit"
-                />
-                <div class="ullm-button-row ullm-button-row-end">
-                  <button
-                    id="check-schema"
-                    type="button"
-                    phx-click="check-schema"
-                    phx-hook="SchemaCheck"
-                    data-form-id="run-form"
-                    disabled={String.trim(@form[:schema].value || "") == ""}
-                    class="ullm-btn"
-                  >Check Schema</button>
-                  <button
-                    id="clear-schema"
-                    type="button"
-                    phx-click="clear-schema"
-                    disabled={
-                      String.trim(@form[:schemaShorthand].value || "") == "" and
-                        String.trim(@form[:schema].value || "") == ""
-                    }
-                    class="ullm-btn"
-                  >Clear Schema</button>
-                </div>
+            <label class="flex items-center gap-2 text-sm text-slate-800">
+              <input
+                type="checkbox"
+                name={@form[:structured].name}
+                value="true"
+                checked={@form[:structured].value == "true"}
+                class="rounded border-slate-300"
+              /> Require structured JSON output
+            </label>
+            <div :if={@form[:structured].value == "true"}>
+              <label for="run_schema" class="mb-1 block text-sm font-medium text-slate-800">JSON Schema</label>
+              <textarea
+                id="run_schema"
+                name={@form[:schema].name}
+                rows="7"
+                class="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-xs"
+                placeholder="{&quot;type&quot;:&quot;object&quot;,&quot;properties&quot;:{&quot;answer&quot;:{&quot;type&quot;:&quot;string&quot;}}}"
+              >{@form[:schema].value}</textarea>
+              <div class="mt-2 flex items-center gap-3">
+                <button
+                  id="check-schema"
+                  type="button"
+                  phx-click="check-schema"
+                  class="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+                >Check schema</button>
+                <span
+                  id="schema-status"
+                  class={
+                    if @schema_check.status == :error,
+                      do: "text-sm text-rose-700",
+                      else: "text-sm text-slate-600"
+                  }
+                >{@schema_check.message}</span>
               </div>
             </div>
-            <div
-              :if={@run_error}
-              id="run-error"
-              role="alert"
-              class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900"
-            >
-              {@run_error}
-            </div>
-            <div class="ullm-button-row ullm-button-row-end">
-              <button
-                id="new-conversation"
-                type="button"
-                phx-click="new-conversation"
-                disabled={new_disabled?(@form, @run_result, @conversation_trace_id)}
-                class="ullm-btn"
-              >New</button>
-              <button
-                id="new-prompt"
-                type="button"
-                phx-click="new-prompt"
-                disabled={String.trim(@form[:userPrompt].value || "") == ""}
-                class="ullm-btn"
-              >Clear Prompt</button>
-              <button
-                id="run-submit"
-                type="submit"
-                formnovalidate
-                disabled={run_disabled?(@form, @schema_check, @run_ref)}
-                phx-disable-with="Running…"
-                class="ullm-btn ullm-btn-primary"
-              >
-                {if @run_ref, do: "⏳ Running…", else: "Run Prompt"}
-              </button>
-            </div>
-          </section>
-        </section>
-      </div>
-    </.form>
-
-    <div :if={@backend_state == :ready} class="studio-stack">
-      <aside class="studio-stack">
-        <section
-          id="run-result-panel"
-          aria-label="Result"
-          class="ullm-widget ullm-output-widget"
-        >
-          <div class="ullm-widget-header">
-            <h2>Result</h2>
-          </div>
-          <div class="ullm-result-panel">
-            <p :if={is_nil(@run_result)} class="ullm-empty-text">
-              Run a prompt to see its input, output, and stats here.
-            </p>
-            <.llm_result
-              :if={@run_result}
-              id={"result-#{@run_result["runId"]}"}
-              input={get_in(@output_trace_resources, ["request", "payload", "userPrompt"])}
-              output={@run_result["output"]}
-              search={@run_result["search"]}
-              output_id="run-output"
-              copy_output_id="copy-run-output"
-            >
-              <:stats>
-                <.llm_trace
-                  id="output-trace"
-                  summary={LlmTraceProjection.summary(@run_result)}
-                  details={LlmTraceProjection.details(@run_result)}
-                  resources={@output_trace_resources}
-                  details_open={@ui["outputDetailsOpen"]}
-                  controls_open={@ui["outputControlsOpen"]}
-                  request_open={@output_request_open?}
-                  response_open={@output_response_open?}
-                  trace_open={@output_trace_open?}
-                  trace_loading?={@output_trace_loading?}
-                  trace_error={@output_trace_error}
-                  trace_data={@output_trace_data}
-                  details_event="toggle-ui"
-                  details_name="outputDetailsOpen"
-                  controls_event="toggle-ui"
-                  controls_name="outputControlsOpen"
-                  resource_event="toggle-output-data"
-                  run_id={@run_result["runId"]}
-                  rerun_event="rerun-result"
-                  rerun_disabled={
-                    not rerun_available?(@output_trace_resources) or not is_nil(@run_ref) or
-                      @profile_requires_save?
-                  }
-                />
-              </:stats>
-            </.llm_result>
-          </div>
-        </section>
-
-        <section
-          id="workspace-history-panel"
-          aria-label="History"
-          class="studio-card p-4 sm:p-5"
-        >
-          <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 class="font-semibold text-slate-950">
-                🕘 History ({@history_total_count} total)
-              </h2>
+              <label
+                for="run_reasoningEffort"
+                class="mb-1 block text-sm font-medium text-slate-800"
+              >Reasoning effort</label>
+              <input
+                id="run_reasoningEffort"
+                name={@form[:reasoningEffort].name}
+                value={@form[:reasoningEffort].value}
+                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                placeholder="Optional value supported by the selected model"
+              />
+            </div>
+            <div>
+              <label for="run_recoveryJson" class="mb-1 block text-sm font-medium text-slate-800">Recovery policy JSON</label>
+              <textarea
+                id="run_recoveryJson"
+                name={@form[:recoveryJson].name}
+                rows="6"
+                class="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-xs"
+                placeholder="Optional harden.recovery object"
+              >{@form[:recoveryJson].value}</textarea>
               <p class="mt-1 text-xs text-slate-500">
-                Restore a prompt or inspect its redacted result.
+                The proxy validates supported recovery options before dispatch.
               </p>
             </div>
-            <div class="flex items-center gap-2">
+          </div>
+        </details>
+
+        <div class="mt-5 flex flex-wrap items-center gap-3">
+          <button
+            id="run-submit"
+            type="submit"
+            disabled={not is_nil(@run_ref) or @recording?}
+            class="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
+          >
+            {if @recording?,
+              do: "Saving result…",
+              else: if(is_nil(@run_ref), do: "Run request", else: "Running…")}
+          </button>
+          <p :if={@run_error} id="run-error" role="alert" class="text-sm text-rose-700">
+            {@run_error}
+          </p>
+          <p
+            :if={@recording_error}
+            id="recording-error"
+            role="status"
+            class="text-sm text-amber-800"
+          >
+            {@recording_error}
+          </p>
+        </div>
+      </section>
+    </.form>
+
+    <section
+      :if={@run_result}
+      id="run-result-panel"
+      aria-label="Response"
+      class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7"
+    >
+      <h2 class="mb-4 text-lg font-semibold text-slate-950">Response</h2>
+      <.llm_result
+        id="current-result"
+        input={@run_payload && @run_payload["input"]}
+        output={@run_result["output_text"] || Jason.encode!(@run_result, pretty: true)}
+      >
+        <:stats>
+          <span :if={
+            is_map(@run_result["usage"]) and is_integer(@run_result["usage"]["total_tokens"])
+          }>{@run_result["usage"]["total_tokens"]} tokens</span>
+          <span :if={
+            not (is_map(@run_result["usage"]) and is_integer(@run_result["usage"]["total_tokens"]))
+          }>Usage and cost unavailable</span>
+        </:stats>
+      </.llm_result>
+      <details :if={@run_result["harden"]} class="mt-4 rounded-lg border border-slate-200 p-3">
+        <summary class="cursor-pointer text-sm font-medium">Hardening diagnostics</summary>
+        <pre id="response-diagnostics" class="mt-3 overflow-auto whitespace-pre-wrap text-xs">{Jason.encode!(@run_result["harden"], pretty: true)}</pre>
+      </details>
+    </section>
+
+    <section
+      id="shared-history"
+      aria-labelledby="history-title"
+      class="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7"
+    >
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 id="history-title" class="text-lg font-semibold text-slate-950">Shared history</h2>
+          <p class="mt-1 text-sm text-slate-600">
+            Frontend requests from all enabled logins appear here. Direct API calls are not recorded.
+          </p>
+          <p :if={@statistics} id="history-statistics" class="mt-2 text-xs text-slate-500">
+            {@statistics.total} recorded calls · {@statistics.succeeded} succeeded · {@statistics.failed} failed · {@statistics.unknown} unknown outcomes · usage and cost unavailable
+          </p>
+        </div>
+        <button
+          :if={@history.total_count > 0}
+          id="clear-history"
+          type="button"
+          phx-click="clear-history"
+          class="rounded-md border border-rose-300 px-3 py-1.5 text-sm text-rose-800"
+        >Clear shared history</button>
+      </div>
+
+      <p
+        :if={@history_error}
+        id="history-error"
+        role="status"
+        class="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"
+      >
+        {@history_error}
+      </p>
+      <p
+        :if={@history_loading?}
+        id="history-loading"
+        role="status"
+        class="mt-4 text-sm text-slate-500"
+      >
+        Loading shared history…
+      </p>
+      <p
+        :if={not @history_loading? and is_nil(@history_error) and @history.total_count == 0}
+        id="history-empty"
+        class="mt-4 text-sm text-slate-500"
+      >
+        No frontend calls have been recorded.
+      </p>
+
+      <div
+        :if={not @history_loading? and is_nil(@history_error) and @history.items != []}
+        class="mt-5 divide-y divide-slate-200"
+      >
+        <article
+          :for={call <- @history.items}
+          id={"history-#{call.id}"}
+          class="py-5 first:pt-0 last:pb-0"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="text-sm font-medium text-slate-900">
+                {call.request["model"]} · {call.outcome_kind}
+              </p>
+              <p class="text-xs text-slate-500">{DateTime.to_iso8601(call.inserted_at)}</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
               <button
-                :if={@history_loaded? and @history != []}
-                id="workspace-clear-history"
+                id={"restore-#{call.id}"}
                 type="button"
-                phx-click="clear-history"
-                phx-confirm="Delete all history for this session? This cannot be undone."
-                disabled={not is_nil(@history_pending)}
-                class="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
-              >{if @history_pending, do: "⏳ Deleting…", else: "🗑 Delete all"}</button>
+                phx-click="restore"
+                phx-value-id={call.id}
+                class="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+              >Restore request</button>
+              <a
+                id={"download-#{call.id}"}
+                href={~p"/history/#{call.id}/download"}
+                class="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+              >Download JSON</a>
               <button
-                id="history-fold-toggle"
+                id={"delete-#{call.id}"}
                 type="button"
-                phx-click="toggle-ui"
-                phx-value-name="historyOpen"
-                phx-value-open={if @ui["historyOpen"], do: "false", else: "true"}
-                aria-expanded={to_string(@ui["historyOpen"])}
-                disabled={not is_nil(@state_save_in_flight)}
-                class="text-xs font-semibold text-teal-700 hover:text-teal-900"
-              >{if @ui["historyOpen"], do: "⌃ Hide", else: "⌄ Show"}</button>
+                phx-click="delete-call"
+                phx-value-id={call.id}
+                class="rounded-md border border-rose-300 px-3 py-1.5 text-sm text-rose-800"
+              >Delete</button>
             </div>
           </div>
-          <div :if={@ui["historyOpen"]} id="workspace-history" class="space-y-2">
-            <p
-              :if={@history_loading?}
-              id="workspace-history-loading"
-              role="status"
-              class="text-sm text-slate-500"
-            >
-              Loading history…
-            </p>
-            <div
-              :if={@history_error}
-              id="workspace-history-error"
-              role="alert"
-              class="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800"
-            >
-              {@history_error}
-              <button
-                id="workspace-history-retry"
-                type="button"
-                phx-click="refresh-history"
-                disabled={@history_loading? or not is_nil(@history_pending)}
-                class="ml-2 font-semibold underline disabled:opacity-50"
-              >Retry</button>
-            </div>
-            <div
-              :if={@history_changed?}
-              id="workspace-history-changed"
-              role="status"
-              class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
-            >
-              History changed while you were viewing this page.
-              <button
-                id="workspace-history-refresh-changed"
-                type="button"
-                phx-click="refresh-history"
-                disabled={@history_loading? or not is_nil(@history_pending)}
-                class="ml-2 font-semibold underline disabled:opacity-50"
-              >Refresh</button>
-            </div>
-            <p
-              :if={@history_loaded? and @history == [] and is_nil(@history_error)}
-              class="text-sm text-slate-500"
-            >
-              No runs yet in this session.
-            </p>
-            <.llm_result
-              :for={item <- @history}
-              id={"workspace-history-#{item["runId"]}"}
-              input={get_in(item, ["request", "userPrompt"])}
-              output={get_in(item, ["result", "output"])}
-              search={get_in(item, ["result", "search"])}
-            >
-              <:stats>
-                <.llm_trace {history_trace_assigns(item, @history_result_states, @run_ref, @profile_requires_save?)} />
-              </:stats>
-              <:actions>
-                <button
-                  type="button"
-                  phx-click="restore-history"
-                  phx-value-run-id={item["runId"]}
-                  disabled={not is_nil(@history_pending)}
-                  class="llm-result-action"
-                  aria-label="Restore prompt"
-                  title="Restore prompt"
-                >📝</button>
-                <button
-                  type="button"
-                  phx-click="delete-history"
-                  phx-value-run-id={item["runId"]}
-                  disabled={not is_nil(@history_pending)}
-                  class="llm-result-action"
-                  aria-label="Delete result"
-                  title="Delete result"
-                >🗑️</button>
-              </:actions>
-            </.llm_result>
-            <p
-              :if={@history_loading? and @history_requested_page != @history_page}
-              id="workspace-history-requested-page"
-              role="status"
-              class="text-xs text-slate-500"
-            >
-              Loading page {@history_requested_page}…
-            </p>
-            <.pagination
-              :if={@history_loaded?}
-              id="workspace-history-pagination"
-              page={@history_page}
-              page_size={@history_page_size}
-              total_count={@history_total_count}
-              page_size_options={@history_page_size_options}
-              event="paginate-history"
-              loading?={@history_loading?}
-              disabled?={not is_nil(@history_pending) or @history_refresh_pending?}
-            />
-          </div>
-        </section>
-      </aside>
-    </div>
+          <.llm_result
+            id={"history-result-#{call.id}"}
+            input={HardenLlmWeb.WorkspaceLive.call_input(call)}
+            output={HardenLlmWeb.WorkspaceLive.call_output(call)}
+          />
+        </article>
+      </div>
+
+      <.pagination
+        id="history-pagination"
+        page={@history.page}
+        page_size={@history.page_size}
+        total_count={@history.total_count}
+        show_page_size?={false}
+        show_jump?={false}
+        event="history-page"
+        loading?={@history_loading?}
+        class="mt-5 border-t border-slate-200 pt-4"
+      />
+    </section>
   </main>
 </Layouts.app>

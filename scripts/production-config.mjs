@@ -25,7 +25,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
-import { sharedApplicationVariables } from "./shared-profiles.mjs";
+import { applicationEnvironment } from "./deployment-configuration.mjs";
 
 export const SPECIFICATION_ID = "SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001";
 export const DEFAULT_DESCRIPTOR_PATH = "/home/kirill/.config/harden-llm/production.json";
@@ -318,7 +318,7 @@ export function resolveSourcePrecedence(sources, requiredVariables = DEFAULT_REQ
   for (const key of required) {
     if (!Object.hasOwn(effective, key) || effective[key] === "") fail(`required environment variable ${key} is missing or empty`, "missing_required");
   }
-  const sharedValues = sharedApplicationVariables(shared.values);
+  const sharedValues = applicationEnvironment(shared.values);
   return {
     effective,
     sharedValues,

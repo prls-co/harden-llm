@@ -220,7 +220,7 @@ func TestCapacityReportBoundsRequestDiagnosticsAtMaximumScenarioPopulation(t *te
 			Origin: RequestOrigin{
 				Client: "capacity-test", Component: "gateway", OperationID: fmt.Sprintf("operation-%04d", requestID),
 				JobID: fmt.Sprintf("measurement-request-%d", requestID), TestRunID: "capacity-run",
-				TestID: "TEST-277", SourceRevision: strings.Repeat("a", 40),
+				TestID: "TEST-278", SourceRevision: strings.Repeat("a", 40),
 			},
 			FirstEvent: time.Duration(index+1) * time.Millisecond, FirstEventKnown: true,
 			EventCount: int64(requestID), ReceivedBytes: int64(requestID * 100),
@@ -238,7 +238,7 @@ func TestCapacityReportBoundsRequestDiagnosticsAtMaximumScenarioPopulation(t *te
 	scenario := SummarizeScenario(ScenarioSpec{ID: "maximum-scenario", MeasurementSeconds: 60}, Result{PopulationResult: population}, requestCount, time.Minute)
 	report := ExecutionReport{
 		SchemaVersion: 2, ReportKind: "harden-llm-capacity.v2", TestRunID: "capacity-run",
-		TestIDs: []string{"TEST-277"}, CaseSet: "exploration", Cases: []ScenarioReport{scenario},
+		TestIDs: []string{"TEST-278"}, CaseSet: "exploration", Cases: []ScenarioReport{scenario},
 	}
 	path := filepath.Join(t.TempDir(), "capacity-report.json")
 	if err := WriteExecutionReport(path, report); err != nil {
@@ -291,7 +291,7 @@ func TestCapacityReportBoundsStoredArtifactSamplesAtMaximumExplorationPopulation
 	caseIDs := []string{"one-rps-short-provider", "twelve-rps-short", "twenty-four-rps-short", "twelve-rps-ten-second-provider"}
 	report := ExecutionReport{
 		SchemaVersion: 2, ReportKind: "harden-llm-capacity.v2", TestRunID: "capacity-run",
-		TestIDs: []string{"TEST-277"}, CaseSet: "exploration",
+		TestIDs: []string{"TEST-278"}, CaseSet: "exploration",
 		Cases: make([]ScenarioReport, len(caseIDs)),
 	}
 	for caseIndex, caseID := range caseIDs {
@@ -324,9 +324,9 @@ func TestCapacityReportBoundsStoredArtifactSamplesAtMaximumExplorationPopulation
 				RunID:   fmt.Sprintf("run-%02d-%04d", caseIndex, requestID),
 				TraceID: fmt.Sprintf("trace-%02d-%04d", caseIndex, requestID),
 				Origin: RequestOrigin{
-					Client: "harden-llm-capacity-test", Component: "capacity-baseline",
+					Client: "harden-llm-capacity-test", Component: "capacity-driver",
 					OperationID: fmt.Sprintf("%s-%04d", caseID, requestID), JobID: fmt.Sprintf("measurement-request-%d", requestID),
-					TestRunID: "capacity-run", TestID: "TEST-277", SourceRevision: strings.Repeat("a", 40),
+					TestRunID: "capacity-run", TestID: "TEST-278", SourceRevision: strings.Repeat("a", 40),
 				},
 				StreamTerminal: "run.completed", LaunchLagNS: time.Millisecond, LatencyNS: time.Second,
 				FirstEventNS: 5 * time.Millisecond, EventCount: 5, ReceivedBytes: 9_284,

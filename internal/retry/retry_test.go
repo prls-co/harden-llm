@@ -378,7 +378,7 @@ func TestRecoveryBoundaryTiming(t *testing.T) {
 // The current plan is presence-aware and rejects the retired boolean,
 // partial plans, executable nested policies, and runtime controls in a leaf.
 func TestExplicitRecoveryPolicyShape(t *testing.T) {
-	valid := []byte(`{"maxAttempts":6,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":{"initial":{"source":"profile","profileId":"A"},"escalation":null},"rerun":null}`)
+	valid := []byte(`{"maxAttempts":6,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":{"initial":{"source":"model","modelId":"gpt-repair"},"escalation":null},"rerun":null}`)
 	var policy Policy
 	if err := json.Unmarshal(valid, &policy); err != nil {
 		t.Fatalf("valid explicit policy: %v", err)
@@ -403,11 +403,11 @@ func TestExplicitRecoveryPolicyShape(t *testing.T) {
 
 	cases := []string{
 		`{"maxAttempts":1,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"repairInvalidOutput":true,"jsonRepair":null,"rerun":null}`,
-		`{"maxAttempts":1,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":{"initial":{"source":"profile","profileId":"A"}} ,"rerun":null}`,
-		`{"maxAttempts":1,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":null,"rerun":{"target":{"source":"profile","profileId":"A"},"jsonRepair":null,"extra":true}}`,
-		`{"maxAttempts":1,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":{"initial":{"source":"profile","profileId":"A","rerun":null},"escalation":null},"rerun":null}`,
-		`{"maxAttempts":1,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":{"initial":{"source":"profile","profileId":"A","providerOptions":{"webSearch":true}},"escalation":null},"rerun":null}`,
-		`{"maxAttempts":1,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":{"initial":{"source":"profile","profileId":"A","providerOptions":{"nested":{"authorization":"secret"}}},"escalation":null},"rerun":null}`,
+		`{"maxAttempts":1,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":{"initial":{"source":"model","modelId":"gpt-repair"}} ,"rerun":null}`,
+		`{"maxAttempts":1,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":null,"rerun":{"target":{"source":"model","modelId":"gpt-repair"},"jsonRepair":null,"extra":true}}`,
+		`{"maxAttempts":1,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":{"initial":{"source":"model","modelId":"gpt-repair","rerun":null},"escalation":null},"rerun":null}`,
+		`{"maxAttempts":1,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":{"initial":{"source":"model","modelId":"gpt-repair","providerOptions":{"webSearch":true}},"escalation":null},"rerun":null}`,
+		`{"maxAttempts":1,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":{"initial":{"source":"model","modelId":"gpt-repair","providerOptions":{"nested":{"authorization":"secret"}}},"escalation":null},"rerun":null}`,
 	}
 	for _, input := range cases {
 		var rejected Policy
@@ -429,7 +429,7 @@ type sequenceExecutor struct {
 	calls int
 }
 
-func (*sequenceExecutor) Prepare(context.Context, runtime.Profile, runtime.Credential, runtime.Call) (runtime.PreparedOperation, error) {
+func (*sequenceExecutor) Prepare(context.Context, runtime.Connection, runtime.Credential, runtime.Call) (runtime.PreparedOperation, error) {
 	return runtime.PreparedOperation{}, nil
 }
 func (s *sequenceExecutor) Execute(ctx context.Context, _ runtime.PreparedOperation) (runtime.ProviderResult, error) {
@@ -437,6 +437,6 @@ func (s *sequenceExecutor) Execute(ctx context.Context, _ runtime.PreparedOperat
 	return runtime.ProviderResult{Output: map[string]any{}}, s.work(ctx, s.calls)
 }
 func executeSequence(ctx context.Context, config Config, work func(context.Context, int) error) ([]runtime.AttemptRecord, error) {
-	record, err := runtime.Execute(ctx, &sequenceExecutor{work: work}, func(context.Context, runtime.Profile) (runtime.Credential, error) { return runtime.Credential{}, nil }, "selected", map[string]runtime.Profile{"selected": {ID: "selected"}}, runtime.Call{CallType: "structured", Schema: []byte(`{"type":"object"}`), ValidateStructured: func(any) error { return nil }}, config, nil, cachekey.ModeOff, "v1", "call", "trace")
+	record, err := runtime.Execute(ctx, &sequenceExecutor{work: work}, runtime.Connection{ID: "selected"}, runtime.Credential{}, runtime.Call{CallType: "structured", ModelID: "fixture-model", Schema: []byte(`{"type":"object"}`), ValidateStructured: func(any) error { return nil }}, config, nil, cachekey.ModeOff, "v1", "call", "trace")
 	return record.Attempts, err
 }

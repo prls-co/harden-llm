@@ -11,35 +11,71 @@ import (
 	"github.com/prls-co/harden-llm/internal/retry"
 )
 
-type Profile struct {
-	ID                       string
-	Provider                 string
-	APIInferenceType         string
-	CredentialScope          string
-	BaseURL                  string
-	ModelID                  string
-	DefaultOptions           map[string]any
-	ReasoningEffortMap       map[string]map[string]any
-	SupportsStructuredOutput bool
-	SupportsTemperature      bool
-	SupportsWebSearch        bool
-	TokensParam              string
-	ResponsesTokensParam     string
-	Pricing                  Pricing
+type Connection struct {
+	ID                string
+	Provider          string
+	APIInferenceType  string
+	BaseURL           string
+	CacheDomain       string
+	SupportsWebSearch bool
 }
-
-type Pricing = accounting.Pricing
 
 type Credential struct {
 	APIKey  string
 	Headers map[string]string
 }
 
+type Message struct {
+	Role       string          `json:"role"`
+	Content    json.RawMessage `json:"content,omitempty"`
+	Name       string          `json:"name,omitempty"`
+	ToolCallID string          `json:"tool_call_id,omitempty"`
+	ToolCalls  []ToolCall      `json:"tool_calls,omitempty"`
+}
+
+type ToolCall struct {
+	ID       string       `json:"id"`
+	Type     string       `json:"type"`
+	Function FunctionCall `json:"function"`
+	ItemID   string       `json:"-"`
+}
+
+type FunctionCall struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
+type FunctionTool struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description,omitempty"`
+	Parameters  json.RawMessage `json:"parameters"`
+	Strict      *bool           `json:"strict,omitempty"`
+}
+
+type ToolChoice struct {
+	Mode string `json:"mode,omitempty"`
+	Name string `json:"name,omitempty"`
+}
+
+type AssistantToolCall struct {
+	ID       string       `json:"id"`
+	ItemID   string       `json:"item_id,omitempty"`
+	Type     string       `json:"type"`
+	Function FunctionCall `json:"function"`
+}
+
+type AssistantOutput struct {
+	Content   string              `json:"content,omitempty"`
+	ToolCalls []AssistantToolCall `json:"tool_calls"`
+}
+
 type Call struct {
-	SystemPrompt    string
-	UserPrompt      string
+	ModelID         string
+	Messages        []Message
 	CallType        string
 	Schema          json.RawMessage
+	Tools           []FunctionTool
+	ToolChoice      ToolChoice
 	ReasoningEffort string
 	WebSearch       bool
 	// SearchMemo is owned by one logical call and shared by retries and repairs.
@@ -74,7 +110,7 @@ type ProgressSnapshot struct {
 	Type                string
 	Stage               string
 	Branch              string
-	ProfileID           string
+	ConnectionID        string
 	ReasoningEffort     string
 	Attempt             int
 	AttemptsUsed        int
@@ -120,6 +156,15 @@ type PreparedOperation struct {
 	// the active attempt. Providers may report bounded cumulative transport
 	// measurements through it; it never controls retry or recovery decisions.
 	StreamProgress func(StreamDiagnostics)
+}
+
+func withCacheDomain(prepared PreparedOperation, connection Connection) PreparedOperation {
+	domain := connection.CacheDomain
+	if domain == "" {
+		domain = connection.ID
+	}
+	prepared.Operation.CacheDomain = domain
+	return prepared
 }
 
 type Usage = accounting.Usage
@@ -170,23 +215,21 @@ func (wait WaitDiagnostics) MarshalJSON() ([]byte, error) {
 }
 
 type Executor interface {
-	Prepare(ctx context.Context, profile Profile, credential Credential, call Call) (PreparedOperation, error)
+	Prepare(ctx context.Context, connection Connection, credential Credential, call Call) (PreparedOperation, error)
 	Execute(ctx context.Context, operation PreparedOperation) (ProviderResult, error)
 }
 
-type CredentialLookup func(context.Context, Profile) (Credential, error)
-
 type ExecutionTarget struct {
-	ProfileID string `json:"profileId"`
-	Provider  string `json:"provider"`
-	Protocol  string `json:"protocol"`
-	Endpoint  string `json:"endpoint"`
-	ModelID   string `json:"modelId"`
+	ConnectionID string `json:"connectionId"`
+	Provider     string `json:"provider"`
+	Protocol     string `json:"protocol"`
+	Endpoint     string `json:"endpoint"`
+	ModelID      string `json:"modelId"`
 }
 
 type AttemptRecord struct {
 	Number            int                `json:"number"`
-	ProfileID         string             `json:"profileId"`
+	ConnectionID      string             `json:"connectionId"`
 	Target            ExecutionTarget    `json:"target"`
 	ProviderUsed      bool               `json:"providerUsed"`
 	Category          retry.Category     `json:"category,omitempty"`

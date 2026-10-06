@@ -60,7 +60,7 @@ func TestFrontendComposeFixture(t *testing.T) {
 		[]string{environment["PRLS_PORTAL_URL"], environment["HARDEN_LLM_WEB_PUBLIC_URL"]},
 		loginEmail,
 		loginPassword,
-		environment["HARDEN_LLM_STATIC_TOKEN_USER_ID"],
+		"frontend-smoke-user",
 	)
 
 	files := []string{
@@ -106,10 +106,28 @@ func TestFrontendComposeFixture(t *testing.T) {
 		t.Fatalf("pre-pull frontend Compose images: %v", err)
 	}
 	cancelPull()
+	buildContext, cancelBuild := context.WithTimeout(context.Background(), 20*time.Minute)
+	if err := runner.run(buildContext, nil, "build", "harden-llm-gateway", "harden-llm-web", "fake-provider"); err != nil {
+		cancelBuild()
+		t.Fatalf("build frontend Compose images: %v", err)
+	}
+	cancelBuild()
+	postgresContext, cancelPostgres := context.WithTimeout(context.Background(), 2*time.Minute)
+	if err := runner.run(postgresContext, nil, "up", "-d", "--wait", "--wait-timeout", "120", "harden-postgres"); err != nil {
+		cancelPostgres()
+		t.Fatalf("start frontend reference database: %v", err)
+	}
+	cancelPostgres()
+	migrationContext, cancelMigration := context.WithTimeout(context.Background(), 2*time.Minute)
+	if err := runner.run(migrationContext, nil, "run", "--rm", "--no-deps", "-e", "PHX_SERVER=false", "harden-llm-web", "eval", "HardenLlm.Release.migrate()"); err != nil {
+		cancelMigration()
+		t.Fatalf("migrate frontend reference database: %v", err)
+	}
+	cancelMigration()
 
 	started := time.Now()
 	startContext, cancelStart := context.WithTimeout(context.Background(), 7*time.Minute)
-	err = runner.run(startContext, nil, "up", "-d", "--build", "--wait", "--wait-timeout", "360")
+	err = runner.run(startContext, nil, "up", "-d", "--wait", "--wait-timeout", "360")
 	cancelStart()
 	if err != nil {
 		t.Fatalf("start frontend Compose stack: %v\n%s", err, runner.diagnostics())

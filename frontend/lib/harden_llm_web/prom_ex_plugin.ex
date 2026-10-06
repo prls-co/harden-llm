@@ -6,20 +6,12 @@ defmodule HardenLlmWeb.PromExPlugin do
   @routes [
     "/",
     "/healthz",
-    "/embed/llm",
     "/logout",
-    "/profiles",
-    "/profiles/bundle",
-    "/session/unavailable",
-    "/traces/:trace_id",
-    "/traces/:trace_id/artifacts/:artifact_id"
+    "/history/:id/download",
+    "/session/unavailable"
   ]
-  @live_views [
-    HardenLlmWeb.EmbeddingLive,
-    HardenLlmWeb.ProfilesLive,
-    HardenLlmWeb.WorkspaceLive
-  ]
-  @operations HardenLlmWeb.HardenAPI.operations() |> Enum.map(& &1.id)
+  @live_views [HardenLlmWeb.WorkspaceLive]
+  @operations ["/v1/models", "/v1/responses"]
   @status_classes ~w(2xx 3xx 4xx 5xx transport)
   @outcomes ~w(success error)
   @duration_buckets [5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 15_000, 65_000]

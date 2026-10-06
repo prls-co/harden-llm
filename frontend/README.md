@@ -1,46 +1,52 @@
 # Harden LLM Web
 
-This Phoenix LiveView application is the browser-facing operations console for
-Harden LLM. It uses shared PRLS Web authentication and the Control Plane access
-contract, then calls the Go gateway through `../api/openapi.yaml`. It owns HTML,
-CSRF, and an encrypted host-only session cookie. It does not own human identity,
-account access, a database, provider integration, retry policy, cache identity,
-pricing, Garage access, or domain persistence.
+This Phoenix LiveView application is the browser-facing reference client for
+the Go OpenAI-compatible proxy. It uses shared PRLS Web authentication and the
+Control Plane access contract, then calls the Go gateway through
+`../api/openapi.yaml`. Phoenix owns HTML, CSRF, the encrypted host-only session
+cookie, shared reference history, and ordered session/component drafts. The Go
+gateway owns the stateless `/v1` API, provider credentials, execution, recovery,
+cache policy, and diagnostics. Human identity and access remain owned by the
+shared identity services.
 
-## Shared login
+## Shared login and history
 
-Only PRLS Portal hosts password and company selection forms. Unauthenticated
-HTML requests and gateway denials go directly to `PRLS_PORTAL_URL`, preserving
-this product's full public path and query. Harden LLM keeps same-origin POST
-`/logout` with CSRF protection; it calls Control Plane and forwards its cookie
-expiry headers unchanged before returning to Portal. An authority outage returns
-503. There are no product-local `/login` or `/accounts` routes.
+Only PRLS Portal hosts password forms. Unauthenticated HTML requests and access
+denials go to `PRLS_PORTAL_URL` with the protected return path. Each enabled
+login enters directly without company selection or an HLLM grant. All enabled
+logins share Phoenix history. Direct gateway calls never create
+history records. Phoenix records only submissions made through this client,
+after showing the returned outcome. A history-storage failure leaves that
+outcome available and reports that history could not be saved.
 
-Each enabled identity enters without selecting a company or receiving an HLLM
-grant. Company changes do not change the stable user ID that owns resources.
-The frontend consumes shared-web `6ef26c2e50ae5ca3a4e21e8d2c6b57386a546758`.
+The browser calls the gateway with the existing `HARDEN_LLM_TOKEN`; the
+gateway uses `CPA_API_KEY` only for its configured upstream. Neither token is
+sent to the browser. The gateway has no profiles, human-user ownership, or
+history routes.
 
 ## Local development
 
 Use Elixir 1.20.2 on Erlang/OTP 28.4.3. Start the Go gateway separately on
-`http://127.0.0.1:8080`, then:
+`http://127.0.0.1:8080`, configure its one or more upstream connections, and
+provide the same `HARDEN_LLM_TOKEN` to Phoenix and the gateway. Then:
 
 ```bash
 mix setup
+mix ecto.migrate
 mix phx.server
 ```
 
 Visit `http://localhost:4000`. Run Portal at the configured `PRLS_PORTAL_URL`
 (default local origin `http://localhost:4200`) with Control Plane; passwords
-are submitted there. Development sessions are intentionally
-non-production; production requires independent signing/encryption salts, a
-64-byte secret key base, HTTPS, and the Compose topology.
+are submitted there. Development sessions are non-production. Production
+requires independent signing/encryption salts, a 64-byte secret key base,
+HTTPS, and the Compose topology.
 
 ## Verification
 
-These are separate gates, not a script to run after every edit. The default
-development loop is described below; audits/builds are selected for their
-release or dependency boundary.
+The normal edit loop is repository-root `make test-fast`. From this directory,
+`mix test` runs the deterministic Phoenix and LiveView suite. Database tests
+run through the existing tier runner against PostgreSQL:
 
 ```bash
 mix format --check-formatted
@@ -52,98 +58,20 @@ MIX_ENV=prod mix assets.deploy
 MIX_ENV=prod mix release
 ```
 
-### Feedback tiers
-
-Follow the reusable [LiveView and Go testing guidelines](../docs/liveview-go-testing-guidelines.md).
-Plain Node tests belong in the fast default; a DOM emulator is optional, and
-browser testing always requires an explicit request. Existing T0-T5 labels below
-are repository execution tiers, not the guide's three practical levels.
-
-During frontend edits, use the repository-root `make test-fast` loop or run
-`mix test` directly for the T0-T2 boundary. T0 covers pure rules, T1 covers
-in-process Go/Elixir behavior, and T2 covers the dependency-free client core.
-LiveViewTest owns server-side
-folding, profile/reasoning/cache/retry state, upload namespaces, parent
-messages, and independent embedded instances. The extracted client decision
-core is tested by Node's built-in runner; it deliberately does not emulate a
-DOM.
-
-T3 owns real service integration and race execution, T4 owns the two targeted
-Chromium canaries and native hook/event/layout behavior, and T5 owns full
-Compose or deployed/live certification. Use `make test-browser` only when
-browser testing is explicitly requested; `make test-release` is browser-free
-and is selected for release boundaries. A serial test
-must name the global resource that prevents async execution. An expensive-tier
-defect should gain a cheap T0-T2 regression for its root invariant whenever
-possible; the expensive test remains for the boundary fact it uniquely proves.
-
-Happy DOM and jsdom are intentionally not installed. Promotion requires a
-concrete adapter defect that pure rules cannot express, an API comparison and
-ADR-HLLM-015 amendment, and a retained real-browser canary. The deployed
-canary is opt-in and reads credentials only from inherited named environment
-entries; it never commits secrets or live output.
-
-`mix test` runs WEB-TEST-001 through WEB-TEST-010 plus the source-derived
-WEB-TEST-031 through WEB-TEST-043 parity extensions, and excludes browser and
-Compose tags. The embedded `ProfileWidgetComponent` coverage includes the
-compact no-tabs row, searchable custom-value controls, nested profile folds,
-utility cache/retry projection, explicit profile-save gating, fallback/options
-interactions, namespaced nested form IDs and bundle inputs, independent
-multi-instance host routing, and canonical profile mutations. The
-widget-specific plan cases TEST-101 through TEST-113 and TEST-115 are included
-in the deterministic suite. The browser test requires Chromium and ChromeDriver
-and is limited to the targeted native boundaries in TEST-114; it is not part of
-the cheap edit-test loop.
-
-The repository-root tier runner is the canonical scheduler. On a host without
-Elixir/Mix, run the deterministic frontend check in the pinned browser
-toolchain image (this still does not launch Chromium):
-
-```bash
-docker run --rm --network none \
-  -v "$HOME/.mix:/root/.mix:ro" \
-  -v "$PWD:/workspace" \
-  -w /workspace/frontend \
-  harden-llm-browser-test:local mix test --seed 104729
-```
-
-Do not add a DOM emulator to compensate for a missing Mix toolchain. The pure
-combobox decision core remains Node-tested without a DOM; native focus,
-LiveSocket patching, file inputs, CSS/layout, and browser cleanup remain
-owned by TEST-114.
-The primary Run Prompt submitter deliberately uses `formnovalidate` because
-optional nested profile editors share the outer form; LiveView remains the
-server-side validation boundary. The gateway's TEST-012 regression accepts
-utility request controls such as `max_tokens` while still rejecting
-credential-shaped option names.
-The authenticated `/embed/llm` fixture mounts two instances with distinct
-`id_prefix` and upload namespaces; downstream hosts can copy that mounting
-pattern without adopting tabs or page-level navigation.
-WEB-TEST-012 is the release-only full Compose/browser certification and
-additionally requires Go, Docker, and Compose:
-
-```bash
-mix test --only compose test/browser/compose_smoke_test.exs
-```
-
-`Dockerfile.browser` pins the certified browser, Go, Docker CLI, Compose,
-Elixir, and OTP versions. When driving the host Docker socket from that image,
-mount the repository at its identical absolute host path and use host
-networking so Compose paths and published smoke ports remain valid.
+Browser tests are opt-in and run only when specifically requested. The browser
+canary checks shared login, one standard `/v1/responses` request, and the
+frontend history failure boundary; it is excluded from deterministic tests.
+`make test-release` is browser-free. See
+[`../docs/liveview-go-testing-guidelines.md`](../docs/liveview-go-testing-guidelines.md)
+for the test tiers and evidence policy.
 
 ## Production
 
-`Dockerfile` builds assets and one OTP release, then copies only runtime files
-into a non-root Alpine image. The encrypted `__Host-harden_llm_web` cookie
-contains a Control Plane session reference and remains host-only; replacing the
-frontend does not require a separate session-vault volume. Each product keeps
-its own browser session, and gateway requests revalidate current access through
-Control Plane.
-
-Deploy with `../deploy/frontend/compose.frontend.yml` layered over the backend.
-The overlay supplies the private API/Collector origins and the variables documented in
-[`../docs/environment.md`](../docs/environment.md). Caddy remains the only
-public-port owner, and the browser never talks directly to the Go API.
+The Phoenix release runs in `deploy/frontend/compose.frontend.yml`, layered
+over the stateless proxy in `docker-compose.yml`. The frontend overlay owns the
+PostgreSQL service used for reference history and drafts. Caddy remains the
+only public-port owner. The browser talks only to Phoenix; Phoenix calls the
+Go API server-side.
 
 Operational setup, backup, and upgrade procedures are in the
 [`self-hosting guide`](../docs/self-hosting.md).

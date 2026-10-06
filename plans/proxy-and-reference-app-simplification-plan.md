@@ -27,7 +27,7 @@ Make Harden-LLM an OpenAI-compatible hardening proxy, with the same core inferen
 | Migration | DECISION | Start shared history empty. Remove incompatible HLLM-owned profiles, credentials, per-login histories, traces and artifacts during the coordinated cutover. No import, archive workflow, runtime migration subsystem or compatibility reader. |
 | Tests | FOR | Reuse Go, ExUnit/LiveViewTest, plain Node and the existing PostgreSQL service pool. No extra Compose topology, transport benchmark framework or repeated suites just to populate reports. |
 
-Current source still uses `/api/v1/run`, profile-bound requests, per-user product storage and `HARDEN_LLM_STATIC_TOKEN`. Local `.env` contains a nonempty `HARDEN_LLM_TOKEN` that passes the current token length/character constraints; its value was not printed or changed. Token presence is not a live authentication test. The rename and new API are planned behavior, not implemented behavior.
+Implementation has replaced the custom run route and profile-backed request model with the documented `/v1` endpoints, a single startup connection, and Phoenix-owned shared history. Local `.env` was updated to the canonical variable names while preserving the existing incoming token and CPA upstream key; values were not printed. Focused checks are in progress. Full browser-free release gates, production deployment and public HTTP acceptance remain pending, and token presence alone is not a live authentication test.
 
 ## 3. PRD / stakeholder and system needs
 
@@ -353,11 +353,11 @@ Plan-and-Solve subtasks:
 - `P02.S01 Add official SDK contract regressions`
   - Action: Add TEST-403 using the pinned official SDK and local handlers/provider stubs. Cover both endpoints, standard errors, tool exchanges, final-only streams, extensions, unsupported fields and size limits.
   - Why now: P01 supplies the canonical engine; transport is still missing.
-  - Files/surfaces: `internal/gateway/openai_contract_test.go`; phase surfaces below/above as applicable.
+  - Files/surfaces: `internal/gateway/httpapi/openai_contract_test.go`; phase surfaces below/above as applicable.
   - Requirement link: REQ-403, REQ-404, REQ-405.
   - Verification link: TEST-403.
   - Verification mode: RED.
-  - Command/procedure: `go test ./internal/gateway -run TestOpenAIContract -count=1`.
+  - Command/procedure: `go test ./internal/gateway/httpapi -run '^TestOpenAIContract' -count=1`.
   - Expected result: New assertions fail on the missing behavior for the stated reason; compilation-only failures do not complete RED.
   - Evidence produced: RED failure and test diff, linked from Section 11.
   - Stop/escalate condition: A fake decoder substitutes for the actual SDK or client retries hide extra dispatches.
@@ -366,11 +366,11 @@ Plan-and-Solve subtasks:
 - `P02.S02 Implement the OpenAI wire contract`
   - Action: Add direct endpoint codecs and standard SSE serializers over the one engine result. Apply bounded canonical diagnostics. Remove native run/state/profile/history/stats/trace/artifact handlers and custom diagnostic SSE/document assembly.
   - Why now: The SDK and wire regressions are failing.
-  - Files/surfaces: `internal/gateway/openai_contract_test.go`; phase surfaces below/above as applicable.
+  - Files/surfaces: `internal/gateway/httpapi/openai_contract_test.go`; phase surfaces below/above as applicable.
   - Requirement link: REQ-403, REQ-404, REQ-405.
   - Verification link: TEST-403.
   - Verification mode: GREEN.
-  - Command/procedure: `go test ./internal/gateway -run TestOpenAIContract -count=1`.
+  - Command/procedure: `go test ./internal/gateway/httpapi -run '^TestOpenAIContract' -count=1`.
   - Expected result: The preceding RED command passes with unchanged assertions.
   - Evidence produced: GREEN output and implementation diff, linked from Section 11.
   - Stop/escalate condition: A legacy endpoint survives, an unsupported field is ignored or output precedes validation.
@@ -379,11 +379,11 @@ Plan-and-Solve subtasks:
 - `P02.S03 Add token and independent-startup regressions`
   - Action: Add TEST-404 for canonical bearer auth, no identity owner, removed aliases and cache-disabled startup without product services.
   - Why now: The new routes exist before testing their deployment boundary.
-  - Files/surfaces: `cmd/harden-llm-gateway/openai_auth_test.go`; phase surfaces below/above as applicable.
+  - Files/surfaces: `cmd/harden-llm-gateway/config_test.go`; `cmd/harden-llm-gateway/main_test.go`; phase surfaces below/above as applicable.
   - Requirement link: REQ-403, REQ-409, REQ-413, REQ-415.
   - Verification link: TEST-404.
   - Verification mode: RED.
-  - Command/procedure: `go test ./cmd/harden-llm-gateway -run TestOpenAIAuthAndStartup -count=1`.
+  - Command/procedure: `go test ./cmd/harden-llm-gateway -run 'TestServerConfigurationUsesOneTokenAndStaticConnections|TestOnlyServeHealthcheckAndVersionCommandsExist' -count=1`.
   - Expected result: New assertions fail on the missing behavior for the stated reason; compilation-only failures do not complete RED.
   - Evidence produced: RED failure and test diff, linked from Section 11.
   - Stop/escalate condition: The tests read real .env values or depend on live identity.
@@ -392,11 +392,11 @@ Plan-and-Solve subtasks:
 - `P02.S04 Replace core auth and storage requirements`
   - Action: Use only HARDEN_LLM_TOKEN for incoming auth. Remove static-token user binding and core Control Plane/product-storage requirements; health/readiness reflect actual configured proxy dependencies.
   - Why now: The auth/startup regressions expose the old requirements.
-  - Files/surfaces: `cmd/harden-llm-gateway/openai_auth_test.go`; phase surfaces below/above as applicable.
+  - Files/surfaces: `cmd/harden-llm-gateway/config_test.go`; `cmd/harden-llm-gateway/main_test.go`; phase surfaces below/above as applicable.
   - Requirement link: REQ-403, REQ-409, REQ-413, REQ-415.
   - Verification link: TEST-404.
   - Verification mode: GREEN.
-  - Command/procedure: `go test ./cmd/harden-llm-gateway -run TestOpenAIAuthAndStartup -count=1`.
+  - Command/procedure: `go test ./cmd/harden-llm-gateway -run 'TestServerConfigurationUsesOneTokenAndStaticConnections|TestOnlyServeHealthcheckAndVersionCommandsExist' -count=1`.
   - Expected result: The preceding RED command passes with unchanged assertions.
   - Evidence produced: GREEN output and implementation diff, linked from Section 11.
   - Stop/escalate condition: Missing optional services still prevent cache-disabled inference.
@@ -405,11 +405,11 @@ Plan-and-Solve subtasks:
 - `P02.S05 Review codec and policy ownership`
   - Action: No refactor needed only if codecs contain protocol differences and all execution/default/limit policy has one owner. Remove duplicate native transport code uncovered by this review.
   - Why now: Both public interface boundaries are green.
-  - Files/surfaces: `internal/gateway/openai_contract_test.go`; `cmd/harden-llm-gateway/openai_auth_test.go`; phase surfaces below/above as applicable.
+  - Files/surfaces: `internal/gateway/httpapi/openai_contract_test.go`; `cmd/harden-llm-gateway/config_test.go`; `cmd/harden-llm-gateway/main_test.go`; phase surfaces below/above as applicable.
   - Requirement link: REQ-403, REQ-404, REQ-405, REQ-409, REQ-413, REQ-415.
   - Verification link: TEST-403, TEST-404.
   - Verification mode: VERIFY.
-  - Command/procedure: `go test ./internal/gateway -run TestOpenAIContract -count=1`; `go test ./cmd/harden-llm-gateway -run TestOpenAIAuthAndStartup -count=1`.
+  - Command/procedure: `go test ./internal/gateway/httpapi -run '^TestOpenAIContract' -count=1`; `go test ./cmd/harden-llm-gateway -run 'TestServerConfigurationUsesOneTokenAndStaticConnections|TestOnlyServeHealthcheckAndVersionCommandsExist' -count=1`.
   - Expected result: The named checks pass; any retained gap is stated explicitly.
   - Evidence produced: Command result and phase evidence, linked from Section 11.
   - Stop/escalate condition: JSON and SSE can choose different hardened outcomes or auth paths.
@@ -418,11 +418,11 @@ Plan-and-Solve subtasks:
 - `P02.S06 Record supported-client acceptance`
   - Action: Record EVAL-402 from SDK assertions and one boundary-size case per serializer, including final outcome equivalence and dispatch counts. Record buffered first-content semantics explicitly.
   - Why now: The final API surface is now measurable.
-  - Files/surfaces: `internal/gateway/openai_contract_test.go`; `cmd/harden-llm-gateway/openai_auth_test.go`; phase surfaces below/above as applicable.
+  - Files/surfaces: `internal/gateway/httpapi/openai_contract_test.go`; `cmd/harden-llm-gateway/config_test.go`; `cmd/harden-llm-gateway/main_test.go`; phase surfaces below/above as applicable.
   - Requirement link: REQ-403, REQ-404, REQ-405, REQ-409, REQ-413, REQ-415.
   - Verification link: TEST-403, TEST-404, EVAL-402.
   - Verification mode: MEASURE.
-  - Command/procedure: `go test ./internal/gateway -run TestOpenAIContract -count=1`; `go test ./cmd/harden-llm-gateway -run TestOpenAIAuthAndStartup -count=1`.
+  - Command/procedure: `go test ./internal/gateway/httpapi -run '^TestOpenAIContract' -count=1`; `go test ./cmd/harden-llm-gateway -run 'TestServerConfigurationUsesOneTokenAndStaticConnections|TestOnlyServeHealthcheckAndVersionCommandsExist' -count=1`.
   - Expected result: The linked evaluation thresholds pass using the recorded command results, without an unnecessary repeat.
   - Evidence produced: Command result and phase evidence, linked from Section 11.
   - Stop/escalate condition: An accepted client request cannot be decoded or a bound can be exceeded silently.
@@ -634,7 +634,7 @@ Plan-and-Solve subtasks:
   - Unlocks: P04.S06.
 
 - `P04.S06 Record candidate and data-transition evidence`
-  - Action: Record EVAL-404 from retained test receipts and the clean-cut manifest. Record HLLM-owned pre/post row/object counts, the unrelated-data sentinel, branch/SHA, candidate/production image identities, public API route/auth/readiness and result. Browser layout remains opt-in under repository policy; do not make a live inference call as part of the release suite.
+  - Action: Record EVAL-404 from TEST-408/409/410 receipts and the clean-cut manifest: zero active legacy paths, zero direct-call history writes, no imported unproven rows, and no missing candidate test receipt. Production row/object counts, the unrelated-data sentinel, merged SHA, production image identities and public HTTP results are P05 evidence and are not claimed here. Browser layout remains opt-in; do not make a live inference call.
   - Why now: The candidate and verification receipts are final.
   - Files/surfaces: `scripts/test/proxy_reference_cutover_test.mjs`; `internal/smoke/compose_smoke_test.go`; phase surfaces below/above as applicable.
   - Requirement link: REQ-400, REQ-403, REQ-406, REQ-407, REQ-408, REQ-409, REQ-412, REQ-413, REQ-414, REQ-415.
@@ -658,7 +658,7 @@ Exit gates: Proceed when the linked tests and EVAL-404 pass, traceability is com
   - Verification method: `make test-release`, hosted checks for the exact head, candidate-aware configuration check/apply, then health/readiness and auth-boundary checks.
   - Validation purpose: Demonstrate that the deployed source/configuration is the reviewed candidate and that the new access, API and empty shared-history behavior is live.
   - Configuration checkpoint: Use the `HARDEN_LLM_TOKEN` value from this checkout's `./.env` for incoming production API auth; keep `CPA_API_KEY` only on the upstream connection. Never echo either value.
-  - Security checkpoint: Rotate the exposed production Erlang release cookie through the existing release mechanism before restarting the Phoenix service. Do not inspect or print process arguments or environment values.
+  - Security checkpoint: The current web service has no `RELEASE_COOKIE` override, so its cookie comes from the assembled Mix release. Build a fresh Phoenix release from the merged source, then verify the candidate `releases/COOKIE` fingerprint differs from the running image without reading or printing either value. Do not add another cookie source or inspect process arguments/environment values.
   - Data checkpoint: Verify dedicated HLLM database/bucket ownership and an unrelated-data sentinel, record redacted HLLM counts, then delete only incompatible HLLM rows/objects. No import or archive branch.
   - Risks and assumptions: The coordinated API/data cutover can interrupt HLLM requests; no other product or shared identity/storage service is in scope.
 
@@ -672,10 +672,10 @@ Plan-and-Solve subtasks:
   - Unlocks: P05.S02.
 
 - `P05.S02 Build and reconcile the exact production candidate`
-  - Action: Build affected application images from the merged SHA. Rotate the exposed Phoenix release cookie using the supported release input. Run the production configuration check against the exact candidate and review redacted service/image/config differences before any apply.
+  - Action: Build affected application images from the merged SHA. The changed Phoenix source invalidates the release-build layer and assembles a new default Mix cookie; compare its private fingerprint with the running release before applying. Run the production configuration check against the exact candidate and review redacted service/image/config differences before any apply.
   - Requirement link: REQ-409, REQ-413, REQ-415.
   - Verification: Existing image/source identity and candidate-aware production configuration gates.
-  - Stop condition: Image SHA, config, secret ownership or cookie rotation is unresolved.
+  - Stop condition: Image SHA, config, secret ownership or the release-cookie fingerprint change is unresolved.
   - Unlocks: P05.S03.
 
 - `P05.S03 Apply the token and connection configuration`
@@ -753,14 +753,14 @@ Existing frameworks/runners:
 - P00 creates the single new task `frontend-reference-integration` in `test/test-tiers.json`, using the existing `deploy/test/compose.integration.yml` pool with only `harden-postgres`, `workingDirectory: frontend`, and `mix test --only database test/harden_llm/reference_integration_test.exs`. It supplies the current pool endpoint to test configuration and excludes `database` from ordinary ExUnit selections. No new runner executable or Compose file.
 - P00 pins the official OpenAI Go SDK dependency for contract tests; SDK dependency installation is setup, while all test executions use local servers and no public network.
 
-Every new test file below is proposed and is created by its named phase before its command is used. Add grep-able `TEST-###` comments and `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001` references; frontend cases also receive corresponding `WEB-TEST-114` through `WEB-TEST-116` catalog entries. Preserve existing test IDs and historical evidence; new proposed IDs replace only the unimplemented earlier revision of this plan.
+The tests below are implemented at the listed paths. Each carries grep-able `TEST-###` and `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001` references; frontend cases also carry `WEB-TEST-114` through `WEB-TEST-116`. Preserve existing test IDs and historical evidence; these IDs replace only the unimplemented earlier revision of this plan.
 
 ### 7.2 Test suites overview
 
 | Suite | Purpose | Runner / command | Runtime budget | When |
 | --- | --- | --- | --- | --- |
 | Static | Contract, config and task ownership | Node; TEST-400/408 commands below | 30 s each | Coding loop / CI |
-| Unit | Engine, SDK wire, access and reference behavior | Go/ExUnit; TEST-401–406 commands below | 30–90 s each | Coding loop / CI |
+| Unit | Engine, SDK wire, auth, reference and log-query behavior | Go/ExUnit; TEST-401–406 and TEST-410 commands below | 30–90 s each | Coding loop / CI |
 | Integration | Real reference SQL | Existing runner; TEST-407 | 300 s | Relevant storage changes / CI |
 | Integration | Actual container boundary | Existing runner; TEST-409 | 1800 s | Candidate once / relevant deployment changes |
 | Aggregate | Broad cheap regressions and final certification | `make test-fast`; final `make test-release` | Existing manifest budgets | Coding loop; final cross-system candidate |
@@ -772,7 +772,7 @@ Protocol size and recording limits are cases inside their owning suites. No stan
 - **TEST-400: Contract and test-task consistency**
   - Type: static.
   - Verifies: REQ-403, REQ-405, REQ-412, REQ-414.
-  - Location: `scripts/test/proxy_reference_contract_test.mjs` (proposed).
+  - Location: `scripts/test/proxy_reference_contract_test.mjs`.
   - Command: `node --test scripts/test/proxy_reference_contract_test.mjs`.
   - Fixtures/mocks/data: Proposed test/fixtures/proxy-reference-contract.json; OpenAPI, canonical catalogs and test/test-tiers.json.
   - Deterministic controls: No network, process environment or secret values; fixed fixture revision.
@@ -782,7 +782,7 @@ Protocol size and recording limits are cases inside their owning suites. No stan
 - **TEST-401: Profile-free canonical execution**
   - Type: unit.
   - Verifies: REQ-400, REQ-401, REQ-402, REQ-404.
-  - Location: `proxy_contract_test.go` (proposed).
+  - Location: `proxy_contract_test.go`.
   - Command: `go test . -run TestProxyRequestContract -count=1`.
   - Fixtures/mocks/data: Local httptest upstreams; ordered messages, function calls/results, structured repair, native reasoning and explicit model-target recovery cases.
   - Deterministic controls: Fixed request IDs/clock/backoff source; no credentials/network; exact dispatch counters; existing cancellation limits.
@@ -792,7 +792,7 @@ Protocol size and recording limits are cases inside their owning suites. No stan
 - **TEST-402: Static runtime and scoped cache**
   - Type: unit.
   - Verifies: REQ-401, REQ-406, REQ-413.
-  - Location: `internal/gateway/profile_free_runtime_test.go` (proposed).
+  - Location: `internal/gateway/profile_free_runtime_test.go`.
   - Command: `go test ./internal/gateway -run TestProfileFreeRuntime -count=1`.
   - Fixtures/mocks/data: One constructed client; existing cache test seam; distinct credential-domain identifiers and cache-disabled mode.
   - Deterministic controls: No real DB; fixed semantic requests; count factory creation, cache access and provider dispatch.
@@ -802,8 +802,8 @@ Protocol size and recording limits are cases inside their owning suites. No stan
 - **TEST-403: Official SDK and OpenAI wire contract**
   - Type: unit.
   - Verifies: REQ-403, REQ-404, REQ-405.
-  - Location: `internal/gateway/openai_contract_test.go` (proposed).
-  - Command: `go test ./internal/gateway -run TestOpenAIContract -count=1`.
+  - Location: `internal/gateway/httpapi/openai_contract_test.go` and `internal/gateway/httpapi/openapi_contract_test.go`.
+  - Command: `go test ./internal/gateway/httpapi -run '^TestOpenAIContract' -count=1`.
   - Fixtures/mocks/data: Official Go OpenAI SDK pinned in go.mod; local actual handlers and provider stubs; shared JSON/SSE fixtures, structured/tool results, malformed fields, Unicode and limit boundaries.
   - Deterministic controls: SDK retries disabled; fixed IDs/time; blocked external transport; one deterministic near-limit fixture per encoder, small table-driven semantic cases.
   - Pass criteria: Both SDK APIs and models work using only base URL/key; standard errors and streaming are consumable; final JSON/stream outcomes agree; unsupported state/media/fields reject; no provisional output, truncation or duplicate dispatch.
@@ -812,8 +812,8 @@ Protocol size and recording limits are cases inside their owning suites. No stan
 - **TEST-404: Bearer authentication and independent startup**
   - Type: unit.
   - Verifies: REQ-403, REQ-409, REQ-413, REQ-415.
-  - Location: `cmd/harden-llm-gateway/openai_auth_test.go` (proposed).
-  - Command: `go test ./cmd/harden-llm-gateway -run TestOpenAIAuthAndStartup -count=1`.
+  - Location: `cmd/harden-llm-gateway/config_test.go` and `cmd/harden-llm-gateway/main_test.go`.
+  - Command: `go test ./cmd/harden-llm-gateway -run 'TestServerConfigurationUsesOneTokenAndStaticConnections|TestOnlyServeHealthcheckAndVersionCommandsExist' -count=1`.
   - Fixtures/mocks/data: Synthetic canonical token, wrong token, old-key-only config; local server with cache off and no product-service configuration.
   - Deterministic controls: Private environment map; no reading .env; no live Control Plane/provider; bound startup/shutdown.
   - Pass criteria: Only canonical bearer works; missing/invalid token rejects; old key is not a fallback; no user binding, product database, artifact service or identity client is required; retired routes are absent.
@@ -822,7 +822,7 @@ Protocol size and recording limits are cases inside their owning suites. No stan
 - **TEST-405: Shared reference workflow and access**
   - Type: unit.
   - Verifies: REQ-407, REQ-408, REQ-409, REQ-410, REQ-411, REQ-413.
-  - Location: `frontend/test/harden_llm_web/live/shared_workspace_test.exs` (proposed).
+  - Location: `frontend/test/harden_llm_web/live/shared_workspace_test.exs`.
   - Command: `cd frontend && mix test test/harden_llm_web/live/shared_workspace_test.exs`.
   - Fixtures/mocks/data: Private Req.Test ownership, two enabled logins, revoked access, standard API fixture, existing session/draft helpers and a narrow test-local persistence seam.
   - Deterministic controls: async: true where process ownership permits; fixed submission IDs; messages/barriers instead of sleeps; no database/browser/network.
@@ -832,7 +832,7 @@ Protocol size and recording limits are cases inside their owning suites. No stan
 - **TEST-406: Concrete reference context semantics**
   - Type: unit.
   - Verifies: REQ-407, REQ-408, REQ-410, REQ-411, REQ-413.
-  - Location: `frontend/test/harden_llm/reference_test.exs` (proposed).
+  - Location: `frontend/test/harden_llm/reference_test.exs`.
   - Command: `cd frontend && mix test test/harden_llm/reference_test.exs`.
   - Fixtures/mocks/data: Canonical success/error/unknown-outcome records, missing accounting, bounded drafts and download payloads; pure context functions plus a minimal test seam at the Repo call.
   - Deterministic controls: Fixed time and JSON values; no SQL connection; no alternate production storage backend.
@@ -842,7 +842,7 @@ Protocol size and recording limits are cases inside their owning suites. No stan
 - **TEST-407: Reference PostgreSQL boundary**
   - Type: integration.
   - Verifies: REQ-407, REQ-408, REQ-410, REQ-412, REQ-413.
-  - Location: `frontend/test/harden_llm/reference_integration_test.exs` (proposed).
+  - Location: `frontend/test/harden_llm/reference_integration_test.exs`.
   - Command: `node scripts/run-test-tier.mjs --task frontend-reference-integration`.
   - Fixtures/mocks/data: Existing deploy/test/compose.integration.yml PostgreSQL only, unique test schema, Ecto migrations, duplicate submissions, pagination/delete/statistics/draft rows and role checks.
   - Deterministic controls: Task created in P00; database tag excluded from normal mix test; runner supplies HARDEN_LLM_TEST_POSTGRES_ENDPOINT; use SQL sandbox/unique resources and bounded queries.
@@ -852,11 +852,11 @@ Protocol size and recording limits are cases inside their owning suites. No stan
 - **TEST-408: Single configuration and data-cutover contract**
   - Type: static.
   - Verifies: REQ-400, REQ-409, REQ-412, REQ-414, REQ-415.
-  - Location: `scripts/test/proxy_reference_cutover_test.mjs` (proposed).
+  - Location: `scripts/test/proxy_reference_cutover_test.mjs`.
   - Command: `node --test scripts/test/proxy_reference_cutover_test.mjs`.
   - Fixtures/mocks/data: Synthetic config/environment maps, production/preview Compose descriptors, README examples and a clean-cut manifest with an unrelated-data sentinel.
   - Deterministic controls: No local .env contents or live data; no deployment; deterministic file/schema validation.
-  - Pass criteria: One incoming token key and one connection schema across consumers; no profile sync, owner binding, alias, importer or retired route remains active; the clean cut affects only HLLM-owned data.
+  - Pass criteria: One incoming token key and one connection schema across consumers; no profile sync, owner binding, alias, importer or retired route remains active; the frontend overlay does not gate web startup on Postgres health; the clean cut affects only HLLM-owned data.
   - Expected runtime: at most 30 s after toolchain/dependency setup.
 
 - **TEST-409: Browser-free deployment boundary**
@@ -868,6 +868,16 @@ Protocol size and recording limits are cases inside their owning suites. No stan
   - Deterministic controls: Existing service ownership/cleanup; synthetic secrets; no browser, live provider or production data; build only affected services.
   - Pass criteria: Containers start with the revised config; direct OpenAI HTTP calls leave reference rows unchanged; authenticated frontend HTTP/access and real DB are wired; disabled reference storage does not stop core inference; image identities and cleanup receipts are recorded.
   - Expected runtime: at most 1800 s after toolchain/dependency setup.
+
+- **TEST-410: Loki response-log correlation query contract**
+  - Type: unit.
+  - Verifies: REQ-414.
+  - Location: `internal/smoke/loki_query_test.go`.
+  - Command: `go test ./internal/smoke -run '^TestLokiCorrelatedResponseLog$' -count=1`.
+  - Fixtures/mocks/data: Synthetic Loki JSON results with the OTel trace ID and `/v1/responses` route either in the same stream or split across streams.
+  - Deterministic controls: No Loki service, Docker, credentials, or network; fixed event fixtures.
+  - Pass criteria: Accept only a single stream containing the OTel trace ID, route, and completed-request event; reject malformed and split-stream results.
+  - Expected runtime: Under 1 s.
 
 ### 7.4 Manual checks
 
@@ -976,19 +986,19 @@ Every row below uses the exact test path/command from Section 7.3. Additional re
 
 | P01 | REQ-413 | TEST-402 | `internal/gateway/profile_free_runtime_test.go` | `go test ./internal/gateway -run TestProfileFreeRuntime -count=1` |
 
-| P02 | REQ-403 | TEST-403 | `internal/gateway/openai_contract_test.go` | `go test ./internal/gateway -run TestOpenAIContract -count=1` |
+| P02 | REQ-403 | TEST-403 | `internal/gateway/httpapi/openai_contract_test.go` | `go test ./internal/gateway/httpapi -run '^TestOpenAIContract' -count=1` |
 
-| P02 | REQ-404 | TEST-403 | `internal/gateway/openai_contract_test.go` | `go test ./internal/gateway -run TestOpenAIContract -count=1` |
+| P02 | REQ-404 | TEST-403 | `internal/gateway/httpapi/openai_contract_test.go` | `go test ./internal/gateway/httpapi -run '^TestOpenAIContract' -count=1` |
 
-| P02 | REQ-405 | TEST-403 | `internal/gateway/openai_contract_test.go` | `go test ./internal/gateway -run TestOpenAIContract -count=1` |
+| P02 | REQ-405 | TEST-403 | `internal/gateway/httpapi/openai_contract_test.go` | `go test ./internal/gateway/httpapi -run '^TestOpenAIContract' -count=1` |
 
-| P02 | REQ-403 | TEST-404 | `cmd/harden-llm-gateway/openai_auth_test.go` | `go test ./cmd/harden-llm-gateway -run TestOpenAIAuthAndStartup -count=1` |
+| P02 | REQ-403 | TEST-404 | `cmd/harden-llm-gateway/config_test.go` | `go test ./cmd/harden-llm-gateway -run 'TestServerConfigurationUsesOneTokenAndStaticConnections|TestOnlyServeHealthcheckAndVersionCommandsExist' -count=1` |
 
-| P02 | REQ-409 | TEST-404 | `cmd/harden-llm-gateway/openai_auth_test.go` | `go test ./cmd/harden-llm-gateway -run TestOpenAIAuthAndStartup -count=1` |
+| P02 | REQ-409 | TEST-404 | `cmd/harden-llm-gateway/config_test.go` | `go test ./cmd/harden-llm-gateway -run 'TestServerConfigurationUsesOneTokenAndStaticConnections|TestOnlyServeHealthcheckAndVersionCommandsExist' -count=1` |
 
-| P02 | REQ-413 | TEST-404 | `cmd/harden-llm-gateway/openai_auth_test.go` | `go test ./cmd/harden-llm-gateway -run TestOpenAIAuthAndStartup -count=1` |
+| P02 | REQ-413 | TEST-404 | `cmd/harden-llm-gateway/config_test.go` | `go test ./cmd/harden-llm-gateway -run 'TestServerConfigurationUsesOneTokenAndStaticConnections|TestOnlyServeHealthcheckAndVersionCommandsExist' -count=1` |
 
-| P02 | REQ-415 | TEST-404 | `cmd/harden-llm-gateway/openai_auth_test.go` | `go test ./cmd/harden-llm-gateway -run TestOpenAIAuthAndStartup -count=1` |
+| P02 | REQ-415 | TEST-404 | `cmd/harden-llm-gateway/config_test.go` | `go test ./cmd/harden-llm-gateway -run 'TestServerConfigurationUsesOneTokenAndStaticConnections|TestOnlyServeHealthcheckAndVersionCommandsExist' -count=1` |
 
 | P03 | REQ-407 | TEST-405 | `frontend/test/harden_llm_web/live/shared_workspace_test.exs` | `cd frontend && mix test test/harden_llm_web/live/shared_workspace_test.exs` |
 
@@ -1045,10 +1055,11 @@ Every row below uses the exact test path/command from Section 7.3. Additional re
 | P04 | REQ-413 | TEST-409 | `internal/smoke/compose_smoke_test.go` | `node scripts/run-test-tier.mjs --task go-compose` |
 
 | P04 | REQ-415 | TEST-409 | `internal/smoke/compose_smoke_test.go` | `node scripts/run-test-tier.mjs --task go-compose` |
+| P04 | REQ-414 | TEST-410 | `internal/smoke/loki_query_test.go` | `go test ./internal/smoke -run '^TestLokiCorrelatedResponseLog$' -count=1` |
 
 ## 11. Execution log template
 
-Implementation status: P00 Done; P01–P05 Pending. This log records executed checks only. Add one filled record per completed phase:
+Implementation status: P00–P04 Done; P05 Pending production promotion and acceptance. This log records executed checks only.
 
 ```text
 Phase ID:
@@ -1080,6 +1091,81 @@ ADR Updates: ADR-HLLM-031 and ADR-HLLM-032 accepted for implementation.
 Unverified boundaries: New runtime behavior, real PostgreSQL, Compose, production configuration, deployed auth/routing, actual browser layout and live-provider inference are not verified by P00.
 ```
 
+```text
+Phase ID: P01
+Phase Status: Done
+Completed Steps: P01.S01–P01.S06
+Source/configuration checkpoint: branch `feat/openai-proxy-shared-reference`, based on P00 source `c6b3047`; `proxy_contract_test.go` SHA-256 `71ea8bc17666e8765106ac84ee62ddca38e94333e01bc47c3aa7f75432d06878`; `config/upstreams.example.json` SHA-256 `72b06371565faeba851cf9dc06ed2896c7c932685ea5703d805611e353b66b17`.
+Commands and evidence: `go test . -run '^TestProxyRequestContract$' -count=1` and `go test ./internal/gateway -run '^TestProfileFreeRuntime$' -count=1` passed; `make verify` and `make test-release` passed on the candidate.
+Quantitative Results: TEST-401/402 assertions report 0 semantic/accounting mismatches, 0 invalid cross-domain cache hits and 0 profile dependencies; deterministic tests do not require statistical intervals.
+Issues/Resolutions: Replaced profile resolution with direct connection/model selection and a shared request/result model. Removed cache-disabled product-store access while retaining cache domain scoping.
+Failed Attempts: The first fast run found stale owner/profile assertions after the ownership change; updated the assertions to the approved shared-history and access-only-login contract, then reran the suite. No assertion was weakened.
+Deviations: No separate phase RED receipt was retained; final unchanged TEST-401/402 oracles and aggregate green receipts are the available evidence.
+Lessons Learned: Keep cache identity tied to connection credentials and semantic request fields, not login identity.
+ADR Updates: Implemented ADR-HLLM-031/032.
+Unverified boundaries: Production connection loading, deployed bearer behavior, production cache state, browser layout and live provider inference remain P05 or explicitly unverified.
+```
+
+```text
+Phase ID: P02
+Phase Status: Done
+Completed Steps: P02.S01–P02.S06
+Source/configuration checkpoint: branch `feat/openai-proxy-shared-reference`, based on P00 source `c6b3047`; `api/openapi.yaml` SHA-256 `f13db5425f8e5be0b3828fecdd4ba103b01b61c52d3dcef860944599e1b39aaa`; `internal/gateway/httpapi/openai_contract_test.go` SHA-256 `477a066713156b6f598aea413c20fd21aeb52f08da2f323f7f6d60cd82897773`.
+Commands and evidence: `go test ./internal/gateway/httpapi -run '^TestOpenAIContract' -count=1` and `go test ./cmd/harden-llm-gateway -run 'TestServerConfigurationUsesOneTokenAndStaticConnections|TestOnlyServeHealthcheckAndVersionCommandsExist' -count=1` passed; `make verify` and browser-free `make test-release` passed.
+Quantitative Results: TEST-403/404 had 0 SDK case failures, provisional output events, silent truncations, downstream replays, auth alias successes or retired-route matches in their asserted cases.
+Issues/Resolutions: Added the documented OpenAI-compatible `/v1/models`, `/v1/chat/completions`, and `/v1/responses` surface over the single engine. Responses streaming emits only the completed outcome as standard SSE; gateway auth uses only `HARDEN_LLM_TOKEN`.
+Failed Attempts: The first Compose observability assertion compared the application correlation ID to the OTel trace ID. Added TEST-410 for the actual Loki same-stream contract and corrected the assertion without dropping trace correlation.
+Deviations: The actual contract tests live in `internal/gateway/httpapi/`; this plan and RTM now name those paths and commands.
+Lessons Learned: Protocol codecs own wire differences; the engine remains the sole execution and recovery policy owner.
+ADR Updates: Implemented ADR-HLLM-032.
+Unverified boundaries: Public internet reachability, production token acceptance, actual provider model routing and browser streaming/layout remain unverified until P05 or a separately requested check.
+```
+
+```text
+Phase ID: P03
+Phase Status: Done
+Completed Steps: P03.S01–P03.S06
+Source/configuration checkpoint: branch `feat/openai-proxy-shared-reference`, based on P00 source `c6b3047`; Phoenix migration `frontend/priv/repo/migrations/20261006000000_create_reference_data.exs` SHA-256 `f66f86a75e81490eeb99a54f0760305b1d83af85226228ed91944ca3954239fa`; `frontend/mix.lock` SHA-256 `28b8c316ac98d2fb167910670b249a35e60e2cc8caeb44eb34dc6c3f03b2230e`.
+Commands and evidence: Pinned-toolchain ExUnit on `shared_workspace_test.exs` and `reference_test.exs` passed (10 tests); `node scripts/run-test-tier.mjs --task frontend-reference-integration` passed against the existing PostgreSQL pool.
+Quantitative Results: TEST-405/406 passed 10/10 focused assertions; TEST-407 passed its PostgreSQL migration, unique-submission, shared-history, draft-scope and bounded-query cases. No provider or browser was used.
+Issues/Resolutions: The Phoenix Repo and one Reference context now own new shared history and per-user session drafts. Direct API calls bypass recording; frontend submissions publish before one bounded save attempt.
+Failed Attempts: None retained for the final TEST-405/406/407 runs.
+Deviations: Added WEB-TEST-114/115 annotations to the matching workspace/context tests; WEB-TEST-116 remains the PostgreSQL boundary.
+Lessons Learned: History is global to the reference application; trusted user identity scopes drafts and access only.
+ADR Updates: Implemented ADR-HLLM-031.
+Unverified boundaries: Production schema migration and the production clean cut are P05; browser rendering, focus and LiveSocket behavior remain unverified.
+```
+
+```text
+Phase ID: P04
+Phase Status: Done
+Completed Steps: P04.S01–P04.S06
+Source/configuration checkpoint: branch `feat/openai-proxy-shared-reference`, based on P00 source `c6b3047`; `docker-compose.yml` SHA-256 `9d72f730e04d1d76af7560fb5525f9a253c4c1cdeaa254abc3e280fb11c591b4`; `deploy/frontend/compose.frontend.yml` SHA-256 `f2d69214d400bbe2d03c08c2625d69b281454d67078af1b648358c74364d3161`; `internal/deploytest/compose_caddy_test.go` SHA-256 `545adf37762f84d46a14a9176ead5295875770e9a09c0ed1673c3fde21edc7b8`; task manifest `test/test-tiers.json` SHA-256 `bb594863ca6ee7a574075cf42f5e376f51e94907d30473b4dd42590d896b15d3`.
+Commands and evidence: `node --test scripts/test/proxy_reference_contract_test.mjs scripts/test/proxy_reference_cutover_test.mjs` passed 4/4 assertions; TEST-410 passed; final `make test-fast` accepted 9/9 tasks with no failures or cleanup warnings (report `tmp/test-feedback/runner-1791320724719-3290126-e9906ff80582fd29.json`); TEST-409 Compose smoke passed with cleanup errors/warnings empty; focused `go-compose-contract` passed; final `make verify` passed; browser-free `make test-release` accepted 28/28 tasks with no failures, cleanup errors or warnings. Release report: `tmp/test-feedback/runner-1791320559332-3173526-6079e2084795cbd5.json`.
+Quantitative Results: EVAL-404 candidate criteria: active legacy paths 0; direct-call history writes 0; importer paths 0; missing local release test receipts 0. `govulncheck` reported no vulnerabilities.
+Issues/Resolutions: The smoke fixture's connection metadata file needed mode 0644 for the non-root gateway; it contains no credentials, which remain environment-only. Loki promotes route and OTel trace attributes to stream labels; TEST-410 now checks those fields with the completed event in the same stream. Review found the Phoenix Compose service also waited for Postgres health, which contradicted storage-failure behavior; removed that dependency and retained a TEST-408 source regression. The first release rerun then exposed a stale TEST-033 effective-Compose assertion that still required web-to-Postgres startup gating. Updated TEST-033 to assert the merged web dependency is the healthy gateway only; the focused contract and full release selector passed.
+Failed Attempts: Initial `make test-fast` exposed stale assertions for removed profile/capacity REST behavior; obsolete manual REST tests were retired while standalone deterministic capacity driver/report tests were retained. The first post-change release selector failed only on the stale TEST-033 dependency expectation; the test was corrected to the new reviewed ownership boundary without weakening its deployment contract. Initial Compose smoke runs exposed the fixture permission and Loki correlation issues above; the final full smoke passed.
+Deviations: TEST-410 was added after the observed Loki contract issue and registered in the existing unit tier; no new runner or service was added.
+Lessons Learned: Keep one connection file and one token source across gateway, Phoenix and Compose; keep deployment smoke focused on service boundaries and cheap correlation parsing covered separately.
+ADR Updates: No threshold changes; ADR-HLLM-015 browser opt-in remains unchanged.
+Unverified boundaries: Hosted CI, exact merged-source image identities, production data removal and public production HTTP/auth are P05. Browser layout and live-provider inference were not run.
+```
+
+```text
+Phase ID: P05
+Phase Status: Pending
+Completed Steps: Read-only deployment/data preflight only; no P05 subtask is complete.
+Source/configuration checkpoint: branch `feat/openai-proxy-shared-reference`, base P00 SHA `c6b3047`. The local shared `.env` has `HARDEN_LLM_TOKEN`, `CPA_API_KEY`, the production Control Plane URL/token and Portal URL; values were not printed. `config/upstreams.local.json` contains one CPA connection with `api_key_env` and no credential value; its mode is now 0644 for the gateway UID. `node scripts/production-config.mjs check --resolve-only` reports equivalent sources; runtime is unverified.
+Commands and evidence: Read-only Postgres inspection confirms database `harden_llm`, owner `harden_llm`, the existing `harden-llm_harden-postgres-data` volume and 11 public tables, all owned by `harden_llm`: `llm_artifact_delete_batches` 58; `llm_artifact_operations` 116; `llm_artifacts` 0; `llm_client_state` 2; `llm_endpoint_credentials` 32; `llm_operation_cache` 7; `llm_profiles` 52; `llm_runs` 0; `llm_trace_observations` 0; `llm_traces` 0; old `schema_migrations` 1. All 58 delete batches and all 116 publish/delete operations are completed. The dedicated HLLM Garage bucket `harden-llm-artifacts` contains 0 objects, and its existing HLLM credential is scoped only to that bucket. Before cleanup, shared Garage has five bucket aliases; HLLM's is the only alias in the deletion scope. Separate Control Plane sentinel: `control_plane.public.schema_migrations` 6 rows and `public.account` 16 rows. No running production service, database, production descriptor or `.env`, bucket, row or object has been changed.
+Quantitative Results: HLLM-owned rows total 268 across the listed tables; no artifact object is present. Control Plane sentinels and the four other Garage bucket aliases are recorded for post-cutover comparison.
+Issues/Resolutions: The first read-only production config resolution found `PRLS_PORTAL_URL` absent from the shared local environment. Added the exact existing production URL to private `.env` without printing it; the subsequent resolve-only check is equivalent. The metadata-only connection file was changed from mode 0600 to 0644 because the gateway runs non-root; provider credentials remain only in `.env`.
+Failed Attempts: The first Postgres socket attempt used the wrong auth role; retried read-only with the service's existing database credentials without displaying them. No data was changed.
+Deviations: None.
+Lessons Learned: Verify database ownership at both container and table-owner level, and treat the bucket key as scoped only after checking Garage's key grant.
+ADR Updates: No changes.
+Unverified boundaries: Push, PR/hosted checks, exact production build/config identity, Mix cookie fingerprint rotation, the service stop/migration/data clean cut, post-cut sentinels, production HTTP/auth/login behavior and image health are pending. No browser or provider inference has run.
+```
+
 ## 12. Appendix: ADR index
 
 - ADR-HLLM-015 (existing): browser opt-in and layered feedback remain binding.
@@ -1094,9 +1180,9 @@ Unverified boundaries: New runtime behavior, real PostgreSQL, Compose, productio
 
 Before accepting an implementation checkpoint:
 
-- Every REQ-400–415 appears in the RTM; every referenced TEST-400–409 is defined with a path, command, fixture, oracle and budget.
+- Every REQ-400–415 appears in the RTM; every referenced TEST-400–410 is defined with a path, command, fixture, oracle and budget.
 - Phases and subtasks are consecutive. Behavior changes follow failing coverage; each RED/GREEN pair uses identical test IDs and commands. Each phase has explicit review/refactoring, measurement, metrics and exit gates.
-- The only new runner task is created in P00 before use. Proposed files are labeled; all existing commands use current repository runners. No new browser/DOM or live-provider path is hidden in fast checks.
+- The only new runner task is created in P00 before use. TEST-400–410 paths and commands match the implemented source and existing runners. No new browser/DOM or live-provider path is hidden in fast checks.
 - OpenAPI, Go codecs and shared frontend fixtures agree. SDK compatibility tests exercise the real handler rather than a duplicate implementation of its output.
 - There is one engine, one connection schema, one incoming bearer setting and one reference data context. Profile/native-route/static-token compatibility branches are deleted, not deprecated.
 - No custom diagnostic chunk protocol, raw-document archive service, general store abstraction, owner runtime factory, queue or default importer remains in the target design.

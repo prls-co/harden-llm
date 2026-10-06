@@ -46,17 +46,19 @@ func TestTelemetryFailureIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	applicationTelemetry, err := NewTelemetry(telemetryRuntime.TracerProvider(), telemetryRuntime.MeterProvider())
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx, endRun := applicationTelemetry.StartOperation(context.Background(), OperationRun)
+	ctx := context.Background()
 	providerResult, callErr := failureIsolationProvider(ctx)
-	endRun(callErr)
 	if callErr != nil || providerResult != "stable-provider-result" {
 		t.Fatalf("provider result changed by unavailable telemetry: %#v, %v", providerResult, callErr)
 	}
 	telemetryRuntime.Logger().InfoContext(ctx, "call completed", "call_id", "call-1", "outcome", "success")
+	_, span := telemetryRuntime.TracerProvider().Tracer("failure-isolation-setup").Start(ctx, "setup")
+	span.End()
+	setupCounter, err := telemetryRuntime.MeterProvider().Meter("failure-isolation-setup").Int64Counter("failure_isolation.setup")
+	if err != nil {
+		t.Fatal(err)
+	}
+	setupCounter.Add(ctx, 1)
 
 	for name, state := range map[string]*blockingExportState{
 		"traces": traceState, "metrics": metricState, "logs": logState,

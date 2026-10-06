@@ -4,7 +4,6 @@ package pricing
 
 import (
 	"github.com/prls-co/harden-llm/internal/accounting"
-	"github.com/prls-co/harden-llm/internal/runtime"
 )
 
 const (
@@ -31,6 +30,3 @@ func ResolveCost(usage Usage, reported *float64) (Cost, error) {
 	return accounting.ResolvePricedCost(usage, reported)
 }
 func Add(left, right Usage) (Usage, error) { return accounting.AddPricedUsage(left, right) }
-func FromRuntime(usage runtime.Usage, pricing runtime.Pricing) Usage {
-	return accounting.PricedUsageFrom(usage, pricing)
-}

@@ -1,311 +1,133 @@
-# API and Library Usage
+# API and Go library
 
-The root package is the portable execution library. The gateway is a thin
-adapter that adds local auth, owner-scoped persistence, and the published REST
-contract. `api/openapi.yaml` is authoritative for routes, schemas, examples,
-status codes, and the `{state,result,error}` envelope.
+The authoritative HTTP contract is [`api/openapi.yaml`](../api/openapi.yaml).
+Harden LLM accepts standard OpenAI-style requests on these routes:
 
-## Go library
+| Route | Purpose |
+| --- | --- |
+| `GET /v1/models` | List native model IDs from the configured default or selected upstream. |
+| `POST /v1/chat/completions` | Chat Completions text, structured-output, function-tool, or final-only stream request. |
+| `POST /v1/responses` | Responses text, structured-output, function-tool, web-search, or final-only stream request. |
 
-```go
-package main
+The public bearer is `HARDEN_LLM_TOKEN`. Use that same value from the ignored
+root `.env` for normal OpenAI SDK clients and the Phoenix reference app. The
+upstream `CPA_API_KEY` is private to the gateway. History is not part of the
+REST API: direct requests are stateless and are never recorded. Phoenix
+records only its own completed requests in its shared reference history.
 
-import (
-    "context"
-    "fmt"
-    "time"
+## OpenAI-compatible request
 
-    hardenllm "github.com/prls-co/harden-llm"
-)
-
-type credential string
-
-func (key credential) ResolveCredential(
-    context.Context,
-    hardenllm.CredentialRequest,
-) (hardenllm.Credential, error) {
-    return hardenllm.Credential{APIKey: string(key)}, nil
-}
-
-func main() {
-    policy := hardenllm.DefaultRecoveryPolicy()
-    policy.MaxAttempts = 1
-    profile := hardenllm.Profile{
-        SchemaVersion: 3,
-        LLMProfile: "Primary",
-        Provider: "openai",
-        APIInferenceType: "responses",
-        EndpointCredentialScope: "user",
-        BaseURL: "https://api.openai.com/v1",
-        ModelID: "replace-with-model-id",
-        SupportsContractedStructuredOutput: true,
-        ResponsesTokensParam: "max_output_tokens",
-        DefaultOptions: map[string]any{"max_tokens": 64},
-        RecoveryPolicy: policy,
-    }
-    client, err := hardenllm.New(hardenllm.Options{
-        Credentials: credential("resolve-from-a-secret-store"),
-        EndpointPolicy: hardenllm.EndpointPolicy{
-            AllowedHosts: []string{"api.openai.com"},
-        },
-    })
-    if err != nil { panic(err) }
-
-    ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-    defer cancel()
-    result, err := client.Call(ctx, hardenllm.Request{
-        ProfileID: "Primary",
-        Profiles: hardenllm.ProfileCatalog{"Primary": profile},
-        UserPrompt: "Reply with OK.",
-        CallType: hardenllm.CallTypeText,
-        CacheMode: hardenllm.CacheModeOff,
-        RecoveryPolicy: policy,
-    })
-    if err != nil { panic(err) }
-    fmt.Printf("output=%v trace=%s tokens=%d\n",
-        result.Output, result.TraceID, result.Accounting.Result.Usage.TotalTokens)
-}
-```
-
-Every profile and request supplies a complete `recoveryPolicy`. The public
-constructor creates defaults; execution never fills in omitted settings.
-`maxAttempts` counts the first provider call plus every retry and semantic
-repair across the one global recovery loop. `retryOn: []` disables ordinary
-transport retries. The current structured shape has `jsonRepair` and `rerun`
-keys; either may be `null` to disable that branch. A repair plan has an initial
-target and an optional escalation target. A rerun starts again from the
-original prompt/schema and owns an independent repair plan. Repair disables
-search and receives flat, bounded failed-output/validation history. Its target
-profile is a leaf: that profile's own recovery settings are never executed.
-Text calls do not resolve or run structured recovery targets.
-
-The six-stage preset is exposed by `DefaultRecoveryPolicy` (with the named
-`DefaultStructuredRecoveryPolicy` helper retained as an explicit alias) and by
-`result.defaults.recoveryPolicy`: CPA GPT-5.6 Luna lowest/highest for original
-JSON repair, then CPA GPT-6 Astra lowest for a fresh generation and Astra
-lowest/highest for its JSON repair. Astra metadata must be provisioned before
-enabling that preset operationally. Existing explicit attempt budgets are not
-raised automatically. Profile/client-state/bundle documents use schema version
-3 and run results use version 4; the ordinary database migration preserves
-historical unknown measurements as `null`.
-
-Credential resolution happens only after endpoint validation and is bound to
-the normalized origin. Inject OTel providers, cache, artifact store, and logger
-through `Options`; the library never initializes globals or reads deployment
-environment variables.
-
-## REST gateway
-
-Health probes are the only unenveloped non-auth responses. HLLM has no local
-login, logout, or password-reset API. The Phoenix frontend uses the shared PRLS
-sign-in UI and sends its host-local Control Plane session
-reference to the gateway; the gateway resolves the enabled login and uses its
-stable `user_id` as owner on every request. For a machine client, configure
-`HARDEN_LLM_STATIC_TOKEN` and `HARDEN_LLM_STATIC_TOKEN_USER_ID`, then use the
-token directly (production binds it to the verification/test login):
+Use an OpenAI SDK's normal base URL and token settings. This example uses
+Responses input as a single string:
 
 ```bash
-API=https://api.example.net
-curl "$API/api/v1/run" \
-  -H "Authorization: Bearer $HARDEN_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"profileId":"CurlStructured","userPrompt":"Tell me a joke about yourself.","callType":"text"}' | jq
-```
-
-The machine token is scoped to the configured Control Plane user ID.
-Rotating `HARDEN_LLM_STATIC_TOKEN` revokes that machine credential. Human
-sessions are host-only Phoenix cookies and are revalidated through Control
-Plane; they are never returned as gateway bearer tokens to browser code.
-
-On an owner's first `GET /api/v1/profiles`, the gateway inserts any missing
-entries and returns the current 28 utility-llm preset profiles alongside the
-owner's existing custom profiles. New preset rows are credential-free and
-report `credential.configured:false`; use the returned non-secret
-`credentialId` when storing a key for a preset. Credential fields are
-write-only; subsequent reads return configured status, not plaintext. An
-unconfigured preset cannot run until its credential is stored; the run API
-returns `422 credential_required` and records the failed attempt in history
-without contacting a provider:
-
-```bash
-printf '%s' "$OPENAI_API_KEY" | jq -Rs '{
-  profile: {
-    schemaVersion:3, llmProfile:"Primary", provider:"openai",
-    apiInferenceType:"responses", endpointCredentialScope:"user",
-    baseUrl:"https://api.openai.com/v1", modelId:"replace-with-model-id",
-    pricing:null, supportsTemperature:false,
-    supportsContractedStructuredOutput:true, tokensParam:null,
-    responsesTokensParam:"max_output_tokens", defaultOptions:{max_tokens:64},
-    recoveryPolicy:{"maxAttempts":1,"retryOn":[],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}
-  },
-  credentialId:"primary-openai", credential:{apiKey:.}
-}' | curl --fail-with-body --silent --show-error \
-  -X PUT -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' --data-binary @- \
-  "$API/api/v1/profiles/Primary" | jq
-```
-
-Execute one synchronous call. Do not automatically retry an ambiguous network
-failure; inspect history before deciding whether to submit another run.
-
-```bash
-jq -n '{profileId:"Primary",userPrompt:"Reply with OK.",callType:"text",
-  cacheMode:"off",recoveryPolicy:{"maxAttempts":1,"retryOn":[],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0}},timeoutMs:60000}' | \
+API=https://harden-llm-api.prls.co/v1
 curl --fail-with-body --silent --show-error \
-  -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' --data-binary @- \
-"$API/api/v1/run" | jq
+  "$API/responses" \
+  -H "Authorization: Bearer ${HARDEN_LLM_TOKEN}" \
+  -H 'Content-Type: application/json' \
+  --data '{"model":"<native-model-id>","input":"Reply with OK.","store":false}'
 ```
 
-### Structured recovery and live diagnostics
+An OpenAI Chat Completions client can use `/chat/completions` with ordinary
+`model` and `messages` fields. The supported request fields and response
+shapes are documented in OpenAPI. Unknown fields are rejected rather than
+silently ignored. This provides an OpenAI-compatible inference subset, not
+every feature in the OpenAI platform. In particular, server-side conversations,
+background runs, stored responses, multiple choices, and unsupported media or
+tools are not accepted. Model IDs come directly from the upstream; Harden LLM
+does not provide profile aliases.
 
-The structured policy below exercises the complete finite flow. Each arrow is
-entered only after a completed response fails strict syntax/schema admission;
-transport retries repeat the same prepared operation and do not add history:
+## Optional hardening fields
+
+Ordinary OpenAI requests need no Harden-specific wrapper. Add `harden` only
+when the caller needs one of these controls:
 
 ```json
 {
-  "maxAttempts": 6,
-  "retryOn": ["network", "rate_limit", "server_error", "empty_response", "provider_retry"],
-  "backoff": {"baseDelayMs": 500, "maxDelayMs": 8000},
-  "jsonRepair": {
-    "initial": {"source": "profile", "profileId": "CPA GPT-5.6 Luna", "reasoningEffort": "lowest"},
-    "escalation": {"source": "profile", "profileId": "CPA GPT-5.6 Luna", "reasoningEffort": "highest"}
+  "model": "<native-model-id>",
+  "input": "Return a valid JSON object containing an answer.",
+  "text": {
+    "format": {
+      "type": "json_schema",
+      "name": "answer",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "properties": {"answer": {"type": "string"}},
+        "required": ["answer"],
+        "additionalProperties": false
+      }
+    }
   },
-  "rerun": {
-    "target": {"source": "profile", "profileId": "CPA GPT-6 Astra", "reasoningEffort": "lowest"},
-    "jsonRepair": {
-      "initial": {"source": "profile", "profileId": "CPA GPT-6 Astra", "reasoningEffort": "lowest"},
-      "escalation": {"source": "profile", "profileId": "CPA GPT-6 Astra", "reasoningEffort": "highest"}
+  "harden": {
+    "cache": "off",
+    "diagnostics": true,
+    "timeout_ms": 30000,
+    "recovery": {
+      "maxAttempts": 1,
+      "retryOn": [],
+      "backoff": {"baseDelayMs": 0, "maxDelayMs": 0},
+      "jsonRepair": null,
+      "rerun": null
     }
   }
 }
 ```
 
-The original generation receives the caller's input/schema. Each repair receives
-that same input/schema plus a bounded flat list of completed failed outputs and
-validation diagnostics; repair search is disabled. The rerun starts with the
-original input/schema and a new branch history. A successful repair is reported
-with `generationTarget` set to the branch generation model and
-`resultSource.producer` set to the model that actually produced the accepted
-value. `totalWaitMs` is planned retry delay; `totalActualWaitMs` is measured
-elapsed delay. Stream diagnostics count received bytes, SSE events, output bytes,
-and Unicode code points—not guessed tokens.
+`harden.cache` accepts `off`, `cache`, or `refresh`; the default is `off`.
+`harden.timeout_ms` can lower the deployment's synchronous limit. Recovery
+policies are explicit and bounded. When `diagnostics` is enabled, the response
+includes bounded hardening metadata. Provider-specific fields not included in
+OpenAPI are rejected.
 
-For an in-flight, request-bound status stream, send the same POST body with
-`Accept: text/event-stream`:
+Streaming uses standard endpoint-specific SSE event formats, but the gateway
+emits only the completed hardened result after validation and recovery. It does
+not forward provisional provider tokens. Clients requiring first-token
+streaming should not treat this final-only stream as equivalent.
 
-```bash
-jq -n '{profileId:"Primary",userPrompt:"Reply with OK as JSON.",callType:"structured",
-  schema:{type:"object",properties:{ok:{type:"boolean"}},required:["ok"],additionalProperties:false},
-  recoveryPolicy:{maxAttempts:1,retryOn:[],jsonRepair:null,rerun:null,backoff:{baseDelayMs:0,maxDelayMs:0}}}' > /tmp/harden-run.json
-curl --no-buffer --fail-with-body -sS "$API/api/v1/run" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H 'Accept: text/event-stream' -H 'Content-Type: application/json' \
-  --data-binary @/tmp/harden-run.json
+## Go library
+
+The root Go package uses the same execution engine without HTTP or environment
+loading. Supply a connection directly to `hardenllm.New`, then choose its
+native model ID on each request:
+
+```go
+apiKey := os.Getenv("CPA_API_KEY")
+client, err := hardenllm.New(hardenllm.Options{
+    DefaultConnection: "cpa",
+    Connections: []hardenllm.Connection{{
+        ID: "cpa", Provider: "cpa", Protocol: "responses",
+        BaseURL: "https://cpa.prls.co/v1", APIKey: apiKey,
+        SupportsWebSearch: true,
+    }},
+})
+if err != nil {
+    return err
+}
+
+result, err := client.Call(ctx, hardenllm.Request{
+    ModelID: "<native-model-id>",
+    Messages: []hardenllm.Message{{
+        Role: "user", Content: json.RawMessage(`"Reply with OK."`),
+    }},
+    CallType: hardenllm.CallTypeText,
+    RecoveryPolicy: hardenllm.DefaultRecoveryPolicy(),
+})
 ```
 
-SSE is Server-Sent Events: named, newline-delimited events in one HTTP
-response. This endpoint is authenticated and request-bound, so it uses POST;
-the browser `EventSource` API is not the client contract. Events are
-`run.started`, bounded `run.progress`, and exactly one `run.completed` or
-`run.failed`. A heartbeat only proves connection liveness. The stream is not a
-detached job, is not resumable, and never extends the deployment hard cap.
-JSON remains the default transport.
+The library does not read `.env`; the application supplies credentials and
+optional cache/telemetry implementations. It has no profile CRUD or history
+store. `Client.Call` returns the normalized result and accounting metadata; it
+does not persist the request.
 
-For headless machine clients, `scripts/run-progress.mjs` is a dependency-free
-reference implementation. Keep the request body in a file or stdin (never a
-command-line argument), provide `HARDEN_LLM_API_TOKEN`, and set separate
-soft/case/suite budgets:
+## Access, health, and history boundaries
 
-```bash
-HARDEN_LLM_API_TOKEN="$TOKEN" node scripts/run-progress.mjs \
-  --url "$API/api/v1/run" --body-file /tmp/harden-run.json \
-  --soft-ms 10000 --case-hard-ms 60000 --suite-hard-ms 300000
-```
+`GET /healthz` reports process liveness. `GET /readyz` reports that the proxy
+loaded valid startup configuration; neither probe calls CPA. The `/v1/*`
+routes require `Authorization: Bearer <HARDEN_LLM_TOKEN>`.
 
-It never resubmits a POST, treats EOF without a terminal event as failure,
-keeps functional failure separate from a soft performance overrun, and prints
-only bounded redacted IDs, stages, timings, counters, and stop reasons.
-
-Set `webSearch:true` to enable web evidence (the UI uses `🌐` after Reasoning).
-Explicitly capable CPA/OpenAI/Perplexity Responses profiles use native `web_search`;
-Gemini uses Google Search and Claude uses its server search tool for text.
-Perplexity uses the canonical Agent API at `/v1/agent`. Unsupported profiles/routes and
-Claude strict structured output use Jina. Capability omission means false,
-consistently in REST and Go. The toggle owns search tools; conflicting raw
-search-tool options cannot turn search on while it is off. `cacheMode:"cache"` still looks up the exact
-search-enabled operation first, so a hit skips both the search and model call;
-`cacheMode:"refresh"` recomputes and overwrites that same cache entry. No automatic
-cache bypass or expiry is added for search. A cached answer may be stale by design.
-
-`result.search` records `mode`, actual `executed`, `sources`, optional inline
-`citations`, and `costStatus:"unavailable"` (HLLM does not separately itemize
-search fees; provider-reported USD totals are preserved in cost accounting).
-These describe the original answer and survive cache replay;
-use `result.cache.served` and `result.providerInvoked` for this invocation.
-`providerInvoked` (and each attempt's `providerUsed`) means the local model
-transport observed its request headers being written. It does not prove the
-remote service received, completed, or billed the request; search-only and
-pre-dispatch failures remain false.
-The native Gemini/Claude tools may decide not to search; no speculative Jina
-request follows a native response or failure. Search fees, status, source links,
-and optional suggestions live inside the response fold in both current Result
-and History. They expand with the existing input/output controls, without
-modifying copied text or structured output.
-
-When an accepted provider result cannot be persisted, the call still succeeds
-and returns `result.cache.status:"write_failed"` with the output, result and
-provider accounting intact. `served` and `written` remain false, and the
-runtime does not repeat the provider call or cache write. Cache lookup and
-integrity errors remain terminal. Cache records retain one canonical result
-projection (output, search metadata, accounting and producer) with its owner,
-version, hash and timestamps; prepared operations and raw provider envelopes
-are not part of the public cache contract.
-
-For production, the UI is `https://harden-llm.prls.co/` and the API base is
-`https://harden-llm-api.prls.co`. Use production's existing
-`HARDEN_LLM_STATIC_TOKEN` from its protected infrastructure environment file
-(reference host: `/home/kirill/p/harden-llm-production/.env`). Production retains
-its own machine credential; the dev credential below is not copied to
-production. The `webSearch` and cache contracts are the same in both environments.
-
-For a development machine request, keep the API token in the ignored mode-0600
-`.env` as `HARDEN_LLM_STATIC_TOKEN`; the protected deployment config must also
-set `HARDEN_LLM_STATIC_TOKEN_USER_ID` to the intended Control Plane user.
-The optional `JINA_API_KEY` remains a server-side search credential. Browser
-sessions use Control Plane and stay separate from this machine credential. No
-production token is copied. Rotating `HARDEN_LLM_STATIC_TOKEN` and redeploying
-dev revokes existing machine requests:
-
-```bash
-API=https://harden-llm-dev.prls.co
-TOKEN="$(sed -n 's/^HARDEN_LLM_STATIC_TOKEN=//p' .env)"
-curl --fail-with-body --silent --show-error --request POST "$API/api/v1/run" \
-  --header 'Accept: application/json' \
-  --header "Authorization: Bearer ${TOKEN}" \
-  --header 'Content-Type: application/json' \
-  --data-raw '{"cacheMode":"cache","cacheVersion":"operation-v2","callType":"text","modelId":"gpt-5.6-luna","profileId":"CPA GPT-5.6 Luna","providerOptions":{"max_tokens":16000,"stream":true},"reasoningEffort":"lowest","systemPrompt":"You are a helpful assistant","userPrompt":"write 2 haiku joke about burning man","webSearch":true,"recoveryPolicy":{"maxAttempts":4,"retryOn":["network","rate_limit","server_error","empty_response","provider_retry"],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":500,"maxDelayMs":8000}}}' | jq
-unset TOKEN
-```
-
-For the deployed structured smoke call, `scripts/harden-structured-call.sh`
-uses the configured machine credential from the local ignored
-`.env`, submits the `CurlStructured` request, and prints the JSON response:
-
-```bash
-make live-structured-call
-```
-
-Artifact authorization returns HTTP 303 with a short-lived, owner-authorized
-HTTPS URL. Validate the location against your configured artifact origin, then
-fetch it without forwarding the bearer token to storage.
-
-## Contract verification
-
-```bash
-go test ./internal/gateway/... -run TestOpenAPIContract -count=1
-```
-
-Phoenix maintains a small operation registry and tests it against the same
-OpenAPI document; no generated or handwritten second schema catalog exists.
+There are no profile, login, run-history, trace, or artifact endpoints on the
+gateway. Human login is only for accessing the Phoenix reference UI. All
+enabled logins share the frontend's history, while direct API calls remain
+unrecorded.

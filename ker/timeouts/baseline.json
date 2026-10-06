@@ -20,30 +20,12 @@
   "policies": [
     {
       "id": "gateway.maximum-run-duration",
-      "path": "cmd/harden-llm-gateway/config.go",
-      "pattern": "defaultMaximumRunDuration\\s*=\\s*(\\d+)\\s*\\*\\s*time\\.Second",
+      "path": "internal/gateway/httpapi/httpapi.go",
+      "pattern": "MaximumRunDuration\\s*=\\s*(\\d+)\\s*\\*\\s*time\\.Second",
       "unitMultiplierMilliseconds": 1000,
       "baselineMilliseconds": 60000,
       "initialBaseline": true,
-      "basis": "Published synchronous run contract maximum; the gateway rejects larger configuration and request values."
-    },
-    {
-      "id": "gateway.maximum-operation-timeout",
-      "path": "internal/gateway/httpapi/httpapi.go",
-      "pattern": "maximumOperationTimeout\\s*=\\s*(\\d+)\\s*\\*\\s*time\\.Second",
-      "unitMultiplierMilliseconds": 1000,
-      "baselineMilliseconds": 30000,
-      "initialBaseline": true,
-      "basis": "Upper bound for non-run REST operations."
-    },
-    {
-      "id": "gateway.maximum-profile-probe-timeout",
-      "path": "internal/gateway/profile_service.go",
-      "pattern": "maximumProbeTimeout\\s*=\\s*(\\d+)\\s*\\*\\s*time\\.Second",
-      "unitMultiplierMilliseconds": 1000,
-      "baselineMilliseconds": 30000,
-      "initialBaseline": true,
-      "basis": "Upper bound for credential and endpoint validation before profile persistence."
+      "basis": "Published synchronous inference contract maximum; one API-owned constant bounds default and configured call durations."
     },
     {
       "id": "provider.connect-timeout",
@@ -71,15 +53,6 @@
       "baselineMilliseconds": 30000,
       "initialBaseline": true,
       "basis": "Default outbound provider response-header bound; the caller deadline still caps the complete call."
-    },
-    {
-      "id": "artifact.maximum-operation-timeout",
-      "path": "internal/artifacts/garage.go",
-      "pattern": "maximumOperationTimeout\\s*=\\s*(\\d+)\\s*\\*\\s*time\\.Second",
-      "unitMultiplierMilliseconds": 1000,
-      "baselineMilliseconds": 30000,
-      "initialBaseline": true,
-      "basis": "Upper bound for Garage operations so artifact persistence cannot hang a completed provider call."
     },
     {
       "id": "telemetry.laminar-export-timeout",

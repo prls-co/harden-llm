@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/prls-co/harden-llm/internal/retry"
-	"github.com/prls-co/harden-llm/internal/runtime"
+	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
 
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -18,40 +18,61 @@ import (
 
 // Options configures a Client without initializing process-global state.
 type Options struct {
-	Credentials    CredentialResolver
-	Cache          CacheStore
-	Artifacts      ArtifactStore
-	EndpointPolicy EndpointPolicy
-	WebSearch      WebSearchOptions
-	TracerProvider trace.TracerProvider
-	MeterProvider  metric.MeterProvider
-	Logger         *slog.Logger
+	Connections       []Connection
+	DefaultConnection string
+	Cache             CacheStore
+	EndpointPolicy    EndpointPolicy
+	WebSearch         WebSearchOptions
+	TracerProvider    trace.TracerProvider
+	MeterProvider     metric.MeterProvider
+	Logger            *slog.Logger
 }
 
-// WebSearchOptions configures the server-side fallback used when a selected
-// profile does not advertise native web-search support.
+// WebSearchOptions configures the explicitly selected external search service.
 type WebSearchOptions struct {
 	JinaAPIKey           string
 	JinaTimeout          time.Duration
 	JinaMaxResponseBytes int64
 }
 
-// Request describes one provider-neutral LLM call.
+type Message = coreruntime.Message
+type ToolCall = coreruntime.ToolCall
+type FunctionCall = coreruntime.FunctionCall
+type FunctionTool = coreruntime.FunctionTool
+type ToolChoice = coreruntime.ToolChoice
+type AssistantToolCall = coreruntime.AssistantToolCall
+type AssistantOutput = coreruntime.AssistantOutput
+
+// ProviderError and ValidationError expose the engine's classified call errors
+// without requiring HTTP or library callers to import an internal package.
+type ProviderError = retry.ProviderError
+type ValidationError = retry.ValidationError
+
+// Model is a native upstream model identifier suitable for OpenAI model-list
+// responses. Label is optional display metadata from upstream discovery.
+type Model struct {
+	ID      string `json:"id"`
+	Label   string `json:"label,omitempty"`
+	OwnedBy string `json:"owned_by"`
+}
+
+// Request describes one provider-neutral, ordered conversation.
 type Request struct {
-	ProfileID       string
-	Profiles        ProfileCatalog
-	SystemPrompt    string
-	UserPrompt      string
-	CallType        CallType
-	Schema          json.RawMessage
-	ReasoningEffort ReasoningEffort
-	WebSearch       bool
-	ProviderOptions map[string]any
-	Context         ObservabilityContext
-	CacheMode       CacheMode
-	CacheVersion    string
-	RecoveryPolicy  RecoveryPolicy
-	Origin          Origin
+	ConnectionID    string               `json:"upstream,omitempty"`
+	ModelID         string               `json:"model"`
+	Messages        []Message            `json:"messages"`
+	CallType        CallType             `json:"callType,omitempty"`
+	Schema          json.RawMessage      `json:"schema,omitempty"`
+	Tools           []FunctionTool       `json:"tools,omitempty"`
+	ToolChoice      ToolChoice           `json:"toolChoice,omitempty"`
+	ReasoningEffort ReasoningEffort      `json:"reasoning_effort,omitempty"`
+	WebSearch       bool                 `json:"webSearch,omitempty"`
+	ProviderOptions map[string]any       `json:"providerOptions,omitempty"`
+	Context         ObservabilityContext `json:"-"`
+	CacheMode       CacheMode            `json:"cacheMode,omitempty"`
+	CacheVersion    string               `json:"cacheVersion,omitempty"`
+	RecoveryPolicy  RecoveryPolicy       `json:"recoveryPolicy,omitempty"`
+	Origin          Origin               `json:"origin,omitempty"`
 	// Progress receives best-effort cumulative snapshots. The runtime never
 	// closes this caller-owned channel and never blocks provider execution on it.
 	Progress chan<- ProgressEvent
@@ -69,7 +90,7 @@ type ProgressEvent struct {
 	Type                string      `json:"type"`
 	Stage               string      `json:"stage,omitempty"`
 	Branch              string      `json:"branch,omitempty"`
-	ProfileID           string      `json:"profileId,omitempty"`
+	ConnectionID        string      `json:"connectionId,omitempty"`
 	ReasoningEffort     string      `json:"reasoningEffort,omitempty"`
 	Attempt             int         `json:"attempt,omitempty"`
 	AttemptsUsed        int         `json:"attemptsUsed"`
@@ -116,7 +137,6 @@ type Result struct {
 	Accounting       Accounting
 	Attempts         []Attempt
 	Cache            CacheResult
-	Artifacts        []ArtifactRef
 	Diagnostics      Diagnostics
 }
 
@@ -143,8 +163,8 @@ type BranchCache struct {
 	Cache            CacheResult     `json:"cache"`
 }
 
-type SearchResult = runtime.SearchResult
-type SearchSource = runtime.SearchSource
+type SearchResult = coreruntime.SearchResult
+type SearchSource = coreruntime.SearchSource
 
 // CallType identifies text or contracted structured-output execution.
 type CallType string
@@ -154,13 +174,13 @@ const (
 	CallTypeStructured CallType = "structured"
 )
 
-// ReasoningEffort is a portable reasoning level understood by a profile.
+// ReasoningEffort carries the upstream's native reasoning value unchanged.
 type ReasoningEffort string
 
 const (
-	ReasoningEffortLowest  ReasoningEffort = "lowest"
-	ReasoningEffortMiddle  ReasoningEffort = "middle"
-	ReasoningEffortHighest ReasoningEffort = "highest"
+	ReasoningEffortLowest  ReasoningEffort = "low"
+	ReasoningEffortMiddle  ReasoningEffort = "medium"
+	ReasoningEffortHighest ReasoningEffort = "high"
 )
 
 // ObservabilityContext carries trace-only correlation dimensions. It is never
@@ -188,9 +208,8 @@ type RecoveryTarget = retry.RecoveryTarget
 type JSONRepairPlan = retry.RepairPlan
 type RerunPlan = retry.RerunPlan
 
-// DefaultRecoveryPolicy creates the explicit six-stage preset for new callers.
-// Deployments must provision the named CPA Astra profiles before enabling it;
-// existing stored policies are not changed implicitly.
+// DefaultRecoveryPolicy creates the explicit profile-free recovery policy for
+// new callers.
 func DefaultRecoveryPolicy() RecoveryPolicy { return DefaultStructuredRecoveryPolicy() }
 
 // DefaultStructuredRecoveryPolicy is the explicit six-stage preset for new
@@ -202,15 +221,7 @@ func DefaultStructuredRecoveryPolicy() RecoveryPolicy {
 		RetryOn:     []RecoveryCategory{retry.CategoryNetwork, retry.CategoryRateLimit, retry.CategoryServer, retry.CategoryEmpty, retry.CategoryProvider},
 		Backoff:     RecoveryBackoff{BaseDelayMS: 500, MaxDelayMS: 8000},
 		JSONRepair: &JSONRepairPlan{
-			Initial:    RecoveryTarget{Source: "profile", ProfileID: "CPA GPT-5.6 Luna", ReasoningEffort: string(ReasoningEffortLowest)},
-			Escalation: &RecoveryTarget{Source: "profile", ProfileID: "CPA GPT-5.6 Luna", ReasoningEffort: string(ReasoningEffortHighest)},
-		},
-		Rerun: &RerunPlan{
-			Target: RecoveryTarget{Source: "profile", ProfileID: "CPA GPT-6 Astra", ReasoningEffort: string(ReasoningEffortLowest)},
-			JSONRepair: &JSONRepairPlan{
-				Initial:    RecoveryTarget{Source: "profile", ProfileID: "CPA GPT-6 Astra", ReasoningEffort: string(ReasoningEffortLowest)},
-				Escalation: &RecoveryTarget{Source: "profile", ProfileID: "CPA GPT-6 Astra", ReasoningEffort: string(ReasoningEffortHighest)},
-			},
+			Initial: RecoveryTarget{Source: "generation"},
 		},
 	}
 }
@@ -220,7 +231,7 @@ func DefaultStructuredRecoveryPolicy() RecoveryPolicy {
 // written; it does not prove remote execution or billing.
 type Attempt struct {
 	Number            int                `json:"number"`
-	ProfileID         string             `json:"profileId"`
+	ConnectionID      string             `json:"connectionId"`
 	Target            ExecutionTarget    `json:"target"`
 	Category          string             `json:"category,omitempty"`
 	HTTPStatus        int                `json:"httpStatus,omitempty"`
@@ -267,11 +278,11 @@ type WaitDiagnostics struct {
 // ExecutionTarget is the immutable prepared provider target for selection,
 // invocation, or cache-producer attribution.
 type ExecutionTarget struct {
-	ProfileID string `json:"profileId"`
-	Provider  string `json:"provider"`
-	Protocol  string `json:"protocol"`
-	Endpoint  string `json:"endpoint"`
-	ModelID   string `json:"modelId"`
+	ConnectionID string `json:"connectionId"`
+	Provider     string `json:"provider"`
+	Protocol     string `json:"protocol"`
+	Endpoint     string `json:"endpoint"`
+	ModelID      string `json:"modelId"`
 }
 
 type ResultSourceKind string

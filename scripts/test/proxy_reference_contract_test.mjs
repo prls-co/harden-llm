@@ -25,7 +25,7 @@ test("profile-free OpenAI contract is traceable and assigned to the right existi
   const [fixtureText, testSpecification, requirementSpecification, traceability, manifestText] = await Promise.all([
     read("test/fixtures/proxy-reference-contract.json"),
     read("plans/from_utility-llm/harden-llm-self-hosted-test-spec.md"),
-    read("plans/from_utility-llm/harden-llm-self-hosted-implementation-plan.md"),
+    read("plans/proxy-and-reference-app-simplification-plan.md"),
     read("docs/requirements-traceability.md"),
     read("test/test-tiers.json"),
   ]);
@@ -41,7 +41,7 @@ test("profile-free OpenAI contract is traceable and assigned to the right existi
   assert.equal(fixture.modelListPath, "/v1/models");
   assert.equal(fixture.chatCompletionsPath, "/v1/chat/completions");
   assert.equal(fixture.responsesPath, "/v1/responses");
-  assert.deepEqual(fixture.chatRequestFields, ["model", "messages", "response_format", "tools", "tool_choice", "stream"]);
+  assert.deepEqual(fixture.chatRequestFields, ["model", "messages", "response_format", "tools", "tool_choice", "stream", "reasoning_effort"]);
   assert.deepEqual(fixture.responsesRequestFields, ["model", "input", "instructions", "text.format", "tools", "tool_choice", "stream"]);
   assert.deepEqual(fixture.extensions, ["upstream", "cache", "timeout_ms", "recovery", "diagnostics"]);
   assert.equal(fixture.stateless, true);
@@ -79,8 +79,9 @@ test("profile-free OpenAI contract is traceable and assigned to the right existi
   for (let requirement = 400; requirement <= 415; requirement += 1) {
     const requirementId = `REQ-${requirement}`;
     assert.ok(requirementSpecification.includes(requirementId), `${requirementId} canonical requirement`);
-    assert.match(traceability, new RegExp(`\\b${requirementId}\\b`), `${requirementId} traceability row`);
   }
+  assert.match(traceability, /PLAN-HLLM-PROXY-REFERENCE-001/);
+  assert.match(traceability, /Frontend-only shared history and per-user drafts/);
   const databaseTask = manifest.tasks.find(({ id }) => id === "frontend-reference-integration");
   assert.ok(databaseTask, "existing integration runner task is registered");
   assert.equal(databaseTask.workingDirectory, "frontend");

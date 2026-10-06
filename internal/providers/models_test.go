@@ -93,9 +93,9 @@ func TestModelDiscovery(t *testing.T) {
 			}
 			if test.inferenceType == "gemini-generate-content" {
 				for _, model := range models {
-					_, _, path, _, _, err := buildPayload(runtime.Profile{
-						APIInferenceType: test.inferenceType, ModelID: model.ID,
-					}, runtime.Call{CallType: "text", UserPrompt: "OK"})
+					_, _, path, _, _, err := buildPayload(runtime.Connection{
+						APIInferenceType: test.inferenceType,
+					}, runtime.Call{ModelID: model.ID, CallType: "text", Messages: providerMessages("", "OK")})
 					wantPath := "/v1beta/models/" + model.ID + ":generateContent"
 					if err != nil || path != wantPath {
 						t.Fatalf("discovered model %q request path = %q, %v; want %q", model.ID, path, err, wantPath)

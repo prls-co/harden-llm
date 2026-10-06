@@ -37,7 +37,7 @@ func TestCapacityDriverScenarioCatalogIsBoundedAndStrict(t *testing.T) {
 		t.Fatalf("cache-hit case cannot seed and measure a stable cache key: %#v", cacheHit)
 	}
 	converted := cacheHit.DriverScenario()
-	if converted.CacheMode != "hit" || converted.RecoveryPolicy != "default" || converted.Origin.OperationID != cacheHit.ID || converted.Origin.TestID != "TEST-277" {
+	if converted.CacheMode != "hit" || converted.RecoveryPolicy != "default" || converted.Origin.OperationID != cacheHit.ID || converted.Origin.TestID != "TEST-276" {
 		t.Fatalf("scenario settings or origin were lost during driver conversion: %#v", converted)
 	}
 

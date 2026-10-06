@@ -33,12 +33,12 @@ func TestSearchCachePersistenceProjection(t *testing.T) {
 			fixture := fixtureProviderResult()
 			fixture.Search = &SearchResult{Mode: mode, Executed: true, CostStatus: "unavailable", Sources: []SearchSource{{URL: "https://example.test/source", Title: "Source"}}, Citations: []coreruntime.SearchCitation{{URL: "https://example.test/source", Title: "Source", StartIndex: 0, EndIndex: 2}}}
 			executor := &fixedExecutor{result: fixture}
-			client, err := New(Options{Credentials: fixedCredentialResolver{}, Cache: cache})
+			client, err := New(testOptionsWith(cache))
 			if err != nil {
 				t.Fatal(err)
 			}
 			client.executor = executor
-			request := Request{ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "search fixture", WebSearch: true, CallType: CallTypeText, CacheMode: CacheModeCache, CacheVersion: "operation-v2", RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}}}
+			request := Request{ConnectionID: "primary", ModelID: "gpt-test", Messages: testMessages("search fixture"), WebSearch: true, CallType: CallTypeText, CacheMode: CacheModeCache, CacheVersion: "operation-v2", RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}}}
 			fresh, err := client.Call(context.Background(), request)
 			if err != nil {
 				t.Fatal(err)
@@ -89,11 +89,11 @@ func (cache *memoryCache) Delete(_ context.Context, key string) error {
 func TestCacheReplay(t *testing.T) {
 	cache := &memoryCache{records: make(map[string]CacheRecord)}
 	executor := &fixedExecutor{result: fixtureProviderResult()}
-	client, _ := New(Options{Credentials: fixedCredentialResolver{}, Cache: cache})
+	client, _ := New(testOptionsWith(cache))
 	client.executor = executor
 	client.newID = sequenceIDs()
 	request := Request{
-		ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "deterministic fixture",
+		ConnectionID: "primary", ModelID: "gpt-test", Messages: testMessages("deterministic fixture"),
 		CallType: CallTypeText, CacheMode: CacheModeCache, CacheVersion: "operation-v2",
 		RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 	}
@@ -148,19 +148,55 @@ func TestCacheReplay(t *testing.T) {
 	}
 }
 
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-402
+func TestCacheSeparatesConfiguredCredentialDomains(t *testing.T) {
+	t.Parallel()
+	cache := &memoryCache{records: make(map[string]CacheRecord)}
+	primary := testConnection()
+	primary.CacheDomain = "provider-account-a"
+	secondary := primary
+	secondary.ID = "secondary"
+	secondary.CacheDomain = "provider-account-b"
+	secondary.APIKey = "another-fixture-only-key"
+	options := Options{Connections: []Connection{primary, secondary}, DefaultConnection: primary.ID, Cache: cache}
+	client, err := New(options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	executor := &fixedExecutor{result: fixtureProviderResult()}
+	client.executor, client.newID = executor, sequenceIDs()
+	request := Request{
+		ModelID: "gpt-test", Messages: testMessages("credential domain fixture"), CallType: CallTypeText,
+		CacheMode: CacheModeCache, CacheVersion: "operation-v2",
+		RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{}, Backoff: RecoveryBackoff{}},
+	}
+	first, err := client.Call(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.ConnectionID = secondary.ID
+	second, err := client.Call(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if executor.executed != 2 || !first.Cache.Written || !second.Cache.Written || len(cache.records) != 2 {
+		t.Fatalf("credential domains shared cache identity: executions=%d first=%#v second=%#v records=%d", executor.executed, first.Cache, second.Cache, len(cache.records))
+	}
+}
+
 func TestCacheV2RejectsV1Envelope(t *testing.T) {
 	// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-058
 	t.Parallel()
 
 	cache := &memoryCache{records: make(map[string]CacheRecord)}
-	client, err := New(Options{Credentials: fixedCredentialResolver{}, Cache: cache})
+	client, err := New(testOptionsWith(cache))
 	if err != nil {
 		t.Fatal(err)
 	}
 	client.executor = &fixedExecutor{result: fixtureProviderResult()}
 	client.newID = sequenceIDs()
 	request := Request{
-		ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "v2-only",
+		ConnectionID: "primary", ModelID: "gpt-test", Messages: testMessages("v2-only"),
 		CallType: CallTypeText, CacheMode: CacheModeCache, CacheVersion: "operation-v2",
 		RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 	}
@@ -183,7 +219,7 @@ func TestRecoveryIntegrityCacheAdmission(t *testing.T) {
 	t.Parallel()
 	baseRequest := func() Request {
 		return Request{
-			ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "cache admission",
+			ConnectionID: "primary", ModelID: "gpt-test", Messages: testMessages("cache admission"),
 			CallType: CallTypeText, CacheMode: CacheModeCache, CacheVersion: "operation-v2",
 			RecoveryPolicy: generationRepairPolicy(2, []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, RecoveryBackoff{}),
 		}
@@ -191,7 +227,7 @@ func TestRecoveryIntegrityCacheAdmission(t *testing.T) {
 	newClient := func(t *testing.T, cache CacheStore, result coreruntime.ProviderResult) (*Client, *fixedExecutor) {
 		t.Helper()
 		executor := &fixedExecutor{result: result}
-		client, err := New(Options{Credentials: fixedCredentialResolver{}, Cache: cache})
+		client, err := New(testOptionsWith(cache))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -335,14 +371,14 @@ func TestRecoveryIntegrityCacheAdmission(t *testing.T) {
 		assertRejected(t, client, request, executor)
 	})
 
-	t.Run("producer identity is checked while profile aliases remain valid", func(t *testing.T) {
+	t.Run("producer connection identity is checked", func(t *testing.T) {
 		cache := &memoryCache{records: make(map[string]CacheRecord)}
 		client, executor := newClient(t, cache, fixtureProviderResult())
 		request := baseRequest()
 		if _, err := client.Call(context.Background(), request); err != nil {
 			t.Fatal(err)
 		}
-		mutate(t, cache, func(projection *cachedProviderProjection) { projection.Producer.ProfileID = "retired-profile" })
+		mutate(t, cache, func(projection *cachedProviderProjection) { projection.Producer.ConnectionID = "retired-connection" })
 		if _, err := client.Call(context.Background(), request); err != nil {
 			t.Fatalf("same target alias rejected: %v", err)
 		}
@@ -395,13 +431,13 @@ func TestRecoveryIntegrityCacheWrite(t *testing.T) {
 		t.Run(string(mode), func(t *testing.T) {
 			cache := &failingWriteCache{memoryCache: memoryCache{records: make(map[string]CacheRecord)}, err: errors.New("cache write unavailable")}
 			executor := &fixedExecutor{result: fixtureProviderResult()}
-			client, err := New(Options{Credentials: fixedCredentialResolver{}, Cache: cache})
+			client, err := New(testOptionsWith(cache))
 			if err != nil {
 				t.Fatal(err)
 			}
 			client.executor, client.newID = executor, sequenceIDs()
 			request := Request{
-				ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "cache write failure", CallType: CallTypeText,
+				ConnectionID: "primary", ModelID: "gpt-test", Messages: testMessages("cache write failure"), CallType: CallTypeText,
 				CacheMode: mode, CacheVersion: "operation-v2", RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{}, Backoff: RecoveryBackoff{}},
 			}
 			result, err := client.Call(context.Background(), request)
@@ -413,13 +449,13 @@ func TestRecoveryIntegrityCacheWrite(t *testing.T) {
 	t.Run("accepted result survives cache write deadline", func(t *testing.T) {
 		cache := &failingWriteCache{memoryCache: memoryCache{records: make(map[string]CacheRecord)}, err: context.DeadlineExceeded}
 		executor := &fixedExecutor{result: fixtureProviderResult()}
-		client, err := New(Options{Credentials: fixedCredentialResolver{}, Cache: cache})
+		client, err := New(testOptionsWith(cache))
 		if err != nil {
 			t.Fatal(err)
 		}
 		client.executor, client.newID = executor, sequenceIDs()
 		result, callErr := client.Call(context.Background(), Request{
-			ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "cache deadline", CallType: CallTypeText,
+			ConnectionID: "primary", ModelID: "gpt-test", Messages: testMessages("cache deadline"), CallType: CallTypeText,
 			CacheMode: CacheModeCache, CacheVersion: "operation-v2",
 			RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{}, Backoff: RecoveryBackoff{}},
 		})
@@ -450,14 +486,14 @@ func TestEmptyProviderResponseRetriesSameOperationBeforeCaching(t *testing.T) {
 			nil,
 		},
 	}
-	client, err := New(Options{Credentials: fixedCredentialResolver{}, Cache: cache})
+	client, err := New(testOptionsWith(cache))
 	if err != nil {
 		t.Fatal(err)
 	}
 	client.executor = executor
 	client.newID = sequenceIDs()
 	result, err := client.Call(context.Background(), Request{
-		ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "retry empty output",
+		ConnectionID: "primary", ModelID: "gpt-test", Messages: testMessages("retry empty output"),
 		CallType: CallTypeText, CacheMode: CacheModeCache, RecoveryPolicy: RecoveryPolicy{MaxAttempts: 2, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 	})
 	if err != nil {

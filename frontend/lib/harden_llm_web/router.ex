@@ -41,15 +41,11 @@ defmodule HardenLlmWeb.Router do
   scope "/", HardenLlmWeb do
     pipe_through [:browser, :require_identity]
 
-    get "/profiles/bundle", BundleController, :show
-    get "/traces/:trace_id", TraceController, :show
-    get "/traces/:trace_id/artifacts/:artifact_id", ArtifactController, :show
+    get "/history/:id/download", HistoryController, :download
 
     live_session :authenticated,
       on_mount: [{PrlsWeb.Access.LiveAuth, :require_access}] do
       live "/", WorkspaceLive
-      live "/embed/llm", EmbeddingLive
-      live "/profiles", ProfilesLive
     end
   end
 

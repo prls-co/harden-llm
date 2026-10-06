@@ -24,23 +24,11 @@ import (
 const liveProvidersEnvironment = "HARDEN_LLM_LIVE_PROVIDERS"
 
 type liveProviderConfig struct {
-	Name      string            `json:"name"`
-	APIKeyEnv string            `json:"apiKeyEnv"`
-	Profile   hardenllm.Profile `json:"profile"`
-}
-
-type liveCredential struct {
-	key  string
-	pace func(context.Context) error
-}
-
-func (credential liveCredential) ResolveCredential(ctx context.Context, _ hardenllm.CredentialRequest) (hardenllm.Credential, error) {
-	if credential.pace != nil {
-		if err := credential.pace(ctx); err != nil {
-			return hardenllm.Credential{}, err
-		}
-	}
-	return hardenllm.Credential{APIKey: credential.key}, nil
+	Name                               string               `json:"name"`
+	APIKeyEnv                          string               `json:"apiKeyEnv"`
+	Connection                         hardenllm.Connection `json:"connection"`
+	ModelID                            string               `json:"modelId"`
+	SupportsContractedStructuredOutput bool                 `json:"supportsContractedStructuredOutput"`
 }
 
 func TestLiveProviders(t *testing.T) {
@@ -63,9 +51,6 @@ func TestLiveProviders(t *testing.T) {
 		if err != nil || interval <= 0 {
 			t.Fatal("HARDEN_LLM_LIVE_PROVIDER_INTERVAL must be a positive duration")
 		}
-		// One process-wide provider spending account is the named shared
-		// resource. Pace credential resolution; never retry or weaken the
-		// one-attempt assertions to hide a provider rate-limit rejection.
 		var mu sync.Mutex
 		var next time.Time
 		pace = func(ctx context.Context) error {
@@ -98,26 +83,25 @@ func TestLiveProviders(t *testing.T) {
 			if credentialName == "" || credential == "" {
 				t.Fatalf("configured provider %s requires its named API-key environment variable", name)
 			}
-			base, err := url.Parse(item.Profile.BaseURL)
+			base, err := url.Parse(item.Connection.BaseURL)
 			if err != nil || base.Scheme != "https" || base.Hostname() == "" || base.User != nil {
 				t.Fatalf("provider %s has an invalid HTTPS base URL", name)
 			}
+			item.Connection.APIKey = credential
 			client, err := hardenllm.New(hardenllm.Options{
-				Credentials:    liveCredential{key: credential, pace: pace},
+				Connections:    []hardenllm.Connection{item.Connection},
 				EndpointPolicy: hardenllm.EndpointPolicy{AllowedHosts: []string{base.Hostname()}},
 			})
 			if err != nil {
 				t.Fatalf("initialize provider %s: %v", name, err)
 			}
-			catalog := hardenllm.ProfileCatalog{item.Profile.LLMProfile: item.Profile}
+			waitLiveProvider(t, pace, name)
 			textContext, cancelText := context.WithTimeout(context.Background(), 90*time.Second)
 			textResult, err := client.Call(textContext, hardenllm.Request{
-				ProfileID:      item.Profile.LLMProfile,
-				Profiles:       catalog,
-				UserPrompt:     "Reply with exactly OK.",
-				CallType:       hardenllm.CallTypeText,
-				CacheMode:      hardenllm.CacheModeOff,
-				RecoveryPolicy: hardenllm.RecoveryPolicy{MaxAttempts: 1, RetryOn: []hardenllm.RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: hardenllm.RecoveryBackoff{}},
+				ConnectionID: item.Connection.ID, ModelID: item.ModelID,
+				Messages: []hardenllm.Message{{Role: "user", Content: json.RawMessage(`"Reply with exactly OK."`)}},
+				CallType: hardenllm.CallTypeText, CacheMode: hardenllm.CacheModeOff,
+				RecoveryPolicy: hardenllm.RecoveryPolicy{MaxAttempts: 1, RetryOn: []hardenllm.RecoveryCategory{}, Backoff: hardenllm.RecoveryBackoff{}},
 			})
 			cancelText()
 			if err != nil {
@@ -128,18 +112,18 @@ func TestLiveProviders(t *testing.T) {
 			}
 			assertLiveAccounting(t, name, textResult)
 
-			if !item.Profile.SupportsContractedStructuredOutput {
+			if !item.SupportsContractedStructuredOutput {
 				return
 			}
+			waitLiveProvider(t, pace, name)
 			structuredContext, cancelStructured := context.WithTimeout(context.Background(), 90*time.Second)
 			structuredResult, err := client.Call(structuredContext, hardenllm.Request{
-				ProfileID:      item.Profile.LLMProfile,
-				Profiles:       catalog,
-				UserPrompt:     "Return one JSON object whose ok field is true.",
+				ConnectionID: item.Connection.ID, ModelID: item.ModelID,
+				Messages:       []hardenllm.Message{{Role: "user", Content: json.RawMessage(`"Return one JSON object whose ok field is true."`)}},
 				CallType:       hardenllm.CallTypeStructured,
 				Schema:         json.RawMessage(`{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"],"additionalProperties":false}`),
 				CacheMode:      hardenllm.CacheModeOff,
-				RecoveryPolicy: hardenllm.RecoveryPolicy{MaxAttempts: 1, RetryOn: []hardenllm.RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: hardenllm.RecoveryBackoff{}},
+				RecoveryPolicy: hardenllm.RecoveryPolicy{MaxAttempts: 1, RetryOn: []hardenllm.RecoveryCategory{}, Backoff: hardenllm.RecoveryBackoff{}},
 			})
 			cancelStructured()
 			if err != nil {
@@ -151,6 +135,18 @@ func TestLiveProviders(t *testing.T) {
 			}
 			assertLiveAccounting(t, name, structuredResult)
 		})
+	}
+}
+
+func waitLiveProvider(t *testing.T, pace func(context.Context) error, provider string) {
+	t.Helper()
+	if pace == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	if err := pace(ctx); err != nil {
+		t.Fatalf("pace provider %s: %v", provider, err)
 	}
 }
 

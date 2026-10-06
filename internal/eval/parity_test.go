@@ -49,14 +49,14 @@ func TestEndpointSafetyEval(t *testing.T) {
 		"https://127.0.0.1/v1", "https://[::1]/v1", "https://169.254.169.254/latest",
 	}
 	for _, endpoint := range staticUnsafe {
-		profile := runtime.Profile{ID: "eval", Provider: "vendor", APIInferenceType: "chat-completions", BaseURL: endpoint, ModelID: "model", SupportsTemperature: true}
-		if _, prepareErr := router.Prepare(context.Background(), profile, runtime.Credential{APIKey: "fixture-secret"}, runtime.Call{CallType: "text", UserPrompt: "fixture"}); prepareErr == nil {
+		connection := runtime.Connection{ID: "eval", Provider: "vendor", APIInferenceType: "chat-completions", BaseURL: endpoint}
+		if _, prepareErr := router.Prepare(context.Background(), connection, runtime.Credential{APIKey: "fixture-secret"}, evalTextCall()); prepareErr == nil {
 			t.Fatalf("statically unsafe endpoint was accepted: %s", endpoint)
 		}
 	}
 	for _, endpoint := range []string{"https://private.example/v1", "https://mixed.example/v1", "https://metadata.example/v1"} {
-		profile := runtime.Profile{ID: "eval", Provider: "vendor", APIInferenceType: "chat-completions", BaseURL: endpoint, ModelID: "model", SupportsTemperature: true}
-		prepared, prepareErr := router.Prepare(context.Background(), profile, runtime.Credential{APIKey: "fixture-secret"}, runtime.Call{CallType: "text", UserPrompt: "fixture"})
+		connection := runtime.Connection{ID: "eval", Provider: "vendor", APIInferenceType: "chat-completions", BaseURL: endpoint}
+		prepared, prepareErr := router.Prepare(context.Background(), connection, runtime.Credential{APIKey: "fixture-secret"}, evalTextCall())
 		if prepareErr != nil {
 			t.Fatalf("Prepare performed network-dependent safety validation for %s: %v", endpoint, prepareErr)
 		}
@@ -64,8 +64,8 @@ func TestEndpointSafetyEval(t *testing.T) {
 			t.Fatalf("runtime endpoint safety accepted resolved unsafe endpoint: %s", endpoint)
 		}
 	}
-	publicProfile := runtime.Profile{ID: "eval", Provider: "vendor", APIInferenceType: "chat-completions", BaseURL: "https://public.example/v1", ModelID: "model", SupportsTemperature: true}
-	if _, err = router.Prepare(context.Background(), publicProfile, runtime.Credential{APIKey: "fixture-secret"}, runtime.Call{CallType: "text", UserPrompt: "fixture"}); err != nil {
+	publicConnection := runtime.Connection{ID: "eval", Provider: "vendor", APIInferenceType: "chat-completions", BaseURL: "https://public.example/v1"}
+	if _, err = router.Prepare(context.Background(), publicConnection, runtime.Credential{APIKey: "fixture-secret"}, evalTextCall()); err != nil {
 		t.Fatalf("public endpoint rejected: %v", err)
 	}
 	privateRouter, err := providers.NewRouter(providers.Config{EndpointPolicy: providers.EndpointPolicy{
@@ -78,14 +78,18 @@ func TestEndpointSafetyEval(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	privateProfile := publicProfile
-	privateProfile.BaseURL = "https://private.example/v1"
-	if _, err = privateRouter.Prepare(context.Background(), privateProfile, runtime.Credential{APIKey: "fixture-secret"}, runtime.Call{CallType: "text", UserPrompt: "fixture"}); err != nil {
+	privateConnection := publicConnection
+	privateConnection.BaseURL = "https://private.example/v1"
+	if _, err = privateRouter.Prepare(context.Background(), privateConnection, runtime.Credential{APIKey: "fixture-secret"}, evalTextCall()); err != nil {
 		t.Fatalf("explicit private endpoint rejected: %v", err)
 	}
 	if got := dialCount.Load(); got != 0 {
 		t.Fatalf("endpoint safety evaluation made %d unintended dials", got)
 	}
+}
+
+func evalTextCall() runtime.Call {
+	return runtime.Call{ModelID: "model", CallType: "text", Messages: []runtime.Message{{Role: "user", Content: []byte(`"fixture"`)}}}
 }
 
 type evalResolver struct {

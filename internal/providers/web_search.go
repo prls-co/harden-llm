@@ -31,9 +31,9 @@ type Searcher interface {
 }
 
 type preparedWebSearch struct {
-	profile runtime.Profile
-	call    runtime.Call
-	state   *webSearchResult
+	connection runtime.Connection
+	call       runtime.Call
+	state      *webSearchResult
 }
 
 type webSearchResult struct {
@@ -41,26 +41,26 @@ type webSearchResult struct {
 	result string
 }
 
-func fallbackWebSearch(profile runtime.Profile, call runtime.Call) *preparedWebSearch {
-	if !call.WebSearch || nativeWebSearchEnabled(profile, call) {
+func fallbackWebSearch(connection runtime.Connection, call runtime.Call) *preparedWebSearch {
+	if !call.WebSearch || nativeWebSearchEnabled(connection, call) {
 		return nil
 	}
 	state := &webSearchResult{}
 	if call.SearchMemo != nil {
-		stored, _ := call.SearchMemo.LoadOrStore(boundedWebSearchQuery(call.UserPrompt), state)
+		stored, _ := call.SearchMemo.LoadOrStore(boundedWebSearchQuery(lastUserText(call.Messages)), state)
 		state = stored.(*webSearchResult)
 	}
-	return &preparedWebSearch{profile: profile, call: call, state: state}
+	return &preparedWebSearch{connection: connection, call: call, state: state}
 }
 
-func operationPayload(payload map[string]any, profile runtime.Profile, call runtime.Call) map[string]any {
-	if !call.WebSearch || nativeWebSearchEnabled(profile, call) {
+func operationPayload(payload map[string]any, connection runtime.Connection, call runtime.Call) map[string]any {
+	if !call.WebSearch || nativeWebSearchEnabled(connection, call) {
 		return payload
 	}
 	operation := cloneMap(payload)
 	operation["__harden_llm_web_search"] = map[string]any{
 		"mode":  "jina",
-		"query": call.UserPrompt,
+		"query": lastUserText(call.Messages),
 	}
 	return operation
 }
@@ -77,7 +77,7 @@ func (search *preparedWebSearch) results(ctx context.Context, searcher Searcher)
 	if searcher == nil {
 		return "", errors.New("providers: web-search fallback is not configured")
 	}
-	result, err := searcher.Search(ctx, boundedWebSearchQuery(search.call.UserPrompt))
+	result, err := searcher.Search(ctx, boundedWebSearchQuery(lastUserText(search.call.Messages)))
 	if err != nil {
 		return "", err
 	}
@@ -90,6 +90,18 @@ func (search *preparedWebSearch) results(ctx context.Context, searcher Searcher)
 	}
 	result = search.state.result
 	return result, nil
+}
+
+func lastUserText(messages []runtime.Message) string {
+	for index := len(messages) - 1; index >= 0; index-- {
+		if messages[index].Role == "user" {
+			if text, ok := messageText(messages[index].Content); ok {
+				return text
+			}
+			return ""
+		}
+	}
+	return ""
 }
 
 func boundedWebSearchQuery(value string) string {

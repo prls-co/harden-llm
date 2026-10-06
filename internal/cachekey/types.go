@@ -6,6 +6,7 @@ const OperationSchemaVersion = "utility-llm.operation.v1"
 // Operation is the provider-prepared semantic request used for cache identity.
 type Operation struct {
 	SchemaVersion      string             `json:"schemaVersion"`
+	CacheDomain        string             `json:"cacheDomain,omitempty"`
 	Protocol           string             `json:"protocol"`
 	Endpoint           Endpoint           `json:"endpoint"`
 	Model              string             `json:"model"`

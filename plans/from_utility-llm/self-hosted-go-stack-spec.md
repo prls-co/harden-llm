@@ -6,11 +6,13 @@
 - Target repository: `/home/kirill/harden-llm`
 - Go module: `github.com/prls-co/harden-llm`
 - Contract source repository: `/home/kirill/utility-llm`
-- Version: `1.5.0-login-owned-data`
+- Version: `1.6.0-openai-proxy`
 - Owners: package maintainers and self-hosted runtime implementers
-- Date: 2026-10-04
+- Date: 2026-10-06
 - Document ID: `SPEC-HARDEN-LLM-SELF-HOSTED-GO-001`
-- Summary: This specification defines the self-hosted, free, Go backend for `harden-llm`: one importable root library and one versioned REST API gateway. Application records live in Harden-LLM Postgres, while Harden-LLM-owned trace artifacts and diagnostic attachments replace Firebase Storage in Garage. OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana, and Laminar provide current diagnostics. Langfuse and its data stores are retired under ADR-HLLM-029. Control Plane owns human identity, sessions, memberships and product grants under ADR-HLLM-030; HLLM owns user-scoped product data only. This backend contains no browser UI, Phoenix, LiveView, React, or frontend asset pipeline. The separately specified Phoenix LiveView application consumes only the published REST/OpenAPI contract.
+- Summary: This specification defines the self-hosted Go library and stateless OpenAI-compatible `/v1` proxy. The proxy has one configured connection set, uses `HARDEN_LLM_TOKEN` for incoming API access, and owns no profiles, human identity, history, or application database dependency when cache is disabled. Phoenix is a separate reference application; it alone records its calls and owns shared history/drafts in PostgreSQL. Control Plane owns human identity and access. The active 2026-10-06 ownership amendment below supersedes earlier profile, account-owned storage, artifact-route, and custom-run API sections; OpenAPI is the Go/Phoenix boundary.
+
+> **Current contract (2026-10-06):** ADR-HLLM-031/032 and `plans/proxy-and-reference-app-simplification-plan.md` define the active implementation. Earlier sections remain historical design evidence where they conflict. The proxy exposes `/v1/models`, `/v1/chat/completions`, and `/v1/responses`; login identity is not sent to it. Only the Phoenix reference application stores shared history.
 
 ## 2. Canonical stack
 

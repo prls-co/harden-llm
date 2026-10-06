@@ -30,8 +30,9 @@ func TestTestFeedbackTraceability(t *testing.T) {
 		"ker/test-feedback/README.md",
 		"ker/test-feedback/baseline.json",
 		".github/workflows/test-hierarchy.yml",
-		"frontend/test/browser/deployed_canary_test.exs",
-		"scripts/run-deployed-browser-test.mjs",
+		"plans/proxy-and-reference-app-simplification-plan.md",
+		"frontend/test/browser/authenticated_workflow_canary_test.exs",
+		"frontend/test/browser/compose_smoke_test.exs",
 		"test/test-tiers.json",
 	}
 	for _, relativePath := range requiredFiles {
@@ -54,11 +55,11 @@ func TestTestFeedbackTraceability(t *testing.T) {
 		"make test-fast",
 		"lowest sufficient tier",
 		"expensive-tier defect",
-		"serial exception",
+		"Serial exceptions require",
 		"Happy DOM",
 	)
-	assertContains("README.md", "make test-fast", "make test-integration", "make test-browser", "make test-release")
-	assertContains("frontend/README.md", "test-fast", "T0", "T1", "T2", "T3", "T4", "T5", "Happy DOM", "deployed")
+	assertContains("README.md", "make test-fast", "make test-release", "browser-containing Compose tests are explicit")
+	assertContains("frontend/README.md", "test-fast", "mix test", "Browser tests are opt-in", "logins share Phoenix history", "test-release")
 	assertContains(
 		"plans/from_utility-llm/harden-llm-self-hosted-test-spec.md",
 		"### TEST-041",
@@ -69,12 +70,10 @@ func TestTestFeedbackTraceability(t *testing.T) {
 	)
 	assertContains(
 		"plans/from_utility-llm/phoenix-liveview-frontend-spec.md",
-		"WEB-TEST-044",
-		"WEB-TEST-045",
-		"WEB-TEST-046",
-		"WEB-TEST-047",
-		"WEB-TEST-048",
-		"no DOM emulator",
+		"WEB-TEST-114",
+		"WEB-TEST-115",
+		"WEB-TEST-116",
+		"Direct `/v1` calls are not recorded",
 	)
 	assertContains(
 		"plans/parallel-test-feedback-hierarchy-implementation-plan.md",
@@ -88,18 +87,17 @@ func TestTestFeedbackTraceability(t *testing.T) {
 	)
 	assertContains(
 		"docs/requirements-traceability.md",
-		"TFH-REQ-001",
-		"TFH-REQ-014",
-		"TEST-054",
-		"TEST-055",
-		"TEST-056",
+		"PLAN-HLLM-PROXY-REFERENCE-001",
+		"TEST-400",
+		"TEST-409",
+		"Frontend-only shared history",
 	)
 	assertContains(
 		"docs/architecture.md",
-		"T0-T2",
-		"service pool",
-		"exclusive",
-		"Chromium",
+		"/v1/chat/completions",
+		"PostgreSQL",
+		"Direct API requests",
+		"make test-release",
 	)
 	assertContains(
 		"docs/release-certification.md",
@@ -133,22 +131,20 @@ func TestTestFeedbackTraceability(t *testing.T) {
 		t.Error("workflow duplicates suite command composition outside the manifest/Make targets")
 	}
 
-	launcher := string(readFile(t, filepath.Join(root, "scripts", "run-deployed-browser-test.mjs")))
-	assertContains("scripts/run-deployed-browser-test.mjs", "deploy/frontend/compose.frontend.yml", "HARDEN_LLM_EXPECTED_RELEASE", "HARDEN_LLM_COMPOSE_ENV_FILE", "--env-file", "HARDEN_LLM_RELEASE = expectedRelease", ".env", "HARDEN_LLM_LOCAL_OPERATOR_EMAIL", "HARDEN_LLM_LOCAL_OPERATOR_PASSWORD", "HARDEN_LLM_WEB_HOST", "HARDEN_LLM_API_HOST", "mix local.hex --force", "mix local.rebar --force", "mix deps.get", "main().then((exitCode)", "process.exitCode = exitCode")
-	if strings.Contains(launcher, "HARDEN_LLM_LIVE_USER_") {
-		t.Error("deployed browser canary accepts a legacy login credential alias")
-	}
-	if strings.Contains(launcher, "console.log(process.env") || strings.Contains(launcher, "JSON.stringify(process.env") {
-		t.Error("deployed launcher exposes the process environment")
-	}
-	if strings.Contains(launcher, "--password") || strings.Contains(launcher, "--api-key") {
-		t.Error("deployed launcher places a credential in command arguments")
-	}
-	canary := string(readFile(t, filepath.Join(root, "frontend", "test", "browser", "deployed_canary_test.exs")))
-	for _, fragment := range []string{"@moduletag :deployed", "WEB-TEST-048", "TEST-056", "CPA GPT-5.6 Luna", "History", "logout"} {
+	canary := string(readFile(t, filepath.Join(root, "frontend", "test", "browser", "authenticated_workflow_canary_test.exs")))
+	for _, fragment := range []string{"@moduletag :browser", "WEB-TEST-047", "/v1/models", "/v1/responses", "logout"} {
 		if !strings.Contains(canary, fragment) {
-			t.Errorf("deployed canary is missing %q", fragment)
+			t.Errorf("authenticated browser canary is missing %q", fragment)
 		}
+	}
+	composeCanary := string(readFile(t, filepath.Join(root, "frontend", "test", "browser", "compose_smoke_test.exs")))
+	for _, fragment := range []string{"WEB-TEST-012", "/v1/responses", "#shared-history", "OpenAI request completed"} {
+		if !strings.Contains(composeCanary, fragment) {
+			t.Errorf("Compose browser canary is missing %q", fragment)
+		}
+	}
+	if strings.Contains(composeCanary, "/profiles") || strings.Contains(composeCanary, "/api/v1/run") {
+		t.Error("Compose browser canary still depends on the retired profile or run route")
 	}
 
 	var status struct {

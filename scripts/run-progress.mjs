@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// TEST-257. Request-bound REST SSE reference client; never retries a POST.
+// TEST-257. Observe one standard Responses SSE request; never retries a POST.
 import { readFile } from "node:fs/promises";
 import { createSSEParser, observeBudget, redactedReport } from "./run-progress-core.mjs";
 
@@ -14,10 +14,10 @@ const readStdin = process.argv.includes("--body-stdin");
 const caseHardMs = Number(option("--case-hard-ms", 60_000));
 const suiteHardMs = Number(option("--suite-hard-ms", 0));
 const softMs = Number(option("--soft-ms", 0));
-const apiToken = process.env.HARDEN_LLM_API_TOKEN;
+const apiToken = process.env.HARDEN_LLM_TOKEN;
 if (!endpoint || (!bodyFile && !readStdin) || (bodyFile && readStdin) || process.argv.includes("--body") || !apiToken) {
   console.error("usage: run-progress.mjs --url URL --body-file PATH|--body-stdin [--soft-ms N] [--case-hard-ms N] [--suite-hard-ms N]");
-  if (!apiToken) console.error("HARDEN_LLM_API_TOKEN is required for the configured machine account");
+  if (!apiToken) console.error("HARDEN_LLM_TOKEN is required");
   process.exit(2);
 }
 if (!Number.isSafeInteger(caseHardMs) || caseHardMs <= 0 || !Number.isSafeInteger(suiteHardMs) || suiteHardMs < 0 || !Number.isSafeInteger(softMs) || softMs < 0) {
@@ -53,28 +53,28 @@ try {
     },
     body: JSON.stringify(body), signal: controller.signal,
   });
-  if (!response.ok || !response.body) throw new Error(`run request failed: HTTP ${response.status}`);
+  if (!response.ok || !response.body) throw new Error(`Responses request failed: HTTP ${response.status}`);
   const parser = createSSEParser();
   const reader = response.body.getReader();
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
     for (const event of parser.push(value)) {
-      const data = event.data?.data ?? event.data ?? {};
+      const data = event.data?.response ?? event.data ?? {};
+      const harden = data.harden ?? {};
       report = {
         ...report,
         eventCount: report.eventCount + 1,
-        runId: event.data?.runId ?? data.runId ?? report.runId,
-        traceId: event.data?.traceId ?? data.traceId ?? report.traceId,
-        lastStage: data.stage ?? report.lastStage,
-        attemptsUsed: data.attemptsUsed ?? report.attemptsUsed,
+        responseId: data.id ?? report.responseId,
+        executionId: harden.execution_id ?? report.executionId,
+        traceId: harden.trace_id ?? report.traceId,
         receivedBytes: data.receivedBytes ?? report.receivedBytes,
         outputBytes: data.outputBytes ?? report.outputBytes,
         outputCodePoints: data.outputCodePoints ?? report.outputCodePoints,
         lastActivity: data.lastActivity ?? report.lastActivity,
         stopReason: data.stopReason ?? report.stopReason,
-        terminal: ["run.completed", "run.failed"].includes(event.event),
-        functionalFailure: report.functionalFailure || event.event === "run.failed",
+        terminal: ["response.completed", "response.failed", "response.incomplete"].includes(event.event),
+        functionalFailure: report.functionalFailure || ["response.failed", "response.incomplete"].includes(event.event),
       };
       const budget = observeBudget({ startedAt, softMs, caseHardMs, suiteRemainingMs: suiteHardMs || Infinity, terminal: report.terminal });
       report = { ...report, ...budget, performanceOverrun: budget.softOverrun };
@@ -83,7 +83,7 @@ try {
     if (report.terminal) { await reader.cancel(); break; }
   }
   const finished = parser.finish();
-  if (!report.terminal && finished.events.some((event) => ["run.completed", "run.failed"].includes(event.event))) report.terminal = true;
+  if (!report.terminal && finished.events.some((event) => ["response.completed", "response.failed", "response.incomplete"].includes(event.event))) report.terminal = true;
   if (!report.terminal) report.stopReason = report.stopReason ?? "missing_terminal";
 } catch (error) {
   report.stopReason = report.stopReason ?? (error?.name === "AbortError" ? "case_hard_cap" : "transport_error");

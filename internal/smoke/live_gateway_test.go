@@ -6,144 +6,85 @@ package smoke
 
 import (
 	"bytes"
-	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/prls-co/harden-llm/internal/gateway/auth"
-	"github.com/prls-co/harden-llm/internal/retry"
 )
 
 const liveGatewayConfigEnvironment = "HARDEN_LLM_LIVE_GATEWAY_CONFIG"
 
 type liveGatewayConfig struct {
-	GatewayURL           string          `json:"gatewayUrl"`
-	UserID               string          `json:"userId"`
-	ServiceTokenEnv      string          `json:"serviceTokenEnv"`
-	ProviderAPIKeyEnv    string          `json:"providerApiKeyEnv"`
-	Profile              json.RawMessage `json:"profile"`
-	ArtifactAllowedHosts []string        `json:"artifactAllowedHosts"`
-	GrafanaURL           string          `json:"grafanaUrl"`
-	GrafanaUserEnv       string          `json:"grafanaUserEnv"`
-	GrafanaPasswordEnv   string          `json:"grafanaPasswordEnv"`
+	GatewayURL      string `json:"gatewayUrl"`
+	ServiceTokenEnv string `json:"serviceTokenEnv"`
+	Model           string `json:"model"`
 }
 
-type liveSecrets struct {
-	serviceToken    string
-	providerAPIKey  string
-	grafanaUser     string
-	grafanaPassword string
-}
-
-type liveResponse struct {
-	status int
-	body   []byte
-	value  map[string]any
-	header http.Header
-}
-
-func TestLiveGatewayLifecycle(t *testing.T) {
+func TestLiveGatewayResponses(t *testing.T) {
 	configPath := strings.TrimSpace(os.Getenv(liveGatewayConfigEnvironment))
 	if configPath == "" {
 		t.Skip("not run: credentials absent (HARDEN_LLM_LIVE_GATEWAY_CONFIG is unset)")
 	}
-	config, secrets := loadLiveGatewayConfig(t, configPath)
-	client := &http.Client{
-		Timeout:       70 * time.Second,
-		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	config, token := loadLiveGatewayConfig(t, configPath)
+	client := &http.Client{Timeout: 70 * time.Second}
+
+	unauthorized, err := http.NewRequest(http.MethodPost, config.GatewayURL+"/v1/responses", bytes.NewReader([]byte(`{"model":"unused","input":"unused"}`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	unauthorized.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(unauthorized)
+	if err != nil {
+		t.Fatalf("unauthorized gateway request failed: %v", err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("unauthorized gateway status = %d, want %d", response.StatusCode, http.StatusUnauthorized)
 	}
 
-	token := secrets.serviceToken
-
-	unique := fmt.Sprintf("live-%d", time.Now().UTC().UnixNano())
-	profile := liveProfile(t, config.Profile, unique)
-	profileID := liveText(t, profile["llmProfile"], "profile ID")
-	credentialID := "credential-" + unique
-	var runID, traceID string
-	t.Cleanup(func() {
-		cleanupClient := &http.Client{Timeout: 30 * time.Second, CheckRedirect: client.CheckRedirect}
-		if runID != "" {
-			liveCleanupRequest(t, cleanupClient, http.MethodDelete, config.GatewayURL+"/api/v1/history/"+url.PathEscape(runID), token)
-		}
-		liveCleanupRequest(t, cleanupClient, http.MethodDelete, config.GatewayURL+"/api/v1/profiles/"+url.PathEscape(profileID), token)
+	body, err := json.Marshal(map[string]any{
+		"model": config.Model,
+		"input": "Reply with exactly LIVE-CERTIFIED.",
 	})
-
-	liveRequest(t, client, http.MethodPut, config.GatewayURL+"/api/v1/profiles/"+url.PathEscape(profileID), map[string]any{
-		"profile": profile, "credentialId": credentialID,
-		"credential": map[string]any{"apiKey": secrets.providerAPIKey},
-	}, token, http.StatusOK)
-	refresh := liveRequest(t, client, http.MethodPost, config.GatewayURL+"/api/v1/profiles/"+url.PathEscape(profileID)+"/models:refresh", nil, token, http.StatusOK)
-	refreshedProfile := liveObject(t, liveObject(t, refresh.value["result"], "refresh result")["profile"], "refreshed profile")
-	if models, ok := refreshedProfile["models"].([]any); !ok || len(models) == 0 {
-		t.Fatal("live model refresh returned no models")
+	if err != nil {
+		t.Fatal(err)
 	}
-	laminarSentSpansBefore := liveLaminarSentSpans(t, config, secrets)
-
-	prompt := "Reply with exactly LIVE-CERTIFIED."
-	run := liveRequest(t, client, http.MethodPost, config.GatewayURL+"/api/v1/run", map[string]any{
-		"profileId": profileID, "userPrompt": prompt, "callType": "text", "cacheMode": "off", "recoveryPolicy": retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}},
-	}, token, http.StatusOK)
-	runResult := liveObject(t, run.value["result"], "run result")
-	runID = liveText(t, runResult["runId"], "run ID")
-	traceID = liveText(t, runResult["traceId"], "trace ID")
-	if strings.TrimSpace(fmt.Sprint(runResult["output"])) == "" || runID == "" || traceID == "" {
-		t.Fatal("live run returned incomplete output or correlation identity")
+	request, err := http.NewRequest(http.MethodPost, config.GatewayURL+"/v1/responses", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	trace := liveRequest(t, client, http.MethodGet, config.GatewayURL+"/api/v1/traces/"+url.PathEscape(traceID), nil, token, http.StatusOK)
-	if liveContainsSecret(trace.body, secrets) {
-		t.Fatal("trace response contains credential material")
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer "+token)
+	response, err = client.Do(request)
+	if err != nil {
+		t.Fatalf("authorized gateway request failed: %v", err)
 	}
-	traceResult := liveObject(t, trace.value["result"], "trace result")
-	artifacts, ok := traceResult["artifacts"].([]any)
-	if !ok || len(artifacts) == 0 {
-		t.Fatal("live trace returned no artifacts")
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("authorized gateway status = %d, want %d", response.StatusCode, http.StatusOK)
 	}
-	artifact := liveObject(t, artifacts[0], "trace artifact")
-	artifactID := liveText(t, artifact["artifactId"], "artifact ID")
-	wantDigest := liveText(t, artifact["sha256"], "artifact SHA-256")
-	wantSize := int64(liveNumber(t, artifact["sizeBytes"], "artifact size"))
-	redirect := liveRequest(t, client, http.MethodGet,
-		config.GatewayURL+"/api/v1/traces/"+url.PathEscape(traceID)+"/artifacts/"+url.PathEscape(artifactID), nil, token, http.StatusSeeOther)
-	location := validateLiveArtifactLocation(t, redirect.header.Get("Location"), config.ArtifactAllowedHosts)
-	artifactBytes := liveArtifact(t, location)
-	digest := sha256.Sum256(artifactBytes)
-	if int64(len(artifactBytes)) != wantSize || hex.EncodeToString(digest[:]) != wantDigest || !json.Valid(artifactBytes) || liveContainsSecret(artifactBytes, secrets) || bytes.Contains(artifactBytes, []byte(prompt)) {
-		t.Fatal("live artifact failed integrity or redaction checks")
+	var result struct {
+		Status     string `json:"status"`
+		OutputText string `json:"output_text"`
 	}
-
-	bundle := liveRequest(t, client, http.MethodGet, config.GatewayURL+"/api/v1/profiles/bundle", nil, token, http.StatusOK)
-	if liveContainsSecret(bundle.body, secrets) {
-		t.Fatal("profile bundle contains plaintext credential material")
+	decoder := json.NewDecoder(io.LimitReader(response.Body, 16<<20))
+	if err := decoder.Decode(&result); err != nil {
+		t.Fatalf("decode Responses result: %v", err)
 	}
-	bundleResult := liveObject(t, bundle.value["result"], "bundle result")
-	profiles := liveObject(t, bundleResult["profiles"], "bundle profiles")
-	if _, ok := profiles[profileID]; !ok {
-		t.Fatal("profile bundle does not include the live certification profile")
+	if result.Status != "completed" || !strings.Contains(result.OutputText, "LIVE-CERTIFIED") {
+		t.Fatalf("Responses result status/output did not satisfy the live canary")
 	}
-
-	assertLiveDiagnostics(t, config, secrets, runID, traceID, laminarSentSpansBefore)
-
-	liveRequest(t, client, http.MethodDelete, config.GatewayURL+"/api/v1/history/"+url.PathEscape(runID), nil, token, http.StatusOK)
-	runID = ""
-	liveRequest(t, client, http.MethodDelete, config.GatewayURL+"/api/v1/profiles/"+url.PathEscape(profileID), nil, token, http.StatusOK)
-	profileID = ""
 }
 
-func loadLiveGatewayConfig(t *testing.T, path string) (liveGatewayConfig, liveSecrets) {
+func loadLiveGatewayConfig(t *testing.T, path string) (liveGatewayConfig, string) {
 	t.Helper()
 	contents, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
@@ -155,315 +96,22 @@ func loadLiveGatewayConfig(t *testing.T, path string) (liveGatewayConfig, liveSe
 	if err := decoder.Decode(&config); err != nil {
 		t.Fatalf("parse live gateway config: %v", err)
 	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
 		t.Fatal("live gateway config must contain exactly one JSON value")
 	}
-	config.GatewayURL = validateLiveOrigin(t, config.GatewayURL, "gateway")
-	config.GrafanaURL = validateLiveOrigin(t, config.GrafanaURL, "Grafana")
-	if auth.ValidateUserID(config.UserID) != nil || len(config.Profile) == 0 || len(config.ArtifactAllowedHosts) == 0 {
-		t.Fatal("live gateway user ID, profile, and artifact host allowlist are required")
-	}
-	secret := func(name, purpose string) string {
-		name = strings.TrimSpace(name)
-		value := strings.TrimSpace(os.Getenv(name))
-		if name == "" || value == "" {
-			t.Fatalf("live gateway %s requires its named credential environment variable", purpose)
-		}
-		return value
-	}
-	return config, liveSecrets{
-		serviceToken:    secret(config.ServiceTokenEnv, "gateway service token"),
-		providerAPIKey:  secret(config.ProviderAPIKeyEnv, "provider API key"),
-		grafanaUser:     secret(config.GrafanaUserEnv, "Grafana user"),
-		grafanaPassword: secret(config.GrafanaPasswordEnv, "Grafana password"),
-	}
-}
-
-func validateLiveOrigin(t *testing.T, value, name string) string {
-	t.Helper()
-	parsed, err := url.Parse(strings.TrimSpace(value))
+	parsed, err := url.Parse(strings.TrimSpace(config.GatewayURL))
 	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
-		t.Fatalf("live %s URL must be an HTTPS origin", name)
+		t.Fatal("live gateway URL must be an HTTPS origin")
 	}
-	return strings.TrimRight(parsed.String(), "/")
-}
-
-func liveProfile(t *testing.T, raw json.RawMessage, profileID string) map[string]any {
-	t.Helper()
-	var profile map[string]any
-	if err := json.Unmarshal(raw, &profile); err != nil || profile == nil {
-		t.Fatalf("decode live profile: %v", err)
+	config.GatewayURL = strings.TrimRight(parsed.String(), "/")
+	config.Model = strings.TrimSpace(config.Model)
+	if config.Model == "" {
+		t.Fatal("live gateway model is required")
 	}
-	profile["llmProfile"] = profileID
-	profile["endpointCredentialScope"] = "user"
-	delete(profile, "models")
-	delete(profile, "lastModelRefreshAt")
-	return profile
-}
-
-func liveRequest(t *testing.T, client *http.Client, method, target string, document any, token string, want int) liveResponse {
-	t.Helper()
-	var body io.Reader
-	if document != nil {
-		encoded, err := json.Marshal(document)
-		if err != nil {
-			t.Fatal(err)
-		}
-		body = bytes.NewReader(encoded)
+	tokenName := strings.TrimSpace(config.ServiceTokenEnv)
+	token := strings.TrimSpace(os.Getenv(tokenName))
+	if tokenName == "" || !auth.ValidToken(token) {
+		t.Fatal("live gateway requires a valid named API token")
 	}
-	request, err := http.NewRequestWithContext(context.Background(), method, target, body)
-	if err != nil {
-		t.Fatal(err)
-	}
-	request.Header.Set("Accept", "application/json")
-	if document != nil {
-		request.Header.Set("Content-Type", "application/json")
-	}
-	if token != "" {
-		request.Header.Set("Authorization", "Bearer "+token)
-	}
-	response, err := client.Do(request)
-	if err != nil {
-		t.Fatalf("%s live gateway request failed: %v", method, err)
-	}
-	defer response.Body.Close()
-	contents, err := io.ReadAll(io.LimitReader(response.Body, 20<<20))
-	if err != nil {
-		t.Fatalf("read live gateway response: %v", err)
-	}
-	if response.StatusCode != want {
-		t.Fatalf("%s live gateway response status = %d, want %d", method, response.StatusCode, want)
-	}
-	result := liveResponse{status: response.StatusCode, body: contents, header: response.Header.Clone()}
-	if response.StatusCode != http.StatusSeeOther {
-		if err := json.Unmarshal(contents, &result.value); err != nil {
-			t.Fatalf("decode live gateway response: %v", err)
-		}
-	}
-	return result
-}
-
-func liveCleanupRequest(t *testing.T, client *http.Client, method, target, token string) {
-	t.Helper()
-	if token == "" || strings.HasSuffix(target, "/profiles/") {
-		return
-	}
-	request, err := http.NewRequestWithContext(context.Background(), method, target, nil)
-	if err != nil {
-		t.Errorf("build live cleanup request: %v", err)
-		return
-	}
-	request.Header.Set("Authorization", "Bearer "+token)
-	response, err := client.Do(request)
-	if err != nil {
-		t.Errorf("live cleanup request failed: %v", err)
-		return
-	}
-	response.Body.Close()
-	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusNotFound && response.StatusCode != http.StatusUnauthorized {
-		t.Errorf("live cleanup status = %d", response.StatusCode)
-	}
-}
-
-func validateLiveArtifactLocation(t *testing.T, location string, allowed []string) string {
-	t.Helper()
-	parsed, err := url.Parse(location)
-	if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil {
-		t.Fatal("artifact redirect is not a valid HTTPS URL")
-	}
-	for _, host := range allowed {
-		if strings.EqualFold(strings.TrimSpace(host), parsed.Hostname()) {
-			return parsed.String()
-		}
-	}
-	t.Fatal("artifact redirect host is not allowlisted")
-	return ""
-}
-
-func liveArtifact(t *testing.T, location string) []byte {
-	t.Helper()
-	response, err := (&http.Client{Timeout: 30 * time.Second}).Get(location)
-	if err != nil {
-		t.Fatalf("fetch live artifact: %v", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("live artifact status = %d", response.StatusCode)
-	}
-	contents, err := io.ReadAll(io.LimitReader(response.Body, 20<<20))
-	if err != nil {
-		t.Fatalf("read live artifact: %v", err)
-	}
-	return contents
-}
-
-func assertLiveDiagnostics(t *testing.T, config liveGatewayConfig, secrets liveSecrets, runID, domainTraceID string, laminarSentSpansBefore float64) {
-	t.Helper()
-	deadline := time.Now().Add(180 * time.Second)
-	var tempoID string
-	complete := map[string]bool{}
-	for time.Now().Before(deadline) {
-		if !complete["tempo"] {
-			query := `{ span.harden_llm.trace.id = "` + domainTraceID + `" }`
-			body, ok := liveBasicGET(config.GrafanaURL+"/api/datasources/proxy/uid/harden-tempo/api/search?q="+url.QueryEscape(query), secrets.grafanaUser, secrets.grafanaPassword)
-			if ok && !liveContainsSecret(body, secrets) {
-				tempoID = liveTempoTraceID(body)
-				complete["tempo"] = tempoID != ""
-			}
-		}
-		if !complete["prometheus"] {
-			body, ok := liveBasicGET(config.GrafanaURL+"/api/datasources/proxy/uid/harden-prometheus/api/v1/query?query="+url.QueryEscape("harden_llm_calls"), secrets.grafanaUser, secrets.grafanaPassword)
-			complete["prometheus"] = ok && livePrometheusSample(body) && !liveContainsSecret(body, secrets)
-		}
-		if !complete["loki"] {
-			query := `{service_name="harden-llm-gateway"} |= "run completed"`
-			body, ok := liveBasicGET(config.GrafanaURL+"/api/datasources/proxy/uid/harden-loki/loki/api/v1/query_range?limit=100&direction=backward&query="+url.QueryEscape(query), secrets.grafanaUser, secrets.grafanaPassword)
-			complete["loki"] = ok && bytes.Contains(body, []byte(runID)) && !liveContainsSecret(body, secrets)
-		}
-		if !complete["laminar"] && tempoID != "" {
-			body, ok := liveLaminarSentSpansQuery(config, secrets)
-			current, parsed := livePrometheusCounter(body)
-			complete["laminar"] = ok && parsed && current > laminarSentSpansBefore && !liveContainsSecret(body, secrets)
-		}
-		if len(complete) == 4 && complete["tempo"] && complete["prometheus"] && complete["loki"] && complete["laminar"] {
-			return
-		}
-		time.Sleep(2 * time.Second)
-	}
-	t.Fatalf("live diagnostics correlation incomplete: tempo=%t prometheus=%t loki=%t laminar_exported_spans_increased=%t", complete["tempo"], complete["prometheus"], complete["loki"], complete["laminar"])
-}
-
-func liveLaminarSentSpans(t *testing.T, config liveGatewayConfig, secrets liveSecrets) float64 {
-	t.Helper()
-	body, ok := liveLaminarSentSpansQuery(config, secrets)
-	value, parsed := livePrometheusCounter(body)
-	if !ok || !parsed || liveContainsSecret(body, secrets) {
-		t.Fatal("Grafana did not return the Laminar exporter span counter")
-	}
-	return value
-}
-
-func liveLaminarSentSpansQuery(config liveGatewayConfig, secrets liveSecrets) ([]byte, bool) {
-	query := `sum(otelcol_exporter_sent_spans{exporter="otlp/harden_llm_laminar"}) or vector(0)`
-	target := config.GrafanaURL + "/api/datasources/proxy/uid/harden-prometheus/api/v1/query?query=" + url.QueryEscape(query)
-	return liveBasicGET(target, secrets.grafanaUser, secrets.grafanaPassword)
-}
-
-func liveBasicGET(target, username, password string) ([]byte, bool) {
-	request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, target, nil)
-	if err != nil {
-		return nil, false
-	}
-	request.SetBasicAuth(username, password)
-	response, err := (&http.Client{Timeout: 15 * time.Second}).Do(request)
-	if err != nil {
-		return nil, false
-	}
-	defer response.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(response.Body, 8<<20))
-	return body, err == nil && response.StatusCode >= 200 && response.StatusCode < 300
-}
-
-func liveTempoTraceID(body []byte) string {
-	var response struct {
-		Traces []struct {
-			TraceID string `json:"traceID"`
-		} `json:"traces"`
-	}
-	if json.Unmarshal(body, &response) != nil || len(response.Traces) == 0 {
-		return ""
-	}
-	return normalizeTempoTraceID(response.Traces[0].TraceID)
-}
-
-func livePrometheusSample(body []byte) bool {
-	var response struct {
-		Status string `json:"status"`
-		Data   struct {
-			Result []json.RawMessage `json:"result"`
-		} `json:"data"`
-	}
-	return json.Unmarshal(body, &response) == nil && response.Status == "success" && len(response.Data.Result) > 0
-}
-
-func livePrometheusCounter(body []byte) (float64, bool) {
-	var response struct {
-		Status string `json:"status"`
-		Data   struct {
-			Result []struct {
-				Value []json.RawMessage `json:"value"`
-			} `json:"result"`
-		} `json:"data"`
-	}
-	if json.Unmarshal(body, &response) != nil || response.Status != "success" || len(response.Data.Result) != 1 || len(response.Data.Result[0].Value) != 2 {
-		return 0, false
-	}
-	var raw string
-	if json.Unmarshal(response.Data.Result[0].Value[1], &raw) != nil {
-		return 0, false
-	}
-	value, err := strconv.ParseFloat(raw, 64)
-	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
-		return 0, false
-	}
-	return value, true
-}
-
-func TestLivePrometheusCounter(t *testing.T) {
-	tests := []struct {
-		name string
-		body string
-		want float64
-		ok   bool
-	}{
-		{name: "counter", body: `{"status":"success","data":{"result":[{"value":[1710000000,"5316"]}]}}`, want: 5316, ok: true},
-		{name: "zero", body: `{"status":"success","data":{"result":[{"value":[1710000000,"0"]}]}}`, want: 0, ok: true},
-		{name: "empty result", body: `{"status":"success","data":{"result":[]}}`},
-		{name: "error", body: `{"status":"error","data":{"result":[]}}`},
-		{name: "malformed value", body: `{"status":"success","data":{"result":[{"value":[1710000000,"NaN"]}]}}`},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got, ok := livePrometheusCounter([]byte(test.body))
-			if got != test.want || ok != test.ok {
-				t.Fatalf("livePrometheusCounter() = (%v, %t), want (%v, %t)", got, ok, test.want, test.ok)
-			}
-		})
-	}
-}
-
-func liveContainsSecret(body []byte, secrets liveSecrets) bool {
-	for _, secret := range []string{secrets.serviceToken, secrets.providerAPIKey, secrets.grafanaPassword} {
-		if secret != "" && bytes.Contains(body, []byte(secret)) {
-			return true
-		}
-	}
-	return false
-}
-
-func liveObject(t *testing.T, value any, name string) map[string]any {
-	t.Helper()
-	object, ok := value.(map[string]any)
-	if !ok {
-		t.Fatalf("%s is not an object", name)
-	}
-	return object
-}
-
-func liveText(t *testing.T, value any, name string) string {
-	t.Helper()
-	text, ok := value.(string)
-	if !ok || strings.TrimSpace(text) == "" {
-		t.Fatalf("%s is not non-empty text", name)
-	}
-	return text
-}
-
-func liveNumber(t *testing.T, value any, name string) float64 {
-	t.Helper()
-	number, ok := value.(float64)
-	if !ok || number <= 0 {
-		t.Fatalf("%s is not a positive number", name)
-	}
-	return number
+	return config, token
 }

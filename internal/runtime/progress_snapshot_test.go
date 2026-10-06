@@ -16,7 +16,7 @@ import (
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-284
 func TestProgressSnapshotContracts(t *testing.T) {
 	t.Run("simple execution snapshots stream and completed attempt", func(t *testing.T) {
-		profile := progressProfile("primary", "primary-model")
+		connection := progressConnection("primary")
 		base := time.Now().Truncate(time.Millisecond)
 		deadline := base.Add(time.Hour)
 		ctx, cancel := context.WithDeadline(context.Background(), deadline)
@@ -27,7 +27,7 @@ func TestProgressSnapshotContracts(t *testing.T) {
 		}}
 		var snapshots []ProgressSnapshot
 		call := Call{
-			CallType: "text", ReasoningEffort: "middle",
+			CallType: "text", ModelID: "primary-model", ReasoningEffort: "medium",
 			Context:  ObservabilityContext{RunID: "simple-run"},
 			Origin:   Origin{Client: "workspace", OperationID: "simple-operation"},
 			Progress: func(snapshot ProgressSnapshot) { snapshots = append(snapshots, snapshot) },
@@ -37,18 +37,17 @@ func TestProgressSnapshotContracts(t *testing.T) {
 			Now:    progressClock(base),
 		}
 
-		record, err := Execute(ctx, executor, progressCredentials, profile.ID,
-			map[string]Profile{profile.ID: profile}, call, config, nil,
+		record, err := Execute(ctx, executor, connection, progressCredential, call, config, nil,
 			cachekey.ModeOff, "v1", "simple-call", "simple-trace")
 		if err != nil || len(record.Attempts) != 1 || executor.executes != 1 {
 			t.Fatalf("record=%#v executes=%d error=%v", record, executor.executes, err)
 		}
 
 		assertProgressEvents(t, snapshots, "simple-run", "simple-call", "simple-trace", []progressEventExpectation{
-			{eventType: "run.started", stage: stageOriginalGenerate, profileID: profile.ID, reasoning: "middle", remaining: 3},
-			{eventType: "run.progress", stage: stageOriginalGenerate, profileID: profile.ID, reasoning: "middle", attempt: 1, remaining: 3},
-			{eventType: "run.progress", stage: stageOriginalGenerate, profileID: profile.ID, reasoning: "middle", attempt: 1, used: 1, remaining: 2},
-			{eventType: "run.terminal", stage: stageOriginalGenerate, profileID: profile.ID, reasoning: "middle", attempt: 1, used: 1, remaining: 2, terminal: true},
+			{eventType: "run.started", stage: stageOriginalGenerate, profileID: connection.ID, reasoning: "medium", remaining: 3},
+			{eventType: "run.progress", stage: stageOriginalGenerate, profileID: connection.ID, reasoning: "medium", attempt: 1, remaining: 3},
+			{eventType: "run.progress", stage: stageOriginalGenerate, profileID: connection.ID, reasoning: "medium", attempt: 1, used: 1, remaining: 2},
+			{eventType: "run.terminal", stage: stageOriginalGenerate, profileID: connection.ID, reasoning: "medium", attempt: 1, used: 1, remaining: 2, terminal: true},
 		})
 		assertProgressCounters(t, snapshots, []progressCounters{
 			{},
@@ -68,13 +67,13 @@ func TestProgressSnapshotContracts(t *testing.T) {
 			t.Fatalf("deadline fields = %#v", snapshots[2])
 		}
 
-		recordProfile := record.Attempts[0].ProfileID
+		recordProfile := record.Attempts[0].ConnectionID
 		recordInput := record.Accounting.Provider.Usage.InputTokens
 		recordTimeout := *record.Diagnostics.EffectiveTimeout
-		snapshots[2].Attempts[0].ProfileID = "mutated-snapshot"
+		snapshots[2].Attempts[0].ConnectionID = "mutated-snapshot"
 		snapshots[2].Accounting.Provider.Usage.InputTokens = 999
 		*snapshots[2].EffectiveTimeout = -1
-		if record.Attempts[0].ProfileID != recordProfile ||
+		if record.Attempts[0].ConnectionID != recordProfile ||
 			record.Accounting.Provider.Usage.InputTokens != recordInput ||
 			*record.Diagnostics.EffectiveTimeout != recordTimeout {
 			t.Fatal("progress snapshot mutation changed the execution record")
@@ -82,7 +81,7 @@ func TestProgressSnapshotContracts(t *testing.T) {
 	})
 
 	t.Run("explicit recovery snapshots follow active work identity", func(t *testing.T) {
-		profiles := progressProfiles()
+		connection := progressConnection("original")
 		base := time.Now().Truncate(time.Millisecond)
 		deadline := base.Add(time.Hour)
 		ctx, cancel := context.WithDeadline(context.Background(), deadline)
@@ -99,21 +98,21 @@ func TestProgressSnapshotContracts(t *testing.T) {
 		policy := progressExplicitPolicy()
 		config := retry.Config{Policy: policy, Now: progressClock(base)}
 
-		record, err := Execute(ctx, executor, progressCredentials, "original", profiles, call, config,
+		record, err := Execute(ctx, executor, connection, progressCredential, call, config,
 			nil, cachekey.ModeOff, "v1", "explicit-call", "explicit-trace")
 		if err != nil || len(record.Attempts) != 2 || executor.executes != 2 {
 			t.Fatalf("record=%#v executes=%d error=%v", record, executor.executes, err)
 		}
 
 		assertProgressEvents(t, snapshots, "explicit-run", "explicit-call", "explicit-trace", []progressEventExpectation{
-			{eventType: "run.started", stage: stageOriginalGenerate, profileID: "original", reasoning: "highest", remaining: 2},
-			{eventType: "run.progress", stage: stageOriginalGenerate, profileID: "original", reasoning: "highest", remaining: 2},
-			{eventType: "run.progress", stage: stageOriginalGenerate, profileID: "original", reasoning: "highest", attempt: 1, remaining: 2},
-			{eventType: "run.progress", stage: stageOriginalGenerate, profileID: "original", reasoning: "highest", attempt: 1, used: 1, remaining: 1},
-			{eventType: "run.progress", stage: stageOriginalRepairInitial, profileID: "repair-l", reasoning: "lowest", attempt: 1, used: 1, remaining: 1},
-			{eventType: "run.progress", stage: stageOriginalRepairInitial, profileID: "repair-l", reasoning: "lowest", attempt: 2, used: 1, remaining: 1},
-			{eventType: "run.progress", stage: stageOriginalRepairInitial, profileID: "repair-l", reasoning: "lowest", attempt: 2, used: 2},
-			{eventType: "run.terminal", stage: stageOriginalRepairInitial, profileID: "repair-l", reasoning: "lowest", attempt: 2, used: 2, terminal: true},
+			{eventType: "run.started", stage: stageOriginalGenerate, profileID: "original", reasoning: "high", remaining: 2},
+			{eventType: "run.progress", stage: stageOriginalGenerate, profileID: "original", reasoning: "high", remaining: 2},
+			{eventType: "run.progress", stage: stageOriginalGenerate, profileID: "original", reasoning: "high", attempt: 1, remaining: 2},
+			{eventType: "run.progress", stage: stageOriginalGenerate, profileID: "original", reasoning: "high", attempt: 1, used: 1, remaining: 1},
+			{eventType: "run.progress", stage: stageOriginalRepairInitial, profileID: "original", reasoning: "low", attempt: 1, used: 1, remaining: 1},
+			{eventType: "run.progress", stage: stageOriginalRepairInitial, profileID: "original", reasoning: "low", attempt: 2, used: 1, remaining: 1},
+			{eventType: "run.progress", stage: stageOriginalRepairInitial, profileID: "original", reasoning: "low", attempt: 2, used: 2},
+			{eventType: "run.terminal", stage: stageOriginalRepairInitial, profileID: "original", reasoning: "low", attempt: 2, used: 2, terminal: true},
 		})
 		assertProgressCounters(t, snapshots, []progressCounters{
 			{}, {},
@@ -136,15 +135,15 @@ func TestProgressSnapshotContracts(t *testing.T) {
 			snapshots[7].StopReason != "succeeded" {
 			t.Fatalf("attempt or terminal accounting snapshots = %#v", snapshots[3:])
 		}
-		originalProfile := record.Attempts[0].ProfileID
-		snapshots[3].Attempts[0].ProfileID = "mutated-snapshot"
-		if record.Attempts[0].ProfileID != originalProfile {
+		originalProfile := record.Attempts[0].ConnectionID
+		snapshots[3].Attempts[0].ConnectionID = "mutated-snapshot"
+		if record.Attempts[0].ConnectionID != originalProfile {
 			t.Fatal("snapshot attempt slice aliases the execution record")
 		}
 	})
 
 	t.Run("preflight failures keep path-specific event boundaries", func(t *testing.T) {
-		profile := progressProfile("primary", "primary-model")
+		connection := progressConnection("primary")
 		simpleCtx, cancelSimple := context.WithCancel(context.Background())
 		cancelSimple()
 		var simpleSnapshots []ProgressSnapshot
@@ -152,8 +151,7 @@ func TestProgressSnapshotContracts(t *testing.T) {
 			simpleSnapshots = append(simpleSnapshots, snapshot)
 		}}
 		simpleExecutor := &progressContractExecutor{}
-		simpleRecord, simpleErr := Execute(simpleCtx, simpleExecutor, progressCredentials, profile.ID,
-			map[string]Profile{profile.ID: profile}, simpleCall,
+		simpleRecord, simpleErr := Execute(simpleCtx, simpleExecutor, connection, progressCredential, simpleCall,
 			retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, nil,
 			cachekey.ModeOff, "v1", "simple-expired", "trace")
 		if !errors.Is(simpleErr, context.Canceled) || simpleExecutor.prepares != 0 {
@@ -171,36 +169,25 @@ func TestProgressSnapshotContracts(t *testing.T) {
 			explicitSnapshots = append(explicitSnapshots, snapshot)
 		}
 		explicitExecutor := &progressContractExecutor{}
-		explicitRecord, explicitErr := Execute(explicitCtx, explicitExecutor, progressCredentials,
-			"original", progressProfiles(), explicitCall, retry.Config{Policy: progressExplicitPolicy()}, nil,
+		explicitConnection := progressConnection("original")
+		explicitRecord, explicitErr := Execute(explicitCtx, explicitExecutor, explicitConnection, progressCredential,
+			explicitCall, retry.Config{Policy: progressExplicitPolicy()}, nil,
 			cachekey.ModeOff, "v1", "explicit-expired", "trace")
 		if !errors.Is(explicitErr, context.Canceled) || explicitExecutor.prepares != 0 || len(explicitSnapshots) != 0 {
 			t.Fatalf("explicit expired call record=%#v prepares=%d snapshots=%#v error=%v", explicitRecord, explicitExecutor.prepares, explicitSnapshots, explicitErr)
 		}
 
-		var noWorkSnapshots []ProgressSnapshot
-		explicitCall.Progress = func(snapshot ProgressSnapshot) {
-			noWorkSnapshots = append(noWorkSnapshots, snapshot)
-		}
-		_, noWorkErr := Execute(context.Background(), &progressContractExecutor{}, func(context.Context, Profile) (Credential, error) {
-			return Credential{}, errors.New("fixture credential unavailable")
-		}, "original", progressProfiles(), explicitCall, retry.Config{Policy: progressExplicitPolicy()}, nil,
-			cachekey.ModeOff, "v1", "explicit-no-work", "trace")
-		if noWorkErr == nil || len(noWorkSnapshots) != 0 {
-			t.Fatalf("explicit nil-work error=%v snapshots=%#v", noWorkErr, noWorkSnapshots)
-		}
 	})
 
 	t.Run("terminal failure carries finalized stop reason", func(t *testing.T) {
-		profile := progressProfile("primary", "primary-model")
+		connection := progressConnection("primary")
 		failure := errors.New("synthetic terminal failure")
 		executor := &progressContractExecutor{outcomes: []progressContractOutcome{{err: failure}}}
 		var snapshots []ProgressSnapshot
 		call := Call{CallType: "text", Progress: func(snapshot ProgressSnapshot) {
 			snapshots = append(snapshots, snapshot)
 		}}
-		record, err := Execute(context.Background(), executor, progressCredentials, profile.ID,
-			map[string]Profile{profile.ID: profile}, call,
+		record, err := Execute(context.Background(), executor, connection, progressCredential, call,
 			retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, nil,
 			cachekey.ModeOff, "v1", "failed-call", "failed-trace")
 		if !errors.Is(err, failure) || record.StopReason == "" {
@@ -217,15 +204,14 @@ func TestProgressSnapshotContracts(t *testing.T) {
 
 	t.Run("cache hits emit start and terminal without attempt events", func(t *testing.T) {
 		t.Run("simple execution", func(t *testing.T) {
-			profile := progressProfile("primary", "primary-model")
+			connection := progressConnection("primary")
 			cache := &progressContractCache{}
-			call := Call{CallType: "text", UserPrompt: "cache fixture", Context: ObservabilityContext{RunID: "simple-cache"}}
+			call := Call{CallType: "text", ModelID: "fixture-model", Messages: []Message{{Role: "user", Content: json.RawMessage(`"cache fixture"`)}}, Context: ObservabilityContext{RunID: "simple-cache"}}
 			freshExecutor := &progressContractExecutor{outcomes: []progressContractOutcome{{
 				result: progressResult("cached", StreamDiagnostics{}, 1),
 			}}}
 			config := retry.Config{Policy: retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}
-			_, err := Execute(context.Background(), freshExecutor, progressCredentials, profile.ID,
-				map[string]Profile{profile.ID: profile}, call, config, cache,
+			_, err := Execute(context.Background(), freshExecutor, connection, progressCredential, call, config, cache,
 				cachekey.ModeCache, "v1", "fresh-call", "trace")
 			if err != nil {
 				t.Fatal(err)
@@ -234,27 +220,26 @@ func TestProgressSnapshotContracts(t *testing.T) {
 			var snapshots []ProgressSnapshot
 			call.Progress = func(snapshot ProgressSnapshot) { snapshots = append(snapshots, snapshot) }
 			cacheExecutor := &progressContractExecutor{}
-			record, err := Execute(context.Background(), cacheExecutor, progressCredentials, profile.ID,
-				map[string]Profile{profile.ID: profile}, call, config, cache,
+			record, err := Execute(context.Background(), cacheExecutor, connection, progressCredential, call, config, cache,
 				cachekey.ModeCache, "v1", "cached-call", "trace")
 			if err != nil || !record.Cache.Served || len(record.Attempts) != 0 || cacheExecutor.executes != 0 {
 				t.Fatalf("cache record=%#v executes=%d error=%v", record, cacheExecutor.executes, err)
 			}
 			assertProgressEvents(t, snapshots, "simple-cache", "cached-call", "trace", []progressEventExpectation{
-				{eventType: "run.started", stage: stageOriginalGenerate, profileID: profile.ID, remaining: 2},
-				{eventType: "run.terminal", stage: stageOriginalGenerate, profileID: profile.ID, remaining: 2, terminal: true},
+				{eventType: "run.started", stage: stageOriginalGenerate, profileID: connection.ID, remaining: 2},
+				{eventType: "run.terminal", stage: stageOriginalGenerate, profileID: connection.ID, remaining: 2, terminal: true},
 			})
 		})
 
 		t.Run("explicit recovery", func(t *testing.T) {
-			profiles := progressProfiles()
+			connection := progressConnection("original")
 			cache := &progressContractCache{}
 			call := progressStructuredCall("explicit-cache")
 			freshExecutor := &progressContractExecutor{outcomes: []progressContractOutcome{{
 				result: progressResult(map[string]any{"answer": true}, StreamDiagnostics{}, 1),
 			}}}
 			config := retry.Config{Policy: progressExplicitPolicy()}
-			_, err := Execute(context.Background(), freshExecutor, progressCredentials, "original", profiles,
+			_, err := Execute(context.Background(), freshExecutor, connection, progressCredential,
 				call, config, cache, cachekey.ModeCache, "v1", "fresh-call", "trace")
 			if err != nil {
 				t.Fatal(err)
@@ -263,14 +248,14 @@ func TestProgressSnapshotContracts(t *testing.T) {
 			var snapshots []ProgressSnapshot
 			call.Progress = func(snapshot ProgressSnapshot) { snapshots = append(snapshots, snapshot) }
 			cacheExecutor := &progressContractExecutor{}
-			record, err := Execute(context.Background(), cacheExecutor, progressCredentials, "original", profiles,
+			record, err := Execute(context.Background(), cacheExecutor, connection, progressCredential,
 				call, config, cache, cachekey.ModeCache, "v1", "cached-call", "trace")
 			if err != nil || !record.Cache.Served || len(record.Attempts) != 0 || cacheExecutor.executes != 0 {
 				t.Fatalf("cache record=%#v executes=%d error=%v", record, cacheExecutor.executes, err)
 			}
 			assertProgressEvents(t, snapshots, "explicit-cache", "cached-call", "trace", []progressEventExpectation{
-				{eventType: "run.started", stage: stageOriginalGenerate, profileID: "original", reasoning: "highest", remaining: 2},
-				{eventType: "run.terminal", stage: stageOriginalGenerate, profileID: "original", reasoning: "highest", remaining: 2, terminal: true},
+				{eventType: "run.started", stage: stageOriginalGenerate, profileID: "original", reasoning: "high", remaining: 2},
+				{eventType: "run.terminal", stage: stageOriginalGenerate, profileID: "original", reasoning: "high", remaining: 2, terminal: true},
 			})
 		})
 	})
@@ -305,14 +290,14 @@ type progressContractExecutor struct {
 	executes int
 }
 
-func (executor *progressContractExecutor) Prepare(_ context.Context, profile Profile, _ Credential, call Call) (PreparedOperation, error) {
+func (executor *progressContractExecutor) Prepare(_ context.Context, connection Connection, _ Credential, call Call) (PreparedOperation, error) {
 	executor.prepares++
 	return PreparedOperation{
 		Operation: cachekey.Operation{
-			SchemaVersion: cachekey.OperationSchemaVersion, Protocol: profile.APIInferenceType,
-			Endpoint: cachekey.Endpoint{Identity: profile.BaseURL, Method: "POST", Path: "/run"},
-			Model:    profile.ModelID, Payload: map[string]any{}, SemanticHeaders: map[string]any{},
-			ResponseProjection: cachekey.ResponseProjection{Provider: profile.Provider, Kind: "fixture", Version: "v1"},
+			SchemaVersion: cachekey.OperationSchemaVersion, Protocol: connection.APIInferenceType,
+			Endpoint: cachekey.Endpoint{Identity: connection.BaseURL, Method: "POST", Path: "/run"},
+			Model:    call.ModelID, Payload: map[string]any{}, SemanticHeaders: map[string]any{},
+			ResponseProjection: cachekey.ResponseProjection{Provider: connection.Provider, Kind: "fixture", Version: "v1"},
 		},
 		Opaque: call,
 	}, nil
@@ -330,23 +315,13 @@ func (executor *progressContractExecutor) Execute(_ context.Context, operation P
 	return outcome.result, outcome.err
 }
 
-func progressProfile(id, model string) Profile {
-	return Profile{
+func progressConnection(id string) Connection {
+	return Connection{
 		ID: id, Provider: "fixture", APIInferenceType: "responses", BaseURL: "https://fixture.example",
-		ModelID: model, SupportsStructuredOutput: true,
-		ReasoningEffortMap: map[string]map[string]any{"lowest": {}, "highest": {}},
 	}
 }
 
-func progressProfiles() map[string]Profile {
-	original := progressProfile("original", "original-model")
-	repair := progressProfile("repair-l", "repair-model")
-	return map[string]Profile{original.ID: original, repair.ID: repair}
-}
-
-func progressCredentials(context.Context, Profile) (Credential, error) {
-	return Credential{APIKey: "synthetic-progress-key"}, nil
-}
+var progressCredential = Credential{APIKey: "synthetic-progress-key"}
 
 func progressResult(output any, stream StreamDiagnostics, inputTokens int64) ProviderResult {
 	return ProviderResult{
@@ -396,15 +371,15 @@ func progressExplicitPolicy() retry.Policy {
 		RetryOn:     []retry.Category{},
 		Backoff:     retry.Backoff{},
 		JSONRepair: &retry.RepairPlan{
-			Initial: retry.RecoveryTarget{Source: "profile", ProfileID: "repair-l", ReasoningEffort: "lowest"},
+			Initial: retry.RecoveryTarget{Source: "model", ModelID: "repair-model", ReasoningEffort: "low"},
 		},
 	}
 }
 
 func progressStructuredCall(runID string) Call {
 	return Call{
-		CallType: "structured", Schema: json.RawMessage(`{"type":"object","properties":{"answer":{"type":"boolean"}},"required":["answer"],"additionalProperties":false}`),
-		ReasoningEffort: "highest", Context: ObservabilityContext{RunID: runID},
+		CallType: "structured", ModelID: "original-model", Schema: json.RawMessage(`{"type":"object","properties":{"answer":{"type":"boolean"}},"required":["answer"],"additionalProperties":false}`),
+		ReasoningEffort: "high", Context: ObservabilityContext{RunID: runID},
 		Origin: Origin{Client: "workspace", OperationID: "progress-operation"},
 		ValidateStructured: func(value any) error {
 			object, ok := value.(map[string]any)
@@ -425,7 +400,7 @@ func assertProgressEvents(t *testing.T, snapshots []ProgressSnapshot, runID, cal
 		got := snapshots[index]
 		if got.Sequence != uint64(index+1) || got.RunID != runID || got.CallID != callID || got.TraceID != traceID ||
 			got.Type != want.eventType || got.Stage != want.stage || got.Branch != "original" ||
-			got.ProfileID != want.profileID || got.ReasoningEffort != want.reasoning || got.Attempt != want.attempt ||
+			got.ConnectionID != want.profileID || got.ReasoningEffort != want.reasoning || got.Attempt != want.attempt ||
 			got.AttemptsUsed != want.used || got.AttemptsRemaining != want.remaining || got.Terminal != want.terminal {
 			t.Errorf("progress snapshot %d = %#v, want %#v", index, got, want)
 		}

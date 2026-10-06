@@ -35,7 +35,6 @@ var errResponseTooLarge = errors.New("provider response exceeded the size limit"
 const (
 	defaultMaxResponseBytes   = 16 << 20
 	defaultAnthropicVersion   = "2023-06-01"
-	defaultTemperature        = 0.3
 	responseProjectionVersion = "v4"
 )
 
@@ -73,7 +72,6 @@ type preparedRequest struct {
 	provider   string
 	protocol   string
 	callType   string
-	pricing    runtime.Pricing
 	timeout    time.Duration
 	operation  cachekey.Operation
 	webSearch  *preparedWebSearch
@@ -114,25 +112,25 @@ func NewRouter(config Config) (*Router, error) {
 
 // Prepare converts a provider-neutral call into one canonical operation and an
 // origin-bound request. No credential is placed in the operation descriptor.
-func (router *Router) Prepare(ctx context.Context, profile runtime.Profile, credential runtime.Credential, call runtime.Call) (runtime.PreparedOperation, error) {
+func (router *Router) Prepare(ctx context.Context, connection runtime.Connection, credential runtime.Credential, call runtime.Call) (runtime.PreparedOperation, error) {
 	if router == nil || router.client == nil || router.guard == nil {
 		return runtime.PreparedOperation{}, errors.New("providers: router is not initialized")
 	}
-	if err := validateProfile(profile, call); err != nil {
+	if err := validateConnection(connection, call); err != nil {
 		return runtime.PreparedOperation{}, err
 	}
-	provider, protocol, path, payload, semanticHeaders, err := buildPayload(profile, call)
+	provider, protocol, path, payload, semanticHeaders, err := buildPayload(connection, call)
 	if err != nil {
 		return runtime.PreparedOperation{}, err
 	}
-	identity, requestURL, err := endpointURL(profile.BaseURL, profile.APIInferenceType, path)
+	identity, requestURL, err := endpointURL(connection.BaseURL, connection.APIInferenceType, path)
 	if err != nil {
 		return runtime.PreparedOperation{}, err
 	}
 	if _, err = router.guard.validateURL(requestURL.String()); err != nil {
 		return runtime.PreparedOperation{}, err
 	}
-	headers, err := providerHeaders(profile.APIInferenceType, credential)
+	headers, err := providerHeaders(connection.APIInferenceType, credential)
 	if err != nil {
 		return runtime.PreparedOperation{}, err
 	}
@@ -150,19 +148,19 @@ func (router *Router) Prepare(ctx context.Context, profile runtime.Profile, cred
 		Endpoint: cachekey.Endpoint{
 			Identity: identity, Method: http.MethodPost, Path: path,
 		},
-		Model: profile.ModelID, Payload: operationPayload(payload, profile, call), SemanticHeaders: semanticHeaders,
+		Model: call.ModelID, Payload: operationPayload(payload, connection, call), SemanticHeaders: semanticHeaders,
 		ResponseProjection: cachekey.ResponseProjection{
 			Provider: provider, Kind: responseKind(call.CallType), Version: responseProjectionVersion,
 		},
 	}
 	request := preparedRequest{
 		url: requestURL, headers: headers, body: body, provider: provider, protocol: protocol,
-		callType: call.CallType, pricing: profile.Pricing, timeout: timeout, operation: operation,
-		webSearch: fallbackWebSearch(profile, call),
+		callType: call.CallType, timeout: timeout, operation: operation,
+		webSearch: fallbackWebSearch(connection, call),
 	}
 	if call.WebSearch {
 		request.searchMode = "jina"
-		if nativeWebSearchEnabled(profile, call) {
+		if nativeWebSearchEnabled(connection, call) {
 			request.searchMode = "native"
 		}
 	}
@@ -195,8 +193,8 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 			return runtime.ProviderResult{}, normalizeTransportError(ctx, requestContext, searchErr)
 		}
 		searchCall := prepared.webSearch.call
-		searchCall.UserPrompt = appendWebSearchContext(searchCall.UserPrompt, searchResults)
-		_, protocol, path, payload, _, buildErr := buildPayload(prepared.webSearch.profile, searchCall)
+		searchCall.Messages = append(searchCall.Messages, runtime.Message{Role: "user", Content: mustJSONRaw(appendWebSearchContext("", searchResults))})
+		_, protocol, path, payload, _, buildErr := buildPayload(prepared.webSearch.connection, searchCall)
 		if buildErr != nil {
 			return runtime.ProviderResult{}, buildErr
 		}
@@ -822,27 +820,46 @@ func splitSSEBlocks(value string) []string {
 	return strings.Split(value, "\n\n")
 }
 
-func validateProfile(profile runtime.Profile, call runtime.Call) error {
-	if strings.TrimSpace(profile.ID) == "" || strings.TrimSpace(profile.ModelID) == "" {
-		return errors.New("providers: profile ID and model ID are required")
+func validateConnection(connection runtime.Connection, call runtime.Call) error {
+	if strings.TrimSpace(connection.ID) == "" || strings.TrimSpace(call.ModelID) == "" {
+		return errors.New("providers: connection ID and model ID are required")
 	}
-	if strings.TrimSpace(profile.BaseURL) == "" {
-		return errors.New("providers: profile base URL is required")
+	if strings.TrimSpace(connection.BaseURL) == "" {
+		return errors.New("providers: connection base URL is required")
 	}
-	switch profile.APIInferenceType {
+	switch connection.APIInferenceType {
 	case "responses", "chat-completions", "gemini-generate-content", "anthropic-messages":
 	default:
-		return fmt.Errorf("providers: unsupported API inference type %q", profile.APIInferenceType)
+		return fmt.Errorf("providers: unsupported API inference type %q", connection.APIInferenceType)
 	}
 	if call.CallType != "text" && call.CallType != "structured" {
 		return fmt.Errorf("providers: unsupported call type %q", call.CallType)
 	}
 	if call.CallType == "structured" {
-		if !profile.SupportsStructuredOutput {
-			return errors.New("providers: profile does not support contracted structured output")
-		}
 		if len(call.Schema) == 0 {
 			return errors.New("providers: structured call schema is required")
+		}
+	}
+	if len(call.Messages) == 0 {
+		return errors.New("providers: at least one message is required")
+	}
+	for index, message := range call.Messages {
+		switch message.Role {
+		case "system", "developer", "user", "assistant", "tool":
+		default:
+			return fmt.Errorf("providers: message %d has unsupported role %q", index, message.Role)
+		}
+		if len(message.Content) > 0 && !json.Valid(message.Content) {
+			return fmt.Errorf("providers: message %d content is invalid JSON", index)
+		}
+		if message.Role == "tool" && strings.TrimSpace(message.ToolCallID) == "" {
+			return fmt.Errorf("providers: tool message %d is missing tool_call_id", index)
+		}
+		if message.Role != "assistant" && len(message.ToolCalls) > 0 {
+			return fmt.Errorf("providers: tool calls are only valid on assistant messages (message %d)", index)
+		}
+		if (connection.APIInferenceType == "gemini-generate-content" || connection.APIInferenceType == "anthropic-messages") && (message.Role == "tool" || len(message.ToolCalls) > 0) {
+			return fmt.Errorf("providers: tool exchanges are unsupported by protocol %q", connection.APIInferenceType)
 		}
 	}
 	return nil

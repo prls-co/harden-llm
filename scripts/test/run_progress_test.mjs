@@ -6,12 +6,12 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { createSSEParser, observeBudget, redactedReport } from "../run-progress-core.mjs";
 
-test("SSE parser handles split data and terminal events", () => {
+test("TEST-256 parses split standard Responses SSE events and completion", () => {
   const parser = createSSEParser();
-  assert.deepEqual(parser.push("event: run.progress\ndata: {\"stage\":"), []);
-  const events = parser.push("\"original.generate\"}\n\n");
-  assert.equal(events[0].event, "run.progress");
-  parser.push("event: run.completed\ndata: {\"runId\":\"r\"}\n\n");
+  assert.deepEqual(parser.push("event: response.output_text.delta\ndata: {\"delta\":"), []);
+  const events = parser.push("\"hello\",\"type\":\"response.output_text.delta\"}\n\n");
+  assert.equal(events[0].event, "response.output_text.delta");
+  parser.push("event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_fixture\"}}\n\n");
   assert.equal(parser.finish().terminal, true);
 });
 
@@ -27,25 +27,37 @@ test("hard caps stop observation without extending the case", () => {
   const decision = observeBudget({ startedAt: 0, now: 31_000, softMs: 10_000, caseHardMs: 30_000, suiteRemainingMs: 60_000 });
   assert.equal(decision.continue, false);
   assert.equal(decision.reason, "case_hard_cap");
-  assert.equal(redactedReport({ ...decision, terminal: false, runId: "run", traceId: "trace" }).runId, "run");
+  assert.equal(redactedReport({ ...decision, terminal: false, responseId: "resp", traceId: "trace" }).responseId, "resp");
 });
 
-test("a delivered run.failed terminal remains a functional failure", () => {
+test("TEST-257 a delivered Responses failure terminal remains a functional failure", () => {
   const report = redactedReport({ terminal: true, functionalFailure: true, runId: "run", traceId: "trace" });
   assert.equal(report.terminal, true);
   assert.equal(report.functionalFailure, true);
 });
 
-test("headless CLI requires a machine token and sends it as the bearer credential", async t => {
+test("headless CLI requires HARDEN_LLM_TOKEN and sends one standard Responses request", async t => {
   const server = createServer((request, response) => {
     assert.equal(request.headers.authorization, "Bearer fixture-api-token");
+    assert.equal(request.method, "POST");
+    assert.equal(request.url, "/v1/responses");
+    assert.equal(request.headers.accept, "text/event-stream");
+    let body = "";
+    request.setEncoding("utf8");
+    request.on("data", chunk => { body += chunk; });
+    request.on("end", () => {
+      const parsed = JSON.parse(body);
+      assert.equal(parsed.model, "fixture-model");
+      assert.equal(parsed.input, "fixture");
+      assert.equal(parsed.stream, true);
+    });
     response.writeHead(200, { "Content-Type": "text/event-stream" });
-    response.end('event: run.completed\ndata: {"runId":"run-test","traceId":"trace-test"}\n\n');
+    response.end('event: response.completed\ndata: {"type":"response.completed","response":{"id":"resp-test","status":"completed","harden":{"execution_id":"exec-test","trace_id":"trace-test"}}}\n\n');
   });
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
   const script = fileURLToPath(new URL("../run-progress.mjs", import.meta.url));
-  const endpoint = `http://127.0.0.1:${server.address().port}/api/v1/run`;
+  const endpoint = `http://127.0.0.1:${server.address().port}/v1/responses`;
   const execute = (environment, args) => new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [script, ...args], { env: environment, stdio: ["pipe", "pipe", "pipe"] });
     let stdout = "", stderr = "";
@@ -53,16 +65,18 @@ test("headless CLI requires a machine token and sends it as the bearer credentia
     child.stderr.setEncoding("utf8").on("data", chunk => { stderr += chunk; });
     child.on("error", reject);
     child.on("close", code => resolve({ code, stdout, stderr }));
-    child.stdin.end('{"profileId":"fixture","userPrompt":"fixture","callType":"text"}');
+    child.stdin.end('{"model":"fixture-model","input":"fixture","stream":true}');
   });
 
   const missingTokenEnvironment = { ...process.env };
-  delete missingTokenEnvironment.HARDEN_LLM_API_TOKEN;
+  delete missingTokenEnvironment.HARDEN_LLM_TOKEN;
   const missing = await execute(missingTokenEnvironment, ["--url", endpoint, "--body-stdin"]);
   assert.equal(missing.code, 2);
-  assert.match(missing.stderr, /HARDEN_LLM_API_TOKEN is required/);
+  assert.match(missing.stderr, /HARDEN_LLM_TOKEN is required/);
 
-  const accepted = await execute({ ...process.env, HARDEN_LLM_API_TOKEN: "fixture-api-token" }, ["--url", endpoint, "--body-stdin"]);
+  const accepted = await execute({ ...process.env, HARDEN_LLM_TOKEN: "fixture-api-token" }, ["--url", endpoint, "--body-stdin"]);
   assert.equal(accepted.code, 0, accepted.stderr);
   assert.match(accepted.stdout, /"terminal":true/);
+  assert.match(accepted.stdout, /"responseId":"resp-test"/);
+  assert.match(accepted.stdout, /"executionId":"exec-test"/);
 });

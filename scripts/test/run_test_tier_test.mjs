@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { main, resourceCleanupOptions, resolvedCommand, runCommand, runTasks, writeRunReport } from "../run-test-tier.mjs";
+import { main, resourceCleanupOptions, resolvedCommand, runCommand, runTasks, validateManifest, writeRunReport } from "../run-test-tier.mjs";
 
 const TEST_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const fixtureSource = `
@@ -36,9 +36,6 @@ if (mode === "resource-identity") process.stdout.write(JSON.stringify({
   supervisorPID: process.env.HARDEN_LLM_TEST_SUPERVISOR_PID ?? null,
   supervisorStart: process.env.HARDEN_LLM_TEST_SUPERVISOR_START ?? null,
 }));
-if (mode === "capacity-report-symlink") {
-  fs.symlinkSync(process.env.HARDEN_LLM_CAPACITY_REPORT_TARGET, process.env.HARDEN_LLM_CAPACITY_REPORT_PATH);
-}
 if (mode === "wait-for-release") {
   const releasePath = process.env.HARDEN_LLM_FAKE_RELEASE;
   const wait = () => fs.existsSync(releasePath) ? finish() : setTimeout(wait, 10);
@@ -65,6 +62,42 @@ async function closeFixtures() {
 }
 
 afterEach(closeFixtures);
+
+test("service pool manifests require the Compose file and published service ports", () => {
+  const manifest = {
+    schemaVersion: 1,
+    documentId: "test",
+    resourceClasses: { service: { slots: 1, exclusive: false } },
+    tasks: [{
+      id: "postgres",
+      testIds: ["TEST-049-service-pool-shape"],
+      tier: "T3",
+      resourceClass: "service",
+      command: ["true"],
+      dependsOn: [],
+      timeoutMs: 1_000,
+      cleanupOwner: "runner",
+      network: "local-only",
+      credentialKeys: [],
+      requiredFor: ["test"],
+      pathSelectors: [],
+      servicePool: {
+        composeFile: "deploy/test/compose.integration.yml",
+        services: [{ name: "harden-postgres", port: 5432 }],
+      },
+    }],
+  };
+
+  assert.equal(validateManifest(manifest), manifest);
+  assert.throws(() => validateManifest({
+    ...manifest,
+    tasks: [{ ...manifest.tasks[0], servicePool: { file: "compose.yml", services: [{ name: "db", port: 5432 }] } }],
+  }), /servicePool requires composeFile/);
+  assert.throws(() => validateManifest({
+    ...manifest,
+    tasks: [{ ...manifest.tasks[0], servicePool: { ...manifest.tasks[0].servicePool, services: [{ name: "db" }] } }],
+  }), /require a name and positive port/);
+});
 
 function resources(overrides = {}) {
   return {
@@ -555,84 +588,4 @@ test("refuses an oversized diagnostic report without leaving a partial artifact"
   const reportPath = path.join(data.root, "oversized.json");
   await assert.rejects(writeRunReport({ diagnostics: "x".repeat(2 * 1024 * 1024) }, reportPath), /exceeds the 2097152-byte limit/);
   await assert.rejects(fs.stat(reportPath), { code: "ENOENT" });
-});
-
-test("capacity child report is validated and included in the private runner result", async () => {
-  const data = await fixture();
-  const source = `
-import fs from "node:fs";
-const report = { schemaVersion: 2, reportKind: "harden-llm-capacity.v2", testRunId: process.env.HARDEN_LLM_TEST_RUN_ID, caseSet: "correctness", testIds: ["TEST-277"], cases: [{ scenarioId: "synthetic" }] };
-fs.writeFileSync(process.env.HARDEN_LLM_CAPACITY_REPORT_PATH, JSON.stringify(report), { mode: 0o600 });
-`;
-  const task = {
-    id: "capacity-report-fixture", testIds: ["TEST-277"], tier: "T3", resourceClass: "cpu",
-    command: [process.execPath, "--input-type=module", "-e", source], dependsOn: [], timeoutMs: 5000,
-    cleanupOwner: "runner", network: "local-only", credentialKeys: [], requiredFor: [], pathSelectors: [], capacityReport: true,
-  };
-  const result = await runTasks([task], {
-    root: data.root, runDirectory: path.join(data.root, "run-capacity-report"), runID: "capacity-report-fixture",
-    resourceClasses: { cpu: { slots: 1, exclusive: false } },
-  });
-  assert.equal(result.accepted, true);
-  assert.equal(result.results[0].capacityReport.reportKind, "harden-llm-capacity.v2");
-  assert.equal(result.results[0].capacityReport.testRunId, "capacity-report-fixture");
-});
-
-test("rejects capacity report v1 after the bounded report schema cutover", async () => {
-  const data = await fixture();
-  const source = `
-import fs from "node:fs";
-const report = { schemaVersion: 1, reportKind: "harden-llm-capacity.v1", testRunId: process.env.HARDEN_LLM_TEST_RUN_ID, caseSet: "correctness", testIds: ["TEST-277"], cases: [{ scenarioId: "stale" }] };
-fs.writeFileSync(process.env.HARDEN_LLM_CAPACITY_REPORT_PATH, JSON.stringify(report), { mode: 0o600 });
-`;
-  const task = {
-    id: "capacity-report-v1", testIds: ["TEST-277"], tier: "T3", resourceClass: "cpu",
-    command: [process.execPath, "--input-type=module", "-e", source], dependsOn: [], timeoutMs: 5000,
-    cleanupOwner: "runner", network: "local-only", credentialKeys: [], requiredFor: [], pathSelectors: [], capacityReport: true,
-  };
-  const result = await runTasks([task], {
-    root: data.root, runDirectory: path.join(data.root, "run-capacity-report-v1"), runID: "capacity-report-v1",
-    resourceClasses: { cpu: { slots: 1, exclusive: false } },
-  });
-  assert.equal(result.accepted, false);
-  assert.match(result.results[0].failureSummary, /capacity report invalid or missing/);
-});
-
-test("a successful capacity task without its required report is rejected", async () => {
-  const data = await fixture();
-  const task = {
-    id: "capacity-report-missing", testIds: ["TEST-277"], tier: "T3", resourceClass: "cpu",
-    command: [process.execPath, "-e", "process.exit(0)"], dependsOn: [], timeoutMs: 5000,
-    cleanupOwner: "runner", network: "local-only", credentialKeys: [], requiredFor: [], pathSelectors: [], capacityReport: true,
-  };
-  const result = await runTasks([task], {
-    root: data.root, runDirectory: path.join(data.root, "run-capacity-report-missing"), runID: "capacity-report-missing",
-    resourceClasses: { cpu: { slots: 1, exclusive: false } },
-  });
-  assert.equal(result.accepted, false);
-  assert.match(result.results[0].failureSummary, /capacity report invalid or missing/);
-});
-
-test("capacity reports cannot be supplied through a child-created symlink", async () => {
-  const data = await fixture();
-  const target = path.join(data.root, "outside-capacity-report.json");
-  await fs.writeFile(target, JSON.stringify({
-    schemaVersion: 2,
-    reportKind: "harden-llm-capacity.v2",
-    testRunId: "capacity-symlink-run",
-    caseSet: "correctness",
-    testIds: ["TEST-277"],
-    cases: [{ scenarioId: "forged" }],
-  }), { mode: 0o600 });
-  const capacityTask = task(data, "capacity-symlink", "service", "capacity-report-symlink", 20, { capacityReport: true });
-  const result = await runFixture(data, [capacityTask], {
-    runID: "capacity-symlink-run",
-    environment: {
-      HARDEN_LLM_FAKE_EVENTS: data.eventsPath,
-      HARDEN_LLM_CAPACITY_REPORT_TARGET: target,
-    },
-  });
-
-  assert.equal(result.accepted, false);
-  assert.match(result.results[0].failureSummary, /capacity report invalid or missing/i);
 });

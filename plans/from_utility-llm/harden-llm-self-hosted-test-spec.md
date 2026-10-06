@@ -5,12 +5,14 @@
 - Project name: `harden-llm`
 - Target repository: `/home/kirill/harden-llm`
 - Contract source repository: `/home/kirill/utility-llm`
-- Version: `1.4.0-clean-account-cutover`
+- Version: `1.5.0-openai-proxy-reference`
 - Owners: package maintainers and self-hosted runtime implementers
-- Date: 2026-10-04
+- Date: 2026-10-06
 - Document ID: `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001`
 - Related stack specification: `plans/from_utility-llm/self-hosted-go-stack-spec.md`
-- Summary: This document is the canonical backend test catalog for building `harden-llm`. It defines one `TEST-###` namespace shared with the backend implementation plan. Tests guide the Go library, versioned REST/OpenAPI gateway, Harden-LLM Postgres records, Garage-backed trace artifacts and diagnostic attachments, provider endpoint security, OpenTelemetry/Grafana/Laminar diagnostics, and the Langfuse-free Docker Compose deployment. It contains no frontend, Phoenix, LiveView, React, browser-session, or asset tests. ADR-HLLM-029 retires Langfuse services, routes, credentials, images, and data stores; active tests must not provision them.
+- Summary: This document is the canonical backend test catalog. Its active 2026-10-06 amendment covers the profile-free OpenAI-compatible proxy, one incoming bearer, and a separate Phoenix reference application that records shared history. Earlier catalog entries remain historical where they describe removed profiles, per-login product data, custom run routes, or proxy-owned history. Phoenix tests use the separate `WEB-TEST-###` namespace; the current proxy/reference cases are TEST-400–410 and WEB-TEST-114–116.
+
+> **Current contract (2026-10-06):** The OpenAI proxy and reference-history amendment at the end of this catalog supersedes conflicting earlier tests. Direct API calls remain stateless and do not write history. Use the current task manifest for active test selection; retired test IDs are never reassigned.
 - Resource-efficiency addendum date: `2026-09-21`; plan: `plans/production-scale-efficiency-plan.md`.
 
 ## 2. Test strategy
@@ -366,66 +368,17 @@ runtime contract or the meaning of `make verify`.
 - Pass criteria: canonical JSON outputs match trace/stats goldens.
 - Expected runtime: 10 seconds.
 
-### TEST-017: profile catalog validation and parity
+### TEST-017: Retired profile catalog contract
 
-- Target: `internal/profiles/default_catalog_test.go`,
-  `internal/profiles/profile_test.go`,
-  `internal/providers/default_profile_catalog_test.go`, and the tagged
-  `internal/gateway/profile_seed_test.go` and
-  `internal/gateway/shared_profiles_integration_test.go`
-- Commands:
-  - `go test ./internal/profiles/... ./internal/providers/... -run 'Test(DefaultCatalogParity|ProfileParity|DefaultProfileCatalogParity)' -count=1`
-  - `go test ./internal/gateway/... -tags=integration -run 'Test(DefaultProfileSeedParity|SharedProfilesRetireEndpointPresets)' -count=1`
-- Setup: source catalog at utility-llm revision `5c0309e` / `0.15.0`, with
-  the unavailable CPA GPT-5.4 profiles retired under ADR-HLLM-013 and
-  all earlier Perplexity presets replaced with GPT-6.1 Sol through Agent API;
-  24 credential-free preset entries, invalid names/endpoints/defaults,
-  removed-control rejection, fixed endpoint resolver, and isolated owner-scoped Postgres.
-- Assertions:
-  - The embedded seed contains exactly the current 24 profile names, excludes
-    CPA GPT-5.4, CPA GPT-5.4 Mini, all earlier Perplexity presets, retains the independent OpenAI presets, and
-    matches provider, API inference type, base URL, model ID, pricing,
-    reasoning, defaults, and structured-output capability.
-  - Seed rows contain no credentials or runtime discovery state, OpenRouter
-    pricing remains provider-reported, and catalog serialization round-trips.
-  - Novita Flash/Pro use the authenticated 2026-10-04 token rates, including
-    paid reasoning at the completion rate. OpenRouter Pro targets only
-    `deepinfra/fp8` with fallbacks disabled in both the wire request and cache
-    operation; its existing structured-output contract is unchanged.
-  - Every seeded profile prepares both text and structured operations through
-    the shared endpoint policy without serializing the fixture credential.
-    Each Gemini preset also asserts the exact provider resource path in both
-    the canonical operation and actual prepared HTTP request. Each Perplexity
-    preset asserts `/v1/agent`, its discovered model ID, token remapping, and
-    the absence of legacy Sonar request fields.
-  - Concurrent first use inserts every missing preset for an owner with an
-    existing custom row, exposes seeded rows as unconfigured, and never
-    overwrites the existing operator profile; an empty owner receives exactly
-    the 24 presets.
-  - Runtime catalog assembly accepts credential-free seed rows without
-    blocking configured profiles; every seeded profile's missing-credential
-    boundary returns `ErrCredentialNotConfigured`, while an attempted run
-    without the matching endpoint credential returns `credential_required`,
-    persists a failed history item, and never dials the provider.
-  - Synchronizing replacement presets rebinds retained endpoint profiles and
-    removes their obsolete credentials atomically. Deleting the retired profiles
-    preserves a valid configured catalog and runtime resolver; deleting the last
-    profile removes its credential. Repeat synchronization is idempotent and
-    another owner's rows remain unchanged.
-  - Profile shape, API inference types, pricing, model list, defaults, and
-    complete recovery policies follow ADR-HLLM-020; independent profile data retain source parity.
-  - Backup/escalation fields are rejected; each profile selects exactly one target.
-  - No alternate or old recovery-policy shape is accepted.
-- Pass criteria: the current 24-profile seed and all-profile deterministic
-  preparation matrix pass; invalid fixtures fail with stable fields; the
-  tagged seed test passes with isolated Postgres.
-- Expected runtime: 10 seconds unit; 90 seconds integration.
+- Status: Retired by `PLAN-HLLM-PROXY-REFERENCE-001`; profile catalogs,
+  provisioning and profile-owned credentials are removed from the product.
+  This ID is retained for historical traceability and must not be reused.
 
-### TEST-018: credential encryption and bundle contract
+### TEST-018: Retired credential bundle contract
 
-- Target: `internal/profiles/credentials_test.go` and
-  `internal/gateway/profile_bundle_validation_test.go`
-- Command: `go test ./internal/profiles/... ./internal/gateway/... -run 'Test(CredentialBundle|CredentialMetadataRequiresInferenceTypes)' -count=1`
+- Status: Retired with `TEST-017`. Credential bundles and profile-bound
+  encrypted credentials are removed; provider credentials now come from the
+  static upstream configuration. This ID is retained and must not be reused.
 - Setup: deterministic test key IDs, fixed nonces through injected random reader, fake credentials, and source bundle fixtures.
 - Assertions:
   - AES-256-GCM uses random production nonces, key IDs, and owner/credential/origin AAD.
@@ -663,7 +616,7 @@ runtime contract or the meaning of `make verify`.
 - Command: `go test -tags=compose ./internal/deploytest/... -run '^TestComposeDeploymentContract$' -count=1`
 - Setup: effective production `docker compose config` and the Harden-LLM image manifest. Shared ingress routes are owned by `prls-co/caddy-shared`; HLLM production Compose must not define Caddy.
 - Assertions:
-  - The seven HLLM backend services exist: gateway, Harden-LLM Postgres, Collector, Prometheus, Loki, Tempo, and Grafana. Optional Phoenix web is tested through its dedicated overlay. Caddy and Garage remain separate shared service owners.
+  - The seven HLLM backend services exist: gateway, Harden-LLM Postgres, Collector, Prometheus, Loki, Tempo, and Grafana. Optional Phoenix web is tested through its dedicated overlay; in the merged topology it depends on the healthy gateway only and does not gate startup on Postgres health. Caddy and Garage remain separate shared service owners.
   - Production topology, descriptors, and image locks contain no Langfuse service, ClickHouse, Redis, MinIO, retired image, or Langfuse-owned persistent volume.
   - Named HLLM volumes and health checks exist, and all HLLM-owned image tags/digests are pinned.
   - Production Compose has no Caddy service, Caddy volumes, Garage service, Garage-owned volume, RPC secret, bootstrap command, or dependency edge. The gateway and Loki join the existing external `prls-observability` network and use `garage-shared:3900` for their Garage clients.
@@ -1367,8 +1320,9 @@ runner, provider, database, browser, or timeout budget.
 These deterministic and opt-in tests implement the test-resource and capacity
 requirements REQ-341 through REQ-352 in the backend implementation plan.
 Lifecycle receipts are test-only; no REST schema or production database is
-added. The test runner owns disposable Docker resources. Capacity tests use
-synthetic credentials, isolated stores, and a local scripted provider.
+added. The test runner owns disposable Docker resources. The standalone load
+driver uses a local scripted provider; it does not configure or call a deployed
+Harden-LLM gateway.
 
 ### TEST-271: Ownership precedes mutation
 
@@ -1415,9 +1369,9 @@ synthetic credentials, isolated stores, and a local scripted provider.
 - Type / verifies: unit; REQ-346.
 - Location: `scripts/test/test_resource_measurement_test.mjs`.
 - Command: `node --test scripts/test/test_resource_measurement_test.mjs`.
-- Fixtures/data: Numeric Docker API records; B/kB/MB/GB and KiB/MiB/GiB text; missing/malformed units; CPU; duplicate/project labels; host memory and Docker data-root headroom thresholds.
+- Fixtures/data: Numeric Docker API records; B/kB/MB/GB and KiB/MiB/GiB text; missing/malformed units; CPU; duplicate/project labels; host memory and Docker data-root headroom metrics.
 - Deterministic controls: Frozen inputs, no daemon, integer-byte expected values, seed 104729.
-- Pass criteria: Convert recognized units correctly; unknown units are errors/unknown, never zero; project attribution is exact; Docker memory, RSS, sampled peak, host memory, and Docker data-root disk remain distinct; fractional CPU percentages aggregate as finite percentage values rather than integer bytes; safety thresholds fail closed. Missing or malformed Docker memory/CPU values preserve a precise bounded parser reason; RSS and volume-used-byte metrics explicitly state when they are not collected. Unavailable exact container measurements identify the bounded failing stage, exit status, timeout flag, and at most 256 characters of caller-redacted stderr; raw Docker output is not retained.
+- Pass criteria: Convert recognized units correctly; unknown units are errors/unknown, never zero; project attribution is exact; Docker memory, RSS, sampled peak, host memory, and Docker data-root disk remain distinct; fractional CPU percentages aggregate as finite percentage values rather than integer bytes. Missing or malformed Docker memory/CPU values preserve a precise bounded parser reason; RSS and volume-used-byte metrics explicitly state when they are not collected. Unavailable exact container measurements identify the bounded failing stage, exit status, timeout flag, and at most 256 characters of caller-redacted stderr; raw Docker output is not retained.
 - Expected runtime: 5 seconds.
 
 ### TEST-276: Bounded load generation and streaming accounting
@@ -1430,15 +1384,11 @@ synthetic credentials, isolated stores, and a local scripted provider.
 - Pass criteria: Open-loop arrivals remain independent; accounting reconciles; concurrency/request bounds hold; EOF without terminal success fails; recovery dispatch equals script; production endpoints reject before dialing.
 - Expected runtime: 10 seconds.
 
-### TEST-277: Real application capacity boundary
+### TEST-277: Retired real-gateway capacity boundary
 
-- Type / verifies: perf; REQ-347, REQ-348, REQ-349.
-- Location: `cmd/harden-llm-gateway/capacity_test.go`.
-- Command: `node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline.json`.
-- Fixtures/data: Real command server assembly, REST/auth/client, disposable Postgres/Garage, local TLS scripted provider and export sink. Configure the explicit static-token account UUID in the fresh product-only Postgres lease before starting the gateway; no HLLM identity bootstrap exists. Keep provider/export dependencies alive until the gateway has completed shutdown. The existing separately-owned Compose smoke remains its own boundary; TEST-277 does not start another application stack.
-- Deterministic controls: Explicit `integration,capacity` tags; seed 104729; synthetic credentials; Section 6 bounds; no live/browser selector. Capacity runs are explicit-only through workflow dispatch and accept only `correctness`, `exploration`, or `holdout`.
-- Pass criteria: Static-token profile setup is scoped only to the configured account; persisted history/artifacts agree with terminal outcomes; provider receive counts match runtime attempts; SSE terminal oracle holds; report is bounded and owned fixtures are cleaned; gateway telemetry flush completes before its local export sink stops.
-- Expected runtime: Correctness up to 5 minutes; exploration up to 15 minutes; holdout up to 5 minutes, within the registered 40-minute task deadline.
+- Status: Retired 2026-10-06 by the OpenAI proxy/reference-history cutover; the identifier is retained and must not be reused.
+- Historical scope: Exercised the former custom `/api/v1/run` endpoint, profile selection, and proxy-owned persisted call history/artifacts.
+- Retirement rationale: The supported contract is now stateless OpenAI-compatible `/v1` proxying; profile configuration and proxy-owned history/artifact persistence have been removed. The retired end-to-end case depended on those removed interfaces and stores. `TEST-409` exercises the current gateway plus Phoenix reference app boundary, but it does not claim load or capacity results.
 
 ### TEST-278: Comparable cost and decision reports
 
@@ -1457,7 +1407,7 @@ synthetic credentials, isolated stores, and a local scripted provider.
 - Command: `node scripts/verify-test-tiers.mjs`.
 - Fixtures/data: Current Makefile, task manifest, canonical catalog, traceability and workflow source; existing timeout baseline.
 - Deterministic controls: Offline source reads; no Docker; existing tier/budget policy.
-- Pass criteria: Executable test registration is discoverable; cheap task is offline/container-free; Make and manifest do not recurse; capacity is opt-in; release is browser-free; bounded private per-run reports are written by default and fast/integration/release jobs upload them with `always()`; candidate identity policy is present.
+- Pass criteria: Executable test registration is discoverable; cheap task is offline/container-free; Make and manifest do not recurse; the retired capacity workflow is absent; release is browser-free; bounded private per-run reports are written by default and fast/integration/release jobs upload them with `always()`; candidate identity policy is present.
 - Expected runtime: 5 seconds.
 
 ### TEST-280: Cross-language receipt contract
@@ -1480,15 +1430,11 @@ synthetic credentials, isolated stores, and a local scripted provider.
 - Pass criteria: A successful task's cleanup does not age later tasks' cleanup allowance; setup/final cleanup for a task share one bounded deadline; first failure or external cancellation establishes one bounded deadline for remaining cleanup.
 - Expected runtime: Under 1 second.
 
-### TEST-282: Capacity history cursor pagination
+### TEST-282: Retired capacity history API pagination
 
-- Type / verifies: unit; REQ-349.
-- Location: `cmd/harden-llm-gateway/capacity_history_test.go`.
-- Command: `go test ./cmd/harden-llm-gateway -run '^TestCapacityHistoryPagination' -count=1`.
-- Fixtures/data: Local HTTP history pages with an opaque cursor, expected run/trace pairs on separate pages, and repeated-cursor input.
-- Deterministic controls: `httptest` only; no gateway process, Docker, database, credentials, or timing sleeps.
-- Pass criteria: Verification follows the existing limit-100 REST cursor contract until all expected pairs are found; URL-encodes opaque cursors, rejects repeated/oversized cursors and oversized pages, and reports a missing pair only after the final page or bounded page limit.
-- Expected runtime: Under 1 second.
+- Status: Retired 2026-10-06 by the OpenAI proxy/reference-history cutover; the identifier is retained and must not be reused.
+- Historical scope: Followed pages from the former proxy-owned call-history REST endpoint.
+- Retirement rationale: History is recorded and displayed by the Phoenix reference implementation. It is outside the supported OpenAI-compatible proxy REST API, so no gateway history endpoint remains.
 
 ### TEST-283: Retired private gateway-image publication contract
 
@@ -1510,7 +1456,7 @@ synthetic credentials, isolated stores, and a local scripted provider.
 
 ## 25. OpenAI proxy and reference history transition
 
-REQ-400–415 are defined in the implementation-plan amendment. TEST-400–409 are new IDs; each test file uses this specification ID and its TEST ID. Frontend cases also use WEB-TEST-114–116.
+REQ-400–415 are defined in the implementation-plan amendment. TEST-400–410 are new IDs; each test file uses this specification ID and its TEST ID. Frontend cases also use WEB-TEST-114–116.
 
 | ID | Type / owner | Command | Acceptance oracle |
 | --- | --- | --- | --- |
@@ -1524,5 +1470,6 @@ REQ-400–415 are defined in the implementation-plan amendment. TEST-400–409 a
 | TEST-407 | Integration; PostgreSQL | `node scripts/run-test-tier.mjs --task frontend-reference-integration` | Real migrations/queries/constraints/timeout work; no replay. Task starts only harden-postgres. |
 | TEST-408 | Static; config/cutover | `node --test scripts/test/proxy_reference_cutover_test.mjs` | Synthetic one-token/connection config; old routes/profile keys absent; clean-cut excludes unrelated sentinel. |
 | TEST-409 | Integration; Compose smoke | `node scripts/run-test-tier.mjs --task go-compose` | Gateway/Phoenix work with synthetic upstream/real SQL; direct calls leave history empty; cleanup succeeds; no browser/provider. |
+| TEST-410 | Unit; Compose log-query contract | `go test ./internal/smoke -run '^TestLokiCorrelatedResponseLog$' -count=1` | A log is accepted only when the same Loki stream carries the expected OpenTelemetry trace ID and `/v1/responses` route with a completed-request message; malformed and split-stream results reject. |
 
 `test/fixtures/proxy-reference-contract.json` is sanitized from checked-in CPA Chat/Responses fixtures; it contains no credentials/user data/live responses.

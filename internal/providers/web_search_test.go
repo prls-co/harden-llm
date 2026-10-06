@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"net/url"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -34,17 +35,15 @@ func TestWebSearchRoutingAndCacheIdentity(t *testing.T) {
 		t.Fatalf("NewRouter: %v", err)
 	}
 
-	profile := runtime.Profile{
+	connection := runtime.Connection{
 		ID: "openai", Provider: "openai", APIInferenceType: "responses",
-		BaseURL: "https://api.openai.com/v1", ModelID: "gpt-5.6-luna",
-		SupportsWebSearch: true, ResponsesTokensParam: "max_output_tokens",
-		DefaultOptions: map[string]any{},
+		BaseURL: "https://api.openai.com/v1", SupportsWebSearch: true,
 	}
 	searchCall := runtime.Call{
-		CallType: "text", UserPrompt: "latest weather in San Francisco", WebSearch: true,
+		ModelID: "gpt-5.6-luna", CallType: "text", Messages: providerMessages("", "latest weather in San Francisco"), WebSearch: true,
 		ProviderOptions: map[string]any{"max_tokens": float64(128)},
 	}
-	prepared, err := router.Prepare(context.Background(), profile, runtime.Credential{APIKey: "fixture-secret"}, searchCall)
+	prepared, err := router.Prepare(context.Background(), connection, runtime.Credential{APIKey: "fixture-secret"}, searchCall)
 	if err != nil {
 		t.Fatalf("Prepare native search: %v", err)
 	}
@@ -56,7 +55,7 @@ func TestWebSearchRoutingAndCacheIdentity(t *testing.T) {
 
 	withoutSearch := searchCall
 	withoutSearch.WebSearch = false
-	withoutSearchPrepared, err := router.Prepare(context.Background(), profile, runtime.Credential{APIKey: "fixture-secret"}, withoutSearch)
+	withoutSearchPrepared, err := router.Prepare(context.Background(), connection, runtime.Credential{APIKey: "fixture-secret"}, withoutSearch)
 	if err != nil {
 		t.Fatalf("Prepare without search: %v", err)
 	}
@@ -64,15 +63,15 @@ func TestWebSearchRoutingAndCacheIdentity(t *testing.T) {
 		t.Fatal("web-search tool was added when search was disabled")
 	}
 
-	fallbackProfile := profile
-	fallbackProfile.SupportsWebSearch = false
-	fallbackPrepared, err := router.Prepare(context.Background(), fallbackProfile, runtime.Credential{APIKey: "fixture-secret"}, searchCall)
+	fallbackConnection := connection
+	fallbackConnection.SupportsWebSearch = false
+	fallbackPrepared, err := router.Prepare(context.Background(), fallbackConnection, runtime.Credential{APIKey: "fixture-secret"}, searchCall)
 	if err != nil {
 		t.Fatalf("Prepare fallback search: %v", err)
 	}
 	fallbackPayload := fallbackPrepared.Operation.Payload.(map[string]any)
 	marker, ok := fallbackPayload["__harden_llm_web_search"].(map[string]any)
-	if !ok || marker["mode"] != "jina" || marker["query"] != searchCall.UserPrompt {
+	if !ok || marker["mode"] != "jina" || marker["query"] != "latest weather in San Francisco" {
 		t.Fatalf("fallback cache marker = %#v", fallbackPayload["__harden_llm_web_search"])
 	}
 	if strings.Contains(string(fallbackPrepared.Opaque.(preparedRequest).body), "__harden_llm_web_search") {
@@ -87,26 +86,25 @@ func TestWebSearchRoutingAndCacheIdentity(t *testing.T) {
 	}
 }
 
-func TestNativeWebSearchCanBeForcedOnlyOnResponsesRoute(t *testing.T) {
-	profile := runtime.Profile{
+func TestNativeWebSearchUsesConfiguredProtocol(t *testing.T) {
+	connection := runtime.Connection{
 		ID: "openai", Provider: "openai", APIInferenceType: "responses",
-		ModelID: "gpt-5.6-luna", SupportsWebSearch: true, DefaultOptions: map[string]any{},
+		SupportsWebSearch: true,
 	}
-	call := runtime.Call{CallType: "text", UserPrompt: "search this", WebSearch: true, ProviderOptions: map[string]any{
-		"useResponsesApi": false,
-	}}
-	_, protocol, _, payload, _, err := buildPayload(profile, call)
+	call := runtime.Call{ModelID: "gpt-5.6-luna", CallType: "text", Messages: providerMessages("", "search this"), WebSearch: true}
+	_, protocol, _, payload, _, err := buildPayload(connection, call)
 	if err != nil {
 		t.Fatalf("buildPayload: %v", err)
 	}
-	if protocol != "openai.chat.completions" {
-		t.Fatalf("protocol = %q, want chat-completions", protocol)
+	if protocol != "openai.responses" {
+		t.Fatalf("protocol = %q, want Responses", protocol)
 	}
-	if _, present := payload["tools"]; present {
-		t.Fatal("native Responses web-search tool leaked into forced Chat Completions route")
+	if !reflect.DeepEqual(payload["tools"], []any{map[string]any{"type": "web_search"}}) {
+		t.Fatalf("configured Responses search tool is missing: %#v", payload)
 	}
-	if nativeWebSearchEnabled(profile, call) {
-		t.Fatal("forced Chat Completions route was reported as native search")
+	call.ProviderOptions = map[string]any{"useResponsesApi": false}
+	if _, _, _, _, _, err := buildPayload(connection, call); err == nil {
+		t.Fatal("request-level provider protocol override was accepted")
 	}
 }
 
@@ -138,13 +136,13 @@ func TestJinaFallbackSearchIsExecutedAfterPrepareAndBoundToProviderPayload(t *te
 
 	searcher := &recordingSearcher{result: "fixture search result https://example.test/source"}
 	router := newTLSTestRouter(t, provider, searcher)
-	profile := runtime.Profile{
+	connection := runtime.Connection{
 		ID: "fallback", Provider: "openai", APIInferenceType: "responses",
-		BaseURL: provider.URL + "/v1", ModelID: "gpt-5.6-luna", DefaultOptions: map[string]any{},
+		BaseURL:           provider.URL + "/v1",
 		SupportsWebSearch: false,
 	}
-	call := runtime.Call{CallType: "text", UserPrompt: "find a fixture", WebSearch: true}
-	prepared, err := router.Prepare(context.Background(), profile, runtime.Credential{APIKey: "fixture-secret"}, call)
+	call := runtime.Call{ModelID: "gpt-5.6-luna", CallType: "text", Messages: providerMessages("", "find a fixture"), WebSearch: true}
+	prepared, err := router.Prepare(context.Background(), connection, runtime.Credential{APIKey: "fixture-secret"}, call)
 	if err != nil {
 		t.Fatalf("Prepare: %v", err)
 	}
@@ -172,22 +170,18 @@ func TestWebSearchCacheHitSkipsJinaFallback(t *testing.T) {
 	defer provider.Close()
 	searcher := &recordingSearcher{result: "must not be requested"}
 	router := newTLSTestRouter(t, provider, searcher)
-	profile := runtime.Profile{
+	connection := runtime.Connection{
 		ID: "fallback", Provider: "openai", APIInferenceType: "responses",
-		BaseURL: provider.URL + "/v1", ModelID: "gpt-5.6-luna", DefaultOptions: map[string]any{},
+		BaseURL:           provider.URL + "/v1",
 		SupportsWebSearch: false,
 	}
 	cache := &alwaysHitCache{result: runtime.CachedResult{
 		ProviderResult: runtime.ProviderResult{Output: "cached output", Accounting: accounting.EmptyLedger()},
-		Producer:       runtime.ExecutionTarget{ProfileID: profile.ID, Provider: profile.Provider, Protocol: "openai.responses", Endpoint: provider.URL + "/v1", ModelID: profile.ModelID},
+		Producer:       runtime.ExecutionTarget{ConnectionID: connection.ID, Provider: connection.Provider, Protocol: "openai.responses", Endpoint: provider.URL + "/v1", ModelID: "gpt-5.6-luna"},
 	}}
 	record, err := runtime.Execute(
-		context.Background(), router,
-		func(context.Context, runtime.Profile) (runtime.Credential, error) {
-			return runtime.Credential{APIKey: "fixture-secret"}, nil
-		},
-		profile.ID, map[string]runtime.Profile{profile.ID: profile},
-		runtime.Call{CallType: "text", UserPrompt: "cached search", WebSearch: true},
+		context.Background(), router, connection, runtime.Credential{APIKey: "fixture-secret"},
+		runtime.Call{ModelID: "gpt-5.6-luna", CallType: "text", Messages: providerMessages("", "cached search"), WebSearch: true},
 		retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, cache, cachekey.ModeCache, cachekey.DefaultVersion, "call", "trace",
 	)
 	if err != nil {

@@ -27,33 +27,30 @@ const (
 	SpanSchema          = "hardenllm.schema.validate"
 	SpanCacheLookup     = "hardenllm.cache.lookup"
 	SpanCacheWrite      = "hardenllm.cache.write"
-	SpanArtifact        = "hardenllm.artifact.persist"
 )
 
 // Telemetry owns the fixed, bounded runtime signal schema. It never records
 // prompts, responses, credentials, endpoint URLs, raw errors, or metric labels
-// derived from profile/model/user identifiers.
+// derived from connection/model/user identifiers.
 type Telemetry struct {
 	tracer trace.Tracer
 
-	calls               metric.Int64Counter
-	callDuration        metric.Float64Histogram
-	providerAttempts    metric.Int64Counter
-	providerDuration    metric.Float64Histogram
-	retries             metric.Int64Counter
-	cacheOperations     metric.Int64Counter
-	schemaOperations    metric.Int64Counter
-	tokens              metric.Int64Counter
-	costUSD             metric.Float64Counter
-	artifactOperations  metric.Int64Counter
-	persistenceFailures metric.Int64Counter
+	calls            metric.Int64Counter
+	callDuration     metric.Float64Histogram
+	providerAttempts metric.Int64Counter
+	providerDuration metric.Float64Histogram
+	retries          metric.Int64Counter
+	cacheOperations  metric.Int64Counter
+	schemaOperations metric.Int64Counter
+	tokens           metric.Int64Counter
+	costUSD          metric.Float64Counter
 }
 
 type CallObservation struct {
-	ProfileID string
-	Provider  string
-	ModelID   string
-	CallType  string
+	ConnectionID string
+	Provider     string
+	ModelID      string
+	CallType     string
 }
 
 func NewTelemetry(tracerProvider trace.TracerProvider, meterProvider metric.MeterProvider) (*Telemetry, error) {
@@ -93,12 +90,6 @@ func NewTelemetry(tracerProvider trace.TracerProvider, meterProvider metric.Mete
 	if telemetry.costUSD, err = meter.Float64Counter("harden_llm.cost.usd", metric.WithUnit("USD")); err != nil {
 		return nil, err
 	}
-	if telemetry.artifactOperations, err = meter.Int64Counter("harden_llm.artifact.operations"); err != nil {
-		return nil, err
-	}
-	if telemetry.persistenceFailures, err = meter.Int64Counter("harden_llm.persistence.failures"); err != nil {
-		return nil, err
-	}
 	return telemetry, nil
 }
 
@@ -110,7 +101,7 @@ func (telemetry *Telemetry) StartCall(ctx context.Context, observation CallObser
 		attribute.String("gen_ai.provider.name", provider),
 		attribute.String("gen_ai.request.model", boundedSpanValue(observation.ModelID)),
 		attribute.String("gen_ai.operation.name", callType),
-		attribute.String("harden_llm.profile.id", boundedSpanValue(observation.ProfileID)),
+		attribute.String("harden_llm.connection.id", boundedSpanValue(observation.ConnectionID)),
 	))
 	return ctx, func(record CallRecord, terminalErr error) {
 		provider = providerFromRecord(record, provider)
@@ -161,7 +152,7 @@ func (telemetry *Telemetry) StartProvider(ctx context.Context, target ExecutionT
 		attribute.String("gen_ai.provider.name", provider),
 		attribute.String("gen_ai.request.model", boundedSpanValue(target.ModelID)),
 		attribute.String("gen_ai.operation.name", callType),
-		attribute.String("harden_llm.profile.id", boundedSpanValue(target.ProfileID)),
+		attribute.String("harden_llm.connection.id", boundedSpanValue(target.ConnectionID)),
 	))
 	return ctx, func(providerDispatched bool, err error) {
 		_, category := outcomeAndCategory(err)
@@ -188,7 +179,7 @@ func (telemetry *Telemetry) StartAttempt(ctx context.Context, target ExecutionTa
 		attribute.Int("harden_llm.attempt.number", number),
 		attribute.String("gen_ai.provider.name", providerFamily(target.Provider, target.Protocol)),
 		attribute.String("gen_ai.request.model", boundedSpanValue(target.ModelID)),
-		attribute.String("harden_llm.profile.id", boundedSpanValue(target.ProfileID)),
+		attribute.String("harden_llm.connection.id", boundedSpanValue(target.ConnectionID)),
 	))
 	return attemptContext, func(err error) {
 		_, category := outcomeAndCategory(err)
@@ -212,9 +203,9 @@ func (telemetry *Telemetry) WaitForRetry(ctx context.Context, target ExecutionTa
 	return err
 }
 
-func (telemetry *Telemetry) ValidateSchema(ctx context.Context, profile Profile, repair bool, validate func(context.Context) error) error {
+func (telemetry *Telemetry) ValidateSchema(ctx context.Context, connection Connection, repair bool, validate func(context.Context) error) error {
 	validationContext, span := telemetry.tracer.Start(ctx, SpanSchema, trace.WithAttributes(
-		attribute.String("gen_ai.provider.name", providerFamily(profile.Provider, profile.APIInferenceType)),
+		attribute.String("gen_ai.provider.name", providerFamily(connection.Provider, connection.APIInferenceType)),
 		attribute.Bool("harden_llm.schema.repair", repair),
 	))
 	err := validate(validationContext)
@@ -244,26 +235,6 @@ func (telemetry *Telemetry) StartCache(ctx context.Context, operation string) (c
 			attribute.String("operation", boundedCacheOperation(operation)), attribute.String("cache_outcome", cacheOutcome),
 			attribute.String("outcome", outcomeValue(err)),
 		))
-	}
-}
-
-func (telemetry *Telemetry) StartArtifact(ctx context.Context, kind string) (context.Context, func(error)) {
-	artifactContext, span := telemetry.tracer.Start(ctx, SpanArtifact, trace.WithAttributes(
-		attribute.String("harden_llm.artifact.kind", boundedArtifactKind(kind)),
-	))
-	return artifactContext, func(err error) {
-		_, category := outcomeAndCategory(err)
-		setSpanStatus(span, err, category)
-		span.End()
-		telemetry.artifactOperations.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("store", "artifact"), attribute.String("operation", "put"),
-			attribute.String("outcome", outcomeValue(err)), attribute.String("kind", boundedArtifactKind(kind)),
-		))
-		if err != nil {
-			telemetry.persistenceFailures.Add(ctx, 1, metric.WithAttributes(
-				attribute.String("store", "artifact"), attribute.String("operation", "put"),
-			))
-		}
 	}
 }
 
@@ -385,16 +356,7 @@ func boundedCategory(value string) string {
 
 func boundedCostSource(value string) string {
 	switch value {
-	case "reported", "profile", "mixed", "unknown":
-		return value
-	default:
-		return "unknown"
-	}
-}
-
-func boundedArtifactKind(value string) string {
-	switch value {
-	case "trace", "parse-failure-response", "diagnostic-event":
+	case "reported", "connection", "mixed", "unknown":
 		return value
 	default:
 		return "unknown"

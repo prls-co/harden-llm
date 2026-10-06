@@ -10,16 +10,16 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
                           arguments ++
                             [
                               "--ignore-certificate-errors",
-                              "--host-resolver-rules=MAP app.smoke.localhost 127.0.0.1, MAP portal.smoke.localhost 127.0.0.1, MAP api.smoke.localhost 127.0.0.1, MAP grafana.smoke.localhost 127.0.0.1, MAP artifacts.smoke.localhost 127.0.0.1"
+                              "--host-resolver-rules=MAP app.smoke.localhost 127.0.0.1, MAP portal.smoke.localhost 127.0.0.1, MAP api.smoke.localhost 127.0.0.1, MAP grafana.smoke.localhost 127.0.0.1"
                             ]
                         end)
   @sessions [[capabilities: @compose_capabilities]]
 
   alias Wallaby.Query
 
-  import HardenLlmWeb.BrowserFeatureCase, only: [sign_in_shared_login: 3, stage_secret: 4]
+  import HardenLlmWeb.BrowserFeatureCase, only: [sign_in_shared_login: 3]
 
-  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-012 TEST-055
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-012
 
   setup do
     root = Path.expand("../../..", __DIR__)
@@ -65,19 +65,17 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
     {:ok, fixture: fixture, root: root}
   end
 
-  feature "HLLM product preserves browser, routing, recovery, and telemetry invariants", %{
+  feature "the reference workspace sends a Responses request and records shared history", %{
     session: session,
     fixture: fixture,
     root: root
   } do
-    provider_secret = "compose-provider-secret-must-never-escape"
-
     session =
       session
       |> resize_window(1_440, 900)
       |> visit(fixture["web_url"] <> "/")
       |> sign_in_shared_login(fixture["login_email"], fixture["login_password"])
-      |> assert_has(Query.css("#backend-status", text: "Backend ready"))
+      |> assert_has(Query.css("#proxy-status", text: "Proxy reachable"))
       |> assert_live_socket_connected()
 
     assert String.starts_with?(current_url(session), "https://app.smoke.localhost:")
@@ -86,33 +84,15 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
 
     session =
       session
-      |> visit(fixture["web_url"] <> "/profiles")
-      |> assert_has(Query.css("#profiles-page"))
-      |> click(Query.css("#new-profile"))
-      |> fill_in(Query.css("#profile_profileId"), with: "Smoke")
-      |> fill_in(Query.text_field("Provider family"), with: "openai")
-      |> choose_option("#profile_apiInferenceType", "responses")
-      |> fill_in(Query.text_field("Model ID"), with: "smoke-model")
-      |> fill_in(Query.fillable_field("Base URL"), with: "https://fake-provider:8443/v1")
-      |> fill_in(Query.text_field("Credential ID"), with: "compose-smoke-provider")
-      |> stage_secret("#profile_apiKey", "#stage-profile-key", provider_secret)
-      |> assert_text("New key staged for save")
-      |> click(Query.css("#profile-save"))
-      |> assert_has(Query.css("#profile-Smoke", text: "Smoke"))
-      |> visit(fixture["web_url"] <> "/")
-      |> assert_has(Query.css("#backend-status", text: "Backend ready"))
-      |> click(Query.css("#model-config-toggle"))
-      |> assert_has(Query.css("#model-options"))
-      |> click(Query.css("#profile-retry-toggle"))
-      |> assert_has(Query.css("#profile-retry-repair"))
-      |> assert_has(Query.css("#profile-escalation-config-toggle", count: 0, visible: :any))
-      |> choose_option("#run_selectedProfileId", "Smoke")
+      |> assert_has(Query.css("#available-models option[value='smoke-model']", visible: :any))
+      |> fill_in(Query.css("#run_model"), with: "smoke-model")
       |> fill_in(Query.css("#run_userPrompt"), with: "return the compose smoke response")
       |> click(Query.css("#run-submit"))
-      |> assert_has(Query.css("#run-output", text: "smoke-ok"))
+      |> assert_has(Query.css("#current-result", text: "smoke-ok"))
+      |> assert_has(Query.css("#shared-history article[id^='history-']", text: "smoke-model"))
 
-    {run_id, domain_trace_id} = result_ids(session)
-    assert run_id != ""
+    {execution_id, domain_trace_id} = execution_trace_ids(session)
+    assert execution_id != ""
     assert domain_trace_id != ""
 
     resources =
@@ -123,7 +103,6 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
 
     refute Enum.any?(resources, &String.contains?(&1, "api.smoke.localhost"))
     refute Enum.any?(resources, &String.contains?(&1, "/api/v1/"))
-    refute page_source(session) =~ provider_secret
     refute page_source(session) =~ fixture["login_password"]
 
     telemetry = assert_telemetry!(fixture, domain_trace_id)
@@ -133,9 +112,9 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
     assert telemetry.prometheus =~ "harden_llm_web_api_requests"
     assert telemetry.grafana =~ "harden_llm_web_api_requests"
 
-    refute telemetry.tempo =~ provider_secret
-    refute telemetry.loki =~ provider_secret
-    refute telemetry.grafana =~ provider_secret
+    refute telemetry.tempo =~ fixture["login_password"]
+    refute telemetry.loki =~ fixture["login_password"]
+    refute telemetry.grafana =~ fixture["login_password"]
 
     logs = compose!(fixture, root, ["logs", "--no-color", "--tail", "300"])
 
@@ -149,7 +128,7 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
         "cat /var/log/harden-llm-web/app.jsonl"
       ])
 
-    for secret <- [provider_secret, fixture["login_password"]] do
+    for secret <- [fixture["login_password"]] do
       refute logs =~ secret
       refute web_logs =~ secret
       refute inspect(cookies(session)) =~ secret
@@ -162,7 +141,7 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
       session
       |> visit(fixture["web_url"] <> "/")
       |> assert_has(Query.css("#workspace-page"))
-      |> assert_has(Query.css("#backend-status", text: "Backend unavailable"))
+      |> assert_has(Query.css("#proxy-status", text: "Proxy unavailable"))
 
     _output =
       compose!(fixture, root, [
@@ -177,7 +156,7 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
 
     session
     |> visit(fixture["web_url"] <> "/")
-    |> assert_has(Query.css("#backend-status", text: "Backend ready"))
+    |> assert_has(Query.css("#proxy-status", text: "Proxy reachable"))
     |> assert_live_socket_connected()
   end
 
@@ -217,7 +196,7 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
         end
       end)
 
-    loki_query = ~s({service_name="harden-llm-web"} |= "backend operation completed")
+    loki_query = ~s({service_name="harden-llm-web"} |= "OpenAI request completed")
 
     loki =
       eventually!(60_000, fn ->
@@ -227,14 +206,14 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
             "http://loki:3100/loki/api/v1/query_range?limit=200&direction=backward&query=#{URI.encode_www_form(loki_query)}"
           )
 
-        if body =~ otel_trace_id and body =~ "backend operation completed",
+        if body =~ otel_trace_id and body =~ "OpenAI request completed",
           do: {:ok, body},
           else: :retry
       end)
 
     # The shared Collector exporter intentionally uses
     # UnderscoreEscapingWithoutSuffixes, so OTLP counter names omit `_total`.
-    metric_query = ~s(harden_llm_web_api_requests{operation="run",outcome="success"})
+    metric_query = ~s(harden_llm_web_api_requests{operation="/v1/responses",outcome="success"})
 
     prometheus =
       eventually!(60_000, fn ->
@@ -320,7 +299,7 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
     end
   end
 
-  defp result_ids(session) do
+  defp execution_trace_ids(session) do
     javascript_value(
       session,
       """
@@ -336,23 +315,10 @@ defmodule HardenLlmWeb.ComposeSmokeTest do
           return text;
         }
       };
-      return {runId: value("run_id"), traceId: value("trace_id")};
+      return {executionId: value("execution_id"), traceId: value("trace_id")};
       """
     )
-    |> then(fn result -> {result["runId"], result["traceId"]} end)
-  end
-
-  defp choose_option(session, selector, value) do
-    execute_script(
-      session,
-      """
-      const select = document.querySelector(arguments[0]);
-      select.value = arguments[1];
-      select.dispatchEvent(new Event("input", {bubbles: true}));
-      select.dispatchEvent(new Event("change", {bubbles: true}));
-      """,
-      [selector, value]
-    )
+    |> then(fn result -> {result["executionId"], result["traceId"]} end)
   end
 
   defp assert_live_socket_connected(session) do

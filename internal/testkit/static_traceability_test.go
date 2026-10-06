@@ -78,7 +78,7 @@ func TestTraceability(t *testing.T) {
 	phaseIDs := map[string][]string{
 		"P00": {"TEST-001", "TEST-002", "TEST-003", "TEST-004", "TEST-005"},
 		"P01": {"TEST-006", "TEST-007", "TEST-008", "TEST-009", "TEST-010", "TEST-011"},
-		"P02": {"TEST-012", "TEST-013", "TEST-014", "TEST-015", "TEST-016", "TEST-017", "TEST-018", "TEST-019"},
+		"P02": {"TEST-012", "TEST-013", "TEST-014", "TEST-015", "TEST-016", "TEST-019"},
 		"P03": {"TEST-020", "TEST-021", "TEST-022", "TEST-040"},
 		"P04": {"TEST-023", "TEST-024", "TEST-025", "TEST-026", "TEST-027"},
 		"P05": {"TEST-028", "TEST-029", "TEST-030", "TEST-031", "TEST-032"},

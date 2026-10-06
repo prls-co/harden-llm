@@ -1,154 +1,68 @@
 # Harden LLM
 
-Harden LLM is a provider-neutral Go library plus a thin, self-hosted REST
-gateway and optional Phoenix LiveView operations console. It preserves the
-certified `utility-llm` retry, schema, cache, provider, usage, and diagnostic
-contracts while replacing Firebase persistence with dedicated Postgres and
-shared Garage object storage.
+Harden LLM is an OpenAI-compatible hardening proxy and a small Phoenix reference
+application. The gateway exposes `/v1/models`, `/v1/chat/completions`, and
+`/v1/responses`; its inference API is stateless and owns no login, profile,
+history, or product database. The reference application uses shared PRLS login
+for access, records its own calls in PostgreSQL, and shares that history across
+all enabled logins.
+
+The incoming API bearer is `HARDEN_LLM_TOKEN`, stored in the ignored root
+`.env`. `CPA_API_KEY` is used only by the gateway for its configured upstream.
+The checked-in connection example is [`config/upstreams.example.json`](config/upstreams.example.json).
+See [the API contract](api/openapi.yaml), [architecture](docs/architecture.md),
+and [self-hosting guide](docs/self-hosting.md).
 
 ## Repository map
 
-- Root `*.go`: public `hardenllm` library and its single `Client.Call` path.
-- `cmd/harden-llm-gateway/`: production process, healthcheck, and explicit
-  local-owner rehoming before removing the retired identity tables.
-- `internal/`: providers, runtime, persistence, gateway, telemetry, and tests.
-- `internal/profiles/default-profile-catalog.json`: current 28-profile utility-llm preset seed; credentials are never included.
-- `api/openapi.yaml`: authoritative OpenAPI 3.1 REST contract.
-- `frontend/`: independent Phoenix/LiveView REST client; no database or provider SDK.
-- `deploy/` and `docker-compose.yml`: pinned single-host deployment artifacts.
-- `fixtures/parity/`: source-SHA-pinned deterministic compatibility fixtures.
-- `docs/`: architecture, operations, API examples, traceability, and ADRs.
+- Root Go package: portable hardening client with one execution engine.
+- `cmd/harden-llm-gateway/`: stateless OpenAI-compatible HTTP gateway.
+- `internal/`: provider transports, recovery, cache, API codecs, telemetry, and tests.
+- `api/openapi.yaml`: authoritative gateway contract and Go/Phoenix boundary.
+- `frontend/`: independent Phoenix reference application and its history store.
+- `deploy/` and `docker-compose.yml`: deployment and isolated test topologies.
+- `plans/from_utility-llm/`: canonical Go, API, frontend, and test specifications.
+- `docs/`: operating instructions, ownership, and retained release evidence.
 
-See [architecture and ownership](docs/architecture.md) for the runtime boundaries.
+## Development and tests
 
-## Development and certification
-
-Go 1.26.6, Node 22, Docker, and Compose are required.
+Use `make test-fast` as the repeated edit-test loop. It runs offline, credential-
+free Go, static/parity, Phoenix/LiveViewTest, and plain Node checks. It does not
+start Docker, Chromium, or an LLM provider.
 
 ```bash
-make build                 # compile every Go package
-make test-unit             # deterministic Go tests
-make test-parity           # fixture integrity and compatibility contracts
-make test-integration      # isolated Postgres and Garage integration tests
-make test-compose          # correlated smoke using isolated Garage fixtures
-make verify                # format, vet, build, tests, race, and govulncheck
+make test-fast
+make verify                 # Go verification; Docker required for integration slices
+make test-release           # browser-free release certification; Docker required
 ```
 
-### Test feedback hierarchy
+Frontend deterministic tests use the Elixir and OTP versions pinned in
+`frontend/mix.exs`. Browser and browser-containing Compose tests are explicit
+opt-ins and require a direct browser-testing request. Live provider calls are
+separate opt-in evidence.
 
-Follow the reusable [LiveView and Go testing guidelines](docs/liveview-go-testing-guidelines.md)
-for the three practical levels: fast browser-free tests, optional DOM adapter
-tests, and explicitly requested browser checks. Copy the entire guide to another
-repository and use its ready-to-paste `AGENTS.md` block. This repository's T0-T5
-mapping stays in [ADR-HLLM-015](docs/adr/ADR-HLLM-015-parallel-test-feedback-hierarchy.md).
+See [`docs/liveview-go-testing-guidelines.md`](docs/liveview-go-testing-guidelines.md)
+for test-tier selection and [`test/test-tiers.json`](test/test-tiers.json) for
+the repository task graph.
 
-Use `make test-fast` as the repeated edit-test loop. It runs the broad T0-T2
-checks in parallel: default-tag Go/static/parity work, deterministic
-Phoenix/LiveViewTest, and the pure client-core Node tests. It is offline and
-credential-free and does not start Docker, Chromium, or a live provider.
+## Self-hosted setup
 
-Choose a higher tier only for the boundary it owns: `make test-integration`
-for pooled real Postgres/Garage and race work, `make test-browser` for the two
-explicitly requested native-browser canaries, and `make test-release` for the
-browser-free release candidate including backend Compose certification. Live
-provider checks remain explicitly authorized and separate. If a T3-T5 defect
-is found, add a cheap T0-T2 regression for the root invariant whenever that is
-representable; keep the expensive test for its distinct environment fact.
+Copy `.env.example` to `.env`, preserve it as a private mode-0600 file, and set
+the incoming token, CPA key, absolute path to a connection JSON file, database
+password, hostnames, and existing Control Plane/Portal settings. Keep provider
+credentials in environment variables; the connection JSON stores only an
+environment-variable name. Follow [the self-hosting guide](docs/self-hosting.md)
+for migrations, startup, and browser-free HTTP checks.
 
-The canonical policy is [`test/test-tiers.json`](test/test-tiers.json), and the
-canonical scheduler is [`scripts/run-test-tier.mjs`](scripts/run-test-tier.mjs).
-Make and CI delegate to them rather than maintaining another task list.
+OpenAI-compatible clients use the API origin as their base URL with the same
+`HARDEN_LLM_TOKEN` value. For example, an SDK should use
+`https://harden-llm-api.prls.co/v1`; it does not need a Harden-specific request
+wrapper for supported OpenAI fields. See [API and Go library examples](docs/api-and-library.md)
+for request examples and the supported subset.
 
-The reusable numbered pagination ownership and consumer contract is documented
-in [`docs/reusable-pagination.md`](docs/reusable-pagination.md).
+## Current implementation plan
 
-`make verify` intentionally excludes `frontend/` and live provider credentials.
-The frontend has its own pinned Mix gates in [frontend/README.md](frontend/README.md).
-
-## Self-hosted quick start
-
-1. Copy `.env.example` to `.env`, replace each placeholder independently, and
-   point the API, web, and Grafana hostnames at the Docker host. Set
-   the artifact external endpoint to the matching route owned by shared Caddy.
-2. Validate and start the full product:
-
-```bash
-docker compose \
-  -f docker-compose.yml \
-  -f deploy/frontend/compose.frontend.yml \
-  config --quiet
-docker compose \
-  -f docker-compose.yml \
-  -f deploy/frontend/compose.frontend.yml \
-  up -d --build --wait --wait-timeout 300
-```
-
-3. Create the operator account and grant Harden LLM access in the shared PRLS
-   Control Plane. Harden LLM does not create or store human accounts or
-   passwords. Its Phoenix frontend keeps a separate encrypted host-only
-   session cookie and asks the Control Plane to resolve current access.
-
-The shared Caddy deployment in `prls-co/caddy-shared` owns public HTTP/S
-ports. Harden-LLM Compose publishes no host ports; its APIs, data stores, and
-telemetry stay on their private/shared Docker networks. Review the
-[environment reference](docs/environment.md) when configuring the application
-and keep the public artifact origin aligned with the shared Caddy route.
-
-## Structured CLI smoke test
-
-The current production `CurlStructured` profile routes through CPA at
-`https://cpa.prls.co/v1` with model `gpt-5.6-luna`. For an authorized machine
-request, use a protected service token whose configured user ID is the
-intended owner. Construct the JSON body separately so line breaks cannot
-corrupt the request:
-
-```fish
-set API https://harden-llm-api.prls.co
-set HARDEN_API_TOKEN (sed -n 's/^HARDEN_LLM_STATIC_TOKEN=//p' .env)
-
-set REQUEST_BODY (jq -nc '
-  {
-    profileId: "CurlStructured",
-    userPrompt: "Joke about yourself.",
-    callType: "structured",
-    schema: {
-      type: "object",
-      properties: {
-        setup: {type: "string"},
-        punchline: {type: "string"}
-      },
-      required: ["setup", "punchline"],
-      additionalProperties: false
-    }
-  }
-')
-
-curl --fail-with-body -sS "$API/api/v1/run" \
-  -H "Authorization: Bearer $HARDEN_API_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d "$REQUEST_BODY" \
-  | jq -c '.result.output'
-```
-
-Replace `API` when testing another deployment. Machine API access is enabled
-only when `HARDEN_LLM_STATIC_TOKEN_USER_ID` is configured to the intended
-Control Plane user. Rotate the token to revoke that machine credential.
-
-## Contracts and provenance
-
-- [API and library examples](docs/api-and-library.md)
-- [Requirements traceability](docs/requirements-traceability.md)
-- [Release certification](docs/release-certification.md)
-- [Development and branch preview environments](docs/preview-environments.md)
-- [Parallel test feedback hierarchy plan](plans/from_utility-llm/harden-llm-parallel-test-feedback-plan.md)
-- [Proxy and reference application simplification plan](plans/proxy-and-reference-app-simplification-plan.md) (implementation in progress)
-- [Reusable pagination implementation plan](plans/reusable-pagination-implementation-plan.md)
-- [Pagination hardening and compact UX plan](plans/pagination-hardening-and-compact-ux-plan.md)
-- [Production configuration reproducibility plan](plans/production-configuration-reproducibility-plan.md)
-- [REST-first recovery, progress, and diagnostics implementation plan](plans/rest-recovery-and-progress-implementation-plan.md)
-- [utility-llm frontend parity inventory](docs/utility-llm-frontend-parity-inventory.md)
-- [Langfuse retirement decision](docs/adr/ADR-HLLM-029-retire-langfuse.md)
-- [Architecture decisions](docs/adr/README.md)
-
-Live provider calls are opt-in release evidence only. Deterministic acceptance
-never requires paid credentials or network access to an LLM provider.
+[`plans/proxy-and-reference-app-simplification-plan.md`](plans/proxy-and-reference-app-simplification-plan.md)
+tracks the coordinated profile-free proxy, Phoenix reference store, and
+deployment cutover. Older ADRs and release reports remain historical records;
+the current ownership and API contract are defined by OpenAPI and that plan.

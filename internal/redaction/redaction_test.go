@@ -29,7 +29,7 @@ func TestSharedRedactorHandlesEmbeddedAndMalformedInputs(t *testing.T) {
 	}
 
 	content, err := New().JSON([]byte(`{
-		"systemPrompt":"do not expose", "response":"private output",
+		"systemPrompt":"do not expose", "response":"private output", "provider_response":"upstream text",
 		"rawProviderEnvelope":{"safe":false}, "baseURL":"https://example.test/private",
 		"responseStatusCode":200, "safe":"visible"
 	}`))
@@ -40,7 +40,7 @@ func TestSharedRedactorHandlesEmbeddedAndMalformedInputs(t *testing.T) {
 	if err := json.Unmarshal(content, &contentValue); err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{"systemPrompt", "response", "rawProviderEnvelope", "baseURL"} {
+	for _, key := range []string{"systemPrompt", "response", "provider_response", "rawProviderEnvelope", "baseURL"} {
 		if contentValue[key] != Replacement {
 			t.Errorf("content field %s = %#v, want redacted", key, contentValue[key])
 		}

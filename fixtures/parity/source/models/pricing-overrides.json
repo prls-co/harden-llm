@@ -1,4 +1,22 @@
 {
+  "cpa/gpt-5.6-luna": {
+    "priceAliasOf": "gpt-5.6-luna"
+  },
+  "cpa/gpt-5.6-sol": {
+    "priceAliasOf": "gpt-5.6-sol"
+  },
+  "cpa/gpt-6-astra": {
+    "priceAliasOf": "gpt-6-astra"
+  },
+  "cpa/gpt-6-luna": {
+    "priceAliasOf": "gpt-6-luna"
+  },
+  "cpa/gpt-6-sol": {
+    "priceAliasOf": "gpt-6-sol"
+  },
+  "cpa/gpt-6.1-sol": {
+    "priceAliasOf": "gpt-6.1-sol"
+  },
   "gpt-5.4": {
     "input_cost_per_token": 0.0000025,
     "output_cost_per_token": 0.000015
