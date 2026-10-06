@@ -23,6 +23,15 @@ defmodule HardenLlm.ReferenceIntegrationTest do
     {:ok, conn: authenticated_conn(conn)}
   end
 
+  # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-411 WEB-TEST-117
+  test "release migration is repeatable while the application is already loaded" do
+    assert Enum.any?(Application.loaded_applications(), fn {app, _description, _version} ->
+             app == :harden_llm
+           end)
+
+    assert {:ok, _repo_pid, []} = HardenLlm.Release.migrate()
+  end
+
   test "one global call row powers shared listing, statistics, redaction, and download", %{
     conn: conn
   } do

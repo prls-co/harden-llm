@@ -1455,7 +1455,7 @@ Harden-LLM gateway.
 
 ## 25. OpenAI proxy and reference history transition
 
-REQ-400–415 are defined in the implementation-plan amendment. TEST-400–410 are new IDs; each test file uses this specification ID and its TEST ID. Frontend cases also use WEB-TEST-114–116.
+REQ-400–415 are defined in the implementation-plan amendment. TEST-400–411 are active IDs; each test file uses this specification ID and its TEST ID. Frontend cases also use WEB-TEST-114–117.
 
 | ID | Type / owner | Command | Acceptance oracle |
 | --- | --- | --- | --- |
@@ -1470,5 +1470,6 @@ REQ-400–415 are defined in the implementation-plan amendment. TEST-400–410 a
 | TEST-408 | Static; config/cutover | `node --test scripts/test/proxy_reference_cutover_test.mjs` | Synthetic one-token/connection config; old routes/profile keys absent; clean-cut excludes unrelated sentinel. |
 | TEST-409 | Integration; Compose smoke | `node scripts/run-test-tier.mjs --task go-compose` | Gateway/Phoenix work with synthetic upstream/real SQL; direct calls leave history empty; cleanup succeeds; no browser/provider. |
 | TEST-410 | Unit; Compose log-query contract | `go test ./internal/smoke -run '^TestLokiCorrelatedResponseLog$' -count=1` | A log is accepted only when the same Loki stream carries the expected OpenTelemetry trace ID and `/v1/responses` route with a completed-request message; malformed and split-stream results reject. |
+| TEST-411 | Integration; Phoenix release migration | `node scripts/run-test-tier.mjs --task frontend-reference-integration` | The production release migration succeeds when the Phoenix application is already loaded and reports no pending migrations after integration setup creates the schema. No provider, browser or production data is used. |
 
 `test/fixtures/proxy-reference-contract.json` is sanitized from checked-in CPA Chat/Responses fixtures; it contains no credentials/user data/live responses.
