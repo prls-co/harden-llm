@@ -4,7 +4,6 @@ defmodule HardenLlm.Release do
   @app :harden_llm
 
   def migrate do
-    :ok = Application.load(@app)
     migrations_path = Application.app_dir(@app, "priv/repo/migrations")
 
     {:ok, _, _} =
