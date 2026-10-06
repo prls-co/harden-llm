@@ -1069,7 +1069,7 @@ Unverified boundaries:
 Phase ID: P00
 Phase Status: Done
 Completed Steps: P00.S01–P00.S03
-Source/configuration checkpoint: branch `feat/openai-proxy-shared-reference`; contract fixture SHA-256 `51c444eb4c4acf1679374e76bfd781490f6bde31d60f84fb3bcbfec510b5372d`; task manifest SHA-256 `be5b4b1863cb75c4db688b81b6a0c6f2e808d60d73a3d4fcb4de272b15751b5f`; P00 commit SHA is recorded after commit.
+Source/configuration checkpoint: branch `feat/openai-proxy-shared-reference`; P00 contract/spec checkpoint commit `4e85ce1`; contract fixture SHA-256 `51c444eb4c4acf1679374e76bfd781490f6bde31d60f84fb3bcbfec510b5372d`; task manifest SHA-256 `be5b4b1863cb75c4db688b81b6a0c6f2e808d60d73a3d4fcb4de272b15751b5f`.
 Commands and evidence: `node --test scripts/test/proxy_reference_contract_test.mjs` passed (1/1); `node scripts/verify-test-tiers.mjs` accepted (10 fast tasks); `make test-static` passed; pinned-toolchain `make test-fast` accepted (10/10 tasks, no failures or cleanup warnings).
 Quantitative Results: TEST-400 1/1; 10 fast tasks accepted; no statistical measurement applies to deterministic contract checks.
 Issues/Resolutions: The existing backend source-boundary guard forbids frontend framework names in Go/Node backend source. The contract test obtains its frontend spec path from the JSON fixture, preserving cross-spec assertions without weakening the guard.
