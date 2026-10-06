@@ -1883,3 +1883,28 @@ retired historical publisher check; ADR-HLLM-028 and
 | ADR | Status | Decision trigger |
 | --- | --- | --- |
 | ADR-HLLM-027 | Accepted for test-harness implementation | Local daemon ownership, bounded test resource accounting, or an evidence-backed capacity remedy is introduced; production SLO and architecture migration remain separate decisions. |
+
+## OpenAI proxy and reference ownership amendment (2026-10-06)
+
+ADR-HLLM-031/032 supersede conflicting profile requests/routes/per-login data; earlier evidence remains historical. `api/openapi.yaml` is the Go/Phoenix boundary.
+
+| Requirement | Acceptance |
+| --- | --- |
+| REQ-400 | No saved profiles, CRUD, IDs, presets or provisioning. Requests select configured connection and native model. |
+| REQ-401 | One startup client; no per-owner factories/context adapters. |
+| REQ-402 | One engine preserves hardening, explicit recovery, cancellation/accounting; no implicit model fallback. |
+| REQ-403 | /v1/models, /v1/chat/completions, /v1/responses replace /api/v1/run. |
+| REQ-404 | Supported ordered conversations/tool IDs survive codecs and recovery; output/error/SSE are standard. |
+| REQ-405 | SSE emits final validated results; all requests/results/diagnostics are bounded. |
+| REQ-406 | Optional connection-scoped cache; disabled mode has no DB dependency. |
+| REQ-407 | Only Phoenix submissions record once after publishing; save errors never replay. |
+| REQ-408 | New history is shared; direct API calls are excluded; missing accounting remains unknown. |
+| REQ-409 | Gateway uses only `HARDEN_LLM_TOKEN` and has no user owner. |
+| REQ-410 | Session/component drafts retain ordering without per-user datasets. |
+| REQ-411 | Restore never executes; canonical results power downloads; raw documents retire. |
+| REQ-412 | Authorized clean cut removes active incompatible HLLM data; new shared history starts empty. |
+| REQ-413 | Cache-disabled proxy needs no product DB/Phoenix/Control Plane; Repo failure does not block inference. |
+| REQ-414 | Offline tests, SQL tests and browser-free release retain separate tiers. |
+| REQ-415 | One token/config path and no legacy route deploy under exact image/config identity. |
+
+Replace the system/user prompt pair with one ordered request. Both codecs call the same engine. Client base URL is the HLLM origin plus /v1; `CPA_API_KEY` remains upstream-only.

@@ -62,7 +62,7 @@
     },
     {
       "id": "go-static",
-      "testIds": ["TEST-004", "TEST-062", "TEST-233", "TEST-234", "TEST-260", "TEST-268", "TEST-280"],
+      "testIds": ["TEST-004", "TEST-062", "TEST-233", "TEST-234", "TEST-260", "TEST-268", "TEST-280", "TEST-400", "TEST-408"],
       "tier": "T0",
       "resourceClass": "cpu",
       "command": ["make", "test-static"],
@@ -128,7 +128,11 @@
         "TEST-278",
         "TEST-282",
         "TEST-284",
-        "TEST-289"
+        "TEST-289",
+        "TEST-401",
+        "TEST-402",
+        "TEST-403",
+        "TEST-404"
       ],
       "tier": "T1",
       "resourceClass": "cpu",
@@ -293,8 +297,24 @@
       "pathSelectors": ["internal/observability/**", "internal/gateway/**", "go.mod", "go.sum"]
     },
     {
+      "id": "frontend-reference-integration",
+      "testIds": ["TEST-407", "WEB-TEST-116"],
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": ["mix", "test", "--only", "database", "test/harden_llm/reference_integration_test.exs"],
+      "workingDirectory": "frontend",
+      "dependsOn": [],
+      "timeoutMs": 300000,
+      "cleanupOwner": "runner",
+      "network": "local-only",
+      "credentialKeys": [],
+      "requiredFor": ["release", "integration-pool"],
+      "servicePool": {"file": "deploy/test/compose.integration.yml", "services": [{"name": "harden-postgres"}]},
+      "pathSelectors": ["frontend/lib/harden_llm/**", "frontend/test/harden_llm/**", "frontend/priv/repo/**", "frontend/mix.exs", "deploy/test/compose.integration.yml"]
+    },
+    {
       "id": "go-compose",
-      "testIds": ["TEST-011"],
+      "testIds": ["TEST-011", "TEST-409"],
       "tier": "T4",
       "resourceClass": "release",
       "command": ["go", "test", "./internal/smoke/...", "-tags=compose", "-run", "TestComposeSmoke", "-count=1"],
@@ -451,7 +471,11 @@
         "WEB-TEST-110",
         "WEB-TEST-111",
         "WEB-TEST-112",
-        "WEB-TEST-113"
+        "WEB-TEST-113",
+        "TEST-405",
+        "TEST-406",
+        "WEB-TEST-114",
+        "WEB-TEST-115"
       ],
       "tier": "T1",
       "resourceClass": "cpu",

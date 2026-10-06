@@ -1,6 +1,6 @@
 services:
   harden-postgres:
-    image: postgres:17.6-alpine
+    image: postgres:17.9-alpine@sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609
     environment:
       POSTGRES_DB: harden_llm_test
       POSTGRES_PASSWORD: harden_test_password

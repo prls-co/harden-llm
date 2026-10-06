@@ -28,7 +28,7 @@ test-static: validate-loki-schema
 	$(GO) test ./internal/testkit/... -count=1
 	$(GO) test ./internal/integrationtest -run '^TestResourceReceipt' -count=1
 	$(NODE) scripts/verify-parity-fixtures.mjs
-	$(NODE) --test scripts/test/preview_policy_test.mjs scripts/test/shared_profiles_test.mjs scripts/test/production_config_test.mjs
+	$(NODE) --test scripts/test/preview_policy_test.mjs scripts/test/shared_profiles_test.mjs scripts/test/production_config_test.mjs scripts/test/proxy_reference_contract_test.mjs
 
 test-production-config:
 	$(NODE) --test scripts/test/production_config_compose_test.mjs

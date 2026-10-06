@@ -40,4 +40,4 @@ Application.put_env(:prls_web, :login_return_origins, [
 ])
 
 Application.put_env(:prls_web, :access_client, HardenLlmWeb.AccessFixtures)
-ExUnit.start(exclude: [:asset, :browser, :compose, :deployed])
+ExUnit.start(exclude: [:asset, :browser, :compose, :deployed, :database])

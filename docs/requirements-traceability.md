@@ -210,3 +210,24 @@ serialization, every-profile provider preparation, and concurrent first-use
 owner seeding. The source's paid all-profile execution is intentionally kept
 as opt-in live evidence; deterministic gates do not require provider
 credentials or network access.
+
+## Profile-free OpenAI proxy and shared reference history (2026-10-06)
+
+| Requirement | Owner | Verification |
+| --- | --- | --- |
+| REQ-400 Profiles removed | Go gateway/UI/config | TEST-400, TEST-401, TEST-408 |
+| REQ-401 Static runtime/targets | root client/gateway | TEST-401, TEST-402 |
+| REQ-402 Recovery/accounting | root runtime/retry | TEST-401 |
+| REQ-403 OpenAI routes | OpenAPI/gateway | TEST-400, TEST-403, TEST-409 |
+| REQ-404 Ordered tool conversations | root request/codecs | TEST-401, TEST-403 |
+| REQ-405 Final-only SSE/limits | gateway | TEST-403, TEST-409 |
+| REQ-406 Optional cache | Go cache | TEST-402, TEST-409 |
+| REQ-407 Frontend-only recording | Phoenix context | TEST-405–407, TEST-409 |
+| REQ-408 Shared new history | Phoenix context | TEST-405–407 |
+| REQ-409 Access/bearer auth | Phoenix and Go auth | TEST-404, TEST-405, TEST-409 |
+| REQ-410 Session/component drafts | Phoenix workspace | TEST-405–407 |
+| REQ-411 Restore/download | Phoenix views/context | TEST-405–406 |
+| REQ-412 Authorized HLLM clean cut | cutover | TEST-400, TEST-407–408 |
+| REQ-413 Store outage boundaries | Go startup/Phoenix Repo | TEST-402, TEST-404, TEST-407, TEST-409 |
+| REQ-414 Test hierarchy | test spec/runner | TEST-400, TEST-409 |
+| REQ-415 Coordinated release/config | production config/images | TEST-404, TEST-408–409 |

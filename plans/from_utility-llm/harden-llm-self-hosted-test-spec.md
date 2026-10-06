@@ -1507,3 +1507,22 @@ synthetic credentials, isolated stores, and a local scripted provider.
 - Deterministic controls: Local executor and cache fakes, fixed advancing clock, bounded deadline, no sleeps or network.
 - Pass criteria: Public `Execute` callback observations preserve simple and explicit path event order, preflight and nil-work differences, active stream plus completed-attempt counters, recovery stage/profile/reasoning identity, cache-hit events, deadline facts, per-call sequencing, copied attempts/accounting/timeouts, and no-callback behavior. Intentional path differences remain explicit.
 - Expected runtime: Under 1 second.
+
+## 25. OpenAI proxy and reference history transition
+
+REQ-400–415 are defined in the implementation-plan amendment. TEST-400–409 are new IDs; each test file uses this specification ID and its TEST ID. Frontend cases also use WEB-TEST-114–116.
+
+| ID | Type / owner | Command | Acceptance oracle |
+| --- | --- | --- | --- |
+| TEST-400 | Static; traceability | `node --test scripts/test/proxy_reference_contract_test.mjs` | Paths, extension, fixtures, requirements, tests and one task owner agree; SQL task selects only PostgreSQL. |
+| TEST-401 | Unit; root/provider | `go test . -run '^TestProxyRequestContract$' -count=1` | Ordered messages/tool results/native reasoning survive; recovery/accounting exact; no profile input or implicit model fallback. |
+| TEST-402 | Unit; gateway runtime/cache | `go test ./internal/gateway -run '^TestProfileFreeRuntime$' -count=1` | One startup client, scoped cache, no owner factory, disabled cache has no store access. |
+| TEST-403 | Unit; HTTP API | `go test ./internal/gateway/httpapi -run '^TestOpenAIContract$' -count=1` | Official SDK consumes local handlers/models/errors/final SSE; retries disabled; unsupported fields do not dispatch. |
+| TEST-404 | Unit; auth/startup | `go test ./cmd/harden-llm-gateway -run '^TestOpenAIAuthAndStartup$' -count=1` | Only HARDEN_LLM_TOKEN works; aliases/owner are gone; cache-disabled startup needs no DB. |
+| TEST-405 | Unit; Phoenix workflow | `cd frontend && mix test test/harden_llm_web/live/shared_workspace_test.exs` | Logins share new history; only frontend records after publish; access enforced; direct calls absent. |
+| TEST-406 | Unit; Phoenix context | `cd frontend && mix test test/harden_llm/reference_test.exs` | One row powers views/stats/downloads; accounting unknown stays unknown; drafts bounded/ordered. |
+| TEST-407 | Integration; PostgreSQL | `node scripts/run-test-tier.mjs --task frontend-reference-integration` | Real migrations/queries/constraints/timeout work; no replay. Task starts only harden-postgres. |
+| TEST-408 | Static; config/cutover | `node --test scripts/test/proxy_reference_cutover_test.mjs` | Synthetic one-token/connection config; old routes/profile keys absent; clean-cut excludes unrelated sentinel. |
+| TEST-409 | Integration; Compose smoke | `node scripts/run-test-tier.mjs --task go-compose` | Gateway/Phoenix work with synthetic upstream/real SQL; direct calls leave history empty; cleanup succeeds; no browser/provider. |
+
+`test/fixtures/proxy-reference-contract.json` is sanitized from checked-in CPA Chat/Responses fixtures; it contains no credentials/user data/live responses.

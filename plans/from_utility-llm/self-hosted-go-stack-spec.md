@@ -740,3 +740,7 @@ terminal. The same bounded status is preserved in REST, history, traces,
 telemetry and Phoenix. These additions are verified by TEST-223 through
 TEST-228 and WEB-TEST-076; they add no service, provider fallback, legacy
 reader, public setting or browser requirement.
+
+## OpenAI proxy ownership amendment (2026-10-06)
+
+ADR-HLLM-031/032 define the active bearer-only gateway and /v1/models, /v1/chat/completions and /v1/responses. One configured runtime; no history/profile routes. Cache stays optional and separate from Phoenix history. OpenAPI is the boundary. Conflicting historical profile CRUD, per-user gateway persistence, required identity lookup and /api/v1/run are superseded by REQ-400–415.

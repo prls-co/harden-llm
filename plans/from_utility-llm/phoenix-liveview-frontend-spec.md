@@ -757,3 +757,22 @@ Run deterministic Phoenix tests with `mix test`; TEST-022/TEST-024 prove real
 storage boundaries. Production HTTP acceptance separately proves direct login,
 private state markers, verification-token equivalence and logout revocation.
 Browser layout and paid-provider behavior require separate explicit opt-ins.
+
+## Shared history and OpenAI client amendment (2026-10-06)
+
+ADR-HLLM-031/032 replace the profile editor, per-login product data and custom run envelope. The workspace calls /v1/chat/completions or /v1/responses through OpenAPI. Its existing async task publishes an outcome then records once through one concrete Ecto Repo/context. All Control Plane-enabled logins share new history; direct API calls are never recorded. Repo failure preserves the result/form and reports history unavailable. Keep ordered session/component drafts; add no queue/task manager/per-user dataset. Reuse UI/styles. Retire raw-provider downloads and custom diagnostic SSE.
+
+The concrete frontend acceptance cases are:
+
+| ID | Boundary | Location and command | Acceptance |
+| --- | --- | --- | --- |
+| WEB-TEST-114 | Shared history and frontend-only dispatch | `test/harden_llm_web/live/shared_workspace_test.exs`; `mix test test/harden_llm_web/live/shared_workspace_test.exs` | Enabled logins observe the same newly recorded request and shared delete scope. One frontend submission publishes its outcome before making one bounded history insert. Insert failure leaves the outcome usable and does not redispatch. Direct API requests and caller-controlled origin values create no history row. |
+| WEB-TEST-115 | Canonical record views and ordered drafts | `test/harden_llm/reference_test.exs`; `mix test test/harden_llm/reference_test.exs` | One persisted record feeds history, statistics and canonical download; absent usage/cost remains unknown. Drafts are bounded, ordered, scoped by trusted session identity plus component namespace, and survive reload without a profile dependency. |
+| WEB-TEST-116 | PostgreSQL reference boundary | `test/harden_llm/reference_integration_test.exs`; `node scripts/run-test-tier.mjs --task frontend-reference-integration` | Real migrations and queries enforce one record per submission, shared list/delete behavior, ordered draft updates and bounded failure behavior. No provider, browser or production data is used. |
+
+These cases are part of TEST-405, TEST-406 and TEST-407 respectively. The
+authorized data transition is a clean cut: old HLLM-owned profile, credential,
+per-login history, trace and artifact data is removed; no old record is
+reclassified, imported or read through a compatibility path. Shared history
+starts empty. This amendment supersedes the profile workflow, frontend domain
+storage and personal-history behavior described in earlier sections.

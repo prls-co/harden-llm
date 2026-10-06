@@ -141,6 +141,7 @@ Control Plane user. Rotate the token to revoke that machine credential.
 - [Release certification](docs/release-certification.md)
 - [Development and branch preview environments](docs/preview-environments.md)
 - [Parallel test feedback hierarchy plan](plans/from_utility-llm/harden-llm-parallel-test-feedback-plan.md)
+- [Proxy and reference application simplification plan](plans/proxy-and-reference-app-simplification-plan.md) (implementation in progress)
 - [Reusable pagination implementation plan](plans/reusable-pagination-implementation-plan.md)
 - [Pagination hardening and compact UX plan](plans/pagination-hardening-and-compact-ux-plan.md)
 - [Production configuration reproducibility plan](plans/production-configuration-reproducibility-plan.md)
