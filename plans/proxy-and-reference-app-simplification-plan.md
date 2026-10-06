@@ -1,11 +1,12 @@
 # 1. Harden-LLM proxy and reference application simplification
 
 - Project: Harden-LLM.
-- Version: 6; implementation in progress, P00 complete.
+- Version: 6; implementation complete, P00–P05 done.
 - Owners: repository maintainer for scope; Go maintainer for inference; Phoenix maintainer for reference data; deployment operator for cutover. These are existing responsibilities.
 - Date: 2026-10-06.
 - Document ID: `PLAN-HLLM-PROXY-REFERENCE-001`.
 - Source baseline: `main`, `754690c8d0890c664d69fbdf526b16b3e5601060`.
+- Implementation source: `main`, `9a21f8da8adcd60ddb8a8ef18e9c3f9694eb99f0`; PRs `#97` and `#98`.
 - Policy: [AGENTS.md](../AGENTS.md) and [LiveView/Go testing guidelines](../docs/liveview-go-testing-guidelines.md).
 
 Make Harden-LLM an OpenAI-compatible hardening proxy, with the same core inference API shapes used by CPA. Remove profiles, make human logins access-only, and keep shared history of frontend calls inside the Phoenix reference application. Standard clients use a Harden-LLM base URL and bearer token; optional request extensions expose hardening controls. This is a coordinated breaking change with one execution engine and one configuration path. Implementation, pushing, production promotion and the HLLM-only clean cut are authorized by the maintainer. Browser testing remains opt-in under `AGENTS.md`; the release suite must not make paid-provider calls.
@@ -27,7 +28,7 @@ Make Harden-LLM an OpenAI-compatible hardening proxy, with the same core inferen
 | Migration | DECISION | Start shared history empty. Remove incompatible HLLM-owned profiles, credentials, per-login histories, traces and artifacts during the coordinated cutover. No import, archive workflow, runtime migration subsystem or compatibility reader. |
 | Tests | FOR | Reuse Go, ExUnit/LiveViewTest, plain Node and the existing PostgreSQL service pool. No extra Compose topology, transport benchmark framework or repeated suites just to populate reports. |
 
-Implementation has replaced the custom run route and profile-backed request model with the documented `/v1` endpoints, a single startup connection, and Phoenix-owned shared history. Local `.env` was updated to the canonical variable names while preserving the existing incoming token and CPA upstream key; values were not printed. Focused checks are in progress. Full browser-free release gates, production deployment and public HTTP acceptance remain pending, and token presence alone is not a live authentication test.
+Implementation replaced the custom run route and profile-backed request model with the documented `/v1` endpoints, one startup connection, and Phoenix-owned shared history. PRs `#97` and `#98` are merged to `main`; the exact source is deployed to production and its browser-free acceptance is recorded in [release certification](../docs/release-certification.md). The API token in this checkout's `./.env` is the incoming production bearer token; the environment-backed CPA key remains upstream-only. The clean cut removed the incompatible HLLM-owned data and started shared history empty. Browser layout, interactive Portal login, and live-provider inference were not checked. The old artifact hostname still reaches externally owned shared ingress and returns `403`; HLLM removed its bucket and key but did not change that external route.
 
 ## 3. PRD / stakeholder and system needs
 
@@ -670,6 +671,7 @@ Plan-and-Solve subtasks:
   - Verification: Hosted deterministic and release jobs; exact remote SHA check.
   - Stop condition: A failing required check, unexpected unrelated diff, or branch/source identity mismatch.
   - Unlocks: P05.S02.
+  - Outcome: Done — PR `#97` merged as `009051c2c2fb88187526eea361da0bfbe2a3f776`; PR `#98` fixed and merged the release-migration regression as `9a21f8da8adcd60ddb8a8ef18e9c3f9694eb99f0`. Hosted main CI run `37541848393`, CodeQL run `37541847295`, and browser-free release run `37541927798` all passed on the exact final SHA.
 
 - `P05.S02 Build and reconcile the exact production candidate`
   - Action: Build affected application images from the merged SHA. The changed Phoenix source invalidates the release-build layer and assembles a new default Mix cookie; compare its private fingerprint with the running release before applying. Run the production configuration check against the exact candidate and review redacted service/image/config differences before any apply.
@@ -677,6 +679,7 @@ Plan-and-Solve subtasks:
   - Verification: Existing image/source identity and candidate-aware production configuration gates.
   - Stop condition: Image SHA, config, secret ownership or the release-cookie fingerprint change is unresolved.
   - Unlocks: P05.S03.
+  - Outcome: Done — web image `sha256:a10270d12103e7934a26e5fd2c878c5517e973f203e4a0eb010bc7c1daf31589` and gateway image `sha256:ddd22c1be65cf2d46be7bcc9654164f64462ab13eed02c685cd93d0ae5c25249` both identify source `9a21f8da8adcd60ddb8a8ef18e9c3f9694eb99f0`; the new Phoenix release-cookie fingerprint differs from the running image.
 
 - `P05.S03 Apply the token and connection configuration`
   - Action: Set production `HARDEN_LLM_TOKEN` to the exact value from `./.env`; keep upstream credentials in their single environment-backed connection. Remove old profile, owner and static-token configuration. Apply only the reviewed application services.
@@ -684,6 +687,7 @@ Plan-and-Solve subtasks:
   - Verification: Candidate-aware apply and post-apply configuration identity check. Values remain redacted.
   - Stop condition: Any retired alias remains required or a secret value is requested in logs/output.
   - Unlocks: P05.S04.
+  - Outcome: Done — the production token matches the value in `./.env`; the CPA key remains environment-backed on the single upstream connection. Retired profile/static-token settings were removed. Scoped and full production configuration checks are equivalent; only the web and gateway services were applied.
 
 - `P05.S04 Perform the scoped clean cut and start the new services`
   - Action: Stop incompatible HLLM application writers, verify the target database and object bucket are HLLM-owned, record redacted counts and the unrelated sentinel, remove old HLLM profile/credential/history/trace/artifact data, apply the final schema and start the reviewed images. Do not mutate shared identity, another product, shared Garage infrastructure or unrelated buckets.
@@ -691,16 +695,18 @@ Plan-and-Solve subtasks:
   - Verification: Database/object ownership checks, migration result and redacted before/after counts.
   - Stop condition: Ownership is ambiguous, the sentinel changes, or deletion scope includes a shared table/bucket.
   - Unlocks: P05.S05.
+  - Outcome: Done — removed exactly 11 HLLM-owned legacy tables containing 268 rows after ownership/count checks; migration `20261006000000` created `reference_drafts` and `reference_history`, both empty. Removed the empty HLLM Garage bucket and its HLLM-only key; preserved the four unrelated bucket aliases. Control Plane sentinels remained at 6 migration rows and 16 accounts.
 
 - `P05.S05 Verify production routes, token boundary and runtime identity`
-  - Action: Check exact running image/source/config identities; call `/healthz` and `/readyz`; verify invalid bearer rejection and valid `.env` bearer acceptance using a deliberately invalid, non-dispatching request; verify retired route behavior. Confirm enabled human logins enter the reference UI without profiles/company selection and the new shared history is empty and available. Do not make a provider inference call or launch a browser.
+  - Action: Check exact running image/source/config identities; call `/healthz` and `/readyz`; verify invalid bearer rejection and valid `.env` bearer acceptance using a deliberately invalid, non-dispatching request; verify retired route behavior. Confirm an unauthenticated HTTP request to the web root redirects to Portal and its login endpoint is reachable. Confirm the shared-history tables start empty and the frontend reference integration has deterministic coverage. Do not claim interactive login acceptance without that check. Do not make a provider inference call or launch a browser.
   - Requirement link: REQ-403, REQ-407–415.
   - Verification: Browser-free HTTP and existing authenticated HTTP procedure; inspect runtime health without process arguments or secret values.
   - Expected evidence: Production URL, merged SHA, image IDs/digests, configuration identity, HTTP status results, HLLM before/after counts, unrelated sentinel, and explicit browser/provider exclusions.
   - Stop condition: Any required route, auth, readiness, identity or data boundary fails; do not claim production acceptance.
   - Unlocks: P05 exit.
+  - Outcome: Done — both services are healthy at the exact source with zero restarts; API `/healthz` and `/readyz`, web `/healthz`, and Portal login returned `200`; web root returned `302` to Portal. Wrong bearer returned `401`; the `.env` bearer with malformed JSON returned `400`; retired `POST /api/v1/run` returned `404`. Interactive login/browser behavior and provider inference remain unverified. The externally owned artifact hostname continues to return `403`.
 
-Exit gates: `make test-release` and required hosted checks pass for the merged SHA; production service image/config/source identities match it; health/readiness/auth and frontend access checks pass; the shared history starts empty; and the unrelated sentinel is unchanged. Record any intentionally unrun browser/live-provider boundary without treating it as a release failure.
+Exit gates: `make test-release` and required hosted checks pass for the merged SHA; production service image/config/source identities match it; health/readiness/auth and frontend access checks pass; the shared history starts empty; and the unrelated sentinel is unchanged. All gates passed. Record intentionally unrun browser/live-provider boundaries and the external artifact-route ownership without treating them as HLLM release failures.
 
 ## 6. Evaluations
 
@@ -1059,7 +1065,7 @@ Every row below uses the exact test path/command from Section 7.3. Additional re
 
 ## 11. Execution log template
 
-Implementation status: P00–P04 Done; P05 in progress through the pull request and exact-head hosted verification. This log records executed checks only.
+Implementation status: P00–P05 Done. This log records executed checks only.
 
 ```text
 Phase ID:
@@ -1153,17 +1159,17 @@ Unverified boundaries: Hosted CI, exact merged-source image identities, producti
 
 ```text
 Phase ID: P05
-Phase Status: In progress
-Completed Steps: None. P05.S01 is active: initial source `1867986` was pushed and PR #97 opened, but hosted fast and release checks found the stale TEST-001 path expectation. The fix has passed local fast and release gates; commit, hosted reruns and merge remain.
-Source/configuration checkpoint: branch `feat/openai-proxy-shared-reference`, base P00 SHA `c6b3047`, initial pushed candidate `18679869d96c2d45c586129546d8689281f464b5`. The local shared `.env` has `HARDEN_LLM_TOKEN`, `CPA_API_KEY`, the production Control Plane URL/token and Portal URL; values were not printed. `config/upstreams.local.json` contains one CPA connection with `api_key_env` and no credential value; its mode is now 0644 for the gateway UID. `node scripts/production-config.mjs check --resolve-only` reports equivalent sources; runtime is unverified.
-Commands and evidence: Read-only Postgres inspection confirms database `harden_llm`, owner `harden_llm`, the existing `harden-llm_harden-postgres-data` volume and 11 public tables, all owned by `harden_llm`: `llm_artifact_delete_batches` 58; `llm_artifact_operations` 116; `llm_artifacts` 0; `llm_client_state` 2; `llm_endpoint_credentials` 32; `llm_operation_cache` 7; `llm_profiles` 52; `llm_runs` 0; `llm_trace_observations` 0; `llm_traces` 0; old `schema_migrations` 1. All 58 delete batches and all 116 publish/delete operations are completed. The dedicated HLLM Garage bucket `harden-llm-artifacts` contains 0 objects, and its existing HLLM credential is scoped only to that bucket. Before cleanup, shared Garage has five bucket aliases; HLLM's is the only alias in the deletion scope. Separate Control Plane sentinel: `control_plane.public.schema_migrations` 6 rows and `public.account` 16 rows. PR #97 hosted checks on initial candidate `1867986` failed only on TEST-001's removed-directory expectation; CodeQL passed. Follow-up exact-SHA hosted checks await the committed correction. No running production service, database, production descriptor or `.env`, bucket, row or object has been changed.
-Quantitative Results: HLLM-owned rows total 268 across the listed tables; no artifact object is present. Control Plane sentinels and the four other Garage bucket aliases are recorded for post-cutover comparison.
-Issues/Resolutions: The first read-only production config resolution found `PRLS_PORTAL_URL` absent from the shared local environment. Added the exact existing production URL to private `.env` without printing it; the subsequent resolve-only check is equivalent. The metadata-only connection file was changed from mode 0600 to 0644 because the gateway runs non-root; provider credentials remain only in `.env`.
-Failed Attempts: The first Postgres socket attempt used the wrong auth role; retried read-only with the service's existing database credentials without displaying them. No data was changed.
-Deviations: None.
-Lessons Learned: Verify database ownership at both container and table-owner level, and treat the bucket key as scoped only after checking Garage's key grant.
-ADR Updates: No changes.
-Unverified boundaries: Push, PR/hosted checks, exact production build/config identity, Mix cookie fingerprint rotation, the service stop/migration/data clean cut, post-cut sentinels, production HTTP/auth/login behavior and image health are pending. No browser or provider inference has run.
+Phase Status: Done
+Completed Steps: P05.S01–P05.S05.
+Source/configuration checkpoint: PR #97/#98 merged; exact `main` source `9a21f8da8adcd60ddb8a8ef18e9c3f9694eb99f0`. Production web image `sha256:a10270d12103e7934a26e5fd2c878c5517e973f203e4a0eb010bc7c1daf31589`; gateway image `sha256:ddd22c1be65cf2d46be7bcc9654164f64462ab13eed02c685cd93d0ae5c25249`. The existing `.env` token is the incoming bearer value; CPA credentials stay in the single environment-backed connection. Configuration values were not printed.
+Commands and evidence: Local `make test-fast` passed 9/9; `make test-release` passed 28/28; targeted `node scripts/run-test-tier.mjs --task frontend-reference-integration` passed 6/6. Hosted main CI run 37541848393, CodeQL run 37541847295 and exact-main release run 37541927798 passed. Production image/config, public HTTP/auth results, database clean cut and remaining boundaries are recorded in `docs/release-certification.md` under “OpenAI-compatible proxy and shared history — production (2026-10-06)”.
+Quantitative Results: Production migration `20261006000000`; both shared reference tables have 0 rows. Exactly 11 legacy HLLM tables and 268 HLLM rows were removed. Control Plane retained 6 schema migrations and 16 accounts; four unrelated Garage bucket aliases remain.
+Issues/Resolutions: The first candidate exposed a stale TEST-001 path expectation. Production release migration then exposed `Application.load/1` returning `already_loaded`; PR #98 removed the redundant load and added TEST-411 / WEB-TEST-117. The corrected focused integration test passed 6/6 before merge.
+Failed Attempts: The initial migration command did not use the production-config service override and selected the prior image. The candidate-image migration reproduced the loaded-application defect. Both issues were corrected and the final migration passed; no provider call was made.
+Deviations: No browser or live-provider test was run under the repository opt-in policy. Interactive Portal login remains unverified. The legacy artifact hostname returns 403 through externally owned shared ingress; its route was not changed by this HLLM release.
+Lessons Learned: Release migration must be safe when the application is already loaded; use the same production-config resolution as deployment for candidate operations.
+ADR Updates: No threshold changes; ADR-HLLM-015 browser opt-in remains unchanged.
+Unverified boundaries: Browser layout, an interactive authenticated Portal session, live-provider inference, and removal of the externally owned artifact-host route.
 ```
 
 ## 12. Appendix: ADR index
