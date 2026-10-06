@@ -5,17 +5,15 @@ browser_gate? =
     argument in [
       "--only=browser",
       "--only=compose",
-      "--only=deployed",
       "--include=browser",
-      "--include=compose",
-      "--include=deployed"
+      "--include=compose"
     ]
   end) or
     arguments
     |> Enum.chunk_every(2, 1, :discard)
     |> Enum.any?(fn
       [flag, tag] when flag in ["--only", "--include"] ->
-        tag in ["browser", "compose", "deployed"]
+        tag in ["browser", "compose"]
 
       _pair ->
         false
@@ -40,4 +38,4 @@ Application.put_env(:prls_web, :login_return_origins, [
 ])
 
 Application.put_env(:prls_web, :access_client, HardenLlmWeb.AccessFixtures)
-ExUnit.start(exclude: [:asset, :browser, :compose, :deployed])
+ExUnit.start(exclude: [:asset, :browser, :compose, :database])

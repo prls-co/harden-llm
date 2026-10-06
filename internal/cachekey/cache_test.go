@@ -31,6 +31,7 @@ func TestCacheIdentity(t *testing.T) {
 	}
 
 	for name, mutate := range map[string]func(*Operation){
+		"cache domain":    func(value *Operation) { value.CacheDomain = "another-upstream-account" },
 		"model":           func(value *Operation) { value.Model = "other-model" },
 		"payload":         func(value *Operation) { value.Payload = map[string]any{"different": true} },
 		"semantic header": func(value *Operation) { value.SemanticHeaders = map[string]any{"openai-beta": "other"} },
@@ -138,7 +139,7 @@ func TestStableJSONDeterministic(t *testing.T) {
 func TestRecoveryBoundaryAccountingCache(t *testing.T) {
 	t.Parallel()
 	base := Operation{
-		SchemaVersion: OperationSchemaVersion, Protocol: "openai.responses",
+		SchemaVersion: OperationSchemaVersion, CacheDomain: "provider-account", Protocol: "openai.responses",
 		Endpoint: Endpoint{Identity: "https://provider.example", Method: "POST", Path: "/responses"},
 		Model:    "fixture", Payload: map[string]any{"input": "prompt"}, SemanticHeaders: map[string]any{},
 		ResponseProjection: ResponseProjection{Provider: "openai", Kind: "text", Version: "v4"},

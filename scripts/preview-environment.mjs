@@ -8,7 +8,7 @@ import path from "node:path";
 import os from "node:os";
 import { parseEnv } from "node:util";
 import { branchIdentity, changedServices } from "./preview-policy.mjs";
-import { sharedProfiles, profileUserIDs, sharedApplicationVariables, syncSharedProfiles } from "./shared-profiles.mjs";
+import { applicationEnvironment } from "./deployment-configuration.mjs";
 
 export const configPath = path.join(os.homedir(), ".config/harden-llm-preview/host.json");
 export const repo = "prls-co/harden-llm";
@@ -105,11 +105,9 @@ export function initialPreviewCloudflareToken(env = process.env) {
 function secrets() {
   const secret = n => randomBytes(n).toString("base64url");
   return {
-    POSTGRES_PASSWORD: secret(32), GARAGE_RPC_SECRET: randomBytes(32).toString("hex"),
-    ARTIFACT_ACCESS_KEY: `GK${randomBytes(16).toString("hex")}`, ARTIFACT_SECRET_KEY: randomBytes(32).toString("hex"),
-    ENCRYPTION_KEYS: JSON.stringify({ preview: secret(32) }), WEB_SECRET: secret(64),
+    POSTGRES_PASSWORD: secret(32), WEB_SECRET: secret(64),
     WEB_SIGNING_SALT: secret(16), WEB_ENCRYPTION_SALT: secret(16),
-    HARDEN_LLM_STATIC_TOKEN: secret(48),
+    HARDEN_LLM_TOKEN: secret(48),
   };
 }
 
@@ -119,8 +117,7 @@ export function routeFor(state) {
   return `http://${state.host}:8080 {\n` +
     `\theader X-Robots-Tag "noindex, nofollow"\n` +
     `\t@private path /metrics\n\thandle @private {\n\t\trespond 404\n\t}\n` +
-    `\t@api path /api/* /readyz\n\thandle @api {\n\t\treverse_proxy ${state.project}-gateway:8080\n\t}\n` +
-    `\thandle /harden-llm-artifacts/* {\n\t\treverse_proxy ${state.project}-garage:3900\n\t}\n` +
+    `\t@api path /v1/* /healthz /readyz\n\thandle @api {\n\t\treverse_proxy ${state.project}-gateway:8080\n\t}\n` +
     `\thandle {\n\t\treverse_proxy ${state.project}-web:4000 {\n\t\t\theader_up X-Forwarded-Proto https\n\t\t}\n\t}\n}\n`;
 }
 
@@ -154,7 +151,6 @@ export async function syncControl(c, repositoryRoot) {
   for (const name of ["compose.yml", "host.compose.yml", "Caddyfile"]) {
     if (await writePrivateIfChanged(path.join(c.root, "control", name), await fs.readFile(path.join(repositoryRoot, "deploy/preview", name), "utf8"))) changed.push(name);
   }
-  if (await writePrivateIfChanged(path.join(c.root, "control/garage.toml"), await fs.readFile(path.join(repositoryRoot, "deploy/test/garage.toml"), "utf8"))) changed.push("garage.toml");
   return changed;
 }
 
@@ -189,13 +185,16 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
   }
   const sharedEnv = await fs.readFile(c.sharedEnvFile, "utf8");
   const sharedValues = parseEnv(sharedEnv);
-  sharedProfiles(sharedValues); // Fail before changing services if keys/config are incomplete.
-  profileUserIDs(sharedValues);
-  if (!sharedValues.HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN?.trim()) throw new Error("HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN is required for preview identity checks");
-  const credentials = await readJSON(path.join(directory, "secrets.json"), secrets());
+  const applicationValues = applicationEnvironment(sharedValues);
+  const secretPath = path.join(directory, "secrets.json");
+  const existingSecrets = await readJSON(secretPath, {});
+  const generatedSecrets = secrets();
+  const credentials = Object.fromEntries(
+    Object.keys(generatedSecrets).map((key) => [key, existingSecrets[key] ?? generatedSecrets[key]]),
+  );
   delete credentials.OPERATOR_EMAIL;
   delete credentials.OPERATOR_PASSWORD;
-  credentials.HARDEN_LLM_STATIC_TOKEN ??= randomBytes(48).toString("base64url");
+  credentials.HARDEN_LLM_TOKEN ??= randomBytes(48).toString("base64url");
   await writePrivateIfChanged(path.join(directory, "secrets.json"), JSON.stringify(credentials, null, 2) + "\n");
   await fs.rm(path.join(directory, "login.txt"), { force: true });
   const components = structuredClone(state.components);
@@ -219,25 +218,19 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
   if (command("git", ["-C", c.sourceRepository, "rev-parse", `refs/remotes/origin/${branch}`]) !== sha) throw new Error("Branch advanced during build; nothing promoted");
   let previousEnv = null;
   try { previousEnv = await fs.readFile(envPath); } catch (e) { if (e.code !== "ENOENT") throw e; }
-  const values = { ...credentials, ...sharedApplicationVariables(sharedValues), PREVIEW_ID: state.id, PREVIEW_PROJECT: state.project, PREVIEW_HOST: state.host,
+  const values = { ...applicationValues, ...credentials, PREVIEW_ID: state.id, PREVIEW_PROJECT: state.project, PREVIEW_HOST: state.host,
     PREVIEW_CONTROL: path.join(c.root, "control"), GATEWAY_IMAGE: components.gateway.imageID, WEB_IMAGE: components.web.imageID,
     GATEWAY_RELEASE: components.gateway.release, WEB_RELEASE: components.web.release };
   await writePrivateIfChanged(envPath, dotenv(values));
   try {
-    if (!state.initialized) {
-      console.log("Initializing isolated preview data services");
-      compose(c, state, ["up", "-d", "--wait", "--wait-timeout", "180", "postgres", "garage"], { PREVIEW_GARAGE_COMMAND: "/garage server --single-node --default-bucket" });
-      // Bootstrap flags never remain on a retained Garage layout.
-      compose(c, state, ["up", "-d", "--wait", "--wait-timeout", "180", "garage"]);
-      compose(c, state, ["up", "-d", "--wait", "--wait-timeout", "180", "gateway"]);
-    }
+    compose(c, state, ["up", "-d", "--wait", "--wait-timeout", "180", "postgres"]);
+    compose(c, state, ["run", "--rm", "--no-deps", "-e", "PHX_SERVER=false", "web", "eval", "HardenLlm.Release.migrate()"]);
     // Compose recreates only changed image/config services; .env-only changes
     // must apply even when neither application needed rebuilding. Reconcile
     // data services on every deploy so a control-file change cannot be missed
     // by a later code-only checkpoint; unchanged containers remain untouched.
-    const runtimeServices = ["postgres", "garage", "gateway", "web"];
+    const runtimeServices = ["postgres", "gateway", "web"];
     compose(c, state, ["up", "-d", "--no-build", "--wait", "--wait-timeout", "180", ...runtimeServices]);
-    syncSharedProfiles(compose(c, state, ["ps", "-q", "gateway"]), components.gateway.imageID, sharedValues);
     const edge = hostCompose(c, ["ps", "-q", "edge"]);
     const [edgeInfo] = JSON.parse(command("docker", ["inspect", edge]));
     if (!edgeInfo.NetworkSettings.Networks[`${state.project}-private`]) command("docker", ["network", "connect", `${state.project}-private`, edge]);

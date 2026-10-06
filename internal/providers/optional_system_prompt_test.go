@@ -9,15 +9,16 @@ import (
 )
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-012
-func TestOptionalSystemPrompt(t *testing.T) {
+func TestOrderedMessagesPreserveOptionalSystemInstruction(t *testing.T) {
 	t.Parallel()
 	for _, protocol := range []string{"chat-completions", "responses"} {
 		for _, callType := range []string{"text", "structured"} {
 			for _, systemPrompt := range []string{"", "Be exact.", "  Preserve whitespace.  "} {
 				t.Run(protocol+"/"+callType+"/"+systemPrompt, func(t *testing.T) {
 					t.Parallel()
-					_, _, _, body, _, err := buildPayload(runtime.Profile{Provider: "fixture", APIInferenceType: protocol}, runtime.Call{
-						SystemPrompt: systemPrompt, UserPrompt: "Answer.", CallType: callType,
+					inputMessages := providerMessages(systemPrompt, "Answer.")
+					_, _, _, body, _, err := buildPayload(runtime.Connection{Provider: "fixture", APIInferenceType: protocol}, runtime.Call{
+						ModelID: "fixture", Messages: inputMessages, CallType: callType,
 						Schema: json.RawMessage(`{"type":"object"}`),
 					})
 					if err != nil {
@@ -27,21 +28,24 @@ func TestOptionalSystemPrompt(t *testing.T) {
 					if protocol == "responses" {
 						field = "input"
 					}
-					var messages []map[string]any
+					var gotMessages []map[string]any
 					for _, raw := range arrayValue(body[field]) {
 						message := objectValue(raw)
 						content := message["content"]
-						if protocol == "responses" {
-							content = objectValue(arrayValue(content)[0])["text"]
-						}
-						messages = append(messages, map[string]any{"role": message["role"], "content": content})
+						gotMessages = append(gotMessages, map[string]any{"role": message["role"], "content": content})
 					}
-					want := []map[string]any{{"role": "user", "content": "Answer."}}
+					userContent := any("Answer.")
+					systemContent := any(systemPrompt)
+					if protocol == "responses" {
+						userContent = []any{map[string]any{"type": "input_text", "text": "Answer."}}
+						systemContent = []any{map[string]any{"type": "input_text", "text": systemPrompt}}
+					}
+					want := []map[string]any{{"role": "user", "content": userContent}}
 					if systemPrompt != "" {
-						want = append([]map[string]any{{"role": "system", "content": systemPrompt}}, want...)
+						want = append([]map[string]any{{"role": "system", "content": systemContent}}, want...)
 					}
-					if !reflect.DeepEqual(messages, want) {
-						t.Fatalf("messages = %#v, want %#v", messages, want)
+					if !reflect.DeepEqual(gotMessages, want) {
+						t.Fatalf("messages = %#v, want %#v", gotMessages, want)
 					}
 				})
 			}
@@ -51,12 +55,14 @@ func TestOptionalSystemPrompt(t *testing.T) {
 
 func TestPerplexityUsesAgentEndpoint(t *testing.T) {
 	t.Parallel()
-	profile := runtime.Profile{Provider: "perplexity", APIInferenceType: "responses", ModelID: "openai/gpt-6.1-sol"}
-	_, protocol, path, _, _, err := buildPayload(profile, runtime.Call{CallType: "text", UserPrompt: "Answer."})
+	connection := runtime.Connection{Provider: "perplexity", APIInferenceType: "responses"}
+	call := runtime.Call{ModelID: "openai/gpt-6.1-sol", CallType: "text", Messages: providerMessages("", "Answer.")}
+	_, protocol, path, _, _, err := buildPayload(connection, call)
 	if err != nil || protocol != "openai.responses" || path != "/agent" {
 		t.Fatalf("Agent route: protocol=%q path=%q error=%v", protocol, path, err)
 	}
-	_, _, _, _, _, err = buildPayload(profile, runtime.Call{CallType: "text", ProviderOptions: map[string]any{"useResponsesApi": false}})
+	call.ProviderOptions = map[string]any{"useResponsesApi": false}
+	_, _, _, _, _, err = buildPayload(connection, call)
 	if err == nil {
 		t.Fatal("Perplexity Agent API accepted a legacy chat override")
 	}

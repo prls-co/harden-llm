@@ -1621,9 +1621,9 @@ Privacy and data-quality constraints:
 | P01 | REQ-341, REQ-342, REQ-343, REQ-345 | TEST-274 | `scripts/test/test_resource_lifecycle_docker_test.mjs` | `node scripts/run-test-tier.mjs --task test-resource-lifecycle-docker` |
 | P02 | REQ-346 | TEST-275 | `scripts/test/test_resource_measurement_test.mjs` | `node --test scripts/test/test_resource_measurement_test.mjs` |
 | P02 | REQ-347, REQ-348, REQ-349 | TEST-276 | `internal/capacity/driver_test.go` | `go test ./internal/capacity -run '^TestCapacityDriver' -count=1` |
-| P02 | REQ-347, REQ-348, REQ-349 | TEST-277 | `cmd/harden-llm-gateway/capacity_test.go` | `node scripts/run-test-tier.mjs --task capacity-baseline --output tmp/test-feedback/capacity-baseline.json` |
+| P02 | REQ-347, REQ-348, REQ-349 | TEST-277 (retired 2026-10-06) | Retired profile-backed real-gateway capacity test; see the OpenAI proxy/reference-history cutover in the canonical test specification. | Not registered or run. |
 | P02 | REQ-346, REQ-350, REQ-351 | TEST-278 | `internal/capacity/report_test.go` | `go test ./internal/capacity -run '^TestCapacityReport' -count=1` |
-| P02 | REQ-349 | TEST-282 | `cmd/harden-llm-gateway/capacity_history_test.go` | `go test ./cmd/harden-llm-gateway -run '^TestCapacityHistoryPagination' -count=1` |
+| P02 | REQ-349 | TEST-282 (retired 2026-10-06) | Retired proxy-owned capacity-history API pagination test; see the canonical test specification. | Not registered or run. |
 | P01 | REQ-344, REQ-352 | TEST-279 | `scripts/verify-test-tiers.mjs` | `node scripts/verify-test-tiers.mjs` |
 | P01 | REQ-341, REQ-345 | TEST-280 | `internal/integrationtest/resource_receipt_test.go` | `go test ./internal/integrationtest -run '^TestResourceReceipt' -count=1` |
 | P04 | REQ-352 | TEST-269 | `scripts/production-config.mjs` | `node scripts/production-config.mjs check --descriptor /home/kirill/.config/harden-llm/production.json --services harden-llm-gateway,harden-llm-web --expected-release "$HLLM_RELEASE_SHA"` |
@@ -1864,9 +1864,10 @@ production topology by default.
 | REQ-353 | security | Retired 2026-09-22 by ADR-HLLM-028. Historical requirement: manual/main-only private GHCR publication with exact-source identity and provenance. Do not treat it as an active release requirement; current gateway build/deploy controls are KER-IBD-001 through KER-IBD-010. |
 
 `ADR-HLLM-027` records the initial test-harness bounds and explicitly leaves
-production traffic/SLO targets unassigned. TEST-271 through TEST-282 remain
-active acceptance tests in the companion test specification. TEST-283 is a
-retired historical publisher check; ADR-HLLM-028 and
+production traffic/SLO targets unassigned. TEST-277 and TEST-282 have since
+been retired by the OpenAI proxy/reference-history cutover; the other active
+resource and driver tests are listed in the companion test specification.
+TEST-283 is a retired historical publisher check; ADR-HLLM-028 and
 `SPEC-HLLM-IMAGE-DEPLOYMENT-001` define the current local-image lifecycle.
 
 ### Requirements traceability
@@ -1875,7 +1876,7 @@ retired historical publisher check; ADR-HLLM-028 and
 | --- | --- | --- | --- |
 | P01 | REQ-341, REQ-342, REQ-343, REQ-345 | `scripts/run-test-tier.mjs`, `scripts/test-resource-lifecycle.mjs`, `internal/integrationtest/` | TEST-271 through TEST-274, TEST-280 |
 | P01 | REQ-344, REQ-352 | tier manifest, CI workflow, release evidence | TEST-279, TEST-269 |
-| P02 | REQ-346, REQ-347, REQ-348, REQ-349, REQ-350 | `scripts/measure-test-resources.mjs`, `internal/capacity/`, gateway capacity fixture | TEST-275 through TEST-278, TEST-282 |
+| P02 | REQ-346, REQ-347, REQ-348, REQ-349, REQ-350 | `scripts/measure-test-resources.mjs`, standalone `internal/capacity/` driver | TEST-275, TEST-276, TEST-278 |
 | P03 | REQ-351 | capacity disposition report and ADR-HLLM-027 | TEST-278; EVAL-011 |
 
 ### ADR index amendment
@@ -1883,3 +1884,28 @@ retired historical publisher check; ADR-HLLM-028 and
 | ADR | Status | Decision trigger |
 | --- | --- | --- |
 | ADR-HLLM-027 | Accepted for test-harness implementation | Local daemon ownership, bounded test resource accounting, or an evidence-backed capacity remedy is introduced; production SLO and architecture migration remain separate decisions. |
+
+## OpenAI proxy and reference ownership amendment (2026-10-06)
+
+ADR-HLLM-031/032 supersede conflicting profile requests/routes/per-login data; earlier evidence remains historical. `api/openapi.yaml` is the Go/Phoenix boundary.
+
+| Requirement | Acceptance |
+| --- | --- |
+| REQ-400 | No saved profiles, CRUD, IDs, presets or provisioning. Requests select configured connection and native model. |
+| REQ-401 | One startup client; no per-owner factories/context adapters. |
+| REQ-402 | One engine preserves hardening, explicit recovery, cancellation/accounting; no implicit model fallback. |
+| REQ-403 | /v1/models, /v1/chat/completions, /v1/responses replace /api/v1/run. |
+| REQ-404 | Supported ordered conversations/tool IDs survive codecs and recovery; output/error/SSE are standard. |
+| REQ-405 | SSE emits final validated results; all requests/results/diagnostics are bounded. |
+| REQ-406 | Optional connection-scoped cache; disabled mode has no DB dependency. |
+| REQ-407 | Only Phoenix submissions record once after publishing; save errors never replay. |
+| REQ-408 | New history is shared; direct API calls are excluded; missing accounting remains unknown. |
+| REQ-409 | Gateway uses only `HARDEN_LLM_TOKEN` and has no user owner. |
+| REQ-410 | Session/component drafts retain ordering without per-user datasets. |
+| REQ-411 | Restore never executes; canonical results power downloads; raw documents retire. |
+| REQ-412 | Authorized clean cut removes active incompatible HLLM data; new shared history starts empty. |
+| REQ-413 | Cache-disabled proxy needs no product DB/Phoenix/Control Plane; Repo failure does not block inference. |
+| REQ-414 | Offline tests, SQL tests and browser-free release retain separate tiers. |
+| REQ-415 | One token/config path and no legacy route deploy under exact image/config identity. |
+
+Replace the system/user prompt pair with one ordered request. Both codecs call the same engine. Client base URL is the HLLM origin plus /v1; `CPA_API_KEY` remains upstream-only.

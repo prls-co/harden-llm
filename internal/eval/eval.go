@@ -20,8 +20,8 @@ type CoverageReport struct {
 }
 
 func EvaluateParity(repositoryRoot string) (CoverageReport, error) {
-	requiredTests := []string{"TEST-012", "TEST-013", "TEST-014", "TEST-015", "TEST-016", "TEST-017", "TEST-018", "TEST-019"}
-	requiredClasses := []string{"providers", "usage", "profiles", "traces", "llm-stats-totals", "diagnostics"}
+	requiredTests := []string{"TEST-012", "TEST-013", "TEST-014", "TEST-015", "TEST-016", "TEST-019", "TEST-401"}
+	requiredClasses := []string{"providers", "usage", "llm-stats-totals", "models", "telemetry"}
 	requiredProviders := []string{"openai-responses", "openai-chat", "generic-openai-compatible", "gemini-generate-content", "anthropic-messages"}
 	report := CoverageReport{Required: len(requiredTests) + len(requiredClasses) + len(requiredProviders)}
 

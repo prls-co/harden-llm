@@ -9,7 +9,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-const SCRIPT_VERSION = 7;
+const SCRIPT_VERSION = 8;
 const execFile = promisify(execFileCallback);
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outputRoot = path.join(repositoryRoot, "fixtures", "parity");
@@ -35,9 +35,7 @@ const usage = requireFromSource(path.join(sourceRoot, "src", "usage.js"));
 const retry = requireFromSource(path.join(sourceRoot, "src", "retry-classifier.js"));
 const schema = requireFromSource(path.join(sourceRoot, "src", "schema-normalizer.js"));
 const responseParser = requireFromSource(path.join(sourceRoot, "src", "response-parser.js"));
-const reasoning = requireFromSource(path.join(sourceRoot, "src", "reasoning-effort.js"));
 const cache = requireFromSource(path.join(sourceRoot, "src", "operation-cache", "index.js"));
-const profiles = requireFromSource(path.join(sourceRoot, "src", "model-profiles.js"));
 const openaiProvider = requireFromSource(path.join(sourceRoot, "src", "providers", "openai.js"));
 const genericProvider = requireFromSource(path.join(sourceRoot, "src", "providers", "generic.js"));
 const googleProvider = requireFromSource(path.join(sourceRoot, "src", "providers", "google.js"));
@@ -99,20 +97,6 @@ async function sourceJSONFiles(directory) {
 
 await rm(outputRoot, { recursive: true, force: true });
 await mkdir(outputRoot, { recursive: true });
-
-await captureJSON("generated/source-contract.json", "contract", {
-  sourceGitSHA: sourceSHA,
-  packageName: packageJSON.name,
-  packageVersion: packageJSON.version,
-  profileSchemaVersion: profiles.PROFILE_SCHEMA_VERSION,
-  apiInferenceTypes: profiles.API_INFERENCE_TYPES,
-  endpointCredentialScopes: profiles.ENDPOINT_CREDENTIAL_SCOPES,
-  defaultDiscoveryTimeoutMs: profiles.DEFAULT_DISCOVERY_TIMEOUT_MS,
-  defaultRunTimeoutMs: profiles.DEFAULT_RUN_TIMEOUT_MS,
-  operationSchemaVersion: cache.OPERATION_SCHEMA_VERSION,
-  operationCacheRecordSchemaVersion: cache.OPERATION_CACHE_RECORD_SCHEMA_VERSION,
-  defaultOperationCacheVersion: cache.DEFAULT_OPERATION_CACHE_VERSION,
-}, ["package.json", "src/model-profiles.js", "src/operation-cache/index.js"]);
 
 const usageInput = usage.usageFromCounts({
   input: 100,
@@ -204,31 +188,6 @@ await captureJSON("generated/structured-parser-cases.json", "schema", {
   ].map(({ name, raw }) => ({ name, raw, parsed: responseParser.tryParseGeminiJson(raw) })),
 }, ["src/response-parser.js", "node_modules/jsonrepair/package.json"]);
 
-function captureReasoningFailure(reasoningEffort, providerOptions) {
-  try {
-    reasoning.resolveReasoningEffortOptions({
-      modelConfig: { reasoningEffortMap: { highest: { reasoning: { effort: "high" } } } },
-      modelId: "fixture-model",
-      reasoningEffort,
-      providerOptions,
-    });
-    return { succeeded: true };
-  } catch (error) {
-    return { succeeded: false, name: error.name, code: error.code, message: error.message };
-  }
-}
-await captureJSON("generated/reasoning-effort-cases.json", "providers", {
-  contractedEfforts: reasoning.CONTRACTED_REASONING_EFFORTS,
-  mapped: reasoning.resolveReasoningEffortOptions({
-    modelConfig: { reasoningEffortMap: { highest: { reasoning: { effort: "high" }, budget: 9 } } },
-    modelId: "fixture-model",
-    reasoningEffort: "highest",
-    providerOptions: { budget: 1, providerOption: true },
-  }),
-  nativeWithoutPortableEffort: captureReasoningFailure("", { thinking_budget: 10 }),
-  unsupportedAlias: captureReasoningFailure("high", {}),
-}, ["src/reasoning-effort.js"]);
-
 const operation = {
   schemaVersion: cache.OPERATION_SCHEMA_VERSION,
   protocol: "openai.responses",
@@ -245,38 +204,6 @@ await captureJSON("generated/cache-identity.json", "cache", {
   operationHash: cache.buildOperationHash({ operation }),
   modes: [undefined, "off", "cache", "refresh"].map((input) => ({ input: input ?? null, output: cache.resolveOperationCacheMode(input) })),
 }, ["src/operation-cache/index.js"]);
-
-const baseProfile = {
-  schemaVersion: 1,
-  provider: "openai",
-  apiInferenceType: "responses",
-  endpointCredentialScope: "global",
-  baseUrl: "https://api.openai.com/v1",
-  pricing: {
-    input_cost_per_token: 0.000001,
-    output_cost_per_token: 0.000002,
-    cache_read_input_token_cost: 0,
-    cache_creation_input_token_cost: null,
-    output_cost_per_reasoning_token: null,
-  },
-  supportsTemperature: false,
-  supportsContractedStructuredOutput: true,
-  tokensParam: null,
-  responsesTokensParam: "max_output_tokens",
-  defaultOptions: { max_tokens: 512, temperature: 0 },
-};
-const profileInput = {
-  Primary: { ...baseProfile, llmProfile: "Primary", modelId: "gpt-primary", backupProfiles: ["Backup"] },
-  Backup: { ...baseProfile, llmProfile: "Backup", modelId: "gpt-backup", backupProfiles: [] },
-};
-const normalizedProfiles = profiles.normalizeProfileCatalogJson(profileInput, {
-  now: () => "2026-05-13T05:00:00.000Z",
-});
-await captureJSON("generated/profile-catalog.json", "profiles", {
-  input: profileInput,
-  normalized: normalizedProfiles,
-  serialized: profiles.serializeProfileCatalogJson(normalizedProfiles),
-}, ["src/model-profiles.js", "tests/model-profiles.behavior.test.js"]);
 
 const providerRequest = {
   systemPrompt: "Be exact.",
@@ -405,18 +332,16 @@ await captureJSON("generated/provider-cases.json", "providers", {
 
 const copiedDirectories = [
   "fixtures/combinatorial",
-  "fixtures/diagnostics",
   "fixtures/evals",
   "fixtures/examples",
   "fixtures/llm-stats-totals",
   "fixtures/models",
   "fixtures/providers",
-  "fixtures/queries",
   "fixtures/telemetry",
-  "fixtures/traces",
 ];
 for (const directory of copiedDirectories) {
   for (const relativePath of await sourceJSONFiles(directory)) {
+    if (relativePath === "fixtures/examples/cache-golden.json") continue;
     await copySourceJSON(relativePath);
   }
 }
@@ -426,19 +351,11 @@ const fixtureConsumers = {
   "generated/cache-identity.json": [
     { target: "internal/cachekey/cache_test.go", testFunction: "TestCacheIdentity", tests: ["TEST-011"], evidence: "cache-identity.json" },
   ],
-  "generated/profile-catalog.json": [
-    { target: "internal/profiles/profile_test.go", testFunction: "TestProfileParityRoundTripAndValidation", tests: ["TEST-017"], evidence: "profile-catalog.json" },
-  ],
   "generated/provider-cases.json": [
-    { target: "internal/providers/requests_test.go", testFunction: "TestProviderRequestParityCapturedSource", tests: ["TEST-012"], evidence: "provider-cases.json" },
     { target: "internal/providers/normalization_test.go", testFunction: "TestProviderNormalizationParityCapturedSource", tests: ["TEST-013"], evidence: "provider-cases.json" },
-  ],
-  "generated/reasoning-effort-cases.json": [
-    { target: "internal/providers/requests_test.go", testFunction: "TestReasoningEffortParityCapturedSource", tests: ["TEST-012"], evidence: "reasoning-effort-cases.json" },
   ],
   "generated/retry-classification.json": [
     { target: "internal/retry/retry_test.go", testFunction: "TestRetryClassificationParityCapturedSource", tests: ["TEST-008"], evidence: "retry-classification.json" },
-    { target: "internal/runtime/repair_backup_test.go", testFunction: "TestBackupEligibilityParityCapturedSource", tests: ["TEST-009"], evidence: "retry-classification.json" },
   ],
   "generated/schema-normalization.json": [
     { target: "internal/schema/schema_test.go", testFunction: "TestSchemaContract", tests: ["TEST-010"], evidence: "schema-normalization.json" },
@@ -452,8 +369,8 @@ const fixtureConsumers = {
   "source/combinatorial/retry-decision-matrix.json": [
     { target: "internal/retry/retry_test.go", testFunction: "TestCurrentSourceRetryDecisionMatrixParity", tests: ["TEST-008"], evidence: "retry-decision-matrix.json" },
   ],
-  "source/evals/cpa-gpt-5.4-mini-responses-call.json": [
-    { target: "internal/providers/requests_test.go", testFunction: "TestCPAResponsesEvalRequestParityCapturedSource", tests: ["TEST-012"], evidence: "cpa-gpt-5.4-mini-responses-call.json" },
+  "source/evals/cpa-gpt-5.6-sol-responses-call.json": [
+    { target: "internal/providers/requests_test.go", testFunction: "TestCPAResponsesEvalRequestParityCapturedSource", tests: ["TEST-012"], evidence: "cpa-gpt-5.6-sol-responses-call.json" },
   ],
   "source/evals/jsonrepair-object-key-expected-incident.json": [
     { target: "internal/schema/schema_test.go", testFunction: "TestJSONRepairIncidentParityCapturedSource", tests: ["TEST-010"], evidence: "jsonrepair-object-key-expected-incident.json" },
@@ -499,42 +416,12 @@ const manifest = {
       note: "Source direct output is compared to Result.Output; Go metadata derives from the same normalized call record.",
     },
     {
-      id: "typed-root-surface",
-      mode: "intentional-difference",
-      tests: ["TEST-002"],
-      fixtures: ["generated/source-contract.json"],
-      adr: "ADR-HLLM-002",
-      note: "The target exposes one typed Call path instead of the JavaScript export inventory.",
-    },
-    {
       id: "secure-provider-egress",
       mode: "intentional-difference",
-      tests: ["TEST-012", "TEST-014", "TEST-017"],
-      fixtures: ["generated/profile-catalog.json", "generated/provider-cases.json"],
+      tests: ["TEST-012", "TEST-014"],
+      fixtures: ["generated/provider-cases.json"],
       adr: "ADR-HLLM-001",
       note: "The Go deployment keeps provider normalization semantics while enforcing server-side egress policy and configured provider ownership.",
-    },
-    {
-      id: "authenticated-credential-envelope",
-      mode: "intentional-difference",
-      tests: ["TEST-018"],
-      fixtures: [],
-      adr: "ADR-HLLM-001",
-      note: "The Go service uses an authenticated versioned credential envelope instead of the source runtime's credential storage boundary.",
-    },
-    {
-      id: "garage-artifact-projection",
-      mode: "intentional-difference",
-      tests: ["TEST-016", "TEST-019", "TEST-040"],
-      fixtures: [
-        "source/diagnostics/bundle-input.json",
-        "source/diagnostics/summary-input.json",
-        "source/examples/cache-golden.json",
-        "source/traces/raw-response-input.json",
-        "source/traces/trace-doc-input.json",
-      ],
-      adr: "ADR-HLLM-001",
-      note: "The self-hosted service projects diagnostic and trace artifacts into Garage/Postgres storage while preserving the source diagnostic fields.",
     },
     {
       id: "provider-retry-directive",
@@ -545,20 +432,12 @@ const manifest = {
       note: "The Go transport maps the source provider-retry directive into its typed retry error while retaining the self-hosted provider boundary.",
     },
     {
-      id: "profile-owned-model-catalog",
+      id: "configured-upstream-model-discovery",
       mode: "intentional-difference",
-      tests: ["TEST-015", "TEST-017", "TEST-024"],
+      tests: ["TEST-014", "TEST-015"],
       fixtures: ["source/models/model-registry-cases.json", "source/models/pricing-overrides.json"],
       adr: "ADR-HLLM-001",
-      note: "The self-hosted service stores model discovery and pricing in owner-managed profiles instead of a package-global registry.",
-    },
-    {
-      id: "postgres-resource-queries",
-      mode: "intentional-difference",
-      tests: ["TEST-020", "TEST-024"],
-      fixtures: ["source/queries/query-helper-cases.json"],
-      adr: "ADR-HLLM-001",
-      note: "The self-hosted resource API implements owner-scoped PostgreSQL queries instead of source-specific query helpers.",
+      note: "The proxy lists native models from the selected configured upstream and preserves unknown pricing as unknown; it has no mutable global or login-owned model catalog.",
     },
     {
       id: "otel-telemetry-projection",

@@ -25,21 +25,13 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=16m,mode=1777
+    volumes:
+      - ${HARDEN_LLM_CONFIG_FILE:?set the connection configuration file}:/etc/harden-llm/upstreams.json:ro
     environment:
       HARDEN_LLM_LISTEN_ADDRESS: :8080
-      HARDEN_LLM_DATABASE_URL: postgresql://harden_llm:${HARDEN_LLM_POSTGRES_PASSWORD:?set the application database password}@harden-postgres:5432/harden_llm?sslmode=disable
-      HARDEN_LLM_ENCRYPTION_KEYS: ${HARDEN_LLM_ENCRYPTION_KEYS:?set a JSON key-ID to base64url key mapping}
-      HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID: ${HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID:?set the active encryption key ID}
-      HARDEN_LLM_ARTIFACT_ENDPOINT: http://garage-shared:3900
-      HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT: ${HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT:?set the public HTTPS artifact origin}
-      HARDEN_LLM_ARTIFACT_BUCKET: ${HARDEN_LLM_ARTIFACT_BUCKET:-harden-llm-artifacts}
-      HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID: ${HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID:?set the Garage bucket access key}
-      HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY: ${HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY:?set the Garage bucket secret key}
-      HARDEN_LLM_ARTIFACT_PRESIGN_TTL: ${HARDEN_LLM_ARTIFACT_PRESIGN_TTL:-1m}
-      HARDEN_LLM_CONTROL_PLANE_URL: ${HARDEN_LLM_CONTROL_PLANE_URL:-http://control-plane:4310}
-      HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN: ${HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN:?set the Control Plane internal API token}
-      HARDEN_LLM_STATIC_TOKEN: ${HARDEN_LLM_STATIC_TOKEN:?set the gateway service token}
-      HARDEN_LLM_STATIC_TOKEN_USER_ID: ${HARDEN_LLM_STATIC_TOKEN_USER_ID:-}
+      HARDEN_LLM_CONFIG_FILE: /etc/harden-llm/upstreams.json
+      HARDEN_LLM_TOKEN: ${HARDEN_LLM_TOKEN:?set the OpenAI-compatible API bearer token}
+      CPA_API_KEY: ${CPA_API_KEY:?set the CPA upstream API key}
       JINA_API_KEY: ${JINA_API_KEY:-}
       HARDEN_LLM_MAX_RUN_DURATION_MS: ${HARDEN_LLM_MAX_RUN_DURATION_MS:-60000}
       HARDEN_LLM_PROVIDER_ALLOWED_HOSTS: ${HARDEN_LLM_PROVIDER_ALLOWED_HOSTS:-}
@@ -52,8 +44,6 @@ services:
       - harden-private
       - prls-observability
     depends_on:
-      harden-postgres:
-        condition: service_healthy
       otel-collector:
         condition: service_started
     healthcheck:
@@ -63,26 +53,6 @@ services:
       retries: 18
       start_period: 20s
     stop_grace_period: 70s
-
-  harden-postgres:
-    <<: *service-defaults
-    image: postgres:17.9-alpine@sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609
-    environment:
-      POSTGRES_DB: harden_llm
-      POSTGRES_USER: harden_llm
-      POSTGRES_PASSWORD: ${HARDEN_LLM_POSTGRES_PASSWORD:?set the application database password}
-      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
-      TZ: UTC
-      PGTZ: UTC
-    volumes:
-      - harden-postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U harden_llm -d harden_llm"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 10s
-    stop_grace_period: 60s
 
   otel-collector-state-init:
     image: postgres:17.9-alpine@sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609
@@ -234,7 +204,6 @@ secrets:
     environment: PRIVATE_MODULE_TOKEN
 
 volumes:
-  harden-postgres-data:
   prometheus-data:
   loki-data:
   tempo-data:

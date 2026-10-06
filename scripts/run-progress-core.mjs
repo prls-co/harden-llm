@@ -20,7 +20,7 @@ export function createSSEParser() {
     const payload = JSON.parse(fields.data.join("\n"));
     const event = { id: fields.id ?? null, event: fields.event ?? "message", data: payload };
     events.push(event);
-    if (["run.completed", "run.failed"].includes(event.event)) terminal = true;
+    if (["response.completed", "response.failed", "response.incomplete"].includes(event.event)) terminal = true;
   }
 
   return {
@@ -59,7 +59,8 @@ export function observeBudget({ startedAt, now = Date.now(), softMs = 0, caseHar
 export function redactedReport(report) {
   return {
     schemaVersion: 1,
-    runId: report.runId ?? null,
+    responseId: report.responseId ?? null,
+    executionId: report.executionId ?? null,
     traceId: report.traceId ?? null,
     lastStage: report.lastStage ?? null,
     elapsedMs: report.elapsedMs ?? null,

@@ -6,12 +6,9 @@ defmodule HardenLlmWeb.BrowserPolicyTest do
   @repo_root Path.expand("../../..", __DIR__)
   @browser_root Path.join(@repo_root, "frontend/test/browser")
   @manifest_path Path.join(@repo_root, "test/test-tiers.json")
-  @ordinary_files [
-    "authenticated_workflow_canary_test.exs",
-    "widget_canary_test.exs"
-  ]
+  @ordinary_files ["authenticated_workflow_canary_test.exs"]
 
-  test "ordinary browser coverage is exactly two focused serialized canaries" do
+  test "ordinary browser coverage is one focused serialized reference-app canary" do
     browser_files = Path.wildcard(Path.join(@browser_root, "*_test.exs"))
     ordinary_files = Enum.reject(browser_files, &non_ordinary_file?/1)
     ordinary_names = Enum.map(ordinary_files, &Path.basename/1) |> Enum.sort()
@@ -54,13 +51,12 @@ defmodule HardenLlmWeb.BrowserPolicyTest do
     assert task["container"]["network"] == "host"
     assert task["container"]["dockerSocket"] == true
     assert task["container"]["shmSize"] == "2g"
-    assert "frontend/test/browser/widget_canary_test.exs" in task["pathSelectors"]
     assert "frontend/test/browser/authenticated_workflow_canary_test.exs" in task["pathSelectors"]
     assert "frontend/test/support/browser_feature_case.ex" in task["pathSelectors"]
     refute "frontend/test/browser/compose_smoke_test.exs" in task["pathSelectors"]
   end
 
   defp non_ordinary_file?(path) do
-    Path.basename(path) in ["compose_smoke_test.exs", "deployed_canary_test.exs"]
+    Path.basename(path) == "compose_smoke_test.exs"
   end
 end

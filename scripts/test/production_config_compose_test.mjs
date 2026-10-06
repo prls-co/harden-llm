@@ -47,7 +47,15 @@ test("TEST-235 native Compose resolution preserves quoting, empties, precedence,
       "EMPTY_VALUE=''",
       "PRECEDENCE=observability",
     ].join("\n") + "\n"),
-    sharedApplicationEnvFile: privateFile(path.join(directory, "shared.env"), "JINA_API_KEY='fixture$shared'\n"),
+    sharedApplicationEnvFile: privateFile(path.join(directory, "shared.env"), [
+      `HARDEN_LLM_CONFIG_FILE=${path.join(directory, "upstreams.json")}`,
+      "HARDEN_LLM_TOKEN=synthetic-incoming-token",
+      "CPA_API_KEY=synthetic-upstream-token",
+      "HARDEN_LLM_CONTROL_PLANE_URL=http://control-plane.test:4310",
+      "HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN=synthetic-identity-token",
+      "PRLS_PORTAL_URL=https://portal.test",
+      "JINA_API_KEY='fixture$shared'",
+    ].join("\n") + "\n"),
     requiredVariables: ["HASH", "JSON_VALUE", "PRECEDENCE"],
     services: {
       probe: {

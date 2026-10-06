@@ -52,15 +52,13 @@ test("pushes, PRs and schedules never authorize browser tests", () => {
       assert.equal(ciMode(event, suite).browserCompose, false);
     }
   }
-  assert.deepEqual(ciMode("push"), { fast: true, integration: false, lifecycle: false, capacity: false, release: false, browser: false, browserCompose: false });
+  assert.deepEqual(ciMode("push"), { fast: true, integration: false, lifecycle: false, release: false, browser: false, browserCompose: false });
   assert.equal(ciMode("workflow_dispatch", "lifecycle").lifecycle, true);
   assert.equal(ciMode("workflow_dispatch", "lifecycle").fast, false);
   assert.equal(ciMode("workflow_dispatch", "lifecycle").release, false);
   assert.equal(ciMode("workflow_dispatch", "lifecycle").browser, false);
   assert.equal(ciMode("workflow_dispatch", "release").browser, false);
-  assert.equal(ciMode("workflow_dispatch", "capacity").capacity, true);
-  assert.equal(ciMode("workflow_dispatch", "capacity").release, false);
-  assert.equal(ciMode("workflow_dispatch", "capacity").browser, false);
+  assert.throws(() => ciMode("workflow_dispatch", "capacity"), /Unknown CI suite/);
   assert.equal(ciMode("workflow_dispatch", "browser").browser, true);
   assert.equal(ciMode("workflow_dispatch", "full-with-browser").browserCompose, true);
   assert.throws(() => ciMode("workflow_dispatch", "typo"));
@@ -86,9 +84,9 @@ test("automatic task graphs are browser-free; browser tasks require explicit aut
   const manifest = await loadManifest(new URL("../../test/test-tiers.json", import.meta.url));
   for (const selector of ["fast", "release", "baseline"]) {
     assert(selectTasks(manifest, selector).every(t => !t.requiresBrowser));
-    assert(selectTasks(manifest, selector).every(t => !["frontend-browser", "frontend-compose", "frontend-deployed"].includes(t.id)));
+    assert(selectTasks(manifest, selector).every(t => !["frontend-browser", "frontend-compose"].includes(t.id)));
   }
-  for (const selector of ["browser", "frontend-compose", "deployed"]) {
+  for (const selector of ["browser", "frontend-compose"]) {
     assert(selectTasks(manifest, selector).some(t => t.requiresBrowser));
     await assert.rejects(runSelection({ manifest, selector }), /explicit.*browser/i);
   }
@@ -108,10 +106,11 @@ test("preview workflows use the policy and never check out fork code on the depl
 test("routes and state enforce exact environment ownership before writes", async () => {
   const state = branchIdentity("feat/test");
   const route = routeFor(state);
-  assert.match(route, /@api path \/api\/\* \/readyz/);
+  assert.match(route, /@api path \/v1\/\* \/healthz \/readyz/);
   assert(route.includes(`${state.project}-web:4000`));
   assert.match(route, /header_up X-Forwarded-Proto https/);
-  assert(route.includes(`${state.project}-garage:3900`));
+  assert(route.includes(`${state.project}-gateway:8080`));
+  assert.doesNotMatch(route, /garage|artifacts|\/api\//);
   assert.doesNotMatch(route, /harden-llm\.prls\.co|otel-collector/);
   assert.throws(() => routeFor({ ...state, host: "harden-llm.prls.co" }));
   assert.throws(() => routeFor({ ...state, project: "harden-llm" }));
@@ -133,15 +132,13 @@ test("preview control files and image reuse are idempotent", async () => {
   try {
     const repositoryRoot = path.join(root, "repository");
     await mkdir(path.join(repositoryRoot, "deploy/preview"), { recursive: true });
-    await mkdir(path.join(repositoryRoot, "deploy/test"), { recursive: true });
     for (const [relative, contents] of [
       ["deploy/preview/compose.yml", "compose\n"],
       ["deploy/preview/host.compose.yml", "host\n"],
       ["deploy/preview/Caddyfile", "caddy\n"],
-      ["deploy/test/garage.toml", "garage\n"],
     ]) await writeFile(path.join(repositoryRoot, relative), contents);
     const c = { root };
-    assert.deepEqual(await syncControl(c, repositoryRoot), ["compose.yml", "host.compose.yml", "Caddyfile", "garage.toml"]);
+    assert.deepEqual(await syncControl(c, repositoryRoot), ["compose.yml", "host.compose.yml", "Caddyfile"]);
     assert.deepEqual(await syncControl(c, repositoryRoot), []);
     const target = path.join(root, "nested", "value");
     assert.equal(await writePrivateIfChanged(target, "same\n"), true);
@@ -163,7 +160,8 @@ test("preview gateway bounds Go memory and uses the shared identity contract", a
   assert.match(gateway, /mem_limit: 256m\n/);
   assert.match(gateway, /GOMEMLIMIT: 192MiB\n/);
   const launcher = await readFile(new URL("../preview-environment.mjs", import.meta.url), "utf8");
-  assert.match(launcher, /profileUserIDs\(sharedValues\)/);
+  assert.match(launcher, /applicationEnvironment\(sharedValues\)/);
+  assert.doesNotMatch(launcher, /sync-profiles|profileUserIDs|sharedProfiles/);
   assert.doesNotMatch(launcher, /bootstrap-user|TEST_PASSWORD|api\/v1\/auth\/login/);
   assert.match(launcher, /delete credentials\.OPERATOR_PASSWORD/); // Remove credentials from preview state written by the retired flow.
 });
@@ -189,8 +187,8 @@ test("preview templates expose no host ports or production telemetry and protect
   assert.match(launcher, /GATEWAY_IMAGE: components\.gateway\.imageID/);
   assert.match(launcher, /WEB_IMAGE: components\.web\.imageID/);
   assert.match(launcher, /Reusing preview/);
-  assert.match(launcher, /const runtimeServices = \["postgres", "garage", "gateway", "web"\]/);
-  assert.match(launcher, /"postgres", "garage", "gateway", "web"/);
+  assert.match(launcher, /const runtimeServices = \["postgres", "gateway", "web"\]/);
+  assert.match(launcher, /HardenLlm\.Release\.migrate\(\)/);
   const workflow = await readFile(new URL("../../.github/workflows/test-hierarchy.yml", import.meta.url), "utf8");
   assert.match(workflow, /actions\/cache@v4/);
   const previewWorkflow = await readFile(new URL("../../.github/workflows/preview-environments.yml", import.meta.url), "utf8");

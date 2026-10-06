@@ -33,8 +33,8 @@ func TestPRLSComposeSharedOwner(t *testing.T) {
 
 	services := objectField(t, config, "services")
 	wantServices := []string{
-		"grafana", "harden-llm-gateway", "harden-postgres",
-		"loki", "otel-collector", "otel-collector-state-init", "prometheus", "tempo",
+		"grafana", "harden-llm-gateway", "loki", "otel-collector",
+		"otel-collector-state-init", "prometheus", "tempo",
 	}
 	if got := sortedKeys(services); !reflect.DeepEqual(got, wantServices) {
 		t.Fatalf("harden-owned services = %v, want exactly %v", got, wantServices)
@@ -43,6 +43,9 @@ func TestPRLSComposeSharedOwner(t *testing.T) {
 		if _, exists := services[forbidden]; exists {
 			t.Errorf("physical owner must reuse external %s rather than declare it", forbidden)
 		}
+	}
+	if _, exists := services["harden-postgres"]; exists {
+		t.Error("proxy-only Compose must leave the reference database to the frontend overlay")
 	}
 
 	sharedServices := []string{"grafana", "harden-llm-gateway", "loki", "otel-collector", "prometheus"}

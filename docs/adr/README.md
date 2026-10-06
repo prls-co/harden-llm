@@ -33,7 +33,9 @@ migration path.
 | [ADR-HLLM-027](ADR-HLLM-027-resource-ownership-and-measured-capacity.md) | Accepted for test-harness implementation | Add durable ownership and local-daemon coordination for managed test Docker resources, bounded redacted receipts, and opt-in capacity measurement; production SLO and architecture migration remain separate decisions. |
 | [ADR-HLLM-028](ADR-HLLM-028-local-image-build-deployment.md) | Accepted and implemented | Retire GHCR publication from the active lifecycle; build and deploy the gateway image locally by exact source SHA, with a compressed historical publisher reference. |
 | [ADR-HLLM-029](ADR-HLLM-029-retire-langfuse.md) | Accepted | Remove Langfuse, its route, credentials, persistent data, and deployment dependencies; keep HLLM product history and Laminar traces. |
-| [ADR-HLLM-030](ADR-HLLM-030-control-plane-identity.md) | Accepted for implementation | Make Control Plane the sole human identity/access authority while keeping product data and host-only HLLM sessions local. |
+| [ADR-HLLM-030](ADR-HLLM-030-control-plane-identity.md) | Historical; superseded by ADR-HLLM-031 | Make Control Plane the sole human identity/access authority. |
+| [ADR-HLLM-031](ADR-HLLM-031-proxy-reference-boundary.md) | Accepted for implementation | Remove profiles and keep shared frontend history in Phoenix. |
+| [ADR-HLLM-032](ADR-HLLM-032-openai-inference-contract.md) | Accepted for implementation | Use OpenAI Chat Completions and Responses over one hardening engine. |
 
 The remaining planned deviation triggers are ADR-HLLM-003 through ADR-HLLM-007
 in the canonical implementation plan. Create one of those records only when its

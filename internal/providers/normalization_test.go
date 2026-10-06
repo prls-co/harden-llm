@@ -30,8 +30,6 @@ type capturedProviderNormalization struct {
 
 func TestProviderNormalization(t *testing.T) {
 	t.Parallel()
-	inputRate, cacheRate, outputRate, reasoningRate := 0.001, 0.0001, 0.002, 0.003
-	pricing := runtime.Pricing{Input: &inputRate, CacheRead: &cacheRate, Output: &outputRate, Reasoning: &reasoningRate}
 	tests := []struct {
 		name       string
 		protocol   string
@@ -45,7 +43,7 @@ func TestProviderNormalization(t *testing.T) {
 			name: "OpenAI Responses", protocol: "openai.responses", callType: "text",
 			body:       `{"status":"completed","output_text":"responses-ok","usage":{"input_tokens":20,"input_tokens_details":{"cached_tokens":4},"output_tokens":8,"output_tokens_details":{"reasoning_tokens":3}}}`,
 			wantOutput: "responses-ok", wantUsage: completeProviderUsage(16, 4, 0, 5, 3),
-			wantCost: accounting.ExactCost(0.0354, "profile"),
+			wantCost: accounting.UnknownCost("missing_rate"),
 		},
 		{
 			name: "Perplexity Agent USD cost", protocol: "openai.responses", callType: "text",
@@ -63,7 +61,7 @@ func TestProviderNormalization(t *testing.T) {
 			name: "Nullable prompt details", protocol: "openai-compatible.chat.completions", callType: "text",
 			body:       `{"choices":[{"message":{"content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":9,"prompt_tokens_details":null,"completion_tokens":27,"completion_tokens_details":{"reasoning_tokens":24},"total_tokens":36}}`,
 			wantOutput: "ok", wantUsage: completeProviderUsage(9, 0, 0, 3, 24),
-			wantCost: accounting.ExactCost(0.087, "profile"),
+			wantCost: accounting.UnknownCost("missing_rate"),
 		},
 		{
 			name: "Nullable completion details", protocol: "openai-compatible.chat.completions", callType: "structured",
@@ -75,32 +73,32 @@ func TestProviderNormalization(t *testing.T) {
 			name: "Responses nullable details", protocol: "openai.responses", callType: "text",
 			body:       `{"status":"completed","output_text":"ok","usage":{"input_tokens":10,"input_tokens_details":null,"cached_tokens":2,"output_tokens":4,"output_tokens_details":null,"reasoning_tokens":1}}`,
 			wantOutput: "ok", wantUsage: completeProviderUsage(8, 2, 0, 3, 1),
-			wantCost: accounting.ExactCost(0.0172, "profile"),
+			wantCost: accounting.UnknownCost("missing_rate"),
 		},
 		{
 			name: "Gemini", protocol: "google.gemini.generateContent", callType: "text",
 			body:       `{"candidates":[{"content":{"parts":[{"text":"gemini-"},{"text":"ok"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":10,"cachedContentTokenCount":2,"candidatesTokenCount":4,"thoughtsTokenCount":1}}`,
 			wantOutput: "gemini-", wantUsage: completeProviderUsage(8, 2, 0, 4, 1),
-			wantCost: accounting.ExactCost(0.0192, "profile"),
+			wantCost: accounting.UnknownCost("missing_rate"),
 		},
 		{
 			name: "OpenAI nullish usage precedence", protocol: "openai.responses", callType: "text",
 			body:       `{"status":"completed","output_text":"ok","usage":{"input_tokens":10,"input_tokens_details":{"cached_tokens":0},"cached_tokens":5,"output_tokens":4,"output_tokens_details":{"reasoning_tokens":0},"reasoning_tokens":3}}`,
 			wantOutput: "ok", wantUsage: completeProviderUsage(10, 0, 0, 4, 0),
-			wantCost: accounting.ExactCost(0.018, "profile"),
+			wantCost: accounting.UnknownCost("missing_rate"),
 		},
 		{
 			name: "Anthropic", protocol: "anthropic.messages", callType: "text",
 			body:       `{"content":[{"type":"text","text":"anthropic-"},{"type":"text","text":"ok"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"cache_read_input_tokens":2,"output_tokens":3}}`,
 			wantOutput: "anthropic-ok", wantUsage: completeProviderUsage(5, 2, 0, 3, 0),
-			wantCost: accounting.ExactCost(0.0112, "profile"),
+			wantCost: accounting.UnknownCost("missing_rate"),
 		},
 	}
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			result, err := normalizeResponse(preparedRequest{provider: "fixture", protocol: test.protocol, callType: test.callType, pricing: pricing}, []byte(test.body))
+			result, err := normalizeResponse(preparedRequest{provider: "fixture", protocol: test.protocol, callType: test.callType}, []byte(test.body))
 			if err != nil {
 				t.Fatalf("normalizeResponse: %v", err)
 			}
@@ -114,6 +112,75 @@ func TestProviderNormalization(t *testing.T) {
 				t.Fatalf("cost mismatch: got %#v want %#v", result.Accounting.Cost, test.wantCost)
 			}
 		})
+	}
+}
+
+func TestProviderToolCallNormalizationPreservesIDs(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		protocol string
+		body     string
+		wantID   string
+		wantItem string
+		wantArgs string
+	}{
+		{
+			name: "Responses", protocol: "openai.responses",
+			body:   `{"status":"completed","output":[{"type":"function_call","id":"fc_item_1","call_id":"call_1","name":"lookup","arguments":"{\"q\":\"x\"}"}]}`,
+			wantID: "call_1", wantItem: "fc_item_1", wantArgs: `{"q":"x"}`,
+		},
+		{
+			name: "Chat Completions", protocol: "openai.chat.completions",
+			body:   `{"choices":[{"message":{"content":null,"tool_calls":[{"id":"call_2","type":"function","function":{"name":"lookup","arguments":"{\"q\":\"y\"}"}}]},"finish_reason":"tool_calls"}]}`,
+			wantID: "call_2", wantArgs: `{"q":"y"}`,
+		},
+		{
+			name: "Gemini", protocol: "google.gemini.generateContent",
+			body:   `{"candidates":[{"content":{"parts":[{"functionCall":{"id":"call_3","name":"lookup","args":{"q":"z"}}}]},"finishReason":"STOP"}]}`,
+			wantID: "call_3", wantArgs: `{"q":"z"}`,
+		},
+		{
+			name: "Anthropic", protocol: "anthropic.messages",
+			body:   `{"content":[{"type":"tool_use","id":"call_4","name":"lookup","input":{"q":"w"}}],"stop_reason":"tool_use"}`,
+			wantID: "call_4", wantArgs: `{"q":"w"}`,
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			result, err := normalizeResponse(preparedRequest{protocol: test.protocol, callType: "text"}, []byte(test.body))
+			if err != nil {
+				t.Fatalf("normalizeResponse: %v", err)
+			}
+			output, ok := result.Output.(runtime.AssistantOutput)
+			if !ok || len(output.ToolCalls) != 1 {
+				t.Fatalf("expected one normalized function call, got %#v", result.Output)
+			}
+			call := output.ToolCalls[0]
+			if call.ID != test.wantID || call.ItemID != test.wantItem || call.Function.Name != "lookup" || call.Function.Arguments != test.wantArgs {
+				t.Fatalf("normalized function call lost provider linkage: %#v", call)
+			}
+		})
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-401
+func TestGeminiToolCallsWithoutIDsReceiveUniqueClientIDs(t *testing.T) {
+	t.Parallel()
+	response := []byte(`{"candidates":[{"content":{"parts":[{"functionCall":{"name":"lookup","args":{"q":"same"}}},{"functionCall":{"name":"lookup","args":{"q":"same"}}}]},"finishReason":"STOP"}]}`)
+	result, err := normalizeResponse(preparedRequest{protocol: "google.gemini.generateContent", callType: "text"}, response)
+	if err != nil {
+		t.Fatalf("normalizeResponse: %v", err)
+	}
+	output, ok := result.Output.(runtime.AssistantOutput)
+	if !ok || len(output.ToolCalls) != 2 {
+		t.Fatalf("expected two normalized function calls, got %#v", result.Output)
+	}
+	first, second := output.ToolCalls[0].ID, output.ToolCalls[1].ID
+	if first == "" || second == "" || first == second {
+		t.Fatalf("Gemini function call IDs are missing or collide: %q %q", first, second)
 	}
 }
 
@@ -184,11 +251,6 @@ func TestProviderNormalizationParityCapturedSource(t *testing.T) {
 					rates := variant.normalized.Usage.Items
 					prepared := preparedRequest{
 						provider: variant.operation.ResponseProjection.Provider, protocol: variant.operation.Protocol, callType: variant.callType,
-						pricing: runtime.Pricing{
-							Input: rates[pricing.ItemInput].RatePerToken, CacheRead: rates[pricing.ItemCacheRead].RatePerToken,
-							CacheCreation: rates[pricing.ItemCacheCreation].RatePerToken, Output: rates[pricing.ItemOutput].RatePerToken,
-							Reasoning: rates[pricing.ItemReasoning].RatePerToken,
-						},
 					}
 					responsePayload := variant.normalized.ResponsePayload
 					if variant.operation.Protocol == "openai.responses" {
@@ -218,9 +280,8 @@ func TestProviderNormalizationParityCapturedSource(t *testing.T) {
 					if result.Accounting.Usage != wantUsage {
 						t.Fatalf("usage mismatch: got %#v want %#v", result.Accounting.Usage, wantUsage)
 					}
-					summary, summaryErr := pricing.Summarize(variant.normalized.Usage)
-					if summaryErr != nil || summary.TotalCost == nil || result.Accounting.Cost.Status != accounting.CostExact || math.Abs(result.Accounting.Cost.KnownSubtotalUSD-*summary.TotalCost) > 1e-12 {
-						t.Fatalf("cost mismatch: got %#v source=%#v error=%v", result.Accounting.Cost, summary, summaryErr)
+					if result.Accounting.Cost != accounting.UnknownCost("missing_rate") {
+						t.Fatalf("unconfigured pricing must stay unknown: %#v", result.Accounting.Cost)
 					}
 				})
 			}
@@ -512,9 +573,7 @@ func TestRecoveryBoundaryCompletion(t *testing.T) {
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-217
 func TestRecoveryBoundaryAccountingCache(t *testing.T) {
 	t.Parallel()
-	pricingInput, pricingOutput := 0.001, 0.002
-	pricing := runtime.Pricing{Input: &pricingInput, Output: &pricingOutput}
-	prepared := preparedRequest{provider: "fixture", protocol: "openai.responses", callType: "text", pricing: pricing}
+	prepared := preparedRequest{provider: "fixture", protocol: "openai.responses", callType: "text"}
 
 	failed, err := normalizeResponse(prepared, []byte(`{"status":"completed","output_text":"","usage":{"input_tokens":11,"output_tokens":3,"cost":0.1}}`))
 	if err == nil || retry.Classify(err, retry.DefaultPolicy()).Category != retry.CategoryEmpty {
@@ -525,7 +584,7 @@ func TestRecoveryBoundaryAccountingCache(t *testing.T) {
 	}
 
 	partial, err := normalizeResponse(prepared, []byte(`{"status":"completed","output_text":"known","usage":{"input_tokens":11}}`))
-	if err != nil || partial.Accounting.Usage.Status != accounting.UsagePartial || partial.Accounting.Cost.Status != accounting.CostPartial {
+	if err != nil || partial.Accounting.Usage.Status != accounting.UsagePartial || partial.Accounting.Cost != accounting.UnknownCost("missing_rate") {
 		t.Fatalf("partial accounting = %#v / %v", partial, err)
 	}
 

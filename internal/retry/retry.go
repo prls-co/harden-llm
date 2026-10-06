@@ -54,12 +54,9 @@ func (policy Policy) UsesExplicitPlan() bool {
 	return policy.explicitPlan || policy.JSONRepair != nil || policy.Rerun != nil
 }
 
-// RecoveryTarget identifies one leaf provider target. A target never contains
-// another recovery policy; saved profile policies are intentionally not walked
-// when the profile is selected for a recovery stage.
+// RecoveryTarget identifies one leaf model target on the selected upstream.
 type RecoveryTarget struct {
 	Source          string         `json:"source"`
-	ProfileID       string         `json:"profileId,omitempty"`
 	ModelID         string         `json:"modelId,omitempty"`
 	ReasoningEffort string         `json:"reasoningEffort,omitempty"`
 	ProviderOptions map[string]any `json:"providerOptions,omitempty"`
@@ -90,7 +87,6 @@ func (target *RecoveryTarget) UnmarshalJSON(data []byte) error {
 	decoder.DisallowUnknownFields()
 	var value struct {
 		Source          string         `json:"source"`
-		ProfileID       string         `json:"profileId"`
 		ModelID         string         `json:"modelId"`
 		ReasoningEffort string         `json:"reasoningEffort"`
 		ProviderOptions map[string]any `json:"providerOptions"`
@@ -101,7 +97,7 @@ func (target *RecoveryTarget) UnmarshalJSON(data []byte) error {
 	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
 		return &ValidationError{Field: "recoveryTarget", Message: "must contain one object"}
 	}
-	*target = RecoveryTarget{Source: value.Source, ProfileID: value.ProfileID, ModelID: value.ModelID, ReasoningEffort: value.ReasoningEffort, ProviderOptions: value.ProviderOptions}
+	*target = RecoveryTarget{Source: value.Source, ModelID: value.ModelID, ReasoningEffort: value.ReasoningEffort, ProviderOptions: value.ProviderOptions}
 	return nil
 }
 
@@ -158,28 +154,22 @@ func (plan *RerunPlan) UnmarshalJSON(data []byte) error {
 }
 
 func (target RecoveryTarget) IsZero() bool {
-	return target.Source == "" && target.ProfileID == "" && target.ModelID == "" && target.ReasoningEffort == "" && len(target.ProviderOptions) == 0
+	return target.Source == "" && target.ModelID == "" && target.ReasoningEffort == "" && len(target.ProviderOptions) == 0
 }
 
 func (target RecoveryTarget) Validate(field string, allowGeneration bool) error {
 	invalid := func(message string) error { return &ValidationError{Field: field, Message: message} }
-	if target.Source != "profile" && !(allowGeneration && target.Source == "generation") {
-		return invalid("source must be profile or generation")
+	if target.Source != "model" && !(allowGeneration && target.Source == "generation") {
+		return invalid("source must be model or generation")
 	}
-	if target.Source == "profile" && strings.TrimSpace(target.ProfileID) == "" {
-		return invalid("profileId is required for a profile target")
+	if target.Source == "model" && strings.TrimSpace(target.ModelID) == "" {
+		return invalid("modelId is required for a model target")
 	}
-	if target.Source == "profile" && target.ModelID != "" && strings.TrimSpace(target.ModelID) == "" {
-		return invalid("modelId must not be blank")
+	if target.Source == "generation" && (target.ModelID != "" || target.ReasoningEffort != "" || len(target.ProviderOptions) != 0) {
+		return invalid("generation target cannot override request settings")
 	}
-	if target.Source == "generation" && (target.ProfileID != "" || target.ModelID != "" || target.ReasoningEffort != "" || len(target.ProviderOptions) != 0) {
-		return invalid("generation target cannot override profile settings")
-	}
-	if len(target.ProfileID) > 1500 || len(target.ModelID) > 512 || len(target.ReasoningEffort) > 32 {
+	if len(target.ModelID) > 512 || len(target.ReasoningEffort) > 128 {
 		return invalid("target identifiers exceed their limits")
-	}
-	if target.ReasoningEffort != "" && target.ReasoningEffort != "lowest" && target.ReasoningEffort != "middle" && target.ReasoningEffort != "highest" {
-		return invalid("reasoningEffort must be lowest, middle, or highest")
 	}
 	if target.ProviderOptions != nil {
 		if err := (Policy{}).ValidateProviderOptions(target.ProviderOptions); err != nil {
@@ -250,8 +240,8 @@ func (plan RerunPlan) Validate(field string) error {
 	if err := plan.Target.Validate(field+".target", false); err != nil {
 		return err
 	}
-	if plan.Target.Source != "profile" {
-		return &ValidationError{Field: field + ".target.source", Message: "rerun target must be a profile target"}
+	if plan.Target.Source != "model" {
+		return &ValidationError{Field: field + ".target.source", Message: "rerun target must be a model target"}
 	}
 	if plan.JSONRepair != nil {
 		if err := plan.JSONRepair.Validate(field + ".jsonRepair"); err != nil {
@@ -590,5 +580,5 @@ func (Policy) ValidateProviderOptions(options map[string]any) error {
 			return &ValidationError{Field: "providerOptions." + key, Message: "recovery controls belong in recoveryPolicy"}
 		}
 	}
-	return nil
+	return validateTargetProviderOptions(options)
 }

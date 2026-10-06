@@ -1,80 +1,102 @@
-// Package httpapi implements the frontend-independent Harden-LLM REST adapter.
+// Package httpapi exposes OpenAI-compatible, stateless inference endpoints.
 package httpapi
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
+	"fmt"
 	"log/slog"
-	"mime"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
+	hardenllm "github.com/prls-co/harden-llm"
 	"github.com/prls-co/harden-llm/internal/gateway"
 	"github.com/prls-co/harden-llm/internal/gateway/auth"
 	"go.opentelemetry.io/otel/propagation"
 )
 
 const (
-	maximumJSONBodyBytes    = 64 << 10
-	readinessTimeout        = 2 * time.Second
-	maximumRunDuration      = 60 * time.Second
-	defaultOperationTimeout = 15 * time.Second
-	maximumOperationTimeout = 30 * time.Second
+	MaximumRunDuration   = 60 * time.Second
+	maximumRequestBytes  = 256 << 10
+	maximumResponseBytes = 16 << 20
+	maximumHardenBytes   = 64 << 10
+	readinessTimeout     = 2 * time.Second
 )
 
 type ReadinessCheck func(context.Context) error
 
-type IdentityService interface {
-	AuthenticateRequest(*http.Request) (auth.Principal, error)
-}
-
 type Config struct {
-	Auth             IdentityService
-	Readiness        []ReadinessCheck
-	Resources        *gateway.ResourceService
-	Runs             *gateway.RunService
-	MaxRunDuration   time.Duration
-	OperationTimeout time.Duration
-	Telemetry        *gateway.Telemetry
-	Logger           *slog.Logger
+	Token          string
+	Client         *hardenllm.Client
+	Readiness      []ReadinessCheck
+	MaxRunDuration time.Duration
+	Telemetry      *gateway.Telemetry
+	Logger         *slog.Logger
 }
 
 type API struct {
-	auth             IdentityService
-	readiness        []ReadinessCheck
-	resources        *gateway.ResourceService
-	runs             *gateway.RunService
-	maxRunDuration   time.Duration
-	operationTimeout time.Duration
-	telemetry        *gateway.Telemetry
-	propagator       propagation.TextMapPropagator
-	logger           *slog.Logger
-	handler          http.Handler
+	token          string
+	client         *hardenllm.Client
+	readiness      []ReadinessCheck
+	maxRunDuration time.Duration
+	telemetry      *gateway.Telemetry
+	propagator     propagation.TextMapPropagator
+	logger         *slog.Logger
+	handler        http.Handler
 }
 
-type Error struct {
-	Code        string            `json:"code"`
-	Message     string            `json:"message"`
-	FieldErrors map[string]string `json:"fieldErrors,omitempty"`
+type openAIError struct {
+	Message string `json:"message"`
+	Type    string `json:"type"`
+	Param   any    `json:"param"`
+	Code    string `json:"code"`
 }
 
-type envelope struct {
-	State  any    `json:"state"`
-	Result any    `json:"result"`
-	Error  *Error `json:"error"`
+type errorResponse struct {
+	Error  openAIError `json:"error"`
+	Harden any         `json:"harden,omitempty"`
 }
 
-type principalContextKey struct{}
+type statusWriter struct {
+	http.ResponseWriter
+	status int
+	wrote  bool
+}
+
+func (writer *statusWriter) WriteHeader(status int) {
+	if writer.wrote {
+		return
+	}
+	writer.wrote, writer.status = true, status
+	writer.ResponseWriter.WriteHeader(status)
+}
+
+func (writer *statusWriter) Write(data []byte) (int, error) {
+	if !writer.wrote {
+		writer.WriteHeader(http.StatusOK)
+	}
+	return writer.ResponseWriter.Write(data)
+}
+
+func (writer *statusWriter) Flush() {
+	if !writer.wrote {
+		writer.WriteHeader(http.StatusOK)
+	}
+	if flusher, ok := writer.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func (writer *statusWriter) Unwrap() http.ResponseWriter { return writer.ResponseWriter }
 
 func New(config Config) (*API, error) {
-	if config.Auth == nil {
-		return nil, errors.New("httpapi: identity service is required")
+	if !auth.ValidToken(config.Token) {
+		return nil, errors.New("httpapi: a bounded bearer token is required")
+	}
+	if config.Client == nil {
+		return nil, errors.New("httpapi: the shared client is required")
 	}
 	for _, check := range config.Readiness {
 		if check == nil {
@@ -82,16 +104,10 @@ func New(config Config) (*API, error) {
 		}
 	}
 	if config.MaxRunDuration == 0 {
-		config.MaxRunDuration = maximumRunDuration
+		config.MaxRunDuration = MaximumRunDuration
 	}
-	if config.MaxRunDuration < time.Millisecond || config.MaxRunDuration > maximumRunDuration {
+	if config.MaxRunDuration < time.Millisecond || config.MaxRunDuration > MaximumRunDuration {
 		return nil, errors.New("httpapi: maximum run duration is outside the supported range")
-	}
-	if config.OperationTimeout == 0 {
-		config.OperationTimeout = defaultOperationTimeout
-	}
-	if config.OperationTimeout < time.Millisecond || config.OperationTimeout > maximumOperationTimeout {
-		return nil, errors.New("httpapi: operation timeout is outside the supported range")
 	}
 	if config.Telemetry == nil {
 		var err error
@@ -104,12 +120,9 @@ func New(config Config) (*API, error) {
 		config.Logger = slog.New(slog.DiscardHandler)
 	}
 	api := &API{
-		auth: config.Auth, readiness: append([]ReadinessCheck(nil), config.Readiness...),
-		resources: config.Resources, runs: config.Runs, maxRunDuration: config.MaxRunDuration,
-		operationTimeout: config.OperationTimeout,
-		telemetry:        config.Telemetry,
-		propagator:       propagation.TraceContext{},
-		logger:           config.Logger,
+		token: config.Token, client: config.Client, readiness: append([]ReadinessCheck(nil), config.Readiness...),
+		maxRunDuration: config.MaxRunDuration, telemetry: config.Telemetry,
+		propagator: propagation.TraceContext{}, logger: config.Logger,
 	}
 	api.handler = api.router()
 	return api, nil
@@ -118,224 +131,59 @@ func New(config Config) (*API, error) {
 func (api *API) Handler() http.Handler {
 	if api == nil || api.handler == nil {
 		return http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-			http.Error(writer, "service unavailable", http.StatusServiceUnavailable)
+			writeError(writer, http.StatusServiceUnavailable, "server_error", "service_unavailable", "The service is unavailable.", nil)
 		})
 	}
 	return api.handler
 }
 
 func (api *API) router() http.Handler {
-	router := chi.NewRouter()
-	router.Use(api.observeHTTP, api.recoverPanic, api.responsePolicy)
-	router.NotFound(func(writer http.ResponseWriter, request *http.Request) {
-		writeError(writer, http.StatusNotFound, "not_found", "The requested resource was not found.")
-	})
-	router.MethodNotAllowed(func(writer http.ResponseWriter, request *http.Request) {
-		writeError(writer, http.StatusMethodNotAllowed, "method_not_allowed", "The request method is not allowed.")
-	})
-	for _, route := range routeCatalog {
-		handler := http.Handler(http.HandlerFunc(api.operationHandler(route.OperationID)))
-		handler = api.validateRequestShape(route, handler)
-		if route.Protected {
-			handler = api.authenticate(handler)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", api.health)
+	mux.HandleFunc("GET /readyz", api.ready)
+	mux.HandleFunc("GET /v1/models", api.authorize(api.models))
+	mux.HandleFunc("POST /v1/chat/completions", api.authorize(api.chatCompletions))
+	mux.HandleFunc("POST /v1/responses", api.authorize(api.responses))
+	mux.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
+		if strings.HasPrefix(request.URL.Path, "/v1/") {
+			writeError(writer, http.StatusNotFound, "invalid_request_error", "not_found", "The requested API route was not found.", nil)
+			return
 		}
-		if route.OperationID != "getHealth" && route.OperationID != "getReadiness" && route.OperationID != "run" {
-			handler = api.withOperationTimeout(handler)
-		}
-		router.Method(route.Method, route.Path, handler)
-	}
-	return router
+		writeError(writer, http.StatusNotFound, "invalid_request_error", "not_found", "The requested route was not found.", nil)
+	})
+	return api.observeHTTP(mux)
 }
 
 func (api *API) observeHTTP(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		parentContext := api.propagator.Extract(
-			request.Context(),
-			propagation.HeaderCarrier(request.Header),
-		)
-		ctx, endRequest := api.telemetry.StartHTTP(parentContext, request.Method)
-		statusWriter := &responseStatusWriter{ResponseWriter: writer, status: http.StatusOK}
-		next.ServeHTTP(statusWriter, request.WithContext(ctx))
-		route := chi.RouteContext(request.Context()).RoutePattern()
-		outcome, category := gateway.HTTPOutcome(statusWriter.status)
-		api.logger.InfoContext(ctx, "http request completed",
-			"method", request.Method, "route", route, "status", statusWriter.status,
-			"outcome", outcome, "category", category,
-		)
-		endRequest(route, statusWriter.status)
+		ctx := api.propagator.Extract(request.Context(), propagation.HeaderCarrier(request.Header))
+		ctx, endRequest := api.telemetry.StartHTTP(ctx, request.Method)
+		wrapped := &statusWriter{ResponseWriter: writer, status: http.StatusOK}
+		next.ServeHTTP(wrapped, request.WithContext(ctx))
+		route := request.URL.Path
+		switch route {
+		case "/v1/chat/completions", "/v1/responses", "/v1/models", "/healthz", "/readyz":
+		default:
+			route = "unmatched"
+		}
+		outcome, category := gateway.HTTPOutcome(wrapped.status)
+		api.logger.InfoContext(ctx, "http request completed", "method", request.Method, "route", route, "status", wrapped.status, "outcome", outcome, "category", category)
+		endRequest(route, wrapped.status)
 	})
 }
 
-type responseStatusWriter struct {
-	http.ResponseWriter
-	status      int
-	wroteHeader bool
-}
-
-func (writer *responseStatusWriter) WriteHeader(status int) {
-	if writer.wroteHeader {
-		return
-	}
-	writer.status = status
-	writer.wroteHeader = true
-	writer.ResponseWriter.WriteHeader(status)
-}
-
-func (writer *responseStatusWriter) Write(content []byte) (int, error) {
-	if !writer.wroteHeader {
-		writer.WriteHeader(http.StatusOK)
-	}
-	return writer.ResponseWriter.Write(content)
-}
-
-func (writer *responseStatusWriter) Flush() {
-	if !writer.wroteHeader {
-		writer.WriteHeader(http.StatusOK)
-	}
-	if flusher, ok := writer.ResponseWriter.(http.Flusher); ok {
-		flusher.Flush()
-	}
-}
-
-func (writer *responseStatusWriter) Unwrap() http.ResponseWriter { return writer.ResponseWriter }
-
-func (api *API) operationHandler(operationID string) http.HandlerFunc {
-	switch operationID {
-	case "getHealth":
-		return api.health
-	case "getReadiness":
-		return api.ready
-	case "getState":
-		return api.getState
-	case "saveState":
-		return api.saveState
-	case "listProfiles":
-		return api.listProfiles
-	case "exportProfileBundle":
-		return api.exportProfileBundle
-	case "importProfileBundle":
-		return api.importProfileBundle
-	case "saveProfile":
-		return api.saveProfile
-	case "deleteProfile":
-		return api.deleteProfile
-	case "refreshProfileModels":
-		return api.refreshProfileModels
-	case "listHistory":
-		return api.listHistory
-	case "getStats":
-		return api.getStats
-	case "deleteHistory":
-		return api.deleteHistory
-	case "clearHistory":
-		return api.clearHistory
-	case "getTrace":
-		return api.getTrace
-	case "getArtifact":
-		return api.getArtifact
-	case "run":
-		return api.run
-	default:
-		return api.notImplemented
-	}
-}
-
-func (api *API) responsePolicy(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		writer.Header().Set("Cache-Control", "no-store")
-		writer.Header().Set("Pragma", "no-cache")
-		writer.Header().Set("X-Content-Type-Options", "nosniff")
-		writer.Header().Set("Referrer-Policy", "no-referrer")
-		next.ServeHTTP(writer, request)
-	})
-}
-
-func (api *API) recoverPanic(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		// bufferedResponse intentionally protects ordinary JSON handlers, but it
-		// would defeat incremental SSE delivery. The stream writer has its own
-		// bounded terminal/error handling.
-		if strings.Contains(strings.ToLower(request.Header.Get("Accept")), "text/event-stream") {
-			next.ServeHTTP(writer, request)
+func (api *API) authorize(next http.HandlerFunc) http.HandlerFunc {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		if !auth.MatchBearer(request.Header.Values("Authorization"), api.token) {
+			writeError(writer, http.StatusUnauthorized, "authentication_error", "invalid_api_key", "Invalid or missing API key.", nil)
 			return
-		}
-		buffer := newBufferedResponse()
-		defer func() {
-			if recover() != nil {
-				writeError(writer, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-				return
-			}
-			buffer.flush(writer)
-		}()
-		next.ServeHTTP(buffer, request)
-	})
-}
-
-func (api *API) validateRequestShape(route Route, next http.Handler) http.Handler {
-	allowedQuery := make(map[string]struct{}, len(route.QueryParameters))
-	for _, name := range route.QueryParameters {
-		allowedQuery[name] = struct{}{}
-	}
-	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		query, err := url.ParseQuery(request.URL.RawQuery)
-		if err != nil {
-			writeError(writer, http.StatusBadRequest, "invalid_request", "The request query is invalid.")
-			return
-		}
-		for name, values := range query {
-			if _, ok := allowedQuery[name]; !ok || len(values) != 1 {
-				writeError(writer, http.StatusBadRequest, "invalid_request", "The request query is invalid.")
-				return
-			}
-		}
-		if !route.RequestBody {
-			if request.ContentLength > 0 {
-				writeError(writer, http.StatusBadRequest, "invalid_request", "This operation does not accept a request body.")
-				return
-			}
-			if request.ContentLength < 0 {
-				var one [1]byte
-				count, readErr := request.Body.Read(one[:])
-				if count != 0 || (readErr != nil && !errors.Is(readErr, io.EOF)) {
-					writeError(writer, http.StatusBadRequest, "invalid_request", "This operation does not accept a request body.")
-					return
-				}
-			}
 		}
 		next.ServeHTTP(writer, request)
-	})
-}
-
-func (api *API) authenticate(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		authContext, endAuth := api.telemetry.StartOperation(request.Context(), gateway.OperationAuthAuthenticate)
-		principal, err := api.auth.AuthenticateRequest(request.WithContext(authContext))
-		endAuth(err)
-		if err != nil {
-			if errors.Is(err, auth.ErrUnauthenticated) {
-				writeError(writer, http.StatusUnauthorized, "unauthenticated", "Authentication is required.")
-			} else if errors.Is(err, auth.ErrForbidden) {
-				writeError(writer, http.StatusForbidden, "forbidden", "Product access is required.")
-			} else {
-				writeError(writer, http.StatusServiceUnavailable, "service_unavailable", "Authentication is temporarily unavailable.")
-			}
-			return
-		}
-		ctx := context.WithValue(request.Context(), principalContextKey{}, principal)
-		next.ServeHTTP(writer, request.WithContext(ctx))
-	})
-}
-
-func (api *API) withOperationTimeout(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		ctx, cancel := context.WithTimeout(request.Context(), api.operationTimeout)
-		defer cancel()
-		next.ServeHTTP(writer, request.WithContext(ctx))
-	})
+	}
 }
 
 func (api *API) health(writer http.ResponseWriter, _ *http.Request) {
-	writeHealth(writer, http.StatusOK, "ok")
+	writeJSON(writer, http.StatusOK, map[string]string{"status": "ok"}, maximumResponseBytes)
 }
 
 func (api *API) ready(writer http.ResponseWriter, request *http.Request) {
@@ -343,117 +191,35 @@ func (api *API) ready(writer http.ResponseWriter, request *http.Request) {
 	defer cancel()
 	for _, check := range api.readiness {
 		if err := check(ctx); err != nil {
-			writeHealth(writer, http.StatusServiceUnavailable, "unavailable")
+			writeError(writer, http.StatusServiceUnavailable, "server_error", "not_ready", "The service is not ready.", nil)
 			return
 		}
 	}
-	writeHealth(writer, http.StatusOK, "ok")
+	writeJSON(writer, http.StatusOK, map[string]string{"status": "ready"}, maximumResponseBytes)
 }
 
-func (api *API) notImplemented(writer http.ResponseWriter, _ *http.Request) {
-	writeError(writer, http.StatusServiceUnavailable, "service_unavailable", "The requested operation is temporarily unavailable.")
+func writeError(writer http.ResponseWriter, status int, typeName, code, message string, param any) {
+	writeJSON(writer, status, errorResponse{Error: openAIError{Message: message, Type: typeName, Code: code, Param: param}}, maximumResponseBytes)
 }
 
-func principalFrom(ctx context.Context) (auth.Principal, bool) {
-	principal, ok := ctx.Value(principalContextKey{}).(auth.Principal)
-	return principal, ok
-}
-
-func decodeJSON(writer http.ResponseWriter, request *http.Request, maximum int64, destination any) *responseFailure {
-	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
-	if err != nil || mediaType != "application/json" {
-		return &responseFailure{Status: http.StatusUnsupportedMediaType, Code: "unsupported_media_type", Message: "Content-Type must be application/json."}
-	}
-	request.Body = http.MaxBytesReader(writer, request.Body, maximum)
-	decoder := json.NewDecoder(request.Body)
-	decoder.DisallowUnknownFields()
-	decoder.UseNumber()
-	if err := decoder.Decode(destination); err != nil {
-		if failure := requestValidationFailure(err); failure != nil {
-			return failure
-		}
-		var maximumError *http.MaxBytesError
-		if errors.As(err, &maximumError) {
-			return &responseFailure{Status: http.StatusRequestEntityTooLarge, Code: "request_too_large", Message: "The request body is too large."}
-		}
-		return &responseFailure{Status: http.StatusBadRequest, Code: "invalid_request", Message: "The request body is invalid."}
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		var maximumError *http.MaxBytesError
-		if errors.As(err, &maximumError) {
-			return &responseFailure{Status: http.StatusRequestEntityTooLarge, Code: "request_too_large", Message: "The request body is too large."}
-		}
-		return &responseFailure{Status: http.StatusBadRequest, Code: "invalid_request", Message: "The request body must contain one JSON value."}
-	}
-	return nil
-}
-
-type responseFailure struct {
-	FieldErrors map[string]string
-	Status      int
-	Code        string
-	Message     string
-}
-
-func writeFailure(writer http.ResponseWriter, failure responseFailure) {
-	writeJSON(writer, failure.Status, envelope{State: map[string]any{}, Error: &Error{Code: failure.Code, Message: failure.Message, FieldErrors: failure.FieldErrors}})
-}
-
-func writeSuccess(writer http.ResponseWriter, status int, result, state any) {
-	writeJSON(writer, status, envelope{State: state, Result: result})
-}
-
-func writeError(writer http.ResponseWriter, status int, code, message string) {
-	writeJSON(writer, status, envelope{State: map[string]any{}, Result: nil, Error: &Error{Code: code, Message: message}})
-}
-
-func writeHealth(writer http.ResponseWriter, status int, value string) {
-	writeJSON(writer, status, map[string]string{"status": value})
-}
-
-func writeJSON(writer http.ResponseWriter, status int, value any) {
+func writeJSON(writer http.ResponseWriter, status int, value any, maximum int) bool {
 	encoded, err := json.Marshal(value)
 	if err != nil {
-		encoded = []byte(`{"state":{},"result":null,"error":{"code":"internal_error","message":"The response could not be encoded."}}`)
-		status = http.StatusInternalServerError
+		writeInternalEncodingError(writer)
+		return false
 	}
-	writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+	if len(encoded) > maximum {
+		writeError(writer, http.StatusBadGateway, "server_error", "response_too_large", "The completed response exceeded the configured size limit.", nil)
+		return false
+	}
+	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(status)
-	_, _ = writer.Write(append(encoded, '\n'))
+	_, _ = writer.Write(encoded)
+	return true
 }
 
-type bufferedResponse struct {
-	header      http.Header
-	status      int
-	wroteHeader bool
-	body        bytes.Buffer
-}
-
-func newBufferedResponse() *bufferedResponse {
-	return &bufferedResponse{header: make(http.Header), status: http.StatusOK}
-}
-
-func (response *bufferedResponse) Header() http.Header { return response.header }
-
-func (response *bufferedResponse) WriteHeader(status int) {
-	if response.wroteHeader || status < 100 {
-		return
-	}
-	response.status = status
-	response.wroteHeader = true
-}
-
-func (response *bufferedResponse) Write(data []byte) (int, error) {
-	if !response.wroteHeader {
-		response.WriteHeader(http.StatusOK)
-	}
-	return response.body.Write(data)
-}
-
-func (response *bufferedResponse) flush(writer http.ResponseWriter) {
-	for name, values := range response.header {
-		writer.Header()[name] = append([]string(nil), values...)
-	}
-	writer.WriteHeader(response.status)
-	_, _ = writer.Write(response.body.Bytes())
+func writeInternalEncodingError(writer http.ResponseWriter) {
+	writer.Header().Set("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusInternalServerError)
+	_, _ = fmt.Fprint(writer, `{"error":{"message":"The response could not be encoded.","type":"server_error","param":null,"code":"response_encoding_error"}}`)
 }

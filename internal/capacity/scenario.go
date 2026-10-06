@@ -152,8 +152,8 @@ func (scenario ScenarioSpec) DriverScenario() Scenario {
 		CacheMode:      scenario.CacheMode,
 		RecoveryPolicy: scenario.RecoveryPolicy,
 		Origin: RequestOrigin{
-			Client: "harden-llm-capacity-test", Component: "capacity-baseline",
-			OperationID: scenario.ID, TestID: "TEST-277",
+			Client: "harden-llm-capacity-test", Component: "capacity-driver",
+			OperationID: scenario.ID, TestID: "TEST-276",
 		},
 	}
 }

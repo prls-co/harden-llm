@@ -66,8 +66,8 @@ func buildProgressSnapshot(
 }
 
 func Execute(
-	ctx context.Context, executor Executor, credentials CredentialLookup,
-	selected string, profiles map[string]Profile, call Call, config retry.Config,
+	ctx context.Context, executor Executor, connection Connection, credential Credential,
+	call Call, config retry.Config,
 	cache Cache, cacheMode cachekey.Mode, cacheVersion, callID, traceID string,
 ) (record CallRecord, err error) {
 	if ctx == nil {
@@ -76,15 +76,11 @@ func Execute(
 	if executor == nil {
 		return record, errors.New("runtime executor is required")
 	}
-	if credentials == nil {
-		return record, errors.New("credential lookup is required")
-	}
 	if err := config.Policy.Validate(); err != nil {
 		return record, err
 	}
-	profile, ok := profiles[selected]
-	if !ok || selected == "" || profile.ID != selected {
-		return record, errors.New("runtime selected profile was not found")
+	if connection.ID == "" {
+		return record, errors.New("runtime connection ID is required")
 	}
 	if call.CallType == "structured" && call.ValidateStructured == nil {
 		return record, errors.New("structured call validator is required")
@@ -99,22 +95,22 @@ func Execute(
 		config.Now = time.Now
 	}
 	if call.CallType == "structured" && hasExplicitRecoveryPlan(config.Policy) {
-		return executeRecoveryPlan(ctx, executor, credentials, selected, profiles, call, config, cache, cacheMode, cacheVersion, callID, traceID)
+		return executeRecoveryPlan(ctx, executor, connection, credential, call, config, cache, cacheMode, cacheVersion, callID, traceID)
 	}
 	if call.WebSearch {
 		call.SearchMemo = &sync.Map{}
 	}
 	if call.Telemetry != nil {
 		var finish func(error)
-		ctx, finish = call.Telemetry.StartRuntime(ctx, CallObservation{ProfileID: profile.ID, Provider: profile.Provider, ModelID: profile.ModelID, CallType: call.CallType})
+		ctx, finish = call.Telemetry.StartRuntime(ctx, CallObservation{ConnectionID: connection.ID, Provider: connection.Provider, ModelID: call.ModelID, CallType: call.CallType})
 		defer func() { finish(err) }()
 	}
 	if cacheVersion == "" {
 		cacheVersion = cachekey.DefaultVersion
 	}
 	record = CallRecord{
-		CallID: callID, TraceID: traceID, SelectedTarget: targetFromProfile(profile),
-		GenerationTarget: targetFromProfile(profile), Branch: "original",
+		CallID: callID, TraceID: traceID, SelectedTarget: targetFromConnection(connection, call.ModelID),
+		GenerationTarget: targetFromConnection(connection, call.ModelID), Branch: "original",
 		Origin:       call.Origin,
 		ResultSource: ResultSource{Kind: ResultSourceNone},
 		Accounting:   Accounting{Result: accounting.EmptyLedger(), Provider: accounting.EmptyLedger()},
@@ -140,7 +136,7 @@ func Execute(
 		progressSequence++
 		event := buildProgressSnapshot(ctx, config.Now, startedAt, &record, activeStream, ProgressSnapshot{
 			Sequence: progressSequence, RunID: call.Context.RunID, CallID: callID, TraceID: traceID,
-			Type: eventType, Stage: "original.generate", Branch: "original", ProfileID: profile.ID,
+			Type: eventType, Stage: "original.generate", Branch: "original", ConnectionID: connection.ID,
 			ReasoningEffort: call.ReasoningEffort, Attempt: attempt, Terminal: terminal,
 			MaxAttempts: config.Policy.MaxAttempts,
 		})
@@ -162,16 +158,13 @@ func Execute(
 	if err := executionContextError(ctx, config.Now()); err != nil {
 		return record, err
 	}
-	credential, err := credentials(ctx, profile)
+	prepared, err := executor.Prepare(ctx, connection, credential, call)
 	if err != nil {
 		return record, err
 	}
-	prepared, err := executor.Prepare(ctx, profile, credential, call)
-	if err != nil {
-		return record, err
-	}
+	prepared = withCacheDomain(prepared, connection)
 	record.PreparedOperation = prepared
-	target := targetFromPrepared(profile, prepared)
+	target := targetFromPrepared(connection, prepared)
 	if cacheMode != cachekey.ModeOff {
 		if cache == nil {
 			return record, errors.New("runtime cache is required when cache mode is active")
@@ -192,7 +185,7 @@ func Execute(
 				return record, cacheErr
 			}
 			if found {
-				if admissionErr := admitCachedResult(cacheContext, profile, target, cached, call); admissionErr != nil {
+				if admissionErr := admitCachedResult(cacheContext, connection, target, cached, call); admissionErr != nil {
 					endCache("unknown", admissionErr)
 					return record, NewCacheIntegrityError()
 				}
@@ -259,7 +252,7 @@ func Execute(
 		previousOutput := ""
 		if failure == nil {
 			validateStructured := func(value any) error {
-				return validateStructuredValue(attemptContext, call.Telemetry, profile, work.call.Repair != nil, call.ValidateStructured, value)
+				return validateStructuredValue(attemptContext, call.Telemetry, connection, work.call.Repair != nil, call.ValidateStructured, value)
 			}
 			admissionErr := admitResult(result, work.call.CallType, validateStructured)
 			if admissionErr != nil {
@@ -287,7 +280,7 @@ func Execute(
 		}
 		classification := retry.Classify(failure, config.Policy)
 		attemptRecord := AttemptRecord{
-			Number: number, ProfileID: profile.ID, Target: target, ProviderUsed: providerUsed,
+			Number: number, ConnectionID: connection.ID, Target: target, ProviderUsed: providerUsed,
 			Category: classification.Category, Status: classification.Status, Retryable: classification.Retryable,
 			Duration: max(0, config.Now().Sub(started)), Repair: work.call.Repair != nil, Stage: "original.generate", Branch: "original",
 			Code: classification.Code, Type: classification.Type, ProviderRequestID: classification.ProviderRequestID,
@@ -394,28 +387,28 @@ func admitResult(result ProviderResult, callType string, validateStructured func
 	return nil
 }
 
-func admitCachedResult(ctx context.Context, profile Profile, target ExecutionTarget, cached CachedResult, call Call) error {
+func admitCachedResult(ctx context.Context, connection Connection, target ExecutionTarget, cached CachedResult, call Call) error {
 	if err := validateCacheProducer(cached.Producer, target); err != nil {
 		return err
 	}
 	validateStructured := func(value any) error {
-		return validateStructuredValue(ctx, call.Telemetry, profile, false, call.ValidateStructured, value)
+		return validateStructuredValue(ctx, call.Telemetry, connection, false, call.ValidateStructured, value)
 	}
 	return admitResult(cached.ProviderResult, call.CallType, validateStructured)
 }
 
-func validateStructuredValue(ctx context.Context, telemetry *Telemetry, profile Profile, repair bool, validator func(any) error, value any) error {
+func validateStructuredValue(ctx context.Context, telemetry *Telemetry, connection Connection, repair bool, validator func(any) error, value any) error {
 	if validator == nil {
 		return errors.New("runtime structured output validator is required")
 	}
 	if telemetry == nil {
 		return validator(value)
 	}
-	return telemetry.ValidateSchema(ctx, profile, repair, func(context.Context) error { return validator(value) })
+	return telemetry.ValidateSchema(ctx, connection, repair, func(context.Context) error { return validator(value) })
 }
 
 func validateCacheProducer(producer, expected ExecutionTarget) error {
-	if strings.TrimSpace(producer.ProfileID) == "" || producer.Provider != expected.Provider || producer.Protocol != expected.Protocol || producer.Endpoint != expected.Endpoint || producer.ModelID != expected.ModelID {
+	if strings.TrimSpace(producer.ConnectionID) == "" || producer.Provider != expected.Provider || producer.Protocol != expected.Protocol || producer.Endpoint != expected.Endpoint || producer.ModelID != expected.ModelID {
 		return NewCacheIntegrityError()
 	}
 	return nil
@@ -473,15 +466,15 @@ func combineAccountingFailure(existing error) error {
 	return &merged
 }
 
-func targetFromProfile(profile Profile) ExecutionTarget {
+func targetFromConnection(connection Connection, modelID string) ExecutionTarget {
 	return ExecutionTarget{
-		ProfileID: profile.ID, Provider: profile.Provider, Protocol: profile.APIInferenceType,
-		Endpoint: profile.BaseURL, ModelID: profile.ModelID,
+		ConnectionID: connection.ID, Provider: connection.Provider, Protocol: connection.APIInferenceType,
+		Endpoint: connection.BaseURL, ModelID: modelID,
 	}
 }
 
-func targetFromPrepared(profile Profile, prepared PreparedOperation) ExecutionTarget {
-	target := targetFromProfile(profile)
+func targetFromPrepared(connection Connection, prepared PreparedOperation) ExecutionTarget {
+	target := targetFromConnection(connection, prepared.Operation.Model)
 	target.Protocol = prepared.Operation.Protocol
 	target.Endpoint = prepared.Operation.Endpoint.Identity
 	target.ModelID = prepared.Operation.Model

@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { capacitySafetyFailure, collectDockerResourceSample, hashImageIDs, parseResourceBytes, summarizeResourceSamples } from "../measure-test-resources.mjs";
+import { collectDockerResourceSample, hashImageIDs, parseResourceBytes, summarizeResourceSamples } from "../measure-test-resources.mjs";
 
 test("TEST-275 parses byte and decimal/binary CLI units exactly", () => {
   const cases = [
@@ -264,13 +264,9 @@ test("TEST-275 rejects mutable image tags from capacity fingerprints", () => {
   assert.throws(() => hashImageIDs(["postgres:17-alpine"]), /immutable Docker sha256 image IDs/);
 });
 
-test("TEST-275 capacity pressure thresholds fail closed and preserve host headroom metrics", () => {
+test("TEST-275 preserves host headroom metrics", () => {
   const gib = 1024 ** 3;
   const safeHost = { totalMemoryBytes: 32 * gib, availableMemoryBytes: 4 * gib, availableDiskBytes: 10 * gib };
-  assert.equal(capacitySafetyFailure(safeHost), null);
-  assert.match(capacitySafetyFailure({ ...safeHost, availableMemoryBytes: 3 * gib - 1 }), /below 10 percent/);
-  assert.match(capacitySafetyFailure({ ...safeHost, availableDiskBytes: 5 * gib - 1 }), /less than 5 GiB/);
-  assert.match(capacitySafetyFailure({ ...safeHost, availableDiskBytes: null }), /unavailable or invalid/);
 
   const report = summarizeResourceSamples("owned-project", [{
     timestamp: "2026-09-21T00:00:00Z",

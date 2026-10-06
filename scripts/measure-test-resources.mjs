@@ -104,20 +104,6 @@ function measuredMetric(value, unavailableReason, parse, source, unit = "bytes")
     : metric(parsed.value, source, null, unit);
 }
 
-export function capacitySafetyFailure(host) {
-  const { availableMemoryBytes, totalMemoryBytes, availableDiskBytes } = host ?? {};
-  for (const [name, value] of Object.entries({ availableMemoryBytes, totalMemoryBytes, availableDiskBytes })) {
-    if (!Number.isSafeInteger(value) || value < 0) return `capacity safety stop: ${name} is unavailable or invalid`;
-  }
-  if (totalMemoryBytes === 0 || BigInt(availableMemoryBytes) * 10n < BigInt(totalMemoryBytes)) {
-    return "capacity safety stop: host available memory is below 10 percent";
-  }
-  if (availableDiskBytes < 5 * 1024 * 1024 * 1024) {
-    return "capacity safety stop: host filesystem has less than 5 GiB available";
-  }
-  return null;
-}
-
 function outputText(result, label) {
   if (!result || result.status !== 0 || (result.truncatedBytes ?? 0) > 0) {
     const exit = Number.isInteger(result?.status) ? `exit=${result.status}` : "exit=unknown";

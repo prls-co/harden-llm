@@ -1,0 +1,14 @@
+{
+  "default_upstream": "cpa",
+  "upstreams": [
+    {
+      "id": "cpa",
+      "provider": "cpa",
+      "protocol": "responses",
+      "base_url": "https://cpa.prls.co/v1",
+      "api_key_env": "CPA_API_KEY",
+      "cache_domain": "cpa-production",
+      "supports_web_search": true
+    }
+  ]
+}

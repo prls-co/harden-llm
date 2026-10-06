@@ -8,11 +8,12 @@
 import Config
 
 config :harden_llm,
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  ecto_repos: [HardenLlm.Repo],
+  reference_repo_enabled: false
 
 config :harden_llm, :harden_api,
   base_url: "http://127.0.0.1:8080",
-  public_base_url: "https://api.example.test",
   api_timeout_ms: 15_000,
   run_timeout_ms: 65_000,
   max_run_duration_ms: 60_000
@@ -22,10 +23,6 @@ config :harden_llm, :browser_session,
   signing_salt: "dev-signing-salt",
   encryption_salt: "dev-encryption-salt",
   secure: false
-
-config :harden_llm,
-  artifact_public_origin: "https://artifacts.example.test",
-  max_bundle_bytes: 2_097_152
 
 config :harden_llm, :observability,
   file_log_enabled: false,

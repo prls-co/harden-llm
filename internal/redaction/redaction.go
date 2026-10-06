@@ -149,7 +149,7 @@ func isSecretKey(key string, value any) bool {
 	if !secretKeyPattern.MatchString(strings.TrimSpace(key)) {
 		compact := strings.NewReplacer("-", "", "_", "", ".", "").Replace(strings.ToLower(strings.TrimSpace(key)))
 		sensitiveContent := compact == "response" || compact == "completion" || compact == "rawresponse" ||
-			strings.HasSuffix(compact, "prompt") || strings.HasSuffix(compact, "responsebody") ||
+			strings.HasSuffix(compact, "prompt") || strings.HasSuffix(compact, "response") || strings.HasSuffix(compact, "responsebody") ||
 			strings.HasSuffix(compact, "providerenvelope") || strings.HasSuffix(compact, "url")
 		if !sensitiveContent {
 			return false

@@ -5,62 +5,61 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 env_file="${HARDEN_ENV_FILE:-$repo_root/.env}"
 api="${HARDEN_API_URL:-https://harden-llm-api.prls.co}"
+model="${HARDEN_LLM_SMOKE_MODEL:-gpt-5.6-luna}"
 
 if [[ ! -r "$env_file" ]]; then
   printf 'Missing readable environment file: %s\n' "$env_file" >&2
   exit 1
 fi
 
-dotenv_value() {
-  local key="$1"
-  awk -v key="$key" 'index($0, key "=") == 1 {
-    print substr($0, length(key) + 2)
-    exit
-  }' "$env_file"
-}
+api_token="$(awk -v key='HARDEN_LLM_TOKEN' 'index($0, key "=") == 1 {
+  print substr($0, length(key) + 2)
+  exit
+}' "$env_file")"
 
-static_token="$(dotenv_value HARDEN_LLM_STATIC_TOKEN)"
-
-if [[ -z "$static_token" ]]; then
-  printf 'HARDEN_LLM_STATIC_TOKEN is required in %s\n' "$env_file" >&2
+if [[ -z "$api_token" ]]; then
+  printf 'HARDEN_LLM_TOKEN is required in %s\n' "$env_file" >&2
   exit 1
 fi
 
-run_response=""
+response_file="$(mktemp)"
 cleanup() {
-  [[ -z "$run_response" ]] || rm -f "$run_response"
-  unset static_token request_body run_response
+  rm -f "$response_file"
+  unset api_token request_body response_file
 }
 trap cleanup EXIT
 
-request_body="$(jq -cn '
+request_body="$(jq -cn --arg model "$model" '
   {
-    profileId: "CurlStructured",
-    userPrompt: "Tell me a joke about yourself.",
-    callType: "structured",
-    schema: {
-      type: "object",
-      required: ["setup", "punchline"],
-      properties: {
-        setup: {type: "string"},
-        punchline: {type: "string"}
-      },
-      additionalProperties: false
+    model: $model,
+    input: "Tell me a joke about yourself.",
+    store: false,
+    text: {
+      format: {
+        type: "json_schema",
+        name: "joke",
+        strict: true,
+        schema: {
+          type: "object",
+          required: ["setup", "punchline"],
+          properties: {setup: {type: "string"}, punchline: {type: "string"}},
+          additionalProperties: false
+        }
+      }
     }
   }
 ')"
 
-run_response="$(mktemp)"
 if curl --fail-with-body --silent --show-error \
-  -H "Authorization: Bearer $static_token" \
+  -H "Authorization: Bearer $api_token" \
   -H 'Content-Type: application/json' \
   --data-binary "$request_body" \
-  --output "$run_response" \
-  "$api/api/v1/run"; then
-  jq . "$run_response"
+  --output "$response_file" \
+  "$api/v1/responses"; then
+  jq . "$response_file"
 else
   status="$?"
-  printf 'Run failed (curl exit %s); response:\n' "$status" >&2
-  sed -n '1,80p' "$run_response" >&2
+  printf 'Responses request failed (curl exit %s); response:\n' "$status" >&2
+  sed -n '1,80p' "$response_file" >&2
   exit "$status"
 fi

@@ -16,7 +16,7 @@ import Config
 #
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
-if System.get_env("PHX_SERVER") do
+if System.get_env("PHX_SERVER") == "true" do
   config :harden_llm, HardenLlmWeb.Endpoint, server: true
 end
 
@@ -39,24 +39,35 @@ parse_positive_integer = fn name, default ->
   end
 end
 
+api_token =
+  if config_env() == :test do
+    "harden-llm-test-token-0123456789abcdef"
+  else
+    System.get_env("HARDEN_LLM_TOKEN", "")
+  end
+
 config :harden_llm, :harden_api,
   base_url: System.get_env("HARDEN_LLM_API_BASE_URL", "http://127.0.0.1:8080"),
-  public_base_url: System.get_env("HARDEN_LLM_PUBLIC_API_BASE_URL", "https://api.example.test"),
-  api_timeout_ms: parse_positive_integer.("HARDEN_LLM_WEB_API_TIMEOUT_MS", "15000"),
-  run_timeout_ms: parse_positive_integer.("HARDEN_LLM_WEB_RUN_TIMEOUT_MS", "65000"),
-  max_run_duration_ms: parse_positive_integer.("HARDEN_LLM_MAX_RUN_DURATION_MS", "60000"),
-  service_token:
-    if(config_env() == :test,
-      do: "harden-llm-development-service-token-0123456789",
-      else:
-        System.get_env(
-          "HARDEN_LLM_STATIC_TOKEN",
-          if(config_env() == :prod,
-            do: "",
-            else: "harden-llm-development-service-token-0123456789"
-          )
-        )
-    )
+  api_timeout_ms: parse_positive_integer.("HARDEN_LLM_WEB_API_TIMEOUT_MS", "65000"),
+  token: api_token
+
+if config_env() == :prod do
+  config :harden_llm,
+    reference_repo_enabled: true
+
+  config :harden_llm, HardenLlm.Repo,
+    url: System.fetch_env!("HARDEN_LLM_DATABASE_URL"),
+    pool_size: parse_positive_integer.("HARDEN_LLM_DATABASE_POOL_SIZE", "10"),
+    timeout: 600,
+    pool_timeout: 400,
+    connect_timeout: 600,
+    parameters: [statement_timeout: "500"]
+else
+  if database_url = System.get_env("HARDEN_LLM_DATABASE_URL") do
+    config :harden_llm, :reference_repo_enabled, true
+    config :harden_llm, HardenLlm.Repo, url: database_url, timeout: 600, pool_timeout: 400
+  end
+end
 
 portal_origin =
   if config_env() == :prod do
@@ -84,10 +95,6 @@ else
       ),
     public_origin: PrlsWeb.SessionNavigation.validate_origin!(web_origin, config_env() == :prod)
 end
-
-config :harden_llm,
-  artifact_public_origin:
-    System.get_env("HARDEN_LLM_ARTIFACT_PUBLIC_ORIGIN", "https://artifacts.example.test")
 
 if config_env() == :dev do
   # Reload browser tabs when matching files change.

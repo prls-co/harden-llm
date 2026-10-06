@@ -2,6 +2,8 @@ package providers
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -94,7 +96,7 @@ func normalizeResponseAccounting(prepared preparedRequest, response map[string]a
 	if usageErr != nil {
 		usage = accounting.UnavailableUsage()
 	}
-	cost, costErr := normalizeCost(response, usage, prepared.pricing)
+	cost, costErr := normalizeCost(response, usage)
 	if costErr != nil {
 		cost = accounting.UnavailableCost()
 	}
@@ -173,18 +175,16 @@ func extractProviderOutputState(protocol string, response map[string]any) provid
 			}
 		}
 		outputText, outputTextPresent := response["output_text"]
-		if outputTextPresent {
-			if outputText != nil {
-				value, ok := outputText.(string)
-				if !ok {
-					return providerOutputExtraction{malformed: true}
-				}
-				if strings.TrimSpace(value) != "" {
-					return providerOutputExtraction{text: value}
-				}
+		var text string
+		if outputTextPresent && outputText != nil {
+			value, ok := outputText.(string)
+			if !ok {
+				return providerOutputExtraction{malformed: true}
 			}
+			text = value
 		}
 		outputValue, outputPresent := response["output"]
+		toolCalls := make([]runtime.AssistantToolCall, 0)
 		if outputPresent && outputValue != nil {
 			outputArray, ok := outputValue.([]any)
 			if !ok {
@@ -193,12 +193,21 @@ func extractProviderOutputState(protocol string, response map[string]any) provid
 			if len(outputArray) == 0 && outputTextPresent {
 				return providerOutputExtraction{empty: true}
 			}
+			var contentText strings.Builder
 			for _, messageValue := range outputArray {
 				message, ok := messageValue.(map[string]any)
 				if !ok {
 					return providerOutputExtraction{malformed: true}
 				}
 				messageType := stringValue(message["type"])
+				if messageType == "function_call" {
+					call, valid := responsesToolCall(message)
+					if !valid || len(toolCalls) == 128 {
+						return providerOutputExtraction{malformed: true}
+					}
+					toolCalls = append(toolCalls, call)
+					continue
+				}
 				contentValue, contentPresent := message["content"]
 				if !contentPresent {
 					if messageType == "message" {
@@ -232,16 +241,24 @@ func extractProviderOutputState(protocol string, response map[string]any) provid
 						if !present || value == nil {
 							continue
 						}
-						text, ok := value.(string)
+						partText, ok := value.(string)
 						if !ok {
 							return providerOutputExtraction{malformed: true}
 						}
-						if strings.TrimSpace(text) != "" {
-							return providerOutputExtraction{text: text}
-						}
+						contentText.WriteString(partText)
+						break
 					}
 				}
 			}
+			if strings.TrimSpace(text) == "" {
+				text = contentText.String()
+			}
+		}
+		if len(toolCalls) > 0 {
+			return providerOutputExtraction{output: runtime.AssistantOutput{Content: text, ToolCalls: toolCalls}}
+		}
+		if strings.TrimSpace(text) != "" {
+			return providerOutputExtraction{text: text}
 		}
 		if outputPresent || outputTextPresent {
 			return providerOutputExtraction{empty: true}
@@ -270,8 +287,16 @@ func extractProviderOutputState(protocol string, response map[string]any) provid
 		if !present || (content != nil && !isString(content)) {
 			return providerOutputExtraction{malformed: true}
 		}
-		if value := strings.TrimSpace(stringValue(content)); value != "" {
-			return providerOutputExtraction{text: value}
+		toolCalls, valid := chatToolCalls(message["tool_calls"])
+		if !valid || len(toolCalls) > 128 {
+			return providerOutputExtraction{malformed: true}
+		}
+		text := stringValue(content)
+		if len(toolCalls) > 0 {
+			return providerOutputExtraction{output: runtime.AssistantOutput{Content: text, ToolCalls: toolCalls}}
+		}
+		if strings.TrimSpace(text) != "" {
+			return providerOutputExtraction{text: text}
 		}
 		return providerOutputExtraction{empty: true}
 	case "google.gemini.generateContent":
@@ -304,19 +329,36 @@ func extractProviderOutputState(protocol string, response map[string]any) provid
 		if len(parts) == 0 {
 			return providerOutputExtraction{empty: true}
 		}
-		part, ok := parts[0].(map[string]any)
-		if !ok {
-			return providerOutputExtraction{malformed: true}
+		var text strings.Builder
+		toolCalls := make([]runtime.AssistantToolCall, 0)
+		for _, partValue := range parts {
+			part, ok := partValue.(map[string]any)
+			if !ok {
+				return providerOutputExtraction{malformed: true}
+			}
+			if function, present := part["functionCall"]; present {
+				call, valid := geminiToolCall(function)
+				if !valid || call.ID == "" || len(toolCalls) == 128 {
+					return providerOutputExtraction{malformed: true}
+				}
+				toolCalls = append(toolCalls, call)
+				continue
+			}
+			value, present := part["text"]
+			if present && value != nil && !isString(value) {
+				return providerOutputExtraction{malformed: true}
+			}
+			if text.Len() == 0 {
+				text.WriteString(stringValue(value))
+			}
 		}
-		value, present := part["text"]
-		if present && value != nil && !isString(value) {
-			return providerOutputExtraction{malformed: true}
+		if len(toolCalls) > 0 {
+			return providerOutputExtraction{output: runtime.AssistantOutput{Content: text.String(), ToolCalls: toolCalls}}
 		}
-		text := stringValue(value)
-		if strings.TrimSpace(text) == "" {
+		if strings.TrimSpace(text.String()) == "" {
 			return providerOutputExtraction{empty: true}
 		}
-		return providerOutputExtraction{text: text}
+		return providerOutputExtraction{text: text.String()}
 	case "anthropic.messages":
 		if stringValue(response["stop_reason"]) == "refusal" {
 			return providerOutputExtraction{refusal: true}
@@ -330,6 +372,7 @@ func extractProviderOutputState(protocol string, response map[string]any) provid
 			return providerOutputExtraction{malformed: true}
 		}
 		var builder strings.Builder
+		toolCalls := make([]runtime.AssistantToolCall, 0)
 		for _, partValue := range content {
 			object, ok := partValue.(map[string]any)
 			if !ok {
@@ -344,7 +387,16 @@ func extractProviderOutputState(protocol string, response map[string]any) provid
 					return providerOutputExtraction{malformed: true}
 				}
 				builder.WriteString(value.(string))
+			} else if stringValue(object["type"]) == "tool_use" {
+				call, valid := genericToolCall(object)
+				if !valid || call.ID == "" || len(toolCalls) == 128 {
+					return providerOutputExtraction{malformed: true}
+				}
+				toolCalls = append(toolCalls, call)
 			}
+		}
+		if len(toolCalls) > 0 {
+			return providerOutputExtraction{output: runtime.AssistantOutput{Content: builder.String(), ToolCalls: toolCalls}}
 		}
 		if strings.TrimSpace(builder.String()) == "" {
 			return providerOutputExtraction{empty: true}
@@ -355,9 +407,89 @@ func extractProviderOutputState(protocol string, response map[string]any) provid
 	}
 }
 
+func geminiToolCall(value any) (runtime.AssistantToolCall, bool) {
+	call, valid := genericToolCall(value)
+	if !valid {
+		return runtime.AssistantToolCall{}, false
+	}
+	if call.ID == "" {
+		var id [16]byte
+		if _, err := rand.Read(id[:]); err != nil {
+			return runtime.AssistantToolCall{}, false
+		}
+		call.ID = "call_" + hex.EncodeToString(id[:])
+	}
+	return call, true
+}
+
 func isString(value any) bool {
 	_, ok := value.(string)
 	return ok
+}
+
+func responsesToolCall(message map[string]any) (runtime.AssistantToolCall, bool) {
+	id, idOK := message["call_id"].(string)
+	name, nameOK := message["name"].(string)
+	arguments, argumentsOK := message["arguments"].(string)
+	itemID := stringValue(message["id"])
+	if !idOK || strings.TrimSpace(id) == "" || !nameOK || strings.TrimSpace(name) == "" || !argumentsOK || !json.Valid([]byte(arguments)) {
+		return runtime.AssistantToolCall{}, false
+	}
+	return runtime.AssistantToolCall{
+		ID: id, ItemID: itemID, Type: "function",
+		Function: runtime.FunctionCall{Name: name, Arguments: arguments},
+	}, true
+}
+
+func chatToolCalls(value any) ([]runtime.AssistantToolCall, bool) {
+	if value == nil {
+		return nil, true
+	}
+	items, ok := value.([]any)
+	if !ok {
+		return nil, false
+	}
+	calls := make([]runtime.AssistantToolCall, 0, len(items))
+	for _, itemValue := range items {
+		item, ok := itemValue.(map[string]any)
+		if !ok || stringValue(item["type"]) != "function" {
+			return nil, false
+		}
+		function := objectValue(item["function"])
+		arguments, argumentsOK := function["arguments"].(string)
+		name := stringValue(function["name"])
+		id := stringValue(item["id"])
+		if strings.TrimSpace(id) == "" || strings.TrimSpace(name) == "" || !argumentsOK || !json.Valid([]byte(arguments)) {
+			return nil, false
+		}
+		calls = append(calls, runtime.AssistantToolCall{
+			ID: id, Type: "function", Function: runtime.FunctionCall{Name: name, Arguments: arguments},
+		})
+	}
+	return calls, true
+}
+
+func genericToolCall(value any) (runtime.AssistantToolCall, bool) {
+	object, ok := value.(map[string]any)
+	if !ok {
+		return runtime.AssistantToolCall{}, false
+	}
+	name := stringValue(object["name"])
+	id := stringValue(object["id"])
+	argumentsValue, present := object["args"]
+	if !present {
+		argumentsValue, present = object["input"]
+	}
+	if strings.TrimSpace(name) == "" || !present {
+		return runtime.AssistantToolCall{}, false
+	}
+	arguments, err := json.Marshal(argumentsValue)
+	if err != nil || !json.Valid(arguments) {
+		return runtime.AssistantToolCall{}, false
+	}
+	return runtime.AssistantToolCall{
+		ID: id, Type: "function", Function: runtime.FunctionCall{Name: name, Arguments: string(arguments)},
+	}, true
 }
 
 // validResponsesOutputShape protects the native-search projection from
@@ -443,7 +575,7 @@ func validateCompletion(protocol string, response map[string]any) error {
 			return other("COMPLETION_REQUIRED")
 		}
 		switch strings.ToLower(strings.TrimSpace(finish)) {
-		case "stop":
+		case "stop", "tool_calls":
 			return nil
 		case "content_filter":
 			return &retry.ProviderError{Err: errors.New("provider refusal or content filter"), Code: "PROVIDER_REFUSAL", Category: retry.CategoryRefusal}
@@ -481,7 +613,7 @@ func validateCompletion(protocol string, response map[string]any) error {
 			return other("COMPLETION_REQUIRED")
 		}
 		switch strings.ToLower(strings.TrimSpace(finish)) {
-		case "end_turn", "stop_sequence":
+		case "end_turn", "stop_sequence", "tool_use":
 			return nil
 		case "refusal":
 			return &retry.ProviderError{Err: errors.New("provider refusal or content filter"), Code: "PROVIDER_REFUSAL", Category: retry.CategoryRefusal}
@@ -741,7 +873,7 @@ func usageFromTotals(input int64, inputPresent bool, cacheRead int64, cacheReadP
 	return usage, nil
 }
 
-func normalizeCost(response map[string]any, usage runtime.Usage, pricing runtime.Pricing) (runtime.Cost, error) {
+func normalizeCost(response map[string]any, usage runtime.Usage) (runtime.Cost, error) {
 	usageObject := objectValue(response["usage"])
 	for _, value := range []any{usageObject["cost"], usageObject["total_cost"], response["cost"], response["total_cost"]} {
 		if value == nil {
@@ -756,20 +888,7 @@ func normalizeCost(response map[string]any, usage runtime.Usage, pricing runtime
 	if usage.Status == accounting.UsageUnavailable {
 		return accounting.UnavailableCost(), nil
 	}
-	cost, err := accounting.ResolveCost(usage, pricing, nil)
-	if err != nil {
-		return accounting.UnavailableCost(), err
-	}
-	if usage.Status == accounting.UsagePartial {
-		if cost.Status == accounting.CostExact && cost.KnownObservations > 0 {
-			cost.Status = accounting.CostPartial
-			cost.KnownObservations = 1
-			cost.UnknownObservations = 1
-		} else if cost.Status == accounting.CostExact {
-			cost = accounting.UnknownCost("partial_usage")
-		}
-	}
-	return cost, cost.Validate()
+	return accounting.UnknownCost("missing_rate"), nil
 }
 
 func parseCost(value any) (float64, error) {

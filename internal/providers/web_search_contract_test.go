@@ -34,8 +34,8 @@ func TestNativeSearchProtocols(t *testing.T) {
 		{"anthropic", "anthropic-messages", map[string]any{"type": "auto"}, map[string]any{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}},
 	} {
 		t.Run(tc.provider, func(t *testing.T) {
-			p := runtime.Profile{Provider: tc.provider, APIInferenceType: tc.protocol, SupportsWebSearch: true}
-			c := runtime.Call{CallType: "text", UserPrompt: "search", WebSearch: true}
+			p := runtime.Connection{Provider: tc.provider, APIInferenceType: tc.protocol, SupportsWebSearch: true}
+			c := runtime.Call{ModelID: "fixture", CallType: "text", Messages: providerMessages("", "search"), WebSearch: true}
 			_, _, _, body, _, err := buildPayload(p, c)
 			if err != nil {
 				t.Fatal(err)
@@ -79,7 +79,7 @@ func TestSearchEvidenceAndToolFailures(t *testing.T) {
 			t.Fatal("inline citation lost")
 		}
 	}
-	p := runtime.Profile{APIInferenceType: "anthropic-messages", SupportsWebSearch: true}
+	p := runtime.Connection{APIInferenceType: "anthropic-messages", SupportsWebSearch: true}
 	if nativeWebSearchEnabled(p, runtime.Call{WebSearch: true, CallType: "structured"}) {
 		t.Fatal("strict Claude output with native citations is not supported")
 	}
@@ -87,14 +87,14 @@ func TestSearchEvidenceAndToolFailures(t *testing.T) {
 
 func TestJinaMemoIsPerCallAndConcurrentAcrossPreparedOperations(t *testing.T) {
 	t.Parallel()
-	call := runtime.Call{WebSearch: true, UserPrompt: "same prompt", SearchMemo: &sync.Map{}}
+	call := runtime.Call{ModelID: "fixture", Messages: providerMessages("", "same prompt"), WebSearch: true, SearchMemo: &sync.Map{}}
 	searcher := &recordingSearcher{result: "result"}
 	var wg sync.WaitGroup
 	for i := 0; i < 8; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			s := fallbackWebSearch(runtime.Profile{}, call)
+			s := fallbackWebSearch(runtime.Connection{}, call)
 			if _, err := s.results(context.Background(), searcher); err != nil {
 				t.Error(err)
 			}
@@ -105,7 +105,7 @@ func TestJinaMemoIsPerCallAndConcurrentAcrossPreparedOperations(t *testing.T) {
 		t.Fatalf("same call repeated search %d times", searcher.calls)
 	}
 	call.SearchMemo = &sync.Map{}
-	if _, err := fallbackWebSearch(runtime.Profile{}, call).results(context.Background(), searcher); err != nil {
+	if _, err := fallbackWebSearch(runtime.Connection{}, call).results(context.Background(), searcher); err != nil {
 		t.Fatal(err)
 	}
 	if searcher.calls != 2 {
@@ -140,7 +140,7 @@ func TestJinaBoundsCancellationAndMissingKey(t *testing.T) {
 func TestNativeSearchPreservesUnrelatedTools(t *testing.T) {
 	t.Parallel()
 	fn := map[string]any{"type": "function", "name": "custom"}
-	_, _, _, body, _, err := buildPayload(runtime.Profile{Provider: "cpa", APIInferenceType: "responses", SupportsWebSearch: true}, runtime.Call{WebSearch: true, CallType: "text", ProviderOptions: map[string]any{"tools": []any{fn, map[string]any{"type": "web_search_preview"}}, "tool_choice": "none"}})
+	_, _, _, body, _, err := buildPayload(runtime.Connection{Provider: "cpa", APIInferenceType: "responses", SupportsWebSearch: true}, runtime.Call{ModelID: "fixture", Messages: providerMessages("", "query"), WebSearch: true, CallType: "text", ProviderOptions: map[string]any{"tools": []any{fn, map[string]any{"type": "web_search_preview"}}, "tool_choice": "none"}})
 	if err != nil || len(arrayValue(body["tools"])) != 2 || !reflect.DeepEqual(arrayValue(body["tools"])[0], fn) || objectValue(body["tool_choice"])["type"] != "web_search" {
 		t.Fatalf("specific native choice %#v %v", body, err)
 	}
@@ -160,7 +160,7 @@ func TestPerplexityAgentSearchResults(t *testing.T) {
 
 func TestWebSearchRejectsMalformedTools(t *testing.T) {
 	t.Parallel()
-	_, _, _, _, _, err := buildPayload(runtime.Profile{Provider: "cpa", APIInferenceType: "responses", SupportsWebSearch: true}, runtime.Call{WebSearch: true, ProviderOptions: map[string]any{"tools": "invalid"}})
+	_, _, _, _, _, err := buildPayload(runtime.Connection{Provider: "cpa", APIInferenceType: "responses", SupportsWebSearch: true}, runtime.Call{ModelID: "fixture", Messages: providerMessages("", "query"), WebSearch: true, ProviderOptions: map[string]any{"tools": "invalid"}})
 	if err == nil {
 		t.Fatal("malformed tools silently disabled native search")
 	}
@@ -191,12 +191,10 @@ func TestWebSearchCacheLifecycle(t *testing.T) {
 			defer server.Close()
 			searcher := &recordingSearcher{result: "https://example.test/source evidence"}
 			router := newTLSTestRouter(t, server, searcher)
-			p := runtime.Profile{ID: "p", Provider: "cpa", APIInferenceType: "responses", BaseURL: server.URL, ModelID: "fixture", SupportsWebSearch: native}
+			p := runtime.Connection{ID: "p", Provider: "cpa", APIInferenceType: "responses", BaseURL: server.URL, SupportsWebSearch: native}
 			cache := &searchMemoryCache{values: map[string]runtime.CachedResult{}}
 			run := func(search bool, mode cachekey.Mode) runtime.CallRecord {
-				r, err := runtime.Execute(context.Background(), router, func(context.Context, runtime.Profile) (runtime.Credential, error) {
-					return runtime.Credential{APIKey: "fixture-key"}, nil
-				}, p.ID, map[string]runtime.Profile{p.ID: p}, runtime.Call{CallType: "text", UserPrompt: "query", WebSearch: search}, retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, cache, mode, cachekey.DefaultVersion, "call", "trace")
+				r, err := runtime.Execute(context.Background(), router, p, runtime.Credential{APIKey: "fixture-key"}, runtime.Call{ModelID: "fixture", CallType: "text", Messages: providerMessages("", "query"), WebSearch: search}, retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, cache, mode, cachekey.DefaultVersion, "call", "trace")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -238,10 +236,8 @@ func TestJinaFailureIsNotAnLLMInvocation(t *testing.T) {
 	s := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Error("LLM called after empty search") }))
 	defer s.Close()
 	router := newTLSTestRouter(t, s, &recordingSearcher{})
-	p := runtime.Profile{ID: "p", Provider: "cpa", APIInferenceType: "responses", BaseURL: s.URL, ModelID: "fixture"}
-	r, err := runtime.Execute(context.Background(), router, func(context.Context, runtime.Profile) (runtime.Credential, error) {
-		return runtime.Credential{APIKey: "fixture-key"}, nil
-	}, p.ID, map[string]runtime.Profile{p.ID: p}, runtime.Call{CallType: "text", UserPrompt: "query", WebSearch: true}, retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, nil, cachekey.ModeOff, cachekey.DefaultVersion, "call", "trace")
+	p := runtime.Connection{ID: "p", Provider: "cpa", APIInferenceType: "responses", BaseURL: s.URL}
+	r, err := runtime.Execute(context.Background(), router, p, runtime.Credential{APIKey: "fixture-key"}, runtime.Call{ModelID: "fixture", CallType: "text", Messages: providerMessages("", "query"), WebSearch: true}, retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, nil, cachekey.ModeOff, cachekey.DefaultVersion, "call", "trace")
 	if err == nil || len(r.Attempts) != 1 || r.Attempts[0].ProviderUsed {
 		t.Fatalf("pre-provider failure: %#v %v", r, err)
 	}

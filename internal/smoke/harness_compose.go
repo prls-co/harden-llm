@@ -8,7 +8,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -25,7 +24,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -33,7 +31,6 @@ import (
 	"time"
 
 	"github.com/prls-co/harden-llm/internal/integrationtest"
-	"github.com/prls-co/harden-llm/internal/retry"
 )
 
 const (
@@ -42,7 +39,7 @@ const (
 )
 
 var requiredSmokeStackServices = []string{
-	"caddy", "harden-llm-gateway", "harden-postgres", "garage", "otel-collector",
+	"caddy", "harden-llm-gateway", "garage", "otel-collector",
 	"laminar", "prometheus", "loki", "tempo", "grafana",
 }
 
@@ -140,78 +137,49 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 		t.Fatalf("Compose readiness = %s, budget %s", readiness, readinessBudget)
 	}
 
-	report := ComposeReport{TotalServices: len(requiredSmokeStackServices), Readiness: readiness, CorrelationBackends: 5}
+	report := ComposeReport{TotalServices: len(requiredSmokeStackServices), Readiness: readiness, CorrelationBackends: 4}
 	report.ReadyServices = assertContainerTopology(t, runner)
 	client := caddyClient(httpsPort, false)
 	waitHTTPStatus(t, client, "https://api.smoke.localhost/readyz", http.StatusOK, 45*time.Second, nil)
 	waitHTTPStatus(t, client, "https://grafana.smoke.localhost/api/health", http.StatusOK, 45*time.Second, nil)
 
-	// The machine path is scoped to one synthetic Control Plane account UUID.
-	// Human sessions are covered at the browser-facing BFF/access boundary.
-	token := secrets["HARDEN_LLM_STATIC_TOKEN"]
-	ownerID := secrets["HARDEN_LLM_STATIC_TOKEN_USER_ID"]
-
-	providerSecret := "smoke-provider-key-must-remain-redacted"
-	profileDocument := map[string]any{
-		"profile": map[string]any{
-			"schemaVersion": 3, "llmProfile": "Smoke", "provider": "openai", "apiInferenceType": "responses",
-			"endpointCredentialScope": "user", "baseUrl": "https://fake-provider:8443/v1", "modelId": "smoke-model",
-			"pricing": nil, "supportsTemperature": false, "supportsContractedStructuredOutput": true,
-			"tokensParam": nil, "responsesTokensParam": "max_output_tokens", "defaultOptions": map[string]any{},
-			"recoveryPolicy": retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}},
+	token := secrets["HARDEN_LLM_TOKEN"]
+	assertProxyComposeBoundary(t, runner)
+	requestJSON(t, client, http.MethodGet, "https://api.smoke.localhost/v1/models", nil, "", http.StatusUnauthorized)
+	models := requestJSON(t, client, http.MethodGet, "https://api.smoke.localhost/v1/models", nil, token, http.StatusOK)
+	modelData := array(t, models["data"], "model list data")
+	if len(modelData) != 1 || object(t, modelData[0], "model")["id"] != "smoke-model" {
+		t.Fatalf("model discovery = %#v", models)
+	}
+	response := requestJSON(t, client, http.MethodPost, "https://api.smoke.localhost/v1/responses", map[string]any{
+		"model": "smoke-model", "input": "return the smoke response", "store": false,
+		"harden": map[string]any{
+			"upstream": "smoke", "cache": "off", "diagnostics": true,
+			"recovery": map[string]any{
+				"maxAttempts": 1, "retryOn": []string{},
+				"backoff":    map[string]any{"baseDelayMs": 0, "maxDelayMs": 0},
+				"jsonRepair": nil, "rerun": nil,
+			},
 		},
-		"credentialId": "smoke-provider", "credential": map[string]any{"apiKey": providerSecret},
-	}
-	requestJSON(t, client, http.MethodPut, "https://api.smoke.localhost/api/v1/profiles/Smoke", profileDocument, token, http.StatusOK)
-
-	runEnvelope := requestJSON(t, client, http.MethodPost, "https://api.smoke.localhost/api/v1/run", map[string]any{
-		"profileId": "Smoke", "userPrompt": "return the smoke response", "callType": "text", "cacheMode": "off", "recoveryPolicy": retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}},
 	}, token, http.StatusOK)
-	runResult := object(t, runEnvelope["result"], "run result")
-	if runResult["output"] != "smoke-ok" {
-		t.Fatalf("fake-provider output = %#v", runResult["output"])
+	if response["output_text"] != "smoke-ok" {
+		t.Fatalf("standard Responses output = %#v", response["output_text"])
 	}
-	report.RunID = text(t, runResult["runId"], "run ID")
-	report.TraceID = text(t, runResult["traceId"], "trace ID")
+	harden := object(t, response["harden"], "harden diagnostics")
+	report.RunID = text(t, harden["execution_id"], "execution ID")
+	report.TraceID = text(t, harden["trace_id"], "trace ID")
 	if report.RunID == "" || report.TraceID == "" {
-		t.Fatal("run returned empty correlation IDs")
+		t.Fatal("Responses result returned empty diagnostic IDs")
 	}
-
-	traceEnvelope := requestJSON(t, client, http.MethodGet,
-		"https://api.smoke.localhost/api/v1/traces/"+url.PathEscape(report.TraceID), nil, token, http.StatusOK)
-	traceView := object(t, traceEnvelope["result"], "trace result")
-	artifacts := array(t, traceView["artifacts"], "trace artifacts")
-	if len(artifacts) != 1 {
-		t.Fatalf("trace artifact count = %d, want 1", len(artifacts))
-	}
-	artifact := object(t, artifacts[0], "trace artifact")
-	artifactID := text(t, artifact["artifactId"], "artifact ID")
-	wantDigest := text(t, artifact["sha256"], "artifact SHA-256")
-	wantSize := integer(t, artifact["sizeBytes"], "artifact size")
-	if artifact["kind"] != "trace" || len(wantDigest) != 64 || wantSize < 1 {
-		t.Fatalf("artifact metadata = %#v", artifact)
-	}
-
-	redirectClient := caddyClient(httpsPort, true)
-	location := artifactLocation(t, redirectClient,
-		"https://api.smoke.localhost/api/v1/traces/"+url.PathEscape(report.TraceID)+"/artifacts/"+url.PathEscape(artifactID), token)
-	artifactBytes := fetchArtifact(t, caddyClient(httpsPort, false), location)
-	digest := sha256.Sum256(artifactBytes)
-	if hex.EncodeToString(digest[:]) != wantDigest || int64(len(artifactBytes)) != wantSize || !json.Valid(artifactBytes) {
-		t.Fatalf("artifact integrity mismatch: bytes=%d sha256=%x metadata=%d/%s", len(artifactBytes), digest, wantSize, wantDigest)
-	}
-	if bytes.Contains(artifactBytes, []byte(providerSecret)) || bytes.Contains(artifactBytes, []byte("return the smoke response")) {
-		t.Fatal("redacted trace artifact contains provider credentials or prompt text")
-	}
-
-	assertPostgresState(t, runner, ownerID)
+	requestJSON(t, client, http.MethodGet, "https://api.smoke.localhost/api/v1/history", nil, token, http.StatusNotFound)
+	requestJSON(t, client, http.MethodPost, "https://api.smoke.localhost/api/v1/run", map[string]any{}, token, http.StatusNotFound)
 	correlation := correlateBackends(t, runner, report)
 	report.CorrelatedBackends = correlation
 	if correlation != report.CorrelationBackends {
 		t.Fatalf("backend correlation = %d/%d", correlation, report.CorrelationBackends)
 	}
 	assertGrafanaDatasources(t, client, secrets["GRAFANA_ADMIN_USER"], secrets["GRAFANA_ADMIN_PASSWORD"])
-	assertSmokeStorageOwnership(t, runner)
+	assertProxyComposeBoundary(t, runner)
 
 	t.Logf("Compose evidence: ready=%d/%d readiness=%s correlation=%d/%d run=%s trace=%s",
 		report.ReadyServices, report.TotalServices, report.Readiness.Round(time.Millisecond),
@@ -254,7 +222,7 @@ func validateFrontendSmokeCaddyfile(t *testing.T, runner composeRunner) {
 		"--mount", fmt.Sprintf("type=bind,source=%s,target=/etc/caddy/test,readonly", filepath.Join(runner.root, "deploy", "test")),
 	}
 	for _, name := range []string{
-		"HARDEN_LLM_API_HOST", "HARDEN_LLM_ARTIFACT_HOST", "HARDEN_LLM_GRAFANA_HOST",
+		"HARDEN_LLM_API_HOST", "HARDEN_LLM_GRAFANA_HOST",
 		"HARDEN_LLM_TLS_MODE", "HARDEN_LLM_WEB_HOST", "PRLS_PORTAL_HOST",
 	} {
 		value, exists := environment[name]
@@ -341,7 +309,8 @@ func (runner composeRunner) diagnostics() string {
 	}
 	logs, _ := runner.output(ctx, "logs", "--no-color", "--tail", "20")
 	serviceLogs, _ := runner.output(ctx, "logs", "--no-color", "--tail", "200", "harden-llm-gateway", "fake-provider")
-	return runner.redact("COMPOSE PS\n" + string(ps) + "\nCONTAINER STATES\n" + string(states) + "\nRECENT LOGS\n" + string(logs) + "\nGATEWAY AND PROVIDER LOGS\n" + string(serviceLogs))
+	observabilityLogs, _ := runner.output(ctx, "logs", "--no-color", "--tail", "40", "otel-collector", "loki")
+	return runner.redact("COMPOSE PS\n" + string(ps) + "\nCONTAINER STATES\n" + string(states) + "\nRECENT LOGS\n" + string(logs) + "\nGATEWAY AND PROVIDER LOGS\n" + string(serviceLogs) + "\nOBSERVABILITY LOGS\n" + string(observabilityLogs))
 }
 
 func repositoryRoot(t *testing.T) string {
@@ -445,28 +414,43 @@ func smokeEnvironment(t *testing.T, material tlsMaterial, httpPort, httpsPort in
 	}
 	hexSecret := func(count int) string { return hex.EncodeToString(randomBytes(count)) }
 	textSecret := func(prefix string) string { return prefix + base64.RawURLEncoding.EncodeToString(randomBytes(24)) }
+	configPath := filepath.Join(filepath.Dir(material.ca), "upstreams.json")
+	connectionConfig := map[string]any{
+		"default_upstream": "smoke",
+		"upstreams": []map[string]any{{
+			"id": "smoke", "provider": "openai", "protocol": "responses",
+			"base_url": "https://fake-provider:8443/v1", "api_key_env": "CPA_API_KEY",
+			"cache_domain": "smoke", "supports_web_search": false,
+		}},
+	}
+	configContents, err := json.Marshal(connectionConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The file contains only non-secret connection metadata; the gateway runs
+	// unprivileged and receives provider credentials through its environment.
+	if err := os.WriteFile(configPath, configContents, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	return map[string]string{
 		"HARDEN_LLM_API_HOST": "api.smoke.localhost", "HARDEN_LLM_GRAFANA_HOST": "grafana.smoke.localhost",
-		"HARDEN_LLM_ARTIFACT_HOST":              "artifacts.smoke.localhost",
-		"PRLS_SMOKE_OBSERVABILITY_NETWORK":      "prls-observability-smoke-" + hexSecret(8),
-		"PRLS_LAMINAR_PROJECT_API_KEY":          textSecret("lmnr"),
-		"HARDEN_LLM_LAMINAR_PROJECT_API_KEY":    textSecret("lmnr-harden"),
-		"HARDEN_LLM_LAMINAR_ENDPOINT":           "laminar:8001",
-		"HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT": fmt.Sprintf("https://artifacts.smoke.localhost:%d", httpsPort),
-		"HARDEN_LLM_BIND_ADDRESS":               "127.0.0.1", "HARDEN_LLM_HTTP_PORT": strconv.Itoa(httpPort),
+		"PRLS_SMOKE_OBSERVABILITY_NETWORK":   "prls-observability-smoke-" + hexSecret(8),
+		"PRLS_LAMINAR_PROJECT_API_KEY":       textSecret("lmnr"),
+		"HARDEN_LLM_LAMINAR_PROJECT_API_KEY": textSecret("lmnr-harden"),
+		"HARDEN_LLM_LAMINAR_ENDPOINT":        "laminar:8001",
+		"HARDEN_LLM_BIND_ADDRESS":            "127.0.0.1", "HARDEN_LLM_HTTP_PORT": strconv.Itoa(httpPort),
 		"HARDEN_LLM_HTTPS_PORT": strconv.Itoa(httpsPort), "HARDEN_LLM_TLS_MODE": "internal",
 		"HARDEN_LLM_RELEASE": "compose-smoke-0.1.0", "HARDEN_LLM_ENVIRONMENT": "test",
 		"PRLS_PORTAL_URL":                         "https://a.prls.co",
 		"HARDEN_LLM_CONTROL_PLANE_URL":            "http://control-plane:4310",
 		"HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN": textSecret("control-plane-smoke-"),
-		"HARDEN_LLM_STATIC_TOKEN":                 textSecret("harden-llm-smoke-"),
-		"HARDEN_LLM_STATIC_TOKEN_USER_ID":         "smoke-user-" + base64.RawURLEncoding.EncodeToString(randomBytes(16)),
+		"HARDEN_LLM_CONFIG_FILE":                  configPath,
+		"HARDEN_LLM_TOKEN":                        textSecret("harden-llm-smoke-"),
+		"CPA_API_KEY":                             textSecret("smoke-provider-"),
 		"HARDEN_LLM_POSTGRES_PASSWORD":            textSecret("db"),
-		"HARDEN_LLM_ENCRYPTION_KEYS":              fmt.Sprintf(`{"primary":"%s"}`, base64.RawURLEncoding.EncodeToString(randomBytes(32))),
-		"HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID":     "primary",
-		"GARAGE_RPC_SECRET":                       hexSecret(32), "HARDEN_LLM_ARTIFACT_BUCKET": "harden-llm-artifacts-smoke",
-		"HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID":     "GK" + strings.ToUpper(hexSecret(16)),
-		"HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY": hexSecret(32), "HARDEN_LLM_ARTIFACT_PRESIGN_TTL": "2m",
+		"GARAGE_RPC_SECRET":                       hexSecret(32), "GARAGE_SMOKE_BUCKET": "harden-llm-observability-smoke",
+		"GARAGE_SMOKE_ACCESS_KEY": "GK" + strings.ToUpper(hexSecret(16)),
+		"GARAGE_SMOKE_SECRET_KEY": hexSecret(32),
 		"PRLS_LOKI_S3_ACCESS_KEY": "GK" + strings.ToUpper(hexSecret(16)), "PRLS_LOKI_S3_SECRET_KEY": hexSecret(32),
 		"GRAFANA_ADMIN_USER": "smoke-admin", "GRAFANA_ADMIN_PASSWORD": textSecret("grafana"),
 		"SMOKE_CA_CERT": material.ca, "SMOKE_PROVIDER_CERT": material.certificate, "SMOKE_PROVIDER_KEY": material.key,
@@ -637,59 +621,6 @@ func requestJSON(t *testing.T, client *http.Client, method, target string, docum
 	return envelope
 }
 
-func artifactLocation(t *testing.T, client *http.Client, target, token string) string {
-	t.Helper()
-	request, _ := http.NewRequest(http.MethodGet, target, nil)
-	request.Header.Set("Authorization", "Bearer "+token)
-	response, err := client.Do(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusSeeOther {
-		body, _ := io.ReadAll(io.LimitReader(response.Body, 16<<10))
-		t.Fatalf("artifact redirect = %s: %s", response.Status, body)
-	}
-	location := response.Header.Get("Location")
-	parsed, err := url.Parse(location)
-	if err != nil || parsed.Scheme != "https" || parsed.Hostname() != "artifacts.smoke.localhost" || parsed.Query().Get("X-Amz-Signature") == "" {
-		t.Fatalf("artifact location is not a short-lived Caddy/Garage presign: %q", location)
-	}
-	return location
-}
-
-func fetchArtifact(t *testing.T, client *http.Client, location string) []byte {
-	t.Helper()
-	response, err := client.Get(location)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer response.Body.Close()
-	contents, err := io.ReadAll(io.LimitReader(response.Body, 20<<20))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("presigned artifact GET = %s: %s", response.Status, contents)
-	}
-	return contents
-}
-
-func assertPostgresState(t *testing.T, runner composeRunner, ownerID string) {
-	t.Helper()
-	query := fmt.Sprintf(`SELECT (SELECT count(*) FROM llm_runs WHERE owner_id='%s'), (SELECT count(*) FROM llm_traces WHERE owner_id='%s'), (SELECT count(*) FROM llm_artifacts WHERE owner_id='%s' AND state='available');`, ownerID, ownerID, ownerID)
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	output, err := runner.output(ctx, "exec", "-T", "-e", "PGPASSWORD="+runner.environment["HARDEN_LLM_POSTGRES_PASSWORD"],
-		"harden-postgres", "psql", "-U", "harden_llm", "-d", "harden_llm", "-At", "-F", "|", "-c", query)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.TrimSpace(string(output)) != "1|1|1" {
-		t.Fatalf("application Postgres state = %q, want 1|1|1", strings.TrimSpace(string(output)))
-	}
-}
-
 func correlateBackends(t *testing.T, runner composeRunner, report ComposeReport) int {
 	t.Helper()
 	var otelTraceID string
@@ -709,11 +640,9 @@ func correlateBackends(t *testing.T, runner composeRunner, report ComposeReport)
 			return err == nil && prometheusHasSample(body), boundedProbeDetail(body, err)
 		}},
 		{name: "Loki", try: func() (bool, string) {
-			// OTel log attributes are native Loki structured metadata. Select the
-			// stable body, then assert the run_id metadata in the returned stream.
-			query := `{service_name="harden-llm-gateway"} |= "run completed"`
+			query := `{service_name="harden-llm-gateway"} |= "http request completed"`
 			body, err := internalFetch(runner, "http://loki:3100/loki/api/v1/query_range?limit=100&direction=backward&query="+url.QueryEscape(query))
-			return err == nil && bytes.Contains(body, []byte(report.RunID)), boundedProbeDetail(body, err)
+			return err == nil && hasCorrelatedResponseLog(body, otelTraceID), boundedProbeDetail(body, err)
 		}},
 		{name: "Laminar", try: func() (bool, string) {
 			if otelTraceID == "" {
@@ -730,7 +659,6 @@ func correlateBackends(t *testing.T, runner composeRunner, report ComposeReport)
 			domainTracePresent := bytes.Contains(lowerBody, bytes.ToLower([]byte(report.TraceID)))
 			return otelTracePresent && domainTracePresent, fmt.Sprintf("otel_trace_id_present=%t application_trace_id_present=%t", otelTracePresent, domainTracePresent)
 		}},
-		{name: "Garage", try: func() (bool, string) { return true, "artifact bytes and metadata matched" }},
 	}
 	deadline := time.Now().Add(correlationWait)
 	completed := make(map[string]bool, len(probes))
@@ -825,7 +753,7 @@ func assertGrafanaDatasources(t *testing.T, client *http.Client, username, passw
 	}
 }
 
-func assertSmokeStorageOwnership(t *testing.T, runner composeRunner) {
+func assertProxyComposeBoundary(t *testing.T, runner composeRunner) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
@@ -835,72 +763,41 @@ func assertSmokeStorageOwnership(t *testing.T, runner composeRunner) {
 	}
 	var effective struct {
 		Services map[string]struct {
-			Image       string            `json:"image"`
-			Command     []string          `json:"command"`
 			Environment map[string]string `json:"environment"`
-			Networks    map[string]struct {
-				Aliases []string `json:"aliases"`
-			} `json:"networks"`
-			Ports   []any `json:"ports"`
-			Volumes []struct {
-				Type   string `json:"type"`
+			Volumes     []struct {
 				Source string `json:"source"`
 				Target string `json:"target"`
 			} `json:"volumes"`
 		} `json:"services"`
-		Networks map[string]struct {
-			Name     string `json:"name"`
-			External bool   `json:"external"`
-		} `json:"networks"`
-		Volumes map[string]struct {
-			Name     string `json:"name"`
-			External bool   `json:"external"`
-		} `json:"volumes"`
 	}
 	if err := json.Unmarshal(config, &effective); err != nil {
 		t.Fatal(err)
 	}
 	gateway := effective.Services["harden-llm-gateway"]
-	if gateway.Environment["HARDEN_LLM_ARTIFACT_ENDPOINT"] != "http://garage-shared:3900" {
-		t.Fatal("live gateway storage environment is not Garage-only")
+	if _, exists := effective.Services["harden-postgres"]; exists {
+		t.Fatal("proxy-only Compose unexpectedly starts the reference database")
 	}
-	if _, ok := gateway.Networks["prls-observability"]; !ok {
-		t.Fatal("live gateway is not attached to the smoke observability network")
+	if gateway.Environment["HARDEN_LLM_TOKEN"] != runner.environment["HARDEN_LLM_TOKEN"] ||
+		gateway.Environment["CPA_API_KEY"] != runner.environment["CPA_API_KEY"] ||
+		gateway.Environment["HARDEN_LLM_TOKEN"] == gateway.Environment["CPA_API_KEY"] {
+		t.Fatal("gateway does not keep its incoming bearer and upstream key distinct")
 	}
-	garage, ok := effective.Services["garage"]
-	if !ok {
-		t.Fatal("smoke Compose has no isolated Garage fixture")
+	if gateway.Environment["HARDEN_LLM_CONFIG_FILE"] != "/etc/harden-llm/upstreams.json" {
+		t.Fatal("gateway does not load the single mounted connection catalog")
 	}
-	if garage.Image != "dxflrs/garage:v2.3.0@sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690" ||
-		!slices.Equal(garage.Command, []string{"/garage", "server", "--single-node", "--default-bucket"}) {
-		t.Fatalf("smoke Garage image/startup = %q %v, want pinned fresh single-node bootstrap", garage.Image, garage.Command)
-	}
-	if len(garage.Networks["harden-private"].Aliases) != 0 {
-		t.Fatalf("smoke Garage has unexpected private-network aliases: %v", garage.Networks["harden-private"].Aliases)
-	}
-	if aliases := garage.Networks["prls-observability"].Aliases; len(aliases) != 1 || aliases[0] != "garage-shared" {
-		t.Fatalf("smoke Garage observability aliases = %v, want only garage-shared", aliases)
-	}
-	if len(garage.Ports) != 0 {
-		t.Fatal("smoke Garage publishes a host port")
-	}
-	for _, target := range []string{"/var/lib/garage/meta", "/var/lib/garage/data"} {
-		found := false
-		for _, volume := range garage.Volumes {
-			if volume.Type == "volume" && volume.Target == target && volume.Source != "" {
-				found = true
-				if owner := effective.Volumes[volume.Source]; owner.External || owner.Name == "harden-llm_garage-metadata" || owner.Name == "harden-llm_garage-data" {
-					t.Fatalf("smoke Garage volume %s is not project-owned: %#v", target, owner)
-				}
-			}
-		}
-		if !found {
-			t.Errorf("smoke Garage has no named project-owned volume at %s", target)
+	for _, key := range []string{"HARDEN_LLM_DATABASE_URL", "HARDEN_LLM_ARTIFACT_ENDPOINT", "HARDEN_LLM_CONTROL_PLANE_URL"} {
+		if _, exists := gateway.Environment[key]; exists {
+			t.Fatalf("proxy gateway still receives retired application setting %s", key)
 		}
 	}
-	observability, ok := effective.Networks["prls-observability"]
-	if !ok || observability.External || observability.Name != runner.environment["PRLS_SMOKE_OBSERVABILITY_NETWORK"] {
-		t.Fatalf("smoke observability network is not isolated: %#v", observability)
+	configSource := false
+	for _, volume := range gateway.Volumes {
+		if volume.Target == "/etc/harden-llm/upstreams.json" && volume.Source == runner.environment["HARDEN_LLM_CONFIG_FILE"] {
+			configSource = true
+		}
+	}
+	if !configSource {
+		t.Fatal("gateway Compose does not mount the configured connection JSON read-only")
 	}
 }
 

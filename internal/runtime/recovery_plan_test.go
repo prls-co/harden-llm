@@ -20,17 +20,17 @@ type planExecutor struct {
 }
 
 type planPrepared struct {
-	profile        string
+	connection     string
+	model          string
 	stage          string
 	history        []RepairHistoryEntry
 	reasoning      string
 	webSearch      bool
 	providerOption map[string]any
-	defaultOptions map[string]any
-	userPrompt     string
+	messages       []Message
 }
 
-func (executor *planExecutor) Prepare(_ context.Context, profile Profile, _ Credential, call Call) (PreparedOperation, error) {
+func (executor *planExecutor) Prepare(_ context.Context, connection Connection, _ Credential, call Call) (PreparedOperation, error) {
 	stage := stageOriginalGenerate
 	var history []RepairHistoryEntry
 	if call.Repair != nil {
@@ -38,16 +38,16 @@ func (executor *planExecutor) Prepare(_ context.Context, profile Profile, _ Cred
 		history = append(history, call.Repair.History...)
 	}
 	executor.prepared = append(executor.prepared, planPrepared{
-		profile: profile.ID, stage: stage, history: history, reasoning: call.ReasoningEffort,
+		connection: connection.ID, model: call.ModelID, stage: stage, history: history, reasoning: call.ReasoningEffort,
 		webSearch: call.WebSearch, providerOption: cloneMap(call.ProviderOptions),
-		defaultOptions: cloneMap(profile.DefaultOptions), userPrompt: call.UserPrompt,
+		messages: append([]Message(nil), call.Messages...),
 	})
 	return PreparedOperation{Operation: cachekey.Operation{
 		SchemaVersion: cachekey.OperationSchemaVersion, Protocol: "fixture",
 		Endpoint: cachekey.Endpoint{Identity: "https://fixture.example", Method: "POST", Path: "/run"},
-		Model:    profile.ModelID, Payload: map[string]any{"stage": stage, "profile": profile.ID},
-		SemanticHeaders: map[string]any{}, ResponseProjection: cachekey.ResponseProjection{Provider: profile.Provider, Kind: "structured-output", Version: "v1"},
-	}, Opaque: planPrepared{profile: profile.ID, stage: stage, history: history}}, nil
+		Model:    call.ModelID, Payload: map[string]any{"stage": stage, "connection": connection.ID},
+		SemanticHeaders: map[string]any{}, ResponseProjection: cachekey.ResponseProjection{Provider: connection.Provider, Kind: "structured-output", Version: "v1"},
+	}, Opaque: planPrepared{connection: connection.ID, stage: stage, history: history}}, nil
 }
 
 func (executor *planExecutor) Execute(_ context.Context, operation PreparedOperation) (ProviderResult, error) {
@@ -67,12 +67,8 @@ func planLedger() Ledger {
 	return Ledger{Usage: usage, Cost: accounting.UnavailableCost()}
 }
 
-func planProfiles() map[string]Profile {
-	profiles := make(map[string]Profile)
-	for _, id := range []string{"original", "repair-l", "repair-h", "rerun", "rerun-l", "rerun-h"} {
-		profiles[id] = Profile{ID: id, Provider: "fixture", APIInferenceType: "chat-completions", BaseURL: "https://fixture.example", ModelID: id, SupportsStructuredOutput: true, ReasoningEffortMap: map[string]map[string]any{"lowest": {}, "highest": {}}, DefaultOptions: map[string]any{"profileDefault": id}}
-	}
-	return profiles
+func planConnection() Connection {
+	return Connection{ID: "primary", Provider: "fixture", APIInferenceType: "chat-completions", BaseURL: "https://fixture.example"}
 }
 
 func TestExplicitRecoveryPlanRunsBothBranchesWithFlatHistory(t *testing.T) {
@@ -87,34 +83,34 @@ func TestExplicitRecoveryPlanRunsBothBranchesWithFlatHistory(t *testing.T) {
 	policy := retry.Policy{
 		MaxAttempts: 6, RetryOn: []retry.Category{}, Backoff: retry.Backoff{},
 		JSONRepair: &retry.RepairPlan{
-			Initial:    retry.RecoveryTarget{Source: "profile", ProfileID: "repair-l", ReasoningEffort: "lowest"},
-			Escalation: &retry.RecoveryTarget{Source: "profile", ProfileID: "repair-h", ReasoningEffort: "highest"},
+			Initial:    retry.RecoveryTarget{Source: "model", ModelID: "repair-low", ReasoningEffort: "low"},
+			Escalation: &retry.RecoveryTarget{Source: "model", ModelID: "repair-high", ReasoningEffort: "high"},
 		},
 		Rerun: &retry.RerunPlan{
-			Target: retry.RecoveryTarget{Source: "profile", ProfileID: "rerun", ReasoningEffort: "lowest"},
+			Target: retry.RecoveryTarget{Source: "model", ModelID: "rerun", ReasoningEffort: "low"},
 			JSONRepair: &retry.RepairPlan{
-				Initial:    retry.RecoveryTarget{Source: "profile", ProfileID: "rerun-l", ReasoningEffort: "lowest"},
-				Escalation: &retry.RecoveryTarget{Source: "profile", ProfileID: "rerun-h", ReasoningEffort: "highest"},
+				Initial:    retry.RecoveryTarget{Source: "model", ModelID: "rerun-low", ReasoningEffort: "low"},
+				Escalation: &retry.RecoveryTarget{Source: "model", ModelID: "rerun-high", ReasoningEffort: "high"},
 			},
 		},
 	}
-	call := Call{CallType: "structured", UserPrompt: "return JSON", Schema: json.RawMessage(`{"type":"object"}`), ValidateStructured: func(value any) error {
+	call := Call{CallType: "structured", ModelID: "original-model", Messages: []Message{{Role: "user", Content: json.RawMessage(`"return JSON"`)}}, Schema: json.RawMessage(`{"type":"object"}`), ValidateStructured: func(value any) error {
 		object, ok := value.(map[string]any)
 		if !ok || object["ok"] != true {
 			return errors.New("ok must be true")
 		}
 		return nil
-	}, ReasoningEffort: "highest", WebSearch: true, ProviderOptions: map[string]any{"callerOption": "original"}}
+	}, ReasoningEffort: "high", WebSearch: true, ProviderOptions: map[string]any{"callerOption": "original"}}
 	policy.JSONRepair.Initial.ProviderOptions = map[string]any{"callerOption": "repair-l"}
 	policy.JSONRepair.Escalation.ProviderOptions = map[string]any{"callerOption": "repair-h"}
 	policy.Rerun.Target.ProviderOptions = map[string]any{"callerOption": "rerun"}
 	policy.Rerun.JSONRepair.Initial.ProviderOptions = map[string]any{"callerOption": "rerun-l"}
 	policy.Rerun.JSONRepair.Escalation.ProviderOptions = map[string]any{"callerOption": "rerun-h"}
-	record, err := Execute(context.Background(), executor, func(context.Context, Profile) (Credential, error) { return Credential{APIKey: "fixture"}, nil }, "original", planProfiles(), call, retry.Config{Policy: policy}, nil, cachekey.ModeOff, "v1", "call", "trace")
+	record, err := Execute(context.Background(), executor, planConnection(), Credential{APIKey: "fixture"}, call, retry.Config{Policy: policy}, nil, cachekey.ModeOff, "v1", "call", "trace")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if record.Output.(map[string]any)["ok"] != true || record.ResultSource.Producer == nil || record.ResultSource.Producer.ProfileID != "rerun-h" {
+	if record.Output.(map[string]any)["ok"] != true || record.ResultSource.Producer == nil || record.ResultSource.Producer.ConnectionID != "primary" || record.ResultSource.Producer.ModelID != "rerun-high" {
 		t.Fatalf("result=%#v source=%#v", record.Output, record.ResultSource)
 	}
 	wantStages := []string{stageOriginalGenerate, stageOriginalRepairInitial, stageOriginalRepairEscalate, stageRerunGenerate, stageRerunRepairInitial, stageRerunRepairEscalate}
@@ -131,23 +127,20 @@ func TestExplicitRecoveryPlanRunsBothBranchesWithFlatHistory(t *testing.T) {
 	if executor.prepared[3].history != nil {
 		t.Fatalf("rerun generation leaked history: %#v", executor.prepared[3].history)
 	}
-	wantProfiles := []string{"original", "repair-l", "repair-h", "rerun", "rerun-l", "rerun-h"}
-	wantReasoning := []string{"highest", "lowest", "highest", "lowest", "lowest", "highest"}
+	wantModels := []string{"original-model", "repair-low", "repair-high", "rerun", "rerun-low", "rerun-high"}
+	wantReasoning := []string{"high", "low", "high", "low", "low", "high"}
 	wantSearch := []bool{true, false, false, true, false, false}
 	wantOptions := []string{"original", "repair-l", "repair-h", "rerun", "rerun-l", "rerun-h"}
 	for index, prepared := range executor.prepared {
-		if prepared.profile != wantProfiles[index] || prepared.reasoning != wantReasoning[index] || prepared.webSearch != wantSearch[index] || prepared.providerOption["callerOption"] != wantOptions[index] {
+		if prepared.connection != "primary" || prepared.model != wantModels[index] || prepared.reasoning != wantReasoning[index] || prepared.webSearch != wantSearch[index] || prepared.providerOption["callerOption"] != wantOptions[index] {
 			t.Fatalf("target settings at %d = %#v", index, prepared)
-		}
-		if prepared.defaultOptions["profileDefault"] != wantProfiles[index] {
-			t.Fatalf("profile defaults leaked at %d = %#v", index, prepared.defaultOptions)
 		}
 	}
 	if len(executor.prepared[2].history) != 2 || executor.prepared[2].history[0].Stage != stageOriginalGenerate || executor.prepared[2].history[1].Stage != stageOriginalRepairInitial {
 		t.Fatalf("escalated repair history did not retain flat complete history: %#v", executor.prepared[2].history)
 	}
-	if executor.prepared[3].userPrompt != call.UserPrompt {
-		t.Fatalf("rerun generation inherited repair context: %q", executor.prepared[3].userPrompt)
+	if !reflect.DeepEqual(executor.prepared[3].messages, call.Messages) {
+		t.Fatalf("rerun generation inherited repair context: %#v", executor.prepared[3].messages)
 	}
 }
 
@@ -160,13 +153,13 @@ func TestExplicitRecoveryPlanDoesNotPreparePastGlobalAttemptBudget(t *testing.T)
 	policy := retry.Policy{
 		MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{},
 		JSONRepair: &retry.RepairPlan{
-			Initial:    retry.RecoveryTarget{Source: "profile", ProfileID: "repair-l"},
+			Initial:    retry.RecoveryTarget{Source: "model", ModelID: "repair-low"},
 			Escalation: nil,
 		},
 		Rerun: nil,
 	}
 	call := Call{
-		CallType: "structured", UserPrompt: "return JSON", Schema: json.RawMessage(`{"type":"object"}`),
+		CallType: "structured", ModelID: "original-model", Messages: []Message{{Role: "user", Content: json.RawMessage(`"return JSON"`)}}, Schema: json.RawMessage(`{"type":"object"}`),
 		ValidateStructured: func(value any) error {
 			if object, ok := value.(map[string]any); ok && object["ok"] == true {
 				return nil
@@ -174,9 +167,7 @@ func TestExplicitRecoveryPlanDoesNotPreparePastGlobalAttemptBudget(t *testing.T)
 			return errors.New("ok must be true")
 		},
 	}
-	record, err := Execute(context.Background(), executor, func(context.Context, Profile) (Credential, error) {
-		return Credential{}, nil
-	}, "original", planProfiles(), call, retry.Config{Policy: policy}, nil, cachekey.ModeOff, "v1", "call", "trace")
+	record, err := Execute(context.Background(), executor, planConnection(), Credential{}, call, retry.Config{Policy: policy}, nil, cachekey.ModeOff, "v1", "call", "trace")
 	if err == nil || len(record.Attempts) != 1 || len(executor.prepared) != 1 {
 		t.Fatalf("budget allowed another stage: err=%v attempts=%d prepared=%d", err, len(record.Attempts), len(executor.prepared))
 	}

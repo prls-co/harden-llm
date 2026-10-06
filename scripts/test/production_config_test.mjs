@@ -18,6 +18,7 @@ import {
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { parseEnv } from "node:util";
 
 function fixtureDirectory(t) {
   const directory = mkdtempSync(path.join(tmpdir(), "harden-llm-production-config-test-"));
@@ -34,6 +35,15 @@ function privateFile(directory, name, contents) {
 
 function descriptorFor(t, { shared = "", observability, production, serviceEnvironmentOverrides = {}, identityEnvironment = {}, allowedDifferenceFields = ["environment"] } = {}) {
   const directory = fixtureDirectory(t);
+  const sharedValues = {
+    HARDEN_LLM_CONFIG_FILE: path.join(directory, "upstreams.json"),
+    HARDEN_LLM_TOKEN: "synthetic-incoming-token",
+    CPA_API_KEY: "synthetic-upstream-token",
+    HARDEN_LLM_CONTROL_PLANE_URL: "http://control-plane.test:4310",
+    HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN: "synthetic-identity-token",
+    PRLS_PORTAL_URL: "https://portal.test",
+    ...parseEnv(shared),
+  };
   const descriptor = {
     schemaVersion: 1,
     project: "harden-llm",
@@ -43,7 +53,7 @@ function descriptorFor(t, { shared = "", observability, production, serviceEnvir
     composeFiles: ["docker-compose.yml", "deploy/frontend/compose.frontend.yml"],
     productionEnvFile: privateFile(directory, "production.env", production ?? "HARDEN_LLM_LAMINAR_PROJECT_API_KEY=fixture-harden-laminar-key\nHARDEN_LLM_RELEASE=fixture-release\n"),
     observabilityEnvFile: privateFile(directory, "observability.env", observability ?? "PRLS_LAMINAR_PROJECT_API_KEY=fixture-laminar-key\n"),
-    sharedApplicationEnvFile: privateFile(directory, "shared.env", shared),
+    sharedApplicationEnvFile: privateFile(directory, "shared.env", Object.entries(sharedValues).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join("\n") + "\n"),
     requiredVariables: ["PRLS_LAMINAR_PROJECT_API_KEY", "HARDEN_LLM_LAMINAR_PROJECT_API_KEY", "HARDEN_LLM_RELEASE"],
     services: {
       probe: {
@@ -101,7 +111,7 @@ function runtimeContainer(directory, literalPath, { mode = "production", image =
 
 test("TEST-233 resolves approved ownership and excludes ambient application variables", (t) => {
   const directory = fixtureDirectory(t);
-  const shared = "JINA_API_KEY='fixture$literal'\nHARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST=''\nHARDEN_LLM_STATIC_TOKEN=must-not-escape\n";
+  const shared = "JINA_API_KEY='fixture$literal'\nHARDEN_LLM_PROVIDER_PRIVATE_ALLOWLIST=''\n";
   const descriptor = descriptorFor(t, {
     shared,
     observability: "PRLS_LAMINAR_PROJECT_API_KEY=observability-laminar-key\nGF_SERVER_DOMAIN=observability.example\n",
@@ -117,7 +127,8 @@ test("TEST-233 resolves approved ownership and excludes ambient application vari
   const environment = buildComposeEnvironment(resolved, {
     PATH: "/fixture/bin",
     HOME: "/fixture/home",
-    HARDEN_LLM_STATIC_TOKEN: "ambient-secret",
+    HARDEN_LLM_TOKEN: "ambient-secret",
+    CPA_API_KEY: "ambient-secret",
     COMPOSE_FILE: "branch-controlled.yml",
     HARDEN_LLM_RELEASE: "ambient-release",
     DOCKER_HOST: "tcp://ambient.example:2376",
@@ -126,7 +137,8 @@ test("TEST-233 resolves approved ownership and excludes ambient application vari
     PRIVATE_MODULE_TOKEN: "ambient-build-secret",
   });
   assert.equal(environment.JINA_API_KEY, "fixture$literal");
-  assert.equal(environment.HARDEN_LLM_STATIC_TOKEN, undefined);
+  assert.equal(environment.HARDEN_LLM_TOKEN, "synthetic-incoming-token");
+  assert.equal(environment.CPA_API_KEY, "synthetic-upstream-token");
   assert.equal(environment.COMPOSE_FILE, undefined);
   assert.equal(environment.HARDEN_LLM_RELEASE, undefined);
   assert.equal(environment.DOCKER_HOST, undefined);
@@ -332,7 +344,14 @@ function candidateDescriptorFor(t, {
     composeFiles: ["docker-compose.yml", "deploy/frontend/compose.frontend.yml"],
     productionEnvFile: privateFile(directory, "production.env", `HARDEN_LLM_LAMINAR_PROJECT_API_KEY=fixture-harden-laminar-key\nHARDEN_LLM_RELEASE=${desiredRelease}\n`),
     observabilityEnvFile: privateFile(directory, "observability.env", "PRLS_LAMINAR_PROJECT_API_KEY=fixture-laminar-key\n"),
-    sharedApplicationEnvFile: privateFile(directory, "shared.env", ""),
+    sharedApplicationEnvFile: privateFile(directory, "shared.env", [
+      `HARDEN_LLM_CONFIG_FILE=${path.join(directory, "upstreams.json")}`,
+      "HARDEN_LLM_TOKEN=synthetic-incoming-token",
+      "CPA_API_KEY=synthetic-upstream-token",
+      "HARDEN_LLM_CONTROL_PLANE_URL=http://control-plane.test:4310",
+      "HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN=synthetic-identity-token",
+      "PRLS_PORTAL_URL=https://portal.test",
+    ].join("\n") + "\n"),
     requiredVariables: ["PRLS_LAMINAR_PROJECT_API_KEY", "HARDEN_LLM_LAMINAR_PROJECT_API_KEY", "HARDEN_LLM_RELEASE"],
     services: {
       [service]: {

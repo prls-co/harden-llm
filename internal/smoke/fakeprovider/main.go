@@ -57,6 +57,17 @@ func serve(args []string) error {
 		writer.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(writer, `{"status":"ok"}`)
 	})
+	mux.HandleFunc("GET /v1/models", func(writer http.ResponseWriter, request *http.Request) {
+		if !strings.HasPrefix(request.Header.Get("Authorization"), "Bearer ") {
+			http.Error(writer, `{"error":{"message":"unauthorized"}}`, http.StatusUnauthorized)
+			return
+		}
+		writer.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(writer).Encode(map[string]any{
+			"object": "list",
+			"data":   []map[string]any{{"id": "smoke-model", "object": "model", "created": 0, "owned_by": "openai"}},
+		})
+	})
 	mux.HandleFunc("POST /v1/responses", providerResponse)
 	handler := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		matched, pattern := mux.Handler(request)

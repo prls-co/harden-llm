@@ -22,6 +22,10 @@ var productionServices = []string{
 	"prometheus", "loki", "tempo", "grafana",
 }
 
+var proxyServices = []string{
+	"harden-llm-gateway", "otel-collector", "prometheus", "loki", "tempo", "grafana",
+}
+
 func TestComposeDeploymentContract(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	basePath := filepath.Join(root, "docker-compose.yml")
@@ -31,8 +35,8 @@ func TestComposeDeploymentContract(t *testing.T) {
 
 	backend := renderCompose(t, root, basePath)
 	assertEffectiveTopology(t, backend)
-	assertImageManifest(t, filepath.Join(root, "deploy", "images.lock.json"), backend)
 	production := renderCompose(t, root, basePath, frontendPath)
+	assertImageManifest(t, filepath.Join(root, "deploy", "images.lock.json"), production)
 	assertServiceNames(
 		t,
 		production,
@@ -95,15 +99,16 @@ func TestCollectorLaminarEndpointOverride(t *testing.T) {
 func assertEffectiveTopology(t *testing.T, config map[string]any) {
 	t.Helper()
 	services := objectField(t, config, "services")
-	sort.Strings(productionServices)
+	wantServices := append([]string(nil), proxyServices...)
+	sort.Strings(wantServices)
 	actualServices := make(map[string]any, len(services))
 	for name, service := range services {
 		if name != "otel-collector-state-init" {
 			actualServices[name] = service
 		}
 	}
-	if got := sortedKeys(actualServices); !equalStrings(got, productionServices) {
-		t.Fatalf("effective services = %v, want %v", got, productionServices)
+	if got := sortedKeys(actualServices); !equalStrings(got, wantServices) {
+		t.Fatalf("proxy-only effective services = %v, want %v", got, wantServices)
 	}
 	stateInit := asObject(t, services["otel-collector-state-init"], "otel-collector-state-init")
 	if stringField(t, stateInit, "network_mode") != "none" {
@@ -123,7 +128,7 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 		}
 	}
 
-	baseOwned := []string{"harden-llm-gateway", "harden-postgres", "otel-collector", "prometheus", "loki", "tempo", "grafana"}
+	baseOwned := proxyServices
 	for _, name := range baseOwned {
 		service := asObject(t, services[name], name)
 		image := stringField(t, service, "image")
@@ -133,8 +138,16 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 	}
 
 	gatewayEnv := environmentValueMap(t, asObject(t, services["harden-llm-gateway"], "gateway")["environment"])
-	if endpoint := gatewayEnv["HARDEN_LLM_ARTIFACT_ENDPOINT"]; endpoint != "http://garage-shared:3900" {
-		t.Errorf("gateway artifact endpoint = %q", endpoint)
+	if gatewayEnv["HARDEN_LLM_CONFIG_FILE"] != "/etc/harden-llm/upstreams.json" ||
+		gatewayEnv["HARDEN_LLM_TOKEN"] != "contract-incoming-bearer-token" ||
+		gatewayEnv["CPA_API_KEY"] != "contract-upstream-key" ||
+		gatewayEnv["HARDEN_LLM_TOKEN"] == gatewayEnv["CPA_API_KEY"] {
+		t.Errorf("gateway connection/auth configuration = %#v", gatewayEnv)
+	}
+	for _, forbidden := range []string{"HARDEN_LLM_DATABASE_URL", "HARDEN_LLM_ARTIFACT_ENDPOINT", "HARDEN_LLM_CONTROL_PLANE_URL", "HARDEN_LLM_STATIC_TOKEN"} {
+		if _, exists := gatewayEnv[forbidden]; exists {
+			t.Errorf("stateless gateway receives retired setting %s", forbidden)
+		}
 	}
 	gateway := asObject(t, services["harden-llm-gateway"], "gateway")
 	build := asObject(t, gateway["build"], "gateway build")
@@ -167,7 +180,6 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 		}
 	}
 	for _, name := range []string{
-		"harden-postgres-data",
 		"prometheus-data", "loki-data", "tempo-data", "grafana-data",
 	} {
 		if _, ok := volumes[name]; !ok {
@@ -201,12 +213,24 @@ func assertProductionFrontend(t *testing.T, config map[string]any) {
 		t.Errorf("production web build secrets = %#v, want private_module_token", webBuild["secrets"])
 	}
 	webEnv := environmentValueMap(t, web["environment"])
+	if webEnv["HARDEN_LLM_TOKEN"] != "contract-incoming-bearer-token" || webEnv["HARDEN_LLM_DATABASE_URL"] == "" {
+		t.Errorf("reference frontend bearer/database configuration is incomplete: %#v", webEnv)
+	}
 	if _, exists := webEnv["PRIVATE_MODULE_TOKEN"]; exists {
 		t.Error("private module token is exposed to the web runtime")
 	}
 	ports, _ := web["ports"].([]any)
 	if len(ports) != 0 {
 		t.Errorf("production web service publishes host ports: %#v", ports)
+	}
+	dependsOn := objectField(t, web, "depends_on")
+	if got, want := sortedKeys(dependsOn), []string{"harden-llm-gateway"}; !equalStrings(got, want) {
+		t.Errorf("reference frontend startup dependencies = %v, want only %v", got, want)
+	} else {
+		gateway := objectField(t, dependsOn, "harden-llm-gateway")
+		if stringField(t, gateway, "condition") != "service_healthy" {
+			t.Errorf("reference frontend gateway dependency = %#v", gateway)
+		}
 	}
 	assertPrivateAndSharedAlias(t, "production harden-llm-web", web, "hllm-prod-web")
 }
@@ -218,12 +242,12 @@ func assertSmokeTopology(t *testing.T, root string, config map[string]any, front
 		t.Fatalf("resolve HLLM root %q: %v", root, err)
 	}
 	wanted := append(
-		append([]string(nil), productionServices...),
+		append([]string(nil), proxyServices...),
 		"caddy", "fake-provider", "garage", "laminar", "otel-collector-state-init",
 	)
 	model := "backend smoke"
 	if frontend {
-		wanted = append(wanted, "harden-llm-web")
+		wanted = append(wanted, "harden-postgres", "harden-llm-web")
 		model = "frontend smoke"
 	}
 	assertServiceNames(t, config, wanted, model)
@@ -238,7 +262,7 @@ func assertSmokeTopology(t *testing.T, root string, config map[string]any, front
 	}
 
 	environment := environmentValueMap(t, caddy["environment"])
-	for _, name := range []string{"HARDEN_LLM_API_HOST", "HARDEN_LLM_ARTIFACT_HOST", "HARDEN_LLM_GRAFANA_HOST"} {
+	for _, name := range []string{"HARDEN_LLM_API_HOST", "HARDEN_LLM_GRAFANA_HOST"} {
 		if strings.TrimSpace(environment[name]) == "" {
 			t.Errorf("%s Caddy environment omits %s", model, name)
 		}
@@ -252,7 +276,7 @@ func assertSmokeTopology(t *testing.T, root string, config map[string]any, front
 		t.Errorf("frontend smoke Caddy web host = %q, want app.harden.test", environment["HARDEN_LLM_WEB_HOST"])
 	}
 
-	wantedDependencies := []string{"garage", "grafana", "harden-llm-gateway"}
+	wantedDependencies := []string{"grafana", "harden-llm-gateway"}
 	if frontend {
 		wantedDependencies = append(wantedDependencies, "harden-llm-web")
 	}
@@ -260,8 +284,8 @@ func assertSmokeTopology(t *testing.T, root string, config map[string]any, front
 	if got := sortedKeys(objectField(t, caddy, "depends_on")); !equalStrings(got, wantedDependencies) {
 		t.Errorf("%s Caddy dependencies = %v, want %v", model, got, wantedDependencies)
 	}
-	if got := sortedKeys(objectField(t, caddy, "networks")); !equalStrings(got, []string{"harden-private", "prls-observability"}) {
-		t.Errorf("%s Caddy networks = %v, want its isolated backend and artifact networks", model, got)
+	if got := sortedKeys(objectField(t, caddy, "networks")); !equalStrings(got, []string{"harden-private"}) {
+		t.Errorf("%s Caddy networks = %v, want only the application network", model, got)
 	}
 	assertNetworkSubnet(t, config, "harden-private", "203.0.113.0/24")
 	assertNetworkSubnet(t, config, "prls-observability", "198.18.0.0/24")
@@ -394,23 +418,24 @@ func composeContractEnvironment() []string {
 		"PRLS_LOKI_S3_ACCESS_KEY=contract-prls-loki-access-key",
 		"PRLS_LOKI_S3_SECRET_KEY=contract-prls-loki-secret-key",
 		"HARDEN_LLM_API_HOST=api.harden.test", "HARDEN_LLM_GRAFANA_HOST=grafana.harden.test",
-		"HARDEN_LLM_ARTIFACT_HOST=artifacts.harden.test",
 		"HARDEN_LLM_WEB_HOST=app.harden.test",
 		"PRLS_PORTAL_URL=https://portal.harden.test",
 		"PRLS_PORTAL_HOST=portal.harden.test",
-		"HARDEN_LLM_ARTIFACT_EXTERNAL_ENDPOINT=https://artifacts.harden.test",
+		"HARDEN_LLM_CONFIG_FILE=/tmp/harden-llm-contract/upstreams.json",
+		"HARDEN_LLM_TOKEN=contract-incoming-bearer-token",
+		"CPA_API_KEY=contract-upstream-key",
 		"HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN=contract-control-plane-internal-token",
 		"PRIVATE_MODULE_TOKEN=contract-private-module-token",
-		"HARDEN_LLM_STATIC_TOKEN=contract-harden-static-token-0123456789",
 		"HARDEN_LLM_BIND_ADDRESS=127.0.0.1", "HARDEN_LLM_HTTP_PORT=18080", "HARDEN_LLM_HTTPS_PORT=18443",
 		"PRLS_SMOKE_OBSERVABILITY_NETWORK=harden-llm-contract-observability",
 		"SMOKE_CA_CERT=/tmp/harden-llm-contract/ca.crt",
 		"SMOKE_PROVIDER_CERT=/tmp/harden-llm-contract/provider.crt",
 		"SMOKE_PROVIDER_KEY=/tmp/harden-llm-contract/provider.key",
 		"HARDEN_LLM_TLS_MODE=internal", "HARDEN_LLM_POSTGRES_PASSWORD=contract-harden-db-7Y2qN5",
-		"HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID=GKCONTRACT000000000000000000000001",
-		"HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY=contractGarageKey_4Ys8zQ1xN7pV9kM2rT6wE3aB5cD0fH",
 		"GARAGE_RPC_SECRET=contractGarageRPCSecret_6mN4vQ8zR2pT5xK9aC1dF7hJ3wE0yB",
+		"GARAGE_SMOKE_BUCKET=harden-llm-contract-observability",
+		"GARAGE_SMOKE_ACCESS_KEY=GKCONTRACT000000000000000000000001",
+		"GARAGE_SMOKE_SECRET_KEY=contractGarageSmokeKey_4Ys8zQ1xN7pV9kM2rT6wE3aB5cD0fH",
 		`HARDEN_LLM_ENCRYPTION_KEYS={"primary":"R1BKT3pKV0M1akY2WnlYYU45Sm5UTW82dzBuXzJ4bTk"}`,
 		"HARDEN_LLM_ACTIVE_ENCRYPTION_KEY_ID=primary",
 		"HARDEN_LLM_RELEASE=contract-1", "HARDEN_LLM_WEB_SECRET_KEY_BASE=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",

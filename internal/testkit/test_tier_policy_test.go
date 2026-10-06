@@ -162,74 +162,34 @@ func TestTestTierPolicy(t *testing.T) {
 	}
 }
 
-func TestExclusiveGarageResourcePolicy(t *testing.T) {
+func TestRetiredGarageResourcesAreAbsent(t *testing.T) {
 	// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-043
 	root := repositoryRoot(t)
 	manifestPath := filepath.Join(root, "test", "test-tiers.json")
 	var manifest struct {
 		Tasks []struct {
-			ID             string          `json:"id"`
-			ResourceClass  string          `json:"resourceClass"`
-			Command        []string        `json:"command"`
-			ServicePool    json.RawMessage `json:"servicePool"`
-			RequiresDocker bool            `json:"requiresDocker"`
+			ID            string   `json:"id"`
+			ResourceClass string   `json:"resourceClass"`
+			Command       []string `json:"command"`
 		} `json:"tasks"`
 	}
 	if err := json.Unmarshal(readFile(t, manifestPath), &manifest); err != nil {
 		t.Fatalf("parse %s: %v", manifestPath, err)
 	}
-	var exclusive []struct {
-		ID             string
-		Command        []string
-		RequiresDocker bool
-	}
 	for _, task := range manifest.Tasks {
-		if task.ResourceClass == "service_garage_exclusive" {
-			exclusive = append(exclusive, struct {
-				ID             string
-				Command        []string
-				RequiresDocker bool
-			}{task.ID, task.Command, task.RequiresDocker})
+		command := strings.Join(task.Command, " ")
+		if strings.Contains(command, "garageexclusive") || strings.Contains(command, "TestGarageRestartPersistence") {
+			t.Errorf("retired Garage task %q remains in the test manifest", task.ID)
 		}
 	}
-	if len(exclusive) != 1 {
-		t.Fatalf("exclusive Garage task count = %d, want exactly one", len(exclusive))
-	}
-	if !exclusive[0].RequiresDocker {
-		t.Fatalf("exclusive Garage task %q must acquire the managed Docker lifecycle guard", exclusive[0].ID)
-	}
-	command := strings.Join(exclusive[0].Command, " ")
-	if !strings.Contains(command, "garageexclusive") || !strings.Contains(command, "TestGarageRestartPersistence") {
-		t.Fatalf("exclusive Garage task %q command = %q", exclusive[0].ID, command)
-	}
-	if strings.Contains(command, "StartGarage") || strings.Contains(command, "StartPostgres") {
-		t.Fatalf("exclusive Garage task %q exposes an ordinary start API", exclusive[0].ID)
-	}
-
-	restartPath := filepath.Join(root, "internal", "artifacts", "garage_restart_test.go")
-	restart := string(readFile(t, restartPath))
-	if !strings.HasPrefix(restart, "//go:build integration && garageexclusive") || !strings.Contains(restart, "TestGarageRestartPersistence") || !strings.Contains(restart, "TEST-043") {
-		t.Fatalf("Garage restart test is not isolated behind the exact exclusive tag")
-	}
-	for _, path := range []string{
-		filepath.Join(root, "internal", "artifacts", "garage_test.go"),
-		filepath.Join(root, "internal", "gateway", "auth_profile_test.go"),
-		filepath.Join(root, "internal", "gateway", "profile_seed_test.go"),
-		filepath.Join(root, "internal", "gateway", "resource_routes_test.go"),
-		filepath.Join(root, "internal", "gateway", "run_test.go"),
-		filepath.Join(root, "internal", "postgres", "cache_test.go"),
-		filepath.Join(root, "internal", "postgres", "repository_test.go"),
-	} {
-		source := string(readFile(t, path))
-		if strings.Contains(source, "StartGarage(") || strings.Contains(source, "StartPostgres(") {
-			t.Errorf("ordinary integration consumer %s still starts a per-test service", path)
-		}
-		if !strings.Contains(source, "TEST-053") {
-			t.Errorf("migrated integration consumer %s lacks TEST-053", path)
-		}
-	}
-	if strings.Count(string(readFile(t, restartPath)), "StartExclusiveGarage(") != 1 {
-		t.Error("Garage restart test does not own exactly one exclusive service constructor")
+	for _, retired := range []string{"internal/artifacts", "internal/profiles", "internal/postgres"} {
+		path := filepath.Join(root, filepath.FromSlash(retired))
+		_ = filepath.WalkDir(path, func(candidate string, entry os.DirEntry, err error) error {
+			if err == nil && !entry.IsDir() && strings.HasSuffix(candidate, ".go") {
+				t.Errorf("retired package source remains: %s", candidate)
+			}
+			return nil
+		})
 	}
 }
 

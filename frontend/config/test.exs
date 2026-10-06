@@ -15,6 +15,18 @@ config :prls_web, :client_options, request_options: [plug: {Req.Test, PrlsWeb.Ac
 
 config :harden_llm, :harden_api_req_options, plug: {Req.Test, HardenLlmWeb.HardenAPI}
 
+if endpoint = System.get_env("HARDEN_LLM_TEST_POSTGRES_ENDPOINT") do
+  config :harden_llm, HardenLlm.Repo,
+    url: "ecto://harden_test:harden_test_password@#{endpoint}/harden_llm_test",
+    pool_size: 10,
+    timeout: 600,
+    pool_timeout: 400,
+    connect_timeout: 600,
+    parameters: [statement_timeout: "500"]
+
+  config :harden_llm, reference_repo_enabled: true
+end
+
 config :wallaby,
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 TEST-056
   otp_app: :harden_llm,

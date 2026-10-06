@@ -46,7 +46,6 @@ const requiredCommands = [
   ["mix", "assets.deploy"],
   ["mix", "release"],
   ["make", "verify"],
-  ["node", "scripts/run-deployed-browser-test.mjs", "--allow-browser"],
 ];
 
 const closeoutRegistrations = Object.freeze({
@@ -158,7 +157,7 @@ async function main() {
       fail(`the actual Docker lifecycle task must not run in ${selector}`);
     }
   }
-  if (!workflow.includes("options: [fast, integration, lifecycle, capacity, release, browser, full-with-browser]")
+  if (!workflow.includes("options: [fast, integration, lifecycle, release, browser, full-with-browser]")
       || !workflow.includes("lifecycle: ${{ steps.mode.outputs.lifecycle }}")
       || !workflow.includes("if: needs.mode.outputs.lifecycle == 'true'")
       || !workflow.includes("docker pull alpine@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc")
@@ -166,39 +165,12 @@ async function main() {
     fail("the real Docker lifecycle boundary must be reachable only through its explicit browser-free manual workflow selector");
   }
 
-  const capacityTask = manifest.tasks.find((task) => task.id === "capacity-baseline");
-  if (!capacityTask || capacityTask.command.join(" ") !== "go test ./cmd/harden-llm-gateway -tags=integration,capacity -run ^TestGatewayCapacityBaseline$ -count=1"
-      || capacityTask.tier !== "T3"
-      || capacityTask.resourceClass !== "service"
-      || capacityTask.network !== "local-only"
-      || capacityTask.requiresBrowser
-      || capacityTask.requiresDocker
-      || capacityTask.capacityReport !== true
-      || capacityTask.sampleDockerResources !== true
-      || capacityTask.timeoutMs !== 2_400_000
-      || capacityTask.servicePool?.composeFile !== "deploy/test/compose.integration.yml"
-      || JSON.stringify((capacityTask.servicePool?.services ?? []).map(({ name }) => name).sort()) !== JSON.stringify(["garage", "harden-postgres"])
-      || (capacityTask.requiredFor ?? []).length !== 0) {
-    fail("the real-gateway capacity suite must be an explicit-only, credential-free pooled T3 task with bounded report and resource sampling");
+  if (manifest.tasks.some((task) => task.id === "capacity-baseline" || task.capacityReport === true || (task.testIds ?? []).includes("TEST-277"))) {
+    fail("the retired profile-backed capacity task and its runner report contract must not remain registered");
   }
-  const capacityTestOccurrences = manifest.tasks.flatMap((task) => (task.testIds ?? []).filter((id) => id === "TEST-277").map(() => task.id));
-  if (capacityTestOccurrences.length !== 1 || capacityTestOccurrences[0] !== "capacity-baseline") {
-    fail("TEST-277 must be registered exactly once in the explicit capacity task");
-  }
-  for (const selector of ["baseline", "fast", "integration", "release"]) {
-    if (selectTasks(manifest, selector).some((task) => task.id === "capacity-baseline")) {
-      fail(`the capacity suite must not run in routine selector ${selector}`);
-    }
-  }
-  if (!workflow.includes("options: [fast, integration, lifecycle, capacity, release, browser, full-with-browser]")
-      || !workflow.includes("capacity: ${{ steps.mode.outputs.capacity }}")
-      || !workflow.includes("capacityCaseSet:")
-      || !workflow.includes("options: [correctness, exploration, holdout]")
-      || !workflow.includes("HARDEN_LLM_CAPACITY_CASE_SET: ${{ inputs.capacityCaseSet }}")
-      || !workflow.includes("node scripts/run-test-tier.mjs --task capacity-baseline")
-      || !workflow.includes("actions/setup-node@v4")
-      || !workflow.includes("timeout-minutes: 60")) {
-    fail("capacity runs must be reachable only through the explicit manual service-suite workflow with a selected scenario set");
+  const retiredCapacityWorkflow = /capacityCaseSet|HARDEN_LLM_CAPACITY_CASE_SET|capacity-baseline|steps\.mode\.outputs\.capacity/.test(workflow);
+  if (retiredCapacityWorkflow || workflow.includes("options: [fast, integration, lifecycle, capacity, release, browser, full-with-browser]")) {
+    fail("the retired profile-backed capacity workflow must not remain selectable");
   }
 
   const runnerContracts = manifest.tasks.find((task) => task.id === "runner-contracts");
@@ -252,7 +224,7 @@ async function main() {
   for (const selector of ["fast", "baseline", "release"]) {
     if (selectTasks(manifest, selector).some(task => task.requiresBrowser)) fail(`${selector} must be browser-free`);
   }
-  for (const id of ["frontend-browser", "frontend-compose", "frontend-deployed"]) {
+  for (const id of ["frontend-browser", "frontend-compose"]) {
     if (!manifest.tasks.find(task => task.id === id)?.requiresBrowser) fail(`${id} must declare explicit browser authorization`);
   }
   if (fastTasks.length === 0) fail("fast selection is empty");
@@ -260,22 +232,17 @@ async function main() {
 
   const fastTestIds = new Set(fastTasks.flatMap((task) => task.testIds ?? []));
   for (const testId of [
-    "TEST-101",
-    "TEST-102",
-    "TEST-103",
-    "TEST-104",
-    "TEST-105",
-    "TEST-106",
-    "TEST-107",
-    "TEST-109",
-    "TEST-110",
-    "TEST-111",
-    "TEST-112",
-    "TEST-113",
-    "TEST-115",
-    "TEST-116",
+    "TEST-400",
+    "TEST-401",
+    "TEST-402",
+    "TEST-403",
+    "TEST-404",
+    "TEST-405",
+    "TEST-406",
+    "WEB-TEST-114",
+    "WEB-TEST-115",
   ]) {
-    if (!fastTestIds.has(testId)) fail(`cheap selection is missing widget test ${testId}`);
+    if (!fastTestIds.has(testId)) fail(`cheap selection is missing proxy/reference test ${testId}`);
   }
 
   const taskById = new Map(manifest.tasks.map((task) => [task.id, task]));
@@ -310,11 +277,6 @@ async function main() {
     if (occurrences.length !== 1 || occurrences[0] !== "frontend-deterministic") {
       fail(`${testId} must be registered exactly once in frontend-deterministic`);
     }
-  }
-
-  const deployed = manifest.tasks.find((task) => task.id === "frontend-deployed");
-  if (!deployed || deployed.tier !== "T5" || deployed.resourceClass !== "live" || deployed.network !== "public") {
-    fail("frontend-deployed must be an explicit T5 live/public task");
   }
 
   const frontendFormat = manifest.tasks.find((task) => task.id === "frontend-format");

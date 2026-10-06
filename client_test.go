@@ -20,12 +20,6 @@ import (
 	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
 )
 
-type fixedCredentialResolver struct{}
-
-func (fixedCredentialResolver) ResolveCredential(context.Context, CredentialRequest) (Credential, error) {
-	return Credential{APIKey: "fixture-only-key"}, nil
-}
-
 type fixedExecutor struct {
 	prepared int
 	executed int
@@ -34,19 +28,19 @@ type fixedExecutor struct {
 	sequence []error
 }
 
-func (executor *fixedExecutor) Prepare(_ context.Context, profile coreruntime.Profile, _ coreruntime.Credential, call coreruntime.Call) (coreruntime.PreparedOperation, error) {
+func (executor *fixedExecutor) Prepare(_ context.Context, connection coreruntime.Connection, _ coreruntime.Credential, call coreruntime.Call) (coreruntime.PreparedOperation, error) {
 	executor.prepared++
 	return coreruntime.PreparedOperation{
 		Operation: cachekey.Operation{
 			SchemaVersion: "utility-llm.operation.v1",
-			Protocol:      profile.APIInferenceType,
+			Protocol:      connection.APIInferenceType,
 			Endpoint: cachekey.Endpoint{
 				Identity: "https://api.openai.com:443",
 				Method:   "POST",
 				Path:     "/v1/responses",
 			},
-			Model:   profile.ModelID,
-			Payload: map[string]any{"input": call.UserPrompt, "model": profile.ModelID},
+			Model:   call.ModelID,
+			Payload: map[string]any{"messages": call.Messages, "model": call.ModelID},
 			ResponseProjection: cachekey.ResponseProjection{
 				Provider: "openai",
 				Kind:     "responses",
@@ -86,7 +80,7 @@ func TestClientCallResult(t *testing.T) {
 				Output:     test.output,
 				Accounting: testLedger(12, 0, 0, 3, 0, accounting.ExactCost(0.0000225, "calculated")),
 			}}
-			client, err := New(Options{Credentials: fixedCredentialResolver{}})
+			client, err := New(testOptions())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -101,9 +95,9 @@ func TestClientCallResult(t *testing.T) {
 			client.observeRecord = func(record coreruntime.CallRecord) { observed = record }
 
 			result, callErr := client.Call(context.Background(), Request{
-				ProfileID:      "primary",
-				Profiles:       testProfiles(),
-				UserPrompt:     "deterministic fixture",
+				ConnectionID:   "primary",
+				ModelID:        "gpt-test",
+				Messages:       testMessages("deterministic fixture"),
 				CallType:       test.callType,
 				Schema:         test.schema,
 				CacheMode:      CacheModeOff,
@@ -132,11 +126,11 @@ func TestClientCallResult(t *testing.T) {
 	}
 
 	t.Run("provider error", func(t *testing.T) {
-		client, _ := New(Options{Credentials: fixedCredentialResolver{}})
+		client, _ := New(testOptions())
 		client.executor = &fixedExecutor{err: errors.New("provider failed")}
 		client.newID = func() (string, error) { return "fixed", nil }
 		_, err := client.Call(context.Background(), Request{
-			ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "fixture",
+			ConnectionID: "primary", ModelID: "gpt-test", Messages: testMessages("fixture"),
 			CallType:       CallTypeText,
 			RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 		})
@@ -146,12 +140,12 @@ func TestClientCallResult(t *testing.T) {
 	})
 
 	t.Run("identity source failure", func(t *testing.T) {
-		client, _ := New(Options{Credentials: fixedCredentialResolver{}})
+		client, _ := New(testOptions())
 		executor := &fixedExecutor{}
 		client.executor = executor
 		client.newID = func() (string, error) { return "", errors.New("entropy unavailable") }
 		_, err := client.Call(context.Background(), Request{
-			ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "fixture", CallType: CallTypeText,
+			ConnectionID: "primary", ModelID: "gpt-test", Messages: testMessages("fixture"), CallType: CallTypeText,
 			RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{"network", "rate_limit", "server_error", "empty_response", "provider_retry"}, Backoff: RecoveryBackoff{}},
 		})
 		if err == nil || executor.prepared != 0 || executor.executed != 0 {
@@ -160,77 +154,35 @@ func TestClientCallResult(t *testing.T) {
 	})
 }
 
-func TestRuntimeProfilesEnforcesStrictCatalogContract(t *testing.T) {
+func TestNormalizeConnectionsEnforcesStaticEndpointContract(t *testing.T) {
 	t.Parallel()
-	if _, err := runtimeProfiles(testProfiles()); err != nil {
-		t.Fatalf("valid catalog rejected: %v", err)
-	}
-	normalizedInput := testProfiles()
-	profile := normalizedInput["primary"]
-	profile.Provider = " openai "
-	profile.BaseURL = "https://api.openai.com/v1/"
-	profile.ModelID = " gpt-test "
-	normalizedInput["primary"] = profile
-	normalized, err := runtimeProfiles(normalizedInput)
-	if err != nil || normalized["primary"].Provider != "openai" || normalized["primary"].BaseURL != "https://api.openai.com/v1" || normalized["primary"].ModelID != "gpt-test" {
-		t.Fatalf("typed catalog was not normalized through the source contract: %#v %v", normalized, err)
+	valid := testConnection()
+	valid.Provider = " openai "
+	valid.BaseURL = "https://api.openai.com/v1/"
+	normalized, defaultID, err := normalizeConnections([]Connection{valid}, "")
+	if err != nil || normalized["primary"].Provider != "openai" || normalized["primary"].BaseURL != "https://api.openai.com/v1" || defaultID != "primary" {
+		t.Fatalf("static connection was not normalized: %#v %q %v", normalized, defaultID, err)
 	}
 	tests := []struct {
 		name   string
-		mutate func(ProfileCatalog)
+		mutate func(*Connection, *string)
 	}{
-		{"key mismatch", func(catalog ProfileCatalog) {
-			profile := catalog["primary"]
-			profile.LLMProfile = "other"
-			catalog["primary"] = profile
-		}},
-		{"unsupported API", func(catalog ProfileCatalog) {
-			profile := catalog["primary"]
-			profile.APIInferenceType = "openai.responses"
-			catalog["primary"] = profile
-		}},
-		{"insecure endpoint", func(catalog ProfileCatalog) {
-			profile := catalog["primary"]
-			profile.BaseURL = "http://api.openai.com/v1"
-			catalog["primary"] = profile
-		}},
-		{"credential in defaults", func(catalog ProfileCatalog) {
-			profile := catalog["primary"]
-			profile.DefaultOptions = map[string]any{"apiKey": "forbidden"}
-			catalog["primary"] = profile
-		}},
-		{"invalid reasoning level", func(catalog ProfileCatalog) {
-			profile := catalog["primary"]
-			profile.ReasoningEffortMap = map[string]map[string]any{"high": {}}
-			catalog["primary"] = profile
-		}},
-		{"missing recovery policy", func(catalog ProfileCatalog) {
-			profile := catalog["primary"]
-			profile.RecoveryPolicy = RecoveryPolicy{}
-			catalog["primary"] = profile
-		}},
+		{"unsupported protocol", func(connection *Connection, _ *string) { connection.Protocol = "openai.responses" }},
+		{"invalid endpoint", func(connection *Connection, _ *string) { connection.BaseURL = "ftp://api.openai.com/v1" }},
+		{"invalid connection ID", func(connection *Connection, _ *string) { connection.ID = " " }},
+		{"missing default for multiple connections", func(_ *Connection, defaultID *string) { *defaultID = "missing" }},
 	}
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			catalog := testProfiles()
-			test.mutate(catalog)
-			if _, err := runtimeProfiles(catalog); err == nil {
-				t.Fatal("invalid typed catalog was accepted")
+			connection := testConnection()
+			defaultID := "primary"
+			test.mutate(&connection, &defaultID)
+			if _, _, err := normalizeConnections([]Connection{connection}, defaultID); err == nil {
+				t.Fatal("invalid connection configuration was accepted")
 			}
 		})
-	}
-}
-
-func testProfiles() ProfileCatalog {
-	return ProfileCatalog{
-		"primary": {
-			SchemaVersion: 3, LLMProfile: "primary", Provider: "openai",
-			APIInferenceType: "responses", EndpointCredentialScope: "global",
-			BaseURL: "https://api.openai.com/v1", ModelID: "gpt-test",
-			DefaultOptions: map[string]any{}, RecoveryPolicy: DefaultRecoveryPolicy(),
-		},
 	}
 }
 
@@ -279,27 +231,20 @@ func TestRecoveryRepairPayload(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			client, err := New(Options{
-				Credentials: fixedCredentialResolver{},
-				EndpointPolicy: EndpointPolicy{
-					AllowedHosts: []string{endpoint.Hostname()}, PrivateAllowedHosts: []string{endpoint.Hostname()},
-					TLSConfig: server.Client().Transport.(*http.Transport).TLSClientConfig.Clone(),
-				},
-			})
+			clientOptions := testOptions()
+			clientOptions.Connections[0].Protocol = protocol
+			clientOptions.Connections[0].BaseURL = server.URL
+			clientOptions.EndpointPolicy = EndpointPolicy{
+				AllowedHosts: []string{endpoint.Hostname()}, PrivateAllowedHosts: []string{endpoint.Hostname()},
+				TLSConfig: server.Client().Transport.(*http.Transport).TLSClientConfig.Clone(),
+			}
+			client, err := New(clientOptions)
 			if err != nil {
 				t.Fatal(err)
 			}
-			catalog := testProfiles()
-			profile := catalog["primary"]
-			profile.BaseURL = server.URL
-			profile.APIInferenceType = protocol
-			profile.SupportsContractedStructuredOutput = true
-			profile.SupportsTemperature = true
-			profile.DefaultOptions = map[string]any{"temperature": 0.3}
-			catalog["primary"] = profile
 			contract := json.RawMessage(`{"type":"object","properties":{"zip":{"type":"string"}},"required":["zip"],"additionalProperties":false}`)
 			result, callErr := client.Call(context.Background(), Request{
-				ProfileID: "primary", Profiles: catalog, SystemPrompt: "Preserve string values.", UserPrompt: "Extract the postal code.",
+				ConnectionID: "primary", ModelID: "gpt-test", Messages: testConversation("Preserve string values.", "Extract the postal code."),
 				CallType: CallTypeStructured, Schema: contract, CacheMode: CacheModeOff,
 				RecoveryPolicy: generationRepairPolicy(2, []RecoveryCategory{}, RecoveryBackoff{}),
 			})
@@ -367,19 +312,19 @@ func TestRecoveryPolicy(t *testing.T) {
 		}
 	})
 	t.Run("missing policy rejected before execution", func(t *testing.T) {
-		client, err := New(Options{Credentials: fixedCredentialResolver{}})
+		client, err := New(testOptions())
 		if err != nil {
 			t.Fatal(err)
 		}
 		executor := &fixedExecutor{result: coreruntime.ProviderResult{Output: "ok"}}
 		client.executor = executor
-		_, err = client.Call(context.Background(), Request{ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "fixture", CallType: CallTypeText})
+		_, err = client.Call(context.Background(), Request{ConnectionID: "primary", ModelID: "gpt-test", Messages: testMessages("fixture"), CallType: CallTypeText})
 		if err == nil || executor.executed != 0 || executor.prepared != 0 {
 			t.Fatalf("missing policy did not fail at the boundary: error=%v prepare/execute=%d/%d", err, executor.prepared, executor.executed)
 		}
 	})
 	t.Run("explicit disabled categories stay disabled", func(t *testing.T) {
-		client, err := New(Options{Credentials: fixedCredentialResolver{}})
+		client, err := New(testOptions())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -387,7 +332,7 @@ func TestRecoveryPolicy(t *testing.T) {
 		executor := &fixedExecutor{sequence: []error{failure, nil}, result: coreruntime.ProviderResult{Output: "ok"}}
 		client.executor = executor
 		result, err := client.Call(context.Background(), Request{
-			ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "fixture", CallType: CallTypeText,
+			ConnectionID: "primary", ModelID: "gpt-test", Messages: testMessages("fixture"), CallType: CallTypeText,
 			RecoveryPolicy: RecoveryPolicy{MaxAttempts: 3, RetryOn: []RecoveryCategory{}, Backoff: RecoveryBackoff{}},
 		})
 		if !errors.Is(err, failure) || executor.executed != 1 || len(result.Attempts) != 1 {
@@ -439,12 +384,12 @@ func TestRecoveryPolicyValues(t *testing.T) {
 			policy := DefaultRecoveryPolicy()
 			test.change(&policy)
 			executor := &fixedExecutor{result: coreruntime.ProviderResult{Output: "ok"}}
-			client, err := New(Options{Credentials: fixedCredentialResolver{}})
+			client, err := New(testOptions())
 			if err != nil {
 				t.Fatal(err)
 			}
 			client.executor = executor
-			_, err = client.Call(context.Background(), Request{ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "fixture", CallType: CallTypeText, RecoveryPolicy: policy})
+			_, err = client.Call(context.Background(), Request{ConnectionID: "primary", ModelID: "gpt-test", Messages: testMessages("fixture"), CallType: CallTypeText, RecoveryPolicy: policy})
 			if (err == nil) != test.valid || (!test.valid && (executor.prepared != 0 || executor.executed != 0)) {
 				t.Fatalf("valid=%t prepares/calls=%d/%d error=%v", test.valid, executor.prepared, executor.executed, err)
 			}
@@ -464,12 +409,12 @@ func TestRecoveryPolicyValues(t *testing.T) {
 	}
 	for _, key := range []string{"structuredRepairRetry", "enableRetryOn429", "maxAttempts", "retryParse", "repairEscalation", "backupProfiles"} {
 		executor := &fixedExecutor{}
-		client, err := New(Options{Credentials: fixedCredentialResolver{}})
+		client, err := New(testOptions())
 		if err != nil {
 			t.Fatal(err)
 		}
 		client.executor = executor
-		_, err = client.Call(context.Background(), Request{ProfileID: "primary", Profiles: testProfiles(), UserPrompt: "fixture", CallType: CallTypeText, RecoveryPolicy: DefaultRecoveryPolicy(), ProviderOptions: map[string]any{key: false}})
+		_, err = client.Call(context.Background(), Request{ConnectionID: "primary", ModelID: "gpt-test", Messages: testMessages("fixture"), CallType: CallTypeText, RecoveryPolicy: DefaultRecoveryPolicy(), ProviderOptions: map[string]any{key: false}})
 		if err == nil || executor.prepared != 0 || executor.executed != 0 {
 			t.Errorf("retired option %s reached provider: %v", key, err)
 		}

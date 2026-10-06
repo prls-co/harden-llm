@@ -5,7 +5,6 @@
   "resourceClasses": {
     "cpu": {"slots": 4, "exclusive": false},
     "service": {"slots": 1, "exclusive": false},
-    "service_garage_exclusive": {"slots": 1, "exclusive": true},
     "browser": {"slots": 1, "exclusive": false},
     "release": {"slots": 1, "exclusive": true},
     "live": {"slots": 1, "exclusive": true}
@@ -62,7 +61,7 @@
     },
     {
       "id": "go-static",
-      "testIds": ["TEST-004", "TEST-062", "TEST-233", "TEST-234", "TEST-260", "TEST-268", "TEST-280"],
+      "testIds": ["TEST-004", "TEST-062", "TEST-233", "TEST-234", "TEST-260", "TEST-268", "TEST-280", "TEST-400", "TEST-408"],
       "tier": "T0",
       "resourceClass": "cpu",
       "command": ["make", "test-static"],
@@ -73,7 +72,7 @@
       "credentialKeys": [],
       "requiredFor": ["baseline", "fast", "release"],
       "benchmarkLanes": ["fast-candidates"],
-      "pathSelectors": ["internal/testkit/**", "internal/integrationtest/resource_receipt*", "scripts/**", "go.mod", "go.sum"]
+      "pathSelectors": ["internal/testkit/**", "internal/integrationtest/resource_receipt*", "scripts/**", "go.mod", "go.sum", "Makefile"]
     },
     {
       "id": "runner-contracts",
@@ -126,9 +125,13 @@
         "TEST-259",
         "TEST-276",
         "TEST-278",
-        "TEST-282",
         "TEST-284",
-        "TEST-289"
+        "TEST-289",
+        "TEST-401",
+        "TEST-402",
+        "TEST-403",
+        "TEST-404",
+        "TEST-410"
       ],
       "tier": "T1",
       "resourceClass": "cpu",
@@ -203,29 +206,6 @@
       "pathSelectors": ["internal/**", "deploy/test/**", "go.mod", "go.sum"]
     },
     {
-      "id": "capacity-baseline",
-      "testIds": ["TEST-277"],
-      "tier": "T3",
-      "resourceClass": "service",
-      "command": ["go", "test", "./cmd/harden-llm-gateway", "-tags=integration,capacity", "-run", "^TestGatewayCapacityBaseline$", "-count=1"],
-      "dependsOn": [],
-      "timeoutMs": 2400000,
-      "cleanupOwner": "integration-pool",
-      "network": "local-only",
-      "credentialKeys": [],
-      "requiredFor": [],
-      "capacityReport": true,
-      "sampleDockerResources": true,
-      "servicePool": {
-        "composeFile": "deploy/test/compose.integration.yml",
-        "services": [
-          {"name": "harden-postgres", "port": 5432},
-          {"name": "garage", "port": 3900}
-        ]
-      },
-      "pathSelectors": ["cmd/harden-llm-gateway/**", "internal/capacity/**", "internal/integrationtest/**", "test/capacity-scenarios.json", "deploy/test/compose.integration.yml", "scripts/run-test-tier.mjs", "test/test-tiers.json"]
-    },
-    {
       "id": "go-integration-race",
       "testIds": ["TEST-008"],
       "tier": "T3",
@@ -246,21 +226,6 @@
         ]
       },
       "pathSelectors": ["internal/**", "deploy/test/**", "go.mod", "go.sum"]
-    },
-    {
-      "id": "garage-restart-exclusive",
-      "testIds": ["TEST-043"],
-      "tier": "T3",
-      "resourceClass": "service_garage_exclusive",
-      "command": ["go", "test", "-tags=integration,garageexclusive", "./internal/artifacts", "-run", "TestGarageRestartPersistence", "-count=1"],
-      "dependsOn": [],
-      "timeoutMs": 600000,
-      "cleanupOwner": "garage-exclusive",
-      "network": "local-only",
-      "credentialKeys": [],
-      "requiredFor": ["integration-pool", "release"],
-      "requiresDocker": true,
-      "pathSelectors": ["internal/artifacts/**", "internal/integrationtest/**", "deploy/test/compose.integration.yml"]
     },
     {
       "id": "go-api",
@@ -293,8 +258,27 @@
       "pathSelectors": ["internal/observability/**", "internal/gateway/**", "go.mod", "go.sum"]
     },
     {
+      "id": "frontend-reference-integration",
+      "testIds": ["TEST-407", "WEB-TEST-116"],
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": ["mix", "test", "--only", "database", "test/harden_llm/reference_integration_test.exs"],
+      "workingDirectory": "frontend",
+      "dependsOn": [],
+      "timeoutMs": 300000,
+      "cleanupOwner": "runner",
+      "network": "local-only",
+      "credentialKeys": [],
+      "requiredFor": ["release", "integration-pool"],
+      "servicePool": {
+        "composeFile": "deploy/test/compose.integration.yml",
+        "services": [{"name": "harden-postgres", "port": 5432}]
+      },
+      "pathSelectors": ["frontend/lib/harden_llm/**", "frontend/test/harden_llm/**", "frontend/priv/repo/**", "frontend/mix.exs", "deploy/test/compose.integration.yml"]
+    },
+    {
       "id": "go-compose",
-      "testIds": ["TEST-011"],
+      "testIds": ["TEST-011", "TEST-409"],
       "tier": "T4",
       "resourceClass": "release",
       "command": ["go", "test", "./internal/smoke/...", "-tags=compose", "-run", "TestComposeSmoke", "-count=1"],
@@ -411,7 +395,6 @@
     {
       "id": "frontend-deterministic",
       "testIds": [
-        "TEST-017",
         "TEST-044",
         "TEST-101",
         "TEST-102",
@@ -451,7 +434,11 @@
         "WEB-TEST-110",
         "WEB-TEST-111",
         "WEB-TEST-112",
-        "WEB-TEST-113"
+        "WEB-TEST-113",
+        "TEST-405",
+        "TEST-406",
+        "WEB-TEST-114",
+        "WEB-TEST-115"
       ],
       "tier": "T1",
       "resourceClass": "cpu",
@@ -516,21 +503,6 @@
       "pathSelectors": ["scripts/run-progress-core.mjs", "scripts/run-progress.mjs", "scripts/test/run_progress_test.mjs", "test/test-tiers.json"]
     },
     {
-      "id": "widget-traceability",
-      "testIds": ["TEST-116"],
-      "tier": "T0",
-      "resourceClass": "cpu",
-      "command": ["node", "--test", "scripts/test/widget_parity_traceability_test.mjs"],
-      "dependsOn": [],
-      "timeoutMs": 120000,
-      "cleanupOwner": "runner",
-      "network": "forbidden",
-      "credentialKeys": [],
-      "requiredFor": ["baseline", "fast", "release"],
-      "benchmarkLanes": ["fast-candidates"],
-      "pathSelectors": ["plans/llm-widget-utility-parity-implementation-plan.md", "docs/**", "ker/widget-parity/**", "scripts/test/**"]
-    },
-    {
       "id": "frontend-browser",
       "requiresBrowser": true,
       "testIds": ["TEST-018"],
@@ -556,7 +528,6 @@
       "pathSelectors": [
         "frontend/assets/**",
         "frontend/lib/**",
-        "frontend/test/browser/widget_canary_test.exs",
         "frontend/test/browser/authenticated_workflow_canary_test.exs",
         "frontend/test/support/browser_backend.ex",
         "frontend/test/support/browser_feature_case.ex"
@@ -599,30 +570,6 @@
         "scripts/test/run_test_tier_test.mjs",
         "test/test-tiers.json",
         ".github/workflows/test-hierarchy.yml"
-      ]
-    },
-    {
-      "id": "frontend-deployed",
-      "requiresBrowser": true,
-      "testIds": ["TEST-056"],
-      "tier": "T5",
-      "resourceClass": "live",
-      "command": ["node", "scripts/run-deployed-browser-test.mjs", "--allow-browser"],
-      "dependsOn": [],
-      "timeoutMs": 600000,
-      "cleanupOwner": "deployed-canary",
-      "network": "public",
-      "credentialKeys": [
-        "HARDEN_LLM_LOCAL_OPERATOR_EMAIL",
-        "HARDEN_LLM_LOCAL_OPERATOR_PASSWORD",
-        "HARDEN_LLM_WEB_HOST",
-        "HARDEN_LLM_API_HOST"
-      ],
-      "requiredFor": ["deployed"],
-      "pathSelectors": [
-        "frontend/test/browser/deployed_canary_test.exs",
-        "frontend/test/test_helper.exs",
-        "scripts/run-deployed-browser-test.mjs"
       ]
     },
     {

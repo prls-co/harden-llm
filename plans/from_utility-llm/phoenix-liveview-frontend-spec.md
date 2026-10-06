@@ -8,11 +8,13 @@
 - Target application directory: `/home/kirill/harden-llm/frontend`
 - Backend contract: `/home/kirill/harden-llm/api/openapi.yaml`
 - Source UX reference: `/home/kirill/utility-llm/examples/react-trace-studio`
-- Version: `1.1.0-control-plane-identity-amendment`
+- Version: `1.2.0-shared-reference-history`
 - Owners: frontend and self-hosted runtime maintainers
-- Date: 2026-09-30
+- Date: 2026-10-06
 - Document ID: `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`
-- Summary: This specification defines the separate Elixir/Phoenix LiveView frontend for Harden-LLM. Phoenix renders HTML, owns the browser session and CSRF boundary, and calls the Go gateway through its published REST/OpenAPI contract. The frontend owns no human identity/account authority, application database, provider integration, retry policy, object storage, pricing, schema validation, cache identity, or domain persistence. The 2026-08-18 parity amendment incorporates the source-derived controls and explicit self-hosted adaptations recorded in `docs/utility-llm-frontend-parity-inventory.md` and ADR-HLLM-012; the 2026-08-22 embedding amendment makes the Workspace and Profiles visual surfaces single-column, stable-root components that can sit inside a host shell; the 2026-08-23 multi-instance amendment makes `id_prefix` a complete DOM, parent-message, and upload namespace contract. The 2026-09-30 Control Plane identity amendment in ADR-HLLM-030 supersedes the local login and token-vault contract in earlier sections and defines the current browser session boundary in section 22.
+- Summary: This specification defines the separate Elixir/Phoenix LiveView reference application for Harden-LLM. It uses shared PRLS authentication, calls the Go gateway through OpenAPI, and owns the browser session, CSRF boundary, shared history, and ordered session/component drafts. It does not own inference, provider credentials, retry policy, or cache identity. The 2026-10-06 shared-history/OpenAI client amendment below supersedes the earlier profile editor, custom run API, and product-persistence descriptions. The active reference workspace is a single request form and shared history, without profiles.
+
+> **Current contract (2026-10-06):** Follow ADR-HLLM-031/032 and the amendment in section 23. Phoenix is the only history writer; every enabled login shares its history. Direct `/v1` calls are not recorded. The frontend uses the existing `HARDEN_LLM_TOKEN` server-side and never exposes it to the browser.
 
 ## 2. Canonical stack
 
@@ -48,7 +50,7 @@ Runtime feature dependencies are limited to the Phoenix-generated HTTP/asset pac
 | Keep the backend token out of client-carried session data | DECISION | A supervised encrypted DETS vault stores the Go bearer token under a random frontend session handle. The encrypted cookie and LiveView session carry only that handle, so the reusable Go token never enters browser session data or rendered LiveView session data. |
 | Keep browser-to-Go traffic disabled | DECISION | The browser talks only to Phoenix over same-origin HTTP/WebSocket. The Go API needs no CORS or browser CSRF behavior. |
 | Do not generate an API client in v1 | DECISION | One small hand-written client boundary is simpler than committing generated code. Contract tests compare its operation registry to OpenAPI so route drift still fails. |
-| Do not retry REST calls automatically | DECISION | A hidden retry could duplicate an ambiguous synchronous `/api/v1/run`. Provider retries remain owned by the Go library. Users may explicitly submit a new run after an ambiguous result. |
+| Do not retry REST calls automatically | DECISION | A hidden retry could duplicate an ambiguous synchronous `/v1/responses` submission. Provider retries remain owned by the Go library. Users may explicitly submit a new request after an ambiguous result. |
 | Keep frontend observability operational | DECISION | Frontend traces go to Tempo through the existing Collector. HLLM gateway traces go to Laminar; no Langfuse service is deployed. |
 
 ## 4. Scope
@@ -513,7 +515,7 @@ The frontend v1 is complete when:
 - The browser performs every required workflow without direct Go API, Postgres, Garage, Firebase, or provider access.
 - OpenAPI/client parity proves there is one cross-runtime contract.
 - Login tokens remain confined to the encrypted server-side token vault and server-side REST calls; browser and LiveView session payloads contain only a random handle.
-- No mutation, especially `/api/v1/run`, is retried automatically.
+- No request submission, especially `/v1/responses`, is retried automatically.
 - One Tempo trace correlates Phoenix request/LiveView work with the Go gateway and downstream spans.
 - The base backend remains runnable without `frontend/`, while the optional overlay adds the web service without owning shared ingress.
 - No React, Firebase, Ecto, second domain persistence path, or duplicated backend domain logic remains in the frontend.
@@ -757,3 +759,22 @@ Run deterministic Phoenix tests with `mix test`; TEST-022/TEST-024 prove real
 storage boundaries. Production HTTP acceptance separately proves direct login,
 private state markers, verification-token equivalence and logout revocation.
 Browser layout and paid-provider behavior require separate explicit opt-ins.
+
+## Shared history and OpenAI client amendment (2026-10-06)
+
+ADR-HLLM-031/032 replace the profile editor, per-login product data and custom run envelope. The workspace calls /v1/chat/completions or /v1/responses through OpenAPI. Its existing async task publishes an outcome then records once through one concrete Ecto Repo/context. All Control Plane-enabled logins share new history; direct API calls are never recorded. Repo failure preserves the result/form and reports history unavailable. Keep ordered session/component drafts; add no queue/task manager/per-user dataset. Reuse UI/styles. Retire raw-provider downloads and custom diagnostic SSE.
+
+The concrete frontend acceptance cases are:
+
+| ID | Boundary | Location and command | Acceptance |
+| --- | --- | --- | --- |
+| WEB-TEST-114 | Shared history and frontend-only dispatch | `test/harden_llm_web/live/shared_workspace_test.exs`; `mix test test/harden_llm_web/live/shared_workspace_test.exs` | Enabled logins observe the same newly recorded request and shared delete scope. One frontend submission publishes its outcome before making one bounded history insert. Insert failure leaves the outcome usable and does not redispatch. Direct API requests and caller-controlled origin values create no history row. |
+| WEB-TEST-115 | Canonical record views and ordered drafts | `test/harden_llm/reference_test.exs`; `mix test test/harden_llm/reference_test.exs` | One persisted record feeds history, statistics and canonical download; absent usage/cost remains unknown. Drafts are bounded, ordered, scoped by trusted session identity plus component namespace, and survive reload without a profile dependency. |
+| WEB-TEST-116 | PostgreSQL reference boundary | `test/harden_llm/reference_integration_test.exs`; `node scripts/run-test-tier.mjs --task frontend-reference-integration` | Real migrations and queries enforce one record per submission, shared list/delete behavior, ordered draft updates and bounded failure behavior. No provider, browser or production data is used. |
+
+These cases are part of TEST-405, TEST-406 and TEST-407 respectively. The
+authorized data transition is a clean cut: old HLLM-owned profile, credential,
+per-login history, trace and artifact data is removed; no old record is
+reclassified, imported or read through a compatibility path. Shared history
+starts empty. This amendment supersedes the profile workflow, frontend domain
+storage and personal-history behavior described in earlier sections.

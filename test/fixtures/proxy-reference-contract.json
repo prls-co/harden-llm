@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "basePath": "/v1",
+  "authorizationScheme": "Bearer",
+  "apiKeyEnvironment": "HARDEN_LLM_TOKEN",
+  "upstreamCredentialEnvironment": "CPA_API_KEY",
+  "modelListPath": "/v1/models",
+  "chatCompletionsPath": "/v1/chat/completions",
+  "responsesPath": "/v1/responses",
+  "extensionField": "harden",
+  "chatRequestFields": ["model", "messages", "response_format", "tools", "tool_choice", "stream", "reasoning_effort"],
+  "responsesRequestFields": ["model", "input", "instructions", "text.format", "tools", "tool_choice", "stream"],
+  "stateless": true,
+  "streaming": "buffer-final-hardened-outcome",
+  "historyOwner": "reference-application",
+  "frontendSpecificationPath": "plans/from_utility-llm/phoenix-liveview-frontend-spec.md",
+  "frontendTestIds": ["WEB-TEST-114", "WEB-TEST-115", "WEB-TEST-116"],
+  "requestCases": [
+    {
+      "id": "chat-text-and-tool-result",
+      "path": "/v1/chat/completions",
+      "body": {
+        "model": "gpt-6-astra",
+        "messages": [
+          {"role": "system", "content": "Use the supplied tool when needed."},
+          {"role": "user", "content": "Find the current local time."},
+          {"role": "assistant", "content": null, "tool_calls": [{"id": "call_fixture", "type": "function", "function": {"name": "local_time", "arguments": "{}"}}]},
+          {"role": "tool", "tool_call_id": "call_fixture", "content": "10:15 UTC"}
+        ],
+        "reasoning_effort": "high",
+        "stream": false
+      }
+    },
+    {
+      "id": "responses-text-input",
+      "path": "/v1/responses",
+      "body": {
+        "model": "gpt-6-astra",
+        "input": [{"role": "user", "content": [{"type": "input_text", "text": "Return a short answer."}]}],
+        "store": false,
+        "stream": false
+      }
+    },
+    {
+      "id": "responses-function-result",
+      "path": "/v1/responses",
+      "body": {
+        "model": "gpt-6-astra",
+        "input": [
+          {"type": "function_call", "call_id": "call_fixture", "name": "local_time", "arguments": "{}"},
+          {"type": "function_call_output", "call_id": "call_fixture", "output": "10:15 UTC"}
+        ],
+        "store": false,
+        "stream": false
+      }
+    }
+  ],
+  "rejectedStatefulFields": ["previous_response_id", "background", "conversation"],
+  "extensions": ["upstream", "cache", "timeout_ms", "recovery", "diagnostics"],
+  "limits": {"requestBytes": 262144, "upstreamResponseBytes": 16777216, "outcomeBytes": 16777216, "diagnosticsBytes": 65536}
+}

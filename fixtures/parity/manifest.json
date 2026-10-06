@@ -2,9 +2,9 @@
   "capture": {
     "canonicalJSON": true,
     "liveCredentialsUsed": false,
-    "nodeVersion": "v22.22.0",
+    "nodeVersion": "v22.22.1",
     "script": "scripts/capture-utility-llm-fixtures.mjs",
-    "scriptVersion": 7
+    "scriptVersion": 8
   },
   "fixtureConsumers": {
     "generated/cache-identity.json": [
@@ -17,41 +17,13 @@
         ]
       }
     ],
-    "generated/profile-catalog.json": [
-      {
-        "evidence": "profile-catalog.json",
-        "target": "internal/profiles/profile_test.go",
-        "testFunction": "TestProfileParityRoundTripAndValidation",
-        "tests": [
-          "TEST-017"
-        ]
-      }
-    ],
     "generated/provider-cases.json": [
-      {
-        "evidence": "provider-cases.json",
-        "target": "internal/providers/requests_test.go",
-        "testFunction": "TestProviderRequestParityCapturedSource",
-        "tests": [
-          "TEST-012"
-        ]
-      },
       {
         "evidence": "provider-cases.json",
         "target": "internal/providers/normalization_test.go",
         "testFunction": "TestProviderNormalizationParityCapturedSource",
         "tests": [
           "TEST-013"
-        ]
-      }
-    ],
-    "generated/reasoning-effort-cases.json": [
-      {
-        "evidence": "reasoning-effort-cases.json",
-        "target": "internal/providers/requests_test.go",
-        "testFunction": "TestReasoningEffortParityCapturedSource",
-        "tests": [
-          "TEST-012"
         ]
       }
     ],
@@ -105,9 +77,9 @@
         ]
       }
     ],
-    "source/evals/cpa-gpt-5.4-mini-responses-call.json": [
+    "source/evals/cpa-gpt-5.6-sol-responses-call.json": [
       {
-        "evidence": "cpa-gpt-5.4-mini-responses-call.json",
+        "evidence": "cpa-gpt-5.6-sol-responses-call.json",
         "target": "internal/providers/requests_test.go",
         "testFunction": "TestCPAResponsesEvalRequestParityCapturedSource",
         "tests": [
@@ -217,16 +189,6 @@
       ]
     },
     {
-      "class": "profiles",
-      "path": "generated/profile-catalog.json",
-      "schemaVersion": 1,
-      "sha256": "1ca43dce10fd8a94108b98acbb7de4f59fe4deb68e50bebe37e349edb632805e",
-      "sourcePaths": [
-        "src/model-profiles.js",
-        "tests/model-profiles.behavior.test.js"
-      ]
-    },
-    {
       "class": "providers",
       "path": "generated/provider-cases.json",
       "schemaVersion": 1,
@@ -238,15 +200,6 @@
         "src/providers/anthropic.js",
         "tests/provider-operation-cache.behavior.test.js",
         "tests/provider-runtime.behavior.test.js"
-      ]
-    },
-    {
-      "class": "providers",
-      "path": "generated/reasoning-effort-cases.json",
-      "schemaVersion": 1,
-      "sha256": "26bf3881801076ad2a2ff862d7c66c3fef0f458e1ff33ee3543ef3e995b9e015",
-      "sourcePaths": [
-        "src/reasoning-effort.js"
       ]
     },
     {
@@ -266,17 +219,6 @@
       "sha256": "1cb0d06a44dad176083928891bf0cf39ebb0cfd14d8930daa8b603660527fff7",
       "sourcePaths": [
         "src/schema-normalizer.js"
-      ]
-    },
-    {
-      "class": "contract",
-      "path": "generated/source-contract.json",
-      "schemaVersion": 1,
-      "sha256": "e9b091ff777ffc3d36209ec35f68aa93387ef7e2164722269a91271a6b988b5f",
-      "sourcePaths": [
-        "package.json",
-        "src/model-profiles.js",
-        "src/operation-cache/index.js"
       ]
     },
     {
@@ -310,34 +252,14 @@
       "sourceSHA256": "67408e638875850e3c3862f17aad550c0cb916192c20133f257f629cbbf93986"
     },
     {
-      "class": "diagnostics",
-      "path": "source/diagnostics/bundle-input.json",
-      "schemaVersion": 1,
-      "sha256": "5278869824cb934faded980f8eebc10d4b4c803f8ff0ef608c665b770c8b200e",
-      "sourcePaths": [
-        "fixtures/diagnostics/bundle-input.json"
-      ],
-      "sourceSHA256": "ab2382d1bed10ad2163a5e70da38336808ec651ff22f90962ba41dcacb131d80"
-    },
-    {
-      "class": "diagnostics",
-      "path": "source/diagnostics/summary-input.json",
-      "schemaVersion": 1,
-      "sha256": "6083a6ffd871b00b6630aa9a4d92ee55f87ffd284b1227e3f40c39bb2394e857",
-      "sourcePaths": [
-        "fixtures/diagnostics/summary-input.json"
-      ],
-      "sourceSHA256": "2c25add99e7e3b5ced56057f16cf61aee7d6102a0f425c76ce1460f08c0f4f7d"
-    },
-    {
       "class": "evals",
-      "path": "source/evals/cpa-gpt-5.4-mini-responses-call.json",
+      "path": "source/evals/cpa-gpt-5.6-sol-responses-call.json",
       "schemaVersion": 1,
-      "sha256": "b9ef95c59d781fb6d037d3962279931ca562f8da4d101f31364cb58731bd3767",
+      "sha256": "a73c54f0b7a6408af632fe7e604633b24d74b9c5a18be9320aaf50dd76e88e47",
       "sourcePaths": [
-        "fixtures/evals/cpa-gpt-5.4-mini-responses-call.json"
+        "fixtures/evals/cpa-gpt-5.6-sol-responses-call.json"
       ],
-      "sourceSHA256": "15da88b9c767bbeb3fb18070c4d1701526c014bb6976963d5b562ca549ded9a8"
+      "sourceSHA256": "381abc3e4baefbfdc6a1e3e73435f9dc1893aef6f560e6761369c63a0f4b8e9a"
     },
     {
       "class": "evals",
@@ -368,16 +290,6 @@
         "fixtures/examples/basic-text-input.json"
       ],
       "sourceSHA256": "f4fa3a117c37605eb15ab635b15404ebc78ac81c941bad6568e03e0f6454192a"
-    },
-    {
-      "class": "examples",
-      "path": "source/examples/cache-golden.json",
-      "schemaVersion": 1,
-      "sha256": "50996adb1f487931ddf380216bd0b6ebf65799bcc99ac8c4219424b8b608d6f5",
-      "sourcePaths": [
-        "fixtures/examples/cache-golden.json"
-      ],
-      "sourceSHA256": "21e70a0c27763f0b117efbc5c07bed7aac5d4773f2b8e40b3806ce0810c245e2"
     },
     {
       "class": "examples",
@@ -473,21 +385,21 @@
       "class": "models",
       "path": "source/models/model-registry-cases.json",
       "schemaVersion": 1,
-      "sha256": "ed7b3d7e181d63cf5d1e6de3decb52645c896b79b0b7bb1fc42108db82c3d391",
+      "sha256": "02dc1a9fef5ed9bcb869f837f2964833f6443c83b18bb826397005c551b1eb87",
       "sourcePaths": [
         "fixtures/models/model-registry-cases.json"
       ],
-      "sourceSHA256": "04d20e65bc55033458f7eab6a8d00d61d600ec8594612952b75dfcd87ed1b786"
+      "sourceSHA256": "b8d6a9aa7db66d51be90f1131b00c4b988791f2439931534c7be54de97a91c9b"
     },
     {
       "class": "models",
       "path": "source/models/pricing-overrides.json",
       "schemaVersion": 1,
-      "sha256": "64ab76fdd49d58c61f160069bfdf1bcb2a33e1273607423beef33afa08f7ceab",
+      "sha256": "a2ada3cd277bdd34bb273db500650bc69467947c40c8fe33be398858fbf6852b",
       "sourcePaths": [
         "fixtures/models/pricing-overrides.json"
       ],
-      "sourceSHA256": "39d78b139f0bf447f7dc0cb0fba52fc1da9ef6948057f1ba3b46a0e07c5bd84d"
+      "sourceSHA256": "b4e48a23dd108623dd2234c403f4f0596e182686b12d00c177cfbee009d44e08"
     },
     {
       "class": "providers",
@@ -500,16 +412,6 @@
       "sourceSHA256": "5194c67e4023fdf3b179103de2d6b25e59d037fc3bcc4f59e9fad21f4e12e16f"
     },
     {
-      "class": "queries",
-      "path": "source/queries/query-helper-cases.json",
-      "schemaVersion": 1,
-      "sha256": "dbf4035c30894d07c7024c708e4dfcb4eda8a92d10a0dafc203a94035b1d9bac",
-      "sourcePaths": [
-        "fixtures/queries/query-helper-cases.json"
-      ],
-      "sourceSHA256": "524c5a262e495c26cf77ba7277d24f120a66cbcb1bde164d05ef187af626480c"
-    },
-    {
       "class": "telemetry",
       "path": "source/telemetry/telemetry-cases.json",
       "schemaVersion": 1,
@@ -518,26 +420,6 @@
         "fixtures/telemetry/telemetry-cases.json"
       ],
       "sourceSHA256": "a08062678795966b5b47745acab40577939342cd6d5d62eb3900c67f84d21989"
-    },
-    {
-      "class": "traces",
-      "path": "source/traces/raw-response-input.json",
-      "schemaVersion": 1,
-      "sha256": "425fddc9361e08e351e12cc4099018101dbd2ecbeea4a437a0f41118780b2cf8",
-      "sourcePaths": [
-        "fixtures/traces/raw-response-input.json"
-      ],
-      "sourceSHA256": "ac67f85a934b9ea5ad2bad4cf68c75bd33a97adcdf74ca4c2563e4f4405aac73"
-    },
-    {
-      "class": "traces",
-      "path": "source/traces/trace-doc-input.json",
-      "schemaVersion": 1,
-      "sha256": "f2d5e4eced080a3ada74d876af184e2944560d96fd83870cee76dbd27dd99048",
-      "sourcePaths": [
-        "fixtures/traces/trace-doc-input.json"
-      ],
-      "sourceSHA256": "9f76b6ddd24fba61f13dba8e6ea690a4891185fd4c465a1e726d58b9d6b7544d"
     }
   ],
   "intentionalDifferences": [
@@ -557,21 +439,8 @@
       ]
     },
     {
-      "adr": "ADR-HLLM-002",
-      "fixtures": [
-        "generated/source-contract.json"
-      ],
-      "id": "typed-root-surface",
-      "mode": "intentional-difference",
-      "note": "The target exposes one typed Call path instead of the JavaScript export inventory.",
-      "tests": [
-        "TEST-002"
-      ]
-    },
-    {
       "adr": "ADR-HLLM-001",
       "fixtures": [
-        "generated/profile-catalog.json",
         "generated/provider-cases.json"
       ],
       "id": "secure-provider-egress",
@@ -579,36 +448,7 @@
       "note": "The Go deployment keeps provider normalization semantics while enforcing server-side egress policy and configured provider ownership.",
       "tests": [
         "TEST-012",
-        "TEST-014",
-        "TEST-017"
-      ]
-    },
-    {
-      "adr": "ADR-HLLM-001",
-      "fixtures": [],
-      "id": "authenticated-credential-envelope",
-      "mode": "intentional-difference",
-      "note": "The Go service uses an authenticated versioned credential envelope instead of the source runtime's credential storage boundary.",
-      "tests": [
-        "TEST-018"
-      ]
-    },
-    {
-      "adr": "ADR-HLLM-001",
-      "fixtures": [
-        "source/diagnostics/bundle-input.json",
-        "source/diagnostics/summary-input.json",
-        "source/examples/cache-golden.json",
-        "source/traces/raw-response-input.json",
-        "source/traces/trace-doc-input.json"
-      ],
-      "id": "garage-artifact-projection",
-      "mode": "intentional-difference",
-      "note": "The self-hosted service projects diagnostic and trace artifacts into Garage/Postgres storage while preserving the source diagnostic fields.",
-      "tests": [
-        "TEST-016",
-        "TEST-019",
-        "TEST-040"
+        "TEST-014"
       ]
     },
     {
@@ -631,26 +471,12 @@
         "source/models/model-registry-cases.json",
         "source/models/pricing-overrides.json"
       ],
-      "id": "profile-owned-model-catalog",
+      "id": "configured-upstream-model-discovery",
       "mode": "intentional-difference",
-      "note": "The self-hosted service stores model discovery and pricing in owner-managed profiles instead of a package-global registry.",
+      "note": "The proxy lists native models from the selected configured upstream and preserves unknown pricing as unknown; it has no mutable global or login-owned model catalog.",
       "tests": [
-        "TEST-015",
-        "TEST-017",
-        "TEST-024"
-      ]
-    },
-    {
-      "adr": "ADR-HLLM-001",
-      "fixtures": [
-        "source/queries/query-helper-cases.json"
-      ],
-      "id": "postgres-resource-queries",
-      "mode": "intentional-difference",
-      "note": "The self-hosted resource API implements owner-scoped PostgreSQL queries instead of source-specific query helpers.",
-      "tests": [
-        "TEST-020",
-        "TEST-024"
+        "TEST-014",
+        "TEST-015"
       ]
     },
     {
@@ -666,58 +492,12 @@
         "TEST-028",
         "TEST-031"
       ]
-    },
-    {
-      "adr": "ADR-HLLM-020",
-      "fixtures": [
-        "generated/profile-catalog.json",
-        "generated/retry-classification.json",
-        "source/combinatorial/retry-decision-matrix.json",
-        "source/evals/jsonrepair-object-key-expected-incident.json",
-        "generated/structured-parser-cases.json"
-      ],
-      "id": "explicit-selected-target-recovery",
-      "mode": "intentional-difference",
-      "note": "Complete explicit recovery policy; one selected target; strict value-preserving JSON; original-schema repair; no backup/escalation, implicit retries or capped server Retry-After. Captured source evidence remains unchanged.",
-      "tests": [
-        "TEST-202",
-        "TEST-203",
-        "TEST-204",
-        "TEST-205",
-        "TEST-206",
-        "TEST-207",
-        "TEST-208",
-        "TEST-209"
-      ]
-    },
-    {
-      "adr": "ADR-HLLM-021",
-      "fixtures": [
-        "generated/provider-cases.json",
-        "source/providers/openai-responses-stream-retry-error.json",
-        "generated/cache-identity.json"
-      ],
-      "id": "recovery-boundary-consolidation",
-      "mode": "intentional-difference",
-      "note": "Typed provider failure and dispatch facts, completed-envelope admission, validated partial accounting, response projection v3, host-owned policy and ordered persistence intentionally refine captured utility behavior; captured source fixtures and hashes remain unchanged.",
-      "tests": [
-        "TEST-213",
-        "TEST-214",
-        "TEST-215",
-        "TEST-216",
-        "TEST-217",
-        "TEST-218",
-        "TEST-219",
-        "TEST-220",
-        "TEST-221",
-        "TEST-222"
-      ]
     }
   ],
   "manifestSchemaVersion": 2,
   "source": {
-    "gitSHA": "09769424ca34b9d759e273a7e9dccf4fd00a5f6c",
-    "packageVersion": "0.14.6",
+    "gitSHA": "3f7da2476758823a206530abd5f0ddb18a3374ca",
+    "packageVersion": "0.17.1",
     "repository": "prls-co/utility-llm"
   }
 }

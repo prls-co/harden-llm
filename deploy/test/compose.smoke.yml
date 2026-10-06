@@ -36,15 +36,12 @@ services:
         max-file: "5"
     environment:
       HARDEN_LLM_API_HOST: ${HARDEN_LLM_API_HOST:?set the API hostname}
-      HARDEN_LLM_ARTIFACT_HOST: ${HARDEN_LLM_ARTIFACT_HOST:?set the artifact hostname}
       HARDEN_LLM_GRAFANA_HOST: ${HARDEN_LLM_GRAFANA_HOST:?set the Grafana hostname}
       HARDEN_LLM_TLS_MODE: ${HARDEN_LLM_TLS_MODE:-internal}
     depends_on:
       harden-llm-gateway:
         condition: service_healthy
       grafana:
-        condition: service_healthy
-      garage:
         condition: service_healthy
     ports:
       - "${HARDEN_LLM_BIND_ADDRESS:-127.0.0.1}:${HARDEN_LLM_HTTP_PORT:-18080}:80"
@@ -55,7 +52,6 @@ services:
       - caddy-smoke-config:/config
     networks:
       harden-private: {}
-      prls-observability: {}
     healthcheck:
       test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
       interval: 15s
@@ -71,9 +67,9 @@ services:
     environment:
       GARAGE_CONFIG_FILE: /etc/garage.toml
       GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?set the generated smoke Garage RPC secret}
-      GARAGE_DEFAULT_ACCESS_KEY: ${HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID:?set the generated smoke artifact key}
-      GARAGE_DEFAULT_SECRET_KEY: ${HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY:?set the generated smoke artifact secret}
-      GARAGE_DEFAULT_BUCKET: ${HARDEN_LLM_ARTIFACT_BUCKET:-harden-llm-artifacts-smoke}
+      GARAGE_DEFAULT_ACCESS_KEY: ${GARAGE_SMOKE_ACCESS_KEY:?set the generated smoke observability key}
+      GARAGE_DEFAULT_SECRET_KEY: ${GARAGE_SMOKE_SECRET_KEY:?set the generated smoke observability secret}
+      GARAGE_DEFAULT_BUCKET: ${GARAGE_SMOKE_BUCKET:-harden-llm-observability-smoke}
     volumes:
       - ./deploy/test/garage.toml:/etc/garage.toml:ro
       - garage-metadata:/var/lib/garage/meta
@@ -97,8 +93,6 @@ services:
     volumes:
       - ${SMOKE_CA_CERT:?set the generated smoke CA path}:/run/smoke/provider-ca.crt:ro
     depends_on:
-      garage:
-        condition: service_healthy
       fake-provider:
         condition: service_healthy
 

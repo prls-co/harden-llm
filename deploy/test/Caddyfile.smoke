@@ -36,14 +36,3 @@
 	}
 	reverse_proxy grafana:3000
 }
-
-{$HARDEN_LLM_ARTIFACT_HOST} {
-	tls {$HARDEN_LLM_TLS_MODE}
-	import security_headers
-	header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; sandbox"
-	header X-Frame-Options "DENY"
-	request_body {
-		max_size 64MB
-	}
-	reverse_proxy garage-shared:3900
-}

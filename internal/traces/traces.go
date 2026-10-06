@@ -59,7 +59,7 @@ type Trace struct {
 
 type Attempt struct {
 	Number            int                        `json:"number"`
-	ProfileID         string                     `json:"profileId"`
+	ConnectionID      string                     `json:"connectionId"`
 	Target            runtime.ExecutionTarget    `json:"target"`
 	ProviderUsed      bool                       `json:"providerUsed"`
 	Category          retry.Category             `json:"category"`
@@ -129,9 +129,9 @@ func Project(record runtime.CallRecord, callContext runtime.ObservabilityContext
 	}
 	for _, source := range record.Attempts {
 		attempt := Attempt{
-			Number:    source.Number,
-			ProfileID: source.ProfileID,
-			Target:    source.Target, ProviderUsed: source.ProviderUsed,
+			Number:       source.Number,
+			ConnectionID: source.ConnectionID,
+			Target:       source.Target, ProviderUsed: source.ProviderUsed,
 			Category: source.Category, Status: source.Status, Retryable: source.Retryable,
 			Code: source.Code, Type: source.Type, ProviderRequestID: source.ProviderRequestID,
 			DelayMs: source.Delay.Milliseconds(), DurationMs: source.Duration.Milliseconds(), Repair: source.Repair,
@@ -142,7 +142,7 @@ func Project(record runtime.CallRecord, callContext runtime.ObservabilityContext
 		}
 		trace.Attempts = append(trace.Attempts, attempt)
 		trace.appendObservation("provider.attempt", string(source.Category), map[string]any{
-			"attempt": source.Number, "profileId": source.ProfileID, "status": source.Status,
+			"attempt": source.Number, "connectionId": source.ConnectionID, "status": source.Status,
 			"code": source.Code, "type": source.Type, "providerRequestId": source.ProviderRequestID,
 		})
 		if source.Delay > 0 {

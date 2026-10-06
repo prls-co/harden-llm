@@ -1,133 +1,141 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+## Project structure and ownership
 
-This checkout contains the self-hosted implementation and its canonical specifications in `plans/from_utility-llm/`:
+The Go library is at the repository root, internal packages are under
+`internal/`, the REST gateway is under `cmd/harden-llm-gateway/`, and
+`api/openapi.yaml` is the canonical gateway contract. Phoenix code belongs only
+in `frontend/`. Keep Go and Phoenix coupled through OpenAPI, never internal Go
+types.
 
-- `harden-llm-self-hosted-implementation-plan.md` defines phased backend delivery.
-- `self-hosted-go-stack-spec.md` defines the Go, REST, storage, and deployment architecture.
-- `harden-llm-self-hosted-test-spec.md` is the canonical backend test catalog.
-- `phoenix-liveview-frontend-spec.md` defines the separate `frontend/` application.
-- `harden-llm-parallel-test-feedback-plan.md` records the implemented hierarchy
-  for cheap parallel feedback and targeted expensive certification; current
-  browser opt-in policy is recorded in ADR-HLLM-015.
+The current profile-free proxy and reference-app boundary are defined in
+`plans/proxy-and-reference-app-simplification-plan.md`. Backend specifications
+and the canonical test catalog are under `plans/from_utility-llm/`; the
+test-feedback policy is in `plans/from_utility-llm/harden-llm-parallel-test-feedback-plan.md`
+and ADR-HLLM-015.
 
-The public Go package is at the repository root, internal packages are under `internal/`, the gateway is under `cmd/harden-llm-gateway/`, and the shared REST contract is `api/openapi.yaml`. Phoenix code belongs only in `frontend/`. Keep backend and frontend coupled through OpenAPI, never through internal types.
+The gateway is an OpenAI-compatible, stateless hardening proxy. It has one
+startup connection configuration, one `HARDEN_LLM_TOKEN` bearer, and one Go
+execution engine. It has no profile, login, history, or application-storage
+API. `CPA_API_KEY` is upstream-only. The Phoenix reference app authenticates
+through the shared Control Plane/Portal, records only its own calls in shared
+history, and keeps drafts scoped to the stable Control Plane user ID.
 
-## Build, Test, and Development Commands
+## Build and test commands
 
-Use these implemented repository gates:
-
-- `make test-fast` — the repeated coding loop: default-tag Go, parity/static
-  checks, deterministic Phoenix/LiveViewTest, and dependency-free client-core
-  tests. It is T0-T2, offline, credential-free, and must not start Docker,
+- `make test-fast` is the repeated coding loop: default-tag Go,
+  parity/static checks, deterministic Phoenix/LiveViewTest, and dependency-free
+  client-core tests. It is offline, credential-free, and must not start Docker,
   Chromium, or a public provider path.
-- `make verify` — aggregate deterministic backend gate; requires Docker for integration slices.
-- `make test-unit`, `make test-parity`, `make test-integration`, and `make test-api` — focused backend gates.
-- `make test-browser` and `make test-browser-compose` — explicit browser opt-ins.
-  Run these only when the user specifically requests browser testing.
-- `make test-release` — broader browser-free certification for explicit releases
-  and cross-system changes, not routine development edits.
-- `cd frontend && mix test` — deterministic Phoenix tests with the exact Elixir version pinned by `frontend/mix.exs`.
-- `cd frontend && mix test --only browser` — opt-in browser tests.
-- `git diff HEAD --check` — whitespace validation for tracked changes.
+- `make verify` is the aggregate deterministic backend gate and requires Docker
+  for integration slices.
+- `make test-unit`, `make test-parity`, `make test-integration`, and
+  `make test-api` are focused backend gates.
+- `make test-browser` and `make test-browser-compose` are explicit browser
+  opt-ins. Run them only when the user specifically requests browser testing.
+- `make test-release` is the broader browser-free certification for explicit
+  releases and cross-system changes.
+- `cd frontend && mix test` runs deterministic Phoenix tests with the Elixir
+  and OTP versions pinned by `frontend/mix.exs`.
+- `git diff HEAD --check` validates whitespace.
 
-On the reference host, local frontend and release commands must expose the
-pinned Elixir/OTP toolchain before invoking `mix`, `make test-fast`, or
-`make test-release`:
-`PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH`.
-Hosted jobs install the equivalent toolchain through their setup step.
+On the reference host, expose the pinned toolchain before invoking `mix`,
+`make test-fast`, or `make test-release`:
 
-Do not report Docker, live-provider, or browser gates as passing unless they ran in the current environment or the result is explicitly identified as retained certification evidence.
+```sh
+PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH
+```
 
-## Test Feedback Methodology
+Hosted jobs install the equivalent toolchain. Never claim Docker,
+live-provider, or browser tests passed unless they ran in this environment or
+are clearly identified as retained evidence.
 
-Read and follow [LiveView and Go testing guidelines](docs/liveview-go-testing-guidelines.md)
-in full before planning changes, writing tests, or running verification.
-Use its three-level policy: fast Go/Elixir/LiveView and plain Node by default,
-optional justified DOM tests, and real browsers only on explicit user request.
-Keep repository-specific commands and stricter requirements in this file.
+## Test feedback methodology
 
-These practical levels do not renumber this repository's T0-T5 execution tiers.
-Coordinate one browser-test workflow per shared host; per-runner worker limits
-are not a host-wide lock. This policy does not authorize installing a DOM emulator.
+Read and follow `docs/liveview-go-testing-guidelines.md` in full before
+planning changes, writing tests, or running verification. Use fast Go,
+Elixir/LiveView, and plain Node tests by default; optional DOM tests require a
+concrete need and an ADR-HLLM-015 update; browsers are opt-in by explicit user
+request. These practical levels do not renumber T0-T5.
 
-Use the lowest sufficient tier for the invariant being changed. Run `make
-test-fast` repeatedly while coding; it is intentionally broad and cheap. T0
-pure checks cover parsing, validation, fixtures, static policy, and pure client
-decisions. T1 in-process checks cover `httptest`, ConnCase, LiveView events and
-diffs, and process-local stubs. T2 covers the extracted JavaScript decision
-core under Node without a DOM emulator. T3 is for real Postgres/Garage,
-integration lifecycle, and race boundaries. T4 is for native browser events,
-LiveSocket patching, focus, layout, and hook adapters. T5 is for full Compose,
-deployed behavior, or explicitly authorized live providers.
+Use the lowest sufficient tier. T0 covers pure parsing, validation, fixtures,
+static policy, and client decisions. T1 covers `httptest`, ConnCase, LiveView
+events/diffs, and process-local stubs. T2 covers JavaScript decision logic
+under Node without a DOM emulator. T3 covers real PostgreSQL, integration
+lifecycle, and race boundaries. T4 covers native browser events, LiveSocket,
+focus, layout, and hooks. T5 covers full Compose, deployed behavior, or
+explicitly authorized live providers.
 
-Keep the assertion oracle unchanged when moving a case down a tier. A higher
-tier may remain for a fact the lower tier cannot observe, but it must not carry
-permutations that LiveViewTest or a pure function can prove exactly. Prefer
+Keep the assertion oracle unchanged when moving a case down a tier. Prefer
 unique process-owned fixtures, `async: true`, private Req ownership, and
-parallel execution. A serial exception needs a named global resource and a
-machine-checked rationale; do not add serialization to hide a race.
+parallel execution. Serial exceptions require a named global resource and a
+machine-checked rationale. Never make a test green by weakening assertions,
+retrying an ambiguous run, skipping a required case, or replacing a real
+boundary with an unproved fake. When an expensive-tier defect is found, add a
+cheap T0-T2 regression for its root invariant when representable; keep the
+expensive test only for its distinct boundary.
 
-When an expensive-tier defect is found, first add or identify a T0-T2 cheap
-regression for its root invariant. Keep the T3-T5 case only for its distinct
-service, browser, deployment, or provider boundary. Never make a test green
-by weakening assertions, retrying an ambiguous run, skipping a required case,
-or replacing a real boundary with an unproved fake.
+Happy DOM and jsdom are not current dependencies. Do not install a DOM emulator
+unless concrete adapter defects require APIs pure functions cannot express;
+compare candidates, retain a real browser canary, and amend ADR-HLLM-015 first.
 
-Happy DOM and jsdom are not dependencies in the current design. Promote a DOM
-emulator only after concrete adapter defects require APIs that pure functions
-cannot express; record the missing APIs, compare both candidates, retain a
-real browser canary, and amend ADR-HLLM-015 first.
+## Coding and test conventions
 
-## Coding Style & Naming Conventions
+Use ATX Markdown headings, numbered major specification sections, fenced code
+blocks with language tags, and backticks for paths, commands, IDs, and symbols.
+Preserve kebab-case document names. Go must be `gofmt`-clean, use lowercase
+package names, and name tests `*_test.go`. Elixir must pass `mix format`; use
+`snake_case` files and `*_test.exs` tests.
 
-Use ATX Markdown headings, numbered major specification sections, fenced code blocks with language tags, and backticks for paths, commands, IDs, and symbols. Preserve the established kebab-case document names. Go code must be `gofmt`-clean, use lowercase package names, and name tests `*_test.go`. Elixir code must pass `mix format`; use `snake_case` files and `*_test.exs` tests.
+Backend tests use canonical `TEST-###` IDs and reference
+`SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001`. Frontend cases use `WEB-TEST-###`.
+Add deterministic coverage before implementation. Deterministic provider tests
+use local `httptest` servers; public internet or real provider credentials use
+the `live` build tag and stay outside `make verify`.
 
-## Testing Guidelines
-
-Backend tests use canonical `TEST-###` identifiers and must reference `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001`. Frontend cases use `WEB-TEST-###`. Add deterministic coverage before implementation. Deterministic provider tests use local `httptest` servers; only tests using public internet or real provider credentials use the `live` build tag and stay outside `make verify`.
-
-## Commit & Pull Request Guidelines
-
-History favors concise conventional subjects such as `docs: define backend REST contract`; continue with `docs:`, `feat:`, `fix:`, or `test:` as appropriate. PRs should summarize the change, name affected specification or test IDs, call out OpenAPI or ownership-boundary changes, list validation run, and link relevant issues. Include screenshots only for rendered UI changes.
+## Branches and deployment
 
 Use `dev` for normal iteration and create feature branches from the current
 `dev` or `main` policy. Push verified checkpoints promptly. `dev` deploys to
 `https://harden-llm-dev.prls.co/` after browser-free fast checks. Other trusted
 branches get stable URLs only after explicit preview enablement (manual
-workflow or `deploy:preview` PR label); subsequent passing pushes update them.
-See `docs/preview-environments.md` for URLs, credentials, and cleanup.
+workflow or `deploy:preview` PR label). See `docs/preview-environments.md` for
+URLs, environment ownership, and cleanup.
 
 Never launch Chromium, Wallaby, Playwright, a deployed browser canary, or a
-browser-containing Compose test unless the user specifically requests it.
-UI work, deployment, "verify", and "production-ready" are not browser
-authorization. Use component/LiveView/Node tests and HTTP health/auth checks;
-state explicitly when actual browser layout has not been checked. Never run a
-real provider call as an automatic deployment smoke test.
+browser-containing Compose test unless the user specifically requests browser
+testing. UI work, deployment, `verify`, and `production-ready` do not authorize
+browsers. Use component/LiveView/Node tests and HTTP health/auth checks; state
+when actual browser layout has not been checked. Never run a real provider call
+as an automatic deployment smoke test.
 
 Routine changes do not require full release certification or production
 deployment. Promote to `main`/production only when explicitly requested. Skip
 application builds for docs/test-only changes and rebuild only affected
-services. Preview operator logins use the same email/password as production,
-as explicitly requested. Provider keys and scalar settings come from the `.env`
-identified by preview host `sharedEnvFile`; full profile JSON and credential-env
-references live in the separate JSON file named by `HARDEN_LLM_CONFIG_FILE`.
-Apply them with the trusted `sync-profiles` administrative command; never use
-interactive profile-save probes as deployment checks. Keep infrastructure
-credentials, encryption keys, data, sessions, and networks separate; never copy
-production datasets or bearer sessions. Only trusted branches may receive shared
-provider credentials (they have real production-provider spending authority). Human login credentials are owned by Control Plane. HLLM data is private to each stable Control Plane user ID; every enabled login
-may enter directly without company selection or an HLLM grant. The deployment
-API token is bound to the verification/test user's ID. Provision profiles for
-explicit user IDs; new users receive unconfigured defaults. Do not bootstrap
-HLLM users, duplicate credentials, or retain company-owned compatibility data.
-The authorized clean cut removes incompatible HLLM data; other products and
-shared identity/storage data remain outside that reset. Before
-reporting a deployed change, record the branch, source SHA,
-component image identities, environment URL, and browser-free checks. Report
-deployment blockers rather than implying that an undeployed change is live.
+services. Preview logins use the shared Control Plane/Portal. The trusted
+preview host reads provider keys and shared scalar settings from its approved
+`sharedEnvFile`; the JSON named by `HARDEN_LLM_CONFIG_FILE` contains connection
+metadata and environment-variable names only. There is no profile-sync or
+interactive profile-save command.
 
-## Security & Configuration
+Keep infrastructure credentials, signing keys, database data, sessions, and
+networks separate; never copy production datasets or bearer sessions. Only
+trusted branches may receive the shared provider credential because it can
+authorize paid upstream calls. Human identity/access belong to Control Plane.
+Every enabled login may enter without company selection or an HLLM grant, and
+all enabled logins share Phoenix call history. Workspace drafts remain scoped
+to the stable user ID. The same `HARDEN_LLM_TOKEN` is used by external OpenAI
+clients and Phoenix. The gateway owns no history or product database.
 
-Never commit provider credentials, bearer tokens, session material, or unredacted diagnostic fixtures. Treat `/home/kirill/utility-llm` as a read-only contract source and record fixture provenance rather than copying secrets or live output.
+The authorized clean cut removes incompatible HLLM-owned data only; other
+products and shared identity/storage data remain outside that reset. Before
+reporting a deployed change, record branch, source SHA, component image
+identities, environment URL, and browser-free checks. Report blockers rather
+than implying an undeployed change is live.
+
+## Security and configuration
+
+Never commit provider credentials, bearer tokens, session material, or
+unredacted diagnostic fixtures. Treat `/home/kirill/utility-llm` as a read-only
+contract source and record fixture provenance rather than copying secrets or
+live output.
