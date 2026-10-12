@@ -1,15 +1,17 @@
 # 1. Restore Reference Workflows and Decouple Harden-LLM
 
 - Project: Harden-LLM.
-- Version: 5.2, one API-key storage scope with per-Portal-user drafts; explicit saves create complete profile snapshots; reference history lives in the HLLM PostgreSQL database; artifacts use key-scoped Garage paths; Model Recall guides component reuse.
+- Version: 5.3, one API-key storage scope with per-Portal-user drafts; explicit saves create complete profile snapshots; reference history lives in the HLLM PostgreSQL database; artifacts use key-scoped Garage paths; Model Recall guides component reuse; uncertain history commits stay unconfirmed without positive readback; production apply explicitly runs the schema command.
 - Document ID: `PLAN-HLLM-REFERENCE-DECOUPLING-002`.
-- Date: 2026-10-12 (v5.0 published at `2f12ae030b2420c132caa126933f65f9bc9b16c9`; v5.1 revised 2026-10-11 at `a90353fa7b7af622f757b0e0f0ba9ed4b82e6dcc`; v5.2 applies the [v5.2 review decisions](../ask_me/reference-decoupling-v52-review-decisions.md)).
+- Date: 2026-10-12 (v5.0 published at `2f12ae030b2420c132caa126933f65f9bc9b16c9`; v5.1 revised 2026-10-11 at `a90353fa7b7af622f757b0e0f0ba9ed4b82e6dcc`; v5.2 applies the [v5.2 review decisions](../ask_me/reference-decoupling-v52-review-decisions.md) and was published at `f54b8aeff276e980ac0c36684883bea5856dc4d7`; v5.3 applies the two readiness-review corrections accepted by Kirill, recorded in section 7.4).
 - Owners: Kirill, product and architecture decisions; HLLM maintainer, implementation and release; Agent Platform, Garage, Control Plane and Caddy maintainers, their shared-service contracts.
 - Status: Accepted current product contract: profiles, drafts, entered provider credentials, cache, history and artifacts are scoped to the validated incoming HLLM API key. Portal controls frontend admission only. Explicit Save creates a new complete profile snapshot. Model Recall is the first interface-design reference for reusable components. Nonblocking recording remains accepted. v5.1 changes four v5.0 decisions after review: reference history moves from Laminar to one key-scoped table in the HLLM PostgreSQL database, the way baseline `llm_runs` stored it; artifacts are scoped by their Garage object path; the restored workspace draft is partitioned by the host-supplied stable Portal user ID inside the key scope; and key-rotation data handling is deferred to manual operator work. v5.2 fixes execution gaps found in review without changing product scope: gateway storage settings move into P02 so every `dev` merge stays deployable, previews report artifacts disabled, P03 builds the artifact prefix delete before history delete/clear, status exposes history size, all settings keep the `HARDEN_LLM_*` prefix, and history full-row SQL gets named time budgets. A second v5.2 pass makes the plan executable by a smaller implementer: RED steps in P02 and P03 list numbered cases, section 5.2 adds implementer notes, TEST-425 is storage-free while TEST-441 becomes the integration test for HTTP storage isolation, scope selectors get the `scope_selector_rejected` error, the schema command runs as a one-shot Compose service, and every environment gets its own credential-encryption key. The current priority is product-market-fit functionality; security hardening beyond the stated invariants is deferred. Earlier [reference-decoupling](../ask_me/reference-decoupling-decisions.md) and [history-policy](../ask_me/shared-history-retention-and-access-decisions.md) records retain historical context; their user-ID ownership of shared data, additional REST session verification, mutable saved-profile overrides, Laminar history ownership and deployment-wide deletion rules are superseded by this revision. Implementation remains pending; this revision changes documentation only.
 - Planning source: `879106ff5da3b0b0d90f31e9d7e6f897e4888bbc`.
 - UI behavior baseline: `754690c8d0890c664d69fbdf526b16b3e5601060`, PR #95, before PR #97.
 
 Restore the baseline Harden-LLM UI and its useful workflows while separating one stateless Go execution engine, a reusable stateful wrapper, shared services, reusable Phoenix components, and shared ingress. Ordinary OpenAI-compatible clients use one base URL and a configured HLLM bearer without profiles or login. Reference REST uses that same bearer contract for API-key-scoped profiles, history, drafts and diagnostics. The core owns no authentication or storage scope. Reuse Agent Platform PostgreSQL for saved application state and reference history, existing Garage for artifacts, and existing Laminar only for the diagnostic traces it already receives; remove superseded code/storage without migrating obsolete HLLM data.
+
+v5.3 changes only two execution contracts: a missing or failed readback after an uncertain COMMIT means `unconfirmed`, because a delayed commit can become visible later; and production `runApply` explicitly runs the accepted image's one-shot schema service before starting selected applications, retaining `--no-deps`. These corrections add TEST-450/451 within existing steps; there are still seven phases and 72 steps. No application implementation or deployment has started.
 
 ## 2. Design consensus and trade-offs
 
@@ -85,7 +87,7 @@ History is stored in the HLLM PostgreSQL database. Expose it with an explicit en
 | Healthy query returns no records | Show an empty history only after a successful read. |
 | Insert committed | Report saved. One record per reference execution during healthy operation. |
 | Definite write failure | The insert failed before commit (pool unavailable, constraint/oversize rejection, statement error). Preserve the result and report not saved, with the cause and run ID. |
-| Commit outcome unknown | The connection failed or timed out after COMMIT was sent. Perform one bounded read by run ID on a fresh connection: found means saved, absent means not saved, a failed read means unconfirmed. Never re-insert and never rerun inference. |
+| Commit outcome unknown | The connection failed or timed out after COMMIT was sent. Perform one bounded read by run ID on a fresh connection: found means saved; absent or failed readback means unconfirmed. An empty read cannot rule out a delayed commit. Never re-insert, poll or rerun inference. |
 | Read failure | Report unavailable; never present a failed read as an empty history. |
 
 Generate a run ID in memory, validate authorization/profile/credentials, execute once, then attempt one bounded insert. No history write is an inference prerequisite. Progress and current-call statistics come from the execution itself. History-derived totals cover available records only; missing records are not zero-cost calls. A process crash before the insert loses that record in this synchronous design.
@@ -280,6 +282,7 @@ Host `WorkspaceLive` owns its async lifecycle and uses package functions/compone
 This plan is standards-informed, not a claim of ISO/IEEE/FAA compliance. It is not a safety-critical certification plan. Execute one subtask at a time. A documented blocker permits only work outside its dependency chain. Phases run in order and each requires the preceding phase's exit; steps within a phase follow their `Unlocks` chain. P00 has no external owner gate. Shared-owner checks (CHECK-422) gate only P05.S02 apply preparation and P06. No blocked gate is a completed gate.
 
 - `branch_limits: 1` active implementation branch for the whole plan, `feat/reference-decoupling`, created from the current `origin/main` tip (at least `879106ff5da3b0b0d90f31e9d7e6f897e4888bbc`) in a fresh worktree. Do not branch from the primary checkout's `feat/openai-proxy-shared-reference`: it was squash-merged as PR #97 and is stale. Preserve unrelated work. This planning worktree is not authority to overwrite a newer branch.
+- Branch bootstrap completed before implementation: `feat/reference-decoupling` was published at documentation-only `f54b8ae` on 2026-10-12; its local worktree is `/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl`. v5.3 is a documentation-only checkpoint on this branch. Continue it with fast-forward commits; keep `plan/restore-decoupled-reference-app` frozen at v5.2. The approved `dev` reset remains a P00.S01 action, not part of this revision.
 - Branch state recorded 2026-10-11: `origin/dev` (`d0eb72f`) is 233 commits behind `origin/main` and holds one commit not on `main` (`d0eb72f test: allow bounded child startup in runner abort check (#90)`), whose change is already on `main` as `4278234` (same PR). Because `dev` deploys to `harden-llm-dev.prls.co`, P00.S01 starts by resetting `dev` to `origin/main` after rechecking that. Kirill approved this one force-push on 2026-10-11 (DEC-HLLM-V51-06); any other force-push still needs fresh approval. Afterwards push phase checkpoints to `feat/reference-decoupling`; merge to `dev` only at phase boundaries whose application changes are deployable (P02 exit onward), and to `main` only on explicit request. From P02 exit the preview `gateway` owns its per-environment preview database (P02.S16), so every `dev` merge keeps drafts/history working; previews run without Garage and report artifacts disabled.
 - `reflection_passes: 2`: one contract review before implementation and one ownership/duplication review after green coverage. Additional passes require a recorded unresolved defect.
 - `early_stop%: 0`: no failed required assertion may be accepted. Stop immediately for secret exposure, wrong data scope or an invalid test environment; after two identical unexplained failures diagnose before another attempt. A retry cannot erase ambiguous effects.
@@ -312,6 +315,8 @@ Read these before starting any phase. They exist so an implementer does not have
 - **Names that exist only at baseline `754690c`.** `internal/profiles/{profiles,credentials,default_catalog}.go` (including `CredentialVault.Seal/Open`), `internal/artifacts/garage.go`, `internal/gateway/{run_service,runtime_profiles,artifact_coordinator}.go` and `ProfileService.ReplaceBundle`. Read them with `git show 754690c:<path>` and move the needed code once; do not restore whole files or the old commit.
 - **Everything else named in this plan is new** (for example everything under `stateful/` and `frontend/packages/harden_llm_ui/`, `ApplySchema`, `ClientForKey`, `publishArtifacts`, `deleteRunPrefix`, `previewSecrets`). Section 4.1 says the same.
 - **Integration tests** need the runner-owned service pool. Run them through the existing tier runner (`make test-integration`) or with the pool environment it exports; a test that cannot get a lease fails, which is an infrastructure failure, not a valid RED. `GarageLease` returns a key namespace, so artifact tests prepend `fixture.Namespace` through an unexported `ArtifactStore` test option.
+- **Uncertain history commits.** Section 8.3 is authoritative: positive readback permits `saved`; empty or failed readback keeps `unconfirmed`. TEST-451 is the cheap classification regression; TEST-442 keeps the distinct real-PostgreSQL delayed-commit case. Never insert again or add polling.
+- **Production schema execution.** Section 8.2 defines the one production sequence in existing `runApply`. TEST-450 checks command order and failure behavior under Node; TEST-433 proves fresh-schema startup with real composed storage. `depends_on` alone cannot run the schema service when application startup uses `--no-deps`.
 - **Toolchain.** Before any `mix` or aggregate frontend command, run `export PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH`.
 - **Stop and report instead of doing any of these:** adding a fake store or repository interface to make a test pass; adding a compatibility path, alias or fallback; weakening, skipping or reordering a test case; raising a limit or timeout; calling a real provider; launching a browser; force-pushing (except the one approved `dev` reset in P00.S01); merging to `main`; touching production or shared-owner resources outside P06.
 - **Step discipline.** One step at a time, in `Unlocks` order. RED must fail on an intended assertion; if it fails on compilation, add only the minimal declarations and rerun. GREEN uses the identical command. Commit and push only at phase boundaries (section 5.1).
@@ -327,7 +332,7 @@ Read these before starting any phase. They exist so an implementer does not have
 - Estimated phase metrics, not measured acceptance: Confidence 88% because the contracts are repository-owned; long-term robustness 91% because ownership and failure behavior become explicit; internal interactions 4 because this phase crosses that many application seams; external interactions 0 because owner contracts move to P05; complexity 40% because of the listed integration boundaries; feature creep 8% because scope is constrained to restored behavior; technical debt 6% because superseded paths are removed; YAGNI 5/5 (5 is strongest) because infrastructure follows demonstrated needs; MoSCoW Must because later acceptance depends on this outcome; scope non-local because of the listed ownership boundaries; architectural changes 3 because the listed ownership/runtime boundaries change.
 
 - P00.S01 Capture missing architecture and baseline assertions
-  - Action: Create the contract test and `test/fixtures/reference-workflows.json`; extract baseline capability/selector/style provenance at the pinned SHA. Record the two accepted deltas: key-scoped state (with per-Portal-user drafts) and new complete profile snapshots on Save. Before any commit, reset `dev` per section 5.1 branch policy (with approval) and create `feat/reference-decoupling` from `origin/main`. Review Model Recall's Phoenix host read-only as the first consumer. Assert canonical policy has one bearer boundary, no user/owner storage identity, server-only keys and truthful history outcomes before production code changes.
+  - Action: Create the contract test and `test/fixtures/reference-workflows.json`; extract baseline capability/selector/style provenance at the pinned SHA. Record the two accepted deltas: key-scoped state (with per-Portal-user drafts) and new complete profile snapshots on Save. Before the first implementation commit, recheck and perform the approved `dev` reset per section 5.1; continue the already-created `feat/reference-decoupling` branch rather than recreating it. Review Model Recall's Phoenix host read-only as the first consumer. Assert canonical policy has one bearer boundary, no user/owner storage identity, server-only keys and truthful history outcomes before production code changes.
   - Why now: Protect the restoration target before extraction.
   - Files/surfaces: internal/testkit/reference_decoupling_contract_test.go; baseline frontend files in section 2.
   - Requirement link: REQ-420, REQ-425, REQ-432, REQ-433, REQ-435.
@@ -854,7 +859,7 @@ Read these before starting any phase. They exist so an implementer does not have
 - Estimated phase metrics, not measured acceptance: Confidence 85% because history reuses repository-owned storage; long-term robustness 91% because ownership and failure behavior become explicit; internal interactions 5 because this phase crosses that many application seams; external interactions 1 because it touches that many owner/service contracts; complexity 70% because of the listed integration boundaries; feature creep 7% because scope is constrained to restored behavior; technical debt 10% because superseded paths are removed; YAGNI 4/5 (5 is strongest) because infrastructure follows demonstrated needs; MoSCoW Must because later acceptance depends on this outcome; scope non-local because of the listed ownership boundaries; architectural changes 2 because the listed ownership/runtime boundaries change.
 
 - P03.S01 Add failing coverage for the PostgreSQL history store
-  - Action: Add these cases to integration-tag `TestHistoryStore` in `stateful/history_store_integration_test.go` (real PostgreSQL lease, injected clock and commit hook). The step is complete when every numbered case exists and the run fails on at least one intended assertion (not on compilation or fixtures).
+  - Action: First add storage-free TEST-451 cases in `stateful/history_test.go`, then add these cases to integration-tag `TestHistoryStore` in `stateful/history_store_integration_test.go` (real PostgreSQL lease, injected clock and commit hook). The step is complete when every numbered case exists and both commands fail on an intended assertion (not on compilation or fixtures).
     1. `insertHistory` for key A stores one row whose `api_key_hash` is the server-supplied hash; the record type has no caller-settable hash.
     2. `GetHistory(A, run)` returns a record equal to the inserted one; `GetHistory(B, run)` returns `history_not_found`.
     3. An unknown run UUID returns `history_not_found`; a stored row with an invalid schema version or payload returns `history_record_invalid`.
@@ -865,28 +870,29 @@ Read these before starting any phase. They exist so an implementer does not have
     8. Page size outside 10/25/50/100, page below 1, or an overflowing offset is a validation error.
     9. List items contain only summary fields, never `request` or `result`.
     10. A record whose encoded `request`+`result` is exactly 17 MiB is saved and reloaded; 17 MiB + 1 byte is `not_saved` with no row and no truncation. Record both durations; each must be under its 2 s budget.
-    11. The commit hook drops the connection after COMMIT: a committed row gives one readback and `saved`; an uncommitted row gives `not_saved`; a failing readback gives `unconfirmed`. Each case makes exactly one insert attempt.
+    11. The commit hook loses the acknowledgement after COMMIT was sent: a committed row gives one readback and `saved`; an absent row or failed readback gives `unconfirmed`. Definite pre-COMMIT rejection gives `not_saved` with no readback. Each case makes exactly one insert attempt.
     12. A failed list query returns `history_read_failed`, never an empty page.
     13. No error or diagnostic contains the DSN password sentinel.
     14. The status usage query returns key A's row count (unaffected by key B rows) and a positive `pg_total_relation_size('history')`.
+    15. With the real PostgreSQL commit delayed behind the single readback, the empty read returns `unconfirmed`; releasing the test-owned barrier allows the row to appear afterward. Use the per-call commit fault hook, channels and bounded waits, not arbitrary sleeps or a fake store. Assert one insert, one readback and no inference replay.
   - Why now: The named behavior must have an unchanged acceptance oracle before implementation.
-  - Files/surfaces: `stateful/history.go`, `stateful/sql/`, `stateful/history_store_integration_test.go`.
+  - Files/surfaces: `stateful/history.go`, `stateful/sql/`, `stateful/history_test.go`, `stateful/history_store_integration_test.go`.
   - Requirement link: REQ-426, REQ-427, REQ-429, REQ-431, REQ-432.
-  - Verification link: TEST-442.
+  - Verification link: TEST-442, TEST-451.
   - Verification mode: RED.
-  - Command/procedure: `go test -tags=integration ./stateful -run '^TestHistoryStore$' -count=1`.
+  - Command/procedure: `go test ./stateful -run '^TestHistoryRecordingOutcome$' -count=1` ; `go test -tags=integration ./stateful -run '^TestHistoryStore$' -count=1`.
   - Expected result: The named behavioral assertion fails; fixture setup and minimal declarations already compile.
   - Evidence produced: Tagged assertion/fixture diff, exact command result and the focused implementation or review diff; add measured counts for MEASURE.
   - Stop/escalate condition: A failure is compilation/infrastructure rather than the intended assertion, or the accepted contract cannot be met.
   - Unlocks: P03.S02.
 - P03.S02 Implement the PostgreSQL history store
-  - Action: Implement `insertHistory`, `GetHistory`, `ListHistory` with one server-owned key-hash/window filter shared by list/count/stats/clear, and the bounded write (two-second insert, one readback on unknown commit outcome within one second), with `GetHistory` under its two-second detail budget; list/count keep the 500 ms statement cap. Direct pgx queries; no repository interface, cursor adapter or retry of the insert.
+  - Action: Implement `insertHistory`, `GetHistory`, `ListHistory` with one server-owned key-hash/window filter shared by list/count/stats/clear, and the bounded write (two-second insert, one readback on unknown commit outcome within one second), with `GetHistory` under its two-second detail budget; list/count keep the 500 ms statement cap. Keep recording-status classification in one unexported `recordingStatus` function in `history.go`, used by the real insert path and TEST-451: confirmed success or positive readback is `saved`, definite rejection is `not_saved`, and unknown commit with absent/failed readback is `unconfirmed`. Direct pgx queries; no repository interface, cursor adapter, polling or retry of the insert.
   - Why now: P03.S01 establishes the failing assertions and exact command.
-  - Files/surfaces: `stateful/history.go`, `stateful/sql/`, `stateful/history_store_integration_test.go`.
+  - Files/surfaces: `stateful/history.go`, `stateful/sql/`, `stateful/history_test.go`, `stateful/history_store_integration_test.go`.
   - Requirement link: REQ-426, REQ-427, REQ-429, REQ-431, REQ-432.
-  - Verification link: TEST-442.
+  - Verification link: TEST-442, TEST-451.
   - Verification mode: GREEN.
-  - Command/procedure: `go test -tags=integration ./stateful -run '^TestHistoryStore$' -count=1`.
+  - Command/procedure: `go test ./stateful -run '^TestHistoryRecordingOutcome$' -count=1` ; `go test -tags=integration ./stateful -run '^TestHistoryStore$' -count=1`.
   - Expected result: All named assertions pass using the same command and test IDs as RED, without skips or weaker expectations.
   - Evidence produced: Tagged assertion/fixture diff, exact command result and the focused implementation or review diff; add measured counts for MEASURE.
   - Stop/escalate condition: A failure is compilation/infrastructure rather than the intended assertion, or the accepted contract cannot be met.
@@ -969,7 +975,7 @@ Read these before starting any phase. They exist so an implementer does not have
     5. Closed pool: outcome `not_saved` with cause `connection`, output preserved.
     6. Oversize record: `not_saved`, output preserved.
     7. Commit outcome dropped after COMMIT: one readback, row found, `saved`.
-    8. Readback also fails: `unconfirmed`.
+    8. Readback is empty or fails: `unconfirmed`; a delayed commit may still appear. Definite pre-COMMIT rejection remains `not_saved`.
     9. Across all cases: exactly one insert attempt, at most one readback, and the provider call count never exceeds one.
     10. Cache hit: zero provider calls, one row whose summary marks it cache-served.
     11. Request validation error before dispatch: zero provider calls, one `failed` row.
@@ -1082,9 +1088,9 @@ Read these before starting any phase. They exist so an implementer does not have
   - Why now: Implementation and owner contracts are both available.
   - Files/surfaces: same history/workspace suites and evidence ledger.
   - Requirement link: REQ-420, REQ-426, REQ-427, REQ-429, REQ-431, REQ-432.
-  - Verification link: TEST-426, TEST-427, TEST-428, TEST-442, TEST-443, EVAL-423.
+  - Verification link: TEST-426, TEST-427, TEST-428, TEST-442, TEST-443, TEST-451, EVAL-423.
   - Verification mode: MEASURE.
-  - Command/procedure: `go test -tags=integration ./stateful -run '^TestReferenceHistory$' -count=1` ; `go test -tags=integration ./stateful -run '^TestHistoryQueries$' -count=1` ; `cd frontend && mix test --seed 104729 test/harden_llm_web/live/restored_workflow_test.exs` ; `go test -tags=integration ./stateful -run '^TestHistoryStore$' -count=1` ; `go test -tags=integration ./stateful -run '^TestReferenceArtifacts$' -count=1`.
+  - Command/procedure: `go test ./stateful -run '^TestHistoryRecordingOutcome$' -count=1` ; `go test -tags=integration ./stateful -run '^TestReferenceHistory$' -count=1` ; `go test -tags=integration ./stateful -run '^TestHistoryQueries$' -count=1` ; `cd frontend && mix test --seed 104729 test/harden_llm_web/live/restored_workflow_test.exs` ; `go test -tags=integration ./stateful -run '^TestHistoryStore$' -count=1` ; `go test -tags=integration ./stateful -run '^TestReferenceArtifacts$' -count=1`.
   - Expected result: EVAL-423 passes; no saved claim without a committed row and no lost-result regression.
   - Evidence produced: Tagged assertion/fixture diff, exact command result and the focused implementation or review diff; add measured counts for MEASURE.
   - Stop/escalate condition: Payload/delete acceptance fails or a fake store is being mistaken for PostgreSQL proof.
@@ -1280,31 +1286,31 @@ Read these before starting any phase. They exist so an implementer does not have
 - Estimated phase metrics, not measured acceptance: Confidence 78% because the contracts have external gaps; long-term robustness 91% because ownership and failure behavior become explicit; internal interactions 4 because this phase crosses that many application seams; external interactions 4 because it touches that many owner/service contracts; complexity 68% because of the listed integration boundaries; feature creep 7% because scope is constrained to restored behavior; technical debt 9% because superseded paths are removed; YAGNI 4/5 (5 is strongest) because infrastructure follows demonstrated needs; MoSCoW Must because later acceptance depends on this outcome; scope non-local because of the listed ownership boundaries; architectural changes 2 because the listed ownership/runtime boundaries change.
 
 - P05.S01 Add failing coverage for shared topology and routing
-  - Action: Add one shared PostgreSQL attachment, gateway key allowlist/frontend selected key, server-only secrets, same-origin bearer-only REST and HLLM-only reset fixtures. Portal credentials belong to Phoenix only, with no Go identity-authority dependency.
+  - Action: Add one shared PostgreSQL attachment, gateway key allowlist/frontend selected key, server-only secrets, same-origin bearer-only REST and HLLM-only reset fixtures. Portal credentials belong to Phoenix only, with no Go identity-authority dependency. Extend the existing injected process runner in `scripts/test/production_config_test.mjs` with TEST-450 cases: (1) an apply selecting the gateway runs `gateway-schema` exactly once before application `up`, using the same accepted image/config/context and retaining `--no-deps`; (2) nonzero schema exit prevents all application starts; (3) a missing schema service or image/command mismatch is rejected before any schema/application start; (4) a frontend-only apply starts no schema service; (5) a no-change apply starts neither schema nor applications; (6) credentials appear in neither Docker arguments nor captured diagnostics. No actual Docker process runs in this Node test.
   - Why now: The named behavior must have an unchanged acceptance oracle before implementation.
-  - Files/surfaces: Compose/preview descriptors, `internal/deploytest/reference_topology_test.go`, Agent Platform and Caddy owner diffs.
-  - Requirement link: REQ-425, REQ-430, REQ-435.
-  - Verification link: TEST-432.
+  - Files/surfaces: Compose/preview descriptors, `internal/deploytest/reference_topology_test.go`, `scripts/{production-config.mjs,test/production_config_test.mjs}`, Agent Platform and Caddy owner diffs.
+  - Requirement link: REQ-425, REQ-430, REQ-432, REQ-435.
+  - Verification link: TEST-432, TEST-450.
   - Verification mode: RED.
-  - Command/procedure: `go test ./internal/deploytest -run '^TestReferenceTopology$' -count=1`.
+  - Command/procedure: `go test ./internal/deploytest -run '^TestReferenceTopology$' -count=1` ; `node --test scripts/test/production_config_test.mjs`.
   - Expected result: The named behavioral assertion fails; fixture setup and minimal declarations already compile.
   - Evidence produced: Tagged assertion/fixture diff, exact command result and the focused implementation or review diff; add measured counts for MEASURE.
   - Stop/escalate condition: A failure is compilation/infrastructure rather than the intended assertion, or the accepted contract cannot be met.
   - Unlocks: P05.S02.
 - P05.S02 Implement shared topology and routing
-  - Action: Prepare the concrete owner-reviewed isolated HLLM database/role grants and initialized-volume provisioning. Use one Go/one Phoenix service and shared PostgreSQL/Garage/Control Plane/Caddy; confirm the Garage credential can list/delete under `artifacts/`. Add the same one-shot `gateway-schema` service to the production descriptor, the production `HARDEN_LLM_CREDENTIAL_KEY` reference, and route `/api/v1/*` to `gateway` in both the production Caddy contract and `routeFor` in `scripts/preview-environment.mjs`. Remove superseded aliases and dedicated Phoenix DB configuration. Record exact owner commands before apply.
+  - Action: Prepare the concrete owner-reviewed isolated HLLM database/role grants and initialized-volume provisioning. Use one Go/one Phoenix service and shared PostgreSQL/Garage/Control Plane/Caddy; confirm the Garage credential can list/delete under `artifacts/`. Add the same one-shot `gateway-schema` service to the production descriptor and implement section 8.2's explicit schema invocation in existing `runApply`, before application startup; do not rely on `depends_on` through `--no-deps`. Add the production `HARDEN_LLM_CREDENTIAL_KEY` reference and route `/api/v1/*` to `gateway` in both the production Caddy contract and `routeFor` in `scripts/preview-environment.mjs`. Remove superseded aliases and dedicated Phoenix DB configuration. Record exact owner commands before apply.
   - Why now: P05.S01 establishes the failing assertions and exact command.
-  - Files/surfaces: Compose/preview descriptors, `internal/deploytest/reference_topology_test.go`, Agent Platform and Caddy owner diffs.
-  - Requirement link: REQ-425, REQ-430, REQ-435.
-  - Verification link: TEST-432.
+  - Files/surfaces: Compose/preview descriptors, `internal/deploytest/reference_topology_test.go`, `scripts/{production-config.mjs,test/production_config_test.mjs}`, Agent Platform and Caddy owner diffs.
+  - Requirement link: REQ-425, REQ-430, REQ-432, REQ-435.
+  - Verification link: TEST-432, TEST-450.
   - Verification mode: GREEN.
-  - Command/procedure: `go test ./internal/deploytest -run '^TestReferenceTopology$' -count=1`.
+  - Command/procedure: `go test ./internal/deploytest -run '^TestReferenceTopology$' -count=1` ; `node --test scripts/test/production_config_test.mjs`.
   - Expected result: All named assertions pass using the same command and test IDs as RED, without skips or weaker expectations.
   - Evidence produced: Tagged assertion/fixture diff, exact command result and the focused implementation or review diff; add measured counts for MEASURE.
   - Stop/escalate condition: A failure is compilation/infrastructure rather than the intended assertion, or the accepted contract cannot be met.
   - Unlocks: P05.S03.
 - P05.S03 Add failing coverage for the composed browser-free boundary
-  - Action: Extend the HTTP-only composed suite for two configured access keys, same-key frontend/backends, cross-key state/history/cache/artifact denial, frontend Portal admission, storage/Control Plane outage and recording states on one hostname. Register resource selection before invocation.
+  - Action: Extend the HTTP-only composed suite for two configured access keys, same-key frontend/backends, cross-key state/history/cache/artifact denial, frontend Portal admission, storage/Control Plane outage and recording states on one hostname. Start from a fresh leased database and run the schema command before application startup; verify the schema version and a real reference write. Register resource selection before invocation.
   - Why now: The named behavior must have an unchanged acceptance oracle before implementation.
   - Files/surfaces: `internal/smoke/compose_smoke_test.go`, test Compose/local provider/Control Plane fixtures.
   - Requirement link: REQ-422, REQ-425, REQ-426, REQ-430, REQ-431.
@@ -1332,9 +1338,9 @@ Read these before starting any phase. They exist so an implementer does not have
   - Why now: Composed routing and failure behavior pass before removal/apply.
   - Files/surfaces: deployment descriptors, owner-reviewed provisioning/reset manifest.
   - Requirement link: REQ-422, REQ-424, REQ-425, REQ-426, REQ-430, REQ-431, REQ-432, REQ-435.
-  - Verification link: TEST-449, TEST-432, TEST-433.
+  - Verification link: TEST-449, TEST-432, TEST-450, TEST-433.
   - Verification mode: REFACTOR.
-  - Command/procedure: `go test ./cmd/harden-llm-gateway -run '^TestReferenceConfig$' -count=1` ; `go test ./internal/deploytest -run '^TestReferenceTopology$' -count=1` ; `make test-compose`.
+  - Command/procedure: `go test ./cmd/harden-llm-gateway -run '^TestReferenceConfig$' -count=1` ; `go test ./internal/deploytest -run '^TestReferenceTopology$' -count=1` ; `node --test scripts/test/production_config_test.mjs` ; `make test-compose`.
   - Expected result: No duplicate production service, Phoenix database owner or competing API hostname remains.
   - Evidence produced: Tagged assertion/fixture diff, exact command result and the focused implementation or review diff; add measured counts for MEASURE.
   - Stop/escalate condition: A shared identity/storage resource or unrelated service is in the reset list.
@@ -1343,10 +1349,10 @@ Read these before starting any phase. They exist so an implementer does not have
   - Action: Record service count, route/auth failures, ordinary inference independence and zero browser/real-provider starts.
   - Why now: Exact tested configuration is ready for release review.
   - Files/surfaces: compose report, topology diff and evidence ledger.
-  - Requirement link: REQ-422, REQ-425, REQ-426, REQ-430, REQ-431, REQ-435.
-  - Verification link: TEST-432, TEST-433, EVAL-425.
+  - Requirement link: REQ-422, REQ-425, REQ-426, REQ-430, REQ-431, REQ-432, REQ-435.
+  - Verification link: TEST-432, TEST-450, TEST-433, EVAL-425.
   - Verification mode: MEASURE.
-  - Command/procedure: `go test ./internal/deploytest -run '^TestReferenceTopology$' -count=1` ; `make test-compose`.
+  - Command/procedure: `go test ./internal/deploytest -run '^TestReferenceTopology$' -count=1` ; `node --test scripts/test/production_config_test.mjs` ; `make test-compose`.
   - Expected result: EVAL-425 passes; CHECK-422 owner review and P06 release gates remain required before apply.
   - Evidence produced: Tagged assertion/fixture diff, exact command result and the focused implementation or review diff; add measured counts for MEASURE.
   - Stop/escalate condition: Any unintended service/provider/browser operation or failed declared route.
@@ -1375,15 +1381,15 @@ Read these before starting any phase. They exist so an implementer does not have
   - Stop/escalate condition: Any failure, ambiguous candidate identity, missing authorization or required owner change.
   - Unlocks: P06.S02.
 - P06.S02 Apply the accepted component and shared-owner configuration
-  - Action: Complete CHECK-422, apply reviewed HLLM database/role provisioning and Caddy changes through their owners, let the one-shot `gateway-schema` service apply the schema, build affected images from the accepted SHA using the existing release specification, then apply only the two application services. Do not run service-heavy certification on the production daemon.
+  - Action: Complete CHECK-422, apply reviewed HLLM database/role provisioning and Caddy changes through their owners, build affected images from the accepted SHA using the existing release specification, then use the tested `runApply` sequence in section 8.2: explicitly run the one-shot schema service from that accepted image and require exit 0 before applying the two application services. Record the schema command/image/exit result. Do not run service-heavy certification on the production daemon.
   - Why now: All implementation acceptance and owner prerequisites precede release mutation.
   - Files/surfaces: `scripts/production-config.mjs`, protected production descriptor, root/frontend Dockerfiles and owner-reviewed provisioning from P05.
   - Requirement link: REQ-430, REQ-434.
   - Verification link: TEST-434, CHECK-422.
   - Verification mode: VERIFY.
   - Command/procedure: Use section 4 gateway build procedures and the P05-recorded owner commands. For the affected frontend, require a clean checkout at the accepted SHA and an unused release tag, then execute `docker build --secret=id=private_module_token,env=PRIVATE_MODULE_TOKEN --build-arg VERSION="$HLLM_RELEASE_SHA" --tag "harden-llm-web:release-$HLLM_RELEASE_SHA" --file frontend/Dockerfile frontend`; record its image ID in the protected descriptor. Then `node scripts/production-config.mjs apply --services harden-llm-gateway,harden-llm-web --expected-release "$HLLM_RELEASE_SHA"` ; `node scripts/production-config.mjs check --services harden-llm-gateway,harden-llm-web --expected-release "$HLLM_RELEASE_SHA"`.
-  - Expected result: Both services converge to the accepted source/config/image identity.
-  - Evidence produced: Build IDs, scoped apply output and configuration check.
+  - Expected result: The accepted gateway image applies the schema successfully before either application starts; both services converge to the accepted source/config/image identity.
+  - Evidence produced: Build IDs, schema command/image/exit result, scoped apply output and configuration check.
   - Stop/escalate condition: Unreviewed provisioning command, descriptor mismatch, reused release tag or unsafe reset scope.
   - Unlocks: P06.S03.
 - P06.S03 Validate the public origin without paid inference
@@ -1474,6 +1480,8 @@ evaluations:
     seeds: [104729]
     runtime_budget: "Existing per-task release/CI ceilings; no repeated full suite without a new cause"
 ```
+
+For EVAL-425, `added_production_services` counts additional long-lived application services, not the one-shot schema command running the existing gateway image. Record both the daemon count and the schema invocation in the phase evidence.
 
 EVAL-420 uses the P00.S05 MEASURE commands. Other evaluation commands are the exact commands in their phase's MEASURE step. Seeded permutations run inside the test cases; repeat the same command, not a new scheduler. The frozen baseline manifest is the holdout for visual/control restoration. P00 explicitly records the accepted API-key ownership (with per-user drafts) and snapshot-save semantic deltas; no other oracle is weakened or capability removed to fit implementation.
 
@@ -1572,7 +1580,7 @@ All proposed tests are created in the phase that first uses them. Existing test 
   - Command: `go test -tags=integration ./stateful -run '^TestReferenceHistory$' -count=1`.
   - Fixtures/mocks/data: Real PostgreSQL and Garage leases; local provider; repaired success, cache hit, validation failure, canceled request, explicit disablement, enabled-with-nil-pool configuration error, closed pool, oversize record, injected commit hook that drops the outcome after COMMIT, failed readback, and synthetic secrets inside driver-error fixtures.
   - Deterministic controls: section 7.3 defaults; real-storage cases use `internal/integrationtest.PostgresLease`/`GarageLease`, unique scopes and bounded cleanup, never production. No browser or real provider.
-  - Pass criteria: Healthy enabled recording inserts one complete record with the authenticated hash; direct/disabled calls do no history I/O. Every detail/list/stats/restore/delete/clear is key-scoped. History outage/configuration failure preserves otherwise authorized inference; invalid profiles/credentials prevent dispatch. Saved, not saved (definite), unconfirmed (failed readback after unknown commit), empty and read failure differ. Exactly one insert attempt and at most one readback per run; no inference retry or secret diagnostic leak.
+  - Pass criteria: Healthy enabled recording inserts one complete record with the authenticated hash; direct/disabled calls do no history I/O. Every detail/list/stats/restore/delete/clear is key-scoped. History outage/configuration failure preserves otherwise authorized inference; invalid profiles/credentials prevent dispatch. Saved, not saved (definite), unconfirmed (absent or failed readback after unknown commit), empty and read failure differ. Exactly one insert attempt and at most one readback per run; no inference retry, polling or secret diagnostic leak.
   - Expected runtime: 30–120s with warm service pool.
 
 - **TEST-427: History statistics, delete and clear**
@@ -1626,7 +1634,7 @@ All proposed tests are created in the phase that first uses them. Existing test 
   - Command: `go test ./internal/deploytest -run '^TestReferenceTopology$' -count=1`.
   - Fixtures/mocks/data: Compose/Caddy/env/descriptor fixtures; approved shared-service attachments; HLLM-only reset allowlist.
   - Deterministic controls: section 7.3 defaults; use the stated isolated real service for integration and exact release identity for deployed checks.
-  - Pass criteria: One Go and one Phoenix service share UI/`/v1`/`/api/v1` origin. Go validates one configured key-array source for all REST; Phoenix uses its server-held selected key and Portal admission. No Go Control Plane/session requirement, private-only API route, second hostname, dedicated production PostgreSQL, Phoenix DB credentials or broad reset. Preview descriptors may keep their per-environment `postgres`, attached only to `gateway`, and set no `HARDEN_LLM_ARTIFACT_*` values. No key issuance, secret echo or per-user key synchronization.
+  - Pass criteria: One Go and one Phoenix service share UI/`/v1`/`/api/v1` origin. Go validates one configured key-array source for all REST; Phoenix uses its server-held selected key and Portal admission. No Go Control Plane/session requirement, private-only API route, second hostname, dedicated production PostgreSQL, Phoenix DB credentials or broad reset. Production `gateway-schema` is a one-shot command with no build stanza, using the accepted gateway image and the same protected database configuration; it is not a third long-lived application. Preview descriptors may keep their per-environment `postgres`, attached only to `gateway`, and set no `HARDEN_LLM_ARTIFACT_*` values. No key issuance, secret echo or per-user key synchronization.
   - Expected runtime: 10–30s.
 
 - **TEST-433: Browser-free composed workflow**
@@ -1635,7 +1643,7 @@ All proposed tests are created in the phase that first uses them. Existing test 
   - Command: `make test-compose`.
   - Fixtures/mocks/data: Existing fake provider and frontend Control Plane admission fixture, two synthetic HLLM access keys, local Caddy, isolated real PostgreSQL/Garage, HTTP/LiveView harness.
   - Deterministic controls: section 7.3 defaults; use the stated isolated real service for integration and exact release identity for deployed checks.
-  - Pass criteria: Actual one-host boundaries preserve restored workflow and frontend Portal admission without company/product grant. Valid bearer alone reaches reference REST; key A shares data across contexts and key B cannot access it. PostgreSQL/Control Plane outage leaves cache-off REST inference and local key authentication independent; history outage preserves resolved output. No browser or real provider.
+  - Pass criteria: Actual one-host boundaries preserve restored workflow and frontend Portal admission without company/product grant. A fresh leased database receives schema version 1 from the gateway's schema command before serving; a real reference write succeeds afterward. Valid bearer alone reaches reference REST; key A shares data across contexts and key B cannot access it. PostgreSQL/Control Plane outage leaves cache-off REST inference and local key authentication independent; history outage preserves resolved output. No browser or real provider.
   - Expected runtime: 3–15min within existing 30min runner ceiling.
 
 - **TEST-434: Deployed configuration identity**
@@ -1716,7 +1724,7 @@ All proposed tests are created in the phase that first uses them. Existing test 
   - Command: `go test -tags=integration ./stateful -run '^TestHistoryStore$' -count=1`.
   - Fixtures/mocks/data: Real PostgreSQL lease; history-pages.json rows for two hashes with equal start timestamps; 17 MiB boundary record; injected clock and commit hook.
   - Deterministic controls: section 7.3 defaults; real-storage cases use `internal/integrationtest.PostgresLease`/`GarageLease`, unique scopes and bounded cleanup, never production. No browser or real provider.
-  - Pass criteria: One insert per run records the server key hash; callers cannot choose hash or SQL. One fixed parameterized filter drives list/count/detail; numbered pagination/total counts preserve baseline navigation, tie order and the fixed `before` cutoff. Foreign-key run IDs return not found. Oversize is rejected as not saved without truncation. The usage query returns the key's own row count and a positive table size, unaffected by another key's rows. Unknown commit outcome is resolved by exactly one readback; no insert retry or secret-bearing error. The 17 MiB boundary record inserts and loads within the named history budgets (2 s insert, 2 s detail) on the real lease, and its measured durations are recorded.
+  - Pass criteria: One insert per run records the server key hash; callers cannot choose hash or SQL. One fixed parameterized filter drives list/count/detail; numbered pagination/total counts preserve baseline navigation, tie order and the fixed `before` cutoff. Foreign-key run IDs return not found. Oversize is rejected as not saved without truncation. The usage query returns the key's own row count and a positive table size, unaffected by another key's rows. Unknown commit gets exactly one readback: found means saved; absent or failed means unconfirmed. A delayed real commit becomes visible after an empty readback without another insert; definite pre-COMMIT rejection alone means not saved. No polling, insert retry or secret-bearing error. The 17 MiB boundary record inserts and loads within the named history budgets (2 s insert, 2 s detail) on the real lease, and its measured durations are recorded.
   - Expected runtime: 30–120s with warm service pool.
 
 - **TEST-443: Artifact streaming and cleanup**
@@ -1782,6 +1790,24 @@ All proposed tests are created in the phase that first uses them. Existing test 
   - Pass criteria: One gateway metadata/env path validates without printing secrets or using scalar/session fallback. JSON contains only key environment names; frontend and gateway use the approved shared HARDEN_LLM_TOKEN value. No DB ping/key generation/identity request at construction. Disabled history differs from bad enabled config; one pool/independent status; schema command cannot reset broad data. The preview descriptor wires the gateway database, history flag and credential key, runs the one-shot `gateway-schema` service before `gateway`, and sets no artifact settings; `previewSecrets()` yields a standard-base64 32-byte credential key and existing values are kept.
   - Expected runtime: 10–30s.
 
+- **TEST-450: Production schema invocation precedes application startup**
+  - Type: unit; verifies: REQ-430, REQ-432, REQ-435.
+  - Location: `scripts/test/production_config_test.mjs`.
+  - Command: `node --test scripts/test/production_config_test.mjs`.
+  - Fixtures/mocks/data: Existing protected-descriptor fixtures and injected process runner; accepted gateway image/SHA, one-shot `gateway-schema` service, synthetic database credential sentinel, successful/failed schema exits, missing service and mismatched image/command, frontend-only and no-change apply cases. Extend the existing test file in P05.S01; do not create another deployer or runner.
+  - Deterministic controls: Node only, process-owned fixtures, fixed command results; no Docker daemon, database, provider or browser. Assertions inspect calls to the production `runApply`, not a test-only implementation.
+  - Pass criteria: For an apply selecting the gateway that needs changes, validated schema invocation runs exactly once before any application `up`, with the accepted gateway image/config/context; application startup retains `--no-deps`. Nonzero schema exit, missing service or mismatched image/command prevents application startup. Frontend-only and no-change apply do not start the schema service. No credential appears in command arguments or diagnostics.
+  - Expected runtime: 1–10s.
+
+- **TEST-451: History recording outcome classification**
+  - Type: unit; verifies: REQ-426, REQ-429, REQ-431.
+  - Location: `stateful/history_test.go`.
+  - Command: `go test ./stateful -run '^TestHistoryRecordingOutcome$' -count=1`.
+  - Fixtures/mocks/data: Table-driven committed, definitely rejected and unknown commit outcomes with found/absent/failed readback. Created in P03.S01; exercise the one production classifier used by `insertHistory`.
+  - Deterministic controls: Default-tag Go, no storage/provider or fake store; synthetic outcomes and fixed expected status strings.
+  - Pass criteria: Confirmed commit or positive readback after unknown commit returns saved; definite pre-COMMIT rejection returns not_saved; unknown commit with absent or failed readback returns unconfirmed. Empty readback never proves rejection. TEST-442 separately proves the real delayed-commit boundary.
+  - Expected runtime: 1–10s.
+
 ### 7.4. Decision record and remaining owner checks
 
 - CHECK-420: Current accepted policy is sections 2/4/8: incoming HLLM bearer alone authenticates all Go REST; its server-derived `api_key_hash` scopes every stored application record. Portal controls frontend admission only. Same key shares profiles/history across logins/clients, drafts are per host-supplied draft key (per Portal user in the reference host), different keys isolate everything, and replacing a key starts a fresh scope handled manually for now. Explicit Save creates a complete UUID/date/suffix profile; templates have no live inheritance. Model Recall is the first read-only component interface reference. History lives in HLLM PostgreSQL with nonblocking recording and no automatic expiry; delete/clear applies only to the authenticated key; artifacts are scoped by Garage path. Historical decision records remain linked for provenance but their conflicting user/session/shared-history/update rules are superseded. P00 updates ADR-HLLM-033/OpenAPI/policy; no new approval is needed for these settled choices.
@@ -1811,6 +1837,13 @@ v5.2 decisions accepted by Kirill on 2026-10-12 from the [v5.2 review record](..
 | DEC-HLLM-V52-05 | All moved and new settings use `HARDEN_LLM_*`; no `HLLM_*` setting names. |
 | DEC-HLLM-V52-06 | History insert 2 s, readback 1 s and detail 2 s are named constants; other storage SQL keeps 600/500 ms. The 17 MiB bound stays. |
 | DEC-HLLM-V52-07 | Each preview, including `dev`, gets its own generated `HARDEN_LLM_CREDENTIAL_KEY`; production's is generated once by the operator under CHECK-422. |
+
+v5.3 readiness-review corrections accepted by Kirill on 2026-10-12. They are settled; do not ask again.
+
+| ID | Decision |
+| --- | --- |
+| DEC-HLLM-V53-01 | After an unknown COMMIT, one bounded readback may confirm saved only when the row is found. Empty or failed readback remains unconfirmed because the commit can finish later. No polling, insert retry or inference replay. Add the cheap TEST-451 regression and the delayed real-commit case to TEST-442 within P03.S01–S02. |
+| DEC-HLLM-V53-02 | Existing production `runApply` explicitly invokes the accepted gateway image's one-shot `gateway-schema` service and requires exit 0 before application startup. Retain `--no-deps`; do not rely on `depends_on` or add a second deployment command. TEST-450 covers ordering/failure under Node in P05.S01–S02; TEST-433 covers fresh-schema startup through real composed storage. |
 
 The accepted record and remaining owner checks cannot replace automated behavioral acceptance. No human browser check is required or implied by this plan.
 
@@ -1858,6 +1891,10 @@ Existing environment names stay where applicable, and every moved or new setting
 ### 8.2. PostgreSQL schema and transaction rules
 
 Create `stateful/schema.sql` in P02 for the fresh HLLM database provisioned by the shared owner. `ApplySchema(ctx,pool)` transactionally creates version 1 only when the version table is absent; matching version is a no-op and mismatch fails for operator action. P02.S15–S16 create and test the `harden-llm-gateway schema` subcommand; previews run it through the one-shot `gateway-schema` service from P02 exit, and production runs the same one-shot service, prepared in P05.S02 and applied in P06.S02. The serving process never drops/resets data or auto-converts old schemas.
+
+Production execution has one path in existing `scripts/production-config.mjs:runApply`. For a change that selects `harden-llm-gateway`, keep the existing scope/candidate/image/freshness checks, then validate the resolved `gateway-schema` service: image reference equals the accepted gateway image, command is `["schema"]`, no build stanza, and database configuration comes from the same protected source. Align protected descriptor image overrides for both services. Inside the existing `withOverrideFile` callback, first call `buildComposeArguments(descriptor, ["run", "--rm", "--no-deps", "--pull", "never", "gateway-schema"], overridePath)` through the existing process runner and `buildComposeEnvironment`; require exit 0 through `processResultOutput`. Only then invoke the existing application `up --no-deps` command. A schema failure starts no application; no Docker dependency traversal, manual schema fallback, new CLI operation, extra pool or long-lived service is added. Frontend-only and no-change applies preserve their existing behavior and run no schema command. Preview startup continues using its existing Compose dependency path.
+
+TEST-450 proves this production command sequence without Docker; TEST-433 separately proves the schema command against a fresh real PostgreSQL database. P06 records the exact schema command, accepted image identity and exit result as release evidence before application convergence.
 
 ```sql
 CREATE TABLE hllm_schema_version (
@@ -1968,7 +2005,7 @@ LIMIT $4 OFFSET $5
 - `HistoryQuery` fields are `From`, `Before`, `Page`, `PageSize`. Default page 1/page size 25; allowed sizes 10/25/50/100 retain baseline controls. First page fixes `Before=clock.Now().UTC()` and navigation carries it. Validate positive page/integer-safe `(page-1)*pageSize`; count and list use identical filters and existing query deadlines. Return `{items,pagination:{page,pageSize,totalCount},window,history}`. No cursor compatibility path or UI navigation redesign.
 - `GetHistory` selects by key hash and run UUID without a window. Validate schema version and complete payload. A missing or foreign run returns `history_not_found`; malformed content returns `history_record_invalid`. A failed query returns unavailable, never an empty list.
 - `Statistics` applies the identical key/window filter and sums `summary` fields: provider usage/cost for actual spend, result accounting for cached output displays, known subtotal plus unknown-observation counts. Any missing cost leaves the total partial/unknown. Publish window and `scope:"available_records"`; missing records are not zero-cost calls.
-- Recording: after the terminal result and artifact publication, insert once with a detached context capped at two seconds (caller cancellation dropped, correlation kept). Commit success means `saved`. An error before COMMIT is sent (pool unavailable, constraint/oversize, statement error) means `not_saved`. A connection loss or timeout after COMMIT is sent triggers one read by run ID on a fresh connection within one more second: found means `saved`, absent means `not_saved`, a failed read means `unconfirmed`. Never re-insert, never rerun inference. For SSE, emit the inference result promptly, then the recording outcome; JSON returns one envelope within the 75-second reference transport timeout, retaining the 60-second inference budget.
+- Recording: after the terminal result and artifact publication, insert once with a detached context capped at two seconds (caller cancellation dropped, correlation kept). Commit success means `saved`. An error before COMMIT is sent (pool unavailable, constraint/oversize, statement error) means `not_saved`. A connection loss or timeout after COMMIT is sent triggers one read by run ID on a fresh connection within one more second: found means `saved`; absent or failed readback means `unconfirmed`. The empty query can race a delayed commit and is not proof of rollback. Never poll, re-insert or rerun inference. For SSE, emit the inference result promptly, then the recording outcome; JSON returns one envelope within the 75-second reference transport timeout, retaining the 60-second inference budget.
 - A process death before the insert leaves no history record. There is no background reconciliation or local spool.
 
 Delete loads the scoped row, deletes every object under `artifacts/<api_key_hash>/<run_id>/`, then deletes the row. Already-missing objects count as removed. If an object delete fails, keep the row, return `artifact_cleanup_failed` with the run ID, and let the user retry; the operation is idempotent. Any holder of the validated key may delete/clear only matching-hash rows. Clear freezes a cutoff, then repeatedly selects up to 100 run IDs before the cutoff for that key, deletes their prefixes and rows, and stops at the first failure. Return `{deleted,cutoff,complete}` plus the first failed run ID. Runs started after the cutoff are untouched. A history deletion does not erase diagnostic spans in Laminar.
@@ -2001,7 +2038,7 @@ Canonical definitions go in `api/openapi.yaml` before implementation; Go DTO JSO
 
 `RunOutput` keeps baseline `schemaVersion`, `runId`, `status`, `output`, `callId`, `traceId`, `origin`, `selectedTarget`, `generationTarget`, `resultSource`, `accounting`, `attempts`, `cache`, `artifacts`, `providerInvoked`, duration/wait/over-budget fields, `usedRepair`, `diagnostics`, `stopReason`, `search`; add `history:RecordingOutcome`. `RunState` keeps `lastRunId`, `lastTraceId`. Store neither `RecordingOutcome` nor a self-referential record inside history. On key-scoped restore, copy the complete recorded safe definition/inputs into the current draft without profile-name matching. A missing/deleted same-key credential binding stays unresolved with an explicit selection message; never borrow a foreign binding. Restore does not save or run; Save creates a fresh snapshot.
 
-`RecordingOutcome` is `{mode:"disabled"|"enabled", status:"disabled"|"configuration_error"|"saved"|"not_saved"|"unconfirmed", runId, diagnostic?}`. Query errors use a separate error envelope; a failed read does not change a recorded inference outcome. `unconfirmed` means the commit outcome was unknown and the single readback failed.
+`RecordingOutcome` is `{mode:"disabled"|"enabled", status:"disabled"|"configuration_error"|"saved"|"not_saved"|"unconfirmed", runId, diagnostic?}`. Query errors use a separate error envelope; a failed read does not change a recorded inference outcome. `unconfirmed` means the commit outcome was unknown and the single readback was absent or failed. It does not assert that no row exists or will appear later.
 
 A diagnostic is `{code, component, operation, requestId, runId?, traceId?, inferenceOutcome, persistenceOutcome, cause, durationMs, message, action}`. `cause` is a bounded enum (`configuration`, `authentication`, `connection`, `timeout`, `schema`, `rejected`, `unknown`), not the raw driver error. `message` and `action` each have a 512-byte limit; aggregate diagnostics retain the existing 64 KiB cap. Logs use these same fields with severity, never a second error projection.
 
@@ -2028,7 +2065,7 @@ Create one shared `test/fixtures/reference/` directory in P00; Go validates JSON
 | `profile-snapshots.json` | Full prompt/schema/provider/repair/cache/timeout values; false/zero/empty preservation; template changed/deleted after save; new UUID/date/suffix; repeated Save; hidden templates and cross-key binding denial. |
 | `recovery-cross-profile.json` | Generation A → malformed JSON → repair B, repair escalation and rerun; exact target credentials, bounded attempts and ledger; missing B fails before A dispatch. |
 | `run-repaired.json`, `run-cache-hit.json`, `run-validation-error.json` | Complete baseline result envelope; preserve original successful output after repaired errors, zero dispatched provider calls on hit/validation, correct result/provider ledgers. |
-| `history-outcomes.json` | Every recording state (disabled, configuration error, saved, not saved, unconfirmed) plus empty success, query failure, oversize, unknown commit outcome resolved by readback, failed readback and process-cancel behavior. Provider and insert counts are exact. |
+| `history-outcomes.json` | Every recording state (disabled, configuration error, saved, not saved, unconfirmed) plus empty success, query failure, oversize, unknown commit with positive/empty/failed readback, a delayed commit appearing after empty readback and process-cancel behavior. Provider, insert and readback counts are exact. |
 | `history-pages.json` | Equal timestamps/distinct UUIDs, numbered navigation/counts/page sizes/fixed cutoff, deleting rows and batched clear before cutoff; same-key sharing and cross-key list/detail/stats denial. |
 | `reference-errors.json` | All error families with correlation/timing/action, synthetic secret-bearing underlying errors; no sentinel reaches response/log/history. |
 | `profile-bundle.json` | Current complete encrypted same-hash bundle; different access hash/encryption key/version, tamper, atomic replacement rollback, hidden preferences and unavailable deployment binding. |
@@ -2127,6 +2164,9 @@ Generate ciphertext deterministically only in encryption tests using an injected
 | P03 | REQ-429 | TEST-442 | `stateful/history_store_integration_test.go` | `go test -tags=integration ./stateful -run '^TestHistoryStore$' -count=1` |
 | P03 | REQ-431 | TEST-442 | `stateful/history_store_integration_test.go` | `go test -tags=integration ./stateful -run '^TestHistoryStore$' -count=1` |
 | P03 | REQ-432 | TEST-442 | `stateful/history_store_integration_test.go` | `go test -tags=integration ./stateful -run '^TestHistoryStore$' -count=1` |
+| P03 | REQ-426 | TEST-451 | `stateful/history_test.go` | `go test ./stateful -run '^TestHistoryRecordingOutcome$' -count=1` |
+| P03 | REQ-429 | TEST-451 | `stateful/history_test.go` | `go test ./stateful -run '^TestHistoryRecordingOutcome$' -count=1` |
+| P03 | REQ-431 | TEST-451 | `stateful/history_test.go` | `go test ./stateful -run '^TestHistoryRecordingOutcome$' -count=1` |
 | P03 | REQ-426 | TEST-443 | `stateful/artifact_integration_test.go` | `go test -tags=integration ./stateful -run '^TestReferenceArtifacts$' -count=1` |
 | P03 | REQ-429 | TEST-443 | `stateful/artifact_integration_test.go` | `go test -tags=integration ./stateful -run '^TestReferenceArtifacts$' -count=1` |
 | P03 | REQ-432 | TEST-443 | `stateful/artifact_integration_test.go` | `go test -tags=integration ./stateful -run '^TestReferenceArtifacts$' -count=1` |
@@ -2154,6 +2194,9 @@ Generate ciphertext deterministically only in encryption tests using an injected
 | P05 | REQ-425 | TEST-432 | `internal/deploytest/reference_topology_test.go` | `go test ./internal/deploytest -run '^TestReferenceTopology$' -count=1` |
 | P05 | REQ-430 | TEST-432 | `internal/deploytest/reference_topology_test.go` | `go test ./internal/deploytest -run '^TestReferenceTopology$' -count=1` |
 | P05 | REQ-435 | TEST-432 | `internal/deploytest/reference_topology_test.go` | `go test ./internal/deploytest -run '^TestReferenceTopology$' -count=1` |
+| P05 | REQ-430 | TEST-450 | `scripts/test/production_config_test.mjs` | `node --test scripts/test/production_config_test.mjs` |
+| P05 | REQ-432 | TEST-450 | `scripts/test/production_config_test.mjs` | `node --test scripts/test/production_config_test.mjs` |
+| P05 | REQ-435 | TEST-450 | `scripts/test/production_config_test.mjs` | `node --test scripts/test/production_config_test.mjs` |
 | P05 | REQ-422 | TEST-433 | `internal/smoke/compose_smoke_test.go` | `make test-compose` |
 | P05 | REQ-425 | TEST-433 | `internal/smoke/compose_smoke_test.go` | `make test-compose` |
 | P05 | REQ-426 | TEST-433 | `internal/smoke/compose_smoke_test.go` | `make test-compose` |
@@ -2209,11 +2252,11 @@ configuration_checkpoint:
 
 ## 13. Consistency check
 
-- All sixteen canonical requirements and thirty concrete tests (TEST-420–449) appear in the RTM; all referenced tests have concrete paths, commands, fixtures, controls, pass criteria and runtime estimates in section 7.3.
+- All sixteen canonical requirements and thirty-two concrete tests (TEST-420–451) appear in the RTM; all referenced tests have concrete paths, commands, fixtures, controls, pass criteria and runtime estimates in section 7.3.
 - Phase IDs are sequential P00–P06 with 72 steps; subtask IDs are ordered and carry all required fields. Implementation follows intentional failing coverage; matching RED/GREEN commands and test IDs are preserved.
 - P06 applies already-tested artifacts and contains no new behavioral implementation. Its configuration was covered before modification in P05; deployment identity/HTTP checks add live evidence rather than replacing deterministic coverage.
 - All phases include verification/refactoring review, measurement where relevant, lifecycle evidence, estimates and the common exit/suspension gates. Human decisions do not appear in the RTM or substitute for tests.
 - New commands target files/tasks explicitly created before use. Existing Make/Mix/Node/Go runners remain the owners. Unknown external operational details are explicit owner/decision gates, not invented commands.
 - Current source paths and baseline paths were inspected; proposed paths are identified by their creation steps. Documentation checks comprise identifier/RTM/command matching, phase ordering and `git diff HEAD --check`.
 - Accepted CHECK-420 decisions are applied consistently to requirements, phase actions, test assertions and data contracts. History-count acceptance is conditional on healthy enabled recording; failure coverage requires preserved inference and truthful diagnostics. Existing Phoenix drafts/history are removed only after their Go replacements and REST routes are green (P03.S13).
-- Only documentation checks were performed for this revision; no application tests, builds, browsers, provider calls, production mutations or deployment. Implementation evidence remains blank. v5.1 removed the Laminar owner gate; remaining prerequisites are the shared-service provisioning checks in CHECK-422 (PostgreSQL database/role, Garage prefix permissions) before P05 apply and P06, followed by the required phase gates. Settled product choices, including DEC-HLLM-V51-01 to 07 and DEC-HLLM-V52-01 to 07 in section 7.4, do not need to be asked again. v5.2 moved two steps from P05 to P02 and reordered P03, so the step count is unchanged.
+- Only documentation checks were performed for this revision; no application tests, builds, browsers, provider calls, production mutations or deployment. Implementation evidence remains blank. v5.1 removed the Laminar owner gate; remaining prerequisites are the shared-service provisioning checks in CHECK-422 (PostgreSQL database/role, Garage prefix permissions) before P05 apply and P06, followed by the required phase gates. Settled product choices, including DEC-HLLM-V51-01 to 07, DEC-HLLM-V52-01 to 07 and DEC-HLLM-V53-01 to 02 in section 7.4, do not need to be asked again. v5.2 moved two steps from P05 to P02 and reordered P03; v5.3 adds TEST-450/451 within existing RED/GREEN pairs, so the step count remains 72. Unknown commits cannot become not_saved from an empty readback; production schema execution is explicit before application startup.
