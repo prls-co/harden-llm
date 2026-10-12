@@ -1,0 +1,706 @@
+{
+  "rows": [
+    {
+      "apiKeyHash": "c7295ce3bee8241c186abb300ca115c4999dc6548415b5ad7e9b2fb1cc914dd5",
+      "record": {
+        "schemaVersion": 1,
+        "runId": "00000000-0000-4000-8000-000000000001",
+        "startedAt": "2026-10-10T12:00:00Z",
+        "finishedAt": "2026-10-10T12:00:01Z",
+        "status": "succeeded",
+        "summary": {
+          "runId": "00000000-0000-4000-8000-000000000001",
+          "profileId": "cpa-json",
+          "modelId": "fixture-model",
+          "status": "succeeded",
+          "startedAt": "2026-10-10T12:00:00Z",
+          "finishedAt": "2026-10-10T12:00:01Z",
+          "cacheServed": false,
+          "resultSource": "provider",
+          "providerTokens": 0,
+          "resultTokens": 0,
+          "knownCostUsd": 0,
+          "knownCostObservations": 0,
+          "unknownCostObservations": 1,
+          "durationMs": 100
+        },
+        "request": {
+          "input": {
+            "profileId": "cpa-json",
+            "userPrompt": "Return an object with ok true.",
+            "callType": "structured",
+            "recoveryPolicy": {
+              "maxAttempts": 1,
+              "retryOn": [],
+              "jsonRepair": null,
+              "rerun": null,
+              "backoff": {
+                "baseDelayMs": 0,
+                "maxDelayMs": 0
+              }
+            }
+          },
+          "profile": {
+            "sourceProfileId": "cpa-json",
+            "presetId": "cpa-json",
+            "definition": {
+              "schemaVersion": 4,
+              "provider": "openai",
+              "apiInferenceType": "responses",
+              "baseUrl": "https://provider.example/v1",
+              "modelId": "fixture-model",
+              "pricing": null,
+              "supportsTemperature": null,
+              "supportsContractedStructuredOutput": true,
+              "supportsWebSearch": false,
+              "tokensParam": null,
+              "responsesTokensParam": null,
+              "defaultOptions": {},
+              "recoveryPolicy": {
+                "maxAttempts": 1,
+                "retryOn": [],
+                "jsonRepair": null,
+                "rerun": null,
+                "backoff": {
+                  "baseDelayMs": 0,
+                  "maxDelayMs": 0
+                }
+              },
+              "models": [
+                {
+                  "id": "fixture-model",
+                  "label": "Fixture model"
+                }
+              ]
+            },
+            "inputs": {
+              "userPrompt": "Return an object with ok true.",
+              "callType": "structured",
+              "recoveryPolicy": {
+                "maxAttempts": 1,
+                "retryOn": [],
+                "jsonRepair": null,
+                "rerun": null,
+                "backoff": {
+                  "baseDelayMs": 0,
+                  "maxDelayMs": 0
+                }
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ok": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "ok"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "credentialBinding": {
+              "source": "deployment",
+              "deploymentUpstreamId": "fixture"
+            },
+            "credentialStatus": {
+              "configured": true,
+              "source": "deployment"
+            }
+          }
+        },
+        "result": {
+          "schemaVersion": 4,
+          "runId": "00000000-0000-4000-8000-000000000001",
+          "status": "succeeded",
+          "output": {
+            "ok": true
+          },
+          "callId": "00000000-0000-4000-8000-000000000001",
+          "traceId": "00000000-0000-4000-8000-000000000001",
+          "selectedTarget": {
+            "profileId": "cpa-json",
+            "provider": "openai",
+            "protocol": "responses",
+            "endpoint": "https://provider.example/v1",
+            "modelId": "fixture-model"
+          },
+          "resultSource": {
+            "kind": "provider",
+            "attemptNumber": 1,
+            "producer": {
+              "profileId": "cpa-json",
+              "provider": "openai",
+              "protocol": "responses",
+              "endpoint": "https://provider.example/v1",
+              "modelId": "fixture-model"
+            }
+          },
+          "accounting": {
+            "result": {
+              "usage": {
+                "inputTokens": 0,
+                "cacheReadTokens": 0,
+                "cacheCreationTokens": 0,
+                "outputTokens": 0,
+                "reasoningTokens": 0,
+                "promptTokens": 0,
+                "completionTokens": 0,
+                "totalTokens": 0,
+                "status": "unavailable"
+              },
+              "cost": {
+                "knownSubtotalUsd": 0,
+                "status": "unknown",
+                "source": "none",
+                "knownObservations": 0,
+                "unknownObservations": 1
+              }
+            },
+            "provider": {
+              "usage": {
+                "inputTokens": 0,
+                "cacheReadTokens": 0,
+                "cacheCreationTokens": 0,
+                "outputTokens": 0,
+                "reasoningTokens": 0,
+                "promptTokens": 0,
+                "completionTokens": 0,
+                "totalTokens": 0,
+                "status": "unavailable"
+              },
+              "cost": {
+                "knownSubtotalUsd": 0,
+                "status": "unknown",
+                "source": "none",
+                "knownObservations": 0,
+                "unknownObservations": 1
+              }
+            }
+          },
+          "attempts": [
+            {
+              "number": 1,
+              "profileId": "cpa-json",
+              "target": {
+                "profileId": "cpa-json",
+                "provider": "openai",
+                "protocol": "responses",
+                "endpoint": "https://provider.example/v1",
+                "modelId": "fixture-model"
+              },
+              "retryable": false,
+              "wait": 0,
+              "duration": 100000000,
+              "repair": false,
+              "providerUsed": true,
+              "dispatchObserved": true,
+              "stage": "generation",
+              "branch": "original",
+              "startedAt": "2026-10-10T12:00:00Z",
+              "finishedAt": "2026-10-10T12:00:01Z"
+            }
+          ],
+          "cache": {
+            "mode": "off",
+            "status": "bypassed",
+            "served": false,
+            "written": false
+          },
+          "artifacts": [],
+          "providerInvoked": true,
+          "totalCallDurationMs": 100,
+          "totalWaitMs": 0,
+          "totalActualWaitMs": 0,
+          "overBudgetMs": 0,
+          "usedRepair": false
+        },
+        "error": null
+      }
+    },
+    {
+      "apiKeyHash": "c7295ce3bee8241c186abb300ca115c4999dc6548415b5ad7e9b2fb1cc914dd5",
+      "record": {
+        "schemaVersion": 1,
+        "runId": "00000000-0000-4000-8000-000000000002",
+        "startedAt": "2026-10-10T12:00:00Z",
+        "finishedAt": "2026-10-10T12:00:01Z",
+        "status": "succeeded",
+        "summary": {
+          "runId": "00000000-0000-4000-8000-000000000002",
+          "profileId": "cpa-json",
+          "modelId": "fixture-model",
+          "status": "succeeded",
+          "startedAt": "2026-10-10T12:00:00Z",
+          "finishedAt": "2026-10-10T12:00:01Z",
+          "cacheServed": false,
+          "resultSource": "provider",
+          "providerTokens": 0,
+          "resultTokens": 0,
+          "knownCostUsd": 0,
+          "knownCostObservations": 0,
+          "unknownCostObservations": 1,
+          "durationMs": 100
+        },
+        "request": {
+          "input": {
+            "profileId": "cpa-json",
+            "userPrompt": "Return an object with ok true.",
+            "callType": "structured",
+            "recoveryPolicy": {
+              "maxAttempts": 1,
+              "retryOn": [],
+              "jsonRepair": null,
+              "rerun": null,
+              "backoff": {
+                "baseDelayMs": 0,
+                "maxDelayMs": 0
+              }
+            }
+          },
+          "profile": {
+            "sourceProfileId": "cpa-json",
+            "presetId": "cpa-json",
+            "definition": {
+              "schemaVersion": 4,
+              "provider": "openai",
+              "apiInferenceType": "responses",
+              "baseUrl": "https://provider.example/v1",
+              "modelId": "fixture-model",
+              "pricing": null,
+              "supportsTemperature": null,
+              "supportsContractedStructuredOutput": true,
+              "supportsWebSearch": false,
+              "tokensParam": null,
+              "responsesTokensParam": null,
+              "defaultOptions": {},
+              "recoveryPolicy": {
+                "maxAttempts": 1,
+                "retryOn": [],
+                "jsonRepair": null,
+                "rerun": null,
+                "backoff": {
+                  "baseDelayMs": 0,
+                  "maxDelayMs": 0
+                }
+              },
+              "models": [
+                {
+                  "id": "fixture-model",
+                  "label": "Fixture model"
+                }
+              ]
+            },
+            "inputs": {
+              "userPrompt": "Return an object with ok true.",
+              "callType": "structured",
+              "recoveryPolicy": {
+                "maxAttempts": 1,
+                "retryOn": [],
+                "jsonRepair": null,
+                "rerun": null,
+                "backoff": {
+                  "baseDelayMs": 0,
+                  "maxDelayMs": 0
+                }
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ok": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "ok"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "credentialBinding": {
+              "source": "deployment",
+              "deploymentUpstreamId": "fixture"
+            },
+            "credentialStatus": {
+              "configured": true,
+              "source": "deployment"
+            }
+          }
+        },
+        "result": {
+          "schemaVersion": 4,
+          "runId": "00000000-0000-4000-8000-000000000002",
+          "status": "succeeded",
+          "output": {
+            "ok": true
+          },
+          "callId": "00000000-0000-4000-8000-000000000001",
+          "traceId": "00000000-0000-4000-8000-000000000001",
+          "selectedTarget": {
+            "profileId": "cpa-json",
+            "provider": "openai",
+            "protocol": "responses",
+            "endpoint": "https://provider.example/v1",
+            "modelId": "fixture-model"
+          },
+          "resultSource": {
+            "kind": "provider",
+            "attemptNumber": 1,
+            "producer": {
+              "profileId": "cpa-json",
+              "provider": "openai",
+              "protocol": "responses",
+              "endpoint": "https://provider.example/v1",
+              "modelId": "fixture-model"
+            }
+          },
+          "accounting": {
+            "result": {
+              "usage": {
+                "inputTokens": 0,
+                "cacheReadTokens": 0,
+                "cacheCreationTokens": 0,
+                "outputTokens": 0,
+                "reasoningTokens": 0,
+                "promptTokens": 0,
+                "completionTokens": 0,
+                "totalTokens": 0,
+                "status": "unavailable"
+              },
+              "cost": {
+                "knownSubtotalUsd": 0,
+                "status": "unknown",
+                "source": "none",
+                "knownObservations": 0,
+                "unknownObservations": 1
+              }
+            },
+            "provider": {
+              "usage": {
+                "inputTokens": 0,
+                "cacheReadTokens": 0,
+                "cacheCreationTokens": 0,
+                "outputTokens": 0,
+                "reasoningTokens": 0,
+                "promptTokens": 0,
+                "completionTokens": 0,
+                "totalTokens": 0,
+                "status": "unavailable"
+              },
+              "cost": {
+                "knownSubtotalUsd": 0,
+                "status": "unknown",
+                "source": "none",
+                "knownObservations": 0,
+                "unknownObservations": 1
+              }
+            }
+          },
+          "attempts": [
+            {
+              "number": 1,
+              "profileId": "cpa-json",
+              "target": {
+                "profileId": "cpa-json",
+                "provider": "openai",
+                "protocol": "responses",
+                "endpoint": "https://provider.example/v1",
+                "modelId": "fixture-model"
+              },
+              "retryable": false,
+              "wait": 0,
+              "duration": 100000000,
+              "repair": false,
+              "providerUsed": true,
+              "dispatchObserved": true,
+              "stage": "generation",
+              "branch": "original",
+              "startedAt": "2026-10-10T12:00:00Z",
+              "finishedAt": "2026-10-10T12:00:01Z"
+            }
+          ],
+          "cache": {
+            "mode": "off",
+            "status": "bypassed",
+            "served": false,
+            "written": false
+          },
+          "artifacts": [],
+          "providerInvoked": true,
+          "totalCallDurationMs": 100,
+          "totalWaitMs": 0,
+          "totalActualWaitMs": 0,
+          "overBudgetMs": 0,
+          "usedRepair": false
+        },
+        "error": null
+      }
+    },
+    {
+      "apiKeyHash": "f0618fdc3e22f4d9a493983ad43f0a06174958bb81708390493b9da2a01798b6",
+      "record": {
+        "schemaVersion": 1,
+        "runId": "00000000-0000-4000-8000-000000000003",
+        "startedAt": "2026-10-10T12:00:00Z",
+        "finishedAt": "2026-10-10T12:00:01Z",
+        "status": "succeeded",
+        "summary": {
+          "runId": "00000000-0000-4000-8000-000000000003",
+          "profileId": "cpa-json",
+          "modelId": "fixture-model",
+          "status": "succeeded",
+          "startedAt": "2026-10-10T12:00:00Z",
+          "finishedAt": "2026-10-10T12:00:01Z",
+          "cacheServed": false,
+          "resultSource": "provider",
+          "providerTokens": 0,
+          "resultTokens": 0,
+          "knownCostUsd": 0,
+          "knownCostObservations": 0,
+          "unknownCostObservations": 1,
+          "durationMs": 100
+        },
+        "request": {
+          "input": {
+            "profileId": "cpa-json",
+            "userPrompt": "Return an object with ok true.",
+            "callType": "structured",
+            "recoveryPolicy": {
+              "maxAttempts": 1,
+              "retryOn": [],
+              "jsonRepair": null,
+              "rerun": null,
+              "backoff": {
+                "baseDelayMs": 0,
+                "maxDelayMs": 0
+              }
+            }
+          },
+          "profile": {
+            "sourceProfileId": "cpa-json",
+            "presetId": "cpa-json",
+            "definition": {
+              "schemaVersion": 4,
+              "provider": "openai",
+              "apiInferenceType": "responses",
+              "baseUrl": "https://provider.example/v1",
+              "modelId": "fixture-model",
+              "pricing": null,
+              "supportsTemperature": null,
+              "supportsContractedStructuredOutput": true,
+              "supportsWebSearch": false,
+              "tokensParam": null,
+              "responsesTokensParam": null,
+              "defaultOptions": {},
+              "recoveryPolicy": {
+                "maxAttempts": 1,
+                "retryOn": [],
+                "jsonRepair": null,
+                "rerun": null,
+                "backoff": {
+                  "baseDelayMs": 0,
+                  "maxDelayMs": 0
+                }
+              },
+              "models": [
+                {
+                  "id": "fixture-model",
+                  "label": "Fixture model"
+                }
+              ]
+            },
+            "inputs": {
+              "userPrompt": "Return an object with ok true.",
+              "callType": "structured",
+              "recoveryPolicy": {
+                "maxAttempts": 1,
+                "retryOn": [],
+                "jsonRepair": null,
+                "rerun": null,
+                "backoff": {
+                  "baseDelayMs": 0,
+                  "maxDelayMs": 0
+                }
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ok": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "ok"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "credentialBinding": {
+              "source": "deployment",
+              "deploymentUpstreamId": "fixture"
+            },
+            "credentialStatus": {
+              "configured": true,
+              "source": "deployment"
+            }
+          }
+        },
+        "result": {
+          "schemaVersion": 4,
+          "runId": "00000000-0000-4000-8000-000000000003",
+          "status": "succeeded",
+          "output": {
+            "ok": true
+          },
+          "callId": "00000000-0000-4000-8000-000000000001",
+          "traceId": "00000000-0000-4000-8000-000000000001",
+          "selectedTarget": {
+            "profileId": "cpa-json",
+            "provider": "openai",
+            "protocol": "responses",
+            "endpoint": "https://provider.example/v1",
+            "modelId": "fixture-model"
+          },
+          "resultSource": {
+            "kind": "provider",
+            "attemptNumber": 1,
+            "producer": {
+              "profileId": "cpa-json",
+              "provider": "openai",
+              "protocol": "responses",
+              "endpoint": "https://provider.example/v1",
+              "modelId": "fixture-model"
+            }
+          },
+          "accounting": {
+            "result": {
+              "usage": {
+                "inputTokens": 0,
+                "cacheReadTokens": 0,
+                "cacheCreationTokens": 0,
+                "outputTokens": 0,
+                "reasoningTokens": 0,
+                "promptTokens": 0,
+                "completionTokens": 0,
+                "totalTokens": 0,
+                "status": "unavailable"
+              },
+              "cost": {
+                "knownSubtotalUsd": 0,
+                "status": "unknown",
+                "source": "none",
+                "knownObservations": 0,
+                "unknownObservations": 1
+              }
+            },
+            "provider": {
+              "usage": {
+                "inputTokens": 0,
+                "cacheReadTokens": 0,
+                "cacheCreationTokens": 0,
+                "outputTokens": 0,
+                "reasoningTokens": 0,
+                "promptTokens": 0,
+                "completionTokens": 0,
+                "totalTokens": 0,
+                "status": "unavailable"
+              },
+              "cost": {
+                "knownSubtotalUsd": 0,
+                "status": "unknown",
+                "source": "none",
+                "knownObservations": 0,
+                "unknownObservations": 1
+              }
+            }
+          },
+          "attempts": [
+            {
+              "number": 1,
+              "profileId": "cpa-json",
+              "target": {
+                "profileId": "cpa-json",
+                "provider": "openai",
+                "protocol": "responses",
+                "endpoint": "https://provider.example/v1",
+                "modelId": "fixture-model"
+              },
+              "retryable": false,
+              "wait": 0,
+              "duration": 100000000,
+              "repair": false,
+              "providerUsed": true,
+              "dispatchObserved": true,
+              "stage": "generation",
+              "branch": "original",
+              "startedAt": "2026-10-10T12:00:00Z",
+              "finishedAt": "2026-10-10T12:00:01Z"
+            }
+          ],
+          "cache": {
+            "mode": "off",
+            "status": "bypassed",
+            "served": false,
+            "written": false
+          },
+          "artifacts": [],
+          "providerInvoked": true,
+          "totalCallDurationMs": 100,
+          "totalWaitMs": 0,
+          "totalActualWaitMs": 0,
+          "overBudgetMs": 0,
+          "usedRepair": false
+        },
+        "error": null
+      }
+    }
+  ],
+  "page": {
+    "items": [
+      {
+        "runId": "00000000-0000-4000-8000-000000000002",
+        "profileId": "cpa-json",
+        "modelId": "fixture-model",
+        "status": "succeeded",
+        "startedAt": "2026-10-10T12:00:00Z",
+        "finishedAt": "2026-10-10T12:00:01Z",
+        "cacheServed": false,
+        "resultSource": "provider",
+        "providerTokens": 0,
+        "resultTokens": 0,
+        "knownCostUsd": 0,
+        "knownCostObservations": 0,
+        "unknownCostObservations": 1,
+        "durationMs": 100
+      },
+      {
+        "runId": "00000000-0000-4000-8000-000000000001",
+        "profileId": "cpa-json",
+        "modelId": "fixture-model",
+        "status": "succeeded",
+        "startedAt": "2026-10-10T12:00:00Z",
+        "finishedAt": "2026-10-10T12:00:01Z",
+        "cacheServed": false,
+        "resultSource": "provider",
+        "providerTokens": 0,
+        "resultTokens": 0,
+        "knownCostUsd": 0,
+        "knownCostObservations": 0,
+        "unknownCostObservations": 1,
+        "durationMs": 100
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "pageSize": 25,
+      "totalCount": 2
+    },
+    "window": {
+      "before": "2026-10-10T12:01:00Z"
+    },
+    "history": {
+      "mode": "enabled",
+      "status": "configured"
+    }
+  }
+}

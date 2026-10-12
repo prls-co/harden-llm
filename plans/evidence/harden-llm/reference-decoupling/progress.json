@@ -1,0 +1,235 @@
+{
+  "documentId": "PLAN-HLLM-REFERENCE-DECOUPLING-002",
+  "planVersion": "5.3",
+  "branch": "feat/reference-decoupling",
+  "baseSHA": "ce09df303ba9c04f489563cf68fcdec25325ee36",
+  "completedPhases": [
+    "P00"
+  ],
+  "nextStep": "P01.S01",
+  "steps": {
+    "P00.S01": {
+      "status": "done"
+    },
+    "P00.S02": {
+      "status": "done"
+    },
+    "P00.S03": {
+      "status": "done"
+    },
+    "P00.S04": {
+      "status": "done"
+    },
+    "P00.S05": {
+      "status": "done"
+    },
+    "P00.S06": {
+      "status": "done"
+    },
+    "P01.S01": {
+      "status": "pending"
+    },
+    "P01.S02": {
+      "status": "pending"
+    },
+    "P01.S03": {
+      "status": "pending"
+    },
+    "P01.S04": {
+      "status": "pending"
+    },
+    "P01.S05": {
+      "status": "pending"
+    },
+    "P01.S06": {
+      "status": "pending"
+    },
+    "P01.S07": {
+      "status": "pending"
+    },
+    "P01.S08": {
+      "status": "pending"
+    },
+    "P01.S09": {
+      "status": "pending"
+    },
+    "P01.S10": {
+      "status": "pending"
+    },
+    "P02.S01": {
+      "status": "pending"
+    },
+    "P02.S02": {
+      "status": "pending"
+    },
+    "P02.S03": {
+      "status": "pending"
+    },
+    "P02.S04": {
+      "status": "pending"
+    },
+    "P02.S05": {
+      "status": "pending"
+    },
+    "P02.S06": {
+      "status": "pending"
+    },
+    "P02.S07": {
+      "status": "pending"
+    },
+    "P02.S08": {
+      "status": "pending"
+    },
+    "P02.S09": {
+      "status": "pending"
+    },
+    "P02.S10": {
+      "status": "pending"
+    },
+    "P02.S11": {
+      "status": "pending"
+    },
+    "P02.S12": {
+      "status": "pending"
+    },
+    "P02.S13": {
+      "status": "pending"
+    },
+    "P02.S14": {
+      "status": "pending"
+    },
+    "P02.S15": {
+      "status": "pending"
+    },
+    "P02.S16": {
+      "status": "pending"
+    },
+    "P02.S17": {
+      "status": "pending"
+    },
+    "P02.S18": {
+      "status": "pending"
+    },
+    "P03.S01": {
+      "status": "pending"
+    },
+    "P03.S02": {
+      "status": "pending"
+    },
+    "P03.S03": {
+      "status": "pending"
+    },
+    "P03.S04": {
+      "status": "pending"
+    },
+    "P03.S05": {
+      "status": "pending"
+    },
+    "P03.S06": {
+      "status": "pending"
+    },
+    "P03.S07": {
+      "status": "pending"
+    },
+    "P03.S08": {
+      "status": "pending"
+    },
+    "P03.S09": {
+      "status": "pending"
+    },
+    "P03.S10": {
+      "status": "pending"
+    },
+    "P03.S11": {
+      "status": "pending"
+    },
+    "P03.S12": {
+      "status": "pending"
+    },
+    "P03.S13": {
+      "status": "pending"
+    },
+    "P03.S14": {
+      "status": "pending"
+    },
+    "P04.S01": {
+      "status": "pending"
+    },
+    "P04.S02": {
+      "status": "pending"
+    },
+    "P04.S03": {
+      "status": "pending"
+    },
+    "P04.S04": {
+      "status": "pending"
+    },
+    "P04.S05": {
+      "status": "pending"
+    },
+    "P04.S06": {
+      "status": "pending"
+    },
+    "P04.S07": {
+      "status": "pending"
+    },
+    "P04.S08": {
+      "status": "pending"
+    },
+    "P04.S09": {
+      "status": "pending"
+    },
+    "P04.S10": {
+      "status": "pending"
+    },
+    "P04.S11": {
+      "status": "pending"
+    },
+    "P04.S12": {
+      "status": "pending"
+    },
+    "P04.S13": {
+      "status": "pending"
+    },
+    "P04.S14": {
+      "status": "pending"
+    },
+    "P05.S01": {
+      "status": "pending"
+    },
+    "P05.S02": {
+      "status": "pending"
+    },
+    "P05.S03": {
+      "status": "pending"
+    },
+    "P05.S04": {
+      "status": "pending"
+    },
+    "P05.S05": {
+      "status": "pending"
+    },
+    "P05.S06": {
+      "status": "pending"
+    },
+    "P06.S01": {
+      "status": "pending"
+    },
+    "P06.S02": {
+      "status": "pending"
+    },
+    "P06.S03": {
+      "status": "pending"
+    },
+    "P06.S04": {
+      "status": "pending"
+    }
+  },
+  "releaseAuthorization": "User explicitly requested push to main and deploy to production; required gates remain in force.",
+  "releaseStatus": "not implemented or deployed",
+  "ownerGates": {
+    "CHECK-420": "accepted and encoded",
+    "CHECK-421": "ADR-HLLM-034 recorded",
+    "CHECK-422": "pending before P05.S02/P06"
+  }
+}

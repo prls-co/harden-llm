@@ -24,6 +24,11 @@ func TestOpenAIContractOpenAPIRoutes(t *testing.T) {
 	want := map[string]struct{}{
 		"/healthz": {}, "/readyz": {}, "/v1/models": {},
 		"/v1/chat/completions": {}, "/v1/responses": {},
+		"/api/v1/status": {}, "/api/v1/profiles": {}, "/api/v1/profiles/{profileID}": {},
+		"/api/v1/profiles/{profileID}/models:refresh": {}, "/api/v1/profiles/bundle": {},
+		"/api/v1/run": {}, "/api/v1/state": {}, "/api/v1/history": {},
+		"/api/v1/history/{runID}": {}, "/api/v1/stats": {}, "/api/v1/traces/{runID}": {},
+		"/api/v1/traces/{runID}/artifacts/{artifactID}": {},
 	}
 	if len(document.Paths.Map()) != len(want) {
 		t.Fatalf("OpenAPI paths = %#v, want only %#v", document.Paths.Map(), want)

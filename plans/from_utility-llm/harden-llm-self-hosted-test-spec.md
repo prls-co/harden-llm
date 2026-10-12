@@ -10,9 +10,9 @@
 - Date: 2026-10-06
 - Document ID: `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001`
 - Related stack specification: `plans/from_utility-llm/self-hosted-go-stack-spec.md`
-- Summary: This document is the canonical backend test catalog. Its active 2026-10-06 amendment covers the profile-free OpenAI-compatible proxy, one incoming bearer, and a separate Phoenix reference application that records shared history. Earlier catalog entries remain historical where they describe removed profiles, per-login product data, custom run routes, or proxy-owned history. Phoenix tests use the separate `WEB-TEST-###` namespace; the current proxy/reference cases are TEST-400–410 and WEB-TEST-114–116.
+- Summary: This document is the canonical backend test catalog. Its active 2026-10-12 amendment follows ADR-HLLM-033 and PLAN-HLLM-REFERENCE-DECOUPLING-002 v5.3: stateless core, stateful reference library, one API-key scope and create-on-save snapshots. The 2026-10-06 transition remains historical. Earlier catalog entries remain historical where they describe removed profiles, per-login product data, custom run routes, or proxy-owned history. Phoenix tests use the separate `WEB-TEST-###` namespace; the current proxy/reference cases are TEST-400–410 and WEB-TEST-114–116.
 
-> **Current contract (2026-10-06):** The OpenAI proxy and reference-history amendment at the end of this catalog supersedes conflicting earlier tests. Direct API calls remain stateless and do not write history. Use the current task manifest for active test selection; retired test IDs are never reassigned.
+> **Current contract (2026-10-12):** Section 26 and ADR-HLLM-033/034 supersede conflicting historical ownership/route declarations. Direct `/v1` is ordinary OpenAI inference; reference `/api/v1` uses the same bearer and `api_key_hash`. Only reference runs enter PostgreSQL history. Execution status is in the reference-decoupling evidence ledger, not the old implementation-status file.
 - Resource-efficiency addendum date: `2026-09-21`; plan: `plans/production-scale-efficiency-plan.md`.
 
 ## 2. Test strategy
@@ -1473,3 +1473,339 @@ REQ-400–415 are defined in the implementation-plan amendment. TEST-400–411 a
 | TEST-411 | Integration; Phoenix release migration | `node scripts/run-test-tier.mjs --task frontend-reference-integration` | The production release migration succeeds when the Phoenix application is already loaded and reports no pending migrations after integration setup creates the schema. No provider, browser or production data is used. |
 
 `test/fixtures/proxy-reference-contract.json` is sanitized from checked-in CPA Chat/Responses fixtures; it contains no credentials/user data/live responses.
+
+## 26. Reference decoupling and API-key-scoped state (2026-10-12)
+
+ADR-HLLM-033 is the accepted boundary; the plan's sections 4 and 8 are the
+canonical API/type/configuration/data contracts. `api_key_hash` is derived from
+the validated incoming key, never a human ID or request selector. Git presets
+are copied starting values, `.env` holds deployment secrets, and PostgreSQL
+holds complete immutable create-on-save snapshots, encrypted entered keys,
+drafts/cache/history. `draftKey` is host-supplied inside the key scope.
+
+Only reference calls record terminal history. Recording failure preserves the
+result. Unknown COMMIT with empty/failed readback remains unconfirmed; no replay
+or polling. Garage objects use the authenticated hash/run prefix. Laminar is
+only diagnostic tracing. Tests below are allocated, not all implemented or
+passed: the phase ledger supplies actual evidence. Historical IDs stay assigned;
+old assertions move to their new owner without weakening their purpose.
+
+### TEST-420: Architecture and baseline contract
+
+- Type: static; verifies: REQ-420, REQ-425, REQ-432, REQ-433, REQ-435.
+  - Location: `internal/testkit/reference_decoupling_contract_test.go`.
+  - Command: `go test ./internal/testkit -run '^TestReferenceDecouplingContract$' -count=1`.
+  - Fixtures/mocks/data: Pinned baseline manifest, canonical documentation and OpenAPI ownership declarations.
+  - Deterministic controls: section 7.3 defaults; use the stated isolated real service for integration and exact release identity for deployed checks.
+  - Pass criteria: Every baseline capability retains an owner with the two accepted semantic changes recorded. Canonical policy specifies one bearer/key-hash scope, full create-on-save snapshots, Git/`.env`/PostgreSQL authority, frontend-only Portal admission and Model Recall interface review. No Go user/session ownership or conflicting store declaration. These source checks do not substitute for authentication/storage behavioral tests.
+  - Expected runtime: 10–30s.
+
+### TEST-421: Stateless execution and effect boundaries
+
+- Type: unit; verifies: REQ-421, REQ-424, REQ-431, REQ-432.
+  - Location: `stateless_contract_test.go`.
+  - Command: `go test . -run '^TestStatelessContract$' -count=1`.
+  - Fixtures/mocks/data: Local provider, recording cache/event ports, injected clock/wait, concurrent distinct profile snapshots.
+  - Deterministic controls: section 7.3 defaults; use the stated isolated real service for integration and exact release identity for deployed checks.
+  - Pass criteria: Retry/repair/budgets/cache/accounting and optional trace/artifact capture retain their assertions; nil capture does no artifact work, and capture never leaks fixture credentials; no cross-call mutation, infrastructure SDK ownership or repeated inference after sink failure.
+  - Expected runtime: 10–30s.
+
+### TEST-422: Ordinary OpenAI client contract
+
+- Type: unit; verifies: REQ-422, REQ-431, REQ-432.
+  - Location: `internal/gateway/httpapi/openai_contract_test.go`.
+  - Command: `go test ./internal/gateway/httpapi -run '^TestOpenAIContract' -count=1`.
+  - Fixtures/mocks/data: Existing official-SDK harness and selected deployment-key fixture, local provider, missing/invalid bearers, unavailable database/Control Plane and supported/unsupported requests. This existing protocol oracle stays runnable in P01 before P02 adds multi-key composition.
+  - Deterministic controls: section 7.3 defaults; use the stated isolated real service for integration and exact release identity for deployed checks.
+  - Pass criteria: Models/chat/responses accept the selected deployment bearer without login/profile/custom identity header. Errors/tools/final-only SSE match OpenAPI; cache-off calls succeed during storage/identity outage and direct calls create zero history entries. No incoming key/hash enters root Request or diagnostic payload. P02's TEST-425/439 add two-key authentication/cache isolation without changing this existing protocol oracle; rerun this gate after P02 composition changes.
+  - Expected runtime: 10–45s.
+
+### TEST-423: Complete saved profiles and credential bindings
+
+- Type: unit; verifies: REQ-423, REQ-427, REQ-432.
+  - Location: `stateful/profile_test.go`.
+  - Command: `go test ./stateful -run '^TestProfileContract$' -count=1`.
+  - Fixtures/mocks/data: Value-only complete snapshot/template fixtures for two API-key hashes, all run fields and explicit false/zero/empty values; changed/deleted Git templates, hidden choices, credential bindings and five recovery leaves. No fake SQL repository.
+  - Deterministic controls: section 7.3 defaults; use the stated isolated real service for integration and exact release identity for deployed checks.
+  - Pass criteria: One snapshot validator preserves all nonsecret setup/input values. Template selection fills a draft; Save freezes it with a new UUID/time/suffix, never a live override or update. Changed/deleted Git templates leave saved snapshots unchanged. Invalid origin/binding and foreign-key records fail without substitution. Picker/detail DTOs omit secrets, and core retry validation owns policy semantics. Real CRUD/restart/refresh/bundles remain TEST-438/440; encryption remains TEST-444.
+  - Expected runtime: 10–30s.
+
+### TEST-424: PostgreSQL storage and concurrency
+
+- Type: integration; verifies: REQ-423, REQ-424, REQ-427, REQ-431, REQ-432.
+  - Location: `stateful/storage_integration_test.go`.
+  - Command: `go test -tags=integration ./stateful -run '^TestReferenceStorage$' -count=1`.
+  - Fixtures/mocks/data: Real PostgreSQL lease; two key hashes; snapshot, hidden-preset, entered-credential, cache, mutable-draft and history rows; cross-key FKs, invalid binding/hash/null cases, credential/draft positive revisions and incompatible schema version.
+  - Deterministic controls: section 7.3 defaults; use the stated isolated real service for integration and exact release identity for deployed checks.
+  - Pass criteria: Fresh/versioned ApplySchema is transactional and idempotent; mismatch fails without reset. Composite key-hash predicates/FKs isolate every row and forbid cross-key credential binding. Complete snapshot rows and hidden-preset preferences satisfy their separate constraints. History rows carry the key hash and a page index; no incoming-key/user/session/outbox registry tables. Only leased data is cleaned; cancellation bounds connection checkout. Full transaction/restart/cache behavior remains TEST-438/439/440.
+  - Expected runtime: 30–120s with warm service pool; existing aggregate integration gate remains required.
+
+### TEST-425: API-key REST access
+
+- Type: unit; verifies: REQ-425, REQ-427, REQ-432.
+  - Location: `internal/gateway/httpapi/reference_access_test.go`.
+  - Command: `go test ./internal/gateway/httpapi -run '^TestReferenceAccess' -count=1`.
+  - Fixtures/mocks/data: One httptest API with two accepted synthetic HLLM keys from `access-keys.json`, a recording handler that captures request context, invalid/duplicate/hash-only bearers, caller owner/user/hash/session selectors and a Control Plane request counter. No database and no fake store; HTTP-level storage isolation is TEST-441.
+  - Deterministic controls: section 7.3 defaults; use the stated isolated real service for integration and exact release identity for deployed checks.
+  - Pass criteria: A valid key alone authorizes both REST surfaces and derives its hash server-side; missing/invalid bearer fails before storage/provider work. Scope/session selectors return 400 `scope_selector_rejected`, and fingerprints cannot authenticate. The handler receives exactly the fixed expected hash for each key, and `ClientForKey` does no storage work. Go performs zero identity-authority requests, including during outage. Portal login/admission remains a separate Phoenix host assertion; ordinary `/v1` is independent.
+  - Expected runtime: 10–30s.
+
+### TEST-426: Reference history semantics
+
+- Type: integration; verifies: REQ-426, REQ-429, REQ-431, REQ-432.
+  - Location: `stateful/history_integration_test.go`.
+  - Command: `go test -tags=integration ./stateful -run '^TestReferenceHistory$' -count=1`.
+  - Fixtures/mocks/data: Real PostgreSQL and Garage leases; local provider; repaired success, cache hit, validation failure, canceled request, explicit disablement, enabled-with-nil-pool configuration error, closed pool, oversize record, injected commit hook that drops the outcome after COMMIT, failed readback, and synthetic secrets inside driver-error fixtures.
+  - Deterministic controls: section 7.3 defaults; real-storage cases use `internal/integrationtest.PostgresLease`/`GarageLease`, unique scopes and bounded cleanup, never production. No browser or real provider.
+  - Pass criteria: Healthy enabled recording inserts one complete record with the authenticated hash; direct/disabled calls do no history I/O. Every detail/list/stats/restore/delete/clear is key-scoped. History outage/configuration failure preserves otherwise authorized inference; invalid profiles/credentials prevent dispatch. Saved, not saved (definite), unconfirmed (absent or failed readback after unknown commit), empty and read failure differ. Exactly one insert attempt and at most one readback per run; no inference retry, polling or secret diagnostic leak.
+  - Expected runtime: 30–120s with warm service pool.
+
+### TEST-427: History statistics, delete and clear
+
+- Type: integration; verifies: REQ-426, REQ-427, REQ-429, REQ-431, REQ-432.
+  - Location: `stateful/history_queries_integration_test.go`.
+  - Command: `go test -tags=integration ./stateful -run '^TestHistoryQueries$' -count=1`.
+  - Fixtures/mocks/data: Real PostgreSQL and Garage leases; history rows for key A (two client contexts) and key B with known/unknown/zero costs and cache hits; artifact objects under each run prefix; one missing object; one run started after the clear cutoff.
+  - Deterministic controls: section 7.3 defaults; real-storage cases use `internal/integrationtest.PostgresLease`/`GarageLease`, unique scopes and bounded cleanup, never production. No browser or real provider.
+  - Pass criteria: Statistics use the same key/window filter as list, sum known costs, count unknown observations and never treat missing records as zero-cost. Delete removes the run's Garage prefix then its row; a missing object counts as removed and a failed object delete keeps the row and reports `artifact_cleanup_failed`. Clear removes only key A rows before the cutoff in batches, leaves key B and the later run intact and returns deleted count, `complete` and the first failed run ID.
+  - Expected runtime: 30–120s with warm service pool.
+
+### TEST-428: Restored workspace vertical workflow
+
+- Type: unit; verifies: REQ-420, REQ-426, REQ-427, REQ-429.
+  - Location: `frontend/test/harden_llm_web/live/restored_workflow_test.exs`.
+  - Command: `cd frontend && mix test --seed 104729 test/harden_llm_web/live/restored_workflow_test.exs`.
+  - Fixtures/mocks/data: WEB-TEST-118; OpenAPI-valid private Req fixtures, full saved-input snapshots and baseline selectors/forms; two Portal identities sharing one HLLM key with distinct draft keys, plus a host context using the second key.
+  - Deterministic controls: section 7.3 defaults; use the stated isolated real service for integration and exact release identity for deployed checks.
+  - Pass criteria: Selection → complete draft/new profile Save → repair/progress/result/stats → same-key history restore works. Portal identities share profiles/history but keep separate drafts; a different key partitions everything. Restore copies prompts/settings without name lookup or implicit Save/Run. All recording warning states preserve output and forbid resubmission. Baseline markup/style remains, with only accepted snapshot naming/save semantics.
+  - Expected runtime: 15–60s.
+
+### TEST-429: Reusable component library
+
+- Type: unit; verifies: REQ-420, REQ-428.
+  - Location: `frontend/packages/harden_llm_ui/test/harden_llm_ui/components_test.exs`.
+  - Command: `cd frontend/packages/harden_llm_ui && mix test --seed 104729 test/harden_llm_ui/components_test.exs`.
+  - Fixtures/mocks/data: WEB-TEST-119; independent test host informed by read-only Model Recall interface review, schema-valid API fixtures and two component instances with host-supplied API-key contexts.
+  - Deterministic controls: section 7.3 defaults; use the stated isolated real service for integration and exact release identity for deployed checks.
+  - Pass criteria: Picker/input/result/stats/history/pagination components render and dispatch independently; package imports no host/Portal/Ecto module, stores no incoming keys and owns no login. API-key context/instance state do not leak; explicit save/detail and baseline visual bindings work. Assets/decoders/styles have one source; Model Recall migration is not required.
+  - Expected runtime: 15–60s.
+
+### TEST-430: Progress and client decisions
+
+- Type: unit; verifies: REQ-428, REQ-429.
+  - Location: `scripts/test/run_progress_test.mjs`.
+  - Command: `node --test scripts/test/run_progress_test.mjs`.
+  - Fixtures/mocks/data: Existing production decision functions, fixed event sequences including duplicate/out-of-order/disconnect cases.
+  - Deterministic controls: section 7.3 defaults; use the stated isolated real service for integration and exact release identity for deployed checks.
+  - Pass criteria: Progress remains monotonic and terminal outcomes stable; multiple widgets do not leak state; tests import production functions without a DOM emulator.
+  - Expected runtime: 1–5s.
+
+### TEST-431: Complete restored reference workflows
+
+- Type: unit; verifies: REQ-420, REQ-423, REQ-425, REQ-426, REQ-429.
+  - Location: `frontend/test/harden_llm_web/live/restored_workflows_test.exs`.
+  - Command: `cd frontend && mix test --seed 104729 test/harden_llm_web/live/restored_workflows_test.exs`.
+  - Fixtures/mocks/data: WEB-TEST-120; baseline profile/editor/bundle/history/trace/artifact/embed cases; private Req ownership and shared OpenAPI fixtures.
+  - Deterministic controls: section 7.3 defaults; use the stated isolated real service for integration and exact release identity for deployed checks.
+  - Pass criteria: Every baseline manifest capability passes success/error interactions; presets and persisted private customizations/credential replacement remain usable; history messages use the common error contract. No removed controls, replacement layout or second logic/style implementation; shared login/logout and artifact authorization remain correct without an HLLM registration/password flow.
+  - Expected runtime: 20–90s.
+
+### TEST-432: Shared deployment topology
+
+- Type: static; verifies: REQ-425, REQ-430, REQ-435.
+  - Location: `internal/deploytest/reference_topology_test.go`.
+  - Command: `go test ./internal/deploytest -run '^TestReferenceTopology$' -count=1`.
+  - Fixtures/mocks/data: Compose/Caddy/env/descriptor fixtures; approved shared-service attachments; HLLM-only reset allowlist.
+  - Deterministic controls: section 7.3 defaults; use the stated isolated real service for integration and exact release identity for deployed checks.
+  - Pass criteria: One Go and one Phoenix service share UI/`/v1`/`/api/v1` origin. Go validates one configured key-array source for all REST; Phoenix uses its server-held selected key and Portal admission. No Go Control Plane/session requirement, private-only API route, second hostname, dedicated production PostgreSQL, Phoenix DB credentials or broad reset. Production `gateway-schema` is a one-shot command with no build stanza, using the accepted gateway image and the same protected database configuration; it is not a third long-lived application. Preview descriptors may keep their per-environment `postgres`, attached only to `gateway`, and set no `HARDEN_LLM_ARTIFACT_*` values. No key issuance, secret echo or per-user key synchronization.
+  - Expected runtime: 10–30s.
+
+### TEST-433: Browser-free composed workflow
+
+- Type: e2e; verifies: REQ-422, REQ-425, REQ-426, REQ-430, REQ-431.
+  - Location: `internal/smoke/compose_smoke_test.go`.
+  - Command: `make test-compose`.
+  - Fixtures/mocks/data: Existing fake provider and frontend Control Plane admission fixture, two synthetic HLLM access keys, local Caddy, isolated real PostgreSQL/Garage, HTTP/LiveView harness.
+  - Deterministic controls: section 7.3 defaults; use the stated isolated real service for integration and exact release identity for deployed checks.
+  - Pass criteria: Actual one-host boundaries preserve restored workflow and frontend Portal admission without company/product grant. A fresh leased database receives schema version 1 from the gateway's schema command before serving; a real reference write succeeds afterward. Valid bearer alone reaches reference REST; key A shares data across contexts and key B cannot access it. PostgreSQL/Control Plane outage leaves cache-off REST inference and local key authentication independent; history outage preserves resolved output. No browser or real provider.
+  - Expected runtime: 3–15min within existing 30min runner ceiling.
+
+### TEST-434: Deployed configuration identity
+
+- Type: integration; verifies: REQ-430, REQ-434.
+  - Location: `scripts/production-config.mjs`.
+  - Command: `node scripts/production-config.mjs check --services harden-llm-gateway,harden-llm-web --expected-release "$HLLM_RELEASE_SHA"`.
+  - Fixtures/mocks/data: Protected production descriptor and running Docker metadata; exact successful release-attempt SHA.
+  - Deterministic controls: section 7.3 defaults; use the stated isolated real service for integration and exact release identity for deployed checks.
+  - Pass criteria: Both selected services match intended source/image/config/network identity; checker exits nonzero for mismatch and emits no secrets.
+  - Expected runtime: 5–30s.
+
+### TEST-435: Deployed HTTP access and contract
+
+- Type: e2e; verifies: REQ-422, REQ-425, REQ-434.
+  - Location: `internal/smoke/deployed_reference_test.go`.
+  - Command: `go test -tags=live ./internal/smoke -run '^TestDeployedReferenceHTTP$' -count=1`.
+  - Fixtures/mocks/data: Deployment URL/release SHA plus protected process-env bearer; no browser session, stored user data or provider execution.
+  - Deterministic controls: section 7.3 defaults; use the stated isolated real service for integration and exact release identity for deployed checks. Required deployment variables: `HARDEN_LLM_ACCEPTANCE_URL`, `HLLM_RELEASE_SHA`, `HARDEN_LLM_TOKEN`; fail explicitly when absent.
+  - Pass criteria: Health/readiness, Portal entry, unauthenticated denial, models, local request-validation errors and bearer-only reference status match contract. Forged ownership/hash/session inputs cannot select another scope. Read only the status figures (`history.rows`, `history.tableBytes`); read no stored records and make no paid inference or mutation. These checks do not claim a signed-in interactive workflow or exhaustive deployed cross-key isolation.
+  - Expected runtime: 5–30s; each HTTP request bounded to 5s.
+
+### TEST-436: History and artifact contract fixtures
+
+- Type: static; verifies: REQ-426, REQ-432.
+  - Location: `internal/testkit/reference_history_contract_test.go`.
+  - Command: `go test ./internal/testkit -run '^TestReferenceHistoryContract$' -count=1`.
+  - Fixtures/mocks/data: `test/fixtures/reference/{history-outcomes,history-pages,artifact-manifest}.json` and `api/openapi.yaml`.
+  - Deterministic controls: section 7.3 defaults.
+  - Pass criteria: Every fixture validates against OpenAPI; every history row carries a 64-character key hash; pages carry `page`, `pageSize`, `totalCount`; `RecordingOutcome.status` uses only the five section 8.4 values; every artifact object key matches `artifacts/<api_key_hash>/<run_id>/<artifact_id>` with the row's own hash; no fixture contains a caller-supplied object key, raw key or leak sentinel.
+  - Expected runtime: 1–10s.
+
+### TEST-437: Resolved recovery targets and attempt pricing
+
+- Type: unit; verifies: REQ-421, REQ-423, REQ-429, REQ-432.
+  - Location: `recovery_snapshot_test.go`.
+  - Command: `go test . -run '^TestRecoverySnapshot$' -count=1`.
+  - Fixtures/mocks/data: recovery-cross-profile.json; two local providers with independent credentials/rates; fixed clock and attempt budget.
+  - Deterministic controls: section 7.3 defaults; real-storage cases use `internal/integrationtest.PostgresLease`/`GarageLease`, unique scopes and bounded cleanup, never production. No browser or real provider.
+  - Pass criteria: Cross-profile repair/escalation/rerun invokes the exact resolved targets; invalid targets dispatch zero calls; concurrent snapshots stay isolated; reported/unknown/zero/mixed pricing and cache ledgers remain correct.
+  - Expected runtime: 10–30s.
+
+### TEST-438: Atomic API-key profile snapshots
+
+- Type: integration; verifies: REQ-423, REQ-427, REQ-432.
+  - Location: `stateful/profile_integration_test.go`.
+  - Command: `go test -tags=integration ./stateful -run '^TestProfilePersistence$' -count=1`.
+  - Fixtures/mocks/data: Real PostgreSQL lease; key A/two client contexts and key B; full prompt/schema/repair snapshots, hidden templates, changed/deleted Git templates, repeated saves, credential replacement/CAS and concurrent draft writes.
+  - Deterministic controls: section 7.3 defaults; real-storage cases use `internal/integrationtest.PostgresLease`/`GarageLease`, unique scopes and bounded cleanup, never production. No browser or real provider.
+  - Pass criteria: Every explicit Save inserts a distinct UUID/time/suffix with exact normalized inputs/settings and atomically saves any entered credential. No old profile update exists. List/detail/delete/hide are key-scoped; same-key contexts share rows and foreign keys cannot access/bind them. Git changes/reconstruction leave snapshots fixed. Credential/draft conflicts are explicit and failed transactions/probes preserve prior data. No connection remains held during probes.
+  - Expected runtime: 30–120s with warm service pool.
+
+### TEST-439: Cache and draft ownership
+
+- Type: integration; verifies: REQ-424, REQ-427, REQ-431.
+  - Location: `stateful/cache_draft_integration_test.go`.
+  - Command: `go test -tags=integration ./stateful -run '^TestCacheDraftContract$' -count=1`.
+  - Fixtures/mocks/data: Real PostgreSQL lease; two accepted key hashes, same-key concurrent clients with the same and different draft keys, fixed TTL clock, expired/corrupt cache, entered/deployment key changes, recovery-target credential changes, draft conflicts, pool size one and blocked provider.
+  - Deterministic controls: section 7.3 defaults; real-storage cases use `internal/integrationtest.PostgresLease`/`GarageLease`, unique scopes and bounded cleanup, never production. No browser or real provider.
+  - Pass criteria: Cache/draft ownership is key-scoped; same-key clients share cache, share a draft only under the same draft key, and different keys share nothing. Changed provider credentials or recovery credential snapshots cannot hit prior credential-scoped entries. Expired cache cannot be served; at most 100 expired rows are physically deleted per owning write, preserving live/foreign rows. Corrupt records follow core validation. Draft CAS/outage differs from absence. No checked-out connection during provider waits; cache-off calls never acquire pool.
+  - Expected runtime: 30–120s with warm service pool.
+
+### TEST-440: Profile probes models and bundle replacement
+
+- Type: integration; verifies: REQ-420, REQ-423, REQ-427, REQ-432.
+  - Location: `stateful/profile_resources_integration_test.go`.
+  - Command: `go test -tags=integration ./stateful -run '^TestProfileResources$' -count=1`.
+  - Fixtures/mocks/data: Real PostgreSQL lease; local provider model discovery and explicit Save/import probes, old/new complete snapshots and full draft values, current encrypted same-hash bundle and wrong-hash/encryption-key/version variants.
+  - Deterministic controls: section 7.3 defaults; real-storage cases use `internal/integrationtest.PostgresLease`/`GarageLease`, unique scopes and bounded cleanup, never production. No browser or real provider.
+  - Pass criteria: Explicit Save probes once/one attempt; failed/unknown probe never saves/retries. Model refresh returns a changed draft, performs no generation and leaves old snapshot intact. Bundle import is atomic for its matching API-key hash/encryption key and retains candidate probes before the transaction. Complete saved inputs/provenance and hidden preferences roundtrip; no incoming/environment/plaintext key or legacy schema export/import.
+  - Expected runtime: 30–120s with warm service pool.
+
+### TEST-441: Reference HTTP wire, streaming and storage isolation
+
+- Type: integration; verifies: REQ-422, REQ-425, REQ-426, REQ-429, REQ-432.
+  - Location: `internal/gateway/httpapi/reference_contract_test.go`.
+  - Command: `go test -tags=integration ./internal/gateway/httpapi -run '^TestReferenceContract$' -count=1`.
+  - Fixtures/mocks/data: OpenAPI-valid shared fixtures, httptest server over the real `stateful.Service`, real PostgreSQL and Garage leases, two synthetic bearer keys, local provider and SSE recorder; no reference session/Control Plane stub and no fake store.
+  - Deterministic controls: section 7.3 defaults; real-storage cases use `internal/integrationtest.PostgresLease`/`GarageLease`, unique scopes and bounded cleanup, never production. No browser or real provider.
+  - Pass criteria: Every section 8.4 route validates one bearer/hash scope and its wire/error schema, including POST snapshot creation, GET full setup and status `history:{rows,tableBytes}` (present only when history is enabled; unavailable rather than zero on read failure). Missing/forged scope authentication dispatches zero providers. Key B gets 404 for key A's profiles, history and artifacts; the same key shares data across two clients; drafts are shared only under the same draft key. SSE emits one inference terminal followed by bounded recording outcome. Ordinary OpenAI contracts remain supported without login, scope headers or root identity fields.
+  - Expected runtime: 10–30s.
+
+### TEST-442: PostgreSQL history store
+
+- Type: integration; verifies: REQ-426, REQ-427, REQ-429, REQ-431, REQ-432.
+  - Location: `stateful/history_store_integration_test.go`.
+  - Command: `go test -tags=integration ./stateful -run '^TestHistoryStore$' -count=1`.
+  - Fixtures/mocks/data: Real PostgreSQL lease; history-pages.json rows for two hashes with equal start timestamps; 17 MiB boundary record; injected clock and commit hook.
+  - Deterministic controls: section 7.3 defaults; real-storage cases use `internal/integrationtest.PostgresLease`/`GarageLease`, unique scopes and bounded cleanup, never production. No browser or real provider.
+  - Pass criteria: One insert per run records the server key hash; callers cannot choose hash or SQL. One fixed parameterized filter drives list/count/detail; numbered pagination/total counts preserve baseline navigation, tie order and the fixed `before` cutoff. Foreign-key run IDs return not found. Oversize is rejected as not saved without truncation. The usage query returns the key's own row count and a positive table size, unaffected by another key's rows. Unknown commit gets exactly one readback: found means saved; absent or failed means unconfirmed. A delayed real commit becomes visible after an empty readback without another insert; definite pre-COMMIT rejection alone means not saved. No polling, insert retry or secret-bearing error. The 17 MiB boundary record inserts and loads within the named history budgets (2 s insert, 2 s detail) on the real lease, and its measured durations are recorded.
+  - Expected runtime: 30–120s with warm service pool.
+
+### TEST-443: Artifact streaming and cleanup
+
+- Type: integration; verifies: REQ-426, REQ-429, REQ-432.
+  - Location: `stateful/artifact_integration_test.go`.
+  - Command: `go test -tags=integration ./stateful -run '^TestReferenceArtifacts$' -count=1`.
+  - Fixtures/mocks/data: Real Garage lease; key A/two clients and key B, baseline trace/parse-failure bytes/support bundle/media/digest, missing object/digest mismatch, history disabled/not saved and interrupted prefix delete.
+  - Deterministic controls: section 7.3 defaults; real-storage cases use `internal/integrationtest.PostgresLease`/`GarageLease`, unique scopes and bounded cleanup, never production. No browser or real provider.
+  - Pass criteria: Bounded publication preserves baseline bytes/redaction. Same-key authenticated downloads return exact media/bytes even with history disabled or not saved; with all artifact settings absent, publication is skipped, status reports disabled and downloads return `artifact_not_found`; other keys and guessed foreign IDs cannot read/delete because the object key is built from the authenticated hash. No arbitrary Garage key or external redirect. Delete cleans only selected-scope objects and reports partial/unknown outcomes without replaying inference.
+  - Expected runtime: 30–120s with warm service pool.
+
+### TEST-444: Credential encryption and binding
+
+- Type: unit; verifies: REQ-423, REQ-427, REQ-432.
+  - Location: `stateful/credential_test.go`.
+  - Command: `go test ./stateful -run '^TestCredentialContract$' -count=1`.
+  - Fixtures/mocks/data: Fixed 32-byte encryption key/test nonce reader, baseline associated-data encoder using key hash/credential ID/origin, same-key clients, tampered hash/ID/origin/encryption-key/ciphertext and synthetic raw-key leak sentinels.
+  - Deterministic controls: section 7.3 defaults; real-storage cases use `internal/integrationtest.PostgresLease`/`GarageLease`, unique scopes and bounded cleanup, never production. No browser or real provider.
+  - Pass criteria: One encrypted current format rejects associated-data mismatch and foreign-key decrypt. Plaintext HLLM/provider secrets are absent from read DTOs/bundles/diagnostics/metadata. Credential source is explicit with no environment substitution. Production uses crypto randomness; no legacy decryptor or raw incoming-key registry.
+  - Expected runtime: 1–10s.
+
+### TEST-445: Concrete effects composition
+
+- Type: unit; verifies: REQ-421, REQ-431, REQ-432, REQ-435.
+  - Location: `stateful/client_test.go`.
+  - Command: `go test ./stateful -run '^TestClientComposition$' -count=1`.
+  - Fixtures/mocks/data: Existing local provider fixtures; in-memory OTEL exporter; no database config; disabled/failed observer.
+  - Deterministic controls: section 7.3 defaults; real-storage cases use `internal/integrationtest.PostgresLease`/`GarageLease`, unique scopes and bounded cleanup, never production. No browser or real provider.
+  - Pass criteria: NewClient composes one core engine without database/identity/history requirements; preserved span/metric names and safe attributes; provider/cancellation/retry behavior independent of telemetry outcome; no duplicate transport or root concrete SDK dependency.
+  - Expected runtime: 10–30s.
+
+### TEST-446: Reusable REST client contract
+
+- Type: unit; verifies: REQ-425, REQ-428, REQ-429, REQ-432.
+  - Location: `frontend/packages/harden_llm_ui/test/harden_llm_ui/client_test.exs`.
+  - Command: `cd frontend/packages/harden_llm_ui && mix test --seed 104729 test/harden_llm_ui/client_test.exs`.
+  - Fixtures/mocks/data: WEB-TEST-121; OpenAPI fixtures, private Req ownership, two host API-key contexts, same-key client sharing, caller scope-selector rejection, unknown errors and SSE terminal/recording/disconnect sequences.
+  - Deterministic controls: section 7.3 defaults; real-storage cases use `internal/integrationtest.PostgresLease`/`GarageLease`, unique scopes and bounded cleanup, never production. No browser or real provider.
+  - Pass criteria: One client/decoder uses API key in Authorization only; no session/user/hash authority header. Complete snapshot detail/save fields and pagination decode to canonical schemas. Key A/B context secrets cannot leak across requests or to the browser; errors remain safe. Inference completion differs from recording completion and disconnect never retries work.
+  - Expected runtime: 15–60s.
+
+### TEST-447: Restored profile editor interactions
+
+- Type: unit; verifies: REQ-420, REQ-423, REQ-428, REQ-432.
+  - Location: `frontend/test/harden_llm_web/live/restored_profiles_test.exs`.
+  - Command: `cd frontend && mix test --seed 104729 test/harden_llm_web/live/restored_profiles_test.exs`.
+  - Fixtures/mocks/data: WEB-TEST-122; baseline picker/editor/refresh/bundle/credential/repair events, complete snapshot and draft fixtures, two component instances with explicit IDs.
+  - Deterministic controls: section 7.3 defaults; real-storage cases use `internal/integrationtest.PostgresLease`/`GarageLease`, unique scopes and bounded cleanup, never production. No browser or real provider.
+  - Pass criteria: Existing visual controls select full setups, edit the current draft and save each explicit action as a new UUID/date/suffix profile. Refresh updates draft only; failed Save retains inputs. Delete/hide/recreate/bundles/credential replacement and repair/rerun remain usable. Loading/restoring never saves or executes; secrets are not echoed and form logic has one source.
+  - Expected runtime: 15–60s.
+
+### TEST-448: Restored history trace and artifact interactions
+
+- Type: unit; verifies: REQ-420, REQ-426, REQ-428, REQ-429.
+  - Location: `frontend/test/harden_llm_web/live/restored_history_test.exs`.
+  - Command: `cd frontend && mix test --seed 104729 test/harden_llm_web/live/restored_history_test.exs`.
+  - Fixtures/mocks/data: WEB-TEST-123; baseline numbered pages/counts and history/stat/trace/download bindings, key A shared by two contexts, key B and every history/error/cleanup state.
+  - Deterministic controls: section 7.3 defaults; real-storage cases use `internal/integrationtest.PostgresLease`/`GarageLease`, unique scopes and bounded cleanup, never production. No browser or real provider.
+  - Pass criteria: Numbered pagination/counts and restore/delete/clear/stats/download controls retain baseline bindings. Reads obey key scope; same key shares history and foreign keys cannot access it. Restore fills complete recorded inputs/settings in the draft, without display-name lookup, foreign credentials or automatic Save/Run. Failed reads are not empty; recording preserves output and partial cleanup/unknown costs are explicit.
+  - Expected runtime: 15–60s.
+
+### TEST-449: Reference startup configuration and schema command
+
+- Type: unit; verifies: REQ-424, REQ-430, REQ-431, REQ-432.
+  - Location: `cmd/harden-llm-gateway/reference_config_test.go`; one Node case in `scripts/test/preview_policy_test.mjs`.
+  - Command: `go test ./cmd/harden-llm-gateway -run '^TestReferenceConfig$' -count=1` ; `node --test scripts/test/preview_policy_test.mjs`.
+  - Fixtures/mocks/data: Synthetic required api_key_envs metadata arrays plus environment maps and selected frontend key, missing/duplicate/empty names/values, forbidden literal secrets in JSON, storage/encryption/feature settings, absent Control Plane settings in Go, schema-command inputs, `deploy/preview/compose.yml` and the `previewSecrets()` output.
+  - Deterministic controls: section 7.3 defaults; real-storage cases use `internal/integrationtest.PostgresLease`/`GarageLease`, unique scopes and bounded cleanup, never production. No browser or real provider.
+  - Pass criteria: One gateway metadata/env path validates without printing secrets or using scalar/session fallback. JSON contains only key environment names; frontend and gateway use the approved shared HARDEN_LLM_TOKEN value. No DB ping/key generation/identity request at construction. Disabled history differs from bad enabled config; one pool/independent status; schema command cannot reset broad data. The preview descriptor wires the gateway database, history flag and credential key, runs the one-shot `gateway-schema` service before `gateway`, and sets no artifact settings; `previewSecrets()` yields a standard-base64 32-byte credential key and existing values are kept.
+  - Expected runtime: 10–30s.
+
+### TEST-450: Production schema invocation precedes application startup
+
+- Type: unit; verifies: REQ-430, REQ-432, REQ-435.
+  - Location: `scripts/test/production_config_test.mjs`.
+  - Command: `node --test scripts/test/production_config_test.mjs`.
+  - Fixtures/mocks/data: Existing protected-descriptor fixtures and injected process runner; accepted gateway image/SHA, one-shot `gateway-schema` service, synthetic database credential sentinel, successful/failed schema exits, missing service and mismatched image/command, frontend-only and no-change apply cases. Extend the existing test file in P05.S01; do not create another deployer or runner.
+  - Deterministic controls: Node only, process-owned fixtures, fixed command results; no Docker daemon, database, provider or browser. Assertions inspect calls to the production `runApply`, not a test-only implementation.
+  - Pass criteria: For an apply selecting the gateway that needs changes, validated schema invocation runs exactly once before any application `up`, with the accepted gateway image/config/context; application startup retains `--no-deps`. Nonzero schema exit, missing service or mismatched image/command prevents application startup. Frontend-only and no-change apply do not start the schema service. No credential appears in command arguments or diagnostics.
+  - Expected runtime: 1–10s.
+
+### TEST-451: History recording outcome classification
+
+- Type: unit; verifies: REQ-426, REQ-429, REQ-431.
+  - Location: `stateful/history_test.go`.
+  - Command: `go test ./stateful -run '^TestHistoryRecordingOutcome$' -count=1`.
+  - Fixtures/mocks/data: Table-driven committed, definitely rejected and unknown commit outcomes with found/absent/failed readback. Created in P03.S01; exercise the one production classifier used by `insertHistory`.
+  - Deterministic controls: Default-tag Go, no storage/provider or fake store; synthetic outcomes and fixed expected status strings.
+  - Pass criteria: Confirmed commit or positive readback after unknown commit returns saved; definite pre-COMMIT rejection returns not_saved; unknown commit with absent or failed readback returns unconfirmed. Empty readback never proves rejection. TEST-442 separately proves the real delayed-commit boundary.
+  - Expected runtime: 1–10s.

@@ -1,35 +1,33 @@
-# Requirements and verification traceability
+# 1. Requirements and verification traceability
 
-The current cross-component requirements and their canonical test IDs are in
-[`PLAN-HLLM-PROXY-REFERENCE-001`](../plans/proxy-and-reference-app-simplification-plan.md).
-The backend acceptance catalog remains
-[`SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001`](../plans/from_utility-llm/harden-llm-self-hosted-test-spec.md),
-and frontend tests use `WEB-TEST-###` IDs in `frontend/test/`. The OpenAPI file
-is the authoritative public request/response contract.
+The current accepted contract is
+[PLAN-HLLM-REFERENCE-DECOUPLING-002](../plans/restore-reference-workflows-decoupling-plan.md),
+ADR-HLLM-033/034 and `api/openapi.yaml`. The full 16-requirement/32-test RTM is
+plan section 10; its 72-step execution ledger supplies actual phase evidence.
+Planned cases are not passing evidence. The former proxy transition stays
+historical and its retained assertions keep their purposes.
 
-## Current ownership checks
+## 2. Ownership and evidence
 
-| Concern | Implementation owner | Evidence |
+| Requirement | Production owner | Acceptance |
 | --- | --- | --- |
-| Standard model, chat, and Responses routes | Go gateway and `api/openapi.yaml` | `TEST-403`, `TEST-409`, gateway OpenAPI contract tests |
-| Shared hardening and provider execution | Root Go client | `TEST-401`, `TEST-402`, provider and recovery tests |
-| Bearer auth and connection startup | Gateway configuration and HTTP middleware | `TEST-404`, configuration and auth tests |
-| Frontend-only shared history and per-user drafts | Phoenix `HardenLlm.Reference` | `TEST-405` through `TEST-407`, reference integration tests |
-| Profile-free deployment and coordinated cutover | Compose, config tooling, and deployment process | `TEST-408`, `TEST-409`, `TEST-260` |
-| Browser-free default feedback | `make test-fast` and tier scheduler | `TEST-400`, `TEST-408`, deterministic Go/Phoenix/Node tasks |
+| Baseline UI and component reuse | `HardenLlmUI` and host lifecycle | TEST-420/428–431/446–448, frozen baseline manifest |
+| Stateless reliability and attempt pricing | Root/runtime core with injected effects | TEST-421/437/445 |
+| Ordinary OpenAI inference | One gateway/core | Existing TEST-401–403 plus TEST-422 |
+| API-key scope and snapshot credentials | One HTTP bearer boundary, `stateful/` | TEST-423–425/438–440/444/449 |
+| Reference history and artifacts | One PostgreSQL pool and scoped Garage paths | TEST-426/427/436/441–443/451 |
+| Shared topology and explicit schema apply | Shared owners, existing production apply path | TEST-432–435/450, CHECK-422 |
 
-Earlier profile-based traceability and certification sections in the historical
-specifications describe the superseded implementation. The current specs were
-updated to mark those cases retired and identify their replacement tests; the
-old release reports remain evidence of the older shipped behavior, not of this
-cutover.
+Only reference executions create product history. Direct `/v1` calls stay free
+of profile/login/history requirements. Same-key clients share stored data;
+different keys are isolated. Drafts also use the host-supplied opaque draft key.
+Release records separate source, tests, CI attempt/SHA, image identity, owner
+configuration, deployed HTTP, and unperformed browser/provider acceptance.
 
-## Verification boundaries
+## 3. Historical transition evidence
 
-`make test-fast` proves deterministic source behavior without Docker, browser,
-or provider credentials. `make verify` adds real local service integration.
-`make test-release` is the broader browser-free candidate gate. Browser layout
-and native events require an explicit browser-test request. Live provider
-acceptance is separate and must be identified as such; source tests, build
-success, readiness, or a model-list response alone do not prove end-to-end
-inference acceptance.
+[PLAN-HLLM-PROXY-REFERENCE-001](../plans/proxy-and-reference-app-simplification-plan.md)
+records the former transition. TEST-400 retains ordinary OpenAI protocol and
+runner traceability; TEST-409 retains the composed HTTP boundary. Their current
+assertions move with ownership, while older source/CI/deployment results stay
+bound to their original SHA and never prove this release.

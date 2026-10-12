@@ -90,7 +90,7 @@ func TestTestFeedbackTraceability(t *testing.T) {
 		"PLAN-HLLM-PROXY-REFERENCE-001",
 		"TEST-400",
 		"TEST-409",
-		"Frontend-only shared history",
+		"Reference history and artifacts",
 	)
 	assertContains(
 		"docs/architecture.md",

@@ -1,0 +1,97 @@
+--- FAIL: TestReferenceHistoryContract (0.04s)
+    reference_history_contract_test.go:80: HistoryRecord fixture violates the canonical schema: Error at "/request/input/recoveryPolicy/backoff": property "initialMs" is unsupported
+        Schema:
+          {
+            "additionalProperties": false,
+            "properties": {
+              "baseDelayMs": {
+                "maximum": 60000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "maxDelayMs": {
+                "description": "Must be at least baseDelayMs. Limits calculated backoff; valid Retry-After on HTTP 429 or 503 remains a server minimum.",
+                "maximum": 600000,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "baseDelayMs",
+              "maxDelayMs"
+            ],
+            "type": "object"
+          }
+
+        Value:
+          {
+            "initialMs": 0,
+            "jitter": "none",
+            "maxMs": 0,
+            "multiplier": 1
+          }
+    reference_history_contract_test.go:80: HistoryRecord fixture violates the canonical schema: Error at "/request/input/recoveryPolicy/backoff": property "initialMs" is unsupported
+        Schema:
+          {
+            "additionalProperties": false,
+            "properties": {
+              "baseDelayMs": {
+                "maximum": 60000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "maxDelayMs": {
+                "description": "Must be at least baseDelayMs. Limits calculated backoff; valid Retry-After on HTTP 429 or 503 remains a server minimum.",
+                "maximum": 600000,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "baseDelayMs",
+              "maxDelayMs"
+            ],
+            "type": "object"
+          }
+
+        Value:
+          {
+            "initialMs": 0,
+            "jitter": "none",
+            "maxMs": 0,
+            "multiplier": 1
+          }
+    reference_history_contract_test.go:80: HistoryRecord fixture violates the canonical schema: Error at "/request/input/recoveryPolicy/backoff": property "initialMs" is unsupported
+        Schema:
+          {
+            "additionalProperties": false,
+            "properties": {
+              "baseDelayMs": {
+                "maximum": 60000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "maxDelayMs": {
+                "description": "Must be at least baseDelayMs. Limits calculated backoff; valid Retry-After on HTTP 429 or 503 remains a server minimum.",
+                "maximum": 600000,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "baseDelayMs",
+              "maxDelayMs"
+            ],
+            "type": "object"
+          }
+
+        Value:
+          {
+            "initialMs": 0,
+            "jitter": "none",
+            "maxMs": 0,
+            "multiplier": 1
+          }
+FAIL
+FAIL	github.com/prls-co/harden-llm/internal/testkit	0.045s
+FAIL

@@ -21,7 +21,7 @@ const expectedTaskByTest = new Map([
   ["TEST-409", "go-compose"],
 ]);
 
-test("profile-free OpenAI contract is traceable and assigned to the right existing tiers", async () => {
+test("ordinary OpenAI contract and reference boundary are traceable and assigned to the right existing tiers", async () => {
   const [fixtureText, testSpecification, requirementSpecification, traceability, manifestText] = await Promise.all([
     read("test/fixtures/proxy-reference-contract.json"),
     read("plans/from_utility-llm/harden-llm-self-hosted-test-spec.md"),
@@ -45,7 +45,7 @@ test("profile-free OpenAI contract is traceable and assigned to the right existi
   assert.deepEqual(fixture.responsesRequestFields, ["model", "input", "instructions", "text.format", "tools", "tool_choice", "stream"]);
   assert.deepEqual(fixture.extensions, ["upstream", "cache", "timeout_ms", "recovery", "diagnostics"]);
   assert.equal(fixture.stateless, true);
-  assert.equal(fixture.historyOwner, "reference-application");
+  assert.equal(fixture.historyOwner, "stateful-reference-library");
   assert.equal(fixture.streaming, "buffer-final-hardened-outcome");
   assert.deepEqual(fixture.rejectedStatefulFields, ["previous_response_id", "background", "conversation"]);
   assert.deepEqual(fixture.limits, {
@@ -80,8 +80,8 @@ test("profile-free OpenAI contract is traceable and assigned to the right existi
     const requirementId = `REQ-${requirement}`;
     assert.ok(requirementSpecification.includes(requirementId), `${requirementId} canonical requirement`);
   }
-  assert.match(traceability, /PLAN-HLLM-PROXY-REFERENCE-001/);
-  assert.match(traceability, /Frontend-only shared history and per-user drafts/);
+  assert.match(traceability, /PLAN-HLLM-REFERENCE-DECOUPLING-002/);
+  assert.match(traceability, /Reference history and artifacts/);
   const databaseTask = manifest.tasks.find(({ id }) => id === "frontend-reference-integration");
   assert.ok(databaseTask, "existing integration runner task is registered");
   assert.equal(databaseTask.workingDirectory, "frontend");

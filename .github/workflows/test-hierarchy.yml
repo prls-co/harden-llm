@@ -42,6 +42,8 @@ jobs:
       browserCompose: ${{ steps.mode.outputs.browserCompose }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Offline baseline provenance tests need the pinned historical revision.
       - id: mode
         env:
           SUITE: ${{ inputs.suite }}
@@ -58,6 +60,8 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Offline baseline provenance tests need the pinned historical revision.
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
@@ -121,6 +125,8 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Offline baseline provenance tests need the pinned historical revision.
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
@@ -161,6 +167,8 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Offline baseline provenance tests need the pinned historical revision.
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -188,6 +196,8 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Offline baseline provenance tests need the pinned historical revision.
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
@@ -231,6 +241,8 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Offline baseline provenance tests need the pinned historical revision.
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}

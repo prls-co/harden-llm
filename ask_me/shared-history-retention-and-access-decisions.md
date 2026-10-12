@@ -1,5 +1,10 @@
 # Harden-LLM shared-history retention and access decisions
 
+> Historical decisions. ADR-HLLM-033/034 and the accepted v5.3 reference plan
+> supersede Laminar history and human-owner storage choices. Laminar now owns
+> diagnostic traces only; HLLM PostgreSQL owns reference history.
+
+
 - Date: 2026-10-10.
 - Status: Historical answers were 1B and 2B. Retention 1B remains active. Plan revision 5.0 replaces login-wide shared deletion 2B with read/delete/clear restricted to holders of the same validated HLLM access key; no administrator distinction within that key scope. No further answer is requested.
 - Scope: The two history-policy questions from the latest confidence review. Laminar remains the sole history owner.

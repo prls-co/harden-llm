@@ -61,7 +61,7 @@
     },
     {
       "id": "go-static",
-      "testIds": ["TEST-004", "TEST-062", "TEST-233", "TEST-234", "TEST-260", "TEST-268", "TEST-280", "TEST-400", "TEST-408"],
+      "testIds": ["TEST-004", "TEST-062", "TEST-233", "TEST-234", "TEST-260", "TEST-268", "TEST-280", "TEST-400", "TEST-408", "TEST-420", "TEST-436"],
       "tier": "T0",
       "resourceClass": "cpu",
       "command": ["make", "test-static"],

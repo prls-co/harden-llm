@@ -1,5 +1,10 @@
 # Harden-LLM reference decoupling decisions
 
+> Historical decisions. ADR-HLLM-033/034 and the accepted v5.3 reference plan
+> supersede Laminar history and human-owner storage choices. Laminar now owns
+> diagnostic traces only; HLLM PostgreSQL owns reference history.
+
+
 - Date: 2026-10-10.
 - Status: Historical decision record, superseded where noted by plan revision 5.0 (2026-10-11). Original 1A user-owned overlays and 2A extra REST session verification are replaced by API-key-scoped complete snapshots and bearer-only REST. Nonblocking recording 3B, shared services and external frontend admission remain accepted. Implementation is pending.
 - Related plan: [Restore reference workflows and decouple Harden-LLM](../plans/restore-reference-workflows-decoupling-plan.md).

@@ -1,5 +1,9 @@
 # 1. Harden-LLM proxy and reference application simplification
 
+> Historical completed transition. Its conflicting profile/persistence decisions
+> are superseded by [the reference decoupling plan](restore-reference-workflows-decoupling-plan.md)
+> and ADR-HLLM-033/034. Retain this evidence; do not implement its old design again.
+
 - Project: Harden-LLM.
 - Version: 6; implementation complete, P00–P05 done.
 - Owners: repository maintainer for scope; Go maintainer for inference; Phoenix maintainer for reference data; deployment operator for cutover. These are existing responsibilities.

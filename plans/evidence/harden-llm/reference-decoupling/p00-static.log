@@ -1,0 +1,233 @@
+go run ./cmd/loki-schema-guard
+Loki schema transition validation passed: accepted=2 new_future=0 as_of=2026-10-12
+go test -tags=live ./internal/providers/... ./internal/smoke/... -run '^$'
+ok  	github.com/prls-co/harden-llm/internal/providers	(cached) [no tests to run]
+ok  	github.com/prls-co/harden-llm/internal/smoke	(cached) [no tests to run]
+?   	github.com/prls-co/harden-llm/internal/smoke/fakeprovider	[no test files]
+go test ./internal/testkit/... -count=1
+ok  	github.com/prls-co/harden-llm/internal/testkit	0.204s
+go test ./internal/integrationtest -run '^TestResourceReceipt' -count=1
+ok  	github.com/prls-co/harden-llm/internal/integrationtest	0.005s
+node scripts/verify-parity-fixtures.mjs
+verified 24 parity fixtures at 3f7da2476758823a206530abd5f0ddb18a3374ca; cache=1 combinatorial=1 evals=2 examples=4 llm-stats-totals=7 models=2 providers=2 retry=1 schema=2 telemetry=1 usage=1
+node --test scripts/test/preview_policy_test.mjs scripts/test/production_config_test.mjs scripts/test/deployment_configuration_test.mjs scripts/test/proxy_reference_contract_test.mjs scripts/test/proxy_reference_cutover_test.mjs
+TAP version 13
+# Subtest: application environment contains only the one connection and incoming bearer path
+ok 1 - application environment contains only the one connection and incoming bearer path
+  ---
+  duration_ms: 6.200992
+  type: 'test'
+  ...
+# Subtest: required connection and bearer inputs fail explicitly
+ok 2 - required connection and bearer inputs fail explicitly
+  ---
+  duration_ms: 1.37159
+  type: 'test'
+  ...
+# Subtest: initial preview bootstrap requires its explicit Cloudflare token
+ok 3 - initial preview bootstrap requires its explicit Cloudflare token
+  ---
+  duration_ms: 5.606186
+  type: 'test'
+  ...
+# Subtest: initial preview bootstrap trims and selects only its explicit Cloudflare token
+ok 4 - initial preview bootstrap trims and selects only its explicit Cloudflare token
+  ---
+  duration_ms: 0.61699
+  type: 'test'
+  ...
+# Subtest: preview bootstrap is wired to the explicit token helper and has no SSH credential-file dependency
+ok 5 - preview bootstrap is wired to the explicit token helper and has no SSH credential-file dependency
+  ---
+  duration_ms: 17.528939
+  type: 'test'
+  ...
+# Subtest: branch identities are stable, bounded, distinct and cannot target production
+ok 6 - branch identities are stable, bounded, distinct and cannot target production
+  ---
+  duration_ms: 4.770215
+  type: 'test'
+  ...
+# Subtest: pushes, PRs and schedules never authorize browser tests
+ok 7 - pushes, PRs and schedules never authorize browser tests
+  ---
+  duration_ms: 1.272058
+  type: 'test'
+  ...
+# Subtest: image rebuilds follow application inputs, not docs or test-only changes
+ok 8 - image rebuilds follow application inputs, not docs or test-only changes
+  ---
+  duration_ms: 1.296948
+  type: 'test'
+  ...
+# Subtest: deployments require an enabled same-repository branch and a passing current revision
+ok 9 - deployments require an enabled same-repository branch and a passing current revision
+  ---
+  duration_ms: 1.10854
+  type: 'test'
+  ...
+# Subtest: automatic task graphs are browser-free; browser tasks require explicit authorization
+ok 10 - automatic task graphs are browser-free; browser tasks require explicit authorization
+  ---
+  duration_ms: 12.055411
+  type: 'test'
+  ...
+# Subtest: preview workflows use the policy and never check out fork code on the deployment runner
+ok 11 - preview workflows use the policy and never check out fork code on the deployment runner
+  ---
+  duration_ms: 3.98096
+  type: 'test'
+  ...
+# Subtest: routes and state enforce exact environment ownership before writes
+ok 12 - routes and state enforce exact environment ownership before writes
+  ---
+  duration_ms: 11.524649
+  type: 'test'
+  ...
+# Subtest: preview control files and image reuse are idempotent
+ok 13 - preview control files and image reuse are idempotent
+  ---
+  duration_ms: 15.091471
+  type: 'test'
+  ...
+# Subtest: preview gateway bounds Go memory and uses the shared identity contract
+ok 14 - preview gateway bounds Go memory and uses the shared identity contract
+  ---
+  duration_ms: 2.972907
+  type: 'test'
+  ...
+# Subtest: preview templates expose no host ports or production telemetry and protect generated dotenv
+ok 15 - preview templates expose no host ports or production telemetry and protect generated dotenv
+  ---
+  duration_ms: 4.348941
+  type: 'test'
+  ...
+# Subtest: release CI builds the production frontend image through its private BuildKit secret
+ok 16 - release CI builds the production frontend image through its private BuildKit secret
+  ---
+  duration_ms: 1.583368
+  type: 'test'
+  ...
+# Subtest: TEST-233 resolves approved ownership and excludes ambient application variables
+ok 17 - TEST-233 resolves approved ownership and excludes ambient application variables
+  ---
+  duration_ms: 22.739657
+  type: 'test'
+  ...
+# Subtest: TEST-233 requires the consumer-owned Harden LLM Laminar key
+ok 18 - TEST-233 requires the consumer-owned Harden LLM Laminar key
+  ---
+  duration_ms: 6.520436
+  type: 'test'
+  ...
+# Subtest: TEST-233 rejects a conflicting PRLS owner and credential-shaped descriptor data
+ok 19 - TEST-233 rejects a conflicting PRLS owner and credential-shaped descriptor data
+  ---
+  duration_ms: 3.726277
+  type: 'test'
+  ...
+# Subtest: TEST-234 reports semantic identity and mount equality without exposing values
+ok 20 - TEST-234 reports semantic identity and mount equality without exposing values
+  ---
+  duration_ms: 9.381215
+  type: 'test'
+  ...
+# Subtest: TEST-234 check is read-only and equivalent apply never invokes up
+ok 21 - TEST-234 check is read-only and equivalent apply never invokes up
+  ---
+  duration_ms: 9.842011
+  type: 'test'
+  ...
+# Subtest: TEST-234 example production descriptor no longer manages the shared Caddy owner
+ok 22 - TEST-234 example production descriptor no longer manages the shared Caddy owner
+  ---
+  duration_ms: 0.71455
+  type: 'test'
+  ...
+# Subtest: TEST-234 blocks an unapproved runtime difference before application
+ok 23 - TEST-234 blocks an unapproved runtime difference before application
+  ---
+  duration_ms: 4.333744
+  type: 'test'
+  ...
+# Subtest: TEST-234 rejects a container from the wrong Compose project and never fills sources from it
+ok 24 - TEST-234 rejects a container from the wrong Compose project and never fills sources from it
+  ---
+  duration_ms: 3.069349
+  type: 'test'
+  ...
+# Subtest: TEST-233 missing approved sources fail before runtime inspection
+ok 25 - TEST-233 missing approved sources fail before runtime inspection
+  ---
+  duration_ms: 2.422399
+  type: 'test'
+  ...
+# Subtest: TEST-234 applies only the selected service with the reviewed nonsecret override
+ok 26 - TEST-234 applies only the selected service with the reviewed nonsecret override
+  ---
+  duration_ms: 8.237102
+  type: 'test'
+  ...
+# Subtest: TEST-234 descriptor loading keeps the descriptor itself nonsecret
+ok 27 - TEST-234 descriptor loading keeps the descriptor itself nonsecret
+  ---
+  duration_ms: 1.821961
+  type: 'test'
+  ...
+# Subtest: TEST-260 candidate release rejects a stale but internally equivalent descriptor
+ok 28 - TEST-260 candidate release rejects a stale but internally equivalent descriptor
+  ---
+  duration_ms: 4.458341
+  type: 'test'
+  ...
+# Subtest: TEST-260 candidate release rejects a wrong image label and unhealthy runtime
+ok 29 - TEST-260 candidate release rejects a wrong image label and unhealthy runtime
+  ---
+  duration_ms: 5.679647
+  type: 'test'
+  ...
+# Subtest: TEST-260 candidate-aware apply permits an old runtime and requires convergence
+ok 30 - TEST-260 candidate-aware apply permits an old runtime and requires convergence
+  ---
+  duration_ms: 4.564913
+  type: 'test'
+  ...
+# Subtest: TEST-260 candidate options reject invalid intent before Docker
+ok 31 - TEST-260 candidate options reject invalid intent before Docker
+  ---
+  duration_ms: 184.535749
+  type: 'test'
+  ...
+# Subtest: ordinary OpenAI contract and reference boundary are traceable and assigned to the right existing tiers
+ok 32 - ordinary OpenAI contract and reference boundary are traceable and assigned to the right existing tiers
+  ---
+  duration_ms: 24.190177
+  type: 'test'
+  ...
+# Subtest: one connection-only CPA configuration is selected without embedded credentials
+ok 33 - one connection-only CPA configuration is selected without embedded credentials
+  ---
+  duration_ms: 7.85496
+  type: 'test'
+  ...
+# Subtest: Compose gives the same bearer to the public gateway and reference client
+ok 34 - Compose gives the same bearer to the public gateway and reference client
+  ---
+  duration_ms: 1.46712
+  type: 'test'
+  ...
+# Subtest: active setup and client documentation have no profile API or synchronization path
+ok 35 - active setup and client documentation have no profile API or synchronization path
+  ---
+  duration_ms: 3.306405
+  type: 'test'
+  ...
+1..35
+# tests 35
+# suites 0
+# pass 35
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 578.365715

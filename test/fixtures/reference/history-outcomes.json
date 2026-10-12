@@ -1,0 +1,106 @@
+{
+  "outcomes": [
+    {
+      "mode": "disabled",
+      "status": "disabled",
+      "runId": "00000000-0000-4000-8000-000000000001"
+    },
+    {
+      "mode": "enabled",
+      "status": "configuration_error",
+      "runId": "00000000-0000-4000-8000-000000000001",
+      "diagnostic": {
+        "code": "history_configuration_error",
+        "component": "history",
+        "operation": "insert",
+        "requestId": "request-fixture",
+        "runId": "00000000-0000-4000-8000-000000000001",
+        "inferenceOutcome": "succeeded",
+        "persistenceOutcome": "configuration_error",
+        "cause": "configuration",
+        "durationMs": 1000,
+        "message": "History is enabled but PostgreSQL configuration is invalid.",
+        "action": "Configure HARDEN_LLM_DATABASE_URL and check reference status."
+      }
+    },
+    {
+      "mode": "enabled",
+      "status": "saved",
+      "runId": "00000000-0000-4000-8000-000000000001"
+    },
+    {
+      "mode": "enabled",
+      "status": "not_saved",
+      "runId": "00000000-0000-4000-8000-000000000001",
+      "diagnostic": {
+        "code": "history_write_rejected",
+        "component": "history",
+        "operation": "insert",
+        "requestId": "request-fixture",
+        "runId": "00000000-0000-4000-8000-000000000001",
+        "inferenceOutcome": "succeeded",
+        "persistenceOutcome": "not_saved",
+        "cause": "connection",
+        "durationMs": 1000,
+        "message": "History was not saved because the database connection was unavailable.",
+        "action": "Check the database connection; the inference output is preserved."
+      }
+    },
+    {
+      "mode": "enabled",
+      "status": "unconfirmed",
+      "runId": "00000000-0000-4000-8000-000000000001",
+      "diagnostic": {
+        "code": "history_write_unconfirmed",
+        "component": "history",
+        "operation": "insert",
+        "requestId": "request-fixture",
+        "runId": "00000000-0000-4000-8000-000000000001",
+        "inferenceOutcome": "succeeded",
+        "persistenceOutcome": "unconfirmed",
+        "cause": "connection",
+        "durationMs": 1000,
+        "message": "History recording is unconfirmed; the row may appear later.",
+        "action": "Read history again. Do not replay inference."
+      }
+    }
+  ],
+  "commitCases": [
+    {
+      "commit": "confirmed",
+      "readback": "none",
+      "status": "saved",
+      "inserts": 1,
+      "reads": 0
+    },
+    {
+      "commit": "rejected",
+      "readback": "none",
+      "status": "not_saved",
+      "inserts": 1,
+      "reads": 0
+    },
+    {
+      "commit": "unknown",
+      "readback": "found",
+      "status": "saved",
+      "inserts": 1,
+      "reads": 1
+    },
+    {
+      "commit": "unknown",
+      "readback": "absent",
+      "status": "unconfirmed",
+      "inserts": 1,
+      "reads": 1,
+      "commitMayAppearLater": true
+    },
+    {
+      "commit": "unknown",
+      "readback": "failed",
+      "status": "unconfirmed",
+      "inserts": 1,
+      "reads": 1
+    }
+  ]
+}

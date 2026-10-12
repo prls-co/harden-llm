@@ -1,0 +1,14 @@
+{
+  "keys": [
+    {
+      "label": "A",
+      "apiKey": "hllm_fixture_A_6adf820193bc471d9a583701fd7c58d9",
+      "apiKeyHash": "c7295ce3bee8241c186abb300ca115c4999dc6548415b5ad7e9b2fb1cc914dd5"
+    },
+    {
+      "label": "B",
+      "apiKey": "hllm_fixture_B_ab785b4718d83a970df68aec621df590",
+      "apiKeyHash": "f0618fdc3e22f4d9a493983ad43f0a06174958bb81708390493b9da2a01798b6"
+    }
+  ]
+}
