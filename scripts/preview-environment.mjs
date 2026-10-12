@@ -102,12 +102,13 @@ export function initialPreviewCloudflareToken(env = process.env) {
   return token;
 }
 
-function secrets() {
+export function previewSecrets() {
   const secret = n => randomBytes(n).toString("base64url");
   return {
     POSTGRES_PASSWORD: secret(32), WEB_SECRET: secret(64),
     WEB_SIGNING_SALT: secret(16), WEB_ENCRYPTION_SALT: secret(16),
     HARDEN_LLM_TOKEN: secret(48),
+    HARDEN_LLM_CREDENTIAL_KEY: randomBytes(32).toString("base64"),
   };
 }
 
@@ -188,7 +189,7 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
   const applicationValues = applicationEnvironment(sharedValues);
   const secretPath = path.join(directory, "secrets.json");
   const existingSecrets = await readJSON(secretPath, {});
-  const generatedSecrets = secrets();
+  const generatedSecrets = previewSecrets();
   const credentials = Object.fromEntries(
     Object.keys(generatedSecrets).map((key) => [key, existingSecrets[key] ?? generatedSecrets[key]]),
   );

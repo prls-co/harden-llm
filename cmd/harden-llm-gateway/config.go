@@ -17,7 +17,6 @@ import (
 	"unicode/utf8"
 
 	hardenllm "github.com/prls-co/harden-llm"
-	"github.com/prls-co/harden-llm/internal/gateway/auth"
 	"github.com/prls-co/harden-llm/internal/gateway/httpapi"
 )
 
@@ -38,8 +37,10 @@ const (
 )
 
 type serverConfig struct {
+	apiKeys   []string
+	reference referenceSettings
+
 	listenAddress       string
-	token               string
 	connections         []hardenllm.Connection
 	defaultConnection   string
 	jinaAPIKey          string
@@ -54,6 +55,7 @@ type serverConfig struct {
 }
 
 type connectionFile struct {
+	APIKeyEnvs      []string             `json:"api_key_envs"`
 	DefaultUpstream string               `json:"default_upstream"`
 	Upstreams       []configuredUpstream `json:"upstreams"`
 }
@@ -74,7 +76,6 @@ func loadServerConfig(getenv func(string) string) (serverConfig, error) {
 	}
 	config := serverConfig{
 		listenAddress:  strings.TrimSpace(getenv(listenAddressEnvironment)),
-		token:          strings.TrimSpace(getenv(apiTokenEnvironment)),
 		jinaAPIKey:     strings.TrimSpace(getenv(jinaAPIKeyEnvironment)),
 		environment:    strings.TrimSpace(getenv(environmentEnvironment)),
 		release:        strings.TrimSpace(getenv(releaseEnvironment)),
@@ -90,9 +91,6 @@ func loadServerConfig(getenv func(string) string) (serverConfig, error) {
 	}
 	if config.serviceName == "" {
 		config.serviceName = defaultServiceName
-	}
-	if !auth.ValidToken(config.token) {
-		return serverConfig{}, fmt.Errorf("configuration: %s is required and must be a bounded printable token", apiTokenEnvironment)
 	}
 	if err := validateListenAddress(config.listenAddress); err != nil {
 		return serverConfig{}, err
@@ -133,44 +131,52 @@ func loadServerConfig(getenv func(string) string) (serverConfig, error) {
 	if len(data) == 0 || len(data) > maximumConfigurationSize {
 		return serverConfig{}, fmt.Errorf("configuration: %s must be a non-empty bounded JSON file", connectionFileEnvironment)
 	}
-	connections, defaultConnection, err := parseConnectionFile(data, getenv)
+	connections, defaultConnection, apiKeys, err := parseConnectionFile(data, getenv)
 	if err != nil {
 		return serverConfig{}, err
 	}
-	config.connections, config.defaultConnection = connections, defaultConnection
+	config.connections, config.defaultConnection, config.apiKeys = connections, defaultConnection, apiKeys
+	config.reference, err = loadReferenceSettings(getenv)
+	if err != nil {
+		return serverConfig{}, err
+	}
 	return config, nil
 }
 
-func parseConnectionFile(data []byte, getenv func(string) string) ([]hardenllm.Connection, string, error) {
+func parseConnectionFile(data []byte, getenv func(string) string) ([]hardenllm.Connection, string, []string, error) {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	var document connectionFile
 	if err := decoder.Decode(&document); err != nil {
-		return nil, "", errors.New("configuration: upstream file must contain the documented JSON shape")
+		return nil, "", nil, errors.New("configuration: upstream file must contain the documented JSON shape")
 	}
 	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
-		return nil, "", errors.New("configuration: upstream file must contain exactly one JSON value")
+		return nil, "", nil, errors.New("configuration: upstream file must contain exactly one JSON value")
+	}
+	apiKeys, err := parseAccessKeys(document.APIKeyEnvs, getenv)
+	if err != nil {
+		return nil, "", nil, err
 	}
 	if len(document.Upstreams) == 0 || len(document.Upstreams) > 32 {
-		return nil, "", errors.New("configuration: upstream file requires from 1 through 32 connections")
+		return nil, "", nil, errors.New("configuration: upstream file requires from 1 through 32 connections")
 	}
 	connections := make([]hardenllm.Connection, 0, len(document.Upstreams))
 	seen := make(map[string]struct{}, len(document.Upstreams))
 	for _, upstream := range document.Upstreams {
 		if !validConfigLabel(upstream.APIKeyEnv, 128) || !validEnvironmentName(upstream.APIKeyEnv) {
-			return nil, "", errors.New("configuration: upstream API key environment reference is invalid")
+			return nil, "", nil, errors.New("configuration: upstream API key environment reference is invalid")
 		}
 		apiKey := strings.TrimSpace(getenv(upstream.APIKeyEnv))
 		if apiKey == "" {
-			return nil, "", fmt.Errorf("configuration: required upstream credential %s is empty", upstream.APIKeyEnv)
+			return nil, "", nil, fmt.Errorf("configuration: required upstream credential %s is empty", upstream.APIKeyEnv)
 		}
 		if _, duplicate := seen[upstream.ID]; duplicate {
-			return nil, "", errors.New("configuration: upstream IDs must be unique")
+			return nil, "", nil, errors.New("configuration: upstream IDs must be unique")
 		}
 		seen[upstream.ID] = struct{}{}
 		parsedBase, _ := url.Parse(upstream.BaseURL)
 		if parsedBase != nil && parsedBase.Scheme != "https" {
-			return nil, "", errors.New("configuration: upstream endpoints must use HTTPS")
+			return nil, "", nil, errors.New("configuration: upstream endpoints must use HTTPS")
 		}
 		connections = append(connections, hardenllm.Connection{
 			ID: upstream.ID, Provider: upstream.Provider, Protocol: upstream.Protocol,
@@ -179,9 +185,9 @@ func parseConnectionFile(data []byte, getenv func(string) string) ([]hardenllm.C
 		})
 	}
 	if strings.TrimSpace(document.DefaultUpstream) == "" {
-		return nil, "", errors.New("configuration: default_upstream is required")
+		return nil, "", nil, errors.New("configuration: default_upstream is required")
 	}
-	return connections, document.DefaultUpstream, nil
+	return connections, document.DefaultUpstream, apiKeys, nil
 }
 
 func validEnvironmentName(value string) bool {

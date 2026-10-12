@@ -1,0 +1,8 @@
+--- FAIL: TestReferenceAccess (0.00s)
+    --- FAIL: TestReferenceAccess/keys_derive_fixed_independent_hashes_and_one_client_per_request (0.00s)
+        reference_access_test.go:39: derived scope/composition for key A: code=204 hash="" client=false constructions=0
+    --- FAIL: TestReferenceAccess/caller_cannot_select_scope_through_query_or_JSON (0.00s)
+        reference_access_test.go:48: scope selector apiKeyHash in query reached handler: 204
+FAIL
+FAIL	github.com/prls-co/harden-llm/internal/gateway/httpapi	0.010s
+FAIL

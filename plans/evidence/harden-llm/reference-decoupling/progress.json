@@ -5,9 +5,10 @@
   "baseSHA": "ce09df303ba9c04f489563cf68fcdec25325ee36",
   "completedPhases": [
     "P00",
-    "P01"
+    "P01",
+    "P02"
   ],
-  "nextStep": "P02.S01",
+  "nextStep": "P03.S01",
   "steps": {
     "P00.S01": {
       "status": "done"
@@ -58,58 +59,58 @@
       "status": "done"
     },
     "P02.S01": {
-      "status": "pending"
+      "status": "done"
     },
     "P02.S02": {
-      "status": "pending"
+      "status": "done"
     },
     "P02.S03": {
-      "status": "pending"
+      "status": "done"
     },
     "P02.S04": {
-      "status": "pending"
+      "status": "done"
     },
     "P02.S05": {
-      "status": "pending"
+      "status": "done"
     },
     "P02.S06": {
-      "status": "pending"
+      "status": "done"
     },
     "P02.S07": {
-      "status": "pending"
+      "status": "done"
     },
     "P02.S08": {
-      "status": "pending"
+      "status": "done"
     },
     "P02.S09": {
-      "status": "pending"
+      "status": "done"
     },
     "P02.S10": {
-      "status": "pending"
+      "status": "done"
     },
     "P02.S11": {
-      "status": "pending"
+      "status": "done"
     },
     "P02.S12": {
-      "status": "pending"
+      "status": "done"
     },
     "P02.S13": {
-      "status": "pending"
+      "status": "done"
     },
     "P02.S14": {
-      "status": "pending"
+      "status": "done"
     },
     "P02.S15": {
-      "status": "pending"
+      "status": "done"
     },
     "P02.S16": {
-      "status": "pending"
+      "status": "done"
     },
     "P02.S17": {
-      "status": "pending"
+      "status": "done"
     },
     "P02.S18": {
-      "status": "pending"
+      "status": "done"
     },
     "P03.S01": {
       "status": "pending"

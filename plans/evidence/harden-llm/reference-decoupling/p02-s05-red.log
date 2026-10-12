@@ -1,0 +1,34 @@
+{"taskId":"go-integration","status":1,"failureSummary":"FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t1.545s | FAIL","failureDetail":"--- FAIL: TestReferenceStorage (1.54s)\n    --- FAIL: TestReferenceStorage/fresh_and_idempotent_schema_has_exact_tables_indexes_and_version (0.28s)\n        storage_integration_test.go:32: fresh schema/version not created: 0 ERROR: relation \"hllm_schema_version\" does not exist (SQLSTATE 42P01)\n    --- FAIL: TestReferenceStorage/version_mismatch_is_typed_and_changes_nothing (0.15s)\n        storage_integration_test.go:38: incompatible version not rejected: <nil>\n    --- FAIL: TestReferenceStorage/partial_failure_rolls_back_all_newly_created_schema (0.14s)\n        storage_integration_test.go:44: conflicting table must reject fresh schema\n    --- FAIL: TestReferenceStorage/every_scoped_table_rejects_malformed_hash (0.13s)\n        --- FAIL: TestReferenceStorage/every_scoped_table_rejects_malformed_hash/hidden_presets (0.01s)\n            storage_integration_test.go:57: constraint boundary: expected 23514, got ERROR: relation \"hidden_presets\" does not exist (SQLSTATE 42P01)\n        --- FAIL: TestReferenceStorage/every_scoped_table_rejects_malformed_hash/drafts (0.00s)\n            storage_integration_test.go:57: constraint boundary: expected 23514, got ERROR: relation \"drafts\" does not exist (SQLSTATE 42P01)\n        --- FAIL: TestReferenceStorage/every_scoped_table_rejects_malformed_hash/cache_entries (0.00s)\n            storage_integration_test.go:57: constraint boundary: expected 23514, got ERROR: relation \"cache_entries\" does not exist (SQLSTATE 42P01)\n        --- FAIL: TestReferenceStorage/every_scoped_table_rejects_malformed_hash/history (0.00s)\n            storage_integration_test.go:57: constraint boundary: expected 23514, got ERROR: relation \"history\" does not exist (SQLSTATE 42P01)\n        --- FAIL: TestReferenceStorage/every_scoped_table_rejects_malformed_hash/credentials (0.00s)\n            storage_integration_test.go:57: constraint boundary: expected 23514, got ERROR: relation \"credentials\" does not exist (SQLSTATE 42P01)\n        --- FAIL: TestReferenceStorage/every_scoped_table_rejects_malformed_hash/profiles (0.00s)\n            storage_integration_test.go:57: constraint boundary: expected 23514, got ERROR: relation \"profiles\" does not exist (SQLSTATE 42P01)\n    --- FAIL: TestReferenceStorage/composite_credential_foreign_key_forbids_other_key_binding (0.13s)\n        storage_integration_test.go:60: ERROR: relation \"credentials\" does not exist (SQLSTATE 42P01)\n    --- FAIL: TestReferenceStorage/database_enforces_exactly_one_credential_source (0.14s)\n        storage_integration_test.go:65: ERROR: relation \"credentials\" does not exist (SQLSTATE 42P01)\n    --- FAIL: TestReferenceStorage/mutable_revisions_must_be_positive (0.13s)\n        storage_integration_test.go:70: constraint boundary: expected 23514, got ERROR: relation \"credentials\" does not exist (SQLSTATE 42P01)\n    --- FAIL: TestReferenceStorage/history_status_and_terminal_timestamp_constraints (0.14s)\n        storage_integration_test.go:74: constraint boundary: expected 23514, got ERROR: relation \"history\" does not exist (SQLSTATE 42P01)\n    --- FAIL: TestReferenceStorage/canceled_acquisition_returns_within_cap (0.15s)\n        storage_integration_test.go:84: canceled checkout bypassed acquisition cap <nil>\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t1.545s\nFAIL"}
+--- FAIL: TestReferenceStorage (1.54s)
+    --- FAIL: TestReferenceStorage/fresh_and_idempotent_schema_has_exact_tables_indexes_and_version (0.28s)
+        storage_integration_test.go:32: fresh schema/version not created: 0 ERROR: relation "hllm_schema_version" does not exist (SQLSTATE 42P01)
+    --- FAIL: TestReferenceStorage/version_mismatch_is_typed_and_changes_nothing (0.15s)
+        storage_integration_test.go:38: incompatible version not rejected: <nil>
+    --- FAIL: TestReferenceStorage/partial_failure_rolls_back_all_newly_created_schema (0.14s)
+        storage_integration_test.go:44: conflicting table must reject fresh schema
+    --- FAIL: TestReferenceStorage/every_scoped_table_rejects_malformed_hash (0.13s)
+        --- FAIL: TestReferenceStorage/every_scoped_table_rejects_malformed_hash/hidden_presets (0.01s)
+            storage_integration_test.go:57: constraint boundary: expected 23514, got ERROR: relation "hidden_presets" does not exist (SQLSTATE 42P01)
+        --- FAIL: TestReferenceStorage/every_scoped_table_rejects_malformed_hash/drafts (0.00s)
+            storage_integration_test.go:57: constraint boundary: expected 23514, got ERROR: relation "drafts" does not exist (SQLSTATE 42P01)
+        --- FAIL: TestReferenceStorage/every_scoped_table_rejects_malformed_hash/cache_entries (0.00s)
+            storage_integration_test.go:57: constraint boundary: expected 23514, got ERROR: relation "cache_entries" does not exist (SQLSTATE 42P01)
+        --- FAIL: TestReferenceStorage/every_scoped_table_rejects_malformed_hash/history (0.00s)
+            storage_integration_test.go:57: constraint boundary: expected 23514, got ERROR: relation "history" does not exist (SQLSTATE 42P01)
+        --- FAIL: TestReferenceStorage/every_scoped_table_rejects_malformed_hash/credentials (0.00s)
+            storage_integration_test.go:57: constraint boundary: expected 23514, got ERROR: relation "credentials" does not exist (SQLSTATE 42P01)
+        --- FAIL: TestReferenceStorage/every_scoped_table_rejects_malformed_hash/profiles (0.00s)
+            storage_integration_test.go:57: constraint boundary: expected 23514, got ERROR: relation "profiles" does not exist (SQLSTATE 42P01)
+    --- FAIL: TestReferenceStorage/composite_credential_foreign_key_forbids_other_key_binding (0.13s)
+        storage_integration_test.go:60: ERROR: relation "credentials" does not exist (SQLSTATE 42P01)
+    --- FAIL: TestReferenceStorage/database_enforces_exactly_one_credential_source (0.14s)
+        storage_integration_test.go:65: ERROR: relation "credentials" does not exist (SQLSTATE 42P01)
+    --- FAIL: TestReferenceStorage/mutable_revisions_must_be_positive (0.13s)
+        storage_integration_test.go:70: constraint boundary: expected 23514, got ERROR: relation "credentials" does not exist (SQLSTATE 42P01)
+    --- FAIL: TestReferenceStorage/history_status_and_terminal_timestamp_constraints (0.14s)
+        storage_integration_test.go:74: constraint boundary: expected 23514, got ERROR: relation "history" does not exist (SQLSTATE 42P01)
+    --- FAIL: TestReferenceStorage/canceled_acquisition_returns_within_cap (0.15s)
+        storage_integration_test.go:84: canceled checkout bypassed acquisition cap <nil>
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	1.545s
+FAIL

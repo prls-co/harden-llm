@@ -73,8 +73,7 @@ func (client *Client) connection(connectionID string) (Connection, error) {
 	if !ok {
 		return Connection{}, fmt.Errorf("hardenllm: connection %q was not configured", connectionID)
 	}
-	connection.Headers = cloneStringMap(connection.Headers)
-	connection.Pricing = clonePricing(connection.Pricing)
+	connection = connection.Clone()
 	return connection, nil
 }
 

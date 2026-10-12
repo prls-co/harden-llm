@@ -60,7 +60,19 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 			returnErr = safeStartupError(redactor, "shut down telemetry", shutdownErr)
 		}
 	}()
-	client, err := stateful.NewClient(stateful.ClientOptions{
+	pool, err := openReferencePool(startupContext, config.reference)
+	if err != nil {
+		telemetryRuntime.Logger().ErrorContext(startupContext, "reference storage configuration error", "code", "reference_configuration_error")
+		pool = nil
+	}
+	if pool != nil {
+		defer pool.Close()
+	}
+	presets, err := stateful.DefaultCatalog()
+	if err != nil {
+		return safeStartupError(redactor, "configure reference presets", err)
+	}
+	service, err := stateful.NewService(stateful.Config{Client: stateful.ClientOptions{
 		Connections: config.connections, DefaultConnection: config.defaultConnection,
 		EndpointPolicy: hardenllm.EndpointPolicy{
 			AllowedHosts: config.allowedHosts, PrivateAllowedHosts: config.privateAllowedHosts,
@@ -68,7 +80,7 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 		},
 		WebSearch: stateful.WebSearchOptions{JinaAPIKey: config.jinaAPIKey},
 		Logger:    telemetryRuntime.Logger(), TracerProvider: telemetryRuntime.TracerProvider(), MeterProvider: telemetryRuntime.MeterProvider(),
-	})
+	}, Pool: pool, Presets: presets, Vault: config.reference.vault, History: stateful.HistoryConfig{Enabled: config.reference.historyEnabled}, CacheTTL: config.reference.cacheTTL})
 	if err != nil {
 		return safeStartupError(redactor, "configure shared proxy client", err)
 	}
@@ -79,7 +91,7 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 	var accepting atomic.Bool
 	accepting.Store(true)
 	api, err := httpapi.New(httpapi.Config{
-		Token: config.token, Client: client, MaxRunDuration: config.maxRunDuration,
+		APIKeys: config.apiKeys, Service: service, MaxRunDuration: config.maxRunDuration,
 		Telemetry: telemetry, Logger: telemetryRuntime.Logger(),
 		Readiness: []httpapi.ReadinessCheck{func(context.Context) error {
 			if !accepting.Load() {
@@ -132,7 +144,7 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 }
 
 func configurationRedactor(config serverConfig) *redaction.Redactor {
-	secrets := []string{config.token, config.jinaAPIKey}
+	secrets := append([]string{config.jinaAPIKey, config.reference.credentialKey, config.reference.databaseURL, config.reference.artifactAccessKey, config.reference.artifactSecretKey}, config.apiKeys...)
 	for _, connection := range config.connections {
 		secrets = append(secrets, connection.APIKey)
 		for name, value := range connection.Headers {

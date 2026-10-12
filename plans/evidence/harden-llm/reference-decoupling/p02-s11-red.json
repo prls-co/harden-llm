@@ -1,0 +1,55 @@
+{
+  "accepted": false,
+  "runDirectory": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/run-1791844579240-1207131-0fiasp",
+  "results": [
+    {
+      "taskId": "go-integration",
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-tags=integration",
+        "./stateful",
+        "-run",
+        "^TestProfileResources$",
+        "-count=1"
+      ],
+      "status": 1,
+      "seed": 233256,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 9417,
+      "peakRssMiB": 263.2109375,
+      "cpuMs": 3560,
+      "stdoutBytes": 1347,
+      "stderrBytes": 0,
+      "truncatedOutputBytes": 0,
+      "stdoutPreview": "--- FAIL: TestProfileResources (2.12s)\n    --- FAIL: TestProfileResources/model_discovery_returns_changed_draft_without_generation_or_saved_mutation (0.19s)\n        profile_resources_integration_test.go:115: not_implemented: Refresh not implemented.\n    --- FAIL: TestProfileResources/bundle_roundtrip_preserves_full_snapshots_hidden_preferences_and_encrypted_credentials (0.19s)\n        profile_resources_integration_test.go:154: not_implemented: Bundle not implemented.\n    --- FAIL: TestProfileResources/scope_version_key_and_tamper_rejection_leave_original_catalog_unchanged (0.20s)\n        profile_resources_integration_test.go:185: not_implemented: Bundle not implemented.\n    --- FAIL: TestProfileResources/candidate_import_probes_precede_transaction_and_failed_probe_changes_no_rows (0.20s)\n        profile_resources_integration_test.go:248: not_implemented: Bundle not implemented.\n    --- FAIL: TestProfileResources/replacement_transaction_failure_restores_original_catalog (0.21s)\n        profile_resources_integration_test.go:270: not_implemented: Bundle not implemented.\n    --- FAIL: TestProfileResources/export_contains_no_plaintext_incoming_deployment_or_entered_secret (0.20s)\n        profile_resources_integration_test.go:292: not_implemented: Bundle not implemented.\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t2.130s\nFAIL\n",
+      "stderrPreview": "",
+      "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t2.130s | FAIL",
+      "failureDetail": "--- FAIL: TestProfileResources (2.12s)\n    --- FAIL: TestProfileResources/model_discovery_returns_changed_draft_without_generation_or_saved_mutation (0.19s)\n        profile_resources_integration_test.go:115: not_implemented: Refresh not implemented.\n    --- FAIL: TestProfileResources/bundle_roundtrip_preserves_full_snapshots_hidden_preferences_and_encrypted_credentials (0.19s)\n        profile_resources_integration_test.go:154: not_implemented: Bundle not implemented.\n    --- FAIL: TestProfileResources/scope_version_key_and_tamper_rejection_leave_original_catalog_unchanged (0.20s)\n        profile_resources_integration_test.go:185: not_implemented: Bundle not implemented.\n    --- FAIL: TestProfileResources/candidate_import_probes_precede_transaction_and_failed_probe_changes_no_rows (0.20s)\n        profile_resources_integration_test.go:248: not_implemented: Bundle not implemented.\n    --- FAIL: TestProfileResources/replacement_transaction_failure_restores_original_catalog (0.21s)\n        profile_resources_integration_test.go:270: not_implemented: Bundle not implemented.\n    --- FAIL: TestProfileResources/export_contains_no_plaintext_incoming_deployment_or_entered_secret (0.20s)\n        profile_resources_integration_test.go:292: not_implemented: Bundle not implemented.\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t2.130s\nFAIL",
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": true,
+      "servicePoolProject": "harden-llm-test-61d9f2e43f59",
+      "startedAtMs": 412,
+      "endedAtMs": 9829
+    }
+  ],
+  "firstFailure": {
+    "taskId": "go-integration",
+    "status": 1,
+    "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t2.130s | FAIL",
+    "failureDetail": "--- FAIL: TestProfileResources (2.12s)\n    --- FAIL: TestProfileResources/model_discovery_returns_changed_draft_without_generation_or_saved_mutation (0.19s)\n        profile_resources_integration_test.go:115: not_implemented: Refresh not implemented.\n    --- FAIL: TestProfileResources/bundle_roundtrip_preserves_full_snapshots_hidden_preferences_and_encrypted_credentials (0.19s)\n        profile_resources_integration_test.go:154: not_implemented: Bundle not implemented.\n    --- FAIL: TestProfileResources/scope_version_key_and_tamper_rejection_leave_original_catalog_unchanged (0.20s)\n        profile_resources_integration_test.go:185: not_implemented: Bundle not implemented.\n    --- FAIL: TestProfileResources/candidate_import_probes_precede_transaction_and_failed_probe_changes_no_rows (0.20s)\n        profile_resources_integration_test.go:248: not_implemented: Bundle not implemented.\n    --- FAIL: TestProfileResources/replacement_transaction_failure_restores_original_catalog (0.21s)\n        profile_resources_integration_test.go:270: not_implemented: Bundle not implemented.\n    --- FAIL: TestProfileResources/export_contains_no_plaintext_incoming_deployment_or_entered_secret (0.20s)\n        profile_resources_integration_test.go:292: not_implemented: Bundle not implemented.\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t2.130s\nFAIL"
+  },
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 74,
+    "daemonLockWaitMs": 121,
+    "staleReceiptRecoveryMs": 95
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": []
+}

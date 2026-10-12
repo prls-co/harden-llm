@@ -1,0 +1,39 @@
+--- FAIL: TestReferenceConfig (0.00s)
+    --- FAIL: TestReferenceConfig/accepted_access_keys_resolve_once_from_required_metadata (0.00s)
+        reference_config_test.go:27: configuration: upstream file must contain the documented JSON shape
+    --- FAIL: TestReferenceConfig/each_invalid_name_and_resolved_secret_is_typed_and_never_echoed (0.00s)
+        --- FAIL: TestReferenceConfig/each_invalid_name_and_resolved_secret_is_typed_and_never_echoed/empty (0.00s)
+            reference_config_test.go:37: invalid access key config is not typed configuration: upstream file must contain the documented JSON shape
+        --- FAIL: TestReferenceConfig/each_invalid_name_and_resolved_secret_is_typed_and_never_echoed/invalid-name (0.00s)
+            reference_config_test.go:37: invalid access key config is not typed configuration: upstream file must contain the documented JSON shape
+        --- FAIL: TestReferenceConfig/each_invalid_name_and_resolved_secret_is_typed_and_never_echoed/duplicate-name (0.00s)
+            reference_config_test.go:37: invalid access key config is not typed configuration: upstream file must contain the documented JSON shape
+        --- FAIL: TestReferenceConfig/each_invalid_name_and_resolved_secret_is_typed_and_never_echoed/unset (0.00s)
+            reference_config_test.go:37: invalid access key config is not typed configuration: upstream file must contain the documented JSON shape
+        --- FAIL: TestReferenceConfig/each_invalid_name_and_resolved_secret_is_typed_and_never_echoed/empty-value (0.00s)
+            reference_config_test.go:37: invalid access key config is not typed configuration: upstream file must contain the documented JSON shape
+        --- FAIL: TestReferenceConfig/each_invalid_name_and_resolved_secret_is_typed_and_never_echoed/invalid-value (0.00s)
+            reference_config_test.go:37: invalid access key config is not typed configuration: upstream file must contain the documented JSON shape
+        --- FAIL: TestReferenceConfig/each_invalid_name_and_resolved_secret_is_typed_and_never_echoed/duplicate-value (0.00s)
+            reference_config_test.go:37: invalid access key config is not typed configuration: upstream file must contain the documented JSON shape
+    --- FAIL: TestReferenceConfig/absent_database_and_disabled_history_have_explicit_feature_states (0.00s)
+        reference_config_test.go:46: disabled features misreported configuration: upstream file must contain the documented JSON shape
+    --- FAIL: TestReferenceConfig/enabled_history_with_missing_or_invalid_database_remains_configuration_error (0.00s)
+        reference_config_test.go:49: history configuration prevented independent inference or became disabled configuration: upstream file must contain the documented JSON shape
+    --- FAIL: TestReferenceConfig/pool_defaults_ten_and_rejects_nonpositive_sizes (0.00s)
+        reference_config_test.go:53: pool default differs configuration: upstream file must contain the documented JSON shape
+    --- FAIL: TestReferenceConfig/credential_key_absent_is_diagnosed_and_malformed_value_never_echoed (0.00s)
+        reference_config_test.go:57: missing credential encryption key not diagnosed configuration: upstream file must contain the documented JSON shape
+    --- FAIL: TestReferenceConfig/cache_TTL_default_and_invalid_values (0.00s)
+        reference_config_test.go:62: cache TTL default differs configuration: upstream file must contain the documented JSON shape
+    --- FAIL: TestReferenceConfig/artifact_absence_disabled_and_partial_config_typed_without_blocking_inference (0.00s)
+        reference_config_test.go:66: absent artifacts not disabled configuration: upstream file must contain the documented JSON shape
+    --- FAIL: TestReferenceConfig/config_construction_performs_no_network_lookup_or_key_generation (0.00s)
+        reference_config_test.go:71: value construction touched an external system or generated encryption key configuration: upstream file must contain the documented JSON shape
+    --- FAIL: TestReferenceConfig/schema_command_invokes_apply_once_without_reset_path (0.00s)
+        reference_config_test.go:76: schema command did not invoke apply exactly once <nil> 0
+    --- FAIL: TestReferenceConfig/preview_has_schema_dependency_and_gateway_storage_without_artifacts (0.00s)
+        reference_config_test.go:84: preview schema/storage composition missing
+FAIL
+FAIL	github.com/prls-co/harden-llm/cmd/harden-llm-gateway	0.009s
+FAIL

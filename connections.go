@@ -24,6 +24,13 @@ type Connection struct {
 }
 
 // ConnectionCatalog is the immutable startup set indexed by connection ID.
+// Clone returns detached connection metadata and credentials for a call composition.
+func (connection Connection) Clone() Connection {
+	connection.Headers = cloneStringMap(connection.Headers)
+	connection.Pricing = clonePricing(connection.Pricing)
+	return connection
+}
+
 type ConnectionCatalog map[string]Connection
 
 func normalizeConnections(input ConnectionCatalog, defaultID string) (ConnectionCatalog, string, error) {
@@ -65,8 +72,7 @@ func normalizeConnections(input ConnectionCatalog, defaultID string) (Connection
 		if _, exists := connections[connection.ID]; exists {
 			return nil, "", fmt.Errorf("hardenllm: connection %q is duplicated", connection.ID)
 		}
-		connection.Headers = cloneStringMap(connection.Headers)
-		connection.Pricing = clonePricing(connection.Pricing)
+		connection = connection.Clone()
 		if connection.Pricing != nil {
 			for _, rate := range []*float64{connection.Pricing.Input, connection.Pricing.CacheRead, connection.Pricing.CacheCreation, connection.Pricing.Output, connection.Pricing.Reasoning} {
 				if rate != nil && (math.IsNaN(*rate) || math.IsInf(*rate, 0) || *rate < 0) {

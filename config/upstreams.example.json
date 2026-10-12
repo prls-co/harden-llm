@@ -1,4 +1,7 @@
 {
+  "api_key_envs": [
+    "HARDEN_LLM_TOKEN"
+  ],
   "default_upstream": "cpa",
   "upstreams": [
     {

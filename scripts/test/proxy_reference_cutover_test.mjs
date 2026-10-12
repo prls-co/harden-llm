@@ -10,7 +10,8 @@ const read = (relative) => readFileSync(path.join(root, relative), "utf8");
 
 test("one connection-only CPA configuration is selected without embedded credentials", () => {
   const document = JSON.parse(read("config/upstreams.example.json"));
-  assert.deepEqual(Object.keys(document).sort(), ["default_upstream", "upstreams"]);
+  assert.deepEqual(Object.keys(document).sort(), ["api_key_envs", "default_upstream", "upstreams"]);
+  assert.deepEqual(document.api_key_envs,["HARDEN_LLM_TOKEN"]);
   assert.equal(document.default_upstream, "cpa");
   assert.deepEqual(document.upstreams, [
     {

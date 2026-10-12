@@ -135,7 +135,11 @@
         "TEST-421",
         "TEST-422",
         "TEST-437",
-        "TEST-445"
+        "TEST-445",
+        "TEST-423",
+        "TEST-444",
+        "TEST-425",
+        "TEST-449"
       ],
       "tier": "T1",
       "resourceClass": "cpu",
@@ -188,7 +192,7 @@
     },
     {
       "id": "go-integration",
-      "testIds": ["TEST-007", "TEST-053", "TEST-060", "TEST-230", "TEST-232", "TEST-251", "TEST-252", "TEST-253", "TEST-254", "TEST-255", "TEST-267"],
+      "testIds": ["TEST-007", "TEST-053", "TEST-060", "TEST-230", "TEST-232", "TEST-251", "TEST-252", "TEST-253", "TEST-254", "TEST-255", "TEST-267", "TEST-424", "TEST-438", "TEST-439", "TEST-440"],
       "tier": "T3",
       "resourceClass": "service",
       "command": ["go", "test", "-p=${HARDEN_LLM_TEST_PACKAGE_SLOTS}", "./...", "-tags=integration", "-count=1"],
@@ -207,7 +211,7 @@
           {"name": "garage", "port": 3900}
         ]
       },
-      "pathSelectors": ["internal/**", "deploy/test/**", "go.mod", "go.sum"]
+      "pathSelectors": ["internal/**", "stateful/**", "deploy/test/**", "go.mod", "go.sum"]
     },
     {
       "id": "go-integration-race",
@@ -229,7 +233,7 @@
           {"name": "garage", "port": 3900}
         ]
       },
-      "pathSelectors": ["internal/**", "deploy/test/**", "go.mod", "go.sum"]
+      "pathSelectors": ["internal/**", "stateful/**", "deploy/test/**", "go.mod", "go.sum"]
     },
     {
       "id": "go-api",

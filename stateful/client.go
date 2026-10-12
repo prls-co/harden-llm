@@ -42,6 +42,7 @@ func newEffects(options ClientOptions) (hardenllm.Options, error) {
 			return hardenllm.Options{}, fmt.Errorf("stateful: connection %q is duplicated", id)
 		}
 		connection.ID = id
+		connection = connection.Clone()
 		connections[id] = connection
 	}
 

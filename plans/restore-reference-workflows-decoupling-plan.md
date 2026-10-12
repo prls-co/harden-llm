@@ -223,7 +223,7 @@ The wrapper callback only assigns this per-call capture in memory; it performs n
 
 ### 4.3. Stateful library contract
 
-`stateful.Config` fields remain `Client ClientOptions`, `Pool *pgxpool.Pool`, `Presets Catalog`, `Vault *CredentialVault`, `History HistoryConfig{Enabled bool}`, and `Artifacts *ArtifactStore`. History uses `Pool`; there is no separate history client. `NewService(Config) (*Service, error)` calls `newEffects` once and retains shared concrete effects for immutable call clients. `Service.ClientForKey(apiKeyHash string) (*hardenllm.Client, error)` binds one `PostgresCache` scope to that key and the deployment credential snapshot, then uses the one root constructor. It performs no database/identity/network lookup. `/v1` uses this composition for every authenticated key; there is no unscoped cache path or duplicated engine. Standalone `stateful.NewClient(ClientOptions)` remains the storage/auth-free convenience constructor for library consumers.
+`stateful.Config` fields remain `Client ClientOptions`, `Pool *pgxpool.Pool`, `Presets Catalog`, `Vault *CredentialVault`, `History HistoryConfig{Enabled bool}`, and `Artifacts *ArtifactStore`, and `CacheTTL time.Duration` (omission selects 86400 seconds). History uses `Pool`; there is no separate history client. `NewService(Config) (*Service, error)` calls `newEffects` once and retains shared concrete effects for immutable call clients. `Service.ClientForKey(apiKeyHash string) (*hardenllm.Client, error)` binds one `PostgresCache` scope to that key and the deployment credential snapshot, then uses the one root constructor. It performs no database/identity/network lookup. `/v1` uses this composition for every authenticated key; there is no unscoped cache path or duplicated engine. Standalone `stateful.NewClient(ClientOptions)` remains the storage/auth-free convenience constructor for library consumers.
 
 The executable owns pool/client shutdown; `Service` neither provisions a database nor creates another pool. Optional storage/history/artifact configuration errors remain typed feature status and do not prevent deployment inference. A nil pool/vault produces explicit storage/credential configuration errors on affected operations; it never substitutes environment credentials. History retains enabled/configuration status: enabled with a nil pool is a configuration error, not disabled. Inject clock and ID functions through unexported test options; no general dependency container.
 
@@ -2215,7 +2215,7 @@ Generate ciphertext deterministically only in encryption tests using an injected
 
 ## 11. Execution log template
 
-Current execution evidence is in [progress.json](evidence/harden-llm/reference-decoupling/progress.json), [the P00 checkpoint](evidence/harden-llm/reference-decoupling/phase-p00.md) and [the P01 checkpoint](evidence/harden-llm/reference-decoupling/phase-p01.md). P00 and P01 are complete; resume at P02.S01. Copy this template for later phases and retain failed attempts and deviations.
+Current execution evidence is in [progress.json](evidence/harden-llm/reference-decoupling/progress.json), [the P00 checkpoint](evidence/harden-llm/reference-decoupling/phase-p00.md) and [the P01 checkpoint](evidence/harden-llm/reference-decoupling/phase-p01.md) and [the P02 checkpoint](evidence/harden-llm/reference-decoupling/phase-p02.md). P00–P02 are complete; resume at P03.S01. Copy this template for later phases and retain failed attempts and deviations.
 
 ```yaml
 phase_id: ""

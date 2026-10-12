@@ -14,6 +14,7 @@ import (
 	hardenllm "github.com/prls-co/harden-llm"
 	"github.com/prls-co/harden-llm/internal/gateway"
 	"github.com/prls-co/harden-llm/internal/gateway/auth"
+	"github.com/prls-co/harden-llm/stateful"
 	"go.opentelemetry.io/otel/propagation"
 )
 
@@ -28,8 +29,8 @@ const (
 type ReadinessCheck func(context.Context) error
 
 type Config struct {
-	Token          string
-	Client         *hardenllm.Client
+	APIKeys        []string
+	Service        *stateful.Service
 	Readiness      []ReadinessCheck
 	MaxRunDuration time.Duration
 	Telemetry      *gateway.Telemetry
@@ -37,8 +38,9 @@ type Config struct {
 }
 
 type API struct {
-	token          string
-	client         *hardenllm.Client
+	clientForKey   func(string) (*hardenllm.Client, error)
+	keys           []string
+	service        *stateful.Service
 	readiness      []ReadinessCheck
 	maxRunDuration time.Duration
 	telemetry      *gateway.Telemetry
@@ -92,11 +94,18 @@ func (writer *statusWriter) Flush() {
 func (writer *statusWriter) Unwrap() http.ResponseWriter { return writer.ResponseWriter }
 
 func New(config Config) (*API, error) {
-	if !auth.ValidToken(config.Token) {
-		return nil, errors.New("httpapi: a bounded bearer token is required")
+	if len(config.APIKeys) == 0 {
+		return nil, errors.New("httpapi: configured bearer API keys are required")
 	}
-	if config.Client == nil {
-		return nil, errors.New("httpapi: the shared client is required")
+	seen := map[string]bool{}
+	for _, key := range config.APIKeys {
+		if !auth.ValidToken(key) || seen[key] {
+			return nil, errors.New("httpapi: configured bearer API keys must be valid and distinct")
+		}
+		seen[key] = true
+	}
+	if config.Service == nil {
+		return nil, errors.New("httpapi: the stateful composition is required")
 	}
 	for _, check := range config.Readiness {
 		if check == nil {
@@ -120,7 +129,7 @@ func New(config Config) (*API, error) {
 		config.Logger = slog.New(slog.DiscardHandler)
 	}
 	api := &API{
-		token: config.Token, client: config.Client, readiness: append([]ReadinessCheck(nil), config.Readiness...),
+		keys: append([]string(nil), config.APIKeys...), service: config.Service, clientForKey: config.Service.ClientForKey, readiness: append([]ReadinessCheck(nil), config.Readiness...),
 		maxRunDuration: config.MaxRunDuration, telemetry: config.Telemetry,
 		propagator: propagation.TraceContext{}, logger: config.Logger,
 	}
@@ -170,16 +179,6 @@ func (api *API) observeHTTP(next http.Handler) http.Handler {
 		api.logger.InfoContext(ctx, "http request completed", "method", request.Method, "route", route, "status", wrapped.status, "outcome", outcome, "category", category)
 		endRequest(route, wrapped.status)
 	})
-}
-
-func (api *API) authorize(next http.HandlerFunc) http.HandlerFunc {
-	return func(writer http.ResponseWriter, request *http.Request) {
-		if !auth.MatchBearer(request.Header.Values("Authorization"), api.token) {
-			writeError(writer, http.StatusUnauthorized, "authentication_error", "invalid_api_key", "Invalid or missing API key.", nil)
-			return
-		}
-		next.ServeHTTP(writer, request)
-	}
 }
 
 func (api *API) health(writer http.ResponseWriter, _ *http.Request) {

@@ -1,0 +1,7 @@
+{"taskId":"go-integration","status":1,"failureSummary":"FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t2.873s | FAIL","failureDetail":"--- FAIL: TestCacheDraftContract (2.87s)\n    --- FAIL: TestCacheDraftContract/corrupt_envelope_is_rejected_by_core_rather_than_a_cache_hit (0.21s)\n        cache_draft_integration_test.go:169: corrupt cache treated as success CACHE_INTEGRITY\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t2.873s\nFAIL"}
+--- FAIL: TestCacheDraftContract (2.87s)
+    --- FAIL: TestCacheDraftContract/corrupt_envelope_is_rejected_by_core_rather_than_a_cache_hit (0.21s)
+        cache_draft_integration_test.go:169: corrupt cache treated as success CACHE_INTEGRITY
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	2.873s
+FAIL

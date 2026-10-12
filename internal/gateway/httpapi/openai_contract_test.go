@@ -234,7 +234,7 @@ func newContractProxy(t *testing.T, upstream *httptest.Server) *httptest.Server 
 	t.Helper()
 	certificatePool := x509.NewCertPool()
 	certificatePool.AddCert(upstream.Certificate())
-	client, err := stateful.NewClient(stateful.ClientOptions{
+	service, err := stateful.NewService(stateful.Config{Client: stateful.ClientOptions{
 		Connections: []hardenllm.Connection{{
 			ID: "cpa", Provider: "fixture", Protocol: "responses", BaseURL: upstream.URL + "/v1",
 			CacheDomain: "fixture-credential-1", APIKey: "synthetic-upstream-secret",
@@ -244,11 +244,11 @@ func newContractProxy(t *testing.T, upstream *httptest.Server) *httptest.Server 
 			PrivateAllowedHosts: []string{"127.0.0.1"}, PrivateAllowlist: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")},
 			TLSConfig: &tls.Config{RootCAs: certificatePool, MinVersion: tls.VersionTLS12},
 		},
-	})
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	api, err := New(Config{Token: proxyTestToken, Client: client})
+	api, err := New(Config{APIKeys: []string{proxyTestToken}, Service: service})
 	if err != nil {
 		t.Fatal(err)
 	}
