@@ -15,6 +15,7 @@ import (
 	"github.com/prls-co/harden-llm/internal/gateway"
 	"github.com/prls-co/harden-llm/internal/gateway/httpapi"
 	"github.com/prls-co/harden-llm/internal/redaction"
+	"github.com/prls-co/harden-llm/stateful"
 )
 
 const (
@@ -59,13 +60,13 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 			returnErr = safeStartupError(redactor, "shut down telemetry", shutdownErr)
 		}
 	}()
-	client, err := gateway.NewStaticClient(hardenllm.Options{
+	client, err := stateful.NewClient(stateful.ClientOptions{
 		Connections: config.connections, DefaultConnection: config.defaultConnection,
 		EndpointPolicy: hardenllm.EndpointPolicy{
 			AllowedHosts: config.allowedHosts, PrivateAllowedHosts: config.privateAllowedHosts,
 			PrivateAllowlist: config.privateAllowlist,
 		},
-		WebSearch: hardenllm.WebSearchOptions{JinaAPIKey: config.jinaAPIKey},
+		WebSearch: stateful.WebSearchOptions{JinaAPIKey: config.jinaAPIKey},
 		Logger:    telemetryRuntime.Logger(), TracerProvider: telemetryRuntime.TracerProvider(), MeterProvider: telemetryRuntime.MeterProvider(),
 	})
 	if err != nil {

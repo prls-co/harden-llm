@@ -100,9 +100,9 @@ func Execute(
 	if call.WebSearch {
 		call.SearchMemo = &sync.Map{}
 	}
-	if call.Telemetry != nil {
+	if call.Observer != nil {
 		var finish func(error)
-		ctx, finish = call.Telemetry.StartRuntime(ctx, CallObservation{ConnectionID: connection.ID, Provider: connection.Provider, ModelID: call.ModelID, CallType: call.CallType})
+		ctx, finish = call.Observer.StartRuntime(ctx, CallObservation{ConnectionID: connection.ID, Provider: connection.Provider, ModelID: call.ModelID, CallType: call.CallType})
 		defer func() { finish(err) }()
 	}
 	if cacheVersion == "" {
@@ -176,8 +176,8 @@ func Execute(
 		if cacheMode == cachekey.ModeCache {
 			cacheContext := ctx
 			endCache := func(string, error) {}
-			if call.Telemetry != nil {
-				cacheContext, endCache = call.Telemetry.StartCache(ctx, "lookup")
+			if call.Observer != nil {
+				cacheContext, endCache = call.Observer.StartCache(ctx, "lookup")
 			}
 			cached, found, cacheErr := cache.Get(cacheContext, record.Cache.OperationHash, cacheVersion)
 			if cacheErr != nil {
@@ -221,13 +221,13 @@ func Execute(
 		startedUTC := started.UTC()
 		attemptContext := ctx
 		endAttempt := func(error) {}
-		if call.Telemetry != nil {
-			attemptContext, endAttempt = call.Telemetry.StartAttempt(ctx, target, call.CallType, number)
+		if call.Observer != nil {
+			attemptContext, endAttempt = call.Observer.StartAttempt(ctx, target, call.CallType, number)
 		}
 		providerContext := attemptContext
 		endProvider := func(bool, error) {}
-		if call.Telemetry != nil {
-			providerContext, endProvider = call.Telemetry.StartProvider(attemptContext, target, call.CallType)
+		if call.Observer != nil {
+			providerContext, endProvider = call.Observer.StartProvider(attemptContext, target, call.CallType)
 		}
 		activeStream = &StreamDiagnostics{}
 		preparedAttempt := work.prepared
@@ -245,6 +245,14 @@ func Execute(
 		record.Diagnostics.OutputBytes += result.Stream.OutputBytes
 		record.Diagnostics.OutputCodePoints += result.Stream.OutputCodePoints
 		result.Accounting = normalizedLedger(result.Accounting)
+		if providerUsed {
+			cost, costErr := resolveAttemptCost(result.Accounting, connection)
+			if costErr != nil {
+				failure = combineAccountingFailure(failure)
+			} else {
+				result.Accounting.Cost = cost
+			}
+		}
 		if accountingErr := providerAccumulator.Observe(providerUsed, result.Accounting); accountingErr != nil {
 			failure = combineAccountingFailure(failure)
 		}
@@ -252,7 +260,7 @@ func Execute(
 		previousOutput := ""
 		if failure == nil {
 			validateStructured := func(value any) error {
-				return validateStructuredValue(attemptContext, call.Telemetry, connection, work.call.Repair != nil, call.ValidateStructured, value)
+				return validateStructuredValue(attemptContext, call.Observer, connection, work.call.Repair != nil, call.ValidateStructured, value)
 			}
 			admissionErr := admitResult(result, work.call.CallType, validateStructured)
 			if admissionErr != nil {
@@ -305,8 +313,8 @@ func Execute(
 			if cacheMode != cachekey.ModeOff {
 				cacheContext := ctx
 				endCache := func(string, error) {}
-				if call.Telemetry != nil {
-					cacheContext, endCache = call.Telemetry.StartCache(ctx, "write")
+				if call.Observer != nil {
+					cacheContext, endCache = call.Observer.StartCache(ctx, "write")
 				}
 				cacheResult := result
 				if cacheResult.Search == nil {
@@ -332,11 +340,7 @@ func Execute(
 		}
 		record.Attempts[len(record.Attempts)-1].Delay = delay
 		waitStarted := config.Now()
-		if call.Telemetry == nil {
-			err = config.Wait(ctx, delay)
-		} else {
-			err = call.Telemetry.WaitForRetry(ctx, target, call.CallType, classification, delay, config.Wait)
-		}
+		err = waitForRetry(ctx, call.Observer, target, call.CallType, classification, delay, config.Wait)
 		actualWait := max(0, config.Now().Sub(waitStarted))
 		record.Diagnostics.TotalActualWait += actualWait
 		record.Attempts[len(record.Attempts)-1].WaitDiagnostics = &WaitDiagnostics{Reason: string(classification.Category), Planned: delay, Actual: actualWait, RetryAfter: classification.RetryAfter}
@@ -392,19 +396,23 @@ func admitCachedResult(ctx context.Context, connection Connection, target Execut
 		return err
 	}
 	validateStructured := func(value any) error {
-		return validateStructuredValue(ctx, call.Telemetry, connection, false, call.ValidateStructured, value)
+		return validateStructuredValue(ctx, call.Observer, connection, false, call.ValidateStructured, value)
 	}
 	return admitResult(cached.ProviderResult, call.CallType, validateStructured)
 }
 
-func validateStructuredValue(ctx context.Context, telemetry *Telemetry, connection Connection, repair bool, validator func(any) error, value any) error {
+func validateStructuredValue(ctx context.Context, observer Observer, connection Connection, repair bool, validator func(any) error, value any) error {
 	if validator == nil {
 		return errors.New("runtime structured output validator is required")
 	}
-	if telemetry == nil {
+	if observer == nil {
 		return validator(value)
 	}
-	return telemetry.ValidateSchema(ctx, connection, repair, func(context.Context) error { return validator(value) })
+	validationContext, finish := observer.StartValidation(ctx, connection, repair)
+	_ = validationContext
+	err := validator(value)
+	finish(err)
+	return err
 }
 
 func validateCacheProducer(producer, expected ExecutionTarget) error {
@@ -504,4 +512,11 @@ func captureParseFailureResponse(record *CallRecord, raw string) {
 	if err == nil {
 		record.ParseFailureResponse = encoded
 	}
+}
+
+func resolveAttemptCost(ledger Ledger, connection Connection) (accounting.Cost, error) {
+	if connection.Pricing == nil || ledger.Cost.Source == "reported" {
+		return ledger.Cost, nil
+	}
+	return accounting.ResolveCost(ledger.Usage, *connection.Pricing, nil)
 }

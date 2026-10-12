@@ -1,4 +1,4 @@
-package runtime
+package observability
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-028 TEST-213 TEST-214
 
@@ -14,6 +14,7 @@ import (
 	"github.com/prls-co/harden-llm/internal/accounting"
 	"github.com/prls-co/harden-llm/internal/cachekey"
 	"github.com/prls-co/harden-llm/internal/retry"
+	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -38,13 +39,13 @@ func TestOTelContract(t *testing.T) {
 		ID: "adversarial-connection", Provider: "openai", APIInferenceType: "responses",
 		BaseURL: "https://api.openai.com/v1",
 	}
-	call := Call{
-		Messages: []Message{
+	call := coreruntime.Call{
+		Messages: []coreruntime.Message{
 			{Role: "system", Content: json.RawMessage(`"adversarial system prompt"`)},
 			{Role: "user", Content: json.RawMessage(`"adversarial user prompt"`)},
 		},
 		ModelID: "gpt-fixture", CallType: "structured", Schema: json.RawMessage(`{"type":"object"}`),
-		Telemetry: telemetry,
+		Observer: telemetry,
 		ValidateStructured: func(value any) error {
 			object, ok := value.(map[string]any)
 			if !ok || object["answer"] != "ok" {
@@ -57,8 +58,8 @@ func TestOTelContract(t *testing.T) {
 	ctx, endCall := telemetry.StartCall(context.Background(), CallObservation{
 		ConnectionID: connection.ID, Provider: connection.Provider, ModelID: call.ModelID, CallType: call.CallType,
 	})
-	record, err := Execute(ctx, &telemetryExecutor{failFirst: true}, connection, Credential{APIKey: "super-secret-api-key"}, call, retry.Config{Policy: retry.Policy{MaxAttempts: 3, RetryOn: []retry.Category{retry.CategoryServer}, JSONRepair: retry.DefaultPolicy().JSONRepair, Backoff: retry.Backoff{}}, Random: func() float64 { return 0 }, Wait: func(context.Context, time.Duration) error { return nil }}, cache, cachekey.ModeRefresh, "v1", "call-fixture", "trace-fixture")
-	endCall(record, err)
+	record, err := coreruntime.Execute(ctx, &telemetryExecutor{failFirst: true}, connection, coreruntime.Credential{APIKey: "super-secret-api-key"}, call, retry.Config{Policy: retry.Policy{MaxAttempts: 3, RetryOn: []retry.Category{retry.CategoryServer}, JSONRepair: retry.DefaultPolicy().JSONRepair, Backoff: retry.Backoff{}}, Random: func() float64 { return 0 }, Wait: func(context.Context, time.Duration) error { return nil }}, cache, cachekey.ModeRefresh, "v1", "call-fixture", "trace-fixture")
+	endCall(coreruntime.Summarize(record, time.Now(), time.Now(), err), err)
 	if err != nil || len(record.Attempts) != 3 || !record.Cache.Written {
 		t.Fatalf("instrumented repaired call = %#v, %v", record, err)
 	}
@@ -67,9 +68,9 @@ func TestOTelContract(t *testing.T) {
 	ctx, endCall = telemetry.StartCall(context.Background(), CallObservation{
 		ConnectionID: connection.ID, Provider: connection.Provider, ModelID: call.ModelID, CallType: call.CallType,
 	})
-	cached, cacheErr := Execute(ctx, &telemetryExecutor{}, connection, Credential{APIKey: "super-secret-api-key"}, call, retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, cache,
+	cached, cacheErr := coreruntime.Execute(ctx, &telemetryExecutor{}, connection, coreruntime.Credential{APIKey: "super-secret-api-key"}, call, retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, cache,
 		cachekey.ModeCache, "v1", "call-cache", "trace-cache")
-	endCall(cached, cacheErr)
+	endCall(coreruntime.Summarize(cached, time.Now(), time.Now(), cacheErr), cacheErr)
 	if cacheErr != nil || !cached.Cache.Served {
 		t.Fatalf("instrumented cache hit = %#v, %v", cached, cacheErr)
 	}
@@ -169,13 +170,13 @@ func TestRecoveryIntegrityCacheWriteTelemetry(t *testing.T) {
 	}
 	connection := Connection{ID: "connection", Provider: "openai", APIInferenceType: "responses", BaseURL: "https://api.openai.com/v1"}
 	cache := &telemetryCache{err: errors.New("cache write failed: do-not-export")}
-	call := Call{CallType: "text", ModelID: "model", Messages: []Message{{Role: "user", Content: json.RawMessage(`"accepted"`)}}, Telemetry: telemetry}
+	call := coreruntime.Call{CallType: "text", ModelID: "model", Messages: []coreruntime.Message{{Role: "user", Content: json.RawMessage(`"accepted"`)}}, Observer: telemetry}
 	ctx, endCall := telemetry.StartCall(context.Background(), CallObservation{ConnectionID: connection.ID, Provider: connection.Provider, ModelID: call.ModelID, CallType: call.CallType})
-	record, callErr := Execute(ctx, &telemetryExecutor{}, connection, Credential{APIKey: "secret"}, call, retry.Config{
+	record, callErr := coreruntime.Execute(ctx, &telemetryExecutor{}, connection, coreruntime.Credential{APIKey: "secret"}, call, retry.Config{
 		Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}},
 		Random: func() float64 { return 0 }, Wait: func(context.Context, time.Duration) error { return nil },
 	}, cache, cachekey.ModeCache, "v1", "call-write-failed", "trace-write-failed")
-	endCall(record, callErr)
+	endCall(coreruntime.Summarize(record, time.Now(), time.Now(), callErr), callErr)
 	if callErr != nil || record.Output == nil || record.Cache.Status != "write_failed" || record.Cache.Written {
 		t.Fatalf("cache write telemetry result=%#v error=%v", record, callErr)
 	}
@@ -232,8 +233,8 @@ type telemetryExecutor struct {
 	failFirst bool
 }
 
-func (*telemetryExecutor) Prepare(_ context.Context, connection Connection, _ Credential, call Call) (PreparedOperation, error) {
-	return PreparedOperation{Operation: cachekey.Operation{
+func (*telemetryExecutor) Prepare(_ context.Context, connection Connection, _ coreruntime.Credential, call coreruntime.Call) (coreruntime.PreparedOperation, error) {
+	return coreruntime.PreparedOperation{Operation: cachekey.Operation{
 		SchemaVersion: cachekey.OperationSchemaVersion, Protocol: "fixture",
 		Endpoint: cachekey.Endpoint{Identity: connection.BaseURL, Method: "POST", Path: "/run"},
 		Model:    call.ModelID, Payload: map[string]any{"repair": call.Repair != nil},
@@ -264,38 +265,38 @@ func assertAttemptTargets(t *testing.T, spans tracetest.SpanStubs, connections, 
 	}
 }
 
-func (executor *telemetryExecutor) Execute(_ context.Context, operation PreparedOperation) (ProviderResult, error) {
+func (executor *telemetryExecutor) Execute(_ context.Context, operation coreruntime.PreparedOperation) (coreruntime.ProviderResult, error) {
 	executor.attempts++
 	if executor.failFirst && executor.attempts == 1 {
-		return ProviderResult{ProviderDispatched: true}, &retry.ProviderError{Category: retry.CategoryServer, Status: 503}
+		return coreruntime.ProviderResult{ProviderDispatched: true}, &retry.ProviderError{Category: retry.CategoryServer, Status: 503}
 	}
 	if repair, _ := operation.Opaque.(bool); repair {
-		return ProviderResult{ProviderDispatched: true,
+		return coreruntime.ProviderResult{ProviderDispatched: true,
 			Output: map[string]any{"answer": "ok"},
-			Accounting: Ledger{
-				Usage: completeUsageWithoutTest(5, 0, 0, 2, 0), Cost: accounting.ExactCost(0.01, "reported"),
+			Accounting: coreruntime.Ledger{
+				Usage: accounting.Usage{InputTokens: 5, OutputTokens: 2, Status: accounting.UsageComplete}, Cost: accounting.ExactCost(0.01, "reported"),
 			},
 		}, nil
 	}
-	return ProviderResult{ProviderDispatched: true,
+	return coreruntime.ProviderResult{ProviderDispatched: true,
 		Output: map[string]any{"answer": float64(42)},
-		Accounting: Ledger{
-			Usage: completeUsageWithoutTest(4, 0, 0, 1, 0), Cost: accounting.ExactCost(0.01, "reported"),
+		Accounting: coreruntime.Ledger{
+			Usage: accounting.Usage{InputTokens: 4, OutputTokens: 1, Status: accounting.UsageComplete}, Cost: accounting.ExactCost(0.01, "reported"),
 		},
 	}, nil
 }
 
 type telemetryCache struct {
-	record CachedResult
+	record coreruntime.CachedResult
 	found  bool
 	err    error
 }
 
-func (cache *telemetryCache) Get(context.Context, string, string) (CachedResult, bool, error) {
+func (cache *telemetryCache) Get(context.Context, string, string) (coreruntime.CachedResult, bool, error) {
 	return cache.record, cache.found, nil
 }
 
-func (cache *telemetryCache) Set(_ context.Context, _, _ string, result CachedResult) error {
+func (cache *telemetryCache) Set(_ context.Context, _, _ string, result coreruntime.CachedResult) error {
 	cache.record = result
 	return cache.err
 }

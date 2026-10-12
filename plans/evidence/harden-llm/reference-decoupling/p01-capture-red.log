@@ -1,0 +1,6 @@
+--- FAIL: TestStatelessContract (0.00s)
+    --- FAIL: TestStatelessContract/projection_failure_reports_once_and_preserves_inference (0.00s)
+        stateless_contract_test.go:332: projection altered inference: err=<nil> captures=0 calls=1
+FAIL
+FAIL	github.com/prls-co/harden-llm	0.007s
+FAIL

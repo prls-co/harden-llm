@@ -1,0 +1,18 @@
+$ go test . -run ^TestStatelessContract$ -count=1
+ok  	github.com/prls-co/harden-llm	0.006s
+exit code: 0
+$ go test . -run ^TestRecoverySnapshot$ -count=1
+ok  	github.com/prls-co/harden-llm	0.005s
+exit code: 0
+$ go test ./stateful -run ^TestClientComposition$ -count=1
+ok  	github.com/prls-co/harden-llm/stateful	0.013s
+exit code: 0
+$ go test ./internal/gateway/httpapi -run ^TestOpenAIContract -count=1
+ok  	github.com/prls-co/harden-llm/internal/gateway/httpapi	0.063s
+exit code: 0
+$ go test -race . ./internal/runtime ./internal/observability ./stateful -count=1
+ok  	github.com/prls-co/harden-llm	1.095s
+ok  	github.com/prls-co/harden-llm/internal/runtime	1.318s
+ok  	github.com/prls-co/harden-llm/internal/observability	1.029s
+ok  	github.com/prls-co/harden-llm/stateful	1.056s
+exit code: 0

@@ -1,0 +1,5 @@
+--- FAIL: TestClientComposition (0.00s)
+    client_test.go:51: stateful client composition is not implemented
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	0.005s
+FAIL

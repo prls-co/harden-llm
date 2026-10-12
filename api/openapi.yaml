@@ -723,6 +723,8 @@ components:
             type: string
             enum: [lowest, middle, highest]
           providerOptions: {type: object}
+          upstream: {type: string, minLength: 1, maxLength: 128, description: Configured
+              resolved upstream; omission uses the request connection.}
     ReferenceRerunPlan:
       type: object
       additionalProperties: false
@@ -1991,7 +1993,9 @@ components:
       type: object
       required: [source]
       properties:
-        source: {type: string, enum: [model, generation]}
+        source:
+          type: string
+          enum: [model, generation]
         modelId: {type: string, maxLength: 512}
         reasoningEffort: {type: string, maxLength: 128}
         providerOptions: {type: object}

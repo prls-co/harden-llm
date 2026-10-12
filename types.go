@@ -4,35 +4,50 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"log/slog"
 	"net"
 	"net/netip"
 	"time"
 
+	"github.com/prls-co/harden-llm/internal/accounting"
+	"github.com/prls-co/harden-llm/internal/cachekey"
 	"github.com/prls-co/harden-llm/internal/retry"
 	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
-
-	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/trace"
+	"github.com/prls-co/harden-llm/internal/traces"
 )
 
 // Options configures a Client without initializing process-global state.
 type Options struct {
-	Connections       []Connection
+	Connections       ConnectionCatalog
 	DefaultConnection string
+	Executor          Executor
+	DiscoverModels    ModelDiscoverer
+	Observer          Observer
 	Cache             CacheStore
-	EndpointPolicy    EndpointPolicy
-	WebSearch         WebSearchOptions
-	TracerProvider    trace.TracerProvider
-	MeterProvider     metric.MeterProvider
-	Logger            *slog.Logger
 }
 
-// WebSearchOptions configures the explicitly selected external search service.
-type WebSearchOptions struct {
-	JinaAPIKey           string
-	JinaTimeout          time.Duration
-	JinaMaxResponseBytes int64
+// Executor and its values form the public provider-effect boundary.
+type Executor = coreruntime.Executor
+type ProviderCall = coreruntime.Call
+type ProviderConnection = coreruntime.Connection
+type ProviderCredential = coreruntime.Credential
+type PreparedOperation = coreruntime.PreparedOperation
+type ProviderResult = coreruntime.ProviderResult
+type Pricing = accounting.Pricing
+type CacheOperation = cachekey.Operation
+type CacheEndpoint = cachekey.Endpoint
+type ResponseProjection = cachekey.ResponseProjection
+type ModelDiscoverer func(context.Context, Connection) ([]Model, error)
+type Observer = coreruntime.Observer
+type CallObservation = coreruntime.CallObservation
+type CallSummary = coreruntime.CallSummary
+type ObserverTarget = coreruntime.ExecutionTarget
+type RetryClassification = retry.Classification
+type Trace = traces.Trace
+type ArtifactProjection = traces.ArtifactProjection
+type DiagnosticCapture struct {
+	Trace     Trace
+	Artifacts []ArtifactProjection
+	ErrorCode string
 }
 
 type Message = coreruntime.Message
@@ -58,21 +73,22 @@ type Model struct {
 
 // Request describes one provider-neutral, ordered conversation.
 type Request struct {
-	ConnectionID    string               `json:"upstream,omitempty"`
-	ModelID         string               `json:"model"`
-	Messages        []Message            `json:"messages"`
-	CallType        CallType             `json:"callType,omitempty"`
-	Schema          json.RawMessage      `json:"schema,omitempty"`
-	Tools           []FunctionTool       `json:"tools,omitempty"`
-	ToolChoice      ToolChoice           `json:"toolChoice,omitempty"`
-	ReasoningEffort ReasoningEffort      `json:"reasoning_effort,omitempty"`
-	WebSearch       bool                 `json:"webSearch,omitempty"`
-	ProviderOptions map[string]any       `json:"providerOptions,omitempty"`
-	Context         ObservabilityContext `json:"-"`
-	CacheMode       CacheMode            `json:"cacheMode,omitempty"`
-	CacheVersion    string               `json:"cacheVersion,omitempty"`
-	RecoveryPolicy  RecoveryPolicy       `json:"recoveryPolicy,omitempty"`
-	Origin          Origin               `json:"origin,omitempty"`
+	CaptureDiagnostics func(DiagnosticCapture) `json:"-"`
+	ConnectionID       string                  `json:"upstream,omitempty"`
+	ModelID            string                  `json:"model"`
+	Messages           []Message               `json:"messages"`
+	CallType           CallType                `json:"callType,omitempty"`
+	Schema             json.RawMessage         `json:"schema,omitempty"`
+	Tools              []FunctionTool          `json:"tools,omitempty"`
+	ToolChoice         ToolChoice              `json:"toolChoice,omitempty"`
+	ReasoningEffort    ReasoningEffort         `json:"reasoning_effort,omitempty"`
+	WebSearch          bool                    `json:"webSearch,omitempty"`
+	ProviderOptions    map[string]any          `json:"providerOptions,omitempty"`
+	Context            ObservabilityContext    `json:"-"`
+	CacheMode          CacheMode               `json:"cacheMode,omitempty"`
+	CacheVersion       string                  `json:"cacheVersion,omitempty"`
+	RecoveryPolicy     RecoveryPolicy          `json:"recoveryPolicy,omitempty"`
+	Origin             Origin                  `json:"origin,omitempty"`
 	// Progress receives best-effort cumulative snapshots. The runtime never
 	// closes this caller-owned channel and never blocks provider execution on it.
 	Progress chan<- ProgressEvent
@@ -347,4 +363,11 @@ type EndpointPolicy struct {
 // EndpointResolver resolves both IPv4 and IPv6 addresses for policy checks.
 type EndpointResolver interface {
 	LookupNetIP(ctx context.Context, network, host string) ([]netip.Addr, error)
+}
+
+// UnsupportedOperationError reports an effect the caller did not supply.
+type UnsupportedOperationError struct{ Operation string }
+
+func (e *UnsupportedOperationError) Error() string {
+	return "hardenllm: unsupported operation " + e.Operation
 }

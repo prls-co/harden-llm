@@ -1,0 +1,34 @@
+{
+  "repair": {
+    "connections": [
+      "a",
+      "b"
+    ],
+    "dispatches": [
+      "a:generate:key-a",
+      "b:repair:key-b"
+    ],
+    "providerCostUsd": 9,
+    "resultCostUsd": 6
+  },
+  "fullRecovery": {
+    "dispatches": [
+      "a:generate:key-a",
+      "b:repair:key-b",
+      "b:escalate:key-b",
+      "b:rerun:key-b",
+      "a:rerun-repair:key-a",
+      "b:final:key-b"
+    ],
+    "providerCostUsd": 30
+  },
+  "invalidTarget": {
+    "upstream": "missing",
+    "providerDispatches": 0
+  },
+  "prices": {
+    "reported": 0.75,
+    "zero": 0,
+    "unknown": null
+  }
+}

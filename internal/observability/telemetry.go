@@ -1,4 +1,4 @@
-package runtime
+package observability
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/prls-co/harden-llm/internal/retry"
+	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
@@ -46,12 +47,10 @@ type Telemetry struct {
 	costUSD          metric.Float64Counter
 }
 
-type CallObservation struct {
-	ConnectionID string
-	Provider     string
-	ModelID      string
-	CallType     string
-}
+type CallObservation = coreruntime.CallObservation
+type CallSummary = coreruntime.CallSummary
+type Connection = coreruntime.Connection
+type ExecutionTarget = coreruntime.ExecutionTarget
 
 func NewTelemetry(tracerProvider trace.TracerProvider, meterProvider metric.MeterProvider) (*Telemetry, error) {
 	if tracerProvider == nil {
@@ -93,8 +92,9 @@ func NewTelemetry(tracerProvider trace.TracerProvider, meterProvider metric.Mete
 	return telemetry, nil
 }
 
-func (telemetry *Telemetry) StartCall(ctx context.Context, observation CallObservation) (context.Context, func(CallRecord, error)) {
+func (telemetry *Telemetry) StartCall(ctx context.Context, observation CallObservation) (context.Context, func(CallSummary, error)) {
 	started := time.Now()
+	ctx = context.WithValue(ctx, callProviderKey{}, &callProviderState{})
 	provider := providerFamily(observation.Provider, "")
 	callType := boundedCallType(observation.CallType)
 	ctx, span := telemetry.tracer.Start(ctx, SpanCall, trace.WithAttributes(
@@ -103,8 +103,12 @@ func (telemetry *Telemetry) StartCall(ctx context.Context, observation CallObser
 		attribute.String("gen_ai.operation.name", callType),
 		attribute.String("harden_llm.connection.id", boundedSpanValue(observation.ConnectionID)),
 	))
-	return ctx, func(record CallRecord, terminalErr error) {
-		provider = providerFromRecord(record, provider)
+	return ctx, func(record CallSummary, terminalErr error) {
+		if observed := ctx.Value(callProviderKey{}); observed != nil {
+			if state := observed.(*callProviderState); state.provider != "" {
+				provider = state.provider
+			}
+		}
 		providerUsage := record.Accounting.Provider.Usage
 		outcome, category := outcomeAndCategory(terminalErr)
 		attributes := []attribute.KeyValue{
@@ -162,6 +166,9 @@ func (telemetry *Telemetry) StartProvider(ctx context.Context, target ExecutionT
 		if !providerDispatched {
 			return
 		}
+		if observed := ctx.Value(callProviderKey{}); observed != nil {
+			observed.(*callProviderState).provider = provider
+		}
 		telemetry.providerAttempts.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("provider", provider), attribute.String("call_type", callType),
 			attribute.String("outcome", outcomeValue(err)), attribute.String("category", category),
@@ -188,36 +195,26 @@ func (telemetry *Telemetry) StartAttempt(ctx context.Context, target ExecutionTa
 	}
 }
 
-func (telemetry *Telemetry) WaitForRetry(ctx context.Context, target ExecutionTarget, callType string, classification retry.Classification, delay time.Duration, wait func(context.Context, time.Duration) error) error {
+func (telemetry *Telemetry) StartRetry(ctx context.Context, target ExecutionTarget, callType string, classification retry.Classification, delay time.Duration) (context.Context, func(error)) {
 	provider := providerFamily(target.Provider, target.Protocol)
 	category := boundedCategory(string(classification.Category))
-	waitContext, span := telemetry.tracer.Start(ctx, SpanRetryWait, trace.WithAttributes(
-		attribute.String("gen_ai.provider.name", provider), attribute.String("error.type", category),
-		attribute.Int64("harden_llm.retry.delay_ms", delay.Milliseconds()),
-	))
+	ctx, span := telemetry.tracer.Start(ctx, SpanRetryWait, trace.WithAttributes(attribute.String("error.type", category), attribute.Int64("harden_llm.retry.delay_ms", delay.Milliseconds())))
 	telemetry.retries.Add(ctx, 1, metric.WithAttributes(attribute.String("provider", provider), attribute.String("call_type", boundedCallType(callType)), attribute.String("category", category)))
-	err := wait(waitContext, delay)
-	_, outcome := outcomeAndCategory(err)
-	setSpanStatus(span, err, outcome)
-	span.End()
-	return err
+	return ctx, func(err error) { _, outcome := outcomeAndCategory(err); setSpanStatus(span, err, outcome); span.End() }
 }
 
-func (telemetry *Telemetry) ValidateSchema(ctx context.Context, connection Connection, repair bool, validate func(context.Context) error) error {
-	validationContext, span := telemetry.tracer.Start(ctx, SpanSchema, trace.WithAttributes(
-		attribute.String("gen_ai.provider.name", providerFamily(connection.Provider, connection.APIInferenceType)),
-		attribute.Bool("harden_llm.schema.repair", repair),
-	))
-	err := validate(validationContext)
-	outcome := outcomeValue(err)
-	_, category := outcomeAndCategory(err)
-	setSpanStatus(span, err, category)
-	span.End()
-	telemetry.schemaOperations.Add(ctx, 1, metric.WithAttributes(
-		attribute.String("outcome", outcome), attribute.Bool("repair", repair),
-	))
-	return err
+func (telemetry *Telemetry) StartValidation(ctx context.Context, connection Connection, repair bool) (context.Context, func(error)) {
+	ctx, span := telemetry.tracer.Start(ctx, SpanSchema, trace.WithAttributes(attribute.String("gen_ai.provider.name", providerFamily(connection.Provider, connection.APIInferenceType)), attribute.Bool("harden_llm.schema.repair", repair)))
+	return ctx, func(err error) {
+		_, category := outcomeAndCategory(err)
+		setSpanStatus(span, err, category)
+		span.End()
+		telemetry.schemaOperations.Add(ctx, 1, metric.WithAttributes(attribute.String("outcome", outcomeValue(err)), attribute.Bool("repair", repair)))
+	}
 }
+
+type callProviderKey struct{}
+type callProviderState struct{ provider string }
 
 func (telemetry *Telemetry) StartCache(ctx context.Context, operation string) (context.Context, func(string, error)) {
 	spanName := SpanCacheLookup
@@ -238,7 +235,7 @@ func (telemetry *Telemetry) StartCache(ctx context.Context, operation string) (c
 	}
 }
 
-func (telemetry *Telemetry) recordAccounting(ctx context.Context, provider, callType string, record CallRecord) {
+func (telemetry *Telemetry) recordAccounting(ctx context.Context, provider, callType string, record CallSummary) {
 	base := []attribute.KeyValue{attribute.String("provider", provider), attribute.String("call_type", callType)}
 	usage := record.Accounting.Provider.Usage
 	for tokenType, value := range map[string]int64{
@@ -258,16 +255,6 @@ func (telemetry *Telemetry) recordAccounting(ctx context.Context, provider, call
 			attribute.String("coverage", boundedCostSource(string(cost.Status))),
 		))
 	}
-}
-
-func providerFromRecord(record CallRecord, fallback string) string {
-	for index := len(record.Attempts) - 1; index >= 0; index-- {
-		attempt := record.Attempts[index]
-		if attempt.ProviderUsed {
-			return providerFamily(attempt.Target.Provider, attempt.Target.Protocol)
-		}
-	}
-	return fallback
 }
 
 func setSpanStatus(span trace.Span, err error, category string) {

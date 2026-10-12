@@ -159,7 +159,7 @@ func TestNormalizeConnectionsEnforcesStaticEndpointContract(t *testing.T) {
 	valid := testConnection()
 	valid.Provider = " openai "
 	valid.BaseURL = "https://api.openai.com/v1/"
-	normalized, defaultID, err := normalizeConnections([]Connection{valid}, "")
+	normalized, defaultID, err := normalizeConnections(ConnectionCatalog{valid.ID: valid}, "")
 	if err != nil || normalized["primary"].Provider != "openai" || normalized["primary"].BaseURL != "https://api.openai.com/v1" || defaultID != "primary" {
 		t.Fatalf("static connection was not normalized: %#v %q %v", normalized, defaultID, err)
 	}
@@ -179,7 +179,7 @@ func TestNormalizeConnectionsEnforcesStaticEndpointContract(t *testing.T) {
 			connection := testConnection()
 			defaultID := "primary"
 			test.mutate(&connection, &defaultID)
-			if _, _, err := normalizeConnections([]Connection{connection}, defaultID); err == nil {
+			if _, _, err := normalizeConnections(ConnectionCatalog{connection.ID: connection}, defaultID); err == nil {
 				t.Fatal("invalid connection configuration was accepted")
 			}
 		})
@@ -232,12 +232,11 @@ func TestRecoveryRepairPayload(t *testing.T) {
 				t.Fatal(err)
 			}
 			clientOptions := testOptions()
-			clientOptions.Connections[0].Protocol = protocol
-			clientOptions.Connections[0].BaseURL = server.URL
-			clientOptions.EndpointPolicy = EndpointPolicy{
-				AllowedHosts: []string{endpoint.Hostname()}, PrivateAllowedHosts: []string{endpoint.Hostname()},
-				TLSConfig: server.Client().Transport.(*http.Transport).TLSClientConfig.Clone(),
-			}
+			connection := clientOptions.Connections["primary"]
+			connection.Protocol = protocol
+			connection.BaseURL = server.URL
+			clientOptions.Connections["primary"] = connection
+			clientOptions = testProviderEffects(t, clientOptions, EndpointPolicy{AllowedHosts: []string{endpoint.Hostname()}, PrivateAllowedHosts: []string{endpoint.Hostname()}, TLSConfig: server.Client().Transport.(*http.Transport).TLSClientConfig.Clone()})
 			client, err := New(clientOptions)
 			if err != nil {
 				t.Fatal(err)

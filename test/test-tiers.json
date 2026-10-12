@@ -131,7 +131,11 @@
         "TEST-402",
         "TEST-403",
         "TEST-404",
-        "TEST-410"
+        "TEST-410",
+        "TEST-421",
+        "TEST-422",
+        "TEST-437",
+        "TEST-445"
       ],
       "tier": "T1",
       "resourceClass": "cpu",

@@ -18,6 +18,12 @@ type Connection struct {
 	BaseURL           string
 	CacheDomain       string
 	SupportsWebSearch bool
+	Pricing           *accounting.Pricing
+}
+
+type ResolvedConnection struct {
+	Connection Connection
+	Credential Credential
 }
 
 type Credential struct {
@@ -70,6 +76,8 @@ type AssistantOutput struct {
 }
 
 type Call struct {
+	Connections map[string]ResolvedConnection
+
 	ModelID         string
 	Messages        []Message
 	CallType        string
@@ -85,7 +93,7 @@ type Call struct {
 	Origin             Origin
 	ValidateStructured func(any) error
 	Repair             *RepairRequest
-	Telemetry          *Telemetry
+	Observer           Observer
 	Progress           func(ProgressSnapshot)
 }
 

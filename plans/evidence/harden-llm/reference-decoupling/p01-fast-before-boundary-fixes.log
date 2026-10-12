@@ -1,0 +1,2 @@
+node scripts/run-test-tier.mjs --task fast
+{"accepted":true,"selector":"fast","taskCount":9,"failure":null,"cleanupErrors":[],"cleanupWarnings":[],"output":"/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/runner-1791842453351-929341-4b71a6fe1ef4a9ed.json"}

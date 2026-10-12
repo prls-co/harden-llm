@@ -4,9 +4,10 @@
   "branch": "feat/reference-decoupling",
   "baseSHA": "ce09df303ba9c04f489563cf68fcdec25325ee36",
   "completedPhases": [
-    "P00"
+    "P00",
+    "P01"
   ],
-  "nextStep": "P01.S01",
+  "nextStep": "P02.S01",
   "steps": {
     "P00.S01": {
       "status": "done"
@@ -27,34 +28,34 @@
       "status": "done"
     },
     "P01.S01": {
-      "status": "pending"
+      "status": "done"
     },
     "P01.S02": {
-      "status": "pending"
+      "status": "done"
     },
     "P01.S03": {
-      "status": "pending"
+      "status": "done"
     },
     "P01.S04": {
-      "status": "pending"
+      "status": "done"
     },
     "P01.S05": {
-      "status": "pending"
+      "status": "done"
     },
     "P01.S06": {
-      "status": "pending"
+      "status": "done"
     },
     "P01.S07": {
-      "status": "pending"
+      "status": "done"
     },
     "P01.S08": {
-      "status": "pending"
+      "status": "done"
     },
     "P01.S09": {
-      "status": "pending"
+      "status": "done"
     },
     "P01.S10": {
-      "status": "pending"
+      "status": "done"
     },
     "P02.S01": {
       "status": "pending"

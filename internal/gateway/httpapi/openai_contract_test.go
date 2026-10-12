@@ -20,6 +20,7 @@ import (
 	"github.com/openai/openai-go/responses"
 	"github.com/openai/openai-go/shared"
 	"github.com/prls-co/harden-llm"
+	"github.com/prls-co/harden-llm/stateful"
 )
 
 const proxyTestToken = "synthetic-harden-token-0123456789abcdef"
@@ -233,7 +234,7 @@ func newContractProxy(t *testing.T, upstream *httptest.Server) *httptest.Server 
 	t.Helper()
 	certificatePool := x509.NewCertPool()
 	certificatePool.AddCert(upstream.Certificate())
-	client, err := hardenllm.New(hardenllm.Options{
+	client, err := stateful.NewClient(stateful.ClientOptions{
 		Connections: []hardenllm.Connection{{
 			ID: "cpa", Provider: "fixture", Protocol: "responses", BaseURL: upstream.URL + "/v1",
 			CacheDomain: "fixture-credential-1", APIKey: "synthetic-upstream-secret",

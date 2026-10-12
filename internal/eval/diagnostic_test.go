@@ -21,6 +21,7 @@ import (
 
 	hardenllm "github.com/prls-co/harden-llm"
 	"github.com/prls-co/harden-llm/internal/gateway"
+	"github.com/prls-co/harden-llm/stateful"
 	"go.opentelemetry.io/otel/attribute"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -69,7 +70,7 @@ func TestDiagnosticCompletenessEval(t *testing.T) {
 
 	certificatePool := x509.NewCertPool()
 	certificatePool.AddCert(provider.Certificate())
-	client, err := hardenllm.New(hardenllm.Options{
+	client, err := stateful.NewClient(stateful.ClientOptions{
 		Connections: []hardenllm.Connection{{
 			ID: "eval-upstream", Provider: "openai", Protocol: "responses", BaseURL: provider.URL + "/v1",
 			CacheDomain: "eval-credential-domain", APIKey: providerKey,
