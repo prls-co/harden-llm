@@ -21,6 +21,8 @@ const requiredTargets = {
   "test-live": "live",
 };
 
+const composeCommand = ["go", "test", "./internal/smoke/...", "-tags=compose", "-run", "TestComposeSmoke", "-count=1", "-v"];
+
 const requiredCommands = [
   ["make", "format"],
   ["make", "lint"],
@@ -32,7 +34,7 @@ const requiredCommands = [
   ["go", "test", "-race", "-p=${HARDEN_LLM_TEST_PACKAGE_SLOTS}", "./...", "-tags=integration", "-count=1"],
   ["make", "test-api"],
   ["make", "test-observability"],
-  ["go", "test", "./internal/smoke/...", "-tags=compose", "-run", "TestComposeSmoke", "-count=1"],
+  composeCommand,
   ["make", "test-race"],
   ["make", "test-vulnerability"],
   ["make", "live-structured-call"],
@@ -123,7 +125,7 @@ async function main() {
     fail("test-compose must delegate to the managed go-compose task");
   }
   const composeTask = manifest.tasks.find((task) => task.id === "go-compose");
-  if (!composeTask || composeTask.command.join(" ") !== "go test ./internal/smoke/... -tags=compose -run TestComposeSmoke -count=1") {
+  if (!composeTask || composeTask.command.join(" ") !== composeCommand.join(" ")) {
     fail("go-compose must execute the original raw Compose smoke command without Make recursion");
   }
   if (composeTask.tier !== "T4" || composeTask.network !== "local-only" || composeTask.requiresBrowser) {

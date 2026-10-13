@@ -48,3 +48,11 @@ of the failed attempt. The next release requires a new exact-SHA dispatch.
 Retained evidence: `p06-release-attempt1-reports/`,
 `p06-release-attempt1-failed.log`, `p06-static-cold.json`,
 `p06-static-cold-metrics.txt`. Hosted release remains required after this fix.
+
+Independent `node scripts/verify-test-tiers.mjs` additionally found a stale
+literal command: P05 added `-v` to preserve the composed measurement output,
+but this standalone validator still expected the older spelling. Updated its
+single shared `composeCommand` expectation; it still requires the exact raw
+Compose test, count=1, managed lifecycle and browser-free boundary. The first
+validation failed and is not counted as passing; the subsequent command result
+is the acceptance evidence. No application behavior changed.
