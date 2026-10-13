@@ -1,0 +1,52 @@
+--- FAIL: TestDefaultProfileCatalogParity (0.01s)
+    --- FAIL: TestDefaultProfileCatalogParity/Perplexity_GPT-6.1_Sol (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/Gemini_3.1_Pro_Preview (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/OpenRouter_GPT-OSS_20B (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/Novita_DeepSeek_V4_Pro (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/CPA_GPT-5.6_Sol (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/OpenAI_GPT-5.6_Luna (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/Claude_Opus_4.7 (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/Claude_Sonnet_4.6 (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/OpenAI_GPT-5.5 (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/Novita_DeepSeek_V4_Flash (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/Gemini_3.5_Flash (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/OpenAI_GPT-5.6_Sol (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/Gemini_3.1_Flash_Lite (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/OpenRouter_DeepSeek_V4_Flash (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/OpenRouter_DeepSeek_V4_Pro (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/OpenRouter_GPT-OSS_120B (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/Claude_Opus_5 (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/Claude_Haiku_4.5 (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/OpenAI_GPT-5.4_Mini (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/OpenAI_GPT-5.4 (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/Claude_Sonnet_5 (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/CPA_GPT-5.6_Luna (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/Gemini_3.5_Flash_Lite (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+    --- FAIL: TestDefaultProfileCatalogParity/Gemini_3.7_Flash (0.00s)
+        default_catalog_test.go:58: shipped structured schema: unsupported structured output schema at /properties: object schemas must define properties
+FAIL
+FAIL    github.com/prls-co/harden-llm/stateful  0.022s
+FAIL

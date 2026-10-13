@@ -56,3 +56,15 @@ ADR-HLLM-028. The exact source, CI and deployed acceptance are in
 [P06](../../plans/evidence/harden-llm/reference-decoupling/phase-p06.md).
 The [conformance audit](../../plans/evidence/harden-llm/reference-decoupling/plan-conformance-audit.md)
 records the full comparison against the pre-implementation v5.3 plan.
+
+
+## 5. Production UI/default acceptance correction (2026-10-13)
+
+Issue #109 corrects invalid structured preset inputs, picker focus filtering,
+missing deployment credential bindings and incomplete inherited leaf editing.
+TEST-452 uses actual shipped data and enabled-submit assertions. Preset semantic
+validation calls the existing core schema normalizer; completed user drafts keep
+their existing persistence behavior. The shared profile renderer/client now
+provides complete node-local editing/save while preserving fixed recovery roles.
+See [the RCA](../rca/reference-preset-schema-and-recovery-ui.md). Earlier release
+CI/HTTP proof did not cover these interactions and is not promoted to that claim.

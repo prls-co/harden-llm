@@ -69,7 +69,16 @@
       "callType": "structured",
       "systemPrompt": "",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},
@@ -151,7 +160,16 @@
       "callType": "structured",
       "systemPrompt": "",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},

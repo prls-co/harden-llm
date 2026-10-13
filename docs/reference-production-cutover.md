@@ -74,8 +74,12 @@ descriptor's managed services. Existing `runApply` explicitly invokes
 `gateway-schema` using the gateway image before application `up --no-deps`.
 See [self-hosting](self-hosting.md) for the one apply/check entrypoint.
 
-The prepared Caddy owner branch is `feat/hllm-reference-routing`, worktree
-`/home/kirill/.cache/harden-llm-tmp/caddy-reference-routing`. Publish only its
+The initial cutover prepared Caddy owner branch `feat/hllm-reference-routing`, worktree
+`/home/kirill/.cache/harden-llm-tmp/caddy-reference-routing` (since removed after
+merge). PR #9 is deployed on owner branch `codex/shared-portal-login` at
+`0afe6c6677c1666608326316d560dd6e3d17ce75`; current UI corrections need no ingress
+change. The following ingress instructions describe that completed cutover.
+For a new routing change, publish only its
 reviewed changes through `caddy-shared`, then validate the configuration and
 restart only Caddy using that owner's documented commands. Remove the old
 `harden-llm-api.prls.co` rule from the remotely managed tunnel and verify its
@@ -114,3 +118,28 @@ operator scratch scripts, synthetic test files, compiled test binaries and
 redundant logs once durable redacted evidence is committed. It must preserve
 live mounts, current/previous release images, shared volumes and the publisher
 source archive. An off-host restore drill remains separate follow-up work.
+
+
+## 6. Reference UI correction and provider bindings
+
+Issue #109 / [RCA](rca/reference-preset-schema-and-recovery-ui.md) records the
+structured-preset and finite-editor correction. `config/upstreams.example.json`
+is the minimal CPA example, not a restriction to one provider. Declare matching
+upstreams only for configured deployment credentials:
+
+| Preset binding ID | Provider/protocol | Base URL | Key environment name |
+| --- | --- | --- | --- |
+| `google` | `google` / `gemini-generate-content` | `https://generativelanguage.googleapis.com` | `GEMINI_API_KEY` |
+| `novita` | `novita` / `chat-completions` | `https://api.novita.ai/openai/v1` | `NOVITA_API_KEY` |
+| `openrouter` | `openrouter` / `chat-completions` | `https://openrouter.ai/api/v1` | `OPENROUTER_API_KEY` |
+| `perplexity` | `perplexity` / `responses` | `https://api.perplexity.ai/v1` | `PERPLEXITY_API_KEY` |
+| `openai` | `openai` / `responses` | `https://api.openai.com/v1` | `OPENAI_API_KEY` |
+| `anthropic` | `anthropic` / `anthropic-messages` | `https://api.anthropic.com/v1` | `ANTHROPIC_API_KEY` |
+
+Metadata contains environment references only; actual keys remain in protected
+settings or entered encrypted credentials. Compose passes optional documented
+keys only to the gateway. A referenced empty key fails startup; an undeclared
+binding remains visibly unconfigured. Default upstream remains CPA. Verify
+configured preset counts after a scoped apply without making inference calls.
+The RCA defines the precise one-time correction for the introduced placeholder
+in persisted drafts; preserve other fields and increment revision for CAS.

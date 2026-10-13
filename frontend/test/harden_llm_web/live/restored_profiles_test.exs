@@ -5,7 +5,7 @@ defmodule HardenLlmWeb.RestoredProfilesTest do
   alias HardenLlmWeb.APIFixtures
 
   # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-447
-  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-122
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-122 WEB-TEST-125
   setup %{conn: conn} do
     fixture = File.read!("../test/fixtures/reference/workspace.json") |> Jason.decode!()
     saved = fixture["savedProfile"]["profile"]
@@ -390,6 +390,149 @@ defmodule HardenLlmWeb.RestoredProfilesTest do
     assert policy["rerun"]["target"]["profileId"] == "Repair Provider"
     assert policy["rerun"]["jsonRepair"]["initial"]["source"] == "generation"
     assert Map.has_key?(policy["rerun"]["jsonRepair"], "escalation")
+  end
+
+  test "inherited repair stages open the shared editor and save an isolated complete snapshot", %{
+    conn: conn,
+    fixture: f,
+    store: store
+  } do
+    id = f["savedProfile"]["profile"]["id"]
+    view = open_saved_editor(conn, id)
+    view |> element("#retry-fold-toggle") |> render_click()
+    prefix = "profile-original-repair-initial"
+    refute has_element?(view, "##{prefix}-config-toggle[disabled]")
+    view |> element("##{prefix}-config-toggle") |> render_click()
+    render_settled(view, 1_000)
+
+    for control <- ["baseUrl", "apiInferenceType"] do
+      field =
+        "##{prefix}-config [name='profile[recoveryPolicy][jsonRepair][initial][#{control}]']"
+
+      refute has_element?(view, field <> "[disabled]")
+      assert has_element?(view, field)
+    end
+
+    refute has_element?(view, "##{prefix}-config-credential-toggle[disabled]")
+    view |> element("##{prefix}-config-options-toggle") |> render_click()
+
+    view
+    |> element(
+      "##{prefix}-config [name='profile[recoveryPolicy][jsonRepair][initial][maxTokens]']"
+    )
+    |> render_change(%{
+      "profile" => %{
+        "recoveryPolicy" => %{"jsonRepair" => %{"initial" => %{"maxTokens" => "64"}}}
+      }
+    })
+
+    render_settled(view, 1_000)
+    assert has_element?(view, "##{prefix}-config")
+
+    assert has_element?(
+             view,
+             "##{prefix}-config [name='profile[recoveryPolicy][jsonRepair][initial][maxTokens]'][value='64']"
+           )
+
+    refute has_element?(view, "##{prefix}-config [phx-click='toggle-rerun']")
+    refute has_element?(view, "##{prefix}-config [phx-click='toggle-json-repair']")
+    view |> element("##{prefix}-config-save") |> render_click()
+    render_settled(view, 1_000)
+    assert [payload] = Agent.get(store, & &1.saves)
+    assert payload["definition"]["defaultOptions"]["max_tokens"] == 64
+
+    assert payload["inputs"]["userPrompt"] ==
+             f["details"]["CPA Responses"]["inputs"]["userPrompt"]
+
+    assert payload["credentialBinding"] == f["details"]["CPA Responses"]["credentialBinding"]
+    assert has_element?(view, "#profile-form input[name='profile[profileId]'][value='#{id}']")
+    new_id = Agent.get(store, &List.last(&1.profiles)["id"])
+    assert has_element?(view, "##{prefix}-profile[value='#{new_id}']")
+    assert has_element?(view, "#profile-original-repair-escalation-profile[value='#{id}']")
+  end
+
+  test "repair credentials and model refresh use the selected leaf only", %{
+    conn: conn,
+    fixture: f,
+    store: store
+  } do
+    id = f["savedProfile"]["profile"]["id"]
+    view = open_saved_editor(conn, id)
+    view |> element("#retry-fold-toggle") |> render_click()
+    prefix = "profile-original-repair-escalation"
+
+    view
+    |> element("##{prefix}-profile")
+    |> render_change(%{
+      "profile" => %{
+        "recoveryPolicy" => %{
+          "jsonRepair" => %{"escalation" => %{"profileId" => "Repair Provider"}}
+        }
+      }
+    })
+
+    view |> element("##{prefix}-config-toggle") |> render_click()
+    render_settled(view, 1_000)
+    refute has_element?(view, "##{prefix}-config-refresh-models[disabled]")
+    view |> element("##{prefix}-config-refresh-models") |> render_click()
+    render_settled(view, 1_000)
+
+    assert_receive {:profile_call, "POST", "/api/v1/profiles/Repair%20Provider/models:refresh",
+                    %{}}
+
+    assert has_element?(view, "##{prefix}-config [data-value='fresh-native-model']")
+    view |> element("##{prefix}-config-credential-toggle") |> render_click()
+
+    view
+    |> element("##{prefix}-config-stage-key")
+    |> render_click(%{"api-key" => "leaf-key-fixture-sentinel"})
+
+    refute render(view) =~ "leaf-key-fixture-sentinel"
+    assert has_element?(view, "#profile-save[disabled]")
+    assert has_element?(view, "##{prefix}-config-refresh-models[disabled]")
+    view |> element("##{prefix}-config-save") |> render_click()
+    render_settled(view, 1_000)
+    assert [payload] = Agent.get(store, & &1.saves)
+    assert payload["credential"]["payload"]["apiKey"] == "leaf-key-fixture-sentinel"
+    assert payload["credentialBinding"]["source"] == "entered"
+    assert payload["credential"]["revision"] == 0
+    assert has_element?(view, "#profile-original-repair-initial-profile[value='#{id}']")
+    assert has_element?(view, "#profile-form input[name='profile[profileId]'][value='#{id}']")
+    refute has_element?(view, "#profile-save[disabled]")
+  end
+
+  test "all five recovery stages reuse editable profile fields with finite role controls", %{
+    conn: conn,
+    fixture: f
+  } do
+    view = open_saved_editor(conn, f["savedProfile"]["profile"]["id"])
+    view |> element("#retry-fold-toggle") |> render_click()
+    view |> element("#profile-rerun-toggle") |> render_click()
+    view |> element("#profile-rerun-generation-config-toggle") |> render_click()
+    render_settled(view, 1_000)
+
+    for prefix <- [
+          "profile-original-repair-initial",
+          "profile-original-repair-escalation",
+          "profile-rerun-generation-config-json-repair-initial",
+          "profile-rerun-generation-config-json-repair-escalation"
+        ] do
+      assert has_element?(view, "##{prefix}-config-toggle:not([disabled])")
+      view |> element("##{prefix}-config-toggle") |> render_click()
+      render_settled(view, 1_000)
+      assert has_element?(view, "##{prefix}-config input[name$='[baseUrl]']:not([disabled])")
+      assert has_element?(view, "##{prefix}-config-credential-toggle:not([disabled])")
+      refute has_element?(view, "##{prefix}-config [phx-click='toggle-rerun']")
+      refute has_element?(view, "##{prefix}-config [phx-click='toggle-json-repair']")
+      refute has_element?(view, "##{prefix}-config [phx-click='toggle-rerun-json-repair']")
+    end
+
+    assert has_element?(
+             view,
+             "#profile-rerun-generation-config input[name$='[baseUrl]']:not([disabled])"
+           )
+
+    refute has_element?(view, "#profile-rerun-generation-config [phx-click='toggle-rerun']")
   end
 
   test "credential replacement uses the entered record's exact revision and new IDs start at zero",

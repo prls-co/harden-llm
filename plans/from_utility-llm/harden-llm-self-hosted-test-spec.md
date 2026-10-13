@@ -1824,3 +1824,18 @@ was a traceability error; TEST-008 remains retry classification/budget/backoff/
 cancellation. No assertion, runtime task or deadline changes in this correction.
 TEST-234's physical-network cases and TEST-450 schema ordering already pass;
 TEST-434/435 remain explicit deployed identity/HTTP checks.
+
+
+## 28. Shipped reference preset acceptance (2026-10-13)
+
+### TEST-452: All shipped presets remain usable through reference Run
+
+- Requirements: the corrected REQ-422/425/428/429 workflows from the reference decoupling; issue #109.
+- Tier: T0/T1/T2; no browser/provider execution, credentials or public network.
+- Locations: `stateful/default_catalog_test.go`, `frontend/test/harden_llm_web/live/shipped_presets_test.exs`, `frontend/test/harden_llm_web/live/restored_profiles_test.exs`, `frontend/assets/test/client_core.test.mjs`.
+- Commands: `go test ./stateful -run '^TestDefaultProfileCatalogParity$' -count=1`; `cd frontend && mix test test/harden_llm_web/live/shipped_presets_test.exs test/harden_llm_web/live/restored_profiles_test.exs`; `node --test frontend/assets/test/client_core.test.mjs`.
+- Fixtures: the actual `stateful/presets.json`, unique private Req owners, existing validated terminal-event fixture and synthetic credentials/resolver. No copied production records.
+- Assertions: fresh load has valid shipped schema and enabled Run; every preset is rendered/selectable and submits in both modes; invalid user schema remains disabled; focus shows all choices and typing filters; actual wrapper/preparer retain protocol/path/Agent/DeepInfra/redaction behavior; five finite leaf editors keep credentials, options, refresh, complete save and rebinding local.
+- Pass criteria: all 24 presets/48 submissions pass, no unsupported shipped schema or leaked credential, no additional recovery recursion/engine/service, no weakened existing oracle.
+- Expected runtime: 1–10 seconds for focused suites.
+- Historical relationship: TEST-017 stays retired; its all-profile behavioral oracle is restored at this new owner/ID. See `docs/rca/reference-preset-schema-and-recovery-ui.md` for the coverage failure and correction.

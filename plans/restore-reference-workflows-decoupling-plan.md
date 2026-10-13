@@ -2238,6 +2238,13 @@ Current execution evidence is in [progress.json](evidence/harden-llm/reference-d
 
 The [2026-10-13 conformance audit](evidence/harden-llm/reference-decoupling/plan-conformance-audit.md) compares the frozen pre-implementation v5.3 plan with the actual implementation, lists every substantive refinement and release correction, and records documentation/test-ID fixes, cleanup, recovery limits and concrete next steps beyond this plan. It adds no phase or application feature.
 
+Post-release manual use exposed startup schema, preset discovery and inherited
+recovery-editor defects. [Issue #109](https://github.com/prls-co/harden-llm/issues/109)
+and the [RCA](../docs/rca/reference-preset-schema-and-recovery-ui.md) qualify the
+original acceptance and track their corrective tests/release. The original phase
+ledger remains historical; it did not prove these omitted shipped-data flows.
+
+
 ```yaml
 phase_id: ""
 phase_status: Pending # Pending or Done; a blocker is recorded under issues.
