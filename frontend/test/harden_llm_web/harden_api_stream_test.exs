@@ -1,6 +1,7 @@
-defmodule HardenLlmWeb.HardenAPIStreamTest do
+defmodule HardenLlmUI.ClientStreamTest do
   use ExUnit.Case, async: true
-  alias HardenLlmWeb.{APIError, APIFixtures, HardenAPI}
+  alias HardenLlmWeb.{APIFixtures}
+  alias HardenLlmUI.{APIError, Client}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-115
   # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-428
@@ -14,7 +15,7 @@ defmodule HardenLlmWeb.HardenAPIStreamTest do
     parent = self()
     payload = fixture["record"]["request"]["input"]
 
-    Req.Test.stub(HardenAPI, fn request ->
+    Req.Test.stub(Client, fn request ->
       assert request.method == "POST"
       assert request.request_path == "/api/v1/run"
       assert Plug.Conn.get_req_header(request, "accept") == ["text/event-stream"]
@@ -32,7 +33,7 @@ defmodule HardenLlmWeb.HardenAPIStreamTest do
     end)
 
     assert {:ok, %{"result" => result, "state" => state}} =
-             HardenAPI.run_stream(HardenAPI.context(), payload, fn event ->
+             Client.run_stream(HardenLlmWeb.APIContext.server(), payload, fn event ->
                send(parent, {:event, event["type"]})
                :cont
              end)
@@ -66,13 +67,13 @@ defmodule HardenLlmWeb.HardenAPIStreamTest do
     ]
 
     for {stream, index} <- Enum.with_index(invalid) do
-      Req.Test.stub(HardenAPI, fn request ->
+      Req.Test.stub(Client, fn request ->
         send(parent, {:run_request, index})
         response(request, stream)
       end)
 
       assert {:error, %APIError{category: :protocol}} =
-               HardenAPI.run_stream(HardenAPI.context(), %{}, fn _ -> :cont end)
+               Client.run_stream(HardenLlmWeb.APIContext.server(), %{}, fn _ -> :cont end)
 
       assert_receive {:run_request, ^index}
       refute_receive {:run_request, ^index}, 50
@@ -83,10 +84,10 @@ defmodule HardenLlmWeb.HardenAPIStreamTest do
     fixture: fixture
   } do
     parent = self()
-    Req.Test.stub(HardenAPI, &response(&1, Enum.drop(fixture["stream"], -1)))
+    Req.Test.stub(Client, &response(&1, Enum.drop(fixture["stream"], -1)))
 
     assert {:error, %APIError{category: :protocol}} =
-             HardenAPI.run_stream(HardenAPI.context(), %{}, fn event ->
+             Client.run_stream(HardenLlmWeb.APIContext.server(), %{}, fn event ->
                if event["type"] == "run.completed",
                  do: send(parent, {:result, event["data"]["result"]})
 
@@ -108,10 +109,10 @@ defmodule HardenLlmWeb.HardenAPIStreamTest do
         |> put_in(["data", "error"], %{"code" => "run_timeout", "message" => "Deadline reached."})
       end)
 
-    Req.Test.stub(HardenAPI, &response(&1, stream))
+    Req.Test.stub(Client, &response(&1, stream))
 
     assert {:error, %APIError{category: :backend, ambiguous?: false}} =
-             HardenAPI.run_stream(HardenAPI.context(), %{}, fn _ -> :cont end)
+             Client.run_stream(HardenLlmWeb.APIContext.server(), %{}, fn _ -> :cont end)
   end
 
   defp response(request, events, newline \\ "\n") do

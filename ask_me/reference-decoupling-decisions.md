@@ -84,7 +84,7 @@ Verified source anchors:
 
 - `(*API).authorize` in [httpapi.go](../internal/gateway/httpapi/httpapi.go) validates the bearer for `/v1/models`, `/v1/chat/completions` and `/v1/responses`.
 - [router.ex](../frontend/lib/harden_llm_web/router.ex) uses `PrlsWeb.Access.Plug` and `PrlsWeb.Access.LiveAuth` for human access. `WorkspaceLive` consumes `socket.assigns.access_context.user_id`.
-- [HardenAPI](../frontend/lib/harden_llm_web/harden_api.ex) implements `validate_config!/0`, `models/0` and `responses/1`; its server-side request uses the deployment bearer, with redirects and automatic retries disabled.
+- [pre-extraction HardenAPI](https://github.com/prls-co/harden-llm/blob/a49131d165e31394983d922f496baa38901ce6d6/frontend/lib/harden_llm_web/harden_api.ex) implements `validate_config!/0`, `models/0` and `responses/1`; its server-side request uses the deployment bearer, with redirects and automatic retries disabled.
 - `routeFor(state)` in [preview-environment.mjs](../scripts/preview-environment.mjs) currently routes `/v1/*`, `/healthz` and `/readyz` to Go and other paths to Phoenix. This is source evidence, not verification of production ingress.
 
 The existing Phoenix identity integration does not prove that an external machine client has a supported Control Plane identity protocol. Public reference access would require verification against the Control Plane’s owner-maintained contract. No new identity header, token format or authentication endpoint is assumed here.

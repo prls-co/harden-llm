@@ -1120,7 +1120,7 @@ Read these before starting any phase. They exist so an implementer does not have
   - Stop/escalate condition: A failure is compilation/infrastructure rather than the intended assertion, or the accepted contract cannot be met.
   - Unlocks: P04.S02.
 - P04.S02 Implement standalone component packaging
-  - Action: Move reusable baseline component/form/projection helpers per section 4.5 into HardenLlmUI once. Keep host routing/identity/async lifecycle; package cannot import host modules.
+  - Action: Move reusable baseline component/form/projection helpers per section 4.5 into HardenLlmUI once. Move the existing client/error declarations with the component dependencies so the independent host compiles; S03/S04 then establish and implement their explicit-context/decoder behavior. Keep host routing/identity/workspace async lifecycle; the existing reusable widget owns its local Save/refresh pending state. Package code cannot import host modules.
   - Why now: P04.S01 establishes the failing assertions and exact command.
   - Files/surfaces: `frontend/packages/harden_llm_ui/{mix.exs,lib,test}`, host imports, `test/test-tiers.json`.
   - Requirement link: REQ-420, REQ-428.
@@ -1192,7 +1192,7 @@ Read these before starting any phase. They exist so an implementer does not have
   - Stop/escalate condition: A failure is compilation/infrastructure rather than the intended assertion, or the accepted contract cannot be met.
   - Unlocks: P04.S08.
 - P04.S08 Implement history trace and artifact controls
-  - Action: Restore history/stats/trace/download controls through one REST projection and the moved baseline pagination component. Enforce key scope; restore recorded settings exactly into the draft and require an explicit valid binding when absent. Never borrow foreign credentials or recompute accounting.
+  - Action: Restore history/stats/trace/download controls through one REST projection and the moved baseline pagination component. Keep summary pages in memory and load each full record when its existing details control expands (Kirill accepted this on 2026-10-13); preserve the full captured data and controls. Enforce key scope; restore recorded settings exactly into the draft and require an explicit valid binding when absent. Never borrow foreign credentials or recompute accounting.
   - Why now: P04.S07 establishes the failing assertions and exact command.
   - Files/surfaces: package history/trace/stats components, baseline controllers, `restored_history_test.exs`.
   - Requirement link: REQ-420, REQ-426, REQ-428, REQ-429.
@@ -2218,7 +2218,7 @@ Generate ciphertext deterministically only in encryption tests using an injected
 
 ## 11. Execution log template
 
-Current execution evidence is in [progress.json](evidence/harden-llm/reference-decoupling/progress.json), [the P00 checkpoint](evidence/harden-llm/reference-decoupling/phase-p00.md), [the P01 checkpoint](evidence/harden-llm/reference-decoupling/phase-p01.md), [the P02 checkpoint](evidence/harden-llm/reference-decoupling/phase-p02.md) and [the P03 checkpoint](evidence/harden-llm/reference-decoupling/phase-p03.md). P00–P03 are complete; continue at **P04.S01** in `/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl`, branch `feat/reference-decoupling`. The retained [P03 implementation log](evidence/harden-llm/reference-decoupling/phase-p03-in-progress.md) includes failed attempts and intermediate states; the final checkpoint is authoritative. The canonical plan is this file on the implementation branch, not the frozen v5.2 planning worktree or the stale primary checkout. No main, dev or production promotion has run. Copy this template for later phases and retain failed attempts and deviations.
+Current execution evidence is in [progress.json](evidence/harden-llm/reference-decoupling/progress.json) and the [P00](evidence/harden-llm/reference-decoupling/phase-p00.md), [P01](evidence/harden-llm/reference-decoupling/phase-p01.md), [P02](evidence/harden-llm/reference-decoupling/phase-p02.md), [P03](evidence/harden-llm/reference-decoupling/phase-p03.md) and [P04](evidence/harden-llm/reference-decoupling/phase-p04.md) checkpoints. P00–P04 are complete; resume **P05.S01** in `/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl`, branch `feat/reference-decoupling`. The issue #100 phase comment records the pushed checkpoint SHA. The chronological [P04 log](evidence/harden-llm/reference-decoupling/phase-p04-in-progress.md) retains failed attempts; its final checkpoint is authoritative. The canonical plan is this file on the implementation branch, not the frozen v5.2 planning worktree or the stale primary checkout. CHECK-422 and the trusted main-owned preview control-assets gate remain for P05/P06. No main, dev or production promotion has run. Do not repeat the completed one-time dev reset. Copy this template for later phases and retain failures and deviations.
 
 ```yaml
 phase_id: ""

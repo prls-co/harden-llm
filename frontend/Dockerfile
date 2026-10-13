@@ -13,6 +13,7 @@ WORKDIR /build
 RUN mix local.hex --force && mix local.rebar --force
 
 COPY mix.exs mix.lock ./
+COPY packages packages
 RUN --mount=type=secret,id=private_module_token,required=true \
     token="$(cat /run/secrets/private_module_token)" && \
     GIT_CONFIG_COUNT=1 \

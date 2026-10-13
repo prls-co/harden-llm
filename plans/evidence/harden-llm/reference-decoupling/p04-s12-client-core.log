@@ -1,0 +1,70 @@
+TAP version 13
+# Subtest: Enter is consumed in a combobox even when its committed selection is unchanged
+ok 1 - Enter is consumed in a combobox even when its committed selection is unchanged
+  ---
+  duration_ms: 2.537228
+  type: 'test'
+  ...
+# Subtest: focus selects the committed value without requiring a DOM
+ok 2 - focus selects the committed value without requiring a DOM
+  ---
+  duration_ms: 2.65789
+  type: 'test'
+  ...
+# Subtest: normalizes search text and returns visible option indices
+ok 3 - normalizes search text and returns visible option indices
+  ---
+  duration_ms: 0.391647
+  type: 'test'
+  ...
+# Subtest: reports empty-state visibility from the visible option count
+ok 4 - reports empty-state visibility from the visible option count
+  ---
+  duration_ms: 0.177884
+  type: 'test'
+  ...
+# Subtest: wraps highlighted option indices in either direction
+ok 5 - wraps highlighted option indices in either direction
+  ---
+  duration_ms: 0.614559
+  type: 'test'
+  ...
+# Subtest: commits known values, allowed custom values, or a safe reversion
+ok 6 - commits known values, allowed custom values, or a safe reversion
+  ---
+  duration_ms: 0.951832
+  type: 'test'
+  ...
+# Subtest: escape always restores the committed value and blur follows the ownership rule
+ok 7 - escape always restores the committed value and blur follows the ownership rule
+  ---
+  duration_ms: 0.373441
+  type: 'test'
+  ...
+# Subtest: qualifies only the intended modified-enter submit shortcut
+ok 8 - qualifies only the intended modified-enter submit shortcut
+  ---
+  duration_ms: 0.23496
+  type: 'test'
+  ...
+# Subtest: builds a schema check event from the current control value
+ok 9 - builds a schema check event from the current control value
+  ---
+  duration_ms: 0.453433
+  type: 'test'
+  ...
+# Subtest: returns schema-pending presentation without DOM state
+ok 10 - returns schema-pending presentation without DOM state
+  ---
+  duration_ms: 0.558719
+  type: 'test'
+  ...
+1..10
+# tests 10
+# suites 0
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 193.422195

@@ -1,0 +1,119 @@
+==> harden_llm_ui
+Compiling 3 files (.ex)
+==> harden_llm
+Compiling 4 files (.ex)
+     warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+     │
+ 221 │           bundle_export_url={~p"/profiles/bundle"}
+     │           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     │
+     └─ lib/harden_llm_web/live/profiles_live.html.heex:221: HardenLlmWeb.ProfilesLive.render/1
+
+    warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+    │
+ 16 │           href={~p"/profiles/bundle"}
+    │           ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/harden_llm_web/live/profiles_live.html.heex:16: HardenLlmWeb.ProfilesLive.render/1
+
+    warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+    │
+ 84 │               bundle_export_url={~p"/profiles/bundle"}
+    │               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/harden_llm_web/live/workspace_live.html.heex:84: HardenLlmWeb.WorkspaceLive.render/1
+
+Generated harden_llm app
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+..22:38:08.131 [error] Task #PID<0.1036.0> started from #PID<0.1029.0> terminating
+** (FunctionClauseError) no function clause matching in HardenLlmUI.DiagnosticsWire.Contract.valid_format?/2
+    (harden_llm_ui 1.0.0) lib/harden_llm_ui/diagnostics_wire.ex:33: HardenLlmUI.DiagnosticsWire.Contract.valid_format?("binary", "{\n  \"schemaVersion\": 2, \"fixture\": \"retained bytes\"\n}\n")
+    (ex_json_schema 0.11.5) lib/ex_json_schema/validator/format.ex:94: ExJsonSchema.Validator.Format.validate_with_custom_validator/3
+    (elixir 1.20.2) lib/enum.ex:1272: anonymous fn/3 in Enum.flat_map/2
+    (stdlib 7.3) maps.erl:894: :maps.fold_1/4
+    (elixir 1.20.2) lib/enum.ex:2634: Enum.flat_map/2
+    (ex_json_schema 0.11.5) lib/ex_json_schema/validator.ex:82: ExJsonSchema.Validator.do_validation_errors/4
+    (ex_json_schema 0.11.5) lib/ex_json_schema/validator.ex:105: ExJsonSchema.Validator.valid_fragment?/3
+    (harden_llm_ui 1.0.0) lib/harden_llm_ui/diagnostics_wire.ex:95: HardenLlmUI.DiagnosticsWire.valid_response?/5
+    (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:367: HardenLlmUI.Client.decode_artifact/3
+    (opentelemetry 1.7.0) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/opentelemetry/src/otel_tracer_default.erl:47: :otel_tracer_default.with_span/5
+    (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:312: HardenLlmUI.Client.request/5
+    (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:283: HardenLlmUI.Client.get_trace/2
+    (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:18: anonymous fn/2 in HardenLlmUI.Client.propagate/1
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/async.ex:289: Phoenix.LiveView.Async.do_async/5
+    (elixir 1.20.2) lib/task/supervised.ex:105: Task.Supervised.invoke_mfa/2
+Function: #Function<7.77716172/0 in Phoenix.LiveView.Async.run_async_task/5>
+    Args: []
+
+
+  1) test trace resource buttons use run ID and show the canonical raw trace (HardenLlmWeb.RestoredHistoryTest)
+     test/harden_llm_web/live/restored_history_test.exs:131
+     Expected truthy, got false
+     code: assert has_element?(view, "#history-trace-#{id}-trace-json", "retained bytes")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN4AK2O7vTv7OgPH",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.1029.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#history-trace-00000000-0000-4000-8000-000000000001-trace-json"
+
+         # 3
+         "retained bytes"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_history_test.exs:142: (test)
+
+
+
+  2) test artifact bytes download through the host without a history read or external redirect (HardenLlmWeb.RestoredHistoryTest)
+     test/harden_llm_web/live/restored_history_test.exs:172
+     ** (FunctionClauseError) no function clause matching in HardenLlmUI.DiagnosticsWire.Contract.valid_format?/2
+
+     The following arguments were given to HardenLlmUI.DiagnosticsWire.Contract.valid_format?/2:
+
+         # 1
+         "binary"
+
+         # 2
+         "{\n  \"schemaVersion\": 2, \"fixture\": \"retained bytes\"\n}\n"
+
+     Attempted function clauses (showing 1 out of 1):
+
+         def valid_format?(-"uuid"-, value)
+
+     code: result = get(conn, "/traces/#{id}/artifacts/trace.json")
+     stacktrace:
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/diagnostics_wire.ex:33: HardenLlmUI.DiagnosticsWire.Contract.valid_format?/2
+       (ex_json_schema 0.11.5) lib/ex_json_schema/validator/format.ex:94: ExJsonSchema.Validator.Format.validate_with_custom_validator/3
+       (elixir 1.20.2) lib/enum.ex:1272: anonymous fn/3 in Enum.flat_map/2
+       (stdlib 7.3) maps.erl:894: :maps.fold_1/4
+       (elixir 1.20.2) lib/enum.ex:2634: Enum.flat_map/2
+       (ex_json_schema 0.11.5) lib/ex_json_schema/validator.ex:82: ExJsonSchema.Validator.do_validation_errors/4
+       (ex_json_schema 0.11.5) lib/ex_json_schema/validator.ex:105: ExJsonSchema.Validator.valid_fragment?/3
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/diagnostics_wire.ex:95: HardenLlmUI.DiagnosticsWire.valid_response?/5
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:367: HardenLlmUI.Client.decode_artifact/3
+       (opentelemetry 1.7.0) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/opentelemetry/src/otel_tracer_default.erl:47: :otel_tracer_default.with_span/5
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:312: HardenLlmUI.Client.request/5
+       (harden_llm 1.0.0) lib/harden_llm_web/controllers/artifact_controller.ex:6: HardenLlmWeb.ArtifactController.show/2
+       (harden_llm 1.0.0) lib/harden_llm_web/controllers/artifact_controller.ex:1: HardenLlmWeb.ArtifactController.action/2
+       (harden_llm 1.0.0) lib/harden_llm_web/controllers/artifact_controller.ex:1: HardenLlmWeb.ArtifactController.phoenix_controller_pipeline/2
+       (phoenix 1.8.9) lib/phoenix/router.ex:428: Phoenix.Router.__call__/5
+       (harden_llm 1.0.0) lib/harden_llm_web/endpoint.ex:1: HardenLlmWeb.Endpoint.plug_builder_call/2
+       (harden_llm 1.0.0) lib/harden_llm_web/endpoint.ex:1: HardenLlmWeb.Endpoint.call/2
+       (phoenix 1.8.9) lib/phoenix/test/conn_test.ex:225: Phoenix.ConnTest.dispatch/5
+       test/harden_llm_web/live/restored_history_test.exs:178: (test)
+
+.
+Finished in 0.5 seconds (0.5s async, 0.00s sync)
+
+Result: 3/5 passed
+Failed: 2 tests

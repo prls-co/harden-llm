@@ -66,7 +66,7 @@ defmodule HardenLlmWeb.ConnCase do
 
     case result do
       {:ok, %{pid: pid} = view, html} ->
-        :ok = Req.Test.allow(HardenLlmWeb.HardenAPI, self(), pid)
+        :ok = Req.Test.allow(HardenLlmUI.Client, self(), pid)
         ExUnit.Callbacks.on_exit(fn -> stop_live_view(view) end)
         {:ok, view, html}
 
@@ -79,10 +79,32 @@ defmodule HardenLlmWeb.ConnCase do
     Plug.Conn.put_req_header(conn, "cookie", HardenLlmWeb.APIFixtures.cookie())
   end
 
+  # Phoenix's render_async waits a snapshot of current tasks. A completion can
+  # start another detail/draft operation, so await the process-owned chain under
+  # one unchanged deadline. This only observes tasks; it never reissues work.
+  def render_settled(view, timeout_ms) do
+    settle(view, System.monotonic_time(:millisecond) + timeout_ms)
+  end
+
+  defp settle(view, deadline) do
+    remaining = deadline - System.monotonic_time(:millisecond)
+
+    if remaining <= 0,
+      do: raise("expected dependent async processes to finish within the deadline")
+
+    html = Phoenix.LiveViewTest.render_async(view, remaining)
+
+    case Phoenix.LiveView.Channel.async_pids(view.pid) do
+      {:ok, []} -> html
+      {:ok, _pids} -> settle(view, deadline)
+    end
+  end
+
   defp stop_live_view(%{pid: pid}) do
     async_pids =
       if Process.alive?(pid) do
-        Phoenix.LiveView.Channel.async_pids(pid)
+        {:ok, pids} = Phoenix.LiveView.Channel.async_pids(pid)
+        pids
       else
         []
       end

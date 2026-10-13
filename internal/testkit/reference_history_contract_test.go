@@ -3,6 +3,7 @@ package testkit_test
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-436
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"path/filepath"
@@ -24,6 +25,10 @@ func referenceFixture(t *testing.T, name string) map[string]any {
 
 func TestReferenceHistoryContract(t *testing.T) {
 	t.Parallel()
+	root := repositoryRoot(t)
+	if !bytes.Equal(readFile(t, filepath.Join(root, "api/openapi.yaml")), readFile(t, filepath.Join(root, "frontend/packages/harden_llm_ui/priv/openapi.yaml"))) {
+		t.Fatal("UI bundled OpenAPI differs from the canonical contract; copy api/openapi.yaml before publishing the package")
+	}
 	loader := openapi3.NewLoader()
 	loader.IsExternalRefsAllowed = false
 	document, err := loader.LoadFromFile(filepath.Join(repositoryRoot(t), "api/openapi.yaml"))

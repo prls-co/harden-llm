@@ -1,0 +1,247 @@
+Compiling 3 files (.ex)
+    warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+    │
+ 84 │               bundle_export_url={~p"/profiles/bundle"}
+    │               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/harden_llm_web/live/workspace_live.html.heex:84: HardenLlmWeb.WorkspaceLive.render/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │
+ 1763 │     do: ~p"/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1763: HardenLlmWeb.WorkspaceLive.artifact_url/2
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}"
+      │
+ 1758 │     do: ~p"/traces/#{trace_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1758: HardenLlmWeb.WorkspaceLive.trace_url/1
+
+      warning: variable "profile" is unused (if the variable is not meant to be used, prefix it with an underscore)
+      │
+ 1270 │       profile = profile_state["definition"] || %{}
+      │       ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1270:7: HardenLlmWeb.WorkspaceLive.profile_options/1
+
+Generated harden_llm app
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+
+
+  1) test failed Save keeps the edited definition and staged key without echoing secrets (HardenLlmWeb.RestoredProfilesTest)
+     test/harden_llm_web/live/restored_profiles_test.exs:225
+     ** (ArgumentError) expected selector "#profile-form" to return a single element, but got none within:
+
+     <header phx-r="" id="app-header" class="sticky top-0 z-40 border-b border-slate-200/90 bg-white/95 backdrop-blur"><div class="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3 sm:px-6 lg:px-8"><a phx-r="" href="/" data-phx-link="redirect" data-phx-link-state="push" id="brand-home" class="mr-auto flex items-center gap-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600"><span phx-r="" class="grid size-9 place-items-center rounded-xl bg-slate-950 text-sm font-bold text-white">HL</span><span phx-r=""><span class="block text-sm font-semibold text-slate-950">Harden LLM</span><span class="block text-[11px] uppercase tracking-[0.12em] text-slate-500">Operator console</span></span></a><div class="flex items-center gap-3"><span class="hidden max-w-48 truncate text-xs text-slate-500 md:block" title="operator@example.test">
+             operator@example.test
+           </span><form action="/logout" method="post"><input type="hidden" name="_csrf_token" value="[REDACTED SYNTHETIC CSRF]"/><button id="logout-button" type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-600"><span phx-r="" class="hero-arrow-right-start-on-rectangle size-4"></span> Sign out
+             </button></form></div></div></header><main phx-r="" id="profiles-page">Profiles</main><div phx-r="" id="flash-group" aria-live="polite"><div phx-r="" id="client-error" phx-click="[[&quot;push&quot;,{&quot;value&quot;:{&quot;key&quot;:&quot;error&quot;},&quot;event&quot;:&quot;lv:clear-flash&quot;}],[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]" role="alert" class="fixed right-4 top-4 z-50 w-[min(24rem,calc(100vw-2rem))]" hidden="" phx-connected="[[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}],[&quot;set_attr&quot;,{&quot;attr&quot;:[&quot;hidden&quot;,&quot;&quot;]}]]" phx-disconnected="[[&quot;show&quot;,{&quot;time&quot;:300,&quot;to&quot;:&quot;.phx-client-error #client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-out&quot;,&quot;duration-300&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;]]}],[&quot;remove_attr&quot;,{&quot;to&quot;:&quot;.phx-client-error #client-error&quot;,&quot;attr&quot;:&quot;hidden&quot;}]]"><div class="flex items-start gap-3 rounded-xl border p-4 text-sm shadow-xl text-wrap border-rose-200 bg-rose-50 text-rose-950"><span phx-r="" class="hero-exclamation-circle size-5 shrink-0"></span><div><p class="font-semibold">We can&#39;t find the internet</p><p>
+         Attempting to reconnect
+         <span phx-r="" class="hero-arrow-path ml-1 size-3 motion-safe:animate-spin"></span></p></div><div class="flex-1"></div><button type="button" class="group self-start cursor-pointer" aria-label="close"><span phx-r="" class="hero-x-mark size-5 opacity-40 group-hover:opacity-70"></span></button></div></div><div phx-r="" id="server-error" phx-click="[[&quot;push&quot;,{&quot;value&quot;:{&quot;key&quot;:&quot;error&quot;},&quot;event&quot;:&quot;lv:clear-flash&quot;}],[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]" role="alert" class="fixed right-4 top-4 z-50 w-[min(24rem,calc(100vw-2rem))]" hidden="" phx-connected="[[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}],[&quot;set_attr&quot;,{&quot;attr&quot;:[&quot;hidden&quot;,&quot;&quot;]}]]" phx-disconnected="[[&quot;show&quot;,{&quot;time&quot;:300,&quot;to&quot;:&quot;.phx-server-error #server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-out&quot;,&quot;duration-300&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;]]}],[&quot;remove_attr&quot;,{&quot;to&quot;:&quot;.phx-server-error #server-error&quot;,&quot;attr&quot;:&quot;hidden&quot;}]]"><div class="flex items-start gap-3 rounded-xl border p-4 text-sm shadow-xl text-wrap border-rose-200 bg-rose-50 text-rose-950"><span phx-r="" class="hero-exclamation-circle size-5 shrink-0"></span><div><p class="font-semibold">Something went wrong!</p><p>
+         Attempting to reconnect
+         <span phx-r="" class="hero-arrow-path ml-1 size-3 motion-safe:animate-spin"></span></p></div><div class="flex-1"></div><button type="button" class="group self-start cursor-pointer" aria-label="close"><span phx-r="" class="hero-x-mark size-5 opacity-40 group-hover:opacity-70"></span></button></div></div></div>
+     code: |> render_change(%{"profile" => %{"baseUrl" => "https://custom-provider.example/v1"}})
+     stacktrace:
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:1229: Phoenix.LiveViewTest.call/2
+       test/harden_llm_web/live/restored_profiles_test.exs:237: (test)
+
+
+
+  2) test refresh edits only the draft and keeps its complete inputs until explicit Save (HardenLlmWeb.RestoredProfilesTest)
+     test/harden_llm_web/live/restored_profiles_test.exs:201
+     ** (ArgumentError) expected selector "#profile-refresh-models" to return a single element, but got none within:
+
+     <header phx-r="" id="app-header" class="sticky top-0 z-40 border-b border-slate-200/90 bg-white/95 backdrop-blur"><div class="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3 sm:px-6 lg:px-8"><a phx-r="" href="/" data-phx-link="redirect" data-phx-link-state="push" id="brand-home" class="mr-auto flex items-center gap-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600"><span phx-r="" class="grid size-9 place-items-center rounded-xl bg-slate-950 text-sm font-bold text-white">HL</span><span phx-r=""><span class="block text-sm font-semibold text-slate-950">Harden LLM</span><span class="block text-[11px] uppercase tracking-[0.12em] text-slate-500">Operator console</span></span></a><div class="flex items-center gap-3"><span class="hidden max-w-48 truncate text-xs text-slate-500 md:block" title="operator@example.test">
+             operator@example.test
+           </span><form action="/logout" method="post"><input type="hidden" name="_csrf_token" value="[REDACTED SYNTHETIC CSRF]"/><button id="logout-button" type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-600"><span phx-r="" class="hero-arrow-right-start-on-rectangle size-4"></span> Sign out
+             </button></form></div></div></header><main phx-r="" id="profiles-page">Profiles</main><div phx-r="" id="flash-group" aria-live="polite"><div phx-r="" id="client-error" phx-click="[[&quot;push&quot;,{&quot;value&quot;:{&quot;key&quot;:&quot;error&quot;},&quot;event&quot;:&quot;lv:clear-flash&quot;}],[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]" role="alert" class="fixed right-4 top-4 z-50 w-[min(24rem,calc(100vw-2rem))]" hidden="" phx-connected="[[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}],[&quot;set_attr&quot;,{&quot;attr&quot;:[&quot;hidden&quot;,&quot;&quot;]}]]" phx-disconnected="[[&quot;show&quot;,{&quot;time&quot;:300,&quot;to&quot;:&quot;.phx-client-error #client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-out&quot;,&quot;duration-300&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;]]}],[&quot;remove_attr&quot;,{&quot;to&quot;:&quot;.phx-client-error #client-error&quot;,&quot;attr&quot;:&quot;hidden&quot;}]]"><div class="flex items-start gap-3 rounded-xl border p-4 text-sm shadow-xl text-wrap border-rose-200 bg-rose-50 text-rose-950"><span phx-r="" class="hero-exclamation-circle size-5 shrink-0"></span><div><p class="font-semibold">We can&#39;t find the internet</p><p>
+         Attempting to reconnect
+         <span phx-r="" class="hero-arrow-path ml-1 size-3 motion-safe:animate-spin"></span></p></div><div class="flex-1"></div><button type="button" class="group self-start cursor-pointer" aria-label="close"><span phx-r="" class="hero-x-mark size-5 opacity-40 group-hover:opacity-70"></span></button></div></div><div phx-r="" id="server-error" phx-click="[[&quot;push&quot;,{&quot;value&quot;:{&quot;key&quot;:&quot;error&quot;},&quot;event&quot;:&quot;lv:clear-flash&quot;}],[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]" role="alert" class="fixed right-4 top-4 z-50 w-[min(24rem,calc(100vw-2rem))]" hidden="" phx-connected="[[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}],[&quot;set_attr&quot;,{&quot;attr&quot;:[&quot;hidden&quot;,&quot;&quot;]}]]" phx-disconnected="[[&quot;show&quot;,{&quot;time&quot;:300,&quot;to&quot;:&quot;.phx-server-error #server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-out&quot;,&quot;duration-300&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;]]}],[&quot;remove_attr&quot;,{&quot;to&quot;:&quot;.phx-server-error #server-error&quot;,&quot;attr&quot;:&quot;hidden&quot;}]]"><div class="flex items-start gap-3 rounded-xl border p-4 text-sm shadow-xl text-wrap border-rose-200 bg-rose-50 text-rose-950"><span phx-r="" class="hero-exclamation-circle size-5 shrink-0"></span><div><p class="font-semibold">Something went wrong!</p><p>
+         Attempting to reconnect
+         <span phx-r="" class="hero-arrow-path ml-1 size-3 motion-safe:animate-spin"></span></p></div><div class="flex-1"></div><button type="button" class="group self-start cursor-pointer" aria-label="close"><span phx-r="" class="hero-x-mark size-5 opacity-40 group-hover:opacity-70"></span></button></div></div></div>
+     code: view |> element("#profile-refresh-models") |> render_click()
+     stacktrace:
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:1229: Phoenix.LiveViewTest.call/2
+       test/harden_llm_web/live/restored_profiles_test.exs:210: (test)
+
+
+
+  3) test each explicit Save creates a new complete snapshot and selects its returned ID (HardenLlmWeb.RestoredProfilesTest)
+     test/harden_llm_web/live/restored_profiles_test.exs:166
+     ** (ArgumentError) expected selector "#profile-form" to return a single element, but got none within:
+
+     <header phx-r="" id="app-header" class="sticky top-0 z-40 border-b border-slate-200/90 bg-white/95 backdrop-blur"><div class="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3 sm:px-6 lg:px-8"><a phx-r="" href="/" data-phx-link="redirect" data-phx-link-state="push" id="brand-home" class="mr-auto flex items-center gap-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600"><span phx-r="" class="grid size-9 place-items-center rounded-xl bg-slate-950 text-sm font-bold text-white">HL</span><span phx-r=""><span class="block text-sm font-semibold text-slate-950">Harden LLM</span><span class="block text-[11px] uppercase tracking-[0.12em] text-slate-500">Operator console</span></span></a><div class="flex items-center gap-3"><span class="hidden max-w-48 truncate text-xs text-slate-500 md:block" title="operator@example.test">
+             operator@example.test
+           </span><form action="/logout" method="post"><input type="hidden" name="_csrf_token" value="[REDACTED SYNTHETIC CSRF]"/><button id="logout-button" type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-600"><span phx-r="" class="hero-arrow-right-start-on-rectangle size-4"></span> Sign out
+             </button></form></div></div></header><main phx-r="" id="profiles-page">Profiles</main><div phx-r="" id="flash-group" aria-live="polite"><div phx-r="" id="client-error" phx-click="[[&quot;push&quot;,{&quot;value&quot;:{&quot;key&quot;:&quot;error&quot;},&quot;event&quot;:&quot;lv:clear-flash&quot;}],[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]" role="alert" class="fixed right-4 top-4 z-50 w-[min(24rem,calc(100vw-2rem))]" hidden="" phx-connected="[[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}],[&quot;set_attr&quot;,{&quot;attr&quot;:[&quot;hidden&quot;,&quot;&quot;]}]]" phx-disconnected="[[&quot;show&quot;,{&quot;time&quot;:300,&quot;to&quot;:&quot;.phx-client-error #client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-out&quot;,&quot;duration-300&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;]]}],[&quot;remove_attr&quot;,{&quot;to&quot;:&quot;.phx-client-error #client-error&quot;,&quot;attr&quot;:&quot;hidden&quot;}]]"><div class="flex items-start gap-3 rounded-xl border p-4 text-sm shadow-xl text-wrap border-rose-200 bg-rose-50 text-rose-950"><span phx-r="" class="hero-exclamation-circle size-5 shrink-0"></span><div><p class="font-semibold">We can&#39;t find the internet</p><p>
+         Attempting to reconnect
+         <span phx-r="" class="hero-arrow-path ml-1 size-3 motion-safe:animate-spin"></span></p></div><div class="flex-1"></div><button type="button" class="group self-start cursor-pointer" aria-label="close"><span phx-r="" class="hero-x-mark size-5 opacity-40 group-hover:opacity-70"></span></button></div></div><div phx-r="" id="server-error" phx-click="[[&quot;push&quot;,{&quot;value&quot;:{&quot;key&quot;:&quot;error&quot;},&quot;event&quot;:&quot;lv:clear-flash&quot;}],[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]" role="alert" class="fixed right-4 top-4 z-50 w-[min(24rem,calc(100vw-2rem))]" hidden="" phx-connected="[[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}],[&quot;set_attr&quot;,{&quot;attr&quot;:[&quot;hidden&quot;,&quot;&quot;]}]]" phx-disconnected="[[&quot;show&quot;,{&quot;time&quot;:300,&quot;to&quot;:&quot;.phx-server-error #server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-out&quot;,&quot;duration-300&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;]]}],[&quot;remove_attr&quot;,{&quot;to&quot;:&quot;.phx-server-error #server-error&quot;,&quot;attr&quot;:&quot;hidden&quot;}]]"><div class="flex items-start gap-3 rounded-xl border p-4 text-sm shadow-xl text-wrap border-rose-200 bg-rose-50 text-rose-950"><span phx-r="" class="hero-exclamation-circle size-5 shrink-0"></span><div><p class="font-semibold">Something went wrong!</p><p>
+         Attempting to reconnect
+         <span phx-r="" class="hero-arrow-path ml-1 size-3 motion-safe:animate-spin"></span></p></div><div class="flex-1"></div><button type="button" class="group self-start cursor-pointer" aria-label="close"><span phx-r="" class="hero-x-mark size-5 opacity-40 group-hover:opacity-70"></span></button></div></div></div>
+     code: for _ <- 1..2 do
+     stacktrace:
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:1229: Phoenix.LiveViewTest.call/2
+       test/harden_llm_web/live/restored_profiles_test.exs:176: anonymous fn/3 in HardenLlmWeb.RestoredProfilesTest."test each explicit Save creates a new complete snapshot and selects its returned ID"/1
+       (elixir 1.20.2) lib/enum.ex:4659: Enum.reduce/3
+       test/harden_llm_web/live/restored_profiles_test.exs:175: (test)
+
+
+
+  4) test delete hides the selected preset and explicit recreation adds a new immutable profile (HardenLlmWeb.RestoredProfilesTest)
+     test/harden_llm_web/live/restored_profiles_test.exs:258
+     ** (ArgumentError) expected selector "button[phx-click='confirm-delete'][phx-value-id='CPA Responses']" to return a single element, but got none within:
+
+     <header phx-r="" id="app-header" class="sticky top-0 z-40 border-b border-slate-200/90 bg-white/95 backdrop-blur"><div class="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3 sm:px-6 lg:px-8"><a phx-r="" href="/" data-phx-link="redirect" data-phx-link-state="push" id="brand-home" class="mr-auto flex items-center gap-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600"><span phx-r="" class="grid size-9 place-items-center rounded-xl bg-slate-950 text-sm font-bold text-white">HL</span><span phx-r=""><span class="block text-sm font-semibold text-slate-950">Harden LLM</span><span class="block text-[11px] uppercase tracking-[0.12em] text-slate-500">Operator console</span></span></a><div class="flex items-center gap-3"><span class="hidden max-w-48 truncate text-xs text-slate-500 md:block" title="operator@example.test">
+             operator@example.test
+           </span><form action="/logout" method="post"><input type="hidden" name="_csrf_token" value="[REDACTED SYNTHETIC CSRF]"/><button id="logout-button" type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-600"><span phx-r="" class="hero-arrow-right-start-on-rectangle size-4"></span> Sign out
+             </button></form></div></div></header><main phx-r="" id="profiles-page">Profiles</main><div phx-r="" id="flash-group" aria-live="polite"><div phx-r="" id="client-error" phx-click="[[&quot;push&quot;,{&quot;value&quot;:{&quot;key&quot;:&quot;error&quot;},&quot;event&quot;:&quot;lv:clear-flash&quot;}],[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]" role="alert" class="fixed right-4 top-4 z-50 w-[min(24rem,calc(100vw-2rem))]" hidden="" phx-connected="[[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}],[&quot;set_attr&quot;,{&quot;attr&quot;:[&quot;hidden&quot;,&quot;&quot;]}]]" phx-disconnected="[[&quot;show&quot;,{&quot;time&quot;:300,&quot;to&quot;:&quot;.phx-client-error #client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-out&quot;,&quot;duration-300&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;]]}],[&quot;remove_attr&quot;,{&quot;to&quot;:&quot;.phx-client-error #client-error&quot;,&quot;attr&quot;:&quot;hidden&quot;}]]"><div class="flex items-start gap-3 rounded-xl border p-4 text-sm shadow-xl text-wrap border-rose-200 bg-rose-50 text-rose-950"><span phx-r="" class="hero-exclamation-circle size-5 shrink-0"></span><div><p class="font-semibold">We can&#39;t find the internet</p><p>
+         Attempting to reconnect
+         <span phx-r="" class="hero-arrow-path ml-1 size-3 motion-safe:animate-spin"></span></p></div><div class="flex-1"></div><button type="button" class="group self-start cursor-pointer" aria-label="close"><span phx-r="" class="hero-x-mark size-5 opacity-40 group-hover:opacity-70"></span></button></div></div><div phx-r="" id="server-error" phx-click="[[&quot;push&quot;,{&quot;value&quot;:{&quot;key&quot;:&quot;error&quot;},&quot;event&quot;:&quot;lv:clear-flash&quot;}],[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]" role="alert" class="fixed right-4 top-4 z-50 w-[min(24rem,calc(100vw-2rem))]" hidden="" phx-connected="[[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}],[&quot;set_attr&quot;,{&quot;attr&quot;:[&quot;hidden&quot;,&quot;&quot;]}]]" phx-disconnected="[[&quot;show&quot;,{&quot;time&quot;:300,&quot;to&quot;:&quot;.phx-server-error #server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;ease-out&quot;,&quot;duration-300&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;]]}],[&quot;remove_attr&quot;,{&quot;to&quot;:&quot;.phx-server-error #server-error&quot;,&quot;attr&quot;:&quot;hidden&quot;}]]"><div class="flex items-start gap-3 rounded-xl border p-4 text-sm shadow-xl text-wrap border-rose-200 bg-rose-50 text-rose-950"><span phx-r="" class="hero-exclamation-circle size-5 shrink-0"></span><div><p class="font-semibold">Something went wrong!</p><p>
+         Attempting to reconnect
+         <span phx-r="" class="hero-arrow-path ml-1 size-3 motion-safe:animate-spin"></span></p></div><div class="flex-1"></div><button type="button" class="group self-start cursor-pointer" aria-label="close"><span phx-r="" class="hero-x-mark size-5 opacity-40 group-hover:opacity-70"></span></button></div></div></div>
+     code: |> render_click()
+     stacktrace:
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:1229: Phoenix.LiveViewTest.call/2
+       test/harden_llm_web/live/restored_profiles_test.exs:268: (test)
+
+
+
+  5) test shared form keeps models, timestamps, optional values and input snapshots (HardenLlmWeb.RestoredProfilesTest)
+     test/harden_llm_web/live/restored_profiles_test.exs:284
+     Assertion with == failed
+     code:  assert payload["definition"] == draft["definition"]
+     left:  %{
+              "apiInferenceType" => "responses",
+              "baseUrl" => "https://cpa.prls.co/v1",
+              "defaultOptions" => %{
+                "max_tokens" => 16000,
+                "stream" => true
+              },
+              "modelId" => "gpt-5.6-luna",
+              "pricing" => %{
+                "cache_creation_input_token_cost" => 2.5e-7,
+                "cache_read_input_token_cost" => 2.0e-8,
+                "input_cost_per_token" => 2.0e-7,
+                "output_cost_per_reasoning_token" => 0,
+                "output_cost_per_token" => 1.2e-6
+              },
+              "provider" => "cpa",
+              "reasoningEffortMap" => %{
+                "highest" => %{
+                  "reasoning" => %{"effort" => "xhigh"}
+                },
+                "lowest" => %{"reasoning" => %{"effort" => "low"}},
+                "middle" => %{
+                  "reasoning" => %{"effort" => "medium"}
+                }
+              },
+              "recoveryPolicy" => %{
+                "backoff" => %{
+                  "baseDelayMs" => 500,
+                  "maxDelayMs" => 8000
+                },
+                "jsonRepair" => %{
+                  "escalation" => %{"source" => "generation"},
+                  "initial" => %{"source" => "generation"}
+                },
+                "maxAttempts" => 4,
+                "rerun" => nil,
+                "retryOn" => ["network", "rate_limit",
+                 "server_error", "empty_response", "provider_retry"]
+              },
+              "responsesTokensParam" => "max_output_tokens",
+              "schemaVersion" => 4,
+              "supportsContractedStructuredOutput" => true,
+              "supportsTemperature" => false,
+              "supportsWebSearch" => true,
+              "tokensParam" => nil
+            }
+     right: %{
+              "apiInferenceType" => "responses",
+              "baseUrl" => "https://cpa.prls.co/v1",
+              "defaultOptions" => %{
+                "max_tokens" => 16000,
+                "stream" => true
+              },
+              "lastModelRefreshAt" => "2026-10-13T12:00:00Z",
+              "modelId" => "gpt-5.6-luna",
+              "models" => [
+                %{
+                  "id" => "custom-native",
+                  "label" => "Custom native"
+                }
+              ],
+              "pricing" => %{
+                "cache_creation_input_token_cost" => 2.5e-7,
+                "cache_read_input_token_cost" => 2.0e-8,
+                "input_cost_per_token" => 2.0e-7,
+                "output_cost_per_reasoning_token" => 0,
+                "output_cost_per_token" => 1.2e-6
+              },
+              "provider" => "cpa",
+              "reasoningEffortMap" => %{
+                "highest" => %{
+                  "reasoning" => %{"effort" => "xhigh"}
+                },
+                "lowest" => %{"reasoning" => %{"effort" => "low"}},
+                "middle" => %{
+                  "reasoning" => %{"effort" => "medium"}
+                }
+              },
+              "recoveryPolicy" => %{
+                "backoff" => %{
+                  "baseDelayMs" => 500,
+                  "maxDelayMs" => 8000
+                },
+                "jsonRepair" => %{
+                  "escalation" => %{"source" => "generation"},
+                  "initial" => %{"source" => "generation"}
+                },
+                "maxAttempts" => 4,
+                "rerun" => nil,
+                "retryOn" => ["network", "rate_limit",
+                 "server_error", "empty_response", "provider_retry"]
+              },
+              "responsesTokensParam" => "max_output_tokens",
+              "schemaVersion" => 4,
+              "supportsContractedStructuredOutput" => true,
+              "supportsTemperature" => false,
+              "supportsWebSearch" => true,
+              "tokensParam" => nil
+            }
+     stacktrace:
+       test/harden_llm_web/live/restored_profiles_test.exs:292: (test)
+
+
+
+  6) test profile page preserves baseline catalog and complete editor bindings (HardenLlmWeb.RestoredProfilesTest)
+     test/harden_llm_web/live/restored_profiles_test.exs:137
+     Expected truthy, got false
+     code: assert has_element?(view, "#new-profile")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN3-idNy2TCHBgDB",
+           module: HardenLlmWeb.ProfilesLive,
+           pid: #PID<0.1005.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#new-profile"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_profiles_test.exs:144: (test)
+
+
+Finished in 0.4 seconds (0.4s async, 0.00s sync)
+
+Result: 0/6 passed
+Failed: 6 tests

@@ -2,7 +2,8 @@ defmodule HardenLlmWeb.RestoredWorkflowTest do
   use HardenLlmWeb.ConnCase, async: true
 
   import Phoenix.LiveViewTest, except: [live: 1, live: 2, live: 3]
-  alias HardenLlmWeb.{APIFixtures, HardenAPI}
+  alias HardenLlmWeb.{APIFixtures}
+  alias HardenLlmUI.{Client}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-115
   # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-428
@@ -17,7 +18,7 @@ defmodule HardenLlmWeb.RestoredWorkflowTest do
     {:ok, agent} = start_supervised({Agent, fn -> %{} end})
     parent = self()
 
-    Req.Test.stub(HardenAPI, fn request ->
+    Req.Test.stub(Client, fn request ->
       assert Plug.Conn.get_req_header(request, "authorization") == [
                "Bearer " <> APIFixtures.token()
              ]
@@ -90,14 +91,14 @@ defmodule HardenLlmWeb.RestoredWorkflowTest do
     fixture: fixture
   } do
     {:ok, view, _html} = live(conn, ~p"/")
-    render_async(view, 1_000)
+    render_settled(view, 1_000)
     assert has_element?(view, "#workspace-llm-widget")
 
     view
     |> element("#run_selectedProfileId")
     |> render_change(%{"run" => %{"selectedProfileId" => "Repair Provider"}})
 
-    render_async(view, 1_000)
+    render_settled(view, 1_000)
 
     assert dom_value(view, "#run_userPrompt") ==
              fixture["details"]["Repair Provider"]["inputs"]["userPrompt"]
@@ -109,13 +110,13 @@ defmodule HardenLlmWeb.RestoredWorkflowTest do
     |> element("#run_selectedProfileId")
     |> render_change(%{"run" => %{"selectedProfileId" => "CPA Responses"}})
 
-    render_async(view, 1_000)
+    render_settled(view, 1_000)
 
     definition = fixture["details"]["CPA Responses"]["definition"]
     inputs = fixture["details"]["CPA Responses"]["inputs"]
     assert has_element?(view, "#run_modelId[value='#{definition["modelId"]}']")
     view |> element("#input-advanced-toggle") |> render_click()
-    render_async(view, 1_000)
+    render_settled(view, 1_000)
 
     for field <- ~w(userPrompt systemPrompt schemaShorthand) do
       assert dom_value(view, "#run_#{field}") == inputs[field]
@@ -128,14 +129,14 @@ defmodule HardenLlmWeb.RestoredWorkflowTest do
     assert dom_value(view, "#workspace-web-search") == to_string(inputs["webSearch"])
 
     view |> element("#model-config-toggle") |> render_click()
-    render_async(view, 1_000)
+    render_settled(view, 1_000)
 
     for field <- ~w(apiInferenceType baseUrl modelId) do
       assert dom_value(view, "#profile_#{field}") == definition[field]
     end
 
     view |> element("#profile-options-toggle") |> render_click()
-    render_async(view, 1_000)
+    render_settled(view, 1_000)
 
     assert Jason.decode!(dom_value(view, "#profile_defaultOptionsJson")) ==
              definition["defaultOptions"]
@@ -155,12 +156,12 @@ defmodule HardenLlmWeb.RestoredWorkflowTest do
     fixture: fixture
   } do
     {:ok, view, _html} = live(conn, ~p"/")
-    render_async(view, 1_000)
+    render_settled(view, 1_000)
     assert has_element?(view, "#workspace-llm-widget")
 
     view |> element("#model-config-toggle") |> render_click()
     view |> element("#profile-save") |> render_click()
-    render_async(view, 1_000)
+    render_settled(view, 1_000)
 
     assert_receive {:reference_request, "POST", "/api/v1/profiles", payload}, 1_000
     assert payload["definition"]["schemaVersion"] == 4
@@ -181,11 +182,11 @@ defmodule HardenLlmWeb.RestoredWorkflowTest do
 
   test "run keeps the repaired result and provider/result statistics", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/")
-    render_async(view, 1_000)
+    render_settled(view, 1_000)
     assert has_element?(view, "#workspace-llm-widget")
 
     view |> form("#run-form", %{"run" => %{"userPrompt" => "Return ok true"}}) |> render_submit()
-    render_async(view, 1_000)
+    render_settled(view, 1_000)
 
     refute has_element?(view, "#run-error"),
            if(has_element?(view, "#run-error"),
@@ -211,22 +212,22 @@ defmodule HardenLlmWeb.RestoredWorkflowTest do
     fixture: fixture
   } do
     {:ok, view, _html} = live(conn, ~p"/")
-    render_async(view, 1_000)
+    render_settled(view, 1_000)
     assert has_element?(view, "#workspace-llm-widget")
     view |> element("#history-fold-toggle") |> render_click()
-    render_async(view, 1_000)
+    render_settled(view, 1_000)
     id = fixture["record"]["runId"]
 
     view
     |> element("#workspace-history-#{id} button[phx-click='restore-history']")
     |> render_click()
 
-    render_async(view, 1_000)
+    render_settled(view, 1_000)
     assert has_element?(view, "#run_userPrompt", "Return an object with ok true.")
     assert dom_value(view, "#run_selectedProfileId") == "deleted-original-profile"
     assert dom_value(view, "#run_modelId") == "recorded-model"
     view |> element("#model-config-toggle") |> render_click()
-    render_async(view, 1_000)
+    render_settled(view, 1_000)
     assert dom_value(view, "#profile_baseUrl") == "https://recorded-provider.example/v1"
     refute_receive {:reference_request, "POST", "/api/v1/run", _}, 50
     refute_receive {:reference_request, "POST", "/api/v1/profiles", _}, 50
@@ -237,17 +238,17 @@ defmodule HardenLlmWeb.RestoredWorkflowTest do
     fixture: fixture
   } do
     {:ok, one, _html} = live(conn, ~p"/")
-    render_async(one, 1_000)
+    render_settled(one, 1_000)
     second_conn = conn |> put_req_header("cookie", HardenLlmWeb.AccessFixtures.second_cookie())
     {:ok, two, _html} = live(second_conn, ~p"/")
-    render_async(two, 1_000)
+    render_settled(two, 1_000)
     assert has_element?(one, "#workspace-llm-widget")
     assert has_element?(two, "#workspace-llm-widget")
 
     one |> form("#run-form", %{"run" => %{"userPrompt" => "first draft"}}) |> render_change()
     two |> form("#run-form", %{"run" => %{"userPrompt" => "second draft"}}) |> render_change()
-    render_async(one, 1_000)
-    render_async(two, 1_000)
+    render_settled(one, 1_000)
+    render_settled(two, 1_000)
 
     assert_receive {:reference_request, "POST", "/api/v1/state",
                     %{"draftKey" => "workspace:fixture-user"}},
@@ -263,27 +264,32 @@ defmodule HardenLlmWeb.RestoredWorkflowTest do
     for view <- [one, two] do
       assert dom_value(view, "#run_selectedProfileId") == "CPA Responses"
       view |> element("#history-fold-toggle") |> render_click()
-      render_async(view, 1_000)
+      render_settled(view, 1_000)
       assert has_element?(view, "#workspace-history-#{fixture["record"]["runId"]}")
     end
   end
 
   test "a host API-key context sees only its key-scoped fixture data", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/")
-    render_async(view, 1_000)
+    render_settled(view, 1_000)
     assert has_element?(view, "#workspace-llm-widget")
     key_b = "host-key-b-0123456789abcdef0123456789abcdef"
 
-    Req.Test.stub(HardenAPI, fn request ->
+    Req.Test.stub(Client, fn request ->
       assert Plug.Conn.get_req_header(request, "authorization") == ["Bearer " <> key_b]
       assert request.request_path == "/api/v1/profiles"
       Req.Test.json(request, %{"profiles" => []})
     end)
 
     context =
-      HardenAPI.context(base_url: "http://harden-api.test", token: key_b, api_timeout_ms: 75_000)
+      HardenLlmUI.Client.Context.new(
+        base_url: "http://harden-api.test",
+        api_key: key_b,
+        timeout_ms: 75_000,
+        request_options: [plug: {Req.Test, Client}]
+      )
 
-    assert {:ok, %{"profiles" => []}} = HardenAPI.list_profiles(context)
+    assert {:ok, %{"profiles" => []}} = Client.list_profiles(context)
   end
 
   test "recording warnings are explicit and never resubmit inference", %{
@@ -293,7 +299,7 @@ defmodule HardenLlmWeb.RestoredWorkflowTest do
     parent = self()
 
     for status <- ~w(disabled configuration_error not_saved unconfirmed) do
-      Req.Test.stub(HardenAPI, fn request ->
+      Req.Test.stub(Client, fn request ->
         case {request.method, request.request_path} do
           {"GET", "/api/v1/profiles"} ->
             Req.Test.json(request, fixture["profiles"])
@@ -345,14 +351,14 @@ defmodule HardenLlmWeb.RestoredWorkflowTest do
       end)
 
       {:ok, view, _html} = live(conn, ~p"/")
-      render_async(view, 1_000)
+      render_settled(view, 1_000)
       assert has_element?(view, "#workspace-llm-widget")
 
       view
       |> form("#run-form", %{"run" => %{"userPrompt" => "Return ok true"}})
       |> render_submit()
 
-      render_async(view, 1_000)
+      render_settled(view, 1_000)
       assert has_element?(view, "#run-output", "ok")
       assert has_element?(view, "#recording-status[data-status='#{status}']")
       assert_receive {:warning_run, ^status}, 1_000
@@ -361,14 +367,40 @@ defmodule HardenLlmWeb.RestoredWorkflowTest do
   end
 
   test "rejected server API token does not restart Portal login", %{conn: conn} do
-    Req.Test.stub(HardenAPI, fn request ->
-      request |> Plug.Conn.put_status(401) |> Req.Test.json(APIFixtures.error("invalid_api_key"))
+    Req.Test.stub(Client, fn request ->
+      request
+      |> Plug.Conn.put_status(401)
+      |> Req.Test.json(%{
+        "error" => %{"code" => "invalid_api_key", "message" => "Invalid bearer."}
+      })
     end)
 
     {:ok, view, _html} = live(conn, ~p"/")
-    render_async(view, 1_000)
+    render_settled(view, 1_000)
     assert has_element?(view, "#workspace-unavailable", "configured API token")
     assert has_element?(view, "#logout-button")
+  end
+
+  test "autosaved native options reload with the edited draft and execute once", %{conn: conn} do
+    {:ok, one, _} = live(conn, "/")
+    render_settled(one, 1_000)
+    one |> element("#model-config-toggle") |> render_click()
+    one |> element("#profile-options-toggle") |> render_click()
+    options = %{"max_tokens" => 777, "temperature" => 0.35}
+
+    one
+    |> element("#profile_defaultOptionsJson")
+    |> render_change(%{"profile" => %{"defaultOptionsJson" => Jason.encode!(options)}})
+
+    render_settled(one, 1_000)
+    {:ok, two, _} = live(conn, "/")
+    render_settled(two, 1_000)
+    assert Jason.decode!(dom_value(two, "#profile_defaultOptionsJson")) == options
+    two |> form("#run-form") |> render_submit()
+    render_settled(two, 1_000)
+    assert_receive {:reference_request, "POST", "/api/v1/run", payload}, 1_000
+    assert payload["providerOptions"] == options
+    refute_receive {:reference_request, "POST", "/api/v1/run", _}, 50
   end
 
   defp dom_value(view, selector) do

@@ -7,7 +7,7 @@ defmodule HardenLlm.Application do
 
   @impl true
   def start(_type, _args) do
-    :ok = HardenLlmWeb.HardenAPI.validate_config!()
+    :ok = HardenLlmWeb.APIContext.validate!()
     :ok = HardenLlmWeb.Observability.setup()
 
     children = [

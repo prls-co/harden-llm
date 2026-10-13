@@ -317,6 +317,38 @@
       "pathSelectors": ["scripts/harden-structured-call.sh", "internal/providers/**"]
     },
     {
+      "id": "frontend-ui-package",
+      "testIds": [
+        "TEST-429",
+        "TEST-446"
+      ],
+      "tier": "T1",
+      "resourceClass": "cpu",
+      "command": [
+        "mix",
+        "test"
+      ],
+      "workingDirectory": "frontend/packages/harden_llm_ui",
+      "testSeed": 104729,
+      "environment": {
+        "MIX_DEPS_PATH": "../../deps"
+      },
+      "dependsOn": [],
+      "timeoutMs": 900000,
+      "cleanupOwner": "runner",
+      "network": "forbidden",
+      "credentialKeys": [],
+      "requiredFor": [
+        "baseline",
+        "fast",
+        "release"
+      ],
+      "pathSelectors": [
+        "frontend/packages/harden_llm_ui/**",
+        "test/fixtures/reference/**"
+      ]
+    },
+    {
       "id": "frontend-format",
       "testIds": ["TEST-015"],
       "tier": "T0",
@@ -350,6 +382,9 @@
       "id": "frontend-deterministic",
       "testIds": [
         "TEST-428",
+        "TEST-447",
+        "TEST-448",
+        "TEST-431",
         "TEST-044",
         "TEST-101",
         "TEST-102",
@@ -440,11 +475,11 @@
       "network": "forbidden",
       "credentialKeys": [],
       "requiredFor": ["baseline", "fast", "release"],
-      "pathSelectors": ["frontend/assets/js/**", "frontend/assets/test/**"]
+      "pathSelectors": ["frontend/assets/js/**", "frontend/assets/test/**", "frontend/packages/harden_llm_ui/assets/js/**"]
     },
     {
       "id": "run-progress-client",
-      "testIds": ["TEST-256", "TEST-257"],
+      "testIds": ["TEST-256", "TEST-257", "TEST-430"],
       "tier": "T2",
       "resourceClass": "cpu",
       "command": ["node", "--test", "scripts/test/run_progress_test.mjs"],
@@ -455,7 +490,7 @@
       "credentialKeys": [],
       "requiredFor": ["baseline", "fast", "release"],
       "benchmarkLanes": ["fast-candidates"],
-      "pathSelectors": ["scripts/run-progress-core.mjs", "scripts/run-progress.mjs", "scripts/test/run_progress_test.mjs", "test/test-tiers.json"]
+      "pathSelectors": ["frontend/packages/harden_llm_ui/assets/js/run_progress.mjs", "scripts/run-progress.mjs", "scripts/test/run_progress_test.mjs", "test/test-tiers.json"]
     },
     {
       "id": "frontend-browser",

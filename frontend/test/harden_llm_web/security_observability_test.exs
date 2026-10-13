@@ -68,7 +68,7 @@ defmodule HardenLlmWeb.SecurityObservabilityTest do
 
   test "async wrappers attach the initiating OpenTelemetry context and restore the worker" do
     :ok = :otel_ctx.set_value(:harden_llm_test_parent, "parent-context")
-    wrapped = Observability.propagate(fn -> :otel_ctx.get_value(:harden_llm_test_parent) end)
+    wrapped = HardenLlmUI.Client.propagate(fn -> :otel_ctx.get_value(:harden_llm_test_parent) end)
     :ok = :otel_ctx.clear()
 
     task = Task.async(wrapped)

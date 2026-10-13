@@ -4,7 +4,41 @@ import { spawn } from "node:child_process";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import { createSSEParser, observeBudget, redactedReport } from "../run-progress-core.mjs";
+import { createSSEParser, observeBudget, redactedReport } from "../../frontend/packages/harden_llm_ui/assets/js/run_progress.mjs";
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-430
+test("reference terminal and later recording stay separate for independent instances", () => {
+  const a = createSSEParser(), b = createSSEParser();
+  const event = (sequence, type, runId = "run-a") =>
+    `event: ${type}\ndata: ${JSON.stringify({schemaVersion: 1, sequence, type, runId, data: {}})}\n\n`;
+  a.push(event(1, "run.started"));
+  b.push(event(1, "run.started", "run-b"));
+  a.push(event(2, "run.completed"));
+  const terminal = a.finish();
+  assert.equal(terminal.terminal, true);
+  assert.equal(terminal.recording, false);
+  assert.equal(b.finish().terminal, false);
+  a.push(event(3, "history.recorded"));
+  const recorded = a.finish();
+  assert.equal(recorded.terminal, true);
+  assert.equal(recorded.recording, true);
+  assert.equal(recorded.runId, "run-a");
+  assert.equal(b.finish().recording, false);
+});
+
+test("reference progress rejects stale sequence, foreign run and duplicate terminal", () => {
+  const event = (sequence, type, runId = "run-a") =>
+    `event: ${type}\ndata: ${JSON.stringify({schemaVersion: 1, sequence, type, runId, data: {}})}\n\n`;
+  for (const invalid of [event(1, "run.progress"), event(3, "run.progress"), event(2, "run.progress", "run-b"), event(2, "history.recorded")]) {
+    const parser = createSSEParser();
+    parser.push(event(1, "run.started"));
+    assert.throws(() => parser.push(invalid), /reference event/);
+  }
+  const parser = createSSEParser();
+  parser.push(event(1, "run.started") + event(2, "run.failed"));
+  assert.throws(() => parser.push(event(3, "run.completed")), /reference event/);
+  assert.equal(parser.finish().terminal, true);
+});
 
 test("TEST-256 parses split standard Responses SSE events and completion", () => {
   const parser = createSSEParser();

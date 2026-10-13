@@ -34,3 +34,19 @@ func TestCanonicalDecode(t *testing.T) {
 		}
 	}
 }
+
+func TestCanonicalProfileIdentifiers(t *testing.T) {
+	t.Parallel()
+	for _, id := range []string{"CPA Responses", "OpenRouter 123", "Λ model 🚀", "00000000-0000-4000-8000-000000000001"} {
+		data, _ := json.Marshal(id)
+		if err := Validate("ReferenceProfileID", data); err != nil {
+			t.Errorf("valid profile selector %q rejected: %v", id, err)
+		}
+	}
+	for _, id := range []string{"bad/name", "bad\x00", "bad\u009f"} {
+		data, _ := json.Marshal(id)
+		if err := Validate("ReferenceProfileID", data); err == nil {
+			t.Errorf("invalid profile selector %q accepted", id)
+		}
+	}
+}

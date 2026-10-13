@@ -1,0 +1,31 @@
+Compiling 2 files (.ex)
+Running ExUnit with seed: 104729, max_cases: 24
+
+.
+
+  1) test independent host keeps two profile picker and fold instances separate (HardenLlmUI.ComponentsTest)
+     test/harden_llm_ui/components_test.exs:8
+     Expected truthy, got false
+     code: assert has_element?(view, "#left-run_selectedProfileId[value='CPA Responses']")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN37Ih7pK7mZjQAE",
+           module: HardenLlmUI.TestHostLive,
+           pid: #PID<0.365.0>,
+           endpoint: HardenLlmUI.TestEndpoint,
+           ...
+         >
+
+         # 2
+         "#left-run_selectedProfileId[value='CPA Responses']"
+
+     stacktrace:
+       test/harden_llm_ui/components_test.exs:10: (test)
+
+
+Finished in 0.1 seconds (0.1s async, 0.00s sync)
+
+Result: 1/2 passed
+Failed: 1 test

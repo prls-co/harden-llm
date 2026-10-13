@@ -1,0 +1,82 @@
+Compiling 5 files (.ex)
+      warning: variable "profile" is unused (if the variable is not meant to be used, prefix it with an underscore)
+      │
+ 1340 │       profile = profile_state["definition"] || %{}
+      │       ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1340:7: HardenLlmWeb.WorkspaceLive.profile_options/1
+
+      warning: function history_result/1 is unused
+      │
+ 1784 │   defp history_result(item) do
+      │        ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1784:8: HardenLlmWeb.WorkspaceLive (module)
+
+     warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+     │
+ 221 │           bundle_export_url={~p"/profiles/bundle"}
+     │           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     │
+     └─ lib/harden_llm_web/live/profiles_live.html.heex:221: HardenLlmWeb.ProfilesLive.render/1
+
+    warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+    │
+ 16 │           href={~p"/profiles/bundle"}
+    │           ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/harden_llm_web/live/profiles_live.html.heex:16: HardenLlmWeb.ProfilesLive.render/1
+
+    warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+    │
+ 84 │               bundle_export_url={~p"/profiles/bundle"}
+    │               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/harden_llm_web/live/workspace_live.html.heex:84: HardenLlmWeb.WorkspaceLive.render/1
+
+Generated harden_llm app
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+..
+
+  1) test trace resource buttons use run ID and show the canonical raw trace (HardenLlmWeb.RestoredHistoryTest)
+     test/harden_llm_web/live/restored_history_test.exs:131
+     Expected truthy, got false
+     code: assert has_element?(view, "#history-trace-#{id}-trace-json", "retained bytes")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN3_4P5ce2IqCzRB",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.1010.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#history-trace-00000000-0000-4000-8000-000000000001-trace-json"
+
+         # 3
+         "retained bytes"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_history_test.exs:142: (test)
+
+
+
+  2) test artifact bytes download through the host without a history read or external redirect (HardenLlmWeb.RestoredHistoryTest)
+     test/harden_llm_web/live/restored_history_test.exs:172
+     ** (RuntimeError) expected response with status 200, got: 502, with body:
+     "Artifact download is temporarily unavailable."
+     code: assert response(result, 200) == raw
+     stacktrace:
+       (phoenix 1.8.9) lib/phoenix/test/conn_test.ex:373: Phoenix.ConnTest.response/2
+       test/harden_llm_web/live/restored_history_test.exs:179: (test)
+
+.
+Finished in 0.6 seconds (0.6s async, 0.00s sync)
+
+Result: 3/5 passed
+Failed: 2 tests

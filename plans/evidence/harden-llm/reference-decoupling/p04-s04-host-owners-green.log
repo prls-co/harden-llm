@@ -1,0 +1,74 @@
+      warning: variable "profile" is unused (if the variable is not meant to be used, prefix it with an underscore)
+      │
+ 1270 │       profile = profile_state["definition"] || %{}
+      │       ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1270:7: HardenLlmWeb.WorkspaceLive.profile_options/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}"
+      │
+ 1758 │     do: ~p"/traces/#{trace_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1758: HardenLlmWeb.WorkspaceLive.trace_url/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │
+ 1763 │     do: ~p"/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1763: HardenLlmWeb.WorkspaceLive.artifact_url/2
+
+    warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+    │
+ 84 │               bundle_export_url={~p"/profiles/bundle"}
+    │               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/harden_llm_web/live/workspace_live.html.heex:84: HardenLlmWeb.WorkspaceLive.render/1
+
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+    warning: unused alias APIFixtures
+    │
+  4 │   alias HardenLlmWeb.{APIFixtures}
+    │   ~
+    │
+    └─ test/harden_llm_web/live/shared_workspace_test.exs:4:3
+
+..
+
+  1) test reference client methods map to the standard OpenAI routes in OpenAPI (HardenLlmUI.ClientContractTest)
+     test/harden_llm_web/harden_api_contract_test.exs:8
+     Expected truthy, got false
+     code: assert function_exported?(Client, :models, 1)
+     stacktrace:
+       test/harden_llm_web/harden_api_contract_test.exs:13: (test)
+
+.................................................................
+
+  2) test Portal logout preserves owner cookies and returns to Portal (HardenLlmWeb.SharedIdentityTest)
+     test/harden_llm_web/shared_identity_test.exs:139
+     ** (RuntimeError) cannot find mock/stub PrlsWeb.Access.Client in process #PID<0.1193.0>
+     code: response = conn |> put_req_header("cookie", AccessFixtures.cookie()) |> post("/logout")
+     stacktrace:
+       (req 0.6.1) lib/req/test.ex:492: Req.Test.__fetch_plug__/1
+       (req 0.6.1) lib/req/test.ex:732: Req.Test.call/2
+       (req 0.6.1) lib/req/steps.ex:1079: Req.Steps.run_plug/1
+       (req 0.6.1) lib/req/request.ex:1118: Req.Request.run_request/1
+       (req 0.6.1) lib/req/request.ex:1062: Req.Request.run/1
+       (prls_web 0.1.0) lib/prls_web/access/client.ex:36: PrlsWeb.Access.Client.auth/4
+       (prls_web 0.1.0) lib/prls_web/auth_controller.ex:53: PrlsWeb.AuthController.delete/2
+       (prls_web 0.1.0) lib/prls_web/auth_controller.ex:1: PrlsWeb.AuthController.action/2
+       (prls_web 0.1.0) lib/prls_web/auth_controller.ex:1: PrlsWeb.AuthController.phoenix_controller_pipeline/2
+       (phoenix 1.8.9) lib/phoenix/router.ex:428: Phoenix.Router.__call__/5
+       (harden_llm 1.0.0) lib/harden_llm_web/endpoint.ex:1: HardenLlmWeb.Endpoint.plug_builder_call/2
+       (harden_llm 1.0.0) lib/harden_llm_web/endpoint.ex:1: HardenLlmWeb.Endpoint.call/2
+       (phoenix 1.8.9) lib/phoenix/test/conn_test.ex:225: Phoenix.ConnTest.dispatch/5
+       test/harden_llm_web/shared_identity_test.exs:155: (test)
+
+.......................
+Finished in 1.6 seconds (1.5s async, 0.07s sync)
+
+Result: 90/92 passed, 3 excluded
+Failed: 2 tests

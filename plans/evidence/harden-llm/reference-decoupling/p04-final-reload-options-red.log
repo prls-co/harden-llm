@@ -1,0 +1,19 @@
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+........
+
+  1) test autosaved native options reload with the edited draft and execute once (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:384
+     Assertion with == failed
+     code:  assert payload["providerOptions"] == options
+     left:  %{"max_tokens" => 16000, "stream" => true}
+     right: %{"max_tokens" => 777, "temperature" => 0.35}
+     stacktrace:
+       test/harden_llm_web/live/restored_workflow_test.exs:402: (test)
+
+
+Finished in 1.4 seconds (1.4s async, 0.00s sync)
+
+Result: 8/9 passed
+Failed: 1 test

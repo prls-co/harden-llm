@@ -1,4 +1,4 @@
-defmodule PrlsUI.PaginationAssetTest do
+defmodule HardenLlmUI.PaginationAssetTest do
   use ExUnit.Case, async: true
 
   @moduletag :asset
@@ -12,7 +12,7 @@ defmodule PrlsUI.PaginationAssetTest do
     source = File.read!(source_path)
     compiled = File.read!(compiled_path)
 
-    assert source =~ ~s(@source "../../lib/prls_ui";)
+    assert source =~ ~s(@source "../../packages/harden_llm_ui/lib";)
 
     for selector <- [
           ".min-w-8",

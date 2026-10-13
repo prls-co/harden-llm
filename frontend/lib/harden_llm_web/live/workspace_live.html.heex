@@ -59,10 +59,10 @@
         <section class="studio-stack">
           <section id="model-config" aria-label="LLM model config" class="studio-card p-0">
             <.live_component
-              module={HardenLlmWeb.ProfileWidgetComponent}
+              module={HardenLlmUI.ProfileWidgetComponent}
               id="workspace-llm-widget"
               profiles={@profiles}
-              model_catalog={host_model_catalog(@profiles)}
+              model_catalog={ProfileWidgetState.model_catalog(@profiles)}
               selected_profile_id={@form[:selectedProfileId].value || ""}
               reasoning_effort={@form[:reasoningEffort].value || "lowest"}
               cache_mode={@form[:cacheMode].value || "cache"}
@@ -81,6 +81,7 @@
               run_inputs={profile_inputs(@form.params, @profile_provider_options)}
               editor_draft={@form.params["profileEditor"]}
               bundle_upload={@uploads.profile_bundle}
+              bundle_export_url={~p"/profiles/bundle"}
             />
           </section>
 
@@ -276,8 +277,8 @@
               <:stats>
                 <.llm_trace
                   id="output-trace"
-                  summary={LlmTraceProjection.summary(@run_result)}
-                  details={LlmTraceProjection.details(@run_result)}
+                  summary={TraceProjection.summary(@run_result)}
+                  details={TraceProjection.details(@run_result)}
                   resources={@output_trace_resources}
                   details_open={@ui["outputDetailsOpen"]}
                   controls_open={@ui["outputControlsOpen"]}
@@ -324,7 +325,7 @@
                 id="workspace-clear-history"
                 type="button"
                 phx-click="clear-history"
-                phx-confirm="Delete all history for this session? This cannot be undone."
+                phx-confirm="Delete all history for this API key? This cannot be undone."
                 disabled={not is_nil(@history_pending)}
                 class="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
               >{if @history_pending, do: "⏳ Deleting…", else: "🗑 Delete all"}</button>
@@ -383,39 +384,25 @@
               :if={@history_loaded? and @history == [] and is_nil(@history_error)}
               class="text-sm text-slate-500"
             >
-              No runs yet in this session.
+              No runs yet.
             </p>
-            <.llm_result
+            <HardenLlmUI.HistoryComponents.history_row
               :for={item <- @history}
               id={"workspace-history-#{item["runId"]}"}
-              input={get_in(item, ["request", "userPrompt"])}
-              output={get_in(item, ["result", "output"])}
-              search={get_in(item, ["result", "search"])}
-            >
-              <:stats>
-                <.llm_trace {history_trace_assigns(item, @history_result_states, @run_ref, @profile_requires_save?)} />
-              </:stats>
-              <:actions>
-                <button
-                  type="button"
-                  phx-click="restore-history"
-                  phx-value-run-id={item["runId"]}
-                  disabled={not is_nil(@history_pending)}
-                  class="llm-result-action"
-                  aria-label="Restore prompt"
-                  title="Restore prompt"
-                >📝</button>
-                <button
-                  type="button"
-                  phx-click="delete-history"
-                  phx-value-run-id={item["runId"]}
-                  disabled={not is_nil(@history_pending)}
-                  class="llm-result-action"
-                  aria-label="Delete result"
-                  title="Delete result"
-                >🗑️</button>
-              </:actions>
-            </.llm_result>
+              item={item}
+              states={@history_result_states}
+              trace_assigns={
+                history_trace_assigns(
+                  item,
+                  @history_result_states,
+                  @run_ref,
+                  @profile_requires_save?
+                )
+              }
+              pending?={not is_nil(@history_pending)}
+              restore_event="restore-history"
+              delete_event="delete-history"
+            />
             <p
               :if={@history_loading? and @history_requested_page != @history_page}
               id="workspace-history-requested-page"

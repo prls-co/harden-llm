@@ -3,7 +3,7 @@ defmodule HardenLlmWeb.PaginationReuseHarness do
 
   use HardenLlmWeb, :live_view
 
-  alias PrlsUI.PaginationState
+  alias HardenLlmUI.PaginationState
 
   @list_page_sizes [2, 4]
   @batch_page_sizes [2, 5]

@@ -1,0 +1,165 @@
+==> mime
+Compiling 1 file (.ex)
+Generated mime app
+==> nimble_options
+Compiling 3 files (.ex)
+Generated nimble_options app
+==> fine
+Compiling 1 file (.ex)
+Generated fine app
+==> jason
+Compiling 10 files (.ex)
+Generated jason app
+==> plug_crypto
+Compiling 5 files (.ex)
+Generated plug_crypto app
+==> hpax
+Compiling 4 files (.ex)
+Generated hpax app
+==> mint
+Compiling 1 file (.erl)
+Compiling 21 files (.ex)
+Generated mint app
+==> elixir_make
+Compiling 8 files (.ex)
+Generated elixir_make app
+==> harden_llm_ui
+===> Analyzing applications...
+===> Compiling telemetry
+==> phoenix_html
+Compiling 6 files (.ex)
+Generated phoenix_html app
+==> phoenix_template
+Compiling 4 files (.ex)
+Generated phoenix_template app
+==> expo
+Compiling 2 files (.erl)
+Compiling 22 files (.ex)
+Generated expo app
+==> gettext
+Compiling 18 files (.ex)
+     warning: this clause in cond will never match:
+
+         not is_binary(locale)
+
+     since it has type:
+
+         dynamic(false)
+
+     where "locale" was given the types:
+
+         # type: binary()
+         # from: lib/gettext.ex:806:28
+         locale
+
+         # type: binary()
+         # from: lib/gettext.ex:806:41
+         is_binary(locale)
+
+     type warning found at:
+     │
+ 808 │       not is_binary(locale) ->
+     │                             ~
+     │
+     └─ lib/gettext.ex:808:29: Gettext.put_locale!/2
+
+     warning: the following clause is redundant:
+
+         defp ensure_empty_msgstr!(%Expo.Message.Plural{} = message)
+
+     it has type:
+
+         dynamic(%Expo.Message.Plural{})
+
+     previous clauses have already matched on the following types:
+
+         %Expo.Message.Singular{}
+         %Expo.Message.Plural{}
+
+     │
+ 391 │   defp ensure_empty_msgstr!(%Message.Plural{} = message) do
+     │        ~
+     │
+     └─ lib/gettext/extractor.ex:391:8: Gettext.Extractor.ensure_empty_msgstr!/1
+
+     warning: Kernel.ParallelCompiler.async/1 is deprecated. Use `pmap/2` instead
+     │
+ 426 │               Kernel.ParallelCompiler.async(fn ->
+     │                                       ~
+     │
+     └─ lib/gettext/compiler.ex:426:39: Gettext.Compiler.compile_po_files/3
+
+Generated gettext app
+==> phoenix_pubsub
+Compiling 12 files (.ex)
+Generated phoenix_pubsub app
+==> plug
+Compiling 1 file (.erl)
+Compiling 42 files (.ex)
+Generated plug app
+==> nimble_pool
+Compiling 2 files (.ex)
+Generated nimble_pool app
+==> finch
+Compiling 22 files (.ex)
+Generated finch app
+warning: "xref: [exclude: ...]" in your mix.exs file is deprecated, instead use: "elixirc_options: [no_warn_undefined: ...]"
+  (mix 1.20.2) lib/mix/tasks/compile.elixir.ex:243: Mix.Tasks.Compile.Elixir.xref_exclude_opts/2
+  (mix 1.20.2) lib/mix/tasks/compile.elixir.ex:142: Mix.Tasks.Compile.Elixir.run/1
+  (mix 1.20.2) lib/mix/task.ex:502: anonymous fn/3 in Mix.Task.run_task/5
+  (mix 1.20.2) lib/mix/task.compiler.ex:299: Mix.Task.Compiler.run_compiler/2
+  (mix 1.20.2) lib/mix/task.compiler.ex:287: Mix.Task.Compiler.run/4
+  (mix 1.20.2) lib/mix/tasks/compile.all.ex:75: Mix.Tasks.Compile.All.do_run/2
+
+==> req
+Compiling 21 files (.ex)
+Generated req app
+==> cc_precompiler
+Compiling 3 files (.ex)
+Generated cc_precompiler app
+==> lazy_html
+Compiling 3 files (.ex)
+Generated lazy_html app
+==> websock
+Compiling 1 file (.ex)
+Generated websock app
+==> websock_adapter
+Compiling 4 files (.ex)
+Generated websock_adapter app
+==> phoenix
+Compiling 74 files (.ex)
+Generated phoenix app
+==> phoenix_live_view
+Compiling 55 files (.ex)
+Generated phoenix_live_view app
+==> opentelemetry_api
+Compiling 19 files (.erl)
+Compiling 5 files (.ex)
+Generated opentelemetry_api app
+==> harden_llm_ui
+Compiling 2 files (.ex)
+Generated harden_llm_ui app
+Running ExUnit with seed: 104729, max_cases: 24
+
+.
+
+  1) test independent host keeps two profile picker and fold instances separate (HardenLlmUI.ComponentsTest)
+     test/harden_llm_ui/components_test.exs:8
+     ** (ArgumentError) no "500" html template defined for HardenLlmUI.ErrorView  (the module does not exist)
+     code: {:ok, view, _html} = live(build_conn(), "/components")
+     stacktrace:
+       (phoenix_template 1.0.4) lib/phoenix/template.ex:248: Phoenix.Template.render_with_fallback/4
+       (phoenix_template 1.0.4) lib/phoenix/template.ex:126: Phoenix.Template.render_to_iodata/4
+       (phoenix 1.8.9) lib/phoenix/controller.ex:1015: anonymous fn/5 in Phoenix.Controller.template_render_to_iodata/4
+       (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/packages/harden_llm_ui/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+       (phoenix 1.8.9) lib/phoenix/controller.ex:981: Phoenix.Controller.render_and_send/4
+       (phoenix 1.8.9) lib/phoenix/endpoint/render_errors.ex:85: Phoenix.Endpoint.RenderErrors.instrument_render_and_send/5
+       (phoenix 1.8.9) lib/phoenix/endpoint/render_errors.ex:62: Phoenix.Endpoint.RenderErrors.__catch__/5
+       (phoenix 1.8.9) lib/phoenix/test/conn_test.ex:225: Phoenix.ConnTest.dispatch/5
+       test/harden_llm_ui/components_test.exs:9: (test)
+
+
+Finished in 0.04 seconds (0.04s async, 0.00s sync)
+
+Result: 1/2 passed
+Failed: 1 test

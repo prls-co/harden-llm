@@ -13,7 +13,7 @@ config :harden_llm, :browser_session,
 
 config :prls_web, :client_options, request_options: [plug: {Req.Test, PrlsWeb.Access.Client}]
 
-config :harden_llm, :harden_api_req_options, plug: {Req.Test, HardenLlmWeb.HardenAPI}
+config :harden_llm, :harden_api_req_options, plug: {Req.Test, HardenLlmUI.Client}
 
 config :wallaby,
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 TEST-056

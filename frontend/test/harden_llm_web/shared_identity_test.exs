@@ -3,8 +3,9 @@ defmodule HardenLlmWeb.SharedIdentityTest do
 
   import Phoenix.LiveViewTest, except: [live: 1, live: 2, live: 3]
 
-  alias HardenLlmWeb.{AccessFixtures, APIFixtures, HardenAPI}
-  alias PrlsWeb.Access.Client
+  alias HardenLlmWeb.{AccessFixtures, APIFixtures}
+  alias HardenLlmUI.{Client}
+  alias PrlsWeb.Access.Client, as: AccessClient
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-104 WEB-TEST-105 WEB-TEST-108
 
@@ -37,7 +38,7 @@ defmodule HardenLlmWeb.SharedIdentityTest do
   test "enabled logins enter the single reference workspace without account selection", %{
     conn: conn
   } do
-    Req.Test.stub(HardenAPI, fn request -> Req.Test.json(request, APIFixtures.models()) end)
+    Req.Test.stub(Client, fn request -> Req.Test.json(request, APIFixtures.models()) end)
 
     for cookie <- [AccessFixtures.cookie(), AccessFixtures.company_cookie()] do
       response = conn |> put_req_header("cookie", cookie) |> get("/")
@@ -47,8 +48,8 @@ defmodule HardenLlmWeb.SharedIdentityTest do
       refute response.resp_body =~ "profile-form"
     end
 
-    assert Phoenix.Router.route_info(HardenLlmWeb.Router, "GET", "/profiles", "localhost") ==
-             :error
+    assert %{plug: Phoenix.LiveView.Plug} =
+             Phoenix.Router.route_info(HardenLlmWeb.Router, "GET", "/profiles", "localhost")
   end
 
   test "proxy requests use one deployment bearer and never forward the human session", %{
@@ -56,7 +57,7 @@ defmodule HardenLlmWeb.SharedIdentityTest do
   } do
     parent = self()
 
-    Req.Test.stub(HardenAPI, fn request ->
+    Req.Test.stub(Client, fn request ->
       send(parent, {
         :proxy_identity,
         Plug.Conn.get_req_header(request, "authorization"),
@@ -83,7 +84,7 @@ defmodule HardenLlmWeb.SharedIdentityTest do
     identity = start_supervised!({Agent, fn -> {:ok, identity_context()} end})
     parent = self()
 
-    Req.Test.stub(Client, fn request ->
+    Req.Test.stub(AccessClient, fn request ->
       case Agent.get(identity, & &1) do
         {:ok, context} ->
           Req.Test.json(request, context)
@@ -95,7 +96,7 @@ defmodule HardenLlmWeb.SharedIdentityTest do
 
     fixture = File.read!("../test/fixtures/reference/workspace.json") |> Jason.decode!()
 
-    Req.Test.stub(HardenAPI, fn request ->
+    Req.Test.stub(Client, fn request ->
       send(parent, {:proxy_call, request.method, request.request_path})
 
       case request.request_path do
@@ -120,7 +121,7 @@ defmodule HardenLlmWeb.SharedIdentityTest do
       |> live("/")
 
     render_async(view, 1_000)
-    :ok = Req.Test.allow(Client, self(), view.pid)
+    :ok = Req.Test.allow(AccessClient, self(), view.pid)
     Agent.update(identity, fn _ -> {:error, 401} end)
 
     result =
@@ -136,7 +137,7 @@ defmodule HardenLlmWeb.SharedIdentityTest do
   end
 
   test "Portal logout preserves owner cookies and returns to Portal", %{conn: conn} do
-    Req.Test.expect(Client, 1, fn request ->
+    Req.Test.expect(AccessClient, 1, fn request ->
       assert request.method == "POST"
       assert request.request_path == "/api/auth/sign-out"
       assert get_req_header(request, "cookie") == [AccessFixtures.cookie()]
@@ -162,7 +163,7 @@ defmodule HardenLlmWeb.SharedIdentityTest do
   end
 
   test "logout authority failure stays unavailable", %{conn: conn} do
-    Req.Test.expect(Client, 1, fn request ->
+    Req.Test.expect(AccessClient, 1, fn request ->
       request |> Plug.Conn.put_status(503) |> Req.Test.json(%{"error" => "unavailable"})
     end)
 

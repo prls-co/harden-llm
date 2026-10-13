@@ -65,20 +65,20 @@ defmodule HardenLlmWeb.BoundaryTest do
     assert ecto_users == []
   end
 
-  test "only HardenAPI invokes Req" do
+  test "only Client invokes Req" do
     req_users =
-      Path.wildcard("lib/**/*.ex")
+      (Path.wildcard("lib/**/*.ex") ++ Path.wildcard("packages/harden_llm_ui/lib/**/*.ex"))
       |> Enum.filter(&(File.read!(&1) =~ ~r/\bReq\./))
 
-    assert req_users == ["lib/harden_llm_web/harden_api.ex"]
+    assert req_users == ["packages/harden_llm_ui/lib/harden_llm_ui/client.ex"]
   end
 
   test "pagination modules remain neutral and have no request or task ownership" do
     source =
-      Path.wildcard("lib/prls_ui/**/*.ex")
+      Path.wildcard("packages/harden_llm_ui/lib/harden_llm_ui/pagination*.ex")
       |> Enum.map_join("\n", &File.read!/1)
 
-    refute source =~ "HardenAPI"
+    refute source =~ "Client"
     refute source =~ "WorkspaceLive"
     refute source =~ "Req."
     refute source =~ "start_async"
@@ -110,15 +110,17 @@ defmodule HardenLlmWeb.BoundaryTest do
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-046 WEB-TEST-051 TEST-046 TEST-051
   test "client decisions are imported from one dependency-free pure module" do
     app = File.read!("assets/js/app.js")
-    core = File.read!("assets/js/client_core.mjs")
+    hooks = File.read!("packages/harden_llm_ui/assets/js/hooks.mjs")
+    core = File.read!("packages/harden_llm_ui/assets/js/client_core.mjs")
 
-    assert app =~ ~s(from "./client_core.mjs")
+    assert app =~ ~s(from "../../packages/harden_llm_ui/assets/js/hooks.mjs")
+    assert hooks =~ ~s(from "./client_core.mjs")
 
     for function <- ~w(
       normalizeSearch visibleOptionIndices emptyStateVisible highlightIndex commitValue
       escapeValue focusValue blurValue isSubmitShortcut schemaCheckPayload schemaPendingState
     ) do
-      assert app =~ function
+      assert hooks =~ function
       assert core =~ "export function #{function}"
     end
 
@@ -139,12 +141,12 @@ defmodule HardenLlmWeb.BoundaryTest do
 
     for hook <-
           ~w(Clipboard PromptShortcut SchemaPending SchemaCheck SearchableCombobox SecretStager) do
-      [_, body] = Regex.run(~r/const #{hook} = \{(.*?)\n\}\n\nconst/s, app)
+      [_, body] = Regex.run(~r/const #{hook} = \{(.*?)\n\}\n/s, hooks)
       assert body =~ ".addEventListener"
       assert body =~ ".removeEventListener"
     end
 
-    assert app =~ "dispatchEvent(new Event(\"change\", {bubbles: true}))"
+    assert hooks =~ "dispatchEvent(new Event(\"change\", {bubbles: true}))"
   end
 
   defp source_files do

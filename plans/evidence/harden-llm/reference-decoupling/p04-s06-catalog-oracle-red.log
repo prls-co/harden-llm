@@ -1,0 +1,110 @@
+Compiling 1 file (.ex)
+     warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+     │
+ 221 │           bundle_export_url={~p"/profiles/bundle"}
+     │           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     │
+     └─ lib/harden_llm_web/live/profiles_live.html.heex:221: HardenLlmWeb.ProfilesLive.render/1
+
+    warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+    │
+ 16 │           href={~p"/profiles/bundle"}
+    │           ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/harden_llm_web/live/profiles_live.html.heex:16: HardenLlmWeb.ProfilesLive.render/1
+
+    warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+    │
+ 84 │               bundle_export_url={~p"/profiles/bundle"}
+    │               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/harden_llm_web/live/workspace_live.html.heex:84: HardenLlmWeb.WorkspaceLive.render/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │
+ 1763 │     do: ~p"/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1763: HardenLlmWeb.WorkspaceLive.artifact_url/2
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}"
+      │
+ 1758 │     do: ~p"/traces/#{trace_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1758: HardenLlmWeb.WorkspaceLive.trace_url/1
+
+      warning: variable "profile" is unused (if the variable is not meant to be used, prefix it with an underscore)
+      │
+ 1270 │       profile = profile_state["definition"] || %{}
+      │       ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1270:7: HardenLlmWeb.WorkspaceLive.profile_options/1
+
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+..
+
+  1) test repair and fresh rerun controls preserve all five leaf bindings (HardenLlmWeb.RestoredProfilesTest)
+     test/harden_llm_web/live/restored_profiles_test.exs:342
+     Expected truthy, got false
+     code: assert has_element?(
+             view,
+             "input[phx-click='toggle-rerun-json-repair'][phx-value-node-id='rerun']"
+           )
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN3_DJsVLdMEfTbB",
+           module: HardenLlmWeb.ProfilesLive,
+           pid: #PID<0.977.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "input[phx-click='toggle-rerun-json-repair'][phx-value-node-id='rerun']"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_profiles_test.exs:358: (test)
+
+......
+
+  2) test the UI uses only host or profile model metadata and preserves empty provider defaults (HardenLlmWeb.RestoredProfilesTest)
+     test/harden_llm_web/live/restored_profiles_test.exs:406
+     Assertion with == failed
+     code:  assert HardenLlmUI.ProfileWidgetState.model_options(
+              nil,
+              [%{"id" => "provider-model", "label" => "Provider model"}],
+              "manual-model"
+            ) == [
+              %{"id" => "provider-model", "label" => "Provider model"},
+              %{"id" => "manual-model", "label" => ""}
+            ]
+     left:  [
+              %{"id" => "gpt-5.6-luna", "label" => "GPT-5.6 Luna"},
+              %{"id" => "gpt-5.6-sol", "label" => "GPT-5.6 Sol"},
+              %{"id" => "gpt-5.6-terra", "label" => "GPT-5.6 Terra"},
+              %{
+                "id" => "provider-model",
+                "label" => "Provider model"
+              },
+              %{"id" => "manual-model", "label" => ""}
+            ]
+     right: [
+              %{
+                "id" => "provider-model",
+                "label" => "Provider model"
+              },
+              %{"id" => "manual-model", "label" => ""}
+            ]
+     stacktrace:
+       test/harden_llm_web/live/restored_profiles_test.exs:409: (test)
+
+.
+Finished in 0.8 seconds (0.8s async, 0.00s sync)
+
+Result: 9/11 passed
+Failed: 2 tests

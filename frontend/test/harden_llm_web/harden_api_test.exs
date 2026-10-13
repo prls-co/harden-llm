@@ -1,7 +1,8 @@
-defmodule HardenLlmWeb.HardenAPITest do
+defmodule HardenLlmUI.ClientTest do
   use ExUnit.Case, async: true
 
-  alias HardenLlmWeb.{APIError, APIFixtures, HardenAPI}
+  alias HardenLlmWeb.{APIFixtures}
+  alias HardenLlmUI.{APIError, Client}
 
   require OpenTelemetry.Tracer, as: Tracer
 
@@ -13,7 +14,7 @@ defmodule HardenLlmWeb.HardenAPITest do
   test "model listing uses the OpenAI route and the configured bearer token only" do
     parent = self()
 
-    Req.Test.stub(HardenAPI, fn conn ->
+    Req.Test.stub(Client, fn conn ->
       send(parent, {
         :request,
         conn.method,
@@ -26,7 +27,9 @@ defmodule HardenLlmWeb.HardenAPITest do
       Req.Test.json(conn, APIFixtures.models())
     end)
 
-    assert {:ok, %{"object" => "list", "data" => [%{"id" => "model-test"}]}} = HardenAPI.models()
+    assert {:ok, %{"object" => "list", "data" => [%{"id" => "model-test"}]}} =
+             Client.models(HardenLlmWeb.APIContext.server())
+
     assert_received {:request, "GET", "/v1/models", ["Bearer " <> token], [], []}
     assert token == APIFixtures.token()
   end
@@ -34,7 +37,7 @@ defmodule HardenLlmWeb.HardenAPITest do
   test "Responses sends the standard JSON request once and returns the standard response" do
     request = %{"model" => "model-test", "input" => "hello", "store" => false}
 
-    Req.Test.stub(HardenAPI, fn conn ->
+    Req.Test.stub(Client, fn conn ->
       assert conn.method == "POST"
       assert conn.request_path == "/v1/responses"
       assert Plug.Conn.get_req_header(conn, "authorization") == ["Bearer " <> APIFixtures.token()]
@@ -46,12 +49,14 @@ defmodule HardenLlmWeb.HardenAPITest do
       Req.Test.json(conn, APIFixtures.response())
     end)
 
-    assert {:ok, %{"output_text" => "fixture response"}} = HardenAPI.responses(request)
+    assert {:ok, %{"output_text" => "fixture response"}} =
+             Client.responses(HardenLlmWeb.APIContext.server(), request)
+
     Req.Test.verify!()
   end
 
   test "proxy errors are normalized without exposing upstream details" do
-    Req.Test.stub(HardenAPI, fn conn ->
+    Req.Test.stub(Client, fn conn ->
       conn
       |> Plug.Conn.put_status(429)
       |> Req.Test.json(APIFixtures.error("rate_limit_exceeded"))
@@ -59,7 +64,10 @@ defmodule HardenLlmWeb.HardenAPITest do
 
     assert {:error,
             %APIError{category: :rate_limited, status: 429, code: "rate_limit_exceeded"} = error} =
-             HardenAPI.responses(%{"model" => "model-test", "input" => "hello"})
+             Client.responses(HardenLlmWeb.APIContext.server(), %{
+               "model" => "model-test",
+               "input" => "hello"
+             })
 
     assert error.message == "The service is busy. Try again later."
     refute error.message =~ "sensitive"
@@ -98,7 +106,7 @@ defmodule HardenLlmWeb.HardenAPITest do
       "harden" => %{"cache" => "off", "diagnostics" => true, "recovery" => recovery}
     }
 
-    Req.Test.stub(HardenAPI, fn conn ->
+    Req.Test.stub(Client, fn conn ->
       assert conn.request_path == "/v1/responses"
       {:ok, body, conn} = Plug.Conn.read_body(conn)
       assert Jason.decode!(body) == payload
@@ -106,23 +114,26 @@ defmodule HardenLlmWeb.HardenAPITest do
       Req.Test.json(conn, APIFixtures.response())
     end)
 
-    assert {:ok, _response} = HardenAPI.responses(payload)
+    assert {:ok, _response} = Client.responses(HardenLlmWeb.APIContext.server(), payload)
   end
 
   test "an upstream failure after dispatch is marked as an unknown outcome" do
-    Req.Test.stub(HardenAPI, fn conn ->
+    Req.Test.stub(Client, fn conn ->
       conn |> Plug.Conn.put_status(503) |> Req.Test.json(APIFixtures.error("provider_error"))
     end)
 
     assert {:error, %APIError{status: 503, ambiguous?: true}} =
-             HardenAPI.responses(%{"model" => "model-test", "input" => "hello"})
+             Client.responses(HardenLlmWeb.APIContext.server(), %{
+               "model" => "model-test",
+               "input" => "hello"
+             })
   end
 
   test "malformed success bodies fail closed" do
-    Req.Test.stub(HardenAPI, fn conn -> Req.Test.json(conn, %{"unexpected" => true}) end)
+    Req.Test.stub(Client, fn conn -> Req.Test.json(conn, %{"unexpected" => true}) end)
 
     assert {:error, %APIError{category: :protocol}} =
-             HardenAPI.responses(%{"model" => "m", "input" => "x"})
+             Client.responses(HardenLlmWeb.APIContext.server(), %{"model" => "m", "input" => "x"})
   end
 
   test "active W3C trace context is propagated without forwarding human session material" do
@@ -136,12 +147,12 @@ defmodule HardenLlmWeb.HardenAPITest do
         |> String.downcase()
         |> String.pad_leading(32, "0")
 
-      Req.Test.stub(HardenAPI, fn conn ->
+      Req.Test.stub(Client, fn conn ->
         send(parent, {:traceparent, Plug.Conn.get_req_header(conn, "traceparent")})
         Req.Test.json(conn, APIFixtures.models())
       end)
 
-      assert {:ok, _} = HardenAPI.models()
+      assert {:ok, _} = Client.models(HardenLlmWeb.APIContext.server())
       assert_receive {:traceparent, ["00-" <> rest]}, 1_000
       assert rest =~ ~r/^[0-9a-f]{32}-[0-9a-f]{16}-0[01]$/
       assert String.starts_with?(rest, expected_trace_id <> "-")
@@ -149,7 +160,7 @@ defmodule HardenLlmWeb.HardenAPITest do
   end
 
   test "client disables retries and redirects" do
-    source = File.read!("lib/harden_llm_web/harden_api.ex")
+    source = File.read!("packages/harden_llm_ui/lib/harden_llm_ui/client.ex")
     assert source =~ "retry: false"
     assert source =~ "redirect: false"
   end

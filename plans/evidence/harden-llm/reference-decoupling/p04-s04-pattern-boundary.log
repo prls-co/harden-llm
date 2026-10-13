@@ -1,0 +1,62 @@
+Compiling 1 file (.ex)
+Running ExUnit with seed: 104729, max_cases: 24
+
+...
+
+  1) test one canonical decoder validates every consumed field and rejects corruption (HardenLlmUI.IndependentClientTest)
+     test/harden_llm_ui/client_test.exs:57
+     ** (Regex.CompileError) PCRE2 does not support \F, \L, \l, \N{name}, \U, or \u at position 6
+     stacktrace:
+       (elixir 1.20.2) lib/regex.ex:250: Regex.compile!/2
+       (ex_json_schema 0.11.5) lib/ex_json_schema/validator/pattern.ex:25: ExJsonSchema.Validator.Pattern.do_validate/2
+       (elixir 1.20.2) lib/enum.ex:1272: anonymous fn/3 in Enum.flat_map/2
+       (stdlib 7.3) maps.erl:894: :maps.fold_1/4
+       (elixir 1.20.2) lib/enum.ex:2634: Enum.flat_map/2
+       (ex_json_schema 0.11.5) lib/ex_json_schema/validator.ex:82: ExJsonSchema.Validator.do_validation_errors/4
+       (elixir 1.20.2) lib/enum.ex:1272: anonymous fn/3 in Enum.flat_map/2
+       (stdlib 7.3) maps.erl:894: :maps.fold_1/4
+       (elixir 1.20.2) lib/enum.ex:2634: Enum.flat_map/2
+       (ex_json_schema 0.11.5) lib/ex_json_schema/validator.ex:82: ExJsonSchema.Validator.do_validation_errors/4
+       (ex_json_schema 0.11.5) lib/ex_json_schema/validator/properties.ex:45: anonymous fn/4 in ExJsonSchema.Validator.Properties.validate_named_properties/4
+       (elixir 1.20.2) lib/enum.ex:1725: Enum."-map/2-lists^map/1-1-"/2
+       (elixir 1.20.2) lib/enum.ex:1725: Enum."-map/2-lists^map/1-1-"/2
+       (ex_json_schema 0.11.5) lib/ex_json_schema/validator/properties.ex:36: ExJsonSchema.Validator.Properties.validate_known_properties/4
+       (ex_json_schema 0.11.5) lib/ex_json_schema/validator/properties.ex:24: ExJsonSchema.Validator.Properties.do_validate/4
+       (elixir 1.20.2) lib/enum.ex:1272: anonymous fn/3 in Enum.flat_map/2
+       (stdlib 7.3) maps.erl:894: :maps.fold_1/4
+       (elixir 1.20.2) lib/enum.ex:2634: Enum.flat_map/2
+       (ex_json_schema 0.11.5) lib/ex_json_schema/validator.ex:82: ExJsonSchema.Validator.do_validation_errors/4
+       (elixir 1.20.2) lib/enum.ex:1272: anonymous fn/3 in Enum.flat_map/2
+
+
+
+  2) test complete immutable profile detail and history preserve the canonical payload (HardenLlmUI.IndependentClientTest)
+     test/harden_llm_ui/client_test.exs:41
+     ** (Regex.CompileError) PCRE2 does not support \F, \L, \l, \N{name}, \U, or \u at position 6
+     stacktrace:
+       (elixir 1.20.2) lib/regex.ex:250: Regex.compile!/2
+       (ex_json_schema 0.11.5) lib/ex_json_schema/validator/pattern.ex:25: ExJsonSchema.Validator.Pattern.do_validate/2
+       (elixir 1.20.2) lib/enum.ex:1272: anonymous fn/3 in Enum.flat_map/2
+       (stdlib 7.3) maps.erl:894: :maps.fold_1/4
+       (elixir 1.20.2) lib/enum.ex:2634: Enum.flat_map/2
+       (ex_json_schema 0.11.5) lib/ex_json_schema/validator.ex:82: ExJsonSchema.Validator.do_validation_errors/4
+       (elixir 1.20.2) lib/enum.ex:1272: anonymous fn/3 in Enum.flat_map/2
+       (stdlib 7.3) maps.erl:894: :maps.fold_1/4
+       (elixir 1.20.2) lib/enum.ex:2634: Enum.flat_map/2
+       (ex_json_schema 0.11.5) lib/ex_json_schema/validator.ex:82: ExJsonSchema.Validator.do_validation_errors/4
+       (ex_json_schema 0.11.5) lib/ex_json_schema/validator/properties.ex:45: anonymous fn/4 in ExJsonSchema.Validator.Properties.validate_named_properties/4
+       (elixir 1.20.2) lib/enum.ex:1725: Enum."-map/2-lists^map/1-1-"/2
+       (elixir 1.20.2) lib/enum.ex:1725: Enum."-map/2-lists^map/1-1-"/2
+       (ex_json_schema 0.11.5) lib/ex_json_schema/validator/properties.ex:36: ExJsonSchema.Validator.Properties.validate_known_properties/4
+       (ex_json_schema 0.11.5) lib/ex_json_schema/validator/properties.ex:24: ExJsonSchema.Validator.Properties.do_validate/4
+       (elixir 1.20.2) lib/enum.ex:1272: anonymous fn/3 in Enum.flat_map/2
+       (stdlib 7.3) maps.erl:894: :maps.fold_1/4
+       (elixir 1.20.2) lib/enum.ex:2634: Enum.flat_map/2
+       (ex_json_schema 0.11.5) lib/ex_json_schema/validator.ex:82: ExJsonSchema.Validator.do_validation_errors/4
+       (elixir 1.20.2) lib/enum.ex:1272: anonymous fn/3 in Enum.flat_map/2
+
+..
+Finished in 0.2 seconds (0.2s async, 0.00s sync)
+
+Result: 5/7 passed
+Failed: 2 tests

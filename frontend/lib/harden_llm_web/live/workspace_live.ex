@@ -1,17 +1,11 @@
 defmodule HardenLlmWeb.WorkspaceLive do
   use HardenLlmWeb, :live_view
 
-  alias HardenLlm.LlmTraceProjection
+  alias HardenLlmUI.{TraceProjection, HistoryComponents}
 
-  alias HardenLlmWeb.{
-    APIError,
-    HardenAPI,
-    Observability,
-    ProfileWidgetState,
-    WorkspaceSchema
-  }
+  alias HardenLlmUI.{APIError, Client, ProfileWidgetState, WorkspaceSchema}
 
-  alias PrlsUI.PaginationState
+  alias HardenLlmUI.PaginationState
 
   @reasoning_options [{"Lowest", "lowest"}, {"Middle", "middle"}, {"Highest", "highest"}]
   @history_page_size_options [10, 25, 50, 100]
@@ -69,8 +63,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
     socket =
       socket
       |> assign(:page_title, "Workspace")
-      |> assign(:api_context, HardenAPI.context())
-      |> assign(:draft_key, "workspace:" <> socket.assigns.access_context.user_id)
+      |> assign(
+        :api_context,
+        HardenLlmWeb.APIContext.server("workspace:" <> socket.assigns.access_context.user_id)
+      )
       |> assign(:draft_revision, 0)
       |> assign(:recording_outcome, nil)
       |> assign(:loading?, true)
@@ -146,13 +142,12 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
     if connected?(socket) do
       api_context = socket.assigns.api_context
-      draft_key = socket.assigns.draft_key
 
       {:ok,
        start_async(
          socket,
          :hydrate,
-         Observability.propagate(fn -> hydrate(api_context, draft_key) end)
+         HardenLlmUI.Client.propagate(fn -> hydrate(api_context) end)
        )}
     else
       {:ok, socket}
@@ -311,6 +306,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:loading?, false)
       |> assign(:backend_state, :ready)
       |> assign(:profiles, hydration.profiles)
+      |> assign(
+        :profile_provider_options,
+        HardenLlmUI.ProfileForm.runtime_options(state["profileEditor"]["defaultOptionsJson"])
+      )
       |> assign(:draft_revision, hydration.draft_revision)
       |> assign(:recovery_policy_default, hydration.recovery_policy_default)
       |> assign(:history, [])
@@ -358,7 +357,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
     {:noreply,
      socket
      |> assign(:profile_selection_ref, nil)
-     |> assign(:profile_provider_options, draft["inputs"]["providerOptions"] || %{})
+     |> assign(
+       :profile_provider_options,
+       HardenLlmUI.ProfileForm.runtime_options(state["profileEditor"]["defaultOptionsJson"])
+     )
      |> update_workspace_snapshot(stringify_form(state))
      |> assign(:schema_check, schema_check_for_state(state))}
   end
@@ -402,6 +404,45 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   def handle_async({:save_state, _reference, _sequence}, _result, socket),
     do: {:noreply, socket}
+
+  def handle_async({:history_record, id, reference}, {:ok, {:ok, record}}, socket) do
+    state = socket.assigns.history_result_states[id]
+
+    if state && state.record_ref == reference do
+      {:noreply,
+       put_history_result_state(socket, id, %{
+         state
+         | record: record,
+           record_ref: nil,
+           record_loading?: false,
+           record_error: nil
+       })}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_async({:history_record, id, reference}, result, socket) do
+    state = socket.assigns.history_result_states[id]
+
+    if state && state.record_ref == reference do
+      message =
+        case result do
+          {:ok, {:error, %APIError{} = error}} -> error.message
+          _ -> "The full history record is unavailable."
+        end
+
+      {:noreply,
+       put_history_result_state(socket, id, %{
+         state
+         | record_ref: nil,
+           record_loading?: false,
+           record_error: message
+       })}
+    else
+      {:noreply, socket}
+    end
+  end
 
   def handle_async(
         {:load_history, reference, requested_page, requested_page_size},
@@ -482,12 +523,19 @@ defmodule HardenLlmWeb.WorkspaceLive do
         Map.put(
           state,
           "profileEditor",
-          HardenLlmWeb.ProfileForm.profile_form(record["request"]["profile"])
+          HardenLlmUI.ProfileForm.profile_form(record["request"]["profile"])
         )
 
       {:noreply,
        socket
        |> assign(:form, to_form(stringify_form(state), as: :run))
+       |> assign(
+         :profile_provider_options,
+         Map.merge(
+           HardenLlmUI.ProfileForm.runtime_options(state["profileEditor"]["defaultOptionsJson"]),
+           request["providerOptions"] || %{}
+         )
+       )
        |> assign(:reasoning_by_profile, state["reasoningByProfile"])
        |> assign(:schema_check, schema_check_for_state(state))
        |> assign(:history_pending, nil)
@@ -526,7 +574,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:run_error, nil)
       |> maybe_refresh_history()
 
-    {:noreply, push_conversation_url(socket, LlmTraceProjection.trace_id(result))}
+    {:noreply, push_conversation_url(socket, result["runId"])}
   end
 
   def handle_async(
@@ -551,7 +599,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:recovery_field_errors, error.field_errors)
       |> reset_output_trace()
       |> maybe_refresh_history()
-      |> maybe_load_run_diagnostics(error.trace_id)
+      |> maybe_load_run_diagnostics(error.diagnostic && error.diagnostic["runId"])
 
     {:noreply, socket}
   end
@@ -581,14 +629,14 @@ defmodule HardenLlmWeb.WorkspaceLive do
         {:ok, {:ok, trace}},
         %{assigns: %{diagnostic_ref: reference}} = socket
       ) do
-    case LlmTraceProjection.run_result(trace) do
+    case TraceProjection.run_result(trace) do
       {:ok, result} ->
         socket =
           socket
           |> assign(:diagnostic_ref, nil)
           |> assign(:run_result, result)
           |> assign(:output_trace_resources, trace_output_resources(trace, result))
-          |> assign(:output_trace_data, trace)
+          |> assign(:output_trace_data, nil)
           |> assign(:output_trace_open?, false)
           |> assign(:output_trace_loading?, false)
           |> assign(:output_trace_error, nil)
@@ -619,14 +667,14 @@ defmodule HardenLlmWeb.WorkspaceLive do
         {:ok, {:ok, trace}},
         %{assigns: %{conversation_trace_ref: reference, conversation_trace_id: trace_id}} = socket
       ) do
-    case LlmTraceProjection.run_result(trace) do
+    case TraceProjection.run_result(trace) do
       {:ok, result} ->
         {:noreply,
          socket
          |> assign(:conversation_trace_ref, nil)
          |> assign(:run_result, result)
          |> assign(:output_trace_resources, trace_output_resources(trace, result))
-         |> assign(:output_trace_data, trace)
+         |> assign(:output_trace_data, nil)
          |> assign(:output_trace_open?, false)
          |> assign(:output_trace_loading?, false)
          |> assign(:output_trace_error, nil)
@@ -668,22 +716,13 @@ defmodule HardenLlmWeb.WorkspaceLive do
         {:ok, {:ok, trace}},
         %{assigns: %{output_trace_ref: reference, run_result: result}} = socket
       ) do
-    if LlmTraceProjection.trace_id(result) == trace_id do
+    if result && result["runId"] == trace_id do
       socket =
         socket
         |> assign(:output_trace_ref, nil)
         |> assign(:output_trace_loading?, false)
         |> assign(:output_trace_error, nil)
         |> assign(:output_trace_data, trace)
-
-      socket =
-        case LlmTraceProjection.run_result(trace) do
-          {:ok, _trace_result} ->
-            assign(socket, :output_trace_resources, trace_output_resources(trace, result))
-
-          :error ->
-            socket
-        end
 
       {:noreply, socket}
     else
@@ -730,7 +769,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
       state =
         case result do
-          {:ok, {:ok, trace, _}} -> %{state | trace_data: trace, trace_error: nil}
+          {:ok, {:ok, trace}} -> %{state | trace_data: trace, trace_error: nil}
           {:ok, {:error, %APIError{} = error}} -> %{state | trace_error: error.message}
           _ -> %{state | trace_error: "Trace details are temporarily unavailable."}
         end
@@ -777,6 +816,20 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:history_pending, nil)
      |> rollback_history_delete()
      |> assign(:history_error, "The history item could not be deleted.")}
+  end
+
+  def handle_async(
+        {:clear_history, reference},
+        {:ok, {:ok, %{"complete" => false} = result}},
+        %{assigns: %{history_pending: reference}} = socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:history_pending, nil)
+     |> assign(
+       :history_error,
+       get_in(result, ["error", "message"]) || "History clear is incomplete; retry cleanup."
+     )}
   end
 
   def handle_async(
@@ -860,7 +913,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
          {:ok, bundle} <- Jason.decode(bytes),
          true <- is_map(bundle),
          {:ok, %{"profiles" => profiles}, _state} <-
-           HardenAPI.import_profile_bundle(socket.assigns.api_context, bundle) do
+           Client.import_profile_bundle(socket.assigns.api_context, bundle) do
       {:noreply,
        socket
        |> assign(:profiles, profiles)
@@ -884,7 +937,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:history_pending, run_id)
      |> start_async(
        {:restore_history, run_id},
-       Observability.propagate(fn -> HardenAPI.get_history(api_context, run_id) end)
+       HardenLlmUI.Client.propagate(fn -> Client.get_history(api_context, run_id) end)
      )}
   end
 
@@ -973,7 +1026,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
          |> assign(:history_error, nil)
          |> start_async(
            {:delete_history, reference, run_id},
-           Observability.propagate(fn -> HardenAPI.delete_history(api_context, run_id) end)
+           HardenLlmUI.Client.propagate(fn -> Client.delete_history(api_context, run_id) end)
          )}
     end
   end
@@ -991,7 +1044,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
      |> assign(:history_load_ref, nil)
      |> start_async(
        {:clear_history, reference},
-       Observability.propagate(fn -> HardenAPI.clear_history(api_context) end)
+       HardenLlmUI.Client.propagate(fn -> Client.clear_history(api_context) end)
      )}
   end
 
@@ -1129,7 +1182,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
           socket.assigns.output_trace_resources
 
         item = Enum.find(socket.assigns.history, &(&1["runId"] == run_id)) ->
-          output_trace_resources(history_result(item), item["request"])
+          record = HistoryComponents.record(socket.assigns.history_result_states, item["runId"])
+          if record, do: trace_output_resources(record, record["result"]), else: %{}
 
         true ->
           %{}
@@ -1168,7 +1222,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       if kind == "trace" && state.trace_open && is_nil(state.trace_data) && is_nil(state.load_ref) do
         reference = System.unique_integer([:positive, :monotonic])
         api_context = socket.assigns.api_context
-        trace_id = item["traceId"]
+        trace_id = run_id
         state = %{state | trace_loading?: true, trace_error: nil, load_ref: reference}
 
         {:noreply,
@@ -1176,10 +1230,26 @@ defmodule HardenLlmWeb.WorkspaceLive do
          |> put_history_result_state(run_id, state)
          |> start_async(
            {:history_result_trace, run_id, reference},
-           Observability.propagate(fn -> HardenAPI.get_trace(api_context, trace_id) end)
+           HardenLlmUI.Client.propagate(fn -> Client.get_trace(api_context, trace_id) end)
          )}
       else
-        {:noreply, put_history_result_state(socket, run_id, state)}
+        socket = put_history_result_state(socket, run_id, state)
+
+        if state.controls_open and is_nil(state.record) and is_nil(state.record_ref) do
+          reference = System.unique_integer([:positive, :monotonic])
+          context = socket.assigns.api_context
+          state = %{state | record_ref: reference, record_loading?: true, record_error: nil}
+
+          {:noreply,
+           socket
+           |> put_history_result_state(run_id, state)
+           |> start_async(
+             {:history_record, run_id, reference},
+             Client.propagate(fn -> Client.get_history(context, run_id) end)
+           )}
+        else
+          {:noreply, socket}
+        end
       end
     else
       {:noreply, socket}
@@ -1212,7 +1282,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
        do: assign(socket, :output_trace_open?, true)
 
   defp toggle_output_trace(socket) do
-    case LlmTraceProjection.trace_id(socket.assigns.run_result) do
+    case socket.assigns.run_result && socket.assigns.run_result["runId"] do
       trace_id when is_binary(trace_id) and trace_id != "" ->
         reference = System.unique_integer([:positive, :monotonic])
         api_context = socket.assigns.api_context
@@ -1224,7 +1294,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
         |> assign(:output_trace_error, nil)
         |> start_async(
           {:load_output_trace, reference, trace_id},
-          Observability.propagate(fn -> HardenAPI.get_trace(api_context, trace_id) end)
+          HardenLlmUI.Client.propagate(fn -> Client.get_trace(api_context, trace_id) end)
         )
 
       _ ->
@@ -1272,7 +1342,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   def profile_options(profiles) do
     Enum.map(profiles, fn profile_state ->
-      profile = profile_state["definition"] || %{}
       {profile_state["id"] || "Unnamed", profile_state["id"] || ""}
     end)
   end
@@ -1335,21 +1404,23 @@ defmodule HardenLlmWeb.WorkspaceLive do
   def schema_status_class(%{status: :valid}), do: "text-emerald-700"
   def schema_status_class(_), do: "text-slate-500"
 
-  defp hydrate(api_context, draft_key) do
+  defp hydrate(api_context) do
     with {:ok, %{"revision" => revision, "payload" => state}} <-
-           HardenAPI.get_state(api_context, draft_key),
-         {:ok, %{"profiles" => profiles}} <- HardenAPI.list_profiles(api_context),
-         [selected | _] <- profiles,
-         {:ok, initial} <- initial_profile_state(api_context, profiles, selected, state) do
+           Client.get_state(api_context),
+         {:ok, %{"profiles" => profiles}} <- Client.list_profiles(api_context),
+         {:ok, initial} <-
+           initial_profile_state(api_context, profiles, List.first(profiles), state) do
       {:ok,
        %{
          state: Map.merge(initial, state),
          profiles: profiles,
          draft_revision: revision,
-         recovery_policy_default: initial["profileEditor"]["recoveryPolicy"]
+         recovery_policy_default: initial["profileEditor"]["recoveryPolicy"] || %{}
        }}
     end
   end
+
+  defp initial_profile_state(_context, [], nil, state), do: {:ok, state}
 
   defp initial_profile_state(_context, _profiles, _selected, %{"profileEditor" => editor} = state)
        when is_map(editor), do: {:ok, state}
@@ -1357,7 +1428,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
   defp initial_profile_state(context, _profiles, selected, state) do
     id = state["selectedProfileId"] || selected["id"]
 
-    with {:ok, draft} <- HardenAPI.get_profile(context, id),
+    with {:ok, draft} <- Client.get_profile(context, id),
          do: {:ok, state_from_profile_draft(draft, id)}
   end
 
@@ -1366,7 +1437,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     |> Map.put_new("modelId", draft["definition"]["modelId"])
     |> Map.put_new("recoveryPolicy", draft["definition"]["recoveryPolicy"])
     |> Map.put("selectedProfileId", id)
-    |> Map.put("profileEditor", HardenLlmWeb.ProfileForm.profile_form(draft))
+    |> Map.put("profileEditor", HardenLlmUI.ProfileForm.profile_form(draft))
   end
 
   defp history_route_pagination(params) do
@@ -1454,7 +1525,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
         clear_conversation_selection(socket)
 
       trace_id ->
-        current_trace_id = LlmTraceProjection.trace_id(socket.assigns.run_result)
+        current_trace_id = if socket.assigns.run_result, do: socket.assigns.run_result["runId"]
         route_changed? = trace_id != socket.assigns.conversation_trace_id
 
         cond do
@@ -1585,7 +1656,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     |> assign(:diagnostic_ref, reference)
     |> start_async(
       {:load_run_diagnostics, reference, trace_id},
-      Observability.propagate(fn -> HardenAPI.get_trace(api_context, trace_id) end)
+      HardenLlmUI.Client.propagate(fn -> Client.get_history(api_context, trace_id) end)
     )
   end
 
@@ -1597,7 +1668,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     if connected?(socket) and socket.assigns.backend_state == :ready and
          is_binary(trace_id) and trace_id != "" and
          is_nil(socket.assigns.conversation_trace_ref) and
-         LlmTraceProjection.trace_id(socket.assigns.run_result) != trace_id do
+         (is_nil(socket.assigns.run_result) or socket.assigns.run_result["runId"] != trace_id) do
       reference = System.unique_integer([:positive, :monotonic])
       api_context = socket.assigns.api_context
 
@@ -1605,7 +1676,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
       |> assign(:conversation_trace_ref, reference)
       |> start_async(
         {:load_conversation, reference, trace_id},
-        Observability.propagate(fn -> HardenAPI.get_trace(api_context, trace_id) end)
+        HardenLlmUI.Client.propagate(fn -> Client.get_history(api_context, trace_id) end)
       )
     else
       socket
@@ -1632,12 +1703,12 @@ defmodule HardenLlmWeb.WorkspaceLive do
   end
 
   defp output_trace_resources(result, request) do
-    trace_id = LlmTraceProjection.trace_id(result)
+    trace_id = result["runId"]
 
-    LlmTraceProjection.resources_from_run(
+    TraceProjection.resources_from_run(
       result,
       request,
-      HardenAPI.public_base_url(),
+      HardenLlmWeb.Endpoint.url(),
       trace_url(trace_id),
       &artifact_url/2
     )
@@ -1668,7 +1739,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
     |> reset_output_trace()
     |> start_async(
       {:run, reference},
-      Observability.propagate(fn -> HardenAPI.run_stream(api_context, payload, receiver) end)
+      HardenLlmUI.Client.propagate(fn -> Client.run_stream(api_context, payload, receiver) end)
     )
   end
 
@@ -1698,6 +1769,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
   defp history_result_state do
     %{
       controls_open: false,
+      record: nil,
+      record_ref: nil,
+      record_loading?: false,
+      record_error: nil,
       details_open: true,
       request_open: false,
       response_open: false,
@@ -1712,28 +1787,18 @@ defmodule HardenLlmWeb.WorkspaceLive do
   defp put_history_result_state(socket, run_id, state),
     do: update(socket, :history_result_states, &Map.put(&1, run_id, state))
 
-  defp history_result(item) do
-    (item["result"] || %{})
-    |> Map.put_new("runId", item["runId"])
-    |> Map.put_new("traceId", item["traceId"])
-    |> Map.put_new("status", item["status"])
-  end
-
   defp history_trace_assigns(item, states, run_ref, profile_requires_save?) do
     state = Map.get(states, item["runId"], history_result_state())
-    result = history_result(item)
-
-    resources =
-      if is_map(state.trace_data),
-        do: trace_output_resources(state.trace_data, result),
-        else: output_trace_resources(result, item["request"])
+    record = state.record
+    result = if record, do: record["result"], else: %{}
+    resources = if record, do: trace_output_resources(record, result), else: %{}
 
     state
-    |> Map.delete(:load_ref)
+    |> Map.drop([:load_ref, :record, :record_ref, :record_loading?, :record_error])
     |> Map.merge(%{
       id: "history-trace-#{item["runId"]}",
-      summary: LlmTraceProjection.summary(result),
-      details: LlmTraceProjection.details(result),
+      summary: HistoryComponents.summary(item, record),
+      details: TraceProjection.details(result),
       resources: resources,
       run_id: item["runId"],
       controls_event: "toggle-history-result",
@@ -1747,14 +1812,11 @@ defmodule HardenLlmWeb.WorkspaceLive do
     })
   end
 
-  defp trace_output_resources(trace, result) do
-    trace_id = LlmTraceProjection.trace_id(result)
-
-    LlmTraceProjection.resources_from_trace(
-      trace,
-      result,
-      HardenAPI.public_base_url(),
-      trace_url(trace_id),
+  defp trace_output_resources(record, result) do
+    TraceProjection.resources_from_record(
+      record,
+      HardenLlmWeb.Endpoint.url(),
+      trace_url(result["runId"]),
       &artifact_url/2
     )
   end
@@ -1796,8 +1858,8 @@ defmodule HardenLlmWeb.WorkspaceLive do
     |> assign(:history_requested_page_size, page_size)
     |> start_async(
       operation,
-      Observability.propagate(fn ->
-        HardenAPI.list_history(api_context, page: page, pageSize: page_size)
+      HardenLlmUI.Client.propagate(fn ->
+        Client.list_history(api_context, page: page, pageSize: page_size)
       end)
     )
   end
@@ -1866,7 +1928,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
   defp start_state_save(socket, snapshot) do
     reference = System.unique_integer([:positive, :monotonic])
     api_context = socket.assigns.api_context
-    draft_key = socket.assigns.draft_key
     draft_revision = socket.assigns.draft_revision
     operation = {:save_state, reference, snapshot.sequence}
 
@@ -1877,10 +1938,9 @@ defmodule HardenLlmWeb.WorkspaceLive do
     |> maybe_clear_restore_error(snapshot.context)
     |> start_async(
       operation,
-      Observability.propagate(fn ->
-        HardenAPI.save_state(
+      HardenLlmUI.Client.propagate(fn ->
+        Client.save_state(
           api_context,
-          draft_key,
           draft_revision,
           snapshot.state
         )
@@ -2000,7 +2060,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
        |> assign(:profile_selection_ref, reference)
        |> start_async(
          {:select_profile, id, reference},
-         Observability.propagate(fn -> HardenAPI.get_profile(context, id) end)
+         HardenLlmUI.Client.propagate(fn -> Client.get_profile(context, id) end)
        )}
     end
   end
@@ -2274,18 +2334,4 @@ defmodule HardenLlmWeb.WorkspaceLive do
 
   defp put_optional(map, _key, value) when value in [nil, ""], do: map
   defp put_optional(map, key, value), do: Map.put(map, key, String.trim(value))
-
-  defp host_model_catalog(profiles) do
-    profiles
-    |> Enum.flat_map(fn profile_state ->
-      profile_state
-      |> get_in(["definition", "models"])
-      |> List.wrap()
-    end)
-    |> ProfileWidgetState.normalize_model_catalog()
-    |> case do
-      [] -> nil
-      models -> models
-    end
-  end
 end

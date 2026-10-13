@@ -1,0 +1,19 @@
+Compiling 1 file (.ex)
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+............................................................................
+
+  1) test explicit Save posts the complete setup and selects the newly created snapshot (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:154
+     ** (RuntimeError) expected dependent async processes to finish within the deadline
+     code: render_settled(view, 1_000)
+     stacktrace:
+       (harden_llm 1.0.0) test/support/conn_case.ex:93: HardenLlmWeb.ConnCase.settle/2
+       test/harden_llm_web/live/restored_workflow_test.exs:164: (test)
+
+...........
+Finished in 2.7 seconds (2.7s async, 0.07s sync)
+
+Result: 87/88 passed, 3 excluded
+Failed: 1 test

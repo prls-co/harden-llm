@@ -1,0 +1,185 @@
+    warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+    │
+ 16 │           href={~p"/profiles/bundle"}
+    │           ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/harden_llm_web/live/profiles_live.html.heex:16: HardenLlmWeb.ProfilesLive.render/1
+
+     warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+     │
+ 221 │           bundle_export_url={~p"/profiles/bundle"}
+     │           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     │
+     └─ lib/harden_llm_web/live/profiles_live.html.heex:221: HardenLlmWeb.ProfilesLive.render/1
+
+      warning: variable "profile" is unused (if the variable is not meant to be used, prefix it with an underscore)
+      │
+ 1270 │       profile = profile_state["definition"] || %{}
+      │       ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1270:7: HardenLlmWeb.WorkspaceLive.profile_options/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}"
+      │
+ 1758 │     do: ~p"/traces/#{trace_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1758: HardenLlmWeb.WorkspaceLive.trace_url/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │
+ 1763 │     do: ~p"/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1763: HardenLlmWeb.WorkspaceLive.artifact_url/2
+
+    warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+    │
+ 84 │               bundle_export_url={~p"/profiles/bundle"}
+    │               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/harden_llm_web/live/workspace_live.html.heex:84: HardenLlmWeb.WorkspaceLive.render/1
+
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+
+
+  1) test failed list is unavailable rather than an empty history (HardenLlmWeb.RestoredHistoryTest)
+     test/harden_llm_web/live/restored_history_test.exs:161
+     Expected truthy, got false
+     code: assert has_element?(view, "#history-error")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN3_smQnPPgOEwOH",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.946.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#history-error"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_history_test.exs:167: (test)
+
+
+
+  2) test partial clear is explicit and preserves rows until cleanup finishes (HardenLlmWeb.RestoredHistoryTest)
+     test/harden_llm_web/live/restored_history_test.exs:145
+     Expected truthy, got false
+     code: assert has_element?(view, "#history-error", "Artifact cleanup failed")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN3_snI8XXvw5QRH",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.957.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#history-error"
+
+         # 3
+         "Artifact cleanup failed"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_history_test.exs:157: (test)
+
+
+
+  3) test trace resource buttons use run ID and show the canonical raw trace (HardenLlmWeb.RestoredHistoryTest)
+     test/harden_llm_web/live/restored_history_test.exs:131
+     ** (ArgumentError) cannot click element "#history-trace-00000000-0000-4000-8000-000000000001-view-json" because it is disabled
+     code: view |> element("#history-trace-#{id}-view-json") |> render_click()
+     stacktrace:
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:1229: Phoenix.LiveViewTest.call/2
+       test/harden_llm_web/live/restored_history_test.exs:139: (test)
+
+
+
+  4) test artifact bytes download through the host without a history read or external redirect (HardenLlmWeb.RestoredHistoryTest)
+     test/harden_llm_web/live/restored_history_test.exs:172
+     ** (RuntimeError) expected response with status 200, got: 404, with body:
+     "Not Found"
+     code: assert response(result, 200) == raw
+     stacktrace:
+       (phoenix 1.8.9) lib/phoenix/test/conn_test.ex:373: Phoenix.ConnTest.response/2
+       test/harden_llm_web/live/restored_history_test.exs:179: (test)
+
+
+
+  5) test numbered pages load full captured content only through the existing details control (HardenLlmWeb.RestoredHistoryTest)
+     test/harden_llm_web/live/restored_history_test.exs:110
+     Assertion failed, no matching message after 100ms
+     The following variables were pinned:
+       id = "00000000-0000-4000-8000-000000000001"
+     Showing 9 of 9 messages in the mailbox
+     code: assert_receive {:history_call, "GET", "/api/v1/history/" <> ^id, _}
+     mailbox:
+       pattern: {:history_call, "GET", "/api/v1/history/" <> ^id, _}
+       value:   {:plug_conn, :sent}
+
+       pattern: {:history_call, "GET", "/api/v1/history/" <> ^id, _}
+       value:   {#Reference<0.2769573983.35127298.135743>,
+                 {200,
+                  [
+                    {"set-cookie",
+                     "__Host-harden_llm_web=XCP.7HfDDyeqX_o6RTVYUgv-gfMXhP8O4xVCIlHn5snWKXfDbaiiFqY1HgybgC69kUgb7xX0ppJJboxYO3CLTE9-pmmwyyYgnli-tsRQY0E6p_U4RA2yXAkDgvS_1Ui8g-G09VOaStswQRfcJQtgEMzEFhJ3FrcRgeCtQseYfAnixPgUMgNT9ubwaE2KEslBVCsePUgqZmszn3yG2Tq8X0vT71wGmiylVzUS4XlquhYHx0gsoXDHFg; path=/; secure; HttpOnly; SameSite=Lax"},
+                    {"content-type", "text/html; charset=utf-8"},
+                    {"x-permitted-cross-domain-policies",
+                     "none"},
+                    {"x-content-type-options", "nosniff"},
+                    {"content-security-policy",
+                     "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' ws: wss:"},
+                    {"referrer-policy", "no-referrer"},
+                    {"cache-control",
+                     "max-age=0, private, must-revalidate"},
+                    {"x-request-id", "GN3_snahlxpxzBsAAANC"},
+                    {"permissions-policy",
+                     "camera=(), microphone=(), geolocation=()"},
+                    {"x-frame-options", "DENY"}
+                  ],
+                  "<!DOCTYPE html>\n<html phx-r lang=\"en\">\n  <head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <meta name=\"csrf-token\" content=\"TiM1AmBPf1cjIAkzLjISM0AWL1NdASkG-wOM6b9grQyYXBqltAbe30ed\">\n    <title phx-r data-default=\"Harden LLM\" data-suffix=\" · Harden LLM\">Workspace · Harden LLM</title>\n    <link phx-track-static rel=\"stylesheet\" href=\"/assets/css/app.css\">\n    <script defer phx-track-static type=\"text/javascript\" src=\"/assets/js/app.js\">\n    </script>\n  </head>\n  <body class=\"min-h-screen bg-slate-50 text-slate-900 antialiased\">\n    <div id=\"phx-GN3_snaj2X_MGwOC\" data-phx-main data-phx-session=\"SFMyNTY.g2gDaAJhBnQAAAAIdwJpZG0AAAAUcGh4LUdOM19zbmFqMlhfTUd3T0N3B3Nlc3Npb250AAAAAHcKcGFyZW50X3BpZHcDbmlsdwZyb3V0ZXJ3GkVsaXhpci5IYXJkZW5MbG1XZWIuUm91dGVydwR2aWV3dyFFbGl4aXIuSGFyZGVuTGxtV2ViLldvcmtzcGFjZUxpdmV3CHJvb3RfcGlkdwNuaWx3CXJvb3Rfdmlld3chRWxpeGlyLkhhcmRlbkxsbVdlYi5Xb3Jrc3BhY2VMaXZldxFsaXZlX3Nlc3Npb25fbmFtZXcNYXV0aGVudGljYXRlZG4GAJO5vDOhAWIAAVGA.6TAbZhBWQALcXypSTZChYKrXPbqhPmTtJUIZQY5ngJs\" data-phx-static=\"SFMyNTY.g2gDaAJhBnQAAAADdwJpZG0AAAAUcGh4LUdOM19zbmFqMlhfTUd3T0N3BWZsYXNodAAAAAB3CmFzc2lnbl9uZXdqbgYAk7m8M6EBYgABUYA.1YPWkzWbKK_pRag7t75Few1GiiL20omrkJdbcHTDBQA\"><header phx-r id=\"app-header\" class=\"sticky top-0 z-40 border-b border-slate-200/90 bg-white/95 backdrop-blur\">\n  <div class=\"mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3 sm:px-6 lg:px-8\">\n    <a phx-r href=\"/\" data-phx-link=\"redirect\" data-phx-link-state=\"push\" id=\"brand-home\" class=\"mr-auto flex items-center gap-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600\">\n      <span phx-r class=\"grid size-9 place-items-center rounded-xl bg-slate-950 text-sm font-bold text-white\">HL</span>\n      <span phx-r>\n        <span class=\"block text-sm font-semibold text-slate-950\">Harden LLM</span>\n        <span class=\"block text-[11px] uppercase tracking-[0.12em] text-slate-500\">Operator console</span>\n      </span>\n    </a>\n    <div class=\"flex items-center gap-3\">\n      <span class=\"hidden max-w-48 truncate text-xs text-slate-500 md:block\" title=\"operator@example.test\">\n        operator@example.test\n      </span>\n      <form action=\"/logout\" method=\"post\">\n        <input type=\"hidden\" name=\"_csrf_token\" value=\"TiM1AmBPf1cjIAkzLjISM0AWL1NdASkG-wOM6b9grQyYXBqltAbe30ed\">\n        <button id=\"logout-button\" type=\"submit\" class=\"inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-600\">\n          <span phx-r class=\"hero-arrow-right-start-on-rectangle size-4\"></span> Sign out\n        </button>\n      </form>\n    </div>\n  </div>\n</header>\n\n\n  <main phx-r id=\"workspace-page\" class=\"studio-page mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8\">\n    <div class=\"mb-6 flex flex-wrap items-end justify-between gap-4\">\n      <div>\n        <p class=\"text-xs font-semibold uppercase tracking-[0.2em] text-teal-700\">\n          🧪 Trace Studio\n        </p>\n        <h1 class=\"mt-1 text-3xl font-semibold tracking-tight text-slate-950\">\n          Shape one reliable call\n        </h1>\n        <p class=\"mt-2 max-w-3xl text-sm text-slate-600\">\n          Configure a provider-neutral profile, validate structured output before it leaves the browser, and inspect redacted execution facts.\n        </p>\n      </div>\n      <span id=\"backend-status\" class=\"rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600\">\n        Checking backend\n      </span>\n    </div>\n\n    <div id=\"workspace-loading\" role=\"status\" class=\"rounded-2xl border border-slate-200 bg-white p-8 text-slate-600\">\n      Loading the canonical workspace…\n    </div>\n\n    \n\n    \n\n    \n  </main>\n\n\n<div phx-r id=\"flash-group\" aria-live=\"polite\">\n  \n  \n\n  <div phx-r id=\"client-error\" phx-click=\"[[&quot;push&quot;,{&quot;value&quot;:{&quot;key&quot;:&quot;error&quot;},&quot;event&quot;:&quot;lv:clear-flash&quot;}],[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#client" <> ...}}
+
+       pattern: {:history_call, "GET", "/api/v1/history/" <> ^id, _}
+       value:   {:history_call, "GET", "/api/v1/state",
+                 %{"draftKey" => "workspace:fixture-user"}}
+
+       pattern: {:history_call, "GET", "/api/v1/history/" <> ^id, _}
+       value:   {:history_call, "GET", "/api/v1/profiles", %{}}
+
+       pattern: {:history_call, "GET", "/api/v1/history/" <> ^id, _}
+       value:   {:history_call, "GET", "/api/v1/profiles/CPA%20Responses", %{}}
+
+       pattern: {:history_call, "GET", "/api/v1/history/" <> ^id, _}
+       value:   {:history_call, "POST", "/api/v1/state", %{}}
+
+       pattern: {:history_call, "GET", "/api/v1/history/" <> ^id, _}
+       value:   {:history_call, "GET", "/api/v1/history",
+                 %{"page" => "1", "pageSize" => "10"}}
+
+       pattern: {:history_call, "GET", "/api/v1/history/" <> ^id, _}
+       value:   {:history_call, "POST", "/api/v1/state", %{}}
+
+       pattern: {:history_call, "GET", "/api/v1/history/" <> ^id, _}
+       value:   {#Reference<0.2769573983.35127298.135855>,
+                 {:patch, "lv:phx-GN3_snaj2X_MGwOC",
+                  %{
+                    kind: :push,
+                    to: "/?history_page=1&history_page_size=25"
+                  }}}
+     stacktrace:
+       test/harden_llm_web/live/restored_history_test.exs:123: (test)
+
+
+Finished in 0.6 seconds (0.6s async, 0.00s sync)
+
+Result: 0/5 passed
+Failed: 5 tests

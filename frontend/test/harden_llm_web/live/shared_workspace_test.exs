@@ -1,7 +1,7 @@
 defmodule HardenLlmWeb.SharedWorkspaceTest do
   use HardenLlmWeb.ConnCase, async: true
   import Phoenix.LiveViewTest, except: [live: 1, live: 2, live: 3]
-  alias HardenLlmWeb.{APIFixtures, HardenAPI}
+  alias HardenLlmUI.{Client}
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-114
   # TEST-405's profile-free UI policy is superseded by ADR-HLLM-033.
@@ -10,7 +10,7 @@ defmodule HardenLlmWeb.SharedWorkspaceTest do
     fixture = File.read!("../test/fixtures/reference/workspace.json") |> Jason.decode!()
     parent = self()
 
-    Req.Test.stub(HardenAPI, fn request ->
+    Req.Test.stub(Client, fn request ->
       case {request.method, request.request_path} do
         {"GET", "/api/v1/state"} ->
           key = URI.decode_query(request.query_string)["draftKey"]
@@ -30,12 +30,16 @@ defmodule HardenLlmWeb.SharedWorkspaceTest do
         {"POST", "/api/v1/profiles/" <> _id} ->
           request
           |> Plug.Conn.put_status(503)
-          |> Req.Test.json(APIFixtures.error("model_refresh_failed"))
+          |> Req.Test.json(%{
+            "error" => %{"code" => "model_refresh_failed", "message" => "Model refresh failed."}
+          })
 
         {"GET", "/api/v1/history"} ->
           request
           |> Plug.Conn.put_status(503)
-          |> Req.Test.json(APIFixtures.error("history_unavailable"))
+          |> Req.Test.json(%{
+            "error" => %{"code" => "history_unavailable", "message" => "History unavailable."}
+          })
 
         {"POST", "/api/v1/run"} ->
           {:ok, body, request} = Plug.Conn.read_body(request)

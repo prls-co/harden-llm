@@ -1,0 +1,58 @@
+Compiling 2 files (.ex)
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+...................................................................
+
+  1) test explicit Save posts the complete setup and selects the newly created snapshot (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:154
+     Assertion with == failed
+     code:  assert Map.take(payload["inputs"], Map.keys(expected_inputs)) ==
+              Map.put(expected_inputs, "providerOptions", payload["definition"]["defaultOptions"])
+     left:  %{
+              "cacheMode" => "off",
+              "callType" => "structured",
+              "modelId" => "gpt-5.6-luna",
+              "providerOptions" => %{},
+              "reasoningEffort" => "middle",
+              "schema" => %{
+                "additionalProperties" => false,
+                "properties" => %{"ok" => %{"type" => "boolean"}},
+                "required" => ["ok"],
+                "type" => "object"
+              },
+              "schemaShorthand" => "{\"ok\":\"boolean\"}",
+              "systemPrompt" => "Template system prompt",
+              "timeoutMs" => 60000,
+              "userPrompt" => "Return an object with ok true.",
+              "webSearch" => false
+            }
+     right: %{
+              "cacheMode" => "off",
+              "callType" => "structured",
+              "modelId" => "gpt-5.6-luna",
+              "providerOptions" => %{
+                "max_tokens" => 16000,
+                "stream" => true
+              },
+              "reasoningEffort" => "middle",
+              "schema" => %{
+                "additionalProperties" => false,
+                "properties" => %{"ok" => %{"type" => "boolean"}},
+                "required" => ["ok"],
+                "type" => "object"
+              },
+              "schemaShorthand" => "{\"ok\":\"boolean\"}",
+              "systemPrompt" => "Template system prompt",
+              "timeoutMs" => 60000,
+              "userPrompt" => "Return an object with ok true.",
+              "webSearch" => false
+            }
+     stacktrace:
+       test/harden_llm_web/live/restored_workflow_test.exs:171: (test)
+
+....................
+Finished in 1.8 seconds (1.7s async, 0.07s sync)
+
+Result: 87/88 passed, 3 excluded
+Failed: 1 test
