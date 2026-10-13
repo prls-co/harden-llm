@@ -95,3 +95,19 @@ availability and coverage, without adding a storage model, permission layer,
 provider adapter, fallback or recovery engine. The
 [RCA](../rca/preset-draft-persistence-and-live-qualification.md) owns source,
 release/deployment evidence and the CPA-owner handoff.
+
+## 7. Mixed recovery-profile capability correction (2026-10-13)
+
+Issue #119 adds one shared capability projection for generation and all finite
+recovery editors, restored drafts and request conversion. An unmapped target
+omits the optional reasoning field; direct API validation still rejects an
+unsupported explicit value. The wrapper qualifies each recovery field path and
+the UI displays safe code/path/run diagnostics. Fresh-rerun inheritance compiles
+to the existing explicit profile contract; repair inheritance is unchanged.
+
+TEST-456/457 and the actual mixed-profile TEST-454 chain after reload address
+the previous same-profile-only coverage gap. Application
+`0773784111baf5858fb799a730e169dfb052a3c1` passed all 29 release tasks in
+38474634696 attempt 1 and deployed HTTP/configuration acceptance. The
+[RCA](../rca/mixed-recovery-profile-reasoning.md) records scope and exact proof.
+The core/wrapper/UI ownership, keys, data and shared-service model are unchanged.

@@ -288,3 +288,18 @@ The exact-source release at `ff5c968bc3c2263956fb1f946935395506347bfc` passed
 all 29 tasks in run 38455292756 attempt 1, including this new T3 boundary, with
 no cleanup errors/warnings. Live-provider outcomes remain separately authorized
 evidence; failing candidates are preserved and removed from active templates.
+
+## Mixed-profile recovery coverage correction (2026-10-13)
+
+TEST-456 / WEB-TEST-127 adds a cheap failing invariant for mapped/unmapped profile
+switches at every finite recovery position. TEST-457 checks qualified errors and
+safe diagnostics. The existing TEST-454 real gateway task now configures distinct
+profiles and executes after reload, retaining its exact six-call routing oracle.
+The fast test's dependent fold click awaits owned autosave completion; the
+preceding failure and unchanged assertions remain recorded.
+
+Application `0773784111baf5858fb799a730e169dfb052a3c1` passed all 29 tasks in
+release 38474634696 attempt 1, with no cleanup issues. Its
+[RCA](../rca/mixed-recovery-profile-reasoning.md) retains RED/GREEN, all uploaded
+release reports and deployed HTTP acceptance. No tier, opt-in policy, browser
+dependency, provider replay or retry-based passing result is introduced.

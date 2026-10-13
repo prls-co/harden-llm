@@ -80,3 +80,19 @@ mode-0600 checkpoints satisfy KER-IBD-006/007. KER-IBD-002/008–010 remain unch
 one local build/operator path, without a registry, scheduler or compatibility
 fallback. Failed live-provider candidates remain recorded separately from
 release acceptance and are absent from active presets.
+
+## Mixed recovery-profile correction acceptance (#119, 2026-10-13)
+
+KER-IBD-001/003/005 are satisfied by application source
+`0773784111baf5858fb799a730e169dfb052a3c1`, exact release 38474634696 attempt 1
+(29 tasks, no cleanup issues), clean local builds, isolated gateway version and
+image metadata verification, schema-before-apps application and scoped/full
+equivalence. The [RCA](../docs/rca/mixed-recovery-profile-reasoning.md#5-release-and-scope)
+links exact images and public HTTP/catalog acceptance.
+
+KER-IBD-004 permits only the two application image/release identities. The full
+reported failed record, keys, metadata, shared/telemetry owners and routing are
+unchanged. No provisioning, SQL draft repair or data reset is required. Previous
+schema-compatible images and protected checkpoints satisfy KER-IBD-006/007.
+Other KERs and the one local build/operator path remain unchanged. Docs-only
+closeout commits do not rebuild or relabel application images.

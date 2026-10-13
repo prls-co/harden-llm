@@ -2931,3 +2931,25 @@ run was completed/failure. GitHub rejected the job rerun. The exact failure is
 retained in [RCA section 7](rca/preset-draft-persistence-and-live-qualification.md#7-documentation-closeout-repeated-unstarted-github-scan)
 and owner issue #113. No scan setting or application image is changed to make
 that run appear successful; subsequent revision checks are separate evidence.
+
+## Mixed recovery-profile reasoning correction — production (2026-10-13)
+
+Issue #119 / PR #120 is merged and deployed at application source
+`0773784111baf5858fb799a730e169dfb052a3c1`. Main fast and all three CodeQL
+analyses passed; [release 38474634696, attempt 1](https://github.com/prls-co/harden-llm/actions/runs/38474634696/attempts/1)
+passed all 29 tasks with no cleanup errors/warnings. TEST-456/457 cover reasoning
+capabilities at all five targets and safe diagnostic fields. The real T3 chain
+uses different profiles and executes after reload, preserving exact routing.
+The earlier same-profile gap and fast autosave test failure remain in the
+[RCA](rca/mixed-recovery-profile-reasoning.md) and retained reports.
+
+Gateway image `sha256:64e3076d1ce37f052a4da9f6dfad17aa7ca268ac4a3f5c75ad2a2d494f5abf09`
+and frontend image `sha256:0d918d226d54ca4ba21e65cf2341aa94715d1155f8b97f7a6df3944334a9e132`
+are healthy with zero restarts. Scoped/full configuration and TEST-435 public
+HTTP checks passed. All 40 live preset drafts match source, with the same 30
+configured credentials. The reported failed record is unchanged in full, as are
+protected settings, bearer, metadata, shared/telemetry owners and Caddy.
+No SQL correction or data reset was needed. Deployment made no inference call;
+browser layout and interactive Portal were not checked. Subsequent docs-only
+commits do not rebuild/relabel these images. Exact redacted acceptance is in
+the [deployment record](../plans/evidence/harden-llm/mixed-recovery-profile-reasoning/deployment-acceptance.json).

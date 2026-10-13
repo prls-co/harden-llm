@@ -2344,3 +2344,11 @@ The fast-gate pending-autosave test failure is retained; its acknowledgement wai
 changes no oracle. The [RCA](../docs/rca/mixed-recovery-profile-reasoning.md) owns
 release/deployment acceptance. No original phase/ownership change, data reset,
 new service, browser or extra paid inference is authorized by this amendment.
+
+This correction is merged and deployed at
+`0773784111baf5858fb799a730e169dfb052a3c1`. Exact release 38474634696 attempt 1
+passed all 29 tasks, including the mixed-profile chain after reload. Scoped/full
+configuration, public HTTP and all 40 deployed preset draft checks passed;
+the reported failed record and shared/protected sources are unchanged. The RCA
+section 5 and retained reports own the acceptance identities. No phase work
+remains for this correction; CPA-owner issue #5 remains separate upstream work.
