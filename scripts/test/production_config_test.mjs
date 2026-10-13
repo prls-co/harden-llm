@@ -73,6 +73,7 @@ function descriptorFor(t, { shared = "", observability, production, serviceEnvir
 
 function composeModel(directory, literalPath) {
   return {
+    networks: { default: { name: "harden-llm_default" } },
     services: {
       probe: {
         environment: {
@@ -373,6 +374,7 @@ function candidateDescriptorFor(t, {
 
 function candidateComposeModel(directory, desiredRelease, service = "harden-llm-gateway") {
   return {
+    networks: { default: { name: "harden-llm_default" } },
     services: {
       [service]: {
         environment: { HARDEN_LLM_RELEASE: desiredRelease, HARDEN_LLM_DATABASE_URL: "postgresql://synthetic/db" },
@@ -569,4 +571,32 @@ test("TEST-450 no-change apply starts neither schema nor applications", t => {
   const f = schemaApplyFixture(t, {current: true});
   assert.equal(runApply(f.descriptor, ["harden-llm-gateway"], f.run, {expectedRelease: f.release}).applied, false);
   assert(!f.calls.some(call => call.args.includes("run") || call.args.includes("up")));
+});
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-234
+test("TEST-234 compares resolved physical network names and detects real membership drift", t => {
+  const directory = fixtureDirectory(t);
+  const literal = privateFile(directory, "network-probe.conf", "fixture");
+  const descriptor = descriptorFor(t);
+  const model = composeModel(directory, literal);
+  model.networks = {
+    private: {name: "harden-llm_private"},
+    "shared-postgres": {name: "compose_default", external: true}
+  };
+  model.services.probe.networks = {private: {}, "shared-postgres": {}};
+  const container = runtimeContainer(directory, literal);
+  container.NetworkSettings.Networks = {"harden-llm_private": {}, compose_default: {}};
+  const compare = () => compareResolvedConfiguration(model, [{service: "probe", container}], descriptor);
+  assert.deepEqual(compare(), []);
+  for (const networks of [
+    {"harden-llm_private": {}, "harden-llm_shared-postgres": {}},
+    {"other-project_private": {}, compose_default: {}},
+    {"harden-llm_private": {}, compose_default: {}, unexpected: {}},
+    {"harden-llm_private": {}}
+  ]) {
+    container.NetworkSettings.Networks = networks;
+    assert.deepEqual(compare(), ["probe.networks"]);
+  }
+  delete model.networks["shared-postgres"].name;
+  assert.throws(compare, /resolved Compose network shared-postgres has no name/);
 });

@@ -157,7 +157,7 @@ gateway-only lifecycle change.
        --json attempt,workflowName,event,headBranch,headSha,status,conclusion,url,jobs)"
      jq -e --argjson attempt "$HLLM_RELEASE_RUN_ATTEMPT" \
        --arg expected_sha "$HLLM_RELEASE_API_SHA" \
-       --arg expected_url "$HLLM_RELEASE_API_URL" '
+       --arg expected_url "$HLLM_RELEASE_API_URL/attempts/$HLLM_RELEASE_RUN_ATTEMPT" '
        .attempt == $attempt and
        .workflowName == "Harden-LLM test hierarchy" and
        .event == "workflow_dispatch" and

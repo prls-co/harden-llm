@@ -103,3 +103,26 @@ the old manifest (`p06-race-resources-red.log`) and passes after the one-field
 change (`p06-race-resources-green.log`). ADR-HLLM-015 records the named host-CPU
 measurement resource and evidence; no application optimization or scheduler was
 introduced. Full hosted certification is still required after this correction.
+
+## 5. Certified release and production comparison correction
+
+Run 38377471293 attempt 1 at `bbdb5d77bc76424804427ca30a7bf9ddc453d0cf`
+passes all 28 release tasks, including nested `make verify`; all three uploaded
+runner reports are accepted with zero cleanup errors/warnings. The operator
+build helper initially rejected the attempt URL because `gh run view --attempt`
+returns `/attempts/1`; no build had started. Corrected the exact expected attempt
+URL in the helper and canonical build procedure, retaining exact run/attempt/SHA
+checks. Both immutable images then built from a clean checkout at that SHA.
+
+The initial production apply successfully ran the exact gateway-image schema
+command and converged both healthy applications, but its final check reported
+`harden-llm-gateway.networks`. The checker incorrectly compared Compose's logical
+`shared-postgres` key with Docker's physical `compose_default` name. Inspection
+confirmed the intended networks. TEST-234 reproduces this false mismatch, then
+checks wrong, extra and missing memberships. The correction compares resolved
+`model.networks[*].name` directly with Docker names and rejects incomplete model
+metadata; it removes the old hardcoded project-prefix stripping. All 29 focused
+Node deployment tests pass, and the real application check has zero differences.
+A repeated canonical apply is a no-op: no second schema or application restart.
+This deployment-tool correction does not change the certified application images.
+The initial failed postcheck remains recorded in `p06-initial-apply.json`.
