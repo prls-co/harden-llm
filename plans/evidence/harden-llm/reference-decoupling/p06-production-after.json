@@ -1,0 +1,100 @@
+{
+  "observedAt": "2026-10-13T10:00:37.594175+00:00",
+  "sourceSHA": "bbdb5d77bc76424804427ca30a7bf9ddc453d0cf",
+  "containers": [
+    {
+      "name": "/compose-postgres-1",
+      "id": "778f320f0eff1daa5efc631ad187d76b265a94b1240c29532bc51dc72a0461ce",
+      "image": "sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0,
+      "networks": [
+        "compose_default"
+      ],
+      "releaseLabels": {}
+    },
+    {
+      "name": "/garage-shared-garage-shared-1",
+      "id": "ce190d35981ea78c3809d04da816cf52fef36d6233d2f72270710ea332b73d7a",
+      "image": "sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0,
+      "networks": [
+        "prls-observability"
+      ],
+      "releaseLabels": {}
+    },
+    {
+      "name": "/harden-llm-harden-llm-gateway-1",
+      "id": "39dedadd207581ea4463d90d3c99dc2db01f4624fdfd7bd08e4cb720e5ba6aee",
+      "image": "sha256:1ca34c3a1bddc6049c46ac1fa5f898d954c2eb0b325170f9480a58e5349edf86",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0,
+      "networks": [
+        "compose_default",
+        "harden-llm_harden-private",
+        "prls-observability"
+      ],
+      "releaseLabels": {
+        "org.opencontainers.image.revision": "bbdb5d77bc76424804427ca30a7bf9ddc453d0cf",
+        "org.opencontainers.image.version": "bbdb5d77bc76424804427ca30a7bf9ddc453d0cf"
+      }
+    },
+    {
+      "name": "/harden-llm-harden-llm-web-1",
+      "id": "1dca7d22be6ce4ab67641962ed8a7cf135b611d233c556028b01b1e98748f6e9",
+      "image": "sha256:c673c3fc7b5279a7f5e0a86ea67985e8bc82d4f832c44ecb5c61b031eb71294d",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0,
+      "networks": [
+        "harden-llm_harden-private",
+        "prls-observability"
+      ],
+      "releaseLabels": {
+        "org.opencontainers.image.version": "bbdb5d77bc76424804427ca30a7bf9ddc453d0cf"
+      }
+    },
+    {
+      "name": "/caddy-shared-caddy-1",
+      "id": "ab33ae863a1c383bccc8ad8f7513fab5231649842b1477d192b8ffca1b53043a",
+      "image": "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0,
+      "networks": [
+        "prls-observability",
+        "prls-portal"
+      ],
+      "releaseLabels": {
+        "org.opencontainers.image.version": "v2.11.4"
+      }
+    },
+    {
+      "name": "/caddy-shared-cloudflared-1",
+      "id": "2f6ebb8c4a6c5acb4f36fe61e254d16026f295444c1c2d00f835bb611b94cc82",
+      "image": "sha256:e39ee8da81ad5e05d77f38d2f51c60ca51bf2a8450ac3abab50c17fdb91d91bf",
+      "status": "running",
+      "health": null,
+      "restartCount": 0,
+      "networks": [
+        "prls-observability"
+      ],
+      "releaseLabels": {}
+    }
+  ],
+  "sharedOwnerContainersUnchanged": true,
+  "retiredHLLMContainerAbsent": true,
+  "retiredHLLMVolumeAbsent": true,
+  "caddySourceSHA": "0afe6c6677c1666608326316d560dd6e3d17ce75",
+  "historyBaseline": {
+    "rows": 0,
+    "tableBytes": 24576,
+    "retentionReviewTriggerBytes": 5368709120
+  },
+  "browsersStarted": 0,
+  "inferenceRequests": 0
+}

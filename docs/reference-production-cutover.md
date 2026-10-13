@@ -82,6 +82,15 @@ restart only Caddy using that owner's documented commands. Remove the old
 remaining rules; the local mirror alone does not publish ingress. Preserve the
 artifact hostname because other consumers use it.
 
+After the main origin passes public acceptance, remove only the retired API
+hostname's explicit Cloudflare DNS record. Read it by ID and require name
+`harden-llm-api.prls.co`, type `CNAME`, proxy enabled, and target
+`b9686ab5-270b-4bd6-9aa7-a271c5a02f9d.cfargotunnel.com`; the reviewed record ID is
+`714cdd9a7444198ef36bbd15fb51d45e`. Back up the response privately, re-read it to
+detect intervening changes, delete that exact record through the existing
+owner credential, and require an empty exact-name lookup afterward. Do not
+remove any wildcard, main-origin or artifact-hostname record.
+
 After successful application/ingress checks, stop/remove only
 `harden-llm-harden-postgres-1`, then remove its detached
 `harden-llm_harden-postgres-data` volume. Verify container/volume labels and mounts
