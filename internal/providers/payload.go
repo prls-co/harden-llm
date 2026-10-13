@@ -803,7 +803,7 @@ func buildGeminiPayload(connection runtime.Connection, call runtime.Call, option
 	if err != nil {
 		return nil, err
 	}
-	systemParts := make([]any, 0, len(systemTexts)+1)
+	systemParts := make([]any, 0)
 	for _, text := range systemTexts {
 		systemParts = append(systemParts, map[string]any{"text": text})
 	}
