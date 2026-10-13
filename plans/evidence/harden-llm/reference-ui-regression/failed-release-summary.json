@@ -1,0 +1,13 @@
+{
+  "sourceSHA": "d79116caa219cbc20a8b31bdc95bb6d76c2ded2f",
+  "run": "https://github.com/prls-co/harden-llm/actions/runs/38435523111/attempts/1",
+  "accepted": false,
+  "passedTasks": 25,
+  "failure": "go-compose startup: Caddy host port selected by a closed listener was already in use",
+  "cancelledTasks": ["frontend-release", "backend-verify-baseline"],
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "inferenceReached": false,
+  "productionModified": false,
+  "resolution": "Docker-owned ephemeral ports and observed publication; unchanged readiness/oracles"
+}

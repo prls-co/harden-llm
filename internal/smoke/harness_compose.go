@@ -63,20 +63,10 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 	}
 	root := repositoryRoot(t)
 	material := generateTLSMaterial(t, t.TempDir())
-	httpPort := freeTCPPort(t)
-	httpsPort := freeTCPPort(t)
-	for httpsPort == httpPort {
-		httpsPort = freeTCPPort(t)
-	}
 	project := fmt.Sprintf("harden-llm-smoke-%d-%d", os.Getpid(), time.Now().UnixNano())
-	secrets := smokeEnvironment(t, material, httpPort, httpsPort)
+	secrets := smokeEnvironment(t, material, 0, 0)
 	secrets["HARDEN_LLM_WEB_HOST"] = "app.smoke.localhost"
-	secrets["HARDEN_LLM_WEB_PUBLIC_URL"] = fmt.Sprintf("https://app.smoke.localhost:%d", httpsPort)
 	secrets["PRLS_PORTAL_HOST"] = "portal.smoke.localhost"
-	secrets["PRLS_PORTAL_URL"] = fmt.Sprintf("https://portal.smoke.localhost:%d", httpsPort)
-	controlURL, identity := startFrontendControlPlaneFixture(t, secrets["HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN"],
-		[]string{secrets["HARDEN_LLM_WEB_PUBLIC_URL"]}, "reference@example.test", "synthetic-reference-password", "reference-user")
-	secrets["HARDEN_LLM_CONTROL_PLANE_URL"] = controlURL
 	composeFiles := []string{
 		filepath.Join(root, "docker-compose.yml"),
 		filepath.Join(root, "deploy", "test", "compose.smoke.yml"),
@@ -121,6 +111,12 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 
 	prepareSmokeApplications(t, runner)
 	started := time.Now()
+	httpsPort := startSmokeIngress(t, runner)
+	secrets["HARDEN_LLM_WEB_PUBLIC_URL"] = fmt.Sprintf("https://app.smoke.localhost:%d", httpsPort)
+	secrets["PRLS_PORTAL_URL"] = fmt.Sprintf("https://portal.smoke.localhost:%d", httpsPort)
+	controlURL, identity := startFrontendControlPlaneFixture(t, secrets["HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN"],
+		[]string{secrets["HARDEN_LLM_WEB_PUBLIC_URL"]}, "reference@example.test", "synthetic-reference-password", "reference-user")
+	secrets["HARDEN_LLM_CONTROL_PLANE_URL"] = controlURL
 	startContext, cancelStart := context.WithTimeout(context.Background(), 6*time.Minute)
 	err = runner.run(startContext, nil, "up", "-d", "--no-build", "--wait", "--wait-timeout", "300")
 	cancelStart()
@@ -415,14 +411,23 @@ func writePEM(t *testing.T, path, kind string, data []byte) {
 	}
 }
 
-func freeTCPPort(t *testing.T) int {
+// Docker owns allocation from bind through cleanup; no released-port race.
+func startSmokeIngress(t *testing.T, runner composeRunner) int {
 	t.Helper()
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	if err := runner.run(ctx, nil, "up", "-d", "--no-deps", "--no-build", "caddy"); err != nil {
+		t.Fatalf("start owned ingress for dynamic port allocation: %v", err)
+	}
+	out, err := runner.output(ctx, "port", "--protocol", "tcp", "caddy", "443")
+	if err != nil {
+		t.Fatalf("read Docker-assigned HTTPS port: %v", err)
+	}
+	port, err := parseSmokeHTTPSPort(string(out))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer listener.Close()
-	return listener.Addr().(*net.TCPAddr).Port
+	return port
 }
 
 func smokeEnvironment(t *testing.T, material tlsMaterial, httpPort, httpsPort int) map[string]string {

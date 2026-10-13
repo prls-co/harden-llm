@@ -257,3 +257,14 @@ RED/GREEN logs retain their original labels. TEST-420 now also checks the backen
 stack specification's current ownership declaration, after the audit reproduced
 its stale Phoenix-history guidance. No new execution lane or test oracle replaces
 either existing purpose.
+
+
+## Compose ingress allocation amendment (2026-10-13)
+
+Release run 38435523111 failed before inference because a released free-port
+probe collided with a later host binding. TEST-034/433 and the opt-in frontend
+fixture now use Docker-assigned ephemeral ingress ports through one shared
+bootstrap helper; read actual publication before constructing public/identity
+URLs. Readiness includes this bootstrap. Pure parsing tests validate publication
+shape; the real composed gate retains all assertions and cleanup bounds. No
+automatic rerun, browser opt-in change or synthetic passing substitute is added.

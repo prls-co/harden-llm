@@ -35,18 +35,10 @@ func TestFrontendComposeFixture(t *testing.T) {
 	}
 	root := repositoryRoot(t)
 	material := generateTLSMaterial(t, workDir)
-	httpPort := freeTCPPort(t)
-	httpsPort := freeTCPPort(t)
-	for httpsPort == httpPort {
-		httpsPort = freeTCPPort(t)
-	}
-
 	project := fmt.Sprintf("harden-llm-web-smoke-%d-%d", os.Getpid(), time.Now().UnixNano())
-	environment := smokeEnvironment(t, material, httpPort, httpsPort)
+	environment := smokeEnvironment(t, material, 0, 0)
 	environment["HARDEN_LLM_WEB_HOST"] = "app.smoke.localhost"
 	environment["PRLS_PORTAL_HOST"] = "portal.smoke.localhost"
-	environment["PRLS_PORTAL_URL"] = fmt.Sprintf("https://portal.smoke.localhost:%d", httpsPort)
-	environment["HARDEN_LLM_WEB_PUBLIC_URL"] = fmt.Sprintf("https://app.smoke.localhost:%d", httpsPort)
 	environment["HARDEN_LLM_WEB_SECRET_KEY_BASE"] = fixtureSecret(t, "web-secret-", 64)
 	environment["HARDEN_LLM_WEB_SESSION_SIGNING_SALT"] = fixtureSecret(t, "sign-", 24)
 	environment["HARDEN_LLM_WEB_SESSION_ENCRYPTION_SALT"] = fixtureSecret(t, "encrypt-", 24)
@@ -54,15 +46,6 @@ func TestFrontendComposeFixture(t *testing.T) {
 	environment["HARDEN_LLM_WEB_API_TIMEOUT_MS"] = "3000"
 	loginEmail := "web-smoke@example.test"
 	loginPassword := fixtureSecret(t, "Web-smoke-password-", 24)
-	environment["HARDEN_LLM_CONTROL_PLANE_URL"], _ = startFrontendControlPlaneFixture(
-		t,
-		environment["HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN"],
-		[]string{environment["PRLS_PORTAL_URL"], environment["HARDEN_LLM_WEB_PUBLIC_URL"]},
-		loginEmail,
-		loginPassword,
-		"frontend-smoke-user",
-	)
-
 	files := []string{
 		filepath.Join(root, "docker-compose.yml"),
 		filepath.Join(root, "deploy", "test", "compose.smoke.yml"),
@@ -103,6 +86,14 @@ func TestFrontendComposeFixture(t *testing.T) {
 	prepareSmokeApplications(t, runner)
 
 	started := time.Now()
+	httpsPort := startSmokeIngress(t, runner)
+	environment["PRLS_PORTAL_URL"] = fmt.Sprintf("https://portal.smoke.localhost:%d", httpsPort)
+	environment["HARDEN_LLM_WEB_PUBLIC_URL"] = fmt.Sprintf("https://app.smoke.localhost:%d", httpsPort)
+	environment["HARDEN_LLM_CONTROL_PLANE_URL"], _ = startFrontendControlPlaneFixture(
+		t, environment["HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN"],
+		[]string{environment["PRLS_PORTAL_URL"], environment["HARDEN_LLM_WEB_PUBLIC_URL"]},
+		loginEmail, loginPassword, "frontend-smoke-user",
+	)
 	startContext, cancelStart := context.WithTimeout(context.Background(), 7*time.Minute)
 	err = runner.run(startContext, nil, "up", "-d", "--wait", "--wait-timeout", "360")
 	cancelStart()

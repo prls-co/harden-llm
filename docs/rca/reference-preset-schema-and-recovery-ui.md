@@ -144,3 +144,22 @@ existing deployment bearer, encryption key, shared owners, Caddy routing and
 other products' resources are preserved. Verify actual image/runtime identities,
 full configuration equivalence, public HTTP/model discovery, preset count and
 configured credential statuses. Do not dispatch paid calls as deployment smoke.
+
+
+## 6. Release harness failure and correction
+
+Exact-source release `38435523111` attempt 1 (`d79116c`) failed during Compose
+startup: Caddy could not bind the previously selected host port. Twenty-five
+release tasks passed; frontend release and nested backend verification were
+cancelled. Cleanup reports have no errors/warnings; the failed report is retained.
+The application UI regressions were not the failing boundary.
+
+The harness used listen-on-zero then closed the listener before Docker bound
+it, leaving a real allocation race. Both composed fixtures now request Docker
+ports zero and start their owned ingress first. The harness reads the actual
+HTTPS publication, configures identity/public URLs with it, then starts the
+remaining services. The same Caddy stays running; Docker owns both ports from
+allocation through teardown. Readiness timing includes ingress allocation;
+commands/oracles, budgets and cleanup ownership remain. The cheap port parser
+checks publication shape/range; actual Compose proves port ownership/startup.
+No retry loop, port-range reservation service or browser launch is introduced.
