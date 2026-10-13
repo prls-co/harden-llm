@@ -2808,3 +2808,45 @@ Portal owns human login. No interactive Portal login or browser layout was
 checked. The old artifact hostname still returns `403` through shared ingress.
 Its bucket and HLLM key are gone, but the shared Caddy/Cloudflare Tunnel route
 is externally owned and was not removed by this release.
+
+## Reference workflows and shared storage — production (2026-10-13)
+
+The reference decoupling plan is deployed from application source
+`bbdb5d77bc76424804427ca30a7bf9ddc453d0cf`. It restores the PR #95 workflow/UI
+baseline (`754690c8d0890c664d69fbdf526b16b3e5601060`) through the reusable
+`HardenLlmUI` package. The root Go core remains stateless; `stateful/` owns
+API-key-scoped profiles, credentials, cache and reference history. Direct `/v1`
+calls do not enter product history. PostgreSQL stores reference history;
+Laminar remains diagnostic tracing.
+
+Use <https://harden-llm.prls.co/> for the frontend and
+<https://harden-llm.prls.co/v1> as the OpenAI-compatible API base URL, with the
+existing `HARDEN_LLM_TOKEN` from protected `./.env`. The old separate API route
+and explicit DNS record are removed. Caddy owner PR #9 is deployed at
+`0afe6c6677c1666608326316d560dd6e3d17ce75`; all other remote tunnel rules and
+the shared artifact hostname are preserved.
+
+The exact-source [hosted browser-free release](https://github.com/prls-co/harden-llm/actions/runs/38377471293/attempts/1)
+passed all 28 tasks, including `make verify`, database/race and Compose checks,
+frontend/package gates and vulnerability scanning, with zero cleanup issues.
+Both images were built from that clean certified source: gateway
+`sha256:1ca34c3a1bddc6049c46ac1fa5f898d954c2eb0b325170f9480a58e5349edf86`, frontend
+`sha256:c673c3fc7b5279a7f5e0a86ea67985e8bc82d4f832c44ecb5c61b031eb71294d`.
+The gateway image applied schema successfully before application startup.
+
+Production uses the approved existing Agent Platform PostgreSQL with an isolated
+HLLM database/role and shared Garage with a dedicated bucket/key. Permission and
+synthetic artifact lifecycle probes passed and cleaned up. The shared containers
+were not recreated. Only the retired HLLM PostgreSQL container/volume was removed.
+Both application identities and the complete seven-service configuration are
+verified equivalent. A deployment-checker correction compares resolved physical
+network names; it does not change these application images.
+
+Public HTTP acceptance passed after cutover and cleanup: Portal entry,
+health/readiness, metrics denial, bearer enforcement, model discovery and
+reference feature status/scope-selector rejection. History starts at 0 rows and
+24,576 bytes, with a 5 GiB retention-review trigger. Browser layout, interactive
+Portal login and paid inference were not checked. The preview runner and dev
+applications remain intentionally stopped. Earlier failed release/check attempts
+are retained in the [complete P06 evidence](../plans/evidence/harden-llm/reference-decoupling/phase-p06.md);
+later docs/deployment-tool revisions are separate from the deployed application SHA.

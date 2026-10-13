@@ -1,0 +1,32 @@
+{
+  "sourceSHA": "bbdb5d77bc76424804427ca30a7bf9ddc453d0cf",
+  "schema": {
+    "service": "gateway-schema",
+    "imageID": "sha256:1ca34c3a1bddc6049c46ac1fa5f898d954c2eb0b325170f9480a58e5349edf86",
+    "arguments": [
+      "run",
+      "--rm",
+      "--no-deps",
+      "--pull",
+      "never",
+      "gateway-schema"
+    ],
+    "exitCode": 0
+  },
+  "applicationConvergence": {
+    "services": [
+      "harden-llm-gateway",
+      "harden-llm-web"
+    ],
+    "exitCode": 0
+  },
+  "initialCheck": {
+    "exitCode": 1,
+    "error": "post_apply_mismatch",
+    "subsequentReadOnlyDifferences": [
+      "harden-llm-gateway.networks"
+    ]
+  },
+  "diagnosis": "Checker compared logical shared-postgres with actual compose_default; actual gateway memberships matched the approved resolved Compose names. Corrected checker uses model.networks names without prefix stripping; application images unchanged.",
+  "evidenceSource": "Captured operator tool output and subsequent read-only check, 2026-10-13"
+}

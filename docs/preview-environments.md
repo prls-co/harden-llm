@@ -67,6 +67,23 @@ trusted default branch, never from the PR checkout. Service images are reused
 only when both the service label and exact source-SHA release label match.
 Control files and routes are written only when their contents change.
 
+The preview runner is on demand and disabled for automatic startup to avoid
+idle RAM use. Start it before a trusted preview workflow and stop it after the
+workflow finishes:
+
+```sh
+systemctl --user start github-actions-harden-llm-preview.service
+systemctl --user status github-actions-harden-llm-preview.service
+# After the trusted preview workflow has finished:
+systemctl --user stop github-actions-harden-llm-preview.service
+```
+
+Jobs requiring the `harden-llm-preview` label remain queued while the runner is
+offline. Host setup preserves an already-running runner but disables automatic
+startup. Production deployment does not start this runner or stopped preview
+applications. The persistent dev URL does not imply that its containers are
+currently running.
+
 The current preview topology uses conservative per-service CPU and memory
 limits and separate PostgreSQL volumes. Keep those boundaries until measured
 concurrency or resource pressure justifies a simpler alternative. The backend

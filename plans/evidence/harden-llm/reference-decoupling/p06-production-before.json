@@ -1,0 +1,55 @@
+{
+  "observedAt": "2026-10-13T09:49:24.778550+00:00",
+  "containers": [
+    {
+      "name": "/compose-postgres-1",
+      "id": "778f320f0eff1daa5efc631ad187d76b265a94b1240c29532bc51dc72a0461ce",
+      "image": "sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0,
+      "project": "compose",
+      "service": "postgres"
+    },
+    {
+      "name": "/garage-shared-garage-shared-1",
+      "id": "ce190d35981ea78c3809d04da816cf52fef36d6233d2f72270710ea332b73d7a",
+      "image": "sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0,
+      "project": "garage-shared",
+      "service": "garage-shared"
+    },
+    {
+      "name": "/harden-llm-harden-llm-gateway-1",
+      "id": "7b7045655fed5716339800ff5495881df6d8bd8d953c7840badc7e79d92c0089",
+      "image": "sha256:ddd22c1be65cf2d46be7bcc9654164f64462ab13eed02c685cd93d0ae5c25249",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0,
+      "project": "harden-llm",
+      "service": "harden-llm-gateway"
+    },
+    {
+      "name": "/harden-llm-harden-llm-web-1",
+      "id": "c277ed6b7432893f5f04d47ae2e5e0c43ba97f990087a823c210105c1f19cad4",
+      "image": "sha256:a10270d12103e7934a26e5fd2c878c5517e973f203e4a0eb010bc7c1daf31589",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0,
+      "project": "harden-llm",
+      "service": "harden-llm-web"
+    },
+    {
+      "name": "/harden-llm-harden-postgres-1",
+      "id": "34f1946622fac65ea5d89eabe825140bc9e225d3dd75d4a33051f413bdf5b546",
+      "image": "sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0,
+      "project": "harden-llm",
+      "service": "harden-postgres"
+    }
+  ]
+}

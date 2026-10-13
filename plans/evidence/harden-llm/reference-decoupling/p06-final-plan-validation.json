@@ -1,0 +1,20 @@
+{
+  "sections": 13,
+  "requirements": 16,
+  "tests": 32,
+  "steps": 72,
+  "phase_steps": {
+    "P00": 6,
+    "P01": 10,
+    "P02": 18,
+    "P03": 14,
+    "P04": 14,
+    "P05": 6,
+    "P06": 4
+  },
+  "rtm_rows": 125,
+  "evaluations": 7,
+  "owner_checks": 3,
+  "fenced_blocks": 7,
+  "errors": []
+}

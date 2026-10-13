@@ -1,0 +1,5 @@
+PostgreSQL: isolated role/database authenticated; own temporary write/read pass; administrator sentinel access denied
+Synthetic artifact prefix: artifacts/b6cdecfba3ef4794c47b4933993691281233d215422c3ffef6ab368dae6b6e2d/23033b23-c2d0-4034-a616-1b5be74cd628/
+Garage: isolated HLLM bucket; unique synthetic prefix put/list/get/delete pass; prefix empty
+
+Administrator-owned synthetic sentinel removed

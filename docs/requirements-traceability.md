@@ -31,3 +31,15 @@ records the former transition. TEST-400 retains ordinary OpenAI protocol and
 runner traceability; TEST-409 retains the composed HTTP boundary. Their current
 assertions move with ownership, while older source/CI/deployment results stay
 bound to their original SHA and never prove this release.
+
+## 4. Reference decoupling acceptance (2026-10-13)
+
+P00–P06 complete the accepted 72-step plan. The exact application source
+`bbdb5d77bc76424804427ca30a7bf9ddc453d0cf` passes the 28-task hosted release,
+including `make verify`. CHECK-422 shared-service permissions, explicit schema
+application, deployed component/configuration identity and TEST-435 public HTTP
+acceptance passed. [P06](../plans/evidence/harden-llm/reference-decoupling/phase-p06.md)
+links the exact images, CI attempt, owner revision, cleanup and growth baseline.
+Deployment-tool and documentation commits remain separate from application
+identity. Browser layout, interactive Portal login and live inference are
+unperformed checks, not inferred acceptance.

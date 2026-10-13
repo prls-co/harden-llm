@@ -9,9 +9,10 @@
     "P02",
     "P03",
     "P04",
-    "P05"
+    "P05",
+    "P06"
   ],
-  "nextStep": "P06.S01",
+  "nextStep": null,
   "steps": {
     "P00.S01": {
       "status": "done"
@@ -218,23 +219,23 @@
       "status": "done"
     },
     "P06.S01": {
-      "status": "pending"
+      "status": "done"
     },
     "P06.S02": {
-      "status": "pending"
+      "status": "done"
     },
     "P06.S03": {
-      "status": "pending"
+      "status": "done"
     },
     "P06.S04": {
-      "status": "pending"
+      "status": "done"
     }
   },
   "releaseAuthorization": "User explicitly requested push to main and deploy to production; required gates remain in force.",
-  "releaseStatus": "P00-P05 pushed through b4d270d11b64056074788b92eb8ec68807578164; P06.S01 certification in progress; production unchanged",
+  "releaseStatus": "All 72 steps complete; exact application bbdb5d77bc76424804427ca30a7bf9ddc453d0cf certified by run 38377471293 attempt 1 and deployed; public HTTP and full configuration checks pass; browser and inference checks not run",
   "ownerGates": {
     "CHECK-420": "accepted and encoded",
     "CHECK-421": "ADR-HLLM-034 recorded",
-    "CHECK-422": "Database target approved 2026-10-13: existing compose-postgres-1/compose_default, isolated harden_llm database/role. Owner commands reviewed in docs/reference-production-cutover.md; actual provisioning and Garage permission probe remain P06."
+    "CHECK-422": "Complete: isolated harden_llm database/role on compose-postgres-1/compose_default; restricted database and dedicated Garage lifecycle probes passed; exact-image schema applied; Caddy owner 0afe6c6677c1666608326316d560dd6e3d17ce75 deployed; exact retired HLLM container/volume and API CNAME removed after acceptance"
   }
 }

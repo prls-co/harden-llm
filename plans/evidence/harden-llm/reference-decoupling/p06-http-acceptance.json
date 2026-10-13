@@ -1,0 +1,9 @@
+{
+  "sourceSHA": "bbdb5d77bc76424804427ca30a7bf9ddc453d0cf",
+  "exitCode": 0,
+  "signal": null,
+  "checkedAt": "2026-10-13T09:59:39.520Z",
+  "origin": "https://harden-llm.prls.co",
+  "command": "go test -tags=live ./internal/smoke -run '^TestDeployedReferenceHTTP$' -count=1 -v",
+  "output": "=== RUN   TestDeployedReferenceHTTP\n    deployed_reference_test.go:135: TEST-435: origin=https://harden-llm.prls.co expected_release=bbdb5d77bc76424804427ca30a7bf9ddc453d0cf models=33 history.rows=0 history.tableBytes=24576; HTTP only, no inference or stored-record reads\n--- PASS: TestDeployedReferenceHTTP (0.41s)\nPASS\nok  \tgithub.com/prls-co/harden-llm/internal/smoke\t0.419s\n"
+}
