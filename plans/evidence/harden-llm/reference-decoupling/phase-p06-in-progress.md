@@ -77,3 +77,29 @@ ADR-HLLM-011 records the security refresh and browser opt-in boundary.
 fast gate passes all ten tasks with zero cleanup issues (`p06-security-fast.json`).
 A new exact-SHA hosted release, immutable builds and deployment remain required.
 Production and shared services are unchanged.
+
+## 4. Race-instrumented history timing resources
+
+Release run 38374777830 attempt 1 at `415aaee0e87dbe8d09ac015caceffd35aa72ee53`
+passes the vulnerability scan and ordinary integration, but the real database
+race test stores the exact 17 MiB record in 2.535426566 s, exceeding its unchanged
+two-second assertion. All other nonzero started tasks have SIGTERM cancellation;
+there is no additional hidden failure. Cleanup has zero errors/warnings.
+
+Inspection confirms one canonical payload decode, with no duplicate large-body
+validation to remove. The existing two-CPU race benchmark measures 460.373062 ms
+per canonical validation, dominated by race instrumentation. A focused real-PG
+race invocation on two CPUs passes all `TestHistoryStore` cases, including exact
+17 MiB insert 665.220487 ms and detail 532.782229 ms, zero cleanup issues.
+The temporary harness initially reversed report-writer arguments after cleanup;
+that reporting error is retained and is not accepted evidence. The corrected
+invocation's actual result is `p06-history-race-exclusive.json`.
+
+Use the runner's existing exclusive `release` resource for `go-integration-race`
+to prevent independent compiler/CPU-task overlap during instrumented SQL timing.
+Keep the same command, race flag, two package slots, real service pool, payload
+checks and SQL/timing assertions. TEST-008's cheap resource invariant fails on
+the old manifest (`p06-race-resources-red.log`) and passes after the one-field
+change (`p06-race-resources-green.log`). ADR-HLLM-015 records the named host-CPU
+measurement resource and evidence; no application optimization or scheduler was
+introduced. Full hosted certification is still required after this correction.

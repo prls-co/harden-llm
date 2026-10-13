@@ -1,0 +1,21 @@
+File: api.test
+Build ID: 7ac5f3a5d1448f3798c9c3578023cbe3b7f948fa
+Type: cpu
+Time: 2026-10-13 02:26:25 PDT
+Duration: 2.41s, Total samples = 2.46s (102.26%)
+Showing nodes accounting for 2.35s, 95.53% of 2.46s total
+Dropped 48 nodes (cum <= 0.01s)
+Showing top 12 nodes out of 77
+      flat  flat%   sum%        cum   cum%
+     0.94s 38.21% 38.21%      0.94s 38.21%  __tsan_read
+     0.39s 15.85% 54.07%      0.39s 15.85%  racecall
+     0.30s 12.20% 66.26%      0.47s 19.11%  github.com/tidwall/gjson.validstring
+     0.25s 10.16% 76.42%      0.25s 10.16%  __tsan::MemoryAccessRangeT
+     0.10s  4.07% 80.49%      0.10s  4.07%  racecalladdr
+     0.10s  4.07% 84.55%      0.10s  4.07%  runtime.raceread
+     0.09s  3.66% 88.21%      0.09s  3.66%  runtime.memmove
+     0.06s  2.44% 90.65%      0.07s  2.85%  encoding/json.appendString[go.shape.string]
+     0.04s  1.63% 92.28%      0.04s  1.63%  github.com/tidwall/gjson.parseString
+     0.03s  1.22% 93.50%      0.03s  1.22%  __tsan::MetaMap::FreeRange
+     0.03s  1.22% 94.72%      0.03s  1.22%  runtime.procyieldAsm
+     0.02s  0.81% 95.53%      0.02s  0.81%  encoding/json.stateInString

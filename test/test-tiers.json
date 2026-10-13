@@ -182,7 +182,7 @@
       "id": "go-integration-race",
       "testIds": ["TEST-008"],
       "tier": "T3",
-      "resourceClass": "service",
+      "resourceClass": "release",
       "command": ["go", "test", "-race", "-p=${HARDEN_LLM_TEST_PACKAGE_SLOTS}", "./...", "-tags=integration", "-count=1"],
       "packageSlots": 2,
       "dependsOn": [],

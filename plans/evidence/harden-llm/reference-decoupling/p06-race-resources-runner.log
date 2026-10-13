@@ -1,0 +1,101 @@
+TAP version 13
+# Subtest: resource-aware tier runner
+    # Subtest: Docker-backed host tasks inherit managed resource identity
+    ok 1 - Docker-backed host tasks inherit managed resource identity
+      ---
+      duration_ms: 151.62678
+      type: 'test'
+      ...
+    # Subtest: container Compose fixtures inherit exact host resource ownership
+    ok 2 - container Compose fixtures inherit exact host resource ownership
+      ---
+      duration_ms: 2.307815
+      type: 'test'
+      ...
+    # Subtest: host resource identity requires Docker socket and host checkout access
+    ok 3 - host resource identity requires Docker socket and host checkout access
+      ---
+      duration_ms: 3.965549
+      type: 'test'
+      ...
+    # Subtest: container Mix builds use their own writable task directory for both mount layouts
+    ok 4 - container Mix builds use their own writable task directory for both mount layouts
+      ---
+      duration_ms: 1.030436
+      type: 'test'
+      ...
+    # Subtest: container socket access uses the host socket group without requiring Compose identity
+    ok 5 - container socket access uses the host socket group without requiring Compose identity
+      ---
+      duration_ms: 0.826552
+      type: 'test'
+      ...
+    # Subtest: isolates parallel Mix build output in runner-owned task directories
+    ok 6 - isolates parallel Mix build output in runner-owned task directories
+      ---
+      duration_ms: 4.74534
+      type: 'test'
+      ...
+    # Subtest: redacts explicitly declared credentials from task output and reports
+    ok 7 - redacts explicitly declared credentials from task output and reports
+      ---
+      duration_ms: 163.798704
+      type: 'test'
+      ...
+    # Subtest: honors dependency ordering and exposes a stable result record
+    ok 8 - honors dependency ordering and exposes a stable result record
+      ---
+      duration_ms: 327.821439
+      type: 'test'
+      ...
+    # Subtest: enforces resource slots while allowing independent resources to overlap
+    ok 9 - enforces resource slots while allowing independent resources to overlap
+      ---
+      duration_ms: 335.875809
+      type: 'test'
+      ...
+    # Subtest: keeps exclusive resources isolated from all other work
+    ok 10 - keeps exclusive resources isolated from all other work
+      ---
+      duration_ms: 2297.895542
+      type: 'test'
+      ...
+    # Subtest: cancels eligible siblings after the first causal failure
+    ok 11 - cancels eligible siblings after the first causal failure
+      ---
+      duration_ms: 214.729338
+      type: 'test'
+      ...
+    # Subtest: propagates an external abort through the child process group
+    ok 12 - propagates an external abort through the child process group
+      ---
+      duration_ms: 244.460519
+      type: 'test'
+      ...
+    # Subtest: terminates a task that exceeds its bounded timeout
+    ok 13 - terminates a task that exceeds its bounded timeout
+      ---
+      duration_ms: 113.700642
+      type: 'test'
+      ...
+    # Subtest: bounds captured output and preserves the child exit status
+    ok 14 - bounds captured output and preserves the child exit status
+      ---
+      duration_ms: 213.057291
+      type: 'test'
+      ...
+    1..14
+ok 1 - resource-aware tier runner
+  ---
+  duration_ms: 4078.92143
+  type: 'suite'
+  ...
+1..1
+# tests 14
+# suites 1
+# pass 14
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 4295.104865

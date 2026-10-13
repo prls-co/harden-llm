@@ -1,0 +1,9 @@
+file:///home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/run-test-tier.mjs:1539
+  if (typeof reportPath !== "string" || reportPath.trim() === "") throw new Error("run report path is required");
+                                                                        ^
+
+Error: run report path is required
+    at writeRunReport (file:///home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/run-test-tier.mjs:1539:73)
+    at file:///tmp/hllm-p06-history-race.mjs:7:7
+
+Node.js v22.22.1

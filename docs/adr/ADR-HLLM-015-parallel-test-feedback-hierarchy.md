@@ -65,6 +65,29 @@ application state and browser-free HTTP health/auth checks. Production promotion
 is explicit. See `docs/preview-environments.md`; TEST-055/062 prove selection,
 branch identity, current-revision gating, and targeted deployment behavior.
 
+### October 2026 amendment: cold compilation and instrumented SQL timing
+
+The P06 hosted release on Go 1.26.9 measured cold build/static/lint commands at
+130.711/123.690/141.496 seconds. Build and static command execution budgets now
+match the existing ten-minute lint budget. These allow compilation to finish;
+assertion thresholds, provider/SQL deadlines and the task selection stay intact.
+
+`go-integration-race` uses the existing exclusive `release` resource class.
+Its named shared measurement resource is host CPU while race-instrumented SQL
+assertions run: the exact 17 MiB history insert took 2.535 seconds when unrelated
+race tests and Phoenix compilation overlapped on the hosted worker. On two CPU
+cores, the unchanged real-PostgreSQL race test measured insert/detail at
+665.220/532.782 ms when run independently. The two-second assertions and full
+payload comparisons remain unchanged; package concurrency stays at two and
+process-owned test parallelism remains enabled. This isolates the measurement
+from compiler contention without changing application code or adding a scheduler.
+
+TEST-008 `TestIntegrationRaceOwnsTimingResources` requires that task's resource
+to be exclusive with one slot. TEST-049 retains execution-level exclusive-resource
+assertions. Reports, including the failed hosted attempt, are under
+`plans/evidence/harden-llm/reference-decoupling/`. An isolated local sample does
+not certify the full hosted release or a production latency SLO.
+
 ### Retained hierarchy and certification history
 
 Accept one machine-readable task manifest at `test/test-tiers.json` and one
