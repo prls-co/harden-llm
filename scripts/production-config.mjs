@@ -543,12 +543,16 @@ function actualPorts(container) {
   return ports.sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
 }
 
-function desiredNetworks(networks) {
-  return Object.keys(networks ?? {}).sort();
+function desiredNetworks(networks, definitions) {
+  return Object.keys(networks ?? {}).map((key) => {
+    const name = definitions?.[key]?.name;
+    if (typeof name !== "string" || name.length === 0) fail(`resolved Compose network ${key} has no name`, "compose_failed");
+    return name;
+  }).sort();
 }
 
 function actualNetworks(container) {
-  return Object.keys(container.NetworkSettings?.Networks ?? {}).map((name) => name.replace(/^harden-llm_/, "")).sort();
+  return Object.keys(container.NetworkSettings?.Networks ?? {}).sort();
 }
 
 function desiredHealthcheck(healthcheck) {
@@ -615,7 +619,7 @@ function compareMountContents(desired, actual, shouldCompare) {
   return true;
 }
 
-export function compareServiceConfiguration(serviceName, desiredService, actualContainer, identity, project = "harden-llm") {
+export function compareServiceConfiguration(serviceName, desiredService, actualContainer, identity, project, networks) {
   const differences = [];
   const desiredEnvironment = environmentMap(desiredService.environment);
   const actualEnvironment = environmentMap(actualContainer.Config?.Env);
@@ -638,7 +642,7 @@ export function compareServiceConfiguration(serviceName, desiredService, actualC
   const actualMountList = actualMounts(actualContainer, project);
   if (!equalJSON(desiredMountList, actualMountList)) differences.push(`${serviceName}.mounts`);
   else if (!compareMountContents(desiredMountList, actualMountList, identity.compareMountContents === true)) differences.push(`${serviceName}.mount-contents`);
-  if (!equalJSON(desiredNetworks(desiredService.networks), actualNetworks(actualContainer))) differences.push(`${serviceName}.networks`);
+  if (!equalJSON(desiredNetworks(desiredService.networks, networks), actualNetworks(actualContainer))) differences.push(`${serviceName}.networks`);
   if (!equalJSON(desiredPorts(desiredService.ports), actualPorts(actualContainer))) differences.push(`${serviceName}.ports`);
   if (!equalJSON(desiredHealthcheck(desiredService.healthcheck), actualHealthcheck(actualContainer))) differences.push(`${serviceName}.healthcheck`);
   const desiredRestart = desiredService.restart ?? "no";
@@ -664,7 +668,7 @@ export function compareResolvedConfiguration(model, runtime, descriptor, service
     if (Object.hasOwn(imageResults, serviceName) && imageResults[serviceName] !== descriptor.services[serviceName].expectedImage) {
       differences.push(`${serviceName}.image-reference`);
     }
-    differences.push(...compareServiceConfiguration(serviceName, desiredService, actualContainer, identity, descriptor.project));
+    differences.push(...compareServiceConfiguration(serviceName, desiredService, actualContainer, identity, descriptor.project, model.networks));
   }
   return differences.sort();
 }
