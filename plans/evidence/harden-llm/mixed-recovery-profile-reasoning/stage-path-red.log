@@ -1,0 +1,14 @@
+--- FAIL: TestRecoveryReasoningValidation (0.02s)
+    --- FAIL: TestRecoveryReasoningValidation/jsonRepair/initial (0.00s)
+        recovery_reasoning_test.go:41: recovery validation did not identify its stage: profiles: invalid profile catalog: reasoningEffort: The selected profile does not configure this portable reasoning level.
+    --- FAIL: TestRecoveryReasoningValidation/jsonRepair/escalation (0.00s)
+        recovery_reasoning_test.go:41: recovery validation did not identify its stage: profiles: invalid profile catalog: reasoningEffort: The selected profile does not configure this portable reasoning level.
+    --- FAIL: TestRecoveryReasoningValidation/rerun/target (0.00s)
+        recovery_reasoning_test.go:41: recovery validation did not identify its stage: profiles: invalid profile catalog: reasoningEffort: The selected profile does not configure this portable reasoning level.
+    --- FAIL: TestRecoveryReasoningValidation/rerun/jsonRepair/initial (0.00s)
+        recovery_reasoning_test.go:41: recovery validation did not identify its stage: profiles: invalid profile catalog: reasoningEffort: The selected profile does not configure this portable reasoning level.
+    --- FAIL: TestRecoveryReasoningValidation/rerun/jsonRepair/escalation (0.00s)
+        recovery_reasoning_test.go:41: recovery validation did not identify its stage: profiles: invalid profile catalog: reasoningEffort: The selected profile does not configure this portable reasoning level.
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	0.032s
+FAIL

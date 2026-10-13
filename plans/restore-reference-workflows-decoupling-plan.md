@@ -2327,3 +2327,20 @@ new service, legacy path or browser authorization is introduced. The
 [RCA](../docs/rca/preset-draft-persistence-and-live-qualification.md) records exact
 source/release/deployment acceptance and the unresolved upstream causes owned
 by [CPA issue #5](https://github.com/prls-co/CLIProxyAPI-setup/issues/5).
+
+## 15. Mixed recovery-profile correction (#119)
+
+The later failed run exposed a missing interaction in #115: an unmapped
+escalation profile displayed no reasoning but still submitted `lowest`.
+TEST-456/WEB-TEST-127 adds the failing rendered-selection invariant at every
+target. One capability-aware library projection governs generation, edits,
+restored settings and outgoing requests. It also resolves inherited fresh-rerun
+drafts to the current generation's explicit profile/model/options.
+
+TEST-457 preserves strict direct API rejection, adds stage-qualified fields and
+safe code/run/trace correlation. TEST-454 now uses distinct GPT/Claude targets
+and executes after reload, retaining all original routing and budget assertions.
+The fast-gate pending-autosave test failure is retained; its acknowledgement wait
+changes no oracle. The [RCA](../docs/rca/mixed-recovery-profile-reasoning.md) owns
+release/deployment acceptance. No original phase/ownership change, data reset,
+new service, browser or extra paid inference is authorized by this amendment.

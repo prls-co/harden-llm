@@ -385,7 +385,9 @@ defmodule HardenLlmWeb.RestoredWorkflowTest do
     {:ok, one, _} = live(conn, "/")
     render_settled(one, 1_000)
     one |> element("#model-config-toggle") |> render_click()
+    render_settled(one, 1_000)
     one |> element("#profile-options-toggle") |> render_click()
+    render_settled(one, 1_000)
     options = %{"max_tokens" => 777, "temperature" => 0.35}
 
     one

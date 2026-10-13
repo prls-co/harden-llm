@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	hardenllm "github.com/prls-co/harden-llm"
@@ -231,21 +232,26 @@ func (s *Service) resolveRun(ctx context.Context, hash string, input RunInput) (
 	if model == "" {
 		model = definition.ModelID
 	}
-	var targets []*hardenllm.RecoveryTarget
-	addPlan := func(plan *hardenllm.JSONRepairPlan) {
+	type leaf struct {
+		target *hardenllm.RecoveryTarget
+		path   string
+	}
+	var targets []leaf
+	addPlan := func(plan *hardenllm.JSONRepairPlan, path string) {
 		if plan != nil {
-			targets = append(targets, &plan.Initial)
+			targets = append(targets, leaf{&plan.Initial, path + ".initial"})
 			if plan.Escalation != nil {
-				targets = append(targets, plan.Escalation)
+				targets = append(targets, leaf{plan.Escalation, path + ".escalation"})
 			}
 		}
 	}
-	addPlan(policy.JSONRepair)
+	addPlan(policy.JSONRepair, "recoveryPolicy.jsonRepair")
 	if policy.Rerun != nil {
-		targets = append(targets, &policy.Rerun.Target)
-		addPlan(policy.Rerun.JSONRepair)
+		targets = append(targets, leaf{&policy.Rerun.Target, "recoveryPolicy.rerun.target"})
+		addPlan(policy.Rerun.JSONRepair, "recoveryPolicy.rerun.jsonRepair")
 	}
-	for _, target := range targets {
+	for _, item := range targets {
+		target := item.target
 		// Generation leaves inherit the already prepared request unchanged.
 		// The core forbids adding overrides to that source.
 		if target.Source == "generation" {
@@ -266,6 +272,14 @@ func (s *Service) resolveRun(ctx context.Context, hash string, input RunInput) (
 		}
 		target.ProviderOptions, err = profileOptions(definition, effort, target.ProviderOptions)
 		if err != nil {
+			var invalid *ValidationError
+			if errors.As(err, &invalid) {
+				qualified := &ValidationError{Code: invalid.Code}
+				for _, field := range invalid.FieldErrors {
+					qualified.FieldErrors = append(qualified.FieldErrors, FieldError{Field: item.path + "." + field.Field, Message: field.Message})
+				}
+				return resolved, qualified
+			}
 			return resolved, err
 		}
 		target.ReasoningEffort = ""

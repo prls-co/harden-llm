@@ -2154,7 +2154,6 @@ defmodule HardenLlmWeb.WorkspaceLive do
       "profileId" => profile_id,
       "userPrompt" => prompt,
       "callType" => call_type,
-      "recoveryPolicy" => ProfileWidgetState.serialize_recovery_policy(params["recoveryPolicy"]),
       "cacheMode" => normalize_cache_mode(params["cacheMode"]),
       "webSearch" => truthy?(params["webSearch"])
     }
@@ -2169,7 +2168,12 @@ defmodule HardenLlmWeb.WorkspaceLive do
         do: Map.put(payload, "providerOptions", profile_provider_options),
         else: payload
 
-    {:ok, payload}
+    {:ok,
+     Map.put(
+       payload,
+       "recoveryPolicy",
+       ProfileWidgetState.normalize_recovery_policy(params["recoveryPolicy"], profiles, payload)
+     )}
   end
 
   defp workspace_state(params, ui, existing_reasoning_by_profile) do

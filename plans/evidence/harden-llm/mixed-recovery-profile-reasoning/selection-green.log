@@ -1,0 +1,11 @@
+==> harden_llm_ui
+Compiling 3 files (.ex)
+==> harden_llm
+Compiling 2 files (.ex)
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+...
+Finished in 6.6 seconds (6.6s async, 0.00s sync)
+
+Result: 3 passed

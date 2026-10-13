@@ -2794,7 +2794,8 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
     |> Map.merge(%{
       "profileId" => profile_id,
       "modelId" => target["modelId"] || params["modelId"] || "",
-      "reasoningEffort" => target["reasoningEffort"] || ProfileDefaults.reasoning_default(),
+      "reasoningEffort" =>
+        ProfileWidgetState.profile_reasoning_effort(params, target["reasoningEffort"]),
       "defaultOptionsJson" => Jason.encode!(options, pretty: true),
       "maxTokens" => option_text(options["max_tokens"] || options["maxTokens"]),
       "temperature" => option_text(options["temperature"]),
@@ -2876,7 +2877,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
       previous_params
       |> ProfileWidgetState.merge_draft(incoming)
       |> synchronize_profile_options(incoming)
-      |> canonicalize_recovery_policy()
+      |> canonicalize_recovery_policy(socket.assigns.profiles, socket.assigns.reasoning_effort)
 
     socket =
       socket
@@ -2891,10 +2892,16 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
       else: socket
   end
 
-  defp canonicalize_recovery_policy(params) do
+  defp canonicalize_recovery_policy(params, profiles, reasoning) do
+    generation =
+      params
+      |> Map.take(~w(profileId modelId))
+      |> Map.put("reasoningEffort", reasoning)
+      |> Map.put("providerOptions", ProfileForm.runtime_options(params["defaultOptionsJson"]))
+
     policy =
       params["recoveryPolicy"]
-      |> ProfileWidgetState.serialize_recovery_policy()
+      |> ProfileWidgetState.normalize_recovery_policy(profiles, generation)
 
     Map.put(params, "recoveryPolicy", policy)
   end
@@ -3470,11 +3477,17 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
   end
 
   defp sync_active_recovery_policy(socket) do
-    policy = socket.assigns.active_recovery_policy
+    params =
+      socket.assigns.main_form.params
+      |> Map.put("recoveryPolicy", socket.assigns.active_recovery_policy)
+      |> canonicalize_recovery_policy(
+        socket.assigns.profiles,
+        Map.get(socket.assigns, :reasoning_effort)
+      )
 
-    update(socket, :main_form, fn form ->
-      to_form(Map.put(form.params || %{}, "recoveryPolicy", policy), as: :profile)
-    end)
+    socket
+    |> assign(:active_recovery_policy, params["recoveryPolicy"])
+    |> assign(:main_form, to_form(params, as: :profile))
   end
 
   defp mark_main_edit(socket), do: update(socket, :main_revision, &(&1 + 1))
@@ -3627,15 +3640,8 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
       true ->
         case Enum.find(profiles, &(profile_id_from_state(&1) == selected_profile_id)) do
           %{} = profile_state ->
-            case get_in(profile_state, ["definition", "reasoningEffortMap"]) do
-              map when is_map(map) ->
-                Enum.filter(@reasoning_options, fn {value, _label} ->
-                  Map.has_key?(map, value)
-                end)
-
-              _ ->
-                []
-            end
+            levels = ProfileWidgetState.profile_reasoning_levels(profile_state)
+            Enum.filter(@reasoning_options, fn {value, _label} -> value in levels end)
 
           _ ->
             []
@@ -3677,14 +3683,8 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
   defp recovery_policy_number(_, _), do: ""
 
   defp normalize_reasoning_effort(profiles, selected_profile_id, current) do
-    case reasoning_options(profiles, selected_profile_id) do
-      [] ->
-        ""
-
-      options ->
-        values = Enum.map(options, &elem(&1, 0))
-        if current in values, do: current, else: hd(values)
-    end
+    profile = Enum.find(profiles, &(profile_id_from_state(&1) == selected_profile_id))
+    ProfileWidgetState.profile_reasoning_effort(profile, current)
   end
 
   defp new_profile_fields_visible?(form, profiles) do

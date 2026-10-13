@@ -412,7 +412,7 @@ defmodule HardenLlmUI.Client do
          category: status_category(status),
          status: status,
          code: if(is_binary(code), do: String.slice(code, 0, 64)),
-         message: safe_error_message(status, code),
+         message: reference_error_message(status, code, metadata),
          diagnostic: diagnostic,
          trace_id: if(is_map(diagnostic), do: diagnostic["traceId"]),
          current_revision: metadata["currentRevision"],
@@ -462,6 +462,17 @@ defmodule HardenLlmUI.Client do
     do: "The proxy could not complete the request."
 
   defp safe_error_message(_, _), do: "The proxy rejected the request."
+
+  defp reference_error_message(status, "profile_invalid", metadata) when status in [400, 422] do
+    fields = metadata["fieldErrors"] || []
+    field_names = fields |> Enum.map(& &1["field"]) |> Enum.uniq() |> Enum.sort() |> Enum.take(5)
+    details = if field_names == [], do: "", else: " Fields: #{Enum.join(field_names, ", ")}."
+    run_id = get_in(metadata, ["diagnostic", "runId"])
+    reference = if is_binary(run_id), do: " Run ID: #{run_id}.", else: ""
+    "LLM profile settings are invalid (profile_invalid)." <> details <> reference
+  end
+
+  defp reference_error_message(status, code, _metadata), do: safe_error_message(status, code)
 
   defp transport_error do
     %APIError{category: :transport, message: "The proxy could not be reached.", ambiguous?: true}

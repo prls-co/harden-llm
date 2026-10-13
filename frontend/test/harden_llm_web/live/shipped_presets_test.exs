@@ -167,4 +167,50 @@ defmodule HardenLlmWeb.ShippedPresetsTest do
     assert has_element?(view, "#profile-credential-toggle:not([disabled])")
     refute_receive {:preset_run, _}, 50
   end
+
+  # TEST-456 / WEB-TEST-127: the rendered recovery pickers must submit only
+  # reasoning supported by their selected profile, including profile switches.
+  test "all recovery positions switch between mapped and unmapped profiles without stale reasoning",
+       %{conn: conn} do
+    {:ok, view, _} = live(conn, "/")
+    render_settled(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+    render_settled(view, 1_000)
+    view |> element("#profile-retry-toggle") |> render_click()
+    render_settled(view, 1_000)
+    view |> element("#profile-rerun-toggle") |> render_click()
+    render_settled(view, 1_000)
+    view |> element("#profile-rerun-generation-config-toggle") |> render_click()
+    render_settled(view, 1_000)
+
+    for {prefix, path} <- [
+          {"profile-original-repair-initial", ~w(jsonRepair initial)},
+          {"profile-original-repair-escalation", ~w(jsonRepair escalation)},
+          {"profile-rerun-generation", ~w(rerun target)},
+          {"profile-rerun-generation-config-json-repair-initial", ~w(rerun jsonRepair initial)},
+          {"profile-rerun-generation-config-json-repair-escalation",
+           ~w(rerun jsonRepair escalation)}
+        ],
+        id <- ["CPA gpt-6.1-sol", "CPA claude-sonnet-5-5", "CPA gpt-6.1-sol"] do
+      nested = Enum.reduce(Enum.reverse(path), %{"profileId" => id}, &%{&1 => &2})
+
+      view
+      |> element("##{prefix}-profile")
+      |> render_change(%{"profile" => %{"recoveryPolicy" => nested}})
+
+      render_settled(view, 1_000)
+      refute has_element?(view, "#draft-error")
+      refute has_element?(view, "#run-submit[disabled]")
+      view |> form("#run-form") |> render_submit()
+      render_settled(view, 1_000)
+      refute has_element?(view, "#run-error"), "#{prefix}: #{id}: #{render(view)}"
+      assert_receive {:preset_run, payload}, 1_000
+      target = get_in(payload["recoveryPolicy"], path)
+      assert target["profileId"] == id
+
+      expected = if id == "CPA claude-sonnet-5-5", do: nil, else: "lowest"
+      assert target["reasoningEffort"] == expected, "#{prefix}: #{id}"
+      refute has_element?(view, "#run-error")
+    end
+  end
 end
