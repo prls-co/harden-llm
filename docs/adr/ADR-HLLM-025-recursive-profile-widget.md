@@ -72,3 +72,17 @@ ExUnit tests, passed `make test-fast`, and passed the deterministic Go contract
 suites. No browser, live provider, Docker, or production deployment was run.
 Roll back the renderer/state/host changes and this ADR together if the public
 REST contract or profile-save ownership is intentionally changed.
+
+
+## Production correction (2026-10-13)
+
+Issue #109 found that inherited drawers and target-mode provider/key/refresh/
+pricing controls were disabled. The complete editor is now usable at all five
+leaves, including inheritance. It uses the same form/client/renderer and keeps
+complete loaded snapshots and staged credentials local to each fixed node.
+Save creates a new immutable profile and rebinds only that leaf; host echoes and
+late responses preserve current edits/folds. Changed recovery definitions must
+be saved before the generation setup can be saved/run. Host-owned bundles do
+not become recursive actions. Existing role/attempt/deadline restrictions and
+one Go engine remain. WEB-TEST-124/125 and TEST-452 add the missing shipped-data
+and inherited-editor coverage; the RCA records limitations and release proof.

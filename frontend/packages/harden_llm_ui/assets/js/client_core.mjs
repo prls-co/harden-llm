@@ -58,7 +58,7 @@ export function escapeValue({committed}) {
 }
 
 export function focusValue({value}) {
-  return {action: "select", value: text(value)};
+  return {action: "select", value: text(value), query: ""};
 }
 
 export function blurValue({value, committed, knownValues = [], allowCustom = false}) {

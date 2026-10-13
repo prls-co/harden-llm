@@ -37,6 +37,8 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
     {:topK, "Top K", nil}
   ]
 
+  @profile_editable_fields ~w(profileId profileName provider apiInferenceType baseUrl modelId credentialId supportsTemperature supportsContractedStructuredOutput supportsWebSearch maxTokens temperature topP topK stopSequences defaultOptionsJson pricingInput pricingOutput pricingCacheRead pricingCacheWrite pricingReasoning reasoningEffort tokensParam responsesTokensParam reasoningEffortMap _target)
+
   @recovery_categories [
     {"network", "Network errors"},
     {"rate_limit", "Rate limits"},
@@ -91,6 +93,9 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
      |> assign(:target_only, false)
      |> assign(:target_value, %{})
      |> assign(:target_name, "recoveryTarget")
+     |> assign(:target_editors, %{})
+     |> assign(:target_staged_keys, %{})
+     |> assign(:target_credential_open, %{})
      |> assign(:recovery_target_config_open, %{})
      |> assign(:loaded_profile_id, nil)
      |> assign(:profiles_revision, nil)
@@ -115,6 +120,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
      |> assign(:pending, nil)
      |> assign(:pending_profile_revision, nil)
      |> assign(:pending_target_path, nil)
+     |> assign(:pending_target_snapshot, nil)
      |> assign(:operation_error, nil)
      |> assign(:delete_confirm, false)}
   end
@@ -135,7 +141,10 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
     definition_revision = Map.get(assigns, :definition_revision)
     editor = Map.get(assigns, :editor_draft)
     editor_revision = if is_map(editor), do: :erlang.phash2(editor)
-    editor_changed? = is_map(editor) and editor_revision != socket.assigns.editor_draft_revision
+
+    editor_changed? =
+      is_map(editor) and editor_revision != socket.assigns.editor_draft_revision and
+        editor != socket.assigns.main_form.params
 
     definition_changed? =
       host_context == "profile_definition" and not is_nil(definition_form) and
@@ -227,6 +236,25 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
   end
 
   @impl true
+  def handle_event(event, %{"node-path" => path} = params, socket)
+      when is_binary(path) and path != "" and
+             event in [
+               "toggle-credential",
+               "stage-key",
+               "clear-staged-key",
+               "cancel-key",
+               "new-profile",
+               "profile-save",
+               "profile-refresh",
+               "profile-confirm-delete",
+               "profile-cancel-delete",
+               "profile-delete"
+             ] do
+    if valid_target_config_path?(path),
+      do: handle_target_action(event, path, params, socket),
+      else: {:noreply, socket}
+  end
+
   def handle_event("toggle-config", _params, socket) do
     if socket.assigns.fold_disabled do
       {:noreply, socket}
@@ -329,6 +357,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
   def handle_event("toggle-section", _params, socket), do: {:noreply, socket}
 
   def handle_event("profile-draft-change", %{"profile" => params}, socket) do
+    {socket, params} = edit_target_profiles(socket, params)
     socket = update_profile_form(socket, params)
 
     recovery_intent =
@@ -406,6 +435,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
 
       socket
       |> update(:recovery_target_config_open, &Map.put(&1, path, open?))
+      |> load_target_editor(path, open?)
       |> noreply()
     end
   end
@@ -473,6 +503,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
           other
       end)
     end)
+    |> noreply()
   end
 
   def handle_event("toggle-repair-escalation", _params, socket), do: {:noreply, socket}
@@ -492,6 +523,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
         _ -> policy
       end
     end)
+    |> noreply()
   end
 
   def handle_event("use-recovery-default", _params, socket), do: {:noreply, socket}
@@ -607,42 +639,47 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
     end
   end
 
-  def handle_event("profile-save", %{"node-path" => path}, socket)
-      when is_binary(path) and path != "" do
-    save_target_profile(socket, path)
-  end
-
   def handle_event("profile-save", _params, socket) do
-    if socket.assigns.pending != nil do
-      {:noreply, socket}
-    else
-      params =
-        socket
-        |> params_with_staged_key()
-        |> Map.put("recoveryPolicy", socket.assigns.active_recovery_policy)
+    cond do
+      socket.assigns.pending != nil ->
+        {:noreply, socket}
 
-      case ProfileForm.profile_payload(params) do
-        {:ok, payload} ->
-          reference = System.unique_integer([:positive, :monotonic])
-          api_context = socket.assigns.api_context
-          payload = Map.put(payload, "inputs", socket.assigns.run_inputs)
-          save_revision = socket.assigns.main_revision
+      target_profiles_require_save?(socket.assigns) ->
+        {:noreply,
+         assign(
+           socket,
+           :operation_error,
+           "Save the changed recovery profile before saving the generation setup."
+         )}
 
-          {:noreply,
-           socket
-           |> assign(:pending, reference)
-           |> assign(:pending_profile_revision, save_revision)
-           |> assign(:main_form, to_form(params, as: :profile))
-           |> start_async(
-             {:profile_save, reference},
-             HardenLlmUI.Client.propagate(fn ->
-               Client.save_profile(api_context, payload)
-             end)
-           )}
+      true ->
+        params =
+          socket
+          |> params_with_staged_key()
+          |> Map.put("recoveryPolicy", socket.assigns.active_recovery_policy)
 
-        {:error, message} ->
-          {:noreply, assign(socket, :operation_error, message)}
-      end
+        case ProfileForm.profile_payload(params) do
+          {:ok, payload} ->
+            reference = System.unique_integer([:positive, :monotonic])
+            api_context = socket.assigns.api_context
+            payload = Map.put(payload, "inputs", socket.assigns.run_inputs)
+            save_revision = socket.assigns.main_revision
+
+            {:noreply,
+             socket
+             |> assign(:pending, reference)
+             |> assign(:pending_profile_revision, save_revision)
+             |> assign(:main_form, to_form(params, as: :profile))
+             |> start_async(
+               {:profile_save, reference},
+               HardenLlmUI.Client.propagate(fn ->
+                 Client.save_profile(api_context, payload)
+               end)
+             )}
+
+          {:error, message} ->
+            {:noreply, assign(socket, :operation_error, message)}
+        end
     end
   end
 
@@ -780,6 +817,8 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
       )
       when pending_path == path do
     profiles = replace_profile(socket.assigns.profiles, profile_state)
+    params = target_editor_params(socket, path)
+    unchanged? = target_editor_snapshot(socket, path) == socket.assigns.pending_target_snapshot
 
     socket
     |> assign(:pending, nil)
@@ -787,6 +826,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
     |> assign(:profiles, profiles)
     |> assign(:profiles_revision, :erlang.phash2(profiles))
     |> assign(:operation_error, nil)
+    |> apply_saved_target(path, profile_state, params, unchanged?)
     |> notify_parent({:profile_widget_catalog, profiles})
     |> noreply()
   end
@@ -877,11 +917,112 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
     |> noreply()
   end
 
+  def handle_async({:profile_load_target, path, id}, {:ok, {:ok, draft}}, socket) do
+    params = target_editor_params(socket, path)
+
+    if params["profileId"] == id do
+      loaded = ProfileForm.profile_form(draft)
+
+      params =
+        Map.merge(params, Map.take(loaded, ~w(inputs credentialBinding credentialRevision)))
+
+      {:noreply, put_target_editor(socket, path, Map.put(params, "_snapshot_loaded", true))}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_async(
+        {:profile_load_target, _path, _id},
+        {:ok, {:error, %APIError{} = error}},
+        socket
+      ),
+      do: {:noreply, assign(socket, :operation_error, error.message)}
+
+  def handle_async(
+        {:profile_refresh_target, ref, path},
+        {:ok, {:ok, draft}},
+        %{assigns: %{pending: ref, pending_target_path: path}} = socket
+      ) do
+    params = target_editor_params(socket, path)
+
+    params =
+      if target_editor_snapshot(socket, path) == socket.assigns.pending_target_snapshot,
+        do:
+          Map.merge(
+            ProfileForm.profile_form(draft),
+            Map.take(
+              params,
+              ~w(modelId reasoningEffort defaultOptionsJson maxTokens temperature topP topK stopSequences)
+            )
+          ),
+        else: params
+
+    {:noreply,
+     socket
+     |> assign(:pending, nil)
+     |> assign(:pending_target_path, nil)
+     |> put_target_editor(path, Map.put(params, "_snapshot_loaded", true))}
+  end
+
+  def handle_async(
+        {:profile_delete_target, ref, path},
+        {:ok, {:ok, _}},
+        %{assigns: %{pending: ref, pending_target_path: path}} = socket
+      ) do
+    id = target_editor_params(socket, path)["profileId"]
+    profiles = Enum.reject(socket.assigns.profiles, &(profile_id_from_state(&1) == id))
+
+    socket =
+      socket
+      |> assign(:pending, nil)
+      |> assign(:pending_target_path, nil)
+      |> assign(:profiles, profiles)
+      |> notify_parent({:profile_widget_catalog, profiles})
+
+    handle_target_action("new-profile", path, %{}, socket)
+  end
+
+  def handle_async(
+        {operation, ref, path},
+        {:ok, {:error, %APIError{} = error}},
+        %{assigns: %{pending: ref, pending_target_path: path}} = socket
+      )
+      when operation in [:profile_refresh_target, :profile_delete_target] do
+    {:noreply,
+     socket
+     |> assign(:pending, nil)
+     |> assign(:pending_target_path, nil)
+     |> assign(:operation_error, error.message)}
+  end
+
+  def handle_async(
+        {operation, ref, path},
+        _result,
+        %{assigns: %{pending: ref, pending_target_path: path}} = socket
+      )
+      when operation in [:profile_refresh_target, :profile_delete_target] do
+    {:noreply,
+     socket
+     |> assign(:pending, nil)
+     |> assign(:pending_target_path, nil)
+     |> assign(:operation_error, "The recovery profile operation did not complete.")}
+  end
+
   def handle_async(_operation, _result, socket), do: {:noreply, socket}
 
   @impl true
   def render(assigns) do
-    assigns = Map.put_new(assigns, :host_context, "workspace")
+    assigns =
+      assigns
+      |> Map.put_new(:host_context, "workspace")
+      |> assign(:target_editor_state, %{
+        forms: assigns.target_editors,
+        staged_keys: assigns.target_staged_keys,
+        credential_open: assigns.target_credential_open,
+        pending: assigns.pending,
+        requires_save: target_profiles_require_save?(assigns)
+      })
 
     ~H"""
     <section id={@id} class="ullm-widget ullm-model-config-widget" aria-label="LLM model config">
@@ -911,6 +1052,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
           pending={@pending}
           delete_confirm={@delete_confirm}
           target_config_open={@recovery_target_config_open}
+          target_editor_state={@target_editor_state}
           generation_profile_id={@main_form.params["profileId"] || ""}
           generation_model_id={@main_form.params["modelId"] || ""}
           generation_reasoning={@main_form.params["reasoningEffort"] || ""}
@@ -966,6 +1108,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
             pending={@pending}
             delete_confirm={@delete_confirm}
             target_config_open={@recovery_target_config_open}
+            target_editor_state={@target_editor_state}
             shared_recovery_policy={@main_form.params["recoveryPolicy"] || %{}}
             shared_recovery_owner={true}
           />
@@ -1012,6 +1155,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
   attr(:pending, :any, default: nil)
   attr(:delete_confirm, :boolean, default: false)
   attr(:target_config_open, :map, default: %{})
+  attr(:target_editor_state, :map, default: %{})
   attr(:target_name, :string, default: "recoveryTarget")
   attr(:disabled, :boolean, default: false)
   attr(:change, :string, default: "profile-draft-change")
@@ -1095,6 +1239,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
           pending={@pending}
           delete_confirm={@delete_confirm}
           target_config_open={@target_config_open}
+          target_editor_state={@target_editor_state}
           generation_profile_id={@profile_value}
           generation_model_id={@model_value}
           generation_reasoning={@reasoning_value}
@@ -1120,21 +1265,21 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
         reasoning_value={@reasoning_value}
         reasoning_options={@reasoning_options}
         reasoning_change={@change}
-        reasoning_disabled={@disabled or @inherited}
+        reasoning_disabled={@disabled}
         search_input_id={if @show_search, do: "#{@id_prefix}-web-search-toggle"}
         search_enabled={@search_enabled}
         search_disabled={@disabled or @inherited}
         model_input_id={"#{@id_prefix}-model"}
         model_input_name={"#{@target_name}[modelId]"}
         model_value={@model_value}
-        model_disabled={@disabled or @inherited}
+        model_disabled={@disabled}
         config_id={if @config_path, do: "#{@id_prefix}-config-toggle"}
         config_event="toggle-recovery-target-config"
         config_path={@config_path}
         config_open={@config_open}
         row_class="ullm-recovery-profile-row"
         target={@target}
-        fold_disabled={@disabled or @inherited}
+        fold_disabled={@disabled}
       />
       <p :if={@inherited} class="ullm-field-help ullm-recovery-inherited">
         Inherited from the generation model. Choose a profile to override it.
@@ -1158,6 +1303,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
         target_repair_path={@nested_repair_path}
         api_inference_types={@api_inference_types}
         target_config_open={@target_config_open}
+        target_editor_state={@target_editor_state}
         generation_profile_id={@profile_value}
         generation_model_id={@model_value}
         generation_reasoning={@reasoning_value}
@@ -1428,6 +1574,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
   attr(:target_value, :map, default: %{})
   attr(:target_name, :string, default: "recoveryTarget")
   attr(:target_config_open, :map, default: %{})
+  attr(:target_editor_state, :map, default: %{})
   attr(:generation_profile_id, :string, default: "")
   attr(:generation_model_id, :string, default: "")
   attr(:generation_reasoning, :string, default: "")
@@ -1469,7 +1616,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
             class="ullm-input"
             phx_change="profile-draft-change"
             phx_target={@target}
-            disabled={@target_mode}
+            disabled={@fold_disabled}
           />
           <.field_error message={ProfileForm.field_error(@field_errors, "apiInferenceType")} />
         </div>
@@ -1487,7 +1634,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
             class="ullm-input ullm-input-mono"
             phx_change="profile-draft-change"
             phx_target={@target}
-            disabled={@target_mode}
+            disabled={@fold_disabled}
           />
           <datalist :if={@host_context == "profile_definition"} id="profile-base-url-options">
             <option :for={base_url <- base_url_values(@profiles)} value={base_url} />
@@ -1516,8 +1663,9 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
             id={editor_control_id(@id_prefix, "credential-toggle", @host_context)}
             class="ullm-btn ullm-btn-tiny"
             phx-click="toggle-credential"
+            phx-value-node-path={@target_path}
             phx-target={@target}
-            disabled={@fold_disabled or @target_mode}
+            disabled={@fold_disabled}
             aria-expanded={to_string(@credential_open)}
           >{if @credential_open,
             do: "Hide key",
@@ -1538,7 +1686,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
               class="ullm-input"
               phx-change="profile-draft-change"
               phx-target={@target}
-              disabled={@target_mode}
+              disabled={@fold_disabled}
             />
             <.field_error message={ProfileForm.field_error(@field_errors, "credentialId")} />
           </div>
@@ -1559,6 +1707,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
               type="button"
               class="ullm-btn ullm-btn-danger"
               phx-click="clear-staged-key"
+              phx-value-node-path={@target_path}
               phx-target={@target}
             >Clear staged key</button>
             <button
@@ -1566,6 +1715,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
               type="button"
               class="ullm-btn"
               phx-click="cancel-key"
+              phx-value-node-path={@target_path}
               phx-target={@target}
             >Cancel</button>
             <button
@@ -1573,6 +1723,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
               type="button"
               class="ullm-btn ullm-btn-primary"
               phx-click="stage-key"
+              phx-value-node-path={@target_path}
               phx-target={@target}
               data-stage-key
             >Stage key</button>
@@ -1586,8 +1737,9 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
           id={"#{@id_prefix}-refresh-models"}
           class="ullm-btn ullm-model-refresh-button"
           phx-click="profile-refresh"
+          phx-value-node-path={@target_path}
           phx-target={@target}
-          disabled={@pending != nil or profile_id(@form) == "" or @requires_save or @target_mode}
+          disabled={@pending != nil or profile_id(@form) == "" or @requires_save}
         >Refresh Models</button>
         <div class="ullm-model-slot-field">
           <label for={field_id(@id_prefix, @form[:modelId].id)}>Model ID</label>
@@ -1739,11 +1891,12 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
               role={@target_role}
               plan={@target_repair_plan}
               name={@target_repair_name}
-              path={@target_repair_path}
+              path={@target_path}
               profiles={@profiles}
               change="profile-draft-change"
               enabled={not @fold_disabled}
               target_config_open={@target_config_open}
+              target_editor_state={@target_editor_state}
               generation_profile_id={@generation_profile_id}
               generation_model_id={@generation_model_id}
               generation_reasoning={@generation_reasoning}
@@ -1762,6 +1915,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
               web_search={@web_search}
               show_rerun_search={@show_rerun_search}
               target_config_open={@target_config_open}
+              target_editor_state={@target_editor_state}
               generation_profile_id={@generation_profile_id}
               generation_model_id={@generation_model_id}
               generation_reasoning={@generation_reasoning}
@@ -1801,7 +1955,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
             class="ullm-input"
             phx-change="profile-draft-change"
             phx-target={@target}
-            disabled={@target_mode}
+            disabled={@fold_disabled}
           />
           <.input
             field={@form[:pricingOutput]}
@@ -1814,7 +1968,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
             class="ullm-input"
             phx-change="profile-draft-change"
             phx-target={@target}
-            disabled={@target_mode}
+            disabled={@fold_disabled}
           />
           <.input
             field={@form[:pricingCacheRead]}
@@ -1827,7 +1981,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
             class="ullm-input"
             phx-change="profile-draft-change"
             phx-target={@target}
-            disabled={@target_mode}
+            disabled={@fold_disabled}
           />
           <.input
             field={@form[:pricingCacheWrite]}
@@ -1841,7 +1995,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
             class="ullm-input"
             phx-change="profile-draft-change"
             phx-target={@target}
-            disabled={@target_mode}
+            disabled={@fold_disabled}
           />
           <.input
             field={@form[:pricingReasoning]}
@@ -1855,7 +2009,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
             class="ullm-input"
             phx-change="profile-draft-change"
             phx-target={@target}
-            disabled={@target_mode}
+            disabled={@fold_disabled}
           />
         </div>
       </div>
@@ -1873,20 +2027,30 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
           type="button"
           class="ullm-btn"
           phx-click="new-profile"
+          phx-value-node-path={@target_path}
           phx-target={@target}
-          disabled={@target_mode}
+          disabled={@fold_disabled}
         >+ New</button>
-        <label id={scope_id(@id_prefix, "bundle-file")} class="ullm-btn ullm-file-button">
+        <label
+          :if={not @target_mode}
+          id={scope_id(@id_prefix, "bundle-file")}
+          class="ullm-btn ullm-file-button"
+        >
           Import Bundle
           <.live_file_input
             :if={@bundle_upload}
             upload={@bundle_upload}
             phx-change="import-bundle"
             phx-value-widget={@widget_id}
-            disabled={@target_mode}
+            disabled={@fold_disabled}
           />
         </label>
-        <a id={scope_id(@id_prefix, "export-bundle")} href={@bundle_export_url} class="ullm-btn">Export Bundle</a>
+        <a
+          :if={not @target_mode}
+          id={scope_id(@id_prefix, "export-bundle")}
+          href={@bundle_export_url}
+          class="ullm-btn"
+        >Export Bundle</a>
         <button
           id={scope_id(@id_prefix, "save")}
           type="button"
@@ -1896,10 +2060,11 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
           phx-value-node-path={@target_path}
           disabled={
             @pending != nil or String.trim(@form.params["profileName"] || "") == "" or
+              (not @target_mode and Map.get(@target_editor_state, :requires_save, false)) or
               not ProfileForm.options_valid?(@form[:defaultOptionsJson].value)
           }
         >{if @target_mode,
-          do: "Save shared profile",
+          do: "Save Profile",
           else: if(@pending, do: "Saving…", else: "Save Profile")}</button>
         <button
           :if={profile_id(@form) != ""}
@@ -1907,9 +2072,10 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
           type="button"
           class="ullm-btn ullm-btn-danger"
           phx-click="profile-confirm-delete"
+          phx-value-node-path={@target_path}
           phx-target={@target}
           phx-value-node-path={@target_path}
-          disabled={@target_mode}
+          disabled={@fold_disabled}
         >Delete Profile</button>
       </div>
 
@@ -1925,6 +2091,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
           type="button"
           class="ullm-btn"
           phx-click="profile-cancel-delete"
+          phx-value-node-path={@target_path}
           phx-target={@target}
         >Cancel</button>
         <button
@@ -1932,6 +2099,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
           type="button"
           class="ullm-btn ullm-btn-danger"
           phx-click="profile-delete"
+          phx-value-node-path={@target_path}
           phx-target={@target}
         >Confirm delete</button>
       </div>
@@ -2037,6 +2205,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
   attr(:change, :string, default: "profile-draft-change")
   attr(:enabled, :boolean, default: true)
   attr(:target_config_open, :map, default: %{})
+  attr(:target_editor_state, :map, default: %{})
   attr(:generation_profile_id, :string, default: "")
   attr(:generation_model_id, :string, default: "")
   attr(:generation_reasoning, :string, default: "")
@@ -2096,6 +2265,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
           change={@change}
           enabled={@enabled}
           target_config_open={@target_config_open}
+          target_editor_state={@target_editor_state}
           label="LLM JSON repair after rerun"
           generation_profile_id={@generation_profile_id}
           generation_model_id={@generation_model_id}
@@ -2124,6 +2294,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
   attr(:web_search, :boolean, default: false)
   attr(:show_rerun_search, :boolean, default: false)
   attr(:target_config_open, :map, default: %{})
+  attr(:target_editor_state, :map, default: %{})
   attr(:generation_profile_id, :string, default: "")
   attr(:generation_model_id, :string, default: "")
   attr(:generation_reasoning, :string, default: "")
@@ -2216,6 +2387,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
           preview={@json_repair_preview? or not @json_repair_enabled?}
           label="LLM JSON repair"
           target_config_open={@target_config_open}
+          target_editor_state={@target_editor_state}
           generation_profile_id={@generation_profile_id}
           generation_model_id={@generation_model_id}
           generation_reasoning={@generation_reasoning}
@@ -2236,6 +2408,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
           search_enabled={@web_search}
           show_generation_search={@show_rerun_search}
           target_config_open={@target_config_open}
+          target_editor_state={@target_editor_state}
           generation_profile_id={@generation_profile_id}
           generation_model_id={@generation_model_id}
           generation_reasoning={@generation_reasoning}
@@ -2275,6 +2448,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
   attr(:nested_repair_name, :string, default: "recoveryPolicy[rerun][jsonRepair]")
   attr(:nested_repair_path, :string, default: "rerun.jsonRepair")
   attr(:target_config_open, :map, default: %{})
+  attr(:target_editor_state, :map, default: %{})
   attr(:api_inference_types, :list, default: @api_inference_types)
   attr(:generation_profile_id, :string, default: "")
   attr(:generation_model_id, :string, default: "")
@@ -2297,7 +2471,12 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
 
     profile_id = display_target["profileId"] || ""
     profile_options = profile_combobox_options(assigns.profiles)
-    target_form = target_profile_form(assigns.profiles, display_target, assigns.name)
+
+    target_form =
+      case get_in(assigns.target_editor_state, [:forms, assigns.config_path]) do
+        params when is_map(params) -> to_form(params, as: assigns.name)
+        _ -> target_profile_form(assigns.profiles, display_target, assigns.name)
+      end
 
     assigns =
       assign(assigns,
@@ -2308,7 +2487,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
         reasoning_options: reasoning_options(assigns.profiles, profile_id),
         target_form: target_form,
         target_path: assigns.config_path || assigns.nested_repair_path,
-        target_config_visible?: assigns.config_open and not inherited?
+        target_config_visible?: assigns.config_open
       )
 
     ~H"""
@@ -2346,6 +2525,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
           target_path={@target_path}
           api_inference_types={@api_inference_types}
           target_config_open={@target_config_open}
+          target_editor_state={@target_editor_state}
           inherited={@inherited}
           shared_recovery_policy={@shared_recovery_policy}
           shared_recovery_owner={@shared_recovery_owner}
@@ -2371,6 +2551,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
   attr(:nested_repair_name, :string, default: "recoveryPolicy[rerun][jsonRepair]")
   attr(:nested_repair_path, :string, default: "rerun.jsonRepair")
   attr(:target_config_open, :map, default: %{})
+  attr(:target_editor_state, :map, default: %{})
   attr(:target_form, :any, required: true)
   attr(:target_role, :string, default: "json_repair")
   attr(:target_path, :string, required: true)
@@ -2395,22 +2576,32 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
         field_errors={%{}}
         recovery_policy_default={%{}}
         api_inference_types={@api_inference_types}
-        model_catalog={[]}
-        model_options={[]}
-        requires_save={false}
+        model_catalog={@target_form.params["definition"]["models"] || []}
+        model_options={@target_form.params["definition"]["models"] || []}
+        requires_save={
+          target_editor_requires_save?(
+            @target_form.params,
+            @target_editor_state,
+            @target_path,
+            @profiles
+          )
+        }
         fold_disabled={not @enabled}
-        credential_open={false}
+        credential_open={get_in(@target_editor_state, [:credential_open, @target_path]) == true}
         options_open={Map.get(@target_config_open, "#{@target_path}.options", false)}
         retry_open={Map.get(@target_config_open, "#{@target_path}.retry", true)}
         pricing_open={Map.get(@target_config_open, "#{@target_path}.pricing", false)}
-        staged_key=""
+        staged_key={get_in(@target_editor_state, [:staged_keys, @target_path]) || ""}
         cache_mode="cache"
         web_search={false}
         show_rerun_search={false}
         bundle_upload={nil}
         widget_id={@target_path}
-        pending={nil}
-        delete_confirm={false}
+        pending={
+          Map.get(@target_editor_state, :pending) ||
+            if(@target_form.params["_snapshot_loaded"] != true, do: :loading)
+        }
+        delete_confirm={@target_form.params["_delete_confirm"] == true}
         target_mode={true}
         target_role={@target_role}
         target_path={@target_path}
@@ -2418,6 +2609,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
         target_repair_name={@nested_repair_name}
         target_repair_path={@nested_repair_path}
         target_config_open={@target_config_open}
+        target_editor_state={@target_editor_state}
         generation_profile_id={@generation_profile_id}
         generation_model_id={@generation_model_id}
         generation_reasoning={@generation_reasoning}
@@ -2441,6 +2633,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
   attr(:enabled, :boolean, default: true)
   attr(:preview, :boolean, default: false)
   attr(:target_config_open, :map, default: %{})
+  attr(:target_editor_state, :map, default: %{})
   attr(:generation_profile_id, :string, default: "")
   attr(:generation_model_id, :string, default: "")
   attr(:generation_reasoning, :string, default: "")
@@ -2476,6 +2669,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
         config_path={"#{@path}.initial"}
         config_open={Map.get(@target_config_open, "#{@path}.initial", false)}
         target_config_open={@target_config_open}
+        target_editor_state={@target_editor_state}
         generation_profile_id={@generation_profile_id}
         generation_model_id={@generation_model_id}
         generation_reasoning={@generation_reasoning}
@@ -2506,6 +2700,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
         config_path={"#{@path}.escalation"}
         config_open={Map.get(@target_config_open, "#{@path}.escalation", false)}
         target_config_open={@target_config_open}
+        target_editor_state={@target_editor_state}
         generation_profile_id={@generation_profile_id}
         generation_model_id={@generation_model_id}
         generation_reasoning={@generation_reasoning}
@@ -2528,6 +2723,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
   attr(:show_generation_search, :boolean, default: false)
   attr(:search_enabled, :boolean, default: false)
   attr(:target_config_open, :map, default: %{})
+  attr(:target_editor_state, :map, default: %{})
   attr(:generation_profile_id, :string, default: "")
   attr(:generation_model_id, :string, default: "")
   attr(:generation_reasoning, :string, default: "")
@@ -2567,6 +2763,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
           nested_repair_name={"#{@name}[jsonRepair]"}
           nested_repair_path={"#{@path}.jsonRepair"}
           target_config_open={@target_config_open}
+          target_editor_state={@target_editor_state}
           generation_profile_id={@generation_profile_id}
           generation_model_id={@generation_model_id}
           generation_reasoning={@generation_reasoning}
@@ -2603,8 +2800,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
       "temperature" => option_text(options["temperature"]),
       "topP" => option_text(options["top_p"] || options["topP"]),
       "topK" => option_text(options["top_k"] || options["topK"]),
-      "stopSequences" => stop_text(options["stop"]),
-      "recoveryPolicy" => %{}
+      "stopSequences" => stop_text(options["stop"])
     })
     |> then(&to_form(&1, as: name))
   end
@@ -2643,6 +2839,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
   defp encode_target_options(_options), do: ""
 
   defp reset_profile_forms(socket, profiles, selected_profile_id) do
+    reset_targets? = socket.assigns.loaded_profile_id != selected_profile_id
     editor = Map.get(socket.assigns, :editor_draft)
 
     form =
@@ -2654,7 +2851,19 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
     socket
     |> assign(:selected_profile_id, selected_profile_id)
     |> assign(:main_form, form)
-    |> assign(:recovery_target_config_open, %{})
+    |> assign(
+      :recovery_target_config_open,
+      if(reset_targets?, do: %{}, else: socket.assigns.recovery_target_config_open)
+    )
+    |> assign(:target_editors, if(reset_targets?, do: %{}, else: socket.assigns.target_editors))
+    |> assign(
+      :target_staged_keys,
+      if(reset_targets?, do: %{}, else: socket.assigns.target_staged_keys)
+    )
+    |> assign(
+      :target_credential_open,
+      if(reset_targets?, do: %{}, else: socket.assigns.target_credential_open)
+    )
     |> assign(:main_staged_key, "")
     |> assign(:main_requires_save?, false)
     |> sync_active_recovery_policy()
@@ -2667,7 +2876,6 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
       previous_params
       |> ProfileWidgetState.merge_draft(incoming)
       |> synchronize_profile_options(incoming)
-      |> reset_changed_recovery_targets(previous_params, socket.assigns.profiles)
       |> canonicalize_recovery_policy()
 
     socket =
@@ -2691,25 +2899,6 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
     Map.put(params, "recoveryPolicy", policy)
   end
 
-  defp reset_changed_recovery_targets(params, previous_params, profiles) do
-    Enum.reduce(@recovery_target_paths, params, fn path, acc ->
-      previous = safe_get_in(previous_params, ["recoveryPolicy" | path])
-      current = safe_get_in(acc, ["recoveryPolicy" | path])
-
-      if is_map(previous) and is_map(current) and
-           Map.get(previous, "profileId") != Map.get(current, "profileId") and
-           is_binary(Map.get(current, "profileId")) and Map.get(current, "profileId") != "" do
-        put_in(
-          acc,
-          ["recoveryPolicy" | path],
-          ProfileWidgetState.reset_recovery_target_for_profile(current, profiles)
-        )
-      else
-        acc
-      end
-    end)
-  end
-
   defp safe_get_in(value, path) do
     Enum.reduce_while(path, value, fn key, current ->
       if is_map(current), do: {:cont, Map.get(current, key)}, else: {:halt, nil}
@@ -2723,6 +2912,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
         _ -> put_in(policy, path, default_fun.())
       end
     end)
+    |> noreply()
   end
 
   defp default_recovery_branch(socket, path, fallback_fun) do
@@ -2792,7 +2982,6 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
     |> assign(:main_dirty?, true)
     |> mark_main_edit()
     |> notify_profile_runtime(policy)
-    |> noreply()
   end
 
   defp synchronize_profile_options(params, incoming) do
@@ -2850,37 +3039,269 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
   defp stop_text(value) when is_list(value), do: Enum.join(value, "\n")
   defp stop_text(_value), do: ""
 
+  defp target_editor_params(socket, path) do
+    case socket.assigns.target_editors[path] do
+      params when is_map(params) ->
+        params
+
+      _ ->
+        root = socket.assigns.main_form.params
+        target = safe_get_in(root, ["recoveryPolicy" | String.split(path, ".")]) || %{}
+
+        target =
+          effective_recovery_target(
+            target,
+            root["profileId"],
+            root["modelId"],
+            socket.assigns.reasoning_effort
+          )
+
+        target_profile_form(socket.assigns.profiles, target, "profile").params
+    end
+  end
+
+  defp put_target_editor(socket, path, params),
+    do: update(socket, :target_editors, &Map.put(&1, path, Map.delete(params, "apiKey")))
+
+  defp load_target_editor(socket, _path, false), do: socket
+
+  defp load_target_editor(socket, path, true) do
+    params = target_editor_params(socket, path)
+    id = params["profileId"] || ""
+    socket = put_target_editor(socket, path, params)
+
+    if id != "" and params["_snapshot_loaded"] != true do
+      context = socket.assigns.api_context
+
+      start_async(
+        socket,
+        {:profile_load_target, path, id},
+        Client.propagate(fn -> Client.get_profile(context, id) end)
+      )
+    else
+      socket
+    end
+  end
+
+  # All five leaves use the same form conversion and option normalization as
+  # generation. Definition edits remain local until explicit create-on-save.
+  defp edit_target_profiles(socket, incoming) do
+    Enum.reduce(@recovery_target_paths, {socket, incoming}, fn keys, {socket, incoming} ->
+      fields = safe_get_in(incoming, ["recoveryPolicy" | keys])
+
+      if is_map(fields) do
+        path = Enum.join(keys, ".")
+        original = target_editor_params(socket, path)
+        selected = fields["profileId"] || original["profileId"]
+        changed_profile? = selected != original["profileId"]
+
+        base =
+          if changed_profile?,
+            do:
+              target_profile_form(
+                socket.assigns.profiles,
+                %{"source" => "profile", "profileId" => selected},
+                "profile"
+              ).params,
+            else: original
+
+        edited =
+          base
+          |> ProfileWidgetState.merge_draft(Map.take(fields, @profile_editable_fields))
+          |> synchronize_profile_options(fields)
+
+        changed? =
+          changed_profile? or
+            Map.drop(edited, ~w(source apiKey)) != Map.drop(base, ~w(source apiKey))
+
+        wire =
+          if changed?,
+            do:
+              %{
+                "source" => "profile",
+                "profileId" => edited["profileId"],
+                "modelId" => edited["modelId"],
+                "reasoningEffort" => edited["reasoningEffort"] || "",
+                "providerOptions" => ProfileForm.runtime_options(edited["defaultOptionsJson"])
+              }
+              |> ProfileWidgetState.serialize_recovery_target(),
+            else:
+              safe_get_in(socket.assigns.main_form.params, ["recoveryPolicy" | keys]) ||
+                ProfileWidgetState.serialize_recovery_target(fields)
+
+        socket = if changed?, do: put_target_editor(socket, path, edited), else: socket
+        socket = if changed_profile?, do: load_target_editor(socket, path, true), else: socket
+        {socket, put_in(incoming, ["recoveryPolicy" | keys], wire)}
+      else
+        {socket, incoming}
+      end
+    end)
+  end
+
+  defp target_editor_snapshot(socket, path),
+    do:
+      :erlang.phash2(
+        {target_editor_params(socket, path), socket.assigns.target_staged_keys[path]}
+      )
+
+  defp start_target_request(socket, operation, path, fun) do
+    reference = System.unique_integer([:positive, :monotonic])
+
+    socket
+    |> assign(:pending, reference)
+    |> assign(:pending_target_path, path)
+    |> assign(:pending_target_snapshot, target_editor_snapshot(socket, path))
+    |> start_async({operation, reference, path}, Client.propagate(fun))
+  end
+
+  defp handle_target_action(event, path, params, socket) do
+    editor = target_editor_params(socket, path)
+    context = socket.assigns.api_context
+    id = editor["profileId"] || ""
+
+    case event do
+      "toggle-credential" ->
+        {:noreply,
+         update(
+           socket,
+           :target_credential_open,
+           &Map.update(&1, path, true, fn open -> not open end)
+         )}
+
+      "stage-key" ->
+        key = String.trim(params["apiKey"] || params["api-key"] || "")
+
+        if key == "" do
+          {:noreply,
+           assign(socket, :operation_error, "Enter a replacement API key before staging it.")}
+        else
+          {:noreply,
+           socket
+           |> update(:target_staged_keys, &Map.put(&1, path, key))
+           |> update(:target_credential_open, &Map.put(&1, path, false))
+           |> notify_profile_runtime()}
+        end
+
+      action when action in ["clear-staged-key", "cancel-key"] ->
+        {:noreply,
+         socket
+         |> update(:target_staged_keys, &Map.delete(&1, path))
+         |> update(:target_credential_open, &Map.put(&1, path, false))
+         |> notify_profile_runtime()}
+
+      "profile-confirm-delete" ->
+        {:noreply, put_target_editor(socket, path, Map.put(editor, "_delete_confirm", true))}
+
+      "profile-cancel-delete" ->
+        {:noreply, put_target_editor(socket, path, Map.put(editor, "_delete_confirm", false))}
+
+      "new-profile" ->
+        editor =
+          ProfileForm.empty_form(socket.assigns.recovery_policy_default)
+          |> Map.put("inputs", socket.assigns.run_inputs)
+          |> Map.put("_snapshot_loaded", true)
+
+        socket =
+          put_target_editor(socket, path, editor)
+          |> update(:target_staged_keys, &Map.delete(&1, path))
+
+        {:noreply,
+         update_recovery_draft(socket, fn policy ->
+           put_in(policy, String.split(path, "."), %{"source" => "profile", "profileId" => ""})
+         end)}
+
+      "profile-save" ->
+        save_target_profile(socket, path)
+
+      action
+      when socket.assigns.pending != nil and action in ["profile-refresh", "profile-delete"] ->
+        {:noreply, socket}
+
+      "profile-refresh" ->
+        if definition_requires_save?(
+             editor,
+             socket.assigns.target_staged_keys[path] || "",
+             socket.assigns.profiles
+           ) or id == "" do
+          {:noreply,
+           assign(socket, :operation_error, "Save this profile before refreshing models.")}
+        else
+          {:noreply,
+           start_target_request(socket, :profile_refresh_target, path, fn ->
+             Client.refresh_profile_models(context, id)
+           end)}
+        end
+
+      "profile-delete" ->
+        if editor["_delete_confirm"] == true and id != "" do
+          {:noreply,
+           start_target_request(socket, :profile_delete_target, path, fn ->
+             Client.delete_profile(context, id)
+           end)}
+        else
+          {:noreply, socket}
+        end
+    end
+  end
+
+  defp apply_saved_target(socket, _path, _profile, _params, false), do: socket
+
+  defp apply_saved_target(socket, path, profile, params, true) do
+    # Save creates a new snapshot; rebind only this leaf, never its siblings/root.
+    editor =
+      ProfileForm.profile_form(Map.put(profile, "inputs", params["inputs"]))
+      |> Map.put("_snapshot_loaded", true)
+
+    socket =
+      socket
+      |> put_target_editor(path, editor)
+      |> update(:target_staged_keys, &Map.delete(&1, path))
+
+    update_recovery_draft(socket, fn policy ->
+      put_in(policy, String.split(path, "."), %{
+        "source" => "profile",
+        "profileId" => profile["id"],
+        "modelId" => profile["definition"]["modelId"],
+        "reasoningEffort" => params["reasoningEffort"] || ""
+      })
+    end)
+  end
+
+  defp save_target_profile(%{assigns: %{pending: pending}} = socket, _path)
+       when not is_nil(pending), do: {:noreply, socket}
+
   defp save_target_profile(socket, path) do
     keys = String.split(path, ".", trim: true)
     policy = socket.assigns.main_form.params["recoveryPolicy"] || %{}
     target = get_in(policy, keys) |> ProfileWidgetState.serialize_recovery_target()
-    profile_id = String.trim(target["profileId"] || "")
+    params = target_editor_params(socket, path) |> target_profile_save_params(target)
 
-    with false <-
-           is_nil(Enum.find(socket.assigns.profiles, &(profile_id_from_state(&1) == profile_id))),
-         profile_state <-
-           Enum.find(socket.assigns.profiles, &(profile_id_from_state(&1) == profile_id)),
-         params <- target_profile_save_params(ProfileForm.profile_form(profile_state), target),
+    inputs =
+      Map.merge(params["inputs"] || %{}, %{
+        "modelId" => params["modelId"],
+        "providerOptions" => ProfileForm.runtime_options(params["defaultOptionsJson"])
+      })
+
+    params = Map.put(params, "inputs", inputs)
+    socket = put_target_editor(socket, path, params)
+    params = Map.put(params, "apiKey", socket.assigns.target_staged_keys[path] || "")
+
+    with true <- params["_snapshot_loaded"] == true,
          {:ok, payload} <- ProfileForm.profile_payload(params) do
-      reference = System.unique_integer([:positive, :monotonic])
       api_context = socket.assigns.api_context
 
       {:noreply,
-       socket
-       |> assign(:pending, reference)
-       |> assign(:pending_target_path, path)
-       |> start_async(
-         {:profile_save_target, reference, path},
-         HardenLlmUI.Client.propagate(fn ->
-           Client.save_profile(api_context, payload)
-         end)
-       )}
+       start_target_request(socket, :profile_save_target, path, fn ->
+         Client.save_profile(api_context, payload)
+       end)}
     else
-      true ->
-        {:noreply, assign(socket, :operation_error, "Select a saved profile before saving it.")}
-
-      nil ->
-        {:noreply, assign(socket, :operation_error, "Select a saved profile before saving it.")}
+      false ->
+        {:noreply,
+         assign(
+           socket,
+           :operation_error,
+           "Load this profile's complete snapshot before saving it."
+         )}
 
       {:error, message} ->
         {:noreply, assign(socket, :operation_error, message)}
@@ -3003,12 +3424,35 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
     options = ProfileForm.runtime_options(form.params["defaultOptionsJson"])
     main_requires_save? = profile_requires_save?(socket)
 
+    target_requires_save? = target_profiles_require_save?(socket.assigns)
+
     socket
     |> assign(:main_requires_save?, main_requires_save?)
     |> notify_parent({:profile_widget_editor, Map.delete(form.params, "apiKey")})
     |> notify_parent({:profile_widget_provider_options, options})
     |> maybe_notify_recovery(recovery_intent)
-    |> notify_parent({:profile_widget_profile_dirty, main_requires_save?})
+    |> notify_parent(
+      {:profile_widget_profile_dirty, main_requires_save? or target_requires_save?}
+    )
+  end
+
+  defp target_profiles_require_save?(assigns) do
+    Enum.any?(@recovery_target_paths, fn keys ->
+      path = Enum.join(keys, ".")
+
+      is_map(safe_get_in(assigns.active_recovery_policy, keys)) and
+        case assigns.target_editors[path] do
+          params when is_map(params) ->
+            definition_requires_save?(
+              params,
+              assigns.target_staged_keys[path] || "",
+              assigns.profiles
+            )
+
+          _ ->
+            false
+        end
+    end)
   end
 
   defp maybe_notify_recovery(socket, recovery_intent) when is_map(recovery_intent) do
@@ -3036,13 +3480,21 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
   defp mark_main_edit(socket), do: update(socket, :main_revision, &(&1 + 1))
 
   defp profile_requires_save?(socket) do
-    form = socket.assigns.main_form
-    params = form.params || %{}
+    definition_requires_save?(
+      socket.assigns.main_form.params || %{},
+      socket.assigns.main_staged_key,
+      socket.assigns.profiles
+    )
+  end
+
+  defp target_editor_requires_save?(params, state, path, profiles),
+    do: definition_requires_save?(params, get_in(state, [:staged_keys, path]) || "", profiles)
+
+  defp definition_requires_save?(params, staged_key, profiles) do
     id = String.trim(params["profileId"] || "")
-    staged_key = socket.assigns.main_staged_key
     current = profile_dirty_params(params)
 
-    case Enum.find(socket.assigns.profiles, &(profile_id_from_state(&1) == id)) do
+    case Enum.find(profiles, &(profile_id_from_state(&1) == id)) do
       nil ->
         staged_key != "" or
           ProfileWidgetState.dirty_fields(new_profile_dirty_baseline(), current) != MapSet.new()
@@ -3057,7 +3509,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
   defp profile_dirty_params(params) do
     Map.take(
       params,
-      ~w(profileId provider apiInferenceType baseUrl credentialId)
+      ~w(profileId provider apiInferenceType baseUrl credentialId supportsTemperature supportsContractedStructuredOutput supportsWebSearch tokensParam responsesTokensParam reasoningEffortMap pricingInput pricingOutput pricingCacheRead pricingCacheWrite pricingReasoning)
     )
   end
 
@@ -3113,7 +3565,13 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
         label: profile_state["name"] || id,
         search:
           Enum.join(
-            [id, profile["modelId"], profile["baseUrl"], profile["apiInferenceType"] | models],
+            [
+              id,
+              profile_state["name"],
+              profile["modelId"],
+              profile["baseUrl"],
+              profile["apiInferenceType"] | models
+            ],
             " "
           )
       }

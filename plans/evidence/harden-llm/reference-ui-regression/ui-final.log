@@ -1,0 +1,8 @@
+Compiling 1 file (.ex)
+Running ExUnit with seed: 426059, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+...............
+Finished in 3.2 seconds (3.2s async, 0.00s sync)
+
+Result: 15 passed

@@ -36,7 +36,17 @@ test("focus selects the committed value without requiring a DOM", () => {
   assert.deepEqual(focusValue({value: "gpt-5.6-luna"}), {
     action: "select",
     value: "gpt-5.6-luna",
+    query: "",
   });
+});
+
+test("opening a preset picker shows the whole catalog before the user types", () => {
+  const decision = focusValue({value: "CPA GPT-5.6 Luna"});
+  const catalog = ["CPA GPT-5.6 Luna", "CPA GPT-5.6 Sol", "Gemini 3.7 Flash"]
+    .map(value => ({value, search: value}));
+  assert.deepEqual(visibleOptionIndices(catalog, decision.query), [0, 1, 2]);
+  assert.equal(decision.query, "");
+  assert.deepEqual(visibleOptionIndices(catalog, "Sol"), [1]);
 });
 
 test("normalizes search text and returns visible option indices", () => {

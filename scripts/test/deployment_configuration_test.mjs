@@ -45,3 +45,12 @@ test("required connection and bearer inputs fail explicitly", () => {
     /HARDEN_LLM_CONFIG_FILE must be an absolute path/,
   );
 });
+
+test("approved provider credentials reach the gateway environment without copying unrelated secrets", () => {
+  const keys = ["GEMINI_API_KEY", "NOVITA_API_KEY", "OPENROUTER_API_KEY", "PERPLEXITY_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"];
+  const providerValues = Object.fromEntries(keys.map(key => [key, `fixture-${key}`]));
+  const selected = applicationEnvironment({...fixture, ...providerValues});
+  for (const key of keys) assert.equal(selected[key], providerValues[key]);
+  assert.equal(selected.UNRELATED_SECRET, undefined);
+  assert.equal(selected.HARDEN_LLM_STATIC_TOKEN, undefined);
+});

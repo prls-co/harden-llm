@@ -49,15 +49,29 @@
     "inputs": {
       "modelId": "claude-haiku-4-5-20251001",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
-      "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -114,15 +128,29 @@
     "inputs": {
       "modelId": "claude-opus-4-7",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
-      "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -179,15 +207,29 @@
     "inputs": {
       "modelId": "claude-opus-5",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
-      "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -244,15 +286,29 @@
     "inputs": {
       "modelId": "claude-sonnet-4-6",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
-      "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -309,15 +365,29 @@
     "inputs": {
       "modelId": "claude-sonnet-5",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
-      "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -392,15 +462,30 @@
     "inputs": {
       "modelId": "gpt-5.6-luna",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -475,15 +560,30 @@
     "inputs": {
       "modelId": "gpt-5.6-sol",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -557,15 +657,30 @@
     "inputs": {
       "modelId": "gemini-3.1-flash-lite",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -639,15 +754,30 @@
     "inputs": {
       "modelId": "gemini-3.1-pro-preview",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -721,15 +851,30 @@
     "inputs": {
       "modelId": "gemini-3.5-flash",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -803,15 +948,30 @@
     "inputs": {
       "modelId": "gemini-3.5-flash-lite",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -885,15 +1045,30 @@
     "inputs": {
       "modelId": "gemini-3.7-flash",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -968,15 +1143,30 @@
     "inputs": {
       "modelId": "deepseek/deepseek-v4-flash",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -1051,15 +1241,30 @@
     "inputs": {
       "modelId": "deepseek/deepseek-v4-pro",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -1133,15 +1338,30 @@
     "inputs": {
       "modelId": "gpt-5.4",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -1215,15 +1435,30 @@
     "inputs": {
       "modelId": "gpt-5.4-mini",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -1297,15 +1532,30 @@
     "inputs": {
       "modelId": "gpt-5.5",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -1379,15 +1629,30 @@
     "inputs": {
       "modelId": "gpt-5.6-luna",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -1461,15 +1726,30 @@
     "inputs": {
       "modelId": "gpt-5.6-sol",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -1530,15 +1810,30 @@
     "inputs": {
       "modelId": "deepseek/deepseek-v4-flash",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -1605,15 +1900,30 @@
     "inputs": {
       "modelId": "deepseek/deepseek-v4-pro",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -1674,15 +1984,30 @@
     "inputs": {
       "modelId": "openai/gpt-oss-120b",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -1743,15 +2068,30 @@
     "inputs": {
       "modelId": "openai/gpt-oss-20b",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
       "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",
@@ -1808,15 +2148,29 @@
     "inputs": {
       "modelId": "openai/gpt-6.1-sol",
       "callType": "structured",
-      "systemPrompt": "",
+      "systemPrompt": "You are a helpful assistant",
       "schema": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
       },
-      "reasoningEffort": "middle",
       "providerOptions": {},
       "cacheMode": "off",
       "webSearch": false,
-      "timeoutMs": 60000
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
     },
     "credentialBinding": {
       "source": "deployment",

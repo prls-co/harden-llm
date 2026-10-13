@@ -1,0 +1,95 @@
+TAP version 13
+# Subtest: Enter is consumed in a combobox even when its committed selection is unchanged
+ok 1 - Enter is consumed in a combobox even when its committed selection is unchanged
+  ---
+  duration_ms: 3.649468
+  type: 'test'
+  ...
+# Subtest: focus selects the committed value without requiring a DOM
+ok 2 - focus selects the committed value without requiring a DOM
+  ---
+  duration_ms: 2.061162
+  type: 'test'
+  ...
+# Subtest: opening a preset picker shows the whole catalog before the user types
+not ok 3 - opening a preset picker shows the whole catalog before the user types
+  ---
+  duration_ms: 2.040091
+  type: 'test'
+  location: '/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/assets/test/client_core.test.mjs:42:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+
+    undefined !== ''
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: ''
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/assets/test/client_core.test.mjs:47:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: normalizes search text and returns visible option indices
+ok 4 - normalizes search text and returns visible option indices
+  ---
+  duration_ms: 0.431941
+  type: 'test'
+  ...
+# Subtest: reports empty-state visibility from the visible option count
+ok 5 - reports empty-state visibility from the visible option count
+  ---
+  duration_ms: 0.22324
+  type: 'test'
+  ...
+# Subtest: wraps highlighted option indices in either direction
+ok 6 - wraps highlighted option indices in either direction
+  ---
+  duration_ms: 0.241967
+  type: 'test'
+  ...
+# Subtest: commits known values, allowed custom values, or a safe reversion
+ok 7 - commits known values, allowed custom values, or a safe reversion
+  ---
+  duration_ms: 0.57849
+  type: 'test'
+  ...
+# Subtest: escape always restores the committed value and blur follows the ownership rule
+ok 8 - escape always restores the committed value and blur follows the ownership rule
+  ---
+  duration_ms: 0.315357
+  type: 'test'
+  ...
+# Subtest: qualifies only the intended modified-enter submit shortcut
+ok 9 - qualifies only the intended modified-enter submit shortcut
+  ---
+  duration_ms: 0.829552
+  type: 'test'
+  ...
+# Subtest: builds a schema check event from the current control value
+ok 10 - builds a schema check event from the current control value
+  ---
+  duration_ms: 0.664875
+  type: 'test'
+  ...
+# Subtest: returns schema-pending presentation without DOM state
+ok 11 - returns schema-pending presentation without DOM state
+  ---
+  duration_ms: 0.302744
+  type: 'test'
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 10
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 241.157034

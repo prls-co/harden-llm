@@ -1,0 +1,31 @@
+Running ExUnit with seed: 871937, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+
+
+  1) test fresh load and every shipped preset allow text and structured Run through the rendered control (HardenLlmWeb.ShippedPresetsTest)
+     test/harden_llm_web/live/shipped_presets_test.exs:83
+     Expected false or nil, got true
+     code: refute has_element?(view, "#run-submit[disabled]")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN4hjAznGDQ0pxpE",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.939.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#run-submit[disabled]"
+
+     stacktrace:
+       test/harden_llm_web/live/shipped_presets_test.exs:88: (test)
+
+
+Finished in 0.4 seconds (0.4s async, 0.00s sync)
+
+Result: 0/1 passed
+Failed: 1 test

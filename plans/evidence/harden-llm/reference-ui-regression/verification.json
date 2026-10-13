@@ -1,0 +1,23 @@
+{
+  "baseline": "754690c8d0890c664d69fbdf526b16b3e5601060",
+  "affectedApplication": "bbdb5d77bc76424804427ca30a7bf9ddc453d0cf",
+  "shippedPresets": 24,
+  "referenceModeSubmissions": 48,
+  "focusedUI": "15 passed",
+  "catalogPrepare": "24 presets, both modes; no provider execution",
+  "deploymentNodeTests": "30 passed",
+  "fast": {
+    "accepted": true,
+    "taskCount": 10,
+    "cleanupErrors": [],
+    "cleanupWarnings": []
+  },
+  "draftInspection": {
+    "invalidPlaceholderRows": 1,
+    "totalRows": 1,
+    "contentsRead": false
+  },
+  "browserRun": false,
+  "liveInference": false,
+  "releaseAndDeployment": "pending; issue #109 owns exact-source certification and production proof"
+}

@@ -130,7 +130,7 @@ const SearchableCombobox = {
       const decision = focusValue({value: this.committed})
       this.input.value = decision.value
       this.input.select()
-      this.filterOptions()
+      this.filterOptions(decision.query)
       this.openMenu()
     }
     this.onKeydown = event => {
@@ -191,12 +191,12 @@ const SearchableCombobox = {
   visibleOptions() {
     return this.options.filter(option => !option.hidden)
   },
-  filterOptions() {
+  filterOptions(query = this.input.value) {
     const options = this.options.map(option => ({
       search: normalizeSearch(option.dataset.search || option.dataset.value || ""),
       value: option.dataset.value || "",
     }))
-    const visibleIndices = new Set(visibleOptionIndices(options, this.input.value))
+    const visibleIndices = new Set(visibleOptionIndices(options, query))
     this.options.forEach((option, index) => {
       option.hidden = !visibleIndices.has(index)
       option.classList.remove("is-highlighted")

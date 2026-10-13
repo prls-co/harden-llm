@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 	"encoding/json"
+	contractschema "github.com/prls-co/harden-llm/internal/schema"
 )
 
 // presetsJSON is moved credential-free metadata from baseline 754690c, changed to v4 complete templates.
@@ -42,6 +43,15 @@ func ValidateCatalog(catalog Catalog) error {
 		_, err := validateSnapshot(SaveProfileInput{Name: p.Name, PresetID: id, Definition: p.Definition, Inputs: p.Inputs, Binding: p.Binding})
 		if err != nil {
 			return err
+		}
+		var inputs profileInputs
+		if err := json.Unmarshal(p.Inputs, &inputs); err != nil {
+			return validationFailure("inputs", "Preset inputs must be valid JSON.")
+		}
+		if inputs.CallType == "structured" {
+			if _, err := contractschema.Normalize(inputs.Schema); err != nil {
+				return validationFailure("inputs.schema", "Preset structured schema is invalid: "+err.Error())
+			}
 		}
 	}
 	return nil
