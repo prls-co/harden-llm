@@ -1075,104 +1075,6 @@
       "deploymentUpstreamId": "google"
     }
   },
-  "Novita DeepSeek V4 Flash": {
-    "name": "Novita DeepSeek V4 Flash",
-    "definition": {
-      "schemaVersion": 4,
-      "provider": "novita",
-      "apiInferenceType": "chat-completions",
-      "baseUrl": "https://api.novita.ai/openai/v1",
-      "modelId": "deepseek/deepseek-v4-flash",
-      "pricing": {
-        "input_cost_per_token": 1.4e-07,
-        "output_cost_per_token": 2.8e-07,
-        "cache_read_input_token_cost": 2.8e-08,
-        "cache_creation_input_token_cost": 0,
-        "output_cost_per_reasoning_token": 2.8e-07
-      },
-      "supportsTemperature": null,
-      "supportsContractedStructuredOutput": true,
-      "tokensParam": null,
-      "responsesTokensParam": null,
-      "defaultOptions": {
-        "max_tokens": 16000
-      },
-      "reasoningEffortMap": {
-        "lowest": {
-          "thinking": {
-            "type": "disabled"
-          }
-        },
-        "middle": {
-          "thinking": {
-            "type": "enabled"
-          },
-          "reasoning_effort": "high"
-        },
-        "highest": {
-          "thinking": {
-            "type": "enabled"
-          },
-          "reasoning_effort": "max"
-        }
-      },
-      "recoveryPolicy": {
-        "maxAttempts": 4,
-        "retryOn": [
-          "network",
-          "rate_limit",
-          "server_error",
-          "empty_response",
-          "provider_retry"
-        ],
-        "jsonRepair": {
-          "initial": {
-            "source": "generation"
-          },
-          "escalation": {
-            "source": "generation"
-          }
-        },
-        "rerun": null,
-        "backoff": {
-          "baseDelayMs": 500,
-          "maxDelayMs": 8000
-        }
-      }
-    },
-    "inputs": {
-      "modelId": "deepseek/deepseek-v4-flash",
-      "callType": "structured",
-      "systemPrompt": "You are a helpful assistant",
-      "schema": {
-        "type": "object",
-        "properties": {
-          "joke": {
-            "type": "string"
-          },
-          "explanation": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "joke",
-          "explanation"
-        ],
-        "additionalProperties": false
-      },
-      "reasoningEffort": "middle",
-      "providerOptions": {},
-      "cacheMode": "off",
-      "webSearch": false,
-      "timeoutMs": 60000,
-      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
-      "userPrompt": "write a haiku joke"
-    },
-    "credentialBinding": {
-      "source": "deployment",
-      "deploymentUpstreamId": "novita"
-    }
-  },
   "Novita DeepSeek V4 Pro": {
     "name": "Novita DeepSeek V4 Pro",
     "definition": {
@@ -2175,6 +2077,1449 @@
     "credentialBinding": {
       "source": "deployment",
       "deploymentUpstreamId": "perplexity"
+    }
+  },
+  "CPA claude-haiku-4-5-20251001": {
+    "name": "CPA claude-haiku-4-5-20251001",
+    "definition": {
+      "schemaVersion": 4,
+      "provider": "cpa",
+      "apiInferenceType": "responses",
+      "baseUrl": "https://cpa.prls.co/v1",
+      "modelId": "claude-haiku-4-5-20251001",
+      "pricing": {
+        "input_cost_per_token": 1e-06,
+        "output_cost_per_token": 5e-06,
+        "cache_read_input_token_cost": 1e-07,
+        "cache_creation_input_token_cost": 1.25e-06
+      },
+      "supportsTemperature": false,
+      "supportsContractedStructuredOutput": true,
+      "tokensParam": null,
+      "responsesTokensParam": "max_output_tokens",
+      "defaultOptions": {
+        "max_tokens": 16000,
+        "stream": true
+      },
+      "supportsWebSearch": true,
+      "recoveryPolicy": {
+        "maxAttempts": 4,
+        "retryOn": [
+          "network",
+          "rate_limit",
+          "server_error",
+          "empty_response",
+          "provider_retry"
+        ],
+        "jsonRepair": {
+          "initial": {
+            "source": "generation"
+          },
+          "escalation": {
+            "source": "generation"
+          }
+        },
+        "rerun": null,
+        "backoff": {
+          "baseDelayMs": 500,
+          "maxDelayMs": 8000
+        }
+      }
+    },
+    "inputs": {
+      "modelId": "claude-haiku-4-5-20251001",
+      "callType": "structured",
+      "systemPrompt": "You are a helpful assistant",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
+      },
+      "providerOptions": {},
+      "cacheMode": "off",
+      "webSearch": false,
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
+    },
+    "credentialBinding": {
+      "source": "deployment",
+      "deploymentUpstreamId": "cpa"
+    }
+  },
+  "CPA claude-haiku-5-5": {
+    "name": "CPA claude-haiku-5-5",
+    "definition": {
+      "schemaVersion": 4,
+      "provider": "cpa",
+      "apiInferenceType": "responses",
+      "baseUrl": "https://cpa.prls.co/v1",
+      "modelId": "claude-haiku-5-5",
+      "pricing": {},
+      "supportsTemperature": false,
+      "supportsContractedStructuredOutput": true,
+      "tokensParam": null,
+      "responsesTokensParam": "max_output_tokens",
+      "defaultOptions": {
+        "max_tokens": 16000,
+        "stream": true
+      },
+      "supportsWebSearch": true,
+      "recoveryPolicy": {
+        "maxAttempts": 4,
+        "retryOn": [
+          "network",
+          "rate_limit",
+          "server_error",
+          "empty_response",
+          "provider_retry"
+        ],
+        "jsonRepair": {
+          "initial": {
+            "source": "generation"
+          },
+          "escalation": {
+            "source": "generation"
+          }
+        },
+        "rerun": null,
+        "backoff": {
+          "baseDelayMs": 500,
+          "maxDelayMs": 8000
+        }
+      }
+    },
+    "inputs": {
+      "modelId": "claude-haiku-5-5",
+      "callType": "structured",
+      "systemPrompt": "You are a helpful assistant",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
+      },
+      "providerOptions": {},
+      "cacheMode": "off",
+      "webSearch": false,
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
+    },
+    "credentialBinding": {
+      "source": "deployment",
+      "deploymentUpstreamId": "cpa"
+    }
+  },
+  "CPA claude-opus-4-5-20251101": {
+    "name": "CPA claude-opus-4-5-20251101",
+    "definition": {
+      "schemaVersion": 4,
+      "provider": "cpa",
+      "apiInferenceType": "responses",
+      "baseUrl": "https://cpa.prls.co/v1",
+      "modelId": "claude-opus-4-5-20251101",
+      "pricing": {
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 2.5e-05,
+        "cache_read_input_token_cost": 5e-07,
+        "cache_creation_input_token_cost": 6.25e-06
+      },
+      "supportsTemperature": false,
+      "supportsContractedStructuredOutput": true,
+      "tokensParam": null,
+      "responsesTokensParam": "max_output_tokens",
+      "defaultOptions": {
+        "max_tokens": 16000,
+        "stream": true
+      },
+      "supportsWebSearch": true,
+      "recoveryPolicy": {
+        "maxAttempts": 4,
+        "retryOn": [
+          "network",
+          "rate_limit",
+          "server_error",
+          "empty_response",
+          "provider_retry"
+        ],
+        "jsonRepair": {
+          "initial": {
+            "source": "generation"
+          },
+          "escalation": {
+            "source": "generation"
+          }
+        },
+        "rerun": null,
+        "backoff": {
+          "baseDelayMs": 500,
+          "maxDelayMs": 8000
+        }
+      }
+    },
+    "inputs": {
+      "modelId": "claude-opus-4-5-20251101",
+      "callType": "structured",
+      "systemPrompt": "You are a helpful assistant",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
+      },
+      "providerOptions": {},
+      "cacheMode": "off",
+      "webSearch": false,
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
+    },
+    "credentialBinding": {
+      "source": "deployment",
+      "deploymentUpstreamId": "cpa"
+    }
+  },
+  "CPA claude-opus-4-6": {
+    "name": "CPA claude-opus-4-6",
+    "definition": {
+      "schemaVersion": 4,
+      "provider": "cpa",
+      "apiInferenceType": "responses",
+      "baseUrl": "https://cpa.prls.co/v1",
+      "modelId": "claude-opus-4-6",
+      "pricing": {
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 2.5e-05,
+        "cache_read_input_token_cost": 5e-07,
+        "cache_creation_input_token_cost": 6.25e-06
+      },
+      "supportsTemperature": false,
+      "supportsContractedStructuredOutput": true,
+      "tokensParam": null,
+      "responsesTokensParam": "max_output_tokens",
+      "defaultOptions": {
+        "max_tokens": 16000,
+        "stream": true
+      },
+      "supportsWebSearch": true,
+      "recoveryPolicy": {
+        "maxAttempts": 4,
+        "retryOn": [
+          "network",
+          "rate_limit",
+          "server_error",
+          "empty_response",
+          "provider_retry"
+        ],
+        "jsonRepair": {
+          "initial": {
+            "source": "generation"
+          },
+          "escalation": {
+            "source": "generation"
+          }
+        },
+        "rerun": null,
+        "backoff": {
+          "baseDelayMs": 500,
+          "maxDelayMs": 8000
+        }
+      }
+    },
+    "inputs": {
+      "modelId": "claude-opus-4-6",
+      "callType": "structured",
+      "systemPrompt": "You are a helpful assistant",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
+      },
+      "providerOptions": {},
+      "cacheMode": "off",
+      "webSearch": false,
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
+    },
+    "credentialBinding": {
+      "source": "deployment",
+      "deploymentUpstreamId": "cpa"
+    }
+  },
+  "CPA claude-opus-4-7": {
+    "name": "CPA claude-opus-4-7",
+    "definition": {
+      "schemaVersion": 4,
+      "provider": "cpa",
+      "apiInferenceType": "responses",
+      "baseUrl": "https://cpa.prls.co/v1",
+      "modelId": "claude-opus-4-7",
+      "pricing": {
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 2.5e-05,
+        "cache_read_input_token_cost": 5e-07,
+        "cache_creation_input_token_cost": 6.25e-06
+      },
+      "supportsTemperature": false,
+      "supportsContractedStructuredOutput": true,
+      "tokensParam": null,
+      "responsesTokensParam": "max_output_tokens",
+      "defaultOptions": {
+        "max_tokens": 16000,
+        "stream": true
+      },
+      "supportsWebSearch": true,
+      "recoveryPolicy": {
+        "maxAttempts": 4,
+        "retryOn": [
+          "network",
+          "rate_limit",
+          "server_error",
+          "empty_response",
+          "provider_retry"
+        ],
+        "jsonRepair": {
+          "initial": {
+            "source": "generation"
+          },
+          "escalation": {
+            "source": "generation"
+          }
+        },
+        "rerun": null,
+        "backoff": {
+          "baseDelayMs": 500,
+          "maxDelayMs": 8000
+        }
+      }
+    },
+    "inputs": {
+      "modelId": "claude-opus-4-7",
+      "callType": "structured",
+      "systemPrompt": "You are a helpful assistant",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
+      },
+      "providerOptions": {},
+      "cacheMode": "off",
+      "webSearch": false,
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
+    },
+    "credentialBinding": {
+      "source": "deployment",
+      "deploymentUpstreamId": "cpa"
+    }
+  },
+  "CPA claude-opus-4-8": {
+    "name": "CPA claude-opus-4-8",
+    "definition": {
+      "schemaVersion": 4,
+      "provider": "cpa",
+      "apiInferenceType": "responses",
+      "baseUrl": "https://cpa.prls.co/v1",
+      "modelId": "claude-opus-4-8",
+      "pricing": {},
+      "supportsTemperature": false,
+      "supportsContractedStructuredOutput": true,
+      "tokensParam": null,
+      "responsesTokensParam": "max_output_tokens",
+      "defaultOptions": {
+        "max_tokens": 16000,
+        "stream": true
+      },
+      "supportsWebSearch": true,
+      "recoveryPolicy": {
+        "maxAttempts": 4,
+        "retryOn": [
+          "network",
+          "rate_limit",
+          "server_error",
+          "empty_response",
+          "provider_retry"
+        ],
+        "jsonRepair": {
+          "initial": {
+            "source": "generation"
+          },
+          "escalation": {
+            "source": "generation"
+          }
+        },
+        "rerun": null,
+        "backoff": {
+          "baseDelayMs": 500,
+          "maxDelayMs": 8000
+        }
+      }
+    },
+    "inputs": {
+      "modelId": "claude-opus-4-8",
+      "callType": "structured",
+      "systemPrompt": "You are a helpful assistant",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
+      },
+      "providerOptions": {},
+      "cacheMode": "off",
+      "webSearch": false,
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
+    },
+    "credentialBinding": {
+      "source": "deployment",
+      "deploymentUpstreamId": "cpa"
+    }
+  },
+  "CPA claude-opus-5": {
+    "name": "CPA claude-opus-5",
+    "definition": {
+      "schemaVersion": 4,
+      "provider": "cpa",
+      "apiInferenceType": "responses",
+      "baseUrl": "https://cpa.prls.co/v1",
+      "modelId": "claude-opus-5",
+      "pricing": {
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 2.5e-05,
+        "cache_read_input_token_cost": 5e-07,
+        "cache_creation_input_token_cost": 6.25e-06
+      },
+      "supportsTemperature": false,
+      "supportsContractedStructuredOutput": true,
+      "tokensParam": null,
+      "responsesTokensParam": "max_output_tokens",
+      "defaultOptions": {
+        "max_tokens": 16000,
+        "stream": true
+      },
+      "supportsWebSearch": true,
+      "recoveryPolicy": {
+        "maxAttempts": 4,
+        "retryOn": [
+          "network",
+          "rate_limit",
+          "server_error",
+          "empty_response",
+          "provider_retry"
+        ],
+        "jsonRepair": {
+          "initial": {
+            "source": "generation"
+          },
+          "escalation": {
+            "source": "generation"
+          }
+        },
+        "rerun": null,
+        "backoff": {
+          "baseDelayMs": 500,
+          "maxDelayMs": 8000
+        }
+      }
+    },
+    "inputs": {
+      "modelId": "claude-opus-5",
+      "callType": "structured",
+      "systemPrompt": "You are a helpful assistant",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
+      },
+      "providerOptions": {},
+      "cacheMode": "off",
+      "webSearch": false,
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
+    },
+    "credentialBinding": {
+      "source": "deployment",
+      "deploymentUpstreamId": "cpa"
+    }
+  },
+  "CPA claude-sonnet-4-6": {
+    "name": "CPA claude-sonnet-4-6",
+    "definition": {
+      "schemaVersion": 4,
+      "provider": "cpa",
+      "apiInferenceType": "responses",
+      "baseUrl": "https://cpa.prls.co/v1",
+      "modelId": "claude-sonnet-4-6",
+      "pricing": {
+        "input_cost_per_token": 3e-06,
+        "output_cost_per_token": 1.5e-05,
+        "cache_read_input_token_cost": 3e-07,
+        "cache_creation_input_token_cost": 3.75e-06
+      },
+      "supportsTemperature": false,
+      "supportsContractedStructuredOutput": true,
+      "tokensParam": null,
+      "responsesTokensParam": "max_output_tokens",
+      "defaultOptions": {
+        "max_tokens": 16000,
+        "stream": true
+      },
+      "supportsWebSearch": true,
+      "recoveryPolicy": {
+        "maxAttempts": 4,
+        "retryOn": [
+          "network",
+          "rate_limit",
+          "server_error",
+          "empty_response",
+          "provider_retry"
+        ],
+        "jsonRepair": {
+          "initial": {
+            "source": "generation"
+          },
+          "escalation": {
+            "source": "generation"
+          }
+        },
+        "rerun": null,
+        "backoff": {
+          "baseDelayMs": 500,
+          "maxDelayMs": 8000
+        }
+      }
+    },
+    "inputs": {
+      "modelId": "claude-sonnet-4-6",
+      "callType": "structured",
+      "systemPrompt": "You are a helpful assistant",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
+      },
+      "providerOptions": {},
+      "cacheMode": "off",
+      "webSearch": false,
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
+    },
+    "credentialBinding": {
+      "source": "deployment",
+      "deploymentUpstreamId": "cpa"
+    }
+  },
+  "CPA claude-sonnet-5": {
+    "name": "CPA claude-sonnet-5",
+    "definition": {
+      "schemaVersion": 4,
+      "provider": "cpa",
+      "apiInferenceType": "responses",
+      "baseUrl": "https://cpa.prls.co/v1",
+      "modelId": "claude-sonnet-5",
+      "pricing": {
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1e-05,
+        "cache_read_input_token_cost": 2e-07,
+        "cache_creation_input_token_cost": 2.5e-06
+      },
+      "supportsTemperature": false,
+      "supportsContractedStructuredOutput": true,
+      "tokensParam": null,
+      "responsesTokensParam": "max_output_tokens",
+      "defaultOptions": {
+        "max_tokens": 16000,
+        "stream": true
+      },
+      "supportsWebSearch": true,
+      "recoveryPolicy": {
+        "maxAttempts": 4,
+        "retryOn": [
+          "network",
+          "rate_limit",
+          "server_error",
+          "empty_response",
+          "provider_retry"
+        ],
+        "jsonRepair": {
+          "initial": {
+            "source": "generation"
+          },
+          "escalation": {
+            "source": "generation"
+          }
+        },
+        "rerun": null,
+        "backoff": {
+          "baseDelayMs": 500,
+          "maxDelayMs": 8000
+        }
+      }
+    },
+    "inputs": {
+      "modelId": "claude-sonnet-5",
+      "callType": "structured",
+      "systemPrompt": "You are a helpful assistant",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
+      },
+      "providerOptions": {},
+      "cacheMode": "off",
+      "webSearch": false,
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
+    },
+    "credentialBinding": {
+      "source": "deployment",
+      "deploymentUpstreamId": "cpa"
+    }
+  },
+  "CPA claude-sonnet-5-5": {
+    "name": "CPA claude-sonnet-5-5",
+    "definition": {
+      "schemaVersion": 4,
+      "provider": "cpa",
+      "apiInferenceType": "responses",
+      "baseUrl": "https://cpa.prls.co/v1",
+      "modelId": "claude-sonnet-5-5",
+      "pricing": {},
+      "supportsTemperature": false,
+      "supportsContractedStructuredOutput": true,
+      "tokensParam": null,
+      "responsesTokensParam": "max_output_tokens",
+      "defaultOptions": {
+        "max_tokens": 16000,
+        "stream": true
+      },
+      "supportsWebSearch": true,
+      "recoveryPolicy": {
+        "maxAttempts": 4,
+        "retryOn": [
+          "network",
+          "rate_limit",
+          "server_error",
+          "empty_response",
+          "provider_retry"
+        ],
+        "jsonRepair": {
+          "initial": {
+            "source": "generation"
+          },
+          "escalation": {
+            "source": "generation"
+          }
+        },
+        "rerun": null,
+        "backoff": {
+          "baseDelayMs": 500,
+          "maxDelayMs": 8000
+        }
+      }
+    },
+    "inputs": {
+      "modelId": "claude-sonnet-5-5",
+      "callType": "structured",
+      "systemPrompt": "You are a helpful assistant",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
+      },
+      "providerOptions": {},
+      "cacheMode": "off",
+      "webSearch": false,
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
+    },
+    "credentialBinding": {
+      "source": "deployment",
+      "deploymentUpstreamId": "cpa"
+    }
+  },
+  "CPA codex-auto-review": {
+    "name": "CPA codex-auto-review",
+    "definition": {
+      "schemaVersion": 4,
+      "provider": "cpa",
+      "apiInferenceType": "responses",
+      "baseUrl": "https://cpa.prls.co/v1",
+      "modelId": "codex-auto-review",
+      "pricing": {},
+      "supportsTemperature": false,
+      "supportsContractedStructuredOutput": true,
+      "tokensParam": null,
+      "responsesTokensParam": "max_output_tokens",
+      "defaultOptions": {
+        "max_tokens": 16000,
+        "stream": true
+      },
+      "supportsWebSearch": true,
+      "recoveryPolicy": {
+        "maxAttempts": 4,
+        "retryOn": [
+          "network",
+          "rate_limit",
+          "server_error",
+          "empty_response",
+          "provider_retry"
+        ],
+        "jsonRepair": {
+          "initial": {
+            "source": "generation"
+          },
+          "escalation": {
+            "source": "generation"
+          }
+        },
+        "rerun": null,
+        "backoff": {
+          "baseDelayMs": 500,
+          "maxDelayMs": 8000
+        }
+      },
+      "reasoningEffortMap": {
+        "lowest": {
+          "reasoning": {
+            "effort": "low"
+          }
+        },
+        "middle": {
+          "reasoning": {
+            "effort": "medium"
+          }
+        },
+        "highest": {
+          "reasoning": {
+            "effort": "xhigh"
+          }
+        }
+      }
+    },
+    "inputs": {
+      "modelId": "codex-auto-review",
+      "callType": "structured",
+      "systemPrompt": "You are a helpful assistant",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
+      },
+      "reasoningEffort": "lowest",
+      "providerOptions": {},
+      "cacheMode": "off",
+      "webSearch": false,
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
+    },
+    "credentialBinding": {
+      "source": "deployment",
+      "deploymentUpstreamId": "cpa"
+    }
+  },
+  "CPA gpt-5.5": {
+    "name": "CPA gpt-5.5",
+    "definition": {
+      "schemaVersion": 4,
+      "provider": "cpa",
+      "apiInferenceType": "responses",
+      "baseUrl": "https://cpa.prls.co/v1",
+      "modelId": "gpt-5.5",
+      "pricing": {
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 3e-05,
+        "cache_read_input_token_cost": 5e-07
+      },
+      "supportsTemperature": false,
+      "supportsContractedStructuredOutput": true,
+      "tokensParam": null,
+      "responsesTokensParam": "max_output_tokens",
+      "defaultOptions": {
+        "max_tokens": 16000,
+        "stream": true
+      },
+      "supportsWebSearch": true,
+      "recoveryPolicy": {
+        "maxAttempts": 4,
+        "retryOn": [
+          "network",
+          "rate_limit",
+          "server_error",
+          "empty_response",
+          "provider_retry"
+        ],
+        "jsonRepair": {
+          "initial": {
+            "source": "generation"
+          },
+          "escalation": {
+            "source": "generation"
+          }
+        },
+        "rerun": null,
+        "backoff": {
+          "baseDelayMs": 500,
+          "maxDelayMs": 8000
+        }
+      },
+      "reasoningEffortMap": {
+        "lowest": {
+          "reasoning": {
+            "effort": "low"
+          }
+        },
+        "middle": {
+          "reasoning": {
+            "effort": "medium"
+          }
+        },
+        "highest": {
+          "reasoning": {
+            "effort": "xhigh"
+          }
+        }
+      }
+    },
+    "inputs": {
+      "modelId": "gpt-5.5",
+      "callType": "structured",
+      "systemPrompt": "You are a helpful assistant",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
+      },
+      "reasoningEffort": "lowest",
+      "providerOptions": {},
+      "cacheMode": "off",
+      "webSearch": false,
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
+    },
+    "credentialBinding": {
+      "source": "deployment",
+      "deploymentUpstreamId": "cpa"
+    }
+  },
+  "CPA gpt-5.6-terra": {
+    "name": "CPA gpt-5.6-terra",
+    "definition": {
+      "schemaVersion": 4,
+      "provider": "cpa",
+      "apiInferenceType": "responses",
+      "baseUrl": "https://cpa.prls.co/v1",
+      "modelId": "gpt-5.6-terra",
+      "pricing": {},
+      "supportsTemperature": false,
+      "supportsContractedStructuredOutput": true,
+      "tokensParam": null,
+      "responsesTokensParam": "max_output_tokens",
+      "defaultOptions": {
+        "max_tokens": 16000,
+        "stream": true
+      },
+      "supportsWebSearch": true,
+      "recoveryPolicy": {
+        "maxAttempts": 4,
+        "retryOn": [
+          "network",
+          "rate_limit",
+          "server_error",
+          "empty_response",
+          "provider_retry"
+        ],
+        "jsonRepair": {
+          "initial": {
+            "source": "generation"
+          },
+          "escalation": {
+            "source": "generation"
+          }
+        },
+        "rerun": null,
+        "backoff": {
+          "baseDelayMs": 500,
+          "maxDelayMs": 8000
+        }
+      },
+      "reasoningEffortMap": {
+        "lowest": {
+          "reasoning": {
+            "effort": "low"
+          }
+        },
+        "middle": {
+          "reasoning": {
+            "effort": "medium"
+          }
+        },
+        "highest": {
+          "reasoning": {
+            "effort": "xhigh"
+          }
+        }
+      }
+    },
+    "inputs": {
+      "modelId": "gpt-5.6-terra",
+      "callType": "structured",
+      "systemPrompt": "You are a helpful assistant",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
+      },
+      "reasoningEffort": "lowest",
+      "providerOptions": {},
+      "cacheMode": "off",
+      "webSearch": false,
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
+    },
+    "credentialBinding": {
+      "source": "deployment",
+      "deploymentUpstreamId": "cpa"
+    }
+  },
+  "CPA gpt-6-astra": {
+    "name": "CPA gpt-6-astra",
+    "definition": {
+      "schemaVersion": 4,
+      "provider": "cpa",
+      "apiInferenceType": "responses",
+      "baseUrl": "https://cpa.prls.co/v1",
+      "modelId": "gpt-6-astra",
+      "pricing": {
+        "input_cost_per_token": 1e-05,
+        "output_cost_per_token": 5e-05,
+        "cache_read_input_token_cost": 1e-06,
+        "cache_creation_input_token_cost": 1.25e-05
+      },
+      "supportsTemperature": false,
+      "supportsContractedStructuredOutput": true,
+      "tokensParam": null,
+      "responsesTokensParam": "max_output_tokens",
+      "defaultOptions": {
+        "max_tokens": 16000,
+        "stream": true
+      },
+      "supportsWebSearch": true,
+      "recoveryPolicy": {
+        "maxAttempts": 4,
+        "retryOn": [
+          "network",
+          "rate_limit",
+          "server_error",
+          "empty_response",
+          "provider_retry"
+        ],
+        "jsonRepair": {
+          "initial": {
+            "source": "generation"
+          },
+          "escalation": {
+            "source": "generation"
+          }
+        },
+        "rerun": null,
+        "backoff": {
+          "baseDelayMs": 500,
+          "maxDelayMs": 8000
+        }
+      },
+      "reasoningEffortMap": {
+        "lowest": {
+          "reasoning": {
+            "effort": "low"
+          }
+        },
+        "middle": {
+          "reasoning": {
+            "effort": "medium"
+          }
+        },
+        "highest": {
+          "reasoning": {
+            "effort": "max"
+          }
+        }
+      }
+    },
+    "inputs": {
+      "modelId": "gpt-6-astra",
+      "callType": "structured",
+      "systemPrompt": "You are a helpful assistant",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
+      },
+      "reasoningEffort": "lowest",
+      "providerOptions": {},
+      "cacheMode": "off",
+      "webSearch": false,
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
+    },
+    "credentialBinding": {
+      "source": "deployment",
+      "deploymentUpstreamId": "cpa"
+    }
+  },
+  "CPA gpt-6-luna": {
+    "name": "CPA gpt-6-luna",
+    "definition": {
+      "schemaVersion": 4,
+      "provider": "cpa",
+      "apiInferenceType": "responses",
+      "baseUrl": "https://cpa.prls.co/v1",
+      "modelId": "gpt-6-luna",
+      "pricing": {
+        "input_cost_per_token": 1e-07,
+        "output_cost_per_token": 5e-07,
+        "cache_read_input_token_cost": 1e-08,
+        "cache_creation_input_token_cost": 1.25e-07
+      },
+      "supportsTemperature": false,
+      "supportsContractedStructuredOutput": true,
+      "tokensParam": null,
+      "responsesTokensParam": "max_output_tokens",
+      "defaultOptions": {
+        "max_tokens": 16000,
+        "stream": true
+      },
+      "supportsWebSearch": true,
+      "recoveryPolicy": {
+        "maxAttempts": 4,
+        "retryOn": [
+          "network",
+          "rate_limit",
+          "server_error",
+          "empty_response",
+          "provider_retry"
+        ],
+        "jsonRepair": {
+          "initial": {
+            "source": "generation"
+          },
+          "escalation": {
+            "source": "generation"
+          }
+        },
+        "rerun": null,
+        "backoff": {
+          "baseDelayMs": 500,
+          "maxDelayMs": 8000
+        }
+      },
+      "reasoningEffortMap": {
+        "lowest": {
+          "reasoning": {
+            "effort": "low"
+          }
+        },
+        "middle": {
+          "reasoning": {
+            "effort": "medium"
+          }
+        },
+        "highest": {
+          "reasoning": {
+            "effort": "max"
+          }
+        }
+      }
+    },
+    "inputs": {
+      "modelId": "gpt-6-luna",
+      "callType": "structured",
+      "systemPrompt": "You are a helpful assistant",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
+      },
+      "reasoningEffort": "lowest",
+      "providerOptions": {},
+      "cacheMode": "off",
+      "webSearch": false,
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
+    },
+    "credentialBinding": {
+      "source": "deployment",
+      "deploymentUpstreamId": "cpa"
+    }
+  },
+  "CPA gpt-6-sol": {
+    "name": "CPA gpt-6-sol",
+    "definition": {
+      "schemaVersion": 4,
+      "provider": "cpa",
+      "apiInferenceType": "responses",
+      "baseUrl": "https://cpa.prls.co/v1",
+      "modelId": "gpt-6-sol",
+      "pricing": {
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1e-05,
+        "cache_read_input_token_cost": 2e-07,
+        "cache_creation_input_token_cost": 2.5e-06
+      },
+      "supportsTemperature": false,
+      "supportsContractedStructuredOutput": true,
+      "tokensParam": null,
+      "responsesTokensParam": "max_output_tokens",
+      "defaultOptions": {
+        "max_tokens": 16000,
+        "stream": true
+      },
+      "supportsWebSearch": true,
+      "recoveryPolicy": {
+        "maxAttempts": 4,
+        "retryOn": [
+          "network",
+          "rate_limit",
+          "server_error",
+          "empty_response",
+          "provider_retry"
+        ],
+        "jsonRepair": {
+          "initial": {
+            "source": "generation"
+          },
+          "escalation": {
+            "source": "generation"
+          }
+        },
+        "rerun": null,
+        "backoff": {
+          "baseDelayMs": 500,
+          "maxDelayMs": 8000
+        }
+      },
+      "reasoningEffortMap": {
+        "lowest": {
+          "reasoning": {
+            "effort": "low"
+          }
+        },
+        "middle": {
+          "reasoning": {
+            "effort": "medium"
+          }
+        },
+        "highest": {
+          "reasoning": {
+            "effort": "max"
+          }
+        }
+      }
+    },
+    "inputs": {
+      "modelId": "gpt-6-sol",
+      "callType": "structured",
+      "systemPrompt": "You are a helpful assistant",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
+      },
+      "reasoningEffort": "lowest",
+      "providerOptions": {},
+      "cacheMode": "off",
+      "webSearch": false,
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
+    },
+    "credentialBinding": {
+      "source": "deployment",
+      "deploymentUpstreamId": "cpa"
+    }
+  },
+  "CPA gpt-6.1-sol": {
+    "name": "CPA gpt-6.1-sol",
+    "definition": {
+      "schemaVersion": 4,
+      "provider": "cpa",
+      "apiInferenceType": "responses",
+      "baseUrl": "https://cpa.prls.co/v1",
+      "modelId": "gpt-6.1-sol",
+      "pricing": {
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1e-05,
+        "cache_read_input_token_cost": 1e-07,
+        "cache_creation_input_token_cost": 2.5e-06
+      },
+      "supportsTemperature": false,
+      "supportsContractedStructuredOutput": true,
+      "tokensParam": null,
+      "responsesTokensParam": "max_output_tokens",
+      "defaultOptions": {
+        "max_tokens": 16000,
+        "stream": true
+      },
+      "supportsWebSearch": true,
+      "recoveryPolicy": {
+        "maxAttempts": 4,
+        "retryOn": [
+          "network",
+          "rate_limit",
+          "server_error",
+          "empty_response",
+          "provider_retry"
+        ],
+        "jsonRepair": {
+          "initial": {
+            "source": "generation"
+          },
+          "escalation": {
+            "source": "generation"
+          }
+        },
+        "rerun": null,
+        "backoff": {
+          "baseDelayMs": 500,
+          "maxDelayMs": 8000
+        }
+      },
+      "reasoningEffortMap": {
+        "lowest": {
+          "reasoning": {
+            "effort": "low"
+          }
+        },
+        "middle": {
+          "reasoning": {
+            "effort": "medium"
+          }
+        },
+        "highest": {
+          "reasoning": {
+            "effort": "max"
+          }
+        }
+      }
+    },
+    "inputs": {
+      "modelId": "gpt-6.1-sol",
+      "callType": "structured",
+      "systemPrompt": "You are a helpful assistant",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "joke": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joke",
+          "explanation"
+        ],
+        "additionalProperties": false
+      },
+      "reasoningEffort": "lowest",
+      "providerOptions": {},
+      "cacheMode": "off",
+      "webSearch": false,
+      "timeoutMs": 60000,
+      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
+      "userPrompt": "write a haiku joke"
+    },
+    "credentialBinding": {
+      "source": "deployment",
+      "deploymentUpstreamId": "cpa"
     }
   }
 }

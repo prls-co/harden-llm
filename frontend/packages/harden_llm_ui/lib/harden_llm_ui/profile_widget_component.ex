@@ -3061,7 +3061,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
   end
 
   defp put_target_editor(socket, path, params),
-    do: update(socket, :target_editors, &Map.put(&1, path, Map.delete(params, "apiKey")))
+    do: update(socket, :target_editors, &Map.put(&1, path, ProfileForm.draft_snapshot(params)))
 
   defp load_target_editor(socket, _path, false), do: socket
 
@@ -3428,7 +3428,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
 
     socket
     |> assign(:main_requires_save?, main_requires_save?)
-    |> notify_parent({:profile_widget_editor, Map.delete(form.params, "apiKey")})
+    |> notify_parent({:profile_widget_editor, ProfileForm.draft_snapshot(form.params)})
     |> notify_parent({:profile_widget_provider_options, options})
     |> maybe_notify_recovery(recovery_intent)
     |> notify_parent(

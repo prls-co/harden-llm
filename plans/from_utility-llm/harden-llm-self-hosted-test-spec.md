@@ -1857,3 +1857,17 @@ links the original failed gate, full accepted report and production identity/
 HTTP verification. Deployed reads confirm all 24 preset drafts match that tested
 source; they do not substitute for the 48 enabled-submit/provider-prepare cases
 or claim interactive browser/live-provider execution.
+
+## 29. Preset selection and real gateway workflow qualification (issue #115)
+
+### TEST-453: Workspace credential-free snapshot
+
+Root hydration, preset selection and leaf notifications use one editor snapshot constructor. All shipped presets persist without an `apiKey` field, including empty keys; actual credential and scope guards remain enforced. Fast LiveView coverage asserts absence of draft errors and enabled runs.
+
+### TEST-454: Real LiveView/gateway/PostgreSQL preset and recovery workflows
+
+Explicit T3 task `frontend-gateway-workflows` starts the actual Go gateway with actual shipped metadata, isolated PostgreSQL and native protocol HTTP fixtures. It runs real LiveView events and the UI REST client without a successful-response stub. Every preset selects, saves, reloads and executes text/structured requests through actual provider parsers. Repair and escalation configuration must persist, resolve and execute finite targets under the global budget. The separate Mix build path prevents concurrent frontend compilation interference; application gateway configuration is the documented serial resource. Browser and public provider execution are excluded.
+
+### TEST-455: Explicit live preset qualification
+
+`go test -tags=live ./cmd/harden-llm-gateway -run ^TestLivePresetMatrix$` requires explicit authorization, protected startup configuration and a private report path. Each configured preset executes one text and one structured request with cache/history off and a one-attempt/no-repair policy. Retain failures and missing credentials as failures/unconfigured, not passing skips. The matrix proves real provider compatibility, while TEST-454 proves UI/HTTP/persistence/recovery behavior. Canary harness preflight mistakes are retained separately and never justify repeating already-dispatched calls.

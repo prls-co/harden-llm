@@ -1,0 +1,32 @@
+Compiling 1 file (.ex)
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+
+
+  1) test unconfigured templates remain editable but cannot run (HardenLlmWeb.ShippedPresetsTest)
+     test/harden_llm_web/live/shipped_presets_test.exs:156
+     Expected truthy, got false
+     code: assert has_element?(view, "#run-submit[disabled]")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN4stC3F26IOVgAB",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.946.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#run-submit[disabled]"
+
+     stacktrace:
+       test/harden_llm_web/live/shipped_presets_test.exs:161: (test)
+
+.
+Finished in 5.2 seconds (5.2s async, 0.00s sync)
+
+Result: 1/2 passed
+Failed: 1 test

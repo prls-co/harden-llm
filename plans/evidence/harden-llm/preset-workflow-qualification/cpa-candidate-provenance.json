@@ -1,0 +1,63 @@
+{
+  "discoveryURL": "https://harden-llm.prls.co/v1/models",
+  "checkedAt": "2026-10-13",
+  "advertised": 33,
+  "textCandidates": 28,
+  "added": [
+    "claude-3-5-haiku-20241022",
+    "claude-3-7-sonnet-20250219",
+    "claude-fable-5",
+    "claude-fable-5-1",
+    "claude-haiku-4-5-20251001",
+    "claude-haiku-5-5",
+    "claude-opus-4-1-20250805",
+    "claude-opus-4-20250514",
+    "claude-opus-4-5-20251101",
+    "claude-opus-4-6",
+    "claude-opus-4-7",
+    "claude-opus-4-8",
+    "claude-opus-5",
+    "claude-opus-5-5",
+    "claude-sonnet-4-20250514",
+    "claude-sonnet-4-5-20250929",
+    "claude-sonnet-4-6",
+    "claude-sonnet-5",
+    "claude-sonnet-5-5",
+    "codex-auto-review",
+    "gpt-5.5",
+    "gpt-5.6-terra",
+    "gpt-6-astra",
+    "gpt-6-luna",
+    "gpt-6-sol",
+    "gpt-6.1-sol"
+  ],
+  "excluded": [
+    {
+      "id": "gpt-image-1.5",
+      "reason": "image generation; outside the text/structured proxy contract"
+    },
+    {
+      "id": "gpt-image-2",
+      "reason": "image generation; outside the text/structured proxy contract"
+    },
+    {
+      "id": "gpt-image-2.5",
+      "reason": "image generation; outside the text/structured proxy contract"
+    },
+    {
+      "id": "gpt-image-2.5-flare",
+      "reason": "image generation; outside the text/structured proxy contract"
+    },
+    {
+      "id": "gpt-image-2.5-sunburst",
+      "reason": "image generation; outside the text/structured proxy contract"
+    }
+  ],
+  "pricingSource": "utility-llm/src/model_prices_and_context_window.json",
+  "pricingSourceSHA": "3f7da2476758823a206530abd5f0ddb18a3374ca",
+  "unknownPricingIsOmitted": true,
+  "status": "qualification complete; actual calls retained in live-qualification-summary.json",
+  "qualifiedCPA": 19,
+  "removedFailedCPA": 9,
+  "ownerIssue": "https://github.com/prls-co/CLIProxyAPI-setup/issues/5"
+}

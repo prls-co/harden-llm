@@ -1,0 +1,85 @@
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+11:44:16.840 [error] Task #PID<0.942.0> started from #PID<0.939.0> terminating
+** (ExUnit.AssertionError)
+
+Expected false or nil, got true
+code: refute Map.has_key?(body["payload"]["profileEditor"] || %{}, "apiKey")
+arguments:
+
+         # 1
+         %{"stopSequences" => "", "supportsWebSearch" => "true", "maxTokens" => "16000", "profileId" => "CPA GPT-5.6 Luna", "topK" => "", "topP" => "", "pricing" => %{"cache_creation_input_token_cost" => 2.5e-7, "cache_read_input_token_cost" => 2.0e-8, "input_cost_per_token" => 2.0e-7, "output_cost_per_reasoning_token" => 0, "output_cost_per_token" => 1.2e-6}, "apiKey" => "", "credentialId" => "cpa", "tokensParam" => nil, "profileName" => "CPA GPT-5.6 Luna", "defaultOptionsJson" => "{\n  \"max_tokens\": 16000,\n  \"stream\": true\n}", "pricingReasoning" => "0", "baseUrl" => "https://cpa.prls.co/v1", "recoveryPolicy" => %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, "pricingCacheRead" => "0.02", "reasoningEffortMap" => %{"highest" => %{"reasoning" => %{"effort" => "xhigh"}}, "lowest" => %{"reasoning" => %{"effort" => "low"}}, "middle" => %{"reasoning" => %{"effort" => "medium"}}}, "modelId" => "gpt-5.6-luna", "inputs" => %{"cacheMode" => "off", "callType" => "structured", "modelId" => "gpt-5.6-luna", "providerOptions" => %{}, "reasoningEffort" => "middle", "schema" => %{"additionalProperties" => false, "properties" => %{"explanation" => %{"type" => "string"}, "joke" => %{"type" => "string"}}, "required" => ["joke", "explanation"], "type" => "object"}, "schemaShorthand" => "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}", "systemPrompt" => "You are a helpful assistant", "timeoutMs" => 60000, "userPrompt" => "write a haiku joke", "webSearch" => false}, "temperature" => "", "provider" => "cpa", "supportsTemperature" => "false", "responsesTokensParam" => "max_output_tokens", "pricingCacheWrite" => "0.25", "supportsContractedStructuredOutput" => "true", "credentialRevision" => 0, "apiInferenceType" => "responses", "pricingOutput" => "1.2", "definition" => %{"apiInferenceType" => "responses", "baseUrl" => "https://cpa.prls.co/v1", "defaultOptions" => %{"max_tokens" => 16000, "stream" => true}, "modelId" => "gpt-5.6-luna", "pricing" => %{"cache_creation_input_token_cost" => 2.5e-7, "cache_read_input_token_cost" => 2.0e-8, "input_cost_per_token" => 2.0e-7, "output_cost_per_reasoning_token" => 0, "output_cost_per_token" => 1.2e-6}, "provider" => "cpa", "reasoningEffortMap" => %{"highest" => %{"reasoning" => %{"effort" => "xhigh"}}, "lowest" => %{"reasoning" => %{"effort" => "low"}}, "middle" => %{"reasoning" => %{"effort" => "medium"}}}, "recoveryPolicy" => %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, "responsesTokensParam" => "max_output_tokens", "schemaVersion" => 4, "supportsContractedStructuredOutput" => true, "supportsTemperature" => false, "supportsWebSearch" => true, "tokensParam" => nil}, "credentialBinding" => %{"deploymentUpstreamId" => "cpa", "source" => "deployment"}, "presetId" => "CPA GPT-5.6 Luna", "credentialConfigured" => "true", "pricingInput" => "0.2"}
+
+         # 2
+         "apiKey"
+
+
+    test/harden_llm_web/live/shipped_presets_test.exs:72: anonymous fn/4 in HardenLlmWeb.ShippedPresetsTest.__ex_unit_setup_1/1
+    (req 0.6.1) lib/req/steps.ex:1079: Req.Steps.run_plug/1
+    (req 0.6.1) lib/req/request.ex:1118: Req.Request.run_request/1
+    (req 0.6.1) lib/req/request.ex:1062: Req.Request.run/1
+    (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:326: anonymous fn/6 in HardenLlmUI.Client.request/5
+    (opentelemetry 1.7.0) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/opentelemetry/src/otel_tracer_default.erl:47: :otel_tracer_default.with_span/5
+    (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:312: HardenLlmUI.Client.request/5
+    (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:18: anonymous fn/2 in HardenLlmUI.Client.propagate/1
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/async.ex:289: Phoenix.LiveView.Async.do_async/5
+    (elixir 1.20.2) lib/task/supervised.ex:105: Task.Supervised.invoke_mfa/2
+Function: #Function<7.77716172/0 in Phoenix.LiveView.Async.run_async_task/5>
+    Args: []
+11:44:16.859 [error] Task #PID<0.944.0> started from #PID<0.939.0> terminating
+** (ExUnit.AssertionError)
+
+Expected false or nil, got true
+code: refute Map.has_key?(body["payload"]["profileEditor"] || %{}, "apiKey")
+arguments:
+
+         # 1
+         %{"stopSequences" => "", "supportsWebSearch" => "true", "maxTokens" => "16000", "profileId" => "CPA GPT-5.6 Luna", "topK" => "", "topP" => "", "pricing" => %{"cache_creation_input_token_cost" => 2.5e-7, "cache_read_input_token_cost" => 2.0e-8, "input_cost_per_token" => 2.0e-7, "output_cost_per_reasoning_token" => 0, "output_cost_per_token" => 1.2e-6}, "apiKey" => "", "credentialId" => "cpa", "tokensParam" => nil, "profileName" => "CPA GPT-5.6 Luna", "defaultOptionsJson" => "{\n  \"max_tokens\": 16000,\n  \"stream\": true\n}", "pricingReasoning" => "0", "baseUrl" => "https://cpa.prls.co/v1", "recoveryPolicy" => %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, "pricingCacheRead" => "0.02", "reasoningEffortMap" => %{"highest" => %{"reasoning" => %{"effort" => "xhigh"}}, "lowest" => %{"reasoning" => %{"effort" => "low"}}, "middle" => %{"reasoning" => %{"effort" => "medium"}}}, "modelId" => "gpt-5.6-luna", "inputs" => %{"cacheMode" => "off", "callType" => "structured", "modelId" => "gpt-5.6-luna", "providerOptions" => %{}, "reasoningEffort" => "middle", "schema" => %{"additionalProperties" => false, "properties" => %{"explanation" => %{"type" => "string"}, "joke" => %{"type" => "string"}}, "required" => ["joke", "explanation"], "type" => "object"}, "schemaShorthand" => "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}", "systemPrompt" => "You are a helpful assistant", "timeoutMs" => 60000, "userPrompt" => "write a haiku joke", "webSearch" => false}, "temperature" => "", "provider" => "cpa", "supportsTemperature" => "false", "responsesTokensParam" => "max_output_tokens", "pricingCacheWrite" => "0.25", "supportsContractedStructuredOutput" => "true", "credentialRevision" => 0, "apiInferenceType" => "responses", "pricingOutput" => "1.2", "definition" => %{"apiInferenceType" => "responses", "baseUrl" => "https://cpa.prls.co/v1", "defaultOptions" => %{"max_tokens" => 16000, "stream" => true}, "modelId" => "gpt-5.6-luna", "pricing" => %{"cache_creation_input_token_cost" => 2.5e-7, "cache_read_input_token_cost" => 2.0e-8, "input_cost_per_token" => 2.0e-7, "output_cost_per_reasoning_token" => 0, "output_cost_per_token" => 1.2e-6}, "provider" => "cpa", "reasoningEffortMap" => %{"highest" => %{"reasoning" => %{"effort" => "xhigh"}}, "lowest" => %{"reasoning" => %{"effort" => "low"}}, "middle" => %{"reasoning" => %{"effort" => "medium"}}}, "recoveryPolicy" => %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, "responsesTokensParam" => "max_output_tokens", "schemaVersion" => 4, "supportsContractedStructuredOutput" => true, "supportsTemperature" => false, "supportsWebSearch" => true, "tokensParam" => nil}, "credentialBinding" => %{"deploymentUpstreamId" => "cpa", "source" => "deployment"}, "presetId" => "CPA GPT-5.6 Luna", "credentialConfigured" => "true", "pricingInput" => "0.2"}
+
+         # 2
+         "apiKey"
+
+
+    test/harden_llm_web/live/shipped_presets_test.exs:72: anonymous fn/4 in HardenLlmWeb.ShippedPresetsTest.__ex_unit_setup_1/1
+    (req 0.6.1) lib/req/steps.ex:1079: Req.Steps.run_plug/1
+    (req 0.6.1) lib/req/request.ex:1118: Req.Request.run_request/1
+    (req 0.6.1) lib/req/request.ex:1062: Req.Request.run/1
+    (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:326: anonymous fn/6 in HardenLlmUI.Client.request/5
+    (opentelemetry 1.7.0) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/opentelemetry/src/otel_tracer_default.erl:47: :otel_tracer_default.with_span/5
+    (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:312: HardenLlmUI.Client.request/5
+    (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:18: anonymous fn/2 in HardenLlmUI.Client.propagate/1
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/async.ex:289: Phoenix.LiveView.Async.do_async/5
+    (elixir 1.20.2) lib/task/supervised.ex:105: Task.Supervised.invoke_mfa/2
+Function: #Function<7.77716172/0 in Phoenix.LiveView.Async.run_async_task/5>
+    Args: []
+
+
+  1) test fresh load and every shipped preset allow text and structured Run through the rendered control (HardenLlmWeb.ShippedPresetsTest)
+     test/harden_llm_web/live/shipped_presets_test.exs:97
+     Expected false or nil, got true
+     code: refute has_element?(view, "#draft-error")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN4rEahMkFo0pwCD",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.939.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#draft-error"
+
+     stacktrace:
+       test/harden_llm_web/live/shipped_presets_test.exs:115: anonymous fn/3 in HardenLlmWeb.ShippedPresetsTest."test fresh load and every shipped preset allow text and structured Run through the rendered control"/1
+       (elixir 1.20.2) lib/enum.ex:2622: Enum."-reduce/3-lists^foldl/2-0-"/3
+       test/harden_llm_web/live/shipped_presets_test.exs:106: (test)
+
+
+Finished in 0.5 seconds (0.5s async, 0.00s sync)
+
+Result: 0/1 passed
+Failed: 1 test
