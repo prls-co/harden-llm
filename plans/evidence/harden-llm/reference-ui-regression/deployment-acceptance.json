@@ -1,0 +1,86 @@
+{
+  "applicationSHA": "739cfda1ea6a67fb7a2ee737e31d8342c58f36d0",
+  "origin": "https://harden-llm.prls.co",
+  "httpAcceptance": "TEST-435 passed",
+  "presetCount": 24,
+  "configuredPresets": 14,
+  "byProvider": {
+    "cpa": {
+      "total": 2,
+      "configured": 2
+    },
+    "anthropic": {
+      "total": 5,
+      "configured": 0
+    },
+    "google": {
+      "total": 5,
+      "configured": 5
+    },
+    "novita": {
+      "total": 2,
+      "configured": 2
+    },
+    "openai": {
+      "total": 5,
+      "configured": 0
+    },
+    "openrouter": {
+      "total": 4,
+      "configured": 4
+    },
+    "perplexity": {
+      "total": 1,
+      "configured": 1
+    }
+  },
+  "liveInputsMatchShippedCatalog": true,
+  "applications": {
+    "gateway": {
+      "image": "sha256:4635359331af363b785a3d8d56921353a72bd7e1f9709f3ee26274cd40ee7039",
+      "release": "739cfda1ea6a67fb7a2ee737e31d8342c58f36d0",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "web": {
+      "image": "sha256:89d57142bc424e2b8f08180add98676cbe8aba688b581894ecc318129c135ac4",
+      "release": "739cfda1ea6a67fb7a2ee737e31d8342c58f36d0",
+      "health": "healthy",
+      "restarts": 0
+    }
+  },
+  "browserRun": false,
+  "liveInference": false,
+  "fullConfigurationEquivalent": true,
+  "scopedExpectedReleaseEquivalent": true,
+  "schemaBeforeAppsExit": 0,
+  "descriptorChangeScopeVerified": "gateway/frontend image and release identity only",
+  "protectedEnvironmentUnchanged": true,
+  "sharedOwners": {
+    "compose-postgres-1": {
+      "sameContainer": true,
+      "sameImage": true,
+      "healthy": true
+    },
+    "garage-shared-garage-shared-1": {
+      "sameContainer": true,
+      "sameImage": true,
+      "healthy": true
+    }
+  },
+  "caddySHA": "0afe6c6677c1666608326316d560dd6e3d17ce75",
+  "caddyUnchanged": true,
+  "draftCorrection": {
+    "fixtureCases": 5,
+    "knownBadRowsBefore": 1,
+    "correctedRows": 1,
+    "remainingKnownBadRows": 0,
+    "otherFieldsPreserved": true,
+    "revisionIncremented": true,
+    "savedProfilesBefore": 0,
+    "storedRecordContentsExported": false
+  },
+  "incomingBearerUnchangedAndShared": true,
+  "providerKeysMatchApprovedEnvironment": true,
+  "providerKeysExcludedFromFrontend": true
+}

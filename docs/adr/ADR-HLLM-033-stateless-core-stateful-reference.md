@@ -68,3 +68,11 @@ their existing persistence behavior. The shared profile renderer/client now
 provides complete node-local editing/save while preserving fixed recovery roles.
 See [the RCA](../rca/reference-preset-schema-and-recovery-ui.md). Earlier release
 CI/HTTP proof did not cover these interactions and is not promoted to that claim.
+
+The correction is merged and deployed at
+`739cfda1ea6a67fb7a2ee737e31d8342c58f36d0`: 28 release tasks passed, scoped/full
+configuration checks are equivalent, and all 24 live preset drafts match the
+certified source. A one-time exact-default correction repaired one saved draft
+without replacing any other settings; it adds no runtime legacy reader. See
+the RCA acceptance and its redacted release/deployment records for identities,
+credential availability, the preserved harness failure and opt-in limits.

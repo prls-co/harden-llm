@@ -1,6 +1,6 @@
 # ADR-HLLM-025: Complete Recursive Profile Widget with Finite Recovery Roles
 
-- Status: Accepted and implemented locally.
+- Status: Accepted; implemented and deployed, with the 2026-10-13 correction below.
 - Date: 2026-09-20.
 - Requirements: `PLAN-HLLM-RECURSIVE-WIDGET-001`, WEB-TEST-090 through WEB-TEST-099.
 - Supersedes: the presentation portion of the target-only UI wording in the recovery implementation plan; it does not supersede any REST or runtime decision.
@@ -86,3 +86,9 @@ be saved before the generation setup can be saved/run. Host-owned bundles do
 not become recursive actions. Existing role/attempt/deadline restrictions and
 one Go engine remain. WEB-TEST-124/125 and TEST-452 add the missing shipped-data
 and inherited-editor coverage; the RCA records limitations and release proof.
+
+The corrected renderer is deployed from `739cfda1ea6a67fb7a2ee737e31d8342c58f36d0`
+after all 28 browser-free release tasks passed. The
+[RCA acceptance](../rca/reference-preset-schema-and-recovery-ui.md#7-merged-and-deployed-acceptance)
+separates deterministic interaction coverage from deployed HTTP/image proof.
+No browser layout or real-provider interaction is claimed by this correction.

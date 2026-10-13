@@ -163,3 +163,49 @@ allocation through teardown. Readiness timing includes ingress allocation;
 commands/oracles, budgets and cleanup ownership remain. The cheap port parser
 checks publication shape/range; actual Compose proves port ownership/startup.
 No retry loop, port-range reservation service or browser launch is introduced.
+
+## 7. Merged and deployed acceptance
+
+PRs [#110](https://github.com/prls-co/harden-llm/pull/110) and
+[#111](https://github.com/prls-co/harden-llm/pull/111) produced main application
+source `739cfda1ea6a67fb7a2ee737e31d8342c58f36d0`. Its
+[release run 38439024276, attempt 1](https://github.com/prls-co/harden-llm/actions/runs/38439024276/attempts/1)
+passed all 28 tasks with no preflight/task failure or cleanup error/warning.
+Main fast CI and CodeQL passed. Both production images were built from a clean
+detached checkout of that exact certified source; the build checkout was removed.
+
+| Component | Actual image ID | Deployed state |
+| --- | --- | --- |
+| Gateway | `sha256:4635359331af363b785a3d8d56921353a72bd7e1f9709f3ee26274cd40ee7039` | Healthy, zero restarts, version/OCI release equals source SHA |
+| Frontend | `sha256:89d57142bc424e2b8f08180add98676cbe8aba688b581894ecc318129c135ac4` | Healthy, zero restarts, OCI/environment release equals source SHA |
+
+Scoped application and full seven-service checks are equivalent. The existing
+operator applied schema before the two apps with exit 0; no schema change was
+introduced. The descriptor changed only application image/release identity.
+Nonsecret upstream metadata now binds the four existing optional credentials.
+Protected environment files and the incoming deployment bearer are unchanged;
+provider keys match approved settings and are absent from the frontend. Shared
+PostgreSQL/Garage container/image identities and Caddy source/routing are unchanged.
+
+TEST-435 passed against `https://harden-llm.prls.co`: health/readiness, Portal
+entry, bearer rejection, model discovery and reference status/scope guards.
+Authenticated reads of all 24 preset drafts match the certified catalog's full
+definitions, inputs, schemas and credential bindings. Fourteen presets are
+configured: CPA 2, Google 5, Novita 2, OpenRouter 4 and Perplexity 1. Five OpenAI
+and five Anthropic presets remain visible and unconfigured because their keys
+were not supplied. Configured status proves binding, not provider inference.
+
+The precise one-time correction changed one known-default draft, incremented
+its revision and preserved all other fields; no matching faulty draft remains.
+Five real PostgreSQL fixture cases passed before mutation. There were zero
+saved profiles, so no immutable saved snapshot required correction. Only counts
+and preservation results are exported; no user prompt or stored record is logged.
+
+The [verification record](../../plans/evidence/harden-llm/reference-ui-regression/verification.json),
+[release report](../../plans/evidence/harden-llm/reference-ui-regression/release-accepted-report.json)
+and [deployment record](../../plans/evidence/harden-llm/reference-ui-regression/deployment-acceptance.json)
+retain the result and original failed gate separately. This completes #109's
+browser-free corrective scope. Browser layout, interactive Portal and real
+provider inference were not tested. Optional next work is supplying the missing
+provider credentials and explicitly commissioning those acceptance checks;
+none requires another architecture or API change.

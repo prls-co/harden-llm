@@ -1,0 +1,154 @@
+{
+  "applicationSHA": "739cfda1ea6a67fb7a2ee737e31d8342c58f36d0",
+  "runID": 38439024276,
+  "attempt": 1,
+  "url": "https://github.com/prls-co/harden-llm/actions/runs/38439024276/attempts/1",
+  "accepted": true,
+  "taskCount": 28,
+  "firstFailure": null,
+  "preflightFailure": null,
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "tasks": [
+    {
+      "id": "go-format",
+      "exitCode": 0,
+      "wallTimeMs": 569
+    },
+    {
+      "id": "go-lint",
+      "exitCode": 0,
+      "wallTimeMs": 24715
+    },
+    {
+      "id": "go-build",
+      "exitCode": 0,
+      "wallTimeMs": 16279
+    },
+    {
+      "id": "go-static",
+      "exitCode": 0,
+      "wallTimeMs": 15041
+    },
+    {
+      "id": "runner-contracts",
+      "exitCode": 0,
+      "wallTimeMs": 74315
+    },
+    {
+      "id": "production-config-compose",
+      "exitCode": 0,
+      "wallTimeMs": 1154
+    },
+    {
+      "id": "go-unit",
+      "exitCode": 0,
+      "wallTimeMs": 17481
+    },
+    {
+      "id": "go-parity",
+      "exitCode": 0,
+      "wallTimeMs": 16441
+    },
+    {
+      "id": "go-integration",
+      "exitCode": 0,
+      "wallTimeMs": 59765
+    },
+    {
+      "id": "go-integration-race",
+      "exitCode": 0,
+      "wallTimeMs": 46557
+    },
+    {
+      "id": "go-api",
+      "exitCode": 0,
+      "wallTimeMs": 7251
+    },
+    {
+      "id": "go-observability",
+      "exitCode": 0,
+      "wallTimeMs": 5686
+    },
+    {
+      "id": "go-compose",
+      "exitCode": 0,
+      "wallTimeMs": 200800
+    },
+    {
+      "id": "go-compose-contract",
+      "exitCode": 0,
+      "wallTimeMs": 3511
+    },
+    {
+      "id": "go-race",
+      "exitCode": 0,
+      "wallTimeMs": 303453
+    },
+    {
+      "id": "go-vulnerability",
+      "exitCode": 0,
+      "wallTimeMs": 21130
+    },
+    {
+      "id": "frontend-ui-package",
+      "exitCode": 0,
+      "wallTimeMs": 67452
+    },
+    {
+      "id": "frontend-format",
+      "exitCode": 0,
+      "wallTimeMs": 115675
+    },
+    {
+      "id": "frontend-compile",
+      "exitCode": 0,
+      "wallTimeMs": 124092
+    },
+    {
+      "id": "frontend-deterministic",
+      "exitCode": 0,
+      "wallTimeMs": 198379
+    },
+    {
+      "id": "client-core",
+      "exitCode": 0,
+      "wallTimeMs": 217
+    },
+    {
+      "id": "run-progress-client",
+      "exitCode": 0,
+      "wallTimeMs": 469
+    },
+    {
+      "id": "frontend-deps-audit",
+      "exitCode": 0,
+      "wallTimeMs": 124095
+    },
+    {
+      "id": "frontend-hex-audit",
+      "exitCode": 0,
+      "wallTimeMs": 2047
+    },
+    {
+      "id": "frontend-assets-deploy",
+      "exitCode": 0,
+      "wallTimeMs": 88803
+    },
+    {
+      "id": "frontend-pagination-asset-check",
+      "exitCode": 0,
+      "wallTimeMs": 70784
+    },
+    {
+      "id": "frontend-release",
+      "exitCode": 0,
+      "wallTimeMs": 47291
+    },
+    {
+      "id": "backend-verify-baseline",
+      "exitCode": 0,
+      "wallTimeMs": 122413
+    }
+  ]
+}

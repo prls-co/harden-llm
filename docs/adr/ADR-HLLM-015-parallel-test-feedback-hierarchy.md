@@ -268,3 +268,8 @@ bootstrap helper; read actual publication before constructing public/identity
 URLs. Readiness includes this bootstrap. Pure parsing tests validate publication
 shape; the real composed gate retains all assertions and cleanup bounds. No
 automatic rerun, browser opt-in change or synthetic passing substitute is added.
+
+Corrected main source `739cfda1ea6a67fb7a2ee737e31d8342c58f36d0` passed all 28
+tasks in release 38439024276 attempt 1, including the real Compose boundary,
+with no cleanup issues. The [RCA acceptance](../rca/reference-preset-schema-and-recovery-ui.md#7-merged-and-deployed-acceptance)
+retains failed/passing reports and keeps browser/provider opt-ins explicit.

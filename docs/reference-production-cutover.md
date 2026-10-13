@@ -143,3 +143,13 @@ binding remains visibly unconfigured. Default upstream remains CPA. Verify
 configured preset counts after a scoped apply without making inference calls.
 The RCA defines the precise one-time correction for the introduced placeholder
 in persisted drafts; preserve other fields and increment revision for CAS.
+
+This correction is applied in production at
+`739cfda1ea6a67fb7a2ee737e31d8342c58f36d0`. All 24 preset drafts match the
+certified catalog; 14 have deployment credentials, while the ten OpenAI/
+Anthropic presets need explicitly supplied keys. One faulty-default draft was
+corrected with other fields preserved, and no faulty-default rows remain. The
+[RCA acceptance](rca/reference-preset-schema-and-recovery-ui.md#7-merged-and-deployed-acceptance)
+records release/images, scoped application, full equivalence and limitations.
+Do not repeat initial provisioning, retired-resource cleanup or the completed
+one-time draft correction as a routine deployment step.

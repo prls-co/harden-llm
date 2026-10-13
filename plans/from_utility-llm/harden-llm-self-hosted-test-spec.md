@@ -1847,3 +1847,13 @@ TEST-434/435 remain explicit deployed identity/HTTP checks.
 - Cheap command: `go test ./internal/smoke -run '^TestSmokeHTTPSPort$' -count=1`.
 - Assertions: accept one assigned loopback port; reject zero/out-of-range/non-loopback/malformed/multiple publications. Both fixtures delegate binding/allocation to Docker; no released host-port probing.
 - Distinct real boundary: canonical `go-compose` task starts the owned ingress, observes its assigned port and executes unchanged full-system assertions; cleanup verifies no owned resources remain. The opt-in browser fixture shares setup but is not launched by this correction.
+
+### Corrective acceptance evidence
+
+The matrix and port boundary passed in exact-source release 38439024276 attempt
+1 (`739cfda1ea6a67fb7a2ee737e31d8342c58f36d0`), all 28 tasks exit 0 with no
+cleanup issues. [The RCA](../../docs/rca/reference-preset-schema-and-recovery-ui.md#7-merged-and-deployed-acceptance)
+links the original failed gate, full accepted report and production identity/
+HTTP verification. Deployed reads confirm all 24 preset drafts match that tested
+source; they do not substitute for the 48 enabled-submit/provider-prepare cases
+or claim interactive browser/live-provider execution.

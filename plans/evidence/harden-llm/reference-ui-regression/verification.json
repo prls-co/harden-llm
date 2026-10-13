@@ -15,9 +15,26 @@
   "draftInspection": {
     "invalidPlaceholderRows": 1,
     "totalRows": 1,
-    "contentsRead": false
+    "contentsExported": false,
+    "inspection": "aggregate counts only"
   },
   "browserRun": false,
   "liveInference": false,
-  "releaseAndDeployment": "pending; issue #109 owns exact-source certification and production proof"
+  "release": {
+    "accepted": true,
+    "taskCount": 28,
+    "runID": 38439024276,
+    "attempt": 1,
+    "applicationSHA": "739cfda1ea6a67fb7a2ee737e31d8342c58f36d0",
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/38439024276/attempts/1",
+    "cleanupErrors": [],
+    "cleanupWarnings": []
+  },
+  "production": {
+    "accepted": true,
+    "origin": "https://harden-llm.prls.co",
+    "configuredPresets": 14,
+    "totalPresets": 24,
+    "evidence": "deployment-acceptance.json"
+  }
 }
