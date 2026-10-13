@@ -26,11 +26,13 @@ decision.
 
 ## 2. Artifact and production identity
 
-Current reference-decoupling production identity is recorded in
-[P06](evidence/harden-llm/reference-decoupling/phase-p06.md): application source
-`bbdb5d77bc76424804427ca30a7bf9ddc453d0cf`, exact release run 38377471293 attempt 1,
-and both immutable application image IDs. Subsequent deployment-tool/docs commits
-are not application image identities.
+Current production identity is recorded in the
+[preset workflow RCA](../docs/rca/preset-draft-persistence-and-live-qualification.md#5-acceptance-and-rollout):
+application source `ff5c968bc3c2263956fb1f946935395506347bfc`, exact release run
+38455292756 attempt 1, and both immutable application image IDs. The initial
+reference-decoupling release remains in
+[P06](evidence/harden-llm/reference-decoupling/phase-p06.md). Subsequent
+deployment-tool/docs commits are not application image identities.
 
 The historical 2026-09-22 retirement transition kept the already-running application
 image and changes only its local Docker reference in the protected descriptor.

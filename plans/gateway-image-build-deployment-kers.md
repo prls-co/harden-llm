@@ -61,3 +61,22 @@ database/service, broader data reset or permission model is added. The prior
 schema-compatible images and mode-0600 operator checkpoints are retained for
 KER-IBD-006/007. The failed first gate and its port-allocation correction remain
 in evidence; success is from corrected source, not an ambiguous retry.
+
+## Preset workflow correction acceptance (#115, 2026-10-13)
+
+KER-IBD-001/003/005 are satisfied by application source
+`ff5c968bc3c2263956fb1f946935395506347bfc`, exact release 38455292756 attempt 1
+(29 tasks, no cleanup issues), clean local builds, image/version verification,
+schema-before-apps application and scoped/full equivalence. The
+[RCA](../docs/rca/preset-draft-persistence-and-live-qualification.md#5-acceptance-and-rollout)
+links immutable image IDs and deployed HTTP/catalog acceptance. Docs-only
+closeout revisions do not relabel those images.
+
+The authorized #115 scope covers both apps and the qualified Git preset catalog.
+KER-IBD-004 comparison permits only their image/release fields; keys, upstream
+metadata, data, shared/telemetry containers and ingress are unchanged. No draft
+correction or provisioning occurs. Schema-compatible prior images and private
+mode-0600 checkpoints satisfy KER-IBD-006/007. KER-IBD-002/008–010 remain unchanged:
+one local build/operator path, without a registry, scheduler or compatibility
+fallback. Failed live-provider candidates remain recorded separately from
+release acceptance and are absent from active presets.

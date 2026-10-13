@@ -1866,8 +1866,25 @@ Root hydration, preset selection and leaf notifications use one editor snapshot 
 
 ### TEST-454: Real LiveView/gateway/PostgreSQL preset and recovery workflows
 
-Explicit T3 task `frontend-gateway-workflows` starts the actual Go gateway with actual shipped metadata, isolated PostgreSQL and native protocol HTTP fixtures. It runs real LiveView events and the UI REST client without a successful-response stub. Every preset selects, saves, reloads and executes text/structured requests through actual provider parsers. Repair and escalation configuration must persist, resolve and execute finite targets under the global budget. The separate Mix build path prevents concurrent frontend compilation interference; application gateway configuration is the documented serial resource. Browser and public provider execution are excluded.
+Explicit T3 task `frontend-gateway-workflows` starts the actual Go gateway with actual shipped metadata, isolated PostgreSQL and native protocol HTTP fixtures. It runs real LiveView events and the UI REST client without a successful-response stub. Every preset selects, saves, reads back and executes text/structured requests through actual provider parsers; page reload also verifies persisted state. Repair and escalation configuration must persist, resolve and execute finite targets under the global budget. The separate Mix build path prevents concurrent frontend compilation interference; application gateway configuration is the documented serial resource. Browser and public provider execution are excluded.
 
 ### TEST-455: Explicit live preset qualification
 
 `go test -tags=live ./cmd/harden-llm-gateway -run ^TestLivePresetMatrix$` requires explicit authorization, protected startup configuration and a private report path. Each configured preset executes one text and one structured request with cache/history off and a one-attempt/no-repair policy. Retain failures and missing credentials as failures/unconfigured, not passing skips. The matrix proves real provider compatibility, while TEST-454 proves UI/HTTP/persistence/recovery behavior. Canary harness preflight mistakes are retained separately and never justify repeating already-dispatched calls.
+
+Selection requires `HARDEN_LLM_LIVE_PRESETS=1` and a mode-0600 report named by
+`HARDEN_LLM_LIVE_PRESET_REPORT`, with the deployment's protected startup sources.
+`HARDEN_LLM_LIVE_PRESET_MODE=text` selects only text cases when those cases were
+proven unexecuted; it never authorizes replaying a dispatched/ambiguous call.
+No live canary is part of `make test-fast`, `make verify` or deployment smoke.
+
+### Exact-source corrective acceptance
+
+Application `ff5c968bc3c2263956fb1f946935395506347bfc` passed release 38455292756
+attempt 1, all 29 tasks and no cleanup issues. TEST-454 covers every final
+template's selection/persistence/readback and both modes, page reload and exact
+six-model routing. The 80 real calls separately qualified all 30 configured
+final templates while preserving ten failed candidates. TEST-435 and certified
+catalog reads passed after deployment; the
+[RCA](../../docs/rca/preset-draft-persistence-and-live-qualification.md#5-acceptance-and-rollout)
+links source/images/reports and limitations.

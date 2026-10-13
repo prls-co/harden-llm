@@ -97,3 +97,8 @@ Issue #115 extends this with actual HTTP/storage/execution coverage. TEST-454
 configures the fixed repair/escalation/rerun positions through the same editor,
 checks persisted/reloaded values and exact provider routing under one budget.
 No additional recovery graph, profile service or execution engine is added.
+
+This coverage is release-qualified and deployed at
+`ff5c968bc3c2263956fb1f946935395506347bfc`; run 38455292756 attempt 1 passed all
+29 tasks. Browser layout remains untested in this correction. The shared
+renderer, fixed roles and complete create-on-save semantics are unchanged.

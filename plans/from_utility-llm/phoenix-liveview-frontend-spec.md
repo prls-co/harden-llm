@@ -807,3 +807,24 @@ numbered pagination/counts, profile bundles/keys/probes, JSON repair/error fixer
 progress/accounting/cache/trace/downloads and `/embed/llm`. WEB-TEST-118–123 and
 backend TEST-428–431/446–448 retain baseline test purposes; no browser launch is
 implicit. Production identity and HTTP acceptance do not prove browser layout.
+
+## 25. Preset and recovery workflow qualification (2026-10-13)
+
+Issues #109 and #115 retain the restored UI and its fixed recovery roles.
+One credential-free editor snapshot must serve hydration, selection and widget
+notifications. Even an empty `apiKey` belongs outside persisted drafts. A
+template without configured credentials remains editable, with Run disabled
+until credentials are saved. Discovery alone does not qualify a provider model.
+
+| ID | Boundary and assertion | Location and command |
+| --- | --- | --- |
+| WEB-TEST-124 | Actual shipped templates load with valid schemas, select without a draft error, persist no credential field, and enable text/structured submissions only with configured credentials. | `frontend/test/harden_llm_web/live/shipped_presets_test.exs`; `node scripts/run-test-tier.mjs --task frontend-deterministic`; TEST-452/453. |
+| WEB-TEST-125 | All fixed recovery targets expose the same complete editor, inherited values and provider/key/refresh controls. Saving a target creates and binds only its immutable snapshot; role capabilities forbid recursive recovery. | `frontend/test/harden_llm_web/live/restored_profiles_test.exs`; the WEB-TEST-124 command. |
+| WEB-TEST-126 | Real LiveView events and HTTP client cross the actual Go/PostgreSQL boundary. Every shipped template selects, persists, reads back and executes both modes through native provider parsers; page reload verifies persisted state. All five recovery targets persist and the fixture observes the exact six-model generation/repair/escalation/rerun chain. | `frontend/test/harden_llm_web/live/gateway_workflows_test.exs`, `internal/gateway/httpapi/frontend_workflows_integration_test.go`; `node scripts/run-test-tier.mjs --task frontend-gateway-workflows`; TEST-454. |
+
+WEB-TEST-126 is a release T3 task using an isolated database and local providers,
+with process-owned compilation/listener resources. It is separate from the
+offline fast loop. TEST-455 qualifies actual configured providers only after
+explicit authorization; no browser is implied by either boundary. The
+[RCA](../../docs/rca/preset-draft-persistence-and-live-qualification.md) retains
+the earlier stub/Prepare blind spots and all real-provider failures.

@@ -59,5 +59,12 @@
   "status": "qualification complete; actual calls retained in live-qualification-summary.json",
   "qualifiedCPA": 19,
   "removedFailedCPA": 9,
-  "ownerIssue": "https://github.com/prls-co/CLIProxyAPI-setup/issues/5"
+  "ownerIssue": "https://github.com/prls-co/CLIProxyAPI-setup/issues/5",
+  "postDeploymentDiscovery": {
+    "entryCount": 28,
+    "all19ActiveCPAModelsAdvertised": true,
+    "previouslyFailedOldAliasesNoLongerAdvertised": 5,
+    "failedTextCandidatesStillAdvertised": 4,
+    "evidence": "cpa-current-discovery.json"
+  }
 }

@@ -76,3 +76,22 @@ certified source. A one-time exact-default correction repaired one saved draft
 without replacing any other settings; it adds no runtime legacy reader. See
 the RCA acceptance and its redacted release/deployment records for identities,
 credential availability, the preserved harness failure and opt-in limits.
+
+## 6. Preset workflow boundary correction (2026-10-13)
+
+Issue #115 corrects a blank credential field copied into persisted editor drafts.
+One `ProfileForm.draft_snapshot` now projects hydration, selection and widget
+notifications; the backend's credential rejection remains unchanged. TEST-453
+checks that invariant. TEST-454 / WEB-TEST-126 crosses the actual LiveView/client,
+Go gateway, PostgreSQL and native provider boundaries for every shipped preset
+and all five finite recovery targets. Stubbed acceptance and provider Prepare
+alone never established those workflows.
+
+Explicitly authorized TEST-455 executed one real call per mode per configured
+candidate without cache/history/retries. Current discovery supplies 19 CPA
+presets qualified in both modes. Failed candidates are removed from active Git
+templates; missing keys remain explicit and disable Run. This changes catalog
+availability and coverage, without adding a storage model, permission layer,
+provider adapter, fallback or recovery engine. The
+[RCA](../rca/preset-draft-persistence-and-live-qualification.md) owns source,
+release/deployment evidence and the CPA-owner handoff.
