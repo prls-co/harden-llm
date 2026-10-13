@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { branchIdentity, ciMode, changedServices, deploymentAllowed } from "../preview-policy.mjs";
 import { loadManifest, selectTasks, runSelection } from "../run-test-tier.mjs";
-import { dotenv, routeFor, stateFor, destroyEnvironment, syncControl, writePrivateIfChanged, reusableImage, initialPreviewCloudflareToken } from "../preview-environment.mjs";
+import { previewSecrets, dotenv, routeFor, stateFor, destroyEnvironment, syncControl, writePrivateIfChanged, reusableImage, initialPreviewCloudflareToken } from "../preview-environment.mjs";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -106,11 +106,11 @@ test("preview workflows use the policy and never check out fork code on the depl
 test("routes and state enforce exact environment ownership before writes", async () => {
   const state = branchIdentity("feat/test");
   const route = routeFor(state);
-  assert.match(route, /@api path \/v1\/\* \/healthz \/readyz/);
+  assert.match(route, /@api path \/v1\/\* \/api\/v1\/\* \/healthz \/readyz/);
   assert(route.includes(`${state.project}-web:4000`));
   assert.match(route, /header_up X-Forwarded-Proto https/);
   assert(route.includes(`${state.project}-gateway:8080`));
-  assert.doesNotMatch(route, /garage|artifacts|\/api\//);
+  assert.doesNotMatch(route, /garage|artifacts/);
   assert.doesNotMatch(route, /harden-llm\.prls\.co|otel-collector/);
   assert.throws(() => routeFor({ ...state, host: "harden-llm.prls.co" }));
   assert.throws(() => routeFor({ ...state, project: "harden-llm" }));
@@ -188,7 +188,9 @@ test("preview templates expose no host ports or production telemetry and protect
   assert.match(launcher, /WEB_IMAGE: components\.web\.imageID/);
   assert.match(launcher, /Reusing preview/);
   assert.match(launcher, /const runtimeServices = \["postgres", "gateway", "web"\]/);
-  assert.match(launcher, /HardenLlm\.Release\.migrate\(\)/);
+  assert.match(launcher, /compose\(c, state, \["run", "--rm", "--no-deps", "gateway-schema"\]\)/);
+  assert.doesNotMatch(launcher, /HardenLlm\.Release\.migrate/);
+  assert.ok(launcher.indexOf('"gateway-schema"') < launcher.indexOf('const runtimeServices'), "schema command precedes application startup");
   const workflow = await readFile(new URL("../../.github/workflows/test-hierarchy.yml", import.meta.url), "utf8");
   assert.match(workflow, /actions\/cache@v4/);
   const previewWorkflow = await readFile(new URL("../../.github/workflows/preview-environments.yml", import.meta.url), "utf8");
@@ -214,3 +216,18 @@ test("release CI builds the production frontend image through its private BuildK
   assert.match(workflow, /docker build[\s\S]*--secret=id=private_module_token,env=PRIVATE_MODULE_TOKEN[\s\S]*frontend\/Dockerfile frontend/);
   assert.match(workflow, /Remove frontend validation image[\s\S]*docker image inspect harden-llm-web-buildcheck[\s\S]*docker image rm --force harden-llm-web-buildcheck/);
 });
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-449
+ test("preview credential encryption key is standard-base64 32 bytes and existing merge keeps it",async()=>{
+ const generated=previewSecrets();
+ assert.equal(typeof generated.HARDEN_LLM_CREDENTIAL_KEY,"string");
+ const bytes=Buffer.from(generated.HARDEN_LLM_CREDENTIAL_KEY,"base64");
+ assert.equal(bytes.length,32);
+ assert.equal(bytes.toString("base64"),generated.HARDEN_LLM_CREDENTIAL_KEY);
+ const stored={...generated,HARDEN_LLM_CREDENTIAL_KEY:Buffer.alloc(32,7).toString("base64")};
+ const next=previewSecrets();
+ const merged=Object.fromEntries(Object.keys(next).map(key=>[key,stored[key]??next[key]]));
+ assert.equal(merged.HARDEN_LLM_CREDENTIAL_KEY,stored.HARDEN_LLM_CREDENTIAL_KEY);
+ const source=await readFile(new URL("../preview-environment.mjs",import.meta.url),"utf8");
+ assert.match(source,/existingSecrets\[key\] \?\? generatedSecrets\[key\]/);
+ });

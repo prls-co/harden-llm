@@ -467,11 +467,11 @@ func mergedOptions(connection runtime.Connection, call runtime.Call) (map[string
 		if _, runtimeOnly := runtimeOptionKeys[key]; runtimeOnly {
 			continue
 		}
-		options = mergeProviderOption(connection, options, key, value)
+		options = MergeProviderOption(connection.APIInferenceType, options, key, value)
 	}
 	effort := strings.TrimSpace(call.ReasoningEffort)
 	if effort != "" {
-		if hasReasoningOption(call.ProviderOptions) {
+		if HasReasoningOption(call.ProviderOptions) {
 			return nil, errors.New("providers: reasoning_effort conflicts with native reasoning options")
 		}
 		switch connection.APIInferenceType {
@@ -489,7 +489,8 @@ func mergedOptions(connection runtime.Connection, call runtime.Call) (map[string
 	return options, nil
 }
 
-func hasReasoningOption(options map[string]any) bool {
+// HasReasoningOption identifies native reasoning fields for both request composition and validation.
+func HasReasoningOption(options map[string]any) bool {
 	for _, key := range []string{
 		"reasoning", "reasoning_effort", "thinking", "thinkingConfig", "thinkingBudget", "thinking_budget",
 		"thinkingLevel", "thinking_level", "enable_thinking",
@@ -501,8 +502,9 @@ func hasReasoningOption(options map[string]any) bool {
 	return false
 }
 
-func mergeProviderOption(connection runtime.Connection, options map[string]any, key string, value any) map[string]any {
-	if connection.APIInferenceType == "gemini-generate-content" && key == "thinkingConfig" {
+// MergeProviderOption retains the one protocol-specific option merge used by request composition.
+func MergeProviderOption(protocol string, options map[string]any, key string, value any) map[string]any {
+	if protocol == "gemini-generate-content" && key == "thinkingConfig" {
 		if override, ok := value.(map[string]any); ok {
 			if current, currentOK := options[key].(map[string]any); currentOK {
 				options[key] = mergeNested(current, override)
@@ -801,7 +803,7 @@ func buildGeminiPayload(connection runtime.Connection, call runtime.Call, option
 	if err != nil {
 		return nil, err
 	}
-	systemParts := make([]any, 0, len(systemTexts)+1)
+	systemParts := make([]any, 0)
 	for _, text := range systemTexts {
 		systemParts = append(systemParts, map[string]any{"text": text})
 	}

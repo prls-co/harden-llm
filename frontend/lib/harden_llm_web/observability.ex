@@ -28,20 +28,6 @@ defmodule HardenLlmWeb.Observability do
     :ok
   end
 
-  def propagate(fun) when is_function(fun, 0) do
-    context = :otel_ctx.get_current()
-
-    fn ->
-      token = :otel_ctx.attach(context)
-
-      try do
-        fun.()
-      after
-        :otel_ctx.detach(token)
-      end
-    end
-  end
-
   def install_file_handler(path \\ nil, overrides \\ []) do
     settings = Keyword.merge(config(), overrides)
     path = path || Keyword.fetch!(settings, :file_log_path)

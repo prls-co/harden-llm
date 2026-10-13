@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // TEST-257. Observe one standard Responses SSE request; never retries a POST.
 import { readFile } from "node:fs/promises";
-import { createSSEParser, observeBudget, redactedReport } from "./run-progress-core.mjs";
+import { createSSEParser, observeBudget, redactedReport } from "../frontend/packages/harden_llm_ui/assets/js/run_progress.mjs";
 
 function option(name, fallback) {
   const index = process.argv.indexOf(name);

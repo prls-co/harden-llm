@@ -1,0 +1,55 @@
+{
+  "accepted": false,
+  "runDirectory": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/run-1791850745641-1911715-l9lw0m",
+  "results": [
+    {
+      "taskId": "go-integration",
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-tags=integration",
+        "./stateful",
+        "-run",
+        "^TestReferenceHistory$",
+        "-count=1"
+      ],
+      "status": 1,
+      "seed": 233256,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 11184,
+      "peakRssMiB": 294.93359375,
+      "cpuMs": 5130,
+      "stdoutBytes": 1652,
+      "stderrBytes": 0,
+      "truncatedOutputBytes": 0,
+      "stdoutPreview": "--- FAIL: TestReferenceHistory (3.65s)\n    --- FAIL: TestReferenceHistory/healthy_run_records_one_complete_scoped_snapshot_after_terminal_output (0.38s)\n        history_integration_test.go:58: complete record absent history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/cache_hit_makes_no_provider_call_and_records_cache_served (0.20s)\n        history_integration_test.go:207: cache summary fabricated history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/request (0.19s)\n        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/profile (0.18s)\n        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/credential (0.23s)\n        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/recovery-profile (0.20s)\n        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t3.661s\nFAIL\n",
+      "stderrPreview": "",
+      "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t3.661s | FAIL",
+      "failureDetail": "--- FAIL: TestReferenceHistory (3.65s)\n    --- FAIL: TestReferenceHistory/healthy_run_records_one_complete_scoped_snapshot_after_terminal_output (0.38s)\n        history_integration_test.go:58: complete record absent history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/cache_hit_makes_no_provider_call_and_records_cache_served (0.20s)\n        history_integration_test.go:207: cache summary fabricated history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/request (0.19s)\n        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/profile (0.18s)\n        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/credential (0.23s)\n        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/recovery-profile (0.20s)\n        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t3.661s\nFAIL",
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": true,
+      "servicePoolProject": "harden-llm-test-616a86163c83",
+      "startedAtMs": 433,
+      "endedAtMs": 11616
+    }
+  ],
+  "firstFailure": {
+    "taskId": "go-integration",
+    "status": 1,
+    "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t3.661s | FAIL",
+    "failureDetail": "--- FAIL: TestReferenceHistory (3.65s)\n    --- FAIL: TestReferenceHistory/healthy_run_records_one_complete_scoped_snapshot_after_terminal_output (0.38s)\n        history_integration_test.go:58: complete record absent history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/cache_hit_makes_no_provider_call_and_records_cache_served (0.20s)\n        history_integration_test.go:207: cache summary fabricated history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/request (0.19s)\n        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/profile (0.18s)\n        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/credential (0.23s)\n        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/recovery-profile (0.20s)\n        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t3.661s\nFAIL"
+  },
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 67,
+    "daemonLockWaitMs": 117,
+    "staleReceiptRecoveryMs": 119
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": []
+}

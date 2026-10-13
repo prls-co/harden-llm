@@ -23,16 +23,18 @@ const (
 )
 
 type plannedWork struct {
-	call             Call
-	connection       Connection
-	target           ExecutionTarget
-	prepared         PreparedOperation
-	generationCall   Call
-	branch           string
-	stage            string
-	history          []RepairHistoryEntry
-	generationTarget ExecutionTarget
-	generationHash   string
+	call              Call
+	connection        Connection
+	credential        Credential
+	generationBinding ResolvedConnection
+	target            ExecutionTarget
+	prepared          PreparedOperation
+	generationCall    Call
+	branch            string
+	stage             string
+	history           []RepairHistoryEntry
+	generationTarget  ExecutionTarget
+	generationHash    string
 }
 
 // hasExplicitRecoveryPlan selects the staged executor when a current recovery
@@ -65,9 +67,9 @@ func executeRecoveryPlan(
 		return record, errors.New("runtime connection ID is required")
 	}
 	baseCall := call
-	if call.Telemetry != nil {
+	if call.Observer != nil {
 		var finish func(error)
-		ctx, finish = call.Telemetry.StartRuntime(ctx, CallObservation{ConnectionID: connection.ID, Provider: connection.Provider, ModelID: call.ModelID, CallType: call.CallType})
+		ctx, finish = call.Observer.StartRuntime(ctx, CallObservation{ConnectionID: connection.ID, Provider: connection.Provider, ModelID: call.ModelID, CallType: call.CallType})
 		defer func() { finish(err) }()
 	}
 	if call.WebSearch && call.SearchMemo == nil {
@@ -202,13 +204,13 @@ func executeRecoveryPlan(
 		started := config.Now().UTC()
 		attemptContext := ctx
 		endAttempt := func(error) {}
-		if call.Telemetry != nil {
-			attemptContext, endAttempt = call.Telemetry.StartAttempt(ctx, targetFromPrepared(work.connection, work.prepared), work.call.CallType, attempt)
+		if call.Observer != nil {
+			attemptContext, endAttempt = call.Observer.StartAttempt(ctx, targetFromPrepared(work.connection, work.prepared), work.call.CallType, attempt)
 		}
 		providerContext := attemptContext
 		endProvider := func(bool, error) {}
-		if call.Telemetry != nil {
-			providerContext, endProvider = call.Telemetry.StartProvider(attemptContext, targetFromPrepared(work.connection, work.prepared), work.call.CallType)
+		if call.Observer != nil {
+			providerContext, endProvider = call.Observer.StartProvider(attemptContext, targetFromPrepared(work.connection, work.prepared), work.call.CallType)
 		}
 		activeStream = &StreamDiagnostics{}
 		prepared := work.prepared
@@ -229,6 +231,14 @@ func executeRecoveryPlan(
 		record.Diagnostics.OutputBytes += result.Stream.OutputBytes
 		record.Diagnostics.OutputCodePoints += result.Stream.OutputCodePoints
 		result.Accounting = normalizedLedger(result.Accounting)
+		if providerUsed {
+			cost, costErr := resolveAttemptCost(result.Accounting, work.connection)
+			if costErr != nil {
+				failure = combineAccountingFailure(failure)
+			} else {
+				result.Accounting.Cost = cost
+			}
+		}
 		if accountingErr := providerAccumulator.Observe(providerUsed, result.Accounting); accountingErr != nil {
 			failure = combineAccountingFailure(failure)
 		}
@@ -236,7 +246,7 @@ func executeRecoveryPlan(
 		previousOutput := encodeRepairOutput(result.Output)
 		if failure == nil {
 			admissionErr := admitResult(result, work.call.CallType, func(value any) error {
-				return validateStructuredValue(attemptContext, work.call.Telemetry, work.connection, work.call.Repair != nil, work.call.ValidateStructured, value)
+				return validateStructuredValue(attemptContext, work.call.Observer, work.connection, work.call.Repair != nil, work.call.ValidateStructured, value)
 			})
 			if admissionErr != nil {
 				failure = admissionErr
@@ -303,8 +313,8 @@ func executeRecoveryPlan(
 				}
 				cacheContext := ctx
 				endCache := func(string, error) {}
-				if call.Telemetry != nil {
-					cacheContext, endCache = call.Telemetry.StartCache(ctx, "write")
+				if call.Observer != nil {
+					cacheContext, endCache = call.Observer.StartCache(ctx, "write")
 				}
 				cacheErr := cache.Set(cacheContext, work.generationHash, cacheVersion, CachedResult{
 					ProviderResult: cacheResult, Producer: producer,
@@ -336,7 +346,7 @@ func executeRecoveryPlan(
 			}
 			entry := RepairHistoryEntry{Stage: work.stage, Attempt: attempt, Output: previousOutput, ValidationError: boundedError(failure)}
 			history := append(append([]RepairHistoryEntry(nil), work.history...), entry)
-			next, nextErr := prepareNextPlannedWork(ctx, executor, credential, baseCall, *work, history, config.Policy, attempt)
+			next, nextErr := prepareNextPlannedWork(ctx, executor, connection, credential, baseCall, *work, history, config.Policy, attempt)
 			if nextErr != nil {
 				record.StopReason = "configuration_error"
 				return record, nextErr
@@ -400,12 +410,7 @@ func executeRecoveryPlan(
 		}
 		record.Attempts[len(record.Attempts)-1].Delay = delay
 		waitStarted := config.Now()
-		waitErr := error(nil)
-		if call.Telemetry != nil {
-			waitErr = call.Telemetry.WaitForRetry(ctx, targetFromPrepared(work.connection, work.prepared), work.call.CallType, classification, delay, config.Wait)
-		} else {
-			waitErr = config.Wait(ctx, delay)
-		}
+		waitErr := waitForRetry(ctx, call.Observer, targetFromPrepared(work.connection, work.prepared), work.call.CallType, classification, delay, config.Wait)
 		actualWait := max(0, config.Now().Sub(waitStarted))
 		record.Diagnostics.TotalActualWait += actualWait
 		record.Attempts[len(record.Attempts)-1].WaitDiagnostics = &WaitDiagnostics{Reason: string(classification.Category), Planned: delay, Actual: actualWait, RetryAfter: classification.RetryAfter}
@@ -420,7 +425,7 @@ func preparePlannedGeneration(ctx context.Context, executor Executor, connection
 	return preparePlannedWork(ctx, executor, connection, credential, baseCall, branch, stage, target, nil)
 }
 
-func prepareNextPlannedWork(ctx context.Context, executor Executor, credential Credential, baseCall Call, current plannedWork, history []RepairHistoryEntry, policy retry.Policy, attempt int) (*plannedWork, error) {
+func prepareNextPlannedWork(ctx context.Context, executor Executor, selectedConnection Connection, credential Credential, baseCall Call, current plannedWork, history []RepairHistoryEntry, policy retry.Policy, attempt int) (*plannedWork, error) {
 	next := nextPlannedStage(policy, current)
 	if next == "" {
 		return nil, nil
@@ -430,7 +435,7 @@ func prepareNextPlannedWork(ctx context.Context, executor Executor, credential C
 		call := baseCall
 		call.Repair = nil
 		call.WebSearch = baseCall.WebSearch
-		return preparePlannedWork(ctx, executor, current.connection, credential, call, "rerun", next, &target, nil)
+		return preparePlannedWork(ctx, executor, selectedConnection, credential, call, "rerun", next, &target, nil)
 	}
 	var target retry.RecoveryTarget
 	if current.branch == "original" {
@@ -451,15 +456,18 @@ func prepareNextPlannedWork(ctx context.Context, executor Executor, credential C
 	if target.Source == "generation" {
 		call = current.generationCall
 		call.WebSearch = false
+		selectedConnection = current.generationBinding.Connection
+		credential = current.generationBinding.Credential
 	}
 	call.Repair = &RepairRequest{Attempt: attempt + 1, MaxAttempts: policy.MaxAttempts, Stage: next, Branch: current.branch, TargetSchema: append(json.RawMessage(nil), baseCall.Schema...), History: append([]RepairHistoryEntry(nil), history...)}
-	nextWork, err := preparePlannedWork(ctx, executor, current.connection, credential, call, current.branch, next, &target, call.Repair)
+	nextWork, err := preparePlannedWork(ctx, executor, selectedConnection, credential, call, current.branch, next, &target, call.Repair)
 	if err != nil {
 		return nil, err
 	}
 	nextWork.generationHash = current.generationHash
 	nextWork.generationTarget = current.generationTarget
 	nextWork.generationCall = current.generationCall
+	nextWork.generationBinding = current.generationBinding
 	return nextWork, nil
 }
 
@@ -468,6 +476,14 @@ func preparePlannedWork(ctx context.Context, executor Executor, connection Conne
 	call.Repair = repair
 	if target != nil {
 		if target.Source == "model" {
+			if target.ConnectionID != "" {
+				binding, ok := baseCall.Connections[target.ConnectionID]
+				if !ok {
+					return nil, errors.New("runtime recovery upstream is not configured")
+				}
+				connection = binding.Connection
+				credential = binding.Credential
+			}
 			// A model target is a leaf operation. Do not carry provider
 			// options from the failed generation into a different model.
 			call.ProviderOptions = nil
@@ -493,7 +509,7 @@ func preparePlannedWork(ctx context.Context, executor Executor, connection Conne
 	}
 	generationCall := call
 	generationCall.Repair = nil
-	return &plannedWork{call: call, connection: connection, generationCall: generationCall, target: targetFromPrepared(connection, prepared), prepared: prepared, branch: branch, stage: stage, history: history}, nil
+	return &plannedWork{call: call, connection: connection, credential: credential, generationBinding: ResolvedConnection{Connection: connection, Credential: credential}, generationCall: generationCall, target: targetFromPrepared(connection, prepared), prepared: prepared, branch: branch, stage: stage, history: history}, nil
 }
 
 // validateRecoveryTargets admits every model override before the first provider
@@ -662,7 +678,7 @@ func admitPlannedCachedResult(ctx context.Context, connection Connection, genera
 		}
 	}
 	return admitResult(cached.ProviderResult, call.CallType, func(value any) error {
-		return validateStructuredValue(ctx, call.Telemetry, connection, false, call.ValidateStructured, value)
+		return validateStructuredValue(ctx, call.Observer, connection, false, call.ValidateStructured, value)
 	})
 }
 

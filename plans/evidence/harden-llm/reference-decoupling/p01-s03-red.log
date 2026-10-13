@@ -1,0 +1,26 @@
+--- FAIL: TestRecoverySnapshot (0.00s)
+    --- FAIL: TestRecoverySnapshot/repair_uses_exact_connection_key_and_attempt_rates (0.00s)
+        recovery_snapshot_test.go:78: dispatches=[a:generate:key-a a:repair:key-a] want=[a:generate:key-a b:repair:key-b]
+        recovery_snapshot_test.go:81: mixed attempt cost={KnownSubtotalUSD:0 Status:unknown Source: KnownObservations:0 UnknownObservations:2}
+        recovery_snapshot_test.go:84: result producer/cost={Kind:provider AttemptNumber:2 Producer:0x270ba9c36690} {KnownSubtotalUSD:0 Status:unknown Source: KnownObservations:0 UnknownObservations:1}
+    --- FAIL: TestRecoverySnapshot/unknown_target_fails_before_preparing_or_dispatching_generation (0.00s)
+        recovery_snapshot_test.go:94: unknown target: err=<nil> prepared=[a:generate:key-a a:repair:key-a] dispatches=[a:generate:key-a a:repair:key-a]
+    --- FAIL: TestRecoverySnapshot/all_five_recovery_leaves_keep_their_bindings (0.00s)
+        recovery_snapshot_test.go:110: recovery bindings/cost: [a:generate:key-a a:repair:key-a a:escalate:key-a a:rerun:key-a a:rerun-repair:key-a a:final:key-a] {KnownSubtotalUSD:0 Status:unknown Source: KnownObservations:0 UnknownObservations:6} <nil>
+    --- FAIL: TestRecoverySnapshot/reported_unknown_and_zero_prices_remain_distinct (0.00s)
+        --- FAIL: TestRecoverySnapshot/reported_unknown_and_zero_prices_remain_distinct/zero (0.00s)
+            recovery_snapshot_test.go:147: explicit zero not known: {KnownSubtotalUSD:0 Status:unknown Source: KnownObservations:0 UnknownObservations:1}
+    --- FAIL: TestRecoverySnapshot/concurrent_requests_do_not_change_configured_bindings (0.00s)
+        recovery_snapshot_test.go:160: concurrent snapshot: <nil> {KnownSubtotalUSD:0 Status:unknown Source: KnownObservations:0 UnknownObservations:2}
+        recovery_snapshot_test.go:160: concurrent snapshot: <nil> {KnownSubtotalUSD:0 Status:unknown Source: KnownObservations:0 UnknownObservations:2}
+        recovery_snapshot_test.go:160: concurrent snapshot: <nil> {KnownSubtotalUSD:0 Status:unknown Source: KnownObservations:0 UnknownObservations:2}
+        recovery_snapshot_test.go:160: concurrent snapshot: <nil> {KnownSubtotalUSD:0 Status:unknown Source: KnownObservations:0 UnknownObservations:2}
+        recovery_snapshot_test.go:160: concurrent snapshot: <nil> {KnownSubtotalUSD:0 Status:unknown Source: KnownObservations:0 UnknownObservations:2}
+        recovery_snapshot_test.go:160: concurrent snapshot: <nil> {KnownSubtotalUSD:0 Status:unknown Source: KnownObservations:0 UnknownObservations:2}
+        recovery_snapshot_test.go:160: concurrent snapshot: <nil> {KnownSubtotalUSD:0 Status:unknown Source: KnownObservations:0 UnknownObservations:2}
+        recovery_snapshot_test.go:160: concurrent snapshot: <nil> {KnownSubtotalUSD:0 Status:unknown Source: KnownObservations:0 UnknownObservations:2}
+        recovery_snapshot_test.go:160: concurrent snapshot: <nil> {KnownSubtotalUSD:0 Status:unknown Source: KnownObservations:0 UnknownObservations:2}
+        recovery_snapshot_test.go:160: concurrent snapshot: <nil> {KnownSubtotalUSD:0 Status:unknown Source: KnownObservations:0 UnknownObservations:2}
+FAIL
+FAIL	github.com/prls-co/harden-llm	0.007s
+FAIL

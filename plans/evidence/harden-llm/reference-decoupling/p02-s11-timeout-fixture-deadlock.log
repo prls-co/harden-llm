@@ -1,0 +1,105 @@
+{"taskId":"go-integration","status":1,"failureSummary":"gs     0x0 | FAIL\tgithub.com/prls-co/harden-llm/stateful\t181.672s | FAIL","failureDetail":")\n\t/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771 +0x1 fp=0x22ebc0ee3fe8 sp=0x22ebc0ee3fe0 pc=0x492c21\ncreated by runtime.gcBgMarkStartWorkers in goroutine 6\n\t/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgc.go:1695 +0x105\n\ngoroutine 66 gp=0x22ebc0bda1e0 m=nil [select]:\nruntime.gopark(0x22ebc09f6f50?, 0x3?, 0x28?, 0x21?, 0x22ebc09f6f42?)\n\t/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:462 +0xce fp=0x22ebc09f6dd8 sp=0x22ebc09f6db8 pc=0x48b0ae\nruntime.selectgo(0x22ebc09f6f50, 0x22ebc09f6f3c, 0x80a652?, 0x0, 0x0?, 0x1)\n\t/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/select.go:351 +0xaa5 fp=0x22ebc09f6f08 sp=0x22ebc09f6dd8 pc=0x467b65\ngithub.com/jackc/pgx/v5/pgxpool.(*Pool).backgroundHealthCheck(0x22ebc0c682a0)\n\t/home/kirill/go/pkg/mod/github.com/jackc/pgx/v5@v5.10.0/pgxpool/pool.go:493 +0xc8 fp=0x22ebc09f6fa8 sp=0x22ebc09f6f08 pc=0x80a0e8\ngithub.com/jackc/pgx/v5/pgxpool.NewWithConfig.func5()\n\t/home/kirill/go/pkg/mod/github.com/jackc/pgx/v5@v5.10.0/pgxpool/pool.go:336 +0x3d fp=0x22ebc09f6fe0 sp=0x22ebc09f6fa8 pc=0x808c3d\nruntime.goexit({})\n\t/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771 +0x1 fp=0x22ebc09f6fe8 sp=0x22ebc09f6fe0 pc=0x492c21\ncreated by github.com/jackc/pgx/v5/pgxpool.NewWithConfig in goroutine 42\n\t/home/kirill/go/pkg/mod/github.com/jackc/pgx/v5@v5.10.0/pgxpool/pool.go:333 +0x43e\n\ngoroutine 98 gp=0x22ebc09da000 m=nil [chan receive, 3 minutes]:\nruntime.gopark(0x22ebc0a2a5b0?, 0xa76580?, 0x85?, 0x23?, 0x22ebc094bab8?)\n\t/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:462 +0xce fp=0x22ebc0bc3a28 sp=0x22ebc0bc3a08 pc=0x48b0ae\nruntime.chanrecv(0x22ebc0940690, 0x0, 0x1)\n\t/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/chan.go:667 +0x4ae fp=0x22ebc0bc3aa0 sp=0x22ebc0bc3a28 pc=0x41b1ee\nruntime.chanrecv1(0x22ebc0e9d630?, 0x7b21fb059a00?)\n\t/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/chan.go:509 +0x12 fp=0x22ebc0bc3ac8 sp=0x22ebc0bc3aa0 pc=0x41ad12\ngithub.com/prls-co/harden-llm/stateful.TestProfileResources.func2.1.1({0xbbb370?, 0x22ebc09d0000?}, 0x0?)\n\t/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/stateful/profile_resources_integration_test.go:40 +0x85 fp=0x22ebc0bc3b00 sp=0x22ebc0bc3ac8 pc=0x95c1c5\nnet/http.HandlerFunc.ServeHTTP(0x4242e5?, {0xbbb370?, 0x22ebc09d0000?}, 0x22ebc09d0001?)\n\t/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:2284 +0x29 fp=0x22ebc0bc3b28 sp=0x22ebc0bc3b00 pc=0x8c7b69\nnet/http.serverHandler.ServeHTTP({0xbb84c0?}, {0xbbb370?, 0x22ebc09d0000?}, 0x1?)\n\t/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:3309 +0x8e fp=0x22ebc0bc3b58 sp=0x22ebc0bc3b28 pc=0x8e542e\nnet/http.(*conn).serve(0x22ebc0e5c090, {0xbbc970, 0x22ebc09c3a10})\n\t/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:2067 +0x690 fp=0x22ebc0bc3fb8 sp=0x22ebc0bc3b58 pc=0x8c5f50\nnet/http.(*Server).Serve.gowrap3()\n\t/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:3462 +0x1f fp=0x22ebc0bc3fe0 sp=0x22ebc0bc3fb8 pc=0x8cabbf\nruntime.goexit({})\n\t/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771 +0x1 fp=0x22ebc0bc3fe8 sp=0x22ebc0bc3fe0 pc=0x492c21\ncreated by net/http.(*Server).Serve in goroutine 9\n\t/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:3462 +0x485\n\nrax    0xca\nrbx    0x0\nrcx    0x494783\nrdx    0x0\nrdi    0x114a198\nrsi    0x80\nrbp    0x7ffe55a689a8\nrsp    0x7ffe55a68960\nr8     0x0\nr9     0x0\nr10    0x0\nr11    0x286\nr12    0x22ebc095a008\nr13    0x1\nr14    0x1148e60\nr15    0x7\nrip    0x494781\nrflags 0x286\ncs     0x33\nfs     0x0\ngs     0x0\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t181.672s\nFAIL"}
+2026/10/12 15:32:49 httptest.Server blocked in Close after 5 seconds, waiting for connections:
+  *tls.Conn 0x22ebc0c60008 127.0.0.1:41724 in state active
+SIGQUIT: quit
+PC=0x494781 m=0 sigcode=0
+
+goroutine 0 gp=0x1148e60 m=0 mp=0x114a040 [idle]:
+runtime.futex(0x114a198, 0x80, 0x0, 0x0, 0x0, 0x0)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/sys_linux_amd64.s:569 +0x21 fp=0x7ffe55a68968 sp=0x7ffe55a68960 pc=0x494781
+runtime.futexsleep(0x114a040?, 0x55a689e0?, 0x463068?)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/os_linux.go:73 +0x30 fp=0x7ffe55a689b8 sp=0x7ffe55a68968 pc=0x44dc70
+runtime.notesleep(0x114a198)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/lock_futex.go:47 +0x87 fp=0x7ffe55a689f0 sp=0x7ffe55a689b8 pc=0x421387
+runtime.mPark(...)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:1967
+runtime.stopm()
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:3008 +0x8c fp=0x7ffe55a68a20 sp=0x7ffe55a689f0 pc=0x45928c
+runtime.findRunnable()
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:3796 +0xec8 fp=0x7ffe55a68bf0 sp=0x7ffe55a68a20 pc=0x45ae48
+runtime.schedule()
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:4164 +0xb1 fp=0x7ffe55a68c30 sp=0x7ffe55a68bf0 pc=0x45bf91
+runtime.park_m(0x22ebc0ed90e0)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:4304 +0x285 fp=0x7ffe55a68c90 sp=0x7ffe55a68c30 pc=0x45c425
+runtime.mcall()
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:496 +0x55 fp=0x7ffe55a68ca8 sp=0x7ffe55a68c90 pc=0x490fd5
+
+goroutine 1 gp=0x22ebc09001e0 m=nil [chan receive, 3 minutes]:
+runtime.gopark(0x22ebc0b5f901?, 0x22ebc0b5f9a8?, 0x3f?, 0xcb?, 0x1147c40?)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:462 +0xce fp=0x22ebc0c09918 sp=0x22ebc0c098f8 pc=0x48b0ae
+runtime.chanrecv(0x22ebc0a4a780, 0x0, 0x1)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/chan.go:667 +0x4ae fp=0x22ebc0c09990 sp=0x22ebc0c09918 pc=0x41b1ee
+runtime.chanrecv1(0x22ebc0a121c0?, 0xbd1e00?)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/chan.go:509 +0x12 fp=0x22ebc0c099b8 sp=0x22ebc0c09990 pc=0x41ad12
+testing.tRunner.func1()
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:1993 +0x445 fp=0x22ebc0c09b50 sp=0x22ebc0c099b8 pc=0x524ca5
+testing.tRunner(0x22ebc0a88488, 0x22ebc0b5fc58)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:2042 +0x123 fp=0x22ebc0c09ba0 sp=0x22ebc0c09b50 pc=0x5247e3
+testing.runTests({0xb824e0, 0x1d}, {0xb8ab2e, 0x26}, 0x22ebc0a2c2b8, {0x113e360, 0x7, 0x7}, {0xc2ab7678f97c7dab, 0x8bb2e4c8dc, ...})
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:2583 +0x505 fp=0x22ebc0c09c88 sp=0x22ebc0c09ba0 pc=0x527aa5
+testing.(*M).Run(0x22ebc0b9a500)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:2443 +0x6ac fp=0x22ebc0c09ec8 sp=0x22ebc0c09c88 pc=0x52642c
+main.main()
+	_testmain.go:60 +0x9b fp=0x22ebc0c09f48 sp=0x22ebc0c09ec8 pc=0x99b19b
+runtime.main()
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:290 +0x2d5 fp=0x22ebc0c09fe0 sp=0x22ebc0c09f48 pc=0x454475
+runtime.goexit({})
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771 +0x1 fp=0x22ebc0c09fe8 sp=0x22ebc0c09fe0 pc=0x492c21
+
+goroutine 2 gp=0x22ebc0900d20 m=nil [force gc (idle), 3 minutes]:
+runtime.gopark(0x99f556249d45b?, 0x0?, 0x0?, 0x0?, 0x0?)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:462 +0xce fp=0x22ebc0986fa8 sp=0x22ebc0986f88 pc=0x48b0ae
+runtime.goparkunlock(...)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:468
+runtime.forcegchelper()
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:375 +0xb3 fp=0x22ebc0986fe0 sp=0x22ebc0986fa8 pc=0x454793
+runtime.goexit({})
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771 +0x1 fp=0x22ebc0986fe8 sp=0x22ebc0986fe0 pc=0x492c21
+created by runtime.init.7 in goroutine 1
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:363 +0x1a
+
+goroutine 3 gp=0x22ebc09012c0 m=nil [GC sweep wait]:
+runtime.gopark(0x1?, 0x0?, 0x0?, 0x0?, 0x0?)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:462 +0xce fp=0x22ebc0987788 sp=0x22ebc0987768 pc=0x48b0ae
+runtime.goparkunlock(...)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:468
+runtime.bgsweep(0x22ebc09b0000)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgcsweep.go:324 +0x151 fp=0x22ebc09877c8 sp=0x22ebc0987788 pc=0x43bc71
+runtime.gcenable.gowrap1()
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgc.go:214 +0x17 fp=0x22ebc09877e0 sp=0x22ebc09877c8 pc=0x42cfd7
+runtime.goexit({})
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771 +0x1 fp=0x22ebc09877e8 sp=0x22ebc09877e0 pc=0x492c21
+created by runtime.gcenable in goroutine 1
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgc.go:214 +0x66
+
+goroutine 4 gp=0x22ebc09014a0 m=nil [GC scavenge wait]:
+runtime.gopark(0x11d589c1?, 0x11cf1365?, 0x0?, 0x0?, 0x0?)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:462 +0xce fp=0x22ebc0987f78 sp=0x22ebc0987f58 pc=0x48b0ae
+runtime.goparkunlock(...)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:468
+runtime.(*scavengerState).park(0x1148820)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgcscavenge.go:425 +0x49 fp=0x22ebc0987fa8 sp=0x22ebc0987f78 pc=0x4396e9
+runtime.bgscavenge(0x22ebc09b0000)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgcscavenge.go:658 +0x59 fp=0x22ebc0987fc8 sp=0x22ebc0987fa8 pc=0x439c79
+runtime.gcenable.gowrap2()
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgc.go:215 +0x17 fp=0x22ebc0987fe0 sp=0x22ebc0987fc8 pc=0x42cf97
+runtime.goexit({})
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771 +0x1 fp=0x22ebc0987fe8 sp=0x22ebc0987fe0 pc=0x492c21
+created by runtime.gcenable in goroutine 1
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgc.go:215 +0xa5
+
+goroutine 18 gp=0x22ebc0a043c0 m=nil [GOMAXPROCS updater (idle), 3 minutes]:
+runtime.gopark(0x0?, 0x0?, 0x0?, 0x0?, 0x0?)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:462 +0xce fp=0x22ebc0982788 sp=0x22ebc0982768 pc=0x48b0ae
+runtime.goparkunlock(...)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:468
+runtime.updateMaxProcsGoroutine()
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:7095 +0xe7 fp=0x22ebc09827e0 sp=0x22ebc0982788 pc=0x462d27
+runtime.goexit({})
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771 +0x1 fp=0x22ebc09827e8 sp=0x22ebc09827e0 pc=0x492c21
+created by runtime.defaultGOMAXPROCSUpdateEnable in goroutine 1
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/proc.go:7083 +0x37
+
+goroutine 19 gp=0x22ebc0a04960 m=nil [finalizer wait, 3 minutes]:
+runtime.gopark(0x463d75?, 0x1c8?, 0x0?, 0xe6?, 0x22ebc0986601?)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.

@@ -1,0 +1,55 @@
+{
+  "accepted": false,
+  "runDirectory": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/run-1791847560164-1563094-nqx8z4",
+  "results": [
+    {
+      "taskId": "go-integration",
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-tags=integration",
+        "./stateful",
+        "-run",
+        "^TestReferenceArtifacts$",
+        "-count=1"
+      ],
+      "status": 1,
+      "seed": 233256,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 7565,
+      "peakRssMiB": 277.84375,
+      "cpuMs": 4240,
+      "stdoutBytes": 1048,
+      "stderrBytes": 0,
+      "truncatedOutputBytes": 0,
+      "stdoutPreview": "--- FAIL: TestReferenceArtifacts (0.04s)\n    --- FAIL: TestReferenceArtifacts/publish_metadata_and_bytes_live_under_the_exact_key_and_run_prefix (0.00s)\n        artifact_integration_test.go:51: trace parse evidence and support bundle not published <nil> 0\n    --- FAIL: TestReferenceArtifacts/same-key_clients_stream_bytes_without_needing_a_history_row (0.00s)\n        artifact_integration_test.go:74: <nil>\n    --- FAIL: TestReferenceArtifacts/digest_mismatch_returns_no_bytes (0.01s)\n        artifact_integration_test.go:102: publication fixture is incomplete <nil>\n    --- FAIL: TestReferenceArtifacts/unavailable_publication_is_bounded_and_preserves_the_capture (0.01s)\n        artifact_integration_test.go:126: publication changed capture or exceeded budget <nil> 14.107µs\n    --- FAIL: TestReferenceArtifacts/prefix_delete_is_exact_idempotent_and_resumable_after_an_object_failure (0.01s)\n        artifact_integration_test.go:145: expected code artifact_cleanup_failed, got <nil>\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t0.043s\nFAIL\n",
+      "stderrPreview": "",
+      "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t0.043s | FAIL",
+      "failureDetail": "--- FAIL: TestReferenceArtifacts (0.04s)\n    --- FAIL: TestReferenceArtifacts/publish_metadata_and_bytes_live_under_the_exact_key_and_run_prefix (0.00s)\n        artifact_integration_test.go:51: trace parse evidence and support bundle not published <nil> 0\n    --- FAIL: TestReferenceArtifacts/same-key_clients_stream_bytes_without_needing_a_history_row (0.00s)\n        artifact_integration_test.go:74: <nil>\n    --- FAIL: TestReferenceArtifacts/digest_mismatch_returns_no_bytes (0.01s)\n        artifact_integration_test.go:102: publication fixture is incomplete <nil>\n    --- FAIL: TestReferenceArtifacts/unavailable_publication_is_bounded_and_preserves_the_capture (0.01s)\n        artifact_integration_test.go:126: publication changed capture or exceeded budget <nil> 14.107µs\n    --- FAIL: TestReferenceArtifacts/prefix_delete_is_exact_idempotent_and_resumable_after_an_object_failure (0.01s)\n        artifact_integration_test.go:145: expected code artifact_cleanup_failed, got <nil>\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t0.043s\nFAIL",
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": true,
+      "servicePoolProject": "harden-llm-test-c5a652963556",
+      "startedAtMs": 470,
+      "endedAtMs": 8035
+    }
+  ],
+  "firstFailure": {
+    "taskId": "go-integration",
+    "status": 1,
+    "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t0.043s | FAIL",
+    "failureDetail": "--- FAIL: TestReferenceArtifacts (0.04s)\n    --- FAIL: TestReferenceArtifacts/publish_metadata_and_bytes_live_under_the_exact_key_and_run_prefix (0.00s)\n        artifact_integration_test.go:51: trace parse evidence and support bundle not published <nil> 0\n    --- FAIL: TestReferenceArtifacts/same-key_clients_stream_bytes_without_needing_a_history_row (0.00s)\n        artifact_integration_test.go:74: <nil>\n    --- FAIL: TestReferenceArtifacts/digest_mismatch_returns_no_bytes (0.01s)\n        artifact_integration_test.go:102: publication fixture is incomplete <nil>\n    --- FAIL: TestReferenceArtifacts/unavailable_publication_is_bounded_and_preserves_the_capture (0.01s)\n        artifact_integration_test.go:126: publication changed capture or exceeded budget <nil> 14.107µs\n    --- FAIL: TestReferenceArtifacts/prefix_delete_is_exact_idempotent_and_resumable_after_an_object_failure (0.01s)\n        artifact_integration_test.go:145: expected code artifact_cleanup_failed, got <nil>\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t0.043s\nFAIL"
+  },
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 79,
+    "daemonLockWaitMs": 144,
+    "staleReceiptRecoveryMs": 120
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": []
+}

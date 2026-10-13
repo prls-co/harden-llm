@@ -1,0 +1,85 @@
+TAP version 13
+# Subtest: reference terminal and later recording stay separate for independent instances
+not ok 1 - reference terminal and later recording stay separate for independent instances
+  ---
+  duration_ms: 4.186713
+  type: 'test'
+  location: '/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/run_progress_test.mjs:10:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+
+    false !== true
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/run_progress_test.mjs:18:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.start (node:internal/test_runner/test:944:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17)
+  ...
+# Subtest: reference progress rejects stale sequence, foreign run and duplicate terminal
+not ok 2 - reference progress rejects stale sequence, foreign run and duplicate terminal
+  ---
+  duration_ms: 0.70391
+  type: 'test'
+  location: '/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/run_progress_test.mjs:29:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'throws'
+  stack: |-
+    TestContext.<anonymous> (file:///home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/run_progress_test.mjs:35:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: TEST-256 parses split standard Responses SSE events and completion
+ok 3 - TEST-256 parses split standard Responses SSE events and completion
+  ---
+  duration_ms: 1.597149
+  type: 'test'
+  ...
+# Subtest: incomplete EOF is not success and heartbeat does not advance progress
+ok 4 - incomplete EOF is not success and heartbeat does not advance progress
+  ---
+  duration_ms: 0.408155
+  type: 'test'
+  ...
+# Subtest: hard caps stop observation without extending the case
+ok 5 - hard caps stop observation without extending the case
+  ---
+  duration_ms: 0.269116
+  type: 'test'
+  ...
+# Subtest: TEST-257 a delivered Responses failure terminal remains a functional failure
+ok 6 - TEST-257 a delivered Responses failure terminal remains a functional failure
+  ---
+  duration_ms: 0.184473
+  type: 'test'
+  ...
+# Subtest: headless CLI requires HARDEN_LLM_TOKEN and sends one standard Responses request
+ok 7 - headless CLI requires HARDEN_LLM_TOKEN and sends one standard Responses request
+  ---
+  duration_ms: 368.060786
+  type: 'test'
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 5
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 618.23794

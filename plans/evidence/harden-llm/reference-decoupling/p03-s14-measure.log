@@ -1,0 +1,102 @@
+null
+=== RUN   TestReferenceArtifacts
+=== PAUSE TestReferenceArtifacts
+=== RUN   TestCacheDraftContract
+=== PAUSE TestCacheDraftContract
+=== RUN   TestReferenceHistory
+=== PAUSE TestReferenceHistory
+=== RUN   TestHistoryQueries
+=== PAUSE TestHistoryQueries
+=== RUN   TestHistoryStore
+=== PAUSE TestHistoryStore
+=== CONT  TestReferenceArtifacts
+=== CONT  TestHistoryStore
+=== CONT  TestReferenceHistory
+=== CONT  TestHistoryQueries
+=== RUN   TestReferenceHistory/healthy_run_records_one_complete_scoped_snapshot_after_terminal_output
+=== RUN   TestHistoryStore/one_insert_uses_server_scope_and_detail_denies_foreign_or_unknown_runs
+=== RUN   TestReferenceArtifacts/publish_metadata_and_bytes_live_under_the_exact_key_and_run_prefix
+=== CONT  TestCacheDraftContract
+=== RUN   TestCacheDraftContract/seven_day_draft_expiry_preserves_another_host_draft
+=== RUN   TestHistoryQueries/statistics_use_the_same_key_window_with_truthful_known_and_unknown_accounting
+=== RUN   TestReferenceArtifacts/same-key_clients_stream_bytes_without_needing_a_history_row
+=== RUN   TestReferenceArtifacts/invalid_UUID_and_escaping_artifact_IDs_fail_before_Garage
+=== RUN   TestReferenceArtifacts/digest_mismatch_returns_no_bytes
+=== RUN   TestReferenceArtifacts/unavailable_publication_is_bounded_and_preserves_the_capture
+=== RUN   TestReferenceArtifacts/prefix_delete_is_exact_idempotent_and_resumable_after_an_object_failure
+=== RUN   TestReferenceArtifacts/disabled_artifacts_perform_no_publication_and_report_disabled
+=== RUN   TestReferenceArtifacts/exported_product_functions_take_IDs_rather_than_Garage_keys_or_URLs
+--- PASS: TestReferenceArtifacts (0.13s)
+    --- PASS: TestReferenceArtifacts/publish_metadata_and_bytes_live_under_the_exact_key_and_run_prefix (0.03s)
+    --- PASS: TestReferenceArtifacts/same-key_clients_stream_bytes_without_needing_a_history_row (0.02s)
+    --- PASS: TestReferenceArtifacts/invalid_UUID_and_escaping_artifact_IDs_fail_before_Garage (0.00s)
+    --- PASS: TestReferenceArtifacts/digest_mismatch_returns_no_bytes (0.02s)
+    --- PASS: TestReferenceArtifacts/unavailable_publication_is_bounded_and_preserves_the_capture (0.00s)
+    --- PASS: TestReferenceArtifacts/prefix_delete_is_exact_idempotent_and_resumable_after_an_object_failure (0.05s)
+    --- PASS: TestReferenceArtifacts/disabled_artifacts_perform_no_publication_and_report_disabled (0.01s)
+    --- PASS: TestReferenceArtifacts/exported_product_functions_take_IDs_rather_than_Garage_keys_or_URLs (0.00s)
+=== RUN   TestCacheDraftContract/real_SQL_statement_timeout_bounds_blocked_storage
+=== RUN   TestReferenceHistory/ordinary_core_call_never_writes_history
+=== RUN   TestHistoryStore/invalid_stored_schema_or_payload_is_not_a_successful_restore
+=== RUN   TestHistoryQueries/delete_removes_exact_run_prefix_before_row_and_denies_foreign_key
+=== RUN   TestReferenceHistory/recording_failure_preserves_inference/disabled
+=== RUN   TestHistoryQueries/partial_object_cleanup_preserves_row_and_explicit_retry_completes
+=== RUN   TestHistoryStore/numbered_windows_ordering_counts_and_summaries_stay_scoped
+=== RUN   TestCacheDraftContract/cache_envelope_is_scoped_by_key_and_credential_namespace
+=== RUN   TestReferenceHistory/recording_failure_preserves_inference/nil-pool
+=== RUN   TestHistoryStore/invalid_pages_sizes_and_overflowing_offsets_fail
+=== RUN   TestHistoryQueries/clear_freezes_cutoff_and_limits_batches_to_one_hundred
+=== RUN   TestCacheDraftContract/two_ordinary_clients_with_same_key_share_cached_response
+=== RUN   TestHistoryStore/exact_seventeen_MiB_payload_survives_and_one_extra_byte_rejects_without_truncation
+=== RUN   TestReferenceHistory/recording_failure_preserves_inference/closed-pool
+=== RUN   TestCacheDraftContract/entered_credential_replacement_invalidates_previous_namespace
+=== RUN   TestReferenceHistory/recording_failure_preserves_inference/oversize
+=== RUN   TestCacheDraftContract/changing_a_recovery_credential_changes_namespace
+=== RUN   TestCacheDraftContract/expired_cache_is_not_served
+=== RUN   TestReferenceHistory/single_insert/single_readback/confirmed
+=== NAME  TestHistoryStore/exact_seventeen_MiB_payload_survives_and_one_extra_byte_rejects_without_truncation
+    history_store_integration_test.go:193: 17 MiB insert=609.857888ms detail=542.103118ms
+=== RUN   TestHistoryQueries/clear_stops_on_first_failed_run_and_leaves_later_rows
+=== RUN   TestReferenceHistory/single_insert/single_readback/unknown-found
+=== RUN   TestCacheDraftContract/one_cache_write_cleans_at_most_one_hundred_expired_same-key_rows
+=== RUN   TestHistoryQueries/disabled_artifacts_allow_row-only_delete_and_clear
+=== RUN   TestReferenceHistory/single_insert/single_readback/unknown-absent
+=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback
+=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/confirmed
+=== RUN   TestCacheDraftContract/corrupt_envelope_is_rejected_by_core_rather_than_a_cache_hit
+=== RUN   TestReferenceHistory/single_insert/single_readback/unknown-read-failed
+--- PASS: TestHistoryQueries (5.56s)
+    --- PASS: TestHistoryQueries/statistics_use_the_same_key_window_with_truthful_known_and_unknown_accounting (0.84s)
+    --- PASS: TestHistoryQueries/delete_removes_exact_run_prefix_before_row_and_denies_foreign_key (0.77s)
+    --- PASS: TestHistoryQueries/partial_object_cleanup_preserves_row_and_explicit_retry_completes (0.58s)
+    --- PASS: TestHistoryQueries/clear_freezes_cutoff_and_limits_batches_to_one_hundred (2.55s)
+    --- PASS: TestHistoryQueries/clear_stops_on_first_failed_run_and_leaves_later_rows (0.42s)
+    --- PASS: TestHistoryQueries/disabled_artifacts_allow_row-only_delete_and_clear (0.40s)
+=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-found
+=== RUN   TestCacheDraftContract/missing_and_expired_drafts_are_empty_revision_zero
+=== RUN   TestCacheDraftContract/draft_create_then_stale_save_returns_conflict_without_overwrite
+=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-absent
+=== RUN   TestReferenceHistory/single_insert/single_readback/rejected
+=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-read-failed
+=== RUN   TestReferenceHistory/cache_hit_makes_no_provider_call_and_records_cache_served
+=== RUN   TestCacheDraftContract/opaque_host_draft_keys_and_access_keys_are_independent
+=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/rejected
+=== RUN   TestCacheDraftContract/draft_rejects_oversize_payload_and_key
+=== RUN   TestReferenceHistory/pre-dispatch_validation_still_records_failure/request
+=== RUN   TestCacheDraftContract/cache-on_blocked_provider_holds_no_database_connection
+=== RUN   TestHistoryStore/failed_list_is_an_explicit_history_error_and_usage_remains_scoped
+=== RUN   TestReferenceHistory/pre-dispatch_validation_still_records_failure/profile
+=== RUN   TestReferenceHistory/pre-dispatch_validation_still_records_failure/credential
+=== RUN   TestHistoryStore/delayed_real_commit_can_appear_after_the_empty_readback
+=== RUN   TestCacheDraftContract/cache-off_ordinary_inference_acquires_zero_connections
+=== RUN   TestCacheDraftContract/closed_storage_is_an_error_rather_than_missing_draft
+--- PASS: TestHistoryStore (7.65s)
+    --- PASS: TestHistoryStore/one_insert_uses_server_scope_and_detail_denies_foreign_or_unknown_runs (0.84s)
+    --- PASS: TestHistoryStore/invalid_stored_schema_or_payload_is_not_a_successful_restore (0.78s)
+    --- PASS: TestHistoryStore/numbered_windows_ordering_counts_and_summaries_stay_scoped (0.57s)
+    --- PASS: TestHistoryStore/invalid_pages_sizes_and_overflowing_offsets_fail (0.80s)
+    --- PASS: TestHistoryStore/exact_seventeen_MiB_payload_survives_and_one_extra_byte_rejects_without_truncation (2.17s)
+    --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback (1.76s)
+        --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/confirmed (0.39s)
+        --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-found (0.35s)
+        --- PA

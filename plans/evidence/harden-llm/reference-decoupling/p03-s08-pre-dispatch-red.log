@@ -1,0 +1,12 @@
+--- FAIL: TestHistoryRecordValues (0.03s)
+    --- FAIL: TestHistoryRecordValues/pre-dispatch_failure_has_a_truthful_complete_payload (0.03s)
+        run_test.go:22: Error at "/output": Value is not nullable
+            Schema:
+              {}
+
+            Value:
+              null
+
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	0.035s
+FAIL

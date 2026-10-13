@@ -1,0 +1,68 @@
+      warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+      │
+ 1886 │         <a id={scope_id(@id_prefix, "export-bundle")} href={~p"/profiles/bundle"} class="ullm-btn">Export Bundle</a>
+      │         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      │
+      └─ lib/harden_llm_web/live/profile_widget_component.ex:1886: HardenLlmWeb.ProfileWidgetComponent.profile_editor/1
+
+      warning: variable "profile" is unused (if the variable is not meant to be used, prefix it with an underscore)
+      │
+ 1230 │       profile = profile_state["definition"] || %{}
+      │       ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1230:7: HardenLlmWeb.WorkspaceLive.profile_options/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}"
+      │
+ 1682 │     do: ~p"/traces/#{trace_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1682: HardenLlmWeb.WorkspaceLive.trace_url/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │
+ 1687 │     do: ~p"/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1687: HardenLlmWeb.WorkspaceLive.artifact_url/2
+
+Running ExUnit with seed: 391259, max_cases: 24
+Excluding tags: [:test]
+Including tags: [location: {"test/harden_llm_web/live/restored_workflow_test.exs", 136}]
+
+     warning: Floki.parse_document!/1 is undefined (module Floki is not available or is yet to be defined). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+     │
+ 145 │            view |> render() |> Floki.parse_document!() |> Floki.find("#run-error") |> Floki.text()
+     │                                      ~
+     │
+     └─ test/harden_llm_web/live/restored_workflow_test.exs:145:38: HardenLlmWeb.RestoredWorkflowTest."test run keeps the repaired result and provider/result statistics"/1
+
+     warning: Floki.find/2 is undefined (module Floki is not available or is yet to be defined). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+     │
+ 145 │            view |> render() |> Floki.parse_document!() |> Floki.find("#run-error") |> Floki.text()
+     │                                                                 ~
+     │
+     └─ test/harden_llm_web/live/restored_workflow_test.exs:145:65: HardenLlmWeb.RestoredWorkflowTest."test run keeps the repaired result and provider/result statistics"/1
+
+     warning: Floki.text/1 is undefined (module Floki is not available or is yet to be defined). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+     │
+ 145 │            view |> render() |> Floki.parse_document!() |> Floki.find("#run-error") |> Floki.text()
+     │                                                                                             ~
+     │
+     └─ test/harden_llm_web/live/restored_workflow_test.exs:145:93: HardenLlmWeb.RestoredWorkflowTest."test run keeps the repaired result and provider/result statistics"/1
+
+
+
+  1) test run keeps the repaired result and provider/result statistics (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:136
+     ** (UndefinedFunctionError) function Floki.parse_document!/1 is undefined (module Floki is not available). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+     code: view |> render() |> Floki.parse_document!() |> Floki.find("#run-error") |> Floki.text()
+     stacktrace:
+       Floki.parse_document!("<div id=\"phx-GN3z1eME5AMnahRG\" data-phx-main=\"\" data-phx-session=\"SFMyNTY.g2gDaAJhBnQAAAAIdwJpZG0AAAAUcGh4LUdOM3oxZU1FNUFNbmFoUkd3B3Nlc3Npb250AAAAAHcKcGFyZW50X3BpZHcDbmlsdwZyb3V0ZXJ3GkVsaXhpci5IYXJkZW5MbG1XZWIuUm91dGVydwR2aWV3dyFFbGl4aXIuSGFyZGVuTGxtV2ViLldvcmtzcGFjZUxpdmV3CHJvb3RfcGlkdwNuaWx3CXJvb3Rfdmlld3chRWxpeGlyLkhhcmRlbkxsbVdlYi5Xb3Jrc3BhY2VMaXZldxFsaXZlX3Nlc3Npb25fbmFtZXcNYXV0aGVudGljYXRlZG4GAIG49TKhAWIAAVGA.2CQP-kbE-ncSnwyS3MB3fxKc_xE0IARfRK_F-0fMO3g\" data-phx-static=\"SFMyNTY.g2gDaAJhBnQAAAADdwJpZG0AAAAUcGh4LUdOM3oxZU1FNUFNbmFoUkd3BWZsYXNodAAAAAB3CmFzc2lnbl9uZXdqbgYAiLj1MqEBYgABUYA.GZTA4_46nxpEUrqIxJg9v3H4iDiHGndftncKfZiuqfs\"><header phx-r=\"\" id=\"app-header\" class=\"sticky top-0 z-40 border-b border-slate-200/90 bg-white/95 backdrop-blur\"><div class=\"mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3 sm:px-6 lg:px-8\"><a phx-r=\"\" href=\"/\" data-phx-link=\"redirect\" data-phx-link-state=\"push\" id=\"brand-home\" class=\"mr-auto flex items-center gap-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600\"><span phx-r=\"\" class=\"grid size-9 place-items-center rounded-xl bg-slate-950 text-sm font-bold text-white\">HL</span><span phx-r=\"\"><span class=\"block text-sm font-semibold text-slate-950\">Harden LLM</span><span class=\"block text-[11px] uppercase tracking-[0.12em] text-slate-500\">Operator console</span></span></a><div class=\"flex items-center gap-3\"><span class=\"hidden max-w-48 truncate text-xs text-slate-500 md:block\" title=\"operator@example.test\">\n        operator@example.test\n      </span><form action=\"/logout\" method=\"post\"><input type=\"hidden\" name=\"_csrf_token\" value=\"NHZCL1xbC1AkISwjUDYzCD08Yno4IzQaSGqij8ffJUHh5XKoLlUIBaSt\"/><button id=\"logout-button\" type=\"submit\" class=\"inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-600\"><span phx-r=\"\" class=\"hero-arrow-right-start-on-rectangle size-4\"></span> Sign out\n        </button></form></div></div></header><main phx-r=\"\" id=\"workspace-page\" class=\"studio-page mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8\"><div class=\"mb-6 flex flex-wrap items-end justify-between gap-4\"><div><p class=\"text-xs font-semibold uppercase tracking-[0.2em] text-teal-700\">\n          🧪 Trace Studio\n        </p><h1 class=\"mt-1 text-3xl font-semibold tracking-tight text-slate-950\">\n          Shape one reliable call\n        </h1><p class=\"mt-2 max-w-3xl text-sm text-slate-600\">\n          Configure a provider-neutral profile, validate structured output before it leaves the browser, and inspect redacted execution facts.\n        </p></div><span id=\"backend-status\" class=\"rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600\">\n        Backend ready\n      </span></div><form phx-r=\"\" phx-submit=\"run\" phx-change=\"save-draft\" class=\"contents\" id=\"run-form\"><div phx-r=\"\" class=\"studio-stack\"><section class=\"studio-stack\"><section id=\"model-config\" aria-label=\"LLM model config\" class=\"studio-card p-0\"><section data-phx-component=\"1\" phx-r=\"\" id=\"workspace-llm-widget\" class=\"ullm-widget ullm-model-config-widget\" aria-label=\"LLM model config\"><div phx-r=\"\" class=\"ullm-profile-row ullm-profile-row-with-search ullm-profile-row-with-actions \"><span class=\"ullm-profile-category\" title=\"LLM\">LLM</span><div class=\"ullm-profile-picker\"><label for=\"run_selectedProfileId\" class=\"ullm-profile-label\"><span aria-hidden=\"true\">🤖</span><span class=\"ullm-sr-only\">LLM Profile</span></label><div phx-r=\"\" id=\"run_selectedProfileId-combobox\" class=\"ullm-combobox\" phx-hook=\"SearchableCombobox\" data-allow-custom=\"true\"><input id=\"run_selectedProfileId\" name=\"run[selectedProfileId]\" value=\"CPA Responses\" type=\"text\" class=\"ullm-input ullm-profile-select\" autocomplete=\"off\" placeholder=\"OpenRouter DeepSeek V4 Flash\" required=\"\" aria-label=\"LLM Profile\" aria-autocomplete=\"list\" aria-controls=\"run_selectedProfileId-options\" aria-expanded=\"false\" role=\"combobox\" phx-change=\"select-profile\" phx-target=\"1\"/><div id=\"run_sel" <> ...)
+       test/harden_llm_web/live/restored_workflow_test.exs:145: (test)
+
+
+Finished in 0.5 seconds (0.5s async, 0.00s sync)
+
+Result: 0/1 passed, 6 excluded
+Failed: 1 test

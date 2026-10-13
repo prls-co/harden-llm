@@ -40,7 +40,7 @@ defmodule HardenLlmWeb do
     quote do
       use Phoenix.Controller, formats: [:html, :json]
 
-      use Gettext, backend: HardenLlmWeb.Gettext
+      use Gettext, backend: HardenLlmUI.Gettext
 
       import Plug.Conn
 
@@ -80,15 +80,16 @@ defmodule HardenLlmWeb do
   defp html_helpers do
     quote do
       # Translation
-      use Gettext, backend: HardenLlmWeb.Gettext
+      use Gettext, backend: HardenLlmUI.Gettext
 
       # HTML escaping functionality
       import Phoenix.HTML
       # Core UI components
-      import HardenLlmWeb.CoreComponents
-      import HardenLlmWeb.JsonViewer
-      import HardenLlmWeb.LlmResultComponents
-      import PrlsUI.Pagination
+      import HardenLlmUI.InputComponents
+      import HardenLlmUI.JsonViewer
+      import HardenLlmUI.ResponseComponents
+      import HardenLlmUI.TraceComponents
+      import HardenLlmUI.Pagination
 
       # Common modules used in templates
       alias Phoenix.LiveView.JS

@@ -331,9 +331,9 @@ function candidateDescriptorFor(t, {
   runtimeRelease = desiredRelease,
   runtimeImageVersion = runtimeRelease,
   runtimeHealth = "healthy",
+  service = "harden-llm-gateway",
 } = {}) {
   const directory = fixtureDirectory(t);
-  const service = "harden-llm-gateway";
   const image = "sha256:" + "a".repeat(64);
   const descriptor = {
     schemaVersion: 1,
@@ -371,11 +371,11 @@ function candidateDescriptorFor(t, {
   return validateDescriptor(descriptor);
 }
 
-function candidateComposeModel(directory, desiredRelease) {
+function candidateComposeModel(directory, desiredRelease, service = "harden-llm-gateway") {
   return {
     services: {
-      "harden-llm-gateway": {
-        environment: { HARDEN_LLM_RELEASE: desiredRelease },
+      [service]: {
+        environment: { HARDEN_LLM_RELEASE: desiredRelease, HARDEN_LLM_DATABASE_URL: "postgresql://synthetic/db" },
         image: "harden-llm-gateway:fixture",
         command: ["gateway"],
         entrypoint: ["/bin/gateway"],
@@ -385,20 +385,25 @@ function candidateComposeModel(directory, desiredRelease) {
         healthcheck: { test: ["CMD", "gateway", "health"], interval: "30s", timeout: "5s", retries: 3, start_period: "0s" },
         restart: "unless-stopped",
       },
+      "gateway-schema": {
+        image: "harden-llm-gateway:fixture",
+        command: ["schema"],
+        environment: { HARDEN_LLM_DATABASE_URL: "postgresql://synthetic/db" },
+      },
     },
   };
 }
 
-function candidateRuntimeContainer({ image, runtimeRelease, runtimeImageVersion, runtimeHealth }) {
+function candidateRuntimeContainer({ service = "harden-llm-gateway", image, runtimeRelease, runtimeImageVersion, runtimeHealth }) {
   return {
     Image: image,
     Config: {
       Labels: {
         "com.docker.compose.project": "harden-llm",
-        "com.docker.compose.service": "harden-llm-gateway",
+        "com.docker.compose.service": service,
         "org.opencontainers.image.version": runtimeImageVersion,
       },
-      Env: [`HARDEN_LLM_RELEASE=${runtimeRelease}`],
+      Env: [`HARDEN_LLM_RELEASE=${runtimeRelease}`, "HARDEN_LLM_DATABASE_URL=postgresql://synthetic/db"],
       Cmd: ["gateway"],
       Entrypoint: ["/bin/gateway"],
       Healthcheck: { Test: ["CMD", "gateway", "health"], Interval: 30_000_000_000, Timeout: 5_000_000_000, Retries: 3, StartPeriod: 0 },
@@ -412,7 +417,7 @@ function candidateRuntimeContainer({ image, runtimeRelease, runtimeImageVersion,
 
 function candidateRunner(descriptor, { candidateRelease = null } = {}) {
   const fixture = descriptor.__candidateFixture;
-  const model = candidateComposeModel(descriptor.composeRoot, descriptor.serviceEnvironmentOverrides[fixture.service].HARDEN_LLM_RELEASE);
+  const model = candidateComposeModel(descriptor.composeRoot, descriptor.serviceEnvironmentOverrides[fixture.service].HARDEN_LLM_RELEASE, fixture.service);
   const runtime = candidateRuntimeContainer(fixture);
   return (_bin, args) => {
     if (args.includes("config")) return { status: 0, stdout: JSON.stringify(model), stderr: "" };
@@ -422,11 +427,12 @@ function candidateRunner(descriptor, { candidateRelease = null } = {}) {
     }
     if (args.includes("up")) {
       runtime.Config.Labels["org.opencontainers.image.version"] = candidateRelease;
-      runtime.Config.Env = [`HARDEN_LLM_RELEASE=${candidateRelease}`];
+      runtime.Config.Env = [`HARDEN_LLM_RELEASE=${candidateRelease}`, "HARDEN_LLM_DATABASE_URL=postgresql://synthetic/db"];
       runtime.State = { Status: "running", Health: { Status: "healthy" } };
       return { status: 0, stdout: "", stderr: "" };
     }
     if (args.includes("inspect")) return { status: 0, stdout: JSON.stringify([runtime]), stderr: "" };
+    if (args.includes("run") && args.at(-1) === "gateway-schema") return { status: 0, stdout: "", stderr: "" };
     throw new Error(`unexpected fake Docker command: ${args.join(" ")}`);
   };
 }
@@ -472,4 +478,95 @@ test("TEST-260 candidate options reject invalid intent before Docker", (t) => {
   const cli = spawnSync(process.execPath, ["scripts/production-config.mjs", "check", "--expected-release", "not-a-sha"], { encoding: "utf8" });
   assert.notEqual(cli.status, 0);
   assert.match(`${cli.stdout}\n${cli.stderr}`, /40-character/);
+});
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-450
+test("TEST-450 schema image override follows the accepted gateway image without a daemon descriptor", t => {
+  const descriptor = candidateDescriptorFor(t);
+  const resolved = resolveConfiguration(descriptor);
+  assert.equal(resolved.serviceEnvironmentOverrides["gateway-schema"]?.image,
+    descriptor.serviceImageOverrides["harden-llm-gateway"]);
+  assert.equal(descriptor.services["gateway-schema"], undefined);
+});
+
+function schemaApplyFixture(t, {schemaExit = 0, schemaChange = null, current = false, service = "harden-llm-gateway"} = {}) {
+  const release = "b".repeat(40);
+  const descriptor = candidateDescriptorFor(t, {service, desiredRelease: release,
+    runtimeRelease: current ? release : "old-release", runtimeImageVersion: current ? release : "old-release"});
+  const original = candidateRunner(descriptor, {candidateRelease: release});
+  const calls = [];
+  const databaseURL = "postgresql://hllm:synthetic-schema-password@platform-postgres:5432/harden_llm";
+  const run = (bin, args, options) => {
+    calls.push({bin, args: [...args]});
+    if (args.includes("run")) return {status: schemaExit, stdout: "", stderr: "synthetic-schema-password"};
+    const result = original(bin, args, options);
+    if (args.includes("config")) {
+      const model = JSON.parse(result.stdout);
+      model.services[service].environment.HARDEN_LLM_DATABASE_URL = databaseURL;
+      model.services["gateway-schema"] = {
+        image: model.services[service].image, command: ["schema"],
+        environment: {...model.services[service].environment}, volumes: [], networks: {default: {}}
+      };
+      if (schemaChange) schemaChange(model.services);
+      return {...result, stdout: JSON.stringify(model)};
+    }
+    if (args.includes("inspect") && !args.includes("image")) {
+      const containers = JSON.parse(result.stdout);
+      containers[0].Config.Env.push("HARDEN_LLM_DATABASE_URL=" + databaseURL);
+      return {...result, stdout: JSON.stringify(containers)};
+    }
+    return result;
+  };
+  return {descriptor, run, calls, release};
+}
+
+test("TEST-450 accepted gateway schema runs exactly once before applications with the same context", t => {
+  const f = schemaApplyFixture(t);
+  assert.equal(runApply(f.descriptor, ["harden-llm-gateway"], f.run, {expectedRelease: f.release}).applied, true);
+  const starts = f.calls.filter(call => call.args.includes("run") || call.args.includes("up"));
+  assert.equal(starts.length, 2);
+  assert.deepEqual(starts[0].args.slice(-6), ["run", "--rm", "--no-deps", "--pull", "never", "gateway-schema"]);
+  assert(starts[1].args.includes("up"));
+  assert(starts[1].args.includes("--no-deps"));
+  assert(starts.every(call => call.args.includes(f.descriptor.dockerContext)));
+  const paths = starts.map(call => call.args.filter((_, index, all) => all[index - 1] === "-f"));
+  assert.deepEqual(paths[0], paths[1]);
+  assert(!JSON.stringify(f.calls).includes("synthetic-schema-password"));
+  assert(!JSON.stringify(f.calls).includes("synthetic-upstream-token"));
+});
+
+test("TEST-450 failed schema prevents application startup and redacts diagnostics", t => {
+  const f = schemaApplyFixture(t, {schemaExit: 1});
+  let caught;
+  try { runApply(f.descriptor, ["harden-llm-gateway"], f.run, {expectedRelease: f.release}); }
+  catch (error) { caught = error; }
+  assert(caught, "schema failure must be fatal before application up");
+  assert.equal(f.calls.filter(call => call.args.includes("run")).length, 1);
+  assert(!f.calls.some(call => call.args.includes("up")));
+  assert(!String(caught).includes("synthetic-schema-password"));
+});
+
+for (const [name, schemaChange] of [
+  ["missing service", services => delete services["gateway-schema"]],
+  ["wrong image", services => services["gateway-schema"].image = "wrong:fixture"],
+  ["wrong command", services => services["gateway-schema"].command = ["serve"]],
+  ["build stanza", services => services["gateway-schema"].build = {context: "."}],
+  ["different database", services => services["gateway-schema"].environment.HARDEN_LLM_DATABASE_URL = "different-database"]
+]) test(`TEST-450 ${name} is rejected before schema or application starts`, t => {
+  const f = schemaApplyFixture(t, {schemaChange});
+  assert.throws(() => runApply(f.descriptor, ["harden-llm-gateway"], f.run, {expectedRelease: f.release}));
+  assert(!f.calls.some(call => call.args.includes("run") || call.args.includes("up")));
+});
+
+test("TEST-450 frontend-only apply never starts a schema service", t => {
+  const f = schemaApplyFixture(t, {service: "harden-llm-web"});
+  assert.equal(runApply(f.descriptor, ["harden-llm-web"], f.run, {expectedRelease: f.release}).applied, true);
+  assert(f.calls.some(call => call.args.includes("up")));
+  assert(!f.calls.some(call => call.args.includes("run")));
+});
+
+test("TEST-450 no-change apply starts neither schema nor applications", t => {
+  const f = schemaApplyFixture(t, {current: true});
+  assert.equal(runApply(f.descriptor, ["harden-llm-gateway"], f.run, {expectedRelease: f.release}).applied, false);
+  assert(!f.calls.some(call => call.args.includes("run") || call.args.includes("up")));
 });

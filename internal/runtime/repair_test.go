@@ -342,7 +342,7 @@ func TestRecoveryExecutionBounds(t *testing.T) {
 	}
 	t.Run("success and cache hit", func(t *testing.T) {
 		executor := &recoveryExecutor{}
-		cache := &telemetryCache{}
+		cache := &progressContractCache{}
 		call := Call{CallType: "text", ModelID: "selected-model", WebSearch: true}
 		config := retry.Config{Policy: retry.DefaultPolicy()}
 		fresh, err := Execute(context.Background(), executor, connection, credential, call, config, cache, cachekey.ModeCache, "v1", "fresh", "trace")
@@ -384,7 +384,7 @@ func TestRecoveryBoundaryAccountingCache(t *testing.T) {
 	connection := Connection{ID: "selected", Provider: "fixture", APIInferenceType: "responses", BaseURL: "https://example.test"}
 	credential := Credential{}
 	policy := retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{retry.CategoryNetwork}, Backoff: retry.Backoff{}}
-	cache := &telemetryCache{}
+	cache := &progressContractCache{}
 	executor := &accountingSequenceExecutor{results: []ProviderResult{
 		{ProviderDispatched: true, Accounting: Ledger{Usage: completeUsageWithoutTest(11, 0, 0, 3, 0), Cost: accounting.ExactCost(0.1, "reported")}},
 		{ProviderDispatched: true, Output: "accepted", Accounting: Ledger{Usage: completeUsageWithoutTest(17, 0, 0, 5, 0), Cost: accounting.ExactCost(0.2, "reported")}},

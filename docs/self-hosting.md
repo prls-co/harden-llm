@@ -1,72 +1,90 @@
 # Self-hosting
 
-Harden LLM runs as a Go proxy, a Phoenix reference app, and PostgreSQL for
-frontend-owned history and drafts. Shared Caddy owns the public listeners. The
-Go gateway itself has no application database or human-login dependency.
+Harden LLM runs one Go gateway and one Phoenix reference app. The Go stateful
+wrapper uses an isolated HLLM database/role on shared PostgreSQL and a dedicated
+Garage bucket. Phoenix has no database pool. Shared Caddy owns public routing.
+The stateless Go library remains usable without any of these services.
 
-## Configure
+## 1. Configure
 
-1. Copy `.env.example` to `.env`; keep `.env` private and mode 0600. Set
-   `HARDEN_LLM_TOKEN`, `CPA_API_KEY`, database and Phoenix secrets, the shared
-   Control Plane and Portal settings, public hostnames, and release identity.
-2. Copy `config/upstreams.example.json` to an ignored local file such as
-   `config/upstreams.local.json`. Keep its connection metadata unchanged unless
-   the upstream contract requires a deliberate edit. It contains the name
-   `CPA_API_KEY`, not the credential. Set `HARDEN_LLM_CONFIG_FILE` in `.env` to
-   that file's absolute path.
-3. Ensure the Docker host is joined to the existing `prls-observability`
-   network and has the private-module build token available to the Compose
-   process when building images.
+1. Copy `.env.example` to a private environment file with mode 0600. Set the
+   HLLM bearer, upstream credentials, Phoenix/Portal settings and release identity.
+   Production storage secrets belong to the protected production environment.
+2. Copy `config/upstreams.example.json` to an ignored local file. Its
+   `api_key_envs` lists accepted incoming key environment names; each upstream
+   names its provider key environment variable. The JSON contains no secrets.
+   Set `HARDEN_LLM_CONFIG_FILE` to its absolute path.
+3. Have the shared database owner provision the isolated `harden_llm` role and
+   database on the approved existing PostgreSQL server. Set
+   `HARDEN_LLM_DATABASE_URL` and `HARDEN_LLM_POSTGRES_NETWORK` to that owner's
+   endpoint and external Docker network. Do not start another production database.
+4. Generate `HARDEN_LLM_CREDENTIAL_KEY` once with `openssl rand -base64 32`,
+   store it in the protected production environment and back it up with that file.
+   Replacing it makes previously entered provider credentials unreadable.
+5. Set all four Garage artifact variables. Its dedicated credential needs put,
+   get, list and delete in the HLLM bucket. Attach the application to the existing
+   `prls-observability` network for Garage, Caddy and observability.
 
-`HARDEN_LLM_TOKEN` is the bearer for `/v1/*` and the same bearer the Phoenix
-server uses. Standard OpenAI SDKs point to `https://<api-host>/v1` and use this
-token. `CPA_API_KEY` authenticates only the configured gateway-to-CPA request.
-See [the environment reference](environment.md) and
+Standard OpenAI clients use `https://harden-llm.prls.co/v1` with
+`HARDEN_LLM_TOKEN`. The same host serves `/api/v1/*` for reference workflows and
+Phoenix for other paths. The upstream `CPA_API_KEY` never authenticates incoming
+clients. See [environment settings](environment.md) and
 [connection configuration](shared-llm-configuration.md).
 
-## Run the reference database migration
+## 2. Apply the accepted release
 
-The Phoenix release owns the history schema. Start PostgreSQL, build the
-services, run the one release migration command, then start the application:
+Build the affected images using the repository release workflow. Update the
+protected production descriptor from `config/production-config.example.json`
+with their verified image identities and source SHA. The descriptor contains
+paths and identities, never credentials. Review its allowed differences before
+application; the first shared-database cutover changes the gateway's networks.
 
-```bash
-compose=(docker compose -f docker-compose.yml -f deploy/frontend/compose.frontend.yml)
-"${compose[@]}" config --quiet
-"${compose[@]}" up -d --build harden-postgres
-"${compose[@]}" build harden-llm-gateway harden-llm-web
-"${compose[@]}" run --rm --no-deps \
-  -e PHX_SERVER=false harden-llm-web eval HardenLlm.Release.migrate()
-"${compose[@]}" up -d --wait --wait-timeout 300
-```
-
-The command uses the pinned release image and existing PostgreSQL volume. It
-does not contact an LLM provider. Run it once before the web service starts for
-a fresh installation and after a release that adds a migration.
-
-## Access and history
-
-Human authentication and enabled-login checks remain in the shared Control
-Plane and Portal. Any enabled login can enter the reference app; there is no
-company selector or HLLM-specific grant. The host-only Phoenix cookie carries
-the shared identity session.
-
-The Phoenix workspace records its completed `/v1/responses` requests and
-outcomes in PostgreSQL. All enabled logins share this history. Direct requests
-to the Go API are stateless and are never recorded. Workspace drafts are scoped
-to the stable user ID. A history-storage failure does not repeat inference.
-
-## Browser-free checks
-
-Check local service health and readiness without making an upstream inference
-request:
+Use the existing production-config entrypoint with the accepted 40-character
+source SHA:
 
 ```bash
-curl --fail-with-body -sS https://<api-host>/healthz
-curl --fail-with-body -sS https://<api-host>/readyz
-curl --fail-with-body -sS https://<web-host>/healthz
+node scripts/production-config.mjs check --expected-release "$release_sha" \
+  --services harden-llm-gateway,harden-llm-web
+node scripts/production-config.mjs apply --expected-release "$release_sha" \
+  --services harden-llm-gateway,harden-llm-web
 ```
 
-`/healthz` and `/readyz` are process/configuration checks; they do not prove
-that a browser flow or paid-provider request works. Use `make test-fast` and
-the documented browser-free release gates for code verification. Browser and
-live-provider checks remain explicit opt-ins.
+`apply` retains scope, image and freshness checks, then runs `gateway-schema`
+from the same accepted gateway image and protected database configuration.
+Only exit 0 permits application startup. Both commands retain `--no-deps`;
+shared services are managed by their owners. A frontend-only or no-change apply
+runs no schema command. Schema creation is transactional, matching version 1
+is a no-op, and a version mismatch fails without modifying old data.
+
+The approved obsolete-resource list is `deploy/reference-reset.json`. Remove
+that old HLLM database container and volume only during the reviewed production
+cutover. It grants no permission to reset shared PostgreSQL, identities, other
+products, Garage objects or credentials. Do not use `down -v` on a shared stack.
+
+## 3. Access and stored data
+
+Control Plane and Portal own enabled human logins. Phoenix uses its server-held
+HLLM key to call Go. Same-key clients share profiles, history, cache and artifacts;
+different keys are isolated. Workspace drafts additionally use the stable Portal
+user ID within the host key's scope. There is no Go user registry.
+
+Reference runs can record history in PostgreSQL. Ordinary `/v1` calls never
+write product history. Laminar receives diagnostics only. A history failure
+preserves the inference result and never repeats inference. Full history records
+load when details are expanded; list pages contain summaries. Explicit Save
+creates a complete immutable profile snapshot; selecting or editing changes the
+draft. Git presets remain credential-free starting values.
+
+## 4. Browser-free acceptance
+
+```bash
+curl --fail-with-body -sS https://harden-llm.prls.co/healthz
+curl --fail-with-body -sS https://harden-llm.prls.co/readyz
+```
+
+These paths check the gateway without upstream inference. Verify Phoenix health
+through its internal `/healthz` endpoint and Portal admission through the public
+host. Authenticated `/api/v1/status` reports storage/history/artifact availability
+independently. Release evidence records the exact source SHA, images, schema exit
+and HTTP/auth results. Browser layout and paid-provider inference require their
+separate explicit opt-ins.

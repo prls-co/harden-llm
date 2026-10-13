@@ -1,0 +1,60 @@
+Running ExUnit with seed: 104729, max_cases: 24
+
+     warning: incompatible types given to Map.get/2:
+
+         Map.get(error, :diagnostic)
+
+     the map:
+
+         dynamic(%HardenLlmUI.APIError{})
+
+     does not have all required keys:
+
+         :diagnostic
+
+     therefore this function will always return nil
+
+     where "error" was given the type:
+
+         # type: dynamic(%HardenLlmUI.APIError{})
+         # from: test/harden_llm_ui/client_test.exs:155
+         {error} =
+           case right do
+             ...
+           end
+
+     type warning found at:
+     │
+ 158 │     assert Map.get(error, :diagnostic) == diag
+     │                ~
+     │
+     └─ test/harden_llm_ui/client_test.exs:158:16: HardenLlmUI.IndependentClientTest."test reference errors preserve bounded debugging fields without raw server messages"/1
+
+.....
+
+  1) test reference errors preserve bounded debugging fields without raw server messages (HardenLlmUI.IndependentClientTest)
+     test/harden_llm_ui/client_test.exs:122
+     Assertion with == failed
+     code:  assert Map.get(error, :diagnostic) == diag
+     left:  nil
+     right: %{
+              "action" => "Inspect correlated storage diagnostics.",
+              "cause" => "connection",
+              "code" => "history_read_failed",
+              "component" => "history",
+              "durationMs" => 500,
+              "inferenceOutcome" => "not_started",
+              "message" => "History is unavailable.",
+              "operation" => "list",
+              "persistenceOutcome" => "unavailable",
+              "requestId" => "00000000-0000-4000-8000-000000000001",
+              "runId" => "00000000-0000-4000-8000-000000000001"
+            }
+     stacktrace:
+       test/harden_llm_ui/client_test.exs:158: (test)
+
+.
+Finished in 0.3 seconds (0.3s async, 0.00s sync)
+
+Result: 6/7 passed
+Failed: 1 test

@@ -1,84 +1,95 @@
-# Architecture and ownership
+# 1. Architecture and ownership
 
-Harden LLM has one provider-execution path and keeps reference-app state out of
-the public proxy.
+This is the accepted target contract in
+[the v5.3 execution plan](../plans/restore-reference-workflows-decoupling-plan.md)
+and ADR-HLLM-033/034. The phase ledger distinguishes source, tests and deployed
+acceptance; this document alone does not claim that the target is live.
 
-```text
-OpenAI client ──> shared Caddy ──> Go gateway ──> hardenllm.Client.Call ──> upstream
-                                      ▲
-                                      │ /v1/models and /v1/responses
-browser ──> shared Caddy ──> Phoenix LiveView ────────────────────────────┘
-                                  │
-                                  ├── Control Plane: login and access
-                                  └── PostgreSQL: shared call history and per-user draft
-```
+## 2. Libraries, composition and services
 
-## Component boundaries
+| Component | Ownership |
+| --- | --- |
+| Stateless root Go core | Retry/repair/recovery decisions, validation, budgets, cache identity, attempt pricing and accounting; injected effects only. No auth, SQL, profiles or telemetry SDK. |
+| Public `stateful/` library | Concrete provider/observer composition; key-scoped profiles, credentials, cache, drafts, history and Garage artifacts; one shared pgx pool. |
+| Go gateway | One bearer validator for `/v1` and `/api/v1`; protocol conversion, scope derivation and HTTP health/status. One execution engine. |
+| `HardenLlmUI` Phoenix package | REST client/decoders, picker/editor, input/response/stats/history/trace components and shared CSS/JS. No Ecto, host module or Portal dependency. |
+| Phoenix host | Routes, shared Portal admission, component contexts and async orchestration; REST calls only after P03 transfers persistence. |
+| Shared infrastructure | Agent Platform PostgreSQL for HLLM's isolated database/role; Garage for artifacts; Control Plane/Portal for humans; Caddy for one origin; Laminar for diagnostic OTEL only. |
 
-| Component | Owns | Does not own |
-| --- | --- | --- |
-| Root Go library | Provider payloads, retries, validation/repair, cache identity, usage and results | Environment loading, auth, SQL, HTTP routes, UI |
-| Go gateway | OpenAI-compatible HTTP, one startup connection catalog, bearer auth, API conversion and health | Human identity, profiles, history, persistence, login, UI |
-| Phoenix reference app | Shared PRLS sign-in, workspace, server-side calls, shared history and user-scoped draft | Provider SDKs, provider credentials, duplicate inference logic |
-| Control Plane and Portal | Human authentication and current access | HLLM inference configuration or call history |
-| PostgreSQL | Phoenix reference calls and drafts | Gateway inference state or identity authority |
-| Shared Caddy | Public TLS and host/path routing | Application authorization or service ownership |
+The gateway serves ordinary OpenAI clients at `https://harden-llm.prls.co/v1`
+and reference operations at `/api/v1`, with UI routes on the same origin.
+Ordinary clients use `GET /v1/models`, `POST /v1/chat/completions` and
+`POST /v1/responses`. Direct API requests do not enter product history.
+Both REST surfaces use `Authorization: Bearer <HLLM access key>` alone.
+`api_key_hash = hex(SHA256(validated_key_bytes))` is derived server-side and
+scopes all application state. A hash or user/session field cannot authenticate
+or select another scope. Control Plane availability is independent of ordinary
+cache-off inference. Release SQL transactions before any provider work.
 
-`api/openapi.yaml` is the only Go-to-Phoenix contract. The frontend is a normal
-OpenAI-compatible client of the gateway and sends `HARDEN_LLM_TOKEN` from its
-server process. That value is also the bearer used by external API clients.
-`CPA_API_KEY` is available only to the gateway and authenticates its configured
-upstream.
+## 3. Configuration and complete profiles
 
-Human logins are access checks. Every enabled login may use the reference
-application; no company picker, HLLM grant, or user-owned history is involved.
-The shared history contains only calls made through the Phoenix workspace.
-Direct API calls are stateless and are not recorded. Workspace drafts are
-private to the stable Control Plane user ID.
+The connection JSON requires `api_key_envs` naming protected environment values.
+Initially it names `HARDEN_LLM_TOKEN`, also used by the reference host. Provider
+credentials such as `CPA_API_KEY` are separate. Git stores preset IDs, origins,
+models, prices and options; protected deployment environment stores incoming,
+provider, database and encryption secrets. Libraries accept typed values and
+never parse `.env` or generate incoming keys at startup.
 
-## Configuration and inference
+Selecting a preset copies one complete draft. Explicit create-on-save inserts a
+new immutable UUID/date/suffix profile snapshot containing provider definition
+and all run inputs; no live Git inheritance, update path or implicit reseeding.
+Mutable drafts and entered credentials have revision-based concurrency. Entered
+provider credentials are encrypted with the key-hash/credential/origin binding;
+missing bindings fail before dispatch, without substituting deployment keys.
+Save/import preserve the baseline explicit, bounded provider probe; refresh
+only discovers models. No deployment smoke check invokes a paid provider.
 
-The gateway reads one connection-only JSON file at startup. It contains the
-upstream ID, provider, protocol, base URL, default connection, and the name of
-the environment variable holding the upstream key. Secrets do not go into the
-JSON. The deployment uses `.env` for `HARDEN_LLM_TOKEN` and `CPA_API_KEY`.
-Clients select native model IDs in each request; there are no profile records,
-profile endpoints, or per-model presets.
+## 4. Reference history and artifacts
 
-The OpenAI-compatible API supports `/v1/models`, `/v1/chat/completions`, and
-`/v1/responses`. Both inference routes convert into the same root Go request and
-call the same engine. Unsupported request fields fail validation before
-provider dispatch. Streaming returns the final hardened result as standard SSE;
-it does not expose provisional provider tokens.
+Only reference runs enter the wrapper-owned PostgreSQL history. Direct `/v1`
+calls do not. The same key shares profiles/history/statistics/downloads across
+clients and Portal logins; each reference login keeps a separate draft using
+`draftKey=workspace:<stable Portal user ID>`. Draft keys are selectors inside the
+key scope, not a second authorization system. There is no local user table.
 
-The gateway has no application database dependency. Phoenix owns its single
-Ecto Repo for the reference records, using the existing PostgreSQL service.
-There is no history REST API, history write in the gateway, profile adapter,
-or second history store.
+Recording is separate from inference: disabled, configuration error, saved,
+not saved, unconfirmed and failed reads have distinct messages. Insert once;
+after unknown COMMIT, one readback can confirm saved only if found. Empty or
+failed readback remains unconfirmed. Never poll, repeat the insert or replay
+inference. Records remain until key-scoped delete/clear; status exposes growth.
 
-## Reference records and privacy
+Garage paths are `artifacts/<api_key_hash>/<run_id>/<artifact_id>`. Authorized
+downloads work without a history row. Delete/clear remove the run prefix before
+the row; partial failure retains the row. Orphans from unrecorded runs need
+manual operator cleanup. No artifact journal/reconciler, second history store,
+expiry scheduler or Laminar history integration exists.
 
-All enabled logins see the same call history. The frontend records the observed
-request and outcome after the proxy call completes; a process crash can lose a
-record, and a history-store failure never repeats inference. Direct API requests
-never enter this table. Calls can be restored into the workspace, downloaded,
-deleted, or cleared by any enabled login.
+## 5. Model Recall host interface review
 
-Drafts are isolated by stable user ID and a single workspace namespace. Both
-history and drafts are bounded and redact credential-shaped fields before
-storage. The host-only encrypted Phoenix cookie keeps the shared login session;
-Control Plane remains authoritative for enabled identity and access.
+Read-only review on 2026-10-12 inspected `masked-recall/web/mix.exs`,
+`web/lib/model_recall_web_web/router.ex`, `live/experiment_live.ex` and
+`components/operation_status.ex`. Its Phoenix 1.8.9/LiveView 1.2.10 host uses
+shared PrlsWeb product admission, server-owned `start_async` orchestration and
+function components. Reusable HLLM components need only Phoenix/Req and a
+host-supplied REST context (`api_key`, `draft_key`, base URL), explicit component
+IDs, admission/login paths and instance-tagged messages. Keep Model Recall's
+session/product policy in its host; do not import it into the package or copy
+its automatic workflow retries into inference. An independent test host proves
+reuse. Model Recall migration is outside this release.
 
-## Deployment and verification
+## 6. Production and acceptance
 
-The deployment is one Linux Docker host with the gateway, Phoenix web app,
-PostgreSQL, and shared observability services. Only shared Caddy publishes
-public HTTP/S. The production route sends `/v1/*`, `/healthz`, and `/readyz` to
-the gateway and sends the reference-app host to Phoenix. The gateway readiness
-check validates startup configuration, not upstream availability or a paid
-provider call.
+Run one Go and one Phoenix application using shared services. The accepted
+image's one-shot schema command must exit 0 before production application
+startup; the existing apply path retains `--no-deps`. Preview schema startup
+uses its Compose dependency. This is a command, not another long-lived service.
 
-Use `make test-fast` during edits, `make verify` for backend integration, and
-`make test-release` for browser-free release certification. Browser and live
-provider checks remain opt-in under `AGENTS.md`; a deployment or health check
-does not imply browser or provider acceptance.
+Restore UI markup/styles/interaction contracts at
+`754690c8d0890c664d69fbdf526b16b3e5601060` (PR #95, before PR #97).
+`test/fixtures/reference-workflows.json` freezes provenance and capabilities.
+Use the lowest sufficient Go/LiveView/Node/storage tier and retain test purposes.
+Release evidence records branch/SHA/images/owner revisions/URL and HTTP checks;
+browser layout and live-provider compatibility require explicit separate runs.
+
+Use `make test-fast` for application checkpoints, `make verify` for backend
+integration and `make test-release` for browser-free release certification.

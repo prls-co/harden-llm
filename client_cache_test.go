@@ -158,7 +158,7 @@ func TestCacheSeparatesConfiguredCredentialDomains(t *testing.T) {
 	secondary.ID = "secondary"
 	secondary.CacheDomain = "provider-account-b"
 	secondary.APIKey = "another-fixture-only-key"
-	options := Options{Connections: []Connection{primary, secondary}, DefaultConnection: primary.ID, Cache: cache}
+	options := Options{Connections: ConnectionCatalog{primary.ID: primary, secondary.ID: secondary}, DefaultConnection: primary.ID, Cache: cache, Executor: &fixedExecutor{result: fixtureProviderResult()}}
 	client, err := New(options)
 	if err != nil {
 		t.Fatal(err)

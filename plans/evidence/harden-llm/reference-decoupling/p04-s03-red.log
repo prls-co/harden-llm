@@ -1,0 +1,97 @@
+Compiling 2 files (.ex)
+Generated harden_llm_ui app
+Running ExUnit with seed: 104729, max_cases: 24
+
+
+
+  1) test malformed success stays a safe protocol error and is never retried (HardenLlmUI.IndependentClientTest)
+     test/harden_llm_ui/client_test.exs:85
+     ** (KeyError) key :token not found in:
+
+         %HardenLlmUI.Client.Context{
+           base_url: "https://host-a.invalid",
+           api_key: "harden-llm-test-token-0123456789abcdef",
+           draft_key: "host-draft",
+           timeout_ms: 75000,
+           request_options: [plug: {Req.Test, HardenLlmUI.Client}]
+         }
+
+     code: Client.list_profiles(context("https://host-a.invalid", @key_a))
+     stacktrace:
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:364: HardenLlmUI.Client.request_options/5
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:344: anonymous fn/5 in HardenLlmUI.Client.request/4
+       (opentelemetry_api 1.5.0) src/otel_tracer_noop.erl:61: :otel_tracer_noop.with_span/5
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:337: HardenLlmUI.Client.request/4
+       test/harden_llm_ui/client_test.exs:94: (test)
+
+
+
+  2) test one canonical decoder validates every consumed field and rejects corruption (HardenLlmUI.IndependentClientTest)
+     test/harden_llm_ui/client_test.exs:57
+     ProfilesEnvelope
+     code: for {schema, value} <- [
+     stacktrace:
+       test/harden_llm_ui/client_test.exs:69: anonymous fn/2 in HardenLlmUI.IndependentClientTest."test one canonical decoder validates every consumed field and rejects corruption"/1
+       (elixir 1.20.2) lib/enum.ex:2622: Enum."-reduce/3-lists^foldl/2-0-"/3
+       test/harden_llm_ui/client_test.exs:60: (test)
+
+
+
+  3) test complete immutable profile detail and history preserve the canonical payload (HardenLlmUI.IndependentClientTest)
+     test/harden_llm_ui/client_test.exs:41
+     ** (KeyError) key :token not found in:
+
+         %HardenLlmUI.Client.Context{
+           base_url: "https://host-a.invalid",
+           api_key: "harden-llm-test-token-0123456789abcdef",
+           draft_key: "host-draft",
+           timeout_ms: 75000,
+           request_options: [plug: {Req.Test, HardenLlmUI.Client}]
+         }
+
+     code: assert Client.get_profile(ctx, "CPA Responses") == {:ok, f["details"]["CPA Responses"]}
+     stacktrace:
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:364: HardenLlmUI.Client.request_options/5
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:344: anonymous fn/5 in HardenLlmUI.Client.request/4
+       (opentelemetry_api 1.5.0) src/otel_tracer_noop.erl:61: :otel_tracer_noop.with_span/5
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:337: HardenLlmUI.Client.request/4
+       test/harden_llm_ui/client_test.exs:53: (test)
+
+
+
+  4) test server context rejects invalid origins, keys and timeout bounds (HardenLlmUI.IndependentClientTest)
+     test/harden_llm_ui/client_test.exs:101
+     Expected exception ArgumentError but nothing was raised
+     code: for options <- [
+     stacktrace:
+       test/harden_llm_ui/client_test.exs:109: anonymous fn/2 in HardenLlmUI.IndependentClientTest."test server context rejects invalid origins, keys and timeout bounds"/1
+       (elixir 1.20.2) lib/enum.ex:2622: Enum."-reduce/3-lists^foldl/2-0-"/3
+       test/harden_llm_ui/client_test.exs:102: (test)
+
+
+
+  5) test two hosts share one key while each request carries its explicit context (HardenLlmUI.IndependentClientTest)
+     test/harden_llm_ui/client_test.exs:17
+     ** (KeyError) key :token not found in:
+
+         %HardenLlmUI.Client.Context{
+           base_url: "https://host-a.invalid",
+           api_key: "harden-llm-test-token-0123456789abcdef",
+           draft_key: "host-draft",
+           timeout_ms: 75000,
+           request_options: [plug: {Req.Test, HardenLlmUI.Client}]
+         }
+
+     code: assert Client.list_profiles(a) == {:ok, f["profiles"]}
+     stacktrace:
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:364: HardenLlmUI.Client.request_options/5
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:344: anonymous fn/5 in HardenLlmUI.Client.request/4
+       (opentelemetry_api 1.5.0) src/otel_tracer_noop.erl:61: :otel_tracer_noop.with_span/5
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:337: HardenLlmUI.Client.request/4
+       test/harden_llm_ui/client_test.exs:33: (test)
+
+
+Finished in 0.1 seconds (0.1s async, 0.00s sync)
+
+Result: 0/5 passed
+Failed: 5 tests

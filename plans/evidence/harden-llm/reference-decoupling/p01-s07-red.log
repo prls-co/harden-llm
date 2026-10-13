@@ -1,0 +1,5 @@
+--- FAIL: TestOpenAIContractCompositionOwner (0.00s)
+    openai_composition_test.go:40: gateway executable must construct the one stateful provider/observer composition instead of the retired static constructor
+FAIL
+FAIL	github.com/prls-co/harden-llm/internal/gateway/httpapi	0.063s
+FAIL

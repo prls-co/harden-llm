@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	hardenllm "github.com/prls-co/harden-llm"
+	"github.com/prls-co/harden-llm/stateful"
 )
 
 func TestProfileFreeRuntime(t *testing.T) {
@@ -43,7 +44,7 @@ func TestProfileFreeRuntime(t *testing.T) {
 
 	certificatePool := x509.NewCertPool()
 	certificatePool.AddCert(provider.Certificate())
-	client, err := NewStaticClient(hardenllm.Options{
+	client, err := stateful.NewClient(stateful.ClientOptions{
 		Connections: []hardenllm.Connection{{
 			ID: "cpa", Provider: "openai", Protocol: "responses", BaseURL: provider.URL + "/v1",
 			CacheDomain: "cpa-deployment-credential", APIKey: providerCredential,

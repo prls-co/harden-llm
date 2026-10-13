@@ -1,0 +1,28 @@
+    warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+    │
+ 16 │           href={~p"/profiles/bundle"}
+    │           ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/harden_llm_web/live/profiles_live.html.heex:16: HardenLlmWeb.ProfilesLive.render/1
+
+     warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+     │
+ 221 │           bundle_export_url={~p"/profiles/bundle"}
+     │           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     │
+     └─ lib/harden_llm_web/live/profiles_live.html.heex:221: HardenLlmWeb.ProfilesLive.render/1
+
+    warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+    │
+ 84 │               bundle_export_url={~p"/profiles/bundle"}
+    │               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/harden_llm_web/live/workspace_live.html.heex:84: HardenLlmWeb.WorkspaceLive.render/1
+
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+.................................................................................................................
+Finished in 1.9 seconds (1.9s async, 0.07s sync)
+
+Result: 113 passed, 3 excluded

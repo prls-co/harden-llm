@@ -12,7 +12,7 @@
   "responsesRequestFields": ["model", "input", "instructions", "text.format", "tools", "tool_choice", "stream"],
   "stateless": true,
   "streaming": "buffer-final-hardened-outcome",
-  "historyOwner": "reference-application",
+  "historyOwner": "stateful-reference-library",
   "frontendSpecificationPath": "plans/from_utility-llm/phoenix-liveview-frontend-spec.md",
   "frontendTestIds": ["WEB-TEST-114", "WEB-TEST-115", "WEB-TEST-116"],
   "requestCases": [

@@ -1,0 +1,39 @@
+Compiling 10 files (.ex)
+     error: undefined function require_json/1 (expected HardenLlmUI.Client to define such a function or for it to be imported, but none are available)
+     │
+ 356 │     with :ok <- require_json(response),
+     │                 ^^^^^^^^^^^^
+     │
+     └─ lib/harden_llm_ui/client.ex:356:17: HardenLlmUI.Client.decode_response/3
+
+     error: undefined function require_json/1 (expected HardenLlmUI.Client to define such a function or for it to be imported, but none are available)
+     │
+ 356 │     with :ok <- require_json(response),
+     │                 ^^^^^^^^^^^^
+     │
+     └─ lib/harden_llm_ui/client.ex:356:17: HardenLlmUI.Client.decode_response/3
+
+     error: undefined function require_json/1 (expected HardenLlmUI.Client to define such a function or for it to be imported, but none are available)
+     │
+ 347 │     with :ok <- require_json(response),
+     │                 ^^^^^^^^^^^^
+     │
+     └─ lib/harden_llm_ui/client.ex:347:17: HardenLlmUI.Client.decode_response/3
+
+     error: undefined function require_json/1 (expected HardenLlmUI.Client to define such a function or for it to be imported, but none are available)
+     │
+ 347 │     with :ok <- require_json(response),
+     │                 ^^^^^^^^^^^^
+     │
+     └─ lib/harden_llm_ui/client.ex:347:17: HardenLlmUI.Client.decode_response/3
+
+     error: undefined function trace_headers/0 (expected HardenLlmUI.Client to define such a function or for it to be imported, but none are available)
+     │
+ 328 │         ] ++ trace_headers(),
+     │              ^^^^^^^^^^^^^
+     │
+     └─ lib/harden_llm_ui/client.ex:328:14: HardenLlmUI.Client.request_options/5
+
+
+== Compilation error in file lib/harden_llm_ui/client.ex ==
+** (CompileError) lib/harden_llm_ui/client.ex: cannot compile module HardenLlmUI.Client (errors have been logged)

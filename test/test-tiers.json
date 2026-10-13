@@ -61,7 +61,7 @@
     },
     {
       "id": "go-static",
-      "testIds": ["TEST-004", "TEST-062", "TEST-233", "TEST-234", "TEST-260", "TEST-268", "TEST-280", "TEST-400", "TEST-408"],
+      "testIds": ["TEST-004", "TEST-062", "TEST-233", "TEST-234", "TEST-260", "TEST-268", "TEST-280", "TEST-400", "TEST-408", "TEST-420", "TEST-436", "TEST-450"],
       "tier": "T0",
       "resourceClass": "cpu",
       "command": ["make", "test-static"],
@@ -105,34 +105,7 @@
     },
     {
       "id": "go-unit",
-      "testIds": [
-        "TEST-005",
-        "TEST-236",
-        "TEST-238",
-        "TEST-239",
-        "TEST-240",
-        "TEST-241",
-        "TEST-242",
-        "TEST-243",
-        "TEST-244",
-        "TEST-245",
-        "TEST-246",
-        "TEST-247",
-        "TEST-248",
-        "TEST-249",
-        "TEST-250",
-        "TEST-258",
-        "TEST-259",
-        "TEST-276",
-        "TEST-278",
-        "TEST-284",
-        "TEST-289",
-        "TEST-401",
-        "TEST-402",
-        "TEST-403",
-        "TEST-404",
-        "TEST-410"
-      ],
+      "testIds": ["TEST-005", "TEST-236", "TEST-238", "TEST-239", "TEST-240", "TEST-241", "TEST-242", "TEST-243", "TEST-244", "TEST-245", "TEST-246", "TEST-247", "TEST-248", "TEST-249", "TEST-250", "TEST-258", "TEST-259", "TEST-276", "TEST-278", "TEST-284", "TEST-289", "TEST-401", "TEST-402", "TEST-403", "TEST-404", "TEST-410", "TEST-421", "TEST-422", "TEST-437", "TEST-445", "TEST-423", "TEST-444", "TEST-425", "TEST-449", "TEST-451", "TEST-432"],
       "tier": "T1",
       "resourceClass": "cpu",
       "command": ["make", "test-unit"],
@@ -184,7 +157,7 @@
     },
     {
       "id": "go-integration",
-      "testIds": ["TEST-007", "TEST-053", "TEST-060", "TEST-230", "TEST-232", "TEST-251", "TEST-252", "TEST-253", "TEST-254", "TEST-255", "TEST-267"],
+      "testIds": ["TEST-007", "TEST-053", "TEST-060", "TEST-230", "TEST-232", "TEST-251", "TEST-252", "TEST-253", "TEST-254", "TEST-255", "TEST-267", "TEST-424", "TEST-438", "TEST-439", "TEST-440", "TEST-442", "TEST-443", "TEST-427", "TEST-426", "TEST-441"],
       "tier": "T3",
       "resourceClass": "service",
       "command": ["go", "test", "-p=${HARDEN_LLM_TEST_PACKAGE_SLOTS}", "./...", "-tags=integration", "-count=1"],
@@ -203,7 +176,7 @@
           {"name": "garage", "port": 3900}
         ]
       },
-      "pathSelectors": ["internal/**", "deploy/test/**", "go.mod", "go.sum"]
+      "pathSelectors": ["api/**", "internal/**", "stateful/**", "deploy/test/**", "go.mod", "go.sum"]
     },
     {
       "id": "go-integration-race",
@@ -225,7 +198,7 @@
           {"name": "garage", "port": 3900}
         ]
       },
-      "pathSelectors": ["internal/**", "deploy/test/**", "go.mod", "go.sum"]
+      "pathSelectors": ["internal/**", "stateful/**", "deploy/test/**", "go.mod", "go.sum"]
     },
     {
       "id": "go-api",
@@ -258,30 +231,11 @@
       "pathSelectors": ["internal/observability/**", "internal/gateway/**", "go.mod", "go.sum"]
     },
     {
-      "id": "frontend-reference-integration",
-      "testIds": ["TEST-407", "WEB-TEST-116"],
-      "tier": "T3",
-      "resourceClass": "service",
-      "command": ["mix", "test", "--only", "database", "test/harden_llm/reference_integration_test.exs"],
-      "workingDirectory": "frontend",
-      "dependsOn": [],
-      "timeoutMs": 300000,
-      "cleanupOwner": "runner",
-      "network": "local-only",
-      "credentialKeys": [],
-      "requiredFor": ["release", "integration-pool"],
-      "servicePool": {
-        "composeFile": "deploy/test/compose.integration.yml",
-        "services": [{"name": "harden-postgres", "port": 5432}]
-      },
-      "pathSelectors": ["frontend/lib/harden_llm/**", "frontend/test/harden_llm/**", "frontend/priv/repo/**", "frontend/mix.exs", "deploy/test/compose.integration.yml"]
-    },
-    {
       "id": "go-compose",
-      "testIds": ["TEST-011", "TEST-409"],
+      "testIds": ["TEST-011", "TEST-409", "TEST-433"],
       "tier": "T4",
       "resourceClass": "release",
-      "command": ["go", "test", "./internal/smoke/...", "-tags=compose", "-run", "TestComposeSmoke", "-count=1"],
+      "command": ["go", "test", "./internal/smoke/...", "-tags=compose", "-run", "TestComposeSmoke", "-count=1", "-v"],
       "dependsOn": [],
       "timeoutMs": 1800000,
       "cleanupOwner": "compose-smoke",
@@ -289,7 +243,7 @@
       "credentialKeys": ["PRIVATE_MODULE_TOKEN"],
       "requiredFor": ["baseline", "release"],
       "requiresDocker": true,
-      "pathSelectors": ["internal/smoke/**", "internal/integrationtest/**", "deploy/test/**", "Dockerfile", "docker-compose.yml", "go.mod", "go.sum", "scripts/run-test-tier.mjs"]
+      "pathSelectors": ["internal/smoke/**", "internal/integrationtest/**", "deploy/test/**", "Dockerfile", "docker-compose.yml", "go.mod", "go.sum", "scripts/run-test-tier.mjs", "frontend/**", "stateful/**"]
     },
     {
       "id": "go-compose-contract",
@@ -363,6 +317,38 @@
       "pathSelectors": ["scripts/harden-structured-call.sh", "internal/providers/**"]
     },
     {
+      "id": "frontend-ui-package",
+      "testIds": [
+        "TEST-429",
+        "TEST-446"
+      ],
+      "tier": "T1",
+      "resourceClass": "cpu",
+      "command": [
+        "mix",
+        "test"
+      ],
+      "workingDirectory": "frontend/packages/harden_llm_ui",
+      "testSeed": 104729,
+      "environment": {
+        "MIX_DEPS_PATH": "../../deps"
+      },
+      "dependsOn": [],
+      "timeoutMs": 900000,
+      "cleanupOwner": "runner",
+      "network": "forbidden",
+      "credentialKeys": [],
+      "requiredFor": [
+        "baseline",
+        "fast",
+        "release"
+      ],
+      "pathSelectors": [
+        "frontend/packages/harden_llm_ui/**",
+        "test/fixtures/reference/**"
+      ]
+    },
+    {
       "id": "frontend-format",
       "testIds": ["TEST-015"],
       "tier": "T0",
@@ -395,6 +381,10 @@
     {
       "id": "frontend-deterministic",
       "testIds": [
+        "TEST-428",
+        "TEST-447",
+        "TEST-448",
+        "TEST-431",
         "TEST-044",
         "TEST-101",
         "TEST-102",
@@ -485,11 +475,11 @@
       "network": "forbidden",
       "credentialKeys": [],
       "requiredFor": ["baseline", "fast", "release"],
-      "pathSelectors": ["frontend/assets/js/**", "frontend/assets/test/**"]
+      "pathSelectors": ["frontend/assets/js/**", "frontend/assets/test/**", "frontend/packages/harden_llm_ui/assets/js/**"]
     },
     {
       "id": "run-progress-client",
-      "testIds": ["TEST-256", "TEST-257"],
+      "testIds": ["TEST-256", "TEST-257", "TEST-430"],
       "tier": "T2",
       "resourceClass": "cpu",
       "command": ["node", "--test", "scripts/test/run_progress_test.mjs"],
@@ -500,7 +490,7 @@
       "credentialKeys": [],
       "requiredFor": ["baseline", "fast", "release"],
       "benchmarkLanes": ["fast-candidates"],
-      "pathSelectors": ["scripts/run-progress-core.mjs", "scripts/run-progress.mjs", "scripts/test/run_progress_test.mjs", "test/test-tiers.json"]
+      "pathSelectors": ["frontend/packages/harden_llm_ui/assets/js/run_progress.mjs", "scripts/run-progress.mjs", "scripts/test/run_progress_test.mjs", "test/test-tiers.json"]
     },
     {
       "id": "frontend-browser",

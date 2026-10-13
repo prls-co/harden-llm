@@ -1,0 +1,240 @@
+{
+  "documentId": "PLAN-HLLM-REFERENCE-DECOUPLING-002",
+  "planVersion": "5.3",
+  "branch": "feat/reference-decoupling",
+  "baseSHA": "ce09df303ba9c04f489563cf68fcdec25325ee36",
+  "completedPhases": [
+    "P00",
+    "P01",
+    "P02",
+    "P03",
+    "P04",
+    "P05"
+  ],
+  "nextStep": "P06.S01",
+  "steps": {
+    "P00.S01": {
+      "status": "done"
+    },
+    "P00.S02": {
+      "status": "done"
+    },
+    "P00.S03": {
+      "status": "done"
+    },
+    "P00.S04": {
+      "status": "done"
+    },
+    "P00.S05": {
+      "status": "done"
+    },
+    "P00.S06": {
+      "status": "done"
+    },
+    "P01.S01": {
+      "status": "done"
+    },
+    "P01.S02": {
+      "status": "done"
+    },
+    "P01.S03": {
+      "status": "done"
+    },
+    "P01.S04": {
+      "status": "done"
+    },
+    "P01.S05": {
+      "status": "done"
+    },
+    "P01.S06": {
+      "status": "done"
+    },
+    "P01.S07": {
+      "status": "done"
+    },
+    "P01.S08": {
+      "status": "done"
+    },
+    "P01.S09": {
+      "status": "done"
+    },
+    "P01.S10": {
+      "status": "done"
+    },
+    "P02.S01": {
+      "status": "done"
+    },
+    "P02.S02": {
+      "status": "done"
+    },
+    "P02.S03": {
+      "status": "done"
+    },
+    "P02.S04": {
+      "status": "done"
+    },
+    "P02.S05": {
+      "status": "done"
+    },
+    "P02.S06": {
+      "status": "done"
+    },
+    "P02.S07": {
+      "status": "done"
+    },
+    "P02.S08": {
+      "status": "done"
+    },
+    "P02.S09": {
+      "status": "done"
+    },
+    "P02.S10": {
+      "status": "done"
+    },
+    "P02.S11": {
+      "status": "done"
+    },
+    "P02.S12": {
+      "status": "done"
+    },
+    "P02.S13": {
+      "status": "done"
+    },
+    "P02.S14": {
+      "status": "done"
+    },
+    "P02.S15": {
+      "status": "done"
+    },
+    "P02.S16": {
+      "status": "done"
+    },
+    "P02.S17": {
+      "status": "done"
+    },
+    "P02.S18": {
+      "status": "done"
+    },
+    "P03.S01": {
+      "status": "done"
+    },
+    "P03.S02": {
+      "status": "done"
+    },
+    "P03.S03": {
+      "status": "done"
+    },
+    "P03.S04": {
+      "status": "done"
+    },
+    "P03.S05": {
+      "status": "done"
+    },
+    "P03.S06": {
+      "status": "done"
+    },
+    "P03.S07": {
+      "status": "done"
+    },
+    "P03.S08": {
+      "status": "done"
+    },
+    "P03.S09": {
+      "status": "done"
+    },
+    "P03.S10": {
+      "status": "done"
+    },
+    "P03.S11": {
+      "status": "done"
+    },
+    "P03.S12": {
+      "status": "done"
+    },
+    "P03.S13": {
+      "status": "done"
+    },
+    "P03.S14": {
+      "status": "done"
+    },
+    "P04.S01": {
+      "status": "done"
+    },
+    "P04.S02": {
+      "status": "done"
+    },
+    "P04.S03": {
+      "status": "done"
+    },
+    "P04.S04": {
+      "status": "done"
+    },
+    "P04.S05": {
+      "status": "done"
+    },
+    "P04.S06": {
+      "status": "done"
+    },
+    "P04.S07": {
+      "status": "done"
+    },
+    "P04.S08": {
+      "status": "done"
+    },
+    "P04.S09": {
+      "status": "done"
+    },
+    "P04.S10": {
+      "status": "done"
+    },
+    "P04.S11": {
+      "status": "done"
+    },
+    "P04.S12": {
+      "status": "done"
+    },
+    "P04.S13": {
+      "status": "done"
+    },
+    "P04.S14": {
+      "status": "done"
+    },
+    "P05.S01": {
+      "status": "done"
+    },
+    "P05.S02": {
+      "status": "done"
+    },
+    "P05.S03": {
+      "status": "done"
+    },
+    "P05.S04": {
+      "status": "done"
+    },
+    "P05.S05": {
+      "status": "done"
+    },
+    "P05.S06": {
+      "status": "done"
+    },
+    "P06.S01": {
+      "status": "pending"
+    },
+    "P06.S02": {
+      "status": "pending"
+    },
+    "P06.S03": {
+      "status": "pending"
+    },
+    "P06.S04": {
+      "status": "pending"
+    }
+  },
+  "releaseAuthorization": "User explicitly requested push to main and deploy to production; required gates remain in force.",
+  "releaseStatus": "P00-P05 pushed through b4d270d11b64056074788b92eb8ec68807578164; P06.S01 certification in progress; production unchanged",
+  "ownerGates": {
+    "CHECK-420": "accepted and encoded",
+    "CHECK-421": "ADR-HLLM-034 recorded",
+    "CHECK-422": "Database target approved 2026-10-13: existing compose-postgres-1/compose_default, isolated harden_llm database/role. Owner commands reviewed in docs/reference-production-cutover.md; actual provisioning and Garage permission probe remain P06."
+  }
+}

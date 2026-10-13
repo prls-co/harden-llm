@@ -1,0 +1,139 @@
+Compiling 1 file (.ex)
+Running ExUnit with seed: 104729, max_cases: 24
+
+...
+
+  1) test one canonical decoder validates every consumed field and rejects corruption (HardenLlmUI.IndependentClientTest)
+     test/harden_llm_ui/client_test.exs:57
+     Expected false or nil, got true
+     code: refute DiagnosticsWire.valid?("ProfilesEnvelope", value)
+     arguments:
+
+         # 1
+         "ProfilesEnvelope"
+
+         # 2
+         %{
+           "profiles" => [
+             %{
+               "credentialStatus" => %{
+                 "configured" => true,
+                 "id" => "cpa",
+                 "source" => "deployment"
+               },
+               "definition" => %{
+                 "apiInferenceType" => "responses",
+                 "baseUrl" => "https://cpa.prls.co/v1",
+                 "defaultOptions" => %{
+                   "max_tokens" => 16000,
+                   "stream" => true
+                 },
+                 "modelId" => "gpt-5.6-luna",
+                 "pricing" => %{
+                   "cache_creation_input_token_cost" => 2.5e-7,
+                   "cache_read_input_token_cost" => 2.0e-8,
+                   "input_cost_per_token" => 2.0e-7,
+                   "output_cost_per_reasoning_token" => 0,
+                   "output_cost_per_token" => 1.2e-6
+                 },
+                 "provider" => "cpa",
+                 "reasoningEffortMap" => %{
+                   "highest" => %{
+                     "reasoning" => %{"effort" => "xhigh"}
+                   },
+                   "lowest" => %{"reasoning" => %{"effort" => "low"}},
+                   "middle" => %{
+                     "reasoning" => %{"effort" => "medium"}
+                   }
+                 },
+                 "recoveryPolicy" => %{
+                   "backoff" => %{
+                     "baseDelayMs" => 500,
+                     "maxDelayMs" => 8000
+                   },
+                   "jsonRepair" => %{
+                     "escalation" => %{"source" => "generation"},
+                     "initial" => %{"source" => "generation"}
+                   },
+                   "maxAttempts" => 4,
+                   "rerun" => nil,
+                   "retryOn" => ["network", "rate_limit",
+                    "server_error", "empty_response", "provider_retry"]
+                 },
+                 "responsesTokensParam" => "max_output_tokens",
+                 "schemaVersion" => 4,
+                 "supportsContractedStructuredOutput" => true,
+                 "supportsTemperature" => false,
+                 "supportsWebSearch" => true,
+                 "tokensParam" => nil
+               },
+               "id" => "bad/name",
+               "kind" => "preset",
+               "name" => "CPA Responses"
+             },
+             %{
+               "credentialStatus" => %{
+                 "configured" => true,
+                 "id" => "openai",
+                 "source" => "deployment"
+               },
+               "definition" => %{
+                 "apiInferenceType" => "responses",
+                 "baseUrl" => "https://api.openai.com/v1",
+                 "defaultOptions" => %{"max_tokens" => 16000},
+                 "modelId" => "gpt-5.6-luna",
+                 "pricing" => %{
+                   "cache_creation_input_token_cost" => 2.5e-7,
+                   "cache_read_input_token_cost" => 2.0e-8,
+                   "input_cost_per_token" => 2.0e-7,
+                   "output_cost_per_reasoning_token" => 0,
+                   "output_cost_per_token" => 1.2e-6
+                 },
+                 "provider" => "openai",
+                 "reasoningEffortMap" => %{
+                   "highest" => %{
+                     "reasoning" => %{"effort" => "xhigh"}
+                   },
+                   "lowest" => %{"reasoning" => %{"effort" => "low"}},
+                   "middle" => %{
+                     "reasoning" => %{"effort" => "medium"}
+                   }
+                 },
+                 "recoveryPolicy" => %{
+                   "backoff" => %{
+                     "baseDelayMs" => 500,
+                     "maxDelayMs" => 8000
+                   },
+                   "jsonRepair" => %{
+                     "escalation" => %{"source" => "generation"},
+                     "initial" => %{"source" => "generation"}
+                   },
+                   "maxAttempts" => 4,
+                   "rerun" => nil,
+                   "retryOn" => ["network", "rate_limit",
+                    "server_error", "empty_response", "provider_retry"]
+                 },
+                 "responsesTokensParam" => "max_output_tokens",
+                 "schemaVersion" => 4,
+                 "supportsContractedStructuredOutput" => true,
+                 "supportsTemperature" => false,
+                 "supportsWebSearch" => true,
+                 "tokensParam" => nil
+               },
+               "id" => "Repair Provider",
+               "kind" => "preset",
+               "name" => "Repair Provider"
+             }
+           ]
+         }
+
+     stacktrace:
+       test/harden_llm_ui/client_test.exs:79: anonymous fn/3 in HardenLlmUI.IndependentClientTest."test one canonical decoder validates every consumed field and rejects corruption"/1
+       (elixir 1.20.2) lib/enum.ex:2622: Enum."-reduce/3-lists^foldl/2-0-"/3
+       test/harden_llm_ui/client_test.exs:77: (test)
+
+...
+Finished in 0.3 seconds (0.3s async, 0.00s sync)
+
+Result: 6/7 passed
+Failed: 1 test

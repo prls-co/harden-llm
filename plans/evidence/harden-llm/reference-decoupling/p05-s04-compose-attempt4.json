@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "selector": "go-compose",
+  "seed": 104729,
+  "manifestSHA256": "1138a007e2b93496ed47ee17767ea63647c55acd421ccde9c22a035b0bd69b6f",
+  "accepted": true,
+  "runDirectory": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/run-1791878820924-843980-3hdnvr",
+  "results": [
+    {
+      "taskId": "go-compose",
+      "tier": "T4",
+      "resourceClass": "release",
+      "command": [
+        "go",
+        "test",
+        "./internal/smoke/...",
+        "-tags=compose",
+        "-run",
+        "TestComposeSmoke",
+        "-count=1",
+        "-v"
+      ],
+      "status": 0,
+      "seed": 104729,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 138011,
+      "peakRssMiB": 256.390625,
+      "cpuMs": 12880,
+      "stdoutBytes": 551,
+      "stderrBytes": 0,
+      "truncatedOutputBytes": 0,
+      "stdoutPreview": "=== RUN   TestComposeSmoke\n    compose_smoke_test.go:13: TEST-433: two keys, shared frontend key, SQL/history/cache/artifact isolation, admission/storage outages and schema-before-start passed\n    compose_smoke_test.go:13: Compose evidence: ready=11/11 readiness=41.102s correlation=4/4 run=128c91a6-eb96-4c1e-b460-f27537b11657 trace=e700be76-9680-4dc2-bbc7-c56ad120d55c\n--- PASS: TestComposeSmoke (137.07s)\nPASS\nok  \tgithub.com/prls-co/harden-llm/internal/smoke\t137.082s\n?   \tgithub.com/prls-co/harden-llm/internal/smoke/fakeprovider\t[no test files]\n",
+      "stderrPreview": "",
+      "failureSummary": null,
+      "failureDetail": null,
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": false,
+      "servicePoolProject": null,
+      "startedAtMs": 575,
+      "endedAtMs": 138586
+    }
+  ],
+  "firstFailure": null,
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 97,
+    "daemonLockWaitMs": 162,
+    "staleReceiptRecoveryMs": 128
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "generatedAt": "2026-10-13T08:09:19.365Z",
+  "reportPath": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/plans/evidence/harden-llm/reference-decoupling/p05-s04-compose-attempt4.json"
+}

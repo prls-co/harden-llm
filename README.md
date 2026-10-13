@@ -1,11 +1,15 @@
 # Harden LLM
 
-Harden LLM is an OpenAI-compatible hardening proxy and a small Phoenix reference
-application. The gateway exposes `/v1/models`, `/v1/chat/completions`, and
-`/v1/responses`; its inference API is stateless and owns no login, profile,
-history, or product database. The reference application uses shared PRLS login
-for access, records its own calls in PostgreSQL, and shares that history across
-all enabled logins.
+Harden LLM provides a stateless Go hardening core, a reusable stateful wrapper,
+an OpenAI-compatible gateway, and a Phoenix reference application. The core
+owns retries, JSON repair, recovery, validation and accounting through injected
+effects. The wrapper owns API-key-scoped profiles, cache, drafts, history and
+artifacts. Ordinary `/v1` requests never enter product history.
+
+The reference UI restores the picker/editor, input, response, statistics,
+history and trace workflows from PR #95. Its reusable `HardenLlmUI` package
+uses REST; shared PRLS Portal handles human access. Logins using the same host
+API key share profiles/history and keep separate workspace drafts.
 
 The incoming API bearer is `HARDEN_LLM_TOKEN`, stored in the ignored root
 `.env`. `CPA_API_KEY` is used only by the gateway for its configured upstream.
@@ -15,11 +19,12 @@ and [self-hosting guide](docs/self-hosting.md).
 
 ## Repository map
 
-- Root Go package: portable hardening client with one execution engine.
-- `cmd/harden-llm-gateway/`: stateless OpenAI-compatible HTTP gateway.
+- Root Go package: stateless hardening client with one execution engine.
+- `stateful/`: provider effects, scoped PostgreSQL state and Garage artifacts.
+- `cmd/harden-llm-gateway/`: `/v1` inference and `/api/v1` reference HTTP gateway.
 - `internal/`: provider transports, recovery, cache, API codecs, telemetry, and tests.
 - `api/openapi.yaml`: authoritative gateway contract and Go/Phoenix boundary.
-- `frontend/`: independent Phoenix reference application and its history store.
+- `frontend/`: Phoenix host; `frontend/packages/harden_llm_ui/` is the reusable UI/client package.
 - `deploy/` and `docker-compose.yml`: deployment and isolated test topologies.
 - `plans/from_utility-llm/`: canonical Go, API, frontend, and test specifications.
 - `docs/`: operating instructions, ownership, and retained release evidence.
@@ -49,20 +54,22 @@ the repository task graph.
 
 Copy `.env.example` to `.env`, preserve it as a private mode-0600 file, and set
 the incoming token, CPA key, absolute path to a connection JSON file, database
-password, hostnames, and existing Control Plane/Portal settings. Keep provider
+URL, credential-encryption key, Garage settings, hostnames, and existing
+Control Plane/Portal settings. Keep provider
 credentials in environment variables; the connection JSON stores only an
 environment-variable name. Follow [the self-hosting guide](docs/self-hosting.md)
-for migrations, startup, and browser-free HTTP checks.
+for the one-shot schema command, startup, and browser-free HTTP checks.
 
 OpenAI-compatible clients use the API origin as their base URL with the same
 `HARDEN_LLM_TOKEN` value. For example, an SDK should use
-`https://harden-llm-api.prls.co/v1`; it does not need a Harden-specific request
+`https://harden-llm.prls.co/v1`; it does not need a Harden-specific request
 wrapper for supported OpenAI fields. See [API and Go library examples](docs/api-and-library.md)
 for request examples and the supported subset.
 
 ## Current implementation plan
 
-[`plans/proxy-and-reference-app-simplification-plan.md`](plans/proxy-and-reference-app-simplification-plan.md)
-tracks the coordinated profile-free proxy, Phoenix reference store, and
-deployment cutover. Older ADRs and release reports remain historical records;
-the current ownership and API contract are defined by OpenAPI and that plan.
+[`plans/restore-reference-workflows-decoupling-plan.md`](plans/restore-reference-workflows-decoupling-plan.md)
+defines the accepted v5.3 boundaries and phase gates. Its
+[execution ledger](plans/evidence/harden-llm/reference-decoupling/progress.json)
+distinguishes implementation and deployment; older ADRs and release reports
+remain historical evidence tied to their original revisions.

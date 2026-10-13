@@ -40,7 +40,7 @@ func TestServerConfigurationUsesOneTokenAndStaticConnections(t *testing.T) {
 	}
 
 	badFile := validServerEnvironment(t)
-	if err := os.WriteFile(badFile[connectionFileEnvironment], []byte(`{"default_upstream":"cpa","upstreams":[],"profiles":[]}`), 0o600); err != nil {
+	if err := os.WriteFile(badFile[connectionFileEnvironment], []byte(`{"api_key_envs":["HARDEN_LLM_TOKEN"],"default_upstream":"cpa","upstreams":[],"profiles":[]}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := loadServerConfig(mapEnvironment(badFile)); err == nil {
@@ -69,7 +69,7 @@ func TestServerConfigurationUsesOneTokenAndStaticConnections(t *testing.T) {
 func validServerEnvironment(t *testing.T) map[string]string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "upstreams.json")
-	document := `{"default_upstream":"cpa","upstreams":[{"id":"cpa","provider":"cpa","protocol":"responses","base_url":"https://cpa.example.test/v1","api_key_env":"CPA_API_KEY","cache_domain":"cpa-deployment-1"}]}`
+	document := `{"api_key_envs":["HARDEN_LLM_TOKEN"],"default_upstream":"cpa","upstreams":[{"id":"cpa","provider":"cpa","protocol":"responses","base_url":"https://cpa.example.test/v1","api_key_env":"CPA_API_KEY","cache_domain":"cpa-deployment-1"}]}`
 	if err := os.WriteFile(path, []byte(document), 0o600); err != nil {
 		t.Fatal(err)
 	}

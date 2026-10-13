@@ -1,0 +1,56 @@
+Compiling 4 files (.ex)
+Generated harden_llm app
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+.
+
+  1) test bundle download returns the same canonical setup with no-store (HardenLlmWeb.RestoredWorkflowsTest)
+     test/harden_llm_web/live/restored_workflows_test.exs:106
+     ** (RuntimeError) expected response with status 200, got: 502, with body:
+     "Profile bundle is temporarily unavailable."
+     code: assert Jason.decode!(response(result, 200)) == bundle
+     stacktrace:
+       (phoenix 1.8.9) lib/phoenix/test/conn_test.ex:373: Phoenix.ConnTest.response/2
+       test/harden_llm_web/live/restored_workflows_test.exs:111: (test)
+
+
+
+  2) test embedding upload stays in its selected widget namespace (HardenLlmWeb.RestoredWorkflowsTest)
+     test/harden_llm_web/live/restored_workflows_test.exs:87
+     ** (ArgumentError) expected selector "#embed-secondary-model-config-toggle" to return a single element, but got none within:
+
+     <main phx-r=""></main>
+     code: view |> element("#embed-secondary-model-config-toggle") |> render_click()
+     stacktrace:
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:1229: Phoenix.LiveViewTest.call/2
+       test/harden_llm_web/live/restored_workflows_test.exs:90: (test)
+
+.
+
+  3) test embedding keeps two baseline instances independent (HardenLlmWeb.RestoredWorkflowsTest)
+     test/harden_llm_web/live/restored_workflows_test.exs:65
+     Expected truthy, got false
+     code: assert has_element?(view, "#embedding-page")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN4AisQnf2cgBQBF",
+           module: HardenLlmWeb.EmbeddingLive,
+           pid: #PID<0.997.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#embedding-page"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_workflows_test.exs:68: (test)
+
+
+Finished in 0.5 seconds (0.5s async, 0.00s sync)
+
+Result: 2/5 passed
+Failed: 3 tests

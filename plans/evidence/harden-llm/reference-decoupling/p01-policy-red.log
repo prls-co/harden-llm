@@ -1,0 +1,6 @@
+--- FAIL: TestRecoverySnapshot (0.00s)
+    --- FAIL: TestRecoverySnapshot/recovery_policy_is_detached_before_preparing_the_generation (0.00s)
+        recovery_snapshot_test.go:82: caller changed in-flight policy: dispatches=[a:generate:key-a a:repair:key-a] cost=6 err=<nil>
+FAIL
+FAIL	github.com/prls-co/harden-llm	0.005s
+FAIL

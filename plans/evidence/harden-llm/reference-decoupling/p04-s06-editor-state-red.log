@@ -1,0 +1,100 @@
+Compiling 2 files (.ex)
+     warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+     │
+ 221 │           bundle_export_url={~p"/profiles/bundle"}
+     │           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     │
+     └─ lib/harden_llm_web/live/profiles_live.html.heex:221: HardenLlmWeb.ProfilesLive.render/1
+
+    warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+    │
+ 16 │           href={~p"/profiles/bundle"}
+    │           ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/harden_llm_web/live/profiles_live.html.heex:16: HardenLlmWeb.ProfilesLive.render/1
+
+    warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+    │
+ 84 │               bundle_export_url={~p"/profiles/bundle"}
+    │               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/harden_llm_web/live/workspace_live.html.heex:84: HardenLlmWeb.WorkspaceLive.render/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │
+ 1763 │     do: ~p"/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1763: HardenLlmWeb.WorkspaceLive.artifact_url/2
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}"
+      │
+ 1758 │     do: ~p"/traces/#{trace_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1758: HardenLlmWeb.WorkspaceLive.trace_url/1
+
+      warning: variable "profile" is unused (if the variable is not meant to be used, prefix it with an underscore)
+      │
+ 1270 │       profile = profile_state["definition"] || %{}
+      │       ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1270:7: HardenLlmWeb.WorkspaceLive.profile_options/1
+
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+.
+
+  1) test refresh edits only the draft and keeps its complete inputs until explicit Save (HardenLlmWeb.RestoredProfilesTest)
+     test/harden_llm_web/live/restored_profiles_test.exs:201
+     Expected truthy, got false
+     code: assert has_element?(view, "#profile-model-options option[value='fresh-native-model']")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN3-tMtjNLm9cz1B",
+           module: HardenLlmWeb.ProfilesLive,
+           pid: #PID<0.979.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#profile-model-options option[value='fresh-native-model']"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_profiles_test.exs:212: (test)
+
+
+
+  2) test each explicit Save creates a new complete snapshot and selects its returned ID (HardenLlmWeb.RestoredProfilesTest)
+     test/harden_llm_web/live/restored_profiles_test.exs:166
+     Expected truthy, got false
+     code: assert has_element?(
+             view,
+             "#profile-form input[name='profile[profileId]'][value='#{List.last(new)["id"]}']"
+           )
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN3-tMyJ6W-QQQLG",
+           module: HardenLlmWeb.ProfilesLive,
+           pid: #PID<0.989.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#profile-form input[name='profile[profileId]'][value='00000000-0000-4000-8000-000000000202']"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_profiles_test.exs:195: (test)
+
+...
+Finished in 0.5 seconds (0.5s async, 0.00s sync)
+
+Result: 4/6 passed
+Failed: 2 tests

@@ -8,13 +8,13 @@
 - Target application directory: `/home/kirill/harden-llm/frontend`
 - Backend contract: `/home/kirill/harden-llm/api/openapi.yaml`
 - Source UX reference: `/home/kirill/utility-llm/examples/react-trace-studio`
-- Version: `1.2.0-shared-reference-history`
+- Version: `1.3.0-decoupled-reference`
 - Owners: frontend and self-hosted runtime maintainers
 - Date: 2026-10-06
 - Document ID: `SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001`
-- Summary: This specification defines the separate Elixir/Phoenix LiveView reference application for Harden-LLM. It uses shared PRLS authentication, calls the Go gateway through OpenAPI, and owns the browser session, CSRF boundary, shared history, and ordered session/component drafts. It does not own inference, provider credentials, retry policy, or cache identity. The 2026-10-06 shared-history/OpenAI client amendment below supersedes the earlier profile editor, custom run API, and product-persistence descriptions. The active reference workspace is a single request form and shared history, without profiles.
+- Summary: Accepted reference UI restoration at baseline `754690c` with reusable `HardenLlmUI` components/client/styles. Host-owned Portal admission and async lifecycle; backend-owned API-key-scoped persistence and complete create-on-save profiles. The 2026-10-12 amendment supersedes conflicting historical reference-history/ownership statements.
 
-> **Current contract (2026-10-06):** Follow ADR-HLLM-031/032 and the amendment in section 23. Phoenix is the only history writer; every enabled login shares its history. Direct `/v1` calls are not recorded. The frontend uses the existing `HARDEN_LLM_TOKEN` server-side and never exposes it to the browser.
+> **Current contract (2026-10-12):** Follow ADR-HLLM-033/034 and section 24. `api_key_hash` scopes state; `draftKey` partitions unsaved drafts inside it. Phoenix calls reference REST only; it owns no domain database after the verified P03 transfer. The server-held HLLM key never reaches the browser.
 
 ## 2. Canonical stack
 
@@ -779,3 +779,31 @@ per-login history, trace and artifact data is removed; no old record is
 reclassified, imported or read through a compatibility path. Shared history
 starts empty. This amendment supersedes the profile workflow, frontend domain
 storage and personal-history behavior described in earlier sections.
+
+## 24. Restored reusable reference components (2026-10-12)
+
+Direct `/v1` calls are not recorded. Only reference `/api/v1/run` owns history.
+
+Restore the pinned HLLM baseline's markup, classes, folds, labels and every
+capability in `test/fixtures/reference-workflows.json`. No replacement layout or
+removed controls. Explicit create-on-save copies the complete form to a fresh
+immutable profile; edits/model refresh change only the draft. Restore fills
+inputs without saving/running. Show recording diagnostics independently from
+inference and never retry ambiguous work.
+
+`HardenLlmUI` owns one REST client/decoder, profile form/widget helpers, input,
+response, stats, history/pagination and trace components, CSS and JS decisions.
+The host supplies `api_key`, `draft_key`, base URL, admission routes and explicit
+component IDs. Host LiveViews own async operations and stale-response handling;
+shared Portal modules/session material never enter the package. The reference
+host sends `draftKey=workspace:<stable Portal user ID>`; all other state is shared
+by holders of that HLLM key. PostgreSQL/Garage access occurs in the Go wrapper.
+
+Model Recall's Phoenix/Req forms and async lifecycle were inspected read-only;
+see `docs/architecture.md` for evidence and host responsibilities. Its product
+admission and workflow retries remain host-specific. A separate minimal test
+host must use the package without importing reference-app code. Reuse preserves
+numbered pagination/counts, profile bundles/keys/probes, JSON repair/error fixers,
+progress/accounting/cache/trace/downloads and `/embed/llm`. WEB-TEST-118–123 and
+backend TEST-428–431/446–448 retain baseline test purposes; no browser launch is
+implicit. Production identity and HTTP acceptance do not prove browser layout.

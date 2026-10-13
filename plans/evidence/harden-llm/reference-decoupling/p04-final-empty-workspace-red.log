@@ -1,0 +1,31 @@
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+....
+
+  1) test empty embedding catalog still permits creating a new setup (HardenLlmWeb.RestoredWorkflowsTest)
+     test/harden_llm_web/live/restored_workflows_test.exs:158
+     Expected truthy, got false
+     code: assert has_element?(workspace, "#workspace-llm-widget")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN4Cc4ukbtdukgsB",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.968.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#workspace-llm-widget"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_workflows_test.exs:184: (test)
+
+.
+Finished in 0.7 seconds (0.7s async, 0.00s sync)
+
+Result: 5/6 passed
+Failed: 1 test

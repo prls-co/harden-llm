@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/prls-co/harden-llm/stateful"
 	"io"
 	"os"
 	"os/signal"
@@ -23,6 +24,9 @@ func main() {
 func run(ctx context.Context, args []string, stdout, stderr io.Writer, getenv func(string) string) error {
 	if len(args) == 0 || len(args) == 1 && args[0] == "serve" {
 		return runGatewayServer(ctx, stdout, stderr, getenv)
+	}
+	if len(args) == 1 && args[0] == "schema" {
+		return runSchemaCommand(ctx, getenv, stateful.ApplySchema)
 	}
 	if args[0] == "healthcheck" {
 		return runHealthcheck(ctx, args[1:], stdout)

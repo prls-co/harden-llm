@@ -114,7 +114,9 @@ func TestSharedIngressOwnership(t *testing.T) {
 	}
 	for _, required := range []string{
 		"import /etc/caddy/test/Caddyfile.smoke", "{$HARDEN_LLM_WEB_HOST}",
-		"respond @private_metrics 404", "reverse_proxy harden-llm-web:4000",
+		"handle @private_metrics {", "respond 404", "reverse_proxy harden-llm-web:4000",
+		"@gateway path /v1/* /api/v1/* /healthz /readyz", "handle @gateway {",
+		"reverse_proxy harden-llm-gateway:8080",
 	} {
 		if !strings.Contains(string(frontendCaddyfile), required) {
 			t.Errorf("frontend smoke Caddyfile omits %q", required)

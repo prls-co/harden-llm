@@ -24,7 +24,7 @@ func (api *API) models(writer http.ResponseWriter, request *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(request.Context(), api.maxRunDuration)
 	defer cancel()
-	models, err := api.client.Models(ctx, query.Get("upstream"))
+	models, err := scopeFromContext(ctx).client.Models(ctx, query.Get("upstream"))
 	if err != nil {
 		api.writeCallError(writer, err, hardenllm.Result{}, false)
 		return
@@ -264,9 +264,6 @@ func validateNumberRange(writer http.ResponseWriter, field string, value *float6
 }
 
 func (api *API) execute(parent context.Context, connection string, cache hardenllm.CacheMode, timeoutMS int64, recovery hardenllm.RecoveryPolicy, input hardenllm.Request) (hardenllm.Result, error) {
-	if cache != hardenllm.CacheModeOff {
-		return hardenllm.Result{}, &hardenllm.ValidationError{Field: "harden.cache", Message: "is unavailable because no Go cache is configured"}
-	}
 	if timeoutMS == 0 {
 		timeoutMS = api.maxRunDuration.Milliseconds()
 	}
@@ -277,7 +274,7 @@ func (api *API) execute(parent context.Context, connection string, cache hardenl
 	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 	input.ConnectionID, input.CacheMode, input.RecoveryPolicy = connection, cache, recovery
-	return api.client.Call(ctx, input)
+	return scopeFromContext(ctx).client.Call(ctx, input)
 }
 
 func (api *API) writeCallError(writer http.ResponseWriter, err error, result hardenllm.Result, diagnostics bool) {

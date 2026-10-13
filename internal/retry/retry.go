@@ -56,6 +56,7 @@ func (policy Policy) UsesExplicitPlan() bool {
 
 // RecoveryTarget identifies one leaf model target on the selected upstream.
 type RecoveryTarget struct {
+	ConnectionID    string         `json:"upstream,omitempty"`
 	Source          string         `json:"source"`
 	ModelID         string         `json:"modelId,omitempty"`
 	ReasoningEffort string         `json:"reasoningEffort,omitempty"`
@@ -87,6 +88,7 @@ func (target *RecoveryTarget) UnmarshalJSON(data []byte) error {
 	decoder.DisallowUnknownFields()
 	var value struct {
 		Source          string         `json:"source"`
+		ConnectionID    string         `json:"upstream"`
 		ModelID         string         `json:"modelId"`
 		ReasoningEffort string         `json:"reasoningEffort"`
 		ProviderOptions map[string]any `json:"providerOptions"`
@@ -97,7 +99,7 @@ func (target *RecoveryTarget) UnmarshalJSON(data []byte) error {
 	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
 		return &ValidationError{Field: "recoveryTarget", Message: "must contain one object"}
 	}
-	*target = RecoveryTarget{Source: value.Source, ModelID: value.ModelID, ReasoningEffort: value.ReasoningEffort, ProviderOptions: value.ProviderOptions}
+	*target = RecoveryTarget{Source: value.Source, ConnectionID: value.ConnectionID, ModelID: value.ModelID, ReasoningEffort: value.ReasoningEffort, ProviderOptions: value.ProviderOptions}
 	return nil
 }
 
@@ -154,7 +156,7 @@ func (plan *RerunPlan) UnmarshalJSON(data []byte) error {
 }
 
 func (target RecoveryTarget) IsZero() bool {
-	return target.Source == "" && target.ModelID == "" && target.ReasoningEffort == "" && len(target.ProviderOptions) == 0
+	return target.Source == "" && target.ConnectionID == "" && target.ModelID == "" && target.ReasoningEffort == "" && len(target.ProviderOptions) == 0
 }
 
 func (target RecoveryTarget) Validate(field string, allowGeneration bool) error {
@@ -165,10 +167,10 @@ func (target RecoveryTarget) Validate(field string, allowGeneration bool) error 
 	if target.Source == "model" && strings.TrimSpace(target.ModelID) == "" {
 		return invalid("modelId is required for a model target")
 	}
-	if target.Source == "generation" && (target.ModelID != "" || target.ReasoningEffort != "" || len(target.ProviderOptions) != 0) {
+	if target.Source == "generation" && (target.ConnectionID != "" || target.ModelID != "" || target.ReasoningEffort != "" || len(target.ProviderOptions) != 0) {
 		return invalid("generation target cannot override request settings")
 	}
-	if len(target.ModelID) > 512 || len(target.ReasoningEffort) > 128 {
+	if len(target.ConnectionID) > 128 || strings.TrimSpace(target.ConnectionID) != target.ConnectionID || len(target.ModelID) > 512 || len(target.ReasoningEffort) > 128 {
 		return invalid("target identifiers exceed their limits")
 	}
 	if target.ProviderOptions != nil {

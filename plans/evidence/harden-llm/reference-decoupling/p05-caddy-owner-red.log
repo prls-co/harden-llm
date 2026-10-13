@@ -1,0 +1,15 @@
+F
+======================================================================
+FAIL: test_shared_owner_is_independent_and_uses_retained_state (__main__.TestOwner.test_shared_owner_is_independent_and_uses_retained_state)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/kirill/.cache/harden-llm-tmp/caddy-reference-routing/tests/test_config.py", line 401, in test_shared_owner_is_independent_and_uses_retained_state
+    self.assertEqual(expected, adapted, "Caddy route hostname or upstream inventory changed")
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'web.example.invalid': {'harden-llm-gatewa[745 chars]00'}} != {'synthetic-product-dataset-api.prls.co': {[770 chars]00'}}
+Diff is 1058 characters long. Set self.maxDiff to None to see it. : Caddy route hostname or upstream inventory changed
+
+----------------------------------------------------------------------
+Ran 1 test in 1.772s
+
+FAILED (failures=1)

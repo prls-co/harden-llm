@@ -1,0 +1,131 @@
+Running ExUnit with seed: 130363, max_cases: 1
+Excluding tags: [:asset, :browser, :compose, :database]
+
+
+HardenLlmWeb.SharedIdentityTest [test/harden_llm_web/shared_identity_test.exs]
+  * test the product cookie remains encrypted and host-only [L#175]
+  * test the product cookie remains encrypted and host-only (135.8ms) [L#175]
+  * test Portal logout preserves owner cookies and returns to Portal [L#139]
+  * test Portal logout preserves owner cookies and returns to Portal (891.2ms) [L#139]
+  * test proxy requests use one deployment bearer and never forward the human session [L#55]
+  * test proxy requests use one deployment bearer and never forward the human session (815.0ms) [L#55]
+  * test enabled logins enter the single reference workspace without account selection [L#38]
+  * test enabled logins enter the single reference workspace without account selection (3.5ms) [L#38]
+  * test browser policy permits the Portal redirect after same-origin logout [L#30]
+  * test browser policy permits the Portal redirect after same-origin logout (0.4ms) [L#30]
+  * test logout authority failure stays unavailable [L#165]
+  * test logout authority failure stays unavailable (1.0ms) [L#165]
+  * test only Portal hosts password and account routes [L#12]
+  * test only Portal hosts password and account routes (46.8ms) [L#12]
+  * test revoked access is revalidated before inference is dispatched [L#83]
+  * test revoked access is revalidated before inference is dispatched (381.3ms) [L#83]
+  * test unauthenticated requests preserve their return path [L#25]
+  * test unauthenticated requests preserve their return path (0.6ms) [L#25]
+
+HardenLlmWeb.RestoredWorkflowsTest [test/harden_llm_web/live/restored_workflows_test.exs]
+  * test schema helpers preserve baseline bindings without executing inference [L#135]
+  * test schema helpers preserve baseline bindings without executing inference (205.2ms) [L#135]
+  * test all restored routes use shared Portal admission [L#121]
+  * test all restored routes use shared Portal admission (53.9ms) [L#121]
+  * test bundle download returns the same canonical setup with no-store [L#109]
+  * test bundle download returns the same canonical setup with no-store (14.8ms) [L#109]
+  * test embedding keeps two baseline instances independent [L#65]
+  * test embedding keeps two baseline instances independent (86.7ms) [L#65]
+  * test empty embedding catalog still permits creating a new setup [L#158]
+  * test empty embedding catalog still permits creating a new setup (38.5ms) [L#158]
+  * test embedding upload stays in its selected widget namespace [L#87]
+  * test embedding upload stays in its selected widget namespace (189.0ms) [L#87]
+
+HardenLlmWeb.RestoredHistoryTest [test/harden_llm_web/live/restored_history_test.exs]
+  * test missing or unauthorized artifact is not redirected or retried [L#282]
+  * test missing or unauthorized artifact is not redirected or retried (188.8ms) [L#282]
+  * test failed deletion restores the row and successful deletion refreshes its count [L#243]
+  * test failed deletion restores the row and successful deletion refreshes its count (255.6ms) [L#243]
+  * test artifact bytes download through the host without a history read or external redirect [L#210]
+  * test artifact bytes download through the host without a history read or external redirect (55.3ms) [L#210]
+  * test trace download retains bytes and does not load product history [L#299]
+  * test trace download retains bytes and does not load product history (55.5ms) [L#299]
+  * test failed list is unavailable rather than an empty history [L#199]
+  * test failed list is unavailable rather than an empty history (51.7ms) [L#199]
+  * test partial clear is explicit and preserves rows until cleanup finishes [L#183]
+  * test partial clear is explicit and preserves rows until cleanup finishes (55.9ms) [L#183]
+  * test unknown summary cost is a subtotal until captured accounting is loaded [L#267]
+  * test unknown summary cost is a subtotal until captured accounting is loaded (133.7ms) [L#267]
+  * test numbered pages load full captured content only through the existing details control [L#148]
+  * test numbered pages load full captured content only through the existing details control (164.9ms) [L#148]
+  * test conversation selection restores the full result and loads raw trace separately [L#227]
+  * test conversation selection restores the full result and loads raw trace separately (18.9ms) [L#227]
+
+  1) test conversation selection restores the full result and loads raw trace separately (HardenLlmWeb.RestoredHistoryTest)
+     test/harden_llm_web/live/restored_history_test.exs:227
+     Expected truthy, got false
+     code: assert has_element?(view, "#run-output", "ok")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN4Bdela--KVPRiC",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.1113.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#run-output"
+
+         # 3
+         "ok"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_history_test.exs:234: (test)
+
+  * test trace resource buttons use run ID and show the canonical raw trace [L#169]
+  * test trace resource buttons use run ID and show the canonical raw trace (117.6ms) [L#169]
+
+HardenLlmWeb.RestoredWorkflowTest [test/harden_llm_web/live/restored_workflow_test.exs]
+  * test recording warnings are explicit and never resubmit inference [L#295]
+  * test recording warnings are explicit and never resubmit inference (734.7ms) [L#295]
+  * test two Portal identities use separate host draft keys and share key-scoped data [L#236]
+  * test two Portal identities use separate host draft keys and share key-scoped data (135.0ms) [L#236]
+  * test history restore fills recorded inputs without saving a profile or running inference [L#210]
+  * test history restore fills recorded inputs without saving a profile or running inference (205.3ms) [L#210]
+  * test run keeps the repaired result and provider/result statistics [L#183]
+  * test run keeps the repaired result and provider/result statistics (212.0ms) [L#183]
+  * test rejected server API token does not restart Portal login [L#369]
+  * test rejected server API token does not restart Portal login (15.5ms) [L#369]
+  * test selecting a template fills the complete restored form and baseline controls [L#89]
+  * test selecting a template fills the complete restored form and baseline controls (181.9ms) [L#89]
+  * test a host API-key context sees only its key-scoped fixture data [L#272]
+  * test a host API-key context sees only its key-scoped fixture data (30.9ms) [L#272]
+  * test explicit Save posts the complete setup and selects the newly created snapshot [L#154]
+  * test explicit Save posts the complete setup and selects the newly created snapshot (962.1ms) [L#154]
+
+HardenLlmWeb.RestoredProfilesTest [test/harden_llm_web/live/restored_profiles_test.exs]
+  * test credential replacement uses the entered record's exact revision and new IDs start at zero [L#400]
+  * test credential replacement uses the entered record's exact revision and new IDs start at zero (1.8ms) [L#400]
+  * test encrypted bundle import calls the one REST operation and keeps the catalog [L#307]
+  * test encrypted bundle import calls the one REST operation and keeps the catalog (53.9ms) [L#307]
+  * test delete hides the selected preset and explicit recreation adds a new immutable profile [L#262]
+  * test delete hides the selected preset and explicit recreation adds a new immutable profile (28.7ms) [L#262]
+  * test the UI uses only host or profile model metadata and preserves empty provider defaults [L#427]
+  * test the UI uses only host or profile model metadata and preserves empty provider defaults (5.9ms) [L#427]
+  * test failed Save keeps the edited definition and staged key without echoing secrets [L#229]
+  * test failed Save keeps the edited definition and staged key without echoing secrets (64.1ms) [L#229]
+  * test refresh edits only the draft and keeps its complete inputs until explicit Save [L#205]
+  * test refresh edits only the draft and keeps its complete inputs until explicit Save (52.6ms) [L#205]
+  * test repair and fresh rerun controls preserve all five leaf bindings [L#342]
+  * test repair and fresh rerun controls preserve all five leaf bindings (194.4ms) [L#342]
+  * test profile page preserves baseline catalog and complete editor bindings [L#141]
+  * test profile page preserves baseline catalog and complete editor bindings (67.9ms) [L#141]
+  * test Git preset changes leave saved setups fixed [L#288]
+  * test Git preset changes leave saved setups fixed (60.5ms) [L#288]
+  * test each explicit Save creates a new complete snapshot and selects its returned ID [L#170]
+  * test each explicit Save creates a new complete snapshot and selects its returned ID (47.3ms) [L#170]
+  * test shared form keeps models, timestamps, optional values and input snapshots [L#444]
+  * test shared form keeps models, timestamps, optional values and input snapshots (2.0ms) [L#444]
+
+Finished in 7.6 seconds (7.6s async, 0.00s sync)
+
+Result: 43/44 passed
+Failed: 1 test

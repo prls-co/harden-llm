@@ -1,0 +1,585 @@
+--- FAIL: TestReferenceHistoryContract (0.04s)
+    reference_history_contract_test.go:52: RecordingOutcome fixture violates the canonical schema: property "mode" is unsupported
+        Schema:
+          {
+            "additionalProperties": false,
+            "type": "object"
+          }
+
+        Value:
+          {
+            "mode": "disabled",
+            "runId": "00000000-0000-4000-8000-000000000001",
+            "status": "disabled"
+          }
+    reference_history_contract_test.go:52: RecordingOutcome fixture violates the canonical schema: property "diagnostic" is unsupported
+        Schema:
+          {
+            "additionalProperties": false,
+            "type": "object"
+          }
+
+        Value:
+          {
+            "diagnostic": {
+              "action": "Read history again. Do not replay inference.",
+              "cause": "configuration",
+              "code": "history_configuration_error",
+              "component": "history",
+              "durationMs": 1000,
+              "inferenceOutcome": "succeeded",
+              "message": "History recording is unconfirmed; the row may appear later.",
+              "operation": "insert",
+              "persistenceOutcome": "configuration_error",
+              "requestId": "request-fixture",
+              "runId": "00000000-0000-4000-8000-000000000001"
+            },
+            "mode": "enabled",
+            "runId": "00000000-0000-4000-8000-000000000001",
+            "status": "configuration_error"
+          }
+    reference_history_contract_test.go:52: RecordingOutcome fixture violates the canonical schema: property "mode" is unsupported
+        Schema:
+          {
+            "additionalProperties": false,
+            "type": "object"
+          }
+
+        Value:
+          {
+            "mode": "enabled",
+            "runId": "00000000-0000-4000-8000-000000000001",
+            "status": "saved"
+          }
+    reference_history_contract_test.go:52: RecordingOutcome fixture violates the canonical schema: property "diagnostic" is unsupported
+        Schema:
+          {
+            "additionalProperties": false,
+            "type": "object"
+          }
+
+        Value:
+          {
+            "diagnostic": {
+              "action": "Read history again. Do not replay inference.",
+              "cause": "connection",
+              "code": "history_write_rejected",
+              "component": "history",
+              "durationMs": 1000,
+              "inferenceOutcome": "succeeded",
+              "message": "History recording is unconfirmed; the row may appear later.",
+              "operation": "insert",
+              "persistenceOutcome": "not_saved",
+              "requestId": "request-fixture",
+              "runId": "00000000-0000-4000-8000-000000000001"
+            },
+            "mode": "enabled",
+            "runId": "00000000-0000-4000-8000-000000000001",
+            "status": "not_saved"
+          }
+    reference_history_contract_test.go:52: RecordingOutcome fixture violates the canonical schema: property "diagnostic" is unsupported
+        Schema:
+          {
+            "additionalProperties": false,
+            "type": "object"
+          }
+
+        Value:
+          {
+            "diagnostic": {
+              "action": "Read history again. Do not replay inference.",
+              "cause": "connection",
+              "code": "history_write_unconfirmed",
+              "component": "history",
+              "durationMs": 1000,
+              "inferenceOutcome": "succeeded",
+              "message": "History recording is unconfirmed; the row may appear later.",
+              "operation": "insert",
+              "persistenceOutcome": "unconfirmed",
+              "requestId": "request-fixture",
+              "runId": "00000000-0000-4000-8000-000000000001"
+            },
+            "mode": "enabled",
+            "runId": "00000000-0000-4000-8000-000000000001",
+            "status": "unconfirmed"
+          }
+    reference_history_contract_test.go:73: HistoryPage fixture violates the canonical schema: property "history" is unsupported
+        Schema:
+          {
+            "additionalProperties": false,
+            "type": "object"
+          }
+
+        Value:
+          {
+            "history": {
+              "mode": "enabled",
+              "status": "configured"
+            },
+            "items": [
+              {
+                "cacheServed": false,
+                "durationMs": 100,
+                "finishedAt": "2026-10-10T12:00:01Z",
+                "knownCostObservations": 0,
+                "knownCostUsd": 0,
+                "modelId": "fixture-model",
+                "profileId": "cpa-json",
+                "providerTokens": 0,
+                "resultSource": "provider",
+                "resultTokens": 0,
+                "runId": "00000000-0000-4000-8000-000000000002",
+                "startedAt": "2026-10-10T12:00:00Z",
+                "status": "succeeded",
+                "unknownCostObservations": 1
+              },
+              {
+                "cacheServed": false,
+                "durationMs": 100,
+                "finishedAt": "2026-10-10T12:00:01Z",
+                "knownCostObservations": 0,
+                "knownCostUsd": 0,
+                "modelId": "fixture-model",
+                "profileId": "cpa-json",
+                "providerTokens": 0,
+                "resultSource": "provider",
+                "resultTokens": 0,
+                "runId": "00000000-0000-4000-8000-000000000001",
+                "startedAt": "2026-10-10T12:00:00Z",
+                "status": "succeeded",
+                "unknownCostObservations": 1
+              }
+            ],
+            "pagination": {
+              "page": 1,
+              "pageSize": 25,
+              "totalCount": 2
+            },
+            "window": {
+              "before": "2026-10-10T12:01:00Z"
+            }
+          }
+    reference_history_contract_test.go:80: HistoryRecord fixture violates the canonical schema: property "error" is unsupported
+        Schema:
+          {
+            "additionalProperties": false,
+            "type": "object"
+          }
+
+        Value:
+          {
+            "error": null,
+            "finishedAt": "2026-10-10T12:00:01Z",
+            "request": {
+              "input": {
+                "callType": "structured",
+                "profileId": "cpa-json",
+                "recoveryPolicy": {
+                  "backoff": {
+                    "initialMs": 0,
+                    "jitter": "none",
+                    "maxMs": 0,
+                    "multiplier": 1
+                  },
+                  "jsonRepair": null,
+                  "maxAttempts": 1,
+                  "rerun": null,
+                  "retryOn": []
+                },
+                "userPrompt": "Return an object with ok true."
+              }
+            },
+            "result": {
+              "accounting": {
+                "provider": {
+                  "cost": {
+                    "knownObservations": 0,
+                    "knownSubtotalUsd": 0,
+                    "source": "none",
+                    "status": "unknown",
+                    "unknownObservations": 1
+                  },
+                  "usage": {
+                    "cacheCreationTokens": 0,
+                    "cacheReadTokens": 0,
+                    "completionTokens": 0,
+                    "inputTokens": 0,
+                    "outputTokens": 0,
+                    "promptTokens": 0,
+                    "reasoningTokens": 0,
+                    "status": "unavailable",
+                    "totalTokens": 0
+                  }
+                },
+                "result": {
+                  "cost": {
+                    "knownObservations": 0,
+                    "knownSubtotalUsd": 0,
+                    "source": "none",
+                    "status": "unknown",
+                    "unknownObservations": 1
+                  },
+                  "usage": {
+                    "cacheCreationTokens": 0,
+                    "cacheReadTokens": 0,
+                    "completionTokens": 0,
+                    "inputTokens": 0,
+                    "outputTokens": 0,
+                    "promptTokens": 0,
+                    "reasoningTokens": 0,
+                    "status": "unavailable",
+                    "totalTokens": 0
+                  }
+                }
+              },
+              "artifacts": [],
+              "attempts": [],
+              "cache": {
+                "mode": "off",
+                "served": false,
+                "status": "bypassed",
+                "written": false
+              },
+              "callId": "00000000-0000-4000-8000-000000000001",
+              "output": {
+                "ok": true
+              },
+              "overBudgetMs": 0,
+              "providerInvoked": true,
+              "resultSource": {
+                "attemptNumber": 1,
+                "kind": "provider",
+                "producer": {
+                  "endpoint": "https://provider.example/v1",
+                  "modelId": "fixture-model",
+                  "profileId": "cpa-json",
+                  "protocol": "responses",
+                  "provider": "openai"
+                }
+              },
+              "runId": "00000000-0000-4000-8000-000000000001",
+              "schemaVersion": 4,
+              "selectedTarget": {
+                "endpoint": "https://provider.example/v1",
+                "modelId": "fixture-model",
+                "profileId": "cpa-json",
+                "protocol": "responses",
+                "provider": "openai"
+              },
+              "status": "succeeded",
+              "totalActualWaitMs": 0,
+              "totalCallDurationMs": 100,
+              "totalWaitMs": 0,
+              "traceId": "00000000-0000-4000-8000-000000000001",
+              "usedRepair": false
+            },
+            "runId": "00000000-0000-4000-8000-000000000001",
+            "schemaVersion": 1,
+            "startedAt": "2026-10-10T12:00:00Z",
+            "status": "succeeded",
+            "summary": {
+              "cacheServed": false,
+              "durationMs": 100,
+              "finishedAt": "2026-10-10T12:00:01Z",
+              "knownCostObservations": 0,
+              "knownCostUsd": 0,
+              "modelId": "fixture-model",
+              "profileId": "cpa-json",
+              "providerTokens": 0,
+              "resultSource": "provider",
+              "resultTokens": 0,
+              "runId": "00000000-0000-4000-8000-000000000001",
+              "startedAt": "2026-10-10T12:00:00Z",
+              "status": "succeeded",
+              "unknownCostObservations": 1
+            }
+          }
+    reference_history_contract_test.go:80: HistoryRecord fixture violates the canonical schema: property "error" is unsupported
+        Schema:
+          {
+            "additionalProperties": false,
+            "type": "object"
+          }
+
+        Value:
+          {
+            "error": null,
+            "finishedAt": "2026-10-10T12:00:01Z",
+            "request": {
+              "input": {
+                "callType": "structured",
+                "profileId": "cpa-json",
+                "recoveryPolicy": {
+                  "backoff": {
+                    "initialMs": 0,
+                    "jitter": "none",
+                    "maxMs": 0,
+                    "multiplier": 1
+                  },
+                  "jsonRepair": null,
+                  "maxAttempts": 1,
+                  "rerun": null,
+                  "retryOn": []
+                },
+                "userPrompt": "Return an object with ok true."
+              }
+            },
+            "result": {
+              "accounting": {
+                "provider": {
+                  "cost": {
+                    "knownObservations": 0,
+                    "knownSubtotalUsd": 0,
+                    "source": "none",
+                    "status": "unknown",
+                    "unknownObservations": 1
+                  },
+                  "usage": {
+                    "cacheCreationTokens": 0,
+                    "cacheReadTokens": 0,
+                    "completionTokens": 0,
+                    "inputTokens": 0,
+                    "outputTokens": 0,
+                    "promptTokens": 0,
+                    "reasoningTokens": 0,
+                    "status": "unavailable",
+                    "totalTokens": 0
+                  }
+                },
+                "result": {
+                  "cost": {
+                    "knownObservations": 0,
+                    "knownSubtotalUsd": 0,
+                    "source": "none",
+                    "status": "unknown",
+                    "unknownObservations": 1
+                  },
+                  "usage": {
+                    "cacheCreationTokens": 0,
+                    "cacheReadTokens": 0,
+                    "completionTokens": 0,
+                    "inputTokens": 0,
+                    "outputTokens": 0,
+                    "promptTokens": 0,
+                    "reasoningTokens": 0,
+                    "status": "unavailable",
+                    "totalTokens": 0
+                  }
+                }
+              },
+              "artifacts": [],
+              "attempts": [],
+              "cache": {
+                "mode": "off",
+                "served": false,
+                "status": "bypassed",
+                "written": false
+              },
+              "callId": "00000000-0000-4000-8000-000000000001",
+              "output": {
+                "ok": true
+              },
+              "overBudgetMs": 0,
+              "providerInvoked": true,
+              "resultSource": {
+                "attemptNumber": 1,
+                "kind": "provider",
+                "producer": {
+                  "endpoint": "https://provider.example/v1",
+                  "modelId": "fixture-model",
+                  "profileId": "cpa-json",
+                  "protocol": "responses",
+                  "provider": "openai"
+                }
+              },
+              "runId": "00000000-0000-4000-8000-000000000002",
+              "schemaVersion": 4,
+              "selectedTarget": {
+                "endpoint": "https://provider.example/v1",
+                "modelId": "fixture-model",
+                "profileId": "cpa-json",
+                "protocol": "responses",
+                "provider": "openai"
+              },
+              "status": "succeeded",
+              "totalActualWaitMs": 0,
+              "totalCallDurationMs": 100,
+              "totalWaitMs": 0,
+              "traceId": "00000000-0000-4000-8000-000000000001",
+              "usedRepair": false
+            },
+            "runId": "00000000-0000-4000-8000-000000000002",
+            "schemaVersion": 1,
+            "startedAt": "2026-10-10T12:00:00Z",
+            "status": "succeeded",
+            "summary": {
+              "cacheServed": false,
+              "durationMs": 100,
+              "finishedAt": "2026-10-10T12:00:01Z",
+              "knownCostObservations": 0,
+              "knownCostUsd": 0,
+              "modelId": "fixture-model",
+              "profileId": "cpa-json",
+              "providerTokens": 0,
+              "resultSource": "provider",
+              "resultTokens": 0,
+              "runId": "00000000-0000-4000-8000-000000000002",
+              "startedAt": "2026-10-10T12:00:00Z",
+              "status": "succeeded",
+              "unknownCostObservations": 1
+            }
+          }
+    reference_history_contract_test.go:80: HistoryRecord fixture violates the canonical schema: property "error" is unsupported
+        Schema:
+          {
+            "additionalProperties": false,
+            "type": "object"
+          }
+
+        Value:
+          {
+            "error": null,
+            "finishedAt": "2026-10-10T12:00:01Z",
+            "request": {
+              "input": {
+                "callType": "structured",
+                "profileId": "cpa-json",
+                "recoveryPolicy": {
+                  "backoff": {
+                    "initialMs": 0,
+                    "jitter": "none",
+                    "maxMs": 0,
+                    "multiplier": 1
+                  },
+                  "jsonRepair": null,
+                  "maxAttempts": 1,
+                  "rerun": null,
+                  "retryOn": []
+                },
+                "userPrompt": "Return an object with ok true."
+              }
+            },
+            "result": {
+              "accounting": {
+                "provider": {
+                  "cost": {
+                    "knownObservations": 0,
+                    "knownSubtotalUsd": 0,
+                    "source": "none",
+                    "status": "unknown",
+                    "unknownObservations": 1
+                  },
+                  "usage": {
+                    "cacheCreationTokens": 0,
+                    "cacheReadTokens": 0,
+                    "completionTokens": 0,
+                    "inputTokens": 0,
+                    "outputTokens": 0,
+                    "promptTokens": 0,
+                    "reasoningTokens": 0,
+                    "status": "unavailable",
+                    "totalTokens": 0
+                  }
+                },
+                "result": {
+                  "cost": {
+                    "knownObservations": 0,
+                    "knownSubtotalUsd": 0,
+                    "source": "none",
+                    "status": "unknown",
+                    "unknownObservations": 1
+                  },
+                  "usage": {
+                    "cacheCreationTokens": 0,
+                    "cacheReadTokens": 0,
+                    "completionTokens": 0,
+                    "inputTokens": 0,
+                    "outputTokens": 0,
+                    "promptTokens": 0,
+                    "reasoningTokens": 0,
+                    "status": "unavailable",
+                    "totalTokens": 0
+                  }
+                }
+              },
+              "artifacts": [],
+              "attempts": [],
+              "cache": {
+                "mode": "off",
+                "served": false,
+                "status": "bypassed",
+                "written": false
+              },
+              "callId": "00000000-0000-4000-8000-000000000001",
+              "output": {
+                "ok": true
+              },
+              "overBudgetMs": 0,
+              "providerInvoked": true,
+              "resultSource": {
+                "attemptNumber": 1,
+                "kind": "provider",
+                "producer": {
+                  "endpoint": "https://provider.example/v1",
+                  "modelId": "fixture-model",
+                  "profileId": "cpa-json",
+                  "protocol": "responses",
+                  "provider": "openai"
+                }
+              },
+              "runId": "00000000-0000-4000-8000-000000000003",
+              "schemaVersion": 4,
+              "selectedTarget": {
+                "endpoint": "https://provider.example/v1",
+                "modelId": "fixture-model",
+                "profileId": "cpa-json",
+                "protocol": "responses",
+                "provider": "openai"
+              },
+              "status": "succeeded",
+              "totalActualWaitMs": 0,
+              "totalCallDurationMs": 100,
+              "totalWaitMs": 0,
+              "traceId": "00000000-0000-4000-8000-000000000001",
+              "usedRepair": false
+            },
+            "runId": "00000000-0000-4000-8000-000000000003",
+            "schemaVersion": 1,
+            "startedAt": "2026-10-10T12:00:00Z",
+            "status": "succeeded",
+            "summary": {
+              "cacheServed": false,
+              "durationMs": 100,
+              "finishedAt": "2026-10-10T12:00:01Z",
+              "knownCostObservations": 0,
+              "knownCostUsd": 0,
+              "modelId": "fixture-model",
+              "profileId": "cpa-json",
+              "providerTokens": 0,
+              "resultSource": "provider",
+              "resultTokens": 0,
+              "runId": "00000000-0000-4000-8000-000000000003",
+              "startedAt": "2026-10-10T12:00:00Z",
+              "status": "succeeded",
+              "unknownCostObservations": 1
+            }
+          }
+    reference_history_contract_test.go:96: ArtifactMetadata fixture violates the canonical schema: property "artifactId" is unsupported
+        Schema:
+          {
+            "additionalProperties": false,
+            "type": "object"
+          }
+
+        Value:
+          {
+            "artifactId": "trace.json",
+            "contentType": "application/json",
+            "kind": "trace",
+            "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+            "sizeBytes": 3,
+            "state": "available"
+          }
+FAIL
+FAIL	github.com/prls-co/harden-llm/internal/testkit	0.051s
+FAIL

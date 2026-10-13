@@ -1,0 +1,187 @@
+      warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+      │
+ 1886 │         <a id={scope_id(@id_prefix, "export-bundle")} href={~p"/profiles/bundle"} class="ullm-btn">Export Bundle</a>
+      │         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      │
+      └─ lib/harden_llm_web/live/profile_widget_component.ex:1886: HardenLlmWeb.ProfileWidgetComponent.profile_editor/1
+
+      warning: variable "profile" is unused (if the variable is not meant to be used, prefix it with an underscore)
+      │
+ 1230 │       profile = profile_state["definition"] || %{}
+      │       ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1230:7: HardenLlmWeb.WorkspaceLive.profile_options/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}"
+      │
+ 1682 │     do: ~p"/traces/#{trace_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1682: HardenLlmWeb.WorkspaceLive.trace_url/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │
+ 1687 │     do: ~p"/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1687: HardenLlmWeb.WorkspaceLive.artifact_url/2
+
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+.
+
+  1) test run keeps the repaired result and provider/result statistics (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:170
+     <div id="run-error" role="alert" class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
+                   The proxy returned a malformed response.
+                 </div>
+     code: refute has_element?(view, "#run-error"),
+     stacktrace:
+       test/harden_llm_web/live/restored_workflow_test.exs:178: (test)
+
+
+
+  2) test explicit Save posts the complete setup and selects the newly created snapshot (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:141
+     Assertion with == failed
+     code:  assert payload["definition"] == fixture["details"]["CPA Responses"]["definition"]
+     left:  %{
+              "apiInferenceType" => "responses",
+              "baseUrl" => "https://cpa.prls.co/v1",
+              "defaultOptions" => %{
+                "max_tokens" => 16000,
+                "stream" => true
+              },
+              "modelId" => "gpt-5.6-luna",
+              "pricing" => %{
+                "cache_creation_input_token_cost" => 2.5e-7,
+                "cache_read_input_token_cost" => 2.0e-8,
+                "input_cost_per_token" => 2.0000000000000002e-7,
+                "output_cost_per_reasoning_token" => 0.0,
+                "output_cost_per_token" => 1.2e-6
+              },
+              "provider" => "cpa",
+              "reasoningEffortMap" => %{
+                "highest" => %{
+                  "reasoning" => %{"effort" => "xhigh"}
+                },
+                "lowest" => %{"reasoning" => %{"effort" => "low"}},
+                "middle" => %{
+                  "reasoning" => %{"effort" => "medium"}
+                }
+              },
+              "recoveryPolicy" => %{
+                "backoff" => %{
+                  "baseDelayMs" => 500,
+                  "maxDelayMs" => 8000
+                },
+                "jsonRepair" => %{
+                  "escalation" => %{"source" => "generation"},
+                  "initial" => %{"source" => "generation"}
+                },
+                "maxAttempts" => 4,
+                "rerun" => nil,
+                "retryOn" => ["network", "rate_limit",
+                 "server_error", "empty_response", "provider_retry"]
+              },
+              "responsesTokensParam" => "max_output_tokens",
+              "schemaVersion" => 4,
+              "supportsContractedStructuredOutput" => true,
+              "supportsTemperature" => false,
+              "supportsWebSearch" => true,
+              "tokensParam" => nil
+            }
+     right: %{
+              "apiInferenceType" => "responses",
+              "baseUrl" => "https://cpa.prls.co/v1",
+              "defaultOptions" => %{
+                "max_tokens" => 16000,
+                "stream" => true
+              },
+              "modelId" => "gpt-5.6-luna",
+              "pricing" => %{
+                "cache_creation_input_token_cost" => 2.5e-7,
+                "cache_read_input_token_cost" => 2.0e-8,
+                "input_cost_per_token" => 2.0e-7,
+                "output_cost_per_reasoning_token" => 0,
+                "output_cost_per_token" => 1.2e-6
+              },
+              "provider" => "cpa",
+              "reasoningEffortMap" => %{
+                "highest" => %{
+                  "reasoning" => %{"effort" => "xhigh"}
+                },
+                "lowest" => %{"reasoning" => %{"effort" => "low"}},
+                "middle" => %{
+                  "reasoning" => %{"effort" => "medium"}
+                }
+              },
+              "recoveryPolicy" => %{
+                "backoff" => %{
+                  "baseDelayMs" => 500,
+                  "maxDelayMs" => 8000
+                },
+                "jsonRepair" => %{
+                  "escalation" => %{"source" => "generation"},
+                  "initial" => %{"source" => "generation"}
+                },
+                "maxAttempts" => 4,
+                "rerun" => nil,
+                "retryOn" => ["network", "rate_limit",
+                 "server_error", "empty_response", "provider_retry"]
+              },
+              "responsesTokensParam" => "max_output_tokens",
+              "schemaVersion" => 4,
+              "supportsContractedStructuredOutput" => true,
+              "supportsTemperature" => false,
+              "supportsWebSearch" => true,
+              "tokensParam" => nil
+            }
+     stacktrace:
+       test/harden_llm_web/live/restored_workflow_test.exs:155: (test)
+
+.
+
+  3) test recording warnings are explicit and never resubmit inference (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:264
+     Expected truthy, got false
+     code: assert has_element?(view, "#run-output", "ok")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN30KugZowew8wcD",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.835.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#run-output"
+
+         # 3
+         "ok"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_workflow_test.exs:331: anonymous fn/4 in HardenLlmWeb.RestoredWorkflowTest."test recording warnings are explicit and never resubmit inference"/1
+       (elixir 1.20.2) lib/enum.ex:1725: Enum."-map/2-lists^map/1-1-"/2
+       test/harden_llm_web/live/restored_workflow_test.exs:270: (test)
+
+.
+
+  4) test selecting a template fills the complete restored form and baseline controls (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:88
+     Assertion with == failed
+     code:  assert dom_value(view, "#workspace-cache") == inputs["cacheMode"]
+     left:  "cache"
+     right: "off"
+     stacktrace:
+       test/harden_llm_web/live/restored_workflow_test.exs:115: (test)
+
+
+Finished in 0.7 seconds (0.7s async, 0.00s sync)
+
+Result: 3/7 passed
+Failed: 4 tests

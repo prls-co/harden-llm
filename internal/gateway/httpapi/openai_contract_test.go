@@ -20,6 +20,7 @@ import (
 	"github.com/openai/openai-go/responses"
 	"github.com/openai/openai-go/shared"
 	"github.com/prls-co/harden-llm"
+	"github.com/prls-co/harden-llm/stateful"
 )
 
 const proxyTestToken = "synthetic-harden-token-0123456789abcdef"
@@ -193,7 +194,7 @@ func TestOpenAIContractAuthStateAndRetiredRoutes(t *testing.T) {
 		{name: "unsupported upstream sampling field", path: "/v1/chat/completions", method: http.MethodPost, header: "Bearer " + proxyTestToken, body: `{"model":"fixture-model","messages":[{"role":"user","content":"hello"}],"frequency_penalty":0.5}`, status: http.StatusBadRequest, param: "frequency_penalty"},
 		{name: "temperature outside OpenAI range", path: "/v1/chat/completions", method: http.MethodPost, header: "Bearer " + proxyTestToken, body: `{"model":"fixture-model","messages":[{"role":"user","content":"hello"}],"temperature":2.1}`, status: http.StatusBadRequest, param: "temperature"},
 		{name: "stop is not a string list", path: "/v1/chat/completions", method: http.MethodPost, header: "Bearer " + proxyTestToken, body: `{"model":"fixture-model","messages":[{"role":"user","content":"hello"}],"stop":{"x":1}}`, status: http.StatusBadRequest, param: "stop"},
-		{name: "retired native run API", path: "/api/v1/run", method: http.MethodPost, header: "Bearer " + proxyTestToken, body: `{}`, status: http.StatusNotFound},
+		// Reference /api/v1/run is restored by ADR-HLLM-033; TEST-441 owns its stronger contract.
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			request, err := http.NewRequest(test.method, proxy.URL+test.path, strings.NewReader(test.body))
@@ -233,7 +234,7 @@ func newContractProxy(t *testing.T, upstream *httptest.Server) *httptest.Server 
 	t.Helper()
 	certificatePool := x509.NewCertPool()
 	certificatePool.AddCert(upstream.Certificate())
-	client, err := hardenllm.New(hardenllm.Options{
+	service, err := stateful.NewService(stateful.Config{Client: stateful.ClientOptions{
 		Connections: []hardenllm.Connection{{
 			ID: "cpa", Provider: "fixture", Protocol: "responses", BaseURL: upstream.URL + "/v1",
 			CacheDomain: "fixture-credential-1", APIKey: "synthetic-upstream-secret",
@@ -243,11 +244,11 @@ func newContractProxy(t *testing.T, upstream *httptest.Server) *httptest.Server 
 			PrivateAllowedHosts: []string{"127.0.0.1"}, PrivateAllowlist: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")},
 			TLSConfig: &tls.Config{RootCAs: certificatePool, MinVersion: tls.VersionTLS12},
 		},
-	})
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	api, err := New(Config{Token: proxyTestToken, Client: client})
+	api, err := New(Config{APIKeys: []string{proxyTestToken}, Service: service})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,0 +1,5 @@
+--- FAIL: TestStatelessContract (0.00s)
+    stateless_contract_test.go:125: stateless core must reject a missing executor instead of constructing a concrete provider
+FAIL
+FAIL	github.com/prls-co/harden-llm	0.004s
+FAIL

@@ -1,0 +1,19 @@
+--- FAIL: TestReferenceRunValues (0.00s)
+    --- FAIL: TestReferenceRunValues/detached_call_preserves_callbacks_and_explicit_values (0.00s)
+        run_test.go:65: reference caller can mutate another operation or lose lifecycle callbacks
+    --- FAIL: TestReferenceRunValues/history_excludes_structurally_supplied_credentials_and_preserves_prompts (0.00s)
+        run_test.go:77: plaintext credential entered history option-secret-sentinel
+--- FAIL: TestHistoryRecordValues (0.00s)
+    --- FAIL: TestHistoryRecordValues/reject_corrupt_nested_accounting (0.00s)
+        run_test.go:33: malformed full result admitted for restore accounting
+    --- FAIL: TestHistoryRecordValues/reject_corrupt_nested_cache (0.00s)
+        run_test.go:33: malformed full result admitted for restore cache
+    --- FAIL: TestHistoryRecordValues/reject_corrupt_nested_attempts (0.00s)
+        run_test.go:33: malformed full result admitted for restore attempts
+    --- FAIL: TestHistoryRecordValues/reject_corrupt_nested_selectedTarget (0.00s)
+        run_test.go:33: malformed full result admitted for restore selectedTarget
+    --- FAIL: TestHistoryRecordValues/SQL_and_JSON_timestamps_use_the_same_microsecond_precision (0.00s)
+        run_test.go:45: JSON will disagree with PostgreSQL timestamp precision
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	0.007s
+FAIL

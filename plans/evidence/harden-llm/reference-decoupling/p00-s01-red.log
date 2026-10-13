@@ -1,0 +1,10 @@
+Observed excerpt from the initial P00.S01 run (before canonical contract edits):
+Command: go test ./internal/testkit -run ^TestReferenceDecouplingContract$ -count=1
+Exit: 1
+--- FAIL: TestReferenceDecouplingContract (0.05s)
+canonical policy AGENTS.md does not declare accepted reference ownership "api_key_hash"
+canonical policy AGENTS.md does not declare accepted reference ownership "stateful/"
+canonical REST contract lacks preserved operation /api/v1/profiles
+canonical REST contract lacks preserved operation /api/v1/history
+OpenAPI ownership history = <nil>, want "reference-only PostgreSQL"
+The failure was on ownership assertions; compilation and all 12 baseline source/provenance checks succeeded.

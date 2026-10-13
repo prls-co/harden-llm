@@ -1,0 +1,22 @@
+go run ./cmd/loki-schema-guard
+Loki schema transition validation passed: accepted=2 new_future=0 as_of=2026-10-12
+go test -tags=live ./internal/providers/... ./internal/smoke/... -run '^$'
+ok  	github.com/prls-co/harden-llm/internal/providers	0.004s [no tests to run]
+ok  	github.com/prls-co/harden-llm/internal/smoke	0.003s [no tests to run]
+?   	github.com/prls-co/harden-llm/internal/smoke/fakeprovider	[no test files]
+go test ./internal/testkit/... -count=1
+--- FAIL: TestFirebaseFrontendAbsent (0.02s)
+    firebase_frontend_absence_test.go:67: backend production surface contains forbidden term "phoenix" in api/openapi.yaml
+--- FAIL: TestTestFeedbackTraceability (0.00s)
+    test_feedback_traceability_test.go:71: plans/from_utility-llm/phoenix-liveview-frontend-spec.md is missing traceability fragment "Direct `/v1` calls are not recorded"
+    test_feedback_traceability_test.go:88: docs/requirements-traceability.md is missing traceability fragment "PLAN-HLLM-PROXY-REFERENCE-001"
+    test_feedback_traceability_test.go:88: docs/requirements-traceability.md is missing traceability fragment "TEST-400"
+    test_feedback_traceability_test.go:88: docs/requirements-traceability.md is missing traceability fragment "TEST-409"
+    test_feedback_traceability_test.go:88: docs/requirements-traceability.md is missing traceability fragment "Frontend-only shared history"
+    test_feedback_traceability_test.go:95: docs/architecture.md is missing traceability fragment "/v1/chat/completions"
+    test_feedback_traceability_test.go:95: docs/architecture.md is missing traceability fragment "Direct API requests"
+    test_feedback_traceability_test.go:95: docs/architecture.md is missing traceability fragment "make test-release"
+FAIL
+FAIL	github.com/prls-co/harden-llm/internal/testkit	0.194s
+FAIL
+make: *** [Makefile:28: test-static] Error 1

@@ -17,17 +17,6 @@
 	}
 }
 
-{$HARDEN_LLM_API_HOST} {
-	tls {$HARDEN_LLM_TLS_MODE}
-	import security_headers
-	header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
-	header X-Frame-Options "DENY"
-	request_body {
-		max_size 8MB
-	}
-	reverse_proxy harden-llm-gateway:8080
-}
-
 {$HARDEN_LLM_GRAFANA_HOST} {
 	tls {$HARDEN_LLM_TLS_MODE}
 	import security_headers

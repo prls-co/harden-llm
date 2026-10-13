@@ -34,8 +34,10 @@ migration path.
 | [ADR-HLLM-028](ADR-HLLM-028-local-image-build-deployment.md) | Accepted and implemented | Retire GHCR publication from the active lifecycle; build and deploy the gateway image locally by exact source SHA, with a compressed historical publisher reference. |
 | [ADR-HLLM-029](ADR-HLLM-029-retire-langfuse.md) | Accepted | Remove Langfuse, its route, credentials, persistent data, and deployment dependencies; keep HLLM product history and Laminar traces. |
 | [ADR-HLLM-030](ADR-HLLM-030-control-plane-identity.md) | Historical; superseded by ADR-HLLM-031 | Make Control Plane the sole human identity/access authority. |
-| [ADR-HLLM-031](ADR-HLLM-031-proxy-reference-boundary.md) | Accepted for implementation | Remove profiles and keep shared frontend history in Phoenix. |
+| [ADR-HLLM-031](ADR-HLLM-031-proxy-reference-boundary.md) | Historical; superseded by ADR-HLLM-033/034 | Recorded the former profile-free proxy and Phoenix history transition. |
 | [ADR-HLLM-032](ADR-HLLM-032-openai-inference-contract.md) | Accepted for implementation | Use OpenAI Chat Completions and Responses over one hardening engine. |
+| [ADR-HLLM-033](ADR-HLLM-033-stateless-core-stateful-reference.md) | Accepted; implementation tracked by reference-decoupling ledger | One stateless engine, key-scoped stateful wrapper, complete snapshots and reusable Phoenix UI. |
+| [ADR-HLLM-034](ADR-HLLM-034-reference-history-owner.md) | Accepted; implementation tracked by reference-decoupling ledger | PostgreSQL reference history, Garage path scope, truthful recording and manual orphan cleanup. |
 
 The remaining planned deviation triggers are ADR-HLLM-003 through ADR-HLLM-007
 in the canonical implementation plan. Create one of those records only when its

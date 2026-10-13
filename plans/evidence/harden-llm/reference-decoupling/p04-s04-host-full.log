@@ -1,0 +1,326 @@
+==> harden_llm_ui
+Compiling 2 files (.ex)
+Compiling 1 file (.ex)
+==> harden_llm
+Compiling 2 files (.ex)
+      warning: variable "profile" is unused (if the variable is not meant to be used, prefix it with an underscore)
+      │
+ 1270 │       profile = profile_state["definition"] || %{}
+      │       ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1270:7: HardenLlmWeb.WorkspaceLive.profile_options/1
+
+    warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+    │
+ 84 │               bundle_export_url={~p"/profiles/bundle"}
+    │               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/harden_llm_web/live/workspace_live.html.heex:84: HardenLlmWeb.WorkspaceLive.render/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │
+ 1763 │     do: ~p"/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1763: HardenLlmWeb.WorkspaceLive.artifact_url/2
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}"
+      │
+ 1758 │     do: ~p"/traces/#{trace_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1758: HardenLlmWeb.WorkspaceLive.trace_url/1
+
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+.........    warning: unused alias ResponseComponents
+    │
+  4 │   alias HardenLlmUI.ResponseComponents
+    │   ~
+    │
+    └─ test/harden_llm_web/components/llm_result_components_test.exs:4:3
+
+.    warning: unused alias InputComponents
+    │
+  6 │   alias HardenLlmUI.InputComponents
+    │   ~
+    │
+    └─ test/harden_llm_web/components/core_components_test.exs:6:3
+
+
+
+  1) test search sources are clickable without changing structured output or trusting unsafe URLs (HardenLlmUI.ResponseComponentsTest)
+     test/harden_llm_web/components/llm_result_components_test.exs:112
+     ** (UndefinedFunctionError) function LlmResultComponents.llm_result/1 is undefined (module LlmResultComponents is not available). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+     code: render_component(&LlmResultComponents.llm_result/1,
+     stacktrace:
+       LlmResultComponents.llm_result(%{id: "search-result", output: %{"answer" => "source"}, search: %{"executed" => true, "mode" => "native", "sources" => [%{"title" => "<source>", "url" => "https://example.test/source"}, %{"title" => "bad", "url" => "javascript:alert(1)"}]}, __changed__: %{}})
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:559: Phoenix.LiveViewTest.__render_component__/4
+       test/harden_llm_web/components/llm_result_components_test.exs:114: (test)
+
+..
+
+  2) test inline citations link exact Unicode text and ignore invalid or overlapping offsets (HardenLlmUI.ResponseComponentsTest)
+     test/harden_llm_web/components/llm_result_components_test.exs:76
+     ** (UndefinedFunctionError) function LlmResultComponents.llm_result/1 is undefined (module LlmResultComponents is not available). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+     code: render_component(&LlmResultComponents.llm_result/1,
+     stacktrace:
+       LlmResultComponents.llm_result(%{id: "inline", output: "🌐 a source and <text>", search: %{"citations" => [%{"endIndex" => 10, "startIndex" => 4, "title" => "Source", "url" => "https://example.test/source"}, %{"endIndex" => 7, "startIndex" => 5, "title" => "Source", "url" => "https://example.test/source"}, %{"endIndex" => 100, "startIndex" => 99, "title" => "Source", "url" => "https://example.test/source"}], "entryPointHtml" => "<a>suggestion</a>", "executed" => true, "mode" => "native", "sources" => [%{"title" => "Source", "url" => "https://example.test/source"}]}, __changed__: %{}})
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:559: Phoenix.LiveViewTest.__render_component__/4
+       test/harden_llm_web/components/llm_result_components_test.exs:87: (test)
+
+.......
+
+  3) test result rows retain full values for copy and expansion and scope controls to each card (HardenLlmUI.ResponseComponentsTest)
+     test/harden_llm_web/components/llm_result_components_test.exs:143
+     ** (UndefinedFunctionError) function LlmResultComponents.llm_result/1 is undefined (module LlmResultComponents is not available). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+     code: for id <- ["current-result", "history-result"] do
+     stacktrace:
+       LlmResultComponents.llm_result(%{id: "current-result", input: "first line\nlong input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> long input <tag> ", output: %{"ok" => true}, __changed__: %{}})
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:559: Phoenix.LiveViewTest.__render_component__/4
+       test/harden_llm_web/components/llm_result_components_test.exs:148: anonymous fn/2 in HardenLlmUI.ResponseComponentsTest."test result rows retain full values for copy and expansion and scope controls to each card"/1
+       (elixir 1.20.2) lib/enum.ex:1725: Enum."-map/2-lists^map/1-1-"/2
+       test/harden_llm_web/components/llm_result_components_test.exs:146: (test)
+
+.....
+
+  4) test both emoji controls reference host-supplied text IDs (HardenLlmUI.ResponseComponentsTest)
+     test/harden_llm_web/components/llm_result_components_test.exs:214
+     ** (UndefinedFunctionError) function LlmResultComponents.llm_result/1 is undefined (module LlmResultComponents is not available). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+     code: render_component(&LlmResultComponents.llm_result/1,
+     stacktrace:
+       LlmResultComponents.llm_result(%{id: "custom-result", __changed__: %{}, input_id: "recorded-input", output_id: "run-output"})
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:559: Phoenix.LiveViewTest.__render_component__/4
+       test/harden_llm_web/components/llm_result_components_test.exs:216: (test)
+
+
+
+  5) test number help is an independent disclosure beside its field label (HardenLlmUI.InputComponentsTest)
+     test/harden_llm_web/components/core_components_test.exs:11
+     ** (UndefinedFunctionError) function CoreComponents.input/1 is undefined (module CoreComponents is not available). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+     code: render_component(&CoreComponents.input/1,
+     stacktrace:
+       CoreComponents.input(%{id: "setting-number", info: "Uses another model call. Repair attempts count toward Max Attempts.", label: "Setting", name: "profile[setting]", type: "number", value: "4", options: ["4", "5"], __changed__: %{}})
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:559: Phoenix.LiveViewTest.__render_component__/4
+       test/harden_llm_web/components/core_components_test.exs:17: (test)
+
+21:47:29.167 [error] Task #PID<0.1236.0> started from #PID<0.1233.0> terminating
+** (RuntimeError) cannot find mock/stub HardenLlmUI.Client in process #PID<0.1236.0>
+    (req 0.6.1) lib/req/test.ex:492: Req.Test.__fetch_plug__/1
+    (req 0.6.1) lib/req/test.ex:732: Req.Test.call/2
+    (req 0.6.1) lib/req/steps.ex:1079: Req.Steps.run_plug/1
+    (req 0.6.1) lib/req/request.ex:1118: Req.Request.run_request/1
+    (req 0.6.1) lib/req/request.ex:1062: Req.Request.run/1
+    (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:309: anonymous fn/5 in HardenLlmUI.Client.request/4
+    (opentelemetry 1.7.0) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/opentelemetry/src/otel_tracer_default.erl:47: :otel_tracer_default.with_span/5
+    (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:300: HardenLlmUI.Client.request/4
+    (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.ex:1335: HardenLlmWeb.WorkspaceLive.hydrate/1
+    (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:18: anonymous fn/2 in HardenLlmUI.Client.propagate/1
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/async.ex:289: Phoenix.LiveView.Async.do_async/5
+    (elixir 1.20.2) lib/task/supervised.ex:105: Task.Supervised.invoke_mfa/2
+Function: #Function<7.77716172/0 in Phoenix.LiveView.Async.run_async_task/5>
+    Args: []
+    warning: HardenLlmWeb.Observability.propagate/1 is undefined or private
+    │
+ 71 │     wrapped = Observability.propagate(fn -> :otel_ctx.get_value(:harden_llm_test_parent) end)
+    │                             ~
+    │
+    └─ test/harden_llm_web/security_observability_test.exs:71:29: HardenLlmWeb.SecurityObservabilityTest."test async wrappers attach the initiating OpenTelemetry context and restore the worker"/1
+
+
+
+  6) test missing content is explicit and cannot be copied (HardenLlmUI.ResponseComponentsTest)
+     test/harden_llm_web/components/llm_result_components_test.exs:205
+     ** (UndefinedFunctionError) function LlmResultComponents.llm_result/1 is undefined (module LlmResultComponents is not available). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+     code: html = render_component(&LlmResultComponents.llm_result/1, id: "missing")
+     stacktrace:
+       LlmResultComponents.llm_result(%{id: "missing", __changed__: %{}})
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:559: Phoenix.LiveViewTest.__render_component__/4
+       test/harden_llm_web/components/llm_result_components_test.exs:206: (test)
+
+
+
+  7) test textarea help is an independent disclosure beside its field label (HardenLlmUI.InputComponentsTest)
+     test/harden_llm_web/components/core_components_test.exs:11
+     ** (UndefinedFunctionError) function CoreComponents.input/1 is undefined (module CoreComponents is not available). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+     code: render_component(&CoreComponents.input/1,
+     stacktrace:
+       CoreComponents.input(%{id: "setting-textarea", info: "Uses another model call. Repair attempts count toward Max Attempts.", label: "Setting", name: "profile[setting]", type: "textarea", value: "4", options: ["4", "5"], __changed__: %{}})
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:559: Phoenix.LiveViewTest.__render_component__/4
+       test/harden_llm_web/components/core_components_test.exs:17: (test)
+
+
+
+  8) test select help is an independent disclosure beside its field label (HardenLlmUI.InputComponentsTest)
+     test/harden_llm_web/components/core_components_test.exs:11
+     ** (UndefinedFunctionError) function CoreComponents.input/1 is undefined (module CoreComponents is not available). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+     code: render_component(&CoreComponents.input/1,
+     stacktrace:
+       CoreComponents.input(%{id: "setting-select", info: "Uses another model call. Repair attempts count toward Max Attempts.", label: "Setting", name: "profile[setting]", type: "select", value: "4", options: ["4", "5"], __changed__: %{}})
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:559: Phoenix.LiveViewTest.__render_component__/4
+       test/harden_llm_web/components/core_components_test.exs:17: (test)
+
+
+
+  9) test search evidence belongs to the response and shares each card's existing fold (HardenLlmUI.ResponseComponentsTest)
+     test/harden_llm_web/components/llm_result_components_test.exs:7
+     ** (UndefinedFunctionError) function LlmResultComponents.llm_result/1 is undefined (module LlmResultComponents is not available). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+     code: for id <- ["current-result", "history-result"], mode <- ["native", "jina"] do
+     stacktrace:
+       LlmResultComponents.llm_result(%{id: "current-result", output: "Answer with a source.", search: %{"entryPointHtml" => "<a>suggestion</a>", "executed" => true, "mode" => "native", "sources" => [%{"title" => "Source", "url" => "https://example.test/source"}]}, stats: [%{inner_block: #Function<3.20032745/2 in HardenLlmUI.ResponseComponentsTest."test search evidence belongs to the response and shares each card's existing fold"/1>}], __changed__: %{}, input_id: "current-result-recorded-input", output_id: "current-result-answer"})
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:559: Phoenix.LiveViewTest.__render_component__/4
+       test/harden_llm_web/components/llm_result_components_test.exs:12: anonymous fn/3 in HardenLlmUI.ResponseComponentsTest."test search evidence belongs to the response and shares each card's existing fold"/1
+       (elixir 1.20.2) lib/enum.ex:2622: Enum."-reduce/3-lists^foldl/2-0-"/3
+       test/harden_llm_web/components/llm_result_components_test.exs:8: (test)
+
+
+
+ 10) test help targets remain scoped to independent field IDs (HardenLlmUI.InputComponentsTest)
+     test/harden_llm_web/components/core_components_test.exs:58
+     ** (UndefinedFunctionError) function CoreComponents.input/1 is undefined (module CoreComponents is not available). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+     code: Enum.map_join(["first-setting", "second-setting"], fn id ->
+     stacktrace:
+       CoreComponents.input(%{id: "first-setting", info: "Help for first-setting", label: "Setting", name: "setting", value: "", __changed__: %{}})
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:559: Phoenix.LiveViewTest.__render_component__/4
+       (elixir 1.20.2) lib/enum.ex:1826: anonymous fn/2 in Enum.map_join/3
+       (elixir 1.20.2) lib/enum.ex:4652: Enum.map_intersperse_list/3
+       (elixir 1.20.2) lib/enum.ex:1826: Enum.map_join/3
+       test/harden_llm_web/components/core_components_test.exs:60: (test)
+
+    warning: LlmResultComponents.llm_result/1 is undefined (module LlmResultComponents is not available or is yet to be defined). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+    │
+ 12 │         render_component(&LlmResultComponents.llm_result/1,
+    │                                               ~
+    │
+    └─ test/harden_llm_web/components/llm_result_components_test.exs:12:47: HardenLlmUI.ResponseComponentsTest."test search evidence belongs to the response and shares each card's existing fold"/1
+    └─ test/harden_llm_web/components/llm_result_components_test.exs:87:45: HardenLlmUI.ResponseComponentsTest."test inline citations link exact Unicode text and ignore invalid or overlapping offsets"/1
+    └─ test/harden_llm_web/components/llm_result_components_test.exs:114:45: HardenLlmUI.ResponseComponentsTest."test search sources are clickable without changing structured output or trusting unsafe URLs"/1
+    └─ test/harden_llm_web/components/llm_result_components_test.exs:148:47: HardenLlmUI.ResponseComponentsTest."test result rows retain full values for copy and expansion and scope controls to each card"/1
+    └─ test/harden_llm_web/components/llm_result_components_test.exs:206:50: HardenLlmUI.ResponseComponentsTest."test missing content is explicit and cannot be copied"/1
+    └─ test/harden_llm_web/components/llm_result_components_test.exs:216:45: HardenLlmUI.ResponseComponentsTest."test both emoji controls reference host-supplied text IDs"/1
+
+
+
+ 11) test a named field without an explicit ID retains its label and help association (HardenLlmUI.InputComponentsTest)
+     test/harden_llm_web/components/core_components_test.exs:105
+     ** (UndefinedFunctionError) function CoreComponents.input/1 is undefined (module CoreComponents is not available). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+     code: render_component(&CoreComponents.input/1,
+     stacktrace:
+       CoreComponents.input(%{info: "Setting help", label: "Setting", name: "profile[setting]", value: "4", __changed__: %{}})
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:559: Phoenix.LiveViewTest.__render_component__/4
+       test/harden_llm_web/components/core_components_test.exs:107: (test)
+
+    warning: CoreComponents.input/1 is undefined (module CoreComponents is not available or is yet to be defined). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+    │
+ 17 │         render_component(&CoreComponents.input/1,
+    │                                          ~
+    │
+    └─ test/harden_llm_web/components/core_components_test.exs:17:42: HardenLlmUI.InputComponentsTest."test checkbox help is an independent disclosure beside its field label"/1
+    └─ test/harden_llm_web/components/core_components_test.exs:17:42: HardenLlmUI.InputComponentsTest."test number help is an independent disclosure beside its field label"/1
+    └─ test/harden_llm_web/components/core_components_test.exs:17:42: HardenLlmUI.InputComponentsTest."test select help is an independent disclosure beside its field label"/1
+    └─ test/harden_llm_web/components/core_components_test.exs:17:42: HardenLlmUI.InputComponentsTest."test textarea help is an independent disclosure beside its field label"/1
+    └─ test/harden_llm_web/components/core_components_test.exs:61:42: HardenLlmUI.InputComponentsTest."test help targets remain scoped to independent field IDs"/1
+    └─ test/harden_llm_web/components/core_components_test.exs:83:40: HardenLlmUI.InputComponentsTest."test fields without help keep their labels and omit empty disclosures"/1
+    └─ test/harden_llm_web/components/core_components_test.exs:107:40: HardenLlmUI.InputComponentsTest."test a named field without an explicit ID retains its label and help association"/1
+
+
+
+ 12) test fields without help keep their labels and omit empty disclosures (HardenLlmUI.InputComponentsTest)
+     test/harden_llm_web/components/core_components_test.exs:81
+     ** (UndefinedFunctionError) function CoreComponents.input/1 is undefined (module CoreComponents is not available). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+     code: render_component(&CoreComponents.input/1,
+     stacktrace:
+       CoreComponents.input(%{id: "plain-setting", label: "Setting", name: "setting", value: "4", errors: ["Invalid setting"], hint: "Required", __changed__: %{}, hint_id: "setting-hint", hint_tone: "error"})
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:559: Phoenix.LiveViewTest.__render_component__/4
+       test/harden_llm_web/components/core_components_test.exs:83: (test)
+
+
+
+ 13) test checkbox help is an independent disclosure beside its field label (HardenLlmUI.InputComponentsTest)
+     test/harden_llm_web/components/core_components_test.exs:11
+     ** (UndefinedFunctionError) function CoreComponents.input/1 is undefined (module CoreComponents is not available). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+     code: render_component(&CoreComponents.input/1,
+     stacktrace:
+       CoreComponents.input(%{id: "setting-checkbox", info: "Uses another model call. Repair attempts count toward Max Attempts.", label: "Setting", name: "profile[setting]", type: "checkbox", value: true, options: ["4", "5"], __changed__: %{}})
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:559: Phoenix.LiveViewTest.__render_component__/4
+       test/harden_llm_web/components/core_components_test.exs:17: (test)
+
+...........................
+
+ 14) test proxy requests use one deployment bearer and never forward the human session (HardenLlmWeb.SharedIdentityTest)
+     test/harden_llm_web/shared_identity_test.exs:55
+     ** (MatchError) no match of right hand side value:
+
+         {:error,
+          %Req.Test.OwnershipError{reason: :not_allowed, key: HardenLlmUI.Client}}
+
+     code: for cookie <- [AccessFixtures.cookie(), AccessFixtures.second_cookie()] do
+     stacktrace:
+       (harden_llm 1.0.0) test/support/conn_case.ex:69: HardenLlmWeb.ConnCase.live_with_req/3
+       test/harden_llm_web/shared_identity_test.exs:75: anonymous fn/2 in HardenLlmWeb.SharedIdentityTest."test proxy requests use one deployment bearer and never forward the human session"/1
+       (elixir 1.20.2) lib/enum.ex:1725: Enum."-map/2-lists^map/1-1-"/2
+       test/harden_llm_web/shared_identity_test.exs:71: (test)
+
+...
+
+ 15) test revoked access is revalidated before inference is dispatched (HardenLlmWeb.SharedIdentityTest)
+     test/harden_llm_web/shared_identity_test.exs:83
+     revoked identity must not dispatch inference
+     code: |> live("/")
+     stacktrace:
+       (req 0.6.1) lib/req/steps.ex:1079: Req.Steps.run_plug/1
+       (req 0.6.1) lib/req/request.ex:1118: Req.Request.run_request/1
+       (req 0.6.1) lib/req/request.ex:1062: Req.Request.run/1
+       (prls_web 0.1.0) lib/prls_web/access/client.ex:6: PrlsWeb.Access.Client.resolve/2
+       (prls_web 0.1.0) lib/prls_web/access/plug.ex:20: PrlsWeb.Access.Plug.call/2
+       (harden_llm 1.0.0) HardenLlmWeb.Router.require_identity/2
+       (harden_llm 1.0.0) lib/harden_llm_web/router.ex:1: HardenLlmWeb.Router.__pipe_through2__/1
+       (phoenix 1.8.9) lib/phoenix/router.ex:419: Phoenix.Router.__call__/5
+       (harden_llm 1.0.0) lib/harden_llm_web/endpoint.ex:1: HardenLlmWeb.Endpoint.plug_builder_call/2
+       (harden_llm 1.0.0) lib/harden_llm_web/endpoint.ex:1: HardenLlmWeb.Endpoint.call/2
+       (phoenix 1.8.9) lib/phoenix/test/conn_test.ex:225: Phoenix.ConnTest.dispatch/5
+       (harden_llm 1.0.0) test/support/conn_case.ex:60: HardenLlmWeb.ConnCase.live_with_req/3
+       test/harden_llm_web/shared_identity_test.exs:121: (test)
+
+......
+
+ 16) test rejected server API token does not restart Portal login (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:369
+     Expected truthy, got false
+     code: assert has_element?(view, "#workspace-unavailable", "configured API token")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN39Z-V58F-Vs1aC",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.1295.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#workspace-unavailable"
+
+         # 3
+         "configured API token"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_workflow_test.exs:376: (test)
+
+..........
+
+ 17) test async wrappers attach the initiating OpenTelemetry context and restore the worker (HardenLlmWeb.SecurityObservabilityTest)
+     test/harden_llm_web/security_observability_test.exs:69
+     ** (UndefinedFunctionError) function HardenLlmWeb.Observability.propagate/1 is undefined or private
+     code: wrapped = Observability.propagate(fn -> :otel_ctx.get_value(:harden_llm_test_parent) end)
+     stacktrace:
+       (harden_llm 1.0.0) HardenLlmWeb.Observability.propagate(#Function<5.128136148/0 in HardenLlmWeb.SecurityObservabilityTest."test async wrappers attach the initiating OpenTelemetry context and restore the worker"/1>)
+       test/harden_llm_web/security_observability_test.exs:71: (test)
+
+.....
+Finished in 1.7 seconds (1.6s async, 0.08s sync)
+
+Result: 75/92 passed, 3 excluded
+Failed: 17 tests

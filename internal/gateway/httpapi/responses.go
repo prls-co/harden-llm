@@ -212,7 +212,7 @@ func outputChunks(value string, maximum int) []string {
 	if maximum < 1 {
 		return nil
 	}
-	chunks := make([]string, 0, (len(value)+maximum-1)/maximum)
+	chunks := make([]string, 0)
 	for len(value) > maximum {
 		end := maximum
 		for end > 0 && end < len(value) && !utf8.RuneStart(value[end]) {

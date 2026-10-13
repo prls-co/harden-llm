@@ -1,0 +1,2031 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: Harden LLM OpenAI-compatible API
+  version: 3.0.0
+  description: >-
+    Ordinary OpenAI-compatible inference and reusable reference operations use
+    one HLLM bearer and one stateless hardening engine. Only reference runs enter
+    key-scoped PostgreSQL history; Portal admission belongs to the reference web host.
+x-harden-llm-ownership:
+  scope: api_key_hash
+  scopeDerivation: sha256(validated bearer)
+  profileSave: create-on-save
+  history: reference-only PostgreSQL
+  credentials: deployment-env or encrypted-entered
+  admission: frontend-only Portal
+  draftKey: host-supplied inside key scope
+  statelessCore: injected effects without auth or storage
+servers:
+  - url: /
+    description: Harden-LLM API origin.
+security:
+  - bearerAuth: []
+tags:
+  - name: Models
+  - name: Chat Completions
+  - name: Responses
+  - name: Health
+paths:
+  /v1/models:
+    get:
+      operationId: listModels
+      tags: [Models]
+      summary: List models from a configured upstream
+      description: Returns native model identifiers in the OpenAI model-list shape.
+      parameters:
+        - name: upstream
+          in: query
+          required: false
+          schema: {type: string, minLength: 1, maxLength: 128}
+          description: Configured upstream ID; defaults to the configured upstream.
+      responses:
+        '200':
+          description: Model list.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ModelList'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '502': {$ref: '#/components/responses/Error'}
+  /v1/chat/completions:
+    post:
+      operationId: createChatCompletion
+      tags: [Chat Completions]
+      summary: Create a hardened chat completion
+      description: >-
+        Accepts ordered text messages and function calls/results. `n` must be
+        1. `store` may be omitted or false. `max_tokens` and
+        `max_completion_tokens` are mutually exclusive. Streaming emits only
+        the completed hardened result as Chat Completions SSE; it does not
+        expose provisional provider output.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ChatCompletionRequest'}
+      responses:
+        '200':
+          description: Completion JSON, or final-only Chat Completions SSE when stream is true.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ChatCompletion'}
+            text/event-stream:
+              schema: {type: string, description: "Standard `chat.completion.chunk` events followed by `data: [DONE]`."}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '413': {$ref: '#/components/responses/Error'}
+        '415': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/Error'}
+        '502': {$ref: '#/components/responses/Error'}
+        '504': {$ref: '#/components/responses/Error'}
+  /v1/responses:
+    post:
+      operationId: createResponse
+      tags: [Responses]
+      summary: Create a hardened response
+      description: >-
+        Accepts string input or ordered text and function-call items. The API
+        is stateless: `store` may be omitted or false, and server-side
+        conversation fields are rejected. `include` is unsupported because
+        upstream-only projections are not preserved in the normalized result.
+        Streaming emits the completed hardened result using typed Responses
+        events; it does not expose provisional provider output.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ResponseRequest'}
+      responses:
+        '200':
+          description: Response JSON, or final-only Responses SSE when stream is true.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Response'}
+            text/event-stream:
+              schema: {type: string, description: Typed Responses events with monotonically increasing sequence numbers.}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '413': {$ref: '#/components/responses/Error'}
+        '415': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/Error'}
+        '502': {$ref: '#/components/responses/Error'}
+        '504': {$ref: '#/components/responses/Error'}
+  /healthz:
+    get:
+      operationId: getHealth
+      tags: [Health]
+      summary: Check process liveness
+      security: []
+      responses:
+        '200':
+          description: Process is alive.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Health'}
+  /readyz:
+    get:
+      operationId: getReadiness
+      tags: [Health]
+      summary: Check proxy readiness
+      security: []
+      responses:
+        '200':
+          description: Configured proxy dependencies are ready.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Health'}
+        '503': {$ref: '#/components/responses/Error'}
+  /api/v1/status:
+    get:
+      operationId: referenceStatus
+      tags: [Reference]
+      parameters: []
+      responses:
+        '200':
+          description: Successful referenceStatus
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReferenceStatus'}
+        '400': {$ref: '#/components/responses/ReferenceError'}
+        '401': {$ref: '#/components/responses/ReferenceError'}
+        '404': {$ref: '#/components/responses/ReferenceError'}
+        '409': {$ref: '#/components/responses/ReferenceError'}
+        '413': {$ref: '#/components/responses/ReferenceError'}
+        '502': {$ref: '#/components/responses/ReferenceError'}
+        '503': {$ref: '#/components/responses/ReferenceError'}
+  /api/v1/profiles:
+    get:
+      operationId: listProfiles
+      tags: [Reference]
+      parameters: []
+      responses:
+        '200':
+          description: Successful listProfiles
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProfilesEnvelope'}
+        '400': {$ref: '#/components/responses/ReferenceError'}
+        '401': {$ref: '#/components/responses/ReferenceError'}
+        '404': {$ref: '#/components/responses/ReferenceError'}
+        '409': {$ref: '#/components/responses/ReferenceError'}
+        '413': {$ref: '#/components/responses/ReferenceError'}
+        '502': {$ref: '#/components/responses/ReferenceError'}
+        '503': {$ref: '#/components/responses/ReferenceError'}
+    post:
+      operationId: saveProfile
+      tags: [Reference]
+      parameters: []
+      responses:
+        '201':
+          description: Successful saveProfile
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProfileEnvelope'}
+        '400': {$ref: '#/components/responses/ReferenceError'}
+        '401': {$ref: '#/components/responses/ReferenceError'}
+        '404': {$ref: '#/components/responses/ReferenceError'}
+        '409': {$ref: '#/components/responses/ReferenceError'}
+        '413': {$ref: '#/components/responses/ReferenceError'}
+        '502': {$ref: '#/components/responses/ReferenceError'}
+        '503': {$ref: '#/components/responses/ReferenceError'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SaveProfileInput'}
+  /api/v1/profiles/{profileID}:
+    get:
+      operationId: getProfile
+      tags: [Reference]
+      parameters:
+      - name: profileID
+        in: path
+        required: true
+        schema: {type: string, minLength: 1, maxLength: 1500}
+      responses:
+        '200':
+          description: Successful getProfile
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProfileDraft'}
+        '400': {$ref: '#/components/responses/ReferenceError'}
+        '401': {$ref: '#/components/responses/ReferenceError'}
+        '404': {$ref: '#/components/responses/ReferenceError'}
+        '409': {$ref: '#/components/responses/ReferenceError'}
+        '413': {$ref: '#/components/responses/ReferenceError'}
+        '502': {$ref: '#/components/responses/ReferenceError'}
+        '503': {$ref: '#/components/responses/ReferenceError'}
+    delete:
+      operationId: deleteProfile
+      tags: [Reference]
+      parameters:
+      - name: profileID
+        in: path
+        required: true
+        schema: {type: string, minLength: 1, maxLength: 1500}
+      responses:
+        '204': {description: Successful deleteProfile}
+        '400': {$ref: '#/components/responses/ReferenceError'}
+        '401': {$ref: '#/components/responses/ReferenceError'}
+        '404': {$ref: '#/components/responses/ReferenceError'}
+        '409': {$ref: '#/components/responses/ReferenceError'}
+        '413': {$ref: '#/components/responses/ReferenceError'}
+        '502': {$ref: '#/components/responses/ReferenceError'}
+        '503': {$ref: '#/components/responses/ReferenceError'}
+  /api/v1/profiles/{profileID}/models:refresh:
+    post:
+      operationId: refreshProfileModels
+      tags: [Reference]
+      parameters:
+      - name: profileID
+        in: path
+        required: true
+        schema: {type: string, minLength: 1, maxLength: 1500}
+      responses:
+        '200':
+          description: Successful refreshProfileModels
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProfileDraft'}
+        '400': {$ref: '#/components/responses/ReferenceError'}
+        '401': {$ref: '#/components/responses/ReferenceError'}
+        '404': {$ref: '#/components/responses/ReferenceError'}
+        '409': {$ref: '#/components/responses/ReferenceError'}
+        '413': {$ref: '#/components/responses/ReferenceError'}
+        '502': {$ref: '#/components/responses/ReferenceError'}
+        '503': {$ref: '#/components/responses/ReferenceError'}
+  /api/v1/profiles/bundle:
+    get:
+      operationId: exportProfileBundle
+      tags: [Reference]
+      parameters: []
+      responses:
+        '200':
+          description: Successful exportProfileBundle
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProfileBundle'}
+        '400': {$ref: '#/components/responses/ReferenceError'}
+        '401': {$ref: '#/components/responses/ReferenceError'}
+        '404': {$ref: '#/components/responses/ReferenceError'}
+        '409': {$ref: '#/components/responses/ReferenceError'}
+        '413': {$ref: '#/components/responses/ReferenceError'}
+        '502': {$ref: '#/components/responses/ReferenceError'}
+        '503': {$ref: '#/components/responses/ReferenceError'}
+    put:
+      operationId: replaceProfileBundle
+      tags: [Reference]
+      parameters: []
+      responses:
+        '200':
+          description: Successful replaceProfileBundle
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProfilesEnvelope'}
+        '400': {$ref: '#/components/responses/ReferenceError'}
+        '401': {$ref: '#/components/responses/ReferenceError'}
+        '404': {$ref: '#/components/responses/ReferenceError'}
+        '409': {$ref: '#/components/responses/ReferenceError'}
+        '413': {$ref: '#/components/responses/ReferenceError'}
+        '502': {$ref: '#/components/responses/ReferenceError'}
+        '503': {$ref: '#/components/responses/ReferenceError'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProfileBundle'}
+  /api/v1/state:
+    get:
+      operationId: getDraft
+      tags: [Reference]
+      parameters:
+      - name: draftKey
+        in: query
+        required: true
+        schema: {type: string, minLength: 1, maxLength: 128}
+      responses:
+        '200':
+          description: Successful getDraft
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Draft'}
+        '400': {$ref: '#/components/responses/ReferenceError'}
+        '401': {$ref: '#/components/responses/ReferenceError'}
+        '404': {$ref: '#/components/responses/ReferenceError'}
+        '409': {$ref: '#/components/responses/ReferenceError'}
+        '413': {$ref: '#/components/responses/ReferenceError'}
+        '502': {$ref: '#/components/responses/ReferenceError'}
+        '503': {$ref: '#/components/responses/ReferenceError'}
+    post:
+      operationId: saveDraft
+      tags: [Reference]
+      parameters: []
+      responses:
+        '200':
+          description: Successful saveDraft
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Draft'}
+        '400': {$ref: '#/components/responses/ReferenceError'}
+        '401': {$ref: '#/components/responses/ReferenceError'}
+        '404': {$ref: '#/components/responses/ReferenceError'}
+        '409': {$ref: '#/components/responses/ReferenceError'}
+        '413': {$ref: '#/components/responses/ReferenceError'}
+        '502': {$ref: '#/components/responses/ReferenceError'}
+        '503': {$ref: '#/components/responses/ReferenceError'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SaveDraftInput'}
+  /api/v1/run:
+    post:
+      operationId: referenceRun
+      tags: [Reference]
+      parameters: []
+      responses:
+        '200':
+          description: Successful referenceRun
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RunEnvelope'}
+            text/event-stream:
+              schema: {type: string, description: 'Progress, one inference terminal,
+                  then history.recorded. Never retry inference on disconnect.'}
+        '400': {$ref: '#/components/responses/ReferenceError'}
+        '401': {$ref: '#/components/responses/ReferenceError'}
+        '404': {$ref: '#/components/responses/ReferenceError'}
+        '409': {$ref: '#/components/responses/ReferenceError'}
+        '413': {$ref: '#/components/responses/ReferenceError'}
+        '502': {$ref: '#/components/responses/ReferenceError'}
+        '503': {$ref: '#/components/responses/ReferenceError'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RunInput'}
+  /api/v1/history:
+    get:
+      operationId: listHistory
+      tags: [Reference]
+      parameters:
+      - name: from
+        in: query
+        schema: {type: string, format: date-time}
+      - name: before
+        in: query
+        schema: {type: string, format: date-time}
+      - name: page
+        in: query
+        schema: {type: integer, minimum: 1}
+      - name: pageSize
+        in: query
+        schema:
+          type: integer
+          enum: [10, 25, 50, 100]
+      responses:
+        '200':
+          description: Successful listHistory
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HistoryPage'}
+        '400': {$ref: '#/components/responses/ReferenceError'}
+        '401': {$ref: '#/components/responses/ReferenceError'}
+        '404': {$ref: '#/components/responses/ReferenceError'}
+        '409': {$ref: '#/components/responses/ReferenceError'}
+        '413': {$ref: '#/components/responses/ReferenceError'}
+        '502': {$ref: '#/components/responses/ReferenceError'}
+        '503': {$ref: '#/components/responses/ReferenceError'}
+    delete:
+      operationId: clearHistory
+      tags: [Reference]
+      parameters:
+      - name: from
+        in: query
+        schema: {type: string, format: date-time}
+      - name: before
+        in: query
+        schema: {type: string, format: date-time}
+      responses:
+        '200':
+          description: Successful clearHistory
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ClearResult'}
+        '400': {$ref: '#/components/responses/ReferenceError'}
+        '401': {$ref: '#/components/responses/ReferenceError'}
+        '404': {$ref: '#/components/responses/ReferenceError'}
+        '409': {$ref: '#/components/responses/ReferenceError'}
+        '413': {$ref: '#/components/responses/ReferenceError'}
+        '502': {$ref: '#/components/responses/ReferenceError'}
+        '503': {$ref: '#/components/responses/ReferenceError'}
+  /api/v1/history/{runID}:
+    get:
+      operationId: getHistory
+      tags: [Reference]
+      parameters:
+      - name: runID
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Successful getHistory
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HistoryRecord'}
+        '400': {$ref: '#/components/responses/ReferenceError'}
+        '401': {$ref: '#/components/responses/ReferenceError'}
+        '404': {$ref: '#/components/responses/ReferenceError'}
+        '409': {$ref: '#/components/responses/ReferenceError'}
+        '413': {$ref: '#/components/responses/ReferenceError'}
+        '502': {$ref: '#/components/responses/ReferenceError'}
+        '503': {$ref: '#/components/responses/ReferenceError'}
+    delete:
+      operationId: deleteHistory
+      tags: [Reference]
+      parameters:
+      - name: runID
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      responses:
+        '204': {description: Successful deleteHistory}
+        '400': {$ref: '#/components/responses/ReferenceError'}
+        '401': {$ref: '#/components/responses/ReferenceError'}
+        '404': {$ref: '#/components/responses/ReferenceError'}
+        '409': {$ref: '#/components/responses/ReferenceError'}
+        '413': {$ref: '#/components/responses/ReferenceError'}
+        '502': {$ref: '#/components/responses/ReferenceError'}
+        '503': {$ref: '#/components/responses/ReferenceError'}
+  /api/v1/stats:
+    get:
+      operationId: referenceStatistics
+      tags: [Reference]
+      parameters:
+      - name: from
+        in: query
+        schema: {type: string, format: date-time}
+      - name: before
+        in: query
+        schema: {type: string, format: date-time}
+      responses:
+        '200':
+          description: Successful referenceStatistics
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Statistics'}
+        '400': {$ref: '#/components/responses/ReferenceError'}
+        '401': {$ref: '#/components/responses/ReferenceError'}
+        '404': {$ref: '#/components/responses/ReferenceError'}
+        '409': {$ref: '#/components/responses/ReferenceError'}
+        '413': {$ref: '#/components/responses/ReferenceError'}
+        '502': {$ref: '#/components/responses/ReferenceError'}
+        '503': {$ref: '#/components/responses/ReferenceError'}
+  /api/v1/traces/{runID}:
+    get:
+      operationId: getReferenceTrace
+      tags: [Reference]
+      parameters:
+      - name: runID
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Successful getReferenceTrace
+          content:
+            application/octet-stream:
+              schema: {type: string, format: binary}
+            application/json:
+              schema: {type: string, format: binary}
+        '400': {$ref: '#/components/responses/ReferenceError'}
+        '401': {$ref: '#/components/responses/ReferenceError'}
+        '404': {$ref: '#/components/responses/ReferenceError'}
+        '409': {$ref: '#/components/responses/ReferenceError'}
+        '413': {$ref: '#/components/responses/ReferenceError'}
+        '502': {$ref: '#/components/responses/ReferenceError'}
+        '503': {$ref: '#/components/responses/ReferenceError'}
+  /api/v1/traces/{runID}/artifacts/{artifactID}:
+    get:
+      operationId: getReferenceArtifact
+      tags: [Reference]
+      parameters:
+      - name: runID
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - name: artifactID
+        in: path
+        required: true
+        schema: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'}
+      responses:
+        '200':
+          description: Successful getReferenceArtifact
+          content:
+            application/octet-stream:
+              schema: {type: string, format: binary}
+            application/json:
+              schema: {type: string, format: binary}
+        '400': {$ref: '#/components/responses/ReferenceError'}
+        '401': {$ref: '#/components/responses/ReferenceError'}
+        '404': {$ref: '#/components/responses/ReferenceError'}
+        '409': {$ref: '#/components/responses/ReferenceError'}
+        '413': {$ref: '#/components/responses/ReferenceError'}
+        '502': {$ref: '#/components/responses/ReferenceError'}
+        '503': {$ref: '#/components/responses/ReferenceError'}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: HARDEN_LLM_TOKEN
+  responses:
+    Error:
+      description: Standard OpenAI error object.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    ReferenceError:
+      description: Typed reference operation error.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ReferenceErrorEnvelope'}
+  schemas:
+    HistoryWindow:
+      type: object
+      additionalProperties: false
+      required: [before]
+      properties:
+        from: {type: string, format: date-time}
+        before: {type: string, format: date-time}
+    HistoryPagination:
+      type: object
+      additionalProperties: false
+      required: [page, pageSize, totalCount]
+      properties:
+        page: {type: integer, minimum: 1}
+        pageSize:
+          type: integer
+          enum: [10, 25, 50, 100]
+        totalCount: {type: integer, minimum: 0}
+    HistorySummary:
+      type: object
+      additionalProperties: false
+      required: [runId, profileId, modelId, status, startedAt, finishedAt, cacheServed,
+        resultSource, providerTokens, resultTokens, knownCostUsd, knownCostObservations,
+        unknownCostObservations, durationMs]
+      properties:
+        runId: {type: string, format: uuid}
+        profileId: {type: string}
+        modelId: {type: string}
+        status:
+          type: string
+          enum: [succeeded, failed, timeout]
+        startedAt: {type: string, format: date-time}
+        finishedAt: {type: string, format: date-time}
+        cacheServed: {type: boolean}
+        resultSource:
+          type: string
+          enum: [none, provider, cache]
+        providerTokens: {type: integer, minimum: 0}
+        resultTokens: {type: integer, minimum: 0}
+        knownCostUsd: {type: number, minimum: 0}
+        knownCostObservations: {type: integer, minimum: 0}
+        unknownCostObservations: {type: integer, minimum: 0}
+        durationMs: {type: integer, minimum: 0}
+        accounting: {$ref: '#/components/schemas/ReferenceAccounting'}
+    RecordedRunInput:
+      type: object
+      additionalProperties: false
+      required: []
+      properties:
+        profileId: {type: string, maxLength: 1500}
+        modelId: {type: string, maxLength: 512}
+        systemPrompt: {type: string, maxLength: 32768}
+        userPrompt: {type: string, maxLength: 65536}
+        callType: {type: string}
+        schema: {type: object}
+        reasoningEffort: {type: string}
+        providerOptions: {type: object}
+        cacheMode: {type: string}
+        webSearch: {type: boolean, default: false, description: 'Use native provider web
+            search when supported, otherwise the configured Jina fallback. Cache semantics
+            remain unchanged.'}
+        cacheVersion: {type: string, maxLength: 64}
+        timeoutMs: {type: integer, maximum: 60000, description: Zero or omission selects
+            the deployment maximum; a positive value may only lower it.}
+        recoveryPolicy: {$ref: '#/components/schemas/ReferenceRecoveryPolicy'}
+        origin: {$ref: '#/components/schemas/ReferenceRunOrigin'}
+    HistoryRequest:
+      type: object
+      additionalProperties: false
+      required: [input]
+      properties:
+        input: {$ref: '#/components/schemas/RecordedRunInput'}
+        profile: {$ref: '#/components/schemas/ProfileDraft'}
+        recoveryProfiles:
+          type: object
+          additionalProperties: {$ref: '#/components/schemas/ProfileDraft'}
+    ReferenceProfileID: {type: string, minLength: 1, maxLength: 1500, pattern: '^[^/\u0000-\u001F\u007F-\u009F]+$',
+      description: Limited by the server to 1500 valid UTF-8 bytes without control characters.}
+    ReferencePricing:
+      type: object
+      additionalProperties: false
+      properties:
+        input_cost_per_token: {$ref: '#/components/schemas/ReferenceNullableRate'}
+        cache_read_input_token_cost: {$ref: '#/components/schemas/ReferenceNullableRate'}
+        cache_creation_input_token_cost: {$ref: '#/components/schemas/ReferenceNullableRate'}
+        output_cost_per_token: {$ref: '#/components/schemas/ReferenceNullableRate'}
+        output_cost_per_reasoning_token: {$ref: '#/components/schemas/ReferenceNullableRate'}
+    ReferenceNullableRate:
+      oneOf:
+      - {type: number, minimum: 0}
+      - {type: 'null'}
+    ReferenceModel:
+      type: object
+      additionalProperties: false
+      required: [id, label]
+      properties:
+        id: {type: string, minLength: 1, maxLength: 512}
+        label: {type: string, minLength: 1, maxLength: 1024}
+    ReferenceRecoveryPolicy:
+      type: object
+      additionalProperties: false
+      description: Complete selected-target recovery policy. No execution defaults are
+        inferred. Create new settings from result.defaults.recoveryPolicy returned by
+        listProfiles.
+      required: [maxAttempts, retryOn, jsonRepair, rerun, backoff]
+      properties:
+        maxAttempts: {type: integer, minimum: 1, maximum: 10, description: 'Total provider-call
+            budget including the first call, transport retries and semantic repairs.'}
+        retryOn:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum: [network, rate_limit, server_error, empty_response, provider_retry]
+          description: An empty array disables ordinary retries.
+        jsonRepair:
+          oneOf:
+          - {$ref: '#/components/schemas/ReferenceRepairPlan'}
+          - {type: 'null'}
+          description: Explicit two-target JSON repair plan. The initial target runs first,
+            then optional escalation.
+        rerun:
+          oneOf:
+          - {$ref: '#/components/schemas/ReferenceRerunPlan'}
+          - {type: 'null'}
+          description: Optional fresh generation from the original input, followed by
+            its own JSON repair plan.
+        backoff: {$ref: '#/components/schemas/ReferenceRecoveryBackoff'}
+    ReferenceRepairPlan:
+      type: object
+      additionalProperties: false
+      required: [initial, escalation]
+      properties:
+        initial: {$ref: '#/components/schemas/ReferenceRecoveryTarget'}
+        escalation:
+          oneOf:
+          - {$ref: '#/components/schemas/ReferenceRecoveryTarget'}
+          - {type: 'null'}
+    ReferenceRecoveryTarget:
+      type: object
+      oneOf:
+      - required: [source, profileId]
+        additionalProperties: false
+        properties:
+          source:
+            type: string
+            enum: [profile]
+          profileId: {$ref: '#/components/schemas/ReferenceProfileID'}
+          modelId: {type: string, maxLength: 512}
+          reasoningEffort:
+            type: string
+            enum: [lowest, middle, highest]
+          providerOptions: {type: object, additionalProperties: true}
+      - required: [source]
+        additionalProperties: false
+        properties:
+          source:
+            type: string
+            enum: [generation]
+      - type: object
+        additionalProperties: false
+        required: [source, modelId]
+        properties:
+          source:
+            type: string
+            enum: [model]
+          modelId: {type: string, minLength: 1, maxLength: 512}
+          reasoningEffort:
+            type: string
+            enum: [lowest, middle, highest]
+          providerOptions: {type: object}
+          upstream: {type: string, minLength: 1, maxLength: 128, description: Configured
+              resolved upstream; omission uses the request connection.}
+    ReferenceRerunPlan:
+      type: object
+      additionalProperties: false
+      required: [target, jsonRepair]
+      properties:
+        target: {$ref: '#/components/schemas/ReferenceRecoveryTarget'}
+        jsonRepair:
+          oneOf:
+          - {$ref: '#/components/schemas/ReferenceRepairPlan'}
+          - {type: 'null'}
+    ReferenceRecoveryBackoff:
+      type: object
+      additionalProperties: false
+      required: [baseDelayMs, maxDelayMs]
+      properties:
+        baseDelayMs: {type: integer, minimum: 0, maximum: 60000}
+        maxDelayMs: {type: integer, minimum: 0, maximum: 600000, description: Must be
+            at least baseDelayMs. Limits calculated backoff; valid Retry-After on HTTP
+            429 or 503 remains a server minimum.}
+    ReferenceRunOrigin:
+      type: object
+      additionalProperties: false
+      properties:
+        client: {type: string, maxLength: 256}
+        component: {type: string, maxLength: 256}
+        operationId: {type: string, maxLength: 256}
+        parentRunId: {type: string, maxLength: 256}
+        jobId: {type: string, maxLength: 256}
+        testRunId: {type: string, maxLength: 256}
+        testId: {type: string, maxLength: 256}
+        sourceRevision: {type: string, maxLength: 256}
+    ReferenceIdentifier: {type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9_-][A-Za-z0-9._-]{0,127}$'}
+    ReferenceWebSearchResult:
+      type: object
+      additionalProperties: false
+      description: Evidence used to produce this answer. Retained on cache hits; executed
+        describes the original answer, not a new search. Model token accounting excludes
+        search fees.
+      required: [mode, executed, sources, costStatus]
+      properties:
+        mode:
+          type: string
+          enum: [native, jina]
+        executed: {type: boolean}
+        costStatus: {type: string, const: unavailable}
+        entryPointHtml: {type: string, maxLength: 32768, description: 'Provider search
+            suggestions. Display only in a sandboxed iframe, never as trusted application
+            HTML.'}
+        citations:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [url, title, startIndex, endIndex]
+            properties:
+              url: {type: string, format: uri}
+              title: {type: string}
+              startIndex: {type: integer, minimum: 0}
+              endIndex: {type: integer, minimum: 1}
+        sources:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            additionalProperties: false
+            required: [url, title]
+            properties:
+              url: {type: string, format: uri}
+              title: {type: string}
+    ReferenceRunTargetAvailability:
+      oneOf:
+      - properties:
+          status: {type: string, enum: [succeeded]}
+          selectedTarget: {$ref: '#/components/schemas/ReferenceExecutionTarget'}
+      - properties:
+          status: {type: string, enum: [failed, timeout]}
+    ReferenceExecutionTarget:
+      type: object
+      additionalProperties: false
+      required: [profileId, provider, protocol, endpoint, modelId]
+      properties:
+        profileId: {$ref: '#/components/schemas/ReferenceProfileID'}
+        provider: {type: string, minLength: 1, maxLength: 128}
+        protocol: {type: string, minLength: 1, maxLength: 128}
+        endpoint: {type: string, format: uri, pattern: '^https://', maxLength: 2048}
+        modelId: {type: string, minLength: 1, maxLength: 512}
+    ReferenceResultSource:
+      oneOf:
+      - type: object
+        additionalProperties: false
+        required: [kind]
+        properties:
+          kind: {type: string, const: none}
+      - type: object
+        additionalProperties: false
+        required: [kind, attemptNumber, producer]
+        properties:
+          kind: {type: string, const: provider}
+          attemptNumber: {type: integer, minimum: 1, maximum: 10}
+          producer: {$ref: '#/components/schemas/ReferenceExecutionTarget'}
+      - type: object
+        additionalProperties: false
+        required: [kind, producer]
+        properties:
+          kind: {type: string, const: cache}
+          producer: {$ref: '#/components/schemas/ReferenceExecutionTarget'}
+    ReferenceAccounting:
+      type: object
+      additionalProperties: false
+      required: [result, provider]
+      properties:
+        result: {$ref: '#/components/schemas/ReferenceAccountingLedger'}
+        provider: {$ref: '#/components/schemas/ReferenceAccountingLedger'}
+    ReferenceAccountingLedger:
+      type: object
+      additionalProperties: false
+      required: [usage, cost]
+      properties:
+        usage: {$ref: '#/components/schemas/ReferenceUsage'}
+        cost: {$ref: '#/components/schemas/ReferenceCost'}
+    ReferenceUsage:
+      type: object
+      additionalProperties: false
+      required: [inputTokens, cacheReadTokens, cacheCreationTokens, outputTokens, reasoningTokens,
+        promptTokens, completionTokens, totalTokens, status]
+      properties:
+        inputTokens: {type: integer, minimum: 0}
+        cacheReadTokens: {type: integer, minimum: 0}
+        cacheCreationTokens: {type: integer, minimum: 0}
+        outputTokens: {type: integer, minimum: 0}
+        reasoningTokens: {type: integer, minimum: 0}
+        promptTokens: {type: integer, minimum: 0, description: inputTokens + cacheReadTokens
+            + cacheCreationTokens.}
+        completionTokens: {type: integer, minimum: 0, description: outputTokens + reasoningTokens.}
+        totalTokens: {type: integer, minimum: 0}
+        status:
+          type: string
+          enum: [complete, partial, unavailable, inconsistent]
+    ReferenceCost:
+      type: object
+      additionalProperties: false
+      required: [knownSubtotalUsd, status, source, knownObservations, unknownObservations]
+      properties:
+        knownSubtotalUsd: {type: number, minimum: 0}
+        status:
+          type: string
+          enum: [exact, partial, unknown, unavailable]
+        source: {type: string, maxLength: 64}
+        knownObservations: {type: integer, minimum: 0}
+        unknownObservations: {type: integer, minimum: 0}
+    ReferenceAttempt:
+      type: object
+      additionalProperties: false
+      required: [number, profileId, target, retryable, wait, duration, repair, providerUsed]
+      properties:
+        number: {type: integer, minimum: 1, maximum: 10}
+        profileId: {$ref: '#/components/schemas/ReferenceProfileID'}
+        target: {$ref: '#/components/schemas/ReferenceExecutionTarget'}
+        category: {type: string, maxLength: 64}
+        httpStatus: {type: integer, minimum: 100, maximum: 599}
+        code: {type: string, maxLength: 80}
+        type: {type: string, maxLength: 80}
+        providerRequestId: {type: string, maxLength: 128, pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{7,127}$'}
+        retryable: {type: boolean}
+        wait: {type: integer, minimum: 0, description: Nanoseconds.}
+        duration: {type: integer, minimum: 0, description: Nanoseconds.}
+        repair: {type: boolean}
+        providerUsed: {type: boolean, description: True only when the local model transport
+            observed request headers being written; does not prove remote execution or
+            billing.}
+        stage: {type: string, maxLength: 64}
+        branch:
+          type: string
+          enum: [original, rerun]
+        triggerAttemptNumber: {type: integer, minimum: 1, maximum: 10}
+        inputAttemptNumbers:
+          type: array
+          maxItems: 10
+          items: {type: integer, minimum: 1, maximum: 10}
+        transportRetryOfAttempt: {type: integer, minimum: 1, maximum: 10}
+        startedAt: {type: string, format: date-time}
+        finishedAt: {type: string, format: date-time}
+        reasoningEffort:
+          type: string
+          enum: [lowest, middle, highest]
+        dispatchObserved: {type: boolean}
+        stream: {$ref: '#/components/schemas/ReferenceStreamDiagnostics'}
+        waitDiagnostics: {$ref: '#/components/schemas/ReferenceWaitDiagnostics'}
+    ReferenceStreamDiagnostics:
+      type: object
+      additionalProperties: false
+      required: [receivedBytes, eventCount, outputBytes, outputCodePoints]
+      properties:
+        receivedBytes: {type: integer, minimum: 0}
+        eventCount: {type: integer, minimum: 0}
+        outputBytes: {type: integer, minimum: 0}
+        outputCodePoints: {type: integer, minimum: 0}
+        firstEventMs: {type: integer, minimum: 0, nullable: true}
+        firstOutputMs: {type: integer, minimum: 0, nullable: true}
+        lastEventAt: {type: string, format: date-time, nullable: true}
+        lastOutputAt: {type: string, format: date-time, nullable: true}
+        terminalState:
+          type: string
+          enum: [not_streaming, awaiting_terminal, completed, incomplete, failed, missing]
+    ReferenceWaitDiagnostics:
+      type: object
+      additionalProperties: false
+      required: [plannedMs, actualMs]
+      properties:
+        reason: {type: string, maxLength: 64}
+        plannedMs: {type: integer, minimum: 0}
+        actualMs: {type: integer, minimum: 0}
+        retryAfterMs: {type: integer, minimum: 0}
+    ReferenceCacheResult:
+      type: object
+      additionalProperties: false
+      required: [mode, status, served, written]
+      properties:
+        mode:
+          type: string
+          enum: ['off', cache, refresh]
+        status: {type: string, minLength: 1, maxLength: 64, description: Cache outcome.
+            A write_failed value means the accepted inference succeeded but persisting
+            its canonical cache projection failed; served and written remain false and
+            the run itself is still successful. Lookup and integrity failures are returned
+            as errors.}
+        operationHash: {type: string, maxLength: 128}
+        originalOperationHash: {type: string, maxLength: 128}
+        rerunOperationHash: {type: string, maxLength: 128}
+        version: {type: string, maxLength: 64}
+        served: {type: boolean}
+        written: {type: boolean}
+    ReferenceRunArtifact: {$ref: '#/components/schemas/ArtifactMetadata'}
+    ReferenceRunDiagnostics:
+      type: object
+      additionalProperties: false
+      required: [attemptsUsed, attemptsRemaining, elapsedMs, totalActualWaitMs, receivedBytes,
+        eventCount, outputBytes, outputCodePoints]
+      properties:
+        stage: {type: string, maxLength: 64}
+        branch:
+          type: string
+          enum: [original, rerun]
+        stopReason: {type: string, maxLength: 64}
+        attemptsUsed: {type: integer, minimum: 0, maximum: 10}
+        attemptsRemaining: {type: integer, minimum: 0, maximum: 10}
+        elapsedMs: {type: integer, minimum: 0}
+        totalActualWaitMs: {type: integer, minimum: 0}
+        receivedBytes: {type: integer, minimum: 0}
+        eventCount: {type: integer, minimum: 0}
+        outputBytes: {type: integer, minimum: 0}
+        outputCodePoints: {type: integer, minimum: 0}
+        effectiveTimeoutMs: {type: integer, minimum: 0, nullable: true}
+        deadlineAt: {type: string, format: date-time, nullable: true}
+        branchCaches:
+          type: array
+          maxItems: 2
+          items:
+            type: object
+            additionalProperties: false
+            required: [branch, generationTarget, cache]
+            properties:
+              branch:
+                type: string
+                enum: [original, rerun]
+              generationTarget: {$ref: '#/components/schemas/ReferenceExecutionTarget'}
+              cache: {$ref: '#/components/schemas/ReferenceCacheResult'}
+    ReferenceRunState:
+      type: object
+      additionalProperties: false
+      properties:
+        lastRunId: {$ref: '#/components/schemas/ReferenceIdentifier'}
+        lastTraceId: {$ref: '#/components/schemas/ReferenceIdentifier'}
+    ReferenceRunProgressEvent:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, sequence, type, data, runId]
+      properties:
+        schemaVersion: {type: integer, const: 1}
+        sequence: {type: integer, minimum: 1}
+        runId: {$ref: '#/components/schemas/ReferenceIdentifier'}
+        callId: {$ref: '#/components/schemas/ReferenceIdentifier'}
+        traceId: {$ref: '#/components/schemas/ReferenceIdentifier'}
+        type:
+          type: string
+          enum: [run.started, run.progress, run.completed, run.failed, history.recorded]
+        data: {}
+    ReferenceCredentialPayload:
+      type: object
+      additionalProperties: false
+      required: [apiKey]
+      properties:
+        apiKey: {type: string, minLength: 1, maxLength: 16384, writeOnly: true}
+        headers:
+          type: object
+          maxProperties: 64
+          additionalProperties: {type: string, maxLength: 8192}
+          writeOnly: true
+    ProfileDefinition:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, provider, apiInferenceType, baseUrl, modelId, pricing,
+        supportsTemperature, supportsContractedStructuredOutput, tokensParam, responsesTokensParam,
+        defaultOptions, recoveryPolicy]
+      properties:
+        schemaVersion:
+          type: integer
+          enum: [4]
+        provider: {type: string, minLength: 1, maxLength: 128}
+        apiInferenceType:
+          type: string
+          enum: [chat-completions, responses, gemini-generate-content, anthropic-messages]
+        baseUrl: {type: string, format: uri, pattern: '^https://', maxLength: 2048}
+        modelId: {type: string, minLength: 1, maxLength: 512}
+        pricing:
+          oneOf:
+          - {$ref: '#/components/schemas/ReferencePricing'}
+          - {type: 'null'}
+        supportsTemperature:
+          oneOf:
+          - {type: boolean}
+          - {type: 'null'}
+        supportsContractedStructuredOutput: {type: boolean}
+        supportsWebSearch: {type: boolean, default: false, description: 'Explicit native-search
+            capability for this profile''s route and model. Omission is false. Supported
+            adapters are Responses (including CPA and Perplexity Agent API), Gemini, and
+            Anthropic.'}
+        tokensParam:
+          oneOf:
+          - {type: string, maxLength: 128}
+          - {type: 'null'}
+        responsesTokensParam:
+          oneOf:
+          - {type: string, maxLength: 128}
+          - {type: 'null'}
+        defaultOptions: {type: object}
+        reasoningEffortMap:
+          type: object
+          additionalProperties: false
+          properties:
+            lowest: {type: object}
+            middle: {type: object}
+            highest: {type: object}
+        models:
+          type: array
+          maxItems: 5000
+          items: {$ref: '#/components/schemas/ReferenceModel'}
+        lastModelRefreshAt: {type: string, format: date-time}
+        recoveryPolicy: {$ref: '#/components/schemas/ReferenceRecoveryPolicy'}
+    ProfileCredentialBinding:
+      type: object
+      oneOf:
+      - type: object
+        additionalProperties: false
+        required: [source, deploymentUpstreamId]
+        properties:
+          source:
+            type: string
+            enum: [deployment]
+          deploymentUpstreamId: {type: string, minLength: 1, maxLength: 128}
+      - type: object
+        additionalProperties: false
+        required: [source, enteredCredentialId]
+        properties:
+          source:
+            type: string
+            enum: [entered]
+          enteredCredentialId: {type: string, minLength: 1, maxLength: 128}
+    CredentialStatus:
+      type: object
+      additionalProperties: false
+      required: [configured]
+      properties:
+        configured: {type: boolean}
+        source: {type: string}
+        id: {type: string}
+        revision: {type: integer, minimum: 0}
+        message: {type: string, maxLength: 512}
+    EnteredCredentialInput:
+      type: object
+      additionalProperties: false
+      required: [revision, origin, payload]
+      properties:
+        id: {type: string, maxLength: 128}
+        revision: {type: integer, minimum: 0}
+        origin: {type: string, format: uri}
+        payload: {$ref: '#/components/schemas/ReferenceCredentialPayload'}
+    ProfileInputs:
+      type: object
+      additionalProperties: false
+      required: []
+      properties:
+        modelId: {type: string, maxLength: 512}
+        systemPrompt: {type: string, maxLength: 32768}
+        userPrompt: {type: string, minLength: 1, maxLength: 65536}
+        callType:
+          type: string
+          enum: [text, structured]
+        schema: {type: object}
+        reasoningEffort:
+          type: string
+          enum: [lowest, middle, highest]
+        providerOptions: {type: object}
+        cacheMode:
+          type: string
+          enum: ['off', cache, refresh]
+        webSearch: {type: boolean, default: false, description: 'Use native provider web
+            search when supported, otherwise the configured Jina fallback. Cache semantics
+            remain unchanged.'}
+        cacheVersion: {type: string, maxLength: 64}
+        timeoutMs: {type: integer, minimum: 0, maximum: 60000, description: Zero or omission
+            selects the deployment maximum; a positive value may only lower it.}
+        recoveryPolicy: {$ref: '#/components/schemas/ReferenceRecoveryPolicy'}
+        origin: {$ref: '#/components/schemas/ReferenceRunOrigin'}
+        schemaShorthand: {type: string, maxLength: 65536}
+    SaveProfileInput:
+      type: object
+      additionalProperties: false
+      required: [definition, inputs, credentialBinding]
+      properties:
+        name: {type: string, maxLength: 1500}
+        presetId: {type: string, minLength: 1, maxLength: 1500}
+        definition: {$ref: '#/components/schemas/ProfileDefinition'}
+        inputs: {$ref: '#/components/schemas/ProfileInputs'}
+        credentialBinding: {$ref: '#/components/schemas/ProfileCredentialBinding'}
+        credential: {$ref: '#/components/schemas/EnteredCredentialInput'}
+    ProfileView:
+      type: object
+      additionalProperties: false
+      required: [id, name, kind, definition, credentialStatus]
+      properties:
+        id: {type: string, minLength: 1, maxLength: 1500}
+        name: {type: string, maxLength: 1500}
+        kind:
+          type: string
+          enum: [preset, saved]
+        presetId: {type: string, minLength: 1, maxLength: 1500}
+        createdAt: {type: string, format: date-time}
+        definition: {$ref: '#/components/schemas/ProfileDefinition'}
+        credentialStatus: {$ref: '#/components/schemas/CredentialStatus'}
+    ProfileDraft:
+      type: object
+      additionalProperties: false
+      required: [definition, inputs, credentialStatus]
+      properties:
+        sourceProfileId: {type: string, minLength: 1, maxLength: 1500}
+        presetId: {type: string, minLength: 1, maxLength: 1500}
+        definition: {$ref: '#/components/schemas/ProfileDefinition'}
+        inputs: {$ref: '#/components/schemas/ProfileInputs'}
+        credentialBinding: {$ref: '#/components/schemas/ProfileCredentialBinding'}
+        credentialStatus: {$ref: '#/components/schemas/CredentialStatus'}
+    ProfilesEnvelope:
+      type: object
+      additionalProperties: false
+      required: [profiles]
+      properties:
+        profiles:
+          type: array
+          items: {$ref: '#/components/schemas/ProfileView'}
+    ProfileEnvelope:
+      type: object
+      additionalProperties: false
+      required: [profile]
+      properties:
+        profile: {$ref: '#/components/schemas/ProfileView'}
+    Draft:
+      type: object
+      additionalProperties: false
+      required: [draftKey, revision, payload]
+      properties:
+        draftKey: {type: string, minLength: 1, maxLength: 128}
+        revision: {type: integer, minimum: 0}
+        payload: {type: object}
+    SaveDraftInput:
+      type: object
+      additionalProperties: false
+      required: [draftKey, revision, payload]
+      properties:
+        draftKey: {type: string, minLength: 1, maxLength: 128}
+        revision: {type: integer, minimum: 0}
+        payload: {type: object}
+    ReferenceError:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code: {type: string}
+        message: {type: string, maxLength: 512}
+        fieldErrors:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [field, message]
+            properties:
+              field: {type: string}
+              message: {type: string, maxLength: 512}
+        diagnostic: {$ref: '#/components/schemas/ReferenceDiagnostic'}
+        currentRevision: {type: integer, minimum: 0}
+    ReferenceErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error: {$ref: '#/components/schemas/ReferenceError'}
+    ReferenceDiagnostic:
+      type: object
+      additionalProperties: false
+      required: [code, component, operation, requestId, inferenceOutcome, persistenceOutcome,
+        cause, durationMs, message, action]
+      properties:
+        code: {type: string}
+        component: {type: string}
+        operation: {type: string}
+        requestId: {type: string}
+        runId: {type: string, format: uuid}
+        traceId: {type: string}
+        inferenceOutcome: {type: string}
+        persistenceOutcome: {type: string}
+        cause:
+          type: string
+          enum: [configuration, authentication, connection, timeout, schema, rejected,
+            unknown]
+        durationMs: {type: integer, minimum: 0}
+        message: {type: string, maxLength: 512}
+        action: {type: string, maxLength: 512}
+    FeatureStatus:
+      type: object
+      additionalProperties: false
+      required: [mode, status]
+      properties:
+        mode:
+          type: string
+          enum: [disabled, enabled]
+        status:
+          type: string
+          enum: [disabled, configured, configuration_error, unavailable]
+        diagnostic: {$ref: '#/components/schemas/ReferenceDiagnostic'}
+    ReferenceStatus:
+      type: object
+      additionalProperties: false
+      required: [storage, historyStatus, artifacts, credentials]
+      properties:
+        storage: {$ref: '#/components/schemas/FeatureStatus'}
+        historyStatus: {$ref: '#/components/schemas/FeatureStatus'}
+        artifacts: {$ref: '#/components/schemas/FeatureStatus'}
+        credentials: {$ref: '#/components/schemas/FeatureStatus'}
+        history:
+          type: object
+          additionalProperties: false
+          required: [rows, tableBytes]
+          properties:
+            rows:
+              type: [integer, 'null']
+              minimum: 0
+            tableBytes:
+              type: [integer, 'null']
+              minimum: 0
+    ProfileBundle:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, bundleId, createdAt, apiKeyHash, profiles, hiddenPresets,
+        credentials]
+      properties:
+        schemaVersion:
+          type: integer
+          enum: [4]
+        bundleId: {type: string, format: uuid}
+        createdAt: {type: string, format: date-time}
+        apiKeyHash: {type: string, pattern: '^[0-9a-f]{64}$'}
+        profiles:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [profile, inputs, credentialBinding]
+            properties:
+              profile: {$ref: '#/components/schemas/ProfileView'}
+              inputs: {$ref: '#/components/schemas/ProfileInputs'}
+              credentialBinding: {$ref: '#/components/schemas/ProfileCredentialBinding'}
+        hiddenPresets:
+          type: array
+          items: {type: string, minLength: 1, maxLength: 1500}
+        credentials:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, origin, keyId, nonce, ciphertext, revision]
+            properties:
+              id: {type: string}
+              origin: {type: string}
+              keyId:
+                type: string
+                enum: [primary]
+              nonce: {type: string, contentEncoding: base64}
+              ciphertext: {type: string, contentEncoding: base64}
+              revision: {type: integer, minimum: 1}
+    RunInput:
+      type: object
+      additionalProperties: false
+      required: [profileId, userPrompt, callType, recoveryPolicy]
+      properties:
+        profileId: {$ref: '#/components/schemas/ReferenceProfileID'}
+        modelId: {type: string, maxLength: 512}
+        systemPrompt: {type: string, maxLength: 32768}
+        userPrompt: {type: string, minLength: 1, maxLength: 65536}
+        callType:
+          type: string
+          enum: [text, structured]
+        schema: {type: object}
+        reasoningEffort:
+          type: string
+          enum: [lowest, middle, highest]
+        providerOptions: {type: object}
+        cacheMode:
+          type: string
+          enum: ['off', cache, refresh]
+        webSearch: {type: boolean, default: false, description: 'Use native provider web
+            search when supported, otherwise the configured Jina fallback. Cache semantics
+            remain unchanged.'}
+        cacheVersion: {type: string, maxLength: 64}
+        timeoutMs: {type: integer, minimum: 0, maximum: 60000, description: Zero or omission
+            selects the deployment maximum; a positive value may only lower it.}
+        recoveryPolicy: {$ref: '#/components/schemas/ReferenceRecoveryPolicy'}
+        origin: {$ref: '#/components/schemas/ReferenceRunOrigin'}
+    RecordedRunOutput:
+      type: object
+      additionalProperties: false
+      allOf:
+      - {$ref: '#/components/schemas/ReferenceRunTargetAvailability'}
+      required: [schemaVersion, runId, status, output, callId, traceId, selectedTarget,
+        resultSource, accounting, attempts, cache, artifacts, providerInvoked, totalCallDurationMs,
+        totalWaitMs, totalActualWaitMs, overBudgetMs, usedRepair]
+      properties:
+        schemaVersion:
+          type: integer
+          enum: [4]
+        runId: {$ref: '#/components/schemas/ReferenceIdentifier'}
+        status:
+          type: string
+          enum: [succeeded, failed, timeout]
+        output: {nullable: true}
+        search: {$ref: '#/components/schemas/ReferenceWebSearchResult'}
+        callId: {$ref: '#/components/schemas/ReferenceIdentifier'}
+        traceId: {$ref: '#/components/schemas/ReferenceIdentifier'}
+        origin: {$ref: '#/components/schemas/ReferenceRunOrigin'}
+        selectedTarget:
+          description: Resolved generation target; null when validation fails before a target is available.
+          oneOf:
+          - {$ref: '#/components/schemas/ReferenceExecutionTarget'}
+          - {type: 'null'}
+        resultSource: {$ref: '#/components/schemas/ReferenceResultSource'}
+        accounting: {$ref: '#/components/schemas/ReferenceAccounting'}
+        attempts:
+          type: array
+          maxItems: 10
+          items: {$ref: '#/components/schemas/ReferenceAttempt'}
+        cache: {$ref: '#/components/schemas/ReferenceCacheResult'}
+        artifacts:
+          type: array
+          items: {$ref: '#/components/schemas/ReferenceRunArtifact'}
+        providerInvoked: {type: boolean, description: 'True when at least one model attempt
+            observed request headers being written; search-only and pre-dispatch failures
+            remain false, and the value does not prove remote execution or billing.'}
+        totalCallDurationMs: {type: integer, minimum: 0, description: Elapsed runtime
+            call duration in milliseconds.}
+        totalWaitMs: {type: integer, minimum: 0, description: Sum of retry waits in milliseconds.}
+        totalActualWaitMs: {type: integer, minimum: 0, nullable: true, description: Measured
+            elapsed retry-wait time in milliseconds; planned wait remains totalWaitMs.}
+        overBudgetMs: {type: integer, minimum: 0, description: Amount by which an explicit
+            per-run timeout budget was exceeded.}
+        usedRepair: {type: boolean, description: Whether structured-output repair was
+            used.}
+        generationTarget: {$ref: '#/components/schemas/ReferenceExecutionTarget'}
+        stopReason:
+          type: string
+          enum: [succeeded, attempts_exhausted, recovery_exhausted, deadline_exceeded,
+            canceled, terminal_error, configuration_error, repair_input_limit_exceeded,
+            response_limit_exceeded]
+        diagnostics: {$ref: '#/components/schemas/ReferenceRunDiagnostics'}
+    RunOutput:
+      type: object
+      additionalProperties: false
+      allOf:
+      - {$ref: '#/components/schemas/ReferenceRunTargetAvailability'}
+      required: [schemaVersion, runId, status, output, callId, traceId, selectedTarget,
+        resultSource, accounting, attempts, cache, artifacts, providerInvoked, totalCallDurationMs,
+        totalWaitMs, totalActualWaitMs, overBudgetMs, usedRepair, history]
+      properties:
+        schemaVersion: {$ref: '#/components/schemas/RecordedRunOutput/properties/schemaVersion'}
+        runId: {$ref: '#/components/schemas/RecordedRunOutput/properties/runId'}
+        status: {$ref: '#/components/schemas/RecordedRunOutput/properties/status'}
+        output: {$ref: '#/components/schemas/RecordedRunOutput/properties/output'}
+        search: {$ref: '#/components/schemas/RecordedRunOutput/properties/search'}
+        callId: {$ref: '#/components/schemas/RecordedRunOutput/properties/callId'}
+        traceId: {$ref: '#/components/schemas/RecordedRunOutput/properties/traceId'}
+        origin: {$ref: '#/components/schemas/RecordedRunOutput/properties/origin'}
+        selectedTarget: {$ref: '#/components/schemas/RecordedRunOutput/properties/selectedTarget'}
+        resultSource: {$ref: '#/components/schemas/RecordedRunOutput/properties/resultSource'}
+        accounting: {$ref: '#/components/schemas/RecordedRunOutput/properties/accounting'}
+        attempts: {$ref: '#/components/schemas/RecordedRunOutput/properties/attempts'}
+        cache: {$ref: '#/components/schemas/RecordedRunOutput/properties/cache'}
+        artifacts: {$ref: '#/components/schemas/RecordedRunOutput/properties/artifacts'}
+        providerInvoked: {$ref: '#/components/schemas/RecordedRunOutput/properties/providerInvoked'}
+        totalCallDurationMs: {$ref: '#/components/schemas/RecordedRunOutput/properties/totalCallDurationMs'}
+        totalWaitMs: {$ref: '#/components/schemas/RecordedRunOutput/properties/totalWaitMs'}
+        totalActualWaitMs: {$ref: '#/components/schemas/RecordedRunOutput/properties/totalActualWaitMs'}
+        overBudgetMs: {$ref: '#/components/schemas/RecordedRunOutput/properties/overBudgetMs'}
+        usedRepair: {$ref: '#/components/schemas/RecordedRunOutput/properties/usedRepair'}
+        generationTarget: {$ref: '#/components/schemas/RecordedRunOutput/properties/generationTarget'}
+        stopReason: {$ref: '#/components/schemas/RecordedRunOutput/properties/stopReason'}
+        diagnostics: {$ref: '#/components/schemas/RecordedRunOutput/properties/diagnostics'}
+        history: {$ref: '#/components/schemas/RecordingOutcome'}
+    RunEnvelope:
+      type: object
+      additionalProperties: false
+      required: [result, state]
+      properties:
+        result: {$ref: '#/components/schemas/RunOutput'}
+        state: {$ref: '#/components/schemas/ReferenceRunState'}
+    HistoryPage:
+      type: object
+      additionalProperties: false
+      required: [items, pagination, window, history]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/HistorySummary'}
+        pagination: {$ref: '#/components/schemas/HistoryPagination'}
+        window: {$ref: '#/components/schemas/HistoryWindow'}
+        history: {$ref: '#/components/schemas/FeatureStatus'}
+    HistoryRecord:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, runId, startedAt, finishedAt, status, summary, request,
+        result, error]
+      properties:
+        schemaVersion:
+          type: integer
+          enum: [1]
+        runId: {type: string, format: uuid}
+        startedAt: {type: string, format: date-time}
+        finishedAt: {type: string, format: date-time}
+        status:
+          type: string
+          enum: [succeeded, failed, timeout]
+        summary: {$ref: '#/components/schemas/HistorySummary'}
+        request: {$ref: '#/components/schemas/HistoryRequest'}
+        result: {$ref: '#/components/schemas/RecordedRunOutput'}
+        error:
+          oneOf:
+          - {$ref: '#/components/schemas/ReferenceError'}
+          - {type: 'null'}
+      description: Complete safe terminal reference execution. Storage scope is server-owned
+        and never returned. Encoded request plus result at most 17 MiB; no truncation.
+        Stored result excludes RecordingOutcome.
+    RecordingOutcome:
+      type: object
+      additionalProperties: false
+      required: [mode, status, runId]
+      properties:
+        mode:
+          type: string
+          enum: [disabled, enabled]
+        status:
+          type: string
+          enum: [disabled, configuration_error, saved, not_saved, unconfirmed]
+        runId: {type: string, format: uuid}
+        diagnostic: {$ref: '#/components/schemas/ReferenceDiagnostic'}
+      description: Inference-independent history outcome. After unknown COMMIT, absent
+        or failed single readback remains unconfirmed; no polling, reinsertion or inference
+        replay.
+    Statistics:
+      type: object
+      additionalProperties: false
+      required: [scope, window, totalCount, succeeded, failed, timeout, cacheServed, accounting]
+      properties:
+        scope:
+          type: string
+          enum: [available_records]
+        window: {$ref: '#/components/schemas/HistoryWindow'}
+        totalCount: {type: integer, minimum: 0}
+        succeeded: {type: integer, minimum: 0}
+        failed: {type: integer, minimum: 0}
+        timeout: {type: integer, minimum: 0}
+        cacheServed: {type: integer, minimum: 0}
+        accounting: {$ref: '#/components/schemas/ReferenceAccounting'}
+    ClearResult:
+      type: object
+      additionalProperties: false
+      required: [deleted, cutoff, complete]
+      properties:
+        deleted: {type: integer, minimum: 0}
+        cutoff: {type: string, format: date-time}
+        complete: {type: boolean}
+        failedRunId: {type: string, format: uuid}
+        error: {$ref: '#/components/schemas/ReferenceError'}
+    ArtifactMetadata:
+      type: object
+      additionalProperties: false
+      required: [artifactId, kind, state, sha256, sizeBytes, contentType]
+      properties:
+        artifactId: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'}
+        kind:
+          type: string
+          enum: [trace, parse-failure-response, diagnostic-event, support-bundle]
+        state: {type: string, const: available}
+        sha256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        sizeBytes: {type: integer, minimum: 1}
+        contentType: {type: string, const: application/json}
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status: {type: string, enum: [ok, ready]}
+      additionalProperties: false
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [message, type, param, code]
+          properties:
+            message: {type: string}
+            type: {type: string}
+            param: {type: [string, 'null']}
+            code: {type: string}
+          additionalProperties: false
+        harden: {$ref: '#/components/schemas/HardenResult'}
+      additionalProperties: false
+    ModelList:
+      type: object
+      required: [object, data]
+      properties:
+        object: {const: list}
+        data:
+          type: array
+          items: {$ref: '#/components/schemas/Model'}
+      additionalProperties: false
+    Model:
+      type: object
+      required: [id, object, created, owned_by]
+      properties:
+        id: {type: string}
+        object: {const: model}
+        created: {type: integer, const: 0}
+        owned_by: {type: string}
+        name: {type: string, description: Optional upstream display label.}
+      additionalProperties: false
+    ChatCompletionRequest:
+      type: object
+      required: [model, messages]
+      properties:
+        model: {type: string, minLength: 1, maxLength: 512}
+        messages:
+          type: array
+          minItems: 1
+          maxItems: 4096
+          items: {$ref: '#/components/schemas/ChatMessage'}
+        tools:
+          type: array
+          maxItems: 128
+          items: {$ref: '#/components/schemas/ChatFunctionTool'}
+        tool_choice:
+          oneOf:
+            - type: string
+              enum: [auto, none, required]
+            - $ref: '#/components/schemas/ChatNamedToolChoice'
+        response_format:
+          oneOf:
+            - type: object
+              required: [type]
+              properties:
+                type: {const: json_object}
+              additionalProperties: false
+            - type: object
+              required: [type, json_schema]
+              properties:
+                type: {const: json_schema}
+                json_schema: {$ref: '#/components/schemas/JSONSchemaFormat'}
+              additionalProperties: false
+        stream: {type: boolean, default: false}
+        stream_options:
+          type: object
+          properties:
+            include_usage: {type: boolean}
+          additionalProperties: false
+        n: {type: integer, const: 1}
+        store: {type: boolean, const: false}
+        max_tokens: {type: integer, minimum: 1}
+        max_completion_tokens: {type: integer, minimum: 1}
+        temperature: {type: number, minimum: 0, maximum: 2}
+        top_p: {type: number, minimum: 0, maximum: 1}
+        frequency_penalty: {type: number, minimum: -2, maximum: 2}
+        presence_penalty: {type: number, minimum: -2, maximum: 2}
+        seed: {type: integer, format: int64}
+        stop:
+          oneOf:
+            - type: string
+            - type: array
+              maxItems: 4
+              items: {type: string}
+        reasoning_effort: {type: string, minLength: 1, maxLength: 128}
+        harden: {$ref: '#/components/schemas/HardenRequest'}
+      additionalProperties: false
+    ChatMessage:
+      oneOf:
+        - type: object
+          required: [role, content]
+          properties:
+            role: {type: string, enum: [system, developer, user]}
+            content: {type: string}
+            name: {type: string}
+          additionalProperties: false
+        - type: object
+          required: [role]
+          properties:
+            role: {const: assistant}
+            content:
+              oneOf:
+                - {type: string}
+                - {type: 'null'}
+            name: {type: string}
+            tool_calls:
+              type: array
+              maxItems: 128
+              items: {$ref: '#/components/schemas/ChatToolCall'}
+          additionalProperties: false
+        - type: object
+          required: [role, tool_call_id, content]
+          properties:
+            role: {const: tool}
+            tool_call_id: {type: string, minLength: 1}
+            content: {type: string}
+            name: {type: string}
+          additionalProperties: false
+    TextContent:
+      oneOf:
+        - {type: string}
+        - type: array
+          minItems: 1
+          items:
+            type: object
+            required: [type, text]
+            properties:
+              type: {type: string, enum: [text, input_text, output_text]}
+              text: {type: string}
+            additionalProperties: false
+    ChatToolCall:
+      type: object
+      required: [id, type, function]
+      properties:
+        id: {type: string, minLength: 1, maxLength: 256}
+        type: {const: function}
+        function:
+          type: object
+          required: [name, arguments]
+          properties:
+            name: {type: string, minLength: 1, maxLength: 64}
+            arguments: {type: string}
+          additionalProperties: false
+      additionalProperties: false
+    ChatFunctionTool:
+      type: object
+      required: [type, function]
+      properties:
+        type: {const: function}
+        function:
+          type: object
+          required: [name, parameters]
+          properties:
+            name: {type: string, minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$'}
+            description: {type: string, maxLength: 1024}
+            parameters: {type: object}
+            strict: {type: boolean}
+          additionalProperties: false
+      additionalProperties: false
+    ChatNamedToolChoice:
+      type: object
+      required: [type, function]
+      properties:
+        type: {const: function}
+        function:
+          type: object
+          required: [name]
+          properties:
+            name: {type: string}
+          additionalProperties: false
+      additionalProperties: false
+    JSONSchemaFormat:
+      type: object
+      required: [name, schema]
+      properties:
+        name: {type: string, minLength: 1}
+        schema: {type: object}
+        strict: {type: boolean}
+      additionalProperties: false
+    ResponseJSONSchemaFormat:
+      type: object
+      required: [type, name, schema]
+      properties:
+        type: {const: json_schema}
+        name: {type: string, minLength: 1}
+        schema: {type: object}
+        strict: {type: boolean}
+      additionalProperties: false
+    ResponseRequest:
+      type: object
+      required: [model, input]
+      properties:
+        model: {type: string, minLength: 1, maxLength: 512}
+        input:
+          oneOf:
+            - type: string
+            - type: array
+              minItems: 1
+              maxItems: 4096
+              items: {$ref: '#/components/schemas/ResponseInputItem'}
+        instructions: {type: string}
+        tools:
+          type: array
+          maxItems: 128
+          items:
+            oneOf:
+              - {$ref: '#/components/schemas/ResponseFunctionTool'}
+              - type: object
+                required: [type]
+                properties:
+                  type: {const: web_search}
+                additionalProperties: false
+        tool_choice:
+          oneOf:
+            - type: string
+              enum: [auto, none, required]
+            - {$ref: '#/components/schemas/ResponseNamedToolChoice'}
+        text:
+          type: object
+          required: [format]
+          properties:
+            format:
+              oneOf:
+                - type: object
+                  required: [type]
+                  properties:
+                    type: {const: json_object}
+                  additionalProperties: false
+                - {$ref: '#/components/schemas/ResponseJSONSchemaFormat'}
+          additionalProperties: false
+        stream: {type: boolean, default: false}
+        store: {type: boolean, const: false}
+        background: {type: boolean, const: false}
+        max_output_tokens: {type: integer, minimum: 1}
+        temperature: {type: number, minimum: 0, maximum: 2}
+        top_p: {type: number, minimum: 0, maximum: 1}
+        reasoning:
+          type: object
+          required: [effort]
+          properties:
+            effort: {type: string, minLength: 1, maxLength: 128}
+          additionalProperties: false
+        truncation: {type: string, enum: [auto, disabled]}
+        parallel_tool_calls: {type: boolean}
+        n: {type: integer, const: 1}
+        harden: {$ref: '#/components/schemas/HardenRequest'}
+      additionalProperties: false
+    ResponseInputItem:
+      oneOf:
+        - type: object
+          required: [role, content]
+          properties:
+            type: {type: string, enum: [message]}
+            role: {type: string, enum: [system, developer, user, assistant]}
+            content: {$ref: '#/components/schemas/TextContent'}
+          additionalProperties: false
+        - type: object
+          required: [type, call_id, name, arguments]
+          properties:
+            type: {const: function_call}
+            id: {type: string}
+            call_id: {type: string, minLength: 1}
+            name: {type: string, minLength: 1}
+            arguments: {type: string}
+          additionalProperties: false
+        - type: object
+          required: [type, call_id, output]
+          properties:
+            type: {const: function_call_output}
+            call_id: {type: string, minLength: 1}
+            output: {type: string}
+          additionalProperties: false
+    ResponseFunctionTool:
+      type: object
+      required: [type, name, parameters]
+      properties:
+        type: {const: function}
+        name: {type: string, minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$'}
+        description: {type: string, maxLength: 1024}
+        parameters: {type: object}
+        strict: {type: boolean}
+      additionalProperties: false
+    ResponseNamedToolChoice:
+      type: object
+      required: [type, name]
+      properties:
+        type: {const: function}
+        name: {type: string}
+      additionalProperties: false
+    ChatCompletion:
+      type: object
+      required: [id, object, created, model, choices]
+      properties:
+        id: {type: string}
+        object: {const: chat.completion}
+        created: {type: integer}
+        model: {type: string}
+        choices:
+          type: array
+          minItems: 1
+          maxItems: 1
+          items:
+            type: object
+            required: [index, message, finish_reason]
+            properties:
+              index: {const: 0}
+              message:
+                type: object
+                required: [role]
+                properties:
+                  role: {const: assistant}
+                  content: {type: [string, 'null']}
+                  tool_calls:
+                    type: array
+                    items: {$ref: '#/components/schemas/ChatToolCall'}
+                additionalProperties: false
+              finish_reason: {type: string, enum: [stop, tool_calls]}
+            additionalProperties: false
+        usage: {$ref: '#/components/schemas/ChatUsage'}
+        harden: {$ref: '#/components/schemas/HardenResult'}
+      additionalProperties: false
+    ChatUsage:
+      type: object
+      required: [prompt_tokens, completion_tokens, total_tokens]
+      properties:
+        prompt_tokens: {type: integer}
+        completion_tokens: {type: integer}
+        total_tokens: {type: integer}
+        prompt_tokens_details:
+          type: object
+          properties:
+            cached_tokens: {type: integer}
+          additionalProperties: false
+        completion_tokens_details:
+          type: object
+          properties:
+            reasoning_tokens: {type: integer}
+          additionalProperties: false
+      additionalProperties: false
+    Response:
+      type: object
+      required: [id, object, created_at, status, model, output, output_text, parallel_tool_calls]
+      properties:
+        id: {type: string}
+        object: {const: response}
+        created_at: {type: integer}
+        status: {const: completed}
+        model: {type: string}
+        output:
+          type: array
+          items:
+            oneOf:
+              - type: object
+                required: [id, type, status, role, content]
+                properties:
+                  id: {type: string}
+                  type: {const: message}
+                  status: {const: completed}
+                  role: {const: assistant}
+                  content:
+                    type: array
+                    items:
+                      type: object
+                      required: [type, text, annotations]
+                      properties:
+                        type: {const: output_text}
+                        text: {type: string}
+                        annotations: {type: array, items: {type: object}}
+                      additionalProperties: false
+                additionalProperties: false
+              - type: object
+                required: [id, type, status, call_id, name, arguments]
+                properties:
+                  id: {type: string}
+                  type: {const: function_call}
+                  status: {const: completed}
+                  call_id: {type: string}
+                  name: {type: string}
+                  arguments: {type: string}
+                additionalProperties: false
+        output_text: {type: string}
+        parallel_tool_calls: {type: boolean}
+        usage: {$ref: '#/components/schemas/ResponseUsage'}
+        harden: {$ref: '#/components/schemas/HardenResult'}
+      additionalProperties: false
+    ResponseUsage:
+      type: object
+      required: [input_tokens, output_tokens, total_tokens, input_tokens_details, output_tokens_details]
+      properties:
+        input_tokens: {type: integer}
+        output_tokens: {type: integer}
+        total_tokens: {type: integer}
+        input_tokens_details:
+          type: object
+          required: [cached_tokens]
+          properties:
+            cached_tokens: {type: integer}
+          additionalProperties: false
+        output_tokens_details:
+          type: object
+          required: [reasoning_tokens]
+          properties:
+            reasoning_tokens: {type: integer}
+          additionalProperties: false
+      additionalProperties: false
+    HardenRequest:
+      type: object
+      properties:
+        upstream: {type: string, minLength: 1, maxLength: 128}
+        cache: {type: string, enum: [off, cache, refresh], default: off}
+        timeout_ms: {type: integer, minimum: 0, maximum: 60000}
+        recovery: {$ref: '#/components/schemas/RecoveryPolicy'}
+        diagnostics: {type: boolean, default: false}
+      additionalProperties: false
+    RecoveryPolicy:
+      type: object
+      required: [maxAttempts, retryOn, backoff, jsonRepair, rerun]
+      properties:
+        maxAttempts: {type: integer, minimum: 1, maximum: 10}
+        retryOn:
+          type: array
+          uniqueItems: true
+          items: {type: string, enum: [network, rate_limit, server_error, empty_response, provider_retry]}
+        backoff:
+          type: object
+          required: [baseDelayMs, maxDelayMs]
+          properties:
+            baseDelayMs: {type: integer, minimum: 0, maximum: 60000}
+            maxDelayMs: {type: integer, minimum: 0, maximum: 600000}
+          additionalProperties: false
+        jsonRepair:
+          oneOf:
+            - {$ref: '#/components/schemas/RepairPlan'}
+            - {type: 'null'}
+        rerun:
+          oneOf:
+            - {$ref: '#/components/schemas/RerunPlan'}
+            - {type: 'null'}
+      additionalProperties: false
+    RepairPlan:
+      type: object
+      required: [initial, escalation]
+      properties:
+        initial: {$ref: '#/components/schemas/RecoveryTarget'}
+        escalation:
+          oneOf:
+            - {$ref: '#/components/schemas/RecoveryTarget'}
+            - {type: 'null'}
+      additionalProperties: false
+    RerunPlan:
+      type: object
+      required: [target, jsonRepair]
+      properties:
+        target: {$ref: '#/components/schemas/RecoveryTarget'}
+        jsonRepair:
+          oneOf:
+            - {$ref: '#/components/schemas/RepairPlan'}
+            - {type: 'null'}
+      additionalProperties: false
+    RecoveryTarget:
+      type: object
+      required: [source]
+      properties:
+        source:
+          type: string
+          enum: [model, generation]
+        modelId: {type: string, maxLength: 512}
+        reasoningEffort: {type: string, maxLength: 128}
+        providerOptions: {type: object}
+      additionalProperties: false
+    HardenResult:
+      type: object
+      description: Bounded opt-in execution metadata; omitted from ordinary OpenAI responses.
+      properties:
+        execution_id: {type: string}
+        trace_id: {type: string}
+        selected_target: {type: object}
+        generation_target: {type: object}
+        result_source: {type: object}
+        accounting: {type: object}
+        attempts: {type: array, items: {type: object}}
+        cache: {type: object}
+        diagnostics: {type: object}
+      additionalProperties: false

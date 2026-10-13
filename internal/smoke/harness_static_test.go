@@ -19,7 +19,7 @@ func TestComposeHarnessUsesStatelessOpenAIProxyContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	frontendText := string(frontendFixture)
-	for _, retired := range []string{"HARDEN_LLM_STATIC_TOKEN", "HARDEN_LLM_STATIC_TOKEN_USER_ID", "profileId", "api/v1/profiles", "api/v1/traces"} {
+	for _, retired := range []string{"HARDEN_LLM_STATIC_TOKEN", "HARDEN_LLM_STATIC_TOKEN_USER_ID"} {
 		if strings.Contains(text, retired) {
 			t.Fatalf("Compose smoke still uses retired profile/account storage contract %q", retired)
 		}
@@ -31,6 +31,9 @@ func TestComposeHarnessUsesStatelessOpenAIProxyContract(t *testing.T) {
 	}
 	if strings.Contains(text+frontendText, "bootstrap-user") || strings.Contains(text, "/api/v1/auth/login") {
 		t.Fatal("Compose smoke still provisions a product-owned human identity")
+	}
+	if strings.Contains(frontendText, "Release.migrate") || !strings.Contains(frontendText, "prepareSmokeApplications(t, runner)") {
+		t.Fatal("frontend fixture must use the shared Go schema/build startup path")
 	}
 	if !strings.Contains(frontendText, "startFrontendControlPlaneFixture") {
 		t.Fatal("frontend Compose smoke does not use its test-only shared identity boundary")

@@ -1,0 +1,55 @@
+{
+  "accepted": false,
+  "runDirectory": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/run-1791848558291-1671313-nuh8w2",
+  "results": [
+    {
+      "taskId": "go-integration",
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-tags=integration",
+        "./stateful",
+        "-run",
+        "^TestHistoryQueries$",
+        "-count=1"
+      ],
+      "status": 1,
+      "seed": 233256,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 8609,
+      "peakRssMiB": 277.51171875,
+      "cpuMs": 4770,
+      "stdoutBytes": 1500,
+      "stderrBytes": 0,
+      "truncatedOutputBytes": 0,
+      "stdoutPreview": "--- FAIL: TestHistoryQueries (1.53s)\n    --- FAIL: TestHistoryQueries/statistics_use_the_same_key_window_with_truthful_known_and_unknown_accounting (0.19s)\n        history_queries_integration_test.go:33: statistics disguised incomplete cost or crossed scope { {<nil> 0001-01-01 00:00:00 +0000 UTC} 0 0 0 0 0 {{{0 0 0 0 0 0 0 0 } {0   0 0}} {{0 0 0 0 0 0 0 0 } {0   0 0}}}}\n    --- FAIL: TestHistoryQueries/delete_removes_exact_run_prefix_before_row_and_denies_foreign_key (0.18s)\n        history_queries_integration_test.go:38: expected code history_not_found, got <nil>\n    --- FAIL: TestHistoryQueries/partial_object_cleanup_preserves_row_and_explicit_retry_completes (0.17s)\n        history_queries_integration_test.go:49: expected code artifact_cleanup_failed, got <nil>\n    --- FAIL: TestHistoryQueries/clear_freezes_cutoff_and_limits_batches_to_one_hundred (0.67s)\n        history_queries_integration_test.go:57: clear batch/cutoff/scope wrong {0 0001-01-01 00:00:00 +0000 UTC false  <nil>} <nil> []\n    --- FAIL: TestHistoryQueries/clear_stops_on_first_failed_run_and_leaves_later_rows (0.17s)\n        history_queries_integration_test.go:63: expected code artifact_cleanup_failed, got <nil>\n    --- FAIL: TestHistoryQueries/disabled_artifacts_allow_row-only_delete_and_clear (0.15s)\n        history_queries_integration_test.go:68: history setup did not persist {enabled not_saved 00000000-0000-4000-8000-000000000001 0x2fa9d458300}\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t1.535s\nFAIL\n",
+      "stderrPreview": "",
+      "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t1.535s | FAIL",
+      "failureDetail": "--- FAIL: TestHistoryQueries (1.53s)\n    --- FAIL: TestHistoryQueries/statistics_use_the_same_key_window_with_truthful_known_and_unknown_accounting (0.19s)\n        history_queries_integration_test.go:33: statistics disguised incomplete cost or crossed scope { {<nil> 0001-01-01 00:00:00 +0000 UTC} 0 0 0 0 0 {{{0 0 0 0 0 0 0 0 } {0   0 0}} {{0 0 0 0 0 0 0 0 } {0   0 0}}}}\n    --- FAIL: TestHistoryQueries/delete_removes_exact_run_prefix_before_row_and_denies_foreign_key (0.18s)\n        history_queries_integration_test.go:38: expected code history_not_found, got <nil>\n    --- FAIL: TestHistoryQueries/partial_object_cleanup_preserves_row_and_explicit_retry_completes (0.17s)\n        history_queries_integration_test.go:49: expected code artifact_cleanup_failed, got <nil>\n    --- FAIL: TestHistoryQueries/clear_freezes_cutoff_and_limits_batches_to_one_hundred (0.67s)\n        history_queries_integration_test.go:57: clear batch/cutoff/scope wrong {0 0001-01-01 00:00:00 +0000 UTC false  <nil>} <nil> []\n    --- FAIL: TestHistoryQueries/clear_stops_on_first_failed_run_and_leaves_later_rows (0.17s)\n        history_queries_integration_test.go:63: expected code artifact_cleanup_failed, got <nil>\n    --- FAIL: TestHistoryQueries/disabled_artifacts_allow_row-only_delete_and_clear (0.15s)\n        history_queries_integration_test.go:68: history setup did not persist {enabled not_saved 00000000-0000-4000-8000-000000000001 0x2fa9d458300}\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t1.535s\nFAIL",
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": true,
+      "servicePoolProject": "harden-llm-test-2e8676ac22b4",
+      "startedAtMs": 428,
+      "endedAtMs": 9036
+    }
+  ],
+  "firstFailure": {
+    "taskId": "go-integration",
+    "status": 1,
+    "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t1.535s | FAIL",
+    "failureDetail": "--- FAIL: TestHistoryQueries (1.53s)\n    --- FAIL: TestHistoryQueries/statistics_use_the_same_key_window_with_truthful_known_and_unknown_accounting (0.19s)\n        history_queries_integration_test.go:33: statistics disguised incomplete cost or crossed scope { {<nil> 0001-01-01 00:00:00 +0000 UTC} 0 0 0 0 0 {{{0 0 0 0 0 0 0 0 } {0   0 0}} {{0 0 0 0 0 0 0 0 } {0   0 0}}}}\n    --- FAIL: TestHistoryQueries/delete_removes_exact_run_prefix_before_row_and_denies_foreign_key (0.18s)\n        history_queries_integration_test.go:38: expected code history_not_found, got <nil>\n    --- FAIL: TestHistoryQueries/partial_object_cleanup_preserves_row_and_explicit_retry_completes (0.17s)\n        history_queries_integration_test.go:49: expected code artifact_cleanup_failed, got <nil>\n    --- FAIL: TestHistoryQueries/clear_freezes_cutoff_and_limits_batches_to_one_hundred (0.67s)\n        history_queries_integration_test.go:57: clear batch/cutoff/scope wrong {0 0001-01-01 00:00:00 +0000 UTC false  <nil>} <nil> []\n    --- FAIL: TestHistoryQueries/clear_stops_on_first_failed_run_and_leaves_later_rows (0.17s)\n        history_queries_integration_test.go:63: expected code artifact_cleanup_failed, got <nil>\n    --- FAIL: TestHistoryQueries/disabled_artifacts_allow_row-only_delete_and_clear (0.15s)\n        history_queries_integration_test.go:68: history setup did not persist {enabled not_saved 00000000-0000-4000-8000-000000000001 0x2fa9d458300}\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t1.535s\nFAIL"
+  },
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 75,
+    "daemonLockWaitMs": 117,
+    "staleReceiptRecoveryMs": 112
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": []
+}

@@ -1,0 +1,6 @@
+--- FAIL: TestPRLSComposeSharedOwner (0.00s)
+    prls_observability_test.go:40: harden-owned services = [gateway-schema grafana harden-llm-gateway loki otel-collector otel-collector-state-init prometheus tempo], want exactly [grafana harden-llm-gateway loki otel-collector otel-collector-state-init prometheus tempo]
+FAIL
+FAIL    github.com/prls-co/harden-llm/internal/deploytest   0.019s
+ok      github.com/prls-co/harden-llm/internal/testkit  0.227s
+FAIL

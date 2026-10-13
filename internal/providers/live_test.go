@@ -19,6 +19,7 @@ import (
 	"time"
 
 	hardenllm "github.com/prls-co/harden-llm"
+	"github.com/prls-co/harden-llm/stateful"
 )
 
 const liveProvidersEnvironment = "HARDEN_LLM_LIVE_PROVIDERS"
@@ -88,7 +89,7 @@ func TestLiveProviders(t *testing.T) {
 				t.Fatalf("provider %s has an invalid HTTPS base URL", name)
 			}
 			item.Connection.APIKey = credential
-			client, err := hardenllm.New(hardenllm.Options{
+			client, err := stateful.NewClient(stateful.ClientOptions{
 				Connections:    []hardenllm.Connection{item.Connection},
 				EndpointPolicy: hardenllm.EndpointPolicy{AllowedHosts: []string{base.Hostname()}},
 			})

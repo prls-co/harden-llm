@@ -1,0 +1,779 @@
+Compiling 17 files (.ex)
+      warning: variable "profile" is unused (if the variable is not meant to be used, prefix it with an underscore)
+      │
+ 1210 │       profile = profile_state["definition"] || %{}
+      │       ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1210:7: HardenLlmWeb.WorkspaceLive.profile_options/1
+
+     warning: variable "id" is unused (if the variable is not meant to be used, prefix it with an underscore)
+     │
+ 623 │           id = params["profileId"] || ""
+     │           ~
+     │
+     └─ lib/harden_llm_web/live/profile_widget_component.ex:623:11: HardenLlmWeb.ProfileWidgetComponent.handle_event/3
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │
+ 1667 │     do: ~p"/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1667: HardenLlmWeb.WorkspaceLive.artifact_url/2
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}"
+      │
+ 1662 │     do: ~p"/traces/#{trace_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1662: HardenLlmWeb.WorkspaceLive.trace_url/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+      │
+ 1888 │         <a id={scope_id(@id_prefix, "export-bundle")} href={~p"/profiles/bundle"} class="ullm-btn">Export Bundle</a>
+      │         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      │
+      └─ lib/harden_llm_web/live/profile_widget_component.ex:1888: HardenLlmWeb.ProfileWidgetComponent.profile_editor/1
+
+Generated harden_llm app
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+18:42:48.052 [error] GenServer #PID<0.901.0> terminating
+** (KeyError) key :api_context not found in:
+
+    %PrlsWeb.Access.Context{
+      user_id: "fixture-user",
+      email: "operator@example.test",
+      name: "Test Operator",
+      role: "operator",
+      session_ref: "fixture-control-plane-session-reference",
+      account: nil
+    }
+
+    (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+    (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+    (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+Process Label: {Phoenix.LiveView, HardenLlmWeb.WorkspaceLive, "lv:phx-GN3zU8gVVVWh7hVC"}
+Last message: {:phoenix, :async_result, {:start, {#Reference<0.0.115331.297408731.2684157954.150106>, nil, :hydrate, {:ok, {:ok, %{state: %{"cacheMode" => "off", "callType" => "structured", "modelId" => "gpt-5.6-luna", "providerOptions" => %{}, "reasoningEffort" => "middle", "schema" => %{"type" => "object"}, "selectedProfileId" => "CPA Responses", "systemPrompt" => "", "timeoutMs" => 60000, "webSearch" => false}, profiles: [%{"credentialStatus" => %{"configured" => true, "id" => "cpa", "source" => "deployment"}, "definition" => %{"apiInferenceType" => "responses", "baseUrl" => "https://cpa.prls.co/v1", "defaultOptions" => %{"max_tokens" => 16000, "stream" => true}, "modelId" => "gpt-5.6-luna", "pricing" => %{"cache_creation_input_token_cost" => 2.5e-7, "cache_read_input_token_cost" => 2.0e-8, "input_cost_per_token" => 2.0e-7, "output_cost_per_reasoning_token" => 0, "output_cost_per_token" => 1.2e-6}, "provider" => "cpa", "reasoningEffortMap" => %{"highest" => %{"reasoning" => %{"effort" => "xhigh"}}, "lowest" => %{"reasoning" => %{"effort" => "low"}}, "middle" => %{"reasoning" => %{"effort" => "medium"}}}, "recoveryPolicy" => %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, "responsesTokensParam" => "max_output_tokens", "schemaVersion" => 4, "supportsContractedStructuredOutput" => true, "supportsTemperature" => false, "supportsWebSearch" => true, "tokensParam" => nil}, "id" => "CPA Responses", "kind" => "preset", "name" => "CPA Responses"}, %{"credentialStatus" => %{"configured" => true, "id" => "openai", "source" => "deployment"}, "definition" => %{"apiInferenceType" => "responses", "baseUrl" => "https://api.openai.com/v1", "defaultOptions" => %{"max_tokens" => 16000}, "modelId" => "gpt-5.6-luna", "pricing" => %{"cache_creation_input_token_cost" => 2.5e-7, "cache_read_input_token_cost" => 2.0e-8, "input_cost_per_token" => 2.0e-7, "output_cost_per_reasoning_token" => 0, "output_cost_per_token" => 1.2e-6}, "provider" => "openai", "reasoningEffortMap" => %{"highest" => %{"reasoning" => %{"effort" => "xhigh"}}, "lowest" => %{"reasoning" => %{"effort" => "low"}}, "middle" => %{"reasoning" => %{"effort" => "medium"}}}, "recoveryPolicy" => %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, "responsesTokensParam" => "max_output_tokens", "schemaVersion" => 4, "supportsContractedStructuredOutput" => true, "supportsTemperature" => false, "supportsWebSearch" => true, "tokensParam" => nil}, "id" => "Repair Provider", "kind" => "preset", "name" => "Repair Provider"}], recovery_policy_default: %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, draft_revision: 0}}}}}}
+18:42:48.069 [error] GenServer #PID<0.897.0> terminating
+** (KeyError) key :api_context not found in:
+
+    %PrlsWeb.Access.Context{
+      user_id: "fixture-user",
+      email: "operator@example.test",
+      name: "Test Operator",
+      role: "operator",
+      session_ref: "fixture-control-plane-session-reference",
+      account: nil
+    }
+
+    (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+    (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+    (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+Last message: {:EXIT, #PID<0.896.0>, {{:badkey, :api_context, %PrlsWeb.Access.Context{user_id: "fixture-user", email: "operator@example.test", name: "Test Operator", role: "operator", session_ref: "fixture-control-plane-session-reference", account: nil}}, [{HardenLlmWeb.WorkspaceLive, :"-render/1-fun-5-", 3, [file: ~c"lib/harden_llm_web/live/workspace_live.html.heex", line: 79]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 458]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :render, 4, [file: ~c"lib/phoenix_live_view/diff.ex", line: 163]}, {Phoenix.LiveView.Channel, :"-render_diff/3-fun-0-", 4, [file: ~c"lib/phoenix_live_view/channel.ex", line: 1126]}, {:telemetry, :span, 3, [file: ~c"/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl", line: 359]}, {Phoenix.LiveView.Channel, :render_diff, 3, [file: ~c"lib/phoenix_live_view/channel.ex", line: 1119]}, {Phoenix.LiveView.Channel, :handle_changed, 4, [file: ~c"lib/phoenix_live_view/channel.ex", line: 949]}, {:gen_server, :try_handle_info, 3, [file: ~c"gen_server.erl", line: 2434]}]}}
+
+
+  1) test history restore fills recorded inputs without saving a profile or running inference (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:150
+     ** (EXIT from #PID<0.896.0>) an exception was raised:
+         ** (KeyError) key :api_context not found in:
+
+         %PrlsWeb.Access.Context{
+           user_id: "fixture-user",
+           email: "operator@example.test",
+           name: "Test Operator",
+           role: "operator",
+           session_ref: "fixture-control-plane-session-reference",
+           account: nil
+         }
+
+             (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+             (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+             (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+
+18:42:48.073 [error] GenServer #PID<0.909.0> terminating
+** (KeyError) key :api_context not found in:
+
+    %PrlsWeb.Access.Context{
+      user_id: "fixture-user",
+      email: "operator@example.test",
+      name: "Test Operator",
+      role: "operator",
+      session_ref: "fixture-control-plane-session-reference",
+      account: nil
+    }
+
+    (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+    (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+    (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+Process Label: {Phoenix.LiveView, HardenLlmWeb.WorkspaceLive, "lv:phx-GN3zU9Ceo5huhhaC"}
+Last message: {:phoenix, :async_result, {:start, {#Reference<0.0.116355.297408731.2684157954.150452>, nil, :hydrate, {:ok, {:ok, %{state: %{"cacheMode" => "off", "callType" => "structured", "modelId" => "gpt-5.6-luna", "providerOptions" => %{}, "reasoningEffort" => "middle", "schema" => %{"type" => "object"}, "selectedProfileId" => "CPA Responses", "systemPrompt" => "", "timeoutMs" => 60000, "webSearch" => false}, profiles: [%{"credentialStatus" => %{"configured" => true, "id" => "cpa", "source" => "deployment"}, "definition" => %{"apiInferenceType" => "responses", "baseUrl" => "https://cpa.prls.co/v1", "defaultOptions" => %{"max_tokens" => 16000, "stream" => true}, "modelId" => "gpt-5.6-luna", "pricing" => %{"cache_creation_input_token_cost" => 2.5e-7, "cache_read_input_token_cost" => 2.0e-8, "input_cost_per_token" => 2.0e-7, "output_cost_per_reasoning_token" => 0, "output_cost_per_token" => 1.2e-6}, "provider" => "cpa", "reasoningEffortMap" => %{"highest" => %{"reasoning" => %{"effort" => "xhigh"}}, "lowest" => %{"reasoning" => %{"effort" => "low"}}, "middle" => %{"reasoning" => %{"effort" => "medium"}}}, "recoveryPolicy" => %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, "responsesTokensParam" => "max_output_tokens", "schemaVersion" => 4, "supportsContractedStructuredOutput" => true, "supportsTemperature" => false, "supportsWebSearch" => true, "tokensParam" => nil}, "id" => "CPA Responses", "kind" => "preset", "name" => "CPA Responses"}, %{"credentialStatus" => %{"configured" => true, "id" => "openai", "source" => "deployment"}, "definition" => %{"apiInferenceType" => "responses", "baseUrl" => "https://api.openai.com/v1", "defaultOptions" => %{"max_tokens" => 16000}, "modelId" => "gpt-5.6-luna", "pricing" => %{"cache_creation_input_token_cost" => 2.5e-7, "cache_read_input_token_cost" => 2.0e-8, "input_cost_per_token" => 2.0e-7, "output_cost_per_reasoning_token" => 0, "output_cost_per_token" => 1.2e-6}, "provider" => "openai", "reasoningEffortMap" => %{"highest" => %{"reasoning" => %{"effort" => "xhigh"}}, "lowest" => %{"reasoning" => %{"effort" => "low"}}, "middle" => %{"reasoning" => %{"effort" => "medium"}}}, "recoveryPolicy" => %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, "responsesTokensParam" => "max_output_tokens", "schemaVersion" => 4, "supportsContractedStructuredOutput" => true, "supportsTemperature" => false, "supportsWebSearch" => true, "tokensParam" => nil}, "id" => "Repair Provider", "kind" => "preset", "name" => "Repair Provider"}], recovery_policy_default: %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, draft_revision: 0}}}}}}
+18:42:48.076 [error] GenServer #PID<0.906.0> terminating
+** (KeyError) key :api_context not found in:
+
+    %PrlsWeb.Access.Context{
+      user_id: "fixture-user",
+      email: "operator@example.test",
+      name: "Test Operator",
+      role: "operator",
+      session_ref: "fixture-control-plane-session-reference",
+      account: nil
+    }
+
+    (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+    (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+    (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+Last message: {:EXIT, #PID<0.905.0>, {{:badkey, :api_context, %PrlsWeb.Access.Context{user_id: "fixture-user", email: "operator@example.test", name: "Test Operator", role: "operator", session_ref: "fixture-control-plane-session-reference", account: nil}}, [{HardenLlmWeb.WorkspaceLive, :"-render/1-fun-5-", 3, [file: ~c"lib/harden_llm_web/live/workspace_live.html.heex", line: 79]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 458]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :render, 4, [file: ~c"lib/phoenix_live_view/diff.ex", line: 163]}, {Phoenix.LiveView.Channel, :"-render_diff/3-fun-0-", 4, [file: ~c"lib/phoenix_live_view/channel.ex", line: 1126]}, {:telemetry, :span, 3, [file: ~c"/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl", line: 359]}, {Phoenix.LiveView.Channel, :render_diff, 3, [file: ~c"lib/phoenix_live_view/channel.ex", line: 1119]}, {Phoenix.LiveView.Channel, :handle_changed, 4, [file: ~c"lib/phoenix_live_view/channel.ex", line: 949]}, {:gen_server, :try_handle_info, 3, [file: ~c"gen_server.erl", line: 2434]}]}}
+
+
+  2) test run keeps the repaired result and provider/result statistics (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:136
+     ** (EXIT from #PID<0.905.0>) an exception was raised:
+         ** (KeyError) key :api_context not found in:
+
+         %PrlsWeb.Access.Context{
+           user_id: "fixture-user",
+           email: "operator@example.test",
+           name: "Test Operator",
+           role: "operator",
+           session_ref: "fixture-control-plane-session-reference",
+           account: nil
+         }
+
+             (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+             (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+             (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+
+18:42:48.081 [error] GenServer #PID<0.917.0> terminating
+** (KeyError) key :api_context not found in:
+
+    %PrlsWeb.Access.Context{
+      user_id: "fixture-user",
+      email: "operator@example.test",
+      name: "Test Operator",
+      role: "operator",
+      session_ref: "fixture-control-plane-session-reference",
+      account: nil
+    }
+
+    (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+    (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+    (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+Process Label: {Phoenix.LiveView, HardenLlmWeb.WorkspaceLive, "lv:phx-GN3zU9EP6Tz6QUIB"}
+Last message: {:phoenix, :async_result, {:start, {#Reference<0.0.117379.297408731.2684157953.152058>, nil, :hydrate, {:ok, {:ok, %{state: %{"cacheMode" => "off", "callType" => "structured", "modelId" => "gpt-5.6-luna", "providerOptions" => %{}, "reasoningEffort" => "middle", "schema" => %{"type" => "object"}, "selectedProfileId" => "CPA Responses", "systemPrompt" => "", "timeoutMs" => 60000, "webSearch" => false}, profiles: [%{"credentialStatus" => %{"configured" => true, "id" => "cpa", "source" => "deployment"}, "definition" => %{"apiInferenceType" => "responses", "baseUrl" => "https://cpa.prls.co/v1", "defaultOptions" => %{"max_tokens" => 16000, "stream" => true}, "modelId" => "gpt-5.6-luna", "pricing" => %{"cache_creation_input_token_cost" => 2.5e-7, "cache_read_input_token_cost" => 2.0e-8, "input_cost_per_token" => 2.0e-7, "output_cost_per_reasoning_token" => 0, "output_cost_per_token" => 1.2e-6}, "provider" => "cpa", "reasoningEffortMap" => %{"highest" => %{"reasoning" => %{"effort" => "xhigh"}}, "lowest" => %{"reasoning" => %{"effort" => "low"}}, "middle" => %{"reasoning" => %{"effort" => "medium"}}}, "recoveryPolicy" => %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, "responsesTokensParam" => "max_output_tokens", "schemaVersion" => 4, "supportsContractedStructuredOutput" => true, "supportsTemperature" => false, "supportsWebSearch" => true, "tokensParam" => nil}, "id" => "CPA Responses", "kind" => "preset", "name" => "CPA Responses"}, %{"credentialStatus" => %{"configured" => true, "id" => "openai", "source" => "deployment"}, "definition" => %{"apiInferenceType" => "responses", "baseUrl" => "https://api.openai.com/v1", "defaultOptions" => %{"max_tokens" => 16000}, "modelId" => "gpt-5.6-luna", "pricing" => %{"cache_creation_input_token_cost" => 2.5e-7, "cache_read_input_token_cost" => 2.0e-8, "input_cost_per_token" => 2.0e-7, "output_cost_per_reasoning_token" => 0, "output_cost_per_token" => 1.2e-6}, "provider" => "openai", "reasoningEffortMap" => %{"highest" => %{"reasoning" => %{"effort" => "xhigh"}}, "lowest" => %{"reasoning" => %{"effort" => "low"}}, "middle" => %{"reasoning" => %{"effort" => "medium"}}}, "recoveryPolicy" => %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, "responsesTokensParam" => "max_output_tokens", "schemaVersion" => 4, "supportsContractedStructuredOutput" => true, "supportsTemperature" => false, "supportsWebSearch" => true, "tokensParam" => nil}, "id" => "Repair Provider", "kind" => "preset", "name" => "Repair Provider"}], recovery_policy_default: %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, draft_revision: 0}}}}}}
+18:42:48.084 [error] GenServer #PID<0.914.0> terminating
+** (KeyError) key :api_context not found in:
+
+    %PrlsWeb.Access.Context{
+      user_id: "fixture-user",
+      email: "operator@example.test",
+      name: "Test Operator",
+      role: "operator",
+      session_ref: "fixture-control-plane-session-reference",
+      account: nil
+    }
+
+    (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+    (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+    (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+Last message: {:EXIT, #PID<0.913.0>, {{:badkey, :api_context, %PrlsWeb.Access.Context{user_id: "fixture-user", email: "operator@example.test", name: "Test Operator", role: "operator", session_ref: "fixture-control-plane-session-reference", account: nil}}, [{HardenLlmWeb.WorkspaceLive, :"-render/1-fun-5-", 3, [file: ~c"lib/harden_llm_web/live/workspace_live.html.heex", line: 79]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 458]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :render, 4, [file: ~c"lib/phoenix_live_view/diff.ex", line: 163]}, {Phoenix.LiveView.Channel, :"-render_diff/3-fun-0-", 4, [file: ~c"lib/phoenix_live_view/channel.ex", line: 1126]}, {:telemetry, :span, 3, [file: ~c"/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl", line: 359]}, {Phoenix.LiveView.Channel, :render_diff, 3, [file: ~c"lib/phoenix_live_view/channel.ex", line: 1119]}, {Phoenix.LiveView.Channel, :handle_changed, 4, [file: ~c"lib/phoenix_live_view/channel.ex", line: 949]}, {:gen_server, :try_handle_info, 3, [file: ~c"gen_server.erl", line: 2434]}]}}
+
+
+  3) test explicit Save posts the complete setup and selects the newly created snapshot (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:112
+     ** (EXIT from #PID<0.913.0>) an exception was raised:
+         ** (KeyError) key :api_context not found in:
+
+         %PrlsWeb.Access.Context{
+           user_id: "fixture-user",
+           email: "operator@example.test",
+           name: "Test Operator",
+           role: "operator",
+           session_ref: "fixture-control-plane-session-reference",
+           account: nil
+         }
+
+             (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+             (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+             (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+
+18:42:48.089 [error] GenServer #PID<0.925.0> terminating
+** (KeyError) key :api_context not found in:
+
+    %PrlsWeb.Access.Context{
+      user_id: "fixture-user",
+      email: "operator@example.test",
+      name: "Test Operator",
+      role: "operator",
+      session_ref: "fixture-control-plane-session-reference",
+      account: nil
+    }
+
+    (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+    (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+    (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+Process Label: {Phoenix.LiveView, HardenLlmWeb.WorkspaceLive, "lv:phx-GN3zU9GMtzaXxxgC"}
+Last message: {:phoenix, :async_result, {:start, {#Reference<0.0.118403.297408731.2684157954.150755>, nil, :hydrate, {:ok, {:ok, %{state: %{"cacheMode" => "off", "callType" => "structured", "modelId" => "gpt-5.6-luna", "providerOptions" => %{}, "reasoningEffort" => "middle", "schema" => %{"type" => "object"}, "selectedProfileId" => "CPA Responses", "systemPrompt" => "", "timeoutMs" => 60000, "webSearch" => false}, profiles: [%{"credentialStatus" => %{"configured" => true, "id" => "cpa", "source" => "deployment"}, "definition" => %{"apiInferenceType" => "responses", "baseUrl" => "https://cpa.prls.co/v1", "defaultOptions" => %{"max_tokens" => 16000, "stream" => true}, "modelId" => "gpt-5.6-luna", "pricing" => %{"cache_creation_input_token_cost" => 2.5e-7, "cache_read_input_token_cost" => 2.0e-8, "input_cost_per_token" => 2.0e-7, "output_cost_per_reasoning_token" => 0, "output_cost_per_token" => 1.2e-6}, "provider" => "cpa", "reasoningEffortMap" => %{"highest" => %{"reasoning" => %{"effort" => "xhigh"}}, "lowest" => %{"reasoning" => %{"effort" => "low"}}, "middle" => %{"reasoning" => %{"effort" => "medium"}}}, "recoveryPolicy" => %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, "responsesTokensParam" => "max_output_tokens", "schemaVersion" => 4, "supportsContractedStructuredOutput" => true, "supportsTemperature" => false, "supportsWebSearch" => true, "tokensParam" => nil}, "id" => "CPA Responses", "kind" => "preset", "name" => "CPA Responses"}, %{"credentialStatus" => %{"configured" => true, "id" => "openai", "source" => "deployment"}, "definition" => %{"apiInferenceType" => "responses", "baseUrl" => "https://api.openai.com/v1", "defaultOptions" => %{"max_tokens" => 16000}, "modelId" => "gpt-5.6-luna", "pricing" => %{"cache_creation_input_token_cost" => 2.5e-7, "cache_read_input_token_cost" => 2.0e-8, "input_cost_per_token" => 2.0e-7, "output_cost_per_reasoning_token" => 0, "output_cost_per_token" => 1.2e-6}, "provider" => "openai", "reasoningEffortMap" => %{"highest" => %{"reasoning" => %{"effort" => "xhigh"}}, "lowest" => %{"reasoning" => %{"effort" => "low"}}, "middle" => %{"reasoning" => %{"effort" => "medium"}}}, "recoveryPolicy" => %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, "responsesTokensParam" => "max_output_tokens", "schemaVersion" => 4, "supportsContractedStructuredOutput" => true, "supportsTemperature" => false, "supportsWebSearch" => true, "tokensParam" => nil}, "id" => "Repair Provider", "kind" => "preset", "name" => "Repair Provider"}], recovery_policy_default: %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, draft_revision: 0}}}}}}
+18:42:48.092 [error] GenServer #PID<0.922.0> terminating
+** (stop) exited in: GenServer.call(#PID<0.925.0>, {:phoenix, :async_pids}, 5000)
+    ** (EXIT) an exception was raised:
+        ** (KeyError) key :api_context not found in:
+
+    %PrlsWeb.Access.Context{
+      user_id: "fixture-user",
+      email: "operator@example.test",
+      name: "Test Operator",
+      role: "operator",
+      session_ref: "fixture-control-plane-session-reference",
+      account: nil
+    }
+
+            (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+            (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+            (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+Last message: {:EXIT, #PID<0.921.0>, {{{:badkey, :api_context, %PrlsWeb.Access.Context{user_id: "fixture-user", email: "operator@example.test", name: "Test Operator", role: "operator", session_ref: "fixture-control-plane-session-reference", account: nil}}, [{HardenLlmWeb.WorkspaceLive, :"-render/1-fun-5-", 3, [file: ~c"lib/harden_llm_web/live/workspace_live.html.heex", line: 79]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 458]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :render, 4, [file: ~c"lib/phoenix_live_view/diff.ex", line: 163]}, {Phoenix.LiveView.Channel, :"-render_diff/3-fun-0-", 4, [file: ~c"lib/phoenix_live_view/channel.ex", line: 1126]}, {:telemetry, :span, 3, [file: ~c"/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl", line: 359]}, {Phoenix.LiveView.Channel, :render_diff, 3, [file: ~c"lib/phoenix_live_view/channel.ex", line: 1119]}, {Phoenix.LiveView.Channel, :handle_changed, 4, [file: ~c"lib/phoenix_live_view/channel.ex", line: 949]}, {:gen_server, :try_handle_info, 3, [file: ~c"gen_server.erl", line: 2434]}]}, {GenServer, :call, [#PID<0.925.0>, {:phoenix, :async_pids}, 5000]}}}
+
+
+  4) test two Portal identities use separate host draft keys and share key-scoped data (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:171
+     ** (EXIT from #PID<0.921.0>) exited in: GenServer.call(#PID<0.925.0>, {:phoenix, :async_pids}, 5000)
+         ** (EXIT) an exception was raised:
+             ** (KeyError) key :api_context not found in:
+
+         %PrlsWeb.Access.Context{
+           user_id: "fixture-user",
+           email: "operator@example.test",
+           name: "Test Operator",
+           role: "operator",
+           session_ref: "fixture-control-plane-session-reference",
+           account: nil
+         }
+
+                 (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+                 (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+                 (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+
+18:42:48.097 [error] GenServer #PID<0.933.0> terminating
+** (KeyError) key :api_context not found in:
+
+    %PrlsWeb.Access.Context{
+      user_id: "fixture-user",
+      email: "operator@example.test",
+      name: "Test Operator",
+      role: "operator",
+      session_ref: "fixture-control-plane-session-reference",
+      account: nil
+    }
+
+    (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+    (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+    (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+Process Label: {Phoenix.LiveView, HardenLlmWeb.WorkspaceLive, "lv:phx-GN3zU9IAoYP_hRMF"}
+Last message: {:phoenix, :async_result, {:start, {#Reference<0.0.119427.297408731.2684157957.154247>, nil, :hydrate, {:ok, {:ok, %{state: %{"cacheMode" => "off", "callType" => "structured", "modelId" => "gpt-5.6-luna", "providerOptions" => %{}, "reasoningEffort" => "middle", "schema" => %{"type" => "object"}, "selectedProfileId" => "CPA Responses", "systemPrompt" => "", "timeoutMs" => 60000, "webSearch" => false}, profiles: [%{"credentialStatus" => %{"configured" => true, "id" => "cpa", "source" => "deployment"}, "definition" => %{"apiInferenceType" => "responses", "baseUrl" => "https://cpa.prls.co/v1", "defaultOptions" => %{"max_tokens" => 16000, "stream" => true}, "modelId" => "gpt-5.6-luna", "pricing" => %{"cache_creation_input_token_cost" => 2.5e-7, "cache_read_input_token_cost" => 2.0e-8, "input_cost_per_token" => 2.0e-7, "output_cost_per_reasoning_token" => 0, "output_cost_per_token" => 1.2e-6}, "provider" => "cpa", "reasoningEffortMap" => %{"highest" => %{"reasoning" => %{"effort" => "xhigh"}}, "lowest" => %{"reasoning" => %{"effort" => "low"}}, "middle" => %{"reasoning" => %{"effort" => "medium"}}}, "recoveryPolicy" => %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, "responsesTokensParam" => "max_output_tokens", "schemaVersion" => 4, "supportsContractedStructuredOutput" => true, "supportsTemperature" => false, "supportsWebSearch" => true, "tokensParam" => nil}, "id" => "CPA Responses", "kind" => "preset", "name" => "CPA Responses"}, %{"credentialStatus" => %{"configured" => true, "id" => "openai", "source" => "deployment"}, "definition" => %{"apiInferenceType" => "responses", "baseUrl" => "https://api.openai.com/v1", "defaultOptions" => %{"max_tokens" => 16000}, "modelId" => "gpt-5.6-luna", "pricing" => %{"cache_creation_input_token_cost" => 2.5e-7, "cache_read_input_token_cost" => 2.0e-8, "input_cost_per_token" => 2.0e-7, "output_cost_per_reasoning_token" => 0, "output_cost_per_token" => 1.2e-6}, "provider" => "openai", "reasoningEffortMap" => %{"highest" => %{"reasoning" => %{"effort" => "xhigh"}}, "lowest" => %{"reasoning" => %{"effort" => "low"}}, "middle" => %{"reasoning" => %{"effort" => "medium"}}}, "recoveryPolicy" => %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, "responsesTokensParam" => "max_output_tokens", "schemaVersion" => 4, "supportsContractedStructuredOutput" => true, "supportsTemperature" => false, "supportsWebSearch" => true, "tokensParam" => nil}, "id" => "Repair Provider", "kind" => "preset", "name" => "Repair Provider"}], recovery_policy_default: %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, draft_revision: 0}}}}}}
+18:42:48.100 [error] GenServer #PID<0.930.0> terminating
+** (KeyError) key :api_context not found in:
+
+    %PrlsWeb.Access.Context{
+      user_id: "fixture-user",
+      email: "operator@example.test",
+      name: "Test Operator",
+      role: "operator",
+      session_ref: "fixture-control-plane-session-reference",
+      account: nil
+    }
+
+    (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+    (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+    (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+Last message: {:EXIT, #PID<0.929.0>, {{:badkey, :api_context, %PrlsWeb.Access.Context{user_id: "fixture-user", email: "operator@example.test", name: "Test Operator", role: "operator", session_ref: "fixture-control-plane-session-reference", account: nil}}, [{HardenLlmWeb.WorkspaceLive, :"-render/1-fun-5-", 3, [file: ~c"lib/harden_llm_web/live/workspace_live.html.heex", line: 79]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 458]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :render, 4, [file: ~c"lib/phoenix_live_view/diff.ex", line: 163]}, {Phoenix.LiveView.Channel, :"-render_diff/3-fun-0-", 4, [file: ~c"lib/phoenix_live_view/channel.ex", line: 1126]}, {:telemetry, :span, 3, [file: ~c"/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl", line: 359]}, {Phoenix.LiveView.Channel, :render_diff, 3, [file: ~c"lib/phoenix_live_view/channel.ex", line: 1119]}, {Phoenix.LiveView.Channel, :handle_changed, 4, [file: ~c"lib/phoenix_live_view/channel.ex", line: 949]}, {:gen_server, :try_handle_info, 3, [file: ~c"gen_server.erl", line: 2434]}]}}
+
+
+  5) test recording warnings are explicit and never resubmit inference (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:217
+     ** (EXIT from #PID<0.929.0>) an exception was raised:
+         ** (KeyError) key :api_context not found in:
+
+         %PrlsWeb.Access.Context{
+           user_id: "fixture-user",
+           email: "operator@example.test",
+           name: "Test Operator",
+           role: "operator",
+           session_ref: "fixture-control-plane-session-reference",
+           account: nil
+         }
+
+             (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+             (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+             (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+
+18:42:48.105 [error] GenServer #PID<0.941.0> terminating
+** (KeyError) key :api_context not found in:
+
+    %PrlsWeb.Access.Context{
+      user_id: "fixture-user",
+      email: "operator@example.test",
+      name: "Test Operator",
+      role: "operator",
+      session_ref: "fixture-control-plane-session-reference",
+      account: nil
+    }
+
+    (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+    (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+    (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+Process Label: {Phoenix.LiveView, HardenLlmWeb.WorkspaceLive, "lv:phx-GN3zU9KEnzBRghSF"}
+Last message: {:phoenix, :async_result, {:start, {#Reference<0.0.120451.297408731.2684157954.151086>, nil, :hydrate, {:ok, {:ok, %{state: %{"cacheMode" => "off", "callType" => "structured", "modelId" => "gpt-5.6-luna", "providerOptions" => %{}, "reasoningEffort" => "middle", "schema" => %{"type" => "object"}, "selectedProfileId" => "CPA Responses", "systemPrompt" => "", "timeoutMs" => 60000, "webSearch" => false}, profiles: [%{"credentialStatus" => %{"configured" => true, "id" => "cpa", "source" => "deployment"}, "definition" => %{"apiInferenceType" => "responses", "baseUrl" => "https://cpa.prls.co/v1", "defaultOptions" => %{"max_tokens" => 16000, "stream" => true}, "modelId" => "gpt-5.6-luna", "pricing" => %{"cache_creation_input_token_cost" => 2.5e-7, "cache_read_input_token_cost" => 2.0e-8, "input_cost_per_token" => 2.0e-7, "output_cost_per_reasoning_token" => 0, "output_cost_per_token" => 1.2e-6}, "provider" => "cpa", "reasoningEffortMap" => %{"highest" => %{"reasoning" => %{"effort" => "xhigh"}}, "lowest" => %{"reasoning" => %{"effort" => "low"}}, "middle" => %{"reasoning" => %{"effort" => "medium"}}}, "recoveryPolicy" => %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, "responsesTokensParam" => "max_output_tokens", "schemaVersion" => 4, "supportsContractedStructuredOutput" => true, "supportsTemperature" => false, "supportsWebSearch" => true, "tokensParam" => nil}, "id" => "CPA Responses", "kind" => "preset", "name" => "CPA Responses"}, %{"credentialStatus" => %{"configured" => true, "id" => "openai", "source" => "deployment"}, "definition" => %{"apiInferenceType" => "responses", "baseUrl" => "https://api.openai.com/v1", "defaultOptions" => %{"max_tokens" => 16000}, "modelId" => "gpt-5.6-luna", "pricing" => %{"cache_creation_input_token_cost" => 2.5e-7, "cache_read_input_token_cost" => 2.0e-8, "input_cost_per_token" => 2.0e-7, "output_cost_per_reasoning_token" => 0, "output_cost_per_token" => 1.2e-6}, "provider" => "openai", "reasoningEffortMap" => %{"highest" => %{"reasoning" => %{"effort" => "xhigh"}}, "lowest" => %{"reasoning" => %{"effort" => "low"}}, "middle" => %{"reasoning" => %{"effort" => "medium"}}}, "recoveryPolicy" => %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, "responsesTokensParam" => "max_output_tokens", "schemaVersion" => 4, "supportsContractedStructuredOutput" => true, "supportsTemperature" => false, "supportsWebSearch" => true, "tokensParam" => nil}, "id" => "Repair Provider", "kind" => "preset", "name" => "Repair Provider"}], recovery_policy_default: %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, draft_revision: 0}}}}}}
+18:42:48.108 [error] GenServer #PID<0.938.0> terminating
+** (stop) exited in: GenServer.call(#PID<0.941.0>, {:phoenix, :async_pids}, 5000)
+    ** (EXIT) an exception was raised:
+        ** (KeyError) key :api_context not found in:
+
+    %PrlsWeb.Access.Context{
+      user_id: "fixture-user",
+      email: "operator@example.test",
+      name: "Test Operator",
+      role: "operator",
+      session_ref: "fixture-control-plane-session-reference",
+      account: nil
+    }
+
+            (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+            (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+            (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+            (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+Last message: {:EXIT, #PID<0.937.0>, {{{:badkey, :api_context, %PrlsWeb.Access.Context{user_id: "fixture-user", email: "operator@example.test", name: "Test Operator", role: "operator", session_ref: "fixture-control-plane-session-reference", account: nil}}, [{HardenLlmWeb.WorkspaceLive, :"-render/1-fun-5-", 3, [file: ~c"lib/harden_llm_web/live/workspace_live.html.heex", line: 79]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 458]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :render, 4, [file: ~c"lib/phoenix_live_view/diff.ex", line: 163]}, {Phoenix.LiveView.Channel, :"-render_diff/3-fun-0-", 4, [file: ~c"lib/phoenix_live_view/channel.ex", line: 1126]}, {:telemetry, :span, 3, [file: ~c"/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl", line: 359]}, {Phoenix.LiveView.Channel, :render_diff, 3, [file: ~c"lib/phoenix_live_view/channel.ex", line: 1119]}, {Phoenix.LiveView.Channel, :handle_changed, 4, [file: ~c"lib/phoenix_live_view/channel.ex", line: 949]}, {:gen_server, :try_handle_info, 3, [file: ~c"gen_server.erl", line: 2434]}]}, {GenServer, :call, [#PID<0.941.0>, {:phoenix, :async_pids}, 5000]}}}
+
+
+  6) test a host API-key context sees only its key-scoped fixture data (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:199
+     ** (EXIT from #PID<0.937.0>) exited in: GenServer.call(#PID<0.941.0>, {:phoenix, :async_pids}, 5000)
+         ** (EXIT) an exception was raised:
+             ** (KeyError) key :api_context not found in:
+
+         %PrlsWeb.Access.Context{
+           user_id: "fixture-user",
+           email: "operator@example.test",
+           name: "Test Operator",
+           role: "operator",
+           session_ref: "fixture-control-plane-session-reference",
+           account: nil
+         }
+
+                 (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+                 (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+                 (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+                 (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+
+18:42:48.113 [error] GenServer #PID<0.949.0> terminating
+** (KeyError) key :api_context not found in:
+
+    %PrlsWeb.Access.Context{
+      user_id: "fixture-user",
+      email: "operator@example.test",
+      name: "Test Operator",
+      role: "operator",
+      session_ref: "fixture-control-plane-session-reference",
+      account: nil
+    }
+
+    (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+    (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+    (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+Process Label: {Phoenix.LiveView, HardenLlmWeb.WorkspaceLive, "lv:phx-GN3zU9L7yQkrIBnC"}
+Last message: {:phoenix, :async_result, {:start, {#Reference<0.0.121475.297408731.2684157954.151445>, nil, :hydrate, {:ok, {:ok, %{state: %{"cacheMode" => "off", "callType" => "structured", "modelId" => "gpt-5.6-luna", "providerOptions" => %{}, "reasoningEffort" => "middle", "schema" => %{"type" => "object"}, "selectedProfileId" => "CPA Responses", "systemPrompt" => "", "timeoutMs" => 60000, "webSearch" => false}, profiles: [%{"credentialStatus" => %{"configured" => true, "id" => "cpa", "source" => "deployment"}, "definition" => %{"apiInferenceType" => "responses", "baseUrl" => "https://cpa.prls.co/v1", "defaultOptions" => %{"max_tokens" => 16000, "stream" => true}, "modelId" => "gpt-5.6-luna", "pricing" => %{"cache_creation_input_token_cost" => 2.5e-7, "cache_read_input_token_cost" => 2.0e-8, "input_cost_per_token" => 2.0e-7, "output_cost_per_reasoning_token" => 0, "output_cost_per_token" => 1.2e-6}, "provider" => "cpa", "reasoningEffortMap" => %{"highest" => %{"reasoning" => %{"effort" => "xhigh"}}, "lowest" => %{"reasoning" => %{"effort" => "low"}}, "middle" => %{"reasoning" => %{"effort" => "medium"}}}, "recoveryPolicy" => %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, "responsesTokensParam" => "max_output_tokens", "schemaVersion" => 4, "supportsContractedStructuredOutput" => true, "supportsTemperature" => false, "supportsWebSearch" => true, "tokensParam" => nil}, "id" => "CPA Responses", "kind" => "preset", "name" => "CPA Responses"}, %{"credentialStatus" => %{"configured" => true, "id" => "openai", "source" => "deployment"}, "definition" => %{"apiInferenceType" => "responses", "baseUrl" => "https://api.openai.com/v1", "defaultOptions" => %{"max_tokens" => 16000}, "modelId" => "gpt-5.6-luna", "pricing" => %{"cache_creation_input_token_cost" => 2.5e-7, "cache_read_input_token_cost" => 2.0e-8, "input_cost_per_token" => 2.0e-7, "output_cost_per_reasoning_token" => 0, "output_cost_per_token" => 1.2e-6}, "provider" => "openai", "reasoningEffortMap" => %{"highest" => %{"reasoning" => %{"effort" => "xhigh"}}, "lowest" => %{"reasoning" => %{"effort" => "low"}}, "middle" => %{"reasoning" => %{"effort" => "medium"}}}, "recoveryPolicy" => %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, "responsesTokensParam" => "max_output_tokens", "schemaVersion" => 4, "supportsContractedStructuredOutput" => true, "supportsTemperature" => false, "supportsWebSearch" => true, "tokensParam" => nil}, "id" => "Repair Provider", "kind" => "preset", "name" => "Repair Provider"}], recovery_policy_default: %{"backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000}, "jsonRepair" => %{"escalation" => %{"source" => "generation"}, "initial" => %{"source" => "generation"}}, "maxAttempts" => 4, "rerun" => nil, "retryOn" => ["network", "rate_limit", "server_error", "empty_response", "provider_retry"]}, draft_revision: 0}}}}}}
+18:42:48.116 [error] GenServer #PID<0.946.0> terminating
+** (KeyError) key :api_context not found in:
+
+    %PrlsWeb.Access.Context{
+      user_id: "fixture-user",
+      email: "operator@example.test",
+      name: "Test Operator",
+      role: "operator",
+      session_ref: "fixture-control-plane-session-reference",
+      account: nil
+    }
+
+    (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+    (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+    (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+    (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+Last message: {:EXIT, #PID<0.945.0>, {{:badkey, :api_context, %PrlsWeb.Access.Context{user_id: "fixture-user", email: "operator@example.test", name: "Test Operator", role: "operator", session_ref: "fixture-control-plane-session-reference", account: nil}}, [{HardenLlmWeb.WorkspaceLive, :"-render/1-fun-5-", 3, [file: ~c"lib/harden_llm_web/live/workspace_live.html.heex", line: 79]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 458]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 457]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :traverse_dynamic, 8, [file: ~c"lib/phoenix_live_view/diff.ex", line: 681]}, {Phoenix.LiveView.Diff, :traverse, 6, [file: ~c"lib/phoenix_live_view/diff.ex", line: 436]}, {Phoenix.LiveView.Diff, :render, 4, [file: ~c"lib/phoenix_live_view/diff.ex", line: 163]}, {Phoenix.LiveView.Channel, :"-render_diff/3-fun-0-", 4, [file: ~c"lib/phoenix_live_view/channel.ex", line: 1126]}, {:telemetry, :span, 3, [file: ~c"/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl", line: 359]}, {Phoenix.LiveView.Channel, :render_diff, 3, [file: ~c"lib/phoenix_live_view/channel.ex", line: 1119]}, {Phoenix.LiveView.Channel, :handle_changed, 4, [file: ~c"lib/phoenix_live_view/channel.ex", line: 949]}, {:gen_server, :try_handle_info, 3, [file: ~c"gen_server.erl", line: 2434]}]}}
+
+
+  7) test selecting a template fills the complete restored form and baseline controls (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:88
+     ** (EXIT from #PID<0.945.0>) an exception was raised:
+         ** (KeyError) key :api_context not found in:
+
+         %PrlsWeb.Access.Context{
+           user_id: "fixture-user",
+           email: "operator@example.test",
+           name: "Test Operator",
+           role: "operator",
+           session_ref: "fixture-control-plane-session-reference",
+           account: nil
+         }
+
+             (harden_llm 1.0.0) lib/harden_llm_web/live/workspace_live.html.heex:79: anonymous fn/3 in HardenLlmWeb.WorkspaceLive.render/1
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:436: Phoenix.LiveView.Diff.traverse/6
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:163: Phoenix.LiveView.Diff.render/4
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1126: anonymous fn/4 in Phoenix.LiveView.Channel.render_diff/3
+             (telemetry 1.4.2) /home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:1119: Phoenix.LiveView.Channel.render_diff/3
+             (phoenix_live_view 1.2.10) lib/phoenix_live_view/channel.ex:949: Phoenix.LiveView.Channel.handle_changed/4
+             (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3
+
+
+Finished in 0.4 seconds (0.4s async, 0.00s sync)
+
+Result: 0/7 passed
+Failed: 7 tests

@@ -1,0 +1,360 @@
+{
+  "schemaVersion": 1,
+  "baselineSHA": "754690c8d0890c664d69fbdf526b16b3e5601060",
+  "acceptedChanges": [
+    "api-key-scoped-state-with-per-portal-user-drafts",
+    "complete-create-on-save-profile-snapshots"
+  ],
+  "sources": [
+    {
+      "path": "frontend/lib/harden_llm_web/live/workspace_live.html.heex",
+      "sha256": "b32eb388867ce31109932b74562e3b098b68b9215468c1e806cefe66fe407dc9",
+      "ids": [
+        "advanced-input",
+        "backend-status",
+        "check-schema",
+        "clear-schema",
+        "clear-system-prompt",
+        "draft-error",
+        "generate-schema",
+        "history-fold-toggle",
+        "input-advanced-toggle",
+        "model-config",
+        "new-conversation",
+        "new-prompt",
+        "output-trace",
+        "run-error",
+        "run-form",
+        "run-result-panel",
+        "run-submit",
+        "schema-status",
+        "workspace-clear-history",
+        "workspace-history",
+        "workspace-history-changed",
+        "workspace-history-error",
+        "workspace-history-loading",
+        "workspace-history-pagination",
+        "workspace-history-panel",
+        "workspace-history-refresh-changed",
+        "workspace-history-requested-page",
+        "workspace-history-retry",
+        "workspace-llm-widget",
+        "workspace-loading",
+        "workspace-page",
+        "workspace-unavailable"
+      ],
+      "events": [
+        "check-schema",
+        "clear-history",
+        "clear-schema",
+        "clear-system-prompt",
+        "delete-history",
+        "generate-schema",
+        "new-conversation",
+        "new-prompt",
+        "refresh-history",
+        "restore-history",
+        "run",
+        "save-draft",
+        "toggle-ui"
+      ]
+    },
+    {
+      "path": "frontend/lib/harden_llm_web/live/profile_widget_component.ex",
+      "sha256": "76cf3bca92afe6731146162f4c46f7cc5493c164611e7df1b4950e727904dee9",
+      "ids": [
+        "original",
+        "profile-base-url-options",
+        "profile-cancel",
+        "profile-model-options",
+        "rerun"
+      ],
+      "events": [
+        "cancel-edit",
+        "cancel-key",
+        "clear-staged-key",
+        "edit-shared-retry-policy",
+        "import-bundle",
+        "new-profile",
+        "profile-cancel-delete",
+        "profile-confirm-delete",
+        "profile-delete",
+        "profile-draft-change",
+        "profile-refresh",
+        "profile-save",
+        "stage-key",
+        "toggle-cache",
+        "toggle-credential",
+        "toggle-json-repair",
+        "toggle-repair-escalation",
+        "toggle-rerun",
+        "toggle-rerun-json-repair",
+        "use-recovery-default",
+        "workspace-control"
+      ]
+    },
+    {
+      "path": "frontend/lib/harden_llm_web/live/profiles_live.html.heex",
+      "sha256": "0b00a51234119b3c9b13dec34a22a80bbd20a65236c1b68b8e8e74350f65bb30",
+      "ids": [
+        "bundle-import-file",
+        "bundle-import-form",
+        "bundle-import-submit",
+        "export-bundle",
+        "new-profile",
+        "profile-catalog-title",
+        "profile-definition-widget",
+        "profile-delete-cancel",
+        "profile-delete-confirm",
+        "profile-delete-description",
+        "profile-delete-panel",
+        "profile-delete-title",
+        "profile-editor",
+        "profile-editor-close",
+        "profile-editor-title",
+        "profile-form",
+        "profile-presets-help",
+        "profiles",
+        "profiles-empty",
+        "profiles-error",
+        "profiles-loading",
+        "profiles-page"
+      ],
+      "events": [
+        "cancel-delete",
+        "cancel-edit",
+        "confirm-delete",
+        "delete",
+        "draft-change",
+        "edit",
+        "import-bundle",
+        "new",
+        "refresh",
+        "save",
+        "validate-bundle"
+      ]
+    },
+    {
+      "path": "frontend/lib/harden_llm_web/live/embedding_live.ex",
+      "sha256": "09f54fffa15cf2b58cdc4130a813d5437f3343139c34f930ce461241b376eda6",
+      "ids": [
+        "embedding-loading",
+        "embedding-page",
+        "embedding-surface",
+        "embedding-unavailable",
+        "embedding-upload-error"
+      ],
+      "events": []
+    },
+    {
+      "path": "frontend/lib/harden_llm_web/components/llm_trace_components.ex",
+      "sha256": "1b3d6fd4a261587c1adafd7f7e273f8255f5f132f72c4978e992588e9b8411c8",
+      "ids": [],
+      "events": []
+    },
+    {
+      "path": "frontend/lib/harden_llm_web/components/json_viewer.ex",
+      "sha256": "59667ee99e727ff738ef5fcb63455dafb1042ea1fbdbf0e62c78c69f97f5efc2",
+      "ids": [],
+      "events": []
+    },
+    {
+      "path": "frontend/lib/harden_llm_web/router.ex",
+      "sha256": "edc8ad5938bb1dd9cd519b2e1ef621aa9c9be6f4fecf4a41fd0c420992727bf3",
+      "ids": [],
+      "events": []
+    },
+    {
+      "path": "frontend/lib/harden_llm_web/profile_form.ex",
+      "sha256": "c13262c7a8fd9d50a9010734e29868bfe83ea3272f7d258d98cc2f6a17073ac0",
+      "ids": [],
+      "events": []
+    },
+    {
+      "path": "frontend/lib/harden_llm_web/profile_widget_state.ex",
+      "sha256": "318afdfc879cd62b3e98b0382dbc5789f5ac87c9bf382d1d13b0a69587f3e5b9",
+      "ids": [],
+      "events": []
+    },
+    {
+      "path": "frontend/lib/harden_llm_web/harden_api.ex",
+      "sha256": "36b7ba046e0eb636b32dbdcecb518b312e98c265008616323c1a2bc2e9dc64da",
+      "ids": [],
+      "events": []
+    },
+    {
+      "path": "frontend/assets/css/app.css",
+      "sha256": "37188c2661567f48739994553f3ed02c32ab7fb0e95b9b7ad83661ea4935266a",
+      "ids": [],
+      "events": []
+    },
+    {
+      "path": "frontend/assets/css/json_viewer.css",
+      "sha256": "889ed8e606415f980bbfafe0d48c295cd3bbcf8aec87a28660e9d56a9dc62393",
+      "ids": [],
+      "events": []
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "profile-picker",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04"
+    },
+    {
+      "id": "profile-editor",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04"
+    },
+    {
+      "id": "profile-save",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04"
+    },
+    {
+      "id": "profile-delete-hide",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04"
+    },
+    {
+      "id": "bundle-import-export",
+      "owner": "HardenLlmUI.Client",
+      "phase": "P04"
+    },
+    {
+      "id": "model-refresh",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04"
+    },
+    {
+      "id": "provider-credential-replacement",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04"
+    },
+    {
+      "id": "user-prompt",
+      "owner": "HardenLlmUI.InputComponents",
+      "phase": "P03"
+    },
+    {
+      "id": "system-prompt",
+      "owner": "HardenLlmUI.InputComponents",
+      "phase": "P03"
+    },
+    {
+      "id": "schema-editor",
+      "owner": "HardenLlmUI.WorkspaceSchema",
+      "phase": "P03"
+    },
+    {
+      "id": "schema-shorthand-generation",
+      "owner": "HardenLlmUI.WorkspaceSchema",
+      "phase": "P03"
+    },
+    {
+      "id": "reasoning-effort",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04"
+    },
+    {
+      "id": "web-search",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04"
+    },
+    {
+      "id": "cache-mode-version",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04"
+    },
+    {
+      "id": "timeout",
+      "owner": "HardenLlmUI.ProfileForm",
+      "phase": "P04"
+    },
+    {
+      "id": "retry-controls",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04"
+    },
+    {
+      "id": "json-repair",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04"
+    },
+    {
+      "id": "repair-escalation",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04"
+    },
+    {
+      "id": "rerun-recovery",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04"
+    },
+    {
+      "id": "repaired-response",
+      "owner": "HardenLlmUI.ResponseComponents",
+      "phase": "P03"
+    },
+    {
+      "id": "json-viewer",
+      "owner": "HardenLlmUI.ResponseComponents",
+      "phase": "P04"
+    },
+    {
+      "id": "usage-cost-accounting",
+      "owner": "HardenLlmUI.StatsComponents",
+      "phase": "P03"
+    },
+    {
+      "id": "attempts-cache-facts",
+      "owner": "HardenLlmUI.StatsComponents",
+      "phase": "P04"
+    },
+    {
+      "id": "live-progress",
+      "owner": "HardenLlmUI.Client",
+      "phase": "P03"
+    },
+    {
+      "id": "numbered-history-pagination",
+      "owner": "HardenLlmUI.Pagination",
+      "phase": "P04"
+    },
+    {
+      "id": "history-restore",
+      "owner": "HardenLlmUI.HistoryComponents",
+      "phase": "P03"
+    },
+    {
+      "id": "history-delete",
+      "owner": "HardenLlmUI.HistoryComponents",
+      "phase": "P03"
+    },
+    {
+      "id": "history-clear-confirmation",
+      "owner": "HardenLlmUI.HistoryComponents",
+      "phase": "P03"
+    },
+    {
+      "id": "trace-inspection",
+      "owner": "HardenLlmUI.TraceComponents",
+      "phase": "P04"
+    },
+    {
+      "id": "artifact-download",
+      "owner": "HardenLlmUI.Client",
+      "phase": "P04"
+    },
+    {
+      "id": "embedding",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04"
+    },
+    {
+      "id": "portal-login-logout",
+      "owner": "HardenLlmWeb host/PrlsWeb",
+      "phase": "P04"
+    }
+  ]
+}

@@ -54,7 +54,7 @@ func TestFrontendComposeFixture(t *testing.T) {
 	environment["HARDEN_LLM_WEB_API_TIMEOUT_MS"] = "3000"
 	loginEmail := "web-smoke@example.test"
 	loginPassword := fixtureSecret(t, "Web-smoke-password-", 24)
-	environment["HARDEN_LLM_CONTROL_PLANE_URL"] = startFrontendControlPlaneFixture(
+	environment["HARDEN_LLM_CONTROL_PLANE_URL"], _ = startFrontendControlPlaneFixture(
 		t,
 		environment["HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN"],
 		[]string{environment["PRLS_PORTAL_URL"], environment["HARDEN_LLM_WEB_PUBLIC_URL"]},
@@ -100,30 +100,7 @@ func TestFrontendComposeFixture(t *testing.T) {
 		}
 	})
 
-	pullContext, cancelPull := context.WithTimeout(context.Background(), 20*time.Minute)
-	if err := runner.run(pullContext, nil, "pull", "--ignore-buildable"); err != nil {
-		cancelPull()
-		t.Fatalf("pre-pull frontend Compose images: %v", err)
-	}
-	cancelPull()
-	buildContext, cancelBuild := context.WithTimeout(context.Background(), 20*time.Minute)
-	if err := runner.run(buildContext, nil, "build", "harden-llm-gateway", "harden-llm-web", "fake-provider"); err != nil {
-		cancelBuild()
-		t.Fatalf("build frontend Compose images: %v", err)
-	}
-	cancelBuild()
-	postgresContext, cancelPostgres := context.WithTimeout(context.Background(), 2*time.Minute)
-	if err := runner.run(postgresContext, nil, "up", "-d", "--wait", "--wait-timeout", "120", "harden-postgres"); err != nil {
-		cancelPostgres()
-		t.Fatalf("start frontend reference database: %v", err)
-	}
-	cancelPostgres()
-	migrationContext, cancelMigration := context.WithTimeout(context.Background(), 2*time.Minute)
-	if err := runner.run(migrationContext, nil, "run", "--rm", "--no-deps", "-e", "PHX_SERVER=false", "harden-llm-web", "eval", "HardenLlm.Release.migrate()"); err != nil {
-		cancelMigration()
-		t.Fatalf("migrate frontend reference database: %v", err)
-	}
-	cancelMigration()
+	prepareSmokeApplications(t, runner)
 
 	started := time.Now()
 	startContext, cancelStart := context.WithTimeout(context.Background(), 7*time.Minute)
@@ -147,7 +124,7 @@ func TestFrontendComposeFixture(t *testing.T) {
 
 	client := caddyClient(httpsPort, false)
 	waitHTTPStatus(t, client, "https://app.smoke.localhost/healthz", 200, 45*time.Second, nil)
-	waitHTTPStatus(t, client, "https://api.smoke.localhost/readyz", 200, 45*time.Second, nil)
+	waitHTTPStatus(t, client, "https://app.smoke.localhost/readyz", 200, 45*time.Second, nil)
 	waitHTTPStatus(t, client, "https://grafana.smoke.localhost/api/health", 200, 45*time.Second, nil)
 
 	envFile := filepath.Join(workDir, "compose.env")

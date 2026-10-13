@@ -1,0 +1,19 @@
+$ go test ./stateful -run ^TestProfileContract$ -count=1
+ok  	github.com/prls-co/harden-llm/stateful	0.010s
+exit code: 0
+$ go test ./stateful -run ^TestCredentialContract$ -count=1
+ok  	github.com/prls-co/harden-llm/stateful	0.004s
+exit code: 0
+$ go test ./internal/gateway/httpapi -run ^TestReferenceAccess -count=1
+ok  	github.com/prls-co/harden-llm/internal/gateway/httpapi	0.010s
+exit code: 0
+$ go test ./cmd/harden-llm-gateway -run ^TestReferenceConfig$ -count=1
+ok  	github.com/prls-co/harden-llm/cmd/harden-llm-gateway	0.009s
+exit code: 0
+$ go test ./internal/gateway/httpapi -run ^TestOpenAIContract -count=1
+ok  	github.com/prls-co/harden-llm/internal/gateway/httpapi	0.072s
+exit code: 0
+$ make test-fast
+node scripts/run-test-tier.mjs --task fast
+{"accepted":true,"selector":"fast","taskCount":9,"failure":null,"cleanupErrors":[],"cleanupWarnings":[],"output":"/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/runner-1791846062295-1363606-f1ac68f47c9dc36f.json"}
+exit code: 0

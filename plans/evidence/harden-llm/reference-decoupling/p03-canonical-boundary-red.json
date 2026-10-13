@@ -1,0 +1,55 @@
+{
+  "accepted": false,
+  "runDirectory": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/run-1791846981168-1490826-ydxck9",
+  "results": [
+    {
+      "taskId": "go-integration",
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-tags=integration",
+        "./stateful",
+        "-run",
+        "^TestHistoryStore$",
+        "-count=1"
+      ],
+      "status": 1,
+      "seed": 233256,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 8350,
+      "peakRssMiB": 264.01171875,
+      "cpuMs": 4380,
+      "stdoutBytes": 404,
+      "stderrBytes": 0,
+      "truncatedOutputBytes": 0,
+      "stdoutPreview": "--- FAIL: TestHistoryStore (2.98s)\n    --- FAIL: TestHistoryStore/exact_seventeen_MiB_payload_survives_and_one_extra_byte_rejects_without_truncation (0.85s)\n        history_store_integration_test.go:206: boundary detail exceeded budget or changed data history_record_invalid: Stored history schema or complete payload is invalid. 237.707397ms\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t3.004s\nFAIL\n",
+      "stderrPreview": "",
+      "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t3.004s | FAIL",
+      "failureDetail": "--- FAIL: TestHistoryStore (2.98s)\n    --- FAIL: TestHistoryStore/exact_seventeen_MiB_payload_survives_and_one_extra_byte_rejects_without_truncation (0.85s)\n        history_store_integration_test.go:206: boundary detail exceeded budget or changed data history_record_invalid: Stored history schema or complete payload is invalid. 237.707397ms\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t3.004s\nFAIL",
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": true,
+      "servicePoolProject": "harden-llm-test-c5d3b322f3bd",
+      "startedAtMs": 470,
+      "endedAtMs": 8820
+    }
+  ],
+  "firstFailure": {
+    "taskId": "go-integration",
+    "status": 1,
+    "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t3.004s | FAIL",
+    "failureDetail": "--- FAIL: TestHistoryStore (2.98s)\n    --- FAIL: TestHistoryStore/exact_seventeen_MiB_payload_survives_and_one_extra_byte_rejects_without_truncation (0.85s)\n        history_store_integration_test.go:206: boundary detail exceeded budget or changed data history_record_invalid: Stored history schema or complete payload is invalid. 237.707397ms\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t3.004s\nFAIL"
+  },
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 76,
+    "daemonLockWaitMs": 121,
+    "staleReceiptRecoveryMs": 118
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": []
+}

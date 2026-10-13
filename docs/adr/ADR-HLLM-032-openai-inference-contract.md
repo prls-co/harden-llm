@@ -12,7 +12,7 @@ The custom /api/v1/run contract accepts string prompts. Ordinary OpenAI clients 
 
 ## Decision
 
-- Replace it with GET /v1/models and POST /v1/chat/completions and /v1/responses. `api/openapi.yaml` is authoritative. Clients use Harden-LLM's /v1 base URL and existing `HARDEN_LLM_TOKEN` as API key.
+- Keep GET /v1/models and POST /v1/chat/completions and /v1/responses as the ordinary-client contract. ADR-HLLM-033 adds the reference /api/v1/run companion using the same engine and bearer boundary. `api/openapi.yaml` is authoritative. Clients use Harden-LLM's /v1 base URL and existing `HARDEN_LLM_TOKEN` as API key.
 - Support stateless text, JSON schema, function call/results and only fields explicitly listed in OpenAPI. Two codecs call one Go model and one engine.
 - Clients carry conversation state. Reject store:true, previous_response_id, background, hosted tools, media and unsupported fields; never silently discard. Do not claim full OpenAI/CPA parity.
 - Optional controls/diagnostics use one `harden` property. Normal requests work without it. Go/OpenAPI own defaults; Phoenix does not duplicate engine decisions.

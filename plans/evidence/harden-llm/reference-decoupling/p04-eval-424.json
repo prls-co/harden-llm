@@ -1,0 +1,470 @@
+{
+  "evaluation": "EVAL-424",
+  "baselineSHA": "754690c8d0890c664d69fbdf526b16b3e5601060",
+  "samples": [
+    {
+      "seed": 104729,
+      "suite": "host",
+      "passed": 45,
+      "evidence": "p04-final-owner-host-104729.log"
+    },
+    {
+      "seed": 104729,
+      "suite": "package",
+      "passed": 44,
+      "evidence": "p04-final-owner-package-104729.log"
+    },
+    {
+      "seed": 130363,
+      "suite": "host",
+      "passed": 45,
+      "evidence": "p04-final-owner-host-130363.log"
+    },
+    {
+      "seed": 130363,
+      "suite": "package",
+      "passed": 44,
+      "evidence": "p04-final-owner-package-130363.log"
+    },
+    {
+      "seed": 155921,
+      "suite": "host",
+      "passed": 45,
+      "evidence": "p04-final-owner-host-155921.log"
+    },
+    {
+      "seed": 155921,
+      "suite": "package",
+      "passed": 44,
+      "evidence": "p04-final-owner-package-155921.log"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "profile-picker",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04",
+      "suite": "host",
+      "test": "selecting a template fills the complete restored form and baseline controls",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "profile-editor",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04",
+      "suite": "host",
+      "test": "profile page preserves baseline catalog and complete editor bindings",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "profile-save",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04",
+      "suite": "host",
+      "test": "each explicit Save creates a new complete snapshot and selects its returned ID",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "profile-delete-hide",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04",
+      "suite": "host",
+      "test": "delete hides the selected preset and explicit recreation adds a new immutable profile",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "bundle-import-export",
+      "owner": "HardenLlmUI.Client",
+      "phase": "P04",
+      "suite": "host",
+      "test": "bundle download returns the same canonical setup with no-store",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "model-refresh",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04",
+      "suite": "host",
+      "test": "refresh edits only the draft and keeps its complete inputs until explicit Save",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "provider-credential-replacement",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04",
+      "suite": "host",
+      "test": "credential replacement uses the entered record's exact revision and new IDs start at zero",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "user-prompt",
+      "owner": "HardenLlmUI.InputComponents",
+      "phase": "P03",
+      "suite": "host",
+      "test": "selecting a template fills the complete restored form and baseline controls",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "system-prompt",
+      "owner": "HardenLlmUI.InputComponents",
+      "phase": "P03",
+      "suite": "host",
+      "test": "selecting a template fills the complete restored form and baseline controls",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "schema-editor",
+      "owner": "HardenLlmUI.WorkspaceSchema",
+      "phase": "P03",
+      "suite": "host",
+      "test": "schema helpers preserve baseline bindings without executing inference",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "schema-shorthand-generation",
+      "owner": "HardenLlmUI.WorkspaceSchema",
+      "phase": "P03",
+      "suite": "host",
+      "test": "schema helpers preserve baseline bindings without executing inference",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "reasoning-effort",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04",
+      "suite": "host",
+      "test": "selecting a template fills the complete restored form and baseline controls",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "web-search",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04",
+      "suite": "host",
+      "test": "selecting a template fills the complete restored form and baseline controls",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "cache-mode-version",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04",
+      "suite": "host",
+      "test": "shared form keeps models, timestamps, optional values and input snapshots",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "timeout",
+      "owner": "HardenLlmUI.ProfileForm",
+      "phase": "P04",
+      "suite": "host",
+      "test": "shared form keeps models, timestamps, optional values and input snapshots",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "retry-controls",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04",
+      "suite": "host",
+      "test": "repair and fresh rerun controls preserve all five leaf bindings",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "json-repair",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04",
+      "suite": "host",
+      "test": "repair and fresh rerun controls preserve all five leaf bindings",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "repair-escalation",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04",
+      "suite": "host",
+      "test": "repair and fresh rerun controls preserve all five leaf bindings",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "rerun-recovery",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04",
+      "suite": "host",
+      "test": "repair and fresh rerun controls preserve all five leaf bindings",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "repaired-response",
+      "owner": "HardenLlmUI.ResponseComponents",
+      "phase": "P03",
+      "suite": "host",
+      "test": "run keeps the repaired result and provider/result statistics",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "json-viewer",
+      "owner": "HardenLlmUI.ResponseComponents",
+      "phase": "P04",
+      "suite": "package",
+      "test": "preserves decoded JSON types, including strings that look like JSON",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "usage-cost-accounting",
+      "owner": "HardenLlmUI.StatsComponents",
+      "phase": "P03",
+      "suite": "package",
+      "test": "captured usage, cost and cache remain exact, partial or unknown without repricing",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "attempts-cache-facts",
+      "owner": "HardenLlmUI.StatsComponents",
+      "phase": "P04",
+      "suite": "package",
+      "test": "captured usage, cost and cache remain exact, partial or unknown without repricing",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "live-progress",
+      "owner": "HardenLlmUI.Client",
+      "phase": "P03",
+      "suite": "package",
+      "test": "standalone SSE returns one terminal result then recording and never repeats work",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "numbered-history-pagination",
+      "owner": "HardenLlmUI.Pagination",
+      "phase": "P04",
+      "suite": "host",
+      "test": "numbered pages load full captured content only through the existing details control",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "history-restore",
+      "owner": "HardenLlmUI.HistoryComponents",
+      "phase": "P03",
+      "suite": "host",
+      "test": "history restore fills recorded inputs without saving a profile or running inference",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "history-delete",
+      "owner": "HardenLlmUI.HistoryComponents",
+      "phase": "P03",
+      "suite": "host",
+      "test": "failed deletion restores the row and successful deletion refreshes its count",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "history-clear-confirmation",
+      "owner": "HardenLlmUI.HistoryComponents",
+      "phase": "P03",
+      "suite": "host",
+      "test": "partial clear is explicit and preserves rows until cleanup finishes",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "trace-inspection",
+      "owner": "HardenLlmUI.TraceComponents",
+      "phase": "P04",
+      "suite": "host",
+      "test": "trace resource buttons use run ID and show the canonical raw trace",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "artifact-download",
+      "owner": "HardenLlmUI.Client",
+      "phase": "P04",
+      "suite": "host",
+      "test": "artifact bytes download through the host without a history read or external redirect",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "embedding",
+      "owner": "HardenLlmUI.ProfileWidgetComponent",
+      "phase": "P04",
+      "suite": "host",
+      "test": "embedding keeps two baseline instances independent",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    },
+    {
+      "id": "portal-login-logout",
+      "owner": "HardenLlmWeb host/PrlsWeb",
+      "phase": "P04",
+      "suite": "host",
+      "test": "Portal logout preserves owner cookies and returns to Portal",
+      "seeds": [
+        104729,
+        130363,
+        155921
+      ],
+      "passed": true
+    }
+  ],
+  "metrics": {
+    "baseline_capability_pass_fraction": 1.0,
+    "component_state_leaks": 0,
+    "duplicate_production_sources": 0
+  },
+  "customCssSHA256": "019d4bd809717359e3ba766bd9ab16b652200ed935dba769159c2f562a01f5e2",
+  "jsonViewerCssSHA256": "889ed8e606415f980bbfafe0d48c295cd3bbcf8aec87a28660e9d56a9dc62393",
+  "cssMatchesBaseline": true,
+  "browserLayoutChecked": false,
+  "limitations": "Server/component bindings and stored values are measured. Browser layout, native confirmation/upload delivery and hook execution are not measured."
+}

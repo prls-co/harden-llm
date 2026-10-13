@@ -1,0 +1,351 @@
+package observability
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-028 TEST-213 TEST-214
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/prls-co/harden-llm/internal/accounting"
+	"github.com/prls-co/harden-llm/internal/cachekey"
+	"github.com/prls-co/harden-llm/internal/retry"
+	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+)
+
+func TestOTelContract(t *testing.T) {
+	spanExporter := tracetest.NewInMemoryExporter()
+	tracerProvider := sdktrace.NewTracerProvider(sdktrace.WithSyncer(spanExporter))
+	defer func() { _ = tracerProvider.Shutdown(context.Background()) }()
+	metricReader := sdkmetric.NewManualReader()
+	meterProvider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(metricReader))
+	defer func() { _ = meterProvider.Shutdown(context.Background()) }()
+	telemetry, err := NewTelemetry(tracerProvider, meterProvider)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	connection := Connection{
+		ID: "adversarial-connection", Provider: "openai", APIInferenceType: "responses",
+		BaseURL: "https://api.openai.com/v1",
+	}
+	call := coreruntime.Call{
+		Messages: []coreruntime.Message{
+			{Role: "system", Content: json.RawMessage(`"adversarial system prompt"`)},
+			{Role: "user", Content: json.RawMessage(`"adversarial user prompt"`)},
+		},
+		ModelID: "gpt-fixture", CallType: "structured", Schema: json.RawMessage(`{"type":"object"}`),
+		Observer: telemetry,
+		ValidateStructured: func(value any) error {
+			object, ok := value.(map[string]any)
+			if !ok || object["answer"] != "ok" {
+				return errors.New("adversarial response failed schema")
+			}
+			return nil
+		},
+	}
+	cache := &telemetryCache{}
+	ctx, endCall := telemetry.StartCall(context.Background(), CallObservation{
+		ConnectionID: connection.ID, Provider: connection.Provider, ModelID: call.ModelID, CallType: call.CallType,
+	})
+	record, err := coreruntime.Execute(ctx, &telemetryExecutor{failFirst: true}, connection, coreruntime.Credential{APIKey: "super-secret-api-key"}, call, retry.Config{Policy: retry.Policy{MaxAttempts: 3, RetryOn: []retry.Category{retry.CategoryServer}, JSONRepair: retry.DefaultPolicy().JSONRepair, Backoff: retry.Backoff{}}, Random: func() float64 { return 0 }, Wait: func(context.Context, time.Duration) error { return nil }}, cache, cachekey.ModeRefresh, "v1", "call-fixture", "trace-fixture")
+	endCall(coreruntime.Summarize(record, time.Now(), time.Now(), err), err)
+	if err != nil || len(record.Attempts) != 3 || !record.Cache.Written {
+		t.Fatalf("instrumented repaired call = %#v, %v", record, err)
+	}
+
+	cache.found = true
+	ctx, endCall = telemetry.StartCall(context.Background(), CallObservation{
+		ConnectionID: connection.ID, Provider: connection.Provider, ModelID: call.ModelID, CallType: call.CallType,
+	})
+	cached, cacheErr := coreruntime.Execute(ctx, &telemetryExecutor{}, connection, coreruntime.Credential{APIKey: "super-secret-api-key"}, call, retry.Config{Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}, cache,
+		cachekey.ModeCache, "v1", "call-cache", "trace-cache")
+	endCall(coreruntime.Summarize(cached, time.Now(), time.Now(), cacheErr), cacheErr)
+	if cacheErr != nil || !cached.Cache.Served {
+		t.Fatalf("instrumented cache hit = %#v, %v", cached, cacheErr)
+	}
+
+	spans := spanExporter.GetSpans()
+	requiredSpans := []string{
+		SpanCall, SpanRuntime, SpanProvider, SpanAttempt, SpanRetryWait,
+		SpanSchema, SpanCacheLookup, SpanCacheWrite,
+	}
+	for _, required := range requiredSpans {
+		if !hasSpan(spans, required) {
+			t.Errorf("required span %q was not emitted", required)
+		}
+	}
+	assertSpanParent(t, spans, SpanProvider, SpanAttempt)
+	assertSpanParent(t, spans, SpanSchema, SpanAttempt)
+	assertAttemptTargets(t, spans, []string{connection.ID, connection.ID, connection.ID}, []string{call.ModelID, call.ModelID, call.ModelID})
+	encodedSpans := fmt.Sprint(spans)
+	for _, forbidden := range []string{"super-secret-api-key", "adversarial system prompt", "adversarial user prompt", "adversarial response"} {
+		if strings.Contains(encodedSpans, forbidden) {
+			t.Fatalf("span attributes leaked %q", forbidden)
+		}
+	}
+
+	var metrics metricdata.ResourceMetrics
+	if err := metricReader.Collect(context.Background(), &metrics); err != nil {
+		t.Fatal(err)
+	}
+	requiredMetrics := map[string]bool{
+		"harden_llm.calls": false, "harden_llm.call.duration": false,
+		"harden_llm.provider.attempts": false, "harden_llm.provider.duration": false,
+		"harden_llm.retries": false, "harden_llm.cache.operations": false,
+		"harden_llm.schema.operations": false, "harden_llm.tokens": false, "harden_llm.cost.usd": false,
+	}
+	allowedLabels := map[string]bool{
+		"provider": true, "call_type": true, "outcome": true, "category": true,
+		"cache_outcome": true, "operation": true, "repair": true, "token_type": true,
+		"source": true, "coverage": true, "scope": true,
+	}
+	for _, scope := range metrics.ScopeMetrics {
+		for _, observed := range scope.Metrics {
+			if _, ok := requiredMetrics[observed.Name]; ok {
+				requiredMetrics[observed.Name] = true
+			}
+			for _, set := range metricAttributeSets(observed.Data) {
+				for _, value := range set.ToSlice() {
+					if !allowedLabels[string(value.Key)] {
+						t.Errorf("metric %s used unbounded label %q", observed.Name, value.Key)
+					}
+				}
+			}
+		}
+	}
+	for name, found := range requiredMetrics {
+		if !found {
+			t.Errorf("required metric %q was not emitted", name)
+		}
+	}
+}
+
+func TestSearchFailureDoesNotIncrementProviderMetrics(t *testing.T) {
+	t.Parallel()
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	defer provider.Shutdown(context.Background())
+	telemetry, err := NewTelemetry(nil, provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, end := telemetry.StartProvider(context.Background(), ExecutionTarget{Provider: "cpa"}, "text")
+	end(false, errors.New("search failed"))
+	var metrics metricdata.ResourceMetrics
+	if err := reader.Collect(context.Background(), &metrics); err != nil {
+		t.Fatal(err)
+	}
+	for _, scope := range metrics.ScopeMetrics {
+		for _, m := range scope.Metrics {
+			if strings.HasPrefix(m.Name, "harden_llm.provider.") {
+				t.Fatalf("search failure emitted provider metric %s", m.Name)
+			}
+		}
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-228
+func TestRecoveryIntegrityCacheWriteTelemetry(t *testing.T) {
+	t.Parallel()
+	spanExporter := tracetest.NewInMemoryExporter()
+	tracerProvider := sdktrace.NewTracerProvider(sdktrace.WithSyncer(spanExporter))
+	defer func() { _ = tracerProvider.Shutdown(context.Background()) }()
+	metricReader := sdkmetric.NewManualReader()
+	meterProvider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(metricReader))
+	defer func() { _ = meterProvider.Shutdown(context.Background()) }()
+	telemetry, err := NewTelemetry(tracerProvider, meterProvider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	connection := Connection{ID: "connection", Provider: "openai", APIInferenceType: "responses", BaseURL: "https://api.openai.com/v1"}
+	cache := &telemetryCache{err: errors.New("cache write failed: do-not-export")}
+	call := coreruntime.Call{CallType: "text", ModelID: "model", Messages: []coreruntime.Message{{Role: "user", Content: json.RawMessage(`"accepted"`)}}, Observer: telemetry}
+	ctx, endCall := telemetry.StartCall(context.Background(), CallObservation{ConnectionID: connection.ID, Provider: connection.Provider, ModelID: call.ModelID, CallType: call.CallType})
+	record, callErr := coreruntime.Execute(ctx, &telemetryExecutor{}, connection, coreruntime.Credential{APIKey: "secret"}, call, retry.Config{
+		Policy: retry.Policy{MaxAttempts: 1, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}},
+		Random: func() float64 { return 0 }, Wait: func(context.Context, time.Duration) error { return nil },
+	}, cache, cachekey.ModeCache, "v1", "call-write-failed", "trace-write-failed")
+	endCall(coreruntime.Summarize(record, time.Now(), time.Now(), callErr), callErr)
+	if callErr != nil || record.Output == nil || record.Cache.Status != "write_failed" || record.Cache.Written {
+		t.Fatalf("cache write telemetry result=%#v error=%v", record, callErr)
+	}
+
+	var writeSpan, callSpan *tracetest.SpanStub
+	spans := spanExporter.GetSpans()
+	for index := range spans {
+		span := &spans[index]
+		switch span.Name {
+		case SpanCacheWrite:
+			writeSpan = span
+		case SpanCall:
+			callSpan = span
+		}
+	}
+	if writeSpan == nil || writeSpan.Status.Code != codes.Error {
+		t.Fatalf("cache write span status = %#v, want error", writeSpan)
+	}
+	if callSpan == nil || callSpan.Status.Code != codes.Ok {
+		t.Fatalf("call span status = %#v, want success", callSpan)
+	}
+	if strings.Contains(fmt.Sprint(spans), "do-not-export") {
+		t.Fatal("cache write error leaked into spans")
+	}
+
+	var metrics metricdata.ResourceMetrics
+	if err := metricReader.Collect(context.Background(), &metrics); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, scope := range metrics.ScopeMetrics {
+		for _, metricValue := range scope.Metrics {
+			if metricValue.Name != "harden_llm.cache.operations" {
+				continue
+			}
+			for _, set := range metricAttributeSets(metricValue.Data) {
+				attributes := make(map[string]string)
+				for _, value := range set.ToSlice() {
+					attributes[string(value.Key)] = value.Value.AsString()
+				}
+				if attributes["operation"] == "write" && attributes["cache_outcome"] == "write_failed" && attributes["outcome"] == "error" {
+					found = true
+				}
+			}
+		}
+	}
+	if !found {
+		t.Fatal("cache write metric did not retain bounded write_failed outcome")
+	}
+}
+
+type telemetryExecutor struct {
+	attempts  int
+	failFirst bool
+}
+
+func (*telemetryExecutor) Prepare(_ context.Context, connection Connection, _ coreruntime.Credential, call coreruntime.Call) (coreruntime.PreparedOperation, error) {
+	return coreruntime.PreparedOperation{Operation: cachekey.Operation{
+		SchemaVersion: cachekey.OperationSchemaVersion, Protocol: "fixture",
+		Endpoint: cachekey.Endpoint{Identity: connection.BaseURL, Method: "POST", Path: "/run"},
+		Model:    call.ModelID, Payload: map[string]any{"repair": call.Repair != nil},
+		SemanticHeaders:    map[string]any{},
+		ResponseProjection: cachekey.ResponseProjection{Provider: "openai", Kind: "fixture", Version: "v1"},
+	}, Opaque: call.Repair != nil}, nil
+}
+
+func assertAttemptTargets(t *testing.T, spans tracetest.SpanStubs, connections, models []string) {
+	t.Helper()
+	var attempts []tracetest.SpanStub
+	for _, span := range spans {
+		if span.Name == SpanAttempt {
+			attempts = append(attempts, span)
+		}
+	}
+	if len(attempts) != len(connections) {
+		t.Fatalf("attempt spans = %d, want exactly %d", len(attempts), len(connections))
+	}
+	for index := range connections {
+		attributes := make(map[string]string)
+		for _, value := range attempts[index].Attributes {
+			attributes[string(value.Key)] = value.Value.AsString()
+		}
+		if attributes["harden_llm.connection.id"] != connections[index] || attributes["gen_ai.request.model"] != models[index] {
+			t.Fatalf("attempt %d target = %#v, want connection=%q model=%q", index+1, attributes, connections[index], models[index])
+		}
+	}
+}
+
+func (executor *telemetryExecutor) Execute(_ context.Context, operation coreruntime.PreparedOperation) (coreruntime.ProviderResult, error) {
+	executor.attempts++
+	if executor.failFirst && executor.attempts == 1 {
+		return coreruntime.ProviderResult{ProviderDispatched: true}, &retry.ProviderError{Category: retry.CategoryServer, Status: 503}
+	}
+	if repair, _ := operation.Opaque.(bool); repair {
+		return coreruntime.ProviderResult{ProviderDispatched: true,
+			Output: map[string]any{"answer": "ok"},
+			Accounting: coreruntime.Ledger{
+				Usage: accounting.Usage{InputTokens: 5, OutputTokens: 2, Status: accounting.UsageComplete}, Cost: accounting.ExactCost(0.01, "reported"),
+			},
+		}, nil
+	}
+	return coreruntime.ProviderResult{ProviderDispatched: true,
+		Output: map[string]any{"answer": float64(42)},
+		Accounting: coreruntime.Ledger{
+			Usage: accounting.Usage{InputTokens: 4, OutputTokens: 1, Status: accounting.UsageComplete}, Cost: accounting.ExactCost(0.01, "reported"),
+		},
+	}, nil
+}
+
+type telemetryCache struct {
+	record coreruntime.CachedResult
+	found  bool
+	err    error
+}
+
+func (cache *telemetryCache) Get(context.Context, string, string) (coreruntime.CachedResult, bool, error) {
+	return cache.record, cache.found, nil
+}
+
+func (cache *telemetryCache) Set(_ context.Context, _, _ string, result coreruntime.CachedResult) error {
+	cache.record = result
+	return cache.err
+}
+
+func hasSpan(spans tracetest.SpanStubs, name string) bool {
+	for _, span := range spans {
+		if span.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func assertSpanParent(t *testing.T, spans tracetest.SpanStubs, childName, parentName string) {
+	t.Helper()
+	for _, child := range spans {
+		if child.Name != childName {
+			continue
+		}
+		for _, parent := range spans {
+			if parent.Name == parentName && child.Parent.SpanID() == parent.SpanContext.SpanID() {
+				return
+			}
+		}
+	}
+	t.Errorf("span %q was not a child of %q", childName, parentName)
+}
+
+func metricAttributeSets(data metricdata.Aggregation) []attribute.Set {
+	switch value := data.(type) {
+	case metricdata.Sum[int64]:
+		result := make([]attribute.Set, 0, len(value.DataPoints))
+		for _, point := range value.DataPoints {
+			result = append(result, point.Attributes)
+		}
+		return result
+	case metricdata.Sum[float64]:
+		result := make([]attribute.Set, 0, len(value.DataPoints))
+		for _, point := range value.DataPoints {
+			result = append(result, point.Attributes)
+		}
+		return result
+	case metricdata.Histogram[float64]:
+		result := make([]attribute.Set, 0, len(value.DataPoints))
+		for _, point := range value.DataPoints {
+			result = append(result, point.Attributes)
+		}
+		return result
+	default:
+		return nil
+	}
+}

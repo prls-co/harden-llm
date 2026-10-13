@@ -4,7 +4,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 env_file="${HARDEN_ENV_FILE:-$repo_root/.env}"
-api="${HARDEN_API_URL:-https://harden-llm-api.prls.co}"
+api="${HARDEN_API_URL:-https://harden-llm.prls.co}"
 model="${HARDEN_LLM_SMOKE_MODEL:-gpt-5.6-luna}"
 
 if [[ ! -r "$env_file" ]]; then

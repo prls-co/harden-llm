@@ -1,0 +1,49 @@
+    warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+    │
+ 16 │           href={~p"/profiles/bundle"}
+    │           ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/harden_llm_web/live/profiles_live.html.heex:16: HardenLlmWeb.ProfilesLive.render/1
+
+     warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+     │
+ 221 │           bundle_export_url={~p"/profiles/bundle"}
+     │           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     │
+     └─ lib/harden_llm_web/live/profiles_live.html.heex:221: HardenLlmWeb.ProfilesLive.render/1
+
+      warning: variable "profile" is unused (if the variable is not meant to be used, prefix it with an underscore)
+      │
+ 1270 │       profile = profile_state["definition"] || %{}
+      │       ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1270:7: HardenLlmWeb.WorkspaceLive.profile_options/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}"
+      │
+ 1758 │     do: ~p"/traces/#{trace_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1758: HardenLlmWeb.WorkspaceLive.trace_url/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │
+ 1763 │     do: ~p"/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1763: HardenLlmWeb.WorkspaceLive.artifact_url/2
+
+    warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+    │
+ 84 │               bundle_export_url={~p"/profiles/bundle"}
+    │               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/harden_llm_web/live/workspace_live.html.heex:84: HardenLlmWeb.WorkspaceLive.render/1
+
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+.......................................................................................................
+Finished in 1.7 seconds (1.6s async, 0.08s sync)
+
+Result: 103 passed, 3 excluded

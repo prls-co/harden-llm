@@ -1,0 +1,29 @@
+--- FAIL: TestProfileContract (0.00s)
+    --- FAIL: TestProfileContract/template_selection_copies_full_draft_without_execution (0.00s)
+        profile_test.go:35: template selection changed complete setup
+    --- FAIL: TestProfileContract/explicit_false_zero_null_and_empty_are_preserved (0.00s)
+        profile_test.go:42: explicit values changed: {"systemPrompt":"","providerOptions":{"zero":0,"disabled":false,"nullable":null},"webSearch":false,"timeoutMs":0} snapshot not implemented
+    --- FAIL: TestProfileContract/explicit_saves_create_UUID_date_suffix_snapshots (0.00s)
+        profile_test.go:48: snapshot not implemented
+    --- FAIL: TestProfileContract/saved_setup_survives_template_edit_and_deletion (0.00s)
+        profile_test.go:59: snapshot not implemented
+    --- FAIL: TestProfileContract/hidden_template_preference_affects_only_selected_scope (0.00s)
+        profile_test.go:66: hidden template leaked: A=[] B=[]
+    --- FAIL: TestProfileContract/five_profile_recovery_leaves_resolve_fixed_connections_in_scope (0.00s)
+        profile_test.go:78: recovery translation not implemented
+    --- FAIL: TestProfileContract/credential_sources_require_exactly_their_own_binding (0.00s)
+        profile_test.go:90: valid binding: snapshot not implemented
+        profile_test.go:90: valid binding: snapshot not implemented
+    --- FAIL: TestProfileContract/picker_omits_full_inputs_and_detail_contains_them_without_secrets (0.00s)
+        profile_test.go:95: snapshot not implemented
+    --- FAIL: TestProfileContract/caller_cannot_assign_snapshot_identity_revision_or_creation_time (0.00s)
+        profile_test.go:105: caller field id accepted
+        profile_test.go:105: caller field revision accepted
+        profile_test.go:105: caller field createdAt accepted
+        profile_test.go:105: caller field apiKeyHash accepted
+        profile_test.go:105: caller field userId accepted
+        profile_test.go:105: caller field ownerId accepted
+        profile_test.go:105: caller field sessionReference accepted
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	0.005s
+FAIL

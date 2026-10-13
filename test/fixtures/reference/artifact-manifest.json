@@ -1,0 +1,28 @@
+{
+  "apiKeyHash": "c7295ce3bee8241c186abb300ca115c4999dc6548415b5ad7e9b2fb1cc914dd5",
+  "runId": "00000000-0000-4000-8000-000000000001",
+  "artifacts": [
+    {
+      "metadata": {
+        "artifactId": "trace.json",
+        "kind": "trace",
+        "state": "available",
+        "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "sizeBytes": 3,
+        "contentType": "application/json"
+      },
+      "objectKey": "artifacts/c7295ce3bee8241c186abb300ca115c4999dc6548415b5ad7e9b2fb1cc914dd5/00000000-0000-4000-8000-000000000001/trace.json",
+      "bytesBase64": "e30K",
+      "request": {
+        "runId": "00000000-0000-4000-8000-000000000001",
+        "artifactId": "trace.json"
+      }
+    }
+  ],
+  "foreignApiKeyHash": "f0618fdc3e22f4d9a493983ad43f0a06174958bb81708390493b9da2a01798b6",
+  "invalidArtifactIds": [
+    "../x",
+    "a/b",
+    ""
+  ]
+}

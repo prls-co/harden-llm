@@ -1,0 +1,6 @@
+--- FAIL: TestStatelessContract (0.00s)
+    --- FAIL: TestStatelessContract/progress_and_captured_timestamps_are_detached_from_the_final_result (0.00s)
+        stateless_contract_test.go:366: public progress or capture mutated the final result
+FAIL
+FAIL	github.com/prls-co/harden-llm	0.005s
+FAIL

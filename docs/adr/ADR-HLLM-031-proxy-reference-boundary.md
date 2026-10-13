@@ -1,4 +1,8 @@
 
+
+> Historical boundary, superseded by ADR-HLLM-033/034 for the accepted reference
+> restoration. Its recorded release evidence remains historical.
+
 # ADR-HLLM-031: OpenAI proxy and reference history ownership
 
 - Status: Accepted for implementation

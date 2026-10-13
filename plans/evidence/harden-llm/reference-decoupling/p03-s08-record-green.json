@@ -1,0 +1,50 @@
+{
+  "accepted": true,
+  "runDirectory": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/run-1791851693810-2017576-yvex0y",
+  "results": [
+    {
+      "taskId": "go-integration",
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-tags=integration",
+        "./stateful",
+        "-run",
+        "^TestReferenceHistory$",
+        "-count=1"
+      ],
+      "status": 0,
+      "seed": 233256,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 10195,
+      "peakRssMiB": 300.54296875,
+      "cpuMs": 5440,
+      "stdoutBytes": 51,
+      "stderrBytes": 0,
+      "truncatedOutputBytes": 0,
+      "stdoutPreview": "ok  \tgithub.com/prls-co/harden-llm/stateful\t2.926s\n",
+      "stderrPreview": "",
+      "failureSummary": null,
+      "failureDetail": null,
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": true,
+      "servicePoolProject": "harden-llm-test-79d5848dc68c",
+      "startedAtMs": 433,
+      "endedAtMs": 10629
+    }
+  ],
+  "firstFailure": null,
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 68,
+    "daemonLockWaitMs": 117,
+    "staleReceiptRecoveryMs": 120
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": []
+}

@@ -1,0 +1,59 @@
+      warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+      │
+ 1887 │         <a id={scope_id(@id_prefix, "export-bundle")} href={~p"/profiles/bundle"} class="ullm-btn">Export Bundle</a>
+      │         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      │
+      └─ lib/harden_llm_web/live/profile_widget_component.ex:1887: HardenLlmWeb.ProfileWidgetComponent.profile_editor/1
+
+      warning: variable "profile" is unused (if the variable is not meant to be used, prefix it with an underscore)
+      │
+ 1245 │       profile = profile_state["definition"] || %{}
+      │       ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1245:7: HardenLlmWeb.WorkspaceLive.profile_options/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}"
+      │
+ 1718 │     do: ~p"/traces/#{trace_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1718: HardenLlmWeb.WorkspaceLive.trace_url/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │
+ 1723 │     do: ~p"/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1723: HardenLlmWeb.WorkspaceLive.artifact_url/2
+
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+
+
+  1) test history restore fills recorded inputs without saving a profile or running inference (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:209
+     Assertion with == failed
+     code:  assert dom_value(view, "#profile_baseUrl") == "https://recorded-provider.example/v1"
+     left:  ""
+     right: "https://recorded-provider.example/v1"
+     stacktrace:
+       test/harden_llm_web/live/restored_workflow_test.exs:230: (test)
+
+.....
+
+  2) test selecting a template fills the complete restored form and baseline controls (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:88
+     Assertion with == failed
+     code:  assert dom_value(view, "#run_userPrompt") ==
+              fixture["details"]["Repair Provider"]["inputs"]["userPrompt"]
+     left:  "Return an object with ok true."
+     right: "Repair template prompt"
+     stacktrace:
+       test/harden_llm_web/live/restored_workflow_test.exs:102: (test)
+
+
+Finished in 1.0 seconds (1.0s async, 0.00s sync)
+
+Result: 5/7 passed
+Failed: 2 tests

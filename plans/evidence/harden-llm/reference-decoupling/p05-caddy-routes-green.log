@@ -1,0 +1,17 @@
+F
+======================================================================
+FAIL: test_routes_preserve_policy_tls_and_failure_isolation (__main__.TestRoutePolicy.test_routes_preserve_policy_tls_and_failure_isolation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/kirill/.cache/harden-llm-tmp/caddy-reference-routing/tests/test_routes.py", line 388, in test_routes_preserve_policy_tls_and_failure_isolation
+    self._assert_route_behavior(candidate)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/home/kirill/.cache/harden-llm-tmp/caddy-reference-routing/tests/test_routes.py", line 413, in _assert_route_behavior
+    self.assertEqual(404, status)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+AssertionError: 404 != 200
+
+----------------------------------------------------------------------
+Ran 1 test in 6.928s
+
+FAILED (failures=1)

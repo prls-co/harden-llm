@@ -1,0 +1,55 @@
+{
+  "accepted": false,
+  "runDirectory": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/run-1791850266441-1856826-6yd1yw",
+  "results": [
+    {
+      "taskId": "go-integration",
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-tags=integration",
+        "./stateful",
+        "-run",
+        "^TestReferenceHistory$",
+        "-count=1"
+      ],
+      "status": 1,
+      "seed": 233256,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 5473,
+      "peakRssMiB": 40.70703125,
+      "cpuMs": 810,
+      "stdoutBytes": 64,
+      "stderrBytes": 229,
+      "truncatedOutputBytes": 0,
+      "stdoutPreview": "FAIL\tgithub.com/prls-co/harden-llm/stateful [build failed]\nFAIL\n",
+      "stderrPreview": "# github.com/prls-co/harden-llm/stateful [github.com/prls-co/harden-llm/stateful.test]\nstateful/history_integration_test.go:88:150: cannot use \"Reply with OK.\" (untyped string constant) as json.RawMessage value in struct literal\n",
+      "failureSummary": "stateful/history_integration_test.go:88:150: cannot use \"Reply with OK.\" (untyped string constant) as json.RawMessage value in struct literal | FAIL\tgithub.com/prls-co/harden-llm/stateful [build failed] | FAIL",
+      "failureDetail": "# github.com/prls-co/harden-llm/stateful [github.com/prls-co/harden-llm/stateful.test]\nstateful/history_integration_test.go:88:150: cannot use \"Reply with OK.\" (untyped string constant) as json.RawMessage value in struct literal\n\nFAIL\tgithub.com/prls-co/harden-llm/stateful [build failed]\nFAIL",
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": true,
+      "servicePoolProject": "harden-llm-test-a4913397cf3c",
+      "startedAtMs": 441,
+      "endedAtMs": 5914
+    }
+  ],
+  "firstFailure": {
+    "taskId": "go-integration",
+    "status": 1,
+    "failureSummary": "stateful/history_integration_test.go:88:150: cannot use \"Reply with OK.\" (untyped string constant) as json.RawMessage value in struct literal | FAIL\tgithub.com/prls-co/harden-llm/stateful [build failed] | FAIL",
+    "failureDetail": "# github.com/prls-co/harden-llm/stateful [github.com/prls-co/harden-llm/stateful.test]\nstateful/history_integration_test.go:88:150: cannot use \"Reply with OK.\" (untyped string constant) as json.RawMessage value in struct literal\n\nFAIL\tgithub.com/prls-co/harden-llm/stateful [build failed]\nFAIL"
+  },
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 71,
+    "daemonLockWaitMs": 122,
+    "staleReceiptRecoveryMs": 123
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": []
+}

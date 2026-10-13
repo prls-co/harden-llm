@@ -6,16 +6,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/prls-co/harden-llm/internal/cachekey"
-	"github.com/prls-co/harden-llm/internal/providers"
 	"github.com/prls-co/harden-llm/internal/retry"
 	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
 	contractschema "github.com/prls-co/harden-llm/internal/schema"
+	"github.com/prls-co/harden-llm/internal/traces"
 )
 
 var errRuntimeUnavailable = errors.New("hardenllm: runtime is not initialized")
@@ -26,53 +26,23 @@ type Client struct {
 	connections       ConnectionCatalog
 	defaultConnection string
 	executor          coreruntime.Executor
-	modelDiscovery    *providers.ModelDiscovery
-	telemetry         *coreruntime.Telemetry
+	modelDiscovery    ModelDiscoverer
+	observer          Observer
 	newID             func() (string, error)
 	observeRecord     func(coreruntime.CallRecord)
 }
 
 // New constructs a client without changing global logging or telemetry state.
 func New(options Options) (*Client, error) {
-	if options.Logger == nil {
-		options.Logger = slog.New(slog.DiscardHandler)
+	if options.Executor == nil {
+		return nil, errors.New("hardenllm: an injected executor is required")
 	}
 	connections, defaultConnection, err := normalizeConnections(options.Connections, options.DefaultConnection)
 	if err != nil {
 		return nil, err
 	}
-	endpointPolicy := providerEndpointPolicy(options.EndpointPolicy)
-	executor, err := providers.NewRouter(providers.Config{
-		EndpointPolicy: endpointPolicy,
-		Logger:         options.Logger,
-		JinaAPIKey:     options.WebSearch.JinaAPIKey, JinaTimeout: options.WebSearch.JinaTimeout,
-		JinaMaxResponseBytes: options.WebSearch.JinaMaxResponseBytes,
-	})
-	if err != nil {
-		return nil, err
-	}
-	modelDiscovery, err := providers.NewModelDiscovery(endpointPolicy)
-	if err != nil {
-		return nil, fmt.Errorf("hardenllm: initialize model discovery: %w", err)
-	}
-	telemetry, err := coreruntime.NewTelemetry(options.TracerProvider, options.MeterProvider)
-	if err != nil {
-		return nil, fmt.Errorf("hardenllm: initialize telemetry: %w", err)
-	}
-	return &Client{
-		options: options, connections: connections, defaultConnection: defaultConnection,
-		executor: executor, modelDiscovery: modelDiscovery, telemetry: telemetry, newID: newRuntimeID,
-	}, nil
-}
-
-func providerEndpointPolicy(policy EndpointPolicy) providers.EndpointPolicy {
-	return providers.EndpointPolicy{
-		AllowedHosts: policy.AllowedHosts, PrivateAllowedHosts: policy.PrivateAllowedHosts,
-		PrivateAllowlist: policy.PrivateAllowlist, Resolver: policy.Resolver,
-		DialContext: policy.DialContext, TLSConfig: policy.TLSConfig,
-		ConnectTimeout: policy.ConnectTimeout, TLSHandshakeTimeout: policy.TLSHandshakeTimeout,
-		ResponseHeaderTimeout: policy.ResponseHeaderTimeout,
-	}
+	return &Client{options: options, connections: connections, defaultConnection: defaultConnection,
+		executor: options.Executor, modelDiscovery: options.DiscoverModels, observer: options.Observer, newID: newRuntimeID}, nil
 }
 
 // Models lists native model identifiers from one configured upstream. It does
@@ -81,25 +51,17 @@ func (client *Client) Models(ctx context.Context, connectionID string) ([]Model,
 	if ctx == nil {
 		return nil, errors.New("hardenllm: context is required")
 	}
-	if client == nil || client.modelDiscovery == nil {
+	if client == nil {
 		return nil, errRuntimeUnavailable
+	}
+	if client.modelDiscovery == nil {
+		return nil, &UnsupportedOperationError{Operation: "models"}
 	}
 	connection, err := client.connection(connectionID)
 	if err != nil {
 		return nil, err
 	}
-	discovered, err := client.modelDiscovery.Discover(ctx, providers.ModelDiscoveryRequest{
-		BaseURL: connection.BaseURL, APIInferenceType: connection.Protocol,
-		APIKey: connection.APIKey, Headers: cloneStringMap(connection.Headers),
-	})
-	if err != nil {
-		return nil, err
-	}
-	models := make([]Model, 0, len(discovered))
-	for _, model := range discovered {
-		models = append(models, Model{ID: model.ID, Label: model.Label, OwnedBy: connection.Provider})
-	}
-	return models, nil
+	return client.modelDiscovery(ctx, connection)
 }
 
 func (client *Client) connection(connectionID string) (Connection, error) {
@@ -111,6 +73,7 @@ func (client *Client) connection(connectionID string) (Connection, error) {
 	if !ok {
 		return Connection{}, fmt.Errorf("hardenllm: connection %q was not configured", connectionID)
 	}
+	connection = connection.Clone()
 	return connection, nil
 }
 
@@ -124,6 +87,7 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 	if client == nil || client.executor == nil {
 		return Result{}, errRuntimeUnavailable
 	}
+	request.RecoveryPolicy = cloneRecoveryPolicy(request.RecoveryPolicy)
 	if err := validateOrigin(request.Origin); err != nil {
 		return Result{}, err
 	}
@@ -146,11 +110,13 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 	if request.WebSearch && len(request.Tools) > 0 {
 		return Result{}, errors.New("hardenllm: web search and function tools cannot be combined")
 	}
-	ctx, endCall := client.telemetry.StartCall(ctx, coreruntime.CallObservation{
-		ConnectionID: connection.ID, Provider: connection.Provider, ModelID: request.ModelID, CallType: string(request.CallType),
-	})
+	started := time.Now()
 	var record coreruntime.CallRecord
-	defer func() { endCall(record, err) }()
+	if client.observer != nil {
+		var finish func(coreruntime.CallSummary, error)
+		ctx, finish = client.observer.StartCall(ctx, coreruntime.CallObservation{ConnectionID: connection.ID, Provider: connection.Provider, ModelID: request.ModelID, CallType: string(request.CallType)})
+		defer func() { finish(coreruntime.Summarize(record, started, time.Now(), err), err) }()
+	}
 	cacheMode, err := cachekey.ResolveMode(string(request.CacheMode))
 	if err != nil {
 		return Result{}, fmt.Errorf("hardenllm: %w", err)
@@ -165,9 +131,17 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 	if err := request.RecoveryPolicy.Validate(); err != nil {
 		return Result{}, err
 	}
+	bindings := make(map[string]coreruntime.ResolvedConnection, len(client.connections))
+	for id, value := range client.connections {
+		bindings[id] = coreruntime.ResolvedConnection{Connection: runtimeConnection(value), Credential: coreruntime.Credential{APIKey: value.APIKey, Headers: cloneStringMap(value.Headers)}}
+	}
+	if err := validateRecoveryConnections(request.RecoveryPolicy, bindings); err != nil {
+		return Result{}, err
+	}
 	call := coreruntime.Call{
-		ModelID: request.ModelID, Messages: append([]coreruntime.Message(nil), request.Messages...), CallType: string(request.CallType),
-		Schema: append([]byte(nil), request.Schema...), Tools: append([]coreruntime.FunctionTool(nil), request.Tools...),
+		Connections: bindings,
+		ModelID:     request.ModelID, Messages: cloneMessages(request.Messages), CallType: string(request.CallType),
+		Schema: append([]byte(nil), request.Schema...), Tools: cloneTools(request.Tools),
 		ToolChoice: request.ToolChoice, ReasoningEffort: string(request.ReasoningEffort),
 		WebSearch: request.WebSearch,
 		Origin: coreruntime.Origin{
@@ -176,7 +150,7 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 			TestID: request.Origin.TestID, SourceRevision: request.Origin.SourceRevision,
 		},
 		ProviderOptions: cloneAnyMap(request.ProviderOptions), Context: runtimeContext(request.Context),
-		Telemetry: client.telemetry,
+		Observer: client.observer,
 	}
 	if request.Progress != nil {
 		call.Progress = func(snapshot coreruntime.ProgressSnapshot) {
@@ -187,7 +161,7 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 			var progressAccounting *Accounting
 			if snapshot.Accounting != nil {
 				value := Accounting{
-					Result: publicAccountingLedger(snapshot.Accounting.Result), Provider: publicAccountingLedger(snapshot.Accounting.Provider),
+					Result: ProjectLedger(snapshot.Accounting.Result), Provider: ProjectLedger(snapshot.Accounting.Provider),
 				}
 				progressAccounting = &value
 			}
@@ -250,11 +224,59 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 	if client.observeRecord != nil {
 		client.observeRecord(record)
 	}
+	if request.CaptureDiagnostics != nil {
+		projected := traces.Project(record, call.Context, started, time.Now(), err)
+		secrets := []string{}
+		for _, binding := range bindings {
+			secrets = append(secrets, binding.Credential.APIKey)
+			for _, value := range binding.Credential.Headers {
+				secrets = append(secrets, value)
+			}
+		}
+		artifacts, captureErr := traces.ArtifactProjections(projected, record.ParseFailureResponse, secrets...)
+		if captureErr == nil && len(artifacts) > 0 {
+			// The trace value and bytes use the same redacted projection.
+			var detached Trace
+			captureErr = json.Unmarshal(artifacts[0].Content, &detached)
+			projected = detached
+		}
+		if captureErr == nil {
+			request.CaptureDiagnostics(DiagnosticCapture{Trace: projected, Artifacts: artifacts})
+		} else {
+			request.CaptureDiagnostics(DiagnosticCapture{ErrorCode: "diagnostic_projection_failed"})
+		}
+	}
 	result = resultFromRecord(record)
 	if err != nil {
 		return result, err
 	}
 	return result, nil
+}
+
+func cloneRecoveryPolicy(policy RecoveryPolicy) RecoveryPolicy {
+	policy.RetryOn = slices.Clone(policy.RetryOn)
+	policy.JSONRepair = cloneRepairPlan(policy.JSONRepair)
+	if policy.Rerun != nil {
+		rerun := *policy.Rerun
+		rerun.Target.ProviderOptions = cloneAnyMap(rerun.Target.ProviderOptions)
+		rerun.JSONRepair = cloneRepairPlan(rerun.JSONRepair)
+		policy.Rerun = &rerun
+	}
+	return policy
+}
+
+func cloneRepairPlan(plan *JSONRepairPlan) *JSONRepairPlan {
+	if plan == nil {
+		return nil
+	}
+	copy := *plan
+	copy.Initial.ProviderOptions = cloneAnyMap(plan.Initial.ProviderOptions)
+	if plan.Escalation != nil {
+		escalation := *plan.Escalation
+		escalation.ProviderOptions = cloneAnyMap(escalation.ProviderOptions)
+		copy.Escalation = &escalation
+	}
+	return &copy
 }
 
 func validateOrigin(origin Origin) error {
@@ -277,7 +299,7 @@ func validateOrigin(origin Origin) error {
 func runtimeConnection(connection Connection) coreruntime.Connection {
 	return coreruntime.Connection{
 		ID: connection.ID, Provider: connection.Provider, APIInferenceType: connection.Protocol,
-		BaseURL: connection.BaseURL, CacheDomain: connection.CacheDomain, SupportsWebSearch: connection.SupportsWebSearch,
+		BaseURL: connection.BaseURL, CacheDomain: connection.CacheDomain, SupportsWebSearch: connection.SupportsWebSearch, Pricing: clonePricing(connection.Pricing),
 	}
 }
 
@@ -308,8 +330,8 @@ func resultFromRecord(record coreruntime.CallRecord) Result {
 			Producer: publicExecutionTargetPointer(record.ResultSource.Producer),
 		},
 		Accounting: Accounting{
-			Result:   publicAccountingLedger(record.Accounting.Result),
-			Provider: publicAccountingLedger(record.Accounting.Provider),
+			Result:   ProjectLedger(record.Accounting.Result),
+			Provider: ProjectLedger(record.Accounting.Provider),
 		},
 		Attempts: attempts,
 		Cache: CacheResult{
@@ -333,7 +355,7 @@ func publicAttempt(item coreruntime.AttemptRecord) Attempt {
 	var stream *StreamDiagnostics
 	if item.Stream != nil {
 		value := StreamDiagnostics{ReceivedBytes: item.Stream.ReceivedBytes, EventCount: item.Stream.EventCount, OutputBytes: item.Stream.OutputBytes, OutputCodePoints: item.Stream.OutputCodePoints, TerminalState: item.Stream.TerminalState,
-			FirstEventMs: item.Stream.FirstEventMs, FirstOutputMs: item.Stream.FirstOutputMs, LastEventAt: item.Stream.LastEventAt, LastOutputAt: item.Stream.LastOutputAt}
+			FirstEventMs: clonePointer(item.Stream.FirstEventMs), FirstOutputMs: clonePointer(item.Stream.FirstOutputMs), LastEventAt: clonePointer(item.Stream.LastEventAt), LastOutputAt: clonePointer(item.Stream.LastOutputAt)}
 		stream = &value
 	}
 	var waitDiagnostics *WaitDiagnostics
@@ -347,10 +369,18 @@ func publicAttempt(item coreruntime.AttemptRecord) Attempt {
 		ProviderRequestID: item.ProviderRequestID, Retryable: item.Retryable, Wait: item.Delay,
 		Duration: item.Duration, Repair: item.Repair, ProviderUsed: item.ProviderUsed, Stage: item.Stage,
 		Branch: item.Branch, TriggerAttempt: item.TriggerAttempt, InputAttempts: append([]int(nil), item.InputAttempts...),
-		TransportRetryOf: item.TransportRetryOf, StartedAt: item.StartedAt, FinishedAt: item.FinishedAt,
+		TransportRetryOf: item.TransportRetryOf, StartedAt: clonePointer(item.StartedAt), FinishedAt: clonePointer(item.FinishedAt),
 		ReasoningEffort: item.ReasoningEffort, DispatchObserved: item.DispatchObserved, Stream: stream,
 		WaitDiagnostics: waitDiagnostics,
 	}
+}
+
+func clonePointer[T any](value *T) *T {
+	if value == nil {
+		return nil
+	}
+	detached := *value
+	return &detached
 }
 
 func publicOrigin(origin coreruntime.Origin) *Origin {
@@ -401,7 +431,8 @@ func publicExecutionTarget(target coreruntime.ExecutionTarget) ExecutionTarget {
 	}
 }
 
-func publicAccountingLedger(ledger coreruntime.Ledger) AccountingLedger {
+// ProjectLedger renders the core ledger with its derived wire token totals.
+func ProjectLedger(ledger ProviderLedger) AccountingLedger {
 	usage := ledger.Usage
 	cost := ledger.Cost
 	return AccountingLedger{
@@ -445,7 +476,47 @@ func cloneAnyMap(input map[string]any) map[string]any {
 	}
 	result := make(map[string]any, len(input))
 	for key, value := range input {
-		result[key] = value
+		result[key] = cloneJSONValue(value)
+	}
+	return result
+}
+
+func cloneJSONValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return cloneAnyMap(typed)
+	case []any:
+		result := make([]any, len(typed))
+		for i, item := range typed {
+			result[i] = cloneJSONValue(item)
+		}
+		return result
+	case json.RawMessage:
+		return append(json.RawMessage(nil), typed...)
+	case []byte:
+		return append([]byte(nil), typed...)
+	default:
+		return value
+	}
+}
+
+func cloneMessages(input []Message) []Message {
+	result := append([]Message(nil), input...)
+	for i := range result {
+		result[i].Content = append(json.RawMessage(nil), input[i].Content...)
+		result[i].ToolCalls = append([]ToolCall(nil), input[i].ToolCalls...)
+	}
+	return result
+}
+
+func cloneTools(input []FunctionTool) []FunctionTool {
+	result := append([]FunctionTool(nil), input...)
+	for i := range result {
+		result[i].Parameters = append(json.RawMessage(nil), input[i].Parameters...)
+		if input[i].Strict != nil {
+			v := *input[i].Strict
+			result[i].Strict = &v
+		}
 	}
 	return result
 }
@@ -459,4 +530,41 @@ func cloneNestedAnyMap(input map[string]map[string]any) map[string]map[string]an
 		result[key] = cloneAnyMap(value)
 	}
 	return result
+}
+
+func validateRecoveryConnections(policy RecoveryPolicy, bindings map[string]coreruntime.ResolvedConnection) error {
+	check := func(target RecoveryTarget) error {
+		if target.ConnectionID != "" {
+			if _, ok := bindings[target.ConnectionID]; !ok {
+				return fmt.Errorf("hardenllm: recovery upstream %q is not configured", target.ConnectionID)
+			}
+		}
+		return nil
+	}
+	if policy.JSONRepair != nil {
+		if err := check(policy.JSONRepair.Initial); err != nil {
+			return err
+		}
+		if policy.JSONRepair.Escalation != nil {
+			if err := check(*policy.JSONRepair.Escalation); err != nil {
+				return err
+			}
+		}
+	}
+	if policy.Rerun != nil {
+		if err := check(policy.Rerun.Target); err != nil {
+			return err
+		}
+		if policy.Rerun.JSONRepair != nil {
+			if err := check(policy.Rerun.JSONRepair.Initial); err != nil {
+				return err
+			}
+			if policy.Rerun.JSONRepair.Escalation != nil {
+				if err := check(*policy.Rerun.JSONRepair.Escalation); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }

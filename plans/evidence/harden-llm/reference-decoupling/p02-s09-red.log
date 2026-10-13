@@ -1,0 +1,31 @@
+{"taskId":"go-integration","status":1,"failureSummary":"FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t7.700s | FAIL","failureDetail":"--- FAIL: TestCacheDraftContract (7.69s)\n    --- FAIL: TestCacheDraftContract/cache_envelope_is_scoped_by_key_and_credential_namespace (0.36s)\n        cache_draft_integration_test.go:26: cache envelope not stored <nil> false\n    --- FAIL: TestCacheDraftContract/two_ordinary_clients_with_same_key_share_cached_response (0.19s)\n        cache_draft_integration_test.go:32: runtime cache is required when cache mode is active\n    --- FAIL: TestCacheDraftContract/entered_credential_replacement_invalidates_previous_namespace (0.19s)\n        cache_draft_integration_test.go:41: credential replacement reused stale cache <nil>\n    --- FAIL: TestCacheDraftContract/changing_a_recovery_credential_changes_namespace (0.00s)\n        cache_draft_integration_test.go:47: repair credential not bound by a safe fingerprint\n    --- FAIL: TestCacheDraftContract/one_cache_write_cleans_at_most_one_hundred_expired_same-key_rows (0.19s)\n        cache_draft_integration_test.go:60: cleanup exceeded bound or key scope 205 1\n    --- FAIL: TestCacheDraftContract/corrupt_envelope_is_rejected_by_core_rather_than_a_cache_hit (0.17s)\n        cache_draft_integration_test.go:64: runtime cache is required when cache mode is active\n    --- FAIL: TestCacheDraftContract/missing_and_expired_drafts_are_empty_revision_zero (0.17s)\n        cache_draft_integration_test.go:70: missing draft did not return revision zero <nil>\n    --- FAIL: TestCacheDraftContract/draft_create_then_stale_save_returns_conflict_without_overwrite (0.18s)\n        cache_draft_integration_test.go:76: create revision not one <nil>\n    --- FAIL: TestCacheDraftContract/opaque_host_draft_keys_and_access_keys_are_independent (0.22s)\n        cache_draft_integration_test.go:83: draft scope collision <nil>\n    --- FAIL: TestCacheDraftContract/draft_rejects_oversize_payload_and_key (0.18s)\n        cache_draft_integration_test.go:88: expected code draft_invalid, got <nil>\n    --- FAIL: TestCacheDraftContract/cache-on_blocked_provider_holds_no_database_connection (5.20s)\n        cache_draft_integration_test.go:95: provider did not start\n    --- FAIL: TestCacheDraftContract/closed_storage_is_an_error_rather_than_missing_draft (0.17s)\n        cache_draft_integration_test.go:105: expected code storage_unavailable, got <nil>\n    --- FAIL: TestCacheDraftContract/same-key_cache_Delete_preserves_foreign_scope (0.13s)\n        cache_draft_integration_test.go:110: cache deletion crossed key <nil>\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t7.700s\nFAIL"}
+--- FAIL: TestCacheDraftContract (7.69s)
+    --- FAIL: TestCacheDraftContract/cache_envelope_is_scoped_by_key_and_credential_namespace (0.36s)
+        cache_draft_integration_test.go:26: cache envelope not stored <nil> false
+    --- FAIL: TestCacheDraftContract/two_ordinary_clients_with_same_key_share_cached_response (0.19s)
+        cache_draft_integration_test.go:32: runtime cache is required when cache mode is active
+    --- FAIL: TestCacheDraftContract/entered_credential_replacement_invalidates_previous_namespace (0.19s)
+        cache_draft_integration_test.go:41: credential replacement reused stale cache <nil>
+    --- FAIL: TestCacheDraftContract/changing_a_recovery_credential_changes_namespace (0.00s)
+        cache_draft_integration_test.go:47: repair credential not bound by a safe fingerprint
+    --- FAIL: TestCacheDraftContract/one_cache_write_cleans_at_most_one_hundred_expired_same-key_rows (0.19s)
+        cache_draft_integration_test.go:60: cleanup exceeded bound or key scope 205 1
+    --- FAIL: TestCacheDraftContract/corrupt_envelope_is_rejected_by_core_rather_than_a_cache_hit (0.17s)
+        cache_draft_integration_test.go:64: runtime cache is required when cache mode is active
+    --- FAIL: TestCacheDraftContract/missing_and_expired_drafts_are_empty_revision_zero (0.17s)
+        cache_draft_integration_test.go:70: missing draft did not return revision zero <nil>
+    --- FAIL: TestCacheDraftContract/draft_create_then_stale_save_returns_conflict_without_overwrite (0.18s)
+        cache_draft_integration_test.go:76: create revision not one <nil>
+    --- FAIL: TestCacheDraftContract/opaque_host_draft_keys_and_access_keys_are_independent (0.22s)
+        cache_draft_integration_test.go:83: draft scope collision <nil>
+    --- FAIL: TestCacheDraftContract/draft_rejects_oversize_payload_and_key (0.18s)
+        cache_draft_integration_test.go:88: expected code draft_invalid, got <nil>
+    --- FAIL: TestCacheDraftContract/cache-on_blocked_provider_holds_no_database_connection (5.20s)
+        cache_draft_integration_test.go:95: provider did not start
+    --- FAIL: TestCacheDraftContract/closed_storage_is_an_error_rather_than_missing_draft (0.17s)
+        cache_draft_integration_test.go:105: expected code storage_unavailable, got <nil>
+    --- FAIL: TestCacheDraftContract/same-key_cache_Delete_preserves_foreign_scope (0.13s)
+        cache_draft_integration_test.go:110: cache deletion crossed key <nil>
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	7.700s
+FAIL

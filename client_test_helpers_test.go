@@ -4,6 +4,8 @@ package hardenllm
 
 import (
 	"encoding/json"
+	"github.com/prls-co/harden-llm/internal/providers"
+	"testing"
 )
 
 func testConnection() Connection {
@@ -14,7 +16,7 @@ func testConnection() Connection {
 }
 
 func testOptions() Options {
-	return Options{Connections: []Connection{testConnection()}, DefaultConnection: "primary"}
+	return Options{Connections: ConnectionCatalog{"primary": testConnection()}, DefaultConnection: "primary", Executor: &fixedExecutor{result: fixtureProviderResult()}}
 }
 
 func testOptionsWith(cache CacheStore) Options {
@@ -34,4 +36,14 @@ func testConversation(system, user string) []Message {
 func testMessage(role, content string) Message {
 	encoded, _ := json.Marshal(content)
 	return Message{Role: role, Content: encoded}
+}
+
+func testProviderEffects(t *testing.T, options Options, policy EndpointPolicy) Options {
+	t.Helper()
+	executor, err := providers.NewRouter(providers.Config{EndpointPolicy: providers.EndpointPolicy{AllowedHosts: policy.AllowedHosts, PrivateAllowedHosts: policy.PrivateAllowedHosts, TLSConfig: policy.TLSConfig}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	options.Executor = executor
+	return options
 }

@@ -1,0 +1,29 @@
+{"taskId":"go-integration","status":1,"failureSummary":"/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:2101 +0x4c5 | FAIL\tgithub.com/prls-co/harden-llm/stateful\t0.133s | FAIL","failureDetail":"--- FAIL: TestReferenceArtifacts (0.10s)\n    --- FAIL: TestReferenceArtifacts/publish_metadata_and_bytes_live_under_the_exact_key_and_run_prefix (0.03s)\n        artifact_integration_test.go:38: trace parse evidence and support bundle not published <nil> 0\n    --- FAIL: TestReferenceArtifacts/same-key_clients_stream_bytes_without_needing_a_history_row (0.04s)\n        artifact_integration_test.go:46: <nil>\n    --- FAIL: TestReferenceArtifacts/digest_mismatch_returns_no_bytes (0.01s)\npanic: runtime error: invalid memory address or nil pointer dereference [recovered, repanicked]\n[signal SIGSEGV: segmentation violation code=0x1 addr=0x0 pc=0x7f7015]\n\ngoroutine 102 [running]:\ntesting.tRunner.func1.2({0xb945c0, 0x132e100})\n\t/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:1974 +0x232\ntesting.tRunner.func1()\n\t/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:1977 +0x349\npanic({0xb945c0?, 0x132e100?})\n\t/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/panic.go:860 +0x13a\ngithub.com/aws/aws-sdk-go-v2/service/s3.(*Client).invokeOperation(0x0, {0xcf39c8?, 0x136e7c0?}, {0xc9f881, 0x9}, {0xbc4fa0, 0x1cab2b3c4540}, {0x0, 0x0, 0x0}, ...)\n\t/home/kirill/go/pkg/mod/github.com/aws/aws-sdk-go-v2/service/s3@v1.105.0/api_client.go:270 +0x275\ngithub.com/aws/aws-sdk-go-v2/service/s3.(*Client).PutObject(0xbbcc40?, {0xcf39c8?, 0x136e7c0?}, 0x6?, {0x0?, 0x6?, 0xcb6ad6?})\n\t/home/kirill/go/pkg/mod/github.com/aws/aws-sdk-go-v2/service/s3@v1.105.0/api_op_PutObject.go:163 +0x105\ngithub.com/prls-co/harden-llm/stateful.TestReferenceArtifacts.func4(0x1cab2b87e488)\n\t/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/stateful/artifact_integration_test.go:58 +0x4b2\ntesting.tRunner(0x1cab2b87e488, 0x1cab2b1b44b0)\n\t/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:2036 +0xea\ncreated by testing.(*T).Run in goroutine 34\n\t/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:2101 +0x4c5\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t0.133s\nFAIL"}
+--- FAIL: TestReferenceArtifacts (0.10s)
+    --- FAIL: TestReferenceArtifacts/publish_metadata_and_bytes_live_under_the_exact_key_and_run_prefix (0.03s)
+        artifact_integration_test.go:38: trace parse evidence and support bundle not published <nil> 0
+    --- FAIL: TestReferenceArtifacts/same-key_clients_stream_bytes_without_needing_a_history_row (0.04s)
+        artifact_integration_test.go:46: <nil>
+    --- FAIL: TestReferenceArtifacts/digest_mismatch_returns_no_bytes (0.01s)
+panic: runtime error: invalid memory address or nil pointer dereference [recovered, repanicked]
+[signal SIGSEGV: segmentation violation code=0x1 addr=0x0 pc=0x7f7015]
+
+goroutine 102 [running]:
+testing.tRunner.func1.2({0xb945c0, 0x132e100})
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:1974 +0x232
+testing.tRunner.func1()
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:1977 +0x349
+panic({0xb945c0?, 0x132e100?})
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/panic.go:860 +0x13a
+github.com/aws/aws-sdk-go-v2/service/s3.(*Client).invokeOperation(0x0, {0xcf39c8?, 0x136e7c0?}, {0xc9f881, 0x9}, {0xbc4fa0, 0x1cab2b3c4540}, {0x0, 0x0, 0x0}, ...)
+	/home/kirill/go/pkg/mod/github.com/aws/aws-sdk-go-v2/service/s3@v1.105.0/api_client.go:270 +0x275
+github.com/aws/aws-sdk-go-v2/service/s3.(*Client).PutObject(0xbbcc40?, {0xcf39c8?, 0x136e7c0?}, 0x6?, {0x0?, 0x6?, 0xcb6ad6?})
+	/home/kirill/go/pkg/mod/github.com/aws/aws-sdk-go-v2/service/s3@v1.105.0/api_op_PutObject.go:163 +0x105
+github.com/prls-co/harden-llm/stateful.TestReferenceArtifacts.func4(0x1cab2b87e488)
+	/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/stateful/artifact_integration_test.go:58 +0x4b2
+testing.tRunner(0x1cab2b87e488, 0x1cab2b1b44b0)
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:2036 +0xea
+created by testing.(*T).Run in goroutine 34
+	/home/kirill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:2101 +0x4c5
+FAIL	github.com/prls-co/harden-llm/stateful	0.133s
+FAIL

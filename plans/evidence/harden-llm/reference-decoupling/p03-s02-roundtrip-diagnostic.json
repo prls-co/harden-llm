@@ -1,0 +1,55 @@
+{
+  "accepted": false,
+  "runDirectory": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/run-1791846854652-1474242-vkj91l",
+  "results": [
+    {
+      "taskId": "go-integration",
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-tags=integration",
+        "./stateful",
+        "-run",
+        "^TestHistoryStore$",
+        "-count=1"
+      ],
+      "status": 1,
+      "seed": 233256,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 10376,
+      "peakRssMiB": 265.24609375,
+      "cpuMs": 4810,
+      "stdoutBytes": 507,
+      "stderrBytes": 0,
+      "truncatedOutputBytes": 0,
+      "stdoutPreview": "--- FAIL: TestHistoryStore (3.66s)\n    --- FAIL: TestHistoryStore/one_insert_uses_server_scope_and_detail_denies_foreign_or_unknown_runs (0.39s)\n        history_store_integration_test.go:84: full record field startedAt differs: expected=\"2026-10-10T12:00:00Z\" actual=\"2026-10-10T05:00:00-07:00\"\n        history_store_integration_test.go:84: full record field finishedAt differs: expected=\"2026-10-10T12:00:01Z\" actual=\"2026-10-10T05:00:01-07:00\"\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t3.689s\nFAIL\n",
+      "stderrPreview": "",
+      "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t3.689s | FAIL",
+      "failureDetail": "--- FAIL: TestHistoryStore (3.66s)\n    --- FAIL: TestHistoryStore/one_insert_uses_server_scope_and_detail_denies_foreign_or_unknown_runs (0.39s)\n        history_store_integration_test.go:84: full record field startedAt differs: expected=\"2026-10-10T12:00:00Z\" actual=\"2026-10-10T05:00:00-07:00\"\n        history_store_integration_test.go:84: full record field finishedAt differs: expected=\"2026-10-10T12:00:01Z\" actual=\"2026-10-10T05:00:01-07:00\"\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t3.689s\nFAIL",
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": true,
+      "servicePoolProject": "harden-llm-test-5ad121bfce6a",
+      "startedAtMs": 432,
+      "endedAtMs": 10808
+    }
+  ],
+  "firstFailure": {
+    "taskId": "go-integration",
+    "status": 1,
+    "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t3.689s | FAIL",
+    "failureDetail": "--- FAIL: TestHistoryStore (3.66s)\n    --- FAIL: TestHistoryStore/one_insert_uses_server_scope_and_detail_denies_foreign_or_unknown_runs (0.39s)\n        history_store_integration_test.go:84: full record field startedAt differs: expected=\"2026-10-10T12:00:00Z\" actual=\"2026-10-10T05:00:00-07:00\"\n        history_store_integration_test.go:84: full record field finishedAt differs: expected=\"2026-10-10T12:00:01Z\" actual=\"2026-10-10T05:00:01-07:00\"\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t3.689s\nFAIL"
+  },
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 84,
+    "daemonLockWaitMs": 114,
+    "staleReceiptRecoveryMs": 102
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": []
+}

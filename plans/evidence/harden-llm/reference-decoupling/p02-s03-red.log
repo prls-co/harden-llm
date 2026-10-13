@@ -1,0 +1,5 @@
+--- FAIL: TestCredentialContract (0.00s)
+    credential_test.go:26: credential encryption not implemented
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	0.004s
+FAIL

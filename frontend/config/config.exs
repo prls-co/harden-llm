@@ -7,15 +7,11 @@
 # General application configuration
 import Config
 
-config :harden_llm,
-  generators: [timestamp_type: :utc_datetime],
-  ecto_repos: [HardenLlm.Repo],
-  reference_repo_enabled: false
+config :harden_llm, generators: [timestamp_type: :utc_datetime]
 
 config :harden_llm, :harden_api,
   base_url: "http://127.0.0.1:8080",
-  api_timeout_ms: 15_000,
-  run_timeout_ms: 65_000,
+  api_timeout_ms: 75_000,
   max_run_duration_ms: 60_000
 
 config :harden_llm, :browser_session,

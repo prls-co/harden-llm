@@ -1,0 +1,37 @@
+{"taskId":"go-integration","status":1,"failureSummary":"FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t7.731s | FAIL","failureDetail":"--- FAIL: TestReferenceHistory (7.73s)\n    --- FAIL: TestReferenceHistory/healthy_run_records_one_complete_scoped_snapshot_after_terminal_output (0.18s)\n        history_integration_test.go:54: healthy run did not preserve execution/recording <nil> {   <nil>} 0 0 0 0\n    --- FAIL: TestReferenceHistory/recording_failure_preserves_inference/disabled (0.13s)\n        history_integration_test.go:130: recording error replayed or replaced inference <nil> {   <nil>} 0 0 0\n    --- FAIL: TestReferenceHistory/recording_failure_preserves_inference/nil-pool (0.14s)\n        history_integration_test.go:130: recording error replayed or replaced inference <nil> {   <nil>} 0 0 0\n    --- FAIL: TestReferenceHistory/recording_failure_preserves_inference/closed-pool (0.14s)\n        history_integration_test.go:130: recording error replayed or replaced inference <nil> {   <nil>} 0 0 0\n    --- FAIL: TestReferenceHistory/recording_failure_preserves_inference/oversize (0.14s)\n        history_integration_test.go:130: recording error replayed or replaced inference <nil> {   <nil>} 0 0 0\n    --- FAIL: TestReferenceHistory/single_insert/single_readback/confirmed (0.15s)\n        history_integration_test.go:182: unknown commit replayed work or changed classification <nil> {   <nil>} 0 0 0\n    --- FAIL: TestReferenceHistory/single_insert/single_readback/unknown-found (0.16s)\n        history_integration_test.go:182: unknown commit replayed work or changed classification <nil> {   <nil>} 0 0 0\n    --- FAIL: TestReferenceHistory/single_insert/single_readback/unknown-absent (0.17s)\n        history_integration_test.go:182: unknown commit replayed work or changed classification <nil> {   <nil>} 0 0 0\n    --- FAIL: TestReferenceHistory/single_insert/single_readback/unknown-read-failed (0.25s)\n        history_integration_test.go:182: unknown commit replayed work or changed classification <nil> {   <nil>} 0 0 0\n    --- FAIL: TestReferenceHistory/single_insert/single_readback/rejected (0.18s)\n        history_integration_test.go:182: unknown commit replayed work or changed classification <nil> {   <nil>} 0 0 0\n    --- FAIL: TestReferenceHistory/cache_hit_makes_no_provider_call_and_records_cache_served (0.13s)\n        history_integration_test.go:199: cache seed failed <nil> {   <nil>} {      false false}\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/request (0.17s)\n        history_integration_test.go:233: validation did not record failed execution without dispatch <nil> {   <nil>} 0\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/profile (0.18s)\n        history_integration_test.go:233: validation did not record failed execution without dispatch <nil> {   <nil>} 0\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/credential (0.14s)\n        history_integration_test.go:233: validation did not record failed execution without dispatch <nil> {   <nil>} 0\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/recovery-profile (0.15s)\n        history_integration_test.go:233: validation did not record failed execution without dispatch <nil> {   <nil>} 0\n    --- FAIL: TestReferenceHistory/caller_cancellation_still_inserts_one_detached_terminal_row (5.14s)\n        history_integration_test.go:264: provider never dispatched\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t7.731s\nFAIL"}
+--- FAIL: TestReferenceHistory (7.73s)
+    --- FAIL: TestReferenceHistory/healthy_run_records_one_complete_scoped_snapshot_after_terminal_output (0.18s)
+        history_integration_test.go:54: healthy run did not preserve execution/recording <nil> {   <nil>} 0 0 0 0
+    --- FAIL: TestReferenceHistory/recording_failure_preserves_inference/disabled (0.13s)
+        history_integration_test.go:130: recording error replayed or replaced inference <nil> {   <nil>} 0 0 0
+    --- FAIL: TestReferenceHistory/recording_failure_preserves_inference/nil-pool (0.14s)
+        history_integration_test.go:130: recording error replayed or replaced inference <nil> {   <nil>} 0 0 0
+    --- FAIL: TestReferenceHistory/recording_failure_preserves_inference/closed-pool (0.14s)
+        history_integration_test.go:130: recording error replayed or replaced inference <nil> {   <nil>} 0 0 0
+    --- FAIL: TestReferenceHistory/recording_failure_preserves_inference/oversize (0.14s)
+        history_integration_test.go:130: recording error replayed or replaced inference <nil> {   <nil>} 0 0 0
+    --- FAIL: TestReferenceHistory/single_insert/single_readback/confirmed (0.15s)
+        history_integration_test.go:182: unknown commit replayed work or changed classification <nil> {   <nil>} 0 0 0
+    --- FAIL: TestReferenceHistory/single_insert/single_readback/unknown-found (0.16s)
+        history_integration_test.go:182: unknown commit replayed work or changed classification <nil> {   <nil>} 0 0 0
+    --- FAIL: TestReferenceHistory/single_insert/single_readback/unknown-absent (0.17s)
+        history_integration_test.go:182: unknown commit replayed work or changed classification <nil> {   <nil>} 0 0 0
+    --- FAIL: TestReferenceHistory/single_insert/single_readback/unknown-read-failed (0.25s)
+        history_integration_test.go:182: unknown commit replayed work or changed classification <nil> {   <nil>} 0 0 0
+    --- FAIL: TestReferenceHistory/single_insert/single_readback/rejected (0.18s)
+        history_integration_test.go:182: unknown commit replayed work or changed classification <nil> {   <nil>} 0 0 0
+    --- FAIL: TestReferenceHistory/cache_hit_makes_no_provider_call_and_records_cache_served (0.13s)
+        history_integration_test.go:199: cache seed failed <nil> {   <nil>} {      false false}
+    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/request (0.17s)
+        history_integration_test.go:233: validation did not record failed execution without dispatch <nil> {   <nil>} 0
+    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/profile (0.18s)
+        history_integration_test.go:233: validation did not record failed execution without dispatch <nil> {   <nil>} 0
+    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/credential (0.14s)
+        history_integration_test.go:233: validation did not record failed execution without dispatch <nil> {   <nil>} 0
+    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/recovery-profile (0.15s)
+        history_integration_test.go:233: validation did not record failed execution without dispatch <nil> {   <nil>} 0
+    --- FAIL: TestReferenceHistory/caller_cancellation_still_inserts_one_detached_terminal_row (5.14s)
+        history_integration_test.go:264: provider never dispatched
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	7.731s
+FAIL

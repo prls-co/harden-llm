@@ -45,6 +45,7 @@ defmodule HardenLlm.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:harden_llm_ui, path: "packages/harden_llm_ui"},
       {:phoenix, "== 1.8.9"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
@@ -66,8 +67,6 @@ defmodule HardenLlm.MixProject do
        depth: 1},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
-      {:ecto_sql, "== 3.14.0"},
-      {:postgrex, "== 0.22.4"},
       {:gettext, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},

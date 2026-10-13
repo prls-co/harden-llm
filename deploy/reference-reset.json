@@ -1,0 +1,5 @@
+{
+  "composeProject": "harden-llm",
+  "containers": ["harden-llm-harden-postgres-1"],
+  "volumes": ["harden-llm_harden-postgres-data"]
+}

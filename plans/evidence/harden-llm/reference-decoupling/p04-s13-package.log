@@ -1,0 +1,8 @@
+Compiling 7 files (.ex)
+Generated harden_llm_ui app
+Running ExUnit with seed: 104729, max_cases: 24
+
+...........................................
+Finished in 0.6 seconds (0.6s async, 0.00s sync)
+
+Result: 43 passed

@@ -8,18 +8,42 @@ The Go library is at the repository root, internal packages are under
 in `frontend/`. Keep Go and Phoenix coupled through OpenAPI, never internal Go
 types.
 
-The current profile-free proxy and reference-app boundary are defined in
-`plans/proxy-and-reference-app-simplification-plan.md`. Backend specifications
-and the canonical test catalog are under `plans/from_utility-llm/`; the
-test-feedback policy is in `plans/from_utility-llm/harden-llm-parallel-test-feedback-plan.md`
-and ADR-HLLM-015.
+The accepted boundary is defined in
+`plans/restore-reference-workflows-decoupling-plan.md` (v5.3), ADR-HLLM-033 and
+ADR-HLLM-034. The older simplification plan and ADR-HLLM-031 are historical.
+Implementation progress is recorded under
+`plans/evidence/harden-llm/reference-decoupling/`; a target contract is not
+proof that its implementation or deployment is complete. Backend specifications
+and the canonical test catalog are under `plans/from_utility-llm/`; follow
+ADR-HLLM-015 and the existing test-feedback policy.
 
-The gateway is an OpenAI-compatible, stateless hardening proxy. It has one
-startup connection configuration, one `HARDEN_LLM_TOKEN` bearer, and one Go
-execution engine. It has no profile, login, history, or application-storage
-API. `CPA_API_KEY` is upstream-only. The Phoenix reference app authenticates
-through the shared Control Plane/Portal, records only its own calls in shared
-history, and keeps drafts scoped to the stable Control Plane user ID.
+The root Go library is the stateless execution core: retries, JSON repair,
+recovery, cache identity and accounting through injected effects. It owns no
+authentication, profile/history storage, concrete provider construction or
+telemetry SDK. Public `stateful/` composes those concrete effects and owns
+key-scoped profiles, drafts, encrypted credentials, cache, reference history and
+artifacts. One Go gateway serves ordinary `/v1` and reference `/api/v1` through
+one bearer validator and one engine. Derive `api_key_hash` only after matching
+one configured key; reject caller-supplied scope selectors. `CPA_API_KEY` is
+upstream-only. The required `api_key_envs` connection metadata array names
+protected environment values, initially `HARDEN_LLM_TOKEN`; no scalar fallback
+or local key-issuance/user registry exists.
+
+Git presets contain metadata and starting values, never keys. Explicit Save
+uses create-on-save semantics: a new immutable complete setup with UUID,
+server UTC date and name suffix. Editing/refresh only changes the draft. The
+wrapper uses one isolated HLLM database/role on Agent Platform PostgreSQL and
+one pool; Garage holds path-scoped artifacts. Laminar receives diagnostic
+traces only. Direct `/v1` calls do not enter history. Unknown history COMMIT
+with absent/failed readback stays unconfirmed; never replay inference or insert.
+
+Phoenix owns Portal admission, routes and async lifecycle. Every enabled login
+may enter; the host's configured API key selects profiles/history/statistics.
+Drafts additionally use host-supplied `workspace:<stable Portal user ID>` inside
+that key scope. `HardenLlmUI` under `frontend/packages/harden_llm_ui/` owns the
+reusable components/client/styles and receives a server-held key and draft key
+from its host. Components use OpenAPI, never internal Go types or host identity
+modules. Model Recall is the read-only interface reference, not a migration gate.
 
 ## Build and test commands
 
@@ -115,17 +139,19 @@ application builds for docs/test-only changes and rebuild only affected
 services. Preview logins use the shared Control Plane/Portal. The trusted
 preview host reads provider keys and shared scalar settings from its approved
 `sharedEnvFile`; the JSON named by `HARDEN_LLM_CONFIG_FILE` contains connection
-metadata and environment-variable names only. There is no profile-sync or
-interactive profile-save command.
+metadata and environment-variable names only. There is no profile-sync or startup preset seeding. Profile Save is an explicit
+reference operation with the preserved bounded provider probe; test it locally.
 
 Keep infrastructure credentials, signing keys, database data, sessions, and
 networks separate; never copy production datasets or bearer sessions. Only
 trusted branches may receive the shared provider credential because it can
 authorize paid upstream calls. Human identity/access belong to Control Plane.
-Every enabled login may enter without company selection or an HLLM grant, and
-all enabled logins share Phoenix call history. Workspace drafts remain scoped
-to the stable user ID. The same `HARDEN_LLM_TOKEN` is used by external OpenAI
-clients and Phoenix. The gateway owns no history or product database.
+Every enabled login may enter without company selection or an HLLM grant. All
+clients holding the same HLLM key share its profiles/history/statistics;
+different keys are isolated. The frontend initially uses `HARDEN_LLM_TOKEN`,
+also accepted by external OpenAI clients. PostgreSQL persistence belongs to the
+Go stateful wrapper; Phoenix Ecto persistence is removed after its verified
+replacement in P03. Keep the approved clean-cut scope confined to HLLM data.
 
 The authorized clean cut removes incompatible HLLM-owned data only; other
 products and shared identity/storage data remain outside that reset. Before

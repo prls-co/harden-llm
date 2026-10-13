@@ -48,26 +48,8 @@ api_token =
 
 config :harden_llm, :harden_api,
   base_url: System.get_env("HARDEN_LLM_API_BASE_URL", "http://127.0.0.1:8080"),
-  api_timeout_ms: parse_positive_integer.("HARDEN_LLM_WEB_API_TIMEOUT_MS", "65000"),
+  api_timeout_ms: parse_positive_integer.("HARDEN_LLM_WEB_API_TIMEOUT_MS", "75000"),
   token: api_token
-
-if config_env() == :prod do
-  config :harden_llm,
-    reference_repo_enabled: true
-
-  config :harden_llm, HardenLlm.Repo,
-    url: System.fetch_env!("HARDEN_LLM_DATABASE_URL"),
-    pool_size: parse_positive_integer.("HARDEN_LLM_DATABASE_POOL_SIZE", "10"),
-    timeout: 600,
-    pool_timeout: 400,
-    connect_timeout: 600,
-    parameters: [statement_timeout: "500"]
-else
-  if database_url = System.get_env("HARDEN_LLM_DATABASE_URL") do
-    config :harden_llm, :reference_repo_enabled, true
-    config :harden_llm, HardenLlm.Repo, url: database_url, timeout: 600, pool_timeout: 400
-  end
-end
 
 portal_origin =
   if config_env() == :prod do

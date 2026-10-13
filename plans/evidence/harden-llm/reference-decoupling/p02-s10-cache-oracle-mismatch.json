@@ -1,0 +1,55 @@
+{
+  "accepted": false,
+  "runDirectory": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/run-1791844152694-1149473-p5tmmp",
+  "results": [
+    {
+      "taskId": "go-integration",
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-tags=integration",
+        "./stateful",
+        "-run",
+        "^TestCacheDraftContract$",
+        "-count=1"
+      ],
+      "status": 1,
+      "seed": 233256,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 9946,
+      "peakRssMiB": 262.54296875,
+      "cpuMs": 3430,
+      "stdoutBytes": 302,
+      "stderrBytes": 0,
+      "truncatedOutputBytes": 0,
+      "stdoutPreview": "--- FAIL: TestCacheDraftContract (2.87s)\n    --- FAIL: TestCacheDraftContract/corrupt_envelope_is_rejected_by_core_rather_than_a_cache_hit (0.21s)\n        cache_draft_integration_test.go:169: corrupt cache treated as success CACHE_INTEGRITY\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t2.873s\nFAIL\n",
+      "stderrPreview": "",
+      "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t2.873s | FAIL",
+      "failureDetail": "--- FAIL: TestCacheDraftContract (2.87s)\n    --- FAIL: TestCacheDraftContract/corrupt_envelope_is_rejected_by_core_rather_than_a_cache_hit (0.21s)\n        cache_draft_integration_test.go:169: corrupt cache treated as success CACHE_INTEGRITY\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t2.873s\nFAIL",
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": true,
+      "servicePoolProject": "harden-llm-test-72828eaa279c",
+      "startedAtMs": 458,
+      "endedAtMs": 10404
+    }
+  ],
+  "firstFailure": {
+    "taskId": "go-integration",
+    "status": 1,
+    "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t2.873s | FAIL",
+    "failureDetail": "--- FAIL: TestCacheDraftContract (2.87s)\n    --- FAIL: TestCacheDraftContract/corrupt_envelope_is_rejected_by_core_rather_than_a_cache_hit (0.21s)\n        cache_draft_integration_test.go:169: corrupt cache treated as success CACHE_INTEGRITY\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t2.873s\nFAIL"
+  },
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 78,
+    "daemonLockWaitMs": 138,
+    "staleReceiptRecoveryMs": 107
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": []
+}

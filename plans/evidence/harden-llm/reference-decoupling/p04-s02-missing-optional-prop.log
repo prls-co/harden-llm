@@ -1,0 +1,236 @@
+Compiling 17 files (.ex)
+    warning: unused alias JS
+    │
+ 16 │   alias Phoenix.LiveView.JS
+    │   ~
+    │
+    └─ lib/harden_llm_ui/profile_widget_component.ex:16:3
+
+    warning: unused import Phoenix.HTML
+    │
+ 15 │   import Phoenix.HTML
+    │   ~
+    │
+    └─ lib/harden_llm_ui/profile_widget_component.ex:15:3
+
+Generated harden_llm_ui app
+Running ExUnit with seed: 104729, max_cases: 24
+
+.
+
+  1) test independent host keeps two profile picker and fold instances separate (HardenLlmUI.ComponentsTest)
+     test/harden_llm_ui/components_test.exs:8
+     ** (KeyError) key :bundle_upload not found in:
+
+         %{
+           __changed__: %{
+             initialized?: true,
+             main_requires_save?: true,
+             pending: true,
+             model_options: true,
+             main_pricing_open: true,
+             main_revision: true,
+             definition_form: true,
+             selected_profile_id: true,
+             config_open: true,
+             model_id: true,
+             fold_disabled: true,
+             id_prefix: true,
+             model_catalog: true,
+             bundle_export_url: true,
+             host_context: true,
+             api_inference_types: true,
+             recovery_field_errors: true,
+             web_search: true,
+             main_config_open: true,
+             profiles: true,
+             main_options_open: true,
+             main_credential_open: true,
+             cache_mode: true,
+             main_dirty?: true,
+             recovery_target_config_open: true,
+             target_name: true,
+             operation_error: true,
+             loaded_profile_id: true,
+             recovery_policy_default: true,
+             main_staged_key: true,
+             pending_target_path: true,
+             profiles_revision: true,
+             active_recovery_policy: true,
+             reasoning_effort: true,
+             flash: true,
+             main_form: true,
+             category_name: true,
+             definition_revision: true,
+             id: true,
+             target_value: true,
+             main_retry_open: true,
+             delete_confirm: true,
+             field_errors: true,
+             editor_draft_revision: true,
+             pending_profile_revision: true,
+             target_only: true
+           },
+           initialized?: true,
+           myself: %Phoenix.LiveComponent.CID{cid: 1},
+           main_requires_save?: false,
+           pending: nil,
+           model_options: [],
+           main_pricing_open: false,
+           main_revision: 0,
+           definition_form: nil,
+           selected_profile_id: "CPA Responses",
+           config_open: false,
+           model_id: "fixture-model",
+           fold_disabled: false,
+           id_prefix: "left",
+           model_catalog: [],
+           bundle_export_url: "/test-host/bundle",
+           host_context: "workspace",
+           api_inference_types: [
+             {"Chat Completions", "chat-completions"},
+             {"OpenAI Responses", "responses"},
+             {"Gemini Generate Content", "gemini-generate-content"},
+             {"Anthropic Messages", "anthropic-messages"}
+           ],
+           recovery_field_errors: %{},
+           web_search: false,
+           main_config_open: false,
+           profiles: [
+             %{
+               "credentialStatus" => %{
+                 "configured" => true,
+                 "id" => "cpa",
+                 "source" => "deployment"
+               },
+               "definition" => %{
+                 "apiInferenceType" => "responses",
+                 "baseUrl" => "https://cpa.prls.co/v1",
+                 "defaultOptions" => %{"max_tokens" => 16000, "stream" => true},
+                 "modelId" => "gpt-5.6-luna",
+                 "pricing" => %{
+                   "cache_creation_input_token_cost" => 2.5e-7,
+                   "cache_read_input_token_cost" => 2.0e-8,
+                   "input_cost_per_token" => 2.0e-7,
+                   "output_cost_per_reasoning_token" => 0,
+                   "output_cost_per_token" => 1.2e-6
+                 },
+                 "provider" => "cpa",
+                 "reasoningEffortMap" => %{
+                   "highest" => %{"reasoning" => %{"effort" => "xhigh"}},
+                   "lowest" => %{"reasoning" => %{"effort" => "low"}},
+                   "middle" => %{"reasoning" => %{"effort" => "medium"}}
+                 },
+                 "recoveryPolicy" => %{
+                   "backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000},
+                   "jsonRepair" => %{
+                     "escalation" => %{"source" => "generation"},
+                     "initial" => %{"source" => "generation"}
+                   },
+                   "maxAttempts" => 4,
+                   "rerun" => nil,
+                   "retryOn" => ["network", "rate_limit", "server_error",
+                    "empty_response", "provider_retry"]
+                 },
+                 "responsesTokensParam" => "max_output_tokens",
+                 "schemaVersion" => 4,
+                 "supportsContractedStructuredOutput" => true,
+                 "supportsTemperature" => false,
+                 "supportsWebSearch" => true,
+                 "tokensParam" => nil
+               },
+               "id" => "CPA Responses",
+               "kind" => "preset",
+               "name" => "CPA Responses"
+             },
+             %{
+               "credentialStatus" => %{
+                 "configured" => true,
+                 "id" => "openai",
+                 "source" => "deployment"
+               },
+               "definition" => %{
+                 "apiInferenceType" => "responses",
+                 "baseUrl" => "https://api.openai.com/v1",
+                 "defaultOptions" => %{"max_tokens" => 16000},
+                 "modelId" => "gpt-5.6-luna",
+                 "pricing" => %{
+                   "cache_creation_input_token_cost" => 2.5e-7,
+                   "cache_read_input_token_cost" => 2.0e-8,
+                   "input_cost_per_token" => 2.0e-7,
+                   "output_cost_per_reasoning_token" => 0,
+                   "output_cost_per_token" => 1.2e-6
+                 },
+                 "provider" => "openai",
+                 "reasoningEffortMap" => %{
+                   "highest" => %{"reasoning" => %{"effort" => "xhigh"}},
+                   "lowest" => %{"reasoning" => %{"effort" => "low"}},
+                   "middle" => %{"reasoning" => %{"effort" => "medium"}}
+                 },
+                 "recoveryPolicy" => %{
+                   "backoff" => %{"baseDelayMs" => 500, "maxDelayMs" => 8000},
+                   "jsonRepair" => %{
+                     "escalation" => %{"source" => "generation"},
+                     "initial" => %{"source" => "generation"}
+                   },
+                   "maxAttempts" => 4,
+                   "rerun" => nil,
+                   "retryOn" => ["network", "rate_limit", "server_error",
+                    "empty_response", "provider_retry"]
+                 },
+                 "responsesTokensParam" => "max_output_tokens",
+                 "schemaVersion" => 4,
+                 "supportsContractedStructuredOutput" => true,
+                 "supportsTemperature" => false,
+                 "supportsWebSearch" => true,
+                 "tokensParam" => nil
+               },
+               "id" => "Repair Provider",
+               "kind" => "preset",
+               "name" => "Repair Provider"
+             }
+           ],
+           main_options_open: false,
+           main_credential_open: false,
+           cache_mode: "cache",
+           main_dirty?: false,
+           recovery_target_config_open: %{},
+           target_name: "recoveryTarget",
+           operation_error: nil,
+           loaded_profile_id: "CPA Responses",
+           recovery_policy_default: %{"backoff" => %{...}, ...},
+           ...
+         }
+
+     Did you mean:
+
+         * :bundle_export_url
+
+     code: {:ok, view, _html} = live(build_conn(), "/components")
+     stacktrace:
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/profile_widget_component.ex:959: anonymous fn/3 in HardenLlmUI.ProfileWidgetComponent.render/1
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:458: Phoenix.LiveView.Diff.traverse/6
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:681: Phoenix.LiveView.Diff.traverse_dynamic/8
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:457: Phoenix.LiveView.Diff.traverse/6
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:1040: Phoenix.LiveView.Diff.render_component/9
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:978: Phoenix.LiveView.Diff.zip_components/5
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:961: anonymous fn/4 in Phoenix.LiveView.Diff.render_pending_components/6
+       (stdlib 7.3) maps.erl:894: :maps.fold_1/4
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:898: Phoenix.LiveView.Diff.render_pending_components/6
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/diff.ex:170: Phoenix.LiveView.Diff.render/4
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/static.ex:291: Phoenix.LiveView.Static.to_rendered_content_tag/4
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/static.ex:171: Phoenix.LiveView.Static.do_render/4
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/controller.ex:39: Phoenix.LiveView.Controller.live_render/3
+       (phoenix 1.8.9) lib/phoenix/router.ex:428: Phoenix.Router.__call__/5
+       (harden_llm_ui 1.0.0) test/support/test_host.ex:78: HardenLlmUI.TestEndpoint.plug_builder_call/2
+       (harden_llm_ui 1.0.0) test/support/test_host.ex:78: HardenLlmUI.TestEndpoint.call/2
+       (phoenix 1.8.9) lib/phoenix/test/conn_test.ex:225: Phoenix.ConnTest.dispatch/5
+       test/harden_llm_ui/components_test.exs:9: (test)
+
+
+Finished in 0.1 seconds (0.1s async, 0.00s sync)
+
+Result: 1/2 passed
+Failed: 1 test

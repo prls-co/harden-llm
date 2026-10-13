@@ -1,77 +1,66 @@
 # Harden LLM Web
 
-This Phoenix LiveView application is the browser-facing reference client for
-the Go OpenAI-compatible proxy. It uses shared PRLS Web authentication and the
-Control Plane access contract, then calls the Go gateway through
-`../api/openapi.yaml`. Phoenix owns HTML, CSRF, the encrypted host-only session
-cookie, shared reference history, and ordered session/component drafts. The Go
-gateway owns the stateless `/v1` API, provider credentials, execution, recovery,
-cache policy, and diagnostics. Human identity and access remain owned by the
-shared identity services.
+This Phoenix LiveView host uses the reusable `HardenLlmUI` package in
+`packages/harden_llm_ui/`. The package owns the REST client, picker/editor,
+input/response, statistics, history, trace components, CSS and JavaScript.
+The host owns routes, async orchestration, CSRF and shared Portal admission.
+OpenAPI in `../api/openapi.yaml` is the Go/Phoenix boundary.
 
-## Shared login and history
+## Shared login and scoped history
 
-Only PRLS Portal hosts password forms. Unauthenticated HTML requests and access
-denials go to `PRLS_PORTAL_URL` with the protected return path. Each enabled
-login enters directly without company selection or an HLLM grant. All enabled
-logins share Phoenix history. Direct gateway calls never create
-history records. Phoenix records only submissions made through this client,
-after showing the returned outcome. A history-storage failure leaves that
-outcome available and reports that history could not be saved.
+Only PRLS Portal hosts password forms. Enabled logins enter without company
+selection or an HLLM grant. Logins share the host API key's history and profiles;
+drafts additionally use `workspace:<stable Portal user ID>`. Phoenix holds no
+database credentials and owns no history store. The Go stateful wrapper records
+reference `/api/v1/run` calls in shared PostgreSQL. Direct `/v1` calls are not
+recorded. Recording failures preserve the returned inference result and expose
+the distinct failure or unconfirmed outcome.
 
-The browser calls the gateway with the existing `HARDEN_LLM_TOKEN`; the
-gateway uses `CPA_API_KEY` only for its configured upstream. Neither token is
-sent to the browser. The gateway has no profiles, human-user ownership, or
-history routes.
+Phoenix sends its server-held `HARDEN_LLM_TOKEN` to the gateway. Provider keys
+and HLLM tokens never reach the browser. Full history records load only when
+the existing details control is opened; summaries drive the initial page.
 
 ## Local development
 
-Use Elixir 1.20.2 on Erlang/OTP 28.4.3. Start the Go gateway separately on
-`http://127.0.0.1:8080`, configure its one or more upstream connections, and
-provide the same `HARDEN_LLM_TOKEN` to Phoenix and the gateway. Then:
+Use Elixir 1.20.2 on Erlang/OTP 28.4.3. Configure the gateway separately on
+`http://127.0.0.1:8080`, apply its `schema` command to an isolated HLLM database,
+and provide the same `HARDEN_LLM_TOKEN` to Phoenix and the gateway. Then:
 
 ```bash
 mix setup
-mix ecto.migrate
 mix phx.server
 ```
 
-Visit `http://localhost:4000`. Run Portal at the configured `PRLS_PORTAL_URL`
-(default local origin `http://localhost:4200`) with Control Plane; passwords
-are submitted there. Development sessions are non-production. Production
-requires independent signing/encryption salts, a 64-byte secret key base,
-HTTPS, and the Compose topology.
+Visit `http://localhost:4000`. Configure shared Portal/Control Plane for login;
+production requires HTTPS, independent session salts and the protected host
+secret. See the [self-hosting guide](../docs/self-hosting.md).
 
 ## Verification
 
-The normal edit loop is repository-root `make test-fast`. From this directory,
-`mix test` runs the deterministic Phoenix and LiveView suite. Database tests
-run through the existing tier runner against PostgreSQL:
+Use repository-root `make test-fast` for the normal edit loop. Host and package
+checks are deterministic and require no PostgreSQL:
 
 ```bash
-mix format --check-formatted
-mix compile --warnings-as-errors
+MIX_ENV=test mix format --check-formatted
 mix test
-mix deps.audit
-mix hex.audit
-MIX_ENV=prod mix assets.deploy
-MIX_ENV=prod mix release
+cd packages/harden_llm_ui
+mix test
 ```
 
-Browser tests are opt-in and run only when specifically requested. The browser
-canary checks shared login, one standard `/v1/responses` request, and the
-frontend history failure boundary; it is excluded from deterministic tests.
-`make test-release` is browser-free. See
-[`../docs/liveview-go-testing-guidelines.md`](../docs/liveview-go-testing-guidelines.md)
-for the test tiers and evidence policy.
+Browser tests are opt-in and run only when specifically requested.
+`make test-release` is browser-free; its composed HTTP check uses isolated real
+storage and local provider/identity fixtures. Actual browser layout requires a
+separate authorized check. See the
+[testing guidelines](../docs/liveview-go-testing-guidelines.md).
 
-## Production
+## Deployment and reuse
 
-The Phoenix release runs in `deploy/frontend/compose.frontend.yml`, layered
-over the stateless proxy in `docker-compose.yml`. The frontend overlay owns the
-PostgreSQL service used for reference history and drafts. Caddy remains the
-only public-port owner. The browser talks only to Phoenix; Phoenix calls the
-Go API server-side.
+The frontend overlay `deploy/frontend/compose.frontend.yml` runs one Phoenix
+service alongside one Go gateway. Shared Caddy routes `/v1/*`, `/api/v1/*` and
+health probes to Go and UI routes to Phoenix on the same hostname. Shared
+PostgreSQL/Garage belong to their infrastructure owners.
 
-Operational setup, backup, and upgrade procedures are in the
-[`self-hosting guide`](../docs/self-hosting.md).
+Another Phoenix host can depend on `HardenLlmUI` and supply a server-side API
+context, draft key, unique component IDs and host admission/lifecycle callbacks.
+The package has no Ecto, host-module or Portal dependency. Its independent test
+host exercises this boundary. See [architecture](../docs/architecture.md).

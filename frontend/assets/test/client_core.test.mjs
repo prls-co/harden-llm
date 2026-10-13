@@ -14,7 +14,7 @@ import {
   schemaCheckPayload,
   schemaPendingState,
   visibleOptionIndices,
-} from "../js/client_core.mjs";
+} from "../../packages/harden_llm_ui/assets/js/client_core.mjs";
 
 // SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-046 TEST-046
 // PLAN-HLLM-WIDGET-PARITY-001 TEST-111

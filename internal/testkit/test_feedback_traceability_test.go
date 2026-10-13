@@ -59,7 +59,7 @@ func TestTestFeedbackTraceability(t *testing.T) {
 		"Happy DOM",
 	)
 	assertContains("README.md", "make test-fast", "make test-release", "browser-containing Compose tests are explicit")
-	assertContains("frontend/README.md", "test-fast", "mix test", "Browser tests are opt-in", "logins share Phoenix history", "test-release")
+	assertContains("frontend/README.md", "test-fast", "mix test", "Browser tests are opt-in", "Logins share the host API key's history", "test-release")
 	assertContains(
 		"plans/from_utility-llm/harden-llm-self-hosted-test-spec.md",
 		"### TEST-041",
@@ -90,7 +90,7 @@ func TestTestFeedbackTraceability(t *testing.T) {
 		"PLAN-HLLM-PROXY-REFERENCE-001",
 		"TEST-400",
 		"TEST-409",
-		"Frontend-only shared history",
+		"Reference history and artifacts",
 	)
 	assertContains(
 		"docs/architecture.md",

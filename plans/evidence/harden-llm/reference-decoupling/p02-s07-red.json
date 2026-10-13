@@ -1,0 +1,55 @@
+{
+  "accepted": false,
+  "runDirectory": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/run-1791843635013-1090603-3zm6ez",
+  "results": [
+    {
+      "taskId": "go-integration",
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-tags=integration",
+        "./stateful",
+        "-run",
+        "^TestProfilePersistence$",
+        "-count=1"
+      ],
+      "status": 1,
+      "seed": 233256,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 8754,
+      "peakRssMiB": 261.09375,
+      "cpuMs": 3040,
+      "stdoutBytes": 1976,
+      "stderrBytes": 0,
+      "truncatedOutputBytes": 0,
+      "stdoutPreview": "--- FAIL: TestProfilePersistence (2.13s)\n    --- FAIL: TestProfilePersistence/save_list_and_full_detail_are_hash_scoped (0.36s)\n        profile_integration_test.go:52: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/concurrent_identical_saves_create_different_immutable_UUIDs (0.19s)\n        profile_integration_test.go:61: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/editing_setup_creates_another_row_and_retains_original_bytes (0.18s)\n        profile_integration_test.go:65: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/two_services_on_same_pool_and_access_key_share_state (0.21s)\n        profile_integration_test.go:72: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/new_entered_credential_and_snapshot_commit_or_roll_back_together (0.19s)\n        profile_integration_test.go:80: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/stale_credential_replacement_preserves_ciphertext (0.18s)\n        profile_integration_test.go:84: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/delete_saved_and_hide_template_are_exact_scope_operations (0.23s)\n        profile_integration_test.go:91: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/foreign_entered_credential_fails_before_probe (0.21s)\n        profile_integration_test.go:101: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/restart_and_template_replacement_preserve_saved_setup_and_binding (0.17s)\n        profile_integration_test.go:106: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/failed_probe_holds_no_SQL_connection_and_saves_nothing (0.20s)\n        profile_integration_test.go:117: probe did not reach local provider not_implemented: Profiles not implemented.\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t2.132s\nFAIL\n",
+      "stderrPreview": "",
+      "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t2.132s | FAIL",
+      "failureDetail": "--- FAIL: TestProfilePersistence (2.13s)\n    --- FAIL: TestProfilePersistence/save_list_and_full_detail_are_hash_scoped (0.36s)\n        profile_integration_test.go:52: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/concurrent_identical_saves_create_different_immutable_UUIDs (0.19s)\n        profile_integration_test.go:61: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/editing_setup_creates_another_row_and_retains_original_bytes (0.18s)\n        profile_integration_test.go:65: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/two_services_on_same_pool_and_access_key_share_state (0.21s)\n        profile_integration_test.go:72: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/new_entered_credential_and_snapshot_commit_or_roll_back_together (0.19s)\n        profile_integration_test.go:80: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/stale_credential_replacement_preserves_ciphertext (0.18s)\n        profile_integration_test.go:84: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/delete_saved_and_hide_template_are_exact_scope_operations (0.23s)\n        profile_integration_test.go:91: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/foreign_entered_credential_fails_before_probe (0.21s)\n        profile_integration_test.go:101: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/restart_and_template_replacement_preserve_saved_setup_and_binding (0.17s)\n        profile_integration_test.go:106: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/failed_probe_holds_no_SQL_connection_and_saves_nothing (0.20s)\n        profile_integration_test.go:117: probe did not reach local provider not_implemented: Profiles not implemented.\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t2.132s\nFAIL",
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": true,
+      "servicePoolProject": "harden-llm-test-6290c82ababf",
+      "startedAtMs": 413,
+      "endedAtMs": 9168
+    }
+  ],
+  "firstFailure": {
+    "taskId": "go-integration",
+    "status": 1,
+    "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t2.132s | FAIL",
+    "failureDetail": "--- FAIL: TestProfilePersistence (2.13s)\n    --- FAIL: TestProfilePersistence/save_list_and_full_detail_are_hash_scoped (0.36s)\n        profile_integration_test.go:52: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/concurrent_identical_saves_create_different_immutable_UUIDs (0.19s)\n        profile_integration_test.go:61: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/editing_setup_creates_another_row_and_retains_original_bytes (0.18s)\n        profile_integration_test.go:65: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/two_services_on_same_pool_and_access_key_share_state (0.21s)\n        profile_integration_test.go:72: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/new_entered_credential_and_snapshot_commit_or_roll_back_together (0.19s)\n        profile_integration_test.go:80: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/stale_credential_replacement_preserves_ciphertext (0.18s)\n        profile_integration_test.go:84: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/delete_saved_and_hide_template_are_exact_scope_operations (0.23s)\n        profile_integration_test.go:91: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/foreign_entered_credential_fails_before_probe (0.21s)\n        profile_integration_test.go:101: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/restart_and_template_replacement_preserve_saved_setup_and_binding (0.17s)\n        profile_integration_test.go:106: not_implemented: Profiles not implemented.\n    --- FAIL: TestProfilePersistence/failed_probe_holds_no_SQL_connection_and_saves_nothing (0.20s)\n        profile_integration_test.go:117: probe did not reach local provider not_implemented: Profiles not implemented.\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t2.132s\nFAIL"
+  },
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 75,
+    "daemonLockWaitMs": 114,
+    "staleReceiptRecoveryMs": 96
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": []
+}

@@ -102,12 +102,13 @@ export function initialPreviewCloudflareToken(env = process.env) {
   return token;
 }
 
-function secrets() {
+export function previewSecrets() {
   const secret = n => randomBytes(n).toString("base64url");
   return {
     POSTGRES_PASSWORD: secret(32), WEB_SECRET: secret(64),
     WEB_SIGNING_SALT: secret(16), WEB_ENCRYPTION_SALT: secret(16),
     HARDEN_LLM_TOKEN: secret(48),
+    HARDEN_LLM_CREDENTIAL_KEY: randomBytes(32).toString("base64"),
   };
 }
 
@@ -117,7 +118,7 @@ export function routeFor(state) {
   return `http://${state.host}:8080 {\n` +
     `\theader X-Robots-Tag "noindex, nofollow"\n` +
     `\t@private path /metrics\n\thandle @private {\n\t\trespond 404\n\t}\n` +
-    `\t@api path /v1/* /healthz /readyz\n\thandle @api {\n\t\treverse_proxy ${state.project}-gateway:8080\n\t}\n` +
+    `\t@api path /v1/* /api/v1/* /healthz /readyz\n\thandle @api {\n\t\treverse_proxy ${state.project}-gateway:8080\n\t}\n` +
     `\thandle {\n\t\treverse_proxy ${state.project}-web:4000 {\n\t\t\theader_up X-Forwarded-Proto https\n\t\t}\n\t}\n}\n`;
 }
 
@@ -188,7 +189,7 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
   const applicationValues = applicationEnvironment(sharedValues);
   const secretPath = path.join(directory, "secrets.json");
   const existingSecrets = await readJSON(secretPath, {});
-  const generatedSecrets = secrets();
+  const generatedSecrets = previewSecrets();
   const credentials = Object.fromEntries(
     Object.keys(generatedSecrets).map((key) => [key, existingSecrets[key] ?? generatedSecrets[key]]),
   );
@@ -224,7 +225,7 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
   await writePrivateIfChanged(envPath, dotenv(values));
   try {
     compose(c, state, ["up", "-d", "--wait", "--wait-timeout", "180", "postgres"]);
-    compose(c, state, ["run", "--rm", "--no-deps", "-e", "PHX_SERVER=false", "web", "eval", "HardenLlm.Release.migrate()"]);
+    compose(c, state, ["run", "--rm", "--no-deps", "gateway-schema"]);
     // Compose recreates only changed image/config services; .env-only changes
     // must apply even when neither application needed rebuilding. Reconcile
     // data services on every deploy so a control-file change cannot be missed

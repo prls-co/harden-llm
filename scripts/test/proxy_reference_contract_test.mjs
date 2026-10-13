@@ -15,13 +15,14 @@ const expectedTaskByTest = new Map([
   ["TEST-403", "go-unit"],
   ["TEST-404", "go-unit"],
   ["TEST-405", "frontend-deterministic"],
-  ["TEST-406", "frontend-deterministic"],
-  ["TEST-407", "frontend-reference-integration"],
   ["TEST-408", "go-static"],
   ["TEST-409", "go-compose"],
+  ["TEST-428", "frontend-deterministic"],
+  ["TEST-439", "go-integration"],
+  ["TEST-442", "go-integration"],
 ]);
 
-test("profile-free OpenAI contract is traceable and assigned to the right existing tiers", async () => {
+test("ordinary OpenAI contract and reference boundary are traceable and assigned to the right existing tiers", async () => {
   const [fixtureText, testSpecification, requirementSpecification, traceability, manifestText] = await Promise.all([
     read("test/fixtures/proxy-reference-contract.json"),
     read("plans/from_utility-llm/harden-llm-self-hosted-test-spec.md"),
@@ -45,7 +46,7 @@ test("profile-free OpenAI contract is traceable and assigned to the right existi
   assert.deepEqual(fixture.responsesRequestFields, ["model", "input", "instructions", "text.format", "tools", "tool_choice", "stream"]);
   assert.deepEqual(fixture.extensions, ["upstream", "cache", "timeout_ms", "recovery", "diagnostics"]);
   assert.equal(fixture.stateless, true);
-  assert.equal(fixture.historyOwner, "reference-application");
+  assert.equal(fixture.historyOwner, "stateful-reference-library");
   assert.equal(fixture.streaming, "buffer-final-hardened-outcome");
   assert.deepEqual(fixture.rejectedStatefulFields, ["previous_response_id", "background", "conversation"]);
   assert.deepEqual(fixture.limits, {
@@ -69,7 +70,7 @@ test("profile-free OpenAI contract is traceable and assigned to the right existi
   }
   for (const [testId, expectedTaskId] of expectedTaskByTest) {
     assert.equal(registeredTaskIds.get(testId), expectedTaskId, `${testId} runner owner`);
-    assert.ok(new RegExp("^\\| " + testId + " \\|", "m").test(testSpecification), `${testId} canonical test definition`);
+    assert.ok(new RegExp("^(?:\\| " + testId + " \\||### " + testId + ":)", "m").test(testSpecification), `${testId} canonical test definition`);
   }
 
   for (const testId of fixture.frontendTestIds) {
@@ -80,11 +81,12 @@ test("profile-free OpenAI contract is traceable and assigned to the right existi
     const requirementId = `REQ-${requirement}`;
     assert.ok(requirementSpecification.includes(requirementId), `${requirementId} canonical requirement`);
   }
-  assert.match(traceability, /PLAN-HLLM-PROXY-REFERENCE-001/);
-  assert.match(traceability, /Frontend-only shared history and per-user drafts/);
-  const databaseTask = manifest.tasks.find(({ id }) => id === "frontend-reference-integration");
-  assert.ok(databaseTask, "existing integration runner task is registered");
-  assert.equal(databaseTask.workingDirectory, "frontend");
-  assert.equal(databaseTask.servicePool?.services?.length, 1);
-  assert.equal(databaseTask.servicePool.services[0].name, "harden-postgres");
+  assert.match(traceability, /PLAN-HLLM-REFERENCE-DECOUPLING-002/);
+  assert.match(traceability, /Reference history and artifacts/);
+  const databaseTask = manifest.tasks.find(({ id }) => id === "go-integration");
+  assert.ok(databaseTask, "one Go storage integration owner is registered");
+  assert.ok(databaseTask.command.includes("-tags=integration"));
+  assert.deepEqual(databaseTask.servicePool.services.map(({name}) => name), ["harden-postgres", "garage"]);
+  assert.equal(manifest.tasks.some(({id}) => id === "frontend-reference-integration"), false);
+
 });

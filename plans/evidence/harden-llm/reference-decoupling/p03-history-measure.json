@@ -1,0 +1,51 @@
+{
+  "accepted": true,
+  "runDirectory": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/run-1791847184502-1517090-q2f7cg",
+  "results": [
+    {
+      "taskId": "go-integration",
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-v",
+        "-tags=integration",
+        "./stateful",
+        "-run",
+        "^TestHistoryStore$",
+        "-count=1"
+      ],
+      "status": 0,
+      "seed": 233256,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 11359,
+      "peakRssMiB": 272.703125,
+      "cpuMs": 2660,
+      "stdoutBytes": 2886,
+      "stderrBytes": 0,
+      "truncatedOutputBytes": 0,
+      "stdoutPreview": "=== RUN   TestHistoryStore\n=== PAUSE TestHistoryStore\n=== CONT  TestHistoryStore\n=== RUN   TestHistoryStore/one_insert_uses_server_scope_and_detail_denies_foreign_or_unknown_runs\n=== RUN   TestHistoryStore/invalid_stored_schema_or_payload_is_not_a_successful_restore\n=== RUN   TestHistoryStore/numbered_windows_ordering_counts_and_summaries_stay_scoped\n=== RUN   TestHistoryStore/invalid_pages_sizes_and_overflowing_offsets_fail\n=== RUN   TestHistoryStore/exact_seventeen_MiB_payload_survives_and_one_extra_byte_rejects_without_truncation\n    history_store_integration_test.go:208: 17 MiB insert=386.150759ms detail=371.196311ms\n=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback\n=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/confirmed\n=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-found\n=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-absent\n=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-read-failed\n=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/rejected\n=== RUN   TestHistoryStore/failed_list_is_an_explicit_history_error_and_usage_remains_scoped\n=== RUN   TestHistoryStore/delayed_real_commit_can_appear_after_the_empty_readback\n--- PASS: TestHistoryStore (3.94s)\n    --- PASS: TestHistoryStore/one_insert_uses_server_scope_and_detail_denies_foreign_or_unknown_runs (0.41s)\n    --- PASS: TestHistoryStore/invalid_stored_schema_or_payload_is_not_a_successful_restore (0.21s)\n    --- PASS: TestHistoryStore/numbered_windows_ordering_counts_and_summaries_stay_scoped (0.28s)\n    --- PASS: TestHistoryStore/invalid_pages_sizes_and_overflowing_offsets_fail (0.18s)\n    --- PASS: TestHistoryStore/exact_seventeen_MiB_payload_survives_and_one_extra_byte_rejects_without_truncation (1.52s)\n    --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback (0.91s)\n        --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/confirmed (0.19s)\n        --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-found (0.18s)\n        --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-absent (0.17s)\n        --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-read-failed (0.18s)\n        --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/rejected (0.19s)\n    --- PASS: TestHistoryStore/failed_list_is_an_explicit_history_error_and_usage_remains_scoped (0.20s)\n    --- PASS: TestHistoryStore/delayed_real_commit_can_appear_after_the_empty_readback (0.22s)\nPASS\nok  \tgithub.com/prls-co/harden-llm/stateful\t3.970s\n",
+      "stderrPreview": "",
+      "failureSummary": null,
+      "failureDetail": null,
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": true,
+      "servicePoolProject": "harden-llm-test-27ac3c7a39ca",
+      "startedAtMs": 419,
+      "endedAtMs": 11778
+    }
+  ],
+  "firstFailure": null,
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 69,
+    "daemonLockWaitMs": 114,
+    "staleReceiptRecoveryMs": 103
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": []
+}
