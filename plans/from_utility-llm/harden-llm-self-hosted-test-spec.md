@@ -1888,3 +1888,30 @@ final templates while preserving ten failed candidates. TEST-435 and certified
 catalog reads passed after deployment; the
 [RCA](../../docs/rca/preset-draft-persistence-and-live-qualification.md#5-acceptance-and-rollout)
 links source/images/reports and limitations.
+
+## 30. Mixed recovery profile capabilities (#119)
+
+### TEST-456: Shared UI reasoning and finite recovery conversion
+
+Actual rendered target selections switch mapped/unmapped presets at all five
+positions and submit only supported reasoning. Pure package cases preserve
+explicit supported selections and options, omit unsupported reasoning, normalize
+restored drafts idempotently and resolve a fresh rerun from the generation setup.
+Locations: `frontend/test/harden_llm_web/live/shipped_presets_test.exs` and
+`frontend/packages/harden_llm_ui/test/harden_llm_ui/profile_reasoning_test.exs`.
+Command: `make test-fast`. No provider, browser or database participates.
+
+### TEST-457: Rejection field paths and safe diagnostic correlation
+
+`stateful/recovery_reasoning_test.go` requires strict invalid-reasoning rejection
+at all five paths and valid preparation when the unsupported field is omitted.
+`internal/gateway/httpapi/reference_diagnostic_test.go` requires correlation IDs
+and code in logs with no raw validation message. The independent client case
+requires code/path/run ID in the visible validation message, without reflecting
+the raw server message. Command: `make test-fast`.
+
+TEST-454 additionally selects different capability profiles, reads saved state,
+reloads and executes from that reloaded view, retaining the exact six-model
+routing assertion. Command: `node scripts/run-test-tier.mjs --task frontend-gateway-workflows`.
+The [RCA](../../docs/rca/mixed-recovery-profile-reasoning.md) records the original
+production rejection, cheap RED/GREEN and the retained async-acknowledgement miss.

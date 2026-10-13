@@ -828,3 +828,18 @@ offline fast loop. TEST-455 qualifies actual configured providers only after
 explicit authorization; no browser is implied by either boundary. The
 [RCA](../../docs/rca/preset-draft-persistence-and-live-qualification.md) retains
 the earlier stub/Prepare blind spots and all real-provider failures.
+
+## 26. Mixed recovery reasoning and validation diagnostics (#119)
+
+WEB-TEST-127 / TEST-456 uses actual shipped metadata and rendered selectors to
+switch mapped/unmapped profiles in all five recovery positions. The same library
+conversion must govern shown levels, target forms, restored drafts and outgoing
+requests; omit unsupported reasoning and retain supported explicit values. Fresh
+rerun defaults resolve to the current generation profile/model/options. No
+extra recovery branch or core policy exception is allowed.
+
+WEB-TEST-126 now selects distinct GPT/Claude profiles and executes the exact
+six-call chain after page reload. TEST-457 requires a safe validation code,
+qualified field path and run ID in the message while rejecting raw server-message
+reflection. The [RCA](../../docs/rca/mixed-recovery-profile-reasoning.md) separates
+the earlier isolated-preset evidence from this missing interaction coverage.

@@ -206,6 +206,59 @@ defmodule HardenLlmUI.IndependentClientTest do
     )
   end
 
+  # TEST-457: validation needs a useful, correlated message without reflecting
+  # the raw server message or request/credential material.
+  test "profile validation identifies the stage field and run in the visible message", %{
+    fixture: f
+  } do
+    run_id = f["record"]["runId"]
+    field = "recoveryPolicy.jsonRepair.escalation.reasoningEffort"
+
+    diagnostic = %{
+      "code" => "profile_invalid",
+      "component" => "reference",
+      "operation" => "run",
+      "requestId" => run_id,
+      "runId" => run_id,
+      "inferenceOutcome" => "failed",
+      "persistenceOutcome" => "saved",
+      "cause" => "rejected",
+      "durationMs" => 0,
+      "message" => "Reference settings are invalid.",
+      "action" => "Correct the indicated fields."
+    }
+
+    Req.Test.stub(Client, fn conn ->
+      conn
+      |> Plug.Conn.put_status(400)
+      |> Req.Test.json(%{
+        "error" => %{
+          "code" => "profile_invalid",
+          "message" => @key_a,
+          "diagnostic" => diagnostic,
+          "fieldErrors" => [
+            %{
+              "field" => field,
+              "message" => "This profile does not configure the requested level."
+            }
+          ]
+        }
+      })
+    end)
+
+    assert {:error, %APIError{} = error} =
+             Client.run(
+               context("https://host-a.invalid", @key_a),
+               f["record"]["request"]["input"]
+             )
+
+    assert error.message =~ "profile_invalid"
+    assert error.message =~ field
+    assert error.message =~ run_id
+    refute error.message =~ @key_a
+    refute error.ambiguous?
+  end
+
   test "download contract preserves arbitrary binary bytes and validates media once" do
     raw = <<0, 255, 10, 13, 34>>
 

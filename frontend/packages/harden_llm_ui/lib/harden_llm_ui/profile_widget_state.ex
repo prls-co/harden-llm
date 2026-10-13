@@ -391,6 +391,7 @@ defmodule HardenLlmUI.ProfileWidgetState do
 
     target
     |> Map.take(@leaf_target_fields)
+    |> Map.reject(fn {key, value} -> key == "reasoningEffort" and value in [nil, ""] end)
     |> Map.new(fn
       {"providerOptions", _value} -> {"providerOptions", provider_options}
       entry -> entry
@@ -449,7 +450,7 @@ defmodule HardenLlmUI.ProfileWidgetState do
         %{
           "source" => "profile",
           "profileId" => profile_id,
-          "reasoningEffort" => profile_default_reasoning(profile_state)
+          "reasoningEffort" => profile_reasoning_effort(profile_state, nil)
         }
     end
   end
@@ -576,13 +577,66 @@ defmodule HardenLlmUI.ProfileWidgetState do
        else: target
   end
 
-  defp profile_default_reasoning(profile_state) do
-    map = get_in(profile_state, ["definition", "reasoningEffortMap"])
+  @doc "Portable reasoning levels actually configured by a selected profile."
+  def profile_reasoning_levels(profile_state) when is_map(profile_state) do
+    case get_in(profile_state, ["definition", "reasoningEffortMap"]) do
+      map when is_map(map) ->
+        Enum.filter(~w(lowest middle highest), &Map.has_key?(map, &1))
 
-    cond do
-      is_map(map) and Map.has_key?(map, "lowest") -> "lowest"
-      is_map(map) -> map |> Map.keys() |> Enum.sort() |> List.first() || ""
-      true -> ""
+      _ ->
+        []
     end
   end
+
+  def profile_reasoning_levels(_profile_state), do: []
+
+  @doc "Keeps a supported UI selection, otherwise selects the first configured level."
+  def profile_reasoning_effort(profile_state, current) do
+    levels = profile_reasoning_levels(profile_state)
+    if current in levels, do: current, else: List.first(levels) || ""
+  end
+
+  @doc "Projects all finite recovery targets against their current profile capabilities."
+  def normalize_recovery_policy(policy, profiles, generation)
+      when is_map(policy) and is_list(profiles) do
+    policy = serialize_recovery_policy(policy)
+
+    Enum.reduce(@recovery_node_descriptors, policy, fn
+      {_id, %{"targetPath" => ["recoveryPolicy" | path]}}, policy ->
+        target = get_in(policy, path)
+
+        target =
+          if path == ~w(rerun target) and target == %{"source" => "generation"},
+            do: generation |> Map.take(@leaf_target_fields) |> Map.put("source", "profile"),
+            else: target
+
+        case target do
+          %{"source" => "profile", "profileId" => id} = target ->
+            case Enum.find(profiles, &(&1["id"] == id)) do
+              nil ->
+                policy
+
+              profile ->
+                normalized =
+                  target
+                  |> Map.put(
+                    "reasoningEffort",
+                    profile_reasoning_effort(profile, target["reasoningEffort"])
+                  )
+                  |> serialize_recovery_target()
+
+                put_in(policy, path, normalized)
+            end
+
+          _ ->
+            policy
+        end
+
+      _node, policy ->
+        policy
+    end)
+  end
+
+  def normalize_recovery_policy(policy, _profiles, _generation),
+    do: serialize_recovery_policy(policy)
 end

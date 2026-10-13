@@ -102,3 +102,13 @@ This coverage is release-qualified and deployed at
 `ff5c968bc3c2263956fb1f946935395506347bfc`; run 38455292756 attempt 1 passed all
 29 tasks. Browser layout remains untested in this correction. The shared
 renderer, fixed roles and complete create-on-save semantics are unchanged.
+
+## Mixed-profile capability amendment (#119, 2026-10-13)
+
+One shared reasoning normalization now governs generation and all five targets.
+Disabled reasoning must not serialize a global default; an inherited fresh-rerun
+draft resolves to the explicit current generation setup before execution/save.
+Direct API validation remains strict. TEST-456/457 and the amended real T3 chain
+cover selection, saved/reloaded state and qualified diagnostics. This corrects
+the earlier same-profile-only recovery coverage without adding a role, service,
+compatibility reader or fallback. See [the RCA](../rca/mixed-recovery-profile-reasoning.md).

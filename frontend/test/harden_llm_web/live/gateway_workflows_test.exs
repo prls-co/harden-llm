@@ -108,17 +108,27 @@ defmodule HardenLlmWeb.GatewayWorkflowsTest do
     view |> element("#profile-rerun-generation-config-toggle") |> render_click()
     render_settled(view, 10_000)
 
-    for {prefix, path, model} <- [
+    for {prefix, path, model, profile_id} <- [
           {"profile-original-repair-initial", ~w(jsonRepair initial),
-           "fixture-original-repair-initial"},
+           "fixture-original-repair-initial", "CPA claude-sonnet-5-5"},
           {"profile-original-repair-escalation", ~w(jsonRepair escalation),
-           "fixture-original-repair-escalation"},
-          {"profile-rerun-generation", ~w(rerun target), "fixture-rerun-generation"},
+           "fixture-original-repair-escalation", "CPA claude-sonnet-5-5"},
+          {"profile-rerun-generation", ~w(rerun target), "fixture-rerun-generation",
+           "CPA gpt-6.1-sol"},
           {"profile-rerun-generation-config-json-repair-initial", ~w(rerun jsonRepair initial),
-           "fixture-rerun-repair-initial"},
+           "fixture-rerun-repair-initial", "CPA claude-haiku-5-5"},
           {"profile-rerun-generation-config-json-repair-escalation",
-           ~w(rerun jsonRepair escalation), "fixture-rerun-repair-escalation"}
+           ~w(rerun jsonRepair escalation), "fixture-rerun-repair-escalation",
+           "CPA claude-sonnet-5-5"}
         ] do
+      selected = Enum.reduce(Enum.reverse(path), %{"profileId" => profile_id}, &%{&1 => &2})
+
+      view
+      |> element("##{prefix}-profile")
+      |> render_change(%{"profile" => %{"recoveryPolicy" => selected}})
+
+      render_settled(view, 10_000)
+
       unless prefix == "profile-rerun-generation",
         do: view |> element("##{prefix}-config-toggle") |> render_click()
 
@@ -150,16 +160,17 @@ defmodule HardenLlmWeb.GatewayWorkflowsTest do
     render_settled(reloaded, 10_000)
     assert has_element?(reloaded, "[name='profile[recoveryPolicy][maxAttempts]'][value='6']")
 
-    view
+    reloaded
     |> form("#run-form", %{
       "run" => %{"userPrompt" => "fixture-force-recovery"}
     })
     |> render_submit()
 
-    render_settled(view, 10_000)
-    refute has_element?(view, "#run-error"), render(view)
-    assert has_element?(view, "#run-output", "deterministic")
-    assert has_element?(view, "#output-trace", "6")
+    render_settled(reloaded, 10_000)
+    refute has_element?(reloaded, "#run-submit[disabled]")
+    refute has_element?(reloaded, "#run-error"), render(reloaded)
+    assert has_element?(reloaded, "#run-output", "deterministic")
+    assert has_element?(reloaded, "#output-trace", "6")
     assert {:ok, state_after_reload} = Client.get_state(context)
     assert state_after_reload["payload"]["recoveryPolicy"] == policy
   end

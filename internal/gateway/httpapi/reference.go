@@ -410,6 +410,7 @@ func (api *API) referenceRun(w http.ResponseWriter, r *http.Request) {
 func (api *API) referenceRunFailure(w http.ResponseWriter, r *http.Request, err error, out stateful.RunOutput) {
 	problem := stateful.ProjectRunError(err)
 	problem.Diagnostic = &stateful.Diagnostic{Code: problem.Code, Component: "reference", Operation: "run", RequestID: out.RunID, RunID: out.RunID, TraceID: out.TraceID, InferenceOutcome: out.Status, PersistenceOutcome: out.History.Status, Cause: "rejected", Message: problem.Message, Action: "Correct the indicated configuration or inspect this run's trace; do not replay an ambiguous inference.", DurationMS: out.TotalCallDurationMs}
+	api.logger.InfoContext(r.Context(), "reference execution rejected", "code", problem.Code, "run_id", out.RunID, "trace_id", out.TraceID, "provider_invoked", out.ProviderInvoked)
 	writeReferenceFailure(w, referenceErrorStatus(err), problem)
 }
 
