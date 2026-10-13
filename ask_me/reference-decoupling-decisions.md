@@ -34,7 +34,7 @@ Verified source anchors:
 
 - At the restoration baseline, `ProfileService.Save(ctx, request)` uses `SaveProfileRequest.OwnerID`; `ProfileService.Credential(ctx, ownerID, credentialID)` retrieves owner-scoped credentials. These are in historical `internal/gateway/profile_service.go`, not the current profile-free implementation.
 - Baseline `ProfileWidgetComponent.handle_event("select-profile", ...)` uses `selected_profile_id` in `frontend/lib/harden_llm_web/live/profile_widget_component.ex`.
-- Current draft ownership already uses `socket.assigns.access_context.user_id`, `Reference.get_draft/1` and `Reference.save_draft/3` in [WorkspaceLive](../frontend/lib/harden_llm_web/live/workspace_live.ex) and [Reference](../frontend/lib/harden_llm/reference.ex).
+- Current draft ownership already uses `socket.assigns.access_context.user_id`, `Reference.get_draft/1` and `Reference.save_draft/3` in [WorkspaceLive](../frontend/lib/harden_llm_web/live/workspace_live.ex) and [pre-decoupling Reference](https://github.com/prls-co/harden-llm/blob/2a8aede9096996963f74107fded8218aa15a9011/frontend/lib/harden_llm/reference.ex).
 
 History shared across enabled logins and user-private drafts are already settled. This question changes profile ownership only. Sharing profiles also shares the effect of edits: replacing a credential changes future calls using that profile. Hiding credential values in reads does not make a shared profile private.
 
@@ -130,7 +130,7 @@ Verified source anchors:
 - In [WorkspaceLive](../frontend/lib/harden_llm_web/live/workspace_live.ex), `handle_async(:run, {:ok, {:ok, response}}, socket)` sets `run_result` before starting `Reference.record_call/1`.
 - `handle_async(:record_call, _result, socket)` sets `recording_error` to “The result is shown, but shared history could not save it.” The returned result remains visible.
 - `handle_async(:history, _result, socket)` reports that the workspace and inference remain available while history is unavailable.
-- [Reference](../frontend/lib/harden_llm/reference.ex) owns `record_call/1` and `statistics/0` today. These move to the wrapper in the proposed design.
+- [pre-decoupling Reference](https://github.com/prls-co/harden-llm/blob/2a8aede9096996963f74107fded8218aa15a9011/frontend/lib/harden_llm/reference.ex) owns `record_call/1` and `statistics/0` today. These move to the wrapper in the proposed design.
 - `HardenAPI` already disables automatic request retries. This supports separating a persistence failure from authorization to execute the LLM request again.
 
 The earlier draft's initial-persistence gate is superseded by accepted Option B and removed in plan revision 4.1. Source inspection confirms the current result-first behavior; it does not prove any external history store's durability guarantee.

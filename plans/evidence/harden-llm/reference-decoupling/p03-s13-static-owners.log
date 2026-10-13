@@ -1,0 +1,106 @@
+TAP version 13
+# Subtest: initial preview bootstrap requires its explicit Cloudflare token
+ok 1 - initial preview bootstrap requires its explicit Cloudflare token
+  ---
+  duration_ms: 2.965116
+  type: 'test'
+  ...
+# Subtest: initial preview bootstrap trims and selects only its explicit Cloudflare token
+ok 2 - initial preview bootstrap trims and selects only its explicit Cloudflare token
+  ---
+  duration_ms: 0.370879
+  type: 'test'
+  ...
+# Subtest: preview bootstrap is wired to the explicit token helper and has no SSH credential-file dependency
+ok 3 - preview bootstrap is wired to the explicit token helper and has no SSH credential-file dependency
+  ---
+  duration_ms: 8.953549
+  type: 'test'
+  ...
+# Subtest: branch identities are stable, bounded, distinct and cannot target production
+ok 4 - branch identities are stable, bounded, distinct and cannot target production
+  ---
+  duration_ms: 2.932671
+  type: 'test'
+  ...
+# Subtest: pushes, PRs and schedules never authorize browser tests
+ok 5 - pushes, PRs and schedules never authorize browser tests
+  ---
+  duration_ms: 0.554674
+  type: 'test'
+  ...
+# Subtest: image rebuilds follow application inputs, not docs or test-only changes
+ok 6 - image rebuilds follow application inputs, not docs or test-only changes
+  ---
+  duration_ms: 0.651557
+  type: 'test'
+  ...
+# Subtest: deployments require an enabled same-repository branch and a passing current revision
+ok 7 - deployments require an enabled same-repository branch and a passing current revision
+  ---
+  duration_ms: 0.636482
+  type: 'test'
+  ...
+# Subtest: automatic task graphs are browser-free; browser tasks require explicit authorization
+ok 8 - automatic task graphs are browser-free; browser tasks require explicit authorization
+  ---
+  duration_ms: 7.815345
+  type: 'test'
+  ...
+# Subtest: preview workflows use the policy and never check out fork code on the deployment runner
+ok 9 - preview workflows use the policy and never check out fork code on the deployment runner
+  ---
+  duration_ms: 1.600773
+  type: 'test'
+  ...
+# Subtest: routes and state enforce exact environment ownership before writes
+ok 10 - routes and state enforce exact environment ownership before writes
+  ---
+  duration_ms: 8.705646
+  type: 'test'
+  ...
+# Subtest: preview control files and image reuse are idempotent
+ok 11 - preview control files and image reuse are idempotent
+  ---
+  duration_ms: 8.909745
+  type: 'test'
+  ...
+# Subtest: preview gateway bounds Go memory and uses the shared identity contract
+ok 12 - preview gateway bounds Go memory and uses the shared identity contract
+  ---
+  duration_ms: 1.808432
+  type: 'test'
+  ...
+# Subtest: preview templates expose no host ports or production telemetry and protect generated dotenv
+ok 13 - preview templates expose no host ports or production telemetry and protect generated dotenv
+  ---
+  duration_ms: 5.120378
+  type: 'test'
+  ...
+# Subtest: release CI builds the production frontend image through its private BuildKit secret
+ok 14 - release CI builds the production frontend image through its private BuildKit secret
+  ---
+  duration_ms: 1.65909
+  type: 'test'
+  ...
+# Subtest: preview credential encryption key is standard-base64 32 bytes and existing merge keeps it
+ok 15 - preview credential encryption key is standard-base64 32 bytes and existing merge keeps it
+  ---
+  duration_ms: 2.558266
+  type: 'test'
+  ...
+# Subtest: ordinary OpenAI contract and reference boundary are traceable and assigned to the right existing tiers
+ok 16 - ordinary OpenAI contract and reference boundary are traceable and assigned to the right existing tiers
+  ---
+  duration_ms: 17.244156
+  type: 'test'
+  ...
+1..16
+# tests 16
+# suites 0
+# pass 16
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 283.767396

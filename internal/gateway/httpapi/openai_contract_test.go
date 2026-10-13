@@ -194,7 +194,7 @@ func TestOpenAIContractAuthStateAndRetiredRoutes(t *testing.T) {
 		{name: "unsupported upstream sampling field", path: "/v1/chat/completions", method: http.MethodPost, header: "Bearer " + proxyTestToken, body: `{"model":"fixture-model","messages":[{"role":"user","content":"hello"}],"frequency_penalty":0.5}`, status: http.StatusBadRequest, param: "frequency_penalty"},
 		{name: "temperature outside OpenAI range", path: "/v1/chat/completions", method: http.MethodPost, header: "Bearer " + proxyTestToken, body: `{"model":"fixture-model","messages":[{"role":"user","content":"hello"}],"temperature":2.1}`, status: http.StatusBadRequest, param: "temperature"},
 		{name: "stop is not a string list", path: "/v1/chat/completions", method: http.MethodPost, header: "Bearer " + proxyTestToken, body: `{"model":"fixture-model","messages":[{"role":"user","content":"hello"}],"stop":{"x":1}}`, status: http.StatusBadRequest, param: "stop"},
-		{name: "retired native run API", path: "/api/v1/run", method: http.MethodPost, header: "Bearer " + proxyTestToken, body: `{}`, status: http.StatusNotFound},
+		// Reference /api/v1/run is restored by ADR-HLLM-033; TEST-441 owns its stronger contract.
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			request, err := http.NewRequest(test.method, proxy.URL+test.path, strings.NewReader(test.body))

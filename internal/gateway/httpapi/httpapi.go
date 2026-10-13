@@ -153,6 +153,24 @@ func (api *API) router() http.Handler {
 	mux.HandleFunc("GET /v1/models", api.authorize(api.models))
 	mux.HandleFunc("POST /v1/chat/completions", api.authorize(api.chatCompletions))
 	mux.HandleFunc("POST /v1/responses", api.authorize(api.responses))
+	mux.HandleFunc("GET /api/v1/status", api.authorize(api.referenceStatus))
+	mux.HandleFunc("GET /api/v1/profiles/bundle", api.authorize(api.referenceBundle))
+	mux.HandleFunc("PUT /api/v1/profiles/bundle", api.authorize(api.referenceBundle))
+	mux.HandleFunc("GET /api/v1/profiles", api.authorize(api.referenceProfiles))
+	mux.HandleFunc("POST /api/v1/profiles", api.authorize(api.referenceProfiles))
+	mux.HandleFunc("GET /api/v1/profiles/{profileID}", api.authorize(api.referenceProfile))
+	mux.HandleFunc("DELETE /api/v1/profiles/{profileID}", api.authorize(api.referenceProfile))
+	mux.HandleFunc("POST /api/v1/profiles/{profileID}/models:refresh", api.authorize(api.referenceModels))
+	mux.HandleFunc("GET /api/v1/state", api.authorize(api.referenceState))
+	mux.HandleFunc("POST /api/v1/state", api.authorize(api.referenceState))
+	mux.HandleFunc("POST /api/v1/run", api.authorize(api.referenceRun))
+	mux.HandleFunc("GET /api/v1/history", api.authorize(api.referenceHistory))
+	mux.HandleFunc("DELETE /api/v1/history", api.authorize(api.referenceHistory))
+	mux.HandleFunc("GET /api/v1/history/{runID}", api.authorize(api.referenceHistoryEntry))
+	mux.HandleFunc("DELETE /api/v1/history/{runID}", api.authorize(api.referenceHistoryEntry))
+	mux.HandleFunc("GET /api/v1/stats", api.authorize(api.referenceStats))
+	mux.HandleFunc("GET /api/v1/traces/{runID}", api.authorize(api.referenceArtifact))
+	mux.HandleFunc("GET /api/v1/traces/{runID}/artifacts/{artifactID}", api.authorize(api.referenceArtifact))
 	mux.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
 		if strings.HasPrefix(request.URL.Path, "/v1/") {
 			writeError(writer, http.StatusNotFound, "invalid_request_error", "not_found", "The requested API route was not found.", nil)
@@ -169,10 +187,8 @@ func (api *API) observeHTTP(next http.Handler) http.Handler {
 		ctx, endRequest := api.telemetry.StartHTTP(ctx, request.Method)
 		wrapped := &statusWriter{ResponseWriter: writer, status: http.StatusOK}
 		next.ServeHTTP(wrapped, request.WithContext(ctx))
-		route := request.URL.Path
-		switch route {
-		case "/v1/chat/completions", "/v1/responses", "/v1/models", "/healthz", "/readyz":
-		default:
+		_, route, matched := strings.Cut(request.Pattern, " ")
+		if !matched {
 			route = "unmatched"
 		}
 		outcome, category := gateway.HTTPOutcome(wrapped.status)

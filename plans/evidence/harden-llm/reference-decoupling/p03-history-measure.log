@@ -1,0 +1,34 @@
+null
+=== RUN   TestHistoryStore
+=== PAUSE TestHistoryStore
+=== CONT  TestHistoryStore
+=== RUN   TestHistoryStore/one_insert_uses_server_scope_and_detail_denies_foreign_or_unknown_runs
+=== RUN   TestHistoryStore/invalid_stored_schema_or_payload_is_not_a_successful_restore
+=== RUN   TestHistoryStore/numbered_windows_ordering_counts_and_summaries_stay_scoped
+=== RUN   TestHistoryStore/invalid_pages_sizes_and_overflowing_offsets_fail
+=== RUN   TestHistoryStore/exact_seventeen_MiB_payload_survives_and_one_extra_byte_rejects_without_truncation
+    history_store_integration_test.go:208: 17 MiB insert=386.150759ms detail=371.196311ms
+=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback
+=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/confirmed
+=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-found
+=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-absent
+=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-read-failed
+=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/rejected
+=== RUN   TestHistoryStore/failed_list_is_an_explicit_history_error_and_usage_remains_scoped
+=== RUN   TestHistoryStore/delayed_real_commit_can_appear_after_the_empty_readback
+--- PASS: TestHistoryStore (3.94s)
+    --- PASS: TestHistoryStore/one_insert_uses_server_scope_and_detail_denies_foreign_or_unknown_runs (0.41s)
+    --- PASS: TestHistoryStore/invalid_stored_schema_or_payload_is_not_a_successful_restore (0.21s)
+    --- PASS: TestHistoryStore/numbered_windows_ordering_counts_and_summaries_stay_scoped (0.28s)
+    --- PASS: TestHistoryStore/invalid_pages_sizes_and_overflowing_offsets_fail (0.18s)
+    --- PASS: TestHistoryStore/exact_seventeen_MiB_payload_survives_and_one_extra_byte_rejects_without_truncation (1.52s)
+    --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback (0.91s)
+        --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/confirmed (0.19s)
+        --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-found (0.18s)
+        --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-absent (0.17s)
+        --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-read-failed (0.18s)
+        --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/rejected (0.19s)
+    --- PASS: TestHistoryStore/failed_list_is_an_explicit_history_error_and_usage_remains_scoped (0.20s)
+    --- PASS: TestHistoryStore/delayed_real_commit_can_appear_after_the_empty_readback (0.22s)
+PASS
+ok  	github.com/prls-co/harden-llm/stateful	3.970s

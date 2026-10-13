@@ -107,7 +107,7 @@ func (s *Service) SaveDraft(ctx context.Context, hash, key string, input SaveDra
    WHERE ($6=0 AND drafts.expires_at<=EXCLUDED.updated_at) OR ($6>0 AND drafts.revision=$6 AND drafts.expires_at>EXCLUDED.updated_at)
    RETURNING revision`, hash, key, payload, now, now.Add(draftLifetime), input.Revision).Scan(&draft.Revision)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return revisionConflict()
+			return revisionConflictTx(ctx, tx, "SELECT revision FROM drafts WHERE api_key_hash=$1 AND draft_key=$2 AND expires_at>$3", hash, key, now)
 		}
 		return err
 	})

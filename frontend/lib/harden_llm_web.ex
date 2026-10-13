@@ -88,6 +88,7 @@ defmodule HardenLlmWeb do
       import HardenLlmWeb.CoreComponents
       import HardenLlmWeb.JsonViewer
       import HardenLlmWeb.LlmResultComponents
+      import HardenLlmWeb.LlmTraceComponents
       import PrlsUI.Pagination
 
       # Common modules used in templates

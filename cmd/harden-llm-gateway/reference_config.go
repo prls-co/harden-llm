@@ -29,6 +29,23 @@ type referenceSettings struct {
 	artifactEndpoint, artifactBucket, artifactRegion, artifactAccessKey, artifactSecretKey string
 }
 
+func referenceArtifacts(settings referenceSettings) (*stateful.ArtifactStore, *stateful.Diagnostic) {
+	if settings.artifactState == "disabled" {
+		return nil, nil
+	}
+	failure := func() (*stateful.ArtifactStore, *stateful.Diagnostic) {
+		return nil, &stateful.Diagnostic{Code: "reference_configuration_error", Component: "artifacts", Operation: "configure", RequestID: "", InferenceOutcome: "independent", PersistenceOutcome: "unavailable", Cause: "configuration", Message: "Garage artifact settings are incomplete or invalid.", Action: "Configure HARDEN_LLM_ARTIFACT_ENDPOINT, BUCKET, ACCESS_KEY and SECRET_KEY together."}
+	}
+	if settings.artifactState != "configured" {
+		return failure()
+	}
+	store, err := stateful.NewArtifactStore(stateful.ArtifactOptions{Endpoint: settings.artifactEndpoint, Bucket: settings.artifactBucket, Region: settings.artifactRegion, AccessKeyID: settings.artifactAccessKey, SecretAccessKey: settings.artifactSecretKey})
+	if err != nil {
+		return failure()
+	}
+	return store, nil
+}
+
 func parseAccessKeys(names []string, getenv func(string) string) ([]string, error) {
 	if len(names) == 0 {
 		return nil, &configurationError{Setting: "api_key_envs", Message: "a nonempty array of environment names is required"}

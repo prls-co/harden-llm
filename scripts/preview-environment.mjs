@@ -225,7 +225,7 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
   await writePrivateIfChanged(envPath, dotenv(values));
   try {
     compose(c, state, ["up", "-d", "--wait", "--wait-timeout", "180", "postgres"]);
-    compose(c, state, ["run", "--rm", "--no-deps", "-e", "PHX_SERVER=false", "web", "eval", "HardenLlm.Release.migrate()"]);
+    compose(c, state, ["run", "--rm", "--no-deps", "gateway-schema"]);
     // Compose recreates only changed image/config services; .env-only changes
     // must apply even when neither application needed rebuilding. Reconcile
     // data services on every deploy so a control-file change cannot be missed

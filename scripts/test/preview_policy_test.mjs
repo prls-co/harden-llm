@@ -188,7 +188,9 @@ test("preview templates expose no host ports or production telemetry and protect
   assert.match(launcher, /WEB_IMAGE: components\.web\.imageID/);
   assert.match(launcher, /Reusing preview/);
   assert.match(launcher, /const runtimeServices = \["postgres", "gateway", "web"\]/);
-  assert.match(launcher, /HardenLlm\.Release\.migrate\(\)/);
+  assert.match(launcher, /compose\(c, state, \["run", "--rm", "--no-deps", "gateway-schema"\]\)/);
+  assert.doesNotMatch(launcher, /HardenLlm\.Release\.migrate/);
+  assert.ok(launcher.indexOf('"gateway-schema"') < launcher.indexOf('const runtimeServices'), "schema command precedes application startup");
   const workflow = await readFile(new URL("../../.github/workflows/test-hierarchy.yml", import.meta.url), "utf8");
   assert.match(workflow, /actions\/cache@v4/);
   const previewWorkflow = await readFile(new URL("../../.github/workflows/preview-environments.yml", import.meta.url), "utf8");

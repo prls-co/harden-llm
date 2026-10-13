@@ -12,8 +12,8 @@ defmodule HardenLlmWeb.HardenAPIContractTest do
     assert source =~ ~r{^  /v1/responses:\n    post:.*?operationId: createResponse}ms
     assert function_exported?(HardenAPI, :models, 0)
     assert function_exported?(HardenAPI, :responses, 1)
-    refute function_exported?(HardenAPI, :list_history, 1)
-    refute function_exported?(HardenAPI, :list_profiles, 1)
+    assert function_exported?(HardenAPI, :list_history, 1)
+    assert function_exported?(HardenAPI, :list_profiles, 1)
   end
 
   test "reference client has one bearer configuration and no human-session forwarding" do
@@ -21,6 +21,7 @@ defmodule HardenLlmWeb.HardenAPIContractTest do
 
     assert source =~ "HARDEN_LLM_TOKEN"
     refute source =~ "x-prls-session-reference"
-    refute source =~ "/api/v1/"
+    assert source =~ "/api/v1/"
+    refute source =~ "session_ref"
   end
 end

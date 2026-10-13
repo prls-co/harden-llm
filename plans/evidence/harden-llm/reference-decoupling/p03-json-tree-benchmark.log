@@ -1,0 +1,7 @@
+goos: linux
+goarch: amd64
+pkg: github.com/prls-co/harden-llm/api
+cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
+BenchmarkReferenceResultValidation-12    	       1	 404986273 ns/op
+PASS
+ok  	github.com/prls-co/harden-llm/api	2.402s

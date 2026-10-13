@@ -79,7 +79,7 @@ defmodule HardenLlmWeb.SharedIdentityTest do
     end
   end
 
-  test "revoked access is revalidated before a Responses request is dispatched", %{conn: conn} do
+  test "revoked access is revalidated before inference is dispatched", %{conn: conn} do
     identity = start_supervised!({Agent, fn -> {:ok, identity_context()} end})
     parent = self()
 
@@ -93,13 +93,24 @@ defmodule HardenLlmWeb.SharedIdentityTest do
       end
     end)
 
+    fixture = File.read!("../test/fixtures/reference/workspace.json") |> Jason.decode!()
+
     Req.Test.stub(HardenAPI, fn request ->
       send(parent, {:proxy_call, request.method, request.request_path})
 
-      if request.request_path == "/v1/models" do
-        Req.Test.json(request, APIFixtures.models())
-      else
-        Req.Test.json(request, APIFixtures.response())
+      case request.request_path do
+        "/api/v1/state" ->
+          key = URI.decode_query(request.query_string)["draftKey"]
+          Req.Test.json(request, %{"draftKey" => key, "revision" => 0, "payload" => %{}})
+
+        "/api/v1/profiles" ->
+          Req.Test.json(request, fixture["profiles"])
+
+        "/api/v1/profiles/" <> id ->
+          Req.Test.json(request, fixture["details"][URI.decode(id)])
+
+        _ ->
+          flunk("revoked identity must not dispatch inference")
       end
     end)
 
@@ -115,13 +126,13 @@ defmodule HardenLlmWeb.SharedIdentityTest do
     result =
       view
       |> form("#run-form", %{
-        "run" => %{"model" => "model-test", "userPrompt" => "must not dispatch"}
+        "run" => %{"modelId" => "model-test", "userPrompt" => "must not dispatch"}
       })
       |> render_submit()
 
     assert {:error, {:redirect, %{to: target}}} = result
     assert target =~ "login?return_to="
-    refute_receive {:proxy_call, "POST", "/v1/responses"}, 50
+    refute_receive {:proxy_call, "POST", "/api/v1/run"}, 50
   end
 
   test "Portal logout preserves owner cookies and returns to Portal", %{conn: conn} do

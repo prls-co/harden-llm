@@ -1,0 +1,10 @@
+null
+=== RUN   TestHistoryStore
+=== PAUSE TestHistoryStore
+=== CONT  TestHistoryStore
+=== RUN   TestHistoryStore/exact_seventeen_MiB_payload_survives_and_one_extra_byte_rejects_without_truncation
+    history_store_integration_test.go:196: 17 MiB insert=1.992856154s detail=1.664495387s
+--- PASS: TestHistoryStore (10.24s)
+    --- PASS: TestHistoryStore/exact_seventeen_MiB_payload_survives_and_one_extra_byte_rejects_without_truncation (10.24s)
+PASS
+ok  	github.com/prls-co/harden-llm/stateful	11.375s

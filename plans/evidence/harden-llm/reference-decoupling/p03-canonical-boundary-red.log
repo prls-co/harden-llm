@@ -1,0 +1,7 @@
+{"taskId":"go-integration","status":1,"failureSummary":"FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t3.004s | FAIL","failureDetail":"--- FAIL: TestHistoryStore (2.98s)\n    --- FAIL: TestHistoryStore/exact_seventeen_MiB_payload_survives_and_one_extra_byte_rejects_without_truncation (0.85s)\n        history_store_integration_test.go:206: boundary detail exceeded budget or changed data history_record_invalid: Stored history schema or complete payload is invalid. 237.707397ms\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t3.004s\nFAIL"}
+--- FAIL: TestHistoryStore (2.98s)
+    --- FAIL: TestHistoryStore/exact_seventeen_MiB_payload_survives_and_one_extra_byte_rejects_without_truncation (0.85s)
+        history_store_integration_test.go:206: boundary detail exceeded budget or changed data history_record_invalid: Stored history schema or complete payload is invalid. 237.707397ms
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	3.004s
+FAIL

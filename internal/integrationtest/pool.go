@@ -139,12 +139,27 @@ func PostgresLease(t testingTB) (*Service, string) {
 // namespace and reject already-qualified or escaping keys.
 func GarageLease(t testingTB) (*Service, Garage) {
 	t.Helper()
+	runID := sanitizeLeasePart(getenv(testRunIDEnv, "run"))
+	return garagePrefixLease(t, fmt.Sprintf("harden-llm-test/%s/%s/", runID, randomLeaseToken(t)))
+}
+
+// GarageArtifactLease owns the production-shaped prefix of a unique synthetic
+// bearer. HTTP tests exercise the real artifact path without a test-only adapter.
+func GarageArtifactLease(t testingTB, hash string) (*Service, Garage) {
+	t.Helper()
+	bytes, err := hex.DecodeString(hash)
+	if err != nil || len(bytes) != 32 || hash != strings.ToLower(hash) {
+		t.Fatalf("artifact lease needs one synthetic API-key hash")
+	}
+	return garagePrefixLease(t, "artifacts/"+hash+"/")
+}
+
+func garagePrefixLease(t testingTB, namespace string) (*Service, Garage) {
+	t.Helper()
 	endpoint := "http://" + requirePoolEndpoint(t, testGarageEndpointEnv)
 	if !poolEnabled() {
 		t.Fatalf("GarageLease requires the runner-owned integration service pool")
 	}
-	runID := sanitizeLeasePart(getenv(testRunIDEnv, "run"))
-	namespace := fmt.Sprintf("harden-llm-test/%s/%s/", runID, randomLeaseToken(t))
 	fixture := Garage{
 		Endpoint: endpoint, Bucket: testGarageBucket, Region: testGarageRegion,
 		AccessKeyID: testGarageAccessKey, SecretAccessKey: testGarageSecretKey,

@@ -161,7 +161,7 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 			var progressAccounting *Accounting
 			if snapshot.Accounting != nil {
 				value := Accounting{
-					Result: publicAccountingLedger(snapshot.Accounting.Result), Provider: publicAccountingLedger(snapshot.Accounting.Provider),
+					Result: ProjectLedger(snapshot.Accounting.Result), Provider: ProjectLedger(snapshot.Accounting.Provider),
 				}
 				progressAccounting = &value
 			}
@@ -236,7 +236,9 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 		artifacts, captureErr := traces.ArtifactProjections(projected, record.ParseFailureResponse, secrets...)
 		if captureErr == nil && len(artifacts) > 0 {
 			// The trace value and bytes use the same redacted projection.
-			captureErr = json.Unmarshal(artifacts[0].Content, &projected)
+			var detached Trace
+			captureErr = json.Unmarshal(artifacts[0].Content, &detached)
+			projected = detached
 		}
 		if captureErr == nil {
 			request.CaptureDiagnostics(DiagnosticCapture{Trace: projected, Artifacts: artifacts})
@@ -328,8 +330,8 @@ func resultFromRecord(record coreruntime.CallRecord) Result {
 			Producer: publicExecutionTargetPointer(record.ResultSource.Producer),
 		},
 		Accounting: Accounting{
-			Result:   publicAccountingLedger(record.Accounting.Result),
-			Provider: publicAccountingLedger(record.Accounting.Provider),
+			Result:   ProjectLedger(record.Accounting.Result),
+			Provider: ProjectLedger(record.Accounting.Provider),
 		},
 		Attempts: attempts,
 		Cache: CacheResult{
@@ -353,7 +355,7 @@ func publicAttempt(item coreruntime.AttemptRecord) Attempt {
 	var stream *StreamDiagnostics
 	if item.Stream != nil {
 		value := StreamDiagnostics{ReceivedBytes: item.Stream.ReceivedBytes, EventCount: item.Stream.EventCount, OutputBytes: item.Stream.OutputBytes, OutputCodePoints: item.Stream.OutputCodePoints, TerminalState: item.Stream.TerminalState,
-			FirstEventMs: item.Stream.FirstEventMs, FirstOutputMs: item.Stream.FirstOutputMs, LastEventAt: item.Stream.LastEventAt, LastOutputAt: item.Stream.LastOutputAt}
+			FirstEventMs: clonePointer(item.Stream.FirstEventMs), FirstOutputMs: clonePointer(item.Stream.FirstOutputMs), LastEventAt: clonePointer(item.Stream.LastEventAt), LastOutputAt: clonePointer(item.Stream.LastOutputAt)}
 		stream = &value
 	}
 	var waitDiagnostics *WaitDiagnostics
@@ -367,10 +369,18 @@ func publicAttempt(item coreruntime.AttemptRecord) Attempt {
 		ProviderRequestID: item.ProviderRequestID, Retryable: item.Retryable, Wait: item.Delay,
 		Duration: item.Duration, Repair: item.Repair, ProviderUsed: item.ProviderUsed, Stage: item.Stage,
 		Branch: item.Branch, TriggerAttempt: item.TriggerAttempt, InputAttempts: append([]int(nil), item.InputAttempts...),
-		TransportRetryOf: item.TransportRetryOf, StartedAt: item.StartedAt, FinishedAt: item.FinishedAt,
+		TransportRetryOf: item.TransportRetryOf, StartedAt: clonePointer(item.StartedAt), FinishedAt: clonePointer(item.FinishedAt),
 		ReasoningEffort: item.ReasoningEffort, DispatchObserved: item.DispatchObserved, Stream: stream,
 		WaitDiagnostics: waitDiagnostics,
 	}
+}
+
+func clonePointer[T any](value *T) *T {
+	if value == nil {
+		return nil
+	}
+	detached := *value
+	return &detached
 }
 
 func publicOrigin(origin coreruntime.Origin) *Origin {
@@ -421,7 +431,8 @@ func publicExecutionTarget(target coreruntime.ExecutionTarget) ExecutionTarget {
 	}
 }
 
-func publicAccountingLedger(ledger coreruntime.Ledger) AccountingLedger {
+// ProjectLedger renders the core ledger with its derived wire token totals.
+func ProjectLedger(ledger ProviderLedger) AccountingLedger {
 	usage := ledger.Usage
 	cost := ledger.Cost
 	return AccountingLedger{

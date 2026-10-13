@@ -1,0 +1,2 @@
+node scripts/run-test-tier.mjs --task go-integration
+{"accepted":true,"selector":"go-integration","taskCount":1,"failure":null,"cleanupErrors":[],"cleanupWarnings":[],"output":"/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/runner-1791860151429-2929550-b5d2e904bf49852a.json"}

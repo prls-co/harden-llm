@@ -1,0 +1,55 @@
+{
+  "accepted": false,
+  "runDirectory": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/run-1791853350639-2198945-avgm3z",
+  "results": [
+    {
+      "taskId": "go-integration",
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-tags=integration",
+        "./internal/gateway/httpapi",
+        "-run",
+        "^TestReferenceContract$",
+        "-count=1"
+      ],
+      "status": 1,
+      "seed": 233256,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 9557,
+      "peakRssMiB": 497.55078125,
+      "cpuMs": 5790,
+      "stdoutBytes": 305,
+      "stderrBytes": 0,
+      "truncatedOutputBytes": 0,
+      "stdoutPreview": "--- FAIL: TestReferenceContract (1.72s)\n    --- FAIL: TestReferenceContract/profiles_snapshots_refresh_bundles_drafts_and_ordinary_client_retain_contract (0.18s)\n        reference_contract_test.go:233: saved full inputs changed\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t1.739s\nFAIL\n",
+      "stderrPreview": "",
+      "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t1.739s | FAIL",
+      "failureDetail": "--- FAIL: TestReferenceContract (1.72s)\n    --- FAIL: TestReferenceContract/profiles_snapshots_refresh_bundles_drafts_and_ordinary_client_retain_contract (0.18s)\n        reference_contract_test.go:233: saved full inputs changed\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t1.739s\nFAIL",
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": true,
+      "servicePoolProject": "harden-llm-test-bebcf523d9ae",
+      "startedAtMs": 630,
+      "endedAtMs": 10186
+    }
+  ],
+  "firstFailure": {
+    "taskId": "go-integration",
+    "status": 1,
+    "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t1.739s | FAIL",
+    "failureDetail": "--- FAIL: TestReferenceContract (1.72s)\n    --- FAIL: TestReferenceContract/profiles_snapshots_refresh_bundles_drafts_and_ordinary_client_retain_contract (0.18s)\n        reference_contract_test.go:233: saved full inputs changed\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t1.739s\nFAIL"
+  },
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 125,
+    "daemonLockWaitMs": 171,
+    "staleReceiptRecoveryMs": 125
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": []
+}

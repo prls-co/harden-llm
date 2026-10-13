@@ -1,0 +1,55 @@
+{
+  "accepted": false,
+  "runDirectory": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/run-1791851364839-1981388-mphyce",
+  "results": [
+    {
+      "taskId": "go-integration",
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-tags=integration",
+        "./stateful",
+        "-run",
+        "^TestReferenceHistory$",
+        "-count=1"
+      ],
+      "status": 1,
+      "seed": 233256,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 10467,
+      "peakRssMiB": 300.0546875,
+      "cpuMs": 5250,
+      "stdoutBytes": 1850,
+      "stderrBytes": 0,
+      "truncatedOutputBytes": 0,
+      "stdoutPreview": "--- FAIL: TestReferenceHistory (3.50s)\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/request (0.20s)\n        history_integration_test.go:233: validation did not record failed execution without dispatch profiles: invalid profile catalog: userPrompt: Provide a nonempty UTF-8 prompt and valid text fields. {enabled not_saved 02d995de-b90a-4fc8-8725-a58bd606d60e 0x10b7a7ac7980} 0\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/profile (0.18s)\n        history_integration_test.go:233: validation did not record failed execution without dispatch profile_not_found: Profile was not found for this access key. {enabled not_saved b1341963-0e29-4109-9675-2bfef2cadb91 0x10b7a7ac7e00} 0\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/credential (0.17s)\n        history_integration_test.go:233: validation did not record failed execution without dispatch profiles: invalid profile catalog: credentialBinding: Select or provide a credential authorized for this access key and provider origin. {enabled not_saved c526e995-11e0-4e42-82ea-ab8907f62328 0x10b7ae2380c0} 0\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/recovery-profile (0.18s)\n        history_integration_test.go:233: validation did not record failed execution without dispatch recoveryPolicy: has an unknown field or invalid value type {enabled not_saved 01c40cf5-db32-4a46-b696-33e868f49f3e 0x10b7ae1d6540} 0\n    --- FAIL: TestReferenceHistory/caller_cancellation_still_inserts_one_detached_terminal_row (0.19s)\n        history_integration_test.go:269: canceled caller discarded or replayed terminal recording context canceled {enabled not_saved 56c7a55c-cc07-4bf8-9566-cf890643e09c 0x10b7ae1d60c0}\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t3.521s\nFAIL\n",
+      "stderrPreview": "",
+      "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t3.521s | FAIL",
+      "failureDetail": "--- FAIL: TestReferenceHistory (3.50s)\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/request (0.20s)\n        history_integration_test.go:233: validation did not record failed execution without dispatch profiles: invalid profile catalog: userPrompt: Provide a nonempty UTF-8 prompt and valid text fields. {enabled not_saved 02d995de-b90a-4fc8-8725-a58bd606d60e 0x10b7a7ac7980} 0\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/profile (0.18s)\n        history_integration_test.go:233: validation did not record failed execution without dispatch profile_not_found: Profile was not found for this access key. {enabled not_saved b1341963-0e29-4109-9675-2bfef2cadb91 0x10b7a7ac7e00} 0\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/credential (0.17s)\n        history_integration_test.go:233: validation did not record failed execution without dispatch profiles: invalid profile catalog: credentialBinding: Select or provide a credential authorized for this access key and provider origin. {enabled not_saved c526e995-11e0-4e42-82ea-ab8907f62328 0x10b7ae2380c0} 0\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/recovery-profile (0.18s)\n        history_integration_test.go:233: validation did not record failed execution without dispatch recoveryPolicy: has an unknown field or invalid value type {enabled not_saved 01c40cf5-db32-4a46-b696-33e868f49f3e 0x10b7ae1d6540} 0\n    --- FAIL: TestReferenceHistory/caller_cancellation_still_inserts_one_detached_terminal_row (0.19s)\n        history_integration_test.go:269: canceled caller discarded or replayed terminal recording context canceled {enabled not_saved 56c7a55c-cc07-4bf8-9566-cf890643e09c 0x10b7ae1d60c0}\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t3.521s\nFAIL",
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": true,
+      "servicePoolProject": "harden-llm-test-40cd2314a026",
+      "startedAtMs": 435,
+      "endedAtMs": 10902
+    }
+  ],
+  "firstFailure": {
+    "taskId": "go-integration",
+    "status": 1,
+    "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t3.521s | FAIL",
+    "failureDetail": "--- FAIL: TestReferenceHistory (3.50s)\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/request (0.20s)\n        history_integration_test.go:233: validation did not record failed execution without dispatch profiles: invalid profile catalog: userPrompt: Provide a nonempty UTF-8 prompt and valid text fields. {enabled not_saved 02d995de-b90a-4fc8-8725-a58bd606d60e 0x10b7a7ac7980} 0\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/profile (0.18s)\n        history_integration_test.go:233: validation did not record failed execution without dispatch profile_not_found: Profile was not found for this access key. {enabled not_saved b1341963-0e29-4109-9675-2bfef2cadb91 0x10b7a7ac7e00} 0\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/credential (0.17s)\n        history_integration_test.go:233: validation did not record failed execution without dispatch profiles: invalid profile catalog: credentialBinding: Select or provide a credential authorized for this access key and provider origin. {enabled not_saved c526e995-11e0-4e42-82ea-ab8907f62328 0x10b7ae2380c0} 0\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/recovery-profile (0.18s)\n        history_integration_test.go:233: validation did not record failed execution without dispatch recoveryPolicy: has an unknown field or invalid value type {enabled not_saved 01c40cf5-db32-4a46-b696-33e868f49f3e 0x10b7ae1d6540} 0\n    --- FAIL: TestReferenceHistory/caller_cancellation_still_inserts_one_detached_terminal_row (0.19s)\n        history_integration_test.go:269: canceled caller discarded or replayed terminal recording context canceled {enabled not_saved 56c7a55c-cc07-4bf8-9566-cf890643e09c 0x10b7ae1d60c0}\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t3.521s\nFAIL"
+  },
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 73,
+    "daemonLockWaitMs": 126,
+    "staleReceiptRecoveryMs": 114
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": []
+}

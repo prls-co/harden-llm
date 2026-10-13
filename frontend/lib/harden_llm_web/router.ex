@@ -41,8 +41,6 @@ defmodule HardenLlmWeb.Router do
   scope "/", HardenLlmWeb do
     pipe_through [:browser, :require_identity]
 
-    get "/history/:id/download", HistoryController, :download
-
     live_session :authenticated,
       on_mount: [{PrlsWeb.Access.LiveAuth, :require_access}] do
       live "/", WorkspaceLive

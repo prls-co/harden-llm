@@ -7,6 +7,7 @@ package stateful
 import (
 	"context"
 	"encoding/json"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	hardenllm "github.com/prls-co/harden-llm"
 	"net/http"
@@ -26,6 +27,43 @@ func TestCacheDraftContract(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)
 	clock := func() time.Time { return now }
+	t.Run("seven day draft expiry preserves another host draft", func(t *testing.T) {
+		p, _ := referencePool(t, true)
+		s, _ := serviceFixture(t, p, nil)
+		s.now = clock
+		for _, key := range []string{"workspace:user-one", "workspace:user-two"} {
+			if _, err := s.SaveDraft(context.Background(), keyHashA, key, SaveDraftInput{Payload: json.RawMessage(`{"userPrompt":"preserved"}`)}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		var expiry time.Time
+		if err := p.QueryRow(context.Background(), "SELECT expires_at FROM drafts WHERE api_key_hash=$1 AND draft_key=$2", keyHashA, "workspace:user-one").Scan(&expiry); err != nil || !expiry.Equal(now.Add(7*24*time.Hour)) {
+			t.Fatal("draft lifetime changed", err, expiry)
+		}
+		execSQL(t, p, "UPDATE drafts SET expires_at=$3 WHERE api_key_hash=$1 AND draft_key=$2", keyHashA, "workspace:user-one", now.Add(-time.Second))
+		expired, err := s.GetDraft(context.Background(), keyHashA, "workspace:user-one")
+		if err != nil || expired.Revision != 0 || !sameJSON(expired.Payload, []byte(`{}`)) {
+			t.Fatal("expired host draft remains visible", err)
+		}
+		other, err := s.GetDraft(context.Background(), keyHashA, "workspace:user-two")
+		if err != nil || other.Revision != 1 || !sameJSON(other.Payload, []byte(`{"userPrompt":"preserved"}`)) {
+			t.Fatal("expiring one host changed another draft", err)
+		}
+	})
+	t.Run("real SQL statement timeout bounds blocked storage", func(t *testing.T) {
+		p, _ := referencePool(t, true)
+		started := time.Now()
+		err := withStorageTx(context.Background(), p, pgx.TxOptions{}, func(ctx context.Context, tx pgx.Tx) error {
+			_, err := tx.Exec(ctx, "SELECT pg_sleep(2)")
+			return err
+		})
+		if err == nil || time.Since(started) >= 1200*time.Millisecond {
+			t.Fatal("blocked storage exceeded the retained SQL timeout oracle", err, time.Since(started))
+		}
+		if _, err := p.Exec(context.Background(), "SELECT 1"); err != nil {
+			t.Fatal("timed out transaction left the pool unusable", err)
+		}
+	})
 	t.Run("cache envelope is scoped by key and credential namespace", func(t *testing.T) {
 		p, _ := referencePool(t, true)
 		a := newPostgresCache(p, keyHashA, "one", time.Hour, clock)

@@ -1,0 +1,9 @@
+--- FAIL: TestOpenAIContractAuthStateAndRetiredRoutes (0.00s)
+    --- FAIL: TestOpenAIContractAuthStateAndRetiredRoutes/retired_native_run_API (0.00s)
+        openai_contract_test.go:213: status=400 body={"error":{"code":"profile_invalid","message":"Reference settings are invalid; correct the indicated fields.","fieldErrors":[{"field":"profileId","message":"Select a valid profile ID."}],"diagnostic":{"code":"profile_invalid","component":"reference","operation":"run","requestId":"7f308664-f8f2-4588-81ed-98f0a0825bfd","runId":"7f308664-f8f2-4588-81ed-98f0a0825bfd","traceId":"40683588-5163-4709-a5bf-61aa25cfd348","inferenceOutcome":"failed","persistenceOutcome":"disabled","cause":"rejected","durationMs":0,"message":"Reference settings are invalid; correct the indicated fields.","action":"Correct the indicated configuration or inspect this run's trace; do not replay an ambiguous inference."}}}, want 404
+FAIL
+FAIL	github.com/prls-co/harden-llm/internal/gateway/httpapi	0.091s
+ok  	github.com/prls-co/harden-llm/stateful	0.061s
+ok  	github.com/prls-co/harden-llm/internal/integrationtest	0.005s
+ok  	github.com/prls-co/harden-llm/cmd/harden-llm-gateway	0.015s
+FAIL

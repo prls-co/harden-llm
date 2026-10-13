@@ -272,7 +272,7 @@ func insertCredentialTx(ctx context.Context, tx pgx.Tx, record CredentialRecord,
 	var revision int64
 	err = tx.QueryRow(ctx, `INSERT INTO credentials(api_key_hash,id,origin,key_id,nonce,ciphertext,revision,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$8) ON CONFLICT (api_key_hash,id) DO NOTHING RETURNING revision`, record.Binding.APIKeyHash, record.Binding.CredentialID, record.Binding.Origin, record.Encrypted.KeyID, nonce, ciphertext, record.Revision, now).Scan(&revision)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return revisionConflict()
+		return revisionConflictTx(ctx, tx, "SELECT revision FROM credentials WHERE api_key_hash=$1 AND id=$2", record.Binding.APIKeyHash, record.Binding.CredentialID)
 	}
 	return err
 }

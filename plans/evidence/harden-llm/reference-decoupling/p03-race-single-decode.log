@@ -1,0 +1,78 @@
+{"taskId":"go-integration-race","status":1,"failureSummary":"FAIL | FAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t4.729s | FAIL","failureDetail":"uishes_enabled_disabled_and_unavailable_usage/closed\n=== RUN   TestReferenceContract/real_malformed_conflict_oversize_and_storage_errors_keep_typed_envelope\n--- FAIL: TestReferenceContract (4.68s)\n    --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope (0.78s)\n        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/status (0.23s)\n        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/profiles (0.00s)\n        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/POST_/api/v1/profiles (0.00s)\n        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/profiles/00000000-0000-4000-8000-000000000001 (0.00s)\n        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/DELETE_/api/v1/profiles/00000000-0000-4000-8000-000000000001 (0.00s)\n        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/POST_/api/v1/profiles/00000000-0000-4000-8000-000000000001/models:refresh (0.00s)\n        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/profiles/bundle (0.00s)\n        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/PUT_/api/v1/profiles/bundle (0.00s)\n        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/state?draftKey=workspace:fixture (0.00s)\n        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/POST_/api/v1/state (0.00s)\n        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/POST_/api/v1/run (0.00s)\n        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/history (0.00s)\n        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/DELETE_/api/v1/history (0.00s)\n        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/history/00000000-0000-4000-8000-000000000001 (0.00s)\n        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/DELETE_/api/v1/history/00000000-0000-4000-8000-000000000001 (0.00s)\n        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/stats (0.00s)\n        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/traces/00000000-0000-4000-8000-000000000001 (0.00s)\n        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/traces/00000000-0000-4000-8000-000000000001/artifacts/trace.json (0.00s)\n    --- PASS: TestReferenceContract/profiles_snapshots_refresh_bundles_drafts_and_ordinary_client_retain_contract (1.32s)\n    --- FAIL: TestReferenceContract/JSON_run_full_record_stats_artifacts_isolation_and_prefix-first_deletion (1.01s)\n    --- PASS: TestReferenceContract/SSE_has_progress_one_terminal_and_later_recording_with_monotonic_IDs (0.56s)\n    --- PASS: TestReferenceContract/status_distinguishes_enabled_disabled_and_unavailable_usage (0.67s)\n        --- PASS: TestReferenceContract/status_distinguishes_enabled_disabled_and_unavailable_usage/enabled (0.23s)\n        --- PASS: TestReferenceContract/status_distinguishes_enabled_disabled_and_unavailable_usage/disabled (0.22s)\n        --- PASS: TestReferenceContract/status_distinguishes_enabled_disabled_and_unavailable_usage/closed (0.22s)\n    --- PASS: TestReferenceContract/real_malformed_conflict_oversize_and_storage_errors_keep_typed_envelope (0.34s)\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t4.729s\nFAIL"}
+=== RUN   TestHistoryStore
+=== PAUSE TestHistoryStore
+=== CONT  TestHistoryStore
+=== RUN   TestHistoryStore/one_insert_uses_server_scope_and_detail_denies_foreign_or_unknown_runs
+=== RUN   TestHistoryStore/invalid_stored_schema_or_payload_is_not_a_successful_restore
+=== RUN   TestHistoryStore/numbered_windows_ordering_counts_and_summaries_stay_scoped
+=== RUN   TestHistoryStore/invalid_pages_sizes_and_overflowing_offsets_fail
+    history_store_integration_test.go:147: timeout: context deadline exceeded
+=== RUN   TestHistoryStore/exact_seventeen_MiB_payload_survives_and_one_extra_byte_rejects_without_truncation
+    history_store_integration_test.go:185: boundary record insert exceeded budget or failed {enabled saved 00000000-0000-4000-8000-000000000001 <nil>} 2.148654634s
+=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback
+=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/confirmed
+=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-found
+=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-absent
+=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-read-failed
+=== RUN   TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/rejected
+=== RUN   TestHistoryStore/failed_list_is_an_explicit_history_error_and_usage_remains_scoped
+=== RUN   TestHistoryStore/delayed_real_commit_can_appear_after_the_empty_readback
+--- FAIL: TestHistoryStore (8.03s)
+    --- PASS: TestHistoryStore/one_insert_uses_server_scope_and_detail_denies_foreign_or_unknown_runs (0.86s)
+    --- PASS: TestHistoryStore/invalid_stored_schema_or_payload_is_not_a_successful_restore (0.36s)
+    --- PASS: TestHistoryStore/numbered_windows_ordering_counts_and_summaries_stay_scoped (1.34s)
+    --- FAIL: TestHistoryStore/invalid_pages_sizes_and_overflowing_offsets_fail (0.94s)
+    --- FAIL: TestHistoryStore/exact_seventeen_MiB_payload_survives_and_one_extra_byte_rejects_without_truncation (2.83s)
+    --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback (1.17s)
+        --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/confirmed (0.24s)
+        --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-found (0.23s)
+        --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-absent (0.24s)
+        --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/unknown-read-failed (0.23s)
+        --- PASS: TestHistoryStore/commit_outcomes_have_one_insert_and_bounded_single_readback/rejected (0.23s)
+    --- PASS: TestHistoryStore/failed_list_is_an_explicit_history_error_and_usage_remains_scoped (0.24s)
+    --- PASS: TestHistoryStore/delayed_real_commit_can_appear_after_the_empty_readback (0.28s)
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	8.119s
+=== RUN   TestReferenceContract
+=== PAUSE TestReferenceContract
+=== CONT  TestReferenceContract
+=== RUN   TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope
+=== RUN   TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/status
+=== RUN   TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/profiles
+=== RUN   TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/POST_/api/v1/profiles
+=== RUN   TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/profiles/00000000-0000-4000-8000-000000000001
+=== RUN   TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/DELETE_/api/v1/profiles/00000000-0000-4000-8000-000000000001
+=== RUN   TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/POST_/api/v1/profiles/00000000-0000-4000-8000-000000000001/models:refresh
+=== RUN   TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/profiles/bundle
+=== RUN   TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/PUT_/api/v1/profiles/bundle
+=== RUN   TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/state?draftKey=workspace:fixture
+=== RUN   TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/POST_/api/v1/state
+=== RUN   TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/POST_/api/v1/run
+=== RUN   TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/history
+=== RUN   TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/DELETE_/api/v1/history
+=== RUN   TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/history/00000000-0000-4000-8000-000000000001
+=== RUN   TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/DELETE_/api/v1/history/00000000-0000-4000-8000-000000000001
+=== RUN   TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/stats
+=== RUN   TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/traces/00000000-0000-4000-8000-000000000001
+=== RUN   TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/traces/00000000-0000-4000-8000-000000000001/artifacts/trace.json
+=== RUN   TestReferenceContract/profiles_snapshots_refresh_bundles_drafts_and_ordinary_client_retain_contract
+=== RUN   TestReferenceContract/JSON_run_full_record_stats_artifacts_isolation_and_prefix-first_deletion
+    reference_contract_test.go:285: timeout: context deadline exceeded
+=== RUN   TestReferenceContract/SSE_has_progress_one_terminal_and_later_recording_with_monotonic_IDs
+=== RUN   TestReferenceContract/status_distinguishes_enabled_disabled_and_unavailable_usage
+=== RUN   TestReferenceContract/status_distinguishes_enabled_disabled_and_unavailable_usage/enabled
+=== RUN   TestReferenceContract/status_distinguishes_enabled_disabled_and_unavailable_usage/disabled
+=== RUN   TestReferenceContract/status_distinguishes_enabled_disabled_and_unavailable_usage/closed
+=== RUN   TestReferenceContract/real_malformed_conflict_oversize_and_storage_errors_keep_typed_envelope
+--- FAIL: TestReferenceContract (4.68s)
+    --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope (0.78s)
+        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/status (0.23s)
+        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/profiles (0.00s)
+        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/POST_/api/v1/profiles (0.00s)
+        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/profiles/00000000-0000-4000-8000-000000000001 (0.00s)
+        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/DELETE_/api/v1/profiles/00000000-0000-4000-8000-000000000001 (0.00s)
+        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/POST_/api/v1/profiles/00000000-0000-4000-8000-000000000001/models:refresh (0.00s)
+        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/profiles/bundle (0.00s)
+        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/PUT_/api/v1/profiles/bundle (0.00s)
+        --- PASS: TestReferenceContract/every_companion_method_requires_one_bearer_and_rejects_caller_scope/GET_/api/v1/state?draftKey=workspace:fixture (0.00s)
+        --- PASS: Te

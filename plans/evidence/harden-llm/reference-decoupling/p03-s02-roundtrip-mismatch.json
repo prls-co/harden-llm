@@ -1,0 +1,55 @@
+{
+  "accepted": false,
+  "runDirectory": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/run-1791846785800-1465090-i097uc",
+  "results": [
+    {
+      "taskId": "go-integration",
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-tags=integration",
+        "./stateful",
+        "-run",
+        "^TestHistoryStore$",
+        "-count=1"
+      ],
+      "status": 1,
+      "seed": 233256,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 11885,
+      "peakRssMiB": 270.921875,
+      "cpuMs": 4780,
+      "stdoutBytes": 272,
+      "stderrBytes": 0,
+      "truncatedOutputBytes": 0,
+      "stdoutPreview": "--- FAIL: TestHistoryStore (3.82s)\n    --- FAIL: TestHistoryStore/one_insert_uses_server_scope_and_detail_denies_foreign_or_unknown_runs (0.41s)\n        history_store_integration_test.go:71: full record differs\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t3.844s\nFAIL\n",
+      "stderrPreview": "",
+      "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t3.844s | FAIL",
+      "failureDetail": "--- FAIL: TestHistoryStore (3.82s)\n    --- FAIL: TestHistoryStore/one_insert_uses_server_scope_and_detail_denies_foreign_or_unknown_runs (0.41s)\n        history_store_integration_test.go:71: full record differs\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t3.844s\nFAIL",
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": true,
+      "servicePoolProject": "harden-llm-test-ad17dd2e061f",
+      "startedAtMs": 432,
+      "endedAtMs": 12316
+    }
+  ],
+  "firstFailure": {
+    "taskId": "go-integration",
+    "status": 1,
+    "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t3.844s | FAIL",
+    "failureDetail": "--- FAIL: TestHistoryStore (3.82s)\n    --- FAIL: TestHistoryStore/one_insert_uses_server_scope_and_detail_denies_foreign_or_unknown_runs (0.41s)\n        history_store_integration_test.go:71: full record differs\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t3.844s\nFAIL"
+  },
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 66,
+    "daemonLockWaitMs": 115,
+    "staleReceiptRecoveryMs": 119
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": []
+}

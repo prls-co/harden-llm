@@ -334,4 +334,36 @@ func TestStatelessContract(t *testing.T) {
 			t.Fatalf("projection altered inference: err=%v captures=%d calls=%d", err, captures, e.calls)
 		}
 	})
+	t.Run("progress and captured timestamps are detached from the final result", func(t *testing.T) {
+		executor := &contractExecutor{}
+		client, err := hardenllm.New(coreContractOptions(executor))
+		if err != nil {
+			t.Fatal(err)
+		}
+		request := coreContractRequest()
+		progress := make(chan hardenllm.ProgressEvent, 64)
+		request.Progress = progress
+		var capture hardenllm.DiagnosticCapture
+		request.CaptureDiagnostics = func(value hardenllm.DiagnosticCapture) { capture = value }
+		result, err := client.Call(context.Background(), request)
+		if err != nil || len(result.Attempts) != 1 || result.Attempts[0].StartedAt == nil || len(capture.Trace.Attempts) != 1 {
+			t.Fatal("missing execution timestamps", err)
+		}
+		original := *result.Attempts[0].StartedAt
+		changed := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+		*capture.Trace.Attempts[0].StartedAt = changed
+		close(progress)
+		observed := false
+		for event := range progress {
+			for _, attempt := range event.Attempts {
+				if attempt.StartedAt != nil {
+					observed = true
+					*attempt.StartedAt = changed
+				}
+			}
+		}
+		if !observed || !result.Attempts[0].StartedAt.Equal(original) {
+			t.Fatal("public progress or capture mutated the final result")
+		}
+	})
 }

@@ -10,17 +10,12 @@ defmodule HardenLlm.Application do
     :ok = HardenLlmWeb.HardenAPI.validate_config!()
     :ok = HardenLlmWeb.Observability.setup()
 
-    children =
-      if(Application.get_env(:harden_llm, :reference_repo_enabled, false),
-        do: [HardenLlm.Repo],
-        else: []
-      ) ++
-        [
-          HardenLlmWeb.Telemetry,
-          {DNSCluster, query: Application.get_env(:harden_llm, :dns_cluster_query) || :ignore},
-          {Phoenix.PubSub, name: HardenLlm.PubSub},
-          HardenLlmWeb.PromEx
-        ]
+    children = [
+      HardenLlmWeb.Telemetry,
+      {DNSCluster, query: Application.get_env(:harden_llm, :dns_cluster_query) || :ignore},
+      {Phoenix.PubSub, name: HardenLlm.PubSub},
+      HardenLlmWeb.PromEx
+    ]
 
     # Start to serve requests, typically the last entry.
     children = children ++ [HardenLlmWeb.Endpoint]

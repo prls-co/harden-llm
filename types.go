@@ -32,6 +32,7 @@ type ProviderConnection = coreruntime.Connection
 type ProviderCredential = coreruntime.Credential
 type PreparedOperation = coreruntime.PreparedOperation
 type ProviderResult = coreruntime.ProviderResult
+type ProviderLedger = coreruntime.Ledger
 type Pricing = accounting.Pricing
 type CacheOperation = cachekey.Operation
 type CacheEndpoint = cachekey.Endpoint

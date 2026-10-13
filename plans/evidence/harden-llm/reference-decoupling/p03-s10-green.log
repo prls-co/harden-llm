@@ -1,0 +1,7 @@
+{"taskId":"go-integration","status":1,"failureSummary":"FAIL | FAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t1.739s | FAIL","failureDetail":"--- FAIL: TestReferenceContract (1.72s)\n    --- FAIL: TestReferenceContract/profiles_snapshots_refresh_bundles_drafts_and_ordinary_client_retain_contract (0.18s)\n        reference_contract_test.go:233: saved full inputs changed\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t1.739s\nFAIL"}
+--- FAIL: TestReferenceContract (1.72s)
+    --- FAIL: TestReferenceContract/profiles_snapshots_refresh_bundles_drafts_and_ordinary_client_retain_contract (0.18s)
+        reference_contract_test.go:233: saved full inputs changed
+FAIL
+FAIL	github.com/prls-co/harden-llm/internal/gateway/httpapi	1.739s
+FAIL

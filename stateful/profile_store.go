@@ -246,7 +246,7 @@ func (s *Service) SaveProfile(ctx context.Context, hash string, input SaveProfil
 				revision = old.Revision
 			}
 			if revision != input.Credential.Revision {
-				return revisionConflict()
+				return revisionConflict(revision)
 			}
 		}
 		var err error
@@ -286,8 +286,8 @@ func (s *Service) SaveProfile(ctx context.Context, hash string, input SaveProfil
 	}
 	return profileView(record, resolved.CredentialStatus), nil
 }
-func revisionConflict() error {
-	return &OperationError{Code: "revision_conflict", Message: "The credential or draft revision changed; reload before saving."}
+func revisionConflict(revision int64) error {
+	return &OperationError{Code: "revision_conflict", Message: "The credential or draft revision changed; reload before saving.", CurrentRevision: &revision}
 }
 func saveCredentialTx(ctx context.Context, tx pgx.Tx, record CredentialRecord, expected int64, now time.Time) error {
 	if expected == 0 {
@@ -304,7 +304,7 @@ func saveCredentialTx(ctx context.Context, tx pgx.Tx, record CredentialRecord, e
 	var revision int64
 	err = tx.QueryRow(ctx, `UPDATE credentials SET origin=$3,key_id=$4,nonce=$5,ciphertext=$6,revision=revision+1,updated_at=$8 WHERE api_key_hash=$1 AND id=$2 AND revision=$7 RETURNING revision`, record.Binding.APIKeyHash, record.Binding.CredentialID, record.Binding.Origin, record.Encrypted.KeyID, nonce, ciphertext, expected, now).Scan(&revision)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return revisionConflict()
+		return revisionConflictTx(ctx, tx, "SELECT revision FROM credentials WHERE api_key_hash=$1 AND id=$2", record.Binding.APIKeyHash, record.Binding.CredentialID)
 	}
 	return err
 }

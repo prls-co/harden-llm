@@ -1,0 +1,49 @@
+      warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+      │
+ 1893 │         <a id={scope_id(@id_prefix, "export-bundle")} href={~p"/profiles/bundle"} class="ullm-btn">Export Bundle</a>
+      │         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      │
+      └─ lib/harden_llm_web/live/profile_widget_component.ex:1893: HardenLlmWeb.ProfileWidgetComponent.profile_editor/1
+
+      warning: variable "profile" is unused (if the variable is not meant to be used, prefix it with an underscore)
+      │
+ 1294 │       profile = profile_state["definition"] || %{}
+      │       ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1294:7: HardenLlmWeb.WorkspaceLive.profile_options/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}"
+      │
+ 1782 │     do: ~p"/traces/#{trace_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1782: HardenLlmWeb.WorkspaceLive.trace_url/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │
+ 1787 │     do: ~p"/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1787: HardenLlmWeb.WorkspaceLive.artifact_url/2
+
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+.
+
+  1) test rejected server API token does not restart Portal login (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:363
+     ** (exit) exited in: GenServer.call(#PID<0.802.0>, {:async_pids, {"lv:phx-GN310YeevE7n5gBB", nil, nil}}, :infinity)
+         ** (EXIT) no process: the process is not alive or there's no process currently associated with the given name, possibly because its application isn't started
+     code: render_async(view, 1_000)
+     stacktrace:
+       (elixir 1.20.2) lib/gen_server.ex:1183: GenServer.call/3
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:1219: Phoenix.LiveViewTest.call/2
+       (phoenix_live_view 1.2.10) lib/phoenix_live_view/test/live_view_test.ex:1068: Phoenix.LiveViewTest.render_async/2
+       test/harden_llm_web/live/restored_workflow_test.exs:369: (test)
+
+......
+Finished in 1.2 seconds (1.2s async, 0.00s sync)
+
+Result: 7/8 passed
+Failed: 1 test

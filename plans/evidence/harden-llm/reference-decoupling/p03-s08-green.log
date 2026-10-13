@@ -1,0 +1,17 @@
+{"taskId":"go-integration","status":1,"failureSummary":"FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t3.661s | FAIL","failureDetail":"--- FAIL: TestReferenceHistory (3.65s)\n    --- FAIL: TestReferenceHistory/healthy_run_records_one_complete_scoped_snapshot_after_terminal_output (0.38s)\n        history_integration_test.go:58: complete record absent history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/cache_hit_makes_no_provider_call_and_records_cache_served (0.20s)\n        history_integration_test.go:207: cache summary fabricated history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/request (0.19s)\n        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/profile (0.18s)\n        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/credential (0.23s)\n        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.\n    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/recovery-profile (0.20s)\n        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t3.661s\nFAIL"}
+--- FAIL: TestReferenceHistory (3.65s)
+    --- FAIL: TestReferenceHistory/healthy_run_records_one_complete_scoped_snapshot_after_terminal_output (0.38s)
+        history_integration_test.go:58: complete record absent history_record_invalid: Stored history schema or complete payload is invalid.
+    --- FAIL: TestReferenceHistory/cache_hit_makes_no_provider_call_and_records_cache_served (0.20s)
+        history_integration_test.go:207: cache summary fabricated history_record_invalid: Stored history schema or complete payload is invalid.
+    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/request (0.19s)
+        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.
+    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/profile (0.18s)
+        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.
+    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/credential (0.23s)
+        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.
+    --- FAIL: TestReferenceHistory/pre-dispatch_validation_still_records_failure/recovery-profile (0.20s)
+        history_integration_test.go:237: failed history lost typed application error history_record_invalid: Stored history schema or complete payload is invalid.
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	3.661s
+FAIL

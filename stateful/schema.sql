@@ -64,8 +64,8 @@ CREATE TABLE history (
   started_at timestamptz NOT NULL,
   finished_at timestamptz NOT NULL CHECK (finished_at >= started_at),
   summary jsonb NOT NULL CHECK (jsonb_typeof(summary) = 'object'),
-  request jsonb NOT NULL CHECK (jsonb_typeof(request) = 'object'),
-  result jsonb NOT NULL CHECK (jsonb_typeof(result) = 'object'),
+  request json NOT NULL CHECK (json_typeof(request) = 'object'),
+  result json NOT NULL CHECK (json_typeof(result) = 'object'),
   PRIMARY KEY (api_key_hash, run_id)
 );
 CREATE INDEX history_page ON history (api_key_hash, started_at DESC, run_id DESC);

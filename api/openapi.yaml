@@ -794,6 +794,13 @@ components:
             properties:
               url: {type: string, format: uri}
               title: {type: string}
+    ReferenceRunTargetAvailability:
+      oneOf:
+      - properties:
+          status: {type: string, enum: [succeeded]}
+          selectedTarget: {$ref: '#/components/schemas/ReferenceExecutionTarget'}
+      - properties:
+          status: {type: string, enum: [failed, timeout]}
     ReferenceExecutionTarget:
       type: object
       additionalProperties: false
@@ -1347,6 +1354,8 @@ components:
     RecordedRunOutput:
       type: object
       additionalProperties: false
+      allOf:
+      - {$ref: '#/components/schemas/ReferenceRunTargetAvailability'}
       required: [schemaVersion, runId, status, output, callId, traceId, selectedTarget,
         resultSource, accounting, attempts, cache, artifacts, providerInvoked, totalCallDurationMs,
         totalWaitMs, totalActualWaitMs, overBudgetMs, usedRepair]
@@ -1358,12 +1367,16 @@ components:
         status:
           type: string
           enum: [succeeded, failed, timeout]
-        output: {}
+        output: {nullable: true}
         search: {$ref: '#/components/schemas/ReferenceWebSearchResult'}
         callId: {$ref: '#/components/schemas/ReferenceIdentifier'}
         traceId: {$ref: '#/components/schemas/ReferenceIdentifier'}
         origin: {$ref: '#/components/schemas/ReferenceRunOrigin'}
-        selectedTarget: {$ref: '#/components/schemas/ReferenceExecutionTarget'}
+        selectedTarget:
+          description: Resolved generation target; null when validation fails before a target is available.
+          oneOf:
+          - {$ref: '#/components/schemas/ReferenceExecutionTarget'}
+          - {type: 'null'}
         resultSource: {$ref: '#/components/schemas/ReferenceResultSource'}
         accounting: {$ref: '#/components/schemas/ReferenceAccounting'}
         attempts:
@@ -1396,6 +1409,8 @@ components:
     RunOutput:
       type: object
       additionalProperties: false
+      allOf:
+      - {$ref: '#/components/schemas/ReferenceRunTargetAvailability'}
       required: [schemaVersion, runId, status, output, callId, traceId, selectedTarget,
         resultSource, accounting, attempts, cache, artifacts, providerInvoked, totalCallDurationMs,
         totalWaitMs, totalActualWaitMs, overBudgetMs, usedRepair, history]

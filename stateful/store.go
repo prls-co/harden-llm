@@ -16,9 +16,19 @@ const storageStatementTimeout = 500 * time.Millisecond
 var referenceSchemaSQL string
 
 type OperationError struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	cause   error
+	Code            string `json:"code"`
+	Message         string `json:"message"`
+	CurrentRevision *int64 `json:"currentRevision,omitempty"`
+	cause           error
+}
+
+func revisionConflictTx(ctx context.Context, tx pgx.Tx, query string, args ...any) error {
+	var revision int64
+	err := tx.QueryRow(ctx, query, args...).Scan(&revision)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	return revisionConflict(revision)
 }
 
 func (e *OperationError) Error() string { return e.Code + ": " + e.Message }

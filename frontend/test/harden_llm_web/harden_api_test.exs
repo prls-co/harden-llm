@@ -66,6 +66,49 @@ defmodule HardenLlmWeb.HardenAPITest do
     refute error.ambiguous?
   end
 
+  test "ordinary structured Responses and recovery retain their exact standard wire fields" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{"answer" => %{"type" => "string"}},
+      "required" => ["answer"],
+      "additionalProperties" => false
+    }
+
+    recovery = %{
+      "maxAttempts" => 2,
+      "retryOn" => ["network"],
+      "backoff" => %{"baseDelayMs" => 100, "maxDelayMs" => 200},
+      "jsonRepair" => nil,
+      "rerun" => nil
+    }
+
+    payload = %{
+      "model" => "native-model-id",
+      "input" => "Return an object.",
+      "instructions" => "Be concise.",
+      "store" => false,
+      "text" => %{
+        "format" => %{
+          "type" => "json_schema",
+          "name" => "structured_response",
+          "schema" => schema,
+          "strict" => true
+        }
+      },
+      "harden" => %{"cache" => "off", "diagnostics" => true, "recovery" => recovery}
+    }
+
+    Req.Test.stub(HardenAPI, fn conn ->
+      assert conn.request_path == "/v1/responses"
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      assert Jason.decode!(body) == payload
+      assert Plug.Conn.get_req_header(conn, "x-prls-session-reference") == []
+      Req.Test.json(conn, APIFixtures.response())
+    end)
+
+    assert {:ok, _response} = HardenAPI.responses(payload)
+  end
+
   test "an upstream failure after dispatch is marked as an unknown outcome" do
     Req.Test.stub(HardenAPI, fn conn ->
       conn |> Plug.Conn.put_status(503) |> Req.Test.json(APIFixtures.error("provider_error"))

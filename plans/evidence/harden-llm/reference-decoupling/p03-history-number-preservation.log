@@ -1,0 +1,6 @@
+# github.com/prls-co/harden-llm/stateful [github.com/prls-co/harden-llm/stateful.test]
+stateful/history_queries.go:5:2: "encoding/json" imported and not used
+FAIL	github.com/prls-co/harden-llm/stateful [build failed]
+ok  	github.com/prls-co/harden-llm/internal/testkit	0.206s
+ok  	github.com/prls-co/harden-llm/api	0.007s [no tests to run]
+FAIL

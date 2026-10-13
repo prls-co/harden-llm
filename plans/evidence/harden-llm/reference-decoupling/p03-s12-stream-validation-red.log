@@ -1,0 +1,214 @@
+      warning: no route path for HardenLlmWeb.Router matches "/profiles/bundle"
+      │
+ 1893 │         <a id={scope_id(@id_prefix, "export-bundle")} href={~p"/profiles/bundle"} class="ullm-btn">Export Bundle</a>
+      │         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      │
+      └─ lib/harden_llm_web/live/profile_widget_component.ex:1893: HardenLlmWeb.ProfileWidgetComponent.profile_editor/1
+
+      warning: variable "profile" is unused (if the variable is not meant to be used, prefix it with an underscore)
+      │
+ 1294 │       profile = profile_state["definition"] || %{}
+      │       ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1294:7: HardenLlmWeb.WorkspaceLive.profile_options/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}"
+      │
+ 1782 │     do: ~p"/traces/#{trace_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1782: HardenLlmWeb.WorkspaceLive.trace_url/1
+
+      warning: no route path for HardenLlmWeb.Router matches "/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │
+ 1787 │     do: ~p"/traces/#{trace_id}/artifacts/#{artifact_id}"
+      │           ~
+      │
+      └─ lib/harden_llm_web/live/workspace_live.ex:1787: HardenLlmWeb.WorkspaceLive.artifact_url/2
+
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+
+
+  1) test timeout terminal remains a typed failure rather than a protocol error (HardenLlmWeb.HardenAPIStreamTest)
+     test/harden_llm_web/harden_api_stream_test.exs:100
+     match (=) failed
+     code:  assert {:error, %APIError{category: :backend, ambiguous?: false}} =
+              HardenAPI.run_stream(HardenAPI.context(), %{}, fn _ -> :cont end)
+     left:  {:error, %HardenLlmWeb.APIError{category: :backend, ambiguous?: false}}
+     right: {:error,
+             %HardenLlmWeb.APIError{
+               category: :protocol,
+               message: "The proxy returned a malformed response.",
+               status: nil,
+               code: nil,
+               trace_id: nil,
+               field_errors: %{},
+               ambiguous?: false
+             }}
+     stacktrace:
+       test/harden_llm_web/harden_api_stream_test.exs:113: (test)
+
+.
+
+  2) test malformed order, correlation and duplicate terminals fail without replay (HardenLlmWeb.HardenAPIStreamTest)
+     test/harden_llm_web/harden_api_stream_test.exs:50
+     match (=) failed
+     code:  assert {:error, %APIError{category: :protocol}} =
+              HardenAPI.run_stream(HardenAPI.context(), %{}, fn _ -> :cont end)
+     left:  {:error, %HardenLlmWeb.APIError{category: :protocol}}
+     right: {:ok,
+             %{
+               "result" => %{
+                 "accounting" => %{
+                   "provider" => %{
+                     "cost" => %{
+                       "knownObservations" => 0,
+                       "knownSubtotalUsd" => 0,
+                       "source" => "none",
+                       "status" => "unknown",
+                       "unknownObservations" => 2
+                     },
+                     "usage" => %{
+                       "cacheCreationTokens" => 0,
+                       "cacheReadTokens" => 0,
+                       "completionTokens" => 0,
+                       "inputTokens" => 0,
+                       "outputTokens" => 0,
+                       "promptTokens" => 0,
+                       "reasoningTokens" => 0,
+                       "status" => "unavailable",
+                       "totalTokens" => 0
+                     }
+                   },
+                   "result" => %{
+                     "cost" => %{
+                       "knownObservations" => 0,
+                       "knownSubtotalUsd" => 0,
+                       "source" => "none",
+                       "status" => "unknown",
+                       "unknownObservations" => 1
+                     },
+                     "usage" => %{
+                       "cacheCreationTokens" => 0,
+                       "cacheReadTokens" => 0,
+                       "completionTokens" => 0,
+                       "inputTokens" => 0,
+                       "outputTokens" => 0,
+                       "promptTokens" => 0,
+                       "reasoningTokens" => 0,
+                       "status" => "unavailable",
+                       "totalTokens" => 0
+                     }
+                   }
+                 },
+                 "artifacts" => [],
+                 "attempts" => [
+                   %{
+                     "branch" => "original",
+                     "dispatchObserved" => true,
+                     "duration" => 100000000,
+                     "finishedAt" => "2026-10-10T12:00:01Z",
+                     "number" => 1,
+                     "profileId" => "cpa-json",
+                     "providerUsed" => true,
+                     "repair" => false,
+                     "retryable" => false,
+                     "stage" => "generation",
+                     "startedAt" => "2026-10-10T12:00:00Z",
+                     "target" => %{
+                       "endpoint" => "https://provider.example/v1",
+                       "modelId" => "fixture-model",
+                       "profileId" => "cpa-json",
+                       "protocol" => "responses",
+                       "provider" => "openai"
+                     },
+                     "wait" => 0
+                   },
+                   %{
+                     "branch" => "original",
+                     "dispatchObserved" => true,
+                     "duration" => 100000000,
+                     "finishedAt" => "2026-10-10T12:00:01Z",
+                     "number" => 2,
+                     "profileId" => "cpa-json",
+                     "providerUsed" => true,
+                     "repair" => true,
+                     "retryable" => false,
+                     "stage" => "json_repair_initial",
+                     "startedAt" => "2026-10-10T12:00:00Z",
+                     "target" => %{
+                       "endpoint" => "https://provider.example/v1",
+                       "modelId" => "fixture-model",
+                       "profileId" => "cpa-json",
+                       "protocol" => "responses",
+                       "provider" => "openai"
+                     },
+                     "wait" => 0
+                   }
+                 ],
+                 "cache" => %{
+                   "mode" => "off",
+                   "served" => false,
+                   "status" => "bypassed",
+                   "written" => false
+                 },
+                 "callId" => "00000000-0000-4000-8000-000000000001",
+                 "generationTarget" => %{
+                   "endpoint" => "https://provider.example/v1",
+                   "modelId" => "fixture-model",
+                   "profileId" => "cpa-json",
+                   "protocol" => "responses",
+                   "provider" => "openai"
+                 },
+                 "history" => %{
+                   "mode" => "enabled",
+                   "runId" => "00000000-0000-4000-8000-000000000001",
+                   "status" => "saved"
+                 },
+                 "output" => %{"ok" => true},
+                 "overBudgetMs" => 0,
+                 "providerInvoked" => true,
+                 "resultSource" => %{
+                   "attemptNumber" => 2,
+                   "kind" => "provider",
+                   "producer" => %{
+                     "endpoint" => "https://provider.example/v1",
+                     "modelId" => "fixture-model",
+                     "profileId" => "cpa-json",
+                     "protocol" => "responses",
+                     "provider" => "openai"
+                   }
+                 },
+                 "runId" => "00000000-0000-4000-8000-000000000099",
+                 "schemaVersion" => 4,
+                 "selectedTarget" => %{
+                   "endpoint" => "https://provider.example/v1",
+                   "modelId" => "fixture-model",
+                   "profileId" => "cpa-json",
+                   "protocol" => "responses",
+                   "provider" => "openai"
+                 },
+                 "status" => "succeeded",
+                 "totalActualWaitMs" => 0,
+                 "totalCallDurationMs" => 200,
+                 "totalWaitMs" => 0,
+                 "traceId" => "00000000-0000-4000-8000-000000000001",
+                 "usedRepair" => true
+               },
+               "state" => %{
+                 "lastRunId" => "00000000-0000-4000-8000-000000000001",
+                 "lastTraceId" => "00000000-0000-4000-8000-000000000001"
+               }
+             }}
+     stacktrace:
+       test/harden_llm_web/harden_api_stream_test.exs:74: anonymous fn/3 in HardenLlmWeb.HardenAPIStreamTest."test malformed order, correlation and duplicate terminals fail without replay"/1
+       (elixir 1.20.2) lib/enum.ex:2622: Enum."-reduce/3-lists^foldl/2-0-"/3
+       test/harden_llm_web/harden_api_stream_test.exs:68: (test)
+
+.
+Finished in 0.3 seconds (0.3s async, 0.00s sync)
+
+Result: 2/4 passed
+Failed: 2 tests

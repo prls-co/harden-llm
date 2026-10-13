@@ -1465,12 +1465,12 @@ REQ-400–415 are defined in the implementation-plan amendment. TEST-400–411 a
 | TEST-403 | Unit; HTTP API | `go test ./internal/gateway/httpapi -run '^TestOpenAIContract$' -count=1` | Official SDK consumes local handlers/models/errors/final SSE; retries disabled; unsupported fields do not dispatch. |
 | TEST-404 | Unit; auth/startup | `go test ./cmd/harden-llm-gateway -run '^TestOpenAIAuthAndStartup$' -count=1` | Only HARDEN_LLM_TOKEN works; aliases/owner are gone; cache-disabled startup needs no DB. |
 | TEST-405 | Unit; Phoenix workflow | `cd frontend && mix test test/harden_llm_web/live/shared_workspace_test.exs` | Logins share new history; only frontend records after publish; access enforced; direct calls absent. |
-| TEST-406 | Unit; Phoenix context | `cd frontend && mix test test/harden_llm/reference_test.exs` | One row powers views/stats/downloads; accounting unknown stays unknown; drafts bounded/ordered. |
-| TEST-407 | Integration; PostgreSQL | `node scripts/run-test-tier.mjs --task frontend-reference-integration` | Real migrations/queries/constraints/timeout work; no replay. Task starts only harden-postgres. |
+| TEST-406 | Superseded by TEST-428/439 | Retired Phoenix context; see ADR-HLLM-033. | REST workflow, canonical record fidelity and draft concurrency now run at their UI/Go owners. |
+| TEST-407 | Superseded by TEST-424/426/427/439/442 | Retired Phoenix SQL task; see ADR-HLLM-033. | Real Go PostgreSQL/Garage integration retains schema, constraints, timeout, scope, deletion and no-replay assertions. |
 | TEST-408 | Static; config/cutover | `node --test scripts/test/proxy_reference_cutover_test.mjs` | Synthetic one-token/connection config; old routes/profile keys absent; clean-cut excludes unrelated sentinel. |
 | TEST-409 | Integration; Compose smoke | `node scripts/run-test-tier.mjs --task go-compose` | Gateway/Phoenix work with synthetic upstream/real SQL; direct calls leave history empty; cleanup succeeds; no browser/provider. |
 | TEST-410 | Unit; Compose log-query contract | `go test ./internal/smoke -run '^TestLokiCorrelatedResponseLog$' -count=1` | A log is accepted only when the same Loki stream carries the expected OpenTelemetry trace ID and `/v1/responses` route with a completed-request message; malformed and split-stream results reject. |
-| TEST-411 | Integration; Phoenix release migration | `node scripts/run-test-tier.mjs --task frontend-reference-integration` | The production release migration succeeds when the Phoenix application is already loaded and reports no pending migrations after integration setup creates the schema. No provider, browser or production data is used. |
+| TEST-411 | Superseded by TEST-424/433/450 | Retired Phoenix release migration; see ADR-HLLM-033. | One-shot Go schema setup is repeatable, executes before application startup and fails explicitly on incompatibility. |
 
 `test/fixtures/proxy-reference-contract.json` is sanitized from checked-in CPA Chat/Responses fixtures; it contains no credentials/user data/live responses.
 

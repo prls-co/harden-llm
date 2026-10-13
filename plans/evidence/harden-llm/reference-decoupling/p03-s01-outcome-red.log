@@ -1,0 +1,14 @@
+--- FAIL: TestHistoryRecordingOutcome (0.00s)
+    --- FAIL: TestHistoryRecordingOutcome/confirmed_none (0.00s)
+        history_test.go:15: recordingStatus(confirmed,none)=not_saved want saved
+    --- FAIL: TestHistoryRecordingOutcome/unknown_found (0.00s)
+        history_test.go:15: recordingStatus(unknown,found)=not_saved want saved
+    --- FAIL: TestHistoryRecordingOutcome/unknown_absent (0.00s)
+        history_test.go:15: recordingStatus(unknown,absent)=not_saved want unconfirmed
+    --- FAIL: TestHistoryRecordingOutcome/unknown_failed (0.00s)
+        history_test.go:15: recordingStatus(unknown,failed)=not_saved want unconfirmed
+    --- FAIL: TestHistoryRecordingOutcome/empty_readback_can_precede_a_delayed_commit (0.00s)
+        history_test.go:17: empty read falsely proves rollback: not_saved
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	0.004s
+FAIL

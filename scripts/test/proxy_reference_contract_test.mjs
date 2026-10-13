@@ -15,10 +15,11 @@ const expectedTaskByTest = new Map([
   ["TEST-403", "go-unit"],
   ["TEST-404", "go-unit"],
   ["TEST-405", "frontend-deterministic"],
-  ["TEST-406", "frontend-deterministic"],
-  ["TEST-407", "frontend-reference-integration"],
   ["TEST-408", "go-static"],
   ["TEST-409", "go-compose"],
+  ["TEST-428", "frontend-deterministic"],
+  ["TEST-439", "go-integration"],
+  ["TEST-442", "go-integration"],
 ]);
 
 test("ordinary OpenAI contract and reference boundary are traceable and assigned to the right existing tiers", async () => {
@@ -69,7 +70,7 @@ test("ordinary OpenAI contract and reference boundary are traceable and assigned
   }
   for (const [testId, expectedTaskId] of expectedTaskByTest) {
     assert.equal(registeredTaskIds.get(testId), expectedTaskId, `${testId} runner owner`);
-    assert.ok(new RegExp("^\\| " + testId + " \\|", "m").test(testSpecification), `${testId} canonical test definition`);
+    assert.ok(new RegExp("^(?:\\| " + testId + " \\||### " + testId + ":)", "m").test(testSpecification), `${testId} canonical test definition`);
   }
 
   for (const testId of fixture.frontendTestIds) {
@@ -82,9 +83,10 @@ test("ordinary OpenAI contract and reference boundary are traceable and assigned
   }
   assert.match(traceability, /PLAN-HLLM-REFERENCE-DECOUPLING-002/);
   assert.match(traceability, /Reference history and artifacts/);
-  const databaseTask = manifest.tasks.find(({ id }) => id === "frontend-reference-integration");
-  assert.ok(databaseTask, "existing integration runner task is registered");
-  assert.equal(databaseTask.workingDirectory, "frontend");
-  assert.equal(databaseTask.servicePool?.services?.length, 1);
-  assert.equal(databaseTask.servicePool.services[0].name, "harden-postgres");
+  const databaseTask = manifest.tasks.find(({ id }) => id === "go-integration");
+  assert.ok(databaseTask, "one Go storage integration owner is registered");
+  assert.ok(databaseTask.command.includes("-tags=integration"));
+  assert.deepEqual(databaseTask.servicePool.services.map(({name}) => name), ["harden-postgres", "garage"]);
+  assert.equal(manifest.tasks.some(({id}) => id === "frontend-reference-integration"), false);
+
 });

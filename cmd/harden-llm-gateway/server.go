@@ -72,6 +72,7 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 	if err != nil {
 		return safeStartupError(redactor, "configure reference presets", err)
 	}
+	artifacts, artifactDiagnostic := referenceArtifacts(config.reference)
 	service, err := stateful.NewService(stateful.Config{Client: stateful.ClientOptions{
 		Connections: config.connections, DefaultConnection: config.defaultConnection,
 		EndpointPolicy: hardenllm.EndpointPolicy{
@@ -80,7 +81,7 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 		},
 		WebSearch: stateful.WebSearchOptions{JinaAPIKey: config.jinaAPIKey},
 		Logger:    telemetryRuntime.Logger(), TracerProvider: telemetryRuntime.TracerProvider(), MeterProvider: telemetryRuntime.MeterProvider(),
-	}, Pool: pool, Presets: presets, Vault: config.reference.vault, History: stateful.HistoryConfig{Enabled: config.reference.historyEnabled}, CacheTTL: config.reference.cacheTTL})
+	}, Pool: pool, Presets: presets, Vault: config.reference.vault, History: stateful.HistoryConfig{Enabled: config.reference.historyEnabled}, CacheTTL: config.reference.cacheTTL, Artifacts: artifacts, ArtifactConfigurationError: artifactDiagnostic})
 	if err != nil {
 		return safeStartupError(redactor, "configure shared proxy client", err)
 	}
@@ -112,7 +113,7 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 	defer cancelServer()
 	server := &http.Server{
 		Handler: api.Handler(), ReadHeaderTimeout: httpReadHeaderTimeout,
-		ReadTimeout: httpReadTimeout, WriteTimeout: config.maxRunDuration + httpShutdownMargin,
+		ReadTimeout: httpReadTimeout, WriteTimeout: 75 * time.Second,
 		IdleTimeout: httpIdleTimeout, MaxHeaderBytes: httpMaxHeaderBytes,
 		ErrorLog: log.New(io.Discard, "", 0), BaseContext: func(net.Listener) context.Context { return serverContext },
 	}

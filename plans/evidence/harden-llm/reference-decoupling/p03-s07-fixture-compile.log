@@ -1,0 +1,6 @@
+{"taskId":"go-integration","status":1,"failureSummary":"stateful/history_integration_test.go:88:150: cannot use \"Reply with OK.\" (untyped string constant) as json.RawMessage value in struct literal | FAIL\tgithub.com/prls-co/harden-llm/stateful [build failed] | FAIL","failureDetail":"# github.com/prls-co/harden-llm/stateful [github.com/prls-co/harden-llm/stateful.test]\nstateful/history_integration_test.go:88:150: cannot use \"Reply with OK.\" (untyped string constant) as json.RawMessage value in struct literal\n\nFAIL\tgithub.com/prls-co/harden-llm/stateful [build failed]\nFAIL"}
+FAIL	github.com/prls-co/harden-llm/stateful [build failed]
+FAIL
+
+# github.com/prls-co/harden-llm/stateful [github.com/prls-co/harden-llm/stateful.test]
+stateful/history_integration_test.go:88:150: cannot use "Reply with OK." (untyped string constant) as json.RawMessage value in struct literal

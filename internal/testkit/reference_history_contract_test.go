@@ -70,6 +70,23 @@ func TestReferenceHistoryContract(t *testing.T) {
 		}
 	}
 	pages := referenceFixture(t, "history-pages.json")
+	workspace := referenceFixture(t, "workspace.json")
+	for _, event := range workspace["stream"].([]any) {
+		validate("ReferenceRunProgressEvent", event)
+		value := event.(map[string]any)
+		if value["type"] == "run.completed" {
+			validate("RecordedRunOutput", value["data"].(map[string]any)["result"])
+		}
+		if value["type"] == "history.recorded" {
+			validate("RecordingOutcome", value["data"])
+		}
+	}
+	for schema, key := range map[string]string{"ProfilesEnvelope": "profiles", "ProfileEnvelope": "savedProfile", "HistoryPage": "history", "HistoryRecord": "record", "RunEnvelope": "run", "Statistics": "statistics", "ReferenceStatus": "status"} {
+		validate(schema, workspace[key])
+	}
+	for _, draft := range workspace["details"].(map[string]any) {
+		validate("ProfileDraft", draft)
+	}
 	validate("HistoryPage", pages["page"])
 	for _, raw := range pages["rows"].([]any) {
 		row := raw.(map[string]any)

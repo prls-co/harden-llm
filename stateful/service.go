@@ -11,12 +11,14 @@ import (
 
 type HistoryConfig struct{ Enabled bool }
 type Config struct {
-	Client   ClientOptions
-	Pool     *pgxpool.Pool
-	Presets  Catalog
-	Vault    *CredentialVault
-	History  HistoryConfig
-	CacheTTL time.Duration
+	Client                     ClientOptions
+	Pool                       *pgxpool.Pool
+	Presets                    Catalog
+	Vault                      *CredentialVault
+	History                    HistoryConfig
+	CacheTTL                   time.Duration
+	Artifacts                  *ArtifactStore
+	ArtifactConfigurationError *Diagnostic
 }
 type Service struct {
 	config                Config
@@ -25,6 +27,8 @@ type Service struct {
 	newID                 func() (string, error)
 	afterCredentialInsert func() error
 	afterBundleDelete     func() error
+	beforeArtifactDelete  func(string) error
+	onClearBatch          func(int)
 }
 
 func NewService(config Config) (*Service, error) {
@@ -33,6 +37,10 @@ func NewService(config Config) (*Service, error) {
 	}
 	if config.CacheTTL < 0 {
 		return nil, &OperationError{Code: "reference_configuration_error", Message: "Cache TTL must be positive."}
+	}
+	if config.ArtifactConfigurationError != nil {
+		diagnostic := *config.ArtifactConfigurationError
+		config.ArtifactConfigurationError = &diagnostic
 	}
 	effects, err := newEffects(config.Client)
 	if err != nil {

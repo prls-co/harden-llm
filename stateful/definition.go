@@ -219,6 +219,15 @@ func validatePricing(pricing Pricing) error {
 }
 
 func forbiddenOptionField(value any, path string) string {
+	return walkOptionFields(value, path, func(_ map[string]any, key, path string) string {
+		if forbiddenDefaultKey.MatchString(key) {
+			return path
+		}
+		return ""
+	})
+}
+
+func walkOptionFields(value any, path string, visit func(map[string]any, string, string) string) string {
 	switch typed := value.(type) {
 	case map[string]any:
 		keys := make([]string, 0, len(typed))
@@ -227,16 +236,16 @@ func forbiddenOptionField(value any, path string) string {
 		}
 		slices.Sort(keys)
 		for _, key := range keys {
-			if forbiddenDefaultKey.MatchString(key) {
-				return path + "." + key
+			if field := visit(typed, key, path+"."+key); field != "" {
+				return field
 			}
-			if nested := forbiddenOptionField(typed[key], path+"."+key); nested != "" {
+			if nested := walkOptionFields(typed[key], path+"."+key, visit); nested != "" {
 				return nested
 			}
 		}
 	case []any:
 		for index, item := range typed {
-			if nested := forbiddenOptionField(item, fmt.Sprintf("%s.%d", path, index)); nested != "" {
+			if nested := walkOptionFields(item, fmt.Sprintf("%s.%d", path, index), visit); nested != "" {
 				return nested
 			}
 		}

@@ -1,0 +1,148 @@
+Running ExUnit with seed: 104729, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+
+
+  1) test history restore fills recorded inputs without saving a profile or running inference (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:149
+     Expected truthy, got false
+     code: assert has_element?(view, "#workspace-llm-widget")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN3yWQVdK9s54QBB",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.784.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#workspace-llm-widget"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_workflow_test.exs:155: (test)
+
+
+
+  2) test run keeps the repaired result and provider/result statistics (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:135
+     Expected truthy, got false
+     code: assert has_element?(view, "#workspace-llm-widget")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN3yWQ4Tf93wpx-D",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.795.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#workspace-llm-widget"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_workflow_test.exs:138: (test)
+
+
+
+  3) test explicit Save posts the complete setup and selects the newly created snapshot (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:111
+     Expected truthy, got false
+     code: assert has_element?(view, "#workspace-llm-widget")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN3yWQ6gOXPU2QGC",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.806.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#workspace-llm-widget"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_workflow_test.exs:117: (test)
+
+
+
+  4) test two Portal identities use separate host draft keys and share key-scoped data (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:166
+     Expected truthy, got false
+     code: assert has_element?(one, "#workspace-llm-widget")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN3yWQ8GnjGogAKC",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.817.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#workspace-llm-widget"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_workflow_test.exs:174: (test)
+
+
+
+  5) test recording warnings are explicit and never resubmit inference (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:194
+     Expected truthy, got false
+     code: assert has_element?(view, "#workspace-llm-widget")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN3yWQ-lJ6Gw8wDB",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.835.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#workspace-llm-widget"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_workflow_test.exs:250: anonymous fn/4 in HardenLlmWeb.RestoredWorkflowTest."test recording warnings are explicit and never resubmit inference"/1
+       (elixir 1.20.2) lib/enum.ex:2622: Enum."-reduce/3-lists^foldl/2-0-"/3
+       test/harden_llm_web/live/restored_workflow_test.exs:198: (test)
+
+
+
+  6) test selecting a template fills the complete restored form and baseline controls (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:88
+     Expected truthy, got false
+     code: assert has_element?(view, "#workspace-llm-widget")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN3yWQ_7eHtl9iCD",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.846.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#workspace-llm-widget"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_workflow_test.exs:94: (test)
+
+
+Finished in 0.4 seconds (0.4s async, 0.00s sync)
+
+Result: 0/6 passed
+Failed: 6 tests

@@ -16,8 +16,6 @@ defmodule HardenLlmWeb.BoundaryTest do
           phoenix: "1.8.9",
           phoenix_live_view: "1.2.10",
           req: "0.6.1",
-          ecto_sql: "3.14.0",
-          postgrex: "0.22.4",
           prom_ex: "1.12.0",
           logger_json: "7.0.4",
           opentelemetry_logger_metadata: "0.2.0"
@@ -42,7 +40,7 @@ defmodule HardenLlmWeb.BoundaryTest do
     end
   end
 
-  test "PostgreSQL is the only reference persistence and the API client owns Req" do
+  test "the reference host has no persistence dependency and the API client owns Req" do
     direct_names =
       Mix.Project.config()[:deps] |> Enum.map(&elem(&1, 0)) |> Enum.map(&Atom.to_string/1)
 
@@ -50,8 +48,8 @@ defmodule HardenLlmWeb.BoundaryTest do
       refute forbidden in direct_names
     end
 
-    assert "ecto_sql" in direct_names
-    assert "postgrex" in direct_names
+    refute "ecto_sql" in direct_names
+    refute "postgrex" in direct_names
 
     source = source_files()
     refute source =~ "Firebase"
@@ -64,14 +62,7 @@ defmodule HardenLlmWeb.BoundaryTest do
       |> Enum.filter(&(File.read!(&1) =~ "Ecto."))
       |> Enum.sort()
 
-    assert ecto_users ==
-             Enum.sort([
-               "lib/harden_llm/reference.ex",
-               "lib/harden_llm/reference/call.ex",
-               "lib/harden_llm/reference/draft.ex",
-               "lib/harden_llm/release.ex",
-               "lib/harden_llm/repo.ex"
-             ])
+    assert ecto_users == []
   end
 
   test "only HardenAPI invokes Req" do
@@ -108,7 +99,6 @@ defmodule HardenLlmWeb.BoundaryTest do
       HARDEN_LLM_WEB_HOST
       HARDEN_LLM_TOKEN
       HARDEN_LLM_API_BASE_URL
-      HARDEN_LLM_DATABASE_URL
       HARDEN_LLM_CONTROL_PLANE_URL
       HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN
     ) do

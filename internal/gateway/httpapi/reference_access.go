@@ -34,7 +34,7 @@ func scopeSelector(field string) bool {
 func rejectScopeSelector(w http.ResponseWriter, r *http.Request) bool {
 	for name := range r.URL.Query() {
 		if scopeSelector(name) {
-			writeError(w, 400, "invalid_request_error", "scope_selector_rejected", "Scope is derived from the authenticated API key.", name)
+			writeProtocolError(w, r, 400, "invalid_request_error", "scope_selector_rejected", "Scope is derived from the authenticated API key.", name)
 			return true
 		}
 	}
@@ -49,7 +49,7 @@ func rejectScopeSelector(w http.ResponseWriter, r *http.Request) bool {
 	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, int64(limit)))
 	_ = r.Body.Close()
 	if err != nil {
-		writeError(w, 400, "invalid_request_error", "request_too_large", "Request exceeds its operation size limit.", nil)
+		writeProtocolError(w, r, 413, "invalid_request_error", "request_too_large", "Request exceeds its operation size limit.", nil)
 		return true
 	}
 	r.Body = io.NopCloser(bytes.NewReader(data))
@@ -57,7 +57,7 @@ func rejectScopeSelector(w http.ResponseWriter, r *http.Request) bool {
 	if json.Unmarshal(data, &fields) == nil {
 		for name := range fields {
 			if scopeSelector(name) && !(bundle && name == "apiKeyHash") {
-				writeError(w, 400, "invalid_request_error", "scope_selector_rejected", "Scope is derived from the authenticated API key.", name)
+				writeProtocolError(w, r, 400, "invalid_request_error", "scope_selector_rejected", "Scope is derived from the authenticated API key.", name)
 				return true
 			}
 		}
@@ -73,7 +73,7 @@ func (api *API) authorize(next http.HandlerFunc) http.HandlerFunc {
 			}
 		}
 		if matched == "" {
-			writeError(w, 401, "authentication_error", "invalid_api_key", "Invalid or missing API key.", nil)
+			writeProtocolError(w, r, 401, "authentication_error", "invalid_api_key", "Invalid or missing API key.", nil)
 			return
 		}
 		if rejectScopeSelector(w, r) {
@@ -83,7 +83,7 @@ func (api *API) authorize(next http.HandlerFunc) http.HandlerFunc {
 		hash := hex.EncodeToString(digest[:])
 		client, err := api.clientForKey(hash)
 		if err != nil {
-			writeError(w, 503, "server_error", "service_unavailable", "The inference composition is unavailable.", nil)
+			writeProtocolError(w, r, 503, "server_error", "service_unavailable", "The inference composition is unavailable.", nil)
 			return
 		}
 		ctx := context.WithValue(r.Context(), accessScopeKey{}, accessScope{hash: hash, client: client})
