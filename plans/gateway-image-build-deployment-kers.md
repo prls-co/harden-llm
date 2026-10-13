@@ -43,3 +43,21 @@ verification and operational implications.
 these boundaries. [P06](evidence/harden-llm/reference-decoupling/phase-p06.md)
 and the [audit](evidence/harden-llm/reference-decoupling/plan-conformance-audit.md)
 separate runtime acceptance from documentation and cleanup.
+
+## Reference UI correction acceptance (2026-10-13)
+
+KER-IBD-001/003/005 are satisfied by application source
+`739cfda1ea6a67fb7a2ee737e31d8342c58f36d0`, release 38439024276 attempt 1
+(28 tasks passed), clean exact-source local builds and final scoped/full
+equivalence. Actual image IDs and HTTP acceptance are in the
+[RCA](../docs/rca/reference-preset-schema-and-recovery-ui.md#7-merged-and-deployed-acceptance).
+Docs-only closeout revisions do not relabel those images.
+
+The explicit #109 scope expands KER-IBD-004 to both application images/release
+identities, nonsecret metadata for four existing provider credentials, and a
+single exact faulty-default draft schema/revision correction. Protected settings,
+shared owner containers/images and ingress are verified unchanged; no new
+database/service, broader data reset or permission model is added. The prior
+schema-compatible images and mode-0600 operator checkpoints are retained for
+KER-IBD-006/007. The failed first gate and its port-allocation correction remain
+in evidence; success is from corrected source, not an ambiguous retry.

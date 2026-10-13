@@ -2244,6 +2244,17 @@ and the [RCA](../docs/rca/reference-preset-schema-and-recovery-ui.md) qualify th
 original acceptance and track their corrective tests/release. The original phase
 ledger remains historical; it did not prove these omitted shipped-data flows.
 
+The correction is now merged and deployed from
+`739cfda1ea6a67fb7a2ee737e31d8342c58f36d0`, with all 28 exact-source release
+tasks and final scoped/full configuration plus public HTTP checks passing.
+TEST-452 / WEB-TEST-124 use shipped data and enabled Run assertions for all
+24 presets in both modes. The shared editor is usable at all fixed recovery
+positions; terminal role restrictions remain. Four existing provider bindings
+are restored, and one exact faulty-default draft is corrected with other fields
+preserved. The RCA records the additional harness port-race correction and
+its failed/passing evidence; these refinements add no service or phase. The
+original 72-step ledger is retained, and #109 owns this completed follow-up.
+
 
 ```yaml
 phase_id: ""

@@ -2861,3 +2861,27 @@ corrections. The audit updates stale specifications/ADR status, test traceabilit
 image KERs and clean-cut recovery limits, and removes disposable task artifacts.
 It changes no application code or image identity. Browser/live-provider/restore/
 consumer-pilot recommendations remain outside the completed 72-step plan.
+
+## Reference preset/schema/recovery correction — production (2026-10-13)
+
+The production UI failures reported after #100 are corrected by PRs #110/111,
+application `739cfda1ea6a67fb7a2ee737e31d8342c58f36d0`. The actual shipped-catalog
+matrix covers all 24 presets in both modes with enabled Run assertions; the
+finite recovery positions use the complete shared editor and REST client.
+[Exact-source release 38439024276, attempt 1](https://github.com/prls-co/harden-llm/actions/runs/38439024276/attempts/1)
+passed all 28 tasks with no cleanup errors/warnings, after main CI/CodeQL passed.
+The preceding failed gate and port-allocation correction are retained in the
+[RCA](rca/reference-preset-schema-and-recovery-ui.md).
+
+Gateway image `sha256:4635359331af363b785a3d8d56921353a72bd7e1f9709f3ee26274cd40ee7039`
+and frontend image `sha256:89d57142bc424e2b8f08180add98676cbe8aba688b581894ecc318129c135ac4`
+are healthy at that source with zero restarts. The scoped apply ran schema before
+apps, then scoped/full configuration checks and TEST-435 public HTTP passed.
+All 24 live preset drafts match source. Fourteen have configured credentials;
+ten need OpenAI/Anthropic keys. One known-default draft schema was corrected
+with other fields preserved. Protected settings, shared owner identities and
+ingress are unchanged. See the
+[deployment record](../plans/evidence/harden-llm/reference-ui-regression/deployment-acceptance.json).
+Browser layout, interactive Portal and real provider inference were not checked;
+configured credentials and mocked submissions are not proof of paid inference.
+Subsequent docs-only revisions do not rebuild or relabel these application images.
