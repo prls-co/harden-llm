@@ -2894,3 +2894,33 @@ and [issue #113](https://github.com/prls-co/harden-llm/issues/113) record the
 pre-execution state and unchanged scan settings. This does not replace or undo
 the certified application release; current merged-documentation checks are
 reported separately in the issue closeout.
+
+## Preset persistence and live CPA qualification — production (2026-10-13)
+
+Issue #115 / PR #116 is merged and deployed at application source
+`ff5c968bc3c2263956fb1f946935395506347bfc`. Main fast/CodeQL passed; exact-source
+[release 38455292756, attempt 1](https://github.com/prls-co/harden-llm/actions/runs/38455292756/attempts/1)
+passed all 29 tasks with no cleanup errors/warnings. The new T3 task crosses
+real LiveView/client/Go/PostgreSQL/native-provider boundaries for all 40 templates
+and 80 mode executions, then checks all five configured recovery targets and
+exact six-model routing. Earlier stubbed saves/Prepare-only checks did not prove
+these boundaries. TEST-453 retains the credential-free draft RED/GREEN.
+
+The explicitly authorized live matrix dispatched 80 calls, with no retries,
+cache or history. Thirty candidates passed both modes, including Sol and 19 CPA
+models. Nine CPA candidates and Novita Flash failed at least one mode and are
+removed from active templates, with failures retained. The final catalog has
+40 templates: 30 configured/live-qualified and ten needing OpenAI/Anthropic keys.
+The initial text-canary input error was rejected before dispatch; only those
+unexecuted cases subsequently ran. No failing or ambiguous call was replayed.
+
+Gateway image `sha256:97c134af86b9cceb91fde36eb666280c964de8d59855ffea5a5aa33e4bfdbedb`
+and frontend image `sha256:b3902de4b91baf3ea733fb9a7601bb8d874316a22d0de739ded1032b4f4f7f64`
+are healthy with zero restarts. Scoped/full configuration and TEST-435 public
+HTTP checks passed; all 40 live template drafts match certified source. Latest
+CPA discovery advertises all 19 active CPA models. Credentials, data, shared
+owners, telemetry and Caddy are unchanged; no draft repair was needed. Deployment
+made no inference call. Browser layout/interactive Portal were not checked.
+The [RCA](rca/preset-draft-persistence-and-live-qualification.md) records exact
+scope changes, full accepted evidence and CPA-owner issue #5 for upstream causes.
+Subsequent documentation commits do not rebuild/relabel these application images.

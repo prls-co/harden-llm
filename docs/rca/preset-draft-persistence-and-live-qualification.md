@@ -74,7 +74,64 @@ repeated. This did not weaken text validation or conceal a provider failure.
 ## 5. Acceptance and rollout
 
 Evidence: `plans/evidence/harden-llm/preset-workflow-qualification/`.
-Cheap RED/GREEN, the fast report and live qualification are retained. The final T3 task passed with all 40 templates/80 mode executions and exact six-model recovery routing. Release/source/image/public acceptance is recorded in #115 after completion.
-Promote exact certified gateway/frontend images through the existing scoped
-operator; keep credentials, shared owners, data and routing stable. Browser
-layout remains outside this browser-free scope.
+PR [#116](https://github.com/prls-co/harden-llm/pull/116) merged application source
+`ff5c968bc3c2263956fb1f946935395506347bfc`. Main fast checks and all three CodeQL
+analyses passed. Exact-source [release 38455292756, attempt 1](https://github.com/prls-co/harden-llm/actions/runs/38455292756/attempts/1)
+passed all 29 tasks with no failure, timeout or cleanup issue. This includes
+TEST-454 with all 40 templates/80 mode executions and exact six-model routing;
+its hosted runtime was 256,251 ms. Cheap RED/GREEN and the full authorized live
+success/failure matrix remain separate evidence.
+
+Both images were built from a clean detached checkout of the certified source;
+the checkout was removed. Immutable tags use `release-<full-source-sha>`.
+
+| Component | Actual image ID | Final state |
+| --- | --- | --- |
+| Gateway | `sha256:97c134af86b9cceb91fde36eb666280c964de8d59855ffea5a5aa33e4bfdbedb` | Healthy, zero restarts; OCI version/revision and isolated version match source. |
+| Frontend | `sha256:b3902de4b91baf3ea733fb9a7601bb8d874316a22d0de739ded1032b4f4f7f64` | Healthy, zero restarts; OCI version and both runtime release fields match source. |
+
+The existing operator applied schema with exit 0 before starting only the two
+apps. Scoped expected-release and full seven-service checks are equivalent.
+Only application image/release identity changed in the descriptor. Protected
+environment files, upstream metadata, deployment bearer, PostgreSQL/Garage and
+telemetry containers/images, Caddy source/routing and user data are unchanged.
+No saved-draft correction is needed: the rejected credential field was never
+stored. Previous schema-compatible images and mode-0600 private checkpoints
+remain available.
+
+TEST-435 passed at `https://harden-llm.prls.co/`: Portal entry, health/readiness,
+bearer enforcement, model discovery and reference status/scope guards. All 40
+deployed template drafts match the certified definitions, inputs and bindings.
+Configured counts are CPA 19, Google 5, Novita 1, OpenRouter 4 and Perplexity 1;
+all 30 are among the live-qualified candidates. Ten need OpenAI/Anthropic keys.
+Final discovery now returns 28 entries, with all 19 active CPA models present;
+five previously failing old aliases are no longer advertised. Their deeper
+upstream change is not attributed to this HLLM release. Four failed CPA text
+candidates remain advertised and are deliberately absent from presets.
+
+The [release report](../../plans/evidence/harden-llm/preset-workflow-qualification/release-accepted-report.json)
+and [deployment record](../../plans/evidence/harden-llm/preset-workflow-qualification/deployment-acceptance.json)
+retain final acceptance. Deployment made no paid inference call. Browser layout
+and interactive Portal behavior were not checked. Later docs-only revisions
+do not rebuild or relabel these images.
+
+## 6. Scope changes, limitations and next work
+
+The added T3 release task closes the untested UI/HTTP/storage/execution boundary;
+it does not replace cheap tests or introduce another runner. The shared snapshot
+removes duplicate credential projection logic. Disabling Run for unconfigured
+templates makes the existing credential requirement explicit, without changing
+markup or styles. No recovery engine, database, identity model, compatibility
+reader, fallback or data reset was added.
+
+The user requested current CPA presets and authorized live qualification. The
+catalog therefore includes newly qualified CPA models and removes ten observed
+failures rather than presenting unverified availability. Original failures and
+the pre-dispatch canary input mistake are retained, not marked green. This is a
+dated test of one short input per mode, not proof of all options, prompts or
+future availability.
+
+The HLLM corrective scope is complete. Investigate remaining upstream causes in
+[CPA #5](https://github.com/prls-co/CLIProxyAPI-setup/issues/5), then explicitly
+qualify repaired models before restoring presets. Supply OpenAI/Anthropic keys
+if those templates are needed. Browser checks remain an optional separate opt-in.

@@ -1,0 +1,59 @@
+{
+  "sourceSHA": "ff5c968bc3c2263956fb1f946935395506347bfc",
+  "release": {
+    "runID": 38455292756,
+    "attempt": 1,
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/38455292756/attempts/1"
+  },
+  "environmentURL": "https://harden-llm.prls.co",
+  "applications": [
+    {
+      "component": "web",
+      "imageID": "sha256:b3902de4b91baf3ea733fb9a7601bb8d874316a22d0de739ded1032b4f4f7f64",
+      "sourceSHA": "ff5c968bc3c2263956fb1f946935395506347bfc",
+      "health": "healthy",
+      "restarts": 0
+    },
+    {
+      "component": "gateway",
+      "imageID": "sha256:97c134af86b9cceb91fde36eb666280c964de8d59855ffea5a5aa33e4bfdbedb",
+      "sourceSHA": "ff5c968bc3c2263956fb1f946935395506347bfc",
+      "health": "healthy",
+      "restarts": 0
+    }
+  ],
+  "presets": {
+    "templateCount": 40,
+    "configuredAndLiveQualified": 30,
+    "configuredByProvider": {
+      "cpa": 19,
+      "google": 5,
+      "novita": 1,
+      "openrouter": 4,
+      "perplexity": 1
+    },
+    "needsCredentials": 10,
+    "allDraftsMatchCertifiedSource": true
+  },
+  "protectedSourceFilesUnchanged": true,
+  "deploymentBearerUnchanged": true,
+  "sharedAndTelemetryContainersUnchanged": [
+    "/harden-llm-otel-collector-1",
+    "/harden-llm-loki-1",
+    "/harden-llm-prometheus-1",
+    "/harden-llm-tempo-1",
+    "/harden-llm-grafana-1",
+    "/compose-postgres-1",
+    "/garage-shared-garage-shared-1"
+  ],
+  "caddyOwnerUnchanged": true,
+  "publicHTTPAcceptance": "passed",
+  "inferenceCallsOnDeployment": 0,
+  "browserTestsRun": false,
+  "configurationChecks": {
+    "scopedApply": "passed",
+    "scopedExpectedRelease": "equivalent",
+    "fullSevenService": "equivalent",
+    "schemaBeforeApplications": "exit 0"
+  }
+}

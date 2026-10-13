@@ -1,0 +1,18 @@
+production-config check: differences found
+project: harden-llm (default); scoped services: 2
+source: /home/kirill/.config/prls-agent-platform/observability/live.env
+source: /home/kirill/p/harden-llm-production/.env
+source: /home/kirill/p/harden-llm/.env
+runtime: verified; applied: no
+difference: harden-llm-gateway.candidate.runtime-label
+difference: harden-llm-gateway.candidate.runtime-release
+difference: harden-llm-gateway.environment.HARDEN_LLM_RELEASE
+difference: harden-llm-gateway.identity.HARDEN_LLM_RELEASE
+difference: harden-llm-gateway.image
+difference: harden-llm-web.candidate.runtime-label
+difference: harden-llm-web.candidate.runtime-release
+difference: harden-llm-web.environment.HARDEN_LLM_RELEASE
+difference: harden-llm-web.environment.HARDEN_LLM_WEB_RELEASE
+difference: harden-llm-web.identity.HARDEN_LLM_RELEASE
+difference: harden-llm-web.identity.HARDEN_LLM_WEB_RELEASE
+difference: harden-llm-web.image

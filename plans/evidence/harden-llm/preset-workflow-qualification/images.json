@@ -1,0 +1,18 @@
+{
+  "sourceSHA": "ff5c968bc3c2263956fb1f946935395506347bfc",
+  "images": {
+    "gateway": {
+      "tag": "harden-llm-gateway:release-ff5c968bc3c2263956fb1f946935395506347bfc",
+      "id": "sha256:97c134af86b9cceb91fde36eb666280c964de8d59855ffea5a5aa33e4bfdbedb",
+      "version": "ff5c968bc3c2263956fb1f946935395506347bfc",
+      "revision": "ff5c968bc3c2263956fb1f946935395506347bfc"
+    },
+    "web": {
+      "tag": "harden-llm-web:release-ff5c968bc3c2263956fb1f946935395506347bfc",
+      "id": "sha256:b3902de4b91baf3ea733fb9a7601bb8d874316a22d0de739ded1032b4f4f7f64",
+      "version": "ff5c968bc3c2263956fb1f946935395506347bfc",
+      "revision": null
+    }
+  },
+  "isolatedGatewayVersion": "ff5c968bc3c2263956fb1f946935395506347bfc"
+}

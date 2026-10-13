@@ -283,3 +283,8 @@ configuration is recorded in the manifest. TEST-455 remains an authorized live
 track; discovery/Prepare/stubbed success are not provider qualification. The
 [RCA](../rca/preset-draft-persistence-and-live-qualification.md) records actual
 failures and the canary input correction without weakening any assertion.
+
+The exact-source release at `ff5c968bc3c2263956fb1f946935395506347bfc` passed
+all 29 tasks in run 38455292756 attempt 1, including this new T3 boundary, with
+no cleanup errors/warnings. Live-provider outcomes remain separately authorized
+evidence; failing candidates are preserved and removed from active templates.

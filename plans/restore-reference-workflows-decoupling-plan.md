@@ -2299,3 +2299,31 @@ configuration_checkpoint:
 - Current source paths and baseline paths were inspected; proposed paths are identified by their creation steps. Documentation checks comprise identifier/RTM/command matching, phase ordering and `git diff HEAD --check`.
 - Accepted CHECK-420 decisions are applied consistently to requirements, phase actions, test assertions and data contracts. History-count acceptance is conditional on healthy enabled recording; failure coverage requires preserved inference and truthful diagnostics. Existing Phoenix drafts/history are removed only after their Go replacements and REST routes are green (P03.S13).
 - P00 contract/fixture tests and the static gate pass; its actual evidence is linked in section 11. Application runtime implementation, broader phase gates, browsers, provider calls and production deployment are not certified by P00. v5.1 removed the Laminar owner gate; CHECK-422 shared-service provisioning checks (PostgreSQL database/role, Garage prefix permissions) and the remaining phase gates are now satisfied in P06. Settled product choices, including DEC-HLLM-V51-01 to 07, DEC-HLLM-V52-01 to 07 and DEC-HLLM-V53-01 to 02 in section 7.4, do not need to be asked again. v5.2 moved two steps from P05 to P02 and reordered P03; v5.3 adds TEST-450/451 within existing RED/GREEN pairs, so the step count remains 72. Unknown commits cannot become not_saved from an empty readback; production schema execution is explicit before application startup.
+
+## 14. Post-plan preset workflow correction (#115)
+
+The Sol selection failure exposed an untested boundary after #109: a blank
+`apiKey` entered the draft editor projection, while the UI fixture accepted
+every save. TEST-453 adds the cheap failing invariant before one shared snapshot
+fix. TEST-454 / WEB-TEST-126 now exercises all 40 templates through real LiveView
+events, the UI HTTP client, Go gateway, isolated PostgreSQL and native provider
+parsers in both modes. It configures/persists/reloads all five recovery targets
+and asserts their exact six-call routing. The release selector includes this
+T3 boundary; the credential-free fast loop remains offline.
+
+The user additionally authorized bounded live-provider qualification and a CPA
+catalog refresh. Actual discovery returned 33 entries: five image models lie
+outside this text/structured contract. Of 28 CPA text candidates, 19 passed both
+modes and nine failed upstream. One existing Novita template also failed and
+was removed. Thirty configured presets passed both modes; ten remaining
+OpenAI/Anthropic templates need keys and disable Run until configured. All 80
+dispatched calls and failures are retained; no failing provider call was retried
+or relabeled as passing. The first text-canary input error was rejected before
+dispatch and corrected without replaying structured calls.
+
+This extends the original coverage and active catalog, not the 72-step phase
+ledger or accepted core/wrapper/UI ownership. No data reset, credential change,
+new service, legacy path or browser authorization is introduced. The
+[RCA](../docs/rca/preset-draft-persistence-and-live-qualification.md) records exact
+source/release/deployment acceptance and the unresolved upstream causes owned
+by [CPA issue #5](https://github.com/prls-co/CLIProxyAPI-setup/issues/5).

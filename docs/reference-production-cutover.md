@@ -153,3 +153,19 @@ corrected with other fields preserved, and no faulty-default rows remain. The
 records release/images, scoped application, full equivalence and limitations.
 Do not repeat initial provisioning, retired-resource cleanup or the completed
 one-time draft correction as a routine deployment step.
+
+## 7. Current preset workflow release (#115)
+
+Application source is `ff5c968bc3c2263956fb1f946935395506347bfc`, certified by
+release 38455292756 attempt 1 (29 tasks). The
+[RCA](rca/preset-draft-persistence-and-live-qualification.md#5-acceptance-and-rollout)
+records exact image identities, scoped application, full equivalence and public
+HTTP acceptance. The live catalog contains 40 templates; 30 are configured and
+qualified in both text/structured modes, including 19 CPA models. The remaining
+ten need OpenAI/Anthropic credentials and disable Run until configured.
+
+This rollout changes only the two application image/release identities. Shared
+owners, credentials, upstream metadata and routing are verified unchanged. No
+draft correction or provisioning is required; rejected credential fields were
+never stored. Retain schema-compatible previous images and the protected
+checkpoint. Subsequent docs-only commits do not relabel the application source.
