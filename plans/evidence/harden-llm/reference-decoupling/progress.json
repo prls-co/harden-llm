@@ -231,7 +231,7 @@
     }
   },
   "releaseAuthorization": "User explicitly requested push to main and deploy to production; required gates remain in force.",
-  "releaseStatus": "P00-P04 pushed; P05 complete locally and ready for checkpoint; P06 certification/deployment pending; production unchanged",
+  "releaseStatus": "P00-P05 pushed through b4d270d11b64056074788b92eb8ec68807578164; P06.S01 certification in progress; production unchanged",
   "ownerGates": {
     "CHECK-420": "accepted and encoded",
     "CHECK-421": "ADR-HLLM-034 recorded",
