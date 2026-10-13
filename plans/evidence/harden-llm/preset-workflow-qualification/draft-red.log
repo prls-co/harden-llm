@@ -2,7 +2,7 @@ Running ExUnit with seed: 104729, max_cases: 24
 Excluding tags: [:asset, :browser, :compose, :database]
 
 11:44:16.840 [error] Task #PID<0.942.0> started from #PID<0.939.0> terminating
-** (ExUnit.AssertionError) 
+** (ExUnit.AssertionError)
 
 Expected false or nil, got true
 code: refute Map.has_key?(body["payload"]["profileEditor"] || %{}, "apiKey")
@@ -28,7 +28,7 @@ arguments:
 Function: #Function<7.77716172/0 in Phoenix.LiveView.Async.run_async_task/5>
     Args: []
 11:44:16.859 [error] Task #PID<0.944.0> started from #PID<0.939.0> terminating
-** (ExUnit.AssertionError) 
+** (ExUnit.AssertionError)
 
 Expected false or nil, got true
 code: refute Map.has_key?(body["payload"]["profileEditor"] || %{}, "apiKey")
