@@ -2885,3 +2885,12 @@ ingress are unchanged. See the
 Browser layout, interactive Portal and real provider inference were not checked;
 configured credentials and mocked submissions are not proof of paid inference.
 Subsequent docs-only revisions do not rebuild or relabel these application images.
+
+The merged documentation closeout `b3a4f52` encountered a separate unstarted
+JavaScript CodeQL job, despite the identical PR tree passing all three analyses.
+GitHub marked its run failed and rejected restart requests. The result remains
+failed, with no source root cause claimed; [RCA section 8](rca/reference-preset-schema-and-recovery-ui.md#8-documentation-closeout-unstarted-github-scan)
+and [issue #113](https://github.com/prls-co/harden-llm/issues/113) record the
+pre-execution state and unchanged scan settings. This does not replace or undo
+the certified application release; current merged-documentation checks are
+reported separately in the issue closeout.

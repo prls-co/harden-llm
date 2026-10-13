@@ -1,0 +1,34 @@
+{
+  "docsSHA": "b3a4f52a913c531cc20c19615a5b0eee97cbb7cc",
+  "runID": 38442596076,
+  "attempt": 1,
+  "runURL": "https://github.com/prls-co/harden-llm/actions/runs/38442596076",
+  "runStatus": "completed",
+  "runConclusion": "failure",
+  "javascriptJob": {
+    "id": 115452708168,
+    "status": "queued",
+    "conclusion": null,
+    "runnerAssigned": false,
+    "stepCount": 0,
+    "annotationCount": 0,
+    "completionTime": null
+  },
+  "otherAnalyses": {
+    "go": "success",
+    "actions": "success"
+  },
+  "checkSuiteID": 104164745691,
+  "rerequestable": false,
+  "runsRerequestable": false,
+  "identicalPRAndMergeTree": "3f8f4da1b7e97d7a35f2dfec72852e519e6b2cdf",
+  "passedPRRun": 38442267223,
+  "jobRestart": "rejected",
+  "runRestart": "rejected",
+  "idempotentConfigureReturnedExistingSetupRun": 32709552672,
+  "settingsChanged": false,
+  "cause": "GitHub pre-run scheduling or orchestration; deeper cause unverified",
+  "followupIssue": 113,
+  "applicationReleaseInvalidated": false,
+  "unstartedScanRecordedAsPass": false
+}

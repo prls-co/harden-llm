@@ -209,3 +209,25 @@ browser-free corrective scope. Browser layout, interactive Portal and real
 provider inference were not tested. Optional next work is supplying the missing
 provider credentials and explicitly commissioning those acceptance checks;
 none requires another architecture or API change.
+
+## 8. Documentation closeout: unstarted GitHub scan
+
+PR #112 merged the release record at `b3a4f52a913c531cc20c19615a5b0eee97cbb7cc`.
+Its tree equals the PR tree that passed all three CodeQL analyses. The subsequent
+[merged-main CodeQL run 38442596076](https://github.com/prls-co/harden-llm/actions/runs/38442596076)
+reported completed/failure while its JavaScript job remained queued with no
+runner, steps, annotations, completion or conclusion. Go and Actions passed;
+there is no failed JavaScript execution log. This is an unstarted scan, not an
+observed application test/security finding. Its deeper GitHub cause is unknown.
+
+GitHub rejected job/run restarts and reports the suite/runs as non-rerequestable.
+Reapplying `state=configured` returned the old August setup run, with the full
+configuration unchanged. No successful scan is inferred from those rejected/
+idempotent requests, and the old setup result is not current-source evidence.
+The [redacted incident record](../../plans/evidence/harden-llm/reference-ui-regression/codeql-prestart-incident.json)
+and [issue #113](https://github.com/prls-co/harden-llm/issues/113) preserve this
+independent CI incident. This documentation update records it without changing
+the application, scan settings or test oracle. A later successful scan on a new
+documentation revision does not prove the failed run was repaired. The exact
+28-task application release and production checks above remain valid within
+their recorded scope; an unstarted scan is never recorded as green.
