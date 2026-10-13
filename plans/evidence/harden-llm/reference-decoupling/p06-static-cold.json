@@ -1,0 +1,8 @@
+{
+  "command": "make test-static",
+  "cpuAffinityCount": 2,
+  "goCache": "empty dedicated directory",
+  "exitCode": 0,
+  "wallSeconds": 91.28891621297225,
+  "cacheDirectory": "/var/tmp/hllm-static-cold-dxik13jo"
+}
