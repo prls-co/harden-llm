@@ -1,0 +1,598 @@
+{
+  "checkedAt": "2026-10-13T13:52:30.019739+00:00",
+  "removed": [
+    {
+      "path": "/tmp/hllm-audit-http-result.json",
+      "bytes": 682,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-baseline-p03",
+      "bytes": 497847,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-caddy-deployed-comment.md",
+      "bytes": 1090,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-caddy-routing-pr.md",
+      "bytes": 1005,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-core-boundary-cleanup.py",
+      "bytes": 4758,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-core-injection.py",
+      "bytes": 9919,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-credential-values.py",
+      "bytes": 3302,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-final-docs-pr.md",
+      "bytes": 1122,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-final-issue-comment.md",
+      "bytes": 3341,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-final-issue-comment.template.md",
+      "bytes": 3263,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-focused-integration.mjs",
+      "bytes": 1197,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-go-image-manifest.json",
+      "bytes": 12578,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-history-schemas.py",
+      "bytes": 5923,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-history-store.py",
+      "bytes": 12107,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-history-validation.cpu",
+      "bytes": 6983,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-issue-100-p03-checkpoint.md",
+      "bytes": 3753,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-issue-100-p04-local-handoff.md",
+      "bytes": 2701,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-issue-100-plan-update.md",
+      "bytes": 2551,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-issue100-p04-complete.md",
+      "bytes": 3145,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-issue100-p04-s08.md",
+      "bytes": 2662,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-issue100-p05-progress.md",
+      "bytes": 3662,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-issue100-plan-progress.md",
+      "bytes": 2819,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-measure-integration.mjs",
+      "bytes": 1169,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-network-pr.md",
+      "bytes": 827,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p00-issue-comment.md",
+      "bytes": 1485,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p01-issue-comment.md",
+      "bytes": 1475,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p02-issue-comment.md",
+      "bytes": 1929,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p03-final-measure.mjs",
+      "bytes": 1334,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p03-focused-race.mjs",
+      "bytes": 1177,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p03-json-race.mjs",
+      "bytes": 1141,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p03-measure.mjs",
+      "bytes": 1243,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p04-evidence.py",
+      "bytes": 6364,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p05-complete-comment.md",
+      "bytes": 1987,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p05-resume-comment.md",
+      "bytes": 2254,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p06-build-summary.txt",
+      "bytes": 777,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p06-certified-comment.md",
+      "bytes": 1249,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p06-check-apply.mjs",
+      "bytes": 1854,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p06-ci-pr.md",
+      "bytes": 889,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p06-fast-ci",
+      "bytes": 50605,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p06-history-race.mjs",
+      "bytes": 1011,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p06-history.cpu",
+      "bytes": 7592,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p06-http.mjs",
+      "bytes": 1632,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p06-ingress.mjs",
+      "bytes": 1790,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p06-owner-provision.mjs",
+      "bytes": 5868,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p06-progress-comment.md",
+      "bytes": 717,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p06-race-pr.md",
+      "bytes": 833,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p06-release-build.sh",
+      "bytes": 3559,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p06-release-watch.log",
+      "bytes": 50055,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p06-remove-retired-postgres.mjs",
+      "bytes": 2692,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p06-retire-dns.mjs",
+      "bytes": 1471,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p06-security-comment.md",
+      "bytes": 1268,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p06-security-pr.md",
+      "bytes": 683,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-p06-stage.mjs",
+      "bytes": 2920,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-plan-v53-handoff.md",
+      "bytes": 4497,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-plan-v53-issue-body.md",
+      "bytes": 1331,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-pr102-checks.log",
+      "bytes": 14563,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-pr103-checks.log",
+      "bytes": 23736,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-pr104-checks.log",
+      "bytes": 5377,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-profile-values.py",
+      "bytes": 12122,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-recovery-binding.py",
+      "bytes": 7129,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-reference-openapi.py",
+      "bytes": 12290,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-reference-owner-probe",
+      "bytes": 17556543,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-reference-owner-probe.go",
+      "bytes": 3989,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-reference-pr.md",
+      "bytes": 1258,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/hllm-stateful-effects.py",
+      "bytes": 4838,
+      "reason": "task scratch"
+    },
+    {
+      "path": "/tmp/harden-llm-resource-test-EzvUlv",
+      "bytes": 11455,
+      "reason": "synthetic test fixture"
+    },
+    {
+      "path": "/tmp/harden-llm-resource-test-QCZdEy",
+      "bytes": 10182,
+      "reason": "synthetic test fixture"
+    },
+    {
+      "path": "/tmp/harden-llm-resource-test-QLoWdf",
+      "bytes": 9718,
+      "reason": "synthetic test fixture"
+    },
+    {
+      "path": "/tmp/harden-llm-resource-test-dGVKqI",
+      "bytes": 10022,
+      "reason": "synthetic test fixture"
+    },
+    {
+      "path": "/tmp/harden-llm-resource-test-l7JYuY",
+      "bytes": 12177,
+      "reason": "synthetic test fixture"
+    },
+    {
+      "path": "/tmp/harden-llm-resource-test-xqYKd7",
+      "bytes": 10123,
+      "reason": "synthetic test fixture"
+    },
+    {
+      "path": "/tmp/harden-llm-tier-test-CPoIl8",
+      "bytes": 2293,
+      "reason": "synthetic test fixture"
+    },
+    {
+      "path": "/tmp/harden-llm-tier-test-DGPxXL",
+      "bytes": 2529,
+      "reason": "synthetic test fixture"
+    },
+    {
+      "path": "/tmp/harden-llm-tier-test-TWzrtD",
+      "bytes": 2409,
+      "reason": "synthetic test fixture"
+    },
+    {
+      "path": "/tmp/harden-llm-tier-test-gyld8Y",
+      "bytes": 2530,
+      "reason": "synthetic test fixture"
+    },
+    {
+      "path": "/tmp/harden-llm-tier-test-sNPze2",
+      "bytes": 1733,
+      "reason": "synthetic test fixture"
+    },
+    {
+      "path": "/tmp/harden-llm-tier-test-wH6sKg",
+      "bytes": 4189,
+      "reason": "synthetic test fixture"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/plans/evidence/harden-llm/reference-decoupling/p06-allocation-fast.log",
+      "bytes": 255,
+      "reason": "redundant raw log"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/plans/evidence/harden-llm/reference-decoupling/p06-build-source.txt",
+      "bytes": 40,
+      "reason": "redundant raw log"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/plans/evidence/harden-llm/reference-decoupling/p06-gateway-build.log",
+      "bytes": 5075,
+      "reason": "redundant raw log"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/plans/evidence/harden-llm/reference-decoupling/p06-history-race-exclusive.log",
+      "bytes": 3074,
+      "reason": "redundant raw log"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/plans/evidence/harden-llm/reference-decoupling/p06-http-compile.log",
+      "bytes": 75,
+      "reason": "redundant raw log"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/plans/evidence/harden-llm/reference-decoupling/p06-release-attempt1-full.log",
+      "bytes": 309669,
+      "reason": "redundant raw log"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/plans/evidence/harden-llm/reference-decoupling/p06-release-dispatch.json",
+      "bytes": 201,
+      "reason": "redundant raw log"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/plans/evidence/harden-llm/reference-decoupling/p06-release-run-api.json",
+      "bytes": 12020,
+      "reason": "redundant raw log"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/plans/evidence/harden-llm/reference-decoupling/p06-security-fast.log",
+      "bytes": 253,
+      "reason": "redundant raw log"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/plans/evidence/harden-llm/reference-decoupling/p06-static-cold.log",
+      "bytes": 11433,
+      "reason": "redundant raw log"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/plans/evidence/harden-llm/reference-decoupling/p06-web-build.log",
+      "bytes": 5290,
+      "reason": "redundant raw log"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/api.test",
+      "bytes": 15848320,
+      "reason": "compiled test binary"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp",
+      "bytes": 589635,
+      "reason": "task runner scratch"
+    },
+    {
+      "path": "/var/tmp/hllm-static-cold-dxik13jo",
+      "bytes": 237148527,
+      "reason": "disposable cold Go cache"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/assets/css/app-191784356767b47edc1ed2ae06a83ae3.css",
+      "bytes": 46919,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/assets/css/app-191784356767b47edc1ed2ae06a83ae3.css.gz",
+      "bytes": 9929,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/assets/css/app.css",
+      "bytes": 46919,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/assets/css/app.css.gz",
+      "bytes": 9929,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/assets/js/app-9714f0d7f0688afaa4d1239d4e6b23d3.js",
+      "bytes": 156468,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/assets/js/app-9714f0d7f0688afaa4d1239d4e6b23d3.js.gz",
+      "bytes": 47949,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/assets/js/app.js",
+      "bytes": 156468,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/assets/js/app.js.gz",
+      "bytes": 47949,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/assets/prls-dc114ae4fc599fd1c057216a307d91b0.css",
+      "bytes": 11304,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/assets/prls-dc114ae4fc599fd1c057216a307d91b0.css.gz",
+      "bytes": 2869,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/assets/prls.css",
+      "bytes": 11304,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/assets/prls.css.gz",
+      "bytes": 2869,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/cache_manifest.json",
+      "bytes": 2154,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/favicon-91f37b602a111216f1eef3aa337ad763.ico",
+      "bytes": 152,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/images/logo-06a11be1f2cdde2c851763d00bdd2e80.svg",
+      "bytes": 3072,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/images/logo-06a11be1f2cdde2c851763d00bdd2e80.svg.gz",
+      "bytes": 1613,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/images/logo.svg.gz",
+      "bytes": 1613,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/robots-9e2c81b0855bbff2baa8371bc4a78186.txt",
+      "bytes": 203,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/robots-9e2c81b0855bbff2baa8371bc4a78186.txt.gz",
+      "bytes": 164,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/frontend/priv/static/robots.txt.gz",
+      "bytes": 164,
+      "reason": "generated frontend asset"
+    },
+    {
+      "path": "/tmp/check-hllm-plan.py",
+      "bytes": 4498,
+      "reason": "completed audit helper"
+    },
+    {
+      "path": "/tmp/hllm-audit-runner-issue.md",
+      "bytes": 1767,
+      "reason": "completed audit helper"
+    }
+  ],
+  "removedPathCount": 113,
+  "removedLogicalBytes": 272973436,
+  "removedMergedWorktree": "/home/kirill/.cache/harden-llm-tmp/caddy-reference-routing",
+  "syntheticWorkers": {
+    "fixture": "/tmp/harden-llm-tier-test-wH6sKg",
+    "workers": 3,
+    "timeWrappers": 3,
+    "action": "Existing release-tasks barrier file; all six PIDs exited without signal",
+    "pids": [
+      893052,
+      893055,
+      893057,
+      893060,
+      893061,
+      893067
+    ],
+    "terminationCause": "Parent was absent; exact interruption cause unverified. Separate runner follow-up.",
+    "followupIssue": "https://github.com/prls-co/harden-llm/issues/107"
+  },
+  "retained": [
+    "Git phase/release evidence and failed attempts",
+    "protected cutover checkpoints and stable credential key",
+    "live production settings, mounts, shared data and release images",
+    "active implementation and frozen planning worktrees",
+    "reusable dependency/compiler caches",
+    "unrelated worktrees, processes and containers"
+  ],
+  "remainingKnownTaskScratch": []
+}

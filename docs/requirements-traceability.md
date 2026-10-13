@@ -43,3 +43,14 @@ links the exact images, CI attempt, owner revision, cleanup and growth baseline.
 Deployment-tool and documentation commits remain separate from application
 identity. Browser layout, interactive Portal login and live inference are
 unperformed checks, not inferred acceptance.
+
+## 5. Conformance audit and traceability correction
+
+The [conformance audit](../plans/evidence/harden-llm/reference-decoupling/plan-conformance-audit.md)
+records exact pre-plan/actual differences and their owner tests. TEST-420 now
+includes the backend stack specification's ownership declaration; the manifest
+resource guard is correctly annotated TEST-048 rather than retry TEST-008.
+TEST-234 names physical network membership explicitly. Existing test purposes,
+72 plan steps, 16 requirements and 32 reference contract tests are unchanged.
+ADR-HLLM-028 and KER-IBD-004/006 explicitly cover the approved deployment scope
+and schema-compatible recovery limit after deletion of old HLLM data.

@@ -5,6 +5,9 @@
 - Requirements: REQ-008, REQ-010, REQ-011, REQ-019, REQ-020, REQ-021, and GitHub issue #46
 - Verification: TEST-057 through TEST-061 and WEB-TEST-060 through WEB-TEST-065
 
+
+> **2026-10-13 ownership amendment:** ADR-HLLM-034 supersedes the durable artifact journal and prior storage/owner model. One canonical accounting ledger remains active; reference history is key-scoped PostgreSQL and artifacts use Garage paths with manual orphan cleanup. The original accounting assertions remain in force.
+
 ## Context
 
 The production output-details audit found seven related defects: selected model

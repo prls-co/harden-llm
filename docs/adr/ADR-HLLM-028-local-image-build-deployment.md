@@ -133,3 +133,31 @@ and test rather than copying them blindly; restore their selectors and
 traceability entries from the archive's source context, add a new ADR/amendment
 for current security and retention requirements, and run current exact-source
 release certification before granting package-write permissions.
+
+## Reference decoupling scope amendment (2026-10-13)
+
+The explicitly authorized P05/P06 release expands KER-IBD-004's default gateway
+scope to both application images, one isolated database/role on existing shared
+PostgreSQL, one dedicated bucket/key on shared Garage, and Caddy-owned same-origin
+routing. The schema command uses the accepted gateway image before application
+startup (TEST-450); it is not a daemon. KER-IBD-001/003 still require exact run,
+attempt, source and immutable images; `gh run view --attempt` identifies the
+attempt URL, while the run API identifies its parent run URL.
+
+TEST-234 now compares resolved `model.networks[*].name` with actual Docker names,
+without hardcoded project-prefix stripping. It retains detection of wrong,
+extra and missing memberships. The first post-apply mismatch was a checker bug;
+its failure and no-op verification after correction remain in P06 evidence.
+
+The authorized deletion of incompatible HLLM data means KER-IBD-006 supports
+image-only rollback only between schema-compatible releases. The old PR #97
+application cannot regain its discarded database by restoring an image or a
+whole descriptor. Keep protected checkpoints and previous images as operational
+evidence; recover a compatible application with the existing scoped path, or
+qualify a forward fix. Never replace later shared-owner settings with an old
+whole descriptor. Data migration or restoration of the rejected architecture
+would require a separately approved plan. This is an explicit consequence of
+the accepted clean cut, not a hidden fallback or an untested rollback claim.
+
+See the [P06 checkpoint](../../plans/evidence/harden-llm/reference-decoupling/phase-p06.md)
+and [conformance audit](../../plans/evidence/harden-llm/reference-decoupling/plan-conformance-audit.md).

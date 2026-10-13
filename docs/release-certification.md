@@ -2850,3 +2850,14 @@ Portal login and paid inference were not checked. The preview runner and dev
 applications remain intentionally stopped. Earlier failed release/check attempts
 are retained in the [complete P06 evidence](../plans/evidence/harden-llm/reference-decoupling/phase-p06.md);
 later docs/deployment-tool revisions are separate from the deployed application SHA.
+
+### Reference release conformance audit (2026-10-13)
+
+The [conformance audit](../plans/evidence/harden-llm/reference-decoupling/plan-conformance-audit.md)
+compares the pre-implementation v5.3 plan with the delivered source. It records
+storage representation, lazy detail loading, actual shared-owner selection,
+package sequencing, release security/resource fixes and deployment-checker
+corrections. The audit updates stale specifications/ADR status, test traceability,
+image KERs and clean-cut recovery limits, and removes disposable task artifacts.
+It changes no application code or image identity. Browser/live-provider/restore/
+consumer-pilot recommendations remain outside the completed 72-step plan.

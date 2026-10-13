@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-008
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-048
 // Race-instrumented SQL deadline measurements own host CPU while running; other
 // compiler/test processes are not part of the workload being measured.
 func TestIntegrationRaceOwnsTimingResources(t *testing.T) {

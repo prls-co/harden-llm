@@ -97,3 +97,20 @@ After successful application/ingress checks, stop/remove only
 against `deploy/reference-reset.json` immediately before removal. Never use
 `down -v` on any shared-owner project. Record source SHA, images, schema exit,
 public HTTP/auth checks and independent feature status before declaring release.
+
+## 5. Post-cutover recovery and retained checkpoints
+
+The 2026-10-13 release is complete; [P06](../plans/evidence/harden-llm/reference-decoupling/phase-p06.md)
+records its exact identities and verification. The old HLLM-only database was
+intentionally deleted. A prior application image alone cannot restore that data
+or its architecture. Use only a schema-compatible retained image with the current
+shared-service settings, or certify a forward fix. Do not restore an old whole
+descriptor over current shared-owner configuration.
+
+Keep the stable credential-encryption key, database/artifact secrets, production
+descriptor and protected cutover checkpoints outside Git. They are operational
+recovery material, not disposable temporary artifacts. Task cleanup may remove
+operator scratch scripts, synthetic test files, compiled test binaries and
+redundant logs once durable redacted evidence is committed. It must preserve
+live mounts, current/previous release images, shared volumes and the publisher
+source archive. An off-host restore drill remains separate follow-up work.

@@ -81,6 +81,7 @@ func TestReferenceDecouplingContract(t *testing.T) {
 	policies := map[string][]string{
 		"AGENTS.md":            {"api_key_hash", "stateful/", "HardenLlmUI", "Agent Platform", "create-on-save"},
 		"docs/architecture.md": {"api_key_hash", "stateful/", "HardenLlmUI", "create-on-save", "Model Recall"},
+		"plans/from_utility-llm/self-hosted-go-stack-spec.md":        {"ADR-HLLM-033/034", "api_key_hash", "stateful/", "HardenLlmUI"},
 		"plans/from_utility-llm/harden-llm-self-hosted-test-spec.md": {"ADR-HLLM-033", "api_key_hash", "create-on-save", "TEST-420", "TEST-436"},
 		"plans/from_utility-llm/phoenix-liveview-frontend-spec.md":   {"HardenLlmUI", "api_key_hash", "draftKey", "create-on-save", "Model Recall"},
 	}

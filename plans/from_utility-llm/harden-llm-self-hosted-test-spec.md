@@ -1239,7 +1239,7 @@ or contact a provider.
 - Location: `scripts/production-config.mjs` and `scripts/test/production_config_test.mjs`.
 - Command: `make test-static` through the canonical `go-static` task.
 - Fixtures/data: synthetic Compose models and runtime inspection objects with image IDs, release identity, command, health, network, mount path/content and environment fields.
-- Assertions: Compose serialization normalization does not hide real drift; release identity may be explicit and service-specific; equivalent configuration never invokes `up`; unapproved differences block selected application; command arguments and diagnostics contain no resolved values.
+- Assertions: Compose serialization normalization does not hide real drift; logical network keys resolve through `model.networks[*].name` and wrong/extra/missing physical memberships remain drift; release identity may be explicit and service-specific; equivalent configuration never invokes `up`; unapproved differences block selected application; command arguments and diagnostics contain no resolved values.
 - Pass criteria: runtime comparison is scoped to selected descriptor services, affected fields are named without values, and the same source snapshot is required immediately before application.
 
 ### TEST-235: Native Compose interpolation and serialization boundary
@@ -1809,3 +1809,18 @@ old assertions move to their new owner without weakening their purpose.
   - Deterministic controls: Default-tag Go, no storage/provider or fake store; synthetic outcomes and fixed expected status strings.
   - Pass criteria: Confirmed commit or positive readback after unknown commit returns saved; definite pre-COMMIT rejection returns not_saved; unknown commit with absent or failed readback returns unconfirmed. Empty readback never proves rejection. TEST-442 separately proves the real delayed-commit boundary.
   - Expected runtime: 1–10s.
+
+## 27. Reference closeout traceability corrections (2026-10-13)
+
+TEST-420 additionally checks the current ownership header in
+`self-hosted-go-stack-spec.md`; the audit retained its RED result before replacing
+stale Phoenix-history guidance with ADR-HLLM-033/034. This adds the omitted
+canonical document to the existing contract test, without changing its purpose.
+
+TEST-048 includes `internal/testkit/integration_race_resources_test.go`,
+`TestIntegrationRaceOwnsTimingResources`, a default-tag manifest assertion for
+exclusive race-timing resources under ADR-HLLM-015. Its original TEST-008 comment
+was a traceability error; TEST-008 remains retry classification/budget/backoff/
+cancellation. No assertion, runtime task or deadline changes in this correction.
+TEST-234's physical-network cases and TEST-450 schema ordering already pass;
+TEST-434/435 remain explicit deployed identity/HTTP checks.

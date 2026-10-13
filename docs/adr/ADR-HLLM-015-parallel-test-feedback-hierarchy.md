@@ -82,7 +82,7 @@ payload comparisons remain unchanged; package concurrency stays at two and
 process-owned test parallelism remains enabled. This isolates the measurement
 from compiler contention without changing application code or adding a scheduler.
 
-TEST-008 `TestIntegrationRaceOwnsTimingResources` requires that task's resource
+TEST-048 `TestIntegrationRaceOwnsTimingResources` requires that task's resource
 to be exclusive with one slot. TEST-049 retains execution-level exclusive-resource
 assertions. Reports, including the failed hosted attempt, are under
 `plans/evidence/harden-llm/reference-decoupling/`. An isolated local sample does
@@ -246,3 +246,14 @@ Remove or disable only the additive hierarchy targets and runner selection;
 the existing Make targets, test files, service fixtures, and release gates
 remain the rollback path. A future incompatible manifest/KER schema requires
 an explicit ADR and schema version change.
+
+## Traceability correction (2026-10-13 closeout audit)
+
+The timing-resource guard was initially annotated TEST-008, which belongs to
+retry semantics. Its comment and this ADR now assign it to TEST-048, the existing
+manifest contract. The function, assertions and task selection are unchanged;
+the full integration-race task still includes the original retry tests. Historical
+RED/GREEN logs retain their original labels. TEST-420 now also checks the backend
+stack specification's current ownership declaration, after the audit reproduced
+its stale Phoenix-history guidance. No new execution lane or test oracle replaces
+either existing purpose.
